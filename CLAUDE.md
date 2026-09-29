@@ -1214,6 +1214,46 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
 
+## Stripe Connect — comptes connectés en Accounts v2 (2026-09-29)
+
+Le premier organisateur réel (Amoris) n'a pas pu relier Stripe : la plateforme
+refuse désormais tout compte créé avec le champ hérité `type: "express"`
+(« Use Accounts v2, remove `type`, and set `losses_collector` to `stripe` »).
+Porte unique : `supabase/functions/_shared/stripe-connect-accounts.ts` (sans SDK,
+testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
+
+- **Création = `POST /v2/core/accounts`** avec `losses_collector: stripe`,
+  `fees_collector: stripe` (le VENDEUR paie ses frais Stripe : c'est le modèle
+  de `payment-split.ts` et de `fees.ts` en vente directe — avec `application`,
+  Yuno les paierait sur sa commission) et `dashboard: full`. Club et organisateur
+  = `merchant` + `recipient` (vente directe + jambes de co-soirée), DJ =
+  `recipient`. Ne JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Filets** : une forme REFUSÉE (400/403/404, rien créé) passe à la suivante —
+  v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller` (mêmes
+  responsabilités). Réseau, 429 ou 5xx n'enchaînent jamais (doublon possible).
+  Tout échec final = code `stripe_account_create_failed` (traduit côté front par
+  `stripeConnectErrorMessage`) + alerte super admin `admin_stripe_connect_failed`.
+- **Onboarding** = lien v2 (`/v2/core/account_links`, configurations lues sur le
+  compte), repli v1. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
+  `account.updated`), repli v2. Colonnes écrites par `venueConnectColumns` /
+  `organizerConnectColumns` — webhook, Console et checkouts écrivent pareil.
+- **Tableau de bord** : un compte `full` n'a pas de lien de connexion Express :
+  le bouton ouvre dashboard.stripe.com, le pro s'y connecte avec SES identifiants.
+- **Le drapeau `charges_enabled` en base n'est qu'un miroir.** Les checkouts
+  (billets, tables, boissons) revérifient chez Stripe un compte « inactif »
+  (`checkPayoutReadinessHealing`, `healChargesEnabled`) avant de refuser un
+  acheteur : Stripe active souvent l'encaissement quelques minutes après le
+  formulaire, pendant que personne n'a la Console ouverte.
+- **Link refusé sur un compte neuf = session recréée carte seule**
+  (`createSessionWithPaymentMethodFallback`, Apple Pay / Google Pay compris) :
+  en vente directe la session naît sur le compte du pro.
+- **Front** : tout appel à `stripe-connect` passe par `invokeEdgeFunction` (vrai
+  message serveur), le formulaire s'ouvre dans la page (un `window.open` après
+  un `await` est bloqué par Safari), le tableau de bord par `openPendingTab`.
+- **À faire côté Stripe (hors code)** : endpoint webhook « Connected accounts »
+  (`account.updated`, `checkout.session.completed`…) dont le secret va dans
+  `STRIPE_WEBHOOK_SECRET_CONNECT` — absent au 29/09, d'où l'auto-réparation.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous

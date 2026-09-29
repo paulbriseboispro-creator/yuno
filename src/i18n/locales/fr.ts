@@ -1183,6 +1183,7 @@ const fr: Record<string, string> = {
   'notif.type.admin_coorg_transfer_overdue': "Virement de co-organisation impayé",
   'notif.type.admin_coorg_transfer_disputed': "Virement de co-organisation en litige",
   'notif.type.admin_transfer_release_failed': 'Versement de co-soirée bloqué',
+  'notif.type.admin_stripe_connect_failed': "Stripe refuse l'ouverture d'un compte",
   'notif.type.admin_collab_late_sale': "Vente payée après le décompte d'une co-soirée",
   'notif.type.collab_request': "Proposition de co-soirée",
   'notif.type.collab_accepted': "Collaboration confirmée",

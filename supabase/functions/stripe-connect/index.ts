@@ -5,6 +5,21 @@ import { releaseDjBookingBalance, refundDjBookingContract, computeDjEscrowFeeCen
 import { resolveReturnOrigin, safeReturnUrl } from "../_shared/cors.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
+import {
+  ConnectAccountCreateError,
+  STRIPE_FULL_DASHBOARD_URL,
+  StripeHttpError,
+  connectStatusOf,
+  createConnectedAccount,
+  createOnboardingLink,
+  dashboardUrlFor,
+  organizerConnectColumns,
+  readConnectAccountState,
+  venueConnectColumns,
+  type ConnectAccountState,
+  type ConnectContext,
+  type NewConnectedAccount,
+} from "../_shared/stripe-connect-accounts.ts";
 
 // Unified Stripe Connect dispatcher.
 // Replaces: organizer-stripe-connect-onboard, organizer-stripe-connect-status,
@@ -13,6 +28,11 @@ import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
 // Also hosts DJ secured-booking escrow actions (actor_type "dj" onboarding +
 // "dj_booking_checkout" | "dj_booking_release" | "dj_booking_cancel") so no new
 // edge function is needed — the 402 deploy cap blocks new functions.
+//
+// Comptes connectés = Accounts v2 depuis le 2026-09-29 (Stripe refuse le
+// `type: "express"` hérité sur la plateforme Yuno). Création, lien
+// d'onboarding, lecture d'état et lien de tableau de bord passent TOUS par
+// _shared/stripe-connect-accounts.ts — lire son en-tête avant d'y toucher.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +47,18 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status,
   });
+
+/** Erreur métier avec un code que le front sait traduire (useStripeConnectError). */
+class ConnectError extends Error {
+  constructor(message: string, readonly code: string, readonly status = 400) {
+    super(message);
+  }
+}
+
+// Actions de LECTURE : elles ne créent rien chez Stripe et ne font que recopier
+// l'état du compte en base. Ouvertes à l'accès assisté (le support doit pouvoir
+// voir où en est le pro) et à l'aperçu démo, comme `status` l'a toujours été.
+const READ_ACTIONS = new Set(["status", "refresh"]);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,21 +90,23 @@ serve(async (req) => {
 
     // Compte démo partagé (@womber.fr) : jamais de compte Stripe réel relié,
     // jamais de lien Express ni d'argent déplacé — Paul et l'agent compris.
-    // Seul le statut (lecture) reste ouvert ; en aperçu, rien du tout.
+    // Seules les lectures restent ouvertes ; en aperçu, rien du tout.
     {
-      const demoRefusal = action === "status"
+      const demoRefusal = READ_ACTIONS.has(action)
         ? await demoPreviewGuard(req, corsHeaders)
         : await demoAccountGuard(req, corsHeaders);
       if (demoRefusal) return demoRefusal;
     }
 
     // Mode support (accès admin assisté) : lecture seule sur Stripe. Toute
-    // action qui crée/modifie un compte connecté, mint un lien Express (accès
-    // solde + compte bancaire) ou déplace de l'argent est refusée — seul
-    // "status" passe.
-    if (action !== "status" && (await isSupportSessionToken(supabaseAdmin, token))) {
-      return json({ error: "support_session_forbidden" }, 403);
+    // action qui crée/modifie un compte connecté, mint un lien (onboarding,
+    // tableau de bord : accès solde + compte bancaire) ou déplace de l'argent
+    // est refusée — seules les lectures passent.
+    if (!READ_ACTIONS.has(action) && (await isSupportSessionToken(supabaseAdmin, token))) {
+      return json({ error: "support_session_forbidden", code: "support_session_forbidden" }, 403);
     }
+
+    const connect: ConnectContext = { secretKey: stripeKey, log };
 
     // Any venueId coming from the request body MUST belong to the caller. Every
     // owner branch below runs via service_role (RLS bypassed), so without this an
@@ -92,12 +126,120 @@ serve(async (req) => {
       if (!owned) throw new Error("Unauthorized: you do not own this venue");
     };
 
+    // Club du propriétaire : celui du body (vérifié), sinon le sien, sinon celui
+    // de son profil. Jamais `.single()` : un owner de deux clubs le faisait lever.
+    const resolveOwnerVenueId = async (bodyVenueId: unknown): Promise<string | null> => {
+      await assertOwnsBodyVenue(bodyVenueId);
+      if (bodyVenueId) return bodyVenueId as string;
+      const { data: owned } = await supabaseAdmin
+        .from("venues")
+        .select("id")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (owned?.id) return owned.id;
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("venue_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      return profile?.venue_id ?? null;
+    };
+
+    // Création d'un compte : un refus Stripe devient une erreur codée pour le
+    // front ET une alerte super admin — c'est ce qui a manqué le 29/09, quand le
+    // premier organisateur réel n'a vu que « Edge Function returned a non-2xx ».
+    const createAccountOrExplain = async (
+      spec: NewConnectedAccount,
+      who: { kind: "organizer" | "venue" | "dj"; id: string; name?: string | null },
+    ): Promise<string> => {
+      try {
+        const created = await createConnectedAccount(connect, spec);
+        return created.id;
+      } catch (err) {
+        const attempts = err instanceof ConnectAccountCreateError ? err.attempts : [];
+        const message = err instanceof Error ? err.message : String(err);
+        log("Connected account creation failed", { who, message, attempts });
+        try {
+          await supabaseAdmin.rpc("emit_admin_notification", {
+            p_type: "admin_stripe_connect_failed",
+            p_title: "Stripe refuse l'ouverture d'un compte",
+            p_message: `${who.name || who.kind} (${who.kind}) n'a pas pu relier Stripe : ${message}`.slice(0, 480),
+            p_priority: "high",
+            p_reference_type: who.kind,
+            p_reference_id: who.id,
+            p_metadata: { kind: who.kind, id: who.id, attempts },
+            p_dedup_key: `stripe_connect_failed:${who.kind}:${who.id}:${new Date().toISOString().slice(0, 10)}`,
+            p_event_id: null,
+          });
+        } catch (alertErr) {
+          log("Admin alert failed", { message: (alertErr as Error).message });
+        }
+        throw new ConnectError(message, "stripe_account_create_failed", 502);
+      }
+    };
+
+    const onboardingLinkOrExplain = async (accountId: string, urls: { refreshUrl: string; returnUrl: string }) => {
+      try {
+        return await createOnboardingLink(connect, accountId, urls);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        log("Onboarding link failed", { accountId, message });
+        throw new ConnectError(message, "stripe_onboarding_link_failed", 502);
+      }
+    };
+
+    const readState = async (accountId: string): Promise<ConnectAccountState> => {
+      try {
+        return await readConnectAccountState(connect, accountId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new ConnectError(message, "stripe_status_unavailable", 502);
+      }
+    };
+
+    // Miroirs en base — mêmes colonnes et même règle que le webhook account.updated.
+    const persistOrganizer = async (userId: string, state: ConnectAccountState, onboardedAt: string | null) => {
+      const columns = organizerConnectColumns(state, { onboardedAt });
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update(columns)
+        .eq("id", userId);
+      if (error) log("Organizer status write failed", { error: error.message });
+      return { status: connectStatusOf(state), onboardedAt: columns.stripe_connect_onboarded_at as string | null };
+    };
+    const persistVenue = async (venueId: string, state: ConnectAccountState) => {
+      const { error } = await supabaseAdmin
+        .from("venues")
+        .update(venueConnectColumns(state))
+        .eq("id", venueId);
+      if (error) log("Venue status write failed", { error: error.message });
+    };
+    const persistDj = async (userId: string, state: ConnectAccountState) => {
+      const status = connectStatusOf(state);
+      await supabaseAdmin
+        .from("dj_stripe_accounts")
+        .update({
+          status,
+          charges_enabled: state.chargesEnabled,
+          payouts_enabled: state.payoutsEnabled,
+          onboarding_complete: state.detailsSubmitted,
+          onboarded_at: status === "active" ? new Date().toISOString() : null,
+        })
+        .eq("user_id", userId);
+      // Onboarding done → unblock any contracts waiting on the DJ's Stripe setup.
+      if (state.payoutsEnabled) {
+        await supabaseAdmin.rpc("advance_dj_contracts_after_onboarding", { p_user_id: userId });
+      }
+      return status;
+    };
+
     // ─────────────────────────────────────────────────────────────────────────
     // action: "onboard"  (← organizer-stripe-connect-onboard)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "onboard") {
-      const actorType: "organizer" | "owner" = body.actor_type || "organizer";
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+      const actorType: "organizer" | "owner" | "dj" = body.actor_type || "organizer";
 
       // ─── Organizer path ─────────────────────────────────────────────────────
       if (actorType === "organizer") {
@@ -109,70 +251,53 @@ serve(async (req) => {
 
         if (profileErr || !profile) throw new Error("Profile not found");
         if (profile.profile_type !== "organizer") {
-          throw new Error("Stripe Connect onboarding réservé aux organisateurs.");
+          throw new ConnectError("Stripe Connect onboarding réservé aux organisateurs.", "not_organizer", 403);
         }
 
         let accountId = profile.stripe_connect_account_id;
         if (!accountId) {
-          log("Creating new organizer Express account");
           // Compte ASSOCIATION (bde_verified) : le formulaire Stripe s'ouvre sur
           // « Association / organisme à but non lucratif », au nom légal de
           // l'asso — sinon le président choisit « Particulier » par défaut et
-          // l'argent de l'association part sur son compte personnel.
+          // l'argent de l'association part sur son compte personnel. Ce
+          // pré-remplissage n'est jamais bloquant (retiré si Stripe le refuse).
           const { data: orgProfile } = await supabaseAdmin
             .from("organizer_profiles")
             .select("bde_verified, legal_name, display_name")
             .eq("user_id", user.id)
             .maybeSingle();
           const isAssociation = orgProfile?.bde_verified === true;
-          const baseParams: Stripe.AccountCreateParams = {
-            type: "express",
-            country: "FR",
-            email: profile.email ?? user.email ?? undefined,
-            capabilities: {
-              card_payments: { requested: true },
-              transfers: { requested: true },
-            },
-            business_profile: {
-              name: profile.organization_name ?? undefined,
-              product_description: "Vente de billets pour événements",
-              mcc: "7929",
-            },
+          const displayName = orgProfile?.display_name || profile.organization_name || null;
+          log("Creating new organizer connected account", { association: isAssociation });
+          accountId = await createAccountOrExplain({
+            purpose: "seller",
+            email: profile.email ?? user.email ?? null,
+            displayName,
+            entityType: isAssociation ? "non_profit" : null,
+            registeredName: isAssociation ? (orgProfile?.legal_name || displayName) : null,
+            productDescription: "Vente de billets pour événements",
             metadata: { user_id: user.id, profile_type: "organizer", platform: "yuno", association: isAssociation ? "1" : "0" },
-          };
-          let account: Stripe.Account;
-          if (isAssociation) {
-            try {
-              account = await stripe.accounts.create({
-                ...baseParams,
-                business_type: "non_profit",
-                company: { name: orgProfile?.legal_name || orgProfile?.display_name || profile.organization_name || undefined },
-              });
-            } catch (e) {
-              // Jamais bloquer l'onboarding sur le pré-remplissage : le formulaire
-              // Stripe laisse de toute façon choisir le type d'entreprise.
-              log("non_profit prefill refused, falling back", { error: (e as Error).message });
-              account = await stripe.accounts.create(baseParams);
-            }
-          } else {
-            account = await stripe.accounts.create(baseParams);
-          }
-          accountId = account.id;
-          await supabaseAdmin
+          }, { kind: "organizer", id: user.id, name: displayName });
+          const { error: saveErr } = await supabaseAdmin
             .from("profiles")
             .update({ stripe_connect_account_id: accountId, stripe_connect_status: "pending" })
             .eq("id", user.id);
+          if (saveErr) {
+            // Le compte existe chez Stripe : sans cette ligne, le prochain clic en
+            // créerait un second. On le dit fort plutôt que de continuer.
+            log("CRITICAL: organizer account created but not saved", { accountId, error: saveErr.message });
+            throw new Error("Failed to save Stripe account ID");
+          }
           log("Organizer Stripe account created", { accountId });
         }
 
-        const accountLink = await stripe.accountLinks.create({
-          account: accountId,
-          refresh_url: `${origin}/organizer-app/settings?stripe=refresh`,
-          return_url: `${origin}/organizer-app/settings?stripe=success`,
-          type: "account_onboarding",
+        // Retour paramétrable (étape Paiements de l'onboarding) : même liste
+        // blanche que le club (safeReturnUrl), sinon la page Paiements.
+        const url = await onboardingLinkOrExplain(accountId, {
+          refreshUrl: safeReturnUrl(body.refreshUrl, `${origin}/organizer-app/settings?stripe=refresh`),
+          returnUrl: safeReturnUrl(body.returnUrl, `${origin}/organizer-app/settings?stripe=success`),
         });
-
-        return json({ success: true, url: accountLink.url, accountId });
+        return json({ success: true, url, accountId });
       }
 
       // ─── DJ path (secured-booking payee) ──────────────────────────────────────
@@ -187,114 +312,79 @@ serve(async (req) => {
 
         let accountId = acct?.stripe_account_id ?? null;
         if (!accountId) {
-          log("Creating new DJ Express account");
-          const account = await stripe.accounts.create({
-            type: "express",
-            country: "FR",
-            email: user.email,
-            business_type: "individual",
-            capabilities: {
-              card_payments: { requested: true },
-              transfers: { requested: true },
-            },
-            business_profile: {
-              product_description: "Prestation de DJ (cachet)",
-              mcc: "7929",
-            },
+          log("Creating new DJ connected account");
+          accountId = await createAccountOrExplain({
+            purpose: "payee",
+            email: user.email ?? null,
+            entityType: "individual",
+            productDescription: "Prestation de DJ (cachet)",
             metadata: { user_id: user.id, profile_type: "dj", platform: "yuno" },
-          });
-          accountId = account.id;
-          await supabaseAdmin
+          }, { kind: "dj", id: user.id, name: user.email });
+          const { error: saveErr } = await supabaseAdmin
             .from("dj_stripe_accounts")
             .upsert({ user_id: user.id, stripe_account_id: accountId, status: "pending" });
+          if (saveErr) {
+            log("CRITICAL: DJ account created but not saved", { accountId, error: saveErr.message });
+            throw new Error("Failed to save Stripe account ID");
+          }
           log("DJ Stripe account created", { accountId });
         }
 
-        const accountLink = await stripe.accountLinks.create({
-          account: accountId,
-          refresh_url: `${origin}/dj/bookings?stripe=refresh`,
-          return_url: `${origin}/dj/bookings?stripe=success`,
-          type: "account_onboarding",
+        const url = await onboardingLinkOrExplain(accountId, {
+          refreshUrl: `${origin}/dj/bookings?stripe=refresh`,
+          returnUrl: `${origin}/dj/bookings?stripe=success`,
         });
-        return json({ success: true, url: accountLink.url, accountId });
+        return json({ success: true, url, accountId });
       }
 
       // ─── Owner path ─────────────────────────────────────────────────────────
-      const { venueId, refreshUrl, returnUrl } = body;
-      await assertOwnsBodyVenue(venueId);
-      let targetVenueId = venueId;
-
-      if (!targetVenueId) {
-        const { data: venue } = await supabaseAdmin
-          .from("venues")
-          .select("id")
-          .eq("owner_id", user.id)
-          .single();
-
-        if (venue) {
-          targetVenueId = venue.id;
-        } else {
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .select("venue_id")
-            .eq("id", user.id)
-            .single();
-          if (profile?.venue_id) targetVenueId = profile.venue_id;
-          else throw new Error("No venue found for this user");
-        }
-      }
-
+      const { refreshUrl, returnUrl } = body;
+      const targetVenueId = await resolveOwnerVenueId(body.venueId);
+      if (!targetVenueId) throw new ConnectError("No venue found for this user", "no_venue", 404);
       log("Target venue", { venueId: targetVenueId });
 
       const { data: venue, error: venueError } = await supabaseAdmin
         .from("venues")
         .select("id, name, stripe_account_id")
         .eq("id", targetVenueId)
-        .single();
+        .maybeSingle();
 
       if (venueError || !venue) throw new Error("Venue not found");
 
       let stripeAccountId = venue.stripe_account_id;
       if (!stripeAccountId) {
-        log("Creating new owner Express account");
-        const account = await stripe.accounts.create({
-          type: "express",
-          country: "FR",
-          email: user.email,
-          business_type: "company",
-          capabilities: {
-            card_payments: { requested: true },
-            transfers: { requested: true },
-          },
-          business_profile: {
-            name: venue.name,
-            product_description: "Vente de tickets et services de boîte de nuit",
-            mcc: "7929",
-          },
+        log("Creating new owner connected account");
+        stripeAccountId = await createAccountOrExplain({
+          purpose: "seller",
+          email: user.email ?? null,
+          displayName: venue.name,
+          entityType: "company",
+          productDescription: "Vente de tickets et services de boîte de nuit",
           metadata: { venue_id: targetVenueId, platform: "yuno" },
-        });
-        stripeAccountId = account.id;
+        }, { kind: "venue", id: targetVenueId, name: venue.name });
         log("Owner Stripe account created", { accountId: stripeAccountId });
         const { error: updateError } = await supabaseAdmin
           .from("venues")
           .update({ stripe_account_id: stripeAccountId })
           .eq("id", targetVenueId);
-        if (updateError) throw new Error("Failed to save Stripe account ID");
+        if (updateError) {
+          log("CRITICAL: owner account created but not saved", { accountId: stripeAccountId, error: updateError.message });
+          throw new Error("Failed to save Stripe account ID");
+        }
       } else {
         log("Using existing owner Stripe account", { accountId: stripeAccountId });
       }
 
       // refreshUrl/returnUrl viennent du body : mêmes origines que la liste
-      // blanche CORS uniquement (safeReturnUrl), sinon retour par défaut.
-      const accountLink = await stripe.accountLinks.create({
-        account: stripeAccountId,
-        refresh_url: safeReturnUrl(refreshUrl, `${origin}/owner/venue?stripe=refresh`),
-        return_url: safeReturnUrl(returnUrl, `${origin}/owner/venue?stripe=success`),
-        type: "account_onboarding",
+      // blanche CORS uniquement (safeReturnUrl), sinon la page Paiements — celle
+      // qui porte la carte Stripe et relit l'état au retour.
+      const url = await onboardingLinkOrExplain(stripeAccountId, {
+        refreshUrl: safeReturnUrl(refreshUrl, `${origin}/owner/billing?stripe=refresh`),
+        returnUrl: safeReturnUrl(returnUrl, `${origin}/owner/billing?stripe=success`),
       });
 
-      log("Onboarding link created", { url: accountLink.url });
-      return json({ success: true, url: accountLink.url, accountId: stripeAccountId });
+      log("Onboarding link created", { accountId: stripeAccountId });
+      return json({ success: true, url, accountId: stripeAccountId });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -312,41 +402,26 @@ serve(async (req) => {
         if (!acct?.stripe_account_id) {
           return json({ connected: false, status: "none", chargesEnabled: false, payoutsEnabled: false });
         }
-
-        const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-        const account = await stripe.accounts.retrieve(acct.stripe_account_id);
-        const chargesEnabled = !!account.charges_enabled;
-        const payoutsEnabled = !!account.payouts_enabled;
-        const detailsSubmitted = !!account.details_submitted;
-        const hasRequirements =
-          (account.requirements?.currently_due?.length ?? 0) > 0 ||
-          (account.requirements?.past_due?.length ?? 0) > 0;
-        let djStatus: "none" | "pending" | "active" | "restricted" = "pending";
-        if (chargesEnabled && payoutsEnabled) djStatus = "active";
-        else if (detailsSubmitted && hasRequirements) djStatus = "restricted";
-
-        await supabaseAdmin
-          .from("dj_stripe_accounts")
-          .update({
-            status: djStatus,
-            charges_enabled: chargesEnabled,
-            payouts_enabled: payoutsEnabled,
-            onboarding_complete: detailsSubmitted,
-            onboarded_at: djStatus === "active" ? new Date().toISOString() : null,
-          })
-          .eq("user_id", user.id);
-
-        // Onboarding done → unblock any contracts waiting on the DJ's Stripe setup.
-        if (payoutsEnabled) {
-          await supabaseAdmin.rpc("advance_dj_contracts_after_onboarding", { p_user_id: user.id });
+        if (acct.stripe_account_id.startsWith("acct_demo")) {
+          return json({ connected: true, status: "active", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, requirements: null, demo: true });
         }
 
-        return json({ connected: true, status: djStatus, chargesEnabled, payoutsEnabled, detailsSubmitted, requirements: account.requirements });
+        const state = await readState(acct.stripe_account_id);
+        const djStatus = await persistDj(user.id, state);
+        return json({
+          connected: true,
+          accountId: acct.stripe_account_id,
+          status: djStatus,
+          chargesEnabled: state.chargesEnabled,
+          payoutsEnabled: state.payoutsEnabled,
+          detailsSubmitted: state.detailsSubmitted,
+          requirements: state.requirements,
+        });
       }
 
       const { data: profile, error: profileErr } = await supabaseAdmin
         .from("profiles")
-        .select("stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled, stripe_connect_payouts_enabled")
+        .select("stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_onboarded_at")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -367,58 +442,60 @@ serve(async (req) => {
       if (profile.stripe_connect_account_id.startsWith("acct_demo")) {
         return json({
           connected: true,
+          accountId: profile.stripe_connect_account_id,
           status: profile.stripe_connect_status || "active",
           chargesEnabled: !!profile.stripe_connect_charges_enabled,
           payoutsEnabled: !!profile.stripe_connect_payouts_enabled,
+          onboardedAt: profile.stripe_connect_onboarded_at ?? null,
           detailsSubmitted: true,
           requirements: null,
           demo: true,
         });
       }
 
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-      const account = await stripe.accounts.retrieve(profile.stripe_connect_account_id);
-
-      const chargesEnabled = !!account.charges_enabled;
-      const payoutsEnabled = !!account.payouts_enabled;
-      const detailsSubmitted = !!account.details_submitted;
-      const hasRequirements =
-        (account.requirements?.currently_due?.length ?? 0) > 0 ||
-        (account.requirements?.past_due?.length ?? 0) > 0;
-
-      let status: "none" | "pending" | "active" | "restricted" = "pending";
-      if (chargesEnabled && payoutsEnabled) status = "active";
-      else if (detailsSubmitted && hasRequirements) status = "restricted";
-      else status = "pending";
-
-      await supabaseAdmin
-        .from("profiles")
-        .update({
-          stripe_connect_status: status,
-          stripe_connect_charges_enabled: chargesEnabled,
-          stripe_connect_payouts_enabled: payoutsEnabled,
-          stripe_connect_onboarded_at: status === "active" ? new Date().toISOString() : null,
-        })
-        .eq("id", user.id);
-
-      log("Status synced", { userId: user.id, status, chargesEnabled, payoutsEnabled });
+      const state = await readState(profile.stripe_connect_account_id);
+      const { status, onboardedAt } = await persistOrganizer(user.id, state, profile.stripe_connect_onboarded_at ?? null);
+      log("Status synced", { userId: user.id, status, chargesEnabled: state.chargesEnabled, payoutsEnabled: state.payoutsEnabled, source: state.source });
 
       return json({
         connected: true,
+        accountId: profile.stripe_connect_account_id,
         status,
-        chargesEnabled,
-        payoutsEnabled,
-        detailsSubmitted,
-        requirements: account.requirements,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        detailsSubmitted: state.detailsSubmitted,
+        onboardedAt,
+        requirements: state.requirements,
+        dashboard: state.dashboard,
       });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // action: "dashboard"  (← stripe-connect-dashboard)
+    // Formulaire pas fini → on renvoie au formulaire. Sinon : lien de connexion
+    // Express, ou dashboard.stripe.com pour un compte au tableau de bord complet
+    // (tous les comptes v2 de Yuno : le pro s'y connecte avec SES identifiants).
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "dashboard") {
       const actorType: string = body.actor_type || "owner";
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+      const dashboardFor = async (accountId: string, urls: { refreshUrl: string; returnUrl: string }) => {
+        const state = await readState(accountId);
+        if (!state.detailsSubmitted) {
+          const url = await onboardingLinkOrExplain(accountId, urls);
+          return json({ success: true, url, needsOnboarding: true });
+        }
+        try {
+          const url = await dashboardUrlFor(connect, accountId, state);
+          return json({ success: true, url, dashboard: state.dashboard });
+        } catch (err) {
+          if (err instanceof StripeHttpError) {
+            log("Login link refused, falling back to dashboard.stripe.com", { accountId, message: err.message });
+            return json({ success: true, url: STRIPE_FULL_DASHBOARD_URL, dashboard: state.dashboard });
+          }
+          throw err;
+        }
+      };
 
       if (actorType === "dj") {
         const { data: acct } = await supabaseAdmin
@@ -426,20 +503,11 @@ serve(async (req) => {
           .select("stripe_account_id")
           .eq("user_id", user.id)
           .maybeSingle();
-        if (!acct?.stripe_account_id) throw new Error("Stripe Connect non configuré.");
-
-        const account = await stripe.accounts.retrieve(acct.stripe_account_id);
-        if (!account.details_submitted) {
-          const link = await stripe.accountLinks.create({
-            account: acct.stripe_account_id,
-            refresh_url: `${origin}/dj/bookings?stripe=refresh`,
-            return_url: `${origin}/dj/bookings?stripe=success`,
-            type: "account_onboarding",
-          });
-          return json({ success: true, url: link.url, needsOnboarding: true });
-        }
-        const loginLink = await stripe.accounts.createLoginLink(acct.stripe_account_id);
-        return json({ success: true, url: loginLink.url });
+        if (!acct?.stripe_account_id) throw new ConnectError("Stripe Connect non configuré.", "not_connected", 404);
+        return await dashboardFor(acct.stripe_account_id, {
+          refreshUrl: `${origin}/dj/bookings?stripe=refresh`,
+          returnUrl: `${origin}/dj/bookings?stripe=success`,
+        });
       }
 
       if (actorType === "organizer") {
@@ -450,110 +518,48 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!profile?.stripe_connect_account_id) {
-          throw new Error("Stripe Connect non configuré.");
+          throw new ConnectError("Stripe Connect non configuré.", "not_connected", 404);
         }
         if (profile.stripe_connect_account_id.startsWith("acct_demo")) {
-          throw new Error("Compte Stripe de démonstration : pas de tableau de bord Stripe.");
+          throw new ConnectError("Compte Stripe de démonstration : pas de tableau de bord Stripe.", "demo_account", 400);
         }
-
-        const account = await stripe.accounts.retrieve(profile.stripe_connect_account_id);
-        if (!account.details_submitted) {
-          const link = await stripe.accountLinks.create({
-            account: profile.stripe_connect_account_id,
-            refresh_url: `${origin}/organizer-app/settings?stripe=refresh`,
-            return_url: `${origin}/organizer-app/settings?stripe=success`,
-            type: "account_onboarding",
-          });
-          return json({ success: true, url: link.url, needsOnboarding: true });
-        }
-
-        const loginLink = await stripe.accounts.createLoginLink(profile.stripe_connect_account_id);
-        return json({ success: true, url: loginLink.url });
+        return await dashboardFor(profile.stripe_connect_account_id, {
+          refreshUrl: `${origin}/organizer-app/settings?stripe=refresh`,
+          returnUrl: `${origin}/organizer-app/settings?stripe=success`,
+        });
       }
 
       // Default: owner flow
-      await assertOwnsBodyVenue(body.venueId);
-      let targetVenueId = body.venueId;
-      if (!targetVenueId) {
-        const { data: venue } = await supabaseAdmin
-          .from("venues")
-          .select("id")
-          .eq("owner_id", user.id)
-          .single();
-        if (venue) {
-          targetVenueId = venue.id;
-        } else {
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .select("venue_id")
-            .eq("id", user.id)
-            .single();
-          if (profile?.venue_id) targetVenueId = profile.venue_id;
-        }
-      }
-
-      if (!targetVenueId) throw new Error("No venue found for this user");
+      const targetVenueId = await resolveOwnerVenueId(body.venueId);
+      if (!targetVenueId) throw new ConnectError("No venue found for this user", "no_venue", 404);
 
       const { data: venue, error: venueError } = await supabaseAdmin
         .from("venues")
         .select("id, stripe_account_id")
         .eq("id", targetVenueId)
-        .single();
+        .maybeSingle();
 
       if (venueError || !venue) throw new Error("Venue not found");
-      if (!venue.stripe_account_id) throw new Error("No Stripe account connected");
+      if (!venue.stripe_account_id) throw new ConnectError("No Stripe account connected", "not_connected", 404);
 
-      const account = await stripe.accounts.retrieve(venue.stripe_account_id);
-      if (!account.details_submitted) {
-        const accountLink = await stripe.accountLinks.create({
-          account: venue.stripe_account_id,
-          refresh_url: `${origin}/owner/venue?stripe=refresh`,
-          return_url: `${origin}/owner/venue?stripe=success`,
-          type: "account_onboarding",
-        });
-        return json({ success: true, url: accountLink.url, needsOnboarding: true });
-      }
-
-      const loginLink = await stripe.accounts.createLoginLink(venue.stripe_account_id);
-      return json({ success: true, url: loginLink.url });
+      return await dashboardFor(venue.stripe_account_id, {
+        refreshUrl: `${origin}/owner/billing?stripe=refresh`,
+        returnUrl: `${origin}/owner/billing?stripe=success`,
+      });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // action: "refresh"  (← stripe-connect-refresh)
+    // action: "refresh"  (← stripe-connect-refresh) — état du compte d'un CLUB
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "refresh") {
-      await assertOwnsBodyVenue(body.venueId);
-      let targetVenueId = body.venueId;
-
-      if (!targetVenueId) {
-        const { data: venue } = await supabaseAdmin
-          .from("venues")
-          .select("id, stripe_account_id")
-          .eq("owner_id", user.id)
-          .single();
-
-        if (venue) {
-          targetVenueId = venue.id;
-        } else {
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .select("venue_id")
-            .eq("id", user.id)
-            .single();
-
-          if (profile?.venue_id) {
-            targetVenueId = profile.venue_id;
-          }
-        }
-      }
-
-      if (!targetVenueId) throw new Error("No venue found for this user");
+      const targetVenueId = await resolveOwnerVenueId(body.venueId);
+      if (!targetVenueId) throw new ConnectError("No venue found for this user", "no_venue", 404);
 
       const { data: venue, error: venueError } = await supabaseAdmin
         .from("venues")
         .select("id, name, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_onboarding_complete")
         .eq("id", targetVenueId)
-        .single();
+        .maybeSingle();
 
       if (venueError || !venue) throw new Error("Venue not found");
 
@@ -568,41 +574,39 @@ serve(async (req) => {
         });
       }
 
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
-
-      const account = await stripe.accounts.retrieve(venue.stripe_account_id);
-      log("Stripe account retrieved", {
-        accountId: account.id,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted,
-      });
-
-      const chargesEnabled = account.charges_enabled ?? false;
-      const payoutsEnabled = account.payouts_enabled ?? false;
-      const onboardingComplete = account.details_submitted ?? false;
-
-      const { error: updateError } = await supabaseAdmin
-        .from("venues")
-        .update({
-          stripe_charges_enabled: chargesEnabled,
-          stripe_payouts_enabled: payoutsEnabled,
-          stripe_onboarding_complete: onboardingComplete,
-        })
-        .eq("id", targetVenueId);
-
-      if (updateError) {
-        log("Error updating venue status", { error: updateError.message });
+      if (venue.stripe_account_id.startsWith("acct_demo")) {
+        return json({
+          success: true,
+          connected: true,
+          accountId: venue.stripe_account_id,
+          chargesEnabled: !!venue.stripe_charges_enabled,
+          payoutsEnabled: !!venue.stripe_payouts_enabled,
+          onboardingComplete: !!venue.stripe_onboarding_complete,
+          requiresAction: false,
+          demo: true,
+        });
       }
+
+      const state = await readState(venue.stripe_account_id);
+      log("Stripe account retrieved", {
+        accountId: venue.stripe_account_id,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        detailsSubmitted: state.detailsSubmitted,
+        source: state.source,
+      });
+      await persistVenue(targetVenueId, state);
 
       return json({
         success: true,
         connected: true,
         accountId: venue.stripe_account_id,
-        chargesEnabled,
-        payoutsEnabled,
-        onboardingComplete,
-        requiresAction: !chargesEnabled || !onboardingComplete,
+        chargesEnabled: state.chargesEnabled,
+        payoutsEnabled: state.payoutsEnabled,
+        onboardingComplete: state.detailsSubmitted,
+        requiresAction: !state.chargesEnabled || !state.detailsSubmitted,
+        requirements: state.requirements,
+        dashboard: state.dashboard,
       });
     }
 
@@ -722,6 +726,9 @@ serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     log("ERROR", { message: msg });
+    // Un code stable accompagne le message : le front affiche une phrase dans la
+    // langue du pro au lieu de « Edge Function returned a non-2xx status code ».
+    if (e instanceof ConnectError) return json({ error: msg, code: e.code }, e.status);
     return json({ error: msg }, 400);
   }
 });

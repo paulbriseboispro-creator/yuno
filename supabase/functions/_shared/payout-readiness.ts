@@ -53,3 +53,30 @@ export function checkPayoutReadiness(
   }
   return { split };
 }
+
+/**
+ * Même porte, mais un compte « pas encore actif » EN BASE est revérifié chez
+ * Stripe avant de refuser l'acheteur. `charges_enabled` n'est qu'un miroir,
+ * rafraîchi par la Console ou le webhook Connect : Stripe active souvent
+ * l'encaissement quelques minutes après la fin du formulaire, pendant que
+ * personne n'a la Console ouverte. `heal` redemande à Stripe (et répare la
+ * base) ; il rend `true` si le compte encaisse bien. Au plus deux parties.
+ */
+export async function checkPayoutReadinessHealing(
+  input: Omit<SplitInput, "grossAmount" | "venueStripeAccountId" | "organizerStripeAccountId">,
+  acc: PayoutAccounts,
+  heal: (party: NotReadyParty, accountId: string) => Promise<boolean>,
+): Promise<{ split: SplitResult } | { missing: NotReadyParty } | { inactive: NotReadyParty }> {
+  let accounts = acc;
+  let result = checkPayoutReadiness(input, accounts);
+  for (let i = 0; i < 2 && "inactive" in result; i++) {
+    const party = result.inactive;
+    const accountId = party === "venue" ? accounts.venueStripeAccountId : accounts.organizerStripeAccountId;
+    if (!accountId || !(await heal(party, accountId))) break;
+    accounts = party === "venue"
+      ? { ...accounts, venueChargesEnabled: true }
+      : { ...accounts, organizerChargesEnabled: true };
+    result = checkPayoutReadiness(input, accounts);
+  }
+  return result;
+}

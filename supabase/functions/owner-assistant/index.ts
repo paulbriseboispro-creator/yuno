@@ -154,8 +154,8 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   "stripe-connect": {
     title: "Stripe Connect & Paiements",
     keywords: ["stripe", "paiement", "payment", "IBAN", "virement", "bank", "connect", "argent"],
-    path: "/owner/venue",
-    snippet: "Yuno utilise Stripe Connect (Standard) pour les paiements. Chaque club a son propre compte Stripe connecté. L'argent va directement sur le compte du club. Yuno prélève une commission automatiquement. Pour connecter Stripe : va dans Paramètres > Paiements et clique 'Connecter Stripe'. Stripe vérifie le compte en 24-48h.",
+    path: "/owner/billing",
+    snippet: "Chaque club (et chaque organisateur) a SON propre compte Stripe, relié à Yuno par Stripe Connect : l'argent des ventes arrive directement dessus, Stripe y prélève ses frais (1,5 % + 0,25 €) et Yuno sa commission automatiquement. Pour le relier : page Paiements (club : /owner/billing ; organisateur : /organizer-app/payments), bouton « Connecter Stripe » / « Activer les paiements », puis le formulaire Stripe (identité, entreprise, IBAN, e-mail et mot de passe du compte Stripe). La vente s'ouvre dès que l'encaissement est actif, souvent quelques minutes après le formulaire ; « Actualiser » relit l'état. Les virements peuvent suivre un peu plus tard, le temps que Stripe vérifie l'IBAN. « Tableau de bord Stripe » ouvre dashboard.stripe.com, où le pro se connecte avec ses propres identifiants Stripe (virements, transactions, litiges).",
   },
   "publish-page": {
     title: "Publier ma page (page cachée / compte vitrine)",

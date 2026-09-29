@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { fundDjBookingContract, releaseDjBookingBalance, type DjContract } from "../_shared/dj-payout.ts";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { isTieredCollab } from "../_shared/payment-split.ts";
 import { heldLegAfterRefund, refundContext, releasedLegReversal } from "../_shared/refund-legs.ts";
+import { connectStatusOf, organizerConnectColumns, stateFromV1Account, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -63,7 +64,7 @@ function resolvePlanFromSubscription(subscription: Stripe.Subscription): string 
 // If so, the refund handler already cancelled the legs; this is a belt-and-braces
 // check so the release cron never pays out a refunded sale.
 async function saleIsRefunded(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   row: { ticket_id: string | null; table_reservation_id: string | null; order_id: string | null },
 ): Promise<boolean> {
   if (row.ticket_id) {
@@ -85,7 +86,7 @@ async function saleIsRefunded(
 // 'release-held-co-event-transfers' pg_cron job. Fires the held ('scheduled') primary
 // and secondary transfers from the platform balance to the connected accounts, unless
 // the sale was refunded in the meantime (then the legs are cancelled, money stays put).
-async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof createClient>) {
+async function releaseHeldTransfers(stripe: Stripe, admin: SupabaseClient) {
   const nowIso = new Date().toISOString();
   // Les jambes 'failed' sont RE-TENTÉES à chaque passage du cron : un échec de
   // transfer est presque toujours transitoire (solde plateforme insuffisant,
@@ -333,9 +334,11 @@ serve(async (req) => {
     switch (event.type) {
       case "account.updated": {
         const account = event.data.object as Stripe.Account;
-        const chargesEnabled = account.charges_enabled ?? false;
-        const payoutsEnabled = account.payouts_enabled ?? false;
-        const detailsSubmitted = account.details_submitted ?? false;
+        // Même projection et mêmes colonnes que stripe-connect (Console) et que
+        // l'auto-réparation des checkouts : _shared/stripe-connect-accounts.ts.
+        const state = stateFromV1Account(account);
+        const orgStatus = connectStatusOf(state);
+        const { chargesEnabled, payoutsEnabled, detailsSubmitted } = state;
         logStep("Account updated", {
           accountId: account.id,
           chargesEnabled,
@@ -355,34 +358,16 @@ serve(async (req) => {
 
         const { error: venueErr } = await supabaseClient
           .from("venues")
-          .update({
-            stripe_charges_enabled: chargesEnabled,
-            stripe_payouts_enabled: payoutsEnabled,
-            stripe_onboarding_complete: detailsSubmitted,
-          })
+          .update(venueConnectColumns(state))
           .eq("stripe_account_id", account.id);
 
         if (venueErr) {
           logStep("Error updating venue", { error: venueErr.message });
         }
 
-        // Organizer status mirrors organizer-stripe-connect-status so the two paths
-        // (webhook push + on-demand poll) always agree.
-        const hasRequirements =
-          (account.requirements?.currently_due?.length ?? 0) > 0 ||
-          (account.requirements?.past_due?.length ?? 0) > 0;
-        let orgStatus: "pending" | "active" | "restricted" = "pending";
-        if (chargesEnabled && payoutsEnabled) orgStatus = "active";
-        else if (detailsSubmitted && hasRequirements) orgStatus = "restricted";
-
         const { data: orgRows, error: orgErr } = await supabaseClient
           .from("profiles")
-          .update({
-            stripe_connect_status: orgStatus,
-            stripe_connect_charges_enabled: chargesEnabled,
-            stripe_connect_payouts_enabled: payoutsEnabled,
-            stripe_connect_onboarded_at: orgStatus === "active" ? new Date().toISOString() : null,
-          })
+          .update(organizerConnectColumns(state))
           .eq("stripe_connect_account_id", account.id)
           .select("id");
 

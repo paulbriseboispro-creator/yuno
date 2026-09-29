@@ -3,7 +3,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
-import { checkPayoutReadiness, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
+import { checkPayoutReadiness, checkPayoutReadinessHealing, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
+import { createSessionWithPaymentMethodFallback, healChargesEnabled, organizerConnectColumns, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -447,8 +448,8 @@ serve(async (req) => {
     // Accord de co-organisation entre deux organisations réparti par Stripe :
     // null = charge directe chez l'hôte (le décompte règle le partenaire).
     const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
-    const readiness = checkPayoutReadiness({
-      itemType: "ticket",
+    const readinessInput = {
+      itemType: "ticket" as const,
       isBde: event.is_bde === true,
       event: {
         id: event.id,
@@ -461,12 +462,26 @@ serve(async (req) => {
       },
       partnershipRules,
       coorgStripe,
-    }, {
+    };
+    const payoutAccounts = {
       venueStripeAccountId,
       venueChargesEnabled: venueStripeChargesEnabled,
       organizerStripeAccountId,
       organizerChargesEnabled: organizerStripeChargesEnabled,
-    });
+    };
+    // Un compte « pas encore actif » en base est revérifié chez Stripe avant de
+    // refuser l'acheteur (miroir en retard : _shared/stripe-connect-accounts.ts).
+    const connectCtx = { secretKey: Deno.env.get("STRIPE_SECRET_KEY") ?? "", log: logStep };
+    const readiness = simulate
+      ? checkPayoutReadiness(readinessInput, payoutAccounts)
+      : await checkPayoutReadinessHealing(readinessInput, payoutAccounts, (party, accountId) =>
+        healChargesEnabled(connectCtx, accountId, false, async (state) => {
+          if (party === "venue") {
+            await supabaseAdmin.from("venues").update(venueConnectColumns(state)).eq("stripe_account_id", accountId);
+          } else {
+            await supabaseAdmin.from("profiles").update(organizerConnectColumns(state)).eq("stripe_connect_account_id", accountId);
+          }
+        }));
     const venue = {
       id: venueIdForFees ?? '',
       name: '',
@@ -985,8 +1000,9 @@ serve(async (req) => {
               });
             logStep("Upsell selection created", { offerId: upsell.offerId, type: upsell.offerType });
 
-            // Create order_pack_credits for drink-related upsells
-            if ((upsell.offerType === 'drink_pack' || upsell.offerType === 'single_drink_discount' || upsell.offerType === 'combo') && upsell.drinkCount > 0) {
+            // Create order_pack_credits for drink-related upsells — même règle que
+            // verify-ticket-payment : un crédit appartient à un COMPTE, dans un club.
+            if ((upsell.offerType === 'drink_pack' || upsell.offerType === 'single_drink_discount' || upsell.offerType === 'combo') && upsell.drinkCount > 0 && user && event.venue_id) {
               await supabaseAdmin
                 .from("order_pack_credits")
                 .insert({
@@ -1011,7 +1027,8 @@ serve(async (req) => {
       }
 
       // Create free drink credits if ticket round includes_drink AND venue uses credits mode
-      if (ticketRound.includes_drink) {
+      // (compte + club requis, comme verify-ticket-payment : un invité n'a pas de crédits).
+      if (ticketRound.includes_drink && user && event.venue_id) {
         // Check venue free_drink_mode
         const { data: venueForDrink } = await supabaseAdmin
           .from("venues")
@@ -1025,7 +1042,7 @@ serve(async (req) => {
           try {
             const { data: eventForExpiry } = await supabaseAdmin
               .from("events")
-              .select("end_at")
+              .select("start_at, end_at")
               .eq("id", eventId)
               .single();
 
@@ -1239,8 +1256,13 @@ serve(async (req) => {
       id: u.offerId, t: u.offerType, p: u.price, d: u.drinkCount, n: u.name
     })));
 
-    // Create Stripe checkout with Connect and Apple Pay
-    const session = await stripe.checkout.sessions.create({
+    // Create Stripe checkout with Connect and Apple Pay.
+    // En vente directe la session naît sur le compte du pro : si Link n'y est
+    // pas activé, Stripe refuse la liste → nouvelle tentative carte seule.
+    const session: Stripe.Checkout.Session = await createSessionWithPaymentMethodFallback((params) => stripe.checkout.sessions.create(
+      params,
+      split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined,
+    ), {
       // Une session Stripe vit 24 h par défaut : un paiement tardif arrivait après
       // la fin de la réservation de places, voire après le décompte de la soirée.
       // 31 min = le minimum Stripe (30) + une marge d'horloge.
@@ -1345,7 +1367,7 @@ serve(async (req) => {
           metadata: sharedMetadata,
         };
       })(),
-    }, split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined);
+    } as Stripe.Checkout.SessionCreateParams, logStep);
 
     logStep("Stripe session created", { 
       sessionId: session.id, 
@@ -1390,7 +1412,7 @@ serve(async (req) => {
     // Un code d'aiguillage (COMMUNITY_ONLY…) accompagne le message : le front
     // affiche l'action qui débloque au lieu d'un toast d'erreur générique.
     const errorCode = error instanceof Error && typeof (error as { code?: unknown }).code === "string"
-      ? (error as { code: string }).code
+      ? (error as Error & { code: string }).code
       : undefined;
     const errorReason = error instanceof PromoCodeError ? error.reason : undefined;
     return new Response(

@@ -7,7 +7,7 @@ import { OrgCard, OrgButton, OrgPill, RED, T1, T2, T3, BORDER, INNER_BG } from '
 export function OrgStripeConnectCard({ userId }: { userId: string | null | undefined }) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { status, chargesEnabled, payoutsEnabled, loading, startOnboarding, openDashboard, refresh } =
+  const { status, chargesEnabled, payoutsEnabled, loading, startingOnboarding, startOnboarding, openDashboard, refresh } =
     useOrganizerStripe(userId);
 
   if (loading) {
@@ -18,9 +18,12 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
     );
   }
 
-  const isActive = status === 'active' && chargesEnabled;
-  const isPending = status === 'pending' || (status === 'active' && !chargesEnabled);
-  const isNone = status === 'none';
+  // « Actif » = l'encaissement est ouvert : c'est ce qui permet de vendre. Les
+  // virements peuvent suivre (IBAN en vérification) — signalé à part.
+  const isActive = chargesEnabled;
+  const isNone = !chargesEnabled && status === 'none';
+  const isRestricted = !chargesEnabled && status === 'restricted';
+  const isPending = !chargesEnabled && !isNone && !isRestricted;
 
   return (
     <OrgCard style={{ padding: 24 }}>
@@ -43,7 +46,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
             )}
             {isPending && <OrgPill tone="warn">{t('En attente', 'Pending')}</OrgPill>}
             {isNone && <OrgPill tone="muted">{t('Non configuré', 'Not configured')}</OrgPill>}
-            {status === 'restricted' && <OrgPill tone="danger">{t('Restreint', 'Restricted')}</OrgPill>}
+            {isRestricted && <OrgPill tone="danger">{t('Restreint', 'Restricted')}</OrgPill>}
           </div>
           <p style={{ color: T3, fontSize: 12.5, marginTop: 4 }}>
             {t(
@@ -60,19 +63,20 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
             <p style={{ color: T2, fontSize: 12.5 }}>
               {t(
-                'Vous devez activer Stripe pour vendre des billets. Onboarding sécurisé en 2 minutes.',
-                'You must activate Stripe to sell tickets. Secure 2-minute onboarding.',
+                'Vous devez activer Stripe pour vendre des billets. Formulaire sécurisé, quelques minutes.',
+                'You must activate Stripe to sell tickets. Secure form, a few minutes.',
+                'Debes activar Stripe para vender entradas. Formulario seguro, unos minutos.',
               )}
             </p>
           </div>
-          <OrgButton variant="primary" onClick={startOnboarding}>
-            <CreditCard className="h-4 w-4" />
+          <OrgButton variant="primary" onClick={() => startOnboarding()} disabled={startingOnboarding}>
+            {startingOnboarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
             {t('Activer les paiements', 'Activate payments')}
           </OrgButton>
         </div>
       )}
 
-      {isPending && (
+      {(isPending || isRestricted) && (
         <div
           className="mt-4 space-y-3 rounded-xl p-4"
           style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}
@@ -80,15 +84,23 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
             <p style={{ color: T2, fontSize: 12.5 }}>
-              {t(
-                'Onboarding incomplet. Terminez les vérifications Stripe pour activer la vente.',
-                'Onboarding incomplete. Finish Stripe verifications to enable selling.',
-              )}
+              {isRestricted
+                ? t(
+                  'Stripe attend encore une information ou un document avant d\'ouvrir la vente. Complétez le formulaire.',
+                  'Stripe still needs some information or a document before selling can start. Complete the form.',
+                  'Stripe aún necesita un dato o un documento antes de abrir la venta. Completa el formulario.',
+                )
+                : t(
+                  'Onboarding incomplet. Terminez les vérifications Stripe pour activer la vente. Si vous venez de finir, Stripe peut prendre quelques minutes : actualisez.',
+                  'Onboarding incomplete. Finish Stripe verifications to enable selling. If you just finished, Stripe can take a few minutes: refresh.',
+                  'Configuración incompleta. Termina las verificaciones de Stripe para activar la venta. Si acabas de terminar, Stripe puede tardar unos minutos: actualiza.',
+                )}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <OrgButton variant="primary" size="sm" onClick={startOnboarding}>
-              {t('Reprendre', 'Resume')}
+            <OrgButton variant="primary" size="sm" onClick={() => startOnboarding()} disabled={startingOnboarding}>
+              {startingOnboarding && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isRestricted ? t('Compléter', 'Complete', 'Completar') : t('Reprendre', 'Resume')}
             </OrgButton>
             <OrgButton variant="ghost" size="sm" onClick={refresh}>
               {t('Actualiser', 'Refresh')}
@@ -99,6 +111,18 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
 
       {isActive && (
         <div className="mt-4 space-y-3">
+          {!payoutsEnabled && (
+            <div className="flex items-start gap-2 rounded-lg px-3 py-2" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}>
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
+              <p style={{ color: T2, fontSize: 12 }}>
+                {t(
+                  'Vous pouvez vendre. Stripe vérifie encore votre compte bancaire : les virements partiront dès que c\'est fait.',
+                  'You can sell. Stripe is still verifying your bank account: payouts will start as soon as it is done.',
+                  'Ya puedes vender. Stripe aún verifica tu cuenta bancaria: las transferencias saldrán en cuanto termine.',
+                )}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
@@ -124,10 +148,22 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
               <ExternalLink className="h-4 w-4" />
               {t('Dashboard Stripe', 'Stripe dashboard')}
             </OrgButton>
+            {!payoutsEnabled && (
+              <OrgButton variant="ghost" size="sm" onClick={() => startOnboarding()} disabled={startingOnboarding}>
+                {t('Compléter', 'Complete', 'Completar')}
+              </OrgButton>
+            )}
             <OrgButton variant="ghost" size="sm" onClick={refresh}>
               {t('Actualiser', 'Refresh')}
             </OrgButton>
           </div>
+          <p style={{ color: T3, fontSize: 11.5 }}>
+            {t(
+              'Le tableau de bord Stripe s\'ouvre sur dashboard.stripe.com : connectez-vous avec l\'e-mail et le mot de passe choisis pendant l\'activation.',
+              'The Stripe dashboard opens on dashboard.stripe.com: sign in with the email and password you chose during activation.',
+              'El panel de Stripe se abre en dashboard.stripe.com: inicia sesión con el correo y la contraseña elegidos durante la activación.',
+            )}
+          </p>
         </div>
       )}
 

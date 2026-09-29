@@ -109,7 +109,7 @@ export default function OwnerBilling() {
   const { user } = useAuth();
   const { venueId } = useOwnerVenue();
   const { plan, status, isTrial, daysRemaining, currentPeriodEnd, isEarlyAdopter, priceLocked, billingInterval, loading, refreshPlan } = useSubscriptionPlan();
-  const { stripeStatus, loading: stripeLoading, startOnboarding, openDashboard, refreshStatus, manageSubscription } = useStripeConnect(venueId);
+  const { stripeStatus, loading: stripeLoading, startingOnboarding, startOnboarding, openDashboard, refreshStatus, manageSubscription } = useStripeConnect(venueId);
   const [subscribing, setSubscribing] = useState<PlanCode | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>('annual');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -293,7 +293,7 @@ export default function OwnerBilling() {
                 <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: T3 }} />
                 <span style={{ color: T2, fontSize: 13 }}>{t('plan.stripeConnectPrompt')}</span>
               </div>
-              <button onClick={() => startOnboarding()}
+              <button onClick={() => startOnboarding()} disabled={startingOnboarding}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold w-fit cursor-pointer transition-all duration-150"
                 style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` }}>
                 <CreditCard className="w-4 h-4" />{t('plan.connectStripe')}
@@ -318,7 +318,7 @@ export default function OwnerBilling() {
                   <ExternalLink className="w-3.5 h-3.5" />{t('plan.stripeDashboard')}
                 </button>
                 {!stripeStatus.chargesEnabled && (
-                  <button onClick={() => startOnboarding()}
+                  <button onClick={() => startOnboarding()} disabled={startingOnboarding}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold cursor-pointer"
                     style={{ background: RED, color: '#fff' }}>
                     {t('plan.finishConfig')}

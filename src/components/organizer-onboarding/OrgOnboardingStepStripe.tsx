@@ -14,7 +14,18 @@ interface Props {
 export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { canSell, status, loading, startOnboarding, openDashboard } = useOrganizerStripe(userId);
+  const { canSell, status, loading, startingOnboarding, startOnboarding, openDashboard } = useOrganizerStripe(userId);
+  // Formulaire commencé (en attente) ou incomplet (Stripe réclame un document).
+  const inProgress = status === 'pending' || status === 'restricted';
+  // Retour sur CE guide (et non sur la page Paiements) : OrgAppOnboarding lit
+  // `?stripe=` et coche l'étape Paiements dès que Stripe a ramené le pro.
+  const handleStartOnboarding = () => {
+    const origin = window.location.origin;
+    return startOnboarding({
+      returnUrl: `${origin}/organizer-app/onboarding?stripe=success`,
+      refreshUrl: `${origin}/organizer-app/onboarding?stripe=refresh`,
+    });
+  };
   const floor = commissionFloorLabel(useIsAssociation(userId), language);
 
   return (
@@ -61,7 +72,7 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
             {tt('Dashboard', 'Dashboard', 'Panel')}
           </button>
         </DoneRow>
-      ) : status === 'pending' ? (
+      ) : inProgress ? (
         <div className="rounded-xl" style={{ padding: '12px 14px', background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
           <p style={{ color: 'var(--acc-fcd34d)', fontSize: 13.5, fontWeight: 600 }}>{tt('Onboarding incomplet', 'Onboarding incomplete', 'Configuración incompleta')}</p>
           <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{tt('Reprenez votre configuration Stripe pour pouvoir vendre.', 'Resume your Stripe setup to start selling.', 'Reanuda tu configuración de Stripe para poder vender.')}</p>
@@ -71,8 +82,8 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
       <div className="space-y-2.5">
         {!canSell ? (
           <>
-            <PrimaryButton fullWidth icon={CreditCard} onClick={startOnboarding} loading={loading}>
-              {status === 'pending' ? tt('Reprendre Stripe', 'Resume Stripe', 'Reanudar Stripe') : tt('Connecter Stripe', 'Connect Stripe', 'Conectar Stripe')}
+            <PrimaryButton fullWidth icon={CreditCard} onClick={handleStartOnboarding} loading={loading || startingOnboarding}>
+              {inProgress ? tt('Reprendre Stripe', 'Resume Stripe', 'Reanudar Stripe') : tt('Connecter Stripe', 'Connect Stripe', 'Conectar Stripe')}
             </PrimaryButton>
             {onSkip && (
               <GhostButton fullWidth onClick={onSkip}>
