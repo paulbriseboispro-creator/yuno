@@ -13,6 +13,7 @@ import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
 import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { createSessionWithPaymentMethodFallback, healChargesEnabled, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -583,6 +584,18 @@ serve(async (req) => {
       throw new Error(t("checkout.venuePaymentsNotSetUp", lang));
     }
 
+    // Drapeau en retard sur Stripe ? On redemande avant de refuser l'acheteur
+    // (miroir rafraîchi seulement par la Console ou le webhook Connect).
+    if (!venue.stripe_charges_enabled) {
+      venue.stripe_charges_enabled = await healChargesEnabled(
+        { secretKey: stripeKey, log: logStep },
+        venue.stripe_account_id,
+        false,
+        async (state) => {
+          await supabaseAdmin.from("venues").update(venueConnectColumns(state)).eq("id", venue.id);
+        },
+      );
+    }
     if (!venue.stripe_charges_enabled) {
       throw new Error(t("checkout.venueStripeNotActive", lang));
     }
@@ -824,7 +837,13 @@ serve(async (req) => {
       }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams, stripeRequestOptions);
+    // Charge directe sur le compte du club : si Link n'y est pas activé, Stripe
+    // refuse la liste → nouvelle tentative carte seule (Apple Pay compris).
+    const session: Stripe.Checkout.Session = await createSessionWithPaymentMethodFallback(
+      (params) => stripe.checkout.sessions.create(params, stripeRequestOptions),
+      sessionParams,
+      logStep,
+    );
 
     logStep("Stripe session created", {
       sessionId: session.id,

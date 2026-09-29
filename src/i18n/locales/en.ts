@@ -1149,6 +1149,7 @@ const en: Record<string, string> = {
   'notif.type.admin_coorg_transfer_overdue': "Co-organization transfer unpaid",
   'notif.type.admin_coorg_transfer_disputed': "Co-organization transfer disputed",
   'notif.type.admin_transfer_release_failed': 'Co-event payout stuck',
+  'notif.type.admin_stripe_connect_failed': 'Stripe refused to open an account',
   'notif.type.admin_collab_late_sale': 'Co-event sale paid after the closing',
   'notif.type.collab_request': "Co-event proposal",
   'notif.type.collab_external_added': "Added to a co-event",

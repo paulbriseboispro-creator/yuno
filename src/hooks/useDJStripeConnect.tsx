@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { openPendingTab, stripeConnectErrorMessage } from '@/lib/stripeConnectClient';
 import { trackStripeConnectStarted, trackStripeConnectStatus } from '@/lib/stripeConnectTracking';
 
 /**
@@ -24,11 +27,13 @@ export function useDJStripeConnect() {
   });
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { language } = useLanguage();
   const userId = user?.id ?? null;
+  const startingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect', {
+      const { data, error } = await invokeEdgeFunction('stripe-connect', {
         body: { action: 'status', actor_type: 'dj' },
       });
       if (error) throw error;
@@ -53,29 +58,41 @@ export function useDJStripeConnect() {
   }, [refresh]);
 
   const startOnboarding = async () => {
+    // Un second clic pendant l'appel ouvrirait un second compte Stripe.
+    if (startingRef.current) return;
+    startingRef.current = true;
     trackStripeConnectStarted('dj', userId);
-    try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect', {
-        body: { action: 'onboard', actor_type: 'dj' },
-      });
-      if (error) throw error;
+    const { data, error } = await invokeEdgeFunction('stripe-connect', {
+      body: { action: 'onboard', actor_type: 'dj' },
+    });
+    if (!error && data?.url) {
       // Full redirect — Stripe returns the DJ to /dj/bookings?stripe=success.
-      if (data.url) window.location.href = data.url;
-    } catch (e) {
-      toast.error("Erreur lors de l'activation des paiements Stripe");
+      window.location.href = data.url;
+      return;
     }
+    startingRef.current = false;
+    toast.error(stripeConnectErrorMessage(
+      language,
+      data,
+      translate(language, "Erreur lors de l'activation des paiements Stripe", 'Could not start Stripe payment activation', 'No se ha podido activar los pagos de Stripe'),
+    ));
   };
 
   const openDashboard = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect', {
-        body: { action: 'dashboard', actor_type: 'dj' },
-      });
-      if (error) throw error;
-      if (data.url) window.open(data.url, '_blank');
-    } catch (e) {
-      toast.error("Erreur lors de l'ouverture du dashboard Stripe");
+    const tab = openPendingTab();
+    const { data, error } = await invokeEdgeFunction('stripe-connect', {
+      body: { action: 'dashboard', actor_type: 'dj' },
+    });
+    if (!error && data?.url) {
+      tab.go(data.url);
+      return;
     }
+    tab.close();
+    toast.error(stripeConnectErrorMessage(
+      language,
+      data,
+      translate(language, "Erreur lors de l'ouverture du dashboard Stripe", 'Could not open the Stripe dashboard', 'No se ha podido abrir el panel de Stripe'),
+    ));
   };
 
   return { stripe, loading, refresh, startOnboarding, openDashboard };

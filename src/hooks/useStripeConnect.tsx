@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import type { PlanCode } from '@/lib/planFeatures';
+import { openPendingTab, stripeConnectErrorMessage } from '@/lib/stripeConnectClient';
 import { trackStripeConnectStarted, trackStripeConnectStatus } from '@/lib/stripeConnectTracking';
 
 interface StripeConnectStatus {
@@ -29,11 +33,15 @@ export function useStripeConnect(venueId: string | null) {
     subscribed: false, status: 'inactive', currentPeriodEnd: null, trialEnd: null, daysRemaining: null, isTrial: false
   });
   const [loading, setLoading] = useState(true);
+  const { language } = useLanguage();
+  // Deux clics rapprochés ouvraient deux comptes Stripe pour le même club.
+  const [startingOnboarding, setStartingOnboarding] = useState(false);
+  const startingRef = useRef(false);
 
   const refreshStatus = useCallback(async () => {
     if (!venueId) return;
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect', { body: { action: 'refresh', venueId } });
+      const { data, error } = await invokeEdgeFunction('stripe-connect', { body: { action: 'refresh', venueId } });
       if (error) throw error;
       setStripeStatus({
         connected: data.connected || false,
@@ -71,27 +79,52 @@ export function useStripeConnect(venueId: string | null) {
     if (venueId) init();
   }, [venueId, refreshStatus, checkSubscription]);
 
+  /**
+   * Formulaire Stripe dans la page courante : Stripe y ramène l'owner à la fin
+   * (`returnUrl`, par défaut la page Paiements qui relit l'état). L'ancien
+   * `window.open` posé après l'appel serveur était bloqué par Safari.
+   */
   const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string }) => {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    setStartingOnboarding(true);
     trackStripeConnectStarted('venue', venueId);
+    let redirecting = false;
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect', {
+      const { data, error } = await invokeEdgeFunction('stripe-connect', {
         body: { action: 'onboard', actor_type: 'owner', venueId, returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl },
       });
-      if (error) throw error;
-      if (data.url) window.open(data.url, '_blank');
-    } catch (e) {
-      toast.error("Erreur lors de l'onboarding Stripe");
+      if (!error && data?.url) {
+        redirecting = true;
+        window.location.href = data.url;
+        return;
+      }
+      toast.error(stripeConnectErrorMessage(
+        language,
+        data,
+        translate(language, "Erreur lors de l'activation des paiements", 'Could not start payment activation', 'No se ha podido activar los pagos'),
+      ));
+    } finally {
+      if (!redirecting) {
+        startingRef.current = false;
+        setStartingOnboarding(false);
+      }
     }
   };
 
   const openDashboard = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect', { body: { action: 'dashboard', venueId } });
-      if (error) throw error;
-      if (data.url) window.open(data.url, '_blank');
-    } catch (e) {
-      toast.error("Erreur lors de l'ouverture du dashboard");
+    const tab = openPendingTab();
+    const { data, error } = await invokeEdgeFunction('stripe-connect', { body: { action: 'dashboard', venueId } });
+    if (!error && data?.url) {
+      tab.go(data.url);
+      return;
     }
+    tab.close();
+    toast.error(stripeConnectErrorMessage(
+      language,
+      data,
+      translate(language, "Erreur d'ouverture du tableau de bord Stripe", 'Could not open the Stripe dashboard', 'No se ha podido abrir el panel de Stripe'),
+    ));
   };
 
   const startSubscription = async (planCode?: PlanCode) => {
@@ -136,5 +169,5 @@ export function useStripeConnect(venueId: string | null) {
     }
   };
 
-  return { stripeStatus, subscription, loading, refreshStatus, checkSubscription, startOnboarding, openDashboard, startSubscription, manageSubscription };
+  return { stripeStatus, subscription, loading, startingOnboarding, refreshStatus, checkSubscription, startOnboarding, openDashboard, startSubscription, manageSubscription };
 }

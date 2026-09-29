@@ -164,6 +164,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_coorg_transfer_overdue:  { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_coorg_transfer_overdue' },
   admin_coorg_transfer_disputed: { icon: ShieldAlert, category: 'billing', label: 'notif.type.admin_coorg_transfer_disputed' },
   admin_transfer_release_failed: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_transfer_release_failed' },
+  admin_stripe_connect_failed: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_stripe_connect_failed' },
   admin_collab_late_sale:        { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_collab_late_sale' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
   admin_payout_disputed:     { icon: Banknote,      category: 'compliance', label: 'notif.type.admin_payout_disputed' },
@@ -627,6 +628,11 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
       return '/admin/signups';
+
+    // Stripe a refusé d'ouvrir le compte connecté d'un pro : on ouvre sa fiche.
+    case 'admin_stripe_connect_failed':
+      if (!n.reference_id) return '/admin/alerts';
+      return n.reference_type === 'venue' ? `/admin/venues/${n.reference_id}` : `/admin/people/${n.reference_id}`;
 
     case 'admin_security_self_organizer':
       return '/admin/organizers';

@@ -3,7 +3,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
-import { checkPayoutReadiness, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
+import { checkPayoutReadiness, checkPayoutReadinessHealing, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
+import { createSessionWithPaymentMethodFallback, healChargesEnabled, organizerConnectColumns, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 // Yuno commission rate — single source of truth (4%, min 0.99€ / 0.49€ BDE, max 25€ on tables).
 import {
@@ -424,8 +425,8 @@ serve(async (req) => {
     // Accord de co-organisation entre deux organisations réparti par Stripe :
     // null = charge directe chez l'hôte (le décompte règle le partenaire).
     const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
-    const readiness = checkPayoutReadiness({
-      itemType: "table",
+    const readinessInput = {
+      itemType: "table" as const,
       isBde: event.is_bde === true,
       event: {
         id: event.id,
@@ -438,12 +439,26 @@ serve(async (req) => {
       },
       partnershipRules,
       coorgStripe,
-    }, {
+    };
+    const payoutAccounts = {
       venueStripeAccountId: venue?.stripe_account_id ?? null,
       venueChargesEnabled: !!venue?.stripe_charges_enabled,
       organizerStripeAccountId,
       organizerChargesEnabled: organizerStripeChargesEnabled,
-    });
+    };
+    // Un compte « pas encore actif » en base est revérifié chez Stripe avant de
+    // refuser l'acheteur (miroir en retard : _shared/stripe-connect-accounts.ts).
+    const connectCtx = { secretKey: Deno.env.get("STRIPE_SECRET_KEY") ?? "", log: logStep };
+    const readiness = simulate
+      ? checkPayoutReadiness(readinessInput, payoutAccounts)
+      : await checkPayoutReadinessHealing(readinessInput, payoutAccounts, (party, accountId) =>
+        healChargesEnabled(connectCtx, accountId, false, async (state) => {
+          if (party === "venue") {
+            await supabaseAdmin.from("venues").update(venueConnectColumns(state)).eq("stripe_account_id", accountId);
+          } else {
+            await supabaseAdmin.from("profiles").update(organizerConnectColumns(state)).eq("stripe_connect_account_id", accountId);
+          }
+        }));
     // Contrat réglé par virement : la part prévue est gardée sur la réservation
     // (décompte figé à J+2 par collab_transfer_statements).
     const collabSplit = "split" in readiness ? (readiness.split.transferSplit ?? null) : null;
@@ -1240,7 +1255,12 @@ serve(async (req) => {
       }).eq('id', reservation.id);
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // En vente directe la session naît sur le compte du pro : si Link n'y est
+    // pas activé, Stripe refuse la liste → nouvelle tentative carte seule.
+    const session: Stripe.Checkout.Session = await createSessionWithPaymentMethodFallback((params) => stripe.checkout.sessions.create(
+      params,
+      split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined,
+    ), {
       // Une session Stripe vit 24 h par défaut : un paiement tardif arrivait après
       // la fin de la réservation de places, voire après le décompte de la soirée.
       // 31 min = le minimum Stripe (30) + une marge d'horloge.
@@ -1321,7 +1341,7 @@ serve(async (req) => {
           metadata: sharedMetadata,
         };
       })(),
-    }, split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined);
+    } as Stripe.Checkout.SessionCreateParams, logStep);
 
     logStep("Stripe session created", {
       sessionId: session.id,

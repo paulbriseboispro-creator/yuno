@@ -7,16 +7,20 @@
 // governs, so its flag wins. Only when there is NO venue (organizer-only sale) does
 // the ORGANIZER's flag apply.
 
-/** Minimal shape of the Supabase client used by this module. */
+/**
+ * Minimal shape of the Supabase client used by this module. Only `from` is
+ * required: matching the whole PostgREST chain against the generic
+ * `SupabaseClient` makes the type checker give up (TS2589). The chain actually
+ * read here is typed by AbsorbQuery.
+ */
 type AnySupabase = {
-  from(table: string): {
-    select(columns: string): {
-      eq(
-        column: string,
-        value: string,
-      ): {
-        maybeSingle(): PromiseLike<{ data: { absorb_yuno_fees?: boolean | null } | null }>;
-      };
+  from(table: string): unknown;
+};
+
+type AbsorbQuery = {
+  select(columns: string): {
+    eq(column: string, value: string): {
+      maybeSingle(): PromiseLike<{ data: { absorb_yuno_fees?: boolean | null } | null }>;
     };
   };
 };
@@ -27,16 +31,14 @@ export async function getAbsorbYunoFees(
   organizerUserId?: string | null,
 ): Promise<boolean> {
   if (venueId) {
-    const { data } = await supabase
-      .from("venues")
+    const { data } = await (supabase.from("venues") as AbsorbQuery)
       .select("absorb_yuno_fees")
       .eq("id", venueId)
       .maybeSingle();
     return data?.absorb_yuno_fees === true;
   }
   if (organizerUserId) {
-    const { data } = await supabase
-      .from("organizer_profiles")
+    const { data } = await (supabase.from("organizer_profiles") as AbsorbQuery)
       .select("absorb_yuno_fees")
       .eq("user_id", organizerUserId)
       .maybeSingle();
