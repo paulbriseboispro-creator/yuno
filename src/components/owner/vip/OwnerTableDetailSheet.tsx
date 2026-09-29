@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +54,22 @@ export function OwnerTableDetailSheet({
   // Même droit que la page Remboursements : un membre d'équipe ou un manager
   // sans ce droit ne voit pas de bouton que le serveur lui refuserait.
   const canRefund = useCanRefund();
+  // …et seulement si la table a été encaissée chez l'appelant : une table de
+  // collab encaissée par le partenaire se rembourse depuis SON compte Stripe.
+  const [collectorAllows, setCollectorAllows] = useState(false);
+  const reservationId = reservation?.id;
+  useEffect(() => {
+    setCollectorAllows(false);
+    if (!open || !reservationId || !canRefund) return;
+    let alive = true;
+    supabase.functions.invoke('owner-refund', {
+      body: { action: 'rights', items: [{ type: 'table_reservation', id: reservationId }] },
+    }).then(({ data }) => {
+      const right = (data as { rights?: Record<string, { allowed: boolean }> } | null)?.rights?.[reservationId];
+      if (alive) setCollectorAllows(!!right?.allowed);
+    }, () => undefined);
+    return () => { alive = false; };
+  }, [open, reservationId, canRefund]);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [editingMin, setEditingMin] = useState(false);
@@ -85,7 +101,7 @@ export function OwnerTableDetailSheet({
     createdAt: reservation.createdAt,
     hasPaymentIntent: reservation.hasOnlinePayment,
   };
-  const showRefund = canRefund && reservation.hasOnlinePayment && reservation.refundRemaining > 0;
+  const showRefund = canRefund && collectorAllows && reservation.hasOnlinePayment && reservation.refundRemaining > 0;
 
   const handleRefund = async (reason: string, amounts: Record<string, number>) => {
     setRefundLoading(true);

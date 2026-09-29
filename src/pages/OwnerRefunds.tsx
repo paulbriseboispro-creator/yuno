@@ -132,6 +132,9 @@ export default function OwnerRefunds() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
+  // Ventes de la soirée encaissées par une AUTRE partie (partenaire, club
+  // hôte…) : c'est son compte Stripe qui a reçu l'argent, elle seule rembourse.
+  const [collectedElsewhere, setCollectedElsewhere] = useState<{ count: number; names: string[]; blocked: boolean }>({ count: 0, names: [], blocked: false });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [globalRefundAnalytics, setGlobalRefundAnalytics] = useState<RefundAnalytics | null>(null);
   const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
@@ -146,7 +149,9 @@ export default function OwnerRefunds() {
         .limit(50);
       const { data } = isOrganizerScope
         ? await base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
-        : await base.eq('venue_id', venueId);
+        // Un club peut aussi avoir encaissé la soirée d'un organisateur qu'il
+        // accueille (club partenaire) : le serveur dit ensuite ce qui est à lui.
+        : await base.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
       setEvents(data || []);
     };
     fetchEvents();
@@ -286,7 +291,21 @@ export default function OwnerRefunds() {
         push('table_reservation', tr as unknown as SaleRefundRow, { name: tr.full_name || undefined }, tr.status === 'paid');
       }
 
-      setItems(refundable);
+      // Seul l'ENCAISSEUR rembourse : le serveur (owner-refund, action `rights`)
+      // dit, vente par vente, si c'est l'appelant — même règle que le remboursement.
+      const { data: rightsData, error: rightsError } = await supabase.functions.invoke('owner-refund', {
+        body: { action: 'rights', event_id: selectedEventId },
+      });
+      if (rightsError) toast.error(t('refund.rightsError'));
+      const rights = ((rightsData as { rights?: Record<string, { allowed: boolean; collector: string | null }> } | null)?.rights) ?? {};
+      const mine = refundable.filter((i) => rights[i.id]?.allowed);
+      const elsewhere = refundable.filter((i) => !rights[i.id]?.allowed);
+      setCollectedElsewhere({
+        count: rightsError ? 0 : elsewhere.length,
+        names: [...new Set(elsewhere.map((i) => rights[i.id]?.collector).filter((n): n is string => !!n))],
+        blocked: (rightsData as { blocked?: string } | null)?.blocked === 'support_session',
+      });
+      setItems(mine);
       setRefundedItems(refunded);
       setSelectedIds(new Set());
     } catch (err) {
@@ -294,7 +313,7 @@ export default function OwnerRefunds() {
     } finally {
       setFetching(false);
     }
-  }, [selectedEventId, scopeReady, isOrganizerScope, venueId]);
+  }, [selectedEventId, scopeReady, isOrganizerScope, venueId, t]);
 
   useEffect(() => {
     if (!selectedEventId || !scopeReady) { setItems([]); setRefundedItems([]); return; }
@@ -433,6 +452,15 @@ export default function OwnerRefunds() {
             </TabsList>
 
             <TabsContent value="pending" className="space-y-3 mt-3">
+              {!fetching && (collectedElsewhere.blocked || collectedElsewhere.count > 0) && (
+                <p className="rounded-lg owner-list-item p-3 text-xs text-muted-foreground">
+                  {collectedElsewhere.blocked
+                    ? t('refund.blockedSupport')
+                    : collectedElsewhere.names.length > 0
+                      ? t('refund.collectedBy').replace('{name}', collectedElsewhere.names.join(', '))
+                      : t('refund.collectedByOther')}
+                </p>
+              )}
               {fetching ? (
                 <div className="flex justify-center py-8">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />

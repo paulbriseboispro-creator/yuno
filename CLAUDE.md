@@ -1400,10 +1400,17 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
 - **Plafond, reste et droits = `_shared/sale-refund.ts`** (pur, testé, importé
   tel quel par le front via `src/lib/saleRefund.ts`) : ce que le client a payé
   hors frais Yuno et assurance (l'acompte pour une table), moins
-  `refund_amount`, cumul en CENTIMES. Qui rembourse : owner, manager
-  `can_manage_refunds`, organisateur, membre `org_member_has_permission(…,
-  'refund')` — jamais une commande de boissons côté orga. Le front lit
-  `useCanRefund()` ; ne jamais montrer un bouton que `refundAllowed` refuse.
+  `refund_amount`, cumul en CENTIMES. **Seul l'ENCAISSEUR rembourse**
+  (décision de Paul, 30/09) : `saleCollector` désigne la partie dont le compte
+  Stripe (`venues.stripe_account_id` / `profiles.stripe_connect_account_id`)
+  est celui de la vente (`stripe_connected_account_id`), sinon la partie
+  PRINCIPALE (club qui mène, sinon organisateur qui mène) ; une commande de
+  boissons revient au club du bar. Chez l'encaisseur : owner ou manager
+  `can_manage_refunds`, fondateur ou membre `org_member_has_permission(…,
+  'refund')`. Un partenaire de collab ou un co-hôte ne rembourse JAMAIS une
+  vente encaissée par un autre. Le front lit `useCanRefund()` (droit de rôle)
+  puis l'action `rights` d'owner-refund (vente par vente) : ne jamais montrer un
+  bouton que `refundAllowed` refuse.
 - **Le montant se RÉSERVE avant Stripe** (mise à jour conditionnelle de
   `refund_amount` sur l'ancienne valeur), l'appel Stripe porte une clé
   d'idempotence, et un refus rend la réservation (`refundSaleOnStripe`

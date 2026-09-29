@@ -9,6 +9,9 @@ import { useActingOrganizer } from '@/hooks/useActingOrganizer';
  * - club : le propriétaire, ou un manager à qui il a donné « Remboursements » ;
  * - organisateur : le fondateur, ou un membre d'équipe autorisé (admin, ou droit
  *   « Effectuer des remboursements »).
+ * C'est le droit de RÔLE. Vente par vente, le serveur vérifie ensuite que
+ * l'appelant est l'ENCAISSEUR (action `rights` d'owner-refund) : une vente
+ * encaissée par un partenaire se rembourse depuis SON compte Stripe.
  * Un bouton qui mène à un refus serveur est pire que pas de bouton.
  */
 export function useCanRefund(): boolean {
