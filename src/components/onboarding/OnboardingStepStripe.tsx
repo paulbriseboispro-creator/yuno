@@ -5,6 +5,8 @@ import { PlanCode, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, POS, T1, T2, T3, BORDER } from './onboardingUI';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 
 interface StripeConnectStatus {
   connected: boolean;
@@ -12,6 +14,7 @@ interface StripeConnectStatus {
   payoutsEnabled: boolean;
   onboardingComplete: boolean;
   accountId: string | null;
+  country?: string | null;
 }
 
 interface SubscriptionStatus {
@@ -29,7 +32,7 @@ interface Props {
   stripeStatus: StripeConnectStatus;
   subscription: SubscriptionStatus;
   loading: boolean;
-  startOnboarding: (opts?: { returnUrl?: string; refreshUrl?: string }) => Promise<void>;
+  startOnboarding: (opts?: { returnUrl?: string; refreshUrl?: string; country?: string }) => Promise<void>;
   refreshStatus: () => Promise<void>;
   startSubscription: (planCode?: PlanCode) => Promise<void>;
   checkSubscription: () => Promise<void>;
@@ -78,12 +81,14 @@ export function OnboardingStepStripe({
 
   const isConnected = stripeStatus.connected;
   const isFullyVerified = stripeStatus.connected && stripeStatus.chargesEnabled;
+  const connectCountry = useConnectCountry({ kind: 'venue', venueId }, !loading && !isConnected);
 
   const handleStartOnboarding = () => {
     const origin = window.location.origin;
     startOnboarding({
       returnUrl: `${origin}/owner/onboarding?stripe=success`,
       refreshUrl: `${origin}/owner/onboarding?stripe=refresh`,
+      country: connectCountry.country,
     });
   };
 
@@ -159,6 +164,7 @@ export function OnboardingStepStripe({
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{t('onboarding.stripePending')}</span>
               </div>
               <p style={{ color: T3, fontSize: 12 }}>{t('onboarding.stripePendingHint')}</p>
+              <StripeAccountCountry country={stripeStatus.country} />
               <GhostButton icon={Loader2} onClick={handleRefresh} style={{ padding: '8px 12px', fontSize: 13 }}>
                 {t('onboarding.refreshStatus')}
               </GhostButton>
@@ -169,7 +175,8 @@ export function OnboardingStepStripe({
                 <p style={{ color: T2, fontSize: 12, fontWeight: 600 }}>{t('onboarding.stripeWhatIs')}</p>
                 <p style={{ color: T3, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>{t('onboarding.stripeExplain')}</p>
               </div>
-              <PrimaryButton icon={ExternalLink} onClick={handleStartOnboarding} style={{ padding: '9px 14px', fontSize: 13 }}>
+              <StripeCountryField choice={connectCountry} />
+              <PrimaryButton icon={ExternalLink} onClick={handleStartOnboarding} disabled={!connectCountry.canCreate} style={{ padding: '9px 14px', fontSize: 13 }}>
                 {t('onboarding.connectStripe')}
               </PrimaryButton>
             </div>

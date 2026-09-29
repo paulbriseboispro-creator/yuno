@@ -19,11 +19,13 @@ export interface DJStripeStatus {
   status: 'none' | 'pending' | 'active' | 'restricted';
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
+  /** Pays du compte chez Stripe (ISO alpha-2), figé à la création. */
+  country: string | null;
 }
 
 export function useDJStripeConnect() {
   const [stripe, setStripe] = useState<DJStripeStatus>({
-    connected: false, status: 'none', chargesEnabled: false, payoutsEnabled: false,
+    connected: false, status: 'none', chargesEnabled: false, payoutsEnabled: false, country: null,
   });
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -42,6 +44,7 @@ export function useDJStripeConnect() {
         status: data.status || 'none',
         chargesEnabled: data.chargesEnabled || false,
         payoutsEnabled: data.payoutsEnabled || false,
+        country: data.country || null,
       });
       trackStripeConnectStatus('dj', userId, { accountId: data.connected ? userId : null, ready: !!data.chargesEnabled });
     } catch (e) {
@@ -57,13 +60,14 @@ export function useDJStripeConnect() {
     })();
   }, [refresh]);
 
-  const startOnboarding = async () => {
+  /** `country` = pays de résidence choisi avant la création du compte (définitif chez Stripe). */
+  const startOnboarding = async (country?: string) => {
     // Un second clic pendant l'appel ouvrirait un second compte Stripe.
     if (startingRef.current) return;
     startingRef.current = true;
     trackStripeConnectStarted('dj', userId);
     const { data, error } = await invokeEdgeFunction('stripe-connect', {
-      body: { action: 'onboard', actor_type: 'dj' },
+      body: { action: 'onboard', actor_type: 'dj', country, language },
     });
     if (!error && data?.url) {
       // Full redirect — Stripe returns the DJ to /dj/bookings?stripe=success.

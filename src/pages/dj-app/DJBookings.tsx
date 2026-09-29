@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDJData, type DJBookingRequest, type DJSecuredContract } from '@/contexts/DJDataContext';
 import { useDJStripeConnect } from '@/hooks/useDJStripeConnect';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import { downloadDJContractPDF } from '@/lib/generateDJContractPDF';
@@ -70,6 +72,8 @@ export default function DJBookings() {
   const stripeActive = stripe.status === 'active' && stripe.payoutsEnabled;
   const stripePending = stripe.status === 'pending' || stripe.status === 'restricted' || (stripe.connected && !stripe.payoutsEnabled);
   const stripeNone = !stripe.connected || stripe.status === 'none';
+  // Pays du compte à ouvrir : lu seulement tant qu'aucun compte n'existe (il est figé ensuite).
+  const connectCountry = useConnectCountry({ kind: 'dj', userId: user?.id }, !stripeLoading && stripeNone);
 
   const pending = useMemo(() => bookingRequests.filter((r) => r.status === 'pending'), [bookingRequests]);
   const history = useMemo(() => bookingRequests.filter((r) => r.status !== 'pending'), [bookingRequests]);
@@ -211,7 +215,13 @@ export default function DJBookings() {
                  'Connect Stripe to receive your secured fees straight to your bank (2 min).',
                  'Conecta Stripe para recibir tus cachés en tu banco (2 min).')}
             </p>
-            <button onClick={startOnboarding} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold" style={{ background: RED, color: '#fff' }}>
+            <StripeCountryField choice={connectCountry} audience="dj" />
+            <button
+              onClick={() => startOnboarding(connectCountry.country)}
+              disabled={!connectCountry.canCreate}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: RED, color: '#fff' }}
+            >
               <CreditCard className="w-4 h-4" />{tt('Activer les paiements', 'Activate payments', 'Activar pagos')}
             </button>
           </div>
@@ -221,8 +231,9 @@ export default function DJBookings() {
               <AlertCircle className="mt-0.5 w-4 h-4 shrink-0" style={{ color: WARN }} />
               <p className="text-[12.5px]" style={{ color: T2 }}>{tt('Onboarding incomplet. Termine les vérifications Stripe pour être payé.', 'Onboarding incomplete. Finish Stripe checks to get paid.', 'Onboarding incompleto. Termina las verificaciones para cobrar.')}</p>
             </div>
+            <StripeAccountCountry country={stripe.country} />
             <div className="flex flex-wrap gap-2">
-              <button onClick={startOnboarding} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold" style={{ background: RED, color: '#fff' }}>{tt('Reprendre', 'Resume', 'Reanudar')}</button>
+              <button onClick={() => startOnboarding()} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold" style={{ background: RED, color: '#fff' }}>{tt('Reprendre', 'Resume', 'Reanudar')}</button>
               <button onClick={refreshStripe} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>{tt('Actualiser', 'Refresh', 'Actualizar')}</button>
             </div>
           </div>

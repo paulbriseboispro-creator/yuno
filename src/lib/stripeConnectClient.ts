@@ -24,6 +24,12 @@ export function stripeConnectErrorMessage(
         "Stripe couldn't open your payment account. The Yuno team has been notified and will get back to you shortly.",
         'Stripe no ha podido abrir tu cuenta de pagos. El equipo de Yuno ya está avisado y te contactará muy pronto.',
       );
+    case 'stripe_country_unsupported':
+      return t(
+        "Yuno ne peut pas ouvrir de compte de paiement Stripe pour ce pays. Choisissez le pays où votre structure est immatriculée.",
+        "Yuno can't open a Stripe payment account for this country. Choose the country where your business is registered.",
+        'Yuno no puede abrir una cuenta de pago Stripe para este país. Elige el país donde está registrada tu estructura.',
+      );
     case 'stripe_onboarding_link_failed':
       return t(
         "Le formulaire Stripe ne s'ouvre pas pour le moment. Réessayez dans un instant.",

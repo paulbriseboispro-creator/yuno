@@ -3,12 +3,16 @@ import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { OrgCard, OrgButton, OrgPill, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 
 export function OrgStripeConnectCard({ userId }: { userId: string | null | undefined }) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { status, chargesEnabled, payoutsEnabled, loading, startingOnboarding, startOnboarding, openDashboard, refresh } =
+  const { status, chargesEnabled, payoutsEnabled, country, loading, startingOnboarding, startOnboarding, openDashboard, refresh } =
     useOrganizerStripe(userId);
+  // Pays du compte à ouvrir : lu seulement tant qu'aucun compte n'existe (il est figé ensuite).
+  const connectCountry = useConnectCountry({ kind: 'organizer', userId }, !loading && status === 'none' && !chargesEnabled);
 
   if (loading) {
     return (
@@ -69,9 +73,14 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
               )}
             </p>
           </div>
-          <OrgButton variant="primary" onClick={() => startOnboarding()} disabled={startingOnboarding}>
+          <StripeCountryField choice={connectCountry} />
+          <OrgButton
+            variant="primary"
+            onClick={() => startOnboarding({ country: connectCountry.country })}
+            disabled={startingOnboarding || !connectCountry.canCreate}
+          >
             {startingOnboarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-            {t('Activer les paiements', 'Activate payments')}
+            {t('Activer les paiements', 'Activate payments', 'Activar los pagos')}
           </OrgButton>
         </div>
       )}
@@ -97,6 +106,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
                 )}
             </p>
           </div>
+          <StripeAccountCountry country={country} />
           <div className="flex flex-wrap gap-2">
             <OrgButton variant="primary" size="sm" onClick={() => startOnboarding()} disabled={startingOnboarding}>
               {startingOnboarding && <Loader2 className="h-4 w-4 animate-spin" />}

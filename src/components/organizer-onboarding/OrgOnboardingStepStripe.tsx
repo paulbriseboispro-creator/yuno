@@ -4,6 +4,8 @@ import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useIsAssociation, commissionFloorLabel } from '@/hooks/useIsAssociation';
 import { CreditCard, ShieldCheck, Zap, ExternalLink, Check, type LucideIcon } from 'lucide-react';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, RED, POS, T1, T2, T3, BORDER } from '@/components/onboarding/onboardingUI';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 
 interface Props {
   userId: string;
@@ -14,9 +16,12 @@ interface Props {
 export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { canSell, status, loading, startingOnboarding, startOnboarding, openDashboard } = useOrganizerStripe(userId);
+  const { canSell, status, country, loading, startingOnboarding, startOnboarding, openDashboard } = useOrganizerStripe(userId);
   // Formulaire commencé (en attente) ou incomplet (Stripe réclame un document).
   const inProgress = status === 'pending' || status === 'restricted';
+  // Aucun compte encore : le pays se choisit ici, avant la création (il est figé ensuite).
+  const needsAccount = !loading && !canSell && status === 'none';
+  const connectCountry = useConnectCountry({ kind: 'organizer', userId }, needsAccount);
   // Retour sur CE guide (et non sur la page Paiements) : OrgAppOnboarding lit
   // `?stripe=` et coche l'étape Paiements dès que Stripe a ramené le pro.
   const handleStartOnboarding = () => {
@@ -24,6 +29,7 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
     return startOnboarding({
       returnUrl: `${origin}/organizer-app/onboarding?stripe=success`,
       refreshUrl: `${origin}/organizer-app/onboarding?stripe=refresh`,
+      country: connectCountry.country,
     });
   };
   const floor = commissionFloorLabel(useIsAssociation(userId), language);
@@ -76,13 +82,21 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
         <div className="rounded-xl" style={{ padding: '12px 14px', background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
           <p style={{ color: 'var(--acc-fcd34d)', fontSize: 13.5, fontWeight: 600 }}>{tt('Onboarding incomplet', 'Onboarding incomplete', 'Configuración incompleta')}</p>
           <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{tt('Reprenez votre configuration Stripe pour pouvoir vendre.', 'Resume your Stripe setup to start selling.', 'Reanuda tu configuración de Stripe para poder vender.')}</p>
+          <div style={{ marginTop: 6 }}><StripeAccountCountry country={country} /></div>
         </div>
       ) : null}
 
       <div className="space-y-2.5">
         {!canSell ? (
           <>
-            <PrimaryButton fullWidth icon={CreditCard} onClick={handleStartOnboarding} loading={loading || startingOnboarding}>
+            {needsAccount && <StripeCountryField choice={connectCountry} />}
+            <PrimaryButton
+              fullWidth
+              icon={CreditCard}
+              onClick={handleStartOnboarding}
+              loading={loading || startingOnboarding}
+              disabled={needsAccount && !connectCountry.canCreate}
+            >
               {inProgress ? tt('Reprendre Stripe', 'Resume Stripe', 'Reanudar Stripe') : tt('Connecter Stripe', 'Connect Stripe', 'Conectar Stripe')}
             </PrimaryButton>
             {onSkip && (

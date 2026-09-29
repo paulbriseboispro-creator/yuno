@@ -4,6 +4,8 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoEmail, setDemoPlan } from '@/lib/demoPlan';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
@@ -110,6 +112,8 @@ export default function OwnerBilling() {
   const { venueId } = useOwnerVenue();
   const { plan, status, isTrial, daysRemaining, currentPeriodEnd, isEarlyAdopter, priceLocked, billingInterval, loading, refreshPlan } = useSubscriptionPlan();
   const { stripeStatus, loading: stripeLoading, startingOnboarding, startOnboarding, openDashboard, refreshStatus, manageSubscription } = useStripeConnect(venueId);
+  // Pays du compte à ouvrir : lu seulement tant qu'aucun compte n'existe (il est figé ensuite).
+  const connectCountry = useConnectCountry({ kind: 'venue', venueId }, !stripeLoading && !stripeStatus.connected);
   const [subscribing, setSubscribing] = useState<PlanCode | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>('annual');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -293,10 +297,11 @@ export default function OwnerBilling() {
                 <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: T3 }} />
                 <span style={{ color: T2, fontSize: 13 }}>{t('plan.stripeConnectPrompt')}</span>
               </div>
-              <button onClick={() => startOnboarding()} disabled={startingOnboarding}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold w-fit cursor-pointer transition-all duration-150"
+              <StripeCountryField choice={connectCountry} />
+              <button onClick={() => startOnboarding({ country: connectCountry.country })} disabled={startingOnboarding || !connectCountry.canCreate}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold w-fit cursor-pointer transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` }}>
-                <CreditCard className="w-4 h-4" />{t('plan.connectStripe')}
+                {startingOnboarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}{t('plan.connectStripe')}
               </button>
             </div>
           ) : (
@@ -311,6 +316,7 @@ export default function OwnerBilling() {
                   {stripeStatus.chargesEnabled ? t('plan.active') : t('plan.stripeConfigRequired')}
                 </span>
               </div>
+              <StripeAccountCountry country={stripeStatus.country} />
               <div className="flex gap-2 flex-wrap">
                 <button onClick={openDashboard}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
