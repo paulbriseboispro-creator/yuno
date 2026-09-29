@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
@@ -39,6 +40,35 @@ export default function OrgAppTeam() {
   // promettre un refus serveur. Le staff opérationnel, lui, accepte un admin
   // d'équipe (`invite-staff` vérifie `is_org_team_member(…, 'admin')`).
   const { organizerId, can, isOwner } = useActingOrganizer();
+
+  // Prix du vestiaire (soirées sans club) — lu dans organizer_profiles, écrit
+  // par la RPC set_organizer_cloakroom_price (fondateur seulement).
+  const [cloakPrice, setCloakPrice] = useState('');
+  const [savingCloakPrice, setSavingCloakPrice] = useState(false);
+  useEffect(() => {
+    if (!organizerId) return;
+    (supabase as unknown as SupabaseClient)
+      .from('organizer_profiles')
+      .select('cloakroom_price')
+      .eq('user_id', organizerId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = (data as { cloakroom_price: number | null } | null)?.cloakroom_price;
+        setCloakPrice(v != null ? String(v) : '');
+      });
+  }, [organizerId]);
+  const saveCloakPrice = async () => {
+    const value = Number(cloakPrice.replace(',', '.'));
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      toast.error(t('Prix invalide', 'Invalid price'));
+      return;
+    }
+    setSavingCloakPrice(true);
+    const { data, error } = await (supabase as unknown as SupabaseClient).rpc('set_organizer_cloakroom_price', { p_price: value });
+    setSavingCloakPrice(false);
+    if (error || !data) toast.error(t("Enregistrement impossible", 'Could not save'));
+    else toast.success(t('Prix du vestiaire enregistré', 'Cloakroom price saved'));
+  };
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
@@ -325,6 +355,27 @@ export default function OrgAppTeam() {
               <Plus className="h-4 w-4" />{t('Inviter un staff', 'Invite staff')}
             </OrgButton>
           </div>
+
+          {/* Prix du vestiaire des soirées SANS club (dans un club, c'est le
+              prix du club qui s'applique). Réglé par le fondateur. */}
+          {isOwner && staff.some(s => s.role === 'cloakroom') && (
+            <OrgCard>
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0 flex-1">
+                  <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('Prix du vestiaire', 'Cloakroom price')}</p>
+                  <p style={{ color: T3, fontSize: 12 }}>
+                    {t("Par emplacement, pour vos soirées sans club. 0 € = vestiaire gratuit.", 'Per item, for your events without a club. €0 = free cloakroom.')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DarkInput type="number" value={cloakPrice} onChange={setCloakPrice} placeholder="4" />
+                  <OrgButton variant="secondary" onClick={saveCloakPrice} disabled={savingCloakPrice}>
+                    {savingCloakPrice ? <Loader2 className="h-4 w-4 animate-spin" /> : t('Enregistrer', 'Save')}
+                  </OrgButton>
+                </div>
+              </div>
+            </OrgCard>
+          )}
 
           {loadingStaff ? (
             <Loading />

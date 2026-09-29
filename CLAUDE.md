@@ -1423,7 +1423,7 @@ qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
 
 Revue complète des quatre postes avant les premières vraies soirées
 (migrations `20260929233000` VIP, `234000` porte, `235000` vestiaire, `236000`
-bar). Règle unique : **chaque personne a SON compte, la base tranche qui a fait
+bar, `237000` compteur de porte). Règle unique : **chaque personne a SON compte, la base tranche qui a fait
 quoi, le téléphone ne décide jamais.** Toute écriture d'équipe est soit un
 `UPDATE … WHERE <état attendu>` dont on LIT le nombre de lignes, soit une RPC
 qui verrouille. Un 0-ligne = « un collègue est passé avant » (message, relecture),
@@ -1469,6 +1469,17 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   au « responsable C&C » (drapeau que chacun pouvait se donner) est supprimée,
   et le drapeau ne s'écrit plus soi-même. Un client ne passe jamais une
   commande « payée » (`protect_order_immutable_fields`).
+- **Porte, suite** : un billet HORS CRÉNEAU n'est PAS consommé au scan
+  (`pendingLateRef`) — « Accepter » valide l'entrée, « Refuser + remboursement »
+  passe par `staff-cancel` (qui refuse un billet déjà scanné). Les entrées se
+  comptent en PERSONNES par une seule fonction, `_door_headcount` (migration
+  `20260929237000`), lue par le videur (`get_door_counters`) ET par
+  `get_staff_night_pulse` : ne jamais recompter côté front.
+- **Vestiaire d'organisateur** : la portée du vestiaire est la SOIRÉE
+  (`cloakroom_transactions.venue_id` facultatif, `can_run_event_cloakroom`),
+  la recherche de QR passe par `cloakroom_lookup` (le préposé n'a pas le droit
+  de lire les billets), le prix vient de `cloakroom_event_price` (club, sinon
+  `organizer_profiles.cloakroom_price` réglé dans Équipe, sinon 4 €).
 - **PIN** : la session PIN (`staffSession`) porte le `userId` ; elle ne
   déverrouille plus un autre compte sur un téléphone partagé.
 - **Déploiement** : ces migrations passent AVANT le front (les écrans appellent

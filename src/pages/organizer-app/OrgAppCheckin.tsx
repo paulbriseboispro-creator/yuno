@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
@@ -25,6 +26,9 @@ import {
   POS, RED, RED_SOFT, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
+
+// RPC vestiaire (migration 20260929235000) pas encore dans les types générés.
+const untypedClient = supabase as unknown as SupabaseClient;
 
 type ScanTab = 'tickets' | 'drinks' | 'cloakroom';
 type TicketMode = 'entry' | 'cancel';
@@ -101,11 +105,10 @@ export default function OrgAppCheckin() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [drinkResult, setDrinkResult] = useState<{ ok: boolean; label?: string; reason?: string } | null>(null);
   const [drinkProcessing, setDrinkProcessing] = useState(false);
-  const [cloakResult, setCloakResult] = useState<{ ok: boolean; label?: string; reason?: string } | null>(null);
+  const [cloakResult, setCloakResult] = useState<{ ok: boolean; label?: string; reason?: string; txId?: string } | null>(null);
   const [cloakProcessing, setCloakProcessing] = useState(false);
 
   const selectedEvent = useMemo(() => events.find(e => e.id === eventId), [events, eventId]);
-  const eventVenueId: string | null = selectedEvent?.venue_id ?? selectedEvent?.partner_venue_id ?? null;
 
   /**
    * Périmètre de porte de la soirée sélectionnée — même contrat que l'app Pro
@@ -483,26 +486,59 @@ export default function OrgAppCheckin() {
     }
   };
 
+  // Vestiaire de la soirée — club OU soirée sans club : la base lit le QR
+  // (cloakroom_lookup) et rend le vêtement (cloakroom_retrieve), comme l'écran
+  // du préposé. Avant, l'onglet exigeait un club et ne pouvait rien lire.
   const handleCloakroomScan = async (qrText: string) => {
     const code = qrText.trim();
     if (!eventId || !code || cloakProcessing) return;
-    if (!eventVenueId) { setCloakResult({ ok: false, reason: t('Vestiaire dispo uniquement en événement club', 'Cloakroom only for venue events') }); return; }
     setCloakProcessing(true);
     setCloakResult(null);
     try {
-      const { data: tx } = await supabase
-        .from('cloakroom_transactions')
-        .select('id, retrieved, retrieved_at, cloakroom_number, items_count, attendee_qr')
-        .eq('attendee_qr', code)
-        .eq('venue_id', eventVenueId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!tx) { setCloakResult({ ok: false, reason: t('Aucun dépôt actif pour ce QR', 'No active deposit for this QR') }); return; }
-      const statusLabel = tx.retrieved ? t('récupéré', 'retrieved') : t('en dépôt', 'in storage');
-      setCloakResult({ ok: true, label: `${t('Vestiaire', 'Cloakroom')} #${tx.cloakroom_number ?? '—'} · ${tx.items_count ?? 1} ${t('pièce(s)', 'item(s)')} — ${statusLabel}` });
-    } catch (e: any) {
-      setCloakResult({ ok: false, reason: e.message ?? t('Erreur de scan', 'Scan error') });
+      const { data, error } = await untypedClient.rpc('cloakroom_lookup', { p_qr: code, p_event: eventId });
+      if (error) throw error;
+      const found = data as { ok: boolean; reason?: string; mode?: string; tx?: { id: string; cloakroom_number: string; items_count: number } } | null;
+      if (!found?.ok) {
+        setCloakResult({ ok: false, reason: found?.reason === 'other_night'
+          ? t("QR d'une autre soirée", 'QR for another night')
+          : t('QR non reconnu', 'Unrecognized QR') });
+        return;
+      }
+      if (found.mode !== 'retrieve' || !found.tx) {
+        setCloakResult({ ok: false, reason: t('Aucun dépôt en cours pour ce QR', 'No open deposit for this QR'),
+          label: t("Les dépôts se font depuis l'espace Vestiaire (app Yuno Pro).", 'Deposits are made from the Cloakroom space (Yuno Pro app).') });
+        return;
+      }
+      setCloakResult({
+        ok: true,
+        txId: found.tx.id,
+        label: `${t('Vestiaire', 'Cloakroom')} #${found.tx.cloakroom_number} · ${found.tx.items_count ?? 1} ${t('pièce(s)', 'item(s)')}`,
+      });
+    } catch {
+      setCloakResult({ ok: false, reason: t('Erreur de scan', 'Scan error') });
+    } finally {
+      setCloakProcessing(false);
+    }
+  };
+
+  const handleCloakroomReturn = async () => {
+    const txId = cloakResult?.txId;
+    if (!txId || cloakProcessing) return;
+    setCloakProcessing(true);
+    try {
+      const { data, error } = await untypedClient.rpc('cloakroom_retrieve', { p_tx: txId });
+      if (error) throw error;
+      const res = data as { ok: boolean; reason?: string } | null;
+      if (res?.ok) {
+        toast.success(t('Vestiaire rendu', 'Item returned'));
+        setCloakResult({ ok: true, label: `${cloakResult?.label ?? ''} — ${t('rendu', 'returned')}` });
+      } else {
+        setCloakResult({ ok: false, reason: res?.reason === 'already_retrieved'
+          ? t('Déjà rendu par un collègue', 'Already returned by a teammate')
+          : t('Action impossible', 'Not allowed') });
+      }
+    } catch {
+      toast.error(t('Erreur', 'Error'));
     } finally {
       setCloakProcessing(false);
     }
@@ -692,14 +728,21 @@ export default function OrgAppCheckin() {
         {tab === 'cloakroom' && (
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-4">
-              {infoBanner(Shirt, eventVenueId
-                ? t("Scannez le QR d'un participant pour voir son dépôt vestiaire.", 'Scan an attendee QR to view their cloakroom deposit.')
-                : t('Le vestiaire est disponible uniquement pour les événements hébergés dans un club.', 'Cloakroom is only available for events hosted at a venue.'))}
-              {eventVenueId && <OrgQRScanner onScan={handleCloakroomScan} />}
+              {infoBanner(Shirt, t("Scannez le QR d'un participant pour voir et rendre son dépôt vestiaire.", 'Scan an attendee QR to view and return their cloakroom deposit.'))}
+              <OrgQRScanner onScan={handleCloakroomScan} />
             </div>
             <div className="space-y-4">
               {cloakResult
-                ? <ScanResult ok={cloakResult.ok} title={cloakResult.ok ? t('Dépôt trouvé', 'Deposit found') : (cloakResult.reason ?? '—')} sub={cloakResult.label} />
+                ? (
+                  <>
+                    <ScanResult ok={cloakResult.ok} title={cloakResult.ok ? t('Dépôt trouvé', 'Deposit found') : (cloakResult.reason ?? '—')} sub={cloakResult.label} />
+                    {cloakResult.ok && cloakResult.txId && (
+                      <OrgButton variant="primary" className="w-full" disabled={cloakProcessing} onClick={handleCloakroomReturn}>
+                        {t('Rendre le vestiaire', 'Return the item')}
+                      </OrgButton>
+                    )}
+                  </>
+                )
                 : <WaitingPanel text={t('Scannez le QR d\'un participant.', 'Scan an attendee QR.')} />}
             </div>
           </div>

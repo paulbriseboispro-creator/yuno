@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
 import { useStaffNightPulse } from '@/hooks/useStaffNightPulse';
+import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import { toast } from 'sonner';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
@@ -81,7 +82,7 @@ const untyped = supabase as unknown as SupabaseClient;
 
 export default function CloakroomDashboard() {
   const { t, language } = useLanguage();
-  const { venueId: staffVenueId, loading: venueLoading } = useStaffIdentity();
+  const { venueId: staffVenueId, organizerUserId, loading: venueLoading } = useStaffIdentity();
   const [scanning, setScanning] = useState(false);
   const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
   const [scannerKey, setScannerKey] = useState(0);
@@ -115,7 +116,35 @@ export default function CloakroomDashboard() {
   // prenait la DERNIÈRE soirée active, souvent une date future : tous les
   // dépôts de la nuit étaient rangés sur une autre soirée.
   const { pulse } = useStaffNightPulse(venueId);
-  const currentEventId = pulse?.event?.id ?? null;
+
+  // Préposé d'un ORGANISATEUR (sans club) : la soirée de ce soir de cet
+  // organisateur, résolue comme à la porte (en cours, sinon celle du jour).
+  const [orgEventId, setOrgEventId] = useState<string | null>(null);
+  const [orgEventResolved, setOrgEventResolved] = useState(false);
+  useEffect(() => {
+    if (venueId || !organizerUserId) return;
+    let cancelled = false;
+    const resolve = async () => {
+      try {
+        const ids = await resolveDoorEventIds({ venueId: null, organizerUserId });
+        if (!cancelled) {
+          setOrgEventId(ids[0] ?? null);
+          setOrgEventResolved(true);
+        }
+      } catch {
+        /* coupure : on garde la soirée connue */
+      }
+    };
+    resolve();
+    const id = setInterval(resolve, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [venueId, organizerUserId]);
+
+  const currentEventId = venueId ? pulse?.event?.id ?? null : orgEventId;
+  const eventResolved = venueId ? !!pulse : orgEventResolved;
 
   const money = useMemo(
     () => new Intl.NumberFormat(LOCALE_TAG[language] ?? 'fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }),
@@ -127,22 +156,22 @@ export default function CloakroomDashboard() {
     const vId = staffVenueId || readStaffSessionVenueId();
     if (!vId) return;
     setVenueId(vId);
-    supabase
-      .from('venues')
-      .select('cloakroom_price')
-      .eq('id', vId)
-      .maybeSingle()
-      .then(({ data: venue }) => {
-        // 0 € = vestiaire gratuit, un vrai réglage (l'ancien test le prenait
-        // pour « non renseigné » et facturait 4 €).
-        if (venue && venue.cloakroom_price != null) setCloakroomPrice(Number(venue.cloakroom_price));
-      });
   }, [staffVenueId]);
+
+  // Prix d'un emplacement pour CETTE soirée : club qui l'accueille, sinon
+  // organisateur, sinon 4 € — la même règle que la base (cloakroom_event_price).
+  // 0 € = vestiaire gratuit (l'ancien test le prenait pour « non renseigné »).
+  useEffect(() => {
+    if (!currentEventId) return;
+    untyped.rpc('cloakroom_event_price', { p_event: currentEventId }).then(({ data }) => {
+      if (data != null) setCloakroomPrice(Number(data));
+    });
+  }, [currentEventId]);
 
   // Une seule lecture pour la liste ET les compteurs : ils ne peuvent plus se
   // contredire. La plus récente gagne si deux lectures se croisent.
   const refresh = useCallback(async () => {
-    if (!venueId || !currentEventId) {
+    if (!currentEventId) {
       setActiveDepositsList([]);
       return;
     }
@@ -151,14 +180,12 @@ export default function CloakroomDashboard() {
       supabase
         .from('cloakroom_transactions')
         .select('id, cloakroom_number, customer_name, deposited_at, items_count, price, attendee_qr, ticket_id')
-        .eq('venue_id', venueId)
         .eq('event_id', currentEventId)
         .eq('retrieved', false)
         .order('deposited_at', { ascending: false }),
       supabase
         .from('cloakroom_transactions')
         .select('price, paid_on_site, payment_confirmed')
-        .eq('venue_id', venueId)
         .eq('event_id', currentEventId)
         .eq('payment_confirmed', true),
     ]);
@@ -171,14 +198,14 @@ export default function CloakroomDashboard() {
       setCashRevenue(rows.filter(r => r.paid_on_site).reduce((sum, r) => sum + Number(r.price), 0));
       setPrepaidRevenue(rows.filter(r => !r.paid_on_site).reduce((sum, r) => sum + Number(r.price), 0));
     }
-  }, [venueId, currentEventId]);
+  }, [currentEventId]);
 
   // Partage entre téléphones : realtime + rattrapage à la (re)connexion, au
   // retour au premier plan, et un filet toutes les 30 s.
   const scanResultRef = useRef<ScanResult | null>(null);
   scanResultRef.current = scanResult;
   useEffect(() => {
-    if (!venueId) return;
+    if (!currentEventId) return;
     refresh();
     let timer: ReturnType<typeof setTimeout> | null = null;
     const schedule = () => {
@@ -189,7 +216,7 @@ export default function CloakroomDashboard() {
       .channel(uniqueChannel('cloakroom-realtime'))
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'cloakroom_transactions', filter: `venue_id=eq.${venueId}` },
+        { event: '*', schema: 'public', table: 'cloakroom_transactions', filter: `event_id=eq.${currentEventId}` },
         (payload) => {
           schedule();
           // La fiche ouverte vient d'être rendue par un collègue : on la ferme.
@@ -215,7 +242,7 @@ export default function CloakroomDashboard() {
       document.removeEventListener('visibilitychange', onVisible);
       supabase.removeChannel(channel);
     };
-  }, [venueId, refresh, t]);
+  }, [currentEventId, refresh, t]);
 
   const startScanning = () => {
     setScanResult(null);
@@ -233,114 +260,52 @@ export default function CloakroomDashboard() {
 
   const handleScan = useCallback(async (result: { rawValue?: string }[] | undefined) => {
     const qrCode = result?.[0]?.rawValue?.trim();
-    if (!venueId || !qrCode || scanLockRef.current) return;
+    if (!qrCode || scanLockRef.current) return;
+    if (!currentEventId) {
+      toast.error(t('cloakroom.noEventTonight'));
+      return;
+    }
     scanLockRef.current = true;
     setProcessing(true);
     setScanning(false);
 
     try {
-      // Dépôt ouvert pour ce QR ? (au plus un : index unique en base)
-      const { data: existing, error: existingError } = await supabase
-        .from('cloakroom_transactions')
-        .select('*')
-        .eq('venue_id', venueId)
-        .eq('attendee_qr', qrCode)
-        .eq('retrieved', false)
-        .order('deposited_at', { ascending: false })
-        .limit(1);
-      if (existingError) throw existingError;
-      const existingTx = existing?.[0];
+      // Une seule requête serveur (cloakroom_lookup) : dépôt ouvert, porteur du
+      // QR, bonne soirée, billet payé, option prépayée. Un préposé d'organisateur
+      // n'a pas le droit de lire les billets : c'est la base qui les lit.
+      const { data, error } = await untyped.rpc('cloakroom_lookup', { p_qr: qrCode, p_event: currentEventId });
+      if (error) throw error;
+      const found = data as {
+        ok: boolean; reason?: string; mode?: 'retrieve' | 'deposit';
+        tx?: NonNullable<ScanResult['existingTransaction']>;
+        name?: string | null; ticket_id?: string | null;
+        prepaid?: { id: string; unit_price: number | string | null } | null;
+      } | null;
 
-      if (existingTx) {
-        if (navigator.vibrate) navigator.vibrate(200);
-        setScanResult({
-          mode: 'retrieve',
-          customerName: existingTx.customer_name || t('cloakroom.guestFallback'),
-          ticketId: existingTx.ticket_id,
-          attendeeQr: qrCode,
-          existingTransaction: existingTx,
-        });
+      if (!found?.ok) {
+        toast.error(found?.reason === 'other_night' ? t('cloakroom.otherNight') : t('cloakroom.unrecognizedQR'));
         return;
       }
-
-      if (!currentEventId) {
-        toast.error(t('cloakroom.noEventTonight'));
-        return;
-      }
-
-      // Qui porte ce QR, et pour quelle soirée : un billet d'un autre soir ou
-      // remboursé n'ouvre pas le vestiaire (ni son option prépayée).
-      let customerName = t('cloakroom.guestFallback');
-      let ticketId: string | null = null;
-      let valid = false;
-      let otherNight = false;
-
-      const { data: attendee } = await supabase
-        .from('ticket_attendees')
-        .select('full_name, ticket_id, tickets!inner(event_id, status)')
-        .eq('qr_code', qrCode)
-        .maybeSingle();
-      if (attendee) {
-        const tk = attendee.tickets as unknown as { event_id: string; status: string };
-        customerName = attendee.full_name || customerName;
-        ticketId = attendee.ticket_id;
-        valid = tk.status === 'paid';
-        otherNight = tk.event_id !== currentEventId;
-      } else {
-        const { data: ticket } = await supabase
-          .from('tickets')
-          .select('id, full_name, event_id, status')
-          .eq('qr_code', qrCode)
-          .maybeSingle();
-        if (ticket) {
-          customerName = ticket.full_name || customerName;
-          ticketId = ticket.id;
-          valid = ticket.status === 'paid';
-          otherNight = ticket.event_id !== currentEventId;
-        } else {
-          const { data: guestEntry } = await supabase
-            .from('guest_list_entries')
-            .select('id, full_name, status, guest_lists!inner(event_id)')
-            .eq('qr_code', qrCode)
-            .maybeSingle();
-          if (guestEntry) {
-            customerName = guestEntry.full_name || customerName;
-            valid = guestEntry.status !== 'cancelled';
-            otherNight = (guestEntry.guest_lists as unknown as { event_id: string }).event_id !== currentEventId;
-          }
-        }
-      }
-
-      if (!valid) {
-        toast.error(t('cloakroom.unrecognizedQR'));
-        return;
-      }
-      if (otherNight) {
-        toast.error(t('cloakroom.otherNight'));
-        return;
-      }
-
       if (navigator.vibrate) navigator.vibrate(200);
 
-      if (ticketId) {
-        const { data: prepaid } = await supabase
-          .from('ticket_upsell_selections')
-          .select('*')
-          .eq('ticket_id', ticketId)
-          .eq('offer_type', 'cloakroom')
-          .eq('cloakroom_deposited', false)
-          .limit(1);
-        const prepaidUpsell = prepaid?.[0];
-        openDeposit({
-          mode: prepaidUpsell ? 'deposit_prepaid' : 'deposit_pay',
-          customerName,
-          ticketId,
+      if (found.mode === 'retrieve' && found.tx) {
+        setScanResult({
+          mode: 'retrieve',
+          customerName: found.tx.customer_name || t('cloakroom.guestFallback'),
+          ticketId: found.tx.ticket_id,
           attendeeQr: qrCode,
-          prepaidUpsell,
+          existingTransaction: found.tx,
         });
-      } else {
-        openDeposit({ mode: 'deposit_pay', customerName, ticketId: null, attendeeQr: qrCode });
+        return;
       }
+
+      openDeposit({
+        mode: found.prepaid ? 'deposit_prepaid' : 'deposit_pay',
+        customerName: found.name || t('cloakroom.guestFallback'),
+        ticketId: found.ticket_id ?? null,
+        attendeeQr: qrCode,
+        prepaidUpsell: found.prepaid ?? undefined,
+      });
     } catch (err) {
       console.error('Scan error:', err);
       toast.error(t('cloakroom.scanError'));
@@ -349,7 +314,7 @@ export default function CloakroomDashboard() {
       setProcessing(false);
       scanLockRef.current = false;
     }
-  }, [venueId, currentEventId, t]);
+  }, [currentEventId, t]);
 
   /** Dépôt sans QR Yuno (billet papier, autre billetterie, entrée libre). */
   const startManualDeposit = () => {
@@ -384,7 +349,7 @@ export default function CloakroomDashboard() {
   };
 
   const handleConfirmDeposit = async () => {
-    if (!cloakroomNumber.trim() || !scanResult || !venueId) {
+    if (!cloakroomNumber.trim() || !scanResult || !currentEventId) {
       toast.error(t('cloakroom.enterNumber'));
       return;
     }
@@ -398,7 +363,6 @@ export default function CloakroomDashboard() {
       const { data, error } = await retrySupabaseAction(async () => {
         const res = await untyped.rpc('cloakroom_deposit', {
           p_id: depositIdRef.current,
-          p_venue_id: venueId,
           p_event_id: currentEventId,
           p_attendee_qr: scanResult.attendeeQr || null,
           p_ticket_id: scanResult.ticketId,
@@ -529,13 +493,13 @@ export default function CloakroomDashboard() {
 
         {/* Préposé sans club (invité par un organisateur) : le vestiaire
             Yuno est rattaché à un club — on le dit au lieu d'une page muette. */}
-        {!venueId && !staffVenueId && (
+        {!venueLoading && !venueId && !staffVenueId && !organizerUserId && (
           <div className="rounded-2xl px-4 py-3" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}>
             {t('cloakroom.noVenue')}
           </div>
         )}
 
-        {venueId && pulse && !currentEventId && (
+        {(venueId || organizerUserId) && eventResolved && !currentEventId && (
           <div className="rounded-2xl px-4 py-3" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}>
             {t('cloakroom.noEventTonight')}
           </div>
