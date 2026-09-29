@@ -6,7 +6,7 @@ import { getFittedBackgroundRect } from '@/lib/floorPlanBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import {
-  ServiceReservation, TableServiceInfo, TABLE_STATE_COLORS, tableVisualState, fmtEuro,
+  ServiceReservation, TableServiceInfo, TABLE_STATE_COLORS, tableVisualState, fmtEuro, heldTables,
 } from './serviceTypes';
 
 interface ZoneArea {
@@ -61,9 +61,9 @@ export function ServiceFloorPlan({
   readOnly = false,
   onTableTap,
 }: ServiceFloorPlanProps) {
-  const { t, language } = useLanguage();
-  const tables = (floorPlan?.layout?.tables || []) as FloorPlanTable[];
-  const zoneAreas = (floorPlan?.layout?.zoneAreas || []) as ZoneArea[];
+  const { t } = useLanguage();
+  const tables = useMemo(() => (floorPlan?.layout?.tables || []) as FloorPlanTable[], [floorPlan]);
+  const zoneAreas = useMemo(() => (floorPlan?.layout?.zoneAreas || []) as ZoneArea[], [floorPlan]);
   const backgroundUrl = showBackground ? floorPlan?.backgroundImageUrl || null : null;
   const bgOffset = floorPlan?.layout?.bgOffset || { x: 0, y: 0 };
   const bgScale = floorPlan?.layout?.bgScale || 1;
@@ -146,20 +146,8 @@ export function ServiceFloorPlan({
     return map;
   }, [reservations]);
 
-  const requestedByTable = useMemo(() => {
-    const map = new Map<string, ServiceReservation>();
-    reservations.forEach(r => {
-      if (
-        r.requestedTableId &&
-        !r.assignedTableId &&
-        r.vipStatus === 'waiting' &&
-        r.placementStatus === 'requested'
-      ) {
-        map.set(r.requestedTableId, r);
-      }
-    });
-    return map;
-  }, [reservations]);
+  // Tables promises (pré-placement ou demande) à un client pas encore installé.
+  const requestedByTable = useMemo(() => heldTables(reservations), [reservations]);
 
   // ─── Gestes tactiles : pan 1 doigt, pinch 2 doigts ─────────────────────────
 
@@ -305,6 +293,9 @@ export function ServiceFloorPlan({
               const cx = table.x + table.width / 2;
               const spend = info ? fmtEuro(info.consumed) : '';
               const firstName = seated?.fullName?.split(' ')[0] || '';
+              // Table promise : le prénom du client attendu, pour qu'un collègue
+              // ne la donne pas à un walk-in sans le savoir.
+              const heldName = !seated && requestedBy ? requestedBy.fullName.split(' ')[0] : '';
               const alertCount = info ? info.pendingOrders : 0;
               const hasPreorder = !!info && info.preorders > 0;
 
@@ -359,6 +350,17 @@ export function ServiceFloorPlan({
                       <text x={cx} y={table.y + table.height * 0.78} textAnchor="middle" dominantBaseline="middle"
                         fill={colors.text} fontSize={Math.min(table.width, table.height) * 0.24} fontWeight={600} opacity={0.9}>
                         {spend}
+                      </text>
+                    </>
+                  ) : heldName && !compact ? (
+                    <>
+                      <text x={cx} y={table.y + table.height * 0.36} textAnchor="middle" dominantBaseline="middle"
+                        fill={colors.text} fontSize={Math.min(table.width, table.height) * 0.26} fontWeight={700}>
+                        {shortLabel}
+                      </text>
+                      <text x={cx} y={table.y + table.height * 0.68} textAnchor="middle" dominantBaseline="middle"
+                        fill={colors.text} fontSize={Math.min(table.width, table.height) * 0.22} fontWeight={600} opacity={0.85}>
+                        {heldName}
                       </text>
                     </>
                   ) : (
@@ -437,15 +439,15 @@ export function ServiceFloorPlan({
         <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgb(var(--ink)/var(--ink-a50,0.5))' }}>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgb(var(--ink)/0.08)', border: '1px solid rgb(var(--ink)/var(--ink-a30,0.3))' }} />
-            {language === 'fr' ? 'Libre' : language === 'es' ? 'Libre' : 'Free'}
+            {t('vipHost.legendFree')}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(232,25,44,0.16)', border: '1px dashed #E8192C' }} />
-            {language === 'fr' ? 'Table demandée' : language === 'es' ? 'Mesa solicitada' : 'Requested'}
+            {t('vipnight.legendRequested')}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(16,185,129,0.35)', border: '1px solid rgb(16,185,129)' }} />
-            {language === 'fr' ? 'Placé' : language === 'es' ? 'Sentado' : 'Seated'}
+            {t('vipnight.legendSeated')}
           </span>
         </div>
       ) : (

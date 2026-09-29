@@ -12,6 +12,10 @@ interface SeatPickerSheetProps {
   reservation: ServiceReservation | null;
   /** true = déplacement d'un client déjà installé, false = installation initiale. */
   moveMode: boolean;
+  /** Soirée pas encore commencée : on PROMET une table (pré-placement), on n'installe pas. */
+  isPlanning?: boolean;
+  /** Tables promises à d'autres clients pas encore installés. */
+  heldByTable?: Map<string, ServiceReservation>;
   floorPlan: VenueFloorPlan | null;
   reservations: ServiceReservation[];
   serviceInfo: Map<string, TableServiceInfo>;
@@ -31,6 +35,8 @@ export function SeatPickerSheet({
   open,
   reservation,
   moveMode,
+  isPlanning = false,
+  heldByTable,
   floorPlan,
   reservations,
   serviceInfo,
@@ -43,24 +49,33 @@ export function SeatPickerSheet({
   const { t } = useLanguage();
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
 
-  const requestedFree =
-    !!reservation?.requestedTableId &&
-    !reservations.some(
+  const occupied = (tableId: string | null | undefined) =>
+    !!tableId &&
+    reservations.some(
       r =>
-        r.assignedTableId === reservation.requestedTableId &&
+        r.assignedTableId === tableId &&
         (r.vipStatus === 'placed' || r.vipStatus === 'active') &&
-        r.id !== reservation.id
+        r.id !== reservation?.id
     );
 
+  // Présélection : la table déjà promise à ce client (pré-placement), sinon
+  // celle qu'il a demandée au checkout — si personne n'y est installé.
   useEffect(() => {
     if (!open || !reservation) {
       setSelectedTableId(null);
       return;
     }
     if (moveMode) setSelectedTableId(reservation.assignedTableId || null);
-    else setSelectedTableId(requestedFree ? reservation.requestedTableId : null);
+    else if (reservation.assignedTableId && !occupied(reservation.assignedTableId)) setSelectedTableId(reservation.assignedTableId);
+    else if (reservation.requestedTableId && !occupied(reservation.requestedTableId)) setSelectedTableId(reservation.requestedTableId);
+    else setSelectedTableId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reservation?.id]);
+
+  const heldForOther = selectedTableId ? heldByTable?.get(selectedTableId) : undefined;
+  const heldWarning = heldForOther && heldForOther.id !== reservation?.id ? heldForOther : null;
+  // Pré-placement seulement tant que le client n'est pas là.
+  const promising = isPlanning && !moveMode && !reservation?.hasArrived;
 
   if (!reservation) return null;
 
@@ -96,6 +111,11 @@ export function SeatPickerSheet({
             onTableTap={tableId => setSelectedTableId(tableId)}
           />
           <p className="mt-2 text-center text-xs text-muted-foreground">{t('vipnight.pickFree')}</p>
+          {heldWarning && (
+            <p className="mt-2 rounded-lg px-3 py-2 text-center text-xs font-medium" style={{ background: 'rgba(232,25,44,0.1)', color: '#FCA5A5' }}>
+              {t('vipnight.tableHeldFor').replace('{name}', heldWarning.fullName)}
+            </p>
+          )}
         </div>
 
         <div
@@ -113,12 +133,12 @@ export function SeatPickerSheet({
               <span className="truncate">{t('vipnight.offlineBlocked')}</span>
             ) : (
               <span className="truncate">
-                {(moveMode ? t('vipnight.moveTo') : t('vipnight.seatAt')).replace('{table}', tableName(selectedTableId))}
+                {(moveMode ? t('vipnight.moveTo') : promising ? t('vipnight.preassignAt') : t('vipnight.seatAt')).replace('{table}', tableName(selectedTableId))}
               </span>
             )}
           </Button>
 
-          {!moveMode && (
+          {!moveMode && !promising && (
             <div className="flex gap-2">
               <Button
                 variant="outline"

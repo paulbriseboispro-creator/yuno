@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
 import type { TablesUpdate } from '@/integrations/supabase/types';
@@ -6,8 +7,7 @@ import { VipConsumption, VenueFloorPlan } from '@/types';
 import { useStaffVenue } from './useStaffVenue';
 import {
   ServiceReservation, ServiceOrder, ServiceMenuItem, ServiceQuickItem, ServiceMoment,
-  CartLine, TableServiceInfo, VipEventOption, buildServiceInfo, cartTotal, cartLinePrice,
-  consumptionItemType, reservationPriority,
+  CartLine, TableServiceInfo, VipEventOption, buildServiceInfo, reservationPriority,
 } from '@/components/vip-service/serviceTypes';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,12 +17,55 @@ import {
 // (vip_consumptions) = grand livre servi. Le crédit client ne bouge qu'à
 // l'insertion d'une conso ("servi"), jamais à la commande.
 //
-// Écritures réservation : un pur vip_host n'a le droit qu'aux colonnes de
-// service (trigger enforce_vip_host_reservation_columns). Les champs de revue
-// de placement font partie de l'allow-list depuis 20260714190000 ; en cas de
-// base pas encore migrée on retente sans ces champs (42501) pour ne jamais
-// bloquer l'installation d'un client.
+// Plusieurs hôtes travaillent la même soirée sur plusieurs téléphones. Règle :
+// chaque écriture de réservation est CONDITIONNELLE à l'état que l'hôte avait
+// sous les yeux (UPDATE … WHERE vip_status = attendu). Si un collègue est
+// passé avant, 0 ligne → AlreadyHandledError, l'écran le dit et se remet à
+// jour, rien n'est écrasé. Une table n'accueille qu'un groupe installé à la
+// fois (index unique + trigger enforce_assigned_table_exists, 23505).
+//
+// Commandes et grand livre passent par des RPC atomiques
+// (20260929233000) : vip_create_table_order, vip_serve_table_order,
+// vip_serve_items — prix lus dans la carte, tout ou rien, idempotentes par
+// requestId (un renvoi après une réponse perdue ne débite pas deux fois).
+//
+// Un pur vip_host n'a le droit qu'aux colonnes de service (trigger
+// enforce_vip_host_reservation_columns).
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Un collègue a déjà traité cette réservation / commande. */
+export class AlreadyHandledError extends Error {
+  constructor() {
+    super('already_handled');
+    this.name = 'AlreadyHandledError';
+  }
+}
+
+export const isAlreadyHandled = (error: unknown): boolean =>
+  error instanceof AlreadyHandledError || (error as Error | null)?.message === 'already_handled';
+
+/** Ligne envoyée aux RPC de service : bouteille / bouton rapide / mixer relié. */
+interface ServiceItemPayload {
+  menu_item_id?: string;
+  quick_item_id?: string;
+  quantity: number;
+  parent_menu_item_id?: string;
+}
+
+const cartToPayload = (lines: CartLine[], withQuick: boolean): ServiceItemPayload[] => {
+  const out: ServiceItemPayload[] = [];
+  for (const line of lines) {
+    if (line.menuItem) {
+      out.push({ menu_item_id: line.menuItem.id, quantity: line.quantity });
+      for (const mixer of line.mixers) {
+        out.push({ menu_item_id: mixer.item.id, quantity: mixer.quantity, parent_menu_item_id: line.menuItem.id });
+      }
+    } else if (line.quickItem && withQuick) {
+      out.push({ quick_item_id: line.quickItem.id, quantity: line.quantity });
+    }
+  }
+  return out;
+};
 
 interface NightData {
   reservations: ServiceReservation[];
@@ -60,8 +103,15 @@ const mapFloorPlan = (row: any): VenueFloorPlan | null =>
       }
     : null;
 
-const isColumnGuardError = (error: unknown): boolean =>
-  (error as { code?: string } | null)?.code === '42501';
+// RPC et table de service pas encore présentes dans les types générés
+// (migration 20260929233000) : client non typé pour ces seuls appels.
+const untyped = supabase as unknown as SupabaseClient;
+
+/** Id de l'hôte connecté, lu dans la session locale (pas d'aller-retour réseau). */
+const currentUserId = async (): Promise<string | null> => {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? null;
+};
 
 export function useVipNight() {
   const { venueId, loading: venueLoading } = useStaffVenue();
@@ -102,8 +152,15 @@ export function useVipNight() {
 
   // ─── Lecture ────────────────────────────────────────────────────────────────
 
+  // Deux lectures peuvent se croiser (realtime + poll + changement de soirée) :
+  // seule la PLUS RÉCENTE a le droit d'écrire l'état, sinon une réponse lente
+  // réaffiche une table qu'un collègue vient d'installer, ou l'ancienne soirée.
+  const fetchSeq = useRef(0);
+
   const fetchData = useCallback(async (preferEventId?: string) => {
     if (!venueId) return;
+    const seq = ++fetchSeq.current;
+    const stale = () => seq !== fetchSeq.current;
     try {
       const now = new Date();
       // Toutes les soirées que l'hôte peut préparer : en cours OU à venir (pas
@@ -127,6 +184,7 @@ export function useVipNight() {
         endAt: e.end_at,
       }));
 
+      if (stale()) return;
       if (events.length === 0) {
         // Vraiment aucune soirée à venir : on charge quand même le plan
         // venue-level (filtre event_id IS NULL — un club avec co-events possède
@@ -137,6 +195,7 @@ export function useVipNight() {
           .eq('venue_id', venueId)
           .is('event_id', null)
           .maybeSingle();
+        if (stale()) return;
         setData({ ...EMPTY, events: [], floorPlan: mapFloorPlan(planRow), loading: false });
         return;
       }
@@ -147,6 +206,7 @@ export function useVipNight() {
       const live = events.find(e => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
       const selectedId =
         wanted && events.some(e => e.id === wanted) ? wanted : live?.id ?? events[0].id;
+      if (stale()) return;
       if (selectedId !== selectedEventIdRef.current) {
         selectedEventIdRef.current = selectedId;
         setSelectedEventId(selectedId);
@@ -183,7 +243,7 @@ export function useVipNight() {
           .eq('table_reservations.event_id', ev.id)
           .in('status', ['preorder', 'pending', 'confirmed', 'preparing', 'served'])
           .order('created_at', { ascending: false }),
-        (supabase as any)
+        untyped
           .from('vip_service_moments')
           .select('id, table_reservation_id, kind, label, scheduled_at, status')
           .eq('venue_id', venueId)
@@ -308,10 +368,11 @@ export function useVipNight() {
         status: m.status,
       }));
 
+      if (stale()) return;
       setData({ reservations, consumptions: consumptionsMap, orders, moments, floorPlan, activeEvent, events, loading: false });
     } catch (error) {
       console.error('Error fetching VIP night data:', error);
-      setData(prev => ({ ...prev, loading: false }));
+      if (!stale()) setData(prev => ({ ...prev, loading: false }));
     }
   }, [venueId]);
 
@@ -387,24 +448,10 @@ export function useVipNight() {
     if (!venueId) return;
     fetchData();
 
-    // Réservations : pas de colonne venue_id → canal non filtré, mais refetch
-    // débouncé. Le callback de statut est le signal de santé de la socket.
-    const reservationsChannel = supabase
-      .channel(uniqueChannel('vip_night_reservations'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations' }, scheduleRefetch)
-      .subscribe(status => {
-        if (status === 'SUBSCRIBED') {
-          setRealtimeConnected(true);
-          if (!wasConnectedRef.current) {
-            wasConnectedRef.current = true;
-            fetchData(); // resync après (re)connexion
-          }
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          wasConnectedRef.current = false;
-          setRealtimeConnected(false);
-        }
-      });
-
+    // Commandes du club : le canal de référence pour la SANTÉ de la socket
+    // (filtré par club, stable d'une soirée à l'autre). À chaque (re)connexion
+    // on relit tout : ce qu'un collègue a fait pendant la coupure (écran
+    // verrouillé, sous-sol sans réseau) arrive d'un coup.
     const ordersChannel = supabase
       .channel(uniqueChannel('vip_night_orders'))
       .on(
@@ -412,7 +459,18 @@ export function useVipNight() {
         { event: '*', schema: 'public', table: 'vip_table_orders', filter: `venue_id=eq.${venueId}` },
         scheduleRefetch
       )
-      .subscribe();
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeConnected(true);
+          if (!wasConnectedRef.current) {
+            wasConnectedRef.current = true;
+            fetchData();
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          wasConnectedRef.current = false;
+          setRealtimeConnected(false);
+        }
+      });
 
     const consumptionsChannel = supabase
       .channel(uniqueChannel('vip_night_consumptions'))
@@ -423,15 +481,51 @@ export function useVipNight() {
       )
       .subscribe();
 
+    // Moments de service (bottle parade, anniversaire) posés par un collègue.
+    const momentsChannel = supabase
+      .channel(uniqueChannel('vip_night_moments'))
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vip_service_moments', filter: `venue_id=eq.${venueId}` },
+        scheduleRefetch
+      )
+      .subscribe();
+
+    // Retour au premier plan : iOS coupe la socket écran verrouillé, on relit.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') scheduleRefetch();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       if (refetchTimer.current) clearTimeout(refetchTimer.current);
       wasConnectedRef.current = false;
       setRealtimeConnected(false);
-      supabase.removeChannel(reservationsChannel);
+      document.removeEventListener('visibilitychange', onVisible);
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(consumptionsChannel);
+      supabase.removeChannel(momentsChannel);
     };
   }, [venueId, fetchData, scheduleRefetch]);
+
+  // Réservations : filtrées sur la SOIRÉE affichée (la table n'a pas de colonne
+  // club) — un achat pour une autre date ne relance plus la lecture de tous les
+  // téléphones. Le canal suit le changement de soirée.
+  const activeEventId = data.activeEvent?.id ?? null;
+  useEffect(() => {
+    if (!venueId || !activeEventId) return;
+    const reservationsChannel = supabase
+      .channel(uniqueChannel('vip_night_reservations'))
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'table_reservations', filter: `event_id=eq.${activeEventId}` },
+        scheduleRefetch
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(reservationsChannel);
+    };
+  }, [venueId, activeEventId, scheduleRefetch]);
 
   // Poll doux : attrape les transitions (planning → en cours), l'arrivée d'une
   // nouvelle soirée et l'expiration de la sélection (soirée terminée). Le
@@ -485,138 +579,126 @@ export function useVipNight() {
 
   // ─── Écritures réservation ─────────────────────────────────────────────────
 
-  const updateReservation = useCallback(
-    async (reservationId: string, updates: TablesUpdate<'table_reservations'>) => {
-      const { error } = await supabase.from('table_reservations').update(updates).eq('id', reservationId);
+  /**
+   * UPDATE conditionnel : ne touche la réservation que si elle est encore dans
+   * l'état attendu. 0 ligne = un collègue est passé avant → AlreadyHandledError
+   * (et on relit pour montrer le nouvel état).
+   */
+  const guardedUpdate = useCallback(
+    async (
+      reservationId: string,
+      updates: TablesUpdate<'table_reservations'>,
+      expect: { vipStatus?: string[]; notArrived?: boolean }
+    ) => {
+      let q = supabase.from('table_reservations').update(updates).eq('id', reservationId);
+      if (expect.vipStatus) q = q.in('vip_status', expect.vipStatus);
+      if (expect.notArrived) q = q.is('checked_in_at', null);
+      const { data: rows, error } = await q.select('id');
       if (error) throw error;
       await fetchData();
+      if (!rows || rows.length === 0) throw new AlreadyHandledError();
     },
     [fetchData]
   );
 
+  /**
+   * Installe le client à une table. Avant la soirée (client pas encore arrivé),
+   * c'est un PRÉ-PLACEMENT : la table lui est promise, il reste « en attente »
+   * — il n'est pas compté arrivé, et à la porte il n'y a plus qu'à confirmer.
+   * Rend 'seated' ou 'preassigned'.
+   */
   const seatGuest = useCallback(
-    async (reservationId: string, tableId: string) => {
+    async (reservationId: string, tableId: string): Promise<'seated' | 'preassigned'> => {
       const r = dataRef.current.reservations.find(x => x.id === reservationId);
-      const { data: auth } = await supabase.auth.getUser();
-      const base: TablesUpdate<'table_reservations'> = {
-        vip_status: 'placed',
-        assigned_table_id: tableId,
-        placed_at: new Date().toISOString(),
-        placed_by: auth?.user?.id ?? null,
-      };
+      const ev = dataRef.current.activeEvent;
+      const planning = !!ev && new Date(ev.startAt).getTime() > Date.now() && !r?.hasArrived;
+      const uid = await currentUserId();
+      const now = new Date().toISOString();
       // Revue de la demande de table du client : approved si on l'installe à la
-      // table demandée, modified sinon. Nécessite l'allow-list 20260714190000 —
-      // fallback sans ces champs si la base ne l'a pas encore (42501).
-      const withReview: TablesUpdate<'table_reservations'> =
+      // table demandée, modified sinon.
+      const review: TablesUpdate<'table_reservations'> =
         r && r.placementStatus === 'requested'
           ? {
-              ...base,
               placement_status: r.requestedTableId === tableId ? 'approved' : 'modified',
-              placement_reviewed_by: auth?.user?.id ?? null,
-              placement_reviewed_at: new Date().toISOString(),
+              placement_reviewed_by: uid,
+              placement_reviewed_at: now,
             }
-          : base;
-      try {
-        await updateReservation(reservationId, withReview);
-      } catch (error) {
-        if (withReview !== base && isColumnGuardError(error)) {
-          await updateReservation(reservationId, base);
-        } else {
-          throw error;
-        }
+          : r && !r.assignedTableId && planning
+            ? { placement_status: 'approved', placement_reviewed_by: uid, placement_reviewed_at: now }
+            : {};
+
+      if (planning) {
+        await guardedUpdate(reservationId, { assigned_table_id: tableId, ...review }, { vipStatus: ['waiting'] });
+        return 'preassigned';
       }
+
+      await guardedUpdate(
+        reservationId,
+        { vip_status: 'placed', assigned_table_id: tableId, placed_at: now, placed_by: uid, ...review },
+        { vipStatus: ['waiting'] }
+      );
       // Email de confirmation de placement (l'edge attend `reservationId`).
       supabase.functions
         .invoke('send-vip-confirmation', { body: { reservationId, type: 'confirmed' } })
         .catch(err => console.error('send-vip-confirmation failed:', err));
+      return 'seated';
     },
-    [updateReservation]
+    [guardedUpdate]
   );
 
+  /** Change de table un client installé (ou la table promise d'un pré-placé). */
   const moveGuest = useCallback(
-    (reservationId: string, tableId: string) => updateReservation(reservationId, { assigned_table_id: tableId }),
-    [updateReservation]
+    (reservationId: string, tableId: string) =>
+      guardedUpdate(reservationId, { assigned_table_id: tableId }, { vipStatus: ['placed', 'active', 'waiting'] }),
+    [guardedUpdate]
   );
 
   const markArrived = useCallback(
-    (reservationId: string) => updateReservation(reservationId, { checked_in_at: new Date().toISOString() }),
-    [updateReservation]
+    (reservationId: string) =>
+      guardedUpdate(
+        reservationId,
+        { checked_in_at: new Date().toISOString() },
+        { vipStatus: ['waiting'], notArrived: true }
+      ),
+    [guardedUpdate]
   );
 
   const markAbsent = useCallback(
-    (reservationId: string, status: 'no_show' | 'denied') => updateReservation(reservationId, { vip_status: status }),
-    [updateReservation]
+    (reservationId: string, status: 'no_show' | 'denied') =>
+      guardedUpdate(reservationId, { vip_status: status }, { vipStatus: ['waiting'] }),
+    [guardedUpdate]
   );
 
   const finishService = useCallback(
     (reservationId: string) =>
-      updateReservation(reservationId, { vip_status: 'finished', finished_at: new Date().toISOString() }),
-    [updateReservation]
+      guardedUpdate(
+        reservationId,
+        { vip_status: 'finished', finished_at: new Date().toISOString() },
+        { vipStatus: ['placed', 'active'] }
+      ),
+    [guardedUpdate]
   );
 
+  /**
+   * Rouvre : une table terminée repart en service sur sa table (refusé 23505
+   * si un autre groupe l'occupe désormais) ; un no-show / refus revient « en
+   * attente » — il n'a pas de table, le rouvrir « en service » créait une
+   * table fantôme.
+   */
   const reopenService = useCallback(
-    (reservationId: string) => updateReservation(reservationId, { vip_status: 'active', finished_at: null }),
-    [updateReservation]
+    (reservationId: string) => {
+      const r = dataRef.current.reservations.find(x => x.id === reservationId);
+      const from = r?.vipStatus || 'finished';
+      const updates: TablesUpdate<'table_reservations'> =
+        from === 'finished' && r?.assignedTableId
+          ? { vip_status: 'active', finished_at: null }
+          : { vip_status: 'waiting', finished_at: null };
+      return guardedUpdate(reservationId, updates, { vipStatus: [from] });
+    },
+    [guardedUpdate]
   );
 
   // ─── Grand livre (consos) ──────────────────────────────────────────────────
-
-  /** Passe la table en service à la première conso. */
-  const activateIfPlaced = useCallback(
-    async (reservationId: string) => {
-      const r = dataRef.current.reservations.find(x => x.id === reservationId);
-      if (r?.vipStatus === 'placed') {
-        await supabase.from('table_reservations').update({ vip_status: 'active' }).eq('id', reservationId);
-      }
-    },
-    []
-  );
-
-  const insertConsumption = useCallback(
-    async (
-      reservationId: string,
-      row: {
-        itemName: string;
-        itemType: 'bottle' | 'extra' | 'service';
-        quantity: number;
-        unitPrice: number;
-        menuItemId?: string | null;
-        category?: string | null;
-        brand?: string | null;
-        source: 'staff' | 'preorder' | 'qr';
-        parentConsumptionId?: string | null;
-        notes?: string | null;
-      }
-    ): Promise<string | null> => {
-      if (!venueId) throw new Error('No venue');
-      const r = dataRef.current.reservations.find(x => x.id === reservationId);
-      const { data: auth } = await supabase.auth.getUser();
-      const { data: inserted, error } = await supabase
-        .from('vip_consumptions')
-        .insert({
-          table_reservation_id: reservationId,
-          venue_id: venueId,
-          event_id: r?.eventId || null,
-          item_name: row.itemName,
-          item_type: row.itemType,
-          quantity: row.quantity,
-          unit_price: row.unitPrice,
-          total_price: row.quantity * row.unitPrice,
-          served_by: auth?.user?.id || null,
-          notes: row.notes ?? null,
-          menu_item_id: row.menuItemId ?? null,
-          category: row.category ?? null,
-          brand: row.brand ?? null,
-          source: row.source,
-          parent_consumption_id: row.parentConsumptionId ?? null,
-        })
-        .select('id')
-        .single();
-      if (error) throw error;
-      return inserted?.id ?? null;
-    },
-    [venueId]
-  );
 
   const undoConsumption = useCallback(
     async (consumptionId: string) => {
@@ -635,96 +717,43 @@ export function useVipNight() {
 
   // ─── Panier → commande bar OU service direct ──────────────────────────────
 
+  /**
+   * Service direct (« déjà servi ») → grand livre en une écriture ; sinon la
+   * commande part au bar en `confirmed` (l'hôte EST la validation). Une
+   * commande client arrive en `pending` et se confirme dans l'onglet Service.
+   * `requestId` : le même pour tous les renvois d'un même panier.
+   */
   const submitCart = useCallback(
-    async (reservationId: string, lines: CartLine[], opts: { directServe: boolean; note?: string }) => {
+    async (
+      reservationId: string,
+      lines: CartLine[],
+      opts: { directServe: boolean; note?: string; requestId?: string }
+    ) => {
       if (!venueId || lines.length === 0) return;
-
+      const requestId = opts.requestId ?? crypto.randomUUID();
       if (opts.directServe) {
-        // Déjà servi : on écrit directement le grand livre (bouteille puis ses
-        // mixers liés), et la table passe en service.
-        for (const line of lines) {
-          const parentId = await insertConsumption(reservationId, {
-            itemName: line.menuItem?.name || line.quickItem?.name || '',
-            itemType: line.menuItem
-              ? consumptionItemType(line.menuItem.category)
-              : line.quickItem?.itemType || 'service',
-            quantity: line.quantity,
-            unitPrice: cartLinePrice(line),
-            menuItemId: line.menuItem?.id ?? null,
-            category: line.menuItem?.category ?? null,
-            brand: line.menuItem?.brand ?? null,
-            source: 'staff',
-            notes: opts.note || null,
-          });
-          for (const mixer of line.mixers) {
-            await insertConsumption(reservationId, {
-              itemName: mixer.item.name,
-              itemType: 'extra',
-              quantity: mixer.quantity,
-              unitPrice: mixer.item.price,
-              menuItemId: mixer.item.id,
-              category: mixer.item.category,
-              brand: mixer.item.brand,
-              source: 'staff',
-              parentConsumptionId: parentId,
-            });
-          }
-        }
-        await activateIfPlaced(reservationId);
-        await fetchData();
-        return;
-      }
-
-      // Commande initiée par l'hôte : elle part directement au bar en
-      // `confirmed` (l'hôte EST la validation). Une commande client arrive en
-      // `pending` et se confirme dans l'onglet Service.
-      const { data: auth } = await supabase.auth.getUser();
-      const { data: order, error: orderError } = await supabase
-        .from('vip_table_orders')
-        .insert({
-          table_reservation_id: reservationId,
-          venue_id: venueId,
-          status: 'confirmed',
-          total_amount: cartTotal(lines),
-          notes: opts.note || null,
-          confirmed_at: new Date().toISOString(),
-          confirmed_by: auth?.user?.id || null,
-        })
-        .select('id')
-        .single();
-      if (orderError) throw orderError;
-
-      for (const line of lines) {
-        if (!line.menuItem) continue; // les boutons rapides n'existent pas au bar
-        const { data: parentRow, error: itemError } = await supabase
-          .from('vip_table_order_items')
-          .insert({
-            order_id: order.id,
-            menu_item_id: line.menuItem.id,
-            quantity: line.quantity,
-            unit_price: line.menuItem.price,
-            is_included: line.menuItem.price === 0,
-          })
-          .select('id')
-          .single();
-        if (itemError) throw itemError;
-        if (line.mixers.length > 0) {
-          const { error: mixerError } = await supabase.from('vip_table_order_items').insert(
-            line.mixers.map(m => ({
-              order_id: order.id,
-              menu_item_id: m.item.id,
-              quantity: m.quantity,
-              unit_price: m.item.price,
-              is_included: m.item.price === 0,
-              parent_order_item_id: parentRow?.id ?? null,
-            }))
-          );
-          if (mixerError) throw mixerError;
-        }
+        const { error } = await untyped.rpc('vip_serve_items', {
+          p_reservation_id: reservationId,
+          p_items: cartToPayload(lines, true),
+          p_note: opts.note || null,
+          p_request_id: requestId,
+        });
+        if (error) throw error;
+      } else {
+        // Les boutons rapides n'existent pas au bar : servis en direct seulement.
+        const items = cartToPayload(lines, false);
+        if (items.length === 0) return;
+        const { error } = await untyped.rpc('vip_create_table_order', {
+          p_reservation_id: reservationId,
+          p_items: items,
+          p_note: opts.note || null,
+          p_request_id: requestId,
+        });
+        if (error) throw error;
       }
       await fetchData();
     },
-    [venueId, insertConsumption, activateIfPlaced, fetchData]
+    [venueId, fetchData]
   );
 
   // ─── Pipeline des commandes ────────────────────────────────────────────────
@@ -732,10 +761,10 @@ export function useVipNight() {
   /** preorder/pending → confirmed. Retourne false si déjà traité ailleurs. */
   const confirmOrder = useCallback(
     async (orderId: string): Promise<boolean> => {
-      const { data: auth } = await supabase.auth.getUser();
+      const uid = await currentUserId();
       const { data: updated, error } = await supabase
         .from('vip_table_orders')
-        .update({ status: 'confirmed', confirmed_at: new Date().toISOString(), confirmed_by: auth?.user?.id || null })
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString(), confirmed_by: uid })
         .eq('id', orderId)
         .in('status', ['preorder', 'pending'])
         .select('id');
@@ -747,59 +776,19 @@ export function useVipNight() {
   );
 
   /**
-   * confirmed/preparing → served + copie des lignes dans le grand livre.
-   * Verrou optimiste : si un autre appareil a déjà servi, 0 ligne mise à jour
-   * et on ne double-compte rien.
+   * → served + copie dans le grand livre, en UNE transaction serveur qui relit
+   * les articles en base (jamais la mémoire du téléphone, qui peut ne pas avoir
+   * encore reçu les lignes d'une commande client). false = un collègue l'a déjà
+   * servie ou annulée : rien n'est compté deux fois.
    */
   const serveOrder = useCallback(
     async (order: ServiceOrder): Promise<boolean> => {
-      const { data: updated, error } = await supabase
-        .from('vip_table_orders')
-        .update({ status: 'served', served_at: new Date().toISOString() })
-        .eq('id', order.id)
-        .in('status', ['pending', 'confirmed', 'preparing'])
-        .select('id');
+      const { data: result, error } = await untyped.rpc('vip_serve_table_order', { p_order_id: order.id });
       if (error) throw error;
-      if (!updated || updated.length === 0) return false;
-
-      const source: 'staff' | 'preorder' | 'qr' = order.notes?.startsWith('Pré-commande')
-        ? 'preorder'
-        : order.userId
-          ? 'qr'
-          : 'staff';
-
-      // Parents d'abord (bouteilles), puis mixers liés à leur conso parente.
-      const idMap = new Map<string, string>();
-      for (const item of order.items.filter(i => !i.parentOrderItemId)) {
-        const consumptionId = await insertConsumption(order.reservationId, {
-          itemName: item.name,
-          itemType: consumptionItemType(item.category),
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          menuItemId: item.menuItemId,
-          category: item.category,
-          source,
-        });
-        if (consumptionId) idMap.set(item.id, consumptionId);
-      }
-      for (const item of order.items.filter(i => i.parentOrderItemId)) {
-        await insertConsumption(order.reservationId, {
-          itemName: item.name,
-          itemType: consumptionItemType(item.category),
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          menuItemId: item.menuItemId,
-          category: item.category,
-          source,
-          parentConsumptionId: idMap.get(item.parentOrderItemId!) ?? null,
-        });
-      }
-
-      await activateIfPlaced(order.reservationId);
       await fetchData();
-      return true;
+      return !!(result as { served?: boolean } | null)?.served;
     },
-    [insertConsumption, activateIfPlaced, fetchData]
+    [fetchData]
   );
 
   const cancelOrder = useCallback(
@@ -822,9 +811,9 @@ export function useVipNight() {
   const scheduleMoment = useCallback(
     async (reservationId: string, kind: string, label: string | null, scheduledAt: string) => {
       if (!venueId) return;
-      const { data: auth } = await supabase.auth.getUser();
+      const uid = await currentUserId();
       const r = dataRef.current.reservations.find(x => x.id === reservationId);
-      const { error } = await (supabase as any).from('vip_service_moments').insert({
+      const { error } = await untyped.from('vip_service_moments').insert({
         venue_id: venueId,
         event_id: r?.eventId || null,
         table_reservation_id: reservationId,
@@ -832,7 +821,7 @@ export function useVipNight() {
         label,
         scheduled_at: scheduledAt,
         status: 'scheduled',
-        created_by: auth?.user?.id || null,
+        created_by: uid,
       });
       if (error) throw error;
       await fetchData();
@@ -840,14 +829,18 @@ export function useVipNight() {
     [venueId, fetchData]
   );
 
+  /** Un seul hôte clôt un moment : false si un collègue l'a déjà fait. */
   const completeMoment = useCallback(
-    async (momentId: string) => {
-      const { error } = await (supabase as any)
+    async (momentId: string): Promise<boolean> => {
+      const { data: rows, error } = await untyped
         .from('vip_service_moments')
         .update({ status: 'done', done_at: new Date().toISOString() })
-        .eq('id', momentId);
+        .eq('id', momentId)
+        .eq('status', 'scheduled')
+        .select('id');
       if (error) throw error;
       await fetchData();
+      return (rows || []).length > 0;
     },
     [fetchData]
   );
@@ -870,7 +863,7 @@ export function useVipNight() {
     }): Promise<string> => {
       const ev = dataRef.current.activeEvent;
       if (!ev) throw new Error('no_event');
-      const { data: newId, error } = await (supabase as any).rpc('create_manual_table_reservation', {
+      const { data: newId, error } = await untyped.rpc('create_manual_table_reservation', {
         p_event_id: ev.id,
         p_zone_id: input.zoneId,
         p_full_name: input.fullName,
@@ -937,7 +930,6 @@ export function useVipNight() {
     serveOrder,
     cancelOrder,
     undoConsumption,
-    insertConsumption,
     scheduleMoment,
     completeMoment,
   };

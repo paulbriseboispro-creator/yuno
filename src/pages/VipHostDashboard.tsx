@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useVipNight } from '@/hooks/useVipNight';
+import { useVipNight, isAlreadyHandled } from '@/hooks/useVipNight';
 import { useStaffNotifications } from '@/hooks/useStaffNotifications';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -28,7 +28,7 @@ import { OccupiedTablesList } from '@/components/vip-service/OccupiedTablesList'
 import { WalkinPosSheet, WalkinTarget } from '@/components/vip-service/WalkinPosSheet';
 import { WalkinSeatSheet } from '@/components/vip-service/WalkinSeatSheet';
 import {
-  ServiceOrder, ServiceReservation, CartLine, cartTotal, fmtAge,
+  ServiceOrder, ServiceReservation, CartLine, cartTotal, fmtAge, heldTables,
 } from '@/components/vip-service/serviceTypes';
 
 // ─── Yuno Design Tokens (pro) ────────────────────────────────────────────────
@@ -65,7 +65,9 @@ export default function VipHostDashboard() {
 
   const [tab, setTab] = useState<Tab>('home');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [seatPicker, setSeatPicker] = useState<{ reservation: ServiceReservation; moveMode: boolean } | null>(null);
+  // Le sélecteur de place garde l'ID, jamais une copie de la résa : un
+  // collègue peut l'installer pendant que la feuille est ouverte.
+  const [seatPicker, setSeatPicker] = useState<{ reservationId: string; moveMode: boolean } | null>(null);
   const [composerId, setComposerId] = useState<string | null>(null);
   // Point de vente en table (panier → relier/walk-in → addition → paiement).
   // Démarré depuis la carte du plan live ; un article touché amorce le panier.
@@ -75,9 +77,23 @@ export default function VipHostDashboard() {
   const [actionBusy, setActionBusy] = useState(false);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Un envoi = un identifiant, gardé tant que l'envoi n'a pas réussi : un
+  // renvoi après une réponse perdue (wifi du club) ne débite pas deux fois.
+  // Clé = contenu du panier : un panier modifié après un échec repart sous un
+  // NOUVEL identifiant (sinon le serveur rendrait le résultat de l'ancien).
+  const cartRequestId = useRef<{ key: string; id: string } | null>(null);
+  const posRequestId = useRef<{ key: string; id: string } | null>(null);
+  const requestIdFor = (ref: React.MutableRefObject<{ key: string; id: string } | null>, reservationId: string, lines: CartLine[], extra = '') => {
+    const key = reservationId + extra + JSON.stringify(lines.map(l => [l.menuItem?.id, l.quickItem?.id, l.quantity, l.mixers.map(m => [m.item.id, m.quantity])]));
+    if (!ref.current || ref.current.key !== key) ref.current = { key, id: crypto.randomUUID() };
+    return ref.current.id;
+  };
+  // Walk-in créé par le point de vente mais dont le service a échoué : le
+  // renvoi le réutilise au lieu d'en créer un second (CA compté deux fois).
+  const posWalkinId = useRef<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data?.user?.id ?? null));
+    supabase.auth.getSession().then(({ data }) => setCurrentUserId(data.session?.user?.id ?? null));
   }, []);
 
   // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
@@ -91,20 +107,44 @@ export default function VipHostDashboard() {
 
   const selected = selectedId ? reservationById.get(selectedId) || null : null;
   const composerFor = composerId ? reservationById.get(composerId) || null : null;
+  const seatFor = seatPicker ? reservationById.get(seatPicker.reservationId) || null : null;
+
+  const openSeat = (r: ServiceReservation, moveMode = false) =>
+    setSeatPicker({ reservationId: r.id, moveMode });
+
+  // Un collègue a traité la résa pendant que la feuille était ouverte
+  // (installée, marquée absente, terminée) : on referme et on le dit, au lieu
+  // de laisser l'hôte agir sur un état qui n'existe plus.
+  useEffect(() => {
+    if (!seatPicker) return;
+    const r = reservationById.get(seatPicker.reservationId);
+    const stillValid = !!r && (seatPicker.moveMode
+      ? ['placed', 'active', 'waiting'].includes(r.vipStatus)
+      : r.vipStatus === 'waiting');
+    if (!stillValid && !actionBusy) {
+      setSeatPicker(null);
+      toast.info(t('vipnight.handledByColleague'));
+    }
+  }, [seatPicker, reservationById, actionBusy, t]);
+
+  // Nouveaux identifiants d'envoi à chaque ouverture du composeur / de la caisse.
+  useEffect(() => {
+    if (composerId) cartRequestId.current = null;
+  }, [composerId]);
+  useEffect(() => {
+    if (pos.open) {
+      posRequestId.current = null;
+      posWalkinId.current = null;
+    }
+  }, [pos.open]);
 
   // Carte du plan live → ouvre le point de vente en table (panier d'abord).
   const handleStartOrder = (seedItemId?: string | null) => setPos({ open: true, seedItemId: seedItemId ?? null });
 
-  // Tables demandées par des clients pas encore installés (tap plan → placement).
-  const requestedByTable = useMemo(() => {
-    const map = new Map<string, ServiceReservation>();
-    reservations.forEach(r => {
-      if (r.requestedTableId && !r.assignedTableId && r.vipStatus === 'waiting' && r.placementStatus === 'requested') {
-        map.set(r.requestedTableId, r);
-      }
-    });
-    return map;
-  }, [reservations]);
+  // Tables promises à des clients pas encore installés : pré-placés (table
+  // déjà attribuée, en attente) ou demande de table en cours. Un tap sur le
+  // plan ouvre leur placement.
+  const heldByTable = useMemo(() => heldTables(reservations), [reservations]);
 
   const serviceBadge = useMemo(() => {
     const pending = orders.filter(o => o.status === 'pending').length;
@@ -140,37 +180,67 @@ export default function VipHostDashboard() {
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
+  // Jamais le message brut du serveur (souvent en français, parfois technique) :
+  // chaque cas connu a son libellé dans les trois langues.
   const placementErrorMessage = (error: unknown): string => {
     const code = (error as { code?: string } | null)?.code;
+    const message = (error as Error | null)?.message || '';
     if (code === '23505') return t('vipHost.tableTaken');
     if (code === '23503') return t('vipHost.tableMissing');
-    return (error as Error)?.message || t('vipnight.error');
+    if (code === '23514') return t('vipnight.zoneFull');
+    if (message.includes('menu item unavailable')) return t('vipnight.itemUnavailable');
+    if (message.includes('reservation closed')) return t('vipnight.reservationClosed');
+    if (code === '42501') return t('vipnight.forbidden');
+    return t('vipnight.error');
+  };
+
+  /** Toast d'échec d'une action : « un collègue est passé avant » ou l'erreur. */
+  const reportError = (error: unknown) => {
+    if (isAlreadyHandled(error)) {
+      haptics.medium();
+      toast.info(t('vipnight.handledByColleague'));
+      return;
+    }
+    haptics.error();
+    toast.error(placementErrorMessage(error));
   };
 
   const tableName = (tableId: string) =>
     floorPlan?.layout?.tables?.find(tb => tb.id === tableId)?.name || tableId;
 
   const handleSeatConfirm = async (tableId: string) => {
-    if (!seatPicker) return;
-    const { reservation, moveMode } = seatPicker;
+    if (!seatPicker || !seatFor) return;
+    const reservation = seatFor;
+    const { moveMode } = seatPicker;
+    // Table promise à un autre client pas encore arrivé : c'est à l'hôte de
+    // décider de la lui reprendre, jamais en silence.
+    const holder = heldByTable.get(tableId);
+    if (holder && holder.id !== reservation.id
+        && !window.confirm(t('vipnight.tableHeldConfirm').replace('{name}', holder.fullName))) {
+      return;
+    }
     setActionBusy(true);
     try {
       if (moveMode) {
         await night.moveGuest(reservation.id, tableId);
         toast.success(t('vipnight.guestMoved').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
       } else {
-        await night.seatGuest(reservation.id, tableId);
-        toast.success(t('vipnight.seated').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
-        // L'arrivée est traitée : on solde les notifications de cette résa.
-        notifications
-          .filter(n => n.notificationType === 'vip_entry' && n.referenceId === reservation.id && !n.readAt)
-          .forEach(n => markAsRead(n.id));
+        const outcome = await night.seatGuest(reservation.id, tableId);
+        if (outcome === 'preassigned') {
+          toast.success(t('vipnight.preassigned').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
+        } else {
+          toast.success(t('vipnight.seated').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
+          // L'arrivée est traitée : on solde les notifications de cette résa.
+          notifications
+            .filter(n => n.notificationType === 'vip_entry' && n.referenceId === reservation.id && !n.readAt)
+            .forEach(n => markAsRead(n.id));
+        }
       }
       haptics.success();
       setSeatPicker(null);
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      if (isAlreadyHandled(error)) setSeatPicker(null);
+      reportError(error);
     } finally {
       setActionBusy(false);
     }
@@ -180,12 +250,13 @@ export default function VipHostDashboard() {
     if (!seatPicker) return;
     setActionBusy(true);
     try {
-      await night.markAbsent(seatPicker.reservation.id, status);
+      await night.markAbsent(seatPicker.reservationId, status);
       toast.success(status === 'no_show' ? t('vipnight.markedNoShow') : t('vipnight.markedDenied'));
       setSeatPicker(null);
       setSelectedId(null);
     } catch (error) {
-      toast.error(placementErrorMessage(error));
+      if (isAlreadyHandled(error)) setSeatPicker(null);
+      reportError(error);
     } finally {
       setActionBusy(false);
     }
@@ -197,8 +268,7 @@ export default function VipHostDashboard() {
       haptics.success();
       toast.success(t('vipnight.markedArrived').replace('{name}', r.fullName));
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     }
   };
 
@@ -209,7 +279,7 @@ export default function VipHostDashboard() {
       toast.success(t('vipnight.finished'));
       setSelectedId(null);
     } catch (error) {
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     }
   };
 
@@ -218,7 +288,7 @@ export default function VipHostDashboard() {
       await night.reopenService(r.id);
       haptics.success();
     } catch (error) {
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     }
   };
 
@@ -233,8 +303,7 @@ export default function VipHostDashboard() {
         toast.info(t('vipnight.alreadyHandled'));
       }
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     } finally {
       setBusyOrderId(null);
     }
@@ -251,8 +320,7 @@ export default function VipHostDashboard() {
         toast.info(t('vipnight.alreadyHandled'));
       }
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     } finally {
       setBusyOrderId(null);
     }
@@ -266,7 +334,7 @@ export default function VipHostDashboard() {
       if (ok) toast.success(t('vipnight.orderCancelled'));
       else toast.info(t('vipnight.alreadyHandled'));
     } catch (error) {
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     } finally {
       setBusyOrderId(null);
     }
@@ -276,13 +344,15 @@ export default function VipHostDashboard() {
     if (!composerFor) return;
     setActionBusy(true);
     try {
-      await night.submitCart(composerFor.id, lines, opts);
+      await night.submitCart(composerFor.id, lines, {
+        ...opts,
+        requestId: requestIdFor(cartRequestId, composerFor.id, lines, `${opts.directServe}|${opts.note || ''}`),
+      });
       haptics.success();
       toast.success(opts.directServe ? t('vipnight.servedAdded') : t('vipnight.orderSent'));
       setComposerId(null);
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     } finally {
       setActionBusy(false);
     }
@@ -302,21 +372,27 @@ export default function VipHostDashboard() {
   // panier ; table existante → on sert directement sur sa résa.
   const handlePosCommit = async (target: WalkinTarget, lines: CartLine[]) => {
     try {
-      const reservationId =
-        target.kind === 'walkin'
-          ? await createWalkin({
-              zoneId: target.zoneId,
-              fullName: target.fullName,
-              guestCount: target.guestCount,
-              totalPrice: cartTotal(lines),
-              email: target.email,
-              phone: target.phone,
-            })
-          : target.reservation.id;
-      await night.submitCart(reservationId, lines, { directServe: true });
+      let reservationId: string;
+      if (target.kind === 'walkin') {
+        if (!posWalkinId.current) {
+          posWalkinId.current = await createWalkin({
+            zoneId: target.zoneId,
+            fullName: target.fullName,
+            guestCount: target.guestCount,
+            totalPrice: cartTotal(lines),
+            email: target.email,
+            phone: target.phone,
+          });
+        }
+        reservationId = posWalkinId.current;
+      } else {
+        reservationId = target.reservation.id;
+      }
+      await night.submitCart(reservationId, lines, { directServe: true, requestId: requestIdFor(posRequestId, reservationId, lines) });
       haptics.success();
       toast.success(t('vippos.done'));
       setPos({ open: false, seedItemId: null });
+      posWalkinId.current = null;
 
       // Récap de commande + accès rapide pour créer le compte, si on a l'email
       // du client (walk-in, ou résa à la main déjà enregistrée). Non bloquant.
@@ -328,8 +404,7 @@ export default function VipHostDashboard() {
           .catch(err => console.error('walkin summary email failed:', err));
       }
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     }
   };
 
@@ -352,8 +427,7 @@ export default function VipHostDashboard() {
       toast.success(t('vipnight.walkinPlaced'));
       setWalkinSeatOpen(false);
     } catch (error) {
-      haptics.error();
-      toast.error(placementErrorMessage(error));
+      reportError(error);
     } finally {
       setActionBusy(false);
     }
@@ -365,8 +439,18 @@ export default function VipHostDashboard() {
       await night.scheduleMoment(selected.id, kind, label, new Date(Date.now() + inMinutes * 60000).toISOString());
       haptics.success();
       toast.success(t('vipnight.momentPlanned'));
-    } catch {
-      toast.error(t('vipnight.error'));
+    } catch (error) {
+      reportError(error);
+    }
+  };
+
+  const handleCompleteMoment = async (momentId: string) => {
+    try {
+      const done = await night.completeMoment(momentId);
+      if (done) haptics.success();
+      else toast.info(t('vipnight.handledByColleague'));
+    } catch (error) {
+      reportError(error);
     }
   };
 
@@ -492,7 +576,7 @@ export default function VipHostDashboard() {
                   serviceInfo={serviceInfo}
                   orders={orders}
                   isPlanning={isPlanning}
-                  onSeat={r => setSeatPicker({ reservation: r, moveMode: false })}
+                  onSeat={r => openSeat(r)}
                   onSelect={r => setSelectedId(r.id)}
                   onGoToTables={() => {
                     haptics.selection();
@@ -531,7 +615,7 @@ export default function VipHostDashboard() {
                       <button
                         key={r.id}
                         type="button"
-                        onClick={() => setSeatPicker({ reservation: r, moveMode: false })}
+                        onClick={() => openSeat(r)}
                         className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-all duration-150"
                         style={{ background: 'rgba(231,193,90,0.09)', border: '1px solid rgba(231,193,90,0.4)' }}
                       >
@@ -572,10 +656,10 @@ export default function VipHostDashboard() {
                     setSelectedId(seated.id);
                     return;
                   }
-                  const requester = requestedByTable.get(tableId);
-                  if (requester) {
+                  const holder = heldByTable.get(tableId);
+                  if (holder) {
                     haptics.selection();
-                    setSeatPicker({ reservation: requester, moveMode: false });
+                    openSeat(holder);
                   }
                 }}
               />
@@ -607,7 +691,7 @@ export default function VipHostDashboard() {
               serviceInfo={serviceInfo}
               disabled={connectionStale}
               onSelect={r => setSelectedId(r.id)}
-              onSeat={r => setSeatPicker({ reservation: r, moveMode: false })}
+              onSeat={r => openSeat(r)}
             />
           )}
 
@@ -689,8 +773,8 @@ export default function VipHostDashboard() {
         busyOrderId={busyOrderId}
         disabled={connectionStale}
         onClose={() => setSelectedId(null)}
-        onSeat={() => selected && setSeatPicker({ reservation: selected, moveMode: false })}
-        onMove={() => selected && setSeatPicker({ reservation: selected, moveMode: true })}
+        onSeat={() => selected && openSeat(selected)}
+        onMove={() => selected && openSeat(selected, true)}
         onMarkArrived={() => selected && handleMarkArrived(selected)}
         onOpenComposer={() => selected && setComposerId(selected.id)}
         onFinish={() => selected && handleFinish(selected)}
@@ -700,14 +784,16 @@ export default function VipHostDashboard() {
         onCancelOrder={handleCancelOrder}
         onUndoConsumption={handleUndoConsumption}
         onScheduleMoment={handleScheduleMoment}
-        onCompleteMoment={id => night.completeMoment(id).catch(() => toast.error(t('vipnight.error')))}
+        onCompleteMoment={handleCompleteMoment}
       />
 
       {/* Placement / déplacement */}
       <SeatPickerSheet
-        open={!!seatPicker}
-        reservation={seatPicker?.reservation || null}
+        open={!!seatPicker && !!seatFor}
+        reservation={seatFor}
         moveMode={seatPicker?.moveMode || false}
+        isPlanning={isPlanning}
+        heldByTable={heldByTable}
         floorPlan={floorPlan}
         reservations={reservations}
         serviceInfo={serviceInfo}

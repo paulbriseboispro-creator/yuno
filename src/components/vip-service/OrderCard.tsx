@@ -29,6 +29,8 @@ interface OrderCardProps {
   onServe: () => void;
   onCancel: () => void;
   onGuestTap?: () => void;
+  /** Vue d'une table : le client est-il arrivé (une pré-commande ne se valide qu'à son arrivée). */
+  guestArrived?: boolean;
 }
 
 /**
@@ -36,12 +38,12 @@ interface OrderCardProps {
  * pending → confirmer/refuser ; confirmed/preparing → marquer servie (c'est
  * cette action qui écrit le grand livre et décrémente le crédit client).
  */
-export function OrderCard({ order, guest, busy, disabled, onConfirm, onServe, onCancel, onGuestTap }: OrderCardProps) {
+export function OrderCard({ order, guest, busy, disabled, onConfirm, onServe, onCancel, onGuestTap, guestArrived: arrivedProp }: OrderCardProps) {
   const { t } = useLanguage();
   const style = STATUS_STYLE[order.status] || STATUS_STYLE.pending;
   const actionable = !['served', 'cancelled'].includes(order.status);
   const isPreorder = order.status === 'preorder';
-  const guestArrived = guest ? !!guest.hasArrived : true;
+  const guestArrived = guest ? !!guest.hasArrived : arrivedProp ?? true;
 
   return (
     <div

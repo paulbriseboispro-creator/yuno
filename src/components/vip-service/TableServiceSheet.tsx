@@ -290,6 +290,7 @@ export function TableServiceSheet(props: TableServiceSheetProps) {
                     key={o.id}
                     order={o}
                     guest={undefined}
+                    guestArrived={!!r.hasArrived}
                     busy={busyOrderId === o.id}
                     disabled={disabled}
                     onConfirm={() => onConfirmOrder(o)}

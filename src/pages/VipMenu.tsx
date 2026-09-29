@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -108,6 +109,13 @@ export default function VipMenu() {
   // Pairing bouteille -> mixers choisis, capturé au moment du dialog. Le panier aplatit
   // ces liens ; on les rejoue au submit pour renseigner parent_order_item_id (analytics mixer).
   const mixerPairingsRef = useRef<Map<string, Set<string>>>(new Map());
+  // Identifiant d'envoi gardé jusqu'au succès : renvoyer après une réponse
+  // perdue ne crée pas une seconde commande.
+  const orderRequestId = useRef<string | null>(null);
+  // Panier modifié = nouvel envoi, jamais la réponse d'un envoi précédent.
+  useEffect(() => {
+    orderRequestId.current = null;
+  }, [cart]);
 
   const goToLogin = useCallback(() => {
     const redirect = venueId ? `/vip-menu/${venueId}` : '/vip-menu';
@@ -452,60 +460,34 @@ export default function VipMenu() {
 
     setSubmitting(true);
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('vip_table_orders')
-        .insert({
-          table_reservation_id: reservation.id,
-          venue_id: venueId,
-          user_id: user?.id,
-          status: 'pending',
-          total_amount: cartTotal,
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const orderItems = cart.map(item => ({
-        order_id: order.id,
-        menu_item_id: item.menuItem.id,
-        quantity: item.quantity,
-        unit_price: item.menuItem.price,
-        is_included: false, // With budget system, nothing is "included" in the old sense
-      }));
-
-      const { data: insertedItems, error: itemsError } = await supabase
-        .from('vip_table_order_items')
-        .insert(orderItems)
-        .select('id, menu_item_id');
-
-      if (itemsError) throw itemsError;
-
-      // Renseigne parent_order_item_id : relie chaque ligne mixer à sa bouteille parente
-      // (best-effort, ne bloque jamais la commande si ça échoue).
-      try {
-        const byMenuItem = new Map<string, string>();
-        (insertedItems ?? []).forEach(row => byMenuItem.set(row.menu_item_id, row.id));
-        // PromiseLike, pas Promise : un builder supabase est thenable sans être une Promise.
-        const updates: PromiseLike<unknown>[] = [];
-        mixerPairingsRef.current.forEach((mixerIds, spiritId) => {
-          const parentId = byMenuItem.get(spiritId);
-          if (!parentId) return;
-          mixerIds.forEach(mixerId => {
-            const childId = byMenuItem.get(mixerId);
-            if (childId) {
-              updates.push(
-                supabase.from('vip_table_order_items')
-                  .update({ parent_order_item_id: parentId })
-                  .eq('id', childId)
-              );
-            }
-          });
+      // Une seule écriture serveur : la commande et ses lignes arrivent ENSEMBLE
+      // chez l'hôte VIP (avant, il pouvait voir une commande vide et la servir
+      // sans rien débiter), prix relus dans la carte, mixers reliés à leur
+      // bouteille (l'ancien UPDATE de liaison était refusé par la RLS).
+      const parentOf = new Map<string, string>();
+      mixerPairingsRef.current.forEach((mixerIds, spiritId) => {
+        mixerIds.forEach(mixerId => {
+          if (!parentOf.has(mixerId)) parentOf.set(mixerId, spiritId);
         });
-        if (updates.length) await Promise.all(updates);
-      } catch (linkErr) {
-        console.error('Mixer link (non-blocking) failed:', linkErr);
-      }
+      });
+      const inCart = new Set(cart.map(c => c.menuItem.id));
+      const items = cart.map(item => {
+        const parent = parentOf.get(item.menuItem.id);
+        return {
+          menu_item_id: item.menuItem.id,
+          quantity: item.quantity,
+          ...(parent && inCart.has(parent) ? { parent_menu_item_id: parent } : {}),
+        };
+      });
+      if (!orderRequestId.current) orderRequestId.current = crypto.randomUUID();
+      const { error: orderError } = await (supabase as unknown as SupabaseClient).rpc('vip_create_table_order', {
+        p_reservation_id: reservation.id,
+        p_items: items,
+        p_note: null,
+        p_request_id: orderRequestId.current,
+      });
+      if (orderError) throw orderError;
+      orderRequestId.current = null;
       mixerPairingsRef.current.clear();
 
       toast.success(t('vipMenu.orderSent'));

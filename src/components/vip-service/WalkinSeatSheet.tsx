@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { VenueFloorPlan } from '@/types';
 import { ServiceFloorPlan } from './ServiceFloorPlan';
-import { ServiceReservation, TableServiceInfo } from './serviceTypes';
+import { ServiceReservation, TableServiceInfo, heldTables } from './serviceTypes';
 
 const T2 = 'rgba(255,255,255,0.58)';
 const T3 = 'rgba(255,255,255,0.36)';
@@ -44,6 +44,9 @@ export function WalkinSeatSheet({ open, floorPlan, reservations, serviceInfo, bu
 
   const tables = useMemo(() => (floorPlan?.layout?.tables || []), [floorPlan]);
   const selectedTable = selectedTableId ? tables.find(t => t.id === selectedTableId) : undefined;
+  // Une table promise à un client attendu est refusée par le serveur pour un
+  // walk-in : on le dit au tap plutôt qu'après la saisie.
+  const held = useMemo(() => heldTables(reservations), [reservations]);
 
   const confirm = () => {
     if (!selectedTable) return;
@@ -99,6 +102,11 @@ export function WalkinSeatSheet({ open, floorPlan, reservations, serviceInfo, bu
             selectedTableId={selectedTableId}
             onTableTap={(tableId, reservation) => {
               if (reservation) return; // table occupée
+              const holder = held.get(tableId);
+              if (holder) {
+                toast.info(t('vipnight.tableHeldFor').replace('{name}', holder.fullName));
+                return;
+              }
               setSelectedTableId(tableId);
             }}
           />

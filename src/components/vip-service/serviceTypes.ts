@@ -150,6 +150,26 @@ export function buildServiceInfo(
   };
 }
 
+/**
+ * Tables PROMISES à un client pas encore installé : pré-placé (table déjà
+ * attribuée, toujours « en attente ») ou demande de table au checkout pas
+ * encore traitée. Le plan les montre « réservées pour X » ; les donner à
+ * quelqu'un d'autre demande une confirmation. Un client installé n'y figure
+ * pas (il est « assis », pas « promis »).
+ */
+export function heldTables(reservations: ServiceReservation[]): Map<string, ServiceReservation> {
+  const map = new Map<string, ServiceReservation>();
+  reservations.forEach(r => {
+    if (r.vipStatus !== 'waiting') return;
+    if (r.assignedTableId) {
+      map.set(r.assignedTableId, r);
+    } else if (r.requestedTableId && r.placementStatus === 'requested' && !map.has(r.requestedTableId)) {
+      map.set(r.requestedTableId, r);
+    }
+  });
+  return map;
+}
+
 /** État visuel d'une table du plan pendant le service. */
 export type TableVisualState =
   | 'free'
