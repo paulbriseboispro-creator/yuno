@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shirt, ScanLine, Check, CreditCard, ArrowLeft, Package, QrCode, Users, DollarSign, Camera, Plus, Clock } from 'lucide-react';
+import { Shirt, Check, CreditCard, ArrowLeft, Package, QrCode, Users, DollarSign, Camera, Plus, Clock, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
+import { useStaffNightPulse } from '@/hooks/useStaffNightPulse';
 import { toast } from 'sonner';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
@@ -45,6 +48,8 @@ const mainCard: React.CSSProperties = {
   position: 'relative',
 };
 
+const LOCALE_TAG: Record<string, string> = { fr: 'fr-FR', es: 'es-ES', en: 'en-GB' };
+
 type ScanMode = 'idle' | 'deposit_pay' | 'deposit_prepaid' | 'retrieve';
 
 interface ScanResult {
@@ -52,127 +57,165 @@ interface ScanResult {
   customerName: string;
   ticketId: string | null;
   attendeeQr: string;
-  existingTransaction?: any;
-  prepaidUpsell?: any;
+  /** Dépôt sans QR Yuno : le nom se saisit à la main. */
+  manual?: boolean;
+  existingTransaction?: { id: string; cloakroom_number: string; items_count: number; customer_name: string | null; ticket_id: string | null };
+  prepaidUpsell?: { id: string; unit_price: number | string | null };
 }
 
+type DepositRow = {
+  id: string;
+  cloakroom_number: string;
+  customer_name: string | null;
+  deposited_at: string;
+  items_count: number;
+  price: number;
+  attendee_qr: string | null;
+  ticket_id: string | null;
+};
+
+type DepositReason = 'number_taken' | 'already_deposited' | 'prepaid_used' | 'no_event' | 'forbidden' | 'number_required';
+
+// RPC vestiaire (migration 20260929235000) pas encore dans les types générés.
+const untyped = supabase as unknown as SupabaseClient;
+
 export default function CloakroomDashboard() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { venueId: staffVenueId, loading: venueLoading } = useStaffIdentity();
   const [scanning, setScanning] = useState(false);
   const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
   const [scannerKey, setScannerKey] = useState(0);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [cloakroomNumber, setCloakroomNumber] = useState('');
+  const [manualName, setManualName] = useState('');
   const [itemsCount, setItemsCount] = useState(1);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [venueId, setVenueId] = useState<string | null>(null);
   const [cloakroomPrice, setCloakroomPrice] = useState(4);
-  const [activeDeposits, setActiveDeposits] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [cashRevenue, setCashRevenue] = useState(0);
+  const [prepaidRevenue, setPrepaidRevenue] = useState(0);
   const [processing, setProcessing] = useState(false);
-  const [currentEventId, setCurrentEventId] = useState<string | null>(null);
-  const [activeDepositsList, setActiveDepositsList] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [activeDepositsList, setActiveDepositsList] = useState<DepositRow[]>([]);
   const [showActiveDeposits, setShowActiveDeposits] = useState(false);
+  const [listQuery, setListQuery] = useState('');
+  const [returningId, setReturningId] = useState<string | null>(null);
+
+  // Verrous synchrones : deux frames caméra ou un double tap arrivent avant le
+  // prochain rendu, un état React ne les arrête pas.
+  const scanLockRef = useRef(false);
+  const submitLockRef = useRef(false);
+  // Identifiant du dépôt en cours, choisi à l'ouverture de la fiche : un renvoi
+  // après une réponse perdue retombe sur la même ligne au lieu d'en créer une.
+  const depositIdRef = useRef<string>(crypto.randomUUID());
+  const refreshSeqRef = useRef(0);
+
+  // La soirée de CE soir, résolue par le serveur (club hôte ou lead d'une
+  // co-soirée) — la même que le panneau « Ce soir ». L'ancienne lecture
+  // prenait la DERNIÈRE soirée active, souvent une date future : tous les
+  // dépôts de la nuit étaient rangés sur une autre soirée.
+  const { pulse } = useStaffNightPulse(venueId);
+  const currentEventId = pulse?.event?.id ?? null;
+
+  const money = useMemo(
+    () => new Intl.NumberFormat(LOCALE_TAG[language] ?? 'fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }),
+    [language],
+  );
 
   useEffect(() => {
-    const init = async () => {
-      // Repli sur la session PIN quand le profil n'est pas encore chargé.
-      // Cette session vit dans localStorage (persistance PWA iOS) — l'ancien
-      // repli lisait sessionStorage et ne se déclenchait donc jamais.
-      const vId = staffVenueId || readStaffSessionVenueId();
-
-      if (!vId) return;
-      setVenueId(vId);
-
-      const { data: venue } = await supabase
-        .from('venues')
-        .select('cloakroom_price')
-        .eq('id', vId)
-        .single();
-      if (venue?.cloakroom_price) setCloakroomPrice(Number(venue.cloakroom_price));
-
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .eq('venue_id', vId)
-        .eq('is_active', true)
-        .order('start_at', { ascending: false })
-        .limit(1);
-      const eventId = events?.[0]?.id || null;
-      if (eventId) setCurrentEventId(eventId);
-
-      fetchStats(vId, eventId);
-    };
-    init();
+    // Repli sur la session PIN quand le profil n'est pas encore chargé.
+    const vId = staffVenueId || readStaffSessionVenueId();
+    if (!vId) return;
+    setVenueId(vId);
+    supabase
+      .from('venues')
+      .select('cloakroom_price')
+      .eq('id', vId)
+      .maybeSingle()
+      .then(({ data: venue }) => {
+        // 0 € = vestiaire gratuit, un vrai réglage (l'ancien test le prenait
+        // pour « non renseigné » et facturait 4 €).
+        if (venue && venue.cloakroom_price != null) setCloakroomPrice(Number(venue.cloakroom_price));
+      });
   }, [staffVenueId]);
 
-  // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
-  // silencieuse en journée).
-
-  // Realtime subscription for cloakroom transactions
-  useEffect(() => {
-    if (!venueId) return;
-
-    const channel = supabase
-      .channel(`cloakroom-realtime-${venueId}-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'cloakroom_transactions',
-          filter: `venue_id=eq.${venueId}`,
-        },
-        () => {
-          fetchStats(venueId);
-          fetchActiveDeposits();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  // Une seule lecture pour la liste ET les compteurs : ils ne peuvent plus se
+  // contredire. La plus récente gagne si deux lectures se croisent.
+  const refresh = useCallback(async () => {
+    if (!venueId || !currentEventId) {
+      setActiveDepositsList([]);
+      return;
+    }
+    const seq = ++refreshSeqRef.current;
+    const [openQ, revQ] = await Promise.all([
+      supabase
+        .from('cloakroom_transactions')
+        .select('id, cloakroom_number, customer_name, deposited_at, items_count, price, attendee_qr, ticket_id')
+        .eq('venue_id', venueId)
+        .eq('event_id', currentEventId)
+        .eq('retrieved', false)
+        .order('deposited_at', { ascending: false }),
+      supabase
+        .from('cloakroom_transactions')
+        .select('price, paid_on_site, payment_confirmed')
+        .eq('venue_id', venueId)
+        .eq('event_id', currentEventId)
+        .eq('payment_confirmed', true),
+    ]);
+    if (seq !== refreshSeqRef.current) return;
+    if (!openQ.error) setActiveDepositsList((openQ.data || []) as DepositRow[]);
+    if (!revQ.error) {
+      const rows = revQ.data || [];
+      // « À encaisser » = ce qui a été payé AU VESTIAIRE ; le prépayé en ligne
+      // ne se retrouve pas dans la caisse.
+      setCashRevenue(rows.filter(r => r.paid_on_site).reduce((sum, r) => sum + Number(r.price), 0));
+      setPrepaidRevenue(rows.filter(r => !r.paid_on_site).reduce((sum, r) => sum + Number(r.price), 0));
+    }
   }, [venueId, currentEventId]);
 
-  const fetchStats = async (vId: string, eventId?: string | null) => {
-    const eid = eventId ?? currentEventId;
-    
-    // Active deposits: not retrieved, for current event (fallback to venue-wide)
-    let depositQuery = supabase
-      .from('cloakroom_transactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('venue_id', vId)
-      .eq('retrieved', false);
-    if (eid) depositQuery = depositQuery.eq('event_id', eid);
-    const { count } = await depositQuery;
-    setActiveDeposits(count || 0);
-
-    // Revenue: confirmed payments for current event
-    let revQuery = supabase
-      .from('cloakroom_transactions')
-      .select('price')
-      .eq('venue_id', vId)
-      .eq('payment_confirmed', true);
-    if (eid) revQuery = revQuery.eq('event_id', eid);
-    const { data: rev } = await revQuery;
-    setTotalRevenue(rev?.reduce((sum, r) => sum + Number(r.price), 0) || 0);
-  };
-
-  const fetchActiveDeposits = async () => {
+  // Partage entre téléphones : realtime + rattrapage à la (re)connexion, au
+  // retour au premier plan, et un filet toutes les 30 s.
+  const scanResultRef = useRef<ScanResult | null>(null);
+  scanResultRef.current = scanResult;
+  useEffect(() => {
     if (!venueId) return;
-    const eid = currentEventId;
-    let query = supabase
-      .from('cloakroom_transactions')
-      .select('id, cloakroom_number, customer_name, deposited_at, items_count, price')
-      .eq('venue_id', venueId)
-      .eq('retrieved', false)
-      .order('deposited_at', { ascending: false });
-    if (eid) query = query.eq('event_id', eid);
-    const { data } = await query;
-    setActiveDepositsList(data || []);
-  };
+    refresh();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => refresh(), 400);
+    };
+    const channel = supabase
+      .channel(uniqueChannel('cloakroom-realtime'))
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cloakroom_transactions', filter: `venue_id=eq.${venueId}` },
+        (payload) => {
+          schedule();
+          // La fiche ouverte vient d'être rendue par un collègue : on la ferme.
+          const row = payload.new as { id?: string; retrieved?: boolean } | null;
+          const open = scanResultRef.current;
+          if (row?.retrieved && open?.mode === 'retrieve' && open.existingTransaction?.id === row.id) {
+            toast.info(t('cloakroom.alreadyRetrieved'));
+            setScanResult(null);
+          }
+        },
+      )
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') refresh();
+      });
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const poll = setInterval(refresh, 30_000);
+    return () => {
+      if (timer) clearTimeout(timer);
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      supabase.removeChannel(channel);
+    };
+  }, [venueId, refresh, t]);
 
   const startScanning = () => {
     setScanResult(null);
@@ -180,135 +223,164 @@ export default function CloakroomDashboard() {
     setScanning(true);
   };
 
-  const handleScan = useCallback(async (result: any) => {
-    if (!venueId || processing) return;
-    const qrCode = result?.[0]?.rawValue;
-    if (!qrCode) return;
+  const openDeposit = (next: ScanResult) => {
+    depositIdRef.current = crypto.randomUUID();
+    setCloakroomNumber('');
+    setItemsCount(1);
+    setPaymentConfirmed(false);
+    setScanResult(next);
+  };
 
+  const handleScan = useCallback(async (result: { rawValue?: string }[] | undefined) => {
+    const qrCode = result?.[0]?.rawValue?.trim();
+    if (!venueId || !qrCode || scanLockRef.current) return;
+    scanLockRef.current = true;
     setProcessing(true);
     setScanning(false);
 
     try {
-      // Check if there's an active deposit for this QR
-      const { data: existingTx } = await supabase
+      // Dépôt ouvert pour ce QR ? (au plus un : index unique en base)
+      const { data: existing, error: existingError } = await supabase
         .from('cloakroom_transactions')
         .select('*')
         .eq('venue_id', venueId)
         .eq('attendee_qr', qrCode)
         .eq('retrieved', false)
-        .maybeSingle();
+        .order('deposited_at', { ascending: false })
+        .limit(1);
+      if (existingError) throw existingError;
+      const existingTx = existing?.[0];
 
       if (existingTx) {
         if (navigator.vibrate) navigator.vibrate(200);
         setScanResult({
           mode: 'retrieve',
-          customerName: existingTx.customer_name || 'Client',
+          customerName: existingTx.customer_name || t('cloakroom.guestFallback'),
           ticketId: existingTx.ticket_id,
           attendeeQr: qrCode,
           existingTransaction: existingTx,
         });
-        setProcessing(false);
         return;
       }
 
-      // Find the ticket/attendee or guest list entry
-      let customerName = 'Client';
+      if (!currentEventId) {
+        toast.error(t('cloakroom.noEventTonight'));
+        return;
+      }
+
+      // Qui porte ce QR, et pour quelle soirée : un billet d'un autre soir ou
+      // remboursé n'ouvre pas le vestiaire (ni son option prépayée).
+      let customerName = t('cloakroom.guestFallback');
       let ticketId: string | null = null;
-      let isGuestList = false;
+      let valid = false;
+      let otherNight = false;
 
       const { data: attendee } = await supabase
         .from('ticket_attendees')
-        .select('full_name, ticket_id')
+        .select('full_name, ticket_id, tickets!inner(event_id, status)')
         .eq('qr_code', qrCode)
         .maybeSingle();
-
       if (attendee) {
-        customerName = attendee.full_name;
+        const tk = attendee.tickets as unknown as { event_id: string; status: string };
+        customerName = attendee.full_name || customerName;
         ticketId = attendee.ticket_id;
+        valid = tk.status === 'paid';
+        otherNight = tk.event_id !== currentEventId;
       } else {
         const { data: ticket } = await supabase
           .from('tickets')
-          .select('id, full_name')
+          .select('id, full_name, event_id, status')
           .eq('qr_code', qrCode)
           .maybeSingle();
         if (ticket) {
-          customerName = ticket.full_name || 'Client';
+          customerName = ticket.full_name || customerName;
           ticketId = ticket.id;
+          valid = ticket.status === 'paid';
+          otherNight = ticket.event_id !== currentEventId;
         } else {
-          // Check guest list entries
           const { data: guestEntry } = await supabase
             .from('guest_list_entries')
-            .select('id, full_name')
+            .select('id, full_name, status, guest_lists!inner(event_id)')
             .eq('qr_code', qrCode)
             .maybeSingle();
           if (guestEntry) {
-            customerName = guestEntry.full_name || 'Client';
-            ticketId = null; // No ticket, but valid QR
-            isGuestList = true;
+            customerName = guestEntry.full_name || customerName;
+            valid = guestEntry.status !== 'cancelled';
+            otherNight = (guestEntry.guest_lists as unknown as { event_id: string }).event_id !== currentEventId;
           }
         }
       }
 
-      if (!ticketId && !isGuestList) {
+      if (!valid) {
         toast.error(t('cloakroom.unrecognizedQR'));
-        resetScan();
-        setProcessing(false);
+        return;
+      }
+      if (otherNight) {
+        toast.error(t('cloakroom.otherNight'));
         return;
       }
 
       if (navigator.vibrate) navigator.vibrate(200);
 
-      // Check for prepaid cloakroom upsell (only for ticket-based QR)
       if (ticketId) {
-        const { data: prepaidUpsell } = await supabase
+        const { data: prepaid } = await supabase
           .from('ticket_upsell_selections')
           .select('*')
           .eq('ticket_id', ticketId)
           .eq('offer_type', 'cloakroom')
           .eq('cloakroom_deposited', false)
-          .maybeSingle();
-
-        if (prepaidUpsell) {
-          setScanResult({
-            mode: 'deposit_prepaid',
-            customerName,
-            ticketId,
-            attendeeQr: qrCode,
-            prepaidUpsell,
-          });
-        } else {
-          // No unused prepaid upsell — always allow pay-on-site deposit
-          setScanResult({
-            mode: 'deposit_pay',
-            customerName,
-            ticketId,
-            attendeeQr: qrCode,
-          });
-        }
-      } else {
-        // Guest list entry — always pay on site
-        setScanResult({
-          mode: 'deposit_pay',
+          .limit(1);
+        const prepaidUpsell = prepaid?.[0];
+        openDeposit({
+          mode: prepaidUpsell ? 'deposit_prepaid' : 'deposit_pay',
           customerName,
-          ticketId: null,
+          ticketId,
           attendeeQr: qrCode,
+          prepaidUpsell,
         });
+      } else {
+        openDeposit({ mode: 'deposit_pay', customerName, ticketId: null, attendeeQr: qrCode });
       }
     } catch (err) {
       console.error('Scan error:', err);
       toast.error(t('cloakroom.scanError'));
-      resetScan();
+      setScanResult(null);
+    } finally {
+      setProcessing(false);
+      scanLockRef.current = false;
     }
-    setProcessing(false);
-  }, [venueId, processing]);
+  }, [venueId, currentEventId, t]);
+
+  /** Dépôt sans QR Yuno (billet papier, autre billetterie, entrée libre). */
+  const startManualDeposit = () => {
+    if (!currentEventId) {
+      toast.error(t('cloakroom.noEventTonight'));
+      return;
+    }
+    setScanning(false);
+    setManualName('');
+    openDeposit({ mode: 'deposit_pay', customerName: '', ticketId: null, attendeeQr: '', manual: true });
+  };
 
   const resetScan = () => {
     setScanResult(null);
     setCloakroomNumber('');
+    setManualName('');
     setItemsCount(1);
     setPaymentConfirmed(false);
     setScanning(false);
     setProcessing(false);
+  };
+
+  const depositErrorMessage = (reason: DepositReason | string | undefined) => {
+    switch (reason) {
+      case 'number_taken': return t('cloakroom.numberTaken').replace('{n}', cloakroomNumber.trim());
+      case 'already_deposited': return t('cloakroom.alreadyDeposited');
+      case 'prepaid_used': return t('cloakroom.prepaidUsed');
+      case 'no_event': return t('cloakroom.noEventTonight');
+      case 'number_required': return t('cloakroom.enterNumber');
+      default: return t('cloakroom.saveError');
+    }
   };
 
   const handleConfirmDeposit = async () => {
@@ -316,98 +388,114 @@ export default function CloakroomDashboard() {
       toast.error(t('cloakroom.enterNumber'));
       return;
     }
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    setSubmitting(true);
 
     const isPrepaid = scanResult.mode === 'deposit_prepaid';
-    const price = isPrepaid ? Number(scanResult.prepaidUpsell?.unit_price || 0) : cloakroomPrice * itemsCount;
-
+    const name = scanResult.manual ? manualName.trim() : scanResult.customerName;
     try {
-      // Get current staff user
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const { error } = await retrySupabaseAction(async () => {
-        const res = await supabase.from('cloakroom_transactions').insert({
-          venue_id: venueId,
-          event_id: currentEventId!,
-          ticket_id: scanResult.ticketId,
-          attendee_qr: scanResult.attendeeQr,
-          customer_name: scanResult.customerName,
-          cloakroom_number: cloakroomNumber.trim(),
-          items_count: itemsCount,
-          price,
-          paid_on_site: !isPrepaid,
-          payment_confirmed: isPrepaid || paymentConfirmed,
-          // `staff_id` = qui a déposé. C'est la colonne que lit l'activité staff
-          // de la soirée ; `processed_by` reste écrit pour les lectures legacy.
-          staff_id: user?.id,
-          processed_by: user?.id,
+      const { data, error } = await retrySupabaseAction(async () => {
+        const res = await untyped.rpc('cloakroom_deposit', {
+          p_id: depositIdRef.current,
+          p_venue_id: venueId,
+          p_event_id: currentEventId,
+          p_attendee_qr: scanResult.attendeeQr || null,
+          p_ticket_id: scanResult.ticketId,
+          p_customer_name: name || null,
+          p_number: cloakroomNumber.trim(),
+          p_items: itemsCount,
+          p_prepaid_selection_id: isPrepaid ? scanResult.prepaidUpsell?.id ?? null : null,
+          p_payment_confirmed: paymentConfirmed,
         });
         if (res.error) throw res.error;
         return res;
       });
-
       if (error) throw error;
-
-      if (isPrepaid && scanResult.prepaidUpsell) {
-        await supabase
-          .from('ticket_upsell_selections')
-          .update({
-            cloakroom_deposited: true,
-            cloakroom_deposited_at: new Date().toISOString(),
-            cloakroom_number: cloakroomNumber.trim(),
-          })
-          .eq('id', scanResult.prepaidUpsell.id);
+      const outcome = data as { ok: boolean; reason?: string; number?: string } | null;
+      if (!outcome?.ok) {
+        toast.error(depositErrorMessage(outcome?.reason));
+        if (outcome?.reason === 'already_deposited' || outcome?.reason === 'prepaid_used') resetScan();
+        return;
       }
-
-      toast.success(`${t('cloakroom.depositConfirmed')} — N°${cloakroomNumber}`);
-      if (venueId) fetchStats(venueId);
+      toast.success(`${t('cloakroom.depositConfirmed')} — ${t('cloakroom.numberShort').replace('{n}', outcome.number ?? cloakroomNumber.trim())}`);
+      refresh();
       resetScan();
-    } catch (err: any) {
-      toast.error(err.message || t('staffLogin.error'));
+    } catch (err) {
+      console.error('Deposit error:', err);
+      toast.error(t('cloakroom.saveError'));
+    } finally {
+      submitLockRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  /** Restitution, depuis un scan ou depuis la liste (téléphone du client mort). */
+  const retrieve = async (txId: string): Promise<boolean> => {
+    if (submitLockRef.current) return false;
+    submitLockRef.current = true;
+    setSubmitting(true);
+    setReturningId(txId);
+    try {
+      const { data, error } = await retrySupabaseAction(async () => {
+        const res = await untyped.rpc('cloakroom_retrieve', { p_tx: txId });
+        if (res.error) throw res.error;
+        return res;
+      });
+      if (error) throw error;
+      const outcome = data as { ok: boolean; reason?: string; at?: string; mine?: boolean } | null;
+      if (!outcome?.ok) {
+        // Notre propre premier essai dont la réponse s'était perdue : c'est un succès.
+        if (outcome?.reason === 'already_retrieved' && outcome.mine
+            && outcome.at && Date.now() - new Date(outcome.at).getTime() < 60_000) {
+          toast.success(t('cloakroom.retrievalDone'));
+          refresh();
+          return true;
+        }
+        toast.error(outcome?.reason === 'already_retrieved' && outcome.at
+          ? t('cloakroom.alreadyRetrievedAt').replace('{time}', format(new Date(outcome.at), 'HH:mm'))
+          : t('cloakroom.saveError'));
+        refresh();
+        return outcome?.reason === 'already_retrieved';
+      }
+      toast.success(t('cloakroom.retrievalDone'));
+      refresh();
+      return true;
+    } catch (err) {
+      console.error('Retrieval error:', err);
+      toast.error(t('cloakroom.saveError'));
+      return false;
+    } finally {
+      submitLockRef.current = false;
+      setSubmitting(false);
+      setReturningId(null);
     }
   };
 
   const handleConfirmRetrieval = async () => {
     if (!scanResult?.existingTransaction) return;
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { error } = await retrySupabaseAction(async () => {
-        const res = await supabase
-          .from('cloakroom_transactions')
-          .update({
-            retrieved: true,
-            retrieved_at: new Date().toISOString(),
-            // Colonne dédiée : la restitution ne doit pas effacer l'identité de
-            // la personne qui a enregistré le dépôt (souvent quelqu'un d'autre).
-            retrieved_by: user?.id,
-          })
-          .eq('id', scanResult.existingTransaction.id)
-          .eq('retrieved', false);
-        if (res.error) throw res.error;
-        return res;
-      });
-
-      if (scanResult.ticketId) {
-        await supabase
-          .from('ticket_upsell_selections')
-          .update({
-            cloakroom_retrieved: true,
-            cloakroom_retrieved_at: new Date().toISOString(),
-          })
-          .eq('ticket_id', scanResult.ticketId)
-          .eq('offer_type', 'cloakroom')
-          .eq('cloakroom_deposited', true)
-          .eq('cloakroom_retrieved', false);
-      }
-
-      toast.success(t('cloakroom.retrievalDone'));
-      if (venueId) fetchStats(venueId);
-      resetScan();
-    } catch (err: any) {
-      toast.error(err.message || t('staffLogin.error'));
-    }
+    if (await retrieve(scanResult.existingTransaction.id)) resetScan();
   };
+
+  const handleListReturn = async (dep: DepositRow) => {
+    const label = `${t('cloakroom.numberShort').replace('{n}', dep.cloakroom_number)}${dep.customer_name ? ` · ${dep.customer_name}` : ''}`;
+    if (!window.confirm(t('cloakroom.confirmListReturn').replace('{label}', label))) return;
+    await retrieve(dep.id);
+  };
+
+  const filteredDeposits = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    if (!q) return activeDepositsList;
+    return activeDepositsList.filter(d =>
+      d.cloakroom_number.toLowerCase().includes(q) || (d.customer_name || '').toLowerCase().includes(q));
+  }, [activeDepositsList, listQuery]);
+
+  const depositTotal = scanResult?.mode === 'deposit_prepaid'
+    ? Number(scanResult.prepaidUpsell?.unit_price || 0) + cloakroomPrice * (itemsCount - 1)
+    : cloakroomPrice * itemsCount;
+  // Paiement sur place requis : tout dépôt payant, et les emplacements en plus
+  // d'un prépayé.
+  const needsPayment = scanResult?.mode === 'deposit_pay' ? cloakroomPrice > 0 : itemsCount > 1 && cloakroomPrice > 0;
 
   if (venueLoading) {
     return (
@@ -439,6 +527,20 @@ export default function CloakroomDashboard() {
         {/* Ce soir : consigne, dépôts/rendus, équipe, appels */}
         <StaffNightPanel role="cloakroom" />
 
+        {/* Préposé sans club (invité par un organisateur) : le vestiaire
+            Yuno est rattaché à un club — on le dit au lieu d'une page muette. */}
+        {!venueId && !staffVenueId && (
+          <div className="rounded-2xl px-4 py-3" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}>
+            {t('cloakroom.noVenue')}
+          </div>
+        )}
+
+        {venueId && pulse && !currentEventId && (
+          <div className="rounded-2xl px-4 py-3" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}>
+            {t('cloakroom.noEventTonight')}
+          </div>
+        )}
+
         {/* Stats Row */}
         <div className="grid grid-cols-2 gap-3">
           <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
@@ -446,14 +548,19 @@ export default function CloakroomDashboard() {
               <Users className="h-4 w-4" style={{ color: RED }} />
               <span style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('cloakroom.activeDeposits')}</span>
             </div>
-            <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{activeDeposits}</div>
+            <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{activeDepositsList.length}</div>
           </div>
           <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-4 w-4" style={{ color: RED }} />
-              <span style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('cloakroom.revenue')}</span>
+              <span style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('cloakroom.cashCollected')}</span>
             </div>
-            <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{totalRevenue.toFixed(0)}€</div>
+            <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{money.format(cashRevenue)}</div>
+            {prepaidRevenue > 0 && (
+              <div className="tabular-nums" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
+                {t('cloakroom.prepaidOnline').replace('{amount}', money.format(prepaidRevenue))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -469,7 +576,7 @@ export default function CloakroomDashboard() {
               size="sm"
               className="h-9 flex-none text-xs"
               onClick={() => {
-                fetchActiveDeposits();
+                refresh();
                 setShowActiveDeposits(!showActiveDeposits);
               }}
             >
@@ -478,11 +585,19 @@ export default function CloakroomDashboard() {
           </div>
           {showActiveDeposits && (
             <>
-              {activeDepositsList.length === 0 ? (
+              {activeDepositsList.length > 6 && (
+                <Input
+                  value={listQuery}
+                  onChange={e => setListQuery(e.target.value)}
+                  placeholder={t('cloakroom.searchPlaceholder')}
+                  className="mb-2 h-10"
+                />
+              )}
+              {filteredDeposits.length === 0 ? (
                 <p className="text-center py-4" style={{ color: T3, fontSize: 12 }}>{t('cloakroom.noActiveDeposits')}</p>
               ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {activeDepositsList.map((dep) => (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {filteredDeposits.map((dep) => (
                     <div
                       key={dep.id}
                       className="flex items-center justify-between gap-3"
@@ -496,20 +611,27 @@ export default function CloakroomDashboard() {
                           {dep.cloakroom_number}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{dep.customer_name || 'Client'}</p>
+                          <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{dep.customer_name || t('cloakroom.guestFallback')}</p>
                           <p className="flex items-center gap-1 truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
                             <Clock className="h-3 w-3 flex-none" />
                             {format(new Date(dep.deposited_at), 'HH:mm')}
                             {dep.items_count > 1 && ` • ${dep.items_count} ${t('cloakroom.slots')}`}
+                            {` • ${money.format(Number(dep.price))}`}
                           </p>
                         </div>
                       </div>
-                      <span
-                        className="tabular-nums flex-none whitespace-nowrap"
-                        style={{ color: T1, fontSize: 13, fontWeight: 620, padding: '4px 10px', borderRadius: 999, background: C_FAINT, border: `1px solid ${BORDER}` }}
+                      {/* Rendre sans scan : téléphone du client éteint, ticket
+                          sur le téléphone d'un ami — le vêtement ne reste pas
+                          « en dépôt » jusqu'au matin. */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 flex-none text-xs"
+                        disabled={submitting}
+                        onClick={() => handleListReturn(dep)}
                       >
-                        {dep.price}€
-                      </span>
+                        {returningId === dep.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('cloakroom.returnShort')}
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -546,10 +668,16 @@ export default function CloakroomDashboard() {
                 )}
               </div>
             ) : !scanResult ? (
-              <Button onClick={startScanning} className="w-full h-12 text-sm gap-2">
-                <Camera className="h-4 w-4" />
-                {t('cloakroom.scanQR')}
-              </Button>
+              <>
+                <Button onClick={startScanning} className="w-full h-12 text-sm gap-2" disabled={processing}>
+                  {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  {t('cloakroom.scanQR')}
+                </Button>
+                <Button variant="outline" onClick={startManualDeposit} className="w-full h-11 text-sm gap-2">
+                  <Plus className="h-4 w-4" />
+                  {t('cloakroom.manualDeposit')}
+                </Button>
+              </>
             ) : null}
 
             {scanning && (
@@ -580,10 +708,23 @@ export default function CloakroomDashboard() {
                     <Shirt className="h-6 w-6" style={{ color: RED }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
-                    <p className="truncate" style={{ color: T3, fontSize: 13, marginTop: 1 }}>{t('cloakroom.paymentRequired')}</p>
+                    <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>
+                      {scanResult.manual ? t('cloakroom.manualDeposit') : scanResult.customerName}
+                    </h3>
+                    <p className="truncate" style={{ color: T3, fontSize: 13, marginTop: 1 }}>
+                      {cloakroomPrice > 0 ? t('cloakroom.paymentRequired') : t('cloakroom.freeCloakroom')}
+                    </p>
                   </div>
                 </div>
+
+                {scanResult.manual && (
+                  <Input
+                    value={manualName}
+                    onChange={e => setManualName(e.target.value)}
+                    placeholder={t('cloakroom.manualNamePlaceholder')}
+                    className="h-11"
+                  />
+                )}
 
                 <div>
                   <Label style={{ color: T3, fontSize: 13 }}>{t('cloakroom.slotsCount')}</Label>
@@ -597,32 +738,34 @@ export default function CloakroomDashboard() {
                 <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
                   <div className="flex justify-between items-center gap-3">
                     <span className="min-w-0" style={{ color: T3, fontSize: 13 }}>{t('cloakroom.totalToPay')}</span>
-                    <span className="tabular-nums flex-none whitespace-nowrap" style={{ color: T1, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>{(cloakroomPrice * itemsCount).toFixed(2)}€</span>
+                    <span className="tabular-nums flex-none whitespace-nowrap" style={{ color: T1, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>{money.format(depositTotal)}</span>
                   </div>
                 </div>
 
-                {!paymentConfirmed ? (
+                {needsPayment && !paymentConfirmed ? (
                   <Button className="w-full h-12 gap-2" onClick={() => setPaymentConfirmed(true)}>
                     <CreditCard className="h-5 w-5" />
                     {t('cloakroom.paymentValidated')}
                   </Button>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2" style={{ color: POS, fontSize: 13, fontWeight: 500 }}>
-                      <Check className="h-4 w-4" /> {t('cloakroom.paymentConfirmed')}
-                    </div>
+                    {needsPayment && (
+                      <div className="flex items-center gap-2" style={{ color: POS, fontSize: 13, fontWeight: 500 }}>
+                        <Check className="h-4 w-4" /> {t('cloakroom.paymentConfirmed')}
+                      </div>
+                    )}
                     <div>
                       <Label style={{ color: T3, fontSize: 13 }}>{t('cloakroom.cloakroomNumber')}</Label>
                       <Input
                         value={cloakroomNumber}
                         onChange={e => setCloakroomNumber(e.target.value)}
-                        placeholder="Ex: 42"
+                        placeholder={t('cloakroom.numberPlaceholder')}
                         className="text-center text-2xl font-bold h-14 mt-2 tabular-nums"
                         autoFocus
                       />
                     </div>
-                    <Button className="w-full h-12" onClick={handleConfirmDeposit} disabled={!cloakroomNumber.trim()}>
-                      {t('cloakroom.confirmDeposit')}
+                    <Button className="w-full h-12" onClick={handleConfirmDeposit} disabled={!cloakroomNumber.trim() || submitting}>
+                      {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : t('cloakroom.confirmDeposit')}
                     </Button>
                   </>
                 )}
@@ -662,35 +805,37 @@ export default function CloakroomDashboard() {
                   <Input
                     value={cloakroomNumber}
                     onChange={e => setCloakroomNumber(e.target.value)}
-                    placeholder="Ex: 42"
+                    placeholder={t('cloakroom.numberPlaceholder')}
                     className="text-center text-2xl font-bold h-14 mt-2 tabular-nums"
                     autoFocus
                   />
                 </div>
 
-                <Button className="w-full h-12" onClick={handleConfirmDeposit} disabled={!cloakroomNumber.trim()}>
-                  {t('cloakroom.confirmPrepaid')}
-                </Button>
-
-                {/* Option to add extra paid deposit */}
+                {/* Emplacements en plus du prépayé : au tarif du club, payés ici. */}
                 <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
                   <p style={{ color: T3, fontSize: 12, marginBottom: 8 }}>{t('cloakroom.needExtra')}</p>
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 text-sm"
-                    onClick={() => {
-                      // Switch to pay mode for additional deposit
-                      setScanResult({
-                        ...scanResult,
-                        mode: 'deposit_pay',
-                        prepaidUpsell: undefined,
-                      });
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t('cloakroom.addExtra')} ({cloakroomPrice}€)
-                  </Button>
+                  <div className="flex items-center gap-4">
+                    <Button variant="outline" size="sm" className="h-11 w-11 flex-none" onClick={() => { setItemsCount(Math.max(1, itemsCount - 1)); setPaymentConfirmed(false); }}>-</Button>
+                    <span className="w-8 text-center tabular-nums" style={{ color: T1, fontSize: 22, fontWeight: 640 }}>{itemsCount}</span>
+                    <Button variant="outline" size="sm" className="h-11 w-11 flex-none" onClick={() => { setItemsCount(itemsCount + 1); setPaymentConfirmed(false); }}>+</Button>
+                    {itemsCount > 1 && (
+                      <span className="ml-auto tabular-nums" style={{ color: T1, fontSize: 15, fontWeight: 620 }}>
+                        + {money.format(cloakroomPrice * (itemsCount - 1))}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {needsPayment && !paymentConfirmed ? (
+                  <Button className="w-full h-12 gap-2" onClick={() => setPaymentConfirmed(true)}>
+                    <CreditCard className="h-5 w-5" />
+                    {t('cloakroom.paymentValidated')}
+                  </Button>
+                ) : (
+                  <Button className="w-full h-12" onClick={handleConfirmDeposit} disabled={!cloakroomNumber.trim() || submitting}>
+                    {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : t('cloakroom.confirmPrepaid')}
+                  </Button>
+                )}
 
                 <Button variant="ghost" onClick={resetScan} className="w-full gap-2" style={{ color: T3 }}>
                   <ArrowLeft className="h-4 w-4" /> {t('cloakroom.newScan')}
@@ -734,9 +879,8 @@ export default function CloakroomDashboard() {
                   {scanResult.existingTransaction?.items_count} {t('cloakroom.slots')}
                 </div>
 
-                <Button className="w-full h-12" size="lg" onClick={handleConfirmRetrieval}>
-                  <Check className="h-5 w-5 mr-2" />
-                  {t('cloakroom.validateRetrieval')}
+                <Button className="w-full h-12" size="lg" onClick={handleConfirmRetrieval} disabled={submitting}>
+                  {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5 mr-2" />{t('cloakroom.validateRetrieval')}</>}
                 </Button>
 
                 <Button variant="ghost" onClick={resetScan} className="w-full gap-2" style={{ color: T3 }}>
