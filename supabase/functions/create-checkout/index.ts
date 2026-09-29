@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
+import { alertIndirectChargeRefused, isBlockedIndirectCharge } from "../_shared/charge-policy.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -700,6 +701,13 @@ serve(async (req) => {
       venueStripeAccountId: venue.stripe_account_id,
       organizerStripeAccountId,
     });
+    // Partage des boissons avec l'organisateur = charge plateforme : hors du cadre
+    // Managed Risk des comptes connectés (charge-policy.ts).
+    if (isBlockedIndirectCharge(split)) {
+      logStep("Checkout refused — indirect charge disabled", { eventId: eventForSplit?.id ?? null });
+      if (eventForSplit?.id) await alertIndirectChargeRefused(supabaseAdmin, { eventId: eventForSplit.id, itemType: "drink" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
     // Direct charges run ON the connected account, so coupons + the Checkout Session
     // must be created with the same stripeAccount context.

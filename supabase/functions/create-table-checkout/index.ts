@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
+import { alertIndirectChargeRefused, indirectChargesEnabled, isBlockedIndirectCharge } from "../_shared/charge-policy.ts";
 import { checkPayoutReadiness, checkPayoutReadinessHealing, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { createSessionWithPaymentMethodFallback, healChargesEnabled, organizerConnectColumns, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -427,7 +428,8 @@ serve(async (req) => {
     // l'organisateur (charge directe sur SON compte Connect).
     // Accord de co-organisation entre deux organisations réparti par Stripe :
     // null = charge directe chez l'hôte (le décompte règle le partenaire).
-    const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
+    // Éteint tant que seules les charges directes sont admises (charge-policy.ts).
+    const coorgStripe = indirectChargesEnabled() ? await loadCoorgStripeSplit(supabaseAdmin, event) : null;
     const readinessInput = {
       itemType: "table" as const,
       isBde: event.is_bde === true,
@@ -1111,6 +1113,15 @@ serve(async (req) => {
       throw new Error(t("checkout.demoEventNotPurchasable", lang));
     }
 
+    // Contrat qui partage chaque vente via Stripe (charge plateforme) : hors du
+    // cadre Managed Risk des comptes connectés (charge-policy.ts). Refusé AVANT
+    // de réserver la table.
+    if (isBlockedIndirectCharge(readiness.split)) {
+      logStep("Checkout refused — indirect charge disabled", { eventId: event.id });
+      await alertIndirectChargeRefused(supabaseAdmin, { eventId: event.id, itemType: "table" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
+
     // Atomic: locks the governing zone, re-counts under the lock, then inserts the
     // pending reservation. See migration 20260616130000_reserve_table_slot_atomic.sql.
     const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
@@ -1251,6 +1262,11 @@ serve(async (req) => {
       venueStripeAccountId: venue?.stripe_account_id ?? null,
       organizerStripeAccountId,
     });
+    if (isBlockedIndirectCharge(split)) {
+      logStep("Checkout refused — indirect charge disabled (resolved split)", { eventId: event.id });
+      await alertIndirectChargeRefused(supabaseAdmin, { eventId: event.id, itemType: "table" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
     if (connectedAccountId || split.transferSplit) {
       await supabaseAdmin.from("table_reservations").update({
