@@ -4,7 +4,12 @@ import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const PENDING_TIMEOUT_MINUTES = 30;
+// Une session Checkout vit 31 min (expires_at posé à la création, APRÈS
+// l'insertion de la ligne « pending ») : un acheteur peut donc payer jusqu'à
+// ~31 min après la création du billet ou de la table. À 30 min, le nettoyage
+// supprimait des lignes encore payables — client débité, plus rien à valider.
+// 45 min laisse la session expirer ET le webhook de rattrapage arriver.
+const PENDING_TIMEOUT_MINUTES = 45;
 
 Deno.serve(async (req) => {
     // SECURITY: scheduled function — require shared cron secret or super-admin JWT
@@ -21,7 +26,7 @@ Deno.serve(async (req) => {
     const cutoff = new Date(Date.now() - PENDING_TIMEOUT_MINUTES * 60 * 1000).toISOString();
 
     // Step 1: expire stale ticket capacity reservations FIRST (frees seats for new buyers)
-    // These have a short TTL (10 min) — independent of the 30-min ticket cleanup below.
+    // These have a short TTL (10 min) — independent of the ticket cleanup below.
     let expiredReservations = 0;
     try {
       const { data: expiredCount, error: expireErr } = await supabase.rpc('expire_stale_ticket_reservations');
@@ -37,7 +42,7 @@ Deno.serve(async (req) => {
       console.error('expire_stale_ticket_reservations RPC failed:', e);
     }
 
-    // Step 2: clean up pending tickets older than 30 minutes without completed payment
+    // Step 2: clean up pending tickets older than PENDING_TIMEOUT_MINUTES without completed payment
     const { data: expiredTickets, error: ticketFetchError } = await supabase
       .from('tickets')
       .select('id')
@@ -64,7 +69,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 3: clean up pending VIP table reservations older than 30 minutes
+    // Step 3: clean up pending VIP table reservations older than PENDING_TIMEOUT_MINUTES
     const { data: expiredVipRes, error: resFetchError } = await supabase
       .from('table_reservations')
       .select('id')

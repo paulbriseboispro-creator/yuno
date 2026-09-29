@@ -470,6 +470,14 @@ serve(async (req) => {
             reservationId: ticket.reservation_id,
             error: confirmErr.message,
           });
+          // Compter la capacité TENUE (quantité × taille du groupe), pas la
+          // quantité : un billet « groupe de 4 » occupe 4 places de la jauge.
+          const { data: heldRow } = await supabaseAdmin
+            .from('ticket_reservations')
+            .select('capacity_held')
+            .eq('id', ticket.reservation_id)
+            .maybeSingle();
+          const seats = Number(heldRow?.capacity_held) > 0 ? Number(heldRow?.capacity_held) : (ticket.quantity || 1);
           const { data: roundData } = await supabaseAdmin
             .from('ticket_rounds')
             .select('tickets_sold')
@@ -478,7 +486,7 @@ serve(async (req) => {
           if (roundData) {
             await supabaseAdmin
               .from('ticket_rounds')
-              .update({ tickets_sold: (roundData.tickets_sold || 0) + ticket.quantity })
+              .update({ tickets_sold: (roundData.tickets_sold || 0) + seats })
               .eq('id', ticket.ticket_round_id);
           }
         } else {

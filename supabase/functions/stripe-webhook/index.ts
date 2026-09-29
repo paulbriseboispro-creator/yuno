@@ -221,6 +221,75 @@ async function releaseHeldTransfers(stripe: Stripe, admin: SupabaseClient) {
   return { due: due?.length ?? 0, released, skipped };
 }
 
+// ─── Délégation checkout.session.completed → verify-* ─────────────────────────
+//
+// Filet de l'acheteur qui ferme l'onglet avant le retour (Apple Pay, mobile) :
+// le webhook rejoue le traitement de verify-*. Avant, la réponse de verify-*
+// était ignorée et le webhook rendait 200 : un échec passager (Stripe ou base
+// indisponible) n'était JAMAIS rejoué — client débité, sans billet ni QR.
+// Désormais :
+//  • échec passager → on lève, le webhook rend une erreur, Stripe REJOUE
+//    (verify-* est idempotent : pending→paid atomique, alreadyProcessed) ;
+//  • échec définitif (ligne introuvable, session qui ne correspond pas, montant
+//    incohérent) → rejouer n'y changera rien : alerte super admin, une par
+//    session, et le webhook continue.
+const DEFINITIVE_VERIFY_ERRORS = [
+  "not found",
+  "does not match",
+  "does not belong",
+  "amount mismatch",
+];
+
+async function delegateToVerify(
+  admin: SupabaseClient,
+  fn: "verify-payment" | "verify-ticket-payment" | "verify-table-payment",
+  body: Record<string, string>,
+  ref: { kind: "order" | "ticket" | "table"; id: string },
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  let resp: Response;
+  try {
+    resp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/${fn}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    // Réseau : Stripe rejouera l'événement.
+    throw new Error(`${fn} unreachable: ${(err as Error).message}`);
+  }
+  let payload: Record<string, unknown> | null = null;
+  try { payload = await resp.json(); } catch { /* corps non JSON */ }
+  logStep(`Delegated ${ref.kind} processing to ${fn}`, {
+    id: ref.id,
+    ok: resp.ok,
+    alreadyProcessed: payload?.alreadyProcessed ?? null,
+  });
+  if (resp.ok) return;
+
+  const message = String(payload?.error ?? `HTTP ${resp.status}`);
+  const definitive = DEFINITIVE_VERIFY_ERRORS.some((m) => message.toLowerCase().includes(m));
+  if (!definitive) {
+    throw new Error(`${fn} failed for ${ref.kind} ${ref.id}: ${message}`);
+  }
+  if (session.payment_status === "paid") {
+    await admin.rpc("emit_admin_notification", {
+      p_type: "admin_paid_sale_unfulfilled",
+      p_title: "Paiement encaissé sans vente enregistrée",
+      p_message: `Stripe a encaissé ${((session.amount_total ?? 0) / 100).toFixed(2)} € (${ref.kind} ${ref.id}) mais ${fn} refuse : ${message}. Retrouver l'acheteur (${session.customer_details?.email ?? session.customer_email ?? "email inconnu"}) et rembourser ou émettre la vente à la main.`.slice(0, 480),
+      p_priority: "high",
+      p_reference_type: ref.kind,
+      p_reference_id: ref.id,
+      p_metadata: { session_id: session.id, payment_intent: session.payment_intent ?? null, error: message },
+      p_dedup_key: `paid_unfulfilled:${session.id}`,
+      p_event_id: session.metadata?.eventId ?? null,
+    }).then(() => undefined, () => undefined);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -420,31 +489,9 @@ serve(async (req) => {
           // au même traitement. verify-payment bascule pending→paid de façon
           // atomique : si le client a déjà traité, cet appel est un no-op
           // (alreadyProcessed=true).
-          try {
-            const verifyResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-payment`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              },
-              body: JSON.stringify({ sessionId: session.id, orderId: metadata.orderId }),
-            });
-            let body: Record<string, unknown> | null = null;
-            try { body = await verifyResp.json(); } catch { /* non-JSON body */ }
-            logStep("Delegated order processing to verify-payment", {
-              orderId: metadata.orderId,
-              ok: verifyResp.ok,
-              alreadyProcessed: body?.alreadyProcessed ?? null,
-            });
-          } catch (verifyErr) {
-            // Best-effort : ne jamais faire échouer le webhook là-dessus. Stripe
-            // rejoue l'événement et l'appel est idempotent, donc un échec
-            // transitoire s'auto-répare.
-            logStep("verify-payment delegation failed (Stripe will retry)", {
-              orderId: metadata.orderId,
-              error: (verifyErr as Error).message,
-            });
-          }
+          await delegateToVerify(supabaseClient, "verify-payment",
+            { sessionId: session.id, orderId: metadata.orderId },
+            { kind: "order", id: metadata.orderId }, session);
         }
 
         if (metadata.ticketId) {
@@ -456,30 +503,9 @@ serve(async (req) => {
           // to the exact same processing here. verify-ticket-payment flips the
           // ticket pending->paid atomically, so if the client already processed
           // it this call is a harmless no-op (alreadyProcessed=true).
-          try {
-            const verifyResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-ticket-payment`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              },
-              body: JSON.stringify({ sessionId: session.id, ticketId: metadata.ticketId }),
-            });
-            let body: Record<string, unknown> | null = null;
-            try { body = await verifyResp.json(); } catch { /* non-JSON body */ }
-            logStep("Delegated ticket processing to verify-ticket-payment", {
-              ticketId: metadata.ticketId,
-              ok: verifyResp.ok,
-              alreadyProcessed: body?.alreadyProcessed ?? null,
-            });
-          } catch (verifyErr) {
-            // Best-effort: never fail the webhook over this. Stripe retries the
-            // event and the call is idempotent, so a transient failure self-heals.
-            logStep("verify-ticket-payment delegation failed (Stripe will retry)", {
-              ticketId: metadata.ticketId,
-              error: (verifyErr as Error).message,
-            });
-          }
+          await delegateToVerify(supabaseClient, "verify-ticket-payment",
+            { sessionId: session.id, ticketId: metadata.ticketId },
+            { kind: "ticket", id: metadata.ticketId }, session);
         }
 
         if (metadata.reservationId) {
@@ -494,31 +520,9 @@ serve(async (req) => {
           // traitement. verify-table-payment bascule pending/confirmed→paid de
           // façon atomique : si le client a déjà traité, cet appel est un no-op
           // (alreadyProcessed=true).
-          try {
-            const verifyResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-table-payment`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              },
-              body: JSON.stringify({ sessionId: session.id, reservationId: metadata.reservationId }),
-            });
-            let body: Record<string, unknown> | null = null;
-            try { body = await verifyResp.json(); } catch { /* non-JSON body */ }
-            logStep("Delegated table processing to verify-table-payment", {
-              reservationId: metadata.reservationId,
-              ok: verifyResp.ok,
-              alreadyProcessed: body?.alreadyProcessed ?? null,
-            });
-          } catch (verifyErr) {
-            // Best-effort : ne jamais faire échouer le webhook là-dessus. Stripe
-            // rejoue l'événement et l'appel est idempotent, donc un échec
-            // transitoire s'auto-répare.
-            logStep("verify-table-payment delegation failed (Stripe will retry)", {
-              reservationId: metadata.reservationId,
-              error: (verifyErr as Error).message,
-            });
-          }
+          await delegateToVerify(supabaseClient, "verify-table-payment",
+            { sessionId: session.id, reservationId: metadata.reservationId },
+            { kind: "table", id: metadata.reservationId }, session);
         }
         break;
       }
@@ -808,11 +812,18 @@ serve(async (req) => {
             );
             const bt = ch.balance_transaction as Stripe.BalanceTransaction | null;
             if (bt && typeof bt === "object" && typeof bt.fee === "number") {
+              // Sur une charge DIRECTE, `bt.fee` du compte connecté additionne le
+              // frais Stripe ET la commission Yuno (application_fee). Seules les
+              // lignes `stripe_fee` sont le coût de traitement réel.
+              const details: { type?: string; amount?: number }[] = Array.isArray(bt.fee_details) ? bt.fee_details : [];
+              const stripeOnly = details.length > 0
+                ? details.filter((d) => d.type === "stripe_fee").reduce((sum: number, d) => sum + (d.amount || 0), 0)
+                : bt.fee;
               await supabaseClient.from("revenue_distributions").update({
-                stripe_fee_real_cents: bt.fee,
+                stripe_fee_real_cents: stripeOnly,
                 stripe_fee_charge_id: chargeId,
               }).eq("payment_intent_id", pi.id);
-              logStep("Stripe fee reconciled", { realFee: bt.fee, estimated: stripeFeeEstimatedCents });
+              logStep("Stripe fee reconciled", { realFee: stripeOnly, totalFee: bt.fee, estimated: stripeFeeEstimatedCents });
             }
           }
         } catch (recErr) {
@@ -1032,8 +1043,35 @@ serve(async (req) => {
           amount: dispute.amount,
           reason: dispute.reason,
           chargeId: dispute.charge,
+          account: event.account ?? null,
         });
-        // Log for manual review — disputes require human intervention
+        // Un litige se gagne ou se perd sur les preuves envoyées AVANT l'échéance
+        // Stripe (billet scanné à la porte, email de confirmation…). Il était
+        // seulement journalisé : personne ne le voyait. Sur une charge directe,
+        // c'est le compte du pro qui est débité ; Yuno doit quand même le savoir
+        // pour l'aider à répondre.
+        const piId = typeof dispute.payment_intent === "string" ? dispute.payment_intent : dispute.payment_intent?.id ?? null;
+        let saleRef: { kind: string; id: string; event_id: string | null } | null = null;
+        if (piId) {
+          for (const [table, kind] of [["tickets", "ticket"], ["table_reservations", "table"], ["orders", "order"]] as const) {
+            const { data } = await supabaseClient.from(table).select("id, event_id").eq("stripe_payment_intent_id", piId).limit(1).maybeSingle();
+            if (data?.id) { saleRef = { kind, id: data.id, event_id: (data as { event_id?: string | null }).event_id ?? null }; break; }
+          }
+        }
+        const dueBy = dispute.evidence_details?.due_by
+          ? new Date(dispute.evidence_details.due_by * 1000).toISOString().slice(0, 10)
+          : "inconnue";
+        await supabaseClient.rpc("emit_admin_notification", {
+          p_type: "admin_payment_disputed",
+          p_title: "Litige bancaire ouvert sur une vente",
+          p_message: `${(dispute.amount / 100).toFixed(2)} € contestés (motif : ${dispute.reason}). Preuves à envoyer depuis le tableau de bord Stripe ${event.account ? "du vendeur" : "de Yuno"} avant le ${dueBy}.`.slice(0, 480),
+          p_priority: "high",
+          p_reference_type: saleRef?.kind ?? "dispute",
+          p_reference_id: saleRef?.id ?? dispute.id,
+          p_metadata: { dispute_id: dispute.id, charge_id: dispute.charge, payment_intent: piId, account: event.account ?? null, reason: dispute.reason },
+          p_dedup_key: `dispute:${dispute.id}`,
+          p_event_id: saleRef?.event_id ?? null,
+        }).then(() => undefined, () => undefined);
         break;
       }
 
