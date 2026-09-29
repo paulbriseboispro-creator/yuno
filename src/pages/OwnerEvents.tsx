@@ -30,6 +30,7 @@ import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useProposeCollab, fetchLiveEventAgreement, type LiveEventAgreement } from '@/hooks/useProposeCollab';
 import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
 import { CohostDraftPicker, sendCohostDrafts, type CohostDraft } from '@/components/coorg/CohostDraftPicker';
+import { useCoorgErrorText } from '@/components/coorg/coorgUi';
 import { OrgTabs } from '@/components/org-ui';
 import { setEventPartnerVisibility, type PartnerVisibility } from '@/lib/coorg';
 import { defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
@@ -99,6 +100,7 @@ export default function OwnerEvents() {
   // des cles maintenant creerait un conflit pour rien.
   const tl = (frTxt: string, en: string, esTxt: string) =>
     (language === 'en' ? en : language === 'es' ? esTxt : frTxt);
+  const coorgErrorText = useCoorgErrorText();
   const navigate = useNavigate();
   const { venueId, organizerUserId, scope, loading: venueLoading } = useVenueContext();
   const { basePath, mode: dashboardMode } = useDashboardMode();
@@ -630,7 +632,7 @@ export default function OwnerEvents() {
         ) });
       }
       for (const e of res.errors) {
-        toast.error(tl(`Invitation impossible pour ${e.name}`, `Could not invite ${e.name}`, `No se pudo invitar a ${e.name}`), { description: e.code });
+        toast.error(tl(`Invitation impossible pour ${e.name}`, `Could not invite ${e.name}`, `No se pudo invitar a ${e.name}`), { description: coorgErrorText(e.code) });
       }
       // « Tout » est le défaut en base : on n'écrit que la restriction.
       if (partnerVisibility === 'volumes') {

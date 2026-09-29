@@ -671,6 +671,21 @@ Migrations `20260929190000` (porte), `200000` (liens), `210000` (invitations). R
 - **Garde démo des invitations** : un compte `@womber.fr` n'invite qu'une
   adresse démo (collab dans les deux sens, co-organisation), et aucun email
   n'est envoyé à une adresse démo.
+- **Bac à sable de test réel → démo** (migration `20260929300000`, décision de
+  Paul pour tester avec Stripe live, **à REFERMER après les tests** :
+  `DELETE FROM coorg_demo_sandbox_orgs`). `coorg_demo_sandbox_orgs` (RLS sans
+  policy, une ligne = Amoris) laisse une organisation RÉELLE inviter un compte
+  démo en co-hôte sur une de SES soirées en lien PRIVÉ
+  (`coorg_demo_sandbox_status` : `ok` | `not_private` →
+  `demo_sandbox_private_only`) ; sa recherche montre aussi la démo
+  (`coorg_demo_sandbox_caller`, fondateur ou équipe). Jamais l'inverse, jamais
+  par email. Deux verrous valent pour TOUTE soirée réelle, exception ou non
+  (`coorg_party_is_demo`) : la case email du checkout ne nomme jamais une partie
+  démo et le consentement ne s'y verse jamais (`get_event_marketing_hosts`,
+  `_coorg_apply_cohost_consent`) ; le push de lancement ignore ses abonnés et
+  son nom (`get_event_host_followers`). Reste visible : la soirée réelle et ses
+  chiffres dans la Console démo, que les prospects ouvrent par les liens
+  d'aperçu — retirer le partenaire démo à la fin du test.
 
 ## Collaboration : l'accord d'argent n'est JAMAIS une condition (2026-09-29 soir)
 
