@@ -17,6 +17,7 @@ import { useHomeBanner } from '@/hooks/useHomeBanner';
 import { HomeBannerBackdrop } from '@/components/home-banner/HomeBannerBackdrop';
 import { HomeBannerEditButton } from '@/components/home-banner/HomeBannerEditButton';
 import { HomeBannerEditor } from '@/components/home-banner/HomeBannerEditor';
+import { orgEventsOr } from '@/lib/coorg';
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED       = '#E8192C';
@@ -91,7 +92,7 @@ export default function OrgAppDashboard() {
         const { data: upcoming } = await supabase
           .from('events')
           .select('id, title, start_at, end_at, poster_url, location_name, location_city, max_tickets, partner_venue_id, venue_id')
-          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
+          .or(orgEventsOr(organizerId))
           .gte('end_at', new Date().toISOString())
           .order('start_at', { ascending: true })
           .limit(1);
@@ -103,12 +104,12 @@ export default function OrgAppDashboard() {
         const { data: allEvents } = await supabase
           .from('events')
           .select('id, title')
-          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
+          .or(orgEventsOr(organizerId));
         const eventIds = (allEvents ?? []).map(e => e.id);
         const upcomingCount = upcoming?.length ? (await supabase
           .from('events')
           .select('id', { count: 'exact', head: true })
-          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
+          .or(orgEventsOr(organizerId))
           .gte('end_at', new Date().toISOString())).count ?? 0 : 0;
 
         let ca30 = 0, tickets30 = 0, uniqueBuyers30 = 0;

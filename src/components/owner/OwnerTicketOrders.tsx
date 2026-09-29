@@ -130,7 +130,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       if (orgScope && eventIds!.length === 0) { setTickets([]); setMinorDocs(new Map()); return; }
       let query = supabase
         .from('tickets')
-        .select(`*, events!inner(title, start_at, venue_id, timezone, venues(name)), ticket_rounds!inner(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name), partner_venue:venues!events_partner_venue_id_fkey(name)), ticket_rounds!inner(name)`)
         .in('status', ['paid', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
@@ -160,7 +160,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
         eventTitle: t.events.title,
         eventStartAt: t.events.start_at,
         eventTimezone: t.events.timezone ?? null,
-        venueName: t.events.venues?.name ?? null,
+        venueName: t.events.venues?.name ?? t.events.partner_venue?.name ?? null,
         roundName: t.ticket_rounds.name,
         qrCode: t.qr_code,
       }));

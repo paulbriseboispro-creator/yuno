@@ -397,7 +397,13 @@ export async function dispatchNewEventPushes(
   for (const row of rows) {
     const ev = { id: row.event_id, title: row.title, slug: row.slug, venue_id: row.venue_id,
       organizer_user_id: row.organizer_user_id, start_at: row.start_at };
-    const hostName = row.host_name || "Yuno";
+    // Abonnés de TOUS les hôtes (club, organisateur, partenaire, co-hôtes) et
+    // leurs noms joints (« A × B ») : une soirée co-organisée s'annonce sous
+    // le nom de tous ceux qui la portent. Lu avant la composition du message.
+    const { data: hostAudience, error: hostErr } = await admin.rpc("get_event_host_followers", { p_event_id: ev.id });
+    const audience = (!hostErr && hostAudience) ? hostAudience as { user_ids?: string[]; host_names?: string | null; parties?: number } : null;
+    if (hostErr) console.error("[NEW-EVENT-PUSH] get_event_host_followers failed:", hostErr.message);
+    const hostName = (audience && (audience.parties ?? 0) > 1 && audience.host_names) ? audience.host_names : (row.host_name || "Yuno");
 
     // /event/<uuid> se résout TOUJOURS (EventDetails redirige vers l'URL propre).
     // L'ancienne forme /events/<venue_id>/<slug> échouait pour une soirée
@@ -436,17 +442,24 @@ export async function dispatchNewEventPushes(
     if (insErr || !inserted) continue; // déjà notifié
     const campaignId = inserted.id as string;
 
-    // Audience : followers du club + followers de l'organisateur.
+    // Audience : abonnés de TOUS les hôtes de la soirée — club, organisateur,
+    // partenaire d'une co-soirée et co-hôtes (co-organisation). Une personne
+    // qui suit deux hôtes n'est comptée qu'une fois. La RPC en panne retombe
+    // sur l'audience d'avant (club + organisateur principal).
     const ids = new Set<string>();
-    if (ev.venue_id) {
-      for (const id of await collectUserIds((f, t) => admin
-        .from("favorites").select("user_id")
-        .eq("venue_id", ev.venue_id).not("user_id", "is", null).range(f, t))) ids.add(id);
-    }
-    if (ev.organizer_user_id) {
-      for (const id of await collectUserIds((f, t) => admin
-        .from("organizer_profile_followers").select("user_id")
-        .eq("organizer_user_id", ev.organizer_user_id).range(f, t))) ids.add(id);
+    if (audience && Array.isArray(audience.user_ids)) {
+      for (const id of audience.user_ids) if (id) ids.add(id);
+    } else {
+      if (ev.venue_id) {
+        for (const id of await collectUserIds((f, t) => admin
+          .from("favorites").select("user_id")
+          .eq("venue_id", ev.venue_id).not("user_id", "is", null).range(f, t))) ids.add(id);
+      }
+      if (ev.organizer_user_id) {
+        for (const id of await collectUserIds((f, t) => admin
+          .from("organizer_profile_followers").select("user_id")
+          .eq("organizer_user_id", ev.organizer_user_id).range(f, t))) ids.add(id);
+      }
     }
     const reachable = [...ids].filter((id) => subscribers.has(id));
     // Porte anti-spam par destinataire (préférence « clubs suivis », plafonds,

@@ -26,6 +26,7 @@ import {
   POS, RED, RED_SOFT, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
+import { orgEventsOr } from '@/lib/coorg';
 
 // RPC vestiaire (migration 20260929235000) pas encore dans les types générés.
 const untypedClient = supabase as unknown as SupabaseClient;
@@ -155,7 +156,9 @@ export default function OrgAppCheckin() {
       const { data } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
-        .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
+        // Soirées menées, en partenariat OU co-hébergées : un co-hôte ÉDITEUR tient
+        // aussi la porte (is_event_door_staff, migration 20260929190000).
+        .or(orgEventsOr(organizerId))
         .gte('end_at', new Date(Date.now() - 86_400_000).toISOString())
         .order('start_at', { ascending: true });
       setEvents(data ?? []);

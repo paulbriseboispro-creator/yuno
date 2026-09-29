@@ -1,3 +1,4 @@
+import { readSettlement } from '@/lib/splitRules';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -98,7 +99,7 @@ export function CollabContractTermsDialog({ open, onOpenChange, contract, pdfDat
 
 /** Readable HTML mirror of the PDF — same versioned terms, same order. */
 function ContractTermsView({ data, language }: { data: CollabContractPDFData; language: Lang }) {
-  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration });
+  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration, settlement: readSettlement(data.splitRules) });
   const { labels } = terms;
   const fmtEur = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
   const t = (l: L) => pickL(language, l);
@@ -162,7 +163,7 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
               {(data.remuneration.tiers_mode === 'marginal' ? labels.tieredModeMarginal : labels.tieredModeFlat) && (
                 <p className="text-xs text-muted-foreground">{t((data.remuneration.tiers_mode === 'marginal' ? labels.tieredModeMarginal : labels.tieredModeFlat)!)}</p>
               )}
-              <p className="text-xs text-muted-foreground">{t(article.noteTiered ?? article.note)}</p>
+              <p className="text-xs text-muted-foreground">{t(article.note)}</p>
             </div>
           )}
 

@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { fr as frLocale, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 interface Props {
   open: boolean;
@@ -59,14 +60,14 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
           const { data: events } = await supabase
             .from('events')
             .select('id, title')
-            .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+            .or(orgEventsOr(organizerUserId));
           eventIds = (events ?? []).map((e: any) => e.id);
           (events ?? []).forEach((e: any) => eventTitles.set(e.id, e.title));
         } else if (venueId) {
           const { data: events } = await supabase
             .from('events')
             .select('id, title')
-            .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
+            .or(venueEventsOr(venueId));
           eventIds = (events ?? []).map((e: any) => e.id);
           (events ?? []).forEach((e: any) => eventTitles.set(e.id, e.title));
         }

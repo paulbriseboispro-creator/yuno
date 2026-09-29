@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { FileSignature, ArrowRight, Clock, Repeat, CalendarDays, FileText } from 'lucide-react';
@@ -51,6 +53,10 @@ export function CollabPendingAmendments({
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
+  // Scope = l'ORGANISATION (fondateur ou membre d'équipe), jamais le compte.
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
+  const canAct = useCollabOrgCanAct(role);
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [rows, setRows] = useState<AmendmentCard[]>([]);
@@ -67,7 +73,7 @@ export function CollabPendingAmendments({
       .select('*')
       .eq('status' as never, 'pending_signatures' as never);
     q = role === 'organizer'
-      ? q.eq('organizer_user_id' as never, user.id as never)
+      ? q.eq('organizer_user_id' as never, orgId as never)
       : q.eq('venue_id' as never, venueId as never);
     const { data, error } = await q;
     if (error) { setRows([]); return; }
@@ -155,7 +161,7 @@ export function CollabPendingAmendments({
         || (role === 'organizer' ? tt('Le club', 'The club', 'El club') : tt('L\'organisateur', 'The organizer', 'El organizador'));
       return { row: a, subject, recurring, proposerLabel: who };
     }));
-  }, [user, role, venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, role, venueId, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -187,7 +193,12 @@ export function CollabPendingAmendments({
       setRows(prev => prev.filter(x => x.row.id !== a.id));
       onChanged?.();
     } catch (e) {
-      toast.error((e as { message?: string }).message || tt('Erreur', 'Error', 'Error'));
+      const msg = (e as { message?: string }).message ?? '';
+      toast.error(msg.includes('AMENDMENT_SPLIT_LOCKED')
+        ? tt('Le partage est figé depuis la première vente : cet avenant ne peut plus le changer. Proposez un avenant sur les seules responsabilités.',
+          'The split is locked since the first sale: this amendment can no longer change it. Propose an amendment on responsibilities only.',
+          'El reparto está fijado desde la primera venta: esta adenda ya no puede cambiarlo. Propón una adenda solo sobre las responsabilidades.')
+        : msg || tt('Erreur', 'Error', 'Error'));
     } finally { setBusyId(null); }
   };
 
@@ -250,7 +261,7 @@ export function CollabPendingAmendments({
     }
   };
 
-  if (!rows.length) return null;
+  if (!rows.length || !canAct) return null;
 
   const domainLabel = (d: CollabDomain) => tt(
     d === 'design' ? 'Design' : 'Opérationnel',

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { SmsCampaignStatus, SmsScope, SmsSegmentType } from '@/lib/smsMarketing';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 export interface SmsCampaignRow {
   id: string;
@@ -80,8 +81,8 @@ export async function fetchSmsBalance(scope: SmsScope): Promise<number> {
 export async function fetchScopeEvents(scope: SmsScope): Promise<EventLite[]> {
   const q = supabase.from('events').select('id, title, start_at').order('start_at', { ascending: false }).limit(80);
   // Portée plateforme : toutes les soirées, Yuno peut parler de n'importe laquelle.
-  if (scope.kind === 'venue') q.or(`venue_id.eq.${scope.venueId},partner_venue_id.eq.${scope.venueId}`);
-  else if (scope.kind === 'organizer') q.or(`organizer_user_id.eq.${scope.organizerUserId},partner_organizer_id.eq.${scope.organizerUserId}`);
+  if (scope.kind === 'venue') q.or(venueEventsOr(scope.venueId));
+  else if (scope.kind === 'organizer') q.or(orgEventsOr(scope.organizerUserId));
   const { data } = await q;
   return (data ?? []) as EventLite[];
 }

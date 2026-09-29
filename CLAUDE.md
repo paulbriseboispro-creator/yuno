@@ -513,6 +513,273 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   REPORTER la 2FA 7 jours, une fois (`20260922080000`) — jamais sur les pages
   d'argent ; le guide de configuration ne s'ouvre pas tout seul chez lui.
 
+## Collab club × orga : « Répartir via Stripe ? » OUI ou NON (2026-09-29)
+
+Migrations `20260929130000` (règlement par virement), `140000` (normalisation
+partout), `150000` (vendeur des reçus). Stripe n'est JAMAIS une condition d'une
+collaboration. Règles intouchables :
+
+- **Le mode vit dans le contrat** : `split_rules.settlement = {mode: 'stripe' |
+  'transfer', collector: 'venue' | 'organizer', payment_terms_days: 7|15|30}`.
+  Absent = Stripe. Barème ou tables `basis = 'total_spend'` ⇒ encaisseur FORCÉ
+  au club. Trois miroirs exacts : `readSettlement` (front, `splitRules.ts`),
+  `collabSettlement` (edge, `payment-split.ts`), `normalize_collab_settlement` +
+  `collab_settlement_collector` (SQL, triggers sur contrats, contrats-cadres ET
+  avenants — `apply_collab_amendment` recopie les règles brutes sur la soirée,
+  donc les lecteurs SQL normalisent aussi). `normalizeSplitRules` PRÉSERVE le
+  bloc. Testé : `collabSettlement.test.ts`, `paymentSplit.test.ts`.
+- **UI = `SettlementModeSwitch`** (Oui / Non + encaisseur + délai) dans le
+  bandeau contrat, « Proposer une soirée » (club), l'invitation d'un club
+  (orga, email compris) et l'avenant ; `SettlementRecap` partout où le deal se lit.
+- **Checkout en virement = charge DIRECTE sur l'encaisseur** (billets, tables ;
+  boissons toujours club) et la vente garde `collab_split` (parts du contrat au
+  moment de l'achat, `venue_direct` = consos d'un billet). La porte « paiements
+  prêts » vérifie les comptes RÉELLEMENT utilisés (`checkPayoutReadiness`,
+  `_shared/payout-readiness.ts`, miroir SQL `event_payments_ready`) : seul
+  l'encaisseur a besoin de Stripe. Le partage se verrouille à la 1re vente PAYÉE.
+- **Décompte** : `_collab_transfer_compute` (net = CA − remboursement − frais
+  Yuno − Stripe estimé 1,5 % + 0,25 €, tables en ligne sur l'acompte, boissons
+  seulement si l'orga a une part), figé par `freeze_collab_transfer_statement`
+  (une partie niveau argent, soirée finie, jamais en accès assisté) ou par le
+  cron `collab-transfer-freeze` à fin + 48 h (`collab_transfer_statements`).
+  Le virement est une ligne `event_coorg_transfers` `source = 'collab'` : MÊME
+  cycle que la co-organisation (IBAN, « J'ai viré », « Bien reçu », relances,
+  litige auto, arbitrage `/admin/alerts`), liste partagée `CoorgTransferList`.
+  Carte `CollabTransferStatementCard` sur la co-soirée ; « Ma part » et le
+  panneau Argent lisent le décompte (les jambes Stripe n'existent pas). Les
+  notifications `source = 'collab'` ouvrent la co-soirée, pas la page coorg.
+  Un barème en virement passe par le décompte de fin de soirée (tout en SEPA).
+- **Reçus** : l'organisateur encaisseur est le VENDEUR (son régime de TVA) dans
+  `get_event_seller`, `save_invoice_on_creation` et l'email de billet — jamais le
+  club, qui n'a rien reçu. Lu sur `collab_split` de la vente.
+- **Contrat v`2026-09-29`** : `getCollabTerms(v, {tiered, settlement})` résout la
+  note de l'article 3 (plus de fuite de `noteTiered` sur un contrat par pilier),
+  les corps `transferBody` et insère l'article « Règlement par virement » (hors
+  barème). Un contrat Stripe garde le texte de `2026-09-26` mot pour mot.
+- **Org × org = co-organisation** (et non le contrat collab) ; `save_coorg_deal`
+  refuse un accord sur une soirée dont le collab est déjà réglé par virement
+  (`collab_transfer_unsupported`). Entre DEUX organisations, l'accord peut lui
+  aussi répartir par Stripe — voir « Co-organisation » ci-dessous.
+
+## Revue collab du 29/09 — argent Stripe, CA tables, équipe (points 3 et 4)
+
+Migrations `20260929160000` → `181000`. Règles intouchables :
+
+- **Remboursement d'une vente à jambes = sur le DELTA** (`_shared/refund-legs.ts`,
+  testé) : une jambe retenue est RÉDUITE au prorata (jamais annulée par un
+  partiel), une jambe versée reverse la part du delta. Base = part vendeurs
+  (brut − frais Yuno, que le club ne rembourse jamais). `revenue_distributions.
+  refunded_cents` = cumul appliqué ET verrou (mise à jour conditionnelle). Un
+  remboursement PARTIEL (`owner-refund`) ne passe jamais la vente en
+  `refunded` : le cron annulerait ses jambes et bloquerait le reste sur la
+  plateforme. `reverse_transfer` seulement sur une charge à destination.
+- **Webhook** : grand livre en INSERTION SEULE (`ignoreDuplicates`) — un upsert
+  rejoué remettait une jambe versée en `scheduled` ; erreur d'écriture ⇒ l'erreur
+  remonte et Stripe rejoue. Rétention « décompte » lue dans la métadonnée `hold`
+  posée AU CHECKOUT (repli sur les règles pour les anciennes sessions) ; vente
+  payée après un décompte accepté ⇒ versée au club + `admin_collab_late_sale`.
+  Jambe en échec : `*_fail_count`, alerte `admin_transfer_release_failed` au 3e.
+- **CA tables = total_price − service_fee − frais de gestion SI ABSORBÉS.**
+  `total_price` ne contient PAS les frais de gestion (payés en plus par le
+  client). Porte front `tableRevenue` (`fees.ts`, lit `fee_absorbed` : toute
+  requête qui l'alimente sélectionne la colonne), miroirs `clubRevenue.table`
+  (`_shared/posthog.ts`), `calcTablesRevenue` (owner-assistant) et les 21 RPC
+  réécrites par `20260929170000`. Les données démo semées sont alignées
+  (`scripts/demo/fix-table-fee-demo.sql`, seed corrigé).
+- **Équipe orga dans le collab** : `collab_org_can_act(org)` = fondateur OU
+  admin d'équipe, porte unique des RPC de contrat, avenants, pause /
+  suppression, décompte et réception des virements ; partenariats via
+  `can_access_partnership` (+ policy d'insertion). Front : `useCollabOrgCanAct`
+  (un éditeur voit, sans bouton) et scope `useActingOrganizer` dans tout le hub
+  Collaborations orga ; `invite-club-collab` accepte `organizer_user_id` (admin
+  vérifié côté serveur) et refuse une soirée hors de l'organisation.
+
+## Collab & co-organisation — porte, lien de vente, invitation SANS compte (point 5, 29/09)
+
+Migrations `20260929190000` (porte), `200000` (liens), `210000` (invitations). Règles :
+
+- **Porte : un co-hôte ÉDITEUR scanne.** `is_event_door_staff` (porte unique du
+  manifeste, des billets, tables, guest list, sync hors ligne, conversion
+  promoteur) ouvre la soirée au co-hôte `access = 'editor'` accepté : fondateur,
+  membres d'équipe (admin/éditeur/scanneur) et staff videur d'un orga co-hôte,
+  owner / `can_manage_venue` d'un club co-hôte. Un co-hôte `viewer` ne scanne
+  pas. `OrgAppCheckin` liste les soirées par `orgEventsOr()`.
+- **Un lien de vente suivi PAR PARTIE** (`ensure_event_party_link`,
+  `get_event_party_links`, carte `CoorgSalesLinksCard` « Qui fait vendre ») :
+  `tracked_links` ordinaire, `utm_medium = 'party_link'`, `utm_campaign = <clé
+  de partie>`, possédé par la portée de la partie (visible aussi dans ses
+  « Liens »). Compteurs visibles de toutes les parties, CA club (fees.ts, même
+  formule qu'`_coorg_yuno_legs` sans Stripe) seulement pour qui voit l'argent
+  (`coorg_sees_event_money`), le CODE seulement à sa partie. Attribution,
+  JAMAIS un partage d'argent. Trigger `cohost_party_link_off` : un co-hôte qui
+  part voit son lien éteint.
+- **Co-organisation par email** (`event_cohost_email_invites`, RLS sans policy,
+  tout par RPC) : `create_cohost_email_invite` (mêmes gardes
+  qu'`invite_event_cohost` + démo ↔ démo sur l'ADRESSE), `get_cohost_email_invite`
+  (anon : lecture du lien ; connecté avec la bonne adresse : options « au nom
+  de »), `accept_cohost_email_invite(token, party)` (email identique, jamais en
+  accès assisté ; `org:<moi>` crée l'espace organisateur à la volée — jamais un
+  changement de `profile_type` d'un compte déjà pro —, sinon club possédé ou orga
+  administrée ; passe ensuite par `respond_event_cohost_invitation`),
+  `decline_…` (destinataire seul), `cancel_…` (partie principale niveau ≥ 2).
+  `get_event_coorg.email_invitations` pour les parties principales. Page
+  publique `/accept-cohost?token=` (`AcceptCohostInvitation`, DA publique,
+  rechargement complet après acceptation).
+- **Quota de fonctions edge ATTEINT (402, 29/09)** : l'email de co-organisation
+  part par `invite-organizer-collab` avec `kind: 'coorg'`
+  (`_shared/coorg-invite.ts`). Ne pas créer de nouvelle fonction : ajouter une
+  action à une fonction existante.
+- **Collab club → organisateur sans compte** (`organizer_claim_invitations`,
+  onglet Inviter du club, `ClubInviteDealFields`) : l'invitation PORTE le deal
+  comme dans l'autre sens (soirée du club encore sans orga, conditions par
+  pilier ou barème, `SettlementModeSwitch`, langue de l'email) ;
+  `accept_organizer_claim_invitation` crée l'identité `organizer_profiles` (elle
+  manquait : « Un organisateur » côté club, `organizer_not_found` à
+  l'invitation co-hôte) et ouvre le contrat PRÉ-SIGNÉ par le club (boissons
+  100 % club, settlement normalisé par le trigger du contrat). Refuser exige
+  d'être le destinataire. Emails : `buildOrganizerCollabInvitation`,
+  `buildCoorgInvitation`, et `buildClubCollabInvitation` dit « pas besoin de
+  Stripe » quand l'autre partie encaisse (`needsStripe`,
+  `_shared/collab-invite-text.ts`).
+- **Garde démo des invitations** : un compte `@womber.fr` n'invite qu'une
+  adresse démo (collab dans les deux sens, co-organisation), et aucun email
+  n'est envoyé à une adresse démo.
+
+## Co-organisation — N parties sur une soirée (2026-09-28)
+
+Design + analyse : `docs/designs/COORGANIZATION_PLAN.md`. Migrations `20260928100000`
+→ `100400`, front `src/lib/coorg.ts`, `src/components/coorg/*`, page
+`/owner/coorg/:eventId` et `/organizer-app/coorg/:eventId`, onglet « Co-organisation »
+des deux hubs Collaborations. Règles intouchables :
+
+- **Deux étages, jamais mélangés.** Le collab contractuel reste à DEUX (1 club + 1 orga,
+  partage Stripe automatique) : un paiement Stripe n'a que deux jambes chez Yuno. Les
+  CO-HÔTES (`event_cohosts`, orgas OU clubs, `editor` / `viewer`, `share_crm`, 8 max) ne
+  sont JAMAIS ajoutés au split ni au contrat collab. Au-delà de deux parties, l'argent
+  passe par l'accord + décompte + virements — c'est la réponse à « on ne vend pas ce que
+  le logiciel n'assume pas ».
+- **Une partie = une clé** `venue:<id>` / `org:<uuid>` ; `event_parties(event)` rend
+  principales (colonnes de l'événement) + co-hôtes acceptés, principal d'abord.
+  `coorg_party_level(uid, clé)` : 3 = fondateur / admin d'équipe / owner / manager finance
+  (argent), 2 = gestion, 1 = lecture. Seules les parties PRINCIPALES invitent.
+- **Scope** : toute nouvelle RPC « soirées de la portée » ajoute
+  `OR e.id IN (SELECT cohost_event_ids_org|venue(X))` au prédicat écrit à la main ; côté
+  PostgREST, `orgEventsOr()` / `venueEventsOr()` (champs calculés `cohost_org_ids` /
+  `cohost_venue_ids`, filtrables dans un `or=`). Les fonctions du CONTRAT collab (split,
+  avenants, allocation guest list, fil de messages) n'en font pas partie.
+- **Un co-hôte éditeur ne touche jamais la structure** : `protect_event_columns_from_cohost`
+  (INVOKER, liste BLANCHE de colonnes design + vente au quotidien). Ajouter une colonne à
+  `events` = décider si elle entre dans cette liste. Les portes
+  `can_manage_event_design/tables/guestlist_house` s'ouvrent au co-hôte éditeur.
+- **CRM = consentement NOMMÉ.** La case email du checkout (billets, tables, guest list ×2)
+  nomme tous les hôtes `share_crm` (`useEventMarketingHosts`, `Intl.ListFormat`), et
+  `shareCheckoutConsent` verse le contact à chacun APRÈS la création de la vente, avec la
+  preuve (`marketing_consent_events`, source `…:cohost`). Jamais sur le seul accord hérité de
+  la portée principale : « déjà abonné à l'hôte » ne vaut pas accord pour les co-hôtes (la case
+  se représente). Le SMS reste à la portée principale (`smsScopeName`). Le serveur n'agit que
+  si une vente / inscription de < 3 h de CETTE adresse porte la case cochée.
+- **Marketing** : `collect_email_automations` — recettes `new_event` et `last_call`
+  seulement — couvre les soirées co-hébergées (`coorg_marketing_event_ids`) ; R5 garde une
+  annonce par personne. Push de lancement : `get_event_host_followers` (abonnés de tous les
+  hôtes, noms « A × B ») — code prêt dans `push-automations.ts`, à déployer avec
+  `process-scheduled-campaigns` (non déployé le 28/09 : la version en ligne diffère du repo
+  sur d'autres fichiers `_shared`).
+- **Argent** : accord (`event_coorg_deals`, parts %, simple accord ou contrat signé, termes
+  `coorgAgreement.ts`), décompte `_coorg_compute` (ventes Yuno NETTES au nom de qui les a
+  reçues + lignes déclarées par chaque partie POUR ELLE-MÊME), validé par toutes les parties
+  dans la même `version` (toute ligne / modif de parts la remet à zéro), puis virements
+  (payeur déclare, SEUL le bénéficiaire confirme, référence `YCO-…`). Actions d'argent
+  refusées en accès assisté. Un décompte validé est figé et verrouille ses parties.
+- **Virements suivis comme le règlement promoteur** (`20260929100000`) : l'accord porte
+  `payment_terms_days` (7/15/30, signé avec les parts) ; chaque virement a `due_at` puis,
+  une fois annoncé, `confirm_due_at` (+7 j). Cron quotidien `coorg-transfer-followup`
+  (`coorg_transfer_followup_sweep`) : IBAN manquant (bénéficiaire, /3 j), échéance proche,
+  retard tous les 3 j (6 max), TOUTES les parties à J+7, super admin à J+14
+  (`admin_coorg_transfer_overdue`), silence du bénéficiaire ⇒ litige `auto:no_acknowledgement`,
+  jamais « reçu ». Le bénéficiaire relance (`nudge_coorg_transfer`, 1/24 h). Litige tranché
+  par le super admin dans `/admin/alerts` (`admin_resolve_coorg_transfer`, motif obligatoire,
+  `received` | `cancelled`) ; `_coorg_maybe_settle` solde le décompte.
+- **Revue du 29/09** (`20260929110000`, `120000`) : un co-hôte ne reçoit un client QUE par la
+  case qui le nomme — `contact_scope_customers`, RFM, segments orga, audiences pub, P&L et
+  vue d'ensemble ne lisent PAS les soirées co-hébergées (ne jamais les y remettre) ; lignes
+  de vente lisibles d'un co-hôte ÉDITEUR seulement ; CA d'une co-soirée visible avec une
+  part dans un accord actif (`coorg_sees_event_money`). `share_event_marketing_consent` exige
+  une PREUVE d'achat (session `cs_…`, id ou QR < 15 min) et les clés NOMMÉES ; une session
+  impayée laisse une intention (`event_cohost_consent_intents`) consommée au paiement par
+  trigger. Accord FIGÉ dès le début de la soirée (`coorg_deal_frozen` : ni annulation, ni
+  parts, ni départ d'une partie qui a une part) ; inviter ne remet plus les signatures à
+  zéro ; `sign_coorg_deal(p_version)` et `approve_coorg_settlement(p_fingerprint)` —
+  une validation donnée sur d'autres chiffres tombe. Refusé sur un collab à barème. Le
+  décompte ne compte que les tables EN LIGNE, sur l'acompte. Garde démo à l'invitation et
+  au marketing. `coorg_party_level` / `is_event_cohost` ne renseignent que sur soi depuis
+  l'API (`session_user = 'authenticator'`).
+- **Deux organisations : « Répartir via Stripe ? » Oui / Non** (29/09, migration
+  `20260929220000`). `event_coorg_deals.stripe_split`, porte d'éligibilité
+  `coorg_stripe_split_blocker` (miroir front `coorgStripeSplitBlocker`, testé) :
+  exactement deux parts > 0, deux `org:`, l'hôte parmi elles, aucun club sur la
+  soirée ni contrat collab. Les checkouts billets et tables lisent
+  `coorg_stripe_split_config` (service_role : accord ACTIF + compte Stripe du
+  partenaire activé) via `loadCoorgStripeSplit` (`_shared/coorg-stripe.ts`) et
+  le passent au résolveur (`SplitInput.coorgStripe`) : charge plateforme au nom
+  de l'hôte (`on_behalf_of`), deux jambes `organizer` versées à fin + 48 h par
+  le cron existant. Toute absence / panne = charge directe chez l'hôte comme
+  avant : **jamais une vente bloquée** par ce choix. Le décompte ne change pas
+  (il lit déjà les jambes au nom de qui les a reçues) et ne règle plus que le
+  reste. Article « Encaissement » remplacé par `coorgArticles({stripeSplit})`.
+  Changer le choix = nouvelle version de l'accord. Au-delà de deux parties :
+  toujours décompte + virements.
+- **Tables sans policy** (`event_coorg_*`) : tout passe par les RPC ; un smoke qui lit
+  `event_coorg_transfers` en direct comme un pro doit rendre 0. Smoke rejouable :
+  `scripts/demo/smoke-coorganization.sql` (57 étapes, annulé). Vitrine démo : « Yuno Rooftop
+  Sunset » (décompte validé, virements) et « Rooftop Session » (contrat actif).
+- **Garde partenaire collab rallumé** (`20260928100300`) : `protect_event_columns_from_partner`
+  et `protect_recurring_template_from_partner` étaient SECURITY DEFINER avec un test
+  `current_user`, donc ÉTEINTS, et `v_is_lead` valait NULL sur une soirée menée par le club —
+  l'orga partenaire réécrivait `revenue_split_rules`. Désormais INVOKER ; ne jamais les
+  repasser DEFINER, et ne jamais y comparer une colonne GÉNÉRÉE ou recalculée par un autre
+  trigger (`search_title`, `is_discoverable`, `discovery_status`).
+
+## Hub Collaborations — deux onglets, une action, une liste (2026-09-29)
+
+Plan : `docs/designs/COLLAB_SIMPLIFICATION_PLAN.md` (skill `simplification`).
+Le système (contrat club × orga, co-organisation à N parties, barème,
+virements) se présentait comme deux produits côte à côte, chacun avec sa liste,
+sa boîte de réception, son carnet et sa façon d'inviter. Règles :
+
+- **Un seul hub pour les deux consoles** : `CollabHub`
+  (`src/components/collab-hub/`), monté par `OwnerCollaborations` et
+  `OrgAppCollabHub`. Deux onglets `?tab=nights|partners` ; les anciens
+  (`events`, `coorg`, `organizers`, `invite`) sont traduits par
+  `resolveCollabHubTab` (`src/lib/collabHubNav.ts`, testé) et l'URL réécrite.
+  Ne jamais rouvrir un troisième onglet : une nouveauté se range dans l'un des deux.
+- **Une seule porte d'entrée : « Nouvelle collaboration »** (`NewCollabDialog`)
+  → proposer une soirée à un partenaire / ajouter un partenaire Yuno
+  (`?tab=partners&request=1`) / inviter hors Yuno (dialogue, `&invite=1`) /
+  co-organiser à plusieurs (`EventPickerThenInvite`). Un chemin fermé dit
+  pourquoi (plan Collaboration, pas encore de partenaire). Seuls les boutons
+  « Proposer une soirée » des cartes partenaires (`&propose=<id>`) doublent le
+  premier chemin, en contexte.
+- **Soirées = « à traiter » puis UNE liste** : propositions, avenants,
+  invitations de co-organisation (chaque boîte se tait vide), puis
+  `useCollabNights` fusionne contrats (`events` + `event_collab_contracts`,
+  contrat VIVANT prioritaire) et co-organisations (`get_my_coorg_events`) par
+  soirée (`mergeCollabNights`). Carte = affiche, date, « Avec … », UNE pastille
+  d'étape (`collabNightStep`, ordre d'urgence), lien vers la page qui répond
+  (`collabNightHref` : contrat sinon co-organisation). La carte ne montre
+  qu'une DEMANDE de pause / suppression en cours (`CollabActionControls
+  requestsOnly`) ; les boutons vivent sur la page de la soirée, repliés sous
+  « Gérer la collaboration » (`buttonsOnly`). Pas de chiffres ni de liens
+  d'outils sur la carte : la page de la soirée les porte.
+- **Partenaires = une personne, une ligne** : partenariats club × orga, puis
+  contrats-cadres, puis `CoorgPartnersSection` qui écarte les clés déjà
+  partenaires (`excludeKeys`). Historique replié.
+- **Page de co-soirée** : l'outil « Co-organisateurs » mène à
+  `/…/coorg/:id` (un 3ᵉ organisateur sur une collab) ; plus de tuile « Page
+  publique » (l'en-tête a « Voir ») ; club = une tuile « Porte & live » ; la
+  carte Billetterie orga ne s'affiche sur une co-soirée que si elle informe
+  (le club tient la billetterie, ou Stripe manque) ; montants par
+  `useNumberFormat`.
+
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
 Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`

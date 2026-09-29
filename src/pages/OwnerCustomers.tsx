@@ -26,6 +26,7 @@ import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
 import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { useTabParam } from '@/hooks/useTabParam';
 import { exportContactBase } from '@/lib/contactBaseExport';
+import { venueEventsOr } from '@/lib/coorg';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -181,7 +182,7 @@ export default function OwnerCustomers() {
     const { data: events } = await supabase
       .from('events')
       .select('id')
-      .or(`venue_id.eq.${venue.id},partner_venue_id.eq.${venue.id}`);
+      .or(venueEventsOr(venue.id));
     const eventIds = (events ?? []).map((e: any) => e.id);
     setMinorByEmail(await fetchMinorDocsByEmail(eventIds));
   };

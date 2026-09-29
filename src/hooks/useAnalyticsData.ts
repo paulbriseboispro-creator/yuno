@@ -5,6 +5,7 @@ import { subDays, subHours, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { orderRevenue, ticketRevenue, tableRevenue } from '@/utils/fees';
+import { orgEventsOr } from '@/lib/coorg';
 
 export type AnalyticsMode = 'global' | 'event';
 export type DateRange = '24h' | '48h' | '72h' | '7days' | '30days' | 'alltime';
@@ -219,7 +220,7 @@ async function fetchPreviousTotals(
     .select('total_price, service_fee, insurance_fee, refund_amount, quantity, user_email, events!inner(venue_id)')
     .eq('status', 'paid').gte('created_at', lo).lt('created_at', hi);
   let tablesQ = supabase.from('table_reservations')
-    .select('total_price, service_fee, management_fee, refund_amount, user_email, events!inner(venue_id)')
+    .select('total_price, service_fee, management_fee, fee_absorbed, refund_amount, user_email, events!inner(venue_id)')
     .eq('status', 'paid').gte('created_at', lo).lt('created_at', hi);
   if (byVenue) {
     ticketsQ = ticketsQ.eq('events.venue_id', scope.venueId);
@@ -285,7 +286,7 @@ export function useAnalyticsData({
     if (isOrganizerScope) {
       if (!organizerUserId) return;
       // Events where the user is the lead organizer OR the partner organizer.
-      query = query.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+      query = query.or(orgEventsOr(organizerUserId));
     } else {
       if (!venueId) return;
       query = query.eq('venue_id', venueId);
@@ -325,7 +326,7 @@ export function useAnalyticsData({
         const { data: orgEvents } = await supabase
           .from('events')
           .select('id')
-          .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+          .or(orgEventsOr(organizerUserId));
         scopedEventIds = (orgEvents ?? []).map(e => e.id);
         // No events yet → return empty analytics gracefully
         if (scopedEventIds.length === 0) {
@@ -768,7 +769,7 @@ export function useAnalyticsData({
 
       // ==================== PROCESS TABLE ANALYTICS ====================
       const paidReservations = allTableReservations || [];
-      // Club revenue = total_price − service_fee − management_fee (Yuno fees excluded).
+      // Club revenue = total_price − service_fee − frais de gestion absorbés (fees.ts).
       const gross = (r: any) => tableRevenue(r).gross;
       const tableRev = paidReservations.reduce((acc, r: any) => {
         const x = tableRevenue(r);

@@ -237,6 +237,10 @@ export function OrgEventFormDialog({
 
   const isEdit = !!eventId;
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo';
+  // Soirée MENÉE PAR LE CLUB où l'organisateur n'est que partenaire : il
+  // n'édite que ses domaines (design, et opérations s'il les tient). Écrire
+  // organizer_user_id / event_mode / lieu y ferait refuser toute la sauvegarde.
+  const [partnerEdit, setPartnerEdit] = useState<{ design: boolean; operations: boolean } | null>(null);
 
   // Un contrat SIGNÉ (double signature : active/locked) verrouille le club
   // partenaire : le détacher casserait la répartition des revenus déjà actée.
@@ -270,6 +274,7 @@ export function OrgEventFormDialog({
     if (!eventId) {
       // Reset all fields for create
       loadedPublishRef.current = null;
+      setPartnerEdit(null);
       setTitle('');
       setDescription('');
       setStartAt('');
@@ -342,6 +347,16 @@ export function OrgEventFormDialog({
         setRemovedByYuno(ev.discovery_status === 'rejected');
         setPartnerVenueId(ev.partner_venue_id || '');
         setSavedPartnerVenueId(ev.partner_venue_id || '');
+        {
+          const resp = ((ev as { collab_responsibilities?: Record<string, string> | null }).collab_responsibilities) ?? {};
+          const holds = (d: 'design' | 'operations') => {
+            const h = resp[d] ?? 'both';
+            return h === 'organizer' || h === 'both';
+          };
+          setPartnerEdit(ev.venue_id && ev.organizer_user_id !== organizerUserId
+            ? { design: holds('design'), operations: holds('operations') }
+            : null);
+        }
         // Statut du contrat de collaboration : un contrat signé (active/locked)
         // verrouille le détachement du club ; son absence déclenche l'incitation
         // à proposer le contrat après rattachement.
@@ -351,6 +366,7 @@ export function OrgEventFormDialog({
             .from('event_collab_contracts' as never)
             .select('status')
             .eq('event_id', eventId)
+            .neq('status', 'cancelled')
             .maybeSingle();
           setContractStatus((contract as { status?: string } | null)?.status ?? null);
         }
@@ -427,7 +443,7 @@ export function OrgEventFormDialog({
     // define their own location, so require venue + city + address (kept even when
     // the location is secret — the city is what filters the event to the right city).
     // Partner-led events inherit the club's venue + city automatically.
-    if (!requiresPartner && (!locationName.trim() || !locationCity.trim() || !locationAddress.trim())) {
+    if (!partnerEdit && !requiresPartner && (!locationName.trim() || !locationCity.trim() || !locationAddress.trim())) {
       toast.error(t('Lieu, ville et adresse requis', 'Venue, city and address required', 'Lugar, ciudad y dirección obligatorios'));
       return;
     }
@@ -524,6 +540,17 @@ export function OrgEventFormDialog({
       } else {
         payload.partner_venue_id = null;
         payload.event_mode = 'solo_organizer';
+      }
+
+      // Partenaire d'une soirée menée par le club : seulement ses domaines.
+      if (isEdit && partnerEdit) {
+        const allowed = new Set<string>([
+          ...(partnerEdit.design
+            ? ['title', 'description', 'poster_url', 'video_url', 'poster_position', 'music_genres', 'event_type']
+            : []),
+          ...(partnerEdit.operations ? ['start_at', 'end_at'] : []),
+        ]);
+        for (const k of Object.keys(payload)) if (!allowed.has(k)) delete payload[k];
       }
 
       let savedId = eventId;

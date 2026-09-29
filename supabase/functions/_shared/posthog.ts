@@ -206,7 +206,8 @@ const n = (v: unknown): number => {
 export const clubRevenue = {
   ticket: (t: { total_price?: unknown; service_fee?: unknown; insurance_fee?: unknown }) =>
     n(t.total_price) - n(t.service_fee) - n(t.insurance_fee),
-  table: (t: { total_price?: unknown; service_fee?: unknown; management_fee?: unknown }) =>
-    n(t.total_price) - n(t.service_fee) - n(t.management_fee),
+  // Frais de gestion payés EN PLUS par le client : retirés seulement si absorbés.
+  table: (t: { total_price?: unknown; service_fee?: unknown; management_fee?: unknown; fee_absorbed?: unknown }) =>
+    n(t.total_price) - n(t.service_fee) - (t.fee_absorbed === true ? n(t.management_fee) : 0),
   order: (o: { total?: unknown; service_fee?: unknown }) => n(o.total) - n(o.service_fee),
 };

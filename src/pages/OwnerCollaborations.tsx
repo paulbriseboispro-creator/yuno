@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useVenuePartnerships, type VenueOrganizerPartnership } from '@/hooks/useOrganizerPartnerships';
@@ -7,27 +7,24 @@ import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { isCollabPlan } from '@/lib/planFeatures';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ClubProposeEventDialog } from '@/components/owner/ClubProposeEventDialog';
-import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
-import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
 import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
 import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
+import { CoorgInvitesInbox, CoorgPartnersSection } from '@/components/coorg/CoorgHubParts';
+import { CollabHub } from '@/components/collab-hub/CollabHub';
+import { ClubInviteDealFields, type ClubInviteDeal } from '@/components/collab/ClubInviteDealFields';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Handshake, User, Send, Check, X, Trash2, Inbox, Search, Settings2,
-  Building2, Mail, UserPlus, Calendar, Sparkles, Clock, ExternalLink,
-  ChevronDown, ChevronUp, Lock, FileText, BarChart3, Ticket, Wine, Pause, Play,
+  User, Send, Check, X, Trash2, Inbox, Search, Settings2,
+  Mail, Sparkles, ExternalLink, ChevronDown,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
-import { formatInTimeZone } from 'date-fns-tz';
-import { PARIS_TIMEZONE, toParisTime, nowInParis } from '@/lib/timezone';
-import { Link } from 'react-router-dom';
-import { fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
+import { useNumberFormat } from '@/components/analytics/kitFormat';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -144,36 +141,18 @@ interface OrganizerSearchResult {
   organization_name: string | null; avatar_url: string | null;
 }
 
-interface CollabEvent {
-  id: string; title: string; description: string | null;
-  poster_url: string | null;
-  start_at: string; end_at: string; is_active: boolean;
-  organizer_user_id: string | null; partner_organizer_id: string | null;
-  venue_id: string | null; partner_venue_id: string | null;
-  event_mode: string | null; initiated_by_venue: boolean;
-  // Acceptance is driven by the signed collaboration contract, NOT the event's
-  // publish state. null = no contract row (legacy co-event).
-  contract_status: string | null;
-  // Set when the collaboration is paused (frozen, reversible).
-  collab_paused_at: string | null;
-  organizer: { display_name: string | null; avatar_url: string | null; slug: string | null } | null;
-}
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
+/**
+ * Collaborations — Console Club. Même hub que l'organisateur (`CollabHub`,
+ * plan `docs/designs/COLLAB_SIMPLIFICATION_PLAN.md`) : Soirées (à traiter +
+ * une seule liste, contrats ET co-organisations) et Partenaires, une seule
+ * action « Nouvelle collaboration ».
+ */
 export default function OwnerCollaborations() {
   const { user } = useAuth();
   const { plan } = useSubscriptionPlan();
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') || 'events';
+  // Un club au plan Collaboration reçoit des soirées ; il n'en propose pas.
   const isCollab = isCollabPlan(plan);
   const { t } = useLanguage();
-
-  const TABS = [
-    { value: 'events',     label: t('collab.tab.events'),     Icon: Calendar  },
-    { value: 'organizers', label: t('collab.tab.organizers'), Icon: User      },
-    { value: 'invite',     label: t('collab.tab.invite'),     Icon: UserPlus  },
-  ];
 
   const [venueId, setVenueId]   = useState<string | undefined>(undefined);
   const [venueName, setVenueName] = useState('');
@@ -189,6 +168,11 @@ export default function OwnerCollaborations() {
       if (data) { setVenueId(data.id); setVenueName(data.name); }
     })();
   }, [user, venueLookupNonce]);
+
+  const { partnerships } = useVenuePartnerships(venueId);
+  const active = partnerships.filter((p) => p.status === 'active');
+  // Un organisateur déjà partenaire n'apparaît qu'une fois : dans la liste des partenariats.
+  const covered = new Set(active.map((p) => `org:${p.organizer_user_id}`));
 
   if (!venueId) {
     return (
@@ -213,338 +197,40 @@ export default function OwnerCollaborations() {
     );
   }
 
+  const scope = { venueId };
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
       <OwnerHeader title="Collaborations" />
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-5xl space-y-5">
-
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="flex items-center gap-2" style={{ color: T1, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>
-            <Handshake className="h-6 w-6 flex-none" style={{ color: RED }} />
-            Collaborations
-          </h1>
-          <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>
-            {venueName} · {t('collab.subtitle')}
-          </p>
-        </motion.div>
-
-        {/* Custom tab bar */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <div className="relative flex" style={{ borderBottom: `1px solid ${F_BORDER}`, gap: 0 }}>
-            {TABS.map(({ value, label, Icon }) => {
-              const active = tab === value;
-              return (
-                <button
-                  key={value}
-                  onClick={() => setParams({ tab: value })}
-                  className="relative flex items-center gap-1.5 cursor-pointer transition-colors duration-150"
-                  style={{ padding: '10px 16px', color: active ? T1 : T3, fontSize: 13.5, fontWeight: active ? 640 : 500, background: 'transparent', border: 'none', marginBottom: -1 }}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                  {active && (
-                    <motion.div
-                      layoutId="collab-tab-indicator"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-                      style={{ background: RED, boxShadow: '0 0 8px rgba(232,25,44,0.5)' }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* Tab content */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-          >
-            {tab === 'events'     && <CollabEventsTab venueId={venueId} canPropose={!isCollab} />}
-            {tab === 'organizers' && <OrganizersTab venueId={venueId} />}
-            {tab === 'invite'     && <InviteTab venueId={venueId} />}
-          </motion.div>
-        </AnimatePresence>
-
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================================
- * TAB 1 — Co-organized events
- * ========================================================================= */
-function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose: boolean }) {
-  const { t } = useLanguage();
-  const [params, setParams] = useSearchParams();
-  const [events, setEvents] = useState<CollabEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showPast, setShowPast] = useState(false);
-  const [proposeOpen, setProposeOpen] = useState(false);
-  const [preselectOrg, setPreselectOrg] = useState<string | null>(null);
-
-  // Deeplink from a partnership card: `?tab=events&propose=<organizerUserId>`
-  // opens the propose dialog with that partner pre-selected, then clears the param.
-  const proposeParam = params.get('propose');
-  useEffect(() => {
-    if (!proposeParam) return;
-    setPreselectOrg(proposeParam);
-    setProposeOpen(true);
-    const next = new URLSearchParams(params);
-    next.delete('propose');
-    setParams(next, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposeParam]);
-
-  const fetchEvents = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.from('events')
-      .select('id, title, description, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, collab_paused_at')
-      .or(`partner_venue_id.eq.${venueId},and(venue_id.eq.${venueId},partner_organizer_id.not.is.null)`)
-      .order('start_at', { ascending: false });
-    if (error) { console.error(error); setLoading(false); return; }
-    const orgIds = Array.from(new Set(
-      (data || []).map((e) => e.organizer_user_id ?? e.partner_organizer_id).filter(Boolean) as string[]
-    ));
-    const orgMap = new Map<string, any>();
-    if (orgIds.length) {
-      const { data: profs } = await supabase.from('organizer_profiles' as any)
-        .select('user_id, display_name, avatar_url, slug').in('user_id', orgIds);
-      (profs || []).forEach((p: any) => orgMap.set(p.user_id, p));
-    }
-    // Collaboration acceptance status lives in the signed contract, not the event
-    // row. Pull the contract per event so the card can show "pending acceptance"
-    // vs "active" instead of leaking the publish flag.
-    const eventIds = (data || []).map((e) => e.id);
-    const contractMap = new Map<string, string>();
-    if (eventIds.length) {
-      // event_collab_contracts isn't in the generated types yet — query bound on
-      // `supabase` (never detach) and cast the result, like useEventCollabContract.
-      const { data: contracts } = await supabase
-        .from('event_collab_contracts' as never)
-        .select('event_id, status')
-        .in('event_id' as never, eventIds as never);
-      ((contracts as unknown as Array<{ event_id: string; status: string }>) || [])
-        .forEach((c) => contractMap.set(c.event_id, c.status));
-    }
-    const mapped: CollabEvent[] = (data || []).map((e) => {
-      const orgId = e.organizer_user_id ?? e.partner_organizer_id;
-      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, contract_status: contractMap.get(e.id) ?? null, collab_paused_at: e.collab_paused_at, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
-    });
-    setEvents(mapped);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchEvents();
-    const ch = supabase.channel(`collab-hub-${venueId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `partner_venue_id=eq.${venueId}` }, fetchEvents)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `venue_id=eq.${venueId}` }, fetchEvents)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venueId]);
-
-  const upcoming = events.filter((e) => toParisTime(e.end_at) >= nowInParis());
-  const past     = events.filter((e) => toParisTime(e.end_at) < nowInParis());
-
-  return (
-    <div className="space-y-4">
-      {/* Incoming co-event proposals from organizers (symmetric with the org hub). */}
-      <CollabProposalsInbox role="venue" venueId={venueId} onChanged={fetchEvents} />
-
-      {/* Avenants qu'on nous demande de contresigner. Rien n'a change tant qu'ils
-          sont la : le contrat d'origine reste en vigueur. */}
-      <CollabPendingAmendments role="venue" venueId={venueId} onChanged={fetchEvents} />
-
-      {/* Contrats-cadres du club : PDF, avenant, resiliation. Le meme composant
-          role-aware que l'organisateur voit de son cote. */}
-      <CollabSeriesContracts role="venue" venueId={venueId} onChanged={fetchEvents} />
-
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <p style={{ color: T3, fontSize: 12 }}>{t('collab.events.subtitle')}</p>
-        {canPropose ? (
-          <PrimaryBtn onClick={() => setProposeOpen(true)}>
-            <Sparkles className="h-3.5 w-3.5" /> {t('collab.events.proposeEvent')}
-          </PrimaryBtn>
-        ) : (
-          <button disabled style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: INNER_BG, border: `1px solid ${BORDER}`, color: T3, fontSize: 12.5, fontWeight: 600, cursor: 'not-allowed', opacity: 0.5 }}>
-            <Lock className="h-3.5 w-3.5" /> {t('collab.events.proposeEvent')}
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, padding: '32px', textAlign: 'center' }}>
-          <p style={{ color: T3, fontSize: 13 }}>{t('collab.loading')}</p>
-        </div>
-      ) : events.length === 0 ? (
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '40px 24px', textAlign: 'center' }}>
-          <Handshake className="h-10 w-10 mx-auto mb-3" style={{ color: T3 }} />
-          <p style={{ color: T3, fontSize: 13 }}>{t('collab.events.empty')}</p>
-          {canPropose && (
-            <div className="mt-4 flex justify-center">
-              <SecondaryBtn onClick={() => setProposeOpen(true)}>{t('collab.events.proposeFirst')}</SecondaryBtn>
-            </div>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-5xl">
+        <CollabHub
+          side="venue"
+          scope={scope}
+          basePath="/owner"
+          showTitle={false}
+          subtitle={`${venueName} · ${t('collab.subtitle')}`}
+          canStart
+          canPropose={!isCollab}
+          hasActivePartners={active.length > 0}
+          todo={(reload) => (
+            <>
+              <CollabProposalsInbox role="venue" venueId={venueId} onChanged={reload} />
+              <CollabPendingAmendments role="venue" venueId={venueId} onChanged={reload} />
+              <CoorgInvitesInbox scope={scope} basePath="/owner" onChanged={reload} />
+            </>
           )}
-        </div>
-      ) : (
-        <>
-          {upcoming.length > 0 && (
-            <div className="space-y-3">
-              {upcoming.map((e) => <CollabEventCard key={e.id} event={e} venueId={venueId} />)}
-            </div>
+          partners={
+            <>
+              <OrganizersTab venueId={venueId} canPropose={!isCollab} />
+              <CollabSeriesContracts role="venue" venueId={venueId} />
+              <CoorgPartnersSection scope={scope} basePath="/owner" excludeKeys={covered} />
+            </>
+          }
+          renderPropose={(p) => (
+            <ClubProposeEventDialog open={p.open} onOpenChange={p.onOpenChange} venueId={venueId} preselectedOrganizerId={p.preselect} onCreated={p.onCreated} />
           )}
-          {past.length > 0 && (
-            <div className="mt-4">
-              <button
-                onClick={() => setShowPast(!showPast)}
-                className="w-full flex items-center justify-between cursor-pointer transition-all duration-150"
-                style={{ padding: '10px 16px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}
-              >
-                <span className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" style={{ color: T3 }} />
-                  <span>{t('collab.events.past')}</span>
-                  <span style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderRadius: 6, padding: '1px 8px', fontSize: 11, color: T3 }}>{past.length}</span>
-                </span>
-                {showPast ? <ChevronUp className="h-4 w-4" style={{ color: T3 }} /> : <ChevronDown className="h-4 w-4" style={{ color: T3 }} />}
-              </button>
-              <AnimatePresence>
-                {showPast && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-3 overflow-hidden"
-                    style={{ marginTop: 12, opacity: 0.7 }}
-                  >
-                    {past.map((e) => <CollabEventCard key={e.id} event={e} venueId={venueId} />)}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-        </>
-      )}
-
-      <ClubProposeEventDialog open={proposeOpen} onOpenChange={(o) => { setProposeOpen(o); if (!o) setPreselectOrg(null); }} venueId={venueId} preselectedOrganizerId={preselectOrg} onCreated={fetchEvents} />
-    </div>
-  );
-}
-
-function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: string }) {
-  const { t } = useLanguage();
-  const isLead  = event.venue_id === venueId;
-  const orgName = event.organizer?.display_name || t('collab.organizer');
-
-  const MODE_CHIP: Record<string, { label: string; color: string; bg: string; border: string }> = {
-    venue_rental: { label: t('collab.mode.venueRental'), color: T2, bg: INNER_BG, border: BORDER },
-    org_hosted:   { label: t('collab.mode.orgHosted'),   color: T2, bg: INNER_BG, border: BORDER },
-    co_event:     { label: t('collab.mode.coEvent'),     color: RED, bg: 'rgba(232,25,44,0.10)', border: 'rgba(232,25,44,0.22)' },
-  };
-  const modeChip = MODE_CHIP[event.event_mode ?? ''] ?? { label: t('collab.mode.collaboration'), color: RED, bg: 'rgba(232,25,44,0.10)', border: 'rgba(232,25,44,0.22)' };
-
-  // Acceptance reflects the signed contract, not whether the event is published.
-  // A proposed co-event is "pending acceptance" until the partner signs; only a
-  // double-signed (active/locked/closed) contract is truly "Active". Legacy
-  // co-events with no contract fall back to the old publish-state label.
-  const cs = event.contract_status;
-  const accepted = cs === 'active' || cs === 'locked' || cs === 'closed';
-  const awaiting  = cs === 'pending_signatures';
-  const isPaused  = !!event.collab_paused_at;
-  const statusChip = isPaused
-    ? { label: t('collab.event.paused'), color: AMBER, bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.30)' }
-    : accepted
-    ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
-    : awaiting
-      ? { label: isLead ? t('collab.event.awaitingPartner') : t('collab.event.toAccept'), color: AMBER, bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.30)' }
-      : cs === 'cancelled'
-        // Un contrat annulé sur un event encore publié n'est PAS « Actif » :
-        // sans cette branche il retombait sur le chip vert is_active.
-        ? { label: t('collab.event.contractCancelled'), color: T3, bg: INNER_BG, border: BORDER }
-        : event.is_active
-          ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
-          : { label: isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'), color: T3, bg: INNER_BG, border: BORDER };
-
-  return (
-    <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
-      {/* Top section */}
-      <div className="flex items-start gap-3 p-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <Chip label={modeChip.label} color={modeChip.color} bg={modeChip.bg} border={modeChip.border} />
-            <Chip label={statusChip.label} color={statusChip.color} bg={statusChip.bg} border={statusChip.border} />
-            <Chip
-              label={isLead ? t('collab.event.initiatedByYou') : `${t('collab.event.initiatedBy')} ${orgName}`}
-              color={T3} bg={TILE_BG} border={F_BORDER}
-            />
-          </div>
-          <h3 className="truncate" style={{ color: T1, fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em' }}>{event.title}</h3>
-          {event.organizer && (
-            <p style={{ color: T3, fontSize: 12, marginTop: 4 }}>
-              {t('collab.event.with')}{' '}
-              {event.organizer.slug ? (
-                <Link to={`/o/${event.organizer.slug}`} className="inline-flex items-center gap-1" style={{ color: RED, textDecoration: 'none' }}>
-                  {orgName} <ExternalLink className="h-3 w-3" />
-                </Link>
-              ) : <span style={{ color: T2 }}>{orgName}</span>}
-            </p>
-          )}
-          <p className="flex items-center gap-1.5 mt-2" style={{ color: T3, fontSize: 11.5 }}>
-            <Clock className="h-3 w-3" />
-            {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'dd MMM yyyy · HH:mm', { locale: fr })}
-          </p>
-        </div>
-        {event.poster_url && (
-          <img src={event.poster_url} alt={event.title}
-            className="w-16 h-20 sm:w-20 sm:h-28 rounded-xl object-cover flex-none"
-            style={{ border: `1px solid ${F_BORDER}` }} />
-        )}
-      </div>
-
-      {/* Footer section */}
-      <div className="px-4 pb-4 space-y-3" style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 14 }}>
-        {!isLead && (
-          <div className="flex items-center gap-1.5 rounded-xl px-3 py-2" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.12)' }}>
-            <Lock className="h-3 w-3 flex-none" style={{ color: RED }} />
-            <span style={{ color: T3, fontSize: 11 }}>
-              {t('collab.event.metadataOwner')} <span style={{ color: T1, fontWeight: 600 }}>{orgName}</span>{t('collab.event.metadataSuffix')}
-            </span>
-          </div>
-        )}
-
-        {/* Primary CTA */}
-        <Link
-          to={`/owner/collab/event/${event.id}`}
-          className="flex items-center justify-center gap-1.5 w-full"
-          style={{ padding: '9px 16px', borderRadius: 12, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: RED, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-        >
-          <BarChart3 className="h-3.5 w-3.5" />
-          {t('collab.event.openDashboard')}
-        </Link>
-
-        <div className="grid grid-cols-2 gap-1.5">
-          <GhostLinkBtn to={`/owner/collab/event/${event.id}?tab=tickets`}><Ticket className="h-3 w-3" /> {t('collab.event.ticketing')}</GhostLinkBtn>
-          <GhostLinkBtn to={`/owner/collab/event/${event.id}?tab=tables`}><Wine className="h-3 w-3" /> {t('collab.event.tables')}</GhostLinkBtn>
-          <GhostLinkBtn to={`/owner/collab/event/${event.id}?tab=guestlist`}><UserPlus className="h-3 w-3" /> {t('collab.event.guestList')}</GhostLinkBtn>
-          <GhostLinkBtn to={`/owner/collab/event/${event.id}?tab=invoices`}><FileText className="h-3 w-3" /> {t('collab.event.invoices')}</GhostLinkBtn>
-        </div>
-
-        <div>
-          <p style={{ color: T3, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, marginBottom: 8 }}>{t('collab.event.salesBreakdown')}</p>
-          <PurchaseSourceBreakdown eventId={event.id} />
-        </div>
-
-        {/* Manage the collaboration under DOUBLE CONSENT — pause/delete need the
-            organizer to approve too; a live event defers the action until it ends.
-            Resume stays unilateral. (CollabActionControls is shared with the org hub.) */}
-        <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12 }}>
-          <CollabActionControls eventId={event.id} myRole="venue" isPaused={isPaused} />
-        </div>
+          renderInvite={(onSent) => <InviteTab venueId={venueId} onSent={onSent} />}
+        />
       </div>
     </div>
   );
@@ -553,9 +239,10 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
 /* =========================================================================
  * TAB 2 — Partner organizers
  * ========================================================================= */
-function OrganizersTab({ venueId }: { venueId: string }) {
-  const navigate = useNavigate();
+function OrganizersTab({ venueId, canPropose }: { venueId: string; canPropose: boolean }) {
   const { t } = useLanguage();
+  const [params, setParams] = useSearchParams();
+  const [showHistory, setShowHistory] = useState(false);
   const { partnerships, isLoading, inviteOrganizer, respond, proposeSplitUpdate, respondToSplitProposal, revoke } = useVenuePartnerships(venueId);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -564,6 +251,18 @@ function OrganizersTab({ venueId }: { venueId: string }) {
   const [message, setMessage] = useState('');
   const [searching, setSearching] = useState(false);
   const [splitDialog, setSplitDialog] = useState<VenueOrganizerPartnership | null>(null);
+
+  // « Nouvelle collaboration › Ajouter un organisateur déjà sur Yuno » arrive
+  // ici avec `?request=1` : on ouvre la recherche, puis on nettoie l'adresse.
+  const requestParam = params.get('request');
+  useEffect(() => {
+    if (requestParam !== '1') return;
+    setInviteOpen(true);
+    const next = new URLSearchParams(params);
+    next.delete('request');
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestParam]);
 
   const incoming = partnerships.filter((p) => p.status === 'pending' && p.initiated_by === 'organizer');
   const outgoing = partnerships.filter((p) => p.status === 'pending' && p.initiated_by === 'venue');
@@ -600,13 +299,6 @@ function OrganizersTab({ venueId }: { venueId: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <p style={{ color: T3, fontSize: 12 }}>{t('collab.organizers.subtitle')}</p>
-        <PrimaryBtn onClick={() => setInviteOpen(true)}>
-          <Send className="h-3.5 w-3.5" /> {t('collab.organizers.inviteBtn')}
-        </PrimaryBtn>
-      </div>
-
       {incoming.length > 0 && (
         <section>
           <h3 className="flex items-center gap-1.5 mb-3" style={{ color: T3, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -630,13 +322,16 @@ function OrganizersTab({ venueId }: { venueId: string }) {
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '40px 24px', textAlign: 'center' }}>
             <User className="h-10 w-10 mx-auto mb-3" style={{ color: T3 }} />
             <p style={{ color: T3, fontSize: 13 }}>{t('collab.organizers.emptyActive')}</p>
+            <div className="mt-4 flex justify-center">
+              <SecondaryBtn onClick={() => setInviteOpen(true)}><Search className="h-3.5 w-3.5" /> {t('collab.organizers.inviteBtn')}</SecondaryBtn>
+            </div>
           </div>
         ) : (
           <div className="grid gap-3">
             {active.map((p) => (
               <PartnershipCard key={p.id} partnership={p} venueId={venueId}
                 onEditSplit={() => setSplitDialog(p)}
-                onProposeEvent={() => navigate(`/owner/collaborations?tab=events&propose=${p.organizer_user_id}`)}
+                onProposeEvent={canPropose ? () => setParams({ tab: 'nights', propose: p.organizer_user_id }) : undefined}
                 onAcceptProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: true })}
                 onDeclineProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: false })}
                 proposalPending={respondToSplitProposal.isPending}
@@ -657,10 +352,15 @@ function OrganizersTab({ venueId }: { venueId: string }) {
 
       {past.length > 0 && (
         <section>
-          <h3 className="mb-3" style={{ color: T3, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('collab.organizers.history')}</h3>
-          <div className="grid gap-3" style={{ opacity: 0.65 }}>
-            {past.map((p) => <PartnershipCard key={p.id} partnership={p} />)}
-          </div>
+          <button type="button" onClick={() => setShowHistory((v) => !v)} className="mb-3 flex cursor-pointer items-center gap-1.5" style={{ color: T3, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {t('collab.organizers.history')} ({past.length})
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+          </button>
+          {showHistory && (
+            <div className="grid gap-3" style={{ opacity: 0.65 }}>
+              {past.map((p) => <PartnershipCard key={p.id} partnership={p} />)}
+            </div>
+          )}
         </section>
       )}
 
@@ -806,11 +506,9 @@ function PartnershipCard({ partnership, venueId, showAccept, onAccept, onDecline
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h3 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 680, letterSpacing: '-0.01em' }}>{orgName}</h3>
-            <Chip label={statusStyle.label} color={statusStyle.color} bg={statusStyle.bg} border={statusStyle.border} />
-            <Chip
-              label={partnership.initiated_by === 'venue' ? t('collab.organizers.initiatedByYou') : t('collab.organizers.initiatedByOrga')}
-              color={T3} bg={TILE_BG} border={F_BORDER}
-            />
+            {partnership.status !== 'active' && (
+              <Chip label={statusStyle.label} color={statusStyle.color} bg={statusStyle.bg} border={statusStyle.border} />
+            )}
           </div>
 
           {slug && (
@@ -901,6 +599,7 @@ function SplitChip({ label, pct, orgLabel, youLabel }: { label: string; pct: num
  * ========================================================================= */
 function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string; organizerUserId: string }) {
   const { language } = useLanguage();
+  const fmt = useNumberFormat();
   const tt = (frv: string, en: string, es?: string) => translate(language, frv, en, es);
   const [stats, setStats] = useState<{ events: number; participants: number; gross: number; sinceYear: number | null } | null>(null);
 
@@ -920,7 +619,7 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
         supabase.from('tickets').select('total_price, quantity, service_fee, insurance_fee').eq('status', 'paid').in('event_id', ids),
         // guest_count (sans s) + status 'paid' : guests_count n'existe pas (la
         // requête entière échouait en 400) et 'confirmed' n'est jamais écrit.
-        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee').eq('status', 'paid').in('event_id', ids),
+        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee, fee_absorbed').eq('status', 'paid').in('event_id', ids),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
         supabase.from('orders').select('total, service_fee, refund_amount').eq('status', 'paid').in('event_id', ids),
       ]);
@@ -930,14 +629,14 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
       const tables = tr.data || [];
       const entries = gl.data || [];
       const drinks = dr.data || [];
-      const ticketsSold = tickets.reduce((a, x: any) => a + (x.quantity || 1), 0);
-      const tableGuests = tables.reduce((a, x: any) => a + (x.guest_count || 0), 0);
+      const ticketsSold = tickets.reduce((a, x) => a + (x.quantity || 1), 0);
+      const tableGuests = tables.reduce((a, x) => a + (x.guest_count || 0), 0);
       // CA = montant client − frais Yuno (jamais le TTC : les frais Yuno ne sont pas du revenu).
       // Boissons incluses, comme le caSoiree du dashboard co-event — sinon le
       // même partenariat affiche deux CA différents selon la surface.
-      const gross = tickets.reduce((a, x: any) => a + ticketRevenue(x).gross, 0)
-        + tables.reduce((a, x: any) => a + tableRevenue(x).gross, 0)
-        + drinks.reduce((a, x: any) => a + orderRevenue(x).gross, 0);
+      const gross = tickets.reduce((a, x) => a + ticketRevenue(x).gross, 0)
+        + tables.reduce((a, x) => a + tableRevenue(x).gross, 0)
+        + drinks.reduce((a, x) => a + orderRevenue(x).gross, 0);
       const participants = ticketsSold + tableGuests + entries.length;
       const sinceYear = events.reduce<number | null>((min, e) => {
         const y = new Date(e.start_at).getFullYear();
@@ -952,8 +651,8 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
 
   const items = [
     { label: tt('Soirées ensemble', 'Nights together', 'Noches juntos'), value: String(stats.events) },
-    { label: tt('Participants', 'Guests', 'Asistentes'), value: stats.participants.toLocaleString() },
-    { label: tt('CA généré', 'Revenue generated', 'Ingresos generados'), value: `${Math.round(stats.gross).toLocaleString()} €` },
+    { label: tt('Participants', 'Guests', 'Asistentes'), value: fmt.n(stats.participants) },
+    { label: tt('CA généré', 'Revenue generated', 'Ingresos generados'), value: fmt.eur(Math.round(stats.gross)) },
   ];
 
   return (
@@ -977,34 +676,48 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
 /* =========================================================================
  * TAB 3 — Invite (external organizer by email)
  * ========================================================================= */
-function InviteTab({ venueId }: { venueId: string }) {
+/** Invitation par email d'un organisateur hors Yuno — ouverte depuis « Nouvelle collaboration » (ce n'est plus un onglet). */
+function InviteTab({ venueId, onSent }: { venueId: string; onSent?: () => void }) {
   const { t } = useLanguage();
   const [form, setForm] = useState({
     organizer_email: '', organizer_name: '',
     contact_first_name: '', contact_last_name: '', invitation_message: '',
   });
   const [sending, setSending] = useState(false);
+  // Le deal part AVEC l'invitation : soirée, conditions, Stripe Oui / Non.
+  const [deal, setDeal] = useState<ClubInviteDeal>({ eventId: null, rules: null, lang: 'fr', invalid: false });
+  const onDeal = useCallback((d: ClubInviteDeal) => setDeal(d), []);
 
   const handleSend = async () => {
     if (!form.organizer_email.trim()) { sonnerToast.error(t('collab.external.emailRequired')); return; }
+    if (deal.invalid) return;
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-organizer-collab', {
-        body: { ...form, origin: window.location.origin },
+        body: {
+          ...form, venue_id: venueId, event_id: deal.eventId, default_split_rules: deal.rules,
+          lang: deal.lang, origin: window.location.origin,
+        },
       });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (error) {
+        // Un refus serveur (4xx) porte son message dans le corps de la réponse.
+        let msg = error.message;
+        try { msg = (await (error as { context?: Response }).context?.json())?.error ?? msg; } catch { /* corps illisible */ }
+        throw new Error(msg);
+      }
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
       sonnerToast.success(t('collab.external.inviteSentTitle'), { description: `${t('collab.external.inviteSentDesc')} ${form.organizer_email}.` });
       setForm({ organizer_email: '', organizer_name: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
-    } catch (err: any) {
-      sonnerToast.error(err.message || 'Error');
+      onSent?.();
+    } catch (err) {
+      sonnerToast.error((err instanceof Error && err.message) || 'Error');
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <div className="space-y-4 max-w-xl">
+    <div className="space-y-4">
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px 22px' }}>
         <h3 className="flex items-center gap-2 mb-1" style={{ color: T1, fontSize: 15, fontWeight: 640 }}>
           <Mail className="h-4 w-4 flex-none" style={{ color: RED }} />
@@ -1031,6 +744,9 @@ function InviteTab({ venueId }: { venueId: string }) {
             <YunoInput label={t('collab.external.lastNameLabel')} value={form.contact_last_name}
               onChange={(e) => setForm((f) => ({ ...f, contact_last_name: e.target.value }))} />
             <div className="col-span-2">
+              <ClubInviteDealFields venueId={venueId} onChange={onDeal} />
+            </div>
+            <div className="col-span-2">
               <YunoTextarea rows={4} label={t('collab.external.messageLabel')} value={form.invitation_message}
                 onChange={(e) => setForm((f) => ({ ...f, invitation_message: e.target.value }))}
                 placeholder={t('collab.external.messagePlaceholder')} />
@@ -1038,7 +754,7 @@ function InviteTab({ venueId }: { venueId: string }) {
           </div>
 
           <button
-            onClick={handleSend} disabled={sending}
+            onClick={handleSend} disabled={sending || deal.invalid}
             className="w-full flex items-center justify-center gap-2 cursor-pointer transition-all duration-150"
             style={{ padding: '11px 20px', borderRadius: 12, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: RED, fontSize: 13.5, fontWeight: 640, opacity: sending ? 0.6 : 1 }}
           >
@@ -1048,15 +764,6 @@ function InviteTab({ venueId }: { venueId: string }) {
         </div>
       </div>
 
-      <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px 22px' }}>
-        <h3 className="flex items-center gap-2 mb-1" style={{ color: T1, fontSize: 15, fontWeight: 640 }}>
-          <Building2 className="h-4 w-4 flex-none" style={{ color: RED }} />
-          {t('collab.external.alreadyTitle')}
-        </h3>
-        <p style={{ color: T3, fontSize: 12 }}>
-          {t('collab.external.alreadyDesc')}
-        </p>
-      </div>
-    </div>
+</div>
   );
 }

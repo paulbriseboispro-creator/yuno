@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Mail, Loader2, Info, CalendarClock, Euro } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import {
   DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
 } from '@/components/collab/TieredRemunerationEditor';
-import { tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
-import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { tieredPillarBlocks, validateTiers, withSettlement } from '@/lib/splitRules';
+import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
+import type { CollabRemuneration, CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -16,12 +19,12 @@ import {
 } from '@/components/org-ui';
 
 /**
- * "Inviter" tab of the organizer Collaborations hub — parity with the club's
- * /owner/collaborations?tab=invite. Email-invite a venue that isn't on Yuno yet;
- * they get a link to create a free Yuno Collaboration account and partner with you.
- * Connecting to a club that already has a Yuno account lives in "Clubs partenaires".
+ * Invitation par email d'un club qui n'est pas encore sur Yuno — ouverte depuis
+ * « Nouvelle collaboration › Inviter quelqu'un qui n'est pas sur Yuno » (ce
+ * n'est plus un onglet). Il reçoit un lien pour créer son compte gratuit Yuno
+ * Collaboration, avec la soirée et les conditions déjà posées.
  */
-export function InviteClubTab() {
+export function InviteClubTab({ onSent }: { onSent?: () => void } = {}) {
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -41,6 +44,10 @@ export function InviteClubTab() {
   // accepte. Avant, l'invitation posait un partage par défaut que personne
   // n'avait choisi, et l'organisateur devait revenir proposer le vrai deal.
   const { user } = useAuth();
+  // Scope = l'ORGANISATION : un admin d'équipe invite au nom de l'orga qu'il sert.
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
+  const canAct = useCollabOrgCanAct('organizer');
   const [events, setEvents] = useState<{ id: string; title: string; start_at: string }[]>([]);
   const [eventId, setEventId] = useState('');
   const [remMode, setRemMode] = useState<RemunerationMode>('per_pillar');
@@ -48,16 +55,20 @@ export function InviteClubTab() {
   const [tablesOrg, setTablesOrg] = useState(0);
   const [tiered, setTiered] = useState<CollabRemuneration>({ mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
   const tiersInvalid = remMode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
+  // Un club qui découvre Yuno n'a souvent pas encore Stripe : « Non » laisse
+  // l'une des deux parties encaisser seule et payer l'autre après la soirée.
+  const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
   useEffect(() => {
-    if (!user?.id) return;
+    if (!orgId) return;
     let active = true;
     supabase.from('events').select('id, title, start_at')
-      .eq('organizer_user_id', user.id).is('venue_id', null).is('partner_venue_id', null)
+      .eq('organizer_user_id', orgId).is('venue_id', null).is('partner_venue_id', null)
       .gte('start_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(50)
       .then(({ data }) => { if (active) setEvents((data ?? []) as { id: string; title: string; start_at: string }[]); });
     return () => { active = false; };
-  }, [user?.id]);
-  const buildRules = (): PartnershipSplitRules => remMode === 'tiered_total'
+  }, [orgId]);
+  const buildRules = (): PartnershipSplitRules => withSettlement(buildSplit(), settlement);
+  const buildSplit = (): PartnershipSplitRules => remMode === 'tiered_total'
     ? { ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } }
     : {
       tickets: { organizer_pct: ticketsOrg, venue_pct: 100 - ticketsOrg },
@@ -76,10 +87,10 @@ export function InviteClubTab() {
     setInviting(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-club-collab', {
-        body: { ...form, lang: mailLang, event_id: eventId || null, default_split_rules: buildRules(), origin: window.location.origin },
+        body: { ...form, lang: mailLang, event_id: eventId || null, organizer_user_id: orgId, default_split_rules: buildRules(), origin: window.location.origin },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
       toast({
         title: t('Invitation envoyée 📧', 'Invitation sent 📧', 'Invitación enviada 📧'),
         description: t(
@@ -89,12 +100,27 @@ export function InviteClubTab() {
         ),
       });
       setForm({ club_name: '', club_email: '', club_city: '', club_address: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
-    } catch (err: any) {
-      toast({ title: t('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' });
+      onSent?.();
+    } catch (err) {
+      toast({ title: t('Erreur', 'Error', 'Error'), description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
     } finally {
       setInviting(false);
     }
   };
+
+  if (!canAct) {
+    return (
+      <OrgCard>
+        <p className="p-5" style={{ color: T3, fontSize: 12.5, lineHeight: 1.55 }}>
+          {t(
+            "Inviter un club engage l'organisation sur des conditions financières : seuls le fondateur et les admins de l'équipe peuvent le faire.",
+            'Inviting a club commits the organization to financial terms: only the founder and team admins can do it.',
+            'Invitar a un club compromete a la organización con condiciones financieras: solo el fundador y los administradores del equipo pueden hacerlo.',
+          )}
+        </p>
+      </OrgCard>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -167,6 +193,7 @@ export function InviteClubTab() {
                   </p>
                 </div>
               )}
+              <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={buildSplit() as unknown as Record<string, unknown>} />
             </div>
             <div className="col-span-2"><FieldLabel>{t('Message personnalisé (optionnel)', 'Custom message (optional)', 'Mensaje personalizado (opcional)')}</FieldLabel><DarkTextarea value={form.invitation_message} onChange={set('invitation_message')} placeholder={t('Présente ton projet, la soirée envisagée, ta communauté…', 'Introduce your project, the event you have in mind, your community…', 'Presenta tu proyecto, el evento previsto, tu comunidad…')} rows={4} /></div>
           </div>
@@ -185,9 +212,9 @@ export function InviteClubTab() {
           <Info className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#E8192C' }} />
           <p style={{ color: T3, fontSize: 12, lineHeight: 1.55 }}>
             {t('Le club recevra un accès', 'The club will get a', 'El club recibirá un acceso')} <strong style={{ color: T1 }}>Yuno Collaboration</strong> {t(
-              'gratuit (page publique, stats, paiements). Il pourra activer un plan complet plus tard. Un club déjà sur Yuno ? Utilise plutôt l’onglet « Clubs partenaires ».',
-              'free access (public page, stats, payments). They can activate a full plan later. Already on Yuno? Use the "Partner clubs" tab instead.',
-              'gratuito (página pública, estadísticas, pagos). Podrá activar un plan completo más tarde. ¿Ya está en Yuno? Usa la pestaña «Clubes asociados».',
+              'gratuit (page publique, stats, paiements). Il pourra activer un plan complet plus tard.',
+              'free access (public page, stats, payments). They can activate a full plan later.',
+              'gratuito (página pública, estadísticas, pagos). Podrá activar un plan completo más tarde.',
             )}
           </p>
         </div>

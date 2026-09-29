@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -31,18 +32,28 @@ interface ActionRequest {
  * state (waiting / to-approve / scheduled) reads identically on both sides.
  */
 export function CollabActionControls({
-  eventId, myRole, isPaused, onChanged,
+  eventId, myRole, isPaused, onChanged, requestsOnly = false, buttonsOnly = false,
 }: {
   eventId: string;
   myRole: Role;
   isPaused: boolean;
   onChanged?: () => void;
+  /**
+   * Carte du hub : seulement une DEMANDE en cours (à approuver, en attente,
+   * programmée) — jamais les boutons pause / suppression, qui vivent repliés
+   * dans « Gérer la collaboration » sur la page de la soirée.
+   */
+  requestsOnly?: boolean;
+  /** Le pendant de `requestsOnly` : seulement les boutons, la demande en cours s'affichant ailleurs. */
+  buttonsOnly?: boolean;
 }) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [req, setReq] = useState<ActionRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Un éditeur d'équipe voit l'état, jamais un bouton que le serveur refuse.
+  const canAct = useCollabOrgCanAct(myRole);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -79,6 +90,7 @@ export function CollabActionControls({
       const msg = String((e as { message?: string })?.message ?? '');
       toast.error(
         msg.includes('COLLAB_ACTION_PENDING') ? tt('Une demande est déjà en cours.', 'A request is already in progress.', 'Ya hay una solicitud en curso.')
+          : msg.includes('COLLAB_DELETE_HAS_SALES') ? tt('Cette soirée a déjà vendu : elle ne se supprime plus. Mettez-la en pause ou annulez-la (les clients sont remboursés).', 'This event has already sold: it can no longer be deleted. Pause or cancel it (customers get refunded).', 'Este evento ya vendió: ya no se puede eliminar. Pausa o cancélalo (se reembolsa a los clientes).')
           : msg.includes('COLLAB_ACTION_RESOLVED') ? tt('Cette demande est déjà traitée.', 'This request was already handled.', 'Esta solicitud ya fue tratada.')
             : (msg || tt('Erreur', 'Error', 'Error')),
       );
@@ -108,6 +120,8 @@ export function CollabActionControls({
   const btn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5, fontWeight: 560, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 };
   const banner: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 11 };
 
+  if (buttonsOnly && req) return null;
+
   // ── Active request: scheduled (deferred to after the live event) ─────────────
   if (req && req.status === 'scheduled') {
     return (
@@ -124,6 +138,8 @@ export function CollabActionControls({
       </div>
     );
   }
+
+  if (!canAct) return null;
 
   // ── Active request: pending ──────────────────────────────────────────────────
   if (req && req.status === 'pending') {
@@ -160,6 +176,7 @@ export function CollabActionControls({
   }
 
   // ── No active request: default controls ──────────────────────────────────────
+  if (requestsOnly) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {isPaused ? (

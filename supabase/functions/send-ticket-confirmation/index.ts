@@ -96,9 +96,9 @@ serve(async (req) => {
       .from("tickets")
       .select(`
         id, qr_code, reference_code, quantity, unit_price, total_price, service_fee, insurance_fee, full_name, phone, user_email, user_id, status,
-        ticket_round_id, event_id,
+        ticket_round_id, event_id, collab_split,
         ticket_rounds(name, group_label),
-        events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
+        events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
       `)
       .eq("id", ticketId)
       .single();
@@ -230,6 +230,31 @@ serve(async (req) => {
               logoUrl: pv.logo_url || undefined,
             };
           }
+        }
+      }
+
+      // Contrat collab réglé SANS Stripe, encaissé par l'organisateur : la vente
+      // est tombée sur SON compte, c'est lui le vendeur (son régime de TVA) —
+      // miroir de get_event_seller et de save_invoice_on_creation.
+      const cs = (ticket as { collab_split?: { mode?: string; collector?: string } | null }).collab_split;
+      const collectorOrgId = (event as { organizer_user_id?: string | null; partner_organizer_id?: string | null } | null)?.organizer_user_id
+        ?? (event as { partner_organizer_id?: string | null } | null)?.partner_organizer_id ?? null;
+      if (cs?.mode === "transfer" && cs?.collector === "organizer" && collectorOrgId) {
+        const { data: org } = await supabaseAdmin
+          .from("organizer_profiles")
+          .select("legal_name, display_name, legal_address, siret, vat_number, rna_number, vat_regime, bde_verified, avatar_url")
+          .eq("user_id", collectorOrgId)
+          .maybeSingle();
+        if (org) {
+          seller = {
+            name: org.legal_name || org.display_name || seller.name,
+            address: org.legal_address || undefined,
+            siret: org.siret || undefined,
+            vat: org.vat_number || undefined,
+            rna: org.rna_number || undefined,
+            logoUrl: org.avatar_url || undefined,
+          };
+          vatRegime = resolveVatRegime(org);
         }
       }
 

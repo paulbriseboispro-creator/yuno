@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
@@ -53,6 +55,9 @@ interface ActiveSeries {
  */
 export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
   const { user } = useAuth();
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
+  const canAct = useCollabOrgCanAct(role);
   const { language } = useLanguage();
   const tt = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
   const lang = language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr';
@@ -78,7 +83,7 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
       .select('*')
       .eq('status' as never, 'active' as never);
     q = role === 'organizer'
-      ? q.eq('organizer_user_id' as never, user.id as never)
+      ? q.eq('organizer_user_id' as never, orgId as never)
       : q.eq('venue_id' as never, venueId as never);
     const { data } = await q;
     const rows = ((data as unknown as EventCollabSeriesContractRow[]) || []);
@@ -113,7 +118,7 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
       };
     }));
     setLoading(false);
-  }, [user, role, venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, role, venueId, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -144,7 +149,7 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
     } finally { setBusyId(null); }
   };
 
-  if (loading || items.length === 0) return null;
+  if (loading || !canAct || items.length === 0) return null;
 
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>

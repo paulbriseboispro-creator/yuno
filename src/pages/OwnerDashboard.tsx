@@ -58,6 +58,7 @@ import { useHomeBanner } from '@/hooks/useHomeBanner';
 import { HomeBannerBackdrop } from '@/components/home-banner/HomeBannerBackdrop';
 import { HomeBannerEditButton } from '@/components/home-banner/HomeBannerEditButton';
 import { HomeBannerEditor } from '@/components/home-banner/HomeBannerEditor';
+import { venueEventsOr } from '@/lib/coorg';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -226,7 +227,7 @@ export default function OwnerDashboard() {
     try {
       const { data } = await supabase.from('events')
         .select('id, title, start_at, poster_url, location_city, max_tickets, venue_id, partner_venue_id, partner_organizer_id, organizer_user_id')
-        .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
+        .or(venueEventsOr(venueId))
         .gte('end_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(1);
       const next = data?.[0] as NextEvent | undefined;
       if (!next) { setNextEvent(null); setNextStats(null); return; }

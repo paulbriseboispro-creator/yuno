@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
+import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
+import { checkPayoutReadiness, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -367,7 +369,6 @@ serve(async (req) => {
     let organizerStripeAccountId: string | null = null;
     let organizerStripeChargesEnabled = false;
     let venueIdForFees: string | null = event.venue_id;
-    let payoutSource: 'venue' | 'organizer' = 'venue';
 
     const effectiveVenueId = event.venue_id || event.partner_venue_id;
     const effectiveOrganizerId = event.organizer_user_id || event.partner_organizer_id;
@@ -391,7 +392,6 @@ serve(async (req) => {
       organizerStripeAccountId = orgProfile?.stripe_connect_account_id ?? null;
       organizerStripeChargesEnabled = !!orgProfile?.stripe_connect_charges_enabled;
     }
-    payoutSource = event.venue_id ? 'venue' : 'organizer';
 
     // Load partnership rules if a co-event
     let partnershipRules: Record<string, unknown> | null = null;
@@ -435,17 +435,43 @@ serve(async (req) => {
     }
 
     logStep("Payment targets resolved", {
-      payoutSource,
       effectiveVenueId,
       effectiveOrganizerId,
       eventMode: event.event_mode,
       hasPartnershipRules: !!partnershipRules,
     });
 
-    // Backwards-compat shim used later in the function
-    const stripeAccountId = payoutSource === 'venue' ? venueStripeAccountId : organizerStripeAccountId;
-    const stripeChargesEnabled = payoutSource === 'venue' ? venueStripeChargesEnabled : organizerStripeChargesEnabled;
-    const venue = { id: venueIdForFees ?? '', name: '', stripe_account_id: stripeAccountId, stripe_charges_enabled: stripeChargesEnabled };
+    // Porte Stripe calée sur le split RÉEL (payout-readiness.ts) : on vérifie les
+    // comptes que la charge utilisera — l'encaisseur d'un contrat par virement,
+    // les deux jambes d'un partage Stripe, le club vendeur de record.
+    // Accord de co-organisation entre deux organisations réparti par Stripe :
+    // null = charge directe chez l'hôte (le décompte règle le partenaire).
+    const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
+    const readiness = checkPayoutReadiness({
+      itemType: "ticket",
+      isBde: event.is_bde === true,
+      event: {
+        id: event.id,
+        venue_id: event.venue_id,
+        organizer_user_id: event.organizer_user_id,
+        partner_venue_id: event.partner_venue_id,
+        partner_organizer_id: event.partner_organizer_id,
+        event_mode: event.event_mode,
+        revenue_split_rules: event.revenue_split_rules,
+      },
+      partnershipRules,
+      coorgStripe,
+    }, {
+      venueStripeAccountId,
+      venueChargesEnabled: venueStripeChargesEnabled,
+      organizerStripeAccountId,
+      organizerChargesEnabled: organizerStripeChargesEnabled,
+    });
+    const venue = {
+      id: venueIdForFees ?? '',
+      name: '',
+      stripe_account_id: "split" in readiness ? readiness.split.primary.accountId : null,
+    };
 
     // ── STRIPE READINESS GATE ────────────────────────────────────────────────
     // AVANT de geler la moindre place. Un club sans compte Connect ne peut pas
@@ -457,18 +483,18 @@ serve(async (req) => {
     if (!simulate) {
       if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-      if (!venue.stripe_account_id) {
-        logStep("Checkout refused — payment account not connected", { payoutSource, effectiveVenueId, effectiveOrganizerId });
+      if ("missing" in readiness) {
+        logStep("Checkout refused — payment account not connected", { party: readiness.missing, effectiveVenueId, effectiveOrganizerId });
         throw new Error(t(
-          payoutSource === 'organizer' ? "checkout.organizerPaymentsNotSetUp" : "checkout.venuePaymentsNotSetUp",
+          readiness.missing === 'organizer' ? "checkout.organizerPaymentsNotSetUp" : "checkout.venuePaymentsNotSetUp",
           lang,
         ));
       }
 
-      if (!venue.stripe_charges_enabled) {
-        logStep("Checkout refused — payment account not active", { payoutSource, effectiveVenueId, effectiveOrganizerId });
+      if ("inactive" in readiness) {
+        logStep("Checkout refused — payment account not active", { party: readiness.inactive, effectiveVenueId, effectiveOrganizerId });
         throw new Error(t(
-          payoutSource === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive",
+          readiness.inactive === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive",
           lang,
         ));
       }
@@ -479,7 +505,7 @@ serve(async (req) => {
       // l'erreur du rejet App Store 2.1(a). Un vrai acheteur (ou un reviewer non
       // connecté en démo) est refusé proprement ICI, avant toute réservation.
       // Les comptes démo @womber.fr ne passent jamais par ce bloc (simulate).
-      const demoStripeAccount = [venueStripeAccountId, organizerStripeAccountId]
+      const demoStripeAccount = accountsUsedBySplit(readiness.split)
         .find((id) => id?.startsWith("acct_demo"));
       if (demoStripeAccount) {
         logStep("Checkout refused — demo Stripe account sentinel", { demoStripeAccount });
@@ -656,7 +682,10 @@ serve(async (req) => {
           .from("ticket_upsell_offers")
           .select("*")
           .eq("id", sel.offerId)
-          .eq("venue_id", event.venue_id)
+          // Le club EFFECTIF : sur un collab mené par l'organisateur, venue_id est
+          // NULL et le club vit dans partner_venue_id — `.eq(venue_id, null)` ne
+          // trouvait aucune offre et tout checkout avec une option échouait.
+          .eq("venue_id", effectiveVenueId)
           .eq("is_active", true)
           .single();
 
@@ -701,7 +730,7 @@ serve(async (req) => {
       
       if (packError || !pack) throw new Error("Pack not found");
       if (!pack.is_active) throw new Error("Pack is no longer active");
-      if (pack.venue_id !== event.venue_id) throw new Error("Pack does not belong to this venue");
+      if (pack.venue_id !== effectiveVenueId) throw new Error("Pack does not belong to this venue");
       
       const packPrice = Number(pack.pack_price);
       validatedUpsells.push({
@@ -763,6 +792,12 @@ serve(async (req) => {
 
     const qrCode = generateQRCode();
 
+    // Contrat réglé par virement : la part prévue par le contrat est gardée sur la
+    // vente (décompte figé à J+2 par collab_transfer_statements).
+    const simulatedCollabSplit = "split" in readiness && readiness.split.transferSplit
+      ? { ...readiness.split.transferSplit, venue_direct: Math.round(upsellTotal * 100) / 100 }
+      : null;
+
     if (simulate) {
       logStep("SIMULATE: Creating paid ticket directly (demo or test mode)");
 
@@ -774,6 +809,7 @@ serve(async (req) => {
       const { data: ticket, error: ticketError } = await supabaseAdmin
         .from("tickets")
         .insert({
+          collab_split: simulatedCollabSplit,
           event_id: eventId,
           ticket_round_id: ticketRoundId,
           user_id: user?.id || null,
@@ -1056,6 +1092,7 @@ serve(async (req) => {
         event_mode: event.event_mode,
         revenue_split_rules: event.revenue_split_rules,
       },
+      coorgStripe,
       partnershipRules,
       venueStripeAccountId,
       organizerStripeAccountId,
@@ -1067,6 +1104,7 @@ serve(async (req) => {
     const { data: ticket, error: ticketError } = await supabaseAdmin
       .from("tickets")
       .insert({
+        collab_split: split.transferSplit ?? null,
         event_id: eventId,
         ticket_round_id: ticketRoundId,
         stripe_connected_account_id: connectedAccountId,
@@ -1203,6 +1241,10 @@ serve(async (req) => {
 
     // Create Stripe checkout with Connect and Apple Pay
     const session = await stripe.checkout.sessions.create({
+      // Une session Stripe vit 24 h par défaut : un paiement tardif arrivait après
+      // la fin de la réservation de places, voire après le décompte de la soirée.
+      // 31 min = le minimum Stripe (30) + une marge d'horloge.
+      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
       line_items: lineItems,
       mode: "payment",
       success_url: `${origin}/verify-ticket-payment?session_id={CHECKOUT_SESSION_ID}&ticket_id=${ticket.id}${nativeFlag}`,
@@ -1276,6 +1318,10 @@ serve(async (req) => {
           venue_pct_applied: split.effectiveSplit ? String(split.effectiveSplit.venue_pct) : "",
           organizer_pct_applied: split.effectiveSplit ? String(split.effectiveSplit.organizer_pct) : "",
           partnership_id: partnershipId ?? "",
+          // Décision de rétention FIGÉE au checkout (contrat à barème) : le webhook
+          // la lit ici au lieu de relire les règles au paiement — un avenant signé
+          // entre le checkout et le paiement ne peut plus l'inverser.
+          hold: split.hold ?? "",
         };
         // SEPARATE mode (co-event split): charge stays on the platform, webhook fires
         // a transfer to each connected account. `on_behalf_of` = the venue → the venue

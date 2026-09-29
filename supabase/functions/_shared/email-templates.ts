@@ -705,8 +705,11 @@ export function buildClubCollabInvitation(d: {
   message?: string | null;
   acceptUrl: string;
   expiresLabel?: string | null;
+  /** Faux quand le contrat est réglé par virement et que l'ORGANISATEUR encaisse : le club n'a pas besoin de Stripe. */
+  clubNeedsStripe?: boolean;
 }): BuiltEmail {
   const lang = L(d.lang || 'fr');
+  const clubNeedsStripe = d.clubNeedsStripe !== false;
   const subject = d.eventTitle
     ? p(lang, { en: `${d.organizerName} invites you: ${d.eventTitle}`, fr: `${d.organizerName} vous invite : ${d.eventTitle}`, es: `${d.organizerName} os invita: ${d.eventTitle}` })
     : p(lang, { en: `${d.organizerName} wants to host a night at ${d.clubName}`, fr: `${d.organizerName} veut organiser une soirée chez ${d.clubName}`, es: `${d.organizerName} quiere organizar una noche en ${d.clubName}` });
@@ -722,15 +725,21 @@ export function buildClubCollabInvitation(d: {
     es: `${hello} <strong style="color:${C.white}">${d.organizerName}</strong> quiere organizar ${d.eventTitle ? `<strong style="color:${C.white}">${d.eventTitle}</strong>` : 'una noche'} en <strong style="color:${C.white}">${d.clubName}</strong> y os propone gestionarla en Yuno.`,
   });
   const what = p(lang, {
-    en: `Yuno is the tool clubs and organizers share for one night: tickets, VIP tables and bar orders sold online, a revenue-split contract signed by both, and payouts secured by Stripe. Free for this collaboration.`,
-    fr: `Yuno est l'outil que le club et l'organisateur partagent pour une soirée : billets, tables VIP et commandes au bar vendus en ligne, un contrat de répartition signé par les deux, et des paiements sécurisés par Stripe. Gratuit pour cette collaboration.`,
-    es: `Yuno es la herramienta que el club y el organizador comparten para una noche: entradas, mesas VIP y pedidos de barra vendidos online, un contrato de reparto firmado por ambos y pagos protegidos por Stripe. Gratis para esta colaboración.`,
+    en: `Yuno is the tool clubs and organizers share for one night: tickets, VIP tables and bar orders sold online, a revenue-split contract signed by both, and every euro tracked until the last payout. Free for this collaboration.`,
+    fr: `Yuno est l'outil que le club et l'organisateur partagent pour une soirée : billets, tables VIP et commandes au bar vendus en ligne, un contrat de répartition signé par les deux, et chaque euro suivi jusqu'au dernier virement. Gratuit pour cette collaboration.`,
+    es: `Yuno es la herramienta que el club y el organizador comparten para una noche: entradas, mesas VIP y pedidos de barra vendidos online, un contrato de reparto firmado por ambos y cada euro seguido hasta la última transferencia. Gratis para esta colaboración.`,
   });
-  const next = p(lang, {
-    en: 'Three steps: create your club account (2 minutes), read and sign the contract, connect Stripe to get paid. Nothing sells before you sign.',
-    fr: 'Trois étapes : créer le compte de votre club (2 minutes), lire et signer le contrat, connecter Stripe pour être payé. Rien ne se vend avant votre signature.',
-    es: 'Tres pasos: crear la cuenta de vuestro club (2 minutos), leer y firmar el contrato, conectar Stripe para cobrar. Nada se vende antes de vuestra firma.',
-  });
+  const next = clubNeedsStripe
+    ? p(lang, {
+      en: 'Three steps: create your club account (2 minutes), read and sign the contract, connect Stripe to get paid. Nothing sells before you sign.',
+      fr: 'Trois étapes : créer le compte de votre club (2 minutes), lire et signer le contrat, connecter Stripe pour être payé. Rien ne se vend avant votre signature.',
+      es: 'Tres pasos: crear la cuenta de vuestro club (2 minutos), leer y firmar el contrato, conectar Stripe para cobrar. Nada se vende antes de vuestra firma.',
+    })
+    : p(lang, {
+      en: 'Two steps: create your club account (2 minutes), read and sign the contract. No Stripe needed: the organizer collects the sales and transfers your share after the night, tracked by Yuno. Nothing sells before you sign.',
+      fr: "Deux étapes : créer le compte de votre club (2 minutes), lire et signer le contrat. Pas besoin de Stripe : l'organisateur encaisse les ventes et vous vire votre part après la soirée, suivi par Yuno. Rien ne se vend avant votre signature.",
+      es: 'Dos pasos: crear la cuenta de vuestro club (2 minutos), leer y firmar el contrato. Sin Stripe: el organizador cobra las ventas y os transfiere vuestra parte tras la noche, con seguimiento de Yuno. Nada se vende antes de vuestra firma.',
+    });
   const rows: Array<{ k: string; v: string }> = [
     { k: p(lang, { en: 'Organizer', fr: 'Organisateur', es: 'Organizador' }), v: d.organizerName },
   ];
@@ -750,6 +759,139 @@ export function buildClubCollabInvitation(d: {
       section(infoRows(rows)),
       section(body(next, C.gray2) + `<div style="height:22px"></div>` + ctaPill(p(lang, { en: 'See the invitation', fr: "Voir l'invitation", es: 'Ver la invitación' }), d.acceptUrl), { border: false }),
       footer({ lang, reason: p(lang, { en: `${d.organizerName} invited your club on Yuno`, fr: `${d.organizerName} a invité votre club sur Yuno`, es: `${d.organizerName} invitó a vuestro club en Yuno` }) }),
+    ].join(''),
+  });
+  return { subject, preheader, html };
+}
+
+// ── 12a-bis. Invitation d'un ORGANISATEUR par un club (collab) ───────────────
+// Miroir de 12a dans l'autre sens : le club propose une soirée et ses
+// conditions ; le contrat s'ouvre pré-signé par le club à l'acceptation.
+export function buildOrganizerCollabInvitation(d: {
+  lang?: Lang;
+  clubName: string;
+  organizerName?: string | null;
+  contactFirstName?: string | null;
+  eventTitle?: string | null;
+  eventDateLabel?: string | null;
+  termsSummary?: string | null;
+  message?: string | null;
+  acceptUrl: string;
+  expiresLabel?: string | null;
+  /** Faux quand le contrat est réglé par virement et que le CLUB encaisse. */
+  organizerNeedsStripe?: boolean;
+}): BuiltEmail {
+  const lang = L(d.lang || 'fr');
+  const needsStripe = d.organizerNeedsStripe !== false;
+  const subject = d.eventTitle
+    ? p(lang, { en: `${d.clubName} invites you: ${d.eventTitle}`, fr: `${d.clubName} vous invite : ${d.eventTitle}`, es: `${d.clubName} te invita: ${d.eventTitle}` })
+    : p(lang, { en: `${d.clubName} wants to host your nights`, fr: `${d.clubName} veut accueillir vos soirées`, es: `${d.clubName} quiere acoger tus noches` });
+  const preheader = d.eventDateLabel
+    ? p(lang, { en: `${d.eventDateLabel} · terms and contract inside`, fr: `${d.eventDateLabel} · conditions et contrat à l'intérieur`, es: `${d.eventDateLabel} · condiciones y contrato dentro` })
+    : p(lang, { en: 'Terms and contract inside', fr: "Conditions et contrat à l'intérieur", es: 'Condiciones y contrato dentro' });
+  const hello = d.contactFirstName
+    ? p(lang, { en: `Hi ${esc(d.contactFirstName)},`, fr: `Bonjour ${esc(d.contactFirstName)},`, es: `Hola ${esc(d.contactFirstName)},` })
+    : p(lang, { en: 'Hello,', fr: 'Bonjour,', es: 'Hola,' });
+  const ev = d.eventTitle ? `<strong style="color:${C.white}">${esc(d.eventTitle)}</strong>` : '';
+  const intro = p(lang, {
+    en: `${hello} <strong style="color:${C.white}">${esc(d.clubName)}</strong> would like to ${ev ? `host ${ev} with you` : 'host your nights'} and proposes to run it on Yuno.`,
+    fr: `${hello} <strong style="color:${C.white}">${esc(d.clubName)}</strong> souhaite ${ev ? `organiser ${ev} avec vous` : 'accueillir vos soirées'} et vous propose de la gérer sur Yuno.`,
+    es: `${hello} <strong style="color:${C.white}">${esc(d.clubName)}</strong> quiere ${ev ? `organizar ${ev} contigo` : 'acoger tus noches'} y te propone gestionarlo en Yuno.`,
+  });
+  const what = p(lang, {
+    en: 'Yuno is the tool clubs and organizers share for one night: tickets, VIP tables and guest list sold online, a revenue-split contract signed by both, and every euro tracked until the last payout. Free for the organizer.',
+    fr: "Yuno est l'outil que le club et l'organisateur partagent pour une soirée : billets, tables VIP et guest list vendus en ligne, un contrat de répartition signé par les deux, et chaque euro suivi jusqu'au dernier virement. Gratuit pour l'organisateur.",
+    es: 'Yuno es la herramienta que el club y el organizador comparten para una noche: entradas, mesas VIP y guest list vendidas online, un contrato de reparto firmado por ambos y cada euro seguido hasta la última transferencia. Gratis para el organizador.',
+  });
+  const next = needsStripe
+    ? p(lang, {
+      en: 'Create your organizer account (2 minutes) with this email address, read and sign the contract, then connect Stripe to get paid. Nothing sells before you sign.',
+      fr: "Créez votre compte organisateur (2 minutes) avec cette adresse email, lisez et signez le contrat, puis connectez Stripe pour être payé. Rien ne se vend avant votre signature.",
+      es: 'Crea tu cuenta de organizador (2 minutos) con esta dirección de email, lee y firma el contrato y conecta Stripe para cobrar. Nada se vende antes de tu firma.',
+    })
+    : p(lang, {
+      en: 'Create your organizer account (2 minutes) with this email address, then read and sign the contract. No Stripe needed: the club collects the sales and transfers your share after the night, tracked by Yuno.',
+      fr: "Créez votre compte organisateur (2 minutes) avec cette adresse email, puis lisez et signez le contrat. Pas besoin de Stripe : le club encaisse les ventes et vous vire votre part après la soirée, suivi par Yuno.",
+      es: 'Crea tu cuenta de organizador (2 minutos) con esta dirección de email y luego lee y firma el contrato. Sin Stripe: el club cobra las ventas y te transfiere tu parte tras la noche, con seguimiento de Yuno.',
+    });
+  const rows: Array<{ k: string; v: string }> = [{ k: 'Club', v: d.clubName }];
+  if (d.eventTitle) rows.push({ k: lbl(lang, 'event'), v: d.eventTitle });
+  if (d.eventDateLabel) rows.push({ k: p(lang, { en: 'Date', fr: 'Date', es: 'Fecha' }), v: d.eventDateLabel });
+  if (d.termsSummary) rows.push({ k: p(lang, { en: 'Proposed terms', fr: 'Conditions proposées', es: 'Condiciones propuestas' }), v: d.termsSummary });
+  if (d.expiresLabel) rows.push({ k: lbl(lang, 'validUntil'), v: d.expiresLabel });
+  const html = shell({
+    title: subject,
+    preheader,
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Collaboration invitation', fr: 'Invitation à collaborer', es: 'Invitación a colaborar' })) + `<div style="height:16px"></div>` +
+        title(d.eventTitle || p(lang, { en: 'A night together', fr: 'Une soirée ensemble', es: 'Una noche juntos' }), 30) + `<div style="height:16px"></div>` +
+        body(intro) + `<div style="height:14px"></div>` + body(what, C.gray2), { border: false }),
+      ...(d.message ? [section(body(`<em>« ${esc(d.message)} »</em>`, C.gray2), { padTop: 0 })] : []),
+      section(infoRows(rows)),
+      section(body(next, C.gray2) + `<div style="height:22px"></div>` + ctaPill(p(lang, { en: 'See the invitation', fr: "Voir l'invitation", es: 'Ver la invitación' }), d.acceptUrl), { border: false }),
+      footer({ lang, reason: p(lang, { en: `${d.clubName} invited you on Yuno`, fr: `${d.clubName} vous a invité sur Yuno`, es: `${d.clubName} te invitó en Yuno` }) }),
+    ].join(''),
+  });
+  return { subject, preheader, html };
+}
+
+// ── 12a-ter. Invitation à CO-ORGANISER une soirée (structure sans compte) ─────
+// Un club ou un organisateur invite une structure à rejoindre sa soirée comme
+// co-hôte. Pas de Stripe à connecter : l'argent entre plusieurs parties suit
+// l'accord de co-organisation, le décompte et des virements suivis par Yuno.
+export function buildCoorgInvitation(d: {
+  lang?: Lang;
+  inviterName: string;
+  eventTitle: string;
+  eventDateLabel?: string | null;
+  venueName?: string | null;
+  access: 'editor' | 'viewer';
+  message?: string | null;
+  acceptUrl: string;
+  expiresLabel?: string | null;
+}): BuiltEmail {
+  const lang = L(d.lang || 'fr');
+  const subject = p(lang, {
+    en: `${d.inviterName} invites you to co-organize ${d.eventTitle}`,
+    fr: `${d.inviterName} vous invite à co-organiser ${d.eventTitle}`,
+    es: `${d.inviterName} te invita a coorganizar ${d.eventTitle}`,
+  });
+  const preheader = d.eventDateLabel ?? p(lang, { en: 'Co-organization on Yuno', fr: 'Co-organisation sur Yuno', es: 'Coorganización en Yuno' });
+  const intro = p(lang, {
+    en: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> invites you to co-organize <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> on Yuno: the night appears in your space, you share your own sales link, and the money is split by an agreement you all approve.`,
+    fr: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> vous invite à co-organiser <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> sur Yuno : la soirée apparaît dans votre espace, vous partagez votre propre lien de vente, et l'argent se répartit selon un accord validé par tous.`,
+    es: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> te invita a coorganizar <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> en Yuno: la noche aparece en tu espacio, compartes tu propio enlace de venta y el dinero se reparte según un acuerdo aprobado por todos.`,
+  });
+  const next = p(lang, {
+    en: 'Create your free account (2 minutes) with this email address and accept. No Stripe account needed: Yuno computes the statement after the night and tracks each transfer.',
+    fr: "Créez votre compte gratuit (2 minutes) avec cette adresse email et acceptez. Aucun compte Stripe exigé : Yuno calcule le décompte après la soirée et suit chaque virement.",
+    es: 'Crea tu cuenta gratuita (2 minutos) con esta dirección de email y acepta. No se necesita cuenta de Stripe: Yuno calcula la liquidación tras la noche y sigue cada transferencia.',
+  });
+  const rows: Array<{ k: string; v: string }> = [
+    { k: p(lang, { en: 'Invited by', fr: 'Invité par', es: 'Invitado por' }), v: d.inviterName },
+    { k: lbl(lang, 'event'), v: d.eventTitle },
+  ];
+  if (d.eventDateLabel) rows.push({ k: p(lang, { en: 'Date', fr: 'Date', es: 'Fecha' }), v: d.eventDateLabel });
+  if (d.venueName) rows.push({ k: 'Club', v: d.venueName });
+  rows.push({
+    k: p(lang, { en: 'Access', fr: 'Accès', es: 'Acceso' }),
+    v: d.access === 'editor'
+      ? p(lang, { en: 'Editor', fr: 'Édition', es: 'Edición' })
+      : p(lang, { en: 'Viewer', fr: 'Lecture', es: 'Lectura' }),
+  });
+  if (d.expiresLabel) rows.push({ k: lbl(lang, 'validUntil'), v: d.expiresLabel });
+  const html = shell({
+    title: subject,
+    preheader,
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Co-organization', fr: 'Co-organisation', es: 'Coorganización' })) + `<div style="height:16px"></div>` +
+        title(d.eventTitle, 30) + `<div style="height:16px"></div>` + body(intro), { border: false }),
+      ...(d.message ? [section(body(`<em>« ${esc(d.message)} »</em>`, C.gray2), { padTop: 0 })] : []),
+      section(infoRows(rows)),
+      section(body(next, C.gray2) + `<div style="height:22px"></div>` + ctaPill(p(lang, { en: 'See the invitation', fr: "Voir l'invitation", es: 'Ver la invitación' }), d.acceptUrl), { border: false }),
+      footer({ lang, reason: p(lang, { en: `${d.inviterName} invited you on Yuno`, fr: `${d.inviterName} vous a invité sur Yuno`, es: `${d.inviterName} te invitó en Yuno` }) }),
     ].join(''),
   });
   return { subject, preheader, html };
