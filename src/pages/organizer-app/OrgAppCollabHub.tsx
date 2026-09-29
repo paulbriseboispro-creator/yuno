@@ -33,7 +33,7 @@ export default function OrgAppCollabHub() {
   const covered = new Set(active.map((p) => `venue:${p.venue_id}`));
 
   return (
-    <OrgPage className="mx-auto max-w-[1100px]">
+    <OrgPage className="mx-auto w-full max-w-[1680px] sm:px-6 lg:px-8">
       <CollabHub
         side="organizer"
         scope={scope}

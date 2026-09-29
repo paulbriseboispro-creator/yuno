@@ -16,8 +16,9 @@ import {
   ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard,
   Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users,
   LayoutGrid, TrendingUp, Wine, UserPlus, Trophy, UsersRound, Target, Pencil, Check, X,
-  ChevronDown, FileText, MessageSquare, Euro, Settings2,
+  ChevronDown, ChevronRight, FileText, MessageSquare, Euro, Settings2,
 } from 'lucide-react';
+import { collabToolHref, collabEventHref, type CollabTool } from '@/lib/collabTrail';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { toast } from 'sonner';
@@ -40,16 +41,8 @@ import { CollabConversionClose } from '@/components/collab/CollabConversionClose
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMenu';
 import { OrgBilletterieDialog } from '@/components/organizer-app/OrgBilletterieDialog';
-import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
-import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
-import { CollabAudienceOverlap } from '@/components/collab/CollabAudienceOverlap';
 import { EventLiveModule } from '@/components/owner/co-event/EventLiveModule';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
-import { EventGuestListModule } from '@/components/owner/co-event/EventGuestListModule';
-import { EventInvoicesModule } from '@/components/owner/co-event/EventInvoicesModule';
-import { OwnerTicketOrders } from '@/components/owner/OwnerTicketOrders';
-import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
-import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
@@ -117,6 +110,12 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const fmt = useNumberFormat();
   const navigate = useNavigate();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  // Anciens liens (`?tab=tickets|tables|guestlist|invoices`, cartes du hub, alertes
+  // déjà émises) : ces listes vivent désormais dans la page « Ventes de la soirée ».
+  useEffect(() => {
+    if (!eventId || !focusTab || !['guestlist', 'tickets', 'tables', 'invoices'].includes(focusTab)) return;
+    navigate(`${collabEventHref(viewerRole === 'venue' ? 'venue' : 'organizer', eventId, 'sales')}?tab=${focusTab}`, { replace: true });
+  }, [eventId, focusTab, viewerRole, navigate]);
 
   const isVenue = viewerRole === 'venue';
   const isOrganizer = viewerRole === 'organizer';
@@ -238,6 +237,24 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       };
     }
     const p = closingProjection?.projection;
+    // Aucune jambe Stripe enregistrée (ventes antérieures au suivi, ou démo aux
+    // paiements simulés) : le repli du hook estime le net de TOUTE la soirée et
+    // le donne « déjà versé » à chaque partie — « Ma part 1 325 € » au-dessus de
+    // piliers à 220 € + 240 €. Sur une co-soirée, on applique le contrat pilier
+    // par pilier (même base que le panneau Argent), frais Stripe au prorata, et
+    // l'argent reste retenu jusqu'à fin + 48 h comme dans le vrai cycle.
+    const collabEvent = !!(event && (event.partner_venue_id || event.partner_organizer_id || event.event_mode === 'co_event'));
+    if (!tieredContract && netGain.fallbackUsed && collabEvent && event && !netGain.loading) {
+      const shareKey = isVenue ? 'venue_pct' : 'organizer_pct';
+      const ticketPct = getEffectiveSplit(event.revenue_split_rules, 'ticket', event.event_mode)[shareKey] / 100;
+      const tablePct = getEffectiveSplit(event.revenue_split_rules, 'table', event.event_mode)[shareKey] / 100;
+      const grossCA = stats.ticketPillar.ca + stats.tablePillar.ca;
+      const afterStripe = grossCA > 0 ? Math.min(1, netGain.netEuros / grossCA) : 1;
+      const share = (stats.ticketPillar.ca * ticketPct + stats.tablePillar.ca * tablePct) * afterStripe;
+      const endMs = new Date(event.end_at || event.start_at).getTime();
+      const released = Date.now() >= endMs + 48 * 3600 * 1000;
+      return { ...netGain, netEuros: share, paidEuros: released ? share : 0, pendingEuros: released ? 0 : share, failedEuros: 0, releaseAt: null };
+    }
     if (!tieredContract || !p) return netGain;
     const accepted = closingProjection?.closing?.status === 'accepted';
     if (isVenue) {
@@ -250,7 +267,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     }
     const paid = accepted ? netGain.paidEuros : 0;
     return { ...netGain, netEuros: p.due, paidEuros: paid, pendingEuros: Math.max(0, p.due - paid), failedEuros: accepted ? netGain.failedEuros : 0, releaseAt: null };
-  }, [tieredContract, closingProjection, netGain, isVenue, transferContract, transferInfo, transferStmt]);
+  }, [tieredContract, closingProjection, netGain, isVenue, transferContract, transferInfo, transferStmt, event, stats.ticketPillar, stats.tablePillar]);
 
   useEffect(() => {
     if (!user || !eventId) return;
@@ -426,16 +443,29 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const navTo = {
     live: isVenue ? '/owner/live' : `/organizer-app/events/${eventId}/live`,
     analytics: eventReportHref(isVenue ? '/owner/analytics' : '/organizer-app/analytics', eventId),
-    promoters: isVenue ? '/owner/promoters' : `/organizer-app/promoters/event/${eventId}`,
+    promoters: isVenue ? `/owner/promoters/event/${eventId}` : `/organizer-app/promoters/event/${eventId}`,
     // ?event= : sans lui la page Guest list retombe sur la 1re soirée de la liste
     // (on ouvrait « Amore » et on atterrissait sur une autre).
     guestList: isVenue ? `/owner/guest-list?event=${eventId}` : `/organizer-app/guest-list?event=${eventId}`,
     checkin: isVenue ? '/owner/live' : '/organizer-app/checkin',
     bookDj: isVenue ? '/owner/book-dj' : '/organizer-app/book-dj',
-    ticketing: isVenue ? '/owner/ticketing' : '/organizer-app/ticketing',
+    // ?event= : la billetterie s'ouvre sur CETTE soirée, pas sur la première de la liste.
+    ticketing: isVenue ? `/owner/ticketing?event=${eventId}` : `/organizer-app/ticketing?event=${eventId}`,
+    design: `/owner/events?edit=${eventId}`,
+    stripe: isVenue ? '/owner/billing' : '/organizer-app/payments',
     coorg: isVenue ? `/owner/coorg/${eventId}` : `/organizer-app/coorg/${eventId}`,
   };
-  const openTicketing = () => navigate(navTo.ticketing);
+  // Centre de contrôle : sur une co-soirée, chaque outil s'ouvre dans un NOUVEL
+  // onglet avec le fil d'Ariane (`collabToolHref`, `CollabTrailBar`) — cette page
+  // reste ouverte, on y revient d'un clic. Une soirée solo navigue comme avant.
+  const toolHref = (tool: CollabTool, path: string) => (isCollab
+    ? collabToolHref(path, { eventId: event.id, title: event.title, tool })
+    : path);
+  const openTool = (tool: CollabTool, path: string) => {
+    if (isCollab) window.open(toolHref(tool, path), '_blank', 'noopener');
+    else navigate(path);
+  };
+  const openTicketing = () => openTool('ticketing', navTo.ticketing);
   // L'outil « Infos & affiche » correspond au domaine `design`.
   const canEditDesign = canSideEdit(event?.collab_responsibilities, event?.event_mode, 'design', viewerSide);
   // La guest list MAISON suit le domaine `operations` (modèle hybride) : qui tient
@@ -536,9 +566,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
             ticketingLive={ticketingLive}
             onGoContract={() => scrollToId('collab-contract')}
             onShare={copyLink}
-            onOpenDoor={() => navigate(navTo.checkin)}
+            onOpenDoor={() => openTool(isVenue ? 'live' : 'checkin', navTo.checkin)}
             onGoClosing={() => scrollToId('collab-closing')}
-            onActivateStripe={() => navigate(isVenue ? '/owner/billing' : '/organizer-app/payments')}
+            onActivateStripe={() => openTool('stripe', navTo.stripe)}
             onOpenTicketing={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))}
           />
         )}
@@ -618,7 +648,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   : t('Après frais Stripe & Yuno', 'After Stripe & Yuno fees', 'Tras comisiones Stripe y Yuno')} accent />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
               {/* Colonne principale : le travail de la phase, dans l'ordre où il se fait. */}
               <div className="min-w-0 space-y-4">
                 {/* Après la soirée, le décompte passe devant tout le reste. */}
@@ -678,45 +708,65 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   <PayoutStatusNote gain={displayGain} className="-mt-1" />
                 )}
 
-                {/* Quick access to every tool for this night */}
+                {/* Suivre la soirée : deux pages filles, dans CET onglet, avec leur fil
+                    d'Ariane. Elles remplacent deux longs déplis (« Détails de
+                    gestion », « Analyse de la soirée ») qui étiraient la page. */}
+                {isCollab && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <FollowCard to={collabEventHref(viewerSide, event.id, 'sales')} icon={FileText}
+                      title={t('Ventes de la soirée', 'Night sales', 'Ventas de la noche')}
+                      sub={t('Billets, tables, guest list, boissons et factures, liste par liste.', 'Tickets, tables, guest list, drinks and invoices, list by list.', 'Entradas, mesas, guest list, bebidas y facturas, lista por lista.')} />
+                    <FollowCard to={collabEventHref(viewerSide, event.id, 'partners')} icon={Trophy}
+                      title={t('Qui fait vendre ?', 'Who drives sales?', '¿Quién hace vender?')}
+                      sub={t('Ce que chaque partenaire apporte : clics, billets, tables, guest list, entrées.', 'What each partner brings: clicks, tickets, tables, guest list, entries.', 'Lo que aporta cada socio: clics, entradas, mesas, guest list, accesos.')} />
+                  </div>
+                )}
+
+                {/* Les outils de la soirée — chacun s'ouvre dans un nouvel onglet. */}
                 {isCollab && (
                   <OrgCard>
                     <div className="p-5">
-                      <div className="mb-3 flex items-center gap-2">
-                        <LayoutGrid className="h-4 w-4" style={{ color: RED }} />
-                        <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}</h2>
+                      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                        <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
+                          <LayoutGrid className="h-4 w-4" style={{ color: RED }} />
+                          {t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}
+                        </h2>
+                        <span style={{ color: T3, fontSize: 11.5 }}>
+                          {t('S’ouvrent dans un nouvel onglet — cette page reste ouverte.', 'Open in a new tab — this page stays open.', 'Se abren en una pestaña nueva; esta página sigue abierta.')}
+                        </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
                         {/* Infos & affiche = le domaine `design`. Détenteur → édition ;
                             non-détenteur → aperçu lecture seule. Verrouiller n'est pas
                             aveugler : l'outil s'ouvre quand même, juste sans modif. */}
                         {canEditDesign ? (
                           isOrganizer
                             ? <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => setEditOpen(true)} />
-                            : <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => navigate(`/owner/events?edit=${eventId}`)} />
+                            : <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} href={toolHref('design', navTo.design)} />
                         ) : (
                           <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')}
                             badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('design')} />
                         )}
                         {/* Côté club, Live et Check-in ouvrent la même page : une seule tuile. */}
-                        <ToolTile icon={Radio} label={isVenue ? t('Porte & live', 'Door & live', 'Puerta y live') : t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
+                        <ToolTile icon={Radio} label={isVenue ? t('Porte & live', 'Door & live', 'Puerta y live') : t('Live', 'Live', 'Live')} href={toolHref('live', navTo.live)} />
                         {/* Billetterie = le domaine `operations`. Même logique d'aperçu. */}
-                        {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) ? (
-                          <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
-                            onClick={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
+                        {holdsOperations ? (
+                          isVenue || ticketingLive
+                            ? <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')} href={toolHref('ticketing', navTo.ticketing)} />
+                            : <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')} onClick={() => setBilletterieOpen(true)} />
                         ) : (
                           <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
                             badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('operations')} />
                         )}
-                        <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} onClick={() => navigate(navTo.analytics)} />
-                        <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} onClick={() => navigate(navTo.promoters)} />
-                        <ToolTile icon={Users} label={t('Guest list', 'Guest list', 'Guest list')} onClick={() => navigate(navTo.guestList)} />
-                        {!isVenue && <ToolTile icon={ScanLine} label={t('Check-in', 'Check-in', 'Check-in')} onClick={() => navigate(navTo.checkin)} />}
-                        <ToolTile icon={Music} label={t('Booking DJ', 'Book DJ', 'Reservar DJ')} onClick={() => navigate(navTo.bookDj)} />
+                        <ToolTile icon={Users} label={t('Guest list', 'Guest list', 'Guest list')} href={toolHref('guestlist', navTo.guestList)} />
+                        <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} href={toolHref('promoters', navTo.promoters)} />
+                        <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} href={toolHref('analytics', navTo.analytics)} />
+                        {!isVenue && <ToolTile icon={ScanLine} label={t('Check-in', 'Check-in', 'Check-in')} href={toolHref('checkin', navTo.checkin)} />}
+                        <ToolTile icon={Music} label={t('Booking DJ', 'Book DJ', 'Reservar DJ')} href={toolHref('bookdj', navTo.bookDj)} />
                         {/* Un troisième organisateur ou un autre club sur la soirée : la
                             co-organisation. Sans cette tuile, elle n'était joignable que
                             depuis la liste des soirées. */}
-                        <ToolTile icon={UsersRound} label={t('Co-organisateurs', 'Co-organizers', 'Coorganizadores')} onClick={() => navigate(navTo.coorg)} />
+                        <ToolTile icon={UsersRound} label={t('Co-organisateurs', 'Co-organizers', 'Coorganizadores')} href={toolHref('coorg', navTo.coorg)} />
                       </div>
                     </div>
                   </OrgCard>
@@ -801,49 +851,6 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   </>
                 )}
 
-
-                {/* Les analyses se lisent après la soirée ; avant, elles sont vides
-                    ou prématurées. Repliées jusque-là, ouvertes ensuite. */}
-                {isCollab && (
-                  <Foldable icon={TrendingUp} title={t('Analyse de la soirée', 'Night analysis', 'Análisis de la noche')}
-                    sub={t('Qui est venu, audience partagée, sources des ventes.', 'Who came, shared audience, sales sources.', 'Quién vino, audiencia compartida, fuentes de ventas.')}
-                    defaultOpen={false}>
-                    <div className="space-y-6">
-
-                    {isCollab && scopeId && (
-                      <Section icon={UsersRound} title={t('Qui est venu', 'Who showed up', 'Quién vino')}
-                        sub={t('Âge, sexe et villes du public — agrégé et anonyme.', "The crowd's age, gender and cities — aggregated and anonymous.", 'Edad, sexo y ciudades del público, agregado y anónimo.')}>
-                        <EventAudienceDemographics scope={{ kind: viewerRole === 'venue' ? 'venue' : 'organizer', id: scopeId }} eventId={event.id} />
-                      </Section>
-                    )}
-
-                    {isCollab && (
-                      <Section icon={Users} title={t('Audience partagée', 'Shared audience', 'Audiencia compartida')}
-                        sub={t('Les abonnés communs aux deux parties et l\'audience net-new que la collab débloque.', 'Subscribers shared by both sides and the net-new audience this collab unlocks.', 'Suscriptores comunes y la audiencia nueva que desbloquea la colaboración.')}>
-                        <CollabAudienceOverlap eventId={event.id} />
-                      </Section>
-                    )}
-
-                    {/* Proof — acquisition sources + the revenue split */}
-                    <Section icon={TrendingUp} title={t("D'où viennent les ventes", 'Where the sales come from', 'De dónde vienen las ventas')}
-                      sub={t('Lien direct, promoteurs, campagnes, réseaux : ce qui a fait vendre.', 'Direct link, promoters, campaigns, socials: what drove the sales.', 'Enlace directo, promotores, campañas, redes: lo que hizo vender.')}>
-                      <OrgCard><div className="p-5"><PurchaseSourceBreakdown eventId={event.id} /></div></OrgCard>
-                    </Section>
-
-                    </div>
-                  </Foldable>
-                )}
-
-                {/* Details — every operational table behind one drawer */}
-                {isCollab && (
-                  <DetailsDrawer
-                    eventId={event.id}
-                    isVenue={isVenue}
-                    guestReadOnly={!holdsOperations}
-                    focus={focusTab}
-                    t={t}
-                  />
-                )}
 
                 {/* Pause / suppression, sous double accord : rangées en bas, repliées —
                     ce sont des gestes rares et lourds, plus des boutons en façade
@@ -978,11 +985,13 @@ function Chrome({ isVenue, title, children }: { isVenue: boolean; title: string;
     return (
       <div className="min-h-screen dashboard-gradient-bg">
         <OwnerHeader title={title} />
-        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-5xl">{children}</div>
+        {/* Pleine largeur : un centre de contrôle se lit d'un coup d'œil, pas dans
+            une colonne de 1 024 px entourée de vide. */}
+        <div className="mx-auto w-full max-w-[1680px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">{children}</div>
       </div>
     );
   }
-  return <OrgPage className="mx-auto max-w-5xl">{children}</OrgPage>;
+  return <OrgPage className="mx-auto w-full max-w-[1680px] sm:px-6 lg:px-8">{children}</OrgPage>;
 }
 
 /* ── Section wrapper — chapter header (icon + title + subtitle) ─────────────── */
@@ -1003,6 +1012,23 @@ function Section({ icon: Icon, title, sub, children }: { icon: LucideIcon; title
   );
 }
 
+/** Accès à une page fille de la soirée (même onglet, fil d'Ariane). */
+function FollowCard({ to, icon: Icon, title, sub }: { to: string; icon: LucideIcon; title: string; sub: string }) {
+  return (
+    <Link to={to} className="group flex items-center gap-3 rounded-2xl p-4 transition-all duration-150 hover:bg-[rgb(var(--ink)/0.04)]"
+      style={{ background: INNER_BG, border: `1px solid ${BORDER}`, textDecoration: 'none' }}>
+      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.22)' }}>
+        <Icon className="h-4 w-4" style={{ color: RED }} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block" style={{ color: T1, fontSize: 14, fontWeight: 650 }}>{title}</span>
+        <span className="mt-0.5 block" style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>{sub}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 flex-none transition-transform group-hover:translate-x-0.5" style={{ color: T3 }} />
+    </Link>
+  );
+}
+
 function ToolTile({ icon: Icon, label, onClick, href, badge }: { icon: LucideIcon; label: string; onClick?: () => void; href?: string; badge?: string }) {
   const inner = (
     <>
@@ -1012,14 +1038,15 @@ function ToolTile({ icon: Icon, label, onClick, href, badge }: { icon: LucideIco
           <Eye className="h-2.5 w-2.5" /> {badge}
         </span>
       )}
+      {href && !badge && <ExternalLink className="absolute right-2 top-2 h-3 w-3" style={{ color: T3 }} />}
       <Icon className="h-5 w-5" style={{ color: badge ? T2 : RED }} />
       <span style={{ color: T1, fontSize: 12, fontWeight: 540 }}>{label}</span>
     </>
   );
-  const cls = 'relative flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center transition-colors hover:bg-white/[0.03]';
+  const cls = 'relative flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center transition-colors hover:bg-[rgb(var(--ink)/0.04)]';
   const style = { border: '1px solid rgb(var(--ink)/0.07)', background: 'rgb(var(--ink)/0.015)' } as const;
   return href ? (
-    <a href={href} target="_blank" rel="noreferrer" className={cls} style={style}>{inner}</a>
+    <a href={href} target="_blank" rel="noopener" className={cls} style={style}>{inner}</a>
   ) : (
     <button onClick={onClick} className={cls} style={style}>{inner}</button>
   );
@@ -1172,60 +1199,6 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
   );
 }
 
-/* ── Details drawer — every operational table behind one toggle ─────────────── */
-function DetailsDrawer({ eventId, isVenue, guestReadOnly, focus, t }: { eventId: string; isVenue: boolean; guestReadOnly: boolean; focus?: string | null; t: (fr: string, en: string, es?: string) => string }) {
-  const focused = focus && ['guestlist', 'tickets', 'tables', 'invoices'].includes(focus) ? focus : null;
-  const [open, setOpen] = useState(!!focused);
-  useEffect(() => {
-    if (!focused) return;
-    // Le contenu du tiroir monte après le fetch des modules : laisser un tick
-    // avant de défiler vers la carte demandée.
-    const timer = setTimeout(() => {
-      document.getElementById(`collab-drawer-${focused}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [focused]);
-  return (
-    <div className="space-y-3">
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className="flex h-12 w-full items-center justify-between rounded-xl px-4 transition-colors hover:bg-white/[0.03]"
-        style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-        <span className="flex items-center gap-2" style={{ color: T1, fontSize: 13.5, fontWeight: 540 }}>
-          <FileText className="h-4 w-4" style={{ color: T3 }} />
-          {t('Détails de gestion', 'Management details', 'Detalles de gestión')}
-        </span>
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: T3 }} />
-      </button>
-      {open && (
-        <div className="space-y-4">
-          <div id="collab-drawer-guestlist">
-            <DrawerCard icon={UserPlus} title={t('Guest list', 'Guest list', 'Guest list')}>
-              <EventGuestListModule eventId={eventId} readOnly={guestReadOnly} />
-            </DrawerCard>
-          </div>
-          <div id="collab-drawer-tickets">
-            <DrawerCard icon={Ticket} title={t('Commandes billets', 'Ticket orders', 'Pedidos de entradas')}>
-              {isVenue ? <OwnerTicketOrders eventId={eventId} /> : <OwnerTicketOrders eventIds={[eventId]} />}
-            </DrawerCard>
-          </div>
-          <div id="collab-drawer-tables">
-            <DrawerCard icon={Wine} title={t('Réservations VIP', 'VIP reservations', 'Reservas VIP')}>
-              {isVenue ? <OwnerVipOrders eventId={eventId} /> : <OwnerVipOrders eventIds={[eventId]} />}
-            </DrawerCard>
-          </div>
-          <DrawerCard icon={ScanLine} title={t('Boissons vendues', 'Drinks sold', 'Bebidas vendidas')}>
-            <OwnerDrinkOrders eventId={eventId} />
-          </DrawerCard>
-          <div id="collab-drawer-invoices">
-            <EventInvoicesModule eventId={eventId} />
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
 /* ── Foldable — une section repliée derrière son titre (progressive disclosure) ── */
 function Foldable({ icon: Icon, title, sub, defaultOpen = false, children }: { icon: LucideIcon; title: string; sub?: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -1248,19 +1221,5 @@ function Foldable({ icon: Icon, title, sub, defaultOpen = false, children }: { i
       </button>
       {open && children}
     </div>
-  );
-}
-
-function DrawerCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
-  return (
-    <OrgCard>
-      <div className="p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Icon className="h-4 w-4" style={{ color: T3 }} />
-          <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{title}</h3>
-        </div>
-        {children}
-      </div>
-    </OrgCard>
   );
 }

@@ -86,3 +86,36 @@ bas, montants au format de la langue.
 
 Rien n'a été retiré de la base ni des RPC : toutes les données restent
 servies, elles sont rangées ailleurs ou repliées.
+
+---
+
+# Phase 2 — la page de la soirée devient un centre de contrôle (29/09, retour de Paul)
+
+## Constats (joués sur la démo)
+
+| # | Constat | Cause | Destination |
+|---|---|---|---|
+| 1 | « Gérer la collaboration » ouvre une page d'erreur | deux `CollabActionControls` de la même soirée ouvraient le même canal temps réel (`collab-action-<id>`) : le second `.on()` après `subscribe()` lève | canal unique par instance |
+| 2 | Guest list : « juste le nom de la soirée » | neuf requêtes en série (≈ 20 s sur un réseau lent) et RIEN d'affiché pendant ce temps | squelette + lectures en parallèle |
+| 3 | Un outil emmène ailleurs dans le même onglet, retour difficile, page lente ou blanche (chunk périmé après un déploiement) | navigation SPA vers une page lourde | les outils s'ouvrent dans un NOUVEL ONGLET, avec un fil d'Ariane visible |
+| 4 | « Analyse de la soirée » (qui est venu, audience, sources) | doublon de l'onglet Analytics › Par soirée | retirée ; lien vers le rapport de soirée ; page « Qui fait vendre » pour ce qui est propre à la collab |
+| 5 | « Détails de gestion » : un long déplié | cinq listes empilées | page « Ventes de la soirée », une liste par onglet |
+| 6 | Page centrée, vide à gauche et à droite | `max-w-5xl` | pleine largeur |
+| 7 | Aucune vue « qui ramène quoi » entre partenaires | n'existait pas | RPC `get_collab_party_breakdown` |
+
+## Forme
+
+- **Page de la soirée = centre de contrôle** : feuille de route, 3 chiffres,
+  argent, outils. Deux pages filles (même onglet, fil d'Ariane) :
+  `…/sales` « Ventes de la soirée » (Billets · Tables VIP · Guest list ·
+  Boissons · Factures, `?tab=`) et `…/partners` « Qui fait vendre ? »
+  (contribution par partie + audience partagée + lien vers le rapport complet).
+- **Outils = nouvel onglet** : `collabToolHref()` ajoute `from=collab&ce=<id>&cn=<titre>&ct=<outil>` ;
+  `CollabTrailBar` (monté dans `OwnerLayout` et le layout orga) lit ces
+  paramètres UNE fois, les garde pour l'onglet (`sessionStorage`) et affiche
+  « ← Retour à la collaboration · Collaborations › Soirée › Outil », fermable.
+- **Attribution par partie** (`get_collab_party_breakdown`) : lien suivi de la
+  partie (ou d'un de ses promoteurs) › conversion d'un de ses promoteurs › sa
+  part de guest list › « sans partenaire identifié ». Colonnes fixes : Clics ·
+  Billets · Tables · Guest list · Entrées · CA (seulement pour qui voit
+  l'argent, mêmes formules que `get_event_party_links`).

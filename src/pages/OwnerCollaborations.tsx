@@ -202,7 +202,7 @@ export default function OwnerCollaborations() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
       <OwnerHeader title="Collaborations" />
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-5xl">
+      <div className="mx-auto w-full max-w-[1680px] px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         <CollabHub
           side="venue"
           scope={scope}

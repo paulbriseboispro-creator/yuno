@@ -170,7 +170,14 @@ export default function OwnerTicketing() {
   useEffect(() => {
     if (!didInitExpand.current && events.length > 0) {
       didInitExpand.current = true;
-      setExpandedEventId(events[0].id);
+      // ?event=<id> : on arrive depuis l'outil « Billetterie » d'une soirée précise
+      // (page de collaboration) — on ouvre CETTE soirée et on défile jusqu'à elle.
+      const wanted = new URLSearchParams(window.location.search).get('event');
+      const target = wanted && events.some((e) => e.id === wanted) ? wanted : events[0].id;
+      setExpandedEventId(target);
+      if (target === wanted) {
+        setTimeout(() => document.getElementById(`ticketing-event-${target}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+      }
     }
   }, [events]);
 
@@ -1336,7 +1343,7 @@ export default function OwnerTicketing() {
                         : { label: t('tickets.statusOnSale'), color: POS, bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)' };
 
                   return (
-                    <div key={event.id} className="p-5 sm:p-6" style={MAIN_CARD}>
+                    <div key={event.id} id={`ticketing-event-${event.id}`} className="p-5 sm:p-6 scroll-mt-20" style={MAIN_CARD}>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
                           <button

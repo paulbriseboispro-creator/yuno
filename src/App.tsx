@@ -198,6 +198,8 @@ const OrganizerPublicProfile = lazyWithRetry(() => import("./pages/OrganizerPubl
 const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"));
 const OwnerCollaborations = lazyWithRetry(() => import("./pages/OwnerCollaborations"));
 const OwnerCollabEventDashboard = lazyWithRetry(() => import("./pages/OwnerCollabEventDashboard"));
+const CollabEventSales = lazyWithRetry(() => import("./pages/CollabEventSales"));
+const CollabEventPartners = lazyWithRetry(() => import("./pages/CollabEventPartners"));
 const CoorgEventPage = lazyWithRetry(() => import("./pages/CoorgEventPage"));
 const AcceptOrganizerInvitation = lazyWithRetry(() => import("./pages/AcceptOrganizerInvitation"));
 const DJLayout = lazyWithRetry(() => import("./pages/dj-app/DJLayout"));
@@ -733,6 +735,9 @@ const App = () => (
                   <Route path="events/new" element={<Navigate to="/organizer-app/events" replace />} />
                   <Route path="events/:eventId" element={<OrgAppRoute requires="editEvents"><OrgAppEventDetail /></OrgAppRoute>} />
                   <Route path="events/:eventId/live" element={<OrgAppRoute requires="editEvents"><OrgAppEventLive /></OrgAppRoute>} />
+                  {/* Pages filles d'une soirée à plusieurs (centre de contrôle) */}
+                  <Route path="events/:eventId/sales" element={<OrgAppRoute requires="editEvents"><CollabEventSales /></OrgAppRoute>} />
+                  <Route path="events/:eventId/partners" element={<OrgAppRoute requires="editEvents"><CollabEventPartners /></OrgAppRoute>} />
                   <Route path="ticketing" element={<OrgAppRoute requires="editEvents"><OwnerTicketing /></OrgAppRoute>} />
                   <Route path="promo-codes" element={<OrgAppRoute requires="marketing"><PromoCodes /></OrgAppRoute>} />
                   <Route path="tables" element={<OrgAppRoute requires="editEvents"><OrgAppTables /></OrgAppRoute>} />
@@ -940,6 +945,8 @@ const App = () => (
                   <Route path="book-dj" element={<PlanGuard feature="djs_connect"><BookDJPage /></PlanGuard>} />
                   <Route path="collaborations" element={<OwnerCollaborations />} />
                   <Route path="collab/event/:eventId" element={<OwnerCollabEventDashboard />} />
+                  <Route path="collab/event/:eventId/sales" element={<CollabEventSales />} />
+                  <Route path="collab/event/:eventId/partners" element={<CollabEventPartners />} />
                   <Route path="coorg/:eventId" element={<CoorgEventPage />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
                   <Route path="customers" element={<PlanGuard feature="clients_basic"><OwnerCustomers /></PlanGuard>} />

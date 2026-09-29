@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -54,6 +54,10 @@ export function CollabActionControls({
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Un éditeur d'équipe voit l'état, jamais un bouton que le serveur refuse.
   const canAct = useCollabOrgCanAct(myRole);
+  // Un canal PAR instance : la page de la soirée en monte deux (demande en tête,
+  // boutons repliés en bas). Un nom partagé rendait le canal déjà abonné du
+  // premier, et `.on()` après `subscribe()` levait : page d'erreur.
+  const instanceId = useId();
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -69,11 +73,11 @@ export function CollabActionControls({
   useEffect(() => {
     load();
     const ch = supabase
-      .channel(`collab-action-${eventId}`)
+      .channel(`collab-action-${eventId}-${instanceId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_collab_action_requests', filter: `event_id=eq.${eventId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [eventId, load]);
+  }, [eventId, load, instanceId]);
 
   const actionLabel = (a: Action) =>
     a === 'pause' ? tt('la mise en pause', 'the pause', 'la pausa') : tt('la suppression', 'the deletion', 'la eliminación');

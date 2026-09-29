@@ -173,7 +173,7 @@ export function CollabHub({
                 {upcoming.length === 0 ? (
                   <p style={{ color: T3, fontSize: 12.5 }}>{t('Aucune soirée à venir.', 'No upcoming event.', 'Ningún evento próximo.')}</p>
                 ) : (
-                  <div className="grid gap-2.5">
+                  <div className="grid gap-2.5 xl:grid-cols-2">
                     {upcoming.map((n) => <CollabNightCard key={n.eventId} night={n} side={side} onChanged={reload} />)}
                   </div>
                 )}
@@ -194,7 +194,7 @@ export function CollabHub({
                     <ChevronDown className={`h-4 w-4 transition-transform ${showPast ? 'rotate-180' : ''}`} style={{ color: T3 }} />
                   </button>
                   {showPast && (
-                    <div className="mt-2.5 grid gap-2.5">
+                    <div className="mt-2.5 grid gap-2.5 xl:grid-cols-2">
                       {past.map((n) => <CollabNightCard key={n.eventId} night={n} side={side} onChanged={reload} />)}
                     </div>
                   )}

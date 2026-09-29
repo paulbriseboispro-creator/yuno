@@ -4,6 +4,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { OwnerOnboardingGuide } from '@/components/owner-onboarding/OwnerOnboardingGuide';
 import { OwnerAssistant } from '@/components/owner/assistant/OwnerAssistant';
 import { LegalConsentGate } from '@/components/LegalConsentGate';
+import { CollabTrailBar } from '@/components/collab/CollabTrail';
 import { useOwnerVenueContext } from '@/contexts/OwnerVenueContext';
 
 function OwnerLayoutInner() {
@@ -13,6 +14,8 @@ function OwnerLayoutInner() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="overflow-y-auto">
+        {/* Outil ouvert depuis la page d'une collaboration : chemin de retour. */}
+        <CollabTrailBar />
         <Outlet />
       </SidebarInset>
       {venueId && <OwnerOnboardingGuide venueId={venueId} />}

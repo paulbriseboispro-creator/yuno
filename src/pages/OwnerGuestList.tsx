@@ -271,6 +271,16 @@ export default function OwnerGuestList() {
           }
         </div>
 
+        {/* Les parts arrivent après le sélecteur : sans ce squelette, la page
+            semblait réduite au nom de la soirée pendant le chargement. */}
+        {selectedEventId && loading && (
+          <div className="space-y-3" aria-busy="true">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="animate-pulse" style={{ height: i === 0 ? 64 : 120, borderRadius: 14, background: CARD_BG, border: `1px solid ${BORDER}` }} />
+            ))}
+          </div>
+        )}
+
         {selectedEventId && !loading && (
           <>
             {/* Totals — modèle parts indépendantes (lecture seule) */}
