@@ -60,6 +60,9 @@ serve(async (req) => {
 
   // Usage de code promo retenu (lot F) : rendu si le checkout échoue.
   let promoRedemptionId: string | null = null;
+  // Réservation « pending » créée pour la session Stripe : rendue si le checkout
+  // échoue après coup, sinon elle bloquait la zone jusqu'au nettoyage.
+  let pendingReservationId: string | null = null;
   try {
     logStep("Function started", { testMode: TEST_MODE });
 
@@ -1141,6 +1144,7 @@ serve(async (req) => {
       throw new Error(reservationError?.message || "Failed to create reservation");
     }
     const reservation = { id: reservationId as string };
+    pendingReservationId = reservation.id;
     if (promoCodeId) {
       await supabaseAdmin.from("table_reservations").update({ promo_code_id: promoCodeId, promo_discount: promoCodeDiscount }).eq('id', reservation.id);
     }
@@ -1342,6 +1346,8 @@ serve(async (req) => {
         };
       })(),
     } as Stripe.Checkout.SessionCreateParams, logStep);
+    // La session existe : l'acheteur peut payer, la réservation ne se rend plus.
+    pendingReservationId = null;
 
     logStep("Stripe session created", {
       sessionId: session.id,
@@ -1355,11 +1361,19 @@ serve(async (req) => {
     logStep("ERROR", { message: errorMessage });
     // Rendre l'usage du code promo retenu pour cette tentative (le client
     // admin du try n'est pas visible ici).
-    if (promoRedemptionId) {
-      await releasePromoRedemption(
-        createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } }),
-        promoRedemptionId,
-      );
+    const cleanupClient = (promoRedemptionId || pendingReservationId)
+      ? createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } })
+      : null;
+    if (promoRedemptionId && cleanupClient) {
+      await releasePromoRedemption(cleanupClient, promoRedemptionId);
+    }
+    // La session Stripe n'a pas pu naître : la réservation « pending » ne sera
+    // jamais payée. La rendre tout de suite libère la zone (le décompte de
+    // capacité compte les réservations en attente).
+    if (pendingReservationId && cleanupClient) {
+      const { error: releaseErr } = await cleanupClient.from("table_reservations")
+        .delete().eq("id", pendingReservationId).eq("status", "pending");
+      if (releaseErr) logStep("Pending reservation release failed", { id: pendingReservationId, error: releaseErr.message });
     }
     const promo = error instanceof PromoCodeError ? { code: error.code, reason: error.reason } : {};
     return new Response(JSON.stringify({ error: errorMessage, ...promo }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });

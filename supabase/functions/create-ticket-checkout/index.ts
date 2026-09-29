@@ -1096,8 +1096,12 @@ serve(async (req) => {
     const split = resolvePaymentSplit({
       itemType: "ticket",
       grossAmount: totalPrice,
-      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
-      yunoFeeCentsOverride: feeAbsorbed ? Math.round(serviceFee * 100) : undefined,
+      // La commission prélevée = EXACTEMENT les frais de service de la ligne
+      // « Frais de service » (ou, en absorption, la commission que le club prend
+      // à sa charge). Recalculée sur le total, elle dépassait les frais affichés
+      // dès 24,75 € de billet et touchait aussi les consos ajoutées : le vendeur
+      // payait la différence sans la voir (même règle que create-table-checkout).
+      yunoFeeCentsOverride: Math.round(serviceFee * 100),
       // BDE floor must match the serviceFee floor so application_fee == charged fee.
       isBde: event.is_bde === true,
       event: {
