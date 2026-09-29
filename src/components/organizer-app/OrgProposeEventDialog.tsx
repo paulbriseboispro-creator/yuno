@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
-import { normalizeSplitRules, readSettlement, withSettlement } from '@/lib/splitRules';
+import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
+import { normalizeSplitRules, readSettlement, withSettlement, defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
 import type { CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerPartnerships } from '@/hooks/useOrganizerPartnerships';
 import { toast } from 'sonner';
@@ -90,6 +91,16 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       drinks: { organizer_pct: 0, venue_pct: 100 },
     };
   };
+  // « Partage de l'argent » : le contrat Yuno n'est plus obligatoire. Défaut :
+  // Yuno si des conditions sont déjà convenues avec ce club, sinon entre vous.
+  const [agreement, setAgreement] = useState<MoneyAgreement>('yuno');
+  const [collectors, setCollectors] = useState<{ tickets: ExternalCollector; tables: ExternalCollector }>(defaultExternalCollectors('co_event'));
+  useEffect(() => {
+    if (!venueId) return;
+    const p = activePartners.find((x) => x.venue_id === venueId);
+    setAgreement(p?.default_split_rules ? 'yuno' : 'external');
+  }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setCollectors(defaultExternalCollectors(mode)); }, [mode]);
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -182,7 +193,12 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       // leaves the contract in 'pending_signatures'. The club must accept (sign)
       // before the co-event can sell. Called bound on `supabase` (never detach
       // .rpc — see rpc-unbound gotcha). Split defaults to the partnership terms.
-      const { error: contractErr } = await supabase.rpc(
+      // « Réglé entre vous » : pas de contrat, la vente ouvre tout de suite.
+      const { error: contractErr } = agreement === 'external'
+        ? await supabase.rpc('set_event_collab_external_agreement' as never, {
+            p_event_id: eventId, p_tickets: collectors.tickets, p_tables: collectors.tables,
+          } as never)
+        : await supabase.rpc(
         'create_event_collab_contract' as never,
         {
           p_event_id: eventId,
@@ -205,17 +221,24 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
         throw contractErr;
       }
 
-      // 3. Tell the club a proposal awaits review (email + web push). Best-effort.
-      try {
-        await supabase.functions.invoke('notify-split-proposal', {
-          body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'organizer' },
+      if (agreement === 'external') {
+        toast.success(t('Club ajouté à la soirée', 'Club added to the night', 'Club añadido a la noche'), {
+          description: t('Réglé entre vous : la vente est ouverte, chaque vente est encaissée directement par qui la tient.',
+            'Settled between you: sales are open, each sale is collected directly by whoever runs it.',
+            'Lo arregláis entre vosotros: la venta está abierta, cada venta la cobra directamente quien la lleva.'),
         });
-      } catch (e) { console.warn('Propose notify failed:', e); }
-
-      toast.success(
-        t('Proposition envoyée', 'Proposal sent', 'Propuesta enviada'),
-        { description: t('Le club doit accepter pour ouvrir les ventes.', 'The club must accept to open sales.', 'El club debe aceptar para abrir las ventas.') },
-      );
+      } else {
+        // 3. Tell the club a proposal awaits review (email + web push). Best-effort.
+        try {
+          await supabase.functions.invoke('notify-split-proposal', {
+            body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'organizer' },
+          });
+        } catch (e) { console.warn('Propose notify failed:', e); }
+        toast.success(
+          t('Proposition envoyée', 'Proposal sent', 'Propuesta enviada'),
+          { description: t('Le club doit accepter pour ouvrir les ventes.', 'The club must accept to open sales.', 'El club debe aceptar para abrir las ventas.') },
+        );
+      }
       onCreated?.();
       reset();
       onOpenChange(false);
@@ -374,6 +397,18 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
               </div>
             </div>
 
+            <div className="space-y-2">
+              <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('Contrat & partage de l’argent', 'Agreement & money split', 'Contrato y reparto del dinero')}</p>
+              <MoneyAgreementPicker
+                value={agreement}
+                onChange={setAgreement}
+                side="organizer"
+                hasClubPartner
+                partnerName={activePartners.find((x) => x.venue_id === venueId)?.venue?.name ?? ''}
+                collectors={collectors}
+                onCollectorsChange={setCollectors}
+                yunoDetails={(
+                  <div className="space-y-3">
             <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={splitBase() as unknown as Record<string, unknown>} />
 
             <div className="rounded-xl p-3" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.2)', color: T3, fontSize: 11.5 }}>
@@ -382,6 +417,10 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 'The club will receive the proposal in its Collaborations space and will need to sign the contract.',
                 'El club recibirá la propuesta en su espacio de Colaboraciones y deberá firmar el contrato.',
               )}
+            </div>
+                  </div>
+                )}
+              />
             </div>
           </div>
 

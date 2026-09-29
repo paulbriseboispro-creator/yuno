@@ -27,7 +27,10 @@ import { isCollabPlan } from '@/lib/planFeatures';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { useOrganizerPartnerships, useVenuePartnerships } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
-import { useProposeCollab, fetchLiveEventContract } from '@/hooks/useProposeCollab';
+import { useProposeCollab, fetchLiveEventAgreement, type LiveEventAgreement } from '@/hooks/useProposeCollab';
+import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
+import { CohostDraftPicker, sendCohostDrafts, type CohostDraft } from '@/components/coorg/CohostDraftPicker';
+import { defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
 import { ProposedTermsRecap } from '@/components/collab/ProposedTermsRecap';
 import { defaultResponsibilities, normalizeResponsibilities } from '@/utils/collabResponsibilities';
 import { CollabActivateBanner } from '@/components/collab/CollabActivateBanner';
@@ -146,7 +149,7 @@ export default function OwnerEvents() {
   // co-organisation depuis la fiche soirée — dans les deux sens, pas seulement orga → club.
   const { partnerships: venuePartnerships } = useVenuePartnerships(isOrganizerScope ? undefined : (venueId ?? undefined));
   const activeOrgPartners = venuePartnerships.filter((p) => p.status === 'active');
-  const { propose } = useProposeCollab(isOrganizerScope ? 'organizer' : 'venue', isOrganizerScope ? organizerUserId : venueId);
+  const { propose, proposeExternal } = useProposeCollab(isOrganizerScope ? 'organizer' : 'venue', isOrganizerScope ? organizerUserId : venueId);
   const [events, setEvents] = useState<OwnerEventRow[]>([]);
   const [view, setView] = useTabParam<'events' | 'recurring'>('events', ['events', 'recurring']);
   const [presets, setPresets] = useState<VenuePreset[]>([]);
@@ -217,12 +220,41 @@ export default function OwnerEvents() {
   const [partnerOrganizerId, setPartnerOrganizerId] = useState<string>('');
   // Contrat vivant de la soirée en cours d'édition : tant qu'il existe, le
   // partenaire et le mode sont engagés et ne se rejouent pas depuis ce formulaire.
-  const [liveContract, setLiveContract] = useState<{ id: string; status: string } | null>(null);
+  // Un contrat Yuno (signé ou en attente) OU un accord « réglé entre vous ».
+  const [liveContract, setLiveContract] = useState<LiveEventAgreement | null>(null);
+  // « Partage de l'argent » : réglé entre vous (défaut) ou encadré par Yuno. Le
+  // défaut suit le partenaire tant que le pro n'a pas choisi : conditions
+  // habituelles enregistrées avec lui ⇒ Yuno, sinon entre vous.
+  const [moneyAgreement, setMoneyAgreementState] = useState<MoneyAgreement>('external');
+  const [moneyTouched, setMoneyTouched] = useState(false);
+  const setMoneyAgreement = (v: MoneyAgreement) => { setMoneyAgreementState(v); setMoneyTouched(true); };
+  const [collectors, setCollectorsState] = useState<{ tickets: ExternalCollector; tables: ExternalCollector }>(defaultExternalCollectors('co_event'));
+  const [collectorsTouched, setCollectorsTouched] = useState(false);
+  const setCollectors = (c: { tickets: ExternalCollector; tables: ExternalCollector }) => { setCollectorsState(c); setCollectorsTouched(true); };
+  // Organisations partenaires (co-organisation) choisies dès la création.
+  const [cohostDrafts, setCohostDrafts] = useState<CohostDraft[]>([]);
 
   const partnerId = isOrganizerScope ? partnerVenueId : partnerOrganizerId;
   const setPartnerId = isOrganizerScope ? setPartnerVenueId : setPartnerOrganizerId;
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo'
     && (isOrganizerScope || !collabReadOnly);
+  const dbCollabMode = collabMode === 'venue_rental' ? 'venue_rental' : collabMode === 'hosted_by_venue' ? 'org_hosted' : 'co_event';
+  // Le choix d'argent se pose dès qu'il y a quelqu'un avec qui partager.
+  const hasNewClubPartner = requiresPartner && !!partnerId && !liveContract;
+  const showMoneyChoice = hasNewClubPartner || cohostDrafts.length > 0;
+  const partnerRow = !partnerId ? undefined : isOrganizerScope
+    ? activePartnerships.find((p) => p.venue_id === partnerId)
+    : activeOrgPartners.find((p) => p.organizer_user_id === partnerId);
+  const partnerDefaultRules = partnerRow?.default_split_rules ?? null;
+  const partnerDisplayName = isOrganizerScope
+    ? ((partnerRow as { venue?: { name?: string } } | undefined)?.venue?.name ?? tl('Le club', 'The club', 'El club'))
+    : ((partnerRow as { organizer?: { organization_name?: string } } | undefined)?.organizer?.organization_name ?? tl('L’organisateur', 'The organizer', 'El organizador'));
+  useEffect(() => {
+    if (!moneyTouched) setMoneyAgreementState(hasNewClubPartner && partnerDefaultRules ? 'yuno' : 'external');
+  }, [hasNewClubPartner, partnerDefaultRules, moneyTouched]);
+  useEffect(() => {
+    if (!collectorsTouched) setCollectorsState(defaultExternalCollectors(dbCollabMode));
+  }, [dbCollabMode, collectorsTouched]);
 
   useEffect(() => {
     if (!scopeReady) return;
@@ -535,25 +567,69 @@ export default function OwnerEvents() {
    * meme prevenu qu'on lui proposait quelque chose.
    */
   const proposeIfNeeded = async (eventId: string | undefined) => {
-    if (!eventId || !requiresPartner || !partnerId || liveContract) return;
-    const dbMode = collabMode === 'venue_rental' ? 'venue_rental'
-      : collabMode === 'hosted_by_venue' ? 'org_hosted' : 'co_event';
-    try {
-      await propose({ eventId, partnerId, mode: dbMode, responsibilities: defaultResponsibilities(dbMode) });
-      toast.success(
-        tl('Demande de collaboration envoyée', 'Collaboration request sent', 'Solicitud de colaboración enviada'),
-        { description: tl(
-          'Ton partenaire doit signer le contrat avant que la billetterie ouvre.',
-          'Your partner must sign the contract before ticketing opens.',
-          'Tu socio debe firmar el contrato antes de abrir la venta.',
-        ) },
-      );
-    } catch (err) {
-      // Echec bloquant a signaler : la soiree est enregistree mais reste sans
-      // contrat, donc sans vente possible. Le taire laisserait un co-event muet.
-      toast.error((err as { message?: string })?.message
-        || tl('La demande de collaboration a échoué', 'The collaboration request failed', 'La solicitud de colaboración falló'));
-    }
+    if (!eventId) return;
+    const withClub = requiresPartner && !!partnerId && !liveContract;
+    const drafts = cohostDrafts;
+    if (!withClub && drafts.length === 0) return;
+    // Le choix du lead, gardé sur la soirée : la page de la soirée rappelle la
+    // suite (fixer les parts) ou se tait. Jamais bloquant.
+    supabase.from('events').update({ money_agreement: moneyAgreement } as never).eq('id', eventId)
+      .then(({ error }) => { if (error) console.warn('[collab] money_agreement', error.message); });
+    capturePosthog('collab_money_agreement_chosen', {
+      event_id: eventId, agreement: moneyAgreement, club_partner: withClub, cohosts: drafts.length,
+    });
+
+    const tasks: Promise<unknown>[] = [];
+    if (withClub) tasks.push((async () => {
+      try {
+        if (moneyAgreement === 'external') {
+          await proposeExternal({
+            eventId, partnerId, mode: dbCollabMode, responsibilities: defaultResponsibilities(dbCollabMode),
+            tickets: collectors.tickets, tables: collectors.tables,
+          });
+          toast.success(
+            tl('Partenaire ajouté', 'Partner added', 'Socio añadido'),
+            { description: tl(
+              'Accord réglé entre vous : la vente est ouverte, chaque vente est encaissée directement par qui la tient.',
+              'Settled between you: sales are open, each sale is collected directly by whoever runs it.',
+              'Lo arregláis entre vosotros: la venta está abierta, cada venta la cobra directamente quien la lleva.',
+            ) },
+          );
+        } else {
+          await propose({ eventId, partnerId, mode: dbCollabMode, responsibilities: defaultResponsibilities(dbCollabMode) });
+          toast.success(
+            tl('Demande de collaboration envoyée', 'Collaboration request sent', 'Solicitud de colaboración enviada'),
+            { description: tl(
+              'Ton partenaire doit signer le contrat avant que la billetterie ouvre.',
+              'Your partner must sign the contract before ticketing opens.',
+              'Tu socio debe firmar el contrato antes de abrir la venta.',
+            ) },
+          );
+        }
+      } catch (err) {
+        // Echec a signaler : la soiree est enregistree mais sans partenaire.
+        toast.error((err as { message?: string })?.message
+          || tl('La demande de collaboration a échoué', 'The collaboration request failed', 'La solicitud de colaboración falló'));
+      }
+    })());
+    if (drafts.length > 0) tasks.push((async () => {
+      const res = await sendCohostDrafts(eventId, drafts, language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr');
+      if (res.sent > 0) {
+        toast.success(tl(
+          `${res.sent} organisation${res.sent > 1 ? 's' : ''} invitée${res.sent > 1 ? 's' : ''}`,
+          `${res.sent} organization${res.sent > 1 ? 's' : ''} invited`,
+          `${res.sent} organización${res.sent > 1 ? 'es' : ''} invitada${res.sent > 1 ? 's' : ''}`,
+        ), { description: tl(
+          'Chacune voit la soirée dans sa Console dès qu’elle accepte, avec ses propres liens.',
+          'Each one sees the event in its Console as soon as it accepts, with its own links.',
+          'Cada una ve el evento en su Consola en cuanto acepta, con sus propios enlaces.',
+        ) });
+      }
+      for (const e of res.errors) {
+        toast.error(tl(`Invitation impossible pour ${e.name}`, `Could not invite ${e.name}`, `No se pudo invitar a ${e.name}`), { description: e.code });
+      }
+    })());
+    await Promise.all(tasks);
   };
 
   /** « Toulouse · sam. 26 sept. · 23:00 » — la ligne de la carte de fin. */
@@ -1009,7 +1085,8 @@ export default function OwnerEvents() {
     // Contrat vivant + rattachement courant : c'est ce qui permet de proposer une
     // collab APRÈS coup (rouvrir la soirée et choisir un partenaire) tout en
     // verrouillant l'édition dès qu'un contrat est engagé.
-    setLiveContract(await fetchLiveEventContract(event.id));
+    setLiveContract(await fetchLiveEventAgreement(event.id));
+    setCohostDrafts([]); setMoneyTouched(false); setCollectorsTouched(false);
     if (!isOrganizerScope) {
       const { data: ev } = await supabase
         .from('events')
@@ -1053,6 +1130,7 @@ export default function OwnerEvents() {
     setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setLiveContract(null);
+    setCohostDrafts([]); setMoneyTouched(false); setCollectorsTouched(false);
     setLocationName(''); setLocationCity(''); setLocationAddress(''); locationLogo.reset(); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
   };
 
@@ -1516,22 +1594,30 @@ export default function OwnerEvents() {
                     <Check className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--acc-34d399)' }} />
                     <div>
                       <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>
-                        {liveContract.status === 'pending_signatures'
-                          ? tl('Demande de collaboration envoyée', 'Collaboration request sent', 'Solicitud de colaboración enviada')
-                          : tl('Collaboration active', 'Collaboration active', 'Colaboración activa')}
+                        {liveContract.kind === 'external'
+                          ? tl('Collaboration active · réglée entre vous', 'Collaboration active · settled between you', 'Colaboración activa · la arregláis entre vosotros')
+                          : liveContract.status === 'pending_signatures'
+                            ? tl('Demande de collaboration envoyée', 'Collaboration request sent', 'Solicitud de colaboración enviada')
+                            : tl('Collaboration active', 'Collaboration active', 'Colaboración activa')}
                       </p>
                       <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
-                        {liveContract.status === 'pending_signatures'
+                        {liveContract.kind === 'external'
                           ? tl(
-                              'Le partenaire doit signer le contrat avant que la billetterie ouvre. Pour changer de partenaire, il faut d\'abord annuler la demande.',
-                              'Your partner must sign the contract before ticketing opens. To change partner, cancel the request first.',
-                              'Tu socio debe firmar el contrato antes de abrir la venta. Para cambiar de socio, cancela antes la solicitud.',
+                              `Sans contrat Yuno : billets encaissés par ${liveContract.tickets === 'organizer' ? 'l\'organisateur' : 'le club'}, tables par ${liveContract.tables === 'organizer' ? 'l\'organisateur' : 'le club'}, bar par le club. Tant que rien n'est vendu, tu peux passer par un contrat Yuno depuis la page de la collaboration.`,
+                              `No Yuno contract: tickets collected by ${liveContract.tickets === 'organizer' ? 'the organizer' : 'the club'}, tables by ${liveContract.tables === 'organizer' ? 'the organizer' : 'the club'}, bar by the club. Until the first sale, you can switch to a Yuno contract from the collaboration page.`,
+                              `Sin contrato Yuno: entradas cobradas por ${liveContract.tickets === 'organizer' ? 'el organizador' : 'el club'}, mesas por ${liveContract.tables === 'organizer' ? 'el organizador' : 'el club'}, barra por el club. Hasta la primera venta, puedes pasar a un contrato Yuno desde la página de la colaboración.`,
                             )
-                          : tl(
-                              'Le partage et le mode sont engagés par le contrat signé. Ils se gèrent depuis la fiche de collaboration.',
-                              'The split and mode are bound by the signed contract. Manage them from the collaboration page.',
-                              'El reparto y el modo están fijados por el contrato firmado. Gestiónalos desde la página de colaboración.',
-                            )}
+                          : liveContract.status === 'pending_signatures'
+                            ? tl(
+                                'Le partenaire doit signer le contrat avant que la billetterie ouvre. Pour changer de partenaire, il faut d\'abord annuler la demande.',
+                                'Your partner must sign the contract before ticketing opens. To change partner, cancel the request first.',
+                                'Tu socio debe firmar el contrato antes de abrir la venta. Para cambiar de socio, cancela antes la solicitud.',
+                              )
+                            : tl(
+                                'Le partage et le mode sont engagés par le contrat signé. Ils se gèrent depuis la fiche de collaboration.',
+                                'The split and mode are bound by the signed contract. Manage them from the collaboration page.',
+                                'El reparto y el modo están fijados por el contrato firmado. Gestiónalos desde la página de colaboración.',
+                              )}
                       </p>
                     </div>
                   </div>
@@ -1615,35 +1701,72 @@ export default function OwnerEvents() {
                   )}
                 </div>
 
-                {/* Les conditions d'argent qui partiront dans le contrat, lues AVANT
-                    d'envoyer. « Qui fait quoi » n'est plus une question ici : il se
-                    déduit du mode (co-soirée = les deux, soirée de l'orga = le club)
-                    et ne change que par avenant. */}
-                {partnerId && (() => {
-                  const ps = isOrganizerScope
-                    ? activePartnerships.find((p) => p.venue_id === partnerId)
-                    : activeOrgPartners.find((p) => p.organizer_user_id === partnerId);
-                  const name = isOrganizerScope
-                    ? ((ps as { venue?: { name?: string } } | undefined)?.venue?.name ?? tl('le club', 'the club', 'el club'))
-                    : ((ps as { organizer?: { organization_name?: string } } | undefined)?.organizer?.organization_name ?? tl("l'organisateur", 'the organizer', 'el organizador'));
-                  return (
-                    <ProposedTermsRecap
-                      rules={ps?.default_split_rules ?? null}
-                      mode={collabMode === 'venue_rental' ? 'venue_rental' : collabMode === 'hosted_by_venue' ? 'org_hosted' : 'co_event'}
-                      partnerName={name}
-                    />
-                  );
-                })()}
+              </div>
+            )}
 
-                {partnerId && (
-                  <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+            {/* Organisations partenaires : la co-organisation se pose DÈS la
+                création (plus besoin de passer par une autre page). Rôle par
+                défaut « Partenaire » : il suit la soirée, ses ventes, ses liens
+                et fait ses emails ; billets, tables et guest list restent ici. */}
+            {!collabReadOnly && (
+              <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <div>
+                  <FieldLabel>{tl('Organisations partenaires', 'Partner organizations', 'Organizaciones socias')}</FieldLabel>
+                  <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45, marginTop: -2 }}>
                     {tl(
-                      'En enregistrant, la demande part au partenaire avec un contrat à signer. La billetterie de cette soirée reste fermée tant qu\'il n\'a pas signé.',
-                      'On save, the request goes out with a contract to sign. Ticketing for this night stays closed until they sign.',
-                      'Al guardar, la solicitud se envía con un contrato para firmar. La venta de esta noche queda cerrada hasta que firme.',
+                      'Facultatif. Les structures avec qui tu fais la soirée : chacune la suit depuis sa Console avec ses propres liens, ses ventes et ses emails. Billets, tables et guest list restent entre tes mains.',
+                      'Optional. The organizations you run the night with: each follows it from its Console with its own links, sales and emails. Tickets, tables and guest list stay in your hands.',
+                      'Opcional. Las estructuras con las que haces la noche: cada una la sigue desde su Consola con sus propios enlaces, ventas y emails. Entradas, mesas y lista siguen en tus manos.',
                     )}
                   </p>
+                </div>
+                {editingEvent ? (
+                  <a href={`${basePath}/coorg/${editingEvent.id}`}
+                    className="inline-flex items-center gap-1.5" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+                    <Network className="w-3.5 h-3.5" />
+                    {tl('Inviter ou gérer les organisations partenaires', 'Invite or manage partner organizations', 'Invitar o gestionar las organizaciones socias')} →
+                  </a>
+                ) : (
+                  <CohostDraftPicker
+                    drafts={cohostDrafts}
+                    onChange={setCohostDrafts}
+                    excludeKeys={[
+                      isOrganizerScope ? `org:${organizerUserId}` : `venue:${venueId}`,
+                      ...(partnerId ? [isOrganizerScope ? `venue:${partnerId}` : `org:${partnerId}`] : []),
+                    ]}
+                  />
                 )}
+              </div>
+            )}
+
+            {/* Contrat & partage de l'argent : jamais obligatoire. « Réglé entre
+                vous » ouvre la vente tout de suite ; « Encadré par Yuno » ouvre
+                le contrat (club × orga) ou l'accord de co-organisation. */}
+            {showMoneyChoice && (
+              <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <FieldLabel>{tl('Contrat & partage de l’argent', 'Agreement & money split', 'Contrato y reparto del dinero')}</FieldLabel>
+                <MoneyAgreementPicker
+                  value={moneyAgreement}
+                  onChange={setMoneyAgreement}
+                  side={isOrganizerScope ? 'organizer' : 'venue'}
+                  hasClubPartner={hasNewClubPartner}
+                  partnerName={partnerDisplayName}
+                  collectors={collectors}
+                  onCollectorsChange={setCollectors}
+                  cohostOnlyNote={cohostDrafts.length > 0}
+                  yunoDetails={hasNewClubPartner ? (
+                    <div className="space-y-2">
+                      <ProposedTermsRecap rules={partnerDefaultRules} mode={dbCollabMode} partnerName={partnerDisplayName} />
+                      <p className="px-1" style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+                        {tl(
+                          'En enregistrant, la demande part au partenaire avec un contrat à signer. La billetterie de cette soirée reste fermée tant qu\'il n\'a pas signé.',
+                          'On save, the request goes out with a contract to sign. Ticketing for this night stays closed until they sign.',
+                          'Al guardar, la solicitud se envía con un contrato para firmar. La venta de esta noche queda cerrada hasta que firme.',
+                        )}
+                      </p>
+                    </div>
+                  ) : undefined}
+                />
               </div>
             )}
 

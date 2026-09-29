@@ -43,9 +43,9 @@ export function NewCollabDialog({
         ? t('Proposer une soirée à un organisateur partenaire', 'Propose an event to a partner organizer', 'Proponer un evento a un organizador socio')
         : t('Proposer une soirée à un club partenaire', 'Propose an event to a partner club', 'Proponer un evento a un club socio'),
       body: t(
-        'Un contrat signé par vous deux, qui fixe qui touche quoi sur chaque vente.',
-        'An agreement you both sign, setting who gets what on every sale.',
-        'Un contrato firmado por los dos, que fija quién cobra qué en cada venta.',
+        'Réglé entre vous (la vente ouvre tout de suite) ou encadré par un contrat Yuno qui fixe qui touche quoi : c’est toi qui choisis.',
+        'Settled between you (sales open right away) or secured by a Yuno contract setting who gets what: your call.',
+        'Lo arregláis entre vosotros (la venta abre enseguida) o con un contrato Yuno que fija quién cobra qué: tú eliges.',
       ),
       blocked: proposeBlocked,
     },
@@ -71,9 +71,9 @@ export function NewCollabDialog({
       key: 'coorg', icon: Network,
       title: t('Co-organiser une de mes soirées à plusieurs', 'Co-organize one of my events with several partners', 'Coorganizar uno de mis eventos con varios socios'),
       body: t(
-        'Plusieurs organisateurs ou clubs sur la même soirée : chacun la gère depuis sa Console, les parts se règlent après un décompte validé par tous.',
-        'Several organizers or clubs on the same event: each runs it from its Console, shares are settled after a statement everyone approves.',
-        'Varios organizadores o clubes en el mismo evento: cada uno lo gestiona desde su Consola, las partes se liquidan tras un cierre validado por todos.',
+        'Plusieurs organisations sur la même soirée : chacune la suit depuis sa Console, avec ses propres liens, ses ventes et ses emails. L’argent se règle entre vous, ou par un accord Yuno. Astuce : tu peux aussi les ajouter directement en créant la soirée.',
+        'Several organizations on the same event: each follows it from its Console, with its own links, sales and emails. Money is settled between you, or through a Yuno agreement. Tip: you can also add them right when creating the event.',
+        'Varias organizaciones en el mismo evento: cada una lo sigue desde su Consola, con sus propios enlaces, ventas y emails. El dinero se arregla entre vosotros o con un acuerdo Yuno. Consejo: también puedes añadirlas al crear el evento.',
       ),
     },
   ];

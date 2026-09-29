@@ -21,6 +21,8 @@ import { PartyAvatar, PartyRolePill, useCoorgT, useCoorgErrorText } from './coor
 import { CoorgInviteDialog } from './CoorgInviteDialog';
 import { CoorgTransferList } from './CoorgTransferList';
 import { CoorgSalesLinksCard } from './CoorgSalesLinksCard';
+import { CoorgPartnerSpace } from './CoorgPartnerSpace';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * La co-organisation d'UNE soirée, vue depuis n'importe laquelle de ses
@@ -39,6 +41,14 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // Le choix d'argent fait à la création (« réglé entre vous » / « Yuno »).
+  const [moneyAgreement, setMoneyAgreement] = useState<'yuno' | 'external' | null>(null);
+  const [showDeal, setShowDeal] = useState(false);
+
+  useEffect(() => {
+    supabase.from('events').select('money_agreement' as never).eq('id', eventId).maybeSingle()
+      .then(({ data }) => setMoneyAgreement(((data as { money_agreement?: string } | null)?.money_agreement as 'yuno' | 'external' | undefined) ?? null));
+  }, [eventId]);
 
   const load = useCallback(async () => {
     try {
@@ -101,8 +111,8 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
               </p>
               <p style={{ color: T2, fontSize: 12.5, marginTop: 2 }}>
                 {inv.access === 'editor'
-                  ? t('Accès édition', 'Editor access', 'Acceso edición')
-                  : t('Accès lecture', 'Viewer access', 'Acceso lectura')}
+                  ? t('Co-gestion', 'Co-manager', 'Cogestión')
+                  : t('Partenaire', 'Partner', 'Socio')}
                 {inv.share_crm ? ` · ${t('CRM partagé', 'Shared CRM', 'CRM compartido')}` : ''}
                 {inv.message ? ` · « ${inv.message} »` : ''}
               </p>
@@ -122,6 +132,9 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
           </div>
         </OrgCard>
       ))}
+
+      {/* 0. Mon rôle, où en est la soirée, mes liens et mes emails */}
+      <CoorgPartnerSpace eventId={eventId} state={state} />
 
       {/* 1. Parties */}
       <OrgCard className="p-5">
@@ -197,29 +210,36 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
           ))}
         </div>
 
-        <div className="mt-4 flex items-start gap-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-          <Info className="mt-0.5 h-4 w-4 flex-none" style={{ color: T3 }} />
-          <p style={{ color: T2, fontSize: 11.5, lineHeight: 1.5 }}>
-            {state.event.has_stripe_collab
-              ? t(
-                'Le contrat collab club × organisateur répartit l’argent entre ses DEUX signataires, par Stripe ou par virement selon leur choix. Les co-hôtes n’y sont jamais ajoutés : leur part se règle par l’accord ci-dessous, en virement.',
-                'The club × organizer collab agreement splits the money between its TWO signatories, through Stripe or by bank transfer as they chose. Co-hosts are never added to it: their share is settled through the agreement below, by bank transfer.',
-                'El contrato collab club × organizador reparte el dinero entre sus DOS firmantes, con Stripe o por transferencia según su elección. Los coanfitriones nunca se añaden: su parte se liquida con el acuerdo de abajo, por transferencia.',
-              )
-              : t(
-                'Les ventes en ligne sont encaissées par l’hôte principal, comme d’habitude. Entre DEUX organisations, l’accord peut répartir chaque vente par Stripe (« Répartir via Stripe ? » → Oui). Sinon — et toujours à plus de deux — aucun compte Stripe n’est exigé des co-hôtes : Yuno calcule le décompte, le fait valider par tous et suit les virements.',
-                'Online sales are collected by the main host, as usual. Between TWO organizations, the agreement can split every sale through Stripe (“Split through Stripe?” → Yes). Otherwise — and always with more than two — co-hosts need no Stripe account: Yuno computes the statement, has everyone approve it and tracks the transfers.',
-                'Las ventas online las cobra el anfitrión principal, como siempre. Entre DOS organizaciones, el acuerdo puede repartir cada venta con Stripe («¿Repartir con Stripe?» → Sí). Si no — y siempre con más de dos —, los coanfitriones no necesitan cuenta de Stripe: Yuno calcula la liquidación, la hace validar por todos y sigue las transferencias.',
+        {state.event.has_stripe_collab && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+            <Info className="mt-0.5 h-4 w-4 flex-none" style={{ color: T3 }} />
+            <p style={{ color: T2, fontSize: 11.5, lineHeight: 1.5 }}>
+              {t(
+                'Le contrat collab club × organisateur répartit l’argent entre ses DEUX signataires. Les autres organisations n’y sont jamais ajoutées : leur part, s’il y en a une, se règle entre vous ou par l’accord Yuno ci-dessous.',
+                'The club × organizer collab agreement splits the money between its TWO signatories. Other organizations are never added to it: their share, if any, is settled between you or through the Yuno agreement below.',
+                'El contrato collab club × organizador reparte el dinero entre sus DOS firmantes. Las demás organizaciones nunca se añaden: su parte, si la hay, se arregla entre vosotros o con el acuerdo Yuno de abajo.',
               )}
-          </p>
-        </div>
+            </p>
+          </div>
+        )}
       </OrgCard>
 
       {/* Qui fait vendre : un lien de vente suivi par partie */}
       {state.me && <CoorgSalesLinksCard eventId={eventId} canCreate={(state.me.level ?? 0) >= 1} />}
 
-      {/* 2. Accord */}
-      {state.deal !== undefined && (state.deal || state.can_deal) && state.parties.length >= 2 && (
+      {/* 2. Argent : jamais obligatoire. Sans accord, « réglé entre vous » ;
+          l'accord Yuno s'ouvre d'un clic (ou d'office si le lead l'a choisi). */}
+      {!state.deal && (
+        <MoneyStatusCard
+          agreement={moneyAgreement}
+          isPrincipal={isPrincipal}
+          canDeal={!!state.can_deal && state.parties.length >= 2}
+          dealOpen={showDeal || moneyAgreement === 'yuno'}
+          onOpenDeal={() => setShowDeal(true)}
+          waitingPartners={state.parties.length < 2}
+        />
+      )}
+      {state.deal !== undefined && (state.deal || (state.can_deal && (showDeal || moneyAgreement === 'yuno'))) && state.parties.length >= 2 && (
         <DealCard state={state} eventId={eventId} busy={busy} run={run} nameOf={nameOf} />
       )}
 
@@ -261,8 +281,8 @@ function PartyRow({ party, isMe, canManage, busy, onAccess, onCrm, onRemove, onL
               value={party.access as CohostAccess}
               onChange={(a) => onAccess(a)}
               tabs={[
-                { value: 'editor', label: t('Édition', 'Editor', 'Edición') },
-                { value: 'viewer', label: t('Lecture', 'Viewer', 'Lectura') },
+                { value: 'viewer', label: t('Partenaire', 'Partner', 'Socio') },
+                { value: 'editor', label: t('Co-gestion', 'Co-manager', 'Cogestión') },
               ]}
             />
             <label className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
@@ -295,6 +315,51 @@ function PartyRow({ party, isMe, canManage, busy, onAccess, onCrm, onRemove, onL
 }
 
 type Runner = (key: string, fn: () => Promise<unknown>, ok?: string) => Promise<void>;
+
+/**
+ * « Contrat & partage de l'argent » quand aucun accord n'existe : réglé entre
+ * vous par défaut (Yuno ne suit pas l'argent, chacun garde ce qu'il encaisse),
+ * et l'accord Yuno à un clic pour le principal.
+ */
+function MoneyStatusCard({ agreement, isPrincipal, canDeal, dealOpen, onOpenDeal, waitingPartners }: {
+  agreement: 'yuno' | 'external' | null;
+  isPrincipal: boolean;
+  canDeal: boolean;
+  dealOpen: boolean;
+  onOpenDeal: () => void;
+  waitingPartners: boolean;
+}) {
+  const { t } = useCoorgT();
+  const yuno = agreement === 'yuno';
+  return (
+    <OrgCard className="p-5">
+      <OrgSectionLabel>{t('Contrat & partage de l’argent', 'Agreement & money split', 'Contrato y reparto del dinero')}</OrgSectionLabel>
+      <p className="mt-1" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+        {yuno
+          ? t('Encadré par Yuno · parts à fixer', 'Secured by Yuno · shares to set', 'Gestionado por Yuno · partes por fijar')
+          : t('Réglé entre vous', 'Settled between you', 'Lo arregláis entre vosotros')}
+      </p>
+      <p className="mt-0.5" style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
+        {yuno
+          ? (waitingPartners
+            ? t('Dès que tes partenaires ont accepté, les parts se fixent ici : simple accord ou contrat signé, décompte validé par tous après la soirée, virements suivis.',
+              'As soon as your partners have accepted, shares are set here: simple agreement or signed contract, a statement everyone approves after the night, tracked transfers.',
+              'En cuanto tus socios acepten, las partes se fijan aquí: acuerdo simple o contrato firmado, liquidación validada por todos tras la noche, transferencias seguidas.')
+            : isPrincipal
+              ? t('Fixe les parts ci-dessous. Rien ne bloque la vente en attendant.', 'Set the shares below. Nothing blocks sales meanwhile.', 'Fija las partes abajo. Nada bloquea la venta mientras tanto.')
+              : t('L’organisateur principal prépare l’accord ; tu le valideras ici.', 'The main organizer is preparing the agreement; you will approve it here.', 'El organizador principal prepara el acuerdo; lo validarás aquí.'))
+          : t('Yuno ne s’occupe pas de l’argent de cette soirée : les ventes en ligne sont encaissées par l’organisateur principal, et vous réglez le reste entre vous. Les ventes et ce que chacun amène restent visibles de tous.',
+            'Yuno stays out of this event’s money: online sales are collected by the main organizer, and you settle the rest between you. Sales and what each party brings stay visible to all.',
+            'Yuno no gestiona el dinero de este evento: las ventas online las cobra el organizador principal y el resto lo arregláis entre vosotros. Las ventas y lo que aporta cada uno siguen visibles para todos.')}
+      </p>
+      {!yuno && isPrincipal && canDeal && !dealOpen && (
+        <OrgButton size="sm" variant="secondary" className="mt-3" onClick={onOpenDeal}>
+          <HandCoins className="h-4 w-4" /> {t('Passer par un accord Yuno', 'Use a Yuno agreement', 'Usar un acuerdo Yuno')}
+        </OrgButton>
+      )}
+    </OrgCard>
+  );
+}
 
 function DealCard({ state, eventId, busy, run, nameOf }: {
   state: CoorgState; eventId: string; busy: string | null; run: Runner; nameOf: (k: string) => string;

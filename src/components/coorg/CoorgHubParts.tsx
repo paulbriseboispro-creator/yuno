@@ -84,8 +84,8 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
                 <p style={{ color: T2, fontSize: 12, marginTop: 2 }}>
                   {t('Invitation de', 'Invited by', 'Invitación de')} <b>{inv.invited_by_name}</b>
                   {' · '}{inv.access === 'editor'
-                    ? t('tu pourras modifier la soirée', 'you can edit the event', 'podrás editar el evento')
-                    : t('tu verras la soirée sans la modifier', 'view only', 'solo lectura')}
+                    ? t('co-gestion : tu gères aussi billets, tables et guest list', 'co-manager: you also run tickets, tables and guest list', 'cogestión: también gestionas entradas, mesas y lista')
+                    : t('partenaire : tes liens, tes ventes, tes emails', 'partner: your links, your sales, your emails', 'socio: tus enlaces, tus ventas, tus emails')}
                   {inv.share_crm ? ` · ${t('ses acheteurs rejoignent aussi ta base', 'buyers join your list too', 'los compradores se suman también a tu base')}` : ''}
                 </p>
                 {inv.message && <p style={{ color: T2, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>« {inv.message} »</p>}

@@ -14,6 +14,8 @@ interface Props {
   /** Nom de l'AUTRE partie, pour les messages d'attente (« Goya doit signer »). */
   partnerName: string;
   contractStatus: CollabContractStatus;
+  /** Accord « réglé entre vous » : pas de contrat à signer, la vente est ouverte. */
+  external?: boolean;
   iSigned: boolean;
   partnerSigned: boolean;
   phase: Phase;
@@ -57,7 +59,7 @@ export function CollabJourney(p: Props) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const isVenue = p.side === 'venue';
-  const signed = p.contractStatus === 'active' || p.contractStatus === 'locked' || p.contractStatus === 'closed';
+  const signed = !!p.external || p.contractStatus === 'active' || p.contractStatus === 'locked' || p.contractStatus === 'closed';
   const pending = p.contractStatus === 'pending_signatures';
 
   // ── Étape courante ──────────────────────────────────────────────────────────
@@ -76,7 +78,7 @@ export function CollabJourney(p: Props) {
 
   const steps: { key: StepKey; label: string }[] = [
     { key: 'proposal', label: t('Proposition', 'Proposal', 'Propuesta') },
-    { key: 'contract', label: t('Contrat', 'Contract', 'Contrato') },
+    { key: 'contract', label: p.external ? t('Accord', 'Agreement', 'Acuerdo') : t('Contrat', 'Contract', 'Contrato') },
     { key: 'sales', label: t('Ventes', 'Sales', 'Ventas') },
     { key: 'night', label: t('Soirée', 'Night', 'Noche') },
     { key: 'closing', label: p.tiered ? t('Décompte', 'Closing', 'Cierre') : t('Répartition', 'Split', 'Reparto') },
@@ -120,13 +122,17 @@ export function CollabJourney(p: Props) {
     } else if (!p.ticketingLive && !isVenue) {
       next = {
         title: t('Ouvrir la billetterie', 'Open ticketing', 'Abrir la venta de entradas'),
-        body: t('Le contrat est signé. Crée tes tarifs pour que la soirée se vende.', 'The agreement is signed. Create your price tiers so the night can sell.', 'El contrato está firmado. Crea tus tarifas para que la noche se venda.'),
+        body: p.external
+          ? t('Accord réglé entre vous : la vente est ouverte. Crée tes tarifs pour que la soirée se vende.', 'Settled between you: sales are open. Create your price tiers so the night can sell.', 'Acuerdo entre vosotros: la venta está abierta. Crea tus tarifas para que la noche se venda.')
+          : t('Le contrat est signé. Crée tes tarifs pour que la soirée se vende.', 'The agreement is signed. Create your price tiers so the night can sell.', 'El contrato está firmado. Crea tus tarifas para que la noche se venda.'),
         cta: { label: t('Ouvrir la billetterie', 'Open ticketing', 'Abrir entradas'), icon: Ticket, onClick: p.onOpenTicketing },
       };
     } else if (p.participants === 0) {
       next = {
         title: t('Partager la soirée', 'Share the night', 'Compartir la noche'),
-        body: t('Tout est prêt : contrat signé, ventes ouvertes. Le lien de la soirée est le même pour les deux partenaires, chaque vente compte pour les deux.', 'All set: agreement signed, sales open. The event link is the same for both partners, every sale counts for both.', 'Todo listo: contrato firmado, ventas abiertas. El enlace es el mismo para ambos socios, cada venta cuenta para los dos.'),
+        body: p.external
+          ? t('Tout est prêt : ventes ouvertes. Partage la soirée ; chaque vente est encaissée directement par qui la tient.', 'All set: sales open. Share the night; each sale is collected directly by whoever runs it.', 'Todo listo: ventas abiertas. Comparte la noche; cada venta la cobra directamente quien la lleva.')
+          : t('Tout est prêt : contrat signé, ventes ouvertes. Le lien de la soirée est le même pour les deux partenaires, chaque vente compte pour les deux.', 'All set: agreement signed, sales open. The event link is the same for both partners, every sale counts for both.', 'Todo listo: contrato firmado, ventas abiertas. El enlace es el mismo para ambos socios, cada venta cuenta para los dos.'),
         cta: { label: t('Copier le lien', 'Copy the link', 'Copiar el enlace'), icon: Copy, onClick: p.onShare },
       };
     } else {

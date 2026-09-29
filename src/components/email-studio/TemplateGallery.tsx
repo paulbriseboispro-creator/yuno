@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CalendarDays, ChevronLeft, Copy, FilePlus2, Layers, Loader2, Pencil, Sparkles, Trash2, PenLine,
 } from 'lucide-react';
@@ -48,7 +48,10 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
   const [choice, setChoice] = useState<Choice | null>(null);
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
-  const [eventId, setEventId] = useState<string>('');
+  // `?event=<id>` : on arrive depuis une soirée (page co-organisation, carte
+  // soirée) — la campagne naît déjà reliée à elle, blocs Yuno en direct compris.
+  const [searchParams] = useSearchParams();
+  const [eventId, setEventId] = useState<string>(() => searchParams.get('event') ?? '');
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<EmailTemplate | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EmailTemplate | null>(null);

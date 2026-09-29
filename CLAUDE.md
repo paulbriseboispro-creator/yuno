@@ -672,6 +672,71 @@ Migrations `20260929190000` (porte), `200000` (liens), `210000` (invitations). R
   adresse démo (collab dans les deux sens, co-organisation), et aucun email
   n'est envoyé à une adresse démo.
 
+## Collaboration : l'accord d'argent n'est JAMAIS une condition (2026-09-29 soir)
+
+Préparé pour la première soirée multi-organisations (WOH + partenaires qui
+ouvrent leur compte le soir même). Migrations `20260929270000` (+ `271000`,
+rattrapage des liens). Règles intouchables :
+
+- **Deux voies, choisies dans le formulaire de soirée ET dans les deux
+  « Proposer une soirée »** (`MoneyAgreementPicker`, bloc « Contrat & partage de
+  l'argent ») : « Réglé entre vous » ou « Encadré par Yuno ». Défaut : Yuno si
+  le partenariat club × orga a des `default_split_rules`, sinon entre vous ;
+  toujours entre vous pour une co-organisation seule. Le choix du lead est gardé
+  sur `events.money_agreement` (`yuno` | `external`, lu par la page
+  Co-organisation pour rappeler la suite ou se taire) — jamais écrit par un
+  co-hôte (hors liste blanche de `protect_event_columns_from_cohost`).
+- **Club × orga « Réglé entre vous » = PAS de contrat, un partage 100/0 par
+  pilier** posé par `set_event_collab_external_agreement(event, tickets,
+  tables)` (lead seul, refusé si contrat vivant ou vente) :
+  `revenue_split_rules = {agreement:'external', tickets, tables, drinks 0/100}`.
+  Le résolveur de paiement en fait une CHARGE DIRECTE sur la seule partie qui
+  encaisse chaque pilier (billets / tables au choix, bar toujours club) — aucun
+  circuit d'argent nouveau, pas de rétention, pas de décompte. Marqueur lu par
+  `collab_agreement_is_external` (SQL) = `isExternalAgreement` (front,
+  `splitRules.ts`, testé, préservé par `normalizeSplitRules`). Écrans : feuille
+  de route sans signature (`CollabJourney external`), `ExternalAgreementCard`
+  à la place du contrat, pastille hub « Réglée entre vous »
+  (`collabNightStep` → `external`), notification `collab_external_added`.
+  « Passer par un contrat Yuno » n'existe que tant que rien n'est vendu
+  (trigger `guard_collab_contract_after_external`) : la proposition referme la
+  vente jusqu'aux deux signatures, la signature remplace les règles.
+- **Co-organisation dès la création** : bloc « Organisations partenaires » du
+  formulaire (`CohostDraftPicker`, Yuno ou email, invitées à l'enregistrement,
+  CRM partagé). Rôles renommés partout : **« Partenaire »** (`viewer`, PAR
+  DÉFAUT — suit la soirée, SES ventes, SES liens, SES emails ; billets, tables,
+  guest list restent au principal) et **« Co-gestion »** (`editor`). Ne jamais
+  remettre « Édition » par défaut.
+- **Chaque partie a SES liens de la soirée** : `seed_event_party_tracked_links`
+  sème Instagram / TikTok / Newsletter / WhatsApp au nom de la partie (l'hôte
+  garde `seed_event_tracked_links`), appelé à l'acceptation d'un co-hôte
+  (trigger) et par `TrackedLinksManager` (portée de l'écran). Le « Lien direct »
+  = le lien de partie (`label 'coorg'`, `ensure_event_party_link`). Ne jamais
+  re-semer au nom de l'hôte pour un partenaire : ses ventes partiraient à l'hôte.
+  **Toute l'équipe voit et gère les liens de SA structure** (`20260929280000`) :
+  porte unique `tracked_link_team_can_read` (fondateur / admin / éditeur d'orga,
+  owner / manager de club — jamais un scanneur), reprise par
+  `get_tracked_link_stats` et par la policy `tracked_links_team_all` ; le CA
+  d'un lien ne part qu'à `tracked_link_team_sees_money` (fondateur, membre
+  `view_finance`, owner, manager finance / analytique), sinon `revenue = NULL`
+  et l'écran le tait. Les chiffres des AUTRES parties vivent dans « Qui fait
+  vendre ? » (`get_collab_party_breakdown`, niveau ≥ 1), jamais dans les liens.
+- **Un email part sur les liens de QUI l'envoie** :
+  `resolve_campaign_tracked_links(ids, channel, p_venue_id, p_organizer_user_id)`
+  (portée de l'expéditeur passée par `send-campaign` → `fetchStudioLiveData`).
+  Partenaire / co-hôte = SON canal, jamais celui de l'hôte ; hôte et plateforme
+  = comportement historique. L'audience INFORMATIVE « acheteurs de la soirée »
+  n'est résolue que pour une partie PRINCIPALE
+  (`campaign_scope_is_event_principal`) : un co-hôte n'écrit qu'aux clients qui
+  l'ont nommé.
+- **Espace partenaire** (`CoorgPartnerSpace`, en tête de `/…/coorg/:id`) : rôle
+  et qui mène, « Où en est la soirée » (`get_collab_party_breakdown.totals`),
+  « Tes ventes » (sa ligne), « Tes liens de la soirée », « Écrire à ma base »
+  (`/campaigns/new?event=<id>` : `TemplateGallery` pré-remplit la soirée),
+  « Analyse de la soirée ». L'argent sans accord = carte « Réglé entre vous »
+  (`MoneyStatusCard`), l'accord Yuno s'ouvre d'un clic (« Passer par un accord
+  Yuno ») ou d'office si le lead l'a choisi.
+
 ## Co-organisation — N parties sur une soirée (2026-09-28)
 
 Design + analyse : `docs/designs/COORGANIZATION_PLAN.md`. Migrations `20260928100000`

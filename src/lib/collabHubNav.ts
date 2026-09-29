@@ -50,6 +50,8 @@ export interface CollabContractFacts {
   initiatedByMe: boolean;
   paused: boolean;
   isActive: boolean;
+  /** Accord « réglé entre vous » (pas de contrat Yuno, vente ouverte). */
+  external?: boolean;
 }
 
 export interface CoorgFacts {
@@ -74,7 +76,7 @@ export interface CollabNight {
 
 export type NightStepKey =
   | 'paused' | 'to_sign' | 'awaiting_partner' | 'deal_to_approve' | 'transfers'
-  | 'settled' | 'cancelled' | 'ended' | 'invite_pending' | 'signed' | 'coorganized' | 'draft';
+  | 'settled' | 'cancelled' | 'ended' | 'invite_pending' | 'signed' | 'external' | 'coorganized' | 'draft';
 
 /** Couleur = statut seulement : rouge à faire, gris en attente de l'autre, vert fait. */
 export type NightStepTone = 'todo' | 'waiting' | 'done' | 'muted';
@@ -90,6 +92,7 @@ export const NIGHT_STEP_TONE: Record<NightStepKey, NightStepTone> = {
   ended: 'muted',
   invite_pending: 'waiting',
   signed: 'done',
+  external: 'done',
   coorganized: 'done',
   draft: 'muted',
 };
@@ -107,11 +110,12 @@ export function collabNightStep(n: Pick<CollabNight, 'collab' | 'coorg' | 'endAt
   if (o?.dealStatus === 'pending') return 'deal_to_approve';
   if (o?.settlementStatus === 'approved') return 'transfers';
   if (o?.settlementStatus === 'settled' || c?.contractStatus === 'closed') return 'settled';
-  if (c?.contractStatus === 'cancelled' && !o) return 'cancelled';
+  if (c?.contractStatus === 'cancelled' && !o && !c.external) return 'cancelled';
   if (ended) return 'ended';
   if (o && o.pendingInvites > 0) return 'invite_pending';
   const signed = c?.contractStatus === 'active' || c?.contractStatus === 'locked';
   if (signed) return 'signed';
+  if (c?.external) return 'external';
   if (o) return 'coorganized';
   // Co-soirée sans contrat (héritage) : la publication tient lieu d'état.
   return c?.isActive ? 'signed' : 'draft';

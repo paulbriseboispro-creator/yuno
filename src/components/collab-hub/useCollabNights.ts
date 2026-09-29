@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getMyCoorgEvents, partyKeyOf, type CoorgScope } from '@/lib/coorg';
 import { mergeCollabNights, type CollabNight } from '@/lib/collabHubNav';
+import { isExternalAgreement } from '@/lib/splitRules';
 
 type Side = 'venue' | 'organizer';
 
@@ -9,6 +10,7 @@ interface EventRow {
   id: string; title: string; poster_url: string | null; start_at: string; end_at: string;
   is_active: boolean; organizer_user_id: string | null; partner_organizer_id: string | null;
   venue_id: string | null; partner_venue_id: string | null; collab_paused_at: string | null;
+  revenue_split_rules: unknown;
 }
 
 /**
@@ -30,7 +32,7 @@ export function useCollabNights(side: Side, scope: CoorgScope | null) {
 
     const [{ data: rows, error }, coorgRows] = await Promise.all([
       supabase.from('events')
-        .select('id, title, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, collab_paused_at')
+        .select('id, title, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, collab_paused_at, revenue_split_rules')
         .or(filter)
         .order('start_at', { ascending: false }),
       getMyCoorgEvents(scope).catch(() => []),
@@ -75,7 +77,10 @@ export function useCollabNights(side: Side, scope: CoorgScope | null) {
       return {
         eventId: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at, posterUrl: e.poster_url,
         partners: partner ? [partner] : [],
-        collab: { contractStatus: contract.get(e.id) ?? null, initiatedByMe, paused: !!e.collab_paused_at, isActive: e.is_active },
+        collab: {
+          contractStatus: contract.get(e.id) ?? null, initiatedByMe, paused: !!e.collab_paused_at, isActive: e.is_active,
+          external: isExternalAgreement(e.revenue_split_rules),
+        },
         coorg: null,
       };
     });

@@ -4,6 +4,7 @@
 const es: Record<string, string> = {
   // --- Tracked links (per-channel attribution) ---
   'tlink.title': 'Enlaces',
+  'tlink.directLink': 'Enlace directo',
   'tlink.create': 'Crear un enlace',
   'tlink.empty': 'Aún no hay enlaces. Crea uno para medir clics y ventas por canal.',
   'tlink.loadError': 'No se pudieron cargar los enlaces',
@@ -1418,6 +1419,7 @@ const es: Record<string, string> = {
   'notif.type.admin_stripe_connect_failed': 'Stripe rechaza abrir una cuenta',
   'notif.type.admin_collab_late_sale': 'Venta de coevento pagada tras el cierre',
   'notif.type.collab_request': "Propuesta de coevento",
+  'notif.type.collab_external_added': "Añadido a un coevento",
   'notif.type.collab_accepted': "Colaboración confirmada",
   'notif.type.collab_action_request': "Solicitud sobre coevento",
   'notif.type.collab_action_scheduled': "Acción de coevento programada",

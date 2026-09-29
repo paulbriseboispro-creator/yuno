@@ -19,6 +19,8 @@ import {
 } from '@/components/collab/TieredRemunerationEditor';
 import { normalizeSplitRules, readRemuneration, readSettlement, tieredPillarBlocks, validateTiers, withSettlement } from '@/lib/splitRules';
 import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
+import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
+import { defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
 import type { CollabRemuneration, CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { translate } from '@/i18n/orgTranslate';
 import {
@@ -92,6 +94,16 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
     if (rem) { setRemMode('tiered_total'); setTiered(rem); }
     setSettlement(readSettlement(p?.default_split_rules));
   }, [organizerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // « Partage de l'argent » : le contrat Yuno n'est plus obligatoire. Défaut :
+  // Yuno si des conditions sont déjà convenues avec ce partenaire, sinon entre vous.
+  const [agreement, setAgreement] = useState<MoneyAgreement>('yuno');
+  const [collectors, setCollectors] = useState<{ tickets: ExternalCollector; tables: ExternalCollector }>(defaultExternalCollectors('co_event'));
+  useEffect(() => {
+    if (!organizerId) return;
+    const p = activePartners.find((x) => x.organizer_user_id === organizerId);
+    setAgreement(p?.default_split_rules ? 'yuno' : 'external');
+  }, [organizerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setCollectors(defaultExternalCollectors(mode)); }, [mode]);
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -189,7 +201,12 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
       // sales stay blocked by the CONTRACT GUARD until they do. No more silent
       // auto-accept. Split defaults to the partnership's terms (NULL payload).
       // Called bound on `supabase` (never detach .rpc — see rpc-unbound gotcha).
-      const { error: contractErr } = await supabase.rpc(
+      // « Réglé entre vous » : pas de contrat, la vente ouvre tout de suite.
+      const { error: contractErr } = agreement === 'external'
+        ? await supabase.rpc('set_event_collab_external_agreement' as never, {
+            p_event_id: eventId, p_tickets: collectors.tickets, p_tables: collectors.tables,
+          } as never)
+        : await supabase.rpc(
         'create_event_collab_contract' as never,
         {
           p_event_id: eventId,
@@ -214,19 +231,26 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
       // never blocks the proposal.
       // Sans attendre : l'edge (email + push) prenait 3 à 4 s pendant lesquelles
       // le bouton restait sur « Envoi… » alors que la proposition était déjà là.
-      void supabase.functions.invoke('notify-split-proposal', {
-        body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'venue' },
-      }).catch((e) => console.warn('Propose notify failed:', e));
-
-      toast.success(t('proposeEvent.sentSuccess'), {
-        description: t('proposeEvent.sentSuccessDesc'),
-      });
+      if (agreement === 'external') {
+        toast.success(tr('Partenaire ajouté à la soirée', 'Partner added to the night', 'Socio añadido a la noche'), {
+          description: tr('Réglé entre vous : la vente est ouverte, chaque vente est encaissée directement par qui la tient.',
+            'Settled between you: sales are open, each sale is collected directly by whoever runs it.',
+            'Lo arregláis entre vosotros: la venta está abierta, cada venta la cobra directamente quien la lleva.'),
+        });
+      } else {
+        void supabase.functions.invoke('notify-split-proposal', {
+          body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'venue' },
+        }).catch((e) => console.warn('Propose notify failed:', e));
+        toast.success(t('proposeEvent.sentSuccess'), {
+          description: t('proposeEvent.sentSuccessDesc'),
+        });
+      }
       onCreated?.();
       reset();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Propose event error:', err);
-      toast.error(err.message || t('proposeEvent.createError'));
+      toast.error((err as { message?: string })?.message || t('proposeEvent.createError'));
     } finally {
       setSaving(false);
     }
@@ -406,6 +430,20 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
             </RadioGroup>
           </div>
 
+          {/* Contrat & partage de l'argent : jamais obligatoire. Les conditions
+              financières ne se posent que sur la voie « Encadré par Yuno ». */}
+          <div className="space-y-2">
+            <Label>{tr('Contrat & partage de l’argent', 'Agreement & money split', 'Contrato y reparto del dinero')}</Label>
+            <MoneyAgreementPicker
+              value={agreement}
+              onChange={setAgreement}
+              side="venue"
+              hasClubPartner
+              partnerName={(() => { const p = activePartners.find((x) => x.organizer_user_id === organizerId); return p ? orgLabel(p) : ''; })()}
+              collectors={collectors}
+              onCollectorsChange={setCollectors}
+              yunoDetails={(
+                <div className="space-y-4">
           {/* Conditions financières — le partage par défaut du partenariat, ou
               un barème sur le CA de la soirée proposé d'un coup. */}
           <div className="space-y-2">
@@ -445,11 +483,15 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
           <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-xs text-muted-foreground">
             {t('proposeEvent.footerNote')}
           </div>
+                </div>
+              )}
+            />
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>{t('common.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={saving || !organizerId || !eventId || tiersInvalid}>
+          <Button onClick={handleSubmit} disabled={saving || !organizerId || !eventId || (agreement === 'yuno' && tiersInvalid)}>
             <Send className="h-4 w-4 mr-2" />
             {saving ? t('proposeEvent.sending') : t('proposeEvent.sendProposal')}
           </Button>

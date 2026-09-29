@@ -1452,6 +1452,12 @@ export async function fetchStudioLiveData(
    * dans les statistiques de son propre canal).
    */
   trackedChannel: string | null = 'newsletter',
+  /**
+   * Portée de l'EXPÉDITEUR. Un partenaire ou un co-hôte de la soirée envoie sur
+   * SES liens suivis (semés à son nom au besoin) : ses clics et ses ventes lui
+   * reviennent dans « Qui fait vendre ? », jamais à l'hôte.
+   */
+  senderScope: { venueId?: string | null; organizerUserId?: string | null } | null = null,
 ): Promise<StudioLiveData> {
   const live: StudioLiveData = {};
   const ids = collectStudioEventIds(blocks, fallbackEventId);
@@ -1636,6 +1642,8 @@ export async function fetchStudioLiveData(
       const { data: links } = await admin.rpc('resolve_campaign_tracked_links', {
         p_event_ids: ids,
         p_channel: trackedChannel,
+        p_venue_id: senderScope?.venueId ?? null,
+        p_organizer_user_id: senderScope?.venueId ? null : (senderScope?.organizerUserId ?? null),
       });
       for (const row of (links || []) as any[]) {
         const ev = live[row.event_id as string];
