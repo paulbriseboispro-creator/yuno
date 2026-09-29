@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { ComingSoonBanner } from '@/components/ComingSoonBanner';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -175,19 +176,25 @@ export default function OwnerSmsCredits() {
     [packs],
   );
 
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="cards" title={t('sms.title')} />;
 
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
       <OwnerHeader title={t('sms.title')} />
 
-      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
+      <main className={cn(PRO_PAGE, 'py-6 space-y-6')}>
         {!SMS_MARKETING_LIVE && (
           <ComingSoonBanner
             title={t('sms.comingSoonTitle')}
             description={t('sms.comingSoonDesc')}
           />
         )}
+
+        {/* Grand écran : solde, packs et campagnes à gauche ; l'historique des
+            mouvements en colonne à droite, qui reste en vue. Au téléphone,
+            l'ordre ne change pas (historique en dernier). */}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
+        <div className="min-w-0 space-y-6">
 
         {/* Balance hero */}
         <Card className="relative overflow-hidden border-white/[0.06] bg-gradient-to-br from-primary/15 via-background to-background p-6 sm:p-8">
@@ -384,8 +391,10 @@ export default function OwnerSmsCredits() {
           </div>
         </Card>
 
+        </div>
+
         {/* Transactions */}
-        <Card className="border-white/[0.06] bg-surface/40">
+        <Card className="border-white/[0.06] bg-surface/40 xl:sticky xl:top-20">
           <div className="flex items-center justify-between p-5 pb-3">
             <div className="flex items-center gap-2">
               <Receipt className="h-4 w-4 text-muted-foreground" />
@@ -452,6 +461,7 @@ export default function OwnerSmsCredits() {
             </ul>
           )}
         </Card>
+        </div>
       </main>
     </div>
   );

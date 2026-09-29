@@ -15,7 +15,8 @@ import { format, subMinutes, subHours } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import {
@@ -468,9 +469,11 @@ export default function OwnerAnalytics() {
     const fetchLive = async () => {
       const fiveMinutesAgo = subMinutes(new Date(), 5);
       const oneHourAgo = subHours(new Date(), 1);
-      const { data: liveData } = await supabase.from('visitor_sessions').select('id').eq('venue_id', venueId).gte('visited_at', fiveMinutesAgo.toISOString());
-      setLiveVisitors(liveData?.length || 0);
-      const { data: recentData } = await supabase.from('visitor_sessions').select('id').eq('venue_id', venueId).gte('visited_at', oneHourAgo.toISOString());
+      // Une seule lecture (la dernière heure) : les 5 dernières minutes en sont
+      // un sous-ensemble, comptées ici plutôt que redemandées au serveur.
+      const { data: recentData } = await supabase.from('visitor_sessions').select('id, visited_at').eq('venue_id', venueId).gte('visited_at', oneHourAgo.toISOString());
+      const liveFrom = fiveMinutesAgo.getTime();
+      setLiveVisitors((recentData || []).filter((r) => new Date(r.visited_at).getTime() >= liveFrom).length);
       setRecentActivity(recentData?.length || 0);
     };
     fetchLive();
@@ -536,7 +539,7 @@ export default function OwnerAnalytics() {
   // Le plan Essentiel n'affiche que les ventes : il attend donc ses chiffres.
   // Les autres vues se rendent tout de suite ; Ventes montre son squelette
   // dans la page, sous la navigation.
-  if (!hasAdvancedAnalytics && salesPending) return <OwnerPageSkeleton />;
+  if (!hasAdvancedAnalytics && salesPending) return <ProPageSkeleton variant="analytics" title={t('owner.analytics')} />;
 
   // ── Essential plan ───────────────────────────────────────────────────────────
   if (!hasAdvancedAnalytics) {
@@ -554,7 +557,7 @@ export default function OwnerAnalytics() {
             </div>
           }
         />
-        <div className="mx-auto max-w-7xl p-4 sm:p-6 space-y-6">
+        <div className={`${PRO_PAGE} py-4 sm:py-6 space-y-6`}>
           <div className="flex gap-2 flex-wrap p-1.5 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
             {(['24h', '48h', '72h', '7days', '30days', 'alltime'] as DateRange[]).map(range => (
               <Button key={range} variant="ghost" onClick={() => setDateRange(range)} size="sm"
@@ -857,7 +860,7 @@ export default function OwnerAnalytics() {
         }
       />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
 
         {/* ── Controls row ──────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">

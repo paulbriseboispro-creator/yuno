@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import {
   Download, Ticket, Users, RotateCcw,
   Percent, ShoppingCart, CreditCard,
   TrendingUp, Layers, Flame,
   ArrowUpRight, ArrowDownRight, Activity,
-  Loader2, ChevronDown, Sofa, Clock,
+  ChevronDown, Sofa, Clock,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
   ClipboardList, MousePointerClick,
   } from 'lucide-react';
@@ -644,7 +646,7 @@ export default function OrgAppAnalytics() {
   };
 
   if (!organizerId) {
-    return <div className="flex justify-center py-24"><Loader2 className="h-7 w-7 animate-spin" style={{ color: T3 }} /></div>;
+    return <ProPageSkeleton variant="analytics" title={tt('Analytique', 'Analytics', 'Analítica')} />;
   }
 
   // ── Aggregates (tickets + tables — organizers don't sell drinks directly) ──
@@ -882,7 +884,7 @@ export default function OrgAppAnalytics() {
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
 
         {/* Title + live pill */}
         <div className="flex items-center justify-between gap-3 pt-2">

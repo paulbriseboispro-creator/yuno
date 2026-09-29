@@ -20,6 +20,8 @@ import { useStudioLiveData, type StudioScope as SenderScope } from '@/components
 import FollowupSettings from './FollowupSettings';
 import ResendSettings from './ResendSettings';
 import CampaignImpactCard from '@/components/contacts/CampaignImpactCard';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { cn } from '@/lib/utils';
 import {
   hasPillarActivity, pillarLines, pillarSummary,
   type CampaignAttribution, type PillarKey,
@@ -456,9 +458,16 @@ export default function CampaignReport({ scope, basePath }: Props) {
     ? new Date(campaign.sent_at).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
+  // Réglages et bilans d'à-côté (relance, renvoi, effet sur la base) : une
+  // colonne à droite sur grand écran, au-dessus des onglets au téléphone.
+  const showFollowup = !!campaign && !campaign.parent_campaign_id && !!campaign.event_id && campaign.type !== 'informational';
+  const showResend = !!campaign && campaign.type !== 'informational' && !campaign.automation_id;
+  const showImpact = !!campaign && campaign.status === 'sent' && campaign.type !== 'informational';
+  const hasSide = showFollowup || showResend || showImpact || !!fu;
+
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className={cn(PRO_PAGE, 'py-6')}>
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -517,9 +526,12 @@ export default function CampaignReport({ scope, basePath }: Props) {
               </div>
             )}
 
+            <div className={cn('grid items-start', hasSide && 'xl:grid-cols-[minmax(0,1fr)_420px] xl:gap-6')}>
+            {hasSide && (
+            <div className="min-w-0 xl:order-2">
             {/* Relance après clic : réglable ICI pour une campagne partie (le
                 studio n'est plus accessible), les clics sont déjà là. */}
-            {!campaign.parent_campaign_id && campaign.event_id && campaign.type !== 'informational' && (
+            {showFollowup && (
               <div className="mb-5">
                 <FollowupSettings
                   key={campaign.id}
@@ -540,7 +552,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
             {/* Renvoi aux non-ouvreurs : réglable ici pour une campagne partie,
                 bilan de l'enfant au même endroit. Un enfant (relance, renvoi,
                 recette) ne se renvoie pas. */}
-            {campaign.type !== 'informational' && !campaign.automation_id && (
+            {showResend && (
               <div className="mb-5">
                 <ResendSettings
                   key={`rs-${campaign.id}`}
@@ -555,7 +567,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
             {/* Effet sur la base : ce que la campagne a appris à la liste et
                 déplacé dans les segments. La RPC recalcule la photo si elle a
                 plus de 10 minutes ; l'engagement suit le cron (10 min). */}
-            {campaign.status === 'sent' && campaign.type !== 'informational' && (
+            {showImpact && (
               <div className="mb-5">
                 <CampaignImpactCard key={`imp-${campaign.id}-${reloadKey}`} campaignId={campaign.id} basePath={basePath} />
               </div>
@@ -659,6 +671,10 @@ export default function CampaignReport({ scope, basePath }: Props) {
               </div>
             )}
 
+            </div>
+            )}
+
+            <div className="min-w-0 xl:order-1">
             {/* Tabs */}
             <div className="flex items-center gap-2 mb-5">
               {([
@@ -710,6 +726,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   <p style={{ color: T3, fontSize: 11, lineHeight: 1.5, marginTop: -8 }}>{t('em.report.attributionNote')}</p>
                 )}
 
+                <div className={cn('grid items-start gap-5', ((ab && campaign.subject_b) || topLinks.length > 0) && '2xl:grid-cols-2')}>
                 {/* Test A/B d'objet : échantillons, ouvertures, gagnant */}
                 {ab && campaign.subject_b && (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>
@@ -815,6 +832,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
             ) : (
               <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: 16 }}>
@@ -829,6 +847,8 @@ export default function CampaignReport({ scope, basePath }: Props) {
                 </div>
               </div>
             )}
+            </div>
+            </div>
           </>
         )}
       </div>

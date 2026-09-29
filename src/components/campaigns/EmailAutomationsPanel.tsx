@@ -24,6 +24,9 @@ import {
   type AutomationKind, type AutomationPreview, type AutomationSkipReason, type AutomationStats, type EmailAutomationRow,
 } from '@/lib/email';
 import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/components/email-studio/hooks';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import FollowupPreviewDialog from './FollowupPreviewDialog';
 import AutomationSuggestions from './AutomationSuggestions';
 
@@ -105,6 +108,12 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const scopeCol = scope.kind === 'venue' ? 'venue_id' : 'organizer_user_id';
   const scopeId = scope.kind === 'venue' ? scope.venueId : scope.kind === 'organizer' ? scope.organizerId : null;
   const kinds = isPlatform ? PLATFORM_AUTOMATION_KINDS : AUTOMATION_KINDS;
+  // Arguments RPC en PRIMITIVES : la page hôte passe `scope` en littéral, recréé
+  // à chaque rendu du parent. En dépendance, il relançait tout le chargement
+  // (9 aperçus, 2 bilans, attribution, enfants) une seconde fois au montage.
+  const venueArg = scope.kind === 'venue' ? scope.venueId : null;
+  const orgArg = scope.kind === 'organizer' ? scope.organizerId : null;
+  const scopeKind = scope.kind;
 
   const load = useCallback(async () => {
     const autoQ = supabase.from('email_automations' as never)
@@ -112,18 +121,18 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
     const [{ data: autoRows }, { data: statRows }, { data: weekRows }, { data: attribution }] = await Promise.all([
       isPlatform ? autoQ.is('venue_id', null).is('organizer_user_id', null) : autoQ.eq(scopeCol, scopeId as string),
       supabase.rpc('get_email_automation_stats' as never, {
-        p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
-        p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+        p_venue_id: venueArg,
+        p_organizer_user_id: orgArg,
       } as never),
       supabase.rpc('get_email_automation_stats' as never, {
-        p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
-        p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+        p_venue_id: venueArg,
+        p_organizer_user_id: orgArg,
         p_days: 7,
       } as never),
       // Yuno n'encaisse rien pour lui-même : pas de revenu attribué en portée plateforme.
       isPlatform
         ? Promise.resolve({ data: null })
-        : supabase.rpc('get_email_campaign_attribution' as never, { p_subject_type: scope.kind, p_subject_id: scopeId } as never),
+        : supabase.rpc('get_email_campaign_attribution' as never, { p_subject_type: scopeKind, p_subject_id: scopeId } as never),
     ]);
     const byKind: Partial<Record<AutomationKind, EmailAutomationRow>> = {};
     for (const r of ((autoRows || []) as unknown as EmailAutomationRow[])) byKind[r.kind] = r;
@@ -145,8 +154,8 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
     if (!isPlatform) {
       const found = await Promise.all(kinds.map(async (kind) => {
         const { data } = await supabase.rpc('preview_email_automation' as never, {
-          p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
-          p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+          p_venue_id: venueArg,
+          p_organizer_user_id: orgArg,
           p_kind: kind,
         } as never);
         return [kind, data as unknown as AutomationPreview | null] as const;
@@ -167,7 +176,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
       setChildren([]);
     }
     setLoading(false);
-  }, [scope, scopeCol, scopeId, isPlatform, kinds]);
+  }, [venueArg, orgArg, scopeKind, scopeCol, scopeId, isPlatform, kinds]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -233,7 +242,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
-      <div className="max-w-[1100px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className={cn(PRO_PAGE, 'py-8')} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
@@ -305,13 +314,19 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
 
         {/* ── Yuno te propose d'allumer… (recettes éteintes que les faits justifient) ── */}
         {!loading && !isPlatform && (
-          <AutomationSuggestions scope={scope} basePath={basePath} variant="banner" onEnabled={() => void load()} />
+          <AutomationSuggestions scope={scope} basePath={basePath} variant="banner" onEnabled={() => void load()} createTemplate={create} />
         )}
 
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" style={{ color: T3 }} /></div>
+          // Squelette de la liste des recettes (l'en-tête est déjà là).
+          <div className="grid items-start gap-3 2xl:grid-cols-2" aria-busy="true">
+            {kinds.map((kind) => <Skeleton key={kind} className="h-[64px] rounded-2xl" />)}
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          // Deux recettes côte à côte sur grand écran : une carte dépliée a déjà
+          // ses deux colonnes (réglages / cible et bilan), elle n'a que faire
+          // de 1 600 px de large.
+          <div className="grid items-start gap-3 2xl:grid-cols-2">
             {kinds.map((kind) => (
               <RecipeCard
                 key={kind}

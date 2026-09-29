@@ -6,6 +6,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OrgPage, OrgPageHeader, T3 } from '@/components/org-ui';
 import SmsCampaignsPanel from '@/components/sms/SmsCampaignsPanel';
 import type { SmsScope } from '@/lib/smsMarketing';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 /** Campagnes SMS d'un organisateur — même moteur que le club, portée organisateur. */
 export default function OrgAppSms() {
@@ -20,10 +22,10 @@ export default function OrgAppSms() {
     [organizerId, organizationName, t],
   );
 
-  if (!scope) return null;
+  if (!scope) return <ProPageSkeleton variant="cards" title={t('smsCampaigns.title')} />;
 
   return (
-    <OrgPage className="mx-auto max-w-5xl">
+    <OrgPage className={PRO_PAGE}>
       <div className="mb-4 flex items-center gap-2">
         <button onClick={() => navigate(id ? '/organizer-app/sms' : '/organizer-app')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: T3 }}>
           <ArrowLeft className="h-4 w-4" />

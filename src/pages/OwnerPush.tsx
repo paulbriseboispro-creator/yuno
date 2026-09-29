@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useSearchParams } from 'react-router-dom';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { Bell, Send, Loader2, Users, Zap, Sparkles, CalendarClock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
@@ -308,9 +309,14 @@ export default function OwnerPush() {
 
   // Portée estimée (dry_run débouncé). En cas d'échec on REMONTE la cause
   // (403 owner/manager, erreur segments…) au lieu d'un « … » silencieux.
+  // La soirée n'entre dans la clé que si l'audience la lit : la liste des
+  // soirées arrive après le montage et présélectionne la première, ce qui
+  // relançait un second dry_run (3 à 9 s) pour « abonnés », qui l'ignore.
+  const reachEventKey = needsEvent ? eventId : '';
   useEffect(() => {
     if (!ready) return;
     if (needsEvent && !eventId) { setReach(0); return; }
+    let cancelled = false;
     setReachLoading(true);
     setReachError(null);
     const timer = setTimeout(async () => {
@@ -331,26 +337,30 @@ export default function OwnerPush() {
             const ctx = (error as { context?: Response }).context;
             if (ctx) detail = (await ctx.json())?.error || detail;
           } catch { /* body illisible */ }
+          if (cancelled) return;
           console.error('[Push] dry_run failed:', detail);
           setReach(null);
           setReachError(detail);
           return;
         }
+        // Une réponse d'une ancienne audience ne remplace pas la bonne.
+        if (cancelled) return;
         setReach(typeof data?.targeted === 'number' ? data.targeted : null);
         setQuietHours(!!data?.quiet_hours);
         setHeldBack(typeof data?.held_back === 'number' ? data.held_back : 0);
         setPolicyKind(data?.policy === 'event' || data?.policy === 'marketing' ? data.policy : null);
         if (data?.error) setReachError(String(data.error));
       } catch (e) {
+        if (cancelled) return;
         console.error('[Push] dry_run failed:', e);
         setReach(null);
         setReachError(e instanceof Error ? e.message : 'unknown');
       } finally {
-        setReachLoading(false);
+        if (!cancelled) setReachLoading(false);
       }
     }, 500);
-    return () => clearTimeout(timer);
-  }, [ready, isOrg, venueId, organizerUserId, scope, eventId, needsEvent, scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [ready, isOrg, venueId, organizerUserId, scope, reachEventKey, needsEvent, scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -449,7 +459,7 @@ export default function OwnerPush() {
     }
   };
 
-  if (venueLoading || !ready) return <OwnerPageSkeleton />;
+  if (venueLoading || !ready) return <ProPageSkeleton variant="form" title={t('ownerPush.title')} />;
 
   const audienceOptions = isOrg
     ? [
@@ -478,7 +488,7 @@ export default function OwnerPush() {
           profil). L'organisateur a déjà la barre de son layout. */}
       {!isOrg && <OwnerHeader title={t('ownerPush.title')} />}
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+      <div className={`relative z-10 ${PRO_PAGE} py-6 space-y-6`}>
 
         {/* Header */}
         {isOrg ? (
@@ -529,7 +539,7 @@ export default function OwnerPush() {
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-3 mt-4">
+          <div className="grid sm:grid-cols-2 2xl:grid-cols-3 gap-3 mt-4">
             {PUSH_AUTOMATIONS
               .filter((auto: PushAutomation) => hasAdvancedCrm || !['vip_upsell', 'win_back', 'birthday'].includes(auto.key))
               .map((auto: PushAutomation) => {
@@ -602,7 +612,7 @@ export default function OwnerPush() {
               <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('ownerPush.manualSectionSubtitle')}</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3">
             {templates.map((tpl) => (
               <button
                 key={tpl.key}

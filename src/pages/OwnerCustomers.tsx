@@ -4,7 +4,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -523,7 +524,7 @@ export default function OwnerCustomers() {
     { key: 'origins' as TabKey, label: t('customers.originsTab'), Icon: Globe },
   ];
 
-  if (venueLoading) return <OwnerPageSkeleton />;
+  if (venueLoading) return <ProPageSkeleton variant="table" title={t('customers.title')} />;
 
   function CustomerRow({ customer, rank }: { customer: VenueCustomer; rank?: number }) {
     const s = scoredById.get(customer.id)?._s;
@@ -622,7 +623,7 @@ export default function OwnerCustomers() {
         ) : undefined}
       />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-5`}>
 
         {/* Stats strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

@@ -25,6 +25,8 @@ import {
 } from '@/components/org-ui';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 type Campaign = {
   id: string; name: string; type: 'promotional' | 'informational';
@@ -88,7 +90,7 @@ export default function OrgAppCampaigns() {
   const fromAddr = `${slugifyVenueName(orgName)}@yunoapp.eu`;
 
   return (
-    <OrgPage className="mx-auto max-w-6xl">
+    <OrgPage className={PRO_PAGE}>
       <div className="mb-4 flex items-center gap-2">
         <button onClick={() => navigate('/organizer-app')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: T3 }}>
           <ArrowLeft className="h-4 w-4" />
@@ -157,7 +159,7 @@ export default function OrgAppCampaigns() {
         ) : campaigns.length === 0 ? (
           <OrgEmptyState icon={Mail} title={t('Aucune campagne pour le moment.', 'No campaigns yet.', 'Aún no hay campañas.')} description={t('Créez la première !', 'Create your first one!', '¡Crea la primera!')} />
         ) : (
-          <div className="space-y-3">
+          <div className="grid items-start gap-3 xl:grid-cols-2">
             {campaigns.map((c) => {
               const s = STATUS_META[c.status];
               const statusLabel = s ? t(s.fr, s.en, s.es) : c.status;
@@ -306,7 +308,7 @@ export function OrgAppCampaignEditor({ templateMode = false }: { templateMode?: 
   // avec « Mon organisation » et sans logo, et ces valeurs restent figées dans
   // les blocs de la campagne.
   if (!organizerId || loading) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    return <ProPageSkeleton variant="form" />;
   }
   return (
     <StudioShell
@@ -330,8 +332,9 @@ export function OrgAppCampaignTemplateEditor() {
 
 export function OrgAppCampaignReport() {
   const { organizerId, organizationName, organizationLogoUrl } = useActingOrganizer();
+  const { t } = useLanguage();
   if (!organizerId) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    return <ProPageSkeleton variant="detail" title={t('em.report.title')} />;
   }
   return (
     <CampaignReport
@@ -350,8 +353,9 @@ export function OrgAppCampaignReport() {
 /** Ma base de contacts (route campaigns/contacts). */
 export function OrgAppContactBase() {
   const { organizerId, organizationName, organizationLogoUrl, loading } = useActingOrganizer();
+  const { t } = useLanguage();
   if (!organizerId || loading) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    return <ProPageSkeleton variant="table" title={t('cbase.title')} />;
   }
   return (
     <ContactBasePanel
@@ -364,12 +368,13 @@ export function OrgAppContactBase() {
 /** Page Automatisations email (route campaigns/automations). */
 export function OrgAppEmailAutomations() {
   const { organizerId, organizationName, organizationLogoUrl, loading } = useActingOrganizer();
+  const { t } = useLanguage();
   const logoUrl = useOrganizerLogo(
     organizerId,
     organizationLogoUrl,
   );
   if (!organizerId || loading) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    return <ProPageSkeleton variant="list" title={t('em.auto.title')} />;
   }
   return (
     <EmailAutomationsPanel

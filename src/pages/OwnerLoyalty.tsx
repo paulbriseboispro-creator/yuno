@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { TierBadge } from '@/components/loyalty/TierBadge';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLoyaltyManagement } from '@/hooks/useLoyalty';
@@ -201,7 +202,7 @@ export default function OwnerLoyalty() {
     ? ((stats.totalPointsRedeemed / stats.totalPointsIssued) * 100).toFixed(1)
     : '0';
 
-  if (loading || venueLoading) return <OwnerPageSkeleton />;
+  if (loading || venueLoading) return <ProPageSkeleton variant="form" title={t('loyalty.title')} />;
 
   if (!venueId) return (
     <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
@@ -213,7 +214,7 @@ export default function OwnerLoyalty() {
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       <OwnerHeader title={t('loyalty.title')} showBackButton backTo="/owner" />
 
-      <div className="mx-auto max-w-4xl p-4">
+      <div className={`${PRO_PAGE} py-4`}>
 
         <AnimatePresence mode="wait">
           <motion.div key="loyalty" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
@@ -253,6 +254,11 @@ export default function OwnerLoyalty() {
                     ))}
                   </div>
 
+                  {/* Grand écran : le programme (paliers, récompenses, chiffres) à
+                      gauche, ses réglages en colonne à droite qui reste en vue.
+                      Au téléphone l'ordre ne bouge pas (réglages en dernier). */}
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+                  <div className="min-w-0 space-y-5">
                   {/* Tier Distribution */}
                   {tierChartData.length > 0 && (
                     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
@@ -299,7 +305,7 @@ export default function OwnerLoyalty() {
                       <p style={{ color: T3, fontSize: 14, margin: 0 }}>{t('loyaltyOwner.noRewards')}</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="grid gap-3 lg:grid-cols-2">
                       {rewards.map((reward, i) => {
                         const typeConfig = REWARD_TYPES.find(rt => rt.value === reward.reward_type);
                         const Icon = typeConfig?.Icon || Gift;
@@ -343,6 +349,7 @@ export default function OwnerLoyalty() {
                     </div>
                   )}
 
+                  <div className="grid items-start gap-5 2xl:grid-cols-2">
                   {/* Tier Classification */}
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
                     <h3 className="flex items-center gap-2 mb-3" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 12 }}>
@@ -392,8 +399,11 @@ export default function OwnerLoyalty() {
                     </div>
                   </div>
 
+                  </div>
+                  </div>
+
                   {/* Settings */}
-                  <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
+                  <div className="xl:sticky xl:top-20" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
                     <h3 className="flex items-center gap-2 mb-4" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 16 }}>
                       <Settings className="h-4 w-4" style={{ color: RED }} />
                       {t('loyalty.settings')}
@@ -448,6 +458,7 @@ export default function OwnerLoyalty() {
                         }
                       </button>
                     </div>
+                  </div>
                   </div>
                 </>
               )}

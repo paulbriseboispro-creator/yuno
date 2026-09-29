@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Database, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
 import { toast } from 'sonner';
@@ -144,7 +146,7 @@ export default function OwnerCampaigns() {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
-      <div className="max-w-[1340px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className={cn(PRO_PAGE, 'py-8')} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
@@ -497,7 +499,7 @@ function KpiCard({ label, value, sub, red }: { label: string; value: string; sub
 
 export function OwnerCampaignEditor({ templateMode = false }: { templateMode?: boolean } = {}) {
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <OwnerPageSkeleton />;
+  if (loading || !venueId) return <ProPageSkeleton variant="form" />;
   return (
     <StudioShell
       basePath="/owner/campaigns"
@@ -520,8 +522,9 @@ export function OwnerCampaignTemplateEditor() {
 }
 
 export function OwnerCampaignReport() {
+  const { t } = useLanguage();
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <OwnerPageSkeleton />;
+  if (loading || !venueId) return <ProPageSkeleton variant="detail" title={t('em.report.title')} />;
   return (
     <CampaignReport
       basePath="/owner/campaigns"
@@ -540,8 +543,9 @@ export function OwnerCampaignReport() {
 /** Page Automatisations email (route campaigns/automations). */
 /** Ma base de contacts (route campaigns/contacts). */
 export function OwnerContactBase() {
+  const { t } = useLanguage();
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <OwnerPageSkeleton />;
+  if (loading || !venueId) return <ProPageSkeleton variant="table" title={t('cbase.title')} />;
   return (
     <ContactBasePanel
       basePath="/owner/campaigns"
@@ -551,8 +555,9 @@ export function OwnerContactBase() {
 }
 
 export function OwnerEmailAutomations() {
+  const { t } = useLanguage();
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <OwnerPageSkeleton />;
+  if (loading || !venueId) return <ProPageSkeleton variant="list" title={t('em.auto.title')} />;
   return (
     <EmailAutomationsPanel
       basePath="/owner/campaigns"

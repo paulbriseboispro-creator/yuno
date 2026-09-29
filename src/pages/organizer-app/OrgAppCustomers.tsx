@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useToast } from '@/hooks/use-toast';
@@ -480,7 +481,7 @@ export default function OrgAppCustomers() {
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 pb-12 space-y-5">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 pb-12 space-y-5`}>
         <OrgPageHeader
           title={t('customers.title')}
           subtitle={t('owner.cust.subtitleOrg')}

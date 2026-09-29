@@ -26,6 +26,8 @@ import { studioScopeArgs, studioScopeId } from '@/components/email-studio/hooks'
 import ContactImportDialog, { type ImportScope } from '@/components/contacts/ContactImportDialog';
 import CampaignImpactCard, { StatusBar, StatusLegend } from '@/components/contacts/CampaignImpactCard';
 import { exportContactBase } from '@/lib/contactBaseExport';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { cn } from '@/lib/utils';
 import type { ContactIntelligenceOverview } from '@/lib/contactSegments';
 import {
   CONTACT_ORIGINS, ORIGIN_COLOR, STATUS_COLOR, displayName, fill, fmtDate, fmtDateTime, fmtEuro, fmtN, impactFromOverview, segmentDeltas,
@@ -198,7 +200,7 @@ export default function ContactBasePanel({ scope, basePath }: {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
-      <div className="max-w-[1340px] mx-auto px-4 sm:px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className={cn(PRO_PAGE, 'py-8')} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
         <div className="flex flex-wrap items-end gap-3">
@@ -244,6 +246,10 @@ export default function ContactBasePanel({ scope, basePath }: {
             sub={fill(t('cbase.kpi.activeSub'), { n: fmtN(ov?.engagement?.sent_any, language) })} />
         </div>
 
+        {/* ── Engagement + segments : côte à côte sur grand écran (deux cartes
+             courtes, faites de pastilles — étirées sur toute la largeur elles
+             laissaient une moitié vide chacune). ── */}
+        <div className="grid items-start xl:grid-cols-2" style={{ gap: 18 }}>
         {/* ── Engagement ── */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>
           <div className="flex flex-wrap items-baseline justify-between gap-2" style={{ marginBottom: 10 }}>
@@ -271,12 +277,12 @@ export default function ContactBasePanel({ scope, basePath }: {
 
         {/* ── Depuis vos dernières campagnes ── */}
         {impacts.length > 0 && (
-          <div>
+          <div className="xl:order-last xl:col-span-2">
             <div className="flex items-baseline justify-between" style={{ marginBottom: 10 }}>
               <h3 style={{ margin: 0, color: T1, fontSize: 15.5, fontWeight: 600 }}>{t('cbase.impacts.title')}</h3>
               <span style={{ color: T3, fontSize: 11.5 }}>{t('cbase.impacts.hint')}</span>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 12 }}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4" style={{ gap: 12 }}>
               {impacts.slice(0, 4).map((i) => <CampaignImpactCard key={i.campaignId} impact={i} basePath={basePath} compact />)}
             </div>
           </div>
@@ -319,6 +325,8 @@ export default function ContactBasePanel({ scope, basePath }: {
               })}
             </div>
           )}
+        </div>
+
         </div>
 
         {/* ── La liste ── */}

@@ -12,6 +12,7 @@ import { format, type Locale } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ComingSoonBanner } from '@/components/ComingSoonBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -124,7 +125,20 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   };
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+    // Squelette de la forme de la page (solde + effectifs, puis la liste), pas
+    // un spinner : l'en-tête de la page hôte est déjà là.
+    return (
+      <div className="space-y-5" aria-busy="true">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Skeleton className="h-[92px] rounded-xl sm:col-span-2 lg:col-span-2" />
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[92px] rounded-xl" />)}
+        </div>
+        <Skeleton className="h-4 w-64 rounded-md" />
+        <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-[92px] rounded-xl" />)}
+        </div>
+      </div>
+    );
   }
 
   if (selectedId) {
@@ -227,7 +241,7 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid items-start gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {campaigns.map((c) => {
             const delivered = c.delivered_count;
             const failed = c.failed_count + c.undelivered_count;
@@ -276,8 +290,10 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         </div>
       )}
 
-      {/* Listes importées */}
-      {overview && overview.imports.length > 0 && (
+      {/* Listes importées + base par soirée : côte à côte sur grand écran. */}
+      {overview && (overview.imports.length > 0 || overview.events.length > 0) && (
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+      {overview.imports.length > 0 && (
         <Card className="border-white/[0.06] bg-surface/40">
           <CardContent className="p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -297,7 +313,7 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
       )}
 
       {/* Base par soirée */}
-      {overview && overview.events.length > 0 && (
+      {overview.events.length > 0 && (
         <Card className="border-white/[0.06] bg-surface/40">
           <CardContent className="p-4">
             <p className="mb-2 text-sm font-medium text-foreground">{t('smsc.overview.byEvent')}</p>
@@ -311,6 +327,8 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
             </ul>
           </CardContent>
         </Card>
+      )}
+      </div>
       )}
 
       <SmsCampaignEditor

@@ -14,8 +14,8 @@ import { ArrowRight, Loader2, Sparkles, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { type AutomationKind, type AutomationSuggestion } from '@/lib/email';
-import { useEmailTemplates, type StudioScope } from '@/components/email-studio/hooks';
+import { templateContentToRow, type AutomationKind, type AutomationSuggestion, type TemplateContent } from '@/lib/email';
+import type { StudioScope } from '@/components/email-studio/hooks';
 import { turnOnAutomation } from './automationSwitch';
 
 const RED = '#E8192C';
@@ -28,29 +28,58 @@ const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 
-export default function AutomationSuggestions({ scope, basePath, variant, onEnabled }: {
+export default function AutomationSuggestions({ scope, basePath, variant, onEnabled, createTemplate }: {
   scope: StudioScope;
   /** Racine des campagnes de la portée (`/owner/campaigns`, `/organizer-app/campaigns`). */
   basePath: string;
   variant: 'banner' | 'card';
   /** Appelé après une activation réussie (la page Automatisations relit ses recettes). */
   onEnabled?: () => void;
+  /**
+   * Création du modèle Yuno de la recette. La page Automatisations passe le
+   * `create` de SA liste de modèles (qui se rafraîchit) ; sans lui, l'insert
+   * se fait ici. Avant, ce composant montait son propre `useEmailTemplates` :
+   * une seconde lecture de `email_campaign_templates` à chaque page, pour un
+   * bouton que la plupart des visites ne pressent jamais.
+   */
+  createTemplate?: (name: string, description: string, content: TemplateContent) => Promise<string | null>;
 }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { create } = useEmailTemplates(scope);
   const [items, setItems] = useState<AutomationSuggestion[] | null>(null);
   const [busy, setBusy] = useState<AutomationKind | null>(null);
   const isPlatform = scope.kind === 'platform';
+  // Primitives : `scope` arrive en littéral, recréé à chaque rendu de la page
+  // hôte — en dépendance il relançait la RPC à chaque rendu (4× au montage).
+  const venueArg = scope.kind === 'venue' ? scope.venueId : null;
+  const orgArg = scope.kind === 'organizer' ? scope.organizerId : null;
 
   const load = useCallback(async () => {
     if (isPlatform) { setItems([]); return; }
     const { data } = await supabase.rpc('get_email_automation_suggestions' as never, {
-      p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
-      p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+      p_venue_id: venueArg,
+      p_organizer_user_id: orgArg,
     } as never);
     setItems(Array.isArray(data) ? (data as unknown as AutomationSuggestion[]) : []);
-  }, [scope, isPlatform]);
+  }, [venueArg, orgArg, isPlatform]);
+
+  /** Même écriture que `useEmailTemplates(scope).create`, sans relire la liste. */
+  const create = useCallback(async (name: string, description: string, content: TemplateContent): Promise<string | null> => {
+    if (createTemplate) return createTemplate(name, description, content);
+    const { data: auth } = await supabase.auth.getUser();
+    const payload: Record<string, unknown> = {
+      ...templateContentToRow(content),
+      name: name.trim().slice(0, 80),
+      description: description.trim().slice(0, 240),
+      created_by: auth.user?.id || null,
+    };
+    if (venueArg) payload.venue_id = venueArg;
+    else if (orgArg) payload.organizer_user_id = orgArg;
+    const { data, error } = await supabase.from('email_campaign_templates')
+      .insert(payload as never).select('id').single();
+    if (error || !data) return null;
+    return (data as { id: string }).id;
+  }, [createTemplate, venueArg, orgArg]);
 
   useEffect(() => { void load(); }, [load]);
 
