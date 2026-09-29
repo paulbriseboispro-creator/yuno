@@ -86,10 +86,16 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   const [parts, setParts] = useState<Part[]>([]);
   const [entriesByPart, setEntriesByPart] = useState<Record<string, PartEntry[]>>({});
   const [loading, setLoading] = useState(true);
+  // Soirée dont les parts sont réellement chargées. Au changement de soirée,
+  // `loading` vaut encore `false` (état de la soirée précédente) pendant un
+  // rendu : la page montait alors ses sous-composants (demandes, enveloppe
+  // agence…), les démontait au `setLoading(true)` puis les remontait — chaque
+  // requête partait deux fois. On ne se dit prêt que pour la soirée chargée.
+  const [loadedEventId, setLoadedEventId] = useState<string | null>(null);
   const partIdsRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
-    if (!eventId) { setParts([]); setEntriesByPart({}); setLoading(false); return; }
+    if (!eventId) { setParts([]); setEntriesByPart({}); setLoading(false); setLoadedEventId(eventId); return; }
     setLoading(true);
 
     // Cast client : agency_id / agency_distribution_mode ne sont pas encore dans
@@ -146,6 +152,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
       setEntriesByPart({});
     }
     setLoading(false);
+    setLoadedEventId(eventId);
   }, [eventId]);
 
   useEffect(() => { load(); }, [load]);
@@ -278,7 +285,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   }, []);
 
   return {
-    parts, entriesByPart, loading, reload: load,
+    parts, entriesByPart, loading: loading || loadedEventId !== eventId, reload: load,
     createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart,
     updatePart, deletePart, setActive, setSoldOut,
   };

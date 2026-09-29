@@ -14,7 +14,8 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -340,7 +341,7 @@ export default function OwnerTables() {
   const getEventPreset = (eventId: string) => { const s = eventSettings.find(s => s.eventId === eventId); if (!s?.presetId) return undefined; return presets.find(p => p.id === s.presetId); };
   const openApplyPresetDialog = (event: Event) => { setSelectedEventForPreset(event); setIsApplyPresetDialogOpen(true); };
 
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="cards" title={t('tables.title')} />;
 
   const TABS: { key: TabKey; label: string; Icon: any }[] = [
     { key: 'events',  label: t('tables.events'),  Icon: Calendar },
@@ -358,7 +359,7 @@ export default function OwnerTables() {
 
       <OwnerHeader title={t('tables.title')} />
 
-      <main className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 pb-4 space-y-4">
+      <main className={`relative z-10 ${PRO_PAGE} pt-2 pb-4 space-y-4`}>
         <CollabReadOnlyBanner action={t('collab.action.manageTables')} />
 
         {/* Floor Plan Card */}
@@ -368,7 +369,7 @@ export default function OwnerTables() {
             <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('vipHost.floorPlan')}</p>
           </div>
           {floorPlan ? (
-            <div className="space-y-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.18)' }}>
                 <LayoutGrid className="w-4 h-4 flex-shrink-0" style={{ color: POS }} />
                 <div>
@@ -442,7 +443,9 @@ export default function OwnerTables() {
                     <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                     <p style={{ color: T3, fontSize: 13 }}>{t('tables.noEvents')}</p>
                   </div>
-                ) : events.map(ev => (
+                ) : (
+                  <div className="grid gap-3 xl:grid-cols-2">
+                  {events.map(ev => (
                   <motion.div key={ev.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 20px' }}>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -508,7 +511,9 @@ export default function OwnerTables() {
                       )}
                     </div>
                   </motion.div>
-                ))}
+                  ))}
+                  </div>
+                )}
                 {zones.length === 0 && events.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: 'rgba(252,211,77,0.06)', border: '1px solid rgba(252,211,77,0.2)' }}>
                     <p style={{ color: 'var(--acc-fcd34d)', fontSize: 12.5 }}>
@@ -541,7 +546,7 @@ export default function OwnerTables() {
                     <p style={{ color: T3, fontSize: 13 }}>{t('tables.noZones')}</p>
                   </div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                     {zones.map(zone => {
                       const zonePacks = packs.filter(p => p.zoneId === zone.id);
                       return (
@@ -598,7 +603,7 @@ export default function OwnerTables() {
                             <div className="w-3 h-3 rounded-full" style={{ background: zone.color }} />
                             <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{zone.name}</p>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                             {zonePacks.map(pack => (
                               <div key={pack.id} style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: 16 }}>
                                 <div className="flex items-start justify-between mb-2">
@@ -651,7 +656,7 @@ export default function OwnerTables() {
                     <FolderOpen className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} /><p style={{ color: T3 }}>{t('tables.noPresets')}</p>
                   </div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                     {presets.map(preset => (
                       <div key={preset.id} style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>
                         <div className="flex items-start justify-between mb-3">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -496,7 +497,7 @@ export default function OwnerDJDetail() {
     return payments.reduce((sum, p) => sum + p.amount, 0);
   }, [payments]);
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="detail" />;
 
   if (!dj) {
     return (
@@ -513,7 +514,7 @@ export default function OwnerDJDetail() {
         backTo={`${basePath}/djs`}
       />
 
-      <div className="mx-auto max-w-4xl p-4">
+      <div className={`${PRO_PAGE} py-4`}>
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
@@ -585,7 +586,8 @@ export default function OwnerDJDetail() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Formulaire en deux colonnes sur grand écran. */}
+              <div className="grid gap-4 xl:grid-cols-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>{t('ownerDj.firstName')}</Label>
@@ -637,7 +639,7 @@ export default function OwnerDJDetail() {
                   />
                 </div>
 
-                <div>
+                <div className="xl:col-span-2">
                   <Label>{t('ownerDj.musicGenres')}</Label>
                   <Input
                     value={editForm.genres}
@@ -646,7 +648,7 @@ export default function OwnerDJDetail() {
                   />
                 </div>
 
-                <div>
+                <div className="xl:col-span-2">
                   <Label>Bio</Label>
                   <Textarea
                     value={editForm.bio}
@@ -655,7 +657,7 @@ export default function OwnerDJDetail() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between xl:col-span-2">
                   <Label>{t('ownerDj.active')}</Label>
                   <Switch
                     checked={editForm.isActive}
@@ -663,7 +665,7 @@ export default function OwnerDJDetail() {
                   />
                 </div>
 
-                <Button onClick={handleSave} disabled={saving} className="w-full">
+                <Button onClick={handleSave} disabled={saving} className="w-full xl:col-span-2 xl:w-auto xl:justify-self-end">
                   <Save className="h-4 w-4 mr-2" />
                   {t('ownerDj.save')}
                 </Button>
@@ -688,6 +690,8 @@ export default function OwnerDJDetail() {
                 </div>
               )}
 
+              {/* Calendrier et liste des sets côte à côte sur grand écran. */}
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
               <DJCalendar
                 sets={sets.map(s => ({ ...s, dj: { first_name: dj.first_name, last_name: dj.last_name, stage_name: dj.stage_name } }))}
                 showDJNames={false}
@@ -730,13 +734,16 @@ export default function OwnerDJDetail() {
                   </div>
                 )}
               </Card>
+              </div>
             </div>
           </TabsContent>
 
           <TabsContent value="payments">
+            {/* Contrats et paiements côte à côte sur grand écran. */}
+            <div className={contracts.length > 0 ? 'grid gap-4 xl:grid-cols-2 xl:items-start' : undefined}>
             {/* Secured contracts (option) */}
             {contracts.length > 0 && (
-              <Card className="p-4 mb-4">
+              <Card className="p-4">
                 <h3 className="font-semibold mb-1 flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-primary" />
                   {st('Contrats sécurisés', 'Secured contracts', 'Contratos seguros')}
@@ -868,6 +875,7 @@ export default function OwnerDJDetail() {
                 </div>
               )}
             </Card>
+            </div>
           </TabsContent>
 
         </Tabs>

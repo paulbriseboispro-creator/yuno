@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { UpdatedAt } from '@/components/analytics/kit';
@@ -131,14 +132,14 @@ export default function PromoCodes() {
     }
   };
 
-  if (scopeLoading || !ready) return <OwnerPageSkeleton />;
+  if (scopeLoading || !ready) return <ProPageSkeleton variant="list" title={t('pc.title')} />;
 
   return (
     <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       {/* Club : l'en-tête collant de ses autres pages (titre, cloche, langue,
           profil). L'organisateur a déjà la barre de son layout. */}
       {!isOrg && <OwnerHeader title={t('pc.title')} />}
-      <div className="relative z-10 mx-auto max-w-[1340px] space-y-5 px-4 py-6 sm:px-6">
+      <div className={`relative z-10 ${PRO_PAGE} space-y-5 py-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {isOrg && (
@@ -177,7 +178,7 @@ export default function PromoCodes() {
               <p className="mx-auto mt-1 max-w-[52ch]" style={{ color: KIT.T3, fontSize: 12.5 }}>{t('pc.emptyHint')}</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 xl:grid-cols-2">
               {rows.map((r) => {
                 const link = r.eventId ? `${PUBLIC_BASE_URL}/event/${r.eventId}?promo=${encodeURIComponent(r.code)}` : null;
                 const discountLabel = r.discountType === 'percentage'

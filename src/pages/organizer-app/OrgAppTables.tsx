@@ -5,7 +5,7 @@ import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { capturePosthog } from '@/lib/posthog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye, Pencil } from 'lucide-react';
+import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye, Pencil } from 'lucide-react';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import type { VenueFloorPlan } from '@/types';
 import { toast } from 'sonner';
@@ -18,6 +18,8 @@ import {
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { orgEventsOr } from '@/lib/coorg';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 interface OrgTableEvent {
   id: string;
@@ -235,8 +237,11 @@ export default function OrgAppTables() {
     packs: Array.isArray(r.packs) ? r.packs.length : 0,
   });
 
+  if (loading) return <ProPageSkeleton variant="list" title={tt('Tables VIP', 'VIP Tables', 'Mesas VIP')} />;
+
   return (
     <>
+      <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={tt('Tables VIP', 'VIP Tables', 'Mesas VIP')}
         subtitle={tt(
@@ -250,10 +255,6 @@ export default function OrgAppTables() {
           </OrgButton>
         }
       />
-      <OrgPage>
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
-        ) : (
           <div className="space-y-4">
             <OrgTabs<Tab>
               value={tab}
@@ -274,7 +275,7 @@ export default function OrgAppTables() {
                   action={<OrgButton variant="primary" onClick={() => navigate('/organizer-app/events')}>{tt('Mes soirées', 'My events', 'Mis noches')}</OrgButton>}
                 />
               ) : (
-                <div className="space-y-2">
+                <div className="grid gap-2 xl:grid-cols-2">
                   {events.map((e) => {
                     const s = statusOf(e);
                     const Icon = s.icon;
@@ -351,7 +352,7 @@ export default function OrgAppTables() {
                   )}
                 />
               ) : (
-                <div className="space-y-2">
+                <div className="grid gap-2 xl:grid-cols-2">
                   {rooms.map((r) => {
                     const st = roomStats(r);
                     return (
@@ -390,7 +391,7 @@ export default function OrgAppTables() {
                     );
                   })}
                   {soloUpcoming.length === 0 && (
-                    <p style={{ color: T3, fontSize: 12 }}>
+                    <p className="col-span-full" style={{ color: T3, fontSize: 12 }}>
                       {tt('Créez une soirée sans club pour y rejouer une salle VIP.', 'Create an event without a club to replay a VIP room on it.', 'Crea una noche sin club para reutilizar una sala VIP.')}
                     </p>
                   )}
@@ -398,7 +399,6 @@ export default function OrgAppTables() {
               )
             )}
           </div>
-        )}
       </OrgPage>
 
       {/* Rejouer une salle → choisir la soirée cible */}

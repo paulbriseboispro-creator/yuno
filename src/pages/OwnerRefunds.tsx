@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -354,11 +355,11 @@ export default function OwnerRefunds() {
     <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen dashboard-gradient-bg pb-24'}>
       {!isOrganizerScope && <OwnerHeader title={t('refund.title')} showBackButton backTo="/owner/dashboard" />}
 
-      <div className="mx-auto max-w-3xl p-4 space-y-4">
+      <div className={`${PRO_PAGE} py-4 space-y-4`}>
         {isOrganizerScope && (
           <h1 className="mb-1" style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('refund.title')}</h1>
         )}
-        <div>
+        <div className="xl:max-w-xl">
           <label className="text-sm font-medium mb-1.5 block">{t('refund.selectEvent')}</label>
           <Select value={selectedEventId} onValueChange={setSelectedEventId}>
             <SelectTrigger>
@@ -376,7 +377,7 @@ export default function OwnerRefunds() {
 
         {selectedEventId && (
           <Tabs defaultValue="pending" onValueChange={(v) => { if (v === 'analyse' && !globalRefundAnalytics) fetchGlobalRefundAnalytics(); }}>
-            <TabsList className="w-full owner-tabs">
+            <TabsList className="w-full owner-tabs lg:w-auto">
               <TabsTrigger value="pending" className="flex-1 gap-1">
                 {t('refund.pendingTab')}
                 {items.length > 0 && <Badge variant="secondary" className="ml-1">{items.length}</Badge>}
@@ -414,7 +415,7 @@ export default function OwnerRefunds() {
                     </Button>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="grid gap-3 lg:grid-cols-2 lg:items-start 2xl:grid-cols-3">
                     {customerGroups.map(group => (
                       <RefundCustomerCard
                         key={group.email}
@@ -427,9 +428,9 @@ export default function OwnerRefunds() {
                   </div>
 
                   {selectedIds.size > 0 && (
-                    <div className="sticky bottom-20 z-10">
+                    <div className="sticky bottom-20 z-10 lg:flex lg:justify-end">
                       <Button
-                        className="w-full bg-red-600 hover:bg-red-700 text-snow"
+                        className="w-full bg-red-600 hover:bg-red-700 text-snow lg:w-auto lg:px-10"
                         size="lg"
                         onClick={() => setDialogOpen(true)}
                       >
@@ -445,7 +446,8 @@ export default function OwnerRefunds() {
               {refundedItems.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground text-sm">{t('refund.noHistory')}</p>
               ) : (
-                refundedItems.map(ri => (
+                <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+                {refundedItems.map(ri => (
                   <div key={ri.id} className="p-3 rounded-lg owner-list-item">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium">{ri.email}</span>
@@ -454,7 +456,8 @@ export default function OwnerRefunds() {
                     <p className="text-xs text-muted-foreground">{ri.reason}</p>
                     <p className="text-xs text-muted-foreground">{ri.refunded_at ? new Date(ri.refunded_at).toLocaleString() : ''}</p>
                   </div>
-                ))
+                ))}
+                </div>
               )}
             </TabsContent>
 

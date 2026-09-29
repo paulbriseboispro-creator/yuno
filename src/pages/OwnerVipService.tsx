@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
 import { VipMenuManager } from '@/components/owner/VipMenuManager';
 import { VipQRCodeSection } from '@/components/owner/VipQRCodeSection';
@@ -114,6 +114,10 @@ export default function OwnerVipService() {
   // Résout le plan de salle en préférant celui de l'ÉVÉNEMENT sélectionné (basic mode)
   // puis en retombant sur le plan venue-scoped. Sinon la carte live du Placement reste
   // vide pour les events à plan dédié (bug remonté).
+  // Le plan « club » (sans soirée) ne dépend que du club : lu une seule fois.
+  // Avant, il partait deux fois au montage — une fois avec « toutes les
+  // soirées », une fois après la sélection automatique de la soirée en cours.
+  const venuePlanRef = useRef<{ venueId: string; plan: Promise<Tables<'venue_floor_plans'> | null> } | null>(null);
   useEffect(() => {
     if (!venueId) return;
     let cancelled = false;
@@ -124,8 +128,15 @@ export default function OwnerVipService() {
         fp = data;
       }
       if (!fp) {
-        const { data } = await supabase.from('venue_floor_plans').select('*').eq('venue_id', venueId).is('event_id', null).maybeSingle();
-        fp = data;
+        if (venuePlanRef.current?.venueId !== venueId) {
+          venuePlanRef.current = {
+            venueId,
+            plan: Promise.resolve(
+              supabase.from('venue_floor_plans').select('*').eq('venue_id', venueId).is('event_id', null).maybeSingle(),
+            ).then(({ data }) => data),
+          };
+        }
+        fp = await venuePlanRef.current.plan;
       }
       if (cancelled) return;
       setFloorPlan(fp ? {
@@ -241,7 +252,7 @@ export default function OwnerVipService() {
   const itemTypeTone = (type: string): 'warn' | 'info' | 'success' =>
     type === 'bottle' ? 'warn' : type === 'extra' ? 'info' : 'success';
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('owner.vipService')} />;
 
   const tabs: { id: VipTab; label: string; icon: LucideIcon; badge?: number }[] = [
     { id: 'overview', label: t('owner.overview'), icon: BarChart3 },
@@ -325,7 +336,7 @@ export default function OwnerVipService() {
 
           {/* Placement & Live Floor Plan */}
           {activeTab === 'placement' && (
-            <div className="space-y-4">
+            <div className={floorPlan ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start' : 'space-y-4'}>
               {floorPlan && (
                 <VipCard
                   icon={<LayoutGrid className="w-4 h-4" />}
@@ -375,7 +386,7 @@ export default function OwnerVipService() {
                   description={t('vipHost.addHostHint')}
                 />
               ) : (
-                <div className="space-y-2">
+                <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
                   {vipHosts.map(host => (
                     <div
                       key={host.id}
@@ -404,7 +415,7 @@ export default function OwnerVipService() {
 
           {/* Settings */}
           {activeTab === 'settings' && (
-            <div className="space-y-4">
+            <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
               {/* Placement Toggle */}
               <VipCard>
                 <div className="flex items-center justify-between gap-4">

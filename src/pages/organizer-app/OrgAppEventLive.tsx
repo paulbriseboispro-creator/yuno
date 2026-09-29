@@ -4,10 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { EventLiveModule } from '@/components/owner/co-event/EventLiveModule';
 import { LiveVisitorsPanel } from '@/components/live/LiveVisitorsPanel';
 import { OrgPage, POS, T1, T3 } from '@/components/org-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 export default function OrgAppEventLive() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -32,13 +34,13 @@ export default function OrgAppEventLive() {
   }, [eventId]);
 
   if (loading || !event) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>;
+    return <ProPageSkeleton variant="analytics" />;
   }
 
   const venueIdForLive = event.venue_id || event.partner_venue_id || null;
 
   return (
-    <OrgPage className="mx-auto max-w-7xl">
+    <OrgPage className={PRO_PAGE}>
       <div className="mb-4 flex items-center justify-between">
         <button onClick={() => navigate(`/organizer-app/events/${eventId}`)} className="inline-flex items-center gap-1 text-[13px]" style={{ color: T3 }}>
           <ArrowLeft className="h-4 w-4" /> {t('Retour', 'Back')}

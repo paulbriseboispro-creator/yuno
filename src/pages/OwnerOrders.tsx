@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Wine, Ticket, Crown, ClipboardList } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { supabase } from '@/integrations/supabase/client';
 import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
@@ -73,9 +74,9 @@ export default function OwnerOrders() {
   }, [isOrganizerScope, organizerUserId]);
 
   if (isOrganizerScope) {
-    if (!organizerUserId) return <OwnerPageSkeleton />;
+    if (!organizerUserId) return <ProPageSkeleton variant="table" title={t('owner.ordersManagement')} />;
   } else if (venueLoading || !venueId) {
-    return <OwnerPageSkeleton />;
+    return <ProPageSkeleton variant="table" title={t('owner.ordersManagement')} />;
   }
 
   const orgReady = !isOrganizerScope || orgEventIds !== null;
@@ -111,7 +112,7 @@ export default function OwnerOrders() {
 
       {!isOrganizerScope && <OwnerHeader title={t('owner.ordersManagement')} />}
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-4 sm:pt-2">
+      <div className={`relative z-10 ${PRO_PAGE} pt-4 sm:pt-2`}>
         {/* Org scope has no OwnerHeader — give the page its own title. */}
         {isOrganizerScope && (
           <h1 className="mb-5 text-[20px] font-semibold tracking-[-0.01em]" style={{ color: T1 }}>

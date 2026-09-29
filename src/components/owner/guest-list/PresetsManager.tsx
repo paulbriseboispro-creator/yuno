@@ -46,6 +46,7 @@ export function PresetsManager({ templates, onNew, onEdit, onDelete, t }: Preset
               <p style={{ color: T3, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
                 {t(`guestList.holderType.${group}`)}
               </p>
+              <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
               {items.map(tpl => (
                 <div key={tpl.id} className="flex items-center gap-3" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px 16px' }}>
                   <div className="min-w-0 flex-1">
@@ -70,6 +71,7 @@ export function PresetsManager({ templates, onNew, onEdit, onDelete, t }: Preset
                   </button>
                 </div>
               ))}
+              </div>
             </div>
           );
         })

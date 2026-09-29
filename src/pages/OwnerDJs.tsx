@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Music, Search, Phone, MoreVertical, Trash2, Eye, RefreshCw, Mail, Clock, X, Calendar } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { DJCalendar } from '@/components/dj/DJCalendar';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
@@ -287,7 +288,7 @@ export default function OwnerDJs() {
     return dj.first_name.toLowerCase().includes(q) || dj.last_name.toLowerCase().includes(q) || (dj.stage_name && dj.stage_name.toLowerCase().includes(q));
   });
 
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="cards" title={t('owner.djManagement')} />;
 
   const tabs = [
     { key: 'calendar' as const, label: t('owner.calendar'), Icon: Calendar },
@@ -298,7 +299,7 @@ export default function OwnerDJs() {
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && <OwnerHeader title={t('owner.djManagement')} />}
 
-      <div className="mx-auto max-w-7xl p-4">
+      <div className={`${PRO_PAGE} py-4`}>
         <CollabReadOnlyBanner action={t('collab.action.inviteDjs')} />
 
         {/* Tabs + Add button */}
@@ -360,7 +361,7 @@ export default function OwnerDJs() {
                       {pendingInvitations.length}
                     </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
                     {pendingInvitations.map(inv => (
                       <div key={inv.id} className="flex items-center justify-between" style={{ padding: '10px 12px', borderRadius: 10, background: TILE_BG }}>
                         <div className="min-w-0 flex-1">
@@ -386,7 +387,7 @@ export default function OwnerDJs() {
               )}
 
               {/* Search */}
-              <div className="relative">
+              <div className="relative lg:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
                 <input
                   placeholder={t('owner.searchDJ')}
@@ -404,7 +405,7 @@ export default function OwnerDJs() {
                   <p style={{ color: T3, fontSize: 14, margin: 0 }}>{t('owner.noDJs')}</p>
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                   {filteredDJs.map(dj => (
                     <button key={dj.id} onClick={() => navigate(`${basePath}/djs/${dj.id}`)}
                       className="text-left cursor-pointer transition-all duration-150"

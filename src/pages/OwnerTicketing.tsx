@@ -23,7 +23,8 @@ import { PARIS_TIMEZONE, fromParisTime, nowInParis, toParisTime } from '@/lib/ti
 import { enUS, es, fr } from 'date-fns/locale';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { RED, POS, GOLD, T1, T2, T3, C_FAINT, BORDER, TILE_BG, CARD_SHADOW, MAIN_CARD, INNER_CARD, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from '@/components/owner/ticketing/ticketing-ui';
 import type { PresetRound, TicketPreset, TicketSalesMode, SalesDraft, RoundFormData } from '@/components/owner/ticketing/ticketing-types';
@@ -1250,7 +1251,7 @@ export default function OwnerTicketing() {
     }
   };
 
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="list" title={t('tickets.ticketManagement')} />;
 
   return (
     <div className={isOrganizerScope ? '' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
@@ -1262,7 +1263,7 @@ export default function OwnerTicketing() {
       )}
       {!isOrganizerScope && <OwnerHeader title={t('tickets.ticketManagement')} />}
 
-      <div className="relative z-10 container mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-5">
+      <div className={`relative z-10 ${PRO_PAGE} py-4 sm:py-8 space-y-5`}>
         <CollabReadOnlyBanner action={t('collab.action.createTicketing')} />
         {/* Cancellation-insurance toggle removed: the product is withdrawn from sale,
             so the control would have been inert (flipping it changed nothing for the
@@ -1628,7 +1629,7 @@ export default function OwnerTicketing() {
                               <Ticket className="h-3.5 w-3.5" />
                               {t('tickets.standardPresets')}
                             </div>
-                            <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                               {standardPresets.map((preset) => (
                                 <div key={preset.id} className="p-4" style={MAIN_CARD}>
                                   <div className="flex items-start justify-between gap-2 mb-3">
@@ -1674,7 +1675,7 @@ export default function OwnerTicketing() {
                               <Crown className="h-3.5 w-3.5" />
                               {t('tickets.vipPresets')}
                             </div>
-                            <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                               {vipPresets.map((preset) => (
                                 <div key={preset.id} className="p-4" style={{ background: 'rgba(252,211,153,0.05)', border: '1px solid rgba(252,211,153,0.18)', borderRadius: 18, boxShadow: CARD_SHADOW }}>
                                   <div className="flex items-start justify-between gap-2 mb-3">

@@ -21,6 +21,8 @@ import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
 import { buildTableRoster } from '@/lib/rosterBuilders';
 import { VipCard, VipButton, VipEmpty } from '@/components/owner/vip/vip-ui';
 import { OrgPage, OrgPageHeader, RED, T1, T3, BORDER } from '@/components/org-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 interface TableZone { id: string; name: string; color: string }
 
@@ -40,6 +42,10 @@ export default function OrgAppVipService() {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const { loading, events, reservations, consumptions, orders, refresh } = useOrganizerVipData(organizerId);
+  // Squelette de page au PREMIER chargement seulement : un `refresh()` (après
+  // une action dans une feuille) garde la page et ses feuilles montées.
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  useEffect(() => { if (!loading) setLoadedOnce(true); }, [loading]);
 
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string>(searchParams.get('event') || 'all');
@@ -139,8 +145,11 @@ export default function OrgAppVipService() {
     { id: 'placement', label: tt('Placement', 'Placement', 'Colocación'), icon: MapPin, badge: pendingPlacements },
   ];
 
+  if (loading && !loadedOnce) return <ProPageSkeleton variant="list" title={tt('Service VIP', 'VIP Service', 'Servicio VIP')} />;
+
   return (
     <>
+      <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={tt('Service VIP', 'VIP Service', 'Servicio VIP')}
         subtitle={tt(
@@ -156,7 +165,6 @@ export default function OrgAppVipService() {
           </VipButton>
         }
       />
-      <OrgPage>
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
         ) : events.length === 0 ? (
@@ -226,7 +234,7 @@ export default function OrgAppVipService() {
             )}
 
             {activeTab === 'placement' && (
-              <div className="space-y-4">
+              <div className={floorPlan && (floorPlan.layout?.tables?.length ?? 0) > 0 ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start' : 'space-y-4'}>
                 {floorPlan && (floorPlan.layout?.tables?.length ?? 0) > 0 ? (
                   <VipCard
                     icon={<LayoutGrid className="w-4 h-4" />}

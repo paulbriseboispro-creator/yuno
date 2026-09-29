@@ -27,6 +27,8 @@ import {
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
 import { orgEventsOr } from '@/lib/coorg';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 // RPC vestiaire (migration 20260929235000) pas encore dans les types générés.
 const untypedClient = supabase as unknown as SupabaseClient;
@@ -82,6 +84,8 @@ export default function OrgAppCheckin() {
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [events, setEvents] = useState<any[]>([]);
+  // Tant que la liste n'est pas lue, un squelette — pas « Aucun événement actif ».
+  const [eventsLoaded, setEventsLoaded] = useState(false);
   const [eventId, setEventId] = useState<string>('');
   const [tab, setTab] = useTabParam<ScanTab>('tickets', ['tickets', 'drinks', 'cloakroom']);
   const [ticketMode, setTicketMode] = useState<TicketMode>('entry');
@@ -162,6 +166,7 @@ export default function OrgAppCheckin() {
         .gte('end_at', new Date(Date.now() - 86_400_000).toISOString())
         .order('start_at', { ascending: true });
       setEvents(data ?? []);
+      setEventsLoaded(true);
       // Soirée par défaut : celle EN COURS, sinon la prochaine qui n'est pas
       // finie. La première de la liste était souvent celle de la veille (fenêtre
       // de 24 h) : chaque scan de 23 h disait « mauvais événement ».
@@ -547,9 +552,11 @@ export default function OrgAppCheckin() {
     }
   };
 
+  if (!eventsLoaded) return <ProPageSkeleton variant="form" title={t('Check-in', 'Check-in')} />;
+
   if (events.length === 0) {
     return (
-      <OrgPage className="mx-auto max-w-[1340px]">
+      <OrgPage className={PRO_PAGE}>
         <OrgPageHeader title={t('Check-in', 'Check-in')} subtitle={t('Scannez les QR codes des participants.', "Scan attendees' QR codes.")} />
         <OrgEmptyState icon={ScanLine} title={t('Aucun événement actif.', 'No active events.')} />
       </OrgPage>
@@ -570,7 +577,7 @@ export default function OrgAppCheckin() {
   };
 
   return (
-    <OrgPage className="mx-auto max-w-[1340px]">
+    <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={t('Check-in', 'Check-in')}
         subtitle={t('Différenciez les scans par type pour ne rien mélanger.', 'Differentiate scans by type to keep things tidy.')}

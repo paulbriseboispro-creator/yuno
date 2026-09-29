@@ -1,5 +1,6 @@
 import { ReactNode, CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * Shared design primitives for the owner VIP Service module (overview,
@@ -34,7 +35,7 @@ export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28p
 export const CAT_COLORS = [RED, '#FBBF24', '#60A5FA', '#A78BFA', POS, '#FB923C'];
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
-export function VipPage({ children, maxWidth = 1340 }: { children: ReactNode; maxWidth?: number }) {
+export function VipPage({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       {/* Top ambient vignette */}
@@ -42,7 +43,8 @@ export function VipPage({ children, maxWidth = 1340 }: { children: ReactNode; ma
         className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
-      <div className="relative z-10 mx-auto px-4 sm:px-6 pt-2 space-y-4" style={{ maxWidth }}>
+      {/* Pleine largeur de la Console (PRO_PAGE), plus de colonne centrée. */}
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
         {children}
       </div>
     </div>

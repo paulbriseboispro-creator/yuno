@@ -5,7 +5,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useProfileType } from '@/hooks/useProfileType';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { ChevronDown, Plus, QrCode, Calendar, FolderOpen, Printer } from 'lucide-react';
 import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
 import { buildGuestListRoster } from '@/lib/rosterBuilders';
@@ -230,13 +231,13 @@ export default function OwnerGuestList() {
     deleteTemplate(id).catch(e => toast.error(e instanceof Error ? e.message : t('guestList.deleteError')));
   };
 
-  if (venueLoading || loadingEvents) return <OwnerPageSkeleton />;
+  if (venueLoading || loadingEvents) return <ProPageSkeleton variant="list" title={t('guestList.title')} />;
 
   return (
     <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && <OwnerHeader title={t('guestList.title')} />}
 
-      <div className="mx-auto max-w-4xl p-4 space-y-5">
+      <div className={`${PRO_PAGE} py-4 space-y-5`}>
         {isOrganizerScope && (
           <h1 className="mb-1" style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('guestList.title')}</h1>
         )}
@@ -262,6 +263,9 @@ export default function OwnerGuestList() {
 
         {tab === 'events' && (
           <div className="space-y-5">
+        {/* Sélecteur de soirée et totaux côte à côte sur grand écran : un
+            menu déroulant étiré sur toute la largeur ne se lit plus. */}
+        <div className="grid gap-5 xl:grid-cols-2 xl:items-end">
         {/* Event Selector */}
         <div>
           <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('guestList.selectEvent')}</p>
@@ -272,8 +276,7 @@ export default function OwnerGuestList() {
         </div>
 
         {selectedEventId && !loading && (
-          <>
-            {/* Totals — modèle parts indépendantes (lecture seule) */}
+            /* Totals — modèle parts indépendantes (lecture seule) */
             <div className="flex items-center gap-4" style={{ padding: '12px 16px', borderRadius: 14, background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
               <div>
                 <p style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{totalAllocated}</p>
@@ -296,7 +299,11 @@ export default function OwnerGuestList() {
                 {t('roster.cta')}
               </button>
             </div>
+        )}
+        </div>
 
+        {selectedEventId && !loading && (
+          <>
             {/* Demandes d'allocation — pour la partie qui tient l'opérationnel */}
             {!houseReadOnly && <GuestListRequestsInbox eventId={selectedEventId} onDecided={reload} />}
 
@@ -342,6 +349,9 @@ export default function OwnerGuestList() {
               t={t}
             />
 
+            {/* Les parts côte à côte sur grand écran (deux colonnes, chacune
+                garde la largeur d'une carte lisible). */}
+            <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
             {/* Part maison — éditable si on tient l'opérationnel, sinon aperçu
                 lecture seule (modèle hybride ; le serveur la verrouille aussi). */}
             {houseReadOnly ? (
@@ -387,6 +397,7 @@ export default function OwnerGuestList() {
                 onSaveAsPreset={openPresetFromConfig}
               />
             ))}
+            </div>
 
             {/* Add a part */}
             <button onClick={() => setAddOpen(true)} className="w-full flex items-center justify-center gap-2"

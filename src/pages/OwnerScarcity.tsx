@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useScarcitySettings } from '@/hooks/useScarcitySettings';
@@ -367,9 +368,15 @@ export default function OwnerScarcity() {
   ];
 
   const content = (
-        <div className={isOrganizerScope ? 'max-w-2xl space-y-4' : 'px-4 py-6 max-w-2xl mx-auto space-y-4'}>
+        <div className={isOrganizerScope ? 'space-y-4' : `${PRO_PAGE} py-6 space-y-4`}>
           <CollabReadOnlyBanner action={t('collab.action.editScarcity')} />
 
+          {/* Deux colonnes sur grand écran : les réglages à gauche, le « comment
+              ça marche » et le choix de la soirée à droite (collants). Sur
+              téléphone l'ordre reste celui de la lecture : explication, soirée,
+              puis réglages. */}
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+          <div className="space-y-4 xl:sticky xl:top-20 xl:col-start-2 xl:row-start-1">
           {/* How it works — sets the mental model up front */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-start gap-3 rounded-2xl" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW, padding: '16px 18px' }}>
@@ -433,7 +440,9 @@ export default function OwnerScarcity() {
               {t('scarcity.noEvents')}
             </div>
           )}
+          </div>
 
+          <div className="min-w-0 space-y-4 xl:col-start-1 xl:row-start-1">
           {/* Loading */}
           {loading && (
             <div className="flex justify-center py-8">
@@ -442,7 +451,7 @@ export default function OwnerScarcity() {
           )}
 
           {settings && !loading && (
-            <>
+            <div className="grid gap-4 2xl:grid-cols-2 2xl:items-start">
               {/* STEP 1 — the single decision: what buyers see */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
                 <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px' }}>
@@ -491,6 +500,7 @@ export default function OwnerScarcity() {
                 </div>
               </motion.div>
 
+              <div className="min-w-0 space-y-4">
               {/* STEP 2 — contextual configuration for the selected mode */}
               <AnimatePresence mode="wait">
                 {/* OFF: nothing to configure, just confirm the state */}
@@ -688,8 +698,11 @@ export default function OwnerScarcity() {
                   </div>
                 </motion.div>
               )}
-            </>
+              </div>
+            </div>
           )}
+          </div>
+          </div>
         </div>
   );
 
@@ -697,7 +710,7 @@ export default function OwnerScarcity() {
   // de PlanGuard non plus, le plan d'abonnement est une notion de club.
   if (isOrganizerScope) {
     return (
-      <OrgPage>
+      <OrgPage className={PRO_PAGE}>
         <OrgPageHeader title={t('scarcity.title')} />
         {content}
       </OrgPage>

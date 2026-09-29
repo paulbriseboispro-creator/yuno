@@ -23,15 +23,20 @@ const PAGE = 40;
  * first sees local DJs; it stays editable and clearable in the filter bar. `cityReady`
  * holds the very first query until that city is known, so results never flash world
  * then local. Both default to "no home city" for the public fan page.
+ *
+ * `layout='grid'` range les cartes en grille (Console pleine largeur, page
+ * Booking DJ) ; par défaut la liste verticale d'avant (page publique /djs).
  */
 export function DJDiscovery({
   mode,
   initialCity = null,
   cityReady = true,
+  layout = 'list',
 }: {
   mode: DiscoveryMode;
   initialCity?: string | null;
   cityReady?: boolean;
+  layout?: 'list' | 'grid';
 }) {
   const { language } = useLanguage();
   const tt = makeDjT(language);
@@ -133,7 +138,11 @@ export function DJDiscovery({
           {tt('Aucun DJ ne correspond.', 'No DJs match.', 'Ningún DJ coincide.')}
         </p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div
+          style={layout === 'grid'
+            ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 440px), 1fr))', gap: 12 }
+            : { display: 'flex', flexDirection: 'column', gap: 12 }}
+        >
           {djs.map((dj, i) => (
             <FadeInView key={dj.user_id} index={i < 6 ? i : 0}>
               <DJMarketplaceCard
@@ -149,7 +158,7 @@ export function DJDiscovery({
             <button
               onClick={() => fetchPage(djs.length, false)}
               disabled={loadingMore}
-              style={{ alignSelf: 'center', marginTop: 8, padding: '10px 22px', borderRadius: 999, background: 'rgb(var(--ink)/0.05)', border: '1px solid rgb(var(--ink)/0.12)', color: 'rgb(var(--ink))', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              style={{ alignSelf: 'center', justifySelf: 'center', gridColumn: '1 / -1', marginTop: 8, padding: '10px 22px', borderRadius: 999, background: 'rgb(var(--ink)/0.05)', border: '1px solid rgb(var(--ink)/0.12)', color: 'rgb(var(--ink))', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
             >
               {loadingMore ? tt('Chargement...', 'Loading...', 'Cargando...') : tt('Voir plus', 'Load more', 'Ver más')}
             </button>

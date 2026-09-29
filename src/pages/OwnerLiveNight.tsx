@@ -18,7 +18,8 @@ import { BarStation } from '@/components/live/stations/BarStation';
 import { VipStation } from '@/components/live/stations/VipStation';
 import { CloakroomStation } from '@/components/live/stations/CloakroomStation';
 import { StaffStation } from '@/components/live/stations/StaffStation';
-import { BrandedLoader } from '@/components/BrandedLoader';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { LiveVisitorsPanel } from '@/components/live/LiveVisitorsPanel';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { bucketHourParis } from '@/lib/liveops/nightWindow';
@@ -50,7 +51,7 @@ export default function OwnerLiveNight() {
   const [capacityDialogOpen, setCapacityDialogOpen] = useState(false);
   const [showVisitors, setShowVisitors] = useState(false);
 
-  if (venueLoading || loading) return <BrandedLoader />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="analytics" title={t('live.title')} />;
 
   // End of the night: the cloakroom becomes the hot station (retrieval rush).
   const parisHour = bucketHourParis(new Date().toISOString());
@@ -91,7 +92,7 @@ export default function OwnerLiveNight() {
         }
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-3 sm:px-6 pt-2 pb-4 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 pb-4 space-y-4`}>
         {/* Event header + selector */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -148,7 +149,7 @@ export default function OwnerLiveNight() {
 
         {/* Stations */}
         {extended && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
               <DoorStation door={extended.door} incidents={extended.incidents} attendanceRate={advancedMetrics.attendanceRate} />
             </motion.div>

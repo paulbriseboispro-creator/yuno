@@ -4,6 +4,7 @@ import { makeDjT } from '@/i18n/djTranslate';
 import { useBookerHomeCity } from '@/hooks/useBookerHomeCity';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
 import { DJMatchRail } from '@/components/dj-marketplace/DJMatchRail';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 // "Book a DJ" — the booker-facing marketplace. Mounted under both /owner and
 // /organizer-app; DJDiscovery adapts the scope (venue XOR organizer) automatically,
@@ -23,14 +24,14 @@ export default function BookDJPage() {
   return (
     <div className="min-h-screen bg-background">
       {isOrganizerScope ? (
-        <header className="mx-auto max-w-3xl px-4 pt-6 sm:px-6">
+        <header className={`${PRO_PAGE} pt-6`}>
           <h1 className="text-xl font-semibold">{title}</h1>
         </header>
       ) : (
         <OwnerHeader title={title} />
       )}
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <p className="mb-5 text-sm text-muted-foreground">
+      <main className={`${PRO_PAGE} py-6`}>
+        <p className="mb-5 max-w-[80ch] text-sm text-muted-foreground">
           {tt(
             'Trouve un DJ, vérifie ses dispos et envoie une demande de booking. Les profils les mieux tenus remontent en premier.',
             'Find a DJ, check availability and send a booking request. The best-kept profiles rise to the top.',
@@ -43,7 +44,7 @@ export default function BookDJPage() {
           <DJMatchRail />
         </div>
 
-        <DJDiscovery mode="booker" initialCity={homeCity} cityReady={cityReady} />
+        <DJDiscovery mode="booker" initialCity={homeCity} cityReady={cityReady} layout="grid" />
       </main>
     </div>
   );

@@ -19,7 +19,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
@@ -1097,7 +1098,7 @@ export default function OwnerEvents() {
     return s.charAt(0).toUpperCase() + s.slice(1);
   };
 
-  if (loading || venueLoading) return <OwnerPageSkeleton />;
+  if (loading || venueLoading) return <ProPageSkeleton variant="list" title={t('owner.eventsTitle')} />;
 
   return (
     <div className={isOrganizerScope ? 'pb-28' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
@@ -1108,7 +1109,7 @@ export default function OwnerEvents() {
 
       {!isOrganizerScope && <OwnerHeader title={t('owner.eventsTitle')} />}
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
         {isOrganizerScope && (
           <h1 style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', marginTop: 4 }}>{t('owner.eventsTitle')}</h1>
         )}
@@ -1291,9 +1292,10 @@ export default function OwnerEvents() {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="px-4 pb-4 space-y-2 overflow-hidden"
+                  className="px-4 pb-4 overflow-hidden"
                   style={{ borderTop: `1px solid ${F_BORDER}` }}
                 >
+                  <div className="grid gap-x-6 gap-y-2 lg:grid-cols-2 2xl:grid-cols-3">
                   {pastEvents.map((event) => (
                     <div key={event.id} className="flex items-center gap-3 py-2.5 opacity-50">
                       {event.posterUrl && (
@@ -1307,6 +1309,7 @@ export default function OwnerEvents() {
                       </div>
                     </div>
                   ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

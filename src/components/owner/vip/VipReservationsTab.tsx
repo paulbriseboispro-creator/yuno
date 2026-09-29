@@ -134,6 +134,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                 <VipPill tone="muted">{group.items.length} {group.items.length > 1 ? t('vipOwner.tables') : t('vipOwner.table')}</VipPill>
               </div>
             )}
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {group.items.map(res => {
               const consumed = resTotalConsumed(res.id);
               const total = res.deposit + consumed;
@@ -193,6 +194,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                 </VipCard>
               );
             })}
+            </div>
           </div>
         ))
       )}
