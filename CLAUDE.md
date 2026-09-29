@@ -1239,18 +1239,33 @@ base avec le compte démo. Règles qui en sortent :
 - **Un calcul lourd ne bloque pas une page qui n'en affiche qu'un détail** :
   `get_contact_intelligence_overview` (base vivante, 1 à 6 s sur 12 000
   contacts) est lu à part sur la page SMS.
-- **La base vivante est mise en cache 2 min par portée** (migration
-  `20260929260000`, `contact_base_cache` + `_state`, RLS sans policy, aucun
-  droit client) : `contact_build_rows` ne reconstruit `contact_rows()` que si le
-  cache est périmé, sous verrou consultatif par portée (la vue d'ensemble et la
-  liste partent ensemble : une seule reconstruction). Mesuré : 4 s → 0,14 s en
-  cache, résultats identiques. Le CONSENTEMENT (`email_ok`, `phone_ok`) reste
-  calculé en direct à chaque appel ; les ENVOIS n'y passent jamais
-  (`resolve_contact_segment_def` lit `contact_rows()`). Invalidation immédiate
-  par triggers d'INSTRUCTION (tables de transition) sur `imported_contacts`,
-  `contact_engagement`, `contact_list_imports`. Toute réécriture de
-  `contact_build_rows` garde ce cache ; toute colonne ajoutée à `contact_rows()`
-  oblige à recréer `contact_base_cache` (même forme) dans la même migration.
+- **La base vivante est mise en cache par portée, servie périmée, reconstruite
+  en arrière-plan** (migrations `20260929260000` puis `270000`,
+  `contact_base_cache` + `_state`, RLS sans policy, aucun droit client).
+  `contact_build_rows` reconstruit dans l'appel SEULEMENT une portée jamais
+  construite ou petite (≤ 3 000 lignes), sous verrou consultatif par portée ;
+  une grande portée périmée (> 3 min) ou marquée (`dirty_at`) est servie telle
+  quelle et sa lecture notée (`last_read_at`) : le cron
+  `contact-base-cache-refresh` (`CALL contact_base_cache_refresh()`, chaque
+  minute, une transaction par portée) la reconstruit, et prépare d'avance toute
+  portée qui a importé un fichier. Raison : 16 000 lignes se reconstruisent en
+  1 à 8 s selon la charge — dans l'appel de la page, ça dépassait les 8 s et la
+  transaction annulée ne gardait rien (500 à chaque visite). Le CONSENTEMENT
+  (`email_ok`, `phone_ok`) reste calculé en direct à chaque appel ; les ENVOIS
+  n'y passent jamais (`resolve_contact_segment_def` lit `contact_rows()`). Les
+  triggers d'INSTRUCTION sur `imported_contacts`, `contact_engagement`,
+  `contact_list_imports` MARQUENT la portée, ils ne suppriment plus rien. Toute
+  réécriture de `contact_build_rows` garde ce cache ; toute colonne ajoutée à
+  `contact_rows()` oblige à recréer `contact_base_cache` (même forme) dans la
+  même migration.
+- **Plans sur mesure pour les fonctions à portée NULLABLE** : PostgREST garde
+  ses connexions, et après cinq appels plpgsql passe aux plans GÉNÉRIQUES, qui
+  ignorent qu'un `p_venue_id` vaut NULL et balaient tout (même reconstruction :
+  11-14 s en générique, 3-6 s sur mesure — et la Management API, qui ouvre une
+  connexion neuve, ne le montre jamais). Toute fonction de la base vivante porte
+  `SET plan_cache_mode = force_custom_plan` ; une nouvelle fonction lourde au
+  prédicat `(p_x IS NULL OR col = p_x)` fait de même. Mesurer par PostgREST, ou
+  avec `SET LOCAL plan_cache_mode = force_generic_plan`.
 - **Pleine largeur** : conteneur de page = `PRO_PAGE` (`src/lib/proLayout.ts`),
   jamais un `mx-auto max-w-*` centré. Un formulaire se range en grille
   (`xl:grid-cols-2`, colonne latérale), il ne rétrécit pas la page. Détail :
