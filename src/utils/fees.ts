@@ -70,3 +70,11 @@ export function tableRevenue(t: { total_price?: number | null; service_fee?: num
   const charged = n(t.total_price);
   return row(charged - n(t.service_fee) - (t.fee_absorbed ? n(t.management_fee) : 0), charged, t.refund_amount);
 }
+
+/**
+ * Le CA club d'une ligne, remboursement déduit : ce qu'un écran pro affiche
+ * comme revenu (jamais les frais Yuno, jamais un montant déjà rendu au client).
+ */
+export function clubAmount(r: RevenueRow): number {
+  return r.gross - r.refunded;
+}

@@ -65,6 +65,29 @@ export function resolveYunoFee(
   return computeYunoFee(type, gross, isBde);
 }
 
+/**
+ * Frais Yuno CONTENUS dans le montant facturé d'une vente, lus sur la vente
+ * elle-même (miroir du CA club de fees.ts) — ou null si la ligne ne les porte
+ * pas (on retombe alors sur l'estimation de `computeYunoFee`).
+ *  - billet : frais de service + assurance annulation ;
+ *  - table : frais de service + frais de gestion SEULEMENT s'ils sont absorbés
+ *    (sinon le client les paie en plus : ils ne sont pas dans le montant) ;
+ *  - commande : frais de service.
+ */
+export function storedYunoFee(
+  type: InvoiceType,
+  row: { service_fee?: number | null; insurance_fee?: number | null; management_fee?: number | null; fee_absorbed?: boolean | null },
+): number | null {
+  if (row.service_fee === null || row.service_fee === undefined) return null;
+  const n = (v: unknown) => Number(v ?? 0) || 0;
+  const fee = type === 'ticket'
+    ? n(row.service_fee) + n(row.insurance_fee)
+    : type === 'table'
+      ? n(row.service_fee) + (row.fee_absorbed ? n(row.management_fee) : 0)
+      : n(row.service_fee);
+  return Math.round(fee * 100) / 100;
+}
+
 /** Default split per event mode, mirroring backend defaultSplitForItem(). */
 export function defaultSplit(type: InvoiceType, mode: string | null): EffectiveSplit {
   // Drinks ('order') are ALWAYS 100% venue (alcohol licence) — overrides every mode,

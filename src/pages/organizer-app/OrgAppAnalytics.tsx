@@ -55,6 +55,7 @@ import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 import { orgEventsOr } from '@/lib/coorg';
+import { ticketRevenue } from '@/utils/fees';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -505,7 +506,7 @@ export default function OrgAppAnalytics() {
           const idsNoDistro = eventsWithoutDistro.map(e => e.id);
           const { data: tix } = await supabase
             .from('tickets')
-            .select('total_price, event_id, created_at')
+            .select('total_price, service_fee, insurance_fee, refund_amount, event_id, created_at')
             .in('event_id', idsNoDistro)
             .eq('status', 'paid')
             .gte('created_at', since.toISOString());
@@ -529,10 +530,10 @@ export default function OrgAppAnalytics() {
             splitMap.set(e.id, pct);
           }
           (tix ?? []).forEach((tk: any) => {
-            const total = Number(tk.total_price || 0);
-            const yunoFee = Math.max(0.99, total * 0.04);
-            const stripeFee = total * 0.015 + 0.25;
-            const netPerTicket = Math.max(0, total - yunoFee - stripeFee);
+            // Frais Yuno LUS sur la vente (service + assurance), jamais estimés ;
+            // remboursement déduit, Stripe sur le montant total payé (fees.ts).
+            const r = ticketRevenue(tk);
+            const netPerTicket = Math.max(0, r.gross - r.refunded - r.stripe);
             const pct = splitMap.get(tk.event_id) ?? 100;
             fallbackTotal += netPerTicket * (pct / 100);
           });

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { clubAmount, orderRevenue } from '@/utils/fees';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ShoppingCart, CheckCircle, DollarSign } from 'lucide-react';
@@ -41,7 +42,7 @@ export function ShiftStats({ venueId }: ShiftStatsProps) {
 
       const { data: orders } = await supabase
         .from('orders')
-        .select('status, total, prep_status')
+        .select('status, total, service_fee, refund_amount, prep_status')
         .eq('venue_id', venueId)
         .gte('created_at', shiftStart.toISOString());
 
@@ -50,7 +51,8 @@ export function ShiftStats({ venueId }: ShiftStatsProps) {
         const pending = orders.filter(o => o.status === 'paid' && o.prep_status !== 'served').length;
         const revenue = orders
           .filter(o => o.status === 'served' || o.status === 'paid')
-          .reduce((sum, o) => sum + Number(o.total || 0), 0);
+          // CA club (fees.ts) : frais de service Yuno et remboursement déduits.
+          .reduce((sum, o) => sum + clubAmount(orderRevenue(o)), 0);
         setStats({ served, pending, revenue });
       }
     };

@@ -1010,7 +1010,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.feeStructure.desc',
         icon: 'Receipt',
         relatedArticleIds: ['stripe-connect', 'refund-management'],
-        keywords: ['frais', 'fee', 'commission', 'tarif', 'stripe fee', 'service fee', 'frais de service', 'comisión', 'tarifa', 'cap', 'plafond', 'bde', 'association', 'asso', 'asociación', 'remboursement', 'refund', 'reembolso'],
+        keywords: ['frais', 'fee', 'commission', 'tarif', 'stripe fee', 'service fee', 'frais de service', 'comisión', 'tarifa', 'cap', 'plafond', 'bde', 'association', 'asso', 'asociación', 'remboursement', 'refund', 'reembolso', 'ca', 'ca club', 'chiffre d\'affaires', 'revenue', 'ingresos', 'dépense client', 'customer spend', 'gasto'],
         sections: [
           { headingKey: 'ohelp.feeStructure.s1h', bodyKey: 'ohelp.feeStructure.s1b' },
           { headingKey: 'ohelp.feeStructure.s2h', bodyKey: 'ohelp.feeStructure.s2b' },
@@ -1018,6 +1018,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.feeStructure.s4h', bodyKey: 'ohelp.feeStructure.s4b', type: 'example' },
           { headingKey: 'ohelp.feeStructure.s5h', bodyKey: 'ohelp.feeStructure.s5b', type: 'warning' },
           { headingKey: 'ohelp.feeStructure.s6h', bodyKey: 'ohelp.feeStructure.s6b', type: 'tip' },
+          { headingKey: 'ohelp.feeStructure.s7h', bodyKey: 'ohelp.feeStructure.s7b' },
         ],
       },
       {

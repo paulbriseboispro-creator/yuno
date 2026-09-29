@@ -161,7 +161,7 @@ export function AudienceInsights({ scope, from, to }: Props) {
       <div style={{ ...crd, padding: '20px 22px' }}>
         <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
           <Crown className="h-4 w-4 flex-none" style={{ color: 'var(--acc-fbbf24)' }} />
-          {tt('Tiers de clients', 'Customer tiers')}
+          {tt('Paliers de dépense client (billets, frais compris)', 'Customer spend tiers (tickets, fees included)', 'Niveles de gasto del cliente (entradas, gastos incluidos)')}
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           <TierTile icon={Trophy} label="Platinum" value={tiers.platinum} color={ramp(0)} sub="≥ 1000€" />

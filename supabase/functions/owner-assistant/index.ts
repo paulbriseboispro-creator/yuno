@@ -54,8 +54,9 @@ AVANT d'exécuter une action qui MODIFIE des données :
 
 ═══ MÉTRIQUES DE REVENUS ═══
 Quand tu donnes des chiffres de revenus, présente TOUJOURS :
-- **CA Club** = Total payé - Frais Yuno (service_fee + insurance_fee)
+- **CA Club** = Total payé - Frais Yuno (frais de service, assurance annulation, frais de gestion des tables quand le club les absorbe) - remboursements
 - **CA Net** = CA Club - Frais Stripe (1.5% + 0.25€)
+Un revenu, un CA ou un gain n'inclut JAMAIS l'argent de Yuno. La DÉPENSE d'un client (get_customer_insights : total_customer_spend, average_customer_spend) est une autre grandeur, frais Yuno compris : appelle-la « dépense client », jamais « CA » ni « revenu ».
 
 Formate en tableau Markdown :
 | Source | CA Club | CA Net |
@@ -214,7 +215,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Structure des frais",
     keywords: ["frais", "fee", "commission", "service", "pourcentage", "coût", "stripe"],
     path: "/owner/help",
-    snippet: "Frais Yuno : 3% sur commandes boissons, max(0.99€, 4%) sur billets. Sur les acomptes VIP c'est aussi max(0.99€, 4%) mais plafonné à 25€ : le frais est calculé sur le montant réellement débité (l'acompte, pas le prix total de la table), et il ne dépasse jamais 25€ même sur une très grosse table. Le club paie les frais Stripe (1.5% + 0.25€ par transaction). CA Club = Total - Frais Yuno. CA Net = CA Club - Frais Stripe.",
+    snippet: "Frais Yuno : 3% sur commandes boissons, max(0.99€, 4%) sur billets. Sur les acomptes VIP c'est aussi max(0.99€, 4%) mais plafonné à 25€ : le frais est calculé sur le montant réellement débité (l'acompte, pas le prix total de la table), et il ne dépasse jamais 25€ même sur une très grosse table. Le club paie les frais Stripe (1.5% + 0.25€ par transaction). CA Club = Total payé - Frais Yuno (service, assurance annulation, frais de gestion absorbés) - remboursements : un revenu affiché dans Yuno n'inclut jamais l'argent de Yuno. CA Net = CA Club - Frais Stripe. La « dépense » d'un client (fiche client, CRM, segments) est ce qu'il a payé, frais compris : ce n'est pas du CA.",
   },
   "loyalty": {
     title: "Programme de fidélité",
@@ -960,7 +961,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_customer_insights",
-      description: "Get top customers, segments, spending stats. Requires Pro plan.",
+      description: "Get top customers, segments and customer SPENDING (what customers paid, Yuno fees included — not club revenue). Requires Pro plan.",
       parameters: {
         type: "object",
         properties: {
@@ -1090,46 +1091,51 @@ function getParisOffsetMs(date: Date): number {
 // REVENUE CALCULATION HELPERS
 // ═══════════════════════════════════════════
 
+// Statuts d'une vente comptée dans le CA : ceux des RPC d'analyse
+// (get_events_sales_summary, get_event_report…). Une commande servie reste une
+// vente, une table confirmée aussi.
+const ORDER_SALE_STATUSES = ["paid", "served"];
+const TICKET_SALE_STATUSES = ["paid", "used"];
+const TABLE_SALE_STATUSES = ["paid", "confirmed"];
+
+// Miroirs de src/utils/fees.ts : CA Club = part du club, frais Yuno exclus
+// (service, assurance, frais de gestion absorbés), remboursement déduit
+// (plafonné à la part du club) ; CA Net = CA Club − frais Stripe, que Stripe
+// prélève sur le montant TOTAL payé (frais Yuno compris).
+function addRow(acc: { caClub: number; caNet: number }, gross: number, charged: number, refund: unknown) {
+  const refunded = Math.min(Math.max(Number(refund) || 0, 0), Math.max(gross, 0));
+  acc.caClub += gross - refunded;
+  acc.caNet += gross - refunded - calcStripeFee(charged);
+}
+
 function calcOrdersRevenue(orders: any[]): { caClub: number; caNet: number } {
-  let caClub = 0, caNet = 0;
+  const acc = { caClub: 0, caNet: 0 };
   for (const o of orders) {
     const total = o.total || 0;
-    const sf = o.service_fee || 0;
-    // CA Club = what the club earns = total paid by client minus Yuno service fee
-    const club = total - sf;
-    caClub += club;
-    // CA Net = CA Club minus Stripe fee (Stripe charges on the full amount including Yuno fee)
-    caNet += club - calcStripeFee(total);
+    addRow(acc, total - (o.service_fee || 0), total, o.refund_amount);
   }
-  return { caClub, caNet };
+  return acc;
 }
 
 function calcTicketsRevenue(tickets: any[]): { caClub: number; caNet: number } {
-  let caClub = 0, caNet = 0;
+  const acc = { caClub: 0, caNet: 0 };
   for (const t of tickets) {
     const tp = t.total_price || 0;
-    const sf = t.service_fee || 0;
-    const inf = t.insurance_fee || 0;
-    const club = tp - sf - inf;
-    caClub += club;
-    caNet += club - calcStripeFee(tp);
+    addRow(acc, tp - (t.service_fee || 0) - (t.insurance_fee || 0), tp, t.refund_amount);
   }
-  return { caClub, caNet };
+  return acc;
 }
 
 function calcTablesRevenue(tables: any[]): { caClub: number; caNet: number } {
-  let caClub = 0, caNet = 0;
+  const acc = { caClub: 0, caNet: 0 };
   for (const t of tables) {
     const tp = t.total_price || 0;
-    const sf = t.service_fee || 0;
     // Frais de gestion : payés EN PLUS par le client, ils ne sortent de la
     // part du club que s'il les absorbe (miroir de tableRevenue, fees.ts).
     const mf = t.fee_absorbed ? (t.management_fee || 0) : 0;
-    const club = tp - sf - mf;
-    caClub += club;
-    caNet += club - calcStripeFee(tp);
+    addRow(acc, tp - (t.service_fee || 0) - mf, tp, t.refund_amount);
   }
-  return { caClub, caNet };
+  return acc;
 }
 
 function r2(n: number): number { return Math.round(n * 100) / 100; }
@@ -1214,14 +1220,14 @@ async function executeTool(
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: any) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+        let oq = supabase.from("orders").select("total, service_fee, refund_amount", { count: "exact" }).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
         if (periodEnd) oq = oq.lt("created_at", periodEnd);
         const ordersRes = await oq;
 
         let ticketsData: any[] = [];
         let ticketsCount = 0;
         if (eventIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("status", "paid").in("event_id", eventIds).gte("created_at", since);
+          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount", { count: "exact" }).in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since);
           if (periodEnd) tq = tq.lt("created_at", periodEnd);
           const tr = await tq;
           ticketsData = tr.data || [];
@@ -1231,7 +1237,7 @@ async function executeTool(
         let tablesData: any[] = [];
         let tablesCount = 0;
         if (zoneIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed", { count: "exact" }).eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since);
+          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount", { count: "exact" }).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
           const tres = await trq;
           tablesData = tres.data || [];
@@ -1264,20 +1270,20 @@ async function executeTool(
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const znIds = (venueZns || []).map((z: any) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+        let oq = supabase.from("orders").select("total, service_fee, refund_amount").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
         if (periodEnd) oq = oq.lt("created_at", periodEnd);
         const ordersRes = await oq;
 
         let ticketsData: any[] = [];
         if (evtIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("status", "paid").in("event_id", evtIds).gte("created_at", since);
+          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").in("status", TICKET_SALE_STATUSES).in("event_id", evtIds).gte("created_at", since);
           if (periodEnd) tq = tq.lt("created_at", periodEnd);
           ticketsData = (await tq).data || [];
         }
 
         let tablesData: any[] = [];
         if (znIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("status", "paid").in("zone_id", znIds).gte("created_at", since);
+          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", znIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
           tablesData = (await trq).data || [];
         }
@@ -1341,7 +1347,7 @@ async function executeTool(
         const { data } = await query;
 
         const enriched = await Promise.all((data || []).map(async (e: any) => {
-          const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("event_id", e.id).eq("status", "paid");
+          const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("event_id", e.id).in("status", TICKET_SALE_STATUSES);
           let status = "🔜 À venir";
           if (e.end_at < now) status = "✅ Passée";
           else if (e.start_at <= now && e.end_at >= now) status = "🟢 En cours";
@@ -1414,20 +1420,20 @@ async function executeTool(
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: any) => z.id);
 
-        const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since).lt("created_at", until);
+        const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since).lt("created_at", until);
         const pendingRes = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("status", "paid").is("served_at", null).gte("created_at", since).lt("created_at", until);
 
         let ticketsData: any[] = [];
         let ticketsScanned = 0;
         if (eventIds.length > 0) {
-          const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, entry_scanned").eq("status", "paid").in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
+          const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount, entry_scanned").in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
           ticketsData = tr.data || [];
           ticketsScanned = ticketsData.filter((t: any) => t.entry_scanned).length;
         }
 
         let tablesData: any[] = [];
         if (zoneIds.length > 0) {
-          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
+          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
           tablesData = tres.data || [];
         }
 
@@ -1692,10 +1698,10 @@ async function executeTool(
 
         const [roundsRes, ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
           supabase.from("ticket_rounds").select("id, name, price, max_tickets, tickets_sold, is_active").eq("event_id", args.event_id).order("position"),
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("event_id", args.event_id).eq("status", "paid"),
-          supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
+          supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount", { count: "exact" }).eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES),
+          supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
+            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -1737,10 +1743,10 @@ async function executeTool(
         const zoneIds = (zones || []).map((z: any) => z.id);
 
         const [ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid"),
-          supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
+          supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES),
+          supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
+            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -1959,8 +1965,10 @@ async function executeTool(
         };
         return JSON.stringify({
           total_customers: customers.length,
-          total_revenue: r2(totalSpent),
-          average_spend: r2(avgSpent),
+          // Dépense cumulée des clients (ce qu'ils ont payé, frais Yuno compris) :
+          // une grandeur CRM, jamais le CA du club.
+          total_customer_spend: r2(totalSpent),
+          average_customer_spend: r2(avgSpent),
           segments,
           top_customers: (topCustomers.data || []).map((c: any) => ({
             name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email,
@@ -1975,7 +1983,7 @@ async function executeTool(
       // ─── TOP DRINKS ───
       case "get_top_drinks": {
         const since = getPeriodFilter(args.period || "30d");
-        const { data: orders } = await supabase.from("orders").select("items").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+        const { data: orders } = await supabase.from("orders").select("items").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
         if (!orders || orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
         const drinkSales: Record<string, { name: string; qty: number; revenue: number }> = {};
         for (const order of orders) {

@@ -36,7 +36,7 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
       const { data: resData } = await supabase
         .from('table_reservations')
         .select(`
-          id, full_name, user_email, phone, guest_count, deposit, total_price,
+          id, full_name, user_email, phone, guest_count, deposit, total_price, management_fee, fee_absorbed,
           minimum_spend, vip_status, zone_id, assigned_table_id,
           created_at, checked_in_at, placed_at, finished_at, event_id,
           placement_status, requested_table_id, placement_note,
@@ -55,6 +55,7 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
         phone: r.phone,
         guestCount: r.guest_count || 1,
         deposit: r.deposit || 0,
+        absorbedFee: r.fee_absorbed ? Number(r.management_fee || 0) : 0,
         totalPrice: r.total_price || 0,
         minimumSpend: r.minimum_spend || 0,
         vipStatus: r.vip_status || 'waiting',

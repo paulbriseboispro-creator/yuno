@@ -858,7 +858,7 @@ export function useAnalyticsData({
       if (!isOrganizerScope && venueId) {
         let refundOrdersQuery = supabase
           .from('orders')
-          .select('id, refund_amount, refund_reason, refunded_at, created_at, total')
+          .select('id, refund_amount, refund_reason, refunded_at, created_at, total, service_fee')
           .eq('venue_id', venueId)
           .eq('status', 'refunded');
         if (mode === 'event' && selectedEventId) refundOrdersQuery = refundOrdersQuery.eq('event_id', selectedEventId);
@@ -872,7 +872,7 @@ export function useAnalyticsData({
       // Fetch refunded tickets
       let refundTicketsQuery = supabase
         .from('tickets')
-        .select('id, refund_amount, refund_reason, refunded_at, created_at, total_price, event_id, events!inner(venue_id)')
+        .select('id, refund_amount, refund_reason, refunded_at, created_at, total_price, service_fee, insurance_fee, event_id, events!inner(venue_id)')
         .eq('status', 'refunded');
       if (mode === 'event' && selectedEventId) {
         refundTicketsQuery = refundTicketsQuery.eq('event_id', selectedEventId);
@@ -887,7 +887,7 @@ export function useAnalyticsData({
       // Fetch refunded table reservations
       let refundTablesQuery = supabase
         .from('table_reservations')
-        .select('id, refund_amount, refund_reason, refunded_at, created_at, total_price, event_id, events!inner(venue_id)')
+        .select('id, refund_amount, refund_reason, refunded_at, created_at, total_price, service_fee, management_fee, fee_absorbed, event_id, events!inner(venue_id)')
         .eq('status', 'refunded');
       if (mode === 'event' && selectedEventId) {
         refundTablesQuery = refundTablesQuery.eq('event_id', selectedEventId);
@@ -911,7 +911,8 @@ export function useAnalyticsData({
       refundedOrders.forEach((o: any) => {
         allRefunds.push({
           type: 'order',
-          amount: Number(o.refund_amount) || Number(o.total),
+          // Sans montant saisi, la part du CLUB (fees.ts) — jamais les frais Yuno.
+          amount: Number(o.refund_amount) || orderRevenue(o).gross,
           reason: o.refund_reason || '',
           date: refundDay(o),
         });
@@ -919,7 +920,7 @@ export function useAnalyticsData({
       (refundedTickets || []).forEach((tk: any) => {
         allRefunds.push({
           type: 'ticket',
-          amount: Number(tk.refund_amount) || Number(tk.total_price),
+          amount: Number(tk.refund_amount) || ticketRevenue(tk).gross,
           reason: tk.refund_reason || '',
           date: refundDay(tk),
         });
@@ -927,7 +928,7 @@ export function useAnalyticsData({
       (refundedTables || []).forEach((tr: any) => {
         allRefunds.push({
           type: 'table_reservation',
-          amount: Number(tr.refund_amount) || Number(tr.total_price),
+          amount: Number(tr.refund_amount) || tableRevenue(tr).gross,
           reason: tr.refund_reason || '',
           date: refundDay(tr),
         });

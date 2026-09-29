@@ -45,7 +45,7 @@ type LiveTicketRow = Pick<Tables<'tickets'>,
   | 'entry_scanned_at' | 'entry_scanned_by' | 'full_name' | 'created_at' | 'event_id'>;
 
 type LiveTableRow = Pick<Tables<'table_reservations'>,
-  'id' | 'deposit' | 'status' | 'entry_scanned' | 'entry_scanned_at' | 'entry_scanned_by'
+  'id' | 'deposit' | 'management_fee' | 'fee_absorbed' | 'status' | 'entry_scanned' | 'entry_scanned_at' | 'entry_scanned_by'
   | 'full_name' | 'created_at' | 'zone_id' | 'event_id' | 'checked_in_at'
   | 'minimum_spend' | 'guest_count' | 'finished_at'>;
 
@@ -389,7 +389,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
       let tablesQuery = supabase
         .from('table_reservations')
-        .select('id, deposit, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, zone_id, event_id, checked_in_at, minimum_spend, guest_count, finished_at, table_zones!inner(venue_id)')
+        .select('id, deposit, management_fee, fee_absorbed, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, zone_id, event_id, checked_in_at, minimum_spend, guest_count, finished_at, table_zones!inner(venue_id)')
         .eq('table_zones.venue_id', venueId)
         .gte('created_at', start)
         .lte('created_at', end);
@@ -494,7 +494,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'served');
       const orderRevenue = paidOrders.reduce((s, o) => s + Number(o.total) - Number(o.service_fee || 0), 0);
       const ticketRevenue = tickets.reduce((s, t) => s + Number(t.total_price) - Number(t.service_fee || 0) - Number(t.insurance_fee || 0), 0);
-      const tableRevenue = tables.filter(t => t.status === 'confirmed' || t.status === 'paid').reduce((s, t) => s + Number(t.deposit || 0), 0);
+      const tableRevenue = tables.filter(t => t.status === 'confirmed' || t.status === 'paid')
+        // Acompte encaissé, moins les frais de gestion quand le club les absorbe.
+        .reduce((s, t) => s + Number(t.deposit || 0) - (t.fee_absorbed ? Number(t.management_fee || 0) : 0), 0);
       const totalRevenue = orderRevenue + ticketRevenue + tableRevenue;
 
       const scannedTickets = tickets.filter(t => t.entry_scanned);

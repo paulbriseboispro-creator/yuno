@@ -11,7 +11,7 @@ import {
 } from '@/components/org-ui';
 import { calcStripeFee } from '@/utils/fees';
 import {
-  computeYunoFee, resolveYunoFee, getEffectiveSplit, type InvoiceType,
+  computeYunoFee, resolveYunoFee, getEffectiveSplit, storedYunoFee, type InvoiceType,
 } from '@/utils/coEventSplit';
 import { downloadAccountingPDF, type AccountingPdfLine } from '@/lib/generateAccountingPDF';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
@@ -195,9 +195,9 @@ export default function OwnerAccounting() {
       const orderIds = invoices.map(i => i.order_id).filter(Boolean) as string[];
       const refundMap = new Map<string, number>();
       const [tk, tb, od] = await Promise.all([
-        ticketIds.length ? supabase.from('tickets').select('id, refund_amount, ticket_round_id, ticket_type, quantity').in('id', ticketIds) : Promise.resolve({ data: [] }),
-        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id, management_fee').in('id', tableIds) : Promise.resolve({ data: [] }),
-        orderIds.length ? supabase.from('orders').select('id, refund_amount').in('id', orderIds) : Promise.resolve({ data: [] }),
+        ticketIds.length ? supabase.from('tickets').select('id, refund_amount, ticket_round_id, ticket_type, quantity, service_fee, insurance_fee').in('id', ticketIds) : Promise.resolve({ data: [] }),
+        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id, service_fee, management_fee, fee_absorbed').in('id', tableIds) : Promise.resolve({ data: [] }),
+        orderIds.length ? supabase.from('orders').select('id, refund_amount, service_fee').in('id', orderIds) : Promise.resolve({ data: [] }),
       ]);
       const tkRows = ((tk as any).data || []) as any[];
       const tbRows = ((tb as any).data || []) as any[];
@@ -207,11 +207,15 @@ export default function OwnerAccounting() {
       // Commission ACTUALLY charged, per table reservation. Accounting must report
       // what was billed, not re-price history against the current rate card — a
       // reservation billed before the 25€ cap shipped must still show its real fee.
+      // Frais Yuno lus sur chaque vente (service, assurance, frais de gestion
+      // absorbés) : un revenu affiché n'inclut jamais l'argent de Yuno.
       const feeMap = new Map<string, number>();
-      tbRows.forEach(r => {
-        if (r.management_fee !== null && r.management_fee !== undefined) {
-          feeMap.set(r.id, Number(r.management_fee));
-        }
+      const odRows = ((od as { data?: unknown[] }).data || []) as Array<{ id: string; service_fee?: number | null }>;
+      ([['ticket', tkRows], ['table', tbRows], ['order', odRows]] as const).forEach(([type, rows]) => {
+        (rows as Array<{ id: string; service_fee?: number | null }>).forEach((r) => {
+          const fee = storedYunoFee(type, r);
+          if (fee !== null) feeMap.set(r.id, fee);
+        });
       });
 
       // Resolve human rate / package names for the per-line breakdown. Best-effort:
