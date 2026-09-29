@@ -1391,6 +1391,36 @@ Stripe accepte d'une plateforme qui n'a pas signé l'engagement de pertes. Contr
   endpoints « Yuno live » (`@self`) et « Connected accounts » (`@accounts`,
   5 événements, snapshot, clover) actifs.
 
+## Remboursement d'une vente — une règle, un verrou, des effets uniques (2026-09-30)
+
+Tout chemin qui rend de l'argent (Console `owner-refund`, annulation assurée
+`cancel-ticket`, porte `staff-cancel`, webhook `charge.refunded` pour un
+remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle :
+
+- **Plafond, reste et droits = `_shared/sale-refund.ts`** (pur, testé, importé
+  tel quel par le front via `src/lib/saleRefund.ts`) : ce que le client a payé
+  hors frais Yuno et assurance (l'acompte pour une table), moins
+  `refund_amount`, cumul en CENTIMES. Qui rembourse : owner, manager
+  `can_manage_refunds`, organisateur, membre `org_member_has_permission(…,
+  'refund')` — jamais une commande de boissons côté orga. Le front lit
+  `useCanRefund()` ; ne jamais montrer un bouton que `refundAllowed` refuse.
+- **Le montant se RÉSERVE avant Stripe** (mise à jour conditionnelle de
+  `refund_amount` sur l'ancienne valeur), l'appel Stripe porte une clé
+  d'idempotence, et un refus rend la réservation (`refundSaleOnStripe`
+  tranche une réponse perdue en relisant la charge). Le webhook n'écrit que le
+  cumul `amount_refunded` qu'il ne connaît pas encore : un remboursement fait
+  depuis Yuno n'est jamais rejoué.
+- **Effets = au gagnant de chaque mise à jour** (`_shared/sale-refund-effects.ts`) :
+  le montant → stats de dépense, email, push, notification club ; le passage à
+  `refunded` (`markSaleFullyRefunded`, conditionnel) → compteur client,
+  fidélité. Un partiel ne passe JAMAIS la vente en `refunded`.
+- **Places et crédits d'un billet = le trigger `trg_release_refunded_ticket`**
+  (passage `paid` → `refunded` : `tickets_sold` baisse de `capacity_held`, sinon
+  `quantity` ; billet scanné = place gardée ; crédits boissons supprimés). Ne
+  JAMAIS décrémenter `tickets_sold` à la main dans un chemin de remboursement.
+  `ticket_upsell_selections` n'a pas de statut : ses options valent tant que le
+  billet est `paid`.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
