@@ -42,7 +42,8 @@ for (const route of routes) {
     try {
       s = await page.eval(`(() => { const m = document.querySelector('main') || document.body;
         const vis = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
-        const sk = [...m.querySelectorAll('.animate-pulse')].filter(vis).length;
+        // Un point « en direct » (6 px) pulse pour toujours : ce n'est pas un squelette.
+        const sk = [...m.querySelectorAll('.animate-pulse')].filter((e) => vis(e) && e.getBoundingClientRect().width >= 12).length;
         const sp = [...m.querySelectorAll('.animate-spin')].filter(vis).length;
         return [sk, sp, (m.innerText||'').length, location.pathname + location.search]; })()`);
     } catch { continue; }

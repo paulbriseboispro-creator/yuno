@@ -13,7 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { PRO_PAGE } from '@/lib/proLayout';
@@ -440,7 +440,9 @@ export default function OwnerAnalytics() {
 
   // Web-traffic zones (acquisition / engagement) share the page's main period
   // selector — one period control for the whole page, no separate hub filter.
-  const webWindow = dateRangeToWindow(dateRange);
+  // Figé par période : « to = maintenant » changeait à chaque rendu et relançait
+  // toutes les lectures des vues filles (P&L, audience, acquisition…).
+  const webWindow = useMemo(() => dateRangeToWindow(dateRange), [dateRange]);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 

@@ -16,7 +16,7 @@ import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow, EMPTY_TICKET_ANALYTICS, EMPTY_TABLE_ANALYTICS, periodDays } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
@@ -444,7 +444,9 @@ export default function OrgAppAnalytics() {
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
 
   // Web-traffic zones share the page's main period selector (no separate filter).
-  const webWindow = dateRangeToWindow(dateRange);
+  // Figé par période : « to = maintenant » changeait à chaque rendu et relançait
+  // toutes les lectures des vues filles (P&L, audience, acquisition…).
+  const webWindow = useMemo(() => dateRangeToWindow(dateRange), [dateRange]);
 
   const { eventIds, venueIds } = useOrganizerEventIds(organizerId);
   // Chaque jeu de chiffres ne se charge que sur les vues qui le lisent :
