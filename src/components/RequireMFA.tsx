@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AppSkeleton } from '@/components/DashboardSkeleton';
+import { isConsolePath } from '@/lib/proLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { MFAVerificationDialog } from './MFAVerificationDialog';
 import { isSupportSessionActive } from '@/lib/supportSession';
@@ -15,6 +17,7 @@ const MFA_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [loading, setLoading] = useState(true);
   const [showMFADialog, setShowMFADialog] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
@@ -142,6 +145,7 @@ export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
   };
 
   if (loading) {
+    if (isConsolePath(pathname)) return <AppSkeleton path={pathname} />;
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">

@@ -176,13 +176,13 @@ export default function OrgAppDashboard() {
   const orgLogo = organizationLogoUrl;
 
   return (
-    <div className="px-4 pb-12">
+    <div className="px-4 pb-12 sm:px-6">
       {/* ─── Org Hero ──────────────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="relative -mx-4 overflow-hidden"
+        className="relative -mx-4 overflow-hidden sm:-mx-6"
         style={{ ...homeBannerHeroSize, borderRadius: '0 0 22px 22px' }}
         // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
         data-theme-island="dark"

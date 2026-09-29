@@ -332,7 +332,7 @@ export default function ManagerDashboard() {
         rightContent={<LanguageSelector />}
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pt-2 space-y-4">
+      <div className="relative z-10 w-full px-4 sm:px-6 pt-2 space-y-4">
         {venue && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}

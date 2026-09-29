@@ -36,7 +36,7 @@ export function OwnerHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-4">
+      <div className="flex h-14 sm:h-16 w-full items-center justify-between px-3 sm:px-6">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {showBackButton && (
             <Button variant="ghost" size="icon" asChild className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">

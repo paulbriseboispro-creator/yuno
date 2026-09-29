@@ -41,8 +41,12 @@ interface VenueContextResult {
 export function useVenueContext(): VenueContextResult {
   const { mode } = useDashboardMode();
   const { user } = useAuth();
-  const ownerVenue = useOwnerVenue();
   const managerContext = useContext(ManagerVenueContext);
+  // Le club du propriétaire ne se lit QUE là où il sert : ni la Console
+  // organisateur ni un manager (qui a son propre contexte) n'ont à le payer.
+  const ownerVenue = useOwnerVenue({
+    enabled: mode !== 'organizer' && !(mode === 'manager' && managerContext),
+  });
   // L'appartenance ne se charge QUE dans la Console organisateur : un club n'en a
   // pas l'usage et n'a pas à payer la requête.
   const acting = useActingOrganizer({ enabled: mode === 'organizer' });

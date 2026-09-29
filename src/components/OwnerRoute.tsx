@@ -7,19 +7,35 @@ import { useAuth } from '@/hooks/useAuth';
 import { Building2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { AppSkeleton } from '@/components/DashboardSkeleton';
+import { useLocation } from 'react-router-dom';
 
 interface OwnerRouteProps {
   children: React.ReactNode;
 }
 
 function OwnerVenueGate({ children }: { children: React.ReactNode }) {
-  const { venueId, loading, error } = useOwnerVenueContext();
+  const { venueId, loading, error, refetch } = useOwnerVenueContext();
   const { t } = useLanguage();
   const { roles } = useAuth();
   const isAdmin = roles.includes('admin' as any);
+  const { pathname } = useLocation();
 
   if (loading) {
-    return <AppSkeleton />;
+    return <AppSkeleton path={pathname} />;
+  }
+
+  // Lecture ratée (réseau, délai) : ce n'est PAS « aucun établissement ».
+  if (error === 'fetch_failed') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center max-w-md space-y-4">
+          <Building2 className="h-16 w-16 text-muted-foreground mx-auto" />
+          <h1 className="text-2xl font-bold">{t('venue.loadError')}</h1>
+          <p className="text-muted-foreground">{t('venue.loadErrorBody')}</p>
+          <Button onClick={() => void refetch()}>{t('common.retry')}</Button>
+        </div>
+      </div>
+    );
   }
 
   // If no venue is assigned to this owner, show error message

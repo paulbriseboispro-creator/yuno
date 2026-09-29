@@ -1,96 +1,44 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
-
-interface OwnerVenue {
-  id: string;
-  name: string;
-  city: string;
-  address?: string;
-  coverUrl?: string;
-  logoUrl?: string;
-  floorPlanUrl?: string;
-}
+import { createContext, useContext, useEffect, useSyncExternalStore, ReactNode } from 'react';
+import {
+  ensureOwnerVenue, getOwnerVenueState, refetchOwnerVenue, subscribeOwnerVenue,
+  type OwnerVenue,
+} from '@/lib/ownerVenueStore';
 
 interface OwnerVenueContextType {
   venue: OwnerVenue | null;
   venueId: string | null;
   loading: boolean;
+  /** `no_venue_assigned` | `fetch_failed` | `Not authenticated` | null */
   error: string | null;
   refetch: () => Promise<void>;
 }
 
 const OwnerVenueContext = createContext<OwnerVenueContextType | undefined>(undefined);
 
+/**
+ * Club PROPRIÉTAIRE du compte (`venues.owner_id`) pour toute la Console Club.
+ * Même lecture partagée que `useOwnerVenue()` (src/lib/ownerVenueStore.ts) :
+ * la barre latérale, la garde et les pages ne relisent plus chacune le club.
+ */
 export function OwnerVenueProvider({ children }: { children: ReactNode }) {
-  const [venue, setVenue] = useState<OwnerVenue | null>(null);
-  const [venueId, setVenueId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const s = useSyncExternalStore(subscribeOwnerVenue, getOwnerVenueState, getOwnerVenueState);
+  useEffect(() => { void ensureOwnerVenue(); }, []);
 
-  const fetchOwnerVenue = async () => {
-    try {
-      setLoading(true);
-
-      // Timeout wrapper — prevents infinite spinner if Supabase is unresponsive
-      const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
-        Promise.race([
-          p,
-          new Promise<T>((_, reject) =>
-            setTimeout(() => reject(new Error(`Supabase timeout after ${ms}ms`)), ms),
-          ),
-        ]);
-
-      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000);
-      if (!user) {
-        setError('Not authenticated');
-        return;
-      }
-
-      // Find venue where this user is the owner (via owner_id).
-      // Liste explicite (pas de select('*')) : les internals Stripe/facturation
-      // sont retirés du rôle authenticated (migration 20260823180003) et un
-      // select('*') prendrait un 403 sur TOUTE la requête. Ce contexte ne
-      // consomme que ces colonnes ; le privé passe par get_my_venue_private.
-      const { data: venueData, error: venueError } = await withTimeout(
-        // Cast needed: the Supabase builder is a thenable, not a Promise, so withTimeout can't accept it as-is.
-        supabase.from('venues').select('id, name, city, address, cover_url, logo_url, floor_plan_url').eq('owner_id', user.id).maybeSingle() as unknown as Promise<{ data: Pick<Tables<'venues'>, 'id' | 'name' | 'city' | 'address' | 'cover_url' | 'logo_url' | 'floor_plan_url'> | null; error: Error | null }>,
-        8000,
-      );
-
-      if (venueError) throw venueError;
-
-      if (venueData) {
-        setVenue({
-          id: venueData.id,
-          name: venueData.name,
-          city: venueData.city,
-          address: venueData.address || undefined,
-          coverUrl: venueData.cover_url || undefined,
-          logoUrl: venueData.logo_url || undefined,
-          floorPlanUrl: venueData.floor_plan_url || undefined,
-        });
-        setVenueId(venueData.id);
-        setError(null);
-      } else {
-        setVenue(null);
-        setVenueId(null);
-        setError('no_venue_assigned');
-      }
-    } catch (err) {
-      console.error('Error fetching owner venue:', err);
-      setError('Failed to fetch venue');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOwnerVenue();
-  }, []);
+  const venue = s.owned;
+  const error = s.loading
+    ? null
+    : s.error === 'not_authenticated'
+      ? 'Not authenticated'
+      : s.error ?? (venue ? null : 'no_venue_assigned');
 
   return (
-    <OwnerVenueContext.Provider value={{ venue, venueId, loading, error, refetch: fetchOwnerVenue }}>
+    <OwnerVenueContext.Provider value={{
+      venue,
+      venueId: venue?.id ?? null,
+      loading: s.loading,
+      error,
+      refetch: refetchOwnerVenue,
+    }}>
       {children}
     </OwnerVenueContext.Provider>
   );

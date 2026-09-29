@@ -1,6 +1,6 @@
 // Client Supabase de l'app (anon key). Écrit à la main — seul `types.ts` est
 // généré par `supabase gen types`.
-import { createClient, processLock } from '@supabase/supabase-js';
+import { AuthSessionMissingError, createClient, processLock } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
 import { sessionVaultStorage } from '@/lib/sessionVault';
 import type { Database } from './types';
@@ -135,3 +135,29 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     fetch: fetchWithTimeout,
   },
 });
+
+/**
+ * `getUser()` sans argument = l'utilisateur de la session LOCALE, sans réseau.
+ *
+ * POURQUOI : auth-js fait de `getUser()` un aller-retour vers GoTrue (`/user`)
+ * exécuté EN TENANT le verrou de session. Or chaque requête PostgREST, storage
+ * ou functions passe d'abord par `getSession()`, qui attend ce même verrou.
+ * L'app appelle `getUser()` près d'une centaine de fois (hooks montés par
+ * chaque page, contextes, gardes) : une navigation dans la Console empilait 3 à
+ * 6 allers-retours d'auth SÉRIALISÉS avant la première requête de données, et
+ * un `/user` lent (mesuré à 13-20 s) figeait toute la page — « l'onglet ne
+ * charge pas ». Tous ces appels ne veulent que l'id ou l'email du compte
+ * connecté ; la sécurité est serveur (RLS, JWT vérifié à chaque requête).
+ *
+ * `getSession()` rafraîchit lui-même un jeton expiré. Un appel avec un jeton
+ * explicite (`getUser(jwt)`) garde la vérification réseau d'origine.
+ */
+const verifyUserOnServer = supabase.auth.getUser.bind(supabase.auth);
+supabase.auth.getUser = (async (jwt?: string) => {
+  if (jwt) return verifyUserOnServer(jwt);
+  const { data, error } = await supabase.auth.getSession();
+  if (error) return { data: { user: null }, error };
+  const user = data.session?.user ?? null;
+  if (user) return { data: { user }, error: null };
+  return { data: { user: null }, error: new AuthSessionMissingError() };
+}) as typeof supabase.auth.getUser;

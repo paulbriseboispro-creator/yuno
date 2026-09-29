@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -27,58 +27,42 @@ export interface OrgProfile {
 export function useProfileType(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
   const { user, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<OrgProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const userId = user?.id ?? null;
 
-  useEffect(() => {
-    if (!enabled) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-    if (authLoading) return;
-    if (!user) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
+  // Lecture PARTAGÉE (react-query) : ce hook est monté par la barre latérale,
+  // l'en-tête, les gardes et plusieurs pages de la Console — chacun relisait
+  // le même profil (jusqu'à 5 requêtes identiques par navigation).
+  const query = useQuery({
+    queryKey: ['profile-type', userId],
+    enabled: enabled && !authLoading && !!userId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<OrgProfile | null> => {
       const { data, error } = await supabase
         .from('profiles')
         .select('profile_type, organization_name, organization_logo_url, avatar_url, onboarding_completed')
-        .eq('id', user.id)
+        .eq('id', userId!)
         .maybeSingle();
+      // SECURITY: never default to 'club' on failure — that would expose
+      // the club dashboard to organizers if a network error occurs.
+      // Returning null forces the route guards to deny access.
+      if (error || !data) return null;
+      return {
+        profileType: (data.profile_type ?? 'club') as ProfileType,
+        organizationName: data.organization_name,
+        organizationLogoUrl: data.organization_logo_url,
+        avatarUrl: data.avatar_url,
+        onboardingCompleted: data.onboarding_completed ?? false,
+      };
+    },
+  });
 
-      if (cancelled) return;
-      if (error || !data) {
-        // SECURITY: never default to 'club' on failure — that would expose
-        // the club dashboard to organizers if a network error occurs.
-        // Returning null forces the route guards to deny access.
-        setProfile(null);
-      } else {
-        setProfile({
-          profileType: (data.profile_type ?? 'club') as ProfileType,
-          organizationName: data.organization_name,
-          organizationLogoUrl: data.organization_logo_url,
-          avatarUrl: data.avatar_url,
-          onboardingCompleted: data.onboarding_completed ?? false,
-        });
-      }
-      setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, authLoading, enabled]);
-
+  const profile = enabled && userId ? query.data ?? null : null;
+  const loading = enabled ? authLoading || (!!userId && query.isPending) : false;
   const isOrganizer = profile?.profileType === 'organizer';
 
   return {
     profile,
-    loading: authLoading || loading,
+    loading,
     isOrganizer,
     // Back-compat alias — kept so existing imports don't break.
     isOrganizerOrBde: isOrganizer,

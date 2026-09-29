@@ -36,11 +36,27 @@ function mapRow(n: any): AppNotif {
  * dropdown on click, and links through to the full inbox. Used both on the
  * shared dashboard header cluster and on every sub-page header.
  */
+/**
+ * Dernier compte connu par flux. La cloche vit dans l'en-tête de CHAQUE page :
+ * sans ce cache, chaque navigation relançait un comptage (et repartait de 0
+ * le temps de la réponse). Le temps réel tient le chiffre à jour entre deux.
+ */
+const unreadCache = new Map<string, { count: number; at: number }>();
+const UNREAD_FRESH_MS = 30_000;
+
 export function NotificationsBell({ config }: { config: FeedConfig | null }) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
+  const cacheKey = config?.channelKey ?? '';
+  const [unread, setUnreadState] = useState(() => unreadCache.get(cacheKey)?.count ?? 0);
+  const setUnread = useCallback((next: number | ((p: number) => number)) => {
+    setUnreadState((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next;
+      if (cacheKey) unreadCache.set(cacheKey, { count: value, at: Date.now() });
+      return value;
+    });
+  }, [cacheKey]);
   const [items, setItems] = useState<AppNotif[]>([]);
   const [loading, setLoading] = useState(false);
   const loadedOnce = useRef(false);
@@ -65,7 +81,9 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
       if (active) setUnread(count ?? 0);
     };
 
-    fetchCount();
+    const cached = unreadCache.get(config.channelKey);
+    if (cached && Date.now() - cached.at < UNREAD_FRESH_MS) setUnread(cached.count);
+    else fetchCount();
 
     const channel = supabase
       .channel(`bell_${config.channelKey}`)
@@ -117,7 +135,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
       .is('read_at', null);
     setUnread(0);
     setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
-  }, [table, filterColumn, filterValue, unread]);
+  }, [table, filterColumn, filterValue, unread, setUnread]);
 
   const markOneRead = useCallback(async (id: string) => {
     if (!table) return;
@@ -127,7 +145,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
       .eq('id', id);
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
     setUnread((p) => Math.max(0, p - 1));
-  }, [table]);
+  }, [table, setUnread]);
 
   // Clicking a notification row marks it read and routes to the relevant page.
   // The dedicated mark-read button (below) stops propagation so "just reading"

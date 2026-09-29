@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { HelpCircle, Eye } from 'lucide-react';
 
@@ -25,23 +25,21 @@ export function HeaderActions({ hideBell = false }: { hideBell?: boolean }) {
   const { t } = useLanguage();
   const { basePath } = useDashboardMode();
   const { scope, venueId, organizerUserId } = useVenueContext();
-  const [orgSlug, setOrgSlug] = useState<string | null>(null);
-
   // Organizer public-preview target: their /o/:slug page. Owners use the
   // venue preview route instead, so this only runs in organizer scope.
-  useEffect(() => {
-    if (scope !== 'organizer' || !organizerUserId) { setOrgSlug(null); return; }
-    let active = true;
-    (async () => {
+  // Mis en cache (react-query) : l'en-tête est remonté à chaque page.
+  const { data: orgSlug = null } = useQuery({
+    queryKey: ['organizer-slug', organizerUserId],
+    enabled: scope === 'organizer' && !!organizerUserId,
+    queryFn: async () => {
       const { data } = await supabase
         .from('organizer_profiles')
         .select('slug')
-        .eq('user_id', organizerUserId)
+        .eq('user_id', organizerUserId!)
         .maybeSingle();
-      if (active) setOrgSlug((data as { slug?: string | null } | null)?.slug ?? null);
-    })();
-    return () => { active = false; };
-  }, [scope, organizerUserId]);
+      return (data as { slug?: string | null } | null)?.slug ?? null;
+    },
+  });
 
   const feedConfig = getFeedConfig({ scope, venueId, organizerUserId, basePath });
 

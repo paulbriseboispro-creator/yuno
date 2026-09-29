@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { AppSkeleton } from '@/components/DashboardSkeleton';
+import { isConsolePath } from '@/lib/proLayout';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -86,6 +88,9 @@ export function RequireRole({ children, allowedRoles = [], allowAnyAuthenticated
   }, [loading, user]);
 
   if (loading || !authChecked) {
+    // Console : la même silhouette que celle qui suivra (barre latérale +
+    // page), jamais une liste mobile puis un dashboard puis la page.
+    if (isConsolePath(location.pathname)) return <AppSkeleton path={location.pathname} />;
     return (
       <RoleGateSkeleton />
     );

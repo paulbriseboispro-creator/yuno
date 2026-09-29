@@ -689,11 +689,39 @@ function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean })
 
   <OwnerHeader title="…" rightContent={<LiveBadge />} />
 
-  <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
+  <div className={cn(PRO_PAGE, 'relative z-10 pt-2 space-y-4')}>
     {/* Sections */}
   </div>
 </div>
 ```
+
+**Pleine largeur, toujours (2026-09-29).** `PRO_PAGE` (`src/lib/proLayout.ts`,
+`'w-full px-4 sm:px-6'`) est le seul conteneur de page de la Console — club,
+manager, organisateur, agence. Plus aucun `mx-auto max-w-[1340px]` (ni 2xl,
+3xl, 4xl, 5xl, 7xl, 1100 px…) sur une page : chaque onglet avait sa largeur,
+centrée, avec deux bandes noires de 150 à 530 px sur un écran de bureau. Le
+tableau de bord était pleine largeur, le reste non.
+
+Un contenu qui ne doit pas s'étirer ne rétrécit pas la PAGE, il se range :
+- réglages / formulaire → `grid gap-4 xl:grid-cols-2`, ou contenu + colonne
+  latérale `xl:grid-cols-[minmax(0,1fr)_380px]` (aide, aperçu, récapitulatif) ;
+- cartes → `sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4` ;
+- texte long → `max-w-prose` DANS sa carte.
+Tout ajout de colonnes passe par `xl:` / `2xl:` : le rendu téléphone ne bouge pas.
+`OwnerHeader` et l'en-tête du layout organisateur sont eux aussi pleine largeur
+(`px-3 sm:px-6`), alignés sur le contenu.
+
+### 11.1 bis Chargement : la silhouette de la page, pas une autre
+
+`<ProPageSkeleton variant title />` (`src/components/DashboardSkeleton.tsx`) :
+`list` · `table` · `cards` · `analytics` · `form` · `detail`, pleine largeur.
+Avec `title`, il rend le VRAI `OwnerHeader` en club / manager (rien ne clignote
+en haut) ; côté organisateur / agence il n'ajoute aucun en-tête, le layout a
+déjà sa barre. Les gardes de route de la Console (`RequireRole`, `RequireMFA`,
+`OrgAppRoute`, `OwnerRoute`) et le fallback de chunk rendent `AppSkeleton` avec
+la forme déduite de l'URL (`proSkeletonVariantForPath`) et une barre latérale
+de la vraie largeur (16rem) : une seule silhouette du clic à la page, jamais
+une liste mobile, puis un spinner, puis un faux tableau de bord.
 
 ---
 

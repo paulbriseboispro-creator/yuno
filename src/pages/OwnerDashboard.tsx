@@ -353,7 +353,7 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <div style={{ padding: '16px', minHeight: '100vh', background: 'var(--sf-000000)' }}>
+    <div className="px-4 py-4 sm:px-6" style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
       <AppHeader />
       <UpgradeModal
         open={upgradeFeature !== null}
@@ -369,7 +369,7 @@ export default function OwnerDashboard() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="relative -mx-4 -mt-4 overflow-hidden"
+            className="relative -mx-4 -mt-4 overflow-hidden sm:-mx-6"
             style={{ ...homeBannerHeroSize, borderRadius: '0 0 26px 26px' }}
             // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
             data-theme-island="dark"

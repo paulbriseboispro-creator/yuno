@@ -75,7 +75,7 @@ function eventLeaf(rest: string[]): JSX.Element {
 
 function pickRouteSkeleton(pathname: string): JSX.Element {
   const path = pathname.replace(/\/+$/, '') || '/';
-  if (isProPath(path)) return <AppSkeleton />;
+  if (isProPath(path)) return <AppSkeleton path={path} />;
 
   const seg = path.split('/').filter(Boolean);
   const [a, b, c] = seg;

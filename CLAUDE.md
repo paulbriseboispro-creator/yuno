@@ -1155,6 +1155,45 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
 
+## Console — pleine largeur et chargement (2026-09-29)
+
+Audit page par page (club, organisateur, agence, affilié) mesuré contre la vraie
+base avec le compte démo. Règles qui en sortent :
+
+- **`supabase.auth.getUser()` sans argument ne fait plus d'appel réseau**
+  (`src/integrations/supabase/client.ts`) : il rend l'utilisateur de la session
+  locale. auth-js faisait de chaque appel un aller-retour `/auth/v1/user` EN
+  TENANT le verrou de session, que toute requête PostgREST attend : une
+  navigation empilait 3 à 6 allers-retours sérialisés avant la première donnée,
+  et un `/user` lent (13-20 s mesurés) figeait la page — « l'onglet ne charge
+  pas ». La sécurité est serveur (JWT vérifié par PostgREST à chaque requête).
+  `getUser(jwt)` garde la vérification réseau. Ne pas revenir en arrière.
+- **Une donnée lue par plusieurs composants se lit UNE fois** : le club du
+  propriétaire (`src/lib/ownerVenueStore.ts`, partagé par `useOwnerVenue` et
+  `OwnerVenueProvider`, erreur jamais figée, bouton « Réessayer » dans
+  `OwnerRoute`), le profil (`useProfileType`, react-query `['profile-type']`,
+  invalidé à l'enregistrement du profil orga), le slug de l'en-tête et le compte
+  de la cloche (cache 30 s). `useVenueContext()` n'interroge plus le club en
+  Console organisateur (`useOwnerVenue({ enabled })`). Le goulot n'est pas la
+  base (les requêtes y prennent 10-80 ms) mais le VOLUME : 20 à 45 requêtes par
+  page saturent le pool PostgREST et font tomber des 500 sur des requêtes
+  triviales. Une nouvelle page ne relance pas ce qu'un hook partagé a déjà lu.
+- **Pleine largeur** : conteneur de page = `PRO_PAGE` (`src/lib/proLayout.ts`),
+  jamais un `mx-auto max-w-*` centré. Un formulaire se range en grille
+  (`xl:grid-cols-2`, colonne latérale), il ne rétrécit pas la page. Détail :
+  `docs/DESIGN_SYSTEM.md` §11.1.
+- **Chargement** : `ProPageSkeleton variant title` (forme de la page, vrai
+  en-tête), et les gardes de la Console rendent `AppSkeleton` avec la forme
+  déduite de l'URL — une seule silhouette du clic à la page.
+- **Mesurer** : `node scripts/demo/audit-pages.mjs owner <routes.txt>`
+  (temps, requêtes lentes / en erreur / EN DOUBLE, écart de largeur) sur un
+  `vite preview` local
+  (`. scripts/ci-web-env.sh`, `VITE_APP_BASE_URL=http://127.0.0.1:4173`) ;
+  importer la CA du proxy dans `~/.pki/nssdb` (`certutil -A -t "C,," -i
+  /root/.ccr/agent-proxy-ca.crt`) sinon Chrome refuse Supabase. Les temps
+  absolus passent par le proxy de la session (≈ +0,5 s par requête) : comparer
+  avant / après, pas à la prod.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous

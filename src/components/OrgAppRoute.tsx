@@ -1,4 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
+import { AppSkeleton, ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { proPageVariantForPath } from '@/lib/proLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useActingOrganizer, type OrgCapabilities } from '@/hooks/useActingOrganizer';
 
@@ -30,11 +32,11 @@ export function OrgAppRoute({ children, requires }: OrgAppRouteProps) {
   const location = useLocation();
 
   if (authLoading || acting.loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+    // Garde du layout : toute la Console (barre latérale comprise). Garde
+    // d'une page (`requires`) : déjà dans le layout, seulement la page.
+    return requires
+      ? <ProPageSkeleton variant={proPageVariantForPath(location.pathname)} />
+      : <AppSkeleton path={location.pathname} />;
   }
 
   if (!user) {
