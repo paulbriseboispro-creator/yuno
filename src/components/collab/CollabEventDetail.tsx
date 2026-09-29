@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useEventCollabContract } from '@/hooks/useEventCollabContract';
 import { useEventNetGain } from '@/hooks/useEventNetGain';
+import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
@@ -33,7 +34,7 @@ import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
 import { CollabMoneyPanel, type PillarStat, type TransferInfo } from '@/components/collab/CollabMoneyPanel';
 import { CollabTransferStatementCard } from '@/components/collab/CollabTransferStatementCard';
-import { getCollabTransferStatement, type CollabTransferStatement } from '@/lib/coorg';
+import { getCollabTransferStatement, getEventPresenters, type CollabTransferStatement, type EventPresenter } from '@/lib/coorg';
 import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
 import { CollabNightClosingCard } from '@/components/collab/CollabNightClosingCard';
 import { CollabJourney } from '@/components/collab/CollabJourney';
@@ -133,6 +134,16 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const [event, setEvent] = useState<CollabEvent | null>(null);
   const [clubName, setClubName] = useState('');
+  // Co-hôtes (co-organisation) : la soirée est aussi à eux, l'en-tête les nomme.
+  const [cohosts, setCohosts] = useState<EventPresenter[]>([]);
+  useEffect(() => {
+    if (!eventId) return;
+    let active = true;
+    getEventPresenters(eventId)
+      .then((rows) => { if (active) setCohosts((rows ?? []).filter((r) => r.role === 'cohost')); })
+      .catch(() => { if (active) setCohosts([]); });
+    return () => { active = false; };
+  }, [eventId]);
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [myVenue, setMyVenue] = useState<{ id: string; name: string } | null>(null);
@@ -395,7 +406,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const scrollToId = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const fmtWhen = (iso: string) => new Date(iso).toLocaleString(
     language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US',
-    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+    // L'heure de la SOIRÉE (Paris), pas celle du navigateur : ouverte depuis un
+    // autre fuseau, la page annonçait 21:30 une soirée de 23:30.
+    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: PARIS_TIMEZONE },
   );
 
   // ── Loading / not-found, in the right chrome ───────────────────────────────
@@ -518,6 +531,17 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   </Link>
                 ) : <span className="truncate max-w-[38vw]">{orgName || t('Organisateur', 'Organizer', 'Organizador')}</span>}
               </span>
+              {cohosts.map((c) => (
+                <span key={`${c.kind}:${c.venue_id ?? c.organizer_user_id}`} className="contents">
+                  <span style={{ color: T3 }}>·</span>
+                  <Link to={toolHref('coorg', navTo.coorg)} target="_blank" rel="noopener"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, textDecoration: 'none' }}>
+                    <Users className="h-3.5 w-3.5" style={{ color: RED }} />
+                    <span className="truncate max-w-[30vw]">{c.name}</span>
+                    <span style={{ color: T3, fontSize: 11 }}>{t('co-hôte', 'co-host', 'coanfitrión')}</span>
+                  </Link>
+                </span>
+              ))}
             </div>
           )}
         </div>

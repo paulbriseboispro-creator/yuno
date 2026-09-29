@@ -9,6 +9,8 @@ import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
 import { Handshake, Clock, Check, X, ArrowRight, Loader2, Repeat } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr, enUS, es } from 'date-fns/locale';
 import { CollabContractTermsDialog } from '@/components/CollabContractTermsDialog';
 import { loadCollabSeriesContractPdfData } from '@/lib/collabContractData';
@@ -487,7 +489,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
                 <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{p.title}</p>
                 <p className="truncate" style={{ color: T2, fontSize: 12 }}>{tt('Proposé par', 'Proposed by', 'Propuesto por')} {p.partnerName}</p>
                 <p className="mt-0.5 flex items-center gap-1" style={{ color: T3, fontSize: 11 }}>
-                  <Clock className="h-3 w-3" />{format(new Date(p.startAt), 'd MMM yyyy · HH:mm', { locale })}
+                  <Clock className="h-3 w-3" />{formatInTimeZone(new Date(p.startAt), PARIS_TIMEZONE, 'd MMM yyyy · HH:mm', { locale })}
                 </p>
               </div>
               <div className="flex flex-none flex-col gap-1.5 sm:flex-row">

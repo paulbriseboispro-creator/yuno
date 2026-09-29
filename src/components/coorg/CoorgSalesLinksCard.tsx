@@ -7,6 +7,7 @@ import {
 } from '@/lib/coorg';
 import { PUBLIC_BASE_URL } from '@/lib/native';
 import { capturePosthog } from '@/lib/posthog';
+import { fetchPartyBreakdown, type PartyRow } from '@/lib/collabPartyBreakdown';
 import { PartyAvatar, PartyRolePill, useCoorgT, useCoorgErrorText } from './coorgUi';
 
 /**
@@ -24,7 +25,22 @@ export function CoorgSalesLinksCard({ eventId, canCreate }: { eventId: string; c
 
   const load = useCallback(async () => {
     try {
-      setSt(await getEventPartyLinks(eventId));
+      // Les liens (code, actif) viennent de get_event_party_links ; les CHIFFRES
+      // de la même RPC que la page « Qui fait vendre ? » (lien, promoteur, part
+      // de guest list). Deux sources sous le même titre donnaient 0 inscrit ici
+      // et 64 là-bas pour la même partie.
+      const [links, breakdown] = await Promise.all([
+        getEventPartyLinks(eventId),
+        fetchPartyBreakdown(eventId).catch(() => null),
+      ]);
+      if (links?.ok && links.parties && breakdown?.ok) {
+        const byParty = new Map<string, PartyRow>(breakdown.parties.map((b) => [b.party, b]));
+        links.parties = links.parties.map((r) => {
+          const b = byParty.get(r.party);
+          return b ? { ...r, clicks: b.clicks, tickets: b.tickets, tables: b.tables, guests: b.guests, revenue: b.revenue } : r;
+        });
+      }
+      setSt(links);
     } catch (err) {
       console.warn('[coorg] liens de vente', err);
       setSt(null);
@@ -42,7 +58,9 @@ export function CoorgSalesLinksCard({ eventId, canCreate }: { eventId: string; c
       await navigator.clipboard.writeText(urlOf(code));
       toast.success(t('Lien copié', 'Link copied', 'Enlace copiado'));
     } catch {
-      toast.error(urlOf(code));
+      // Presse-papier refusé (Safari, après l'appel réseau de la création) : le
+      // lien EXISTE, ce n'est pas une erreur — on le montre, prêt à copier.
+      toast.success(t('Ton lien de vente est prêt', 'Your sales link is ready', 'Tu enlace de venta está listo'), { description: urlOf(code) });
     }
   };
 

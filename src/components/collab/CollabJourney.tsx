@@ -110,7 +110,10 @@ export function CollabJourney(p: Props) {
   } else if (current === 'sales') {
     if (isVenue && p.venueStripeReady === false) {
       next = {
-        title: t('Activer Stripe avant la première vente', 'Activate Stripe before the first sale', 'Activar Stripe antes de la primera venta'),
+        // « Avant la première vente » mentait dès la première vente passée.
+        title: p.participants > 0
+          ? t('Activer Stripe pour recevoir ta part', 'Activate Stripe to receive your share', 'Activa Stripe para recibir tu parte')
+          : t('Activer Stripe avant la première vente', 'Activate Stripe before the first sale', 'Activar Stripe antes de la primera venta'),
         body: t('Sans compte Stripe actif, ta part reste bloquée chez Yuno après la soirée. Cinq minutes, une seule fois.', 'Without an active Stripe account your share stays held at Yuno after the night. Five minutes, once.', 'Sin una cuenta de Stripe activa, tu parte queda bloqueada en Yuno tras la noche. Cinco minutos, una sola vez.'),
         cta: { label: t('Activer Stripe', 'Activate Stripe', 'Activar Stripe'), icon: CreditCard, onClick: p.onActivateStripe },
       };

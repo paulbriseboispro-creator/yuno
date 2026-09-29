@@ -87,8 +87,13 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   const [entriesByPart, setEntriesByPart] = useState<Record<string, PartEntry[]>>({});
   const [loading, setLoading] = useState(true);
   const partIdsRef = useRef<Set<string>>(new Set());
+  // Seule la DERNIÈRE lecture écrit à l'écran : ouvrir la page sur `?event=`
+  // lance d'abord la soirée par défaut, puis la bonne ; la plus lente des deux
+  // gagnait, et le sélecteur disait « Triple » sous les parts d'une autre soirée.
+  const requestRef = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++requestRef.current;
     if (!eventId) { setParts([]); setEntriesByPart({}); setLoading(false); return; }
     setLoading(true);
     try {
@@ -137,6 +142,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
         })(),
       ]);
 
+      if (request !== requestRef.current) return;
       const resolved = list.map(p => ({
         ...p,
         displayName:
@@ -151,7 +157,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
       setEntriesByPart(grouped);
     } finally {
       // Jamais un chargement éternel : une lecture qui lève rend quand même la page.
-      setLoading(false);
+      if (request === requestRef.current) setLoading(false);
     }
   }, [eventId]);
 

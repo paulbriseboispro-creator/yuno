@@ -837,6 +837,23 @@ sa boîte de réception, son carnet et sa façon d'inviter. Règles :
   abonné et `.on()` après `subscribe()` levait — « Gérer la collaboration »
   ouvrait la page d'erreur. Tout composant monté deux fois par page nomme son
   canal par instance.
+- **Joué en vrai le 29/09 à trois parties** (« Triple Collab Night », club ×
+  Organisateur Démo × Asso Yuno co-hôte, semis `scripts/demo/seed-triple-collab.sql`).
+  Règles qui en sortent : (1) **un co-hôte ÉDITEUR tient ses propres parts de
+  guest list** (policy `Cohost organizers manage own guest lists`, migration
+  `20260929250000`) — avant, « Ajouter une part » échouait en silence ; (2) **la
+  liste maison porte le nom de celui qui la TIENT** (son `organizer_user_id`,
+  sinon l'hôte de la soirée), jamais celui du compte qui regarde — chaque partie
+  croyait que c'était SA liste ; (3) **toute lecture de parts d'une soirée
+  ignore les réponses périmées** (`useGuestListParts`, `requestRef`) : ouvrir
+  sur `?event=` affichait les parts d'une autre soirée ; (4) les co-hôtes sont
+  nommés dans l'en-tête de la co-soirée ET de la page publique ; (5) la carte
+  « Qui fait vendre » de la Co-organisation lit les chiffres de
+  `get_collab_party_breakdown`, comme la page du même nom ; (6)
+  `get_new_events_to_announce()` exclut la démo (`20260929251000`) : publier une
+  soirée démo ne notifie jamais d'abonnés. Reste ouvert (décision produit) : un
+  accord de co-organisation posé sur une soirée qui a DÉJÀ un contrat Stripe
+  redistribue des ventes que Stripe a déjà réparties.
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
