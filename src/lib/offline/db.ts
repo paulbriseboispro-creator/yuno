@@ -88,6 +88,8 @@ export interface PendingScan {
   device_id: string;
   event_id: string;
   attempts: number;
+  /** Dernière tentative de rejeu ratée (ms epoch) — pour espacer les suivantes. */
+  last_attempt_at?: number;
 }
 
 interface OfflineDB extends DBSchema {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -286,6 +287,16 @@ export default function Bouncer() {
 
   // Scan offline (app Yuno Pro) : manifeste local + file de rejeu.
   const [offlineEventId, setOfflineEventId] = useState<string | null>(null);
+  // Soirées que CETTE porte tient en ce moment (en cours, sinon celle du jour).
+  // Un QR d'une autre soirée — jeudi dernier, samedi prochain — est refusé en
+  // ligne comme il l'est déjà hors ligne par le manifeste.
+  const [doorEventIds, setDoorEventIds] = useState<string[]>([]);
+  const doorEventIdsRef = useRef<string[]>([]);
+  // Lectures du compteur qui se croisent : seule la plus récente écrit.
+  const statsSeqRef = useRef(0);
+  // Flux classique : les frames suivantes du même QR arrivent avant que la
+  // caméra ne soit démontée — un seul traitement à la fois.
+  const classicLockRef = useRef(false);
   const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
   const offline = useOfflineScanning(offlineEventId, doorScope);
   
@@ -442,47 +453,89 @@ export default function Bouncer() {
     };
   }, [venueId, hasDoorScope, doorScope.organizerUserId]);
 
-  // Realtime subscription for live occupancy updates
+  // Compteur partagé entre toutes les portes : chaque entrée validée sur un
+  // AUTRE téléphone (billet, guest list, table) le fait avancer ici. Filtré
+  // sur les soirées de la porte, valable pour un club comme pour un
+  // organisateur. Rythme borné (1 lecture / 1,5 s au plus) : un debounce se
+  // faisait repousser sans fin au rush, le compteur restait figé.
+  const fetchStatsRef = useRef<() => void>(() => {});
   useEffect(() => {
-    if (!venueId) return;
-
-    const channelId = `bouncer-tickets-${venueId}-${Date.now()}`;
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    if (doorEventIds.length === 0) return;
+    const inFilter = `event_id=in.(${doorEventIds.join(',')})`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let last = 0;
+    const bump = (payload: { new: Record<string, unknown> }) => {
+      if (!payload.new?.entry_scanned) return;
+      const wait = Math.max(0, 1500 - (Date.now() - last));
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        last = Date.now();
+        fetchStatsRef.current();
+      }, wait);
+    };
     const channel = supabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tickets',
-        },
-        (payload) => {
-          const updated = payload.new as any;
-          if (updated.entry_scanned) {
-            // Debounce to avoid excessive refetches when multiple bouncers scan simultaneously
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchStats(), 500);
-          }
-        }
-      )
-      .subscribe();
+      .channel(uniqueChannel('door-entries'))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets', filter: inFilter }, bump)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'table_reservations', filter: inFilter }, bump)
+      // Pas de colonne soirée sur les entrées : la RLS borne déjà aux listes de la porte.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'guest_list_entries' }, bump)
+      .subscribe(status => {
+        // (Re)connexion après écran verrouillé / sous-sol : on rattrape.
+        if (status === 'SUBSCRIBED') fetchStatsRef.current();
+      });
 
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [venueId]);
+  }, [doorEventIds]);
+
+  /** Id du videur connecté, lu dans la session locale (aucun aller-retour réseau). */
+  const myUserId = async (): Promise<string | null> => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user?.id ?? null;
+  };
+
+  /** Le QR appartient-il à une soirée que cette porte ne tient pas ce soir ? */
+  const isOtherNight = (eventId: string | null | undefined): boolean => {
+    const ids = doorEventIdsRef.current;
+    return ids.length > 0 && !!eventId && !ids.includes(eventId);
+  };
+
+  /**
+   * L'écriture a rendu 0 ligne : un collègue est passé avant… ou c'est NOTRE
+   * premier essai qui a abouti et dont la réponse s'est perdue sur le réseau
+   * du club (le renvoi tombe alors sur « déjà scanné »). On relit : si le scan
+   * est à nous et a moins d'une minute, c'est un succès, pas un refus.
+   */
+  const scannedByMeJustNow = async (
+    table: 'tickets' | 'ticket_attendees' | 'table_reservations' | 'guest_list_entries',
+    id: string,
+  ): Promise<boolean> => {
+    const me = await myUserId();
+    if (!me) return false;
+    const { data } = await supabase.from(table).select('entry_scanned_by, entry_scanned_at').eq('id', id).maybeSingle();
+    const row = data as { entry_scanned_by: string | null; entry_scanned_at: string | null } | null;
+    return !!row && row.entry_scanned_by === me && !!row.entry_scanned_at
+      && Date.now() - new Date(row.entry_scanned_at).getTime() < 60_000;
+  };
 
   const fetchStats = async () => {
     if (!hasDoorScope) return;
+    const seq = ++statsSeqRef.current;
 
     try {
       // Soirées de CETTE porte (en cours, sinon celle du jour), résolues par
       // la porte unique partagée avec le pré-chargement du manifeste : deux
       // implémentations du même choix, c'est un téléphone qui télécharge la
-      // liste d'une soirée et en valide une autre.
+      // liste d'une soirée et en valide une autre. Une coupure LÈVE : on garde
+      // alors la soirée connue (mode hors ligne et liste des noms restent
+      // allumés) au lieu de tout éteindre.
       const eventIds = await resolveDoorEventIds(doorScope);
+      if (seq !== statsSeqRef.current) return;
+      doorEventIdsRef.current = eventIds;
+      setDoorEventIds(prev => (prev.join(',') === eventIds.join(',') ? prev : eventIds));
 
       if (eventIds.length === 0) {
         setStats({ scanned: 0, total: 0 });
@@ -527,11 +580,14 @@ export default function Bouncer() {
         }
       }
 
+      if (seq !== statsSeqRef.current) return;
       setStats({ scanned, total });
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
   };
+
+  fetchStatsRef.current = fetchStats;
 
   // Refresh top clients cache every 5 minutes
   const refreshTopClientsCache = async () => {
@@ -632,7 +688,9 @@ export default function Bouncer() {
       setScannedVipReservation(null);
       setDeniedContext(null);
     }
-    return ok;
+    // « Déjà entré » (un collègue l'a fait passer) : la ligne passe aussi au
+    // vert — sinon elle continue d'afficher « Laisser entrer » sur ce téléphone.
+    return ok || outcome === 'already';
   };
 
   // Re-monte le flux caméra après que l'agent a réactivé l'accès dans les
@@ -730,7 +788,7 @@ export default function Bouncer() {
         break;
       case 'deadline_passed':
         denyScan(
-          verdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'),
+          verdict.deadlineSource === 'entry' ? t('bouncer.entryDeadlineGeneric') : t('guestList.timeExpired'),
           { name },
         );
         break;
@@ -763,7 +821,7 @@ export default function Bouncer() {
         .select(`
           id, full_name, qr_code, entry_scanned, entry_scanned_at, ticket_id,
           tickets!inner(
-            id, user_email, full_name, quantity, status, user_id, total_price,
+            id, event_id, user_email, full_name, quantity, status, user_id, total_price, service_fee,
             drink_redeemed, drink_name, entry_scanned,
             events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
             ticket_rounds!inner(name, includes_drink, entry_deadline)
@@ -801,6 +859,10 @@ export default function Bouncer() {
 
         if (verdict.status === 'wrong_venue') {
           denyScan(t('bouncer.wrongVenue'), attendeeContext);
+          return;
+        }
+        if (activeTab !== 'cancel' && isOtherNight(ticket.event_id)) {
+          denyScan(t('bouncer.otherNight'), attendeeContext);
           return;
         }
 
@@ -868,7 +930,7 @@ export default function Bouncer() {
           return;
         }
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = { id: await myUserId() };
 
         // Mark the attendee as scanned (optimistic lock: only if not already scanned)
         const { data: updatedAttendee, error: updateAttendeeError } = await retrySupabaseAction(async () => {
@@ -890,7 +952,7 @@ export default function Bouncer() {
           console.error('Failed to update attendee:', updateAttendeeError);
           throw updateAttendeeError;
         }
-        if (!updatedAttendee || updatedAttendee.length === 0) {
+        if ((!updatedAttendee || updatedAttendee.length === 0) && !(await scannedByMeJustNow('ticket_attendees', attendee.id))) {
           setScanResult('already');
           setOverlayResult('already');
           setOverlayName(attendee.full_name || ticket.full_name || undefined);
@@ -912,6 +974,7 @@ export default function Bouncer() {
           return res;
         });
 
+        void offline.markScannedOnline(qrCode, 'ticket_attendee', attendee.id);
         setScanResult('success');
         setOverlayResult('success');
         setOverlayName(attendee.full_name || ticket.full_name || undefined);
@@ -985,6 +1048,10 @@ export default function Bouncer() {
           denyScan(t('bouncer.wrongVenue'), ticketContext);
           return;
         }
+        if (activeTab !== 'cancel' && isOtherNight(ticket.event_id)) {
+          denyScan(t('bouncer.otherNight'), ticketContext);
+          return;
+        }
 
         // Cancel mode
         if (activeTab === 'cancel') {
@@ -1051,7 +1118,7 @@ export default function Bouncer() {
           return;
         }
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = { id: await myUserId() };
 
         const { data: updatedData, error: updateError } = await retrySupabaseAction(async () => {
           const res = await supabase
@@ -1072,13 +1139,14 @@ export default function Bouncer() {
           console.error('Failed to update ticket:', updateError);
           throw updateError;
         }
-        if (!updatedData || updatedData.length === 0) {
+        if ((!updatedData || updatedData.length === 0) && !(await scannedByMeJustNow('tickets', ticket.id))) {
           setScanResult('already');
           setOverlayResult('already');
           setOverlayName(ticket.full_name || undefined);
           return;
         }
 
+        void offline.markScannedOnline(qrCode, 'ticket', ticket.id);
         setScanResult('success');
         setOverlayResult('success');
         setOverlayName(ticket.full_name || undefined);
@@ -1152,6 +1220,16 @@ export default function Bouncer() {
           denyScan(t('bouncer.wrongVenue'), tableContext);
           return;
         }
+        // L'onglet Annuler ne rembourse que des billets : scanner une table
+        // pour la refuser ne doit JAMAIS la faire entrer (ni prévenir l'hôte VIP).
+        if (activeTab === 'cancel') {
+          denyScan(t('bouncer.cancelTicketsOnly'), tableContext);
+          return;
+        }
+        if (isOtherNight(reservation.event_id)) {
+          denyScan(t('bouncer.otherNight'), tableContext);
+          return;
+        }
 
         if (tableVerdict.status === 'not_paid') {
           denyScan(t('bouncer.ticketNotPaid'), tableContext);
@@ -1178,7 +1256,7 @@ export default function Bouncer() {
           return;
         }
 
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const currentUser = { id: await myUserId() };
 
         const checkInTime = new Date().toISOString();
         const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
@@ -1197,37 +1275,17 @@ export default function Bouncer() {
           return res;
         });
 
-        if (!updatedRes || updatedRes.length === 0) {
+        if (updateError) {
+          console.error('Failed to update VIP reservation:', updateError);
+          throw updateError;
+        }
+        if ((!updatedRes || updatedRes.length === 0) && !(await scannedByMeJustNow('table_reservations', reservation.id))) {
           setScanResult('already');
           return;
         }
-
-        if (updateError) {
-          console.error('Failed to update VIP reservation:', updateError);
-        } else {
-          // Send notification to VIP Host
-          const zoneName = (reservation.table_zones as any)?.name || '';
-          const packName = (reservation.table_packs as any)?.name || '';
-          
-          await supabase.from('staff_notifications').insert({
-            venue_id: venueId,
-            event_id: reservation.event_id,
-            target_role: 'vip_host',
-            notification_type: 'vip_entry',
-            title: 'Arrivée VIP',
-            message: `${reservation.full_name || 'VIP'} (${reservation.guest_count || 1} pers.) est arrivé - ${zoneName}`,
-            reference_type: 'table_reservation',
-            reference_id: reservation.id,
-            priority: 'high',
-            metadata: {
-              guest_name: reservation.full_name,
-              guest_count: reservation.guest_count || 1,
-              zone_name: zoneName,
-              pack_name: packName,
-              deposit: Number(reservation.deposit || 0)
-            }
-          });
-        }
+        // L'hôte VIP est prévenu par la base (trigger notify_vip_host_on_arrival,
+        // club de la ZONE, une seule fois — hors ligne compris).
+        void offline.markScannedOnline(qrCode, 'table_reservation', reservation.id);
 
         setScannedVipReservation({
           id: reservation.id,
@@ -1309,6 +1367,14 @@ export default function Bouncer() {
             denyScan(t('bouncer.wrongVenue'), glContext);
             return;
           }
+          if (activeTab === 'cancel') {
+            denyScan(t('bouncer.cancelTicketsOnly'), glContext);
+            return;
+          }
+          if (isOtherNight(glList.event_id)) {
+            denyScan(t('bouncer.otherNight'), glContext);
+            return;
+          }
 
           if (glVerdict.status === 'already') {
             setScanResult('already');
@@ -1318,7 +1384,7 @@ export default function Bouncer() {
               fullName: glEntry.full_name,
               quantity: 1,
               eventTitle: (glEntry.guest_lists as any).events.title,
-              roundName: 'Guest List',
+              roundName: t('bouncer.guestListLabel'),
               status: 'paid',
               entryScanned: true,
               entryScannedAt: glEntry.entry_scanned_at,
@@ -1339,7 +1405,7 @@ export default function Bouncer() {
           // avec le chemin offline, voir computeGuestListDeadline dans rules.ts.
           if (glVerdict.status === 'deadline_passed') {
             denyScan(
-              glVerdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'),
+              glVerdict.deadlineSource === 'entry' ? t('bouncer.entryDeadlineGeneric') : t('guestList.timeExpired'),
               glContext,
             );
             return;
@@ -1349,20 +1415,27 @@ export default function Bouncer() {
           // .eq('entry_scanned', false), deux devices qui scannent le même QR à
           // la même seconde comptent l'entrée deux fois (les billets/tables et
           // le chemin offline ont déjà ce garde).
-          const { data: { user: glUser } } = await supabase.auth.getUser();
-          const { data: glUpdated } = await supabase
-            .from('guest_list_entries')
-            .update({
-              entry_scanned: true,
-              entry_scanned_at: new Date().toISOString(),
-              entry_scanned_by: glUser?.id,
-              status: 'entered',
-            })
-            .eq('id', glEntry.id)
-            .eq('entry_scanned', false)
-            .select('id');
+          const glUser = { id: await myUserId() };
+          const { data: glUpdated, error: glUpdateError } = await retrySupabaseAction(async () => {
+            const res = await supabase
+              .from('guest_list_entries')
+              .update({
+                entry_scanned: true,
+                entry_scanned_at: new Date().toISOString(),
+                entry_scanned_by: glUser?.id,
+                status: 'entered',
+              })
+              .eq('id', glEntry.id)
+              .eq('entry_scanned', false)
+              .select('id');
+            if (res.error) throw res.error;
+            return res;
+          });
+          // Erreur réseau / serveur : on la lève pour que le repli hors ligne
+          // (ou le message d'erreur) s'applique — jamais un faux « déjà scanné ».
+          if (glUpdateError) throw glUpdateError;
 
-          if (!glUpdated || glUpdated.length === 0) {
+          if ((!glUpdated || glUpdated.length === 0) && !(await scannedByMeJustNow('guest_list_entries', glEntry.id))) {
             // Un autre device vient de scanner cette entrée.
             setScanResult('already');
             setScannedTicket({
@@ -1371,7 +1444,7 @@ export default function Bouncer() {
               fullName: glEntry.full_name,
               quantity: 1,
               eventTitle: (glEntry.guest_lists as any).events.title,
-              roundName: 'Guest List',
+              roundName: t('bouncer.guestListLabel'),
               status: 'paid',
               entryScanned: true,
               entryScannedAt: glEntry.entry_scanned_at,
@@ -1383,30 +1456,11 @@ export default function Bouncer() {
             return;
           }
 
-          // Commission « à la tête » du promoteur qui a placé cet invité.
-          //
-          // Elle n'était déclenchée que par le scanner du PROMOTEUR lui-même.
-          // Or à la porte c'est le videur du club qui scanne : son passage posait
-          // entry_scanned = true, et le scan du promoteur ressortait ensuite en
-          // « déjà scanné » sans jamais atteindre la RPC. Autrement dit, dans le
-          // cas normal, un promoteur n'était JAMAIS payé sur ses invités.
-          //
-          // Volontairement non bloquant : la porte doit avancer même si
-          // l'enregistrement de la commission échoue.
-          const glPromoterId = (glEntry as { promoter_id?: string | null }).promoter_id;
-          const glEventId = (glEntry.guest_lists as { event_id?: string })?.event_id;
-          if (glPromoterId && glEventId) {
-            supabase.rpc('record_promoter_conversion', {
-              p_promoter_id: glPromoterId,
-              p_conversion_type: 'guestlist',
-              p_amount: 0,
-              p_event_id: glEventId,
-              p_guest_list_entry_id: glEntry.id,
-              p_scan_at: new Date().toISOString(),
-            }).then(({ error }) => {
-              if (error) console.error('record_promoter_conversion (bouncer guestlist)', error);
-            });
-          }
+          // La commission « à la tête » du promoteur qui a placé cet invité est
+          // enregistrée par la base au moment du scan (trigger
+          // record_guest_entry_promoter_conversion), quel que soit le
+          // téléphone qui scanne, hors ligne compris.
+          void offline.markScannedOnline(qrCode, 'guest_list_entry', glEntry.id);
 
           // Bouncer view: show entry type info
           const entryType = glEntry.entry_type || 'normal';
@@ -1645,8 +1699,17 @@ export default function Bouncer() {
             if (lastCodeRef.current && value === lastCodeRef.current.code && Date.now() - lastCodeRef.current.at < 3000) return;
             processingRef.current = true;
             pendingCodeRef.current = value;
+            onScanSuccess(value);
+          } else {
+            // Flux classique : les 2-3 frames qui suivent la lecture arrivent
+            // avant que la caméra ne soit démontée. Sans ce verrou, le même QR
+            // part deux fois : « succès » puis « déjà scanné » qui écrase la carte.
+            if (classicLockRef.current) return;
+            classicLockRef.current = true;
+            Promise.resolve(onScanSuccess(value)).finally(() => {
+              classicLockRef.current = false;
+            });
           }
-          onScanSuccess(value);
         }
       }}
       onError={(error: unknown) => {

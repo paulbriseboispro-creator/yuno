@@ -51,13 +51,20 @@ export function useDoorManifestPreload(scope: DoorScope, isDoorStaff: boolean) {
     void preload(true);
 
     let resumeCleanup: (() => void) | undefined;
+    // Démonté avant la fin de l'import dynamique : on ne pose pas l'écouteur
+    // (sinon il fuyait, jamais retiré).
+    let cancelled = false;
     import('@capacitor/app').then(({ App: CapApp }) => {
+      if (cancelled) return;
       const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
         if (isActive) void preload();
       });
       resumeCleanup = () => { sub.then((s) => s.remove()); };
     }).catch(() => {});
 
-    return () => { resumeCleanup?.(); };
+    return () => {
+      cancelled = true;
+      resumeCleanup?.();
+    };
   }, [enabled, preload]);
 }

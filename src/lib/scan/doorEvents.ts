@@ -38,6 +38,10 @@ export function doorEventFilter(scope: DoorScope): string | null {
  * sinon — si `lookaheadHours` est donné — ce qui démarre dans la fenêtre.
  * Le dernier cercle n'existe que pour le pré-chargement : le compteur de la
  * porte, lui, ne doit jamais parler d'une soirée de la semaine prochaine.
+ *
+ * Une erreur réseau LÈVE (jamais « aucune soirée ») : l'appelant garde alors
+ * la soirée qu'il connaissait. Rendre [] sur une coupure éteignait le mode
+ * hors ligne et la liste des noms au premier accroc, en pleine nuit.
  */
 export async function resolveDoorEventIds(
   scope: DoorScope,
@@ -49,7 +53,7 @@ export async function resolveDoorEventIds(
   const now = new Date();
   const nowIso = now.toISOString();
 
-  const { data: live } = await supabase
+  const { data: live, error: liveError } = await supabase
     .from('events')
     .select('id')
     .or(filter)
@@ -57,22 +61,25 @@ export async function resolveDoorEventIds(
     .lte('start_at', nowIso)
     .gte('end_at', nowIso)
     .order('start_at', { ascending: false });
+  if (liveError) throw liveError;
   if (live && live.length > 0) return live.map((e) => e.id);
 
   const midnight = new Date(now);
   midnight.setHours(0, 0, 0, 0);
-  const { data: today } = await supabase
+  const { data: today, error: todayError } = await supabase
     .from('events')
     .select('id')
     .or(filter)
+    .eq('is_active', true)
     .gte('end_at', midnight.toISOString())
     .lte('start_at', new Date(midnight.getTime() + 24 * 60 * 60 * 1000).toISOString())
     .order('start_at', { ascending: false });
+  if (todayError) throw todayError;
   if (today && today.length > 0) return today.map((e) => e.id);
 
   if (!opts.lookaheadHours) return [];
 
-  const { data: soon } = await supabase
+  const { data: soon, error: soonError } = await supabase
     .from('events')
     .select('id')
     .or(filter)
@@ -80,5 +87,6 @@ export async function resolveDoorEventIds(
     .gte('end_at', nowIso)
     .lte('start_at', new Date(now.getTime() + opts.lookaheadHours * 3600 * 1000).toISOString())
     .order('start_at', { ascending: true });
+  if (soonError) throw soonError;
   return (soon ?? []).map((e) => e.id);
 }

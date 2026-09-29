@@ -130,10 +130,56 @@ serve(async (req) => {
     let linkedOrdersCancelled = 0;
     let linkedOrdersRefundTotal = 0;
 
+    /**
+     * Portée du staff, vérifiée AVANT toute écriture et tout remboursement.
+     * Avant, le billet passait « remboursé », les consos liées étaient
+     * remboursées sur Stripe et le compteur décrémenté… puis la portée levait
+     * — sans rien défaire. Et sur une soirée d'organisateur (venue_id NULL) il
+     * n'y avait aucune vérification du tout.
+     */
+    const isAdmin = roles?.some(r => r.role === 'admin') ?? false;
+    const assertInScope = async (eventId: string | null, clubIds: (string | null | undefined)[]) => {
+      if (isAdmin) return;
+      const clubs = clubIds.filter((v): v is string => !!v);
+      const { data: prof } = await adminClient
+        .from('profiles').select('venue_id').eq('id', authenticatedUserId).single();
+      if (prof?.venue_id && clubs.includes(prof.venue_id)) return;
+      if (clubs.length > 0) {
+        const { data: owned } = await adminClient
+          .from('venues').select('id').in('id', clubs).eq('owner_id', authenticatedUserId).limit(1);
+        if (owned && owned.length > 0) return;
+      }
+      if (eventId) {
+        const { data: evt } = await adminClient
+          .from('events').select('organizer_user_id, partner_organizer_id').eq('id', eventId).maybeSingle();
+        if (evt && (evt.organizer_user_id === authenticatedUserId || evt.partner_organizer_id === authenticatedUserId)) return;
+        const { data: doorStaff } = await adminClient.rpc('is_event_door_staff', {
+          _user_id: authenticatedUserId, _event_id: eventId,
+        });
+        if (doorStaff === true) return;
+        const { data: partnerStaff } = await adminClient.rpc('is_event_partner_venue_staff', {
+          _user_id: authenticatedUserId, _event_id: eventId,
+        });
+        if (partnerStaff === true) return;
+        // Staff opérationnel de l'organisateur (barman, vestiaire) accepté.
+        const orgIds = [evt?.organizer_user_id, evt?.partner_organizer_id].filter((v): v is string => !!v);
+        if (orgIds.length > 0) {
+          const { data: orgLink } = await adminClient
+            .from('org_staff').select('user_id')
+            .in('organizer_user_id', orgIds)
+            .eq('user_id', authenticatedUserId)
+            .eq('invitation_status', 'accepted').limit(1);
+          if (orgLink && orgLink.length > 0) return;
+        }
+      }
+      logStep("Venue scope denied", { authenticatedUserId, clubs, eventId });
+      throw new Error('Unauthorized: not assigned to this venue');
+    };
+
     if (type === 'ticket') {
       let ticketQuery = adminClient
         .from('tickets')
-        .select('*, ticket_rounds(id, tickets_sold, event_id), events!inner(id, title, venue_id, venues:venue_id(name))');
+        .select('*, ticket_rounds(id, tickets_sold, event_id), events!inner(id, title, venue_id, partner_venue_id, venues:venue_id(name))');
       if (id) ticketQuery = ticketQuery.eq('id', id);
       else if (qrCode) ticketQuery = ticketQuery.eq('qr_code', qrCode);
       
@@ -141,6 +187,7 @@ serve(async (req) => {
       if (ticketError || !ticket) throw new Error('Ticket not found');
       if (ticket.status !== 'paid') throw new Error('Only paid tickets can be cancelled');
       if (ticket.entry_scanned) throw new Error('Cannot cancel: ticket already scanned for entry');
+      await assertInScope(ticket.events?.id ?? null, [ticket.events?.venue_id, ticket.events?.partner_venue_id]);
 
       ticketId = ticket.id;
       scopeEventId = ticket.events?.id || null;
@@ -165,7 +212,10 @@ serve(async (req) => {
 
       logStep("Ticket refund calculation", { originalAmount, serviceFee, stripeFee, refundableAmount, refundAmount });
 
-      await adminClient
+      // Verrou « premier arrivé » : un videur qui annule pendant qu'un autre
+      // scanne, ou deux annulations simultanées → une seule gagne, les autres
+      // s'arrêtent AVANT tout remboursement.
+      const { data: claimed, error: claimError } = await adminClient
         .from('tickets')
         .update({
           status: 'refunded',
@@ -174,7 +224,14 @@ serve(async (req) => {
           refund_reason: reason || null,
           refunded_by: user.id,
         })
-        .eq('id', ticket.id);
+        .eq('id', ticket.id)
+        .eq('status', 'paid')
+        .eq('entry_scanned', false)
+        .select('id');
+      if (claimError) throw claimError;
+      if (!claimed || claimed.length === 0) {
+        throw new Error('Cannot cancel: ticket was just scanned or cancelled on another device');
+      }
 
       try {
         await adminClient.from('order_pack_credits').delete().eq('ticket_order_id', ticket.id);
@@ -256,6 +313,7 @@ serve(async (req) => {
       if (orderError || !order) throw new Error('Order not found');
       if (order.status !== 'paid') throw new Error('Only paid orders can be cancelled');
       if (order.served_at || order.token_used) throw new Error('Cannot cancel: order already served');
+      await assertInScope(order.event_id || null, [order.venue_id]);
 
       orderId = order.id;
       scopeEventId = order.event_id || null;
@@ -284,48 +342,6 @@ serve(async (req) => {
       // NOTE: the order is NOT marked refunded here. For drink orders we refund
       // on Stripe first (blocking) and only then write the refunded status, so a
       // failed refund can never leave a "refunded" order with no money returned.
-    }
-
-    // Venue scoping: a staff member may only cancel/refund items that belong to
-    // their own venue. Without this, a barman from one club could refund another
-    // club's order. Allowed: platform admins, the venue owner, club-scope staff
-    // (profiles.venue_id), and the organizer (or accepted org_staff) of the
-    // linked event for org-run events hosted at a partner venue.
-    {
-      const isAdmin = roles?.some(r => r.role === 'admin') ?? false;
-      if (!isAdmin && venueId) {
-        let belongsToVenue = false;
-
-        const { data: prof } = await adminClient
-          .from('profiles').select('venue_id').eq('id', authenticatedUserId).single();
-        if (prof?.venue_id && prof.venue_id === venueId) belongsToVenue = true;
-
-        if (!belongsToVenue) {
-          const { data: ownedVenue } = await adminClient
-            .from('venues').select('id').eq('id', venueId).eq('owner_id', authenticatedUserId).maybeSingle();
-          if (ownedVenue) belongsToVenue = true;
-        }
-
-        if (!belongsToVenue && scopeEventId) {
-          const { data: evt } = await adminClient
-            .from('events').select('organizer_user_id').eq('id', scopeEventId).maybeSingle();
-          if (evt?.organizer_user_id === authenticatedUserId) {
-            belongsToVenue = true;
-          } else if (evt?.organizer_user_id) {
-            const { data: orgLink } = await adminClient
-              .from('org_staff').select('user_id')
-              .eq('organizer_user_id', evt.organizer_user_id)
-              .eq('user_id', authenticatedUserId)
-              .eq('invitation_status', 'accepted').limit(1);
-            if (orgLink && orgLink.length > 0) belongsToVenue = true;
-          }
-        }
-
-        if (!belongsToVenue) {
-          logStep("Venue scope denied", { authenticatedUserId, venueId, scopeEventId });
-          throw new Error('Unauthorized: not assigned to this venue');
-        }
-      }
     }
 
     // Process Stripe refund.

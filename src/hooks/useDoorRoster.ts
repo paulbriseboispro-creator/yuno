@@ -115,9 +115,9 @@ export function useDoorRoster(eventId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!eventId) { setPeople([]); return; }
-    setLoading(true);
+    if (!opts.silent) setLoading(true);
     setError(null);
     try {
       const { data, error: rpcErr } = await supabase.rpc('get_event_scan_manifest', { p_event_id: eventId });
@@ -140,6 +140,23 @@ export function useDoorRoster(eventId: string | null) {
   }, [eventId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Plusieurs videurs à la porte : qui est entré par un AUTRE téléphone, et
+  // les invités ajoutés entre-temps par un promoteur, doivent apparaître sans
+  // qu'on pense à « Actualiser ». Relecture discrète toutes les 45 s tant que
+  // l'écran est visible, et au retour au premier plan.
+  useEffect(() => {
+    if (!eventId) return;
+    const tick = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) load({ silent: true });
+    };
+    const id = setInterval(tick, 45_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [eventId, load]);
 
   /**
    * Marque une personne comme entrée dans l'état local, sans attendre un

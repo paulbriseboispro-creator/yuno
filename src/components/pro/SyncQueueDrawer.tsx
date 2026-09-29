@@ -133,7 +133,7 @@ export function SyncQueueDrawer({
             </ul>
           )}
 
-          {lastSummary && (lastSummary.applied > 0 || lastSummary.conflicts.length > 0) && (
+          {lastSummary && (lastSummary.applied > 0 || lastSummary.conflicts.length > 0 || (lastSummary.rejected?.length ?? 0) > 0) && (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-1.5">
               {lastSummary.applied > 0 && (
                 <p className="flex items-center gap-2 text-sm text-emerald-400">
@@ -148,6 +148,14 @@ export function SyncQueueDrawer({
                     '{time}',
                     c.conflict_scanned_at ? timeFmt(c.conflict_scanned_at) : '—',
                   )}
+                </p>
+              ))}
+              {/* Refusé par le serveur (remboursé ou annulé pendant la coupure) :
+                  la personne est entrée sur un QR qui ne valait plus rien. */}
+              {(lastSummary.rejected ?? []).map((r) => (
+                <p key={r.client_id} className="flex items-center gap-2 text-sm text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-none" />
+                  {r.message === 'not_valid' ? t('offline.drawer.rejectedInvalid') : t('offline.drawer.rejectedUnknown')}
                 </p>
               ))}
             </div>

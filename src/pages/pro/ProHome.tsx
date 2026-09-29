@@ -163,6 +163,13 @@ export default function ProHome() {
   }, [ev]);
 
   const handleLogout = async () => {
+    // Les entrées scannées hors ligne partent au serveur AVANT la purge : les
+    // effacer sans les rejouer, c'est un QR qu'un autre téléphone peut refaire
+    // entrer et une commission promoteur perdue.
+    const { replayQueue, pendingCount } = await import('@/lib/offline/queue');
+    await replayQueue();
+    const left = await pendingCount();
+    if (left > 0 && !window.confirm(t('offline.logoutPending').replace('{count}', String(left)))) return;
     clearStaffSession();
     const { purgeAllOfflineData } = await import('@/lib/offline/db');
     await purgeAllOfflineData();

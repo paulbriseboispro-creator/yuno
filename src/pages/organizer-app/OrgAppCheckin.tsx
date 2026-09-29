@@ -151,12 +151,19 @@ export default function OrgAppCheckin() {
     (async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, title, start_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
+        .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
         .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
         .gte('end_at', new Date(Date.now() - 86_400_000).toISOString())
         .order('start_at', { ascending: true });
       setEvents(data ?? []);
-      if (data?.[0]) setEventId(data[0].id);
+      // Soirée par défaut : celle EN COURS, sinon la prochaine qui n'est pas
+      // finie. La première de la liste était souvent celle de la veille (fenêtre
+      // de 24 h) : chaque scan de 23 h disait « mauvais événement ».
+      const now = Date.now();
+      const live = data?.find(e => new Date(e.start_at).getTime() <= now && new Date(e.end_at).getTime() >= now);
+      const next = data?.find(e => new Date(e.end_at).getTime() >= now);
+      const pick = live ?? next ?? data?.[data.length - 1];
+      if (pick) setEventId(pick.id);
     })();
   }, [organizerId]);
 
@@ -453,11 +460,17 @@ export default function OrgAppCheckin() {
       if (order.event_id && order.event_id !== eventId) { setDrinkResult({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
       if (order.status !== 'paid') { setDrinkResult({ ok: false, reason: t('Non payée', 'Not paid') }); return; }
       if (order.served_at || order.token_used) { setDrinkResult({ ok: false, reason: t('Déjà servie', 'Already served') }); return; }
-      const { data: { user: serveUser } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('orders')
-        .update({ served_at: new Date().toISOString(), token_used: true, status: 'served', served_by: serveUser?.id })
-        .eq('id', order.id).is('served_at', null);
+      const { data: { session } } = await supabase.auth.getSession();
+      // Verrou : deux téléphones qui scannent la même commande → un seul « servie ».
+      const { data: servedRows, error } = await supabase.from('orders')
+        .update({ served_at: new Date().toISOString(), token_used: true, status: 'served', served_by: session?.user?.id })
+        .eq('id', order.id).is('served_at', null).eq('token_used', false)
+        .select('id');
       if (error) throw error;
+      if (!servedRows || servedRows.length === 0) {
+        setDrinkResult({ ok: false, reason: t('Déjà servie', 'Already served') });
+        return;
+      }
       const itemsLabel = Array.isArray(order.items)
         ? (order.items as any[]).map(i => `${i.qty ?? i.quantity ?? 1}× ${i.name ?? '—'}`).join(', ')
         : '';

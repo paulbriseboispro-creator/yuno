@@ -187,7 +187,7 @@ export function DoorSearchPanel({ eventId, onPick }: Props) {
             )}
             <button
               type="button"
-              onClick={roster.reload}
+              onClick={() => roster.reload()}
               className="ml-auto inline-flex items-center gap-1"
               style={{ color: T2 }}
             >

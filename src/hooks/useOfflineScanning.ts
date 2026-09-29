@@ -169,7 +169,9 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     window.addEventListener('online', onOnline);
 
     let resumeCleanup: (() => void) | undefined;
+    let cancelled = false;
     import('@capacitor/app').then(({ App: CapApp }) => {
+      if (cancelled) return; // démonté avant la fin de l'import : pas d'écouteur orphelin
       const sub = CapApp.addListener('appStateChange', ({ isActive }) => {
         if (isActive) { replay(); refreshManifest(); }
       });
@@ -181,6 +183,7 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     }, 30 * 1000);
 
     return () => {
+      cancelled = true;
       window.removeEventListener('online', onOnline);
       resumeCleanup?.();
       clearInterval(drain);
@@ -238,9 +241,27 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     return { verdict, kind: hit.kind, name: hit.entry.name, entry: hit.entry, offline: true };
   }, [eventId, scopeVenueId, scopeOrganizerUserId, refreshPending, replay]);
 
+  /**
+   * Un scan validé EN LIGNE est aussi noté dans le set local : si le réseau
+   * tombe juste après, le manifeste (rafraîchi toutes les 5 min) croirait ce
+   * QR encore libre et le laisserait repasser sur ce téléphone.
+   */
+  const markScannedOnline = useCallback(async (qr: string, entityType: ScanEntity['type'], entityId: string) => {
+    if (!enabled || !eventId) return;
+    try {
+      const db = await getOfflineDb();
+      await db.put('local_scans', {
+        qr: qr.trim(), eventId, entityType, entityId, scannedAt: new Date().toISOString(), synced: true,
+      });
+    } catch {
+      /* stockage indisponible : le serveur reste la vérité */
+    }
+  }, [enabled, eventId]);
+
   const manifestAgeMs = stored ? Date.now() - new Date(stored.fetchedAt).getTime() : null;
 
   return {
+    markScannedOnline,
     enabled,
     online,
     manifestReady: !!index,
