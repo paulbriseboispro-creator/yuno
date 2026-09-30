@@ -1,5 +1,6 @@
 import { renderAutoTpl, resolveUserLang, sendAutoPush, type AutoPushLang, type AutoPushVar } from "./auto-push.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { sendNightRecapEmail } from "./analytics-digest-emails.ts";
 
 // Bilan du lendemain (plan de simplification de l'analyse, lot 7) : le
 // lendemain d'une soirée, à partir de 11 h à Paris, le pro reçoit ses trois
@@ -68,6 +69,8 @@ export async function dispatchNightRecaps(admin: SupabaseClient): Promise<{ proc
       if (!d.demo) {
         const res = await sendAutoPush(admin, { key: "night_recap", userId: d.recipient, url: path, vars, variant });
         sent += res.sent;
+        // 3. L'email du bilan (registre email_night_recap, mêmes chiffres que l'écran).
+        try { await sendNightRecapEmail(admin, eventId); } catch (e) { console.error(`[NIGHT-RECAP] email ${eventId}:`, String(e)); }
       }
     } catch (e) {
       console.error(`[NIGHT-RECAP] event ${eventId} failed:`, String(e));

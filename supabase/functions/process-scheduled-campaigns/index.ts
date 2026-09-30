@@ -8,6 +8,7 @@ import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchNightRecaps } from "../_shared/night-recap.ts";
+import { dispatchWeeklyDigestEmails } from "../_shared/analytics-digest-emails.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { dispatchEmailAutomations, dispatchCampaignResends } from "../_shared/email-automations.ts";
@@ -226,6 +227,14 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
+    // L'hebdo du lundi par email (Analytics v3) : même fenêtre, dédup par semaine.
+    let weeklyDigest = { processed: 0, sent: 0 };
+    try {
+      weeklyDigest = await dispatchWeeklyDigestEmails(admin);
+    } catch (e) {
+      console.error('[WEEKLY-DIGEST] dispatch failed:', String(e));
+    }
+
     // Bilan du lendemain (cloche de la Console + push pro gaté par le
     // registre) : auto-gate 11 h – 20 h Paris + dédup par soirée.
     let nightRecap = { processed: 0, sent: 0, inApp: 0 };
@@ -261,7 +270,8 @@ Deno.serve(async (req) => {
       console.error('[META-CAPI] drain failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, nightRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap,
+        weeklyDigest, nightRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
