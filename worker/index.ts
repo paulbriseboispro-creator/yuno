@@ -156,6 +156,7 @@ interface Entity {
   jsonLd: Row; // schema.org object appended to <head>
   h1: string; // crawlable content heading
   bodyHtml: string; // crawlable content block (facts + internal links), pre-escaped
+  noindex?: boolean; // soirée privée : aperçu social oui, indexation non
 }
 
 // Social + SEO crawlers that fetch a URL to build a link preview / index it.
@@ -847,7 +848,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     if (venueExists) {
       row = await fetchRow(
         env,
-        `events?venue_id=eq.${encodeURIComponent(host)}&organizer_user_id=is.null&slug=eq.${encodeURIComponent(evSlug)}&visibility=eq.public&select=id&limit=1`,
+        `events?venue_id=eq.${encodeURIComponent(host)}&organizer_user_id=is.null&slug=eq.${encodeURIComponent(evSlug)}&select=id&limit=1`,
       );
     }
     if (!row) {
@@ -855,7 +856,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       if (org) {
         row = await fetchRow(
           env,
-          `events?organizer_user_id=eq.${encodeURIComponent(org.user_id as string)}&slug=eq.${encodeURIComponent(evSlug)}&visibility=eq.public&select=id&limit=1`,
+          `events?organizer_user_id=eq.${encodeURIComponent(org.user_id as string)}&slug=eq.${encodeURIComponent(evSlug)}&select=id&limit=1`,
         );
       }
     }
@@ -869,7 +870,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const id = eventId;
     const ev = await fetchRow(
       env,
-      `events?id=eq.${encodeURIComponent(id)}&visibility=eq.public&select=title,description,poster_url,` +
+      `events?id=eq.${encodeURIComponent(id)}&select=visibility,title,description,poster_url,` +
         `start_at,end_at,music_genre,music_genres,location_name,location_city,location_address,` +
         `location_is_secret,status,cancelled_at,venue_id,slug,organizer_user_id,` +
         // Drapeaux « Complet » + interrupteurs de pilier : sans eux le balisage vend
@@ -879,6 +880,22 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         `venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
     );
     if (!ev) return null;
+    // Soirée PRIVÉE (accessible par lien) : l'aperçu social (WhatsApp, Instagram…) reprend
+    // l'affiche et le titre — c'est tout l'intérêt de partager le lien —, mais la page reste
+    // hors index (noindex), sans JSON-LD ni contenu crawlable ni lien interne.
+    if (ev.visibility !== 'public') {
+      const pTitle = (ev.title as string) || 'Event';
+      return {
+        title: `${pTitle} · Yuno`,
+        description: clean(ev.description as string) || `${pTitle} — tickets, VIP tables and drinks on Yuno.`,
+        image: ogImage((ev.poster_url as string) || undefined),
+        canonical: `${ORIGIN}${path}`,
+        jsonLd: {},
+        h1: pTitle,
+        bodyHtml: '',
+        noindex: true,
+      };
+    }
     // Billetterie + line-up : alimentent offers[] (price / priceCurrency / validFrom) et
     // performer[] du schema Event. Les deux tables sont lisibles par l'anon (policies
     // "Everyone can view active ticket rounds" / "Anyone can view event_djs").
@@ -1312,6 +1329,10 @@ class HeadInjector {
         { '@type': 'ListItem', position: 2, name: this.e.h1, item: this.e.canonical },
       ],
     };
+    if (this.e.noindex) {
+      el.append('<meta name="robots" content="noindex, nofollow">', { html: true });
+      return;
+    }
     el.append(jsonLdScript(this.e.jsonLd) + jsonLdScript(breadcrumb), { html: true });
   }
 }
@@ -1619,13 +1640,19 @@ export default {
           const asset = await serveApp(request, env);
           const ct = asset.headers.get('content-type') || '';
           if (ct.includes('text/html')) {
-            return new G.HTMLRewriter()
+            const out = new G.HTMLRewriter()
               .on('title', new TitleRewriter(entity.title))
               .on('meta', new MetaRewriter(entity))
               .on('link[rel="canonical"]', new CanonicalRewriter(entity.canonical))
               .on('head', new HeadInjector(entity))
               .on('#root', new RootInjector(entity))
               .transform(asset);
+            if (entity.noindex) {
+              const h = new Headers(out.headers);
+              h.set('x-robots-tag', 'noindex');
+              return new Response(out.body, { status: out.status, headers: h });
+            }
+            return out;
           }
           return asset;
         }
