@@ -1,5 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { sendApns, apnsConfigured, APNS_TOPIC, APNS_TOPIC_PRO } from "../_shared/apns.ts";
 import { isAutoPushEnabled, autoTrackUrl, renderAutoTpl, resolveUserLang, logAutoPushOutcome } from "../_shared/auto-push.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";

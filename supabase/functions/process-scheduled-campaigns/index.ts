@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { dispatchPushAutomations, dispatchNewEventPushes, dispatchNewEventAgencyPushes } from "../_shared/push-automations.ts";
