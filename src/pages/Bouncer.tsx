@@ -2317,8 +2317,8 @@ export default function Bouncer() {
                                             title: t('bouncer.entryApproved'),
                                             description: `${scannedTicket.fullName || scannedTicket.userEmail} — ${t('bouncer.despiteLate')} ${lateLabel}`,
                                           });
-                                        } catch (err: any) {
-                                          toast({ title: t('bouncer.cancelError'), description: err.message, variant: 'destructive' });
+                                        } catch (err: unknown) {
+                                          toast({ title: t('bouncer.cancelError'), description: (err as { message?: string }).message, variant: 'destructive' });
                                         } finally {
                                           setLateDecisionBusy(false);
                                         }

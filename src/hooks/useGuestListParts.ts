@@ -100,9 +100,9 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
     if (!eventId) { setParts([]); setEntriesByPart({}); setLoading(false); return; }
     setLoading(true);
     try {
-      // Cast client : agency_id / agency_distribution_mode ne sont pas encore dans
-      // les types générés (gen types après migration). Comme partout dans le repo.
-      const { data: rows } = await (supabase as any).from('guest_lists').select(PART_COLS).eq('event_id', eventId);
+      // Les types générés couvrent désormais toutes les colonnes de PART_COLS ;
+      // seul holder_type (texte en base) se resserre en HolderType.
+      const { data: rows } = await supabase.from('guest_lists').select(PART_COLS).eq('event_id', eventId);
       const list = ((rows || []) as Part[]).slice().sort(orderParts);
 
       // Noms des DJ, des promoteurs et inscriptions : trois lectures INDÉPENDANTES,

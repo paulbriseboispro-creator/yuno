@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatMoney, formatMoneyNegative } from '../money';
 
-const norm = (s: string) => s.replace(/[  ]/g, ' ');
+const norm = (s: string) => s.replace(/[\u00A0\u202F]/g, ' ');
 
 describe('formatMoney', () => {
   it('toujours deux décimales, même sur un entier', () => {
