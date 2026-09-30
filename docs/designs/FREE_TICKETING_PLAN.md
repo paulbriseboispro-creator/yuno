@@ -28,6 +28,7 @@ inchangés). Deux questions par billet, trois réponses chacune :
 - **Quand le voit-on ?** tout de suite · à une date (`visible_from`) · caché (`hidden`)
 - **Quand peut-on l'acheter ?** tout de suite · à une date (`sale_starts_at`) · plus tard (`is_active = false`, « Ouvrir la vente » d'un clic)
 - \+ fin de vente facultative (`sale_ends_at`, le billet reste affiché « Vente terminée »)
+- \+ heure limite d'entrée facultative (`entry_deadline`, colonne existante du mode Créneaux : la porte prévient et le staff accepte ou refuse ; gardée dans le modèle en « HH:MM »)
 
 Règle de lecture unique : `ticketPhase` (`src/lib/freeTicketing.ts`, miroir
 octet pour octet `supabase/functions/_shared/free-ticketing.ts`, testé).

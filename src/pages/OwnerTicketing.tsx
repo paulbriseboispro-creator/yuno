@@ -972,6 +972,7 @@ export default function OwnerTicketing() {
       hidden: r.hidden, visible_from: r.visibleFrom, sale_starts_at: r.saleStartsAt, sale_ends_at: r.saleEndsAt,
       includes_drink: r.includesDrink, drink_deadline_type: r.drinkDeadlineType ?? null,
       drink_deadline_hours: r.drinkDeadlineHours ?? null, drink_cutoff_time: r.drinkCutoffTime ?? null,
+      entry_deadline: r.entryDeadline ?? null,
     }));
     setFreePresetDialog({
       title: t('tickets.free.saveAsPreset'),

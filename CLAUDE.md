@@ -454,7 +454,8 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   migration `20260930120000`, plan `docs/designs/FREE_TICKETING_PLAN.md`).
   `events.ticket_selling_mode = 'free'` : une liste de billets (`ticket_rounds`
   ordinaires, `auto_activate = false`, `ticket_type = 'standard'`), boisson
-  offerte en option, et DEUX questions par billet — quand on le voit
+  offerte et heure limite d'entrée (`entry_deadline`, la même que le mode
+  Créneaux, appliquée à la porte) en option, et DEUX questions par billet — quand on le voit
   (`hidden`, `visible_from`) et quand on l'achète (`is_active` = ouvert à la
   main, `sale_starts_at`, `sale_ends_at`). Règle de lecture unique `ticketPhase`
   (`src/lib/freeTicketing.ts` ⇄ `_shared/free-ticketing.ts`, octet pour octet,

@@ -158,3 +158,23 @@ describe('vue publique', () => {
     expect(formatTicketDate('2026-10-12T18:00:00Z', 'Europe/Paris', 'en-GB')).toBe('12 Oct, 20:00');
   });
 });
+
+describe('heure limite d’entrée', () => {
+  it('HH:MM seulement, time SQL accepté', async () => {
+    const { normalizeEntryDeadline } = await import('../freeTicketing');
+    expect(normalizeEntryDeadline('00:30:00')).toBe('00:30');
+    expect(normalizeEntryDeadline('23:59')).toBe('23:59');
+    expect(normalizeEntryDeadline('24:00')).toBeNull();
+    expect(normalizeEntryDeadline('')).toBeNull();
+    expect(normalizeEntryDeadline(null)).toBeNull();
+  });
+  it('suit le billet dans le modèle, aller et retour', () => {
+    const preset = roundsToFreePreset([
+      { name: 'Avant 1h', price: 10, max_tickets: 50, position: 0, is_active: true, entry_deadline: '01:00:00' },
+      { name: 'Toute la nuit', price: 15, max_tickets: 50, position: 1, is_active: true },
+    ], '2026-10-17T21:00:00Z');
+    expect(preset.map((p) => p.entryDeadline)).toEqual(['01:00', null]);
+    const rows = freePresetToRoundRows(normalizeFreePreset(JSON.parse(JSON.stringify(preset))), 'e', '2026-10-24T21:00:00Z');
+    expect(rows.map((r) => r.entry_deadline)).toEqual(['01:00:00', null]);
+  });
+});

@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TicketRound } from '@/types/ticketing';
 import {
-  UNLIMITED_TICKETS, displayChoiceOf, saleChoiceOf, scheduleColumns,
+  UNLIMITED_TICKETS, displayChoiceOf, normalizeEntryDeadline, saleChoiceOf, scheduleColumns,
   type DisplayChoice, type SaleChoice,
 } from '@/lib/freeTicketing';
 import { RED, T1, C_FAINT, BORDER, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
@@ -23,6 +23,7 @@ export interface FreeTicketPatch {
   price: number;
   max_tickets: number;
   manually_sold_out: boolean;
+  entry_deadline: string | null;
   includes_drink: boolean;
   drink_deadline_type: string | null;
   drink_deadline_hours: number | null;
@@ -49,6 +50,7 @@ interface FormState extends DrinkOptionsValue {
   name: string;
   price: string;
   maxTickets: string;
+  entryDeadline: string;
   manuallySoldOut: boolean;
   display: DisplayChoice;
   visibleFrom: string;
@@ -68,6 +70,7 @@ function initialState(ticket: TicketRound | null): FormState {
     name: ticket?.name ?? '',
     price: ticket ? String(ticket.price) : '',
     maxTickets: ticket && ticket.maxTickets < UNLIMITED_TICKETS ? String(ticket.maxTickets) : '',
+    entryDeadline: normalizeEntryDeadline(ticket?.entryDeadline) ?? '',
     manuallySoldOut: ticket?.manuallySoldOut ?? false,
     includesDrink: ticket?.includesDrink ?? false,
     drinkDeadlineType: ticket?.drinkDeadlineType ?? 'none',
@@ -130,6 +133,7 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, onSave, freeDrink
         price,
         max_tickets: Number.isFinite(qty) && qty > 0 ? qty : UNLIMITED_TICKETS,
         manually_sold_out: form.manuallySoldOut,
+        entry_deadline: normalizeEntryDeadline(form.entryDeadline) ? `${normalizeEntryDeadline(form.entryDeadline)}:00` : null,
         includes_drink: form.includesDrink,
         drink_deadline_type: form.includesDrink ? form.drinkDeadlineType : null,
         drink_deadline_hours: form.includesDrink && form.drinkDeadlineType === 'hours_after_start' ? parseInt(form.drinkDeadlineHours, 10) || 2 : null,
@@ -164,6 +168,21 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, onSave, freeDrink
               <Label htmlFor="freeQty">{t('tickets.free.quantity')}</Label>
               <Input id="freeQty" type="number" min="1" value={form.maxTickets} onChange={(e) => patch({ maxTickets: e.target.value })} placeholder={t('tickets.free.quantityUnlimited')} />
             </div>
+          </div>
+
+          {/* Heure limite d'entrée : la même règle que le mode Créneaux, appliquée
+              à la porte (un billet arrivé après passe par « Accepter / Refuser »). */}
+          <div>
+            <Label htmlFor="freeEntry">{t('tickets.free.entryDeadline')}</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <Input id="freeEntry" type="time" className="w-32" value={form.entryDeadline} onChange={(e) => patch({ entryDeadline: e.target.value })} />
+              {form.entryDeadline && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => patch({ entryDeadline: '' })} style={{ color: T1 }}>
+                  {t('tickets.free.entryDeadlineClear')}
+                </Button>
+              )}
+            </div>
+            <p style={{ ...HINT, marginTop: 4 }}>{t('tickets.free.entryDeadlineHint')}</p>
           </div>
 
           <Question icon={<Eye className="h-4 w-4" style={{ color: RED }} />} title={t('tickets.free.displayQ')}>

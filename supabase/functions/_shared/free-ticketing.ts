@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Billetterie LIBRE (events.ticket_selling_mode = 'free').
 //
-// Une soirée en mode libre n'a ni paliers qui s'enchaînent, ni créneaux
-// d'entrée : une liste de billets, chacun avec son nom, son prix, sa quantité
-// (vide = sans limite) et, en option, une boisson offerte. Le pro décide
+// Une soirée en mode libre n'a pas de paliers qui s'enchaînent : une liste de
+// billets, chacun avec son nom, son prix, sa quantité (vide = sans limite) et,
+// en option, une boisson offerte et une heure limite d'entrée (entry_deadline,
+// appliquée par la porte comme en mode Créneaux). Le pro décide
 // billet par billet de deux choses seulement :
 //   • quand on le VOIT   : tout de suite · à une date · caché
 //   • quand on l'ACHÈTE  : tout de suite · à une date · plus tard (à la main)
@@ -206,6 +207,8 @@ export interface FreePresetTicket {
   sale: SaleChoice;
   saleStartAt?: RelativeTime | null;
   saleEndAt?: RelativeTime | null;
+  /** Heure limite d'entrée « HH:MM » (heure murale de la soirée), null = aucune. */
+  entryDeadline?: string | null;
 }
 
 export interface FreeRoundRow {
@@ -222,6 +225,13 @@ export interface FreeRoundRow {
   drink_deadline_type?: string | null;
   drink_deadline_hours?: number | null;
   drink_cutoff_time?: string | null;
+  entry_deadline?: string | null;
+}
+
+/** « HH:MM » valide, sinon null (une colonne time rend « HH:MM:SS »). */
+export function normalizeEntryDeadline(v: unknown): string | null {
+  const m = typeof v === 'string' ? /^([01]\d|2[0-3]):([0-5]\d)/.exec(v) : null;
+  return m ? `${m[1]}:${m[2]}` : null;
 }
 
 /** Billets d'une soirée → contenu d'un modèle (dates rendues relatives). */
@@ -245,6 +255,7 @@ export function roundsToFreePreset(rows: FreeRoundRow[], eventStartIso: string, 
         sale,
         saleStartAt: sale === 'at' && r.sale_starts_at ? toRelative(r.sale_starts_at, eventStartIso, tz) : null,
         saleEndAt: r.sale_ends_at ? toRelative(r.sale_ends_at, eventStartIso, tz) : null,
+        entryDeadline: normalizeEntryDeadline(r.entry_deadline),
       };
     });
 }
@@ -284,6 +295,7 @@ export function freePresetToRoundRows(
       drink_deadline_type: drink ? (p.drinkDeadlineType ?? 'none') : 'none',
       drink_deadline_hours: drink && p.drinkDeadlineType === 'hours_after_start' ? p.drinkDeadlineHours ?? 2 : null,
       drink_cutoff_time: drink && p.drinkDeadlineType === 'fixed_time' ? p.drinkCutoffTime ?? '02:00' : null,
+      entry_deadline: normalizeEntryDeadline(p.entryDeadline) ? `${normalizeEntryDeadline(p.entryDeadline)}:00` : null,
     };
   });
 }
@@ -312,5 +324,6 @@ export function normalizeFreePreset(raw: unknown): FreePresetTicket[] {
       sale: sale(r.sale),
       saleStartAt: rel(r.saleStartAt),
       saleEndAt: rel(r.saleEndAt),
+      entryDeadline: normalizeEntryDeadline(r.entryDeadline),
     }));
 }

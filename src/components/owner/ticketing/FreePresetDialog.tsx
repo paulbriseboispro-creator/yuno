@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Wine, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Wine, ChevronUp, ChevronDown, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { DisplayChoice, FreePresetTicket, RelativeTime, SaleChoice } from '@/lib/freeTicketing';
@@ -175,6 +175,18 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
                     <span style={{ color: T1, fontSize: 12.5 }}>{t('tickets.free.saleEnd')}</span>
                   </div>
                   {tk.saleEndAt && <RelativeInput value={tk.saleEndAt} onChange={(saleEndAt) => setTicket(i, { saleEndAt })} />}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Clock className="h-3.5 w-3.5" style={{ color: T3 }} />
+                  <span style={{ color: T1, fontSize: 12.5 }}>{t('tickets.free.entryDeadline')}</span>
+                  <Input
+                    type="time"
+                    className="h-8 w-28"
+                    value={tk.entryDeadline ?? ''}
+                    onChange={(e) => setTicket(i, { entryDeadline: e.target.value || null })}
+                    aria-label={t('tickets.free.entryDeadline')}
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">

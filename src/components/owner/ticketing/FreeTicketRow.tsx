@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Ban, RotateCcw, ChevronUp, ChevronDown, Wine, Play } from 'lucide-react';
+import { Pencil, Trash2, Ban, RotateCcw, ChevronUp, ChevronDown, Wine, Play, Clock } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -73,6 +73,7 @@ export function FreeTicketRow({ ticket, isFirst, isLast, onEdit, onDelete, onTog
         <div className="mt-1.5 tabular-nums flex items-center gap-2 flex-wrap" style={{ color: T3, fontSize: 12.5 }}>
           <span><span style={{ color: T2 }}>{ticket.price}€</span> · {unlimited ? ticket.ticketsSold : `${ticket.ticketsSold}/${ticket.maxTickets}`} {t('tickets.sold')}</span>
           {ticket.includesDrink && <span className="inline-flex items-center gap-1" style={{ color: POS }}><Wine className="h-3 w-3" />{t('tickets.includesDrink')}</span>}
+          {ticket.entryDeadline && <span className="inline-flex items-center gap-1" style={{ color: T2 }}><Clock className="h-3 w-3" />{t('tickets.entryBefore')} {ticket.entryDeadline}</span>}
           {next && <span>{next}</span>}
         </div>
       </div>
