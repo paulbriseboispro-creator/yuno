@@ -6,6 +6,7 @@ import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
 import { alertIndirectChargeRefused, indirectChargesEnabled, isBlockedIndirectCharge } from "../_shared/charge-policy.ts";
 import { checkPayoutReadiness, checkPayoutReadinessHealing, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { createSessionWithPaymentMethodFallback, healChargesEnabled, organizerConnectColumns, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
+import { releaseAbandonedTicketCheckouts } from "../_shared/abandoned-checkout.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -554,6 +555,20 @@ serve(async (req) => {
     // Toute erreur à partir d'ici relâche la réservation (catch en fin de fonction).
     let reservationExpiresAt: string | null = null;
     if (!simulate) {
+      // Retour arrière depuis Stripe sans payer : ses restes (réservation, code
+      // promo retenu, session encore ouverte) ne doivent pas bloquer ce nouvel essai,
+      // ni compter dans la limite « N billets par personne ».
+      await releaseAbandonedTicketCheckouts(supabaseAdmin, {
+        eventId,
+        userId: user?.id ?? null,
+        guestEmail: !user ? guestEmail : null,
+        stripeKey: stripeKey!,
+        stripeAccountId: "split" in readiness && readiness.split.splitMode === "direct"
+          ? readiness.split.primary.accountId
+          : null,
+        log: logStep,
+      });
+
       const { data: reservation, error: reservationError } = await supabaseAdmin.rpc(
         'reserve_ticket_capacity',
         {
@@ -572,6 +587,9 @@ serve(async (req) => {
         // PostgreSQL raises 23514 (check_violation) when capacity is insufficient
         if (reservationError.message?.includes('Insufficient capacity')) {
           throw new Error(t("checkout.soldOutRace", lang));
+        }
+        if (reservationError.message?.includes('Per-person ticket limit reached')) {
+          throw new Error(t("checkout.perPersonLimit", lang));
         }
         throw new Error(t("checkout.reserveFailed", lang));
       }
