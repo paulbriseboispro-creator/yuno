@@ -322,7 +322,7 @@ serve(async (req) => {
         sellerVatNumber: seller.vat, sellerRna: seller.rna, vatMention: vat.mention, sellerLogo: logoData,
         customerName: ticket.full_name || "", customerEmail: ticket.user_email || email,
         customerPhone: ticket.phone || undefined,
-        eventTitle, eventDate: start, eventTimezone: event?.timezone || undefined, eventCity: event?.location_city || undefined, lines,
+        eventTitle, eventDate: start, eventTimezone: event?.timezone || undefined, eventCity: event?.location_city || venue?.city || undefined, lines,
       }));
       const billetB64 = renderPdfBase64((doc) => drawBillet(doc, {
         lang: docLang, eventTitle, organizerName, eventStart: start, eventTimezone: event?.timezone || undefined,
