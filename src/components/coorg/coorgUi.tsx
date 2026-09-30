@@ -94,6 +94,10 @@ export function useCoorgErrorText() {
       case 'invitation_not_pending': return t('Cette invitation a déjà été traitée.', 'This invitation was already handled.', 'Esta invitación ya fue tratada.');
       case 'invitation_expired': return t('Cette invitation est expirée : demande-en une nouvelle.', 'This invitation has expired: ask for a new one.', 'Esta invitación caducó: pide una nueva.');
       case 'invalid_party': return t('Choisis au titre de quelle structure tu rejoins la soirée.', 'Choose which organization joins the event.', 'Elige con qué estructura te unes al evento.');
+      case 'principal_slot_taken': return t('La soirée a déjà son lieu ou son organisateur.', 'The event already has its venue or organizer.', 'El evento ya tiene su lugar u organizador.');
+      case 'principal_already_invited': return t('Une invitation « lieu » ou « organisateur » attend déjà une réponse sur cette soirée.', 'A venue or organizer invitation is already pending on this event.', 'Ya hay una invitación de lugar u organizador pendiente en este evento.');
+      case 'principal_wrong_kind': return t('Ce rôle ne correspond pas à ce type de compte (un club accueille, une organisation organise).', 'This role doesn’t fit this account type (a club hosts, an organization organizes).', 'Este rol no corresponde a este tipo de cuenta (un club acoge, una organización organiza).');
+      case 'principal_private_event': return t('Une soirée privée n’a pas de lieu ni d’organisateur partenaire : invite-les en partenaires.', 'A private event has no partner venue or organizer: invite them as partners.', 'Un evento privado no tiene lugar ni organizador socio: invítalos como socios.');
       case 'not_authenticated': return t('Connecte-toi pour continuer.', 'Sign in to continue.', 'Inicia sesión para continuar.');
       default: return t('Action impossible pour le moment.', 'Action not possible right now.', 'Acción imposible por ahora.');
     }

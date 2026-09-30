@@ -195,7 +195,6 @@ const OrgAppContactBase = lazyWithRetry(() => import("./pages/organizer-app/OrgA
 const OrgAppSms = lazyWithRetry(() => import("./pages/organizer-app/OrgAppSms"));
 const OrganizerHelpCenter = lazyWithRetry(() => import("./pages/OrganizerHelpCenter"));
 const OrganizerPublicProfile = lazyWithRetry(() => import("./pages/OrganizerPublicProfile"));
-const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"));
 const OwnerCollaborations = lazyWithRetry(() => import("./pages/OwnerCollaborations"));
 const OwnerCollabEventDashboard = lazyWithRetry(() => import("./pages/OwnerCollabEventDashboard"));
 const CollabEventSales = lazyWithRetry(() => import("./pages/CollabEventSales"));

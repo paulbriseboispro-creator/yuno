@@ -191,6 +191,9 @@ export interface CohostInvite {
   id: string;
   event_id: string;
   access: CohostAccess;
+  /** 'principal' : invité à devenir le lieu / l'organisateur de la soirée. */
+  role?: 'cohost' | 'principal';
+  terms?: PrincipalTerms | null;
   share_crm: boolean;
   message: string | null;
   invited_at: string;
@@ -278,9 +281,24 @@ export const getEventCoorg = (eventId: string) => call<CoorgState>('get_event_co
 export const searchCoorgPartners = (query: string) =>
   call<CoorgPartnerCandidate[]>('search_coorg_partners', { p_query: query, p_limit: 12 });
 
+/**
+ * Termes d'une invitation « principale » : le LIEU (club invité par une
+ * organisation qui mène) ou l'ORGANISATEUR (organisation invitée par un club
+ * qui mène). Appliqués À L'ACCEPTATION par `_collab_promote_principal`.
+ */
+export interface PrincipalTerms {
+  mode: 'co_event' | 'venue_rental' | 'org_hosted';
+  agreement: 'external' | 'yuno';
+  tickets?: 'organizer' | 'venue';
+  tables?: 'organizer' | 'venue';
+  /** Contrat Yuno : les parts proposées (réglées par virement). */
+  rules?: Record<string, unknown>;
+}
+
 export const inviteEventCohost = (p: {
   eventId: string; organizerUserId?: string | null; venueId?: string | null;
   access: CohostAccess; shareCrm: boolean; message?: string;
+  principal?: boolean; terms?: PrincipalTerms | null;
 }) => call<string>('invite_event_cohost', {
   p_event_id: p.eventId,
   p_organizer_user_id: p.organizerUserId ?? null,
@@ -288,6 +306,8 @@ export const inviteEventCohost = (p: {
   p_access: p.access,
   p_share_crm: p.shareCrm,
   p_message: p.message ?? null,
+  p_principal: !!p.principal,
+  p_terms: p.principal ? (p.terms ?? null) : null,
 });
 
 export const respondCohostInvitation = (cohostId: string, accept: boolean) =>
@@ -314,11 +334,14 @@ export interface CoorgEmailInvitation {
 export async function inviteCohostByEmail(p: {
   eventId: string; email: string; name?: string | null; access: CohostAccess; shareCrm: boolean;
   message?: string | null; lang: 'fr' | 'en' | 'es';
+  /** L'organisation invitée devient l'organisateur de la soirée d'un club, à l'acceptation. */
+  principal?: boolean; terms?: PrincipalTerms | null;
 }): Promise<{ email_sent: boolean }> {
   const { data, error } = await supabase.functions.invoke('invite-organizer-collab', {
     body: {
       kind: 'coorg', event_id: p.eventId, email: p.email, name: p.name ?? null, access: p.access, share_crm: p.shareCrm,
       message: p.message ?? null, lang: p.lang, origin: window.location.origin,
+      principal: !!p.principal, terms: p.principal ? (p.terms ?? null) : null,
     },
   });
   // Un 4xx arrive en `error` (FunctionsHttpError) avec le code dans le corps.
