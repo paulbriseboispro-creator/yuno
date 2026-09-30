@@ -1,19 +1,16 @@
 /**
- * Templates de push pour le tab "Push notifications" des clubs.
+ * Modèles de push MANUELS de la page Notifications (onglet Campagnes) : le pro
+ * choisit un modèle, compose, cible et envoie (1 crédit par campagne marketing,
+ * gratuit pour un message aux détenteurs d'une soirée).
  *
- * DEUX familles bien séparées :
- *   • PUSH_TEMPLATES    → notifications MANUELLES : l'owner compose + envoie
- *                         (promo, happy hour, dernières places, VIP, guest list…).
- *   • PUSH_AUTOMATIONS  → notifications AUTO : l'owner active un toggle, Yuno
- *                         envoie au bon moment (avant / pendant / après la soirée,
- *                         + scarcity billetterie). Le texte réel + l'envoi vivent
- *                         côté serveur (_shared/push-automations.ts) ; ici on ne
- *                         garde que les métadonnées pour l'UI + l'aperçu.
+ * Les notifications AUTOMATIQUES des soirées ne vivent plus ici : c'est le
+ * moteur de notifications Yuno (serveur, `_shared/push-engine.ts`, textes en
+ * base dans `push_rule_templates`) qui les décide pour toutes les soirées.
  *
- * Constantes frontend (versionnées git, traduites via t()). Pour les manuelles,
- * les strings interpolées sont envoyées au serveur ; seul template_key est
- * stocké sur la campagne pour l'analytics. Variables ({venue}/{event}/{offer}/
- * {count}) remplacées côté client par renderPushTemplate().
+ * Constantes frontend (versionnées git, traduites via t()). Les strings
+ * interpolées sont envoyées au serveur ; seul template_key est stocké sur la
+ * campagne pour l'analytics. Variables ({venue}/{event}/{offer}/{count})
+ * remplacées côté client par renderPushTemplate().
  */
 
 // ─── Notifications MANUELLES ─────────────────────────────────────────────────
@@ -107,102 +104,6 @@ export const PUSH_TEMPLATES: PushTemplate[] = [
     suggestedAudience: 'followers',
     needsEvent: false,
     emoji: '✏️',
-  },
-];
-
-// ─── Notifications AUTOMATIQUES ──────────────────────────────────────────────
-
-export type PushAutomationKey =
-  | 'reminder_day_of'
-  | 'event_live'
-  | 'thank_you'
-  | 'almost_sold_out'
-  | 'drinks_preorder'
-  | 'vip_upsell'
-  | 'win_back'
-  | 'birthday';
-
-export interface PushAutomation {
-  key: PushAutomationKey;
-  emoji: string;
-  /** Clés i18n (pushTpl.*) réutilisées pour l'aperçu du message. */
-  titleKey: string;
-  bodyKey: string;
-  /** Variables interpolées dans l'aperçu. */
-  variables: PushTemplateVariable[];
-  /** Clé i18n de l'audience ciblée (affichage carte). */
-  audienceKey: string;
-}
-
-/**
- * Ordre chronologique dans le cycle de vie d'une soirée : avant → pendant →
- * après, puis la scarcity billetterie. Le dispatcher serveur porte la même
- * liste de clés (_shared/push-automations.ts).
- */
-export const PUSH_AUTOMATIONS: PushAutomation[] = [
-  {
-    key: 'reminder_day_of',
-    emoji: '🎟️',
-    titleKey: 'pushTpl.reminder.title',
-    bodyKey: 'pushTpl.reminder.body',
-    variables: ['event', 'venue'],
-    audienceKey: 'ownerPush.audEventTickets',
-  },
-  {
-    key: 'event_live',
-    emoji: '🔥',
-    titleKey: 'pushTpl.eventLive.title',
-    bodyKey: 'pushTpl.eventLive.body',
-    variables: ['event', 'venue'],
-    audienceKey: 'ownerPush.audEventTickets',
-  },
-  {
-    key: 'thank_you',
-    emoji: '❤️',
-    titleKey: 'pushTpl.thankYou.title',
-    bodyKey: 'pushTpl.thankYou.body',
-    variables: ['venue'],
-    audienceKey: 'ownerPush.audCheckedIn',
-  },
-  {
-    key: 'almost_sold_out',
-    emoji: '⚡',
-    titleKey: 'pushTpl.almostSoldOut.title',
-    bodyKey: 'pushTpl.almostSoldOut.body',
-    variables: ['event', 'venue'],
-    audienceKey: 'ownerPush.audFollowers',
-  },
-  {
-    key: 'drinks_preorder',
-    emoji: '🍸',
-    titleKey: 'pushTpl.drinksPreorder.title',
-    bodyKey: 'pushTpl.drinksPreorder.body',
-    variables: ['event', 'venue'],
-    audienceKey: 'ownerPush.audEventTickets',
-  },
-  {
-    key: 'vip_upsell',
-    emoji: '🥂',
-    titleKey: 'pushTpl.vipUpsell.title',
-    bodyKey: 'pushTpl.vipUpsell.body',
-    variables: ['event', 'venue'],
-    audienceKey: 'ownerPush.audTicketNoTable',
-  },
-  {
-    key: 'win_back',
-    emoji: '👀',
-    titleKey: 'pushTpl.winBack.title',
-    bodyKey: 'pushTpl.winBack.body',
-    variables: ['venue'],
-    audienceKey: 'ownerPush.audWinBack',
-  },
-  {
-    key: 'birthday',
-    emoji: '🎂',
-    titleKey: 'pushTpl.birthday.title',
-    bodyKey: 'pushTpl.birthday.body',
-    variables: ['venue'],
-    audienceKey: 'ownerPush.audBirthday',
   },
 ];
 

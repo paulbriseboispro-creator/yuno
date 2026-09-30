@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Send, Loader2, Clock, Users, Zap, Sparkles, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import PushCreditsCard from '@/components/push/PushCreditsCard';
+import { usePushCredits } from '@/hooks/usePushCenter';
 import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens (pro dashboard) — alignés sur OwnerPush ───────────────
@@ -42,9 +43,11 @@ type Campaign = {
 };
 
 /**
- * Notifications RP : push AUTO opt-in (« nouvelle soirée ») + push MANUEL vers
- * les abonnés de l'agence. Même socle que /owner/push mais scopé agency_id, cible
- * unique = abonnés (agency_followers), envoi via send-push-campaign.
+ * Notifications RP. L'annonce des soirées des clubs sous contrat part toute
+ * seule : le moteur de notifications Yuno la range dans l'annonce de la soirée
+ * (raison « abonné de l'agence », une notification par personne). Ici : les
+ * campagnes MANUELLES vers les abonnés de l'agence, 1 crédit chacune
+ * (send-push-campaign, scope followers).
  */
 export default function AgencyPush() {
   const { agency, loading: agencyLoading } = useAgency();
@@ -53,8 +56,7 @@ export default function AgencyPush() {
   const agencyId = agency?.id ?? null;
 
   const [rpSlug, setRpSlug] = useState<string | null>(null);
-  const [autoEnabled, setAutoEnabled] = useState(false);
-  const [togglingAuto, setTogglingAuto] = useState(false);
+  const { credits, loading: creditsLoading, reload: reloadCredits } = usePushCredits({ agencyId });
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -84,15 +86,6 @@ export default function AgencyPush() {
       });
   }, [agencyId]);
 
-  // État du toggle auto (opt-in, éteint par défaut).
-  useEffect(() => {
-    if (!agencyId) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('agency_push_automations')
-      .select('enabled').eq('agency_id', agencyId).eq('automation_key', 'new_event').maybeSingle()
-      .then(({ data }: { data: { enabled: boolean } | null }) => setAutoEnabled(!!data?.enabled));
-  }, [agencyId]);
-
   const fetchHistory = async () => {
     if (!agencyId) return;
     const { data } = await supabase
@@ -118,30 +111,6 @@ export default function AgencyPush() {
     }
   };
   useEffect(() => { fetchHistory(); }, [agencyId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggleAuto = async () => {
-    if (!agencyId || togglingAuto) return;
-    setTogglingAuto(true);
-    const next = !autoEnabled;
-    setAutoEnabled(next);
-    try {
-      const { error } = await supabase
-        .from('agency_push_automations' as never)
-        .upsert(
-          { agency_id: agencyId, automation_key: 'new_event', enabled: next, updated_at: new Date().toISOString() } as never,
-          { onConflict: 'agency_id,automation_key' },
-        );
-      if (error) throw error;
-      toast.success(next
-        ? t('Push automatique activé', 'Auto push enabled', 'Push automático activado')
-        : t('Push automatique désactivé', 'Auto push disabled', 'Push automático desactivado'));
-    } catch {
-      setAutoEnabled(!next);
-      toast.error(t('Erreur, réessaie', 'Error, try again', 'Error, inténtalo de nuevo'));
-    } finally {
-      setTogglingAuto(false);
-    }
-  };
 
   // Portée estimée (dry_run débouncé).
   useEffect(() => {
@@ -181,7 +150,12 @@ export default function AgencyPush() {
           if (errAny.context?.json) {
             const bodyJson = await errAny.context.json();
             if (bodyJson?.error === 'campaign_rate_limited') {
-              toast.error(t('Limite de 4 envois / 24 h atteinte', 'Limit of 4 sends / 24h reached', 'Límite de 4 envíos / 24 h alcanzado'));
+              toast.error(t('Une campagne par 24 h : réessaie demain.', 'One campaign per 24h: try again tomorrow.', 'Una campaña cada 24 h: inténtalo mañana.'));
+              return;
+            }
+            if (bodyJson?.error === 'no_credits') {
+              toast.error(t('Plus de crédits ce mois-ci. Demande-en à Yuno.', 'No credits left this month. Ask Yuno for more.', 'No te quedan créditos este mes. Pide más a Yuno.'));
+              reloadCredits();
               return;
             }
             if (bodyJson?.error === 'quiet_hours') {
@@ -201,17 +175,13 @@ export default function AgencyPush() {
       setConfirmOpen(false);
       setTitle(''); setBody('');
       fetchHistory();
+      reloadCredits();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('Échec de l\'envoi', 'Send failed', 'Error al enviar'));
     } finally {
       setSending(false);
     }
   };
-
-  const autoPreview = useMemo(() => ({
-    title: t('📅 ' + (agency?.name || 'Ton agence') + ' présente', '📅 ' + (agency?.name || 'Your agency') + ' presents', '📅 ' + (agency?.name || 'Tu agencia') + ' presenta'),
-    body: t('Nouvelle soirée — réserve ta place dès maintenant.', 'New event — book your spot now.', 'Nuevo evento — reserva tu lugar ahora.'),
-  }), [agency?.name, language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (agencyLoading || !agencyId) {
     return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: T3 }} /></div>;
@@ -243,44 +213,24 @@ export default function AgencyPush() {
           </div>
         </div>
 
-        {/* ─── Notification AUTOMATIQUE ─────────────────────────────────── */}
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
-          <div className="flex items-start gap-2.5 mb-1">
-            <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
-            <div>
-              <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
-                {t('Notification automatique', 'Automatic notification', 'Notificación automática')}
-              </h3>
-              <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>
-                {t('Active-la une fois, Yuno préviendra tes abonnés au bon moment.', 'Enable it once, Yuno alerts your subscribers at the right time.', 'Actívala una vez, Yuno avisa a tus suscriptores en el momento adecuado.')}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl transition-all duration-150 mt-4"
-            style={{ background: autoEnabled ? 'rgba(232,25,44,0.07)' : TILE_BG, border: `1px solid ${autoEnabled ? 'rgba(232,25,44,0.28)' : F_BORDER}` }}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5 min-w-0">
-                <span style={{ fontSize: 20, lineHeight: 1 }}>📅</span>
-                <div className="min-w-0">
-                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('Nouvelle soirée', 'New event', 'Nuevo evento')}</p>
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
-                    {t('Quand une soirée d\'un club sous contrat devient visible.', 'When an event from a club under contract goes live.', 'Cuando un evento de un club con contrato se hace visible.')}
-                  </p>
-                </div>
-              </div>
-              <Switch checked={autoEnabled} onCheckedChange={toggleAuto} disabled={togglingAuto} />
-            </div>
-            <div className="rounded-lg p-2.5 mt-3" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-              <p className="truncate" style={{ color: T2, fontSize: 11.5, fontWeight: 600 }}>{autoPreview.title}</p>
-              <p style={{ color: T3, fontSize: 11, lineHeight: 1.4, marginTop: 2 }}>{autoPreview.body}</p>
-            </div>
-            <div className="flex items-center gap-1.5 mt-2.5">
-              <Users className="h-3 w-3" style={{ color: T3 }} />
-              <span style={{ color: T3, fontSize: 10.5 }}>{t('Tes abonnés', 'Your subscribers', 'Tus suscriptores')}</span>
-            </div>
+        {/* ─── Annonces automatiques : tenues par Yuno ─────────────────────── */}
+        <div className="flex items-start gap-2.5" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18 }}>
+          <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
+          <div>
+            <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
+              {t('Automatique : Yuno annonce les soirées de tes clubs', 'Automatic: Yuno announces your clubs’ events', 'Automático: Yuno anuncia los eventos de tus clubs')}
+            </p>
+            <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>
+              {t(
+                'Quand un club ou un organisateur sous contrat avec ton agence publie une soirée, tes abonnés sont prévenus par Yuno — une seule notification par personne, même s’ils suivent aussi le club, et jamais la nuit.',
+                'When a club or organizer under contract with your agency publishes an event, Yuno notifies your subscribers — one notification per person, even if they also follow the club, and never at night.',
+                'Cuando un club u organizador con contrato con tu agencia publica un evento, Yuno avisa a tus suscriptores: una sola notificación por persona, aunque también sigan al club, y nunca de noche.',
+              )}
+            </p>
           </div>
         </div>
+
+        <PushCreditsCard credits={credits} loading={creditsLoading} scope={{ agencyId }} onChanged={reloadCredits} />
 
         {/* ─── Notification MANUELLE ────────────────────────────────────── */}
         <div className="grid lg:grid-cols-[1fr,320px] gap-6 items-start">
@@ -327,11 +277,11 @@ export default function AgencyPush() {
               </span>
               <button
                 onClick={() => setConfirmOpen(true)}
-                disabled={sending || !title.trim() || !body.trim() || (reach ?? 0) === 0}
+                disabled={sending || !title.trim() || !body.trim() || (reach ?? 0) === 0 || (credits?.remaining ?? 1) <= 0}
                 className="inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                 style={{
                   background: RED, color: '#fff', padding: '11px 18px', boxShadow: `0 0 18px -6px ${RED}88`,
-                  opacity: (sending || !title.trim() || !body.trim() || (reach ?? 0) === 0) ? 0.5 : 1,
+                  opacity: (sending || !title.trim() || !body.trim() || (reach ?? 0) === 0 || (credits?.remaining ?? 1) <= 0) ? 0.5 : 1,
                 }}
               >
                 <Send className="h-4 w-4" />
@@ -379,7 +329,7 @@ export default function AgencyPush() {
               </div>
             </div>
             <p style={{ color: T3, fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>
-              {t('Maximum 4 envois manuels par 24 h.', 'Up to 4 manual sends per 24h.', 'Hasta 4 envíos manuales por 24 h.')}
+              {t('1 crédit par campagne, une campagne par 24 h au plus. Tes abonnés déjà notifiés aujourd’hui sont protégés.', '1 credit per campaign, at most one campaign per 24h. Subscribers already notified today are protected.', '1 crédito por campaña, como máximo una campaña cada 24 h. Los suscriptores ya notificados hoy están protegidos.')}
             </p>
           </div>
         </div>

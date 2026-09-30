@@ -14,9 +14,31 @@ function json(status: number, payload: unknown): Response {
   });
 }
 
-// Plafond anti-spam pour les clubs : au-delà, les notifs Yuno perdent leur
-// valeur pour tout le monde. Le super admin n'est pas plafonné.
-const OWNER_MAX_CAMPAIGNS_PER_24H = 4;
+// Campagnes MANUELLES des pros (moteur de notifications, 2026-09-30) :
+//  • marketing (abonnés, clients, segments) = 1 CRÉDIT par campagne, offerts
+//    chaque mois (push_credit_*), et au plus N par 24 h (réglage
+//    `manual_per_24h`, 1 par défaut) ;
+//  • info soirée (acheteurs / entrés d'UNE soirée) = gratuite, N par soirée et
+//    par compte (`event_info_per_event`, 2 par défaut).
+// Les notifications automatiques des soirées sont envoyées par Yuno (moteur),
+// jamais par ici. Le super admin n'est ni plafonné ni débité.
+type CreditState = {
+  allowance: number; used: number; bonus: number; remaining: number;
+  resetsAt: string; eventInfoPerEvent: number; marketingPer24h: number;
+};
+
+function scopeKeyOf(req: { venue_id?: string; organizer_user_id?: string; agency_id?: string }): string | null {
+  if (req.venue_id) return `venue:${req.venue_id}`;
+  if (req.organizer_user_id) return `org:${req.organizer_user_id}`;
+  if (req.agency_id) return `agency:${req.agency_id}`;
+  return null;
+}
+
+async function creditState(supabase: SupabaseClient, scopeKey: string): Promise<CreditState | null> {
+  const { data, error } = await supabase.rpc('push_credit_state_for', { p_scope: scopeKey });
+  if (error || !data) return null;
+  return data as CreditState;
+}
 
 type CampaignRequest = {
   title?: string;
@@ -179,8 +201,8 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
       // L'event doit appartenir au club — un owner ne cible jamais les
       // acheteurs d'un autre établissement.
       const { data: event } = await supabase
-        .from('events').select('id, venue_id').eq('id', req.event_id).maybeSingle();
-      if (!event || event.venue_id !== req.venue_id) {
+        .from('events').select('id, venue_id, partner_venue_id').eq('id', req.event_id).maybeSingle();
+      if (!event || (event.venue_id !== req.venue_id && event.partner_venue_id !== req.venue_id)) {
         return { userIds: [], error: 'event does not belong to this venue' };
       }
       ids = new Set(await collectUserIds((f, t) => {
@@ -391,6 +413,9 @@ Deno.serve(async (req) => {
         ? await applyManualPolicy(supabase, audienceIds, cronKind, new Date(campaign.scheduled_at || Date.now()))
         : audienceIds;
       const result = await sendCampaign(supabase, supabaseUrl, serviceKey, campaign.id, request, userIds);
+      // Partie à zéro (tout le monde retenu par les règles à l'heure prévue) :
+      // le crédit revient au compte.
+      if (result.sent === 0) await supabase.rpc('refund_push_credit', { p_campaign_id: campaign.id });
       return json(200, { success: true, ...result });
     }
 
@@ -467,6 +492,32 @@ Deno.serve(async (req) => {
 
     // Portée estimée sans envoi (compteur live des UIs admin/owner) : ceux qui
     // RECEVRONT, plus ce que la politique a retenu et pourquoi l'expliquer.
+    const scopeKey = scopeKeyOf(body);
+    const credits = scopeKey ? await creditState(supabase, scopeKey) : null;
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Compteurs des garde-fous d'une portée pro (lus avant tout envoi).
+    let marketingLast24h = 0;
+    let eventInfoUsed = 0;
+    if (scopeKey && policyKind) {
+      const col = body.venue_id ? 'venue_id' : body.organizer_user_id ? 'organizer_user_id' : 'agency_id';
+      const colValue = (body.venue_id || body.organizer_user_id || body.agency_id) as string;
+      const { data: recent } = await supabase
+        .from('push_campaigns')
+        .select('id, event_id, audience, created_at')
+        .eq(col, colValue)
+        .eq('source', 'manual')
+        .or(`created_at.gte."${dayAgo}"${body.event_id ? `,event_id.eq.${body.event_id}` : ''}`);
+      for (const c of (recent || []) as Array<{ event_id: string | null; audience: { scope?: string } | null; created_at: string }>) {
+        const isEventInfo = EVENT_SCOPES.has(c.audience?.scope || '');
+        if (!isEventInfo && new Date(c.created_at).getTime() >= Date.now() - 24 * 60 * 60 * 1000) marketingLast24h++;
+        if (isEventInfo && body.event_id && c.event_id === body.event_id) eventInfoUsed++;
+      }
+    }
+    const eventInfoLeft = credits ? Math.max(0, credits.eventInfoPerEvent - eventInfoUsed) : null;
+
+    // Portée estimée sans envoi (compteur live des UIs admin/owner) : ceux qui
+    // RECEVRONT, ce que la politique a retenu, et ce que l'envoi coûtera.
     if (body.dry_run) {
       return json(200, {
         targeted: userIds.length,
@@ -474,6 +525,10 @@ Deno.serve(async (req) => {
         held_back: audienceIds.length - userIds.length,
         quiet_hours: quietHours,
         policy: policyKind,
+        cost: policyKind === 'marketing' ? 1 : 0,
+        credits,
+        marketing_last_24h: marketingLast24h,
+        event_info_left: policyKind === 'event' ? eventInfoLeft : null,
       });
     }
 
@@ -486,47 +541,36 @@ Deno.serve(async (req) => {
     if (quietHours) return json(409, { error: 'quiet_hours' });
     if (!isScheduled && userIds.length === 0) return json(409, { error: 'no_eligible_recipients' });
 
-    // ── Garde-fou club : 4 campagnes / 24 h ────────────────────────────────
-    if (body.venue_id) {
-      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count } = await supabase
-        .from('push_campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('venue_id', body.venue_id)
-        .eq('source', 'manual')  // les campagnes AUTO ne consomment pas le cap manuel
-        .gte('created_at', dayAgo);
-      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
-        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
+    // ── Garde-fous pro : rythme et crédits ─────────────────────────────────
+    if (scopeKey && policyKind) {
+      if (!credits) return json(503, { error: 'credits_unavailable' });
+      if (policyKind === 'event') {
+        if ((eventInfoLeft ?? 0) <= 0) {
+          return json(429, { error: 'event_info_limit', limit: credits.eventInfoPerEvent });
+        }
+      } else {
+        if (marketingLast24h >= credits.marketingPer24h) {
+          return json(429, { error: 'campaign_rate_limited', limit: credits.marketingPer24h });
+        }
+        if (credits.remaining <= 0) {
+          return json(402, { error: 'no_credits', credits });
+        }
       }
     }
 
-    // ── Garde-fou organisateur : même plafond 4 campagnes / 24 h ───────────
-    if (body.organizer_user_id) {
-      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count } = await supabase
-        .from('push_campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('organizer_user_id', body.organizer_user_id)
-        .eq('source', 'manual')
-        .gte('created_at', dayAgo);
-      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
-        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
+    // Débit d'UN crédit pour une campagne marketing, une fois la ligne créée
+    // (le grand livre la référence) ; plus de crédit ⇒ la ligne disparaît.
+    const chargeCredit = async (campaignId: string): Promise<boolean> => {
+      if (!scopeKey || policyKind !== 'marketing') return true;
+      const { data: used, error: creditErr } = await supabase.rpc('consume_push_credit', {
+        p_scope: scopeKey, p_campaign_id: campaignId, p_actor: callerId || null,
+      });
+      if (creditErr || !used) {
+        await supabase.from('push_campaigns').delete().eq('id', campaignId);
+        return false;
       }
-    }
-
-    // ── Garde-fou RP : même plafond 4 campagnes / 24 h par agence ──────────
-    if (body.agency_id) {
-      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count } = await supabase
-        .from('push_campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('agency_id', body.agency_id)
-        .eq('source', 'manual')
-        .gte('created_at', dayAgo);
-      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
-        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
-      }
-    }
+      return true;
+    };
 
     const audienceSnapshot = {
       scope: body.scope, platform: body.platform, city: body.city,
@@ -549,6 +593,7 @@ Deno.serve(async (req) => {
         title_i18n: sanitizeI18n(body.title_i18n), body_i18n: sanitizeI18n(body.body_i18n),
       }).select('id').single();
       if (insErr) return json(500, { error: insErr.message });
+      if (!(await chargeCredit(row.id))) return json(402, { error: 'no_credits' });
       return json(200, { success: true, scheduled: true, campaign_id: row.id, targeted: userIds.length });
     }
 
@@ -568,8 +613,10 @@ Deno.serve(async (req) => {
       title_i18n: sanitizeI18n(body.title_i18n), body_i18n: sanitizeI18n(body.body_i18n),
     }).select('id').single();
     if (insErr) return json(500, { error: insErr.message });
+    if (!(await chargeCredit(row.id))) return json(402, { error: 'no_credits' });
 
     const result = await sendCampaign(supabase, supabaseUrl, serviceKey, row.id, body, userIds);
+    if (result.sent === 0) await supabase.rpc('refund_push_credit', { p_campaign_id: row.id });
     return json(200, { success: true, ...result });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Internal error';

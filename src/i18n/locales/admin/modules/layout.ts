@@ -26,7 +26,7 @@ const dict: AdminDict = {
   'adm.nav.support': ['Assisted access', 'Accès assisté', 'Acceso asistido'],
   'adm.nav.marketing': ['Marketing', 'Marketing', 'Marketing'],
   'adm.nav.push': ['Push campaigns', 'Campagnes push', 'Campañas push'],
-  'adm.nav.automations': ['Auto notifications', 'Notifications auto', 'Notificaciones auto'],
+  'adm.nav.automations': ['Notification engine', 'Moteur de notifications', 'Motor de notificaciones'],
   'adm.nav.feedback': ['Feedback', 'Retours', 'Comentarios'],
   'adm.nav.system': ['Tech health', 'Santé technique', 'Salud técnica'],
   'adm.nav.alerts': ['Alerts', 'Alertes', 'Alertas'],

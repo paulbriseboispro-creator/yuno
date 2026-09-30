@@ -818,9 +818,8 @@ des deux hubs Collaborations. Règles intouchables :
 - **Marketing** : `collect_email_automations` — recettes `new_event` et `last_call`
   seulement — couvre les soirées co-hébergées (`coorg_marketing_event_ids`) ; R5 garde une
   annonce par personne. Push de lancement : `get_event_host_followers` (abonnés de tous les
-  hôtes, noms « A × B ») — code prêt dans `push-automations.ts`, à déployer avec
-  `process-scheduled-campaigns` (non déployé le 28/09 : la version en ligne diffère du repo
-  sur d'autres fichiers `_shared`).
+  hôtes, noms « A × B ») — remplacé le 30/09 par le moteur de notifications
+  (annonce = union des audiences de `event_parties`, une notification par personne).
 - **Argent** : accord (`event_coorg_deals`, parts %, simple accord ou contrat signé, termes
   `coorgAgreement.ts`), décompte `_coorg_compute` (ventes Yuno NETTES au nom de qui les a
   reçues + lignes déclarées par chaque partie POUR ELLE-MÊME), validé par toutes les parties
@@ -1194,10 +1193,10 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   qui est venue-scopé disparaît (automatisations, RFM, segments sauvegardés,
   assistant IA — `owner-assistant` exige le rôle owner), le modèle « Flash
   boissons » aussi. `push_campaigns.organizer_user_id` porte la portée orga
-  (backfill des « Publication » d'orga, `push-automations.ts` la pose) ;
+  (backfill des « Publication » d'orga, le moteur de notifications la pose) ;
   `send-push-campaign` accepte `organizer_user_id` (fondateur ou admin
   d'équipe, audiences `followers` / `event_tickets` / `checked_in` /
-  `all_customers`, même plafond 4 / 24 h que le club).
+  `all_customers` ; crédits et 1 campagne marketing / 24 h depuis le 30/09).
   L'historique = `get_push_campaigns(p_venue_id, p_organizer_user_id, p_filter,
   p_event_id, p_limit, p_offset)` : toutes les campagnes paginées, ciblés /
   envoyés / ouverts (1er tap par personne) / acheteurs / CA (tap → achat < 72 h,
@@ -2259,6 +2258,80 @@ Migration `20260930100000`, front `src/lib/djPayout.ts` (testé),
   Vue d'ensemble — `SalesPillarDetail`) lit les `dj_sets` de la portée et affiche « cachets DJ » et
   le reste ; aucune autre table de dépenses n'existe.
 
+## Moteur de notifications push — Yuno envoie, les pros lisent (2026-09-30)
+
+Design : `docs/designs/NOTIFICATION_ENGINE_PLAN.md` (Shotgun / DICE / Eventbrite,
+décisions du 30/09). Migration `20260930230000_push_engine.sql`, edge
+`_shared/push-engine.ts` (+ `push-engine-text.ts`, rendu pur testé), front
+`src/lib/pushEngine.ts`, `usePushCenter`, `src/components/push/*`, admin
+`/admin/notifications` (`AdminNotificationAutomations`). Règles intouchables :
+
+- **Aucun club, organisateur ni agence n'active une notification automatique.**
+  Les anciens interrupteurs (`venue_push_automations`, `agency_push_automations`)
+  sont éteints par la migration et ne sont plus lus ; `push-automations.ts` et
+  `customer-automations.ts` sont SUPPRIMÉS ; les clés `reminder_day_of`,
+  `event_live`, `thank_you`, `almost_sold_out`, `drinks_preorder`, `win_back`,
+  `birthday`, `agency_new_event`, `event_reminder_4h/30m`, `cart_abandonment`
+  sont en catégorie `legacy`, éteintes. Ne jamais les rallumer ni recréer un
+  toggle pro : une automatisation « à activer » est une automatisation que
+  personne n'active, et un club qui l'active en double celle de la plateforme.
+- **Neuf règles du cycle de vie d'une soirée**, une ligne
+  `platform_notification_settings` catégorie `event_engine` (+ `params` jsonb
+  réglés par le super admin) : `new_event` (annonce), `sales_open`,
+  `last_tickets` (variantes places / tarif qui monte / tables), `last_call`,
+  `checkout_abandoned`, `vip_upsell`, `event_day_reminder` (variante boissons),
+  `doors_open` (jamais à un scanné), `after_thanks` (scannés seulement, variante
+  prochaine date). Textes FR/EN/ES par règle, variante et RAISON dans
+  `push_rule_templates` (éditables en admin, repli fr → `any` → `default`).
+  Politique globale dans `push_engine_settings` (`admin_set_push_engine_settings`).
+- **Une file, un arbitre.** Des collecteurs SQL idempotents
+  (`push_engine_collect`, une passe par règle et par soirée via
+  `push_rule_runs`, le panier en continu) écrivent `push_candidates` (personne,
+  soirée, règle, famille, raison, `reason_party`, score, fenêtre, `dedup_key`).
+  `push_engine_claim` décide : UNE notification marketing par personne et par
+  passage (la plus utile), heures calmes 22 h → 10 h Paris, 1 / 24 h, 3 / 7 j
+  (4 pour les engagés, 1 pour les fatigués), 2 par soirée et par personne,
+  famille `urgent` (panier, tarif) 2 / 24 h, rappels (`reminder`) hors plafonds,
+  `event` (info d'une nuit achetée) journalisé hors plafonds. Ce qui n'a pas sa
+  place est REPORTÉ (`hold_reason`), jamais perdu avant `expires_at` ; une étape
+  plus avancée envoyée périme l'annonce en attente (`superseded`), et rien de
+  marketing ne part avant l'annonce programmée (`awaiting_announcement`).
+  `runPushEngine` (appelé par `process-scheduled-campaigns`, budget 40 s)
+  rend chaque texte, crée une campagne `source = 'auto'` par (règle, soirée),
+  envoie par `send-push-notification` puis `push_engine_record`. Toute nouvelle
+  notification liée à une soirée = une règle de ce moteur, jamais un envoi direct.
+- **Soirées à plusieurs (collab, co-organisation)** : les candidats sont
+  l'UNION des audiences de `event_parties(event)` + fans des DJ + abonnés
+  d'agences, dédoublonnée PAR PERSONNE avec la meilleure raison ; le texte nomme
+  la partie qui l'a touchée (`reason_party`), et chaque partie lit « ce que ton
+  audience a donné ». Seules les parties PRINCIPALES programment l'annonce
+  (`set_event_announce_at`, `push_event_settings.announce_at`, au plus tard 3 h
+  avant). Les anciens clients (12 mois, préférence `marketing`) sont dans
+  l'annonce : la reconquête et l'anniversaire n'existent plus.
+- **Ce que voit le pro = `get_push_center(p_venue_id, p_organizer_user_id,
+  p_days)`**, onglet « Automatiques » de `/owner/push` et `/organizer-app/push` :
+  envoyées, ouvertes, acheteurs (tap → achat de CETTE soirée < 72 h, dernier
+  tap gagne, jamais deux fois), influencés (achat < 72 h après réception sans
+  tap), CA club (`fees.ts`, remboursement déduit, seulement pour qui voit
+  l'argent), protégées, frise soirée par soirée. Aucun agrégat côté front.
+- **Crédits de campagnes manuelles** (onglet « Mes campagnes ») : 1 crédit = 1
+  campagne marketing (abonnés, tous les clients, segment, RFM, abonnés
+  d'agence) ; offerts par mois (club 4, orga 4 — associations comprises —,
+  agence 2, surcharge par compte), bonus sans expiration accordés en admin, pas
+  d'achat. L'info soirée (`event_tickets`, `checked_in`) est GRATUITE, 2 par
+  soirée et par partie. 1 campagne marketing / 24 h. Débit APRÈS l'insertion
+  de la campagne (`consume_push_credit`, mois puis bonus), remboursé si la
+  campagne n'atteint personne ou si une programmée est annulée
+  (`cancel_scheduled_push_campaign`). Grand livre `push_credit_ledger`, tables
+  sans policy d'écriture ; lecture `get_push_credits`, demande
+  `request_push_credits` (alerte `admin_push_credit_request`, 1 / jour).
+- **Déploiement** : la migration D'ABORD (elle éteint l'ancien monde, donc
+  rien ne part deux fois quel que soit l'ordre), puis ENSEMBLE
+  `process-scheduled-campaigns`, `send-push-campaign`, `send-push-notification`,
+  `event-reminder` (ne garde que les alertes owner T-30 et staff 6 h) et
+  `cart-abandonment-check` (panier de BOISSONS seul, `cart_abandonment_drinks`).
+  Housekeeping : cron `push-engine-housekeeping` (04:37 UTC).
+
 ## Staff de nuit en équipe — plusieurs personnes au même poste (2026-09-29)
 
 Revue complète des quatre postes avant les premières vraies soirées
@@ -2406,8 +2479,9 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
 - **Notifications push automatiques** : toute nouvelle notif auto passe par le registre
   super admin (`platform_notification_settings`, page `/admin/notifications`). Push
   unitaire → `_shared/auto-push.ts` (`sendAutoPush` : gate + langue FR/EN/ES + tracking
-  `auto_push_events` + clic `?an=`). Fan-out → mécanique campagnes de
-  `_shared/push-automations.ts` (source='auto', clic `?pc=`). Ne JAMAIS appeler
+  `auto_push_events` + clic `?an=`). Notification liée à une SOIRÉE → une règle du
+  moteur de notifications (`_shared/push-engine.ts`, source='auto', clic `?pc=`,
+  voir la section dédiée). Ne JAMAIS appeler
   `send-push-notification` en direct pour une notif automatique ; ajouter la clé au
   seed + au `CATALOG` de `AdminNotificationAutomations.tsx` + i18n `adminAutoPush.k.*`.
   Toute clé destinée à l'app Pro doit porter `audience: "pro"` (sinon le push part
@@ -2705,14 +2779,10 @@ le reviewer Apple et les captures produit en dépendent — portent à eux seuls
   tables de vente). Push = `get_audience_push_attribution` (user_id), email =
   `get_email_campaign_attribution` (lower(email), couvre les invités) — même
   fenêtre clic→achat 72 h, même formule net (fees.ts).
-- **Automations client** (`win_back`/`birthday`) : dispatcher
-  `_shared/customer-automations.ts` drainé par process-scheduled-campaigns.
-  Anti-spam en 3 couches : ledger `venue_automation_sends` + claim atomique
-  `try_claim_customer_automation`, cap 3 push non transactionnels/24 h,
-  kill-switch `platform_notification_settings`. `vip_upsell` est event-scopée
-  et passe par `get_due_push_automations` (verrou (event_id, template_key)).
-  Toute nouvelle clé : CHECK de `venue_push_automations` + templates
-  `_shared/` + `pushTemplates.ts` + CATALOG admin + seed + i18n ×3.
+- **Automations push client** : RETIRÉES le 30/09 (`win_back`, `birthday`,
+  `vip_upsell` venue-scopés, `customer-automations.ts` supprimé). Les anciens
+  clients sont dans l'annonce de chaque soirée et le « passe en VIP » est une
+  règle du moteur de notifications (section dédiée). Ne pas les ressusciter.
 - **Export audience pub** (`export_venue_ad_audience`) : contacts CONSENTANTS
   uniquement (opt-in newsletter ∪ SMS), gate owner — jamais la base brute.
 
