@@ -105,7 +105,7 @@ const OwnerEvents = lazyWithRetry(() => import("./pages/OwnerEvents"));
 const OwnerTicketing = lazyWithRetry(() => import("./pages/OwnerTicketing"));
 const OwnerTables = lazyWithRetry(() => import("./pages/OwnerTables"));
 const OwnerVenue = lazyWithRetry(() => import("./pages/OwnerVenue"));
-const OwnerAnalytics = lazyWithRetry(() => import("./pages/OwnerAnalytics"));
+const OwnerAnalytics = lazyWithRetry(() => import("./pages/AnalyticsRouter"));
 const OwnerPromoters = lazyWithRetry(() => import("./pages/OwnerPromoters"));
 const OwnerPromoterDetail = lazyWithRetry(() => import("./pages/OwnerPromoterDetail"));
 const OwnerPromoterAnnouncements = lazyWithRetry(() => import("./pages/OwnerPromoterAnnouncements"));
@@ -176,7 +176,7 @@ const OrgAppDashboard = lazyWithRetry(() => import("./pages/organizer-app/OrgApp
 const OrgAppEventDetail = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventDetail"));
 const OrgAppEventLive = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventLive"));
 const OrgAppCheckin = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCheckin"));
-const OrgAppAnalytics = lazyWithRetry(() => import("./pages/organizer-app/OrgAppAnalytics"));
+const OrgAppAnalytics = lazyWithRetry(() => import("./pages/AnalyticsRouter").then((m) => ({ default: m.OrgAnalyticsRoute })));
 const OrgAppOrganization = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOrganization"));
 const OrgAppPayments = lazyWithRetry(() => import("./pages/organizer-app/OrgAppPayments"));
 const OrgAppOnboarding = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOnboarding"));
