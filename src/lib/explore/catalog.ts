@@ -240,7 +240,7 @@ export async function fetchExploreCatalog(
   // ── Vague 2 : ce qui dépend des ids (bornés à la fenêtre, jamais « toute la table ») ──
   const [ticketRoundsRes, djSetsRes, orgProfilesRes, tablePacksRes] = await Promise.all([
     eventIds.length
-      ? supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active, audience').in('event_id', eventIds).then((r) => ({ ...r, data: forPublicPricing(r.data ?? []) }))
+      ? supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active, audience, hidden, visible_from').in('event_id', eventIds).then((r) => ({ ...r, data: forPublicPricing(r.data ?? []) }))
       : Promise.resolve({ data: [] as { event_id: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean | null; audience: string | null }[] }),
     eventIds.length
       ? supabase.from('dj_sets').select('event_id, music_genre').in('event_id', eventIds)

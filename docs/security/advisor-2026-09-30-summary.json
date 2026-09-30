@@ -1,0 +1,92 @@
+[
+ {
+  "level": "WARN",
+  "lint": "multiple_permissive_policies",
+  "category": "PERFORMANCE",
+  "count": 1338
+ },
+ {
+  "level": "WARN",
+  "lint": "authenticated_security_definer_function_executable",
+  "category": "SECURITY",
+  "count": 664
+ },
+ {
+  "level": "WARN",
+  "lint": "auth_rls_initplan",
+  "category": "PERFORMANCE",
+  "count": 563
+ },
+ {
+  "level": "WARN",
+  "lint": "anon_security_definer_function_executable",
+  "category": "SECURITY",
+  "count": 479
+ },
+ {
+  "level": "INFO",
+  "lint": "unindexed_foreign_keys",
+  "category": "PERFORMANCE",
+  "count": 219
+ },
+ {
+  "level": "INFO",
+  "lint": "unused_index",
+  "category": "PERFORMANCE",
+  "count": 136
+ },
+ {
+  "level": "INFO",
+  "lint": "rls_enabled_no_policy",
+  "category": "SECURITY",
+  "count": 71
+ },
+ {
+  "level": "WARN",
+  "lint": "function_search_path_mutable",
+  "category": "SECURITY",
+  "count": 61
+ },
+ {
+  "level": "WARN",
+  "lint": "public_bucket_allows_listing",
+  "category": "SECURITY",
+  "count": 14
+ },
+ {
+  "level": "WARN",
+  "lint": "rls_policy_always_true",
+  "category": "SECURITY",
+  "count": 13
+ },
+ {
+  "level": "INFO",
+  "lint": "no_primary_key",
+  "category": "PERFORMANCE",
+  "count": 2
+ },
+ {
+  "level": "ERROR",
+  "lint": "security_definer_view",
+  "category": "SECURITY",
+  "count": 2
+ },
+ {
+  "level": "WARN",
+  "lint": "extension_in_public",
+  "category": "SECURITY",
+  "count": 1
+ },
+ {
+  "level": "WARN",
+  "lint": "materialized_view_in_api",
+  "category": "SECURITY",
+  "count": 1
+ },
+ {
+  "level": "WARN",
+  "lint": "table_bloat",
+  "category": "PERFORMANCE",
+  "count": 1
+ }
+]

@@ -452,6 +452,24 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   centralisé : rangée « Marquer complet » sous les trois interrupteurs de la
   fiche soirée (`OwnerEvents`, club ET orga) ; réglage fin dans `OwnerTables`
   (onglet Soirées), `OrgEventTablesPanel` et `PartCard`.
+- **Billetterie LIBRE = 4ᵉ mode de vente, pas un nouveau système** (2026-09-30,
+  migration `20260930120000`, plan `docs/designs/FREE_TICKETING_PLAN.md`).
+  `events.ticket_selling_mode = 'free'` : une liste de billets (`ticket_rounds`
+  ordinaires, `auto_activate = false`, `ticket_type = 'standard'`), boisson
+  offerte et heure limite d'entrée (`entry_deadline`, la même que le mode
+  Créneaux, appliquée à la porte) en option, et DEUX questions par billet — quand on le voit
+  (`hidden`, `visible_from`) et quand on l'achète (`is_active` = ouvert à la
+  main, `sale_starts_at`, `sale_ends_at`). Règle de lecture unique `ticketPhase`
+  (`src/lib/freeTicketing.ts` ⇄ `_shared/free-ticketing.ts`, octet pour octet,
+  testé) : checkout, pages publiques, email, assistant client. Les colonnes
+  valent dans tous les modes mais restent à leur défaut ailleurs. Toute requête
+  qui calcule un prix public « à partir de » sélectionne `hidden, visible_from`
+  pour `forPublicPricing`, sinon un billet caché fuit dans les cartes. Un
+  modèle libre garde ses dates en RELATIF (`{daysBefore, time}`, jours
+  calendaires avant le jour de la soirée) : s'applique par `applyFreePreset`
+  (front) ou `freePresetToRoundRows` (séries récurrentes), jamais à la main.
+  Mise en vente, prévente, mot de passe, limite par personne et « Complet »
+  restent ceux de la soirée ; la jauge totale y est facultative.
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
@@ -2174,6 +2192,35 @@ qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
 - Émission idempotente via `ensureWalletPass` ; le `authenticationToken` du
   premier appel est embarqué dans les passes déjà ajoutés, ne jamais le faire
   tourner.
+
+## Cachets DJ — artistes hors Yuno, IBAN, virement, dépense (2026-09-30)
+
+Migration `20260930100000`, front `src/lib/djPayout.ts` (testé),
+`src/components/dj/DJSetPayout.tsx` (champs IBAN + fiche de paiement),
+`DJFeesOverview.tsx`, `DJBankDetailsCard.tsx`. Smoke rejouable :
+`scripts/demo/smoke-dj-external-fees.sql`. Règles :
+
+- **Un set = un DJ Yuno (`dj_id`) OU un artiste externe (`artist_name`)**, CHECK
+  `dj_sets_performer_chk`. Un externe vient du line-up (`guest_artist_id` →
+  `event_guest_artists`) ou est saisi à la main ; il ne devient JAMAIS une ligne
+  `djs`. Toute requête qui joint `dj_sets` à `djs` doit supporter `dj_id NULL`
+  (nom : `performerName`, jamais `set.dj.stage_name` nu).
+- **Le virement est porté par le set** (`payee_name`, `payee_iban`, photo prise au
+  booking) : pré-rempli pour un DJ Yuno par `get_dj_payout_prefill(dj)` depuis
+  `dj_payout_details` (une ligne par PERSONNE, saisie par le DJ dans « Mes
+  paiements »), lisible seulement par une portée qui travaille avec lui (roster,
+  line-up, set) ; saisi à la main pour un externe. Référence `YDJ-XXXXXXXX`
+  (`djSetReference`). Yuno ne vire jamais : « Marquer comme payé » + moyen
+  (`payment_method` transfer | cash | other).
+- **`guard_dj_set_write` (INVOKER)** normalise (IBAN compact, `fee_paid_at` posé /
+  effacé avec `fee_paid`), refuse IBAN et « payé » en session d'accès assisté, et
+  ne laisse au DJ d'un set que `show_on_profile` (la policy
+  `dj_sets_self_update_visibility` lui ouvrait toutes les colonnes). L'équipe orga
+  (admin / éditeur) gère les sets (`Org team manages dj_sets`).
+- **Le cachet est la dépense de la soirée** : le bilan par soirée
+  (`EventsPnlLedger`, dans le détail replié du pilier « Tout » de Ventes ›
+  Vue d'ensemble — `SalesPillarDetail`) lit les `dj_sets` de la portée et affiche « cachets DJ » et
+  le reste ; aucune autre table de dépenses n'existe.
 
 ## Staff de nuit en équipe — plusieurs personnes au même poste (2026-09-29)
 

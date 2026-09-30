@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Ticket, Zap, Crown, Clock, ArrowLeft } from 'lucide-react';
+import { Ticket, Zap, Crown, Clock, ArrowLeft, Shapes } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TicketType, PresetSellingMode } from '@/types/ticketing';
 import { T2, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
@@ -37,7 +37,7 @@ export function PresetTypeDialog({
                   <DialogTitle style={DIALOG_TITLE}>{t('tickets.selectPresetMode')}</DialogTitle>
                   <DialogDescription style={HINT}>{t('tickets.selectPresetModeDesc')}</DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => handleSelectPresetMode('simple')}
@@ -75,6 +75,19 @@ export function PresetTypeDialog({
                     <div className="text-center">
                       <div className="font-semibold text-sm">{t('tickets.presetModeTimed')}</div>
                       <div style={HINT}>{t('tickets.presetModeTimedDesc')}</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPresetMode('free')}
+                    className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
+                  >
+                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <Shapes className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-sm">{t('tickets.presetModeFree')}</div>
+                      <div style={HINT}>{t('tickets.presetModeFreeDesc')}</div>
                     </div>
                   </button>
                 </div>

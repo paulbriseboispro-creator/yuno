@@ -1,3 +1,4 @@
+import { rowPhase } from "../_shared/free-ticketing.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
@@ -169,7 +170,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 
 🎫 BILLETS — comment acheter
 1. Ouvre la page de l'événement, appuie sur "Billets".
-2. Choisis ton tarif : les clubs vendent souvent par "rounds" (Early Bird moins cher → Regular → Last Minute). Quand un round est complet, le suivant s'active.
+2. Choisis ton tarif : les clubs vendent souvent par "rounds" (Early Bird moins cher → Regular → Last Minute). Quand un round est complet, le suivant s'active. Certaines soirées ont des billets « Bientôt » (avec leur date de mise en vente) : ils s'achètent seulement à partir de cette date.
 3. Paie par carte, Apple Pay ou Google Pay. Confirmation par email + billet dans l'app.
 4. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
    Depuis le billet : itinéraire Maps, page de la soirée, "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple) et ajout au Apple Wallet.
@@ -822,7 +823,7 @@ serve(async (req) => {
     const [ticketRoundsRes, guestListsRes, djSetsRes, eventPacksRes, venuePacksRes, organizersRes] = await Promise.all([
       eventIds.length
         ? supabase.from("ticket_rounds")
-            .select("id, event_id, name, price, max_tickets, tickets_sold, is_active, position")
+            .select("id, event_id, name, price, max_tickets, tickets_sold, is_active, position, hidden, visible_from, sale_starts_at, sale_ends_at")
             .in("event_id", eventIds).eq("is_active", true).order("position")
         : empty,
       eventIds.length
@@ -860,7 +861,8 @@ serve(async (req) => {
     const realDataContext = buildRealDataContext(
       venuesRes.data || [],
       eventsRes.data || [],
-      ticketRoundsRes.data || [],
+      // Billetterie libre : seuls les billets en vente MAINTENANT (même règle que le checkout).
+      (ticketRoundsRes.data || []).filter((r) => rowPhase(r) === "on_sale"),
       drinksRes.data || [],
       tablePacks,
       guestListsRes.data || [],

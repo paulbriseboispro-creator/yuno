@@ -53,7 +53,7 @@ async function fetchAssistantEvents(ids: string[]): Promise<AssistantEventCardDa
       ? supabase.from('organizer_profiles').select('user_id, display_name, slug').in('user_id', organizerIds)
       : EMPTY,
     foundIds.length
-      ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', foundIds)
+      ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience, hidden, visible_from').in('event_id', foundIds)
       : EMPTY,
     foundIds.length
       ? supabase.from('guest_lists').select('event_id, free_before_time').in('event_id', foundIds).eq('is_active', true)

@@ -20,6 +20,7 @@ import { DrinkOpsInsights } from '@/components/analytics/DrinkOpsInsights';
 import { VipTablesPillar } from '@/components/analytics/VipTablesPillar';
 import { GuestListAnalyticsSection } from '@/components/analytics/GuestListAnalyticsSection';
 import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSection';
+import { EventsPnlLedger } from '@/components/analytics/EventsPnlLedger';
 import type { SalesPeriod, SalesPillar } from '@/lib/salesOverview';
 
 export function SalesPillarDetail({ venueId, organizerUserId, pillar, period, hasVipTables = true }: {
@@ -58,6 +59,14 @@ export function SalesPillarDetail({ venueId, organizerUserId, pillar, period, ha
       return (
         <>
           {caption}
+          {/* Bilan par soirée : chaque pilier, les cachets DJ (la seule dépense
+              que Yuno connaît, planning DJ) et ce qui reste. */}
+          <EventsPnlLedger
+            venueId={isOrg ? null : venueId}
+            organizerUserId={isOrg ? organizerUserId : null}
+            from={window.from}
+            to={window.to}
+          />
           {refundAnalytics && refundAnalytics.totalRefundCount > 0
             ? <RefundAnalyticsSection data={refundAnalytics} />
             : <EmptyAnswer title={t('so.detail.noRefunds')} />}

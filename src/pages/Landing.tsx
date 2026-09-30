@@ -64,7 +64,7 @@ function useUpcomingEvents(limit = 12) {
           venueIds.length
             ? supabase.from('venues').select('id, name, city').in('id', venueIds)
             : Promise.resolve({ data: [] as { id: string; name: string; city: string | null }[] }),
-          supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', rows.map((r) => r.id)),
+          supabase.from('ticket_rounds').select('event_id, price, is_active, audience, hidden, visible_from').in('event_id', rows.map((r) => r.id)),
         ]);
         if (cancelled) return;
 

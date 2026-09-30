@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Ticket, Zap, Crown, Wine, Clock, Check, ArrowRight, ArrowLeft, Sparkles, FolderOpen } from 'lucide-react';
+import { Plus, Trash2, Ticket, Zap, Crown, Wine, Clock, Check, ArrowRight, ArrowLeft, Sparkles, FolderOpen, Shapes } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { TicketSellingMode } from '@/types/ticketing';
@@ -94,11 +94,12 @@ export function ActivationWizardDialog({
             {wizardStep === 1 && (
               <div className="space-y-4">
                 <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.step1SelectMode')}</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {([
                     { mode: 'simple' as TicketSellingMode, icon: <Ticket className="h-6 w-6" />, label: t('tickets.presetModeSimple'), desc: t('tickets.presetModeSimpleDesc') },
                     { mode: 'rounds' as TicketSellingMode, icon: <Zap className="h-6 w-6" />, label: t('tickets.presetModeRounds'), desc: t('tickets.presetModeRoundsDesc') },
                     { mode: 'timed_entry' as TicketSellingMode, icon: <Clock className="h-6 w-6" />, label: t('tickets.presetModeTimed'), desc: t('tickets.presetModeTimedDesc') },
+                    { mode: 'free' as TicketSellingMode, icon: <Shapes className="h-6 w-6" />, label: t('tickets.presetModeFree'), desc: t('tickets.presetModeFreeDesc') },
                   ]).map(({ mode, icon, label, desc }) => {
                     const sel = wizardSellingMode === mode;
                     return (
@@ -270,6 +271,10 @@ export function ActivationWizardDialog({
                             setWizardCustomRounds([
                               { name: 'Standard', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
                             ]);
+                          } else if (wizardSellingMode === 'free') {
+                            setWizardCustomRounds([
+                              { name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
+                            ]);
                           } else {
                             setWizardCustomRounds([
                               { name: 'Early Birds', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
@@ -302,6 +307,8 @@ export function ActivationWizardDialog({
                       ? t('owner.actw.simpleDesc')
                       : wizardSellingMode === 'timed_entry'
                       ? t('owner.actw.timedDesc')
+                      : wizardSellingMode === 'free'
+                      ? t('tickets.free.builderDesc')
                       : t('owner.actw.roundsDesc')}
                   </p>
                 </div>
@@ -313,6 +320,8 @@ export function ActivationWizardDialog({
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
                             {wizardSellingMode === 'timed_entry'
                               ? t('owner.actw.slotLabel').replace('{idx}', String(idx + 1))
+                              : wizardSellingMode === 'free'
+                              ? t('tickets.free.ticketLabel').replace('{idx}', String(idx + 1))
                               : t('owner.actw.tierLabel').replace('{idx}', String(idx + 1))}
                           </span>
                           {wizardCustomRounds.length > 1 && (
@@ -334,7 +343,7 @@ export function ActivationWizardDialog({
                             <Input
                               className="mt-1 h-9"
                               value={round.name}
-                              placeholder="Ex: Early Birds"
+                              placeholder={wizardSellingMode === 'free' ? t('tickets.free.namePlaceholder') : 'Ex: Early Birds'}
                               onChange={(e) => {
                                 const v = e.target.value;
                                 setWizardCustomRounds(prev => prev.map((r, i) => i === idx ? { ...r, name: v } : r));
@@ -364,7 +373,7 @@ export function ActivationWizardDialog({
                                 min="1"
                                 className="mt-1 h-9"
                                 value={round.maxTickets}
-                                placeholder="50"
+                                placeholder={wizardSellingMode === 'free' ? t('tickets.free.quantityUnlimited') : '50'}
                                 onChange={(e) => {
                                   const v = e.target.value;
                                   setWizardCustomRounds(prev => prev.map((r, i) => i === idx ? { ...r, maxTickets: v } : r));
@@ -389,7 +398,7 @@ export function ActivationWizardDialog({
                         </div>
 
                         <div className="flex items-center justify-between pt-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2" style={wizardSellingMode === 'free' ? { visibility: 'hidden' } : undefined}>
                             <Switch
                               checked={round.ticketType === 'vip'}
                               onCheckedChange={(checked) => {
@@ -429,7 +438,7 @@ export function ActivationWizardDialog({
                     }}
                     style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}
                   >
-                    <Plus className="h-4 w-4 mr-2" /> {t('owner.actw.addTier')}
+                    <Plus className="h-4 w-4 mr-2" /> {wizardSellingMode === 'free' ? t('tickets.free.add') : t('owner.actw.addTier')}
                   </Button>
                 )}
 
@@ -439,7 +448,7 @@ export function ActivationWizardDialog({
                   </Button>
                   <Button
                     className="flex-1"
-                    disabled={!wizardCustomRounds.some(r => r.name.trim() && r.price.trim() && (wizardSellingMode === 'simple' || r.maxTickets.trim()))}
+                    disabled={!wizardCustomRounds.some(r => r.name.trim() && r.price.trim() && (wizardSellingMode === 'simple' || wizardSellingMode === 'free' || r.maxTickets.trim()))}
                     onClick={() => setWizardStep(3)}
                     style={{ background: RED, color: '#fff' }}
                   >

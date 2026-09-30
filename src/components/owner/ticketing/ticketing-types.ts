@@ -1,4 +1,5 @@
 import { TicketType, TicketAudience, PresetSellingMode } from '@/types/ticketing';
+import type { FreePresetTicket } from '@/lib/freeTicketing';
 
 // Extracted verbatim from OwnerTicketing.tsx — shared by the ticketing page + dialogs.
 export interface PresetRound {
@@ -25,6 +26,8 @@ export interface TicketPreset {
   drinkDeadlineType?: 'hours_after_start' | 'fixed_time' | 'none';
   drinkDeadlineHours?: number;
   drinkCutoffTime?: string;
+  /** Modèle libre (sellingMode 'free') : ses billets, dates relatives au jour de la soirée. */
+  freeTickets?: FreePresetTicket[];
   createdAt: string;
   updatedAt: string;
 }
@@ -36,7 +39,9 @@ export function presetTypeTagKey(mode: PresetSellingMode): string {
     ? 'tickets.presetTypeTagRounds'
     : mode === 'timed_entry'
       ? 'tickets.presetTypeTagTimed'
-      : 'tickets.presetTypeTagSimple';
+      : mode === 'free'
+        ? 'tickets.presetTypeTagFree'
+        : 'tickets.presetTypeTagSimple';
 }
 
 // Shape of the round-creation form state (verbatim from OwnerTicketing useState).

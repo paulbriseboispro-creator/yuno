@@ -34,6 +34,7 @@ import { tint } from '@/lib/proTheme';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
+import { formatTicketDate, publicFreeTickets } from '@/lib/freeTicketing';
 
 type SelectionType = 'ticket' | 'table' | 'guestlist';
 type Selection = {
@@ -206,6 +207,7 @@ export default function TicketSelection() {
             entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
             ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
             audience: normalizeTicketAudience(r.audience),
+            hidden: r.hidden ?? false, visibleFrom: r.visible_from, saleStartsAt: r.sale_starts_at, saleEndsAt: r.sale_ends_at,
             createdAt: r.created_at, updatedAt: r.updated_at,
           })));
         }
@@ -359,8 +361,10 @@ export default function TicketSelection() {
   const vipRounds = ticketRounds.filter(r => r.ticketType === 'vip');
   const isTimedEntry = eventData?.ticketSellingMode === 'timed_entry';
   const isSimple = eventData?.ticketSellingMode === 'simple';
+  const isFree = eventData?.ticketSellingMode === 'free';
   const totalSoldAllRounds = ticketRounds.reduce((sum, r) => sum + r.ticketsSold, 0);
-  const simpleGlobalSoldOut = isSimple && eventData?.maxTickets ? totalSoldAllRounds >= eventData.maxTickets : false;
+  // Jauge de la soirée : obligatoire en mode simple, facultative en mode libre.
+  const simpleGlobalSoldOut = (isSimple || isFree) && eventData?.maxTickets ? totalSoldAllRounds >= eventData.maxTickets : false;
   // Un round est épuisé s'il a atteint sa capacité OU s'il a été marqué épuisé manuellement.
   const isRoundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
   // « Complet » posé sur TOUTE la billetterie de la soirée : même effet qu'un
@@ -388,7 +392,22 @@ export default function TicketSelection() {
   const salesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   const visibility = eventData?.roundsVisibility ?? 'sequential';
-  const getVisibleRounds = (allRounds: TicketRound[]): Array<TicketRound & { _previewOnly?: boolean }> => {
+  type VisibleRound = TicketRound & { _previewOnly?: boolean; _previewLabel?: string; _ended?: boolean };
+  const getVisibleRounds = (allRounds: TicketRound[]): VisibleRound[] => {
+    // Billetterie libre : chaque billet a son affichage et sa fenêtre de vente
+    // (lib/freeTicketing, même règle que le checkout). Cachés = absents.
+    if (isFree) {
+      const tz = eventData?.timezone || undefined;
+      const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
+      return publicFreeTickets(allRounds).map(({ ticket, phase }) => ({
+        ...ticket,
+        _previewOnly: phase === 'upcoming',
+        _previewLabel: phase === 'upcoming' && ticket.isActive && ticket.saleStartsAt
+          ? t('tickets.free.phase.opensAt').replace('{date}', formatTicketDate(ticket.saleStartsAt, tz, locale))
+          : undefined,
+        _ended: phase === 'ended',
+      }));
+    }
     if (isSimple || isTimedEntry) return allRounds;
     if (visibility === 'all_open') return allRounds;
     // Les tarifs communauté vivent À CÔTÉ de la séquence publique (Early Bird →
@@ -397,7 +416,7 @@ export default function TicketSelection() {
     const communityRounds = allRounds.filter(r => isCommunityAudience(r.audience) && r.isActive);
     const rounds = allRounds.filter(r => !isCommunityAudience(r.audience));
     if (visibility === 'sequential') {
-      const visible: Array<TicketRound & { _previewOnly?: boolean }> = [...communityRounds];
+      const visible: VisibleRound[] = [...communityRounds];
       let foundAvailable = false;
       for (const r of rounds) {
         const soldOut = isRoundSoldOut(r);
@@ -406,7 +425,7 @@ export default function TicketSelection() {
       }
       return visible;
     }
-    const visible: Array<TicketRound & { _previewOnly?: boolean }> = [...communityRounds];
+    const visible: VisibleRound[] = [...communityRounds];
     let foundAvailable = false;
     for (const r of rounds) {
       const soldOut = isRoundSoldOut(r);
@@ -729,6 +748,8 @@ export default function TicketSelection() {
                 globalMaxTickets={eventData?.maxTickets}
                 totalSold={totalSoldAllRounds}
                 previewOnly={round._previewOnly === true}
+                previewLabel={round._previewLabel}
+                ended={round._ended === true}
                 maxQuantity={ticketMax}
                 community={communityFor(round)}
               />
@@ -756,6 +777,8 @@ export default function TicketSelection() {
                   globalMaxTickets={eventData?.maxTickets}
                   totalSold={totalSoldAllRounds}
                   previewOnly={round._previewOnly === true}
+                  previewLabel={round._previewLabel}
+                  ended={round._ended === true}
                   maxQuantity={ticketMax}
                   community={communityFor(round)}
                 />
@@ -1037,12 +1060,16 @@ type CommunityCardProps = {
 };
 
 function TicketCard({
-  round, isSelected, quantity, onSelect, onQuantityChange, t, isVip, scarcity, isSimple, globalMaxTickets, totalSold, previewOnly, maxQuantity = 10, community,
+  round, isSelected, quantity, onSelect, onQuantityChange, t, isVip, scarcity, isSimple, globalMaxTickets, totalSold, previewOnly, previewLabel, ended, maxQuantity = 10, community,
 }: {
   round: TicketRound; isSelected: boolean; quantity: number;
   onSelect: () => void; onQuantityChange: (delta: number) => void;
   t: (key: string) => string; isVip?: boolean; scarcity?: ScarcitySettings | null;
   isSimple?: boolean; globalMaxTickets?: number | null; totalSold?: number; previewOnly?: boolean; maxQuantity?: number;
+  /** Billetterie libre : « En vente le 12 oct. 20:00 » à la place de « Bientôt ». */
+  previewLabel?: string;
+  /** Billetterie libre : fin de vente passée, le billet reste affiché. */
+  ended?: boolean;
   community?: CommunityCardProps;
 }) {
   const isSoldOut = round.manuallySoldOut || round.ticketsSold >= round.maxTickets;
@@ -1074,7 +1101,7 @@ function TicketCard({
     return emojiEnabled ? `${entry.emoji} ${entry.text}` : entry.text;
   };
 
-  const isDisabled = previewOnly || isSoldOut || communityLocked;
+  const isDisabled = previewOnly || isSoldOut || communityLocked || !!ended;
 
   return (
     <div
@@ -1125,7 +1152,7 @@ function TicketCard({
             )}
             {previewOnly && (
               <span className="text-[9px] font-bold uppercase tracking-wider text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-sm">
-                {t('tickets.comingSoon') || 'Bientôt'}
+                {previewLabel || t('tickets.comingSoon') || 'Bientôt'}
               </span>
             )}
             {!previewOnly && showUrgencyBadge && hasRealLimit && (
@@ -1180,6 +1207,10 @@ function TicketCard({
           {previewOnly ? (
             <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
               {t('tickets.comingSoon') || 'Bientôt'}
+            </span>
+          ) : ended ? (
+            <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
+              {t('tickets.free.phase.ended')}
             </span>
           ) : isSoldOut ? (
             <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">

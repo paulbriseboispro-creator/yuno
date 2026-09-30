@@ -4483,6 +4483,30 @@ export type Database = {
           },
         ]
       }
+      dj_payout_details: {
+        Row: {
+          created_at: string
+          holder_name: string
+          iban: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          holder_name: string
+          iban: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          holder_name?: string
+          iban?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dj_payments: {
         Row: {
           amount: number
@@ -4693,8 +4717,13 @@ export type Database = {
       }
       dj_sets: {
         Row: {
+          artist_name: string | null
+          guest_artist_id: string | null
+          payee_iban: string | null
+          payee_name: string | null
+          payment_method: string | null
           created_at: string | null
-          dj_id: string
+          dj_id: string | null
           end_time: string
           event_id: string | null
           fee: number | null
@@ -4711,8 +4740,13 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          artist_name?: string | null
+          guest_artist_id?: string | null
+          payee_iban?: string | null
+          payee_name?: string | null
+          payment_method?: string | null
           created_at?: string | null
-          dj_id: string
+          dj_id?: string | null
           end_time: string
           event_id?: string | null
           fee?: number | null
@@ -4729,8 +4763,13 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          artist_name?: string | null
+          guest_artist_id?: string | null
+          payee_iban?: string | null
+          payee_name?: string | null
+          payment_method?: string | null
           created_at?: string | null
-          dj_id?: string
+          dj_id?: string | null
           end_time?: string
           event_id?: string | null
           fee?: number | null
@@ -15008,6 +15047,7 @@ export type Database = {
           event_id: string
           group_label: string | null
           group_size: number | null
+          hidden: boolean
           id: string
           includes_drink: boolean | null
           is_active: boolean
@@ -15018,9 +15058,12 @@ export type Database = {
           name: string
           position: number
           price: number
+          sale_ends_at: string | null
+          sale_starts_at: string | null
           ticket_type: string
           tickets_sold: number
           updated_at: string
+          visible_from: string | null
         }
         Insert: {
           allowed_drink_collections?: string[] | null
@@ -15035,6 +15078,7 @@ export type Database = {
           event_id: string
           group_label?: string | null
           group_size?: number | null
+          hidden?: boolean
           id?: string
           includes_drink?: boolean | null
           is_active?: boolean
@@ -15045,9 +15089,12 @@ export type Database = {
           name: string
           position?: number
           price: number
+          sale_ends_at?: string | null
+          sale_starts_at?: string | null
           ticket_type?: string
           tickets_sold?: number
           updated_at?: string
+          visible_from?: string | null
         }
         Update: {
           allowed_drink_collections?: string[] | null
@@ -15062,6 +15109,7 @@ export type Database = {
           event_id?: string
           group_label?: string | null
           group_size?: number | null
+          hidden?: boolean
           id?: string
           includes_drink?: boolean | null
           is_active?: boolean
@@ -15072,9 +15120,12 @@ export type Database = {
           name?: string
           position?: number
           price?: number
+          sale_ends_at?: string | null
+          sale_starts_at?: string | null
           ticket_type?: string
           tickets_sold?: number
           updated_at?: string
+          visible_from?: string | null
         }
         Relationships: [
           {
@@ -20347,6 +20398,15 @@ export type Database = {
           p256dh: string
           user_id: string
         }[]
+      }
+      get_dj_payout_prefill: { Args: { p_dj_id: string }; Returns: Json }
+      can_manage_dj_scope: {
+        Args: {
+          _organizer_user_id: string
+          _user_id: string
+          _venue_id: string
+        }
+        Returns: boolean
       }
       get_dj_public_events: {
         Args: { p_slug: string }

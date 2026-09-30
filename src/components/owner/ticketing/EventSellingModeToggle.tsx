@@ -11,7 +11,7 @@ interface EventSellingModeToggleProps {
   onChangeMode: (mode: TicketSellingMode) => void;
 }
 
-// Per-event selling-mode picker (simple / rounds / timed_entry). Locks once tickets are sold.
+// Per-event selling-mode picker (simple / rounds / timed_entry / free). Locks once tickets are sold.
 export function EventSellingModeToggle({ sellingMode, locked, onChangeMode }: EventSellingModeToggleProps) {
   const { t } = useLanguage();
   return (
@@ -25,7 +25,9 @@ export function EventSellingModeToggle({ sellingMode, locked, onChangeMode }: Ev
               ? t('tickets.sellingModeSimpleDesc')
               : sellingMode === 'timed_entry'
                 ? t('tickets.sellingModeTimedDesc')
-                : t('tickets.sellingModeRoundsDesc')}
+                : sellingMode === 'free'
+                  ? t('tickets.sellingModeFreeDesc')
+                  : t('tickets.sellingModeRoundsDesc')}
           </p>
         </div>
       </div>
@@ -35,7 +37,7 @@ export function EventSellingModeToggle({ sellingMode, locked, onChangeMode }: Ev
             <TooltipTrigger asChild>
               <div className="flex items-center gap-2 px-3 py-1.5 text-[13px]" style={{ ...TILE, color: T2 }}>
                 <Lock className="h-3.5 w-3.5" />
-                {sellingMode === 'simple' ? t('tickets.sellingModeSimple') : sellingMode === 'timed_entry' ? t('tickets.sellingModeTimed') : t('tickets.sellingModeRounds')}
+                {sellingMode === 'simple' ? t('tickets.sellingModeSimple') : sellingMode === 'timed_entry' ? t('tickets.sellingModeTimed') : sellingMode === 'free' ? t('tickets.sellingModeFree') : t('tickets.sellingModeRounds')}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -55,6 +57,7 @@ export function EventSellingModeToggle({ sellingMode, locked, onChangeMode }: Ev
             <SelectItem value="simple">{t('tickets.sellingModeSimple')}</SelectItem>
             <SelectItem value="rounds">{t('tickets.sellingModeRounds')}</SelectItem>
             <SelectItem value="timed_entry">{t('tickets.sellingModeTimed')}</SelectItem>
+            <SelectItem value="free">{t('tickets.sellingModeFree')}</SelectItem>
           </SelectContent>
         </Select>
       )}

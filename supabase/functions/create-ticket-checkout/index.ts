@@ -22,6 +22,7 @@ import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/
 import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { rowPhase } from "../_shared/free-ticketing.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -272,6 +273,15 @@ serve(async (req) => {
       .single();
 
     if (roundError || !ticketRound) throw new Error("Ticket round not found");
+    // Billetterie libre : chaque billet a sa propre fenêtre (caché, visible à
+    // une date, en vente à une date, fin de vente). Même règle que la page
+    // (ticketPhase, _shared/free-ticketing.ts). Hors mode libre ces colonnes
+    // sont à leur défaut : la phase ne ferme rien de plus que is_active.
+    const roundPhase = rowPhase(ticketRound as Parameters<typeof rowPhase>[0]);
+    if (roundPhase === "ended") throw new Error(t("checkout.saleEnded", lang));
+    if (roundPhase === "hidden" || (roundPhase === "upcoming" && ticketRound.is_active)) {
+      throw new Error(t("checkout.tierNotAvailable", lang));
+    }
     if (!ticketRound.is_active) throw new Error("Ticket round is not active");
     // Billetterie de la SOIRÉE marquée complète à la main (events.tickets_sold_out).
     // Interrupteur réversible : il ne referme aucun palier, il ferme la vente.
@@ -350,8 +360,8 @@ serve(async (req) => {
       capacityNeeded,
     });
 
-    // Global capacity check for simple mode (still useful as a fast-fail before atomic reservation)
-    if (event.ticket_selling_mode === 'simple' && event.max_tickets) {
+    // Global capacity check for simple & free modes (still useful as a fast-fail before atomic reservation)
+    if ((event.ticket_selling_mode === 'simple' || event.ticket_selling_mode === 'free') && event.max_tickets) {
       const { data: allRounds } = await supabaseAdmin
         .from("ticket_rounds")
         .select("tickets_sold")

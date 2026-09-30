@@ -5,7 +5,9 @@ import { Plus, Music, Search, Phone, MoreVertical, Trash2, Eye, RefreshCw, Mail,
 import { Instagram } from '@/components/icons/Instagram';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { DJCalendar } from '@/components/dj/DJCalendar';
+import { DJCalendar, type NewDjSetInput } from '@/components/dj/DJCalendar';
+import { DJSetPaymentDialog, djPayoutErrorKey, type PayableDjSet } from '@/components/dj/DJSetPayout';
+import { DJFeesOverview } from '@/components/dj/DJFeesOverview';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
@@ -53,7 +55,13 @@ interface DJ {
 
 interface DJSet {
   id: string;
-  dj_id: string;
+  dj_id: string | null;
+  artist_name?: string | null;
+  guest_artist_id?: string | null;
+  payee_name?: string | null;
+  payee_iban?: string | null;
+  payment_method?: 'transfer' | 'cash' | 'other' | null;
+  fee_paid_at?: string | null;
   event_id?: string;
   venue_id: string | null;
   organizer_user_id?: string | null;
@@ -64,8 +72,8 @@ interface DJSet {
   notes?: string;
   fee: number;
   fee_paid: boolean;
-  dj?: { first_name: string; last_name: string; stage_name?: string; profile_image_url?: string };
-  event?: { title: string };
+  dj?: { first_name: string; last_name: string; stage_name?: string; profile_image_url?: string } | null;
+  event?: { title: string } | null;
 }
 
 interface Event {
@@ -155,6 +163,8 @@ export default function OwnerDJs() {
   const [resending, setResending] = useState<string | null>(null);
   const [newDJEmail, setNewDJEmail] = useState('');
   const [creating, setCreating] = useState(false);
+  const [paySetId, setPaySetId] = useState<string | null>(null);
+  const paySet = paySetId ? sets.find(s => s.id === paySetId) ?? null : null;
 
   useEffect(() => {
     if (scopeId) { fetchDJs(); fetchSets(); fetchEvents(); fetchPendingInvitations(); }
@@ -179,7 +189,7 @@ export default function OwnerDJs() {
       const baseQ = supabase.from('dj_sets').select(`*, dj:djs(first_name,last_name,stage_name,profile_image_url), event:events(title)`).order('start_time', { ascending: true });
       const { data, error } = isOrganizerScope ? await baseQ.eq('organizer_user_id', scopeId) : await baseQ.eq('venue_id', scopeId);
       if (error) throw error;
-      setSets(data || []);
+      setSets((data || []) as DJSet[]);
     } catch (error) { console.error('Error fetching sets:', error); }
   };
 
@@ -221,17 +231,27 @@ export default function OwnerDJs() {
     finally { setResending(null); }
   };
 
-  const handleAddSet = async (newSet: { dj_id: string; event_id?: string; start_time: string; end_time: string; music_genre?: string; fee: number; notes?: string }) => {
+  const handleAddSet = async (newSet: NewDjSetInput) => {
     if (!scopeId) return;
     if (!newSet.event_id) { toast.error(t('owner.eventRequired') || 'Un événement est requis'); return; }
     try {
-      const payload: Record<string, unknown> = { dj_id: newSet.dj_id, event_id: newSet.event_id, start_time: newSet.start_time, end_time: newSet.end_time, music_genre: newSet.music_genre, fee: newSet.fee, notes: newSet.notes, fee_paid: false };
+      // Un DJ Yuno (dj_id) OU un artiste externe (artist_name) : la base refuse un set sans interprète.
+      const payload: Record<string, unknown> = {
+        dj_id: newSet.dj_id, artist_name: newSet.artist_name ?? null, guest_artist_id: newSet.guest_artist_id ?? null,
+        event_id: newSet.event_id, start_time: newSet.start_time, end_time: newSet.end_time,
+        music_genre: newSet.music_genre, fee: newSet.fee, notes: newSet.notes, fee_paid: false,
+        payee_name: newSet.payee_name ?? null, payee_iban: newSet.payee_iban ?? null,
+      };
       if (isOrganizerScope) payload.organizer_user_id = scopeId; else payload.venue_id = scopeId;
       const { error } = await supabase.from('dj_sets').insert(payload as unknown as TablesInsert<'dj_sets'>);
       if (error) throw error;
       toast.success(t('owner.setAdded'));
       fetchSets();
-    } catch (error) { toast.error((error as Error).message || t('owner.errorAddingSet')); throw error; }
+    } catch (error) {
+      const key = djPayoutErrorKey(error);
+      toast.error(key === 'djPay.supportForbidden' ? t(key) : ((error as { message?: string })?.message || t('owner.errorAddingSet')));
+      throw error;
+    }
   };
 
   const handleDeleteSet = async (setId: string) => {
@@ -239,7 +259,7 @@ export default function OwnerDJs() {
       const setToDelete = sets.find(s => s.id === setId);
       const { error } = await supabase.from('dj_sets').delete().eq('id', setId);
       if (error) throw error;
-      if (setToDelete && !setToDelete.fee_paid && setToDelete.fee > 0) {
+      if (setToDelete?.dj_id && !setToDelete.fee_paid && setToDelete.fee > 0) {
         const dj = djs.find(d => d.id === setToDelete.dj_id);
         if (dj) await supabase.from('djs').update({ pending_amount: Math.max(0, dj.pending_amount - setToDelete.fee) }).eq('id', dj.id);
       }
@@ -334,13 +354,14 @@ export default function OwnerDJs() {
 
         <AnimatePresence mode="wait">
           {activeTab === 'calendar' && (
-            <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              <DJFeesOverview sets={sets} onPay={(id) => setPaySetId(id)} />
               <DJCalendar
                 sets={sets}
                 djs={djs.map(d => ({ id: d.id, first_name: d.first_name, last_name: d.last_name, stage_name: d.stage_name }))}
                 events={events}
                 venueAddress={venue?.address}
-                onSetClick={() => {}}
+                onSetClick={(set) => setPaySetId(set.id)}
                 onAddSet={handleAddSet}
                 onDeleteSet={handleDeleteSet}
                 canAddSets
@@ -568,6 +589,13 @@ export default function OwnerDJs() {
           </>
         )}
       </AnimatePresence>
+      <DJSetPaymentDialog
+        set={paySet as PayableDjSet | null}
+        open={!!paySet}
+        onOpenChange={(o) => { if (!o) setPaySetId(null); }}
+        onChanged={fetchSets}
+        canEdit={!collabReadOnly}
+      />
     </div>
   );
 }

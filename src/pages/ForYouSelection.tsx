@@ -106,7 +106,7 @@ export default function ForYouSelection() {
               .in('id', affIds)
           : Promise.resolve({ data: [] as AffiliateRow[] }),
         eventIds.length
-          ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', eventIds).eq('is_active', true)
+          ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience, hidden, visible_from').in('event_id', eventIds).eq('is_active', true)
           : Promise.resolve({ data: [] as { event_id: string; price: number; audience: string | null }[] }),
         eventIds.length
           ? supabase.from('organizer_profiles').select('user_id, display_name, slug')

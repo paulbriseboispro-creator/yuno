@@ -10,6 +10,7 @@ import {
   DJPage, DJHeading, PCard, MonthlyBars,
   POS, T1, T2, T3, WARN, INNER_BG, BORDER,
 } from '@/components/dj/dj-ui';
+import { DJBankDetailsCard } from '@/components/dj/DJBankDetailsCard';
 
 export default function DJPayments() {
   const { language, t } = useLanguage();
@@ -86,6 +87,8 @@ export default function DJPayments() {
           </div>
         </PCard>
       </div>
+
+      <DJBankDetailsCard />
 
       {earnData.length > 0 && (
         <PCard

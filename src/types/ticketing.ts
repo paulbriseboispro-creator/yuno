@@ -1,3 +1,5 @@
+import { isRowListed } from '@/lib/freeTicketing';
+
 export type TicketType = 'standard' | 'vip';
 
 /**
@@ -42,15 +44,21 @@ export const communityAudienceAllows = (
  * ouvert ; s'il ne reste QUE des tarifs communauté, on les garde plutôt que
  * d'afficher « Gratuit » sur une soirée payante.
  */
-export function forPublicPricing<T extends { event_id: string; audience?: string | null }>(rows: T[]): T[] {
+export function forPublicPricing<T extends { event_id: string; audience?: string | null; hidden?: boolean | null; visible_from?: string | null }>(rows: T[]): T[] {
+  // Billetterie libre : un billet caché ou pas encore affiché n'a pas de prix
+  // public (isRowListed). Pour en profiter, la requête sélectionne `hidden,
+  // visible_from` ; sans ces colonnes, rien ne change.
+  const listed = rows.filter(r => isRowListed(r));
   const withPublic = new Set<string>();
-  for (const r of rows) if (!isCommunityAudience(r.audience)) withPublic.add(r.event_id);
-  return rows.filter(r => !isCommunityAudience(r.audience) || !withPublic.has(r.event_id));
+  for (const r of listed) if (!isCommunityAudience(r.audience)) withPublic.add(r.event_id);
+  return listed.filter(r => !isCommunityAudience(r.audience) || !withPublic.has(r.event_id));
 }
 
-export type TicketSellingMode = 'simple' | 'rounds' | 'timed_entry';
+/** `free` = billetterie libre (src/lib/freeTicketing.ts) : une liste de
+ *  billets, chacun avec son affichage et sa fenêtre de vente. */
+export type TicketSellingMode = 'simple' | 'rounds' | 'timed_entry' | 'free';
 
-export type PresetSellingMode = 'simple' | 'rounds' | 'timed_entry';
+export type PresetSellingMode = 'simple' | 'rounds' | 'timed_entry' | 'free';
 
 export type EventSalesStatus = 'coming_soon' | 'presale' | 'public_sale' | 'sold_out' | 'ended';
 
@@ -77,6 +85,11 @@ export type TicketRound = {
   ticketType: TicketType;
   /** Qui peut acheter ce tarif (absent = `everyone`). Voir TicketAudience. */
   audience?: TicketAudience;
+  /** Billetterie libre (ticketPhase) : caché, visible à une date, fenêtre de vente. */
+  hidden?: boolean;
+  visibleFrom?: string | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
