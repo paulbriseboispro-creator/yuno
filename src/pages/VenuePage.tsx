@@ -534,7 +534,7 @@ export default function VenuePage() {
         if (ticketingEventIds.length > 0) {
           const { data: roundsData } = await supabase
             .from('ticket_rounds')
-            .select('event_id, price, is_active, tickets_sold, max_tickets, audience')
+            .select('event_id, price, is_active, tickets_sold, max_tickets, audience, hidden, visible_from')
             .in('event_id', ticketingEventIds)
             .order('position', { ascending: true });
 

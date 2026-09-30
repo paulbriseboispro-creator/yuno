@@ -330,13 +330,14 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToTicketing', path: '/ticketing' },
         relatedArticleIds: ['events-setup', 'scarcity-fomo', 'fee-structure', 'refund-management'],
-        keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance', 'stripe connect', 'réservé', 'reserved', 'sold out manuel'],
+        keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'libre', 'free-form', 'caché', 'hidden', 'modèle', 'template', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance', 'stripe connect', 'réservé', 'reserved', 'sold out manuel'],
         sections: [
           { headingKey: 'ohelp.ev.ticketing.s1h', bodyKey: 'ohelp.ev.ticketing.s1b' },
           { headingKey: 'ohelp.ev.ticketing.s2h', bodyKey: 'ohelp.ev.ticketing.s2b' },
           { headingKey: 'ohelp.ev.ticketing.s3h', bodyKey: 'ohelp.ev.ticketing.s3b', screenshotUrl: '/help/owner-ticketing.webp' },
           { headingKey: 'ohelp.ev.ticketing.s4h', bodyKey: 'ohelp.ev.ticketing.s4b' },
           { headingKey: 'ohelp.ev.ticketing.s5h', bodyKey: 'ohelp.ev.ticketing.s5b', type: 'steps' },
+          { headingKey: 'ohelp.ev.ticketing.s9h', bodyKey: 'ohelp.ev.ticketing.s9b', type: 'steps' },
           { headingKey: 'ohelp.ev.ticketing.s6h', bodyKey: 'ohelp.ev.ticketing.s6b' },
           { headingKey: 'ohelp.ev.ticketing.s7h', bodyKey: 'ohelp.ev.ticketing.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.ticketing.s8h', bodyKey: 'ohelp.ev.ticketing.s8b', type: 'warning' },
@@ -403,7 +404,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Music2',
         actionLink: { labelKey: 'ohelp.action.goToDJs', path: '/djs' },
         relatedArticleIds: ['events-setup', 'organizers-system'],
-        keywords: ['DJ', 'lineup', 'set', 'calendar', 'calendrier', 'booking', 'résident', 'resident', 'guest', 'planning', 'agenda', 'cachet', 'fee'],
+        keywords: ['DJ', 'lineup', 'set', 'calendar', 'calendrier', 'booking', 'résident', 'resident', 'guest', 'planning', 'agenda', 'cachet', 'fee', 'iban', 'virement', 'transfer', 'artiste externe', 'dépense', 'expense'],
         sections: [
           { headingKey: 'ohelp.ev.djs.s1h', bodyKey: 'ohelp.ev.djs.s1b' },
           { headingKey: 'ohelp.ev.djs.s2h', bodyKey: 'ohelp.ev.djs.s2b', screenshotUrl: '/help/owner-djs.webp' },
@@ -413,6 +414,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.djs.s6h', bodyKey: 'ohelp.ev.djs.s6b' },
           { headingKey: 'ohelp.ev.djs.s7h', bodyKey: 'ohelp.ev.djs.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.djs.s8h', bodyKey: 'ohelp.ev.djs.s8b', type: 'warning' },
+          { headingKey: 'ohelp.ev.djs.s9h', bodyKey: 'ohelp.ev.djs.s9b', type: 'steps' },
+          { headingKey: 'ohelp.ev.djs.s10h', bodyKey: 'ohelp.ev.djs.s10b' },
         ],
       },
       {

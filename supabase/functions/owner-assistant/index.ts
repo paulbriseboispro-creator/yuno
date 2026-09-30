@@ -141,9 +141,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "ticketing-modes": {
     title: "Modes de billetterie",
-    keywords: ["ticket", "billet", "mode", "round", "simple", "timed", "créneau", "billetterie", "ticketing", "entrée"],
+    keywords: ["ticket", "billet", "mode", "round", "simple", "timed", "créneau", "billetterie", "ticketing", "entrée", "libre", "free-form", "caché", "hidden", "bientôt", "mise en vente", "modèle"],
     path: "/owner/ticketing",
-    snippet: "Yuno propose 3 modes de billetterie :\n1. **Simple** : Un seul type de billet à prix fixe, sans rounds. Idéal pour les soirées simples.\n2. **Rounds** (tours de vente) : Plusieurs tarifs progressifs (Early Bird → Regular → Last Minute). Chaque round a un nom, prix, quota et dates. Quand un round est sold out, le suivant s'active automatiquement.\n3. **Créneaux horaires (Timed Entry)** : Billets liés à des créneaux horaires spécifiques. Permet de gérer le flux d'entrées et d'éviter la surcharge.\n\nChaque mode inclut les frais de service Yuno. L'assurance annulation n'est plus commercialisée : le toggle a été retiré de la page Billetterie et l'option n'apparaît plus au checkout client. Les billets vendus avec assurance avant son retrait restent annulables normalement et continuent d'apparaître en compta.",
+    snippet: "Yuno propose 4 modes de billetterie :\n1. **Simple** : Un seul type de billet à prix fixe, sans rounds. Idéal pour les soirées simples.\n2. **Rounds** (tours de vente) : Plusieurs tarifs progressifs (Early Bird → Regular → Last Minute). Chaque round a un nom, prix, quota et dates. Quand un round est sold out, le suivant s'active automatiquement.\n3. **Créneaux horaires (Timed Entry)** : Billets liés à des créneaux horaires spécifiques. Permet de gérer le flux d'entrées et d'éviter la surcharge.\n4. **Libre** : une liste de billets sans palier ni règle imposée (Entrée, Pack duo…), boisson offerte en option. Pour chaque billet, « Quand le voit-on ? » (tout de suite / à une date / caché) et « Quand peut-on l'acheter ? » (tout de suite / à une date / plus tard, ouvert d'un clic avec « Ouvrir la vente »), plus une fin de vente facultative (le billet reste affiché « Vente terminée »). Flèches pour l'ordre public, jauge totale facultative. « Enregistrer comme modèle » garde tout, horaires comptés en jours avant la soirée (J-7 à 20:00), rejouable sur n'importe quelle date et dans les séries récurrentes.\n\nChaque mode inclut les frais de service Yuno. L'assurance annulation n'est plus commercialisée : le toggle a été retiré de la page Billetterie et l'option n'apparaît plus au checkout client. Les billets vendus avec assurance avant son retrait restent annulables normalement et continuent d'apparaître en compta.",
   },
   "community-tickets": {
     title: "Billets communauté (tarif réservé à vos abonnés)",
@@ -498,6 +498,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     keywords: ["dj", "booking", "booker", "résident", "line-up", "marketplace", "artiste", "réserver un dj", "app dj", "yuno pro dj", "dj sur téléphone", "dj app mobile"],
     path: "/owner/djs",
     snippet: "Gère tes DJs résidents depuis la page DJs (profils, sets, line-up des soirées). Pour trouver de nouveaux artistes, [Book DJ](/owner/book-dj) cherche dans la marketplace par ville, rayon, genre et cachet — envoie une demande de booking directement au DJ, qui est aussi poussé sur son téléphone (app Yuno Pro). Quand la demande est liée à une soirée, l'acceptation du DJ l'inscrit automatiquement au line-up public de l'événement (même mécanique que l'ajout au line-up depuis le formulaire de soirée) et tu es prévenu dans ta cloche de notifications. Côté DJ, chaque artiste de ton roster a son propre espace Yuno (ses dates tous clubs confondus, ses cachets en attente et réglés, ses demandes de booking, ses liens trackés), et cet espace s'ouvre dans l'APP YUNO PRO sur iPhone : il se connecte avec son compte, choisit « DJ » sur l'écran d'accueil, et travaille depuis son téléphone, protégé par son code PIN comme n'importe quel poste. Donc un set ajouté au calendrier, un cachet marqué payé ou une demande de booking envoyée lui arrivent sans qu'il ouvre un ordinateur — et la relance « cachet impayé » qu'il t'envoie part de cette même app.",
+  },
+  "dj-fees-external": {
+    title: "Cachets DJ, artistes hors Yuno et virements",
+    keywords: ["cachet", "cachets", "fee", "payer un dj", "pay dj", "iban", "virement", "transfer", "artiste externe", "dj externe", "dj sans compte", "hors yuno", "dépense", "expense", "référence ydj"],
+    path: "/owner/djs",
+    snippet: "Dans DJs → Calendrier, « + Ajouter un set DJ » propose les DJs Yuno ET les artistes sans compte du line-up de la soirée (marqués Externe), tes DJs, ou « Autre artiste (hors Yuno) » à saisir. Dès qu'il y a un cachet, le bloc « Virement du cachet » demande titulaire et IBAN : pour un DJ Yuno ils se remplissent tout seuls si le DJ les a saisis dans ses Paiements, pour un externe tu les tapes. La carte « Cachets DJ » au-dessus du calendrier liste ce qui reste à régler ; « Payer » ouvre le virement prêt à copier (bénéficiaire, IBAN, montant, référence YDJ-…), puis « Marquer comme payé » (virement, espèces ou autre). Chaque cachet compte comme dépense de sa soirée dans le bilan par soirée d'Analytics. Yuno ne fait jamais le virement lui-même.",
   },
   "managers": {
     title: "Managers & permissions",
@@ -2020,7 +2026,7 @@ async function executeTool(
         checklist.push(venueRes.data?.stripe_account_id ? { item: "Stripe Connect", status: "ok", detail: "Connecté ✅" } : { item: "Stripe Connect", status: "missing", detail: "Non connecté — impossible de vendre !" });
         if (eventsRes.data) {
           checklist.push({ item: "Prochain event", status: "ok", detail: `${eventsRes.data.title} le ${eventsRes.data.start_at}` });
-          const modeLabel = eventsRes.data.ticket_selling_mode === "rounds" ? "Rounds" : eventsRes.data.ticket_selling_mode === "timed_entry" ? "Créneaux horaires" : "Simple";
+          const modeLabel = eventsRes.data.ticket_selling_mode === "rounds" ? "Rounds" : eventsRes.data.ticket_selling_mode === "timed_entry" ? "Créneaux horaires" : eventsRes.data.ticket_selling_mode === "free" ? "Libre" : "Simple";
           checklist.push(eventsRes.data.ticketing_enabled ? { item: "Billetterie", status: "ok", detail: `Activée (mode ${modeLabel})` } : { item: "Billetterie", status: "warning", detail: "Désactivée" });
         } else {
           checklist.push({ item: "Prochain event", status: "missing", detail: "Aucun événement à venir" });

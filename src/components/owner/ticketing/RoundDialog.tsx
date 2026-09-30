@@ -5,13 +5,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Wine, Users } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Users } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Event } from '@/types';
 import { TicketRound, TicketSellingMode, type TicketAudience } from '@/types/ticketing';
-import { RED, T1, T3, C_FAINT, BORDER, TILE_BG, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
+import { RED, T1, C_FAINT, BORDER, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import type { RoundFormData } from './ticketing-types';
+import { DrinkOptionsFields } from './DrinkOptionsFields';
 
 interface RoundDialogProps {
   isRoundDialogOpen: boolean;
@@ -197,114 +197,13 @@ export function RoundDialog({
                 />
               </div>
 
-              {/* Free Drink Options */}
-              <div className="space-y-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="includesDrink">{t('tickets.includesDrink')}</Label>
-                    <p style={HINT}>{t('tickets.includesDrinkDesc')}</p>
-                  </div>
-                  <Switch
-                    id="includesDrink"
-                    checked={roundFormData.includesDrink}
-                    onCheckedChange={(checked) => setRoundFormData({ ...roundFormData, includesDrink: checked })}
-                  />
-                </div>
-
-                {roundFormData.includesDrink && (
-                  <div className="space-y-3 pl-4" style={{ borderLeft: `2px solid rgba(232,25,44,0.3)` }}>
-                    <div>
-                      <Label>{t('tickets.drinkDeadlineType')}</Label>
-                      <Select
-                        value={roundFormData.drinkDeadlineType}
-                        onValueChange={(value: 'hours_after_start' | 'fixed_time' | 'none') =>
-                          setRoundFormData({ ...roundFormData, drinkDeadlineType: value })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{t('tickets.drinkDeadlineNone')}</SelectItem>
-                          <SelectItem value="hours_after_start">{t('tickets.hoursAfterStart')}</SelectItem>
-                          <SelectItem value="fixed_time">{t('tickets.fixedTime')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {roundFormData.drinkDeadlineType === 'hours_after_start' && (
-                      <div>
-                        <Label htmlFor="drinkDeadlineHours">{t('tickets.drinkDeadlineHours')}</Label>
-                        <p style={{ ...HINT, marginBottom: 4 }}>{t('tickets.drinkDeadlineHoursDesc')}</p>
-                        <Input
-                          id="drinkDeadlineHours"
-                          type="number"
-                          min="1"
-                          max="12"
-                          value={roundFormData.drinkDeadlineHours}
-                          onChange={(e) => setRoundFormData({ ...roundFormData, drinkDeadlineHours: e.target.value })}
-                          placeholder="2"
-                        />
-                      </div>
-                    )}
-
-                    {roundFormData.drinkDeadlineType === 'fixed_time' && (
-                      <div>
-                        <Label htmlFor="drinkCutoffTime">{t('tickets.drinkCutoffTime')}</Label>
-                        <p style={{ ...HINT, marginBottom: 4 }}>{t('tickets.drinkCutoffTimeDesc')}</p>
-                        <Input
-                          id="drinkCutoffTime"
-                          type="time"
-                          value={roundFormData.drinkCutoffTime}
-                          onChange={(e) => setRoundFormData({ ...roundFormData, drinkCutoffTime: e.target.value })}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Free Drink Mode - venue-level setting */}
-              {roundFormData.includesDrink && (
-                <div className="space-y-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                  <div>
-                    <Label className="flex items-center gap-2 mb-1">
-                      <Wine className="h-4 w-4" style={{ color: RED }} />
-                      {t('tickets.freeDrinkMode')}
-                    </Label>
-                    <p className="mb-3" style={HINT}>{t('tickets.freeDrinkModeDesc')}</p>
-                    <div className="space-y-2">
-                      {([
-                        { key: 'credits' as const, title: t('tickets.freeDrinkModeCredits'), desc: t('tickets.freeDrinkModeCreditsDesc') },
-                        { key: 'bouncer_notify' as const, title: t('tickets.freeDrinkModeBouncer'), desc: t('tickets.freeDrinkModeBouncerDesc') },
-                      ]).map((opt) => {
-                        const sel = freeDrinkMode === opt.key;
-                        return (
-                          <label
-                            key={opt.key}
-                            className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
-                            style={sel
-                              ? { border: '1px solid rgba(232,25,44,0.4)', background: 'rgba(232,25,44,0.08)' }
-                              : { border: `1px solid ${BORDER}`, background: TILE_BG }}
-                            onClick={async () => {
-                              setFreeDrinkMode(opt.key);
-                              if (venueId) await supabase.from('venues').update({ free_drink_mode: opt.key } as any).eq('id', venueId);
-                            }}
-                          >
-                            <div className="mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center flex-none" style={{ borderColor: sel ? RED : T3 }}>
-                              {sel && <div className="h-2 w-2 rounded-full" style={{ background: RED }} />}
-                            </div>
-                            <div className="flex-1">
-                              <span style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{opt.title}</span>
-                              <p style={HINT}>{opt.desc}</p>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <DrinkOptionsFields
+                value={roundFormData}
+                onChange={(patch) => setRoundFormData({ ...roundFormData, ...patch })}
+                freeDrinkMode={freeDrinkMode}
+                setFreeDrinkMode={setFreeDrinkMode}
+                venueId={venueId}
+              />
 
               <div className="flex gap-2">
                 <Button type="submit" className="flex-1" style={{ background: RED, color: '#fff' }}>

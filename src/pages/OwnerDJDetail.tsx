@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { DJCalendar } from '@/components/dj/DJCalendar';
+import { DJSetPaymentDialog, type PayableDjSet } from '@/components/dj/DJSetPayout';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -101,6 +102,7 @@ export default function OwnerDJDetail() {
 
   const [dj, setDJ] = useState<DJ | null>(null);
   const [sets, setSets] = useState<DJSet[]>([]);
+  const [paySetId, setPaySetId] = useState<string | null>(null);
   const [payments, setPayments] = useState<DJPayment[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -432,36 +434,9 @@ export default function OwnerDJDetail() {
     } finally { setActingId(null); }
   };
 
-  const handleMarkSetAsPaid = async (set: DJSet) => {
-    if (!dj) return;
-
-    try {
-      await supabase.from('dj_sets').update({
-        fee_paid: true,
-        fee_paid_at: new Date().toISOString(),
-      }).eq('id', set.id);
-
-      await supabase.from('dj_payments').insert({
-        dj_id: dj.id,
-        dj_set_id: set.id,
-        amount: set.fee,
-        description: set.event?.title || `Set ${format(new Date(set.start_time), 'dd/MM/yyyy')}`,
-      });
-
-      await supabase.from('djs').update({
-        pending_amount: Math.max(0, dj.pending_amount - set.fee),
-        total_paid: dj.total_paid + set.fee,
-      }).eq('id', dj.id);
-
-      toast.success(t('ownerDj.paymentRecorded'));
-      fetchSets();
-      fetchPayments();
-      fetchDJ();
-    } catch (error) {
-      console.error('Error marking as paid:', error);
-      toast.error(t('ownerDj.error'));
-    }
-  };
+  // Payer = ouvrir la fiche du cachet : virement prêt à copier (IBAN du DJ,
+  // montant, référence), puis « Marquer comme payé ». Même fiche que le planning.
+  const handleMarkSetAsPaid = (set: DJSet) => setPaySetId(set.id);
 
   const handleDeleteSet = async (setId: string) => {
     const setToDelete = sets.find(s => s.id === setId);
@@ -691,7 +666,7 @@ export default function OwnerDJDetail() {
               <DJCalendar
                 sets={sets.map(s => ({ ...s, dj: { first_name: dj.first_name, last_name: dj.last_name, stage_name: dj.stage_name } }))}
                 showDJNames={false}
-                onSetClick={() => {}}
+                onSetClick={(set) => setPaySetId(set.id)}
               />
 
               {/* Upcoming sets list */}
@@ -996,6 +971,15 @@ export default function OwnerDJDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <DJSetPaymentDialog
+        set={(() => {
+          const ps = paySetId ? sets.find(x => x.id === paySetId) : null;
+          return ps && dj ? ({ ...ps, dj: { first_name: dj.first_name, last_name: dj.last_name, stage_name: dj.stage_name } } as unknown as PayableDjSet) : null;
+        })()}
+        open={!!paySetId}
+        onOpenChange={(o) => { if (!o) setPaySetId(null); }}
+        onChanged={() => { fetchSets(); fetchPayments(); }}
+      />
     </div>
   );
 }

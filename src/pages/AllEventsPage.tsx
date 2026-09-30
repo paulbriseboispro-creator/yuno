@@ -202,7 +202,7 @@ export default function AllEventsPage() {
           ? supabase.from('organizer_profiles').select('user_id, slug').in('user_id', organizerUserIds)
           : Promise.resolve({ data: [] as { user_id: string; slug: string | null }[] }),
         eventIds.length > 0
-          ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', eventIds)
+          ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience, hidden, visible_from').in('event_id', eventIds)
           : Promise.resolve({ data: [] as { event_id: string; price: number; is_active: boolean | null; audience: string | null }[] }),
       ]);
       (orgRes.data || []).forEach(op => organizerSlugMap.set(op.user_id, op.slug));

@@ -17,7 +17,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
-import { TicketRound, TableZone, TablePack, EventWithTicketing, getEventSalesStatus, isCommunityAudience, normalizeTicketAudience } from '@/types/ticketing';
+import { TicketRound, TableZone, TablePack, EventWithTicketing, TicketSellingMode, getEventSalesStatus, isCommunityAudience, normalizeTicketAudience } from '@/types/ticketing';
+import { publicFreeTickets } from '@/lib/freeTicketing';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 // EventWaitlistForm moved to dedicated page
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -569,6 +570,10 @@ export default function EventDetails() {
         drinkDeadlineHours: r.drink_deadline_hours,
         drinkCutoffTime: r.drink_cutoff_time,
         ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
+        hidden: r.hidden ?? false,
+        visibleFrom: r.visible_from,
+        saleStartsAt: r.sale_starts_at,
+        saleEndsAt: r.sale_ends_at,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })));
@@ -642,7 +647,7 @@ export default function EventDetails() {
         tablesSoldOut: !!eventData.tables_sold_out,
         guestListSoldOut: !!eventData.guest_list_sold_out,
         soldOutPackIds: (eventData.sold_out_pack_ids as string[] | null) ?? [],
-        ticketSellingMode: (eventData.ticket_selling_mode as 'rounds' | 'timed_entry' | null) || 'rounds',
+        ticketSellingMode: (eventData.ticket_selling_mode as TicketSellingMode | null) || 'rounds',
         presaleStartAt: eventData.presale_start_at || undefined,
         publicSaleStartAt: eventData.public_sale_start_at || undefined,
         waitlistEnabled: eventData.waitlist_enabled || false,
@@ -812,12 +817,21 @@ export default function EventDetails() {
   ) : null;
 
   const visibility = event?.roundsVisibility ?? 'sequential';
-  const allBuyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
+  // Billetterie libre : chaque billet a son affichage et sa fenêtre de vente
+  // (lib/freeTicketing, même règle que le checkout). Tous ceux en vente se
+  // vendent en parallèle ; un billet « Bientôt » garde la soirée ouverte.
+  const isFreeMode = event?.ticketSellingMode === 'free';
+  const roundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
+  const freeListed = isFreeMode ? publicFreeTickets(ticketRounds) : [];
+  const allBuyableRounds = isFreeMode
+    ? freeListed.filter(x => x.phase === 'on_sale' && !roundSoldOut(x.ticket)).map(x => x.ticket)
+    : ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
+  const freeStillComing = freeListed.some(x => x.phase === 'upcoming' && !roundSoldOut(x.ticket));
   // Les tarifs communauté (abonnés) vivent à côté de la séquence publique : ils
   // ne sont ni le « premier tour » ni le prix « à partir de » de tout le monde.
   const communityRounds = allBuyableRounds.filter(r => isCommunityAudience(r.audience));
   const buyableRounds = allBuyableRounds.filter(r => !isCommunityAudience(r.audience));
-  const activeRounds = visibility === 'all_open'
+  const activeRounds = visibility === 'all_open' || isFreeMode
     ? buyableRounds
     : buyableRounds.slice(0, 1);
   const upcomingPreviewRounds = visibility === 'preview_upcoming'
@@ -839,7 +853,7 @@ export default function EventDetails() {
   // Low stock detection
   const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
   const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
-  const isSoldOut = !!event?.ticketingEnabled && (soldOut.ticketsSoldOut || (allBuyableRounds.length === 0 && ticketRounds.length > 0));
+  const isSoldOut = !!event?.ticketingEnabled && (soldOut.ticketsSoldOut || (allBuyableRounds.length === 0 && !freeStillComing && (isFreeMode ? freeListed.length > 0 : ticketRounds.length > 0)));
   const rawSalesStatus = getEventSalesStatus(
     {
       presaleStartAt: event?.presaleStartAt,

@@ -1,5 +1,6 @@
+import { DEFAULT_EVENT_TZ, freePresetToRoundRows, normalizeFreePreset } from "../_shared/free-ticketing.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
@@ -85,15 +86,27 @@ interface PresetRound {
 
 // Insert ticket rounds for an event from a ticket preset.
 async function applyPreset(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   eventId: string,
   preset: Record<string, unknown>,
   startPosition: number,
+  eventStartISO: string,
 ): Promise<number> {
+  const sellingMode = (preset.selling_mode as string) || "rounds";
+
+  // Billetterie libre : les dates du modèle sont relatives au jour de la
+  // soirée ({daysBefore, time}), recalculées sur CETTE occurrence.
+  if (sellingMode === "free") {
+    const free = normalizeFreePreset(preset.rounds);
+    if (free.length === 0) return 0;
+    const toInsert = freePresetToRoundRows(free, eventId, eventStartISO, DEFAULT_EVENT_TZ, startPosition);
+    const { error } = await supabase.from("ticket_rounds").insert(toInsert);
+    if (error) throw error;
+    return toInsert.length;
+  }
+
   const rounds = (preset.rounds as PresetRound[]) || [];
   if (rounds.length === 0) return 0;
-
-  const sellingMode = (preset.selling_mode as string) || "rounds";
   const ticketType = (preset.ticket_type as string) || "standard";
   const presetIncludesDrink = (preset.includes_drink as boolean) ?? false;
   const drinkDeadlineType = (preset.drink_deadline_type as string) ?? "none";
@@ -263,9 +276,13 @@ serve(async (req) => {
           const sellingMode = ticketPreset
             ? ((ticketPreset.selling_mode as string) || "rounds")
             : "rounds";
+          // Jauge totale : le mode simple la porte toujours, le mode libre
+          // seulement si le modèle en a une (0 = pas de jauge).
           const maxTickets = (ticketPreset && (ticketPreset.selling_mode === "simple"))
             ? (ticketPreset.total_capacity as number) ?? null
-            : null;
+            : (ticketPreset && ticketPreset.selling_mode === "free" && Number(ticketPreset.total_capacity) > 0)
+              ? Number(ticketPreset.total_capacity)
+              : null;
 
           const { data: newEvent, error: insertErr } = await supabaseAdmin
             .from("events")
@@ -295,10 +312,10 @@ serve(async (req) => {
           // Apply presets (rounds) when configured.
           let position = 0;
           if (ticketPreset) {
-            position += await applyPreset(supabaseAdmin, newEvent.id as string, ticketPreset, position);
+            position += await applyPreset(supabaseAdmin, newEvent.id as string, ticketPreset, position, startISO);
           }
           if (vipPreset) {
-            await applyPreset(supabaseAdmin, newEvent.id as string, vipPreset, position);
+            await applyPreset(supabaseAdmin, newEvent.id as string, vipPreset, position, startISO);
           }
 
           generated++;

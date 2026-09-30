@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Ticket, Save, FolderOpen, Zap, Crown, Wine, Clock, ChevronDown, Users, Bell, Check, ArrowRight, ArrowLeft, Sparkles, Lock, Copy, Mail } from 'lucide-react';
+import { Plus, Pencil, Trash2, Ticket, Save, FolderOpen, Zap, Crown, Wine, Clock, ChevronDown, Users, Bell, Check, ArrowRight, ArrowLeft, Sparkles, Lock, Copy, Mail, Shapes } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,11 @@ import { EventSalePasswordControl } from '@/components/owner/ticketing/EventSale
 import { EventSellingModeToggle } from '@/components/owner/ticketing/EventSellingModeToggle';
 import { EventRoundsVisibility } from '@/components/owner/ticketing/EventRoundsVisibility';
 import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCapacity';
+import { FreeTicketDialog, type FreeTicketPatch } from '@/components/owner/ticketing/FreeTicketDialog';
+import { FreeTicketRow } from '@/components/owner/ticketing/FreeTicketRow';
+import { FreePresetDialog, type FreePresetDraft } from '@/components/owner/ticketing/FreePresetDialog';
+import { UNLIMITED_TICKETS, normalizeFreePreset, roundsToFreePreset } from '@/lib/freeTicketing';
+import { applyFreePreset } from '@/lib/applyFreePreset';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
 import { venueEventsOr } from '@/lib/coorg';
@@ -66,6 +71,9 @@ export default function OwnerTicketing() {
   const [isBulkDrinkDialogOpen, setIsBulkDrinkDialogOpen] = useState(false);
   const [editingRound, setEditingRound] = useState<TicketRound | null>(null);
   const [editingPreset, setEditingPreset] = useState<TicketPreset | null>(null);
+  // Billetterie libre : un billet en cours d'édition, et le modèle libre ouvert.
+  const [freeTicketDialog, setFreeTicketDialog] = useState<{ eventId: string; ticket: TicketRound | null } | null>(null);
+  const [freePresetDialog, setFreePresetDialog] = useState<{ title: string; initial: FreePresetDraft; presetId: string | null } | null>(null);
   const [activeTab, setActiveTab] = useTabParam('events', ['events', 'presets']);
   // Accordion: keep only one event expanded to full config at a time; the rest
   // collapse to a compact preview so a long list of nights stays scannable.
@@ -308,6 +316,7 @@ export default function OwnerTicketing() {
         rounds: (p.rounds as unknown as PresetRound[]) || [],
         ticketType: (p.ticket_type as TicketType) || 'standard',
         sellingMode: (p.selling_mode as PresetSellingMode | null) || 'rounds',
+        freeTickets: p.selling_mode === 'free' ? normalizeFreePreset(p.rounds) : undefined,
         includesDrink: p.includes_drink ?? false,
         drinkDeadlineType: (p.drink_deadline_type as 'hours_after_start' | 'fixed_time' | null) ?? 'fixed_time',
         drinkDeadlineHours: p.drink_deadline_hours ?? 2,
@@ -338,6 +347,7 @@ export default function OwnerTicketing() {
         rounds: (p.rounds as unknown as PresetRound[]) || [],
         ticketType: (p.ticket_type as TicketType) || 'standard',
         sellingMode: (p.selling_mode as PresetSellingMode) || 'rounds',
+        freeTickets: p.selling_mode === 'free' ? normalizeFreePreset(p.rounds) : undefined,
         includesDrink: p.includes_drink ?? false,
         drinkDeadlineType: (p.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'fixed_time',
         drinkDeadlineHours: p.drink_deadline_hours ?? 2,
@@ -384,6 +394,10 @@ export default function OwnerTicketing() {
       entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
       ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
       audience: normalizeTicketAudience(r.audience),
+      hidden: r.hidden ?? false,
+      visibleFrom: r.visible_from,
+      saleStartsAt: r.sale_starts_at,
+      saleEndsAt: r.sale_ends_at,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -607,7 +621,7 @@ export default function OwnerTicketing() {
         }
       }
 
-      const modeKey = wizardSellingMode === 'simple' ? 'tickets.sellingModeSimple' : wizardSellingMode === 'timed_entry' ? 'tickets.sellingModeTimed' : 'tickets.sellingModeRounds';
+      const modeKey = wizardSellingMode === 'simple' ? 'tickets.sellingModeSimple' : wizardSellingMode === 'timed_entry' ? 'tickets.sellingModeTimed' : wizardSellingMode === 'free' ? 'tickets.sellingModeFree' : 'tickets.sellingModeRounds';
       toast.success(t(modeKey));
       setIsActivationWizardOpen(false);
       setWizardModeChange(false);
@@ -628,8 +642,9 @@ export default function OwnerTicketing() {
       const presetPool = clubPresets.length > 0 ? [...presets, ...clubPresets] : presets;
       const hasSelectedPreset = !!(wizardSelectedPresets.standard || wizardSelectedPresets.vip);
       const validCustomRounds = wizardCustomRounds.filter(
-        r => r.name.trim() && r.price.trim() && (wizardSellingMode === 'simple' || r.maxTickets.trim()),
+        r => r.name.trim() && r.price.trim() && (wizardSellingMode === 'simple' || wizardSellingMode === 'free' || r.maxTickets.trim()),
       );
+      const isFreeWizard = wizardSellingMode === 'free';
       const usingCustomRounds = !hasSelectedPreset && validCustomRounds.length > 0;
 
       // Step 1: Set selling mode + global capacity from preset for simple mode
@@ -669,12 +684,14 @@ export default function OwnerTicketing() {
           event_id: wizardEventId,
           name: r.name.trim(),
           price: parseFloat(r.price) || 0,
-          max_tickets: wizardSellingMode === 'simple' ? 999999 : parseInt(r.maxTickets) || 0,
+          // Libre : quantité vide = sans limite, tous en vente tout de suite
+          // (le pro règle ensuite, billet par billet, affichage et vente).
+          max_tickets: wizardSellingMode === 'simple' ? 999999 : isFreeWizard ? (parseInt(r.maxTickets) > 0 ? parseInt(r.maxTickets) : UNLIMITED_TICKETS) : parseInt(r.maxTickets) || 0,
           last_tickets_threshold: 20,
           position: index,
-          is_active: wizardSellingMode === 'simple' ? true : index === 0,
+          is_active: wizardSellingMode === 'simple' || isFreeWizard ? true : index === 0,
           auto_activate: wizardSellingMode === 'rounds',
-          ticket_type: r.ticketType,
+          ticket_type: isFreeWizard ? 'standard' : r.ticketType,
           includes_drink: r.includesDrink,
           drink_deadline_type: r.includesDrink ? 'fixed_time' : 'none',
           drink_deadline_hours: null,
@@ -892,6 +909,108 @@ export default function OwnerTicketing() {
     }
   };
 
+  // ── Billetterie libre ──────────────────────────────────────────────────────
+  // Un billet = une ligne ticket_rounds, sans palier ni auto-activation.
+  // Affichage et vente se lisent par ticketPhase (lib/freeTicketing).
+  const handleSaveFreeTicket = async (patch: FreeTicketPatch) => {
+    if (!freeTicketDialog) return;
+    const { eventId, ticket } = freeTicketDialog;
+    try {
+      if (ticket) {
+        const { error } = await supabase.from('ticket_rounds').update(patch).eq('id', ticket.id);
+        if (error) throw error;
+      } else {
+        const existing = ticketRounds[eventId] || [];
+        const position = existing.length > 0 ? Math.max(...existing.map(r => r.position)) + 1 : 0;
+        const { error } = await supabase.from('ticket_rounds').insert({
+          ...patch,
+          event_id: eventId,
+          position,
+          ticket_type: 'standard',
+          auto_activate: false,
+          last_tickets_threshold: 20,
+        });
+        if (error) throw error;
+      }
+      toast.success(ticket ? t('tickets.roundUpdated') : t('tickets.roundCreated'));
+      setFreeTicketDialog(null);
+      await fetchTicketRounds(eventId);
+    } catch (error) {
+      console.error('Error saving free ticket:', error);
+      toast.error(t('tickets.errorSaving'));
+    }
+  };
+
+  // « Ouvrir la vente » : le billet passe en vente maintenant (date prévue effacée).
+  const handleOpenFreeSale = async (ticket: TicketRound, eventId: string) => {
+    const { error } = await supabase.from('ticket_rounds').update({ is_active: true, sale_starts_at: null }).eq('id', ticket.id);
+    if (error) { toast.error(t('tickets.errorSaving')); return; }
+    toast.success(t('tickets.free.phase.onSale'));
+    await fetchTicketRounds(eventId);
+  };
+
+  // Monter / descendre un billet : l'ordre de la liste est l'ordre de la page publique.
+  const handleMoveFreeTicket = async (eventId: string, index: number, dir: -1 | 1) => {
+    const list = [...(ticketRounds[eventId] || [])].sort((a, b) => a.position - b.position);
+    const j = index + dir;
+    if (j < 0 || j >= list.length) return;
+    const [a, b] = [list[index], list[j]];
+    const [pa, pb] = a.position === b.position ? [index, j] : [a.position, b.position];
+    const [r1, r2] = await Promise.all([
+      supabase.from('ticket_rounds').update({ position: pb }).eq('id', a.id),
+      supabase.from('ticket_rounds').update({ position: pa }).eq('id', b.id),
+    ]);
+    if (r1.error || r2.error) toast.error(t('tickets.errorSaving'));
+    await fetchTicketRounds(eventId);
+  };
+
+  const openSaveFreePresetFromEvent = (event: Event & { maxTickets?: number | null }) => {
+    const rows = (ticketRounds[event.id] || []).map(r => ({
+      name: r.name, price: r.price, max_tickets: r.maxTickets, position: r.position,
+      // Un billet « Complet » garde, dans le modèle, sa vente ouverte.
+      is_active: r.manuallySoldOut ? true : r.isActive,
+      hidden: r.hidden, visible_from: r.visibleFrom, sale_starts_at: r.saleStartsAt, sale_ends_at: r.saleEndsAt,
+      includes_drink: r.includesDrink, drink_deadline_type: r.drinkDeadlineType ?? null,
+      drink_deadline_hours: r.drinkDeadlineHours ?? null, drink_cutoff_time: r.drinkCutoffTime ?? null,
+    }));
+    setFreePresetDialog({
+      title: t('tickets.free.saveAsPreset'),
+      presetId: null,
+      initial: { name: event.title, totalCapacity: event.maxTickets ?? 0, tickets: roundsToFreePreset(rows, event.startAt) },
+    });
+  };
+
+  const handleSaveFreePreset = async (draft: FreePresetDraft) => {
+    if (!freePresetDialog) return;
+    const data = {
+      name: draft.name,
+      total_capacity: draft.totalCapacity,
+      rounds: JSON.parse(JSON.stringify(draft.tickets)),
+      ticket_type: 'standard',
+      selling_mode: 'free',
+      includes_drink: false,
+    };
+    try {
+      if (freePresetDialog.presetId) {
+        const { error } = await supabase.from('ticket_presets').update(data).eq('id', freePresetDialog.presetId);
+        if (error) throw error;
+        toast.success(t('tickets.presetUpdated'));
+      } else {
+        const scoped = isOrganizerScope
+          ? { organizer_user_id: organizerUserId!, venue_id: null, ...data }
+          : { venue_id: venueId!, organizer_user_id: null, ...data };
+        const { error } = await supabase.from('ticket_presets').insert(scoped);
+        if (error) throw error;
+        toast.success(t('tickets.presetSaved'));
+      }
+      setFreePresetDialog(null);
+      fetchPresets();
+    } catch (error) {
+      console.error('Error saving free preset:', error);
+      toast.error(t('tickets.errorSaving'));
+    }
+  };
+
   const handleUpdateGlobalCapacity = async (eventId: string, maxTickets: number) => {
     try {
       const { error } = await supabase
@@ -1028,6 +1147,14 @@ export default function OwnerTicketing() {
   };
 
   const handleEditPreset = (preset: TicketPreset) => {
+    if (preset.sellingMode === 'free') {
+      setFreePresetDialog({
+        title: t('tickets.editPreset'),
+        presetId: preset.id,
+        initial: { name: preset.name, totalCapacity: preset.totalCapacity || 0, tickets: preset.freeTickets ?? [] },
+      });
+      return;
+    }
     setEditingPreset(preset);
     setPresetTicketType(preset.ticketType);
     setPresetSellingMode(preset.sellingMode);
@@ -1063,6 +1190,13 @@ export default function OwnerTicketing() {
   };
 
   const handleSelectPresetMode = (mode: PresetSellingMode) => {
+    if (mode === 'free') {
+      // Un modèle libre n'a pas de type standard / VIP : directement l'éditeur.
+      setIsPresetTypeDialogOpen(false);
+      setPresetTypeStep('mode');
+      setFreePresetDialog({ title: t('tickets.createPreset'), presetId: null, initial: { name: '', totalCapacity: 0, tickets: [] } });
+      return;
+    }
     setPresetSellingMode(mode);
     setPresetTypeStep('type');
   };
@@ -1095,6 +1229,10 @@ export default function OwnerTicketing() {
   };
 
   const handleApplyPreset = async (preset: TicketPreset, event: Event) => {
+    if (preset.sellingMode === 'free') {
+      await handleApplyFreePreset(preset, event);
+      return;
+    }
     try {
       // Only delete rounds of the same ticket type
       const existingRounds = ticketRounds[event.id] || [];
@@ -1143,6 +1281,20 @@ export default function OwnerTicketing() {
       if (preset.sellingMode === 'timed_entry') await fetchEvents();
     } catch (error) {
       console.error('Error applying preset:', error);
+      toast.error(t('tickets.errorSaving'));
+    }
+  };
+
+  // Modèle libre → billets de CETTE soirée (dates recalculées sur sa date).
+  // Remplace les billets sans vente ; un billet déjà vendu reste en place.
+  const handleApplyFreePreset = async (preset: TicketPreset, event: Event) => {
+    try {
+      await applyFreePreset(event.id, preset.freeTickets ?? [], preset.totalCapacity);
+      toast.success(t('tickets.presetApplied'));
+      await fetchTicketRounds(event.id);
+      await fetchEvents();
+    } catch (error) {
+      console.error('Error applying free preset:', error);
       toast.error(t('tickets.errorSaving'));
     }
   };
@@ -1321,7 +1473,14 @@ export default function OwnerTicketing() {
                 {events.map((event) => {
                   const rounds = ticketRounds[event.id] || [];
                   const isSimpleMode = event.ticketSellingMode === 'simple';
-                  const totalTickets = isSimpleMode ? (event.maxTickets || 0) : rounds.reduce((sum, r) => sum + r.maxTickets, 0);
+                  const isFreeMode = event.ticketSellingMode === 'free';
+                  // Libre : un billet « sans limite » rend le total illisible ; la jauge
+                  // de la soirée (si posée) le remplace, sinon on ne montre que les ventes.
+                  const freeUnlimited = isFreeMode && !event.maxTickets && rounds.some(r => r.maxTickets >= UNLIMITED_TICKETS);
+                  const totalTickets = isSimpleMode || (isFreeMode && event.maxTickets)
+                    ? (event.maxTickets || 0)
+                    : rounds.reduce((sum, r) => sum + (r.maxTickets >= UNLIMITED_TICKETS ? 0 : r.maxTickets), 0);
+                  const showSoldOnly = isSimpleMode || freeUnlimited;
                   const soldTickets = rounds.reduce((sum, r) => sum + r.ticketsSold, 0);
                   const isExpanded = expandedEventId === event.id;
                   // Preview-strip data (shown when the card is collapsed).
@@ -1333,7 +1492,9 @@ export default function OwnerTicketing() {
                     ? t('tickets.sellingModeSimple')
                     : event.ticketSellingMode === 'timed_entry'
                       ? t('tickets.sellingModeTimed')
-                      : t('tickets.sellingModeRounds');
+                      : isFreeMode
+                        ? t('tickets.sellingModeFree')
+                        : t('tickets.sellingModeRounds');
                   const status = !event.ticketingEnabled
                     ? { label: t('tickets.ticketingOff'), color: T3, bg: 'rgb(var(--ink)/0.06)', border: BORDER }
                     : salesMode === 'presale'
@@ -1393,7 +1554,7 @@ export default function OwnerTicketing() {
                           {event.ticketingEnabled && (
                             <>
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium tabular-nums" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-                                {isSimpleMode ? `${soldTickets}` : `${soldTickets}/${totalTickets}`} {t('tickets.sold')}
+                                {showSoldOnly ? `${soldTickets}` : `${soldTickets}/${totalTickets}`} {t('tickets.sold')}
                               </span>
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
                                 {sellingModeLabel}
@@ -1438,11 +1599,12 @@ export default function OwnerTicketing() {
                               />
                             )}
 
-                            {/* Global capacity for simple mode */}
-                            {event.ticketSellingMode === 'simple' && (
+                            {/* Global capacity: required in simple mode, optional in free mode */}
+                            {(isSimpleMode || isFreeMode) && (
                               <EventGlobalCapacity
                                 maxTickets={event.maxTickets}
                                 soldTickets={soldTickets}
+                                optional={isFreeMode}
                                 onUpdate={(val) => handleUpdateGlobalCapacity(event.id, val)}
                               />
                             )}
@@ -1481,8 +1643,8 @@ export default function OwnerTicketing() {
                             {/* Stats */}
                             <div className="grid grid-cols-3 gap-3">
                               {[
-                                { val: rounds.length, label: event.ticketSellingMode === 'simple' ? t('tickets.options') : t('tickets.rounds') },
-                                { val: totalTickets, label: t('tickets.totalTickets') },
+                                { val: rounds.length, label: isSimpleMode ? t('tickets.options') : isFreeMode ? t('tickets.free.listTitle') : t('tickets.rounds') },
+                                { val: freeUnlimited ? '∞' : totalTickets, label: t('tickets.totalTickets') },
                                 { val: soldTickets, label: t('tickets.sold') },
                               ].map((s, i) => (
                                 <div key={i} className="text-center p-3.5" style={TILE}>
@@ -1492,8 +1654,34 @@ export default function OwnerTicketing() {
                               ))}
                             </div>
 
+                            {/* Free mode: one list, in public order */}
+                            {isFreeMode && rounds.length > 0 && (() => {
+                              const ordered = [...rounds].sort((a, b) => a.position - b.position);
+                              return (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2" style={{ ...LABEL, fontSize: 11, color: T3 }}>
+                                    <Shapes className="h-3.5 w-3.5" />
+                                    {t('tickets.free.listTitle')}
+                                  </div>
+                                  {ordered.map((round, index) => (
+                                    <FreeTicketRow
+                                      key={round.id}
+                                      ticket={round}
+                                      isFirst={index === 0}
+                                      isLast={index === ordered.length - 1}
+                                      onEdit={() => setFreeTicketDialog({ eventId: event.id, ticket: round })}
+                                      onDelete={() => handleDeleteRound(round.id, event.id)}
+                                      onToggleSoldOut={() => handleToggleSoldOut(round, event.id)}
+                                      onOpenSale={() => handleOpenFreeSale(round, event.id)}
+                                      onMove={(dir) => handleMoveFreeTicket(event.id, index, dir)}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            })()}
+
                             {/* Standard Rounds List */}
-                            {rounds.filter(r => r.ticketType === 'standard').length > 0 && (
+                            {!isFreeMode && rounds.filter(r => r.ticketType === 'standard').length > 0 && (
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2" style={{ ...LABEL, fontSize: 11, color: T3 }}>
                                   <Ticket className="h-3.5 w-3.5" />
@@ -1515,7 +1703,7 @@ export default function OwnerTicketing() {
                             )}
 
                             {/* VIP Rounds List */}
-                            {rounds.filter(r => r.ticketType === 'vip').length > 0 && (
+                            {!isFreeMode && rounds.filter(r => r.ticketType === 'vip').length > 0 && (
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2" style={{ ...LABEL, fontSize: 11, color: GOLD }}>
                                   <Crown className="h-3.5 w-3.5" />
@@ -1540,12 +1728,22 @@ export default function OwnerTicketing() {
                               <Button
                                 variant="outline"
                                 className="flex-1"
-                                onClick={() => handleAddRound(event, 'standard')}
+                                onClick={() => isFreeMode ? setFreeTicketDialog({ eventId: event.id, ticket: null }) : handleAddRound(event, 'standard')}
                                 style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}
                               >
                                 <Plus className="h-4 w-4 mr-2" />
-                                {event.ticketSellingMode === 'simple' ? t('tickets.addOption') : t('tickets.addRound')}
+                                {isSimpleMode ? t('tickets.addOption') : isFreeMode ? t('tickets.free.add') : t('tickets.addRound')}
                               </Button>
+                              {isFreeMode && rounds.length > 0 && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => openSaveFreePresetFromEvent(event)}
+                                  style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  {t('tickets.free.saveAsPreset')}
+                                </Button>
+                              )}
                               {rounds.length > 0 && (() => {
                                 const allHaveDrink = rounds.every(r => r.includesDrink);
                                 return (
@@ -1614,6 +1812,7 @@ export default function OwnerTicketing() {
                     { mode: 'simple' as PresetSellingMode, label: t('tickets.presetsSimple'), icon: <Ticket className="h-4 w-4" style={{ color: RED }} /> },
                     { mode: 'rounds' as PresetSellingMode, label: t('tickets.presetsRounds'), icon: <Zap className="h-4 w-4" style={{ color: RED }} /> },
                     { mode: 'timed_entry' as PresetSellingMode, label: t('tickets.presetsTimed'), icon: <Clock className="h-4 w-4" style={{ color: RED }} /> },
+                    { mode: 'free' as PresetSellingMode, label: t('tickets.presetsFree'), icon: <Shapes className="h-4 w-4" style={{ color: RED }} /> },
                   ]).map(({ mode, label, icon }) => {
                     const modePresets = presets.filter(p => p.sellingMode === mode);
                     if (modePresets.length === 0) return null;
@@ -1642,8 +1841,8 @@ export default function OwnerTicketing() {
                                     <div className="min-w-0">
                                       <h4 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{preset.name} <span style={{ color: T3, fontWeight: 400 }}>({t(presetTypeTagKey(preset.sellingMode))})</span></h4>
                                       <p className="tabular-nums" style={{ color: T3, fontSize: 12, marginTop: 2 }}>
-                                        {mode !== 'simple' && <>{preset.totalCapacity} {t('tickets.places')} · </>}
-                                        {preset.rounds.length} {mode === 'simple' ? t('tickets.options') : t('tickets.rounds')}
+                                        {mode !== 'simple' && (mode !== 'free' || preset.totalCapacity > 0) && <>{preset.totalCapacity} {t('tickets.places')} · </>}
+                                        {preset.rounds.length} {mode === 'simple' ? t('tickets.options') : mode === 'free' ? t('tickets.free.listTitle') : t('tickets.rounds')}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-1 flex-none">
@@ -1664,7 +1863,7 @@ export default function OwnerTicketing() {
                                           {round.includesDrink && <Wine className="h-3 w-3 flex-none" style={{ color: POS }} />}
                                         </span>
                                         <span className="flex-none" style={{ color: T1, fontWeight: 560 }}>
-                                          {mode !== 'simple' && <>{round.maxTickets} × </>}{round.price}€
+                                          {mode !== 'simple' && round.maxTickets ? <>{round.maxTickets} × </> : null}{round.price}€
                                         </span>
                                       </div>
                                     ))}
@@ -1776,6 +1975,26 @@ export default function OwnerTicketing() {
           handleSelectPresetMode={handleSelectPresetMode}
           handleSelectPresetType={handleSelectPresetType}
         />
+
+        {/* Billetterie libre : un billet, puis le modèle */}
+        <FreeTicketDialog
+          open={!!freeTicketDialog}
+          onOpenChange={(open) => { if (!open) setFreeTicketDialog(null); }}
+          ticket={freeTicketDialog?.ticket ?? null}
+          onSave={handleSaveFreeTicket}
+          freeDrinkMode={freeDrinkMode}
+          setFreeDrinkMode={setFreeDrinkMode}
+          venueId={venueId}
+        />
+        {freePresetDialog && (
+          <FreePresetDialog
+            open
+            onOpenChange={(open) => { if (!open) setFreePresetDialog(null); }}
+            title={freePresetDialog.title}
+            initial={freePresetDialog.initial}
+            onSave={handleSaveFreePreset}
+          />
+        )}
 
         {/* Bulk Drink Dialog */}
         <BulkDrinkDialog

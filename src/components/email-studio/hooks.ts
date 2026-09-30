@@ -1,3 +1,4 @@
+import { isRowListed } from '@/lib/freeTicketing';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type {
@@ -111,7 +112,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city,ticketing_enabled,tables_enabled,tickets_sold_out,tables_sold_out,guest_list_sold_out,sold_out_pack_ids')
           .in('id', wanted),
         supabase.from('ticket_rounds')
-          .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position')
+          .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position,hidden,visible_from')
           .in('event_id', wanted)
           .order('position', { ascending: true }),
         supabase.from('guest_lists')
@@ -220,7 +221,8 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         const tz = e.timezone && e.timezone.trim() ? e.timezone : 'Europe/Paris';
         const start = new Date(e.start_at);
         const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
-        const evRounds = (rounds || []).filter((r) => (r as { event_id: string }).event_id === e.id) as Array<{
+        // Billetterie libre : un billet caché n'entre pas dans l'email (miroir de l'envoi).
+        const evRounds = (rounds || []).filter((r) => (r as { event_id: string }).event_id === e.id && isRowListed(r)) as Array<{
           name: string | null; description: string | null; price: number | null;
           max_tickets: number | null; tickets_sold: number | null;
           is_active: boolean | null; manually_sold_out: boolean | null;

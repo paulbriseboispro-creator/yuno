@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
-import { Ticket, Wine, Sofa, Users } from 'lucide-react';
+import { Ticket, Wine, Sofa, Users, Headphones } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -62,6 +62,8 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<EventsPnl | null>(null);
+  // Cachets DJ par soirée : la seule dépense que Yuno connaît (planning DJ).
+  const [djFees, setDjFees] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   // Organizers don't sell drinks: the RPC returns 0 for that pillar, and the
   // legend/chips drop it so the bar never shows an empty "Boissons" entry.
@@ -79,7 +81,20 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
       });
       if (cancelled) return;
       const parsed = res as unknown as EventsPnl | null;
-      setData(parsed && parsed.ok ? parsed : null);
+      const ok = parsed && parsed.ok ? parsed : null;
+      // Les sets de la portée (RLS) sur ces soirées : club = venue_id, orga = organizer_user_id.
+      const fees: Record<string, number> = {};
+      const ids = ok?.events.map(e => e.event_id) ?? [];
+      if (ids.length > 0) {
+        const q = supabase.from('dj_sets').select('event_id, fee').in('event_id', ids).gt('fee', 0);
+        const { data: rows } = venueId ? await q.eq('venue_id', venueId) : await q.eq('organizer_user_id', organizerUserId ?? '');
+        for (const r of (rows || []) as Array<{ event_id: string | null; fee: number | null }>) {
+          if (r.event_id) fees[r.event_id] = (fees[r.event_id] || 0) + Number(r.fee || 0);
+        }
+      }
+      if (cancelled) return;
+      setDjFees(fees);
+      setData(ok);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -92,6 +107,7 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
 
   const events = data.events;
   const totalNet = events.reduce((s, e) => s + e.net, 0);
+  const totalFees = events.reduce((s, e) => s + (djFees[e.event_id] || 0), 0);
   const fmtDate = (iso: string) => {
     try {
       return new Date(iso).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US', {
@@ -116,6 +132,11 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
         <div className="text-right">
           <div className="text-[clamp(20px,2.4vw,26px)] font-[680] tabular-nums leading-none" style={{ color: T1, letterSpacing: '-0.025em' }}>{fmtPrice(totalNet)}</div>
           <div className="text-[11px] mt-1" style={{ color: T3 }}>{tt('net cumulé', 'total net', 'neto total')}</div>
+          {totalFees > 0 && (
+            <div className="text-[11px] mt-1 tabular-nums" style={{ color: T2 }}>
+              {tt('après cachets DJ', 'after DJ fees', 'tras cachés DJ')} {fmtPrice(totalNet - totalFees)}
+            </div>
+          )}
         </div>
       </div>
 
@@ -129,6 +150,7 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
       <div className="divide-y" style={{ borderColor: BORDER }}>
         {events.map(e => {
           const g = e.gross || 1;
+          const fees = djFees[e.event_id] || 0;
           const tPct = (e.tickets_revenue / g) * 100;
           const dPct = (e.drinks_revenue / g) * 100;
           const bPct = (e.tables_revenue / g) * 100;
@@ -168,6 +190,14 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
                 </span>
                 {e.refunds > 0 && (
                   <span className="text-[12px] tabular-nums" style={{ color: NEG }}>−{fmtPrice(e.refunds)}</span>
+                )}
+                {fees > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Headphones className="h-3.5 w-3.5 flex-none" style={{ color: T3 }} />
+                    <span className="text-[12.5px] tabular-nums" style={{ color: T2 }}>
+                      {tt('cachets DJ', 'DJ fees', 'cachés DJ')} −{fmtPrice(fees)} · {tt('reste', 'left', 'queda')} {fmtPrice(e.net - fees)}
+                    </span>
+                  </span>
                 )}
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, eachDayOfInterval, eachMonthOfInterval, isSameDay, isSameMonth, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks, addDays, subDays, isWithinInterval } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Music, Plus, MapPin, Trash2 } from 'lucide-react';
@@ -7,8 +7,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
+import { performerName, formatIban, isValidIban, normalizeIban } from '@/lib/djPayout';
+import { DJPayoutFields, fetchDjPayoutPrefill } from '@/components/dj/DJSetPayout';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -30,7 +33,14 @@ type ViewMode = 'year' | 'month' | 'week' | 'day';
 
 export interface DJSet {
   id: string;
-  dj_id: string;
+  dj_id: string | null;
+  /** Artiste sans compte Yuno (dj_id NULL), relié au line-up s'il en vient. */
+  artist_name?: string | null;
+  guest_artist_id?: string | null;
+  payee_name?: string | null;
+  payee_iban?: string | null;
+  payment_method?: 'transfer' | 'cash' | 'other' | null;
+  fee_paid_at?: string | null;
   event_id?: string;
   venue_id: string;
   title?: string;
@@ -45,7 +55,7 @@ export interface DJSet {
     last_name: string;
     stage_name?: string;
     profile_image_url?: string;
-  };
+  } | null;
   event?: {
     title: string;
   };
@@ -69,6 +79,28 @@ interface Event {
   endAt?: string;
 }
 
+/** Set à créer : un DJ Yuno (dj_id) OU un artiste externe (artist_name). */
+export interface NewDjSetInput {
+  dj_id: string | null;
+  artist_name?: string | null;
+  guest_artist_id?: string | null;
+  event_id?: string;
+  start_time: string;
+  end_time: string;
+  music_genre?: string;
+  fee: number;
+  notes?: string;
+  payee_name?: string | null;
+  payee_iban?: string | null;
+}
+
+/** Une entrée du line-up de la soirée choisie. */
+interface LineupEntry {
+  key: string;          // "dj:<djs.id>" | "guest:<event_guest_artists.id>"
+  name: string;
+  external: boolean;
+}
+
 interface DJCalendarProps {
   sets: DJSet[];
   djs?: DJ[];
@@ -76,7 +108,7 @@ interface DJCalendarProps {
   venueAddress?: string;
   onSetClick?: (set: DJSet) => void;
   onDateClick?: (date: Date) => void;
-  onAddSet?: (set: { dj_id: string; event_id?: string; start_time: string; end_time: string; music_genre?: string; fee: number; notes?: string }) => Promise<void>;
+  onAddSet?: (set: NewDjSetInput) => Promise<void>;
   onDeleteSet?: (setId: string) => Promise<void>;
   showDJNames?: boolean;
   canAddSets?: boolean;
@@ -110,13 +142,19 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Form state for adding a new set
-  const [newSetDjId, setNewSetDjId] = useState('');
   const [newSetEventId, setNewSetEventId] = useState('');
   const [newSetStartTime, setNewSetStartTime] = useState('22:00');
   const [newSetEndTime, setNewSetEndTime] = useState('02:00');
   const [newSetGenre, setNewSetGenre] = useState('');
   const [newSetFee, setNewSetFee] = useState('');
   const [newSetNotes, setNewSetNotes] = useState('');
+  // Interprète : "dj:<id>" (DJ Yuno), "guest:<id>" (artiste du line-up), "other" (saisi à la main).
+  const [performerKey, setPerformerKey] = useState('');
+  const [artistName, setArtistName] = useState('');
+  const [lineup, setLineup] = useState<LineupEntry[] | null>(null);
+  const [payeeName, setPayeeName] = useState('');
+  const [payeeIban, setPayeeIban] = useState('');
+  const [ibanHint, setIbanHint] = useState<{ text: string; tone: 'muted' | 'pos' } | null>(null);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -169,6 +207,65 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
     });
   };
 
+  // Line-up de la soirée choisie : DJ Yuno (event_djs) puis artistes invités sans compte.
+  useEffect(() => {
+    if (!showAddSetDialog || !newSetEventId) return;
+    let cancelled = false;
+    setLineup(null);
+    (async () => {
+      const [djRes, guestRes] = await Promise.all([
+        supabase.from('event_djs').select('dj_id, dj:djs(first_name,last_name,stage_name)').eq('event_id', newSetEventId),
+        supabase.from('event_guest_artists').select('id, name').eq('event_id', newSetEventId).order('position', { ascending: true }),
+      ]);
+      if (cancelled) return;
+      const entries: LineupEntry[] = [];
+      for (const row of (djRes.data || []) as Array<{ dj_id: string; dj: { first_name: string; last_name: string; stage_name?: string | null } | null }>) {
+        entries.push({ key: `dj:${row.dj_id}`, name: performerName({ dj_id: row.dj_id, dj: row.dj }) || '—', external: false });
+      }
+      for (const row of (guestRes.data || []) as Array<{ id: string; name: string }>) {
+        entries.push({ key: `guest:${row.id}`, name: row.name, external: true });
+      }
+      setLineup(entries);
+    })();
+    return () => { cancelled = true; };
+  }, [showAddSetDialog, newSetEventId]);
+
+  const lineupDjIds = new Set((lineup || []).filter(e => !e.external).map(e => e.key.slice(3)));
+  const teamOptions = djs.filter(dj => !lineupDjIds.has(dj.id));
+  const selectedDjId = performerKey.startsWith('dj:') ? performerKey.slice(3) : null;
+  const selectedGuestId = performerKey.startsWith('guest:') ? performerKey.slice(6) : null;
+  const performerReady = !!selectedDjId || (!!performerKey && artistName.trim().length > 0);
+  const payeeIbanInvalid = payeeIban.trim() !== '' && !isValidIban(payeeIban);
+
+  const choosePerformer = async (key: string) => {
+    setPerformerKey(key);
+    setIbanHint(null);
+    if (key.startsWith('guest:')) {
+      const entry = (lineup || []).find(e => e.key === key);
+      setArtistName(entry?.name || '');
+      setPayeeName(''); setPayeeIban('');
+      setIbanHint({ text: t('djPay.ibanExternalHint'), tone: 'muted' });
+      return;
+    }
+    if (key === 'other') {
+      setArtistName('');
+      setPayeeName(''); setPayeeIban('');
+      setIbanHint({ text: t('djPay.ibanExternalHint'), tone: 'muted' });
+      return;
+    }
+    // DJ Yuno : l'IBAN saisi par le DJ dans « Mes paiements » remplit le virement.
+    setArtistName('');
+    setPayeeName(''); setPayeeIban('');
+    const prefill = await fetchDjPayoutPrefill(key.slice(3));
+    if (prefill) {
+      setPayeeName(prefill.holder_name);
+      setPayeeIban(formatIban(prefill.iban));
+      setIbanHint({ text: t('djPay.ibanPrefilled'), tone: 'pos' });
+    } else {
+      setIbanHint({ text: t('djPay.ibanMissingYuno'), tone: 'muted' });
+    }
+  };
+
   // Open event selection dialog first
   const handleOpenEventSelectDialog = () => {
     setShowEventSelectDialog(true);
@@ -181,7 +278,11 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
 
     setSelectedEventForSet(event);
     setAddSetDate(eventStart);
-    setNewSetDjId('');
+    setPerformerKey('');
+    setArtistName('');
+    setPayeeName('');
+    setPayeeIban('');
+    setIbanHint(null);
     setNewSetEventId(event.id);
     // Set default times based on event times
     setNewSetStartTime(format(eventStart, 'HH:mm'));
@@ -194,7 +295,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
   };
 
   const handleAddSet = async () => {
-    if (!newSetDjId || !onAddSet) return;
+    if (!performerReady || payeeIbanInvalid || !onAddSet) return;
 
     setAddSetLoading(true);
     try {
@@ -212,7 +313,11 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
       }
 
       await onAddSet({
-        dj_id: newSetDjId,
+        dj_id: selectedDjId,
+        artist_name: selectedDjId ? null : artistName.trim(),
+        guest_artist_id: selectedGuestId,
+        payee_name: payeeName.trim() || null,
+        payee_iban: payeeIban.trim() ? normalizeIban(payeeIban) : null,
         event_id: newSetEventId, // Now required
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
@@ -264,7 +369,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
   };
 
   const setChipLabel = (set: DJSet) =>
-    showDJNames && set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : format(new Date(set.start_time), 'HH:mm');
+    showDJNames && (set.dj || set.artist_name) ? performerName(set) : format(new Date(set.start_time), 'HH:mm');
 
   const renderYearView = () => {
     const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
@@ -392,7 +497,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                           className="absolute inset-x-0 top-0 rounded px-1 py-0.5 text-[10px] truncate cursor-pointer z-10 transition-opacity hover:opacity-90"
                           style={{ background: RED, color: '#fff' }}
                         >
-                          {showDJNames && set.dj ? (set.dj.stage_name || set.dj.first_name) : format(new Date(set.start_time), 'HH:mm')}
+                          {showDJNames && (set.dj || set.artist_name) ? (set.dj ? (set.dj.stage_name || set.dj.first_name) : set.artist_name) : format(new Date(set.start_time), 'HH:mm')}
                         </div>
                       ))}
                     </div>
@@ -436,7 +541,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                         style={{ background: RED, color: '#fff' }}
                       >
                         <Music className="h-3 w-3 mr-1" />
-                        <span className="truncate">{showDJNames && set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : set.title}</span>
+                        <span className="truncate">{showDJNames && (set.dj || set.artist_name) ? performerName(set) : set.title}</span>
                         {set.music_genre && <span className="ml-2"><Pill>{set.music_genre}</Pill></span>}
                       </div>
                     ))}
@@ -465,7 +570,8 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                     )}
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSetClick?.(set)}>
                       <p className="font-[560] truncate" style={{ color: T1 }}>
-                        {set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : set.title}
+                        {performerName(set) || set.title}
+                        {!set.dj_id && set.artist_name && <span className="ml-2 align-middle"><Pill>{t('djPay.externalBadge')}</Pill></span>}
                       </p>
                       <div className="flex items-center gap-2 text-xs tabular-nums" style={{ color: T2 }}>
                         <Clock className="h-3 w-3" style={{ color: T3 }} />
@@ -637,20 +743,50 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
             )}
 
             <div>
-              <Label>{t('djCalendar.addDJSet')}</Label>
-              <Select value={newSetDjId} onValueChange={setNewSetDjId}>
+              <Label>{t('djPay.performer')}</Label>
+              <Select value={performerKey} onValueChange={choosePerformer}>
                 <SelectTrigger>
-                  <SelectValue placeholder={t('djCalendar.selectDJPlaceholder')} />
+                  <SelectValue placeholder={lineup === null ? t('djPay.loadingLineup') : t('djCalendar.selectDJPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {djs.map(dj => (
-                    <SelectItem key={dj.id} value={dj.id}>
-                      {dj.stage_name || `${dj.first_name} ${dj.last_name}`}
-                    </SelectItem>
-                  ))}
+                  {(lineup || []).length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>{t('djPay.groupLineup')}</SelectLabel>
+                      {(lineup || []).map(entry => (
+                        <SelectItem key={entry.key} value={entry.key}>
+                          {entry.name} · {entry.external ? t('djPay.externalBadge') : t('djPay.yunoBadge')}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {teamOptions.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>{t('djPay.groupTeam')}</SelectLabel>
+                      {teamOptions.map(dj => (
+                        <SelectItem key={dj.id} value={`dj:${dj.id}`}>
+                          {dj.stage_name || `${dj.first_name} ${dj.last_name}`}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  <SelectSeparator />
+                  <SelectItem value="other">{t('djPay.otherArtist')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {(performerKey === 'other' || selectedGuestId) && (
+              <div>
+                <Label>{t('djPay.artistNameLabel')}</Label>
+                <Input
+                  value={artistName}
+                  onChange={(e) => setArtistName(e.target.value)}
+                  placeholder={t('djPay.artistNamePlaceholder')}
+                  maxLength={80}
+                  autoFocus={performerKey === 'other'}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -674,6 +810,20 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
               <Input type="number" value={newSetFee} onChange={(e) => setNewSetFee(e.target.value)} placeholder="0" />
             </div>
 
+            {performerKey && (parseFloat(newSetFee) || 0) > 0 && (
+              <div className="rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <p className="text-[13px] font-semibold mb-2" style={{ color: T1 }}>{t('djPay.payoutTitle')}</p>
+                <DJPayoutFields
+                  holder={payeeName}
+                  iban={payeeIban}
+                  onHolder={setPayeeName}
+                  onIban={(v) => { setPayeeIban(v); if (ibanHint?.tone === 'pos') setIbanHint(null); }}
+                  hint={ibanHint?.text}
+                  hintTone={ibanHint?.tone}
+                />
+              </div>
+            )}
+
             {venueAddress && (
               <div className="p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                 <div className="flex items-center gap-2 text-sm" style={{ color: T2 }}>
@@ -691,7 +841,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowAddSetDialog(false)}>{t('djCalendar.cancelBtn')}</Button>
-            <Button onClick={handleAddSet} disabled={!newSetDjId || !newSetEventId || addSetLoading} style={{ background: RED, color: '#fff' }}>
+            <Button onClick={handleAddSet} disabled={!performerReady || payeeIbanInvalid || !newSetEventId || addSetLoading} style={{ background: RED, color: '#fff' }}>
               {addSetLoading ? '...' : t('djCalendar.addBtn')}
             </Button>
           </DialogFooter>
@@ -708,9 +858,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                 {setToDelete && (
                   <>
                     <span className="block font-[560]" style={{ color: T1 }}>
-                      {setToDelete.dj
-                        ? (setToDelete.dj.stage_name || `${setToDelete.dj.first_name} ${setToDelete.dj.last_name}`)
-                        : setToDelete.title}
+                      {performerName(setToDelete) || setToDelete.title}
                     </span>
                     <span className="block text-sm tabular-nums" style={{ color: T2 }}>
                       {format(new Date(setToDelete.start_time), 'EEEE d MMMM yyyy', { locale: dateLocale })}

@@ -44,6 +44,7 @@ import { RecurringEventsManager } from '@/components/owner/RecurringEventsManage
 import { useNavigate } from 'react-router-dom';
 
 import type { EventKind, CollabMode, OwnerEventRow, VenuePreset } from '@/components/owner/events/events-types';
+import { applyFreePreset } from '@/lib/applyFreePreset';
 import {
   RED, T1, T2, T3, C_FAINT, BORDER, F_BORDER, CARD_BG, INNER_BG, CARD_SHADOW,
   DarkInput, DarkTextarea, FieldLabel,
@@ -1018,6 +1019,14 @@ export default function OwnerEvents() {
     }
     try {
       const sellingMode = preset.selling_mode || 'rounds';
+      if (sellingMode === 'free') {
+        // Billetterie libre : porte unique (dates du modèle recalculées sur cette soirée).
+        await applyFreePreset(event.id, preset.rounds, preset.total_capacity, { ticketing_enabled: true });
+        phPillarToggled(event, 'tickets', true);
+        toast.success(t('owner.ev.ticketingOnlineToast'));
+        fetchEvents();
+        return;
+      }
       const rounds = (preset.rounds as PresetRound[] | null) || [];
       if (rounds.length === 0) { toast.error(t('owner.ev.presetNoRounds')); return; }
 

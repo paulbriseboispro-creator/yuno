@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Ticket, Sparkles, Plus, Loader2, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { capturePosthog } from '@/lib/posthog';
+import { applyFreePreset } from '@/lib/applyFreePreset';
 import { OrgButton, OrgPill, RED, T1, T3, BORDER, INNER_BG } from '@/components/org-ui';
 
 interface PresetRound {
@@ -24,6 +25,7 @@ interface ClubPreset {
   rounds: PresetRound[];
   ticket_type: string | null;
   selling_mode: string | null;
+  total_capacity?: number | null;
   includes_drink: boolean | null;
   drink_deadline_type: string | null;
   drink_deadline_hours: number | null;
@@ -75,6 +77,15 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
     try {
       const mode = preset.selling_mode ?? 'rounds';
       const type = preset.ticket_type ?? 'standard';
+      if (mode === 'free') {
+        // Billetterie libre : porte unique (dates du modèle recalculées sur cette soirée).
+        await applyFreePreset(eventId, preset.rounds, preset.total_capacity, { ticketing_enabled: true });
+        capturePosthog('pillar_toggled', { pillar: 'tickets', enabled: true, scope: 'organizer', event_id: eventId });
+        toast.success(tt('Billetterie en ligne', 'Ticketing is live'));
+        onActivated?.();
+        onOpenChange(false);
+        return;
+      }
       // Replace existing rounds of the same ticket type, then insert the template's.
       const { data: existing } = await supabase
         .from('ticket_rounds').select('id, ticket_type').eq('event_id', eventId);

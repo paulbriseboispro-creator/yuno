@@ -15,6 +15,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 
+import { isRowListed } from './free-ticketing.ts';
 export interface StudioTheme {
   name: string; bg: string; card: string; headerBg: string; headerText: string;
   text: string; muted: string; accent: string; btnText: string;
@@ -1477,7 +1478,7 @@ export async function fetchStudioLiveData(
 
     const { data: rounds } = await admin
       .from('ticket_rounds')
-      .select('event_id, name, description, price, max_tickets, tickets_sold, is_active, manually_sold_out, position')
+      .select('event_id, name, description, price, max_tickets, tickets_sold, is_active, manually_sold_out, position, hidden, visible_from')
       .in('event_id', ids)
       .order('position', { ascending: true });
 
@@ -1575,7 +1576,8 @@ export async function fetchStudioLiveData(
       const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
 
       const flags = liveSoldOut(e);
-      const evRounds = (rounds || []).filter((r: any) => r.event_id === e.id);
+      // Billetterie libre : un billet caché (ou pas encore affiché) n'entre pas dans l'email.
+      const evRounds = (rounds || []).filter((r: any) => r.event_id === e.id && isRowListed(r));
       const isOut = (r: any) => !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)));
       const visible = evRounds.filter((r: any) => r.is_active || isOut(r)).slice(0, 4);
       // Billetterie éteinte : aucune tranche (bloc effacé). Fermée à la main :
