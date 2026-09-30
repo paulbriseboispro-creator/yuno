@@ -48,6 +48,7 @@
 // Décision D2 : webServiceURL pointe dès l'émission vers le routeur /wallet de
 // send-ticket-confirmation — les devices s'enregistrent dès maintenant, les
 // pushes de mise à jour arriveront en Phase 5 sans réémettre les passes.
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { normalizeWalletLang, wl, type WalletLang } from './i18n.ts';
 import { passArtwork } from './artwork.ts';
 
@@ -126,36 +127,19 @@ interface WalletReservationRow {
   events: WalletEventRow;
 }
 
-interface WalletQuery<Row> {
-  select(columns: string): WalletQuery<Row>;
-  eq(column: string, value: unknown): WalletQuery<Row>;
-  in(column: string, values: unknown[]): WalletQuery<Row>;
-  order(column: string): WalletQuery<Row>;
-  single(): PromiseLike<{ data: Row | null; error: unknown }>;
-  maybeSingle(): PromiseLike<{ data: Row | null; error?: unknown }>;
-  then<R>(cb: (r: { data: Row[] | null; error?: unknown }) => R): PromiseLike<R>;
+// Lignes des petites lectures ci-dessous (requêtes typées par .returns<…>()).
+interface ProfileLangRow { preferred_language: string | null }
+interface ProfileNameRow {
+  organization_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
 }
-
-/** Client Supabase admin minimal (évite d'importer le SDK ici). */
-interface AdminClient {
-  from(table: 'profiles'): WalletQuery<{
-    preferred_language: string | null;
-    organization_name?: string | null;
-    first_name?: string | null;
-    last_name?: string | null;
-  }>;
-  from(table: 'tickets'): WalletQuery<WalletTicketRow>;
-  from(table: 'table_reservations'): WalletQuery<WalletReservationRow>;
-  from(table: 'guest_list_entries'): WalletQuery<WalletGuestListRow>;
-  from(table: 'venues'): WalletQuery<WalletVenueRow>;
-  from(table: 'organizer_profiles'): WalletQuery<{ display_name: string | null }>;
-  from(table: 'event_djs'): WalletQuery<{ dj_id: string | null }>;
-  from(table: 'event_guest_artists'): WalletQuery<{ name: string | null }>;
-  from(table: 'djs_public'): WalletQuery<{ id: string; stage_name: string | null }>;
-  from(table: 'agencies'): WalletQuery<{ name: string | null }>;
-  from(table: 'promoters'): WalletQuery<{ user_id: string | null; promo_code: string | null }>;
-  from(table: 'djs'): WalletQuery<{ stage_name: string | null }>;
-}
+interface NameRow { name: string | null }
+interface StageNameRow { stage_name: string | null }
+interface OrganizerNameRow { display_name: string | null }
+interface EventDjRow { dj_id: string | null }
+interface PublicDjRow { id: string; stage_name: string | null }
+interface PromoterRow { user_id: string | null; promo_code: string | null }
 
 export interface PassBuild {
   passJson: Record<string, unknown>;
@@ -188,12 +172,13 @@ function webServiceBase(): string {
   return `${url}/functions/v1/send-ticket-confirmation/wallet`;
 }
 
-async function resolveLang(admin: AdminClient, userId: string | null): Promise<WalletLang> {
+async function resolveLang(admin: SupabaseClient, userId: string | null): Promise<WalletLang> {
   if (!userId) return 'fr';
   const { data } = await admin
     .from('profiles')
     .select('preferred_language')
     .eq('id', userId)
+    .returns<ProfileLangRow[]>()
     .maybeSingle();
   return normalizeWalletLang(data?.preferred_language);
 }
@@ -203,18 +188,20 @@ async function resolveLang(admin: AdminClient, userId: string | null): Promise<W
  * Même règle que les emails de confirmation (`resolveBrandName`) — le pass et
  * l'email doivent nommer le même hôte.
  */
-async function resolveBrand(admin: AdminClient, event: WalletEventRow): Promise<string> {
+async function resolveBrand(admin: SupabaseClient, event: WalletEventRow): Promise<string> {
   const venueId = event.venue_id ?? event.partner_venue_id ?? null;
   if (venueId) {
-    const { data } = await admin.from('venues').select('name').eq('id', venueId).maybeSingle();
+    const { data } = await admin.from('venues').select('name').eq('id', venueId).returns<NameRow[]>().maybeSingle();
     if (data?.name) return data.name;
   }
   if (event.organizer_user_id) {
     const { data: org } = await admin
-      .from('organizer_profiles').select('display_name').eq('user_id', event.organizer_user_id).maybeSingle();
+      .from('organizer_profiles').select('display_name').eq('user_id', event.organizer_user_id)
+      .returns<OrganizerNameRow[]>().maybeSingle();
     if (org?.display_name) return org.display_name;
     const { data: profile } = await admin
-      .from('profiles').select('organization_name, first_name, last_name').eq('id', event.organizer_user_id).maybeSingle();
+      .from('profiles').select('organization_name, first_name, last_name').eq('id', event.organizer_user_id)
+      .returns<ProfileNameRow[]>().maybeSingle();
     const name = profile?.organization_name
       || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
     if (name) return name;
@@ -228,20 +215,20 @@ async function resolveBrand(admin: AdminClient, event: WalletEventRow): Promise<
  * page événement. Sert au dos du pass ET aux `semantics.performerNames`, que
  * Wallet lit pour proposer la soirée sur l'écran verrouillé.
  */
-async function resolveLineup(admin: AdminClient, eventId: string | null | undefined): Promise<string[]> {
+async function resolveLineup(admin: SupabaseClient, eventId: string | null | undefined): Promise<string[]> {
   if (!eventId) return [];
   try {
     // Le line-up a deux moitiés et le pass doit porter les deux : sans les
     // invités, un billet annoncerait la moitié de l'affiche.
     const [linksRes, guestsRes] = await Promise.all([
-      admin.from('event_djs').select('dj_id').eq('event_id', eventId),
-      admin.from('event_guest_artists').select('name').eq('event_id', eventId).order('position'),
+      admin.from('event_djs').select('dj_id').eq('event_id', eventId).returns<EventDjRow[]>(),
+      admin.from('event_guest_artists').select('name').eq('event_id', eventId).order('position').returns<NameRow[]>(),
     ]);
 
     const ids = (linksRes.data ?? []).map((l) => l.dj_id).filter(Boolean) as string[];
     let djNames: string[] = [];
     if (ids.length > 0) {
-      const { data: djs } = await admin.from('djs_public').select('id, stage_name').in('id', ids);
+      const { data: djs } = await admin.from('djs_public').select('id, stage_name').in('id', ids).returns<PublicDjRow[]>();
       djNames = (djs ?? []).map((d) => d.stage_name).filter(Boolean) as string[];
     }
 
@@ -509,13 +496,14 @@ function coordsOf(event: WalletEventRow, venue: WalletVenueRow | null) {
 }
 
 /** Club de la soirée (venue hôte ou partenaire), ou null si soirée sans salle. */
-async function loadVenue(admin: AdminClient, event: WalletEventRow): Promise<WalletVenueRow | null> {
+async function loadVenue(admin: SupabaseClient, event: WalletEventRow): Promise<WalletVenueRow | null> {
   const venueId = event.venue_id ?? event.partner_venue_id;
   if (!venueId) return null;
   const { data } = await admin
     .from('venues')
     .select('name, address, city, latitude, longitude')
     .eq('id', venueId)
+    .returns<WalletVenueRow[]>()
     .maybeSingle();
   return data;
 }
@@ -527,7 +515,7 @@ const EVENT_COLUMNS =
 
 /** Billet d'événement — pass eventTicket, QR = tickets.qr_code (scan porte). */
 export async function buildTicketPass(
-  admin: AdminClient,
+  admin: SupabaseClient,
   ticketId: string,
   authToken: string,
 ): Promise<PassBuild> {
@@ -539,6 +527,7 @@ export async function buildTicketPass(
       events!inner(${EVENT_COLUMNS})
     `)
     .eq('id', ticketId)
+    .returns<WalletTicketRow[]>()
     .single();
   if (error || !ticket) throw new Error('Ticket not found');
   if (!ticket.qr_code) throw new Error('Ticket has no QR');
@@ -643,7 +632,7 @@ export async function buildTicketPass(
 
 /** Réservation de table VIP — pass eventTicket, QR = table_reservations.qr_code. */
 export async function buildVipPass(
-  admin: AdminClient,
+  admin: SupabaseClient,
   reservationId: string,
   authToken: string,
 ): Promise<PassBuild> {
@@ -656,6 +645,7 @@ export async function buildVipPass(
       events!inner(${EVENT_COLUMNS})
     `)
     .eq('id', reservationId)
+    .returns<WalletReservationRow[]>()
     .single();
   if (error || !resa) throw new Error('Reservation not found');
   if (!resa.qr_code) throw new Error('Reservation has no QR');
@@ -777,21 +767,21 @@ export async function buildVipPass(
  * Retombe sur l'enseigne : la part maison, c'est le club qui invite.
  */
 async function resolveInviter(
-  admin: AdminClient,
+  admin: SupabaseClient,
   part: WalletGuestListRow['guest_lists'],
   brand: string,
 ): Promise<string> {
   try {
     if (part.holder_type === 'dj' && part.dj_id) {
-      const { data } = await admin.from('djs').select('stage_name').eq('id', part.dj_id).maybeSingle();
+      const { data } = await admin.from('djs').select('stage_name').eq('id', part.dj_id).returns<StageNameRow[]>().maybeSingle();
       if (data?.stage_name) return data.stage_name;
     }
     if (part.holder_type === 'promoter' && part.promoter_id) {
       const { data: promoter } = await admin
-        .from('promoters').select('user_id, promo_code').eq('id', part.promoter_id).maybeSingle();
+        .from('promoters').select('user_id, promo_code').eq('id', part.promoter_id).returns<PromoterRow[]>().maybeSingle();
       if (promoter?.user_id) {
         const { data: profile } = await admin
-          .from('profiles').select('first_name, last_name').eq('id', promoter.user_id).maybeSingle();
+          .from('profiles').select('first_name, last_name').eq('id', promoter.user_id).returns<ProfileNameRow[]>().maybeSingle();
         const name = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
         if (name) return name;
       }
@@ -799,14 +789,14 @@ async function resolveInviter(
     }
     if (part.holder_type === 'organizer' && part.organizer_user_id) {
       const { data: profile } = await admin
-        .from('profiles').select('first_name, last_name').eq('id', part.organizer_user_id).maybeSingle();
+        .from('profiles').select('first_name, last_name').eq('id', part.organizer_user_id).returns<ProfileNameRow[]>().maybeSingle();
       const name = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
       if (name) return name;
     }
     if (part.holder_type === 'agency') {
       if (part.holder_label) return part.holder_label;
       if (part.agency_id) {
-        const { data } = await admin.from('agencies').select('name').eq('id', part.agency_id).maybeSingle();
+        const { data } = await admin.from('agencies').select('name').eq('id', part.agency_id).returns<NameRow[]>().maybeSingle();
         if (data?.name) return data.name;
       }
     }
@@ -826,7 +816,7 @@ async function resolveInviter(
  * la colonne « QUI INVITE » remplace le porteur secondaire.
  */
 export async function buildGuestListPass(
-  admin: AdminClient,
+  admin: SupabaseClient,
   entryId: string,
   authToken: string,
 ): Promise<PassBuild> {
@@ -841,6 +831,7 @@ export async function buildGuestListPass(
       )
     `)
     .eq('id', entryId)
+    .returns<WalletGuestListRow[]>()
     .single();
   if (error || !entry) throw new Error('Guest list entry not found');
   if (!entry.qr_code) throw new Error('Guest list entry has no QR');

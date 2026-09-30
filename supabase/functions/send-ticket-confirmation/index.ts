@@ -66,7 +66,9 @@ interface ConfirmationEvent {
   start_at: string;
   timezone: string | null;
   venue_id: string | null;
+  partner_venue_id: string | null;
   organizer_user_id: string | null;
+  partner_organizer_id: string | null;
   poster_url: string | null;
   location_name: string | null;
   location_address: string | null;
@@ -143,7 +145,8 @@ serve(async (req) => {
       throw new Error("Email mismatch");
     }
 
-    const event = ticket.events as unknown as ConfirmationEvent | null;
+    // `events!inner` : un billet sans soirée n'est jamais rendu.
+    const event = ticket.events as unknown as ConfirmationEvent;
     const venue = event?.venues;
     const round = ticket.ticket_rounds as unknown as { name: string | null; group_label: string | null } | null;
     const venueName = venue?.name || event?.location_name || "";

@@ -814,7 +814,7 @@ function staffPushCopy(type: string, lang: Lang, md: StaffPushMetadata | null): 
       return { title: '🍹 Nouvelle commande', body: `Une commande${num} attend au bar` };
     }
     case 'door_incident': {
-      const label = INCIDENT_LABEL[lang][md?.kind] || INCIDENT_LABEL[lang].incident_other;
+      const label = INCIDENT_LABEL[lang][md?.kind ?? ''] || INCIDENT_LABEL[lang].incident_other;
       const note = md?.note ? ` — ${md.note}` : '';
       if (lang === 'en') return { title: '🚨 Incident at the door', body: `${label}${note}` };
       if (lang === 'es') return { title: '🚨 Incidente en la puerta', body: `${label}${note}` };
@@ -823,7 +823,7 @@ function staffPushCopy(type: string, lang: Lang, md: StaffPushMetadata | null): 
     case 'station_call': {
       // Appel entre postes : le libellé du message-type dans la langue du
       // destinataire, l'émetteur en corps. C'est une sirène, pas un chat.
-      const label = CALL_LABEL[lang][md?.call_kind] || CALL_LABEL[lang].info;
+      const label = CALL_LABEL[lang][md?.call_kind ?? ''] || CALL_LABEL[lang].info;
       const from = md?.from_name || (lang === 'es' ? 'Un compañero' : lang === 'en' ? 'A teammate' : 'Un collègue');
       if (lang === 'en') return { title: `📻 ${label}`, body: from };
       if (lang === 'es') return { title: `📻 ${label}`, body: from };

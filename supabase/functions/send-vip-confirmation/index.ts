@@ -113,8 +113,9 @@ serve(async (req) => {
       reveal_address_in_email: boolean | null;
       venues: { name: string | null; address: string | null } | null;
     }
-    const event = reservation.events as VipEmailEvent;
-    const zone = reservation.table_zones as { name: string | null; venue_id: string | null } | null;
+    // Sans schéma, le client type chaque embed en tableau : on le relit tel qu'il arrive.
+    const event = reservation.events as unknown as VipEmailEvent;
+    const zone = reservation.table_zones as unknown as { name: string | null; venue_id: string | null } | null;
     const venue = event?.venues;
     const venueName = venue?.name || event?.location_name || '';
     const eventTitle = event?.title || '';

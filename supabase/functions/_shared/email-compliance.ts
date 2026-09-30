@@ -9,6 +9,7 @@
 //
 // FAILS CLOSED: any lookup error returns an empty allowlist, so a transient DB
 // failure can never cause marketing to reach a non-consenting recipient.
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 
 const PUBLIC_URL =
   Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu';
@@ -24,7 +25,7 @@ export type OptInMap = Map<
   Array<{ venueId: string | null; organizerUserId: string | null; token: string | null }>
 >;
 
-/** Row shape for the newsletter_subscriptions select below. */
+/** Row shape for the newsletter_subscriptions select below (typed by .returns<…>()). */
 interface NewsletterSubscriptionRow {
   email: string;
   venue_id: string | null;
@@ -32,22 +33,8 @@ interface NewsletterSubscriptionRow {
   unsubscribe_token: string | null;
 }
 
-/** Minimal shape of the Supabase admin client used by this module. */
-interface OptInClient {
-  from(table: string): {
-    select(columns: string): {
-      eq(column: string, value: boolean): {
-        in(
-          column: string,
-          values: string[],
-        ): PromiseLike<{ data: NewsletterSubscriptionRow[] | null; error: unknown }>;
-      };
-    };
-  };
-}
-
 export async function loadOptIns(
-  admin: OptInClient,
+  admin: SupabaseClient,
   emails: (string | null | undefined)[],
 ): Promise<OptInMap> {
   const map: OptInMap = new Map();
@@ -61,7 +48,8 @@ export async function loadOptIns(
         .from('newsletter_subscriptions')
         .select('email, venue_id, organizer_user_id, unsubscribe_token')
         .eq('opted_in', true)
-        .in('email', chunk);
+        .in('email', chunk)
+        .returns<NewsletterSubscriptionRow[]>();
       if (error) throw error;
       for (const row of data || []) {
         const e = String(row.email).toLowerCase();

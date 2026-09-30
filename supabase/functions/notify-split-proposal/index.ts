@@ -494,7 +494,8 @@ const handler = async (req: Request): Promise<Response> => {
             key: pushKey,
             userId: uid,
             url: "/organizer-app/collaborations",
-            vars: { partner: proposerName, subject: subjectLabel },
+            // Toujours résolu plus haut ; la closure ne voit pas le rétrécissement.
+            vars: { partner: proposerName ?? "Votre partenaire", subject: subjectLabel },
           }).catch((e) => log("auto-push failed", String(e)))
         ));
         log("auto-push dispatched", { key: pushKey, count: recipientUserIds.length, recurring: amendmentRecurring });

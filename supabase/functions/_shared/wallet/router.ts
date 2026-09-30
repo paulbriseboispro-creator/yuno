@@ -13,6 +13,8 @@
 //
 // Les devices s'enregistrent dès la Phase 2 ; les pushes de mise à jour
 // (topic = Pass Type ID, payload {}) arrivent en Phase 5.
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { errorMessage } from '../error-message.ts';
 import { buildPkpass, walletCertsFromEnv } from './signer.ts';
 import { walletAssets } from './assets.ts';
 import { buildTicketPass, buildVipPass, buildGuestListPass, type PassBuild } from './passes.ts';
@@ -53,7 +55,7 @@ function randomToken(): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ── Typage minimal du client Supabase admin utilisé par ce routeur ──────────
+// ── Lignes lues par ce routeur (requêtes typées par .returns<…>()) ─────────
 
 /** Ligne wallet_passes (colonnes des selects ci-dessous). */
 interface WalletPassesRow {
@@ -79,29 +81,6 @@ interface WalletOwnershipRow {
   status: string | null;
 }
 
-interface WalletRouterFilter<Row> extends PromiseLike<{ data: Row[] | null; error: unknown }> {
-  eq(column: string, value: unknown): WalletRouterFilter<Row>;
-  maybeSingle(): PromiseLike<{ data: Row | null; error?: unknown }>;
-}
-
-interface WalletRouterBuilder<Row> {
-  select(columns: string): WalletRouterFilter<Row>;
-  insert(values: Record<string, unknown>): PromiseLike<{ error: unknown }>;
-  update(values: Record<string, unknown>): WalletRouterFilter<Row>;
-  delete(): WalletRouterFilter<Row>;
-}
-
-interface WalletAdminClient {
-  auth: {
-    getUser(
-      jwt: string,
-    ): Promise<{ data: { user: { id: string } | null } | null; error: unknown }>;
-  };
-  from(table: 'wallet_passes'): WalletRouterBuilder<WalletPassesRow>;
-  from(table: 'wallet_pass_registrations'): WalletRouterBuilder<WalletRegistrationRow>;
-  from(table: 'tickets' | 'table_reservations' | 'guest_list_entries'): WalletRouterBuilder<WalletOwnershipRow>;
-}
-
 /** Comparaison à temps constant (tokens de même longueur attendus). */
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -116,7 +95,7 @@ function safeEqual(a: string, b: string): boolean {
  * Utilisé par /wallet/issue ET par les emails de confirmation.
  */
 export async function ensureWalletPass(
-  admin: WalletAdminClient,
+  admin: SupabaseClient,
   passType: PassType,
   referenceId: string,
   userId: string | null,
@@ -126,6 +105,7 @@ export async function ensureWalletPass(
     .from('wallet_passes')
     .select('serial, auth_token')
     .eq('serial', serial)
+    .returns<Pick<WalletPassesRow, 'serial' | 'auth_token'>[]>()
     .maybeSingle();
   if (existing) return { serial, authToken: existing.auth_token };
 
@@ -143,6 +123,7 @@ export async function ensureWalletPass(
       .from('wallet_passes')
       .select('auth_token')
       .eq('serial', serial)
+      .returns<Pick<WalletPassesRow, 'auth_token'>[]>()
       .maybeSingle();
     if (raced) return { serial, authToken: raced.auth_token };
     throw error;
@@ -157,7 +138,7 @@ export function walletPassUrl(serial: string, authToken: string): string {
 }
 
 /** Régénère le .pkpass signé d'une ligne wallet_passes. */
-async function renderPass(admin: WalletAdminClient, row: { serial: string; pass_type: string; reference_id: string; auth_token: string }): Promise<Uint8Array> {
+async function renderPass(admin: SupabaseClient, row: { serial: string; pass_type: string; reference_id: string; auth_token: string }): Promise<Uint8Array> {
   const build: PassBuild =
     row.pass_type === 'vip'
       ? await buildVipPass(admin, row.reference_id, row.auth_token)
@@ -195,11 +176,12 @@ function b64FromBytes(bytes: Uint8Array): string {
 }
 
 /** Ligne wallet_passes par serial, ou null. */
-async function passRow(admin: WalletAdminClient, serial: string) {
+async function passRow(admin: SupabaseClient, serial: string) {
   const { data } = await admin
     .from('wallet_passes')
     .select('serial, pass_type, reference_id, user_id, auth_token, voided, updated_at')
     .eq('serial', serial)
+    .returns<WalletPassesRow[]>()
     .maybeSingle();
   return data;
 }
@@ -215,7 +197,7 @@ function applePassToken(req: Request): string | null {
  * Point d'entrée : à appeler en tête de serve() de send-ticket-confirmation.
  * Retourne null si la requête ne concerne pas /wallet (→ flux email existant).
  */
-export async function handleWalletRequest(req: Request, admin: WalletAdminClient): Promise<Response | null> {
+export async function handleWalletRequest(req: Request, admin: SupabaseClient): Promise<Response | null> {
   const url = new URL(req.url);
   const idx = url.pathname.indexOf('/wallet/');
   if (idx === -1) return null;
@@ -240,7 +222,12 @@ export async function handleWalletRequest(req: Request, admin: WalletAdminClient
       if (!passType || !id) return json({ error: 'type and id required' }, 400);
 
       // Contrôle de propriété AVANT toute émission.
-      const { data: row } = await admin.from(OWNER_TABLE[passType]).select('id, user_id, status').eq('id', id).maybeSingle();
+      const { data: row } = await admin
+        .from(OWNER_TABLE[passType])
+        .select('id, user_id, status')
+        .eq('id', id)
+        .returns<WalletOwnershipRow[]>()
+        .maybeSingle();
       if (!row || row.user_id !== user.id) return json({ error: 'Not found' }, 404);
       // Une entrée de guest list est gratuite : elle n'est jamais 'paid'. Seule
       // une annulation la disqualifie.
@@ -249,6 +236,7 @@ export async function handleWalletRequest(req: Request, admin: WalletAdminClient
 
       const { serial, authToken } = await ensureWalletPass(admin, passType, id, user.id);
       const pass = await passRow(admin, serial);
+      if (!pass) throw new Error('Wallet pass row missing');
       const bytes = await renderPass(admin, pass);
       log('issued', { serial, user: user.id });
       return json({ base64: b64FromBytes(bytes), downloadUrl: walletPassUrl(serial, authToken), serial });
@@ -285,6 +273,7 @@ export async function handleWalletRequest(req: Request, admin: WalletAdminClient
           .select('push_token')
           .eq('device_library_id', deviceId)
           .eq('pass_serial', serial)
+          .returns<Pick<WalletRegistrationRow, 'push_token'>[]>()
           .maybeSingle();
         if (existing) {
           if (existing.push_token !== pushToken) {
@@ -322,8 +311,9 @@ export async function handleWalletRequest(req: Request, admin: WalletAdminClient
       const { data: regs } = await admin
         .from('wallet_pass_registrations')
         .select('pass_serial, wallet_passes!inner(updated_at)')
-        .eq('device_library_id', deviceId);
-      const all = (regs ?? []) as Array<{ pass_serial: string; wallet_passes: { updated_at: string } }>;
+        .eq('device_library_id', deviceId)
+        .returns<Pick<WalletRegistrationRow, 'pass_serial' | 'wallet_passes'>[]>();
+      const all = regs ?? [];
       const sinceMs = since ? Date.parse(since) : 0;
       const changed = all.filter((r) => !since || Date.parse(r.wallet_passes.updated_at) > sinceMs);
       if (changed.length === 0) return new Response(null, { status: 204, headers: CORS });
@@ -354,6 +344,6 @@ export async function handleWalletRequest(req: Request, admin: WalletAdminClient
     return json({ error: 'Not found' }, 404);
   } catch (e) {
     console.error('[WALLET] Error:', e);
-    return json({ error: e instanceof Error ? e.message : 'Wallet error' }, 500);
+    return json({ error: errorMessage(e, 'Wallet error') }, 500);
   }
 }

@@ -5,6 +5,25 @@ import { buildOtp } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
+/** Achat réclamable (billet, table, inscription guest list ou commande). */
+interface ClaimablePurchase {
+  id: string;
+  table: string;
+  reference: string | null;
+  email?: string | null;
+  status?: string | null;
+  user_id?: string | null;
+  is_guest?: boolean | null;
+  claimed_by_user_id?: string | null;
+  guest_first_name?: string | null;
+  guest_last_name?: string | null;
+  guest_phone?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+  event_id?: string | null;
+  venue_id?: string | null;
+}
+
 /**
  * Post-claim best-effort : l'invité réclamé devient une vraie ligne CRM
  * (venue_customers) avec ses compteurs — la ligne synthétique du CRM lecture
@@ -166,8 +185,9 @@ serve(async (req) => {
       }
     };
 
-    // Helper to find a purchase by ID
-    const findPurchaseById = async (pid: string) => {
+    // Helper to find a purchase by ID. Les quatre tables n'ont pas les mêmes
+    // colonnes : une colonne absente de la table de l'achat reste undefined.
+    const findPurchaseById = async (pid: string): Promise<ClaimablePurchase | null> => {
       if (type === 'ticket') {
         const { data, error } = await supabaseAdmin
           .from("tickets")
