@@ -690,7 +690,13 @@ export default function OwnerTicketing() {
           max_tickets: wizardSellingMode === 'simple' ? 999999 : isFreeWizard ? (parseInt(r.maxTickets) > 0 ? parseInt(r.maxTickets) : UNLIMITED_TICKETS) : parseInt(r.maxTickets) || 0,
           last_tickets_threshold: 20,
           position: index,
-          is_active: wizardSellingMode === 'simple' || isFreeWizard ? true : index === 0,
+          // Une file par type de billet : le 1er palier de CHAQUE type (Standard, VIP) ouvre,
+          // les suivants attendent (sinon le 1er VIP restait fermé derrière le Standard).
+          is_active: wizardSellingMode === 'simple' || isFreeWizard
+            ? true
+            : wizardSellingMode === 'rounds'
+              ? validCustomRounds.findIndex(x => x.ticketType === r.ticketType) === index
+              : index === 0,
           auto_activate: wizardSellingMode === 'rounds',
           ticket_type: isFreeWizard ? 'standard' : r.ticketType,
           includes_drink: r.includesDrink,
