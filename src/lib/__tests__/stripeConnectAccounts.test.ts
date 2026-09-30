@@ -414,7 +414,7 @@ describe('isDefinitiveRejection', () => {
 });
 
 describe('dashboardUrlFor', () => {
-  const base = { chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, hasRequirements: false, requirements: { currently_due: [], past_due: [] }, source: 'v2' as const };
+  const base = { country: 'FR', chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, hasRequirements: false, requirements: { currently_due: [], past_due: [] }, source: 'v2' as const };
 
   it('Express : lien de connexion à usage unique généré par Stripe', async () => {
     const { calls, ctx } = fakeStripe([{ status: 200, body: { url: 'https://connect.stripe.com/express/abc' } }]);
