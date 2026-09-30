@@ -3,12 +3,16 @@ import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { OrgCard, OrgButton, OrgPill, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 
 export function OrgStripeConnectCard({ userId }: { userId: string | null | undefined }) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { status, chargesEnabled, payoutsEnabled, loading, startingOnboarding, startOnboarding, openDashboard, refresh } =
+  const { status, chargesEnabled, payoutsEnabled, country, loading, startingOnboarding, startOnboarding, openDashboard, refresh } =
     useOrganizerStripe(userId);
+  // Pays du compte à ouvrir : lu seulement tant qu'aucun compte n'existe (il est figé ensuite).
+  const connectCountry = useConnectCountry({ kind: 'organizer', userId }, !loading && status === 'none' && !chargesEnabled);
 
   if (loading) {
     return (
@@ -69,9 +73,14 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
               )}
             </p>
           </div>
-          <OrgButton variant="primary" onClick={() => startOnboarding()} disabled={startingOnboarding}>
+          <StripeCountryField choice={connectCountry} />
+          <OrgButton
+            variant="primary"
+            onClick={() => startOnboarding({ country: connectCountry.country })}
+            disabled={startingOnboarding || !connectCountry.canCreate}
+          >
             {startingOnboarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-            {t('Activer les paiements', 'Activate payments')}
+            {t('Activer les paiements', 'Activate payments', 'Activar los pagos')}
           </OrgButton>
         </div>
       )}
@@ -97,6 +106,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
                 )}
             </p>
           </div>
+          <StripeAccountCountry country={country} />
           <div className="flex flex-wrap gap-2">
             <OrgButton variant="primary" size="sm" onClick={() => startOnboarding()} disabled={startingOnboarding}>
               {startingOnboarding && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -159,9 +169,9 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
           </div>
           <p style={{ color: T3, fontSize: 11.5 }}>
             {t(
-              'Le tableau de bord Stripe s\'ouvre sur dashboard.stripe.com : connectez-vous avec l\'e-mail et le mot de passe choisis pendant l\'activation.',
-              'The Stripe dashboard opens on dashboard.stripe.com: sign in with the email and password you chose during activation.',
-              'El panel de Stripe se abre en dashboard.stripe.com: inicia sesión con el correo y la contraseña elegidos durante la activación.',
+              'Le tableau de bord Stripe (solde, virements, remboursements, litiges) s\'ouvre depuis Yuno : Stripe vous envoie un code par SMS ou e-mail pour confirmer que c\'est bien vous.',
+              'The Stripe dashboard (balance, payouts, refunds, disputes) opens from Yuno: Stripe sends you a code by SMS or email to confirm it\'s you.',
+              'El panel de Stripe (saldo, transferencias, reembolsos, disputas) se abre desde Yuno: Stripe te envía un código por SMS o correo para confirmar que eres tú.',
             )}
           </p>
         </div>

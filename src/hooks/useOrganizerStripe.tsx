@@ -17,6 +17,8 @@ export interface OrganizerStripeStatus {
   onboardedAt: string | null;
   /** Encaissement ouvert chez Stripe : la vente de billets et de tables peut s'allumer. */
   canSell: boolean;
+  /** Pays du compte chez Stripe (ISO alpha-2), connu après la lecture de l'état. */
+  country: string | null;
 }
 
 const STATES: readonly OrganizerStripeState[] = ['none', 'pending', 'active', 'restricted'];
@@ -32,6 +34,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
     payoutsEnabled: false,
     onboardedAt: null,
     canSell: false,
+    country: null,
   });
   const [loading, setLoading] = useState(true);
   // Deux clics rapprochés sur « Activer les paiements » ouvraient deux comptes
@@ -59,6 +62,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
           payoutsEnabled: !!profile.stripe_connect_payouts_enabled,
           onboardedAt: profile.stripe_connect_onboarded_at ?? null,
           canSell: !!profile.stripe_connect_charges_enabled,
+          country: null,
         });
       }
 
@@ -73,6 +77,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
             payoutsEnabled: !!fresh.payoutsEnabled,
             onboardedAt: fresh.onboardedAt ?? null,
             canSell: !!fresh.chargesEnabled,
+            country: fresh.country ?? null,
           });
           trackStripeConnectStatus('organizer', userId, { accountId: fresh.accountId ?? null, ready: !!fresh.chargesEnabled });
         }
@@ -91,8 +96,10 @@ export function useOrganizerStripe(userId: string | null | undefined) {
   /**
    * Ouvre (ou reprend) le formulaire Stripe dans la page courante : Stripe y
    * ramène le pro à la fin (`returnUrl`, par défaut la page Paiements).
+   * `country` = pays d'immatriculation choisi avant la création du compte
+   * (définitif chez Stripe) ; ignoré quand le compte existe déjà.
    */
-  const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string }) => {
+  const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string; country?: string }) => {
     if (startingRef.current) return;
     startingRef.current = true;
     setStartingOnboarding(true);
@@ -100,7 +107,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
     let redirecting = false;
     try {
       const { data: res, error } = await invokeEdgeFunction('stripe-connect', {
-        body: { action: 'onboard', returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl },
+        body: { action: 'onboard', returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl, country: opts?.country, language },
       });
       if (!error && res?.url) {
         redirecting = true;

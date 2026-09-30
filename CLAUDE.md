@@ -1337,6 +1337,24 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   Yuno les paierait sur sa commission) et `dashboard: full`. Club et organisateur
   = `merchant` + `recipient` (vente directe + jambes de co-soirée), DJ =
   `recipient`. Ne JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Pays du compte = choisi par le pro AVANT la création, et définitif** (Stripe
+  ne change jamais le pays d'un compte ; tout naissait en France, un club de
+  Madrid se voyait demander un IBAN français). `NewConnectedAccount.country`
+  (ISO alpha-2) part en minuscules en v2 (`identity.country`), en majuscules en
+  v1 ; `defaults.currency` suit le pays (GBP, CHF, DKK… — jamais « eur » imposé
+  à un compte hors zone euro) et `defaults.locales` la langue de la Console.
+  Liste = `STRIPE_CONNECT_COUNTRY_CURRENCIES` (UE + Norvège, Liechtenstein,
+  Royaume-Uni, Gibraltar, Suisse), miroir front `src/lib/stripeConnectCountry.ts`
+  (testé). Hors liste (Maroc, Algérie, États-Unis…) : `stripe_country_unsupported`,
+  RIEN n'est créé chez Stripe. `onboard` sans `country` (ancien bundle) = FR.
+  Front : `StripeCountryField` + `useConnectCountry` AVANT le bouton, sur les cinq
+  écrans qui créent un compte (Paiements club et orga, les deux guides de
+  configuration, Bookings DJ) ; préremplissage profil DJ → ville → fin d'adresse
+  Mapbox → fuseau du lieu → fuseau de l'appareil → FR. `Europe/Paris` sur un club
+  est un signal FAIBLE : c'est le fuseau posé par défaut quand la ville n'était
+  pas reconnue. `status` / `refresh` rendent `country` (« Pays du compte
+  Stripe »). Un compte ouvert dans le mauvais pays ne se corrige pas : le fermer
+  chez Stripe et vider la colonne, aucun outil Yuno ne le fait.
 - **Filets** : une forme REFUSÉE (400/403/404, rien créé) passe à la suivante —
   v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller` (mêmes
   responsabilités). Réseau, 429 ou 5xx n'enchaînent jamais (doublon possible).
@@ -1346,8 +1364,18 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   compte), repli v1. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
   `account.updated`), repli v2. Colonnes écrites par `venueConnectColumns` /
   `organizerConnectColumns` — webhook, Console et checkouts écrivent pareil.
-- **Tableau de bord** : un compte `full` n'a pas de lien de connexion Express :
-  le bouton ouvre dashboard.stripe.com, le pro s'y connecte avec SES identifiants.
+- **Tableau de bord = Express Dashboard** (2026-09-30, décision de Paul) : les
+  comptes naissent en `dashboard: express` (v2) / `stripe_dashboard.type: express`
+  (v1 de secours). Compatible avec charges directes + pertes et frais portés par
+  Stripe (docs.stripe.com/connect/integration-recommendations). Le bouton
+  « Tableau de bord Stripe » génère un lien à usage unique (`login_links`,
+  `dashboardUrlFor`) à chaque clic ; il n'est jamais envoyé hors de l'app. Le
+  pro s'y authentifie par code SMS / e-mail, sans second compte. Le tableau de
+  bord `full` (dashboard.stripe.com) n'est plus que le DERNIER filet de création
+  (`v2-full-dashboard`) et le repli si Stripe refuse un lien. Fonctions,
+  marque et messages de l'Express Dashboard se règlent dans le Dashboard Stripe
+  de Yuno (Connect → Express Dashboard : Branding, Features), pas par l'API.
+  Les comptes déjà créés en `full` le restent (la propriété ne se change pas).
 - **Le drapeau `charges_enabled` en base n'est qu'un miroir.** Les checkouts
   (billets, tables, boissons) revérifient chez Stripe un compte « inactif »
   (`checkPayoutReadinessHealing`, `healChargesEnabled`) avant de refuser un

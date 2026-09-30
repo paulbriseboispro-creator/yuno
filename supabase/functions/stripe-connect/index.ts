@@ -7,17 +7,21 @@ import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
 import {
   ConnectAccountCreateError,
+  DEFAULT_CONNECT_COUNTRY,
   STRIPE_FULL_DASHBOARD_URL,
   StripeHttpError,
+  UnsupportedConnectCountryError,
   connectStatusOf,
   createConnectedAccount,
   createOnboardingLink,
   dashboardUrlFor,
+  normalizeConnectCountry,
   organizerConnectColumns,
   readConnectAccountState,
   venueConnectColumns,
   type ConnectAccountState,
   type ConnectContext,
+  type ConnectLanguage,
   type NewConnectedAccount,
 } from "../_shared/stripe-connect-accounts.ts";
 
@@ -33,6 +37,12 @@ import {
 // `type: "express"` hérité sur la plateforme Yuno). Création, lien
 // d'onboarding, lecture d'état et lien de tableau de bord passent TOUS par
 // _shared/stripe-connect-accounts.ts — lire son en-tête avant d'y toucher.
+//
+// Pays du compte (2026-09-29) : `onboard` reçoit `country` (ISO alpha-2, choisi
+// par le pro dans la Console AVANT la création) et `language`. Le pays ne se
+// change plus chez Stripe une fois le compte ouvert : un pays hors liste est
+// refusé (`stripe_country_unsupported`) sans rien créer ; un appel SANS pays
+// (bundle antérieur) garde la France, comme avant.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +57,13 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status,
   });
+
+/** Texte que Stripe pré-remplit dans le formulaire (« description de l'activité »), dans la langue du pro. */
+const PRODUCT_DESCRIPTIONS: Record<"organizer" | "venue" | "dj", Record<ConnectLanguage, string>> = {
+  organizer: { fr: "Vente de billets pour événements", en: "Event ticket sales", es: "Venta de entradas para eventos" },
+  venue: { fr: "Vente de tickets et services de boîte de nuit", en: "Nightclub tickets and services", es: "Venta de entradas y servicios de discoteca" },
+  dj: { fr: "Prestation de DJ (cachet)", en: "DJ performance fee", es: "Actuación de DJ (caché)" },
+};
 
 /** Erreur métier avec un code que le front sait traduire (useStripeConnectError). */
 class ConnectError extends Error {
@@ -108,6 +125,27 @@ serve(async (req) => {
 
     const connect: ConnectContext = { secretKey: stripeKey, log };
 
+    // Langue de la Console du pro : emails Stripe et description pré-remplie.
+    const language: ConnectLanguage | null = ["fr", "en", "es"].includes(body.language) ? body.language : null;
+
+    // Pays d'un compte À CRÉER. Absent (bundle antérieur) = France, comme avant ;
+    // présent mais hors liste = refus net, rien n'est créé chez Stripe.
+    const creationCountry = (): string => {
+      const raw = body.country;
+      if (raw === undefined || raw === null || raw === "") return DEFAULT_CONNECT_COUNTRY;
+      const country = normalizeConnectCountry(raw);
+      if (!country) {
+        throw new ConnectError(
+          `Stripe accounts are not available for country "${String(raw).slice(0, 8)}"`,
+          "stripe_country_unsupported",
+          400,
+        );
+      }
+      return country;
+    };
+    const descriptionLanguage = (country: string): ConnectLanguage =>
+      language ?? (country === "FR" ? "fr" : country === "ES" ? "es" : "en");
+
     // Any venueId coming from the request body MUST belong to the caller. Every
     // owner branch below runs via service_role (RLS bypassed), so without this an
     // attacker could pass another club's id and either mint a Stripe login link to
@@ -158,6 +196,9 @@ serve(async (req) => {
         const created = await createConnectedAccount(connect, spec);
         return created.id;
       } catch (err) {
+        if (err instanceof UnsupportedConnectCountryError) {
+          throw new ConnectError(err.message, "stripe_country_unsupported", 400);
+        }
         const attempts = err instanceof ConnectAccountCreateError ? err.attempts : [];
         const message = err instanceof Error ? err.message : String(err);
         log("Connected account creation failed", { who, message, attempts });
@@ -165,11 +206,11 @@ serve(async (req) => {
           await supabaseAdmin.rpc("emit_admin_notification", {
             p_type: "admin_stripe_connect_failed",
             p_title: "Stripe refuse l'ouverture d'un compte",
-            p_message: `${who.name || who.kind} (${who.kind}) n'a pas pu relier Stripe : ${message}`.slice(0, 480),
+            p_message: `${who.name || who.kind} (${who.kind}, ${spec.country}) n'a pas pu relier Stripe : ${message}`.slice(0, 480),
             p_priority: "high",
             p_reference_type: who.kind,
             p_reference_id: who.id,
-            p_metadata: { kind: who.kind, id: who.id, attempts },
+            p_metadata: { kind: who.kind, id: who.id, country: spec.country, attempts },
             p_dedup_key: `stripe_connect_failed:${who.kind}:${who.id}:${new Date().toISOString().slice(0, 10)}`,
             p_event_id: null,
           });
@@ -268,15 +309,18 @@ serve(async (req) => {
             .maybeSingle();
           const isAssociation = orgProfile?.bde_verified === true;
           const displayName = orgProfile?.display_name || profile.organization_name || null;
-          log("Creating new organizer connected account", { association: isAssociation });
+          const country = creationCountry();
+          log("Creating new organizer connected account", { association: isAssociation, country });
           accountId = await createAccountOrExplain({
             purpose: "seller",
+            country,
+            language,
             email: profile.email ?? user.email ?? null,
             displayName,
             entityType: isAssociation ? "non_profit" : null,
             registeredName: isAssociation ? (orgProfile?.legal_name || displayName) : null,
-            productDescription: "Vente de billets pour événements",
-            metadata: { user_id: user.id, profile_type: "organizer", platform: "yuno", association: isAssociation ? "1" : "0" },
+            productDescription: PRODUCT_DESCRIPTIONS.organizer[descriptionLanguage(country)],
+            metadata: { user_id: user.id, profile_type: "organizer", platform: "yuno", association: isAssociation ? "1" : "0", country },
           }, { kind: "organizer", id: user.id, name: displayName });
           const { error: saveErr } = await supabaseAdmin
             .from("profiles")
@@ -312,13 +356,16 @@ serve(async (req) => {
 
         let accountId = acct?.stripe_account_id ?? null;
         if (!accountId) {
-          log("Creating new DJ connected account");
+          const country = creationCountry();
+          log("Creating new DJ connected account", { country });
           accountId = await createAccountOrExplain({
             purpose: "payee",
+            country,
+            language,
             email: user.email ?? null,
             entityType: "individual",
-            productDescription: "Prestation de DJ (cachet)",
-            metadata: { user_id: user.id, profile_type: "dj", platform: "yuno" },
+            productDescription: PRODUCT_DESCRIPTIONS.dj[descriptionLanguage(country)],
+            metadata: { user_id: user.id, profile_type: "dj", platform: "yuno", country },
           }, { kind: "dj", id: user.id, name: user.email });
           const { error: saveErr } = await supabaseAdmin
             .from("dj_stripe_accounts")
@@ -353,14 +400,17 @@ serve(async (req) => {
 
       let stripeAccountId = venue.stripe_account_id;
       if (!stripeAccountId) {
-        log("Creating new owner connected account");
+        const country = creationCountry();
+        log("Creating new owner connected account", { country });
         stripeAccountId = await createAccountOrExplain({
           purpose: "seller",
+          country,
+          language,
           email: user.email ?? null,
           displayName: venue.name,
           entityType: "company",
-          productDescription: "Vente de tickets et services de boîte de nuit",
-          metadata: { venue_id: targetVenueId, platform: "yuno" },
+          productDescription: PRODUCT_DESCRIPTIONS.venue[descriptionLanguage(country)],
+          metadata: { venue_id: targetVenueId, platform: "yuno", country },
         }, { kind: "venue", id: targetVenueId, name: venue.name });
         log("Owner Stripe account created", { accountId: stripeAccountId });
         const { error: updateError } = await supabaseAdmin
@@ -416,6 +466,7 @@ serve(async (req) => {
           payoutsEnabled: state.payoutsEnabled,
           detailsSubmitted: state.detailsSubmitted,
           requirements: state.requirements,
+          country: state.country,
         });
       }
 
@@ -467,6 +518,7 @@ serve(async (req) => {
         onboardedAt,
         requirements: state.requirements,
         dashboard: state.dashboard,
+        country: state.country,
       });
     }
 
@@ -607,6 +659,7 @@ serve(async (req) => {
         requiresAction: !state.chargesEnabled || !state.detailsSubmitted,
         requirements: state.requirements,
         dashboard: state.dashboard,
+        country: state.country,
       });
     }
 

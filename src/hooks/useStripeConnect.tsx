@@ -14,6 +14,8 @@ interface StripeConnectStatus {
   payoutsEnabled: boolean;
   onboardingComplete: boolean;
   accountId: string | null;
+  /** Pays du compte chez Stripe (ISO alpha-2), figé à la création. */
+  country: string | null;
 }
 
 interface SubscriptionStatus {
@@ -27,7 +29,7 @@ interface SubscriptionStatus {
 
 export function useStripeConnect(venueId: string | null) {
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus>({
-    connected: false, chargesEnabled: false, payoutsEnabled: false, onboardingComplete: false, accountId: null
+    connected: false, chargesEnabled: false, payoutsEnabled: false, onboardingComplete: false, accountId: null, country: null,
   });
   const [subscription, setSubscription] = useState<SubscriptionStatus>({
     subscribed: false, status: 'inactive', currentPeriodEnd: null, trialEnd: null, daysRemaining: null, isTrial: false
@@ -49,6 +51,7 @@ export function useStripeConnect(venueId: string | null) {
         payoutsEnabled: data.payoutsEnabled || false,
         onboardingComplete: data.onboardingComplete || false,
         accountId: data.accountId || null,
+        country: data.country || null,
       });
       trackStripeConnectStatus('venue', venueId, { accountId: data.accountId || null, ready: !!data.chargesEnabled });
     } catch (e) { console.error('Error refreshing Stripe status:', e); }
@@ -83,8 +86,10 @@ export function useStripeConnect(venueId: string | null) {
    * Formulaire Stripe dans la page courante : Stripe y ramène l'owner à la fin
    * (`returnUrl`, par défaut la page Paiements qui relit l'état). L'ancien
    * `window.open` posé après l'appel serveur était bloqué par Safari.
+   * `country` = pays d'immatriculation choisi avant la création du compte
+   * (définitif chez Stripe) ; ignoré quand le compte existe déjà.
    */
-  const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string }) => {
+  const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string; country?: string }) => {
     if (startingRef.current) return;
     startingRef.current = true;
     setStartingOnboarding(true);
@@ -92,7 +97,10 @@ export function useStripeConnect(venueId: string | null) {
     let redirecting = false;
     try {
       const { data, error } = await invokeEdgeFunction('stripe-connect', {
-        body: { action: 'onboard', actor_type: 'owner', venueId, returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl },
+        body: {
+          action: 'onboard', actor_type: 'owner', venueId, returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl,
+          country: opts?.country, language,
+        },
       });
       if (!error && data?.url) {
         redirecting = true;

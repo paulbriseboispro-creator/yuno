@@ -492,7 +492,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: OPEN, path: '/payments' },
         relatedArticleIds: ['org-onboarding', 'org-invoices', 'org-refunds'],
-        keywords: ['payments', 'paiements', 'pagos', 'stripe', 'connect', 'payout', 'virement', 'transferencia', 'iban', 'co-event', 'co-soirée', 'coevento', 'quand suis-je payé', 'délai', 'cuándo cobro'],
+        keywords: ['payments', 'paiements', 'pagos', 'stripe', 'connect', 'payout', 'virement', 'transferencia', 'iban', 'co-event', 'co-soirée', 'coevento', 'quand suis-je payé', 'délai', 'cuándo cobro', 'pays', 'country', 'país', 'immatriculation', 'registration', 'espagne', 'spain', 'españa', 'maroc'],
         sections: [
           { headingKey: 'ohelp.org.payments.s1h', bodyKey: 'ohelp.org.payments.s1b' },
           { headingKey: 'ohelp.org.payments.s2h', bodyKey: 'ohelp.org.payments.s2b', screenshotUrl: '/help/org-payments.webp' },
@@ -500,6 +500,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.payments.s4h', bodyKey: 'ohelp.org.payments.s4b' },
           { headingKey: 'ohelp.org.payments.s5h', bodyKey: 'ohelp.org.payments.s5b', type: 'warning' },
           { headingKey: 'ohelp.org.payments.s6h', bodyKey: 'ohelp.org.payments.s6b', type: 'warning' },
+          { headingKey: 'ohelp.org.payments.s7h', bodyKey: 'ohelp.org.payments.s7b', type: 'warning' },
         ],
       },
       {

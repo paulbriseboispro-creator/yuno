@@ -1,15 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  DEFAULT_CONNECT_COUNTRY,
+  STRIPE_CONNECT_COUNTRIES,
   STRIPE_V1_API_VERSION,
   STRIPE_V2_API_VERSION,
   StripeHttpError,
+  UnsupportedConnectCountryError,
+  connectCurrencyFor,
+  connectLocaleFor,
   connectStatusOf,
   createConnectedAccount,
   createOnboardingLink,
+  dashboardUrlFor,
+  STRIPE_FULL_DASHBOARD_URL,
   createSessionWithPaymentMethodFallback,
   formEncode,
   healChargesEnabled,
   isDefinitiveRejection,
+  normalizeConnectCountry,
   organizerConnectColumns,
   readConnectAccountState,
   stateFromV1Account,
@@ -55,9 +63,10 @@ interface V2Body {
     merchant?: { capabilities: { card_payments: unknown } };
     recipient?: { capabilities: { stripe_balance: { stripe_transfers: unknown } } };
   };
-  defaults: { responsibilities: unknown };
+  defaults: { responsibilities: unknown; currency: string; locales: string[] };
 }
 interface V1Body {
+  country: string;
   controller: unknown;
   business_type?: string;
   capabilities?: unknown;
@@ -67,6 +76,7 @@ const asV1 = (b: Record<string, unknown>) => b as unknown as V1Body;
 
 const organizer: NewConnectedAccount = {
   purpose: 'seller',
+  country: 'FR',
   email: 'orga@example.com',
   displayName: 'Amoris',
   productDescription: 'Vente de billets pour événements',
@@ -74,10 +84,11 @@ const organizer: NewConnectedAccount = {
 };
 
 describe('corps envoyés à Stripe', () => {
-  it('v2 : Stripe porte les pertes ET collecte ses frais chez le vendeur, tableau de bord complet', () => {
+  it('v2 : Stripe porte les pertes ET collecte ses frais chez le vendeur, Express Dashboard', () => {
     const body = asV2(v2AccountBody(organizer, ['merchant', 'recipient'], true));
     expect(body.defaults.responsibilities).toEqual({ fees_collector: 'stripe', losses_collector: 'stripe' });
-    expect(body.dashboard).toBe('full');
+    expect(body.dashboard).toBe('express');
+    expect(asV2(v2AccountBody(organizer, ['merchant'], false, 'full')).dashboard).toBe('full');
     expect(body.identity).toEqual({ country: 'fr' });
     expect(body.configuration.merchant?.capabilities.card_payments).toEqual({ requested: true });
     expect(body.configuration.recipient?.capabilities.stripe_balance.stripe_transfers).toEqual({ requested: true });
@@ -102,7 +113,7 @@ describe('corps envoyés à Stripe', () => {
       fees: { payer: 'account' },
       losses: { payments: 'stripe' },
       requirement_collection: 'stripe',
-      stripe_dashboard: { type: 'full' },
+      stripe_dashboard: { type: 'express' },
     });
     expect(body.business_type).toBe('company');
     const bare = asV1(v1ControllerAccountBody({ ...organizer, entityType: 'company' }, { capabilities: false, prefill: false }));
@@ -110,12 +121,69 @@ describe('corps envoyés à Stripe', () => {
     expect(bare.business_type).toBeUndefined();
   });
 
+  it('pays : un club de Madrid naît en Espagne, en euros, avec des emails Stripe en espagnol', () => {
+    const madrid = { ...organizer, country: 'es', language: 'es' as const };
+    const v2 = asV2(v2AccountBody(madrid, ['merchant', 'recipient'], true));
+    expect(v2.identity).toEqual({ country: 'es' });
+    expect(v2.defaults.currency).toBe('eur');
+    expect(v2.defaults.locales).toEqual(['es-ES']);
+    const v1 = asV1(v1ControllerAccountBody(madrid, { capabilities: true, prefill: true }));
+    expect(v1.country).toBe('ES');
+  });
+
+  it('pays hors zone euro : la devise par défaut du compte suit le pays', () => {
+    expect(asV2(v2AccountBody({ ...organizer, country: 'GB' }, ['merchant'], true)).defaults).toMatchObject({ currency: 'gbp', locales: ['en-GB'] });
+    expect(asV2(v2AccountBody({ ...organizer, country: 'CH', language: 'fr' }, ['merchant'], true)).defaults).toMatchObject({ currency: 'chf', locales: ['fr-FR'] });
+    expect(connectCurrencyFor('dk')).toBe('dkk');
+    expect(connectCurrencyFor('BG')).toBe('eur');
+  });
+
+  it('langue des emails Stripe : celle de la Console, sinon celle du pays', () => {
+    expect(connectLocaleFor('en', 'FR')).toBe('en-GB');
+    expect(connectLocaleFor(null, 'FR')).toBe('fr-FR');
+    expect(connectLocaleFor(undefined, 'ES')).toBe('es-ES');
+    expect(connectLocaleFor(null, 'IT')).toBe('en-GB');
+  });
+
   it('encodage v1 : crochets, tableaux indexés, valeurs vides ignorées', () => {
     expect(formEncode({ a: { b: 'c', n: null }, l: ['x', 'y'], u: undefined })).toBe('a[b]=c&l[0]=x&l[1]=y');
   });
 });
 
+describe('pays pris en charge', () => {
+  it('Europe de Stripe seulement ; Maroc, Algérie, États-Unis refusés', () => {
+    expect(normalizeConnectCountry('es')).toBe('ES');
+    expect(normalizeConnectCountry(' fr ')).toBe('FR');
+    expect(normalizeConnectCountry('GB')).toBe('GB');
+    for (const refusedCode of ['MA', 'DZ', 'TN', 'US', 'MC', 'ESP', '', 'F', null, undefined, 34]) {
+      expect(normalizeConnectCountry(refusedCode)).toBeNull();
+    }
+    expect(DEFAULT_CONNECT_COUNTRY).toBe('FR');
+    expect(STRIPE_CONNECT_COUNTRIES).toContain('FR');
+    expect(STRIPE_CONNECT_COUNTRIES).toContain('ES');
+    expect([...STRIPE_CONNECT_COUNTRIES]).toEqual([...STRIPE_CONNECT_COUNTRIES].sort());
+  });
+});
+
 describe('createConnectedAccount', () => {
+  it('pays non pris en charge : refus AVANT tout appel à Stripe (le pays ne se change plus ensuite)', async () => {
+    const { calls, ctx } = fakeStripe([]);
+    await expect(createConnectedAccount(ctx, { ...organizer, country: 'MA' })).rejects.toBeInstanceOf(UnsupportedConnectCountryError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('le pays suit toutes les formes, jusqu’au filet v1', async () => {
+    const { calls, ctx } = fakeStripe([
+      refused('v2 refusé'),
+      refused('v2 vendeur seul refusé'),
+      { status: 200, body: { id: 'acct_v1' } },
+    ]);
+    await createConnectedAccount(ctx, { ...organizer, country: 'es' });
+    expect(JSON.parse(calls[0].body!).identity.country).toBe('es');
+    expect(JSON.parse(calls[1].body!).identity.country).toBe('es');
+    expect(calls[2].body).toContain('country=ES');
+  });
+
   it('crée en v2 (JSON, version dahlia, clé d’idempotence) au premier essai', async () => {
     const { calls, ctx } = fakeStripe([{ status: 200, body: { id: 'acct_v2', object: 'v2.core.account' } }]);
     await expect(createConnectedAccount(ctx, organizer)).resolves.toEqual({ id: 'acct_v2', api: 'v2', shape: 'v2' });
@@ -144,6 +212,16 @@ describe('createConnectedAccount', () => {
     expect(calls[2].body).not.toMatch(/(^|&)type=/);
   });
 
+  it('toute forme Express refusée : dernier filet au tableau de bord complet', async () => {
+    const { calls, ctx } = fakeStripe([
+      refused('v2'), refused('v2 vendeur seul'), refused('v1'), refused('v1 nu'),
+      { status: 200, body: { id: 'acct_full' } },
+    ]);
+    await expect(createConnectedAccount(ctx, organizer)).resolves.toEqual({ id: 'acct_full', api: 'v2', shape: 'v2-full-dashboard' });
+    expect(JSON.parse(calls[4].body!).dashboard).toBe('full');
+    expect(JSON.parse(calls[0].body!).dashboard).toBe('express');
+  });
+
   it('une panne serveur n’enchaîne JAMAIS (le compte a pu naître : pas de doublon)', async () => {
     const { calls, ctx } = fakeStripe([{ status: 500, body: { error: { message: 'boom' } } }]);
     await expect(createConnectedAccount(ctx, organizer)).rejects.toMatchObject({
@@ -154,10 +232,10 @@ describe('createConnectedAccount', () => {
   });
 
   it('tout refusé : l’erreur porte le premier message Stripe et chaque tentative', async () => {
-    const { ctx } = fakeStripe([refused('A'), refused('B'), refused('C'), refused('D')]);
+    const { ctx } = fakeStripe([refused('A'), refused('B'), refused('C'), refused('D'), refused('E')]);
     const err = await createConnectedAccount(ctx, organizer).catch((e) => e);
     expect(err.message).toBe('A');
-    expect(err.attempts.map((a: { shape: string }) => a.shape)).toEqual(['v2', 'v2-merchant-only', 'v1-controller', 'v1-controller-bare']);
+    expect(err.attempts.map((a: { shape: string }) => a.shape)).toEqual(['v2', 'v2-merchant-only', 'v1-controller', 'v1-controller-bare', 'v2-full-dashboard']);
   });
 
   it('un DJ (payee) ne demande que la réception de transferts', async () => {
@@ -208,6 +286,9 @@ describe('état du compte', () => {
     } }]);
     const s = await readConnectAccountState(ctx, 'acct_1');
     expect(s).toMatchObject({ chargesEnabled: true, payoutsEnabled: false, detailsSubmitted: true, hasRequirements: true, dashboard: 'full', source: 'v1' });
+    expect(s.country).toBeNull();
+    expect(stateFromV1Account({ country: 'es' }).country).toBe('ES');
+    expect(stateFromV2Account({ identity: { country: 'gb' } }).country).toBe('GB');
     expect(connectStatusOf(s)).toBe('restricted');
   });
 
@@ -329,5 +410,22 @@ describe('isDefinitiveRejection', () => {
     expect(isDefinitiveRejection(new StripeHttpError('x', 429, 'v2'))).toBe(false);
     expect(isDefinitiveRejection(new StripeHttpError('x', 500, 'v2'))).toBe(false);
     expect(isDefinitiveRejection(new TypeError('fetch failed'))).toBe(false);
+  });
+});
+
+describe('dashboardUrlFor', () => {
+  const base = { chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, hasRequirements: false, requirements: { currently_due: [], past_due: [] }, source: 'v2' as const };
+
+  it('Express : lien de connexion à usage unique généré par Stripe', async () => {
+    const { calls, ctx } = fakeStripe([{ status: 200, body: { url: 'https://connect.stripe.com/express/abc' } }]);
+    await expect(dashboardUrlFor(ctx, 'acct_1', { ...base, dashboard: 'express' })).resolves.toBe('https://connect.stripe.com/express/abc');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].url).toBe('https://api.stripe.com/v1/accounts/acct_1/login_links');
+  });
+
+  it('tableau de bord complet (filet) : dashboard.stripe.com, aucun appel Stripe', async () => {
+    const { calls, ctx } = fakeStripe([]);
+    await expect(dashboardUrlFor(ctx, 'acct_1', { ...base, dashboard: 'full' })).resolves.toBe(STRIPE_FULL_DASHBOARD_URL);
+    expect(calls).toHaveLength(0);
   });
 });
