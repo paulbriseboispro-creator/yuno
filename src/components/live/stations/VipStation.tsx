@@ -2,6 +2,7 @@ import { Crown, Clock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isMinSpendAtRisk, type VipStats } from '@/lib/liveops/extended';
 import { StationCard, StatTile, MicroLabel, T1, T2, T3, POS, NEG, AMBER, TILE_BG } from './StationCard';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   vip: VipStats;
@@ -34,7 +35,7 @@ export function VipStation({ vip, eventEndAt }: Props) {
     >
       <div className="grid grid-cols-2 gap-2 mb-3">
         <StatTile label={t('liveops.vip.bottles')} value={vip.bottlesServed} />
-        <StatTile label={t('liveops.vip.consumed')} value={`${vip.consumedTotal.toFixed(0)} €`} valueColor={POS} />
+        <StatTile label={t('liveops.vip.consumed')} value={`${formatMoneyAuto(vip.consumedTotal)}`} valueColor={POS} />
       </div>
 
       {/* Per-table min-spend progress */}
@@ -62,7 +63,7 @@ export function VipStation({ vip, eventEndAt }: Props) {
                     )}
                   </div>
                   <span className="tabular-nums flex-none" style={{ color: T2, fontSize: 11.5, fontWeight: 620 }}>
-                    {table.consumedTotal.toFixed(0)}{table.minimumSpend > 0 ? ` / ${table.minimumSpend.toFixed(0)}` : ''} €
+                    {formatMoneyAuto(table.consumedTotal)}{table.minimumSpend > 0 ? ` / ${formatMoneyAuto(table.minimumSpend)}` : ''}
                   </span>
                 </div>
                 {pct !== null && (

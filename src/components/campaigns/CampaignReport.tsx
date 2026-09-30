@@ -24,6 +24,7 @@ import {
   hasPillarActivity, pillarLines, pillarSummary,
   type CampaignAttribution, type PillarKey,
 } from '@/lib/emailAttribution';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens (match OwnerCampaigns) ───────────────────────────────
 const RED         = '#E8192C';
@@ -214,7 +215,7 @@ function PillarBreakdown({ attr, t }: { attr: CampaignAttribution; t: (k: string
                     color: line.revenue != null ? POS : T3, fontSize: 11.5, fontVariantNumeric: 'tabular-nums',
                   }}>
                     {line.revenue != null
-                      ? `${line.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}€`
+                      ? formatMoneyAuto(line.revenue)
                       : t('em.attr.free')}
                   </div>
                 </div>
@@ -624,7 +625,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                             <>
                               <FuStat
                                 label={t('em.report.fu.revenue')}
-                                value={`${fuAttribution.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}€`}
+                                value={formatMoneyAuto(fuAttribution.revenue)}
                                 accent={POS}
                               />
                               <FuStat label={t('em.report.fu.buyers')} value={fuAttribution.buyers.toLocaleString()} accent={POS} />
@@ -698,7 +699,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   <MetricTile icon={AlertTriangle} label={t('em.report.bounces')} value={extra.bounced.toLocaleString()} sub={fmtPct(extra.bounced, rc)} accent={extra.bounced > 0 ? WARN : undefined} />
                   {attribution && (
                     <>
-                      <MetricTile icon={Euro} label={t('em.report.attributedRevenue')} value={`${attribution.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}€`} accent={POS} />
+                      <MetricTile icon={Euro} label={t('em.report.attributedRevenue')} value={formatMoneyAuto(attribution.revenue)} accent={POS} />
                       <MetricTile icon={Users} label={t('em.report.attributedBuyers')} value={attribution.buyers.toLocaleString()} accent={POS} />
                     </>
                   )}

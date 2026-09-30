@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { capturePosthog } from '@/lib/posthog';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 /**
  * Configuration des tables (zones / packs / plan de salle) au niveau d'un event.
@@ -424,11 +425,11 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
                   <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border ml-5">
                     <div>
                       <div className="font-medium text-sm">
-                        {p.name} <span className="text-muted-foreground">— {Number(p.base_price).toFixed(0)}€</span>
+                        {p.name} <span className="text-muted-foreground">— {formatMoneyAuto(Number(p.base_price))}</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {p.base_capacity} {t('owner.coev.peopleWord')}
-                        {Number(p.deposit) > 0 && <> · {t('owner.coev.depositWord')} {Number(p.deposit).toFixed(0)}€</>}
+                        {Number(p.deposit) > 0 && <> · {t('owner.coev.depositWord')} {formatMoneyAuto(Number(p.deposit))}</>}
                       </div>
                     </div>
                     {!readOnly && (

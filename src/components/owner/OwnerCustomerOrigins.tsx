@@ -6,6 +6,7 @@ import { Globe, Users, MapPin, Plane, Building2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { COUNTRIES, COUNTRY_BY_NUMERIC, countryFromPhone, getCountryName, type Country } from '@/lib/countries';
+import { formatMoneyAuto } from '@/lib/money';
 
 // Lazy so mapbox-gl stays out of the main bundle (only loaded when the City tab opens).
 const CityGlobe = lazy(() => import('@/components/analytics/CityGlobe'));
@@ -364,7 +365,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                   >
                     <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{hover.flag} {hover.name}</p>
                     <p style={{ color: T2, fontSize: 11.5 }}>
-                      {hover.count} {L('origins.clients', language)} · {hover.revenue.toFixed(0)}€
+                      {hover.count} {L('origins.clients', language)} · {formatMoneyAuto(hover.revenue)}
                     </p>
                   </div>
                 )}
@@ -420,7 +421,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                             <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.07)' }}>
                               <div style={{ width: `${share}%`, height: '100%', background: RED }} />
                             </div>
-                            <span style={{ color: T3, fontSize: 10.5, minWidth: 64, textAlign: 'right' }}>{share.toFixed(0)}% · {s.revenue.toFixed(0)}€</span>
+                            <span style={{ color: T3, fontSize: 10.5, minWidth: 64, textAlign: 'right' }}>{share.toFixed(0)}% · {formatMoneyAuto(s.revenue)}</span>
                           </div>
                         </div>
                       </motion.button>

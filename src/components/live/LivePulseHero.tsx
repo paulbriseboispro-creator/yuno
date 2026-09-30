@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { ActiveEventInfo } from '@/hooks/useLiveNightData';
 import type { DoorStats } from '@/lib/liveops/extended';
 import { seriesValueAt, type ComparableNight } from '@/lib/liveops/compare';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED    = '#E8192C';
@@ -189,11 +190,11 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
               {t('liveops.hero.revenue')}
             </span>
             <div className="tabular-nums leading-none mt-1.5" style={{ color: T1, fontSize: 'clamp(26px,3vw,36px)', fontWeight: 640, letterSpacing: '-0.025em' }}>
-              {revenue.toFixed(0)} €
+              {formatMoneyAuto(revenue)}
             </div>
             {revenueDelta !== null && (
               <p className="tabular-nums" style={{ color: revenueDelta >= 0 ? POS : 'var(--acc-ff5c63)', fontSize: 11.5, marginTop: 4, fontWeight: 600 }}>
-                {revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(0)} € {t('liveops.hero.vsCompare')}
+                {revenueDelta >= 0 ? '+' : ''}{formatMoneyAuto(revenueDelta)} {t('liveops.hero.vsCompare')}
               </p>
             )}
           </div>
@@ -209,7 +210,7 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
               ).replace('{event}', comparison.eventTitle)}
               {compare && (
                 <span className="tabular-nums" style={{ color: T2 }}>
-                  {' '}· {compare.entries} {t('liveops.hero.entriesShort')} / {compare.revenue.toFixed(0)} €
+                  {' '}· {compare.entries} {t('liveops.hero.entriesShort')} / {formatMoneyAuto(compare.revenue)}
                 </span>
               )}
             </p>

@@ -33,6 +33,7 @@ import { StepTargeting } from './wizard/StepTargeting';
 import { StepCreatives } from './wizard/StepCreatives';
 import { StepReview } from './wizard/StepReview';
 import { RED, META_BLUE, T1, T2, T3, BORDER, FIELD_BG } from './wizard/ui';
+import { formatMoney, localeFor } from '@/lib/money';
 
 export interface WizardScope { venueId?: string | null; organizerUserId?: string | null }
 
@@ -245,7 +246,7 @@ export function CampaignWizard({
   const stepValid = activeSteps.map((k) => validByKey[k]);
   const days = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000));
   const totalEstimate = draft.budgetType === 'daily' ? draft.budgetEuros * days : draft.budgetEuros;
-  const fmtMoney = (eur: number) => new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: currency || 'EUR', maximumFractionDigits: 0 }).format(eur);
+  const fmtMoney = (eur: number) => formatMoney(eur, localeFor(language), currency || 'EUR');
 
   const go = (i: number) => { setStep(i); setFurthest((f) => Math.max(f, i)); setSubmitError(null); };
   const next = () => go(Math.min(activeSteps.length - 1, step + 1));

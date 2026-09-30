@@ -3,6 +3,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { Wine, TrendingUp, Package, Users, Clock, Target } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens (Yuno pro DA — single red accent, mono ramp) ────────────────
 const RED = '#E8192C';
@@ -22,10 +23,7 @@ const crd: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const fmtPrice = (n: number): string => {
-  const v = Math.round((n || 0) * 100) / 100;
-  return v % 1 === 0 ? `${v.toLocaleString()}€` : `${v.toFixed(2)}€`;
-};
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 // ─── Types (RPC get_vip_consumption_analytics → jsonb) ────────────────────────
 interface VipAnalytics {

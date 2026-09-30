@@ -13,6 +13,7 @@ import type { RefundableItem } from '@/components/owner/RefundItemCard';
 import { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder } from '@/hooks/useOwnerVipData';
 import { translate } from '@/i18n/orgTranslate';
 import { useCanRefund } from '@/hooks/useCanRefund';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface OwnerTableDetailSheetProps {
   reservation: OwnerVipReservation | null;
@@ -187,11 +188,11 @@ export function OwnerTableDetailSheet({
           <Card className="p-4 border-0 bg-muted/30 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">{t('ownerTable.depositPaid')}</span>
-              <span className="font-semibold">{reservation.deposit}€</span>
+              <span className="font-semibold">{formatMoneyAuto(reservation.deposit)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total table</span>
-              <span className="font-semibold">{reservation.totalPrice}€</span>
+              <span className="font-semibold">{formatMoneyAuto(reservation.totalPrice)}</span>
             </div>
 
             {/* Minimum spend — editable / waivable live */}
@@ -220,7 +221,7 @@ export function OwnerTableDetailSheet({
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">{minimumSpend}€</span>
+                  <span className="font-semibold">{formatMoneyAuto(minimumSpend)}</span>
                   {minimumSpend > 0 && (
                     <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs text-muted-foreground" disabled={savingMin} onClick={() => saveMin(0)}>
                       <RotateCcw className="w-3 h-3 mr-1" />
@@ -250,7 +251,7 @@ export function OwnerTableDetailSheet({
                   />
                 </div>
                 {remaining > 0 && (
-                  <p className="text-xs text-muted-foreground">Reste {remaining.toFixed(0)}€ pour atteindre le minimum</p>
+                  <p className="text-xs text-muted-foreground">Reste {formatMoneyAuto(remaining)} pour atteindre le minimum</p>
                 )}
               </div>
             )}
@@ -272,7 +273,7 @@ export function OwnerTableDetailSheet({
                 {orders.filter(o => isPreorderNote(o.notes)).flatMap(o => o.items).map((it, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{it.quantity}x {it.name}</span>
-                    <span className="font-medium">{(it.unitPrice * it.quantity).toFixed(0)}€</span>
+                    <span className="font-medium">{formatMoneyAuto(it.unitPrice * it.quantity)}</span>
                   </div>
                 ))}
               </div>
@@ -289,7 +290,7 @@ export function OwnerTableDetailSheet({
                 <Wine className="w-4 h-4 text-primary" />
                 Consommations
               </h4>
-              <span className="text-sm font-bold text-primary">{totalConsumed.toFixed(0)}€</span>
+              <span className="text-sm font-bold text-primary">{formatMoneyAuto(totalConsumed)}</span>
             </div>
             {consumptions.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('ownerTable.noConsumption')}</p>
@@ -300,7 +301,7 @@ export function OwnerTableDetailSheet({
                     <span className="text-muted-foreground">
                       {c.quantity}x {c.itemName}
                     </span>
-                    <span className="font-medium">{c.totalPrice.toFixed(0)}€</span>
+                    <span className="font-medium">{formatMoneyAuto(c.totalPrice)}</span>
                   </div>
                 ))}
               </div>

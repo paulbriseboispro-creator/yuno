@@ -18,6 +18,7 @@ import type { TablesInsert } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useTabParam } from '@/hooks/useTabParam';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED         = '#E8192C';
@@ -492,10 +493,10 @@ export default function OwnerDJs() {
 
                           <div className="flex justify-between mt-2 pt-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
                             <span style={{ color: T3, fontSize: 11.5 }}>
-                              {t('owner.pending')}: <span style={{ color: RED, fontWeight: 700 }}>{dj.pending_amount}€</span>
+                              {t('owner.pending')}: <span style={{ color: RED, fontWeight: 700 }}>{formatMoneyAuto(dj.pending_amount)}</span>
                             </span>
                             <span style={{ color: T3, fontSize: 11.5 }}>
-                              {t('owner.totalPaid')}: <span style={{ color: T1, fontWeight: 700 }}>{dj.total_paid}€</span>
+                              {t('owner.totalPaid')}: <span style={{ color: T1, fontWeight: 700 }}>{formatMoneyAuto(dj.total_paid)}</span>
                             </span>
                           </div>
                         </div>

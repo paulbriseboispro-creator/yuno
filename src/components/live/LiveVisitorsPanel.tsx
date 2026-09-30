@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Eye, ShoppingCart, CreditCard, CheckCircle2, Lock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -163,7 +164,7 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
       {cartValueTotal > 0 && (
         <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12, color: T3, fontSize: 12 }}>
           {t('owner.live.activeCartValue')}{': '}
-          <span className="tabular-nums" style={{ color: T1, fontWeight: 640 }}>{cartValueTotal.toFixed(0)} €</span>
+          <span className="tabular-nums" style={{ color: T1, fontWeight: 640 }}>{formatMoneyAuto(cartValueTotal)}</span>
         </div>
       )}
 

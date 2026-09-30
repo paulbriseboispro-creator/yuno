@@ -22,6 +22,7 @@ import {
   PromoProgress, PromoAvatar, DarkInput, PromoEmpty,
   RED, POS, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW,
 } from '@/components/promoter/promoter-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface UpcomingEvent {
   id: string; title: string; start_at: string;
@@ -230,7 +231,7 @@ export default function OwnerPromoters() {
             </div>
             <div className="min-w-0 flex-1">
               <p style={{ color: owedCount > 0 ? RED : POS, fontSize: 24, fontWeight: 760, letterSpacing: '-0.02em', margin: 0, lineHeight: 1 }}>
-                {kpis.pendingCommission.toFixed(0)}€
+                {formatMoneyAuto(kpis.pendingCommission)}
               </p>
               <p style={{ color: T2, fontSize: 12.5, margin: 0, marginTop: 3 }}>
                 {owedCount > 0
@@ -250,7 +251,7 @@ export default function OwnerPromoters() {
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <div className="grid grid-cols-3 gap-3">
           <StatTile icon={Ticket} value={kpis.ticketsSold} label={t('promoterProgram.ticketsSold')} />
-          <StatTile icon={CreditCard} value={`${kpis.revenue.toFixed(0)}€`} label={t('promoterProgram.revenue')} />
+          <StatTile icon={CreditCard} value={`${formatMoneyAuto(kpis.revenue)}`} label={t('promoterProgram.revenue')} />
           <StatTile icon={Percent} value={`${kpis.conversionRate.toFixed(1)}%`} label={t('promoterProgram.convRate')} />
         </div>
 
@@ -338,7 +339,7 @@ export default function OwnerPromoters() {
                     {displayName(p.firstName ? `${p.firstName} ${p.lastName || ''}`.trim() : null, p.promoCode, p.email)}
                   </p>
                   <div className="text-right shrink-0">
-                    <p style={{ color: T1, fontSize: 13, fontWeight: 720, margin: 0 }}>{p.revenue.toFixed(0)}€</p>
+                    <p style={{ color: T1, fontSize: 13, fontWeight: 720, margin: 0 }}>{formatMoneyAuto(p.revenue)}</p>
                     <p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{p.conversions} {t('promoterProgram.sales')}</p>
                   </div>
                 </button>
@@ -379,13 +380,13 @@ export default function OwnerPromoters() {
                     </div>
                     <p style={{ color: T3, fontSize: 11.5, fontFamily: 'monospace', margin: 0 }}>@{p.promoCode}</p>
                   </div>
-                  {p.pendingAmount > 0 && <PromoPill tone="red">{p.pendingAmount.toFixed(0)}€ {t('owner.promo.owed')}</PromoPill>}
+                  {p.pendingAmount > 0 && <PromoPill tone="red">{formatMoneyAuto(p.pendingAmount)} {t('owner.promo.owed')}</PromoPill>}
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {[
                     { value: p.clicks, label: t('promoterProgram.clicks') },
                     { value: p.conversions, label: t('promoterProgram.sales') },
-                    { value: `${p.revenue.toFixed(0)}€`, label: t('promoterProgram.revenue') },
+                    { value: `${formatMoneyAuto(p.revenue)}`, label: t('promoterProgram.revenue') },
                     { value: `${p.conversionRate.toFixed(0)}%`, label: t('promoterProgram.convRate') },
                   ].map((s, i) => (
                     <div key={i} style={{ background: TILE_BG, borderRadius: 9, padding: '8px 4px' }}>

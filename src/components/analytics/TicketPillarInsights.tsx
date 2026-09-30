@@ -2,6 +2,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { Wine, ArrowUpCircle, Gift, UserX, Shield, CalendarClock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TicketAnalytics } from '@/hooks/useAnalyticsData';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens (Yuno pro DA) ───────────────────────────────────────────────
 const RED = '#E8192C';
@@ -18,11 +19,7 @@ const crd: React.CSSProperties = {
   background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden',
 };
 
-const fmtPrice = (n: number): string => {
-  const v = Math.round((n || 0) * 100) / 100;
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k€`;
-  return v % 1 === 0 ? `${v.toLocaleString()}€` : `${v.toFixed(2)}€`;
-};
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 const LEAD_LABEL: Record<string, [string, string, string]> = {
   'J-0': ['Jour même', 'Same day', 'Mismo día'],

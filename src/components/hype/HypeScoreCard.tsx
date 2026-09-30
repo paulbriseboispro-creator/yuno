@@ -4,6 +4,7 @@ import { HypeScoreData } from '@/hooks/useHypeScore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatDistanceToNow } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -163,7 +164,7 @@ export function HypeScoreCard({ data, compact = false }: HypeScoreCardProps) {
             {!compact && <div className="flex items-center gap-1.5">
               <Euro className="h-3.5 w-3.5" style={{ color: T3 }} />
               <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
-                {data.quickStats.totalRevenue.toFixed(0)} €
+                {formatMoneyAuto(data.quickStats.totalRevenue)}
               </span>
             </div>}
             {!compact && <div className="flex items-center gap-1.5">

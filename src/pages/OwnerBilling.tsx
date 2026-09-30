@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -253,8 +254,8 @@ export default function OwnerBilling() {
                 {isCore
                   ? t('plan.ticketFeesOnly')
                   : billingInterval === 'annual'
-                    ? `${currentPlanInfo.priceAnnual}€ / ${t('plan.year')}`
-                    : `${currentPlanInfo.price}€ / ${t('plan.month')}`}
+                    ? `${formatMoneyAuto(currentPlanInfo.priceAnnual)} / ${t('plan.year')}`
+                    : `${formatMoneyAuto(currentPlanInfo.price)} / ${t('plan.month')}`}
               </p>
               {!isCore && currentPeriodEnd && isActive && (
                 <p style={{ color: T3, fontSize: 12, marginTop: 4 }}>
@@ -465,7 +466,7 @@ export default function OwnerBilling() {
                       ) : cycle === 'annual' ? (
                         <div>
                           <div className="flex items-baseline gap-1">
-                            <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{Math.round(planPrice(code, 'annual') / 12)}€</span>
+                            <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{formatMoneyAuto(planPrice(code, 'annual') / 12)}</span>
                             <span style={{ color: T3, fontSize: 12 }}>/{t('plan.month')}</span>
                           </div>
                           <p style={{ color: T3, fontSize: 11, marginTop: 3 }}>{t('plan.billedAnnually')}</p>
@@ -475,7 +476,7 @@ export default function OwnerBilling() {
                         </div>
                       ) : (
                         <div className="flex items-baseline gap-1">
-                          <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{p.price}€</span>
+                          <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{formatMoneyAuto(p.price)}</span>
                           <span style={{ color: T3, fontSize: 12 }}>/{t('plan.month')}</span>
                         </div>
                       )}

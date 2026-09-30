@@ -50,6 +50,7 @@ import { applyFreePreset } from '@/lib/applyFreePreset';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
 import { venueEventsOr } from '@/lib/coorg';
+import { formatMoneyAuto } from '@/lib/money';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -1562,7 +1563,7 @@ export default function OwnerTicketing() {
                               </span>
                               {minPrice !== null && (
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium tabular-nums" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-                                  {minPrice === maxPrice ? `${minPrice}€` : `${minPrice}€ – ${maxPrice}€`}
+                                  {minPrice === maxPrice ? formatMoneyAuto(minPrice) : `${formatMoneyAuto(minPrice)} – ${formatMoneyAuto(maxPrice)}`}
                                 </span>
                               )}
                             </>
@@ -1864,7 +1865,7 @@ export default function OwnerTicketing() {
                                           {round.includesDrink && <Wine className="h-3 w-3 flex-none" style={{ color: POS }} />}
                                         </span>
                                         <span className="flex-none" style={{ color: T1, fontWeight: 560 }}>
-                                          {mode !== 'simple' && round.maxTickets ? <>{round.maxTickets} × </> : null}{round.price}€
+                                          {mode !== 'simple' && round.maxTickets ? <>{round.maxTickets} × </> : null}{formatMoneyAuto(round.price)}
                                         </span>
                                       </div>
                                     ))}
@@ -1913,7 +1914,7 @@ export default function OwnerTicketing() {
                                           {round.includesDrink && <Wine className="h-3 w-3 flex-none" style={{ color: POS }} />}
                                         </span>
                                         <span className="flex-none" style={{ color: T1, fontWeight: 560 }}>
-                                          {mode !== 'simple' && <>{round.maxTickets} × </>}{round.price}€
+                                          {mode !== 'simple' && <>{round.maxTickets} × </>}{formatMoneyAuto(round.price)}
                                         </span>
                                       </div>
                                     ))}

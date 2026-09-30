@@ -21,6 +21,7 @@ import TemplatesSection from '@/components/campaigns/TemplatesSection';
 import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
 import AutomationSuggestions from '@/components/campaigns/AutomationSuggestions';
 import ContactBasePanel from '@/components/contacts/ContactBasePanel';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
 const RED = '#E8192C';
@@ -232,7 +233,7 @@ export default function OwnerCampaigns() {
           <KpiCard label={t('studio.list.kpiSent')} value={nf(kpis.sent)} sub={t('studio.list.kpi30d')} />
           <KpiCard label={t('studio.list.kpiOpen')} value={kpis.openRate != null ? `${kpis.openRate.toFixed(1).replace('.', ',')} %` : '—'} sub={t('studio.list.kpi30d')} />
           <KpiCard label={t('studio.list.kpiClick')} value={kpis.clickRate != null ? `${kpis.clickRate.toFixed(1).replace('.', ',')} %` : '—'} sub={t('studio.list.kpi30d')} />
-          <KpiCard red label={t('studio.list.kpiRevenue')} value={`${nf(Math.round(kpis.revenue))} €`} sub={t('studio.list.kpiRevenueSub')} />
+          <KpiCard red label={t('studio.list.kpiRevenue')} value={formatMoneyAuto(kpis.revenue)} sub={t('studio.list.kpiRevenueSub')} />
         </div>
 
         {/* ── Quota d'envoi du mois ──
@@ -364,7 +365,7 @@ export default function OwnerCampaigns() {
                         color: rev ? T1 : T3, fontSize: 13, fontWeight: rev ? 620 : 400,
                         textAlign: 'right', fontVariantNumeric: 'tabular-nums',
                       }}>
-                        {rev ? `${nf(Math.round(rev))} €` : '—'}
+                        {rev ? formatMoneyAuto(rev) : '—'}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                         <span style={{

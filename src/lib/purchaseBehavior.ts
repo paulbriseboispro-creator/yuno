@@ -6,6 +6,8 @@
  * phrases « À retenir ». Il n'agrège jamais une vente.
  */
 
+import { formatMoney, localeFor } from '@/lib/money';
+
 export type PbPillar = 'tickets' | 'tables' | 'drinks';
 export type PbLeadBucket = 'd30p' | 'd15_30' | 'd8_14' | 'd4_7' | 'd1_3' | 'h24' | 'after_start';
 
@@ -167,11 +169,7 @@ export function fmtNum(v: number | null, language: string, digits = 0): string {
 
 export function fmtEur(v: number | null, language: string): string {
   if (v == null || !isFinite(v)) return '—';
-  const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
-  return new Intl.NumberFormat(locale, {
-    style: 'currency', currency: 'EUR',
-    maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2, minimumFractionDigits: 0,
-  }).format(v);
+  return formatMoney(v, localeFor(language));
 }
 
 export interface PbInsight { key: string; text: string }

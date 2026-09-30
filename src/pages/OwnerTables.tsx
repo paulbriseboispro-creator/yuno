@@ -24,6 +24,7 @@ import { useTabParam } from '@/hooks/useTabParam';
 import { tint } from '@/lib/proTheme';
 import { capturePosthog } from '@/lib/posthog';
 import { venueEventsOr } from '@/lib/coorg';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -612,12 +613,12 @@ export default function OwnerTables() {
                                     <button onClick={() => setDeleteTarget({ kind: 'pack', id: pack.id, name: pack.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: 'var(--acc-ff5c63)' }}><Trash2 className="w-3 h-3" /></button>
                                   </div>
                                 </div>
-                                <p style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>{pack.basePrice}€</p>
+                                <p style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>{formatMoneyAuto(pack.basePrice)}</p>
                                 <div className="mt-1 space-y-0.5">
                                   <p style={{ color: T3, fontSize: 11.5 }}>{pack.limitTables ? `${pack.tablesCount} table${pack.tablesCount !== 1 ? 's' : ''} max · ` : ''}{pack.baseCapacity} pers. incluses{pack.maxExtraPersons > 0 ? ` · +${pack.maxExtraPersons} extras max` : ''}</p>
-                                  {pack.maxExtraPersons > 0 && pack.extraPersonPrice > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Extra: {pack.extraPersonPrice}€ / pers.</p>}
-                                  {pack.minimumSpend > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Conso. min: {pack.minimumSpend}€</p>}
-                                  {pack.deposit > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Dépôt: {pack.deposit}{pack.depositType === 'percentage' ? '%' : '€'}</p>}
+                                  {pack.maxExtraPersons > 0 && pack.extraPersonPrice > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Extra: {formatMoneyAuto(pack.extraPersonPrice)} / pers.</p>}
+                                  {pack.minimumSpend > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Conso. min: {formatMoneyAuto(pack.minimumSpend)}</p>}
+                                  {pack.deposit > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Dépôt: {pack.depositType === 'percentage' ? `${pack.deposit}%` : formatMoneyAuto(pack.deposit)}</p>}
                                   {pack.description && <p style={{ color: T2, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>{pack.description}</p>}
                                 </div>
                               </div>
@@ -670,8 +671,8 @@ export default function OwnerTables() {
                               <div key={i} className="flex items-center justify-between">
                                 <span style={{ color: T2, fontSize: 12 }}>{orig.name}</span>
                                 <div className="flex items-center gap-1.5">
-                                  {pp.customPrice !== null && pp.customPrice !== orig.basePrice && <span style={{ color: T3, fontSize: 11, textDecoration: 'line-through' }}>{orig.basePrice}€</span>}
-                                  <span style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{pp.customPrice ?? orig.basePrice}€</span>
+                                  {pp.customPrice !== null && pp.customPrice !== orig.basePrice && <span style={{ color: T3, fontSize: 11, textDecoration: 'line-through' }}>{formatMoneyAuto(orig.basePrice)}</span>}
+                                  <span style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{formatMoneyAuto(pp.customPrice ?? orig.basePrice)}</span>
                                 </div>
                               </div>
                             );
@@ -824,7 +825,7 @@ export default function OwnerTables() {
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
                                 <span style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{pack.name}</span>
-                                <span style={{ color: T3, fontSize: 11 }}>{t('tables.useOriginalPrice')}: {pack.basePrice}€</span>
+                                <span style={{ color: T3, fontSize: 11 }}>{t('tables.useOriginalPrice')}: {formatMoneyAuto(pack.basePrice)}</span>
                               </div>
                               {isSelected && (
                                 <div className="flex items-center gap-2 mt-2">

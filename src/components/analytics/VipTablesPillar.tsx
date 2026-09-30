@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import type { TableAnalytics } from '@/hooks/useAnalyticsData';
 import { VipConsumptionSection } from './VipConsumptionSection';
 import { VipHostLeaderboard } from './VipHostLeaderboard';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens (Yuno pro DA — single red accent, opacity ramp) ─────────────
 const RED = '#E8192C';
@@ -32,11 +33,7 @@ const crd: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const fmtPrice = (n: number): string => {
-  const v = Math.round((n || 0) * 100) / 100;
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k€`;
-  return v % 1 === 0 ? `${v.toLocaleString()}€` : `${v.toFixed(2)}€`;
-};
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 // ─── RPC shape — get_vip_table_analytics (migration 20260725130000) ────────────
 export interface VipTableAnalytics {

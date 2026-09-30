@@ -17,6 +17,7 @@ import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import type { VenueFloorPlan } from '@/types';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface OrgEventTablesPanelProps {
   eventId: string;
@@ -883,13 +884,13 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                 {zonePacks.map((p) => (
                   <div key={p.id} className="ml-5 flex items-center justify-between rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
                     <div>
-                      <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{p.name} <span style={{ color: T3 }}>— {Number(p.base_price).toFixed(0)}€</span></div>
+                      <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{p.name} <span style={{ color: T3 }}>— {formatMoneyAuto(Number(p.base_price))}</span></div>
                       <div style={{ color: T3, fontSize: 11.5 }}>
                         {p.base_capacity} {tt('pers.', 'guests', 'pers.')}
                         {p.limit_tables && <> · {p.tables_count} {tt('tables max', 'tables max', 'mesas máx.')}</>}
                         {p.payment_mode === 'on_site'
                           ? <> · <span style={{ color: 'var(--acc-34d399)' }}>{tt('Règlement sur place', 'Paid on site', 'Pago en el local')}</span></>
-                          : Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
+                          : Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {formatMoneyAuto(Number(p.deposit))}</>}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1200,7 +1201,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                                         <li key={pk.id} className="flex items-baseline justify-between gap-2">
                                           <span className="truncate" style={{ color: T2, fontSize: 12 }}>{pk.name}</span>
                                           <span className="shrink-0 tabular-nums" style={{ color: T3, fontSize: 11 }}>
-                                            {Number(pk.base_price).toFixed(0)} € · {pk.base_capacity} {tt('pers.', 'guests', 'pers.')}
+                                            {formatMoneyAuto(Number(pk.base_price))} · {pk.base_capacity} {tt('pers.', 'guests', 'pers.')}
                                             {bound !== undefined
                                               ? ` · ${bound} ${tt('tables', 'tables', 'mesas')}`
                                               : pk.limit_tables ? ` · ${pk.tables_count} max` : ''}

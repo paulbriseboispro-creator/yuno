@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Event } from '@/types';
 import { TicketRound } from '@/types/ticketing';
 import { RED, POS, GOLD, T1, T2, T3, TILE } from './ticketing-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface EventRoundRowProps {
   round: TicketRound;
@@ -51,7 +52,7 @@ export function EventRoundRow({ round, event, isSimpleMode, isVip, onEdit, onDel
           )}
         </div>
         <div className="mt-1.5 tabular-nums" style={{ color: T3, fontSize: 12.5 }}>
-          <span style={{ color: T2 }}>{round.price}€</span> · {isSimpleMode ? `${round.ticketsSold}` : `${round.ticketsSold}/${round.maxTickets}`} {t('tickets.sold')}
+          <span style={{ color: T2 }}>{formatMoneyAuto(round.price)}</span> · {isSimpleMode ? `${round.ticketsSold}` : `${round.ticketsSold}/${round.maxTickets}`} {t('tickets.sold')}
           {round.entryDeadline && (
             <span className="ml-2" style={{ color: RED }}>
               <Clock className="h-3 w-3 inline mr-0.5" />

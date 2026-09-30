@@ -4,6 +4,8 @@
 // et, à défaut de coordonnées serveur, géocoder un nom de ville (cache
 // localStorage partagé avec CityGlobe — même clé `yuno_geo_<ville>`).
 
+import { formatMoney, localeFor } from '@/lib/money';
+
 export type LiveStage = 'browsing' | 'cart' | 'checkout' | 'paid';
 export type LiveFeedKind = 'visit' | 'ticket' | 'table' | 'guestlist' | 'order';
 export type LivePageKind =
@@ -161,8 +163,7 @@ export function timeAgoLabel(ts: string | number, nowMs: number, t: (k: string) 
 }
 
 export function fmtEuro(n: number, language: string): string {
-  const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
-  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: n >= 1000 ? 0 : 2, minimumFractionDigits: 0 }).format(n);
+  return formatMoney(n, localeFor(language));
 }
 
 export function fmtInt(n: number, language: string): string {

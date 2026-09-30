@@ -9,6 +9,7 @@ import {
   UInfoBanner, UEmpty, ULoading, UPill,
   CARD_BG, INNER_BG, BORDER, T1, T3, POS,
 } from './upsell-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface DrinkWithPromo {
   id: string;
@@ -120,7 +121,7 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[13.5px] font-medium truncate" style={{ color: T1 }}>{drink.name}</h4>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[12px] line-through tabular-nums" style={{ color: T3 }}>{drink.price}€</span>
+                          <span className="text-[12px] line-through tabular-nums" style={{ color: T3 }}>{formatMoneyAuto(drink.price)}</span>
                           <input
                             type="number"
                             step="0.01"
@@ -168,7 +169,7 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-[13.5px] font-medium truncate" style={{ color: T1 }}>{drink.name}</h4>
-                    <span className="text-[12px] tabular-nums" style={{ color: T3 }}>{drink.price}€</span>
+                    <span className="text-[12px] tabular-nums" style={{ color: T3 }}>{formatMoneyAuto(drink.price)}</span>
                   </div>
                   <Switch checked={false} onCheckedChange={() => togglePromo(drink)} />
                 </div>

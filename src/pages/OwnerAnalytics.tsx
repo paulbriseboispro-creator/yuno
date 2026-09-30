@@ -39,6 +39,7 @@ import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 import { SalesOverviewView } from '@/components/analytics/families/SalesOverviewView';
 import { SalesPillarDetail } from '@/components/analytics/families/SalesPillarDetail';
+import { formatMoney, localeFor } from '@/lib/money';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -226,12 +227,9 @@ export default function OwnerAnalytics() {
 
   // ── Pro / Elite ──────────────────────────────────────────────────────────────
 
-  // Montants au format de la langue : « 321 € » / « 3,1 k€ » en français,
-  // « €321 » / « €3.1K » en anglais — jamais un « €321 » figé.
-  const fmt = (n: number) => new Intl.NumberFormat(
-    language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB',
-    { style: 'currency', currency: 'EUR', notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(n) >= 10000 ? 1 : 0 },
-  ).format(n);
+  // Montants au format de la langue, toujours à deux décimales : « 321,00 € »
+  // en français, « €321.00 » en anglais (`src/lib/money.ts`).
+  const fmt = (n: number) => formatMoney(n, localeFor(language));
 
   // Période des vues qui lisent encore une fenêtre d'achats (Achats, Public).
   const periodOptions = [

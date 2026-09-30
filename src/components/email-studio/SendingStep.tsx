@@ -9,6 +9,7 @@ import {
   BORDER, FONT_UI, GhostBtn, Help, PrimaryBtn, RED,
   RED_SOFT_GRAD, SUBTLE, T1, T2, T3, WARN,
 } from './ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 /** Écran Envoi : carte centrée, progression réelle, CA attribué (prototype). */
 export default function SendingStep({ onExit, onStudio }: { onExit: () => void; onStudio: () => void }) {
@@ -131,7 +132,7 @@ export default function SendingStep({ onExit, onStudio }: { onExit: () => void; 
               <TrendingUp size={15} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />
               <span style={{ flex: 1, color: T2, fontSize: 12, fontFamily: FONT_UI }}>{t('studio.sending.revenue')}</span>
               <span style={{ color: T1, fontSize: 16, fontWeight: 640, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
-                {attribution.revenue.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                {formatMoneyAuto(attribution.revenue)}
               </span>
             </div>
             {hasPillarActivity(attribution) && (

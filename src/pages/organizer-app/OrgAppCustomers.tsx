@@ -24,6 +24,7 @@ import { OrgPageHeader } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
 import { exportContactBase } from '@/lib/contactBaseExport';
 import { orgEventsOr } from '@/lib/coorg';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -466,7 +467,7 @@ export default function OrgAppCustomers() {
           </div>
           {s && <TierBadge tier={s.tier} size="sm" />}
           <span style={{ color: T1, fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 48, textAlign: 'right' }}>
-            {customer.total_spent.toFixed(0)}€
+            {formatMoneyAuto(customer.total_spent)}
           </span>
         </div>
       </motion.div>
@@ -499,9 +500,9 @@ export default function OrgAppCustomers() {
             { icon: Users, label: t('customers.totalClients'), value: analytics.totalCustomers, color: T2 },
             { icon: TrendingUp, label: t('customers.activeClients'), value: analytics.activeCustomers, color: POS },
             { icon: ArrowDownRight, label: t('customers.churnRiskStat'), value: analytics.churn, color: 'var(--acc-fb923c)' },
-            { icon: Euro, label: t('customers.totalRevenue'), value: `${analytics.totalSpent.toFixed(0)}€`, color: T2 },
-            { icon: Activity, label: t('customers.revenue30'), value: `${analytics.revenue30.toFixed(0)}€`, color: T2 },
-            { icon: Target, label: t('customers.avgSpent'), value: `${analytics.avgSpentPerCustomer.toFixed(0)}€`, color: T2 },
+            { icon: Euro, label: t('customers.totalRevenue'), value: `${formatMoneyAuto(analytics.totalSpent)}`, color: T2 },
+            { icon: Activity, label: t('customers.revenue30'), value: `${formatMoneyAuto(analytics.revenue30)}`, color: T2 },
+            { icon: Target, label: t('customers.avgSpent'), value: `${formatMoneyAuto(analytics.avgSpentPerCustomer)}`, color: T2 },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="px-4 py-3 rounded-xl" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
               <div className="flex items-center gap-1.5 mb-0.5">
@@ -843,9 +844,9 @@ export default function OrgAppCustomers() {
                     {/* Stats grid */}
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { label: t('customers.totalSpent'), value: `${selectedCustomer.total_spent.toFixed(0)}€` },
-                        { label: t('customers.revenue30'), value: `${selectedCustomer.revenue_30d.toFixed(0)}€` },
-                        { label: t('customers.avgBasket'), value: `${selectedCustomer.avg_basket.toFixed(0)}€` },
+                        { label: t('customers.totalSpent'), value: `${formatMoneyAuto(selectedCustomer.total_spent)}` },
+                        { label: t('customers.revenue30'), value: `${formatMoneyAuto(selectedCustomer.revenue_30d)}` },
+                        { label: t('customers.avgBasket'), value: `${formatMoneyAuto(selectedCustomer.avg_basket)}` },
                         { label: t('customers.visitsPerMonth'), value: selectedCustomer.visits_per_month.toFixed(1) },
                         { label: t('customers.preferredDay'), value: dowName(selectedCustomer.preferred_dow) },
                         { label: t('owner.cust.totalVisits'), value: selectedCustomer.visit_nights || ((selectedCustomer.ticket_count || 0) + (selectedCustomer.table_count || 0)) },

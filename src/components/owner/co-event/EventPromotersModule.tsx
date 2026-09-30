@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Megaphone, Ticket, Euro, Percent, MousePointerClick, TrendingUp, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface PromoterEventStats {
   promoterId: string;
@@ -175,8 +176,8 @@ export function EventPromotersModule({ eventId }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard icon={MousePointerClick} label={t('coEvent.kpiClicks')} value={totals.clicks.toString()} />
         <KpiCard icon={Ticket} label={t('coEvent.kpiTicketsSold')} value={totals.ticketsSold.toString()} />
-        <KpiCard icon={Euro} label={t('coEvent.kpiRevenue')} value={`${totals.revenue.toFixed(0)}€`} />
-        <KpiCard icon={Percent} label={t('coEvent.kpiCommission')} value={`${totals.commission.toFixed(0)}€`} accent />
+        <KpiCard icon={Euro} label={t('coEvent.kpiRevenue')} value={`${formatMoneyAuto(totals.revenue)}`} />
+        <KpiCard icon={Percent} label={t('coEvent.kpiCommission')} value={`${formatMoneyAuto(totals.commission)}`} accent />
       </div>
 
       {/* Per-promoter table */}
@@ -208,7 +209,7 @@ export function EventPromotersModule({ eventId }: Props) {
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">CA</p>
-                <p className="text-sm font-bold">{p.revenue.toFixed(0)}€</p>
+                <p className="text-sm font-bold">{formatMoneyAuto(p.revenue)}</p>
               </div>
               <Badge variant="outline" className="hidden md:flex text-xs">
                 <TrendingUp className="h-3 w-3 mr-1" />

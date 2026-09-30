@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from './scopeFilter';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -267,7 +268,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
                       <td className="px-2 py-2 text-right tabular-nums" style={{ color: T1 }}>{u.visits}</td>
                       <td className="px-2 py-2 text-right tabular-nums font-semibold" style={{ color: POS }}>{u.conversions}</td>
                       <td className="px-2 py-2 text-right tabular-nums font-semibold" style={{ color: T1 }}>
-                        {(u.revenueCents / 100).toFixed(0)}€
+                        {formatMoneyAuto(u.revenueCents / 100)}
                       </td>
                     </tr>
                   ))}

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, Minus, GitCompare } from 'lucide-react';
 import { EventComparisonData } from '@/hooks/useHypeScore';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const POS      = 'var(--acc-34d399)';
@@ -76,10 +77,10 @@ export function HypeEventComparison({ data }: HypeEventComparisonProps) {
               <span style={{ color: T2, fontSize: 13 }}>{row.label}</span>
               <div className="flex items-center gap-3">
                 <span className="tabular-nums" style={{ color: T1, fontSize: 13.5, fontWeight: 640 }}>
-                  {row.isCurrency ? `${row.current.toFixed(0)} €` : row.current}
+                  {row.isCurrency ? `${formatMoneyAuto(row.current)}` : row.current}
                 </span>
                 <span className="tabular-nums" style={{ color: T3, fontSize: 11.5 }}>
-                  vs {row.isCurrency ? `${row.previous.toFixed(0)} €` : row.previous}
+                  vs {row.isCurrency ? `${formatMoneyAuto(row.previous)}` : row.previous}
                 </span>
                 <DeltaBadge current={row.current} previous={row.previous} />
               </div>

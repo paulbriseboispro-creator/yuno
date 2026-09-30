@@ -16,6 +16,7 @@ import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/ge
 import { useLanguage } from '@/contexts/LanguageContext';
 import { resolveYunoFee, getEffectiveSplit, storedYunoFee, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
 import type { Json } from '@/integrations/supabase/types';
+import { formatMoneyAuto } from '@/lib/money';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -444,30 +445,30 @@ export function EventInvoicesModule({ eventId }: Props) {
           <p className="text-[10px] text-muted-foreground">{t('coInv.invoices')}</p>
         </CardContent></Card>
         <Card className="owner-card border-0"><CardContent className="p-3 text-center">
-          <p className="text-2xl font-bold">{totals.total.toFixed(0)} €</p>
+          <p className="text-2xl font-bold">{formatMoneyAuto(totals.total)}</p>
           <p className="text-[10px] text-muted-foreground">{t('coInv.totalCollected')}</p>
         </CardContent></Card>
         {showCoSelector && (viewMode === 'venue' || viewMode === 'organizer') ? (
           <>
             <Card className="owner-card border-0 ring-1 ring-primary/40"><CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-primary">{totals.yourShare.toFixed(0)} €</p>
+              <p className="text-2xl font-bold text-primary">{formatMoneyAuto(totals.yourShare)}</p>
               <p className="text-[10px] text-muted-foreground">
                 {viewMode === 'venue' ? t('coInv.clubShare') : t('coInv.organizerShare')}
               </p>
             </CardContent></Card>
             <Card className="owner-card border-0"><CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-muted-foreground">{totals.partnerShare.toFixed(0)} €</p>
+              <p className="text-2xl font-bold text-muted-foreground">{formatMoneyAuto(totals.partnerShare)}</p>
               <p className="text-[10px] text-muted-foreground">{t('coInv.partnerShare')}</p>
             </CardContent></Card>
           </>
         ) : (
           <>
             <Card className="owner-card border-0"><CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold">{totals.byType.ticket.toFixed(0)} €</p>
+              <p className="text-2xl font-bold">{formatMoneyAuto(totals.byType.ticket)}</p>
               <p className="text-[10px] text-muted-foreground">{t('coInv.tickets')}</p>
             </CardContent></Card>
             <Card className="owner-card border-0"><CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold">{totals.byType.table.toFixed(0)} €</p>
+              <p className="text-2xl font-bold">{formatMoneyAuto(totals.byType.table)}</p>
               <p className="text-[10px] text-muted-foreground">{t('coInv.tables')}</p>
             </CardContent></Card>
           </>

@@ -23,6 +23,7 @@ import {
   PromoHeader, PromoPage, PromoCard, StatTile, SectionLabel, PromoPill, PromoButton, PromoProgress,
   PromoAvatar, PromoEmpty, RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, TILE_BG, INNER_BG,
 } from '@/components/promoter/promoter-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 
 // Forme réellement lue par getRewardLabel ; le JSON DB peut porter d'autres clés, ignorées ici.
@@ -422,8 +423,8 @@ export default function OwnerPromoterDetail() {
           <StatTile icon={Calendar} value={stats.tablesReserved} label="Tables" />
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <StatTile value={`${stats.totalRevenue.toFixed(0)}€`} label={t('promoterProgram.revenue')} />
-          <StatTile value={`${stats.pendingCommission.toFixed(0)}€`} label={t('promoterProgram.pendingComm')} accent />
+          <StatTile value={`${formatMoneyAuto(stats.totalRevenue)}`} label={t('promoterProgram.revenue')} />
+          <StatTile value={`${formatMoneyAuto(stats.pendingCommission)}`} label={t('promoterProgram.pendingComm')} accent />
         </div>
 
         {/* Tabs */}
@@ -443,14 +444,14 @@ export default function OwnerPromoterDetail() {
                 <PromoCard key={ae.eventId} onClick={() => navigate(`/promoter/event/${ae.eventId}?promoter=${id}`)}>
                   <h4 style={{ color: T1, fontSize: 14, fontWeight: 620, margin: 0, marginBottom: 10 }}>{ae.title}</h4>
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    {[{ v: ae.tickets, l: tt('Ventes', 'Sales') }, { v: `${ae.revenue.toFixed(0)}€`, l: t('promoterProgram.revenue') }].map((s, i) => (
+                    {[{ v: ae.tickets, l: tt('Ventes', 'Sales') }, { v: `${formatMoneyAuto(ae.revenue)}`, l: t('promoterProgram.revenue') }].map((s, i) => (
                       <div key={i} style={{ background: TILE_BG, borderRadius: 9, padding: '9px 6px' }}>
                         <p style={{ color: T1, fontSize: 15, fontWeight: 700, margin: 0 }}>{s.v}</p>
                         <p style={{ color: T3, fontSize: 10, margin: 0 }}>{s.l}</p>
                       </div>
                     ))}
                     <div style={{ background: 'rgba(232,25,44,0.08)', borderRadius: 9, padding: '9px 6px' }}>
-                      <p style={{ color: RED, fontSize: 15, fontWeight: 700, margin: 0 }}>{ae.commission.toFixed(0)}€</p>
+                      <p style={{ color: RED, fontSize: 15, fontWeight: 700, margin: 0 }}>{formatMoneyAuto(ae.commission)}</p>
                       <p style={{ color: T3, fontSize: 10, margin: 0 }}>Comm.</p>
                     </div>
                   </div>
@@ -491,8 +492,8 @@ export default function OwnerPromoterDetail() {
                 {[
                   { label: tt('Clics', 'Clicks'), value: stats.totalClicks, icon: MousePointerClick, pct: 100 },
                   { label: 'Conversions', value: stats.totalConversions, icon: Ticket, pct: stats.totalClicks > 0 ? (stats.totalConversions / stats.totalClicks) * 100 : 0 },
-                  { label: tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)'), value: `${stats.totalRevenue.toFixed(0)}€`, icon: Euro, pct: stats.totalClicks > 0 ? (stats.totalConversions / stats.totalClicks) * 100 : 0 },
-                  { label: 'Commission', value: `${stats.totalCommission.toFixed(0)}€`, icon: TrendingUp, pct: stats.totalRevenue > 0 ? (stats.totalCommission / stats.totalRevenue) * 100 : 0 },
+                  { label: tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)'), value: `${formatMoneyAuto(stats.totalRevenue)}`, icon: Euro, pct: stats.totalClicks > 0 ? (stats.totalConversions / stats.totalClicks) * 100 : 0 },
+                  { label: 'Commission', value: `${formatMoneyAuto(stats.totalCommission)}`, icon: TrendingUp, pct: stats.totalRevenue > 0 ? (stats.totalCommission / stats.totalRevenue) * 100 : 0 },
                 ].map((step, i, arr) => (
                   <div key={step.label}>
                     <div className="flex items-center gap-3">
@@ -585,7 +586,7 @@ export default function OwnerPromoterDetail() {
                                 <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: isActive ? RED : isCompleted ? 'rgba(232,25,44,0.5)' : 'rgb(var(--ink)/var(--ink-a20,0.2))' }} />
                                 <span className="flex-1">{tier.min}{tier.max ? `–${tier.max}` : '+'} {t('owner.promoB.salesWord')}</span>
                                 <span style={{ fontWeight: 600, color: isActive ? RED : undefined }}>
-                                  {tier.reward_type === 'money' ? `${tier.ticketValue || 0}€` : tier.reward_type === 'none' ? t('owner.promoB.rewardNone') : getRewardLabel(t, tier.reward_type, tier.reward_config)}
+                                  {tier.reward_type === 'money' ? formatMoneyAuto(Number(tier.ticketValue || 0)) : tier.reward_type === 'none' ? t('owner.promoB.rewardNone') : getRewardLabel(t, tier.reward_type, tier.reward_config)}
                                 </span>
                               </div>
                             );
@@ -621,7 +622,7 @@ export default function OwnerPromoterDetail() {
 
             <div className="grid grid-cols-2 gap-2.5">
               <StatTile value={`${conversionRate.toFixed(1)}%`} label={tt('Taux de conversion', 'Conversion rate')} />
-              <StatTile value={`${stats.totalConversions > 0 ? (stats.totalRevenue / stats.totalConversions).toFixed(0) : 0}€`} label={tt('Panier moyen', 'Avg basket')} />
+              <StatTile value={formatMoneyAuto(stats.totalConversions > 0 ? stats.totalRevenue / stats.totalConversions : 0)} label={tt('Panier moyen', 'Avg basket')} />
             </div>
 
             {/* History */}

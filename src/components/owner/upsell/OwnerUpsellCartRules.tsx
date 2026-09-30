@@ -11,6 +11,7 @@ import {
   UInfoBanner, UButton, UInput, USelect, UFieldLabel, UEmpty, ULoading, UIconButton,
   DIALOG_STYLE, CARD_BG, INNER_BG, BORDER, T1, T2, T3, RED, WARN, POS,
 } from './upsell-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface CartRule {
   id: string;
@@ -403,7 +404,7 @@ export function OwnerUpsellCartRules({ venueId }: { venueId: string }) {
                   <USelect value={rewardDrinkId || '__any__'} onChange={(v) => setRewardDrinkId(v === '__any__' ? '' : v)}>
                     <option value="__any__">{t('upsell.anyDrinkInCategory')}</option>
                     {drinks.filter(d => d.collection === rewardCollection).map(d => (
-                      <option key={d.id} value={d.id}>{d.name} ({d.price}€)</option>
+                      <option key={d.id} value={d.id}>{d.name} ({formatMoneyAuto(d.price)})</option>
                     ))}
                   </USelect>
                 </div>

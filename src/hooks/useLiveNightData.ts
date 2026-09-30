@@ -331,14 +331,14 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
     orders.slice(0, 30).forEach(o => {
       if (o.status === 'refunded' || o.refunded_at) {
-        items.push({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || o.total || 0).toFixed(0)} €`, timestamp: o.refunded_at || o.created_at });
+        items.push({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || o.total || 0).toFixed(2)} €`, timestamp: o.refunded_at || o.created_at });
       }
       if (o.status === 'served' || o.prep_status === 'served') {
         items.push({ id: feedId('srv', o.id), type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || o.created_at });
       } else if (o.prep_status === 'ready') {
         items.push({ id: feedId('rdy', o.id), type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.ready_at || o.created_at });
       } else if (o.status === 'paid') {
-        items.push({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
+        items.push({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(2)} €`, timestamp: o.created_at, actor: o.user_email });
       }
     });
 
@@ -591,7 +591,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
       // Revenue per attendee (€)
       const revenuePerAttendee = totalEntries > 0
-        ? +(totalRevenue / totalEntries).toFixed(1)
+        ? +(totalRevenue / totalEntries).toFixed(2)
         : 0;
 
       setAdvancedMetrics({
@@ -768,12 +768,12 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         scheduleRefetch();
         if (payload.eventType === 'INSERT') {
           const o = payload.new as RtOrderRow;
-          addRealtimeFeedItem({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
+          addRealtimeFeedItem({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(2)} €`, timestamp: o.created_at, actor: o.user_email });
         } else if (payload.eventType === 'UPDATE') {
           const o = payload.new as RtOrderRow;
           if (o.prep_status === 'ready') addRealtimeFeedItem({ id: feedId('rdy', o.id), type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: new Date().toISOString() });
           if (o.status === 'served' || o.prep_status === 'served') addRealtimeFeedItem({ id: feedId('srv', o.id), type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || new Date().toISOString() });
-          if (o.refunded_at && !payload.old?.refunded_at) addRealtimeFeedItem({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || 0).toFixed(0)} €`, timestamp: o.refunded_at });
+          if (o.refunded_at && !payload.old?.refunded_at) addRealtimeFeedItem({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || 0).toFixed(2)} €`, timestamp: o.refunded_at });
         }
       }).subscribe();
 

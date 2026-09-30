@@ -5,9 +5,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { tierFor, validateTiers } from '@/lib/splitRules';
 import type { CollabRemuneration, CollabTier } from '@/hooks/useOrganizerPartnerships';
+import { formatMoney } from '@/lib/money';
 
-const formatEur = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: n % 1 === 0 ? 0 : 2 }).format(n);
+const formatEur = (n: number) => formatMoney(n, 'fr-FR');
 
 export type RemunerationMode = 'per_pillar' | 'tiered_total';
 

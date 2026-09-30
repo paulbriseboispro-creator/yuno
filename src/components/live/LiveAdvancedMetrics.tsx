@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Users, Timer, Activity, RotateCcw, Wallet } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { LiveAdvancedMetrics } from '@/hooks/useLiveNightData';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const POS      = 'var(--acc-34d399)';
@@ -57,7 +58,7 @@ export function LiveAdvancedMetricsBar({ metrics }: Props) {
     {
       key: 'rpa',
       label: t('live.adv.revenuePerAttendee'),
-      value: `${metrics.revenuePerAttendee} €`,
+      value: `${formatMoneyAuto(metrics.revenuePerAttendee)}`,
       icon: Wallet,
       color: POS,
       hint: t('live.adv.revenuePerAttendeeHint'),

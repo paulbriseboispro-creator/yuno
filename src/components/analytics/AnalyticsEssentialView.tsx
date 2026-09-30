@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import type { DrinkAnalytics, TicketAnalytics, TableAnalytics, RefundAnalytics } from '@/hooks/useAnalyticsData';
 import { payoutStrip } from '@/utils/fees';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   drinkAnalytics: DrinkAnalytics;
@@ -16,7 +17,7 @@ interface Props {
   refundAnalytics?: RefundAnalytics | null;
 }
 
-const fmtPrice = (n: number): string => n % 1 === 0 ? `${n}€` : `${n.toFixed(2)}€`;
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 const glassTooltipStyle = {
   backgroundColor: 'hsla(0, 0%, 6%, 0.95)',

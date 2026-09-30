@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { DollarSign, Ticket, ShoppingCart, Clock, CheckCircle, TrendingUp, Users, RotateCcw, Shirt } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { LiveKPIs } from '@/hooks/useLiveNightData';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const POS      = 'var(--acc-34d399)';
@@ -20,12 +21,12 @@ export function LiveKPIBar({ kpis }: Props) {
   const { t } = useLanguage();
 
   const cards = [
-    { key: 'revenue',   label: t('live.revenue'),      value: `${kpis.revenue.toFixed(0)} €`, icon: DollarSign,  iconColor: POS },
+    { key: 'revenue',   label: t('live.revenue'),      value: `${formatMoneyAuto(kpis.revenue)}`, icon: DollarSign,  iconColor: POS },
     { key: 'tickets',   label: t('live.ticketsSold'),  value: kpis.ticketsSold,               icon: Ticket,       iconColor: T3 },
     { key: 'orders',    label: t('live.ordersPlaced'), value: kpis.ordersPlaced,              icon: ShoppingCart, iconColor: T3 },
     { key: 'pending',   label: t('live.pending'),      value: kpis.ordersPending,             icon: Clock,        iconColor: kpis.ordersPending > 5 ? '#FCD34D' : T3 },
     { key: 'completed', label: t('live.completed'),    value: kpis.ordersCompleted,           icon: CheckCircle,  iconColor: POS },
-    { key: 'avg',       label: t('live.avgOrder'),     value: `${kpis.avgOrderValue.toFixed(0)} €`, icon: TrendingUp, iconColor: T3 },
+    { key: 'avg',       label: t('live.avgOrder'),     value: `${formatMoneyAuto(kpis.avgOrderValue)}`, icon: TrendingUp, iconColor: T3 },
     { key: 'entries',   label: t('live.entries'),      value: kpis.entriesCount,              icon: Users,        iconColor: T3 },
     { key: 'refunds',   label: t('live.refunds'),      value: kpis.refundsCount,              icon: RotateCcw,    iconColor: kpis.refundsCount > 0 ? NEG : T3 },
     ...(kpis.cloakroomCount > 0

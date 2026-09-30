@@ -9,6 +9,7 @@ import { fr as frLocale, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   open: boolean;
@@ -262,7 +263,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
                         </div>
                         {it.amount !== undefined && it.amount > 0 && (
                           <div className="text-sm font-semibold text-primary whitespace-nowrap">
-                            {it.amount.toFixed(0)} €
+                            {formatMoneyAuto(it.amount)}
                           </div>
                         )}
                       </div>

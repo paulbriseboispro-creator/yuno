@@ -10,10 +10,11 @@ import {
   PCard, ZoneHeading, Kpi, BarRow, SplitBar, Coverage, MiniLine, Funnel,
   RED, POS, T1, T2, T3,
 } from './audience-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 const langLabel = (code: string) => ({ fr: 'Français', en: 'English', es: 'Español' } as Record<string, string>)[code] || code;
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
-const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`;
+const eur = (n: number) => formatMoneyAuto(n);
 
 export function AudienceDashboard({ subject, subjectLabel, actions, embedded = false }: {
   subject: AudienceSubject; subjectLabel?: string; actions?: ReactNode;
@@ -157,7 +158,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
             const convRate = totalFollowers > 0 ? Math.round((converted / totalFollowers) * 100) : 0;
             const avgBasket = followersOrders > 0 ? followersNet / followersOrders : 0;
             const repeat = seg.repeat_buyers;
-            const ltvLabel = ltv >= 10 ? eur(ltv) : `${ltv.toFixed(1).replace('.', ',')} €`;
+            const ltvLabel = eur(ltv);
             const stages = [
               { label: t('Abonnés', 'Subscribers', 'Suscriptores'), value: totalFollowers },
               { label: t('Joignables', 'Reachable', 'Localizables'), value: a.reachable },

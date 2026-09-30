@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { capturePosthog } from '@/lib/posthog';
 import { applyFreePreset } from '@/lib/applyFreePreset';
 import { OrgButton, OrgPill, RED, T1, T3, BORDER, INNER_BG } from '@/components/org-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface PresetRound {
   name: string;
@@ -69,7 +70,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
     const prices = rounds.map((r) => Number(r.price)).filter((n) => !Number.isNaN(n));
     if (prices.length === 0) return '—';
     const min = Math.min(...prices), max = Math.max(...prices);
-    return min === max ? `${min}€` : `${min}–${max}€`;
+    return min === max ? formatMoneyAuto(min) : `${formatMoneyAuto(min)} – ${formatMoneyAuto(max)}`;
   };
 
   const applyPreset = async (preset: ClubPreset) => {
@@ -185,7 +186,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {(p.rounds ?? []).slice(0, 4).map((r, i) => (
                             <span key={i} className="rounded px-1.5 py-0.5" style={{ background: 'rgb(var(--ink)/0.05)', color: T3, fontSize: 10.5 }}>
-                              {r.name} · {Number(r.price)}€
+                              {r.name} · {formatMoneyAuto(Number(r.price))}
                             </span>
                           ))}
                           {(p.rounds?.length ?? 0) > 4 && <span style={{ color: T3, fontSize: 10.5 }}>+{(p.rounds?.length ?? 0) - 4}</span>}

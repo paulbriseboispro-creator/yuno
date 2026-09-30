@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { composeSmsBody, maskPhone, normalizeLang, SAMPLE_TRACKED_LINK, type SmsScope } from '@/lib/smsMarketing';
 import { invokeSms } from './smsApi';
 import { SmsStatusPill } from './SmsStatusPill';
+import { formatMoneyAuto } from '@/lib/money';
 
 const DATE_LOCALES: Record<string, Locale> = { fr, en: enUS, es };
 
@@ -217,7 +218,7 @@ export default function SmsCampaignReport({ campaignId, scope, eventTitle, onBac
         {kpi(<XCircle className="h-3.5 w-3.5" />, t('smsc.report.failed'), c.failed + c.undelivered, t('smsc.report.failedSub'), c.failed + c.undelivered > 0 ? 'text-rose-400' : undefined)}
         {kpi(<MousePointerClick className="h-3.5 w-3.5" />, t('smsc.report.clicks'), report.tracked_link_code ? report.clicks.n : '—', report.tracked_link_code ? t('smsc.report.uniqueClicks').replace('{n}', String(report.clicks.uniq)) : t('smsc.report.noLink'))}
         {kpi(<Ticket className="h-3.5 w-3.5" />, t('smsc.report.sales'), report.tracked_link_code ? report.sales.tickets + report.sales.tables : '—', report.tracked_link_code ? t('smsc.report.salesSub').replace('{t}', String(report.sales.tickets)).replace('{v}', String(report.sales.tables)) : t('smsc.report.noLink'))}
-        {kpi(<ShoppingBag className="h-3.5 w-3.5" />, t('smsc.report.revenue'), report.tracked_link_code ? `${revenue.toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €` : '—', t('smsc.report.revenueSub'))}
+        {kpi(<ShoppingBag className="h-3.5 w-3.5" />, t('smsc.report.revenue'), report.tracked_link_code ? formatMoneyAuto(revenue) : '—', t('smsc.report.revenueSub'))}
         {kpi(<Wallet className="h-3.5 w-3.5" />, t('smsc.report.credits'), netCredits, report.credits_refunded > 0 ? t('smsc.report.refunded').replace('{n}', String(report.credits_refunded)) : t('smsc.report.perMsg').replace('{n}', String(report.segments_per_message)))}
       </div>
 

@@ -20,6 +20,7 @@ import {
   BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, POS, RED, RED_SOFT_GRAD, SegBtns,
   SUBTLE, Switch, T1, T2, T3, WARN, inputStyle,
 } from './ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 const PROMO_KINDS: { kind: AudienceKind; labelKey: string; descKey: string }[] = [
   { kind: 'all_subscribers', labelKey: 'em.seg.all_subscribers', descKey: 'studio.aud.desc.all' },
@@ -648,7 +649,7 @@ export default function AudienceStep({ scope, events, segments }: {
                     {t('studio.aud.projRev')}
                   </div>
                   <div style={{ color: T1, fontSize: 20, fontWeight: 640, marginTop: 4, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
-                    ≈ {nf(Math.round(net * projection.revPerSent))} €
+                    ≈ {formatMoneyAuto(net * projection.revPerSent)}
                   </div>
                 </div>
               )}

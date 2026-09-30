@@ -9,6 +9,7 @@ import { buildTicketRoster } from '@/lib/rosterBuilders';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMinorDocsByEvents, minorDocKey, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -212,7 +213,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
           {[
             { label: t('owner.orders'), value: soldTickets.length.toString() },
             { label: t('owner.ord.ticketsSold'), value: totalQty.toString() },
-            { label: t('owner.totalRevenue'), value: `€${totalRevenue.toFixed(0)}` },
+            { label: t('owner.totalRevenue'), value: `${formatMoneyAuto(totalRevenue)}` },
           ].map(({ label, value }) => (
             <div key={label} className="text-center">
               <div style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -315,7 +316,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                     <div style={{ color: T3, fontSize: 11 }}>{format(new Date(ticket.createdAt), 'dd/MM HH:mm', { locale: dateLocale })}</div>
                   </div>
                   <span style={{ color: T1, fontSize: 14, fontWeight: 620, letterSpacing: '-0.01em' }} className="tabular-nums">
-                    €{ticket.totalPrice.toFixed(2)}
+                    {formatMoneyAuto(ticket.totalPrice)}
                   </span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: st.bg, color: st.color }}>
                     {statusLabel(ticket.status)}
@@ -349,7 +350,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                   {statusLabel(selectedTicket.status)}
                 </span>
                 <span style={{ color: T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }} className="tabular-nums">
-                  €{selectedTicket.totalPrice.toFixed(2)}
+                  {formatMoneyAuto(selectedTicket.totalPrice)}
                 </span>
               </div>
 
@@ -407,18 +408,18 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                       {selectedTicket.quantity}× {selectedTicket.roundName}
                       {selectedTicket.ticketType === 'vip' && <span style={{ color: 'var(--acc-fcd34d)' }}>VIP</span>}
                     </span>
-                    <span style={{ color: T1, fontSize: 13, fontWeight: 620 }} className="tabular-nums">€{(selectedTicket.unitPrice * selectedTicket.quantity).toFixed(2)}</span>
+                    <span style={{ color: T1, fontSize: 13, fontWeight: 620 }} className="tabular-nums">{formatMoneyAuto((selectedTicket.unitPrice * selectedTicket.quantity))}</span>
                   </div>
                   {selectedTicket.serviceFee > 0 && (
                     <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T2, fontSize: 13 }}>{t('owner.serviceFee')}</span>
-                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">€{selectedTicket.serviceFee.toFixed(2)}</span>
+                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">{formatMoneyAuto(selectedTicket.serviceFee)}</span>
                     </div>
                   )}
                   {(selectedTicket.insuranceFee ?? 0) > 0 && (
                     <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T2, fontSize: 13 }}>{t('owner.insuranceFee')}</span>
-                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">€{selectedTicket.insuranceFee!.toFixed(2)}</span>
+                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">{formatMoneyAuto(selectedTicket.insuranceFee!)}</span>
                     </div>
                   )}
                 </div>

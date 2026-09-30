@@ -7,6 +7,7 @@ import { TicketRound } from '@/types/ticketing';
 import { UNLIMITED_TICKETS, ticketPhase } from '@/lib/freeTicketing';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { RED, POS, GOLD, T1, T2, T3, TILE, BORDER } from './ticketing-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface FreeTicketRowProps {
   ticket: TicketRound;
@@ -71,7 +72,7 @@ export function FreeTicketRow({ ticket, isFirst, isLast, onEdit, onDelete, onTog
           </span>
         </div>
         <div className="mt-1.5 tabular-nums flex items-center gap-2 flex-wrap" style={{ color: T3, fontSize: 12.5 }}>
-          <span><span style={{ color: T2 }}>{ticket.price}€</span> · {unlimited ? ticket.ticketsSold : `${ticket.ticketsSold}/${ticket.maxTickets}`} {t('tickets.sold')}</span>
+          <span><span style={{ color: T2 }}>{formatMoneyAuto(ticket.price)}</span> · {unlimited ? ticket.ticketsSold : `${ticket.ticketsSold}/${ticket.maxTickets}`} {t('tickets.sold')}</span>
           {ticket.includesDrink && <span className="inline-flex items-center gap-1" style={{ color: POS }}><Wine className="h-3 w-3" />{t('tickets.includesDrink')}</span>}
           {ticket.entryDeadline && <span className="inline-flex items-center gap-1" style={{ color: T2 }}><Clock className="h-3 w-3" />{t('tickets.entryBefore')} {ticket.entryDeadline}</span>}
           {next && <span>{next}</span>}

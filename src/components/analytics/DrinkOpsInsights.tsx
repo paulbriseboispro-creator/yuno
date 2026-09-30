@@ -2,6 +2,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { Timer, CheckCheck, Package, Store, Beer, CalendarClock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { DrinkAnalytics } from '@/hooks/useAnalyticsData';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens (Yuno pro DA) ───────────────────────────────────────────────
 const RED = '#E8192C';
@@ -19,11 +20,7 @@ const crd: React.CSSProperties = {
   background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden',
 };
 
-const fmtPrice = (n: number): string => {
-  const v = Math.round((n || 0) * 100) / 100;
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k€`;
-  return v % 1 === 0 ? `${v.toLocaleString()}€` : `${v.toFixed(2)}€`;
-};
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 function Tile({ icon: Icon, label, value, tone = T1, sub }: {
   icon: typeof Timer; label: string; value: string; tone?: string; sub?: string;

@@ -12,6 +12,7 @@ import {
   VipCard, VipKpi, VipProgress,
   RED, POS, WARN, T1, T2, T3, C_MID, C_FAINT, INNER_BG, F_BORDER, CAT_COLORS,
 } from './vip-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   reservations: OwnerVipReservation[];
@@ -183,8 +184,8 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <VipKpi icon={Crown} label={t('vipHost.totalReservations')} value={String(stats.totalReservations)} />
         <VipKpi icon={Users} label={t('vipHost.guests')} value={String(stats.totalGuests)} sub={`~${stats.avgGuests.toFixed(1)}${t('vipOwner.perTable')}`} />
-        <VipKpi icon={Euro} label={t('vipOwner.revenueWithConso')} value={`${stats.totalRevenue.toFixed(0)}€`} accent />
-        <VipKpi icon={TrendingUp} label={t('vipOwner.avgSpendPerTable')} value={`${stats.avgPerTable.toFixed(0)}€`} />
+        <VipKpi icon={Euro} label={t('vipOwner.revenueWithConso')} value={`${formatMoneyAuto(stats.totalRevenue)}`} accent />
+        <VipKpi icon={TrendingUp} label={t('vipOwner.avgSpendPerTable')} value={`${formatMoneyAuto(stats.avgPerTable)}`} />
       </div>
 
       {/* Client Leaderboard */}
@@ -219,7 +220,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
                       </p>
                     </div>
                   </div>
-                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontSize: 13.5, fontWeight: 640 }}>{client.spent.toFixed(0)}€</span>
+                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontSize: 13.5, fontWeight: 640 }}>{formatMoneyAuto(client.spent)}</span>
                 </div>
               );
             })}
@@ -252,7 +253,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
                       </p>
                     </div>
                   </div>
-                  <span className="tabular-nums whitespace-nowrap ml-2" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{c.totalPrice.toFixed(0)}€</span>
+                  <span className="tabular-nums whitespace-nowrap ml-2" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{formatMoneyAuto(c.totalPrice)}</span>
                 </div>
               );
             })}
@@ -293,7 +294,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
                         <span className="tabular-nums" style={{ color: T3, fontSize: 11.5 }}>({cat.qty}x)</span>
                       </div>
                       <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontWeight: 600 }}>
-                        {cat.revenue.toFixed(0)}€ <span style={{ color: T3, fontSize: 11.5 }}>({pct.toFixed(0)}%)</span>
+                        {formatMoneyAuto(cat.revenue)} <span style={{ color: T3, fontSize: 11.5 }}>({pct.toFixed(0)}%)</span>
                       </span>
                     </div>
                     <VipProgress value={pct} color={color} />
@@ -324,7 +325,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
                     <span className="truncate" style={{ color: T1, fontWeight: 560 }}>{z.name}</span>
                     <span className="tabular-nums" style={{ color: T3, fontSize: 11.5 }}>({z.count} {z.count > 1 ? t('vipOwner.tables') : t('vipOwner.table')})</span>
                   </div>
-                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontWeight: 600 }}>{z.revenue.toFixed(0)}€</span>
+                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontWeight: 600 }}>{formatMoneyAuto(z.revenue)}</span>
                 </div>
                 <VipProgress value={(z.revenue / maxZoneRevenue) * 100} color={z.color} height={8} />
               </div>
@@ -345,7 +346,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
                     <span className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{item.name}</span>
                     <span className="tabular-nums flex-none" style={{ color: T3, fontSize: 11 }}>{item.qty}x</span>
                   </div>
-                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontSize: 13, fontWeight: 620 }}>{item.revenue.toFixed(0)}€</span>
+                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontSize: 13, fontWeight: 620 }}>{formatMoneyAuto(item.revenue)}</span>
                 </div>
               ))}
             </div>
@@ -362,7 +363,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
                   <div key={i} className="space-y-1.5">
                     <div className="flex items-center justify-between" style={{ fontSize: 13 }}>
                       <span className="truncate mr-2" style={{ color: T1 }}>{evt.title}</span>
-                      <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontWeight: 600 }}>{evt.revenue.toFixed(0)}€</span>
+                      <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontWeight: 600 }}>{formatMoneyAuto(evt.revenue)}</span>
                     </div>
                     <VipProgress value={pct} gradient />
                   </div>
@@ -388,7 +389,7 @@ function RevenueBar({ label, amount, total, color }: { label: string; amount: nu
       <div className="flex items-center justify-between" style={{ fontSize: 13 }}>
         <span style={{ color: T2 }}>{label}</span>
         <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>
-          {amount.toFixed(0)}€ <span style={{ color: T3, fontSize: 11.5 }}>({pct.toFixed(0)}%)</span>
+          {formatMoneyAuto(amount)} <span style={{ color: T3, fontSize: 11.5 }}>({pct.toFixed(0)}%)</span>
         </span>
       </div>
       <VipProgress value={pct} color={color} height={8} />

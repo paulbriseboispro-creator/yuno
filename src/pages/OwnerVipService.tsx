@@ -26,6 +26,7 @@ import {
   VipPage, VipCard, VipButton, VipPill, VipEmpty, VipInput, VipFieldLabel, VipSelect,
   RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG,
 } from '@/components/owner/vip/vip-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface QuickItem {
   id: string;
@@ -520,7 +521,7 @@ export default function OwnerVipService() {
                               <Wine className="h-4 w-4 flex-none" style={{ color: T3 }} />
                               <div className="min-w-0">
                                 <span className="font-medium" style={{ color: T1, fontSize: 13.5 }}>{item.name}</span>
-                                {item.default_price > 0 && <span className="ml-2 tabular-nums" style={{ color: T3, fontSize: 11.5 }}>{item.default_price}€</span>}
+                                {item.default_price > 0 && <span className="ml-2 tabular-nums" style={{ color: T3, fontSize: 11.5 }}>{formatMoneyAuto(item.default_price)}</span>}
                               </div>
                               <VipPill tone={itemTypeTone(item.item_type)}>{t(`vipHost.type${item.item_type.charAt(0).toUpperCase()}${item.item_type.slice(1)}`)}</VipPill>
                             </div>

@@ -7,6 +7,8 @@
 // les statuts sont posés par `refresh_contact_engagement`, les écarts par
 // segment viennent des deux photos (baseline / current) de la campagne.
 
+import { formatMoney } from '@/lib/money';
+
 export type EngagementStatus = 'active' | 'passive' | 'silent' | 'new' | 'unreachable' | 'unsubscribed';
 export type ContactOrigin = 'import' | 'yuno' | 'both';
 
@@ -184,8 +186,7 @@ export function fmtN(n: number | null | undefined, language: string): string {
 }
 
 export function fmtEuro(n: number | null | undefined, language: string): string {
-  const v = Number(n || 0);
-  return `${v.toLocaleString(localeOf(language), { maximumFractionDigits: v % 1 === 0 ? 0 : 2 })} €`;
+  return formatMoney(Number(n || 0), localeOf(language));
 }
 
 export function fmtDate(iso: string | null | undefined, language: string): string {

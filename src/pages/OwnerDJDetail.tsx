@@ -24,6 +24,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface DJ {
   id: string;
@@ -510,14 +511,14 @@ export default function OwnerDJDetail() {
               <Euro className="h-4 w-4" />
               <span className="text-xs">{t('ownerDj.pending')}</span>
             </div>
-            <p className="text-2xl font-bold text-orange-500">{calculatedPendingAmount} €</p>
+            <p className="text-2xl font-bold text-orange-500">{formatMoneyAuto(calculatedPendingAmount)}</p>
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <TrendingUp className="h-4 w-4" />
               <span className="text-xs">{t('ownerDj.totalPaid')}</span>
             </div>
-            <p className="text-2xl font-bold text-green-500">{calculatedTotalPaid} €</p>
+            <p className="text-2xl font-bold text-green-500">{formatMoneyAuto(calculatedTotalPaid)}</p>
           </Card>
         </div>
 
@@ -688,7 +689,7 @@ export default function OwnerDJDetail() {
                         <div className="flex items-center gap-2">
                           {set.fee > 0 && (
                             <Badge variant={set.fee_paid ? "default" : "secondary"}>
-                              {set.fee} € {set.fee_paid ? `(${t('ownerDj.paid')})` : ''}
+                              {formatMoneyAuto(set.fee)} {set.fee_paid ? `(${t('ownerDj.paid')})` : ''}
                             </Badge>
                           )}
                           {!set.fee_paid && set.fee > 0 && (
@@ -744,9 +745,9 @@ export default function OwnerDJDetail() {
                           <div className="min-w-0">
                             <p className="font-medium text-sm truncate">{title}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {st('Cachet', 'Fee', 'Caché')} {cachet}€
-                              {acompte > 0 && ` • ${st('Acompte', 'Deposit', 'Anticipo')} ${acompte}€${c.acompte_released_at ? ' ✓' : ''}`}
-                              {` • ${st('Solde', 'Balance', 'Saldo')} ${balance}€${c.released_at ? ' ✓' : ''}`}
+                              {st('Cachet', 'Fee', 'Caché')} {formatMoneyAuto(cachet)}
+                              {acompte > 0 && ` • ${st('Acompte', 'Deposit', 'Anticipo')} ${formatMoneyAuto(acompte)}${c.acompte_released_at ? ' ✓' : ''}`}
+                              {` • ${st('Solde', 'Balance', 'Saldo')} ${formatMoneyAuto(balance)}${c.released_at ? ' ✓' : ''}`}
                             </p>
                           </div>
                           <Badge className={meta.cls} variant="secondary">{meta.label}</Badge>
@@ -812,7 +813,7 @@ export default function OwnerDJDetail() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-orange-500">{set.fee} €</span>
+                          <span className="font-bold text-orange-500">{formatMoneyAuto(set.fee)}</span>
                           <Button size="sm" onClick={() => handleMarkSetAsPaid(set)}>
                             {t('ownerDj.markAsPaid')}
                           </Button>
@@ -837,7 +838,7 @@ export default function OwnerDJDetail() {
                           {format(new Date(payment.paid_at), 'dd MMMM yyyy', { locale: dateLocale })}
                         </p>
                       </div>
-                      <span className="font-bold text-green-500">+{payment.amount} €</span>
+                      <span className="font-bold text-green-500">+{formatMoneyAuto(payment.amount)}</span>
                     </div>
                   ))}
                 </div>

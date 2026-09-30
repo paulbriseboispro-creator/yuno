@@ -20,6 +20,7 @@ import {
   PromoHeader, PromoPage, PromoCard, PromoPill, PromoButton, PromoEmpty,
   RED, T1, T2, T3, F_BORDER, TILE_BG,
 } from '@/components/promoter/promoter-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Template { id: string; name: string; rules: CommissionRules; isDefault: boolean; }
 
@@ -276,7 +277,7 @@ export default function OwnerPromoterTemplates() {
     }
     if (s.clientDiscount && rules.customer_discount) {
       const cd = rules.customer_discount;
-      parts.push(`${t('owner.promo.customer')} ${cd.type === 'percentage' ? `-${cd.value}%` : `-${cd.value}€`}`);
+      parts.push(`${t('owner.promo.customer')} ${cd.type === 'percentage' ? `-${cd.value}%` : `-${formatMoneyAuto(cd.value)}`}`);
     }
     return parts.join(' · ') || t('owner.promo.noRules');
   }
@@ -574,7 +575,7 @@ export default function OwnerPromoterTemplates() {
               </div>
               <div><Label className="text-xs">{t('owner.promo.labelOptional')}</Label><Input value={cdLabel} onChange={e => setCdLabel(e.target.value)} placeholder={t('owner.promo.labelPlaceholder')} /></div>
               <div className="rounded-lg bg-muted/40 p-2 text-center">
-                <p className="text-lg font-bold text-primary">{cdType === 'percentage' ? `-${cdValue}%` : `-${cdValue}€`}</p>
+                <p className="text-lg font-bold text-primary">{cdType === 'percentage' ? `-${cdValue}%` : `-${formatMoneyAuto(Number(cdValue))}`}</p>
               </div>
             </SectionCard>
 

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { formatMoney, localeFor } from '@/lib/money';
 
 /**
  * Co-organisation — N parties sur une soirée (migration 20260928100000).
@@ -592,9 +593,7 @@ export function coorgErrorCode(err: unknown): string {
 }
 
 export const eur = (n: number | null | undefined, language = 'fr') =>
-  new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', {
-    style: 'currency', currency: 'EUR',
-  }).format(Number(n ?? 0));
+  formatMoney(Number(n ?? 0), localeFor(language));
 
 // ── Contrat collab club × orga réglé SANS Stripe (20260929130000) ─────────────
 // Une partie encaisse, Yuno suit la part de chacun, fige le décompte 48 h après

@@ -1,4 +1,5 @@
 import type { VipConsumption, VipReservation } from '@/types';
+import { formatMoney } from '@/lib/money';
 
 // ─── Modèle de service ────────────────────────────────────────────────────────
 // Une seule sémantique pour tout l'outil serveur :
@@ -199,7 +200,8 @@ export function tableVisualState(
 
 // ─── Petits helpers d'affichage ──────────────────────────────────────────────
 
-export const fmtEuro = (n: number): string => `${Math.round(n).toLocaleString('fr-FR')}€`;
+// Deux décimales toujours (règle des montants pro, `src/lib/money.ts`).
+export const fmtEuro = (n: number): string => formatMoney(n, 'fr-FR');
 
 export const timeHM = (iso: string | null | undefined): string => {
   if (!iso) return '';

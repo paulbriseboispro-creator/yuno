@@ -42,6 +42,7 @@ import {
   X,
 } from 'lucide-react';
 import { tint } from '@/lib/proTheme';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface VipMenuItem {
   id: string;
@@ -551,7 +552,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                         <h4 className="font-semibold truncate">{item.name}</h4>
                         {item.brand && <p className="text-xs text-muted-foreground">{item.brand}</p>}
                       </div>
-                      <span className="font-bold text-primary whitespace-nowrap">{item.price}€</span>
+                      <span className="font-bold text-primary whitespace-nowrap">{formatMoneyAuto(item.price)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant="outline" className="text-xs">
@@ -832,7 +833,7 @@ function EligibilityEditor({ item, eligibilities, zones, packs, onSave, onRemove
           {globalAvailability ? (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-400">
-                {t('vipMenu.activeLabel')} • {globalAvailability.custom_price ?? item.price}€
+                {t('vipMenu.activeLabel')} • {formatMoneyAuto(globalAvailability.custom_price ?? item.price)}
               </Badge>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onRemove(globalAvailability.id)}>
                 <Trash2 className="h-3 w-3" />
@@ -883,7 +884,7 @@ function EligibilityEditor({ item, eligibilities, zones, packs, onSave, onRemove
                         )}
                       </div>
                       {elig.custom_price && (
-                        <p className="text-xs text-muted-foreground mt-1">{t('vipMenu.supplementPriceOpt')}: {elig.custom_price}€</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('vipMenu.supplementPriceOpt')}: {formatMoneyAuto(elig.custom_price)}</p>
                       )}
                     </div>
                   </div>

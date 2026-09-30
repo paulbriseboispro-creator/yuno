@@ -9,6 +9,7 @@ import { buildTableRoster } from '@/lib/rosterBuilders';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { tableRevenue } from '@/utils/fees';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -214,7 +215,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
           {[
             { label: t('owner.reservations'), value: soldReservations.length.toString() },
             { label: t('owner.ord.totalGuests'), value: totalGuests.toString() },
-            { label: t('owner.ord.vipRevenue'), value: `€${totalRevenue.toFixed(0)}` },
+            { label: t('owner.ord.vipRevenue'), value: `${formatMoneyAuto(totalRevenue)}` },
           ].map(({ label, value }) => (
             <div key={label} className="text-center">
               <div style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -307,7 +308,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                   </div>
                   <span style={{ color: T2, fontSize: 12 }} className="truncate">{res.zoneName ?? '—'}</span>
                   <span style={{ color: T1, fontSize: 14, fontWeight: 620, letterSpacing: '-0.01em' }} className="tabular-nums">
-                    €{res.totalPrice.toFixed(2)}
+                    {formatMoneyAuto(res.totalPrice)}
                   </span>
                   <span style={{ color: T2, fontSize: 13 }} className="tabular-nums flex items-center gap-1">
                     {res.guestCount ? <><Users className="w-3 h-3" />{res.guestCount}</> : '—'}
@@ -350,7 +351,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                   </span>
                 </div>
                 <span style={{ color: T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }} className="tabular-nums">
-                  €{selectedReservation.totalPrice.toFixed(2)}
+                  {formatMoneyAuto(selectedReservation.totalPrice)}
                 </span>
               </div>
 
@@ -391,19 +392,19 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                   {selectedReservation.serviceFee > 0 && (
                     <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T2, fontSize: 13 }}>{t('owner.serviceFee')}</span>
-                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">€{selectedReservation.serviceFee.toFixed(2)}</span>
+                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">{formatMoneyAuto(selectedReservation.serviceFee)}</span>
                     </div>
                   )}
                   {(selectedReservation.managementFee ?? 0) > 0 && (
                     <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T2, fontSize: 13 }}>{t('owner.managementFee')}</span>
-                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">€{selectedReservation.managementFee!.toFixed(2)}</span>
+                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">{formatMoneyAuto(selectedReservation.managementFee!)}</span>
                     </div>
                   )}
                   {selectedReservation.minimumSpend && (
                     <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T2, fontSize: 13 }}>{t('owner.minimumSpend')}</span>
-                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">€{selectedReservation.minimumSpend.toFixed(2)}</span>
+                      <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">{formatMoneyAuto(selectedReservation.minimumSpend)}</span>
                     </div>
                   )}
                 </div>

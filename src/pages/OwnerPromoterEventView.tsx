@@ -20,6 +20,7 @@ import {
   PromoHeader, PromoPage, PromoCard, StatTile, SectionLabel, PromoButton, PromoProgress,
   PromoAvatar, PromoEmpty, RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, TILE_BG, INNER_BG,
 } from '@/components/promoter/promoter-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface PromoterEventPerf {
   promoterId: string;
@@ -265,16 +266,16 @@ export default function OwnerPromoterEventView() {
         <div className="grid grid-cols-4 gap-2.5">
           <StatTile icon={MousePointerClick} value={totalClicks} label={tt('Clics', 'Clicks')} />
           <StatTile icon={Ticket} value={totalTickets} label={tt('Ventes', 'Sales')} />
-          <StatTile value={`${totalRevenue.toFixed(0)}€`} label={tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)')} />
-          <StatTile value={`${totalCommission.toFixed(0)}€`} label="Commission" accent />
+          <StatTile value={`${formatMoneyAuto(totalRevenue)}`} label={tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)')} />
+          <StatTile value={`${formatMoneyAuto(totalCommission)}`} label="Commission" accent />
         </div>
 
         {/* Commission split */}
         <PromoCard style={{ padding: 14 }}>
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div><p style={{ color: T1, fontSize: 15, fontWeight: 720, margin: 0 }}>{totalCommission.toFixed(0)}€</p><p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{tt('Générée', 'Generated')}</p></div>
-            <div><p style={{ color: WARN, fontSize: 15, fontWeight: 720, margin: 0 }}>{totalPending.toFixed(0)}€</p><p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{tt('En attente', 'Pending')}</p></div>
-            <div><p style={{ color: POS, fontSize: 15, fontWeight: 720, margin: 0 }}>{totalPaid.toFixed(0)}€</p><p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{tt('Payée', 'Paid')}</p></div>
+            <div><p style={{ color: T1, fontSize: 15, fontWeight: 720, margin: 0 }}>{formatMoneyAuto(totalCommission)}</p><p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{tt('Générée', 'Generated')}</p></div>
+            <div><p style={{ color: WARN, fontSize: 15, fontWeight: 720, margin: 0 }}>{formatMoneyAuto(totalPending)}</p><p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{tt('En attente', 'Pending')}</p></div>
+            <div><p style={{ color: POS, fontSize: 15, fontWeight: 720, margin: 0 }}>{formatMoneyAuto(totalPaid)}</p><p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{tt('Payée', 'Paid')}</p></div>
           </div>
         </PromoCard>
 
@@ -292,7 +293,7 @@ export default function OwnerPromoterEventView() {
                   <PromoAvatar src={p.profileImage} fallback={p.name[0] || p.promoCode[0]} size={30} />
                   <span className="flex-1 truncate" style={{ color: T1, fontSize: 13, fontWeight: 540 }}>{p.name}</span>
                   <span style={{ color: T1, fontSize: 13, fontWeight: 700 }}>{p.tickets}</span>
-                  <span style={{ color: T3, fontSize: 11.5 }}>{p.revenue.toFixed(0)}€</span>
+                  <span style={{ color: T3, fontSize: 11.5 }}>{formatMoneyAuto(p.revenue)}</span>
                 </div>
               ))}
             </div>
@@ -310,7 +311,7 @@ export default function OwnerPromoterEventView() {
               <BarChart data={revenueChartData}>
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: T3 }} axisLine={{ stroke: F_BORDER }} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: T3 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => `${v}€`} contentStyle={chartTooltip} cursor={{ fill: 'rgb(var(--ink)/0.04)' }} />
+                <Tooltip formatter={(v: number) => formatMoneyAuto(v)} contentStyle={chartTooltip} cursor={{ fill: 'rgb(var(--ink)/0.04)' }} />
                 <Bar dataKey="revenue" name={tt('CA', 'Revenue')} radius={[5, 5, 0, 0]}>
                   {revenueChartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
@@ -379,7 +380,7 @@ export default function OwnerPromoterEventView() {
                 <div className="grid grid-cols-5 gap-1.5 text-center">
                   {[
                     { v: p.clicks, l: tt('Clics', 'Clicks') }, { v: p.tickets, l: tt('Ventes', 'Sales') }, { v: p.tables, l: 'Tables' },
-                    { v: `${p.revenue.toFixed(0)}€`, l: tt('CA', 'Rev.') },
+                    { v: `${formatMoneyAuto(p.revenue)}`, l: tt('CA', 'Rev.') },
                   ].map((s, i) => (
                     <div key={i} style={{ background: TILE_BG, borderRadius: 8, padding: '7px 3px' }}>
                       <p style={{ color: T1, fontSize: 13, fontWeight: 700, margin: 0 }}>{s.v}</p>
@@ -387,14 +388,14 @@ export default function OwnerPromoterEventView() {
                     </div>
                   ))}
                   <div style={{ background: 'rgba(232,25,44,0.08)', borderRadius: 8, padding: '7px 3px' }}>
-                    <p style={{ color: RED, fontSize: 13, fontWeight: 700, margin: 0 }}>{p.commission.toFixed(0)}€</p>
+                    <p style={{ color: RED, fontSize: 13, fontWeight: 700, margin: 0 }}>{formatMoneyAuto(p.commission)}</p>
                     <p style={{ color: T3, fontSize: 9, margin: 0 }}>Comm.</p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between" style={{ marginTop: 8, color: T3, fontSize: 11 }}>
                   <span>{tt('Conv.', 'Conv.')} {p.conversionRate.toFixed(1)}%</span>
-                  <span>{tt(`En attente ${p.pendingCommission.toFixed(0)}€ · Payée ${p.paidCommission.toFixed(0)}€`, `Pending ${p.pendingCommission.toFixed(0)}€ · Paid ${p.paidCommission.toFixed(0)}€`, `Pendiente ${p.pendingCommission.toFixed(0)}€ · Pagada ${p.paidCommission.toFixed(0)}€`)}</span>
+                  <span>{tt(`En attente ${formatMoneyAuto(p.pendingCommission)} · Payée ${formatMoneyAuto(p.paidCommission)}`, `Pending ${formatMoneyAuto(p.pendingCommission)} · Paid ${formatMoneyAuto(p.paidCommission)}`, `Pendiente ${formatMoneyAuto(p.pendingCommission)} · Pagada ${formatMoneyAuto(p.paidCommission)}`)}</span>
                 </div>
 
                 {p.maxTickets && p.maxTickets > 0 && (

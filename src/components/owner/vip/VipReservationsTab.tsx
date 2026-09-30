@@ -16,6 +16,7 @@ import {
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, INNER_BG, CARD_BG, CARD_SHADOW,
 } from './vip-ui';
 import { tint } from '@/lib/proTheme';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   reservations: OwnerVipReservation[];
@@ -115,7 +116,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
       <div className="grid grid-cols-4 gap-3">
         <VipStatTile icon={Crown} label={t('vipOwner.tablesLabel')} value={String(summary.tables)} />
         <VipStatTile icon={Users} label={t('vipHost.guests')} value={String(summary.totalGuests)} />
-        <VipStatTile icon={Euro} label={t('vipOwner.revenueLabel')} value={`${summary.totalRevenue.toFixed(0)}€`} tone="red" />
+        <VipStatTile icon={Euro} label={t('vipOwner.revenueLabel')} value={`${formatMoneyAuto(summary.totalRevenue)}`} tone="red" />
         <VipStatTile icon={Target} label={t('vipOwner.minSpendLabel')} value={`${summary.minRate.toFixed(0)}%`} tone="pos" />
       </div>
 
@@ -164,9 +165,9 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
 
                   <div className="grid grid-cols-4 gap-3 mb-2">
                     <ResStat label={t('vipHost.guests')} value={String(res.guestCount)} />
-                    <ResStat label={t('vipHost.deposit')} value={`${res.deposit}€`} />
-                    <ResStat label={t('vipHost.consumed')} value={`${consumed.toFixed(0)}€`} />
-                    <ResStat label={t('vipHost.credit')} value={`${credit.toFixed(0)}€`} color={credit >= 0 ? POS : RED} />
+                    <ResStat label={t('vipHost.deposit')} value={`${formatMoneyAuto(res.deposit)}`} />
+                    <ResStat label={t('vipHost.consumed')} value={`${formatMoneyAuto(consumed)}`} />
+                    <ResStat label={t('vipHost.credit')} value={`${formatMoneyAuto(credit)}`} color={credit >= 0 ? POS : RED} />
                   </div>
 
                   {/* Info pré-commande (Non / N bouteilles) */}
@@ -185,7 +186,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                     <div className="space-y-1.5">
                       <div className="flex justify-between tabular-nums" style={{ color: T3, fontSize: 11.5 }}>
                         <span>{t('vipOwner.minSpendLabel')}</span>
-                        <span>{total.toFixed(0)}€ / {res.minimumSpend}€</span>
+                        <span>{formatMoneyAuto(total)} / {formatMoneyAuto(res.minimumSpend)}</span>
                       </div>
                       <VipProgress value={minProgress} color={minProgress >= 100 ? POS : RED} />
                     </div>
@@ -299,14 +300,14 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
             <div className="pt-3 space-y-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
               <div className="flex justify-between" style={{ fontSize: 13 }}>
                 <span style={{ color: T3 }}>{t('vipOwner.minimumSpendLabel')}</span>
-                <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>{total.toFixed(0)}€ / {reservation.minimumSpend}€</span>
+                <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>{formatMoneyAuto(total)} / {formatMoneyAuto(reservation.minimumSpend)}</span>
               </div>
               <VipProgress value={minProgress} color={minProgress >= 100 ? POS : RED} height={8} />
               {overshoot > 0 && (
-                <p className="tabular-nums" style={{ color: POS, fontSize: 11.5 }}>+{overshoot.toFixed(0)}€ {t('vipOwner.aboveMinimum')}</p>
+                <p className="tabular-nums" style={{ color: POS, fontSize: 11.5 }}>+{formatMoneyAuto(overshoot)} {t('vipOwner.aboveMinimum')}</p>
               )}
               {overshoot < 0 && (
-                <p className="tabular-nums" style={{ color: WARN, fontSize: 11.5 }}>{Math.abs(overshoot).toFixed(0)}€ {t('vipOwner.remainingAmount')}</p>
+                <p className="tabular-nums" style={{ color: WARN, fontSize: 11.5 }}>{formatMoneyAuto(Math.abs(overshoot))} {t('vipOwner.remainingAmount')}</p>
               )}
             </div>
           )}
@@ -326,14 +327,14 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
                           ? tt('Pré-commande', 'Pre-order', 'Pre-pedido')
                           : tt('Commande', 'Order', 'Pedido')}
                       </span>
-                      <span className="tabular-nums" style={{ color: T1, fontWeight: 600, fontSize: 13 }}>{o.totalAmount.toFixed(0)}€</span>
+                      <span className="tabular-nums" style={{ color: T1, fontWeight: 600, fontSize: 13 }}>{formatMoneyAuto(o.totalAmount)}</span>
                     </div>
                     {o.items.length > 0 ? (
                       <div className="space-y-1">
                         {o.items.map((it, i) => (
                           <div key={i} className="flex items-center justify-between" style={{ fontSize: 12.5 }}>
                             <span style={{ color: T1 }}>{it.quantity > 1 && `${it.quantity}x `}{it.name}</span>
-                            <span className="tabular-nums" style={{ color: T3 }}>{(it.unitPrice * it.quantity).toFixed(0)}€</span>
+                            <span className="tabular-nums" style={{ color: T3 }}>{formatMoneyAuto(it.unitPrice * it.quantity)}</span>
                           </div>
                         ))}
                       </div>
@@ -357,9 +358,9 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
                   <div key={c.id} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg" style={{ background: INNER_BG, fontSize: 13 }}>
                     <div className="min-w-0">
                       <span style={{ color: T1, fontWeight: 600 }}>{c.quantity > 1 && `${c.quantity}x `}{c.itemName}</span>
-                      <span className="ml-2 tabular-nums" style={{ color: T3, fontSize: 11 }}>{c.unitPrice}€{t('vipOwner.perUnit')}</span>
+                      <span className="ml-2 tabular-nums" style={{ color: T3, fontSize: 11 }}>{formatMoneyAuto(c.unitPrice)}{t('vipOwner.perUnit')}</span>
                     </div>
-                    <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>{c.totalPrice.toFixed(0)}€</span>
+                    <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>{formatMoneyAuto(c.totalPrice)}</span>
                   </div>
                 ))}
               </div>
@@ -368,7 +369,7 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
             {/* Total */}
             <div className="flex justify-between mt-3 pt-2" style={{ borderTop: `1px solid ${F_BORDER}`, fontSize: 13.5, fontWeight: 700 }}>
               <span style={{ color: T2 }}>{t('vipOwner.totalDepositConso')}</span>
-              <span className="tabular-nums" style={{ color: T1 }}>{total.toFixed(0)}€</span>
+              <span className="tabular-nums" style={{ color: T1 }}>{formatMoneyAuto(total)}</span>
             </div>
           </div>
         </div>

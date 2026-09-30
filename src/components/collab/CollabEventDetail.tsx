@@ -57,6 +57,7 @@ import {
 import type { Tables } from '@/integrations/supabase/types';
 import type { LucideIcon } from 'lucide-react';
 import { publicUrl } from '@/lib/native';
+import { formatMoneyAuto } from '@/lib/money';
 
 type ViewerRole = 'venue' | 'organizer';
 type Phase = 'before' | 'live' | 'after';
@@ -1163,7 +1164,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
     { key: 'revenue', label: tt('CA', 'Revenue', 'Ingresos') },
     { key: 'attendees', label: tt('Participants', 'Guests', 'Asistentes') },
   ];
-  const unit = (ty: string, n: number) => (ty === 'revenue' ? `${Math.round(n).toLocaleString()} €` : n.toLocaleString());
+  const unit = (ty: string, n: number) => (ty === 'revenue' ? formatMoneyAuto(n) : n.toLocaleString());
 
   const save = async () => {
     const v = Number(value);

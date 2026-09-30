@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { BarStats } from '@/lib/liveops/extended';
 import type { OrderPipeline } from '@/hooks/useLiveNightData';
 import { StationCard, StatTile, MicroLabel, T1, T2, T3, POS, NEG, AMBER, TILE_BG } from './StationCard';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   bar: BarStats;
@@ -48,7 +49,7 @@ export function BarStation({ bar, pipeline, avgPrepMinutes, outOfStock = [] }: P
           valueColor={bar.backlogCount > 8 ? NEG : bar.backlogCount > 5 ? AMBER : T1}
         />
         <StatTile label={t('liveops.bar.prepTime')} value={`${avgPrepMinutes} min`} />
-        <StatTile label={t('liveops.bar.revenueHour')} value={`${bar.barRevenueLastHour.toFixed(0)} €`} />
+        <StatTile label={t('liveops.bar.revenueHour')} value={`${formatMoneyAuto(bar.barRevenueLastHour)}`} />
       </div>
 
       {/* Compact pipeline */}

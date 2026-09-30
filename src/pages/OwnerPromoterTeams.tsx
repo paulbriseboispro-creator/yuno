@@ -19,6 +19,7 @@ import {
   PromoHeader, PromoPage, PromoCard, SectionLabel, PromoPill, PromoButton, PromoProgress, PromoEmpty,
   RED, T1, T2, T3, BORDER, F_BORDER, TILE_BG, INNER_BG, C_FAINT,
 } from '@/components/promoter/promoter-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface MemberDetail {
   id: string; label: string; clicks: number; conversions: number;
@@ -277,7 +278,7 @@ export default function OwnerPromoterTeams() {
                   <div className="grid grid-cols-3 gap-2" style={{ marginTop: 12 }}>
                     {[
                       { v: team.totalConversions, l: tt('Ventes', 'Sales') },
-                      { v: `${team.totalRevenue.toFixed(0)}€`, l: tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)') },
+                      { v: `${formatMoneyAuto(team.totalRevenue)}`, l: tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)') },
                       { v: team.memberCount > 0 ? (team.totalConversions / team.memberCount).toFixed(1) : 0, l: tt('Moy/membre', 'Avg/member') },
                     ].map((s, i) => (
                       <div key={i} style={{ background: TILE_BG, borderRadius: 9, padding: '9px 8px', textAlign: 'center' }}>
@@ -326,11 +327,11 @@ export default function OwnerPromoterTeams() {
                             <div className="grid grid-cols-4 gap-2 text-center">
                               {[
                                 { v: member.clicks, l: tt('Clics', 'Clicks') }, { v: member.conversions, l: tt('Ventes', 'Sales') },
-                                { v: `${member.revenue.toFixed(0)}€`, l: tt('CA', 'Rev.') },
+                                { v: `${formatMoneyAuto(member.revenue)}`, l: tt('CA', 'Rev.') },
                               ].map((s, i) => (
                                 <div key={i}><p style={{ color: T1, fontSize: 12, fontWeight: 700, margin: 0 }}>{s.v}</p><p style={{ color: T3, fontSize: 9, margin: 0 }}>{s.l}</p></div>
                               ))}
-                              <div><p style={{ color: RED, fontSize: 12, fontWeight: 700, margin: 0 }}>{member.commission.toFixed(0)}€</p><p style={{ color: T3, fontSize: 9, margin: 0 }}>Comm.</p></div>
+                              <div><p style={{ color: RED, fontSize: 12, fontWeight: 700, margin: 0 }}>{formatMoneyAuto(member.commission)}</p><p style={{ color: T3, fontSize: 9, margin: 0 }}>Comm.</p></div>
                             </div>
                           </div>
                         ))}

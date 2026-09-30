@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Users, Wallet, TrendingUp, TrendingDown, Minus, Wine, PartyPopper, CreditCard, Percent, Timer, Star, Repeat, DoorOpen, Ticket, RotateCcw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { ExtendedStatsData } from '@/hooks/usePostEventAnalysis';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const POS      = 'var(--acc-34d399)';
@@ -40,10 +41,10 @@ export function PostEventExtendedStats({ stats }: PostEventExtendedStatsProps) {
     {
       label: t('postEvent.grpMoney'),
       items: [
-        { icon: Wallet,      label: t('postEvent.revenuePerHead'), value: `${stats.revenuePerHead.toFixed(0)} €`, change: stats.revenuePerHeadChange },
-        { icon: CreditCard,  label: t('postEvent.avgBasket'),      value: `${stats.avgOrderValue.toFixed(0)} €` },
-        { icon: PartyPopper, label: t('postEvent.peakRevenue'),    value: `${stats.peakHourRevenue} €`, sub: stats.peakHourLabel },
-        { icon: RotateCcw,   label: t('postEvent.refunds'),        value: `${stats.refunds.toFixed(0)} €` },
+        { icon: Wallet,      label: t('postEvent.revenuePerHead'), value: `${formatMoneyAuto(stats.revenuePerHead)}`, change: stats.revenuePerHeadChange },
+        { icon: CreditCard,  label: t('postEvent.avgBasket'),      value: `${formatMoneyAuto(stats.avgOrderValue)}` },
+        { icon: PartyPopper, label: t('postEvent.peakRevenue'),    value: `${formatMoneyAuto(stats.peakHourRevenue)}`, sub: stats.peakHourLabel },
+        { icon: RotateCcw,   label: t('postEvent.refunds'),        value: `${formatMoneyAuto(stats.refunds)}` },
       ],
     },
     {
@@ -56,7 +57,7 @@ export function PostEventExtendedStats({ stats }: PostEventExtendedStatsProps) {
     {
       label: t('postEvent.grpLoyalty'),
       items: [
-        { icon: Star,   label: t('postEvent.vipTables'),        value: stats.tablesBooked, sub: `${stats.tablesRevenue} €` },
+        { icon: Star,   label: t('postEvent.vipTables'),        value: stats.tablesBooked, sub: `${formatMoneyAuto(stats.tablesRevenue)}` },
         { icon: Repeat, label: t('postEvent.returningClients'), value: `${Math.round(stats.returningRate)}%` },
       ],
     },

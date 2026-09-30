@@ -12,6 +12,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { DrinkCatalogSearch } from '@/components/DrinkCatalogSearch';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -76,7 +77,7 @@ function ReorderSection({ title, icon: Icon, drinks, onReorder, onEdit, t }: {
               <img src={drink.imgUrl} alt={drink.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p style={{ color: T1, fontSize: 13, fontWeight: 560 }} className="truncate">{drink.name}</p>
-                <p style={{ color: T3, fontSize: 12 }} className="tabular-nums">€{drink.price.toFixed(2)}</p>
+                <p style={{ color: T3, fontSize: 12 }} className="tabular-nums">{formatMoneyAuto(drink.price)}</p>
               </div>
               <button onClick={(e) => { e.stopPropagation(); onEdit(drink); }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150"
@@ -106,15 +107,15 @@ function DrinkGridCard({ drink, onEdit, onDelete, t }: {
           <div>
             {drink.promoPrice ? (
               <div className="flex items-center gap-1.5">
-                <span style={{ color: RED, fontSize: 13, fontWeight: 640 }} className="tabular-nums">€{drink.promoPrice.toFixed(2)}</span>
-                <span style={{ color: T3, fontSize: 11, textDecoration: 'line-through' }} className="tabular-nums">€{drink.price.toFixed(2)}</span>
+                <span style={{ color: RED, fontSize: 13, fontWeight: 640 }} className="tabular-nums">{formatMoneyAuto(drink.promoPrice)}</span>
+                <span style={{ color: T3, fontSize: 11, textDecoration: 'line-through' }} className="tabular-nums">{formatMoneyAuto(drink.price)}</span>
               </div>
             ) : (
-              <span style={{ color: T1, fontSize: 13, fontWeight: 620 }} className="tabular-nums">€{drink.price.toFixed(2)}</span>
+              <span style={{ color: T1, fontSize: 13, fontWeight: 620 }} className="tabular-nums">{formatMoneyAuto(drink.price)}</span>
             )}
             {drink.presalePrice && (
               <div className="flex items-center gap-1 mt-0.5">
-                <span style={{ color: 'var(--acc-818cf8)', fontSize: 11 }} className="tabular-nums">Presale: €{drink.presalePrice.toFixed(2)}</span>
+                <span style={{ color: 'var(--acc-818cf8)', fontSize: 11 }} className="tabular-nums">Presale: {formatMoneyAuto(drink.presalePrice)}</span>
                 {drink.presaleActive && <span style={{ color: 'var(--acc-818cf8)', fontSize: 10 }}>✓</span>}
               </div>
             )}

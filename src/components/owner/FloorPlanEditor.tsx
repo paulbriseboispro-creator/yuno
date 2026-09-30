@@ -25,6 +25,7 @@ import { Slider } from '@/components/ui/slider';
 import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
 import { getFittedBackgroundRect } from '@/lib/floorPlanBackground';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface FloorTable {
   id: string;
@@ -1330,7 +1331,7 @@ export function FloorPlanEditor({
                             const bound = boundCount(pack.id, selectedTableData.id) + (selectedTableData.packId === pack.id ? 1 : 0);
                             return (
                               <SelectItem key={pack.id} value={pack.id} disabled={full}>
-                                {pack.name} · {pack.baseCapacity} pers. · {pack.basePrice} €
+                                {pack.name} · {pack.baseCapacity} pers. · {formatMoneyAuto(pack.basePrice)}
                                 {pack.limitTables && (pack.tablesCount ?? 0) > 0 ? ` · ${bound}/${pack.tablesCount}` : ''}
                               </SelectItem>
                             );

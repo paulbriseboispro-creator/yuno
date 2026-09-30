@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Eye, Ticket, Crown } from 'lucide-react';
+import { formatMoneyAuto } from '@/lib/money';
 
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
 const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
@@ -21,8 +22,7 @@ type Pack = {
   tables_count: number | null; is_active: boolean | null; position: number | null;
 };
 
-const euro = (n: number | null | undefined) =>
-  n === null || n === undefined ? '—' : `${Number(n).toFixed(Number(n) % 1 === 0 ? 0 : 2)} €`;
+const euro = (n: number | null | undefined) => formatMoneyAuto(n);
 
 /**
  * Aperçu LECTURE SEULE de l'opérationnel, pour la partie qui ne le tient pas.

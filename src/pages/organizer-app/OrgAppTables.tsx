@@ -18,6 +18,7 @@ import {
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { orgEventsOr } from '@/lib/coorg';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface OrgTableEvent {
   id: string;
@@ -583,11 +584,11 @@ export default function OrgAppTables() {
                                       <li key={pk.id ?? j} className="flex items-baseline justify-between gap-2">
                                         <span className="truncate" style={{ color: T2, fontSize: 12 }}>{pk.name}</span>
                                         <span className="shrink-0 tabular-nums text-right" style={{ color: T3, fontSize: 11 }}>
-                                          {Number(pk.base_price ?? 0).toFixed(0)} € · {pk.base_capacity ?? 1} {tt('pers.', 'guests', 'pers.')}
+                                          {formatMoneyAuto(Number(pk.base_price ?? 0))} · {pk.base_capacity ?? 1} {tt('pers.', 'guests', 'pers.')}
                                           {bound !== undefined ? ` · ${bound} ${tt('tables', 'tables', 'mesas')}` : pk.limit_tables ? ` · ${pk.tables_count} max` : ''}
                                           {pk.payment_mode === 'on_site'
                                             ? ` · ${tt('sur place', 'on site', 'en el local')}`
-                                            : Number(pk.deposit ?? 0) > 0 ? ` · ${tt('acompte', 'deposit', 'señal')} ${Number(pk.deposit).toFixed(0)} €` : ''}
+                                            : Number(pk.deposit ?? 0) > 0 ? ` · ${tt('acompte', 'deposit', 'señal')} ${formatMoneyAuto(Number(pk.deposit))}` : ''}
                                           {pk.arrival_deadline ? ` · ${tt('avant', 'before', 'antes de')} ${String(pk.arrival_deadline).slice(0, 5)}` : ''}
                                         </span>
                                       </li>

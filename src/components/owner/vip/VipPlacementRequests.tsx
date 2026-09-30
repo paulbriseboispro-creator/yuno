@@ -10,6 +10,7 @@ import {
   VipCard, VipButton, VipPill, VipEmpty, type PillTone,
   T1, T3, F_BORDER, INNER_BG, BORDER,
 } from './vip-ui';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface PlacementRequest {
   id: string;
@@ -145,7 +146,7 @@ export function VipPlacementRequests({ requests, onRefresh, floorPlan, reservati
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className="tabular-nums" style={{ color: T1, fontSize: 15, fontWeight: 660 }}>{request.totalPrice}€</div>
+                  <div className="tabular-nums" style={{ color: T1, fontSize: 15, fontWeight: 660 }}>{formatMoneyAuto(request.totalPrice)}</div>
                 </div>
               </div>
 

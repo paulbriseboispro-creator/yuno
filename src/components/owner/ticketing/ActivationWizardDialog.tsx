@@ -12,6 +12,7 @@ import { TicketSellingMode } from '@/types/ticketing';
 import { RED, POS, GOLD, T1, T2, T3, C_FAINT, BORDER, TILE_BG, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import type { SalesDraft, TicketSalesMode, TicketPreset, WizardCustomRound } from './ticketing-types';
 import { presetTypeTagKey } from './ticketing-types';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface ActivationWizardDialogProps {
   isActivationWizardOpen: boolean;
@@ -180,7 +181,7 @@ export function ActivationWizardDialog({
                                   <div className="min-w-0">
                                     <span style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{preset.name} <span style={{ color: T3, fontWeight: 400 }}>({t(presetTypeTagKey(preset.sellingMode))})</span></span>
                                     <div style={HINT}>
-                                      {preset.rounds.map(r => `${r.name} (${r.price}€)`).join(' · ')}
+                                      {preset.rounds.map(r => `${r.name} (${formatMoneyAuto(r.price)})`).join(' · ')}
                                     </div>
                                   </div>
                                   {sel && (
@@ -225,7 +226,7 @@ export function ActivationWizardDialog({
                                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: 'rgba(252,211,153,0.12)', border: '1px solid rgba(252,211,153,0.3)', color: GOLD }}>VIP</span>
                                     </div>
                                     <div style={HINT}>
-                                      {preset.rounds.map(r => `${r.name} (${r.price}€)`).join(' · ')}
+                                      {preset.rounds.map(r => `${r.name} (${formatMoneyAuto(r.price)})`).join(' · ')}
                                     </div>
                                   </div>
                                   {sel && (

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { formatMoneyAuto } from '@/lib/money';
 
 /**
  * Règlement promoteur en trois temps — client partagé.
@@ -159,7 +160,7 @@ export function payoutErrorKey(err: unknown): string {
 export { formatIban } from './iban';
 
 /** Montant lisible : pas de décimales sur un compte rond, deux sinon. */
-export const euro = (n: number) => (Number.isInteger(n) ? `${n}€` : `${n.toFixed(2)}€`);
+export const euro = (n: number) => formatMoneyAuto(n);
 
 /**
  * Jours restants avant bascule en litige. Négatif = délai dépassé.

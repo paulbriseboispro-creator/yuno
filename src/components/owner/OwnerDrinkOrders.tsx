@@ -7,6 +7,7 @@ import { Search, Eye, Copy, CheckCircle, Wine, ArrowUpRight, TrendingUp, Chevron
 import { Order, OrderStatus } from '@/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -197,8 +198,8 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: t('owner.orders'), value: filteredOrders.length.toString(), icon: Wine },
-            { label: t('owner.totalRevenue'), value: `€${totalRevenue.toFixed(0)}`, icon: TrendingUp },
-            { label: t('owner.avgBasket'), value: `€${avgOrder.toFixed(0)}`, icon: ArrowUpRight },
+            { label: t('owner.totalRevenue'), value: `${formatMoneyAuto(totalRevenue)}`, icon: TrendingUp },
+            { label: t('owner.avgBasket'), value: `${formatMoneyAuto(avgOrder)}`, icon: ArrowUpRight },
           ].map(({ label, value, icon: Icon }) => (
             <div key={label} className="text-center">
               <div style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -319,7 +320,7 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
                     {order.items.length} {t('owner.ord.itemsLabel')}
                   </span>
                   <span style={{ color: T1, fontSize: 14, fontWeight: 620, letterSpacing: '-0.01em' }} className="tabular-nums">
-                    €{order.total.toFixed(2)}
+                    {formatMoneyAuto(order.total)}
                   </span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: st.bg, color: st.color }}>
                     {statusLabel(order.status)}
@@ -354,7 +355,7 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
                   {statusLabel(selectedOrder.status)}
                 </span>
                 <span style={{ color: T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }} className="tabular-nums">
-                  €{selectedOrder.total.toFixed(2)}
+                  {formatMoneyAuto(selectedOrder.total)}
                 </span>
               </div>
 
@@ -390,7 +391,7 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
                   {selectedOrder.items.map((item) => (
                     <div key={item.drinkId} className="flex justify-between items-center px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T1, fontSize: 13 }}>{item.qty}× {item.name}</span>
-                      <span style={{ color: T1, fontSize: 13, fontWeight: 620 }} className="tabular-nums">€{(item.unitPrice * item.qty).toFixed(2)}</span>
+                      <span style={{ color: T1, fontSize: 13, fontWeight: 620 }} className="tabular-nums">{formatMoneyAuto((item.unitPrice * item.qty))}</span>
                     </div>
                   ))}
                 </div>

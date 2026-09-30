@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { ImportScope } from '@/components/contacts/ContactImportDialog';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Pack { id: string; name: string; emails_amount: number; price_eur: number }
 
@@ -150,12 +151,12 @@ export default function EmailCreditsDialog({ open, onClose, scope, onCredited }:
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] font-semibold tabular-nums">{pack.name}</div>
                 <div className="text-[11.5px] opacity-55">
-                  {(Number(pack.price_eur) / (pack.emails_amount / 1000)).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} € / 1 000
+                  {formatMoneyAuto(Number(pack.price_eur) / (pack.emails_amount / 1000))} / 1 000
                 </div>
               </div>
               <Button size="sm" onClick={() => void buy(pack)} disabled={buying !== null}>
                 {buying === pack.id && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                {Number(pack.price_eur).toLocaleString('fr-FR')} €
+                {formatMoneyAuto(Number(pack.price_eur))}
               </Button>
             </div>
           ))}

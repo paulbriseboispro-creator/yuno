@@ -3,6 +3,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { Ticket, Wine, Sofa, Users, Headphones } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens (Yuno pro DA) ───────────────────────────────────────────────
 const RED = '#E8192C';
@@ -21,14 +22,7 @@ const C_DRINKS = 'rgb(var(--ink)/var(--ink-a72,0.72))';
 const C_TABLES = 'rgb(var(--ink)/var(--ink-a34,0.34))';
 
 // Montant au format de la page (espace fine en français : « 1 234 € »).
-const fmtPrice = (n: number): string => {
-  const v = Math.round((n || 0) * 100) / 100;
-  const locale = typeof document !== 'undefined' && document.documentElement.lang ? document.documentElement.lang : 'fr-FR';
-  return new Intl.NumberFormat(locale, {
-    style: 'currency', currency: 'EUR',
-    notation: Math.abs(v) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(v) >= 10000 ? 1 : 0,
-  }).format(v);
-};
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 interface EventPnl {
   event_id: string; title: string; start_at: string;

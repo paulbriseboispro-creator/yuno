@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   type AppNotif, type FeedConfig, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig, notifLink,
 } from '@/lib/notifications';
+import { formatMoneyAuto } from '@/lib/money';
 
 /** Colonnes communes aux quatre flux de notifications (staff / orga / admin / affilié). */
 interface NotifRow {
@@ -136,7 +137,7 @@ function NotifCard({ notif, onMarkRead, onOpen }: { notif: AppNotif; onMarkRead:
           <div className="mt-2 grid grid-cols-3 gap-1.5">
             {[
               { label: t('notif.statTickets'),   value: meta.tickets_sold as number,    sub: `${meta.scan_rate ?? 0}% ${t('notif.scanned')}` },
-              { label: t('notif.statOrders'), value: meta.orders_count as number,    sub: `${Number(meta.order_revenue ?? 0).toFixed(0)} €` },
+              { label: t('notif.statOrders'), value: meta.orders_count as number,    sub: `${formatMoneyAuto(Number(meta.order_revenue ?? 0))}` },
               { label: t('notif.statTotal'),  value: `${Number(meta.total_revenue ?? 0).toFixed(2)} €`, sub: `${t('notif.tablesPrefix')}: ${meta.table_reservations ?? 0}` },
             ].map((s) => (
               <div key={s.label} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 text-center">

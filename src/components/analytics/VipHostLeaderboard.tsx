@@ -3,6 +3,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { Trophy, Medal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoneyAuto } from '@/lib/money';
 
 const RED = '#E8192C';
 const GOLD = 'var(--acc-e7c15a)';
@@ -14,10 +15,7 @@ const FAINT = 'rgb(var(--ink)/0.06)';
 const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
-const fmtPrice = (n: number): string => {
-  const v = Math.round((n || 0) * 100) / 100;
-  return v % 1 === 0 ? `${v.toLocaleString()}€` : `${v.toFixed(2)}€`;
-};
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 interface Host { host_id: string; name: string; avatar_url: string | null; revenue: number; items: number; tables: number }
 interface LeaderboardData { ok: boolean; hosts: Host[] }

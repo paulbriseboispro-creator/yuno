@@ -38,6 +38,7 @@ import { Switch } from '@/components/ui/switch';
 import { useMetaDevModeNotice } from '@/lib/metaIntegration';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
+import { formatMoney, localeFor } from '@/lib/money';
 
 // ─── Tokens (design system pro) ──────────────────────────────────────────────
 const RED = '#E8192C';
@@ -395,7 +396,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   const stats = data?.stats;
   const consent = data?.consent;
   const fmtDate = (iso: string | null | undefined) => (iso ? format(new Date(iso), 'd MMM yyyy, HH:mm', { locale }) : '—');
-  const fmtMoney = (cents: number) => new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(cents / 100);
+  const fmtMoney = (cents: number) => formatMoney(cents / 100, localeFor(language));
   const consentPct = consent && consent.orders_30d > 0 ? Math.round((consent.consented_30d / consent.orders_30d) * 100) : null;
   const expiresSoon = conn?.token_expires_at ? (new Date(conn.token_expires_at).getTime() - Date.now()) < 7 * 24 * 3600 * 1000 : false;
   const health = conn?.last_health as { is_valid?: boolean | null; scopes?: string[] | null; dataset_quality?: Record<string, unknown> } | null;

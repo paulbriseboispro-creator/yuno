@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from './scopeFilter';
 import { Heatmap, DeviceBar } from './behaviorPrimitives';
+import { formatMoneyAuto } from '@/lib/money';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -175,7 +176,7 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
               {stats.abandonedCarts}
             </div>
             <p className="text-xs mt-1 font-medium" style={{ color: RED }}>
-              ≈ {(stats.abandonedValueCents / 100).toFixed(0)}€ {tt('à récupérer', 'to recover')}
+              ≈ {formatMoneyAuto((stats.abandonedValueCents / 100))} {tt('à récupérer', 'to recover')}
             </p>
           </div>
         </div>

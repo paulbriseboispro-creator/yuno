@@ -3,6 +3,7 @@
  * des composants n'exporte que des composants (fast refresh).
  */
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatMoney } from '@/lib/money';
 
 export const KIT = {
   T1: 'rgb(var(--ink)/var(--ink-a96,0.96))',
@@ -19,9 +20,8 @@ export function useNumberFormat() {
   const { language } = useLanguage();
   const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
   const n = (v: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(v);
-  const eur = (v: number) => new Intl.NumberFormat(locale, {
-    style: 'currency', currency: 'EUR', maximumFractionDigits: Math.abs(v) >= 1000 || Number.isInteger(v) ? 0 : 2,
-  }).format(v);
+  // Toujours deux décimales (règle des montants pro, `src/lib/money.ts`).
+  const eur = (v: number) => formatMoney(v, locale);
   const time = (d: Date) => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(d);
   return { n, eur, time, locale };
 }

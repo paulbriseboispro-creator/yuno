@@ -7,12 +7,13 @@ import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cart
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import type { RefundAnalytics } from '@/hooks/useAnalyticsData';
+import { formatMoneyAuto } from '@/lib/money';
 
 interface Props {
   data: RefundAnalytics;
 }
 
-const fmtPrice = (n: number): string => n % 1 === 0 ? `${n}€` : `${n.toFixed(2)}€`;
+const fmtPrice = (n: number): string => formatMoneyAuto(n);
 
 const glassTooltipStyle = {
   backgroundColor: 'hsla(0, 0%, 6%, 0.95)',

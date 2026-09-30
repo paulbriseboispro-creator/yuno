@@ -9,6 +9,7 @@ import { loadCollabContractPdfData } from '@/lib/collabContractData';
 import { previewContractPDF, type CollabContractPDFData } from '@/lib/generateContractPDF';
 import { getCollabTerms, pickL, clauseBody, type Lang, type L } from '@/lib/collabContractTerms';
 import type { EventCollabContractRow } from '@/hooks/useEventCollabContract';
+import { formatMoney } from '@/lib/money';
 
 interface Props {
   open: boolean;
@@ -101,7 +102,7 @@ export function CollabContractTermsDialog({ open, onOpenChange, contract, pdfDat
 function ContractTermsView({ data, language }: { data: CollabContractPDFData; language: Lang }) {
   const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration, settlement: readSettlement(data.splitRules) });
   const { labels } = terms;
-  const fmtEur = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  const fmtEur = (n: number) => formatMoney(n, 'fr-FR');
   const t = (l: L) => pickL(language, l);
   const fmtDate = (d?: Date | null) =>
     d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
