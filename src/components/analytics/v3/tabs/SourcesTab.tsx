@@ -118,7 +118,7 @@ function Funnel({ data }: { data: An3Sources }) {
               <div className="w-full rounded-t-sm" style={{ height: `${Math.max(2, (s.n / max) * 100)}%`, background: i === steps.length - 1 ? A3.ref : A3.accent }} />
             </div>
             <span className="text-[11px] tabular-nums" style={{ color: A3.t3 }}>
-              {rate != null && prev !== null && prev >= 10 ? t('an3.src.ofPrevious').replace('{pct}', pct(Math.min(rate, 999), locale)) : i === 0 ? t('an3.src.start') : '—'}
+              {i === 0 ? t('an3.src.start') : rate != null && prev !== null && prev >= 10 && rate <= 100 ? t('an3.src.ofPrevious').replace('{pct}', pct(rate, locale)) : s.step === 'event_page' ? t('an3.src.directArrivals') : '—'}
             </span>
           </div>
         );

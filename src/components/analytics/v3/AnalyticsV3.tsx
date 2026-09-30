@@ -9,7 +9,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEventRail } from '@/hooks/useEventRail';
 import type { An3Scope } from '@/lib/analytics/an3Types';
 import { an3NeedsCanonicalUrl, an3Window, parseAn3Route, writeAn3Route, type An3Route, type An3Tab } from '@/lib/analytics/an3Nav';
-import { LiveView } from '@/components/live-view/LiveView';
 import { A3 } from './an3Tokens';
 import { FilterBar } from './FilterBar';
 import { TabsNav } from './TabsNav';
@@ -20,6 +19,7 @@ import { PromotersTab } from './tabs/PromotersTab';
 import { AudienceTab } from './tabs/AudienceTab';
 import { SourcesTab } from './tabs/SourcesTab';
 import { CampaignsTab } from './tabs/CampaignsTab';
+import { TonightTab } from './tabs/TonightTab';
 
 export function AnalyticsV3({ scope, consolePrefix, header }: { scope: An3Scope; consolePrefix: string; header?: React.ReactNode }) {
   const { t } = useLanguage();
@@ -67,18 +67,14 @@ export function AnalyticsV3({ scope, consolePrefix, header }: { scope: An3Scope;
           <TabsNav tab={route.tab} onChange={setTab} liveNow={liveNow} />
         </div>
         <main className="min-w-0" key={route.tab}>
-          {route.tab === 'overview' && <OverviewTab scope={scope} subject={subject} compare={route.compare} onOpenEvent={openEvent} registerExport={registerExport} />}
+          {route.tab === 'overview' && <OverviewTab scope={scope} subject={subject} compare={route.compare} onOpenEvent={openEvent} registerExport={registerExport} onOpenTab={setTab} />}
           {route.tab === 'sales' && <SalesTab scope={scope} subject={subject} compare={route.compare} onOpenEvent={openEvent} registerExport={registerExport} />}
           {route.tab === 'sources' && <SourcesTab scope={scope} subject={subject} registerExport={registerExport} />}
           {route.tab === 'audience' && <AudienceTab scope={scope} subject={subject} registerExport={registerExport} campaignsHref={`${consolePrefix}/campaigns/new`} />}
           {route.tab === 'door' && <DoorTab scope={scope} subject={subject} registerExport={registerExport} />}
           {route.tab === 'promoters' && <PromotersTab scope={scope} subject={subject} registerExport={registerExport} />}
           {route.tab === 'campaigns' && <CampaignsTab scope={scope} subject={subject} registerExport={registerExport} campaignsHref={`${consolePrefix}/campaigns/new`} />}
-          {route.tab === 'tonight' && (
-            <div className="-mx-4 sm:mx-0">
-              <LiveView venueId={scope.venueId ?? null} organizerUserId={scope.organizerUserId ?? null} />
-            </div>
-          )}
+          {route.tab === 'tonight' && <TonightTab scope={scope} />}
         </main>
         <p className="mt-6 text-[11px]" style={{ color: A3.t3 }}>{t('an3.footer.night')}</p>
       </div>

@@ -4,7 +4,7 @@
  */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { An3Audience, An3Campaigns, An3Denied, An3Door, An3Overview, An3Pacing, An3Promoters, An3Sales, An3Scope, An3Sources } from '@/lib/analytics/an3Types';
+import type { An3Audience, An3Benchmarks, An3Campaigns, An3Cohorts, An3Denied, An3Door, An3Insights, An3Overview, An3Pacing, An3Promoters, An3Rfm, An3Sales, An3Scope, An3Sources, An3Tonight } from '@/lib/analytics/an3Types';
 import type { An3Compare } from '@/lib/analytics/an3Nav';
 
 export interface An3Subject { eventId: string | null; from: string; to: string }
@@ -97,6 +97,47 @@ export function useAn3Campaigns(scope: An3Scope, subject: An3Subject): UseQueryR
     queryKey: ['an3', 'campaigns', scope.venueId ?? null, scope.organizerUserId ?? null, subject.eventId, subject.eventId ? null : subject.from, subject.eventId ? null : subject.to],
     queryFn: () => callRpc<An3Campaigns>('get_analytics_campaigns', { ...scopeArgs(scope), ...subjectArgs(subject) }),
     enabled: enabled(scope), staleTime: STALE,
+  });
+}
+
+export function useAn3Insights(scope: An3Scope, subject: An3Subject, compare: An3Compare): UseQueryResult<An3Insights, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'insights', scope.venueId ?? null, scope.organizerUserId ?? null, subject.eventId, subject.eventId ? null : subject.from, subject.eventId ? null : subject.to, compare],
+    queryFn: () => callRpc<An3Insights>('get_analytics_insights', { ...scopeArgs(scope), ...subjectArgs(subject), p_compare: compare }),
+    enabled: enabled(scope), staleTime: STALE,
+  });
+}
+
+export function useAn3Rfm(scope: An3Scope): UseQueryResult<An3Rfm, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'rfm', scope.venueId ?? null, scope.organizerUserId ?? null],
+    queryFn: () => callRpc<An3Rfm>('get_analytics_rfm', scopeArgs(scope)),
+    enabled: enabled(scope), staleTime: 5 * STALE,
+  });
+}
+
+export function useAn3Cohorts(scope: An3Scope): UseQueryResult<An3Cohorts, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'cohorts', scope.venueId ?? null, scope.organizerUserId ?? null],
+    queryFn: () => callRpc<An3Cohorts>('get_analytics_cohorts', { ...scopeArgs(scope), p_months: 12 }),
+    enabled: enabled(scope), staleTime: 5 * STALE,
+  });
+}
+
+/** Ce soir : rafraîchi toutes les 30 s tant que l'onglet est visible. */
+export function useAn3Tonight(scope: An3Scope): UseQueryResult<An3Tonight, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'tonight', scope.venueId ?? null, scope.organizerUserId ?? null],
+    queryFn: () => callRpc<An3Tonight>('get_analytics_tonight', scopeArgs(scope)),
+    enabled: enabled(scope), staleTime: 15_000, refetchInterval: 30_000, refetchIntervalInBackground: false,
+  });
+}
+
+export function useAn3Benchmarks(scope: An3Scope): UseQueryResult<An3Benchmarks, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'benchmarks', scope.venueId ?? null, scope.organizerUserId ?? null],
+    queryFn: () => callRpc<An3Benchmarks>('get_analytics_benchmarks', scopeArgs(scope)),
+    enabled: enabled(scope), staleTime: 30 * STALE,
   });
 }
 

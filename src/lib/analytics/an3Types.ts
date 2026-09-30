@@ -138,3 +138,24 @@ export interface An3PushCampaignRow {
   targeted: number; sent: number; taps: number; orders_3d: number; revenue_3d: number | null; orders_7d: number; revenue_7d: number | null;
 }
 export interface An3Campaigns { ok: true; money: boolean; from: string; to: string; email: An3EmailCampaignRow[]; push: An3PushCampaignRow[] }
+
+export type An3RfmSegment = 'pillars' | 'loyal' | 'big_occasional' | 'new_promising' | 'at_risk' | 'lost';
+export interface An3Rfm { ok: true; money: boolean; total: number; segments: { segment: An3RfmSegment; n: number; revenue: number | null; raw: string[] }[] }
+
+export interface An3CohortRow { month: string; people: number; masked: boolean; m0: number | null; m1: number | null; m2: number | null; m3: number | null; m6: number | null; r1: number | null; r2: number | null; r3: number | null; r6: number | null }
+export interface An3Cohorts { ok: true; money: boolean; rows: An3CohortRow[] }
+
+export type An3InsightKey = 'pacing_behind' | 'pacing_ahead' | 'tier_gone_fast' | 'buy_timing' | 'channel_gap' | 'checkout_leak' | 'guest_list_no_show' | 'zone_minimums' | 'pillars_not_booked';
+export interface An3Insight { key: An3InsightKey; level: 'info' | 'warn' | 'critical'; tab: 'sales' | 'sources' | 'door' | 'audience' | 'overview'; params: Record<string, string | number | null> }
+export interface An3Insights { ok: true; insights: An3Insight[] }
+
+export interface An3Tonight {
+  ok: true; live: boolean; night: string; now?: string; money?: boolean;
+  next?: { id: string; title: string; start_at: string } | null;
+  events?: { id: string; title: string; start_at: string; end_at: string }[];
+  entries?: number; expected?: number; cap?: number | null; revenue?: number | null; rev_tickets?: number | null; rev_bar?: number | null; rev_tables?: number | null;
+  tickets?: number; bar_orders?: number; tables_booked?: number; tables_arrived?: number; gl_registered?: number; gl_entered?: number;
+  last15?: number; prev15?: number; alerts?: { key: 'door_peak' | 'tables_late'; level: 'warn'; params: Record<string, number> }[];
+}
+
+export interface An3Benchmarks { ok: true; contributors: number; ready: boolean; medians: { attendance: number | null; fill: number | null; per_head: number | null } | null }

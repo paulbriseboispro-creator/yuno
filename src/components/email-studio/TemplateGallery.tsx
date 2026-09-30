@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { rfmParamToAudiences } from '@/lib/email/rfmAudience';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DEFAULT_STUDIO_THEME, buildStarter, eventBoundBlocks, makeBlock, normalizeTheme,
@@ -52,6 +53,10 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
   // soirée) — la campagne naît déjà reliée à elle, blocs Yuno en direct compris.
   const [searchParams] = useSearchParams();
   const [eventId, setEventId] = useState<string>(() => searchParams.get('event') ?? '');
+  // Analytics v3 : « Créer une campagne » depuis un segment RFM (`?rfm=at_risk`,
+  // `?rfm=champions,loyal`) pré-remplit l'audience avec le segment intégré
+  // correspondant — jamais une liste de personnes, toujours un segment résolu à l'envoi.
+  const presetAudiences = useMemo(() => rfmParamToAudiences(searchParams.get('rfm')), [searchParams]);
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<EmailTemplate | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EmailTemplate | null>(null);
@@ -104,7 +109,7 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
       social_links_json: content.socialLinks,
       logo_url: content.logoUrl,
       event_id: eventId || null,
-      audiences_json: [],
+      audiences_json: presetAudiences,
       exclusions_json: {},
       status: 'draft',
     };

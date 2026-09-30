@@ -13,6 +13,7 @@ import { A3Answer, A3Card, A3Swatch } from '../an3Ui';
 import { A3, CHART_H, TOOLTIP_STYLE } from '../an3Tokens';
 import { HBarList } from '../charts/HBarList';
 import { KpiCard } from '../KpiCard';
+import { CohortsCard, RfmCard } from '../IntelligenceCards';
 
 export function AudienceTab({ scope, subject, registerExport, campaignsHref }: {
   scope: An3Scope; subject: An3Subject; registerExport: (fn: (() => void) | null) => void; campaignsHref?: string;
@@ -88,6 +89,11 @@ export function AudienceTab({ scope, subject, registerExport, campaignsHref }: {
           empty={{ title: t('an3.aud.citiesEmpty'), body: t('an3.aud.citiesEmptyBody').replace('{k}', String(k)) }}>
           {data && <HBarList rows={data.cities.rows.map((c) => ({ key: c.city, label: c.city, value: c.n, display: compactNumber(c.n, locale) }))} limit={8} />}
         </A3Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RfmCard scope={scope} campaignsHref={campaignsHref} />
+        <CohortsCard scope={scope} />
       </div>
 
       {money && (

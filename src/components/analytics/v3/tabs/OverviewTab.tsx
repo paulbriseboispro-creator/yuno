@@ -5,7 +5,10 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAn3Overview, useAn3Pacing, cardState, type An3Subject } from '@/hooks/useAn3';
+import { useAn3Insights, useAn3Overview, useAn3Pacing, cardState, type An3Subject } from '@/hooks/useAn3';
+import { InsightsBand } from '../InsightsBand';
+import { BenchmarksCard } from '../IntelligenceCards';
+import type { An3Tab } from '@/lib/analytics/an3Nav';
 import type { An3Aggregate, An3Overview, An3Scope } from '@/lib/analytics/an3Types';
 import type { An3Compare } from '@/lib/analytics/an3Nav';
 import { an3Locale, compactMoney, compactNumber, deltaShape, deltaText, deltaTone, formatValue, pct, type An3Format } from '@/lib/analytics/an3Format';
@@ -39,9 +42,9 @@ function kpiValue(a: An3Aggregate | null, key: KpiKey, median: boolean): number 
   }
 }
 
-export function OverviewTab({ scope, subject, compare, onOpenEvent, registerExport }: {
+export function OverviewTab({ scope, subject, compare, onOpenEvent, registerExport, onOpenTab }: {
   scope: An3Scope; subject: An3Subject; compare: An3Compare; onOpenEvent: (id: string) => void;
-  registerExport: (fn: (() => void) | null) => void;
+  registerExport: (fn: (() => void) | null) => void; onOpenTab: (tab: An3Tab) => void;
 }) {
   const { t, language } = useLanguage();
   const locale = an3Locale(language);
@@ -50,6 +53,7 @@ export function OverviewTab({ scope, subject, compare, onOpenEvent, registerExpo
   const money = data?.money ?? false;
   const [metric, setMetric] = useState<KpiKey>('tickets');
   const pacing = useAn3Pacing(subject.eventId, compare);
+  const insights = useAn3Insights(scope, subject, compare);
   const [drawer, setDrawer] = useState<'rounds' | 'promoters' | 'sources' | null>(null);
   useEffect(() => { if (!money && (metric === 'revenue' || metric === 'aov')) setMetric('tickets'); }, [money, metric]);
 
@@ -131,6 +135,9 @@ export function OverviewTab({ scope, subject, compare, onOpenEvent, registerExpo
       {/* Phrase-réponse */}
       {data && cur && !empty && <Headline data={data} money={money} />}
 
+      {/* Constats par règles (jamais sous 20 observations) */}
+      {insights.data && insights.data.insights.length > 0 && <InsightsBand insights={insights.data.insights} onOpen={onOpenTab} />}
+
       {/* KPI */}
       {state === 'loading' ? (
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -207,6 +214,10 @@ export function OverviewTab({ scope, subject, compare, onOpenEvent, registerExpo
         <A3Card title={t('an3.nights.title')}>
           <NightsTable data={data} money={money} onOpen={onOpenEvent} />
         </A3Card>
+      )}
+
+      {data && cur && !empty && !isEvent && (
+        <BenchmarksCard scope={scope} mine={{ attendance: kpiValue(cur, 'attendance', false), fill: cur.cap ? (cur.tickets_with_cap / cur.cap) * 100 : null, per_head: money && cur.entries > 0 ? cur.money_revenue / cur.entries : null }} />
       )}
 
       {data && (

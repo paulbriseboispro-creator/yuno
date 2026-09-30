@@ -1,6 +1,6 @@
 /** Libellés partagés : « vs sam. 17 sept. », « vs médiane des 5 samedis », « 30 j d'avant ». */
-import type { An3Overview } from '@/lib/analytics/an3Types';
-import { an3Locale } from '@/lib/analytics/an3Format';
+import type { An3Insight, An3Overview } from '@/lib/analytics/an3Types';
+import { an3Locale, compactNumber } from '@/lib/analytics/an3Format';
 
 export function compareLabel(t: (k: string) => string, language: string, cmp: An3Overview['compare']): string {
   const locale = an3Locale(language);
@@ -32,3 +32,21 @@ export function sourceLabel(t: (k: string) => string, source: string): string {
   const v = t(key);
   return v === key ? source : v;
 }
+
+/** Le texte d'un constat, paramètres remplacés dans la langue de l'écran. */
+export function insightText(t: (k: string) => string, language: string, i: An3Insight): string {
+  const locale = an3Locale(language);
+  const p = i.params;
+  const n = (k: string) => compactNumber(Number(p[k] ?? 0), locale);
+  let s = t(`an3.ins.${i.key}`);
+  for (const [k, v] of Object.entries(p)) {
+    let val = v == null ? '' : String(v);
+    if (k === 'source') val = sourceLabel(t, String(v));
+    if (k === 'weekday') val = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(new Date(Date.UTC(2024, 0, Number(v), 12)));
+    if (['n', 'tickets', 'ref', 'qty', 'checkouts'].includes(k)) val = n(k);
+    if (k === 'hour') val = `${String(v).padStart(2, '0')}h–${String((Number(v) + 3) % 24).padStart(2, '0')}h`;
+    s = s.split(`{${k}}`).join(val);
+  }
+  return s;
+}
+

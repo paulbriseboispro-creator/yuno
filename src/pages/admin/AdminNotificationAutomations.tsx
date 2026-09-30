@@ -91,6 +91,8 @@ const SYSTEM_CATALOG: { key: string; category: SysCategory; dormant?: boolean }[
   { key: 'cart_abandonment_drinks', category: 'marketing' },
   { key: 'email_missed_you', category: 'marketing' },
   { key: 'email_next_event_rec', category: 'marketing' },
+  { key: 'email_night_recap', category: 'marketing' },
+  { key: 'email_weekly_digest', category: 'marketing' },
   { key: 'weekly_digest', category: 'marketing', dormant: true },
   { key: 'discovery_week', category: 'marketing', dormant: true },
   { key: 'discovery_weekend', category: 'marketing', dormant: true },
