@@ -8,19 +8,11 @@
 // (ticket / VIP / order confirmations) intentionally keep Yuno branding — that is
 // desirable brand exposure to fans and a revenue-critical path we leave untouched.
 
-/** Minimal shape of the Supabase client used by this module. */
-type AnySupabase = {
-  from(table: string): {
-    select(columns: string): {
-      eq(
-        column: string,
-        value: string,
-      ): {
-        maybeSingle(): PromiseLike<{ data: { subscription_plan?: string | null } | null }>;
-      };
-    };
-  };
-};
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+
+interface PlanRow {
+  subscription_plan: string | null;
+}
 
 /**
  * Interrupteur global de l'abonnement clubs — période de lancement.
@@ -37,7 +29,7 @@ export const SUBSCRIPTIONS_ENABLED = false;
  * "Powered by Yuno" branding. Core (or unknown) keeps the branding.
  */
 export async function shouldHideYunoBranding(
-  supabase: AnySupabase,
+  supabase: SupabaseClient,
   venueId: string | null | undefined,
 ): Promise<boolean> {
   // Abonnement coupé : branding Yuno affiché pour tous (pas de tier payant
@@ -48,7 +40,7 @@ export async function shouldHideYunoBranding(
     .from('venue_subscriptions')
     .select('subscription_plan')
     .eq('venue_id', venueId)
-    .maybeSingle();
+    .maybeSingle<PlanRow>();
   const plan = data?.subscription_plan ?? 'core';
   return plan !== 'core';
 }

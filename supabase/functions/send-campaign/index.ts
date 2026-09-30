@@ -25,7 +25,7 @@
 //      marquage, le rejeu du même lot ne ré-expédie pas.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
   renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
