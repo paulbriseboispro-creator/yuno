@@ -13,7 +13,7 @@ import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { getEventTimezone } from '@/lib/timezone';
 import {
   generateReceiptPDF, generateBilletPDF, deliverDocument, receiptLineLabels, resolveVatRegime, sellerVat,
   type ReceiptLine, type DocLang,
@@ -39,13 +39,6 @@ interface UpsellSelection {
 }
 
 /**
- * Résout les profils organisateurs d'une soirée (principal + co-orga), dans
- * l'ordre passé et sans doublon. La RLS de organizer_profiles ne renvoie que
- * les profils `is_public = true` : un profil privé disparaît donc de la liste,
- * et aucun bouton d'abonnement n'est proposé pour lui. Jamais bloquant — une
- * erreur ici ne doit pas empêcher la confirmation de s'afficher.
- */
-/**
  * Colonnes de `events` que l'inférence de types Supabase ne fait pas remonter
  * à travers un join `events!inner(...)` posé sur un select `*`. Un seul cast
  * typé par branche, plutôt que des `as any` dispersés sur chaque accès.
@@ -56,6 +49,49 @@ type JoinedEventExtras = {
   alcohol_free: boolean | null;
 };
 
+type EventPlaceRow = {
+  timezone: string | null;
+  location_city: string | null;
+  venue_id?: string | null;
+  partner_venue_id?: string | null;
+};
+
+interface EventPlace {
+  eventTimezone: string;
+  eventCity?: string;
+}
+
+/**
+ * Fuseau et ville de la soirée, pour le reçu, le billet et l'en-tête. Même
+ * règle que l'email de billet et la guest list (resolveGuestListPlace) : la
+ * ville du club (hôte, sinon partenaire d'une soirée menée par un
+ * organisateur) passe avant le champ libre de la soirée. `knownClubCity` =
+ * ville du club déjà lue par l'appelant, pour ne pas la relire. Jamais
+ * bloquant : sans réponse, Europe/Paris et pas de ville, comme avant.
+ */
+async function resolveEventPlace(
+  event: EventPlaceRow | null | undefined,
+  knownClubCity?: string | null,
+): Promise<EventPlace> {
+  let clubCity = knownClubCity || null;
+  const clubId = event?.venue_id ?? event?.partner_venue_id ?? null;
+  if (!clubCity && clubId) {
+    const { data } = await supabase.from('venues').select('city').eq('id', clubId).maybeSingle();
+    clubCity = data?.city || null;
+  }
+  return {
+    eventTimezone: getEventTimezone(event),
+    eventCity: clubCity || event?.location_city || undefined,
+  };
+}
+
+/**
+ * Résout les profils organisateurs d'une soirée (principal + co-orga), dans
+ * l'ordre passé et sans doublon. La RLS de organizer_profiles ne renvoie que
+ * les profils `is_public = true` : un profil privé disparaît donc de la liste,
+ * et aucun bouton d'abonnement n'est proposé pour lui. Jamais bloquant — une
+ * erreur ici ne doit pas empêcher la confirmation de s'afficher.
+ */
 async function fetchEventOrganizers(ids: (string | null | undefined)[]): Promise<EventOrganizer[]> {
   const unique = [...new Set(ids.filter((v): v is string => !!v))];
   if (unique.length === 0) return [];
@@ -92,6 +128,10 @@ interface ConfirmationData {
   organizerLed?: boolean;
   eventTitle?: string;
   eventDate?: string;
+  /** Fuseau de la soirée : reçu, billet et en-tête s'affichent à son heure. */
+  eventTimezone?: string;
+  /** Ville de la soirée (club hôte ou partenaire, sinon champ libre). */
+  eventCity?: string;
   eventPosterUrl?: string;
   venueName?: string;
   venueAddress?: string;
@@ -279,7 +319,7 @@ export default function OrderConfirmation() {
           .from('tickets')
           .select(`
             *,
-            events!inner(id, title, start_at, venue_id, poster_url, alcohol_free, organizer_user_id, partner_organizer_id),
+            events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, location_city, poster_url, alcohol_free, organizer_user_id, partner_organizer_id),
             ticket_rounds!inner(name, price)
           `)
           .eq('id', id)
@@ -288,6 +328,16 @@ export default function OrderConfirmation() {
         if (error && guestTicketData) {
           // Fallback: use guest ticket data passed via navigation state
           const gd = guestTicketData;
+          // L'invité ne peut pas relire son billet (RLS), mais la soirée est
+          // publique : fuseau et ville se lisent sur elle.
+          const { data: gdEvent } = gd.eventId
+            ? await supabase
+              .from('events')
+              .select('timezone, location_city, venue_id, partner_venue_id')
+              .eq('id', gd.eventId)
+              .maybeSingle()
+            : { data: null };
+          const gdPlace = await resolveEventPlace(gdEvent);
           setData({
             type: 'ticket',
             id: gd.id,
@@ -295,6 +345,7 @@ export default function OrderConfirmation() {
             eventId: gd.eventId,
             eventTitle: gd.eventTitle,
             eventDate: gd.eventDate,
+            ...gdPlace,
             eventPosterUrl: gd.eventPosterUrl,
             venueName: gd.venueName,
             venueAddress: gd.venueAddress,
@@ -335,9 +386,10 @@ export default function OrderConfirmation() {
 
         const { data: venue } = await supabase
           .from('venues')
-          .select('id, name, address, logo_url, legal_name, siret, vat_number, legal_address')
+          .select('id, name, address, city, logo_url, legal_name, siret, vat_number, legal_address')
           .eq('id', ticket.events.venue_id)
           .maybeSingle();
+        const ticketPlace = await resolveEventPlace(ticket.events, venue?.city);
 
         // Fetch attendees if nominative
         const { data: attendees } = await supabase
@@ -439,6 +491,7 @@ export default function OrderConfirmation() {
           eventId: ticket.events.id,
           eventTitle: ticket.events.title,
           eventDate: ticket.events.start_at,
+          ...ticketPlace,
           eventPosterUrl: ticket.events.poster_url,
           venueName: venue?.name,
           venueAddress: venue?.address,
@@ -476,7 +529,7 @@ export default function OrderConfirmation() {
           .from('table_reservations')
           .select(`
             *,
-            events!inner(id, title, start_at, venue_id, poster_url, organizer_user_id, partner_organizer_id),
+            events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, location_city, poster_url, organizer_user_id, partner_organizer_id),
             table_packs!inner(name, deposit),
             table_zones(name)
           `)
@@ -492,6 +545,8 @@ export default function OrderConfirmation() {
             eventId: gd.eventId,
             eventTitle: gd.eventTitle,
             eventDate: gd.eventDate,
+            eventTimezone: gd.eventTimezone,
+            eventCity: gd.eventCity,
             eventPosterUrl: gd.eventPosterUrl,
             venueName: gd.venueName,
             venueAddress: gd.venueAddress,
@@ -521,9 +576,10 @@ export default function OrderConfirmation() {
 
         const { data: venue } = await supabase
           .from('venues')
-          .select('id, name, address, logo_url, legal_name, siret, vat_number, legal_address')
+          .select('id, name, address, city, logo_url, legal_name, siret, vat_number, legal_address')
           .eq('id', reservation.events.venue_id)
           .single();
+        const tablePlace = await resolveEventPlace(reservation.events, venue?.city);
 
         // Fetch existing invoice number
         const { data: existingInvoice } = await supabase
@@ -551,6 +607,7 @@ export default function OrderConfirmation() {
           eventId: reservation.events.id,
           eventTitle: reservation.events.title,
           eventDate: reservation.events.start_at,
+          ...tablePlace,
           eventPosterUrl: reservation.events.poster_url,
           venueName: venue?.name,
           venueAddress: venue?.address,
@@ -578,11 +635,14 @@ export default function OrderConfirmation() {
       } else if (type === 'order') {
         const { data: order, error } = await supabase
           .from('orders')
-          .select('*, venues!inner(id, name, address, logo_url, legal_name, siret, vat_number, legal_address), events(id, title, start_at, poster_url)')
+          .select('*, venues!inner(id, name, address, city, logo_url, legal_name, siret, vat_number, legal_address), events(id, title, start_at, timezone, location_city, poster_url)')
           .eq('id', id)
           .single();
 
         if (error) throw error;
+
+        // Les boissons se commandent au bar du club : sa ville fait foi.
+        const orderPlace = await resolveEventPlace(order.events, order.venues.city);
 
         // Fetch existing invoice number
         const { data: existingInvoice } = await supabase
@@ -617,6 +677,7 @@ export default function OrderConfirmation() {
           eventId: order.events?.id,
           eventTitle: order.events?.title,
           eventDate: order.events?.start_at,
+          ...orderPlace,
           eventPosterUrl: order.events?.poster_url,
           totalPrice: order.total,
           customerEmail: order.user_email,
@@ -845,6 +906,8 @@ export default function OrderConfirmation() {
         customerPhone: data.customerPhone,
         eventTitle: data.eventTitle,
         eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
+        eventTimezone: data.eventTimezone,
+        eventCity: data.eventCity,
         lines: buildReceiptLines(itemVat.rate),
       });
       // Web : téléchargement fichier (toast honnête). Natif WKWebView : feuille de
@@ -880,6 +943,7 @@ export default function OrderConfirmation() {
         eventTitle: data.eventTitle || data.venueName || '',
         organizerName: data.venueName || '',
         eventStart: data.eventDate ? new Date(data.eventDate) : undefined,
+        eventTimezone: data.eventTimezone,
         address: data.venueAddress,
         entranceName: data.details,
         reference,
@@ -947,11 +1011,12 @@ export default function OrderConfirmation() {
   };
   const posterFallback = 'linear-gradient(160deg, #1a0a0d, #7a1428)';
   const cd = countdownLabel();
+  const eventTz = getEventTimezone({ timezone: data.eventTimezone });
   const dayLabel = data.eventDate
-    ? formatInTimeZone(new Date(data.eventDate), PARIS_TIMEZONE, 'EEE d MMM', { locale: getLocale() }).toUpperCase()
+    ? formatInTimeZone(new Date(data.eventDate), eventTz, 'EEE d MMM', { locale: getLocale() }).toUpperCase()
     : null;
   const timeLabel = data.eventDate
-    ? formatInTimeZone(new Date(data.eventDate), PARIS_TIMEZONE, 'HH:mm')
+    ? formatInTimeZone(new Date(data.eventDate), eventTz, 'HH:mm')
     : null;
   const heroTitle = data.eventTitle || data.venueName || 'Yuno';
 

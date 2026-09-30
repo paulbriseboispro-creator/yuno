@@ -37,7 +37,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
-import { PARIS_TIMEZONE, countryOfPlace } from '@/lib/timezone';
+import { countryOfPlace, getEventTimezone } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
@@ -918,6 +918,8 @@ export default function TableCheckout() {
         eventId: event.id,
         eventTitle: event.title,
         eventDate: event.start_at,
+        eventTimezone: getEventTimezone(event),
+        eventCity: venue?.city || event.location_city || undefined,
         eventPosterUrl: event.poster_url,
         venueName: venue?.name ?? event.location_name ?? organizer?.display_name ?? undefined,
         venueAddress: venue?.address ?? event.location_address ?? undefined,
@@ -1052,11 +1054,11 @@ export default function TableCheckout() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-5 font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
-                    {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM', { locale: getLocale() })}
+                    {formatInTimeZone(new Date(event.start_at), getEventTimezone(event), 'EEE d MMM', { locale: getLocale() })}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
-                    {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'HH:mm')}
+                    {formatInTimeZone(new Date(event.start_at), getEventTimezone(event), 'HH:mm')}
                   </div>
                   {(venue?.address || event.location_name) && (
                     <div className="flex items-center gap-1.5">
