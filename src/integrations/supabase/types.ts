@@ -7521,6 +7521,7 @@ export type Database = {
           ticket_selling_mode: string | null
           ticketing_enabled: boolean
           tickets_sold_out: boolean
+          vip_room_id: string | null
           timezone: string | null
           title: string
           updated_at: string
@@ -7597,6 +7598,7 @@ export type Database = {
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
           tickets_sold_out?: boolean
+          vip_room_id?: string | null
           timezone?: string | null
           title: string
           updated_at?: string
@@ -7673,6 +7675,7 @@ export type Database = {
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
           tickets_sold_out?: boolean
+          vip_room_id?: string | null
           timezone?: string | null
           title?: string
           updated_at?: string
@@ -18895,6 +18898,10 @@ export type Database = {
       }
       apply_vip_room_to_event: {
         Args: { p_event_id: string; p_room_id: string }
+        Returns: string
+      }
+      update_vip_room_plan: {
+        Args: { p_background_image_url: string; p_layout: Json; p_room_id: string }
         Returns: string
       }
       approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
