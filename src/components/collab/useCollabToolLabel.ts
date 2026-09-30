@@ -17,5 +17,11 @@ export function useCollabToolLabel() {
     bookdj: t('Booking DJ', 'Book DJ', 'Reservar DJ'),
     coorg: t('Co-organisateurs', 'Co-organizers', 'Coorganizadores'),
     stripe: t('Paiements', 'Payments', 'Pagos'),
+    tables: t('Tables VIP', 'VIP tables', 'Mesas VIP'),
+    vipservice: t('Service VIP', 'VIP service', 'Servicio VIP'),
+    djs: t('DJs & line-up', 'DJs & line-up', 'DJs y line-up'),
+    staff: t('Staff', 'Staff', 'Staff'),
+    orders: t('Commandes', 'Orders', 'Pedidos'),
+    promocodes: t('Codes promo', 'Promo codes', 'Códigos promo'),
   }[tool]);
 }

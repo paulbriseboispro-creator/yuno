@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Crown, ExternalLink, Mail, Ticket, Users } from 'lucide-react';
+import { Armchair, BarChart3, ConciergeBell, Crown, Disc3, ExternalLink, Mail, Megaphone, Ticket, Users } from 'lucide-react';
 import { OrgButton, OrgCard, OrgPill, OrgSectionLabel, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
-import { eventReportHref } from '@/lib/analyticsNav';
+import { collabToolHref, collabToolPaths, type CollabTool } from '@/lib/collabTrail';
 import { fetchPartyBreakdown, type PartyBreakdown } from '@/lib/collabPartyBreakdown';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { ensureEventPartyLink, type CoorgState, type PartnerVisibility } from '@/lib/coorg';
@@ -72,6 +72,22 @@ export function CoorgPartnerSpace({ eventId, state, partnerVisibility = 'full' }
       : me.access === 'editor'
         ? t('Co-gestion', 'Co-manager', 'Cogestión')
         : t('Partenaire', 'Partner', 'Socio');
+
+  // Les mêmes raccourcis que la page de la co-soirée, chacun dans un nouvel onglet
+  // avec son fil d'Ariane. Ce qui se gère (billets, tables, line-up, promoteurs)
+  // n'est offert qu'à qui vend ; un partenaire en lecture garde l'analyse.
+  const paths = collabToolPaths(basePath === '/organizer-app' ? 'organizer' : 'venue', eventId);
+  const toolLinks: { tool: CollabTool; icon: typeof Users; label: string }[] = [
+    { tool: 'analytics', icon: BarChart3, label: t('Analyse de la soirée', 'Event analytics', 'Análisis del evento') },
+    ...(runsSales ? [
+      { tool: 'ticketing' as const, icon: Ticket, label: t('Billetterie', 'Ticketing', 'Taquilla') },
+      { tool: 'tables' as const, icon: Armchair, label: t('Tables VIP', 'VIP tables', 'Mesas VIP') },
+      { tool: 'vipservice' as const, icon: ConciergeBell, label: t('Service VIP', 'VIP service', 'Servicio VIP') },
+      { tool: 'guestlist' as const, icon: Users, label: t('Guest list', 'Guest list', 'Lista') },
+      { tool: 'djs' as const, icon: Disc3, label: t('DJs & line-up', 'DJs & line-up', 'DJs y line-up') },
+      { tool: 'promoters' as const, icon: Megaphone, label: t('Promoteurs', 'Promoters', 'Promotores') },
+    ] : []),
+  ];
 
   const tiles: { label: string; value: string }[] = totals ? [
     { label: t('Billets', 'Tickets', 'Entradas'), value: n(totals.tickets) },
@@ -156,19 +172,11 @@ export function CoorgPartnerSpace({ eventId, state, partnerVisibility = 'full' }
           <Link to={`${basePath}/campaigns/new?event=${eventId}`}>
             <OrgButton size="sm" variant="primary"><Mail className="h-3.5 w-3.5" /> {t('Écrire à ma base', 'Email my list', 'Escribir a mi base')}</OrgButton>
           </Link>
-          <Link to={eventReportHref(`${basePath}/analytics`, eventId)}>
-            <OrgButton size="sm" variant="secondary"><BarChart3 className="h-3.5 w-3.5" /> {t('Analyse de la soirée', 'Event analytics', 'Análisis del evento')}</OrgButton>
-          </Link>
-          {runsSales && (
-            <>
-              <Link to={`${basePath}/ticketing?event=${eventId}`}>
-                <OrgButton size="sm" variant="secondary"><Ticket className="h-3.5 w-3.5" /> {t('Billetterie', 'Ticketing', 'Taquilla')}</OrgButton>
-              </Link>
-              <Link to={`${basePath}/guest-list?event=${eventId}`}>
-                <OrgButton size="sm" variant="secondary"><Users className="h-3.5 w-3.5" /> {t('Guest list', 'Guest list', 'Lista')}</OrgButton>
-              </Link>
-            </>
-          )}
+          {toolLinks.map(({ tool, icon: Icon, label }) => (
+            <a key={tool} href={collabToolHref(paths[tool]!, { eventId, title: state.event.title, tool })} target="_blank" rel="noopener">
+              <OrgButton size="sm" variant="secondary"><Icon className="h-3.5 w-3.5" /> {label}</OrgButton>
+            </a>
+          ))}
           <a href={`/event/${eventId}`} target="_blank" rel="noreferrer">
             <OrgButton size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /> {t('Page publique', 'Public page', 'Página pública')}</OrgButton>
           </a>

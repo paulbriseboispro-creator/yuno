@@ -1,5 +1,4 @@
 import { canSideEdit, type CollabDomain } from '@/utils/collabResponsibilities';
-import { eventReportHref } from '@/lib/analyticsNav';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabPreviewDialog } from './CollabPreviewDialog';
 import { GuestListRequestAlert } from '@/components/owner/guest-list/GuestListRequestAlert';
@@ -17,8 +16,9 @@ import {
   Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users,
   LayoutGrid, TrendingUp, Wine, UserPlus, Trophy, UsersRound, Target, Pencil, Check, X,
   ChevronDown, ChevronRight, FileText, MessageSquare, Euro, Settings2,
+  Disc3, Armchair, ConciergeBell, ShoppingBag, Percent, UserCheck,
 } from 'lucide-react';
-import { collabToolHref, collabEventHref, type CollabTool } from '@/lib/collabTrail';
+import { collabToolHref, collabToolPaths, collabEventHref, type CollabTool } from '@/lib/collabTrail';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { toast } from 'sonner';
@@ -483,20 +483,14 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const ticketingLive = !!event.ticketing_enabled;
   const clubVenueIdForLive = event.venue_id ?? event.partner_venue_id;
 
+  const paths = collabToolPaths(isVenue ? 'venue' : 'organizer', eventId);
   const navTo = {
-    live: isVenue ? '/owner/live' : `/organizer-app/events/${eventId}/live`,
-    analytics: eventReportHref(isVenue ? '/owner/analytics' : '/organizer-app/analytics', eventId),
-    promoters: isVenue ? `/owner/promoters/event/${eventId}` : `/organizer-app/promoters/event/${eventId}`,
+    live: paths.live!, analytics: paths.analytics!, promoters: paths.promoters!,
     // ?event= : sans lui la page Guest list retombe sur la 1re soirée de la liste
     // (on ouvrait « Amore » et on atterrissait sur une autre).
-    guestList: isVenue ? `/owner/guest-list?event=${eventId}` : `/organizer-app/guest-list?event=${eventId}`,
-    checkin: isVenue ? '/owner/live' : '/organizer-app/checkin',
-    bookDj: isVenue ? '/owner/book-dj' : '/organizer-app/book-dj',
+    guestList: paths.guestlist!, checkin: paths.checkin!, bookDj: paths.bookdj!,
     // ?event= : la billetterie s'ouvre sur CETTE soirée, pas sur la première de la liste.
-    ticketing: isVenue ? `/owner/ticketing?event=${eventId}` : `/organizer-app/ticketing?event=${eventId}`,
-    design: `/owner/events?edit=${eventId}`,
-    stripe: isVenue ? '/owner/billing' : '/organizer-app/payments',
-    coorg: isVenue ? `/owner/coorg/${eventId}` : `/organizer-app/coorg/${eventId}`,
+    ticketing: paths.ticketing!, design: paths.design!, stripe: paths.stripe!, coorg: paths.coorg!,
   };
   // Centre de contrôle : sur une co-soirée, chaque outil s'ouvre dans un NOUVEL
   // onglet avec le fil d'Ariane (`collabToolHref`, `CollabTrailBar`) — cette page
@@ -818,6 +812,12 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                         <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} href={toolHref('analytics', navTo.analytics)} />
                         {!isVenue && <ToolTile icon={ScanLine} label={t('Check-in', 'Check-in', 'Check-in')} href={toolHref('checkin', navTo.checkin)} />}
                         <ToolTile icon={Music} label={t('Booking DJ', 'Book DJ', 'Reservar DJ')} href={toolHref('bookdj', navTo.bookDj)} />
+                        <ToolTile icon={Disc3} label={t('DJs & line-up', 'DJs & line-up', 'DJs y line-up')} href={toolHref('djs', paths.djs!)} />
+                        <ToolTile icon={Armchair} label={t('Tables VIP', 'VIP tables', 'Mesas VIP')} href={toolHref('tables', paths.tables!)} />
+                        <ToolTile icon={ConciergeBell} label={t('Service VIP', 'VIP service', 'Servicio VIP')} href={toolHref('vipservice', paths.vipservice!)} />
+                        <ToolTile icon={ShoppingBag} label={t('Commandes', 'Orders', 'Pedidos')} href={toolHref('orders', paths.orders!)} />
+                        <ToolTile icon={Percent} label={t('Codes promo', 'Promo codes', 'Códigos promo')} href={toolHref('promocodes', paths.promocodes!)} />
+                        <ToolTile icon={UserCheck} label={t('Staff', 'Staff', 'Staff')} href={toolHref('staff', paths.staff!)} />
                         {/* Un troisième organisateur ou un autre club sur la soirée : la
                             co-organisation. Sans cette tuile, elle n'était joignable que
                             depuis la liste des soirées. */}

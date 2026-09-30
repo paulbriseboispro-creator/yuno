@@ -9,15 +9,47 @@
  * Tout ce qui décide est pur et testé (`__tests__/collabTrail.test.ts`).
  */
 
+import { eventReportHref } from '@/lib/analyticsNav';
+
 export type CollabSide = 'venue' | 'organizer';
 
 export type CollabTool =
   | 'design' | 'live' | 'ticketing' | 'analytics' | 'promoters'
-  | 'guestlist' | 'checkin' | 'bookdj' | 'coorg' | 'stripe';
+  | 'guestlist' | 'checkin' | 'bookdj' | 'coorg' | 'stripe'
+  | 'tables' | 'vipservice' | 'djs' | 'staff' | 'orders' | 'promocodes';
 
 export const COLLAB_TOOLS: readonly CollabTool[] = [
   'design', 'live', 'ticketing', 'analytics', 'promoters', 'guestlist', 'checkin', 'bookdj', 'coorg', 'stripe',
+  'tables', 'vipservice', 'djs', 'staff', 'orders', 'promocodes',
 ];
+
+/**
+ * Chemin de chaque outil d'une soirée, par côté. Source unique : la page de la
+ * co-soirée et la page Co-organisation montrent les MÊMES raccourcis.
+ * `null` = cet outil n'existe pas de ce côté.
+ */
+export function collabToolPaths(side: CollabSide, eventId: string): Record<CollabTool, string | null> {
+  const v = side === 'venue';
+  const base = v ? '/owner' : '/organizer-app';
+  return {
+    design: `/owner/events?edit=${eventId}`,
+    live: v ? '/owner/live' : `/organizer-app/events/${eventId}/live`,
+    ticketing: `${base}/ticketing?event=${eventId}`,
+    analytics: eventReportHref(`${base}/analytics`, eventId),
+    promoters: `${base}/promoters/event/${eventId}`,
+    guestlist: `${base}/guest-list?event=${eventId}`,
+    checkin: v ? '/owner/live' : '/organizer-app/checkin',
+    bookdj: `${base}/book-dj`,
+    coorg: `${base}/coorg/${eventId}`,
+    stripe: v ? '/owner/billing' : '/organizer-app/payments',
+    tables: `${base}/tables?event=${eventId}`,
+    vipservice: `${base}/vip-service?event=${eventId}`,
+    djs: `${base}/djs`,
+    staff: v ? '/owner/staff' : '/organizer-app/team?tab=staff',
+    orders: `${base}/orders`,
+    promocodes: `${base}/promo-codes`,
+  };
+}
 
 export interface CollabTrail {
   eventId: string;

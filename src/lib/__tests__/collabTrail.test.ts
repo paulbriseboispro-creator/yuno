@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  collabToolHref, readCollabTrail, trailAppliesTo, collabEventHref, collabHubHref, sideOfPath,
+  collabToolHref, collabToolPaths, readCollabTrail, trailAppliesTo, collabEventHref, collabHubHref, sideOfPath,
 } from '@/lib/collabTrail';
 
 describe('fil d’Ariane de la collaboration', () => {
@@ -41,5 +41,21 @@ describe('fil d’Ariane de la collaboration', () => {
     expect(collabHubHref('organizer')).toBe('/organizer-app/collaborations?tab=nights');
     expect(sideOfPath('/owner/ticketing')).toBe('venue');
     expect(sideOfPath('/organizer-app/ticketing')).toBe('organizer');
+  });
+});
+
+describe('raccourcis d’outils d’une soirée', () => {
+  it('pointent sur CETTE soirée, côté club et côté organisateur', () => {
+    const v = collabToolPaths('venue', 'e1');
+    const o = collabToolPaths('organizer', 'e1');
+    expect(v.tables).toBe('/owner/tables?event=e1');
+    expect(o.vipservice).toBe('/organizer-app/vip-service?event=e1');
+    expect(v.djs).toBe('/owner/djs');
+    expect(o.staff).toBe('/organizer-app/team?tab=staff');
+    expect(o.promoters).toBe('/organizer-app/promoters/event/e1');
+  });
+  it('chaque outil porte un fil d’Ariane lisible', () => {
+    const href = collabToolHref(collabToolPaths('venue', 'e1').tables!, { eventId: 'e1', title: 'Goya', tool: 'tables' });
+    expect(readCollabTrail('/owner/tables', href.split('?')[1])?.tool).toBe('tables');
   });
 });
