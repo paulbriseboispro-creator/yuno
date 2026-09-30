@@ -1361,6 +1361,52 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
 
+## Vues d'ensemble d'Analytics : UNE mise en page, deux périmètres (2026-09-30)
+
+Ventes, Trafic et Communauté ont chacun une « Vue d'ensemble » qui se lit de
+deux façons avec EXACTEMENT les mêmes blocs : **toutes les soirées sur une
+période**, ou **UNE soirée** choisie dans la colonne « Soirées » à droite.
+La vue « Par soirée » et les onglets de lentille n'existent plus (anciennes
+adresses `view=event|events` traduites dans `analyticsNav.ts`). Règles :
+
+- **Mise en page** : `AnalyticsSplit` (contenu | colonne, la colonne devient une
+  bande horizontale au-dessus sur téléphone) + `EventRail` (à venir puis passées,
+  recherche, UN chiffre par famille calculé comme la vue qu'il ouvre :
+  `get_analytics_event_rail`) + `SubjectHeader` (titre « Toutes les soirées » +
+  `PeriodSelector`, ou carte de la soirée + « Toutes les soirées »). Ne jamais
+  redessiner un en-tête de soirée ailleurs.
+- **Adresse** : `?tab=&view=overview&period=24h|48h|7d|30d|90d|all&event=<id>`
+  (`useAnalyticsPeriod`, `useEventParam`, `src/lib/analyticsPeriod.ts`). Défaut
+  30 jours. Les six mêmes choix partout ; les RPC lisent des HEURES (`p_hours`,
+  NULL = depuis toujours), Ventes les lit par `salesPeriodOf` (`d1…d90`).
+- **Même forme de réponse, une RPC par périmètre** : `get_traffic_period` ⇄
+  `get_event_traffic`, `get_community_period` ⇄ `get_event_community`. Un bloc
+  nouveau s'ajoute aux DEUX RPC (le composant `TrafficLens` / `CommunityLens` n'a
+  qu'un corps). Période : `event = null`, courbe en dates (`series[].date`),
+  `previous` = période d'avant de même durée (→ `DeltaBadge`) ; soirée : courbe
+  en J-N (`d`), `parties` (collab). `fillAxis` + `useAxisLabel` gèrent les deux axes.
+- **Portes** : `analytics_scope_gate(venue, org)` (toute la portée) et
+  `event_analytics_scope(event)` (une soirée, droits co-hôte compris) ; les
+  « À retenir » vivent en SQL dans `lens_traffic_takeaways` /
+  `lens_community_takeaways`, appelés par les deux RPC.
+- **Ventes en période** : soirées TERMINÉES dont la FIN tombe dans la fenêtre
+  (`get_sales_overview`, `v_by_end`), comparées au même nombre de soirées avant.
+  `last` / `last4` / `month` / `year` restent valides (accueil, anciens liens).
+- **Tunnel d'achat mesuré en base** : `event_funnel_events` (RLS sans policy,
+  écriture par `track_event_funnel` seule, purge 13 mois). Aucun point de tir
+  nouveau dans les pages : `capturePosthog` TRADUIT les événements du plan de
+  marquage en étapes (`src/lib/eventFunnel.ts`, `funnelRowFor`), même consentement
+  que la mesure d'audience, jamais sur surface pro ni en accès assisté. Ajouter
+  un point de tir PostHog (avec `event_id`) l'ajoute donc au tunnel. Session =
+  `yuno_funnel_sid` (par onglet, indépendante de `yuno_session_id` qui change avec
+  la portée) ; source = `categorizeReferrer` posée à la 1re étape de l'onglet.
+  Une étape est « atteinte » dès qu'une plus avancée l'est. « Acheté » = retour
+  sur Yuno après paiement : les ventes réelles restent dans Ventes.
+- **Collab** : les trois vues montrent chaque partie (Ventes « Qui a fait vendre »,
+  Trafic clics par lien, Communauté contacts / abonnés gagnés par partie) — des
+  VOLUMES, jamais des noms. Seule une soirée a des parties ; la période n'en a pas.
+- Semis démo : `scripts/demo/seed-event-funnel.sql` (rejouable, borné à la démo).
+
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 
 Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
