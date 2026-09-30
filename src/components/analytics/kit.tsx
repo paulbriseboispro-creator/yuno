@@ -11,7 +11,7 @@
  * Tokens du design system pro (`docs/DESIGN_SYSTEM.md`) : encre `--ink`,
  * jamais un blanc en dur, pour suivre le thème clair.
  */
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { ArrowRight, ArrowUp, ChevronDown, Clock, Info } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -232,10 +232,21 @@ export function DeltaBadge({ current, previous, format, lowerIsBetter = false, v
   );
 }
 
-/** Rangée de quatre tuiles au plus : 2 × 2 sur téléphone, 4 de front ailleurs. */
-export function KpiRow({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>;
+/**
+ * Rangée de quatre tuiles au plus : 2 × 2 sur téléphone, 4 de front ailleurs.
+ * `narrow` : la vue partage la largeur avec la colonne des soirées, les quatre
+ * tuiles ne se mettent de front qu'à partir de 1280 px.
+ */
+export function KpiRow({ children, narrow = false }: { children: React.ReactNode; narrow?: boolean }) {
+  return (
+    <KpiDensity.Provider value={narrow ? 'narrow' : 'wide'}>
+      <div className={`grid grid-cols-2 gap-3 ${narrow ? 'xl:grid-cols-4' : 'lg:grid-cols-4'}`}>{children}</div>
+    </KpiDensity.Provider>
+  );
 }
+
+/** Une rangée qui partage la largeur (colonne des soirées) donne des tuiles plus étroites : le gros chiffre rapetisse, il ne se tronque plus. */
+const KpiDensity = createContext<'wide' | 'narrow'>('wide');
 
 /**
  * Une tuile : libellé + ⓘ, valeur, comparaison. Cliquable quand elle pilote
@@ -247,6 +258,7 @@ export function KpiTile({ label, hint, value, delta, sub, active = false, onSele
 }) {
   // Une div à rôle de bouton : l'ⓘ de la définition est lui-même un bouton,
   // et un <button> ne peut pas en contenir un autre.
+  const density = useContext(KpiDensity);
   return (
     <div
       role={onSelect ? 'button' : undefined}
@@ -265,7 +277,7 @@ export function KpiTile({ label, hint, value, delta, sub, active = false, onSele
         <span className="truncate">{label}</span>
         {hint && <MetricHint text={hint} label={label} />}
       </span>
-      <span className="tabular-nums leading-none truncate" style={{ color: KIT.T1, fontSize: 'clamp(22px,2.4vw,28px)', fontWeight: 650, letterSpacing: '-0.025em' }}>
+      <span className="tabular-nums leading-none truncate" style={{ color: KIT.T1, fontSize: density === 'narrow' ? 'clamp(19px,1.6vw,24px)' : 'clamp(22px,2.4vw,28px)', fontWeight: 650, letterSpacing: '-0.025em' }}>
         {value}
       </span>
       {(delta || sub) && (

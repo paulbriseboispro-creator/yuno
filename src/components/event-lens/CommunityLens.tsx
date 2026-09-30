@@ -1,6 +1,8 @@
 /**
- * Analytics › Communauté › Par soirée — « ce que cette soirée m'a apporté ».
- * Une adresse par soirée (`?tab=community&view=event&event=`).
+ * Analytics › Communauté › Vue d'ensemble — « ce que mes soirées m'ont apporté ».
+ * Toutes les soirées sur une période, OU une soirée choisie dans la colonne de
+ * droite (`&event=`) : les MÊMES blocs, seul le périmètre change
+ * (`get_community_period` / `get_event_community`, même forme de réponse).
  *
  * La phrase-réponse, quatre chiffres, puis des QUESTIONS toujours dans le même
  * ordre :
@@ -8,8 +10,7 @@
  *   2. Qu'est-ce que ça a ajouté à ma base ?  nouveaux contacts, joignables par canal
  *   3. Et mes abonnés ?                       gagnés, perdus, via la page soirée, rythme habituel
  *   4. Dans le temps                          personnes et abonnés, jour par jour
- *   5. Qui a amené qui ?                      soirée à plusieurs : chaque partie, volumes seulement
- * Tout vient de `get_event_community` (migration 20260930245000).
+ *   5. Qui a amené qui ?                      UNE soirée à plusieurs : chaque partie, volumes seulement
  *
  * Volumes seulement : jamais un nom, un email ou un numéro. Sur une soirée à
  * plusieurs, une partie voit combien de contacts une autre a gagnés, pas
@@ -19,42 +20,44 @@ import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { AnswerLine, BulletBar, EmptyAnswer, KpiRow, KpiTile, StackBar, Takeaways } from '@/components/analytics/kit';
+import { AnswerLine, BulletBar, DeltaBadge, EmptyAnswer, KpiRow, KpiTile, StackBar, Takeaways } from '@/components/analytics/kit';
 import { KIT, pctFmt, useNumberFormat } from '@/components/analytics/kitFormat';
 import { CardTitle, EmptyNote, Question, ReportCard } from '@/components/event-report/ui';
 import { followerLift, isCollabNight, myParty, sharePct, windowDays, type EventCommunity } from '@/lib/eventCommunity';
 import { MIN_SAMPLE } from '@/lib/metrics';
-import { useEventCommunity } from '@/hooks/useEventLens';
-import type { AnalyticsFamily } from '@/lib/analyticsNav';
-import { EventLensHeader } from './EventLensHeader';
+import { useCommunityLens, type LensScope, type LensSubject } from '@/hooks/useLens';
+import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
+import { periodHours } from '@/lib/analyticsPeriod';
+import { fillAxis } from '@/lib/lensSeries';
 import { PartyChip } from './PartyChip';
+import { SubjectHeader } from './SubjectHeader';
+import { useAxisLabel } from './useAxisLabel';
 
 interface Props {
-  eventId: string;
-  onEventChange: (eventId: string) => void;
-  onBack: () => void;
-  go: (family: AnalyticsFamily, view?: string) => void;
-  scope: { venueId?: string | null; organizerUserId?: string | null };
+  scope: LensScope;
+  /** La soirée choisie dans la colonne de droite ; `null` = toutes les soirées sur la période. */
+  eventId: string | null;
+  onClear: () => void;
   /** Âge / sexe / villes du public (`EventAudienceDemographics`), sous « Qui est venu ? ». */
   demographics?: ReactNode;
   /** Base de contacts de la Console (absente côté manager, qui n'y a pas accès). */
   contactsHref?: string;
-  /** Écrire aux participants : l'Email Studio, soirée préremplie. */
+  /** Écrire aux participants : l'Email Studio (soirée préremplie quand une soirée est choisie). */
   campaignHref?: string;
+  /** Sous le dernier bloc d'une vue « toutes les soirées » : l'historique de la base de contacts, replié. */
+  children?: ReactNode;
 }
 
-const dayLabel = (d: number, t: (k: string) => string) =>
-  d > 0 ? t('er.day.before').replace('{n}', String(d)) : d === 0 ? t('er.day.j') : t('er.day.after').replace('{n}', String(-d));
-
-export function EventCommunityView({ eventId, onEventChange, onBack, go, scope, demographics, contactsHref, campaignHref }: Props) {
+export function CommunityLens({ scope, eventId, onClear, demographics, contactsHref, campaignHref, children }: Props) {
   const { t } = useLanguage();
-  const { data, loading, error, fetchedAt } = useEventCommunity(eventId);
+  const [period] = useAnalyticsPeriod();
+  const subject: LensSubject = eventId ? { kind: 'event', id: eventId } : { kind: 'period', hours: periodHours(period) };
+  const { data, loading, error, fetchedAt } = useCommunityLens(scope, subject);
   return (
     <div className="space-y-4">
-      <EventLensHeader
-        lens="community" eventId={eventId} onEventChange={onEventChange} onBack={onBack} go={go} scope={scope}
-        event={data?.event ?? null} tz={data?.tz} fetchedAt={fetchedAt}
-      />
+      {eventId && !data
+        ? <div className="animate-pulse rounded-2xl" style={{ height: 96, background: 'rgb(var(--ink)/0.04)' }} />
+        : <SubjectHeader event={data?.event ?? null} tz={data?.tz} fetchedAt={fetchedAt} onClear={onClear} />}
       {error ? (
         <ReportCard><EmptyNote text={t(`er.error.${error}`)} /></ReportCard>
       ) : !data ? (
@@ -64,6 +67,7 @@ export function EventCommunityView({ eventId, onEventChange, onBack, go, scope, 
       ) : (
         <CommunityBody data={data} demographics={demographics} contactsHref={contactsHref} campaignHref={campaignHref} />
       )}
+      {!eventId && children}
       {loading && data && <span className="sr-only">{t('er.loading')}</span>}
     </div>
   );
@@ -84,7 +88,7 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
   if (p.total === 0) {
     return (
       <EmptyAnswer
-        title={t(data.event.phase === 'after' ? 'evl.co.empty.after' : 'evl.co.empty.before')}
+        title={t(!data.event ? 'evl.co.empty.period' : data.event.phase === 'after' ? 'evl.co.empty.after' : 'evl.co.empty.before')}
         body={t('evl.co.empty.body')}
       />
     );
@@ -98,7 +102,7 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
     });
   const freshPct = sharePct(crm.new, p.total);
   const reachPct = sharePct(crm.anyReach, p.total);
-  const answer = fill(t(data.event.phase === 'before' ? 'evl.co.answerBefore' : 'evl.co.answer'), {
+  const answer = fill(t(!data.event ? 'evl.co.answerPeriod' : data.event.phase === 'before' ? 'evl.co.answerBefore' : 'evl.co.answer'), {
     people: <B>{n(p.total)}</B>,
     buyers: n(p.buyers),
     guests: n(p.guestsOnly),
@@ -108,7 +112,7 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
   });
 
   const tkText = (key: string, prm: Record<string, string | number | null>): string =>
-    t(`evl.co.tk.${key}`)
+    tx(`evl.co.tk.${key}`)
       .replace('{n}', n(Number(prm.n ?? 0)))
       .replace('{pct}', pctFmt(Number(prm.pct ?? 0), locale))
       .replace('{email}', n(Number(prm.email ?? 0)))
@@ -118,6 +122,9 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
   const SECTION: Record<string, string> = { crm: 'evl-crm', followers: 'evl-followers', who: 'evl-who', parties: 'evl-parties' };
 
   const net = data.followers ? data.followers.gained - data.followers.lost : null;
+  const prev = data.previous ?? null;
+  // Quelques phrases parlent « de la soirée » : sur une période, elles parlent « des soirées » (clés `.P`).
+  const tx = (key: string) => t(data.event ? key : `${key}.P`);
 
   return (
     <div className="space-y-4">
@@ -131,14 +138,16 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
         }))}
       />
 
-      <KpiRow>
+      <KpiRow narrow>
         <KpiTile label={t('evl.co.kpi.people')} hint={t('evl.co.hint.people')} value={n(p.total)}
+          delta={prev ? <DeltaBadge current={p.total} previous={prev.people} format="n" vs={t('evl.vsBefore')} /> : undefined}
           sub={t('evl.co.kpi.peopleSub').replace('{buyers}', n(p.buyers)).replace('{guests}', n(p.guestsOnly))} />
-        <KpiTile label={t('evl.co.kpi.fresh')} hint={t('evl.co.hint.fresh')} value={n(crm.new)}
+        <KpiTile label={t('evl.co.kpi.fresh')} hint={tx('evl.co.hint.fresh')} value={n(crm.new)}
           sub={freshPct !== null ? t('evl.co.kpi.freshSub').replace('{pct}', pctFmt(freshPct, locale)) : undefined} />
         <KpiTile label={t('evl.co.kpi.reach')} hint={t('evl.co.hint.reach')} value={reachPct !== null ? pctFmt(reachPct, locale) : '—'}
           sub={t('evl.co.kpi.reachSub').replace('{n}', n(crm.anyReach))} />
         <KpiTile label={t('evl.co.kpi.followers')} hint={t('evl.co.hint.followers')}
+          delta={prev && data.followers ? <DeltaBadge current={data.followers.gained} previous={prev.followers} format="n" vs={t('evl.vsBefore')} /> : undefined}
           value={net === null ? '—' : `${net > 0 ? '+' : net < 0 ? '−' : ''}${n(Math.abs(net))}`}
           sub={data.followers && data.followers.eventPage > 0 ? t('evl.co.kpi.followersSub').replace('{n}', n(data.followers.eventPage)) : undefined} />
       </KpiRow>
@@ -147,7 +156,7 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
       <Question id="evl-who" title={t('evl.co.q.who')} sub={t('evl.co.q.whoSub')} />
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <ReportCard>
-          <CardTitle title={t('evl.co.loyaltyTitle')} hint={t('evl.co.hint.loyalty')} />
+          <CardTitle title={t('evl.co.loyaltyTitle')} hint={tx('evl.co.hint.loyalty')} />
           {p.total < MIN_SAMPLE ? <EmptyNote text={t('evl.co.thin')} /> : (
             <div className="space-y-5">
               <StackBar
@@ -225,20 +234,20 @@ function CommunityBody({ data, demographics, contactsHref, campaignHref }: {
             )}
           </div>
         )}
-        <p className="mt-3" style={{ color: KIT.T3, fontSize: 11.5 }}>{t('evl.co.reachNote').replace('{party}', me?.name ?? '')}</p>
+        <p className="mt-3" style={{ color: KIT.T3, fontSize: 11.5 }}>{me ? t('evl.co.reachNote').replace('{party}', me.name) : t('evl.co.reachNote.P')}</p>
       </ReportCard>
 
       {/* 3. Et mes abonnés ? */}
-      <Question id="evl-followers" title={t('evl.co.q.followers')} sub={t('evl.co.q.followersSub')} />
+      <Question id="evl-followers" title={t('evl.co.q.followers')} sub={tx('evl.co.q.followersSub')} />
       <ReportCard>
-        <CardTitle title={t('evl.co.followersTitle')} hint={t('evl.co.hint.followerFlow')} />
+        <CardTitle title={tx('evl.co.followersTitle')} hint={t('evl.co.hint.followerFlow')} />
         {!data.followers ? <EmptyNote text={t('evl.co.followersNone')} /> : (
           <>
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <Stat label={t('evl.co.fw.gained')} value={n(data.followers.gained)} />
               <Stat label={t('evl.co.fw.lost')} value={n(data.followers.lost)} />
               <Stat label={t('evl.co.fw.eventPage')} value={n(data.followers.eventPage)} hint={t('evl.co.hint.eventPage')} />
-              <Stat label={t('evl.co.fw.attendees')} value={n(data.followers.attendees)} hint={t('evl.co.hint.attendees')} />
+              <Stat label={tx('evl.co.fw.attendees')} value={n(data.followers.attendees)} hint={tx('evl.co.hint.attendees')} />
             </div>
             {lift && lift.lift !== null && (
               <p className="mt-4" style={{ color: KIT.T2, fontSize: 13 }}>
@@ -286,26 +295,18 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function Timeline({ data }: { data: EventCommunity }) {
   const { t } = useLanguage();
   const { n } = useNumberFormat();
-  const points = useMemo(() => {
-    const by = new Map(data.timeline.map((x) => [x.d, x]));
-    const ds = [...by.keys()];
-    if (ds.length === 0) return [];
-    const max = Math.max(...ds, 0);
-    const min = Math.min(...ds, 0);
-    const out: { d: number; fresh: number; known: number; followers: number }[] = [];
-    for (let d = max; d >= min; d--) {
-      const r = by.get(d);
-      out.push({ d, fresh: r?.fresh ?? 0, known: Math.max(0, (r?.people ?? 0) - (r?.fresh ?? 0)), followers: r?.followers ?? 0 });
-    }
-    return out;
-  }, [data.timeline]);
+  const axisLabel = useAxisLabel();
+  const points = useMemo(() => fillAxis(
+    data.timeline.map((x) => ({ d: x.d, date: x.date, fresh: x.fresh, known: Math.max(0, x.people - x.fresh), followers: x.followers })),
+    { fresh: 0, known: 0, followers: 0 },
+  ), [data.timeline]);
   if (points.length === 0) return <EmptyNote text={t('evl.co.noTimeline')} />;
   return (
     <div className="h-[240px] w-full" role="img" aria-label={t('evl.co.timelineTitle')}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="rgb(var(--ink)/0.06)" />
-          <XAxis dataKey="d" tickFormatter={(d: number) => dayLabel(d, t)} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={28} />
+          <XAxis dataKey="key" tickFormatter={(k: string) => axisLabel(k)} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={28} />
           <YAxis yAxisId="l" width={40} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
           <YAxis yAxisId="r" orientation="right" hide />
           <Tooltip
@@ -315,7 +316,7 @@ function Timeline({ data }: { data: EventCommunity }) {
               const row = payload[0].payload as { fresh: number; known: number; followers: number };
               return (
                 <div className="rounded-xl px-3 py-2 text-[12px]" style={{ background: 'var(--sf-111113)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1 }}>
-                  <div style={{ color: KIT.T3, marginBottom: 4 }}>{dayLabel(Number(label), t)}</div>
+                  <div style={{ color: KIT.T3, marginBottom: 4 }}>{axisLabel(String(label))}</div>
                   <div className="tabular-nums font-semibold">{t('evl.co.tl.people').replace('{n}', n(row.fresh + row.known))}</div>
                   <div className="tabular-nums" style={{ color: KIT.T2 }}>{t('evl.co.tl.fresh').replace('{n}', n(row.fresh))}</div>
                   <div className="tabular-nums" style={{ color: KIT.T2 }}>{t('evl.co.tl.followers').replace('{n}', n(row.followers))}</div>

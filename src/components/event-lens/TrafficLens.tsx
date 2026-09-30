@@ -1,6 +1,8 @@
 /**
- * Analytics › Trafic › Par soirée — « est-ce qu'on voit ma soirée, et où
- * est-ce qu'on lâche ? ». Une adresse par soirée (`?tab=traffic&view=events&event=`).
+ * Analytics › Trafic › Vue d'ensemble — « est-ce qu'on voit mes soirées, et où
+ * est-ce qu'on lâche ? ». Toutes les soirées sur une période, OU une soirée
+ * choisie dans la colonne de droite (`&event=`) : les MÊMES blocs, seul le
+ * périmètre change (`get_traffic_period` / `get_event_traffic`, même forme).
  *
  * Même grammaire que le Rapport de soirée : la réponse en une phrase, quatre
  * chiffres, puis des QUESTIONS dans le même ordre à chaque fois —
@@ -8,14 +10,14 @@
  *   2. Qu'est-ce qui est choisi ?        les paliers et formules, face à ce qui s'est vendu
  *   3. D'où viennent-ils, sur quoi ?      sources et appareils, avec leur conversion
  *   4. Que fait la page ?                visites par jour, durée, défilement, villes
- *   5. Qui amène du trafic ?             soirée à plusieurs : clics et ventes de chaque partie
- * Tout vient de `get_event_traffic` (+ `get_collab_party_breakdown` pour la 5e).
+ *   5. Qui amène du trafic ?             UNE soirée à plusieurs : clics et ventes de chaque partie
+ * (la 5e lit `get_collab_party_breakdown`).
  * Visites et étapes consenties seulement (CMP) : un minimum, et l'écran le dit.
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { AnswerLine, ChoicePills, EmptyAnswer, KpiRow, KpiTile, MoreDetail, TodayDelta, Takeaways } from '@/components/analytics/kit';
+import { AnswerLine, ChoicePills, DeltaBadge, EmptyAnswer, KpiRow, KpiTile, MoreDetail, TodayDelta, Takeaways } from '@/components/analytics/kit';
 import { KIT, pctFmt, useNumberFormat } from '@/components/analytics/kitFormat';
 import { CardTitle, EmptyNote, Question, RankRow, ReportCard } from '@/components/event-report/ui';
 import { visitSourceLabel } from '@/lib/eventReport';
@@ -25,36 +27,36 @@ import {
 } from '@/lib/eventTraffic';
 import { peopleOf, type PartyBreakdown } from '@/lib/collabPartyBreakdown';
 import { MIN_SAMPLE } from '@/lib/metrics';
-import { useEventTraffic } from '@/hooks/useEventLens';
+import { fillAxis } from '@/lib/lensSeries';
+import { useAxisLabel } from './useAxisLabel';
+import { useTrafficLens, type LensScope, type LensSubject } from '@/hooks/useLens';
 import { usePartyBreakdown } from '@/hooks/usePartyBreakdown';
-import type { AnalyticsFamily } from '@/lib/analyticsNav';
-import { EventLensHeader } from './EventLensHeader';
+import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
+import { periodHours } from '@/lib/analyticsPeriod';
+import { SubjectHeader } from './SubjectHeader';
 import { FunnelBars } from './FunnelBars';
 import { PartyChip } from './PartyChip';
 
 interface Props {
-  eventId: string;
-  onEventChange: (eventId: string) => void;
-  onBack: () => void;
-  go: (family: AnalyticsFamily, view?: string) => void;
-  scope: { venueId?: string | null; organizerUserId?: string | null };
+  scope: LensScope;
+  /** La soirée choisie dans la colonne de droite ; `null` = toutes les soirées sur la période. */
+  eventId: string | null;
+  onClear: () => void;
 }
 
 const PILLAR_ORDER: TrafficPillar[] = ['tickets', 'tables', 'guest_list'];
-const dayLabel = (d: number, t: (k: string) => string) =>
-  d > 0 ? t('er.day.before').replace('{n}', String(d)) : d === 0 ? t('er.day.j') : t('er.day.after').replace('{n}', String(-d));
-
-export function EventTrafficView({ eventId, onEventChange, onBack, go, scope }: Props) {
+export function TrafficLens({ scope, eventId, onClear }: Props) {
   const { t } = useLanguage();
-  const { data, loading, error, fetchedAt } = useEventTraffic(eventId);
-  const parties = usePartyBreakdown(data ? eventId : null);
+  const [period] = useAnalyticsPeriod();
+  const subject: LensSubject = eventId ? { kind: 'event', id: eventId } : { kind: 'period', hours: periodHours(period) };
+  const { data, loading, error, fetchedAt } = useTrafficLens(scope, subject);
+  const parties = usePartyBreakdown(data && eventId ? eventId : null);
 
   return (
     <div className="space-y-4">
-      <EventLensHeader
-        lens="traffic" eventId={eventId} onEventChange={onEventChange} onBack={onBack} go={go} scope={scope}
-        event={data?.event ?? null} tz={data?.tz} fetchedAt={fetchedAt}
-      />
+      {eventId && !data
+        ? <div className="animate-pulse rounded-2xl" style={{ height: 96, background: 'rgb(var(--ink)/0.04)' }} />
+        : <SubjectHeader event={data?.event ?? null} tz={data?.tz} fetchedAt={fetchedAt} nights={data?.period?.nights ?? null} onClear={onClear} />}
       {error ? (
         <ReportCard><EmptyNote text={t(`er.error.${error}`)} /></ReportCard>
       ) : !data ? (
@@ -92,13 +94,14 @@ function TrafficBody({ data, parties }: { data: EventTraffic; parties: PartyBrea
   if (v.total === 0 && !f.tracked) {
     return (
       <EmptyAnswer
-        title={t(data.event.phase === 'after' ? 'evl.tr.empty.after' : 'evl.tr.empty.before')}
+        title={t(!data.event ? 'evl.tr.empty.period' : data.event.phase === 'after' ? 'evl.tr.empty.after' : 'evl.tr.empty.before')}
         body={t('evl.tr.empty.body')}
       />
     );
   }
 
   const conv = f.tracked ? visitConversion(f.purchased, f.sessions) : null;
+  const prev = data.previous ?? null;
   const sessionsKnown = f.sessions >= MIN_SAMPLE;
 
   // ── La phrase-réponse ───────────────────────────────────────────────────
@@ -109,8 +112,8 @@ function TrafficBody({ data, parties }: { data: EventTraffic; parties: PartyBrea
       return m && m[1] in parts ? <span key={i}>{parts[m[1]]}</span> : chunk;
     });
   const answer = f.tracked && sessionsKnown
-    ? fill(t('evl.tr.answer'), { visits: <B>{n(v.total)}</B>, checkout: <B>{n(f.checkout)}</B>, purchased: <B>{n(f.purchased)}</B>, conv: conv !== null ? ` (${pctFmt(conv, locale, 1)})` : '' })
-    : fill(t('evl.tr.answerNoFunnel'), { visits: <B>{n(v.total)}</B>, visitors: <B>{n(v.visitors)}</B> });
+    ? fill(t(data.event ? 'evl.tr.answer' : 'evl.tr.answerPeriod'), { visits: <B>{n(v.total)}</B>, checkout: <B>{n(f.checkout)}</B>, purchased: <B>{n(f.purchased)}</B>, conv: conv !== null ? ` (${pctFmt(conv, locale, 1)})` : '' })
+    : fill(t(data.event ? 'evl.tr.answerNoFunnel' : 'evl.tr.answerPeriodNoFunnel'), { visits: <B>{n(v.total)}</B>, visitors: <B>{n(v.visitors)}</B> });
 
   // ── À retenir ───────────────────────────────────────────────────────────
   const tkText = (key: string, p: Record<string, string | number | null>): string => {
@@ -161,11 +164,14 @@ function TrafficBody({ data, parties }: { data: EventTraffic; parties: PartyBrea
         }))}
       />
 
-      <KpiRow>
-        <KpiTile label={t('evl.tr.kpi.visits')} hint={t('gl.visits')} value={n(v.total)} delta={<TodayDelta value={v.today} />} />
+      <KpiRow narrow>
+        <KpiTile label={t('evl.tr.kpi.visits')} hint={t('gl.visits')} value={n(v.total)}
+          delta={prev ? <DeltaBadge current={v.total} previous={prev.visits} format="n" vs={t('evl.vsBefore')} /> : <TodayDelta value={v.today} />} />
         {f.tracked && sessionsKnown ? (
           <>
             <KpiTile label={t('m.conversion')} hint={t('evl.tr.hint.conversion')} value={conv !== null ? pctFmt(conv, locale, 1) : '—'}
+              delta={prev && prev.sessions >= MIN_SAMPLE && conv !== null
+                ? <DeltaBadge current={conv} previous={Math.round((prev.purchased / prev.sessions) * 1000) / 10} format="pct" vs={t('evl.vsBefore')} /> : undefined}
               sub={t('evl.tr.kpi.convSub').replace('{n}', n(f.purchased)).replace('{total}', n(f.sessions))} />
             <KpiTile label={t('evl.tr.kpi.checkout')} hint={t('evl.tr.hint.checkout')} value={n(f.checkout)}
               sub={f.sessions > 0 ? t('evl.tr.kpi.checkoutSub').replace('{pct}', pctFmt((f.checkout / f.sessions) * 100, locale)) : undefined} />
@@ -359,16 +365,8 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function VisitsCurve({ data }: { data: EventTraffic }) {
   const { t } = useLanguage();
   const { n } = useNumberFormat();
-  const points = useMemo(() => {
-    const by = new Map(data.series.map((s) => [s.d, s]));
-    const ds = [...by.keys()];
-    if (ds.length === 0) return [];
-    const max = Math.max(...ds, 0);
-    const min = Math.min(...ds, 0);
-    const out: { d: number; visits: number; checkout: number; purchased: number }[] = [];
-    for (let d = max; d >= min; d--) out.push({ d, visits: by.get(d)?.visits ?? 0, checkout: by.get(d)?.checkout ?? 0, purchased: by.get(d)?.purchased ?? 0 });
-    return out;
-  }, [data.series]);
+  const points = useMemo(() => fillAxis(data.series, { visits: 0, checkout: 0, purchased: 0 }), [data.series]);
+  const axisLabel = useAxisLabel();
   if (points.length === 0) return <EmptyNote text={t('evl.tr.noCurve')} />;
   const withFunnel = data.funnel.tracked;
   return (
@@ -382,7 +380,7 @@ function VisitsCurve({ data }: { data: EventTraffic }) {
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke="rgb(var(--ink)/0.06)" />
-          <XAxis dataKey="d" tickFormatter={(d: number) => dayLabel(d, t)} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={28} />
+          <XAxis dataKey="key" tickFormatter={(k: string) => axisLabel(k)} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={28} />
           <YAxis yAxisId="l" width={40} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
           {withFunnel && <YAxis yAxisId="r" orientation="right" hide />}
           <Tooltip
@@ -392,7 +390,7 @@ function VisitsCurve({ data }: { data: EventTraffic }) {
               const row = payload[0].payload as { visits: number; checkout: number; purchased: number };
               return (
                 <div className="rounded-xl px-3 py-2 text-[12px]" style={{ background: 'var(--sf-111113)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1 }}>
-                  <div style={{ color: KIT.T3, marginBottom: 4 }}>{dayLabel(Number(label), t)}</div>
+                  <div style={{ color: KIT.T3, marginBottom: 4 }}>{axisLabel(String(label))}</div>
                   <div className="tabular-nums font-semibold">{t('er.reach.sessions').replace('{n}', n(row.visits))}</div>
                   {withFunnel && (
                     <>

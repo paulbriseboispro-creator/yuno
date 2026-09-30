@@ -1,10 +1,8 @@
 /**
- * Analytics › Trafic — « Est-ce qu'on me voit ? ».
- *
- *   • Ma page     : la page publique du club (`/club/…`) ou de l'organisateur
- *                   (`/o/…`), visites par jour, aujourd'hui, visiteurs, sources.
- *   • Par soirée  : chaque soirée, ses visites et la part qui a commandé ; un
- *                   clic ouvre son Rapport de soirée.
+ * Analytics › Trafic › Ma page — « Est-ce qu'on me voit ? » : la page publique
+ * du club (`/club/…`) ou de l'organisateur (`/o/…`), visites par jour,
+ * aujourd'hui, visiteurs, sources. (Les visites de chaque soirée, et le
+ * parcours d'achat, vivent dans la vue d'ensemble : `TrafficLens`.)
  * Visites consenties seulement (CMP) : c'est un minimum, et l'écran le dit.
  * Tout vient de `get_page_traffic`.
  */
@@ -25,13 +23,11 @@ type Days = '30' | '90' | '365';
 
 interface Props {
   scope: AnalyticsScope;
-  mode: 'page' | 'events';
   /** Adresse publique de la page (pour « Voir ma page »), si connue. */
   publicPath?: string | null;
-  eventHref: (eventId: string) => string;
 }
 
-export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
+export function TrafficView({ scope, publicPath }: Props) {
   const { t, language } = useLanguage();
   const { n, locale } = useNumberFormat();
   const [days, setDays] = useState<Days>('90');
@@ -65,56 +61,6 @@ export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
 
   const dayFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' });
   const dateFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: '2-digit' });
-
-  if (mode === 'events') {
-    const rows = data.events.rows;
-    return (
-      <div className="space-y-4" style={{ opacity: loading ? 0.6 : 1 }}>
-        {period}
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard label={t('anf.tr.eventVisits')} hint={t('gl.visits')} value={n(data.events.total)} today={data.events.today} />
-          <StatCard label={t('anf.tr.eventsSeen')} value={n(rows.length)} sub={t('anf.tr.overPeriod').replace('{n}', days)} />
-        </div>
-        <ReportCard>
-          <CardTitle title={t('anf.tr.byEventTitle')} hint={t('gl.visits')} />
-          {rows.length === 0 ? <EmptyNote text={t('anf.tr.noEventVisits')} /> : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-[13px]">
-                <thead>
-                  <tr style={{ color: KIT.T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    <th className="pb-2 text-left font-semibold">{t('anf.co.colEvent')}</th>
-                    <th className="pb-2 pl-3 text-right font-semibold">{t('anf.tr.colVisits')}</th>
-                    <th className="pb-2 pl-3 text-right font-semibold">{t('anf.tr.colToday')}</th>
-                    <th className="pb-2 pl-3 text-right font-semibold">{t('anf.tr.colOrdered')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => {
-                    // Une conversion se lit au dixième : 4 achats sur 1 000 visites = 0,4 %, pas « 0 % ».
-                    const conv = r.visits >= MIN_SAMPLE ? conversionPct(r.ordered, r.visits) : null;
-                    return (
-                      <tr key={r.id} style={{ borderTop: `1px solid ${KIT.BORDER}` }}>
-                        <td className="py-2.5 pr-3">
-                          <Link to={eventHref(r.id)} className="block truncate font-medium hover:underline" style={{ color: KIT.T1, maxWidth: 360 }}>{r.title}</Link>
-                          <span style={{ color: KIT.T3, fontSize: 11.5 }}>{dateFmt.format(new Date(r.startAt))}</span>
-                        </td>
-                        <td className="py-2.5 pl-3 text-right tabular-nums" style={{ color: KIT.T1 }}>{n(r.visits)}</td>
-                        <td className="py-2.5 pl-3 text-right tabular-nums" style={{ color: r.today > 0 ? 'var(--acc-34d399)' : KIT.T3 }}>{r.today > 0 ? `+${n(r.today)}` : '—'}</td>
-                        <td className="py-2.5 pl-3 text-right tabular-nums" style={{ color: KIT.T2 }}>
-                          {n(r.ordered)}{conv != null && <span className="ml-1.5" style={{ color: KIT.T3 }}>{pctFmt(conv, locale, 1)}</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p className="mt-3" style={{ color: KIT.T3, fontSize: 11.5 }}>{t('anf.tr.consent')}</p>
-        </ReportCard>
-      </div>
-    );
-  }
 
   const p = data.page;
   const sourcesTop = Math.max(1, ...p.sources.map((s) => s.visits));

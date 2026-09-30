@@ -18,14 +18,17 @@ import { ArrowRight, Download } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSalesOverview } from '@/hooks/useSalesOverview';
+import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
+import { salesPeriodOf } from '@/lib/analyticsPeriod';
+import { SubjectHeader } from '@/components/event-lens/SubjectHeader';
 import {
   AnalyticsLoading, AnswerLine, ChoicePills, Takeaways, DeltaBadge, EmptyAnswer, KpiRow, KpiTile, MoreDetail, RankedList,
-  StackBar, UpdatedAt,
+  StackBar,
 } from '@/components/analytics/kit';
 import { KIT, useKpiFormat, useNumberFormat } from '@/components/analytics/kitFormat';
 import { ReportCard, CardTitle } from '@/components/event-report/ui';
 import {
-  SALES_PERIODS, bestNight, chartSeries, metricValue, nightDeltas, pillarHasActivity, pillarKpis, pillarsFor,
+  bestNight, chartSeries, metricValue, nightDeltas, pillarHasActivity, pillarKpis, pillarsFor,
   type SalesKpi, type SalesMetricKey, type SalesNight, type SalesOverview, type SalesPeriod, type SalesPillar, type SalesTakeaway,
 } from '@/lib/salesOverview';
 
@@ -58,17 +61,18 @@ export function SalesOverviewView({
   canExport?: boolean;
 }) {
   const { t } = useLanguage();
-  const [period, setPeriod] = useState<SalesPeriod>(() => readPref('period', SALES_PERIODS, 'last4'));
+  // La période est celle de toutes les vues d'ensemble (URL `?period=`), lue ici en soirées terminées.
+  const [periodKey] = useAnalyticsPeriod();
+  const period: SalesPeriod = salesPeriodOf(periodKey);
   const [pillar, setPillar] = useState<SalesPillar>('all');
   const { data, loading, error, fetchedAt } = useSalesOverview({ venueId, organizerUserId }, period, true, true);
-
-  const changePeriod = (p: SalesPeriod) => { setPeriod(p); writePref('period', p); };
 
   const pillars = data ? pillarsFor(data) : (['all', 'tickets', 'tables', 'guestList'] as SalesPillar[]);
   const activePillar = pillars.includes(pillar) ? pillar : 'all';
 
   return (
     <div className="space-y-5">
+      <SubjectHeader event={null} fetchedAt={fetchedAt} nights={data && data.period === period ? data.current.nights : null} onClear={() => undefined} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ChoicePills<SalesPillar>
           label={t('so.pillarLabel')}
@@ -76,26 +80,13 @@ export function SalesOverviewView({
           onChange={setPillar}
           options={pillars.map((p) => ({ value: p, label: t(`so.pillar.${p}`) }))}
         />
-        <div className="flex flex-wrap items-center gap-3">
-          <UpdatedAt at={fetchedAt} />
-          {canExport && data && data.nights.length > 0 && (
-            <button type="button" onClick={() => exportNightsCsv(data, t)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12.5px] font-medium"
-              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1 }}>
-              <Download className="h-3.5 w-3.5" aria-hidden />{t('so.export')}
-            </button>
-          )}
-          <label className="sr-only" htmlFor="so-period">{t('so.periodLabel')}</label>
-          <select
-            id="so-period"
-            value={period}
-            onChange={(e) => changePeriod(e.target.value as SalesPeriod)}
-            className="rounded-xl px-3 py-2 text-[12.5px] font-medium"
-            style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1 }}
-          >
-            {SALES_PERIODS.map((p) => <option key={p} value={p}>{t(`so.period.${p}`)}</option>)}
-          </select>
-        </div>
+        {canExport && data && data.nights.length > 0 && (
+          <button type="button" onClick={() => exportNightsCsv(data, t)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12.5px] font-medium"
+            style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1 }}>
+            <Download className="h-3.5 w-3.5" aria-hidden />{t('so.export')}
+          </button>
+        )}
       </div>
 
       {/* Une autre période est en route : on n'affiche pas les chiffres de l'ancienne sous le nouveau sélecteur. */}
@@ -159,7 +150,7 @@ function PillarBody({ data, pillar, onPillar, eventHref, eventsHref, accountingH
       <AnswerLine><Answer data={data} pillar={pillar} /></AnswerLine>
       <SalesTakeaways data={data} pillar={pillar} onPillar={onPillar} />
 
-      <KpiRow>
+      <KpiRow narrow>
         {kpis.map((k) => (
           <KpiTile
             key={k.key}
@@ -507,7 +498,7 @@ function NightsTable({ data, pillar, eventHref }: { data: SalesOverview; pillar:
   const deltaKey = cols[cols.length - 1].key;
   const deltas = nightDeltas(data.nights, deltaKey);
   const rows = open ? data.nights : data.nights.slice(0, 7);
-  const grid = `minmax(0,1fr) ${cols.map(() => 'minmax(64px,auto)').join(' ')} 64px`;
+  const grid = `minmax(0,1fr) ${cols.map(() => 'minmax(64px,auto)').join(' ')} 78px`;
 
   return (
     <ReportCard>
@@ -612,16 +603,4 @@ function exportNightsCsv(data: SalesOverview, t: (k: string) => string) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-}
-
-// ─── Préférence de période (par appareil) ────────────────────────────────────
-
-function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const v = localStorage.getItem(`yuno:sales:${key}`) as T | null;
-    return v && allowed.includes(v) ? v : fallback;
-  } catch { return fallback; }
-}
-function writePref(key: string, v: string) {
-  try { localStorage.setItem(`yuno:sales:${key}`, v); } catch { /* stockage refusé : sans importance */ }
 }
