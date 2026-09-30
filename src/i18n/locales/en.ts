@@ -5770,6 +5770,8 @@ const en: Record<string, string> = {
   'vipHost.shortcuts.deleteKey': 'Del',
   'vipHost.shortcuts.escKey': 'Esc',
   'vipHost.shortcuts.duplicate': 'Duplicate the selected table',
+  'vipHost.shortcuts.copyPaste': 'Copy / paste the selected table',
+  'vipHost.sizeRange': 'Enter a value between {min} and {max}',
   'vipHost.shortcuts.remove': 'Remove the selected table or zone',
   'vipHost.shortcuts.nudge': 'Nudge by 1 px',
   'vipHost.shortcuts.nudgeFast': 'Nudge by 10 px',

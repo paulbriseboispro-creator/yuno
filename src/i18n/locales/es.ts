@@ -5957,6 +5957,8 @@ const es: Record<string, string> = {
   'vipHost.shortcuts.deleteKey': 'Supr',
   'vipHost.shortcuts.escKey': 'Esc',
   'vipHost.shortcuts.duplicate': 'Duplicar la mesa seleccionada',
+  'vipHost.shortcuts.copyPaste': 'Copiar / pegar la mesa seleccionada',
+  'vipHost.sizeRange': 'Introduce un valor entre {min} y {max}',
   'vipHost.shortcuts.remove': 'Quitar la mesa o la zona seleccionada',
   'vipHost.shortcuts.nudge': 'Mover 1 px',
   'vipHost.shortcuts.nudgeFast': 'Mover 10 px',

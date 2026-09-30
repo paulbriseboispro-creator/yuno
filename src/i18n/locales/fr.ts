@@ -5672,6 +5672,8 @@ const fr: Record<string, string> = {
   'vipHost.shortcuts.deleteKey': 'Suppr',
   'vipHost.shortcuts.escKey': 'Échap',
   'vipHost.shortcuts.duplicate': 'Dupliquer la table sélectionnée',
+  'vipHost.shortcuts.copyPaste': 'Copier / coller la table sélectionnée',
+  'vipHost.sizeRange': 'Saisis une valeur entre {min} et {max}',
   'vipHost.shortcuts.remove': 'Retirer la table ou la zone sélectionnée',
   'vipHost.shortcuts.nudge': 'Déplacer d’1 px',
   'vipHost.shortcuts.nudgeFast': 'Déplacer de 10 px',

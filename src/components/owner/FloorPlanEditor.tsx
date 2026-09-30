@@ -110,6 +110,33 @@ const CANVAS_HEIGHT = 400;
 // du layout.
 // Une table peut descendre à 8 px : assez pour un point sur un grand plan.
 const TABLE_MIN_SIZE = 8;
+const TABLE_MAX_SIZE = 200;
+
+// Numeric field that lets the user clear and retype freely; only valid values are applied,
+// out-of-range ones show a message instead of being silently clamped.
+function SizeInput({ value, min, max, onCommit }: { value: number; min: number; max: number; onCommit: (v: number) => void }) {
+  const { t } = useLanguage();
+  const [draft, setDraft] = useState(String(value));
+  const n = Number(draft);
+  const invalid = draft.trim() === '' || !Number.isFinite(n) || n < min || n > max;
+  // Follow external changes (resizing on the canvas) without overwriting what is being typed.
+  useEffect(() => {
+    if (Number(draft) !== value) setDraft(String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <>
+      <Input type="number" value={draft} min={min} max={max} step={1} aria-invalid={invalid}
+        className={invalid ? 'border-destructive focus-visible:ring-destructive' : undefined}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const v = Number(e.target.value);
+          if (e.target.value.trim() !== '' && Number.isFinite(v) && v >= min && v <= max) onCommit(Math.round(v));
+        }} />
+      {invalid && <p className="mt-1 text-[11px] text-destructive">{t('vipHost.sizeRange').replace('{min}', String(min)).replace('{max}', String(max))}</p>}
+    </>
+  );
+}
 const VIEW_ZOOM_MIN = 0.5;
 const VIEW_ZOOM_MAX = 3;
 const VIEW_ZOOM_STEP = 0.25;
@@ -392,8 +419,8 @@ export function FloorPlanEditor({
     setSelectedZoneArea(null);
   };
 
-  const duplicateTable = (tableId: string) => {
-    const src = tables.find(t => t.id === tableId);
+  const duplicateTable = (tableId: string, snapshot?: FloorTable, offsetSteps = 1) => {
+    const src = snapshot ?? tables.find(t => t.id === tableId);
     if (!src) return;
     // Dupliquer une table liée à une formule déjà pleine : la copie perd la formule.
     const srcPack = src.packId ? packs.find(p => p.id === src.packId) : undefined;
@@ -404,16 +431,36 @@ export function FloorPlanEditor({
       ...(dropPack ? { packId: undefined, packName: undefined } : {}),
       id: crypto.randomUUID(),
       name: nextTableName(tables, src.zoneId),
-      x: Math.min(src.x + 20, CANVAS_WIDTH - src.width),
-      y: Math.min(src.y + 20, CANVAS_HEIGHT - src.height),
+      x: Math.min(src.x + 20 * offsetSteps, CANVAS_WIDTH - src.width),
+      y: Math.min(src.y + 20 * offsetSteps, CANVAS_HEIGHT - src.height),
     };
     setTables([...tables, dup]);
     setSelectedTable(dup.id);
     setSelectedZoneArea(null);
   };
 
+  // Renumber the tables of each zone (per name prefix) so numbering always restarts at 1
+  // without gaps, keeping the current order. Names without a trailing number are untouched.
+  const renumberTables = (pool: FloorTable[]): FloorTable[] => {
+    const groups = new Map<string, { t: FloorTable; n: number }[]>();
+    pool.forEach(t => {
+      const m = /^(.*?)(\d+)\s*$/.exec((t.name || '').trim());
+      if (!m) return;
+      const key = `${t.zoneId ?? ''}|${m[1]}`;
+      const arr = groups.get(key) ?? [];
+      arr.push({ t, n: parseInt(m[2], 10) });
+      groups.set(key, arr);
+    });
+    const renamed = new Map<string, string>();
+    groups.forEach((arr, key) => {
+      const prefix = key.slice(key.indexOf('|') + 1);
+      arr.sort((a, b) => a.n - b.n).forEach((e, i) => renamed.set(e.t.id, `${prefix}${i + 1}`));
+    });
+    return pool.map(t => (renamed.has(t.id) && renamed.get(t.id) !== t.name ? { ...t, name: renamed.get(t.id)! } : t));
+  };
+
   const removeTable = (tableId: string) => {
-    setTables(tables.filter(t => t.id !== tableId));
+    setTables(renumberTables(tables.filter(t => t.id !== tableId)));
     if (selectedTable === tableId) setSelectedTable(null);
   };
 
@@ -430,6 +477,8 @@ export function FloorPlanEditor({
     setZoneAreas(zoneAreas.map(z => z.id === zoneAreaId ? { ...z, ...updates } : z));
   };
 
+  const clipboardRef = useRef<{ table: FloorTable; pastes: number } | null>(null);
+
   // Keyboard shortcuts — only when the editor is open and focus isn't in a field.
   useEffect(() => {
     if (!open) return;
@@ -440,6 +489,20 @@ export function FloorPlanEditor({
 
       if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
         if (selectedTable) { e.preventDefault(); duplicateTable(selectedTable); }
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'C')) {
+        const tbl = selectedTable ? tables.find(t => t.id === selectedTable) : undefined;
+        if (tbl) { e.preventDefault(); clipboardRef.current = { table: { ...tbl }, pastes: 0 }; }
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'v' || e.key === 'V')) {
+        const clip = clipboardRef.current;
+        if (clip) {
+          e.preventDefault();
+          clip.pastes += 1;
+          duplicateTable(clip.table.id, clip.table, clip.pastes);
+        }
         return;
       }
       if (e.key === 'Escape') { setSelectedTable(null); setSelectedZoneArea(null); return; }
@@ -1346,15 +1409,13 @@ export function FloorPlanEditor({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">{t('vipHost.width')}</Label>
-                    <Input type="number" value={selectedTableData.width}
-                      onChange={(e) => updateTable(selectedTableData.id, { width: Math.max(TABLE_MIN_SIZE, parseInt(e.target.value) || TABLE_MIN_SIZE) })}
-                      min={TABLE_MIN_SIZE} max={200} step={1} />
+                    <SizeInput key={`${selectedTableData.id}-width`} value={selectedTableData.width} min={TABLE_MIN_SIZE} max={TABLE_MAX_SIZE}
+                      onCommit={(v) => updateTable(selectedTableData.id, { width: v })} />
                   </div>
                   <div>
                     <Label className="text-xs">{t('vipHost.height')}</Label>
-                    <Input type="number" value={selectedTableData.height}
-                      onChange={(e) => updateTable(selectedTableData.id, { height: Math.max(TABLE_MIN_SIZE, parseInt(e.target.value) || TABLE_MIN_SIZE) })}
-                      min={TABLE_MIN_SIZE} max={200} step={1} />
+                    <SizeInput key={`${selectedTableData.id}-height`} value={selectedTableData.height} min={TABLE_MIN_SIZE} max={TABLE_MAX_SIZE}
+                      onCommit={(v) => updateTable(selectedTableData.id, { height: v })} />
                   </div>
                 </div>
 
@@ -1415,6 +1476,7 @@ export function FloorPlanEditor({
               <dl className="space-y-1.5">
                 {([
                   ['⌘/Ctrl + D', t('vipHost.shortcuts.duplicate')],
+                  ['⌘/Ctrl + C / V', t('vipHost.shortcuts.copyPaste')],
                   ['⌫ / ' + t('vipHost.shortcuts.deleteKey'), t('vipHost.shortcuts.remove')],
                   ['← ↑ → ↓', t('vipHost.shortcuts.nudge')],
                   ['⇧ + ← ↑ → ↓', t('vipHost.shortcuts.nudgeFast')],
