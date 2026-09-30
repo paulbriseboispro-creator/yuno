@@ -4,6 +4,7 @@ import { Music, Megaphone, UserPlus, Users, X, ChevronLeft, Check, Ticket, Wine,
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getEventPresenters } from '@/lib/coorg';
+import { loadGuestArtists } from '@/lib/guestArtists';
 import type { HolderType } from '@/hooks/useGuestListParts';
 import type { GuestListTemplate } from '@/hooks/useGuestListTemplates';
 import { RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW, YunoSwitch } from './ui';
@@ -59,6 +60,9 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
   // Sans limite : quota NULL en base — le détenteur ajoute autant d'invités qu'il veut.
   const [unlimited, setUnlimited] = useState(false);
   const [presetId, setPresetId] = useState<string>('');
+  // DJ hors Yuno : artistes invités du line-up (sans compte) + saisie libre.
+  const [externalDjs, setExternalDjs] = useState<Picklist[]>([]);
+  const [externalName, setExternalName] = useState('');
   const [saving, setSaving] = useState(false);
 
   const quota = qNormal + qDrink + qTable;
@@ -84,10 +88,17 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
 
   const loadDjs = async () => {
     setLoading(true);
-    const [{ data: ed }, { data: ds }] = await Promise.all([
+    setExternalName('');
+    const [{ data: ed }, { data: ds }, guests, { data: taken }] = await Promise.all([
       supabase.from('event_djs').select('dj_id').eq('event_id', eventId),
       supabase.from('dj_sets').select('dj_id').eq('event_id', eventId),
+      loadGuestArtists(eventId).catch(() => []),
+      supabase.from('guest_lists').select('holder_label').eq('event_id', eventId),
     ]);
+    const takenLabels = new Set((taken || []).map(r => (r.holder_label || '').trim().toLowerCase()).filter(Boolean));
+    setExternalDjs(guests
+      .filter(g => g.id && !takenLabels.has(g.name.trim().toLowerCase()))
+      .map(g => ({ id: `ga:${g.id}`, name: g.name })));
     const ids = [...new Set([...(ed || []).map(r => r.dj_id), ...(ds || []).map(r => r.dj_id)].filter(Boolean))] as string[];
     const fresh = ids.filter(id => !existingDjIds.includes(id));
     if (!fresh.length) { setList([]); setLoading(false); return; }
@@ -104,20 +115,30 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
     getEventPresenters(eventId)
       .then((rows) => { if (active) setPartiesAvailable((rows ?? []).some((r) => r.kind === 'org' && r.organizer_user_id)); })
       .catch(() => { if (active) setPartiesAvailable(false); });
+    // Soirée en collab : l'option reste visible même si le partenaire n'est pas encore listé.
+    supabase.from('events').select('partner_organizer_id, event_mode').eq('id', eventId).maybeSingle()
+      .then(({ data }) => { if (active && (data?.partner_organizer_id || data?.event_mode === 'co_event')) setPartiesAvailable(true); });
     return () => { active = false; };
   }, [eventId, ctx.isOrganizerScope]);
 
   const loadParties = async () => {
     setLoading(true);
     try {
-      const [presenters, { data: owned }] = await Promise.all([
+      const [presenters, { data: owned }, { data: ev }] = await Promise.all([
         getEventPresenters(eventId),
         supabase.from('guest_lists').select('organizer_user_id').eq('event_id', eventId).neq('holder_type', 'club'),
+        supabase.from('events').select('partner_organizer_id').eq('id', eventId).maybeSingle(),
       ]);
       const taken = new Set((owned || []).map((r) => r.organizer_user_id).filter(Boolean));
-      setList((presenters ?? [])
+      const parties = (presenters ?? [])
         .filter((r) => r.kind === 'org' && r.organizer_user_id && !taken.has(r.organizer_user_id))
-        .map((r) => ({ id: r.organizer_user_id as string, name: r.name })));
+        .map((r) => ({ id: r.organizer_user_id as string, name: r.name }));
+      const partner = ev?.partner_organizer_id as string | null | undefined;
+      if (partner && !taken.has(partner) && !parties.some(p => p.id === partner)) {
+        const { data: op } = await supabase.from('organizer_profiles').select('display_name').eq('user_id', partner).maybeSingle();
+        parties.push({ id: partner, name: (op as { display_name?: string } | null)?.display_name || 'Partner' });
+      }
+      setList(parties);
     } catch { setList([]); }
     setLoading(false);
   };
@@ -167,7 +188,13 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
         const label = list.find(l => l.id === selected)?.name || '';
         await onCreateCustom(label, effQuota, { ...extra, organizer_user_id: selected, visible_on_club_page: false });
       } else if (step === 'dj') {
-        await onCreateDj(selected, effQuota, extra);
+        if (selected.startsWith('ga:') || (!selected && externalName.trim())) {
+          // DJ hors Yuno : une part libre au nom de l'artiste, sans compte.
+          const label = selected ? (externalDjs.find(l => l.id === selected)?.name || '') : externalName.trim();
+          await onCreateCustom(label, effQuota, extra);
+        } else {
+          await onCreateDj(selected, effQuota, extra);
+        }
       } else if (step === 'promoter') {
         const label = list.find(l => l.id === selected)?.name || '';
         await onCreatePromoter(selected, label, effQuota, extra);
@@ -176,7 +203,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
     } catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.saveError')); setSaving(false); }
   };
 
-  const canConfirm = (step === 'custom' ? customName.trim().length > 0 : !!selected) && (unlimited || quota >= 1);
+  const canConfirm = (step === 'custom' ? customName.trim().length > 0 : step === 'dj' ? (!!selected || externalName.trim().length > 0) : !!selected) && (unlimited || quota >= 1);
 
   return (
     <AnimatePresence>
@@ -227,14 +254,35 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
 
           {(step === 'dj' || step === 'promoter' || step === 'party') && (
             <div className="space-y-2">
+              {step === 'dj' && !loading && externalDjs.length > 0 && (
+                <div>
+                  <p style={{ color: T3, fontSize: 11.5, marginBottom: 6 }}>{t('guestList.parts.externalDjs')}</p>
+                  <div className="space-y-1.5">
+                    {externalDjs.map(item => (
+                      <button key={item.id} onClick={() => { setSelected(item.id); setExternalName(''); }} className="w-full flex items-center justify-between text-left"
+                        style={{ padding: '11px 12px', borderRadius: 10, background: selected === item.id ? 'rgba(232,25,44,0.12)' : TILE_BG, border: `1px solid ${selected === item.id ? RED : F_BORDER}`, cursor: 'pointer' }}>
+                        <span style={{ color: T1, fontSize: 13.5, fontWeight: selected === item.id ? 600 : 500 }}>{item.name}</span>
+                        {selected === item.id && <Check className="h-4 w-4" style={{ color: RED }} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {step === 'dj' && !loading && (
+                <div>
+                  <p style={{ color: T3, fontSize: 11.5, marginBottom: 6 }}>{t('guestList.parts.externalDjName')}</p>
+                  <input value={externalName} onChange={e => { setExternalName(e.target.value); if (e.target.value) setSelected(''); }} placeholder={t('guestList.parts.externalDjPlaceholder')}
+                    className="w-full outline-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 14px', color: T1, fontSize: 14, fontFamily: 'inherit' }} />
+                </div>
+              )}
               {loading ? (
                 <div className="flex justify-center py-6"><div className="h-6 w-6 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} /></div>
               ) : list.length === 0 ? (
-                <p className="text-center py-6" style={{ color: T3, fontSize: 13 }}>{step === 'dj' ? t('guestList.dj.noLineup') : step === 'party' ? t('guestList.parts.noParties') : t('guestList.parts.noPromoters')}</p>
+                step === 'dj' ? null : <p className="text-center py-6" style={{ color: T3, fontSize: 13 }}>{step === 'party' ? t('guestList.parts.noParties') : t('guestList.parts.noPromoters')}</p>
               ) : (
                 <div className="space-y-1.5" style={{ maxHeight: 240, overflowY: 'auto' }}>
                   {list.map(item => (
-                    <button key={item.id} onClick={() => setSelected(item.id)} className="w-full flex items-center justify-between text-left"
+                    <button key={item.id} onClick={() => { setSelected(item.id); setExternalName(''); }} className="w-full flex items-center justify-between text-left"
                       style={{ padding: '11px 12px', borderRadius: 10, background: selected === item.id ? 'rgba(232,25,44,0.12)' : TILE_BG, border: `1px solid ${selected === item.id ? RED : F_BORDER}`, cursor: 'pointer' }}>
                       <span style={{ color: T1, fontSize: 13.5, fontWeight: selected === item.id ? 600 : 500 }}>{item.name}</span>
                       {selected === item.id && <Check className="h-4 w-4" style={{ color: RED }} />}
@@ -246,7 +294,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
           )}
 
           {/* Quota + confirm (any flow except the empty list states) */}
-          {(step === 'custom' || ((step === 'dj' || step === 'promoter' || step === 'party') && list.length > 0)) && (
+          {(step === 'custom' || step === 'dj' || ((step === 'promoter' || step === 'party') && list.length > 0)) && (
             <div className="mt-4 space-y-3">
               {(step === 'dj' || step === 'promoter') && stepPresets.length > 0 && (
                 <div>
