@@ -689,6 +689,15 @@ export default function OrgAppAnalytics() {
     { style: 'currency', currency: 'EUR', notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(n) >= 10000 ? 1 : 0 },
   ).format(n);
 
+  // Bande « ce que tu touches » : sous 100 € les centimes comptent — 0,27 € de
+  // frais Stripe sur un billet à 1 € ne doit jamais s'afficher « 0 € ».
+  const fmtStrip = (n: number) => Math.abs(n) < 100 && !Number.isInteger(n)
+    ? new Intl.NumberFormat(
+        language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB',
+        { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 },
+      ).format(n)
+    : fmt(n);
+
   // Real "vs previous period" deltas computed from the prior equal-length window.
   const pctDelta = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
   const revDelta = previousTotals && currentTotals ? pctDelta(currentTotals.revenue, previousTotals.revenue) : null;
@@ -744,10 +753,10 @@ export default function OrgAppAnalytics() {
 
   // Finance strip — Gross − Stripe − Refunds, then the organizer's net gain after partnership split.
   const financeData = [
-    { label: t('owner.an.grossVolume'), val: fmt(strip.grossVolume), desc: `${totalOrders + (refundAnalytics?.totalRefundCount || 0)} ${t('owner.an.transactions')}` },
-    { label: 'Stripe', val: strip.stripe > 0 ? `−${fmt(strip.stripe)}` : '—', desc: '1.5% + €0.25 / txn' },
-    { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmt(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
-    { label: tt('Gain net', 'Net gain', 'Ganancia neta'), val: netGain == null ? '—' : fmt(netGain), desc: tt('Après frais & part partenaire', 'After fees & partner split', 'Tras comisiones y parte del socio'), accent: true },
+    { label: t('owner.an.grossVolume'), val: fmtStrip(strip.grossVolume), desc: `${totalOrders + (refundAnalytics?.totalRefundCount || 0)} ${t('owner.an.transactions')}` },
+    { label: 'Stripe', val: strip.stripe > 0 ? `−${fmtStrip(strip.stripe)}` : '—', desc: '1.5% + €0.25 / txn' },
+    { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmtStrip(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
+    { label: tt('Gain net', 'Net gain', 'Ganancia neta'), val: netGain == null ? '—' : fmtStrip(netGain), desc: tt('Après frais & part partenaire', 'After fees & partner split', 'Tras comisiones y parte del socio'), accent: true },
   ];
 
   const periodOptions = [
