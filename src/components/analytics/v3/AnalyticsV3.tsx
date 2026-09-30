@@ -18,7 +18,8 @@ import { SalesTab } from './tabs/SalesTab';
 import { DoorTab } from './tabs/DoorTab';
 import { PromotersTab } from './tabs/PromotersTab';
 import { AudienceTab } from './tabs/AudienceTab';
-import { PhaseTwoTab } from './tabs/PhaseTwoTab';
+import { SourcesTab } from './tabs/SourcesTab';
+import { CampaignsTab } from './tabs/CampaignsTab';
 
 export function AnalyticsV3({ scope, consolePrefix, header }: { scope: An3Scope; consolePrefix: string; header?: React.ReactNode }) {
   const { t } = useLanguage();
@@ -68,11 +69,11 @@ export function AnalyticsV3({ scope, consolePrefix, header }: { scope: An3Scope;
         <main className="min-w-0" key={route.tab}>
           {route.tab === 'overview' && <OverviewTab scope={scope} subject={subject} compare={route.compare} onOpenEvent={openEvent} registerExport={registerExport} />}
           {route.tab === 'sales' && <SalesTab scope={scope} subject={subject} compare={route.compare} onOpenEvent={openEvent} registerExport={registerExport} />}
-          {route.tab === 'sources' && <PhaseTwoTab kind="sources" />}
+          {route.tab === 'sources' && <SourcesTab scope={scope} subject={subject} registerExport={registerExport} />}
           {route.tab === 'audience' && <AudienceTab scope={scope} subject={subject} registerExport={registerExport} campaignsHref={`${consolePrefix}/campaigns/new`} />}
           {route.tab === 'door' && <DoorTab scope={scope} subject={subject} registerExport={registerExport} />}
           {route.tab === 'promoters' && <PromotersTab scope={scope} subject={subject} registerExport={registerExport} />}
-          {route.tab === 'campaigns' && <PhaseTwoTab kind="campaigns" />}
+          {route.tab === 'campaigns' && <CampaignsTab scope={scope} subject={subject} registerExport={registerExport} campaignsHref={`${consolePrefix}/campaigns/new`} />}
           {route.tab === 'tonight' && (
             <div className="-mx-4 sm:mx-0">
               <LiveView venueId={scope.venueId ?? null} organizerUserId={scope.organizerUserId ?? null} />

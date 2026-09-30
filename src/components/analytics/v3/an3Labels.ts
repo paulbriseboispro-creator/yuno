@@ -25,3 +25,10 @@ export function subjectLabel(t: (k: string) => string, language: string, subject
   const f = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' });
   return `${f.format(new Date(subject.from))} → ${f.format(new Date(subject.to))}`;
 }
+
+/** Le nom d'une source dans la langue de l'écran ; une source inconnue s'affiche telle quelle. */
+export function sourceLabel(t: (k: string) => string, source: string): string {
+  const key = `an3.source.${source}`;
+  const v = t(key);
+  return v === key ? source : v;
+}

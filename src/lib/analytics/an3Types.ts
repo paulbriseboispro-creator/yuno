@@ -117,3 +117,24 @@ export interface An3Audience {
 }
 
 export type An3Denied = { ok: false; reason: 'not_authenticated' | 'forbidden' | 'not_found' | string };
+
+export type An3SourceKey = 'promoter' | 'email' | 'instagram' | 'tiktok' | 'facebook' | 'whatsapp' | 'meta_ads' | 'partner' | 'link' | 'promo_code' | 'marketplace' | 'social' | 'search' | 'referral' | 'direct' | string;
+
+export interface An3Sources {
+  ok: true; money: boolean; nights: number; from: string; to: string;
+  funnel: { step: 'club_page' | 'event_page' | 'selected' | 'checkout' | 'paid' | 'scanned'; n: number }[];
+  sources: { source: An3SourceKey; sessions: number; visitors: number; orders: number; buyers: number; tickets: number; signups: number; revenue: number | null; conversion: number | null; revenue_per_visitor: number | null }[];
+  totals: { sessions: number; visitors: number; orders: number; buyers: number; revenue: number | null; signups: number };
+  yuno: { orders: number; buyers: number; revenue: number | null; new_customers: number; visits: number };
+}
+
+export interface An3EmailCampaignRow {
+  id: string; name: string | null; subject: string | null; sent_at: string; event_id: string | null; automated: boolean;
+  sent: number; delivered: number; opens: number; clicks: number; clickers: number; click_rate: number | null; open_rate_partial: number | null;
+  orders_3d: number; buyers_3d: number; revenue_3d: number | null; orders_7d: number; buyers_7d: number; revenue_7d: number | null;
+}
+export interface An3PushCampaignRow {
+  id: string; title: string | null; sent_at: string; event_id: string | null; automated: boolean;
+  targeted: number; sent: number; taps: number; orders_3d: number; revenue_3d: number | null; orders_7d: number; revenue_7d: number | null;
+}
+export interface An3Campaigns { ok: true; money: boolean; from: string; to: string; email: An3EmailCampaignRow[]; push: An3PushCampaignRow[] }

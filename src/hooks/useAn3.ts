@@ -4,7 +4,7 @@
  */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { An3Audience, An3Denied, An3Door, An3Overview, An3Pacing, An3Promoters, An3Sales, An3Scope } from '@/lib/analytics/an3Types';
+import type { An3Audience, An3Campaigns, An3Denied, An3Door, An3Overview, An3Pacing, An3Promoters, An3Sales, An3Scope, An3Sources } from '@/lib/analytics/an3Types';
 import type { An3Compare } from '@/lib/analytics/an3Nav';
 
 export interface An3Subject { eventId: string | null; from: string; to: string }
@@ -80,6 +80,22 @@ export function useAn3Audience(scope: An3Scope, subject: An3Subject): UseQueryRe
   return useQuery({
     queryKey: ['an3', 'audience', scope.venueId ?? null, scope.organizerUserId ?? null, subject.eventId, subject.eventId ? null : subject.from, subject.eventId ? null : subject.to],
     queryFn: () => callRpc<An3Audience>('get_analytics_audience', { ...scopeArgs(scope), ...subjectArgs(subject) }),
+    enabled: enabled(scope), staleTime: STALE,
+  });
+}
+
+export function useAn3Sources(scope: An3Scope, subject: An3Subject): UseQueryResult<An3Sources, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'sources', scope.venueId ?? null, scope.organizerUserId ?? null, subject.eventId, subject.eventId ? null : subject.from, subject.eventId ? null : subject.to],
+    queryFn: () => callRpc<An3Sources>('get_analytics_sources', { ...scopeArgs(scope), ...subjectArgs(subject) }),
+    enabled: enabled(scope), staleTime: STALE,
+  });
+}
+
+export function useAn3Campaigns(scope: An3Scope, subject: An3Subject): UseQueryResult<An3Campaigns, An3Error> {
+  return useQuery({
+    queryKey: ['an3', 'campaigns', scope.venueId ?? null, scope.organizerUserId ?? null, subject.eventId, subject.eventId ? null : subject.from, subject.eventId ? null : subject.to],
+    queryFn: () => callRpc<An3Campaigns>('get_analytics_campaigns', { ...scopeArgs(scope), ...subjectArgs(subject) }),
     enabled: enabled(scope), staleTime: STALE,
   });
 }
