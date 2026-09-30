@@ -12,6 +12,7 @@
  *  - direct             : direct link / unknown
  */
 import { useEffect } from 'react';
+import { categorizeReferrer } from '@/lib/referrerCategory';
 
 export type PurchaseSource =
   | 'venue_profile'
@@ -19,7 +20,23 @@ export type PurchaseSource =
   | 'dj_profile'
   | 'explore'
   | 'promoter'
+  // Sources d'ARRIVÉE sur Yuno (Analytics v3, phase 2) : figées sur la vente au
+  // paiement (trigger `stamp_*_attribution`), jamais recalculées à la lecture.
+  | 'instagram'
+  | 'tiktok'
+  | 'facebook'
+  | 'whatsapp'
+  | 'social'
+  | 'paid_social'
+  | 'search'
+  | 'referral'
+  | 'email'
   | 'direct';
+
+export const PURCHASE_SOURCES: readonly PurchaseSource[] = [
+  'venue_profile', 'organizer_profile', 'dj_profile', 'explore', 'promoter',
+  'instagram', 'tiktok', 'facebook', 'whatsapp', 'social', 'paid_social', 'search', 'referral', 'email', 'direct',
+];
 
 const SOURCE_KEY_PREFIX = 'purchase_source__';
 const SOURCE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -128,13 +145,46 @@ export function useResolvePurchaseSource(eventId: string | undefined, fallback: 
       setPurchaseSource(eventId, 'dj_profile');
       return;
     }
+    const arrived = arrivalSource(ref, url.searchParams);
+    if (arrived) {
+      setPurchaseSource(eventId, arrived);
+      return;
+    }
 
     setPurchaseSource(eventId, fallback);
   }, [eventId, fallback]);
 }
 
 function isValidSource(s: string): s is PurchaseSource {
-  return ['venue_profile', 'organizer_profile', 'dj_profile', 'explore', 'promoter', 'direct'].includes(s);
+  return (PURCHASE_SOURCES as readonly string[]).includes(s);
+}
+
+/**
+ * La source d'ARRIVÉE du visiteur : UTM du lien, sinon le référent (Instagram,
+ * TikTok, recherche…), sinon rien. Même règle que la mesure d'audience
+ * (`categorizeReferrer`), pour que Sources compare des visites et des ventes
+ * nommées pareil.
+ */
+export function arrivalSource(referrer: string, params: URLSearchParams): PurchaseSource | null {
+  const utmSource = (params.get('utm_source') || '').toLowerCase();
+  const utmMedium = (params.get('utm_medium') || '').toLowerCase();
+  if (utmMedium === 'paid_social' || ['meta', 'meta_ads', 'facebook_ads'].includes(utmSource)) return 'paid_social';
+  if (['instagram', 'tiktok', 'facebook', 'whatsapp'].includes(utmSource)) return utmSource as PurchaseSource;
+  if (['newsletter', 'email', 'mail'].includes(utmSource) || ['email', 'newsletter'].includes(utmMedium)) return 'email';
+  const cat = categorizeReferrer(referrer, params.get('utm_medium'), params);
+  if (cat === 'email') return 'email';
+  if (cat === 'search') return 'search';
+  if (cat === 'paid_social') return 'paid_social';
+  if (cat === 'social') {
+    const host = (() => { try { return new URL(referrer).hostname.toLowerCase(); } catch { return ''; } })();
+    if (host.includes('instagram')) return 'instagram';
+    if (host.includes('tiktok')) return 'tiktok';
+    if (host.includes('facebook') || host.includes('fb.')) return 'facebook';
+    if (host.includes('whatsapp')) return 'whatsapp';
+    return 'social';
+  }
+  if (cat === 'referral') return 'referral';
+  return null;
 }
 
 /* ---------------------------------------------------------------------------

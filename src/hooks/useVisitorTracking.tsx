@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { v4 as uuidv4 } from 'uuid';
-import { useConsent } from '@/lib/consent';
+import { hasAudienceMeasurement, useConsent } from '@/lib/consent';
 import { categorizeReferrer, extractDomain } from '@/lib/referrerCategory';
 
 const SESSION_STORAGE_KEY = 'yuno_session_id';
@@ -36,11 +36,18 @@ function detectEntryPageType(path: string): string {
 function getOrCreateVisitorId(): { id: string; visitNumber: number; isReturning: boolean } {
   // Persistent across sessions (1 year via localStorage)
   let id = localStorage.getItem(VISITOR_ID_KEY);
+  // Traceur de 13 mois au plus (exemption CNIL de la mesure d'audience) : au-delà,
+  // un nouvel identifiant, jamais prolongé par la visite.
+  const bornAt = parseInt(localStorage.getItem(`${VISITOR_ID_KEY}__born`) || '0', 10);
+  if (id && bornAt && Date.now() - bornAt > 13 * 30.5 * 24 * 3600 * 1000) { id = null; }
+  if (id && !bornAt) localStorage.setItem(`${VISITOR_ID_KEY}__born`, String(Date.now()));
   let visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '0', 10);
   const isReturning = !!id;
   if (!id) {
     id = uuidv4();
     localStorage.setItem(VISITOR_ID_KEY, id);
+    localStorage.setItem(`${VISITOR_ID_KEY}__born`, String(Date.now()));
+    visitNumber = 0;
   }
   visitNumber += 1;
   localStorage.setItem(VISIT_NUMBER_KEY, String(visitNumber));
@@ -62,7 +69,9 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
   const { analytics: analyticsConsent } = useConsent();
 
   useEffect(() => {
-    if (!analyticsConsent) return;
+    // Mesure d'audience anonyme exemptée (src/lib/consent.ts) ; la PERSONNE
+    // (user_id, points de contact) n'est rattachée qu'avec le consentement.
+    if (!hasAudienceMeasurement()) return;
     if (!venueId && !eventId && !organizerUserId) return;
 
     let sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -216,7 +225,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
         device_type: deviceType,
         entry_page: entryPage,
         entry_page_type: entryPageType,
-        user_id: user?.id || null,
+        user_id: analyticsConsent && user ? user.id : null,
         visitor_id: visitorId,
         is_returning: isReturning,
         visit_number: visitNumber,
@@ -235,6 +244,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
 
       // Attribution touchpoint (always track on first session of scope)
       try {
+        if (analyticsConsent) {
         await supabase.from('attribution_touchpoints').insert({
           user_id: user?.id || null,
           visitor_id: visitorId,
@@ -247,6 +257,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
           campaign: urlParams.get('utm_campaign'),
           referrer_domain: referrerDomain,
         });
+        }
       } catch { /* tracking best-effort : ne bloque jamais la navigation */ }
     } catch (error) {
       console.error('Error tracking visitor:', error);

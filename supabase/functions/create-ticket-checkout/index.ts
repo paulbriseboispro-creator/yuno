@@ -101,7 +101,7 @@ serve(async (req) => {
     } = await req.json();
     const lang = resolveLang(language);
 
-    const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
+    const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','instagram','tiktok','facebook','whatsapp','social','paid_social','search','referral','email','direct'];
     // Default to 'direct' so analytics never show "unknown" — every ticket has a source.
     const safePurchaseSource = ALLOWED_SOURCES.includes(purchaseSource) ? purchaseSource : 'direct';
     // Tracked-link attribution: written on the ticket + carried in Stripe metadata.

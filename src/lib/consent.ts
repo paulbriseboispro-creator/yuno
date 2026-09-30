@@ -83,6 +83,24 @@ export function hasDecidedConsent(): boolean {
 }
 
 /** Consentement analytics accordé ? (défaut : non tant qu'aucun choix.) */
+/**
+ * Mesure d'audience EXEMPTÉE de consentement (CNIL, lignes directrices du
+ * 4 juillet 2025) : statistiques agrégées et anonymes, finalité de mesure
+ * seule, pas de croisement, pas de suivi cross-site, pas de tiers, traceur de
+ * 13 mois au plus, conservation 25 mois au plus. C'est le tunnel et les
+ * visites de page de la Console (visitor_sessions, event_funnel_events),
+ * SANS identifiant de personne tant que le consentement analytics n'est pas
+ * donné. PostHog, les pixels et tout rattachement à une personne restent
+ * derrière `hasAnalyticsConsent` / `hasMarketingConsent`. Décision produit du
+ * 2026-10-01 (docs/designs/ANALYTICS_REBUILD_PLAN.md §6.5).
+ */
+export const AUDIENCE_MEASUREMENT_EXEMPT = true;
+
+/** La mesure d'audience anonyme peut-elle tourner ? (exemption, sinon consentement) */
+export function hasAudienceMeasurement(): boolean {
+  return AUDIENCE_MEASUREMENT_EXEMPT || hasAnalyticsConsent();
+}
+
 export function hasAnalyticsConsent(): boolean {
   // Natif : mesure d'audience déclarée par l'App Store → acquise d'office.
   if (isNative()) return true;

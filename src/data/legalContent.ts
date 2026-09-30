@@ -815,7 +815,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Liens de promotion : si vous ouvrez Yuno via le lien d'un promoteur ou partenaire, l'identifiant du lien est mémorisé pour attribuer la vente
 • Données techniques & sécurité : logs, type d'appareil, adresse IP
 • Preuves d'acceptation légale : version des conditions acceptées, horodatage, adresse IP
-• Cookies & traceurs : voir la Politique Cookies (yunoapp.eu/legal/cookies) — les traceurs de mesure d'audience ne sont déposés qu'avec votre consentement
+• Cookies & traceurs : voir la Politique Cookies (yunoapp.eu/legal/cookies) — la mesure d'audience anonyme de Yuno est exemptée de consentement (CNIL, lignes directrices du 4 juillet 2025 : statistiques agrégées, finalité de mesure seule, traceur de 13 mois au plus, conservation 25 mois au plus, aucun rattachement à votre compte sans votre accord) ; PostHog et tout traceur marketing ne sont chargés qu'avec votre consentement
 
 **3. Finalités & bases légales**
 • Fournir le service (compte, commandes, QR codes, guest lists) : exécution du contrat
@@ -827,7 +827,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Personnalisation (« Pour toi », recommandations) & statistiques internes : intérêt légitime — désactivable dans Réglages → Recommandations personnalisées
 • Attribution des ventes aux promoteurs/partenaires : intérêt légitime (rémunération des partenaires)
 • Emails et SMS marketing, newsletter : consentement, retirable à tout moment (lien de désinscription, STOP)
-• Mesure d'audience (cookies analytiques) : consentement
+• Mesure d'audience anonyme de Yuno (visites de pages, tunnel d'achat, sans rattachement à votre compte) : intérêt légitime, exemptée de consentement (CNIL) ; rattachement à votre compte et PostHog : consentement
 • Publicité (pixel Meta et API Conversions du club, de l'organisateur ou de Yuno) : consentement, retirable à tout moment via le menu Cookies. Pour ces données, le club ou l'organisateur concerné et Meta Platforms Ireland Ltd sont responsables conjoints (art. 26 RGPD) ; Yuno agit pour leur compte, ne transmet que des données hachées, et conserve la preuve de votre réponse pour chaque commande
 
 **4. Destinataires**
@@ -901,7 +901,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Promotion links: if you open Yuno through a promoter or partner link, the link identifier is remembered to attribute the sale
 • Technical & security data: logs, device type, IP address
 • Legal acceptance records: version of accepted terms, timestamp, IP address
-• Cookies & trackers: see the Cookie Policy (yunoapp.eu/legal/cookies) — audience measurement trackers are only placed with your consent
+• Cookies & trackers: see the Cookie Policy (yunoapp.eu/legal/cookies) — Yuno's anonymous audience measurement is exempt from consent (CNIL guidelines of 4 July 2025: aggregated statistics, measurement purpose only, tracker of 13 months at most, kept 25 months at most, never linked to your account without your agreement); PostHog and any marketing tracker are only loaded with your consent
 
 **3. Purposes & Legal Bases**
 • Providing the service (account, orders, QR codes, guest lists): contract performance
@@ -913,7 +913,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Personalization ("For You", recommendations) & internal statistics: legitimate interest — can be turned off in Settings → Personalized recommendations
 • Attributing sales to promoters/partners: legitimate interest (partner compensation)
 • Marketing emails and SMS, newsletter: consent, withdrawable at any time (unsubscribe link, STOP)
-• Audience measurement (analytics cookies): consent
+• Yuno's anonymous audience measurement (page views, purchase funnel, not linked to your account): legitimate interest, exempt from consent (CNIL); linking to your account and PostHog: consent
 • Advertising (Meta pixel and Conversions API of the club, the organizer or Yuno): consent, withdrawable at any time via the Cookies menu. For that data, the club or organizer concerned and Meta Platforms Ireland Ltd are joint controllers (GDPR art. 26); Yuno acts on their behalf, only transmits hashed data, and keeps proof of your answer for every order
 
 **4. Recipients**
@@ -987,7 +987,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Enlaces de promoción: si abres Yuno a través del enlace de un promotor o socio, el identificador del enlace se memoriza para atribuir la venta
 • Datos técnicos y de seguridad: logs, tipo de dispositivo, dirección IP
 • Pruebas de aceptación legal: versión de las condiciones aceptadas, marca de tiempo, dirección IP
-• Cookies y rastreadores: ver la Política de Cookies (yunoapp.eu/legal/cookies) — los rastreadores de medición de audiencia solo se instalan con tu consentimiento
+• Cookies y rastreadores: ver la Política de Cookies (yunoapp.eu/legal/cookies) — la medición de audiencia anónima de Yuno está exenta de consentimiento (directrices CNIL del 4 de julio de 2025: estadísticas agregadas, finalidad de medición únicamente, rastreador de 13 meses como máximo, conservación de 25 meses como máximo, nunca vinculada a tu cuenta sin tu acuerdo); PostHog y cualquier rastreador de marketing solo se cargan con tu consentimiento
 
 **3. Finalidades y bases legales**
 • Prestar el servicio (cuenta, pedidos, códigos QR, guest lists): ejecución del contrato
@@ -999,7 +999,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Personalización ("Para ti", recomendaciones) y estadísticas internas: interés legítimo — desactivable en Ajustes → Recomendaciones personalizadas
 • Atribución de ventas a promotores/socios: interés legítimo (remuneración de socios)
 • Emails y SMS de marketing, newsletter: consentimiento, retirable en cualquier momento (enlace de baja, STOP)
-• Medición de audiencia (cookies analíticas): consentimiento
+• Medición de audiencia anónima de Yuno (páginas vistas, embudo de compra, sin vincular a tu cuenta): interés legítimo, exenta de consentimiento (CNIL); vinculación a tu cuenta y PostHog: consentimiento
 • Publicidad (píxel de Meta y API de conversiones del club, del organizador o de Yuno): consentimiento, retirable en cualquier momento desde el menú Cookies. Para esos datos, el club u organizador implicado y Meta Platforms Ireland Ltd son corresponsables (art. 26 RGPD); Yuno actúa por su cuenta, solo transmite datos cifrados con hash y conserva la prueba de tu respuesta en cada pedido
 
 **4. Destinatarios**
@@ -1057,7 +1057,7 @@ Esta política puede evolucionar con el servicio. En caso de cambio sustancial, 
     fr: {
       title: 'Politique Cookies',
       content: `**1. Principe**
-Yuno utilise des cookies/traceurs nécessaires au fonctionnement (session, sécurité, préférences). Les cookies non nécessaires (mesure d'audience, marketing) ne sont déposés qu'après consentement.
+Yuno utilise des cookies/traceurs nécessaires au fonctionnement (session, sécurité, préférences). La mesure d'audience anonyme de Yuno (identifiant de visite yuno_visitor_id, 13 mois au plus, jamais rattaché à votre compte sans votre accord) est exemptée de consentement selon les lignes directrices de la CNIL du 4 juillet 2025 : elle ne sert qu'à des statistiques agrégées, sans croisement ni suivi entre sites, et n'est transmise à aucun tiers. Les autres cookies non nécessaires (PostHog, marketing) ne sont déposés qu'après consentement.
 
 **2. Consentement & refus**
 Toute action autre qu'un acte positif = refus (pour les traceurs soumis au consentement). Il doit être aussi simple de retirer son consentement que de le donner.
@@ -1076,7 +1076,7 @@ Un menu "Cookies" est accessible à tout moment depuis : Profil → Réglages �
 • Stripe : cookies de sécurité pour le traitement des paiements (nécessaires au fonctionnement du paiement sécurisé)
 
 **Cookies analytiques (mesure d'audience)** :
-• Uniquement après votre consentement, Yuno dépose un identifiant de visite (yuno_visitor_id) et des indicateurs de fréquentation « live » pour mesurer, de façon anonyme, comment les clubs et soirées sont consultés, et charge PostHog (mesure d'audience hébergée dans l'UE, cookie et stockage ph_*, 1 an) pour comprendre comment le site et l'app sont utilisés : pages vues, clics, parcours. Si vous êtes connecté, ces mesures sont reliées à l'identifiant interne de votre compte, jamais à votre email ni à votre téléphone. Aucun autre cookie analytique tiers n'est utilisé. Vous pouvez retirer ce consentement à tout moment via le menu Cookies.
+• Sans consentement (exemption CNIL, mesure d'audience anonyme), Yuno dépose un identifiant de visite (yuno_visitor_id, 13 mois au plus) et des indicateurs de fréquentation « live » pour mesurer, de façon anonyme, comment les clubs et soirées sont consultés ; ces données ne sont jamais rattachées à votre compte sans votre accord. Après votre consentement seulement, Yuno les rattache à votre compte et charge PostHog (mesure d'audience hébergée dans l'UE, cookie et stockage ph_*, 1 an) pour comprendre comment le site et l'app sont utilisés : pages vues, clics, parcours. Si vous êtes connecté, ces mesures sont reliées à l'identifiant interne de votre compte, jamais à votre email ni à votre téléphone. Aucun autre cookie analytique tiers n'est utilisé. Vous pouvez retirer ce consentement à tout moment via le menu Cookies.
 
 **Cookies publicitaires (Meta)** :
 • Uniquement après votre consentement « Publicité (Meta) », les pages publiques chargent le pixel Meta du club, de l'organisateur ou de Yuno, qui dépose les cookies _fbp (identifiant navigateur, 90 jours) et _fbc (identifiant de clic publicitaire) sur yunoapp.eu. Vos consultations de soirées, ouvertures du tunnel d'achat, achats et inscriptions guest list sont alors transmis à Meta Platforms Ireland Ltd, y compris depuis nos serveurs (API Conversions), sous forme hachée. Un refus efface ces cookies et n'envoie rien, même côté serveur. Rien n'est envoyé depuis l'app mobile Yuno. Politique de Meta : facebook.com/privacy/policy.`
@@ -1084,7 +1084,7 @@ Un menu "Cookies" est accessible à tout moment depuis : Profil → Réglages �
     en: {
       title: 'Cookie Policy',
       content: `**1. Principle**
-Yuno uses cookies/trackers necessary for operation (session, security, preferences). Non-essential cookies (audience measurement, marketing) are only placed after consent.
+Yuno uses cookies/trackers necessary for operation (session, security, preferences). Yuno's anonymous audience measurement (visit identifier yuno_visitor_id, 13 months at most, never linked to your account without your agreement) is exempt from consent under the CNIL guidelines of 4 July 2025: it only produces aggregated statistics, with no cross-referencing or cross-site tracking, and is shared with no third party. Other non-essential cookies (PostHog, marketing) are only placed after consent.
 
 **2. Consent & Refusal**
 Any action other than a positive act = refusal (for trackers subject to consent). Withdrawing consent must be as easy as giving it.
@@ -1103,7 +1103,7 @@ A "Cookies" menu is accessible at any time from: Profile → Settings → Legal 
 • Stripe: security cookies for payment processing (necessary for secure payment operation)
 
 **Analytical Cookies (audience measurement)**:
-• Only after your consent, Yuno stores a visit identifier (yuno_visitor_id) and "live" attendance indicators to anonymously measure how clubs and parties are viewed, and loads PostHog (EU-hosted product analytics, ph_* cookie and storage, 1 year) to understand how the site and app are used: pages viewed, clicks, journeys. When you are signed in, these measurements are linked to your account's internal identifier, never to your email or phone number. No other third-party analytical cookies are used. You can withdraw this consent at any time via the Cookies menu.
+• Without consent (CNIL exemption, anonymous audience measurement), Yuno stores a visit identifier (yuno_visitor_id, 13 months at most) and "live" attendance indicators to anonymously measure how clubs and parties are viewed; this data is never linked to your account without your agreement. Only after your consent does Yuno link it to your account and load PostHog (EU-hosted product analytics, ph_* cookie and storage, 1 year) to understand how the site and app are used: pages viewed, clicks, journeys. When you are signed in, these measurements are linked to your account's internal identifier, never to your email or phone number. No other third-party analytical cookies are used. You can withdraw this consent at any time via the Cookies menu.
 
 **Advertising Cookies (Meta)**:
 • Only after your "Advertising (Meta)" consent, public pages load the Meta pixel of the club, the organizer or Yuno, which sets the _fbp (browser identifier, 90 days) and _fbc (ad click identifier) cookies on yunoapp.eu. Your event page views, checkout openings, purchases and guest list sign-ups are then transmitted to Meta Platforms Ireland Ltd, including from our servers (Conversions API), in hashed form. A refusal deletes those cookies and sends nothing, server-side included. Nothing is sent from the Yuno mobile app. Meta's policy: facebook.com/privacy/policy.`
@@ -1111,7 +1111,7 @@ A "Cookies" menu is accessible at any time from: Profile → Settings → Legal 
     es: {
       title: 'Política de Cookies',
       content: `**1. Principio**
-Yuno utiliza cookies/rastreadores necesarios para el funcionamiento (sesión, seguridad, preferencias). Las cookies no necesarias (medición de audiencia, marketing) solo se instalan tras el consentimiento.
+Yuno utiliza cookies/rastreadores necesarios para el funcionamiento (sesión, seguridad, preferencias). La medición de audiencia anónima de Yuno (identificador de visita yuno_visitor_id, 13 meses como máximo, nunca vinculado a tu cuenta sin tu acuerdo) está exenta de consentimiento según las directrices de la CNIL del 4 de julio de 2025: solo produce estadísticas agregadas, sin cruces ni seguimiento entre sitios, y no se comparte con terceros. Las demás cookies no necesarias (PostHog, marketing) solo se instalan tras el consentimiento.
 
 **2. Consentimiento y rechazo**
 Cualquier acción que no sea un acto positivo = rechazo (para los rastreadores sujetos a consentimiento). Retirar el consentimiento debe ser tan fácil como darlo.
@@ -1130,7 +1130,7 @@ Un menú "Cookies" es accesible en cualquier momento desde: Perfil → Ajustes �
 • Stripe: cookies de seguridad para el procesamiento de pagos (necesarias para el funcionamiento del pago seguro)
 
 **Cookies analíticas (medición de audiencia)**:
-• Solo tras tu consentimiento, Yuno guarda un identificador de visita (yuno_visitor_id) e indicadores de afluencia «live» para medir, de forma anónima, cómo se ven los clubs y las fiestas, y carga PostHog (analítica de uso alojada en la UE, cookie y almacenamiento ph_*, 1 año) para entender cómo se usan el sitio y la app: páginas vistas, clics, recorridos. Si has iniciado sesión, estas mediciones se vinculan al identificador interno de tu cuenta, nunca a tu email ni a tu teléfono. No se utilizan otras cookies analíticas de terceros. Puedes retirar este consentimiento en cualquier momento desde el menú Cookies.
+• Sin consentimiento (exención CNIL, medición de audiencia anónima), Yuno guarda un identificador de visita (yuno_visitor_id, 13 meses como máximo) e indicadores de afluencia «live» para medir, de forma anónima, cómo se ven los clubs y las fiestas; estos datos nunca se vinculan a tu cuenta sin tu acuerdo. Solo tras tu consentimiento, Yuno los vincula a tu cuenta y carga PostHog (analítica de uso alojada en la UE, cookie y almacenamiento ph_*, 1 año) para entender cómo se usan el sitio y la app: páginas vistas, clics, recorridos. Si has iniciado sesión, estas mediciones se vinculan al identificador interno de tu cuenta, nunca a tu email ni a tu teléfono. No se utilizan otras cookies analíticas de terceros. Puedes retirar este consentimiento en cualquier momento desde el menú Cookies.
 
 **Cookies publicitarias (Meta)**:
 • Solo tras tu consentimiento «Publicidad (Meta)», las páginas públicas cargan el píxel de Meta del club, del organizador o de Yuno, que instala las cookies _fbp (identificador de navegador, 90 días) y _fbc (identificador de clic publicitario) en yunoapp.eu. Tus visitas a fiestas, aperturas del proceso de compra, compras e inscripciones a guest lists se transmiten entonces a Meta Platforms Ireland Ltd, también desde nuestros servidores (API de conversiones), en forma cifrada con hash. Un rechazo borra esas cookies y no envía nada, tampoco desde el servidor. Nada se envía desde la app móvil de Yuno. Política de Meta: facebook.com/privacy/policy.`

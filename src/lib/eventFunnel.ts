@@ -10,14 +10,15 @@
  * au tunnel sans rien faire d'autre.
  *
  * Mêmes règles que la mesure de visites (`useVisitorTracking`) :
- *  - rien sans le consentement « mesure d'audience » ;
+ *  - mesure d'audience anonyme, exemptée de consentement (aucune personne
+ *    rattachée : voir `hasAudienceMeasurement`, src/lib/consent.ts) ;
  *  - rien sur une surface pro, rien en session d'accès assisté ;
  *  - aucune donnée personnelle : un identifiant de session aléatoire par
  *    onglet, l'appareil, la source d'arrivée et les ids de ligne choisie.
  * Fire-and-forget : une mesure ne bloque ni n'échoue jamais une page.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { hasAnalyticsConsent } from '@/lib/consent';
+import { hasAudienceMeasurement } from '@/lib/consent';
 import { isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
 import { categorizeReferrer } from '@/lib/referrerCategory';
@@ -154,7 +155,7 @@ export function mirrorFunnelEvent(event: string, props: Record<string, unknown> 
   if (typeof window === 'undefined') return;
   const row = funnelRowFor(event, props);
   if (!row) return;
-  if (!hasAnalyticsConsent() || onProSurface() || isSupportSessionActive()) return;
+  if (!hasAudienceMeasurement() || onProSurface() || isSupportSessionActive()) return;
   const info = sessionInfo();
   if (!info) return;
   void Promise.resolve(
