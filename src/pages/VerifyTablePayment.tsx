@@ -48,7 +48,7 @@ export default function VerifyTablePayment() {
       if (error) throw error;
 
       if (data?.paid) {
-        if (reservationId) trackOrderComplete(reservationId);
+        if (reservationId) trackOrderComplete(reservationId, 'table');
         // PostHog : achat confirmé par CET appel (jamais sur un rechargement).
         if (reservationId && !data.alreadyProcessed) {
           // Marché de la soirée lu à part (une lecture légère), puis l'envoi.

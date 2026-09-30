@@ -55,7 +55,7 @@ export default function VerifyPayment() {
       if (data?.paid) {
         setStatus('success');
         clearCart();
-        if (orderId) trackOrderComplete(orderId);
+        if (orderId) trackOrderComplete(orderId, 'order');
         // PostHog : achat confirmé par CET appel (jamais sur un rechargement).
         if (orderId && !data.alreadyProcessed) {
           // Marché de la soirée lu à part (une lecture légère), puis l'envoi.

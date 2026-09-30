@@ -336,18 +336,14 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     }
   };
 
-  const trackOrderComplete = async (orderId: string) => {
+  const trackOrderComplete = async (orderId: string, kind: 'ticket' | 'table' | 'order' = 'ticket') => {
     const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!sessionId) return;
     try {
-      let query = supabase
-        .from('visitor_sessions')
-        .update({ completed_order: true, order_id: orderId })
-        .eq('session_id', sessionId);
-      if (venueId) query = query.eq('venue_id', venueId);
-      else if (organizerUserId) query = query.eq('organizer_user_id', organizerUserId);
-      else if (eventId) query = query.eq('event_id', eventId);
-      await query;
+      // Une seule porte, côté serveur (Analytics v3) : relie la session à la
+      // vente et complète l'attribution « direct » avec la source d'arrivée.
+      // L'UPDATE direct d'avant ne passait jamais (0 session reliée en prod).
+      await supabase.rpc('link_sale_session' as never, { p_session_id: sessionId, p_kind: kind, p_sale_id: orderId } as never);
       await updatePingStage('paid');
       await trackEvent('order_completed', orderId);
     } catch (error) {
