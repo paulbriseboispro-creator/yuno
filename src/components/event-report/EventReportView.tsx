@@ -12,7 +12,6 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft, MapPin } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EmptyAnswer, MoreDetail, UpdatedAt } from '@/components/analytics/kit';
 import { KIT } from '@/components/analytics/kitFormat';
@@ -26,7 +25,9 @@ import { ReportSales } from './ReportSales';
 import { ReportTrend, type ScopeEventOption } from './ReportTrend';
 import { ReportAudience, ReportDrivers, ReportTraffic } from './ReportReach';
 import { EmptyNote, Question, ReportCard } from './ui';
-import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
+import { useScopeEvents } from '@/hooks/useScopeEvents';
+import { usePartyBreakdown } from '@/hooks/usePartyBreakdown';
+import { SalesCollabCard } from '@/components/event-lens/SalesCollabCard';
 import { ReportAnswer } from './ReportAnswer';
 import { ReportTakeaways } from './ReportTakeaways';
 
@@ -43,32 +44,10 @@ interface Props {
   forecast?: ReactNode;
   /** La même prévision en une ligne, posée sous les jauges. */
   projection?: ReactNode;
-}
-
-/** Les soirées de la portée, pour changer de soirée et pour comparer. */
-function useScopeEvents(scope: Props['scope']) {
-  const [events, setEvents] = useState<ScopeEventOption[]>([]);
-  const venueId = scope.venueId ?? null;
-  const organizerUserId = scope.organizerUserId ?? null;
-  useEffect(() => {
-    if (!venueId && !organizerUserId) return;
-    let cancelled = false;
-    (async () => {
-      const filter = venueId
-        ? venueEventsOr(venueId)
-        : orgEventsOr(organizerUserId);
-      const { data } = await supabase
-        .from('events')
-        .select('id, title, start_at')
-        .or(filter)
-        .is('cancelled_at', null)
-        .order('start_at', { ascending: false })
-        .limit(120);
-      if (!cancelled) setEvents((data ?? []).map((e) => ({ id: e.id, title: e.title, startAt: e.start_at })));
-    })();
-    return () => { cancelled = true; };
-  }, [venueId, organizerUserId]);
-  return events;
+  /** Les trois lentilles de la soirée (Ventes · Trafic · Communauté), sous la ligne du haut. */
+  lensTabs?: ReactNode;
+  /** `/owner` ou `/organizer-app` : où mène le lien du détail « Qui fait vendre ? ». */
+  consolePrefix?: string;
 }
 
 /** Soirée comparée par défaut : la précédente de la portée (celle d'avant, déjà passée). */
@@ -96,7 +75,7 @@ function asSales(r: EventReport): EventSales {
   };
 }
 
-export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast, projection }: Props) {
+export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast, projection, lensTabs, consolePrefix }: Props) {
   const { t, language } = useLanguage();
   const { data: report, loading, error, fetchedAt } = useEventReport(eventId);
   const events = useScopeEvents(scope);
@@ -113,6 +92,8 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
   useEffect(() => { setCompareChoice(undefined); }, [eventId]);
   const compareId = compareChoice === undefined ? previousOf(events, report) : compareChoice;
   const { data: compare, loading: compareLoading } = useEventReport(compareId);
+  // Soirée à plusieurs : ce que chaque partie a amené (null pour une soirée solo).
+  const parties = usePartyBreakdown(report ? eventId : null);
 
   const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
   const dateFmt = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: report?.tz ?? 'Europe/Paris' });
@@ -141,6 +122,8 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
           </select>
         </label>
       </div>
+
+      {lensTabs}
 
       {error ? (
         <ReportCard><EmptyNote text={t(`er.error.${error}`)} /></ReportCard>
@@ -227,6 +210,8 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
 
               <Question id="er-who" title={t('er.q.who')} sub={t('er.q.whoSub')} />
               <ReportAudience report={report} demographics={demographics} />
+
+              {parties && consolePrefix && <SalesCollabCard breakdown={parties} eventId={eventId} consolePrefix={consolePrefix} />}
 
               {report.event.phase !== 'after' && forecast && (
                 <MoreDetail label={t('er.more.forecast')}>{forecast}</MoreDetail>

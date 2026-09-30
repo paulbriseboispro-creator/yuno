@@ -118,8 +118,7 @@ export function StripeAccountCountry({ country }: { country: string | null | und
   return (
     <p className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
       <Globe className="h-3.5 w-3.5 shrink-0" />
-      {translate(language, 'Pays du compte Stripe', 'Stripe account country', 'País de la cuenta Stripe')}
-      {language === 'fr' ? ' : ' : ': '}
+      {translate(language, 'Pays du compte Stripe : ', 'Stripe account country: ', 'País de la cuenta Stripe: ')}
       {connectCountryName(country, language)}
     </p>
   );
