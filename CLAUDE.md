@@ -1361,6 +1361,61 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
 
+## Analytics v3 — un écran, sept onglets, un comparatif sur chaque chiffre (2026-10-01)
+
+Plan, audit et mapping : `docs/designs/ANALYTICS_REBUILD_PLAN.md`. Phase 1 livrée
+(migrations `20261001100000` → `150000`). `/owner/analytics`, `/manager/analytics`
+et `/organizer-app/analytics` servent `AnalyticsV3` (`src/components/analytics/v3/`)
+par défaut ; `?v=2` rouvre l'ancien écran (quatre familles) jusqu'à la phase 2, qui
+le supprime. Règles :
+
+- **`_an3_nights` est la porte unique des chiffres v3** : une ligne par soirée
+  (formules de `fees.ts`, statuts de la compta, remboursements déduits, entrées
+  par `_door_headcount`, argent seulement sur les soirées que le club PORTE).
+  Toute RPC `get_analytics_*` lit ses soirées là ; jamais une formule à elle.
+  `_an3_people` (qui est venu, première soirée dans la PORTÉE — c'est ce qui dit
+  « nouveau ») se lit sur `scope_ids` puis se réduit au sujet, jamais sur le seul
+  sujet (sinon tout le monde est nouveau).
+- **Nuit = 12:00 → 11:59** : `night_date(ts, tz)` (SQL) = `nightDate()`
+  (`src/lib/analytics/night.ts`, testé). Une vente à 2 h compte pour la veille.
+  Une période se lit en nuits locales ; les heatmaps aussi.
+- **Comparable = même jour de semaine + même série récurrente (sinon même type)**,
+  `_an3_comparables(event, scope_ids, n)` ; sans comparable, repli sur la soirée
+  d'avant avec `comparable = false`, que l'écran dit (« non comparable »). Une
+  période se compare à la période d'avant de même durée. Modes : `comparable` |
+  `median5` | `yoy` | `none` (`?compare=`).
+- **Adresse** : `?tab=overview|sales|sources|audience|door|promoters|campaigns|tonight
+  &event=<id>` ou `&period=7d|30d|90d|custom&from&to` (`src/lib/analytics/an3Nav.ts`,
+  testé). Les anciennes adresses (`?tab=sales&view=partners`, `?tab=live`…) sont
+  traduites. Sans soirée ni période dans l'URL, la soirée par défaut = la prochaine,
+  sinon la dernière.
+- **Chiffres** : abrégés dans l'Analyse (`compactMoney` : « 50,6 k € »), la Compta
+  garde les centimes ; entier par défaut ; delta ▲/▼ avec signe, en % au-dessus
+  d'une base de 20, en absolu sinon, jamais au-delà de ±300 % ; deux pourcentages
+  se comparent en points ; **polarité par métrique** (`Polarity`) ; positif bleu,
+  négatif orange (`src/lib/analytics/an3Format.ts`, testé).
+- **Couleur** : une seule série en accent bleu désaturé (`A3.accent`,
+  `--acc-5b9cff`), la référence en gris, statuts bon / attention / critique à part.
+  **Le rouge Yuno n'est jamais une couleur de donnée.** Jamais de donut, de jauge,
+  de camembert ni d'aire empilée. Sombre ET clair (tokens `--ink` / `--sf-*`).
+- **Chaque carte = une requête react-query (`useAn3*`) et quatre états** à la même
+  hauteur (`A3Card` : chargement, vide pédagogique avec la raison et ce qui viendra,
+  erreur avec « Réessayer », rempli). Jamais une page bloquée par un jeu de chiffres.
+- **k-anonymat** : âge, genre, villes masqués sous 10 personnes (« < 10 »), aussi
+  côté RPC (`n = NULL`). Conversion, présence, part de nouveaux muettes sous leurs
+  seuils (10 visiteurs / 5 ventes scannées / 5 personnes).
+- **Deux niveaux** : vue → `DetailDrawer` (tableau complet + export CSV, `an3Csv.ts`,
+  `;` + BOM). Pas de sous-page.
+- i18n `an3.*` (289 clés × 3, `src/i18n/locales/{en,fr,es}.ts`) ; aide
+  `ohelp.pg.analytics.s1..s10` ; assistant : article `event-report`. Smoke « au
+  centime » + portée (promoteur et organisateur refusés sur le club) :
+  `scripts/demo/smoke-analytics-v3.sql` (`supabase db query --linked -f …`).
+- **Piège payé** : une prop React nommée `ref` n'est jamais transmise (« ref is not
+  iterable ») — la série de référence d'une sparkline s'appelle `reference`.
+- Sources et Campagnes = phase 2 (attribution figée sur la vente, tunnel complet) ;
+  l'onglet existe et dit ce qui y apparaîtra. Phase 3 : insights, RFM en langage
+  club, cohortes, Ce soir mobile, digests.
+
 ## Vues d'ensemble d'Analytics : UNE mise en page, deux périmètres (2026-09-30)
 
 Ventes, Trafic et Communauté ont chacun une « Vue d'ensemble » qui se lit de
