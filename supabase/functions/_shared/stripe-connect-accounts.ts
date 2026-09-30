@@ -16,9 +16,15 @@
 //     modèle de Yuno en vente directe (payment-split.ts : « Stripe debits its fee
 //     straight from the connected account » ; fees.ts : frais Stripe déduits du
 //     net du pro). Avec `application`, Yuno les paierait sur sa commission ;
-//   • dashboard = full — le tableau de bord qui va avec ces deux
-//     responsabilités : le pro a SON compte Stripe (dashboard.stripe.com), il n'y
-//     a plus de lien de connexion Express pour ces comptes.
+//   • dashboard = express (2026-09-30) — l'Express Dashboard de Stripe : solde,
+//     virements, paiements, remboursements, litiges, rapports, aux couleurs de
+//     Yuno. Le pro n'a PAS de compte Stripe à part : il y entre par un lien de
+//     connexion à usage unique que Yuno génère (login_links, voir
+//     dashboardUrlFor). Stripe confirme la combinaison charges directes +
+//     express + pertes portées par Stripe (docs.stripe.com/connect/
+//     integration-recommendations). Le tableau de bord `full` (dashboard.stripe.com,
+//     identifiants propres) reste le DERNIER filet : une forme express refusée ne
+//     doit jamais bloquer l'ouverture d'un compte.
 // Le reste de Yuno parle v1 (Checkout, transferts, remboursements, webhook) : un
 // compte v2 garde un id `acct_…`, accepté partout où v1 attend un compte connecté.
 //
@@ -43,7 +49,7 @@
 
 export const STRIPE_V1_API_VERSION = "2025-08-27.basil";
 export const STRIPE_V2_API_VERSION = "2026-08-26.dahlia";
-/** Comptes « tableau de bord complet » : le pro se connecte chez Stripe, pas par un lien Yuno. */
+/** Comptes « tableau de bord complet » (filet) : le pro se connecte chez Stripe, pas par un lien Yuno. */
 export const STRIPE_FULL_DASHBOARD_URL = "https://dashboard.stripe.com/";
 
 const API_BASE = "https://api.stripe.com";
@@ -146,7 +152,7 @@ export interface NewConnectedAccount {
 export interface CreatedConnectedAccount {
   id: string;
   api: ConnectApi;
-  /** Forme retenue (journal) : v2, v2-no-prefill, v2-merchant-only, v1-controller, v1-controller-bare. */
+  /** Forme retenue (journal) : v2, v2-no-prefill, v2-merchant-only, v1-controller, v1-controller-bare, v2-full-dashboard. */
   shape: string;
 }
 
@@ -305,13 +311,14 @@ export function v2AccountBody(
   spec: NewConnectedAccount,
   configurations: V2Configuration[],
   prefill: boolean,
+  dashboard: Exclude<DashboardType, "none"> = "express",
 ): Record<string, unknown> {
   const mcc = spec.mcc ?? "7929";
   const country = spec.country.trim().toUpperCase();
   return compact({
     contact_email: spec.email ?? undefined,
     display_name: spec.displayName ?? undefined,
-    dashboard: "full",
+    dashboard,
     identity: {
       country: country.toLowerCase(),
       entity_type: prefill ? spec.entityType ?? undefined : undefined,
@@ -343,7 +350,7 @@ export function v2AccountBody(
 /** Corps POST /v1/accounts par `controller` (sans le champ `type` déprécié). Exporté pour les tests. */
 export function v1ControllerAccountBody(
   spec: NewConnectedAccount,
-  opts: { capabilities: boolean; prefill: boolean },
+  opts: { capabilities: boolean; prefill: boolean; dashboard?: Exclude<DashboardType, "none"> },
 ): Record<string, unknown> {
   const prefill = opts.prefill && !!spec.entityType;
   return {
@@ -353,7 +360,7 @@ export function v1ControllerAccountBody(
       fees: { payer: "account" },
       losses: { payments: "stripe" },
       requirement_collection: "stripe",
-      stripe_dashboard: { type: "full" },
+      stripe_dashboard: { type: opts.dashboard ?? "express" },
     },
     capabilities: opts.capabilities
       ? { card_payments: { requested: true }, transfers: { requested: true } }
@@ -399,6 +406,9 @@ export async function createConnectedAccount(
   attempts.push(
     { shape: "v1-controller", api: "v1", run: () => stripeRequest(ctx, "v1", "POST", "/v1/accounts", v1ControllerAccountBody(spec, { capabilities: true, prefill: true })) },
     { shape: "v1-controller-bare", api: "v1", run: () => stripeRequest(ctx, "v1", "POST", "/v1/accounts", v1ControllerAccountBody(spec, { capabilities: false, prefill: false })) },
+    // Dernier filet : si Stripe refuse toute forme Express, on ouvre le compte
+    // au tableau de bord complet plutôt que de bloquer le pro.
+    { shape: "v2-full-dashboard", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, configs, false, "full")) },
   );
 
   const failures: { shape: string; message: string }[] = [];
@@ -561,8 +571,9 @@ export async function readConnectAccountState(ctx: ConnectContext, accountId: st
 
 /**
  * Où envoyer le pro qui clique « Tableau de bord Stripe ». Un compte Express a
- * un lien de connexion à usage unique ; un compte au tableau de bord complet se
- * connecte lui-même sur dashboard.stripe.com (Stripe n'émet pas de lien pour lui).
+ * un lien de connexion à usage unique (POST /v1/accounts/{id}/login_links, à
+ * générer à chaque clic et jamais envoyé hors de l'app) ; un compte au tableau
+ * de bord complet (filet) se connecte lui-même sur dashboard.stripe.com.
  */
 export async function dashboardUrlFor(ctx: ConnectContext, accountId: string, state: ConnectAccountState): Promise<string> {
   if (state.dashboard === "express") {

@@ -1490,8 +1490,18 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   compte), repli v1. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
   `account.updated`), repli v2. Colonnes écrites par `venueConnectColumns` /
   `organizerConnectColumns` — webhook, Console et checkouts écrivent pareil.
-- **Tableau de bord** : un compte `full` n'a pas de lien de connexion Express :
-  le bouton ouvre dashboard.stripe.com, le pro s'y connecte avec SES identifiants.
+- **Tableau de bord = Express Dashboard** (2026-09-30, décision de Paul) : les
+  comptes naissent en `dashboard: express` (v2) / `stripe_dashboard.type: express`
+  (v1 de secours). Compatible avec charges directes + pertes et frais portés par
+  Stripe (docs.stripe.com/connect/integration-recommendations). Le bouton
+  « Tableau de bord Stripe » génère un lien à usage unique (`login_links`,
+  `dashboardUrlFor`) à chaque clic ; il n'est jamais envoyé hors de l'app. Le
+  pro s'y authentifie par code SMS / e-mail, sans second compte. Le tableau de
+  bord `full` (dashboard.stripe.com) n'est plus que le DERNIER filet de création
+  (`v2-full-dashboard`) et le repli si Stripe refuse un lien. Fonctions,
+  marque et messages de l'Express Dashboard se règlent dans le Dashboard Stripe
+  de Yuno (Connect → Express Dashboard : Branding, Features), pas par l'API.
+  Les comptes déjà créés en `full` le restent (la propriété ne se change pas).
 - **Le drapeau `charges_enabled` en base n'est qu'un miroir.** Les checkouts
   (billets, tables, boissons) revérifient chez Stripe un compte « inactif »
   (`checkPayoutReadinessHealing`, `healChargesEnabled`) avant de refuser un

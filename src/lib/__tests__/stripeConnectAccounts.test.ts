@@ -11,6 +11,8 @@ import {
   connectStatusOf,
   createConnectedAccount,
   createOnboardingLink,
+  dashboardUrlFor,
+  STRIPE_FULL_DASHBOARD_URL,
   createSessionWithPaymentMethodFallback,
   formEncode,
   healChargesEnabled,
@@ -82,10 +84,11 @@ const organizer: NewConnectedAccount = {
 };
 
 describe('corps envoyés à Stripe', () => {
-  it('v2 : Stripe porte les pertes ET collecte ses frais chez le vendeur, tableau de bord complet', () => {
+  it('v2 : Stripe porte les pertes ET collecte ses frais chez le vendeur, Express Dashboard', () => {
     const body = asV2(v2AccountBody(organizer, ['merchant', 'recipient'], true));
     expect(body.defaults.responsibilities).toEqual({ fees_collector: 'stripe', losses_collector: 'stripe' });
-    expect(body.dashboard).toBe('full');
+    expect(body.dashboard).toBe('express');
+    expect(asV2(v2AccountBody(organizer, ['merchant'], false, 'full')).dashboard).toBe('full');
     expect(body.identity).toEqual({ country: 'fr' });
     expect(body.configuration.merchant?.capabilities.card_payments).toEqual({ requested: true });
     expect(body.configuration.recipient?.capabilities.stripe_balance.stripe_transfers).toEqual({ requested: true });
@@ -110,7 +113,7 @@ describe('corps envoyés à Stripe', () => {
       fees: { payer: 'account' },
       losses: { payments: 'stripe' },
       requirement_collection: 'stripe',
-      stripe_dashboard: { type: 'full' },
+      stripe_dashboard: { type: 'express' },
     });
     expect(body.business_type).toBe('company');
     const bare = asV1(v1ControllerAccountBody({ ...organizer, entityType: 'company' }, { capabilities: false, prefill: false }));
@@ -209,6 +212,16 @@ describe('createConnectedAccount', () => {
     expect(calls[2].body).not.toMatch(/(^|&)type=/);
   });
 
+  it('toute forme Express refusée : dernier filet au tableau de bord complet', async () => {
+    const { calls, ctx } = fakeStripe([
+      refused('v2'), refused('v2 vendeur seul'), refused('v1'), refused('v1 nu'),
+      { status: 200, body: { id: 'acct_full' } },
+    ]);
+    await expect(createConnectedAccount(ctx, organizer)).resolves.toEqual({ id: 'acct_full', api: 'v2', shape: 'v2-full-dashboard' });
+    expect(JSON.parse(calls[4].body!).dashboard).toBe('full');
+    expect(JSON.parse(calls[0].body!).dashboard).toBe('express');
+  });
+
   it('une panne serveur n’enchaîne JAMAIS (le compte a pu naître : pas de doublon)', async () => {
     const { calls, ctx } = fakeStripe([{ status: 500, body: { error: { message: 'boom' } } }]);
     await expect(createConnectedAccount(ctx, organizer)).rejects.toMatchObject({
@@ -219,10 +232,10 @@ describe('createConnectedAccount', () => {
   });
 
   it('tout refusé : l’erreur porte le premier message Stripe et chaque tentative', async () => {
-    const { ctx } = fakeStripe([refused('A'), refused('B'), refused('C'), refused('D')]);
+    const { ctx } = fakeStripe([refused('A'), refused('B'), refused('C'), refused('D'), refused('E')]);
     const err = await createConnectedAccount(ctx, organizer).catch((e) => e);
     expect(err.message).toBe('A');
-    expect(err.attempts.map((a: { shape: string }) => a.shape)).toEqual(['v2', 'v2-merchant-only', 'v1-controller', 'v1-controller-bare']);
+    expect(err.attempts.map((a: { shape: string }) => a.shape)).toEqual(['v2', 'v2-merchant-only', 'v1-controller', 'v1-controller-bare', 'v2-full-dashboard']);
   });
 
   it('un DJ (payee) ne demande que la réception de transferts', async () => {
@@ -397,5 +410,22 @@ describe('isDefinitiveRejection', () => {
     expect(isDefinitiveRejection(new StripeHttpError('x', 429, 'v2'))).toBe(false);
     expect(isDefinitiveRejection(new StripeHttpError('x', 500, 'v2'))).toBe(false);
     expect(isDefinitiveRejection(new TypeError('fetch failed'))).toBe(false);
+  });
+});
+
+describe('dashboardUrlFor', () => {
+  const base = { chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, hasRequirements: false, requirements: { currently_due: [], past_due: [] }, source: 'v2' as const };
+
+  it('Express : lien de connexion à usage unique généré par Stripe', async () => {
+    const { calls, ctx } = fakeStripe([{ status: 200, body: { url: 'https://connect.stripe.com/express/abc' } }]);
+    await expect(dashboardUrlFor(ctx, 'acct_1', { ...base, dashboard: 'express' })).resolves.toBe('https://connect.stripe.com/express/abc');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].url).toBe('https://api.stripe.com/v1/accounts/acct_1/login_links');
+  });
+
+  it('tableau de bord complet (filet) : dashboard.stripe.com, aucun appel Stripe', async () => {
+    const { calls, ctx } = fakeStripe([]);
+    await expect(dashboardUrlFor(ctx, 'acct_1', { ...base, dashboard: 'full' })).resolves.toBe(STRIPE_FULL_DASHBOARD_URL);
+    expect(calls).toHaveLength(0);
   });
 });
