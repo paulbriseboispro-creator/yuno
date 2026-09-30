@@ -89,6 +89,12 @@ interface FloorPlanEditorProps {
    * l'éditeur écrit le plan de niveau club comme avant.
    */
   eventId?: string | null;
+  /**
+   * Plan d'une SALLE VIP enregistrée (modèle d'organisateur) : la sauvegarde passe
+   * par `update_vip_room_plan`, le fond va dans `floor-plans/room-<id>/`. Le plan se
+   * modifie sur la salle elle-même, sans détour par une soirée.
+   */
+  roomId?: string | null;
   existingLayout?: { tables: FloorTable[]; zoneAreas?: FloorZoneArea[]; bgOffset?: { x: number; y: number }; bgScale?: number; showTableLabels?: boolean } | null;
   existingBackgroundUrl?: string | null;
   zones: { id: string; name: string; color: string }[];
@@ -149,6 +155,7 @@ export function FloorPlanEditor({
   onClose,
   venueId,
   eventId,
+  roomId,
   existingLayout,
   existingBackgroundUrl,
   zones,
@@ -196,7 +203,7 @@ export function FloorPlanEditor({
   const tableDragStartRef = useRef<{ x: number; y: number } | null>(null);
   // Latest state, mirrored into a ref so async writers persist the CURRENT layout, never a
   // stale closure. writeChainRef serializes every write so they can't race / clobber.
-  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, showTableLabels, backgroundUrl, venueId, eventId });
+  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, showTableLabels, backgroundUrl, venueId, eventId, roomId });
   const writeChainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   // Single canonical serializer — used for both the DB write and the dirty-check,
@@ -226,9 +233,9 @@ export function FloorPlanEditor({
   ) => JSON.stringify({ layout: buildLayout(tbls, zAreas, off, scale, labels), bg: bgUrl || null });
 
   // Mirror current state every render so async writers read the latest, not a stale closure.
-  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, showTableLabels, backgroundUrl, venueId, eventId };
+  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, showTableLabels, backgroundUrl, venueId, eventId, roomId };
   // Une portée suffit : la soirée (event-scopé) ou le club (venue-scopé).
-  const hasScope = !!(eventId || venueId);
+  const hasScope = !!(eventId || venueId || roomId);
 
   type LiveState = typeof liveRef.current;
 
@@ -240,9 +247,15 @@ export function FloorPlanEditor({
   // behave exactly as before. A null id back means the write was blocked (RLS / not the owner),
   // which we surface as an error instead of reporting a phantom success.
   const writeLayout = async (live: LiveState): Promise<{ ok: boolean; code?: string }> => {
-    if (!live.venueId && !live.eventId) return { ok: false, code: 'NO_VENUE' };
+    if (!live.venueId && !live.eventId && !live.roomId) return { ok: false, code: 'NO_VENUE' };
     const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.showTableLabels);
-    const { data: id, error } = live.eventId
+    const { data: id, error } = live.roomId
+      ? await supabase.rpc('update_vip_room_plan', {
+          p_room_id: live.roomId,
+          p_layout: JSON.parse(JSON.stringify(layout)),
+          p_background_image_url: live.backgroundUrl,
+        })
+      : live.eventId
       ? await supabase.rpc('upsert_event_floor_plan', {
           p_event_id: live.eventId,
           p_layout: JSON.parse(JSON.stringify(layout)),
@@ -356,8 +369,8 @@ export function FloorPlanEditor({
       const ext = file.name.split('.').pop();
       // Plan de soirée : bucket `floor-plans` (policies organisateur), dossier
       // par soirée. Plan de club : bucket `venue-assets` (policies club).
-      const bucket = eventId ? 'floor-plans' : 'venue-assets';
-      const path = eventId ? `event-${eventId}/floor-plan-bg.${ext}` : `${venueId}/floor-plan-bg.${ext}`;
+      const bucket = eventId || roomId ? 'floor-plans' : 'venue-assets';
+      const path = roomId ? `room-${roomId}/floor-plan-bg.${ext}` : eventId ? `event-${eventId}/floor-plan-bg.${ext}` : `${venueId}/floor-plan-bg.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(path, file, { upsert: true });
