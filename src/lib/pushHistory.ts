@@ -3,6 +3,7 @@
  * viennent de la RPC `get_push_campaigns` (migration 20260924180000) : ce
  * module type la réponse et la met en forme. Il n'agrège jamais une vente.
  */
+import { ENGINE_RULE_KEYS } from './pushEngine';
 
 export type PushFilter = 'all' | 'manual' | 'auto' | 'scheduled';
 
@@ -60,6 +61,10 @@ export function openRate(taps: number, sent: number): number | null {
 export function campaignLabel(row: PushCampaignRow, t: (k: string) => string): string {
   if (row.source === 'auto' && row.templateKey === 'new_event' && row.eventTitle) {
     return t('ph.publication').replace('{title}', row.eventTitle);
+  }
+  // Les autres étapes du moteur de notifications : « Dernières places – Soirée ».
+  if (row.source === 'auto' && row.templateKey && ENGINE_RULE_KEYS.has(row.templateKey) && row.eventTitle) {
+    return `${t(`pe.rule.${row.templateKey}.name`)} – ${row.eventTitle}`;
   }
   return row.title?.trim() || t('ph.untitled');
 }

@@ -243,9 +243,15 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					],
 				},
 				{
+					// Automatiques = ce que Yuno envoie pour les soirées (moteur de
+					// notifications) ; Campagnes = les envois du club (crédits).
 					title: t('sidebar.push'),
 					path: "/owner/push",
 					icon: <BellIcon />,
+					subItems: [
+						{ title: t('pe.tabs.auto'), path: "/owner/push?tab=auto", icon: <ZapIcon />, isDefault: true },
+						{ title: t('pe.tabs.campaigns'), path: "/owner/push?tab=campaigns", icon: <MegaphoneIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.ads'),

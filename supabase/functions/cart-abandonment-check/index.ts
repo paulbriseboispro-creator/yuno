@@ -27,8 +27,11 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Kill switch plateforme (/admin/notifications, clé 'cart_abandonment').
-    if (!(await isAutoPushEnabled(supabase, 'cart_abandonment'))) {
+    // Panier BOISSONS seulement. Un checkout billet / table abandonné est une
+    // règle du moteur de notifications (checkout_abandoned) : rattachée à la
+    // soirée, retirée si la personne achète entre-temps, visible par le pro.
+    // Kill switch plateforme (/admin/notifications, clé 'cart_abandonment_drinks').
+    if (!(await isAutoPushEnabled(supabase, 'cart_abandonment_drinks'))) {
       return new Response(JSON.stringify({ success: true, sent: 0, skipped: 'disabled' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -38,18 +41,9 @@ Deno.serve(async (req) => {
     const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
 
-    // Find pending tickets (created 30min-2h ago, still pending = abandoned checkout)
-    const { data: pendingTickets } = await supabase
-      .from('tickets')
-      .select('user_id, event_id, events!inner(title)')
-      .eq('status', 'pending')
-      .lte('created_at', thirtyMinAgo)
-      .gte('created_at', twoHoursAgo);
-
-    // Also check cart_snapshots for drink carts
     const { data: cartSnapshots } = await supabase
       .from('cart_snapshots')
-      .select('*')
+      .select('id, user_id')
       .is('notified_at', null)
       .eq('converted', false)
       .lte('updated_at', thirtyMinAgo)
@@ -58,77 +52,26 @@ Deno.serve(async (req) => {
     let sentCount = 0;
     const notifiedUsers = new Set<string>();
 
-    // Ticket abandonment notifications
-    for (const ticket of pendingTickets || []) {
-      if (!ticket.user_id || notifiedUsers.has(ticket.user_id)) continue;
-
-      // Anti-spam: check daily limit
-      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: todayNotifs } = await supabase
-        .from('notification_log')
-        .select('id')
-        .eq('user_id', ticket.user_id)
-        .in('notification_type', ['marketing', 'campaign', 'reminder'])
-        .gte('sent_at', dayAgo);
-
-      if ((todayNotifs?.length || 0) >= 3) continue;
-
-      // 4h cooldown
-      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
-      const { data: recentNotif } = await supabase
-        .from('notification_log')
-        .select('id')
-        .eq('user_id', ticket.user_id)
-        .in('notification_type', ['marketing', 'campaign'])
-        .gte('sent_at', fourHoursAgo)
-        .limit(1);
-
-      if (recentNotif && recentNotif.length > 0) continue;
-
-      // Registre auto (clé 'cart_abandonment', variante billet) : langue +
-      // tracking ?an=. Le helper journalise notification_log type 'marketing'
-      // (mêmes plafonds anti-spam que l'insert manuel qu'il remplace).
-      try {
-        const eventTitle = (ticket as unknown as { events?: { title?: string } | null }).events?.title
-          || { fr: 'cet événement', en: 'this event', es: 'este evento' };
-        const res = await sendAutoPush(supabase, {
-          key: 'cart_abandonment',
-          variant: 'ticket',
-          userId: ticket.user_id,
-          url: `/my-orders?tab=tickets`,
-          vars: { event: eventTitle },
-        });
-        if (res.sent > 0) sentCount++;
-        notifiedUsers.add(ticket.user_id);
-      } catch (e) { console.error('[CART-ABANDON] Ticket error:', e); }
-    }
-
-    // Drink cart abandonment
     for (const snapshot of cartSnapshots || []) {
-      if (notifiedUsers.has(snapshot.user_id)) continue;
+      if (!snapshot.user_id || notifiedUsers.has(snapshot.user_id)) continue;
+      notifiedUsers.add(snapshot.user_id);
 
-      // Anti-spam checks same as above
-      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: todayNotifs } = await supabase
-        .from('notification_log')
-        .select('id')
-        .eq('user_id', snapshot.user_id)
-        .in('notification_type', ['marketing', 'campaign', 'reminder'])
-        .gte('sent_at', dayAgo);
+      // Même porte anti-spam que toute notification client non transactionnelle
+      // (opt-out marketing, heures calmes, plafonds du moteur, cooldown 3 j).
+      const { data: policy } = await supabase.rpc('client_push_policy', {
+        p_user_id: snapshot.user_id,
+        p_key: 'cart_abandonment_drinks',
+      });
+      const verdict = Array.isArray(policy) ? policy[0] : policy;
+      if (!verdict?.allowed) continue;
 
-      if ((todayNotifs?.length || 0) >= 3) continue;
-
-      // Registre auto (clé 'cart_abandonment', variante boissons).
       try {
         const res = await sendAutoPush(supabase, {
-          key: 'cart_abandonment',
-          variant: 'drinks',
+          key: 'cart_abandonment_drinks',
           userId: snapshot.user_id,
           url: '/cart',
         });
         if (res.sent > 0) sentCount++;
-
-        // Mark as notified
         await supabase.from('cart_snapshots').update({ notified_at: now.toISOString() }).eq('id', snapshot.id);
       } catch (e) { console.error('[CART-ABANDON] Drink error:', e); }
     }

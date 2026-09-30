@@ -7,16 +7,15 @@
 //                fail-open — une transactionnelle ne meurt jamais d'un seed
 //                oublié). Cache mémoire 60 s par instance.
 //   2. TEXTE   : rendu dans la langue du destinataire (profiles.preferred_language,
-//                défaut fr) depuis le catalogue AUTO_PUSH ci-dessous — miroir du
-//                pattern _shared/push-automations.ts.
+//                défaut fr) depuis le catalogue AUTO_PUSH ci-dessous.
 //   3. ENVOI   : relay send-push-notification (service role), APNs iOS.
 //   4. TRACKING: auto_push_events (sent/failed) + notification_log (anti-spam).
 //                Le clic est attribué via ?an=<key> dans l'URL, loggé côté
 //                client par PushClickTracker (miroir du ?pc= des campagnes).
 //
-// Les push auto en FAN-OUT (automatisations club, nouvel événement) ne passent
-// pas par ici : ils utilisent la mécanique campagnes (push-automations.ts) dont
-// le tracking est déjà complet. La RPC get_auto_push_stats() agrège les deux.
+// Les notifications des SOIRÉES (annonce, dernières places, rappels, merci…)
+// ne passent pas par ici : c'est le moteur de notifications (push-engine.ts,
+// file push_candidates + arbitrage) qui les décide et les suit par campagne.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
@@ -207,28 +206,6 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
       },
     },
   },
-  event_reminder_4h: {
-    logType: "reminder",
-    audience: "client",
-    variants: {
-      default: {
-        fr: { title: "Ce soir à {time} 🔥", body: "{event} – Entrée rapide avec ton QR." },
-        en: { title: "Tonight at {time} 🔥", body: "{event} – Fast entry with your QR." },
-        es: { title: "Esta noche a las {time} 🔥", body: "{event} – Entrada rápida con tu QR." },
-      },
-    },
-  },
-  event_reminder_30m: {
-    logType: "reminder",
-    audience: "client",
-    variants: {
-      default: {
-        fr: { title: "Ouverture dans 30 min 🎶", body: "{event} – Évite la file, ton QR est prêt." },
-        en: { title: "Doors open in 30 min 🎶", body: "{event} – Skip the line, your QR is ready." },
-        es: { title: "Apertura en 30 min 🎶", body: "{event} – Evita la cola, tu QR está listo." },
-      },
-    },
-  },
   waitlist_presale: {
     logType: "transactional",
     audience: "client",
@@ -240,16 +217,14 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
       },
     },
   },
-  cart_abandonment: {
+  // Panier BOISSONS resté ouvert. Les checkouts billets / tables abandonnés
+  // sont une règle du moteur de notifications (checkout_abandoned), rattachée
+  // à la soirée et visible par le pro.
+  cart_abandonment_drinks: {
     logType: "marketing",
     audience: "client",
     variants: {
-      ticket: {
-        fr: { title: "Toujours dispo 🎟️", body: "Tes billets pour {event} sont encore disponibles." },
-        en: { title: "Still available 🎟️", body: "Your tickets for {event} are still available." },
-        es: { title: "Aún disponible 🎟️", body: "Tus entradas para {event} siguen disponibles." },
-      },
-      drinks: {
+      default: {
         fr: { title: "Finaliser ta commande ? 🍹", body: "Tes cocktails sont toujours dans ton panier." },
         en: { title: "Finish your order? 🍹", body: "Your cocktails are still in your cart." },
         es: { title: "¿Terminas tu pedido? 🍹", body: "Tus cócteles siguen en tu carrito." },

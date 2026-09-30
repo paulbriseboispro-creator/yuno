@@ -563,10 +563,10 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Bell',
         actionLink: { labelKey: 'ohelp.action.goToPush', path: '/push' },
         relatedArticleIds: ['email-campaigns', 'sms-credits', 'crm-setup'],
-        keywords: ['push', 'notification', 'notif', 'automatique', 'auto', 'automation', 'soirée live', 'event live', 'remerciement', 'thank you', 'rappel', 'reminder', 'bientôt complet', 'almost sold out', 'happy hour', 'tables vip', 'guest list', 'campagne push', 'notificación', 'automática', 'historique', 'history', 'historial', 'ouvertures', 'taux d\'ouverture', 'open rate', 'acheteurs', 'buyers', 'publication', 'abonnés', 'followers', 'qr'],
+        keywords: ['push', 'notification', 'notif', 'automatique', 'auto', 'automatic', 'annonce', 'announcement', 'anuncio', 'programmer l\'annonce', 'schedule announcement', 'dernières places', 'last tickets', 'rappel', 'reminder', 'remerciement', 'thank you', 'crédits', 'credits', 'créditos', 'campagne push', 'campaign', 'campaña', 'info soirée', 'happy hour', 'tables vip', 'guest list', 'notificación', 'automática', 'historique', 'history', 'historial', 'ouvertures', 'taux d\'ouverture', 'open rate', 'acheteurs', 'buyers', 'protégées', 'collab', 'co-organisation', 'abonnés', 'followers', 'qr'],
         sections: [
           { headingKey: 'ohelp.pg.push.s1h', bodyKey: 'ohelp.pg.push.s1b' },
-          { headingKey: 'ohelp.pg.push.s2h', bodyKey: 'ohelp.pg.push.s2b', screenshotUrl: '/help/owner-push-notifications.webp' },
+          { headingKey: 'ohelp.pg.push.s2h', bodyKey: 'ohelp.pg.push.s2b' },
           { headingKey: 'ohelp.pg.push.s3h', bodyKey: 'ohelp.pg.push.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.push.s4h', bodyKey: 'ohelp.pg.push.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.push.s5h', bodyKey: 'ohelp.pg.push.s5b', type: 'tip' },

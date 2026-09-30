@@ -1,14 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
-import { dispatchPushAutomations, dispatchNewEventPushes, dispatchNewEventAgencyPushes } from "../_shared/push-automations.ts";
+import { runPushEngine } from "../_shared/push-engine.ts";
 import { refreshEventEmbeddings, refreshDjEmbeddings } from "../_shared/event-embeddings.ts";
 import { refreshTasteEmbeddings } from "../_shared/taste-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchNightRecaps } from "../_shared/night-recap.ts";
-import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { dispatchEmailAutomations, dispatchCampaignResends } from "../_shared/email-automations.ts";
@@ -170,41 +169,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Notifications push AUTOMATIQUES (cycle de vie des soirées) — activées par
-    // les clubs, envoyées au bon moment. Best-effort : un échec ici ne casse
-    // pas le traitement des campagnes planifiées ci-dessus.
-    let autoPush = { processed: 0, sent: 0 };
+    // Moteur de notifications Yuno : TOUTES les notifications automatiques des
+    // soirées (annonce, billetterie, dernières places, c'est ce soir, panier
+    // abandonné, upsell VIP, rappels, merci) pour tous les clubs, organisateurs
+    // et co-soirées, selon les règles du super admin (/admin/notifications).
+    // Remplace les automatisations par club, l'annonce « nouvelle soirée » et
+    // l'annonce d'agence. Best-effort : un échec ne casse pas le reste du cron.
+    let pushEngine: unknown = null;
     try {
-      autoPush = await dispatchPushAutomations(admin, SUPABASE_URL, SERVICE_KEY);
+      pushEngine = await runPushEngine(admin, SUPABASE_URL, SERVICE_KEY, { timeBudgetMs: 40_000 });
     } catch (e) {
-      console.error('[AUTO-PUSH] dispatch failed:', String(e));
-    }
-
-    // Automations CRM user-scopées (win_back, birthday) — opt-in par club,
-    // claim atomique + cap 3/24 h dans le dispatcher. Best-effort.
-    let customerAuto = { processed: 0, sent: 0 };
-    try {
-      customerAuto = await dispatchCustomerAutomations(admin, SUPABASE_URL, SERVICE_KEY);
-    } catch (e) {
-      console.error('[CUSTOMER-AUTO] dispatch failed:', String(e));
-    }
-
-    // Nouvel événement publié → push aux followers du club + de l'organisateur.
-    // Gated par le registre super admin (clé 'new_event'). Best-effort.
-    let newEventPush = { processed: 0, sent: 0 };
-    try {
-      newEventPush = await dispatchNewEventPushes(admin, SUPABASE_URL, SERVICE_KEY);
-    } catch (e) {
-      console.error('[NEW-EVENT-PUSH] dispatch failed:', String(e));
-    }
-
-    // Nouvel événement d'un RP suivi → push aux abonnés de l'agence (opt-in par
-    // agence + gate super admin 'agency_new_event'). Best-effort.
-    let agencyNewEventPush = { processed: 0, sent: 0 };
-    try {
-      agencyNewEventPush = await dispatchNewEventAgencyPushes(admin, SUPABASE_URL, SERVICE_KEY);
-    } catch (e) {
-      console.error('[AGENCY-NEW-EVENT-PUSH] dispatch failed:', String(e));
+      console.error('[PUSH-ENGINE] run failed:', String(e));
     }
 
     // Embeddings — events (recos « Pour toi ») et profils DJ (matching DJ↔soirée).
@@ -286,7 +261,7 @@ Deno.serve(async (req) => {
       console.error('[META-CAPI] drain failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, nightRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, nightRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

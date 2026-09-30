@@ -264,7 +264,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Upsell boissons post-achat",
     keywords: ["upsell", "post-achat", "post-purchase", "presale", "prévente", "boisson après billet", "drinks after ticket", "page upsell", "zéro file", "skip queue"],
     path: "/owner/menu",
-    snippet: "Juste après l'achat d'un billet, le client voit une page boissons (presale d'abord, prix barré) et peut commander en un geste — la commande est liée à la soirée, retrait au bar par QR le soir J. Activée par défaut, toggle « Upsell post-achat » dans Événements → Bar → Menu boissons. Complément : automatisation push « Boissons jour J » (Notifications push) et bouton commande dans l'email de confirmation de billet.",
+    snippet: "Juste après l'achat d'un billet, le client voit une page boissons (presale d'abord, prix barré) et peut commander en un geste — la commande est liée à la soirée, retrait au bar par QR le soir J. Activée par défaut, toggle « Upsell post-achat » dans Événements → Bar → Menu boissons. Complément : le rappel du jour J que Yuno envoie aux détenteurs de billet propose la commande de boissons quand ton bar la propose, et l'email de confirmation de billet a un bouton commande.",
   },
   "live-mode": {
     title: "Mode Live (soirée)",
@@ -412,9 +412,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "push-notifications": {
     title: "Notifications push",
-    keywords: ["push", "notification", "notif", "automatique", "auto", "soirée live", "event live", "remerciement", "thank you", "rappel", "reminder", "bientôt complet", "sold out", "happy hour", "tables vip", "guest list", "campagne push", "programmer", "programmé", "planifier", "schedule", "meilleur créneau", "meilleur moment", "annuler un push", "historique push", "taux d'ouverture", "open rate", "acheteurs push", "publication", "abonnés", "followers"],
+    keywords: ["push", "notification", "notif", "automatique", "auto", "annonce", "announcement", "programmer l'annonce", "dernières places", "last tickets", "rappel", "reminder", "remerciement", "thank you", "passe en vip", "panier", "crédits", "credits", "crédit push", "campagne push", "info soirée", "happy hour", "tables vip", "guest list", "programmer", "programmé", "planifier", "schedule", "annuler un push", "historique push", "taux d'ouverture", "open rate", "acheteurs push", "protégées", "publication", "abonnés", "followers", "collab", "co-organisation", "anniversaire", "reconquête"],
     path: "/owner/push",
-    snippet: "La page Notifications push a DEUX familles bien séparées. 1) AUTOMATIQUES : tu actives un toggle, Yuno envoie tout seul au bon moment — Rappel jour J (6 h avant, aux acheteurs), La soirée commence (à l'ouverture, aux acheteurs), Remerciement (après la soirée, aux clients entrés), Bientôt complet (à 85 % de billets vendus, aux followers), Pré-commande boissons (l'après-midi, aux acheteurs), et trois automations CRM : Upsell table VIP (à J-2, aux détenteurs de billet SANS table — le plus gros panier de la nuit), Reconquête (client inactif depuis N jours, paramétrable 30/45/60/90, max une fois par trimestre par client) et Anniversaire (le jour J, une fois par an). Reconquête et Anniversaire respectent le plafond global de 3 push non transactionnels par client et par 24 h. Désactivées par défaut, chacune ne part qu'une fois par soirée et dans la langue de chaque client, et ne compte PAS dans la limite de 4 campagnes/24 h. 2) MANUELLES : tu composes et envoies un push ponctuel (Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou message libre), en ciblant l'audience (acheteurs, clients entrés, followers, segment). L'envoi peut être immédiat ou PROGRAMMÉ à une date/heure précise ; Yuno suggère le meilleur créneau d'envoi calculé sur les habitudes de l'audience, et un push programmé reste annulable depuis l'historique tant qu'il n'est pas parti. Plafond 4 campagnes/24 h. Règles Yuno appliquées à tout push manuel, tous expéditeurs confondus : vers les followers, tous les clients, un segment ou le RFM, rien ne part entre 22 h et 10 h (l'écran propose « Programmer à 10 h ») et personne ne reçoit plus d'1 notification marketing par jour et 3 par semaine ; ceux qui ont coupé le marketing ne reçoivent rien. Les audiences « acheteurs de la soirée » et « clients entrés » font exception : la notif parle d'une nuit achetée, elle peut partir pendant la soirée. La portée estimée ne compte que ceux qui la recevront. 3) HISTORIQUE : la carte « Historique des notifications » liste TOUTES les notifications (automatiques comprises, sans limite, filtres Toutes / Envoyées par toi / Automatiques / Programmées) avec Ciblés, Envoyés (acceptés par Apple), Ouverts, Taux, Acheteurs et CA (touché puis acheté sous 72 h, frais Yuno et remboursements déduits) ; l'annonce automatique d'une soirée publiée s'y appelle « Publication – nom de la soirée ». Au-dessus, « Qui recevra tes notifications ? » donne les abonnés, la part joignable par push et deux boutons pour en gagner (copier le lien de la page, télécharger le QR à afficher à la porte). Un organisateur a la même page dans sa Console (Marketing & CRM → Notifications push, fondateur ou admin d'équipe) : audiences acheteurs de la soirée, clients entrés, abonnés de sa page, tous ses clients.",
+    snippet: "Les notifications push sont pilotées par YUNO, plus par le club : la page a deux onglets. 1) AUTOMATIQUES — rien à activer, le moteur de notifications Yuno envoie pour chaque soirée publiée, avec les mêmes règles pour tout Yuno (réglées par le super admin) : Annonce (à la publication ou à l'heure choisie via « Programmer l'annonce », au plus tard 3 h avant ; aux abonnés du club, aux clients des 12 derniers mois, aux fans des DJ de l'affiche dans la zone, aux abonnés des agences), Billetterie ouverte, Dernières places (places qui partent, tarif qui monte, peu de tables), C'est ce soir, Réservation non finalisée (paiement billet/table abandonné), Passe en VIP (billet sans table), Rappel du jour J (avec la commande de boissons si le bar la propose) et Ouverture des portes (à tous ceux qui ont une place), Merci + prochaine date (aux personnes scannées). Anti-spam : jamais entre 22 h et 10 h, 1 notification marketing par personne et par jour, 3 par semaine (4 pour les très engagés, 1 pour qui n'ouvre plus), 2 par soirée, et ce qui ne peut pas partir est reporté, pas perdu. Sur une collab ou une co-organisation, chaque personne ne reçoit qu'une notification par étape, au nom de la partie qu'elle suit, et chaque partie voit « ce que ton audience a donné ». L'onglet montre Notifications envoyées, Ouvertes, Acheteurs (touché puis acheté la soirée sous 72 h, la vente revient à la DERNIÈRE notification touchée), CA des notifications (CA club, frais Yuno et remboursements déduits), Protégées, puis « Soirée par soirée » avec le détail par étape. Anniversaire et Reconquête n'existent plus : les anciens clients sont inclus dans l'annonce. 2) MES CAMPAGNES — push écrits par le club (modèles Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou Libre, « Générer avec l'IA ») : 1 crédit = 1 campagne vers abonnés, tous les clients ou un segment (crédits offerts chaque mois, renouvelés le 1er, bonus accordés par Yuno, « Demander plus ») ; l'INFO SOIRÉE aux « acheteurs de la soirée » ou « clients entrés » est gratuite (2 par soirée, peut partir la nuit). Une campagne marketing par 24 h au plus ; heures calmes 22 h → 10 h (« Programmer à 10 h ») ; une campagne programmée annulée, ou qui n'atteint personne, rend son crédit. L'historique (filtre « Envoyées par toi » par défaut, « Toutes » pour tout voir) donne Ciblés, Envoyés, Ouverts, Acheteurs et CA. « Qui recevra tes notifications ? » montre les abonnés et la part joignable, avec copier le lien de la page / télécharger le QR. Même page pour un organisateur (Console Organisateur → Marketing & CRM → Notifications push)."
   },
   "refund-management": {
     title: "Remboursements",
@@ -2684,7 +2684,7 @@ async function handleNextBestActions(
   // ── État réel du club, requêté côté serveur ──
   const now = new Date();
   const in14d = new Date(now.getTime() + 14 * 24 * 3600 * 1000).toISOString();
-  const [venueRes, eventsRes, lastPushRes, lastEmailRes, customersRes, automationsRes] = await Promise.all([
+  const [venueRes, eventsRes, lastPushRes, lastEmailRes, customersRes, pushCreditsRes] = await Promise.all([
     supabase.from("venues").select("name").eq("id", venueId).maybeSingle(),
     supabase.from("events")
       .select("id, title, start_at, max_tickets, ticketing_enabled, tables_enabled")
@@ -2696,7 +2696,7 @@ async function handleNextBestActions(
     supabase.from("email_campaigns").select("created_at").eq("venue_id", venueId)
       .eq("status", "sent").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     fetchAllRows<{ last_visit_at: string | null }>((f, t) => supabase.from("venue_customers").select("last_visit_at").eq("venue_id", venueId).eq("is_banned", false).order("id").range(f, t)).then((data) => ({ data }), () => ({ data: [] as { last_visit_at: string | null }[] })),
-    supabase.from("venue_push_automations").select("automation_key, enabled").eq("venue_id", venueId),
+    supabase.rpc("push_credit_state_for", { p_scope: `venue:${venueId}` }),
   ]);
 
   const lines: string[] = [`Club : ${venueRes.data?.name || "inconnu"} — date : ${today}`];
@@ -2767,9 +2767,10 @@ async function handleNextBestActions(
     lines.push("Base clients vide pour l'instant.");
   }
 
-  const autos = automationsRes.data || [];
-  const autosOn = autos.filter((a: { enabled: boolean }) => a.enabled).length;
-  lines.push(`Notifications automatiques : ${autosOn}/${autos.length} activées.`);
+  // Les notifications automatiques sont envoyées par Yuno (moteur de
+  // notifications) : rien à activer, il reste les crédits de campagnes.
+  const credits = pushCreditsRes.data as { remaining?: number } | null;
+  lines.push(`Notifications automatiques : envoyées par Yuno pour chaque soirée (rien à activer). Crédits de campagnes push restants ce mois-ci : ${credits?.remaining ?? "inconnu"}.`);
 
   const systemPrompt = `Tu es le conseiller opérationnel quotidien d'un club sur Yuno. On te donne l'état réel du club ce matin.
 Propose EXACTEMENT 3 actions concrètes et priorisées à faire AUJOURD'HUI, la plus impactante d'abord, en ${language === "fr" ? "français" : language === "es" ? "espagnol" : "anglais"}.
