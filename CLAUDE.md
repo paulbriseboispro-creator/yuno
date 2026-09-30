@@ -975,6 +975,43 @@ sa boîte de réception, son carnet et sa façon d'inviter. Règles :
   sélecteur, le formulaire montre les CONDITIONS D'ARGENT qui partiront dans le
   contrat (`ProposedTermsRecap`).
 
+## Collaboration ouverte — un seul verbe, « inviter sur une soirée » (2026-09-30)
+
+Plan : `docs/designs/COLLAB_OPEN_INVITE_PLAN.md`. Migration `20260930210000`.
+Plus AUCUN partenariat préalable (demande + pourcentages) : on invite qui on
+veut sur une soirée, l'acceptation vaut accord. Règles intouchables :
+
+- **Une seule porte : `event_cohosts`, avec un RÔLE.** `role = 'principal'` =
+  le LIEU (club invité par une orga qui mène) ou l'ORGANISATEUR (orga invitée
+  par un club qui mène) ; un seul par soirée publique
+  (`_collab_principal_blocker`). À l'acceptation,
+  `respond_event_cohost_invitation` → `_collab_promote_principal` rattache la
+  partie (`partner_venue_id` / `partner_organizer_id`, `event_mode`,
+  responsabilités du mode), applique `principal_terms` (« réglé entre vous » =
+  partage 100/0 ; « Yuno » = contrat pré-signé par le lead, réglé par VIREMENT)
+  et passe la ligne en `promoted`. `role = 'cohost'` = Partenaire / Co-gestion.
+- **Le formulaire de soirée n'écrit JAMAIS le partenaire.** Bloc unique
+  « Avec qui fais-tu cette soirée ? » (`EventPartnersField`, règles pures
+  `src/lib/collabInvite.ts`, testées), envoi à l'enregistrement
+  (`sendPartnerInvites`). Une soirée reste solo tant que le lieu n'a pas
+  accepté ; choisir un club comme lieu remplit l'adresse avec la sienne. Ne
+  jamais remettre un sélecteur « club partenaire » ni un « mode de collab »
+  hors de la ligne du lieu.
+- **Par email** : une organisation → `create_cohost_email_invite` (rôle
+  compris, elle crée son espace en acceptant) ; un CLUB hors Yuno n'arrive que
+  comme lieu → `invite-club-collab` (son club se crée ; `default_split_rules`
+  porte `agreement: 'external'` et `event_mode`, respectés par
+  `accept-club-collab-invitation`).
+- **Hub** : « Nouvelle collaboration » = « quelle soirée ? » (nouvelle /
+  existante), qui ouvre `…/events?new=1` ou `?edit=<id>&focus=partners`,
+  `&with=<venue:id|org:uuid>` pré-invite. Onglet `partners` = l'**Annuaire**
+  (`get_collab_directory` : soirée en cours ensemble, en attente, invités par
+  email, déjà travaillé ensemble ; anciens partenariats actifs inclus).
+  Les dialogues « Proposer une soirée », les pages / onglets de partenariats et
+  `CohostDraftPicker` sont supprimés : ne pas les ressusciter.
+- Reste hors périmètre : `RecurringEventsManager` choisit encore l'organisateur
+  d'une série parmi les anciens partenariats.
+
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
 Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
