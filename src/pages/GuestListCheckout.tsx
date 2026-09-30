@@ -4,6 +4,7 @@ import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { capturePosthog, getAnalyticsCheckoutContext } from '@/lib/posthog';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -98,6 +99,9 @@ export default function GuestListCheckout() {
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const [guestList, setGuestList] = useState<GuestListInfo | null>(null);
+  // Entrée dans le tunnel d'inscription : l'étape « paiement » de la guest list
+  // (Analytics › Trafic › Par soirée).
+  usePosthogEvent('checkout_started', guestList ? eventId : null, { pillar: 'guest_list', ...(guestList?.market ?? {}) });
   const [entriesCount, setEntriesCount] = useState(0);
   const [genderCount, setGenderCount] = useState(0);
   const [loading, setLoading] = useState(true);

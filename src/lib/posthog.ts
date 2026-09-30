@@ -27,6 +27,7 @@ import { CONSENT_CHANGE_EVENT, hasAnalyticsConsent } from '@/lib/consent';
 import { isNative, isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
 import { currentSurface, purchaseSurface } from '@/lib/posthogSurface';
+import { mirrorFunnelEvent } from '@/lib/eventFunnel';
 
 // Clé PROJET (publique, `phc_`) du projet PostHog EUROPÉEN (eu.posthog.com,
 // projet 284316). Elle vit dans le code pour qu'un build de production ne
@@ -297,6 +298,10 @@ export function identifyPosthogUser(user: PosthogUser | null) {
  * consentement mais SDK encore en chargement : mis en file, envoyé au chargement.
  */
 export function capturePosthog(event: YunoEvent, properties?: Record<string, unknown>) {
+  // Le tunnel d'achat d'une soirée est mesuré en base (Analytics › Trafic ›
+  // Par soirée) depuis ces mêmes événements — même consentement, sans clé
+  // PostHog nécessaire.
+  mirrorFunnelEvent(event, properties);
   if (!posthogEnabled()) return;
   if (client) {
     client.capture(event, properties);

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useConsent } from '@/lib/consent';
+import { categorizeReferrer, extractDomain } from '@/lib/referrerCategory';
 
 const SESSION_STORAGE_KEY = 'yuno_session_id';
 const VENUE_STORAGE_KEY = 'yuno_venue_id';
@@ -30,33 +31,6 @@ function detectEntryPageType(path: string): string {
   if (/^\/search/.test(path)) return 'search';
   if (path === '/' || path === '') return 'home';
   return 'other';
-}
-
-function extractDomain(url: string): string | null {
-  if (!url) return null;
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return null;
-  }
-}
-
-function categorizeReferrer(referrer: string, utmMedium: string | null, urlParams: URLSearchParams): string {
-  // QR code: yuno standard adds ?from=qr
-  if (urlParams.get('from') === 'qr' || urlParams.get('utm_medium') === 'qr') return 'qr';
-  if (utmMedium === 'email' || urlParams.get('from') === 'email') return 'email';
-  if (urlParams.get('gclid')) return 'paid_search';
-  if (urlParams.get('fbclid') || urlParams.get('utm_source') === 'meta') return 'paid_social';
-  if (utmMedium === 'cpc' || utmMedium === 'paid') return 'paid';
-  if (utmMedium === 'affiliate' || utmMedium === 'promoter') return 'affiliate';
-  if (!referrer) return 'direct';
-
-  const domain = extractDomain(referrer)?.toLowerCase() || '';
-  if (/(google|bing|duckduckgo|yahoo|ecosia|qwant|baidu)\./.test(domain)) return 'search';
-  if (/(instagram|facebook|fb\.com|tiktok|twitter|x\.com|snapchat|linkedin|pinterest|youtube|reddit|threads)/.test(domain)) return 'social';
-  if (/(mail|gmail|outlook|yahoo\.mail)/.test(domain)) return 'email';
-  if (/(yunoapp\.eu|yuno-bar-buddy)/.test(domain)) return 'internal';
-  return 'referral';
 }
 
 function getOrCreateVisitorId(): { id: string; visitNumber: number; isReturning: boolean } {
