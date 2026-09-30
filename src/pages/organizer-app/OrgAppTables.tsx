@@ -78,6 +78,9 @@ export default function OrgAppTables() {
   const [applyRoom, setApplyRoom] = useState<VipRoom | null>(null);
   const [applyTarget, setApplyTarget] = useState('');
   const [applying, setApplying] = useState(false);
+  // Activation des tables d'une soirée sans club : choix d'une salle VIP enregistrée.
+  const [enableFor, setEnableFor] = useState<OrgTableEvent | null>(null);
+  const [enableRoomId, setEnableRoomId] = useState('');
   const [deleteRoom, setDeleteRoom] = useState<VipRoom | null>(null);
   // Fiche d'une salle : ce qui est enregistré, AVANT de l'utiliser.
   const [detailRoom, setDetailRoom] = useState<VipRoom | null>(null);
@@ -187,18 +190,31 @@ export default function OrgAppTables() {
   );
 
   // Interrupteur de vente — même geste que la carte soirée du club.
-  const toggleTables = async (e: OrgTableEvent) => {
+  const toggleTables = async (e: OrgTableEvent, roomId?: string) => {
+    // Soirée sans club et au moins une salle enregistrée : on propose de la
+    // rejouer (ou de partir de zéro) au lieu d'activer des tables vides.
+    if (!e.tables_enabled && roomId === undefined && !e.venue_id && !e.partner_venue_id && rooms.length > 0) {
+      setEnableRoomId(rooms[0].id);
+      setEnableFor(e);
+      return;
+    }
     setToggling(e.id);
-    const { error } = e.tables_enabled
+    let { error } = e.tables_enabled
       ? await supabase.from('events').update({ tables_enabled: false }).eq('id', e.id)
       : await supabase.rpc('enable_collab_tables', { p_event_id: e.id });
+    if (!error && !e.tables_enabled && roomId) {
+      ({ error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomId, p_event_id: e.id }));
+    }
     setToggling(null);
     if (error) { toast.error(error.message); return; }
     capturePosthog('pillar_toggled', { pillar: 'tables', enabled: !e.tables_enabled, scope: 'organizer', event_id: e.id, organizer_user_id: organizerId });
     toast.success(e.tables_enabled
       ? tt('Vente de tables désactivée', 'Table sales disabled', 'Venta de mesas desactivada')
-      : tt('Vente de tables activée', 'Table sales enabled', 'Venta de mesas activada'));
-    load();
+      : roomId
+        ? tt('Vente de tables activée avec votre salle VIP.', 'Table sales enabled with your VIP room.', 'Venta de mesas activada con tu sala VIP.')
+        : tt('Vente de tables activée', 'Table sales enabled', 'Venta de mesas activada'));
+    await load();
+    if (!e.tables_enabled && roomId) selectEvent(e.id);
   };
 
   const confirmApply = async () => {
@@ -403,6 +419,44 @@ export default function OrgAppTables() {
       </OrgPage>
 
       {/* Rejouer une salle → choisir la soirée cible */}
+      {/* Activer les tables d'une soirée sans club : salle enregistrée ou départ de zéro */}
+      <Dialog open={!!enableFor} onOpenChange={(o) => { if (!o) setEnableFor(null); }}>
+        <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
+              {tt('Tables VIP de cette soirée', 'VIP tables for this event', 'Mesas VIP de esta noche')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p style={{ color: T3, fontSize: 12.5 }}>
+              {tt(
+                'Reprenez une de vos salles VIP enregistrées (plan, zones et packs), ou créez la configuration de zéro.',
+                'Reuse one of your saved VIP rooms (plan, zones and packs), or build the setup from scratch.',
+                'Reutiliza una de tus salas VIP guardadas (plano, zonas y packs), o crea la configuración desde cero.',
+              )}
+            </p>
+            <div>
+              <FieldLabel>{tt('Salle VIP enregistrée', 'Saved VIP room', 'Sala VIP guardada')}</FieldLabel>
+              <select className="w-full" value={enableRoomId} onChange={(e) => setEnableRoomId(e.target.value)}
+                style={{ width: '100%', background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', borderRadius: 12, padding: '10px 12px', fontSize: 13, height: 42, cursor: 'pointer' }}>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id} style={{ background: 'var(--sf-0a0a0c)' }}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <OrgButton variant="secondary" onClick={() => setEnableFor(null)}>{tt('Annuler', 'Cancel', 'Cancelar')}</OrgButton>
+            <OrgButton variant="secondary" onClick={() => { const ev = enableFor; setEnableFor(null); if (ev) toggleTables(ev, ''); }}>
+              {tt('Partir de zéro', 'Start from scratch', 'Empezar de cero')}
+            </OrgButton>
+            <OrgButton variant="primary" disabled={!enableRoomId} onClick={() => { const ev = enableFor; setEnableFor(null); if (ev) toggleTables(ev, enableRoomId); }}>
+              {tt('Utiliser cette salle', 'Use this room', 'Usar esta sala')}
+            </OrgButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!applyRoom} onOpenChange={(o) => { if (!o) setApplyRoom(null); }}>
         <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
           <DialogHeader>
