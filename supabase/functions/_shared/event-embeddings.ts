@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { logAiUsage, sumUsage, type OpenAiUsage } from "./ai-usage.ts";
 // Rafraîchissement des embeddings (fondation pgvector) — events pour les
 // recommandations « Pour toi », profils DJ pour le matching DJ↔soirée.
@@ -11,7 +12,7 @@ import { logAiUsage, sumUsage, type OpenAiUsage } from "./ai-usage.ts";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const BATCH_LIMIT = 50;
 
-// ----- Typage minimal du client Supabase admin (colonnes des selects ci-dessous) -----
+// ----- Colonnes des selects ci-dessous (requêtes typées par .returns<…>()) -----
 
 interface EmbeddableEventRow {
   id: string;
@@ -36,30 +37,11 @@ interface EmbeddableDjRow {
   country: string | null;
 }
 
-interface EmbeddingQuery<Row>
-  extends PromiseLike<{ data: Row[] | null; error: { message: string } | null }> {
-  select(columns: string): EmbeddingQuery<Row>;
-  eq(column: string, value: unknown): EmbeddingQuery<Row>;
-  is(column: string, value: unknown): EmbeddingQuery<Row>;
-  not(column: string, operator: string, value: unknown): EmbeddingQuery<Row>;
-  gte(column: string, value: unknown): EmbeddingQuery<Row>;
-  in(column: string, values: unknown[]): EmbeddingQuery<Row>;
-  limit(count: number): EmbeddingQuery<Row>;
-  upsert(
-    rows: unknown[],
-    options: { onConflict: string },
-  ): PromiseLike<{ error: { message: string } | null }>;
-}
-
-interface EmbeddingAdminClient {
-  from(table: "events"): EmbeddingQuery<EmbeddableEventRow>;
-  from(table: "venues"): EmbeddingQuery<{ id: string; name: string }>;
-  from(table: "event_embeddings"): EmbeddingQuery<{ event_id: string; content_hash: string }>;
-  from(table: "djs"): EmbeddingQuery<EmbeddableDjRow>;
-  from(table: "dj_embeddings"): EmbeddingQuery<{ dj_id: string; content_hash: string }>;
-  from(table: "event_djs"): EmbeddingQuery<{ event_id: string; dj_id: string }>;
-  from(table: "event_guest_artists"): EmbeddingQuery<{ event_id: string; name: string }>;
-}
+interface VenueNameRow { id: string; name: string }
+interface EventHashRow { event_id: string; content_hash: string }
+interface DjHashRow { dj_id: string; content_hash: string }
+interface EventDjRow { event_id: string; dj_id: string }
+interface GuestArtistRow { event_id: string; name: string }
 
 async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
@@ -89,7 +71,7 @@ function buildContent(evt: {
 }
 
 export async function refreshEventEmbeddings(
-  admin: EmbeddingAdminClient,
+  admin: SupabaseClient,
   openaiKey: string,
 ): Promise<{ scanned: number; updated: number }> {
   // Events publics à venir — mêmes filtres que la RPC get_for_you_events.
@@ -101,7 +83,8 @@ export async function refreshEventEmbeddings(
     .eq("is_discoverable", true)
     .is("cancelled_at", null)
     .gte("start_at", new Date().toISOString())
-    .limit(300);
+    .limit(300)
+    .returns<EmbeddableEventRow[]>();
 
   if (!events || events.length === 0) return { scanned: 0, updated: 0 };
 
@@ -110,14 +93,15 @@ export async function refreshEventEmbeddings(
   const venueIds = [...new Set(events.map((e) => e.venue_id).filter(Boolean))];
   const venueNames = new Map<string, string>();
   if (venueIds.length) {
-    const { data: venues } = await admin.from("venues").select("id, name").in("id", venueIds);
+    const { data: venues } = await admin.from("venues").select("id, name").in("id", venueIds).returns<VenueNameRow[]>();
     for (const v of venues || []) venueNames.set(v.id, v.name);
   }
 
   const { data: existing } = await admin
     .from("event_embeddings")
     .select("event_id, content_hash")
-    .in("event_id", events.map((e) => e.id));
+    .in("event_id", events.map((e) => e.id))
+    .returns<EventHashRow[]>();
   const existingHashes = new Map<string, string>(
     (existing || []).map((r): [string, string] => [r.event_id, r.content_hash]),
   );
@@ -128,13 +112,15 @@ export async function refreshEventEmbeddings(
   const { data: eventDjs } = await admin
     .from("event_djs")
     .select("event_id, dj_id")
-    .in("event_id", events.map((e) => e.id));
+    .in("event_id", events.map((e) => e.id))
+    .returns<EventDjRow[]>();
   const djIds = [...new Set((eventDjs || []).map((r) => r.dj_id))];
   if (djIds.length) {
     const { data: djRows } = await admin
       .from("djs")
       .select("id, user_id, stage_name, first_name, last_name, bio, music_genres, city, country")
-      .in("id", djIds);
+      .in("id", djIds)
+      .returns<EmbeddableDjRow[]>();
     const djNames = new Map<string, string>();
     for (const d of djRows || []) {
       const name = (d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`).trim();
@@ -155,7 +141,8 @@ export async function refreshEventEmbeddings(
   const { data: guestRows } = await admin
     .from("event_guest_artists")
     .select("event_id, name")
-    .in("event_id", events.map((e) => e.id));
+    .in("event_id", events.map((e) => e.id))
+    .returns<GuestArtistRow[]>();
   for (const row of guestRows || []) {
     const name = (row.name || "").trim();
     if (!name) continue;
@@ -198,7 +185,7 @@ export async function refreshEventEmbeddings(
 }
 
 /** Un seul appel OpenAI pour tout le batch. */
-async function embed(inputs: string[], openaiKey: string, admin?: EmbeddingAdminClient): Promise<(number[] | undefined)[]> {
+async function embed(inputs: string[], openaiKey: string, admin?: SupabaseClient): Promise<(number[] | undefined)[]> {
   const startedAt = Date.now();
   const response = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
@@ -220,7 +207,7 @@ async function embed(inputs: string[], openaiKey: string, admin?: EmbeddingAdmin
  * remplis). Même invalidation par content_hash, même batch de 50.
  */
 export async function refreshDjEmbeddings(
-  admin: EmbeddingAdminClient,
+  admin: SupabaseClient,
   openaiKey: string,
 ): Promise<{ scanned: number; updated: number }> {
   const { data: djs } = await admin
@@ -228,14 +215,16 @@ export async function refreshDjEmbeddings(
     .select("id, user_id, stage_name, first_name, last_name, bio, music_genres, city, country")
     .eq("is_active", true)
     .not("user_id", "is", null)
-    .limit(500);
+    .limit(500)
+    .returns<EmbeddableDjRow[]>();
 
   if (!djs || djs.length === 0) return { scanned: 0, updated: 0 };
 
   const { data: existing } = await admin
     .from("dj_embeddings")
     .select("dj_id, content_hash")
-    .in("dj_id", djs.map((d) => d.id));
+    .in("dj_id", djs.map((d) => d.id))
+    .returns<DjHashRow[]>();
   const existingHashes = new Map<string, string>(
     (existing || []).map((r): [string, string] => [r.dj_id, r.content_hash]),
   );
