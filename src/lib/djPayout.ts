@@ -2,7 +2,7 @@
 // référence. Porte unique côté front — la base normalise de la même façon
 // (`guard_dj_set_write`, `normalize_dj_payout_details`).
 
-export { formatIban } from './promoterPayout';
+export { formatIban } from './iban';
 
 /** IBAN compact en majuscules : « fr76 3000 … » → « FR763000… ». */
 export const normalizeIban = (raw: string) => raw.replace(/\s+/g, '').toUpperCase();

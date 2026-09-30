@@ -156,9 +156,7 @@ export function payoutErrorKey(err: unknown): string {
 
 // ─── Formats ─────────────────────────────────────────────────────────────────
 
-/** Groupe l'IBAN par 4 pour la lecture à l'œil : FR76 3000 4000 03… */
-export const formatIban = (iban: string) =>
-  iban.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
+export { formatIban } from './iban';
 
 /** Montant lisible : pas de décimales sur un compte rond, deux sinon. */
 export const euro = (n: number) => (Number.isInteger(n) ? `${n}€` : `${n.toFixed(2)}€`);
