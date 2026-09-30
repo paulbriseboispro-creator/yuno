@@ -15,9 +15,9 @@ describe('collabInvite', () => {
     expect(principalKindFor('venue')).toBe('org');
   });
 
-  it('propose le rôle principal au premier club d’une soirée d’organisation, puis plus', () => {
+  it('propose « Partenaire » par défaut, jamais la main sur la soirée', () => {
     const ctx = { lead: 'organizer' as const, principalOpen: true };
-    expect(defaultRole({ source: 'yuno', kind: 'venue' }, ctx, [])).toBe('principal');
+    expect(defaultRole({ source: 'yuno', kind: 'venue' }, ctx, [])).toBe('viewer');
     expect(defaultRole({ source: 'yuno', kind: 'venue' }, ctx, [club('a', 'principal')])).toBe('viewer');
     expect(defaultRole({ source: 'yuno', kind: 'org' }, ctx, [])).toBe('viewer');
   });

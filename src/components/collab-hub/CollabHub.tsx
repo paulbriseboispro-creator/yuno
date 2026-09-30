@@ -199,6 +199,7 @@ export function CollabHub({
         basePath={basePath}
         canCreate={canCreate}
         preselect={preselect}
+        onInvited={() => { void reload(); }}
       />
     </div>
   );

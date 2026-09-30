@@ -56,11 +56,14 @@ export function allowedRoles(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: Invi
   return canBePrincipal ? ['principal', 'editor', 'viewer'] : ['editor', 'viewer'];
 }
 
-/** Le rôle proposé à l'ajout : le premier lieu / organisateur possible, sinon « Partenaire ». */
+/**
+ * Le rôle proposé à l'ajout : toujours « Partenaire » (lecture) quand il est permis.
+ * Donner la main sur la soirée (lieu / organisateur, co-gestion) se choisit, ne se subit pas.
+ */
 export function defaultRole(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: InviteContext, others: PartnerDraft[]): InviteRole | null {
   const roles = allowedRoles(d, ctx, others);
   if (roles.length === 0) return null;
-  return roles.includes('principal') ? 'principal' : 'viewer';
+  return roles.includes('viewer') ? 'viewer' : roles[0];
 }
 
 export interface YunoSplit {

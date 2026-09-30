@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { CalendarPlus, CalendarRange, ChevronRight, Loader2, Lock, type LucideIcon } from 'lucide-react';
+import { InviteToEventStep } from './InviteToEventStep';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -26,7 +27,7 @@ export interface CollabPreselect {
  * Aucun partenariat préalable : n'importe quel club ou organisation, sur Yuno
  * ou par email.
  */
-export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate, preselect }: {
+export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate, preselect, onInvited }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   scope: CoorgScope | null;
@@ -34,14 +35,16 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
   /** Faux pour un club au plan Collaboration : il reçoit des soirées, il n'en crée pas. */
   canCreate: boolean;
   preselect?: CollabPreselect | null;
+  onInvited?: () => void;
 }) {
   const { language } = useLanguage();
   const t = (frS: string, en: string, esS: string) => translate(language, frS, en, esS);
   const navigate = useNavigate();
   const [pickEvent, setPickEvent] = useState(false);
+  const [inviteEventId, setInviteEventId] = useState<string | null>(null);
   const [events, setEvents] = useState<{ id: string; title: string; start_at: string }[] | null>(null);
 
-  useEffect(() => { if (!open) { setPickEvent(false); setEvents(null); } }, [open]);
+  useEffect(() => { if (!open) { setPickEvent(false); setEvents(null); setInviteEventId(null); } }, [open]);
 
   useEffect(() => {
     if (!pickEvent || events || !scope) return;
@@ -60,7 +63,7 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
   const dfLocale = language === 'en' ? enUS : language === 'es' ? es : fr;
   const blocked = canCreate ? null : t('Non inclus dans ton offre actuelle.', 'Not included in your current plan.', 'No incluido en tu plan actual.');
 
-  const Choice = ({ icon: Icon, title, body, onClick }: { icon: LucideIcon; title: string; body: string; onClick: () => void }) => (
+  const Choice = ({ icon: Icon, title, body, onClick, expanded }: { icon: LucideIcon; title: string; body: string; onClick: () => void; expanded?: boolean }) => (
     <button
       type="button"
       disabled={!!blocked}
@@ -75,7 +78,7 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
         <span className="block" style={{ color: T1, fontSize: 13.5, fontWeight: 620 }}>{title}</span>
         <span className="mt-0.5 block" style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>{blocked ?? body}</span>
       </span>
-      {!blocked && <ChevronRight className="mt-2 h-4 w-4 flex-none" style={{ color: T3 }} />}
+      {!blocked && <ChevronRight className="mt-2 h-4 w-4 flex-none transition-transform duration-200" style={{ color: T3, transform: expanded ? 'rotate(90deg)' : undefined }} />}
     </button>
   );
 
@@ -83,6 +86,24 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto border-0 p-0" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
         <div className="p-6">
+          {inviteEventId && scope ? (
+            <>
+              <DialogHeader>
+                <DialogTitle style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
+                  {t('Inviter sur cette soirée', 'Invite to this event', 'Invitar a este evento')}
+                </DialogTitle>
+                <DialogDescription className="sr-only">{t('Ajouter des participants', 'Add participants', 'Añadir participantes')}</DialogDescription>
+              </DialogHeader>
+              <div className="mt-4">
+                <InviteToEventStep
+                  eventId={inviteEventId} scope={scope}
+                  settingsHref={`${basePath}/events?edit=${inviteEventId}&focus=partners${withParam}`}
+                  onBack={() => setInviteEventId(null)}
+                  onDone={() => { onOpenChange(false); onInvited?.(); }}
+                />
+              </div>
+            </>
+          ) : (<>
           <DialogHeader>
             <DialogTitle style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
               {preselect?.name
@@ -108,10 +129,13 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
               icon={CalendarRange}
               title={t('Une soirée déjà créée', 'An existing event', 'Un evento ya creado')}
               body={t('Ajoute des clubs et des organisations à une de tes soirées à venir.', 'Add clubs and organizations to one of your upcoming events.', 'Añade clubes y organizaciones a uno de tus próximos eventos.')}
+              expanded={pickEvent}
               onClick={() => setPickEvent((v) => !v)}
             />
-            {pickEvent && (
-              <div className="space-y-1.5 pl-2">
+            <div className="grid transition-[grid-template-rows] duration-200 ease-out" style={{ gridTemplateRows: pickEvent ? '1fr' : '0fr' }}>
+              <div className="overflow-hidden">
+              {pickEvent && (
+              <div className="space-y-1.5 pl-2 pt-1">
                 {events === null ? (
                   <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin" style={{ color: T3 }} /></div>
                 ) : events.length === 0 ? (
@@ -120,7 +144,7 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
                   </p>
                 ) : events.map((e) => (
                   <button key={e.id} type="button"
-                    onClick={() => go(`${basePath}/events?edit=${e.id}&focus=partners${withParam}`)}
+                    onClick={() => setInviteEventId(e.id)}
                     className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[rgb(var(--ink)/0.05)]"
                     style={{ border: `1px solid ${BORDER}` }}>
                     <span className="min-w-0">
@@ -133,8 +157,11 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
                   </button>
                 ))}
               </div>
-            )}
+              )}
+              </div>
+            </div>
           </div>
+          </>)}
         </div>
       </DialogContent>
     </Dialog>

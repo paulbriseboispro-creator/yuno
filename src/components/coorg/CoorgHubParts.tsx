@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { fr, enUS, es } from 'date-fns/locale';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, Eye, Loader2, X } from 'lucide-react';
 import { OrgCard, OrgButton, OrgSectionLabel, T1, T2, T3, INNER_BG } from '@/components/org-ui';
 import {
   getMyCohostInvitations, respondCohostInvitation, coorgErrorCode,
@@ -10,6 +10,7 @@ import {
 } from '@/lib/coorg';
 import { capturePosthog } from '@/lib/posthog';
 import { useCoorgT, useCoorgErrorText } from './coorgUi';
+import { CoorgInvitePreview } from './CoorgInvitePreview';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 
@@ -34,6 +35,7 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
   const navigate = useNavigate();
   const [invites, setInvites] = useState<CohostInvite[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const scopeKey = scope.venueId ?? scope.organizerUserId ?? '';
 
   const load = useCallback(async () => {
@@ -46,6 +48,7 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
     setBusy(inv.id);
     try {
       await respondCohostInvitation(inv.id, accept);
+      setPreviewId(null);
       capturePosthog('coorg_cohost_responded', { event_id: inv.event_id, accepted: accept });
       const principal = inv.role === 'principal';
       toast.success(!accept
@@ -64,6 +67,19 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
       setBusy(null);
     }
   };
+
+  const roleLine = (inv: CohostInvite) => (inv.role === 'principal'
+    ? (basePath === '/owner'
+      ? t('lieu : ton club accueille la soirée', 'venue: your club hosts the event', 'lugar: tu club acoge el evento')
+      : t('organisateur : tu organises la soirée avec le club', 'organizer: you run the event with the club', 'organizador: organizas el evento con el club'))
+      + ' · ' + (inv.terms?.agreement === 'yuno'
+        ? t('contrat Yuno à signer ensuite', 'Yuno contract to sign next', 'contrato Yuno por firmar después')
+        : t('argent réglé entre vous', 'money settled between you', 'dinero arreglado entre vosotros'))
+    : inv.access === 'editor'
+      ? t('co-gestion : tu gères aussi billets, tables et guest list', 'co-manager: you also run tickets, tables and guest list', 'cogestión: también gestionas entradas, mesas y lista')
+      : t('partenaire : tes liens, tes ventes, tes emails', 'partner: your links, your sales, your emails', 'socio: tus enlaces, tus ventas, tus emails'))
+    + (inv.share_crm ? ` · ${t('ses acheteurs rejoignent aussi ta base', 'buyers join your list too', 'los compradores se suman también a tu base')}` : '');
+  const previewInv = invites.find((i) => i.id === previewId) ?? null;
 
   if (invites.length === 0) return null;
   const fmtDate = (d: string) => formatInTimeZone(new Date(d), PARIS_TIMEZONE, 'EEE d MMM · HH:mm', { locale: dfLocale(language) });
@@ -84,22 +100,14 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
                   {fmtDate(inv.start_at)}{inv.location ? ` · ${inv.location}` : ''}
                 </p>
                 <p style={{ color: T2, fontSize: 12, marginTop: 2 }}>
-                  {t('Invitation de', 'Invited by', 'Invitación de')} <b>{inv.invited_by_name}</b>
-                  {' · '}{inv.role === 'principal'
-                    ? (basePath === '/owner'
-                      ? t('lieu : ton club accueille la soirée', 'venue: your club hosts the event', 'lugar: tu club acoge el evento')
-                      : t('organisateur : tu organises la soirée avec le club', 'organizer: you run the event with the club', 'organizador: organizas el evento con el club'))
-                      + ' · ' + (inv.terms?.agreement === 'yuno'
-                        ? t('contrat Yuno à signer ensuite', 'Yuno contract to sign next', 'contrato Yuno por firmar después')
-                        : t('argent réglé entre vous', 'money settled between you', 'dinero arreglado entre vosotros'))
-                    : inv.access === 'editor'
-                      ? t('co-gestion : tu gères aussi billets, tables et guest list', 'co-manager: you also run tickets, tables and guest list', 'cogestión: también gestionas entradas, mesas y lista')
-                      : t('partenaire : tes liens, tes ventes, tes emails', 'partner: your links, your sales, your emails', 'socio: tus enlaces, tus ventas, tus emails')}
-                  {inv.share_crm ? ` · ${t('ses acheteurs rejoignent aussi ta base', 'buyers join your list too', 'los compradores se suman también a tu base')}` : ''}
+                  {t('Invitation de', 'Invited by', 'Invitación de')} <b>{inv.invited_by_name}</b> · {roleLine(inv)}
                 </p>
                 {inv.message && <p style={{ color: T2, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>« {inv.message} »</p>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <OrgButton size="sm" variant="secondary" onClick={() => setPreviewId(inv.id)}>
+                  <Eye className="h-3.5 w-3.5" /> {t('Voir l’invitation', 'View invitation', 'Ver invitación')}
+                </OrgButton>
                 <OrgButton size="sm" variant="ghost" disabled={busy === inv.id} onClick={() => respond(inv, false)}>
                   <X className="h-3.5 w-3.5" /> {t('Décliner', 'Decline', 'Rechazar')}
                 </OrgButton>
@@ -112,6 +120,15 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
           </OrgCard>
         ))}
       </div>
+      <CoorgInvitePreview
+        invite={previewInv}
+        roleLine={previewInv ? roleLine(previewInv) : ''}
+        dateLabel={previewInv ? fmtDate(previewInv.start_at) : ''}
+        busy={!!previewInv && busy === previewInv.id}
+        onAccept={() => previewInv && void respond(previewInv, true)}
+        onDecline={() => previewInv && void respond(previewInv, false)}
+        onClose={() => setPreviewId(null)}
+      />
     </div>
   );
 }
