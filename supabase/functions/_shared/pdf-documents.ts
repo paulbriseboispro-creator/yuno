@@ -229,6 +229,8 @@ export interface BilletData {
   orderNumber: string;
   customerName?: string;
   poster?: string;         // data URL, pre-loaded (1:1)
+  organizerLogo?: string;  // data URL — logo/avatar of the organizer or club
+  yunoLogo?: string;       // data URL — Yuno wordmark (dark ink, PNG)
   qr: string;              // data URL PNG of the QR, pre-loaded
   index?: number;          // 1-based for "Billet i/N"
   total?: number;          // N
@@ -392,15 +394,31 @@ export function drawBillet(doc: PdfDoc, data: BilletData): void {
   const right = W - M;
   let y = 18;
 
-  // Header: poster thumbnail (1:1) + event title / organizer
-  const posterSize = 42;
+  // Brand strip: organizer logo (left) + Yuno wordmark (right), red rule below
+  const imgFmt = (u: string) => (/^data:image\/png/i.test(u) ? 'PNG' : 'JPEG');
+  const stripH = 14;
+  if (data.organizerLogo) {
+    try { doc.addImage(data.organizerLogo, imgFmt(data.organizerLogo), M, y - 4, stripH, stripH); } catch { /* skip */ }
+  }
+  if (data.yunoLogo) {
+    const wmH = 8;
+    const wmW = wmH * (856 / 290);
+    try { doc.addImage(data.yunoLogo, 'PNG', right - wmW, y - 1, wmW, wmH); } catch { /* skip */ }
+  }
+  y += stripH + 1;
+  doc.setDrawColor(RED[0], RED[1], RED[2]); doc.setLineWidth(0.6);
+  doc.line(M, y, right, y);
+  y += 9;
+
+  // Header: poster (1:1) + event title / organizer
+  const posterSize = 62;
   let titleX = M;
   if (data.poster) {
-    try { doc.addImage(data.poster, 'JPEG', M, y, posterSize, posterSize); titleX = M + posterSize + 8; }
+    try { doc.addImage(data.poster, imgFmt(data.poster), M, y, posterSize, posterSize); titleX = M + posterSize + 8; }
     catch { titleX = M; }
   }
   text(doc, L.ticket, titleX, y + 6, { size: 8, font: MONO, style: 'bold', color: RED });
-  const titleLines = wrap(doc, (data.eventTitle || '').toUpperCase(), right - titleX, 17, DISPLAY, 'bold').slice(0, 3);
+  const titleLines = wrap(doc, (data.eventTitle || '').toUpperCase(), right - titleX, 17, DISPLAY, 'bold').slice(0, 4);
   let ty = y + 15;
   for (const ln of titleLines) { text(doc, ln, titleX, ty, { size: 17, style: 'bold' }); ty += 7.5; }
   if (data.organizerName) text(doc, `${L.by} ${data.organizerName}`, titleX, ty + 1, { size: 9, font: MONO, color: SUB });

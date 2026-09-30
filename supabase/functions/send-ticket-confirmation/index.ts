@@ -187,13 +187,11 @@ serve(async (req) => {
     const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
 
     const qrData = ticket.qr_code || ticketId;
-    const qrCodeSvg = await QRCode.toString(qrData, {
-      type: "svg",
-      width: 300,
-      margin: 2,
-      color: { dark: "#000000", light: "#FFFFFF" },
-    });
-    const qrCodeDataUrl = `data:image/svg+xml;base64,${btoa(qrCodeSvg)}`;
+    // Gmail/Outlook block data: URIs (and SVG), so the QR ships as an inline PNG
+    // attachment referenced by cid: — it renders without "load images".
+    const qrPngDataUrl: string = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
+    const QR_CID = "ticket-qr";
+    const qrCodeDataUrl = `cid:${QR_CID}`;
 
     // Short human reference (TK-XXXXXX) shown in the email and typed into the
     // "Find my order" claim flow. The QR itself still encodes the full qr_code
@@ -206,7 +204,7 @@ serve(async (req) => {
     // scannable "Billet". Rendered server-side via the shared isomorphic core so
     // they match the OrderConfirmation page downloads to the cent. NEVER block the
     // confirmation email on a PDF failure — send without attachments instead.
-    let attachments: Array<{ filename: string; content: string }> = [];
+    let attachments: Array<{ filename: string; content: string; content_id?: string }> = [];
     try {
       const docLang = (["en", "es", "fr"].includes(lang) ? lang : "fr") as DocLang;
       const v: ConfirmationVenue = venue || {};
@@ -307,9 +305,10 @@ serve(async (req) => {
       if (svc > 0) lines.push({ label: feeL.serviceFee, qty: 1, ttc: svc, vatRate: 20 });
       if (ins > 0) lines.push({ label: feeL.insurance, qty: 1, ttc: ins, vatRate: 20 });
 
-      const [posterData, logoData, qrPng] = await Promise.all([
+      const [posterData, logoData, yunoLogo, qrPng] = await Promise.all([
         fetchImageDataUrl(event?.poster_url),
         fetchImageDataUrl(seller.logoUrl),
+        fetchImageDataUrl(`${appBaseUrl}/yuno-wordmark-dark.png`),
         QRCode.toDataURL(qrData, { width: 260, margin: 1 }),
       ]);
 
@@ -331,7 +330,7 @@ serve(async (req) => {
         entranceGroup: round?.group_label || undefined, entranceName: round?.name || undefined,
         reference: ticketRef, price: priceStr, orderNumber,
         customerName: ticket.full_name || undefined,
-        poster: posterData, qr: qrPng, index: 1, total: 1,
+        poster: posterData, organizerLogo: logoData, yunoLogo, qr: qrPng, index: 1, total: 1,
       }));
 
       attachments = [
@@ -343,6 +342,12 @@ serve(async (req) => {
       console.error("[SEND-TICKET-CONFIRMATION] PDF generation failed:", pdfErr);
       attachments = [];
     }
+    // Inline QR (cid) — outside the PDF try so it survives a PDF failure.
+    attachments.push({
+      filename: "qr.png",
+      content: qrPngDataUrl.replace(/^data:image\/png;base64,/, ""),
+      content_id: QR_CID,
+    });
 
     // Apple Wallet : émettre (idempotent) la ligne du pass et joindre le lien
     // de téléchargement direct — seul canal pass pour les achats invités.
