@@ -11,7 +11,9 @@ import { RefundReasonDialog } from '@/components/owner/RefundReasonDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { CheckSquare, RefreshCw, History, BarChart3 } from 'lucide-react';
+import { CheckSquare, RefreshCw, History, BarChart3, ShieldX } from 'lucide-react';
+import { useCanRefund } from '@/hooks/useCanRefund';
+import { alreadyRefundedCents, refundCapCents, type SaleAmounts, type SaleKind } from '@/lib/saleRefund';
 import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSection';
 import { format } from 'date-fns';
 import type { RefundAnalytics } from '@/hooks/useAnalyticsData';
@@ -29,6 +31,43 @@ interface RefundedItem {
   amount: number;
   reason: string;
   refunded_at: string;
+  /** Remboursement partiel : la vente reste valable. */
+  partial: boolean;
+  /** Fait depuis le tableau de bord Stripe (aucun auteur Yuno). */
+  viaStripe: boolean;
+}
+
+/** Colonnes lues pour le plafond + l'historique (communes aux trois piliers). */
+interface SaleRefundRow extends SaleAmounts {
+  id: string;
+  status: string;
+  user_email: string | null;
+  created_at: string;
+  stripe_payment_intent_id: string | null;
+  refund_reason: string | null;
+  refunded_at: string | null;
+  refunded_by: string | null;
+}
+
+/**
+ * Une vente → ce que l'écran en montre : à rembourser (reste > 0 et vente
+ * valable) et/ou dans l'historique (déjà rendu, même partiellement). Plafond et
+ * reste viennent de la règle du serveur (`refundCapCents`).
+ */
+function splitSale(kind: SaleKind, row: SaleRefundRow, refundableStatus: boolean) {
+  const cap = refundCapCents(kind, row) / 100;
+  const already = alreadyRefundedCents(row) / 100;
+  const refunded: RefundedItem | null = row.status === 'refunded' || already > 0
+    ? {
+        id: row.id, type: kind, email: row.user_email || '',
+        amount: already || (row.status === 'refunded' ? cap : 0),
+        reason: row.refund_reason || '', refunded_at: row.refunded_at || '',
+        partial: row.status !== 'refunded',
+        viaStripe: !row.refunded_by && !row.refund_reason,
+      }
+    : null;
+  const refundable = refundableStatus && row.status !== 'refunded' ? Math.max(0, Math.round((cap - already) * 100) / 100) : 0;
+  return { cap, already, refundable, refunded };
 }
 
 /** Colonnes communes aux lignes remboursées (orders / tickets / table_reservations). */
@@ -65,6 +104,9 @@ interface RefundResult {
   error?: string;
 }
 
+/** Vente remboursée, ou partiellement remboursée (elle reste alors payée). */
+const REFUNDED_FILTER = 'status.eq.refunded,refund_amount.gt.0';
+
 const STRIPE_PERCENT = 0.015;
 const STRIPE_FIXED_CENTS = 25;
 
@@ -76,6 +118,9 @@ function calcStripeFee(totalPrice: number): number {
 export default function OwnerRefunds() {
   const { t } = useLanguage();
   const { venueId, organizerUserId, scope } = useVenueContext();
+  // Un manager sans le droit « Remboursements » arrive ici par l'URL : il ne
+  // voit pas de bouton que le serveur lui refuserait.
+  const canRefund = useCanRefund();
   const isOrganizerScope = scope === 'organizer';
   // Resolves the dashboard owner's events — venue-scoped for clubs, user-scoped for organizers.
   const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
@@ -87,6 +132,9 @@ export default function OwnerRefunds() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
+  // Ventes de la soirée encaissées par une AUTRE partie (partenaire, club
+  // hôte…) : c'est son compte Stripe qui a reçu l'argent, elle seule rembourse.
+  const [collectedElsewhere, setCollectedElsewhere] = useState<{ count: number; names: string[]; blocked: boolean }>({ count: 0, names: [], blocked: false });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [globalRefundAnalytics, setGlobalRefundAnalytics] = useState<RefundAnalytics | null>(null);
   const [fetchingAnalytics, setFetchingAnalytics] = useState(false);
@@ -101,7 +149,9 @@ export default function OwnerRefunds() {
         .limit(50);
       const { data } = isOrganizerScope
         ? await base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
-        : await base.eq('venue_id', venueId);
+        // Un club peut aussi avoir encaissé la soirée d'un organisateur qu'il
+        // accueille (club partenaire) : le serveur dit ensuite ce qui est à lui.
+        : await base.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
       setEvents(data || []);
     };
     fetchEvents();
@@ -129,15 +179,15 @@ export default function OwnerRefunds() {
         // Organizers never sell drinks (no venue) — tickets + tables scoped by their event ids.
         const ids = await fetchOrganizerEventIds();
         if (ids.length > 0) {
-          refTickets = (await supabase.from('tickets').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id').in('event_id', ids).eq('status', 'refunded')).data;
-          refTables = (await supabase.from('table_reservations').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id').in('event_id', ids).eq('status', 'refunded')).data;
+          refTickets = (await supabase.from('tickets').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id').in('event_id', ids).or(REFUNDED_FILTER)).data;
+          refTables = (await supabase.from('table_reservations').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id').in('event_id', ids).or(REFUNDED_FILTER)).data;
           paidTicketsCount = (await supabase.from('tickets').select('*', { count: 'exact', head: true }).in('event_id', ids).in('status', ['paid', 'refunded'])).count || 0;
           paidTablesCount = (await supabase.from('table_reservations').select('*', { count: 'exact', head: true }).in('event_id', ids).in('status', ['paid', 'refunded'])).count || 0;
         }
       } else {
-        refOrders = (await supabase.from('orders').select('id, total, refund_amount, refund_reason, refunded_at, created_at').eq('venue_id', venueId).eq('status', 'refunded')).data;
-        refTickets = (await supabase.from('tickets').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id, events!inner(venue_id)').eq('events.venue_id', venueId).eq('status', 'refunded')).data;
-        refTables = (await supabase.from('table_reservations').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id, events!inner(venue_id)').eq('events.venue_id', venueId).eq('status', 'refunded')).data;
+        refOrders = (await supabase.from('orders').select('id, total, refund_amount, refund_reason, refunded_at, created_at').eq('venue_id', venueId).or(REFUNDED_FILTER)).data;
+        refTickets = (await supabase.from('tickets').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id, events!inner(venue_id)').eq('events.venue_id', venueId).or(REFUNDED_FILTER)).data;
+        refTables = (await supabase.from('table_reservations').select('id, total_price, refund_amount, refund_reason, refunded_at, event_id, events!inner(venue_id)').eq('events.venue_id', venueId).or(REFUNDED_FILTER)).data;
         paidOrdersCount = (await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('venue_id', venueId).in('status', ['paid', 'served', 'refunded'])).count || 0;
         paidTicketsCount = (await supabase.from('tickets').select('*, events!inner(venue_id)', { count: 'exact', head: true }).eq('events.venue_id', venueId).in('status', ['paid', 'refunded'])).count || 0;
         paidTablesCount = (await supabase.from('table_reservations').select('*, events!inner(venue_id)', { count: 'exact', head: true }).eq('events.venue_id', venueId).in('status', ['paid', 'refunded'])).count || 0;
@@ -176,95 +226,86 @@ export default function OwnerRefunds() {
     } finally {
       setFetchingAnalytics(false);
     }
-  }, [venueId, organizerUserId, isOrganizerScope, scopeReady, fetchOrganizerEventIds]);
+  }, [venueId, isOrganizerScope, scopeReady, fetchOrganizerEventIds]);
 
-  useEffect(() => {
-    if (!selectedEventId || !scopeReady) { setItems([]); setRefundedItems([]); return; }
-    fetchItems();
-  }, [selectedEventId, venueId, organizerUserId, isOrganizerScope, scopeReady]);
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     if (!selectedEventId || !scopeReady) return;
     setFetching(true);
     try {
       const refundable: RefundableItem[] = [];
       const refunded: RefundedItem[] = [];
 
+      const push = (kind: SaleKind, row: SaleRefundRow, extra: { name?: string; details?: string }, refundableStatus: boolean) => {
+        const { cap, already, refundable: left, refunded: done } = splitSale(kind, row, refundableStatus);
+        if (done) refunded.push(done);
+        if (left <= 0) return;
+        // Montant réellement débité (base des frais Stripe du club) : pour une
+        // table, l'acompte et ses frais — jamais le budget complet de la table.
+        const deposit = Number(row.deposit) || 0;
+        const total = kind === 'order'
+          ? Number(row.total) || 0
+          : kind === 'table_reservation' && deposit > 0
+            ? deposit + (Number(row.service_fee) || 0) + (row.fee_absorbed ? 0 : Number(row.management_fee) || 0)
+            : Number(row.total_price) || 0;
+        refundable.push({
+          id: row.id, type: kind, email: row.user_email || '', name: extra.name, details: extra.details,
+          amount: total, serviceFee: Number(row.service_fee || 0), stripeFee: calcStripeFee(total),
+          clubReceived: cap, alreadyRefunded: already, refundable: left,
+          createdAt: row.created_at, hasPaymentIntent: !!row.stripe_payment_intent_id,
+        });
+      };
+      const REFUND_COLS = 'refund_amount, refund_reason, refunded_at, refunded_by, fee_absorbed';
+
       // Orders (drinks) only exist for venues — organizers have no venue, so skip.
       const { data: orders } = isOrganizerScope
         ? { data: [] as never[] }
         : await supabase
             .from('orders')
-            .select('id, user_email, total, service_fee, created_at, stripe_payment_intent_id, items, status, refund_reason, refunded_at, refund_amount')
+            .select(`id, user_email, total, service_fee, created_at, stripe_payment_intent_id, items, status, ${REFUND_COLS}`)
             .eq('venue_id', venueId)
             .eq('event_id', selectedEventId);
 
       for (const o of orders || []) {
-        if (o.status === 'refunded') {
-          const refundedAmt = Number(o.refund_amount) || Number(o.total);
-          refunded.push({ id: o.id, type: 'order', email: o.user_email || '', amount: refundedAmt, reason: o.refund_reason || '', refunded_at: o.refunded_at || '' });
-        } else if (o.status === 'paid') {
-          const total = Number(o.total);
-          const sf = Number(o.service_fee || 0);
-          const stripeFee = calcStripeFee(total);
-          const clubReceived = total - sf;
-          const itemsList = Array.isArray(o.items) ? o.items as OrderItemLine[] : [];
-          const details = itemsList.map((i) => `${i.qty || 1}x ${i.name || i.drinkName || ''}`).join(', ');
-          refundable.push({
-            id: o.id, type: 'order', email: o.user_email || '', amount: total,
-            serviceFee: sf, stripeFee, clubReceived,
-            createdAt: o.created_at, hasPaymentIntent: !!o.stripe_payment_intent_id, details,
-          });
-        }
+        const itemsList = Array.isArray(o.items) ? o.items as OrderItemLine[] : [];
+        const details = itemsList.map((i) => `${i.qty || 1}x ${i.name || i.drinkName || ''}`).join(', ');
+        push('order', o as unknown as SaleRefundRow, { details }, o.status === 'paid');
       }
 
-      // Tickets
+      // Tickets — un billet scanné (la personne est entrée) ne se rembourse pas d'ici.
       const { data: tickets } = await supabase
         .from('tickets')
-        .select('id, user_email, full_name, total_price, service_fee, created_at, stripe_payment_intent_id, entry_scanned, status, refund_reason, refunded_at, refund_amount')
+        .select(`id, user_email, full_name, total_price, service_fee, insurance_fee, created_at, stripe_payment_intent_id, entry_scanned, status, ${REFUND_COLS}`)
         .eq('event_id', selectedEventId);
 
       for (const tk of tickets || []) {
-        if (tk.status === 'refunded') {
-          const refundedAmt = Number(tk.refund_amount) || Number(tk.total_price);
-          refunded.push({ id: tk.id, type: 'ticket', email: tk.user_email || '', amount: refundedAmt, reason: tk.refund_reason || '', refunded_at: tk.refunded_at || '' });
-        } else if (tk.status === 'paid' && !tk.entry_scanned) {
-          const total = Number(tk.total_price);
-          const sf = Number(tk.service_fee || 0);
-          const stripeFee = calcStripeFee(total);
-          const clubReceived = total - sf;
-          refundable.push({
-            id: tk.id, type: 'ticket', email: tk.user_email || '', name: tk.full_name || undefined,
-            amount: total, serviceFee: sf, stripeFee, clubReceived,
-            createdAt: tk.created_at, hasPaymentIntent: !!tk.stripe_payment_intent_id,
-          });
-        }
+        push('ticket', tk as unknown as SaleRefundRow, { name: tk.full_name || undefined }, tk.status === 'paid' && !tk.entry_scanned);
       }
 
-      // Table reservations
+      // Table reservations — le plafond est l'acompte encaissé, pas le budget de la table.
       const { data: tables } = await supabase
         .from('table_reservations')
-        .select('id, user_email, full_name, total_price, service_fee, created_at, stripe_payment_intent_id, status, refund_reason, refunded_at, refund_amount')
+        .select(`id, user_email, full_name, total_price, service_fee, management_fee, deposit, created_at, stripe_payment_intent_id, status, ${REFUND_COLS}`)
         .eq('event_id', selectedEventId);
 
       for (const tr of tables || []) {
-        if (tr.status === 'refunded') {
-          const refundedAmt = Number(tr.refund_amount) || Number(tr.total_price);
-          refunded.push({ id: tr.id, type: 'table_reservation', email: tr.user_email || '', amount: refundedAmt, reason: tr.refund_reason || '', refunded_at: tr.refunded_at || '' });
-        } else if (tr.status === 'paid') {
-          const total = Number(tr.total_price);
-          const sf = Number(tr.service_fee || 0);
-          const stripeFee = calcStripeFee(total);
-          const clubReceived = total - sf;
-          refundable.push({
-            id: tr.id, type: 'table_reservation', email: tr.user_email || '', name: tr.full_name || undefined,
-            amount: total, serviceFee: sf, stripeFee, clubReceived,
-            createdAt: tr.created_at, hasPaymentIntent: !!tr.stripe_payment_intent_id,
-          });
-        }
+        push('table_reservation', tr as unknown as SaleRefundRow, { name: tr.full_name || undefined }, tr.status === 'paid');
       }
 
-      setItems(refundable);
+      // Seul l'ENCAISSEUR rembourse : le serveur (owner-refund, action `rights`)
+      // dit, vente par vente, si c'est l'appelant — même règle que le remboursement.
+      const { data: rightsData, error: rightsError } = await supabase.functions.invoke('owner-refund', {
+        body: { action: 'rights', event_id: selectedEventId },
+      });
+      if (rightsError) toast.error(t('refund.rightsError'));
+      const rights = ((rightsData as { rights?: Record<string, { allowed: boolean; collector: string | null }> } | null)?.rights) ?? {};
+      const mine = refundable.filter((i) => rights[i.id]?.allowed);
+      const elsewhere = refundable.filter((i) => !rights[i.id]?.allowed);
+      setCollectedElsewhere({
+        count: rightsError ? 0 : elsewhere.length,
+        names: [...new Set(elsewhere.map((i) => rights[i.id]?.collector).filter((n): n is string => !!n))],
+        blocked: (rightsData as { blocked?: string } | null)?.blocked === 'support_session',
+      });
+      setItems(mine);
       setRefundedItems(refunded);
       setSelectedIds(new Set());
     } catch (err) {
@@ -272,7 +313,12 @@ export default function OwnerRefunds() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [selectedEventId, scopeReady, isOrganizerScope, venueId, t]);
+
+  useEffect(() => {
+    if (!selectedEventId || !scopeReady) { setItems([]); setRefundedItems([]); return; }
+    fetchItems();
+  }, [selectedEventId, scopeReady, fetchItems]);
 
   const toggleItem = (id: string) => {
     setSelectedIds(prev => {
@@ -300,14 +346,14 @@ export default function OwnerRefunds() {
     for (const item of items) {
       const key = item.email;
       if (!map.has(key)) {
-        map.set(key, { email: key, name: item.name || '', items: [], totalClubReceived: 0 });
+        map.set(key, { email: key, name: item.name || '', items: [], totalRefundable: 0 });
       }
       const group = map.get(key)!;
       group.items.push(item);
-      group.totalClubReceived += item.clubReceived;
+      group.totalRefundable += item.refundable;
       if (!group.name && item.name) group.name = item.name;
     }
-    return Array.from(map.values()).sort((a, b) => b.totalClubReceived - a.totalClubReceived);
+    return Array.from(map.values()).sort((a, b) => b.totalRefundable - a.totalRefundable);
   }, [items]);
 
   const selectAll = () => {
@@ -349,6 +395,19 @@ export default function OwnerRefunds() {
       setLoading(false);
     }
   };
+
+  if (!canRefund) {
+    return (
+      <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen dashboard-gradient-bg pb-24'}>
+        {!isOrganizerScope && <OwnerHeader title={t('refund.title')} showBackButton backTo="/owner/dashboard" />}
+        <div className="mx-auto max-w-md p-8 text-center text-muted-foreground">
+          <ShieldX className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="font-medium text-foreground">{t('refund.noPermission')}</p>
+          <p className="text-sm mt-1">{t('refund.noPermissionDesc')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen dashboard-gradient-bg pb-24'}>
@@ -393,6 +452,15 @@ export default function OwnerRefunds() {
             </TabsList>
 
             <TabsContent value="pending" className="space-y-3 mt-3">
+              {!fetching && (collectedElsewhere.blocked || collectedElsewhere.count > 0) && (
+                <p className="rounded-lg owner-list-item p-3 text-xs text-muted-foreground">
+                  {collectedElsewhere.blocked
+                    ? t('refund.blockedSupport')
+                    : collectedElsewhere.names.length > 0
+                      ? t('refund.collectedBy').replace('{name}', collectedElsewhere.names.join(', '))
+                      : t('refund.collectedByOther')}
+                </p>
+              )}
               {fetching ? (
                 <div className="flex justify-center py-8">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -448,10 +516,13 @@ export default function OwnerRefunds() {
                 refundedItems.map(ri => (
                   <div key={ri.id} className="p-3 rounded-lg owner-list-item">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{ri.email}</span>
-                      <span className="text-sm font-semibold text-green-500">{ri.amount.toFixed(2)} €</span>
+                      <span className="text-sm font-medium truncate">{ri.email}</span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        {ri.partial && <Badge variant="secondary" className="text-[10px]">{t('refund.partial')}</Badge>}
+                        <span className="text-sm font-semibold text-green-500">{ri.amount.toFixed(2)} €</span>
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{ri.reason}</p>
+                    <p className="text-xs text-muted-foreground">{ri.reason || (ri.viaStripe ? t('refund.viaStripe') : '')}</p>
                     <p className="text-xs text-muted-foreground">{ri.refunded_at ? new Date(ri.refunded_at).toLocaleString() : ''}</p>
                   </div>
                 ))

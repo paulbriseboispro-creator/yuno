@@ -1,30 +1,79 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { type EmailLanguage } from "../_shared/email-branding.ts";
-import { buildRefund } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
-import { sendAutoPush } from "../_shared/auto-push.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import {
+  alreadyRefundedCents, fromCents, isSaleKind, planRefund, refundAllowed, refundCapCents,
+  saleCollector, saleParties, SALE_TABLE, toCents,
+  type CollectorRights, type SaleAmounts, type SaleCollector, type SaleKind, type SaleParty,
+} from "../_shared/sale-refund.ts";
+import {
+  applyFullRefundEffects, applyRefundAmountEffects, markSaleFullyRefunded, refundSaleOnStripe,
+  type SaleRefundContext,
+} from "../_shared/sale-refund-effects.ts";
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[OWNER-REFUND] ${step}${detailsStr}`);
 };
+
+interface RefundRequestItem { type: string; id: string; amount?: number }
+
+interface ItemResult { id: string; type: string; success: boolean; error?: string; amount?: number }
+
+interface EventRow {
+  id: string;
+  title: string | null;
+  venue_id: string | null;
+  partner_venue_id: string | null;
+  organizer_user_id: string | null;
+  partner_organizer_id: string | null;
+}
+
+/** Colonnes de la vente lues ici (`select *`) : plafond, paiement Stripe, client, état à rétablir. */
+interface SaleRecord extends SaleAmounts {
+  id: string;
+  status: string | null;
+  user_id: string | null;
+  user_email: string | null;
+  venue_id?: string | null;
+  event_id?: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_session_id: string | null;
+  stripe_connected_account_id: string | null;
+  refund_reason: string | null;
+  refunded_by: string | null;
+  refunded_at: string | null;
+}
+
+/** Ce que l'écran demande pour une vente : puis-je la rembourser, et sinon qui l'a encaissée. */
+interface SaleRight { allowed: boolean; collector: string | null }
+
+const json = (cors: Record<string, string>, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { headers: { ...cors, "Content-Type": "application/json" }, status });
 
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const body = (await req.json().catch(() => ({}))) as {
+    action?: string; event_id?: unknown; items?: unknown; reason?: unknown;
+  };
+  // `rights` ne fait que LIRE (qui peut rembourser quoi) : l'écran s'en sert pour
+  // ne proposer que ce que le serveur acceptera. Tout le reste rembourse.
+  const action: "rights" | "refund" = body?.action === "rights" ? "rights" : "refund";
+
   // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
-  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
-  if (demoRefusal) return demoRefusal;
+  if (action === "refund") {
+    const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+    if (demoRefusal) return demoRefusal;
+  }
 
   try {
-    logStep("Function started");
-
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -41,18 +90,15 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Not authenticated");
 
     // Accès assisté Yuno : un remboursement sort de l'argent du compte Stripe du
-    // club. Cette fonction écrit en service_role, donc les triggers de garde de
+    // pro. Cette fonction écrit en service_role, donc les triggers de garde de
     // la base ne la voient jamais — le refus doit être posé ici.
     if (await isSupportSessionToken(supabaseAdmin, (req.headers.get("Authorization") ?? "").replace("Bearer ", ""))) {
-      return new Response(JSON.stringify({ error: "support_session_forbidden" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403,
-      });
+      return action === "rights"
+        ? json(corsHeaders, { rights: {}, blocked: "support_session" })
+        : json(corsHeaders, { error: "support_session_forbidden" }, 403);
     }
 
-    logStep("User authenticated", { userId: user.id });
-
     // Super admin peut rembourser n'importe quelle transaction (support plateforme).
-    // Les contrôles de propriété par item sont alors court-circuités.
     const { data: adminRole } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -60,372 +106,299 @@ serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
     const isAdmin = !!adminRole;
-    if (isAdmin) logStep("Caller is super admin — ownership checks bypassed");
 
-    const { items, reason } = await req.json();
-    // items: Array<{ type: 'order' | 'ticket' | 'table_reservation', id: string, amount: number }>
+    // ── Qui a encaissé, et qui peut rembourser ─────────────────────────────
+    // Seul l'ENCAISSEUR rembourse (`saleCollector`) : en charge directe l'argent
+    // est arrivé sur SON compte Stripe, c'est de là qu'il repart. Chez lui,
+    // peuvent rembourser : le propriétaire du club ou un manager à qui il a donné
+    // « Remboursements » (`manager_permissions.can_manage_refunds`, ce que lit
+    // /manager/refunds) ; l'organisateur ou un membre de son équipe autorisé
+    // (`org_member_has_permission(…, 'refund')`, ce que rend
+    // `get_my_org_memberships`). Un partenaire de collab ou un co-hôte ne
+    // rembourse jamais une vente encaissée par un autre.
+    const venueCache = new Map<string, { accountId: string | null; ownerId: string | null; name: string }>();
+    const venueInfo = async (id: string) => {
+      if (!venueCache.has(id)) {
+        const { data } = await supabaseAdmin.from("venues")
+          .select("owner_id, name, stripe_account_id").eq("id", id).maybeSingle();
+        venueCache.set(id, { accountId: data?.stripe_account_id ?? null, ownerId: data?.owner_id ?? null, name: data?.name || "" });
+      }
+      return venueCache.get(id)!;
+    };
+    const orgInfoCache = new Map<string, { accountId: string | null; name: string }>();
+    const organizerInfo = async (id: string) => {
+      if (!orgInfoCache.has(id)) {
+        const { data } = await supabaseAdmin.from("profiles")
+          .select("stripe_connect_account_id, organization_name").eq("id", id).maybeSingle();
+        orgInfoCache.set(id, { accountId: data?.stripe_connect_account_id ?? null, name: data?.organization_name || "" });
+      }
+      return orgInfoCache.get(id)!;
+    };
+    const eventCache = new Map<string, EventRow | null>();
+    const loadEvent = async (id: string | null | undefined): Promise<EventRow | null> => {
+      if (!id) return null;
+      if (!eventCache.has(id)) {
+        const { data } = await supabaseAdmin.from("events")
+          .select("id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id")
+          .eq("id", id).maybeSingle();
+        eventCache.set(id, (data as EventRow | null) ?? null);
+      }
+      return eventCache.get(id)!;
+    };
 
+    const partiesOf = async (kind: SaleKind, sale: { venue_id?: string | null }, ev: EventRow | null): Promise<SaleParty[]> => {
+      const shape = kind === "order"
+        ? { venue_id: sale.venue_id ?? null }
+        : {
+          venue_id: ev?.venue_id ?? null,
+          partner_venue_id: ev?.partner_venue_id ?? null,
+          organizer_user_id: ev?.organizer_user_id ?? null,
+          partner_organizer_id: ev?.partner_organizer_id ?? null,
+        };
+      const venues: Record<string, string | null> = {};
+      const organizers: Record<string, string | null> = {};
+      for (const id of [shape.venue_id, "partner_venue_id" in shape ? shape.partner_venue_id : null]) {
+        if (id) venues[id] = (await venueInfo(id)).accountId;
+      }
+      if (kind !== "order") {
+        const s = shape as { organizer_user_id: string | null; partner_organizer_id: string | null };
+        for (const id of [s.organizer_user_id, s.partner_organizer_id]) {
+          if (id) organizers[id] = (await organizerInfo(id)).accountId;
+        }
+      }
+      return saleParties(shape, { venues, organizers });
+    };
+
+    const rightsCache = new Map<string, boolean>();
+    const collectorRights = async (collector: SaleCollector | null): Promise<CollectorRights> => {
+      const r: CollectorRights = { isAdmin, clubRefunder: false, orgRefunder: false };
+      if (isAdmin || !collector) return r;
+      const key = `${collector.party}:${collector.id}`;
+      if (!rightsCache.has(key)) {
+        let ok = false;
+        if (collector.party === "venue") {
+          ok = (await venueInfo(collector.id)).ownerId === user.id;
+          if (!ok) {
+            const { data } = await supabaseAdmin.from("manager_permissions")
+              .select("can_manage_refunds").eq("user_id", user.id).eq("venue_id", collector.id).maybeSingle();
+            ok = data?.can_manage_refunds === true;
+          }
+        } else {
+          ok = collector.id === user.id;
+          if (!ok) {
+            const { data } = await supabaseAdmin.rpc("org_member_has_permission", {
+              _user_id: user.id, _organizer_user_id: collector.id, _permission: "refund",
+            });
+            ok = data === true;
+          }
+        }
+        rightsCache.set(key, ok);
+      }
+      const ok = rightsCache.get(key)!;
+      return collector.party === "venue" ? { ...r, clubRefunder: ok } : { ...r, orgRefunder: ok };
+    };
+
+    const decide = async (
+      kind: SaleKind,
+      sale: { venue_id?: string | null; stripe_connected_account_id: string | null },
+      ev: EventRow | null,
+    ): Promise<{ allowed: boolean; collector: SaleCollector | null; collectorName: string | null }> => {
+      const collector = saleCollector(kind, sale.stripe_connected_account_id, await partiesOf(kind, sale, ev));
+      const allowed = refundAllowed(collector, await collectorRights(collector));
+      const collectorName = !collector
+        ? null
+        : collector.party === "venue" ? (await venueInfo(collector.id)).name : (await organizerInfo(collector.id)).name;
+      return { allowed, collector, collectorName };
+    };
+
+    // ── Lecture des droits (écran Remboursements, service VIP) ─────────────
+    if (action === "rights") {
+      const rows: { kind: SaleKind; id: string; venue_id?: string | null; event_id?: string | null; stripe_connected_account_id: string | null }[] = [];
+      const cols: Record<SaleKind, string> = {
+        order: "id, venue_id, event_id, stripe_connected_account_id",
+        ticket: "id, event_id, stripe_connected_account_id",
+        table_reservation: "id, event_id, stripe_connected_account_id",
+      };
+      const eventId = typeof body.event_id === "string" ? body.event_id : null;
+      const wanted = Array.isArray(body.items) ? (body.items as RefundRequestItem[]).filter((i) => isSaleKind(i?.type) && typeof i?.id === "string") : [];
+      for (const kind of ["order", "ticket", "table_reservation"] as const) {
+        const ids = wanted.filter((i) => i.type === kind).map((i) => i.id);
+        if (!eventId && ids.length === 0) continue;
+        let q = supabaseAdmin.from(SALE_TABLE[kind]).select(cols[kind]);
+        q = eventId ? q.eq("event_id", eventId) : q.in("id", ids.slice(0, 500));
+        const { data, error } = await q;
+        if (error) throw error;
+        for (const row of (data ?? []) as unknown as { id: string; venue_id?: string | null; event_id?: string | null; stripe_connected_account_id: string | null }[]) {
+          rows.push({ kind, ...row });
+        }
+      }
+      const rights: Record<string, SaleRight> = {};
+      for (const row of rows) {
+        const d = await decide(row.kind, row, await loadEvent(row.event_id));
+        rights[row.id] = { allowed: d.allowed, collector: d.collectorName };
+      }
+      return json(corsHeaders, { rights });
+    }
+
+    // ── Remboursement ──────────────────────────────────────────────────────
+    const items = body.items as RefundRequestItem[] | undefined;
+    const reason = body.reason;
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new Error("No items to refund");
     }
     if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
       throw new Error("Reason is required");
     }
+    const cleanReason = reason.trim();
+    logStep("Refund requested", { userId: user.id, count: items.length, isAdmin });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
 
-    const results: Array<{ id: string; type: string; success: boolean; error?: string; amount?: number }> = [];
-
-    // Co-soirée org-led : events.venue_id est NULL et le club hôte vit dans
-    // partner_venue_id. Résout le club EFFECTIF de la soirée (embed venues si
-    // venue-led, sinon lookup du club partenaire) — sans ça, le owner du club
-    // partenaire ne pouvait pas rembourser une vente de sa propre co-soirée
-    // (« Unauthorized ») et venueId restait vide (stats/notifs jamais émises,
-    // alors que verify-*-payment les incrémente sur venue_id ?? partner_venue_id).
-    const resolveEventVenue = async (
-      ev: {
-        venue_id?: string | null;
-        partner_venue_id?: string | null;
-        venues?: { id: string; owner_id: string | null; name: string | null } | null;
-      } | null | undefined,
-    ): Promise<{ id: string; owner_id: string | null; name: string } | null> => {
-      if (ev?.venues) return { id: ev.venues.id, owner_id: ev.venues.owner_id, name: ev.venues.name || "" };
-      if (ev?.partner_venue_id) {
-        const { data: pv } = await supabaseAdmin
-          .from("venues")
-          .select("id, owner_id, name")
-          .eq("id", ev.partner_venue_id)
-          .maybeSingle();
-        if (pv) return { id: pv.id, owner_id: pv.owner_id, name: pv.name || "" };
-      }
-      return null;
-    };
+    const results: ItemResult[] = [];
 
     for (const item of items) {
+      const kind = item?.type;
+      if (!isSaleKind(kind)) {
+        results.push({ id: item?.id, type: String(kind), success: false, error: "Invalid type" });
+        continue;
+      }
       try {
-        let record: any = null;
-        let venueId: string = "";
-        let customerEmail: string = "";
-        let customerUserId: string = "";
-        let maxRefundable: number = 0; // total - serviceFee
-        let eventTitle: string = "";
-        let venueName: string = "";
-        const ownerAmount = Number(item.amount) || 0;
+        const table = SALE_TABLE[kind];
+        const { data } = await supabaseAdmin.from(table).select("*").eq("id", item.id).maybeSingle();
+        const record = data as unknown as SaleRecord | null;
+        if (!record) { results.push({ id: item.id, type: kind, success: false, error: "Not found" }); continue; }
 
-        if (item.type === "order") {
-          const { data } = await supabaseAdmin
-            .from("orders")
-            .select("*, venues!inner(id, owner_id, name)")
-            .eq("id", item.id)
-            .single();
-          record = data;
-          if (!record) { results.push({ id: item.id, type: item.type, success: false, error: "Not found" }); continue; }
-          
-          if (!isAdmin && record.venues.owner_id !== user.id) {
-            results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
-          }
-          venueId = record.venue_id;
-          venueName = record.venues.name || "";
-          customerEmail = record.user_email || "";
-          customerUserId = record.user_id || "";
-          // If the club absorbed the commission, the fan paid no separate fee → the
-          // full amount they paid is refundable. Otherwise the fee stays with Yuno.
-          const orderServiceFee = record.fee_absorbed ? 0 : (Number(record.service_fee) || 0);
-          maxRefundable = Number(record.total) - orderServiceFee;
-
-          if (record.event_id) {
-            const { data: evt } = await supabaseAdmin.from("events").select("title").eq("id", record.event_id).single();
-            eventTitle = evt?.title || "";
-          }
-
-        } else if (item.type === "ticket") {
-          const { data } = await supabaseAdmin
-            .from("tickets")
-            .select("*, events!inner(id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
-            .eq("id", item.id)
-            .single();
-          record = data;
-          if (!record) { results.push({ id: item.id, type: item.type, success: false, error: "Not found" }); continue; }
-
-          const eventVenue = await resolveEventVenue(record.events);
-          const isVenueOwner = !!eventVenue?.owner_id && eventVenue.owner_id === user.id;
-          const isOrganizer = record.events?.organizer_user_id === user.id || record.events?.partner_organizer_id === user.id;
-          if (!isAdmin && !isVenueOwner && !isOrganizer) {
-            results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
-          }
-          venueId = eventVenue?.id || "";
-          venueName = eventVenue?.name || "";
-          customerEmail = record.user_email || "";
-          customerUserId = record.user_id || "";
-          // Absorbed commission was paid by the club, not the fan → don't subtract it.
-          const ticketServiceFee = record.fee_absorbed ? 0 : (Number(record.service_fee) || 0);
-          const ticketInsuranceFee = Number(record.insurance_fee) || 0;
-          // Club-side cap: total paid minus the fan-paid Yuno fees (service + insurance).
-          // Yuno never refunds its own fees, so they must not inflate the cap.
-          maxRefundable = Number(record.total_price) - ticketServiceFee - ticketInsuranceFee;
-          eventTitle = record.events.title || "";
-
-        } else if (item.type === "table_reservation") {
-          const { data } = await supabaseAdmin
-            .from("table_reservations")
-            .select("*, events!inner(id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
-            .eq("id", item.id)
-            .single();
-          record = data;
-          if (!record) { results.push({ id: item.id, type: item.type, success: false, error: "Not found" }); continue; }
-
-          const eventVenue = await resolveEventVenue(record.events);
-          const isVenueOwner = !!eventVenue?.owner_id && eventVenue.owner_id === user.id;
-          const isOrganizer = record.events?.organizer_user_id === user.id || record.events?.partner_organizer_id === user.id;
-          if (!isAdmin && !isVenueOwner && !isOrganizer) {
-            results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
-          }
-          venueId = eventVenue?.id || "";
-          venueName = eventVenue?.name || "";
-          customerEmail = record.user_email || "";
-          customerUserId = record.user_id || "";
-          // Une table n'encaisse que l'ACOMPTE (+ frais Yuno) au checkout —
-          // total_price stocke le budget complet de la table, jamais débité.
-          // Plafonner sur total_price faisait échouer le refund côté Stripe
-          // (« amount exceeds available charge ») dès que l'owner remboursait
-          // « le prix de la table ». Le vrai plafond côté club = l'acompte.
-          // Fallback legacy (résa sans acompte) : ancien calcul.
-          const tableManagementFee = record.fee_absorbed ? 0 : Number(record.management_fee || 0);
-          const tableDeposit = Number(record.deposit || 0);
-          maxRefundable = tableDeposit > 0
-            ? tableDeposit
-            : Number(record.total_price) - Number(record.service_fee || 0) - tableManagementFee;
-          eventTitle = record.events.title || "";
-        } else {
-          results.push({ id: item.id, type: item.type, success: false, error: "Invalid type" }); continue;
+        const ev = await loadEvent(record.event_id);
+        const { allowed, collector, collectorName } = await decide(kind, record, ev);
+        if (!allowed) {
+          results.push({
+            id: item.id, type: kind, success: false,
+            error: collectorName ? `Collected by ${collectorName}: only they can refund it` : "Unauthorized",
+          });
+          continue;
         }
-
         if (record.status === "refunded") {
-          results.push({ id: item.id, type: item.type, success: false, error: "Already refunded" }); continue;
-        }
-
-        // Remboursements PARTIELS cumulables : on ne rend jamais plus que ce qui
-        // reste. Seul le remboursement qui atteint le total passe la vente en
-        // « refunded » — avant, un partiel l'y passait : le cron de libération
-        // annulait alors toutes ses jambes et la part non remboursée restait
-        // bloquée sur la plateforme ; le billet devenait aussi invalide.
-        const prevRefund = Math.max(0, Number(record.refund_amount || 0));
-        const remainingRefundable = Math.max(0, maxRefundable - prevRefund);
-
-        // Validate owner-specified amount
-        const refundAmount = Math.min(ownerAmount, remainingRefundable);
-        const isFullRefund = prevRefund + refundAmount >= maxRefundable - 0.005;
-        if (refundAmount <= 0) {
-          results.push({ id: item.id, type: item.type, success: false, error: "Invalid refund amount" }); continue;
-        }
-
-        logStep("Refund amount validated", { ownerAmount, maxRefundable, refundAmount });
-
-        let paymentIntentId = record.stripe_payment_intent_id;
-
-        // If no payment_intent_id stored, try to retrieve it from the Stripe session
-        if (!paymentIntentId && record.stripe_session_id) {
-          try {
-            logStep("No payment_intent_id, fetching from Stripe session", { sessionId: record.stripe_session_id });
-            const session = await stripe.checkout.sessions.retrieve(record.stripe_session_id);
-            paymentIntentId = typeof session.payment_intent === 'string' 
-              ? session.payment_intent 
-              : session.payment_intent?.id || null;
-            
-            if (paymentIntentId) {
-              // Save it for future reference
-              const table = item.type === "order" ? "orders" : item.type === "ticket" ? "tickets" : "table_reservations";
-              await supabaseAdmin.from(table).update({ stripe_payment_intent_id: paymentIntentId }).eq("id", item.id);
-              logStep("Retrieved and saved payment_intent_id", { paymentIntentId });
-            }
-          } catch (sessionError: any) {
-            logStep("Error retrieving Stripe session", { error: sessionError.message });
-          }
-        }
-
-        if (!paymentIntentId) {
-          logStep("No payment_intent_id found, cannot process Stripe refund", { id: item.id });
-          results.push({ id: item.id, type: item.type, success: false, error: "No Stripe payment found for this item" }); continue;
-        }
-
-        try {
-          const refundAmountCents = Math.round(refundAmount * 100);
-          // DIRECT charge → refund on the connected account (no transfer to reverse).
-          // SEPARATE/platform charge → refund on the platform and reverse the transfers.
-          const connectedAccount = (record.stripe_connected_account_id as string | null) || null;
-          // `reverse_transfer` n'a de sens que pour une charge à DESTINATION
-          // (transfer_data, ancien modèle). Une charge plateforme à jambes séparées
-          // n'a aucun transfert attaché : ses jambes sont réduites ou reversées par
-          // le webhook `charge.refunded`, au prorata du montant remboursé.
-          let reverseTransfer = false;
-          if (!connectedAccount) {
-            const { data: dist } = await supabaseAdmin.from("revenue_distributions")
-              .select("split_mode").eq("payment_intent_id", paymentIntentId).maybeSingle();
-            reverseTransfer = dist?.split_mode === "destination";
-          }
-          await stripe.refunds.create({
-            payment_intent: paymentIntentId,
-            amount: refundAmountCents,
-            ...(reverseTransfer ? { reverse_transfer: true } : {}),
-            refund_application_fee: false,
-          }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
-          logStep("Stripe refund created", { paymentIntentId, refundAmount, refundAmountCents, direct: !!connectedAccount });
-        } catch (stripeError: any) {
-          logStep("Stripe refund error", { error: stripeError.message });
-          results.push({ id: item.id, type: item.type, success: false, error: `Stripe: ${stripeError.message}` }); continue;
-        }
-
-        // Update status in DB
-        const table = item.type === "order" ? "orders" : item.type === "ticket" ? "tickets" : "table_reservations";
-        const updateData: any = {
-          ...(isFullRefund ? { status: "refunded" } : {}),
-          refund_reason: reason.trim(),
-          refund_amount: Math.round((prevRefund + refundAmount) * 100) / 100,
-          refunded_by: user.id,
-          refunded_at: new Date().toISOString(),
-        };
-
-        if (item.type === "order" && isFullRefund) {
-          updateData.archived = true;
-          updateData.token_used = true;
-        }
-
-        const { error: updateError } = await supabaseAdmin.from(table).update(updateData).eq("id", item.id);
-        if (updateError) {
-          logStep("DB update failed after Stripe refund — inconsistency!", { id: item.id, error: updateError.message });
-          results.push({ id: item.id, type: item.type, success: false, error: `Stripe refund succeeded but DB update failed: ${updateError.message}` });
+          results.push({ id: item.id, type: kind, success: false, error: "Already refunded" });
           continue;
         }
 
-        // Delete drink credits linked to refunded ticket (total seulement : un
-        // geste partiel laisse le billet et ses consos valides)
-        if (item.type === "ticket" && isFullRefund) {
+        // Club de la soirée (stats client, fidélité, notification) : celui de la
+        // commande, sinon le club de la soirée ou le club partenaire.
+        const clubId = kind === "order" ? record.venue_id || "" : ev?.venue_id || ev?.partner_venue_id || "";
+        const ctx: SaleRefundContext = {
+          kind, id: record.id, venueId: clubId, venueName: clubId ? (await venueInfo(clubId)).name : "",
+          eventTitle: ev?.title || "", customerEmail: record.user_email || "", customerUserId: record.user_id || "",
+        };
+
+        // Remboursements PARTIELS cumulables, plafonnés côté club (frais Yuno
+        // jamais rendus) : `planRefund` ramène la demande à ce qui reste, et seul
+        // le remboursement qui atteint le plafond passe la vente « remboursée ».
+        const capCents = refundCapCents(kind, record);
+        const prevCents = alreadyRefundedCents(record);
+        const plan = planRefund(capCents, prevCents, toCents(item.amount));
+        if (!plan) {
+          results.push({
+            id: item.id, type: kind, success: false,
+            error: prevCents >= capCents ? "Nothing left to refund" : "Invalid refund amount",
+          });
+          continue;
+        }
+        logStep("Refund planned", { id: item.id, kind, collector, capCents, prevCents, plan });
+
+        let paymentIntentId: string | null = record.stripe_payment_intent_id || null;
+        if (!paymentIntentId && record.stripe_session_id) {
           try {
-            await supabaseAdmin.from("order_pack_credits").delete().eq("ticket_order_id", item.id);
-            await supabaseAdmin.from("ticket_upsell_selections").update({ status: "cancelled" }).eq("ticket_id", item.id);
-          } catch (e) { console.error("Error deleting drink credits:", e); }
+            const session = await stripe.checkout.sessions.retrieve(
+              record.stripe_session_id,
+              undefined,
+              record.stripe_connected_account_id ? { stripeAccount: record.stripe_connected_account_id } : undefined,
+            );
+            paymentIntentId = typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent?.id || null;
+            if (paymentIntentId) {
+              await supabaseAdmin.from(table).update({ stripe_payment_intent_id: paymentIntentId }).eq("id", item.id);
+              logStep("Retrieved and saved payment_intent_id", { paymentIntentId });
+            }
+          } catch (sessionError) {
+            logStep("Error retrieving Stripe session", { error: (sessionError as Error).message });
+          }
+        }
+        if (!paymentIntentId) {
+          results.push({ id: item.id, type: kind, success: false, error: "No Stripe payment found for this item" });
+          continue;
         }
 
-        // Decrement venue customer stats
-        if (venueId && customerUserId) {
-          try {
-            const deltas: any = { p_venue_id: venueId, p_user_id: customerUserId, p_order_delta: 0, p_ticket_delta: 0, p_table_delta: 0, p_spent_delta: -refundAmount };
-            if (isFullRefund && item.type === "order") deltas.p_order_delta = -1;
-            if (isFullRefund && item.type === "ticket") deltas.p_ticket_delta = -1;
-            if (isFullRefund && item.type === "table_reservation") deltas.p_table_delta = -1;
-            await supabaseAdmin.rpc("increment_venue_customer_stats", deltas);
-          } catch (e) { console.error("Stats rollback error:", e); }
+        // Verrou AVANT Stripe : le cumul passe de l'ancien au nouveau montant
+        // seulement si personne ne l'a bougé depuis la lecture. Deux
+        // remboursements simultanés de la même vente (deux onglets, un manager et
+        // le propriétaire) ne peuvent donc plus dépasser le plafond : le second
+        // s'arrête ici, avant d'avoir touché à l'argent. Le webhook
+        // `charge.refunded` que ce remboursement va provoquer trouvera le cumul
+        // déjà posé et ne le rejouera pas.
+        const prevRaw = record.refund_amount ?? null;
+        let claim = supabaseAdmin.from(table)
+          .update({
+            refund_amount: fromCents(plan.cumulativeCents),
+            refund_reason: cleanReason,
+            refunded_by: user.id,
+            refunded_at: new Date().toISOString(),
+          })
+          .eq("id", item.id)
+          .neq("status", "refunded");
+        claim = prevRaw === null ? claim.is("refund_amount", null) : claim.eq("refund_amount", prevRaw);
+        const { data: claimed, error: claimError } = await claim.select("id");
+        if (claimError) throw claimError;
+        if (!claimed || claimed.length === 0) {
+          results.push({ id: item.id, type: kind, success: false, error: "This sale was just refunded from another screen — reload" });
+          continue;
         }
 
-        // Re-credit loyalty points (total seulement)
-        if (isFullRefund && venueId && customerUserId) {
-          try {
-            const { data: txns } = await supabaseAdmin
-              .from("loyalty_transactions")
-              .select("id, points, customer_loyalty_id")
-              .eq("reference_id", item.id)
-              .eq("transaction_type", "earn");
-            
-            for (const txn of txns || []) {
-              const { data: cl } = await supabaseAdmin
-                .from("customer_loyalty")
-                .select("current_balance, total_points_earned")
-                .eq("id", txn.customer_loyalty_id)
-                .single();
-              
-              if (cl) {
-                await supabaseAdmin
-                  .from("customer_loyalty")
-                  .update({
-                    current_balance: Math.max(0, cl.current_balance - txn.points),
-                    total_points_earned: Math.max(0, cl.total_points_earned - txn.points),
-                  })
-                  .eq("id", txn.customer_loyalty_id);
-              }
-
-              await supabaseAdmin.from("loyalty_transactions").insert({
-                customer_loyalty_id: txn.customer_loyalty_id,
-                venue_id: venueId,
-                transaction_type: "adjustment",
-                points: -txn.points,
-                description: "Points removed (owner refund)",
-                reference_type: "refund",
-                reference_id: item.id,
-              });
-            }
-          } catch (e) { console.error("Loyalty rollback error:", e); }
+        const connectedAccountId = record.stripe_connected_account_id || null;
+        const refund = await refundSaleOnStripe(stripe, supabaseAdmin, {
+          paymentIntentId,
+          amountCents: plan.amountCents,
+          connectedAccountId,
+          idempotencyKey: `owner-refund:${kind}:${item.id}:${prevCents}:${plan.cumulativeCents}`,
+          expectedCumulativeCents: plan.cumulativeCents,
+        });
+        if (!refund.ok) {
+          // Rien n'est parti : le verrou est défait, la vente redevient remboursable.
+          await supabaseAdmin.from(table)
+            .update({
+              refund_amount: prevRaw,
+              refund_reason: record.refund_reason ?? null,
+              refunded_by: record.refunded_by ?? null,
+              refunded_at: record.refunded_at ?? null,
+            })
+            .eq("id", item.id)
+            .eq("refund_amount", fromCents(plan.cumulativeCents));
+          logStep("Stripe refund error — claim released", { error: refund.error });
+          results.push({ id: item.id, type: kind, success: false, error: `Stripe: ${refund.error}` });
+          continue;
         }
+        logStep("Stripe refund done", { paymentIntentId, amountCents: plan.amountCents, direct: !!connectedAccountId });
 
-        // Send refund email with accurate amount and context
-        if (customerEmail) {
+        await applyRefundAmountEffects(supabaseAdmin, ctx, plan.amountCents, { reason: cleanReason, source: "yuno" });
+
+        if (plan.isFull) {
           try {
-            // Get user language preference (défaut anglais : l'app est anglaise
-            // par défaut — on ne force plus le français pour un invité).
-            let lang: EmailLanguage = "en";
-            if (customerUserId) {
-              const { data: profile } = await supabaseAdmin
-                .from("profiles")
-                .select("preferred_language")
-                .eq("id", customerUserId)
-                .single();
-              if (profile?.preferred_language && ["en", "es", "fr"].includes(profile.preferred_language)) {
-                lang = profile.preferred_language as EmailLanguage;
-              }
+            // Passage unique à « refunded » : places du billet rendues, consos et
+            // commissions promoteur annulées par les triggers de la base.
+            if (await markSaleFullyRefunded(supabaseAdmin, kind, item.id)) {
+              await applyFullRefundEffects(supabaseAdmin, ctx);
             }
-
-            const mail = buildRefund({
-              lang,
-              eventTitle: eventTitle || undefined,
-              venueName,
-              amount: `${refundAmount.toFixed(2)} €`,
-              reason: reason.trim(),
-            });
-
-            const resendApiKey = Deno.env.get("RESEND_API_KEY");
-            const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
-
-            if (resendApiKey) {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${resendApiKey}`,
-                },
-                body: JSON.stringify({
-                  from: `Yuno <${fromEmail}>`,
-                  to: [customerEmail],
-                  subject: mail.subject,
-                  html: mail.html,
-                }),
-                // Timeout : un Resend qui traîne ne doit pas suspendre le refund.
-                signal: AbortSignal.timeout(10000),
-              });
-              logStep("Refund email sent", { to: customerEmail, refundAmount, lang });
-            }
-          } catch (emailError) {
-            console.error("Email error:", emailError);
+          } catch (statusError) {
+            // L'argent est rendu et le montant enregistré : le webhook
+            // `charge.refunded` repassera la vente « remboursée ».
+            logStep("Status update failed after Stripe refund", { id: item.id, error: (statusError as Error).message });
           }
         }
 
-        // Push remboursement — registre auto (clé 'refund_confirmed') :
-        // gate super admin + langue du client + tracking ?an=.
-        if (customerUserId) {
-          try {
-            await sendAutoPush(supabaseAdmin, {
-              key: 'refund_confirmed',
-              userId: customerUserId,
-              url: '/my-orders',
-              vars: { amount: refundAmount.toFixed(2) },
-            });
-          } catch (pushError) {
-            console.error('Push notification error:', pushError);
-          }
-        }
-
-        results.push({ id: item.id, type: item.type, success: true, amount: refundAmount });
-        logStep("Item refunded", { id: item.id, type: item.type, amount: refundAmount });
+        results.push({ id: item.id, type: kind, success: true, amount: fromCents(plan.amountCents) });
+        logStep("Item refunded", { id: item.id, type: kind, amount: fromCents(plan.amountCents), full: plan.isFull });
 
         // Journal d'audit admin (remboursement déclenché par un super admin)
         if (isAdmin) {
@@ -433,50 +406,22 @@ serve(async (req) => {
             await supabaseAdmin.from("admin_audit_log").insert({
               admin_id: user.id,
               action: "refund_issued",
-              entity_type: item.type,
+              entity_type: kind,
               entity_id: item.id,
-              metadata: { amount: refundAmount, reason: reason.trim(), venue_id: venueId },
+              metadata: { amount: fromCents(plan.amountCents), reason: cleanReason, venue_id: ctx.venueId, collector },
             });
           } catch (auditErr) {
             console.error("Admin audit log error (refund):", auditErr);
           }
         }
-
-        // Owner notification: refund processed
-        if (venueId) {
-          try {
-            const typeLabels: Record<string, string> = { order: 'commande', ticket: 'billet', table_reservation: 'table VIP' };
-            await supabaseAdmin.from('staff_notifications').insert({
-              venue_id: venueId,
-              target_role: 'owner',
-              notification_type: 'refund_issued',
-              title: 'Remboursement effectué',
-              message: `${typeLabels[item.type] ?? item.type} — ${refundAmount.toFixed(2)} € remboursés`,
-              priority: 'high',
-              reference_type: item.type,
-              reference_id: item.id,
-              metadata: { type: item.type, amount: refundAmount, reason: reason ?? null },
-            });
-          } catch (notifErr) {
-            console.error('Owner notif error (refund_issued):', notifErr);
-          }
-        }
-
-      } catch (itemError: any) {
-        results.push({ id: item.id, type: item.type, success: false, error: itemError.message });
+      } catch (itemError) {
+        results.push({ id: item.id, type: kind, success: false, error: (itemError as Error).message });
       }
     }
 
-    return new Response(JSON.stringify({ success: true, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
-
+    return json(corsHeaders, { success: true, results });
   } catch (error) {
     console.error("[OWNER-REFUND] Error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-    );
+    return json(corsHeaders, { error: error instanceof Error ? error.message : "Unknown error" }, 400);
   }
 });

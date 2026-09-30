@@ -5,6 +5,7 @@ import { fundDjBookingContract, releaseDjBookingBalance, type DjContract } from 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { isTieredCollab } from "../_shared/payment-split.ts";
 import { heldLegAfterRefund, refundContext, releasedLegReversal } from "../_shared/refund-legs.ts";
+import { recordChargeRefund } from "../_shared/sale-refund-effects.ts";
 import { connectStatusOf, organizerConnectColumns, stateFromV1Account, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
@@ -834,76 +835,41 @@ serve(async (req) => {
 
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
-        logStep("Charge refunded", { chargeId: charge.id, amount: charge.amount_refunded });
+        logStep("Charge refunded", { chargeId: charge.id, amount: charge.amount_refunded, account: event.account ?? null });
 
-        // Remboursement TOTAL ou PARTIEL ?
+        // La VENTE enregistre ce que Stripe a réellement rendu (_shared/sale-refund-effects.ts).
         //
-        // Passer une ligne à "refunded" déclenche
-        // trg_cancel_promoter_conv_on_refund, qui annule 100 % de la commission.
-        // Or charge.refunded se déclenche aussi sur un remboursement partiel :
-        // rembourser 5€ sur un billet à 60€ faisait perdre au promoteur la
-        // totalité de sa commission. On ne bascule donc le statut que sur un
-        // remboursement complet ; un partiel laisse la ligne intacte (le
-        // détail monétaire est réconcilié dans revenue_distributions plus bas,
-        // qui gère déjà le cas partiel).
-        //
-        // On n'écrit pas "partially_refunded" ici : cette valeur n'est admise
-        // que sur les colonnes de statut de transfert de revenue_distributions,
-        // et la contrainte orders_status_check la refuserait.
-        const isFullRefund = charge.amount_refunded >= charge.amount;
-        if (!isFullRefund) {
-          logStep("Remboursement partiel — statuts et commissions inchangés", {
-            chargeId: charge.id, refunded: charge.amount_refunded, total: charge.amount,
-          });
+        // En charge directe le pro peut rembourser seul, depuis son tableau de bord
+        // Stripe. Avant, ce chemin ne passait la vente « remboursée » que sur un
+        // remboursement de TOUTE la charge, sans montant ni date, sans rendre les
+        // places, sans annuler les consos ni consommer le jeton d'une commande ; un
+        // partiel ne laissait aucune trace. Désormais : cumul `amount_refunded`
+        // enregistré (idempotent, jamais appliqué deux fois — un remboursement fait
+        // depuis Yuno a déjà posé le sien), client prévenu, et la vente passe
+        // « remboursée » dès que le plafond côté club est rendu. Un partiel laisse
+        // la vente payée : la commission du promoteur n'est annulée (trigger) que
+        // sur le passage à « refunded ».
+        const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id ?? null;
+        let saleRefundError: Error | null = null;
+        if (piId) {
+          try {
+            const recorded = await recordChargeRefund(supabaseClient, {
+              paymentIntentId: piId,
+              chargeAmountCents: charge.amount,
+              chargeRefundedCents: charge.amount_refunded,
+            });
+            logStep("Sale refund recorded", { piId, ...recorded });
+          } catch (saleErr) {
+            // Rendu en erreur APRÈS la réconciliation des jambes : Stripe relivre,
+            // et tout ce qui suit est idempotent (cumul, `refunded_cents`).
+            saleRefundError = saleErr instanceof Error ? saleErr : new Error(String(saleErr));
+            logStep("Sale refund bookkeeping FAILED — Stripe will retry", { piId, error: saleRefundError.message });
+          }
         }
 
-        // Try to find and update the related order/ticket/reservation.
-        // NB : la réversion proportionnelle des transferts (SYMMETRIC REFUND, plus
-        // bas dans ce même bloc) DOIT tourner y compris sur un partiel — seules les
-        // trois bascules de statut ci-dessous sont réservées au remboursement total.
-        const piId = charge.payment_intent as string;
+        // La réversion proportionnelle des transferts (anciennes charges plateforme)
+        // tourne y compris sur un partiel.
         if (piId) {
-          // Update orders
-          const { data: orderData } = isFullRefund ? await supabaseClient
-            .from("orders")
-            .update({ status: "refunded" })
-            .eq("stripe_payment_intent_id", piId)
-            .eq("status", "paid")
-            .select("id") : { data: null };
-          if (orderData?.length) {
-            logStep("Order(s) marked refunded via charge.refunded", { ids: orderData.map(o => o.id) });
-          }
-
-          // Update tickets
-          const { data: ticketData } = isFullRefund ? await supabaseClient
-            .from("tickets")
-            .update({ status: "refunded" })
-            .eq("stripe_payment_intent_id", piId)
-            .eq("status", "paid")
-            .select("id") : { data: null };
-          if (ticketData?.length) {
-            logStep("Ticket(s) marked refunded via charge.refunded", { ids: ticketData.map(t => t.id) });
-          }
-
-          // Update table reservations.
-          // Deux bugs corrigés ici, qui se cumulaient en fuite d'argent :
-          //   1. le filtre portait sur "confirmed", alors qu'une réservation
-          //      payée vaut "paid" (verify-table-payment) → 0 ligne touchée, la
-          //      table restait vendue et bloquait l'inventaire après remboursement ;
-          //   2. on écrivait "cancelled", alors que le trigger de réversion de
-          //      commission (trg_cancel_promoter_conv_on_refund) ne se déclenche
-          //      que sur "refunded" — comme pour orders et tickets juste au-dessus.
-          //      Le club remboursait donc le client tout en payant la commission.
-          const { data: resData } = isFullRefund ? await supabaseClient
-            .from("table_reservations")
-            .update({ status: "refunded" })
-            .eq("stripe_payment_intent_id", piId)
-            .eq("status", "paid")
-            .select("id") : { data: null };
-          if (resData?.length) {
-            logStep("Reservation(s) marked refunded via charge.refunded", { ids: resData.map(r => r.id) });
-          }
-
           // SYMMETRIC REFUND: reverse both primary and secondary transfers proportionally
           try {
             const { data: dist } = await supabaseClient
@@ -1033,6 +999,7 @@ serve(async (req) => {
             });
           }
         }
+        if (saleRefundError) throw saleRefundError;
         break;
       }
 

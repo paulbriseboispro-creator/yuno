@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder, OwnerVipOrderItem, VipEvent } from './useOwnerVipData';
+import {
+  groupVipOrderItems, mapVipConsumption, mapVipOrder, mapVipReservation,
+  type OwnerVipReservation, type OwnerVipConsumption, type OwnerVipOrder, type OwnerVipOrderItem, type VipEvent,
+  type VipConsumptionRow, type VipOrderItemRow, type VipOrderRow, type VipReservationRow,
+} from './useOwnerVipData';
 import { orgEventsOr } from '@/lib/coorg';
 
 /**
@@ -37,6 +41,7 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
         .from('table_reservations')
         .select(`
           id, full_name, user_email, phone, guest_count, deposit, total_price, management_fee, fee_absorbed,
+          service_fee, refund_amount, stripe_payment_intent_id, stripe_session_id,
           minimum_spend, vip_status, zone_id, assigned_table_id,
           created_at, checked_in_at, placed_at, finished_at, event_id,
           placement_status, requested_table_id, placement_note,
@@ -47,32 +52,7 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
         .in('event_id', eventIds)
         .order('created_at', { ascending: false });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped: OwnerVipReservation[] = (resData || []).map((r: any) => ({
-        id: r.id,
-        fullName: r.full_name || 'Guest',
-        userEmail: r.user_email || '',
-        phone: r.phone,
-        guestCount: r.guest_count || 1,
-        deposit: r.deposit || 0,
-        absorbedFee: r.fee_absorbed ? Number(r.management_fee || 0) : 0,
-        totalPrice: r.total_price || 0,
-        minimumSpend: r.minimum_spend || 0,
-        vipStatus: r.vip_status || 'waiting',
-        zoneName: r.table_zones?.name || '',
-        zoneColor: r.table_zones?.color || '#666',
-        zoneId: r.zone_id,
-        assignedTableId: r.assigned_table_id,
-        createdAt: r.created_at,
-        checkedInAt: r.checked_in_at,
-        placedAt: r.placed_at,
-        finishedAt: r.finished_at,
-        eventId: r.event_id,
-        eventTitle: r.events?.title,
-        placementStatus: r.placement_status,
-        requestedTableId: r.requested_table_id,
-        placementNote: r.placement_note,
-      }));
+      const mapped = ((resData ?? []) as unknown as VipReservationRow[]).map(mapVipReservation);
       setReservations(mapped);
 
       const resIds = mapped.map(r => r.id);
@@ -85,33 +65,19 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
         supabase.from('vip_table_orders').select('id, table_reservation_id, status, total_amount, created_at, confirmed_at, served_at, notes').in('table_reservation_id', resIds).neq('status', 'cancelled').order('created_at', { ascending: true }),
       ]);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setConsumptions((consData || []).map((c: any) => ({
-        id: c.id, itemName: c.item_name, itemType: c.item_type, quantity: c.quantity,
-        unitPrice: c.unit_price, totalPrice: c.total_price, servedAt: c.served_at, reservationId: c.table_reservation_id,
-      })));
+      setConsumptions(((consData ?? []) as unknown as VipConsumptionRow[]).map(mapVipConsumption));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orderIds = (ordersData || []).map((o: any) => o.id);
-      const itemsByOrder = new Map<string, OwnerVipOrderItem[]>();
+      const orderRows = (ordersData ?? []) as unknown as VipOrderRow[];
+      const orderIds = orderRows.map((o) => o.id);
+      let itemsByOrder = new Map<string, OwnerVipOrderItem[]>();
       if (orderIds.length > 0) {
         const { data: itemsData } = await supabase
           .from('vip_table_order_items')
           .select('order_id, quantity, unit_price, vip_menu_items(name)')
           .in('order_id', orderIds);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (itemsData || []).forEach((it: any) => {
-          const arr = itemsByOrder.get(it.order_id) || [];
-          arr.push({ name: it.vip_menu_items?.name || 'Bouteille', quantity: it.quantity, unitPrice: it.unit_price });
-          itemsByOrder.set(it.order_id, arr);
-        });
+        itemsByOrder = groupVipOrderItems((itemsData ?? []) as unknown as VipOrderItemRow[]);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setOrders((ordersData || []).map((o: any) => ({
-        id: o.id, reservationId: o.table_reservation_id, status: o.status, totalAmount: o.total_amount || 0,
-        createdAt: o.created_at, confirmedAt: o.confirmed_at, servedAt: o.served_at, notes: o.notes,
-        items: itemsByOrder.get(o.id) || [],
-      })));
+      setOrders(orderRows.map((o) => mapVipOrder(o, itemsByOrder)));
     } catch (error) {
       console.error('Error fetching organizer VIP data:', error);
     } finally {

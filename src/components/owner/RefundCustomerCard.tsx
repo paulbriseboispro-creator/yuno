@@ -9,7 +9,8 @@ export interface CustomerGroup {
   email: string;
   name: string;
   items: RefundableItem[];
-  totalClubReceived: number;
+  /** Reste à rendre sur toutes ses ventes. */
+  totalRefundable: number;
 }
 
 interface RefundCustomerCardProps {
@@ -61,7 +62,7 @@ export function RefundCustomerCard({ group, selectedIds, onToggleItem, onToggleA
               <p className="text-xs text-muted-foreground mt-0.5">{summary.join(' · ')}</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-sm font-bold">{group.totalClubReceived.toFixed(2)} €</p>
+              <p className="text-sm font-bold">{group.totalRefundable.toFixed(2)} €</p>
               <p className="text-[10px] text-muted-foreground">{group.items.length} {t('refund.items')}</p>
             </div>
             <AccordionTrigger className="p-0 hover:no-underline [&>svg]:hidden">

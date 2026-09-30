@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { RefundReasonDialog } from '@/components/owner/RefundReasonDialog';
 import type { RefundableItem } from '@/components/owner/RefundItemCard';
 import { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder } from '@/hooks/useOwnerVipData';
 import { translate } from '@/i18n/orgTranslate';
+import { useCanRefund } from '@/hooks/useCanRefund';
 
 interface OwnerTableDetailSheetProps {
   reservation: OwnerVipReservation | null;
@@ -50,6 +51,25 @@ export function OwnerTableDetailSheet({
 }: OwnerTableDetailSheetProps) {
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  // Même droit que la page Remboursements : un membre d'équipe ou un manager
+  // sans ce droit ne voit pas de bouton que le serveur lui refuserait.
+  const canRefund = useCanRefund();
+  // …et seulement si la table a été encaissée chez l'appelant : une table de
+  // collab encaissée par le partenaire se rembourse depuis SON compte Stripe.
+  const [collectorAllows, setCollectorAllows] = useState(false);
+  const reservationId = reservation?.id;
+  useEffect(() => {
+    setCollectorAllows(false);
+    if (!open || !reservationId || !canRefund) return;
+    let alive = true;
+    supabase.functions.invoke('owner-refund', {
+      body: { action: 'rights', items: [{ type: 'table_reservation', id: reservationId }] },
+    }).then(({ data }) => {
+      const right = (data as { rights?: Record<string, { allowed: boolean }> } | null)?.rights?.[reservationId];
+      if (alive) setCollectorAllows(!!right?.allowed);
+    }, () => undefined);
+    return () => { alive = false; };
+  }, [open, reservationId, canRefund]);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [editingMin, setEditingMin] = useState(false);
@@ -65,8 +85,8 @@ export function OwnerTableDetailSheet({
   const status = statusConfig[reservation.vipStatus] || statusConfig.waiting;
 
   // The customer paid the deposit online (+ Yuno's management fee, which is not
-  // refundable). The club can refund up to the deposit. owner-refund clamps again
-  // server-side and processes the Stripe reverse-transfer.
+  // refundable). The club can refund what is left of the deposit — the same cap
+  // owner-refund applies server-side (`refundCapCents`).
   const refundItem: RefundableItem = {
     id: reservation.id,
     type: 'table_reservation',
@@ -76,9 +96,12 @@ export function OwnerTableDetailSheet({
     serviceFee: 0,
     stripeFee: 0,
     clubReceived: reservation.deposit || 0,
+    alreadyRefunded: reservation.refundedAmount,
+    refundable: reservation.refundRemaining,
     createdAt: reservation.createdAt,
-    hasPaymentIntent: true,
+    hasPaymentIntent: reservation.hasOnlinePayment,
   };
+  const showRefund = canRefund && collectorAllows && reservation.hasOnlinePayment && reservation.refundRemaining > 0;
 
   const handleRefund = async (reason: string, amounts: Record<string, number>) => {
     setRefundLoading(true);
@@ -305,14 +328,16 @@ export function OwnerTableDetailSheet({
             <Edit className="w-4 h-4" />
             {t('ownerTable.modifyPlacement')}
           </Button>
-          <Button
-            className="flex-1 h-12 font-semibold gap-2 text-destructive hover:text-destructive"
-            variant="outline"
-            onClick={() => setRefundOpen(true)}
-          >
-            <RotateCcw className="w-4 h-4" />
-            {t('ownerTable.refund')}
-          </Button>
+          {showRefund && (
+            <Button
+              className="flex-1 h-12 font-semibold gap-2 text-destructive hover:text-destructive"
+              variant="outline"
+              onClick={() => setRefundOpen(true)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              {t('ownerTable.refund')}
+            </Button>
+          )}
         </div>
       </SheetContent>
 
