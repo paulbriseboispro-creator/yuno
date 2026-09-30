@@ -9,6 +9,21 @@ const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
 const isAllowedOrigin = (o: string) =>
   o === "https://yuno.club" || o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
+/** Corps de la requête, tel que le front l'envoie (rien n'est garanti : la RPC revérifie tout). */
+export interface CoorgInviteBody {
+  kind?: string;
+  event_id?: string | null;
+  email?: string | null;
+  name?: string | null;
+  access?: string;
+  share_crm?: boolean;
+  message?: string | null;
+  lang?: string;
+  origin?: string;
+  principal?: boolean;
+  terms?: unknown;
+}
+
 const json = (body: unknown, status: number, headers: Record<string, string>) =>
   new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
 
@@ -25,7 +40,7 @@ const json = (body: unknown, status: number, headers: Record<string, string>) =>
  *          principal?, terms? } — `principal` = l'organisation invitée à ORGANISER la soirée
  *          d'un club (rôle appliqué à l'acceptation, `_collab_promote_principal`).
  */
-export async function handleCoorgInvite(req: Request, b: any, corsHeaders: Record<string, string>): Promise<Response> {
+export async function handleCoorgInvite(req: Request, b: CoorgInviteBody, corsHeaders: Record<string, string>): Promise<Response> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   try {
     const authHeader = req.headers.get("Authorization");
@@ -38,7 +53,7 @@ export async function handleCoorgInvite(req: Request, b: any, corsHeaders: Recor
       auth: { persistSession: false },
     });
 
-    const lang = (["fr", "en", "es"].includes(b?.lang) ? b.lang : "fr") as "fr" | "en" | "es";
+    const lang: "fr" | "en" | "es" = b?.lang === "en" || b?.lang === "es" ? b.lang : "fr";
     const { data: inv, error } = await userClient.rpc("create_cohost_email_invite", {
       p_event_id: b?.event_id ?? null,
       p_email: b?.email ?? null,
@@ -95,7 +110,7 @@ export async function handleCoorgInvite(req: Request, b: any, corsHeaders: Recor
     }
 
     return json({ success: true, invitation_id: inv.id, email_sent: emailSent }, 200, corsHeaders);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("coorg invite error:", err);
     return json({ error: "error" }, 500, corsHeaders);
   }

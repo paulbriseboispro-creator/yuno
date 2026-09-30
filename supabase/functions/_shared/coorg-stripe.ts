@@ -8,8 +8,7 @@
 // décompte de co-organisation règle la part du partenaire par virement. Une
 // vente n'est JAMAIS bloquée par ce module.
 
-// deno-lint-ignore no-explicit-any
-type AdminClient = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: any; error: any }> };
+import type { RpcClient } from "./rpc-client.ts";
 
 export interface CoorgStripeSplit {
   partnerOrganizerId: string;
@@ -18,19 +17,21 @@ export interface CoorgStripeSplit {
 }
 
 export async function loadCoorgStripeSplit(
-  admin: AdminClient,
+  admin: RpcClient,
   event: { id: string; venue_id: string | null; partner_venue_id: string | null; organizer_user_id: string | null },
 ): Promise<CoorgStripeSplit | null> {
   // Une soirée avec club passe par le contrat collab (son propre « Répartir via Stripe ? »).
   if (event.venue_id || event.partner_venue_id || !event.organizer_user_id) return null;
   try {
     const { data, error } = await admin.rpc("coorg_stripe_split_config", { p_event_id: event.id });
-    if (error || !data || data.partner_ready !== true || !data.partner_account_id) return null;
-    const pct = Number(data.partner_pct);
+    if (error || !data || typeof data !== "object") return null;
+    const cfg = data as Record<string, unknown>;
+    if (cfg.partner_ready !== true || !cfg.partner_account_id) return null;
+    const pct = Number(cfg.partner_pct);
     if (!(pct > 0 && pct < 100)) return null;
     return {
-      partnerOrganizerId: String(data.partner_organizer_id),
-      partnerAccountId: String(data.partner_account_id),
+      partnerOrganizerId: String(cfg.partner_organizer_id),
+      partnerAccountId: String(cfg.partner_account_id),
       partnerPct: pct,
     };
   } catch {

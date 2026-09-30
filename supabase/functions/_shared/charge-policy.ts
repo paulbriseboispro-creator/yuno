@@ -20,6 +20,7 @@
 // Yuno suit la part de l'autre), ou « réglée entre vous ».
 
 import type { SplitResult } from "./payment-split.ts";
+import type { RpcClient } from "./rpc-client.ts";
 
 export function indirectChargesEnabled(): boolean {
   return Deno.env.get("STRIPE_INDIRECT_CHARGES_ENABLED") === "true";
@@ -30,9 +31,6 @@ export function isBlockedIndirectCharge(split: Pick<SplitResult, "splitMode">): 
   return split.splitMode === "separate" && !indirectChargesEnabled();
 }
 
-// deno-lint-ignore no-explicit-any
-type AdminClient = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: any; error: any }> };
-
 /**
  * Une vente vient d'être refusée parce que le contrat de la soirée demande un
  * partage Stripe. L'acheteur voit un message neutre ; le super admin, lui, doit
@@ -40,7 +38,7 @@ type AdminClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise
  * Ne lève jamais : l'alerte ne doit pas masquer le refus.
  */
 export async function alertIndirectChargeRefused(
-  admin: AdminClient,
+  admin: RpcClient,
   ctx: { eventId: string; itemType: "ticket" | "table" | "drink" },
 ): Promise<void> {
   try {
