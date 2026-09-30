@@ -87,8 +87,8 @@ export function PreEventQuickStats({ stats }: PreEventQuickStatsProps) {
             >
               <Icon className="h-3.5 w-3.5 mb-1" style={{ color: T3 }} />
               <span className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{stat.value}</span>
-              {(stat as any).subValue && (
-                <span className="tabular-nums" style={{ color: T3, fontSize: 10 }}>{(stat as any).subValue}</span>
+              {stat.subValue && (
+                <span className="tabular-nums" style={{ color: T3, fontSize: 10 }}>{stat.subValue}</span>
               )}
               <span style={{ color: T3, fontSize: 9.5, textAlign: 'center', marginTop: 2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>
                 {stat.label}

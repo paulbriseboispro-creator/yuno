@@ -1,4 +1,4 @@
-import { lazy, type ComponentType } from 'react';
+import { lazy } from 'react';
 import { purgeServiceWorkersAndReload } from './swRecovery';
 
 const RELOAD_KEY = 'yuno-chunk-reload-attempted';
@@ -71,7 +71,10 @@ async function repairChunk(url: string): Promise<void> {
  * 3. Deuxième échec (après rechargement) : on relance l'erreur pour que
  *    l'ErrorBoundary le plus proche affiche un repli au lieu de boucler.
  */
-export function lazyWithRetry<T extends ComponentType<any>>(
+/** La contrainte exacte de `React.lazy` (un composant aux props quelconques). */
+type LazyComponent = Awaited<ReturnType<Parameters<typeof lazy>[0]>>['default'];
+
+export function lazyWithRetry<T extends LazyComponent>(
   importFn: () => Promise<{ default: T }>
 ): ReturnType<typeof lazy<T>> {
   return lazy(async () => {

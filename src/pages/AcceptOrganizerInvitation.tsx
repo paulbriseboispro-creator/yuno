@@ -54,7 +54,7 @@ export default function AcceptOrganizerInvitation() {
       return;
     }
     (async () => {
-      const { data, error } = await supabase.rpc('get_organizer_claim_invitation' as any, { p_token: token });
+      const { data, error } = await supabase.rpc('get_organizer_claim_invitation', { p_token: token });
       if (!error && data) {
         setInvitation(data as unknown as InvitationView);
       }
@@ -75,7 +75,7 @@ export default function AcceptOrganizerInvitation() {
     if (!invitation || !token) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.rpc('accept_organizer_claim_invitation' as any, { p_token: token });
+      const { error } = await supabase.rpc('accept_organizer_claim_invitation', { p_token: token });
       if (error) {
         const msg = error.message || '';
         if (msg.includes('email_mismatch')) {
@@ -99,8 +99,8 @@ export default function AcceptOrganizerInvitation() {
       // le contrat pré-signé par le club attend la signature dans le hub.
       invalidateOrgMemberships();
       window.location.assign(invitation.event_id ? '/organizer-app/collaborations' : '/organizer-app/dashboard');
-    } catch (err: any) {
-      toast.error(err.message || t('Erreur', 'Error', 'Error'));
+    } catch (err) {
+      toast.error((err as Error).message || t('Erreur', 'Error', 'Error'));
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +114,7 @@ export default function AcceptOrganizerInvitation() {
       navigate(authUrl(false));
       return;
     }
-    const { error } = await supabase.rpc('decline_organizer_claim_invitation' as any, { p_token: token });
+    const { error } = await supabase.rpc('decline_organizer_claim_invitation', { p_token: token });
     if (error) {
       toast.error(error.message || t('Erreur', 'Error', 'Error'));
       return;

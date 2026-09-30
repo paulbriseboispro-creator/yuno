@@ -65,7 +65,7 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
         else if (organizerUserId) query = query.eq('organizer_user_id', organizerUserId);
 
         const { data } = await query.limit(200);
-        if (!cancelled) setPings((data as any[]) || []);
+        if (!cancelled) setPings((data as unknown as LivePing[]) || []);
       } catch (err) {
         console.error('[LiveVisitorsPanel]', err);
       } finally {

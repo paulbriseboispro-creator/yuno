@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+
+type ScarcityRow = Tables<'event_scarcity_settings'>;
 
 export interface ScarcitySettings {
   id?: string;
@@ -30,7 +33,7 @@ export function useScarcitySettings(eventId: string | null) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const mapData = (data: any): ScarcitySettings => ({
+  const mapData = (data: ScarcityRow): ScarcitySettings => ({
     id: data.id,
     event_id: data.event_id,
     low_stock_enabled: data.low_stock_enabled ?? true,
@@ -40,7 +43,7 @@ export function useScarcitySettings(eventId: string | null) {
     show_remaining_count: data.show_remaining_count ?? false,
     display_cap_enabled: data.display_cap_enabled ?? false,
     display_cap_value: data.display_cap_value,
-    display_caps_per_round: data.display_caps_per_round ?? null,
+    display_caps_per_round: (data.display_caps_per_round as Record<string, number> | null) ?? null,
   });
 
   const fetchSettings = useCallback(async () => {
@@ -51,7 +54,7 @@ export function useScarcitySettings(eventId: string | null) {
         .from('event_scarcity_settings')
         .select('*')
         .eq('event_id', eventId)
-        .maybeSingle() as any);
+        .maybeSingle());
 
       if (error) throw error;
       if (data) {
@@ -74,7 +77,7 @@ export function useScarcitySettings(eventId: string | null) {
     if (!eventId) return;
     setSaving(true);
     try {
-      const payload: any = {
+      const payload: TablesInsert<'event_scarcity_settings'> = {
         event_id: eventId,
         low_stock_enabled: updated.low_stock_enabled ?? settings?.low_stock_enabled ?? true,
         low_stock_percent: updated.low_stock_percent ?? settings?.low_stock_percent ?? 80,
@@ -91,7 +94,7 @@ export function useScarcitySettings(eventId: string | null) {
         .from('event_scarcity_settings')
         .upsert(payload, { onConflict: 'event_id' })
         .select()
-        .single() as any);
+        .single());
 
       if (error) throw error;
       setSettings(mapData(data));
@@ -119,7 +122,7 @@ export function useEventScarcity(eventId: string | undefined | null) {
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const d = data as any;
+          const d = data;
           setSettings({
             id: d.id,
             event_id: d.event_id,
@@ -130,7 +133,7 @@ export function useEventScarcity(eventId: string | undefined | null) {
             show_remaining_count: d.show_remaining_count ?? false,
             display_cap_enabled: d.display_cap_enabled ?? false,
             display_cap_value: d.display_cap_value,
-            display_caps_per_round: d.display_caps_per_round ?? null,
+            display_caps_per_round: (d.display_caps_per_round as Record<string, number> | null) ?? null,
           });
         }
       });

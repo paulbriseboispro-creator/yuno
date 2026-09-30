@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { Globe, Music2 } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { Twitter } from '@/components/icons/Twitter';
@@ -11,7 +12,7 @@ interface Props {
   onChange: (v: SocialLinks) => void;
 }
 
-const FIELDS: { key: keyof SocialLinks; label: string; placeholder: string; Icon: any }[] = [
+const FIELDS: { key: keyof SocialLinks; label: string; placeholder: string; Icon: ComponentType<{ className?: string }> }[] = [
   { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/votreclub', Icon: Instagram },
   { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@votreclub', Icon: Music2 },
   { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/votreclub', Icon: Facebook },

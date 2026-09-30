@@ -7,6 +7,7 @@ import { refreshTasteEmbeddings } from "../_shared/taste-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
+import { dispatchNightRecaps } from "../_shared/night-recap.ts";
 import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
@@ -250,6 +251,15 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
+    // Bilan du lendemain (cloche de la Console + push pro gaté par le
+    // registre) : auto-gate 11 h – 20 h Paris + dédup par soirée.
+    let nightRecap = { processed: 0, sent: 0, inApp: 0 };
+    try {
+      nightRecap = await dispatchNightRecaps(admin);
+    } catch (e) {
+      console.error('[NIGHT-RECAP] dispatch failed:', String(e));
+    }
+
     // Meta Conversions API : filet sous le fire-and-forget des fonctions de
     // vente (retries, worker tué) + entretien (codes de test périmés, purge 90 j).
     let metaCapi: unknown = null;
@@ -276,7 +286,7 @@ Deno.serve(async (req) => {
       console.error('[META-CAPI] drain failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, nightRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

@@ -45,9 +45,9 @@ export default function OrgQRScanner({ onScan }: Props) {
     if (typeof result === 'string') {
       code = result;
     } else if (Array.isArray(result) && result[0]) {
-      code = (result[0] as any).rawValue ?? String(result[0]);
-    } else if (typeof (result as any)?.rawValue === 'string') {
-      code = (result as any).rawValue;
+      code = (result[0] as { rawValue?: string }).rawValue ?? String(result[0]);
+    } else if (typeof (result as { rawValue?: unknown } | null)?.rawValue === 'string') {
+      code = (result as unknown as { rawValue: string }).rawValue;
     }
 
     code = code?.trim();

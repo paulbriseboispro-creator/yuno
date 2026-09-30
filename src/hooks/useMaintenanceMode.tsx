@@ -84,9 +84,9 @@ export function useMaintenanceMode() {
       }));
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error toggling maintenance mode:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: (error as { message?: string }).message };
     }
   };
 
@@ -106,9 +106,9 @@ export function useMaintenanceMode() {
       }));
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating maintenance password:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: (error as { message?: string }).message };
     }
   };
 

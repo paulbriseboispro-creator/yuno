@@ -6,6 +6,7 @@
 // fait que l'appeler depuis le cron et journaliser ; l'envoi lui-même passe
 // par la campagne enfant que le balayage sweepSendingCampaigns relance juste
 // après, comme n'importe quel envoi en vol.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 export interface FollowupRun {
   parents: number;
@@ -16,8 +17,7 @@ export interface FollowupRun {
   error?: string;
 }
 
-// deno-lint-ignore no-explicit-any
-export async function dispatchCampaignFollowups(admin: any): Promise<FollowupRun> {
+export async function dispatchCampaignFollowups(admin: SupabaseClient): Promise<FollowupRun> {
   const { data, error } = await admin.rpc('collect_campaign_followups');
   if (error) {
     console.error('collect_campaign_followups error:', error.message);

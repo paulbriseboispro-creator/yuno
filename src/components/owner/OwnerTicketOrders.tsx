@@ -142,7 +142,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       else if (venueId) query = query.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`, { referencedTable: 'events' });
       const { data, error } = await query;
       if (error) throw error;
-      const mapped: TicketOrder[] = (data || []).map((t: any) => ({
+      const mapped: TicketOrder[] = (data || []).map((t) => ({
         id: t.id,
         eventId: t.event_id,
         userEmail: t.user_email,
@@ -189,8 +189,11 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
     );
 
   // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
-  const totalRevenue = filteredTickets.reduce((s, t) => s + (t.totalPrice - t.serviceFee - (t.insuranceFee ?? 0)), 0);
-  const totalQty = filteredTickets.reduce((s, t) => s + t.quantity, 0);
+  // « Vendus » et « CA » ne comptent que les billets VENDUS : la liste montre
+  // aussi les annulés et remboursés (filtre « Tous »), les totaux jamais.
+  const soldTickets = filteredTickets.filter((t) => t.status === 'paid');
+  const totalRevenue = soldTickets.reduce((s, t) => s + (t.totalPrice - t.serviceFee - (t.insuranceFee ?? 0)), 0);
+  const totalQty = soldTickets.reduce((s, t) => s + t.quantity, 0);
 
   // Une liste de porte se tire pour UNE soirée : les soirées présentes dans le
   // jeu chargé deviennent le sélecteur du dialogue d'export.
@@ -207,7 +210,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: t('owner.orders'), value: filteredTickets.length.toString() },
+            { label: t('owner.orders'), value: soldTickets.length.toString() },
             { label: t('owner.ord.ticketsSold'), value: totalQty.toString() },
             { label: t('owner.totalRevenue'), value: `€${totalRevenue.toFixed(0)}` },
           ].map(({ label, value }) => (

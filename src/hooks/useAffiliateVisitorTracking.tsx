@@ -112,7 +112,7 @@ function landingAttribution(): LandingAttribution {
 }
 
 function getConnectionType(): string | null {
-  const conn = (navigator as any).connection;
+  const conn = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
   return conn?.effectiveType || null;
 }
 

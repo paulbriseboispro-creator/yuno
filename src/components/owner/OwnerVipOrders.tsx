@@ -141,7 +141,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       else if (venueId) query = query.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`, { referencedTable: 'events' });
       const { data, error } = await query;
       if (error) throw error;
-      const mapped: VipOrder[] = (data || []).map((r: any) => ({
+      const mapped: VipOrder[] = (data || []).map((r) => ({
         id: r.id,
         userEmail: r.user_email,
         fullName: r.full_name,
@@ -186,11 +186,14 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
 
   // CA club = montant payé par le client − frais Yuno (service + gestion). Les frais
   // Yuno transitent par Stripe mais ne sont jamais du revenu club — ne pas afficher le TTC.
-  const totalRevenue = filteredReservations.reduce(
+  // Totaux sur les réservations VENDUES seulement : la liste montre aussi les
+  // annulées et remboursées (filtre « Tous »), les totaux jamais.
+  const soldReservations = filteredReservations.filter((r) => r.status === 'paid' || r.status === 'confirmed');
+  const totalRevenue = soldReservations.reduce(
     (s, r) => s + tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee, fee_absorbed: r.feeAbsorbed }).gross,
     0,
   );
-  const totalGuests = filteredReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
+  const totalGuests = soldReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
 
   // Soirées présentes dans le jeu chargé — la page club est multi-soirées, mais
   // une feuille de service n'a de sens que pour UNE nuit.
@@ -209,7 +212,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: t('owner.reservations'), value: filteredReservations.length.toString() },
+            { label: t('owner.reservations'), value: soldReservations.length.toString() },
             { label: t('owner.ord.totalGuests'), value: totalGuests.toString() },
             { label: t('owner.ord.vipRevenue'), value: `€${totalRevenue.toFixed(0)}` },
           ].map(({ label, value }) => (

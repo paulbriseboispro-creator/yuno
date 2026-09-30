@@ -41,11 +41,33 @@ interface Conversion {
   basePrice?: number;
 }
 
+/** Shape of a reward's `reward_config` in the promoter commission template rules. */
+interface RewardConfig {
+  value?: number | string;
+  drink_name?: string;
+  discount_type?: string;
+  discount_value?: number | string;
+  [key: string]: unknown;
+}
+
+/** Commission template `rules` jsonb, as read here. */
+interface RewardRules {
+  tiers?: {
+    min: number;
+    max?: number | null;
+    reward_type?: string;
+    reward_config?: RewardConfig;
+    ticketValue?: number | string;
+  }[];
+  reward_type?: string;
+  reward_config?: RewardConfig;
+}
+
 interface RewardTier {
   min: number;
   max: number | null;
   reward_type: string;
-  reward_config: Record<string, any>;
+  reward_config: RewardConfig;
   ticketValue?: number;
 }
 
@@ -55,7 +77,7 @@ interface RewardInfo {
   currentTierIndex?: number;
   totalConversions: number;
   rewardType?: string;
-  rewardConfig?: Record<string, any>;
+  rewardConfig?: RewardConfig;
 }
 
 /** Format price: show decimals only when needed */
@@ -64,7 +86,7 @@ const fmtPrice = (n: number): string => {
   return `${n.toFixed(2)}€`;
 };
 
-function getRewardLabel(rewardType: string, rewardConfig: Record<string, any>, t: (k: string) => string): string {
+function getRewardLabel(rewardType: string, rewardConfig: RewardConfig, t: (k: string) => string): string {
   if (rewardType === 'money') {
     return `${rewardConfig?.value || 0}€ ${t('promoter.analysis.perSale')}`;
   }
@@ -185,11 +207,11 @@ export default function PromoterEventAnalysis() {
       setClicks(clicksRes.count || 0);
 
       // Parse reward info from template
-      const rules = templateRes.data?.rules as Record<string, any> | null;
+      const rules = templateRes.data?.rules as unknown as RewardRules | null;
       const totalAllConversions = allConvsCountRes.count || 0;
       
       if (rules) {
-        const tiers = rules.tiers as any[] | undefined;
+        const tiers = rules.tiers;
         if (tiers && tiers.length > 0) {
           const parsedTiers: RewardTier[] = tiers.map(t => ({
             min: t.min,

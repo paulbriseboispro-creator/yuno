@@ -13,6 +13,19 @@ const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
 const isAllowedOrigin = (o: string) =>
   o === "https://yuno.club" || o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
+/** Palier d'un barème sur le CA (`remuneration.tiers`). */
+interface SplitTier { from?: number | string; pct?: number | string }
+/** Part d'un pilier (billets, tables, boissons). */
+interface PillarSplit { organizer_pct?: number | string | null }
+/** Conditions financières proposées au club (`revenue_split_rules`), telles que reçues. */
+interface CollabSplitRules {
+  remuneration?: { mode?: string; tiers?: SplitTier[] } | null;
+  tickets?: PillarSplit | null;
+  tables?: PillarSplit | null;
+  drinks?: PillarSplit | null;
+  [key: string]: unknown;
+}
+
 interface Payload {
   club_name: string;
   club_email: string;
@@ -24,7 +37,7 @@ interface Payload {
   /** Organisation au nom de laquelle on invite (fondateur ou admin d'équipe). */
   organizer_user_id?: string | null;
   invitation_message?: string;
-  default_split_rules?: any;
+  default_split_rules?: CollabSplitRules | null;
   origin?: string;
   /** Langue de l'email reçu par le club (fr par défaut). */
   lang?: string;
@@ -278,9 +291,9 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, invitation_id: invitation.id, token: invitation.token }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("invite-club-collab error:", error);
-    return new Response(JSON.stringify({ error: error.message ?? "Unknown error" }), {
+    return new Response(JSON.stringify({ error: (error as { message?: string }).message ?? "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

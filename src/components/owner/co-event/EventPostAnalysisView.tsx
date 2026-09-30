@@ -32,7 +32,9 @@ interface Props {
    * le bilan détaillé (performance, public, conseils, IA, notes) replié
    * dessous. Sans ça le verdict occupait 3 000 px avant la première question.
    */
-  layout?: 'full' | 'summary';
+  /** `report` = déjà replié par le Rapport de soirée : pas de second repli,
+   *  et pas de « Statistiques détaillées », que le rapport affiche déjà. */
+  layout?: 'full' | 'summary' | 'report';
 }
 
 type SectionId = 'verdict' | 'performance' | 'audience' | 'advice';
@@ -104,6 +106,33 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId, layou
   }
 
   if (!postEventData) return null;
+
+  if (layout === 'report') {
+    return (
+      <div className="space-y-6 pt-1">
+        <PostEventOverview data={postEventData} />
+        <div className="space-y-4">
+          <ChapterHeader icon={Lightbulb} title={t('postEvent.secAdvice')} sub={t('postEvent.secAdviceSub')} />
+          <PostEventWhatWorked items={postEventData.whatWorked} />
+          <PostEventSuggestions suggestions={postEventData.suggestions} />
+        </div>
+        <div className="space-y-4">
+          <ChapterHeader icon={BarChart3} title={t('postEvent.secPerformance')} sub={t('postEvent.secPerformanceSub')} />
+          <PostEventTimeline timeline={postEventData.timeline} insights={postEventData.timelineInsights} />
+        </div>
+        <div className="space-y-4">
+          <ChapterHeader icon={Users} title={t('postEvent.secAudience')} sub={t('postEvent.secAudienceSub')} />
+          <PostEventCustomerInsights insights={postEventData.customerInsights} />
+        </div>
+        {venueId && !organizerUserId && !postEventData.isAggregate && postEventData.eventId && (
+          <PostEventAIInsights eventId={postEventData.eventId} stats={postEventData.rawStats} />
+        )}
+        {!postEventData.isAggregate && (
+          <PostEventNotes notes={postEventData.notes} onSave={saveNotes} />
+        )}
+      </div>
+    );
+  }
 
   if (layout === 'summary') {
     return (

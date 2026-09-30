@@ -13,6 +13,7 @@
 // Il relance aussi les campagnes stoppées par le plafond journalier : le
 // quota se remet à zéro à minuit, la campagne reprend d'elle-même le
 // lendemain. C'est exactement le comportement voulu pour un warm-up.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const STALE_CLAIM_MINUTES = 10;
 const MAX_CAMPAIGNS_PER_RUN = 10;
@@ -23,8 +24,7 @@ interface SweepResult {
   errors: string[];
 }
 
-// deno-lint-ignore no-explicit-any
-export async function sweepSendingCampaigns(admin: any, supabaseUrl: string, serviceKey: string): Promise<SweepResult> {
+export async function sweepSendingCampaigns(admin: SupabaseClient, supabaseUrl: string, serviceKey: string): Promise<SweepResult> {
   const out: SweepResult = { requeued: 0, resumed: [], errors: [] };
 
   // 1. Réservations mortes → retour en file.

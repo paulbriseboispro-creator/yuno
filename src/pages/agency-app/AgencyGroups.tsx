@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useAgency } from '@/hooks/useAgency';
 import { useAgencyData, promoterName, AgencyPromoterGroup } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -42,7 +43,7 @@ function GroupOverrideEditor({ group, members, tt, onSaved }: {
   tt: (fr: string, en: string, es?: string) => string;
   onSaved: () => void;
 }) {
-  const db = supabase as any;
+  const db = supabase;
   const [leader, setLeader] = useState(group.leader_promoter_id ?? '');
   const [type, setType] = useState<'percentage' | 'fixed'>(group.override_type ?? 'percentage');
   const [value, setValue] = useState(group.override_value ? String(group.override_value) : '');
@@ -55,7 +56,7 @@ function GroupOverrideEditor({ group, members, tt, onSaved }: {
       p_leader_promoter_id: clear ? null : (leader || null),
       p_override_type: clear ? null : type,
       p_override_value: clear ? 0 : (value.trim() === '' ? 0 : parseFloat(value) || 0),
-    });
+    } as unknown as Database['public']['Functions']['set_agency_group_override']['Args']);
     setBusy(false);
     if (error) { errorToast(error); return; }
     toast.success(clear ? tt('Override retiré', 'Override removed') : tt('Override enregistré', 'Override saved'));
@@ -112,7 +113,7 @@ export default function AgencyGroups() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const db = supabase as any;
+  const db = supabase;
 
   const membersByGroup = useMemo(() => {
     const map = new Map<string, typeof promoters>();

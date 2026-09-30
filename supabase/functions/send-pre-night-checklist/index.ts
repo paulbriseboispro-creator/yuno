@@ -1,15 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildPreNightChecklist, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[PRE-NIGHT-CHECKLIST] ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
 };
 
@@ -24,7 +25,7 @@ function emailToUuid(email: string): string {
   return `00000000-0000-4000-8000-${hex.padStart(12, '0')}`;
 }
 
-async function wasAlreadySent(supabase: any, userId: string, notifType: string, key: string): Promise<boolean> {
+async function wasAlreadySent(supabase: SupabaseClient, userId: string, notifType: string, key: string): Promise<boolean> {
   const { data } = await supabase
     .from('notification_log')
     .select('id')
@@ -35,7 +36,7 @@ async function wasAlreadySent(supabase: any, userId: string, notifType: string, 
   return (data && data.length > 0);
 }
 
-async function markSent(supabase: any, userId: string, notifType: string, key: string) {
+async function markSent(supabase: SupabaseClient, userId: string, notifType: string, key: string) {
   await supabase
     .from('notification_log')
     .insert({ user_id: userId, notification_type: notifType, title: key });
@@ -71,12 +72,21 @@ serve(async (req) => {
     const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
     const fourHoursFromNow = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
 
-    const { data: upcomingEvents } = await supabaseAdmin
+    const demoIds = await loadDemoEventIds(supabaseAdmin);
+    if (!demoIds) {
+      return new Response(
+        JSON.stringify({ success: false, sent: 0, message: "demo scope unavailable" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: allUpcoming } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, poster_url, venues(name, address)')
+      .select('id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address)')
       .eq('is_active', true)
       .gte('start_at', twoHoursFromNow)
       .lte('start_at', fourHoursFromNow);
+    // Jamais la démo (comptes @womber.fr, invités semés @demo.womber.fr).
+    const upcomingEvents = (allUpcoming ?? []).filter((e) => !demoIds.has(e.id));
 
     if (!upcomingEvents || upcomingEvents.length === 0) {
       return new Response(
@@ -88,8 +98,8 @@ serve(async (req) => {
     let sentCount = 0;
 
     for (const event of upcomingEvents) {
-      const venueName = (event.venues as any)?.name || '';
-      const venueAddress = (event.venues as any)?.address || '';
+      const venueName = (event.venues as unknown as { name?: string } | null)?.name || '';
+      const venueAddress = (event.venues as unknown as { address?: string } | null)?.address || '';
       const eventImageUrl = event.poster_url || undefined;
 
       const { data: tickets } = await supabaseAdmin
@@ -115,6 +125,7 @@ serve(async (req) => {
       logStep("Processing event", { eventId: event.id, recipients: recipientMap.size });
 
       for (const [email, { userId, qrCode }] of recipientMap) {
+        if (isDemoEmail(email)) continue;
         try {
           const recipientId = userId || emailToUuid(email);
           const alreadySent = await wasAlreadySent(supabaseAdmin, recipientId, 'checklist', event.id);

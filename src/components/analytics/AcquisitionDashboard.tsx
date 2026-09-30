@@ -47,6 +47,12 @@ interface Props {
   to?: string;
   deviceFilter?: string;
   sourceFilter?: string;
+  /**
+   * `detail` : rangé sous Trafic › Ma page (plan de simplification) — la page
+   * montre déjà les sources en barres triées, donc ni donut ni seconde liste
+   * de sources ici ; restent campagnes, sites référents et pays.
+   */
+  variant?: 'full' | 'detail';
 }
 
 interface SourceBucket {
@@ -78,7 +84,7 @@ const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; color: st
   other:       { label: 'Other',       icon: Globe,         color: '#6b7280' },
 };
 
-export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilter }: Props) {
+export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilter, variant = 'full' }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [sources, setSources] = useState<SourceBucket[]>([]);
@@ -153,7 +159,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
   return (
     <div className="space-y-3">
       {/* Acquisition sources */}
-      <div style={{ ...crd, padding: '20px 22px' }}>
+      {variant === 'full' && <div style={{ ...crd, padding: '20px 22px' }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 flex items-center justify-center rounded-xl flex-none"
@@ -223,7 +229,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* UTM table + Top referrers + Top countries */}
       <div className="grid lg:grid-cols-3 gap-3">
@@ -231,7 +237,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
         <div className="lg:col-span-2" style={{ ...crd, padding: '18px 20px' }}>
           <h3 className="text-[13.5px] font-semibold mb-3 flex items-center gap-2" style={{ color: T1 }}>
             <ArrowUpRight className="h-4 w-4 flex-none" style={{ color: RED }} />
-            {tt('Campagnes UTM', 'UTM campaigns')}
+            {tt('Campagnes (liens UTM)', 'Campaigns (UTM links)', 'Campañas (enlaces UTM)')}
           </h3>
           {utms.length === 0 ? (
             <EmptyState text={tt(
@@ -243,7 +249,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
               <table className="w-full text-xs">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${FAINT_BORDER}` }}>
-                    {['Source', 'Medium', 'Campaign', tt('Visites', 'Visits'), 'Conv.', 'CA'].map((h, i) => (
+                    {[tt('Source', 'Source', 'Fuente'), tt('Support', 'Medium', 'Soporte'), tt('Campagne', 'Campaign', 'Campaña'), tt('Visites', 'Visits', 'Visitas'), tt('Achats', 'Purchases', 'Compras'), tt('CA', 'Revenue', 'Facturación')].map((h, i) => (
                       <th key={i} className={`px-2 py-2 font-medium text-left${i >= 3 ? ' text-right' : ''}`}
                         style={{ color: T3 }}>
                         {h}
@@ -275,10 +281,10 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
         <div className="space-y-3">
           <div style={{ ...crd, padding: '18px 20px' }}>
             <h3 className="text-[13px] font-semibold mb-3" style={{ color: T1 }}>
-              {tt('Top referrers', 'Top referrers')}
+              {tt('Sites qui t\'envoient des visites', 'Sites sending you visits', 'Sitios que te envían visitas')}
             </h3>
             {topReferrers.length === 0 ? (
-              <p className="text-xs" style={{ color: T3 }}>{tt('Aucun referrer.', 'No referrer.')}</p>
+              <p className="text-xs" style={{ color: T3 }}>{tt('Aucun site pour l\'instant.', 'No site yet.', 'Ningún sitio por ahora.')}</p>
             ) : (
               <ul className="space-y-2">
                 {topReferrers.map((r) => (
@@ -293,7 +299,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
 
           <div style={{ ...crd, padding: '18px 20px' }}>
             <h3 className="text-[13px] font-semibold mb-3" style={{ color: T1 }}>
-              {tt('Pays', 'Countries')}
+              {tt('Pays', 'Countries', 'Países')}
             </h3>
             {topCountries.length === 0 ? (
               <p className="text-xs" style={{ color: T3 }}>{tt('En attente d\'enrichissement géo.', 'Awaiting geo enrichment.')}</p>

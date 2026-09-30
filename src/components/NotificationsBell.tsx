@@ -14,19 +14,51 @@ import { type AppNotif, type FeedConfig, getNotifDef, notifLink, PRIORITY_CONFIG
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 const PREVIEW_LIMIT = 6;
 
-function mapRow(n: any): AppNotif {
+/** Columns shared by the four notification feeds (staff / organizer / admin / affiliate). */
+interface NotifRow {
+  id: string;
+  title: string;
+  message: string;
+  notification_type: string;
+  priority?: string | null;
+  created_at: string;
+  read_at: string | null;
+  event_id?: string | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  metadata?: unknown;
+}
+
+/**
+ * The feed table is picked at runtime among four tables with the same shape;
+ * the generated client cannot type a filter column across that union, so the
+ * builder is narrowed to the few calls this bell makes.
+ */
+interface NotifQuery extends PromiseLike<{ data: NotifRow[] | null; count: number | null }> {
+  select(columns: string, options?: { count?: 'exact'; head?: boolean }): NotifQuery;
+  update(values: { read_at: string; read_by: string | undefined }): NotifQuery;
+  eq(column: string, value: string): NotifQuery;
+  is(column: string, value: null): NotifQuery;
+  gte(column: string, value: string): NotifQuery;
+  order(column: string, options: { ascending: boolean }): NotifQuery;
+  limit(count: number): NotifQuery;
+}
+
+const notifTable = (table: FeedConfig['table']) => supabase.from(table) as unknown as NotifQuery;
+
+function mapRow(n: NotifRow): AppNotif {
   return {
     id: n.id,
     title: n.title,
     message: n.message,
     notification_type: n.notification_type,
-    priority: n.priority ?? 'normal',
+    priority: (n.priority ?? 'normal') as AppNotif['priority'],
     created_at: n.created_at,
     read_at: n.read_at,
     event_id: n.event_id ?? null,
     reference_type: n.reference_type ?? null,
     reference_id: n.reference_id ?? null,
-    metadata: n.metadata ?? {},
+    metadata: (n.metadata ?? {}) as Record<string, unknown>,
   };
 }
 
@@ -57,7 +89,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     const fetchCount = async () => {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const { count } = await (supabase.from(table as any) as any)
+      const { count } = await notifTable(table)
         .select('id', { count: 'exact', head: true })
         .eq(filterColumn, filterValue)
         .is('read_at', null)
@@ -90,7 +122,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     try {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const { data } = await (supabase.from(table as any) as any)
+      const { data } = await notifTable(table)
         .select('*')
         .eq(filterColumn, filterValue)
         .gte('created_at', since.toISOString())
@@ -111,7 +143,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
   const markAllRead = useCallback(async () => {
     if (!table || !filterColumn || !filterValue || unread === 0) return;
     const { data: { user } } = await supabase.auth.getUser();
-    await (supabase.from(table as any) as any)
+    await notifTable(table)
       .update({ read_at: new Date().toISOString(), read_by: user?.id })
       .eq(filterColumn, filterValue)
       .is('read_at', null);
@@ -122,7 +154,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
   const markOneRead = useCallback(async (id: string) => {
     if (!table) return;
     const { data: { user } } = await supabase.auth.getUser();
-    await (supabase.from(table as any) as any)
+    await notifTable(table)
       .update({ read_at: new Date().toISOString(), read_by: user?.id })
       .eq('id', id);
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));

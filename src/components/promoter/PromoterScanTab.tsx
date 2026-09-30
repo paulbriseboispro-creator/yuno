@@ -9,6 +9,16 @@ import { ScanLine, CheckCircle2, XCircle, AlertTriangle, Camera, X } from 'lucid
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
+import type { Tables } from '@/integrations/supabase/types';
+
+/** A ticket reached through one of its named attendees' QR codes. */
+type AttendeeTicketHit = Pick<Tables<'tickets'>, 'id' | 'event_id' | 'entry_scanned' | 'status'> & {
+  attendee: Pick<Tables<'ticket_attendees'>, 'id' | 'ticket_id' | 'qr_code' | 'full_name' | 'entry_scanned'>;
+};
+
+type GuestListEntryHit = Pick<Tables<'guest_list_entries'>, 'id' | 'full_name' | 'status' | 'entry_scanned' | 'promoter_id'> & {
+  guest_list: { event_id: string } | null;
+};
 
 interface PromoterScanTabProps {
   promoterId: string;
@@ -86,7 +96,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
         .maybeSingle();
 
       // Also try ticket_attendees
-      let attendeeTicket: any = null;
+      let attendeeTicket: AttendeeTicketHit | null = null;
       if (!ticket) {
         const { data: att } = await supabase.from('ticket_attendees')
           .select('id, ticket_id, qr_code, full_name, entry_scanned')
@@ -105,7 +115,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
       }
 
       // Also try guest_list_entries by QR code (or human reservation code)
-      let guestListEntry: any = null;
+      let guestListEntry: GuestListEntryHit | null = null;
       if (!ticket && !attendeeTicket) {
         const { data: gle } = await supabase.from('guest_list_entries')
           .select('id, full_name, status, entry_scanned, promoter_id, guest_list:guest_lists!inner(event_id)')
@@ -118,7 +128,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
 
       // Handle guest list entry scan
       if (guestListEntry) {
-        if ((guestListEntry.guest_list as any)?.event_id !== eventId) {
+        if (guestListEntry.guest_list?.event_id !== eventId) {
           setLastResult({ status: 'invalid' });
           toast.error(t('promoterScan.invalid'));
           return;

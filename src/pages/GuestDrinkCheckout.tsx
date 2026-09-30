@@ -225,10 +225,10 @@ export default function GuestDrinkCheckout() {
       }
 
       throw new Error('No checkout URL returned');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Checkout error:', error);
       trackFailure(error);
-      toast({ title: t('cart.error'), description: error.message, variant: 'destructive' });
+      toast({ title: t('cart.error'), description: (error as { message?: string }).message, variant: 'destructive' });
     } finally {
       setIsProcessing(false);
     }

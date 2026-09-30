@@ -135,8 +135,9 @@ export default function AllEventsPage() {
   const dateChips = getDateChips(t);
   const typeChips = getTypeChips(t);
 
-  const passedFilters = (location.state as any)?.filters as ExploreFilters | undefined;
-  const passedCity = (location.state as any)?.city as string | undefined;
+  const navState = location.state as { filters?: ExploreFilters; city?: string } | null;
+  const passedFilters = navState?.filters as ExploreFilters | undefined;
+  const passedCity = navState?.city as string | undefined;
 
   const [rawGroups, setRawGroups] = useState<{ date: string; events: EventCardData[] }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,22 +217,22 @@ export default function AllEventsPage() {
       });
 
       const favCounts: Record<string, number> = {};
-      (favCountsRes.data || []).forEach((f: any) => {
+      (favCountsRes.data || []).forEach(f => {
         if (f.target_id) favCounts[f.target_id] = f.total_count;
       });
       const affiliateFavCounts: Record<string, number> = {};
-      (affiliateFavRes.data || []).forEach((f: any) => {
+      (affiliateFavRes.data || []).forEach(f => {
         if (f.target_id) affiliateFavCounts[f.target_id] = f.total_count;
       });
 
       const regularCards: EventCardData[] = (eventsRes.data || []).flatMap(e => {
         const isOrganizerLed = !!e.organizer_user_id;
-        const displayVenueId = e.venue_id || (isOrganizerLed ? (e as any).partner_venue_id : null);
+        const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
         const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
         // Organizer-led events without a club venue carry their own city in
         // events.location_city. Use it as a fallback and filter strictly so an
         // event we can't place in the selected city is hidden, not shown in all.
-        const venueCity = venue?.city || (e as any).location_city || '';
+        const venueCity = venue?.city || e.location_city || '';
         if (city && !venueCity.toLowerCase().includes(city.toLowerCase())) return [];
         const genres =
           (e.music_genres && e.music_genres.length > 0)
@@ -239,7 +240,7 @@ export default function AllEventsPage() {
             : e.music_genre ? [e.music_genre] : [];
         return [{
           id: e.id,
-          slug: (e as any).slug ?? null,
+          slug: e.slug ?? null,
           organizerSlug: isOrganizerLed ? (organizerSlugMap.get(e.organizer_user_id!) ?? null) : null,
           title: e.title,
           posterUrl: e.poster_url,
@@ -259,7 +260,7 @@ export default function AllEventsPage() {
         }] as EventCardData[];
       });
 
-      const affiliateCards: EventCardData[] = (affiliateRes.data || []).flatMap((ae: any) => {
+      const affiliateCards: EventCardData[] = (affiliateRes.data || []).flatMap(ae => {
         const venue = ae.affiliate_venues;
         if (!venue) return [];
         if (city && !(venue.city || '').toLowerCase().includes(city.toLowerCase())) return [];

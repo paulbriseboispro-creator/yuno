@@ -65,12 +65,14 @@ export function OnboardingStepStripe({
       if (!inv || cancelled) return;
       const [eventRes, profileRes] = await Promise.all([
         inv.event_id ? supabase.from('events').select('title').eq('id', inv.event_id).maybeSingle() : Promise.resolve({ data: null }),
-        inv.organizer_user_id ? supabase.from('profiles').select('full_name').eq('id', inv.organizer_user_id).maybeSingle() : Promise.resolve({ data: null }),
+        // Ce que le club lit de l'organisateur passe par organizer_profiles (public) :
+        // profiles est fermé par la RLS et n'a pas de full_name.
+        inv.organizer_user_id ? supabase.from('organizer_profiles').select('display_name').eq('user_id', inv.organizer_user_id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       if (cancelled) return;
       setCollabInvitation({
-        organizer_name: (profileRes.data as any)?.full_name ?? null,
-        event_title: (eventRes.data as any)?.title ?? null,
+        organizer_name: (profileRes.data as { display_name?: string | null } | null)?.display_name ?? null,
+        event_title: (eventRes.data as { title?: string | null } | null)?.title ?? null,
       });
     })();
     return () => { cancelled = true; };

@@ -1,4 +1,4 @@
-import { ReactNode, CSSProperties, useState } from 'react';
+import { ReactNode, CSSProperties, ComponentType, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Copy } from 'lucide-react';
 
@@ -158,10 +158,13 @@ export function SectionLabel({ children, action }: { children: ReactNode; action
   );
 }
 
+/** Icône lucide (ou tout composant qui accepte className + style). */
+type IconComponent = ComponentType<{ className?: string; style?: CSSProperties }>;
+
 // ─── Stat tile ───────────────────────────────────────────────────────────────
 export function StatTile({
   icon: Icon, value, label, accent, tone,
-}: { icon?: any; value: ReactNode; label: string; accent?: boolean; tone?: 'pos' | 'warn' | 'red' }) {
+}: { icon?: IconComponent; value: ReactNode; label: string; accent?: boolean; tone?: 'pos' | 'warn' | 'red' }) {
   const color = tone === 'pos' ? POS : tone === 'warn' ? WARN : (accent || tone === 'red') ? RED : T1;
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '13px 12px', textAlign: 'center' }}>
@@ -241,7 +244,7 @@ export function PromoAvatar({ src, fallback, size = 40 }: { src?: string | null;
 // ─── Dark input ──────────────────────────────────────────────────────────────
 export function DarkInput({
   value, onChange, placeholder, type = 'text', readOnly, className, icon: Icon,
-}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; readOnly?: boolean; className?: string; icon?: any }) {
+}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; readOnly?: boolean; className?: string; icon?: IconComponent }) {
   return (
     <div className="relative" style={{ flex: 1 }}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />}
@@ -321,7 +324,7 @@ export function CopyField({
 }
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
-export function PromoEmpty({ icon: Icon, title, description, action }: { icon?: any; title: string; description?: string; action?: ReactNode }) {
+export function PromoEmpty({ icon: Icon, title, description, action }: { icon?: IconComponent; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '40px 20px' }}>
       {Icon && <Icon className="h-9 w-9 mx-auto mb-3" style={{ color: T3 }} />}

@@ -232,9 +232,9 @@ export default function OwnerManagers() {
       setIsCreating(false);
       resetForm();
       fetchManagers();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating manager:', error);
-      toast.error(error.message || t('managers.creationError'));
+      toast.error((error as Error).message || t('managers.creationError'));
     } finally {
       setIsSaving(false);
     }
@@ -255,7 +255,7 @@ export default function OwnerManagers() {
       toast.success(t('managers.permissionsUpdated'));
       setEditingManager(null);
       fetchManagers();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating permissions:', error);
       toast.error(t('managers.updateError'));
     } finally {

@@ -53,7 +53,7 @@ export function AffiliateImageUploader({
         onChange(data.publicUrl);
       } catch (err) {
         console.error('Upload failed', err);
-        const msg = (err as any)?.message ?? (err instanceof Error ? err.message : t('aff.upload.errorFallback'));
+        const msg = (err as { message?: string } | null)?.message ?? (err instanceof Error ? err.message : t('aff.upload.errorFallback'));
         toast({ title: t('aff.upload.errorTitle'), description: msg, variant: 'destructive' });
       } finally {
         setUploading(false);

@@ -1,15 +1,13 @@
 import { sendAutoPush } from "./auto-push.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 // Récap hebdo poussé aux owners (audience 'pro') : « +142 abonnés, 2 push, 2 400€ ».
 // L'habitude qui donne une raison de faire plus d'events. Une fois par semaine et par
 // club, le lundi matin (UTC). Dédup RACE-SAFE via audience_recap_log (PK subject+semaine)
 // : on RÉCLAME la ligne avant d'envoyer, donc deux crons de la fenêtre n'envoient pas
 // deux fois. Drainé par process-scheduled-campaigns (cap edge 402 → pas de fonction dédiée).
-// admin: any — même convention que les autres dispatchers (évite le skew de version
-// SupabaseClient entre le createClient de l'appelant et les modules _shared).
-// deno-lint-ignore no-explicit-any
 export async function dispatchAudienceWeeklyRecaps(
-  admin: any,
+  admin: SupabaseClient,
 ): Promise<{ processed: number; sent: number }> {
   const now = new Date();
   // Fenêtre : lundi (getUTCDay===1), 9h–12h UTC. Le dédup garantit un envoi unique.

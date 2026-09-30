@@ -9,6 +9,7 @@
 //     « Renvoi » aux destinataires qui n'ont pas ouvert.
 // Ce module appelle les deux depuis le cron et journalise. L'envoi passe par
 // le balayage sweepSendingCampaigns qui suit, comme n'importe quel envoi.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 export interface AutomationRun {
   automations: number;
@@ -26,8 +27,7 @@ export interface ResendRun {
   error?: string;
 }
 
-// deno-lint-ignore no-explicit-any
-export async function dispatchEmailAutomations(admin: any): Promise<AutomationRun> {
+export async function dispatchEmailAutomations(admin: SupabaseClient): Promise<AutomationRun> {
   const { data, error } = await admin.rpc('collect_email_automations');
   if (error) {
     console.error('collect_email_automations error:', error.message);
@@ -43,8 +43,7 @@ export async function dispatchEmailAutomations(admin: any): Promise<AutomationRu
   return out;
 }
 
-// deno-lint-ignore no-explicit-any
-export async function dispatchCampaignResends(admin: any): Promise<ResendRun> {
+export async function dispatchCampaignResends(admin: SupabaseClient): Promise<ResendRun> {
   const { data, error } = await admin.rpc('collect_campaign_resends');
   if (error) {
     console.error('collect_campaign_resends error:', error.message);

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 import { isDemoPreviewRequest } from "../_shared/demo-guard.ts";
@@ -131,13 +132,19 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Ventes du jour et remplissage de chaque soirée",
     keywords: ["aujourd'hui", "today", "hoy", "ventes du jour", "combien vendu", "how many sold", "remplissage", "fill rate", "jauge", "capacité", "j-2", "compte à rebours", "countdown", "prochaines soirées", "upcoming nights", "ça bouge", "release", "visites de la soirée", "ca de la soirée"],
     path: "/owner/events",
-    snippet: "Chaque soirée à venir porte ses chiffres de vente, à deux endroits : la carte de la soirée sur la page Événements, et le bloc « Vos prochaines soirées » du Dashboard (cinq prochaines dates). On y lit le compte à rebours (J-2, Demain, Ce soir, En cours), le CA de la soirée (frais Yuno et remboursements déduits, avant frais Stripe) avec ce qui est entré AUJOURD'HUI en vert, une jauge par pilier ouvert — Billets, Tables, Guest list — avec vendus / capacité, « +N aujourd'hui » et le % de remplissage (rouge quand c'est complet), et les visites de la page de la soirée. « Aujourd'hui » = depuis minuit, heure de la soirée ; « rien aujourd'hui » en gris veut dire aucune vente depuis minuit. Une soirée gratuite n'affiche pas de CA, seulement ses inscrits. Les chiffres se rafraîchissent chaque minute (« Mis à jour à »), chaque ⓘ donne la définition exacte, et « Voir les stats » ouvre l'analyse de la soirée (/owner/analytics?tab=event&event=<id>). Un membre d'équipe sans accès à l'argent voit les jauges mais jamais le CA. Même chose côté organisateur (/organizer-app/events et son Dashboard).",
+    snippet: "Chaque soirée à venir porte ses chiffres de vente, à deux endroits : la carte de la soirée sur la page Événements, et le bloc « Vos prochaines soirées » du Dashboard (cinq prochaines dates). On y lit le compte à rebours (J-2, Demain, Ce soir, En cours), le CA de la soirée (frais Yuno et remboursements déduits, avant frais Stripe) avec ce qui est entré AUJOURD'HUI en vert, une jauge par pilier ouvert — Billets, Tables, Guest list — avec vendus / capacité, « +N aujourd'hui » et le % de remplissage (rouge quand c'est complet), et les visites de la page de la soirée. « Aujourd'hui » = depuis minuit, heure de la soirée ; « rien aujourd'hui » en gris veut dire aucune vente depuis minuit. Une soirée gratuite n'affiche pas de CA, seulement ses inscrits. Les chiffres se rafraîchissent chaque minute (« Mis à jour à »), chaque ⓘ donne la définition exacte, et « Voir les stats » ouvre le Rapport de la soirée (/owner/analytics?tab=sales&view=event, puis la soirée dans le sélecteur). Au-dessus, le Dashboard montre « Tes 4 dernières soirées » : CA, Entrées, Dépense par tête et Clients des quatre dernières soirées passées, comparés aux quatre d'avant — les MÊMES chiffres que Ventes › Vue d'ensemble, un clic y mène. Un membre d'équipe sans accès à l'argent voit les jauges mais jamais le CA. Même chose côté organisateur (/organizer-app/events et son Dashboard).",
+  },
+  "night-target-recap": {
+    title: "Objectif de soirée, « À retenir », repères et bilan du lendemain",
+    keywords: ["objectif", "objectif d'entrées", "target", "cible", "vais-je remplir", "remplir", "rythme", "pace", "projection", "à retenir", "takeaways", "constat", "repères", "markers", "annotations", "bilan du lendemain", "récap", "recap", "bilan de la soirée", "lendemain"],
+    path: "/owner/analytics?tab=sales&view=event",
+    snippet: "Dans le rapport d'une soirée à venir, « Fixer un objectif d'entrées » sous les jauges : le rapport dit alors « Objectif 180 entrées : 90 attendus à J-3 » et, au rythme de la dernière soirée TERMINÉE du club, où elle finira (« Au rythme de The Revival, tu finirais vers 154 : il en manquerait 26 ») ; le crayon le modifie ou le retire, et après la soirée l'objectif se compare aux entrées scannées. « À retenir » (sous la première phrase de Ventes et du rapport) = jusqu'à trois constats calculés par Yuno avec un seuil de volume (présence faible, guest list qui ne vient pas, dépense par tête qui bouge de 10 % ou plus, email ou push qui a fait 20 % des ventes, achats du jour J, public neuf ou d'habitués) ; un clic mène à la preuve. La courbe « Comment évoluent mes ventes ? » porte des repères : publication, ouverture d'un nouveau tarif, chaque email et push de la soirée. Le lendemain à partir de 11 h, la cloche de la Console affiche le bilan de la soirée (entrées / attendus, CA, dépense par tête, écart avec la précédente) — et un push Yuno Pro quand Yuno l'a activé.",
   },
   "event-report": {
     title: "Le rapport d'une soirée (Analytics › Ventes › Par soirée)",
     keywords: ["rapport de soirée", "stats de la soirée", "statistiques soirée", "night report", "comparer", "comparer avec", "compare", "courbe", "j-5", "en avance", "ahead", "détail des ventes", "paliers", "nouveaux contacts", "new contacts", "habitués", "qu'est-ce qui a fait vendre", "email de la soirée", "push de la soirée", "liens suivis", "sources", "visites de la soirée", "conversion"],
     path: "/owner/analytics?tab=sales&view=event",
-    snippet: "Analytics › Ventes › Par soirée ouvre le rapport d'UNE soirée (lien direct : /owner/analytics?tab=sales&view=event&event=<id>, avant la soirée il affiche aussi son Hype Score sous « La soirée va-t-elle remplir ? », aussi via « Voir les stats » sur la liste des soirées et le Dashboard). Cinq questions dans l'ordre : 1) Où en sont mes ventes ? — CA, Billets, Tables, Guest list, Visites avec « +N aujourd'hui », puis le Détail des ventes : chaque palier, formule de table et part de guest list avec statut (En vente, Complet, À venir, Fermé) et jauge. 2) Comment évoluent mes ventes ? — courbe jour par jour avant la soirée (J-N), « Comparer avec » superpose une autre soirée AU MÊME NOMBRE DE JOURS AVANT (par défaut la précédente) et une phrase dit si tu es en avance (« À J-3 : 122 contre 104, +17 % ») ; mesures Billets / CA / Inscrits / Tables / Visites, cumulé ou par jour. 3) Est-ce qu'on voit ma soirée ? — sources des visiteurs de la page et part qui achète (visites consenties seulement, donc un minimum). 4) Qui achète ? — nouveaux contacts (jamais venus à une soirée précédente) vs habitués, puis âge / sexe / villes. 5) Qu'est-ce qui a fait vendre ? — par où passent les achats (Explorer, page du club, lien promoteur…), les liens suivis (clics, ventes, CA), et chaque email et push envoyé pour cette soirée, automatiques compris (« Publication – soirée »), avec achats, inscrits et CA : une vente est rattachée à un message si la personne a cliqué puis acheté la soirée dans les 72 h. Après la soirée, le verdict passe en tête. Le sélecteur « Soirée » en haut à droite change de soirée sans revenir à la liste. Même rapport côté organisateur (/organizer-app/analytics?tab=event&event=<id>) ; un membre d'équipe sans accès à l'argent voit tout sauf les montants.",
+    snippet: "Analytics › Ventes › Par soirée ouvre le rapport d'UNE soirée (lien : /owner/analytics?tab=sales&view=event puis la soirée dans le sélecteur ; aussi via « Voir les stats » sur la liste des soirées et le Dashboard). D'abord UNE phrase : avant la soirée « 92 billets vendus à J-3 sur 650. C'est 21 de plus que The Revival au même moment » ; après « 336 entrées sur 448 attendus (75 %). 10 347 € de CA, 30,80 € par tête ». La soirée comparée est la précédente par défaut, changeable dans « Comparer avec ». Après la soirée, « Bilan complet » replié (note /10, à retenir, déroulé, public, Night Report IA, notes). Puis « Où en sont mes ventes ? » (« Qu'est-ce qui s'est vendu ? » après) : le CA et sa répartition, des jauges vendu / capacité pour Billets, Tables, Guest list avec un trait = où en était la soirée comparée au même J-N (son total après la soirée), et pour le club la projection en une ligne (« ≈ 109 entrées, 17 % de la salle, en retard sur le rythme habituel ») ; puis le Détail des ventes (chaque palier, formule et liste, statut, jauge, CA). Puis la courbe alignée sur J-N, « D'où viennent les ventes ? » (visites par source avec achats, part des visites qui achètent, canaux, liens suivis, emails et push de la soirée, vente rattachée sur clic → achat < 72 h), « Qui achète ? » (nouveaux vs habitués, âge et sexe seulement au-delà de 10 personnes connues), et la « Prévision détaillée » repliée (Hype Score, club, avant la soirée). Une soirée sans aucune vente ni entrée n'est pas notée : une phrase le dit.",
   },
   "ticketing-modes": {
     title: "Modes de billetterie",
@@ -323,7 +330,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Hype Score",
     keywords: ["hype", "score", "engagement", "popularité", "prévision", "forecast", "tendance"],
     path: "/owner/analytics?tab=sales&view=event",
-    snippet: "Le Hype Score vit dans le rapport de chaque soirée à venir (Analytics → Ventes → Par soirée, « La soirée va-t-elle remplir ? » ; l'ancienne page Hype redirige). Il mesure l'engagement autour de tes soirées (vues, favoris, abonnés, ventes) et projette la tendance de remplissage. Utilise-le pour repérer tôt une soirée qui décolle ou qui a besoin d'un coup de promo.",
+    snippet: "Le Hype Score vit dans le rapport de chaque soirée à venir (Analytics → Ventes → Par soirée ; l'ancienne page Hype redirige). Sa projection se lit en UNE ligne sous les jauges (« ≈ 109 entrées, 17 % de la salle, en retard sur le rythme habituel ») ; le score sur 10, ses sous-scores et le réglage de calibration sont dans « Prévision détaillée », replié. Il mesure l'engagement autour de tes soirées (vues, favoris, abonnés, ventes) et projette la tendance de remplissage. Utilise-le pour repérer tôt une soirée qui décolle ou qui a besoin d'un coup de promo.",
   },
   "live-night": {
     title: "Centre de commandement soirée (Live)",
@@ -447,9 +454,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "analytics": {
     title: "Analytics",
-    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance", "attach boisson", "temps de service", "par bar", "bilan par soirée", "rotation table", "réservé consommé", "anticipation des ventes", "revenu par tête", "piliers", "vue d'ensemble", "ventes", "trafic", "communauté", "partenaires", "familles"],
+    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance", "attach boisson", "temps de service", "par bar", "bilan par soirée", "rotation table", "réservé consommé", "anticipation des ventes", "revenu par tête", "piliers", "vue d'ensemble", "ventes", "trafic", "communauté", "partenaires", "familles", "dépense par tête", "entrées", "dernières soirées", "4 dernières soirées", "ce mois", "cette année", "export", "piliers", "guest list"],
     path: "/owner/analytics",
-    snippet: "Analytics se range en QUATRE familles, chacune ouverte sur une question : Ventes (Vue d'ensemble · Par soirée = rapport d'une soirée · Partenaires = promoteurs), Trafic (Ma page · Par soirée · Sources), Communauté (Vue d'ensemble · Abonnés · Achats · Public) et En direct ; l'adresse garde le choix (?tab=sales|traffic|community|live&view=…). Ventes › Vue d'ensemble tient en quatre blocs : les chiffres principaux, « Ventes, jour par jour » (CA de chaque pilier par jour ; par mois au-delà de trois mois, par heure sur 24 h / 48 h), « Ce que tu touches » et le bilan par soirée ; « De la visite à l'achat (bar) », « D'où vient le CA », les meilleures ventes, la nuit et la guest list sont repliés sous « Détail », puis un onglet plein écran par pilier de vente — Billetterie, Boissons, Tables VIP, Remboursements — chacun affichant son propre CA. Billetterie : attach boisson (billets avec conso incluse) et sa récupération, upgrades, fidélité, achat invité, et l'anticipation des ventes (à combien de jours de la soirée les billets partent). Boissons : temps de service médian, cycle de préparation (payées → prêtes → servies), performance par bar, CA par soirée. Tables VIP : réservé vs consommé (upsell au-delà du minimum), revenu par tête, taille des groupes, rotation des tables, top bouteilles et classement des hôtes. La Vue d'ensemble contient le « Bilan par soirée » : billets + boissons + tables + guest list + remboursements, une ligne nette par nuit. Après chaque soirée, une analyse post-event résume la performance.",
+    snippet: "Analytics se range en QUATRE familles, chacune ouverte sur une question : Ventes (Vue d'ensemble · Par soirée = rapport d'une soirée · Partenaires = promoteurs), Trafic (Ma page · Par soirée), Communauté (Vue d'ensemble · Abonnés · Achats · Public) et En direct ; l'adresse garde le choix (?tab=sales|traffic|community|live&view=…). Ventes › Vue d'ensemble (RPC get_sales_overview) compte en SOIRÉES PASSÉES, au choix « Dernière soirée », « 4 dernières soirées » (par défaut), « Ce mois », « Cette année », « Toutes les soirées », comparées au même nombre de soirées juste avant ; une soirée à venir n'y entre jamais. Des pastilles filtrent le pilier — Tout, Billets, Tables, Bar (club), Guest list — et chaque pilier a la MÊME anatomie : une phrase-réponse (« 32 961 € sur 4 soirées, 1 108 entrées, 29,75 € par tête… Meilleure soirée : … »), quatre chiffres comparés (Tout : CA, Entrées, Dépense par tête, Clients ; Billets : billets vendus, CA billets, prix moyen, remplissage ; Tables : tables réservées, CA tables, dépense par table, tables arrivées ; Bar : CA bar, commandes, panier bar, temps de service ; Guest list : inscrits, entrées, présence, inscrits par soirée), UN graphique une barre par soirée piloté par la tuile cliquée (une barre ouvre le rapport de la soirée), la liste qui explique le pilier (d'où vient le CA, tarifs vendus, formules de table, ce qui se vend au bar, par liste), le tableau « Soirée par soirée », puis un « Détail » replié (remboursements, options, zones et consommations, service du bar, guest list fine). Définitions : CA = payé − frais Yuno, remboursements déduits, AVANT frais Stripe ; Entrées = personnes scannées à la porte tous piliers ; Dépense par tête = CA ÷ entrées ; Clients = personnes distinctes par email. Sous les blocs : « Net versé après frais Stripe » (lien Comptabilité) et « Déjà vendu pour les N prochaines soirées ». « Exporter » télécharge le tableau soirée par soirée en CSV. Le Dashboard reprend les mêmes quatre chiffres sous « Tes 4 dernières soirées ».",
   },
   "community-overview": {
     title: "Communauté — qui sont mes clients ?",
@@ -460,14 +467,14 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   "community-tastes": {
     title: "Goûts musicaux de ta communauté",
     keywords: ["goûts", "goûts musicaux", "genres", "genre musical", "musique", "quelle musique", "tastes", "music taste", "gustos", "techno", "house", "rap", "afro", "reggaeton", "line-up", "programmation"],
-    path: "/owner/analytics?tab=community&view=tastes",
-    snippet: "Analytics → Communauté → Goûts (RPC get_community_tastes, outil get_community_overview). Les genres des personnes avec un compte Yuno liées au club (achat, guest list, abonnement) : réponses au quiz de goûts + genres des soirées où elles sont allées sur TOUT Yuno depuis 18 mois. Agrégé et anonyme : un genre n'apparaît qu'à partir de 10 personnes, rien par personne, et les personnes qui ont coupé les recommandations personnalisées sont exclues. En dessous du seuil la vue affiche « Pas encore assez de monde ». Utile pour choisir un line-up, écrire une campagne ou cibler une pub Meta.",
+    path: "/owner/analytics?tab=community&view=demographics",
+    snippet: "Analytics → Communauté → Public (les goûts sont sous l'âge, le sexe et les villes ; RPC get_community_tastes, outil get_community_overview). Les genres des personnes avec un compte Yuno liées au club (achat, guest list, abonnement) : réponses au quiz de goûts + genres des soirées où elles sont allées sur TOUT Yuno depuis 18 mois. Agrégé et anonyme : un genre n'apparaît qu'à partir de 10 personnes, rien par personne, et les personnes qui ont coupé les recommandations personnalisées sont exclues. En dessous du seuil la vue affiche « Pas encore assez de monde ». Utile pour choisir un line-up, écrire une campagne ou cibler une pub Meta.",
   },
   "page-traffic": {
     title: "Trafic — est-ce qu'on me voit ?",
-    keywords: ["trafic", "traffic", "visites", "ma page", "page du club", "page organisateur", "vues", "qui voit ma page", "visites par soirée", "sources", "d'où viennent mes visiteurs", "instagram", "seo", "combien de visites"],
+    keywords: ["trafic", "traffic", "visites", "ma page", "page du club", "page organisateur", "vues", "qui voit ma page", "visites par soirée", "sources", "d'où viennent mes visiteurs", "instagram", "seo", "combien de visites", "conversion", "taux de conversion", "campagnes", "utm"],
     path: "/owner/analytics?tab=traffic&view=page",
-    snippet: "Analytics → Trafic (RPC get_page_traffic). « Ma page » : visites de la page publique du club jour par jour sur 30 jours, 90 jours ou 1 an, avec aujourd'hui, visiteurs différents, part qui revient, et les sources (réseaux sociaux, recherche, email, QR, pub, promoteurs, direct). « Par soirée » : chaque page de soirée avec ses visites, celles du jour et combien ont commandé, un clic ouvre son rapport. « Sources » : canaux, campagnes, sites référents et navigation, toutes pages confondues. Seules les visites consenties (bandeau cookies) sont comptées : c'est un minimum.",
+    snippet: "Analytics → Trafic (RPC get_page_traffic), deux vues. « Ma page » : visites de la page publique du club jour par jour sur 30 jours, 90 jours ou 1 an, avec aujourd'hui, visiteurs différents et la CONVERSION (part des visites qui ont fini par un achat, affichée à partir de 10 visites), puis « D'où viennent-ils ? » (réseaux sociaux, recherche, email, QR, pub, promoteurs, direct) avec les achats par source ; replié dessous, les campagnes UTM (source, support, campagne, visites, achats, CA), les sites qui envoient des visites et les pays sur 30 jours. « Par soirée » : chaque page de soirée avec ses visites, celles du jour et combien ont commandé, un clic ouvre son rapport. L'ancienne vue « Sources » est fondue dans « Ma page ». Seules les visites consenties (bandeau cookies) sont comptées : c'est un minimum.",
   },
   "promo-codes": {
     title: "Codes promo — une réduction pour une soirée ou pour toutes",
@@ -479,7 +486,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Achats (comportement d'achat) — comment tes clients achètent",
     keywords: ["comportement d'achat", "comportement", "purchase behavior", "comportamiento de compra", "quand achètent", "délai d'achat", "à l'avance", "dernière minute", "last minute", "lead time", "heure d'achat", "jour d'achat", "panier", "taille du panier", "billets par commande", "taille des tables", "palier", "early bird", "réachat", "habitués", "nouveaux clients", "fidélité", "top clients", "no-show", "présence", "absents", "billet et bar", "canal", "conversion", "abandon de panier"],
     path: "/owner/analytics?tab=community&view=purchase",
-    snippet: "Analytics → Communauté → « Achats » (sur la période choisie en haut) : QUAND (délai entre l'achat et l'ouverture pour billets et tables, part des billets vendus dans les 72 dernières heures, carte jour × heure des commandes, rythme du bar heure par heure pendant la nuit et délai entrée → 1er verre), COMBIEN (billets par commande, taille des tables et dépense par personne, articles par commande bar, tranches de panier, part des billets vendus au 1er palier), CE QU'ILS AJOUTENT (assurance, boisson incluse et son taux de retrait, surclassements, accords newsletter/SMS au paiement, tables à acompte ou réglées sur place), QUI (nouveaux vs habitués, nombre de soirées par acheteur, délai médian entre deux achats, part du CA des 10 % meilleurs clients, achats le même soir : billet → bar, table → bar, guest list → bar ou table), les CANAUX (page club, Explorer, lien promoteur, lien direct, ajout sur place ; part via lien suivi), le PASSAGE À L'ACHAT (visite → panier → paiement → achat, par appareil et par source, paniers abandonnés, visite qui convertit) et la PRÉSENCE (part des acheteurs scannés à la porte, par délai d'achat — seulement les soirées terminées où la porte a scanné). Le bloc « À retenir » résume l'essentiel. Montants = CA club (frais Yuno, assurance et remboursements déduits).",
+    snippet: "Analytics → Communauté → « Achats » (sur la période choisie en haut) : quatre chiffres — panier moyen, délai d'achat médian, réachat, achat sans compte — puis « À retenir », QUAND (délai entre l'achat et l'ouverture pour billets et tables, part des billets vendus dans les 72 dernières heures, carte jour × heure des commandes, rythme du bar heure par heure pendant la nuit), COMBIEN (billets par commande, taille des tables et dépense par personne, articles par commande bar, tranches de panier, part au 1er palier), CE QU'ILS AJOUTENT (assurance, boisson incluse et son retrait, surclassements, accords newsletter/SMS, tables à acompte ou sur place), QUI (nouveaux vs habitués, soirées par acheteur, délai entre deux achats, part du CA des 10 % meilleurs clients, achats le même soir), et la PRÉSENCE (part des acheteurs scannés à la porte, seulement les soirées terminées où la porte a scanné). Les canaux sont dans le rapport de chaque soirée (« D'où viennent les ventes ? ») et la conversion visite → achat dans Trafic › Ma page. Montants = CA club (frais Yuno, assurance et remboursements déduits).",
   },
   "live-view": {
     title: "Vue en direct (Live View) — ta page en temps réel, globe + flux",
@@ -490,8 +497,8 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   "analytics-guest-list": {
     title: "Analytics guest list",
     keywords: ["guest list", "guestlist", "invité", "invités", "no-show", "no show", "présence", "taux de présence", "remplissage", "quota", "peak time", "heure d'arrivée", "valeur invité", "rentabilité guest list", "guest list roi"],
-    path: "/owner/analytics",
-    snippet: "La zone Guest list d'Analytics répond à « est-ce que mes guest lists rapportent ? ». Elle donne le nombre d'inscrits, le taux de présence et de no-show, le remplissage vs quota (les listes illimitées en sont exclues), l'heure d'arrivée réelle à la porte avec le pic, et surtout la valeur par invité : ce qu'un invité consomme au bar et en VIP une fois entré. Un comparatif place l'invité guest list face au détenteur de billet payant sur les mêmes soirées. Le no-show ne se calcule qu'à la fermeture de la soirée (fin + 2 h) : les inscrits d'une soirée à venir ou en cours sont comptés « à venir », jamais en no-show. Le détail se décline par type d'invitation, genre, délai d'inscription et soirée par soirée. La liste « Par détenteur de liste » est un déroulant : en cliquant sur un promoteur, un DJ ou un organisateur, l'owner voit ses chiffres a lui — CA bar et VIP séparés, panier moyen, taux de conversion, no-show, remplissage de ses listes, heure de pic, courbe d'arrivées et meilleure soirée. C'est la vue qui permet de comparer deux promoteurs entre eux.",
+    path: "/owner/analytics?tab=sales&view=overview",
+    snippet: "La guest list a UNE maison dans Analytics : Ventes › Vue d'ensemble, pastille « Guest list ». Une phrase (« 248 inscrits sur 4 soirées, 56 % sont venus »), quatre chiffres comparés aux soirées d'avant — Inscrits (annulations exclues), Entrées (invités scannés), Présence (entrées ÷ inscrits), Inscrits par soirée — un graphique par soirée, « Par liste » (liste du club, de l'organisateur, de chaque promoteur ou DJ : inscrits et part venue), le tableau soirée par soirée, et dans « Détail » la vue fine : valeur par invité (ce qu'un invité consomme au bar et en VIP une fois entré, comparé au détenteur de billet), heure d'arrivée réelle et pic, remplissage des listes à quota, délai d'inscription, type d'invitation, genre, et « Par détenteur de liste » en déroulant. Le no-show ne se calcule qu'à la fermeture de la soirée. Pour UNE soirée, le rapport de la soirée montre la jauge inscrits / quota.",
   },
   "dj-booking": {
     title: "DJs & booking",
@@ -1052,9 +1059,175 @@ function hasPlanAccess(currentPlan: string, requiredPlan: string): boolean {
   return (PLAN_RANK[currentPlan] || 0) >= (PLAN_RANK[requiredPlan] || 0);
 }
 
-function log(type: string, data: Record<string, any>) {
+function log(type: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), type, ...data }));
 }
+
+// ═══════════════════════════════════════════
+// LOCAL TYPES (tool args, rows read from the database, request bodies)
+// ═══════════════════════════════════════════
+
+// Arguments des tools, tels que déclarés dans TOOLS (JSON produit par le modèle).
+interface ToolArgs {
+  activate?: boolean;
+  active?: boolean;
+  body?: string;
+  delay_hours?: number;
+  description?: string;
+  drink_id?: string;
+  enabled?: boolean;
+  event_id?: string;
+  filter?: string;
+  kind?: string;
+  limit?: number;
+  music_genres?: string[];
+  period?: string;
+  price?: number;
+  promo_price?: number;
+  query?: string;
+  round_id?: string;
+  threshold_pct?: number;
+  title?: string;
+}
+
+type Amount = number | null;
+type IdRow = { id: string };
+type RoleRow = { role: string };
+interface OrderAmounts { total: Amount; service_fee: Amount; refund_amount?: Amount }
+interface TicketAmounts { total_price: Amount; service_fee: Amount; insurance_fee: Amount; refund_amount?: Amount }
+interface TableAmounts { total_price: Amount; service_fee: Amount; management_fee: Amount; fee_absorbed?: boolean | null; refund_amount?: Amount }
+
+// PostgREST rend au plus 1 000 lignes par requête : toute somme d'argent ou
+// tout décompte fait sur des lignes passe par ici, sinon au-delà de 1 000
+// ventes l'IA annonce un CA plus bas que l'écran. Le constructeur reçoit la
+// tranche à lire et doit trier sur une clé stable (`order("id")`). Une erreur
+// remonte : un chiffre partiel ne doit jamais être donné comme un total.
+async function fetchAllRows<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 100_000; from += 1000) {
+    const { data, error } = await build(from, from + 999);
+    if (error) throw error instanceof Error ? error : new Error(String((error as { message?: unknown }).message ?? error));
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out;
+}
+// Ligne d'`orders.items` (jsonb) : les deux nommages coexistent.
+interface OrderItem {
+  name?: string;
+  drink_name?: string;
+  qty?: number;
+  quantity?: number;
+  price?: number;
+  unit_price?: number;
+}
+interface EventListRow {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string;
+  is_active: boolean;
+  ticketing_enabled: boolean;
+  tables_enabled: boolean;
+  music_genres: string[] | null;
+  event_type: string | null;
+  ticket_selling_mode: string | null;
+}
+interface PendingOrderRow { order_number: string | number | null; total: Amount; items: unknown; created_at: string }
+interface LiveOrderRow {
+  id: string;
+  order_number: string | number | null;
+  status: string;
+  prep_status: string | null;
+  created_at: string;
+  ready_at: string | null;
+  refunded_at: string | null;
+}
+interface LiveTableRow {
+  id: string;
+  full_name: string | null;
+  status: string;
+  checked_in_at: string | null;
+  entry_scanned: boolean | null;
+  minimum_spend: Amount;
+}
+interface NightOpsRow { kind: string; note: string | null; created_at: string }
+interface StaffProfileRow { id: string; first_name: string | null; last_name: string | null; email: string | null }
+interface PushCampaignRow {
+  title: string | null;
+  source: string | null;
+  status: string | null;
+  scheduledAt: string | null;
+  createdAt: string | null;
+  eventTitle: string | null;
+  targeted: number | null;
+  sent: number | null;
+  taps: number | null;
+  buyers: number | null;
+  entries: number | null;
+  revenue: number | null;
+}
+interface EmailAutomationStatRow {
+  kind: string;
+  enabled: boolean;
+  delay_hours: number | null;
+  threshold_pct: number | null;
+  template_id: string | null;
+  subject: string | null;
+  pending: number;
+  in_flight: number;
+  queued: number;
+  sent: number;
+  opens: number;
+  clickers: number;
+  unsubscribes: number;
+  campaigns: number;
+  skipped: number;
+}
+interface EmailAutomationPreview { eligible: number; base: number; next_event_title: string | null; next_due_at: string | null }
+interface VenueCustomerRow {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  total_spent: Amount;
+  order_count: number | null;
+  ticket_count: number | null;
+  table_count: number | null;
+}
+interface PromoterRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  pending_amount: Amount;
+  total_paid: Amount;
+  is_active: boolean;
+}
+interface TicketRoundRow { name: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean }
+
+// Corps JSON des actions hors chat (le client n'envoie que des préférences).
+interface ActionBody {
+  channel?: unknown;
+  eventId?: unknown;
+  segment?: unknown;
+  tone?: unknown;
+  customInstructions?: unknown;
+  language?: string;
+  stats?: unknown;
+  scope?: string;
+  messages?: unknown;
+  docs?: unknown;
+  currentArticle?: unknown;
+}
+type ContentFields = { title?: unknown; preheader?: unknown; body?: unknown };
+type ContentVariant = { en?: ContentFields; fr?: ContentFields; es?: ContentFields };
+interface NightReport { headline?: string; insights?: unknown[]; actions?: unknown[] }
+interface NextBestAction { title?: string; why?: string; category?: string; path?: string }
+type HelpChatMessage = { role?: unknown; content?: unknown };
+interface OpenAiToolCall { id: string; type?: string; function: { name: string; arguments?: string } }
+interface OpenAiChatMessage { role: string; content?: string | null; tool_call_id?: string; tool_calls?: OpenAiToolCall[] }
 
 // ═══════════════════════════════════════════
 // PERIOD HELPERS
@@ -1114,7 +1287,7 @@ function addRow(acc: { caClub: number; caNet: number }, gross: number, charged: 
   acc.caNet += gross - refunded - calcStripeFee(charged);
 }
 
-function calcOrdersRevenue(orders: any[]): { caClub: number; caNet: number } {
+function calcOrdersRevenue(orders: OrderAmounts[]): { caClub: number; caNet: number } {
   const acc = { caClub: 0, caNet: 0 };
   for (const o of orders) {
     const total = o.total || 0;
@@ -1123,7 +1296,7 @@ function calcOrdersRevenue(orders: any[]): { caClub: number; caNet: number } {
   return acc;
 }
 
-function calcTicketsRevenue(tickets: any[]): { caClub: number; caNet: number } {
+function calcTicketsRevenue(tickets: TicketAmounts[]): { caClub: number; caNet: number } {
   const acc = { caClub: 0, caNet: 0 };
   for (const t of tickets) {
     const tp = t.total_price || 0;
@@ -1132,7 +1305,7 @@ function calcTicketsRevenue(tickets: any[]): { caClub: number; caNet: number } {
   return acc;
 }
 
-function calcTablesRevenue(tables: any[]): { caClub: number; caNet: number } {
+function calcTablesRevenue(tables: TableAmounts[]): { caClub: number; caNet: number } {
   const acc = { caClub: 0, caNet: 0 };
   for (const t of tables) {
     const tp = t.total_price || 0;
@@ -1152,12 +1325,12 @@ function r2(n: number): number { return Math.round(n * 100) / 100; }
 
 async function executeTool(
   toolName: string,
-  args: Record<string, any>,
-  supabase: any,
+  args: ToolArgs,
+  supabase: SupabaseClient,
   venueId: string,
   // Client au JWT de l'appelant : les RPC d'analyse (lot G) décident de la
   // portée et de l'argent sur auth.uid(), jamais le service role.
-  userClient?: any,
+  userClient?: SupabaseClient,
 ): Promise<string> {
   try {
     switch (toolName) {
@@ -1207,7 +1380,7 @@ async function executeTool(
           summary_30_days: data.summary,
           followers: data.followers,
           total_campaigns: data.total,
-          latest: (data.campaigns || []).map((c: any) => ({
+          latest: (data.campaigns || []).map((c: PushCampaignRow) => ({
             title: c.title, source: c.source, status: c.status, at: c.scheduledAt || c.createdAt, event: c.eventTitle,
             targeted: c.targeted, sent: c.sent, opened: c.taps, buyers: c.buyers, guest_list_entries: c.entries, revenue: c.revenue,
           })),
@@ -1222,43 +1395,45 @@ async function executeTool(
         const periodEnd = getPeriodEnd(args.period || "30d");
 
         const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
-        const eventIds = (venueEvents || []).map((e: any) => e.id);
+        const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (venueZones || []).map((z: any) => z.id);
+        const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee, refund_amount", { count: "exact" }).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
-        if (periodEnd) oq = oq.lt("created_at", periodEnd);
-        const ordersRes = await oq;
+        const ordersData = await fetchAllRows<OrderAmounts>((f, t) => {
+          let oq = supabase.from("orders").select("total, service_fee, refund_amount").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
+          if (periodEnd) oq = oq.lt("created_at", periodEnd);
+          return oq.order("id").range(f, t);
+        });
 
-        let ticketsData: any[] = [];
-        let ticketsCount = 0;
+        let ticketsData: TicketAmounts[] = [];
         if (eventIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount", { count: "exact" }).in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since);
-          if (periodEnd) tq = tq.lt("created_at", periodEnd);
-          const tr = await tq;
-          ticketsData = tr.data || [];
-          ticketsCount = tr.count || 0;
+          ticketsData = await fetchAllRows<TicketAmounts>((f, t) => {
+            let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since);
+            if (periodEnd) tq = tq.lt("created_at", periodEnd);
+            return tq.order("id").range(f, t);
+          });
         }
+        const ticketsCount = ticketsData.length;
 
-        let tablesData: any[] = [];
-        let tablesCount = 0;
+        let tablesData: TableAmounts[] = [];
         if (zoneIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount", { count: "exact" }).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since);
-          if (periodEnd) trq = trq.lt("created_at", periodEnd);
-          const tres = await trq;
-          tablesData = tres.data || [];
-          tablesCount = tres.count || 0;
+          tablesData = await fetchAllRows<TableAmounts>((f, t) => {
+            let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since);
+            if (periodEnd) trq = trq.lt("created_at", periodEnd);
+            return trq.order("id").range(f, t);
+          });
         }
+        const tablesCount = tablesData.length;
 
         const drinksRes = await supabase.from("drinks").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("active", true);
 
-        const ord = calcOrdersRevenue(ordersRes.data || []);
+        const ord = calcOrdersRevenue(ordersData);
         const tik = calcTicketsRevenue(ticketsData);
         const tab = calcTablesRevenue(tablesData);
 
         return JSON.stringify({
           period: args.period,
-          orders: { count: ordersRes.count || 0, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          orders: { count: ordersData.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
           tickets: { count: ticketsCount, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
           tables: { count: tablesCount, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           active_drinks: drinksRes.count || 0,
@@ -1272,35 +1447,41 @@ async function executeTool(
         const periodEnd = getPeriodEnd(args.period || "30d");
 
         const { data: venueEvts } = await supabase.from("events").select("id").eq("venue_id", venueId);
-        const evtIds = (venueEvts || []).map((e: any) => e.id);
+        const evtIds = (venueEvts || []).map((e: IdRow) => e.id);
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const znIds = (venueZns || []).map((z: any) => z.id);
+        const znIds = (venueZns || []).map((z: IdRow) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee, refund_amount").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
-        if (periodEnd) oq = oq.lt("created_at", periodEnd);
-        const ordersRes = await oq;
+        const ordersData = await fetchAllRows<OrderAmounts>((f, t) => {
+          let oq = supabase.from("orders").select("total, service_fee, refund_amount").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
+          if (periodEnd) oq = oq.lt("created_at", periodEnd);
+          return oq.order("id").range(f, t);
+        });
 
-        let ticketsData: any[] = [];
+        let ticketsData: TicketAmounts[] = [];
         if (evtIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").in("status", TICKET_SALE_STATUSES).in("event_id", evtIds).gte("created_at", since);
-          if (periodEnd) tq = tq.lt("created_at", periodEnd);
-          ticketsData = (await tq).data || [];
+          ticketsData = await fetchAllRows<TicketAmounts>((f, t) => {
+            let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").in("status", TICKET_SALE_STATUSES).in("event_id", evtIds).gte("created_at", since);
+            if (periodEnd) tq = tq.lt("created_at", periodEnd);
+            return tq.order("id").range(f, t);
+          });
         }
 
-        let tablesData: any[] = [];
+        let tablesData: TableAmounts[] = [];
         if (znIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", znIds).gte("created_at", since);
-          if (periodEnd) trq = trq.lt("created_at", periodEnd);
-          tablesData = (await trq).data || [];
+          tablesData = await fetchAllRows<TableAmounts>((f, t) => {
+            let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", znIds).gte("created_at", since);
+            if (periodEnd) trq = trq.lt("created_at", periodEnd);
+            return trq.order("id").range(f, t);
+          });
         }
 
-        const ord = calcOrdersRevenue(ordersRes.data || []);
+        const ord = calcOrdersRevenue(ordersData);
         const tik = calcTicketsRevenue(ticketsData);
         const tab = calcTablesRevenue(tablesData);
 
         return JSON.stringify({
           period: args.period,
-          orders: { count: (ordersRes.data || []).length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          orders: { count: ordersData.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
           tickets: { count: ticketsData.length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
           tables: { count: tablesData.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
@@ -1352,7 +1533,7 @@ async function executeTool(
 
         const { data } = await query;
 
-        const enriched = await Promise.all((data || []).map(async (e: any) => {
+        const enriched = await Promise.all((data || []).map(async (e: EventListRow) => {
           const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("event_id", e.id).in("status", TICKET_SALE_STATUSES);
           let status = "🔜 À venir";
           if (e.end_at < now) status = "✅ Passée";
@@ -1422,34 +1603,32 @@ async function executeTool(
         const until = new Date(tonightEndParis.getTime() - parisOffset).toISOString();
 
         const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
-        const eventIds = (venueEvents || []).map((e: any) => e.id);
+        const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (venueZones || []).map((z: any) => z.id);
+        const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
 
-        const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since).lt("created_at", until);
+        const ordersData = await fetchAllRows<OrderAmounts>((f, t) => supabase.from("orders").select("total, service_fee, refund_amount").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since).lt("created_at", until).order("id").range(f, t));
         const pendingRes = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("status", "paid").is("served_at", null).gte("created_at", since).lt("created_at", until);
 
-        let ticketsData: any[] = [];
+        let ticketsData: (TicketAmounts & { entry_scanned: boolean | null })[] = [];
         let ticketsScanned = 0;
         if (eventIds.length > 0) {
-          const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount, entry_scanned").in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
-          ticketsData = tr.data || [];
-          ticketsScanned = ticketsData.filter((t: any) => t.entry_scanned).length;
+          ticketsData = await fetchAllRows<TicketAmounts & { entry_scanned: boolean | null }>((f, t) => supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount, entry_scanned").in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since).lt("created_at", until).order("id").range(f, t));
+          ticketsScanned = ticketsData.filter((t) => t.entry_scanned).length;
         }
 
-        let tablesData: any[] = [];
+        let tablesData: TableAmounts[] = [];
         if (zoneIds.length > 0) {
-          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
-          tablesData = tres.data || [];
+          tablesData = await fetchAllRows<TableAmounts>((f, t) => supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until).order("id").range(f, t));
         }
 
-        const ord = calcOrdersRevenue(ordersRes.data || []);
+        const ord = calcOrdersRevenue(ordersData);
         const tik = calcTicketsRevenue(ticketsData);
         const tab = calcTablesRevenue(tablesData);
 
         return JSON.stringify({
           window: { from: since, to: until },
-          orders: { count: ordersRes.count || 0, pending: pendingRes.count || 0, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          orders: { count: ordersData.length, pending: pendingRes.count || 0, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
           tickets: { sold: ticketsData.length, scanned: ticketsScanned, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
           tables: { count: tablesData.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
@@ -1469,9 +1648,9 @@ async function executeTool(
 
         return JSON.stringify({
           pending_count: count || 0,
-          orders: (data || []).map((o: any) => {
-            const items = Array.isArray(o.items) ? o.items : [];
-            const itemNames = items.map((i: any) => {
+          orders: (data || []).map((o: PendingOrderRow) => {
+            const items: OrderItem[] = Array.isArray(o.items) ? o.items : [];
+            const itemNames = items.map((i) => {
               const name = i.name || i.drink_name || "?";
               const qty = i.qty || i.quantity || 1;
               return qty > 1 ? `${name} x${qty}` : name;
@@ -1528,8 +1707,8 @@ async function executeTool(
             .select("retrieved").eq("venue_id", venueId).gte("created_at", since),
         ]);
 
-        const orders: any[] = ordersRes.data || [];
-        const tables: any[] = (tablesRes as any).data || [];
+        const orders: LiveOrderRow[] = ordersRes.data || [];
+        const tables: LiveTableRow[] = tablesRes.data || [];
         const backlog = orders.filter((o) => o.status === "paid" && !o.refunded_at && (!o.prep_status || o.prep_status === "queue" || o.prep_status === "preparing"));
         const oldestWaiting = backlog.reduce<string | null>((min, o) => (min === null || o.created_at < min ? o.created_at : min), null);
 
@@ -1541,7 +1720,7 @@ async function executeTool(
             .select("entry_scanned_at").eq("event_id", activeEvt.id)
             .eq("status", "paid").eq("entry_scanned", true);
           scannedEntries = (scans || []).length;
-          recentEntries = (scans || []).filter((t: any) => t.entry_scanned_at && t.entry_scanned_at >= tenMinAgo).length;
+          recentEntries = (scans || []).filter((t: { entry_scanned_at: string | null }) => t.entry_scanned_at && t.entry_scanned_at >= tenMinAgo).length;
         }
 
         let vipSpend: Record<string, number> = {};
@@ -1549,7 +1728,7 @@ async function executeTool(
           const { data: cons } = await supabase.from("vip_consumptions")
             .select("table_reservation_id, total_price")
             .eq("venue_id", venueId).gte("served_at", since);
-          vipSpend = (cons || []).reduce((acc: Record<string, number>, c: any) => {
+          vipSpend = (cons || []).reduce((acc: Record<string, number>, c: { table_reservation_id: string; total_price: Amount }) => {
             acc[c.table_reservation_id] = (acc[c.table_reservation_id] || 0) + Number(c.total_price || 0);
             return acc;
           }, {});
@@ -1559,8 +1738,8 @@ async function executeTool(
           .filter((t) => Number(t.minimum_spend || 0) > 0 && (vipSpend[t.id] || 0) < Number(t.minimum_spend) * 0.6)
           .map((t) => ({ name: t.full_name || "VIP", spent: r2(vipSpend[t.id] || 0), minimum: r2(Number(t.minimum_spend)) }));
 
-        const ops: any[] = opsRes.data || [];
-        const cloak: any[] = cloakRes.data || [];
+        const ops: NightOpsRow[] = opsRes.data || [];
+        const cloak: { retrieved: boolean | null }[] = cloakRes.data || [];
 
         return JSON.stringify({
           active_event: activeEvt ? { title: activeEvt.title, start_at: activeEvt.start_at, end_at: activeEvt.end_at } : null,
@@ -1572,7 +1751,7 @@ async function executeTool(
           bar: {
             backlog: backlog.length,
             oldest_waiting_minutes: oldestWaiting ? Math.floor((now.getTime() - new Date(oldestWaiting).getTime()) / 60_000) : null,
-            out_of_stock: (stockRes.data || []).map((d: any) => d.name),
+            out_of_stock: (stockRes.data || []).map((d: { name: string }) => d.name),
           },
           vip: {
             tables_total: tables.length,
@@ -1582,7 +1761,7 @@ async function executeTool(
           cloakroom: { active: cloak.filter((c) => !c.retrieved).length, retrieved: cloak.filter((c) => c.retrieved).length },
           staff_shift_starts: ops.filter((e) => e.kind === "shift_start").map((e) => e.note).filter(Boolean),
           incidents: ops.filter((e) => e.kind !== "shift_start").map((e) => ({ kind: e.kind, at: e.created_at })),
-          alerts_tonight: (alertsRes.data || []).map((a: any) => ({ type: a.notification_type, title: a.title, at: a.created_at })),
+          alerts_tonight: (alertsRes.data || []).map((a: { notification_type: string; title: string; created_at: string }) => ({ type: a.notification_type, title: a.title, at: a.created_at })),
         });
       }
 
@@ -1621,7 +1800,7 @@ async function executeTool(
       case "update_drink_price": {
         const { data: drink } = await supabase.from("drinks").select("id, name, price").eq("id", args.drink_id).eq("venue_id", venueId).maybeSingle();
         if (!drink) return JSON.stringify({ error: "Drink not found for this venue" });
-        const updates: any = { price: args.price };
+        const updates: { price: number; promo_price?: number } = { price: args.price };
         if (args.promo_price !== undefined) updates.promo_price = args.promo_price;
         const { error } = await supabase.from("drinks").update(updates).eq("id", args.drink_id);
         if (error) return JSON.stringify({ error: error.message });
@@ -1639,9 +1818,9 @@ async function executeTool(
       case "get_staff_list": {
         const { data } = await supabase.from("profiles").select("id, first_name, last_name, email").eq("venue_id", venueId);
         if (!data || data.length === 0) return JSON.stringify([]);
-        const userIds = data.map((p: any) => p.id);
+        const userIds = data.map((p: StaffProfileRow) => p.id);
         const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", userIds).in("role", ["barman", "bouncer", "vip_host", "cloakroom", "manager"]);
-        const staffWithRoles = data.map((p: any) => ({ ...p, roles: (roles || []).filter((r: any) => r.user_id === p.id).map((r: any) => r.role) })).filter((p: any) => p.roles.length > 0);
+        const staffWithRoles = data.map((p: StaffProfileRow) => ({ ...p, roles: (roles || []).filter((r: RoleRow & { user_id: string }) => r.user_id === p.id).map((r: RoleRow) => r.role) })).filter((p) => p.roles.length > 0);
         return JSON.stringify(staffWithRoles);
       }
 
@@ -1655,7 +1834,7 @@ async function executeTool(
         if (!eventId) return JSON.stringify({ message: "No upcoming event found" });
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         if (!zones || zones.length === 0) return JSON.stringify([]);
-        const zoneIds = zones.map((z: any) => z.id);
+        const zoneIds = zones.map((z: IdRow) => z.id);
         const { data } = await supabase.from("table_reservations").select("id, full_name, status, total_price, zone_id, created_at").in("zone_id", zoneIds).eq("event_id", eventId).order("created_at", { ascending: false });
         return JSON.stringify(data || []);
       }
@@ -1672,14 +1851,14 @@ async function executeTool(
             .eq("event_id", args.event_id).order("position"),
         ]);
 
-        const djIds = (djLinksRes.data || []).map((d: any) => d.dj_id).filter(Boolean);
+        const djIds = (djLinksRes.data || []).map((d: { dj_id: string | null }) => d.dj_id).filter(Boolean);
         let djNames: string[] = [];
         if (djIds.length > 0) {
           const { data: djRows } = await supabase.from("djs").select("id, stage_name, first_name, last_name").in("id", djIds);
-          djNames = (djRows || []).map((d: any) => d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`.trim()).filter(Boolean);
+          djNames = (djRows || []).map((d: { stage_name: string | null; first_name: string | null; last_name: string | null }) => d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`.trim()).filter(Boolean);
         }
 
-        const guests = (guestsRes.data || []).map((g: any) => ({
+        const guests = (guestsRes.data || []).map((g: { name: string; instagram_handle: string | null; instagram_clicks: number | null }) => ({
           name: g.name,
           instagram: g.instagram_handle ? `@${g.instagram_handle}` : null,
           instagram_clicks: g.instagram_clicks ?? 0,
@@ -1689,7 +1868,7 @@ async function executeTool(
           event: evt.title,
           yuno_djs: djNames,
           guest_artists: guests,
-          total_instagram_clicks: guests.reduce((sum: number, g: any) => sum + g.instagram_clicks, 0),
+          total_instagram_clicks: guests.reduce((sum: number, g: { instagram_clicks: number }) => sum + g.instagram_clicks, 0),
           note: "guest_artists = artistes sans compte Yuno, ajoutés à la main sur la fiche de la soirée. instagram_clicks = clics sortants depuis l'affiche publique, dédupliqués par visiteur sur 30 minutes.",
         });
       }
@@ -1700,20 +1879,20 @@ async function executeTool(
 
         // Fetch ticket rounds, tickets data, orders, and table zones in parallel
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (zones || []).map((z: any) => z.id);
+        const zoneIds = (zones || []).map((z: IdRow) => z.id);
 
-        const [roundsRes, ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
+        const [roundsRes, ticketsRows, ordersRows, tablesRows] = await Promise.all([
           supabase.from("ticket_rounds").select("id, name, price, max_tickets, tickets_sold, is_active").eq("event_id", args.event_id).order("position"),
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount", { count: "exact" }).eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES),
-          supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES),
+          fetchAllRows<TicketAmounts>((f, t) => supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES).order("id").range(f, t)),
+          fetchAllRows<OrderAmounts>((f, t) => supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).order("id").range(f, t)),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds)
-            : Promise.resolve({ data: [] }),
+            ? fetchAllRows<TableAmounts>((f, t) => supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).order("id").range(f, t))
+            : Promise.resolve([] as TableAmounts[]),
         ]);
 
-        const tik = calcTicketsRevenue(ticketsDataRes.data || []);
-        const ord = calcOrdersRevenue(ordersDataRes.data || []);
-        const tab = calcTablesRevenue(tablesDataRes.data || []);
+        const tik = calcTicketsRevenue(ticketsRows);
+        const ord = calcOrdersRevenue(ordersRows);
+        const tab = calcTablesRevenue(tablesRows);
 
         const now = new Date().toISOString();
         let status = "🔜 À venir";
@@ -1729,11 +1908,11 @@ async function executeTool(
             ticket_selling_mode: evt.ticket_selling_mode, event_status: status,
           },
           ticket_rounds: roundsRes.data || [],
-          tickets_sold: ticketsDataRes.count || 0,
+          tickets_sold: ticketsRows.length,
           revenue: {
-            orders: { count: (ordersDataRes.data || []).length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
-            tickets: { count: (ticketsDataRes.data || []).length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
-            tables: { count: (tablesDataRes.data || []).length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
+            orders: { count: ordersRows.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+            tickets: { count: ticketsRows.length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
+            tables: { count: tablesRows.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
             total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
             total_ca_net: r2(ord.caNet + tik.caNet + tab.caNet),
           },
@@ -1746,26 +1925,26 @@ async function executeTool(
         if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
 
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (zones || []).map((z: any) => z.id);
+        const zoneIds = (zones || []).map((z: IdRow) => z.id);
 
-        const [ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES),
-          supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES),
+        const [ticketsRows, ordersRows, tablesRows] = await Promise.all([
+          fetchAllRows<TicketAmounts>((f, t) => supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES).order("id").range(f, t)),
+          fetchAllRows<OrderAmounts>((f, t) => supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).order("id").range(f, t)),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds)
-            : Promise.resolve({ data: [] }),
+            ? fetchAllRows<TableAmounts>((f, t) => supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).order("id").range(f, t))
+            : Promise.resolve([] as TableAmounts[]),
         ]);
 
-        const tik = calcTicketsRevenue(ticketsDataRes.data || []);
-        const ord = calcOrdersRevenue(ordersDataRes.data || []);
-        const tab = calcTablesRevenue(tablesDataRes.data || []);
+        const tik = calcTicketsRevenue(ticketsRows);
+        const ord = calcOrdersRevenue(ordersRows);
+        const tab = calcTablesRevenue(tablesRows);
 
         return JSON.stringify({
           event_id: args.event_id,
           event_title: evt.title,
-          orders: { count: (ordersDataRes.data || []).length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
-          tickets: { count: (ticketsDataRes.data || []).length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
-          tables: { count: (tablesDataRes.data || []).length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
+          orders: { count: ordersRows.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          tickets: { count: ticketsRows.length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
+          tables: { count: tablesRows.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
           total_ca_net: r2(ord.caNet + tik.caNet + tab.caNet),
         });
@@ -1791,7 +1970,7 @@ async function executeTool(
       case "update_event": {
         const { data: evt } = await supabase.from("events").select("id, title").eq("id", args.event_id).eq("venue_id", venueId).maybeSingle();
         if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
-        const updates: any = {};
+        const updates: { title?: string; description?: string; music_genres?: string[]; music_genre?: string } = {};
         if (args.title) updates.title = args.title;
         if (args.description !== undefined) updates.description = args.description;
         if (args.music_genres && Array.isArray(args.music_genres)) {
@@ -1807,21 +1986,24 @@ async function executeTool(
 
       // ─── AUTOMATISATIONS EMAIL ───
       case "list_email_automations": {
-        const { data: stats, error } = await supabase.rpc("get_email_automation_stats", { p_venue_id: venueId, p_organizer_user_id: null });
+        // Ces RPC gardent leur portée sur auth.uid() : au client de service
+        // elles répondaient toujours « Unauthorized ». Client de l'appelant.
+        const reader = userClient ?? supabase;
+        const { data: stats, error } = await reader.rpc("get_email_automation_stats", { p_venue_id: venueId, p_organizer_user_id: null });
         if (error) return JSON.stringify({ error: error.message });
-        const rows = (stats || []) as any[];
+        const rows = (stats || []) as EmailAutomationStatRow[];
         const KINDS = ["new_event", "abandoned_checkout", "tier_closing", "last_call", "table_upsell", "post_event_thanks", "post_event_missed", "welcome", "win_back"];
-        const byKind: Record<string, any> = {};
+        const byKind: Record<string, EmailAutomationStatRow> = {};
         for (const r of rows) byKind[r.kind] = r;
         // Qui Yuno cible maintenant (compte, jamais de liste) + suggestions.
         const [previews, { data: suggestions }] = await Promise.all([
           Promise.all(KINDS.map(async (kind) => {
-            const { data } = await supabase.rpc("preview_email_automation", { p_venue_id: venueId, p_organizer_user_id: null, p_kind: kind });
+            const { data } = await reader.rpc("preview_email_automation", { p_venue_id: venueId, p_organizer_user_id: null, p_kind: kind });
             return [kind, data] as const;
           })),
-          supabase.rpc("get_email_automation_suggestions", { p_venue_id: venueId, p_organizer_user_id: null }),
+          reader.rpc("get_email_automation_suggestions", { p_venue_id: venueId, p_organizer_user_id: null }),
         ]);
-        const previewByKind: Record<string, any> = Object.fromEntries(previews);
+        const previewByKind: Record<string, EmailAutomationPreview | null> = Object.fromEntries(previews);
         const out = KINDS.map((kind) => {
           const r = byKind[kind];
           const pv = previewByKind[kind] || null;
@@ -1916,11 +2098,13 @@ async function executeTool(
 
       // ─── ONBOARDING ───
       case "get_onboarding_status": {
-        const { data } = await supabase.from("venue_onboarding").select("current_step, completed_steps").eq("venue_id", venueId).maybeSingle();
+        const { data } = await supabase.from("venue_onboarding").select("current_step, steps").eq("venue_id", venueId).maybeSingle();
         const { data: venue } = await supabase.from("venues").select("stripe_account_id, name").eq("id", venueId).maybeSingle();
+        // `steps` = { "<n>": { status, completed_at } } : les étapes cochées.
+        const steps = (data?.steps ?? {}) as Record<string, { status?: string }>;
         return JSON.stringify({
           current_step: data?.current_step || "not_started",
-          completed_steps: data?.completed_steps || [],
+          completed_steps: Object.keys(steps).filter((k) => steps[k]?.status === "completed").map(Number).sort((a, b) => a - b),
           stripe_connected: !!venue?.stripe_account_id,
           venue_name: venue?.name,
         });
@@ -1958,16 +2142,16 @@ async function executeTool(
         const limit = args.limit || 10;
         const [topCustomers, totalCustomers] = await Promise.all([
           supabase.from("venue_customers").select("id, first_name, last_name, email, total_spent, order_count, ticket_count, table_count, last_visit_at").eq("venue_id", venueId).order("total_spent", { ascending: false }).limit(limit),
-          supabase.from("venue_customers").select("total_spent").eq("venue_id", venueId),
+          fetchAllRows<{ total_spent: Amount }>((f, t) => supabase.from("venue_customers").select("total_spent").eq("venue_id", venueId).order("id").range(f, t)),
         ]);
-        const customers = totalCustomers.data || [];
-        const totalSpent = customers.reduce((s: number, c: any) => s + (c.total_spent || 0), 0);
+        const customers = totalCustomers;
+        const totalSpent = customers.reduce((s: number, c: { total_spent: Amount }) => s + (c.total_spent || 0), 0);
         const avgSpent = customers.length > 0 ? totalSpent / customers.length : 0;
         const segments = {
-          platinum: customers.filter((c: any) => (c.total_spent || 0) >= 1000).length,
-          gold: customers.filter((c: any) => (c.total_spent || 0) >= 500 && (c.total_spent || 0) < 1000).length,
-          silver: customers.filter((c: any) => (c.total_spent || 0) >= 200 && (c.total_spent || 0) < 500).length,
-          bronze: customers.filter((c: any) => (c.total_spent || 0) < 200).length,
+          platinum: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) >= 1000).length,
+          gold: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) >= 500 && (c.total_spent || 0) < 1000).length,
+          silver: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) >= 200 && (c.total_spent || 0) < 500).length,
+          bronze: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) < 200).length,
         };
         return JSON.stringify({
           total_customers: customers.length,
@@ -1976,7 +2160,7 @@ async function executeTool(
           total_customer_spend: r2(totalSpent),
           average_customer_spend: r2(avgSpent),
           segments,
-          top_customers: (topCustomers.data || []).map((c: any) => ({
+          top_customers: (topCustomers.data || []).map((c: VenueCustomerRow) => ({
             name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email,
             total_spent: c.total_spent,
             orders: c.order_count,
@@ -1989,11 +2173,11 @@ async function executeTool(
       // ─── TOP DRINKS ───
       case "get_top_drinks": {
         const since = getPeriodFilter(args.period || "30d");
-        const { data: orders } = await supabase.from("orders").select("items").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
-        if (!orders || orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
+        const orders = await fetchAllRows<{ items: unknown }>((f, t) => supabase.from("orders").select("items").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since).order("id").range(f, t));
+        if (orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
         const drinkSales: Record<string, { name: string; qty: number; revenue: number }> = {};
         for (const order of orders) {
-          const items = order.items as any[];
+          const items = order.items as OrderItem[];
           if (!items) continue;
           for (const item of items) {
             const name = item.name || item.drink_name || "Unknown";
@@ -2036,20 +2220,32 @@ async function executeTool(
       case "get_promoter_stats": {
         const { data: promoters } = await supabase
           .from("promoters")
-          .select("id, first_name, last_name, pending_amount, total_paid, total_conversions, is_active")
-          .eq("venue_id", venueId)
-          .order("total_conversions", { ascending: false });
+          .select("id, first_name, last_name, pending_amount, total_paid, is_active")
+          .eq("venue_id", venueId);
 
         if (!promoters || promoters.length === 0) {
           return JSON.stringify({ message: "Aucun promoteur configuré pour ce club.", promoters: [] });
         }
+        // Conversions comptées dans promoter_conversions (la colonne
+        // `promoters.total_conversions` n'existe pas).
+        // Un compte exact par promoteur (une requête « head » chacun) : une
+        // liste de lignes serait tronquée à 1 000 par PostgREST.
+        const convCount = new Map<string, number>();
+        await Promise.all(promoters.map(async (p: PromoterRow) => {
+          const { count } = await supabase
+            .from("promoter_conversions")
+            .select("id", { count: "exact", head: true })
+            .eq("promoter_id", p.id);
+          convCount.set(p.id, count ?? 0);
+        }));
+        promoters.sort((a: PromoterRow, b: PromoterRow) => (convCount.get(b.id) ?? 0) - (convCount.get(a.id) ?? 0));
 
         return JSON.stringify({
           total_promoters: promoters.length,
-          active: promoters.filter((p: any) => p.is_active).length,
-          promoters: promoters.map((p: any) => ({
+          active: promoters.filter((p: PromoterRow) => p.is_active).length,
+          promoters: promoters.map((p: PromoterRow) => ({
             name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-            conversions: p.total_conversions || 0,
+            conversions: convCount.get(p.id) ?? 0,
             pending: r2(p.pending_amount || 0),
             total_paid: r2(p.total_paid || 0),
             active: p.is_active,
@@ -2119,8 +2315,8 @@ const CONTENT_SCHEMA = {
 };
 
 async function handleGenerateContent(
-  body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
@@ -2159,12 +2355,12 @@ async function handleGenerateContent(
       .select("name, price, tickets_sold, max_tickets, is_active")
       .eq("event_id", eventId)
       .order("position");
-    const activeRound = (rounds || []).find((r: any) => r.is_active);
+    const activeRound = (rounds || []).find((r: TicketRoundRow) => r.is_active);
     if (activeRound) {
       contextLines.push(`- Prix billet actuel : ${activeRound.price}€ (round « ${activeRound.name} »)`);
     }
-    const sold = (rounds || []).reduce((s: number, r: any) => s + (r.tickets_sold || 0), 0);
-    const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: any) => s + (r.max_tickets || 0), 0);
+    const sold = (rounds || []).reduce((s: number, r: TicketRoundRow) => s + (r.tickets_sold || 0), 0);
+    const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: TicketRoundRow) => s + (r.max_tickets || 0), 0);
     if (cap > 0) contextLines.push(`- Remplissage : ${sold}/${cap} billets vendus`);
   }
   if (segment) contextLines.push(`- Audience ciblée : ${segment}`);
@@ -2211,11 +2407,11 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
 
   const aiData = await aiResponse.json();
   logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: any = null;
+  let parsed: { variants?: ContentVariant[] } | null = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch { /* empty */ }
   const limits = CHANNEL_LIMITS[channel];
-  const variants = (parsed?.variants || []).slice(0, 3).map((v: any) => {
-    const clamp = (l: any) => ({
+  const variants = (parsed?.variants || []).slice(0, 3).map((v: ContentVariant) => {
+    const clamp = (l: ContentFields | undefined) => ({
       title: String(l?.title || "").substring(0, limits.title),
       preheader: String(l?.preheader || "").substring(0, limits.preheader),
       body: String(l?.body || "").substring(0, limits.body),
@@ -2290,8 +2486,8 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 async function handleGenerateNightReport(
-  body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
@@ -2372,7 +2568,7 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
 
   const aiData = await aiResponse.json();
   logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let report: any = null;
+  let report: NightReport | null = null;
   try { report = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   if (!report?.headline || !Array.isArray(report?.insights) || !Array.isArray(report?.actions)) {
     log("report_empty", { event_id: eventId });
@@ -2446,9 +2642,12 @@ const NBA_SCHEMA = {
   },
 };
 
+// Change à chaque fois que les chiffres lus par les actions changent de source.
+const ACTIONS_CACHE_TAG = `${ACTIONS_MODEL}#sales-rows-v2`;
+
 async function handleNextBestActions(
-  body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
@@ -2463,6 +2662,9 @@ async function handleNextBestActions(
     .eq("venue_id", venueId)
     .eq("day", today)
     .eq("language", language)
+    // Le tag de version invalide le cache du jour quand les données lues
+    // changent de source (sinon les actions fausses restent jusqu'à minuit).
+    .eq("model", ACTIONS_CACHE_TAG)
     .maybeSingle();
   if (cached) {
     return new Response(JSON.stringify({ actions: cached.actions, cached: true }), { headers: jsonHeaders });
@@ -2482,7 +2684,7 @@ async function handleNextBestActions(
       .eq("source", "manual").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("email_campaigns").select("created_at").eq("venue_id", venueId)
       .eq("status", "sent").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("venue_customers").select("last_visit_at").eq("venue_id", venueId).eq("is_banned", false).limit(2000),
+    fetchAllRows<{ last_visit_at: string | null }>((f, t) => supabase.from("venue_customers").select("last_visit_at").eq("venue_id", venueId).eq("is_banned", false).order("id").range(f, t)).then((data) => ({ data }), () => ({ data: [] as { last_visit_at: string | null }[] })),
     supabase.from("venue_push_automations").select("automation_key, enabled").eq("venue_id", venueId),
   ]);
 
@@ -2492,16 +2694,48 @@ async function handleNextBestActions(
   if (events.length === 0) {
     lines.push("Aucune soirée programmée dans les 14 prochains jours.");
   } else {
+    // Les MÊMES chiffres que le bloc « Vos prochaines soirées » juste en
+    // dessous des actions : billets et tables réellement vendus (lignes de
+    // vente), jamais le compteur `ticket_rounds.tickets_sold` — il n'est
+    // incrémenté que par le checkout et a déjà fait écrire « 0 billet vendu »
+    // à l'IA au-dessus d'une soirée affichée à 84 / 650.
+    const ids = events.map((e: IdRow) => e.id);
+    // PostgREST rend au plus 1 000 lignes par requête : on pagine, sinon une
+    // grosse guest list serait comptée à 1 000 et l'IA contredirait l'écran.
+    const allRows = async <T,>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<{ data: T[] }> => {
+      const out: T[] = [];
+      for (let from = 0; from < 50_000; from += 1000) {
+        const { data, error } = await build(from, from + 999);
+        if (error || !data?.length) break;
+        out.push(...data);
+        if (data.length < 1000) break;
+      }
+      return { data: out };
+    };
+    const [roundsRes, ticketsRes, tablesRes, glRes] = await Promise.all([
+      supabase.from("ticket_rounds").select("event_id, max_tickets").in("event_id", ids),
+      allRows((f, t) => supabase.from("tickets").select("event_id, quantity").in("event_id", ids).in("status", ["paid", "used"]).order("id").range(f, t)),
+      allRows((f, t) => supabase.from("table_reservations").select("event_id").in("event_id", ids).in("status", ["paid", "confirmed"]).order("id").range(f, t)),
+      allRows((f, t) => supabase.from("guest_list_entries").select("id, guest_lists!inner(event_id)").in("guest_lists.event_id", ids).neq("status", "cancelled").order("id").range(f, t)),
+    ]);
+    const sumBy = <R,>(rows: R[] | null, key: (r: R) => string, val: (r: R) => number) => {
+      const m = new Map<string, number>();
+      for (const r of rows || []) m.set(key(r), (m.get(key(r)) || 0) + val(r));
+      return m;
+    };
+    const soldBy = sumBy(ticketsRes.data, (r) => r.event_id, (r) => r.quantity || 1);
+    const tablesBy = sumBy(tablesRes.data, (r) => r.event_id, () => 1);
+    // guest_lists est une relation « vers un » : PostgREST l'embarque en objet,
+    // pas en tableau (le typage sans schéma suppose un tableau).
+    const glRows = glRes.data as unknown as { guest_lists: { event_id: string } | null }[];
+    const glBy = sumBy(glRows, (r) => r.guest_lists?.event_id, () => 1);
+    const capBy = sumBy(roundsRes.data, (r) => r.event_id, (r) => r.max_tickets || 0);
     for (const evt of events) {
-      const { data: rounds } = await supabase
-        .from("ticket_rounds")
-        .select("price, tickets_sold, max_tickets, is_active")
-        .eq("event_id", evt.id);
-      const sold = (rounds || []).reduce((s: number, r: any) => s + (r.tickets_sold || 0), 0);
-      const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: any) => s + (r.max_tickets || 0), 0);
+      const sold = soldBy.get(evt.id) || 0;
+      const cap = evt.max_tickets || capBy.get(evt.id) || 0;
       const daysOut = Math.max(0, Math.round((new Date(evt.start_at).getTime() - now.getTime()) / 86400000));
       const fill = cap > 0 ? Math.round((sold / cap) * 100) : null;
-      lines.push(`Soirée « ${evt.title} » dans ${daysOut} j : ${sold} billets vendus${cap ? ` / ${cap} (${fill}%)` : ""}${evt.ticketing_enabled ? "" : " — billetterie DÉSACTIVÉE"}${evt.tables_enabled ? "" : " — tables désactivées"}.`);
+      lines.push(`Soirée « ${evt.title} » dans ${daysOut} j : ${sold} billets vendus${cap ? ` / ${cap} (${fill}%)` : ""}, ${tablesBy.get(evt.id) || 0} tables réservées, ${glBy.get(evt.id) || 0} inscrits guest list${evt.ticketing_enabled ? "" : " — billetterie DÉSACTIVÉE"}${evt.tables_enabled ? "" : " — tables désactivées"}.`);
     }
   }
 
@@ -2513,7 +2747,7 @@ async function handleNextBestActions(
 
   const customers = customersRes.data || [];
   if (customers.length > 0) {
-    const bucket = (lo: number, hi: number | null) => customers.filter((c: any) => {
+    const bucket = (lo: number, hi: number | null) => customers.filter((c: { last_visit_at: string | null }) => {
       const d = daysSince(c.last_visit_at);
       return d !== null && d >= lo && (hi === null || d < hi);
     }).length;
@@ -2523,8 +2757,8 @@ async function handleNextBestActions(
   }
 
   const autos = automationsRes.data || [];
-  const autosOn = autos.filter((a: any) => a.enabled).length;
-  lines.push(`Notifications automatiques : ${autosOn}/4 activées.`);
+  const autosOn = autos.filter((a: { enabled: boolean }) => a.enabled).length;
+  lines.push(`Notifications automatiques : ${autosOn}/${autos.length} activées.`);
 
   const systemPrompt = `Tu es le conseiller opérationnel quotidien d'un club sur Yuno. On te donne l'état réel du club ce matin.
 Propose EXACTEMENT 3 actions concrètes et priorisées à faire AUJOURD'HUI, la plus impactante d'abord, en ${language === "fr" ? "français" : language === "es" ? "espagnol" : "anglais"}.
@@ -2562,10 +2796,10 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
 
   const aiData = await aiResponse.json();
   logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: any = null;
+  let parsed: { actions?: NextBestAction[] } | null = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   const actions = (parsed?.actions || []).slice(0, 3)
-    .filter((a: any) => ACTION_PATHS.includes(a?.path));
+    .filter((a: NextBestAction) => (ACTION_PATHS as readonly string[]).includes(a?.path));
   if (!actions.length) {
     log("nba_empty", { venue_id: venueId });
     return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
@@ -2577,7 +2811,7 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
       day: today,
       language,
       actions,
-      model: ACTIONS_MODEL,
+      model: ACTIONS_CACHE_TAG,
     }, { onConflict: "venue_id,day,language" });
   } catch { /* ignore */ }
 
@@ -2639,15 +2873,15 @@ ${excerpts}`;
 }
 
 async function handleHelpChat(
-  body: any,
-  ctx: { supabase: any; userId: string; userEmail: string | null; startedAt: number },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; userId: string; userEmail: string | null; startedAt: number },
 ): Promise<Response> {
   const language = ["fr", "en", "es"].includes(body?.language) ? body.language : "fr";
   const scope = ["owner", "manager", "organizer", "agency"].includes(body?.scope) ? body.scope : "owner";
   const messages = (Array.isArray(body?.messages) ? body.messages : [])
-    .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .filter((m: HelpChatMessage) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-12)
-    .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+    .map((m: HelpChatMessage) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
   if (messages.length === 0 || messages[messages.length - 1].role !== "user") {
     return new Response(JSON.stringify({ error: "A user message is required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -2655,7 +2889,7 @@ async function handleHelpChat(
   }
   const docs: HelpDoc[] = (Array.isArray(body?.docs) ? body.docs : [])
     .slice(0, 6)
-    .map((d: any) => ({
+    .map((d: { title?: unknown; path?: unknown; text?: unknown }) => ({
       title: String(d?.title ?? "").slice(0, 200),
       path: String(d?.path ?? "").slice(0, 300),
       text: String(d?.text ?? "").slice(0, 7000),
@@ -2748,7 +2982,7 @@ serve(async (req) => {
         supabase.from("profiles").select("profile_type").eq("id", user.id).maybeSingle(),
         supabase.from("org_members").select("id").eq("member_user_id", user.id).limit(1).maybeSingle(),
       ]);
-      const isPro = (proRoles ?? []).some((r: any) => r.role && r.role !== "client")
+      const isPro = (proRoles ?? []).some((r: RoleRow) => r.role && r.role !== "client")
         || proProfile?.profile_type === "organizer"
         || Boolean(membership);
       if (!isPro) {
@@ -2761,7 +2995,7 @@ serve(async (req) => {
 
     // Verify owner role
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    const isOwner = roles?.some((r: any) => r.role === "owner");
+    const isOwner = roles?.some((r: RoleRow) => r.role === "owner");
     if (!isOwner) {
       return new Response(JSON.stringify({ error: "Owner role required" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -2851,7 +3085,7 @@ serve(async (req) => {
     // MULTI-ROUND TOOL CALLING (max 3 rounds)
     // ═══════════════════════════════════════
 
-    const conversationMessages: any[] = [
+    const conversationMessages: OpenAiChatMessage[] = [
       { role: "system", content: systemPrompt },
       ...messages,
     ];
@@ -2917,7 +3151,7 @@ serve(async (req) => {
 
       // Execute tool calls
       const toolCalls = choice.message.tool_calls;
-      log("tool_calls", { round, tools: toolCalls.map((tc: any) => tc.function.name) });
+      log("tool_calls", { round, tools: toolCalls.map((tc: OpenAiToolCall) => tc.function.name) });
       for (const tc of toolCalls) if (tc?.function?.name) calledTools.push(String(tc.function.name));
 
       // Add assistant message with tool calls
@@ -2925,7 +3159,7 @@ serve(async (req) => {
 
       for (const tc of toolCalls) {
         const fnName = tc.function.name;
-        let fnArgs: Record<string, any> = {};
+        let fnArgs: ToolArgs = {};
         try { fnArgs = JSON.parse(tc.function.arguments || "{}"); } catch { /* empty */ }
 
         // Plan gating — désactivé pendant le lancement (SUBSCRIPTIONS_ENABLED=false) :

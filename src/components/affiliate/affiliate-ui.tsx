@@ -1,6 +1,8 @@
-import { ReactNode, CSSProperties } from 'react';
+import { ReactNode, CSSProperties, ComponentType, KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+
+type IconComponent = ComponentType<{ className?: string; style?: CSSProperties }>;
 
 /**
  * Shared design primitives for the affiliate app (admin + manager + promoter
@@ -95,7 +97,7 @@ export function AffCard({
 // ─── Card header (icon container + title + subtitle + right slot) ─────────────
 export function AffCardHeader({
   icon: Icon, title, subtitle, right, accent,
-}: { icon?: any; title: string; subtitle?: string; right?: ReactNode; accent?: boolean }) {
+}: { icon?: IconComponent; title: string; subtitle?: string; right?: ReactNode; accent?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-3 mb-4">
       <div className="flex items-center gap-3 min-w-0">
@@ -176,7 +178,7 @@ export function SectionLabel({ children, action }: { children: ReactNode; action
 // ─── KPI card (big number, optional icon + link target) ───────────────────────
 export function KpiCard({
   icon: Icon, label, value, to, tone, hint,
-}: { icon?: any; label: string; value: ReactNode; to?: string; tone?: 'pos' | 'warn' | 'red'; hint?: string }) {
+}: { icon?: IconComponent; label: string; value: ReactNode; to?: string; tone?: 'pos' | 'warn' | 'red'; hint?: string }) {
   const valueColor = tone === 'pos' ? POS : tone === 'warn' ? WARN : tone === 'red' ? RED : T1;
   const inner = (
     <AffCard interactive={!!to} padding={16} style={{ height: '100%' }}>
@@ -201,7 +203,7 @@ export function KpiCard({
 // ─── Stat tile (compact, centred) ─────────────────────────────────────────────
 export function StatTile({
   icon: Icon, value, label, tone,
-}: { icon?: any; value: ReactNode; label: string; tone?: 'pos' | 'warn' | 'red' }) {
+}: { icon?: IconComponent; value: ReactNode; label: string; tone?: 'pos' | 'warn' | 'red' }) {
   const color = tone === 'pos' ? POS : tone === 'warn' ? WARN : tone === 'red' ? RED : T1;
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px 12px', textAlign: 'center' }}>
@@ -303,7 +305,7 @@ export function AffAvatar({ src, fallback, size = 40 }: { src?: string | null; f
 // ─── Dark input ──────────────────────────────────────────────────────────────
 export function DarkInput({
   value, onChange, placeholder, type = 'text', icon: Icon, onKeyDown, disabled, autoFocus,
-}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; icon?: any; onKeyDown?: (e: any) => void; disabled?: boolean; autoFocus?: boolean }) {
+}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; icon?: IconComponent; onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void; disabled?: boolean; autoFocus?: boolean }) {
   return (
     <div className="relative" style={{ flex: 1 }}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />}
@@ -436,7 +438,7 @@ export function SegToggle<T extends string>({
 // ─── Tab bar (underline indicator) ────────────────────────────────────────────
 export function TabBar<T extends string>({
   tabs, active, onChange,
-}: { tabs: { id: T; label: string; icon?: any }[]; active: T; onChange: (id: T) => void }) {
+}: { tabs: { id: T; label: string; icon?: IconComponent }[]; active: T; onChange: (id: T) => void }) {
   return (
     <div className="flex gap-0.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
       {tabs.map((tab) => {
@@ -474,7 +476,7 @@ export function AffSpinner({ label = 'Chargement…' }: { label?: string }) {
 }
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
-export function AffEmpty({ icon: Icon, title, description, action }: { icon?: any; title: string; description?: string; action?: ReactNode }) {
+export function AffEmpty({ icon: Icon, title, description, action }: { icon?: IconComponent; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '44px 20px' }}>
       {Icon && <Icon className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />}

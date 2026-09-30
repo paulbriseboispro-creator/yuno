@@ -25,7 +25,8 @@ const FOLLOWERS = 'var(--acc-60a5fa)';
 interface Props {
   scope: AnalyticsScope;
   /** La base de contacts de la portée (`/owner/campaigns/contacts`…). */
-  contactsHref: string;
+  /** Base de contacts ; absent (manager) = pas de lien. */
+  contactsHref?: string;
   /** Rapport d'une soirée. */
   eventHref: (eventId: string) => string;
   /** Ce qui suit (fidélité), rendu sous les blocs de la page. */
@@ -135,9 +136,11 @@ export function CommunityOverviewView({ scope, contactsHref, eventHref, children
                 ))}
               </div>
               <div className="mt-3"><CoverageNote known={data.lastPurchase.known} total={tot.contacts} /></div>
-              <Link to={contactsHref} className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: KIT.T1 }}>
-                {t('anf.co.openContacts')} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-              </Link>
+              {contactsHref && (
+                <Link to={contactsHref} className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: KIT.T1 }}>
+                  {t('anf.co.openContacts')} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </Link>
+              )}
             </>
           )}
         </ReportCard>

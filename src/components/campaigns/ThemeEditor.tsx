@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import ColorField from './ColorField';
 import { DEFAULT_THEME, THEME_PRESETS, type EmailTheme } from '@/lib/emailCampaign';
@@ -21,7 +21,7 @@ const SECTION_LABEL: Record<SectionKey, string> = {
 
 export default function ThemeEditor({ theme, onChange }: Props) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState<SectionKey>('presets');
+  const [open, setOpen] = useState<SectionKey | ''>('presets');
 
   const set = (patch: Partial<Required<EmailTheme>>) => onChange({ ...theme, ...patch });
 
@@ -30,11 +30,11 @@ export default function ThemeEditor({ theme, onChange }: Props) {
     if (p) { onChange({ ...p.theme }); toast.success(`${t('em.theme.appliedPre')}« ${t('em.theme.preset.' + id)} »${t('em.theme.appliedPost')}`); }
   };
 
-  const Section = ({ k, children }: { k: SectionKey; children: any }) => (
+  const Section = ({ k, children }: { k: SectionKey; children: ReactNode }) => (
     <div className="border-b border-border last:border-0">
       <button
         type="button"
-        onClick={() => setOpen(open === k ? ('' as any) : k)}
+        onClick={() => setOpen(open === k ? '' : k)}
         className="w-full flex items-center justify-between py-2.5 text-sm font-medium hover:text-primary transition-colors"
       >
         <span>{t(SECTION_LABEL[k])}</span>

@@ -14,7 +14,14 @@ export default function OrgAppEventLive() {
   const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const navigate = useNavigate();
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<{
+    id: string;
+    title: string;
+    venue_id: string | null;
+    partner_venue_id: string | null;
+    organizer_user_id: string | null;
+    partner_organizer_id: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 

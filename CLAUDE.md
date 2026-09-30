@@ -20,7 +20,9 @@ Fondateur solo : Paul. Site public multilingue **EN / FR / ES** (défaut : angla
   Project ref : `fulawxvdlwtdlpkycixe`. (Ancien ref Lovable mort : `kredmghiqesyrmjqvxen`.)
 - **Paiements** : Stripe + **Stripe Connect double destination** (owner→venues, organizer→profiles).
 - **Autres** : Mapbox (carte clubs, lazy-load), Resend (emails), i18n maison.
-- **Pas de tests** (aucun framework configuré). `eslint` seulement.
+- **Tests** : `npx vitest run` (helpers `src/lib/__tests__`, ~400 tests) + `npm run lint`
+  (eslint couvre AUSSI `supabase/functions` : 0 erreur exigée, types réels — jamais un
+  `eslint-disable`, et `// deno-lint-ignore` n'est pas lu par eslint).
 
 ## Commandes
 
@@ -1062,8 +1064,8 @@ jamais Space Grotesk, mono ni filet rouge ici. Règles :
 
 ## Comportement d'achat — Analytics → Achats (2026-09-24)
 
-`/owner/analytics?tab=purchase` et `/organizer-app/analytics?tab=purchase`
-(`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
+`/owner/analytics?tab=community&view=purchase` (et côté orga ; l'ancien `?tab=purchase`
+est réécrit) (`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
 `src/lib/purchaseBehavior.ts`, testés). Le reste de la page dit « combien ai-je
 vendu ? », cet onglet dit « comment mes clients achètent-ils ? » : délai avant
 la soirée, jour × heure, rythme du bar dans la nuit, taille de groupe / panier /
@@ -1163,8 +1165,9 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   `20260924200000`). Adresse `?tab=sales|traffic|community|live&view=…`
   (`src/lib/analyticsNav.ts`, testé ; `useAnalyticsRoute`) : Ventes (Vue
   d'ensemble · Par soirée = Rapport de soirée · Partenaires = promoteurs),
-  Trafic (Ma page · Par soirée · Sources), Communauté (Vue d'ensemble · Abonnés
-  · Achats · Public), En direct. Les anciens onglets (`global`, `event`,
+  Trafic (Ma page · Par soirée — Sources fondue dans Ma page le 25/09),
+  Communauté (Vue d'ensemble · Abonnés · Achats · Public, Goûts rangés dans
+  Public), En direct. Les vues retirées passent par `LEGACY_VIEWS`. Les anciens onglets (`global`, `event`,
   `purchase`) sont traduits ET l'URL réécrite en place ; un lien de soirée se
   construit par `eventReportHref(base, id)`, jamais à la main. Navigation
   commune `AnalyticsFamilyNav` (club + orga) ; les zones de l'ancien Global
@@ -1254,12 +1257,11 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   - `useAnalyticsData` attend la liste des soirées (`eventsReady`) avant de
     calculer (sinon tout partait deux fois) et lance ses lectures en
     parallèle.
-  - Ventes › Vue d'ensemble = chiffres, `SalesByDayChart` (série
-    `buildSalesSeries`, testée : jour par jour, mois au-delà de 92 j, horaire
-    seulement sur 24/48 h), « Ce que tu touches », bilan par soirée ; le reste
-    sous « Détail ». Montants au format de la langue, jamais `€${n}`.
-  - Rapport de soirée : `EventPostAnalysisView layout="summary"` (note +
-    chiffres, « Bilan complet » replié) et `HypeScoreSection compact` (sans
+  - Ventes › Vue d'ensemble : remplacée le 25/09 par `SalesOverviewView`
+    (voir « Lire une analyse en dix secondes » ci-dessous). Montants au format
+    de la langue, jamais `€${n}`.
+  - Rapport de soirée : `EventPostAnalysisView layout="report"` (dans le
+    « Bilan complet » replié sous la phrase-réponse) et `HypeScoreSection compact` (sans
     métriques / tendance / comparaison, qui répétaient la section ventes avec
     d'AUTRES chiffres). Soirée passée : lignes « Fermé », pas de « rien
     aujourd'hui » ; un total nul n'affiche jamais « rien aujourd'hui » ni
@@ -1304,6 +1306,148 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     dans `~/.pki/nssdb` (`certutil`), sinon ERR_CERT_AUTHORITY_INVALID. Le club
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
+
+## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
+
+Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
+1-6 livrés, lot 7 « nouveautés » à faire). Né d'un constat : treize endroits
+où le même mot portait deux chiffres différents (guest list comptée avec les
+annulés ici, sans là ; deux « CA » sur le même accueil ; l'IA disait « 0
+billet » quand le tableau en montrait 84). Règles :
+
+- **Un nom = une formule, partout** : `src/lib/metrics.ts` (testé) est le
+  dictionnaire — CA, Ce que tu touches, Billets, Tables, Guest list, Entrées,
+  Présence, Remplissage, Dépense par tête, Panier, Clients, Nouveaux, Habitués,
+  Visites, Conversion. Libellés `m.*`, définitions ⓘ `gl.*` (×3). Un chiffre
+  nouveau prend un nom du dictionnaire ou y entre ; jamais un synonyme.
+  `MIN_SAMPLE = 10` : en dessous, pas de pourcentage ni de répartition (âge,
+  sexe, conversion) ; `readableDelta` passe à l'écart absolu au-delà de ±300 %.
+  Les totaux d'une liste de commandes ne comptent que le PAYÉ.
+- **Grammaire d'un écran d'analyse** : une phrase-réponse (`AnswerLine`) →
+  quatre chiffres avec leur écart (`KpiRow`/`KpiTile` + `DeltaBadge`) → un
+  graphique par soirée → une liste classée (`RankedList`) → le tableau des
+  soirées → le reste dans `MoreDetail` replié. Blocs dans
+  `src/components/analytics/kit.tsx` (`BulletBar` = jauge avec le trait de la
+  référence, `StackBar`, `EmptyAnswer`, `ChoicePills`), formats dans
+  `kitFormat.ts` (`useKpiFormat`). Un écran qui affiche plus de quatre
+  chiffres en tête a oublié de choisir.
+- **Les périodes se comptent en SOIRÉES, pas en jours** :
+  `get_sales_overview(p_venue_id, p_organizer_user_id, p_period)` (migration
+  `20260925130000`, `last` | `last4` | `month` | `year` | `all`) ne prend que
+  les soirées PASSÉES et les compare au même nombre de soirées juste avant.
+  Formules de `get_events_sales_summary` ; Entrées = billets scannés
+  (quantité) + convives de table arrivés + guest list scannée. Elle sert
+  Ventes › Vue d'ensemble (`SalesOverviewView`, un pilier à la fois, détail
+  historique par pilier dans `SalesPillarDetail`) ET le bloc « Tes 4
+  dernières soirées » des accueils club et orga (`RecentNightsKpis`) : l'accueil
+  ne calcule plus son propre CA. Les graphes et « Top soirées » des accueils
+  sont supprimés ; il reste ce bloc, « Vos prochaines soirées » et deux
+  actions conseillées.
+- **Rapport de soirée = une phrase d'abord** (`ReportAnswer`,
+  `reportHeadline`, testé) : avant, « 92 billets vendus à J-3 sur 650, 21 de
+  plus que <référence> au même moment » ; après, entrées / attendus, CA et
+  dépense par tête. `get_event_report` rend `totals.door {entered, expected}`
+  (migration `20260925140000`). Les jauges portent le trait de la soirée de
+  référence au même J-N ; la prévision Hype tient en UNE ligne
+  (`HypeProjectionLine`), score et calibration repliés ; le verdict passe
+  dans « Bilan complet » replié. Une soirée sans vente ni entrée n'est pas
+  notée (`reportHasActivity`).
+- **Trafic = deux vues, Communauté = quatre** (`analyticsNav.ts`,
+  `LEGACY_VIEWS` : `sources` → `page`, `tastes` → `demographics`).
+  `get_page_traffic` rend les achats (`ordered`) de la page et de chaque
+  source (migration `20260925150000`) : la conversion s'affiche dès 10 visites.
+- **Lot 7, les nouveautés (25/09)** :
+  - **Objectif de soirée** = `events.entry_target` (migration `20260925170000`),
+    posé depuis le Rapport (`ReportTarget`, écriture directe sous la RLS
+    d'`events`). Mesuré sur les ATTENDUS avant la soirée (`series[].people`,
+    même définition que `door.expected`), sur les entrées après. Le rythme
+    (`paceProjection`, testé) prend la soirée comparée si elle est terminée,
+    sinon `report.pace` : la dernière soirée TERMINÉE de la portée (≥ 20
+    attendus), choisie serveur. Sans objectif, cette ligne de rythme remplace
+    la projection Hype — jamais deux projections côte à côte.
+  - **« À retenir »** = constats calculés SERVEUR, 0 à 3, chacun avec un seuil
+    de volume : `get_event_report.takeaways` (clé, ton, section qui prouve,
+    paramètres ; texte `er.tk.*`) et `get_sales_takeaways` (Ventes, qui rend la
+    vue d'ensemble COMPLÉTÉE : l'écran ne l'appelle qu'elle ; texte `so.tk.*`).
+    Bloc `Takeaways` du kit. Un nouveau constat se pose en SQL avec son seuil,
+    jamais calculé au front.
+  - **Repères** de la courbe J-N = `get_event_report.markers` (publication,
+    1re vente d'un palier qui n'est pas le premier, emails et push de la
+    soirée), clés `er.mk.*`.
+  - **Bilan du lendemain** (migration `20260925180000`,
+    `_shared/night-recap.ts`, drainé par `process-scheduled-campaigns`) :
+    11 h → 20 h Paris, soirées finies depuis 3 à 30 h, dédup
+    `night_recap_log` réclamé AVANT l'envoi. Cloche de la Console toujours
+    (`night_recap`, club via `emit_staff_notification`, orga via
+    `emit_organizer_notification`) ; push Yuno Pro par la clé AUTO_PUSH
+    `night_recap`, SEMÉE ÉTEINTE dans `/admin/notifications`, jamais pour la
+    démo. Allumé le 25/09.
+- **Démo, soirées PASSÉES** : `scripts/demo/seed-past-nights.sql` (rejouable,
+  45 derniers jours, borné à `demo_event_ids()`) sème ventes et entrées des
+  soirées passées — sans lui Ventes et « Tes 4 dernières soirées » sont vides.
+  Le relancer quand les dates passent, comme `seed-upcoming-sales.sql`.
+- **Migration sans CLI** : `POST https://api.supabase.com/v1/projects/<ref>/database/query`
+  avec `SUPABASE_ACCESS_TOKEN`, puis la ligne dans
+  `supabase_migrations.schema_migrations` et `notify pgrst, 'reload schema'`
+  (sinon PostgREST rend 404 sur la fonction neuve). Toute réécriture part de
+  `pg_get_functiondef` sur la base liée. **Avant de nommer une migration,
+  `git fetch origin main` et vérifier que le timestamp n'y existe pas** : le
+  25/09, `20260925160000` existait des deux côtés (deux migrations, une seule
+  ligne dans `schema_migrations`, la seconde jamais rejouée par `db push`).
+- **Revue du 25/09 — ce qu'elle a trouvé, à ne pas rejouer** :
+  - Ventes compte en SOIRÉES TERMINÉES (`end_at`, sinon `start_at + 8 h`), et
+    chaque ratio a son dénominateur servi par `get_sales_overview`
+    (`money_nights`, `spend_revenue/spend_entries`, `presence_entries/expected`,
+    `gl_presence_*`, `tables_presence_*`) : un CA sur 4 soirées divisé par les
+    entrées de 3 donnait une « dépense par tête » fausse. Un palier de prix
+    illimité rend la capacité inconnue (`null`), jamais la somme des autres.
+    La comparaison n'est rendue que sur le MÊME nombre de soirées.
+  - Rythme (`paceProjection`) et « même J-N » : jours PLEINS (`d > J`), et une
+    soirée de référence doit être TERMINÉE pour servir après coup.
+  - Un pourcentage de conversion s'affiche avec une décimale (`pctFmt(p, l, 1)`) :
+    arrondi à l'entier, 0,4 % devenait « 0 % ».
+  - Les liens de l'Analytics vers Compta / Push / Contacts n'existent qu'en
+    Console Club (`consolePrefix === '/owner'`) : le manager tombait en 404.
+  - Le bilan du lendemain ne montre JAMAIS le CA dans la cloche ; sans scan à
+    la porte, variante `unscanned` (« aucune entrée n'a été scannée »), jamais
+    « 0 entrée ». Son push (`night_recap`) est ALLUMÉ depuis le 25/09.
+- **Arbitrages du 25/09 (ne pas rouvrir sans fait nouveau)** :
+  - `staff_notifications` : une ligne `target_role = 'owner'` ne se lit que
+    par le propriétaire (`venues.owner_id`), un compte au rôle `owner` rattaché
+    au club ou un manager (`can_read_staff_notification`, `20260925188000`).
+    Avant, un videur lisait ventes et virements par PostgREST.
+  - Le registre des push auto (`isAutoPushEnabled`) se FERME sur une erreur de
+    lecture, sauf pour une clé `transactional` : un interrupteur coupé ne se
+    rouvre jamais sur une panne. supabase-js RENVOIE l'erreur, il ne la lève
+    pas — un `catch` seul ne l'attrape pas.
+  - Objectif de soirée = `set_event_entry_target` / `can_set_event_entry_target`
+    (`20260925190000`) : l'écran ne montre le bouton que si la porte répond oui.
+    Le posent le club qui porte la soirée, l'organisateur et son équipe
+    (éditeur+), et le partenaire d'une co-soirée (chiffre du travail commun).
+  - Produits du bar = part du CA CLUB de leur commande au prorata du prix
+    carte (`20260925191000`) : la liste retombe sur le CA bar au centime.
+  - Entrées = billets VALIDES scannés : un billet remboursé après le scan ne
+    compte pas (9 sur toute la base au 25/09). Une seule formule dans cinq
+    fonctions vaut mieux qu'un cas rare juste dans une seule.
+  - Un organisateur partenaire voit le CA de toute la co-soirée : en barème,
+    sa rémunération EST un pourcentage de ce total.
+  - RPC d'analyse pro : jamais `anon` (`20260925189000`).
+  - **Postgres accorde EXECUTE à PUBLIC par défaut** : 45 fonctions SECURITY
+    DEFINER qui écrivent sans lire `auth.uid()` étaient appelables par un
+    visiteur anonyme — créditer des SMS, distribuer des points, appliquer un
+    avenant collab, marquer « servies » des boissons payées, effacer des
+    factures. `20260925193000` les range : service_role seul quand seuls une
+    edge au service role, un cron, un trigger ou une fonction DEFINER les
+    appellent ; `authenticated` pour la Console ; `anon` gardé pour ce qui
+    sert un visiteur (suivi, bio, liste d'attente, désinscription par jeton,
+    aperçu de code promo, landing, accusé push iOS). **Toute nouvelle fonction
+    SECURITY DEFINER finit par son REVOKE / GRANT explicite.** Inventaire à
+    rejouer : `prosecdef` + `has_function_privilege('anon', …)` + corps qui
+    écrit sans `auth.uid()`.
+  - Archiver n'est pas servir : `archive_expired_event_orders` ne pose plus
+    que `archived` (cron SQL `archive-stale-orders`). Les trois crons qui
+    appelaient des edge disparues (404 horaires) sont retirés ; l'ancien
+    travail supprimait des commandes payées et des factures, il ne revient pas.
 
 ## Stripe Connect — comptes connectés en Accounts v2 (2026-09-29)
 
@@ -1439,10 +1583,18 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
   **2026-08-06 : `agency-assistant` (fonction neuve) s'est déployée sans 402** — le cap
   ne bloque plus ; les fonctions codées-mais-jamais-déployées (auth mineurs, staff PIN,
   `promoter-payout-notify`) sont probablement déployables, à retenter.
-  Pour `promoter-payout-notify` : le cycle de règlement fonctionne sans elle (les
-  demandes d'accusé de réception s'affichent dans l'app et la bascule en litige est
-  un cron SQL), mais le promoteur n'est pas poussé sur son téléphone tant qu'elle
-  n'est pas déployée.
+  `promoter-payout-notify` EST déployée (constaté le 25/09) : elle embarque
+  `_shared/auto-push.ts`, la redéployer avec les autres quand il change.
+- **`events` a DEUX clés vers `venues`** (`venue_id`, `partner_venue_id`) : un
+  `venues(…)` embarqué depuis `events` (ou sous `events!inner(…)`) est refusé
+  par PostgREST (PGRST201) et la requête ENTIÈRE rend une erreur — liste vide,
+  email qui ne part pas, sans bruit. Toujours `venues!events_venue_id_fkey(…)`.
+  Même piège pour `events → profiles`, `tracked_links → venues`, etc. :
+  `python3 scripts/check-selects.py` rejoue toutes les sélections statiques du
+  code contre la base (`limit=0`) — le lancer après une migration qui ajoute
+  une clé étrangère ou retire une colonne. Le 25/09 il en a trouvé 20
+  (Commandes › Billets et Tables vides, page « Pour toi » des push découverte,
+  six emails automatiques, timeline CRM, alerte de remplissage des tables…).
 - **CORS-lock `yunoapp.eu`** : les edge functions n'autorisent que l'origine `https://yunoapp.eu`.
   → checkout impossible en local (échec silencieux, pas de toast) ET la prod DOIT servir depuis
   ce domaine exact.
@@ -1576,6 +1728,15 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   appliqué à toute réponse PostgREST sauf les brouillons). Ne pas exécuter
   `scripts/rotate-demo-password.mjs` : les bundles publiés portent le mot de
   passe en dur.
+- **Tout cron d'email ou de push passe par `_shared/demo-scope.ts`**
+  (`loadDemoEventIds` + `isDemoEmail`) et S'ARRÊTE si la liste démo ne se
+  charge pas. Le 25/09, quatre crons réactivés (`send-pre-night-checklist`,
+  `send-next-event-recommendation`, `send-missed-you`, `send-low-ticket-alert`)
+  allaient écrire aux invités semés de la démo. Piège : les invités de
+  `seed-*.sql` sont en `@demo.womber.fr`, que le SQL `is_demo_email()`
+  (`@womber.fr` exact) ne reconnaît PAS — `isDemoEmail` accepte les
+  sous-domaines ; une porte démo SQL filtre donc par `demo_event_ids()`, pas
+  par l'email.
 - **Lien démo = lecture seule IMPOSÉE PAR LE SERVEUR** (2026-09-27, migrations
   `20260927160000` + `161000`, `_shared/demo-guard.ts`). Avant, la lecture seule
   ne vivait que dans l'onglet du prospect (`previewGuard.ts`, drapeau
@@ -2184,6 +2345,10 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   reste. `/admin/alerts` ≠ `/admin/notifications` (registre des push auto).
 - Ajouter les 3 langues i18n pour toute nouvelle string.
 - Migrations : un fichier par changement, timestamp croissant, push via CLI.
+  Une fonction qui touche un secret ou un contournement (mot de passe de
+  maintenance…) : `REVOKE … FROM PUBLIC, anon` explicite — le 25/09,
+  `update_maintenance_password` était exécutable par un visiteur anonyme
+  (`20260925186000`).
 - Respecter le bon design system selon surface (public vs pro).
 - **Tenir l'IA à jour** (voir section ci-dessous) : tout changement de fonctionnalité
   visible par un client ou un owner DOIT mettre à jour la connaissance des assistants IA.

@@ -139,8 +139,8 @@ export default function Settings() {
         // Reload to refresh profile
         window.location.reload();
       }
-    } catch (error: any) {
-      toast.error(error.message || t('profile.emailChangeError'));
+    } catch (error) {
+      toast.error((error as Error).message || t('profile.emailChangeError'));
     }
   };
 
@@ -153,8 +153,8 @@ export default function Settings() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success(t('profile.emailChangeRequested'));
-    } catch (error: any) {
-      toast.error(error.message || t('profile.emailChangeError'));
+    } catch (error) {
+      toast.error((error as Error).message || t('profile.emailChangeError'));
     } finally {
       setEmailChangeLoading(false);
     }
@@ -177,8 +177,8 @@ export default function Settings() {
       setShowNewEmailDialog(false);
       setNewEmail('');
       toast.success(t('profile.newEmailSent'));
-    } catch (error: any) {
-      toast.error(error.message || t('profile.emailChangeError'));
+    } catch (error) {
+      toast.error((error as Error).message || t('profile.emailChangeError'));
     } finally {
       setSubmittingNewEmail(false);
     }
@@ -249,8 +249,8 @@ export default function Settings() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success('📧 Email de vérification envoyé ! Vérifie ta boîte mail pour confirmer.');
-    } catch (error: any) {
-      toast.error(error.message || t('profile.mfaError'));
+    } catch (error) {
+      toast.error((error as Error).message || t('profile.mfaError'));
     }
   };
 
@@ -281,11 +281,11 @@ export default function Settings() {
       try {
         await subscribe();
         toast.success(t('notifications.enabled'));
-      } catch (error: any) {
-        if (error.message === 'Permission denied') {
+      } catch (error) {
+        if ((error as Error).message === 'Permission denied') {
           // User denied the system prompt
         } else {
-          toast.error(error.message || t('notifications.error'));
+          toast.error((error as Error).message || t('notifications.error'));
         }
       }
     };
@@ -294,8 +294,8 @@ export default function Settings() {
       try {
         await unsubscribe();
         toast.success(t('notifications.disabled'));
-      } catch (error: any) {
-        toast.error(error.message || t('notifications.error'));
+      } catch (error) {
+        toast.error((error as Error).message || t('notifications.error'));
       }
     };
 

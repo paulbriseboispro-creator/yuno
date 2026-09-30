@@ -45,7 +45,7 @@ export default function VenueMapBottomSheet({ venues, userLocation, onVenueSelec
   // Auto-open to half when venues arrive
   // No auto-open: sheet starts collapsed
 
-  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
+  const handleDragEnd = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const velocity = info.velocity.y;
     const currentH = height.get();
     const h = getHeights();

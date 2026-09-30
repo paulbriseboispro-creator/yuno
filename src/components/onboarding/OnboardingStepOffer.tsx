@@ -57,7 +57,7 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
         is_active: true,
         ticketing_enabled: pillars.includes('tickets'),
         tables_enabled: pillars.includes('tables'),
-      } as any);
+      });
       if (error) throw error;
       capturePosthog('pro_event_created', { scope: 'venue', venue_id: venueId, source: 'onboarding' });
       // Créée active : la soirée est publiée d'emblée.

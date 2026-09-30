@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { notifyDjLineup } from '@/lib/djNotify';
 import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
 import { loadGuestArtists, saveGuestArtists, type GuestArtist } from '@/lib/guestArtists';
-import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useOrganizerPartnerships } from '@/hooks/useOrganizerPartnerships';
@@ -30,6 +30,7 @@ import {
   ChevronDown,
   Check,
   AlertTriangle,
+  type LucideIcon,
 } from 'lucide-react';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
@@ -331,18 +332,18 @@ export function OrgEventFormDialog({
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
         setLocationLogoPreview(ev.location_logo_url || '');
-        setLocationIsSecret(!!(ev as any).location_is_secret);
-        setRevealAddressInEmail((ev as any).reveal_address_in_email !== false);
-        setHideYunoNavigation(!!(ev as any).hide_yuno_navigation);
+        setLocationIsSecret(!!ev.location_is_secret);
+        setRevealAddressInEmail(ev.reveal_address_in_email !== false);
+        setHideYunoNavigation(!!ev.hide_yuno_navigation);
         setIsActive(ev.is_active);
         loadedPublishRef.current = {
           active: !!ev.is_active,
           pillars: [...(ev.ticketing_enabled ? ['tickets'] : []), ...(ev.tables_enabled ? ['tables'] : [])],
         };
         setMusicGenres(
-          (ev as any).music_genres?.length ? (ev as any).music_genres : [(ev as any).music_genre || 'Open Format']
+          ev.music_genres?.length ? ev.music_genres : [ev.music_genre || 'Open Format']
         );
-        setEventType((ev as any).event_type || 'club');
+        setEventType(ev.event_type || 'club');
         const evKind = (ev.event_kind as string) || 'public_event';
         setEventKind(evKind === 'private_event' ? 'private_event' : 'public_event');
         setRemovedByYuno(ev.discovery_status === 'rejected');
@@ -383,7 +384,7 @@ export function OrgEventFormDialog({
           setCollabMode('solo');
         }
         setPosterPreview(ev.poster_url || '');
-        setPosterPosition((ev.poster_position as any) || null);
+        setPosterPosition((ev.poster_position as unknown as PosterPosition | null) || null);
         setVideoUrl((ev as { video_url?: string | null }).video_url || '');
         resetVideo();
         resetPoster();
@@ -503,7 +504,7 @@ export function OrgEventFormDialog({
       const isDiscoverable = eventKind === 'public_event';
       const discoveryStatus = 'approved';
 
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         organizer_user_id: organizerUserId,
         title: title.trim(),
         description: description.trim() || null,
@@ -556,7 +557,7 @@ export function OrgEventFormDialog({
       }
 
       let savedId = eventId;
-      const phMarket = (id: string) => marketProps({ timezone: payload.timezone, city: payload.location_city, eventId: id, organizerUserId });
+      const phMarket = (id: string) => marketProps({ timezone: payload.timezone as string | null | undefined, city: payload.location_city as string | null | undefined, eventId: id, organizerUserId });
       if (isEdit && eventId) {
         const { error } = await supabase.from('events').update(payload as TablesUpdate<'events'>).eq('id', eventId);
         if (error) throw error;
@@ -566,7 +567,7 @@ export function OrgEventFormDialog({
       } else {
         const { data, error } = await supabase
           .from('events')
-          .insert(payload as any)
+          .insert(payload as TablesInsert<'events'>)
           .select('id')
           .single();
         if (error) throw error;
@@ -648,7 +649,8 @@ export function OrgEventFormDialog({
         return; // l'écran reste : sa carte de fin rend la main
       }
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = caught as { message?: string; code?: string; details?: string; hint?: string; error_description?: string } | null | undefined;
       // L'écran se retire : un compteur figé par-dessus un message d'erreur
       // ne dirait rien à personne.
       setPublishOpen(false);
@@ -1306,7 +1308,7 @@ function SelectCard({
 }: {
   selected: boolean;
   onClick: () => void;
-  icon: any;
+  icon: LucideIcon;
   title: string;
   description: string;
 }) {

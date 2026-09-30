@@ -12,10 +12,14 @@ describe('resolveAnalyticsRoute', () => {
     expect(resolveAnalyticsRoute('purchase', null)).toEqual({ family: 'community', view: 'purchase' });
   });
   it('garde une vue valide, remplace une vue inconnue par la première de la famille', () => {
-    expect(resolveAnalyticsRoute('traffic', 'sources')).toEqual({ family: 'traffic', view: 'sources' });
+    expect(resolveAnalyticsRoute('traffic', 'events')).toEqual({ family: 'traffic', view: 'events' });
     expect(resolveAnalyticsRoute('traffic', 'overview')).toEqual({ family: 'traffic', view: 'page' });
     expect(resolveAnalyticsRoute('community', null)).toEqual({ family: 'community', view: 'overview' });
-    expect(resolveAnalyticsRoute('community', 'tastes')).toEqual({ family: 'community', view: 'tastes' });
+  });
+  it('les vues fondues ouvrent leur nouvelle maison', () => {
+    expect(resolveAnalyticsRoute('traffic', 'sources')).toEqual({ family: 'traffic', view: 'page' });
+    expect(resolveAnalyticsRoute('community', 'tastes')).toEqual({ family: 'community', view: 'demographics' });
+    expect(needsCanonicalUrl('traffic', 'sources', resolveAnalyticsRoute('traffic', 'sources'))).toBe(true);
   });
   it('une soirée sans vue ouvre son rapport', () => {
     expect(resolveAnalyticsRoute('sales', null, true)).toEqual({ family: 'sales', view: 'event' });

@@ -43,7 +43,7 @@ export default function PromoterLinktreePage() {
   const toggleFeatured = async (eventId: string, next: boolean) => {
     const prev = assignments;
     setAssignments(list => list.map(a => a.eventId === eventId ? { ...a, featuredOnLinktree: next } : a));
-    const { error } = await (supabase as any).rpc('set_promoter_linktree_featured', {
+    const { error } = await supabase.rpc('set_promoter_linktree_featured', {
       p_event_id: eventId,
       p_featured: next,
     });

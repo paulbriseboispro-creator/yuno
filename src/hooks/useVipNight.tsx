@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
-import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { VipConsumption, VenueFloorPlan } from '@/types';
 import { useStaffVenue } from './useStaffVenue';
 import {
@@ -91,13 +91,13 @@ const EMPTY: NightData = {
   loading: true,
 };
 
-const mapFloorPlan = (row: any): VenueFloorPlan | null =>
+const mapFloorPlan = (row: Tables<'venue_floor_plans'> | null): VenueFloorPlan | null =>
   row
     ? {
         id: row.id,
         venueId: row.venue_id,
         backgroundImageUrl: row.background_image_url,
-        layout: row.layout as VenueFloorPlan['layout'],
+        layout: row.layout as unknown as VenueFloorPlan['layout'],
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       }
@@ -269,9 +269,9 @@ export function useVipNight() {
       const floorPlan = mapFloorPlan(planRow);
 
       const tableNames = new Map<string, string>();
-      (floorPlan?.layout?.tables || []).forEach((t: any) => tableNames.set(t.id, t.name));
+      (floorPlan?.layout?.tables || []).forEach(t => tableNames.set(t.id, t.name));
 
-      const reservations: ServiceReservation[] = (resQ.data || []).map((r: any) => ({
+      const reservations: ServiceReservation[] = (resQ.data || []).map(r => ({
         id: r.id,
         zoneId: r.zone_id,
         zoneName: r.table_zones?.name || '',
@@ -288,7 +288,7 @@ export function useVipNight() {
         minimumSpend: r.minimum_spend || 0,
         arrivalDeadline: r.table_packs?.arrival_deadline || null,
         status: r.status,
-        vipStatus: r.vip_status || 'waiting',
+        vipStatus: (r.vip_status || 'waiting') as ServiceReservation['vipStatus'],
         paidAt: r.paid_at,
         placedAt: r.placed_at,
         placedBy: r.placed_by,
@@ -315,14 +315,14 @@ export function useVipNight() {
           .select('*')
           .in('table_reservation_id', ids)
           .order('served_at', { ascending: false });
-        (consRows || []).forEach((c: any) => {
+        (consRows || []).forEach(c => {
           const mapped: VipConsumption = {
             id: c.id,
             tableReservationId: c.table_reservation_id,
             venueId: c.venue_id,
             eventId: c.event_id,
             itemName: c.item_name,
-            itemType: c.item_type,
+            itemType: c.item_type as VipConsumption['itemType'],
             quantity: c.quantity,
             unitPrice: c.unit_price,
             totalPrice: c.total_price,
@@ -337,17 +337,17 @@ export function useVipNight() {
         });
       }
 
-      const orders: ServiceOrder[] = (ordersQ.data || []).map((o: any) => ({
+      const orders: ServiceOrder[] = (ordersQ.data || []).map(o => ({
         id: o.id,
         reservationId: o.table_reservation_id,
         userId: o.user_id,
-        status: o.status,
+        status: o.status as ServiceOrder['status'],
         totalAmount: o.total_amount || 0,
         notes: o.notes,
         createdAt: o.created_at,
         confirmedAt: o.confirmed_at,
         servedAt: o.served_at,
-        items: (o.vip_table_order_items || []).map((it: any) => ({
+        items: (o.vip_table_order_items || []).map(it => ({
           id: it.id,
           menuItemId: it.menu_item_id,
           name: it.vip_menu_items?.name || '—',
@@ -359,13 +359,13 @@ export function useVipNight() {
         })),
       }));
 
-      const moments: ServiceMoment[] = ((momentsQ.data as any[]) || []).map(m => ({
+      const moments: ServiceMoment[] = (momentsQ.data || []).map(m => ({
         id: m.id,
         reservationId: m.table_reservation_id,
         kind: m.kind,
         label: m.label,
         scheduledAt: m.scheduled_at,
-        status: m.status,
+        status: m.status as ServiceMoment['status'],
       }));
 
       if (stale()) return;
@@ -409,7 +409,7 @@ export function useVipNight() {
       if (cancelled) return;
       setZones((zonesQ.data || []).map((z: { id: string; name: string; color: string | null }) => ({ id: z.id, name: z.name, color: z.color || '#666' })));
       setMenuItems(
-        (menuQ.data || []).map((m: any) => ({
+        (menuQ.data || []).map(m => ({
           id: m.id,
           name: m.name,
           category: m.category,
@@ -423,10 +423,10 @@ export function useVipNight() {
         }))
       );
       setQuickItems(
-        (quickQ.data || []).map((q: any) => ({
+        (quickQ.data || []).map(q => ({
           id: q.id,
           name: q.name,
-          itemType: q.item_type,
+          itemType: q.item_type as ServiceQuickItem['itemType'],
           defaultPrice: q.default_price || 0,
         }))
       );

@@ -42,12 +42,12 @@ export default function AgencyEvents() {
 
   const loadAssignments = useCallback(async (eventId: string, ids: string[]) => {
     if (!ids.length) { setInfo({}); return; }
-    const { data, error } = await (supabase as any).from('promoter_event_assignments')
+    const { data, error } = await supabase.from('promoter_event_assignments')
       .select('promoter_id, goal_target, max_tickets, can_access_guestlist, can_access_tables')
       .eq('event_id', eventId).in('promoter_id', ids);
     if (error) console.error('event assignments load error:', error);
     const map: Record<string, AssignInfo> = {};
-    for (const a of (data ?? []) as any[]) {
+    for (const a of data ?? []) {
       map[a.promoter_id] = {
         assigned: true,
         goal: a.goal_target != null ? String(a.goal_target) : '',
@@ -70,7 +70,7 @@ export default function AgencyEvents() {
   const saveTuning = async (promoterId: string, eventId: string) => {
     const it = info[promoterId];
     if (!it) return;
-    const { error } = await (supabase as any).rpc('set_agency_promoter_event_assignment', {
+    const { error } = await supabase.rpc('set_agency_promoter_event_assignment', {
       p_promoter_id: promoterId,
       p_event_id: eventId,
       p_goal_target: it.goal.trim() === '' ? null : Math.max(0, parseInt(it.goal) || 0),
@@ -97,7 +97,7 @@ export default function AgencyEvents() {
 
   const handleAssign = async (promoterId: string, eventId: string, assign: boolean) => {
     setAssigning(promoterId);
-    const { error } = await (supabase as any).rpc('assign_agency_promoter_to_event', {
+    const { error } = await supabase.rpc('assign_agency_promoter_to_event', {
       p_promoter_id: promoterId,
       p_event_id: eventId,
       p_assign: assign,

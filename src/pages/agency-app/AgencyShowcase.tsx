@@ -39,12 +39,12 @@ export default function AgencyShowcase() {
     (async () => {
       const today = currentNightDate();
       const [aff, ven, ev, ctr] = await Promise.all([
-        (supabase as any).from('affiliates').select('linktree_slug, trust_stats, banner_url').eq('id', affiliateId).maybeSingle(),
+        supabase.from('affiliates').select('linktree_slug, trust_stats, banner_url').eq('id', affiliateId).maybeSingle(),
         supabase.from('affiliate_venues').select('id', { count: 'exact', head: true })
           .eq('affiliate_id', affiliateId).eq('is_active', true),
         supabase.from('affiliate_events').select('id', { count: 'exact', head: true })
           .eq('affiliate_id', affiliateId).in('status', ['published', 'featured']).gte('event_date', today),
-        (supabase as any).from('agency_venue_contracts').select('id', { count: 'exact', head: true })
+        supabase.from('agency_venue_contracts').select('id', { count: 'exact', head: true })
           .eq('agency_id', agency.id).eq('status', 'active'),
       ]);
       if (!active) return;

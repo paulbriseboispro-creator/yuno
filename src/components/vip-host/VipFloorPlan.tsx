@@ -54,10 +54,10 @@ export function VipFloorPlan({
 }: VipFloorPlanProps) {
   const { t } = useLanguage();
   const tables = (floorPlan?.layout?.tables || []) as (FloorPlanTable & { shape?: FloorPlanTableShape; color?: string; borderRadius?: number; fillOpacity?: number })[];
-  const zoneAreas = ((floorPlan?.layout as any)?.zoneAreas || []) as ZoneArea[];
+  const zoneAreas = (floorPlan?.layout?.zoneAreas || []) as ZoneArea[];
   const backgroundUrl = showBackground ? (floorPlan?.backgroundImageUrl || null) : null;
-  const bgOffset = (floorPlan?.layout as any)?.bgOffset || { x: 0, y: 0 };
-  const bgScale = (floorPlan?.layout as any)?.bgScale || 1;
+  const bgOffset = floorPlan?.layout?.bgOffset || { x: 0, y: 0 };
+  const bgScale = floorPlan?.layout?.bgScale || 1;
 
   const [zoom, setZoom] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -89,7 +89,7 @@ export function VipFloorPlan({
     const map = new Map<string, { name: string; color: string }>();
     tables.forEach(t => {
       if (t.zoneId && t.zoneColor) {
-        map.set(t.zoneId, { name: (t as any).zoneName || '', color: t.zoneColor });
+        map.set(t.zoneId, { name: (t as typeof t & { zoneName?: string }).zoneName || '', color: t.zoneColor });
       }
     });
     return map;

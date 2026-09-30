@@ -189,9 +189,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     return json({ success: true, invitation_id: inv.id, email_sent: emailSent }, 200, corsHeaders);
-  } catch (error: any) {
+  } catch (error) {
     console.error("invite-organizer-collab error:", error);
-    return json({ error: error.message ?? "Unknown error" }, 500, corsHeaders);
+    return json({ error: (error as Error).message ?? "Unknown error" }, 500, corsHeaders);
   }
 };
 

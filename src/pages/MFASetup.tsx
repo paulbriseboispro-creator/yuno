@@ -111,9 +111,9 @@ export default function MFASetup() {
       setQrDataUrl(qr);
       setSecret(data.secret);
       setStep('verify');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur génération secret:', error);
-      toast.error(error.message || t('mfa.incorrectCode'));
+      toast.error((error as Error).message || t('mfa.incorrectCode'));
     } finally {
       setLoading(false);
     }
@@ -145,9 +145,9 @@ export default function MFASetup() {
       setRecoveryCodes(data.recoveryCodes);
       setStep('complete');
       toast.success(t('mfa.activated'));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur vérification:', error);
-      toast.error(error.message || t('mfa.incorrectCode'));
+      toast.error((error as Error).message || t('mfa.incorrectCode'));
     } finally {
       setLoading(false);
     }

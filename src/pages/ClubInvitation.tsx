@@ -71,13 +71,13 @@ export default function ClubInvitationPage() {
       try {
         const { data: result, error } = await supabase.functions.invoke(
           `accept-club-collab-invitation?token=${encodeURIComponent(token)}`,
-          { method: 'GET' as any }
+          { method: 'GET' }
         );
         if (error) throw error;
-        if ((result as any)?.error) throw new Error((result as any).error);
+        if ((result as { error?: string } | null)?.error) throw new Error((result as { error: string }).error);
         setData(result as InvitationData);
-      } catch (err: any) {
-        setError(err.message ?? 'Invitation introuvable.');
+      } catch (err) {
+        setError((err as Error).message ?? 'Invitation introuvable.');
       } finally {
         setLoading(false);
       }
@@ -107,7 +107,7 @@ export default function ClubInvitationPage() {
         { body: { token, action: 'accept' } }
       );
       if (error) throw error;
-      if ((result as any)?.error) throw new Error((result as any).error);
+      if ((result as { error?: string } | null)?.error) throw new Error((result as { error: string }).error);
       toast({
         title: t('clubInv.welcome'),
         description: t('clubInv.welcomeDesc'),
@@ -120,8 +120,8 @@ export default function ClubInvitationPage() {
       // c'est là que vivent la proposition à signer, le partenaire, et le guide
       // de configuration. Un club invité pour UNE soirée ne doit pas chercher.
       window.location.assign('/owner/collaborations');
-    } catch (err: any) {
-      toast({ title: t('clubInv.error'), description: err.message, variant: 'destructive' });
+    } catch (err) {
+      toast({ title: t('clubInv.error'), description: (err as Error).message, variant: 'destructive' });
       setSubmitting(false);
     }
   };
@@ -136,8 +136,8 @@ export default function ClubInvitationPage() {
       });
       toast({ title: t('clubInv.declined') });
       navigate('/');
-    } catch (err: any) {
-      toast({ title: t('clubInv.error'), description: err.message, variant: 'destructive' });
+    } catch (err) {
+      toast({ title: t('clubInv.error'), description: (err as Error).message, variant: 'destructive' });
       setSubmitting(false);
     }
   };

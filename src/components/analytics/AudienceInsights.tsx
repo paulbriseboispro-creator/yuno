@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
-import { Users, Crown, Trophy, Award, Repeat, UserPlus } from 'lucide-react';
+import { Users, Crown, Trophy, Award, Repeat, UserPlus, type LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
@@ -64,10 +64,10 @@ export function AudienceInsights({ scope, from, to }: Props) {
       let eventIds: string[] = [];
       if (scope.kind === 'organizer') {
         const { data: events } = await supabase.from('events').select('id').or(orgEventsOr(scope.id));
-        eventIds = (events ?? []).map((e: any) => e.id);
+        eventIds = (events ?? []).map((e) => e.id);
       } else {
         const { data: vEvents } = await supabase.from('events').select('id').or(venueEventsOr(scope.id));
-        eventIds = (vEvents ?? []).map((e: any) => e.id);
+        eventIds = (vEvents ?? []).map((e) => e.id);
       }
 
       if (eventIds.length === 0) {
@@ -86,7 +86,7 @@ export function AudienceInsights({ scope, from, to }: Props) {
       if (cancelled) return;
 
       const map = new Map<string, { total: number; count: number; lastTs: number; firstTs: number }>();
-      (tickets ?? []).forEach((t: any) => {
+      (tickets ?? []).forEach((t) => {
         const e = (t.user_email ?? '').toLowerCase();
         if (!e) return;
         const ts = new Date(t.created_at).getTime();
@@ -256,7 +256,7 @@ export function AudienceInsights({ scope, from, to }: Props) {
 // ─── Tier tile ────────────────────────────────────────────────────────────────
 function TierTile({
   icon: Icon, label, value, color, sub,
-}: { icon: any; label: string; value: number; color: string; sub: string }) {
+}: { icon: LucideIcon; label: string; value: number; color: string; sub: string }) {
   return (
     <div
       className="rounded-xl text-center"

@@ -9,6 +9,7 @@ import { errorToast } from '@/lib/errorToast';
 import type { CommissionRules, CommissionRuleTier, CommissionTimeWindow } from '@/types/promoter';
 import {
   Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, CheckCircle2, Users, Coins, TrendingUp, Gift, Clock, Wine,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill,
@@ -130,7 +131,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
 }) {
   const [f, setF] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
-  const set = (k: keyof FormState, v: any) => setF(prev => ({ ...prev, [k]: v }));
+  const set = (k: keyof FormState, v: FormState[keyof FormState]) => setF(prev => ({ ...prev, [k]: v }));
 
   const commTypeOpts = [
     { value: 'percentage', label: tt('Pourcentage (%)', 'Percentage (%)') },
@@ -159,7 +160,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
     </select>
   );
 
-  const Toggle = ({ value, onChange, label, icon: Icon }: { value: boolean; onChange: (v: boolean) => void; label: string; icon: any }) => (
+  const Toggle = ({ value, onChange, label, icon: Icon }: { value: boolean; onChange: (v: boolean) => void; label: string; icon: LucideIcon }) => (
     <div className="flex items-center justify-between" style={{ padding: '6px 0' }}>
       <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13 }}><Icon className="h-3.5 w-3.5" style={{ color: T3 }} /> {label}</p>
       <button onClick={() => onChange(!value)} style={{ width: 40, height: 22, borderRadius: 11, cursor: 'pointer', background: value ? RED : 'rgb(var(--ink)/0.12)', border: 'none', position: 'relative' }}>
@@ -292,13 +293,13 @@ function TemplateCard({ tpl, promoters, groups, agencyId, onEdit, onDelete, onCh
   onChanged: () => void;
   tt: TT;
 }) {
-  const db = supabase as any;
+  const db = supabase;
   const [expanded, setExpanded] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [assignTarget, setAssignTarget] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const assigned = promoters.filter(p => (p as any).default_commission_template_id === tpl.id);
+  const assigned = promoters.filter(p => (p as typeof p & { default_commission_template_id?: string | null }).default_commission_template_id === tpl.id);
   const r = tpl.rules || {};
   const glCount = r.guestlist_allocation?.types
     ? [r.guestlist_allocation.types.normal, r.guestlist_allocation.types.drink, r.guestlist_allocation.types.table].filter(x => x && x.commission > 0).length
@@ -311,7 +312,7 @@ function TemplateCard({ tpl, promoters, groups, agencyId, onEdit, onDelete, onCh
     const { data, error } = await db.rpc('assign_agency_commission_template', { p_template_id: tpl.id, p_target_type: type, p_target_id: id });
     setBusy(false);
     if (error) { errorToast(error); return; }
-    toast.success(`${tt('Appliqué à', 'Applied to')} ${(data as any)?.applied_to ?? 0} ${tt('promoteur(s)', 'promoter(s)')}`);
+    toast.success(`${tt('Appliqué à', 'Applied to')} ${(data as { applied_to?: number } | null)?.applied_to ?? 0} ${tt('promoteur(s)', 'promoter(s)')}`);
     setAssignTarget(''); onChanged();
   };
 
@@ -400,7 +401,7 @@ export default function AgencyCommissionTemplates() {
   const { promoters, groups, refetch } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
   const tt: TT = (fr, en, es) => translate(language, fr, en, es);
-  const db = supabase as any;
+  const db = supabase;
 
   const [templates, setTemplates] = useState<AgencyCommTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -416,7 +417,7 @@ export default function AgencyCommissionTemplates() {
       console.error('commission templates load error:', error);
       toast.error(tt('Impossible de charger les modèles. Réessaie.', "Couldn't load templates. Try again.", 'No se pudieron cargar las plantillas. Reintenta.'));
     }
-    setTemplates((data ?? []) as AgencyCommTemplate[]);
+    setTemplates((data ?? []) as unknown as AgencyCommTemplate[]);
     setLoading(false);
   }, [agency?.id]);
 

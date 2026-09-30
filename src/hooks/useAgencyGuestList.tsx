@@ -42,7 +42,33 @@ export type AgencyGlEnvelope = {
   promoters: AgencyGlPromoterRow[];
 };
 
-type Raw = Record<string, any>;
+/** Lignes lues ci-dessous (guest_lists, promoters, events, venues, entrées) : champs utilisés. */
+interface Raw {
+  id?: string;
+  event_id?: string;
+  promoter_id?: string;
+  guest_list_id?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  promo_code?: string | null;
+  profile_image_url?: string | null;
+  title?: string;
+  name?: string;
+  start_at?: string;
+  end_at?: string | null;
+  venue_id?: string | null;
+  entry_type?: string | null;
+  status?: string | null;
+  quota?: number | null;
+  quota_normal?: number | null;
+  quota_drink?: number | null;
+  quota_table?: number | null;
+  quota_female?: number | null;
+  quota_male?: number | null;
+  free_before_time?: string | null;
+  agency_distribution_mode?: string | null;
+  is_active?: boolean;
+}
 
 function promoDisplayName(p: Raw): string {
   const full = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
@@ -56,7 +82,7 @@ export function useAgencyGuestList(agencyId: string | null) {
   const load = useCallback(async () => {
     if (!agencyId) { setEnvelopes([]); setLoading(false); return; }
     setLoading(true);
-    const db = supabase as any;
+    const db = supabase;
 
     // 1) Enveloppes agence (toutes soirées) + promoteurs de l'agence, en parallèle.
     const [envRes, promRes] = await Promise.all([
@@ -69,8 +95,8 @@ export function useAgencyGuestList(agencyId: string | null) {
         .eq('agency_id', agencyId),
     ]);
 
-    const envRows = (envRes.data as Raw[]) ?? [];
-    const promoters = (promRes.data as Raw[]) ?? [];
+    const envRows = (envRes.data as unknown as Raw[]) ?? [];
+    const promoters = (promRes.data as unknown as Raw[]) ?? [];
     if (envRows.length === 0) { setEnvelopes([]); setLoading(false); return; }
 
     const eventIds = [...new Set(envRows.map(e => e.event_id))];
@@ -94,7 +120,7 @@ export function useAgencyGuestList(agencyId: string | null) {
         : Promise.resolve({ data: [] }),
     ]);
 
-    const events = (evRes.data as Raw[]) ?? [];
+    const events = (evRes.data as unknown as Raw[]) ?? [];
     const now = Date.now();
     const upcoming = events.filter(e => !e.end_at || new Date(e.end_at).getTime() >= now);
     const eventById = new Map(upcoming.map(e => [e.id, e]));
@@ -103,10 +129,10 @@ export function useAgencyGuestList(agencyId: string | null) {
     const venuesRes = venueIds.length
       ? await db.from('venues').select('id, name').in('id', venueIds)
       : { data: [] };
-    const venueName = new Map(((venuesRes.data as Raw[]) ?? []).map(v => [v.id, v.name]));
+    const venueName = new Map(((venuesRes.data as unknown as Raw[]) ?? []).map(v => [v.id, v.name]));
 
-    const subParts = (subRes.data as Raw[]) ?? [];
-    const assignSet = new Set(((assignRes.data as Raw[]) ?? []).map(a => `${a.event_id}:${a.promoter_id}`));
+    const subParts = (subRes.data as unknown as Raw[]) ?? [];
+    const assignSet = new Set(((assignRes.data as unknown as Raw[]) ?? []).map(a => `${a.event_id}:${a.promoter_id}`));
 
     // 3) Invités : sur les enveloppes + les sous-parts (comptage partition/pool).
     const allPartIds = [
@@ -119,7 +145,7 @@ export function useAgencyGuestList(agencyId: string | null) {
           .in('guest_list_id', allPartIds)
           .neq('status', 'cancelled')
       : { data: [] };
-    const entries = (entriesRes.data as Raw[]) ?? [];
+    const entries = (entriesRes.data as unknown as Raw[]) ?? [];
 
     // Comptages par part (total + par type), et par (enveloppe, promoteur) pour le pool.
     const partCount = new Map<string, { total: number; normal: number; drink: number; table: number }>();

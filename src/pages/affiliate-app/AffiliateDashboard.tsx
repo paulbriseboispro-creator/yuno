@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   MapPin, CalendarDays, TrendingUp, TrendingDown, Minus, AlertTriangle, Plus, ArrowRight,
   CalendarOff, Eye, MousePointerClick, Store, Sparkles, ExternalLink, CalendarPlus, BarChart2, Link2,
+  type LucideIcon,
 } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -78,7 +79,7 @@ export default function AffiliateDashboard() {
         .eq('user_id', user.id)
         .single();
       if (!affRow) { setLoading(false); return; }
-      setAff(affRow as any);
+      setAff(affRow);
 
       const today = currentNightDate();
       const since30 = subDays(new Date(), 30).toISOString();
@@ -295,7 +296,7 @@ export default function AffiliateDashboard() {
 
 // ─── Stat card (with optional delta + link) ───────────────────────────────────
 function StatCard({ icon: Icon, label, value, hint, delta, tone, to }: {
-  icon: any; label: string; value: React.ReactNode; hint?: string; delta?: number; tone?: 'red'; to?: string;
+  icon: LucideIcon; label: string; value: React.ReactNode; hint?: string; delta?: number; tone?: 'red'; to?: string;
 }) {
   const inner = (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '18px 20px', height: '100%' }}>
@@ -316,14 +317,21 @@ function StatCard({ icon: Icon, label, value, hint, delta, tone, to }: {
 }
 
 // ─── Trend chart (clics + vues, 30 days) ──────────────────────────────────────
-function TrendTooltip({ active, payload, label }: any) {
+/** Props recharts injects into a custom `content` tooltip element. */
+interface TrendTooltipProps {
+  active?: boolean;
+  payload?: Array<{ dataKey?: string | number; value?: number | string }>;
+  label?: string | number;
+}
+
+function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
   const { t, language } = useLanguage();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{format(parseISO(String(label)), 'd MMM', { locale: dateLocale })}</p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <p key={p.dataKey} className="tabular-nums" style={{ color: p.dataKey === 'clicks' ? RED : C_HI, fontSize: 13, fontWeight: 620 }}>
           {p.dataKey === 'clicks' ? t('aff.dash.clicks') : t('aff.dash.views')} : {p.value}
         </p>

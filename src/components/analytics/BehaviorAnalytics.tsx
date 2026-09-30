@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
-import { Activity, TrendingDown, Clock, Target, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { Activity, TrendingDown, Clock, Target, Smartphone, Monitor, Tablet, type LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
@@ -90,7 +90,7 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
       let abandoned = 0, abandonedValue = 0;
       const dev = { mobile: 0, tablet: 0, desktop: 0 };
 
-      rows.forEach((r: any) => {
+      rows.forEach(r => {
         const d = new Date(r.visited_at);
         const day = (d.getDay() + 6) % 7;
         matrix[day][d.getHours()] += 1;
@@ -110,9 +110,9 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
       setStats({
         visits: rows.length,
         uniqueVisitors: visitorIds.size,
-        carts: rows.filter((r: any) => r.added_to_cart).length,
-        checkouts: rows.filter((r: any) => r.proceeded_to_checkout).length,
-        conversions: rows.filter((r: any) => r.completed_order).length,
+        carts: rows.filter(r => r.added_to_cart).length,
+        checkouts: rows.filter(r => r.proceeded_to_checkout).length,
+        conversions: rows.filter(r => r.completed_order).length,
         avgDuration: durCount ? Math.round(totalDur / durCount) : 0,
         avgScroll: scrollCount ? Math.round(totalScroll / scrollCount) : 0,
         bounceRate: rows.length ? Math.round((bounced / rows.length) * 100) : 0,
@@ -187,7 +187,7 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
 // ─── Stat tile ────────────────────────────────────────────────────────────────
 function StatTile({
   icon: Icon, label, value, negative,
-}: { icon: any; label: string; value: string; negative?: boolean }) {
+}: { icon: LucideIcon; label: string; value: string; negative?: boolean }) {
   return (
     <div
       className="rounded-2xl"

@@ -184,7 +184,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
       toast.success(t('drinkCat.addedToMenu').replace('{name}', selectedDrink.name));
       setIsOpen(false);
       onDrinkAdded();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding drink:', error);
       toast.error(t('drinkCatalog.addError'));
     } finally {
@@ -260,7 +260,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
       setRequestName('');
       setRequestBrand('');
       setRequestDescription('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting request:', error);
       toast.error(t('drinkCatalog.requestError'));
     } finally {
@@ -487,7 +487,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
 
                 <div className="space-y-2">
                   <Label className="text-base font-medium">{t('drinkCat.displayCategory')}</Label>
-                  <Select value={collection} onValueChange={(v) => setCollection(v as any)}>
+                  <Select value={collection} onValueChange={(v) => setCollection(v as 'drink' | 'shot' | 'soft')}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -546,7 +546,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
 
             <div className="space-y-2">
               <Label>{t('drinkCat.category')}</Label>
-              <Select value={requestCategory} onValueChange={(v) => setRequestCategory(v as any)}>
+              <Select value={requestCategory} onValueChange={(v) => setRequestCategory(v as 'drink' | 'shot' | 'soft')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

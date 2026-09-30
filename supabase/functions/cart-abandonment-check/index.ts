@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       // tracking ?an=. Le helper journalise notification_log type 'marketing'
       // (mêmes plafonds anti-spam que l'insert manuel qu'il remplace).
       try {
-        const eventTitle = (ticket as any).events?.title
+        const eventTitle = (ticket as unknown as { events?: { title?: string } | null }).events?.title
           || { fr: 'cet événement', en: 'this event', es: 'este evento' };
         const res = await sendAutoPush(supabase, {
           key: 'cart_abandonment',

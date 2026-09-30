@@ -30,9 +30,9 @@ export function useOrganizerEventIds(organizerUserId?: string | null) {
         .or(orgEventsOr(organizerUserId));
       if (!cancelled) {
         const evs = data ?? [];
-        setEventIds(evs.map((e: any) => e.id));
+        setEventIds(evs.map((e) => e.id));
         const vSet = new Set<string>();
-        evs.forEach((e: any) => {
+        evs.forEach((e) => {
           if (e.venue_id) vSet.add(e.venue_id);
           if (e.partner_venue_id) vSet.add(e.partner_venue_id);
         });

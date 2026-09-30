@@ -124,7 +124,7 @@ export function AffiliateDraggableGallery({
         }
       } catch (err) {
         console.error('Gallery upload failed', err);
-        const msg = (err as any)?.message ?? (err instanceof Error ? err.message : t('aff.gallery.errorFallback'));
+        const msg = (err as { message?: string } | null | undefined)?.message ?? (err instanceof Error ? err.message : t('aff.gallery.errorFallback'));
         toast({ title: t('aff.gallery.errorGalleryTitle'), description: msg, variant: 'destructive' });
       } finally {
         setUploading(false);

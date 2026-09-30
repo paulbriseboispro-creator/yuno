@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availableMetrics, buildCurve, compareAtSameD, conversionPct, share, todayD, type EventReport } from '../eventReport';
+import { availableMetrics, buildCurve, compareAtSameD, conversionPct, paceProjection, referenceFor, reportHasActivity, reportHeadline, share, targetStatus, todayD, type EventReport } from '../eventReport';
 
 function report(over: Partial<EventReport> & { series: EventReport['series'] }, startAt = '2026-09-26T21:00:00Z', now = '2026-09-24T10:00:00Z'): EventReport {
   return {
@@ -82,5 +82,82 @@ describe('share / conversionPct', () => {
     expect(share(1, 0)).toBeNull();
     expect(conversionPct(6, 60)).toBe(10);
     expect(conversionPct(1, 0)).toBeNull();
+  });
+});
+
+describe('reportHeadline', () => {
+  it('une soirée sans aucune activité ne se note pas : elle est vide', () => {
+    const r = report({
+      series: [],
+      totals: {
+        tickets: { sold: 0, today: 0, orders: 0, capacity: 650, enabled: true, soldOut: false },
+        tables: { booked: 0, today: 0, guests: 0, capacity: 4, enabled: true, soldOut: false },
+        guestList: { registered: 0, today: 0, capacity: 127, enabled: true, soldOut: false },
+        drinks: null, revenue: { total: 0, today: 0, tickets: 0, tables: 0, drinks: 0 },
+        visits: { total: 0, today: 0, withOrder: 0 },
+      },
+    });
+    expect(reportHasActivity(r)).toBe(false);
+    expect(reportHeadline(r, null).kind).toBe('empty');
+  });
+
+  it('pendant la vente : billets vendus et référence au même J-N', () => {
+    const main = report({ series: [day(5, 2), day(2, 6)] });
+    const cmp = report({ series: [day(6, 1), day(4, 3), day(1, 10)] }, '2026-09-12T21:00:00Z', '2026-09-20T10:00:00Z');
+    const h = reportHeadline(main, cmp);
+    expect(h).toMatchObject({ kind: 'selling', pillar: 'tickets', sold: 9, daysBefore: 2, reference: 4 });
+  });
+
+  it('après la soirée : la porte, et les entrées de la référence', () => {
+    const after = { ...report({ series: [] }, '2026-09-20T21:00:00Z', '2026-09-24T10:00:00Z') };
+    after.event = { ...after.event, phase: 'after' };
+    after.totals = { ...after.totals, door: { entered: 80, expected: 100 } };
+    const ref = { ...after, totals: { ...after.totals, door: { entered: 60, expected: 90 } } };
+    expect(reportHeadline(after, ref)).toMatchObject({ kind: 'after', entered: 80, expected: 100, reference: 60 });
+    expect(referenceFor(after, ref, 'tickets')).toBe(9);
+  });
+});
+
+describe('objectif et rythme', () => {
+  const ppl = (d: number, people: number) => ({ d, tickets: people, tables: 0, guests: 0, amount: 0, visits: 0, people });
+  // Soirée dans 2 jours (J-2), 60 attendus aujourd'hui.
+  const main = () => {
+    const r = report({ series: [ppl(10, 20), ppl(3, 40)] });
+    r.totals = { ...r.totals, door: { entered: 0, expected: 60 } };
+    return r;
+  };
+  // Référence passée : 100 attendus au total, 40 déjà là à J-2 (d ≥ 2).
+  const ref = () => {
+    const r = report({ series: [ppl(9, 10), ppl(4, 30), ppl(1, 20), ppl(0, 40)] }, '2026-09-12T21:00:00Z', '2026-09-24T10:00:00Z');
+    r.event = { ...r.event, phase: 'after' };
+    return r;
+  };
+
+  it('projette au rythme de la référence', () => {
+    // 60 attendus / (40 / 100) = 150
+    expect(paceProjection(main(), ref())).toEqual({ projected: 150, refTitle: 'Night' });
+  });
+
+  it('sans soirée comparée terminée, prend la référence choisie serveur', () => {
+    const r = main();
+    r.pace = { refId: 'x', refTitle: 'The Revival', d: 2, final: 448, atSameD: 262 };
+    // 60 / (262 / 448) ≈ 102,6
+    expect(paceProjection(r, null)).toEqual({ projected: 103, refTitle: 'The Revival' });
+  });
+
+  it('se tait sans référence terminée, ou trop mince', () => {
+    const live = ref(); live.event = { ...live.event, phase: 'before' };
+    expect(paceProjection(main(), live)).toBeNull();
+    expect(paceProjection(main(), null)).toBeNull();
+    const thin = report({ series: [ppl(4, 5), ppl(0, 10)] }, '2026-09-12T21:00:00Z');
+    thin.event = { ...thin.event, phase: 'after' };
+    expect(paceProjection(main(), thin)).toBeNull();
+  });
+
+  it('mesure les attendus avant, les entrées après', () => {
+    expect(targetStatus(main(), ref(), 200)).toEqual({ kind: 'progress', target: 200, current: 60, measure: 'expected', pace: { projected: 150, refTitle: 'Night' } });
+    const after = ref(); after.totals = { ...after.totals, door: { entered: 77, expected: 100 } };
+    expect(targetStatus(after, null, 90)).toMatchObject({ current: 77, measure: 'entered', pace: null });
+    expect(targetStatus(main(), null, null)).toEqual({ kind: 'none' });
   });
 });

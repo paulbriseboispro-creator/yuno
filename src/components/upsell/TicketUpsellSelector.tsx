@@ -87,7 +87,7 @@ export function TicketUpsellSelector({ venueId, selectedUpsells, onToggle }: Tic
         .eq('is_active', true)
         .order('priority', { ascending: true });
 
-      if (data) setOffers(data as any);
+      if (data) setOffers(data as unknown as TicketUpsellOffer[]);
       setLoading(false);
     };
     fetchOffers();

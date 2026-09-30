@@ -4,6 +4,7 @@
 // super admin). The catalogue, priority config and scope-aware feed config all
 // live here so the full-page inbox and the header bell popover stay in sync.
 
+import { eventReportHref } from '@/lib/analyticsNav';
 import {
   ShoppingCart, Ticket, Crown, Users, Star,
   Heart, Zap, BarChart3, Mail, Calendar,
@@ -52,6 +53,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 📅 Events
   event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
   event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
+  night_recap:     { icon: BarChart3, category: 'events', label: 'notif.type.night_recap' },
   lineup_reminder: { icon: Music,     category: 'events', label: 'notif.type.lineup_reminder' },
   // 🎧 Bookings (organizer-facing)
   dj_booking_accepted: { icon: Music, category: 'bookings', label: 'notif.type.dj_booking_accepted' },
@@ -472,6 +474,11 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'lineup_reminder':
       if (isOrganizer && eventId) return `${basePath}/events/${eventId}`;
       return `${basePath}/events`;
+
+    // Bilan du lendemain → le Rapport de soirée.
+    case 'night_recap':
+      if (isManager) return null;
+      return eventId ? eventReportHref(`${basePath}/analytics`, eventId) : `${basePath}/analytics`;
 
     // Event lifecycle.
     case 'event_starting':

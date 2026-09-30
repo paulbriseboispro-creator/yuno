@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 import { buildNextEventRec, fmtDateParts } from "../_shared/email-templates.ts";
 import { formatEventDate } from "../_shared/event-time.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 import { isAutoPushEnabled } from "../_shared/auto-push.ts";
 import { emailSendPolicy, logMarketingEmail } from "../_shared/email-policy.ts";
 const corsHeaders = {
@@ -13,11 +14,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[NEXT-EVENT-REC] ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
 };
 
-async function wasAlreadySent(supabase: any, userId: string, notifType: string, key: string): Promise<boolean> {
+async function wasAlreadySent(supabase: SupabaseClient, userId: string, notifType: string, key: string): Promise<boolean> {
   const { data } = await supabase
     .from('notification_log')
     .select('id')
@@ -28,7 +29,7 @@ async function wasAlreadySent(supabase: any, userId: string, notifType: string, 
   return (data && data.length > 0);
 }
 
-async function markSent(supabase: any, userId: string, notifType: string, key: string) {
+async function markSent(supabase: SupabaseClient, userId: string, notifType: string, key: string) {
   await supabase
     .from('notification_log')
     .insert({ user_id: userId, notification_type: notifType, title: key });
@@ -75,14 +76,24 @@ serve(async (req) => {
     const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + yearStart.getDay() + 1) / 7);
     const weekKey = `${d.getFullYear()}-W${weekNum}`;
 
-    const { data: upcomingEvents } = await supabaseAdmin
+    const demoIds = await loadDemoEventIds(supabaseAdmin);
+    if (!demoIds) {
+      return new Response(
+        JSON.stringify({ success: false, sent: 0, message: "demo scope unavailable" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // Les soirées démo passent devant les vraies dans l'ordre des dates : on en
+    // lit large, on retire la démo, PUIS on garde les 20 premières.
+    const { data: upcomingRaw } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, organizer_user_id, music_genre, music_genres, poster_url, ticketing_enabled, timezone, venues(name)')
+      .select('id, title, start_at, venue_id, organizer_user_id, music_genre, music_genres, poster_url, ticketing_enabled, timezone, venues!events_venue_id_fkey(name)')
       .eq('is_active', true)
       .gt('start_at', now)
       .lt('start_at', twoWeeksFromNow)
       .order('start_at', { ascending: true })
-      .limit(20);
+      .limit(300);
+    const upcomingEvents = (upcomingRaw ?? []).filter((e) => !demoIds.has(e.id)).slice(0, 20);
 
     if (!upcomingEvents || upcomingEvents.length === 0) {
       return new Response(
@@ -92,14 +103,17 @@ serve(async (req) => {
     }
 
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentAttendees } = await supabaseAdmin
+    const { data: recentAttendeesRaw } = await supabaseAdmin
       .from('tickets')
       .select('user_id, user_email, event_id')
       .in('status', ['used', 'paid'])
       .gte('created_at', sixtyDaysAgo)
       .not('user_id', 'is', null);
+    const recentAttendees = (recentAttendeesRaw ?? []).filter(
+      (a) => !demoIds.has(a.event_id) && !isDemoEmail(a.user_email),
+    );
 
-    if (!recentAttendees || recentAttendees.length === 0) {
+    if (recentAttendees.length === 0) {
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: "No recent attendees" }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -163,13 +177,13 @@ serve(async (req) => {
           })
           .filter(e => e.score > 0)
           // Marketing: only recommend events from venues/organizers the user opted in to.
-          .filter(e => optInToken(optins, userData.email, { venueId: e.venue_id, organizerUserId: (e as any).organizer_user_id }) !== null)
+          .filter(e => optInToken(optins, userData.email, { venueId: e.venue_id, organizerUserId: e.organizer_user_id }) !== null)
           .sort((a, b) => b.score - a.score)
           .slice(0, 3);
 
         if (scoredEvents.length === 0) continue;
 
-        const unsubToken = optInToken(optins, userData.email, { venueId: scoredEvents[0].venue_id, organizerUserId: (scoredEvents[0] as any).organizer_user_id });
+        const unsubToken = optInToken(optins, userData.email, { venueId: scoredEvents[0].venue_id, organizerUserId: scoredEvents[0].organizer_user_id });
 
         let lang: EmailLanguage = 'fr';
         const { data: profile } = await supabaseAdmin
@@ -184,7 +198,7 @@ serve(async (req) => {
         const dateLocales: Record<EmailLanguage, string> = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR' };
 
         const eventsHtml = scoredEvents.map(e => {
-          const vName = (e.venues as any)?.name || '';
+          const vName = (e.venues as unknown as { name?: string } | null)?.name || '';
           const date = formatEventDate(e.start_at, { weekday: 'short', day: 'numeric', month: 'short' }, e.timezone, dateLocales[lang]);
           const imgUrl = e.poster_url;
           return `
@@ -232,7 +246,7 @@ serve(async (req) => {
           firstName: profile?.first_name || undefined,
           events: scoredEvents.map((e) => {
             const dp = fmtDateParts(e.start_at, lang, e.timezone || undefined);
-            const vName = (e.venues as any)?.name || '';
+            const vName = (e.venues as unknown as { name?: string } | null)?.name || '';
             return { title: e.title, meta: `${dp.day} ${dp.month}${vName ? ' · ' + vName : ''}`, url: `https://yunoapp.eu/event/${e.id}`, img: e.poster_url || undefined };
           }),
           unsubscribeUrl: unsubUrl,

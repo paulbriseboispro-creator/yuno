@@ -148,7 +148,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
           </div>
 
           {/* ── VALEUR DE L'AUDIENCE (la couche argent : LTV + entonnoir) ── */}
-          {subject.type === 'venue' && rev?.supported && rev.followers && seg && (() => {
+          {!embedded && subject.type === 'venue' && rev?.supported && rev.followers && seg && (() => {
             const totalFollowers = seg.total || 0;
             const followersNet = rev.followers.net || 0;
             const followersOrders = rev.followers.orders || 0;
@@ -219,7 +219,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
           </PCard>
 
           {/* ── RÉTENTION PAR COHORTE (depuis le journal net) ── */}
-          {co && co.cohorts.length > 0 && (
+          {!embedded && co && co.cohorts.length > 0 && (
             <PCard style={{ marginTop: 12 }} icon={<Sparkles className="w-4 h-4" />}
               title={t('Rétention par cohorte', 'Retention by cohort', 'Retención por cohorte')}
               sub={t("Part de chaque vague de nouveaux abonnés encore présente aujourd'hui", 'Share of each new-subscriber wave still here today', 'Parte de cada oleada de nuevos suscriptores que sigue hoy')}>
@@ -253,6 +253,22 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
             </PCard>
           )}
 
+          {/* Rangé dans Analytics › Communauté › Abonnés (plan de simplification) :
+              cinq blocs — chiffres, croissance, provenance, ce qu'ils rapportent,
+              et le meilleur créneau d'envoi. Le reste vit ailleurs : démographie
+              → Public, segmentation → Clients, campagnes → Push / Email. */}
+          {embedded && notif?.best_send?.hour != null && (
+            <PCard style={{ marginTop: 12 }} icon={<Clock className="w-4 h-4" />} title={t('Meilleur créneau pour leur écrire', 'Best time to reach them', 'Mejor momento para escribirles')}>
+              <div className="text-[24px] font-[680]" style={{ color: T1 }}>
+                {dowLabel(notif.best_send.dow) ?? '—'} {notif.best_send.hour}h
+              </div>
+              <p className="text-[12px] mt-1" style={{ color: T3 }}>
+                {t('Quand ton audience est la plus active', 'When your audience is most active', 'Cuando tu audiencia está más activa')}
+              </p>
+            </PCard>
+          )}
+
+          {!embedded && (<>
           {/* ── PORTÉE & NOTIFICATIONS ── */}
           <ZoneHeading icon={<Bell className="w-4 h-4" />} label={t('Portée & notifications', 'Reach & notifications', 'Alcance y notificaciones')} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -542,6 +558,8 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
               )}
             </>
           )}
+
+          </>)}
 
           {/* ── REVENU ── */}
           <ZoneHeading icon={<Euro className="w-4 h-4" />} label={t('Revenu de l\'audience', 'Audience revenue', 'Ingresos de audiencia')} />

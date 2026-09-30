@@ -92,9 +92,9 @@ export default function AffiliateVenueForm() {
         setForm({
           name: data.name ?? '',
           slug: data.slug ?? '',
-          short_description: (data as any).short_description ?? '',
+          short_description: data.short_description ?? '',
           description: data.description ?? '',
-          logo_url: (data as any).logo_url ?? null,
+          logo_url: data.logo_url ?? null,
           cover_image_url: data.cover_image_url ?? null,
           gallery_urls: data.gallery_urls ?? [],
           instagram: data.instagram ?? '',
@@ -192,8 +192,9 @@ export default function AffiliateVenueForm() {
       }
       return true;
     } catch (err) {
-      const msg = (err as any)?.message ?? (err instanceof Error ? err.message : t('aff.venueForm.unknownError'));
-      const hint = (err as any)?.hint ?? (err as any)?.details ?? '';
+      const e = err as { message?: string; hint?: string; details?: string } | null;
+      const msg = e?.message ?? (err instanceof Error ? err.message : t('aff.venueForm.unknownError'));
+      const hint = e?.hint ?? e?.details ?? '';
       toast({ title: t('aff.venueForm.errorTitle'), description: hint ? `${msg} — ${hint}` : msg, variant: 'destructive' });
       return false;
     } finally {

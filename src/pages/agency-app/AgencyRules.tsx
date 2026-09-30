@@ -144,7 +144,7 @@ function RuleForm({
 }) {
   const [f, setF] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
-  const set = (k: keyof FormState, v: any) => setF(prev => ({ ...prev, [k]: v }));
+  const set = (k: keyof FormState, v: FormState[keyof FormState]) => setF(prev => ({ ...prev, [k]: v }));
 
   const handleSave = async () => {
     if (!f.name.trim()) { toast.error(tt('Le nom est requis', 'Name is required')); return; }
@@ -299,9 +299,9 @@ function TemplateCard({
   const [confirmDel, setConfirmDel] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [assignTarget, setAssignTarget] = useState('');
-  const db = supabase as any;
+  const db = supabase;
 
-  const assigned = promoters.filter(p => (p as any).agency_rule_template_id === tpl.id);
+  const assigned = promoters.filter(p => p.agency_rule_template_id === tpl.id);
 
   const handleAssign = async () => {
     if (!assignTarget) { toast.error(tt('Choisissez une cible', 'Choose a target')); return; }
@@ -314,7 +314,7 @@ function TemplateCard({
     });
     setAssigning(false);
     if (error) { errorToast(error); return; }
-    const count = (data as any)?.applied_to ?? 0;
+    const count = (data as { applied_to?: number } | null)?.applied_to ?? 0;
     toast.success(`${tt('Appliqué à', 'Applied to', 'Aplicado a')} ${count} ${tt('promoteur(s)', 'promoter(s)', 'promotor(es)')}`);
     setAssignTarget('');
     // Sans refetch, la liste « Actuellement assigné » et les compteurs
@@ -506,7 +506,7 @@ export default function AgencyRules() {
   const { promoters, groups, refetch: refetchAgencyData } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const db = supabase as any;
+  const db = supabase;
 
   const [templates, setTemplates] = useState<RuleTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -525,7 +525,7 @@ export default function AgencyRules() {
       console.error('rule templates load error:', error);
       toast.error(tt('Impossible de charger les modèles. Réessaie.', "Couldn't load templates. Try again.", 'No se pudieron cargar las plantillas. Reintenta.'));
     }
-    setTemplates((data ?? []) as RuleTemplate[]);
+    setTemplates((data ?? []) as unknown as RuleTemplate[]);
     setLoading(false);
   }, [agency?.id]);
 
@@ -609,7 +609,7 @@ export default function AgencyRules() {
   const templateAssignmentCount = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of promoters) {
-      const tid = (p as any).agency_rule_template_id;
+      const tid = p.agency_rule_template_id;
       if (tid) map.set(tid, (map.get(tid) ?? 0) + 1);
     }
     return map;
@@ -671,7 +671,7 @@ export default function AgencyRules() {
       {/* Promoters without a template */}
       {templates.length > 0 && !formOpen && (
         (() => {
-          const noTpl = promoters.filter(p => !(p as any).agency_rule_template_id);
+          const noTpl = promoters.filter(p => !p.agency_rule_template_id);
           if (noTpl.length === 0) return null;
           return (
             <>

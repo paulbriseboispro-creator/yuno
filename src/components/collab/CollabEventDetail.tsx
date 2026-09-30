@@ -329,18 +329,23 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       const orgId = ev.organizer_user_id ?? ev.partner_organizer_id;
       // Inscrits guest list : par les listes de la soirée, jamais par une jointure
       // `guest_lists!inner(event_id)` — la RLS s'évaluait sur toutes les entrées
-      // avant le filtre (8 s sur la démo).
-      const glCount = async () => {
+      // avant le filtre (8 s sur la démo). Deux comptes : inscrits, et scannés
+      // à la porte (ils entrent dans les Entrées).
+      const glCounts = async (): Promise<{ total: number; scanned: number }> => {
         const { data: lists } = await supabase.from('guest_lists').select('id').eq('event_id', eventId);
         const ids = (lists ?? []).map((l) => l.id);
-        if (ids.length === 0) return 0;
-        const { count } = await supabase.from('guest_list_entries')
+        if (ids.length === 0) return { total: 0, scanned: 0 };
+        const entriesOf = () => supabase.from('guest_list_entries')
           .select('id', { count: 'exact', head: true })
           .in('guest_list_id', ids)
           .neq('status', 'cancelled');
-        return count ?? 0;
+        const [{ count: total }, { count: scanned }] = await Promise.all([
+          entriesOf(),
+          entriesOf().eq('entry_scanned', true),
+        ]);
+        return { total: total ?? 0, scanned: scanned ?? 0 };
       };
-      const [clubRow, prof, { data: tickets }, { data: reservations }, glEntries, { data: drinkOrders }] = await Promise.all([
+      const [clubRow, prof, { data: tickets }, { data: reservations }, gl, { data: drinkOrders }] = await Promise.all([
         // Club name: organizer sees the partner club; venue is the club itself.
         !isVenue && clubVenueId
           ? supabase.from('venues').select('name').eq('id', clubVenueId).maybeSingle().then((r) => r.data)
@@ -350,12 +355,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           ? supabase.from('organizer_profiles').select('display_name, slug').eq('user_id', orgId).maybeSingle().then((r) => r.data)
           : Promise.resolve(null),
         // Revenue stats — shared night revenue + the viewer's own share. Statuts
-        // de la compta : un billet scanné passe en `used` et restait hors du CA.
-        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).in('status', ['paid', 'used']),
+        // du dictionnaire (metrics.ts / get_sales_overview) : un billet scanné
+        // passe en `used` et restait hors du CA.
+        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned, used, status').eq('event_id', eventId).in('status', ['paid', 'used']),
         // `guest_count` (sans s) : l'ancien `guests_count` n'existait pas → la requête
         // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count').eq('event_id', eventId).in('status', ['paid', 'confirmed']),
-        glCount(),
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count, entry_scanned, checked_in_at').eq('event_id', eventId).in('status', ['paid', 'confirmed']),
+        glCounts(),
         // Boissons : lues côté CLUB uniquement (RLS orders = owner du venue ; et le
         // bar est 100 % club par défaut). Sans elles, un club qui vit du bar voyait
         // un « CA de la soirée » qui ignorait sa recette principale.
@@ -386,9 +392,15 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         ticketsSold: ticketsSoldQty,
         caSoiree: ticketCA + tableCA + drinksCA,
         myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
-        checkins: tk.filter((x) => x.entry_scanned).length,
+        // Entrées = la définition du dictionnaire (metrics.ts, Rapport de
+        // soirée) : billets scannés EN QUANTITÉ + convives des tables arrivées
+        // + guest list scannée.
+        checkins:
+          tk.filter((x) => x.entry_scanned || x.used || x.status === 'used').reduce((s, x) => s + Math.max(x.quantity || 1, 1), 0)
+          + tr.filter((x) => x.entry_scanned || x.checked_in_at).reduce((s, x) => s + Math.max(x.guest_count || 0, 1), 0)
+          + gl.scanned,
         tableGuests: tr.reduce((s, x) => s + (x.guest_count || 0), 0),
-        glEntries,
+        glEntries: gl.total,
         ticketPillar: { count: ticketsSoldQty, ca: ticketCA },
         tablePillar: { count: tr.length, ca: tableCA },
         drinkPillar: isVenue ? { count: dr.length, ca: drinksCA } : null,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ComponentType, type CSSProperties } from 'react';
 import { motion, Reorder } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
@@ -53,9 +53,11 @@ function DarkInput({ id, value, onChange, placeholder, type = 'text', step }: {
   );
 }
 
+type IconComponent = ComponentType<{ className?: string; style?: CSSProperties }>;
+
 // ─── Reorder row (custom sort) ─────────────────────────────────────────────────
 function ReorderSection({ title, icon: Icon, drinks, onReorder, onEdit, t }: {
-  title: string; icon: any; drinks: Drink[];
+  title: string; icon: IconComponent; drinks: Drink[];
   onReorder: (d: Drink[]) => void; onEdit: (d: Drink) => void; t: (k: string) => string;
 }) {
   return (
@@ -143,7 +145,7 @@ function DrinkGridCard({ drink, onEdit, onDelete, t }: {
 }
 
 function CategorySection({ title, icon: Icon, drinks, onEdit, onDelete, t }: {
-  title: string; icon: any; drinks: Drink[];
+  title: string; icon: IconComponent; drinks: Drink[];
   onEdit: (d: Drink) => void; onDelete: (id: string) => void; t: (k: string) => string;
 }) {
   return (
@@ -287,7 +289,7 @@ export default function OwnerMenu() {
     try {
       const { data, error } = await supabase.from('drinks').select('*').eq('venue_id', venueId).order('position', { ascending: true });
       if (error) throw error;
-      const mappedDrinks: Drink[] = (data || []).map((d: any) => ({
+      const mappedDrinks: Drink[] = (data || []).map((d) => ({
         id: d.id, name: d.name, description: d.description || '',
         price: Number(d.price),
         promoPrice: d.promo_price ? Number(d.promo_price) : undefined,
@@ -386,7 +388,7 @@ export default function OwnerMenu() {
         toast.success(t('owner.drinkCreated'));
       }
       await fetchDrinks(); closeDialog();
-    } catch (error: any) { toast.error(t('owner.errorSaving')); }
+    } catch (error: unknown) { toast.error(t('owner.errorSaving')); }
     finally { setIsSaving(false); }
   };
 

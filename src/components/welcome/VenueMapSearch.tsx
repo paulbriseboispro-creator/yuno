@@ -58,7 +58,7 @@ const VenueMapSearch = ({ onSearch }: VenueMapSearchProps) => {
       if (!response.ok) throw new Error('Geocoding failed');
 
       const geoData = await response.json();
-      const mapped: SearchResult[] = geoData.features?.map((f: any) => ({
+      const mapped: SearchResult[] = geoData.features?.map((f: { place_name: string; center: number[] }) => ({
         place_name: f.place_name,
         center: f.center as [number, number],
       })) || [];

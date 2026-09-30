@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { MIN_SAMPLE } from '@/lib/metrics';
 import { translate } from '@/i18n/orgTranslate';
 import { Cake, Users, MapPin, Info, UsersRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -104,8 +105,6 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
     return () => { cancelled = true; };
   }, [scope.kind, scope.id, eventId, from, to]);
 
-  const capacity = data && data.capacity && data.capacity > 0 ? data.capacity : null;
-  const fillPct = capacity ? Math.round(Math.min(1, (data?.total ?? 0) / capacity) * 100) : null;
 
   if (loading) {
     return (
@@ -167,15 +166,17 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Age · Gender · Participants */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      {/* Âge · Sexe. L'anneau « Participants » est parti (25/09) : il redisait
+          le remplissage avec une AUTRE capacité (billets + tables + guest list)
+          que les jauges du rapport. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Age group */}
         <div style={{ ...crd, padding: '20px 22px' }}>
           <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
             <Cake className="h-4 w-4 flex-none" style={{ color: RED }} />
             {tt('Tranche d\'âge', 'Age group', 'Rango de edad')}
           </h3>
-          {ageRows.length ? (
+          {ageRows.length && data.age_known >= MIN_SAMPLE ? (
             <>
               <div className="space-y-3.5">
                 {ageRows.map(r => <BarRow key={r.label} {...r} />)}
@@ -196,7 +197,7 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
             <Users className="h-4 w-4 flex-none" style={{ color: RED }} />
             {tt('Sexe', 'Gender', 'Sexo')}
           </h3>
-          {genderRows.length ? (
+          {genderRows.length && data.gender_known >= MIN_SAMPLE ? (
             <>
               {/* segmented split bar */}
               <div className="flex h-3 w-full overflow-hidden rounded-full mb-4" style={{ background: FAINT }}>
@@ -214,7 +215,7 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
                 ))}
               </div>
               <Coverage known={data.gender_known} total={data.total}
-                label={tt('Estimé via guest lists', 'Estimated via guest lists', 'Estimado vía guest lists')} />
+                label={tt('Renseigné à l\'inscription', 'Given at sign-up', 'Indicado al inscribirse')} />
             </>
           ) : (
             <p className="text-[13px]" style={{ color: T3 }}>
@@ -223,23 +224,6 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
           )}
         </div>
 
-        {/* Participants count */}
-        <div style={{ ...crd, padding: '20px 22px' }} className="flex flex-col">
-          <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
-            <UsersRound className="h-4 w-4 flex-none" style={{ color: RED }} />
-            {tt('Participants', 'Participants', 'Participantes')}
-          </h3>
-          <div className="flex-1 flex flex-col items-center justify-center py-3">
-            <ParticipantRing value={data.total} capacity={capacity} />
-            <p className="mt-3 text-[12px] text-center" style={{ color: T3 }}>
-              {fillPct != null
-                ? tt(`${fillPct}% de la capacité`, `${fillPct}% of capacity`, `${fillPct}% de la capacidad`)
-                : eventId
-                  ? tt('À cette soirée', 'At this event', 'En este evento')
-                  : tt('Sur tes événements', 'Across your events', 'En tus eventos')}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Cities */}
@@ -258,45 +242,6 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Participant count ring ────────────────────────────────────────────────────
-// Track = the event's max capacity. Red arc = real fill (participants / capacity).
-// When no capacity is configured, the arc falls back to a decorative sweep.
-function ParticipantRing({ value, capacity }: { value: number; capacity: number | null }) {
-  const size = 132;
-  const stroke = 9;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const hasCap = capacity != null && capacity > 0;
-  const ratio = hasCap ? Math.min(1, value / capacity!) : null;
-  // ratio known → fill that fraction of the circle; otherwise keep the old decorative sweep.
-  const offset = ratio != null ? c * (1 - ratio) : c * 0.18;
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={FAINT} strokeWidth={stroke} />
-        {(ratio == null || ratio > 0) && (
-          <circle
-            cx={size / 2} cy={size / 2} r={r} fill="none" stroke={RED} strokeWidth={stroke}
-            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
-            style={{ filter: `drop-shadow(0 0 8px ${RED}66)`, transition: 'stroke-dashoffset .6s ease' }}
-          />
-        )}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[clamp(26px,4vw,34px)] font-[680] tabular-nums leading-none"
-          style={{ color: T1, letterSpacing: '-0.03em' }}>
-          {value.toLocaleString()}
-        </span>
-        {hasCap && (
-          <span className="mt-1 text-[12px] font-[560] tabular-nums leading-none" style={{ color: T3 }}>
-            / {capacity!.toLocaleString()}
-          </span>
-        )}
-      </div>
     </div>
   );
 }

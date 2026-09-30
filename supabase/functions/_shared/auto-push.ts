@@ -101,6 +101,34 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
       },
     },
   },
+  // Bilan du lendemain (plan de simplification de l'analyse, lot 7) : trois
+  // chiffres, un constat, un lien — le Rapport de soirée. {compare} est vide ou
+  // porte déjà sa ponctuation (« , +12 % d'entrées vs Amore Night »).
+  night_recap: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Le bilan de {event} 🌙", body: "{entered} entrées sur {expected} attendus{compare}. {revenue} de CA, {spend} par tête." },
+        en: { title: "{event}: last night in numbers 🌙", body: "{entered} entries out of {expected} expected{compare}. {revenue} revenue, {spend} per head." },
+        es: { title: "El balance de {event} 🌙", body: "{entered} accesos de {expected} esperados{compare}. {revenue} de facturación, {spend} por persona." },
+      },
+      // Soirée gratuite (guest list seule), et la cloche de la Console (lisible
+      // par tout le staff du club : jamais de CA dedans).
+      free: {
+        fr: { title: "Le bilan de {event} 🌙", body: "{entered} entrées sur {expected} attendus{compare}. Le rapport complet est prêt." },
+        en: { title: "{event}: last night in numbers 🌙", body: "{entered} entries out of {expected} expected{compare}. The full report is ready." },
+        es: { title: "El balance de {event} 🌙", body: "{entered} accesos de {expected} esperados{compare}. El informe completo está listo." },
+      },
+      // Porte non scannée : « 0 entrée » serait faux (pas scanné ≠ pas venu).
+      // {revenue} est vide ou porte sa ponctuation (« , 2 400 € de CA »).
+      unscanned: {
+        fr: { title: "Le bilan de {event} 🌙", body: "{expected} attendus{revenue}. Aucune entrée n'a été scannée à la porte : le rapport complet est prêt." },
+        en: { title: "{event}: last night in numbers 🌙", body: "{expected} expected{revenue}. No entry was scanned at the door: the full report is ready." },
+        es: { title: "El balance de {event} 🌙", body: "{expected} esperados{revenue}. No se escaneó ningún acceso en la puerta: el informe completo está listo." },
+      },
+    },
+  },
   // Récap hebdo poussé au pro : l'habitude qui donne une raison de faire plus d'events.
   audience_weekly_recap: {
     logType: "reminder",
@@ -531,17 +559,27 @@ const SETTINGS_TTL_MS = 60_000;
 export async function isAutoPushEnabled(admin: SupabaseClient, key: string): Promise<boolean> {
   const cached = settingsCache.get(key);
   if (cached && Date.now() - cached.at < SETTINGS_TTL_MS) return cached.enabled;
+  // Registre illisible (supabase-js RENVOIE l'erreur, il ne la lève pas) :
+  // une transactionnelle part quand même — un reçu ou un QR ne se retient
+  // pas —, tout le reste se tait. Un interrupteur coupé par le super admin ne
+  // doit jamais se rouvrir sur une panne. Rien n'est mis en cache : le
+  // prochain appel relit.
+  const failSafe = AUTO_PUSH[key]?.logType === "transactional";
   try {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("platform_notification_settings")
       .select("enabled")
       .eq("notification_key", key)
       .maybeSingle();
+    if (error) {
+      console.error(`[AUTO-PUSH] registry read failed for ${key}:`, error.message);
+      return failSafe;
+    }
     const enabled = data ? data.enabled === true : true; // absent = activé
     settingsCache.set(key, { enabled, at: Date.now() });
     return enabled;
   } catch {
-    return true; // fail-open : ne jamais bloquer une transactionnelle sur une erreur DB
+    return failSafe;
   }
 }
 

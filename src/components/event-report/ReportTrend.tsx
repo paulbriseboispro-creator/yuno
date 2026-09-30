@@ -12,12 +12,31 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { KIT, useNumberFormat } from '@/components/analytics/kitFormat';
 import {
   availableMetrics, buildCurve, compareAtSameD, todayD,
-  type EventReport, type SeriesMetric,
+  type EventReport, type ReportMarker, type SeriesMetric,
 } from '@/lib/eventReport';
 import { CardTitle, EmptyNote, ReportCard, Segmented } from './ui';
 
 const MAIN = '#E8192C';
 const COMPARE = 'rgb(var(--ink)/0.5)';
+
+/**
+ * Repères de la courbe (plan de simplification, lot 7 — les « annotations »
+ * de Mixpanel) : ce qui s'est passé ce jour-là, pour lire ce qui a fait
+ * monter les ventes. Une couleur par nature, redite en toutes lettres dans la
+ * légende et l'infobulle.
+ */
+const MARKER_COLOR: Record<ReportMarker['kind'], string> = {
+  published: 'rgb(var(--ink)/0.75)',
+  round: '#F2B23C',
+  email: '#A78BFA',
+  push: '#38BDF8',
+};
+
+function markerText(m: ReportMarker, t: (k: string) => string): string {
+  if (m.kind === 'published') return t('er.mk.published');
+  const tpl = t(`er.mk.${m.kind}`);
+  return m.label ? tpl.replace('{label}', m.label) : t(`er.mk.${m.kind}Bare`);
+}
 
 export interface ScopeEventOption { id: string; title: string; startAt: string }
 
@@ -48,6 +67,19 @@ export function ReportTrend({ report, compare, compareId, onCompare, options, co
     [report, compare, active, mode],
   );
   const today = todayD(report);
+  // Repères dans la fenêtre dessinée, regroupés par jour.
+  const markersByD = useMemo(() => {
+    const out = new Map<number, ReportMarker[]>();
+    if (points.length === 0) return out;
+    const hi = points[0].d;
+    const lo = points[points.length - 1].d;
+    for (const m of report.markers ?? []) {
+      if (m.d > hi || m.d < lo) continue;
+      out.set(m.d, [...(out.get(m.d) ?? []), m]);
+    }
+    return out;
+  }, [report.markers, points]);
+  const markerKinds = [...new Set([...markersByD.values()].flat().map((m) => m.kind))];
   const headline = compare && mode === 'cum' ? compareAtSameD(report, compare, active) : null;
 
   const dateFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Europe/Paris' });
@@ -119,7 +151,7 @@ export function ReportTrend({ report, compare, compareId, onCompare, options, co
       ) : (
         <div className="h-[260px] w-full" lang={language}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={points} margin={{ top: markersByD.size ? 16 : 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="erMain" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={MAIN} stopOpacity={0.22} />
@@ -150,11 +182,26 @@ export function ReportTrend({ report, compare, compareId, onCompare, options, co
                 <ReferenceLine x={today} stroke="rgb(var(--ink)/0.18)"
                   label={{ value: t('er.day.today'), position: 'insideTopRight', fill: 'rgb(var(--ink)/0.45)', fontSize: 10.5 }} />
               )}
+              {[...markersByD.entries()].map(([d, ms]) => (
+                <ReferenceLine key={`mk${d}`} x={d} stroke={MARKER_COLOR[ms[0].kind]} strokeOpacity={0.55} strokeDasharray="1 3"
+                  label={(props: { viewBox?: { x?: number; y?: number } }) => {
+                    const x = props.viewBox?.x ?? 0;
+                    const y = (props.viewBox?.y ?? 0) - 7;
+                    return (
+                      <g>
+                        {ms.slice(0, 3).map((m, i) => (
+                          <circle key={i} cx={x + (i - (Math.min(ms.length, 3) - 1) / 2) * 7} cy={y} r={3} fill={MARKER_COLOR[m.kind]} />
+                        ))}
+                      </g>
+                    );
+                  }} />
+              ))}
               <Tooltip
                 cursor={{ stroke: 'rgb(var(--ink)/0.25)', strokeWidth: 1 }}
                 content={({ active: on, payload, label }) => {
                   if (!on || !payload?.length) return null;
                   const p = payload[0].payload as { main: number | null; compare: number | null };
+                  const dayMarkers = markersByD.get(Number(label)) ?? [];
                   return (
                     <div className="rounded-xl px-3 py-2 text-[12px]" style={{ background: 'var(--sf-111113)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1, boxShadow: '0 10px 30px -12px rgb(0 0 0/.6)' }}>
                       <div style={{ color: KIT.T3, marginBottom: 4 }}>{dayLabel(Number(label), t)}</div>
@@ -170,6 +217,16 @@ export function ReportTrend({ report, compare, compareId, onCompare, options, co
                           <span className="tabular-nums font-semibold">{fmt(p.compare)}</span>
                         </div>
                       )}
+                      {dayMarkers.length > 0 && (
+                        <div className="mt-1.5 flex flex-col gap-0.5 border-t pt-1.5" style={{ borderColor: KIT.BORDER }}>
+                          {dayMarkers.map((m, i) => (
+                            <span key={i} className="inline-flex max-w-[240px] items-center gap-1.5 truncate" style={{ color: KIT.T2 }}>
+                              <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: MARKER_COLOR[m.kind] }} />
+                              <span className="truncate">{markerText(m, t)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 }}
@@ -182,6 +239,17 @@ export function ReportTrend({ report, compare, compareId, onCompare, options, co
                 dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--sf-0a0a0c)' }} connectNulls={false} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
+        </div>
+      )}
+      {markerKinds.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px]" style={{ color: KIT.T3 }}>
+          <span>{t('er.mk.legend')}</span>
+          {markerKinds.map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ background: MARKER_COLOR[k] }} aria-hidden />
+              {t(`er.mk.kind.${k}`)}
+            </span>
+          ))}
         </div>
       )}
     </ReportCard>

@@ -16,7 +16,7 @@ function OwnerVenueGate({ children }: { children: React.ReactNode }) {
   const { venueId, loading, error } = useOwnerVenueContext();
   const { t } = useLanguage();
   const { roles } = useAuth();
-  const isAdmin = roles.includes('admin' as any);
+  const isAdmin = (roles as readonly string[]).includes('admin');
 
   if (loading) {
     return <AppSkeleton />;

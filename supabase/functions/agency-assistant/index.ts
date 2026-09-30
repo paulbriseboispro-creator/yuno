@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 import { isDemoPreviewRequest } from "../_shared/demo-guard.ts";
 
@@ -366,7 +367,7 @@ const WRITE_TOOLS = new Set(["send_team_announcement", "update_agency_bio", "set
 // Session d'un lien démo : l'IA ne se voit même pas proposer d'écrire.
 const READ_ONLY_TOOLS = TOOLS.filter((t) => !WRITE_TOOLS.has(t.function.name));
 
-function log(type: string, data: Record<string, any>) {
+function log(type: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), type, ...data }));
 }
 
@@ -385,9 +386,15 @@ function periodStart(period: string): string {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-function promoterDisplayName(p: any): string {
+interface PromoterNameFields {
+  first_name?: string | null;
+  last_name?: string | null;
+  promo_code?: string | null;
+}
+
+function promoterDisplayName(p: PromoterNameFields): string {
   const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
-  return full || p.name || p.promo_code || "Promoteur";
+  return full || p.promo_code || "Promoteur";
 }
 
 // ═══════════════════════════════════════════
@@ -396,10 +403,84 @@ function promoterDisplayName(p: any): string {
 
 type Ctx = { agencyId: string; affiliateId: string | null };
 
+/** Arguments produits par le modèle (JSON), selon le schéma de TOOLS. */
+interface ToolArgs {
+  limit?: number | string;
+  period?: string;
+  only_active?: boolean;
+  days_ahead?: number | string;
+  query?: string;
+  title?: string;
+  content?: string;
+  bio?: string;
+  mode?: string;
+}
+
+// Formes des lignes lues par les outils (seuls les champs utilisés).
+interface ConversionRow {
+  promoter_id?: string | null;
+  venue_id?: string | null;
+  gross_amount: number | string | null;
+  margin_amount?: number | string | null;
+  club_status?: string | null;
+}
+interface PromoterRow extends PromoterNameFields {
+  id?: string;
+  is_active?: boolean | null;
+  pending_amount?: number | string | null;
+  total_paid?: number | string | null;
+  // Relation plusieurs-vers-un : PostgREST rend un objet, pas un tableau
+  // (l'inférence du select, sans schéma, le croit tableau — d'où les
+  // conversions `as unknown as` plus bas).
+  venues?: { name: string | null } | null;
+}
+interface ContractRow {
+  status: string | null;
+  override_type: string | null;
+  override_value: number | null;
+  agency_signed_at: string | null;
+  club_signed_at: string | null;
+  gl_default_quota: number | null;
+  venues: { name: string | null } | null;
+}
+interface UpcomingEventRow {
+  title: string;
+  start_at: string;
+  venue_name: string | null;
+  assigned_promoter_count: number | null;
+}
+interface ExternalEventRow {
+  name: string;
+  event_date: string;
+  start_time: string | null;
+  status: string;
+  affiliate_venues: { name: string | null } | { name: string | null }[] | null;
+}
+interface ExternalVenueRow {
+  name: string;
+  city: string | null;
+  is_active: boolean | null;
+  logo_url: string | null;
+  cover_image_url: string | null;
+}
+interface AffiliateArmRow {
+  linktree_slug: string | null;
+  trust_stats: unknown;
+  banner_url: string | null;
+}
+interface IncomingMessage {
+  role?: unknown;
+  content?: unknown;
+}
+interface ToolCall {
+  id: string;
+  function: { name: string; arguments?: string };
+}
+
 async function executeTool(
   toolName: string,
-  args: Record<string, any>,
-  supabase: any,
+  args: ToolArgs,
+  supabase: SupabaseClient,
   ctx: Ctx,
 ): Promise<string> {
   const { agencyId, affiliateId } = ctx;
@@ -419,19 +500,19 @@ async function executeTool(
                 .gte("event_date", new Date().toISOString().split("T")[0])
             : Promise.resolve({ count: 0 }),
         ]);
-        const conversions = convRes.data ?? [];
-        const promoters = promRes.data ?? [];
-        const contracts = ctrRes.data ?? [];
+        const conversions: ConversionRow[] = convRes.data ?? [];
+        const promoters: PromoterRow[] = promRes.data ?? [];
+        const contracts: { status: string | null }[] = ctrRes.data ?? [];
         return JSON.stringify({
-          receivable_from_clubs_eur: r2(conversions.filter((c: any) => c.club_status === "pending").reduce((s: number, c: any) => s + Number(c.gross_amount || 0), 0)),
-          payable_to_promoters_eur: r2(promoters.reduce((s: number, p: any) => s + Number(p.pending_amount || 0), 0)),
-          agency_margin_eur: r2(conversions.reduce((s: number, c: any) => s + Number(c.margin_amount || 0), 0)),
+          receivable_from_clubs_eur: r2(conversions.filter((c) => c.club_status === "pending").reduce((s: number, c) => s + Number(c.gross_amount || 0), 0)),
+          payable_to_promoters_eur: r2(promoters.reduce((s: number, p) => s + Number(p.pending_amount || 0), 0)),
+          agency_margin_eur: r2(conversions.reduce((s: number, c) => s + Number(c.margin_amount || 0), 0)),
           // gross_amount = commission promoteur + marge agence : ce que les clubs
           // doivent à l'agence, PAS un volume de ventes (qui, lui, appartient au club).
-          commissions_billed_to_clubs_eur: r2(conversions.reduce((s: number, c: any) => s + Number(c.gross_amount || 0), 0)),
+          commissions_billed_to_clubs_eur: r2(conversions.reduce((s: number, c) => s + Number(c.gross_amount || 0), 0)),
           roster_count: promoters.length,
-          active_promoters: promoters.filter((p: any) => p.is_active).length,
-          active_contracts: contracts.filter((c: any) => c.status === "active").length,
+          active_promoters: promoters.filter((p) => p.is_active).length,
+          active_contracts: contracts.filter((c) => c.status === "active").length,
           total_contracts: contracts.length,
           external_active_venues: venRes.count ?? 0,
           external_upcoming_events: evRes.count ?? 0,
@@ -446,22 +527,22 @@ async function executeTool(
           .eq("agency_id", agencyId)
           .gte("created_at", periodStart(args.period || "30d"));
         const byPromoter = new Map<string, number>();
-        for (const c of convs ?? []) {
+        for (const c of (convs ?? []) as ConversionRow[]) {
           if (!c.promoter_id) continue;
           byPromoter.set(c.promoter_id, (byPromoter.get(c.promoter_id) || 0) + Number(c.gross_amount || 0));
         }
         const { data: promoters } = await supabase
           .from("promoters")
-          .select("id, first_name, last_name, name, promo_code, venues(name)")
+          .select("id, first_name, last_name, promo_code, venues(name)")
           .eq("agency_id", agencyId);
-        const ranked = (promoters ?? [])
-          .map((p: any) => ({
+        const ranked = ((promoters ?? []) as unknown as PromoterRow[])
+          .map((p) => ({
             name: promoterDisplayName(p),
             promo_code: p.promo_code,
             venue: p.venues?.name ?? null,
             commissions_generated_eur: r2(byPromoter.get(p.id) || 0),
           }))
-          .sort((a: any, b: any) => b.commissions_generated_eur - a.commissions_generated_eur)
+          .sort((a, b) => b.commissions_generated_eur - a.commissions_generated_eur)
           .slice(0, limit);
         return JSON.stringify({ period: args.period || "30d", top: ranked });
       }
@@ -469,14 +550,14 @@ async function executeTool(
       case "list_promoters": {
         let q = supabase
           .from("promoters")
-          .select("first_name, last_name, name, promo_code, is_active, pending_amount, total_paid, venues(name)")
+          .select("first_name, last_name, promo_code, is_active, pending_amount, total_paid, venues(name)")
           .eq("agency_id", agencyId)
           .order("created_at", { ascending: false });
         if (args.only_active) q = q.eq("is_active", true);
         const { data } = await q;
         return JSON.stringify({
           count: (data ?? []).length,
-          promoters: (data ?? []).map((p: any) => ({
+          promoters: ((data ?? []) as unknown as PromoterRow[]).map((p) => ({
             name: promoterDisplayName(p),
             promo_code: p.promo_code,
             venue: p.venues?.name ?? null,
@@ -494,7 +575,7 @@ async function executeTool(
           .eq("agency_id", agencyId)
           .order("created_at", { ascending: false });
         return JSON.stringify({
-          contracts: (data ?? []).map((c: any) => ({
+          contracts: ((data ?? []) as unknown as ContractRow[]).map((c) => ({
             club: c.venues?.name ?? "Club",
             status: c.status,
             commission: c.override_type ? `${c.override_value}${c.override_type === "percentage" ? "%" : "€"}` : null,
@@ -511,7 +592,7 @@ async function executeTool(
           p_days_ahead: Number(args.days_ahead) || 30,
         });
         return JSON.stringify({
-          events: (data ?? []).map((e: any) => ({
+          events: ((data ?? []) as UpcomingEventRow[]).map((e) => ({
             title: e.title,
             start_at: e.start_at,
             venue: e.venue_name,
@@ -535,7 +616,7 @@ async function executeTool(
           .lte("event_date", limitDate.toISOString().split("T")[0])
           .order("event_date");
         return JSON.stringify({
-          events: (data ?? []).map((e: any) => ({
+          events: ((data ?? []) as ExternalEventRow[]).map((e) => ({
             name: e.name,
             date: e.event_date,
             time: e.start_time,
@@ -553,7 +634,7 @@ async function executeTool(
           .eq("affiliate_id", affiliateId)
           .order("name");
         return JSON.stringify({
-          venues: (data ?? []).map((v: any) => ({
+          venues: ((data ?? []) as ExternalVenueRow[]).map((v) => ({
             name: v.name,
             city: v.city,
             is_active: v.is_active,
@@ -589,13 +670,13 @@ async function executeTool(
             .select("gross_amount, margin_amount, club_status, venue_id")
             .eq("agency_id", agencyId),
           supabase.from("promoters")
-            .select("first_name, last_name, name, promo_code, pending_amount")
+            .select("first_name, last_name, promo_code, pending_amount")
             .eq("agency_id", agencyId)
             .gt("pending_amount", 0),
         ]);
-        const conversions = convRes.data ?? [];
+        const conversions: ConversionRow[] = convRes.data ?? [];
         // Résolution des noms de clubs sans supposer de FK jointive.
-        const venueIds = [...new Set(conversions.map((c: any) => c.venue_id).filter(Boolean))];
+        const venueIds = [...new Set(conversions.map((c) => c.venue_id).filter(Boolean))];
         const venueNames = new Map<string, string>();
         if (venueIds.length > 0) {
           const { data: venues } = await supabase.from("venues").select("id, name").in("id", venueIds);
@@ -609,11 +690,11 @@ async function executeTool(
         }
         return JSON.stringify({
           receivable_by_club: [...byClub.entries()].map(([club, eur]) => ({ club, eur: r2(eur) })),
-          payable_by_promoter: (promRes.data ?? []).map((p: any) => ({
+          payable_by_promoter: ((promRes.data ?? []) as PromoterRow[]).map((p) => ({
             promoter: promoterDisplayName(p),
             eur: r2(Number(p.pending_amount || 0)),
           })),
-          margin_realized_eur: r2(conversions.reduce((s: number, c: any) => s + Number(c.margin_amount || 0), 0)),
+          margin_realized_eur: r2(conversions.reduce((s: number, c) => s + Number(c.margin_amount || 0), 0)),
           note: "Le règlement se fait UNIQUEMENT sur /agency-app/finance (cycle en 3 temps).",
         });
       }
@@ -624,7 +705,7 @@ async function executeTool(
           .select("name, city, bio, logo_url, instagram_url, tiktok_url, website_url")
           .eq("id", agencyId)
           .maybeSingle();
-        let arm: any = null;
+        let arm: AffiliateArmRow | null = null;
         let venuesCount = 0;
         let eventsCount = 0;
         if (affiliateId) {
@@ -772,7 +853,7 @@ serve(async (req) => {
 
     // Autorisation : rôle agency + propriété de la ligne agencies.
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    const isAgency = roles?.some((r: any) => r.role === "agency");
+    const isAgency = roles?.some((r: { role: string }) => r.role === "agency");
     if (!isAgency) {
       return new Response(JSON.stringify({ error: "Agency role required" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -814,10 +895,10 @@ serve(async (req) => {
     }
 
     // Filtre défensif : jamais de message system côté client, historique borné.
-    const safeMessages = messages
-      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    const safeMessages = (messages as IncomingMessage[])
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
       .slice(-30)
-      .map((m: any) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+      .map((m) => ({ role: m.role, content: (m.content as string).slice(0, 4000) }));
 
     let contextBlock = `\n\n📍 CONTEXTE :\n- Agence : ${agencyRow.name}`;
     if (agencyContext?.currentPage) contextBlock += `\n- Page actuelle : ${agencyContext.currentPage}`;
@@ -852,7 +933,7 @@ serve(async (req) => {
     const calledTools: string[] = [];
 
     // ═══ Boucle multi-tours (max 3) — même mécanique qu'owner-assistant ═══
-    const conversationMessages: any[] = [
+    const conversationMessages: Record<string, unknown>[] = [
       { role: "system", content: systemPrompt },
       ...safeMessages,
     ];
@@ -906,14 +987,14 @@ serve(async (req) => {
         });
       }
 
-      const toolCalls = choice.message.tool_calls;
-      log("tool_calls", { round, tools: toolCalls.map((tc: any) => tc.function.name) });
+      const toolCalls: ToolCall[] = choice.message.tool_calls;
+      log("tool_calls", { round, tools: toolCalls.map((tc) => tc.function.name) });
       for (const tc of toolCalls) if (tc?.function?.name) calledTools.push(String(tc.function.name));
       conversationMessages.push(choice.message);
 
       for (const tc of toolCalls) {
         const fnName = tc.function.name;
-        let fnArgs: Record<string, any> = {};
+        let fnArgs: ToolArgs = {};
         try { fnArgs = JSON.parse(tc.function.arguments || "{}"); } catch { /* empty */ }
 
         log("tool_exec", { round, tool: fnName, args: fnArgs });

@@ -18,8 +18,40 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  type AppNotif, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig, notifLink,
+  type AppNotif, type FeedConfig, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig, notifLink,
 } from '@/lib/notifications';
+
+/** Colonnes communes aux quatre flux de notifications (staff / orga / admin / affilié). */
+interface NotifRow {
+  id: string;
+  title: string;
+  message: string;
+  notification_type: string;
+  priority?: string | null;
+  created_at: string;
+  read_at: string | null;
+  event_id?: string | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  metadata?: unknown;
+}
+
+/**
+ * La table du flux est choisie au runtime parmi quatre tables de même forme :
+ * le client généré ne sait pas typer une colonne de filtre sur cette union,
+ * d'où un constructeur réduit aux quelques appels de cette page.
+ */
+interface NotifQuery extends PromiseLike<{ data: NotifRow[] | null }> {
+  select(columns: string): NotifQuery;
+  update(values: { read_at: string; read_by: string | undefined }): NotifQuery;
+  eq(column: string, value: string): NotifQuery;
+  in(column: string, values: string[]): NotifQuery;
+  gte(column: string, value: string): NotifQuery;
+  order(column: string, options: { ascending: boolean }): NotifQuery;
+  limit(count: number): NotifQuery;
+}
+
+const notifTable = (table: FeedConfig['table']) => supabase.from(table) as unknown as NotifQuery;
 
 type TabFilter = 'all' | 'unread' | 'urgent';
 
@@ -194,18 +226,18 @@ export default function OwnerNotifications() {
   const filterColumn = config?.filterColumn;
   const filterValue = config?.filterValue;
 
-  const mapRow = (n: any): AppNotif => ({
+  const mapRow = (n: NotifRow): AppNotif => ({
     id: n.id,
     title: n.title,
     message: n.message,
     notification_type: n.notification_type,
-    priority: n.priority ?? 'normal',
+    priority: (n.priority ?? 'normal') as AppNotif['priority'],
     created_at: n.created_at,
     read_at: n.read_at,
     event_id: n.event_id ?? null,
     reference_type: n.reference_type ?? null,
     reference_id: n.reference_id ?? null,
-    metadata: n.metadata ?? {},
+    metadata: (n.metadata ?? {}) as Record<string, unknown>,
   });
 
   const fetchNotifications = useCallback(async (silent = false) => {
@@ -214,7 +246,7 @@ export default function OwnerNotifications() {
     try {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const { data } = await (supabase.from(table as any) as any)
+      const { data } = await notifTable(table)
         .select('*')
         .eq(filterColumn, filterValue)
         .gte('created_at', since.toISOString())
@@ -235,10 +267,10 @@ export default function OwnerNotifications() {
     channelRef.current = supabase
       .channel(`notifications_page_${config.channelKey}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: config.realtimeFilter },
-        (payload) => setNotifications(prev => [mapRow(payload.new), ...prev])
+        (payload) => setNotifications(prev => [mapRow(payload.new as NotifRow), ...prev])
       )
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter: config.realtimeFilter },
-        (payload) => setNotifications(prev => prev.map(n => n.id === (payload.new as any).id ? mapRow(payload.new) : n))
+        (payload) => setNotifications(prev => prev.map(n => n.id === (payload.new as NotifRow).id ? mapRow(payload.new as NotifRow) : n))
       )
       .subscribe();
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
@@ -249,7 +281,7 @@ export default function OwnerNotifications() {
     if (!table) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      await (supabase.from(table as any) as any)
+      await notifTable(table)
         .update({ read_at: new Date().toISOString(), read_by: user?.id })
         .eq('id', id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
@@ -271,7 +303,7 @@ export default function OwnerNotifications() {
       const { data: { user } } = await supabase.auth.getUser();
       const unread = notifications.filter(n => !n.read_at);
       if (!unread.length) return;
-      await (supabase.from(table as any) as any)
+      await notifTable(table)
         .update({ read_at: new Date().toISOString(), read_by: user?.id })
         .in('id', unread.map(n => n.id));
       setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));

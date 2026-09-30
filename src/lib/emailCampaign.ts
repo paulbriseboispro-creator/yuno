@@ -71,7 +71,7 @@ export const THEME_PRESETS: { id: string; name: string; theme: Required<EmailThe
   },
 ];
 
-export const newBlock = (type: EmailBlock['type'], opts?: Partial<any>): EmailBlock => {
+export const newBlock = (type: EmailBlock['type'], opts?: Partial<Record<string, string | null>>): EmailBlock => {
   const id = crypto.randomUUID();
   switch (type) {
     case 'header': return { id, type, venue_name: opts?.venue_name || '', logo_url: opts?.logo_url, show_name: true, logo_size: 'md', logo_shape: 'free' };

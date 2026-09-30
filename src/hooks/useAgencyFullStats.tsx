@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type FullStatsArgs = Database['public']['Functions']['get_agency_promoter_full_stats']['Args'];
 
 export type PromoterStat = {
   promoter_id: string;
@@ -54,22 +57,22 @@ export function useAgencyFullStats(
   const [promoterStats, setPromoterStats] = useState<PromoterStat[]>([]);
   const [eventStats, setEventStats] = useState<EventStat[]>([]);
   const [loading, setLoading] = useState(false);
-  const db = supabase as any;
 
   const load = useCallback(async () => {
     if (!agencyId) return;
     setLoading(true);
+    // Les RPC acceptent NULL (pas de borne) ; le type généré ne le dit pas.
     const params = {
       p_agency_id: agencyId,
       p_date_from: dateFrom?.toISOString() ?? null,
       p_date_to:   dateTo?.toISOString()   ?? null,
-    };
+    } as unknown as FullStatsArgs;
     const [{ data: ps, error: e1 }, { data: es, error: e2 }] = await Promise.all([
-      db.rpc('get_agency_promoter_full_stats', params),
-      db.rpc('get_agency_event_full_stats',    params),
+      supabase.rpc('get_agency_promoter_full_stats', params),
+      supabase.rpc('get_agency_event_full_stats',    params),
     ]);
     if (!e1) {
-      setPromoterStats(((ps ?? []) as any[]).map(r => ({
+      setPromoterStats(((ps ?? []) as unknown as PromoterStat[]).map(r => ({
         ...r,
         total_gross:       n(r.total_gross),
         total_margin:      n(r.total_margin),
@@ -87,7 +90,7 @@ export function useAgencyFullStats(
       })));
     }
     if (!e2) {
-      setEventStats(((es ?? []) as any[]).map(r => ({
+      setEventStats(((es ?? []) as unknown as EventStat[]).map(r => ({
         ...r,
         total_gross:      n(r.total_gross),
         total_margin:     n(r.total_margin),

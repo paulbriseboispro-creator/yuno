@@ -6,8 +6,13 @@
 // Toute écriture est fire-and-forget, avalée en cas d'erreur, et gardée en vie
 // après la réponse par `EdgeRuntime.waitUntil` quand il existe.
 
-// deno-lint-ignore no-explicit-any
-type AnyClient = any;
+// Ce que ce module touche du client : une insertion dans `ai_usage_events`.
+// Volontairement structurel — les appelants passent des clients typés
+// différemment (SupabaseClient, client d'embeddings minimal…).
+type AnyClient = { from(table: string): unknown };
+interface AiUsageInsertable {
+  insert(row: Record<string, unknown>): PromiseLike<{ error?: { message?: string } | null }>;
+}
 
 export type AiAssistant =
   | 'client'        // yuno-assistant (chat)
@@ -121,7 +126,7 @@ export function logAiUsage(supabase: AnyClient, ev: AiUsageEvent): void {
       completion_chars: ev.completionChars ?? null,
       prompt_preview: ev.promptPreview ?? null,
     };
-    const p = Promise.resolve(supabase.from('ai_usage_events').insert(row))
+    const p = Promise.resolve((supabase.from('ai_usage_events') as AiUsageInsertable).insert(row))
       .then((r: { error?: { message?: string } | null }) => {
         if (r?.error) console.warn('ai_usage_events insert failed:', r.error.message);
       })

@@ -147,7 +147,7 @@ const Welcome = () => {
       ordersRes.data?.forEach(order => {
         salesByVenue[order.venue_id] = (salesByVenue[order.venue_id] || 0) + 1;
       });
-      ticketsRes.data?.forEach((ticket: any) => {
+      ticketsRes.data?.forEach(ticket => {
         const venueId = ticket.events?.venue_id;
         if (venueId) {
           salesByVenue[venueId] = (salesByVenue[venueId] || 0) + 1;
@@ -155,11 +155,11 @@ const Welcome = () => {
       });
 
       const eventsByVenue: Record<string, TodayEvent> = {};
-      eventsRes.data?.forEach((event: any) => {
+      eventsRes.data?.forEach(event => {
         let ticketsRemaining: number | null = null;
         if (event.ticket_rounds?.length > 0) {
-          const total = event.ticket_rounds.reduce((sum: number, r: any) => sum + (r.max_tickets || 0), 0);
-          const sold = event.ticket_rounds.reduce((sum: number, r: any) => sum + (r.tickets_sold || 0), 0);
+          const total = event.ticket_rounds.reduce((sum: number, r) => sum + (r.max_tickets || 0), 0);
+          const sold = event.ticket_rounds.reduce((sum: number, r) => sum + (r.tickets_sold || 0), 0);
           ticketsRemaining = total - sold;
         }
         if (!eventsByVenue[event.venue_id]) {

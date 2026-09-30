@@ -37,7 +37,7 @@ export function VipPlacementTracker({
           filter: `id=eq.${reservationId}`,
         },
         (payload) => {
-          const newData = payload.new as any;
+          const newData = payload.new as { placement_status?: string; placement_note?: string };
           if (newData.placement_status) setStatus(newData.placement_status);
           if (newData.placement_note !== undefined) setPlacementNote(newData.placement_note);
         }

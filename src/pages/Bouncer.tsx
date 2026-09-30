@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
+import type { Tables } from '@/integrations/supabase/types';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -95,6 +96,15 @@ interface ScannedTicket {
  * le périmètre de la porte (club OU organisateur) se lit ici : autant l'écrire
  * une fois plutôt que de caster à chaque accès.
  */
+/** Jointures `table_zones(name)` / `table_packs(name, arrival_deadline)` d'une résa. */
+type ZoneJoin = { name?: string | null } | null;
+type PackJoin = { name?: string | null; arrival_deadline?: string | null } | null;
+
+/** Colonnes lues dans `venue_customers` pour le cache des meilleurs clients. */
+type TopClientRow = Pick<Tables<'venue_customers'>,
+  'user_id' | 'first_name' | 'last_name' | 'total_spent' | 'ticket_count' | 'order_count'
+  | 'table_count' | 'first_visit_at' | 'last_visit_at' | 'favorite_drink_category'>;
+
 interface GuestListJoin {
   event_id: string;
   free_before_time: string | null;
@@ -310,7 +320,7 @@ export default function Bouncer() {
   const offline = useOfflineScanning(offlineEventId, doorScope);
   
   // Cached top clients
-  const [topClientsCache, setTopClientsCache] = useState<any[] | null>(null);
+  const [topClientsCache, setTopClientsCache] = useState<TopClientRow[] | null>(null);
   const [topClientsCacheTime, setTopClientsCacheTime] = useState(0);
 
   // Free drink mode
@@ -453,7 +463,7 @@ export default function Bouncer() {
     // La conso offerte est un réglage de CLUB : une soirée org-led n'en a pas.
     if (venueId) {
       supabase.from('venues').select('free_drink_mode').eq('id', venueId).single().then(({ data }) => {
-        if (data) setFreeDrinkMode((data as any).free_drink_mode || 'credits');
+        if (data) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
       });
     }
 
@@ -846,7 +856,7 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (attendee && !attendeeError) {
-        const ticket = attendee.tickets as any;
+        const ticket = attendee.tickets;
 
         // Verdict via les règles pures partagées online/offline (src/lib/scan/rules.ts).
         const verdict = validateTicketEntry(
@@ -1314,9 +1324,9 @@ export default function Bouncer() {
             fullName: reservation.full_name || '',
             guestCount: reservation.guest_count || 1,
             eventTitle: reservation.events.title,
-            zoneName: (reservation.table_zones as any)?.name || '',
-            packName: (reservation.table_packs as any)?.name || '',
-            arrivalDeadline: (reservation.table_packs as any)?.arrival_deadline || null,
+            zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
+            packName: (reservation.table_packs as PackJoin)?.name || '',
+            arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
             status: reservation.status,
             deposit: Number(reservation.deposit || 0),
             totalPrice: Number(reservation.total_price),
@@ -1363,9 +1373,9 @@ export default function Bouncer() {
           fullName: reservation.full_name || '',
           guestCount: reservation.guest_count || 1,
           eventTitle: reservation.events.title,
-          zoneName: (reservation.table_zones as any)?.name || '',
-          packName: (reservation.table_packs as any)?.name || '',
-          arrivalDeadline: (reservation.table_packs as any)?.arrival_deadline || null,
+          zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
+          packName: (reservation.table_packs as PackJoin)?.name || '',
+          arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
           status: reservation.status,
           deposit: Number(reservation.deposit || 0),
           totalPrice: Number(reservation.total_price),
@@ -1453,12 +1463,12 @@ export default function Bouncer() {
               userEmail: glEntry.email,
               fullName: glEntry.full_name,
               quantity: 1,
-              eventTitle: (glEntry.guest_lists as any).events.title,
+              eventTitle: (glEntry.guest_lists as GuestListJoin).events.title,
               roundName: t('bouncer.guestListLabel'),
               status: 'paid',
               entryScanned: true,
               entryScannedAt: glEntry.entry_scanned_at,
-              includesDrink: (glEntry.guest_lists as any).includes_drink,
+              includesDrink: (glEntry.guest_lists as GuestListJoin).includes_drink,
               alcoholFree: false,
               drinkRedeemed: false,
               drinkName: null,
@@ -1513,12 +1523,12 @@ export default function Bouncer() {
               userEmail: glEntry.email,
               fullName: glEntry.full_name,
               quantity: 1,
-              eventTitle: (glEntry.guest_lists as any).events.title,
+              eventTitle: (glEntry.guest_lists as GuestListJoin).events.title,
               roundName: t('bouncer.guestListLabel'),
               status: 'paid',
               entryScanned: true,
               entryScannedAt: glEntry.entry_scanned_at,
-              includesDrink: (glEntry.guest_lists as any).includes_drink,
+              includesDrink: (glEntry.guest_lists as GuestListJoin).includes_drink,
               alcoholFree: false,
               drinkRedeemed: false,
               drinkName: null,
@@ -1535,7 +1545,7 @@ export default function Bouncer() {
           // Bouncer view: show entry type info
           const entryType = glEntry.entry_type || 'normal';
           const entryTypeLabel = entryType === 'table' ? t('bouncer.entryTypeTable') : entryType === 'drink' ? t('bouncer.entryTypeDrink') : t('bouncer.entryTypeGuest');
-          const includesDrinkFromEntry = entryType === 'drink' || (glEntry.guest_lists as any).includes_drink;
+          const includesDrinkFromEntry = entryType === 'drink' || (glEntry.guest_lists as GuestListJoin).includes_drink;
 
         setScanResult('success');
         setOverlayResult('success');
@@ -1545,7 +1555,7 @@ export default function Bouncer() {
             userEmail: glEntry.email,
             fullName: glEntry.full_name,
             quantity: 1,
-            eventTitle: (glEntry.guest_lists as any).events.title,
+            eventTitle: (glEntry.guest_lists as GuestListJoin).events.title,
             roundName: entryTypeLabel,
             status: 'paid',
             entryScanned: true,
@@ -1646,11 +1656,11 @@ export default function Bouncer() {
       
       setShowCancelConfirm(false);
       resetScan();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling ticket:', error);
       toast({
         title: t('bouncer.cancelError'),
-        description: error.message || t('bouncer.cancelError'),
+        description: (error as { message?: string }).message || t('bouncer.cancelError'),
         variant: 'destructive',
       });
     } finally {
@@ -1683,8 +1693,8 @@ export default function Bouncer() {
       if (error) throw error;
       toast({ title: t('bouncer.warnIssued'), description: warnTarget.name || warnTarget.email });
       setWarnDialogOpen(false); setWarnTarget(null);
-    } catch (err: any) {
-      toast({ title: t('bouncer.warnError'), description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: t('bouncer.warnError'), description: (err as { message?: string }).message, variant: 'destructive' });
     } finally {
       setWarnProcessing(false);
     }
@@ -1710,8 +1720,8 @@ export default function Bouncer() {
       toast({ title: t('bouncer.banIssued'), description: banTarget.name || banTarget.email });
       setBanDialogOpen(false); setBanTarget(null);
       if (clientSearched) searchClients();
-    } catch (err: any) {
-      toast({ title: t('bouncer.banError'), description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: t('bouncer.banError'), description: (err as { message?: string }).message, variant: 'destructive' });
     } finally {
       setBanProcessing(false);
     }
@@ -1756,9 +1766,9 @@ export default function Bouncer() {
         if (typeof result === 'string') {
           value = result;
         } else if (Array.isArray(result) && result[0]) {
-          value = (result[0] as any).rawValue ?? String(result[0]);
-        } else if (typeof (result as any).rawValue === 'string') {
-          value = (result as any).rawValue;
+          value = (result[0] as { rawValue?: string }).rawValue ?? String(result[0]);
+        } else if (typeof (result as unknown as { rawValue?: unknown }).rawValue === 'string') {
+          value = (result as unknown as { rawValue: string }).rawValue;
         }
 
         if (value) {
@@ -2278,8 +2288,8 @@ export default function Bouncer() {
                                           });
                                           resetScan();
                                           setScanning(false);
-                                        } catch (err: any) {
-                                          toast({ title: t('bouncer.cancelError'), description: err.message, variant: 'destructive' });
+                                        } catch (err: unknown) {
+                                          toast({ title: t('bouncer.cancelError'), description: (err as { message?: string }).message, variant: 'destructive' });
                                         } finally {
                                           setIsCancelling(false);
                                         }

@@ -39,7 +39,7 @@ function NumCell({ value, onChange, disabled }: { value: string; onChange: (v: s
 
 // ── Enveloppe d'une soirée ────────────────────────────────────────────────────
 function EnvelopeCard({ env, reload, tt, lang }: { env: AgencyGlEnvelope; reload: () => void; tt: TT; lang: string }) {
-  const db = supabase as any;
+  const db = supabase;
   const [busy, setBusy] = useState(false);
   // Brouillon de partition : { [promoterId]: { normal, drink, table } } (strings).
   const [draft, setDraft] = useState<Record<string, { normal: string; drink: string; table: string }>>({});
@@ -269,7 +269,8 @@ function PoolBody({ env, sortedProms, reload, tt }: {
       body: { action: 'add_guest', guestListId: env.guest_list_id, fullName: name.trim(), email: email.trim() || undefined, entryType: type },
     });
     setBusy(false);
-    if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || tt('Échec', 'Failed')); return; }
+    const res = data as { error?: string } | null;
+    if (error || res?.error) { toast.error(res?.error || error?.message || tt('Échec', 'Failed')); return; }
     toast.success(tt('Invité ajouté au pool', 'Guest added to the pool'));
     setName(''); setEmail(''); setAddOpen(false);
     reload();

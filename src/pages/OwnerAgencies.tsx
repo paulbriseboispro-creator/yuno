@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeReady } from '@/lib/promoterScopeHelpers';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -39,11 +40,11 @@ function StandingGlEditor({
   const save = async () => {
     setBusy(true);
     const q = quota.trim() === '' ? null : Math.max(0, parseInt(quota) || 0);
-    const { error } = await (supabase as any).rpc('set_agency_contract_gl_default', {
+    const { error } = await supabase.rpc('set_agency_contract_gl_default', {
       p_contract_id: contract.id,
       p_quota: q,
       p_mode: mode,
-    });
+    } as unknown as Database['public']['Functions']['set_agency_contract_gl_default']['Args']);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success(tt('Enveloppe enregistrée', 'Envelope saved'));
@@ -114,7 +115,7 @@ export default function OwnerAgencies() {
     if (!scopeReady(scope)) return;
     setLoading(true);
     const f = getScopeFilter(scope);
-    const db = supabase as any;
+    const db = supabase;
     const [cRes, convRes] = await Promise.all([
       db.from('agency_venue_contracts').select('*, agencies(name)').eq(f.column, f.value).order('created_at', { ascending: false }),
       db.from('agency_conversions').select('agency_id, gross_amount, club_status').eq(f.column, f.value).eq('club_status', 'pending'),
@@ -127,9 +128,9 @@ export default function OwnerAgencies() {
       setLoading(false);
       return;
     }
-    setContracts((cRes.data as Contract[]) ?? []);
+    setContracts((cRes.data as unknown as Contract[] | null) ?? []);
     const owed: Record<string, number> = {};
-    for (const c of (convRes.data ?? []) as any[]) {
+    for (const c of convRes.data ?? []) {
       owed[c.agency_id] = (owed[c.agency_id] || 0) + Number(c.gross_amount || 0);
     }
     setOwedByAgency(owed);
@@ -149,7 +150,7 @@ export default function OwnerAgencies() {
 
   const sign = async (id: string) => {
     setActing(id);
-    const { data, error } = await (supabase as any).rpc('sign_agency_venue_contract', { p_contract_id: id });
+    const { data, error } = await supabase.rpc('sign_agency_venue_contract', { p_contract_id: id });
     setActing(null);
     if (error) { toast.error(error.message); return; }
     toast.success(data === 'active' ? tt('Contrat actif', 'Contract active') : tt('Signé', 'Signed'));
@@ -159,11 +160,12 @@ export default function OwnerAgencies() {
   const settle = async (agencyId: string) => {
     const f = getScopeFilter(scope);
     setActing(agencyId);
-    const { data, error } = await (supabase as any).rpc('settle_club_to_agency', {
+    const { data: rawData, error } = await supabase.rpc('settle_club_to_agency', {
       p_agency_id: agencyId,
       p_venue_id: scope.kind === 'venue' ? f.value : null,
       p_organizer_user_id: scope.kind === 'organizer' ? f.value : null,
-    });
+    } as unknown as Database['public']['Functions']['settle_club_to_agency']['Args']);
+    const data = rawData as unknown as { settled?: boolean; amount: number } | null;
     setActing(null);
     if (error) { toast.error(error.message); return; }
     if (data?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(data.amount)}`);

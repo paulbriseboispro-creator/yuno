@@ -6,7 +6,7 @@ import {
   TrendingUp, MousePointerClick, Eye, Users, Clock, Repeat2,
   Smartphone, Monitor, Tablet, Globe, Share2, Search, Mail, QrCode,
   Link2, ExternalLink, Zap, BarChart3, ArrowRight, Activity,
-  LayoutGrid, Info, FileBarChart, TrendingDown,
+  LayoutGrid, Info, FileBarChart, TrendingDown, type LucideIcon,
 } from 'lucide-react';
 import { format, subDays, subHours, subMinutes, getDay, getHours } from 'date-fns';
 import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
@@ -93,7 +93,7 @@ const PERIOD_HOURS: Record<Period, number | null> = { '24h': 24, '48h': 48, '7d'
 const PERIOD_LABELS: Record<Period, string> = { '24h': 'aff.ana.period24h', '48h': 'aff.ana.period48h', '7d': 'aff.ana.period7d', '30d': 'aff.ana.period30d', '90d': 'aff.ana.period90d', all: 'aff.ana.periodAll' };
 const isHourly = (p: Period) => (PERIOD_HOURS[p] ?? Infinity) <= HOURLY_MAX_HOURS;
 
-const SOURCE_META: Record<string, { label: string; icon: any }> = {
+const SOURCE_META: Record<string, { label: string; icon: LucideIcon }> = {
   direct:       { label: 'aff.ana.srcDirect',     icon: Link2 },
   social:       { label: 'aff.ana.srcSocial',     icon: Share2 },
   paid_social:  { label: 'aff.ana.srcPaidSocial', icon: Share2 },
@@ -105,7 +105,7 @@ const SOURCE_META: Record<string, { label: string; icon: any }> = {
   internal:     { label: 'aff.ana.srcInternal',   icon: Link2 },
 };
 
-const DEVICE_META: Record<string, { label: string; icon: any }> = {
+const DEVICE_META: Record<string, { label: string; icon: LucideIcon }> = {
   mobile:  { label: 'aff.ana.devMobile',  icon: Smartphone },
   desktop: { label: 'aff.ana.devDesktop', icon: Monitor },
   tablet:  { label: 'aff.ana.devTablet',  icon: Tablet },
@@ -342,7 +342,7 @@ export default function AffiliateAnalytics() {
         .maybeSingle();
 
       if (aff) {
-        setIdentity({ affiliateId: aff.id, memberId: null, memberSlug: null, role: 'admin', linktreeUrl: `/p/${(aff as any).linktree_slug ?? ''}` });
+        setIdentity({ affiliateId: aff.id, memberId: null, memberSlug: null, role: 'admin', linktreeUrl: `/p/${aff.linktree_slug ?? ''}` });
         setIdentityLoading(false);
         return;
       }
@@ -355,7 +355,7 @@ export default function AffiliateAnalytics() {
         .maybeSingle();
 
       if (mem) {
-        setIdentity({ affiliateId: (mem as any).affiliate_id, memberId: mem.id, memberSlug: (mem as any).linktree_slug ?? null, role: 'member', linktreeUrl: `/promo/${(mem as any).linktree_slug ?? ''}` });
+        setIdentity({ affiliateId: mem.affiliate_id, memberId: mem.id, memberSlug: mem.linktree_slug ?? null, role: 'member', linktreeUrl: `/promo/${mem.linktree_slug ?? ''}` });
       }
 
       setIdentityLoading(false);
@@ -597,7 +597,7 @@ export default function AffiliateAnalytics() {
   const maxSourceViews       = Math.max(...sources.map(s => s.views), 1);
   const totalDeviceViews     = devices.reduce((s, d) => s + d.views, 0);
 
-  const PILLARS: { id: Pillar; label: string; icon: any }[] = [
+  const PILLARS: { id: Pillar; label: string; icon: LucideIcon }[] = [
     { id: 'overview',  label: t('aff.ana.pillarOverview'),  icon: LayoutGrid },
     { id: 'audience',  label: t('aff.ana.pillarAudience'),  icon: Users },
     { id: 'events',    label: t('aff.ana.pillarEvents'),    icon: TrendingUp },

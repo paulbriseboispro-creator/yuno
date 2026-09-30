@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, ShoppingCart, Trash2, Info, Percent, Gift, Tag, ArrowRight, Check, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import {
@@ -124,7 +125,7 @@ export function OwnerUpsellCartRules({ venueId }: { venueId: string }) {
       .eq('venue_id', venueId)
       .order('priority', { ascending: true });
     if (!error && data) {
-      setRules(data.map((r: any) => ({
+      setRules(data.map((r) => ({
         ...r,
         discount_percent: r.discount_percent ? Number(r.discount_percent) : null,
         addon_fixed_price: r.addon_fixed_price ? Number(r.addon_fixed_price) : null,
@@ -244,7 +245,7 @@ export function OwnerUpsellCartRules({ venueId }: { venueId: string }) {
       ? null
       : (rewardCollection === triggerCollection ? null : rewardCollection);
 
-    const payload: any = {
+    const payload: TablesInsert<'upsell_cart_rules'> = {
       venue_id: venueId,
       name: buildName(),
       description: buildSummary(),

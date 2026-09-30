@@ -12,6 +12,7 @@ import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useTabParam } from '@/hooks/useTabParam';
@@ -216,7 +217,7 @@ export default function OwnerDJs() {
       if (data?.error) throw new Error(data.error);
       toast.success(t('owner.invitationResent'));
       fetchPendingInvitations();
-    } catch (error: any) { toast.error(error.message || t('owner.errorInviting')); }
+    } catch (error) { toast.error((error as Error).message || t('owner.errorInviting')); }
     finally { setResending(null); }
   };
 
@@ -226,11 +227,11 @@ export default function OwnerDJs() {
     try {
       const payload: Record<string, unknown> = { dj_id: newSet.dj_id, event_id: newSet.event_id, start_time: newSet.start_time, end_time: newSet.end_time, music_genre: newSet.music_genre, fee: newSet.fee, notes: newSet.notes, fee_paid: false };
       if (isOrganizerScope) payload.organizer_user_id = scopeId; else payload.venue_id = scopeId;
-      const { error } = await supabase.from('dj_sets').insert(payload as any);
+      const { error } = await supabase.from('dj_sets').insert(payload as unknown as TablesInsert<'dj_sets'>);
       if (error) throw error;
       toast.success(t('owner.setAdded'));
       fetchSets();
-    } catch (error: any) { toast.error(error.message || t('owner.errorAddingSet')); throw error; }
+    } catch (error) { toast.error((error as Error).message || t('owner.errorAddingSet')); throw error; }
   };
 
   const handleDeleteSet = async (setId: string) => {
@@ -244,7 +245,7 @@ export default function OwnerDJs() {
       }
       toast.success(t('owner.setDeleted') || 'Set supprimé');
       fetchSets();
-    } catch (error: any) { toast.error(error.message || t('owner.errorDeletingSet') || 'Erreur'); throw error; }
+    } catch (error) { toast.error((error as Error).message || t('owner.errorDeletingSet') || 'Erreur'); throw error; }
   };
 
   const handleInviteDJ = async () => {
@@ -265,7 +266,7 @@ export default function OwnerDJs() {
       else toast.success(t('owner.invitationSent'));
       resetForm();
       fetchDJs();
-    } catch (error: any) { toast.error(error.message || t('owner.errorInviting')); }
+    } catch (error) { toast.error((error as Error).message || t('owner.errorInviting')); }
     finally { setCreating(false); }
   };
 

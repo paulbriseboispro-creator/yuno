@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { Copy, CheckCircle, Clock, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { requestOrderPrep } from '@/lib/clickCollect';
+import type { Tables } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/store/useStore';
 import { format } from 'date-fns';
@@ -13,6 +14,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { nowInParis, toParisTime } from '@/lib/timezone';
 import { OrderQROverlay } from '@/components/orders/TemporalOrders';
 import { OrderQRSkeleton } from '@/components/skeletons/OrderQRSkeleton';
+
+/** An order row with the event and venue joined by the load query. */
+type OrderWithJoins = Tables<'orders'> & {
+  events: { title: string; start_at: string; end_at: string | null; poster_url: string | null } | null;
+  venues: { id: string; name: string } | null;
+};
 
 /* Palette éditoriale publique — alignée sur TemporalOrders / DrinkOrderDetailModal. */
 const RED = '#E8192C';
@@ -36,7 +43,7 @@ export default function OrderQR() {
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<OrderWithJoins | null>(null);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(!!sessionId);
   const [clickCollectMode, setClickCollectMode] = useState(false);
@@ -155,7 +162,7 @@ export default function OrderQR() {
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
         (payload) => {
           const row = payload.new as Record<string, unknown>;
-          setOrder((prev: any) => {
+          setOrder((prev) => {
             if (!prev) return prev;
             if (!prev.token_used && row.token_used) haptics.success();
             // Merge : payload.new ne contient pas les jointures events/venues.
@@ -268,7 +275,7 @@ export default function OrderQR() {
 
       await requestOrderPrep(orderId!);
 
-      setOrder((prev: any) => ({ ...prev, prep_requested: true, prep_status: 'queue' }));
+      setOrder((prev) => ({ ...prev, prep_requested: true, prep_status: 'queue' }));
 
       toast({
         title: t('orderDetails.prepRequested'),

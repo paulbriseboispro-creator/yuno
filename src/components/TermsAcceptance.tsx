@@ -29,8 +29,8 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
         .eq('id', 'global')
         .maybeSingle();
       if (data) {
-        setTermsVersion((data as any).terms_version || 'v1.0.0');
-        setTermsUrl((data as any).terms_url || '/legal/cgv-utilisateurs');
+        setTermsVersion(data.terms_version || 'v1.0.0');
+        setTermsUrl(data.terms_url || '/legal/cgv-utilisateurs');
       } else {
         setTermsVersion('v1.0.0');
       }
@@ -46,7 +46,7 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
       // Logged-in user: check DB
       if (userId) {
         const { data } = await supabase
-          .from('terms_acceptances' as any)
+          .from('terms_acceptances')
           .select('id')
           .eq('user_id', userId)
           .eq('terms_version', termsVersion)

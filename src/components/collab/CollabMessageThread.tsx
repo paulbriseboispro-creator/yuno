@@ -55,7 +55,7 @@ export function CollabMessageThread({ eventId, authorRole, venueLabel, organizer
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await (supabase.from('event_collab_messages') as any)
+      const { data } = await supabase.from('event_collab_messages')
         .select('id, event_id, author_user_id, author_role, body, created_at')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true });
@@ -85,7 +85,7 @@ export function CollabMessageThread({ eventId, authorRole, venueLabel, organizer
     const text = body.trim();
     if (!text || !user) return;
     setSending(true);
-    const { data, error } = await (supabase.from('event_collab_messages') as any)
+    const { data, error } = await supabase.from('event_collab_messages')
       .insert({ event_id: eventId, author_user_id: user.id, author_role: authorRole, body: text })
       .select('id, event_id, author_user_id, author_role, body, created_at')
       .maybeSingle();

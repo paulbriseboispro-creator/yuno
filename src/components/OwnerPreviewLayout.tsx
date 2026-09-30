@@ -24,7 +24,7 @@ export function OwnerPreviewLayout() {
   if (!user) return <Navigate to="/auth" replace />;
 
   // Only owners can see the preview banner
-  if (!roles.includes('owner' as any)) return <Navigate to="/" replace />;
+  if (!roles.includes('owner')) return <Navigate to="/" replace />;
 
   return (
     <OwnerPreviewContext.Provider value={{ isPreview: true }}>

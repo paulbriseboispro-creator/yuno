@@ -143,7 +143,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         const deviceLang = persistedLanguage();
         await supabase
           .from('profiles')
-          .update({ preferred_language: deviceLang } as any)
+          .update({ preferred_language: deviceLang })
           .eq('id', user.id);
       }
     };
@@ -162,7 +162,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (user) {
       await supabase
         .from('profiles')
-        .update({ preferred_language: lang } as any)
+        .update({ preferred_language: lang })
         .eq('id', user.id);
     }
   }, []);
