@@ -116,6 +116,13 @@ export interface LiveSnapshot {
   watch: { eventIds: string[]; guestListIds: string[] };
 }
 
+/** Un achat récent localisé : il trace son arc vers le vendeur sur le globe. */
+export interface LivePurchase {
+  id: string;
+  lat: number;
+  lng: number;
+}
+
 export interface LiveBurst {
   id: string;
   kind: LiveFeedKind;
@@ -221,6 +228,35 @@ export async function geocodePlace(city: string | null, country: string | null):
   })();
   geoInFlight.set(key, p);
   return p;
+}
+
+/** Géocode une adresse libre (adresse + ville d'une soirée) — même cache que les villes. */
+export async function geocodeAddress(query: string): Promise<[number, number] | null> {
+  const q = query.trim();
+  if (!q) return null;
+  const key = `yuno_geo_addr_${q.toLowerCase()}`;
+  if (geoMemory.has(key)) return geoMemory.get(key) ?? null;
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const parsed = JSON.parse(cached) as [number, number];
+      geoMemory.set(key, parsed);
+      return parsed;
+    }
+  } catch { /* stockage indisponible */ }
+  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
+  if (!token) return null;
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${token}&limit=1`;
+    const res = await fetch(url);
+    const center = (await res.json())?.features?.[0]?.center;
+    const coords = Array.isArray(center) && center.length === 2 ? (center as [number, number]) : null;
+    geoMemory.set(key, coords);
+    if (coords) { try { localStorage.setItem(key, JSON.stringify(coords)); } catch { /* quota */ } }
+    return coords;
+  } catch {
+    return null;
+  }
 }
 
 /** Lecture synchrone du cache (pour compléter un snapshot sans attendre). */

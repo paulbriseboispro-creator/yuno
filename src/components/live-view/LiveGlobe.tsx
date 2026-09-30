@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl, { type GeoJSONSource } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Minus, Plus, LocateFixed } from 'lucide-react';
-import type { LiveBurst, LiveLocation, LivePoint } from '@/lib/liveView';
+import type { LiveBurst, LiveLocation, LivePoint, LivePurchase } from '@/lib/liveView';
 
 /**
  * Le globe de la vue en direct. Un vrai globe Mapbox (projection `globe`),
@@ -10,7 +10,9 @@ import type { LiveBurst, LiveLocation, LivePoint } from '@/lib/liveView';
  * aucune étiquette, ni route, ni ville — seuls comptent les points.
  *
  *   - un point rouge par visiteur en ce moment (halo qui respire),
- *   - un anneau blanc sur le club,
+ *   - un repère distinct (cœur blanc, anneaux qui pulsent) sur le vendeur,
+ *   - pour chaque achat récent localisé, un arc permanent acheteur → vendeur
+ *     parcouru en boucle par une comète (comme le Live View de Shopify),
  *   - à chaque fait nouveau, une onde (blanche pour une visite, rouge pour
  *     une vente) et, pour une vente localisée, un arc tracé vers le club.
  *
@@ -24,11 +26,14 @@ const WHITE = '#FFFFFF';
 const BURST_MS = 1600;
 const ARC_DRAW_MS = 900;
 const ARC_FADE_MS = 1600;
+const COMET_MS = 4200;
 
 interface Props {
   points: LivePoint[];
   home: { lat: number; lng: number; name: string | null } | null;
   bursts: LiveBurst[];
+  /** Achats récents localisés : chacun trace son arc vers le vendeur. */
+  purchases: LivePurchase[];
   locations: LiveLocation[];
   reducedMotion: boolean;
   labels: { zoomIn: string; zoomOut: string; recenter: string };
@@ -91,13 +96,15 @@ function greatCircle(a: [number, number], b: [number, number], n = 48): [number,
 }
 
 function easeOut(t: number) { return 1 - Math.pow(1 - t, 3); }
+function easeInOut(t: number) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+function hashId(id: string) { let h = 7; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return h; }
 
-export default function LiveGlobe({ points, home, bursts, locations, reducedMotion, labels, padding }: Props) {
+export default function LiveGlobe({ points, home, bursts, purchases, locations, reducedMotion, labels, padding }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [ready, setReady] = useState(false);
-  const latest = useRef({ points, home, bursts, locations, reducedMotion, padding });
-  latest.current = { points, home, bursts, locations, reducedMotion, padding };
+  const latest = useRef({ points, home, bursts, purchases, locations, reducedMotion, padding });
+  latest.current = { points, home, bursts, purchases, locations, reducedMotion, padding };
   const spinRef = useRef({ enabled: false, interacting: false, resumeAt: 0 });
   const fitKeyRef = useRef('');
 
@@ -139,6 +146,30 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
       map.addSource('lv-home', { type: 'geojson', data: EMPTY });
       map.addSource('lv-bursts', { type: 'geojson', data: EMPTY });
       map.addSource('lv-arcs', { type: 'geojson', data: EMPTY });
+      map.addSource('lv-trails', { type: 'geojson', data: EMPTY });
+      map.addSource('lv-comets', { type: 'geojson', data: EMPTY });
+      map.addSource('lv-buyers', { type: 'geojson', data: EMPTY });
+      map.addSource('lv-comet-heads', { type: 'geojson', data: EMPTY });
+      map.addSource('lv-home-pulse', { type: 'geojson', data: EMPTY });
+
+      map.addLayer({
+        id: 'lv-trails', type: 'line', source: 'lv-trails',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': RED, 'line-width': 1, 'line-opacity': 0.22 },
+      });
+      map.addLayer({
+        id: 'lv-comets', type: 'line', source: 'lv-comets',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#FF5A6A', 'line-width': 2.2, 'line-opacity': ['get', 'o'] },
+      });
+      map.addLayer({
+        id: 'lv-comet-heads', type: 'circle', source: 'lv-comet-heads',
+        paint: { 'circle-radius': 3, 'circle-color': WHITE, 'circle-opacity': ['get', 'o'], 'circle-blur': 0.2 },
+      });
+      map.addLayer({
+        id: 'lv-buyers', type: 'circle', source: 'lv-buyers',
+        paint: { 'circle-radius': 3, 'circle-color': RED, 'circle-stroke-color': WHITE, 'circle-stroke-width': 1, 'circle-opacity': 0.9 },
+      });
 
       map.addLayer({
         id: 'lv-arcs', type: 'line', source: 'lv-arcs',
@@ -176,12 +207,20 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
         },
       });
       map.addLayer({
+        id: 'lv-home-pulse', type: 'circle', source: 'lv-home-pulse',
+        paint: {
+          'circle-radius': ['get', 'r'], 'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': WHITE, 'circle-stroke-width': 1.2, 'circle-stroke-opacity': ['get', 'o'],
+          'circle-pitch-alignment': 'map',
+        },
+      });
+      map.addLayer({
         id: 'lv-home-ring', type: 'circle', source: 'lv-home',
-        paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': WHITE, 'circle-stroke-width': 1, 'circle-stroke-opacity': 0.75 },
+        paint: { 'circle-radius': 11, 'circle-color': 'rgba(255,255,255,0.12)', 'circle-stroke-color': WHITE, 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.9 },
       });
       map.addLayer({
         id: 'lv-home', type: 'circle', source: 'lv-home',
-        paint: { 'circle-radius': 3, 'circle-color': WHITE },
+        paint: { 'circle-radius': 5, 'circle-color': WHITE, 'circle-stroke-color': '#0a0a0c', 'circle-stroke-width': 2 },
       });
       setReady(true);
     });
@@ -214,8 +253,11 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
     (map.getSource('lv-home') as GeoJSONSource | undefined)?.setData(homeFc);
 
     // Recadrage : uniquement quand l'ensemble des lieux change (jamais à chaque tick).
-    const located = points.filter((p) => p.lat != null && p.lng != null) as Array<LivePoint & { lat: number; lng: number }>;
-    const key = located.map((p) => `${p.lat!.toFixed(1)},${p.lng!.toFixed(1)}`).sort().join('|') + (home ? `#${home.lat},${home.lng}` : '');
+    const located = [
+      ...(points.filter((p) => p.lat != null && p.lng != null) as Array<{ lat: number; lng: number }>),
+      ...purchases,
+    ];
+    const key = located.map((p) => `${p.lat.toFixed(1)},${p.lng.toFixed(1)}`).sort().join('|') + (home ? `#${home.lat},${home.lng}` : '');
     if (key !== fitKeyRef.current) {
       fitKeyRef.current = key;
       if (located.length === 0) {
@@ -237,7 +279,7 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
         } catch { /* bornes dégénérées : on garde la vue */ }
       }
     }
-  }, [points, home, ready, reducedMotion, paddingKey, padding]);
+  }, [points, purchases, home, ready, reducedMotion, paddingKey, padding]);
 
   // ── Boucle d'animation : halos, ondes, arcs, rotation d'attente ─────────
   useEffect(() => {
@@ -247,6 +289,7 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
     let last = 0;
     let spinning = false;
     const arcCache = new Map<string, [number, number][]>();
+    const purchaseArcs = new Map<string, [number, number][]>();
 
     const startSpin = () => {
       if (spinning) return;
@@ -261,7 +304,7 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
       raf = requestAnimationFrame(frame);
       if (now - last < 33) return; // ~30 fps suffisent
       last = now;
-      const { points, bursts, home, reducedMotion } = latest.current;
+      const { points, bursts, purchases, home, reducedMotion } = latest.current;
 
       // Visiteurs : agrégés par lieu (0,01° ≈ 1 km), halo qui respire.
       const buckets = new Map<string, { lng: number; lat: number; n: number }>();
@@ -324,6 +367,53 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
       }
       (map.getSource('lv-bursts') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: burstFeatures });
       (map.getSource('lv-arcs') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: arcFeatures });
+
+      // Repère du vendeur : deux anneaux qui s'élargissent en boucle.
+      const pulseFeatures: FC['features'] = [];
+      if (home) {
+        for (let i = 0; i < 2; i++) {
+          const t = reducedMotion ? 0.5 : ((now / 2600 + i * 0.5) % 1);
+          pulseFeatures.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [home.lng, home.lat] },
+            properties: { r: 11 + t * 20, o: (1 - t) * 0.55 },
+          });
+        }
+      }
+      (map.getSource('lv-home-pulse') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: pulseFeatures });
+
+      // Achats récents : arc permanent (traînée discrète) + comète qui le
+      // parcourt en boucle de l'acheteur vers le vendeur.
+      const trailFeatures: FC['features'] = [];
+      const cometFeatures: FC['features'] = [];
+      const headFeatures: FC['features'] = [];
+      const buyerFeatures: FC['features'] = [];
+      if (home) {
+        for (const p of purchases) {
+          buyerFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] }, properties: {} });
+          if (Math.abs(home.lat - p.lat) + Math.abs(home.lng - p.lng) <= 0.08) continue;
+          const ck = `${p.id}|${home.lat},${home.lng}`;
+          let pts = purchaseArcs.get(ck);
+          if (!pts) { pts = greatCircle([p.lng, p.lat], [home.lng, home.lat], 64); purchaseArcs.set(ck, pts); }
+          trailFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: pts }, properties: {} });
+          if (reducedMotion) continue;
+          const offset = (hashId(p.id) % 1000) / 1000;
+          const t = ((now / COMET_MS) + offset) % 1;
+          const last = pts.length - 1;
+          const headIdx = easeInOut(t) * last;
+          const tailIdx = Math.max(0, headIdx - last * 0.22);
+          const seg = pts.slice(Math.floor(tailIdx), Math.floor(headIdx) + 2);
+          if (seg.length >= 2) {
+            const o = t < 0.08 ? t / 0.08 : t > 0.9 ? (1 - t) / 0.1 : 1;
+            cometFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: seg }, properties: { o: 0.95 * o } });
+            headFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: seg[seg.length - 1] }, properties: { o } });
+          }
+        }
+      }
+      (map.getSource('lv-trails') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: trailFeatures });
+      (map.getSource('lv-comets') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: cometFeatures });
+      (map.getSource('lv-comet-heads') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: headFeatures });
+      (map.getSource('lv-buyers') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: buyerFeatures });
 
       // Rotation d'attente : seulement sans visiteur, sans interaction, sans reduced-motion.
       const s = spinRef.current;

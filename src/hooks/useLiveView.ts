@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
 import {
   geocodeCached, geocodePlace,
-  type LiveBurst, type LiveFeedItem, type LiveLocation, type LivePoint, type LiveSnapshot,
+  geocodeAddress,
+  type LiveBurst, type LiveFeedItem, type LiveLocation, type LivePoint, type LivePurchase, type LiveSnapshot,
 } from '@/lib/liveView';
 
 /**
@@ -20,6 +21,8 @@ import {
 const POLL_MS = 4000;
 const FRESH_MS = 8000;
 const BURST_MS = 4500;
+const PURCHASE_WINDOW_MS = 3 * 3600 * 1000;
+const MAX_PURCHASE_ARCS = 25;
 
 export interface LiveScope {
   venueId?: string | null;
@@ -33,6 +36,8 @@ export interface UseLiveViewResult {
   lastUpdatedAt: number | null;
   freshIds: Set<string>;
   bursts: LiveBurst[];
+  /** Achats des dernières heures, localisés : arcs permanents vers le vendeur. */
+  purchases: LivePurchase[];
   refresh: () => void;
 }
 
@@ -210,5 +215,43 @@ export function useLiveView(scope: LiveScope, paused: boolean): UseLiveViewResul
     };
   }, [active, watchKey, venueId, fetchOnce]);
 
-  return { snapshot, loading, error, lastUpdatedAt, freshIds, bursts, refresh: fetchOnce };
+  // Vendeur sans club (organisateur seul) : le serveur ne connaît pas de point
+  // d'ancrage, on géocode l'adresse de sa soirée en cours.
+  const [fallbackHome, setFallbackHome] = useState<{ key: string; lat: number; lng: number; name: string | null } | null>(null);
+  const eventForHome = snapshot && !snapshot.home ? (snapshot.release?.eventId ?? snapshot.watch.eventIds[0] ?? null) : null;
+  useEffect(() => {
+    if (!eventForHome) return;
+    if (fallbackHome?.key === eventForHome) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('events')
+        .select('location_name, location_address, location_city').eq('id', eventForHome).maybeSingle();
+      if (!data || cancelled) return;
+      const query = [data.location_address, data.location_city].filter(Boolean).join(', ') || data.location_city || '';
+      const c = await geocodeAddress(query);
+      if (c && !cancelled) setFallbackHome({ key: eventForHome, lng: c[0], lat: c[1], name: data.location_name ?? null });
+    })();
+    return () => { cancelled = true; };
+  }, [eventForHome, fallbackHome?.key]);
+
+  const effective = useMemo(() => {
+    if (!snapshot) return snapshot;
+    if (snapshot.home || !fallbackHome || fallbackHome.key !== eventForHome) return snapshot;
+    return { ...snapshot, home: { lat: fallbackHome.lat, lng: fallbackHome.lng, name: fallbackHome.name } };
+  }, [snapshot, fallbackHome, eventForHome]);
+
+  const purchases = useMemo<LivePurchase[]>(() => {
+    if (!snapshot) return [];
+    const nowMs = Date.now();
+    const out: LivePurchase[] = [];
+    for (const item of snapshot.feed) {
+      if (item.kind === 'visit' || item.lat == null || item.lng == null) continue;
+      if (nowMs - new Date(item.ts).getTime() > PURCHASE_WINDOW_MS) continue;
+      out.push({ id: item.id, lat: item.lat, lng: item.lng });
+      if (out.length >= MAX_PURCHASE_ARCS) break;
+    }
+    return out;
+  }, [snapshot]);
+
+  return { snapshot: effective, loading, error, lastUpdatedAt, freshIds, bursts, purchases, refresh: fetchOnce };
 }

@@ -23,7 +23,7 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
   const { t, language } = useLanguage();
   const reducedMotion = !!useReducedMotion();
   const [paused, setPaused] = useState(false);
-  const { snapshot, loading, error, lastUpdatedAt, freshIds, bursts } = useLiveView({ venueId, organizerUserId }, paused);
+  const { snapshot, loading, error, lastUpdatedAt, freshIds, bursts, purchases } = useLiveView({ venueId, organizerUserId }, paused);
   usePosthogEvent('live_view_opened', venueId ?? organizerUserId, {
     scope: venueId ? 'venue' : 'organizer',
     ...(venueId ? { venue_id: venueId } : { organizer_user_id: organizerUserId }),
@@ -136,6 +136,7 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
                   points={snapshot?.points ?? []}
                   home={snapshot?.home ?? null}
                   bursts={bursts}
+                  purchases={purchases}
                   locations={snapshot?.locations ?? []}
                   reducedMotion={reducedMotion}
                   labels={{ zoomIn: t('lv.zoomIn'), zoomOut: t('lv.zoomOut'), recenter: t('lv.recenter') }}
