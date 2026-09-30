@@ -47,13 +47,23 @@ export interface LensTakeaway {
   params: Record<string, string | number | null>;
 }
 
+/**
+ * La lecture du trafic : celle d'UNE soirée (`get_event_traffic`) ou celle de
+ * toutes les soirées sur une PÉRIODE (`get_traffic_period`). Même forme, mêmes
+ * blocs — c'est ce qui garantit la même mise en page. Soirée : `event` est
+ * rempli et la courbe est en J-N (`d`) ; période : `event` est `null`, `period`
+ * est rempli et la courbe est en dates (`date`).
+ */
 export interface EventTraffic {
   ok: true;
   now: string;
   tz: string;
   money: boolean;
   scope: 'venue' | 'organizer';
-  event: { id: string; title: string; startAt: string; endAt: string; poster: string | null; cancelled: boolean; phase: TrafficPhase };
+  event: { id: string; title: string; startAt: string; endAt: string; poster: string | null; cancelled: boolean; phase: TrafficPhase } | null;
+  period?: { hours: number | null; from: string | null; nights: number };
+  /** La période d'avant, de même durée (vues « période » seulement). */
+  previous?: { visits: number; sessions: number; checkout: number; purchased: number } | null;
   visits: {
     total: number; today: number; visitors: number; returning: number;
     avgDuration: number | null; scrollSample: number; scrollHalf: number; scrollFull: number;
@@ -67,7 +77,7 @@ export interface EventTraffic {
   devices: TrafficDeviceRow[];
   timing: { buyers: number; viewToBuy: number | null; checkoutToBuy: number | null };
   abandoned: { sessions: number; amount: number | null };
-  series: { d: number; visits: number; checkout: number; purchased: number }[];
+  series: { d?: number; date?: string; visits: number; checkout: number; purchased: number }[];
   live: { total: number; cart: number; checkout: number };
   takeaways?: LensTakeaway[];
 }

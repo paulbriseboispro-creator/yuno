@@ -8,28 +8,28 @@ describe('resolveAnalyticsRoute', () => {
   });
   it('traduit les anciens onglets', () => {
     expect(resolveAnalyticsRoute('global', null)).toEqual({ family: 'sales', view: 'overview' });
-    expect(resolveAnalyticsRoute('event', null, true)).toEqual({ family: 'sales', view: 'event' });
+    expect(resolveAnalyticsRoute('event', null)).toEqual({ family: 'sales', view: 'overview' });
     expect(resolveAnalyticsRoute('purchase', null)).toEqual({ family: 'community', view: 'purchase' });
   });
   it('garde une vue valide, remplace une vue inconnue par la première de la famille', () => {
-    expect(resolveAnalyticsRoute('traffic', 'events')).toEqual({ family: 'traffic', view: 'events' });
-    expect(resolveAnalyticsRoute('traffic', 'overview')).toEqual({ family: 'traffic', view: 'page' });
+    expect(resolveAnalyticsRoute('traffic', 'page')).toEqual({ family: 'traffic', view: 'page' });
+    expect(resolveAnalyticsRoute('traffic', 'nimportequoi')).toEqual({ family: 'traffic', view: 'overview' });
     expect(resolveAnalyticsRoute('community', null)).toEqual({ family: 'community', view: 'overview' });
   });
-  it('chaque famille a sa vue « par soirée »', () => {
-    expect(resolveAnalyticsRoute('sales', 'event')).toEqual({ family: 'sales', view: 'event' });
-    expect(resolveAnalyticsRoute('traffic', 'events')).toEqual({ family: 'traffic', view: 'events' });
-    expect(resolveAnalyticsRoute('community', 'event')).toEqual({ family: 'community', view: 'event' });
+  it('la vue « Par soirée » est devenue la colonne des soirées : ses anciennes adresses ouvrent la vue d\'ensemble', () => {
+    expect(resolveAnalyticsRoute('sales', 'event')).toEqual({ family: 'sales', view: 'overview' });
+    expect(resolveAnalyticsRoute('traffic', 'events')).toEqual({ family: 'traffic', view: 'overview' });
+    expect(resolveAnalyticsRoute('community', 'event')).toEqual({ family: 'community', view: 'overview' });
+    expect(needsCanonicalUrl('traffic', 'events', resolveAnalyticsRoute('traffic', 'events'))).toBe(true);
   });
   it('les vues fondues ouvrent leur nouvelle maison', () => {
     expect(resolveAnalyticsRoute('traffic', 'sources')).toEqual({ family: 'traffic', view: 'page' });
     expect(resolveAnalyticsRoute('community', 'tastes')).toEqual({ family: 'community', view: 'demographics' });
     expect(needsCanonicalUrl('traffic', 'sources', resolveAnalyticsRoute('traffic', 'sources'))).toBe(true);
   });
-  it('une soirée sans vue ouvre son rapport', () => {
-    expect(resolveAnalyticsRoute('sales', null, true)).toEqual({ family: 'sales', view: 'event' });
-    expect(resolveAnalyticsRoute(null, null, true)).toEqual({ family: 'sales', view: 'event' });
-    expect(resolveAnalyticsRoute('sales', 'partners', true)).toEqual({ family: 'sales', view: 'partners' });
+  it('une adresse sans onglet ouvre les ventes', () => {
+    expect(resolveAnalyticsRoute(null, null)).toEqual({ family: 'sales', view: 'overview' });
+    expect(resolveAnalyticsRoute('sales', 'partners')).toEqual({ family: 'sales', view: 'partners' });
   });
 });
 
@@ -40,10 +40,10 @@ describe('adresses', () => {
     expect(needsCanonicalUrl('live', null, resolveAnalyticsRoute('live', null))).toBe(false);
   });
   it('construit les liens', () => {
-    expect(analyticsHref('/owner/analytics', 'traffic')).toBe('/owner/analytics?tab=traffic&view=page');
+    expect(analyticsHref('/owner/analytics', 'traffic')).toBe('/owner/analytics?tab=traffic&view=overview');
     expect(analyticsHref('/owner/analytics', 'live')).toBe('/owner/analytics?tab=live');
-    expect(eventReportHref('/organizer-app/analytics', 'e1')).toBe('/organizer-app/analytics?tab=sales&view=event&event=e1');
-    expect(eventTrafficHref('/owner/analytics', 'e1')).toBe('/owner/analytics?tab=traffic&view=events&event=e1');
-    expect(eventCommunityHref('/owner/analytics', 'e1')).toBe('/owner/analytics?tab=community&view=event&event=e1');
+    expect(eventReportHref('/organizer-app/analytics', 'e1')).toBe('/organizer-app/analytics?tab=sales&view=overview&event=e1');
+    expect(eventTrafficHref('/owner/analytics', 'e1')).toBe('/owner/analytics?tab=traffic&view=overview&event=e1');
+    expect(eventCommunityHref('/owner/analytics', 'e1')).toBe('/owner/analytics?tab=community&view=overview&event=e1');
   });
 });

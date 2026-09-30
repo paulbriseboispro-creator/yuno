@@ -30,6 +30,12 @@ export interface CommunityParty {
   followersTotal: number | null;
 }
 
+/**
+ * La lecture de la communauté : celle d'UNE soirée (`get_event_community`) ou
+ * celle de toutes les soirées sur une PÉRIODE (`get_community_period`). Même
+ * forme, mêmes blocs. Période : `event` est `null`, `period` et `previous` sont
+ * remplis, `parties` est vide et la frise est en dates (`date`).
+ */
 export interface EventCommunity {
   ok: true;
   now: string;
@@ -37,7 +43,9 @@ export interface EventCommunity {
   money: boolean;
   scope: 'venue' | 'organizer';
   me: string;
-  event: { id: string; title: string; startAt: string; endAt: string; poster: string | null; cancelled: boolean; phase: CommunityPhase };
+  event: { id: string; title: string; startAt: string; endAt: string; poster: string | null; cancelled: boolean; phase: CommunityPhase } | null;
+  period?: { hours: number | null; from: string; to: string };
+  previous?: { people: number; followers: number } | null;
   window: { from: string; to: string };
   people: { total: number; buyers: number; guestsOnly: number; headsPaid: number; noEmail: number; spend: number | null };
   crm: { new: number; known: number; emailOk: number; smsOk: number; app: number; account: number; anyReach: number; newEmailOk: number };
@@ -45,7 +53,7 @@ export interface EventCommunity {
   retention: { laterEvents: number; returned: number } | null;
   parties: CommunityParty[];
   followers: { gained: number; lost: number; eventPage: number; attendees: number; total: number | null; baselinePerDay: number } | null;
-  timeline: { d: number; people: number; fresh: number; followers: number; optins: number }[];
+  timeline: { d?: number; date?: string; people: number; fresh: number; followers: number; optins: number }[];
   takeaways?: LensTakeaway[];
 }
 
