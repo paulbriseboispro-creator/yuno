@@ -395,6 +395,29 @@ const PILLAR_PAGES: Record<string, { title: string; description: string; h1: str
 // ---------------------------------------------------------------------------
 
 async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
+  // Lien suivi /l/:code : l'aperçu est celui de la page cible (affiche de la soirée),
+  // résolu sans enregistrer de clic. Le canonical reste celui de la cible.
+  const tl = url.pathname.match(/^\/l\/([^/?#]+)/);
+  if (tl) {
+    let target: string | null = null;
+    try {
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/get_tracked_link_preview_path`, {
+        method: 'POST',
+        headers: {
+          apikey: env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ p_code: decodeURIComponent(tl[1]) }),
+      });
+      const data = r.ok ? await r.json() : null;
+      target = typeof data === 'string' && data.startsWith('/') ? data : null;
+    } catch {
+      target = null;
+    }
+    if (!target) return null;
+    return resolveEntity(new URL(target, ORIGIN), env);
+  }
   const path = url.pathname;
   let m: RegExpMatchArray | null;
   const nowIso = new Date().toISOString();
