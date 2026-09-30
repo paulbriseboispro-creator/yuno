@@ -1681,6 +1681,20 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
 - **CORS-lock `yunoapp.eu`** : les edge functions n'autorisent que l'origine `https://yunoapp.eu`.
   → checkout impossible en local (échec silencieux, pas de toast) ET la prod DOIT servir depuis
   ce domaine exact.
+- **`deno check` des edge functions en session cloud** (2026-09-30) : le proxy bloque
+  esm.sh et deno.land. `python3 scripts/deno-check-edge.py [fn…]` génère une carte
+  d'import (esm.sh → `npm:`, deno.land/std → raw.githubusercontent, types Stripe réunis
+  en UN module — sans ça `new Stripe()` tombe en `any` et aucune ligne Stripe n'est
+  vérifiée) puis vérifie une fonction à la fois. Deno et le CLI Supabase s'installent
+  par npm (`deno`, `supabase` : binaire `@supabase/cli-linux-x64`, les releases GitHub
+  sont bloquées) ; `functions download|deploy --use-api` marchent sans Docker.
+  **Un client Supabase ne se type jamais par une interface structurelle écrite à la
+  main** (overloads de `from`, chaînes `select().eq()`) : face au vrai client, TypeScript
+  rend « excessively deep » ou « not assignable », c'est ce qui gardait au rouge
+  send-ticket-confirmation, send-vip-confirmation, send-missed-you et
+  send-next-event-recommendation.
+  `SupabaseClient` 2.57.2 + `.returns<Row[]>()`, ou `RpcClient`
+  (`_shared/rpc-client.ts`) pour un module qui n'appelle qu'une RPC.
 
 ## Déploiement — Cloudflare Workers (Static Assets)
 
