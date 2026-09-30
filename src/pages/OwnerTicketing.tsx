@@ -741,6 +741,7 @@ export default function OwnerTicketing() {
       toast.success(t('tickets.ticketingEnabled'));
       setIsActivationWizardOpen(false);
       setWizardCustomRounds([]);
+      setWizardModeChange(false);
       fetchEvents();
       if (wizardEventId) await fetchTicketRounds(wizardEventId);
     } catch (error) {

@@ -250,49 +250,45 @@ export function ActivationWizardDialog({
                       <ArrowLeft className="h-4 w-4 mr-2" /> {t('common.back')}
                     </Button>
                   )}
-                  {wizardModeChange ? (
-                    <>
-                      <Button variant="outline" onClick={() => { setIsActivationWizardOpen(false); setWizardModeChange(false); }} style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}>
-                        {t('common.cancel')}
+                  {wizardModeChange && (
+                    <Button variant="outline" onClick={() => { setIsActivationWizardOpen(false); setWizardModeChange(false); }} style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}>
+                      {t('common.cancel')}
+                    </Button>
+                  )}
+                  <Button variant="ghost" className="flex-1" style={{ color: T2 }} onClick={() => {
+                    setWizardSelectedPresets({});
+                    // Initialize a sensible default round draft for the guided builder
+                    if (wizardCustomRounds.length === 0) {
+                      if (wizardSellingMode === 'simple') {
+                        setWizardCustomRounds([
+                          { name: 'Standard', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
+                        ]);
+                      } else if (wizardSellingMode === 'free') {
+                        setWizardCustomRounds([
+                          { name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
+                        ]);
+                      } else {
+                        setWizardCustomRounds([
+                          { name: 'Early Birds', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
+                          { name: 'First Release', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
+                        ]);
+                      }
+                    }
+                    setWizardStep(2.5);
+                  }}>
+                    {t('tickets.skipPreset')}
+                  </Button>
+                  {(wizardSelectedPresets.standard || wizardSelectedPresets.vip) && (
+                    wizardModeChange ? (
+                      <Button className="flex-1" onClick={handleWizardApplyModeChange} style={{ background: RED, color: '#fff' }}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {t('tickets.applyModeChange')}
                       </Button>
-                      {(wizardSelectedPresets.standard || wizardSelectedPresets.vip) && (
-                        <Button className="flex-1" onClick={handleWizardApplyModeChange} style={{ background: RED, color: '#fff' }}>
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          {t('tickets.applyModeChange')}
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="ghost" className="flex-1" style={{ color: T2 }} onClick={() => {
-                        setWizardSelectedPresets({});
-                        // Initialize a sensible default round draft for the guided builder
-                        if (wizardCustomRounds.length === 0) {
-                          if (wizardSellingMode === 'simple') {
-                            setWizardCustomRounds([
-                              { name: 'Standard', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
-                            ]);
-                          } else if (wizardSellingMode === 'free') {
-                            setWizardCustomRounds([
-                              { name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
-                            ]);
-                          } else {
-                            setWizardCustomRounds([
-                              { name: 'Early Birds', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
-                              { name: 'First Release', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
-                            ]);
-                          }
-                        }
-                        setWizardStep(2.5);
-                      }}>
-                        {t('tickets.skipPreset')}
+                    ) : (
+                      <Button className="flex-1" onClick={() => setWizardStep(3)} style={{ background: RED, color: '#fff' }}>
+                        {t('common.next')} <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
-                      {(wizardSelectedPresets.standard || wizardSelectedPresets.vip) && (
-                        <Button className="flex-1" onClick={() => setWizardStep(3)} style={{ background: RED, color: '#fff' }}>
-                          {t('common.next')} <ArrowRight className="h-4 w-4 ml-2" />
-                        </Button>
-                      )}
-                    </>
+                    )
                   )}
                 </div>
               </div>
