@@ -540,7 +540,7 @@ async function executeTool(
             name: promoterDisplayName(p),
             promo_code: p.promo_code,
             venue: p.venues?.name ?? null,
-            commissions_generated_eur: r2(byPromoter.get(p.id) || 0),
+            commissions_generated_eur: r2((p.id ? byPromoter.get(p.id) : 0) || 0),
           }))
           .sort((a, b) => b.commissions_generated_eur - a.commissions_generated_eur)
           .slice(0, limit);
@@ -685,7 +685,7 @@ async function executeTool(
         const byClub = new Map<string, number>();
         for (const c of conversions) {
           if (c.club_status !== "pending") continue;
-          const club = venueNames.get(c.venue_id) ?? "Club";
+          const club = (c.venue_id ? venueNames.get(c.venue_id) : undefined) ?? "Club";
           byClub.set(club, (byClub.get(club) || 0) + Number(c.gross_amount || 0));
         }
         return JSON.stringify({

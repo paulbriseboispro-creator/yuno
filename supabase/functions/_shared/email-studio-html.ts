@@ -13,7 +13,7 @@
 // RPC get_recipient_block_conds — jamais une requête par destinataire.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 
 export interface StudioTheme {
   name: string; bg: string; card: string; headerBg: string; headerText: string;

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush } from '../_shared/auto-push.ts';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
@@ -20,7 +21,7 @@ const logStep = (step: string, details?: unknown) => {
  * formules marquées complètes exclues). `table_zones.max_tables` n'existe pas :
  * l'ancien calcul échouait en silence et aucune alerte de remplissage ne partait.
  */
-async function eventTableCapacity(admin: ReturnType<typeof createClient>, eventId: string): Promise<number> {
+async function eventTableCapacity(admin: SupabaseClient, eventId: string): Promise<number> {
   const { data: ev } = await admin
     .from('events')
     .select('id, venue_id, partner_venue_id, sold_out_pack_ids')

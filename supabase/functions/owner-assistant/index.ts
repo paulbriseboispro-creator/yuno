@@ -1063,6 +1063,11 @@ function log(type: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), type, ...data }));
 }
 
+/** `value` s'il fait partie de `allowed`, sinon `fallback` — le test d'un includes(). */
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return (allowed as readonly unknown[]).includes(value) ? value as T : fallback;
+}
+
 // ═══════════════════════════════════════════
 // LOCAL TYPES (tool args, rows read from the database, request bodies)
 // ═══════════════════════════════════════════
@@ -1372,7 +1377,7 @@ async function executeTool(
       }
       case "get_push_history": {
         if (!userClient) return JSON.stringify({ error: "unavailable" });
-        const filter = ["all", "manual", "auto", "scheduled"].includes(args.filter) ? args.filter : "all";
+        const filter = oneOf(args.filter, ["all", "manual", "auto", "scheduled"], "all");
         const { data, error } = await userClient.rpc("get_push_campaigns", { p_venue_id: venueId, p_filter: filter, p_limit: 10, p_offset: 0 });
         if (error) return JSON.stringify({ error: error.message });
         if (!data?.ok) return JSON.stringify({ error: data?.reason || "unavailable" });
@@ -1800,7 +1805,7 @@ async function executeTool(
       case "update_drink_price": {
         const { data: drink } = await supabase.from("drinks").select("id, name, price").eq("id", args.drink_id).eq("venue_id", venueId).maybeSingle();
         if (!drink) return JSON.stringify({ error: "Drink not found for this venue" });
-        const updates: { price: number; promo_price?: number } = { price: args.price };
+        const updates: { price?: number; promo_price?: number } = { price: args.price };
         if (args.promo_price !== undefined) updates.promo_price = args.promo_price;
         const { error } = await supabase.from("drinks").update(updates).eq("id", args.drink_id);
         if (error) return JSON.stringify({ error: error.message });
@@ -2494,7 +2499,7 @@ async function handleGenerateNightReport(
   const handlerStart = Date.now();
 
   const eventId = typeof body.eventId === "string" ? body.eventId : null;
-  const language = ["en", "fr", "es"].includes(body.language) ? body.language : "en";
+  const language = oneOf(body.language, ["en", "fr", "es"], "en");
   const stats = body.stats;
   if (!eventId || !stats || typeof stats !== "object") {
     return new Response(JSON.stringify({ error: "Missing eventId or stats" }), { status: 400, headers: jsonHeaders });
@@ -2652,7 +2657,7 @@ async function handleNextBestActions(
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
   const handlerStart = Date.now();
-  const language = ["en", "fr", "es"].includes(body.language) ? body.language : "en";
+  const language = oneOf(body.language, ["en", "fr", "es"], "en");
   const today = new Date().toISOString().slice(0, 10);
 
   // Cache : une génération par venue × jour × langue.
@@ -2728,7 +2733,7 @@ async function handleNextBestActions(
     // guest_lists est une relation « vers un » : PostgREST l'embarque en objet,
     // pas en tableau (le typage sans schéma suppose un tableau).
     const glRows = glRes.data as unknown as { guest_lists: { event_id: string } | null }[];
-    const glBy = sumBy(glRows, (r) => r.guest_lists?.event_id, () => 1);
+    const glBy = sumBy(glRows, (r) => r.guest_lists?.event_id ?? "", () => 1);
     const capBy = sumBy(roundsRes.data, (r) => r.event_id, (r) => r.max_tickets || 0);
     for (const evt of events) {
       const sold = soldBy.get(evt.id) || 0;
@@ -2799,7 +2804,7 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
   let parsed: { actions?: NextBestAction[] } | null = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   const actions = (parsed?.actions || []).slice(0, 3)
-    .filter((a: NextBestAction) => (ACTION_PATHS as readonly string[]).includes(a?.path));
+    .filter((a: NextBestAction) => (ACTION_PATHS as readonly unknown[]).includes(a?.path));
   if (!actions.length) {
     log("nba_empty", { venue_id: venueId });
     return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
@@ -2876,8 +2881,8 @@ async function handleHelpChat(
   body: ActionBody,
   ctx: { supabase: SupabaseClient; userId: string; userEmail: string | null; startedAt: number },
 ): Promise<Response> {
-  const language = ["fr", "en", "es"].includes(body?.language) ? body.language : "fr";
-  const scope = ["owner", "manager", "organizer", "agency"].includes(body?.scope) ? body.scope : "owner";
+  const language = oneOf(body?.language, ["fr", "en", "es"], "fr");
+  const scope = oneOf(body?.scope, ["owner", "manager", "organizer", "agency"], "owner");
   const messages = (Array.isArray(body?.messages) ? body.messages : [])
     .filter((m: HelpChatMessage) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-12)

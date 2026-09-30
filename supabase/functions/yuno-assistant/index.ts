@@ -400,7 +400,7 @@ function buildRealDataContext(
   drinks = drinks.filter((d) => visibleVenueIds.has(d.venue_id));
   // Les formules d'une soirée sans club sont event-scopées (venue_id NULL).
   tablePacks = tablePacks.filter((tp) =>
-    tp.event_id ? visibleEventIds.has(tp.event_id) : visibleVenueIds.has(tp.venue_id));
+    tp.event_id ? visibleEventIds.has(tp.event_id) : !!tp.venue_id && visibleVenueIds.has(tp.venue_id));
   djs = djs.filter((dj) => !dj.venue_id || visibleVenueIds.has(dj.venue_id));
   guestLists = guestLists.filter((g) => visibleEventIds.has(g.event_id));
   ticketRounds = ticketRounds.filter((r) => visibleEventIds.has(r.event_id));
@@ -592,7 +592,7 @@ function buildRealDataContext(
       ctx += `### ${label}\n`;
       for (const p of packs) {
         ctx += `- **${p.name}** : ${p.base_price}€, ${p.base_capacity} pers.`;
-        if (p.minimum_spend > 0) ctx += `, minimum conso **${p.minimum_spend}€**`;
+        if ((p.minimum_spend ?? 0) > 0) ctx += `, minimum conso **${p.minimum_spend}€**`;
         if (p.payment_mode === 'on_site') ctx += ` — réservation SANS paiement en ligne (tout se règle sur place)`;
         ctx += `\n`;
       }
@@ -613,7 +613,7 @@ function buildRealDataContext(
       ctx += `- 🎟️ Prochain event : **"${userStats.next_event_title}"** le ${formatDateTz(userStats.next_event_date, tz)}${nextLink ? ` — [Voir l'event](${nextLink})` : ''}\n`;
     }
     if (userStats.last_event_title) ctx += `- Dernier event : "${userStats.last_event_title}"\n`;
-    if (userStats.total_spent > 0) ctx += `- Total dépensé : **${userStats.total_spent}€**\n`;
+    if ((userStats.total_spent ?? 0) > 0) ctx += `- Total dépensé : **${userStats.total_spent}€**\n`;
   }
 
   // Loyalty

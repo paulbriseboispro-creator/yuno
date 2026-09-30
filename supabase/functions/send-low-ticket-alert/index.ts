@@ -34,7 +34,7 @@ async function wasAlreadySent(supabase: SupabaseClient, userId: string, notifTyp
     .eq('notification_type', notifType)
     .eq('title', eventId)
     .limit(1);
-  return (data && data.length > 0);
+  return !!data && data.length > 0;
 }
 
 async function markSent(supabase: SupabaseClient, userId: string, notifType: string, eventId: string) {
