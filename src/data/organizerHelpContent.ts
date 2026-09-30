@@ -109,6 +109,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.analytics.s12h', bodyKey: 'ohelp.org.analytics.s12b' },
           { headingKey: 'ohelp.org.analytics.s7h', bodyKey: 'ohelp.org.analytics.s7b', type: 'steps' },
           { headingKey: 'ohelp.org.analytics.s13h', bodyKey: 'ohelp.org.analytics.s13b' },
+          { headingKey: 'ohelp.org.analytics.s14h', bodyKey: 'ohelp.org.analytics.s14b' },
           { headingKey: 'ohelp.org.analytics.s8h', bodyKey: 'ohelp.org.analytics.s8b' },
           { headingKey: 'ohelp.org.analytics.s9h', bodyKey: 'ohelp.org.analytics.s9b' },
           { headingKey: 'ohelp.org.analytics.s6h', bodyKey: 'ohelp.org.analytics.s6b' },
