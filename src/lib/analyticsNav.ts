@@ -6,7 +6,7 @@
  *
  *   Ventes      « Combien ai-je vendu ? »        vue d'ensemble · par soirée · partenaires
  *   Trafic      « Est-ce qu'on me voit ? »        ma page · par soirée
- *   Communauté  « Qui sont mes clients ? »        vue d'ensemble · abonnés · achats · public
+ *   Communauté  « Qui sont mes clients ? »        vue d'ensemble · par soirée · abonnés · achats · public
  *   En direct   (inchangé)
  *
  * Plan de simplification (25/09) : « Sources » a rejoint « Ma page » (la même
@@ -24,7 +24,7 @@ export const ANALYTICS_FAMILIES: readonly AnalyticsFamily[] = ['sales', 'traffic
 export const FAMILY_VIEWS = {
   sales: ['overview', 'event', 'partners'],
   traffic: ['page', 'events'],
-  community: ['overview', 'subscribers', 'purchase', 'demographics'],
+  community: ['overview', 'event', 'subscribers', 'purchase', 'demographics'],
   live: ['now'],
 } as const satisfies Record<AnalyticsFamily, readonly string[]>;
 
@@ -99,4 +99,12 @@ export function analyticsHref(base: string, family: AnalyticsFamily, view?: stri
 /** Le lien « Voir les stats » d'une soirée : son rapport, dans Ventes. */
 export function eventReportHref(base: string, eventId: string): string {
   return analyticsHref(base, 'sales', 'event', eventId);
+}
+
+/** Les deux autres lentilles d'une soirée : son trafic (où l'on lâche) et sa communauté (ce qu'elle a apporté). */
+export function eventTrafficHref(base: string, eventId: string): string {
+  return analyticsHref(base, 'traffic', 'events', eventId);
+}
+export function eventCommunityHref(base: string, eventId: string): string {
+  return analyticsHref(base, 'community', 'event', eventId);
 }
