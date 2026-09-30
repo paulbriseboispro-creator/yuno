@@ -5,6 +5,8 @@ import { PlanCode, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, POS, T1, T2, T3, BORDER } from './onboardingUI';
+import { useConnectCountry } from '@/hooks/useConnectCountry';
+import { StripeAccountCountry, StripeCountryField } from '@/components/stripe/StripeCountryField';
 
 interface StripeConnectStatus {
   connected: boolean;
@@ -12,6 +14,7 @@ interface StripeConnectStatus {
   payoutsEnabled: boolean;
   onboardingComplete: boolean;
   accountId: string | null;
+  country?: string | null;
 }
 
 interface SubscriptionStatus {
@@ -29,7 +32,7 @@ interface Props {
   stripeStatus: StripeConnectStatus;
   subscription: SubscriptionStatus;
   loading: boolean;
-  startOnboarding: (opts?: { returnUrl?: string; refreshUrl?: string }) => Promise<void>;
+  startOnboarding: (opts?: { returnUrl?: string; refreshUrl?: string; country?: string }) => Promise<void>;
   refreshStatus: () => Promise<void>;
   startSubscription: (planCode?: PlanCode) => Promise<void>;
   checkSubscription: () => Promise<void>;
@@ -46,46 +49,36 @@ export function OnboardingStepStripe({
   checkSubscription,
 }: Props) {
   const { t } = useLanguage();
-  const [collabInvitation, setCollabInvitation] = useState<{
-    organizer_name: string | null;
-    event_title: string | null;
-  } | null>(null);
+  const [isCollabAccount, setIsCollabAccount] = useState(false);
 
-  // Detect whether this venue was created via an organizer collab invitation.
+  // Club créé depuis l'invitation d'un organisateur : la carte « compte collab »
+  // ne dit que ça, elle n'affiche ni l'organisateur ni la soirée. (Elle lisait
+  // `profiles` de l'organisateur, que la RLS refuse au club, pour n'en rien faire.)
   useEffect(() => {
     if (!venueId) return;
     let cancelled = false;
     (async () => {
       const { data: inv } = await supabase
         .from('venue_claim_invitations')
-        .select('id, event_id, organizer_user_id')
+        .select('id')
         .eq('created_venue_id', venueId)
         .eq('status', 'accepted')
         .maybeSingle();
-      if (!inv || cancelled) return;
-      const [eventRes, profileRes] = await Promise.all([
-        inv.event_id ? supabase.from('events').select('title').eq('id', inv.event_id).maybeSingle() : Promise.resolve({ data: null }),
-        // Ce que le club lit de l'organisateur passe par organizer_profiles (public) :
-        // profiles est fermé par la RLS et n'a pas de full_name.
-        inv.organizer_user_id ? supabase.from('organizer_profiles').select('display_name').eq('user_id', inv.organizer_user_id).maybeSingle() : Promise.resolve({ data: null }),
-      ]);
-      if (cancelled) return;
-      setCollabInvitation({
-        organizer_name: (profileRes.data as { display_name?: string | null } | null)?.display_name ?? null,
-        event_title: (eventRes.data as { title?: string | null } | null)?.title ?? null,
-      });
+      if (!cancelled) setIsCollabAccount(!!inv);
     })();
     return () => { cancelled = true; };
   }, [venueId]);
 
   const isConnected = stripeStatus.connected;
   const isFullyVerified = stripeStatus.connected && stripeStatus.chargesEnabled;
+  const connectCountry = useConnectCountry({ kind: 'venue', venueId }, !loading && !isConnected);
 
   const handleStartOnboarding = () => {
     const origin = window.location.origin;
     startOnboarding({
       returnUrl: `${origin}/owner/onboarding?stripe=success`,
       refreshUrl: `${origin}/owner/onboarding?stripe=refresh`,
+      country: connectCountry.country,
     });
   };
 
@@ -110,7 +103,7 @@ export function OnboardingStepStripe({
       <StepHeader icon={CreditCard} title={t('onboarding.step3Title')} subtitle={t('onboarding.step3Desc')} />
 
       {/* Collab account info */}
-      {collabInvitation && (
+      {isCollabAccount && (
         <InnerCard style={{ border: '1px solid rgba(168,85,247,0.28)', background: 'rgba(168,85,247,0.05)' }}>
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(168,85,247,0.15)' }}>
@@ -161,6 +154,7 @@ export function OnboardingStepStripe({
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{t('onboarding.stripePending')}</span>
               </div>
               <p style={{ color: T3, fontSize: 12 }}>{t('onboarding.stripePendingHint')}</p>
+              <StripeAccountCountry country={stripeStatus.country} />
               <GhostButton icon={Loader2} onClick={handleRefresh} style={{ padding: '8px 12px', fontSize: 13 }}>
                 {t('onboarding.refreshStatus')}
               </GhostButton>
@@ -171,7 +165,8 @@ export function OnboardingStepStripe({
                 <p style={{ color: T2, fontSize: 12, fontWeight: 600 }}>{t('onboarding.stripeWhatIs')}</p>
                 <p style={{ color: T3, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>{t('onboarding.stripeExplain')}</p>
               </div>
-              <PrimaryButton icon={ExternalLink} onClick={handleStartOnboarding} style={{ padding: '9px 14px', fontSize: 13 }}>
+              <StripeCountryField choice={connectCountry} />
+              <PrimaryButton icon={ExternalLink} onClick={handleStartOnboarding} disabled={!connectCountry.canCreate} style={{ padding: '9px 14px', fontSize: 13 }}>
                 {t('onboarding.connectStripe')}
               </PrimaryButton>
             </div>

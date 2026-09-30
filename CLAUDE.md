@@ -1463,6 +1463,24 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   Yuno les paierait sur sa commission) et `dashboard: full`. Club et organisateur
   = `merchant` + `recipient` (vente directe + jambes de co-soirée), DJ =
   `recipient`. Ne JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Pays du compte = choisi par le pro AVANT la création, et définitif** (Stripe
+  ne change jamais le pays d'un compte ; tout naissait en France, un club de
+  Madrid se voyait demander un IBAN français). `NewConnectedAccount.country`
+  (ISO alpha-2) part en minuscules en v2 (`identity.country`), en majuscules en
+  v1 ; `defaults.currency` suit le pays (GBP, CHF, DKK… — jamais « eur » imposé
+  à un compte hors zone euro) et `defaults.locales` la langue de la Console.
+  Liste = `STRIPE_CONNECT_COUNTRY_CURRENCIES` (UE + Norvège, Liechtenstein,
+  Royaume-Uni, Gibraltar, Suisse), miroir front `src/lib/stripeConnectCountry.ts`
+  (testé). Hors liste (Maroc, Algérie, États-Unis…) : `stripe_country_unsupported`,
+  RIEN n'est créé chez Stripe. `onboard` sans `country` (ancien bundle) = FR.
+  Front : `StripeCountryField` + `useConnectCountry` AVANT le bouton, sur les cinq
+  écrans qui créent un compte (Paiements club et orga, les deux guides de
+  configuration, Bookings DJ) ; préremplissage profil DJ → ville → fin d'adresse
+  Mapbox → fuseau du lieu → fuseau de l'appareil → FR. `Europe/Paris` sur un club
+  est un signal FAIBLE : c'est le fuseau posé par défaut quand la ville n'était
+  pas reconnue. `status` / `refresh` rendent `country` (« Pays du compte
+  Stripe »). Un compte ouvert dans le mauvais pays ne se corrige pas : le fermer
+  chez Stripe et vider la colonne, aucun outil Yuno ne le fait.
 - **Filets** : une forme REFUSÉE (400/403/404, rien créé) passe à la suivante —
   v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller` (mêmes
   responsabilités). Réseau, 429 ou 5xx n'enchaînent jamais (doublon possible).
