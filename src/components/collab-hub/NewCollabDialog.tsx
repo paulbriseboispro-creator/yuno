@@ -1,118 +1,139 @@
-import { ChevronRight, Handshake, Lock, Mail, Network, UserPlus, type LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { formatInTimeZone } from 'date-fns-tz';
+import { enUS, es, fr } from 'date-fns/locale';
+import { CalendarPlus, CalendarRange, ChevronRight, Loader2, Lock, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
+import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
+import type { CoorgScope } from '@/lib/coorg';
 
-export type NewCollabChoice = 'propose' | 'partner' | 'invite' | 'coorg';
+export interface CollabPreselect {
+  /** `venue:<id>` ou `org:<uuid>` — quelqu'un de l'annuaire à inviter. */
+  key: string;
+  name: string;
+}
 
 /**
- * « Nouvelle collaboration » — la seule porte d'entrée du hub. Quatre chemins
- * existaient déjà (Proposer une soirée, Demander un partenariat, onglet
- * Inviter, Co-organiser) ; le pro devait deviner lequel prendre. Ici chaque
- * chemin dit EN UNE PHRASE quand il sert, et un chemin fermé dit pourquoi.
+ * « Nouvelle collaboration » — la seule porte d'entrée du hub (plan
+ * `docs/designs/COLLAB_OPEN_INVITE_PLAN.md`). Une collaboration, c'est une
+ * soirée où l'on invite des clubs et des organisations : la seule question
+ * est donc « quelle soirée ? ». Les deux chemins ouvrent le formulaire de la
+ * soirée sur « Avec qui ? », là où l'on choisit qui inviter et avec quel rôle.
+ * Aucun partenariat préalable : n'importe quel club ou organisation, sur Yuno
+ * ou par email.
  */
-export function NewCollabDialog({
-  open, onOpenChange, side, canPropose, hasActivePartners, onChoose,
-}: {
+export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate, preselect }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  side: 'venue' | 'organizer';
-  /** Faux pour un club au plan Collaboration : il reçoit des soirées, il n'en propose pas. */
-  canPropose: boolean;
-  hasActivePartners: boolean;
-  onChoose: (c: NewCollabChoice) => void;
+  scope: CoorgScope | null;
+  basePath: string;
+  /** Faux pour un club au plan Collaboration : il reçoit des soirées, il n'en crée pas. */
+  canCreate: boolean;
+  preselect?: CollabPreselect | null;
 }) {
   const { language } = useLanguage();
-  const t = (fr: string, en: string, es: string) => translate(language, fr, en, es);
-  const isVenue = side === 'venue';
-  const other = isVenue
-    ? { one: t('un organisateur', 'an organizer', 'un organizador') }
-    : { one: t('un club', 'a club', 'un club') };
+  const t = (frS: string, en: string, esS: string) => translate(language, frS, en, esS);
+  const navigate = useNavigate();
+  const [pickEvent, setPickEvent] = useState(false);
+  const [events, setEvents] = useState<{ id: string; title: string; start_at: string }[] | null>(null);
 
-  const proposeBlocked = !canPropose
-    ? t('Non inclus dans ton offre actuelle.', 'Not included in your current plan.', 'No incluido en tu plan actual.')
-    : !hasActivePartners
-      ? t('Ajoute d’abord un partenaire (juste en dessous).', 'Add a partner first (just below).', 'Añade primero un socio (justo debajo).')
-      : null;
+  useEffect(() => { if (!open) { setPickEvent(false); setEvents(null); } }, [open]);
 
-  const choices: { key: NewCollabChoice; icon: LucideIcon; title: string; body: string; blocked?: string | null }[] = [
-    {
-      key: 'propose', icon: Handshake,
-      title: isVenue
-        ? t('Proposer une soirée à un organisateur partenaire', 'Propose an event to a partner organizer', 'Proponer un evento a un organizador socio')
-        : t('Proposer une soirée à un club partenaire', 'Propose an event to a partner club', 'Proponer un evento a un club socio'),
-      body: t(
-        'Réglé entre vous (la vente ouvre tout de suite) ou encadré par un contrat Yuno qui fixe qui touche quoi : c’est toi qui choisis.',
-        'Settled between you (sales open right away) or secured by a Yuno contract setting who gets what: your call.',
-        'Lo arregláis entre vosotros (la venta abre enseguida) o con un contrato Yuno que fija quién cobra qué: tú eliges.',
-      ),
-      blocked: proposeBlocked,
-    },
-    {
-      key: 'partner', icon: UserPlus,
-      title: t(`Ajouter ${other.one} déjà sur Yuno`, `Add ${other.one} already on Yuno`, `Añadir ${other.one} que ya está en Yuno`),
-      body: t(
-        'Il accepte, puis vous vous proposez des soirées en un clic, avec vos conditions habituelles.',
-        'They accept, then you propose events to each other in one click, with your usual terms.',
-        'Acepta, y luego os proponéis eventos en un clic, con vuestras condiciones habituales.',
-      ),
-    },
-    {
-      key: 'invite', icon: Mail,
-      title: t('Inviter quelqu’un qui n’est pas sur Yuno', 'Invite someone who isn’t on Yuno', 'Invitar a alguien que no está en Yuno'),
-      body: t(
-        'Un email avec la soirée et tes conditions ; il crée son compte en acceptant.',
-        'An email with the event and your terms; they create their account when accepting.',
-        'Un email con el evento y tus condiciones; crea su cuenta al aceptar.',
-      ),
-    },
-    {
-      key: 'coorg', icon: Network,
-      title: t('Co-organiser une de mes soirées à plusieurs', 'Co-organize one of my events with several partners', 'Coorganizar uno de mis eventos con varios socios'),
-      body: t(
-        'Plusieurs organisations sur la même soirée : chacune la suit depuis sa Console, avec ses propres liens, ses ventes et ses emails. L’argent se règle entre vous, ou par un accord Yuno. Astuce : tu peux aussi les ajouter directement en créant la soirée.',
-        'Several organizations on the same event: each follows it from its Console, with its own links, sales and emails. Money is settled between you, or through a Yuno agreement. Tip: you can also add them right when creating the event.',
-        'Varias organizaciones en el mismo evento: cada una lo sigue desde su Consola, con sus propios enlaces, ventas y emails. El dinero se arregla entre vosotros o con un acuerdo Yuno. Consejo: también puedes añadirlas al crear el evento.',
-      ),
-    },
-  ];
+  useEffect(() => {
+    if (!pickEvent || events || !scope) return;
+    let active = true;
+    // Les soirées que JE mène : c'est le lead qui invite le lieu / l'organisateur.
+    const q = supabase.from('events').select('id, title, start_at')
+      .is('cancelled_at', null).gte('end_at', new Date().toISOString())
+      .order('start_at', { ascending: true }).limit(40);
+    (scope.venueId ? q.eq('venue_id', scope.venueId) : q.eq('organizer_user_id', scope.organizerUserId!))
+      .then(({ data }) => { if (active) setEvents((data ?? []) as { id: string; title: string; start_at: string }[]); });
+    return () => { active = false; };
+  }, [pickEvent, events, scope]);
+
+  const withParam = preselect ? `&with=${encodeURIComponent(preselect.key)}` : '';
+  const go = (path: string) => { onOpenChange(false); navigate(path); };
+  const dfLocale = language === 'en' ? enUS : language === 'es' ? es : fr;
+  const blocked = canCreate ? null : t('Non inclus dans ton offre actuelle.', 'Not included in your current plan.', 'No incluido en tu plan actual.');
+
+  const Choice = ({ icon: Icon, title, body, onClick }: { icon: LucideIcon; title: string; body: string; onClick: () => void }) => (
+    <button
+      type="button"
+      disabled={!!blocked}
+      onClick={onClick}
+      className="flex w-full items-start gap-3 rounded-2xl p-4 text-left transition-all duration-150 enabled:cursor-pointer enabled:hover:bg-[rgb(var(--ink)/0.05)]"
+      style={{ background: INNER_BG, border: `1px solid ${BORDER}`, opacity: blocked ? 0.55 : 1 }}
+    >
+      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.22)' }}>
+        {blocked ? <Lock className="h-4 w-4" style={{ color: T3 }} /> : <Icon className="h-4 w-4" style={{ color: RED }} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block" style={{ color: T1, fontSize: 13.5, fontWeight: 620 }}>{title}</span>
+        <span className="mt-0.5 block" style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>{blocked ?? body}</span>
+      </span>
+      {!blocked && <ChevronRight className="mt-2 h-4 w-4 flex-none" style={{ color: T3 }} />}
+    </button>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-0 p-0" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-0 p-0" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
         <div className="p-6">
           <DialogHeader>
             <DialogTitle style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
-              {t('Nouvelle collaboration', 'New collaboration', 'Nueva colaboración')}
+              {preselect?.name
+                ? t(`Inviter ${preselect.name} sur une soirée`, `Invite ${preselect.name} to an event`, `Invitar a ${preselect.name} a un evento`)
+                : t('Nouvelle collaboration', 'New collaboration', 'Nueva colaboración')}
             </DialogTitle>
-            <DialogDescription style={{ color: T3, fontSize: 12.5 }}>
-              {t('Avec qui fais-tu cette soirée ?', 'Who are you doing this event with?', '¿Con quién haces este evento?')}
+            <DialogDescription style={{ color: T3, fontSize: 12.5, lineHeight: 1.5 }}>
+              {t(
+                'Clubs et organisations, sur Yuno ou pas, autant que tu veux. Chacun reçoit une invitation et rejoint la soirée en l’acceptant.',
+                'Clubs and organizations, on Yuno or not, as many as you like. Each gets an invitation and joins the event by accepting it.',
+                'Clubes y organizaciones, en Yuno o no, tantos como quieras. Cada uno recibe una invitación y se une al evento al aceptarla.',
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-2">
-            {choices.map((c) => {
-              const disabled = !!c.blocked;
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onChoose(c.key)}
-                  className="flex w-full items-start gap-3 rounded-2xl p-4 text-left transition-all duration-150 enabled:cursor-pointer enabled:hover:bg-[rgb(var(--ink)/0.05)]"
-                  style={{ background: INNER_BG, border: `1px solid ${BORDER}`, opacity: disabled ? 0.55 : 1 }}
-                >
-                  <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.22)' }}>
-                    {disabled ? <Lock className="h-4 w-4" style={{ color: T3 }} /> : <c.icon className="h-4 w-4" style={{ color: RED }} />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block" style={{ color: T1, fontSize: 13.5, fontWeight: 620 }}>{c.title}</span>
-                    <span className="mt-0.5 block" style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>{c.blocked ?? c.body}</span>
-                  </span>
-                  {!disabled && <ChevronRight className="mt-2 h-4 w-4 flex-none" style={{ color: T3 }} />}
-                </button>
-              );
-            })}
+            <Choice
+              icon={CalendarPlus}
+              title={t('Une nouvelle soirée', 'A new event', 'Un evento nuevo')}
+              body={t('Tu crées la soirée et tu choisis avec qui tu la fais, au même endroit.', 'Create the event and pick who you run it with, in the same place.', 'Creas el evento y eliges con quién lo haces, en el mismo sitio.')}
+              onClick={() => go(`${basePath}/events?new=1${withParam}`)}
+            />
+            <Choice
+              icon={CalendarRange}
+              title={t('Une soirée déjà créée', 'An existing event', 'Un evento ya creado')}
+              body={t('Ajoute des clubs et des organisations à une de tes soirées à venir.', 'Add clubs and organizations to one of your upcoming events.', 'Añade clubes y organizaciones a uno de tus próximos eventos.')}
+              onClick={() => setPickEvent((v) => !v)}
+            />
+            {pickEvent && (
+              <div className="space-y-1.5 pl-2">
+                {events === null ? (
+                  <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin" style={{ color: T3 }} /></div>
+                ) : events.length === 0 ? (
+                  <p className="px-2 py-2" style={{ color: T3, fontSize: 12 }}>
+                    {t('Aucune soirée à venir que tu mènes.', 'No upcoming event that you run.', 'Ningún evento próximo que lleves tú.')}
+                  </p>
+                ) : events.map((e) => (
+                  <button key={e.id} type="button"
+                    onClick={() => go(`${basePath}/events?edit=${e.id}&focus=partners${withParam}`)}
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[rgb(var(--ink)/0.05)]"
+                    style={{ border: `1px solid ${BORDER}` }}>
+                    <span className="min-w-0">
+                      <span className="block truncate" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{e.title}</span>
+                      <span className="block" style={{ color: T3, fontSize: 11.5 }}>
+                        {formatInTimeZone(new Date(e.start_at), PARIS_TIMEZONE, 'EEE d MMM · HH:mm', { locale: dfLocale })}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

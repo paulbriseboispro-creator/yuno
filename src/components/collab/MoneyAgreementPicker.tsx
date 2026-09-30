@@ -73,9 +73,9 @@ export function MoneyAgreementPicker({
         title={t('Encadré par Yuno', 'Secured by Yuno', 'Gestionado por Yuno')}
         body={hasClubPartner
           ? t(
-            'Un contrat signé en ligne par vous deux : chacun reçoit sa part automatiquement (Stripe), ou Yuno calcule le décompte et suit le virement.',
-            'An agreement you both sign online: each side gets its share automatically (Stripe), or Yuno computes the statement and tracks the transfer.',
-            'Un contrato firmado en línea por los dos: cada uno recibe su parte automáticamente (Stripe), o Yuno calcula la liquidación y sigue la transferencia.',
+            'Un contrat signé en ligne par vous deux : une partie encaisse, Yuno calcule le décompte après la soirée et suit le virement de la part de l’autre.',
+            'An agreement you both sign online: one side collects, Yuno computes the statement after the night and tracks the transfer of the other side’s share.',
+            'Un contrato firmado en línea por los dos: una parte cobra, Yuno calcula la liquidación tras la noche y sigue la transferencia de la parte del otro.',
           )
           : t(
             'Les parts de chacun fixées sur Yuno (simple accord ou contrat signé) : décompte validé par tous après la soirée, virements suivis et relancés.',

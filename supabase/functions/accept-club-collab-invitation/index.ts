@@ -270,10 +270,15 @@ const handler = async (req: Request): Promise<Response> => {
       // contract the organizer proposed with the invitation, pre-signed by him.
       // Sans ça le club arrivait sur une co-soirée « sans contrat » et devait
       // attendre que l'organisateur revienne proposer le même deal une 2e fois.
+      // Le mode choisi par l'organisateur voyage dans les conditions de
+      // l'invitation (`event_mode`) ; il n'appartient pas au partage lui-même.
+      const invRules = (inv.default_split_rules ?? null) as Record<string, unknown> | null;
+      const invMode = ["co_event", "venue_rental", "org_hosted"].includes(String(invRules?.event_mode))
+        ? String(invRules!.event_mode) : "co_event";
       if (inv.event_id) {
         const { data: ev } = await admin
           .from("events")
-          .update({ partner_venue_id: slug, event_mode: "co_event" })
+          .update({ partner_venue_id: slug, event_mode: invMode })
           .eq("id", inv.event_id)
           .eq("organizer_user_id", inv.organizer_user_id)
           // Soirée encore LIBRE seulement : le service role passe outre le garde
@@ -282,12 +287,27 @@ const handler = async (req: Request): Promise<Response> => {
           .is("partner_venue_id", null)
           .select("id, title, start_at, end_at")
           .maybeSingle();
-        if (ev && inv.default_split_rules) {
+        if (ev && invRules?.agreement === "external") {
+          // « Réglé entre vous » : pas de contrat, un partage 100/0 par pilier
+          // (miroir de set_event_collab_external_agreement), la vente reste ouverte.
+          const orgPct = (k: "tickets" | "tables") => Number((invRules[k] as Record<string, unknown> | undefined)?.organizer_pct);
+          const tickets = orgPct("tickets") === 0 ? "venue" : "organizer";
+          const tables = orgPct("tables") === 100 || (Number.isNaN(orgPct("tables")) && invMode === "org_hosted") ? "organizer" : "venue";
+          const rules = {
+            agreement: "external",
+            tickets: { organizer_pct: tickets === "organizer" ? 100 : 0, venue_pct: tickets === "organizer" ? 0 : 100 },
+            tables: { organizer_pct: tables === "organizer" ? 100 : 0, venue_pct: tables === "organizer" ? 0 : 100 },
+            drinks: { organizer_pct: 0, venue_pct: 100 },
+          };
+          const { error: extErr } = await admin.from("events").update({ revenue_split_rules: rules }).eq("id", ev.id);
+          if (extErr) console.error("external agreement error:", extErr);
+        } else if (ev && inv.default_split_rules) {
           // Boissons : 100 % club sauf attestation alcool de l'organisateur
           // (même règle que enforce_drinks_alcohol_gate côté SQL).
           const { data: orgProf } = await admin
             .from("organizer_profiles").select("can_sell_alcohol, display_name").eq("user_id", inv.organizer_user_id).maybeSingle();
           const rules = { ...(inv.default_split_rules as Record<string, unknown>) };
+          delete rules.event_mode;
           if (!orgProf?.can_sell_alcohol) rules.drinks = { ...((rules.drinks as Record<string, unknown>) ?? {}), organizer_pct: 0, venue_pct: 100 };
           const now = new Date().toISOString();
           const endAt = new Date(ev.end_at ?? ev.start_at);

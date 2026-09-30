@@ -21,7 +21,9 @@ const json = (body: unknown, status: number, headers: Record<string, string>) =>
  * max, démo ↔ démo, jamais en accès assisté). Cette fonction ne fait
  * qu'envoyer l'email ; une adresse démo n'en reçoit jamais (boîte fictive).
  *
- * Body : { kind: "coorg", event_id, email, name?, access?, share_crm?, message?, lang?, origin? }
+ * Body : { kind: "coorg", event_id, email, name?, access?, share_crm?, message?, lang?, origin?,
+ *          principal?, terms? } — `principal` = l'organisation invitée à ORGANISER la soirée
+ *          d'un club (rôle appliqué à l'acceptation, `_collab_promote_principal`).
  */
 export async function handleCoorgInvite(req: Request, b: any, corsHeaders: Record<string, string>): Promise<Response> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -45,6 +47,8 @@ export async function handleCoorgInvite(req: Request, b: any, corsHeaders: Recor
       p_share_crm: b?.share_crm !== false,
       p_message: b?.message ?? null,
       p_lang: lang,
+      p_principal: b?.principal === true,
+      p_terms: b?.principal === true && b?.terms && typeof b.terms === "object" ? b.terms : null,
     });
     if (error) {
       // Codes lisibles par le front (useCoorgErrorText).
@@ -74,6 +78,7 @@ export async function handleCoorgInvite(req: Request, b: any, corsHeaders: Recor
         eventDateLabel,
         venueName: inv.venue_name ?? null,
         access: inv.access === "viewer" ? "viewer" : "editor",
+        principal: inv.role === "principal",
         message: inv.message ?? null,
         acceptUrl,
         expiresLabel: new Date(Date.now() + 14 * 86400_000).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }),

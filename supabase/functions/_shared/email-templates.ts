@@ -847,18 +847,30 @@ export function buildCoorgInvitation(d: {
   eventDateLabel?: string | null;
   venueName?: string | null;
   access: 'editor' | 'viewer';
+  /** Invité à ORGANISER la soirée avec le club qui la mène (devient l'organisateur de la soirée). */
+  principal?: boolean;
   message?: string | null;
   acceptUrl: string;
   expiresLabel?: string | null;
 }): BuiltEmail {
   const lang = L(d.lang || 'fr');
-  const subject = p(lang, {
-    en: `${d.inviterName} invites you to co-organize ${d.eventTitle}`,
-    fr: `${d.inviterName} vous invite à co-organiser ${d.eventTitle}`,
-    es: `${d.inviterName} te invita a coorganizar ${d.eventTitle}`,
-  });
+  const subject = d.principal
+    ? p(lang, {
+      en: `${d.inviterName} invites you to run ${d.eventTitle} together`,
+      fr: `${d.inviterName} vous invite à organiser ${d.eventTitle} ensemble`,
+      es: `${d.inviterName} te invita a organizar ${d.eventTitle} juntos`,
+    })
+    : p(lang, {
+      en: `${d.inviterName} invites you to co-organize ${d.eventTitle}`,
+      fr: `${d.inviterName} vous invite à co-organiser ${d.eventTitle}`,
+      es: `${d.inviterName} te invita a coorganizar ${d.eventTitle}`,
+    });
   const preheader = d.eventDateLabel ?? p(lang, { en: 'Co-organization on Yuno', fr: 'Co-organisation sur Yuno', es: 'Coorganización en Yuno' });
-  const intro = p(lang, {
+  const intro = d.principal ? p(lang, {
+    en: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> invites you to run <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> with them on Yuno: you become the event's organizer, with your own sales link, and the money follows the terms they proposed.`,
+    fr: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> vous invite à organiser <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> avec lui sur Yuno : vous devenez l'organisateur de la soirée, avec votre propre lien de vente, et l'argent suit les conditions qu'il vous propose.`,
+    es: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> te invita a organizar <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> con él en Yuno: te conviertes en el organizador de la noche, con tu propio enlace de venta, y el dinero sigue las condiciones que te propone.`,
+  }) : p(lang, {
     en: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> invites you to co-organize <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> on Yuno: the night appears in your space, you share your own sales link, and the money is split by an agreement you all approve.`,
     fr: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> vous invite à co-organiser <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> sur Yuno : la soirée apparaît dans votre espace, vous partagez votre propre lien de vente, et l'argent se répartit selon un accord validé par tous.`,
     es: `<strong style="color:${C.white}">${esc(d.inviterName)}</strong> te invita a coorganizar <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> en Yuno: la noche aparece en tu espacio, compartes tu propio enlace de venta y el dinero se reparte según un acuerdo aprobado por todos.`,
@@ -875,10 +887,12 @@ export function buildCoorgInvitation(d: {
   if (d.eventDateLabel) rows.push({ k: p(lang, { en: 'Date', fr: 'Date', es: 'Fecha' }), v: d.eventDateLabel });
   if (d.venueName) rows.push({ k: 'Club', v: d.venueName });
   rows.push({
-    k: p(lang, { en: 'Access', fr: 'Accès', es: 'Acceso' }),
-    v: d.access === 'editor'
-      ? p(lang, { en: 'Editor', fr: 'Édition', es: 'Edición' })
-      : p(lang, { en: 'Viewer', fr: 'Lecture', es: 'Lectura' }),
+    k: p(lang, { en: 'Role', fr: 'Rôle', es: 'Rol' }),
+    v: d.principal
+      ? p(lang, { en: 'Event organizer', fr: 'Organisateur de la soirée', es: 'Organizador de la noche' })
+      : d.access === 'editor'
+        ? p(lang, { en: 'Co-manager', fr: 'Co-gestion', es: 'Cogestión' })
+        : p(lang, { en: 'Partner', fr: 'Partenaire', es: 'Socio' }),
   });
   if (d.expiresLabel) rows.push({ k: lbl(lang, 'validUntil'), v: d.expiresLabel });
   const html = shell({

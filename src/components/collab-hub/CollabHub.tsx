@@ -1,43 +1,32 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, Calendar, ChevronDown, Clock, Handshake, Loader2, Plus, User } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { BookUser, Calendar, ChevronDown, Clock, Handshake, Loader2, Plus } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { OrgButton, OrgEmptyState, OrgSectionLabel, RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG } from '@/components/org-ui';
-import { EventPickerThenInvite } from '@/components/coorg/CoorgHubParts';
 import { resolveCollabHubTab, type CollabHubTab } from '@/lib/collabHubNav';
 import type { CoorgScope } from '@/lib/coorg';
 import { useCollabNights } from './useCollabNights';
 import { CollabNightCard } from './CollabNightCard';
-import { NewCollabDialog, type NewCollabChoice } from './NewCollabDialog';
+import { CollabDirectory } from './CollabDirectory';
+import { NewCollabDialog, type CollabPreselect } from './NewCollabDialog';
 
 type Side = 'venue' | 'organizer';
 
-export interface ProposeSlotProps {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  /** Partenaire pré-choisi (depuis la carte d'un partenaire : `?propose=<id>`). */
-  preselect: string | null;
-  onCreated: () => void;
-}
-
 /**
- * Le hub Collaborations, club ET organisateur (plan
- * `docs/designs/COLLAB_SIMPLIFICATION_PLAN.md`). Deux onglets — Soirées,
- * Partenaires — et UNE action, « Nouvelle collaboration ». Les soirées à deux
- * (contrat club × organisateur) et à plusieurs (co-organisation) sont dans la
- * même liste ; ce qui attend une réponse passe devant.
+ * Le hub Collaborations, club ET organisateur (plans
+ * `docs/designs/COLLAB_SIMPLIFICATION_PLAN.md` puis
+ * `docs/designs/COLLAB_OPEN_INVITE_PLAN.md`). Deux onglets — Soirées,
+ * Annuaire — et UNE action, « Nouvelle collaboration » : choisir la soirée,
+ * puis inviter qui on veut depuis « Avec qui ? ». Plus de partenariat
+ * préalable, plus de proposition à part.
  *
- * Adresse : `?tab=nights|partners` ; `&propose=<id>` ouvre la proposition avec
- * ce partenaire ; `&invite=1` l'invitation par email ; `&request=1` (lu par
- * l'onglet Partenaires) la recherche d'un partenaire Yuno. Les anciens onglets
- * (`events`, `coorg`, `organizers`, `invite`) sont traduits par
- * `resolveCollabHubTab`.
+ * Adresse : `?tab=nights|partners` (`partners` = l'Annuaire). Les anciennes
+ * adresses restent valables : `&propose=<id>` et `&invite=1` ouvrent le
+ * dialogue, les anciens onglets sont traduits par `resolveCollabHubTab`.
  */
 export function CollabHub({
-  side, scope, basePath, subtitle, showTitle, canStart, canPropose, hasActivePartners,
-  todo, partners, renderPropose, renderInvite,
+  side, scope, basePath, subtitle, showTitle, canStart, canCreate, todo, directoryExtra,
 }: {
   side: Side;
   scope: CoorgScope | null;
@@ -47,13 +36,12 @@ export function CollabHub({
   showTitle: boolean;
   /** Un éditeur d'équipe voit tout, mais n'engage pas l'organisation. */
   canStart: boolean;
-  canPropose: boolean;
-  hasActivePartners: boolean;
+  /** Faux pour un club au plan Collaboration : il reçoit des soirées, il n'en crée pas. */
+  canCreate: boolean;
   /** Ce qui attend une réponse ; reçoit `reload` pour rafraîchir la liste après une signature. */
   todo: (reload: () => void) => ReactNode;
-  partners: ReactNode;
-  renderPropose: (p: ProposeSlotProps) => ReactNode;
-  renderInvite: (onSent: () => void) => ReactNode;
+  /** Sous l'annuaire : les contrats-cadres des séries récurrentes (se taisent vides). */
+  directoryExtra?: ReactNode;
 }) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es: string) => translate(language, fr, en, es);
@@ -62,10 +50,7 @@ export function CollabHub({
   const tab = route.tab;
 
   const [chooserOpen, setChooserOpen] = useState(false);
-  const [proposeOpen, setProposeOpen] = useState(false);
-  const [preselect, setPreselect] = useState<string | null>(null);
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [coorgOpen, setCoorgOpen] = useState(false);
+  const [preselect, setPreselect] = useState<CollabPreselect | null>(null);
   const [showPast, setShowPast] = useState(false);
 
   const { nights, loading, reload } = useCollabNights(side, scope);
@@ -75,26 +60,23 @@ export function CollabHub({
   const inviteParam = params.get('invite');
   useEffect(() => {
     const openInvite = route.openInvite || inviteParam === '1';
-    if (!route.rewrite && !proposeParam && !openInvite) return;
-    if (openInvite && canStart) setInviteOpen(true);
-    if (proposeParam && canStart && canPropose) { setPreselect(proposeParam); setProposeOpen(true); }
+    if (!route.rewrite && !proposeParam && !openInvite && !params.has('request')) return;
+    if ((openInvite || proposeParam) && canStart) {
+      // `?propose=<id>` venait de la carte d'un partenaire : l'autre côté du couple club × orga.
+      setPreselect(proposeParam ? { key: `${side === 'venue' ? 'org' : 'venue'}:${proposeParam}`, name: '' } : null);
+      setChooserOpen(true);
+    }
     const next = new URLSearchParams(params);
     next.set('tab', tab);
     next.delete('propose');
     next.delete('invite');
+    next.delete('request');
     setParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.rewrite, route.openInvite, proposeParam, inviteParam, canStart, canPropose]);
+  }, [route.rewrite, route.openInvite, proposeParam, inviteParam, canStart]);
 
   const setTab = (v: CollabHubTab) => setParams({ tab: v });
-
-  const choose = (c: NewCollabChoice) => {
-    setChooserOpen(false);
-    if (c === 'propose') { setPreselect(null); setProposeOpen(true); }
-    else if (c === 'partner') setParams({ tab: 'partners', request: '1' });
-    else if (c === 'invite') setInviteOpen(true);
-    else setCoorgOpen(true);
-  };
+  const openChooser = (p: CollabPreselect | null = null) => { setPreselect(p); setChooserOpen(true); };
 
   const now = Date.now();
   const upcoming = nights.filter((n) => new Date(n.endAt).getTime() >= now);
@@ -102,7 +84,7 @@ export function CollabHub({
 
   const TABS: { value: CollabHubTab; label: string; Icon: typeof Calendar }[] = [
     { value: 'nights', label: t('Soirées', 'Events', 'Eventos'), Icon: Calendar },
-    { value: 'partners', label: t('Partenaires', 'Partners', 'Socios'), Icon: side === 'venue' ? User : Building2 },
+    { value: 'partners', label: t('Annuaire', 'Directory', 'Directorio'), Icon: BookUser },
   ];
 
   return (
@@ -118,7 +100,7 @@ export function CollabHub({
           <p style={{ color: T3, fontSize: 13, marginTop: showTitle ? 4 : 0 }}>{subtitle}</p>
         </div>
         {canStart && (
-          <OrgButton variant="primary" size="sm" onClick={() => setChooserOpen(true)}>
+          <OrgButton variant="primary" size="sm" onClick={() => openChooser()}>
             <Plus className="h-4 w-4" /> {t('Nouvelle collaboration', 'New collaboration', 'Nueva colaboración')}
           </OrgButton>
         )}
@@ -161,7 +143,7 @@ export function CollabHub({
                 'Con un club, un organizador o varios: todo empieza con «Nueva colaboración».',
               )}
               action={canStart ? (
-                <OrgButton variant="primary" size="sm" onClick={() => setChooserOpen(true)}>
+                <OrgButton variant="primary" size="sm" onClick={() => openChooser()}>
                   <Plus className="h-4 w-4" /> {t('Nouvelle collaboration', 'New collaboration', 'Nueva colaboración')}
                 </OrgButton>
               ) : undefined}
@@ -204,34 +186,20 @@ export function CollabHub({
           )}
         </div>
       ) : (
-        <div className="space-y-6">{partners}</div>
+        <div className="space-y-6">
+          <CollabDirectory scope={scope} canInvite={canStart && canCreate} onInvite={(p) => openChooser(p)} />
+          {directoryExtra}
+        </div>
       )}
 
       <NewCollabDialog
         open={chooserOpen}
-        onOpenChange={setChooserOpen}
-        side={side}
-        canPropose={canPropose}
-        hasActivePartners={hasActivePartners}
-        onChoose={choose}
+        onOpenChange={(v) => { setChooserOpen(v); if (!v) setPreselect(null); }}
+        scope={scope}
+        basePath={basePath}
+        canCreate={canCreate}
+        preselect={preselect}
       />
-
-      {renderPropose({
-        open: proposeOpen,
-        onOpenChange: (v) => { setProposeOpen(v); if (!v) setPreselect(null); },
-        preselect,
-        onCreated: () => { void reload(); },
-      })}
-
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto border-0 p-4 sm:p-5" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 620 }}>
-          {inviteOpen && renderInvite(() => setInviteOpen(false))}
-        </DialogContent>
-      </Dialog>
-
-      {scope && (
-        <EventPickerThenInvite open={coorgOpen} onOpenChange={setCoorgOpen} scope={scope} basePath={basePath} prefill={null} />
-      )}
     </div>
   );
 }

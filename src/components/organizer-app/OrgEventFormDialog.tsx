@@ -6,7 +6,6 @@ import { loadGuestArtists, saveGuestArtists, type GuestArtist } from '@/lib/gues
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { useOrganizerPartnerships } from '@/hooks/useOrganizerPartnerships';
 import {
   Dialog,
   DialogContent,
@@ -24,8 +23,6 @@ import {
   Eye,
   Lock,
   Building2,
-  Users,
-  Sparkles,
   Loader2,
   ChevronDown,
   Check,
@@ -55,7 +52,6 @@ const BORDER   = 'rgb(var(--ink)/0.085)';
 const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 type EventKind = 'public_event' | 'private_event';
-type CollabMode = 'solo' | 'co_event' | 'venue_rental' | 'hosted_by_venue';
 
 const EVENT_TYPES = [
   { value: 'club', label: 'Club' },
@@ -156,8 +152,6 @@ export function OrgEventFormDialog({
   onSaved,
 }: OrgEventFormDialogProps) {
   const { language } = useLanguage();
-  const { partnerships } = useOrganizerPartnerships();
-  const activePartnerships = partnerships.filter((p) => p.status === 'active');
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [loading, setLoading] = useState(false);
@@ -203,8 +197,9 @@ export function OrgEventFormDialog({
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
   /** Yuno a retiré la soirée d'Explore (/admin/events) : l'orga ne la republie pas lui-même. */
   const [removedByYuno, setRemovedByYuno] = useState(false);
-  const [collabMode, setCollabMode] = useState<CollabMode>('solo');
-  const [partnerVenueId, setPartnerVenueId] = useState<string>('');
+  // Le club qui accueille se rattache en acceptant l'invitation (« Avec qui ? »,
+  // page Événements) : ce formulaire ne l'écrit plus, il l'affiche.
+  const [linkedVenue, setLinkedVenue] = useState<{ name: string; city: string | null } | null>(null);
   /** Club partenaire tel qu'il était au chargement (édition) — sert à détecter un détachement. */
   const [savedPartnerVenueId, setSavedPartnerVenueId] = useState<string>('');
   /** Statut du contrat de collaboration de la soirée (event_collab_contracts.status), null si aucun. */
@@ -238,7 +233,8 @@ export function OrgEventFormDialog({
   const [publishedEvent, setPublishedEvent] = useState<PublishedEvent | null>(null);
 
   const isEdit = !!eventId;
-  const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo';
+  /** Soirée déjà accueillie par un club : lieu et adresse sont les siens. */
+  const requiresPartner = !!savedPartnerVenueId;
   // Soirée MENÉE PAR LE CLUB où l'organisateur n'est que partenaire : il
   // n'édite que ses domaines (design, et opérations s'il les tient). Écrire
   // organizer_user_id / event_mode / lieu y ferait refuser toute la sauvegarde.
@@ -299,8 +295,7 @@ export function OrgEventFormDialog({
       setInitialLineupEntries([]);
       setEventKind('public_event');
       setRemovedByYuno(false);
-      setCollabMode('solo');
-      setPartnerVenueId('');
+      setLinkedVenue(null);
       setSavedPartnerVenueId('');
       setContractStatus(null);
       resetPoster();
@@ -347,7 +342,6 @@ export function OrgEventFormDialog({
         const evKind = (ev.event_kind as string) || 'public_event';
         setEventKind(evKind === 'private_event' ? 'private_event' : 'public_event');
         setRemovedByYuno(ev.discovery_status === 'rejected');
-        setPartnerVenueId(ev.partner_venue_id || '');
         setSavedPartnerVenueId(ev.partner_venue_id || '');
         {
           // Valeur absente = préréglage du MODE (miroir de collab_domain_holder).
@@ -373,15 +367,11 @@ export function OrgEventFormDialog({
             .maybeSingle();
           setContractStatus((contract as { status?: string } | null)?.status ?? null);
         }
+        setLinkedVenue(null);
         if (ev.partner_venue_id) {
-          // Best-effort infer collab mode from event_mode
-          const evMode = (ev.event_mode as string) || '';
-          if (evMode === 'co_event') setCollabMode('co_event');
-          else if (evMode === 'venue_rental') setCollabMode('venue_rental');
-          else if (evMode === 'hosted_by_venue' || evMode === 'org_hosted') setCollabMode('hosted_by_venue');
-          else setCollabMode('co_event');
-        } else {
-          setCollabMode('solo');
+          const { data: v } = await supabase.from('venues').select('name, city').eq('id', ev.partner_venue_id).maybeSingle();
+          const vv = v as { name?: string | null; city?: string | null } | null;
+          setLinkedVenue({ name: vv?.name || t('Le club', 'The club', 'El club'), city: vv?.city ?? null });
         }
         setPosterPreview(ev.poster_url || '');
         setPosterPosition((ev.poster_position as unknown as PosterPosition | null) || null);
@@ -430,16 +420,6 @@ export function OrgEventFormDialog({
     }
     if (musicGenres.length === 0) {
       toast.error(t('Sélectionne au moins un genre musical', 'Select at least one music genre'));
-      return;
-    }
-    if (requiresPartner && !partnerVenueId) {
-      toast.error(t('Sélectionne un club partenaire', 'Select a partner club'));
-      return;
-    }
-    // Filet côté soumission : un contrat signé interdit de détacher (ou changer)
-    // le club partenaire — le trigger DB le refuserait de toute façon.
-    if (partnerLockedByContract && (!requiresPartner || partnerVenueId !== savedPartnerVenueId)) {
-      toast.error(partnerLockedMsg());
       return;
     }
     // Every event must be placeable in a city. Off-platform / solo & private events
@@ -532,18 +512,7 @@ export function OrgEventFormDialog({
         discovery_status: discoveryStatus,
       };
 
-      if (requiresPartner) {
-        payload.partner_venue_id = partnerVenueId;
-        payload.event_mode =
-          collabMode === 'co_event'
-            ? 'co_event'
-            : collabMode === 'venue_rental'
-            ? 'venue_rental'
-            : 'org_hosted';
-      } else {
-        payload.partner_venue_id = null;
-        payload.event_mode = 'solo_organizer';
-      }
+      // Le club qui accueille ne s'écrit pas ici (invitation acceptée ⇒ rattaché).
 
       // Partenaire d'une soirée menée par le club : seulement ses domaines.
       if (isEdit && partnerEdit) {
@@ -621,24 +590,6 @@ export function OrgEventFormDialog({
 
       bump(4); // line-up et artistes invités réglés
       toast.success(isEdit ? t('Événement mis à jour', 'Event updated') : t('Événement créé', 'Event created'));
-
-      // Club rattaché SANS contrat de partage : pousser clairement vers le bloc
-      // « Contrat de collaboration » de la page de la soirée (SplitContractBanner).
-      // Sans double signature, les ventes de la co-soirée restent fermées.
-      const hasLiveContract = !!contractStatus && contractStatus !== 'cancelled';
-      if (requiresPartner && partnerVenueId && !hasLiveContract) {
-        toast.info(
-          t('Club rattaché — propose le contrat de partage', 'Club attached — propose the split agreement', 'Club vinculado: propone el contrato de reparto'),
-          {
-            duration: 9000,
-            description: t(
-              'Ouvre la page de la soirée et utilise le bloc « Contrat de collaboration » pour définir la répartition et l\'envoyer au club. Les ventes restent fermées tant que les deux parties n\'ont pas signé.',
-              'Open the event page and use the "Collaboration agreement" block to set the split and send it to the club. Sales stay closed until both parties have signed.',
-              'Abre la página del evento y usa el bloque «Contrato de colaboración» para definir el reparto y enviarlo al club. Las ventas permanecen cerradas hasta que ambas partes firmen.',
-            ),
-          },
-        );
-      }
 
       // Cinquième étape : la liste appelante doit avoir repris la soirée avant
       // que l'écran annonce « en ligne ».
@@ -893,93 +844,24 @@ export function OrgEventFormDialog({
               )}
             </div>
 
-            {/* Collab mode */}
-            {eventKind === 'public_event' && (
+            {/* Avec qui ? — la soirée déjà accueillie par un club le dit ; sinon,
+                les invitations se font depuis la fiche de la soirée. */}
+            {linkedVenue ? (
               <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                <FieldLabel>{t('Mode de collaboration', 'Collaboration mode', 'Modo de colaboración')} *</FieldLabel>
-                <div className="space-y-2">
-                  <SelectCard
-                    selected={collabMode === 'solo'}
-                    // Revenir en solo détacherait le club partenaire — interdit sous contrat signé.
-                    onClick={() => { if (guardPartnerDetach()) return; setCollabMode('solo'); }}
-                    icon={Sparkles}
-                    title={t('Solo orga', 'Solo organizer', 'Organizador solo')}
-                    description={t(
-                      "Le lieu n'est pas sur Yuno (club, salle, bar…) : tu vends billets et tables seul·e et tu encaisses directement.",
-                      'The venue is not on Yuno (club, hall, bar…): you sell tickets and tables on your own and get paid directly.',
-                      'El local no está en Yuno (club, sala, bar…): vendes entradas y mesas por tu cuenta y cobras directamente.'
-                    )}
-                  />
-                  <SelectCard
-                    selected={collabMode === 'co_event'}
-                    onClick={() => setCollabMode('co_event')}
-                    icon={Users}
-                    title={t('Co-event avec un club', 'Co-event with a club', 'Co-evento con un club')}
-                    description={t(
-                      'Co-organisé avec un club partenaire — split revenu personnalisable.',
-                      'Co-organized with a partner club — customizable revenue split.',
-                      'Coorganizado con un club socio — reparto de ingresos personalizable.'
-                    )}
-                  />
-                  <SelectCard
-                    selected={collabMode === 'venue_rental'}
-                    onClick={() => setCollabMode('venue_rental')}
-                    icon={Building2}
-                    title={t('Location de salle', 'Venue rental', 'Alquiler de sala')}
-                    description={t(
-                      'Tu loues le club, tu encaisses tout (sauf boissons).',
-                      'You rent the club venue and keep all revenue (except drinks).',
-                      'Alquilas el club y cobras todo (salvo las bebidas).'
-                    )}
-                  />
-                  <SelectCard
-                    selected={collabMode === 'hosted_by_venue'}
-                    onClick={() => setCollabMode('hosted_by_venue')}
-                    icon={Building2}
-                    title={t('Hébergé par le club', 'Hosted by the club', 'Alojado por el club')}
-                    description={t(
-                      'Le club gère la billetterie, tu apportes la programmation.',
-                      'The club runs ticketing, you bring the programming.',
-                      'El club gestiona la venta de entradas, tú aportas la programación.'
-                    )}
-                  />
-                </div>
+                <FieldLabel>{t('Lieu de la soirée', 'Event venue', 'Lugar del evento')}</FieldLabel>
+                <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{linkedVenue.name}{linkedVenue.city ? ` · ${linkedVenue.city}` : ''}</p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
+                  {t('Le club accueille la soirée : l’adresse, le bar et la porte sont les siens.',
+                    'The club hosts the event: the address, bar and door are theirs.',
+                    'El club acoge el evento: la dirección, la barra y la puerta son suyas.')}
+                </p>
               </div>
-            )}
-
-            {/* Partner venue */}
-            {requiresPartner && (
-              <div className="rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.25)' }}>
-                <FieldLabel>{t('Club partenaire', 'Partner club')} *</FieldLabel>
-                {activePartnerships.length === 0 ? (
-                  <p style={{ color: T3, fontSize: 12.5 }}>
-                    {t(
-                      "Aucun partenariat actif. Va dans 'Clubs partenaires' pour en créer un.",
-                      "No active partnership. Go to 'Partner clubs' to create one."
-                    )}
-                  </p>
-                ) : (
-                  <DarkSelect
-                    value={partnerVenueId}
-                    onChange={(v) => { if (v !== savedPartnerVenueId && guardPartnerDetach()) return; setPartnerVenueId(v); }}
-                    disabled={partnerLockedByContract}
-                    placeholder={t('Sélectionne un club', 'Select a club')}
-                  >
-                    {activePartnerships.map((p) => (
-                      <option key={p.id} value={p.venue_id} style={{ background: 'var(--sf-0a0a0c)' }}>
-                        {p.venue?.name ?? p.venue_id}
-                        {p.venue?.city ? ` · ${p.venue.city}` : ''}
-                      </option>
-                    ))}
-                  </DarkSelect>
-                )}
-                {partnerLockedByContract && (
-                  <p className="mt-2 flex items-start gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
-                    <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    {partnerLockedMsg()}
-                  </p>
-                )}
-              </div>
+            ) : (
+              <p className="px-1" style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+                {t('Avec un club ou d’autres organisations ? Invite-les depuis la fiche de la soirée (Événements → « Avec qui fais-tu cette soirée ? »), sur Yuno ou par email.',
+                  'With a club or other organizations? Invite them from the event form (Events → “Who are you running this event with?”), on Yuno or by email.',
+                  '¿Con un club u otras organizaciones? Invítalos desde la ficha del evento (Eventos → «¿Con quién haces este evento?»), en Yuno o por email.')}
+              </p>
             )}
 
             {/* Secret location toggle — available for solo / off-platform & private
@@ -1076,10 +958,9 @@ export function OrgEventFormDialog({
 
             {/* Location — auto-filled & locked when a partner venue is selected */}
             {(() => {
-              const selectedPartner = activePartnerships.find((p) => p.venue_id === partnerVenueId);
-              const lockedToPartner = requiresPartner && !!selectedPartner;
-              const displayName = lockedToPartner ? (selectedPartner!.venue?.name ?? '') : locationName;
-              const displayCity = lockedToPartner ? (selectedPartner!.venue?.city ?? '') : locationCity;
+              const lockedToPartner = requiresPartner && !!linkedVenue;
+              const displayName = lockedToPartner ? linkedVenue!.name : locationName;
+              const displayCity = lockedToPartner ? (linkedVenue!.city ?? '') : locationCity;
               const displayAddress = lockedToPartner ? (locationAddress || '') : locationAddress;
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
