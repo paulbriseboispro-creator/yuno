@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
+import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState, OrgTabs, FieldLabel, DarkInput,
   RED, T1, T2, T3, BORDER, INNER_BG,
@@ -82,6 +83,8 @@ export default function OrgAppTables() {
   const [enableFor, setEnableFor] = useState<OrgTableEvent | null>(null);
   const [enableRoomId, setEnableRoomId] = useState('');
   const [deleteRoom, setDeleteRoom] = useState<VipRoom | null>(null);
+  // Plan d'une salle : éditeur de tables et de fond, directement sur la salle.
+  const [planEditRoom, setPlanEditRoom] = useState<VipRoom | null>(null);
   // Fiche d'une salle : ce qui est enregistré, AVANT de l'utiliser.
   const [detailRoom, setDetailRoom] = useState<VipRoom | null>(null);
   // Édition de la salle elle-même (nom, zones, formules). Le plan reste tel
@@ -93,6 +96,13 @@ export default function OrgAppTables() {
   };
   const [roomDraft, setRoomDraft] = useState<{ name: string; zones: DraftZone[]; packs: DraftPack[] } | null>(null);
   const [savingRoomEdit, setSavingRoomEdit] = useState(false);
+  // La fiche ouverte suit la salle rechargée (plan modifié dans l'éditeur). Jamais
+  // la salle passée à l'éditeur : ses props ne doivent pas bouger pendant l'édition.
+  useEffect(() => {
+    if (!detailRoom) return;
+    const fresh = rooms.find((x) => x.id === detailRoom.id);
+    if (fresh && fresh.updated_at !== detailRoom.updated_at) setDetailRoom(fresh);
+  }, [rooms, detailRoom]);
   const startRoomEdit = (r: VipRoom) => {
     setRoomDraft({
       name: r.name,
@@ -204,6 +214,7 @@ export default function OrgAppTables() {
       : await supabase.rpc('enable_collab_tables', { p_event_id: e.id });
     if (!error && !e.tables_enabled && roomId) {
       ({ error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomId, p_event_id: e.id }));
+      if (!error) await supabase.from('events').update({ vip_room_id: roomId }).eq('id', e.id);
     }
     setToggling(null);
     if (error) { toast.error(error.message); return; }
@@ -221,6 +232,7 @@ export default function OrgAppTables() {
     if (!applyRoom || !applyTarget) return;
     setApplying(true);
     const { error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: applyRoom.id, p_event_id: applyTarget });
+    if (!error) await supabase.from('events').update({ vip_room_id: applyRoom.id }).eq('id', applyTarget);
     setApplying(false);
     if (error) {
       toast.error(error.code === '23514'
@@ -500,6 +512,22 @@ export default function OrgAppTables() {
         </DialogContent>
       </Dialog>
 
+      {/* Éditeur de plan d'une salle : écrit sur la salle (update_vip_room_plan). */}
+      {planEditRoom && (
+        <FloorPlanEditor
+          open
+          onClose={() => setPlanEditRoom(null)}
+          venueId=""
+          roomId={planEditRoom.id}
+          existingLayout={planEditRoom.layout as unknown as ComponentProps<typeof FloorPlanEditor>['existingLayout']}
+          existingBackgroundUrl={planEditRoom.background_image_url}
+          zones={(Array.isArray(planEditRoom.zones) ? planEditRoom.zones : [])
+            .filter((z): z is typeof z & { id: string } => !!z.id)
+            .map((z) => ({ id: z.id, name: z.name, color: z.color ?? '#3b82f6' }))}
+          onSave={async () => { await load(); }}
+        />
+      )}
+
       {/* Supprimer une salle de l'historique */}
       {/* Fiche d'une salle VIP : plan, zones et formules tels qu'enregistrés. */}
       <Dialog open={!!detailRoom} onOpenChange={(o) => { if (!o) { setDetailRoom(null); setRoomDraft(null); } }}>
@@ -537,6 +565,13 @@ export default function OrgAppTables() {
                   </div>
                 </DialogHeader>
                 <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
+                  {!roomDraft && (
+                    <div className="mb-3 flex justify-end">
+                      <OrgButton variant="secondary" size="sm" onClick={() => setPlanEditRoom(r)}>
+                        <MapIcon className="h-3.5 w-3.5" /> {tt('Modifier le plan et les tables', 'Edit plan and tables', 'Editar plano y mesas')}
+                      </OrgButton>
+                    </div>
+                  )}
                   <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: 'rgb(var(--well)/0.38)' }}>
                     {floorPlan ? (
                       <div className="p-3">
@@ -557,9 +592,9 @@ export default function OrgAppTables() {
                     <div className="mt-4 space-y-3">
                       <p style={{ color: T3, fontSize: 11.5 }}>
                         {tt(
-                          'Le plan (tables, positions, formules liées) se modifie en utilisant la salle sur une soirée, puis « Enregistrer comme salle VIP » sur cette salle. Ici : nom, zones et formules.',
-                          'The plan (tables, positions, pinned packages) is edited by using the room on an event, then “Save as VIP room” onto this room. Here: name, zones and packages.',
-                          'El plano (mesas, posiciones, fórmulas vinculadas) se edita usando la sala en una noche y luego «Guardar como sala VIP» sobre esta sala. Aquí: nombre, zonas y fórmulas.',
+                          'Nom, zones et formules se règlent ici. Le plan (tables, positions, fond) se modifie avec « Modifier le plan et les tables ».',
+                          'Name, zones and packages are set here. The plan (tables, positions, background) is edited with “Edit plan and tables”.',
+                          'Nombre, zonas y fórmulas se ajustan aquí. El plano (mesas, posiciones, fondo) se edita con «Editar plano y mesas».',
                         )}
                       </p>
                       <div>

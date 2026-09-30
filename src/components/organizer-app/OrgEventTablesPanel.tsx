@@ -143,6 +143,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   const [saveRoomOpen, setSaveRoomOpen] = useState(false);
   const [saveRoomName, setSaveRoomName] = useState('');
   const [saveRoomTarget, setSaveRoomTarget] = useState<'new' | string>('new');
+  // Salle d'où vient cette soirée (rejouée ou enregistrée) : « Enregistrer » la met à jour.
+  const [linkedRoomId, setLinkedRoomId] = useState<string | null>(null);
   const [savingRoom, setSavingRoom] = useState(false);
 
   const soloOrganizer = !clubId;
@@ -183,13 +185,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     setLoading(true);
     try {
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
-        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name, tables_sold_out, sold_out_pack_ids').eq('id', eventId).maybeSingle(),
+        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name, tables_sold_out, sold_out_pack_ids, vip_room_id').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
         supabase.from('organizer_vip_rooms').select('id, name, location_name').order('updated_at', { ascending: false }),
       ]);
       setRooms((rms ?? []) as VipRoomOption[]);
+      setLinkedRoomId(ev?.vip_room_id ?? null);
       if (!saveRoomName) setSaveRoomName(ev?.location_name ?? '');
       setTablesEnabled(!!ev?.tables_enabled);
       setTablesSoldOut(!!ev?.tables_sold_out);
@@ -249,6 +252,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     if (!roomToApply) return;
     setApplyingRoom(true);
     const { error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomToApply, p_event_id: eventId });
+    if (!error) await supabase.from('events').update({ vip_room_id: roomToApply }).eq('id', eventId);
     setApplyingRoom(false);
     if (error) {
       toast.error(error.code === '23514'
@@ -262,13 +266,22 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   };
 
   // Photo de la soirée → salle VIP (nouvelle, ou mise à jour d'une existante).
+  // Ouvre « Enregistrer » sur la salle liée à la soirée (mise à jour), sinon en nouvelle salle.
+  const openSaveRoom = () => {
+    const linked = rooms.find((r) => r.id === linkedRoomId);
+    setSaveRoomTarget(linked ? linked.id : 'new');
+    if (linked) setSaveRoomName(linked.name);
+    setSaveRoomOpen(true);
+  };
+
   const saveRoom = async () => {
     setSavingRoom(true);
-    const { error } = await supabase.rpc('save_event_vip_room', {
+    const { data: savedRoomId, error } = await supabase.rpc('save_event_vip_room', {
       p_event_id: eventId,
       p_name: saveRoomName.trim() || null,
       p_room_id: saveRoomTarget === 'new' ? null : saveRoomTarget,
     });
+    if (!error && savedRoomId) await supabase.from('events').update({ vip_room_id: savedRoomId as string }).eq('id', eventId);
     setSavingRoom(false);
     if (error) {
       toast.error(error.code === '23514'
@@ -277,7 +290,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       return;
     }
     setSaveRoomOpen(false);
-    toast.success(tt('Salle VIP enregistrée dans votre historique.', 'VIP room saved to your history.', 'Sala VIP guardada en tu historial.'));
+    toast.success(saveRoomTarget === 'new'
+      ? tt('Salle VIP enregistrée dans votre historique.', 'VIP room saved to your history.', 'Sala VIP guardada en tu historial.')
+      : tt('Salle VIP mise à jour.', 'VIP room updated.', 'Sala VIP actualizada.'));
     loadAll();
   };
 
@@ -767,8 +782,10 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {soloOrganizer && (
-            <OrgButton variant="secondary" size="sm" onClick={() => { setSaveRoomTarget('new'); setSaveRoomOpen(true); }}>
-              <Save className="h-4 w-4" /> {tt('Enregistrer comme salle VIP', 'Save as VIP room', 'Guardar como sala VIP')}
+            <OrgButton variant="secondary" size="sm" onClick={openSaveRoom}>
+              <Save className="h-4 w-4" /> {rooms.some((r) => r.id === linkedRoomId)
+                ? `${tt('Mettre à jour', 'Update', 'Actualizar')} « ${rooms.find((r) => r.id === linkedRoomId)?.name} »`
+                : tt('Enregistrer comme salle VIP', 'Save as VIP room', 'Guardar como sala VIP')}
             </OrgButton>
           )}
           <OrgButton variant="ghost" size="sm" onClick={disableTables}>
@@ -1258,9 +1275,15 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             {rooms.length > 0 && (
               <div>
                 <FieldLabel>{tt('Enregistrer', 'Save', 'Guardar')}</FieldLabel>
-                <select className="w-full" value={saveRoomTarget} onChange={(e) => setSaveRoomTarget(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
+                <select className="w-full" value={saveRoomTarget} onChange={(e) => {
+                  const v = e.target.value;
+                  setSaveRoomTarget(v);
+                  // Mettre à jour une salle GARDE son nom (sinon elle prendrait celui du lieu de la soirée).
+                  const room = rooms.find((r) => r.id === v);
+                  setSaveRoomName(room ? room.name : (saveRoomName && rooms.some((r) => r.name === saveRoomName) ? '' : saveRoomName));
+                }} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
                   <option value="new" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Comme nouvelle salle', 'As a new room', 'Como nueva sala')}</option>
-                  {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Mettre à jour', 'Update', 'Actualizar')} « {r.name} »</option>)}
+                  {[...rooms].sort((a, b) => (a.id === linkedRoomId ? -1 : b.id === linkedRoomId ? 1 : 0)).map((r) => <option key={r.id} value={r.id} style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Mettre à jour', 'Update', 'Actualizar')} « {r.name} »</option>)}
                 </select>
               </div>
             )}
