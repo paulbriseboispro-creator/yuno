@@ -117,7 +117,14 @@ export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, s
         .from('guest_list_entries')
         .select('entry_scanned, entry_scanned_at, guest_lists!inner(venue_id, event_id)');
       if (eventFilter) gq = gq.eq('guest_lists.event_id', eventFilter);
-      else gq = orgEventIds ? gq.in('guest_lists.event_id', orgEventIds) : gq.eq('guest_lists.venue_id', venueId!);
+      else {
+        gq = orgEventIds ? gq.in('guest_lists.event_id', orgEventIds) : gq.eq('guest_lists.venue_id', venueId!);
+        // Même fenêtre que les billets et les tables : sans elle, la guest list
+        // comptait TOUTES les inscriptions de la portée, plafonnées à 1 000
+        // lignes par PostgREST — la carte disait « 1000 » quelle que soit la période.
+        if (startDate) gq = gq.gte('created_at', startDate.toISOString());
+      }
+      gq = gq.neq('status', 'cancelled').limit(5000);
       const { data: guestlist } = await gq;
 
       const tk = tickets || [];

@@ -14,7 +14,7 @@ import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
@@ -48,6 +48,8 @@ import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
 import { EmptyNote, ReportCard } from '@/components/event-report/ui';
 import { useEventParam } from '@/hooks/useEventParam';
 import { EventReportView } from '@/components/event-report/EventReportView';
+import { PeriodInsights } from '@/components/event-report/PeriodInsights';
+import { useGuestListSignups } from '@/hooks/useGuestListSignups';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 
@@ -434,12 +436,16 @@ export default function OrgAppAnalytics() {
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });
-  const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'tables' | 'refunds'>('overview');
+  const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'tables' | 'guestlist' | 'refunds'>('overview');
   // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
 
   // Web-traffic zones share the page's main period selector (no separate filter).
-  const webWindow = dateRangeToWindow(dateRange);
+  // Mémorisé : `to` est « maintenant », une nouvelle valeur à chaque rendu
+  // relançait toutes les lectures qui en dépendent, à chaque rendu.
+  const webWindow = useMemo(() => dateRangeToWindow(dateRange), [dateRange]);
+  // La carte « Guest list » lit le même total que son onglet.
+  const guestListSignups = useGuestListSignups({ organizerUserId: organizerId, eventId: mode === 'event' ? selectedEventId : null, from: webWindow.from, to: webWindow.to });
 
   const { eventIds, venueIds } = useOrganizerEventIds(organizerId);
   const {
@@ -728,6 +734,8 @@ export default function OrgAppAnalytics() {
     { id: 'overview' as const, label: t('owner.an.zoneOverview'), icon: Layers, value: fmt(totalRevenue) },
     { id: 'tickets' as const, label: t('owner.ticketsTab'), icon: Ticket, value: fmt(ticketAnalytics.totalRevenue) },
     { id: 'tables' as const, label: t('owner.tablesVIP'), icon: Sofa, value: fmt(tableAnalytics.totalRevenue) },
+    // La guest list a sa carte : ses chiffres encombraient la vue générale.
+    { id: 'guestlist' as const, label: t('owner.an.guestList'), icon: ClipboardList, value: guestListSignups === null ? '—' : String(guestListSignups) },
     { id: 'refunds' as const, label: t('owner.refundsTab'), icon: RotateCcw, value: (refundAnalytics && refundAnalytics.totalRefunded > 0) ? `−${fmt(refundAnalytics.totalRefunded)}` : '—' },
   ];
 
@@ -740,8 +748,12 @@ export default function OrgAppAnalytics() {
   const hasLoyalty = !!customerAnalytics && customerAnalytics.totalCustomers > 0;
   const navSections: AnchorSection[] = [
     { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
+    ...(mode === 'global' ? [
+      { id: 'an-trend', label: t('er.q.trend'), icon: TrendingUp },
+      { id: 'an-drivers', label: t('er.q.reach2'), icon: Megaphone },
+      { id: 'an-who', label: t('er.q.who'), icon: Users },
+    ] : []),
     ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
-    { id: 'an-guestlist', label: t('owner.an.guestList'), icon: ClipboardList },
   ];
 
   // ── Zones rangées hors de Ventes › Vue d'ensemble (lot E) ────────────────
@@ -983,7 +995,7 @@ export default function OrgAppAnalytics() {
 
         {/* ── Primary pillar navigation — tickets / VIP tables promoted ── */}
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {pillarTabs.map(pt => {
             const Icon = pt.icon;
             const active = primaryView === pt.id;
@@ -1172,16 +1184,10 @@ export default function OrgAppAnalytics() {
           );
         })()}
 
-        {/* ── Guest list : volume, no-show, peak time, valeur réelle ─────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }} className="space-y-3">
-          <ZoneHeading id="an-guestlist" icon={<ClipboardList className="w-4 h-4" />} label={t('owner.an.guestList')} />
-          <GuestListAnalyticsSection
-            organizerUserId={organizerId}
-            eventId={mode === 'event' ? selectedEventId : null}
-            from={webWindow.from}
-            to={webWindow.to}
-          />
-        </motion.div>
+        {/* ── Toutes les soirées : les trois lectures du rapport d'une soirée,
+            posées à la période (courbe J-N moyenne, ce qui a fait vendre, qui
+            achète). Une soirée choisie les a déjà en tête de page. ── */}
+        {mode === 'global' && <PeriodInsights scope={{ organizerUserId: organizerId }} from={webWindow.from} to={webWindow.to} />}
 
         {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
@@ -1234,6 +1240,18 @@ export default function OrgAppAnalytics() {
               tableAnalytics={tableAnalytics}
               hasVipTables
             />
+          </motion.div>
+        )}
+
+        {/* ═══ Guest list pillar : volume, no-show, heure de pointe, valeur réelle ═══ */}
+        {primaryView === 'guestlist' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GuestListAnalyticsSection
+            organizerUserId={organizerId}
+            eventId={mode === 'event' ? selectedEventId : null}
+            from={webWindow.from}
+            to={webWindow.to}
+          />
           </motion.div>
         )}
 

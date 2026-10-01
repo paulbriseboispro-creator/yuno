@@ -54,7 +54,10 @@ export function ReportTraffic({ report }: { report: EventReport }) {
 
 // ── 4. Qui achète ? ────────────────────────────────────────────────────────
 
-export function ReportAudience({ report, demographics }: { report: EventReport; demographics?: ReactNode }) {
+/** Ce que lit « Qui achète ? » : la soirée (EventReport) ou la période (get_sales_period_audience). */
+export type AudienceData = Pick<EventReport, 'audience'> & { nights?: number };
+
+export function ReportAudience({ report, demographics, sentence }: { report: AudienceData; demographics?: ReactNode; sentence?: string }) {
   const { t } = useLanguage();
   const { n } = useNumberFormat();
   const a = report.audience;
@@ -83,9 +86,9 @@ export function ReportAudience({ report, demographics }: { report: EventReport; 
               <div className="flex-1" style={{ background: 'rgb(var(--ink)/0.28)' }} />
             </div>
             <p className="mt-3" style={{ color: KIT.T2, fontSize: 12.5 }}>
-              {a.priorEvents === 0
+              {sentence ?? (a.priorEvents === 0
                 ? t('er.who.firstEvent')
-                : t('er.who.sentence').replace('{pct}', String(newShare ?? 0)).replace('{n}', n(a.priorEvents))}
+                : t('er.who.sentence').replace('{pct}', String(newShare ?? 0)).replace('{n}', n(a.priorEvents)))}
             </p>
           </>
         )}
@@ -97,7 +100,13 @@ export function ReportAudience({ report, demographics }: { report: EventReport; 
 
 // ── 5. Qu'est-ce qui a fait vendre ? ───────────────────────────────────────
 
-export function ReportDrivers({ report }: { report: EventReport }) {
+/** Ce que lit « Qu'est-ce qui a fait vendre ? » : la soirée, ou la période (get_sales_period_drivers). */
+export type DriversData = Pick<EventReport, 'channels' | 'links' | 'money'> & {
+  messages: (EventReport['messages'][number] & { eventTitle?: string | null })[];
+  event?: { title: string };
+};
+
+export function ReportDrivers({ report }: { report: DriversData }) {
   const { t, language } = useLanguage();
   const { n, eur } = useNumberFormat();
   const totalN = report.channels.reduce((s, c) => s + c.n, 0);
@@ -171,7 +180,7 @@ export function ReportDrivers({ report }: { report: EventReport }) {
                 {report.messages.map((m) => {
                   const Icon = m.kind === 'email' ? Mail : Bell;
                   const title = m.kind === 'push' && m.templateKey === 'new_event'
-                    ? t('er.msg.publication').replace('{title}', report.event.title)
+                    ? t('er.msg.publication').replace('{title}', m.eventTitle ?? report.event?.title ?? '')
                     : m.title ?? t(`er.msg.kind.${m.kind}`);
                   const results = m.orders + m.entries;
                   return (

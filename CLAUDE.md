@@ -5,12 +5,49 @@ Dernière revue : 2026-06-14.
 
 ## Ce qu'est Yuno
 
-SaaS nightlife multi-tenant. **Trois piliers — jamais réduire Yuno aux boissons :**
-**billets d'événements + réservation de tables VIP (bottle service) + commande de boissons**
-(skip the bar queue). Côté pro : dashboards pour clubs (owner), organisateurs/associations,
-promoteurs, affiliés, et staff opérationnel (barman, bouncer, vestiaire, hôte VIP).
+SaaS nightlife multi-tenant. **Deux piliers en ligne depuis le 2026-10-01 :**
+**billets d'événements (guest list comprise) + réservation de tables VIP (bottle service).**
+Le troisième pilier historique, la **commande de boissons** (skip the bar queue), est
+**EN PAUSE** : code et base conservés, rien de visible — voir « Pilier boissons en pause »
+ci-dessous avant de toucher à quoi que ce soit qui parle de bar, carte, commandes de
+boissons, upsells, crédits boissons, barman ou Click & Collect. Côté pro : dashboards pour
+clubs (owner), organisateurs/associations, promoteurs, affiliés, et staff opérationnel
+(bouncer, vestiaire, hôte VIP ; le barman dort avec le pilier).
 
 Fondateur solo : Paul. Site public multilingue **EN / FR / ES** (défaut : anglais).
+
+## Pilier boissons en pause — projet en développement, pas une fonctionnalité (2026-10-01)
+
+Décision stratégique de Paul : « ce n'est pas encore le moment, c'est confus pour les
+utilisateurs ». Tout le système boissons (`docs/SYSTEME_VENTE_BOISSONS.md`) reste dans le
+code et dans la base ; il n'est simplement plus montré. Inventaire exhaustif des surfaces
+gatées et marche à suivre pour relancer : `docs/DRINKS_PILLAR_PAUSED.md`. Règles :
+
+- **Porte unique : `DRINKS_PILLAR_LIVE`** (`src/lib/drinksPillar.ts`), lue depuis
+  `VITE_DRINKS_PILLAR_LIVE === '1'` — donc `false` dans tout build de production
+  (Cloudflare, Xcode Cloud, OTA). En local, poser la variable dans `.env.local` pour
+  travailler sur le projet. Miroirs à la main (pas de Vite) : une constante
+  `DRINKS_PILLAR_LIVE = false` en tête de `yuno-assistant`, `owner-assistant`,
+  `send-ticket-confirmation` et `worker/index.ts` ; `index.html` porte un commentaire.
+  Relancer = allumer les cinq ensemble.
+- **Ne JAMAIS supprimer** une page, un composant, une table, une RPC ou une fonction edge
+  du système boissons sous prétexte qu'elle est inatteignable. Ne jamais non plus
+  « nettoyer » les clés i18n `cart.*`, `drinkCat.*`, `clickCollect.*`, `vipMenu.*`,
+  `upsellPage.*`, `pushTpl.flashDrinks.*`, `ohelp.pg.menu.*`… : elles servent au relancement.
+- **Toute nouvelle surface** qui parlerait de bar, boissons, commandes du bar, upsells de
+  consos, barman ou Click & Collect se gate dès l'écriture avec la même constante.
+- **Ce qui RESTE en ligne, par décision** : la « boisson offerte » d'un billet ou d'une
+  part de guest list (`includes_drink`, `quota_drink`, `drink_cutoff_time`, mode
+  `free_drink_mode` du videur) — c'est un attribut de l'offre billetterie (mode Libre du
+  30/09), pas le système de commande. Les lignes `orders` historiques restent lisibles
+  dans la compta, les factures et les remboursements (aucune vente réelle au 01/10).
+- **Les routes boissons redirigent** (`drinksRoute` dans `App.tsx`) ; le détour
+  `/order/upsell` après un billet renvoie droit sur la confirmation du billet
+  (`UpsellDetourRedirect`), et `VerifyTicketPayment` ne le prend plus. Les onglets
+  Commandes ouvrent sur Billets (club comme orga), `?tab=drinks` retombe dessus.
+- Le discours public est à DEUX piliers : landing (`landing.*2` / `appF2b`), SEO des pages
+  villes / clubs / événements, `index.html`, worker crawler, Welcome, Explore faible
+  densité, assistants IA.
 
 ## Stack
 
@@ -1411,7 +1448,24 @@ funnel, guest list, fidélité…), restreintes à elle, avec en tête ce qui n'
 que pour une soirée (`EventReportView embedded` : phrase, jauges comparées, courbe
 J-N, ce qui a fait vendre, qui achète, verdict après coup). Le pro n'apprend qu'une
 lecture. Ne jamais remettre un onglet « Par soirée », un sélecteur en cartes ni une
-colonne. Supprimés et à ne pas ressusciter : les lentilles du
+colonne. **Les trois lectures du rapport existent aussi pour la période** (migration
+`20261001300000`) : `get_sales_period_curve` (courbe J-N MOYENNE par soirée des
+soirées commencées dans la fenêtre, contre la même durée juste avant),
+`get_sales_period_drivers` (canaux, liens suivis, emails et push, attribution
+clic → achat < 72 h), `get_sales_period_audience` (nouveaux visages = première
+soirée dans la portée pendant la période, habitués sinon). Mêmes formules que
+`get_event_report` via `_sales_period_tx` / `_sales_period_nights` (helpers sans
+GRANT), porte `analytics_scope_gate` (un club ne voit pas le CA d'une soirée
+seulement accueillie). Front : `usePeriodInsights` → `PeriodInsights` (`PeriodTrend`
++ `ReportDrivers` + `ReportAudience`, qui acceptent désormais des données de
+période), posé dans la Vue d'ensemble en mode « toutes les soirées » juste avant
+la bande « Ce que tu touches », avec les ancres `an-trend` / `an-drivers` /
+`an-who`. Les fenêtres sont celles de la page (`dateRangeToWindow`, en heures) :
+une soirée compte si elle a COMMENCÉ dans la fenêtre. **La guest list est un
+pilier de la barre** (carte « Guest list », valeur = inscrits de la période) et
+plus une zone de la vue générale (demande de Paul, 01/10 : « ça prend trop de
+place »). Smoke rejouable : les trois RPC sous `set_config('request.jwt.claims', …)`
+du compte démo dans une transaction annulée. Supprimés et à ne pas ressusciter : les lentilles du
 30/09 (`event-lens/*`, `useLens`, `eventTraffic` / `eventCommunity` / `lensSeries`,
 période dans l'URL) et la v3. Limite connue, héritée du 24/09 : la page attend le
 gros jeu de chiffres (`useAnalyticsData`) avant de se rendre, même sur Trafic ou
