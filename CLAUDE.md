@@ -1381,28 +1381,37 @@ les RPC `get_analytics_*`, `_an3_nights`, `_an3_people`, `_an3_comparables`,
 `night_date()` (migrations `20261001100000` → `150000`), l'attribution figée sur la
 vente (`20261001200000`) et les digests par email, qui sont des emails, pas un écran.
 
-## Analytics = la version « simplification Shotgun » du 25/09 + la colonne « Soirées » (2026-10-01)
+## Analytics = la version du 24/09 au soir (plan Shotgun, lots A-G) + la colonne « Soirées » (2026-10-01)
 
-Décision de Paul le 01/10, après deux refontes successives (lentilles par soirée du
-30/09 au soir, puis v3) qu'il a rejetées toutes les deux : l'écran Analytics est
-celui du 30/09 à midi (commit `579e2e4a`), c'est-à-dire la grammaire de la section
-suivante, et il n'en bouge plus sans décision explicite. Ventes garde ses TROIS vues
-(Vue d'ensemble · Par soirée · Partenaires), Trafic ses deux (Ma page · Par soirée),
-Communauté ses quatre ; `eventReportHref` pointe sur `view=event`. La seule greffe
-gardée du 30/09 : **la colonne « Soirées » à droite de Ventes** (`EventRail` +
-`AnalyticsSplit`, RPC `get_analytics_event_rail`, à venir puis passées, recherche,
-un chiffre par ligne). Elle est un NAVIGATEUR : une soirée ouvre son Rapport de
-soirée (Ventes › Par soirée, `onRailSelect` → `eventReportHref`), « Toutes les
-soirées » rouvre la Vue d'ensemble ; elle ne change aucun chiffre et ne vit que sur
-Ventes. Supprimés et à ne pas ressusciter : `event-lens/*` (`TrafficLens`,
-`CommunityLens`, `SubjectHeader`), `useLens`, `eventTraffic` / `eventCommunity` /
-`lensSeries`, la période dans l'URL (`?period=`, `useAnalyticsPeriod`,
-`PeriodSelector`), les vues `traffic.overview` / `community.event`. Restent en base
-sans lecteur front : `get_traffic_period`, `get_event_traffic`, `get_community_period`,
-`get_event_community` ; `event_funnel_events` et `capturePosthog` (mesure du tunnel)
-continuent d'écrire, c'est de la mesure, pas un écran. Vérification visuelle :
-`node scripts/demo/drive.mjs --as owner --go "http://localhost:8080/owner/analytics?tab=sales&view=overview" --shot …`
-(une URL absolue court-circuite `APP_ORIGIN`, qui vient de `.env.local` et pointe la prod).
+Décision de Paul le 01/10, capture à l'appui (il a choisi entre le 24/09 midi, le
+24/09 soir et le 30/09) : l'écran Analytics est celui du commit `1932dec1` (24/09
+20:32, fin du plan Shotgun — section « Grammaire de l'analyse » ci-dessus) : quatre
+familles Ventes · Trafic · Communauté · En direct ; **Ventes › Vue d'ensemble = le
+grand tableau rouge complet** (cartes piliers Vue d'ensemble / Billetterie / Boissons
+/ Tables VIP / Remboursements, ancres, revenu brut et horaire, bilan par soirée,
+funnel, d'où vient le CA, la soirée, guest list, fidélité, trafic web, « ce que tu
+touches »), Ventes › Par soirée = le Rapport de soirée, Trafic (Ma page · Par soirée
+· Sources), Communauté (Vue d'ensemble · Abonnés · Achats · Public · Goûts). La
+« simplification des chiffres » du 25/09 (section suivante : SalesOverviewView,
+phrase-réponse, quatre KPI, périodes en soirées) NE S'APPLIQUE PLUS à cette page :
+`SalesOverviewView`, `SalesPillarDetail`, `salesOverview.ts`, `useSalesOverview` ne
+servent plus qu'aux accueils (`RecentNightsKpis`). Composants restaurés du 24/09 :
+`DrinkAnalyticsSection`, `TicketAnalytics{Overview,Launch,Types,Phases}`,
+`AnalyticsLockedOverlay`. Les composants partagés gardent leurs corrections
+postérieures (chiffres justes du 25/09, CA club net du 29/09) : la page du 24/09 les
+consomme sans changement. Le Rapport de soirée reste celui d'aujourd'hui (phrase,
+objectif, « À retenir », repères). Seule greffe : **la colonne « Soirées » à droite de
+Ventes** (`EventRail` + `AnalyticsSplit`, RPC `get_analytics_event_rail`), un
+NAVIGATEUR : une soirée ouvre son rapport (`onRailSelect` → `eventReportHref`,
+`view=event`), « Toutes les soirées » rouvre la Vue d'ensemble ; elle ne change aucun
+chiffre et ne vit que sur Ventes. Supprimés et à ne pas ressusciter : les lentilles du
+30/09 (`event-lens/*`, `useLens`, `eventTraffic` / `eventCommunity` / `lensSeries`,
+période dans l'URL) et la v3. Limite connue, héritée du 24/09 : la page attend le
+gros jeu de chiffres (`useAnalyticsData`) avant de se rendre, même sur Trafic ou
+Communauté — le gating par vue (`enabled`) existe dans les hooks, pas dans cette
+page. Vérification visuelle : `node scripts/demo/drive.mjs --as owner --go
+"http://localhost:8080/owner/analytics?tab=sales&view=overview" --shot …` (URL
+absolue obligatoire : `APP_ORIGIN` vient de `.env.local` et pointe la prod).
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 
