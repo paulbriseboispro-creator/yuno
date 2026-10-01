@@ -1,5 +1,10 @@
 # Analytics v3 — audit, mapping et plan de reconstruction (2026-09-30)
 
+> **État au 2026-10-01 (matin)** : après avoir vu la phase 1 en vrai, Paul a tranché pour
+> l'ancien écran (quatre familles + colonne « Soirées » à droite) et demandé la
+> SUPPRESSION franche de la v3. Tout le front v3 est retiré ; seules les RPC SQL et les
+> digests par email restent. Ce document est un historique, pas un plan en cours.
+
 Brief : reconstruire l'onglet Analytics de la Console (club + organisateur)
 selon la spec « Analytics Yuno » (7 sous-onglets, comparatif sur chaque
 chiffre, pacing J-n, tunnel, RFM, mode Ce soir, digests). État constaté :
