@@ -15622,7 +15622,7 @@ const fr: Record<string, string> = {
   "anf.view.community.demographics": "Public",
   "anf.view.live.now": "Maintenant",
   "anf.q.sales.overview": "Combien ai-je vendu ?",
-  "anf.qs.sales.overview": "Le bilan de tes soirées terminées sur la période, piliers réunis, puis soirée par soirée. Choisis une soirée dans la colonne des soirées pour la lire seule.",
+  "anf.qs.sales.overview": "Le bilan de tes soirées sur la période, piliers réunis, puis soirée par soirée. Choisis une soirée dans le sélecteur en haut à droite pour relire la même analyse pour elle seule.",
   "anf.q.sales.event": "Comment se vend cette soirée ?",
   "anf.qs.sales.event": "Choisis une soirée pour ouvrir son rapport complet.",
   "anf.q.sales.partners": "Qui vend pour moi ?",

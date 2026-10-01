@@ -15648,7 +15648,7 @@ const en: Record<string, string> = {
   "anf.view.community.demographics": "Audience",
   "anf.view.live.now": "Now",
   "anf.q.sales.overview": "How much have I sold?",
-  "anf.qs.sales.overview": "The results of your finished nights over the period, pillars together, then night by night. Pick a night in the nights column to read it alone.",
+  "anf.qs.sales.overview": "Your nights over the period, all pillars together, then night by night. Pick a night in the selector at the top right to read the same analysis for that night alone.",
   "anf.q.sales.event": "How is this night selling?",
   "anf.qs.sales.event": "Pick a night to open its full report.",
   "anf.q.sales.partners": "Who sells for me?",

@@ -32,8 +32,10 @@ import { ReportTakeaways } from './ReportTakeaways';
 
 interface Props {
   eventId: string;
-  onEventChange: (eventId: string) => void;
-  onBack: () => void;
+  /** Intégré à la Vue d'ensemble de Ventes (sélecteur de soirée en haut de page) : pas de barre « retour / choisir ». */
+  embedded?: boolean;
+  onEventChange?: (eventId: string) => void;
+  onBack?: () => void;
   scope: { venueId?: string | null; organizerUserId?: string | null };
   /** Le verdict d'après-soirée (`EventPostAnalysisView`), rendu en tête une fois la soirée passée. */
   verdict?: ReactNode;
@@ -96,7 +98,7 @@ function asSales(r: EventReport): EventSales {
   };
 }
 
-export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast, projection }: Props) {
+export function EventReportView({ eventId, embedded = false, onEventChange, onBack, scope, verdict, demographics, forecast, projection }: Props) {
   const { t, language } = useLanguage();
   const { data: report, loading, error, fetchedAt } = useEventReport(eventId);
   const events = useScopeEvents(scope);
@@ -121,6 +123,7 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
   return (
     <div className="space-y-4">
       {/* ── En-tête : la soirée, son moment, et le sélecteur toujours au même endroit ── */}
+      {!embedded && (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: KIT.T3 }}>
           <ArrowLeft className="h-4 w-4" aria-hidden /> {t('owner.an.backToEvents')}
@@ -130,7 +133,7 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
           <select
             id="er-event"
             value={eventId}
-            onChange={(e) => e.target.value && onEventChange(e.target.value)}
+            onChange={(e) => e.target.value && onEventChange?.(e.target.value)}
             className="max-w-[260px] cursor-pointer truncate rounded-lg px-2.5 py-1.5 text-[12.5px]"
             style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1, outline: 'none' }}
           >
@@ -141,6 +144,7 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
           </select>
         </label>
       </div>
+      )}
 
       {error ? (
         <ReportCard><EmptyNote text={t(`er.error.${error}`)} /></ReportCard>

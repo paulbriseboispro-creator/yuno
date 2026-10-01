@@ -15,14 +15,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from '@/components/analytics/scopeFilter';
-import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicker';
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 import { VipTablesPillar } from '@/components/analytics/VipTablesPillar';
 import { EventsPnlLedger } from '@/components/analytics/EventsPnlLedger';
@@ -39,9 +38,8 @@ import { AudienceInsights } from '@/components/analytics/AudienceInsights';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
-import { analyticsHref, eventReportHref } from '@/lib/analyticsNav';
-import { AnalyticsSplit } from '@/components/analytics/AnalyticsSplit';
-import { EventRail } from '@/components/analytics/EventRail';
+import { eventReportHref } from '@/lib/analyticsNav';
+import { EventScopePicker } from '@/components/analytics/EventScopePicker';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
@@ -409,19 +407,14 @@ export default function OrgAppAnalytics() {
   // chacune rangée en vues ; tout vit dans l'URL (`?tab=&view=&event=`), les
   // anciens onglets (`global`, `event`, `purchase`) y sont traduits.
   const { family, view, go } = useAnalyticsRoute();
-  const mode: AnalyticsMode = family === 'sales' && view === 'event' ? 'event' : 'global';
+  // Une soirée choisie (`?event=`) dans la Vue d'ensemble de Ventes = la même
+  // analyse, restreinte à cette soirée. Il n'y a plus de vue « Par soirée ».
+  const isSalesOverview = family === 'sales' && view === 'overview';
   const isLive = family === 'live';
   const isPurchase = family === 'community' && view === 'purchase';
   const analyticsBase = useLocation().pathname.replace(/\/$/, '');
   const consolePrefix = analyticsBase.replace(/\/analytics$/, '');
   const eventHref = (id: string) => eventReportHref(analyticsBase, id);
-  const navigate = useNavigate();
-  // La colonne « Soirées » (à droite de Ventes) : une soirée ouvre son rapport
-  // (Par soirée), « Toutes les soirées » rouvre la Vue d'ensemble.
-  const onRailSelect = (id: string | null) => {
-    navigate(id ? eventReportHref(analyticsBase, id) : analyticsHref(analyticsBase, 'sales', 'overview'));
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
   // Adresse publique de l'organisation (Trafic › Ma page → « Voir ma page »).
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
   useEffect(() => {
@@ -433,12 +426,16 @@ export default function OrgAppAnalytics() {
   // ouvre directement son analyse (tuile « Analyse » de la page soirée, liste
   // des soirées, tableau de bord).
   const [selectedEventId, setSelectedEventId] = useEventParam();
+  const mode: AnalyticsMode = isSalesOverview && selectedEventId ? 'event' : 'global';
+  const chooseEvent = (id: string | null) => {
+    setSelectedEventId(id);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });
   const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'tables' | 'refunds'>('overview');
   // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
-  const [showAdvancedZones, setShowAdvancedZones] = useState(false);
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
 
   // Web-traffic zones share the page's main period selector (no separate filter).
@@ -736,7 +733,6 @@ export default function OrgAppAnalytics() {
 
   // Event mode with no night chosen yet → show the calendar-style card picker
   // instead of the full zone stack.
-  const showEventPicker = mode === 'event' && !selectedEventId;
 
   // Global-mode spine: only the zones that actually render get an anchor pill.
   const hasNight = !!nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0);
@@ -875,9 +871,9 @@ export default function OrgAppAnalytics() {
 
   </div>);
   // Contrôles (période, export) : seulement là où ils changent quelque chose.
-  const showControls = !isLive && mode !== 'event'
+  const showControls = isSalesOverview || (!isLive && mode !== 'event'
     && !(family === 'traffic' && view !== 'sources')
-    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes'));
+    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes')));
   const showExport = family === 'sales' && view === 'overview';
 
   return (
@@ -905,7 +901,7 @@ export default function OrgAppAnalytics() {
 
         {/* ── Controls row ──────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive || mode === 'event'} />
+          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive} />
           {showControls && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
@@ -919,11 +915,14 @@ export default function OrgAppAnalytics() {
                 ))}
               </div>
             )}
+            <div className="ml-auto flex items-center gap-2">
+            {isSalesOverview && <EventScopePicker scope={{ organizerUserId: organizerId }} eventId={selectedEventId} onSelect={chooseEvent} />}
             {showExport && <button onClick={handleExportData} disabled={exporting}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40"
               style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}>
               <Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">CSV</span>
             </button>}
+            </div>
           </div>
           )}
         </motion.div>
@@ -963,52 +962,23 @@ export default function OrgAppAnalytics() {
         ) : isLive ? (
           <LiveView organizerUserId={organizerId} />
         ) : (
-        // Ventes : le contenu (Vue d'ensemble, ou le rapport d'une soirée) à gauche,
-        // la colonne « Soirées » à droite — une bande au-dessus sur téléphone.
-        <AnalyticsSplit rail={<EventRail scope={{ organizerUserId: organizerId }} family="sales" eventId={mode === 'event' ? selectedEventId : null} onSelect={onRailSelect} />}>
-        {showEventPicker ? (
-          <EventAnalyticsPicker
-            organizerUserId={organizerId}
-            onSelect={(id) => {
-              setSelectedEventId(id);
-              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        ) : (
         <>
 
-        {/* Rapport de soirée : les cinq questions (ventes, courbe comparée,
-            trafic, public, ce qui a fait vendre), verdict en tête une fois la
-            soirée passée. */}
+        {/* Une soirée choisie : la lecture propre à la soirée (phrase, jauges
+            comparées, courbe J-N, ce qui a fait vendre, qui achète) en tête,
+            puis LES MÊMES zones que pour toutes les soirées, restreintes à elle. */}
         {mode === 'event' && selectedEventId && (
           <EventReportView
             key={selectedEventId}
             eventId={selectedEventId}
-            onEventChange={(id) => setSelectedEventId(id)}
-            onBack={() => onRailSelect(null)}
+            embedded
             scope={{ organizerUserId: organizerId }}
             verdict={<EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={null} organizerUserId={organizerId} />}
             demographics={organizerId ? <EventAudienceDemographics scope={{ kind: 'organizer', id: organizerId }} eventId={selectedEventId} /> : undefined}
           />
         )}
 
-        {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}
-        {mode === 'event' && selectedEventId && (
-          <button
-            type="button"
-            onClick={() => setShowAdvancedZones((v) => !v)}
-            className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
-            style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
-          >
-            <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
-              <Layers className="w-4 h-4" style={{ color: T3 }} />
-              {t('owner.an.advancedDetail')}
-            </span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedZones ? 'rotate-180' : ''}`} style={{ color: T3 }} />
-          </button>
-        )}
-
-        {(mode === 'global' || showAdvancedZones) && (
+        {/* Les mêmes zones pour toutes les soirées et pour une soirée : une seule grammaire. */}
         <>
 
         {/* ── Primary pillar navigation — tickets / VIP tables promoted ── */}
@@ -1040,7 +1010,7 @@ export default function OrgAppAnalytics() {
         <>
 
         {/* Anchor-nav spine — global mode only (event mode has its own in the verdict view) */}
-        {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
+        <AnalyticsAnchorNav sections={navSections} />
 
         {/* ── Zone 1 · Overview ─────────────────────────────────────────── */}
         <ZoneHeading id="an-overview" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
@@ -1280,11 +1250,8 @@ export default function OrgAppAnalytics() {
         )}
 
         </>
-        )}
 
         </>
-        )}
-        </AnalyticsSplit>
         )}
 
       </div>

@@ -15990,7 +15990,7 @@ const es: Record<string, string> = {
   "anf.view.community.demographics": "Público",
   "anf.view.live.now": "Ahora",
   "anf.q.sales.overview": "¿Cuánto he vendido?",
-  "anf.qs.sales.overview": "El balance de tus eventos terminados en el período, pilares juntos y luego evento por evento. Elige uno en la columna de eventos para leerlo solo.",
+  "anf.qs.sales.overview": "El balance de tus eventos en el período, todos los pilares juntos, y luego evento por evento. Elige un evento en el selector de arriba a la derecha para releer el mismo análisis solo para él.",
   "anf.q.sales.event": "¿Cómo se vende esta fiesta?",
   "anf.qs.sales.event": "Elige una fiesta para abrir su informe completo.",
   "anf.q.sales.partners": "¿Quién vende por mí?",

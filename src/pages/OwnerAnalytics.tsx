@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Download, Ticket, Wine, Users, RotateCcw,
   Lock as LockIcon, Percent, Eye, ShoppingCart, CreditCard,
@@ -24,7 +24,6 @@ import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
 import { AnalyticsEssentialView } from '@/components/analytics/AnalyticsEssentialView';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
-import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicker';
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 import { DrinkAnalyticsSection } from '@/components/analytics/DrinkAnalyticsSection';
 import { DrinkOpsInsights } from '@/components/analytics/DrinkOpsInsights';
@@ -42,9 +41,8 @@ import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
-import { analyticsHref, eventReportHref } from '@/lib/analyticsNav';
-import { AnalyticsSplit } from '@/components/analytics/AnalyticsSplit';
-import { EventRail } from '@/components/analytics/EventRail';
+import { eventReportHref } from '@/lib/analyticsNav';
+import { EventScopePicker } from '@/components/analytics/EventScopePicker';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
@@ -413,29 +411,28 @@ export default function OwnerAnalytics() {
   // chacune rangée en vues ; tout vit dans l'URL (`?tab=&view=&event=`), les
   // anciens onglets (`global`, `event`, `purchase`) y sont traduits.
   const { family, view, go } = useAnalyticsRoute();
-  const mode: AnalyticsMode = family === 'sales' && view === 'event' ? 'event' : 'global';
+  // Une soirée choisie (`?event=`) dans la Vue d'ensemble de Ventes = la même
+  // analyse, restreinte à cette soirée. Il n'y a plus de vue « Par soirée ».
+  const isSalesOverview = family === 'sales' && view === 'overview';
   const isLive = family === 'live';
   const isPurchase = family === 'community' && view === 'purchase';
   const analyticsBase = useLocation().pathname.replace(/\/$/, '');
   const consolePrefix = analyticsBase.replace(/\/analytics$/, '');
   const eventHref = (id: string) => eventReportHref(analyticsBase, id);
-  const navigate = useNavigate();
-  // La colonne « Soirées » (à droite de Ventes) : une soirée ouvre son rapport
-  // (Par soirée), « Toutes les soirées » rouvre la Vue d'ensemble.
-  const onRailSelect = (id: string | null) => {
-    navigate(id ? eventReportHref(analyticsBase, id) : analyticsHref(analyticsBase, 'sales', 'overview'));
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
   // La soirée choisie vit dans l'URL (`?event=`) : un lien depuis la liste des
   // soirées ou le tableau de bord ouvre directement son analyse.
   const [selectedEventId, setSelectedEventId] = useEventParam();
+  const mode: AnalyticsMode = isSalesOverview && selectedEventId ? 'event' : 'global';
+  const chooseEvent = (id: string | null) => {
+    setSelectedEventId(id);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [recentActivity, setRecentActivity] = useState(0);
   const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'drinks' | 'tables' | 'refunds'>('overview');
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
   // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
-  const [showAdvancedZones, setShowAdvancedZones] = useState(false);
 
   // Web-traffic zones (acquisition / engagement) share the page's main period
   // selector — one period control for the whole page, no separate hub filter.
@@ -673,7 +670,6 @@ export default function OwnerAnalytics() {
 
   // Event mode with no night chosen yet → show the calendar-style card picker
   // instead of the full zone stack.
-  const showEventPicker = mode === 'event' && !selectedEventId;
 
   // Global-mode spine: only the zones that actually render get an anchor pill.
   const hasNight = !!nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0);
@@ -837,9 +833,9 @@ export default function OwnerAnalytics() {
 
   </div>);
   // Contrôles (période, export) : seulement là où ils changent quelque chose.
-  const showControls = !isLive && mode !== 'event'
+  const showControls = isSalesOverview || (!isLive && mode !== 'event'
     && !(family === 'traffic' && view !== 'sources')
-    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes'));
+    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes')));
   const showExport = family === 'sales' && view === 'overview';
 
   return (
@@ -868,7 +864,7 @@ export default function OwnerAnalytics() {
 
         {/* ── Controls row ──────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive || mode === 'event'} />
+          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive} />
           {showControls && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
@@ -887,6 +883,8 @@ export default function OwnerAnalytics() {
                 ))}
               </div>
             )}
+            <div className="ml-auto flex items-center gap-2">
+            {isSalesOverview && <EventScopePicker scope={{ venueId }} eventId={selectedEventId} onSelect={chooseEvent} />}
             {showExport && <button
               onClick={handleExportData}
               disabled={exporting || !hasExport}
@@ -896,6 +894,7 @@ export default function OwnerAnalytics() {
                 ? <><Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">Export</span></>
                 : <><LockIcon className="w-4 h-4" /><span className="text-xs">Pro</span></>}
             </button>}
+            </div>
           </div>
           )}
         </motion.div>
@@ -935,29 +934,16 @@ export default function OwnerAnalytics() {
         ) : isLive ? (
           <LiveView venueId={venueId} />
         ) : (
-        // Ventes : le contenu (Vue d'ensemble, ou le rapport d'une soirée) à gauche,
-        // la colonne « Soirées » à droite — une bande au-dessus sur téléphone.
-        <AnalyticsSplit rail={<EventRail scope={{ venueId }} family="sales" eventId={mode === 'event' ? selectedEventId : null} onSelect={onRailSelect} />}>
-        {showEventPicker ? (
-          <EventAnalyticsPicker
-            venueId={venueId}
-            onSelect={(id) => {
-              setSelectedEventId(id);
-              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        ) : (
         <>
 
-        {/* Rapport de soirée : les cinq questions (ventes, courbe comparée,
-            trafic, public, ce qui a fait vendre), verdict en tête une fois la
-            soirée passée. */}
+        {/* Une soirée choisie : la lecture propre à la soirée (phrase, jauges
+            comparées, courbe J-N, ce qui a fait vendre, qui achète) en tête,
+            puis LES MÊMES zones que pour toutes les soirées, restreintes à elle. */}
         {mode === 'event' && selectedEventId && (
           <EventReportView
             key={selectedEventId}
             eventId={selectedEventId}
-            onEventChange={(id) => setSelectedEventId(id)}
-            onBack={() => onRailSelect(null)}
+            embedded
             scope={{ venueId }}
             verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} /> : undefined}
             demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} /> : undefined}
@@ -965,23 +951,7 @@ export default function OwnerAnalytics() {
           />
         )}
 
-        {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}
-        {mode === 'event' && selectedEventId && (
-          <button
-            type="button"
-            onClick={() => setShowAdvancedZones((v) => !v)}
-            className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
-            style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
-          >
-            <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
-              <Layers className="w-4 h-4" style={{ color: T3 }} />
-              {t('owner.an.advancedDetail')}
-            </span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedZones ? 'rotate-180' : ''}`} style={{ color: T3 }} />
-          </button>
-        )}
-
-        {(mode === 'global' || showAdvancedZones) && (
+        {/* Les mêmes zones pour toutes les soirées et pour une soirée : une seule grammaire. */}
         <>
 
         {/* ── Primary pillar navigation — tickets / drinks / VIP tables promoted ── */}
@@ -1013,7 +983,7 @@ export default function OwnerAnalytics() {
         <>
 
         {/* Anchor-nav spine — global mode only (event mode has its own in the verdict view) */}
-        {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
+        <AnalyticsAnchorNav sections={navSections} />
 
         {/* ── Zone 1 · Overview ─────────────────────────────────────────── */}
         <ZoneHeading id="an-overview" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
@@ -1328,11 +1298,8 @@ export default function OwnerAnalytics() {
         )}
 
         </>
-        )}
 
         </>
-        )}
-        </AnalyticsSplit>
         )}
 
       </div>

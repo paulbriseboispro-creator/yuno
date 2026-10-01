@@ -8,7 +8,7 @@ describe('resolveAnalyticsRoute', () => {
   });
   it('traduit les anciens onglets', () => {
     expect(resolveAnalyticsRoute('global', null)).toEqual({ family: 'sales', view: 'overview' });
-    expect(resolveAnalyticsRoute('event', null, true)).toEqual({ family: 'sales', view: 'event' });
+    expect(resolveAnalyticsRoute('event', null)).toEqual({ family: 'sales', view: 'overview' });
     expect(resolveAnalyticsRoute('purchase', null)).toEqual({ family: 'community', view: 'purchase' });
   });
   it('garde une vue valide, remplace une vue inconnue par la première de la famille', () => {
@@ -21,10 +21,10 @@ describe('resolveAnalyticsRoute', () => {
     expect(resolveAnalyticsRoute('community', 'tastes')).toEqual({ family: 'community', view: 'demographics' });
     expect(needsCanonicalUrl('traffic', 'sources', resolveAnalyticsRoute('traffic', 'sources'))).toBe(true);
   });
-  it('une soirée sans vue ouvre son rapport', () => {
-    expect(resolveAnalyticsRoute('sales', null, true)).toEqual({ family: 'sales', view: 'event' });
-    expect(resolveAnalyticsRoute(null, null, true)).toEqual({ family: 'sales', view: 'event' });
-    expect(resolveAnalyticsRoute('sales', 'partners', true)).toEqual({ family: 'sales', view: 'partners' });
+  it("l'ancienne vue « Par soirée » ouvre la Vue d'ensemble", () => {
+    expect(resolveAnalyticsRoute('sales', 'event')).toEqual({ family: 'sales', view: 'overview' });
+    expect(needsCanonicalUrl('sales', 'event', resolveAnalyticsRoute('sales', 'event'))).toBe(true);
+    expect(resolveAnalyticsRoute('sales', 'partners')).toEqual({ family: 'sales', view: 'partners' });
   });
 });
 
@@ -37,6 +37,6 @@ describe('adresses', () => {
   it('construit les liens', () => {
     expect(analyticsHref('/owner/analytics', 'traffic')).toBe('/owner/analytics?tab=traffic&view=page');
     expect(analyticsHref('/owner/analytics', 'live')).toBe('/owner/analytics?tab=live');
-    expect(eventReportHref('/organizer-app/analytics', 'e1')).toBe('/organizer-app/analytics?tab=sales&view=event&event=e1');
+    expect(eventReportHref('/organizer-app/analytics', 'e1')).toBe('/organizer-app/analytics?tab=sales&view=overview&event=e1');
   });
 });

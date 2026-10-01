@@ -1400,11 +1400,18 @@ servent plus qu'aux accueils (`RecentNightsKpis`). Composants restaurés du 24/0
 `AnalyticsLockedOverlay`. Les composants partagés gardent leurs corrections
 postérieures (chiffres justes du 25/09, CA club net du 29/09) : la page du 24/09 les
 consomme sans changement. Le Rapport de soirée reste celui d'aujourd'hui (phrase,
-objectif, « À retenir », repères). Seule greffe : **la colonne « Soirées » à droite de
-Ventes** (`EventRail` + `AnalyticsSplit`, RPC `get_analytics_event_rail`), un
-NAVIGATEUR : une soirée ouvre son rapport (`onRailSelect` → `eventReportHref`,
-`view=event`), « Toutes les soirées » rouvre la Vue d'ensemble ; elle ne change aucun
-chiffre et ne vit que sur Ventes. Supprimés et à ne pas ressusciter : les lentilles du
+objectif, « À retenir », repères). **Une seule grammaire, deux périmètres (01/10, demande de Paul)** : plus de
+vue « Par soirée » ni de colonne. En haut à droite de Ventes › Vue d'ensemble, le
+sélecteur rond `EventScopePicker` (pastille + liste défilante de toutes les soirées,
+à venir puis passées, recherche, RPC `get_analytics_event_rail` via `useEventRail`)
+dit ce qu'on regarde : « Toutes les soirées » (la période) ou UNE soirée (`?event=`,
+`eventReportHref` → `view=overview&event=`, l'ancienne `view=event` est traduite).
+Une soirée choisie = `mode: 'event'` sur LES MÊMES zones (piliers, ancres, revenu,
+funnel, guest list, fidélité…), restreintes à elle, avec en tête ce qui n'a de sens
+que pour une soirée (`EventReportView embedded` : phrase, jauges comparées, courbe
+J-N, ce qui a fait vendre, qui achète, verdict après coup). Le pro n'apprend qu'une
+lecture. Ne jamais remettre un onglet « Par soirée », un sélecteur en cartes ni une
+colonne. Supprimés et à ne pas ressusciter : les lentilles du
 30/09 (`event-lens/*`, `useLens`, `eventTraffic` / `eventCommunity` / `lensSeries`,
 période dans l'URL) et la v3. Limite connue, héritée du 24/09 : la page attend le
 gros jeu de chiffres (`useAnalyticsData`) avant de se rendre, même sur Trafic ou
