@@ -77,6 +77,11 @@ export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChan
           {applied.discountType === 'percentage' ? ` (-${applied.discountValue}%)` : discount > 0 ? ` (-${discount.toFixed(2)}€)` : ''}
           {outranked && <span className="mt-1 block normal-case text-[#9A9A9A]" style={{ letterSpacing: 0 }}>{t('promo.outranked')}</span>}
         </span>
+        {discount > 0 && !outranked && (
+          <span className="shrink-0 font-mono font-bold tabular-nums text-emerald-400" style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>
+            -{discount.toFixed(2)} €
+          </span>
+        )}
         <button
           type="button"
           onClick={() => onChange(null)}

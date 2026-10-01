@@ -46,6 +46,7 @@ import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -577,6 +578,16 @@ export default function TicketCheckout() {
   const serviceFee = customerTransactionFee(discountedSubtotal, 'tickets', feeAbsorbed, event?.isBde ?? false);
   const upsellTotal = selectedUpsells.reduce((sum, u) => sum + u.price, 0);
   const total = discountedSubtotal + serviceFee + upsellTotal;
+  // Ce que le client aurait payé sans la remise (frais recalculés sur le plein
+  // tarif) : c'est l'« ancien prix » barré à côté du total et dans la carte.
+  const undiscountedTotal = subtotal + customerTransactionFee(subtotal, 'tickets', feeAbsorbed, event?.isBde ?? false) + upsellTotal;
+  const unitPriceAfterDiscount = quantity > 0 ? discountedSubtotal / quantity : 0;
+  const discountBadge = best.source === 'promo' && appliedPromo
+    ? (appliedPromo.discountType === 'percentage' ? `-${appliedPromo.discountValue}%` : `-${(discount / Math.max(quantity, 1)).toFixed(2)} €`)
+    : best.source === 'promoter' && promoterDiscount
+      ? (promoterDiscount.discountType === 'percentage' ? `-${promoterDiscount.discountValue}%` : `-${(discount / Math.max(quantity, 1)).toFixed(2)} €`)
+      : null;
+  const appliedCodeLabel = best.source === 'promo' ? appliedPromo?.code ?? null : best.source === 'promoter' ? promoterDiscount?.promoCode ?? null : null;
   // Un round marqué épuisé manuellement n'a aucune dispo, même si la capacité n'est pas atteinte.
   const remainingTickets = round && !event?.ticketsSoldOut ? (round.manuallySoldOut ? 0 : round.maxTickets - round.ticketsSold) : 0;
   // Per-person allowance: limit minus what this buyer already holds. No limit → 10.
@@ -917,7 +928,7 @@ export default function TicketCheckout() {
         // bundle → replay du splash dans l'app native, état perdu).
         // Billets gratuits/démo connectés : même détour upsell boissons que le
         // paiement Stripe (la page redirige vers la confirmation si inéligible).
-        const confirmMatch = user ? String(data.redirectUrl).match(/^\/order-confirmation\?type=ticket&id=([0-9a-f-]{36})$/i) : null;
+        const confirmMatch = user && DRINKS_PILLAR_LIVE ? String(data.redirectUrl).match(/^\/order-confirmation\?type=ticket&id=([0-9a-f-]{36})$/i) : null;
         navigate(confirmMatch ? `/order/upsell?ticket=${confirmMatch[1]}` : data.redirectUrl);
         return;
       }
@@ -1015,7 +1026,21 @@ export default function TicketCheckout() {
                 </p>
               )}
             </div>
-            <p className="font-display font-bold tabular-nums shrink-0 text-white" style={{ fontSize: '22px', letterSpacing: '-0.02em' }}>{round.price.toFixed(2)} €</p>
+            {discount > 0 ? (
+              <div className="shrink-0 flex flex-col items-end">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono tabular-nums line-through" style={{ fontSize: '12px', color: '#5A5A5E', letterSpacing: '0.02em' }}>{round.price.toFixed(2)} €</span>
+                  {discountBadge && (
+                    <span className="font-mono font-bold uppercase text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5" style={{ fontSize: '9px', letterSpacing: '0.06em', backgroundColor: 'rgba(16,185,129,0.10)', borderRadius: 2 }}>
+                      {discountBadge}
+                    </span>
+                  )}
+                </div>
+                <p className="font-display font-bold tabular-nums text-white" style={{ fontSize: '22px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{unitPriceAfterDiscount.toFixed(2)} €</p>
+              </div>
+            ) : (
+              <p className="font-display font-bold tabular-nums shrink-0 text-white" style={{ fontSize: '22px', letterSpacing: '-0.02em' }}>{round.price.toFixed(2)} €</p>
+            )}
           </div>
         </motion.div>
 
@@ -1064,8 +1089,8 @@ export default function TicketCheckout() {
           )}
         </motion.div>
 
-        {/* Upsells */}
-        {venue && (
+        {/* Upsells boissons — dorment avec le pilier (src/lib/drinksPillar.ts) */}
+        {DRINKS_PILLAR_LIVE && venue && (
           <TicketUpsellSelector
             venueId={venue.id}
             selectedUpsells={selectedUpsells}
@@ -1314,7 +1339,10 @@ export default function TicketCheckout() {
                     </div>
                     {discount > 0 && (
                       <div className="flex items-center justify-between gap-3 text-emerald-400">
-                        <span>{t('tickets.discount')}</span>
+                        <span className="flex items-center gap-1.5">
+                          <Tag className="h-3 w-3" aria-hidden />
+                          {t('tickets.discount')}{appliedCodeLabel ? <span className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em' }}> · {appliedCodeLabel}</span> : null}
+                        </span>
                         <span className="font-mono font-medium tabular-nums">-{discount.toFixed(2)} €</span>
                       </div>
                     )}
@@ -1375,10 +1403,19 @@ export default function TicketCheckout() {
                   </span>
                   <ChevronUp className={`h-3 w-3 text-[#5A5A5E] transition-transform ${showDetails ? 'rotate-180' : ''}`} />
                 </div>
-                <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1 }}>
-                  {total.toFixed(2)} €
+                <span className="flex items-baseline gap-2">
+                  <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1 }}>
+                    {total.toFixed(2)} €
+                  </span>
+                  {discount > 0 && (
+                    <span className="font-mono tabular-nums line-through" style={{ fontSize: '12px', color: '#5A5A5E' }}>
+                      {undiscountedTotal.toFixed(2)} €
+                    </span>
+                  )}
                 </span>
-                <span style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>{t('tickets.feesIncluded')}</span>
+                <span style={{ fontSize: '10px', color: discount > 0 ? '#34D399' : '#5A5A5E', marginTop: '1px' }}>
+                  {discount > 0 ? `-${discount.toFixed(2)} € · ${t('tickets.feesIncluded')}` : t('tickets.feesIncluded')}
+                </span>
               </button>
               {minorGateBlocked && minorDocPending ? (
                 /* Minor-needs-doc flow only: visibly incomplete, non-functional CTA

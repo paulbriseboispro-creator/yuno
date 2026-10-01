@@ -516,14 +516,14 @@ export default function TableCheckout() {
   }, [pack, packGuestLimit, guestCountParam]);
 
   const calculatePricing = () => {
-    if (!pack) return { totalPrice: 0, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: 0, discount: 0, promoterAmount: 0, promoAmount: 0, discountSource: null as 'promoter' | 'promo' | null };
+    if (!pack) return { totalPrice: 0, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: 0, discount: 0, promoterAmount: 0, promoAmount: 0, discountSource: null as 'promoter' | 'promo' | null, fullPrice: 0, fullDeposit: 0, fullToPay: 0 };
     const effectiveGuestCount = Math.min(Math.max(guestCount, 1), packGuestLimit);
     const baseGuests = pack.baseCapacity;
     const extraGuests = Math.max(0, Math.min(effectiveGuestCount - baseGuests, pack.maxExtraPersons));
     const fullPrice = pack.basePrice + (extraGuests * pack.extraPersonPrice);
     // Règlement sur place : rien à payer en ligne, rien à remiser, le prix reste informatif.
     if (pack.paymentMode === 'on_site') {
-      return { totalPrice: fullPrice, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: fullPrice, discount: 0, promoterAmount: 0, promoAmount: 0, discountSource: null as 'promoter' | 'promo' | null };
+      return { totalPrice: fullPrice, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: fullPrice, discount: 0, promoterAmount: 0, promoAmount: 0, discountSource: null as 'promoter' | 'promo' | null, fullPrice, fullDeposit: 0, fullToPay: 0 };
     }
     // Miroir de create-table-checkout : l'acompte se calcule sur le prix plein
     // (pas d'acompte = tout payer en ligne), et la remise — promoteur OU code
@@ -547,17 +547,22 @@ export default function TableCheckout() {
     const discount = best.amount;
     const deposit = fullDeposit - discount;
     const totalPrice = fullPrice - discount;
-    const feeBase = deposit > 0 ? deposit * MANAGEMENT_FEE_RATE : (fullPrice / 2) * MANAGEMENT_FEE_RATE;
     // Absorb mode: the club covers the Yuno commission, so the fan pays only the Stripe
     // transaction cost on the deposit charged now. Mirrors create-table-checkout's
     // `transactionFee`; the default path is left byte-identical.
     const feeAbsorbed = venue ? venue.absorb_yuno_fees === true : organizer?.absorb_yuno_fees === true;
-    const managementFee = feeAbsorbed
-      ? estimateStripeFee(deposit)
-      : Math.round(Math.min(MANAGEMENT_FEE_MAX, Math.max(MANAGEMENT_FEE_MIN, feeBase)) * 100) / 100;
+    const feeFor = (dep: number) => {
+      const base = dep > 0 ? dep * MANAGEMENT_FEE_RATE : (fullPrice / 2) * MANAGEMENT_FEE_RATE;
+      return feeAbsorbed
+        ? estimateStripeFee(dep)
+        : Math.round(Math.min(MANAGEMENT_FEE_MAX, Math.max(MANAGEMENT_FEE_MIN, base)) * 100) / 100;
+    };
+    const managementFee = feeFor(deposit);
     const toPay = deposit + managementFee;
     const remainingBalance = totalPrice - deposit;
-    return { totalPrice, deposit, managementFee, toPay, remainingBalance, discount, promoterAmount, promoAmount, discountSource: best.source };
+    // Les montants SANS remise (prix barrés à côté des montants remisés).
+    const fullToPay = fullDeposit + feeFor(fullDeposit);
+    return { totalPrice, deposit, managementFee, toPay, remainingBalance, discount, promoterAmount, promoAmount, discountSource: best.source, fullPrice, fullDeposit, fullToPay };
   };
 
   const pricing = calculatePricing();
@@ -1099,7 +1104,10 @@ export default function TableCheckout() {
                   )}
                   <div className="flex justify-between items-center gap-3 text-sm">
                     <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.totalPrice')}</span>
-                    <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.totalPrice.toFixed(2)} €</span>
+                    <span className="flex items-baseline gap-2">
+                      {pricing.discount > 0 && <span className="font-mono tabular-nums line-through text-[var(--tx-5a5a5e)]" style={{ fontSize: '12px' }}>{pricing.fullPrice.toFixed(2)} €</span>}
+                      <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.totalPrice.toFixed(2)} €</span>
+                    </span>
                   </div>
                   {pack.paymentMode === 'on_site' ? (
                     <div className="border-t border-white/[0.08] pt-3 mt-1 rounded-lg px-3 py-2.5" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
@@ -1110,7 +1118,10 @@ export default function TableCheckout() {
                     <>
                       <div className="flex justify-between items-center gap-3 text-sm">
                         <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.deposit')}</span>
-                        <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.deposit.toFixed(2)} €</span>
+                        <span className="flex items-baseline gap-2">
+                          {pricing.discount > 0 && <span className="font-mono tabular-nums line-through text-[var(--tx-5a5a5e)]" style={{ fontSize: '12px' }}>{pricing.fullDeposit.toFixed(2)} €</span>}
+                          <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.deposit.toFixed(2)} €</span>
+                        </span>
                       </div>
                       <div className="flex justify-between items-center gap-3 text-sm">
                         <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.managementFee')}</span>
@@ -1119,7 +1130,10 @@ export default function TableCheckout() {
 
                       <div className="border-t border-white/[0.08] pt-3 mt-1 flex justify-between items-center gap-3">
                         <span className="font-display font-bold text-white" style={{ fontSize: '15px' }}>{t('tableCheckout.toPay')}</span>
-                        <span className="font-display font-bold tabular-nums text-primary" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{pricing.toPay.toFixed(2)} €</span>
+                        <span className="flex items-baseline gap-2">
+                          {pricing.discount > 0 && <span className="font-mono tabular-nums line-through text-[var(--tx-5a5a5e)]" style={{ fontSize: '12px' }}>{pricing.fullToPay.toFixed(2)} €</span>}
+                          <span className="font-display font-bold tabular-nums text-primary" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{pricing.toPay.toFixed(2)} €</span>
+                        </span>
                       </div>
 
                       <p className="text-center pt-1 text-[11px] text-[var(--tx-5a5a5e)]">
@@ -1317,10 +1331,23 @@ export default function TableCheckout() {
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--tx-5a5a5e)' }}>
                 {pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteShort') : t('tableCheckout.deposit')}
               </span>
-              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'rgb(var(--ink))', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                {pack.paymentMode === 'on_site' ? `${pricing.totalPrice.toFixed(0)}\u00a0€` : <>{pricing.toPay.toFixed(2)}&nbsp;€</>}
+              <span className="flex items-baseline gap-2">
+                <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'rgb(var(--ink))', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                  {pack.paymentMode === 'on_site' ? `${pricing.totalPrice.toFixed(0)}\u00a0€` : <>{pricing.toPay.toFixed(2)}&nbsp;€</>}
+                </span>
+                {pack.paymentMode !== 'on_site' && pricing.discount > 0 && (
+                  <span className="font-mono tabular-nums line-through" style={{ fontSize: '12px', color: 'var(--tx-5a5a5e)', whiteSpace: 'nowrap' }}>
+                    {pricing.fullToPay.toFixed(2)}&nbsp;€
+                  </span>
+                )}
               </span>
-              <span className="truncate" style={{ fontSize: '10px', color: 'var(--tx-5a5a5e)', marginTop: '1px' }}>{pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteDesc') : (t('tickets.feesIncluded') || 'Frais inclus')}</span>
+              <span className="truncate" style={{ fontSize: '10px', color: pack.paymentMode !== 'on_site' && pricing.discount > 0 ? '#34D399' : 'var(--tx-5a5a5e)', marginTop: '1px' }}>
+                {pack.paymentMode === 'on_site'
+                  ? t('tableCheckout.onSiteDesc')
+                  : pricing.discount > 0
+                    ? `-${pricing.discount.toFixed(2)} € · ${t('tickets.feesIncluded') || 'Frais inclus'}`
+                    : (t('tickets.feesIncluded') || 'Frais inclus')}
+              </span>
             </div>
             <button
               onClick={handleSubmit}
