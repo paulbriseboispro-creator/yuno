@@ -1109,6 +1109,11 @@ function TicketCard({
         'relative rounded border overflow-hidden transition-all duration-150',
         communityLocked
           ? 'border-primary/20 bg-[var(--sf-141414)] cursor-default'
+          : isSoldOut
+          // Épuisé : la carte reste lisible et la pastille rouge garde toute sa
+          // couleur — grisée à 45 %, elle disparaissait dans la liste alors que
+          // c'est elle qui dit « ça part vite ».
+          ? 'border-primary/[0.14] bg-[var(--sf-141414)] cursor-default'
           : isDisabled
           ? 'opacity-45 border-white/[0.06] bg-[var(--sf-141414)] cursor-default'
           : isSelected
@@ -1140,7 +1145,12 @@ function TicketCard({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-sm uppercase tracking-wide leading-tight">{round.name}</h3>
+            <h3 className={cn('font-bold text-sm uppercase tracking-wide leading-tight', isSoldOut && 'text-white/45')}>{round.name}</h3>
+            {isSoldOut && !previewOnly && (
+              <span className="text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/[0.12] border border-primary/30 px-1.5 py-0.5 rounded-sm">
+                {t('tickets.soldOut') || 'Épuisé'}
+              </span>
+            )}
             {isVip && !previewOnly && !isSoldOut && (
               <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-sm">VIP</span>
             )}
@@ -1163,9 +1173,9 @@ function TicketCard({
           </div>
 
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <p className="text-base font-bold tabular-nums">{round.price.toFixed(2)} €</p>
+            <p className={cn('text-base font-bold tabular-nums', isSoldOut && 'text-white/40')}>{round.price.toFixed(2)} €</p>
             {round.includesDrink && (
-              <span className="text-[10px] text-primary flex items-center gap-1 font-medium">
+              <span className={cn('text-[10px] flex items-center gap-1 font-medium', isSoldOut ? 'text-white/40' : 'text-primary')}>
                 <Wine className="h-2.5 w-2.5" />{t('ticketSel.drink')}
               </span>
             )}
@@ -1213,7 +1223,7 @@ function TicketCard({
               {t('tickets.free.phase.ended')}
             </span>
           ) : isSoldOut ? (
-            <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
+            <span className="text-[10px] font-semibold text-primary border border-primary/30 px-2.5 py-1 rounded-sm">
               {t('tickets.soldOut') || 'Épuisé'}
             </span>
           ) : communityLocked ? (
