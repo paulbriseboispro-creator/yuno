@@ -14,8 +14,9 @@ export default tseslint.config(
       "ds-bundle",
       ".design-sync",
       ".ds-sync",
-      // Projet natif iOS (généré par Capacitor) et sorties wrangler.
+      // Projets natifs iOS (générés par Capacitor, client ET Pro) et sorties wrangler.
       "ios",
+      "pro/ios",
       ".wrangler",
     ],
   },
