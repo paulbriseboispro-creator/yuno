@@ -7,8 +7,8 @@
  */
 import { basket, fillPct, spendPerHead, attendancePct, type MetricId } from './metrics';
 
-export type SalesPeriod = 'last' | 'last4' | 'month' | 'year' | 'all' | 'd1' | 'd2' | 'd7' | 'd30' | 'd90';
-export const SALES_PERIODS: readonly SalesPeriod[] = ['last', 'last4', 'month', 'year', 'all', 'd1', 'd2', 'd7', 'd30', 'd90'];
+export type SalesPeriod = 'last' | 'last4' | 'month' | 'year' | 'all';
+export const SALES_PERIODS: readonly SalesPeriod[] = ['last', 'last4', 'month', 'year', 'all'];
 
 export type SalesPillar = 'all' | 'tickets' | 'tables' | 'bar' | 'guestList';
 

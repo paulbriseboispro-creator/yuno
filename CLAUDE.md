@@ -1372,7 +1372,8 @@ deux sections suivantes : quatre familles (Ventes, Trafic, Communauté, En direc
 grammaire « lire une analyse en dix secondes », rouge Yuno, et la mise en page du 30/09
 (analyse globale sur une période, ou UNE soirée choisie dans la colonne « Soirées » à
 droite). Tout le front v3 est supprimé (`src/components/analytics/v3/`, `useAn3`,
-`src/lib/analytics/`, clés `an3.*`, `?v=` dans l'URL) : **ne pas le ressusciter, ni
+`src/lib/analytics/`, clés `an3.*`, `?v=` dans l'URL), et les lentilles par soirée du
+30/09 avec lui (section suivante) : **ne pas le ressusciter, ni
 proposer de nouveau un écran à onglets qui remplacerait les familles.** Une
 amélioration d'Analytics se fait DANS l'écran existant (`kit.tsx`, familles,
 `EventRail`, `AnalyticsSplit`). Restent en base, inoffensifs et sans lecteur front :
@@ -1380,51 +1381,28 @@ les RPC `get_analytics_*`, `_an3_nights`, `_an3_people`, `_an3_comparables`,
 `night_date()` (migrations `20261001100000` → `150000`), l'attribution figée sur la
 vente (`20261001200000`) et les digests par email, qui sont des emails, pas un écran.
 
-## Vues d'ensemble d'Analytics : UNE mise en page, deux périmètres (2026-09-30)
+## Analytics = la version « simplification Shotgun » du 25/09 + la colonne « Soirées » (2026-10-01)
 
-Ventes, Trafic et Communauté ont chacun une « Vue d'ensemble » qui se lit de
-deux façons avec EXACTEMENT les mêmes blocs : **toutes les soirées sur une
-période**, ou **UNE soirée** choisie dans la colonne « Soirées » à droite.
-La vue « Par soirée » et les onglets de lentille n'existent plus (anciennes
-adresses `view=event|events` traduites dans `analyticsNav.ts`). Règles :
-
-- **Mise en page** : `AnalyticsSplit` (contenu | colonne, la colonne devient une
-  bande horizontale au-dessus sur téléphone) + `EventRail` (à venir puis passées,
-  recherche, UN chiffre par famille calculé comme la vue qu'il ouvre :
-  `get_analytics_event_rail`) + `SubjectHeader` (titre « Toutes les soirées » +
-  `PeriodSelector`, ou carte de la soirée + « Toutes les soirées »). Ne jamais
-  redessiner un en-tête de soirée ailleurs.
-- **Adresse** : `?tab=&view=overview&period=24h|48h|7d|30d|90d|all&event=<id>`
-  (`useAnalyticsPeriod`, `useEventParam`, `src/lib/analyticsPeriod.ts`). Défaut
-  30 jours. Les six mêmes choix partout ; les RPC lisent des HEURES (`p_hours`,
-  NULL = depuis toujours), Ventes les lit par `salesPeriodOf` (`d1…d90`).
-- **Même forme de réponse, une RPC par périmètre** : `get_traffic_period` ⇄
-  `get_event_traffic`, `get_community_period` ⇄ `get_event_community`. Un bloc
-  nouveau s'ajoute aux DEUX RPC (le composant `TrafficLens` / `CommunityLens` n'a
-  qu'un corps). Période : `event = null`, courbe en dates (`series[].date`),
-  `previous` = période d'avant de même durée (→ `DeltaBadge`) ; soirée : courbe
-  en J-N (`d`), `parties` (collab). `fillAxis` + `useAxisLabel` gèrent les deux axes.
-- **Portes** : `analytics_scope_gate(venue, org)` (toute la portée) et
-  `event_analytics_scope(event)` (une soirée, droits co-hôte compris) ; les
-  « À retenir » vivent en SQL dans `lens_traffic_takeaways` /
-  `lens_community_takeaways`, appelés par les deux RPC.
-- **Ventes en période** : soirées TERMINÉES dont la FIN tombe dans la fenêtre
-  (`get_sales_overview`, `v_by_end`), comparées au même nombre de soirées avant.
-  `last` / `last4` / `month` / `year` restent valides (accueil, anciens liens).
-- **Tunnel d'achat mesuré en base** : `event_funnel_events` (RLS sans policy,
-  écriture par `track_event_funnel` seule, purge 13 mois). Aucun point de tir
-  nouveau dans les pages : `capturePosthog` TRADUIT les événements du plan de
-  marquage en étapes (`src/lib/eventFunnel.ts`, `funnelRowFor`), même consentement
-  que la mesure d'audience, jamais sur surface pro ni en accès assisté. Ajouter
-  un point de tir PostHog (avec `event_id`) l'ajoute donc au tunnel. Session =
-  `yuno_funnel_sid` (par onglet, indépendante de `yuno_session_id` qui change avec
-  la portée) ; source = `categorizeReferrer` posée à la 1re étape de l'onglet.
-  Une étape est « atteinte » dès qu'une plus avancée l'est. « Acheté » = retour
-  sur Yuno après paiement : les ventes réelles restent dans Ventes.
-- **Collab** : les trois vues montrent chaque partie (Ventes « Qui a fait vendre »,
-  Trafic clics par lien, Communauté contacts / abonnés gagnés par partie) — des
-  VOLUMES, jamais des noms. Seule une soirée a des parties ; la période n'en a pas.
-- Semis démo : `scripts/demo/seed-event-funnel.sql` (rejouable, borné à la démo).
+Décision de Paul le 01/10, après deux refontes successives (lentilles par soirée du
+30/09 au soir, puis v3) qu'il a rejetées toutes les deux : l'écran Analytics est
+celui du 30/09 à midi (commit `579e2e4a`), c'est-à-dire la grammaire de la section
+suivante, et il n'en bouge plus sans décision explicite. Ventes garde ses TROIS vues
+(Vue d'ensemble · Par soirée · Partenaires), Trafic ses deux (Ma page · Par soirée),
+Communauté ses quatre ; `eventReportHref` pointe sur `view=event`. La seule greffe
+gardée du 30/09 : **la colonne « Soirées » à droite de Ventes** (`EventRail` +
+`AnalyticsSplit`, RPC `get_analytics_event_rail`, à venir puis passées, recherche,
+un chiffre par ligne). Elle est un NAVIGATEUR : une soirée ouvre son Rapport de
+soirée (Ventes › Par soirée, `onRailSelect` → `eventReportHref`), « Toutes les
+soirées » rouvre la Vue d'ensemble ; elle ne change aucun chiffre et ne vit que sur
+Ventes. Supprimés et à ne pas ressusciter : `event-lens/*` (`TrafficLens`,
+`CommunityLens`, `SubjectHeader`), `useLens`, `eventTraffic` / `eventCommunity` /
+`lensSeries`, la période dans l'URL (`?period=`, `useAnalyticsPeriod`,
+`PeriodSelector`), les vues `traffic.overview` / `community.event`. Restent en base
+sans lecteur front : `get_traffic_period`, `get_event_traffic`, `get_community_period`,
+`get_event_community` ; `event_funnel_events` et `capturePosthog` (mesure du tunnel)
+continuent d'écrire, c'est de la mesure, pas un écran. Vérification visuelle :
+`node scripts/demo/drive.mjs --as owner --go "http://localhost:8080/owner/analytics?tab=sales&view=overview" --shot …`
+(une URL absolue court-circuite `APP_ORIGIN`, qui vient de `.env.local` et pointe la prod).
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 

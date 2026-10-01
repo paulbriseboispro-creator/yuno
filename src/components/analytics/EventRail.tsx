@@ -1,10 +1,10 @@
 /**
- * La colonne des soirées, à droite de chaque vue d'ensemble d'Analytics.
+ * La colonne des soirées, à droite d'Analytics › Ventes.
  *
- * Première ligne : « Toutes les soirées » (la période choisie en haut) ; dessous,
- * chaque soirée — à venir d'abord, puis les passées. Cliquer une soirée lit la
- * MÊME vue de son point de vue ; recliquer « Toutes les soirées » revient à la
- * période. La soirée choisie vit dans l'URL (`?event=`).
+ * Première ligne : « Toutes les soirées » (la Vue d'ensemble) ; dessous, chaque
+ * soirée — à venir d'abord, puis les passées. Cliquer une soirée ouvre son
+ * Rapport de soirée (Ventes › Par soirée) ; recliquer « Toutes les soirées »
+ * revient à la Vue d'ensemble. La soirée choisie vit dans l'URL (`?event=`).
  *
  * Un chiffre par ligne, propre à la famille, calculé comme la vue qu'il ouvre :
  * Ventes (billets, CA), Trafic (visites), Communauté (personnes).
@@ -13,13 +13,11 @@ import { useMemo, useState } from 'react';
 import { Layers, Search } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { KIT, useNumberFormat } from '@/components/analytics/kitFormat';
-import { useEventRail, type RailEvent } from '@/hooks/useEventRail';
-import type { LensScope } from '@/hooks/useLens';
+import { useEventRail, type RailEvent, type RailScope } from '@/hooks/useEventRail';
 import type { AnalyticsFamily } from '@/lib/analyticsNav';
-import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 
 interface Props {
-  scope: LensScope;
+  scope: RailScope;
   family: Exclude<AnalyticsFamily, 'live'>;
   eventId: string | null;
   onSelect: (eventId: string | null) => void;
@@ -31,7 +29,6 @@ export function EventRail({ scope, family, eventId, onSelect }: Props) {
   const { t, language } = useLanguage();
   const { n, eur, locale } = useNumberFormat();
   const { events, money } = useEventRail(scope);
-  const [period] = useAnalyticsPeriod();
   const [query, setQuery] = useState('');
   const dateFmt = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' });
 
@@ -135,7 +132,7 @@ export function EventRail({ scope, family, eventId, onSelect }: Props) {
           </span>
           <span className="min-w-0">
             <span className="block truncate" style={{ color: KIT.T1, fontSize: 13, fontWeight: eventId === null ? 620 : 560 }}>{t('evl.rail.all')}</span>
-            <span className="mt-0.5 block truncate" style={{ color: KIT.T3, fontSize: 11.5 }}>{t(`evl.period.${period}Long`)}</span>
+            <span className="mt-0.5 block truncate" style={{ color: KIT.T3, fontSize: 11.5 }}>{t('anf.view.sales.overview')}</span>
           </span>
         </button>
 

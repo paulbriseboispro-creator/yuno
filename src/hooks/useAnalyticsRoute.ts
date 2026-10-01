@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { pickEventId } from '@/hooks/useEventParam';
 import {
   defaultView, needsCanonicalUrl, resolveAnalyticsRoute,
   type AnalyticsFamily, type AnalyticsRoute,
@@ -18,7 +19,8 @@ export function useAnalyticsRoute(): AnalyticsRoute & {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab');
   const view = searchParams.get('view');
-  const route = useMemo(() => resolveAnalyticsRoute(tab, view), [tab, view]);
+  const hasEvent = !!pickEventId(searchParams.get('event'));
+  const route = useMemo(() => resolveAnalyticsRoute(tab, view, hasEvent), [tab, view, hasEvent]);
 
   useEffect(() => {
     if (!needsCanonicalUrl(tab, view, route)) return;

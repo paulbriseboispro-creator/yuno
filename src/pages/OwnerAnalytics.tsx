@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Lock as LockIcon, CreditCard, MousePointerClick, TrendingUp, Megaphone, Target, Crown,
 } from 'lucide-react';
@@ -19,22 +19,19 @@ import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
 import { AnalyticsEssentialView } from '@/components/analytics/AnalyticsEssentialView';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
+import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicker';
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
-import { eventCommunityHref, eventReportHref } from '@/lib/analyticsNav';
+import { analyticsHref, eventReportHref } from '@/lib/analyticsNav';
+import { AnalyticsSplit } from '@/components/analytics/AnalyticsSplit';
+import { EventRail } from '@/components/analytics/EventRail';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
 import { AnalyticsLoading, MoreDetail } from '@/components/analytics/kit';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
 import { TrafficView } from '@/components/analytics/families/TrafficView';
-import { TrafficLens } from '@/components/event-lens/TrafficLens';
-import { CommunityLens } from '@/components/event-lens/CommunityLens';
-import { AnalyticsSplit } from '@/components/analytics/AnalyticsSplit';
-import { EventRail } from '@/components/analytics/EventRail';
-import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
-import { periodWindow } from '@/lib/analyticsPeriod';
 import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
 import { HypeEventForecast, HypeProjectionLine } from '@/components/hype/HypeEventForecast';
 import { EmptyNote, ReportCard } from '@/components/event-report/ui';
@@ -126,19 +123,22 @@ export default function OwnerAnalytics() {
   // anciens onglets (`global`, `event`, `purchase`) y sont traduits.
   const { family, view, go } = useAnalyticsRoute();
   const { eur: eurFmt } = useNumberFormat();
-  const mode: AnalyticsMode = 'global';
+  const mode: AnalyticsMode = family === 'sales' && view === 'event' ? 'event' : 'global';
   const isLive = family === 'live';
   const isPurchase = family === 'community' && view === 'purchase';
-  // Vues d'ensemble (Ventes, Trafic, Communauté) : toutes les soirées sur une période, ou une soirée dans la colonne de droite.
-  const isOverview = view === 'overview' && family !== 'live';
-  const [periodKey] = useAnalyticsPeriod();
   const analyticsBase = useLocation().pathname.replace(/\/$/, '');
   const consolePrefix = analyticsBase.replace(/\/analytics$/, '');
   // La même page sert /manager/analytics : le manager n'a ni Comptabilité, ni
   // Push, ni base de contacts — ces liens mèneraient à une 404.
   const isClubConsole = consolePrefix === '/owner';
   const eventHref = (id: string) => eventReportHref(analyticsBase, id);
-  const communityEventHref = (id: string) => eventCommunityHref(analyticsBase, id);
+  const navigate = useNavigate();
+  // La colonne « Soirées » (à droite de Ventes) : une soirée ouvre son rapport
+  // (Par soirée), « Toutes les soirées » rouvre la Vue d'ensemble.
+  const onRailSelect = (id: string | null) => {
+    navigate(id ? eventReportHref(analyticsBase, id) : analyticsHref(analyticsBase, 'sales', 'overview'));
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   // La soirée choisie vit dans l'URL (`?event=`) : un lien depuis la liste des
   // soirées ou le tableau de bord ouvre directement son analyse.
   const [selectedEventId, setSelectedEventId] = useEventParam();
@@ -250,6 +250,8 @@ export default function OwnerAnalytics() {
     { key: 'alltime' as DateRange, label: t('owner.allTime') },
   ];
 
+  // Event mode with no night chosen yet → show the calendar-style card picker.
+  const showEventPicker = mode === 'event' && !selectedEventId;
   // Détail du trafic : les 30 derniers jours (la vue n'a plus de sélecteur de période).
   const trafficWindow = dateRangeToWindow('30days');
   const hasPromoter = !!promoterAnalytics && promoterAnalytics.promoters.length > 0;
@@ -372,7 +374,7 @@ export default function OwnerAnalytics() {
 
         {/* ── Controls row ──────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive} />
+          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive || mode === 'event'} />
           {showControls && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
@@ -395,57 +397,12 @@ export default function OwnerAnalytics() {
           )}
         </motion.div>
 
-        {isOverview ? (
-          // Vue d'ensemble : le contenu à gauche, la colonne des soirées à droite.
-          // Toutes les soirées sur la période, OU une soirée choisie : mêmes blocs.
-          <AnalyticsSplit rail={<EventRail scope={{ venueId }} family={family as 'sales' | 'traffic' | 'community'} eventId={selectedEventId} onSelect={setSelectedEventId} />}>
-            {family === 'sales' ? (
-              selectedEventId ? (
-                <EventReportView
-                  key={selectedEventId}
-                  eventId={selectedEventId}
-                  onClear={() => setSelectedEventId(null)}
-                  consolePrefix={consolePrefix}
-                  scope={{ venueId }}
-                  verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} layout="report" /> : undefined}
-                  demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} /> : undefined}
-                  forecast={venueId && hasFeature('hype_analysis') ? <HypeEventForecast venueId={venueId} eventId={selectedEventId} /> : undefined}
-                  projection={venueId && hasFeature('hype_analysis') ? <HypeProjectionLine venueId={venueId} eventId={selectedEventId} /> : undefined}
-                />
-              ) : (
-                <SalesOverviewView
-                  venueId={venueId}
-                  eventHref={eventHref}
-                  eventsHref={`${consolePrefix}/events`}
-                  accountingHref={isClubConsole ? `${consolePrefix}/accounting` : undefined}
-                  canExport={hasExport}
-                  renderDetail={(pillar, period) => (
-                    <SalesPillarDetail venueId={venueId} pillar={pillar} period={period} hasVipTables={hasVipTables} />
-                  )}
-                />
-              )
-            ) : family === 'traffic' ? (
-              <TrafficLens scope={{ venueId }} eventId={selectedEventId} onClear={() => setSelectedEventId(null)} />
-            ) : (
-              <CommunityLens
-                scope={{ venueId }}
-                eventId={selectedEventId}
-                onClear={() => setSelectedEventId(null)}
-                demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} {...(selectedEventId ? { eventId: selectedEventId } : periodWindow(periodKey))} /> : undefined}
-                contactsHref={isClubConsole ? `${consolePrefix}/campaigns/contacts` : undefined}
-                campaignHref={isClubConsole ? `${consolePrefix}/campaigns/new${selectedEventId ? `?event=${selectedEventId}` : ''}` : undefined}
-              >
-                {/* L'historique de la base (participation, dernier achat, meilleurs clients) : replié sous la vue. */}
-                <MoreDetail label={t('evl.co.moreBase')}>
-                  <CommunityOverviewView scope={{ venueId }} contactsHref={isClubConsole ? `${consolePrefix}/campaigns/contacts` : undefined} eventHref={communityEventHref}>
-                    {loyaltyZone}
-                  </CommunityOverviewView>
-                </MoreDetail>
-              </CommunityLens>
-            )}
-          </AnalyticsSplit>
-        ) : isPurchase ? (
+        {isPurchase ? (
           <PurchaseBehaviorView venueId={venueId} dateRange={dateRange} />
+        ) : family === 'community' && view === 'overview' ? (
+          <CommunityOverviewView scope={{ venueId }} contactsHref={isClubConsole ? `${consolePrefix}/campaigns/contacts` : undefined} eventHref={eventHref}>
+            {loyaltyZone}
+          </CommunityOverviewView>
         ) : family === 'community' && view === 'subscribers' ? (
           venueId ? (
             <AudienceDashboard
@@ -472,10 +429,10 @@ export default function OwnerAnalytics() {
           </div>
         ) : family === 'traffic' ? (
           <div className="space-y-4">
-            <TrafficView scope={{ venueId }} publicPath={venueId ? `/club/${venueId}` : null} />
+            <TrafficView scope={{ venueId }} mode={view === 'events' ? 'events' : 'page'} publicPath={venueId ? `/club/${venueId}` : null} eventHref={eventHref} />
             {/* Campagnes, sites référents et pays : l'ancienne vue Sources,
                 repliée sous Ma page (même question, plus de second sélecteur). */}
-            {venueId && (
+            {view === 'page' && venueId && (
               <MoreDetail label={t('anf.trafficDetail')}>
                 <AcquisitionDashboard scope={{ kind: 'venue', id: venueId }} from={trafficWindow.from} to={trafficWindow.to} variant="detail" />
               </MoreDetail>
@@ -485,7 +442,57 @@ export default function OwnerAnalytics() {
           promoterLoading ? <AnalyticsLoading /> : hasPromoter ? promoterZone : <ReportCard><EmptyNote text={t('anf.pa.empty')} /></ReportCard>
         ) : isLive ? (
           <LiveView venueId={venueId} />
-        ) : null}
+        ) : (
+        // Ventes : le contenu (Vue d'ensemble, ou le rapport d'une soirée) à gauche,
+        // la colonne « Soirées » à droite — une bande au-dessus sur téléphone.
+        <AnalyticsSplit rail={<EventRail scope={{ venueId }} family="sales" eventId={mode === 'event' ? selectedEventId : null} onSelect={onRailSelect} />}>
+        {showEventPicker ? (
+          <EventAnalyticsPicker
+            venueId={venueId}
+            onSelect={(id) => {
+              setSelectedEventId(id);
+              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        ) : (
+        <>
+
+        {/* Rapport de soirée : les cinq questions (ventes, courbe comparée,
+            trafic, public, ce qui a fait vendre), verdict en tête une fois la
+            soirée passée. */}
+        {mode === 'event' && selectedEventId && (
+          <EventReportView
+            key={selectedEventId}
+            eventId={selectedEventId}
+            onEventChange={(id) => setSelectedEventId(id)}
+            onBack={() => onRailSelect(null)}
+            scope={{ venueId }}
+            verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} layout="report" /> : undefined}
+            demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} /> : undefined}
+            forecast={venueId && hasFeature('hype_analysis') ? <HypeEventForecast venueId={venueId} eventId={selectedEventId} /> : undefined}
+            projection={venueId && hasFeature('hype_analysis') ? <HypeProjectionLine venueId={venueId} eventId={selectedEventId} /> : undefined}
+          />
+        )}
+
+        {/* Ventes › Vue d'ensemble : le bilan des dernières soirées, pilier par
+            pilier, avec le détail hérité replié (plan de simplification). */}
+        {mode === 'global' && (
+          <SalesOverviewView
+            venueId={venueId}
+            eventHref={eventHref}
+            eventsHref={`${consolePrefix}/events`}
+            accountingHref={isClubConsole ? `${consolePrefix}/accounting` : undefined}
+            canExport={hasExport}
+            renderDetail={(pillar, period) => (
+              <SalesPillarDetail venueId={venueId} pillar={pillar} period={period} hasVipTables={hasVipTables} />
+            )}
+          />
+        )}
+
+        </>
+        )}
+        </AnalyticsSplit>
+        )}
 
       </div>
     </div>

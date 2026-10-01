@@ -11,8 +11,11 @@
  * Tout vient de `get_event_report` ; la comparaison rappelle la même RPC.
  */
 import { useEffect, useState, type ReactNode } from 'react';
+import { ArrowLeft, MapPin } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { EmptyAnswer, MoreDetail } from '@/components/analytics/kit';
+import { EmptyAnswer, MoreDetail, UpdatedAt } from '@/components/analytics/kit';
+import { KIT } from '@/components/analytics/kitFormat';
 import { CountdownTile } from '@/components/events-sales/EventSalesParts';
 import { useEventReport } from '@/hooks/useEventReport';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
@@ -23,17 +26,14 @@ import { ReportSales } from './ReportSales';
 import { ReportTrend, type ScopeEventOption } from './ReportTrend';
 import { ReportAudience, ReportDrivers, ReportTraffic } from './ReportReach';
 import { EmptyNote, Question, ReportCard } from './ui';
-import { useScopeEvents } from '@/hooks/useScopeEvents';
-import { usePartyBreakdown } from '@/hooks/usePartyBreakdown';
-import { SalesCollabCard } from '@/components/event-lens/SalesCollabCard';
-import { SubjectHeader } from '@/components/event-lens/SubjectHeader';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 import { ReportAnswer } from './ReportAnswer';
 import { ReportTakeaways } from './ReportTakeaways';
 
 interface Props {
   eventId: string;
-  /** Revenir à « toutes les soirées » (la soirée se choisit dans la colonne de droite). */
-  onClear: () => void;
+  onEventChange: (eventId: string) => void;
+  onBack: () => void;
   scope: { venueId?: string | null; organizerUserId?: string | null };
   /** Le verdict d'après-soirée (`EventPostAnalysisView`), rendu en tête une fois la soirée passée. */
   verdict?: ReactNode;
@@ -43,8 +43,32 @@ interface Props {
   forecast?: ReactNode;
   /** La même prévision en une ligne, posée sous les jauges. */
   projection?: ReactNode;
-  /** `/owner` ou `/organizer-app` : où mène le lien du détail « Qui fait vendre ? ». */
-  consolePrefix?: string;
+}
+
+/** Les soirées de la portée, pour changer de soirée et pour comparer. */
+function useScopeEvents(scope: Props['scope']) {
+  const [events, setEvents] = useState<ScopeEventOption[]>([]);
+  const venueId = scope.venueId ?? null;
+  const organizerUserId = scope.organizerUserId ?? null;
+  useEffect(() => {
+    if (!venueId && !organizerUserId) return;
+    let cancelled = false;
+    (async () => {
+      const filter = venueId
+        ? venueEventsOr(venueId)
+        : orgEventsOr(organizerUserId);
+      const { data } = await supabase
+        .from('events')
+        .select('id, title, start_at')
+        .or(filter)
+        .is('cancelled_at', null)
+        .order('start_at', { ascending: false })
+        .limit(120);
+      if (!cancelled) setEvents((data ?? []).map((e) => ({ id: e.id, title: e.title, startAt: e.start_at })));
+    })();
+    return () => { cancelled = true; };
+  }, [venueId, organizerUserId]);
+  return events;
 }
 
 /** Soirée comparée par défaut : la précédente de la portée (celle d'avant, déjà passée). */
@@ -72,8 +96,8 @@ function asSales(r: EventReport): EventSales {
   };
 }
 
-export function EventReportView({ eventId, onClear, scope, verdict, demographics, forecast, projection, consolePrefix }: Props) {
-  const { t } = useLanguage();
+export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast, projection }: Props) {
+  const { t, language } = useLanguage();
   const { data: report, loading, error, fetchedAt } = useEventReport(eventId);
   const events = useScopeEvents(scope);
   // Une fois par soirée ouverte, quand le rapport de CETTE soirée est chargé.
@@ -89,11 +113,35 @@ export function EventReportView({ eventId, onClear, scope, verdict, demographics
   useEffect(() => { setCompareChoice(undefined); }, [eventId]);
   const compareId = compareChoice === undefined ? previousOf(events, report) : compareChoice;
   const { data: compare, loading: compareLoading } = useEventReport(compareId);
-  // Soirée à plusieurs : ce que chaque partie a amené (null pour une soirée solo).
-  const parties = usePartyBreakdown(report ? eventId : null);
+
+  const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
+  const dateFmt = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: report?.tz ?? 'Europe/Paris' });
+  const optionFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Europe/Paris' });
 
   return (
     <div className="space-y-4">
+      {/* ── En-tête : la soirée, son moment, et le sélecteur toujours au même endroit ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: KIT.T3 }}>
+          <ArrowLeft className="h-4 w-4" aria-hidden /> {t('owner.an.backToEvents')}
+        </button>
+        <label className="inline-flex min-w-0 items-center gap-2 text-[12px]" style={{ color: KIT.T3 }}>
+          {t('er.pickEvent')}
+          <select
+            id="er-event"
+            value={eventId}
+            onChange={(e) => e.target.value && onEventChange(e.target.value)}
+            className="max-w-[260px] cursor-pointer truncate rounded-lg px-2.5 py-1.5 text-[12.5px]"
+            style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1, outline: 'none' }}
+          >
+            {!events.some((e) => e.id === eventId) && <option value={eventId}>{report?.event.title ?? '…'}</option>}
+            {events.map((e) => (
+              <option key={e.id} value={e.id}>{e.title} · {optionFmt.format(new Date(e.startAt))}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {error ? (
         <ReportCard><EmptyNote text={t(`er.error.${error}`)} /></ReportCard>
       ) : !report ? (
@@ -104,13 +152,35 @@ export function EventReportView({ eventId, onClear, scope, verdict, demographics
         </div>
       ) : (
         <>
-          <SubjectHeader
-            event={{ title: report.event.title, startAt: report.event.startAt, poster: report.event.poster, phase: report.event.phase, venueName: report.event.venueName }}
-            tz={report.tz}
-            fetchedAt={fetchedAt}
-            onClear={onClear}
-            lead={report.event.phase !== 'after' ? <CountdownTile ev={asSales(report)} /> : undefined}
-          />
+          <ReportCard>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              {report.event.phase !== 'after' && <CountdownTile ev={asSales(report)} />}
+              {report.event.poster && (
+                <img src={report.event.poster} alt="" className="h-16 w-16 flex-none rounded-xl object-cover" />
+              )}
+              <div className="min-w-[180px] flex-1">
+                <h1 style={{ color: KIT.T1, fontSize: 20, fontWeight: 680, letterSpacing: '-0.02em', textWrap: 'balance' }}>{report.event.title}</h1>
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1" style={{ color: KIT.T3, fontSize: 12.5 }}>
+                  <span>{capitalizeFirst(dateFmt.format(new Date(report.event.startAt)))}</span>
+                  {report.event.venueName && (
+                    <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" aria-hidden />{report.event.venueName}</span>
+                  )}
+                </p>
+              </div>
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:gap-1">
+                <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={
+                  report.event.phase === 'live'
+                    ? { background: 'rgba(232,25,44,0.12)', color: 'var(--acc-ff5c63)' }
+                    : report.event.phase === 'after'
+                      ? { background: 'rgb(var(--ink)/0.06)', color: KIT.T2 }
+                      : { background: 'rgba(52,211,153,0.12)', color: 'var(--acc-34d399)' }
+                }>
+                  {t(`er.phase.${report.event.phase}`)}
+                </span>
+                <UpdatedAt at={fetchedAt} />
+              </div>
+            </div>
+          </ReportCard>
 
           {!reportHasActivity(report) ? (
             // Une soirée sans aucune vente ni entrée ne se note pas et n'étale
@@ -157,8 +227,6 @@ export function EventReportView({ eventId, onClear, scope, verdict, demographics
 
               <Question id="er-who" title={t('er.q.who')} sub={t('er.q.whoSub')} />
               <ReportAudience report={report} demographics={demographics} />
-
-              {parties && consolePrefix && <SalesCollabCard breakdown={parties} eventId={eventId} consolePrefix={consolePrefix} />}
 
               {report.event.phase !== 'after' && forecast && (
                 <MoreDetail label={t('er.more.forecast')}>{forecast}</MoreDetail>

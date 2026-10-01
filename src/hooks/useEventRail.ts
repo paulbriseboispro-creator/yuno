@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { LensScope } from '@/hooks/useLens';
+
+/** La portée lue : le club, ou l'organisateur (son équipe comprise). */
+export interface RailScope { venueId?: string | null; organizerUserId?: string | null }
 
 export interface RailEvent {
   id: string;
@@ -23,7 +25,7 @@ export interface RailEvent {
  * La colonne des soirées (`get_analytics_event_rail`) : une ligne par soirée de
  * la portée, avec le chiffre de chaque famille calculé comme la vue qu'elle ouvre.
  */
-export function useEventRail(scope: LensScope) {
+export function useEventRail(scope: RailScope) {
   const venueId = scope.venueId ?? null;
   const organizerUserId = scope.organizerUserId ?? null;
   const [events, setEvents] = useState<RailEvent[] | null>(null);
