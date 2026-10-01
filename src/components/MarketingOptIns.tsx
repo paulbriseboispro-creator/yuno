@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Bell, Mail, MessageSquare, Check, Loader2, Sparkles } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Check, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { marketingConsentWording } from '@/hooks/useMarketingConsent';
 
@@ -21,12 +20,10 @@ interface MarketingOptInsProps {
    * nomme donc qu'elle. Absent = `scopeName`.
    */
   smsScopeName?: string;
-  /** Consentement email déjà actif pour CE club → statut + retrait, pas de case. */
+  /** Consentement email déjà actif pour CE club → la ligne n'est plus montrée. */
   emailAlreadyGranted?: boolean;
   /** Idem pour le SMS. */
   smsAlreadyGranted?: boolean;
-  /** Retrait en un clic. Renvoie `false` si l'opération a échoué. */
-  onWithdraw?: (channel: 'email' | 'sms', wordingText: string) => Promise<boolean>;
   /** Masque la ligne SMS quand aucun numéro n'est collecté sur cette surface. */
   showSms?: boolean;
   /**
@@ -47,42 +44,39 @@ interface MarketingOptInsProps {
   showYuno?: boolean;
   yunoOptIn?: boolean;
   onYunoChange?: (value: boolean) => void;
-  /** Accord Yuno déjà actif → statut + retrait, pas de case. */
+  /** Accord Yuno déjà actif → la ligne n'est plus montrée. */
   yunoAlreadyGranted?: boolean;
-  /** Retrait de l'accord Yuno, sur la même interface (EDPB §114). */
-  onWithdrawYuno?: (wordingText: string) => Promise<boolean>;
   /**
    * Lecture du consentement par club encore en cours (RPC get_my_marketing_consent).
    *
    * Tant qu'on ignore si la personne est déjà abonnée à CE club, on n'affiche
    * PAS de case décochée : sinon un abonné de retour voit « on me redemande de
-   * cocher » le temps que la lecture réponde, juste avant que la ligne ne se
-   * replie sur son statut « déjà abonné ». Ce clignotement est précisément la
-   * plainte corrigée ici — on montre un placeholder discret à la place.
+   * cocher » le temps que la lecture réponde, juste avant que la ligne ne
+   * disparaisse. On montre un placeholder discret à la place.
    */
   pending?: boolean;
 }
 
 /**
- * Consentements marketing (email + SMS), groupés dans une carte clairement
- * optionnelle.
+ * Consentements marketing (email + SMS + Yuno), groupés dans une carte
+ * clairement optionnelle.
  *
- * Trois états, et la distinction est juridique, pas cosmétique :
+ * Un accord se demande UNE fois par destinataire (décision du 2026-10-01) :
+ * une fois pour Yuno sur toute la plateforme, une fois par club ou
+ * organisateur. Trois états, et la distinction est juridique, pas cosmétique :
  *
  *  - Lecture en cours (`pending`) → placeholder, jamais une case décochée. On ne
  *    redemande pas de cocher à quelqu'un dont on n'a pas encore lu le statut.
  *
- *  - Aucun consentement en cours → case DÉCOCHÉE nommant le club. Jamais
+ *  - Aucun consentement en cours → case DÉCOCHÉE nommant le destinataire. Jamais
  *    pré-cochée : « silence, pre-ticked boxes or inactivity should not
  *    constitute consent » (RGPD cons. 32 ; CJUE C-673/17, Planet49).
  *
- *  - Consentement déjà donné à ce club → on ne redemande pas. Les deux canaux
- *    acquis se replient sur UNE ligne discrète (« Vous êtes abonné… — Gérer ») ;
- *    « Gérer » déplie le retrait, exigé sur la même interface (EDPB 05/2020 §114 ;
- *    §116 : un retrait non conforme invalide tout le mécanisme).
- *
- * Ne pas revenir à un simple `showNewsletter={false}` : masquer la ligne sans
- * rien afficher était précisément le défaut corrigé ici.
+ *  - Consentement déjà donné à ce destinataire → sa ligne N'EST PLUS MONTRÉE ;
+ *    quand tout est déjà accordé, la carte entière disparaît. Le retrait vit
+ *    dans Réglages → « Mes abonnements » (un retrait par destinataire et par
+ *    canal) et en pied de chaque email : aussi simple que l'accord (art. 7(3)
+ *    RGPD), sans redemander à chaque réservation ce qui est déjà acquis.
  */
 export function MarketingOptIns({
   newsletterOptIn,
@@ -93,36 +87,28 @@ export function MarketingOptIns({
   smsScopeName,
   emailAlreadyGranted = false,
   smsAlreadyGranted = false,
-  onWithdraw,
   showSms = true,
   showEmail = true,
   showYuno = false,
   yunoOptIn = false,
   onYunoChange,
   yunoAlreadyGranted = false,
-  onWithdrawYuno,
   pending = false,
 }: MarketingOptInsProps) {
   const { t } = useLanguage();
-  // L'état « déjà abonné » se présente replié : une seule ligne, pas une carte
-  // qui a l'air de redemander. « Gérer » ouvre le retrait à la demande.
-  const [manageOpen, setManageOpen] = useState(false);
 
   const { email: emailLabel } = marketingConsentWording(t, scopeName);
   const { sms: smsLabel } = marketingConsentWording(t, smsScopeName ?? scopeName);
   const yunoLabel = t('consent.yunoOffers');
 
-  // Le repli « une seule ligne, tout est déjà accepté » ne vaut que si TOUT
-  // l'est. Avec la ligne Yuno affichée et pas encore accordée, replier la carte
-  // escamoterait la seule question encore posée.
-  const bothGranted = (emailAlreadyGranted || !showEmail)
-    && (smsAlreadyGranted || !showSms || !showEmail)
-    && (yunoAlreadyGranted || !showYuno);
+  // Ce qu'il reste à demander : une ligne déjà acquise n'est plus posée.
+  const askEmail = showEmail && !emailAlreadyGranted;
+  const askSms = showEmail && showSms && !smsAlreadyGranted;
+  const askYuno = showYuno && !yunoAlreadyGranted;
 
-  const named = (scopeName ?? '').trim();
-  const summaryLabel = named
-    ? t('consent.subscribedSummary').replace('{{name}}', named)
-    : t('consent.subscribedSummaryGeneric');
+  // Tout est déjà accepté (ou rien à demander sur cette surface) : la carte
+  // disparaît, elle ne redemande ni ne résume.
+  if (!pending && !askEmail && !askSms && !askYuno) return null;
 
   return (
     <div className="rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)] p-4">
@@ -134,91 +120,50 @@ export function MarketingOptIns({
           </span>
         </div>
         <span className="font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[var(--tx-5a5a5e)]">
-          {pending ? '' : bothGranted ? t('consent.active') : t('consent.optional')}
+          {pending ? '' : t('consent.optional')}
         </span>
       </div>
 
       {pending ? (
-        <PendingRows showEmail={showEmail} showSms={showEmail && showSms} showYuno={showYuno} label={t('consent.checkingPreferences')} />
-      ) : bothGranted && !manageOpen ? (
-        <button
-          type="button"
-          onClick={() => setManageOpen(true)}
-          className="flex items-center gap-3 w-full text-left py-2.5"
-        >
-          <span className="shrink-0 h-5 w-5 rounded-[4px] bg-primary border border-primary flex items-center justify-center">
-            <Check className="h-3 w-3 text-snow" strokeWidth={3} />
-          </span>
-          <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug flex-1 min-w-0">{summaryLabel}</span>
-          <span className="shrink-0 text-[11px] font-medium text-[var(--tx-5a5a5e)] underline underline-offset-2 hover:text-white transition-colors">
-            {t('consent.manage')}
-          </span>
-        </button>
+        <PendingRows showEmail={askEmail} showSms={askSms} showYuno={askYuno} label={t('consent.checkingPreferences')} />
       ) : (
         <>
-          <div className="divide-y divide-white/[0.06]">
-            {!showEmail ? null : emailAlreadyGranted ? (
-              <GrantedRow
-                icon={<Mail className="h-4 w-4" />}
-                label={emailLabel}
-                onWithdraw={onWithdraw ? () => onWithdraw('email', emailLabel) : undefined}
-              />
-            ) : (
-              <ConsentRow
-                icon={<Mail className="h-4 w-4" />}
-                label={emailLabel}
-                checked={newsletterOptIn}
-                onToggle={() => onNewsletterChange(!newsletterOptIn)}
-              />
-            )}
-
-            {showEmail && showSms &&
-              (smsAlreadyGranted ? (
-                <GrantedRow
-                  icon={<MessageSquare className="h-4 w-4" />}
-                  label={smsLabel}
-                  onWithdraw={onWithdraw ? () => onWithdraw('sms', smsLabel) : undefined}
+          {(askEmail || askSms) && (
+            <div className="divide-y divide-white/[0.06]">
+              {askEmail && (
+                <ConsentRow
+                  icon={<Mail className="h-4 w-4" />}
+                  label={emailLabel}
+                  checked={newsletterOptIn}
+                  onToggle={() => onNewsletterChange(!newsletterOptIn)}
                 />
-              ) : (
+              )}
+
+              {askSms && (
                 <ConsentRow
                   icon={<MessageSquare className="h-4 w-4" />}
                   label={smsLabel}
                   checked={smsOptIn}
                   onToggle={() => onSmsChange(!smsOptIn)}
                 />
-              ))}
-          </div>
-
-          {/* Yuno est un destinataire distinct : il porte son propre intertitre,
-              sinon la case se lit comme une deuxième ligne du club nommé plus
-              haut — et un consentement qui ne nomme pas son destinataire ne
-              couvre personne. */}
-          {showYuno && (
-            <div className={showEmail ? 'mt-1 border-t border-white/[0.06] pt-1' : ''}>
-              <p className="pt-2 font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[var(--tx-5a5a5e)]">
-                {t('consent.fromYuno')}
-              </p>
-              {yunoAlreadyGranted ? (
-                <GrantedRow
-                  icon={<Sparkles className="h-4 w-4" />}
-                  label={yunoLabel}
-                  onWithdraw={onWithdrawYuno ? () => onWithdrawYuno(yunoLabel) : undefined}
-                />
-              ) : (
-                <ConsentRow
-                  icon={<Sparkles className="h-4 w-4" />}
-                  label={yunoLabel}
-                  checked={yunoOptIn}
-                  onToggle={() => onYunoChange?.(!yunoOptIn)}
-                />
               )}
             </div>
           )}
 
-          {bothGranted && (
-            <p className="mt-2.5 text-[11px] leading-snug text-[var(--tx-5a5a5e)]">
-              {t('consent.alreadySubscribedHint')}
-            </p>
+          {/* Yuno = un autre destinataire, sous son propre intertitre : une
+              case qui ne dit pas QUI écrit ne couvre personne. */}
+          {askYuno && (
+            <div className={askEmail || askSms ? 'mt-1 border-t border-white/[0.06] pt-1' : ''}>
+              <p className="pt-2 font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[var(--tx-5a5a5e)]">
+                {t('consent.fromYuno')}
+              </p>
+              <ConsentRow
+                icon={<Sparkles className="h-4 w-4" />}
+                label={yunoLabel}
+                checked={yunoOptIn}
+                onToggle={() => onYunoChange?.(!yunoOptIn)}
+              />
+            </div>
           )}
         </>
       )}
@@ -287,53 +232,5 @@ function ConsentRow({
       <span className="text-[var(--tx-5a5a5e)] shrink-0">{icon}</span>
       <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug">{label}</span>
     </button>
-  );
-}
-
-/**
- * Canal déjà accepté pour ce club : état lisible + retrait en un clic, sans
- * navigation ni changement d'écran (EDPB 05/2020 §114, et son Exemple 22 qui
- * prend justement une billetterie en ligne comme contre-exemple).
- */
-function GrantedRow({
-  icon,
-  label,
-  onWithdraw,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onWithdraw?: () => Promise<boolean>;
-}) {
-  const { t } = useLanguage();
-  const [busy, setBusy] = useState(false);
-
-  const handleWithdraw = async () => {
-    if (!onWithdraw || busy) return;
-    setBusy(true);
-    try {
-      await onWithdraw();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-3 w-full py-2.5">
-      <span className="shrink-0 h-5 w-5 rounded-[4px] bg-primary border border-primary flex items-center justify-center">
-        <Check className="h-3 w-3 text-snow" strokeWidth={3} />
-      </span>
-      <span className="text-[var(--tx-5a5a5e)] shrink-0">{icon}</span>
-      <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug flex-1 min-w-0">{label}</span>
-      {onWithdraw && (
-        <button
-          type="button"
-          onClick={handleWithdraw}
-          disabled={busy}
-          className="shrink-0 text-[11px] font-medium text-[var(--tx-5a5a5e)] underline underline-offset-2 hover:text-white transition-colors disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('consent.unsubscribe')}
-        </button>
-      )}
-    </div>
   );
 }

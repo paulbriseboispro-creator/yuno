@@ -532,6 +532,8 @@ export interface MarketingHost {
   organizer_user_id: string | null;
   name: string;
   role: PartyRole;
+  /** L'appelant connecté a déjà accepté les emails de cet hôte (false pour un anonyme). */
+  email_opted_in?: boolean;
 }
 
 export const getEventMarketingHosts = (eventId: string) =>

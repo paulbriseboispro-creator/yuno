@@ -162,13 +162,15 @@ export default function TableCheckout() {
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
   const platformConsent = usePlatformMarketingConsent(true);
   const scopeName = venue?.name ?? organizer?.display_name ?? undefined;
-  // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
+  // Co-organisation : la case email nomme les hôtes qui partagent le CRM et à
+  // qui il reste à demander (un accord se demande une fois par destinataire).
   const coorgHosts = useEventMarketingHosts(
     eventId,
     venue?.id
       ? { venueId: venue.id, organizerUserId: null, scopeName: venue.name ?? '' }
       : organizer ? { venueId: null, organizerUserId: organizer.user_id, scopeName: organizer.display_name ?? '' } : null,
     language,
+    marketingConsent.emailGranted,
   );
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
@@ -277,31 +279,7 @@ export default function TableCheckout() {
     setSmsOptIn(value);
   };
 
-  // Retrait sans quitter le checkout (EDPB 05/2020 §114 : « via the same
-  // electronic interface »).
-  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
-    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'table_checkout');
-    if (ok) {
-      if (channel === 'email') setNewsletterOptIn(false);
-      else setSmsOptIn(false);
-      toast.success(t('consent.unsubscribed'));
-    } else {
-      toast.error(t('consent.withdrawFailed'));
-    }
-    return ok;
-  };
 
-  // Retrait de l'accord Yuno, au même endroit et au même prix qu'un clic.
-  const handleWithdrawYuno = async (wordingText: string) => {
-    const ok = await platformConsent.withdraw(wordingText, language, 'table_checkout');
-    if (ok) {
-      setYunoOptIn(false);
-      toast.success(t('consent.unsubscribed'));
-    } else {
-      toast.error(t('consent.withdrawFailed'));
-    }
-    return ok;
-  };
 
 
   useEffect(() => {
@@ -781,7 +759,7 @@ export default function TableCheckout() {
       const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName || scopeName);
       const { sms: smsConsentWording } = marketingConsentWording(t, scopeName);
       const consentOrganizerId = venue?.id ? null : (organizer?.user_id ?? null);
-      if (newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
+      if (newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({
           channel: 'email',
           wordingText: emailConsentWording,
@@ -1307,13 +1285,11 @@ export default function TableCheckout() {
                     smsScopeName={scopeName}
                     emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
                     smsAlreadyGranted={marketingConsent.smsGranted}
-                    pending={marketingConsent.pending || platformConsent.pending}
-                    onWithdraw={handleWithdrawConsent}
+                    pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
                     showYuno
                     yunoOptIn={yunoOptIn}
                     onYunoChange={setYunoOptIn}
                     yunoAlreadyGranted={platformConsent.granted}
-                    onWithdrawYuno={handleWithdrawYuno}
                   />
                   <TermsAcceptance userId={user?.id} guestEmail={!user ? email : null} context="table" onAcceptedChange={setAcceptTerms} />
                 </form>

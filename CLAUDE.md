@@ -850,7 +850,15 @@ des deux hubs Collaborations. Règles intouchables :
   `shareCheckoutConsent` verse le contact à chacun APRÈS la création de la vente, avec la
   preuve (`marketing_consent_events`, source `…:cohost`). Jamais sur le seul accord hérité de
   la portée principale : « déjà abonné à l'hôte » ne vaut pas accord pour les co-hôtes (la case
-  se représente). Le SMS reste à la portée principale (`smsScopeName`). Le serveur n'agit que
+  revient, en ne nommant que les hôtes à qui il reste à demander). **Un accord se demande UNE
+  fois par destinataire** (décision de Paul, 2026-10-01, migration `20261001310000`) : une
+  fois pour Yuno sur toute la plateforme, une fois par club / organisateur.
+  `get_event_marketing_hosts` rend `email_opted_in` par hôte pour l'appelant connecté ;
+  `useEventMarketingHosts` écarte les hôtes déjà acquis ; `MarketingOptIns` ne rend plus une
+  ligne déjà accordée et disparaît entièrement quand tout l'est (le retrait vit dans Réglages
+  → « Mes abonnements » et au pied des emails, plus au checkout). Ne jamais remettre un
+  résumé « déjà abonné » ni un lien de retrait dans le checkout.
+  Le SMS reste à la portée principale (`smsScopeName`). Le serveur n'agit que
   si une vente / inscription de < 3 h de CETTE adresse porte la case cochée.
 - **Marketing** : `collect_email_automations` — recettes `new_event` et `last_call`
   seulement — couvre les soirées co-hébergées (`coorg_marketing_event_ids`) ; R5 garde une

@@ -247,7 +247,7 @@ export default function GuestListSignup() {
   const marketingConsent = useMarketingConsent(consentScope);
   const platformConsent = usePlatformMarketingConsent(true);
   // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
-  const coorgHosts = useEventMarketingHosts(guestList?.eventId, consentScope, language);
+  const coorgHosts = useEventMarketingHosts(guestList?.eventId, consentScope, language, marketingConsent.emailGranted);
   // Compte créé depuis l'écran de confirmation : débloque le QR sans attendre
   // que la session se propage jusqu'à `user`.
   const [accountCreated, setAccountCreated] = useState(false);
@@ -579,30 +579,7 @@ export default function GuestListSignup() {
     }
   };
 
-  // Retrait immédiat, sans quitter la page (EDPB 05/2020 §114 : le retrait
-  // doit être possible sur la même interface que l'accord).
-  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
-    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'guestlist_signup');
-    if (ok) {
-      if (channel === 'email') setNewsletterOptIn(false);
-      else setSmsOptIn(false);
-      toast.success(t('consent.unsubscribed'));
-    } else {
-      toast.error(t('consent.withdrawFailed'));
-    }
-    return ok;
-  };
 
-  const handleWithdrawYuno = async (wordingText: string) => {
-    const ok = await platformConsent.withdraw(wordingText, language, 'guestlist_signup');
-    if (ok) {
-      setYunoOptIn(false);
-      toast.success(t('consent.unsubscribed'));
-    } else {
-      toast.error(t('consent.withdrawFailed'));
-    }
-    return ok;
-  };
 
   /**
    * Les cases d'accord marketing, identiques sur les deux formulaires (invité
@@ -623,13 +600,11 @@ export default function GuestListSignup() {
       smsScopeName={consentScope?.scopeName}
       emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
       smsAlreadyGranted={marketingConsent.smsGranted}
-      pending={marketingConsent.pending || platformConsent.pending}
-      onWithdraw={handleWithdrawConsent}
+      pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
       showYuno
       yunoOptIn={yunoOptIn}
       onYunoChange={setYunoOptIn}
       yunoAlreadyGranted={platformConsent.granted}
-      onWithdrawYuno={handleWithdrawYuno}
     />
   ) : null;
 
@@ -689,7 +664,7 @@ export default function GuestListSignup() {
       const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
       // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD) : rejouer un
       // accord déjà actif gonflerait le journal sans rien prouver de plus.
-      if (askedConsent && newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
+      if (askedConsent && newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({
           channel: 'email', wordingText: emailWording, wordingKey: 'consent.emailOffersFrom',
           venueId: consentScope?.venueId ?? null,

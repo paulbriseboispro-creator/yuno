@@ -127,7 +127,7 @@ export default function TicketCheckout() {
   // « A-t-elle déjà dit oui à CE club ? » — la seule question qui vaille.
   const marketingConsent = useMarketingConsent(consentScope);
   // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
-  const coorgHosts = useEventMarketingHosts(eventId, consentScope, language);
+  const coorgHosts = useEventMarketingHosts(eventId, consentScope, language, marketingConsent.emailGranted);
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
   const platformConsent = usePlatformMarketingConsent(true);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
@@ -606,30 +606,7 @@ export default function TicketCheckout() {
     setSmsOptIn(value);
   };
 
-  // Retrait immédiat, sans quitter le checkout (EDPB 05/2020 §114).
-  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
-    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'ticket_checkout');
-    if (ok) {
-      if (channel === 'email') setNewsletterOptIn(false);
-      else setSmsOptIn(false);
-      toast.success(t('consent.unsubscribed'));
-    } else {
-      toast.error(t('consent.withdrawFailed'));
-    }
-    return ok;
-  };
 
-  // Retrait de l'accord Yuno, au même endroit et au même prix qu'un clic.
-  const handleWithdrawYuno = async (wordingText: string) => {
-    const ok = await platformConsent.withdraw(wordingText, language, 'ticket_checkout');
-    if (ok) {
-      setYunoOptIn(false);
-      toast.success(t('consent.unsubscribed'));
-    } else {
-      toast.error(t('consent.withdrawFailed'));
-    }
-    return ok;
-  };
 
 
   // Clamp the selected quantity down when the per-person allowance shrinks.
@@ -782,7 +759,7 @@ export default function TicketCheckout() {
       const consentPhone = attendees[0].phone.trim();
       const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName);
       const { sms: smsConsentWording } = marketingConsentWording(t, consentScope?.scopeName);
-      if (newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
+      if (newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({
           channel: 'email',
           wordingText: emailConsentWording,
@@ -1257,16 +1234,15 @@ export default function TicketCheckout() {
               scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
               smsScopeName={consentScope?.scopeName}
               // Déjà abonné à l'hôte principal ne vaut pas accord pour les
-              // co-hôtes : la case se représente, nommant tout le monde.
+              // co-hôtes : la case revient, en ne nommant que ceux à qui il reste à
+              // demander (useEventMarketingHosts filtre les accords déjà donnés).
               emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
               smsAlreadyGranted={marketingConsent.smsGranted}
-              pending={marketingConsent.pending || platformConsent.pending}
-              onWithdraw={handleWithdrawConsent}
+              pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
               showYuno
               yunoOptIn={yunoOptIn}
               onYunoChange={setYunoOptIn}
               yunoAlreadyGranted={platformConsent.granted}
-              onWithdrawYuno={handleWithdrawYuno}
             />
 
             {/* Terms consent lives in the scroll flow, right below the marketing
