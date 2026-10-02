@@ -3,8 +3,10 @@
 // pour les deux dashboards (comme SupportAccessSettings). Un manager n'y a pas
 // accès : ce sont des surfaces argent/identité (comme Stripe).
 //
-// Aujourd'hui une seule carte : Meta (Pixel + Conversions API). Les suivantes
-// (Google, TikTok…) se posent ici, chacune sur le même modèle.
+// Deux cartes : Meta (Pixel + Conversions API) et la billetterie connectée
+// (Shotgun, Yuno CRM — réservée au super admin, à la démo et aux comptes bêta
+// tant que CRM_CONNECTORS_LIVE est à false). Les suivantes (Google, TikTok…)
+// se posent ici, chacune sur le même modèle.
 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
@@ -13,11 +15,14 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 import { MetaConnectionCard } from '@/components/integrations/MetaConnectionCard';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
+import { TicketingConnectionCard } from '@/components/integrations/TicketingConnectionCard';
+import { useTicketingConnectorsLive } from '@/lib/crmProduct';
 
 export default function IntegrationsSettings() {
   const { t } = useLanguage();
   const { venueId, organizerUserId, scope, mode, loading } = useVenueContext();
   const metaLive = useMetaIntegrationLive();
+  const ticketingLive = useTicketingConnectorsLive();
 
   if (loading) return <OwnerPageSkeleton />;
 
@@ -32,6 +37,7 @@ export default function IntegrationsSettings() {
       <OrgPage>
         <OrgPageHeader title={t('integ.title')} subtitle={t('integ.subtitle')} />
         <div className="space-y-5">
+          {ready && ticketingLive && <TicketingConnectionCard scope={metaScope} />}
           {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} live={metaLive} returnTo="/organizer-app/integrations" />}
         </div>
       </OrgPage>
@@ -45,6 +51,7 @@ export default function IntegrationsSettings() {
       <OwnerHeader title={t('integ.title')} />
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
         <p style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 13.5, maxWidth: 720 }}>{t('integ.subtitle')}</p>
+        {ready && ticketingLive && <TicketingConnectionCard scope={metaScope} />}
         {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} live={metaLive} returnTo="/owner/integrations" />}
       </div>
     </div>

@@ -50,6 +50,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 🔌 Intégrations
   meta_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.meta_token_invalid' },
   meta_token_expiring: { icon: AlertTriangle, category: 'system', label: 'notif.type.meta_token_expiring' },
+  ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.ticketing_token_invalid' },
+  ticketing_import_done:   { icon: Ticket,        category: 'system', label: 'notif.type.ticketing_import_done' },
   // 📅 Events
   event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
   event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
@@ -187,6 +189,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
   admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
   admin_meta_token_invalid:  { icon: AlertTriangle, category: 'system',    label: 'notif.type.admin_meta_token_invalid' },
+  admin_ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_token_invalid' },
+  admin_ticketing_sync_failing:  { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_sync_failing' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
@@ -526,6 +530,13 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'support_access_ended':
       return isOrganizer ? '/organizer-app/support-access' : `${basePath}/support-access`;
 
+    // Yuno CRM : la billetterie connectée se règle dans Intégrations
+    // (propriétaire du club ou organisateur — un manager n'y a pas accès).
+    case 'ticketing_token_invalid':
+    case 'ticketing_import_done':
+      if (isOrganizer) return '/organizer-app/integrations';
+      return isOwner ? '/owner/integrations' : null;
+
     default:
       return null;
   }
@@ -712,6 +723,15 @@ function adminNotifLink(n: AppNotif): string | null {
     // endroit d'où on peut comparer les deux lignes d'un même email.
     case 'admin_orphan_profiles':
       return '/admin/people';
+
+    // Connecteur de billetterie (Yuno CRM) : la fiche du club ou de l'orga.
+    case 'admin_ticketing_token_invalid':
+    case 'admin_ticketing_sync_failing': {
+      const scopeKey = typeof n.metadata?.scope === 'string' ? n.metadata.scope : '';
+      if (scopeKey.startsWith('venue:')) return `/admin/venues/${scopeKey.slice(6)}`;
+      if (scopeKey.startsWith('org:')) return `/admin/people/${scopeKey.slice(4)}`;
+      return '/admin/alerts';
+    }
 
     default:
       return null;
