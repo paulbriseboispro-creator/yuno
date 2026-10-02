@@ -12,6 +12,246 @@
 
 ---
 
+## Étude du 02/10 (16 h) : socle bas + crédits à l'usage, le modèle Laylo
+
+> Paul a montré la page de prix de Laylo : un abonnement fixe bas, puis des
+> crédits de messagerie payés à l'usage. Son idée : un coût fixe bas pour le
+> client, et la marge sur ce qu'il utilise vraiment. Sa réserve : si un client
+> ne prend le CRM que pour la donnée, on ne marge presque rien. Il faut donc
+> qu'il s'en serve pour son marketing.
+>
+> **Statut : étude.** Le prix des crédits se fixe plus tard, avec Paul :
+> - un nouveau fournisseur SMS moins cher est à trouver ;
+> - WhatsApp et Instagram ne sont pas encore branchés.
+>
+> Les montants de cette section servent à raisonner, pas à publier. Rien n'est
+> changé dans le produit.
+
+### Ce que fait Laylo
+
+Relevé sur laylo.com/pricing le 02/10. La page affiche en livres. Le curseur
+des crédits est en dollars : 10 $ = 7,57 £.
+
+- **Un seul plan Pro** à 18,93 £ par mois, soit 25 $. Il coûte le même prix au
+  mois et à l'année.
+  - L'annuel ne fait pas de remise. Il **offre 25 000 crédits** (37,85 £, soit
+    50 $) « pour démarrer ».
+- **Une messagerie prépayée, de 10 $ à 1 000 $.**
+  - Le prix est strictement linéaire : 2 $ les 1 000 crédits, sans remise de
+    volume.
+  - Vérifié au curseur : 5 000 crédits = 7,57 £, 75 000 = 113,53 £, 500 000 =
+    756,86 £.
+- **Une grille en crédits par canal :**
+
+  | Canal | Crédits | Prix unitaire |
+  |---|---|---|
+  | Email | 1 | 0,2 c$ |
+  | DM Instagram | 10 | 2 c$ |
+  | SMS États-Unis | 10 par segment | 2 c$ |
+  | MMS | 20 | 4 c$ |
+  | SMS international et WhatsApp | 25 par segment | 5 c$ |
+
+- **Ce qui a un coût fixe se vend en option mensuelle :**
+  - commentaires Instagram : 11,36 £ (15 $) par mois ;
+  - numéro WhatsApp : 340,59 £ (450 $) par mois ;
+  - messagerie vocale : 529,81 £ (700 $), une fois.
+- **Entreprise** : 25 $ par compte, 3 comptes minimum, plus les crédits.
+
+### Pourquoi c'est fort
+
+1. **Il n'y a pas de frein à l'entrée.** À 25 $, un organisateur décide seul,
+   sans en parler à un associé.
+2. **Le revenu grandit avec la base du client, sans rien renégocier.** Chaque
+   soirée Shotgun ajoute des acheteurs, donc des envois. C'est le revenu
+   d'expansion des outils à l'usage (Twilio, Klaviyo) : un client paie plus
+   l'an 2 que l'an 1 sans changer d'offre.
+3. **La facture suit la valeur reçue.** Un gros club paie plus qu'une
+   association parce qu'il touche plus de monde, pas parce qu'on l'a rangé dans
+   un palier.
+4. **Une seule monnaie pour tous les canaux.** Brancher WhatsApp ou Instagram
+   ajoute une ligne au tableau. Ça ne crée pas un nouveau forfait.
+5. **L'annuel offre des crédits au lieu d'une remise.** Une remise de deux mois
+   coûte deux mois de prix. Des crédits offerts ne coûtent que leur coût
+   d'envoi : Laylo offre 50 $ de valeur qui lui coûtent bien moins. En plus, ils
+   font envoyer, donc ils créent l'habitude.
+
+### Ce qui ne se transpose pas tel quel
+
+1. **Le tarif international de Laylo perdrait de l'argent en France.**
+   - 25 crédits valent 5 c$ par segment.
+   - Un SMS vers la France coûte entre 3,5 et 4,5 c€ HT chez les routeurs
+     français à volume : SMSFactor, Octopush, smsmode.
+   - Il coûte 7,3 c€ chez Twilio, notre fournisseur actuel.
+   - Un WhatsApp marketing vers la France coûte environ 0,14 $ à Meta.
+   - Laylo est américain : son tarif international est une moyenne. Chez Yuno,
+     il faut **un tarif par canal et par pays**, en crédits, calé sur le coût
+     réel.
+2. **Un compteur qui tourne freine l'envoi.** C'est pour ça que le modèle « à
+   l'usage, sans abonnement » (M4) a été écarté plus bas. Laylo s'en sort parce
+   que l'email y paraît gratuit (0,2 c$) et parce que l'annuel donne des crédits
+   d'avance. Règle à garder : **l'email doit sembler gratuit, la marge se prend
+   sur les canaux premium** (SMS, WhatsApp, DM Instagram).
+3. **Un client qui ne veut que la donnée ne rapporte que le socle.** La crainte
+   de Paul est fondée. Avec un socle à 39 €, un compte qui ne fait que lire ses
+   bilans rapporte 33 € de marge par mois. En Pro à 129 €, il en rapportait 121 €
+   (profil E ci-dessous).
+
+### Les chiffres (hypothèses de travail)
+
+**Les hypothèses du socle :**
+
+- 39 € HT par mois, avec 10 000 crédits inclus ;
+- 1 crédit = 1 email ;
+- 2 € HT les 1 000 crédits (Laylo : 2 $) ;
+- 1 SMS France = 50 crédits, soit 0,10 €.
+
+**Les coûts :**
+
+- email : 0,90 € les 1 000 (Resend, palier actuel) ;
+- SMS : 0,04 € avec le futur fournisseur, pour les deux colonnes ;
+- 5 € de fixe par compte ;
+- Stripe : 2,2 % + 0,25 €.
+
+Les profils A à E sont ceux de la section 1.1.
+
+| Profil | Grille 49 / 129 / 249 : prix | sa marge | Socle 39 € + crédits : prix | sa marge |
+|---|---|---|---|---|
+| A Asso saisonnière (4 000 emails) | 49 € | 39 € | 39 € | 29 € |
+| B Orga hebdo (45 000 emails, 300 SMS) | 133,50 € | 73 € | 139 € | 78 € |
+| C Club (70 000 emails, 1 000 SMS) | 216,50 € | 104 € | 259 € | **145 €** |
+| D Festival (60 000 emails, 1 500 SMS) | 251,50 € | 127 € | 289 € | **163 €** |
+| E Veut seulement la donnée et Meta | 129 € | **121 €** | 39 € | 33 € |
+
+**Comment le lire :**
+
+- Le socle + crédits gagne sur ceux qui envoient beaucoup : +36 à +41 € de
+  marge par mois sur C et D, +5 € sur B.
+- Il perd sur ceux qui n'envoient pas : E perd 88 €, A perd 10 €.
+- **Le modèle est meilleur si, et seulement si, le produit fait envoyer.**
+  C'est exactement l'intuition de Paul.
+
+Deux choses jouent en faveur des crédits avec le temps :
+
+- **Le coût de l'email baisse avec le volume.** Resend Scale descend à 0,46 $
+  les 1 000 à 2,5 M d'emails par mois. Amazon SES coûte 0,10 $ les 1 000. Vendu
+  2 € les 1 000, l'email passe de ~55 % à plus de 90 % de marge. Avec les
+  paliers, les emails au-delà de l'inclus sont vendus à prix coûtant : cette
+  baisse ne rapporte rien de plus.
+- **Le DM Instagram ne coûte rien à l'envoi.** Meta ne facture pas l'API de
+  messagerie. C'est un canal à presque 100 % de marge, et c'est le plus naturel
+  pour la nuit.
+
+### L'avis
+
+**Oui au modèle socle + crédits, mais pas le socle à 25 $ de Laylo.**
+
+1. **Un socle qui paie la donnée**, entre 29 et 49 € HT. Rien n'est réservé à
+   l'abonnement le plus cher :
+   - la synchro Shotgun toutes les 15 minutes, la base unifiée, le RFM, les
+     bilans de soirée et l'attribution ont de la valeur à eux seuls ;
+   - servir un compte coûte environ 5 € par mois, plus le temps de support ;
+   - sous 29 €, un compte « donnée seule » rapporte à peine plus que ce qu'il
+     coûte.
+2. **Tout ce qui fait envoyer est dans le socle :** automatisations, A/B,
+   renvoi aux non-ouvreurs, segments, équipe. C'est l'inverse des paliers.
+   **Dans un modèle à crédits, brider une fonction qui fait envoyer, c'est
+   brider son propre revenu.** Les paliers Essentiel / Pro / Business
+   disparaissent. Il reste :
+   - **Gratuit** : la donnée, synchro quotidienne, quelques crédits ;
+   - **Pro** : le socle ;
+   - **Réseau** : un prix par compte, comme l'offre Entreprise de Laylo.
+3. **Des crédits inclus chaque mois, qui expirent à l'échéance.**
+   - Assez pour deux campagnes à sa base : c'est ce qui transforme un client
+     « donnée » en client « marketing ».
+   - Les crédits achetés restent valables 12 mois.
+   - Recharge automatique proposée, avec un plafond fixé par le pro.
+4. **Une monnaie unique, avec un tableau par canal et par pays** comme celui de
+   Laylo.
+   - Ça revient sur la position plus bas (« email et SMS comptés séparément »).
+     À deux canaux, deux compteurs se lisaient bien. À quatre ou cinq canaux,
+     quatre ou cinq soldes ne se lisent plus. Le tableau de conversion règle la
+     question de la clarté.
+5. **Ce qui a un coût fixe se vend en option mensuelle**, comme chez Laylo :
+   numéro WhatsApp, expéditeur SMS dédié, domaine d'envoi à ta marque.
+6. **L'annuel offre des crédits**, pas deux mois gratuits (voir plus haut).
+7. **Les règles d'envoi ne bougent pas.** La politique d'envoi Yuno plafonne la
+   pression par personne (3 emails / 24 h, 8 / 7 jours en campagne). Elle
+   protège la délivrabilité de tous, et elle borne aussi le revenu par contact.
+   Ces deux effets sont voulus.
+
+### Faire du CRM un outil de marketing, pas un tableau de bord
+
+Les leviers, du plus fort au plus faible.
+
+1. **Les automatisations sont prêtes à la connexion de Shotgun.**
+   - Aujourd'hui, les six recettes adaptées à une billetterie connectée
+     existent. Elles sont éteintes par défaut, et seulement suggérées.
+   - À faire : un écran de démarrage qui dit « Yuno a préparé 4 envois pour ta
+     prochaine soirée », avec deux boutons, Garder et Ajuster. La validation du
+     pro reste explicite.
+   - C'est le levier qui pèse le plus : on consomme sans effort.
+   - Ordre de grandeur pour un organisateur hebdomadaire à 11 000 contacts :
+     - l'annonce, puis le dernier appel aux non-acheteurs ;
+     - le merci et le « on t'a manqué » ;
+     - les habitués qui décrochent.
+     - Total : 60 000 à 90 000 crédits par mois. La politique d'envoi plafonne
+       à 3 automatisations par personne et par semaine.
+2. **Chaque chiffre finit par un bouton « Écrire à ces gens ».** Cela vaut pour
+   le bilan de soirée, les segments RFM, les habitués qui décrochent et les
+   acheteurs de l'an dernier pas encore revenus. Un insight sans action ne
+   consomme rien.
+3. **La preuve en euros, là où on achète les crédits.**
+   - L'attribution clic → achat Shotgun sous 72 h existe déjà (lot 2b).
+   - À faire : l'afficher sur l'écran du solde et de la recharge, par exemple
+     « Tes 18 € de crédits de septembre ont été suivis de 2 340 € de billets ».
+   - Le crédit cesse d'être un coût pour devenir un investissement, comme une
+     pub Meta.
+4. **Une annonce prête à chaque nouvelle soirée Shotgun.**
+   - La synchro voit passer la soirée.
+   - Le brouillon est monté depuis le modèle, avec les tarifs en direct.
+   - Le pro reçoit « Ton annonce est prête » : un clic pour l'envoyer.
+5. **Le DM Instagram, le canal de la nuit.**
+   - Le pro publie « Commente LISTE et reçois le lien », et le DM part tout seul.
+   - Règles Meta :
+     - l'automatisation part d'une action du fan ;
+     - un seul message privé par commentaire, sous 7 jours ;
+     - ensuite, une fenêtre de 24 h s'ouvre si le fan répond.
+   - Coût d'envoi nul, donc marge maximale.
+   - Il faut la permission de messagerie Instagram à l'App Review Meta. Or
+     l'accès API de l'app Yuno est bloqué depuis le 22/09 : c'est le préalable.
+6. **Le SMS pour l'urgence** : dernier appel, dernières places, ouverture des
+   portes. L'outil existe (verrouillé « bientôt »). Il attend le nouveau
+   fournisseur.
+7. **WhatsApp plus tard**, en canal premium.
+   - Environ 0,14 $ par message marketing vers la France.
+   - Il faut un fournisseur agréé par Meta, avec son coût fixe.
+   - Option mensuelle + crédits.
+
+### Ce que le passage aux crédits changerait (plus tard, rien n'est touché)
+
+| Pièce | Aujourd'hui | Avec les crédits |
+|---|---|---|
+| `crmPlans.ts` ⇄ `crm_plan_limits` | 4 paliers, quotas d'emails, d'automatisations, de membres | socle + crédits inclus ; limites d'automatisations et d'A/B supprimées |
+| Solde | email : `email_sender_state` (inclus + acheté) ; SMS : `sms_credit_balances` à part | un portefeuille de crédits unique avec un journal, et un tarif par canal et par pays |
+| Stripe | 4 abonnements × mois/an (script prêt, aucun prix créé) | un abonnement socle, des packs ponctuels, la recharge automatique (moyen de paiement enregistré, paiement hors session) |
+| Landing `/crm` | grille 49 / 129 / 249, « recharges à prix coûtant » | socle + tableau des crédits ; la phrase « prix coûtant » disparaît côté CRM (la Suite garde la sienne) |
+| Page Abonnement de la Console | 4 cartes | le socle, le solde, l'historique, la preuve en euros, la recharge |
+
+Les créer maintenant serait du travail perdu : il faut d'abord fixer les prix.
+
+### À trancher ensemble
+
+1. Le prix du socle : 29, 39 ou 49 € HT.
+2. Les crédits inclus par mois, et ceux offerts à l'annuel.
+3. Le prix du crédit, et le tarif par canal et par pays (après le choix du
+   fournisseur SMS).
+4. Le Gratuit : quelques crédits par mois, ou aucun ?
+5. La validité des crédits achetés (12 mois ?), et la recharge automatique
+   proposée par défaut ou non.
+6. Les 15 comptes fondateurs : un socle garanti, ou des crédits offerts ?
+
+---
+
 ## Révision du 02/10 (soir) : paliers emboîtés, au prix du marché
 
 **Cette section remplace le verdict de la section 0.**

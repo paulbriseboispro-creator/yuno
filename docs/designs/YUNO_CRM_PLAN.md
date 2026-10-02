@@ -40,7 +40,9 @@ allumés). Le détail est en section 3.
    une navigation filtrée, un parcours de démarrage CRM, une page d'accueil CRM,
    une landing et une inscription dédiées.
 3. **Le prix.** Il faut une grille, la facturation Stripe Billing et des quotas
-   par offre. Section 6 : Gratuit, puis 49 €, 99 € et Réseau dès 199 € par mois.
+   par offre. Grille en place : Gratuit, Essentiel 49 €, Pro 129 €, Business
+   249 € HT par mois (section 6). Un modèle « socle bas + crédits à l'usage »
+   est à l'étude (`YUNO_CRM_PRICING.md`, étude du 02/10 à 16 h).
 
 **Le MVP vendable** correspond aux lots 1 à 5 de la section 7 : connecter
 Shotgun, voir sa base unifiée et ses segments Yuno, lire le bilan de ses soirées,
