@@ -118,6 +118,8 @@ BEGIN
 
   PERFORM public.ticketing_after_sync(v_conn);
   PERFORM public.ticketing_refresh_stats(v_conn);
+  -- Engagement de la base (sinon Clients affiche « cliquez sur Actualiser »).
+  PERFORM public.refresh_contact_engagement(NULL, v_uid);
   RAISE NOTICE 'démo CRM : %', (SELECT stats FROM public.ticketing_connections WHERE id = v_conn);
 END
 $seed$;
