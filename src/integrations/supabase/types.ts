@@ -3825,6 +3825,74 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_subscriptions: {
+        Row: {
+          billing_interval: string | null
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          founder: boolean
+          founder_until: string | null
+          granted_by: string | null
+          last_event_at: string | null
+          organizer_user_id: string | null
+          plan: string
+          scope_key: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          billing_interval?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          founder?: boolean
+          founder_until?: string | null
+          granted_by?: string | null
+          last_event_at?: string | null
+          organizer_user_id?: string | null
+          plan?: string
+          scope_key: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          billing_interval?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          founder?: boolean
+          founder_until?: string | null
+          granted_by?: string | null
+          last_event_at?: string | null
+          organizer_user_id?: string | null
+          plan?: string
+          scope_key?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_subscriptions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_activity_log: {
         Row: {
           activity_type: string
@@ -20668,6 +20736,7 @@ export type Database = {
       }
       admin_crm_all_tags: { Args: never; Returns: string[] }
       admin_crm_delete_note: { Args: { p_id: string }; Returns: undefined }
+      admin_crm_revenue: { Args: { p_include_demo?: boolean }; Returns: Json }
       admin_crm_set_tags: {
         Args: { p_email: string; p_tags: string[] }
         Returns: string[]
@@ -20682,6 +20751,10 @@ export type Database = {
       admin_delete_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_demo_link_signups: { Args: never; Returns: Json }
       admin_directory_counts: { Args: never; Returns: Json }
+      admin_grant_crm_plan: {
+        Args: { p_plan: string; p_scope_key: string; p_until: string }
+        Returns: Json
+      }
       admin_grant_push_credits: {
         Args: { p_amount: number; p_note?: string; p_scope: string }
         Returns: Json
@@ -21940,10 +22013,42 @@ export type Database = {
         Args: { p_event_id: string; p_promoter_id: string }
         Returns: undefined
       }
+      crm_apply_stripe_subscription: {
+        Args: {
+          p_cancel_at_period_end: boolean
+          p_customer_id: string
+          p_deleted?: boolean
+          p_event_at: string
+          p_founder: boolean
+          p_interval: string
+          p_period_end: string
+          p_plan: string
+          p_scope_key: string
+          p_stripe_status: string
+          p_subscription_id: string
+          p_trial_end: string
+        }
+        Returns: Json
+      }
+      crm_billing_sweep: { Args: never; Returns: Json }
+      crm_effective_plan: { Args: { p_scope_key: string }; Returns: string }
+      crm_founder_seats_left: { Args: never; Returns: number }
+      crm_plan_limits: { Args: { p_plan: string }; Returns: Json }
       crm_scope_allowed: {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: boolean
       }
+      crm_scope_is_crm: { Args: { p_scope_key: string }; Returns: boolean }
+      crm_scope_key: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: string
+      }
+      crm_scope_limits: { Args: { p_scope_key: string }; Returns: Json }
+      crm_set_stripe_customer: {
+        Args: { p_customer_id: string; p_scope_key: string }
+        Returns: undefined
+      }
+      crm_sync_scope: { Args: { p_scope_key: string }; Returns: undefined }
       current_affiliate_id: { Args: never; Returns: string }
       decide_guest_list_allocation_request: {
         Args: {
@@ -22819,6 +22924,14 @@ export type Database = {
           p_presets?: Json
           p_venue_id: string
         }
+        Returns: Json
+      }
+      get_crm_billing: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_crm_limits: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
       }
       get_crm_night_report: { Args: { p_event_id: string }; Returns: Json }
