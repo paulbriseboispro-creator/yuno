@@ -1,5 +1,4 @@
 /**
-import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
  * Warmup app native — lancé pendant le splash animé : précharge les chunks
  * des surfaces majeures pour que la première navigation soit instantanée
  * (zéro spinner de lazy-load), comme une app native.
@@ -9,6 +8,8 @@ import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
  * dynamiques pointent sur les mêmes modules que lazyWithRetry (App.tsx) :
  * Vite déduplique, le chunk est déjà en cache au moment du lazy réel.
  */
+
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 let started = false;
 
