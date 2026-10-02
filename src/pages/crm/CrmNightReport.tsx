@@ -122,7 +122,7 @@ export default function CrmNightReport() {
             {r.event.cover_url && <img src={r.event.cover_url} alt="" className="h-full w-full object-cover" />}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="capitalize" style={{ color: KIT.T2, fontSize: 13 }}>{date}{r.event.location_city ? ` · ${r.event.location_city}` : ''}</p>
+            <p className="first-letter:uppercase" style={{ color: KIT.T2, fontSize: 13 }}>{date}{r.event.location_city ? ` · ${r.event.location_city}` : ''}</p>
             <p style={{ color: KIT.T3, fontSize: 12, marginTop: 2 }}>
               {r.event.cancelled ? t('crm.night.cancelled') : r.event.sold_out ? t('crm.night.soldOut') : upcoming ? t('crm.report.onSale') : t('crm.report.done')}
             </p>

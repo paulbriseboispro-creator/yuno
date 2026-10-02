@@ -10,6 +10,8 @@
 //   • `refresh_contact_engagement` : « Actualiser » (le cron le fait toutes les
 //     10 minutes et la fin de chaque envoi aussi).
 // Ici on affiche et on filtre ; aucun chiffre n'est recalculé côté front.
+// Un compte Yuno CRM (billetterie connectée) lit les mêmes chiffres : seuls
+// les libellés changent — « venus par Yuno » y veut dire « via la billetterie ».
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +28,7 @@ import { studioScopeArgs, studioScopeId } from '@/components/email-studio/hooks'
 import ContactImportDialog, { type ImportScope } from '@/components/contacts/ContactImportDialog';
 import CampaignImpactCard, { StatusBar, StatusLegend } from '@/components/contacts/CampaignImpactCard';
 import { exportContactBase } from '@/lib/contactBaseExport';
+import { useAccountProductFor } from '@/lib/crmProduct';
 import type { ContactIntelligenceOverview } from '@/lib/contactSegments';
 import {
   CONTACT_ORIGINS, ORIGIN_COLOR, STATUS_COLOR, displayName, fill, fmtDate, fmtDateTime, fmtEuro, fmtN, impactFromOverview, segmentDeltas,
@@ -60,6 +63,10 @@ export default function ContactBasePanel({ scope, basePath }: {
 }) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { isCrm } = useAccountProductFor(
+    scope.kind === 'venue' ? { venueId: scope.venueId } : scope.kind === 'organizer' ? { organizerUserId: scope.organizerId } : {},
+  );
+  const originLabel = (o: ContactOrigin) => t(isCrm && o === 'yuno' ? 'cbase.origin.ticketing' : `cbase.origin.${o}`);
   // Les pages passent un objet `scope` neuf à chaque rendu : on ne dépend
   // que de son identité (kind + id), sinon la liste se recharge en boucle.
   const scopeId = studioScopeId(scope);
@@ -235,11 +242,11 @@ export default function ContactBasePanel({ scope, basePath }: {
         {/* ── Effectifs ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12 }}>
           <Kpi icon={Users} label={t('cbase.kpi.contacts')} value={loadingOverview ? '…' : fmtN(ov?.contacts, language)}
-            sub={fill(t('cbase.kpi.lists'), { n: String(ov?.lists?.length || 0) })} />
+            sub={fill(t(isCrm ? 'cbase.kpi.listsCrm' : 'cbase.kpi.lists'), { n: String(ov?.lists?.length || 0) })} />
           <Kpi icon={Mail} label={t('cbase.kpi.reachableEmail')} value={loadingOverview ? '…' : fmtN(ov?.reachable_emails, language)}
             sub={fill(t('cbase.kpi.reachableSms'), { n: fmtN(ov?.reachable_phones, language) })} />
-          <Kpi icon={UserCheck} red label={t('cbase.kpi.yuno')} value={loadingOverview ? '…' : fmtN(yunoCustomers, language)}
-            sub={fill(t('cbase.kpi.yunoSub'), { both: fmtN(ov?.origin?.both, language), acc: fmtN(ov?.origin?.with_account, language) })} />
+          <Kpi icon={UserCheck} red label={t(isCrm ? 'cbase.kpi.ticketing' : 'cbase.kpi.yuno')} value={loadingOverview ? '…' : fmtN(yunoCustomers, language)}
+            sub={fill(t(isCrm ? 'cbase.kpi.ticketingSub' : 'cbase.kpi.yunoSub'), { both: fmtN(ov?.origin?.both, language), acc: fmtN(ov?.origin?.with_account, language) })} />
           <Kpi icon={MousePointerClick} label={t('cbase.kpi.active')} value={loadingOverview ? '…' : fmtN(ov?.engagement?.active, language)}
             sub={fill(t('cbase.kpi.activeSub'), { n: fmtN(ov?.engagement?.sent_any, language) })} />
         </div>
@@ -262,7 +269,7 @@ export default function ContactBasePanel({ scope, basePath }: {
                   style={{ padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: on ? 'rgb(var(--ink)/0.08)' : INNER_BG, border: `1px solid ${on ? 'rgb(var(--ink)/var(--ink-a22,0.22))' : BORDER}`, color: on ? T1 : T2 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: ORIGIN_COLOR[o] }} />
                   <span style={{ fontWeight: 600, color: T1, fontVariantNumeric: 'tabular-nums' }}>{fmtN(n, language)}</span>
-                  {t(`cbase.origin.${o}`)}
+                  {originLabel(o)}
                 </button>
               );
             })}
@@ -355,7 +362,7 @@ export default function ContactBasePanel({ scope, basePath }: {
           {(status || origin || segmentId) && (
             <div className="flex flex-wrap" style={{ gap: 6, marginBottom: 12 }}>
               {status && <FilterChip label={t(`cbase.status.${status}`)} color={STATUS_COLOR[status]} onClear={() => setStatus(null)} />}
-              {origin && <FilterChip label={t(`cbase.origin.${origin}`)} color={ORIGIN_COLOR[origin]} onClear={() => setOrigin(null)} />}
+              {origin && <FilterChip label={originLabel(origin)} color={ORIGIN_COLOR[origin]} onClear={() => setOrigin(null)} />}
               {segmentId && <FilterChip label={ov?.segments.find((s) => s.id === segmentId)?.name || ''} color={RED} onClear={() => setSegmentId(null)} />}
             </div>
           )}
@@ -378,10 +385,10 @@ export default function ContactBasePanel({ scope, basePath }: {
               <div className="min-w-0 col-span-2 md:col-span-1">
                 <div className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{displayName(r)}</div>
                 <div className="truncate" style={{ color: T3, fontSize: 11, marginTop: 2 }}>
-                  {r.email || r.phone_e164}{r.city ? ` · ${r.city}` : ''}{r.has_account ? ` · ${t('cbase.hasAccount')}` : ''}
+                  {r.email || r.phone_e164}{r.city ? ` · ${r.city}` : ''}{r.has_account && !isCrm ? ` · ${t('cbase.hasAccount')}` : ''}
                 </div>
               </div>
-              <div><OriginPill origin={r.origin} t={t} /></div>
+              <div><OriginPill origin={r.origin} label={originLabel(r.origin)} /></div>
               <div><StatusPill status={r.status} t={t} /></div>
               <div style={{ color: T2, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
                 {r.emails_sent > 0
@@ -439,10 +446,10 @@ function StatusPill({ status, t }: { status: EngagementStatus; t: (k: string) =>
   );
 }
 
-function OriginPill({ origin, t }: { origin: ContactOrigin; t: (k: string) => string }) {
+function OriginPill({ origin, label }: { origin: ContactOrigin; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5" style={{ padding: '3px 8px', borderRadius: 999, fontSize: 11, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-      <span style={{ width: 7, height: 7, borderRadius: 999, background: ORIGIN_COLOR[origin] }} />{t(`cbase.origin.${origin}`)}
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: ORIGIN_COLOR[origin] }} />{label}
     </span>
   );
 }

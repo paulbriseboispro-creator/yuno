@@ -46,7 +46,7 @@ export function CrmNightRow({ night, upcoming = false }: { night: CrmNightRowDat
         <div className="min-w-0">
           <p className="line-clamp-2 break-words" style={{ color: KIT.T1, fontSize: 13.5, fontWeight: 600, lineHeight: 1.3 }}>{night.title}</p>
           <p className="flex flex-wrap items-center gap-x-2" style={{ color: KIT.T3, fontSize: 12 }}>
-            <span className="whitespace-nowrap capitalize">{date}</span>
+            <span className="inline-block whitespace-nowrap first-letter:uppercase">{date}</span>
             {pill && <span className="rounded-full px-1.5 py-px text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: night.cancelled ? KIT.T2 : KIT.RED, border: `1px solid ${KIT.BORDER}` }}>{pill}</span>}
             {night.buyers != null && night.buyers > 0 && (
               <span>
