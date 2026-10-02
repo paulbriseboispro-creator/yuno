@@ -329,7 +329,16 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       if (!url) { caughtUp = true; break; }
     }
 
-    // 3. Fin de passe.
+    // 3. Fin de passe. Soirées miroir, billets reliés à leur soirée, accords
+    //    newsletter versés au registre (migration 20261002160000) — aussi
+    //    après une passe partielle, pour que la base se remplisse pendant un
+    //    long import.
+    let after: Json | null = null;
+    {
+      const { data: a, error: aErr } = await admin.rpc("ticketing_after_sync", { p_connection_id: conn.id });
+      if (aErr) console.error("[ticketing] after_sync:", aErr.message);
+      else after = (a ?? null) as Json | null;
+    }
     if (caughtUp) {
       const now = new Date();
       const firstImport = !conn.initial_import_done_at;
@@ -340,11 +349,11 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
         locked_until: null, schema_sample: sample,
       }).eq("id", conn.id);
       const { data: stats } = await admin.rpc("ticketing_refresh_stats", { p_connection_id: conn.id });
-      await finishRun("ok", null, null);
+      await finishRun("ok", null, after);
       if (firstImport) {
         const s = (stats ?? {}) as Json;
         await notifyPro(admin, conn, "ticketing_import_done", "Historique Shotgun importé",
-          `${Number(s.tickets ?? 0)} billets et ${Number(s.buyers ?? 0)} acheteurs sont maintenant dans Yuno.`,
+          `${Number(s.tickets ?? 0)} billets et ${Number(s.buyers ?? 0)} acheteurs sont maintenant dans votre base Yuno.`,
           "normal", { tickets: s.tickets ?? 0, buyers: s.buyers ?? 0, events: s.events ?? 0 }, `ticketing_import_done:${conn.id}`);
       }
       return { more: false, status: "ok", events: eventsUpserted, tickets: ticketsUpserted };
@@ -354,7 +363,7 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       locked_until: null, next_sync_at: new Date().toISOString(), last_ok_at: new Date().toISOString(),
       fail_count: 0, schema_sample: sample,
     }).eq("id", conn.id);
-    await finishRun("partial", null, { cursor });
+    await finishRun("partial", null, { cursor, ...(after ?? {}) });
     return { more: true, status: "partial", events: eventsUpserted, tickets: ticketsUpserted };
   } catch (e) {
     const err = e instanceof ProviderError ? e : new ProviderError("http", null, e instanceof Error ? e.message : String(e));
@@ -367,7 +376,7 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       await notifyAdmin(admin, conn, "admin_ticketing_token_invalid", "Jeton Shotgun refusé",
         `Shotgun refuse le jeton d'une connexion (${err.message})`, `ticketing_token_invalid:${conn.id}`);
       await notifyPro(admin, conn, "ticketing_token_invalid", "Connexion Shotgun coupée",
-        "Shotgun refuse ton jeton API. Génère un nouveau jeton dans Smartboard → Paramètres → Intégrations → Shotgun APIs, puis colle-le dans Réglages → Intégrations.",
+        "Shotgun refuse votre jeton API. Générez un nouveau jeton dans Smartboard → Paramètres → Intégrations → Shotgun APIs, puis collez-le dans Réglages → Intégrations.",
         "high", { provider: conn.provider }, `ticketing_token_invalid:${conn.id}`);
       return { more: false, status: "error", events: eventsUpserted, tickets: ticketsUpserted, error: err.message };
     }
