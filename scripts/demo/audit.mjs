@@ -60,7 +60,9 @@ async function main() {
     rest.count(`drinks?select=id&venue_id=eq.${DEMO_VENUE_ID}`).catch(() => 0),
   ]);
   check(zones > 0 && packs > 0, `catalogue VIP : ${zones} zone(s), ${packs} formule(s), ${plans} plan(s) de salle`, 'Club : catalogue VIP incomplet.');
-  check(drinks > 0, `carte du bar : ${drinks} référence(s)`, 'Club : carte du bar vide.');
+  // Pilier boissons en pause (2026-10-01, src/lib/drinksPillar.ts) : la carte n'est plus
+  // un critère de démo ; on la compte pour mémoire, sans verdict.
+  check(true, `carte du bar : ${drinks} référence(s) (pilier en pause, non montré)`, '');
 
   const clubSales = await pillarsFor(clubFuture);
   check(
