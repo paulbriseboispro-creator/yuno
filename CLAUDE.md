@@ -93,6 +93,24 @@ Règles déjà posées :
   rapporte son accord newsletter (`source = 'connector:shotgun'`,
   `consent_source = 'ticketing'`), jamais un désabonné / une adresse purgée.
   Une source `connector:%` ne déclenche JAMAIS la recette « bienvenue ».
+- **Le produit du compte choisit la Console** (`venues.product` /
+  `organizer_profiles.product` = `suite` | `crm`, migration `20261002190000`).
+  Écrit à l'inscription (`complete_pro_signup`) ou par le super admin
+  (`set_account_product`), jamais par le client (trigger `guard_account_product`).
+  Front : `useAccountProduct()` (`src/lib/crmProduct.ts`). Un compte CRM a SA
+  barre latérale (`buildCrmNavGroups`, `components/crm/crmNav.tsx`), son accueil
+  (`ProductHome` → `CrmHome`), ses pages `…/crm/nights`, `…/crm/nights/:id`,
+  `…/crm/audience`, `…/crm/billing`, et son centre d'aide
+  (`buildCrmHelpCategories`, `src/data/crmHelpContent.ts`, clés `ohelp.crm.*`).
+  **Toute route ouverte au CRM entre dans `CRM_PREFIXES` (`isCrmPathAllowed`)**,
+  sinon le layout la renvoie sur l'accueil : une page de vente (événements,
+  billetterie, porte, tables, paiements) n'y entre jamais. Lectures de la
+  Console CRM = `get_crm_overview`, `get_crm_nights`, `get_crm_night_report`
+  (porte `crm_scope_allowed`). Un écran PARTAGÉ avec la Suite garde ses
+  chiffres et ne change que ses mots en CRM (Audience : `variant="crm"`, pas
+  d'abonnés ni de push ; Clients : « Via la billetterie », jamais « Venus par
+  Yuno » ni « avec l'app »). Démo : `crm@womber.fr`
+  (`scripts/demo/create-crm-account.mjs` puis `seed-crm-demo.sql`, rejouable).
 
 ## Stack
 

@@ -568,6 +568,19 @@ Taille : S ≈ 1 à 2 jours de travail agent, M ≈ 3 à 5, L ≈ 6 à 10. Chaqu
 termine **joué en vrai sur la démo**. C'est la règle tirée du 25/09 : « rien
 n'avait été joué contre la vraie base ».
 
+### Avancement (branche `crm/socle`)
+
+| Lot | État au 02/10 | Ce qui reste |
+|---|---|---|
+| 0 | ⏳ Paul | vraie réponse `/tickets` avec un jeton consentant (le schéma d'un billet est encore lu de façon tolérante), appel Shotgun, entretiens |
+| 1 Connecteur | ✅ migrations `20261002150000`, edge `affiliate-ticket-sync` (actions `ticketing_*`, déployée), carte Intégrations | `CRM_CONNECTORS_LIVE` à false (super admin, démo, bêta) |
+| 2 Données dans le CRM | ✅ `20261002160000` → `180000` : soirées miroir, billets dans `contact_scope_customers`, automatisations, attribution, tarifs live dans l'email (`send-campaign` déployée) | — |
+| 3 Coquille produit | ✅ `20261002190000` : `product` du compte, Console CRM (accueil, soirées, bilan, audience), Clients et Audience aux mots du CRM, centre d'aide CRM, assistant ; démo `crm@womber.fr` | `owner-assistant` à redéployer à la fusion ; Console Manager d'un club CRM non adaptée |
+| 4 Prix et facturation | en cours | |
+| 5 Landing, inscription, démo | à faire | |
+
+Rien n'est sur `main` : la fusion et le déploiement du front attendent Paul.
+
 ### Lot 0 — Valider avant de coder (Paul, 1 à 2 semaines, sans code)
 
 - **Appel Shotgun**, avec les questions de la section 11 : mode partenaire,

@@ -1,16 +1,19 @@
 /**
- * Yuno CRM — interrupteurs du deuxième produit (plan : docs/designs/YUNO_CRM_PLAN.md).
+ * Yuno CRM — interrupteurs et produit du compte (plan : docs/designs/YUNO_CRM_PLAN.md).
  *
  * `CRM_CONNECTORS_LIVE` ouvre à tous les pros la carte « Billetterie
  * connectée » (Réglages → Intégrations). Tant qu'il est à `false`, seuls la
  * voient : le super admin, les comptes démo (`@womber.fr`) et les comptes bêta
  * ci-dessous — exactement le modèle de `metaIntegration.ts`. Une connexion
- * Shotgun ne change rien d'autre au compte tant que le lot 2 (branchement au
- * CRM) n'est pas livré : on peut donc l'ouvrir en bêta sans risque.
+ * Shotgun alimente le CRM du compte (soirées miroir privées, billets, accord
+ * newsletter versé au registre de consentement), qu'il soit en Suite ou en CRM.
+ *
+ * `useAccountProduct` dit quelle Console montrer : `crm` = barre latérale,
+ * accueil, routes et centre d'aide du CRM (`components/crm/crmNav.tsx`).
  *
  * Aucun secret ici : l'interface seule s'ouvre, l'autorisation reste serveur
  * (`ticketing_scope_allowed` : propriétaire du club, organisateur lui-même,
- * super admin).
+ * super admin ; `crm_scope_allowed` pour les lectures de la Console CRM).
  */
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
