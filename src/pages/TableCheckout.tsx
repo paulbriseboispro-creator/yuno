@@ -96,7 +96,9 @@ export default function TableCheckout() {
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [event, setEvent] = useState<Tables<'events'> | null>(null);
+  // `select('*')` ne rend pas les champs calculés (cohost_*_ids) que le type
+  // généré de la table inclut : on les retire du type de l'état.
+  const [event, setEvent] = useState<Omit<Tables<'events'>, 'cohost_org_ids' | 'cohost_venue_ids'> | null>(null);
   const [venue, setVenue] = useState<PublicVenueRow | null>(null);
   useMetaCheckoutPixel({ eventId: eventId ?? null, enabled: !!eventId });
   // Marché de la soirée (analytics PostHog) : fuseau + ville, club ou orga.

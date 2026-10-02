@@ -433,6 +433,9 @@ export type Database = {
           click_type: string
           clicked_at: string
           device_type: string | null
+          event_date: string | null
+          event_name: string | null
+          event_slug: string | null
           id: string
           ip_hash: string | null
           is_internal: boolean
@@ -454,6 +457,9 @@ export type Database = {
           click_type?: string
           clicked_at?: string
           device_type?: string | null
+          event_date?: string | null
+          event_name?: string | null
+          event_slug?: string | null
           id?: string
           ip_hash?: string | null
           is_internal?: boolean
@@ -475,6 +481,9 @@ export type Database = {
           click_type?: string
           clicked_at?: string
           device_type?: string | null
+          event_date?: string | null
+          event_name?: string | null
+          event_slug?: string | null
           id?: string
           ip_hash?: string | null
           is_internal?: boolean
@@ -631,7 +640,9 @@ export type Database = {
           dj_names: string[] | null
           end_time: string | null
           event_date: string
+          external_event_ref: string | null
           external_ticket_url: string | null
+          flyer_overridden: boolean
           flyer_url: string | null
           gallery_urls: string[] | null
           genres: string[] | null
@@ -642,6 +653,7 @@ export type Database = {
           is_free: boolean
           is_sold_out: boolean
           name: string
+          name_overridden: boolean
           price_from: number | null
           recurring_template_id: string | null
           search_name: string | null
@@ -650,9 +662,6 @@ export type Database = {
           status: string
           tables_only: boolean
           ticket_url_overridden: boolean
-          name_overridden: boolean
-          flyer_overridden: boolean
-          external_event_ref: string | null
           updated_at: string
         }
         Insert: {
@@ -663,7 +672,9 @@ export type Database = {
           dj_names?: string[] | null
           end_time?: string | null
           event_date: string
+          external_event_ref?: string | null
           external_ticket_url?: string | null
+          flyer_overridden?: boolean
           flyer_url?: string | null
           gallery_urls?: string[] | null
           genres?: string[] | null
@@ -674,6 +685,7 @@ export type Database = {
           is_free?: boolean
           is_sold_out?: boolean
           name: string
+          name_overridden?: boolean
           price_from?: number | null
           recurring_template_id?: string | null
           search_name?: string | null
@@ -682,9 +694,6 @@ export type Database = {
           status?: string
           tables_only?: boolean
           ticket_url_overridden?: boolean
-          name_overridden?: boolean
-          flyer_overridden?: boolean
-          external_event_ref?: string | null
           updated_at?: string
         }
         Update: {
@@ -695,7 +704,9 @@ export type Database = {
           dj_names?: string[] | null
           end_time?: string | null
           event_date?: string
+          external_event_ref?: string | null
           external_ticket_url?: string | null
+          flyer_overridden?: boolean
           flyer_url?: string | null
           gallery_urls?: string[] | null
           genres?: string[] | null
@@ -706,6 +717,7 @@ export type Database = {
           is_free?: boolean
           is_sold_out?: boolean
           name?: string
+          name_overridden?: boolean
           price_from?: number | null
           recurring_template_id?: string | null
           search_name?: string | null
@@ -714,9 +726,6 @@ export type Database = {
           status?: string
           tables_only?: boolean
           ticket_url_overridden?: boolean
-          name_overridden?: boolean
-          flyer_overridden?: boolean
-          external_event_ref?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1110,6 +1119,7 @@ export type Database = {
           created_at: string
           day_of_week: number
           end_time: string | null
+          external_series_key: string | null
           flyer_url: string | null
           genres: string[] | null
           guest_list_type: string
@@ -1123,7 +1133,6 @@ export type Database = {
           publication_url: string | null
           publication_url_is_permanent: boolean
           publication_url_set_at: string | null
-          external_series_key: string | null
           slug: string | null
           start_time: string | null
           tables_only: boolean
@@ -1136,6 +1145,7 @@ export type Database = {
           created_at?: string
           day_of_week: number
           end_time?: string | null
+          external_series_key?: string | null
           flyer_url?: string | null
           genres?: string[] | null
           guest_list_type?: string
@@ -1149,7 +1159,6 @@ export type Database = {
           publication_url?: string | null
           publication_url_is_permanent?: boolean
           publication_url_set_at?: string | null
-          external_series_key?: string | null
           slug?: string | null
           start_time?: string | null
           tables_only?: boolean
@@ -1162,6 +1171,7 @@ export type Database = {
           created_at?: string
           day_of_week?: number
           end_time?: string | null
+          external_series_key?: string | null
           flyer_url?: string | null
           genres?: string[] | null
           guest_list_type?: string
@@ -1175,7 +1185,6 @@ export type Database = {
           publication_url?: string | null
           publication_url_is_permanent?: boolean
           publication_url_set_at?: string | null
-          external_series_key?: string | null
           slug?: string | null
           start_time?: string | null
           tables_only?: boolean
@@ -1357,7 +1366,15 @@ export type Database = {
           priority?: number
           provider?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_ticket_sources_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       affiliate_ticket_sync_runs: {
         Row: {
@@ -1399,7 +1416,44 @@ export type Database = {
           trigger?: string
           unmatched?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_ticket_sync_runs_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_ticket_sync_seen: {
+        Row: {
+          affiliate_id: string
+          created_at: string
+          event_id: string | null
+          ref: string
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string
+          event_id?: string | null
+          ref: string
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string
+          event_id?: string | null
+          ref?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_ticket_sync_seen_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       affiliate_venues: {
         Row: {
@@ -1512,6 +1566,9 @@ export type Database = {
           duration_seconds: number | null
           entry_page: string | null
           entry_page_type: string | null
+          event_date: string | null
+          event_name: string | null
+          event_slug: string | null
           id: string
           is_internal: boolean
           is_returning: boolean | null
@@ -1548,6 +1605,9 @@ export type Database = {
           duration_seconds?: number | null
           entry_page?: string | null
           entry_page_type?: string | null
+          event_date?: string | null
+          event_name?: string | null
+          event_slug?: string | null
           id?: string
           is_internal?: boolean
           is_returning?: boolean | null
@@ -1584,6 +1644,9 @@ export type Database = {
           duration_seconds?: number | null
           entry_page?: string | null
           entry_page_type?: string | null
+          event_date?: string | null
+          event_name?: string | null
+          event_slug?: string | null
           id?: string
           is_internal?: boolean
           is_returning?: boolean | null
@@ -2728,7 +2791,7 @@ export type Database = {
           retrieved_by: string | null
           staff_id: string | null
           ticket_id: string | null
-          venue_id: string
+          venue_id: string | null
         }
         Insert: {
           attendee_qr?: string | null
@@ -2748,7 +2811,7 @@ export type Database = {
           retrieved_by?: string | null
           staff_id?: string | null
           ticket_id?: string | null
-          venue_id: string
+          venue_id?: string | null
         }
         Update: {
           attendee_qr?: string | null
@@ -2768,7 +2831,7 @@ export type Database = {
           retrieved_by?: string | null
           staff_id?: string | null
           ticket_id?: string | null
-          venue_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3106,6 +3169,47 @@ export type Database = {
           },
         ]
       }
+      collab_transfer_statements: {
+        Row: {
+          collector: string
+          contract_id: string | null
+          event_id: string
+          frozen_at: string
+          frozen_by: string | null
+          settled_at: string | null
+          snapshot: Json
+          status: string
+        }
+        Insert: {
+          collector: string
+          contract_id?: string | null
+          event_id: string
+          frozen_at?: string
+          frozen_by?: string | null
+          settled_at?: string | null
+          snapshot: Json
+          status?: string
+        }
+        Update: {
+          collector?: string
+          contract_id?: string | null
+          event_id?: string
+          frozen_at?: string
+          frozen_by?: string | null
+          settled_at?: string | null
+          snapshot?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collab_transfer_statements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_templates: {
         Row: {
           agency_id: string | null
@@ -3156,6 +3260,186 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_base_cache: {
+        Row: {
+          added_at: string | null
+          age: number | null
+          bounced: boolean | null
+          city: string | null
+          clicks: number | null
+          country: string | null
+          country_code: string | null
+          created_at: string | null
+          email: string | null
+          emails_sent: number | null
+          eng_status: string | null
+          event_count: number | null
+          extra: Json | null
+          first_name: string | null
+          gender: string | null
+          guest_list_count: number | null
+          has_account: boolean | null
+          id: string | null
+          imported_events: number | null
+          imported_spent: number | null
+          last_clicked_at: string | null
+          last_name: string | null
+          last_opened_at: string | null
+          last_purchase_at: string | null
+          last_seen_at: string | null
+          list_import_id: string | null
+          newsletter_opt_in: boolean | null
+          opens: number | null
+          order_count: number | null
+          organizer_user_id: string | null
+          origin: string | null
+          phone_e164: string | null
+          postal_code: string | null
+          region: string | null
+          scope_key: string | null
+          subscribed: boolean | null
+          table_count: number | null
+          ticket_count: number | null
+          total_spent: number | null
+          unsubscribed_at: string | null
+          user_id: string | null
+          venue_id: string | null
+          yuno_events: number | null
+          yuno_first_at: string | null
+          yuno_last_at: string | null
+          yuno_spent: number | null
+          zone: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          age?: number | null
+          bounced?: boolean | null
+          city?: string | null
+          clicks?: number | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string | null
+          email?: string | null
+          emails_sent?: number | null
+          eng_status?: string | null
+          event_count?: number | null
+          extra?: Json | null
+          first_name?: string | null
+          gender?: string | null
+          guest_list_count?: number | null
+          has_account?: boolean | null
+          id?: string | null
+          imported_events?: number | null
+          imported_spent?: number | null
+          last_clicked_at?: string | null
+          last_name?: string | null
+          last_opened_at?: string | null
+          last_purchase_at?: string | null
+          last_seen_at?: string | null
+          list_import_id?: string | null
+          newsletter_opt_in?: boolean | null
+          opens?: number | null
+          order_count?: number | null
+          organizer_user_id?: string | null
+          origin?: string | null
+          phone_e164?: string | null
+          postal_code?: string | null
+          region?: string | null
+          scope_key?: string | null
+          subscribed?: boolean | null
+          table_count?: number | null
+          ticket_count?: number | null
+          total_spent?: number | null
+          unsubscribed_at?: string | null
+          user_id?: string | null
+          venue_id?: string | null
+          yuno_events?: number | null
+          yuno_first_at?: string | null
+          yuno_last_at?: string | null
+          yuno_spent?: number | null
+          zone?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          age?: number | null
+          bounced?: boolean | null
+          city?: string | null
+          clicks?: number | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string | null
+          email?: string | null
+          emails_sent?: number | null
+          eng_status?: string | null
+          event_count?: number | null
+          extra?: Json | null
+          first_name?: string | null
+          gender?: string | null
+          guest_list_count?: number | null
+          has_account?: boolean | null
+          id?: string | null
+          imported_events?: number | null
+          imported_spent?: number | null
+          last_clicked_at?: string | null
+          last_name?: string | null
+          last_opened_at?: string | null
+          last_purchase_at?: string | null
+          last_seen_at?: string | null
+          list_import_id?: string | null
+          newsletter_opt_in?: boolean | null
+          opens?: number | null
+          order_count?: number | null
+          organizer_user_id?: string | null
+          origin?: string | null
+          phone_e164?: string | null
+          postal_code?: string | null
+          region?: string | null
+          scope_key?: string | null
+          subscribed?: boolean | null
+          table_count?: number | null
+          ticket_count?: number | null
+          total_spent?: number | null
+          unsubscribed_at?: string | null
+          user_id?: string | null
+          venue_id?: string | null
+          yuno_events?: number | null
+          yuno_first_at?: string | null
+          yuno_last_at?: string | null
+          yuno_spent?: number | null
+          zone?: string | null
+        }
+        Relationships: []
+      }
+      contact_base_cache_state: {
+        Row: {
+          built_at: string
+          dirty_at: string | null
+          last_read_at: string | null
+          organizer_user_id: string | null
+          row_count: number | null
+          scope_key: string
+          venue_id: string | null
+        }
+        Insert: {
+          built_at: string
+          dirty_at?: string | null
+          last_read_at?: string | null
+          organizer_user_id?: string | null
+          row_count?: number | null
+          scope_key: string
+          venue_id?: string | null
+        }
+        Update: {
+          built_at?: string
+          dirty_at?: string | null
+          last_read_at?: string | null
+          organizer_user_id?: string | null
+          row_count?: number | null
+          scope_key?: string
+          venue_id?: string | null
+        }
+        Relationships: []
       }
       contact_engagement: {
         Row: {
@@ -3478,6 +3762,24 @@ export type Database = {
           },
         ]
       }
+      coorg_demo_sandbox_orgs: {
+        Row: {
+          created_at: string
+          note: string | null
+          organizer_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          organizer_user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          organizer_user_id?: string
+        }
+        Relationships: []
+      }
       crm_customer_notes: {
         Row: {
           body: string
@@ -3757,6 +4059,9 @@ export type Database = {
           organizer_user_id: string | null
           password_hash: string
           revoked_at: string | null
+          signup_association: boolean
+          signup_id: string | null
+          signup_offer_support: boolean
           target_account: string | null
           target_accounts: string[]
           token: string
@@ -3776,6 +4081,9 @@ export type Database = {
           organizer_user_id?: string | null
           password_hash: string
           revoked_at?: string | null
+          signup_association?: boolean
+          signup_id?: string | null
+          signup_offer_support?: boolean
           target_account?: string | null
           target_accounts?: string[]
           token?: string
@@ -3795,6 +4103,9 @@ export type Database = {
           organizer_user_id?: string | null
           password_hash?: string
           revoked_at?: string | null
+          signup_association?: boolean
+          signup_id?: string | null
+          signup_offer_support?: boolean
           target_account?: string | null
           target_accounts?: string[]
           token?: string
@@ -3803,10 +4114,49 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "demo_preview_links_signup_id_fkey"
+            columns: ["signup_id"]
+            isOneToOne: false
+            referencedRelation: "pro_signups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "demo_preview_links_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demo_preview_sessions: {
+        Row: {
+          auth_session_id: string
+          created_at: string
+          link_id: string | null
+          origin: string
+          user_id: string
+        }
+        Insert: {
+          auth_session_id: string
+          created_at?: string
+          link_id?: string | null
+          origin?: string
+          user_id: string
+        }
+        Update: {
+          auth_session_id?: string
+          created_at?: string
+          link_id?: string | null
+          origin?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_preview_sessions_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "demo_preview_links"
             referencedColumns: ["id"]
           },
         ]
@@ -4483,30 +4833,6 @@ export type Database = {
           },
         ]
       }
-      dj_payout_details: {
-        Row: {
-          created_at: string
-          holder_name: string
-          iban: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          holder_name: string
-          iban: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          holder_name?: string
-          iban?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       dj_payments: {
         Row: {
           amount: number
@@ -4558,6 +4884,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dj_payout_details: {
+        Row: {
+          created_at: string
+          holder_name: string
+          iban: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          holder_name: string
+          iban: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          holder_name?: string
+          iban?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       dj_photos: {
         Row: {
@@ -4718,10 +5068,6 @@ export type Database = {
       dj_sets: {
         Row: {
           artist_name: string | null
-          guest_artist_id: string | null
-          payee_iban: string | null
-          payee_name: string | null
-          payment_method: string | null
           created_at: string | null
           dj_id: string | null
           end_time: string
@@ -4729,10 +5075,14 @@ export type Database = {
           fee: number | null
           fee_paid: boolean | null
           fee_paid_at: string | null
+          guest_artist_id: string | null
           id: string
           music_genre: string | null
           notes: string | null
           organizer_user_id: string | null
+          payee_iban: string | null
+          payee_name: string | null
+          payment_method: string | null
           show_on_profile: boolean
           start_time: string
           title: string | null
@@ -4741,10 +5091,6 @@ export type Database = {
         }
         Insert: {
           artist_name?: string | null
-          guest_artist_id?: string | null
-          payee_iban?: string | null
-          payee_name?: string | null
-          payment_method?: string | null
           created_at?: string | null
           dj_id?: string | null
           end_time: string
@@ -4752,10 +5098,14 @@ export type Database = {
           fee?: number | null
           fee_paid?: boolean | null
           fee_paid_at?: string | null
+          guest_artist_id?: string | null
           id?: string
           music_genre?: string | null
           notes?: string | null
           organizer_user_id?: string | null
+          payee_iban?: string | null
+          payee_name?: string | null
+          payment_method?: string | null
           show_on_profile?: boolean
           start_time: string
           title?: string | null
@@ -4764,10 +5114,6 @@ export type Database = {
         }
         Update: {
           artist_name?: string | null
-          guest_artist_id?: string | null
-          payee_iban?: string | null
-          payee_name?: string | null
-          payment_method?: string | null
           created_at?: string | null
           dj_id?: string | null
           end_time?: string
@@ -4775,10 +5121,14 @@ export type Database = {
           fee?: number | null
           fee_paid?: boolean | null
           fee_paid_at?: string | null
+          guest_artist_id?: string | null
           id?: string
           music_genre?: string | null
           notes?: string | null
           organizer_user_id?: string | null
+          payee_iban?: string | null
+          payee_name?: string | null
+          payment_method?: string | null
           show_on_profile?: boolean
           start_time?: string
           title?: string | null
@@ -4805,6 +5155,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_sets_guest_artist_id_fkey"
+            columns: ["guest_artist_id"]
+            isOneToOne: false
+            referencedRelation: "event_guest_artists"
             referencedColumns: ["id"]
           },
           {
@@ -6492,6 +6849,229 @@ export type Database = {
           },
         ]
       }
+      event_cohost_consent_intents: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          email: string
+          event_id: string
+          host_keys: string[]
+          id: string
+          locale: string | null
+          proof: string
+          source: string | null
+          wording: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          email: string
+          event_id: string
+          host_keys: string[]
+          id?: string
+          locale?: string | null
+          proof: string
+          source?: string | null
+          wording: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          email?: string
+          event_id?: string
+          host_keys?: string[]
+          id?: string
+          locale?: string | null
+          proof?: string
+          source?: string | null
+          wording?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cohost_consent_intents_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_cohost_email_invites: {
+        Row: {
+          accepted_by: string | null
+          accepted_party: string | null
+          access: string
+          cohost_id: string | null
+          created_at: string
+          email: string
+          event_id: string
+          expires_at: string
+          id: string
+          invited_by: string
+          invited_by_party: string
+          lang: string
+          message: string | null
+          name: string | null
+          principal_terms: Json | null
+          role: string
+          share_crm: boolean
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_by?: string | null
+          accepted_party?: string | null
+          access?: string
+          cohost_id?: string | null
+          created_at?: string
+          email: string
+          event_id: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          invited_by_party: string
+          lang?: string
+          message?: string | null
+          name?: string | null
+          principal_terms?: Json | null
+          role?: string
+          share_crm?: boolean
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_by?: string | null
+          accepted_party?: string | null
+          access?: string
+          cohost_id?: string | null
+          created_at?: string
+          email?: string
+          event_id?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          invited_by_party?: string
+          lang?: string
+          message?: string | null
+          name?: string | null
+          principal_terms?: Json | null
+          role?: string
+          share_crm?: boolean
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cohost_email_invites_cohost_id_fkey"
+            columns: ["cohost_id"]
+            isOneToOne: false
+            referencedRelation: "event_cohosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cohost_email_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_cohosts: {
+        Row: {
+          access: string
+          created_at: string
+          ended_at: string | null
+          event_id: string
+          id: string
+          invited_at: string
+          invited_by: string | null
+          invited_by_party: string | null
+          message: string | null
+          organizer_user_id: string | null
+          principal_terms: Json | null
+          responded_at: string | null
+          responded_by: string | null
+          role: string
+          share_crm: boolean
+          status: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          access?: string
+          created_at?: string
+          ended_at?: string | null
+          event_id: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          invited_by_party?: string | null
+          message?: string | null
+          organizer_user_id?: string | null
+          principal_terms?: Json | null
+          responded_at?: string | null
+          responded_by?: string | null
+          role?: string
+          share_crm?: boolean
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          access?: string
+          created_at?: string
+          ended_at?: string | null
+          event_id?: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          invited_by_party?: string | null
+          message?: string | null
+          organizer_user_id?: string | null
+          principal_terms?: Json | null
+          responded_at?: string | null
+          responded_by?: string | null
+          role?: string
+          share_crm?: boolean
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cohosts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cohosts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cohosts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cohosts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_collab_action_requests: {
         Row: {
           action: string
@@ -7040,6 +7620,260 @@ export type Database = {
           },
         ]
       }
+      event_coorg_deals: {
+        Row: {
+          activated_at: string | null
+          clauses: string | null
+          created_at: string
+          created_by: string | null
+          event_id: string
+          formal: boolean
+          payment_terms_days: number
+          shares: Json
+          signatures: Json
+          status: string
+          stripe_split: boolean
+          terms_version: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          activated_at?: string | null
+          clauses?: string | null
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          formal?: boolean
+          payment_terms_days?: number
+          shares?: Json
+          signatures?: Json
+          status?: string
+          stripe_split?: boolean
+          terms_version?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          activated_at?: string | null
+          clauses?: string | null
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          formal?: boolean
+          payment_terms_days?: number
+          shares?: Json
+          signatures?: Json
+          status?: string
+          stripe_split?: boolean
+          terms_version?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coorg_deals_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_coorg_ledger: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          kind: string
+          label: string
+          note: string | null
+          party_key: string
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          kind: string
+          label: string
+          note?: string | null
+          party_key: string
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          kind?: string
+          label?: string
+          note?: string | null
+          party_key?: string
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coorg_ledger_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_coorg_settlements: {
+        Row: {
+          approvals: Json
+          approved_at: string | null
+          created_at: string
+          event_id: string
+          settled_at: string | null
+          snapshot: Json | null
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          approvals?: Json
+          approved_at?: string | null
+          created_at?: string
+          event_id: string
+          settled_at?: string | null
+          snapshot?: Json | null
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          approvals?: Json
+          approved_at?: string | null
+          created_at?: string
+          event_id?: string
+          settled_at?: string | null
+          snapshot?: Json | null
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coorg_settlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_coorg_transfers: {
+        Row: {
+          admin_alerted_at: string | null
+          admin_note: string | null
+          amount: number
+          confirm_due_at: string | null
+          created_at: string
+          dispute_reason: string | null
+          disputed_at: string | null
+          due_at: string | null
+          escalated_at: string | null
+          event_id: string
+          from_party: string
+          id: string
+          last_nudged_at: string | null
+          last_reminded_at: string | null
+          payee_iban: string | null
+          received_at: string | null
+          received_by: string | null
+          reference: string
+          reminder_count: number
+          resolved_by_admin: boolean
+          sent_at: string | null
+          sent_by: string | null
+          sent_reference: string | null
+          source: string
+          status: string
+          to_party: string
+          updated_at: string
+        }
+        Insert: {
+          admin_alerted_at?: string | null
+          admin_note?: string | null
+          amount: number
+          confirm_due_at?: string | null
+          created_at?: string
+          dispute_reason?: string | null
+          disputed_at?: string | null
+          due_at?: string | null
+          escalated_at?: string | null
+          event_id: string
+          from_party: string
+          id?: string
+          last_nudged_at?: string | null
+          last_reminded_at?: string | null
+          payee_iban?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          reference: string
+          reminder_count?: number
+          resolved_by_admin?: boolean
+          sent_at?: string | null
+          sent_by?: string | null
+          sent_reference?: string | null
+          source?: string
+          status?: string
+          to_party: string
+          updated_at?: string
+        }
+        Update: {
+          admin_alerted_at?: string | null
+          admin_note?: string | null
+          amount?: number
+          confirm_due_at?: string | null
+          created_at?: string
+          dispute_reason?: string | null
+          disputed_at?: string | null
+          due_at?: string | null
+          escalated_at?: string | null
+          event_id?: string
+          from_party?: string
+          id?: string
+          last_nudged_at?: string | null
+          last_reminded_at?: string | null
+          payee_iban?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          reference?: string
+          reminder_count?: number
+          resolved_by_admin?: boolean
+          sent_at?: string | null
+          sent_by?: string | null
+          sent_reference?: string | null
+          source?: string
+          status?: string
+          to_party?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coorg_transfers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_djs: {
         Row: {
           created_at: string
@@ -7110,6 +7944,59 @@ export type Database = {
             foreignKeyName: "event_embeddings_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_funnel_events: {
+        Row: {
+          amount_cents: number | null
+          created_at: string
+          device: string | null
+          event_id: string
+          id: number
+          pillar: string | null
+          quantity: number | null
+          reason: string | null
+          ref_id: string | null
+          session_id: string
+          source: string | null
+          step: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string
+          device?: string | null
+          event_id: string
+          id?: never
+          pillar?: string | null
+          quantity?: number | null
+          reason?: string | null
+          ref_id?: string | null
+          session_id: string
+          source?: string | null
+          step: string
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string
+          device?: string | null
+          event_id?: string
+          id?: never
+          pillar?: string | null
+          quantity?: number | null
+          reason?: string | null
+          ref_id?: string | null
+          session_id?: string
+          source?: string | null
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_funnel_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -7471,6 +8358,8 @@ export type Database = {
           event_kind: Database["public"]["Enums"]["event_kind"]
           event_mode: Database["public"]["Enums"]["event_mode"] | null
           event_type: string
+          external_source: string | null
+          external_ticket_url: string | null
           guest_list_sold_out: boolean
           hide_yuno_navigation: boolean
           id: string
@@ -7486,11 +8375,13 @@ export type Database = {
           max_tickets: number | null
           max_tickets_per_person: number | null
           minors_disabled: boolean
+          money_agreement: string | null
           music_genre: string
           music_genres: string[] | null
           organizer_user_id: string | null
           partner_organizer_id: string | null
           partner_venue_id: string | null
+          partner_visibility: string
           poster_position: Json | null
           poster_url: string | null
           presale_start_at: string | null
@@ -7521,14 +8412,16 @@ export type Database = {
           ticket_selling_mode: string | null
           ticketing_enabled: boolean
           tickets_sold_out: boolean
-          vip_room_id: string | null
           timezone: string | null
           title: string
           updated_at: string
           venue_id: string | null
           video_url: string | null
+          vip_room_id: string | null
           visibility: Database["public"]["Enums"]["event_visibility"]
           waitlist_enabled: boolean | null
+          cohost_org_ids: string[] | null
+          cohost_venue_ids: string[] | null
         }
         Insert: {
           access_code?: string | null
@@ -7548,6 +8441,8 @@ export type Database = {
           event_kind?: Database["public"]["Enums"]["event_kind"]
           event_mode?: Database["public"]["Enums"]["event_mode"] | null
           event_type?: string
+          external_source?: string | null
+          external_ticket_url?: string | null
           guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
@@ -7563,11 +8458,13 @@ export type Database = {
           max_tickets?: number | null
           max_tickets_per_person?: number | null
           minors_disabled?: boolean
+          money_agreement?: string | null
           music_genre?: string
           music_genres?: string[] | null
           organizer_user_id?: string | null
           partner_organizer_id?: string | null
           partner_venue_id?: string | null
+          partner_visibility?: string
           poster_position?: Json | null
           poster_url?: string | null
           presale_start_at?: string | null
@@ -7598,12 +8495,12 @@ export type Database = {
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
           tickets_sold_out?: boolean
-          vip_room_id?: string | null
           timezone?: string | null
           title: string
           updated_at?: string
           venue_id?: string | null
           video_url?: string | null
+          vip_room_id?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
           waitlist_enabled?: boolean | null
         }
@@ -7625,6 +8522,8 @@ export type Database = {
           event_kind?: Database["public"]["Enums"]["event_kind"]
           event_mode?: Database["public"]["Enums"]["event_mode"] | null
           event_type?: string
+          external_source?: string | null
+          external_ticket_url?: string | null
           guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
@@ -7640,11 +8539,13 @@ export type Database = {
           max_tickets?: number | null
           max_tickets_per_person?: number | null
           minors_disabled?: boolean
+          money_agreement?: string | null
           music_genre?: string
           music_genres?: string[] | null
           organizer_user_id?: string | null
           partner_organizer_id?: string | null
           partner_venue_id?: string | null
+          partner_visibility?: string
           poster_position?: Json | null
           poster_url?: string | null
           presale_start_at?: string | null
@@ -7675,12 +8576,12 @@ export type Database = {
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
           tickets_sold_out?: boolean
-          vip_room_id?: string | null
           timezone?: string | null
           title?: string
           updated_at?: string
           venue_id?: string | null
           video_url?: string | null
+          vip_room_id?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
           waitlist_enabled?: boolean | null
         }
@@ -7729,6 +8630,294 @@ export type Database = {
           },
           {
             foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_vip_room_id_fkey"
+            columns: ["vip_room_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_vip_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_events: {
+        Row: {
+          address_visibility: string | null
+          artists: Json
+          cancelled_at: string | null
+          city: string | null
+          connection_id: string
+          country_code: string | null
+          cover_url: string | null
+          deals: Json
+          description: string | null
+          end_at: string | null
+          event_id: string | null
+          external_id: string
+          external_role: string | null
+          first_seen_at: string
+          genres: string[]
+          id: string
+          latitude: number | null
+          launched_at: string | null
+          left_tickets: number | null
+          longitude: number | null
+          name: string | null
+          organizer_user_id: string | null
+          provider: string
+          published_at: string | null
+          raw: Json | null
+          slug: string | null
+          start_at: string | null
+          street: string | null
+          synced_at: string
+          timezone: string | null
+          type_of_place: string | null
+          url: string | null
+          venue_id: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address_visibility?: string | null
+          artists?: Json
+          cancelled_at?: string | null
+          city?: string | null
+          connection_id: string
+          country_code?: string | null
+          cover_url?: string | null
+          deals?: Json
+          description?: string | null
+          end_at?: string | null
+          event_id?: string | null
+          external_id: string
+          external_role?: string | null
+          first_seen_at?: string
+          genres?: string[]
+          id?: string
+          latitude?: number | null
+          launched_at?: string | null
+          left_tickets?: number | null
+          longitude?: number | null
+          name?: string | null
+          organizer_user_id?: string | null
+          provider: string
+          published_at?: string | null
+          raw?: Json | null
+          slug?: string | null
+          start_at?: string | null
+          street?: string | null
+          synced_at?: string
+          timezone?: string | null
+          type_of_place?: string | null
+          url?: string | null
+          venue_id?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address_visibility?: string | null
+          artists?: Json
+          cancelled_at?: string | null
+          city?: string | null
+          connection_id?: string
+          country_code?: string | null
+          cover_url?: string | null
+          deals?: Json
+          description?: string | null
+          end_at?: string | null
+          event_id?: string | null
+          external_id?: string
+          external_role?: string | null
+          first_seen_at?: string
+          genres?: string[]
+          id?: string
+          latitude?: number | null
+          launched_at?: string | null
+          left_tickets?: number | null
+          longitude?: number | null
+          name?: string | null
+          organizer_user_id?: string | null
+          provider?: string
+          published_at?: string | null
+          raw?: Json | null
+          slug?: string | null
+          start_at?: string | null
+          street?: string | null
+          synced_at?: string
+          timezone?: string | null
+          type_of_place?: string | null
+          url?: string | null
+          venue_id?: string | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_events_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "ticketing_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_tickets: {
+        Row: {
+          age: number | null
+          buyer_email: string | null
+          buyer_first_name: string | null
+          buyer_last_name: string | null
+          buyer_phone: string | null
+          buyer_ref: string | null
+          city: string | null
+          connection_id: string
+          country_code: string | null
+          currency: string | null
+          deal_id: string | null
+          deal_name: string | null
+          event_id: string | null
+          external_event_id: string | null
+          external_id: string
+          external_order_id: string | null
+          fees: number | null
+          first_seen_at: string
+          gender: string | null
+          holder_email: string | null
+          holder_first_name: string | null
+          holder_last_name: string | null
+          id: string
+          newsletter_optin: boolean | null
+          organizer_user_id: string | null
+          price: number | null
+          provider: string
+          purchased_at: string | null
+          quantity: number
+          raw: Json | null
+          raw_status: string | null
+          refunded_at: string | null
+          scanned_at: string | null
+          source_updated_at: string | null
+          status: string
+          synced_at: string
+          utm: Json | null
+          venue_id: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          age?: number | null
+          buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_last_name?: string | null
+          buyer_phone?: string | null
+          buyer_ref?: string | null
+          city?: string | null
+          connection_id: string
+          country_code?: string | null
+          currency?: string | null
+          deal_id?: string | null
+          deal_name?: string | null
+          event_id?: string | null
+          external_event_id?: string | null
+          external_id: string
+          external_order_id?: string | null
+          fees?: number | null
+          first_seen_at?: string
+          gender?: string | null
+          holder_email?: string | null
+          holder_first_name?: string | null
+          holder_last_name?: string | null
+          id?: string
+          newsletter_optin?: boolean | null
+          organizer_user_id?: string | null
+          price?: number | null
+          provider: string
+          purchased_at?: string | null
+          quantity?: number
+          raw?: Json | null
+          raw_status?: string | null
+          refunded_at?: string | null
+          scanned_at?: string | null
+          source_updated_at?: string | null
+          status?: string
+          synced_at?: string
+          utm?: Json | null
+          venue_id?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          age?: number | null
+          buyer_email?: string | null
+          buyer_first_name?: string | null
+          buyer_last_name?: string | null
+          buyer_phone?: string | null
+          buyer_ref?: string | null
+          city?: string | null
+          connection_id?: string
+          country_code?: string | null
+          currency?: string | null
+          deal_id?: string | null
+          deal_name?: string | null
+          event_id?: string | null
+          external_event_id?: string | null
+          external_id?: string
+          external_order_id?: string | null
+          fees?: number | null
+          first_seen_at?: string
+          gender?: string | null
+          holder_email?: string | null
+          holder_first_name?: string | null
+          holder_last_name?: string | null
+          id?: string
+          newsletter_optin?: boolean | null
+          organizer_user_id?: string | null
+          price?: number | null
+          provider?: string
+          purchased_at?: string | null
+          quantity?: number
+          raw?: Json | null
+          raw_status?: string | null
+          refunded_at?: string | null
+          scanned_at?: string | null
+          source_updated_at?: string | null
+          status?: string
+          synced_at?: string
+          utm?: Json | null
+          venue_id?: string | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_tickets_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "ticketing_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_tickets_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -8043,6 +9232,8 @@ export type Database = {
       }
       guest_list_entries: {
         Row: {
+          attribution_ref: string | null
+          attribution_source: string | null
           created_at: string
           email: string
           entry_deadline: string | null
@@ -8067,6 +9258,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          attribution_ref?: string | null
+          attribution_source?: string | null
           created_at?: string
           email: string
           entry_deadline?: string | null
@@ -8091,6 +9284,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          attribution_ref?: string | null
+          attribution_source?: string | null
           created_at?: string
           email?: string
           entry_deadline?: string | null
@@ -10370,6 +11565,35 @@ export type Database = {
           },
         ]
       }
+      order_unit_redemptions: {
+        Row: {
+          order_id: string
+          served_at: string
+          served_by: string | null
+          unit_idx: number
+        }
+        Insert: {
+          order_id: string
+          served_at?: string
+          served_by?: string | null
+          unit_idx: number
+        }
+        Update: {
+          order_id?: string
+          served_at?: string
+          served_by?: string | null
+          unit_idx?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_unit_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           age_declaration_birth_date: string | null
@@ -10377,6 +11601,8 @@ export type Database = {
           age_declared_at: string | null
           archived: boolean | null
           assigned_bar: string | null
+          attribution_ref: string | null
+          attribution_source: string | null
           claimed_at: string | null
           claimed_by_user_id: string | null
           created_at: string
@@ -10425,6 +11651,8 @@ export type Database = {
           age_declared_at?: string | null
           archived?: boolean | null
           assigned_bar?: string | null
+          attribution_ref?: string | null
+          attribution_source?: string | null
           claimed_at?: string | null
           claimed_by_user_id?: string | null
           created_at?: string
@@ -10473,6 +11701,8 @@ export type Database = {
           age_declared_at?: string | null
           archived?: boolean | null
           assigned_bar?: string | null
+          attribution_ref?: string | null
+          attribution_source?: string | null
           claimed_at?: string | null
           claimed_by_user_id?: string | null
           created_at?: string
@@ -11015,6 +12245,7 @@ export type Database = {
           can_sell_alcohol: boolean
           can_sell_alcohol_confirmed_at: string | null
           city: string | null
+          cloakroom_price: number | null
           cover_url: string | null
           created_at: string
           display_name: string
@@ -11028,12 +12259,12 @@ export type Database = {
           minor_auth_doc_url: string | null
           minors_allowed: boolean
           name_changed_at: string | null
+          rna_number: string | null
           search_display_name: string | null
           siret: string | null
           slug: string | null
           updated_at: string
           user_id: string
-          rna_number: string | null
           vat_number: string | null
           vat_regime: string | null
           website_url: string | null
@@ -11048,6 +12279,7 @@ export type Database = {
           can_sell_alcohol?: boolean
           can_sell_alcohol_confirmed_at?: string | null
           city?: string | null
+          cloakroom_price?: number | null
           cover_url?: string | null
           created_at?: string
           display_name: string
@@ -11061,12 +12293,12 @@ export type Database = {
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
           name_changed_at?: string | null
+          rna_number?: string | null
           search_display_name?: string | null
           siret?: string | null
           slug?: string | null
           updated_at?: string
           user_id: string
-          rna_number?: string | null
           vat_number?: string | null
           vat_regime?: string | null
           website_url?: string | null
@@ -11081,6 +12313,7 @@ export type Database = {
           can_sell_alcohol?: boolean
           can_sell_alcohol_confirmed_at?: string | null
           city?: string | null
+          cloakroom_price?: number | null
           cover_url?: string | null
           created_at?: string
           display_name?: string
@@ -11094,12 +12327,12 @@ export type Database = {
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
           name_changed_at?: string | null
+          rna_number?: string | null
           search_display_name?: string | null
           siret?: string | null
           slug?: string | null
           updated_at?: string
           user_id?: string
-          rna_number?: string | null
           vat_number?: string | null
           vat_regime?: string | null
           website_url?: string | null
@@ -11664,6 +12897,7 @@ export type Database = {
           category: string
           enabled: boolean
           notification_key: string
+          params: Json
           updated_at: string
           updated_by: string | null
         }
@@ -11671,6 +12905,7 @@ export type Database = {
           category?: string
           enabled?: boolean
           notification_key: string
+          params?: Json
           updated_at?: string
           updated_by?: string | null
         }
@@ -11678,6 +12913,7 @@ export type Database = {
           category?: string
           enabled?: boolean
           notification_key?: string
+          params?: Json
           updated_at?: string
           updated_by?: string | null
         }
@@ -13258,6 +14494,265 @@ export type Database = {
           },
         ]
       }
+      push_candidates: {
+        Row: {
+          attempts: number
+          campaign_id: string | null
+          claimed_at: string | null
+          created_at: string
+          decided_at: string | null
+          dedup_key: string
+          event_id: string | null
+          expires_at: string
+          family: string
+          hold_reason: string | null
+          id: number
+          not_before: string
+          reason: string
+          reason_party: string | null
+          rule_key: string
+          score: number
+          status: string
+          user_id: string
+          variant: string
+          vars: Json
+        }
+        Insert: {
+          attempts?: number
+          campaign_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          dedup_key: string
+          event_id?: string | null
+          expires_at: string
+          family: string
+          hold_reason?: string | null
+          id?: number
+          not_before?: string
+          reason: string
+          reason_party?: string | null
+          rule_key: string
+          score?: number
+          status?: string
+          user_id: string
+          variant?: string
+          vars?: Json
+        }
+        Update: {
+          attempts?: number
+          campaign_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          dedup_key?: string
+          event_id?: string | null
+          expires_at?: string
+          family?: string
+          hold_reason?: string | null
+          id?: number
+          not_before?: string
+          reason?: string
+          reason_party?: string | null
+          rule_key?: string
+          score?: number
+          status?: string
+          user_id?: string
+          variant?: string
+          vars?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_candidates_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "push_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_candidates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_credit_accounts: {
+        Row: {
+          bonus_balance: number
+          monthly_allowance: number | null
+          scope_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bonus_balance?: number
+          monthly_allowance?: number | null
+          scope_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bonus_balance?: number
+          monthly_allowance?: number | null
+          scope_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      push_credit_ledger: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          created_by: string | null
+          delta: number
+          id: number
+          kind: string
+          note: string | null
+          scope_key: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          delta: number
+          id?: number
+          kind: string
+          note?: string | null
+          scope_key: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          delta?: number
+          id?: number
+          kind?: string
+          note?: string | null
+          scope_key?: string
+        }
+        Relationships: []
+      }
+      push_engine_settings: {
+        Row: {
+          id: string
+          settings: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          settings?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          settings?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      push_event_settings: {
+        Row: {
+          announce_at: string | null
+          event_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          announce_at?: string | null
+          event_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          announce_at?: string | null
+          event_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_event_settings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_rule_runs: {
+        Row: {
+          candidates: number
+          created_at: string
+          event_id: string
+          rule_key: string
+        }
+        Insert: {
+          candidates?: number
+          created_at?: string
+          event_id: string
+          rule_key: string
+        }
+        Update: {
+          candidates?: number
+          created_at?: string
+          event_id?: string
+          rule_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_rule_runs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_rule_templates: {
+        Row: {
+          body: string
+          default_body: string
+          default_title: string
+          lang: string
+          reason: string
+          rule_key: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          variant: string
+        }
+        Insert: {
+          body: string
+          default_body: string
+          default_title: string
+          lang: string
+          reason?: string
+          rule_key: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          variant?: string
+        }
+        Update: {
+          body?: string
+          default_body?: string
+          default_title?: string
+          lang?: string
+          reason?: string
+          rule_key?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          variant?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string | null
@@ -13304,6 +14799,7 @@ export type Database = {
           payment_intent_id: string
           primary_account_id: string | null
           primary_amount_cents: number
+          primary_fail_count: number
           primary_recipient_kind: string | null
           primary_recipient_organizer_id: string | null
           primary_recipient_venue_id: string | null
@@ -13311,8 +14807,10 @@ export type Database = {
           primary_transfer_error: string | null
           primary_transfer_id: string | null
           primary_transfer_status: string
+          refunded_cents: number
           secondary_account_id: string | null
           secondary_amount_cents: number
+          secondary_fail_count: number
           secondary_recipient_kind: string | null
           secondary_recipient_organizer_id: string | null
           secondary_recipient_venue_id: string | null
@@ -13348,6 +14846,7 @@ export type Database = {
           payment_intent_id: string
           primary_account_id?: string | null
           primary_amount_cents?: number
+          primary_fail_count?: number
           primary_recipient_kind?: string | null
           primary_recipient_organizer_id?: string | null
           primary_recipient_venue_id?: string | null
@@ -13355,8 +14854,10 @@ export type Database = {
           primary_transfer_error?: string | null
           primary_transfer_id?: string | null
           primary_transfer_status?: string
+          refunded_cents?: number
           secondary_account_id?: string | null
           secondary_amount_cents?: number
+          secondary_fail_count?: number
           secondary_recipient_kind?: string | null
           secondary_recipient_organizer_id?: string | null
           secondary_recipient_venue_id?: string | null
@@ -13392,6 +14893,7 @@ export type Database = {
           payment_intent_id?: string
           primary_account_id?: string | null
           primary_amount_cents?: number
+          primary_fail_count?: number
           primary_recipient_kind?: string | null
           primary_recipient_organizer_id?: string | null
           primary_recipient_venue_id?: string | null
@@ -13399,8 +14901,10 @@ export type Database = {
           primary_transfer_error?: string | null
           primary_transfer_id?: string | null
           primary_transfer_status?: string
+          refunded_cents?: number
           secondary_account_id?: string | null
           secondary_amount_cents?: number
+          secondary_fail_count?: number
           secondary_recipient_kind?: string | null
           secondary_recipient_organizer_id?: string | null
           secondary_recipient_venue_id?: string | null
@@ -14496,9 +16000,12 @@ export type Database = {
           age_declaration_ip: string | null
           age_declared_at: string | null
           assigned_table_id: string | null
+          attribution_ref: string | null
+          attribution_source: string | null
           checked_in_at: string | null
           claimed_at: string | null
           claimed_by_user_id: string | null
+          collab_split: Json | null
           created_at: string
           deposit: number | null
           entry_scanned: boolean | null
@@ -14557,9 +16064,12 @@ export type Database = {
           age_declaration_ip?: string | null
           age_declared_at?: string | null
           assigned_table_id?: string | null
+          attribution_ref?: string | null
+          attribution_source?: string | null
           checked_in_at?: string | null
           claimed_at?: string | null
           claimed_by_user_id?: string | null
+          collab_split?: Json | null
           created_at?: string
           deposit?: number | null
           entry_scanned?: boolean | null
@@ -14618,9 +16128,12 @@ export type Database = {
           age_declaration_ip?: string | null
           age_declared_at?: string | null
           assigned_table_id?: string | null
+          attribution_ref?: string | null
+          attribution_source?: string | null
           checked_in_at?: string | null
           claimed_at?: string | null
           claimed_by_user_id?: string | null
+          collab_split?: Json | null
           created_at?: string
           deposit?: number | null
           entry_scanned?: boolean | null
@@ -15412,11 +16925,183 @@ export type Database = {
           },
         ]
       }
+      ticketing_connections: {
+        Row: {
+          amount_divisor: number
+          created_at: string
+          created_by: string | null
+          events_synced_at: string | null
+          external_org_id: string
+          external_org_name: string | null
+          fail_count: number
+          id: string
+          include_cohosted: boolean
+          initial_import_done_at: string | null
+          last_error: string | null
+          last_error_at: string | null
+          last_ok_at: string | null
+          last_sync_started_at: string | null
+          locked_until: string | null
+          next_sync_at: string
+          organizer_user_id: string | null
+          provider: string
+          schema_sample: Json | null
+          stats: Json
+          status: string
+          sync_interval_minutes: number
+          tickets_cursor: string | null
+          token_hint: string | null
+          updated_at: string
+          vault_secret_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          amount_divisor?: number
+          created_at?: string
+          created_by?: string | null
+          events_synced_at?: string | null
+          external_org_id: string
+          external_org_name?: string | null
+          fail_count?: number
+          id?: string
+          include_cohosted?: boolean
+          initial_import_done_at?: string | null
+          last_error?: string | null
+          last_error_at?: string | null
+          last_ok_at?: string | null
+          last_sync_started_at?: string | null
+          locked_until?: string | null
+          next_sync_at?: string
+          organizer_user_id?: string | null
+          provider: string
+          schema_sample?: Json | null
+          stats?: Json
+          status?: string
+          sync_interval_minutes?: number
+          tickets_cursor?: string | null
+          token_hint?: string | null
+          updated_at?: string
+          vault_secret_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          amount_divisor?: number
+          created_at?: string
+          created_by?: string | null
+          events_synced_at?: string | null
+          external_org_id?: string
+          external_org_name?: string | null
+          fail_count?: number
+          id?: string
+          include_cohosted?: boolean
+          initial_import_done_at?: string | null
+          last_error?: string | null
+          last_error_at?: string | null
+          last_ok_at?: string | null
+          last_sync_started_at?: string | null
+          locked_until?: string | null
+          next_sync_at?: string
+          organizer_user_id?: string | null
+          provider?: string
+          schema_sample?: Json | null
+          stats?: Json
+          status?: string
+          sync_interval_minutes?: number
+          tickets_cursor?: string | null
+          token_hint?: string | null
+          updated_at?: string
+          vault_secret_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticketing_connections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticketing_rate_window: {
+        Row: {
+          key: string
+          used: number
+          window_start: string
+        }
+        Insert: {
+          key: string
+          used?: number
+          window_start?: string
+        }
+        Update: {
+          key?: string
+          used?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
+      ticketing_sync_runs: {
+        Row: {
+          connection_id: string
+          detail: Json | null
+          error: string | null
+          events_upserted: number
+          finished_at: string | null
+          id: string
+          pages: number
+          requests: number
+          started_at: string
+          status: string
+          tickets_upserted: number
+          trigger: string
+        }
+        Insert: {
+          connection_id: string
+          detail?: Json | null
+          error?: string | null
+          events_upserted?: number
+          finished_at?: string | null
+          id?: string
+          pages?: number
+          requests?: number
+          started_at?: string
+          status?: string
+          tickets_upserted?: number
+          trigger: string
+        }
+        Update: {
+          connection_id?: string
+          detail?: Json | null
+          error?: string | null
+          events_upserted?: number
+          finished_at?: string | null
+          id?: string
+          pages?: number
+          requests?: number
+          started_at?: string
+          status?: string
+          tickets_upserted?: number
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticketing_sync_runs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "ticketing_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
+          attribution_ref: string | null
+          attribution_source: string | null
           cancelled_at: string | null
           claimed_at: string | null
           claimed_by_user_id: string | null
+          collab_split: Json | null
           created_at: string
           drink_id: string | null
           drink_name: string | null
@@ -15470,9 +17155,12 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          attribution_ref?: string | null
+          attribution_source?: string | null
           cancelled_at?: string | null
           claimed_at?: string | null
           claimed_by_user_id?: string | null
+          collab_split?: Json | null
           created_at?: string
           drink_id?: string | null
           drink_name?: string | null
@@ -15526,9 +17214,12 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          attribution_ref?: string | null
+          attribution_source?: string | null
           cancelled_at?: string | null
           claimed_at?: string | null
           claimed_by_user_id?: string | null
+          collab_split?: Json | null
           created_at?: string
           drink_id?: string | null
           drink_name?: string | null
@@ -17453,6 +19144,30 @@ export type Database = {
           },
         ]
       }
+      vip_service_requests: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          result: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id: string
+          kind: string
+          result?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          result?: string | null
+        }
+        Relationships: []
+      }
       vip_table_order_items: {
         Row: {
           created_at: string | null
@@ -18337,10 +20052,6 @@ export type Database = {
       }
     }
     Functions: {
-      set_affiliate_ticket_one_offs: {
-        Args: { p_enabled: boolean }
-        Returns: number
-      }
       _admin_customer_activity: {
         Args: never
         Returns: {
@@ -18431,6 +20142,145 @@ export type Database = {
           venue_name: string
         }[]
       }
+      _an3_aggregate: {
+        Args: {
+          p_ids: string[]
+          p_money: boolean
+          p_scope_ids: string[]
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      _an3_comparables: {
+        Args: { p_event_id: string; p_limit?: number; p_scope_ids: string[] }
+        Returns: {
+          comparable: boolean
+          event_id: string
+          rank: number
+        }[]
+      }
+      _an3_curve: {
+        Args: {
+          p_days?: number
+          p_ids: string[]
+          p_money: boolean
+          p_venue_id: string
+        }
+        Returns: {
+          d: number
+          event_id: string
+          heads: number
+          revenue: number
+          tickets: number
+        }[]
+      }
+      _an3_nights: {
+        Args: { p_event_ids: string[]; p_money: boolean; p_venue_id: string }
+        Returns: {
+          bar_orders: number
+          cap: number
+          customers: number
+          deposits: number
+          end_ts: string
+          entries: number
+          event_id: string
+          expected: number
+          first_sale_at: string
+          format_key: string
+          gl_entered: number
+          gl_registered: number
+          night: string
+          poster: string
+          refunds: number
+          rev_bar: number
+          rev_tables: number
+          rev_tickets: number
+          revenue: number
+          show_money: boolean
+          start_at: string
+          table_guests: number
+          tables: number
+          tables_arrived: number
+          ticket_orders: number
+          tickets: number
+          title: string
+          tz: string
+          weekday: number
+        }[]
+      }
+      _an3_people: {
+        Args: { p_scope_ids: string[]; p_venue_id: string }
+        Returns: {
+          amount: number
+          at_ts: string
+          email: string
+          event_id: string
+          first_event: string
+          first_seen: string
+          pillar: string
+          units: number
+          user_id: string
+        }[]
+      }
+      _an3_subject_ids: {
+        Args: {
+          p_event_id: string
+          p_from: string
+          p_scope_ids: string[]
+          p_to: string
+          p_tz: string
+        }
+        Returns: string[]
+      }
+      _collab_principal_blocker: {
+        Args: { p_event_id: string; p_invitee_kind: string }
+        Returns: string
+      }
+      _collab_principal_terms: { Args: { p: Json }; Returns: Json }
+      _collab_promote_principal: {
+        Args: { p_cohost_id: string }
+        Returns: undefined
+      }
+      _collab_transfer_compute: { Args: { p_event_id: string }; Returns: Json }
+      _contact_base_cache_build: {
+        Args: {
+          p_key: string
+          p_organizer_user_id: string
+          p_read: boolean
+          p_venue_id: string
+        }
+        Returns: number
+      }
+      _coorg_apply_cohost_consent: {
+        Args: {
+          p_email: string
+          p_event_id: string
+          p_host_keys: string[]
+          p_locale: string
+          p_source: string
+          p_wording: string
+        }
+        Returns: number
+      }
+      _coorg_compute: { Args: { p_event_id: string }; Returns: Json }
+      _coorg_eur: { Args: { p: number }; Returns: string }
+      _coorg_maybe_settle: { Args: { p_event_id: string }; Returns: undefined }
+      _coorg_touch_settlement: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      _coorg_yuno_legs: {
+        Args: { p_event_id: string }
+        Returns: {
+          amount: number
+          party_key: string
+          pillar: string
+        }[]
+      }
+      _door_headcount: {
+        Args: { p_event_ids: string[]; p_since?: string }
+        Returns: Json
+      }
       _email_automation_enabled: {
         Args: {
           p_kind: string
@@ -18518,7 +20368,122 @@ export type Database = {
         }
         Returns: number
       }
+      _order_units: {
+        Args: { p_items: Json }
+        Returns: {
+          item_idx: number
+          name: string
+          prepped: boolean
+          served: boolean
+          sub_idx: number
+          unit_idx: number
+        }[]
+      }
       _purge_venue: { Args: { _venue_id: string }; Returns: undefined }
+      _push_collect_after_thanks: { Args: never; Returns: number }
+      _push_collect_announcement: {
+        Args: {
+          p_dj_ids?: string[]
+          p_event_id: string
+          p_expires: string
+          p_not_before: string
+        }
+        Returns: number
+      }
+      _push_collect_checkout_abandoned: { Args: never; Returns: number }
+      _push_collect_last_call: { Args: never; Returns: number }
+      _push_collect_last_tickets: { Args: never; Returns: number }
+      _push_collect_new_event: { Args: never; Returns: number }
+      _push_collect_reminders: { Args: never; Returns: number }
+      _push_collect_sales_open: { Args: never; Returns: number }
+      _push_collect_vip_upsell: { Args: never; Returns: number }
+      _push_credit_state: { Args: { p_scope: string }; Returns: Json }
+      _push_event_holders: {
+        Args: { p_event: string }
+        Returns: {
+          came: boolean
+          has_table: boolean
+          reason: string
+          user_id: string
+        }[]
+      }
+      _push_event_host_followers: {
+        Args: { p_event: string }
+        Returns: {
+          ord: number
+          party: string
+          user_id: string
+        }[]
+      }
+      _push_event_interested: {
+        Args: { p_event: string }
+        Returns: {
+          on_waitlist: boolean
+          user_id: string
+        }[]
+      }
+      _push_event_sellable: { Args: { p_event: string }; Returns: boolean }
+      _push_has_bought: {
+        Args: { p_event: string; p_user: string }
+        Returns: boolean
+      }
+      _push_legacy_sent: {
+        Args: { p_event: string; p_keys: string[] }
+        Returns: boolean
+      }
+      _push_mark_run: {
+        Args: { p_event: string; p_n: number; p_rule: string }
+        Returns: undefined
+      }
+      _push_marketable_events: {
+        Args: never
+        Returns: {
+          event_id: string
+          published_at: string
+          start_at: string
+          tz: string
+          venue_id: string
+        }[]
+      }
+      _push_party_past_events: {
+        Args: {
+          p_exclude: string
+          p_kind: string
+          p_months: number
+          p_org: string
+          p_venue: string
+        }
+        Returns: string[]
+      }
+      _push_reachable: { Args: { p_user: string }; Returns: boolean }
+      _push_reason_weight: { Args: { p_reason: string }; Returns: number }
+      _push_scarcity_variant: {
+        Args: { p_event: string; p_threshold: number }
+        Returns: string
+      }
+      _push_scope_for_caller: {
+        Args: {
+          p_agency_id: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: string
+      }
+      _push_score: {
+        Args: { p_base: number; p_reason: string; p_start: string }
+        Returns: number
+      }
+      _regular_lapse_candidates: {
+        Args: { p_gap: string; p_organizer_user_id: string; p_venue_id: string }
+        Returns: {
+          em: string
+          last_at: string
+          nights: number
+          pick_event_id: string
+          pick_reason: string
+          user_id: string
+        }[]
+      }
       _resolve_meta_audience_rows: {
         Args: { p_connection_id: string; p_kind: string; p_ref: string }
         Returns: {
@@ -18527,6 +20492,39 @@ export type Database = {
           first_name: string
           last_name: string
           phone: string
+        }[]
+      }
+      _sales_period_nights: {
+        Args: {
+          p_from: string
+          p_money: boolean
+          p_scope_ids: string[]
+          p_scope_venue: string
+          p_to: string
+        }
+        Returns: {
+          bucket: string
+          id: string
+          show_money: boolean
+          start_at: string
+          title: string
+          tz: string
+        }[]
+      }
+      _sales_period_tx: {
+        Args: { p_event_ids: string[]; p_scope_venue: string }
+        Returns: {
+          amount: number
+          at_ts: string
+          email: string
+          event_id: string
+          heads: number
+          id: string
+          pillar: string
+          source: string
+          tracked_link_id: string
+          units: number
+          user_id: string
         }[]
       }
       _venue_customer_rfm: {
@@ -18567,8 +20565,12 @@ export type Database = {
           visits_per_month: number
         }[]
       }
+      accept_cohost_email_invite: {
+        Args: { p_party?: string; p_token: string }
+        Returns: Json
+      }
       accept_collab_night_closing: {
-        Args: { p_closing_id: string }
+        Args: { p_closing_id: string; p_expected_revision?: number }
         Returns: Json
       }
       accept_dj_booking_request: {
@@ -18591,6 +20593,18 @@ export type Database = {
       ack_push_delivery: {
         Args: { p_campaign_id: string; p_subscription_id: string }
         Returns: boolean
+      }
+      add_coorg_ledger_line: {
+        Args: {
+          p_amount: number
+          p_category?: string
+          p_event_id: string
+          p_kind: string
+          p_label: string
+          p_note?: string
+          p_party: string
+        }
+        Returns: string
       }
       add_email_credits: {
         Args: {
@@ -18638,6 +20652,7 @@ export type Database = {
         Returns: undefined
       }
       admin_cockpit: { Args: { p_include_demo?: boolean }; Returns: Json }
+      admin_coorg_transfer_issues: { Args: never; Returns: Json }
       admin_crm_add_note: {
         Args: { p_body: string; p_email: string }
         Returns: string
@@ -18656,7 +20671,12 @@ export type Database = {
       }
       admin_delete_organizer: { Args: { _user_id: string }; Returns: undefined }
       admin_delete_venue: { Args: { _venue_id: string }; Returns: undefined }
+      admin_demo_link_signups: { Args: never; Returns: Json }
       admin_directory_counts: { Args: never; Returns: Json }
+      admin_grant_push_credits: {
+        Args: { p_amount: number; p_note?: string; p_scope: string }
+        Returns: Json
+      }
       admin_log_action: {
         Args: {
           _action: string
@@ -18716,8 +20736,14 @@ export type Database = {
         Returns: Json
       }
       admin_purge_venue: { Args: { _venue_id: string }; Returns: undefined }
+      admin_push_credit_accounts: { Args: { p_q?: string }; Returns: Json }
+      admin_push_engine_overview: { Args: { p_days?: number }; Returns: Json }
       admin_release_health: { Args: never; Returns: Json }
       admin_reset_user_mfa: { Args: { _user_id: string }; Returns: undefined }
+      admin_resolve_coorg_transfer: {
+        Args: { p_note: string; p_outcome: string; p_transfer_id: string }
+        Returns: undefined
+      }
       admin_restore_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_segmentation_customers: {
         Args: {
@@ -18765,6 +20791,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_set_demo_link_signup: {
+        Args: { p_data: Json; p_link_id: string }
+        Returns: Json
+      }
       admin_set_dj_verified: {
         Args: { p_dj_user_id: string; p_reason?: string; p_verified: boolean }
         Returns: undefined
@@ -18788,6 +20818,26 @@ export type Database = {
           p_verified: boolean
         }
         Returns: undefined
+      }
+      admin_set_push_allowance: {
+        Args: { p_allowance: number; p_scope: string }
+        Returns: Json
+      }
+      admin_set_push_engine_settings: { Args: { p_patch: Json }; Returns: Json }
+      admin_set_push_rule: {
+        Args: { p_enabled?: boolean; p_key: string; p_params?: Json }
+        Returns: Json
+      }
+      admin_set_push_template: {
+        Args: {
+          p_body: string
+          p_lang: string
+          p_reason: string
+          p_rule: string
+          p_title: string
+          p_variant: string
+        }
+        Returns: Json
       }
       admin_set_user_suspended: {
         Args: { _reason?: string; _suspended: boolean; _user_id: string }
@@ -18855,6 +20905,20 @@ export type Database = {
         Returns: Record<string, unknown>
       }
       aff_user_lang: { Args: { p_user_id: string }; Returns: string }
+      affiliate_night_date: { Args: never; Returns: string }
+      affiliate_ticket_sync_apply: {
+        Args: {
+          p_affiliate_id: string
+          p_force?: boolean
+          p_rows: Json
+          p_silent?: boolean
+        }
+        Returns: Json
+      }
+      affiliate_ticket_sync_create_one_offs: {
+        Args: { p_affiliate_id: string; p_rows: Json }
+        Returns: Json
+      }
       amend_event_collab_contract: {
         Args: {
           p_cancellation_policy?: string
@@ -18862,6 +20926,18 @@ export type Database = {
           p_split_rules: Json
         }
         Returns: string
+      }
+      analytics_scope_gate: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: {
+          money: boolean
+          ok: boolean
+          reason: string
+          scope_ids: string[]
+          scope_org: string
+          scope_venue: string
+          tz: string
+        }[]
       }
       analyze_contact_list_import: {
         Args: { p_list_import_id: string }
@@ -18900,9 +20976,14 @@ export type Database = {
         Args: { p_event_id: string; p_room_id: string }
         Returns: string
       }
-      update_vip_room_plan: {
-        Args: { p_background_image_url: string; p_layout: Json; p_room_id: string }
-        Returns: string
+      approve_coorg_settlement: {
+        Args: {
+          p_event_id: string
+          p_fingerprint?: string
+          p_party: string
+          p_version: number
+        }
+        Returns: Json
       }
       approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
       archive_expired_event_orders: { Args: never; Returns: undefined }
@@ -18935,6 +21016,26 @@ export type Database = {
         }
         Returns: undefined
       }
+      attribution_from_purchase_source: {
+        Args: { p_source: string }
+        Returns: string
+      }
+      attribution_from_session: {
+        Args: {
+          p_referrer_category: string
+          p_referrer_domain: string
+          p_utm_medium: string
+          p_utm_source: string
+        }
+        Returns: string
+      }
+      attribution_from_tracked_link: {
+        Args: { p_link_id: string }
+        Returns: {
+          ref: string
+          source: string
+        }[]
+      }
       audience_members: {
         Args: { p_subject_id: string; p_subject_type: string }
         Returns: {
@@ -18962,6 +21063,7 @@ export type Database = {
         Returns: number
       }
       backfill_missing_invoices: { Args: never; Returns: number }
+      bar_redeem_units: { Args: { p_segments: Json }; Returns: Json }
       build_collab_settlement_reference: {
         Args: { p_org_id: string }
         Returns: string
@@ -19001,6 +21103,14 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      campaign_scope_is_event_principal: {
+        Args: {
+          p_event_id: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: boolean
+      }
       can_access_partnership: {
         Args: {
           _organizer_user_id: string
@@ -19011,6 +21121,14 @@ export type Database = {
       }
       can_manage_affiliate_linktree: {
         Args: { p_affiliate_id: string }
+        Returns: boolean
+      }
+      can_manage_dj_scope: {
+        Args: {
+          _organizer_user_id: string
+          _user_id: string
+          _venue_id: string
+        }
         Returns: boolean
       }
       can_manage_email_assets: { Args: never; Returns: boolean }
@@ -19059,6 +21177,22 @@ export type Database = {
         Args: { _target_role: string; _venue_id: string }
         Returns: boolean
       }
+      can_run_bar: {
+        Args: { p_uid: string; p_venue: string }
+        Returns: boolean
+      }
+      can_run_cloakroom: {
+        Args: { p_uid: string; p_venue: string }
+        Returns: boolean
+      }
+      can_run_event_cloakroom: {
+        Args: { p_event: string; p_uid: string }
+        Returns: boolean
+      }
+      can_run_vip_service: {
+        Args: { p_include_bar?: boolean; p_uid: string; p_venue: string }
+        Returns: boolean
+      }
       can_set_event_entry_target: {
         Args: { p_event_id: string }
         Returns: boolean
@@ -19067,6 +21201,10 @@ export type Database = {
       can_view_organizer_promoters: {
         Args: { _organizer_user_id: string; _user_id: string }
         Returns: boolean
+      }
+      cancel_cohost_email_invite: {
+        Args: { p_invite_id: string }
+        Returns: undefined
       }
       cancel_collab_amendment: {
         Args: { p_amendment_id: string }
@@ -19080,6 +21218,7 @@ export type Database = {
         Args: { p_settlement_id: string }
         Returns: Json
       }
+      cancel_coorg_deal: { Args: { p_event_id: string }; Returns: undefined }
       cancel_dj_booking_contract: {
         Args: { p_contract_id: string }
         Returns: undefined
@@ -19196,6 +21335,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_order_prep: {
+        Args: { p_action?: string; p_bar?: string; p_order_id: string }
+        Returns: Json
+      }
       claim_promo_code: {
         Args: {
           p_base_amount: number
@@ -19219,6 +21362,48 @@ export type Database = {
           phone_e164: string
           user_id: string
         }[]
+      }
+      claim_ticketing_connections: {
+        Args: {
+          p_connection_id?: string
+          p_lease_seconds?: number
+          p_limit?: number
+        }
+        Returns: {
+          amount_divisor: number
+          created_at: string
+          created_by: string | null
+          events_synced_at: string | null
+          external_org_id: string
+          external_org_name: string | null
+          fail_count: number
+          id: string
+          include_cohosted: boolean
+          initial_import_done_at: string | null
+          last_error: string | null
+          last_error_at: string | null
+          last_ok_at: string | null
+          last_sync_started_at: string | null
+          locked_until: string | null
+          next_sync_at: string
+          organizer_user_id: string | null
+          provider: string
+          schema_sample: Json | null
+          stats: Json
+          status: string
+          sync_interval_minutes: number
+          tickets_cursor: string | null
+          token_hint: string | null
+          updated_at: string
+          vault_secret_id: string | null
+          venue_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ticketing_connections"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cleanup_affiliate_invitation_meta: { Args: never; Returns: undefined }
       cleanup_expired_invoices: { Args: never; Returns: undefined }
@@ -19244,6 +21429,48 @@ export type Database = {
           reason: string
         }[]
       }
+      cloakroom_deposit: {
+        Args: {
+          p_attendee_qr: string
+          p_customer_name: string
+          p_event_id: string
+          p_id: string
+          p_items: number
+          p_number: string
+          p_payment_confirmed?: boolean
+          p_prepaid_selection_id?: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
+      cloakroom_event_price: { Args: { p_event: string }; Returns: number }
+      cloakroom_lookup: {
+        Args: { p_event: string; p_qr: string }
+        Returns: Json
+      }
+      cloakroom_retrieve: { Args: { p_tx: string }; Returns: Json }
+      cohost_event_ids_org: { Args: { p_org: string }; Returns: string[] }
+      cohost_event_ids_subject: {
+        Args: { p_subject: string }
+        Returns: string[]
+      }
+      cohost_event_ids_venue: { Args: { p_venue: string }; Returns: string[] }
+      cohost_org_ids: {
+        Args: { "": Database["public"]["Tables"]["events"]["Row"] }
+        Returns: {
+          error: true
+        } & "the function public.cohost_org_ids with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+      }
+      cohost_venue_ids: {
+        Args: { "": Database["public"]["Tables"]["events"]["Row"] }
+        Returns: {
+          error: true
+        } & "the function public.cohost_venue_ids with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+      }
+      collab_agreement_is_external: {
+        Args: { p_rules: Json }
+        Returns: boolean
+      }
       collab_domain_holder: {
         Args: {
           p_domain: string
@@ -19252,6 +21479,7 @@ export type Database = {
         }
         Returns: string
       }
+      collab_event_has_sales: { Args: { p_event_id: string }; Returns: boolean }
       collab_event_parties: {
         Args: { p_event_id: string }
         Returns: {
@@ -19277,6 +21505,13 @@ export type Database = {
           tickets_count: number
         }[]
       }
+      collab_org_can_act: { Args: { p_org: string }; Returns: boolean }
+      collab_rules_org_pct: {
+        Args: { p_mode: string; p_pillar: string; p_rules: Json }
+        Returns: number
+      }
+      collab_settlement_collector: { Args: { p_rules: Json }; Returns: string }
+      collab_settlement_mode: { Args: { p_rules: Json }; Returns: string }
       collab_table_settlement_lines: {
         Args: { p_event_id: string }
         Returns: {
@@ -19292,6 +21527,7 @@ export type Database = {
           pct: number
         }[]
       }
+      collab_transfer_freeze_sweep: { Args: never; Returns: number }
       collect_campaign_followups: { Args: never; Returns: Json }
       collect_campaign_resends: { Args: never; Returns: Json }
       collect_email_automations: { Args: never; Returns: Json }
@@ -19306,6 +21542,10 @@ export type Database = {
           is_subscriber: boolean
         }[]
       }
+      complete_demo_preview_signup: {
+        Args: { p_key: string; p_support_help?: boolean }
+        Returns: Json
+      }
       complete_pro_signup: { Args: { p_key: string }; Returns: Json }
       compute_collab_night_closing: {
         Args: { p_event_id: string }
@@ -19318,6 +21558,10 @@ export type Database = {
       confirm_collab_settlement_received: {
         Args: { p_settlement_id: string }
         Returns: Json
+      }
+      confirm_coorg_transfer: {
+        Args: { p_reason?: string; p_received: boolean; p_transfer_id: string }
+        Returns: undefined
       }
       confirm_promoter_payout_received: {
         Args: { p_payout_id: string }
@@ -19340,9 +21584,25 @@ export type Database = {
         Args: { p_credit_id: string; p_want: number }
         Returns: number
       }
+      consume_push_credit: {
+        Args: { p_actor?: string; p_campaign_id: string; p_scope: string }
+        Returns: string
+      }
       consume_sms_credits: {
         Args: { p_amount: number; p_balance_id: string }
         Returns: boolean
+      }
+      consume_ticketing_rate: {
+        Args: { p_key: string; p_limit: number; p_n?: number }
+        Returns: number
+      }
+      contact_base_cache_fresh: {
+        Args: { p_built_at: string; p_dirty_at: string }
+        Returns: boolean
+      }
+      contact_base_scope_key: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: string
       }
       contact_base_snapshot: {
         Args: { p_organizer_user_id: string; p_venue_id: string }
@@ -19454,6 +21714,42 @@ export type Database = {
           user_id: string
         }[]
       }
+      coorg_cohost_sees_money: {
+        Args: { p_event_id: string; p_party: string }
+        Returns: boolean
+      }
+      coorg_deal_frozen: { Args: { p_event_id: string }; Returns: boolean }
+      coorg_demo_sandbox_caller: { Args: never; Returns: boolean }
+      coorg_demo_sandbox_status: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
+      coorg_marketing_event_ids: {
+        Args: { p_org: string; p_venue: string }
+        Returns: string[]
+      }
+      coorg_party_is_demo: {
+        Args: {
+          p_kind: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: boolean
+      }
+      coorg_party_level: {
+        Args: { p_party: string; p_uid: string }
+        Returns: number
+      }
+      coorg_sees_event_money: {
+        Args: { p_event_id: string; p_party: string }
+        Returns: boolean
+      }
+      coorg_stripe_split_blocker: {
+        Args: { p_event_id: string; p_shares: Json }
+        Returns: string
+      }
+      coorg_stripe_split_config: { Args: { p_event_id: string }; Returns: Json }
+      coorg_transfer_followup_sweep: { Args: never; Returns: Json }
       count_campaign_audience: {
         Args: { p_campaign_id: string }
         Returns: Json
@@ -19544,6 +21840,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_cohost_email_invite: {
+        Args: {
+          p_access?: string
+          p_email: string
+          p_event_id: string
+          p_lang?: string
+          p_message?: string
+          p_name?: string
+          p_principal?: boolean
+          p_share_crm?: boolean
+          p_terms?: Json
+        }
+        Returns: Json
+      }
       create_demo_preview_link: {
         Args: {
           p_expires_at?: string
@@ -19592,24 +21902,15 @@ export type Database = {
         }
         Returns: string
       }
-      create_event_collab_series_contract:
-        | {
-            Args: {
-              p_cancellation_policy?: string
-              p_split_rules?: Json
-              p_template_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_cancellation_policy?: string
-              p_responsibilities?: Json
-              p_split_rules?: Json
-              p_template_id: string
-            }
-            Returns: string
-          }
+      create_event_collab_series_contract: {
+        Args: {
+          p_cancellation_policy?: string
+          p_responsibilities?: Json
+          p_split_rules?: Json
+          p_template_id: string
+        }
+        Returns: string
+      }
       create_manual_table_reservation: {
         Args: {
           p_assigned_table_id?: string
@@ -19660,9 +21961,17 @@ export type Database = {
         Args: { p_confirm_days?: number; p_settlement_id: string }
         Returns: Json
       }
+      declare_coorg_transfer_sent: {
+        Args: { p_reference?: string; p_transfer_id: string }
+        Returns: undefined
+      }
       declare_promoter_payout_sent: {
         Args: { p_confirm_days?: number; p_payout_id: string }
         Returns: Json
+      }
+      decline_cohost_email_invite: {
+        Args: { p_token: string }
+        Returns: undefined
       }
       decline_dj_booking_request: {
         Args: { p_id: string; p_note?: string }
@@ -19704,6 +22013,12 @@ export type Database = {
           venue_id: string
           venue_name: string
         }[]
+      }
+      demo_preview_link_signup: { Args: { p_token: string }; Returns: Json }
+      demo_preview_writable_rpc: { Args: { p_name: string }; Returns: boolean }
+      demo_preview_writable_table: {
+        Args: { p_method: string; p_name: string }
+        Returns: boolean
       }
       demo_set_live: { Args: { p_live: boolean }; Returns: boolean }
       demo_venue_ids: { Args: never; Returns: string[] }
@@ -19821,6 +22136,7 @@ export type Database = {
         Returns: undefined
       }
       enable_collab_tables: { Args: { p_event_id: string }; Returns: string }
+      end_event_cohost: { Args: { p_cohost_id: string }; Returns: string }
       end_support_session: { Args: { _session_id: string }; Returns: undefined }
       enforce_drinks_alcohol_gate: {
         Args: { p_org_id: string; p_rules: Json }
@@ -19850,11 +22166,26 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      ensure_event_party_link: {
+        Args: { p_event_id: string; p_party?: string }
+        Returns: Json
+      }
       ensure_sms_tracked_link: {
         Args: { p_event_id: string }
         Returns: {
           code: string
           id: string
+        }[]
+      }
+      event_analytics_scope: {
+        Args: { p_event_id: string }
+        Returns: {
+          money: boolean
+          ok: boolean
+          reason: string
+          scope_ids: string[]
+          scope_org: string
+          scope_venue: string
         }[]
       }
       event_audience_demographics: {
@@ -19891,11 +22222,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      event_funnel_housekeeping: { Args: never; Returns: number }
       event_has_blocking_collab_contract: {
         Args: { p_event_id: string }
         Returns: boolean
       }
       event_host_slug: { Args: { p_event_id: string }; Returns: string }
+      event_merchant_party: { Args: { p_event_id: string }; Returns: string }
       event_origin_cities: {
         Args: {
           p_event_id?: string
@@ -19905,6 +22238,24 @@ export type Database = {
           p_to?: string
         }
         Returns: Json
+      }
+      event_parties: {
+        Args: { p_event_id: string }
+        Returns: {
+          access: string
+          avatar_url: string
+          city: string
+          cohost_id: string
+          display_name: string
+          kind: string
+          ord: number
+          organizer_user_id: string
+          party_key: string
+          role: string
+          share_crm: boolean
+          slug: string
+          venue_id: string
+        }[]
       }
       event_payments_ready: { Args: { p_event_id: string }; Returns: boolean }
       expire_dj_booking_requests: { Args: never; Returns: undefined }
@@ -19984,6 +22335,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      follow_event_hosts: { Args: { p_event_id: string }; Returns: number }
       follow_organizer: {
         Args: { p_organizer_user_id: string; p_source?: string }
         Returns: {
@@ -20024,6 +22376,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      follows_all_event_hosts: {
+        Args: { p_event_id: string }
+        Returns: boolean
+      }
+      forget_ticketing_token: {
+        Args: { p_connection_id: string }
+        Returns: undefined
+      }
+      freeze_collab_transfer_statement: {
+        Args: { p_event_id: string }
+        Returns: Json
       }
       gen_affiliate_linktree_slug: {
         Args: { p_exclude?: string; p_name: string }
@@ -20205,6 +22569,120 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_analytics_audience: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_benchmarks: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_analytics_campaigns: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_cohorts: {
+        Args: {
+          p_months?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_door: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_event_rail: {
+        Args: {
+          p_limit?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_insights: {
+        Args: {
+          p_compare?: string
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_overview: {
+        Args: {
+          p_compare?: string
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_pacing: {
+        Args: { p_compare?: string; p_days?: number; p_event_id: string }
+        Returns: Json
+      }
+      get_analytics_promoters: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_rfm: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_analytics_sales: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_sources: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_analytics_tonight: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_audience_analytics: {
         Args: { p_subject_id: string; p_subject_type: string }
         Returns: Json
@@ -20281,7 +22759,16 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      get_cohost_email_invite: { Args: { p_token: string }; Returns: Json }
       get_collab_audience_overlap: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
+      get_collab_directory: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_collab_party_breakdown: {
         Args: { p_event_id: string }
         Returns: Json
       }
@@ -20289,8 +22776,20 @@ export type Database = {
         Args: { p_settlement_id: string }
         Returns: Json
       }
+      get_collab_transfer_statement: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       get_community_overview: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_community_period: {
+        Args: {
+          p_hours?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
         Returns: Json
       }
       get_community_tastes: {
@@ -20407,14 +22906,6 @@ export type Database = {
         }[]
       }
       get_dj_payout_prefill: { Args: { p_dj_id: string }; Returns: Json }
-      can_manage_dj_scope: {
-        Args: {
-          _organizer_user_id: string
-          _user_id: string
-          _venue_id: string
-        }
-        Returns: boolean
-      }
       get_dj_public_events: {
         Args: { p_slug: string }
         Returns: {
@@ -20444,6 +22935,7 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_door_counters: { Args: { p_event_ids: string[] }; Returns: Json }
       get_due_customer_automation_targets: {
         Args: never
         Returns: {
@@ -20496,6 +22988,8 @@ export type Database = {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: Json
       }
+      get_event_community: { Args: { p_event_id: string }; Returns: Json }
+      get_event_coorg: { Args: { p_event_id: string }; Returns: Json }
       get_event_guest_artist_clicks: {
         Args: { p_event_id: string }
         Returns: {
@@ -20507,10 +23001,14 @@ export type Database = {
           unique_visitors: number
         }[]
       }
+      get_event_host_followers: { Args: { p_event_id: string }; Returns: Json }
       get_event_managing_organizer: {
         Args: { _event_id: string }
         Returns: string
       }
+      get_event_marketing_hosts: { Args: { p_event_id: string }; Returns: Json }
+      get_event_party_links: { Args: { p_event_id: string }; Returns: Json }
+      get_event_presenters: { Args: { p_event_id: string }; Returns: Json }
       get_event_report: { Args: { p_event_id: string }; Returns: Json }
       get_event_rp_agencies: {
         Args: { p_event_id: string }
@@ -20523,39 +23021,6 @@ export type Database = {
         }[]
       }
       get_event_scan_manifest: { Args: { p_event_id: string }; Returns: Json }
-      get_event_table_availability: {
-        Args: { p_event_id: string }
-        Returns: {
-          assigned_table_id: string
-          guest_count: number
-          pack_id: string
-          placement_status: string
-          requested_table_id: string
-          status: string
-          zone_id: string
-        }[]
-      }
-      get_events_pnl: {
-        Args: {
-          p_from?: string
-          p_organizer_user_id?: string
-          p_to?: string
-          p_venue_id?: string
-        }
-        Returns: Json
-      }
-      get_organizer_legal_identity: {
-        Args: { p_organizer_user_id: string }
-        Returns: {
-          billing_email: string
-          legal_address: string
-          legal_name: string
-          rna_number: string
-          siret: string
-          vat_number: string
-          vat_regime: string
-        }[]
-      }
       get_event_seller: {
         Args: { p_event_id: string; p_qr_code: string }
         Returns: {
@@ -20569,6 +23034,28 @@ export type Database = {
           vat_number: string
           vat_regime: string
         }[]
+      }
+      get_event_table_availability: {
+        Args: { p_event_id: string }
+        Returns: {
+          assigned_table_id: string
+          guest_count: number
+          pack_id: string
+          placement_status: string
+          requested_table_id: string
+          status: string
+          zone_id: string
+        }[]
+      }
+      get_event_traffic: { Args: { p_event_id: string }; Returns: Json }
+      get_events_pnl: {
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
       }
       get_events_sales_summary: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
@@ -20715,6 +23202,10 @@ export type Database = {
         Returns: string
       }
       get_mfa_totp_secret: { Args: { p_user_id: string }; Returns: string }
+      get_my_cohost_invitations: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_my_community_access: {
         Args: { p_event_id: string }
         Returns: {
@@ -20726,6 +23217,14 @@ export type Database = {
           organizer_user_id: string
           venue_id: string
         }[]
+      }
+      get_my_coorg_events: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_my_coorg_partners: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
       }
       get_my_marketing_consent: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
@@ -20785,6 +23284,10 @@ export type Database = {
           consumed_total: number
           minimum_spend: number
         }[]
+      }
+      get_my_ticketing_connections: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
       }
       get_my_venue_private: {
         Args: { p_venue_id: string }
@@ -20905,6 +23408,18 @@ export type Database = {
         Args: { p_organizer_user_id: string }
         Returns: number
       }
+      get_organizer_legal_identity: {
+        Args: { p_organizer_user_id: string }
+        Returns: {
+          billing_email: string
+          legal_address: string
+          legal_name: string
+          rna_number: string
+          siret: string
+          vat_number: string
+          vat_regime: string
+        }[]
+      }
       get_owner_venue_ids: { Args: { _owner_id: string }; Returns: string[] }
       get_page_traffic: {
         Args: {
@@ -21001,6 +23516,22 @@ export type Database = {
         }
         Returns: Json
       }
+      get_push_center: {
+        Args: {
+          p_days?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_push_credits: {
+        Args: {
+          p_agency_id?: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       get_push_delivery_counts: {
         Args: { p_campaign_ids: string[] }
         Returns: Json
@@ -21020,6 +23551,33 @@ export type Database = {
         Args: {
           p_organizer_user_id?: string
           p_period?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_sales_period_audience: {
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_sales_period_curve: {
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_sales_period_drivers: {
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
           p_venue_id?: string
         }
         Returns: Json
@@ -21058,6 +23616,14 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_ticketing_token: {
+        Args: { p_connection_id: string }
+        Returns: string
+      }
+      get_tracked_link_preview_path: {
+        Args: { p_code: string }
+        Returns: string
+      }
       get_tracked_link_stats: {
         Args: {
           p_dj_id?: string
@@ -21081,6 +23647,14 @@ export type Database = {
           revenue: number
           target_kind: string
         }[]
+      }
+      get_traffic_period: {
+        Args: {
+          p_hours?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
       }
       get_user_nightlife_stats: {
         Args: { p_user_id: string }
@@ -21314,6 +23888,19 @@ export type Database = {
         Returns: undefined
       }
       instagram_handle_from_url: { Args: { p_url: string }; Returns: string }
+      invite_event_cohost: {
+        Args: {
+          p_access?: string
+          p_event_id: string
+          p_message?: string
+          p_organizer_user_id?: string
+          p_principal?: boolean
+          p_share_crm?: boolean
+          p_terms?: Json
+          p_venue_id?: string
+        }
+        Returns: string
+      }
       is_account_suspended: { Args: { _user_id: string }; Returns: boolean }
       is_active_affiliate: { Args: never; Returns: boolean }
       is_affiliate_manager: {
@@ -21333,6 +23920,7 @@ export type Database = {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: boolean
       }
+      is_demo_preview_session: { Args: never; Returns: boolean }
       is_direct_client_write: { Args: never; Returns: boolean }
       is_email_banned: {
         Args: { p_email: string; p_venue_id: string }
@@ -21343,6 +23931,10 @@ export type Database = {
         Returns: boolean
       }
       is_email_suppressed: { Args: { p_email: string }; Returns: boolean }
+      is_event_cohost: {
+        Args: { p_event_id: string; p_min?: string; p_uid: string }
+        Returns: boolean
+      }
       is_event_collab_participant: {
         Args: { p_event_id: string; p_user: string }
         Returns: boolean
@@ -21426,6 +24018,15 @@ export type Database = {
           p_lang?: string
         }
         Returns: string
+      }
+      lens_community_takeaways: {
+        Args: { p_days: number; p_result: Json }
+        Returns: Json
+      }
+      lens_traffic_takeaways: { Args: { p_result: Json }; Returns: Json }
+      link_sale_session: {
+        Args: { p_kind: string; p_sale_id: string; p_session_id: string }
+        Returns: boolean
       }
       links_visitor_context: { Args: never; Returns: Record<string, unknown> }
       list_contact_base: {
@@ -21535,8 +24136,21 @@ export type Database = {
       }
       mfa_deferral_status: { Args: never; Returns: Json }
       music_genre_key: { Args: { p_raw: string }; Returns: string }
+      my_cohost_event_ids: { Args: { p_min?: string }; Returns: string[] }
+      my_event_party: {
+        Args: { p_event_id: string }
+        Returns: {
+          access: string
+          level: number
+          party_key: string
+          role: string
+        }[]
+      }
+      night_date: { Args: { p_ts: string; p_tz?: string }; Returns: string }
       night_recap_data: { Args: { p_event_id: string }; Returns: Json }
       night_recap_due: { Args: never; Returns: string[] }
+      night_recap_email_data: { Args: { p_event_id: string }; Returns: Json }
+      normalize_collab_settlement: { Args: { p_rules: Json }; Returns: Json }
       normalize_instagram_handle: { Args: { p_raw: string }; Returns: string }
       normalize_phone_e164: { Args: { _phone: string }; Returns: string }
       normalize_split_rules: { Args: { rules: Json }; Returns: Json }
@@ -21554,6 +24168,23 @@ export type Database = {
           p_type: string
           p_venue_id: string
         }
+        Returns: undefined
+      }
+      notify_coorg_party: {
+        Args: {
+          p_dedup?: string
+          p_event_id: string
+          p_message: string
+          p_meta?: Json
+          p_party: string
+          p_ref?: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
+      nudge_coorg_transfer: {
+        Args: { p_transfer_id: string }
         Returns: undefined
       }
       onboarding_link_issuer_allowed: {
@@ -21620,6 +24251,7 @@ export type Database = {
         Returns: Json
       }
       paris_night_date: { Args: { p_at?: string }; Returns: string }
+      pgrst_demo_preview_guard: { Args: never; Returns: undefined }
       ping_affiliate_live: {
         Args: {
           p_affiliate_id: string
@@ -21739,6 +24371,65 @@ export type Database = {
       purge_links_events: { Args: never; Returns: undefined }
       purge_platform_traffic: { Args: never; Returns: undefined }
       purge_promoter_push_queue: { Args: never; Returns: Json }
+      push_credit_state_for: { Args: { p_scope: string }; Returns: Json }
+      push_engine_campaign: {
+        Args: {
+          p_body: string
+          p_event_id: string
+          p_rule: string
+          p_title: string
+          p_url: string
+        }
+        Returns: string
+      }
+      push_engine_claim: {
+        Args: { p_limit?: number }
+        Returns: {
+          candidate_id: number
+          event_id: string
+          event_title: string
+          family: string
+          host_names: string
+          lang: string
+          party_name: string
+          reason: string
+          reason_party: string
+          rule_key: string
+          start_at: string
+          tz: string
+          user_id: string
+          variant: string
+          vars: Json
+          venue_name: string
+        }[]
+      }
+      push_engine_collect: { Args: never; Returns: Json }
+      push_engine_enqueue_lineup: {
+        Args: { p_dj_ids: string[]; p_event_id: string }
+        Returns: number
+      }
+      push_engine_housekeeping: { Args: never; Returns: number }
+      push_engine_record: {
+        Args: {
+          p_campaign_id: string
+          p_failed: number[]
+          p_log_type: string
+          p_nodevice: number[]
+          p_sent: number[]
+          p_title: string
+        }
+        Returns: Json
+      }
+      push_engine_setting: {
+        Args: { p_default: number; p_key: string }
+        Returns: number
+      }
+      push_is_quiet_hour: { Args: { p_at?: string }; Returns: boolean }
+      push_rule_enabled: { Args: { p_rule: string }; Returns: boolean }
+      push_rule_param: {
+        Args: { p_default: number; p_key: string; p_rule: string }
+        Returns: number
+      }
       record_campaign_list_baseline: {
         Args: { p_campaign_id: string }
         Returns: boolean
@@ -21822,6 +24513,7 @@ export type Database = {
         Args: { p_amount: number; p_scope_key: string }
         Returns: undefined
       }
+      refund_push_credit: { Args: { p_campaign_id: string }; Returns: boolean }
       refund_sms_credits: {
         Args: {
           p_amount: number
@@ -21830,6 +24522,15 @@ export type Database = {
           p_sms_log_id?: string
         }
         Returns: number
+      }
+      register_demo_preview_session: {
+        Args: {
+          p_origin?: string
+          p_session_id: string
+          p_token?: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       register_push_token: {
         Args: { p_endpoint: string; p_platform: string }
@@ -21875,6 +24576,19 @@ export type Database = {
           p_quota_table?: number
         }
         Returns: string
+      }
+      request_order_prep: {
+        Args: { p_bar?: string; p_order_id: string; p_unit_indices?: number[] }
+        Returns: Json
+      }
+      request_push_credits: {
+        Args: {
+          p_agency_id?: string
+          p_note?: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
       }
       request_showcase_claim: { Args: { p_email: string }; Returns: Json }
       request_support_help: { Args: { _reason?: string }; Returns: string }
@@ -21944,7 +24658,12 @@ export type Database = {
         }[]
       }
       resolve_campaign_tracked_links: {
-        Args: { p_channel?: string; p_event_ids: string[] }
+        Args: {
+          p_channel?: string
+          p_event_ids: string[]
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
         Returns: {
           event_code: string
           event_id: string
@@ -22001,6 +24720,23 @@ export type Database = {
         Args: { p_action: string; p_payout_id: string }
         Returns: Json
       }
+      resolve_sale_attribution: {
+        Args: {
+          p_at: string
+          p_email: string
+          p_event_id: string
+          p_id: string
+          p_kind: string
+          p_promo_code_id: string
+          p_promoter_id?: string
+          p_purchase_source: string
+          p_tracked_link_id: string
+        }
+        Returns: {
+          ref: string
+          source: string
+        }[]
+      }
       resolve_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
@@ -22037,6 +24773,10 @@ export type Database = {
           venue_id: string
         }[]
       }
+      respond_event_cohost_invitation: {
+        Args: { p_accept: boolean; p_cohost_id: string }
+        Returns: string
+      }
       respond_event_collab_action: {
         Args: { p_approve: boolean; p_request_id: string }
         Returns: string
@@ -22067,9 +24807,24 @@ export type Database = {
         }
         Returns: Json
       }
+      save_coorg_deal: {
+        Args: {
+          p_clauses?: string
+          p_event_id: string
+          p_formal?: boolean
+          p_payment_terms_days?: number
+          p_shares: Json
+          p_stripe_split?: boolean
+        }
+        Returns: Json
+      }
       save_event_vip_room: {
         Args: { p_event_id: string; p_name: string; p_room_id?: string }
         Returns: string
+      }
+      search_coorg_partners: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: Json
       }
       search_djs_marketplace: {
         Args: {
@@ -22140,6 +24895,14 @@ export type Database = {
         Args: { p_dj_id: string; p_event_id: string }
         Returns: undefined
       }
+      seed_event_party_tracked_links: {
+        Args: {
+          p_event_id: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: undefined
+      }
       seed_event_tracked_links: {
         Args: { p_event_id: string }
         Returns: undefined
@@ -22151,6 +24914,10 @@ export type Database = {
       seed_venue_tracked_links: {
         Args: { p_venue_id: string }
         Returns: undefined
+      }
+      set_affiliate_ticket_one_offs: {
+        Args: { p_enabled: boolean }
+        Returns: number
       }
       set_agency_contract_gl_default: {
         Args: {
@@ -22198,6 +24965,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_click_collect_mode: {
+        Args: { p_on: boolean; p_venue_id: string }
+        Returns: boolean
+      }
+      set_coorg_transfer_iban: {
+        Args: { p_iban: string; p_transfer_id: string }
+        Returns: undefined
+      }
       set_dj_availability_block: {
         Args: { p_date: string; p_reason?: string }
         Returns: undefined
@@ -22206,9 +24981,21 @@ export type Database = {
         Args: { p_action: string; p_campaign_id: string }
         Returns: Json
       }
+      set_event_announce_at: {
+        Args: { p_at: string; p_event_id: string }
+        Returns: Json
+      }
+      set_event_collab_external_agreement: {
+        Args: { p_event_id: string; p_tables?: string; p_tickets?: string }
+        Returns: Json
+      }
       set_event_entry_target: {
         Args: { p_event_id: string; p_target: number }
         Returns: number
+      }
+      set_event_partner_visibility: {
+        Args: { p_event_id: string; p_mode: string }
+        Returns: string
       }
       set_event_sale_password: {
         Args: { p_event_id: string; p_password: string }
@@ -22221,6 +25008,10 @@ export type Database = {
       set_guest_list_public_types: {
         Args: { p_guest_list_id: string; p_types: string[] }
         Returns: undefined
+      }
+      set_organizer_cloakroom_price: {
+        Args: { p_price: number }
+        Returns: boolean
       }
       set_promoter_linktree_featured: {
         Args: { p_event_id: string; p_featured: boolean }
@@ -22243,6 +25034,18 @@ export type Database = {
         Args: { p_period_label?: string; p_promoter_id: string }
         Returns: Json
       }
+      share_event_marketing_consent: {
+        Args: {
+          p_email: string
+          p_event_id: string
+          p_host_keys?: string[]
+          p_locale?: string
+          p_proof?: string
+          p_source?: string
+          p_wording: string
+        }
+        Returns: number
+      }
       sign_agency_venue_contract: {
         Args: { p_contract_id: string }
         Returns: string
@@ -22255,6 +25058,16 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      sign_coorg_deal: {
+        Args: {
+          p_event_id: string
+          p_ip?: string
+          p_party: string
+          p_ua?: string
+          p_version?: number
+        }
+        Returns: Json
       }
       sign_dj_booking_contract: {
         Args: { p_contract_id: string; p_ip?: string; p_user_agent?: string }
@@ -22335,6 +25148,10 @@ export type Database = {
         Args: { p_secret: string; p_user_id: string }
         Returns: undefined
       }
+      store_ticketing_token: {
+        Args: { p_connection_id: string; p_token: string }
+        Returns: undefined
+      }
       submit_links_pro_lead: {
         Args: {
           p_city?: string
@@ -22394,7 +25211,31 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: undefined
       }
+      ticketing_after_sync: { Args: { p_connection_id: string }; Returns: Json }
+      ticketing_refresh_stats: {
+        Args: { p_connection_id: string }
+        Returns: Json
+      }
+      ticketing_scope_allowed: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: boolean
+      }
       tiktok_handle_from_url: { Args: { p_url: string }; Returns: string }
+      track_event_funnel: {
+        Args: {
+          p_amount_cents?: number
+          p_device?: string
+          p_event_id: string
+          p_pillar?: string
+          p_quantity?: number
+          p_reason?: string
+          p_ref?: string
+          p_session_id: string
+          p_source?: string
+          p_step: string
+        }
+        Returns: undefined
+      }
       track_guest_artist_click: {
         Args: { p_artist_id: string }
         Returns: undefined
@@ -22428,6 +25269,22 @@ export type Database = {
         Args: { p_data?: Json; p_key: string; p_step: string }
         Returns: undefined
       }
+      tracked_link_team_can_read: {
+        Args: {
+          p_kind: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: boolean
+      }
+      tracked_link_team_sees_money: {
+        Args: {
+          p_kind: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: boolean
+      }
       try_claim_customer_automation: {
         Args: {
           p_cooldown_days: number
@@ -22438,6 +25295,7 @@ export type Database = {
         Returns: boolean
       }
       unaccent_music_genre: { Args: { p_raw: string }; Returns: string }
+      unaccent_safe: { Args: { p: string }; Returns: string }
       unlock_event_sale: {
         Args: { p_event_id: string; p_guest_email?: string; p_password: string }
         Returns: boolean
@@ -22465,9 +25323,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_event_cohost: {
+        Args: { p_access?: string; p_cohost_id: string; p_share_crm?: boolean }
+        Returns: undefined
+      }
       update_maintenance_password: {
         Args: { new_password: string }
         Returns: undefined
+      }
+      update_vip_room_plan: {
+        Args: {
+          p_background_image_url: string
+          p_layout: Json
+          p_room_id: string
+        }
+        Returns: string
       }
       upsert_event_floor_plan: {
         Args: {
@@ -22518,6 +25388,47 @@ export type Database = {
         }[]
       }
       verify_maintenance_password: { Args: { plain: string }; Returns: boolean }
+      vip_consumption_item_type: {
+        Args: { p_category: string }
+        Returns: string
+      }
+      vip_create_table_order: {
+        Args: {
+          p_items: Json
+          p_note?: string
+          p_request_id?: string
+          p_reservation_id: string
+        }
+        Returns: string
+      }
+      vip_serve_items: {
+        Args: {
+          p_items: Json
+          p_note?: string
+          p_request_id?: string
+          p_reservation_id: string
+        }
+        Returns: number
+      }
+      vip_serve_table_order: { Args: { p_order_id: string }; Returns: Json }
+      void_coorg_ledger_line: {
+        Args: { p_line_id: string }
+        Returns: undefined
+      }
+      weekly_digest_email_data: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      weekly_digest_email_targets: {
+        Args: never
+        Returns: {
+          recipient: string
+          recipient_email: string
+          subject_id: string
+          subject_type: string
+          tz: string
+        }[]
+      }
       withdraw_my_marketing_consent: {
         Args: {
           p_channel: string
