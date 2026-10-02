@@ -43,6 +43,7 @@ const DEMO_EMAILS = new Set([
   "owner@womber.fr",
   "organizer@womber.fr",
   "bde@womber.fr",
+  "crm@womber.fr",
   "promoter@womber.fr",
   "agency@womber.fr",
   "dj@womber.fr",
