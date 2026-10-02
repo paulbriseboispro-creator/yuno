@@ -28,11 +28,23 @@ relancer `npm run dev`. Tout réapparaît (routes, navigation, onglets, sections
 ## Ce qui reste en ligne, par décision
 
 - La **boisson offerte** d'un billet ou d'une part de guest list (`includes_drink`,
-  `quota_drink`, `drink_deadline_*`, `drink_cutoff_time`) et le `free_drink_mode` du
-  videur : c'est un attribut de l'offre billetterie (mode Libre du 30/09), pas le
-  système de commande. Le barman n'étant plus accessible, un club en mode `credits`
-  gère la boisson offerte à la porte (`bouncer_notify`) — aucun club réel n'était en
-  `credits` au 01/10.
+  `quota_drink`, `drink_deadline_*`, `drink_cutoff_time`) : c'est un attribut de
+  l'offre billetterie (mode Libre du 30/09), pas le système de commande. **Elle se
+  gère à la PORTE, et seulement là** (décision de Paul, 01/10) : le videur voit
+  « Boisson offerte incluse » au scan, le client lit sur son billet « montre ce
+  billet à l'entrée » (`orders.ticketIncludesPostDoor`). Le mode « crédits à montrer
+  au bar » n'est plus proposé nulle part : migration `20261002100000` →
+  `venues.free_drink_mode = 'bouncer_notify'` partout et par défaut ; le front force
+  la même valeur quand le pilier dort (`DrinkOptionsFields`, `OwnerTicketing`,
+  `OwnerVenue`, `Bouncer`).
+- **La base suit le front** (même migration) : `menu_enabled`, `live_mode_enabled`,
+  `post_checkout_upsell_enabled`, `click_collect_mode` éteints sur tous les clubs et
+  par défaut, pour qu'un ancien bundle (app pas encore mise à jour par l'OTA) ne
+  vende pas non plus. Relancer = remettre les défauts et rallumer club par club.
+- **Démo** : l'historique du bar du club `womber` est effacé
+  (`scripts/demo/clean-drinks-history.sql`, rejouable : 7 634 commandes et 2 commandes
+  de table le 02/10) ; la carte (`drinks`, 17 références) reste pour le relancement ;
+  `audit.mjs` ne juge plus la carte.
 - Les lignes `orders` historiques dans la compta, les factures, les remboursements et
   les RPC d'analyse (aucune vente boissons réelle au 01/10 ; tout est démo).
 - Les crons et edge functions boissons (`cart-abandonment-check`, `use-drink-credit`,
@@ -134,9 +146,11 @@ Les routes PARTAGÉES restent (`/my-orders`, `/order-confirmation`, `/claim`,
 - `worker/index.ts` : page `/order-drinks` hors sitemap, copy crawler à deux piliers.
 - `index.html` : title / description / og / JSON-LD à deux piliers.
 
-À redéployer après merge : `supabase functions deploy yuno-assistant owner-assistant
-send-ticket-confirmation` (+ `send-vip-confirmation`, qui partage `_shared/wallet`), et
-le worker Cloudflare (`wrangler deploy` depuis le dashboard Workers Builds).
+Déployé le 02/10 : front (push main → Workers Builds), migration (`db push`), six
+edge functions depuis un worktree propre à origin/main (`yuno-assistant`,
+`owner-assistant`, `send-ticket-confirmation`, `process-scheduled-campaigns`,
+`event-reminder`, `send-push-notification` — chacune téléchargée avant pour vérifier
+que prod ne faisait que suivre main), OTA production client 1.0.82 / Pro 1.0.78.
 
 ## Hors de ce dépôt
 

@@ -37,10 +37,14 @@ gatées et marche à suivre pour relancer : `docs/DRINKS_PILLAR_PAUSED.md`. Règ
 - **Toute nouvelle surface** qui parlerait de bar, boissons, commandes du bar, upsells de
   consos, barman ou Click & Collect se gate dès l'écriture avec la même constante.
 - **Ce qui RESTE en ligne, par décision** : la « boisson offerte » d'un billet ou d'une
-  part de guest list (`includes_drink`, `quota_drink`, `drink_cutoff_time`, mode
-  `free_drink_mode` du videur) — c'est un attribut de l'offre billetterie (mode Libre du
-  30/09), pas le système de commande. Les lignes `orders` historiques restent lisibles
-  dans la compta, les factures et les remboursements (aucune vente réelle au 01/10).
+  part de guest list (`includes_drink`, `quota_drink`, `drink_cutoff_time`) — attribut
+  de l'offre billetterie (mode Libre du 30/09), pas le système de commande. **Elle se
+  récupère à la PORTE uniquement** : `venues.free_drink_mode = 'bouncer_notify'`
+  partout et par défaut (migration `20261002100000`, qui éteint aussi `menu_enabled`,
+  `live_mode_enabled`, `post_checkout_upsell_enabled`, `click_collect_mode` sur tous
+  les clubs) ; le mode « crédits au bar » n'est plus proposé. L'historique `orders` du
+  club démo est effacé (`scripts/demo/clean-drinks-history.sql`) ; aucune vente réelle
+  n'a jamais existé.
 - **Les routes boissons redirigent** (`drinksRoute` dans `App.tsx`) ; le détour
   `/order/upsell` après un billet renvoie droit sur la confirmation du billet
   (`UpsellDetourRedirect`), et `VerifyTicketPayment` ne le prend plus. Les onglets
