@@ -1,15 +1,21 @@
 #!/usr/bin/env node
-// Yuno CRM — crée chez Stripe les produits et prix des offres CRM
-// (docs/designs/YUNO_CRM_PRICING.md, grille du 02/10 : 49 / 129 / 249 € HT par
-// mois, prix fondateur 35 / 89 / 175 €, annuel = dix mois).
+// Yuno CRM — crée chez Stripe le produit d'abonnement et les packs de néons
+// (docs/designs/YUNO_CRM_PRICING.md, décision du 02/10 au soir : un abonnement
+// à 29 € HT par mois au lancement, 39 € ensuite ; annuel = 12 mois + 30 000
+// néons offerts ; packs de néons de 10 € à 100 €).
 //
-// Chaque prix porte une `lookup_key` stable : `yuno_crm_<offre>_<month|year>`
-// et `…_founder`. L'edge `club-subscription` (actions `crm_*`) retrouve les
-// prix par ces clés : aucun identifiant de prix n'est écrit dans le code.
+// Chaque prix porte une `lookup_key` stable. L'edge `club-subscription`
+// (actions `crm_*`, réécrites au lot 4b) retrouvera les prix par ces clés :
+// aucun identifiant de prix n'est écrit dans le code.
+//   - abonnement : `yuno_crm_base_<month|year>_<launch|public>` ; les prix
+//     publics (39 € / 468 €) naissent INACTIFS, à activer le jour du passage ;
+//   - packs : `yuno_crm_pack_<néons>`, paiement unique.
 //
-// Idempotent : un prix dont la clé existe déjà n'est pas recréé.
+// Créés en LIVE le 02/10 sur le compte « Yuno 360 » par le MCP Stripe, avec
+// exactement ces clés et ces métadonnées. Ce script sert à les recréer ailleurs
+// (compte de test) ; il est idempotent : une clé qui existe n'est pas recréée.
 // À blanc par défaut ; `--apply` écrit chez Stripe (compte de STRIPE_SECRET_KEY,
-// lu dans .env.local). Créer des prix LIVE est une décision de Paul.
+// lu dans .env.local).
 //
 //   node scripts/stripe/create-crm-prices.mjs            # montre ce qui serait créé
 //   node scripts/stripe/create-crm-prices.mjs --apply    # crée
@@ -35,12 +41,32 @@ const env = readEnv();
 const KEY = env.STRIPE_SECRET_KEY;
 if (!KEY) { console.error('STRIPE_SECRET_KEY absent (.env.local)'); process.exit(1); }
 
-// Miroir de src/lib/crmPlans.ts (CRM_PLAN_LIMITS) : prix en euros HT.
-const PLANS = [
-  { plan: 'essential', name: 'Yuno CRM Essentiel', month: 49, founder: 35 },
-  { plan: 'pro', name: 'Yuno CRM Pro', month: 129, founder: 89 },
-  { plan: 'business', name: 'Yuno CRM Business', month: 249, founder: 175 },
+const TAX_CODE = 'txcd_10000000';
+const NEONS_MONTHLY = 10_000;
+const NEONS_ANNUAL_BONUS = 30_000;
+
+// L'abonnement : un produit, quatre prix (euros HT).
+const BASE = {
+  name: 'Yuno CRM',
+  description:
+    'Abonnement Yuno CRM : base clients, emails, automatisations et bilans branchés sur votre billetterie. 10 000 néons inclus chaque mois.',
+  prices: [
+    { tier: 'launch', interval: 'month', amount: 29, active: true, nickname: 'Yuno CRM mensuel (lancement 29 €)' },
+    { tier: 'launch', interval: 'year', amount: 348, active: true, nickname: 'Yuno CRM annuel (lancement 348 € + 30 000 néons)' },
+    { tier: 'public', interval: 'month', amount: 39, active: false, nickname: "Yuno CRM mensuel (public 39 €, inactif jusqu'au passage)" },
+    { tier: 'public', interval: 'year', amount: 468, active: false, nickname: "Yuno CRM annuel (public 468 € + 30 000 néons, inactif jusqu'au passage)" },
+  ],
+};
+
+// Les recharges : un produit par pack, pour que le reçu dise combien de néons.
+const PACKS = [
+  { pack: 'tube', label: 'Tube', neons: 5_000, amount: 10, bonus: 0 },
+  { pack: 'enseigne', label: 'Enseigne', neons: 12_500, amount: 25, bonus: 0 },
+  { pack: 'facade', label: 'Façade', neons: 27_500, amount: 50, bonus: 10 },
+  { pack: 'boulevard', label: 'Boulevard', neons: 57_500, amount: 100, bonus: 15 },
 ];
+
+const fmt = (n) => n.toLocaleString('fr-FR').replace(/ | /g, ' ');
 
 async function stripe(method, url, params) {
   const body = params ? new URLSearchParams(params).toString() : undefined;
@@ -54,8 +80,8 @@ async function stripe(method, url, params) {
   return json;
 }
 
-async function findProduct(plan) {
-  const r = await stripe('GET', `products/search?query=${encodeURIComponent(`metadata['yuno_crm_plan']:'${plan}'`)}`);
+async function findProduct(query) {
+  const r = await stripe('GET', `products/search?query=${encodeURIComponent(query)}`);
   return r.data?.[0] ?? null;
 }
 
@@ -63,57 +89,78 @@ async function main() {
   const live = KEY.startsWith('sk_live_') || KEY.startsWith('rk_live_');
   console.log(`Compte Stripe : ${live ? 'LIVE' : 'test'} · ${APPLY ? 'ÉCRITURE' : 'à blanc'}`);
 
-  const wanted = [];
-  for (const p of PLANS) {
-    for (const interval of ['month', 'year']) {
-      for (const founder of [false, true]) {
-        const monthly = founder ? p.founder : p.month;
-        wanted.push({
-          ...p, interval, founder,
-          lookup_key: `yuno_crm_${p.plan}_${interval}${founder ? '_founder' : ''}`,
-          unit_amount: (interval === 'year' ? monthly * 10 : monthly) * 100,
-        });
-      }
-    }
-  }
-
-  const keys = wanted.map((w) => `lookup_keys[]=${encodeURIComponent(w.lookup_key)}`).join('&');
+  const baseKeys = BASE.prices.map((p) => `yuno_crm_base_${p.interval}_${p.tier}`);
+  const packKeys = PACKS.map((p) => `yuno_crm_pack_${p.neons}`);
+  // `active` non précisé : la liste rend aussi les prix inactifs (les prix publics).
+  const keys = [...baseKeys, ...packKeys].map((k) => `lookup_keys[]=${encodeURIComponent(k)}`).join('&');
   const existing = await stripe('GET', `prices?limit=100&${keys}`);
   const have = new Set((existing.data ?? []).map((p) => p.lookup_key));
 
-  for (const p of PLANS) {
-    let product = await findProduct(p.plan);
-    const missing = wanted.filter((w) => w.plan === p.plan && !have.has(w.lookup_key));
-    if (!missing.length) { console.log(`✓ ${p.name} : tous les prix existent`); continue; }
+  // 1. L'abonnement.
+  const missingBase = BASE.prices.filter((p) => !have.has(`yuno_crm_base_${p.interval}_${p.tier}`));
+  if (!missingBase.length) {
+    console.log(`✓ ${BASE.name} : tous les prix existent`);
+  } else {
+    let product = await findProduct(`metadata['yuno_product']:'crm' AND metadata['yuno_crm_plan']:'base'`);
     if (!product) {
-      console.log(`+ produit ${p.name}`);
+      console.log(`+ produit ${BASE.name}`);
       if (APPLY) {
         product = await stripe('POST', 'products', {
-          name: p.name,
-          description: `Abonnement ${p.name} : base clients, emails et automatisations branchés sur votre billetterie.`,
-          tax_code: 'txcd_10000000',
+          name: BASE.name,
+          description: BASE.description,
+          tax_code: TAX_CODE,
           'metadata[yuno_product]': 'crm',
-          'metadata[yuno_crm_plan]': p.plan,
+          'metadata[yuno_crm_plan]': 'base',
         });
       }
     }
-    for (const w of missing) {
-      console.log(`+ prix ${w.lookup_key} : ${(w.unit_amount / 100).toFixed(2)} € / ${w.interval}`);
-      if (APPLY) {
-        await stripe('POST', 'prices', {
-          product: product.id,
-          currency: 'eur',
-          unit_amount: String(w.unit_amount),
-          tax_behavior: 'exclusive',
-          'recurring[interval]': w.interval,
-          lookup_key: w.lookup_key,
-          nickname: `${w.name} ${w.interval === 'year' ? 'annuel' : 'mensuel'}${w.founder ? ' (fondateur)' : ''}`,
-          'metadata[yuno_product]': 'crm',
-          'metadata[yuno_crm_plan]': w.plan,
-          'metadata[founder]': w.founder ? '1' : '0',
-        });
-      }
+    for (const p of missingBase) {
+      const lookup = `yuno_crm_base_${p.interval}_${p.tier}`;
+      console.log(`+ prix ${lookup} : ${p.amount.toFixed(2)} € / ${p.interval}${p.active ? '' : ' (inactif)'}`);
+      if (!APPLY) continue;
+      const params = {
+        product: product.id,
+        currency: 'eur',
+        unit_amount: String(p.amount * 100),
+        tax_behavior: 'exclusive',
+        active: String(p.active),
+        'recurring[interval]': p.interval,
+        lookup_key: lookup,
+        nickname: p.nickname,
+        'metadata[yuno_product]': 'crm',
+        'metadata[yuno_crm_plan]': 'base',
+        'metadata[price_tier]': p.tier,
+        'metadata[neons_monthly]': String(NEONS_MONTHLY),
+      };
+      if (p.interval === 'year') params['metadata[neons_annual_bonus]'] = String(NEONS_ANNUAL_BONUS);
+      await stripe('POST', 'prices', params);
     }
+  }
+
+  // 2. Les packs de néons.
+  for (const p of PACKS) {
+    const lookup = `yuno_crm_pack_${p.neons}`;
+    if (have.has(lookup)) { console.log(`✓ pack ${p.label} : existe`); continue; }
+    console.log(`+ pack ${lookup} : ${p.amount.toFixed(2)} € → ${fmt(p.neons)} néons`);
+    if (!APPLY) continue;
+    await stripe('POST', 'prices', {
+      currency: 'eur',
+      unit_amount: String(p.amount * 100),
+      tax_behavior: 'exclusive',
+      lookup_key: lookup,
+      nickname: `Pack ${p.label} : ${fmt(p.neons)} néons${p.bonus ? ` (+${p.bonus} %)` : ''}`,
+      'metadata[yuno_product]': 'crm',
+      'metadata[yuno_crm_item]': 'neons_pack',
+      'metadata[pack]': p.pack,
+      'metadata[neons]': String(p.neons),
+      'metadata[bonus_pct]': String(p.bonus),
+      'product_data[name]': `Yuno CRM · ${fmt(p.neons)} néons (${p.label})`,
+      'product_data[tax_code]': TAX_CODE,
+      'product_data[metadata][yuno_product]': 'crm',
+      'product_data[metadata][yuno_crm_item]': 'neons_pack',
+      'product_data[metadata][pack]': p.pack,
+      'product_data[metadata][neons]': String(p.neons),
+    });
   }
   if (!APPLY) console.log('\nRien n\'a été écrit. Relancer avec --apply pour créer.');
 }
