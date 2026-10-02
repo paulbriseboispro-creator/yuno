@@ -4,6 +4,8 @@ import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { useLanguage, useLocaleSection } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { ownerHelpCategories, type OwnerHelpArticle, type OwnerHelpCategory } from '@/data/ownerHelpContent';
+import { buildCrmHelpCategories } from '@/data/crmHelpContent';
+import { useAccountProduct } from '@/lib/crmProduct';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OrgPageHeader } from '@/components/org-ui';
 import { HelpHome } from '@/components/help/HelpHome';
@@ -25,11 +27,19 @@ import { BORDER, C_FAINT, CONTACT_COLOR, RED, T1, T2, useRecentArticles } from '
  * barre de leur layout, la page ne pose qu'un `OrgPageHeader` en ligne —
  * jamais deux barres empilées.
  */
-export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { categories?: OwnerHelpCategory[] } = {}) {
+export default function OwnerHelpCenter({ categories: suiteCategories = ownerHelpCategories }: { categories?: OwnerHelpCategory[] } = {}) {
   const { t, language } = useLanguage();
   const helpReady = useLocaleSection('help');
   const navigate = useNavigate();
   const { basePath, mode } = useDashboardMode();
+  // Un compte Yuno CRM (club ou organisateur) a son propre jeu d'articles :
+  // la Suite lui décrirait des pages de vente qu'il n'a pas.
+  const { isCrm, loading: productLoading } = useAccountProduct();
+  const crmBase = mode === 'organizer' ? '/organizer-app' : mode === 'owner' ? '/owner' : null;
+  const categories = useMemo(
+    () => (isCrm && crmBase ? buildCrmHelpCategories(crmBase) : suiteCategories),
+    [isCrm, crmBase, suiteCategories],
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [recentIds, pushRecent] = useRecentArticles(mode);
@@ -56,11 +66,14 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
 
   // Un id inconnu (article renommé, autre dashboard) : on nettoie l'adresse et
   // on montre l'accueil plutôt qu'une page vide.
+  // Tant que le produit du compte n'est pas connu, le jeu d'articles n'est pas
+  // le bon : un lien vers un article CRM serait pris pour un id inconnu.
   useEffect(() => {
+    if (productLoading) return;
     if ((articleId && !located) || (categoryId && !category && !located)) {
       setSearchParams(new URLSearchParams(), { replace: true });
     }
-  }, [articleId, located, categoryId, category, setSearchParams]);
+  }, [articleId, located, categoryId, category, setSearchParams, productLoading]);
 
   useEffect(() => {
     if (located) pushRecent(located.article.id);

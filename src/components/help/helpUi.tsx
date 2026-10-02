@@ -62,6 +62,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   team: 'var(--acc-f2b23c)',
   'yuno-clubs': 'var(--acc-5b9cff)',
   external: 'var(--acc-a78bfa)',
+  'crm-base': 'var(--acc-5b9cff)',
 };
 export const AI_COLOR = RED;
 export const CONTACT_COLOR = 'var(--acc-5b9cff)';
