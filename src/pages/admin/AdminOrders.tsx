@@ -5,6 +5,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationNext, Paginati
 import { Search, Wine, Ticket, Armchair, UserCheck, RefreshCw, ShoppingCart, TrendingUp, RotateCcw, DoorOpen, XCircle, X, FlaskConical, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
@@ -77,7 +78,8 @@ function StatusPill({ status, label }: { status: string; label?: string }) {
 
 export default function AdminOrders() {
   const { t } = useLanguage();
-  const [tab, setTab] = useState('drinks');
+  // Pilier boissons en pause : l'onglet Boissons n'est plus proposé, Billets par défaut (voir src/lib/drinksPillar.ts).
+  const [tab, setTab] = useState(DRINKS_PILLAR_LIVE ? 'drinks' : 'tickets');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [data, setData] = useState<OrderRow[]>([]);
@@ -187,7 +189,7 @@ export default function AdminOrders() {
   ]), [kpis, t, isGuest, showRate]);
 
   const tabs: { key: string; label: string; icon: LucideIcon }[] = [
-    { key: 'drinks', label: t('admin.orders.drinks'), icon: Wine },
+    ...(DRINKS_PILLAR_LIVE ? [{ key: 'drinks', label: t('admin.orders.drinks'), icon: Wine }] : []),
     { key: 'tickets', label: t('admin.orders.tickets'), icon: Ticket },
     { key: 'tables', label: t('admin.orders.tables'), icon: Armchair },
     { key: 'guestlist', label: t('adm.orders.guestlist'), icon: UserCheck },

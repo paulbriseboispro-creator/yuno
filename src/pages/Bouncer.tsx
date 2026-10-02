@@ -55,6 +55,7 @@ import {
 import { TopClientDialog } from '@/components/bouncer/TopClientDialog';
 import { ScanOverlay } from '@/components/bouncer/ScanOverlay';
 import { calcStripeFee } from '@/utils/fees';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface TopClientInfo {
   rank: number;
@@ -324,7 +325,9 @@ export default function Bouncer() {
   const [topClientsCacheTime, setTopClientsCacheTime] = useState(0);
 
   // Free drink mode
-  const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>('credits');
+  // Pilier boissons en pause (src/lib/drinksPillar.ts) : le videur voit TOUJOURS la
+  // boisson offerte au scan, plus jamais le chemin « crédit à montrer au bar ».
+  const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>(DRINKS_PILLAR_LIVE ? 'credits' : 'bouncer_notify');
 
   // Warn / flag a customer (warning incident, no ticket cancel)
   type FlagTarget = { userId?: string | null; email: string; name?: string };
@@ -463,7 +466,7 @@ export default function Bouncer() {
     // La conso offerte est un réglage de CLUB : une soirée org-led n'en a pas.
     if (venueId) {
       supabase.from('venues').select('free_drink_mode').eq('id', venueId).single().then(({ data }) => {
-        if (data) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
+        if (data && DRINKS_PILLAR_LIVE) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
       });
     }
 

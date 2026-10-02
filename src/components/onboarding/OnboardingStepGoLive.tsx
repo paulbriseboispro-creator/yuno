@@ -8,6 +8,7 @@ import { Check, X, Rocket, Eye, ExternalLink, PartyPopper } from 'lucide-react';
 import type { StepState, Pillar } from '@/hooks/useOwnerOnboarding';
 import { REQUIRED_STEPS, OPTIONAL_STEPS } from '@/hooks/useOwnerOnboarding';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, RED, POS, T1, T2, T3, BORDER } from './onboardingUI';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Props {
   venueId: string;
@@ -136,8 +137,8 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
         </div>
       </div>
 
-      {/* Order-flow explainer (drinks pillar only) */}
-      {pillars.includes('drinks') && (
+      {/* Order-flow explainer (drinks pillar only) — pilier en pause : masqué (voir src/lib/drinksPillar.ts) */}
+      {DRINKS_PILLAR_LIVE && pillars.includes('drinks') && (
         <InnerCard>
           <h3 style={{ color: T1, fontSize: 13.5, fontWeight: 600, marginBottom: 10 }}>{t('onboarding.orderFlowTitle')}</h3>
           <ol className="space-y-2">

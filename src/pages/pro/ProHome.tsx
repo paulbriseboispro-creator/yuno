@@ -10,6 +10,7 @@ import { useStaffNightPulse } from '@/hooks/useStaffNightPulse';
 import { useDoorManifestPreload } from '@/hooks/useDoorManifestPreload';
 import { greetingKey, staffInitials } from '@/lib/staffIdentity';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { clearStaffSession } from '@/components/RequireStaffSession';
 import { OfflinePill, useNetworkStatus } from '@/components/pro/OfflinePill';
@@ -131,7 +132,8 @@ export default function ProHome() {
   }, [user]);
 
   const staffRoles = useMemo(
-    () => (roles || []).filter((r): r is StaffRole => r in ROLE_CONFIG),
+    // Pilier boissons en pause : la carte barman ne s'affiche plus (voir src/lib/drinksPillar.ts).
+    () => (roles || []).filter((r): r is StaffRole => r in ROLE_CONFIG && (DRINKS_PILLAR_LIVE || r !== 'barman')),
     [roles],
   );
   const webOnlyRoles = useMemo(() => (roles || []).filter((r) => WEB_ONLY_ROLES.has(r)), [roles]);

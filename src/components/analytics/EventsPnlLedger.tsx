@@ -4,6 +4,7 @@ import { Ticket, Wine, Sofa, Users, Headphones } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Design tokens (Yuno pro DA) ───────────────────────────────────────────────
 const RED = '#E8192C';
@@ -61,7 +62,8 @@ export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
   const [loading, setLoading] = useState(true);
   // Organizers don't sell drinks: the RPC returns 0 for that pillar, and the
   // legend/chips drop it so the bar never shows an empty "Boissons" entry.
-  const showDrinks = !!venueId;
+  // Pilier boissons en pause (src/lib/drinksPillar.ts).
+  const showDrinks = DRINKS_PILLAR_LIVE && !!venueId;
 
   useEffect(() => {
     let cancelled = false;

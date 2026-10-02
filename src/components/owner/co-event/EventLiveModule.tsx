@@ -12,6 +12,7 @@ import { LiveVisitorsPanel } from '@/components/live/LiveVisitorsPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Props {
   eventId: string;
@@ -104,7 +105,8 @@ export function EventLiveModule({ eventId, venueId }: Props) {
         />
       </motion.div>
 
-      {(pipeline.pending + pipeline.paid + pipeline.preparing + pipeline.ready + pipeline.served + pipeline.refunded) > 0 && (
+      {/* Pilier boissons en pause : pas de pipeline de commandes du bar (src/lib/drinksPillar.ts). */}
+      {DRINKS_PILLAR_LIVE && (pipeline.pending + pipeline.paid + pipeline.preparing + pipeline.ready + pipeline.served + pipeline.refunded) > 0 && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <LiveOrderPipeline pipeline={pipeline} />
         </motion.div>

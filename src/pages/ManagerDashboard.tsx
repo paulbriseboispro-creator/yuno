@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { Link } from 'react-router-dom';
 import { useManagerVenueContext } from '@/contexts/ManagerVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -123,7 +124,7 @@ export default function ManagerDashboard() {
       description: t('manager.editMenu'),
       icon: <UtensilsCrossed className="h-6 w-6" />,
       path: '/manager/menu',
-      permission: permissions.canManageMenu,
+      permission: permissions.canManageMenu && DRINKS_PILLAR_LIVE,
       color: 'from-orange-500/20 to-orange-600/10',
     },
     {
@@ -204,7 +205,7 @@ export default function ManagerDashboard() {
       description: t('manager.offersPromotions'),
       icon: <TrendingUp className="h-6 w-6" />,
       path: '/manager/upsell',
-      permission: permissions.canManageUpsell,
+      permission: permissions.canManageUpsell && DRINKS_PILLAR_LIVE,
       color: 'from-yellow-500/20 to-yellow-600/10',
     },
     {

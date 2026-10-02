@@ -9,6 +9,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import type { DrinkAnalytics, TicketAnalytics, TableAnalytics, RefundAnalytics } from '@/hooks/useAnalyticsData';
 import { payoutStrip } from '@/utils/fees';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Props {
   drinkAnalytics: DrinkAnalytics;
@@ -53,7 +54,8 @@ export function AnalyticsEssentialView({ drinkAnalytics, ticketAnalytics, tableA
   const kpis = [
     { label: t('owner.totalRevenue'), value: fmtPrice(totalRevenue), icon: DollarSign, note: refundNote },
     { label: t('owner.netRevenue'), value: fmtPrice(totalNetRevenue), icon: TrendingUp, note: hasRefunds ? { text: `${t('refund.analytics.afterRefunds')}: ${fmtPrice(afterRefunds)}`, color: 'text-muted-foreground' } : undefined },
-    { label: t('owner.totalRevenue') + ' (' + t('owner.drinks') + ')', value: fmtPrice(drinkAnalytics.totalRevenue), icon: Wine },
+    // Pilier boissons en pause : pas de KPI bar (src/lib/drinksPillar.ts).
+    ...(DRINKS_PILLAR_LIVE ? [{ label: t('owner.totalRevenue') + ' (' + t('owner.drinks') + ')', value: fmtPrice(drinkAnalytics.totalRevenue), icon: Wine }] : []),
     { label: t('owner.ticketsSold'), value: totalTicketsSold, icon: Ticket },
     { label: t('owner.avgTicketPrice'), value: fmtPrice(avgTicketPrice), icon: Package },
     // Pas de « clients uniques » ici : bar + billets additionnés comptaient deux

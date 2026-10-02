@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2, MapPin } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton,
   FieldLabel, DarkInput, DarkTextarea, DarkSelect,
@@ -481,7 +482,8 @@ export default function OrgAppProfile() {
             <Switch checked={profile.absorb_yuno_fees} onCheckedChange={(v) => setProfile((p) => ({ ...p, absorb_yuno_fees: v }))} />
           </div>
 
-          {/* Alcohol-sale licence attestation — unlocks negotiating a drinks share in collabs */}
+          {/* Alcohol-sale licence attestation — unlocks negotiating a drinks share in collabs. Pilier boissons en pause : masqué (voir src/lib/drinksPillar.ts). */}
+          {DRINKS_PILLAR_LIVE && (
           <div className="flex items-center justify-between rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
             <div>
               <p style={{ color: T1, fontSize: 13, fontWeight: 540 }}>{t('Documents de vente d\'alcool', 'Alcohol-sale documents', 'Documentos de venta de alcohol')}</p>
@@ -495,6 +497,7 @@ export default function OrgAppProfile() {
             </div>
             <Switch checked={profile.can_sell_alcohol} onCheckedChange={(v) => setProfile((p) => ({ ...p, can_sell_alcohol: v }))} />
           </div>
+          )}
 
           {/* Minors allowed (alcohol-free) */}
           <div className="rounded-xl p-3 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>

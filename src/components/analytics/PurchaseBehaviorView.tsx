@@ -16,6 +16,7 @@ import {
   heatmapMatrix, lastMinuteShare, peakSlot, ratio,
   type PbPillar, type PurchaseBehavior,
 } from '@/lib/purchaseBehavior';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Design tokens (mêmes que la page Analytics) ──────────────────────────────
 const RED = '#E8192C';
@@ -226,7 +227,8 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
 
   const s = d.summary;
   const insights = buildInsights(d, t, language);
-  const pillarsPresent = new Set(d.pillars.map(p => p.pillar));
+  // Pilier boissons en pause : « drinks » ne figure dans aucune pastille ni section (src/lib/drinksPillar.ts).
+  const pillarsPresent = new Set(d.pillars.map(p => p.pillar).filter(p => DRINKS_PILLAR_LIVE || p !== 'drinks'));
 
   const ticketsPre = d.leadTime.reduce((a, b) => a + b.tickets, 0);
   const tablesPre = d.leadTime.reduce((a, b) => a + b.tables, 0);

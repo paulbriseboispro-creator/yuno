@@ -42,6 +42,7 @@ import { EventAudienceDemographics } from '@/components/analytics/EventAudienceD
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
 import { eventReportHref } from '@/lib/analyticsNav';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { EventScopePicker } from '@/components/analytics/EventScopePicker';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
@@ -484,11 +485,14 @@ export default function OwnerAnalytics() {
       rows.push(`Date: ${format(new Date(), 'PPP', { locale: dateLocale })}`);
       rows.push(`Period: ${dateRange}`);
       rows.push('');
-      rows.push('=== DRINKS ===');
-      rows.push(`Total Revenue,${drinkAnalytics.totalRevenue.toFixed(2)}€`);
-      rows.push(`Net Revenue,${drinkAnalytics.netRevenue.toFixed(2)}€`);
-      rows.push(`Total Orders,${drinkAnalytics.totalOrders}`);
-      rows.push('');
+      // Pilier boissons en pause : la section n'entre pas dans l'export (src/lib/drinksPillar.ts).
+      if (DRINKS_PILLAR_LIVE) {
+        rows.push('=== DRINKS ===');
+        rows.push(`Total Revenue,${drinkAnalytics.totalRevenue.toFixed(2)}€`);
+        rows.push(`Net Revenue,${drinkAnalytics.netRevenue.toFixed(2)}€`);
+        rows.push(`Total Orders,${drinkAnalytics.totalOrders}`);
+        rows.push('');
+      }
       rows.push('=== TICKETS ===');
       rows.push(`Total Revenue,${ticketAnalytics.totalRevenue.toFixed(2)}€`);
       rows.push(`Net Revenue,${ticketAnalytics.netRevenue.toFixed(2)}€`);
@@ -641,7 +645,8 @@ export default function OwnerAnalytics() {
 
   // Donut: revenue mix by category
   const categories = [
-    { name: t('owner.an.drinks'), val: drinkAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(drinkAnalytics.totalRevenue / totalRevenue * 100) : 0 },
+    // Pilier boissons en pause : pas de part « Boissons » dans le mix (src/lib/drinksPillar.ts).
+    ...(DRINKS_PILLAR_LIVE ? [{ name: t('owner.an.drinks'), val: drinkAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(drinkAnalytics.totalRevenue / totalRevenue * 100) : 0 }] : []),
     { name: t('owner.an.tickets'), val: ticketAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(ticketAnalytics.totalRevenue / totalRevenue * 100) : 0 },
     { name: t('owner.an.vipTables'), val: tableAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(tableAnalytics.totalRevenue / totalRevenue * 100) : 0 },
   ];
@@ -669,7 +674,8 @@ export default function OwnerAnalytics() {
   const pillarTabs = [
     { id: 'overview' as const, label: t('owner.an.zoneOverview'), icon: Layers, value: fmt(totalRevenue) },
     { id: 'tickets' as const, label: t('owner.ticketsTab'), icon: Ticket, value: fmt(ticketAnalytics.totalRevenue) },
-    { id: 'drinks' as const, label: t('owner.drinksTab'), icon: Wine, value: fmt(drinkAnalytics.totalRevenue) },
+    // Pilier boissons en pause : l'onglet dort (src/lib/drinksPillar.ts).
+    ...(DRINKS_PILLAR_LIVE ? [{ id: 'drinks' as const, label: t('owner.drinksTab'), icon: Wine, value: fmt(drinkAnalytics.totalRevenue) }] : []),
     { id: 'tables' as const, label: t('owner.tablesVIP'), icon: Sofa, value: fmt(tableAnalytics.totalRevenue) },
     // La guest list a sa carte : ses chiffres encombraient la vue générale.
     { id: 'guestlist' as const, label: t('owner.an.guestList'), icon: ClipboardList, value: guestListSignups === null ? '—' : String(guestListSignups) },
@@ -1060,8 +1066,9 @@ export default function OwnerAnalytics() {
 
         {/* ── Funnel + Donut ────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="grid lg:grid-cols-[3fr,2fr] gap-3">
-          {/* Conversion funnel */}
+          className={DRINKS_PILLAR_LIVE ? 'grid lg:grid-cols-[3fr,2fr] gap-3' : 'grid gap-3'}>
+          {/* Conversion funnel — pilier boissons en pause : le funnel du bar dort (src/lib/drinksPillar.ts). */}
+          {DRINKS_PILLAR_LIVE && (
           <PCard
             icon={<Percent className="w-4 h-4" />}
             title={t('owner.conversionFunnel')}
@@ -1095,6 +1102,7 @@ export default function OwnerAnalytics() {
               </div>
             )}
           </PCard>
+          )}
 
           {/* Revenue mix donut */}
           <PCard
@@ -1124,7 +1132,8 @@ export default function OwnerAnalytics() {
         </motion.div>
 
         {/* ── Top sellers ───────────────────────────────────────────────── */}
-        {drinkAnalytics.topProducts.length > 0 && (
+        {/* Pilier boissons en pause : pas de top produits du bar (src/lib/drinksPillar.ts). */}
+        {DRINKS_PILLAR_LIVE && drinkAnalytics.topProducts.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <PCard
               icon={<Flame className="w-4 h-4" />}
@@ -1268,7 +1277,8 @@ export default function OwnerAnalytics() {
         )}
 
         {/* ═══ Boissons pillar ══════════════════════════════════════════════ */}
-        {primaryView === 'drinks' && (
+        {/* Pilier boissons en pause (src/lib/drinksPillar.ts). */}
+        {DRINKS_PILLAR_LIVE && primaryView === 'drinks' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
             <DrinkOpsInsights data={drinkAnalytics} />
             <DrinkAnalyticsSection data={drinkAnalytics} hasAdvancedAnalytics={hasAdvancedAnalytics} />

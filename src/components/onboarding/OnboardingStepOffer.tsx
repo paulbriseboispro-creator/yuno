@@ -9,6 +9,7 @@ import { Wine, Ticket, Sofa, Check, Plus, ArrowRight, CalendarPlus, ExternalLink
 import type { Pillar } from '@/hooks/useOwnerOnboarding';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, FieldLabel, POS, T1, T2, T3 } from './onboardingUI';
 import { capturePosthog } from '@/lib/posthog';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Props {
   venueId: string;
@@ -28,7 +29,8 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
   const [time, setTime] = useState('22:00');
   const [creating, setCreating] = useState(false);
 
-  const wantsDrinks = pillars.includes('drinks');
+  // Pilier boissons en pause : ni exigence ni catalogue de boissons (voir src/lib/drinksPillar.ts).
+  const wantsDrinks = DRINKS_PILLAR_LIVE && pillars.includes('drinks');
   const wantsEvents = pillars.includes('tickets') || pillars.includes('tables');
 
   const refetch = useCallback(async () => {

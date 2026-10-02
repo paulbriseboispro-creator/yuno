@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { PurchaseBehavior } from '@/lib/purchaseBehavior';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 export interface PurchaseBehaviorScope {
   venueId?: string | null;
@@ -44,7 +45,8 @@ export function usePurchaseBehavior(scope: PurchaseBehaviorScope, range: { from:
           setData(null);
           return;
         }
-        setData(res);
+        // Pilier boissons en pause : rythme du bar et achats croisés se taisent (src/lib/drinksPillar.ts).
+        setData({ ...res, hasDrinks: DRINKS_PILLAR_LIVE && res.hasDrinks });
       } catch (e) {
         console.error('get_purchase_behavior', e);
         if (!cancelled) { setError('error'); setData(null); }

@@ -3,6 +3,7 @@ import { Wine, ArrowUpCircle, Gift, UserX, Shield, CalendarClock } from 'lucide-
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TicketAnalytics } from '@/hooks/useAnalyticsData';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Design tokens (Yuno pro DA) ───────────────────────────────────────────────
 const RED = '#E8192C';
@@ -58,7 +59,9 @@ export function TicketPillarInsights({ data }: Props) {
   return (
     <div className="space-y-3">
       {/* ── Insight headline band ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className={DRINKS_PILLAR_LIVE ? 'grid grid-cols-2 lg:grid-cols-6 gap-3' : 'grid grid-cols-2 lg:grid-cols-4 gap-3'}>
+        {/* Pilier boissons en pause : les deux tuiles conso dorment (src/lib/drinksPillar.ts). */}
+        {DRINKS_PILLAR_LIVE && (<>
         <Tile icon={Wine} label={tt('Attach boisson', 'Drink attach', 'Attach bebida')}
           value={`${drinkAttach.attachRate.toFixed(0)}%`}
           sub={`${drinkAttach.withDrink} ${tt('billets avec conso', 'tickets w/ drink', 'con bebida')}`} />
@@ -66,6 +69,7 @@ export function TicketPillarInsights({ data }: Props) {
           value={drinkAttach.withDrink > 0 ? `${drinkAttach.redemptionRate.toFixed(0)}%` : '—'}
           tone={drinkAttach.redemptionRate >= 70 ? POS : T1}
           sub={`${drinkAttach.redeemed}/${drinkAttach.withDrink} ${tt('bus', 'redeemed', 'canjeadas')}`} />
+        </>)}
         <Tile icon={ArrowUpCircle} label={tt('Upgrades', 'Upgrades', 'Upgrades')}
           value={`${upgrades.rate.toFixed(0)}%`}
           sub={upgrades.count > 0 ? `${upgrades.count} · +${fmtPrice(upgrades.revenue)}` : tt('aucun', 'none', 'ninguno')} />

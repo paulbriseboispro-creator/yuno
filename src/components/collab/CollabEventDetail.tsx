@@ -58,6 +58,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import type { LucideIcon } from 'lucide-react';
 import { publicUrl } from '@/lib/native';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 type ViewerRole = 'venue' | 'organizer';
 type Phase = 'before' | 'live' | 'after';
@@ -748,7 +749,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     tickets={stats.ticketPillar}
                     tables={stats.tablePillar}
                     tableGuests={stats.tableGuests}
-                    drinks={stats.drinkPillar}
+                    drinks={DRINKS_PILLAR_LIVE ? stats.drinkPillar : null} // pilier boissons en pause : src/lib/drinksPillar.ts
                     gain={displayGain}
                     isVenue={isVenue}
                     transfer={transferInfo}
@@ -899,10 +900,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     {/* La carte du bar est celle du club, 100 % club : elle se
                         consulte, elle ne se gère pas d'ici. Repliée, sinon dix-sept
                         boissons occupaient la moitié de la page de l'organisateur. */}
+                    {/* Pilier boissons en pause : la carte du bar ne se consulte plus (src/lib/drinksPillar.ts). */}
+                    {DRINKS_PILLAR_LIVE && (
                     <Foldable icon={Wine} title={t('Carte du bar', 'Drinks menu', 'Carta del bar')}
                       sub={t('Servie par le club — la totalité des ventes boissons lui revient.', 'Served by the club — all drinks revenue goes to the club.', 'Servida por el club: todas las ventas de bebidas van al club.')}>
                       <OrgEventDrinksMenu eventId={event.id} />
                     </Foldable>
+                    )}
                   </>
                 )}
 

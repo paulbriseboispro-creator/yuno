@@ -13,6 +13,8 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLoyaltyManagement } from '@/hooks/useLoyalty';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { loyaltyRewardTypeVisible } from '@/lib/drinksPillar';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED         = '#E8192C';
@@ -29,11 +31,13 @@ const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0
 
 const TIER_COLORS = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', platinum: '#E5E4E2' };
 
+// La boisson offerte dort avec le pilier boissons (src/lib/drinksPillar.ts).
 const REWARD_TYPES = [
   { value: 'free_drink',  label: { en: 'Free Drink',  fr: 'Boisson Gratuite', es: 'Bebida Gratis'  }, Icon: Wine   },
   { value: 'free_ticket', label: { en: 'Free Ticket', fr: 'Ticket Gratuit',   es: 'Entrada Gratis' }, Icon: Ticket },
   { value: 'discount',    label: { en: 'Discount',    fr: 'Réduction',        es: 'Descuento'      }, Icon: Star   },
-];
+].filter(rt => loyaltyRewardTypeVisible(rt.value));
+const DEFAULT_REWARD_TYPE = REWARD_TYPES[0].value;
 
 // ─── Micro-components ─────────────────────────────────────────────────────────
 function YunoSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -100,7 +104,7 @@ export default function OwnerLoyalty() {
   const [savingSettings, setSavingSettings] = useState(false);
 
   const [rewardForm, setRewardForm] = useState({
-    name: '', description: '', points_required: 100, reward_type: 'free_drink',
+    name: '', description: '', points_required: 100, reward_type: DEFAULT_REWARD_TYPE,
     allowed_categories: [] as string[],
     max_ticket_value: '' as string | number,
     discount_type: 'percentage' as 'percentage' | 'fixed',
@@ -594,7 +598,7 @@ export default function OwnerLoyalty() {
                         <div className="flex flex-wrap gap-2">
                           {[
                             { v: 'all',     l: t('owner.loy.all')     },
-                            { v: 'drinks',  l: t('owner.loy.drinks')  },
+                            ...(DRINKS_PILLAR_LIVE ? [{ v: 'drinks',  l: t('owner.loy.drinks')  }] : []),
                             { v: 'tickets', l: 'Tickets' },
                           ].map(opt => (
                             <Chip key={opt.v} label={opt.l}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { SalesOverview, SalesPeriod } from '@/lib/salesOverview';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /**
  * Bilan des soirées passées (`get_sales_overview`) : un aller-retour pour la
@@ -45,7 +46,8 @@ export function useSalesOverview(
         return;
       }
       setError(null);
-      setData(res);
+      // Pilier boissons en pause : le pilier « bar » n'existe pour aucun écran (src/lib/drinksPillar.ts).
+      setData({ ...res, has_bar: DRINKS_PILLAR_LIVE && res.has_bar });
       setFetchedAt(new Date());
     } catch (e) {
       if (mine !== seq.current) return;

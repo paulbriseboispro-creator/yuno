@@ -7,6 +7,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { getNightWindow } from '@/lib/liveops/nightWindow';
 import { getNotifDef, notifLink, getFeedConfig, type AppNotif } from '@/lib/notifications';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED    = '#E8192C';
@@ -84,11 +85,12 @@ export function LiveOpsAlerts({ venueId, basePath = '/owner' }: Props) {
   return (
     <div className="space-y-2">
       <AnimatePresence initial={false}>
-        {alerts.map(alert => {
+        {/* Pilier boissons en pause : ni alerte de bar ni « Push flash boissons » (src/lib/drinksPillar.ts). */}
+        {alerts.filter(a => DRINKS_PILLAR_LIVE || a.notification_type !== 'liveops_bar_backlog').map(alert => {
           const style = SEVERITY_STYLE[alert.priority] ?? SEVERITY_STYLE.normal;
           const Icon = getNotifDef(alert.notification_type).icon;
           const link = feedConfig ? notifLink(alert, feedConfig) : null;
-          const showFlashDrinks = alert.notification_type === 'liveops_bar_backlog' || alert.notification_type === 'liveops_door_slow';
+          const showFlashDrinks = DRINKS_PILLAR_LIVE && (alert.notification_type === 'liveops_bar_backlog' || alert.notification_type === 'liveops_door_slow');
           return (
             <motion.div
               key={alert.id}

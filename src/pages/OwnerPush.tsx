@@ -28,6 +28,7 @@ import PushCenterView from '@/components/push/PushCenterView';
 import PushCreditsCard from '@/components/push/PushCreditsCard';
 import { usePushCredits } from '@/hooks/usePushCenter';
 import { campaignCost, type PushCredits } from '@/lib/pushEngine';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
 const RED        = '#E8192C';
@@ -436,7 +437,9 @@ export default function OwnerPush() {
       { value: 'rfm', label: t('ownerPush.audRfm') },
       { value: 'all_customers', label: t('ownerPush.audAllCustomers') },
     ];
-  const templates = isOrg ? PUSH_TEMPLATES.filter((tpl) => !ORG_HIDDEN_TEMPLATES.has(tpl.key)) : PUSH_TEMPLATES;
+  // Pilier boissons en pause : le modèle « Flash boissons » dort (src/lib/drinksPillar.ts).
+  const templates = (isOrg ? PUSH_TEMPLATES.filter((tpl) => !ORG_HIDDEN_TEMPLATES.has(tpl.key)) : PUSH_TEMPLATES)
+    .filter((tpl) => DRINKS_PILLAR_LIVE || tpl.key !== 'flash_drinks');
   const publicPath = isOrg ? (orgProfile?.slug ? `/o/${orgProfile.slug}` : null) : `/club/${venueId}`;
   const publicUrl = publicPath ? `${PUBLIC_BASE_URL}${publicPath}` : null;
 

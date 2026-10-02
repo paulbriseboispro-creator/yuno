@@ -17,6 +17,7 @@ import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
 import type { LucideIcon } from 'lucide-react';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface LinkInfo {
   role: string;
@@ -86,9 +87,9 @@ const ROLE_CONTENT: Record<string, RoleContent> = {
   },
   owner: {
     headline: 'Run your venue.\nKnow your numbers.',
-    sub: 'Tickets, VIP, drinks — one dashboard.',
+    sub: DRINKS_PILLAR_LIVE ? 'Tickets, VIP, drinks — one dashboard.' : 'Tickets, VIP tables — one dashboard.', // pilier boissons en pause
     perks: [
-      { icon: LayoutDashboard, text: 'Tickets, VIP tables, and drinks unified' },
+      { icon: LayoutDashboard, text: DRINKS_PILLAR_LIVE ? 'Tickets, VIP tables, and drinks unified' : 'Tickets, guest list and VIP tables unified' },
       { icon: Users, text: 'Full staff management in one place' },
       { icon: TrendingUp, text: 'Revenue analytics, zero guesswork' },
     ],

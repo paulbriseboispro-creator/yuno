@@ -34,6 +34,7 @@ import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check, Pencil, Rocket, Store, U
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ALL_TARGET_ACCOUNTS, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens (miroir AdminPlatformInvitations) ─────────────────────
 const RED        = '#E8192C';
@@ -122,7 +123,8 @@ interface ClaimRequest {
 // à l'ouverture, migrations 20260927140000 → 150000).
 type SignupKind = 'club' | 'organizer' | 'association';
 type Pillar = 'tickets' | 'tables' | 'guest_list' | 'drinks';
-const PILLARS: Pillar[] = ['tickets', 'tables', 'guest_list', 'drinks'];
+// Pilier boissons en pause : plus proposé au prospect (voir src/lib/drinksPillar.ts).
+const PILLARS: Pillar[] = ['tickets', 'tables', 'guest_list', ...(DRINKS_PILLAR_LIVE ? (['drinks'] as Pillar[]) : [])];
 
 // Brouillon de compte tel que le super admin le saisit.
 interface SignupDraft {
@@ -185,7 +187,7 @@ function signupPayload(d: SignupDraft) {
     email: d.email.trim(),
     phone: d.phone.trim(),
     city: d.city.trim(),
-    pillars: d.pillars.filter((p) => d.kind === 'club' || p !== 'drinks'),
+    pillars: d.pillars.filter((p) => (DRINKS_PILLAR_LIVE && d.kind === 'club') || p !== 'drinks'),
     offer_support: d.offerSupport,
   };
 }

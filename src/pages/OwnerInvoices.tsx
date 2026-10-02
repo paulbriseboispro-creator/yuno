@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { downloadInvoicePDF, generateInvoicePDF, InvoiceData, InvoiceItem } from '@/lib/generateInvoicePDF';
 import { resolveVatRegime, sellerVat, type VatRegime } from '@/lib/generateDocuments';
 import { PDFDocument } from 'pdf-lib';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 type InvoiceType = 'ticket' | 'table' | 'order';
 type ExportPeriod = 'week' | 'month' | 'quarter' | 'semester' | 'year';
@@ -514,7 +515,8 @@ export default function OwnerInvoices() {
     { value: 'all', label: t('invoices.allTypes') },
     { value: 'ticket', label: t('invoices.tickets') },
     { value: 'table', label: t('invoices.vipTables') },
-    { value: 'order', label: t('invoices.drinks') },
+    // Pilier boissons en pause : pas de filtre « Boissons » (src/lib/drinksPillar.ts).
+    ...(DRINKS_PILLAR_LIVE ? [{ value: 'order' as const, label: t('invoices.drinks') }] : []),
   ];
 
   return (
@@ -539,12 +541,13 @@ export default function OwnerInvoices() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className={DRINKS_PILLAR_LIVE ? 'grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6' : 'grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6'}>
           {([
             { label: t('invoices.totalInvoices'), value: invoices.length, color: T1 },
             { label: t('invoices.tickets'), value: invoices.filter(i => i.type === 'ticket').length, color: TYPE_CFG.ticket.color },
             { label: t('invoices.vipTables'), value: invoices.filter(i => i.type === 'table').length, color: TYPE_CFG.table.color },
-            { label: t('invoices.drinks'), value: invoices.filter(i => i.type === 'order').length, color: TYPE_CFG.order.color },
+            // Pilier boissons en pause (src/lib/drinksPillar.ts).
+            ...(DRINKS_PILLAR_LIVE ? [{ label: t('invoices.drinks'), value: invoices.filter(i => i.type === 'order').length, color: TYPE_CFG.order.color }] : []),
           ] as const).map((s, i) => (
             <div key={i} style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px 16px' }}>
               <p style={{ color: T3, fontSize: 11.5, marginBottom: 4 }}>{s.label}</p>

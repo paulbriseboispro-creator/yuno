@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Ticket, Sofa, Wine, Check, Clock, ArrowRight } from 'lucide-react';
 import type { Pillar } from '@/hooks/useOwnerOnboarding';
 import { StepHeader, PrimaryButton, RED, T1, T2, T3, POS, BORDER, TILE_BG } from './onboardingUI';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Props {
   venueId: string;
@@ -15,7 +16,8 @@ interface Props {
 const PILLAR_DEFS: { key: Pillar; icon: typeof Ticket; titleKey: string; descKey: string }[] = [
   { key: 'tickets', icon: Ticket, titleKey: 'onboarding.pillarTickets', descKey: 'onboarding.pillarTicketsDesc' },
   { key: 'tables', icon: Sofa, titleKey: 'onboarding.pillarTables', descKey: 'onboarding.pillarTablesDesc' },
-  { key: 'drinks', icon: Wine, titleKey: 'onboarding.pillarDrinks', descKey: 'onboarding.pillarDrinksDesc' },
+  // Pilier boissons en pause : la carte n'est plus proposée (voir src/lib/drinksPillar.ts).
+  ...(DRINKS_PILLAR_LIVE ? [{ key: 'drinks' as const, icon: Wine, titleKey: 'onboarding.pillarDrinks', descKey: 'onboarding.pillarDrinksDesc' }] : []),
 ];
 
 export function OnboardingStepWelcome({ venueId, initialPillars, onComplete }: Props) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Link } from "react-router-dom";
+import { DRINKS_PILLAR_LIVE } from "@/lib/drinksPillar";
 import {
 	Sidebar,
 	SidebarContent,
@@ -138,7 +139,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 					icon: <ScanLineIcon />,
 					subItems: [
 						{ title: tt("Billets", "Tickets"), path: "/organizer-app/checkin?tab=tickets", icon: <TicketIcon />, isDefault: true },
-						{ title: tt("Boissons", "Drinks"), path: "/organizer-app/checkin?tab=drinks", icon: <Martini /> },
+						...(DRINKS_PILLAR_LIVE ? [{ title: tt("Boissons", "Drinks"), path: "/organizer-app/checkin?tab=drinks", icon: <Martini /> }] : []),
 						{ title: tt("Vestiaire", "Cloakroom"), path: "/organizer-app/checkin?tab=cloakroom", icon: <ShirtIcon /> },
 					],
 				},

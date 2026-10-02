@@ -22,6 +22,7 @@ import { BrandedLoader } from '@/components/BrandedLoader';
 import { LiveVisitorsPanel } from '@/components/live/LiveVisitorsPanel';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { bucketHourParis } from '@/lib/liveops/nightWindow';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const POS    = 'var(--acc-34d399)';
@@ -152,9 +153,12 @@ export default function OwnerLiveNight() {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
               <DoorStation door={extended.door} incidents={extended.incidents} attendanceRate={advancedMetrics.attendanceRate} />
             </motion.div>
+            {/* Pilier boissons en pause : le poste bar dort (src/lib/drinksPillar.ts). */}
+            {DRINKS_PILLAR_LIVE && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
               <BarStation bar={extended.bar} pipeline={pipeline} avgPrepMinutes={advancedMetrics.avgPrepMinutes} outOfStock={extended.outOfStock} />
             </motion.div>
+            )}
             {cloakroomFirst ? (
               <>
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}>

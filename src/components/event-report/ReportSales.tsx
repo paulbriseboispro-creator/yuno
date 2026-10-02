@@ -13,6 +13,7 @@ import { fillPct, type PillarKey } from '@/lib/eventsSales';
 import { referenceFor, type EventReport, type LineStatus, type ReportLine } from '@/lib/eventReport';
 import { CardTitle, EmptyNote, ReportCard } from './ui';
 import { ReportTarget } from './ReportTarget';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 const PILLAR: Record<PillarKey, { icon: LucideIcon; color: string }> = {
   tickets: { icon: Ticket, color: 'var(--acc-ff7a82)' },
@@ -96,12 +97,13 @@ export function ReportSales({ report, compare = null, projection }: {
               </div>
               <div className="mt-2 flex flex-col gap-1" style={{ fontSize: 12, color: KIT.T3 }}>
                 {!after && rev.total > 0 && <TodayDelta value={rev.today} display={eur(rev.today)} />}
-                {(rev.tables > 0 || rev.drinks > 0) && (
+                {/* Pilier boissons en pause : la ligne boissons dort (src/lib/drinksPillar.ts). */}
+                {(rev.tables > 0 || (DRINKS_PILLAR_LIVE && rev.drinks > 0)) && (
                   <span>
                     {[
                       rev.tickets > 0 && `${t('evs.tickets')} ${eur(rev.tickets)}`,
                       rev.tables > 0 && `${t('evs.tables')} ${eur(rev.tables)}`,
-                      rev.drinks > 0 && `${t('owner.drinksTab')} ${eur(rev.drinks)}`,
+                      DRINKS_PILLAR_LIVE && rev.drinks > 0 && `${t('owner.drinksTab')} ${eur(rev.drinks)}`,
                     ].filter(Boolean).join(' · ')}
                   </span>
                 )}

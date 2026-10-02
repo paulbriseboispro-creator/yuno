@@ -26,6 +26,7 @@ import {
   POS, RED, RED_SOFT, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { orgEventsOr } from '@/lib/coorg';
 
 // RPC vestiaire (migration 20260929235000) pas encore dans les types générés.
@@ -94,7 +95,8 @@ export default function OrgAppCheckin() {
 
   const [events, setEvents] = useState<CheckinEvent[]>([]);
   const [eventId, setEventId] = useState<string>('');
-  const [tab, setTab] = useTabParam<ScanTab>('tickets', ['tickets', 'drinks', 'cloakroom']);
+  // Pilier boissons en pause : l'onglet n'existe pas, `?tab=drinks` retombe sur les billets.
+  const [tab, setTab] = useTabParam<ScanTab>('tickets', DRINKS_PILLAR_LIVE ? ['tickets', 'drinks', 'cloakroom'] : ['tickets', 'cloakroom']);
   const [ticketMode, setTicketMode] = useState<TicketMode>('entry');
   const [processing, setProcessing] = useState(false);
   const [lastScan, setLastScanState] = useState<{ ok: boolean; name?: string; reason?: string } | null>(null);
@@ -603,7 +605,7 @@ export default function OrgAppCheckin() {
           className="w-full justify-center"
           tabs={[
             { value: 'tickets', label: t('Billets', 'Tickets'), icon: <TicketIcon className="h-4 w-4" /> },
-            { value: 'drinks', label: t('Boissons', 'Drinks'), icon: <Wine className="h-4 w-4" /> },
+            ...(DRINKS_PILLAR_LIVE ? [{ value: 'drinks' as const, label: t('Boissons', 'Drinks'), icon: <Wine className="h-4 w-4" /> }] : []),
             { value: 'cloakroom', label: t('Vestiaire', 'Cloakroom'), icon: <Shirt className="h-4 w-4" /> },
           ]}
         />

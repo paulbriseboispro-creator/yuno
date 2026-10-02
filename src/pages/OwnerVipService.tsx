@@ -27,6 +27,7 @@ import {
   RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG,
 } from '@/components/owner/vip/vip-ui';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface QuickItem {
   id: string;
@@ -248,7 +249,8 @@ export default function OwnerVipService() {
     { id: 'overview', label: t('owner.overview'), icon: BarChart3 },
     { id: 'reservations', label: t('tables.reservations'), icon: Crown },
     { id: 'placement', label: t('vipCheckout.step.placement'), icon: MapPin, badge: pendingPlacements },
-    { id: 'menu', label: t('vipMenu.menuTab'), icon: Wine },
+    // Pilier boissons en pause (src/lib/drinksPillar.ts) : la carte VIP à table dort.
+    ...(DRINKS_PILLAR_LIVE ? [{ id: 'menu' as const, label: t('vipMenu.menuTab'), icon: Wine }] : []),
     { id: 'staff', label: t('owner.staff'), icon: UserCheck },
     { id: 'settings', label: t('owner.settings') || 'Settings', icon: Settings },
   ];

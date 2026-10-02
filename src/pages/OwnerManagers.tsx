@@ -21,6 +21,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { toast } from 'sonner';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface ManagerPerms {
   can_manage_events: boolean;
@@ -82,6 +83,11 @@ const PERMISSION_KEYS: Record<string, string> = {
   can_view_live: 'perm.viewLive',
   can_manage_vip_service: 'perm.manageVipService',
 };
+
+// Pilier boissons en pause : les droits « carte » et « upsells » ne se proposent plus (voir src/lib/drinksPillar.ts).
+const VISIBLE_PERMISSION_ENTRIES = Object.entries(PERMISSION_KEYS).filter(
+  ([key]) => DRINKS_PILLAR_LIVE || (key !== 'can_manage_menu' && key !== 'can_manage_upsell'),
+);
 
 export default function OwnerManagers() {
   const { t } = useLanguage();
@@ -419,7 +425,7 @@ export default function OwnerManagers() {
 
             <div className="space-y-3">
               <Label>{t('managers.permissions')}</Label>
-              {Object.entries(PERMISSION_KEYS).map(([key, tKey]) => (
+              {VISIBLE_PERMISSION_ENTRIES.map(([key, tKey]) => (
                 <div key={key} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                   <span className="text-sm">{t(tKey)}</span>
                   <Switch
@@ -456,7 +462,7 @@ export default function OwnerManagers() {
 
           {editingManager && (
             <div className="space-y-3">
-              {Object.entries(PERMISSION_KEYS).map(([key, tKey]) => (
+              {VISIBLE_PERMISSION_ENTRIES.map(([key, tKey]) => (
                 <div key={key} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                   <span className="text-sm">{t(tKey)}</span>
                   <Switch

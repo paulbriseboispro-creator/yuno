@@ -32,6 +32,7 @@ import { EventSelectionDialog } from '@/components/EventSelectionDialog';
 import { CartButton } from '@/components/CartButton';
 import { OrganizerProfileSkeleton } from '@/components/skeletons/OrganizerProfileSkeleton';
 import { orgEventsOr } from '@/lib/coorg';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface OrgProfile {
   user_id: string;
@@ -192,7 +193,8 @@ export default function OrganizerPublicProfile() {
       // Aggregate drinks from each club that has an ACTIVE partnership with this organizer.
       // Only display when the club has menu_enabled = true AND a paid/collab subscription
       // (anything other than the free 'core' tier).
-      try {
+      // Pilier boissons en pause (src/lib/drinksPillar.ts) : rien n'est chargé.
+      if (DRINKS_PILLAR_LIVE) try {
         // Source 1: declared active partnerships
         const { data: partnerships } = await supabase
           .from('venue_organizer_partnerships')

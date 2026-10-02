@@ -6,6 +6,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { orderRevenue, ticketRevenue, tableRevenue, type RevenueRow } from '@/utils/fees';
 import { orgEventsOr } from '@/lib/coorg';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 export type AnalyticsMode = 'global' | 'event';
 export type DateRange = '24h' | '48h' | '72h' | '7days' | '30days' | 'alltime';
@@ -232,7 +233,7 @@ async function fetchPreviousTotals(
     tablesQ = tablesQ.in('event_id', scope.eventIds);
   }
   const [ordersRes, ticketsRes, tablesRes] = await Promise.all([
-    byVenue
+    byVenue && DRINKS_PILLAR_LIVE // pilier boissons en pause : src/lib/drinksPillar.ts
       ? supabase.from('orders').select('total, service_fee, refund_amount, user_email, status')
           .eq('venue_id', scope.venueId).gte('created_at', lo).lt('created_at', hi)
       : Promise.resolve({ data: [] as { total: number; service_fee: number | null; refund_amount: number | null; user_email: string | null; status: string }[] }),
@@ -351,6 +352,9 @@ export function useAnalyticsData({
       // Les cinq lectures sont indépendantes : elles partent ensemble (elles
       // s'enchaînaient, ~0,7 s chacune — la vue d'ensemble mettait 25 s).
       const ordersP = (async (): Promise<Tables<'orders'>[] | null> => {
+      // Pilier boissons en pause (src/lib/drinksPillar.ts) : aucune commande du bar
+      // n'entre dans les totaux, les courbes ni le funnel.
+      if (!DRINKS_PILLAR_LIVE) return null;
       if (!isOrganizerScope && venueId) {
         let ordersQuery = supabase.from('orders').select('*').eq('venue_id', venueId);
         if (mode === 'event' && selectedEventId) {

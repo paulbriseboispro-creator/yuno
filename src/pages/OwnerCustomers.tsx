@@ -28,6 +28,7 @@ import { useTabParam } from '@/hooks/useTabParam';
 import { exportContactBase } from '@/lib/contactBaseExport';
 import { venueEventsOr } from '@/lib/coorg';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -453,7 +454,8 @@ export default function OwnerCustomers() {
 
   const categoryChartData = [
     { name: t('customers.tickets'), value: analytics.categories.tickets },
-    { name: t('customers.drinks'), value: analytics.categories.drinks },
+    // Pilier boissons en pause (src/lib/drinksPillar.ts).
+    ...(DRINKS_PILLAR_LIVE ? [{ name: t('customers.drinks'), value: analytics.categories.drinks }] : []),
     { name: t('customers.tables'), value: analytics.categories.tables },
     { name: t('customers.mixed'), value: analytics.categories.mixed },
   ].filter(d => d.value > 0);
@@ -584,7 +586,7 @@ export default function OwnerCustomers() {
         <div className="flex items-center gap-3 flex-shrink-0">
           <div className="hidden sm:flex items-center gap-2 text-[11px]" style={{ color: T3 }}>
             <span className="flex items-center gap-0.5"><Ticket className="w-3 h-3" />{customer.ticket_count || 0}</span>
-            <span className="flex items-center gap-0.5"><Wine className="w-3 h-3" />{customer.order_count || 0}</span>
+            {DRINKS_PILLAR_LIVE && <span className="flex items-center gap-0.5"><Wine className="w-3 h-3" />{customer.order_count || 0}</span>}
             <span className="flex items-center gap-0.5"><Table className="w-3 h-3" />{customer.table_count || 0}</span>
           </div>
           {s && <TierBadge tier={s.tier} size="sm" />}
@@ -816,7 +818,7 @@ export default function OwnerCustomers() {
                   {[
                     { key: 'recency', label: t('owner.cust.activity'), opts: [{ v: 'active', l: t('owner.cust.actActive') }, { v: 'dormant', l: t('owner.cust.actDormant') }, { v: 'lost', l: t('owner.cust.actLost') }] },
                     { key: 'value', label: t('owner.cust.tier'), opts: ['bronze', 'silver', 'gold', 'platinum'].map(v => ({ v, l: v.charAt(0).toUpperCase() + v.slice(1) })) },
-                    { key: 'category', label: t('owner.cust.purchaseType'), opts: [{ v: 'tickets', l: t('owner.cust.tickets') }, { v: 'drinks', l: t('owner.cust.drinks') }, { v: 'tables', l: t('customers.tables') }] },
+                    { key: 'category', label: t('owner.cust.purchaseType'), opts: [{ v: 'tickets', l: t('owner.cust.tickets') }, ...(DRINKS_PILLAR_LIVE ? [{ v: 'drinks', l: t('owner.cust.drinks') }] : []), { v: 'tables', l: t('customers.tables') }] }, // pilier boissons en pause : src/lib/drinksPillar.ts
                   ].map(({ key, label, opts }) => (
                     <div key={key}>
                       <p style={{ color: T3, fontSize: 11, marginBottom: 6 }}>{label}</p>

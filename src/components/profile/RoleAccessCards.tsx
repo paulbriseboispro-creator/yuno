@@ -8,6 +8,7 @@ import { StaffPinDialog } from '@/components/StaffPinDialog';
 import { hasValidStaffSession, storeStaffSession } from '@/components/RequireStaffSession';
 import { clearPinSession } from '@/components/RequirePinSession';
 import { supabase } from '@/integrations/supabase/client';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /**
  * Une organisation servie comme membre d'équipe (admin / éditeur / scanner).
@@ -203,7 +204,8 @@ export function RoleAccessCards({
     { show: isManager, icon: Briefcase, label: t('profile.managerDashboard'), path: '/manager', role: 'manager', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isPromoter, icon: Megaphone, label: t('profile.promoterDashboard'), path: '/promoter', role: 'promoter', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isDJ, icon: Music, label: t('profile.djDashboard'), path: '/dj', role: 'dj', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
-    { show: isBarman, icon: Wine, label: t('profile.barmanDashboard'), path: '/barman', role: 'barman', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    // Pilier boissons en pause : carte barman masquée (voir src/lib/drinksPillar.ts).
+    { show: DRINKS_PILLAR_LIVE && isBarman, icon: Wine, label: t('profile.barmanDashboard'), path: '/barman', role: 'barman', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isBouncer, icon: UserCheck, label: t('profile.bouncerDashboard'), path: '/bouncer', role: 'bouncer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG, security: 'pin' as const },
     { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },

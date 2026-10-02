@@ -3,6 +3,7 @@ import { Users, Wallet, TrendingUp, TrendingDown, Minus, Wine, PartyPopper, Cred
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { ExtendedStatsData } from '@/hooks/usePostEventAnalysis';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const POS      = 'var(--acc-34d399)';
@@ -47,13 +48,14 @@ export function PostEventExtendedStats({ stats }: PostEventExtendedStatsProps) {
         { icon: RotateCcw,   label: t('postEvent.refunds'),        value: `${formatMoneyAuto(stats.refunds)}` },
       ],
     },
-    {
+    // Pilier boissons en pause : le chapitre bar dort (src/lib/drinksPillar.ts).
+    ...(DRINKS_PILLAR_LIVE ? [{
       label: t('postEvent.grpBar'),
       items: [
         { icon: Wine,    label: t('postEvent.drinksPerPerson'), value: stats.drinksPerPerson.toFixed(1), change: stats.drinksPerPersonChange },
         { icon: Percent, label: t('postEvent.drinkRedemption'), value: stats.drinkRedemption != null ? `${Math.round(stats.drinkRedemption)}%` : dash },
       ],
-    },
+    }] : []),
     {
       label: t('postEvent.grpLoyalty'),
       items: [

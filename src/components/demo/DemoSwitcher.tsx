@@ -18,6 +18,7 @@ import { setMfaBypass, setRoleSessionBypass, MFA_GATED, signInToDemoAccount } fr
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { isDemoButtonHidden, setDemoButtonHidden, DEMO_HIDDEN_EVENT } from '@/lib/demoVisibility';
 import { haptics } from '@/lib/haptics';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { launchTasteQuiz } from '@/lib/demoQuiz';
 
 /**
@@ -80,7 +81,8 @@ const ACCOUNTS: DemoAccount[] = [
   { email: 'dj@womber.fr',        label: 'DJ',                  sub: 'MARCO V',        route: '/dj',              icon: Disc3,       session: 'pin',   role: 'dj' },
   { email: 'affiliate@womber.fr', label: 'Affilié',             sub: 'Yuno Network',   route: '/affiliate',       icon: Share2 },
   { email: 'bouncer@womber.fr',   label: 'Videur (porte)',      sub: 'Accès direct',   route: '/bouncer',         icon: ShieldCheck, session: 'staff', role: 'bouncer' },
-  { email: 'barman@womber.fr',    label: 'Barman',              sub: 'Accès direct',   route: '/barman',          icon: Wine,        session: 'staff', role: 'barman' },
+  // Pilier boissons en pause : l'entrée barman de la démo est masquée (voir src/lib/drinksPillar.ts).
+  ...(DRINKS_PILLAR_LIVE ? [{ email: 'barman@womber.fr',    label: 'Barman',              sub: 'Accès direct',   route: '/barman',          icon: Wine,        session: 'staff' as const, role: 'barman' as const }] : []),
   { email: 'cloakroom@womber.fr', label: 'Vestiaire',           sub: 'Accès direct',   route: '/cloakroom',       icon: Shirt,       session: 'staff', role: 'cloakroom' },
   { email: 'viphost@womber.fr',   label: 'Hôte VIP',            sub: 'Accès direct',   route: '/vip-host',        icon: Crown,       session: 'staff', role: 'vip_host' },
 ];
@@ -524,7 +526,8 @@ export function DemoSwitcher() {
             {[
               { email: 'promoter@womber.fr',  label: 'Promoteur', route: '/promoter?intro=1' },
               { email: 'bouncer@womber.fr',   label: 'Videur',    route: '/bouncer?intro=1' },
-              { email: 'barman@womber.fr',    label: 'Barman',    route: '/barman?intro=1' },
+              // Pilier boissons en pause (voir src/lib/drinksPillar.ts).
+              ...(DRINKS_PILLAR_LIVE ? [{ email: 'barman@womber.fr',    label: 'Barman',    route: '/barman?intro=1' }] : []),
               { email: 'viphost@womber.fr',   label: 'Hôte VIP',  route: '/vip-host?intro=1' },
               { email: 'affiliate@womber.fr', label: 'Affilié',   route: '/affiliate?intro=1' },
             ].map((it) => (

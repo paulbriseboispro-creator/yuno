@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 export type StepStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 export type Pillar = 'tickets' | 'tables' | 'drinks';
@@ -41,7 +42,8 @@ const DEFAULT_STEPS: Record<string, StepState> = {
 
 export function readPillars(steps: Record<string, StepState> | undefined): Pillar[] {
   const raw = steps?.['1']?.metadata?.pillars;
-  if (Array.isArray(raw)) return raw.filter((p): p is Pillar => p === 'tickets' || p === 'tables' || p === 'drinks');
+  // Pilier boissons en pause : un club qui l'avait choisi n'est pas bloqué sur une étape cachée (voir src/lib/drinksPillar.ts).
+  if (Array.isArray(raw)) return raw.filter((p): p is Pillar => p === 'tickets' || p === 'tables' || (DRINKS_PILLAR_LIVE && p === 'drinks'));
   return [];
 }
 

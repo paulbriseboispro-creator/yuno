@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { supabase } from '@/integrations/supabase/client';
 import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerTicketOrders } from '@/components/owner/OwnerTicketOrders';
@@ -38,12 +39,15 @@ export default function OwnerOrders() {
   const focusOrderId = searchParams.get('focus') ?? undefined;
 
   // Organizers don't run a bar — no drinks tab. They sell tickets + VIP tables.
+  // Et tant que le pilier boissons est en pause (src/lib/drinksPillar.ts),
+  // le club non plus : la page ouvre sur la billetterie.
+  const showDrinks = DRINKS_PILLAR_LIVE && !isOrganizerScope;
   const tabs = useMemo(
-    () => (isOrganizerScope ? ALL_TABS.filter((tb) => tb.key !== 'drinks') : ALL_TABS),
-    [isOrganizerScope],
+    () => (showDrinks ? ALL_TABS : ALL_TABS.filter((tb) => tb.key !== 'drinks')),
+    [showDrinks],
   );
 
-  const defaultTab: TabKey = isOrganizerScope ? 'tickets' : 'drinks';
+  const defaultTab: TabKey = showDrinks ? 'drinks' : 'tickets';
   const requestedTab = searchParams.get('tab') as TabKey | null;
   const validRequestedTab = requestedTab && tabs.some((tb) => tb.key === requestedTab) ? requestedTab : null;
   const [activeTab, setActiveTab] = useState<TabKey>(validRequestedTab ?? defaultTab);

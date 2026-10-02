@@ -6,6 +6,7 @@ import { Wine } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RED, T1, T3, BORDER, TILE_BG, HINT } from './ticketing-ui';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 export interface DrinkOptionsValue {
   includesDrink: boolean;
@@ -96,8 +97,10 @@ export function DrinkOptionsFields({ value, onChange, freeDrinkMode, setFreeDrin
                 )}
               </div>
 
-              {/* Free Drink Mode - venue-level setting */}
-              {value.includesDrink && (
+              {/* Free Drink Mode - venue-level setting. Pilier boissons en pause
+                  (src/lib/drinksPillar.ts) : la boisson offerte se gère à la porte,
+                  le mode « crédits au bar » n'est plus proposé. */}
+              {DRINKS_PILLAR_LIVE && value.includesDrink && (
                 <div className="space-y-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
                   <div>
                     <Label className="flex items-center gap-2 mb-1">

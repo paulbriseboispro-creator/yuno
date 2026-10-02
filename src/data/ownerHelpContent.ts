@@ -7,6 +7,8 @@
 // is the intro, and the bonus groups (Daily operations, Manager, Staff, Client,
 // Security) are cross-cutting reference guides that don't map to a single page.
 
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+
 export interface OwnerHelpSection {
   headingKey: string;
   bodyKey: string;
@@ -47,7 +49,8 @@ export const glossaryTerms: Record<string, string> = {
   'RLS': 'ohelp.glossary.term.rls',
   'MFA': 'ohelp.glossary.term.mfa',
   'PIN': 'ohelp.glossary.term.pin',
-  'Click & Collect': 'ohelp.glossary.term.clickCollect',
+  // Pilier boissons en pause : termes du bar masqués (voir src/lib/drinksPillar.ts).
+  ...(DRINKS_PILLAR_LIVE ? { 'Click & Collect': 'ohelp.glossary.term.clickCollect' } : {}),
   'Hype Score': 'ohelp.glossary.term.hypeScore',
   'CRM': 'ohelp.glossary.term.crm',
   'Fidélité': 'ohelp.glossary.term.loyalty',
@@ -63,7 +66,7 @@ export const glossaryTerms: Record<string, string> = {
   'Guest Checkout': 'ohelp.glossary.term.guestCheckout',
   'Checkout invité': 'ohelp.glossary.term.guestCheckout',
   'Commission Template': 'ohelp.glossary.term.commissionTemplate',
-  'Upsell': 'ohelp.glossary.term.upsell',
+  ...(DRINKS_PILLAR_LIVE ? { 'Upsell': 'ohelp.glossary.term.upsell' } : {}),
   'Waitlist': 'ohelp.glossary.term.waitlist',
   'Liste d\'attente': 'ohelp.glossary.term.waitlist',
 };
@@ -821,7 +824,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.staff.s9h', bodyKey: 'ohelp.pg.staff.s9b' },
         ],
       },
-      {
+      // Pilier boissons en pause : articles carte / Mode Live masqués (voir src/lib/drinksPillar.ts).
+      ...(DRINKS_PILLAR_LIVE ? [{
         id: 'menu-setup',
         titleKey: 'ohelp.pg.menu.title',
         descKey: 'ohelp.pg.menu.desc',
@@ -855,7 +859,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.livemode.s5h', bodyKey: 'ohelp.pg.livemode.s5b', type: 'tip' },
           { headingKey: 'ohelp.pg.livemode.s6h', bodyKey: 'ohelp.pg.livemode.s6b' },
         ],
-      },
+      }] : []),
       {
         id: 'vip-service-mgmt',
         titleKey: 'ohelp.pg.vipservice.title',
@@ -873,7 +877,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.vipservice.s6h', bodyKey: 'ohelp.pg.vipservice.s6b', type: 'tip' },
         ],
       },
-      {
+      // Pilier boissons en pause : articles upsell boissons / offres masqués (voir src/lib/drinksPillar.ts).
+      ...(DRINKS_PILLAR_LIVE ? [{
         id: 'drinks-upsell',
         titleKey: 'ohelp.pg.drinksupsell.title',
         descKey: 'ohelp.pg.drinksupsell.desc',
@@ -903,9 +908,9 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.upsell.s3h', bodyKey: 'ohelp.pg.upsell.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.upsell.s4h', bodyKey: 'ohelp.pg.upsell.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.upsell.s5h', bodyKey: 'ohelp.pg.upsell.s5b' },
-          { headingKey: 'ohelp.pg.upsell.s6h', bodyKey: 'ohelp.pg.upsell.s6b', type: 'tip' },
+          { headingKey: 'ohelp.pg.upsell.s6h', bodyKey: 'ohelp.pg.upsell.s6b', type: 'tip' as const },
         ],
-      },
+      }] : []),
     ],
   },
 

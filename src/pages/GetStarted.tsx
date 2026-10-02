@@ -12,6 +12,7 @@ import {
   RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, CARD_BG, CARD_SHADOW, POS, WARN,
 } from '@/components/promoter/promoter-ui';
 import { fetchLinksConfig, whatsappUrl } from '@/lib/yunoLinks';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import {
   KNOWN_TOOLS, PENDING_SIGNUP_KEY, isValidSignupKey, proSignupUrl, type MyProSignup,
 } from '@/lib/proSignup';
@@ -113,7 +114,8 @@ export default function GetStarted() {
     const pillars = new Set(signup.pillars ?? []);
     const toolName = signup.current_tool ? KNOWN_TOOLS[signup.current_tool] : undefined;
     const sells = (['tickets', 'guest_list', 'tables', 'drinks'] as const)
-      .filter((p) => pillars.has(p) && (p !== 'drinks' || isClub))
+      // Pilier boissons en pause (voir src/lib/drinksPillar.ts).
+      .filter((p) => pillars.has(p) && (p !== 'drinks' || (isClub && DRINKS_PILLAR_LIVE)))
       .map((p) => t(`gs.pillar.${p}`));
     const sellsText = sells.length ? sells.join(' · ') : t('gs.pillar.tickets');
 
@@ -128,7 +130,8 @@ export default function GetStarted() {
     if (pillars.has('tables')) {
       steps.push({ id: 'tables', icon: Crown, title: t('gs.step.tables.t'), desc: t('gs.step.tables.d'), to: `${base}/tables` });
     }
-    if (isClub && pillars.has('drinks')) {
+    // Pilier boissons en pause : l'étape « carte du bar » ne se propose plus (voir src/lib/drinksPillar.ts).
+    if (DRINKS_PILLAR_LIVE && isClub && pillars.has('drinks')) {
       steps.push({ id: 'menu', icon: Wine, title: t('gs.step.menu.t'), desc: t('gs.step.menu.d'), to: '/owner/menu' });
     }
     steps.push({

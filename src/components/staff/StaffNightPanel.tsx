@@ -28,6 +28,7 @@ import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { NightOpening } from './NightOpening';
 import { NightRecap } from './NightRecap';
 import { StationCallSheet } from './StationCallSheet';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 const T1     = 'rgba(255,255,255,0.96)';
 const T2     = 'rgba(255,255,255,0.70)';
@@ -129,7 +130,8 @@ export function StaffNightPanel({ role }: Props) {
       if (live.incidents > 0) {
         out.push({ icon: AlertTriangle, labelKey: 'staffnight.incidents', value: String(live.incidents), hot: true });
       }
-    } else if (role === 'barman') {
+    // Pilier boissons en pause : tuiles du bar (file, ruptures) masquées (voir src/lib/drinksPillar.ts).
+    } else if (DRINKS_PILLAR_LIVE && role === 'barman') {
       out.push({ icon: Wine, labelKey: 'staffnight.barQueue', value: String(live.bar_backlog), hot: live.bar_backlog >= 8 });
       out.push({
         icon: Timer,
@@ -162,7 +164,7 @@ export function StaffNightPanel({ role }: Props) {
   if (!venueId || !pulse) return null;
 
   const onShift = pulse.team.filter((m) => !m.ended_at);
-  const outOfStockNames = role === 'barman' ? pulse.live.out_of_stock.slice(0, 4) : [];
+  const outOfStockNames = DRINKS_PILLAR_LIVE && role === 'barman' ? pulse.live.out_of_stock.slice(0, 4) : [];
 
   return (
     <>

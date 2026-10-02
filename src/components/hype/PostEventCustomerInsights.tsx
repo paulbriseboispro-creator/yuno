@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Users, Wine, RefreshCw, UserPlus } from 'lucide-react';
 import { CustomerInsight } from '@/hooks/usePostEventAnalysis';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -69,8 +70,9 @@ export function PostEventCustomerInsights({ insights }: PostEventCustomerInsight
             </div>
           </motion.div>
 
-          {/* Top segment */}
+          {/* Top segment — pleine largeur quand la tuile boisson dort (src/lib/drinksPillar.ts) */}
           <motion.div
+            className={DRINKS_PILLAR_LIVE ? undefined : 'col-span-2'}
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.6 }}
@@ -80,7 +82,8 @@ export function PostEventCustomerInsights({ insights }: PostEventCustomerInsight
             <p style={{ color: T1, fontSize: 17, fontWeight: 640, letterSpacing: '-0.01em' }}>{insights.topSegment}</p>
           </motion.div>
 
-          {/* Top drink */}
+          {/* Top drink — pilier boissons en pause (src/lib/drinksPillar.ts) */}
+          {DRINKS_PILLAR_LIVE && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -98,6 +101,7 @@ export function PostEventCustomerInsights({ insights }: PostEventCustomerInsight
               {insights.topDrinkCount} {t('postEvent.sold')}
             </p>
           </motion.div>
+          )}
         </div>
       </div>
     </motion.div>

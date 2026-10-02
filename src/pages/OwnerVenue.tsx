@@ -40,6 +40,7 @@ import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { useVenuePaymentsReady } from '@/lib/paymentsReady';
 import { Switch } from '@/components/ui/switch';
 import { BarConfigSection } from '@/components/owner/BarConfigSection';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
 // Libellés RÉELS du filtre public — une seule liste pour toute l'app.
 import { MUSIC_GENRES } from '@/lib/musicGenres';
@@ -228,7 +229,7 @@ export default function OwnerVenue() {
 
   // Bar & menu
   const [menuEnabled, setMenuEnabled] = useState(true);
-  const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>('credits');
+  const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>(DRINKS_PILLAR_LIVE ? 'credits' : 'bouncer_notify'); // pilier boissons en pause
   // Fee absorption: when true the club absorbs the Yuno commission (fan pays item price only).
   const [absorbFees, setAbsorbFees] = useState(false);
 
@@ -293,7 +294,7 @@ export default function OwnerVenue() {
       setMinorsAllowed(data.minors_allowed ?? false);
       setMinorAuthDoc(data.minor_auth_doc_url ? { url: data.minor_auth_doc_url, name: data.minor_auth_doc_name || 'Document' } : null);
       setMenuEnabled(data.menu_enabled !== false);
-      setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
+      if (DRINKS_PILLAR_LIVE) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
       setAbsorbFees(data.absorb_yuno_fees === true);
       setLegalName(data.legal_name || '');
       setSiret(data.siret || '');
@@ -968,6 +969,8 @@ export default function OwnerVenue() {
         {/* ═══════════════════════════════════════════════════════════
             5. CONFIGURATION BAR & MENU
         ════════════════════════════════════════════════════════════ */}
+        {/* Pilier boissons en pause : la configuration du bar ne se montre plus (voir src/lib/drinksPillar.ts). */}
+        {DRINKS_PILLAR_LIVE && (<>
         <GroupHeader icon={Wine} title={t('owner.sectionBarMenu')} description={t('owner.sectionBarMenuDesc')} />
 
         {/* Menu activé */}
@@ -988,8 +991,9 @@ export default function OwnerVenue() {
             }} />
           </div>
         </SectionCard>
+        </>)}
 
-        {/* Absorption des frais Yuno */}
+        {/* Absorption des frais Yuno (billets, tables ET boissons : reste visible) */}
         <SectionCard>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -1008,6 +1012,8 @@ export default function OwnerVenue() {
           </div>
         </SectionCard>
 
+        {/* Pilier boissons en pause : mode boisson offerte + bars masqués (voir src/lib/drinksPillar.ts). */}
+        {DRINKS_PILLAR_LIVE && (<>
         {/* Mode boisson offerte */}
         <div style={{ opacity: menuEnabled ? 1 : 0.4, pointerEvents: menuEnabled ? 'auto' : 'none' }}>
           <SectionCard title={t('tickets.freeDrinkMode')} description={t('tickets.freeDrinkModeDesc')}>
@@ -1049,6 +1055,7 @@ export default function OwnerVenue() {
             <BarConfigSection venueId={venueId} />
           </SectionCard>
         </div>
+        </>)}
 
         {/* ═══════════════════════════════════════════════════════════
             DOCUMENTS D'ACCÈS — joints à chaque confirmation de billet

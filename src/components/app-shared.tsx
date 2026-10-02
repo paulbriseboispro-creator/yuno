@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DRINKS_PILLAR_LIVE } from "@/lib/drinksPillar";
 import {
 	LayoutGridIcon,
 	BarChart3Icon,
@@ -147,9 +148,10 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 						{ title: t('sidebar.vipService'), path: "/owner/vip-service", icon: <CrownIcon /> },
 					],
 				},
-				{
-					// Le bar : la carte et ce qu'on vend en plus. Deux jobs jumeaux,
-					// d'où un parent qui les nomme tous les deux.
+				// Le bar : la carte et ce qu'on vend en plus. Deux jobs jumeaux,
+				// d'où un parent qui les nomme tous les deux. Pilier boissons en
+				// pause (src/lib/drinksPillar.ts) : l'entrée dort avec lui.
+				...(DRINKS_PILLAR_LIVE ? [{
 					title: t('sidebar.bar'),
 					path: "/owner/menu",
 					icon: <Martini />,
@@ -158,7 +160,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 						{ title: t('sidebar.upsells'), path: "/owner/upsell", icon: <GiftIcon /> },
 						{ title: t('upsell.tabPromos'), path: "/owner/upsell?tab=promos", icon: <TagIcon /> },
 					],
-				},
+				}] : []),
 				{
 					title: t('sidebar.djs'),
 					path: "/owner/djs",
@@ -180,8 +182,9 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					path: "/owner/orders",
 					icon: <ShoppingCartIcon />,
 					subItems: [
-						{ title: t('owner.drinks'), path: "/owner/orders?tab=drinks", icon: <Martini />, isDefault: true },
-						{ title: t('sidebar.tickets'), path: "/owner/orders?tab=tickets", icon: <TicketIcon /> },
+						// Boissons en tête tant que le bar vit ; sinon la billetterie ouvre la page.
+						...(DRINKS_PILLAR_LIVE ? [{ title: t('owner.drinks'), path: "/owner/orders?tab=drinks", icon: <Martini />, isDefault: true }] : []),
+						{ title: t('sidebar.tickets'), path: "/owner/orders?tab=tickets", icon: <TicketIcon />, isDefault: !DRINKS_PILLAR_LIVE },
 						{ title: t('owner.gl.tab'), path: "/owner/orders?tab=guestlist", icon: <UsersIcon /> },
 						{ title: t('owner.tablesVIP'), path: "/owner/orders?tab=vip", icon: <Wine /> },
 						{ title: t('sidebar.refunds'), path: "/owner/refunds", icon: <RotateCcwIcon /> },

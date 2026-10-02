@@ -16,6 +16,7 @@ import {
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 type TeamRole = 'admin' | 'editor' | 'scanner';
 type StaffRole = 'barman' | 'bouncer' | 'cloakroom';
@@ -96,7 +97,8 @@ export default function OrgAppTeam() {
   const [submittingStaff, setSubmittingStaff] = useState(false);
   const [staffEmail, setStaffEmail] = useState('');
   const [staffName, setStaffName] = useState('');
-  const [staffRole, setStaffRole] = useState<StaffRole>('barman');
+  // Pilier boissons en pause : le barman n'est plus proposé (voir src/lib/drinksPillar.ts).
+  const [staffRole, setStaffRole] = useState<StaffRole>(DRINKS_PILLAR_LIVE ? 'barman' : 'bouncer');
 
   const loadMembers = async () => {
     if (!organizerId) return;
@@ -207,7 +209,7 @@ export default function OrgAppTeam() {
       if (data?.error) throw new Error(data.error);
       capturePosthog('team_member_invited', { scope: 'organizer', role: staffRole, kind: 'staff', organizer_user_id: organizerId });
       toast.success(t("Invitation envoyée · l'employé définira son propre PIN", 'Invitation sent · the employee will set their own PIN'));
-      setStaffEmail(''); setStaffName(''); setStaffRole('barman'); setStaffOpen(false);
+      setStaffEmail(''); setStaffName(''); setStaffRole(DRINKS_PILLAR_LIVE ? 'barman' : 'bouncer'); setStaffOpen(false);
       loadStaff();
     } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSubmittingStaff(false); }
@@ -501,7 +503,9 @@ export default function OrgAppTeam() {
               <div>
                 <FieldLabel>{t('Poste', 'Role')}</FieldLabel>
                 <DarkSelect value={staffRole} onChange={(v) => setStaffRole(v as StaffRole)}>
+                  {DRINKS_PILLAR_LIVE && (
                   <option value="barman" style={{ background: 'var(--sf-0a0a0c)' }}>🍺 {t('Barman · gère les boissons offertes', 'Barman · manages free drinks')}</option>
+                  )}
                   <option value="bouncer" style={{ background: 'var(--sf-0a0a0c)' }}>🛡️ {t('Videur · check-in entrée', 'Bouncer · entry check-in')}</option>
                   <option value="cloakroom" style={{ background: 'var(--sf-0a0a0c)' }}>🧥 {t('Vestiaire · gestion des dépôts', 'Cloakroom · deposit management')}</option>
                 </DarkSelect>

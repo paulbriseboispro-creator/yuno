@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { shouldAutoOpenGuide, snoozeGuide, markGuideOpened } from '@/lib/onboardingGuide';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { SupportHelpOptIn } from '@/components/onboarding/SupportHelpOptIn';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 const RED = '#E8192C';
 const GREEN = 'var(--acc-22c55e)';
@@ -45,7 +46,8 @@ const STEPS: StepDef[] = [
     actions: [
       { fr: 'Billetterie — vente de billets en ligne', en: 'Ticketing — sell tickets online', es: 'Entradas — venta online' },
       { fr: 'Tables VIP — réservation avec package bouteilles', en: 'VIP tables — booking with bottle packages', es: 'Mesas VIP — reserva con botellas' },
-      { fr: 'Boissons — commande depuis le téléphone', en: 'Drinks — order from phone', es: 'Bebidas — pedido desde el móvil' },
+      // Pilier boissons en pause (voir src/lib/drinksPillar.ts).
+      ...(DRINKS_PILLAR_LIVE ? [{ fr: 'Boissons — commande depuis le téléphone', en: 'Drinks — order from phone', es: 'Bebidas — pedido desde el móvil' }] : []),
     ],
     ctaLabel: { fr: 'Choisir mes piliers', en: 'Choose my pillars', es: 'Elegir mis pilares' },
   },
@@ -76,7 +78,8 @@ const STEPS: StepDef[] = [
     },
     actions: [
       { fr: 'Créer un événement (billets ou tables VIP)', en: 'Create an event (tickets or VIP tables)', es: 'Crear un evento (entradas o mesas VIP)' },
-      { fr: 'Configurer la carte des boissons', en: 'Set up the drinks menu', es: 'Configurar la carta de bebidas' },
+      // Pilier boissons en pause (voir src/lib/drinksPillar.ts).
+      ...(DRINKS_PILLAR_LIVE ? [{ fr: 'Configurer la carte des boissons', en: 'Set up the drinks menu', es: 'Configurar la carta de bebidas' }] : []),
     ],
     ctaLabel: { fr: 'Créer un événement', en: 'Create an event', es: 'Crear un evento' },
   },
@@ -109,7 +112,8 @@ const STEPS: StepDef[] = [
     },
     actions: [
       { fr: 'Inviter un bouncer (contrôle des entrées)', en: 'Invite a bouncer (entry control)', es: 'Invitar un portero' },
-      { fr: 'Inviter un barman (commandes boissons)', en: 'Invite a bartender (drink orders)', es: 'Invitar un barman' },
+      // Pilier boissons en pause (voir src/lib/drinksPillar.ts).
+      ...(DRINKS_PILLAR_LIVE ? [{ fr: 'Inviter un barman (commandes boissons)', en: 'Invite a bartender (drink orders)', es: 'Invitar un barman' }] : []),
       { fr: 'Inviter un hôte VIP (accueil tables)', en: 'Invite a VIP host (table welcome)', es: 'Invitar anfitrión VIP' },
     ],
     ctaLabel: { fr: 'Gérer le staff', en: 'Manage staff', es: 'Gestionar personal' },

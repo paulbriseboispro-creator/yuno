@@ -12,6 +12,7 @@ import { getEffectiveSplit } from '@/utils/coEventSplit';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import { OrgCard, RED, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import type { LucideIcon } from 'lucide-react';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 const AMBER = 'var(--acc-fbbf24)';
 const REFUND_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // miroir de REFUND_WINDOW_DAYS côté webhook
@@ -103,7 +104,8 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
       build('tickets', Ticket, t('Billets', 'Tickets', 'Entradas'), t('vendus', 'sold', 'vendidas'), tickets),
       build('tables', Wine, t('Tables VIP', 'VIP tables', 'Mesas VIP'), t('réservées', 'booked', 'reservadas'), tables,
         tableGuests > 0 ? `${tableGuests} ${t('convives', 'guests', 'invitados')}` : undefined),
-      build('drinks', Martini, t('Boissons', 'Drinks', 'Bebidas'), t('commandes', 'orders', 'pedidos'), drinks),
+      // Pilier boissons en pause : pas de ligne « Boissons » dans le partage (src/lib/drinksPillar.ts).
+      ...(DRINKS_PILLAR_LIVE ? [build('drinks', Martini, t('Boissons', 'Drinks', 'Bebidas'), t('commandes', 'orders', 'pedidos'), drinks)] : []),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.revenue_split_rules, event.event_mode, tickets, tables, tableGuests, drinks, language]);

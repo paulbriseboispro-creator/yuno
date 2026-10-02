@@ -19,6 +19,7 @@ import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -365,8 +366,9 @@ export default function OwnerStaff() {
     can_view_live: t('live.title'), can_manage_vip_service: t('owner.vipService'),
   };
 
+  // Pilier boissons en pause : on ne propose plus d'inviter un barman (voir src/lib/drinksPillar.ts).
   const ROLES: { role: EmployeeRole; id: string }[] = [
-    { role: 'barman', id: 'barman' }, { role: 'bouncer', id: 'bouncer' }, { role: 'manager', id: 'manager' },
+    ...(DRINKS_PILLAR_LIVE ? [{ role: 'barman' as const, id: 'barman' }] : []), { role: 'bouncer', id: 'bouncer' }, { role: 'manager', id: 'manager' },
     { role: 'vip_host', id: 'vip-host' }, { role: 'cloakroom', id: 'cloakroom' },
   ];
 
@@ -399,7 +401,8 @@ export default function OwnerStaff() {
   function PermissionGrid({ perms, onToggle, prefix }: { perms: ManagerPermissions; onToggle: (k: keyof ManagerPermissions, v: boolean) => void; prefix: string }) {
     return (
       <div className="grid grid-cols-2 gap-1.5">
-        {Object.entries(permissionLabels).map(([key, label]) => (
+        {/* Pilier boissons en pause : droits carte / upsells masqués (voir src/lib/drinksPillar.ts). */}
+        {Object.entries(permissionLabels).filter(([key]) => DRINKS_PILLAR_LIVE || (key !== 'can_manage_menu' && key !== 'can_manage_upsell')).map(([key, label]) => (
           <label key={key} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer"
             style={{ background: perms[key as keyof ManagerPermissions] ? 'rgba(167,139,250,0.08)' : INNER_BG }}>
             <Checkbox id={`${prefix}-${key}`} checked={perms[key as keyof ManagerPermissions]} onCheckedChange={v => onToggle(key as keyof ManagerPermissions, v === true)} />
@@ -439,9 +442,11 @@ export default function OwnerStaff() {
           <div className="flex items-center gap-2">
             {!collabReadOnly && (venueId || (dashScope === 'organizer' && dashOrganizerId)) && (
               <GenerateOnboardingLinkButton
-                roles={venueId
+                roles={(venueId
                   ? ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager']
-                  : ['barman', 'bouncer', 'cloakroom']}
+                  : ['barman', 'bouncer', 'cloakroom']
+                  // Pilier boissons en pause : pas de lien d'onboarding barman (voir src/lib/drinksPillar.ts).
+                ).filter((r) => DRINKS_PILLAR_LIVE || r !== 'barman')}
                 venueId={venueId ?? undefined}
                 organizerUserId={venueId ? undefined : dashOrganizerId}
                 variant="outline"
@@ -538,7 +543,7 @@ export default function OwnerStaff() {
                           );
                         })}
                       </div>
-                      {employee.is_click_collect_manager && (
+                      {DRINKS_PILLAR_LIVE && employee.is_click_collect_manager && (
                         <p className="text-[11px] mt-1" style={{ color: POS }}>{t('owner.stf.ccManagerActive')}</p>
                       )}
                     </div>
@@ -614,8 +619,8 @@ export default function OwnerStaff() {
                     )}
                   </div>
 
-                  {/* C&C Manager toggle */}
-                  {employee.roles.includes('barman') && (
+                  {/* C&C Manager toggle — pilier boissons en pause : masqué (voir src/lib/drinksPillar.ts) */}
+                  {DRINKS_PILLAR_LIVE && employee.roles.includes('barman') && (
                     <button
                       onClick={() => handleToggleClickCollectManager(employee.id, employee.is_click_collect_manager || false)}
                       className="w-full py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
@@ -697,7 +702,7 @@ export default function OwnerStaff() {
                 <PermissionGrid perms={formData.managerPermissions} onToggle={(k, v) => setFormData({ ...formData, managerPermissions: { ...formData.managerPermissions, [k]: v } })} prefix="create" />
               </div>
             )}
-            {formData.roles.includes('barman') && (
+            {DRINKS_PILLAR_LIVE && formData.roles.includes('barman') && (
               <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer"
                 style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }}>
                 <Checkbox id="create-cc-manager" checked={formData.isClickCollectManager} onCheckedChange={v => setFormData({ ...formData, isClickCollectManager: v === true })} />
@@ -742,7 +747,7 @@ export default function OwnerStaff() {
                 <PermissionGrid perms={editFormData.managerPermissions} onToggle={(k, v) => setEditFormData({ ...editFormData, managerPermissions: { ...editFormData.managerPermissions, [k]: v } })} prefix="edit" />
               </div>
             )}
-            {editFormData.roles.includes('barman') && (
+            {DRINKS_PILLAR_LIVE && editFormData.roles.includes('barman') && (
               <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer"
                 style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }}>
                 <Checkbox id="edit-cc-manager" checked={editFormData.isClickCollectManager} onCheckedChange={v => setEditFormData({ ...editFormData, isClickCollectManager: v === true })} />

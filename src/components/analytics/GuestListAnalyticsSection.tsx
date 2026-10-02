@@ -7,6 +7,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // ─── Design tokens (Yuno pro DA — single red accent, mono ramp) ────────────────
 const RED = '#E8192C';
@@ -254,7 +255,8 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
         <div style={{ background: INNER_BG, borderRadius: 14, padding: 16, marginBottom: 12 }}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             <Tile label={tt('CA total', 'Total revenue', 'Ingresos totales')} value={fmtPrice(h.revenue)} />
-            <Tile label={tt('Dont bar', 'Of which bar', 'De ello barra')} value={fmtPrice(h.bar_revenue)} />
+            {/* Pilier boissons en pause (src/lib/drinksPillar.ts). */}
+            {DRINKS_PILLAR_LIVE && <Tile label={tt('Dont bar', 'Of which bar', 'De ello barra')} value={fmtPrice(h.bar_revenue)} />}
             <Tile label={tt('Dont VIP', 'Of which VIP', 'De ello VIP')} value={fmtPrice(h.vip_revenue)} />
             <Tile label={tt('Panier moyen', 'Avg basket', 'Ticket medio')} value={fmtPrice(h.avg_per_spender ?? 0)} />
             <Tile label={tt('Inscrits', 'Signups', 'Inscritos')} value={h.signups.toLocaleString()} />
@@ -348,7 +350,8 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
   const [loading, setLoading] = useState(true);
   // Un seul propriétaire déplié à la fois — la liste reste lisible.
   const [openHolder, setOpenHolder] = useState<string | null>(null);
-  const hasBar = !!venueId;
+  // Pilier boissons en pause (src/lib/drinksPillar.ts).
+  const hasBar = DRINKS_PILLAR_LIVE && !!venueId;
 
   useEffect(() => {
     let cancelled = false;

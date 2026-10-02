@@ -51,6 +51,7 @@ import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
 import { venueEventsOr } from '@/lib/coorg';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -98,7 +99,8 @@ export default function OwnerTicketing() {
   // Guided rounds builder draft (used when user skips preset)
   const [wizardCustomRounds, setWizardCustomRounds] = useState<Array<{ name: string; price: string; maxTickets: string; ticketType: TicketType; includesDrink: boolean; entryDeadline?: string }>>([]);
   const [waitlistEntries, setWaitlistEntries] = useState<Record<string, { id: string; email: string; full_name: string | null; created_at: string; presale_access: boolean }[]>>({});
-  const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>('credits');
+  // Pilier boissons en pause (src/lib/drinksPillar.ts) : la boisson offerte passe par la porte.
+  const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>(DRINKS_PILLAR_LIVE ? 'credits' : 'bouncer_notify');
   
   const [roundFormData, setRoundFormData] = useState<RoundFormData>({
     name: '',
@@ -169,7 +171,7 @@ export default function OwnerTicketing() {
       fetchPresets();
       // Free drink mode (venue-scoped only)
       supabase.from('venues').select('free_drink_mode').eq('id', venueId).maybeSingle().then(({ data }) => {
-        if (data) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
+        if (data && DRINKS_PILLAR_LIVE) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
       });
     }
   }, [venueId, organizerUserId, isOrganizerScope]);

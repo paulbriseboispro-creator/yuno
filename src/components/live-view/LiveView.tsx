@@ -8,6 +8,7 @@ import { fmtInt, timeAgoLabel } from '@/lib/liveView';
 import { BigNumber, Label, LiveBadge, LV, Muted } from './liveViewUi';
 import { LivePanel } from './LivePanel';
 import { LiveReleaseCard } from './LiveReleaseCard';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 const LiveGlobe = lazy(() => import('./LiveGlobe'));
 
@@ -183,8 +184,9 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
                 <LiveReleaseCard release={snapshot.release} language={language} t={t} />
               </div>
             )}
+            {/* Compteur boissons : pilier en pause (src/lib/drinksPillar.ts) */}
             {snapshot ? (
-              <LivePanel snapshot={snapshot} freshIds={freshIds} nowMs={nowMs} t={t} language={language} reducedMotion={reducedMotion} showDrinks={!!venueId} />
+              <LivePanel snapshot={snapshot} freshIds={freshIds} nowMs={nowMs} t={t} language={language} reducedMotion={reducedMotion} showDrinks={DRINKS_PILLAR_LIVE && !!venueId} />
             ) : (
               <PanelSkeleton loading={loading} error={error} t={t} />
             )}

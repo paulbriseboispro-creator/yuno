@@ -21,6 +21,7 @@ import {
   RED, T1, T2, T3, F_BORDER, TILE_BG,
 } from '@/components/promoter/promoter-ui';
 import { formatMoneyAuto } from '@/lib/money';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Template { id: string; name: string; rules: CommissionRules; isDefault: boolean; }
 
@@ -87,7 +88,8 @@ export default function OwnerPromoterTemplates() {
   // Client-discount state
   const [cdType, setCdType] = useState<'percentage' | 'fixed'>('percentage');
   const [cdValue, setCdValue] = useState(10);
-  const [cdAppliesTo, setCdAppliesTo] = useState<'tickets' | 'drinks' | 'both'>('both');
+  // Pilier boissons en pause (src/lib/drinksPillar.ts) : la remise client ne vise que les billets.
+  const [cdAppliesTo, setCdAppliesTo] = useState<'tickets' | 'drinks' | 'both'>(DRINKS_PILLAR_LIVE ? 'both' : 'tickets');
   const [cdLabel, setCdLabel] = useState('');
 
   useEffect(() => { if (sid) fetchTemplates(); }, [sid]);
@@ -567,9 +569,9 @@ export default function OwnerPromoterTemplates() {
                 <Select value={cdAppliesTo} onValueChange={v => setCdAppliesTo(v as 'tickets' | 'drinks' | 'both')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">{t('owner.promo.ticketsAndDrinks')}</SelectItem>
+                    {DRINKS_PILLAR_LIVE && <SelectItem value="both">{t('owner.promo.ticketsAndDrinks')}</SelectItem>}
                     <SelectItem value="tickets">{t('owner.promo.tickets')}</SelectItem>
-                    <SelectItem value="drinks">{t('owner.drinks')}</SelectItem>
+                    {DRINKS_PILLAR_LIVE && <SelectItem value="drinks">{t('owner.drinks')}</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>

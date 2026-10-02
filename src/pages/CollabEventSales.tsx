@@ -10,6 +10,7 @@ import { OwnerTicketOrders } from '@/components/owner/OwnerTicketOrders';
 import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
 import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { canSideEdit } from '@/utils/collabResponsibilities';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 type SalesTab = 'tickets' | 'tables' | 'guestlist' | 'drinks' | 'invoices';
 const TABS: readonly SalesTab[] = ['tickets', 'tables', 'guestlist', 'drinks', 'invoices'];
@@ -39,10 +40,11 @@ export default function CollabEventSales() {
           { value: 'tickets', label: t('Billets', 'Tickets', 'Entradas'), Icon: Ticket },
           { value: 'tables', label: t('Tables VIP', 'VIP tables', 'Mesas VIP'), Icon: Wine },
           { value: 'guestlist', label: t('Guest list', 'Guest list', 'Guest list'), Icon: UserPlus },
-          ...(isVenue ? [{ value: 'drinks' as const, label: t('Boissons', 'Drinks', 'Bebidas'), Icon: GlassWater }] : []),
+          // Pilier boissons en pause : l'onglet dort (src/lib/drinksPillar.ts).
+          ...(isVenue && DRINKS_PILLAR_LIVE ? [{ value: 'drinks' as const, label: t('Boissons', 'Drinks', 'Bebidas'), Icon: GlassWater }] : []),
           { value: 'invoices', label: t('Factures', 'Invoices', 'Facturas'), Icon: FileText },
         ];
-        const active = tab === 'drinks' && !isVenue ? 'tickets' : tab;
+        const active = tab === 'drinks' && !(isVenue && DRINKS_PILLAR_LIVE) ? 'tickets' : tab;
         return (
           <div className="space-y-4">
             <div className="flex overflow-x-auto" style={{ borderBottom: `1px solid ${F_BORDER}` }} role="tablist">

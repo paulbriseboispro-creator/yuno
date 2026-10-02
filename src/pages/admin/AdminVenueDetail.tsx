@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ArrowLeft, Bot, Building2, CalendarDays, CreditCard, Crown, ExternalLink, Heart, HeartHandshake, LifeBuoy, Mail, RefreshCw, Shield, Ticket, Users, Wine, Zap } from 'lucide-react';
 import { AdminPage, Card, Stat, Btn, Pill, KeyValue, TableWrap, Th, Td, EmptyState, ErrorState, PageSkeleton, ProgressBar, POS, NEG, WARN, T1, T3, C_MID } from '@/components/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtRelative, fmtPct } from '@/lib/adminFormat';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Overview {
   venue: { id: string; name: string; slug: string | null; city: string | null; address: string | null; created_at: string; is_hidden: boolean; decommissioned_at: string | null; purge_at: string | null; stripe_account_id: string | null; stripe_onboarding_complete: boolean; stripe_charges_enabled: boolean; stripe_payouts_enabled: boolean; menu_enabled: boolean; vip_placement_enabled: boolean; live_mode_enabled: boolean; timezone: string | null; owner_id: string | null; showcase_shadow_owner_id: string | null; logo_url: string | null; instagram_url: string | null; whatsapp_number: string | null; legal_name: string | null; siret: string | null; is_demo: boolean } | null;
@@ -56,7 +57,7 @@ export default function AdminVenueDetail() {
         <Stat label={t('adm.venue.revenue')} value={fmtEur(total, language, { compact: true })} icon={Zap} highlight sub={t('adm.venue.yunoFees').replace('{v}', fmtEur(yuno, language))} />
         <Stat label={t('adm.common.tickets')} value={fmtNum(r.tickets.n, language)} icon={Ticket} sub={fmtEur(r.tickets.gross, language)} />
         <Stat label={t('adm.common.tables')} value={fmtNum(r.tables.n, language)} icon={Crown} sub={fmtEur(r.tables.gross, language)} />
-        <Stat label={t('adm.common.drinks')} value={fmtNum(r.drinks.n, language)} icon={Wine} sub={fmtEur(r.drinks.gross, language)} />
+        {DRINKS_PILLAR_LIVE && <Stat label={t('adm.common.drinks')} value={fmtNum(r.drinks.n, language)} icon={Wine} sub={fmtEur(r.drinks.gross, language)} />}
       </div>
       <p style={{ color: T3, fontSize: 11.5, marginTop: -12 }}>{t('adm.venue.revenueHint')} · {r.last_sale_at ? t('adm.venue.lastSale').replace('{t}', fmtRelative(r.last_sale_at, language)) : t('adm.venue.noSale')} · {t('adm.venue.guestlist')}: {fmtNum(r.guestlist, language)}</p>
 
@@ -72,7 +73,7 @@ export default function AdminVenueDetail() {
             { k: 'Instagram', v: v.instagram_url ? <a href={v.instagram_url} target="_blank" rel="noreferrer" className="hover:underline">{v.instagram_url.replace(/^https?:\/\/(www\.)?/, '')}</a> : '—' },
           ]} />
           <div className="mt-4"><div style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{t('adm.venue.modules')}</div>
-            <div className="flex gap-1.5 flex-wrap"><Pill size="xs" tone={v.menu_enabled ? 'pos' : 'muted'}>{t('adm.venue.menu')}</Pill><Pill size="xs" tone={v.vip_placement_enabled ? 'pos' : 'muted'}>{t('adm.venue.vip')}</Pill><Pill size="xs" tone={v.live_mode_enabled ? 'pos' : 'muted'}>{t('adm.venue.liveMode')}</Pill></div></div>
+            <div className="flex gap-1.5 flex-wrap">{DRINKS_PILLAR_LIVE && <Pill size="xs" tone={v.menu_enabled ? 'pos' : 'muted'}>{t('adm.venue.menu')}</Pill>}<Pill size="xs" tone={v.vip_placement_enabled ? 'pos' : 'muted'}>{t('adm.venue.vip')}</Pill>{DRINKS_PILLAR_LIVE && <Pill size="xs" tone={v.live_mode_enabled ? 'pos' : 'muted'}>{t('adm.venue.liveMode')}</Pill>}</div></div>
         </Card>
         <Card title={t('adm.venue.stripe')} icon={CreditCard} accent={stripeState !== 'ready'}>
           <div className="flex items-center gap-2 mb-3"><Pill tone={stripeState === 'ready' ? 'pos' : stripeState === 'pending' ? 'accent' : 'neg'}>{stripeState === 'ready' ? t('adm.venue.stripeReady') : stripeState === 'pending' ? t('adm.venue.stripePending') : t('adm.venue.stripeNone')}</Pill></div>
@@ -107,7 +108,7 @@ export default function AdminVenueDetail() {
         <Stat compact label={t('adm.venue.followers')} value={fmtNum(data.followers, language)} icon={Heart} />
         <Stat compact label={t('adm.venue.promoters')} value={fmtNum(data.promoters, language)} icon={HeartHandshake} />
         <Stat compact label={t('adm.venue.zones')} value={fmtNum(data.zones, language)} icon={Crown} />
-        <Stat compact label={t('adm.venue.drinks')} value={fmtNum(data.drinks, language)} icon={Wine} />
+        {DRINKS_PILLAR_LIVE && <Stat compact label={t('adm.venue.drinks')} value={fmtNum(data.drinks, language)} icon={Wine} />}
         <Stat compact label={t('adm.venue.campaigns')} value={fmtNum(data.email_campaigns, language)} icon={Mail} sub={`${t('adm.venue.newsletter')}: ${fmtNum(data.newsletter, language)}`} />
         <Stat compact label={t('adm.venue.aiChats')} value={fmtNum(data.ai_chats_30d, language)} icon={Bot} />
       </div>

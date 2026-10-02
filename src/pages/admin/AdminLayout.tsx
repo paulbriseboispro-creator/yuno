@@ -18,6 +18,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ADMIN_FEED_CONFIG } from '@/lib/notifications';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { AdminScopeProvider, useAdminScope } from '@/components/admin/AdminScope';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { RED, T1, T2, T3, BORDER, F_BORDER, Spinner, Toggle } from '@/components/admin/ui';
 import { ProThemeField } from '@/components/ProThemeSwitch';
 
@@ -78,7 +79,8 @@ function useNavGroups(): NavGroup[] {
         item('system', '/admin/system', Activity),
         item('alerts', '/admin/alerts', Siren),
         item('audit', '/admin/audit', ScrollText),
-        item('drinks', '/admin/drinks', Wine),
+        // Pilier boissons en pause : catalogue admin masqué (voir src/lib/drinksPillar.ts).
+        ...(DRINKS_PILLAR_LIVE ? [item('drinks', '/admin/drinks', Wine)] : []),
       ],
     },
   ];
