@@ -140,6 +140,8 @@ export interface StudioBlock {
   size?: number | string;
   align?: string;
   color?: string;
+  /** Style d'un bloc texte : 'body' (défaut) | 'headline' | 'kicker' — miroir de TextBlock.variant. */
+  variant?: string;
   code?: string;
   // columns
   left?: { title?: string; body?: string };
@@ -298,7 +300,14 @@ const EMAIL_VARIABLES: VariableDef[] = [
   { key: 'dernier_event', aliases: ['dernier_évent', 'last_event'], fallback: 'ta dernière soirée' },
   { key: 'points_fidélité', aliases: ['points_fidelite', 'loyalty_points'], fallback: '0' },
   { key: 'nom_club', aliases: ['club', 'venue_name'], fallback: '' },
+  { key: 'soirée', aliases: ['soiree', 'event', 'event_title'], fallback: 'la soirée' },
 ];
+
+/** Titre de la soirée de l'email — miroir de liveEventTitle (variables.ts). */
+function liveEventTitle(ctx: StudioRenderCtx): string {
+  const first = ctx.live ? Object.values(ctx.live).find((e) => e && e.title) : undefined;
+  return (first?.title || '').trim();
+}
 
 function stripAccents(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -314,6 +323,7 @@ function interpolate(input: string, ctx: StudioRenderCtx): string {
     'dernier_event': (r.lastEventTitle || '').trim(),
     'points_fidélité': r.loyaltyPoints != null ? String(r.loyaltyPoints) : '',
     'nom_club': ctx.venueName,
+    'soirée': liveEventTitle(ctx),
   };
   const lookup = new Map<string, VariableDef>();
   for (const def of EMAIL_VARIABLES) {
@@ -365,10 +375,45 @@ function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
   return s;
 }
 
-function plainToParagraphs(body: string, fontSize: number, color: string, markup: InlineMarkupOpts): string {
+/** Apparence d'un bloc texte selon son style — miroir de textLook (render.ts). */
+interface TextLook {
+  size: number; lineHeight: number; gap: number; weight: number | null;
+  letterSpacing: string | null; uppercase: boolean; mono: boolean; color: string;
+}
+
+function textLook(b: StudioBlock, theme: StudioTheme, bg: string): TextLook {
+  const variant = (b.variant as string) || 'body';
+  const ink = defaultInkOn(bg, theme);
+  if (variant === 'kicker') {
+    const solid = solidBlockBg(bg, theme);
+    const color = isHexColor(b.color) ? (b.color as string).trim() : readableOn(theme.accent, solid);
+    return { size: 11, lineHeight: 1.45, gap: 4, weight: 700, letterSpacing: '0.16em', uppercase: true, mono: true, color };
+  }
+  if (variant === 'headline') {
+    const size = Math.max(20, Math.min(40, Number(b.size) || 30));
+    return {
+      size, lineHeight: 1.16, gap: 4, weight: 800, letterSpacing: '-0.02em', uppercase: false, mono: false,
+      color: isHexColor(b.color) ? (b.color as string).trim() : ink,
+    };
+  }
+  return {
+    size: Math.max(11, Math.min(28, Number(b.size) || 16)), lineHeight: 1.6, gap: 10, weight: null, letterSpacing: null,
+    uppercase: false, mono: false, color: isHexColor(b.color) ? (b.color as string).trim() : ink,
+  };
+}
+
+function textLookCss(look: TextLook): string {
+  return `font-family:${look.mono ? MONO : FONT};font-size:${look.size}px;line-height:${look.lineHeight};color:${look.color};`
+    + (look.weight ? `font-weight:${look.weight};` : '')
+    + (look.letterSpacing ? `letter-spacing:${look.letterSpacing};` : '')
+    + (look.uppercase ? 'text-transform:uppercase;' : '');
+}
+
+function plainToParagraphs(body: string, look: TextLook, markup: InlineMarkupOpts): string {
   const lines = String(body || '').split('\n');
+  const css = textLookCss(look);
   return lines
-    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${inlineMarkup(esc(line), markup)}</p>`)
+    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ` 0 ${look.gap}px` : ''};${css}">${inlineMarkup(esc(line), markup)}</p>`)
     .join('');
 }
 
@@ -762,12 +807,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};font-size:0;line-height:0;">${linked}</td></tr>`;
     }
     case 'text': {
-      const size = Math.max(11, Math.min(28, Number(b.size) || 16));
-      const color = isHexColor(b.color) ? (b.color as string).trim() : defaultInkOn(bg, theme);
+      const look = textLook(b, theme, bg);
       const raw = interpolate((b.body as string) || '', ctx);
       const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
-      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, color, markup);
-      return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${color};text-align:${b.align || 'left'};`);
+      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, look, markup);
+      return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};${textLookCss(look)}text-align:${b.align || 'left'};`);
     }
     case 'cta': {
       const colors = ctaColors(b.color, theme);

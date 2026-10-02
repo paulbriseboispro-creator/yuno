@@ -24,6 +24,10 @@ const corsHeaders = {
 // SYSTEM PROMPT — Condensé, strict, data-driven
 // ═══════════════════════════════════════════
 
+// Pilier boissons en pause (2026-10-01), miroir de src/lib/drinksPillar.ts. Tant que
+// c'est false : ni article ni outil boissons envoyé au modèle, et le prompt le dit.
+const DRINKS_PILLAR_LIVE = false;
+
 const OWNER_SYSTEM_PROMPT = `Tu es l'assistant de la Yuno Console, l'outil web des propriétaires de clubs sur Yuno. Tutoie l'owner. Réponds dans sa langue (français, anglais, espagnol).
 
 ═══ RÈGLE ABSOLUE ═══
@@ -79,13 +83,16 @@ Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu),
 ═══ NE MÉLANGE JAMAIS ═══
 - Ne mélange PAS documentation et réponses data
 - Pour les questions "comment ça marche" → utilise search_help_articles
-- Pour les questions "combien / quoi / qui" → utilise les tools data`;
+- Pour les questions "combien / quoi / qui" → utilise les tools data${DRINKS_PILLAR_LIVE ? "" : `
+
+═══ PILIER BOISSONS EN PAUSE ═══
+La commande de boissons (carte du bar, Click & Collect, upsells de consos, Mode Live, écran barman) n'est PAS disponible dans Yuno pour le moment. Ne propose jamais la carte, les upsells ni le Click & Collect ; si on te le demande, dis que Yuno couvre aujourd'hui la billetterie, la guest list et les tables VIP, et que le bar reviendra plus tard.`}`;
 
 // ═══════════════════════════════════════════
 // HELP ARTICLES INDEX
 // ═══════════════════════════════════════════
 
-const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
+const HELP_ARTICLES_ALL: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
   "home-banner": {
     title: "Changer la photo en haut de l'accueil",
     keywords: ["bannière", "banniere", "banner", "photo accueil", "image accueil", "couverture", "cover", "photo du haut", "photo mal cadrée", "image coupée", "home banner", "header image"],
@@ -598,11 +605,17 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
 };
 
+// Pilier boissons en pause : ces articles dorment avec lui (src/lib/drinksPillar.ts).
+const DRINKS_HELP_ARTICLES = new Set(["menu", "drinks-upsell", "live-mode", "solo-bottles", "upsell-offers"]);
+const HELP_ARTICLES: typeof HELP_ARTICLES_ALL = Object.fromEntries(
+  Object.entries(HELP_ARTICLES_ALL).filter(([id]) => DRINKS_PILLAR_LIVE || !DRINKS_HELP_ARTICLES.has(id)),
+);
+
 // ═══════════════════════════════════════════
 // TOOL DEFINITIONS
 // ═══════════════════════════════════════════
 
-const TOOLS = [
+const TOOLS_ALL = [
   {
     type: "function",
     function: {
@@ -1035,6 +1048,11 @@ const TOOLS = [
     },
   },
 ];
+
+// Pilier boissons en pause : les outils du bar ne sont pas proposés au modèle
+// (leurs handlers restent, pour le relancement). src/lib/drinksPillar.ts.
+const DRINKS_TOOLS = new Set(["list_drinks", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell", "get_top_drinks", "get_pending_orders"]);
+const TOOLS = TOOLS_ALL.filter((t) => DRINKS_PILLAR_LIVE || !DRINKS_TOOLS.has(t.function.name));
 // ═══════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════

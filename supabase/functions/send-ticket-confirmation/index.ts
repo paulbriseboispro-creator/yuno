@@ -363,8 +363,11 @@ serve(async (req) => {
     // Éducation boissons (upsell post-achat) : uniquement pour les comptes
     // connectés (la page /order/upsell exige une session), si le club vend des
     // boissons et n'a pas coupé l'upsell. Best-effort — jamais bloquant.
+    // Pilier boissons en pause (2026-10-01, miroir de src/lib/drinksPillar.ts) :
+    // l'email ne propose plus la précommande de boissons.
+    const DRINKS_PILLAR_LIVE = false;
     let drinksUpsell: { url: string; presale: boolean } | undefined;
-    if (!isGuest && ticket.user_id && event?.venue_id) {
+    if (DRINKS_PILLAR_LIVE && !isGuest && ticket.user_id && event?.venue_id) {
       try {
         const { data: venueFlags } = await supabaseAdmin
           .from("venues")

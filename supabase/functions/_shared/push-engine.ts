@@ -170,7 +170,13 @@ export async function runPushEngine(
       console.error("[PUSH-ENGINE] claim failed:", error.message);
       break;
     }
-    const rows = (data ?? []) as ClaimedRow[];
+    // Pilier boissons en pause (2026-10-01, miroir de src/lib/drinksPillar.ts) : la
+    // variante « boissons » du rappel du jour J (choisie en SQL sur menu_enabled)
+    // se rend comme la variante par défaut, texte et lien compris.
+    const DRINKS_PILLAR_LIVE = false;
+    const rows = ((data ?? []) as ClaimedRow[]).map((r) =>
+      !DRINKS_PILLAR_LIVE && r.variant === "drinks" ? { ...r, variant: "default" } : r,
+    );
     if (rows.length === 0) break;
     report.claimed += rows.length;
 
