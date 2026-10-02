@@ -576,8 +576,8 @@ n'avait été joué contre la vraie base ».
 | 1 Connecteur | ✅ migrations `20261002150000`, edge `affiliate-ticket-sync` (actions `ticketing_*`, déployée), carte Intégrations | `CRM_CONNECTORS_LIVE` à false (super admin, démo, bêta) |
 | 2 Données dans le CRM | ✅ `20261002160000` → `180000` : soirées miroir, billets dans `contact_scope_customers`, automatisations, attribution, tarifs live dans l'email (`send-campaign` déployée) | — |
 | 3 Coquille produit | ✅ `20261002190000` : `product` du compte, Console CRM (accueil, soirées, bilan, audience), Clients et Audience aux mots du CRM, centre d'aide CRM, assistant ; démo `crm@womber.fr` | `owner-assistant` à redéployer à la fusion ; Console Manager d'un club CRM non adaptée |
-| 4 Prix et facturation | en cours | |
-| 5 Landing, inscription, démo | à faire | |
+| 4 Prix et facturation | ✅ `20261002200000` + `201000` : `crm_subscriptions`, offre effective, quotas (emails, synchro, membres, automatisations, A/B), essai 14 j, page Abonnement, `crm_checkout` / `crm_portal`, branche webhook, revenu CRM dans `/admin/revenue` | **Paul** : créer les prix Stripe (`scripts/stripe/create-crm-prices.mjs --apply`), puis déployer `club-subscription` + `stripe-webhook` ; pool email plateforme (40 000 / mois) à relever avant un Pro à 50 000 |
+| 5 Landing, inscription, démo | en cours | |
 
 Rien n'est sur `main` : la fusion et le déploiement du front attendent Paul.
 

@@ -2323,6 +2323,18 @@ const help: Record<string, string> = {
   "ohelp.crm.contacts.s2b": "1. Abre \"Clientes\".\n2. Haz clic en un estado (\"Comprometidos\", \"Lectores\", \"Silenciosos\"…) o en un origen (\"Vía la ticketera\", \"Archivo importado\") para filtrar la lista.\n3. \"Segmentos inteligentes\" propone segmentos listos, como los habituales que se alejan; luego sirven de audiencia para tus campañas.\n4. \"Importar mi lista\" añade un archivo de contactos que ya tienes.\n5. \"Exportar la base\" descarga la base completa.",
   "ohelp.crm.contacts.s3h": "Consentimiento",
   "ohelp.crm.contacts.s3b": "Estar en la base no significa ser contactable: solo quienes aceptaron tus emails o SMS reciben tus campañas, y Yuno aplica esa regla en cada envío. Una persona dada de baja nunca vuelve por una importación.",
+  "ohelp.crm.billing.title": "Tu suscripción a Yuno CRM",
+  "ohelp.crm.billing.desc": "Los cuatro planes, la prueba, el precio fundador y qué pasa al cambiar.",
+  "ohelp.crm.billing.s1h": "Para qué sirve",
+  "ohelp.crm.billing.s1b": "La página \"Suscripción\" muestra tu plan actual, lo que has usado este mes (emails, SMS, miembros, sincronización de la ticketera) y los cuatro planes: Gratis, Esencial 49 €, Pro 129 € y Business 249 € sin IVA al mes.",
+  "ohelp.crm.billing.s2h": "La prueba y el precio fundador",
+  "ohelp.crm.billing.s2b": "• Al abrir la cuenta, el Pro es gratis 14 días, sin tarjeta.\n• Si eliges un plan durante la prueba, solo pagas cuando termina.\n• Sin plan al final de la prueba, la cuenta pasa a Gratis: tu base se conserva entera, la sincronización baja a una vez al día y las automatizaciones que superan el plan se apagan.\n• Las 15 primeras cuentas de pago tienen el precio fundador (Pro a 89 € en lugar de 129 €), garantizado 12 meses.",
+  "ohelp.crm.billing.s3h": "Paso a paso",
+  "ohelp.crm.billing.s3b": "1. Abre \"Suscripción\".\n2. Elige \"Mensual\" o \"Anual · 2 meses gratis\".\n3. Haz clic en \"Elegir\" bajo el plan que quieras: el pago se abre en Stripe.\n4. Para cambiar después, haz clic en otro plan: el cambio se prorratea, sin pago nuevo que introducir.\n5. \"Gestionar pago y facturas\" abre Stripe para la tarjeta, las facturas y la cancelación.",
+  "ohelp.crm.billing.s4h": "Lo que limita el plan",
+  "ohelp.crm.billing.s4b": "• Emails al mes: 1.000, 15.000, 50.000 o 100.000. Más allá, las recargas se venden a precio de coste.\n• Automatizaciones activas a la vez: ninguna en Gratis, 3 en Esencial, todas desde el Pro.\n• Test A/B y reenvío a quienes no abrieron: desde el Pro.\n• Usuarios: 1, 3, 5 o ilimitados.\nCuando se alcanza un límite, Yuno lo dice en el momento de la acción y propone \"Ver los planes\".",
+  "ohelp.crm.billing.s5h": "Bueno saberlo",
+  "ohelp.crm.billing.s5b": "Solo el titular de la cuenta cambia de plan. Una cancelación surte efecto al final del periodo pagado. En acceso asistido, Yuno nunca se suscribe por ti.",
 };
 
 export default help;

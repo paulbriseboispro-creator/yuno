@@ -2323,6 +2323,18 @@ const help: Record<string, string> = {
   "ohelp.crm.contacts.s2b": "1. Open \"Customers\".\n2. Click a status (\"Engaged\", \"Readers\", \"Silent\"…) or an origin (\"Via your ticketing\", \"Imported file\") to filter the list.\n3. \"Smart segments\" suggests ready-made segments, such as regulars drifting away; they then serve as audiences for your campaigns.\n4. \"Import my list\" adds a contact file you already have.\n5. \"Export the base\" downloads the whole base.",
   "ohelp.crm.contacts.s3h": "Consent",
   "ohelp.crm.contacts.s3b": "Being in the base doesn't mean being reachable: only those who accepted your emails or texts receive your campaigns, and Yuno applies that rule on every send. An unsubscribed person never comes back through an import.",
+  "ohelp.crm.billing.title": "Your Yuno CRM subscription",
+  "ohelp.crm.billing.desc": "The four plans, the trial, the founder price, and what happens when you switch.",
+  "ohelp.crm.billing.s1h": "What it's for",
+  "ohelp.crm.billing.s1b": "The \"Subscription\" page shows your current plan, what you used this month (emails, SMS, members, ticketing sync) and the four plans: Free, Essential 49 €, Pro 129 € and Business 249 € excl. VAT per month.",
+  "ohelp.crm.billing.s2h": "The trial and the founder price",
+  "ohelp.crm.billing.s2b": "• When the account opens, Pro is free for 14 days, no card needed.\n• If you choose a plan during the trial, you only pay when it ends.\n• Without a plan at the end of the trial, the account moves to Free: your base stays whole, sync drops to once a day and automations beyond the plan turn off.\n• The first 15 paying accounts get the founder price (Pro at 89 € instead of 129 €), guaranteed for 12 months.",
+  "ohelp.crm.billing.s3h": "Step by step",
+  "ohelp.crm.billing.s3b": "1. Open \"Subscription\".\n2. Pick \"Monthly\" or \"Yearly · 2 months free\".\n3. Click \"Choose\" under the plan you want: payment opens on Stripe.\n4. To switch later, click another plan: the change is prorated, with no new payment to enter.\n5. \"Manage payment and invoices\" opens Stripe for the card, invoices and cancellation.",
+  "ohelp.crm.billing.s4h": "What the plan limits",
+  "ohelp.crm.billing.s4b": "• Emails per month: 1,000, 15,000, 50,000 or 100,000. Beyond that, top-ups are sold at cost.\n• Automations on at once: none on Free, 3 on Essential, all from Pro.\n• A/B tests and resend to non-openers: from Pro.\n• Users: 1, 3, 5 or unlimited.\nWhen a limit is reached, Yuno says so at the moment of the action and offers \"See plans\".",
+  "ohelp.crm.billing.s5h": "Good to know",
+  "ohelp.crm.billing.s5b": "Only the account holder changes the plan. A cancellation takes effect at the end of the paid period. In assisted access, Yuno never subscribes on your behalf.",
 };
 
 export default help;

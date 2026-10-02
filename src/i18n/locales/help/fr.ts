@@ -2419,6 +2419,18 @@ const help: Record<string, string> = {
   "ohelp.crm.contacts.s2b": "1. Ouvrez \"Clients\".\n2. Cliquez sur un statut (\"Engagés\", \"Lecteurs\", \"Silencieux\"…) ou sur une origine (\"Via la billetterie\", \"Fichier importé\") pour filtrer la liste.\n3. \"Segments intelligents\" propose des segments prêts, comme les habitués qui décrochent ; ils servent ensuite d'audience à vos campagnes.\n4. \"Importer ma liste\" ajoute un fichier de contacts que vous avez déjà.\n5. \"Exporter la base\" télécharge la base entière.",
   "ohelp.crm.contacts.s3h": "Consentement",
   "ohelp.crm.contacts.s3b": "Être dans la base ne veut pas dire être joignable : seuls ceux qui ont accepté vos emails ou vos SMS reçoivent vos campagnes, et Yuno applique cette règle à chaque envoi. Un désabonné ne revient jamais par un import.",
+  "ohelp.crm.billing.title": "Votre abonnement Yuno CRM",
+  "ohelp.crm.billing.desc": "Les quatre offres, l'essai, le prix fondateur, et ce qui se passe quand on change.",
+  "ohelp.crm.billing.s1h": "À quoi ça sert",
+  "ohelp.crm.billing.s1b": "La page \"Abonnement\" montre votre offre en cours, ce que vous avez consommé ce mois-ci (emails, SMS, membres, synchro de la billetterie) et les quatre offres : Gratuit, Essentiel 49 €, Pro 129 € et Business 249 € HT par mois.",
+  "ohelp.crm.billing.s2h": "L'essai et le prix fondateur",
+  "ohelp.crm.billing.s2b": "• À l'ouverture du compte, le Pro est offert 14 jours, sans carte.\n• Si vous choisissez une offre pendant l'essai, vous ne payez qu'à sa fin.\n• Sans offre à la fin de l'essai, le compte passe au Gratuit : votre base reste entière, la synchro passe à une fois par jour et les automatisations au-delà de l'offre s'éteignent.\n• Les 15 premiers comptes payants ont le prix fondateur (Pro à 89 € au lieu de 129 €), garanti 12 mois.",
+  "ohelp.crm.billing.s3h": "Pas à pas",
+  "ohelp.crm.billing.s3b": "1. Ouvrez \"Abonnement\".\n2. Choisissez \"Mensuel\" ou \"Annuel · 2 mois offerts\".\n3. Cliquez sur \"Choisir\" sous l'offre voulue : le paiement s'ouvre chez Stripe.\n4. Pour changer d'offre ensuite, cliquez sur une autre offre : le changement se fait au prorata, sans nouveau paiement à saisir.\n5. \"Gérer le paiement et les factures\" ouvre Stripe pour la carte, les factures et la résiliation.",
+  "ohelp.crm.billing.s4h": "Ce que l'offre limite",
+  "ohelp.crm.billing.s4b": "• Emails par mois : 1 000, 15 000, 50 000 ou 100 000. Au-delà, les recharges sont vendues à prix coûtant.\n• Automatisations allumées en même temps : aucune en Gratuit, 3 en Essentiel, toutes à partir du Pro.\n• Test A/B et renvoi aux non-ouvreurs : à partir du Pro.\n• Utilisateurs : 1, 3, 5 ou illimités.\nQuand une limite est atteinte, Yuno le dit au moment de l'action et propose \"Voir les offres\".",
+  "ohelp.crm.billing.s5h": "Bon à savoir",
+  "ohelp.crm.billing.s5b": "Seul le titulaire du compte change d'offre. Une résiliation prend effet à la fin de la période payée. En accès assisté, Yuno ne souscrit jamais à votre place.",
 };
 
 export default help;

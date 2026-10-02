@@ -111,6 +111,29 @@ Règles déjà posées :
   d'abonnés ni de push ; Clients : « Via la billetterie », jamais « Venus par
   Yuno » ni « avec l'app »). Démo : `crm@womber.fr`
   (`scripts/demo/create-crm-account.mjs` puis `seed-crm-demo.sql`, rejouable).
+- **L'offre CRM se lit en base, jamais au front** (migrations `20261002200000`,
+  `201000`). `crm_subscriptions` (une ligne par portée, séparée de
+  `venue_subscriptions` : noms d'offres qui se croisent, trigger collab de la
+  Suite), `crm_effective_plan()` (essai = Pro, Business choisi pendant l'essai =
+  Business, actif / en retard = son offre, offre accordée échue = Gratuit) et
+  `crm_plan_limits()`, miroir EXACT de `CRM_PLAN_LIMITS` (`src/lib/crmPlans.ts`,
+  testé). Les limites (`crm_scope_limits`) ne valent que pour un compte au
+  produit `crm`. Elles pilotent le quota email (`email_sender_monthly_free`),
+  la fréquence de synchro (`crm_sync_scope`, trigger à la connexion, cron
+  `ticketing-sync` toutes les 5 min) et des gardes serveur qui lèvent un code
+  stable : `crm_member_limit` (`org_members`, `manager_permissions`),
+  `crm_automation_limit`, `crm_plan_ab_resend`. Le front les traduit par
+  `useCrmLimitToast` (« Voir les offres »). **Tout garde de limite exclut la
+  MÊME personne / la MÊME recette** : un UPSERT déclenche le BEFORE INSERT même
+  sur une ligne existante. L'essai (14 j) naît quand un compte passe au produit
+  `crm` (trigger). `crm_billing_sweep` (horaire) clôt les essais et éteint les
+  automatisations au-delà de l'offre. Paiement : actions `crm_checkout` /
+  `crm_portal` de `club-subscription` (client Stripe PROPRE au CRM, jamais par
+  email ; prix par `lookup_key` `yuno_crm_<offre>_<month|year>[_founder]`,
+  créés par `scripts/stripe/create-crm-prices.mjs` ; portail sans changement
+  d'offre) ; le webhook route `metadata.yuno_product = 'crm'` vers
+  `crm_apply_stripe_subscription` AVANT la logique club. Sans prix créés,
+  `crm_checkout` répond `billing_not_configured`. Démo : Pro accordé un an.
 
 ## Stack
 

@@ -16,6 +16,23 @@ import { isCrmPathAllowed, type ConsoleBase } from '@/components/crm/crmNav';
 
 const OPEN = 'ohelp.crm.openPage';
 
+const CRM_BILLING_ARTICLE: OwnerHelpArticle = {
+  id: 'crm-billing',
+  titleKey: 'ohelp.crm.billing.title',
+  descKey: 'ohelp.crm.billing.desc',
+  icon: 'CreditCard',
+  relatedArticleIds: ['crm-what-is', 'crm-connect'],
+  keywords: ['abonnement', 'subscription', 'suscripción', 'offre', 'plan', 'prix', 'price', 'precio', 'essai', 'trial', 'prueba', 'fondateur', 'founder', 'fundador', 'facture', 'invoice', 'factura', 'résilier', 'cancel', 'cancelar', 'limite', 'limit', 'stripe'],
+  actionLink: { labelKey: OPEN, path: '/crm/billing' },
+  sections: [
+    { headingKey: 'ohelp.crm.billing.s1h', bodyKey: 'ohelp.crm.billing.s1b' },
+    { headingKey: 'ohelp.crm.billing.s2h', bodyKey: 'ohelp.crm.billing.s2b' },
+    { headingKey: 'ohelp.crm.billing.s3h', bodyKey: 'ohelp.crm.billing.s3b', type: 'steps' },
+    { headingKey: 'ohelp.crm.billing.s4h', bodyKey: 'ohelp.crm.billing.s4b' },
+    { headingKey: 'ohelp.crm.billing.s5h', bodyKey: 'ohelp.crm.billing.s5b', type: 'tip' },
+  ],
+};
+
 const CRM_ARTICLES: Record<'start' | 'base', OwnerHelpArticle[]> = {
   start: [
     {
@@ -131,7 +148,7 @@ export function buildCrmHelpCategories(base: ConsoleBase): OwnerHelpCategory[] {
     { id: 'getting-started', labelKey: 'ohelp.cat.gettingStarted', icon: 'Rocket', articles: CRM_ARTICLES.start },
     { id: 'crm-base', labelKey: 'ohelp.crm.cat.base', icon: 'Users', articles: CRM_ARTICLES.base },
     { id: 'marketing-crm', labelKey: 'sidebar.group.marketingCRM', icon: 'Megaphone', articles: pick(REUSED[base].marketing) },
-    { id: 'settings', labelKey: 'sidebar.group.settings', icon: 'Settings', articles: pick(REUSED[base].account) },
+    { id: 'settings', labelKey: 'sidebar.group.settings', icon: 'Settings', articles: [CRM_BILLING_ARTICLE, ...pick(REUSED[base].account)] },
   ].filter((c) => c.articles.length > 0);
 
   // Un article lié qui n'existe pas dans ce centre d'aide ne s'affiche pas.
