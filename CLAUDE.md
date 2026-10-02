@@ -53,6 +53,47 @@ gatées et marche à suivre pour relancer : `docs/DRINKS_PILLAR_PAUSED.md`. Règ
   villes / clubs / événements, `index.html`, worker crawler, Welcome, Explore faible
   densité, assistants IA.
 
+## Yuno CRM — deuxième produit, branché sur la billetterie du pro (2026-10-02)
+
+Décision de Paul : beaucoup de pros veulent la techno Yuno sans quitter leur
+billetterie. Yuno CRM se connecte à leur billetterie (Shotgun d'abord) et ne
+vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix (Gratuit / Essentiel
+49 € / Pro 129 € / Business 249 €) : `docs/designs/YUNO_CRM_PRICING.md`.
+Règles déjà posées :
+
+- **Connecteur = `affiliate-ticket-sync`, actions `ticketing_*`** (quota de
+  fonctions atteint ; le code Whan n'est pas touché, `ticketing.ts` à part).
+  Connexion par portée (`ticketing_connections`, jeton dans le Vault, jamais
+  renvoyé), journal `ticketing_sync_runs`, données dans `external_events` /
+  `external_tickets` (RLS sans policy). Lecture TOLÉRANTE d'un billet
+  (`_shared/ticketing-shotgun.ts`, testé) : Shotgun ne documente pas le schéma.
+  **Limiteur commun `consume_ticketing_rate('shotgun', 45)` avant chaque
+  requête** : le quota Shotgun est de 100 / min PAR IP, partagé par tous les
+  clients. Jamais d'écriture chez Shotgun. Cron `ticketing-sync` toutes les
+  10 min. Carte « Billetterie (Shotgun) » dans Intégrations, réservée au super
+  admin / démo / bêta tant que `CRM_CONNECTORS_LIVE` (`src/lib/crmProduct.ts`)
+  est à false.
+- **Une soirée Shotgun a une soirée MIROIR dans `events`**
+  (`external_source`, `external_ticket_url`), créée par
+  `ticketing_after_sync()` seulement. Le trigger `zw_force_external_event_private`
+  la force inactive, privée, sans billetterie / tables / liste d'attente Yuno :
+  invisible de toute lecture publique (RLS `is_active`, Explore, push, annonces).
+  **Toute nouvelle lecture publique d'`events` filtre `is_active`** (c'est déjà la
+  règle) ; une lecture CRM qui doit voir les soirées externes écrit
+  `(e.is_active OR e.external_source IS NOT NULL)`. Pas de promoteurs ni de liens
+  suivis `/l/` sur une soirée externe ; dans un email, son bouton part vers la
+  billetterie (UTM) et ses tarifs viennent de `get_external_event_live`.
+- **Billets externes dans le CRM** : `contact_scope_customers` les compte comme
+  des billets (valides / transférés, valeur faciale hors frais). Automatisations :
+  un acheteur Shotgun d'une soirée est « bought » (jamais de dernier appel pour
+  une soirée payée), un scan Shotgun vaut une venue, un achat vaut une activité.
+  Toute nouvelle requête « a acheté / est venu » ajoute la branche
+  `external_tickets` (`status IN ('valid','transferred')`).
+- **Consentement** : un acheteur Shotgun n'entre au registre que si Shotgun
+  rapporte son accord newsletter (`source = 'connector:shotgun'`,
+  `consent_source = 'ticketing'`), jamais un désabonné / une adresse purgée.
+  Une source `connector:%` ne déclenche JAMAIS la recette « bienvenue ».
+
 ## Stack
 
 - **Frontend** : Vite 8 (rolldown) + React 18 + TypeScript + shadcn/ui + Tailwind. SPA statique.
