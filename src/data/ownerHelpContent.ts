@@ -31,6 +31,16 @@ export interface OwnerHelpArticle {
   keywords?: string[];
 }
 
+/**
+ * Articles masqués derrière un interrupteur produit (ex. pilier boissons en
+ * pause). Passer par cette fonction plutôt qu'un `...(flag ? [{…}] : [])` :
+ * le paramètre typé garde les littéraux (`type: 'tip'`) que le tableau nu
+ * élargissait en `string`, ce qui cassait le typage du fichier.
+ */
+export function gatedArticles(enabled: boolean, articles: OwnerHelpArticle[]): OwnerHelpArticle[] {
+  return enabled ? articles : [];
+}
+
 export interface OwnerHelpCategory {
   id: string;
   labelKey: string;
@@ -825,7 +835,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       // Pilier boissons en pause : articles carte / Mode Live masqués (voir src/lib/drinksPillar.ts).
-      ...(DRINKS_PILLAR_LIVE ? [{
+      ...gatedArticles(DRINKS_PILLAR_LIVE, [{
         id: 'menu-setup',
         titleKey: 'ohelp.pg.menu.title',
         descKey: 'ohelp.pg.menu.desc',
@@ -859,7 +869,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.livemode.s5h', bodyKey: 'ohelp.pg.livemode.s5b', type: 'tip' },
           { headingKey: 'ohelp.pg.livemode.s6h', bodyKey: 'ohelp.pg.livemode.s6b' },
         ],
-      }] : []),
+      }]),
       {
         id: 'vip-service-mgmt',
         titleKey: 'ohelp.pg.vipservice.title',
@@ -878,7 +888,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       // Pilier boissons en pause : articles upsell boissons / offres masqués (voir src/lib/drinksPillar.ts).
-      ...(DRINKS_PILLAR_LIVE ? [{
+      ...gatedArticles(DRINKS_PILLAR_LIVE, [{
         id: 'drinks-upsell',
         titleKey: 'ohelp.pg.drinksupsell.title',
         descKey: 'ohelp.pg.drinksupsell.desc',
@@ -910,7 +920,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.upsell.s5h', bodyKey: 'ohelp.pg.upsell.s5b' },
           { headingKey: 'ohelp.pg.upsell.s6h', bodyKey: 'ohelp.pg.upsell.s6b', type: 'tip' as const },
         ],
-      }] : []),
+      }]),
     ],
   },
 

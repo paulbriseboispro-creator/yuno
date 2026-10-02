@@ -16,7 +16,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
-import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
+import { GenerateOnboardingLinkButton, type OnboardingRole } from '@/components/onboarding/GenerateOnboardingLinkButton';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
@@ -443,8 +443,8 @@ export default function OwnerStaff() {
             {!collabReadOnly && (venueId || (dashScope === 'organizer' && dashOrganizerId)) && (
               <GenerateOnboardingLinkButton
                 roles={(venueId
-                  ? ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager']
-                  : ['barman', 'bouncer', 'cloakroom']
+                  ? (['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'] satisfies OnboardingRole[])
+                  : (['barman', 'bouncer', 'cloakroom'] satisfies OnboardingRole[])
                   // Pilier boissons en pause : pas de lien d'onboarding barman (voir src/lib/drinksPillar.ts).
                 ).filter((r) => DRINKS_PILLAR_LIVE || r !== 'barman')}
                 venueId={venueId ?? undefined}
