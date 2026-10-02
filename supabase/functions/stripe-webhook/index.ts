@@ -617,8 +617,14 @@ serve(async (req) => {
       }
 
       case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        const subId = invoice.subscription as string;
+        // Depuis basil, l'abonnement d'une facture vit sous parent.subscription_details ;
+        // `invoice.subscription` n'existe plus et laissait cette branche muette.
+        const invoice = event.data.object as unknown as {
+          subscription?: string | { id: string } | null;
+          parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null;
+        };
+        const rawSub = invoice.parent?.subscription_details?.subscription ?? invoice.subscription ?? null;
+        const subId = typeof rawSub === "string" ? rawSub : rawSub?.id ?? null;
         if (!subId) break;
 
         logStep("Payment failed for subscription", { subscriptionId: subId });
