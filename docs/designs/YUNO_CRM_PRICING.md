@@ -7,8 +7,311 @@
 > 2. des **crédits email et SMS de base** dans chaque abonnement, qu'on augmente
 >    au besoin.
 >
-> **Statut : analyse, aucune grille validée.** Plan produit :
-> `docs/designs/YUNO_CRM_PLAN.md`.
+> **Statut : décidé le 02/10 au soir, voir la première section.** Les sections
+> suivantes (étude de 16 h, révision, premier verdict, six modèles) restent pour
+> l'historique du raisonnement. Plan produit : `docs/designs/YUNO_CRM_PLAN.md`.
+
+---
+
+## Décision du 02/10 (soir) : un abonnement à 29 €, et les néons
+
+> **Statut : décidé par Paul.** Le prix de l'abonnement est fixé. Le tarif des
+> néons est une base de travail proposée, que Paul ajustera à ses coûts réels
+> (fournisseur SMS, WhatsApp). Le nom « néons » est une proposition à valider.
+> Cette décision remplace la grille 49 / 129 / 249 de la « Révision ».
+> **Stripe est prêt** (créé en live le 02/10, voir « Stripe » plus bas). **Le
+> code n'est pas encore changé** : c'est le lot 4b du plan.
+
+### Ce que Paul a décidé
+
+- **Abonnement + crédits**, sur le modèle de Laylo (étude de 16 h plus bas).
+- **Un seul abonnement, 29 € HT par mois au lancement.** Il passera à 39 € plus
+  tard, pour les nouveaux comptes.
+- **Pas de compte gratuit.** Une période d'essai à la place.
+- **Les crédits ont un nom, un dessin et un univers Yuno**, comme une monnaie.
+  Ils ne s'appellent pas « crédits ».
+
+### Les réponses aux questions de Paul
+
+**1. Des crédits chaque mois, ou d'un coup à l'annuel comme Laylo ?** Les deux.
+
+- **Chaque abonné reçoit 10 000 néons par mois, mensuel compris.** C'est 10 000
+  emails, ou deux campagnes à une base de 5 000 personnes.
+- Ces néons **s'éteignent** à l'échéance, sans report.
+- **L'annuel ajoute un bonus versé d'un coup** : 30 000 néons, valables 12 mois.
+- Pourquoi ne pas faire comme Laylo, qui ne donne rien au mois :
+  - La crainte de Paul, c'est le client qui ne prend le CRM que pour la donnée.
+    Le seul remède, c'est qu'il envoie. Des néons qui s'éteignent chaque mois lui
+    donnent une raison d'ouvrir l'outil chaque mois.
+  - Sans néon inclus, un abonné mensuel devrait acheter avant son premier
+    envoi. C'est le compteur qui freine.
+  - Ça coûte peu : 10 000 emails coûtent 9 € au pire, et la plupart des comptes
+    n'utiliseront pas tout.
+  - Laylo s'en passe parce que son email paraît gratuit et que ses clients se
+    servent seuls. Nos pros doivent voir un résultat dès leur première soirée.
+
+**2. L'annuel : une remise ou des néons ?** Des néons, sans remise.
+
+- 12 × 29 € = 348 € HT, plus 30 000 néons offerts d'un coup, soit 60 € de valeur
+  au tarif de base.
+- Le client voit l'équivalent de deux mois offerts. Yuno paie au plus 27 €
+  d'envoi, si tout part en emails.
+- Ces néons font envoyer, ce qu'une remise ne fait pas.
+- La règle de la Suite « l'annuel coûte dix mois » ne s'applique pas au CRM.
+
+**3. 29 € au lancement, puis 39 €.** Oui, avec deux règles.
+
+- **Le prix de lancement est garanti tant que l'abonnement reste actif.** Un
+  compte qui résilie puis revient paie le prix du jour. C'est l'argument qui
+  fait signer pendant le lancement. Tant que les comptes sont peu nombreux, il
+  coûte peu.
+- **Le passage à 39 € est annoncé à l'avance**, sur la landing et dans la
+  Console. Proposé : au 50e compte payant.
+- Pas de « 39 € » barré à côté de 29 € avant que 39 € ait été pratiqué : un prix
+  barré doit être un prix réel.
+- Le « prix fondateur » de l'ancienne grille (15 comptes) disparaît. Le prix de
+  lancement le remplace.
+
+**4. 14 jours gratuits, ou 2 mois à 1 € ?** 14 jours, sans carte.
+
+- Ce qui fait peur aux pros, c'est le changement (étude). Demander une carte
+  avant qu'ils aient vu leur base, c'est les perdre au moment où ils hésitent.
+- La valeur se voit en quelques minutes. Dès la connexion de Shotgun, la base,
+  les segments et les bilans des soirées passées apparaissent. 14 jours couvrent
+  deux soirées d'un organisateur hebdomadaire.
+- Les 2 mois à 1 € cumulent les défauts :
+  - la carte demandée à l'entrée ;
+  - un prix de 1 € dans la tête du client, juste avant que le prix monte ;
+  - deux mois sans savoir s'il paiera ;
+  - Stripe prend 27 % d'un euro.
+- **L'essai donne tout le socle et 5 000 néons**, soit une campagne à sa base.
+  Pas 10 000 : un essai sans carte est la porte d'entrée des fichiers achetés.
+- Pour un prospect rencontré en vrai, Paul prolonge l'essai depuis le super
+  admin (l'offre accordée à la main existe déjà).
+- **À la fin de l'essai sans abonnement, le compte passe en pause** :
+  - la base et les bilans restent lisibles ;
+  - la synchro s'arrête, rien ne part, les automatisations s'éteignent ;
+  - l'export de la base entière reste possible, c'est sa donnée ;
+  - un abonnement rallume tout.
+- Un compte en pause n'est pas un compte gratuit. Il ne coûte rien à servir (pas
+  de synchro), et sa base vieillit chaque jour : c'est sa raison de revenir.
+
+### Le socle à 29 €
+
+Tout ce qui fait envoyer est dans le socle. Dans un modèle à crédits, brider une
+fonction qui fait envoyer, c'est brider son propre revenu (étude de 16 h).
+
+- Synchro Shotgun toutes les 15 minutes, et fichiers des autres billetteries.
+- Base unifiée, segments Yuno, RFM, bilans de soirée, rythme J-N comparé,
+  attribution des ventes.
+- Email Studio, modèles, toutes les automatisations, test A/B, renvoi aux
+  non-ouvreurs.
+- Audiences et publicités Meta, 0 % sur le budget.
+- Assistant IA.
+- Équipe sans limite de membres.
+- **10 000 néons par mois.**
+
+### Les néons : la monnaie de Yuno CRM
+
+**Une seule monnaie pour tous les canaux. 1 néon = 1 email.**
+
+| Canal | Néons | Prix au tarif de base | Coût pour Yuno | Marge |
+|---|---|---|---|---|
+| Email | 1 | 0,2 c€ | 0,09 c€ (Resend) | ~55 % |
+| DM Instagram (à construire) | 10 | 2 c€ | 0 (Meta ne facture pas l'API) | ~100 % |
+| SMS France, par segment de 160 caractères | 40 | 8 c€ | 3,5 à 4,5 c€ (routeur français) ; 7,3 c€ chez Twilio | ~50 % (~10 % chez Twilio) |
+| SMS autres pays | coût du fournisseur × 2, arrondi aux 5 néons, 40 au minimum | | | ~50 % |
+| WhatsApp marketing France (plus tard) | 100 | 20 c€ | ~13 c€ chez Meta (0,143 $), plus le fournisseur | ~35 % |
+
+L'email doit sembler gratuit ; la marge se prend sur les canaux premium.
+
+**Ce qui ne coûte jamais de néons :**
+
+- un envoi de test ;
+- un contact écarté par les règles d'envoi Yuno (pression, fatigue,
+  désabonnement) ;
+- un envoi refusé par le fournisseur, rendu comme le SMS aujourd'hui ;
+- l'assistant IA (environ 0,3 c€ par question). Un assistant au compteur, on ne
+  lui pose plus de questions ;
+- la synchro, les imports, les segments, les bilans, les audiences Meta.
+
+Un email accepté par le fournisseur puis rebondi a été envoyé : il est décompté.
+
+**Les recharges**, au-delà des néons du mois :
+
+| Pack | Prix HT | Néons | Prix des 1 000 |
+|---|---|---|---|
+| Tube | 10 € | 5 000 | 2,00 € |
+| Enseigne | 25 € | 12 500 | 2,00 € |
+| Façade | 50 € | 27 500 (+10 %) | 1,82 € |
+| Boulevard | 100 € | 57 500 (+15 %) | 1,74 € |
+
+- **Durées de vie** : néons du mois jusqu'à l'échéance ; bonus annuel et néons
+  achetés, 12 mois ; néons d'essai, jusqu'à la fin de l'essai.
+- On dépense toujours d'abord ceux qui s'éteignent le plus tôt.
+- **Recharge automatique** (« Toujours allumé »), facultative, proposée au
+  premier achat. Quand le solde passe sous 2 000 néons, Yuno achète le pack
+  choisi, dans un plafond mensuel fixé par le pro. Jamais allumée par défaut :
+  une dépense que le pro n'a pas vue venir coûte plus qu'elle ne rapporte.
+- **Un envoi n'est jamais coupé à moitié sans le dire.** Si le solde s'épuise en
+  route, la campagne se met « en attente de néons », le pro est prévenu, et elle
+  repart à la recharge. C'est déjà la règle du quota email.
+- **La preuve en euros à côté du solde** : « Tes 18 € de néons de septembre ont
+  été suivis de 2 340 € de billets ». L'attribution clic → achat sous 72 h existe.
+
+**Options mensuelles**, pour ce qui a un coût fixe :
+
+- domaine d'envoi à ta marque : 9 € par mois ;
+- numéro WhatsApp : à chiffrer quand le fournisseur sera choisi ;
+- Réseau (plusieurs espaces) : sur devis. Base proposée : le socle par espace,
+  avec des néons partagés.
+
+### Les chiffres
+
+Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisseur
+(4 c€). Prix au tarif de base, sans bonus de pack. Montants en € HT par mois.
+
+| Profil | Néons / mois | Prix à 29 € | Marge | Prix à 39 € | Marge | Ancienne grille (prix · marge) |
+|---|---|---|---|---|---|---|
+| A Asso saisonnière (4 000 emails) | 4 000 | 29 | 20 | 39 | 29 | 49 · 39 |
+| B Orga hebdo (45 000 emails, 300 SMS) | 57 000 | 123 | 62 | 133 | 72 | 133,50 · 73 |
+| C Club (70 000 emails, 1 000 SMS) | 110 000 | 229 | 115 | 239 | 125 | 216,50 · 104 |
+| D Festival (60 000 emails, 1 500 SMS) | 120 000 | 249 | 124 | 259 | 134 | 251,50 · 127 |
+| E Veut seulement la donnée | 0 | 29 | 23 | 39 | 33 | 129 · 121 |
+
+**Comment le lire :**
+
+- Sur ceux qui envoient (B, C, D), le socle + néons rapporte autant que
+  l'ancienne grille, à quelques euros près.
+- Il rapporte moins sur ceux qui n'envoient pas (A, E). C'est le prix d'une
+  entrée à 29 €. Le profil E passe de 121 € à 23 € de marge : c'est exactement
+  la crainte de Paul.
+- **Tout le pari est que le produit fasse envoyer.** Les priorités produit après
+  la facturation sont donc celles de l'étude de 16 h (« Faire du CRM un outil de
+  marketing ») :
+  - automatisations prêtes à la connexion de Shotgun ;
+  - « Écrire à ces gens » sous chaque chiffre ;
+  - une annonce prête à chaque nouvelle soirée Shotgun ;
+  - la preuve en euros à côté du solde.
+
+**Le pire cas pour Yuno :**
+
+- Un abonné qui dépense ses 10 000 néons du mois en emails coûte 9 € d'envoi,
+  5 € de fixe et 0,89 € de Stripe. Il reste 14 € (48 %) à 29 €.
+- En SMS chez Twilio, il ne resterait que 5 € (17 %). D'où la règle : **le SMS
+  n'ouvre qu'avec le nouveau fournisseur.** Au futur fournisseur, il reste 13 €
+  (45 %).
+- Un essai coûte au plus 4,50 € d'envoi et environ 2 € de fixe.
+
+### L'univers des néons (proposition)
+
+**Pourquoi « néons » :**
+
+- C'est la lumière de la nuit : l'enseigne qui dit « c'est ici, c'est ce soir ».
+  Un message fait la même chose, il donne envie de venir.
+- Le dessin existe déjà : un tube rouge Yuno (`#E8192C`) qui brille sur le noir
+  (`#0A0A0A`).
+- Les verbes expliquent les règles sans les écrire. On **recharge** ; les néons
+  du mois **s'éteignent** à l'échéance ; un solde bas **faiblit**.
+- Le mot est le même en français, en anglais et en espagnol : néons, neons,
+  neones.
+- Ni « crédits » (générique), ni « tokens » (crypto, IA).
+
+**Les mots** (à traduire dans les trois langues au lot 4b) :
+
+| Moment | Texte |
+|---|---|
+| Solde | « 12 400 néons » |
+| Néons du mois | « Tes 10 000 néons du mois s'éteignent le 14 nov. » |
+| Solde bas | « Tes néons faiblissent : 1 800 restants » |
+| Coût d'une campagne | « Cette campagne utilise 8 240 néons » |
+| Recharge | « Recharger » ; packs Tube, Enseigne, Façade, Boulevard |
+| Recharge automatique | « Toujours allumé » |
+| Annuel | « 30 000 néons offerts d'un coup » |
+| Essai | « 5 000 néons pour ta première campagne » |
+| Envoi en pause | « En attente de néons » |
+| Preuve | « 18 € de néons → 2 340 € de billets » |
+
+La métaphore reste légère : un écran qui parle d'argent dit d'abord les chiffres.
+
+**Le dessin :**
+
+- L'icône est une capsule, un tube à bouts arrondis, en trait rouge avec un
+  halo.
+- Jamais de lettre ni de symbole monétaire : un Y barré se lirait comme le yen.
+- Le solde s'écrit en chiffres tabulaires, la capsule à sa gauche.
+- Animation : à la recharge, le tube s'allume (deux clignotements, puis fixe) ;
+  un solde bas clignote lentement. Rien quand « réduire les animations » est
+  activé.
+- Dans le thème clair de la Console, le rouge reste le même et le halo se réduit.
+
+**Les pistes écartées :**
+
+- **Watts**, la puissance du son : bel univers, mais moins de verbes utiles.
+- **Jetons** : clair, mais c'est le mot de tous les festivals cashless, sans
+  marque.
+- **Yunos** : marque forte, comme les Robux. Mais « 40 Yunos » mélange la
+  monnaie et le nom de l'app.
+
+### Ce qui change dans le code (lot 4b, rien n'est fait)
+
+| Pièce | Aujourd'hui | Après |
+|---|---|---|
+| `crmPlans.ts` ⇄ `crm_plan_limits()` | 4 offres (`free`, `essential`, `pro`, `business`), quotas d'emails, d'automatisations, de membres | une offre unique (29 € au lancement, 39 € ensuite) et l'état « en pause » ; plus de limite d'automatisations, d'A/B ni de membres |
+| `crm_effective_plan()` | essai = Pro ; abonnement = son offre ; sinon Gratuit | essai ou abonnement actif / en retard = le socle ; sinon **en pause** (pas de synchro, pas d'envoi ; lecture et export de la base) |
+| Solde | email : `email_sender_state` (inclus + acheté) ; SMS : `sms_credit_balances` à part | un portefeuille de néons par portée, avec un grand livre par lot daté (du mois, bonus annuel, achetés, essai), dépensé du lot qui s'éteint le plus tôt au plus tard ; tarif par canal et par pays dans une table |
+| Débit | quota email à l'envoi (`consume_email_send_quota`), SMS débité avant Twilio | aux mêmes endroits, en néons, pour les comptes CRM seulement |
+| Stripe | `crm_checkout` cherche `yuno_crm_<offre>_<month\|year>[_founder]`, qui n'existent pas (il répond `billing_not_configured`) | ✅ prix créés le 02/10 (section suivante) ; `crm_checkout` à réécrire sur `yuno_crm_base_*_launch` ; packs par `yuno_crm_pack_*` ; recharge automatique hors session |
+| Page Abonnement | 4 cartes d'offre | le socle, le solde de néons, l'historique, la preuve en euros, les recharges |
+| Aide (`ohelp.crm.billing.*`), assistant (`owner-assistant`), landing `/crm` | grille 49 / 129 / 249 | socle à 29 € + néons |
+| `scripts/stripe/create-crm-prices.mjs` | ✅ réécrit sur la nouvelle grille (mêmes clés, idempotent), pour recréer ailleurs | — |
+
+### Stripe : ce qui existe en live (créé le 02/10 par le MCP Stripe)
+
+Compte « Yuno 360 » (`acct_1SfNAdJxVnBQh5Ch`). Tous les prix sont HT
+(`tax_behavior: exclusive`, code fiscal `txcd_10000000`) et portent
+`metadata.yuno_product = crm`.
+
+| Objet | Lookup key | Montant | État | ID |
+|---|---|---|---|---|
+| Produit « Yuno CRM » | — | — | actif, prix par défaut = mensuel lancement | `prod_VMukEsbyOEk3lk` |
+| Mensuel, lancement | `yuno_crm_base_month_launch` | 29 € / mois | **actif** | `price_1UMAvYJxVnBQh5ChrCl3rbad` |
+| Annuel, lancement (+30 000 néons) | `yuno_crm_base_year_launch` | 348 € / an | **actif** | `price_1UMAvZJxVnBQh5ChuLn2ZnKE` |
+| Mensuel, public | `yuno_crm_base_month_public` | 39 € / mois | inactif | `price_1UMAvbJxVnBQh5ChbnaVSnqw` |
+| Annuel, public (+30 000 néons) | `yuno_crm_base_year_public` | 468 € / an | inactif | `price_1UMAvcJxVnBQh5ChcETx0d7E` |
+| Pack Tube, 5 000 néons | `yuno_crm_pack_5000` | 10 € | actif | `price_1UMAwHJxVnBQh5ChwZDHR7Wp` (`prod_VMulX84Kdeu6Ii`) |
+| Pack Enseigne, 12 500 néons | `yuno_crm_pack_12500` | 25 € | actif | `price_1UMAwKJxVnBQh5ChbuNwZxpp` (`prod_VMulZujMxx9dlP`) |
+| Pack Façade, 27 500 néons | `yuno_crm_pack_27500` | 50 € | actif | `price_1UMAwMJxVnBQh5Cht6jtuo5D` (`prod_VMuluGeVMdrOyx`) |
+| Pack Boulevard, 57 500 néons | `yuno_crm_pack_57500` | 100 € | actif | `price_1UMAwNJxVnBQh5ChOkpvoJwJ` (`prod_VMulG9EJSsM9Co`) |
+
+- Les néons se lisent dans les métadonnées : `neons_monthly` et
+  `neons_annual_bonus` sur l'abonnement, `neons` et `bonus_pct` sur les packs.
+  Le webhook créditera le portefeuille à partir d'elles (lot 4b).
+- **Le jour du passage à 39 €** : activer les deux prix `…_public`, désactiver
+  les `…_launch`. Les abonnés au prix de lancement le gardent : Stripe ne change
+  jamais le prix d'un abonnement existant.
+- Rien n'est vendable tant que le code n'appelle pas ces clés : un prix actif
+  sans checkout qui le vise ne fait rien.
+- Le nom « néons » apparaît dans les noms de produits et les descriptions (vus
+  sur le reçu). Si Paul choisit un autre nom, on renomme les produits ; les
+  lookup keys, neutres, ne changent pas.
+- L'essai de 14 jours ne passe pas par Stripe : il vit dans `crm_subscriptions`,
+  sans carte.
+
+**La Suite ne change pas.** Yuno Billetterie garde ses 15 000 emails offerts par
+mois et ses recharges au prix coûtant : Yuno ne marge pas sur un client qui vend
+avec lui. Faire des néons la monnaie des deux produits est une question pour
+plus tard.
+
+### Reste à trancher
+
+1. Le nom de la monnaie (« néons » proposé).
+2. Le moment du passage à 39 € (proposé : au 50e compte payant).
+3. Le tarif SMS une fois le fournisseur choisi (40 néons en France supposent
+   environ 4 c€ d'achat).
+4. Combien de temps une base en pause reste gardée. À aligner sur le DPA ;
+   proposé : 90 jours, avec l'export proposé et deux emails de préavis.
+5. Le prix de l'offre Réseau par espace.
 
 ---
 

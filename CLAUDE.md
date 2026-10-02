@@ -57,9 +57,31 @@ gatées et marche à suivre pour relancer : `docs/DRINKS_PILLAR_PAUSED.md`. Règ
 
 Décision de Paul : beaucoup de pros veulent la techno Yuno sans quitter leur
 billetterie. Yuno CRM se connecte à leur billetterie (Shotgun d'abord) et ne
-vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix (Gratuit / Essentiel
-49 € / Pro 129 € / Business 249 €) : `docs/designs/YUNO_CRM_PRICING.md`.
-Règles déjà posées :
+vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
+`docs/designs/YUNO_CRM_PRICING.md`, première section. Règles déjà posées :
+
+- **Prix décidé par Paul le 02/10 au soir : UN abonnement + une monnaie.**
+  29 € HT / mois au lancement (garanti tant que l'abonnement vit), 39 € ensuite
+  pour les nouveaux comptes ; annuel = 12 mois + 30 000 néons offerts, sans
+  remise. Pas de compte gratuit : essai 14 jours sans carte (5 000 néons), puis
+  compte EN PAUSE (base lisible et exportable, ni synchro ni envoi). Tout ce qui
+  fait envoyer est dans le socle (automatisations, A/B, Meta, IA, équipe sans
+  limite) : brider une fonction qui fait envoyer, c'est brider le revenu.
+  **Les néons** (nom proposé, à valider) sont la monnaie de Yuno CRM, jamais
+  appelés « crédits » à l'écran : 1 email = 1, DM Instagram = 10, SMS France =
+  40 / segment, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à l'échéance,
+  packs de 10 € (5 000) à 100 € (57 500), dépensés du lot qui s'éteint le plus
+  tôt ; jamais débités pour un test, un contact écarté par la politique d'envoi
+  ou un refus du fournisseur ; l'IA ne coûte pas de néons. Le SMS n'ouvre
+  qu'avec le nouveau fournisseur (chez Twilio, 40 néons = prix coûtant). La
+  Suite garde son modèle (emails offerts, recharges au prix coûtant).
+  **Stripe live est prêt** (créé le 02/10 par le MCP) : `yuno_crm_base_<month|year>_<launch|public>`
+  (publics INACTIFS jusqu'au passage à 39 €) et `yuno_crm_pack_<néons>`,
+  métadonnées `neons_*` ; `scripts/stripe/create-crm-prices.mjs` en est le
+  miroir idempotent. **Le code est encore sur l'ancienne grille à quatre offres**
+  (ci-dessous) : `crm_checkout` y cherche des clés qui n'existent pas et répond
+  `billing_not_configured`. Le passage est le lot 4b du plan ; ne jamais
+  recréer les prix Essentiel / Pro / Business.
 
 - **Connecteur = `affiliate-ticket-sync`, actions `ticketing_*`** (quota de
   fonctions atteint ; le code Whan n'est pas touché, `ticketing.ts` à part).
