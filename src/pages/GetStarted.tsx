@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowRight, Building2, CalendarPlus, Check, Crown, CreditCard, Loader2, MessageCircle,
-  PartyPopper, Rocket, ShieldCheck, Upload, Users, Wine, type LucideIcon,
+  ArrowRight, BarChart3, Building2, CalendarPlus, Check, Crown, CreditCard, Loader2, MessageCircle,
+  PartyPopper, Plug, Rocket, ShieldCheck, Upload, Users, Wine, Zap, type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -105,12 +105,33 @@ export default function GetStarted() {
   }, []);
 
   const isClub = signup?.kind === 'club';
+  // Yuno CRM : la billetterie reste ailleurs, le plan commence par la brancher.
+  const isCrm = signup?.product === 'crm';
   const orgName = signup?.org_name || (isClub ? t('gs.fallbackClub') : t('gs.fallbackOrg'));
   const base = isClub ? '/owner' : '/organizer-app';
-  const startPath = isClub ? '/owner/onboarding' : '/organizer-app/onboarding';
+  const startPath = isCrm ? `${base}/integrations` : isClub ? '/owner/onboarding' : '/organizer-app/onboarding';
 
   const plan = useMemo<PlanStep[]>(() => {
     if (!signup) return [];
+    if (signup.product === 'crm') {
+      const crmTool = signup.current_tool ? KNOWN_TOOLS[signup.current_tool] : undefined;
+      const crmSteps: PlanStep[] = [
+        { id: 'connect', icon: Plug, title: t('gs.crm.connect.t'), desc: t('gs.crm.connect.d'), to: `${base}/integrations` },
+        { id: 'nights', icon: BarChart3, title: t('gs.crm.nights.t'), desc: t('gs.crm.nights.d'), to: `${base}/crm/nights` },
+        { id: 'auto', icon: Zap, title: t('gs.crm.auto.t'), desc: t('gs.crm.auto.d'), to: `${base}/campaigns/automations` },
+      ];
+      if (signup.current_tool && signup.current_tool !== 'none' && signup.current_tool !== 'shotgun') {
+        crmSteps.push({
+          id: 'import', icon: Upload,
+          title: crmTool ? t('gs.step.import.t').replace('{tool}', crmTool) : t('gs.step.importAny.t'),
+          desc: t('gs.step.import.d'), to: `${base}/campaigns/contacts`,
+        });
+      }
+      crmSteps.push(isClub
+        ? { id: 'team', icon: Users, title: t('gs.crm.team.t'), desc: t('gs.crm.team.d'), to: '/owner/managers' }
+        : { id: 'team', icon: Users, title: t('gs.crm.team.t'), desc: t('gs.crm.team.d'), to: '/organizer-app/team' });
+      return crmSteps;
+    }
     const pillars = new Set(signup.pillars ?? []);
     const toolName = signup.current_tool ? KNOWN_TOOLS[signup.current_tool] : undefined;
     const sells = (['tickets', 'guest_list', 'tables', 'drinks'] as const)
@@ -215,16 +236,16 @@ export default function GetStarted() {
             color: POS, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)',
           }}
         >
-          <Check className="h-3.5 w-3.5" /> {isClub ? t('gs.kicker.club') : t('gs.kicker.organizer')}
+          <Check className="h-3.5 w-3.5" /> {isCrm ? t('gs.crm.kicker') : isClub ? t('gs.kicker.club') : t('gs.kicker.organizer')}
         </span>
         <h1 style={{ color: T1, fontSize: 30, fontWeight: 740, letterSpacing: '-0.03em', marginTop: 14, lineHeight: 1.1 }}>
           {firstName ? t('gs.title').replace('{name}', firstName) : t('gs.titleNoName')}
         </h1>
         <p style={{ color: T2, fontSize: 15, marginTop: 10, lineHeight: 1.55, maxWidth: 560 }}>
-          {(isClub ? t('gs.sub.club') : t('gs.sub.organizer')).replace('{org}', orgName)}
+          {(isCrm ? t('gs.crm.sub') : isClub ? t('gs.sub.club') : t('gs.sub.organizer')).replace('{org}', orgName)}
         </p>
         <div className="flex flex-wrap gap-2" style={{ marginTop: 14 }}>
-          {[t('gs.fact1'), t('gs.fact2'), t('gs.fact3')].map((f) => (
+          {(isCrm ? [t('gs.crm.fact1'), t('gs.crm.fact2'), t('gs.crm.fact3')] : [t('gs.fact1'), t('gs.fact2'), t('gs.fact3')]).map((f) => (
             <span key={f} style={{ fontSize: 12, color: T2, padding: '5px 10px', borderRadius: 999, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
               {f}
             </span>
@@ -232,7 +253,7 @@ export default function GetStarted() {
         </div>
       </div>
 
-      {urgency && (
+      {urgency && !isCrm && (
         <div
           style={{
             marginTop: 20, padding: '12px 14px', borderRadius: 14,
@@ -280,7 +301,7 @@ export default function GetStarted() {
         </ol>
         <div className="flex flex-col sm:flex-row gap-2" style={{ marginTop: 16 }}>
           <button type="button" onClick={() => navigate(startPath)} style={{ ...btn('primary'), flex: 1 }}>
-            {t('gs.cta.start')} <ArrowRight className="h-4 w-4" />
+            {isCrm ? t('gs.crm.cta') : t('gs.cta.start')} <ArrowRight className="h-4 w-4" />
           </button>
           <button type="button" onClick={() => navigate(isClub ? '/owner/dashboard' : '/organizer-app')} style={btn('secondary')}>
             {t('gs.cta.dashboard')}
@@ -293,7 +314,7 @@ export default function GetStarted() {
           <MessageCircle className="h-5 w-5 flex-none" style={{ color: '#25D366', marginTop: 2 }} />
           <div className="min-w-0 flex-1">
             <h3 style={{ color: T1, fontSize: 14.5, fontWeight: 650 }}>{t('gs.help.title')}</h3>
-            <p style={{ color: T2, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>{t('gs.help.body')}</p>
+            <p style={{ color: T2, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>{t(isCrm ? 'gs.crm.helpBody' : 'gs.help.body')}</p>
             {helpUrl && (
               <a href={helpUrl} target="_blank" rel="noopener noreferrer" style={{ ...btn('secondary'), marginTop: 12 }}>
                 {t('gs.help.cta')}
@@ -303,7 +324,7 @@ export default function GetStarted() {
         </div>
       </Card>
 
-      {isClub && (
+      {isClub && !isCrm && (
         <p className="flex items-start gap-2" style={{ color: T3, fontSize: 12, marginTop: 14, lineHeight: 1.5 }}>
           <ShieldCheck className="h-3.5 w-3.5 flex-none" style={{ color: WARN, marginTop: 1 }} />
           {t('gs.mfa')}

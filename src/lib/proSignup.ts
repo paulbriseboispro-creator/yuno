@@ -11,15 +11,18 @@ import type { Language } from '@/i18n/data';
 export const PRO_SIGNUP_ORIGIN = 'https://landing.yunoapp.eu';
 
 export type ProSignupKind = 'club' | 'organizer';
+/** Produit choisi : la Suite (vendre avec Yuno) ou Yuno CRM (garder sa billetterie). */
+export type ProSignupProduct = 'suite' | 'crm';
 
 /** Lien vers le funnel d'inscription pro, dans la langue de la personne. */
 export function proSignupUrl(
   language: Language,
-  opts: { role?: ProSignupKind; source?: string } = {},
+  opts: { role?: ProSignupKind; source?: string; product?: ProSignupProduct } = {},
 ): string {
   const path = language === 'fr' ? '/fr/start' : language === 'es' ? '/es/start' : '/start';
   const q = new URLSearchParams();
   if (opts.role) q.set('role', opts.role);
+  if (opts.product === 'crm') q.set('product', 'crm');
   q.set('utm_source', 'yuno_app');
   if (opts.source) q.set('utm_medium', opts.source);
   return `${PRO_SIGNUP_ORIGIN}${path}?${q.toString()}`;
@@ -28,6 +31,7 @@ export function proSignupUrl(
 /** Ce que la personne a raconté sur la landing (RPC open_my_pro_signup). */
 export interface MyProSignup {
   kind: ProSignupKind | 'promoter' | 'other' | null;
+  product?: ProSignupProduct | null;
   first_name: string | null;
   org_name: string | null;
   city: string | null;
