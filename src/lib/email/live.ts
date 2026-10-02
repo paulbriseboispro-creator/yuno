@@ -178,6 +178,40 @@ export function formatEuro(amount: number): string {
   return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace('.', ',')} €`;
 }
 
+// ── Yuno CRM : soirée d'une billetterie connectée (Shotgun) ─────────────────
+// Miroir EXACT dans supabase/functions/_shared/email-studio-html.ts.
+// Une soirée miroir n'a ni tranches Yuno ni page Yuno : ses tarifs publics
+// viennent de la billetterie (RPC get_external_event_live), le bouton part
+// chez elle, marqué UTM pour que la vente se relise dans ses exports.
+
+export interface ExternalDeal { name: string | null; price: number | null }
+
+/** Tarifs publics d'une soirée externe, comme des tranches (4 au plus). */
+export function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): TicketRow[] {
+  return deals
+    .filter((d) => d.name && String(d.name).trim())
+    .slice(0, 4)
+    .map((d) => ({ n: String(d.name).trim(), s: '', p: formatEuro(Number(d.price || 0)), out: soldOut }));
+}
+
+/** Prix d'appel d'une soirée externe : aucun si elle est complète. */
+export function externalActivePrices(deals: readonly ExternalDeal[], soldOut: boolean): number[] {
+  if (soldOut) return [];
+  return deals.map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
+}
+
+/** Ajoute utm_source=yuno / utm_medium=email sans écraser ceux déjà posés. */
+export function withEmailUtm(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'yuno');
+    if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Libellé du bouton du bloc Billetterie. Le rendu email l'émet tel quel (pas
  * d'i18n : un email part dans la langue de sa campagne, écrite en français),

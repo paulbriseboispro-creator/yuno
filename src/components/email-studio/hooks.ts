@@ -9,6 +9,7 @@ import {
   liveSoldOut, openTablePacks, pickPublicGuestList, priceFromLabel, rowToTemplate, tablesLeftFor,
   templateContentToRow, YUNO_BLOCK_TYPES,
   type GuestListOffer, type LiveSoldOut, type TablePackOffer, type TableZoneOffer,
+  externalActivePrices, externalTicketRows, withEmailUtm, type ExternalDeal,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
 import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
@@ -109,7 +110,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         // Les drapeaux « Complet » et les piliers éteints voyagent avec la
         // soirée : l'aperçu doit montrer exactement ce que l'envoi dira.
         supabase.from('events')
-          .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city,ticketing_enabled,tables_enabled,tickets_sold_out,tables_sold_out,guest_list_sold_out,sold_out_pack_ids')
+          .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city,ticketing_enabled,tables_enabled,tickets_sold_out,tables_sold_out,guest_list_sold_out,sold_out_pack_ids,external_source,external_ticket_url')
           .in('id', wanted),
         supabase.from('ticket_rounds')
           .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position,hidden,visible_from')
@@ -123,6 +124,18 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           .order('created_at', { ascending: true }),
       ]);
       if (cancelled || !events) return;
+      // Yuno CRM : tarifs publics et lien des soirées de billetterie connectée
+      // (même RPC que l'envoi, get_external_event_live).
+      const externalIds = (events as { id: string; external_source?: string | null }[])
+        .filter((e) => e.external_source).map((e) => e.id);
+      const externalById = new Map<string, { ticket_url: string | null; deals: ExternalDeal[] | null; sold_out: boolean | null }>();
+      if (externalIds.length) {
+        const { data: extRows } = await supabase.rpc('get_external_event_live' as never, { p_event_ids: externalIds } as never);
+        for (const r of ((extRows as unknown) as { event_id: string; ticket_url: string | null; deals: ExternalDeal[] | null; sold_out: boolean | null }[] | null) || []) {
+          externalById.set(r.event_id, r);
+        }
+      }
+      if (cancelled) return;
       // Inscrits par part : les places restantes du bloc Liste invités (si le
       // pro les affiche). Une part publique dépasse rarement quelques centaines.
       const glIds = ((guestLists || []) as { id: string }[]).map((g) => g.id);
@@ -215,6 +228,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           ticketing_enabled?: boolean | null; tables_enabled?: boolean | null;
           tickets_sold_out?: boolean | null; tables_sold_out?: boolean | null;
           guest_list_sold_out?: boolean | null; sold_out_pack_ids?: string[] | null;
+          external_source?: string | null; external_ticket_url?: string | null;
         };
         const flags = liveSoldOut(e);
         const venue = venueById.get(e.venue_id || e.partner_venue_id || '');
@@ -245,6 +259,33 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         const guestListLive = buildGuestListLive(guestList, guestList?.id ? (entriesByList.get(guestList.id) || 0) : 0, flags);
         const venueName = venue?.name || e.location_name || '';
         const city = venue?.city || e.location_city || '';
+
+        if (e.external_source) {
+          // Soirée d'une billetterie connectée : ses tarifs, son lien (miroir de l'envoi).
+          const ext = externalById.get(e.id);
+          const deals = ext?.deals || [];
+          const soldOut = !!(ext?.sold_out ?? e.tickets_sold_out);
+          const ticketUrl = ext?.ticket_url || e.external_ticket_url;
+          const venueNameExt = venue?.name || e.location_name || '';
+          const cityExt = venue?.city || e.location_city || '';
+          next[e.id] = {
+            title: e.title,
+            startAt: e.start_at,
+            dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
+            venueLabel: cityExt ? `${venueNameExt} — ${cityExt}` : venueNameExt,
+            coverUrl: e.poster_url || e.image_url || null,
+            url: ticketUrl ? withEmailUtm(ticketUrl) : PUBLIC_BASE_URL,
+            priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
+            tickets: externalTicketRows(deals, soldOut),
+            guestListOnly: false,
+            guestList: null,
+            tablesLeft: null,
+            tablesOpen: false,
+            tablePacks: [],
+            tableZones: [],
+          };
+          continue;
+        }
 
         next[e.id] = {
           title: e.title,

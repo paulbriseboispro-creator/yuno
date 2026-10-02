@@ -1388,3 +1388,36 @@ describe('styles de texte (titre, sur-titre) et variable {{soirée}}', () => {
     expect(bindBlocksToEvent(blocks, null)).toBe(blocks);
   });
 });
+
+// ── Yuno CRM : soirée d'une billetterie connectée ───────────────────────────
+import { externalActivePrices, externalTicketRows, withEmailUtm } from '../live';
+
+describe('soirée externe (billetterie connectée)', () => {
+  const deals = [
+    { name: 'Early', price: 10 },
+    { name: 'Regular', price: 15.5 },
+    { name: '  ', price: 5 },
+    { name: 'Late', price: 20 },
+    { name: 'Door', price: 25 },
+    { name: 'VIP', price: 60 },
+  ];
+
+  it('rend au plus quatre tarifs nommés, épuisés si la soirée est complète', () => {
+    const rows = externalTicketRows(deals, false);
+    expect(rows.map((r) => r.n)).toEqual(['Early', 'Regular', 'Late', 'Door']);
+    expect(rows[1].p).toBe('15,50 €');
+    expect(rows.every((r) => !r.out)).toBe(true);
+    expect(externalTicketRows(deals, true).every((r) => r.out)).toBe(true);
+  });
+
+  it('aucun prix d’appel pour une soirée complète', () => {
+    expect(externalActivePrices(deals, true)).toEqual([]);
+    expect(Math.min(...externalActivePrices(deals, false))).toBe(5);
+  });
+
+  it('marque le lien en UTM sans écraser ceux déjà posés', () => {
+    expect(withEmailUtm('https://shotgun.live/events/x')).toBe('https://shotgun.live/events/x?utm_source=yuno&utm_medium=email');
+    expect(withEmailUtm('https://shotgun.live/events/x?utm_source=insta')).toBe('https://shotgun.live/events/x?utm_source=insta&utm_medium=email');
+    expect(withEmailUtm('pas une url')).toBe('pas une url');
+  });
+});

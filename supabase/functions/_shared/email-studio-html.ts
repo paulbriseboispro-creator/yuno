@@ -196,6 +196,8 @@ interface StudioEventRow {
   tables_sold_out: boolean | null;
   guest_list_sold_out: boolean | null;
   sold_out_pack_ids: string[] | null;
+  external_source: string | null;
+  external_ticket_url: string | null;
 }
 
 interface StudioVenueRow { id: string; name: string | null; city: string | null }
@@ -1128,6 +1130,33 @@ function euro(amount: number): string {
   return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace('.', ',')} €`;
 }
 
+// ── Yuno CRM : soirée d'une billetterie connectée (miroir de src/lib/email/live.ts) ──
+interface ExternalDeal { name: string | null; price: number | null }
+interface ExternalEventLiveRow { event_id: string; ticket_url: string | null; deals: ExternalDeal[] | null; left_tickets: number | null; sold_out: boolean | null }
+
+function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): StudioTicketRow[] {
+  return deals
+    .filter((d) => d.name && String(d.name).trim())
+    .slice(0, 4)
+    .map((d) => ({ n: String(d.name).trim(), s: '', p: euro(Number(d.price || 0)), out: soldOut }));
+}
+
+function externalActivePrices(deals: readonly ExternalDeal[], soldOut: boolean): number[] {
+  if (soldOut) return [];
+  return deals.map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
+}
+
+function withEmailUtm(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'yuno');
+    if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 // ── Liste invités = un type d'entrée (miroir de src/lib/email/live.ts) ───────
 // Une soirée qui n'ouvre qu'une guest list a bien quelque chose à proposer :
 // sans ces trois fonctions, le bloc Billetterie s'effaçait et l'email partait
@@ -1629,13 +1658,24 @@ export async function fetchStudioLiveData(
   const live: StudioLiveData = {};
   const ids = collectStudioEventIds(blocks, fallbackEventId);
   if (ids.length === 0) return live;
+  // Yuno CRM : soirées d'une billetterie connectée (pas de page Yuno).
+  const externalEventIds = new Set<string>();
 
   try {
     const { data: eventsData } = await admin
       .from('events')
-      .select('id, title, start_at, timezone, slug, poster_url, image_url, venue_id, partner_venue_id, location_name, location_city, ticketing_enabled, tables_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids')
+      .select('id, title, start_at, timezone, slug, poster_url, image_url, venue_id, partner_venue_id, location_name, location_city, ticketing_enabled, tables_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids, external_source, external_ticket_url')
       .in('id', ids);
     const events = eventsData as StudioEventRow[] | null;
+
+    // Yuno CRM : tarifs publics et lien des soirées de billetterie connectée.
+    const externalIds = (events || []).filter((e) => e.external_source).map((e) => e.id);
+    for (const id of externalIds) externalEventIds.add(id);
+    const externalById = new Map<string, ExternalEventLiveRow>();
+    if (externalIds.length) {
+      const { data: extRows } = await admin.rpc('get_external_event_live', { p_event_ids: externalIds });
+      for (const r of (extRows || []) as ExternalEventLiveRow[]) externalById.set(r.event_id, r);
+    }
 
     const venueIds = [...new Set((events || []).map((e) => e.venue_id || e.partner_venue_id).filter(Boolean))] as string[];
     const { data: venues } = venueIds.length
@@ -1784,6 +1824,31 @@ export async function fetchStudioLiveData(
       const totalTables = packsByEvent.get(e.id) || 0;
       const tablesLeft = needTables && tablesOpen ? tablesLeftFor(totalTables, reservedByEvent.get(e.id) || 0, flags) : null;
 
+      if (e.external_source) {
+        // Soirée d'une billetterie connectée : ses tarifs, son lien, rien de Yuno.
+        const ext = externalById.get(e.id);
+        const deals = (ext?.deals || []) as ExternalDeal[];
+        const soldOut = !!(ext?.sold_out ?? e.tickets_sold_out);
+        const ticketUrl = ext?.ticket_url || e.external_ticket_url;
+        live[e.id] = {
+          title: e.title,
+          startAt: e.start_at,
+          dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
+          venueLabel: city ? `${venueName} — ${city}` : venueName,
+          coverUrl: e.poster_url || e.image_url || null,
+          url: ticketUrl ? withEmailUtm(ticketUrl) : publicUrl,
+          priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
+          tickets: externalTicketRows(deals, soldOut),
+          guestListOnly: false,
+          guestList: null,
+          tablesLeft: null,
+          tablesOpen: false,
+          tablePacks: needTables ? [] : undefined,
+          tableZones: needTables ? [] : undefined,
+        };
+        continue;
+      }
+
       live[e.id] = {
         title: e.title,
         startAt: e.start_at,
@@ -1812,8 +1877,10 @@ export async function fetchStudioLiveData(
   // introuvable fait retomber sur l'URL nue, il ne fait jamais rater un envoi.
   if (trackedChannel) {
     try {
+      // Une soirée externe n'a pas de page Yuno : pas de lien suivi /l/ (qui y
+      // mènerait), son bouton part directement chez la billetterie.
       const { data: links } = await admin.rpc('resolve_campaign_tracked_links', {
-        p_event_ids: ids,
+        p_event_ids: ids.filter((id) => !externalEventIds.has(id)),
         p_channel: trackedChannel,
         p_venue_id: senderScope?.venueId ?? null,
         p_organizer_user_id: senderScope?.venueId ? null : (senderScope?.organizerUserId ?? null),
