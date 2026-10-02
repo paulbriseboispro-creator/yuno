@@ -94,6 +94,13 @@ serve(async (req) => {
       .select()
       .single();
 
+    // Yuno CRM : l'équipe de l'offre est complète (trigger crm_guard_member_limit).
+    if (invError && String(invError.message ?? "").includes("crm_member_limit")) {
+      return new Response(JSON.stringify({ error: "crm_member_limit", code: "crm_member_limit" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (invError) throw invError;
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
