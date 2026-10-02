@@ -30,6 +30,15 @@ const dict: AdminDict = {
   'adm.revenue.salesQty': ['in {n} sales', 'sur {n} ventes', 'en {n} ventas'],
   'adm.revenue.growthHint': ['Real accounts, clubs and events created in the period.', 'Comptes, clubs et soirées réels créés sur la période.', 'Cuentas, clubs y eventos reales creados en el período.'],
   'adm.revenue.eventsN': ['{n} events', '{n} soirées', '{n} eventos'],
+  'adm.revenue.crm.title': ['Yuno CRM subscriptions', 'Abonnements Yuno CRM', 'Suscripciones Yuno CRM'],
+  'adm.revenue.crm.hint': ['Recurring revenue right now (yearly brought back to the month).', 'Revenu récurrent à cet instant (annuel ramené au mois).', 'Ingreso recurrente ahora mismo (anual llevado al mes).'],
+  'adm.revenue.crm.mrr': ['Monthly recurring revenue', 'Revenu mensuel récurrent', 'Ingreso mensual recurrente'],
+  'adm.revenue.crm.paying': ['Paying accounts', 'Comptes payants', 'Cuentas de pago'],
+  'adm.revenue.crm.accounts': ['out of {n} CRM accounts', 'sur {n} comptes CRM', 'de {n} cuentas CRM'],
+  'adm.revenue.crm.trialing': ['Pro trials running', 'Essais du Pro en cours', 'Pruebas del Pro en curso'],
+  'adm.revenue.crm.founders': ['Founder places taken', 'Places fondateur prises', 'Plazas fundador ocupadas'],
+  'adm.revenue.crm.pastDue': ['{n} payment(s) failed', '{n} paiement(s) refusé(s)', '{n} pago(s) rechazado(s)'],
+  'adm.revenue.crm.byPlan': ['Accounts by plan in effect', 'Comptes par offre en cours', 'Cuentas por plan vigente'],
 };
 
 export default dict;

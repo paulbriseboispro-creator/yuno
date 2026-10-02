@@ -10,6 +10,7 @@ import {
   TableWrap, Th, Td, INPUT_STYLE, RED, T1, T3, F_BORDER, C_MID, CHART, RECHARTS_TOOLTIP,
 } from '@/components/admin/ui';
 import { fmtNum, fmtEur, fmtPct, fmtAxisDay, fmtDate, periodRange, type AdminPeriod, fmtPlural } from '@/lib/adminFormat';
+import { AdminCrmRevenue } from '@/components/admin/AdminCrmRevenue';
 
 interface Stats {
   totals: { gmv: number; club_revenue: number; yuno_revenue: number; refunds_total: number; refunds_count: number; tx_count: number; tickets_qty: number; ticket_sales: number; tables_booked: number; drink_orders: number; avg_order: number; take_rate: number };
@@ -247,6 +248,10 @@ export default function AdminRevenue() {
             </div>
           </Card>
         </div>
+      </Reveal>
+      {/* Yuno CRM : revenu récurrent, indépendant de la période */}
+      <Reveal delay={0.3}>
+        <AdminCrmRevenue includeDemo={includeDemo} n={4} />
       </Reveal>
       <p style={{ color: T3, fontSize: 11 }}>{includeDemo ? t('adm.common.demoIncluded') : t('adm.common.realOnlyNote')}{T1 && ''}</p>
     </AdminPage>
