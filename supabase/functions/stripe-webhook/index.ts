@@ -7,6 +7,7 @@ import { isTieredCollab } from "../_shared/payment-split.ts";
 import { heldLegAfterRefund, refundContext, releasedLegReversal } from "../_shared/refund-legs.ts";
 import { recordChargeRefund } from "../_shared/sale-refund-effects.ts";
 import { connectStatusOf, organizerConnectColumns, stateFromV1Account, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
+import { crmSubscriptionUpdate, type StripeSubLike } from "../_shared/crm-billing.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -240,6 +241,38 @@ const DEFINITIVE_VERIFY_ERRORS = [
   "does not belong",
   "amount mismatch",
 ];
+
+// Yuno CRM : un abonnement (créé, modifié, supprimé) devient l'état de
+// crm_subscriptions. Une erreur d'écriture remonte : Stripe rejoue l'événement,
+// et la RPC ignore un événement plus ancien que le dernier appliqué.
+async function applyCrmSubscription(
+  admin: SupabaseClient,
+  subscription: Stripe.Subscription,
+  eventCreated: number,
+  deleted: boolean,
+): Promise<void> {
+  const u = crmSubscriptionUpdate(subscription as unknown as StripeSubLike);
+  if (!u) {
+    logStep("CRM subscription unreadable, skipped", { id: subscription.id });
+    return;
+  }
+  const { data, error } = await admin.rpc("crm_apply_stripe_subscription", {
+    p_scope_key: u.scope_key,
+    p_subscription_id: u.subscription_id,
+    p_customer_id: u.customer_id,
+    p_stripe_status: u.stripe_status,
+    p_plan: u.plan,
+    p_interval: u.interval,
+    p_founder: u.founder,
+    p_trial_end: u.trial_end,
+    p_period_end: u.period_end,
+    p_cancel_at_period_end: u.cancel_at_period_end,
+    p_event_at: new Date(eventCreated * 1000).toISOString(),
+    p_deleted: deleted,
+  });
+  if (error) throw new Error(`crm_apply_stripe_subscription: ${error.message}`);
+  logStep("CRM subscription applied", { scope: u.scope_key, result: data });
+}
 
 async function delegateToVerify(
   admin: SupabaseClient,
@@ -531,6 +564,11 @@ serve(async (req) => {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
+        // Yuno CRM : abonnement par portée, jamais une ligne venue_subscriptions.
+        if (subscription.metadata?.yuno_product === "crm") {
+          await applyCrmSubscription(supabaseClient, subscription, event.created, false);
+          break;
+        }
         let venueId = subscription.metadata?.venue_id;
         
         if (!venueId) {
@@ -591,6 +629,10 @@ serve(async (req) => {
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
+        if (subscription.metadata?.yuno_product === "crm") {
+          await applyCrmSubscription(supabaseClient, subscription, event.created, true);
+          break;
+        }
         let venueId = subscription.metadata?.venue_id;
         
         if (!venueId) {
