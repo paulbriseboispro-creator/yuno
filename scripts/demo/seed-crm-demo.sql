@@ -118,6 +118,13 @@ BEGIN
 
   PERFORM public.ticketing_after_sync(v_conn);
   PERFORM public.ticketing_refresh_stats(v_conn);
+  -- Offre : Pro accordé pour un an (sans Stripe). Sans ça l'essai de 14 jours
+  -- finirait en Gratuit et le balayage horaire éteindrait les automatisations.
+  INSERT INTO public.crm_subscriptions (scope_key, organizer_user_id, plan, status, current_period_end)
+  VALUES ('org:' || v_uid::text, v_uid, 'pro', 'active', now() + interval '1 year')
+  ON CONFLICT (scope_key) DO UPDATE SET plan = 'pro', status = 'active', trial_ends_at = NULL,
+    stripe_subscription_id = NULL, current_period_end = now() + interval '1 year', updated_at = now();
+  PERFORM public.crm_sync_scope('org:' || v_uid::text);
   -- Engagement de la base (sinon Clients affiche « cliquez sur Actualiser »).
   PERFORM public.refresh_contact_engagement(NULL, v_uid);
   RAISE NOTICE 'démo CRM : %', (SELECT stats FROM public.ticketing_connections WHERE id = v_conn);
