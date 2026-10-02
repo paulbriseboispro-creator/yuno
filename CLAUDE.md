@@ -3364,11 +3364,24 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   de TEST passent `trackedChannel = null` — un aperçu cliqué gonflerait les
   compteurs du pro ; (3) l'échec de résolution retombe sur l'URL nue, il ne fait
   jamais rater un envoi.
+- **Styles de texte : `TextBlock.variant`** (`body` | `headline` | `kicker`,
+  2026-10-02). Apparence définie UNE fois par `textLook()` (render.ts), lue par
+  le rendu, le miroir `TextView` et l'inspecteur (réglage « Style ») ; copie
+  dans le port Deno. Titre = gras serré 20-40 px ; sur-titre = mono capitales,
+  accent passé par `readableOn` sur le fond du bloc. Un renderer qui ignore le
+  champ retombe sur un paragraphe. Variable `{{soirée}}` = titre de la
+  première soirée des données live (`liveEventTitle`), repli « la soirée » —
+  jamais dans un OBJET (l'objet n'est pas interpolé avec le live).
+- **Un aperçu se RELIE à la soirée comme l'envoi** : `bindBlocksToEvent(blocks,
+  eventId)` (templates.ts), miroir du repli de `fetchStudioLiveData`. Le rendu
+  ne lit le live que par `b.eventId` : sans ce lien, onglet Aperçu, Récap,
+  aperçu de recette et vignettes « Mes modèles » montraient la carte
+  d'exemple. Les vignettes de modèles se relient à la prochaine soirée du compte.
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
 
-## Automatisations email — neuf recettes, audiences automatiques, suggestions (2026-09-15)
+## Automatisations email — dix recettes, audiences automatiques, suggestions (2026-09-15, + 2026-10-02)
 
 Doc complète : `docs/designs/EMAIL_AUTOMATION_PLAN.md` (analyse marché + doctrine)
 et `docs/designs/EMAIL_AUTOMATION_V2_BRIEF.md` (v2). Migrations `20260915120000`
@@ -3420,6 +3433,28 @@ et `docs/designs/EMAIL_AUTOMATION_V2_BRIEF.md` (v2). Migrations `20260915120000`
   `automation_suggested` une fois par recette et par mois
   (`email_automation_suggestions_sweep`, cron 08:15 UTC, `dedup_key` — ajouté
   à `organizer_notifications` avec `emit_organizer_notification`). Jamais de push.
+- **« L'habitué décroche » (`regular_lapse`, 2026-10-02, migration
+  `20261002140000`)** : porte unique `_regular_lapse_candidates(portée, gap)`
+  (moteur, aperçu, suggestion). Habitué = ≥ 4 NUITS distinctes (date locale −
+  8 h) dans les 60 j avant sa dernière venue ; venue = billet payé/utilisé,
+  table payée/confirmée, guest list SCANNÉE. Décroche = dernière venue entre
+  gap et gap + 30 j (28/42/56 j, 42 par défaut) ; au-delà, la reconquête, qui
+  saute toute personne relancée ici sous 60 j. Exclu s'il a déjà une place à
+  venir dans la portée. La soirée se CHOISIT par personne (`pick_event_id`,
+  soirées publiques 24 h → 35 j qui vendent) : +4 même série récurrente,
+  +2 par genre commun (soirées fréquentées ∪ quiz `user_taste_profiles`, 2 max),
+  +1 même jour, puis la plus proche ; repli prochaine soirée ; aucune soirée =
+  personne. `trigger_key = 'rl-<date dernière venue>'`, 1 / 120 j, jamais en
+  portée plateforme. Une campagne enfant par soirée choisie.
+- **Modèles Yuno des recettes = trois familles** (refonte 2026-10-02,
+  `starters.ts`, `recipeKit`) : URGENCE (bandeau noir `#0A0A0A` qui prolonge
+  l'en-tête + compte à rebours : panier, palier, dernier appel), VIP (noir et
+  or : passe en table), RELATION (éditorial clair, affiche en grand). Grammaire
+  testée (`automations.test.ts`) : un sur-titre et UN titre avant toute offre,
+  UNE offre en carte pleine (les autres en bandeau/compactes), un P.S. en
+  dernier. Le texte de pied « pourquoi tu reçois cet email » a disparu (le
+  pied de page légal le dit). Un modèle déjà créé chez un pro ne change pas :
+  « Créer le modèle Yuno » sur la recette en fabrique un neuf.
 - **Traçabilité** : `get_email_automation_stats(portée, p_days)` (fenêtre 7 j =
   « cette semaine », `in_flight`), `get_customer_automation_emails` (fiche client
   CRM), `email_automation_weekly_digest` (ligne « automatisations : X emails,
