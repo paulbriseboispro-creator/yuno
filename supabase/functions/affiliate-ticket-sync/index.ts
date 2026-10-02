@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { handleTicketingAction } from "./ticketing.ts";
 
 // ============================================================================
 // affiliate-ticket-sync — pose les liens billetterie Whan sur les soirées
@@ -23,6 +24,10 @@ import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 //
 // Toute écriture sur une soirée passe par affiliate_ticket_sync_apply : c'est
 // là que vit la garde « un lien posé n'est jamais remplacé ».
+//
+// Yuno CRM (02/10/2026) : la même fonction héberge les connecteurs de
+// billetterie des clubs et organisateurs (`action: "ticketing_*"`,
+// ./ticketing.ts) — le quota de fonctions edge est atteint.
 // ============================================================================
 
 const WHAN = "https://app.whan.es";
@@ -779,11 +784,18 @@ serve(async (req) => {
     new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    const body = await req.json().catch(() => ({})) as { mode?: string; apply?: boolean; trigger?: string; affiliate_id?: string; force?: boolean };
+    const body = await req.json().catch(() => ({})) as { action?: string; mode?: string; apply?: boolean; trigger?: string; affiliate_id?: string; force?: boolean };
     const cronSecret = Deno.env.get("CRON_SECRET");
     const isCron = !!cronSecret && req.headers.get("x-cron-secret") === cronSecret;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Yuno CRM : connecteurs de billetterie (Shotgun). Code à part, cf. ticketing.ts.
+    if (typeof body.action === "string" && body.action.startsWith("ticketing_")) {
+      return await handleTicketingAction({
+        req, body: body as Record<string, unknown>, admin, supabaseUrl, isCron, json, cors: corsHeaders,
+      });
+    }
 
     const mode = body.mode === "import" ? "import" : "sync";
     let affiliateIds: string[];
