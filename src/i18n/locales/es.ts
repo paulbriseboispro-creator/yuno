@@ -14735,6 +14735,7 @@ const es: Record<string, string> = {
   "crm.report.curve": "Cómo avanzaron las ventas",
   "crm.report.curveHint": "Entradas acumuladas, día a día antes de la fiesta. La línea de puntos es tu fiesta anterior, alineada en los mismos días.",
   "crm.report.dayJ": "Día D",
+  "crm.report.dayMinus": "D-{n}",
   "crm.report.legend": "En rojo: esta fiesta. En puntos: {title}.",
   "crm.report.noSales": "Aún no se ha vendido ninguna entrada.",
   "crm.report.deals": "Lo que se vendió",

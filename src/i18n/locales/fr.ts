@@ -14366,6 +14366,7 @@ const fr: Record<string, string> = {
   "crm.report.curve": "Comment les ventes ont avancé",
   "crm.report.curveHint": "Billets cumulés, jour après jour avant la soirée. Le pointillé est votre soirée précédente, alignée sur le même nombre de jours.",
   "crm.report.dayJ": "Jour J",
+  "crm.report.dayMinus": "J-{n}",
   "crm.report.legend": "En rouge : cette soirée. En pointillé : {title}.",
   "crm.report.noSales": "Aucun billet vendu pour l'instant.",
   "crm.report.deals": "Ce qui s'est vendu",

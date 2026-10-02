@@ -37,6 +37,16 @@ export const PLATFORM_AUTOMATION_KINDS: readonly AutomationKind[] = [
   'welcome', 'abandoned_checkout', 'post_event_thanks', 'post_event_missed', 'win_back',
 ];
 
+/**
+ * Recettes d'un compte Yuno CRM (billetterie connectée) : celles qui lisent les
+ * ventes de la billetterie externe. Le panier abandonné, le tarif qui monte et
+ * la table à proposer lisent le checkout et les tables de Yuno, jamais
+ * déclenchés sur Shotgun ; la bienvenue attend les pages de collecte (lot 6).
+ */
+export const CRM_AUTOMATION_KINDS: readonly AutomationKind[] = [
+  'new_event', 'last_call', 'post_event_thanks', 'post_event_missed', 'regular_lapse', 'win_back',
+];
+
 export interface AutomationMeta {
   kind: AutomationKind;
   /** Modèle Yuno créé d'un clic quand la recette n'a pas encore de modèle. */

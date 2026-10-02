@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { capturePosthog } from '@/lib/posthog';
 import {
-  AUTOMATION_KINDS, AUTOMATION_META, PLATFORM_AUTOMATION_KINDS, TIER_THRESHOLDS, DEFAULT_TIER_THRESHOLD,
+  AUTOMATION_KINDS, AUTOMATION_META, CRM_AUTOMATION_KINDS, PLATFORM_AUTOMATION_KINDS, TIER_THRESHOLDS, DEFAULT_TIER_THRESHOLD,
   buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
   type AutomationKind, type AutomationPreview, type AutomationSkipReason, type AutomationStats, type EmailAutomationRow,
 } from '@/lib/email';
@@ -27,7 +27,7 @@ import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/componen
 import FollowupPreviewDialog from './FollowupPreviewDialog';
 import AutomationSuggestions from './AutomationSuggestions';
 import { useCrmLimitToast } from '@/hooks/useCrmLimitToast';
-import { useCrmLimits } from '@/lib/crmProduct';
+import { useAccountProductFor, useCrmLimits } from '@/lib/crmProduct';
 
 const RED = '#E8192C';
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
@@ -107,7 +107,9 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const isPlatform = scope.kind === 'platform';
   const scopeCol = scope.kind === 'venue' ? 'venue_id' : 'organizer_user_id';
   const scopeId = scope.kind === 'venue' ? scope.venueId : scope.kind === 'organizer' ? scope.organizerId : null;
-  const kinds = isPlatform ? PLATFORM_AUTOMATION_KINDS : AUTOMATION_KINDS;
+  // Yuno CRM : seulement les recettes qui lisent la billetterie connectée.
+  const { isCrm } = useAccountProductFor(scope.kind === 'venue' ? { venueId: scope.venueId } : scope.kind === 'organizer' ? { organizerUserId: scope.organizerId } : {});
+  const kinds = isPlatform ? PLATFORM_AUTOMATION_KINDS : isCrm ? CRM_AUTOMATION_KINDS : AUTOMATION_KINDS;
 
   const load = useCallback(async () => {
     const autoQ = supabase.from('email_automations' as never)

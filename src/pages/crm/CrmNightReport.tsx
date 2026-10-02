@@ -156,11 +156,11 @@ export default function CrmNightReport() {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chart} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
                 <CartesianGrid stroke="rgb(var(--ink)/0.06)" vertical={false} />
-                <XAxis dataKey="d" tickFormatter={(d: number) => (d === 0 ? t('crm.report.dayJ') : `J-${d}`)} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="d" tickFormatter={(d: number) => (d === 0 ? t('crm.report.dayJ') : t('crm.report.dayMinus').replace('{n}', String(d)))} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fill: 'rgb(var(--ink)/0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${KIT.BORDER}`, borderRadius: 12, fontSize: 12 }}
-                  labelFormatter={(d: number) => (d === 0 ? t('crm.report.dayJ') : `J-${d}`)}
+                  labelFormatter={(d: number) => (d === 0 ? t('crm.report.dayJ') : t('crm.report.dayMinus').replace('{n}', String(d)))}
                   formatter={(v: number, key: string) => [n(v), key === 'mine' ? r.event.title : r.compare?.event.title ?? '']}
                 />
                 <Area type="monotone" dataKey="mine" stroke={KIT.RED} fill="rgb(232 25 44/0.12)" strokeWidth={2} isAnimationActive={false} />

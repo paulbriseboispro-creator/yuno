@@ -14393,6 +14393,7 @@ const en: Record<string, string> = {
   "crm.report.curve": "How sales went",
   "crm.report.curveHint": "Cumulative tickets, day by day before the night. The dotted line is your previous night, aligned on the same number of days.",
   "crm.report.dayJ": "Night",
+  "crm.report.dayMinus": "D-{n}",
   "crm.report.legend": "Red: this night. Dotted: {title}.",
   "crm.report.noSales": "No ticket sold yet.",
   "crm.report.deals": "What sold",
