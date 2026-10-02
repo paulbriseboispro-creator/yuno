@@ -174,6 +174,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
             post_event_missed: ['On t\'a manqué', 'We missed you', 'Te echamos de menos'],
             welcome: ['Bienvenue', 'Welcome', 'Bienvenida'],
             win_back: ['Reconquête', 'Win-back', 'Reconquista'],
+            regular_lapse: ['L\'habitué décroche', 'Regular drifting away', 'El habitual se aleja'],
           };
           (Array.isArray(autos) ? (autos as unknown as Array<{ kind: string; status: string; skip_reason: string | null; created_at: string; sent_at: string | null; opened: boolean; clicked: boolean; event_title: string | null }>) : []).forEach((a) => {
             const name = KIND[a.kind] ? tt(...KIND[a.kind]) : a.kind;

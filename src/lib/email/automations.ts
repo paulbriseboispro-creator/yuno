@@ -14,12 +14,15 @@ import type { StarterKey } from './starters';
 export type AutomationKind =
   | 'welcome' | 'abandoned_checkout' | 'last_call' | 'post_event_thanks' | 'post_event_missed' | 'win_back'
   // v2 (2026-09-15) : passe en table, le tarif monte, nouvelle soirée.
-  | 'table_upsell' | 'tier_closing' | 'new_event';
+  | 'table_upsell' | 'tier_closing' | 'new_event'
+  // 2026-10-02 : l'habitué décroche (deux sorties par mois, puis six semaines
+  // de silence) — invitation pour LA soirée qui lui ressemble.
+  | 'regular_lapse';
 
 /** Ordre d'affichage : la vente d'abord (avant la soirée), la relation ensuite. */
 export const AUTOMATION_KINDS: readonly AutomationKind[] = [
   'new_event', 'abandoned_checkout', 'tier_closing', 'last_call', 'table_upsell',
-  'post_event_thanks', 'post_event_missed', 'welcome', 'win_back',
+  'post_event_thanks', 'post_event_missed', 'regular_lapse', 'welcome', 'win_back',
 ];
 
 /** Seuils proposés pour « le tarif monte » (part du palier ouvert déjà vendue). */
@@ -44,6 +47,11 @@ export interface AutomationMeta {
   unit: 'hours' | 'days';
   /** Sens du délai, pour le libellé : après le déclencheur, ou avant le début. */
   direction: 'after' | 'before' | 'dormant';
+  /**
+   * La soirée de l'email se CHOISIT par destinataire (ses goûts), au lieu
+   * d'être la soirée déclencheuse ou la prochaine date.
+   */
+  perRecipientEvent?: boolean;
   /** La recette exige un scan à la porte pour savoir qui est venu. */
   needsScan?: boolean;
   /**
@@ -70,6 +78,9 @@ export const AUTOMATION_META: Record<AutomationKind, AutomationMeta> = {
   // recette part sur un seuil de remplissage du palier ouvert.
   tier_closing: { kind: 'tier_closing', starter: 'auto_tier_closing', delays: [24], defaultDelay: 24, unit: 'hours', direction: 'after', noDelay: true, urgent: true },
   new_event: { kind: 'new_event', starter: 'auto_new_event', delays: [2, 6, 24], defaultDelay: 6, unit: 'hours', direction: 'after' },
+  // Délai = silence depuis la dernière venue d'un habitué (4 / 6 / 8 semaines).
+  // Détection et choix de la soirée : _regular_lapse_candidates (SQL).
+  regular_lapse: { kind: 'regular_lapse', starter: 'auto_regular_lapse', delays: [28, 42, 56], defaultDelay: 42, unit: 'days', direction: 'dormant', perRecipientEvent: true },
 };
 
 /** Types de blocs que le moteur retire d'un email enfant sans soirée reliée

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowLeft, CalendarPlus, ChevronDown, Clock3, Crown, Eye, HeartHandshake, Info, Loader2, MailOpen, Moon,
-  PartyPopper, ScanLine, ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, Target, TrendingUp, UserRoundPlus, Zap,
+  PartyPopper, ScanLine, ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, Target, TrendingUp, UserRoundPlus, UserRoundSearch, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +48,7 @@ const ICONS: Record<AutomationKind, typeof Zap> = {
   table_upsell: Crown,
   tier_closing: TrendingUp,
   new_event: CalendarPlus,
+  regular_lapse: UserRoundSearch,
 };
 
 /**
@@ -538,7 +539,13 @@ function RecipeCard({
                         </>
                       )}
                       {preview.next_event_title && (
-                        <span style={{ color: T3 }}>{' · '}{preview.next_event_title}</span>
+                        <span style={{ color: T3 }}>
+                          {' · '}
+                          {/* Soirée choisie par personne : on montre un exemple, jamais « la » soirée. */}
+                          {meta.perRecipientEvent
+                            ? fill('em.auto.pickExample', { event: preview.next_event_title })
+                            : preview.next_event_title}
+                        </span>
                       )}
                     </div>
                   )}
