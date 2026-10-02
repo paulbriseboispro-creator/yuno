@@ -13,7 +13,7 @@ import { useMemo, useState } from 'react';
 import { CheckCircle2, Eye, Loader2, SendHorizontal, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { renderEmailHtml, type EmailTemplate } from '@/lib/email';
+import { bindBlocksToEvent, renderEmailHtml, type EmailTemplate } from '@/lib/email';
 import { useStudioLiveData, type StudioScope } from '@/components/email-studio/hooks';
 
 const RED = '#E8192C';
@@ -46,7 +46,8 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
 
   const live = useStudioLiveData(template.blocks, eventId);
 
-  const html = useMemo(() => renderEmailHtml(template.blocks, template.theme, {
+  // Relié à la soirée comme à l'envoi : sinon l'aperçu montre la carte d'exemple.
+  const html = useMemo(() => renderEmailHtml(bindBlocksToEvent(template.blocks, eventId), template.theme, {
     venueName: scope.name,
     city: scope.city,
     logoUrl: template.logoUrl || scope.logoUrl,
@@ -59,7 +60,7 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
     baseUrl: PUBLIC_BASE_URL,
     live,
     ignoreConds: true,
-  }), [template, scope, live]);
+  }), [template, scope, live, eventId]);
 
   const sendTest = async () => {
     const extra = email.trim();

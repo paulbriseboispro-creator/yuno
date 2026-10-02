@@ -131,11 +131,60 @@ export function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
   return s;
 }
 
+/**
+ * Apparence d'un bloc texte selon son style — UNE définition, lue par le rendu
+ * email et par le miroir du canvas (TextView). Un titre est serré et gras, un
+ * sur-titre est en mono capitales espacées et prend l'accent : c'est ce qui
+ * donne à un email une hiérarchie qu'on lit au pouce, au lieu d'un mur de
+ * paragraphes de même taille.
+ */
+export interface TextLook {
+  size: number;
+  lineHeight: number;
+  /** Écart entre deux lignes du corps (px). */
+  gap: number;
+  weight: number | null;
+  letterSpacing: string | null;
+  uppercase: boolean;
+  mono: boolean;
+  color: string;
+}
+
+export function textLook(b: TextBlock, theme: EmailTheme, bg: string): TextLook {
+  const variant = b.variant || 'body';
+  const ink = defaultInkOn(bg, theme);
+  if (variant === 'kicker') {
+    const solid = solidBlockBg(bg, theme);
+    const color = isHexColor(b.color) ? b.color.trim() : readableOn(theme.accent, solid);
+    return { size: 11, lineHeight: 1.45, gap: 4, weight: 700, letterSpacing: '0.16em', uppercase: true, mono: true, color };
+  }
+  if (variant === 'headline') {
+    const size = Math.max(20, Math.min(40, b.size || 30));
+    return {
+      size, lineHeight: 1.16, gap: 4, weight: 800, letterSpacing: '-0.02em', uppercase: false, mono: false,
+      color: isHexColor(b.color) ? b.color.trim() : ink,
+    };
+  }
+  return {
+    size: Math.max(11, Math.min(28, b.size || 16)), lineHeight: 1.6, gap: 10, weight: null, letterSpacing: null,
+    uppercase: false, mono: false, color: isHexColor(b.color) ? b.color.trim() : ink,
+  };
+}
+
+/** Styles inline d'une ligne de texte (hors marge). */
+function textLookCss(look: TextLook): string {
+  return `font-family:${look.mono ? MONO : FONT};font-size:${look.size}px;line-height:${look.lineHeight};color:${look.color};`
+    + (look.weight ? `font-weight:${look.weight};` : '')
+    + (look.letterSpacing ? `letter-spacing:${look.letterSpacing};` : '')
+    + (look.uppercase ? 'text-transform:uppercase;' : '');
+}
+
 /** Corps texte brut → paragraphes HTML (variables interpolées par l'appelant). */
-function plainToParagraphs(body: string, fontSize: number, color: string, markup: InlineMarkupOpts): string {
+function plainToParagraphs(body: string, look: TextLook, markup: InlineMarkupOpts): string {
   const lines = String(body || '').split('\n');
+  const css = textLookCss(look);
   return lines
-    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${inlineMarkup(escapeHtml(line), markup)}</p>`)
+    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ` 0 ${look.gap}px` : ''};${css}">${inlineMarkup(escapeHtml(line), markup)}</p>`)
     .join('');
 }
 
@@ -302,14 +351,13 @@ function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
 }
 
 function renderText(b: TextBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
-  const size = Math.max(11, Math.min(28, b.size || 16));
-  const color = isHexColor(b.color) ? b.color.trim() : defaultInkOn(bg, theme);
+  const look = textLook(b, theme, bg);
   const raw = interpolateVariables(b.body || '', ctx);
   const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
-  const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, color, markup);
+  const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, look, markup);
   return td(
     inner,
-    `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${color};text-align:${b.align || 'left'};`,
+    `padding:${pad.py}px ${pad.px}px;background:${bg};${textLookCss(look)}text-align:${b.align || 'left'};`,
   );
 }
 

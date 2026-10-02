@@ -22,7 +22,21 @@ export const EMAIL_VARIABLES: readonly VariableDef[] = [
   { key: 'dernier_event', aliases: ['dernier_évent', 'last_event'], fallback: 'ta dernière soirée' },
   { key: 'points_fidélité', aliases: ['points_fidelite', 'loyalty_points'], fallback: '0' },
   { key: 'nom_club', aliases: ['club', 'venue_name'], fallback: '' },
+  // Titre de la soirée reliée à l'email (données live). Sert aux recettes
+  // automatiques, toutes déclenchées par une soirée précise : « le tarif de
+  // {{soirée}} monte ». Repli : « la soirée », jamais du vide dans une phrase.
+  { key: 'soirée', aliases: ['soiree', 'event', 'event_title'], fallback: 'la soirée' },
 ];
+
+/**
+ * La soirée de l'email : la première soirée résolue des données live. Une
+ * campagne ne relie qu'une soirée en pratique (celle de la campagne, dont
+ * héritent tous les blocs Yuno), et un envoi de recette en relie exactement une.
+ */
+export function liveEventTitle(ctx: RenderCtx): string {
+  const first = ctx.live ? Object.values(ctx.live).find((e) => e && e.title) : undefined;
+  return (first?.title || '').trim();
+}
 
 function stripAccents(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -38,6 +52,7 @@ export function variableValues(ctx: RenderCtx): Record<string, string> {
     'dernier_event': (r.lastEventTitle || '').trim(),
     'points_fidélité': r.loyaltyPoints != null ? String(r.loyaltyPoints) : '',
     'nom_club': ctx.venueName,
+    'soirée': liveEventTitle(ctx),
   };
 }
 

@@ -13,8 +13,8 @@ import type {
   TicketsBlock, GuestListBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
 import {
-  blockPadDefaults, defaultInkOn, isHexColor, solidBlockBg,
-  BLOCK_COND_LABELS, BLOCK_CONDS,
+  blockPadDefaults, solidBlockBg, textLook,
+  BLOCK_COND_LABELS, BLOCK_CONDS, TEXT_VARIANTS,
 } from '@/lib/email';
 import RichTextField from './RichTextField';
 import type { RichTextHandle } from './RichTextField';
@@ -596,7 +596,8 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
       // carte. C'est lui qui décide de l'encre par défaut — et le champ de
       // saisie se peint avec, pour montrer ce que le client verra.
       const textBg = solidBlockBg(blockBgColor(b, theme), theme);
-      const textInk = isHexColor(b.color) ? b.color.trim() : defaultInkOn(blockBgColor(b, theme), theme);
+      const textInk = textLook(b, theme, blockBgColor(b, theme)).color;
+      const textVariant = b.variant || 'body';
       return (
         <>
           <PanelCard>
@@ -614,18 +615,34 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
             </div>
           </PanelCard>
           <PanelCard>
-            <MicroLabel>{t('studio.inspector.fontSize')}</MicroLabel>
+            {/* Style : corps, titre (gras serré), sur-titre (mono capitales,
+                accent). Changer de style recale la taille dans les bornes du
+                nouveau style — un titre à 14 px n'est plus un titre. */}
+            <MicroLabel>{t('studio.inspector.textVariant')}</MicroLabel>
             <OptionPills
-              value={b.size}
-              onChange={(v) => patch({ size: v })}
-              options={[14, 16, 18, 22].map((n) => ({ value: n, label: String(n) }))}
+              value={textVariant}
+              onChange={(v) => patch({
+                variant: v === 'body' ? undefined : v,
+                size: v === 'headline' ? (b.size >= 20 ? b.size : 30) : v === 'kicker' ? b.size : (b.size > 22 ? 16 : b.size),
+              })}
+              options={TEXT_VARIANTS.map((v) => ({ value: v, label: t(`studio.inspector.textVariant.${v}`) }))}
             />
+            {textVariant !== 'kicker' && (
+              <>
+                <MicroLabel>{t('studio.inspector.fontSize')}</MicroLabel>
+                <OptionPills
+                  value={b.size}
+                  onChange={(v) => patch({ size: v })}
+                  options={(textVariant === 'headline' ? [24, 28, 32, 36] : [14, 16, 18, 22]).map((n) => ({ value: n, label: String(n) }))}
+                />
+              </>
+            )}
             <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
             {alignPills(b.align, (v) => patch({ align: v }))}
             <ThemedColor
               label={t('studio.inspector.textColor')}
               value={b.color}
-              themeDefault={defaultInkOn(blockBgColor(b, theme), theme)}
+              themeDefault={textLook({ ...b, color: undefined }, theme, blockBgColor(b, theme)).color}
               onChange={(v) => patch({ color: v })}
             />
           </PanelCard>

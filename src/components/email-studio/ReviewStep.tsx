@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  checklistBlocksSend, footerSocialEnabled, renderEmailHtml, runChecklist, slugifyName,
+  bindBlocksToEvent, checklistBlocksSend, footerSocialEnabled, renderEmailHtml, runChecklist, slugifyName,
   type LiveData,
 } from '@/lib/email';
 import { ActionFigure, ActionNote, ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
@@ -48,7 +48,7 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
     supabase.auth.getUser().then(({ data }) => setReplyTo(data.user?.email || null));
   }, []);
 
-  const previewHtml = useMemo(() => renderEmailHtml(campaign.blocks, campaign.theme, {
+  const previewHtml = useMemo(() => renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), campaign.theme, {
     venueName: scope.name,
     city: scope.city,
     logoUrl: scope.logoUrl,

@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 import type { EmailTheme, TextBlock } from '@/lib/email';
-import { defaultInkOn, escapeHtml, inlineMarkup, isHexColor, looksLikeHtml } from '@/lib/email';
-import { EMAIL_FONT, blockBgColor, blockPad, varChipStyle } from './common';
+import { escapeHtml, inlineMarkup, looksLikeHtml, textLook } from '@/lib/email';
+import { EMAIL_FONT, EMAIL_MONO, blockBgColor, blockPad, varChipStyle } from './common';
 
 /**
  * Texte brut avec \n = paragraphe, mini-markup inline (**gras**, *italique*,
@@ -9,20 +9,26 @@ import { EMAIL_FONT, blockBgColor, blockPad, varChipStyle } from './common';
  * surlignées. Les corps HTML migrés du v1 restent rendus tels quels.
  */
 export default function TextView({ block, theme }: { block: TextBlock; theme: EmailTheme }) {
-  const size = Math.max(11, Math.min(28, block.size || 16));
+  // Miroir de renderText : même apparence par style (titre, sur-titre, corps),
+  // et le fond du bloc décide de l'encre par défaut.
+  const look = textLook(block, theme, blockBgColor(block, theme));
+  const size = look.size;
   const pad = blockPad(block);
   const chip = varChipStyle(theme, size);
-  // Miroir de renderText : le fond du bloc décide de l'encre par défaut.
-  const baseColor = isHexColor(block.color)
-    ? block.color.trim()
-    : defaultInkOn(blockBgColor(block, theme), theme);
+  const baseColor = look.color;
+  const lookStyle = {
+    fontFamily: look.mono ? EMAIL_MONO : EMAIL_FONT,
+    fontWeight: look.weight ?? undefined,
+    letterSpacing: look.letterSpacing ?? undefined,
+    textTransform: look.uppercase ? ('uppercase' as const) : undefined,
+  };
 
   if (looksLikeHtml(block.body)) {
     return (
       <div
         style={{
-          padding: `${pad.py}px ${pad.px}px`, fontFamily: EMAIL_FONT, fontSize: size,
-          lineHeight: 1.6, color: baseColor, textAlign: block.align || 'left', overflowWrap: 'break-word',
+          padding: `${pad.py}px ${pad.px}px`, ...lookStyle, fontSize: size,
+          lineHeight: look.lineHeight, color: baseColor, textAlign: block.align || 'left', overflowWrap: 'break-word',
         }}
         dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(block.body || '', {
@@ -44,7 +50,7 @@ export default function TextView({ block, theme }: { block: TextBlock; theme: Em
         /\{\{[^}]+\}\}/g,
         (m) => `<span style="${chipStyle}">${m}</span>`,
       );
-      return `<p style="margin:${li === lines.length - 1 ? '0' : '0 0 10px'};font-size:${size}px;line-height:1.6;overflow-wrap:break-word;">${withChips}</p>`;
+      return `<p style="margin:${li === lines.length - 1 ? '0' : `0 0 ${look.gap}px`};font-size:${size}px;line-height:${look.lineHeight};overflow-wrap:break-word;">${withChips}</p>`;
     })
     .join('');
 
@@ -52,7 +58,7 @@ export default function TextView({ block, theme }: { block: TextBlock; theme: Em
     <div
       style={{
         padding: `${pad.py}px ${pad.px}px`, textAlign: block.align || 'left',
-        fontFamily: EMAIL_FONT, color: baseColor,
+        ...lookStyle, color: baseColor,
       }}
       dangerouslySetInnerHTML={{
         __html: DOMPurify.sanitize(html, {

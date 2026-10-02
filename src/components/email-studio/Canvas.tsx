@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  contrastText, isHexColor, renderEmailHtml, runChecklist, checklistBlocksSend,
+  bindBlocksToEvent, contrastText, isHexColor, renderEmailHtml, runChecklist, checklistBlocksSend,
   BLOCK_COND_LABELS, footerSocialEnabled, socialChip, socialLabel,
   type BlockType, type ChecklistItem, type LiveData, type RenderRecipient,
   type SocialLinks,
@@ -85,7 +85,8 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
   }), [scope.name, scope.logoUrl, campaign.socialLinks, live, campaign.eventId]);
 
   // Le VRAI HTML email — sert à l'aperçu iframe, au poids et à la checklist.
-  const renderedHtml = useMemo(() => renderEmailHtml(campaign.blocks, theme, {
+  // Blocs reliés à la soirée de la campagne, comme à l'envoi (repli edge).
+  const renderedHtml = useMemo(() => renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
     venueName: scope.name,
     city: scope.city,
     logoUrl: scope.logoUrl,

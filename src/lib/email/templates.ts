@@ -100,6 +100,22 @@ export function stripEventBindings(blocks: EmailBlock[]): EmailBlock[] {
   });
 }
 
+/**
+ * Relie les blocs Yuno sans soirée propre à `eventId` — miroir du repli que
+ * l'envoi fait côté edge après `fetchStudioLiveData`. Les APERÇUS (modèles,
+ * recette, onglet Aperçu, vérification) passaient les blocs tels quels : le
+ * rendu ne lisant les données live que par `b.eventId`, ils montraient la
+ * carte d'exemple (« La prochaine soirée », sans affiche) au lieu de l'email
+ * qui partira vraiment. Ne modifie pas les blocs reçus.
+ */
+export function bindBlocksToEvent(blocks: EmailBlock[], eventId: string | null | undefined): EmailBlock[] {
+  if (!eventId) return blocks;
+  return blocks.map((b) => {
+    if (!YUNO_BLOCK_TYPES.includes(b.type) || ('eventId' in b && b.eventId)) return b;
+    return { ...b, eventId } as EmailBlock;
+  });
+}
+
 /** Blocs Yuno qui resteront muets sans soirée choisie (un countdown daté à la main se suffit). */
 export function eventBoundBlocks(blocks: EmailBlock[]): EmailBlock[] {
   return blocks.filter((b) => {

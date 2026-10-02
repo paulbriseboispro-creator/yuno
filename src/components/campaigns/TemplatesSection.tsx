@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { renderEmailHtml, type EmailTemplate } from '@/lib/email';
-import { useEmailTemplates, type StudioScope } from '@/components/email-studio/hooks';
+import { bindBlocksToEvent, makeBlock, renderEmailHtml, type EmailBlock, type EmailTemplate, type LiveData } from '@/lib/email';
+import { useEmailTemplates, useStudioEvents, useStudioLiveData, type StudioScope } from '@/components/email-studio/hooks';
 
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
 const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
@@ -26,10 +26,20 @@ const BORDER = 'rgb(var(--ink)/0.085)';
 const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 const RED = '#E8192C';
 
-function useTemplateHtml(tpl: EmailTemplate | null, scope: StudioScope, omitFooter: boolean): string {
+/**
+ * Soirée d'aperçu : la prochaine soirée du compte. Un modèle ne fige jamais de
+ * soirée (elle se choisit à l'envoi) ; sans elle, l'aperçu montrait la carte
+ * d'exemple, sans affiche — pas l'email que le client recevra.
+ */
+interface PreviewEvent { id: string | null; live: LiveData }
+
+/** Bloc sonde : `useStudioLiveData` ne charge que les soirées de blocs Yuno. */
+const LIVE_PROBE: EmailBlock[] = [makeBlock('event')];
+
+function useTemplateHtml(tpl: EmailTemplate | null, scope: StudioScope, omitFooter: boolean, preview: PreviewEvent): string {
   return useMemo(() => {
     if (!tpl) return '';
-    return renderEmailHtml(tpl.blocks, tpl.theme, {
+    return renderEmailHtml(bindBlocksToEvent(tpl.blocks, preview.id), tpl.theme, {
       venueName: scope.name,
       logoUrl: scope.logoUrl,
       emailType: tpl.type,
@@ -37,13 +47,14 @@ function useTemplateHtml(tpl: EmailTemplate | null, scope: StudioScope, omitFoot
       recipient: { email: 'apercu@exemple.com', firstName: 'Camille' },
       socialLinks: tpl.socialLinks,
       baseUrl: 'https://yunoapp.eu',
+      live: preview.live,
       ignoreConds: true,
     }, { omitFooter });
-  }, [tpl, scope.name, scope.logoUrl, omitFooter]);
+  }, [tpl, scope.name, scope.logoUrl, omitFooter, preview]);
 }
 
-function Thumb({ tpl, scope }: { tpl: EmailTemplate; scope: StudioScope }) {
-  const html = useTemplateHtml(tpl, scope, true);
+function Thumb({ tpl, scope, preview }: { tpl: EmailTemplate; scope: StudioScope; preview: PreviewEvent }) {
+  const html = useTemplateHtml(tpl, scope, true, preview);
   return (
     <div style={{ height: 188, overflow: 'hidden', background: tpl.theme.bg, borderBottom: `1px solid ${BORDER}` }}>
       <iframe
@@ -54,8 +65,8 @@ function Thumb({ tpl, scope }: { tpl: EmailTemplate; scope: StudioScope }) {
   );
 }
 
-function FullPreview({ tpl, scope, onClose }: { tpl: EmailTemplate | null; scope: StudioScope; onClose: () => void }) {
-  const html = useTemplateHtml(tpl, scope, false);
+function FullPreview({ tpl, scope, preview, onClose }: { tpl: EmailTemplate | null; scope: StudioScope; preview: PreviewEvent; onClose: () => void }) {
+  const html = useTemplateHtml(tpl, scope, false, preview);
   return (
     <Dialog open={!!tpl} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-3xl p-0 overflow-hidden" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}` }}>
@@ -79,6 +90,10 @@ export default function TemplatesSection({ scope, basePath }: { scope: StudioSco
   const [viewing, setViewing] = useState<EmailTemplate | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EmailTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const events = useStudioEvents(scope);
+  const previewEventId = events[0]?.id || null;
+  const previewLive = useStudioLiveData(LIVE_PROBE, previewEventId);
+  const preview = useMemo<PreviewEvent>(() => ({ id: previewEventId, live: previewLive }), [previewEventId, previewLive]);
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -118,7 +133,7 @@ export default function TemplatesSection({ scope, basePath }: { scope: StudioSco
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
           {templates.map((tpl) => (
             <div key={tpl.id} style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <Thumb tpl={tpl} scope={scope} />
+              <Thumb tpl={tpl} scope={scope} preview={preview} />
               <div className="p-3 flex flex-col gap-2" style={{ flex: 1 }}>
                 <div>
                   <div className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tpl.name}</div>
@@ -146,7 +161,7 @@ export default function TemplatesSection({ scope, basePath }: { scope: StudioSco
         </div>
       )}
 
-      <FullPreview tpl={viewing} scope={scope} onClose={() => setViewing(null)} />
+      <FullPreview tpl={viewing} scope={scope} preview={preview} onClose={() => setViewing(null)} />
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <AlertDialogContent>

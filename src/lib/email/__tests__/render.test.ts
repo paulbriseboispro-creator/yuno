@@ -11,7 +11,7 @@ import {
   buildEntryRows, pickPublicGuestList, guestListTicketRow, priceFromLabel, formatEuro,
   ticketsCtaLabel, ticketsKicker, isPricedRow, soldOutSub, SOLD_OUT_CHIP,
   buildTablePackRows, buildTableZoneRows, tablePackSubtitle, tablePackPrice, tablesLeftLabel,
-  eventSelectionUrl,
+  eventSelectionUrl, bindBlocksToEvent, textLook,
 } from '../index';
 import type { EmailBlock, EventBlock, RenderCtx } from '../types';
 
@@ -1341,5 +1341,50 @@ describe('bloc Soirée — mises en page, alignement, fiche', () => {
     const html = renderOne(ev({ perks: ['Coupe-file avant 00h30'] }));
     expect(html).toContain('Coupe-file avant 00h30');
     expect(html).toContain('&#10003;');
+  });
+});
+
+describe('styles de texte (titre, sur-titre) et variable {{soirée}}', () => {
+  const text = (patch: Record<string, unknown>) => ({ ...makeBlock('text'), ...patch }) as EmailBlock;
+
+  it('un titre est gras, serré, interligne court, borné entre 20 et 40 px', () => {
+    const html = renderBlock(text({ body: 'Ta place t’attend.', variant: 'headline', size: 30 }), theme, ctx);
+    expect(html).toContain('font-size:30px');
+    expect(html).toContain('font-weight:800');
+    expect(html).toContain('line-height:1.16');
+    expect(textLook(text({ variant: 'headline', size: 90 }) as never, theme, 'transparent').size).toBe(40);
+    expect(textLook(text({ variant: 'headline', size: 12 }) as never, theme, 'transparent').size).toBe(20);
+  });
+
+  it('un sur-titre est en mono capitales, taille fixe, couleur d’accent LISIBLE sur son fond', () => {
+    const html = renderBlock(text({ body: 'Dernier appel', variant: 'kicker', size: 22 }), theme, ctx);
+    expect(html).toContain('text-transform:uppercase');
+    expect(html).toContain('font-size:11px');
+    expect(html).toContain('Menlo');
+    const onBlack = textLook(text({ variant: 'kicker', bgc: '#0A0A0A' }) as never, theme, '#0A0A0A');
+    expect(contrastRatio(onBlack.color, '#0A0A0A')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('un texte sans style garde le rendu historique (corps 16 px, interligne 1,6)', () => {
+    const html = renderBlock(text({ body: 'Bonjour' }), theme, ctx);
+    expect(html).toContain('font-size:16px');
+    expect(html).toContain('line-height:1.6');
+    expect(html).not.toContain('text-transform:uppercase');
+  });
+
+  it('{{soirée}} = titre de la soirée reliée, « la soirée » sans données live', () => {
+    const live = { 'ev-1': { title: 'Closing Ø', startAt: '2026-10-03T21:30:00Z', dateLabel: 'd', venueLabel: 'v', url: 'u' } };
+    expect(interpolateVariables('Le prix de {{soirée}} monte', { ...ctx, live })).toBe('Le prix de Closing Ø monte');
+    expect(interpolateVariables('Le prix de {{soiree}} monte', { ...ctx, live: {} })).toBe('Le prix de la soirée monte');
+  });
+
+  it('bindBlocksToEvent relie les blocs Yuno sans soirée, comme l’envoi, sans toucher aux autres', () => {
+    const blocks = [makeBlock('text'), makeBlock('event'), { ...makeBlock('tickets'), eventId: 'own' } as EmailBlock];
+    const bound = bindBlocksToEvent(blocks, 'ev-1');
+    expect((bound[1] as { eventId?: string }).eventId).toBe('ev-1');
+    expect((bound[2] as { eventId?: string }).eventId).toBe('own');
+    expect(bound[0]).toBe(blocks[0]);
+    expect((blocks[1] as { eventId?: string }).eventId).toBeUndefined();
+    expect(bindBlocksToEvent(blocks, null)).toBe(blocks);
   });
 });

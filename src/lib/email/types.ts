@@ -70,9 +70,30 @@ export interface TextBlock extends BlockBase {
   body: string;
   size: number;
   align: 'left' | 'center' | 'right';
-  /** Couleur de base du texte (hex). Absent = texte du thème. */
+  /** Couleur de base du texte (hex). Absent = texte du thème (accent pour un sur-titre). */
   color?: string;
+  /**
+   * Style du texte. Absent = 'body'.
+   * - 'headline' : le titre qui ouvre l'email — gras serré, interligne court,
+   *   la phrase qu'on lit avant tout le reste (taille 22 à 40) ;
+   * - 'kicker'   : le sur-titre mono en capitales espacées, couleur d'accent
+   *   (taille fixe) — la même grammaire que le kicker des cartes Yuno.
+   * Un rendu qui ne connaît pas ce champ retombe sur un paragraphe : un vieux
+   * renderer n'a jamais rien de cassé à montrer.
+   */
+  variant?: TextVariant;
 }
+
+export type TextVariant = 'body' | 'headline' | 'kicker';
+
+export const TEXT_VARIANTS: readonly TextVariant[] = ['body', 'headline', 'kicker'];
+
+/** Tailles proposées par style (l'inspecteur et le rendu bornent pareil). */
+export const TEXT_SIZE_BOUNDS: Record<TextVariant, { min: number; max: number }> = {
+  body: { min: 11, max: 28 },
+  headline: { min: 20, max: 40 },
+  kicker: { min: 11, max: 11 },
+};
 
 export interface CtaBlock extends BlockBase {
   type: 'cta';
