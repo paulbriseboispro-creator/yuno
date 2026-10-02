@@ -191,6 +191,7 @@ const ProductHome = lazyWithRetry(() => import("./components/crm/ProductHome").t
 const CrmNights = lazyWithRetry(() => import("./pages/crm/CrmNights"));
 const CrmNightReport = lazyWithRetry(() => import("./pages/crm/CrmNightReport"));
 const CrmAudience = lazyWithRetry(() => import("./pages/crm/CrmAudience"));
+const CrmBilling = lazyWithRetry(() => import("./pages/crm/CrmBilling"));
 const OrgAppEventDetail = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventDetail"));
 const OrgAppEventLive = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventLive"));
 const OrgAppCheckin = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCheckin"));
@@ -751,6 +752,7 @@ const App = () => (
                   <Route path="crm/nights" element={<OrgAppRoute requires="viewInsights"><CrmNights /></OrgAppRoute>} />
                   <Route path="crm/nights/:eventId" element={<OrgAppRoute requires="viewInsights"><CrmNightReport /></OrgAppRoute>} />
                   <Route path="crm/audience" element={<OrgAppRoute requires="viewInsights"><CrmAudience /></OrgAppRoute>} />
+                  <Route path="crm/billing" element={<OrgAppRoute requires="manageOrganization"><CrmBilling /></OrgAppRoute>} />
                   <Route path="events" element={<OrgAppRoute requires="editEvents"><OwnerEvents /></OrgAppRoute>} />
                   <Route path="events/new" element={<Navigate to="/organizer-app/events" replace />} />
                   <Route path="events/:eventId" element={<OrgAppRoute requires="editEvents"><OrgAppEventDetail /></OrgAppRoute>} />
@@ -951,6 +953,7 @@ const App = () => (
                   <Route path="crm/nights" element={<CrmNights />} />
                   <Route path="crm/nights/:eventId" element={<CrmNightReport />} />
                   <Route path="crm/audience" element={<CrmAudience />} />
+                  <Route path="crm/billing" element={<CrmBilling />} />
                   <Route path="analytics" element={<PlanGuard feature="analytics_basic"><OwnerAnalytics /></PlanGuard>} />
                   <Route path="live" element={<PlanGuard feature="live_night"><OwnerLiveNight /></PlanGuard>} />
                   {/* Hype Score et Audience ont rejoint Analytics (lot E) : les anciennes adresses redirigent. */}

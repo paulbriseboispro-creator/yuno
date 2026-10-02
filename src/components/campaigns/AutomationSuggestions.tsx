@@ -17,6 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { type AutomationKind, type AutomationSuggestion } from '@/lib/email';
 import { useEmailTemplates, type StudioScope } from '@/components/email-studio/hooks';
 import { turnOnAutomation } from './automationSwitch';
+import { useCrmLimitToast } from '@/hooks/useCrmLimitToast';
 
 const RED = '#E8192C';
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
@@ -54,6 +55,7 @@ export default function AutomationSuggestions({ scope, basePath, variant, onEnab
 
   useEffect(() => { void load(); }, [load]);
 
+  const limitToast = useCrmLimitToast();
   const fill = (key: string, vars: Record<string, string | number>) =>
     Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
 
@@ -61,7 +63,11 @@ export default function AutomationSuggestions({ scope, basePath, variant, onEnab
     setBusy(kind);
     try {
       const res = await turnOnAutomation({ scope, kind, t, createTemplate: create });
-      if (res.ok === false) { toast.error(res.error === 'template' ? t('em.auto.createError') : res.error); return; }
+      if (res.ok === false) {
+        if (res.error === 'template') toast.error(t('em.auto.createError'));
+        else if (!limitToast(res.error)) toast.error(res.error);
+        return;
+      }
       toast.success(fill('em.auto.sug.enabled', { r: t(`em.auto.kind.${kind}.title`) }));
       setItems((prev) => (prev || []).filter((s) => s.kind !== kind));
       onEnabled?.();

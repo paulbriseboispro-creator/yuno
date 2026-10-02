@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RESEND_DELAYS, type ResendStats } from '@/lib/email';
+import { useCrmLimitToast } from '@/hooks/useCrmLimitToast';
 
 const RED = '#E8192C';
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
@@ -50,6 +51,7 @@ export default function ResendSettings({ campaignId, editable, basePath, onSaved
     return () => { cancelled = true; };
   }, [campaignId, reload]);
 
+  const limitToast = useCrmLimitToast();
   const fill = (key: string, vars: Record<string, string | number>) =>
     Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
 
@@ -62,7 +64,7 @@ export default function ResendSettings({ campaignId, editable, basePath, onSaved
       resend_subject: (patch.subject ?? subject).trim() || null,
     } as never).eq('id', stats.parent_id);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { if (!limitToast(error)) toast.error(error.message); return; }
     setReload((n) => n + 1);
     onSaved?.();
   };

@@ -17,6 +17,7 @@ import {
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { useCrmLimitToast } from '@/hooks/useCrmLimitToast';
 
 type TeamRole = 'admin' | 'editor' | 'scanner';
 type StaffRole = 'barman' | 'bouncer' | 'cloakroom';
@@ -72,6 +73,7 @@ export default function OrgAppTeam() {
   };
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  const limitToast = useCrmLimitToast();
 
   const [tab, setTab] = useTabParam<'team' | 'staff'>(isOwner ? 'team' : 'staff', ['team', 'staff']);
 
@@ -158,7 +160,7 @@ export default function OrgAppTeam() {
       capturePosthog('team_member_invited', { scope: 'organizer', role: memberRole, kind: 'team', organizer_user_id: organizerId });
       toast.success(t('Invitation envoyée', 'Invitation sent'));
       setMemberEmail(''); setMemberRole('editor'); setTeamOpen(false); loadMembers();
-    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
+    } catch (e) { if (!limitToast(e)) toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSubmittingTeam(false); }
   };
 

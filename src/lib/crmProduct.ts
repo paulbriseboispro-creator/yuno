@@ -97,3 +97,37 @@ export function useAccountProduct(): { product: AccountProduct; isCrm: boolean; 
   const r = useAccountProductFor(scope === 'organizer' ? { organizerUserId } : { venueId });
   return { ...r, loading: loading || r.loading };
 }
+
+// ── Limites de l'offre Yuno CRM ─────────────────────────────────────────────
+// get_crm_limits : la grille de l'offre en cours (crm_plan_limits) + `plan`,
+// ou null pour un compte de la Suite. Affichage seulement : les refus sont
+// serveur (triggers crm_guard_*), traduits par useCrmLimitToast.
+
+export interface CrmLimits {
+  plan: 'free' | 'essential' | 'pro' | 'business';
+  emails_month: number;
+  sms_month: number;
+  sync_minutes: number;
+  members: number | null;
+  automations: number | null;
+  ab_resend: boolean;
+  meta: boolean;
+  segment_export: boolean;
+  yuno_badge: boolean;
+}
+
+export function useCrmLimits(scope: { venueId?: string | null; organizerUserId?: string | null }): CrmLimits | null {
+  const venueId = scope.venueId ?? null;
+  const organizerUserId = venueId ? null : (scope.organizerUserId ?? null);
+  const q = useQuery({
+    queryKey: ['crm-limits', venueId, organizerUserId],
+    enabled: !!(venueId || organizerUserId),
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<CrmLimits | null> => {
+      const { data, error } = await supabase.rpc('get_crm_limits', { p_venue_id: venueId, p_organizer_user_id: organizerUserId });
+      if (error) return null;
+      return (data as unknown as CrmLimits | null) ?? null;
+    },
+  });
+  return q.data ?? null;
+}

@@ -26,6 +26,8 @@ import {
 import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/components/email-studio/hooks';
 import FollowupPreviewDialog from './FollowupPreviewDialog';
 import AutomationSuggestions from './AutomationSuggestions';
+import { useCrmLimitToast } from '@/hooks/useCrmLimitToast';
+import { useCrmLimits } from '@/lib/crmProduct';
 
 const RED = '#E8192C';
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
@@ -172,6 +174,8 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
 
   useEffect(() => { void load(); }, [load]);
 
+  const limitToast = useCrmLimitToast();
+
   /** Écrit la recette (insert à la première écriture), puis relit tout. */
   const save = useCallback(async (kind: AutomationKind, patch: Partial<Pick<EmailAutomationRow, 'enabled' | 'delay_hours' | 'threshold_pct' | 'template_id' | 'subject'>>) => {
     setBusy(kind);
@@ -179,7 +183,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
       const existing = rows[kind];
       if (existing) {
         const { error } = await supabase.from('email_automations' as never).update(patch as never).eq('id', existing.id);
-        if (error) { toast.error(error.message); return false; }
+        if (error) { if (!limitToast(error)) toast.error(error.message); return false; }
       } else {
         const { data: auth } = await supabase.auth.getUser();
         const meta = AUTOMATION_META[kind];
@@ -189,7 +193,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
           created_by: auth.user?.id || null,
           ...patch,
         } as never);
-        if (error) { toast.error(error.message); return false; }
+        if (error) { if (!limitToast(error)) toast.error(error.message); return false; }
       }
       if (patch.enabled !== undefined && !isPlatform) {
         capturePosthog('email_automation_toggled', { scope: scope.kind, kind, enabled: patch.enabled, source: 'panel' });
@@ -199,7 +203,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
     } finally {
       setBusy(null);
     }
-  }, [rows, scopeCol, scopeId, isPlatform, load, scope.kind]);
+  }, [rows, scopeCol, scopeId, isPlatform, load, scope.kind, limitToast]);
 
   /** Modèle Yuno de la recette, créé d'un clic et attaché. */
   const createStarter = useCallback(async (kind: AutomationKind, thenEnable: boolean) => {
@@ -230,6 +234,9 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const previewTemplate = preview ? templates.find((tpl) => tpl.id === rows[preview]?.template_id) || null : null;
 
   const enabledCount = useMemo(() => Object.values(rows).filter((r) => r.enabled).length, [rows]);
+  // Yuno CRM : l'offre borne les recettes allumées en même temps (null = Suite ou toutes).
+  const crmLimits = useCrmLimits(scope.kind === 'venue' ? { venueId: scope.venueId } : scope.kind === 'organizer' ? { organizerUserId: scope.organizerId } : {});
+  const crmMax = crmLimits?.automations ?? null;
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
@@ -250,7 +257,9 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
             <div style={{ color: T2, fontSize: 13, marginTop: 6, lineHeight: 1.5, maxWidth: 620 }}>{isPlatform ? t('em.auto.platformNote') : t('em.auto.subtitle')}</div>
           </div>
           <div style={{ padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, color: enabledCount > 0 ? POS : T3, background: enabledCount > 0 ? 'rgba(52,211,153,0.10)' : INNER_BG, border: `1px solid ${enabledCount > 0 ? 'rgba(52,211,153,0.25)' : BORDER}`, flex: 'none' }}>
-            {t('em.auto.enabledCount').replace('{n}', String(enabledCount))}
+            {crmLimits && crmMax != null
+              ? t('crm.limit.autoPill').replace('{n}', String(enabledCount)).replace('{max}', String(crmMax)).replace('{plan}', t(`crm.plan.${crmLimits.plan}`))
+              : t('em.auto.enabledCount').replace('{n}', String(enabledCount))}
           </div>
         </div>
 

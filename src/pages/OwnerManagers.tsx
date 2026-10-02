@@ -22,6 +22,7 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { toast } from 'sonner';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { useCrmLimitToast } from '@/hooks/useCrmLimitToast';
 
 interface ManagerPerms {
   can_manage_events: boolean;
@@ -91,6 +92,7 @@ const VISIBLE_PERMISSION_ENTRIES = Object.entries(PERMISSION_KEYS).filter(
 
 export default function OwnerManagers() {
   const { t } = useLanguage();
+  const limitToast = useCrmLimitToast();
   const { venueId, loading: venueLoading } = useVenueContext();
   const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,12 +214,8 @@ export default function OwnerManagers() {
         return;
       }
 
-      await supabase.from('user_roles').upsert({
-        user_id: profile.id,
-        role: 'manager',
-        email: newManagerEmail.toLowerCase(),
-      }, { onConflict: 'user_id,role' });
-
+      // Les droits d'abord, le rôle ensuite : un refus (doublon, équipe de
+      // l'offre Yuno CRM complète) ne laisse pas un rôle manager sans droits.
       const { error } = await supabase.from('manager_permissions').insert({
         venue_id: venueId,
         user_id: profile.id,
@@ -227,12 +225,18 @@ export default function OwnerManagers() {
       if (error) {
         if (error.code === '23505') {
           toast.error(t('managers.alreadyExists'));
-        } else {
+        } else if (!limitToast(error)) {
           throw error;
         }
         setIsSaving(false);
         return;
       }
+
+      await supabase.from('user_roles').upsert({
+        user_id: profile.id,
+        role: 'manager',
+        email: newManagerEmail.toLowerCase(),
+      }, { onConflict: 'user_id,role' });
 
       toast.success(t('managers.addedSuccess'));
       setIsCreating(false);
