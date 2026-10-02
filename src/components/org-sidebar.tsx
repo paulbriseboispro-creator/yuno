@@ -63,6 +63,8 @@ import {
 	TagIcon,
 } from "lucide-react";
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
+import { buildCrmNavGroups } from "@/components/crm/crmNav";
+import { useAccountProductFor } from "@/lib/crmProduct";
 
 type TT = (fr: string, en: string, es?: string) => string;
 
@@ -303,6 +305,10 @@ const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/djs", needs: "editEvents" },
 	{ prefix: "/organizer-app/book-dj", needs: "editEvents" },
 	{ prefix: "/organizer-app/checkin", needs: "scanDoor" },
+	// Yuno CRM : soirées importées et audience = lecture des chiffres ;
+	// l'abonnement appartient au fondateur.
+	{ prefix: "/organizer-app/crm", needs: "viewInsights" },
+	{ prefix: "/organizer-app/crm/billing", needs: "manageOrganization" },
 ];
 
 function pathAllowed(path: string | undefined, can: OrgCapabilities): boolean {
@@ -344,8 +350,10 @@ export function OrgAppSidebar() {
 	const { language, t } = useLanguage();
 	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
 	const metaLive = useMetaIntegrationLive();
-	const { can, organizationName, organizationLogoUrl } = useActingOrganizer();
-	const navGroups = filterNavGroups(buildOrgNavGroups(tt, t, metaLive), can);
+	const { can, organizationName, organizationLogoUrl, organizerId } = useActingOrganizer();
+	// Yuno CRM : une organisation qui garde sa billetterie a sa propre barre.
+	const { isCrm } = useAccountProductFor({ organizerUserId: organizerId });
+	const navGroups = filterNavGroups(isCrm ? buildCrmNavGroups(t, "/organizer-app", metaLive) : buildOrgNavGroups(tt, t, metaLive), can);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (
@@ -354,7 +362,7 @@ export function OrgAppSidebar() {
 				to="/organizer-app"
 				name={organizationName}
 				logoUrl={organizationLogoUrl}
-				subtitle={t('sidebar.space.organizer')}
+				subtitle={t(isCrm ? 'crm.space' : 'sidebar.space.organizer')}
 			/>
 			<SidebarContent>
 				{navGroups.map((group, index) => (

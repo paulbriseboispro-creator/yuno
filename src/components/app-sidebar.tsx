@@ -16,12 +16,16 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useOwnerVenueContext } from "@/contexts/OwnerVenueContext";
 import { useMetaIntegrationLive } from "@/lib/metaIntegration";
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
+import { buildCrmNavGroups } from "@/components/crm/crmNav";
+import { useAccountProductFor } from "@/lib/crmProduct";
 
 export function AppSidebar() {
 	const { t } = useLanguage();
-	const { venue } = useOwnerVenueContext();
+	const { venue, venueId } = useOwnerVenueContext();
 	const metaLive = useMetaIntegrationLive();
-	const navGroups = buildNavGroups(t, metaLive);
+	// Yuno CRM : un club qui garde sa billetterie a sa propre barre.
+	const { isCrm } = useAccountProductFor({ venueId });
+	const navGroups = isCrm ? buildCrmNavGroups(t, "/owner", metaLive) : buildNavGroups(t, metaLive);
 	const footerNavLinks = buildFooterNavLinks(t);
 
 	return (
@@ -30,7 +34,7 @@ export function AppSidebar() {
 				to="/owner/dashboard"
 				name={venue?.name}
 				logoUrl={venue?.logoUrl}
-				subtitle={`${t('sidebar.space.club')}${venue?.city ? ` · ${venue.city}` : ''}`}
+				subtitle={`${t(isCrm ? 'crm.space' : 'sidebar.space.club')}${venue?.city ? ` · ${venue.city}` : ''}`}
 			/>
 			<SidebarContent>
 				{navGroups.map((group, index) => (

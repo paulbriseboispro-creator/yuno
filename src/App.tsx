@@ -186,6 +186,11 @@ const ClubInvitation = lazyWithRetry(() => import("./pages/ClubInvitation"));
 // New standalone Organizer / Association app (distinct from the legacy /organizer co-organization flow)
 const OrgAppLayout = lazyWithRetry(() => import("./pages/organizer-app/OrgAppLayout"));
 const OrgAppDashboard = lazyWithRetry(() => import("./pages/organizer-app/OrgAppDashboard"));
+// Yuno CRM (deuxième produit) : pages de la Console d'un compte qui garde sa billetterie.
+const ProductHome = lazyWithRetry(() => import("./components/crm/ProductHome").then(m => ({ default: m.ProductHome })));
+const CrmNights = lazyWithRetry(() => import("./pages/crm/CrmNights"));
+const CrmNightReport = lazyWithRetry(() => import("./pages/crm/CrmNightReport"));
+const CrmAudience = lazyWithRetry(() => import("./pages/crm/CrmAudience"));
 const OrgAppEventDetail = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventDetail"));
 const OrgAppEventLive = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventLive"));
 const OrgAppCheckin = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCheckin"));
@@ -742,7 +747,10 @@ const App = () => (
                     </DashboardModeProvider>
                   </OrgAppRoute>
                 }>
-                  <Route index element={<OrgAppDashboard />} />
+                  <Route index element={<ProductHome suite={<OrgAppDashboard />} />} />
+                  <Route path="crm/nights" element={<OrgAppRoute requires="viewInsights"><CrmNights /></OrgAppRoute>} />
+                  <Route path="crm/nights/:eventId" element={<OrgAppRoute requires="viewInsights"><CrmNightReport /></OrgAppRoute>} />
+                  <Route path="crm/audience" element={<OrgAppRoute requires="viewInsights"><CrmAudience /></OrgAppRoute>} />
                   <Route path="events" element={<OrgAppRoute requires="editEvents"><OwnerEvents /></OrgAppRoute>} />
                   <Route path="events/new" element={<Navigate to="/organizer-app/events" replace />} />
                   <Route path="events/:eventId" element={<OrgAppRoute requires="editEvents"><OrgAppEventDetail /></OrgAppRoute>} />
@@ -939,7 +947,10 @@ const App = () => (
                 {/* Owner routes - with sidebar layout */}
                 <Route path="/owner" element={<OwnerRoute><OwnerLayout /></OwnerRoute>}>
                   <Route index element={<Navigate to="/owner/dashboard" replace />} />
-                  <Route path="dashboard" element={<OwnerDashboard />} />
+                  <Route path="dashboard" element={<ProductHome suite={<OwnerDashboard />} />} />
+                  <Route path="crm/nights" element={<CrmNights />} />
+                  <Route path="crm/nights/:eventId" element={<CrmNightReport />} />
+                  <Route path="crm/audience" element={<CrmAudience />} />
                   <Route path="analytics" element={<PlanGuard feature="analytics_basic"><OwnerAnalytics /></PlanGuard>} />
                   <Route path="live" element={<PlanGuard feature="live_night"><OwnerLiveNight /></PlanGuard>} />
                   {/* Hype Score et Audience ont rejoint Analytics (lot E) : les anciennes adresses redirigent. */}

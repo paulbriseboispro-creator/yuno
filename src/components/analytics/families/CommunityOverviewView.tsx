@@ -31,9 +31,16 @@ interface Props {
   eventHref: (eventId: string) => string;
   /** Ce qui suit (fidélité), rendu sous les blocs de la page. */
   children?: ReactNode;
+  /**
+   * `crm` (Yuno CRM, billetterie connectée) : pas d'abonnés ni de push — un
+   * compte CRM n'a pas d'app Yuno derrière lui. Les deux tuiles deviennent
+   * « Sont revenus » et « Actifs ces 3 mois », lues dans les mêmes données.
+   */
+  variant?: 'suite' | 'crm';
 }
 
-export function CommunityOverviewView({ scope, contactsHref, eventHref, children }: Props) {
+export function CommunityOverviewView({ scope, contactsHref, eventHref, children, variant = 'suite' }: Props) {
+  const crm = variant === 'crm';
   const { t, language } = useLanguage();
   const { n, locale } = useNumberFormat();
   const { data, loading, error, fetchedAt } = useCommunityOverview(scope);
@@ -50,12 +57,15 @@ export function CommunityOverviewView({ scope, contactsHref, eventHref, children
   const tot = data.totals;
   const once = onceShare(data.participation);
   const growth = trimLeadingEmpty(data.growth.series);
-  const twoAxes = needsSecondAxis(growth.map((g) => g.contacts), growth.map((g) => g.followers));
+  const twoAxes = !crm && needsSecondAxis(growth.map((g) => g.contacts), growth.map((g) => g.followers));
   const monthFmt = new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit' });
   const monthLabel = (m: string) => monthFmt.format(new Date(`${m}-01T12:00:00Z`));
   const partTop = Math.max(1, ...data.participation.buckets.map((b) => b.n));
   const lastTop = Math.max(1, ...data.lastPurchase.buckets.map((b) => b.n));
   const dateFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: '2-digit' });
+  const returning = data.participation.buckets.filter((b) => b.bucket !== '0' && b.bucket !== '1').reduce((a, b) => a + b.n, 0);
+  const active3m = data.lastPurchase.buckets.find((b) => b.bucket === 'lt3')?.n ?? 0;
+  const ofKnown = (v: number, known: number) => pct(v, known) != null ? t('anf.co.ofContacts').replace('{pct}', pctFmt(pct(v, known) ?? 0, locale)) : undefined;
 
   return (
     <div className="space-y-4">
@@ -67,7 +77,7 @@ export function CommunityOverviewView({ scope, contactsHref, eventHref, children
           hint={t('gl.contacts')}
           value={n(tot.contacts)}
           sub={<>
-            {t('anf.co.contactsSub').replace('{yuno}', n(tot.yunoCustomers)).replace('{imported}', n(tot.imported))}
+            {t(crm ? 'anf.co.contactsSubCrm' : 'anf.co.contactsSub').replace('{yuno}', n(tot.yunoCustomers)).replace('{imported}', n(tot.imported))}
             <In30d value={tot.newContacts30d} />
           </>}
         />
@@ -77,18 +87,27 @@ export function CommunityOverviewView({ scope, contactsHref, eventHref, children
           value={n(tot.emailReachable)}
           sub={pct(tot.emailReachable, tot.contacts) != null ? t('anf.co.ofContacts').replace('{pct}', pctFmt(pct(tot.emailReachable, tot.contacts) ?? 0, locale)) : undefined}
         />
-        <StatCard
-          label={t('anf.co.followers')}
-          hint={t('gl.followers')}
-          value={n(tot.followers)}
-          sub={<In30d value={tot.newFollowers30d} />}
-        />
-        <StatCard
-          label={t('anf.co.pushReachable')}
-          hint={t('gl.pushReachable')}
-          value={n(tot.pushReachable)}
-          sub={pct(tot.pushReachable, tot.followers) != null ? t('anf.co.ofFollowers').replace('{pct}', pctFmt(pct(tot.pushReachable, tot.followers) ?? 0, locale)) : undefined}
-        />
+        {crm ? (
+          <>
+            <StatCard label={t('anf.co.returning')} hint={t('gl.returning')} value={n(returning)} sub={ofKnown(returning, data.participation.known)} />
+            <StatCard label={t('anf.co.active3m')} hint={t('gl.active3m')} value={n(active3m)} sub={ofKnown(active3m, data.lastPurchase.known)} />
+          </>
+        ) : (
+          <>
+          <StatCard
+            label={t('anf.co.followers')}
+            hint={t('gl.followers')}
+            value={n(tot.followers)}
+            sub={<In30d value={tot.newFollowers30d} />}
+          />
+          <StatCard
+            label={t('anf.co.pushReachable')}
+            hint={t('gl.pushReachable')}
+            value={n(tot.pushReachable)}
+            sub={pct(tot.pushReachable, tot.followers) != null ? t('anf.co.ofFollowers').replace('{pct}', pctFmt(pct(tot.pushReachable, tot.followers) ?? 0, locale)) : undefined}
+          />
+          </>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -150,9 +169,9 @@ export function CommunityOverviewView({ scope, contactsHref, eventHref, children
         <CardTitle title={t('anf.co.growthTitle')} hint={t('gl.growth')} />
         <div className="mb-2 flex flex-wrap items-center gap-4 text-[12px]" style={{ color: KIT.T2 }}>
           <span className="inline-flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 rounded" style={{ background: CONTACTS }} aria-hidden />{t('anf.co.contacts')}</span>
-          <span className="inline-flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 rounded" style={{ background: FOLLOWERS }} aria-hidden />{t('anf.co.followers')}{twoAxes && <span style={{ color: KIT.T3 }}> · {t('anf.co.rightAxis')}</span>}</span>
+          {!crm && <span className="inline-flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 rounded" style={{ background: FOLLOWERS }} aria-hidden />{t('anf.co.followers')}{twoAxes && <span style={{ color: KIT.T3 }}> · {t('anf.co.rightAxis')}</span>}</span>}
         </div>
-        {growth.every((g) => g.contacts === 0 && g.followers === 0) ? <EmptyNote text={t('anf.co.empty')} /> : (
+        {growth.every((g) => g.contacts === 0 && (crm || g.followers === 0)) ? <EmptyNote text={t('anf.co.empty')} /> : (
           <div className="h-[240px] w-full" lang={language}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={growth} margin={{ top: 8, right: twoAxes ? 4 : 8, left: 0, bottom: 0 }}>
@@ -169,13 +188,13 @@ export function CommunityOverviewView({ scope, contactsHref, eventHref, children
                       <div className="rounded-xl px-3 py-2 text-[12px]" style={{ background: 'var(--sf-111113)', border: `1px solid ${KIT.BORDER}`, color: KIT.T1 }}>
                         <div style={{ color: KIT.T3, marginBottom: 4 }}>{monthLabel(String(label))}</div>
                         <div className="flex justify-between gap-4"><span>{t('anf.co.contacts')}</span><span className="tabular-nums font-semibold">{n(p.contacts)}</span></div>
-                        <div className="flex justify-between gap-4"><span>{t('anf.co.followers')}</span><span className="tabular-nums font-semibold">{n(p.followers)}</span></div>
+                        {!crm && <div className="flex justify-between gap-4"><span>{t('anf.co.followers')}</span><span className="tabular-nums font-semibold">{n(p.followers)}</span></div>}
                       </div>
                     );
                   }}
                 />
                 <Line yAxisId="c" type="monotone" dataKey="contacts" stroke={CONTACTS} strokeWidth={2} dot={false} isAnimationActive={false} />
-                <Line yAxisId={twoAxes ? 'f' : 'c'} type="monotone" dataKey="followers" stroke={FOLLOWERS} strokeWidth={2} dot={false} isAnimationActive={false} />
+                {!crm && <Line yAxisId={twoAxes ? 'f' : 'c'} type="monotone" dataKey="followers" stroke={FOLLOWERS} strokeWidth={2} dot={false} isAnimationActive={false} />}
               </LineChart>
             </ResponsiveContainer>
           </div>
