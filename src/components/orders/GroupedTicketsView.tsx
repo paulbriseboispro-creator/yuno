@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { enUS, es, fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // Types
 interface TicketWithDetails {
@@ -266,7 +267,7 @@ export function GroupedTicketsView({
           <div className="mt-1.5 px-3 py-2 rounded-lg border border-border/40 bg-card/50">
             <p className="text-[11px] text-muted-foreground">
               <Wine className="h-3 w-3 inline mr-1 opacity-60" />
-              {t('orders.ticketIncludesPre')} {ticket.quantity} {t('orders.ticketIncludesPost')}
+              {t('orders.ticketIncludesPre')} {ticket.quantity} {t(DRINKS_PILLAR_LIVE ? 'orders.ticketIncludesPost' : 'orders.ticketIncludesPostDoor')}
             </p>
           </div>
         )}

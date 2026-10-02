@@ -12,6 +12,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { markWebEngaged } from '@/lib/webHome';
 import NotFound from '@/pages/NotFound';
 import { currentNightDate } from '@/lib/affiliateEventTime';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /**
  * Page ville SEO — /paris, /madrid (routes générées depuis CITY_PAGES dans
@@ -363,7 +364,7 @@ export default function CityPage() {
               {[
                 { to: '/tickets', label: t('landing.p1.title') },
                 { to: '/vip-tables', label: t('landing.p2.title') },
-                { to: '/order-drinks', label: t('landing.p3.title') },
+                ...(DRINKS_PILLAR_LIVE ? [{ to: '/order-drinks', label: t('landing.p3.title') }] : []),
               ].map((p) => (
                 <Link
                   key={p.to}

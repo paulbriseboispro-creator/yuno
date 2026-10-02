@@ -1991,6 +1991,8 @@ const es: Record<string, string> = {
   'orders.cloakroomAccess': "Acceso al guardarropa",
   'orders.ticketIncludesPre': "Este ticket incluye",
   'orders.ticketIncludesPost': "crédito(s) de consumición para gastar en la página del club para este evento.",
+  // Pilier boissons en pause : la boisson offerte se récupère sur place, au scan.
+  'orders.ticketIncludesPostDoor': "bebida(s) gratis: enseña esta entrada en la puerta, el club se encarga.",
   'explore.priceFrom': "desde",
   'explore.veryBooked': "muy reservado",
   'explore.eventsWord': "eventos",

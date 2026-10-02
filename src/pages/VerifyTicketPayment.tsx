@@ -16,6 +16,7 @@ import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotic
 import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 import { capturePosthog } from '@/lib/posthog';
 import { fetchEventMarket } from '@/lib/eventMarket';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -117,7 +118,7 @@ export default function VerifyTicketPayment() {
           // A second "Ticket confirmed!" interstitial is pure friction — skip it.
           // Détour par l'upsell boissons (prix presale) : la page redirige
           // elle-même vers la confirmation si le club n'y est pas éligible.
-          navigate(`/order/upsell?ticket=${ticketId}`, { replace: true });
+          navigate(DRINKS_PILLAR_LIVE ? `/order/upsell?ticket=${ticketId}` : `/order-confirmation?type=ticket&id=${ticketId}`, { replace: true });
         }
       } else {
         setStatus('error');
@@ -160,7 +161,7 @@ export default function VerifyTicketPayment() {
   // ── Retour app native ────────────────────────────────────────────────────
   // Même détour upsell que le web : la page renvoie vers la confirmation si inéligible.
   if (status === 'nativeReturn') {
-    return <NativeCheckoutReturn returnPath={`/order/upsell?ticket=${ticketId}`} />;
+    return <NativeCheckoutReturn returnPath={DRINKS_PILLAR_LIVE ? `/order/upsell?ticket=${ticketId}` : `/order-confirmation?type=ticket&id=${ticketId}`} />;
   }
 
   // ── Verifying ───────────────────────────────────────────────────────────

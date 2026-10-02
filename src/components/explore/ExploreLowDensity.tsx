@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { proSignupUrl } from '@/lib/proSignup';
 import type { DensityEvent, DensityVenue, ZoneDensity } from '@/hooks/useZoneDensity';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /* ============================================================
    Explore faible densité — les trois écrans du design
@@ -111,13 +112,13 @@ function PillarStrip() {
   const items = [
     { icon: Ticket, label: t('explore.ld.tickets') },
     { icon: Armchair, label: t('explore.ld.vipTables') },
-    { icon: Martini, label: t('explore.ld.drinks') },
+    ...(DRINKS_PILLAR_LIVE ? [{ icon: Martini, label: t('explore.ld.drinks') }] : []),
   ];
   return (
     <div
       className="grid items-center"
       style={{
-        gridTemplateColumns: 'repeat(3,1fr)',
+        gridTemplateColumns: `repeat(${items.length},1fr)`,
         margin: '20px 20px 0',
         padding: '11px 14px',
         background: '#0E0E10',

@@ -79,7 +79,7 @@ export default function AllClubsPage() {
     <div style={{ minHeight: '100dvh', background: '#0A0A0A', display: 'flex', flexDirection: 'column' }}>
       <Seo
         title="Nightclubs & Venues — Find Clubs Near You | Yuno"
-        description="Browse the best nightclubs and venues near you. See what's on tonight, buy event tickets, book VIP bottle-service tables, and pre-order drinks. Discover clubs on Yuno."
+        description="Browse the best nightclubs and venues near you. See what's on tonight, buy event tickets and book VIP bottle-service tables. Discover clubs on Yuno."
         canonical="/clubs"
       />
       {/* ── Header ── */}

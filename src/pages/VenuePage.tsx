@@ -39,6 +39,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { marketProps } from '@/lib/geo';
 import { venueEventsOr } from '@/lib/coorg';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface VenueData extends Venue {
   description?: string;
@@ -386,7 +387,8 @@ export default function VenuePage() {
 
   // Drinks are a Core feature (free for every plan) — see CORE_FEATURES in planFeatures.ts.
   // Public visibility is gated ONLY by the owner's menu_enabled toggle, not by the plan tier.
-  const isDrinksEnabled = hasFeature(venuePlan as PlanCode, 'menu') && menuEnabled;
+  // Pilier boissons en pause (src/lib/drinksPillar.ts) : carte et panier ne se montrent plus.
+  const isDrinksEnabled = DRINKS_PILLAR_LIVE && hasFeature(venuePlan as PlanCode, 'menu') && menuEnabled;
 
   useEffect(() => {
     if (!slug || notFound || !isDrinksEnabled) {

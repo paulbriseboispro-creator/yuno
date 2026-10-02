@@ -1724,6 +1724,8 @@ const en: Record<string, string> = {
   'orders.cloakroomAccess': "Cloakroom access",
   'orders.ticketIncludesPre': "This ticket includes",
   'orders.ticketIncludesPost': "drink credit(s) to spend on the club's page for this event.",
+  // Pilier boissons en pause : la boisson offerte se récupère sur place, au scan.
+  'orders.ticketIncludesPostDoor': "free drink(s): show this ticket at the door, the club takes care of it.",
   'explore.priceFrom': "from",
   'explore.veryBooked': "very booked",
   'explore.eventsWord': "events",

@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { getCurrentPosition, getCurrentPositionIfGranted } from '@/lib/geolocation';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // Threshold for "Popular" badge (total sales count)
 const POPULAR_THRESHOLD = 10;
@@ -334,7 +335,7 @@ const Welcome = () => {
     <>
       <Helmet>
         <title>Yuno - Nightlife Reimagined | Discover Partner Clubs</title>
-        <meta name="description" content="Discover Yuno partner nightclubs. Pre-order drinks, buy tickets, and reserve VIP tables at the best clubs in Europe." />
+        <meta name="description" content={DRINKS_PILLAR_LIVE ? "Discover Yuno partner nightclubs. Pre-order drinks, buy tickets, and reserve VIP tables at the best clubs in Europe." : "Discover Yuno partner nightclubs. Buy tickets and reserve VIP tables at the best clubs in Europe."} />
         <meta property="og:title" content="Yuno - Nightlife Reimagined" />
         <meta property="og:description" content="Discover partner clubs and skip the queue with Yuno" />
         <meta property="og:type" content="website" />
@@ -410,8 +411,11 @@ const Welcome = () => {
         {/* Marquee ticker */}
         <div className="marquee-strip shrink-0">
           <div className="marquee-inner">
-            {['YUNO NIGHTLIFE', 'SKIP THE QUEUE', 'ORDER AT THE BAR', 'VIP TABLES', 'TICKETS',
-              'YUNO NIGHTLIFE', 'SKIP THE QUEUE', 'ORDER AT THE BAR', 'VIP TABLES', 'TICKETS'].map((text, i) => (
+            {(DRINKS_PILLAR_LIVE
+              ? ['YUNO NIGHTLIFE', 'SKIP THE QUEUE', 'ORDER AT THE BAR', 'VIP TABLES', 'TICKETS',
+                 'YUNO NIGHTLIFE', 'SKIP THE QUEUE', 'ORDER AT THE BAR', 'VIP TABLES', 'TICKETS']
+              : ['YUNO NIGHTLIFE', 'TICKETS', 'VIP TABLES', 'GUEST LIST',
+                 'YUNO NIGHTLIFE', 'TICKETS', 'VIP TABLES', 'GUEST LIST']).map((text, i) => (
               <span
                 key={i}
                 className={cn('marquee-item', i % 5 === 0 && 'marquee-item--accent')}

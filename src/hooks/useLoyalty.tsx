@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { celebrateOnce } from '@/lib/celebrate';
 import type { Json } from '@/integrations/supabase/types';
+import { loyaltyRewardTypeVisible } from '@/lib/drinksPillar';
 
 /** Ordre des paliers pour détecter une montée (jamais une descente). */
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum'] as const;
@@ -98,7 +99,7 @@ export function useLoyalty(venueId?: string) {
         .order('position');
       if (rewardsError) throw rewardsError;
 
-      setRewards((rewardsData || []) as LoyaltyReward[]);
+      setRewards(((rewardsData || []) as LoyaltyReward[]).filter(r => loyaltyRewardTypeVisible(r.reward_type)));
 
       // Fetch user-specific data if logged in
       if (user) {
@@ -293,7 +294,7 @@ export function useLoyaltyManagement(venueId?: string) {
         .eq('venue_id', venueId)
         .order('position');
 
-      setRewards((rewardsData || []) as LoyaltyReward[]);
+      setRewards(((rewardsData || []) as LoyaltyReward[]).filter(r => loyaltyRewardTypeVisible(r.reward_type)));
 
       // Fetch stats
       const { data: loyaltyData } = await supabase

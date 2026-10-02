@@ -1,4 +1,5 @@
 /**
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
  * Warmup app native — lancé pendant le splash animé : précharge les chunks
  * des surfaces majeures pour que la première navigation soit instantanée
  * (zéro spinner de lazy-load), comme une app native.
@@ -48,7 +49,7 @@ export function warmupApp(scope: 'app' | 'web' = 'app'): void {
       // 2. Piliers (billets / VIP / boissons) — accès direct depuis l'Explorer.
       () => import('@/pages/EventTicketsLanding'),
       () => import('@/pages/VipTablesLanding'),
-      () => import('@/pages/OrderDrinksLanding'),
+      ...(DRINKS_PILLAR_LIVE ? [() => import('@/pages/OrderDrinksLanding')] : []),
       // 3. Parcours d'achat et fiches.
       () => import('@/pages/VenuePage'),
       () => import('@/pages/EventDetails'),

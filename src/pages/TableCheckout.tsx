@@ -55,6 +55,7 @@ import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -1143,8 +1144,10 @@ export default function TableCheckout() {
                   )}
                 </div>
 
-                {/* Vitrine carte bouteilles (idée #2) — pilotée par le réglage club */}
-                {venue?.id && (
+                {/* Vitrine carte bouteilles (idée #2) — pilotée par le réglage club.
+                    Pilier boissons en pause (src/lib/drinksPillar.ts) : la précommande de
+                    bouteilles dort avec lui (les bouteilles INCLUSES dans la formule restent). */}
+                {DRINKS_PILLAR_LIVE && venue?.id && (
                   <VipMenuPreview
                     venueId={venue.id}
                     packId={pack?.id}

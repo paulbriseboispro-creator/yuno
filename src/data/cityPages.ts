@@ -30,7 +30,7 @@ export const CITY_PAGES: Record<string, CityPageDef> = {
     name: 'Paris',
     metaTitle: 'Paris Nightlife — Club Nights, Tickets & VIP Tables | Yuno',
     metaDescription:
-      'Going out in Paris? Find tonight\'s club nights and parties, buy tickets in seconds, book VIP bottle-service tables and order drinks without the bar queue — all on Yuno.',
+      'Going out in Paris? Find tonight\'s club nights and parties, buy tickets in seconds and book VIP bottle-service tables — all on Yuno.',
   },
   madrid: {
     slug: 'madrid',

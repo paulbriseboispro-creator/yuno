@@ -1,4 +1,5 @@
 // Help Center content structure — all text via i18n keys
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 // Each article has sections with headings and body text.
 //
 // Screenshots: `screenshot` is either
@@ -93,7 +94,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
             { headingKey: 'help.client.guestlist.s2h', bodyKey: 'help.client.guestlist.s2b' },
           ],
         },
-        {
+        ...(DRINKS_PILLAR_LIVE ? [{
           id: 'client-drinks',
           titleKey: 'help.client.drinks.title',
           descKey: 'help.client.drinks.desc',
@@ -103,7 +104,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
             { headingKey: 'help.client.drinks.s2h', bodyKey: 'help.client.drinks.s2b' },
             { headingKey: 'help.client.drinks.s3h', bodyKey: 'help.client.drinks.s3b' },
           ],
-        },
+        }] : []),
         {
           id: 'client-qr',
           titleKey: 'help.client.qr.title',

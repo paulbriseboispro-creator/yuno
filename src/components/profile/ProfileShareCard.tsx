@@ -13,6 +13,7 @@ import { shareContent } from '@/lib/share';
 import { UserBadge } from '@/hooks/useNightlifeProfile';
 import { publicUrl } from '@/lib/native';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface ProfileShareCardProps {
   open: boolean;
@@ -149,11 +150,11 @@ export function ProfileShareCard({
                     value={venuesVisited}
                     label="Clubs"
                   />
-                  <StatBlock
+                  {DRINKS_PILLAR_LIVE && (<StatBlock
                     icon={<GlassWater className="h-3.5 w-3.5" />}
                     value={drinksOrdered}
                     label="Drinks"
-                  />
+                  />)}
                   <StatBlock
                     icon={<Calendar className="h-3.5 w-3.5" />}
                     value={citiesExplored}

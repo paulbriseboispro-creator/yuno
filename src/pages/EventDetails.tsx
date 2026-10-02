@@ -45,6 +45,7 @@ import { useEventPaymentsReady } from '@/lib/paymentsReady';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 type EventDJ = {
   id: string;
@@ -1832,7 +1833,7 @@ export default function EventDetails() {
         {/* Boissons : pas de carte complète ici — un teaser éducatif suffit
             (commande dans l'app, presale après le billet, retrait sans file).
             L'achat vit sur /order/upsell et en Mode Live. */}
-        {venue && venue.id !== primaryOrganizer?.user_id && (
+        {DRINKS_PILLAR_LIVE && venue && venue.id !== primaryOrganizer?.user_id && (
           <EventDrinksTeaser venueId={venue.id} eventId={event.id} />
         )}
 

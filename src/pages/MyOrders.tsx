@@ -47,6 +47,7 @@ import { marketProps } from '@/lib/geo';
 import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
 import { publishNextEventFromTickets } from '@/lib/widgetData';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /**
  * One line of an order's `items` jsonb. The app writes qty/unitPrice, the
@@ -310,6 +311,9 @@ export default function MyOrders() {
   };
 
   const fetchOrders = async () => {
+    // Pilier boissons en pause (src/lib/drinksPillar.ts) : les commandes du bar
+    // ne se chargent pas, l'écran ne montre que billets, tables et guest list.
+    if (!DRINKS_PILLAR_LIVE) { setOrders([]); setLoading(false); return; }
     try {
       // C4: Pagination — limit to 50 most recent orders
       const { data, error } = await supabase
@@ -1796,7 +1800,7 @@ export default function MyOrders() {
             )}
 
             {/* Drink credits */}
-            {seg === 'pending' && (
+            {DRINKS_PILLAR_LIVE && seg === 'pending' && (
               <div className="pt-2">
                 <DrinkCreditsCard />
               </div>

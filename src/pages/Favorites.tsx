@@ -18,6 +18,7 @@ import { D, shuffleSeed, formatCompact, FILTER_OF_KIND, type FavItem, type Filte
 import { useAuth } from '@/hooks/useAuth';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /* Upcoming-events label, pluralised + interpolated (t() returns the raw string). */
 function upcomingNightsLabel(n: number, t: (k: string) => string): string {
@@ -319,7 +320,8 @@ export default function Favorites() {
 
   const clubFavoriteCount = favorites.filter(f => f.favoriteType === 'club' || f.favoriteType === 'affiliate_venue').length;
   const eventFavoriteCount = favorites.filter(f => f.favoriteType === 'event' || f.favoriteType === 'affiliate_event').length;
-  const drinkFavoriteCount = favorites.filter(f => f.favoriteType === 'drink').length;
+  // Pilier boissons en pause (src/lib/drinksPillar.ts) : les boissons favorites ne comptent plus.
+  const drinkFavoriteCount = DRINKS_PILLAR_LIVE ? favorites.filter(f => f.favoriteType === 'drink').length : 0;
   const djFavoriteCount = favorites.filter(f => f.favoriteType === 'dj').length;
 
   const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount + followedOrganizers.length + followedAgencies.length;
@@ -637,7 +639,7 @@ export default function Favorites() {
       });
     });
 
-    drinks.forEach((d) => {
+    if (DRINKS_PILLAR_LIVE) drinks.forEach((d) => {
       out.push({
         key: `drink:${d.id}`,
         kind: 'drink',

@@ -31,6 +31,7 @@ import { marketProps } from '@/lib/geo';
 import { PublicPage } from '@/components/PublicPage';
 import { OrderConfirmationSkeleton } from '@/components/skeletons/OrderConfirmationSkeleton';
 import { publicUrl } from '@/lib/native';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface UpsellSelection {
   name: string;
@@ -1294,7 +1295,7 @@ export default function OrderConfirmation() {
         )}
 
         {/* Drink Credits from pack */}
-        {data.type === 'ticket' && (data.packName || data.upsellSelections?.some(u => u.offerType === 'drink_pack' || u.offerType === 'single_drink_discount' || u.offerType === 'combo')) && (
+        {DRINKS_PILLAR_LIVE && data.type === 'ticket' && (data.packName || data.upsellSelections?.some(u => u.offerType === 'drink_pack' || u.offerType === 'single_drink_discount' || u.offerType === 'combo')) && (
           <motion.section {...rise(0.28)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <DrinkCreditsCard ticketId={data.id} venueId={data.venueId} />
           </motion.section>
@@ -1302,7 +1303,7 @@ export default function OrderConfirmation() {
 
         {/* Rappel boissons (upsell post-achat) — la carte gère sa propre
             éligibilité et rend null (aucune section vide) sinon. */}
-        {data.type === 'ticket' && data.venueId && (
+        {DRINKS_PILLAR_LIVE && data.type === 'ticket' && data.venueId && (
           <DrinksUpsellCard ticketId={data.id} venueId={data.venueId} eventId={data.eventId} />
         )}
 

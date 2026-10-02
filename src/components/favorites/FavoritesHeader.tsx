@@ -1,6 +1,7 @@
 import { Search, X, LayoutGrid, Rows3 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { D, type Filter } from './shared';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /* ── Chip de filtre ── */
 function FilterChip({
@@ -120,7 +121,7 @@ export function FavoritesHeader({
     { id: 'clubs',      label: t('favorites.clubs') },
     { id: 'events',     label: t('favorites.tabParties') },
     { id: 'djs',        label: `${t('favorites.typeDJ')}s` },
-    { id: 'drinks',     label: t('favorites.drinks') },
+    ...(DRINKS_PILLAR_LIVE ? [{ id: 'drinks' as const, label: t('favorites.drinks') }] : []),
     { id: 'organizers', label: t('favorites.tabOrganizers') },
     { id: 'promoters',  label: t('favorites.tabPromoters') },
   ];

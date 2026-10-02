@@ -62,6 +62,10 @@ const G = globalThis as unknown as {
 // preview deploys (*.workers.dev) still emit canonical + sitemap URLs pointing at prod,
 // consolidating all ranking signals onto yunoapp.eu.
 const ORIGIN = 'https://yunoapp.eu';
+// Pilier boissons en pause (2026-10-01), miroir de src/lib/drinksPillar.ts : le
+// crawler parle de deux piliers (billets + tables VIP) et /order-drinks sort du sitemap.
+const DRINKS_PILLAR_LIVE = false;
+const PILLARS_COPY = DRINKS_PILLAR_LIVE ? 'tickets, VIP tables and drinks' : 'tickets and VIP tables';
 
 // Yuno encaisse la vente : c'est le VENDEUR de chaque Offer, pas l'organisateur de la
 // soirée. L'organisateur est le club (ou l'orga pour une soirée organizer-led) — les
@@ -374,7 +378,7 @@ const PILLAR_PAGES: Record<string, { title: string; description: string; h1: str
   '/tickets': {
     title: 'Buy Event Tickets — Club Nights, Parties & Shows | Yuno',
     description:
-      'Buy tickets to club nights, parties and events near you. Instant QR tickets, secure Apple Pay / Google Pay checkout, presale and guest list — plus VIP tables and drinks in one app.',
+      `Buy tickets to club nights, parties and events near you. Instant QR tickets, secure Apple Pay / Google Pay checkout, presale and guest list — plus VIP tables${DRINKS_PILLAR_LIVE ? ' and drinks' : ''} in one app.`,
     h1: 'Event tickets for the best nights out',
   },
   '/vip-tables': {
@@ -383,12 +387,12 @@ const PILLAR_PAGES: Record<string, { title: string; description: string; h1: str
       'Book VIP tables and bottle service at top nightclubs online. See real table maps, pre-order bottles, get guaranteed entry and host service. Reserve your table on Yuno.',
     h1: 'Book a VIP table & bottle service',
   },
-  '/order-drinks': {
+  ...(DRINKS_PILLAR_LIVE ? { '/order-drinks': {
     title: 'Order Drinks & Skip the Bar Queue — Order Ahead | Yuno',
     description:
       'Order drinks from your phone and skip the bar queue. Browse the club menu, pay in-app, and collect at a dedicated pickup point. Order rounds cashless with Yuno.',
     h1: 'Order drinks and skip the bar queue',
-  },
+  } } : {}),
 };
 
 // ---------------------------------------------------------------------------
@@ -523,7 +527,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     return {
       title: 'Events Tonight & This Weekend — Nightlife Tickets | Yuno',
       description:
-        'Find events near you: club nights, parties and shows this weekend. Buy tickets, book VIP tables and pre-order drinks in one app with Yuno.',
+        `Find events near you: club nights, parties and shows this weekend. Buy tickets${DRINKS_PILLAR_LIVE ? ', book VIP tables and pre-order drinks' : ' and book VIP tables'} in one app with Yuno.`,
       canonical: `${ORIGIN}/events`,
       jsonLd: {
         '@context': 'https://schema.org',
@@ -535,7 +539,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       },
       h1: 'Events tonight & this weekend',
       bodyHtml:
-        `<p>Discover club nights, parties and shows near you. Buy tickets, book VIP tables and pre-order drinks in one app.</p>` +
+        `<p>Discover club nights, parties and shows near you. Buy tickets${DRINKS_PILLAR_LIVE ? ', book VIP tables and pre-order drinks' : ' and book VIP tables'} in one app.</p>` +
         upcomingEventsHtml(events, orgMap),
     };
   }
@@ -545,7 +549,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     return {
       title: 'Nightclubs & Venues — Find Clubs Near You | Yuno',
       description:
-        'Browse the best nightclubs and venues near you. See what is on tonight, buy tickets, book VIP tables and pre-order drinks with Yuno.',
+        `Browse the best nightclubs and venues near you. See what is on tonight, buy tickets${DRINKS_PILLAR_LIVE ? ', book VIP tables and pre-order drinks' : ' and book VIP tables'} with Yuno.`,
       canonical: `${ORIGIN}/clubs`,
       jsonLd: {
         '@context': 'https://schema.org',
@@ -557,7 +561,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       },
       h1: 'Nightclubs & venues',
       bodyHtml:
-        `<p>Browse nightclubs and venues near you, see what is on, and book tickets, VIP tables and drinks.</p>` +
+        `<p>Browse nightclubs and venues near you, see what is on, and book ${PILLARS_COPY}.</p>` +
         linkListHtml(
           'Clubs',
           venues
@@ -887,7 +891,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       const pTitle = (ev.title as string) || 'Event';
       return {
         title: `${pTitle} · Yuno`,
-        description: clean(ev.description as string) || `${pTitle} — tickets, VIP tables and drinks on Yuno.`,
+        description: clean(ev.description as string) || `${pTitle} — ${PILLARS_COPY} on Yuno.`,
         image: ogImage((ev.poster_url as string) || undefined),
         canonical: `${ORIGIN}${path}`,
         jsonLd: {},
@@ -975,7 +979,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       : [];
     const description =
       clean(ev.description as string) ||
-      `${title}${city ? ` in ${city}` : ''}. Buy tickets, book a VIP table and pre-order drinks on Yuno.`;
+      `${title}${city ? ` in ${city}` : ''}. Buy tickets${DRINKS_PILLAR_LIVE ? ', book a VIP table and pre-order drinks' : ' and book a VIP table'} on Yuno.`;
 
     const place: Row = { '@type': 'Place', name: placeName };
     const address: Row = { '@type': 'PostalAddress' };
@@ -1166,7 +1170,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       bodyHtml:
         `<p>${esc(description)}</p>` +
         (facts ? `<ul>${facts}</ul>` : '') +
-        `<p><a href="${canonical}">Get tickets, VIP tables and drinks on Yuno</a></p>`,
+        `<p><a href="${canonical}">Get ${PILLARS_COPY} on Yuno</a></p>`,
     };
   }
 
@@ -1186,7 +1190,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const img = ogImage((v.cover_url as string) || (v.logo_url as string) || undefined);
     const description =
       clean((v.short_description as string) || (v.description as string)) ||
-      `Events, VIP tables and drinks at ${name}${city ? `, ${city}` : ''}. Book on Yuno.`;
+      `Events${DRINKS_PILLAR_LIVE ? ', VIP tables and drinks' : ' and VIP tables'} at ${name}${city ? `, ${city}` : ''}. Book on Yuno.`;
     const sameAs = [v.instagram_url, v.facebook_url, v.tiktok_url].filter(
       (u): u is string => typeof u === 'string' && !!u,
     );
@@ -1462,7 +1466,7 @@ async function buildSitemap(env: Env): Promise<string> {
     { loc: `${ORIGIN}/map`, changefreq: 'weekly', priority: '0.5' },
     { loc: `${ORIGIN}/tickets`, changefreq: 'monthly', priority: '0.8' },
     { loc: `${ORIGIN}/vip-tables`, changefreq: 'monthly', priority: '0.8' },
-    { loc: `${ORIGIN}/order-drinks`, changefreq: 'monthly', priority: '0.8' },
+    ...(DRINKS_PILLAR_LIVE ? [{ loc: `${ORIGIN}/order-drinks`, changefreq: 'monthly', priority: '0.8' }] : []),
     // Pages villes (src/data/cityPages.ts) — contenu vivant, re-crawl fréquent.
     ...Object.values(CITY_PAGES).map((c) => ({ loc: `${ORIGIN}/${c.slug}`, changefreq: 'daily', priority: '0.8' })),
     { loc: `${ORIGIN}/help`, changefreq: 'monthly', priority: '0.3' },

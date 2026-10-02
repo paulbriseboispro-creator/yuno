@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Seo } from '@/components/Seo';
 import { PublicPage } from '@/components/PublicPage';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /**
  * Shared layout for the SEO pillar pages (/tickets, /vip-tables, /order-drinks).
@@ -60,7 +61,7 @@ export interface PillarConfig {
 const OTHER_PILLARS: { path: string; label: string }[] = [
   { path: '/tickets', label: 'Event tickets' },
   { path: '/vip-tables', label: 'VIP tables' },
-  { path: '/order-drinks', label: 'Order drinks' },
+  ...(DRINKS_PILLAR_LIVE ? [{ path: '/order-drinks', label: 'Order drinks' }] : []),
 ];
 
 export function PillarLanding({ config }: { config: PillarConfig }) {

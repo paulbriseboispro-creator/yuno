@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface NightlifeSectionProps {
   nextEvent: {
@@ -58,7 +59,7 @@ export function NightlifeSection({
         : null,
       empty: t('profile.noHistory')
     },
-    {
+    ...(DRINKS_PILLAR_LIVE ? [{
       icon: Wine,
       iconColor: NEUTRAL,
       bgColor: NEUTRAL_BG,
@@ -66,7 +67,7 @@ export function NightlifeSection({
       value: favoriteDrink,
       subValue: null,
       empty: t('profile.noDrink')
-    },
+    }] : []),
     {
       icon: Heart,
       iconColor: '#E8192C',

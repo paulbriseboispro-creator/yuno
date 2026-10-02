@@ -13,6 +13,7 @@ import {
   Rocket,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface FunStatsProps {
   nightsAttended: number;
@@ -187,7 +188,7 @@ export function FunStats({
           <div className="flex items-center gap-1.5">
             <Ticket className="h-3.5 w-3.5" style={{ color: '#5A5A5E' }} />
             <span>
-              {drinksOrdered > nightsAttended ? 'Drinks' : nightsAttended > 0 ? 'Tickets' : '—'}
+              {DRINKS_PILLAR_LIVE && drinksOrdered > nightsAttended ? 'Drinks' : nightsAttended > 0 ? 'Tickets' : '—'}
             </span>
           </div>
         </motion.div>

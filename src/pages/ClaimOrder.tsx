@@ -15,6 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { saveGuestTicket } from '@/lib/guestTickets';
 import QRCode from 'qrcode';
 import { publicUrl } from '@/lib/native';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 // Ligne d'article d'une commande boissons renvoyée par claim-guest-order
 // (les deux paires de clés existent selon la génération de la commande).
@@ -316,10 +317,10 @@ export default function ClaimOrder() {
             </div>
 
             <Tabs value={purchaseType} onValueChange={(v) => { setPurchaseType(v as 'order' | 'ticket' | 'table'); setOrderNumber(''); }}>
-              <TabsList className="w-full grid grid-cols-3">
+              <TabsList className={`w-full grid ${DRINKS_PILLAR_LIVE ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger value="ticket">{t('claim.tabTickets')}</TabsTrigger>
                 <TabsTrigger value="table">{t('claim.tabTables')}</TabsTrigger>
-                <TabsTrigger value="order">{t('claim.tabDrinks')}</TabsTrigger>
+                {DRINKS_PILLAR_LIVE && <TabsTrigger value="order">{t('claim.tabDrinks')}</TabsTrigger>}
               </TabsList>
             </Tabs>
 

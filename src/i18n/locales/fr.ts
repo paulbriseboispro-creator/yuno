@@ -1759,6 +1759,8 @@ const fr: Record<string, string> = {
   'orders.cloakroomAccess': "Accès vestiaire",
   'orders.ticketIncludesPre': "Ce ticket inclut",
   'orders.ticketIncludesPost': "crédit(s) conso à dépenser sur la page du club pour cette soirée.",
+  // Pilier boissons en pause : la boisson offerte se récupère sur place, au scan.
+  'orders.ticketIncludesPostDoor': "boisson(s) offerte(s) : montre ce billet à l'entrée, le club s'en occupe.",
   'explore.priceFrom': "dès",
   'explore.veryBooked': "très réservé",
   'explore.eventsWord': "soirées",

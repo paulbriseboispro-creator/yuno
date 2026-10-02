@@ -42,6 +42,7 @@ import { LiveModeBanner } from '@/components/livemode/LiveModeBanner';
 import { isDemoEmail } from '@/lib/demoPlan';
 import { isDemoLiveForced, DEMO_LIVE_EVENT } from '@/lib/demoLive';
 import { celebrateOnce } from '@/lib/celebrate';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 export interface LiveSession {
   state: 'live' | 'pending_scan';
@@ -314,7 +315,9 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
   const value = useMemo<LiveModeValue>(
     () => ({
       session,
-      isLive: session?.state === 'live' && session.liveModeEnabled,
+      // Pilier boissons en pause (src/lib/drinksPillar.ts) : le Mode Live (menu du
+      // club après le scan d'entrée) ne prend plus la main — ni redirection, ni bandeau.
+      isLive: DRINKS_PILLAR_LIVE && session?.state === 'live' && session.liveModeEnabled,
       exited,
       loading,
       exitLive,

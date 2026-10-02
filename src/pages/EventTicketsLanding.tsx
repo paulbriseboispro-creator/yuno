@@ -29,7 +29,7 @@ const config: PillarConfig = {
     { title: 'Instant QR tickets', body: 'Your ticket is in the app the moment you pay. Nothing to print.' },
     { title: 'Secure checkout', body: 'Card, Apple Pay and Google Pay, processed securely by Stripe.' },
     { title: 'Guest list & presale', body: 'Join guest lists and grab presale tickets before public release.' },
-    { title: 'One app for the night', body: 'Add a VIP table or pre-order drinks from the same ticket.' },
+    { title: 'One app for the night', body: 'Add a VIP table from the same ticket, and keep every QR in one place.' },
   ],
   faqTitle: 'Event ticket FAQ',
   faqs: [
@@ -52,7 +52,7 @@ const config: PillarConfig = {
   ],
   metaTitle: 'Buy Event Tickets — Club Nights, Parties & Shows | Yuno',
   metaDescription:
-    'Buy tickets to club nights, parties and events near you. Instant QR tickets, secure Apple Pay / Google Pay checkout, presale and guest list — plus VIP tables and drinks in one app.',
+    'Buy tickets to club nights, parties and events near you. Instant QR tickets, secure Apple Pay / Google Pay checkout, presale and guest list — plus VIP tables in one app.',
 };
 
 export default function EventTicketsLanding() {

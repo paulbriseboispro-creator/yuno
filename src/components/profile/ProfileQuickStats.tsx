@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface ProfileQuickStatsProps {
   nightsAttended: number;
@@ -79,11 +80,13 @@ export function ProfileQuickStats({
         transition={{ delay: 0.3 }}
         className="flex items-center justify-center gap-6 py-2"
       >
+        {DRINKS_PILLAR_LIVE && (<>
         <div className="text-center">
           <p className="font-display font-bold text-white" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{drinksOrdered}</p>
           <p className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.10em', color: '#5A5A5E', marginTop: 3 }}>{t('profile.drinks')}</p>
         </div>
         <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.10)' }} />
+        </>)}
         <div className="text-center">
           <p className="font-display font-bold text-white" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{citiesExplored}</p>
           <p className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.10em', color: '#5A5A5E', marginTop: 3 }}>{citiesExplored === 1 ? t('profile.city') : t('profile.cities')}</p>

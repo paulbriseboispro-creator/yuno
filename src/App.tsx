@@ -12,6 +12,19 @@ import { FavoritesProvider } from "./contexts/FavoritesContext";
 import { VenueNavProvider } from "./contexts/VenueNavContext";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { DashboardModeProvider } from "./contexts/DashboardModeContext";
+import { DRINKS_PILLAR_LIVE } from "@/lib/drinksPillar";
+// Pilier boissons en pause (2026-10-01, src/lib/drinksPillar.ts) : les routes
+// du système boissons restent déclarées mais redirigent tant que le pilier
+// n'est pas relancé. Les pages ne sont pas supprimées.
+const drinksRoute = (element: JSX.Element, fallback: string) =>
+  DRINKS_PILLAR_LIVE ? element : <Navigate to={fallback} replace />;
+// Le détour « upsell boissons » après un achat de billet (Verify*, email,
+// push du jour J) : sans pilier, on va droit à la confirmation du billet.
+function UpsellDetourRedirect() {
+  const ticket = new URLSearchParams(window.location.search).get('ticket');
+  const ok = ticket && /^[0-9a-f-]{36}$/i.test(ticket);
+  return <Navigate to={ok ? `/order-confirmation?type=ticket&id=${ticket}` : '/my-orders?tab=tickets'} replace />;
+}
 const PlanGuard = lazyWithRetry(() => import("./components/PlanGuard").then(m => ({ default: m.PlanGuard })));
 const RequireRole = lazyWithRetry(() => import("./components/RequireRole").then(m => ({ default: m.RequireRole })));
 const OwnerRoute = lazyWithRetry(() => import("./components/OwnerRoute").then(m => ({ default: m.OwnerRoute })));
@@ -633,10 +646,10 @@ const App = () => (
                 <Route path="/djs" element={<AllDJsPage />} />
                 <Route path="/tickets" element={<EventTicketsLanding />} />
                 <Route path="/vip-tables" element={<VipTablesLanding />} />
-                <Route path="/order-drinks" element={<OrderDrinksLanding />} />
+                <Route path="/order-drinks" element={drinksRoute(<OrderDrinksLanding />, "/explore")} />
                 <Route path="/map" element={<ClubMap />} />
                 {/* Mode Live — takeover soirée après scan d'entrée (deep-link du push de bienvenue) */}
-                <Route path="/live" element={<LiveMode />} />
+                <Route path="/live" element={drinksRoute(<LiveMode />, "/my-orders")} />
                 <Route path="/welcome" element={<Welcome />} />
                 
                 
@@ -662,7 +675,7 @@ const App = () => (
                 <Route path="/club/:slug/event/:eventId/table/:packId" element={<TableCheckout />} />
                 <Route path="/club/:slug/event/:eventId/guestlist" element={<GuestListSignup />} />
                 <Route path="/club/:slug/event/:eventId/guestlist-checkout" element={<GuestListCheckout />} />
-                <Route path="/club/:slug/drinks/:category" element={<CategoryDrinks />} />
+                <Route path="/club/:slug/drinks/:category" element={drinksRoute(<CategoryDrinks />, "/explore")} />
 
                 {/* DJ public page */}
                 <Route path="/dj/:slug/epk" element={<DJEpkPage />} />
@@ -678,12 +691,12 @@ const App = () => (
                 <Route path="/mfa-disable-confirm" element={<MFADisableConfirm />} />
                 
                 {/* Payment verification routes */}
-                <Route path="/verify-payment" element={<VerifyPayment />} />
+                <Route path="/verify-payment" element={drinksRoute(<VerifyPayment />, "/my-orders")} />
                 <Route path="/verify-ticket-payment" element={<VerifyTicketPayment />} />
                 <Route path="/verify-table-payment" element={<VerifyTablePayment />} />
                 <Route path="/order-confirmation" element={<OrderConfirmation />} />
                 {/* Upsell boissons post-achat billet (prix presale) — voir docs/SYSTEME_VENTE_BOISSONS.md */}
-                <Route path="/order/upsell" element={<PostCheckoutUpsell />} />
+                <Route path="/order/upsell" element={DRINKS_PILLAR_LIVE ? <PostCheckoutUpsell /> : <UpsellDetourRedirect />} />
                 <Route path="/claim" element={<ClaimOrder />} />
                 <Route path="/guest/finalize" element={<GuestFinalizeAccount />} />
                 
@@ -849,8 +862,8 @@ const App = () => (
                     <Favorites />
                   </RequireRole>
                 } />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/guest-checkout" element={<GuestDrinkCheckout />} />
+                <Route path="/cart" element={drinksRoute(<Cart />, "/explore")} />
+                <Route path="/guest-checkout" element={drinksRoute(<GuestDrinkCheckout />, "/explore")} />
                 <Route path="/my-orders" element={<MyOrders />} />
                 {/* Redirect /my-tickets to /my-orders?tab=tickets */}
                 <Route path="/my-tickets" element={<Navigate to="/my-orders?tab=tickets" replace />} />
@@ -871,23 +884,20 @@ const App = () => (
                 <Route path="/legal/:section" element={<LegalPage />} />
                 <Route path="/assistant" element={<YunoAssistantPage />} />
                 <Route path="/help" element={<HelpCenter />} />
-                <Route path="/order/:orderId/qr" element={
+                <Route path="/order/:orderId/qr" element={drinksRoute(
                   <RequireRole allowedRoles={['client', 'barman', 'owner']}>
                     <OrderQR />
-                  </RequireRole>
-                } />
+                  </RequireRole>, "/my-orders")} />
                 
                 {/* Barman routes */}
-                <Route path="/barman" element={
+                <Route path="/barman" element={drinksRoute(
                   <BarmanRoute>
                     <Barman />
-                  </BarmanRoute>
-                } />
-                <Route path="/click-collect" element={
+                  </BarmanRoute>, "/pro")} />
+                <Route path="/click-collect" element={drinksRoute(
                   <BarmanRoute>
                     <ClickCollect />
-                  </BarmanRoute>
-                } />
+                  </BarmanRoute>, "/pro")} />
                 
                 {/* Bouncer routes */}
                 <Route path="/bouncer" element={
@@ -975,11 +985,11 @@ const App = () => (
                   <Route path="accounting" element={<PlanGuard feature="invoices_refunds"><OwnerAccounting /></PlanGuard>} />
                   <Route path="refunds" element={<OwnerRefunds />} />
                   <Route path="staff" element={<PlanGuard feature="staff_pin"><OwnerStaff /></PlanGuard>} />
-                  <Route path="menu" element={<PlanGuard feature="menu"><OwnerMenu /></PlanGuard>} />
+                  <Route path="menu" element={drinksRoute(<PlanGuard feature="menu"><OwnerMenu /></PlanGuard>, "/owner/dashboard")} />
                   <Route path="venue" element={<OwnerVenue />} />
                   <Route path="billing" element={<OwnerBilling />} />
                   <Route path="vip-service" element={<PlanGuard feature="vip_service"><OwnerVipService /></PlanGuard>} />
-                  <Route path="upsell" element={<PlanGuard feature="offers_upsell"><OwnerUpsell /></PlanGuard>} />
+                  <Route path="upsell" element={drinksRoute(<PlanGuard feature="offers_upsell"><OwnerUpsell /></PlanGuard>, "/owner/dashboard")} />
                   <Route path="managers" element={<OwnerManagers />} />
                   <Route path="waitlist" element={<OwnerWaitlist />} />
                   <Route path="notifications" element={<OwnerNotifications />} />
@@ -998,7 +1008,7 @@ const App = () => (
                   <Route path="event/:eventId" element={<EventDetails />} />
                   <Route path="event/:eventId/billets" element={<TicketSelectionPage />} />
                   <Route path="event/:eventId/table/:packId" element={<TableCheckout />} />
-                  <Route path="drinks/:category" element={<CategoryDrinks />} />
+                  <Route path="drinks/:category" element={drinksRoute(<CategoryDrinks />, "/owner/dashboard")} />
                 </Route>
 
                 {/* DJ app (sidebar layout + routed sections) */}
@@ -1055,7 +1065,7 @@ const App = () => (
                 } />
                 
                 {/* VIP Menu for customers (single QR per venue) */}
-                <Route path="/vip-menu/:venueId" element={<VipMenu />} />
+                <Route path="/vip-menu/:venueId" element={drinksRoute(<VipMenu />, "/explore")} />
                 
                 {/* Manager routes - separate from owner with permission-based access */}
                 <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
@@ -1074,11 +1084,10 @@ const App = () => (
                     <OwnerEvents />
                   </ManagerRoute>
                 } />
-                <Route path="/manager/menu" element={
+                <Route path="/manager/menu" element={drinksRoute(
                   <ManagerRoute>
                     <OwnerMenu />
-                  </ManagerRoute>
-                } />
+                  </ManagerRoute>, "/manager/dashboard")} />
                 <Route path="/manager/staff" element={
                   <ManagerRoute>
                     <OwnerStaff />
@@ -1165,11 +1174,10 @@ const App = () => (
                   </ManagerRoute>
                 } />
                 <Route path="/manager/hype" element={<Navigate to="/manager/analytics?tab=sales&view=event" replace />} />
-                <Route path="/manager/upsell" element={
+                <Route path="/manager/upsell" element={drinksRoute(
                   <ManagerRoute>
                     <OwnerUpsell />
-                  </ManagerRoute>
-                } />
+                  </ManagerRoute>, "/manager/dashboard")} />
                 <Route path="/manager/guest-list" element={
                   <ManagerRoute>
                     <OwnerGuestList />
@@ -1271,7 +1279,7 @@ const App = () => (
                   <Route path="system" element={<AdminSystem />} />
                   <Route path="alerts" element={<AdminAlerts />} />
                   <Route path="audit" element={<AdminAuditLog />} />
-                  <Route path="drinks" element={<AdminDrinkCatalog />} />
+                  <Route path="drinks" element={drinksRoute(<AdminDrinkCatalog />, "/admin")} />
                   {/* Abonnements : fonctionnalité coupée (SUBSCRIPTIONS_ENABLED=false),
                       page gardée hors navigation, atteignable depuis la santé technique. */}
                   <Route path="subscriptions" element={<AdminSubscriptions />} />

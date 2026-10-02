@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Sparkles, Music, Wine, Users, Moon, PartyPopper, ChevronRight, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface TasteQuizProps {
   userId: string;
@@ -47,7 +48,8 @@ const questions: QuizQuestion[] = [
       { value: 'everything', emoji: '🎶', labelKey: 'quiz.everything' },
     ],
   },
-  {
+  // Pilier boissons en pause (src/lib/drinksPillar.ts) : la question dort avec lui.
+  ...(DRINKS_PILLAR_LIVE ? [{
     id: 'drink_preference',
     icon: <Wine className="h-6 w-6" />,
     titleKey: 'quiz.drinkQuestion',
@@ -67,7 +69,7 @@ const questions: QuizQuestion[] = [
       { value: 'mocktails', emoji: '🧃', labelKey: 'quiz.mocktails' },
       { value: 'energy', emoji: '⚡', labelKey: 'quiz.energy' },
     ],
-  },
+  }] : []),
   {
     id: 'vibe_preference',
     icon: <Sparkles className="h-6 w-6" />,

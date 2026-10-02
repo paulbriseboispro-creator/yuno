@@ -12,6 +12,7 @@ import { APP_STORE_READY } from '@/lib/appStore';
 import { markWebEngaged } from '@/lib/webHome';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 /**
  * Landing web — la vitrine que voit un inconnu qui tape yunoapp.eu.
@@ -181,16 +182,19 @@ export default function Landing() {
   const pillars = [
     { key: 'p1', to: '/tickets', title: t('landing.p1.title'), body: t('landing.p1.body') },
     { key: 'p2', to: '/vip-tables', title: t('landing.p2.title'), body: t('landing.p2.body') },
-    { key: 'p3', to: '/order-drinks', title: t('landing.p3.title'), body: t('landing.p3.body') },
+    // Pilier boissons en pause (src/lib/drinksPillar.ts) : deux piliers à l'affiche.
+    ...(DRINKS_PILLAR_LIVE ? [{ key: 'p3', to: '/order-drinks', title: t('landing.p3.title'), body: t('landing.p3.body') }] : []),
   ];
 
-  const appFeatures = [t('landing.appF1'), t('landing.appF2'), t('landing.appF3'), t('landing.appF4')];
+  const appFeatures = [t('landing.appF1'), t(DRINKS_PILLAR_LIVE ? 'landing.appF2' : 'landing.appF2b'), t('landing.appF3'), t('landing.appF4')];
 
   return (
     <div style={{ minHeight: '100dvh', background: '#0A0A0A', color: '#fff' }}>
       <Seo
-        title="Yuno – Tickets, VIP Tables & Drinks for Nightlife"
-        description="Yuno is your whole night out in one app: buy event tickets, book VIP bottle-service tables, and order drinks to skip the bar queue. Discover the best clubs and events near you."
+        title={DRINKS_PILLAR_LIVE ? "Yuno – Tickets, VIP Tables & Drinks for Nightlife" : "Yuno – Event Tickets & VIP Tables for Nightlife"}
+        description={DRINKS_PILLAR_LIVE
+          ? "Yuno is your whole night out in one app: buy event tickets, book VIP bottle-service tables, and order drinks to skip the bar queue. Discover the best clubs and events near you."
+          : "Yuno is your whole night out in one app: buy event tickets and book VIP bottle-service tables. Discover the best clubs and events near you."}
         canonical="/"
         jsonLd={{
           '@context': 'https://schema.org',
@@ -258,7 +262,7 @@ export default function Landing() {
             className="animate-hero-label font-mono uppercase"
             style={{ fontSize: '10.5px', letterSpacing: '0.22em', color: '#FF4D5E', marginBottom: 12 }}
           >
-            {t('landing.kicker')}
+            {t(DRINKS_PILLAR_LIVE ? 'landing.kicker' : 'landing.kicker2')}
           </p>
           <h1
             className="animate-hero-h1 font-display font-bold uppercase"
@@ -276,7 +280,7 @@ export default function Landing() {
             className="animate-hero-body font-sans"
             style={{ fontSize: '15px', lineHeight: 1.55, color: '#E5E5E5', maxWidth: 520, margin: '16px 0 24px' }}
           >
-            {t('landing.lead')}
+            {t(DRINKS_PILLAR_LIVE ? 'landing.lead' : 'landing.lead2')}
           </p>
           {/* CTA : le téléchargement mène dès que l'app est approuvée ; d'ici là,
               l'action vivante (explorer) prime et le badge annonce la sortie. */}
@@ -430,7 +434,7 @@ export default function Landing() {
                 {t('landing.appTitle')}
               </h2>
               <p className="font-sans" style={{ fontSize: '14.5px', lineHeight: 1.6, color: '#E5E5E5', margin: '14px 0 20px' }}>
-                {t('landing.appBody')}
+                {t(DRINKS_PILLAR_LIVE ? 'landing.appBody' : 'landing.appBody2')}
               </p>
               <ul className="space-y-2.5 mb-7">
                 {appFeatures.map((f, i) => (
