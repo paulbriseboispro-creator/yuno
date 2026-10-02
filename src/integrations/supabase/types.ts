@@ -12259,6 +12259,7 @@ export type Database = {
           minor_auth_doc_url: string | null
           minors_allowed: boolean
           name_changed_at: string | null
+          product: string
           rna_number: string | null
           search_display_name: string | null
           siret: string | null
@@ -12293,6 +12294,7 @@ export type Database = {
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
           name_changed_at?: string | null
+          product?: string
           rna_number?: string | null
           search_display_name?: string | null
           siret?: string | null
@@ -12327,6 +12329,7 @@ export type Database = {
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
           name_changed_at?: string | null
+          product?: string
           rna_number?: string | null
           search_display_name?: string | null
           siret?: string | null
@@ -13084,6 +13087,7 @@ export type Database = {
           org_name: string | null
           phone: string | null
           pillars: string[]
+          product: string
           referrer_host: string | null
           size_band: string | null
           source: string | null
@@ -13120,6 +13124,7 @@ export type Database = {
           org_name?: string | null
           phone?: string | null
           pillars?: string[]
+          product?: string
           referrer_host?: string | null
           size_band?: string | null
           source?: string | null
@@ -13156,6 +13161,7 @@ export type Database = {
           org_name?: string | null
           phone?: string | null
           pillars?: string[]
+          product?: string
           referrer_host?: string | null
           size_band?: string | null
           source?: string | null
@@ -18623,6 +18629,7 @@ export type Database = {
           name_changed_at: string | null
           owner_id: string | null
           post_checkout_upsell_enabled: boolean
+          product: string
           purge_at: string | null
           search_city: string | null
           search_name: string | null
@@ -18686,6 +18693,7 @@ export type Database = {
           name_changed_at?: string | null
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
+          product?: string
           purge_at?: string | null
           search_city?: string | null
           search_name?: string | null
@@ -18749,6 +18757,7 @@ export type Database = {
           name_changed_at?: string | null
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
+          product?: string
           purge_at?: string | null
           search_city?: string | null
           search_name?: string | null
@@ -21931,6 +21940,10 @@ export type Database = {
         Args: { p_event_id: string; p_promoter_id: string }
         Returns: undefined
       }
+      crm_scope_allowed: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: boolean
+      }
       current_affiliate_id: { Args: never; Returns: string }
       decide_guest_list_allocation_request: {
         Args: {
@@ -22808,6 +22821,20 @@ export type Database = {
         }
         Returns: Json
       }
+      get_crm_night_report: { Args: { p_event_id: string }; Returns: Json }
+      get_crm_nights: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_crm_overview: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_customer_automation_emails: {
         Args: {
           p_email: string
@@ -23060,6 +23087,16 @@ export type Database = {
       get_events_sales_summary: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
+      }
+      get_external_event_live: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          deals: Json
+          event_id: string
+          left_tickets: number
+          sold_out: boolean
+          ticket_url: string
+        }[]
       }
       get_for_you_events: {
         Args: { p_limit?: number }
@@ -24913,6 +24950,14 @@ export type Database = {
       }
       seed_venue_tracked_links: {
         Args: { p_venue_id: string }
+        Returns: undefined
+      }
+      set_account_product: {
+        Args: {
+          p_organizer_user_id: string
+          p_product: string
+          p_venue_id: string
+        }
         Returns: undefined
       }
       set_affiliate_ticket_one_offs: {
