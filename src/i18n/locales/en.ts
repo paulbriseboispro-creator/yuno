@@ -4847,6 +4847,7 @@ const en: Record<string, string> = {
   'common.previous': 'Previous',
   'common.change': 'Change',
   'common.confirm': 'Confirm',
+  'vipCheckout.tableSelected': 'Table selected',
   'vipCheckout.step.package': 'Package',
   'vipCheckout.step.placement': 'Placement',
   'vipCheckout.step.details': 'Details',

@@ -5167,6 +5167,7 @@ const es: Record<string, string> = {
   'vipCheckout.pinchToZoom': 'Pellizca o arrastra para hacer zoom',
   'vipCheckout.tapTableToSelect': 'Toca una mesa para seleccionarla',
   'vipCheckout.floorPlan': 'Plano del local',
+  'vipCheckout.tableSelected': 'Mesa seleccionada',
   'vipCheckout.step.package': 'Paquete',
   'vipCheckout.step.placement': 'Ubicación',
   'vipCheckout.step.details': 'Datos',
