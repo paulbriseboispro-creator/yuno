@@ -62,6 +62,26 @@ const dict: AdminDict = {
   'adm.ai.legacyAudit': ['Write actions logged this period: {o} club · {a} agency.', 'Actions d’écriture journalisées sur la période : {o} club · {a} agence.', 'Acciones de escritura registradas en el período: {o} club · {a} agencia.'],
   'adm.ai.turnsN': ['{n} turns', '{n} tours', '{n} turnos'],
   'adm.ai.noTools': ['No tool called yet.', 'Aucun outil appelé pour l’instant.', 'Ninguna herramienta usada todavía.'],
+  // Connecteur IA (serveur MCP) — l'adoption par les pros (admin_mcp_usage).
+  'adm.mcp.title': ['AI connector (MCP)', 'Connecteur IA (MCP)', 'Conector IA (MCP)'],
+  'adm.mcp.subtitle': ['Pros who plugged their own AI (Claude, ChatGPT, Gemini, Le Chat) into their Yuno numbers, read-only. Yuno pays no token here.', 'Les pros qui ont branché leur propre IA (Claude, ChatGPT, Gemini, Le Chat) sur leurs chiffres Yuno, en lecture seule. Yuno ne paie aucun token ici.', 'Los pros que conectaron su propia IA (Claude, ChatGPT, Gemini, Le Chat) a sus cifras de Yuno, solo lectura. Yuno no paga ningún token aquí.'],
+  'adm.mcp.empty': ['No AI connected yet. The page yunoapp.eu/ai and Settings → AI assistants explain how.', 'Aucune IA connectée pour l’instant. La page yunoapp.eu/ai et Réglages → Assistants IA expliquent comment faire.', 'Ninguna IA conectada todavía. La página yunoapp.eu/ai y Ajustes → Asistentes IA explican cómo.'],
+  'adm.mcp.connections': ['Active connections', 'Connexions actives', 'Conexiones activas'],
+  'adm.mcp.newN': ['{n} new in the period', '{n} nouvelles sur la période', '{n} nuevas en el periodo'],
+  'adm.mcp.users': ['Connected pros', 'Pros connectés', 'Pros conectados'],
+  'adm.mcp.activeN': ['{n} asked something', '{n} ont posé une question', '{n} han preguntado algo'],
+  'adm.mcp.calls': ['Analyses run', 'Analyses lancées', 'Análisis lanzados'],
+  'adm.mcp.customersLevel': ['With customer details', 'Avec fiches clients', 'Con fichas de clientes'],
+  'adm.mcp.customersHint': ['connections allowed to read identities', 'connexions autorisées à lire des identités', 'conexiones autorizadas a leer identidades'],
+  'adm.mcp.errors': ['Errors', 'Erreurs', 'Errores'],
+  'adm.mcp.avg': ['avg {v}', 'moy. {v}', 'media {v}'],
+  'adm.mcp.security': ['Security cut-offs', 'Coupures sécurité', 'Cortes de seguridad'],
+  'adm.mcp.revokedN': ['{n} disconnections in total', '{n} déconnexions au total', '{n} desconexiones en total'],
+  'adm.mcp.byTool': ['Analyses asked', 'Analyses demandées', 'Análisis pedidos'],
+  'adm.mcp.byClient': ['AI apps', 'IA utilisées', 'IA usadas'],
+  'adm.mcp.connectionsN': ['{n} active connections', '{n} connexions actives', '{n} conexiones activas'],
+  'adm.mcp.bySpace': ['Most active spaces', 'Espaces les plus actifs', 'Espacios más activos'],
+  'adm.mcp.recentErrors': ['Recent connector errors', 'Erreurs récentes du connecteur', 'Errores recientes del conector'],
 };
 
 export default dict;

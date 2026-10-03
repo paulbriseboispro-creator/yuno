@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAdminScope } from '@/components/admin/AdminScope';
+import { AdminMcpUsage } from '@/components/admin/AdminMcpUsage';
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Bot, Clock, Coins, Cpu, MessageSquare, RefreshCw, Search, TriangleAlert, Users, Wrench, Zap } from 'lucide-react';
 import {
@@ -44,6 +45,8 @@ export default function AdminAi() {
     setLoading(false);
   }, [period, includeDemo]);
   useEffect(() => { load(); }, [load]);
+  // Même fenêtre que la page pour la carte du connecteur IA (MCP).
+  const range = useMemo(() => periodRange(period), [period]);
 
   const aLabel = (a: string) => { const k = `adm.ai.a.${a}`; const v = t(k); return v === k ? a : v; };
   const sLabel = (s: string) => { const k = `adm.ai.status.${s}`; const v = t(k); return v === k ? s : v; };
@@ -221,6 +224,7 @@ export default function AdminAi() {
           </Card>
         </Reveal>
       )}
+      <AdminMcpUsage from={range.from} to={range.to} includeDemo={includeDemo} />
       <p style={{ color: T3, fontSize: 11 }}>{includeDemo ? t('adm.common.demoIncluded') : t('adm.common.realOnlyNote')}</p>
     </AdminPage>
   );
