@@ -33,11 +33,13 @@ const languages = [
  * téléphone, l'anglais sinon), pas de push, pas de quiz.
  */
 export function OnboardingGate() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   if (isPublicLinktreePath(pathname)) return null;
-  // Un pro qui arrive de son IA (consentement MCP) ou qui lit la page qui
-  // l'explique n'est pas un client de soirée : aucune carte d'accueil.
+  // Un pro qui arrive de son IA (consentement MCP, y compris la connexion qui
+  // le précède) ou qui lit la page qui l'explique n'est pas un client de
+  // soirée : aucune carte d'accueil.
   if (pathname === '/connect-ai' || pathname === '/ai') return null;
+  if (pathname === '/auth' && search.includes('connect-ai')) return null;
   return <OnboardingGateSteps />;
 }
 
