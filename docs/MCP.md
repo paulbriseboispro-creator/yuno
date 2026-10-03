@@ -57,13 +57,15 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
   `20261003140000`) ; `space` accepte la clé OU le nom exact de l'espace
   (`20261003150000`). Avant, l'IA prenait la plus petite clé (le compte CRM du
   relecteur) et croyait les autres espaces hors connexion.
-- **Statement timeout** : `anon` est à 3 s (trop court pour les analyses
-  lourdes), `service_role` hérite des 8 s d'`authenticator`, comme la Console.
-  Le Worker attend `mcp_call` 14 s ; un dépassement (57014 de la base OU
-  abandon du Worker, 408) est relancé une fois (le cache est alors chaud —
-  mesuré le 03/10 sur le club démo : 9,5 s à froid, moins de 1,2 s à chaud),
-  sur une fenêtre resserrée à 45 jours pour un outil à fenêtre, et l'échec
-  final est journalisé (`mcp_log_failure`).
+- **Délais** : `anon` est à 3 s, mais une requête de la clé serveur du MCP
+  n'est PAS coupée à 8 s par la base (mesuré le 03/10 : des appels réussis de
+  11-12 s, et rien ne coupe une requête que le Worker abandonne). À froid, une
+  analyse de base de contacts prend 7 à 12 s, davantage quand l'IA lance
+  plusieurs outils en parallèle ; à chaud, moins de 1,2 s. Le Worker attend
+  donc `mcp_call` jusqu'à 25 s et ne relance (une fois, fenêtre resserrée à
+  45 jours pour un outil à fenêtre) que s'il reste 8 s dans un budget de 40 s
+  — les clients MCP coupent à 60 s. L'échec final est journalisé
+  (`mcp_log_failure`).
 - **Un outil composite rend ce qu'il peut** (migration `20261003130000`) :
   chaque brique (RFM, listes, attribution email, automatisations, push,
   signaux…) est appelée dans son propre bloc ; une brique refusée au rôle ou en
