@@ -71,8 +71,8 @@ longueur respecte la limite du portail (comptée le 2026-10-03 : one-liner
 
 > 1. Add a custom connector with the URL https://yunoapp.eu/mcp.
 > 2. When Claude opens the Yuno sign-in page, sign in with email + password: review@womber.fr / <PASSWORD>. There is no 2FA, no email code.
-> 3. On the consent screen, keep the three spaces checked (the demo club "Yuno", "Organisateur Démo" and the Yuno CRM demo organization), select "Numbers + customer details" to exercise every tool, then click Allow.
-> 4. Try: "How did my last party go compared with the previous one?", "Give me 3 actions to sell more for my next event", "How many people took a VIP table and have not come back in 60 days?", "Who are my 10 best customers?", "Is the Yuno CRM demo selling better through Instagram or email?"
+> 3. On the consent screen, keep the three spaces checked (the demo club "Yuno", "Organisateur Démo" and "Nuits Démo", a Yuno CRM account connected to its ticketing), select "Numbers + customer details" to exercise every tool, then click Allow.
+> 4. Try: "How did my last party go compared with the previous one?", "Give me 3 actions to sell more for my next event", "How many people took a VIP table and have not come back in 60 days?", "Who are my 10 best customers?", "In Nuits Démo, which of my last parties brought the most new customers?"
 > 5. All data in this account is fictitious demo data. The account cannot send any email, push or SMS (demo safeguard). Every connection is listed, logged and revocable by the account holder in the Yuno Console (Settings > AI assistants).
 
 Coche « j'ai testé chaque outil » seulement après l'étape 2 de ton guide.

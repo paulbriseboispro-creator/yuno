@@ -28,7 +28,7 @@ Tous les textes à coller sont dans `docs/mcp-directory/SUBMISSION.md`.
 
 Les annuaires veulent un compte rempli, utilisable tout de suite, sans 2FA.
 C'est un compte démo (données fictives, aucun envoi possible) qui voit le club
-démo, l'organisation démo et le compte Yuno CRM démo.
+démo, l'organisation démo et le compte Yuno CRM démo (« Nuits Démo »).
 
 ```bash
 node scripts/demo/create-reviewer-account.mjs
