@@ -27,11 +27,15 @@
 // Pages villes : mêmes définitions que la SPA (slug, nom, meta) — données pures.
 import { CITY_PAGES } from '../src/data/cityPages';
 import { currentNightDate } from '../src/lib/affiliateEventTime';
+// Serveur MCP (Claude, ChatGPT, Gemini, Le Chat) + son serveur OAuth : docs/MCP.md.
+import { handleMcpRoute, isMcpRoute } from './mcp';
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  // Clé serveur dédiée au MCP (secret Cloudflare). Absente : /mcp répond 503.
+  SUPABASE_MCP_KEY?: string;
 }
 
 type Ctx = { waitUntil: (p: Promise<unknown>) => void };
@@ -1614,6 +1618,11 @@ export default {
 
   async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
     const url = new URL(request.url);
+
+    // Serveur MCP + OAuth : /mcp, /oauth/*, /.well-known/oauth-* (wrangler.jsonc
+    // les liste dans run_worker_first). Avant tout le reste : aucune de ces
+    // routes n'est une page de l'app.
+    if (isMcpRoute(url.pathname)) return handleMcpRoute(request, env, ctx);
 
     // Ghost asset paths → real 404, never the SPA shell. Workers Assets falls back to
     // index.html when a file is missing, so `/_next/…woff2` currently answers 200 + HTML
