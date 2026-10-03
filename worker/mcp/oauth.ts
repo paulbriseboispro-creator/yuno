@@ -52,7 +52,7 @@ export function protectedResourceMetadata(url: URL): Response {
     bearer_methods_supported: ['header'],
     resource_name: 'Yuno',
     resource_documentation: `${origin}/ai`,
-    resource_policy_uri: `${origin}/legal/confidentialite`,
+    resource_policy_uri: `${origin}/legal/privacy`,
     resource_tos_uri: `${origin}/legal/cgu`,
   }, 200, { 'Cache-Control': 'public, max-age=3600' });
 }
@@ -75,7 +75,7 @@ export function authorizationServerMetadata(url: URL): Response {
     client_id_metadata_document_supported: true,
     authorization_response_iss_parameter_supported: true,
     service_documentation: `${origin}/ai`,
-    op_policy_uri: `${origin}/legal/confidentialite`,
+    op_policy_uri: `${origin}/legal/privacy`,
     op_tos_uri: `${origin}/legal/cgu`,
   }, 200, { 'Cache-Control': 'public, max-age=3600' });
 }

@@ -36,6 +36,8 @@ interface Env {
   SUPABASE_ANON_KEY: string;
   // Clé serveur dédiée au MCP (secret Cloudflare). Absente : /mcp répond 503.
   SUPABASE_MCP_KEY?: string;
+  // Jeton de vérification de domaine du portail OpenAI (plugins).
+  OPENAI_APPS_CHALLENGE?: string;
 }
 
 type Ctx = { waitUntil: (p: Promise<unknown>) => void };

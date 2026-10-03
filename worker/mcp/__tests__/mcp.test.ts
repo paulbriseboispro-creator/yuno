@@ -53,7 +53,7 @@ const modernHeaders = (method: string, name?: string) => ({ 'MCP-Protocol-Versio
 describe('compactResult', () => {
   it('drops images, drinks, empties and noise; rounds and shortens timestamps', () => {
     const out = JSON.parse(compactResult({
-      ok: true, poster: 'https://x/p.jpg', cover_url: 'u', drinks: { orders: 3 }, rev_bar: 12,
+      ok: true, now: '2026-10-03T12:00:00Z', generated_at: 'x', created_at: 'y', poster: 'https://x/p.jpg', cover_url: 'u', drinks: { orders: 3 }, rev_bar: 12,
       title: 'Night', empty: [], none: null, revenue: 1234.5678, share: 0.123456,
       startAt: '2026-10-02T21:00:00.123456+00:00', local: '2026-10-02T23:00:00+02:00',
     }));
@@ -215,6 +215,7 @@ describe('mcp endpoint', () => {
     expect(body.result.isError).toBe(false);
     const data = JSON.parse(body.result.content[0].text);
     expect(data).toEqual({ space: { key: 'venue:womber', name: 'Yuno', kind: 'venue', product: 'suite' }, tickets: 12, startAt: '2026-10-02T21:00Z' });
+    expect(body.result.content[0].text).not.toContain('call_id');
     const call = calls.find((c) => c.fn === 'mcp_call')!;
     expect(call.args.p_access_hash).toBe(await sha256Hex('yuno_mcp_at_abc'));
     expect(call.args.p_args).toEqual({ event: 'last' });
@@ -252,6 +253,13 @@ describe('mcp endpoint', () => {
     expect(html.headers.get('Location')).toBe(`${BASE}/ai`);
     const sse = await handleMcpRoute(new Request(`${BASE}/mcp`, { headers: { Accept: 'text/event-stream' } }), ENV, ctx);
     expect(sse.status).toBe(405);
+  });
+
+  it('serves the OpenAI domain challenge only when configured', async () => {
+    const none = await handleMcpRoute(new Request(`${BASE}/.well-known/openai-apps-challenge`), ENV, ctx);
+    expect(none.status).toBe(404);
+    const set = await handleMcpRoute(new Request(`${BASE}/.well-known/openai-apps-challenge`), { ...ENV, OPENAI_APPS_CHALLENGE: ' tok_123 ' }, ctx);
+    expect(await set.text()).toBe('tok_123');
   });
 
   it('answers 503 when the server key is not configured', async () => {

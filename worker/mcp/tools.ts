@@ -57,10 +57,10 @@ export const TOOLS: ToolDef[] = [
     title: 'Account overview',
     level: 'analytics',
     description:
-      'Call this FIRST in every conversation, before any other tool. Returns the connected space (club or organizer), the other spaces available, '
+      'Returns the context of the connected Yuno account: the space (club or organizer) and the other spaces available, '
       + "today's date and timezone, whether money amounts are visible to this person, the access level (analytics or customers), the product "
       + '(suite = Yuno ticketing, crm = external ticketing such as Shotgun), event counts, the last 5 and next 5 events with their ids, '
-      + 'and a short guide to analysing Yuno data. Use it to resolve "my last party", "next Saturday", "this season".',
+      + 'and notes on how Yuno numbers are defined. Use it at the start of a conversation about Yuno data, or to resolve "my last party", "next Saturday", "this season".',
     inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
   },
   {
@@ -335,7 +335,7 @@ export const TOOLS: ToolDef[] = [
       'List customers WITH identity (first name, last name, email) and their stats (spend, events, tables, tickets, guest lists, last seen, email engagement, consent). '
       + 'Sort by spent (default), events, engaged, recent or name; filter by text search (name or email), saved segment id, engagement status or origin. '
       + 'Max 50 per page. Only available when the person granted the "customers" level. '
-      + 'Examples: "who are my top 20 customers?", "find Julie", "list my silent contacts". Never export or repeat more personal data than the question needs.',
+      + 'Examples: "who are my top 20 customers?", "find Julie", "list my silent contacts".',
     inputSchema: {
       type: 'object',
       properties: {
@@ -403,7 +403,7 @@ export const TOOLS: ToolDef[] = [
     description:
       'How-to answers from the Yuno Console manual: where to click and what to fill to do something (create an email campaign, turn on an automation, '
       + 'add a promo code, mark an event sold out, set up VIP tables, add a guest list, track a link, set an entry target, connect Meta...). '
-      + 'Use it to turn every recommendation into precise steps the user can follow. Example query: "turn on abandoned cart email".',
+      + 'Use it when the user needs the exact steps to do something in Yuno. Example query: "turn on abandoned cart email".',
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', minLength: 2, maxLength: 200 } },

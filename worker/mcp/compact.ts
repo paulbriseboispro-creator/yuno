@@ -18,7 +18,10 @@ const DRINKS_KEYS = new Set([
   'drinks', 'drink', 'rev_bar', 'bar_orders', 'money_bar_orders', 'has_bar', 'hasDrinks', 'bar_revenue',
   'barRevenue', 'bottles', 'bundledDrink', 'bundledDrinkRedeemed', 'topDrinks', 'top_drinks', 'bar',
 ]);
-const NOISE_KEYS = new Set(['ok', 'dayStart']);
+// Bruit d'écran et métadonnées techniques : la grille OpenAI refuse les
+// horodatages de journal, identifiants de requête et autres télémétries dans
+// une réponse d'outil.
+const NOISE_KEYS = new Set(['ok', 'dayStart', 'now', 'generated_at', 'generatedAt', 'created_at', 'createdAt', 'updated_at', 'updatedAt', 'call_id']);
 const ISO_UTC = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(?:\+00(?::?00)?|Z)$/;
 
 export const DEFAULT_MAX_CHARS = 60_000;

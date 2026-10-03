@@ -107,13 +107,17 @@ export function sessionContext(spaces: SessionSpace[], level: string, firstName?
   return `\n\nCONNECTION\n${firstName ? `Person: ${firstName}.\n` : ''}Access level: ${level}${level === 'customers' ? ' (customer identities allowed)' : ' (aggregates only, no personal data)'}.\nSpaces:\n${lines.join('\n')}`;
 }
 
-// Le guide court rendu par get_account_overview (pour les clients qui ne
-// lisent pas les consignes du serveur).
-export const OVERVIEW_GUIDE = [
-  'Answer first, then the comparison (previous event, same D-N, previous period), then 2-4 findings with numbers, then 1-3 ranked actions with Console steps (search_yuno_help).',
-  'Club revenue = earnings net of Yuno fees, not what customers paid. Never guess hidden amounts. Below 10 people: counts only.',
-  'For one event: get_event_report then get_event_details. Several events: compare_events. Trends: get_sales_overview and get_sales_trends. Action plan: get_recommendations.',
-  'The bar / drinks ordering pillar is paused: never recommend it.',
+// Mémo factuel rendu par get_account_overview : ce que veulent dire les
+// chiffres, pour les clients qui ne lisent pas les consignes du serveur. Des
+// faits sur les données, jamais une consigne de comportement (grilles de
+// relecture Claude et OpenAI : pas d'instruction au modèle dans un résultat).
+export const OVERVIEW_NOTES = [
+  'Club revenue (CA) is what the club or organizer earns: price paid minus Yuno fees and insurance, refunds deducted. Customer spend (fees included) is a different number.',
+  'Amounts are absent when this person\'s role does not show money in the Yuno Console.',
+  'Below 10 people, Yuno shows counts only: no percentage, ranking or distribution.',
+  'D-N means calendar days before the event, in the event timezone; events are compared at the same D-N.',
+  'Drink ordering at the bar is not available in Yuno at the moment.',
+  'Related tools: get_event_report (one event), compare_events (several), get_sales_overview and get_sales_trends (periods), get_recommendations (signals for an action plan), search_yuno_help (steps in the Console).',
 ];
 
 // ── Prompts prêts à l'emploi (Claude les montre dans le menu « + ») ─────────

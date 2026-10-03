@@ -20,7 +20,7 @@ import { explainFindings } from './enrich';
 import { sha256Hex } from './crypto';
 import { DbError, DbNotConfigured, rpc } from './db';
 import {
-  INSTRUCTIONS, OVERVIEW_GUIDE, RESOURCES, getPrompt, glossaryResult, langOf, listPrompts, readResource, sessionContext,
+  INSTRUCTIONS, OVERVIEW_NOTES, RESOURCES, getPrompt, glossaryResult, langOf, listPrompts, readResource, sessionContext,
 } from './guide';
 import { searchHelp } from './help';
 import { CORS_HEADERS, resourceMetadataUrl } from './oauth';
@@ -431,7 +431,7 @@ async function callTool(
     text = toolErrorText(code, { spaces: r.spaces, message: inner?.message });
   } else {
     const payload: Record<string, unknown> = { space: r.space, ...(explainFindings(inner ?? {}) as Record<string, unknown>) };
-    if (tool.name === 'get_account_overview') payload.how_to_analyze = OVERVIEW_GUIDE;
+    if (tool.name === 'get_account_overview') payload.notes = OVERVIEW_NOTES;
     if (narrowed) payload.note = 'The requested window was too heavy to compute: this answer covers the last 45 days. Ask for a shorter period to go further back.';
     text = compactResult(payload);
   }

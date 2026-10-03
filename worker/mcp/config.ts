@@ -39,6 +39,9 @@ export interface McpEnv {
   // Clé serveur dédiée (Supabase → API keys → secret key « mcp-worker »), posée
   // comme SECRET du Worker dans Cloudflare. Sans elle, /mcp répond 503 proprement.
   SUPABASE_MCP_KEY?: string;
+  // Jeton de vérification de domaine du portail OpenAI (plugins), servi tel
+  // quel sur /.well-known/openai-apps-challenge. Absent : 404.
+  OPENAI_APPS_CHALLENGE?: string;
 }
 
 export type McpCtx = { waitUntil: (p: Promise<unknown>) => void };

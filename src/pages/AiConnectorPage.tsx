@@ -192,7 +192,7 @@ export default function AiConnectorPage() {
       </section>
 
       <footer className="max-w-5xl mx-auto px-5 py-12 flex flex-wrap gap-x-6 gap-y-2 font-mono uppercase" style={{ borderTop: `1px solid ${BORDER}`, fontSize: 10.5, color: GRAY_2, letterSpacing: '0.12em', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 48px)' }}>
-        <Link to="/legal/confidentialite">{t('aiPage.privacy')}</Link>
+        <Link to="/legal/privacy">{t('aiPage.privacy')}</Link>
         <Link to="/legal/cgu">{t('aiPage.terms')}</Link>
         <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
       </footer>

@@ -151,7 +151,7 @@ journal, une ligne ici, et un cas dans `worker/mcp/__tests__/mcp.test.ts`.
 **Commun** — Nom : Yuno · Description courte : « Ask your nightlife numbers in
 plain words: sales, events, audience and marketing from your Yuno Console,
 read-only. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
-https://yunoapp.eu/legal/confidentialite · Conditions :
+https://yunoapp.eu/legal/privacy · Conditions :
 https://yunoapp.eu/legal/cgu · Support : contact@yunoapp.eu · Icône :
 `public/icon-512.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Tous les outils
 en lecture seule, annotés.

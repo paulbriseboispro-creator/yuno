@@ -20,6 +20,7 @@ const MCP_ROUTES = new Set([
   '/.well-known/openid-configuration',
   '/.well-known/openid-configuration/mcp',
   '/mcp/.well-known/openid-configuration',
+  '/.well-known/openai-apps-challenge',
 ]);
 
 export function isMcpRoute(pathname: string): boolean {
@@ -32,6 +33,13 @@ export async function handleMcpRoute(request: Request, env: McpEnv, ctx: McpCtx)
   try {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
     if (path === '/mcp') return await handleMcp(request, env, ctx);
+    // Vérification de domaine OpenAI : le jeton exact, en texte brut, rien d'autre.
+    if (path === '/.well-known/openai-apps-challenge') {
+      const challenge = (env.OPENAI_APPS_CHALLENGE ?? '').trim();
+      return challenge
+        ? new Response(challenge, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } })
+        : new Response('Not found', { status: 404 });
+    }
     if (path.startsWith('/.well-known/oauth-protected-resource')) return protectedResourceMetadata(url);
     if (path.includes('/.well-known/oauth-authorization-server') || path.includes('/.well-known/openid-configuration')) {
       return authorizationServerMetadata(url);
