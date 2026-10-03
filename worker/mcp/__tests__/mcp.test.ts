@@ -120,6 +120,8 @@ describe('helpers', () => {
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0].console_url.startsWith(`${BASE}/owner`)).toBe(true);
     expect(searchHelp('code promo', BASE, 'organizer')[0]?.console_url).toBe(`${BASE}/organizer-app/help`);
+    expect(searchHelp('lien suivi pour ma bio instagram', BASE, 'venue')[0]?.id).toBe('tracked-links');
+    expect(searchHelp('connect ChatGPT to my numbers', BASE, 'venue').map((h) => h.id)).toContain('ai-assistants');
   });
 
   it('routes only MCP paths', () => {

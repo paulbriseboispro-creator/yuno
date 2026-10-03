@@ -547,6 +547,12 @@ export const CONSOLE_HELP_ARTICLES: Record<string, ConsoleHelpArticle> = {
     path: "/owner/ai-assistants",
     snippet: "Réglages → « Assistants IA » : copier l'adresse du serveur https://yunoapp.eu/mcp, puis l'ajouter dans l'IA (Claude : Paramètres → Connecteurs → Ajouter un connecteur personnalisé ; ChatGPT : Paramètres → Applications → Paramètres avancés → mode développeur, puis Créer une application ; Gemini : Paramètres → Applications connectées → Ajouter une application personnalisée ; Le Chat : Intelligence → Connecteurs). Une fenêtre Yuno s'ouvre : se connecter, cocher le club ou l'organisation, choisir « Chiffres et analyses » (conseillé, aucune identité) ou « Chiffres + fiches clients », puis « Autoriser ». L'IA lit les mêmes chiffres que la Console, en lecture seule : elle ne modifie rien, n'envoie rien, ne touche jamais à l'argent, et ne voit que ce que le rôle de la personne voit. Chaque IA connectée apparaît sur la page avec son journal (quelle analyse, quand) et un bouton « Couper l'accès » ; le propriétaire voit aussi les IA connectées par son équipe. Côté organisateur : /organizer-app/ai-assistants.",
   },
+  "tracked-links": {
+    title: "Liens suivis : un lien par canal (bio Instagram, story, TikTok, WhatsApp, newsletter) pour savoir ce qui vend",
+    keywords: ["lien suivi", "liens suivis", "lien tracké", "liens trackés", "tracked link", "tracked links", "lien bio", "bio instagram", "story instagram", "lien story", "tiktok", "whatsapp", "utm", "attribution", "canal", "canaux", "d'où viennent les ventes", "quel canal vend", "enlace rastreado"],
+    path: "/owner/events",
+    snippet: "Chaque soirée a ses liens suivis : page Soirées → la carte de la soirée → bloc « Liens » (à déplier). Instagram, TikTok, Newsletter et WhatsApp y sont créés d'office ; « Créer un lien » en ajoute un autre (« Nom du canal », ex. story-jeudi, flyer-fac), puis « Copier le lien » et le coller dans la bio, la story ou le message. Chaque lien (yunoapp.eu/l/…) mène à la page de la soirée et compte ses clics, ses ventes et le CA attribué (achat après le clic). Pour un lien PERMANENT vers la page du club (bio Instagram qui ne change pas) : Mon club → « Liens trackés ». Côté organisateur, mêmes blocs sur ses soirées. Les chiffres se relisent dans Analytics → Ventes (« D'où viennent les ventes ? ») et dans le rapport de soirée. Un lien par canal, jamais le même lien partout : sinon on ne sait plus ce qui vend.",
+  },
 };
 
 // Pilier boissons en pause : ces articles dorment avec lui (src/lib/drinksPillar.ts).
