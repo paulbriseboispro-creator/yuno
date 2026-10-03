@@ -619,6 +619,51 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
 
+## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
+
+Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un
+organisateur branche Claude, ChatGPT, Gemini ou Le Chat sur sa Console
+(`https://yunoapp.eu/mcp`) ; l'IA lit ses chiffres en LECTURE SEULE et les
+transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
+`worker/index.ts`, chemins dans `run_worker_first`), migrations
+`20261003100000` → `120000`, pages `/connect-ai` (consentement, DA publique),
+`/ai` (page publique = documentation des annuaires), Réglages → Assistants IA
+(`AiAssistantsSettings`, club / manager / orga / CRM). Règles intouchables :
+
+- **Aucune session Supabase n'est jamais remise à une IA.** Notre propre
+  serveur OAuth 2.1 (DCR + CIMD + PKCE S256, `resource`, `iss`) émet des jetons
+  OPAQUES (`yuno_mcp_at_…` 1 h, `yuno_mcp_rt_…` 30 j en rotation) qui n'ouvrent
+  que `/mcp`, stockés hachés. Ne jamais passer au serveur OAuth de Supabase :
+  son jeton vaut une session complète (PostgREST, Storage, edge, GoTrue).
+- **Le Worker n'a aucun droit propre** : secret `SUPABASE_MCP_KEY` (clé serveur
+  dédiée, posée dans Cloudflare), appelle les seules fonctions `mcp_*`
+  (`service_role` seul). Sans le secret : 503 propre.
+- **`mcp_call` exécute en tant que la personne** (claims posés, les deux
+  formes de GUC, `auth.role()` = `authenticated`), transaction `READ ONLY` sauf
+  `count_contacts` / `list_customers` (tables temporaires), et n'appelle QUE les
+  RPC d'analyse de la Console, avec leurs portes. Un outil nouveau = une RPC
+  déjà gardée, jamais une lecture de table sans filtre de portée, jamais une
+  écriture. `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
+  fonction SECURITY INVOKER qui compterait sur la RLS.
+- **Deux niveaux, choisis au consentement** : `analytics` (aucune identité,
+  `_mcp_redact` retire email / téléphone / nom / notes) et `customers` (fiches,
+  50 par appel, 100 lectures / jour). GPS, IP, jetons jamais rendus. Espaces =
+  `_mcp_user_spaces` (ceux où la personne lit déjà les chiffres ; le super admin
+  n'y a que les siens). Le propriétaire / fondateur voit et coupe les IA de son
+  équipe. Jamais de connexion en accès assisté.
+- **Le protocole parle les deux générations** (moderne 2026-07-28 sans
+  `initialize`, en-têtes vérifiés, `server/discover`, `resultType` ; legacy avec
+  `initialize`, sans session). Tous les outils `readOnlyHint: true`.
+- **Le cerveau d'analyste = `worker/mcp/guide.ts`** (consignes, définitions de
+  `metrics.ts`, playbook, actions Yuno, prompts) + `enrich.ts` (constats en
+  phrases) : un changement de définition dans `metrics.ts` / `fees.ts` se
+  reporte au glossaire. Base de connaissances partagée avec l'Assistant Console :
+  `supabase/functions/_shared/console-help-articles.ts` (redéployer
+  `owner-assistant` après une modification).
+- Pilier boissons : `DRINKS_PILLAR_LIVE = false` aussi dans
+  `worker/mcp/config.ts` (sixième miroir). Adoption : `/admin/ai` →
+  « Connecteur IA (MCP) » (`admin_mcp_usage`). Tests : `npx vitest run worker/mcp`.
+
 ## Collab à BARÈME sur le CA de la soirée + décompte de fin de soirée (2026-09-21)
 
 Design : `docs/designs/COLLAB_NIGHT_CLOSING_PLAN.md`. Migrations `20260921120000`
