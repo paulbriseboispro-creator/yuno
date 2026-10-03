@@ -651,6 +651,18 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   `_mcp_user_spaces` (ceux où la personne lit déjà les chiffres ; le super admin
   n'y a que les siens). Le propriétaire / fondateur voit et coupe les IA de son
   équipe. Jamais de connexion en accès assisté.
+- **Un outil composite ne tombe jamais pour une seule brique** (migration
+  `20261003130000`) : chaque RPC d'un outil qui en assemble plusieurs est
+  appelée dans son propre `BEGIN … EXCEPTION WHEN others`, et une brique
+  refusée devient `_mcp_unavailable(SQLSTATE, SQLERRM)`. Un manager de club ou
+  un admin d'équipe n'est pas propriétaire : sans ça, la moitié des outils
+  échouaient pour le compte de relecture. Un admin d'équipe d'organisation lit
+  emails et contacts comme sa Console les lui montre (`contact_scope_allowed`,
+  `_email_scope_guard` acceptent `is_org_team_member(…, 'admin')`).
+- **Dans le Worker, jamais `fetch(…, { redirect: 'error' })`** : workerd lève
+  une TypeError avant toute requête. C'est ce qui a rendu toute connexion CIMD
+  (Claude Code, ChatGPT) impossible jusqu'au 03/10 sans qu'aucun test ne le
+  voie — le test unitaire simule désormais ce refus.
 - **Le protocole parle les deux générations** (moderne 2026-07-28 sans
   `initialize`, en-têtes vérifiés, `server/discover`, `resultType` ; legacy avec
   `initialize`, sans session). Tous les outils `readOnlyHint: true`.

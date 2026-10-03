@@ -45,15 +45,30 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
 - **Les clés de portée** sont celles de la co-organisation : `venue:<id>` /
   `org:<uuid>`. `_mcp_user_spaces(uid)` dit qui peut ouvrir quoi : club =
   propriétaire ou manager qui voit l'analytique / la finance / les clients ;
-  organisation = fondateur ou membre d'équipe admin / éditeur accepté. Le
-  super admin n'y a QUE ses propres espaces : une IA n'ouvre jamais les données
+  organisation = fondateur ou membre d'équipe admin / éditeur accepté (fiches
+  clients : fondateur et admin seulement). Le super admin n'y a QUE ses propres espaces : une IA n'ouvre jamais les données
   d'un autre client. Un espace dont la personne perd l'accès disparaît aussitôt
   de la connexion.
 - **Statement timeout** : `anon` est à 3 s (trop court pour les analyses
   lourdes), `service_role` hérite des 8 s d'`authenticator`, comme la Console.
-  Une analyse qui dépasse est relancée une fois par le Worker (le cache est
-  alors chaud), sur une fenêtre resserrée à 45 jours pour un outil à fenêtre,
-  et l'échec final est journalisé (`mcp_log_failure`).
+  Le Worker attend `mcp_call` 14 s ; un dépassement (57014 de la base OU
+  abandon du Worker, 408) est relancé une fois (le cache est alors chaud —
+  mesuré le 03/10 sur le club démo : 9,5 s à froid, moins de 1,2 s à chaud),
+  sur une fenêtre resserrée à 45 jours pour un outil à fenêtre, et l'échec
+  final est journalisé (`mcp_log_failure`).
+- **Un outil composite rend ce qu'il peut** (migration `20261003130000`) :
+  chaque brique (RFM, listes, attribution email, automatisations, push,
+  signaux…) est appelée dans son propre bloc ; une brique refusée au rôle ou en
+  panne devient `{"unavailable": "…"}` (`_mcp_unavailable`) au lieu de faire
+  tomber l'outil. Exemple : un manager de club lit tout sauf les résultats
+  email (la Console Manager n'a pas de pages email). Un refus rendu par une
+  RPC unique (`{ok:false, reason:'forbidden'}`, ex. le détail des tables VIP
+  pour un manager) donne le message `role_restricted`, jamais « accès perdu ».
+- **Admin d'équipe d'une organisation** : la Console lui montre Campagnes,
+  Automatisations et Base de contacts (`capabilitiesFor('admin').marketing`) ;
+  depuis le 03/10 la base le suit (`_email_scope_guard`,
+  `get_email_lists_health`, `get_email_quota_status`, `contact_scope_allowed`
+  acceptent `is_org_team_member(…, 'admin')`). L'éditeur reste dehors.
 
 ## 2. Sécurité et données personnelles
 
@@ -70,7 +85,7 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
 | Journal | `mcp_tool_calls` : outil, espace, arguments, statut, durée, taille — jamais le contenu rendu ; purge à 13 mois |
 | Accès assisté | une IA ne se connecte jamais pendant une session de support |
 | Comptes suspendus / supprimés / bannis | `_mcp_access` les refuse |
-| OAuth | PKCE S256 obligatoire, `resource` vérifié (RFC 8707), `iss` dans la réponse (RFC 9207), URI de retour exactes (port libre seulement en boucle locale, RFC 8252), CIMD lu en https sans redirection, 64 Ko max, cache 1 h |
+| OAuth | PKCE S256 obligatoire, `resource` vérifié (RFC 8707), `iss` dans la réponse (RFC 9207), URI de retour exactes (port libre seulement en boucle locale, RFC 8252), CIMD lu en https sans redirection (`redirect: 'manual'` — workerd REFUSE `redirect: 'error'`, c'est ce qui a bloqué toute connexion CIMD jusqu'au 03/10), 64 Ko max, cache 1 h, copie figée de ChatGPT et Claude Code si leur site bloque le Worker (`PINNED_CIMD`, chatgpt.com répond 403 à un Worker) |
 
 **Juridique** : la politique de confidentialité (§ Destinataires) et le DPA
 (§ Instructions) disent qu'une IA connectée par un professionnel est un
@@ -128,7 +143,10 @@ Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
 des actions Yuno), glossaire, 8 prompts localisés. `enrich.ts` traduit les
 constats calculés par la base (`mix_shift`, `channel_gap`…) en phrases avec
 leurs chiffres ; `compact.ts` retire images, vides et bruit (−15 à −50 % de
-caractères mesurés sur la démo selon l'outil). **Ajouter un outil** = une branche dans `_mcp_tool` (SQL, en appelant
+caractères mesurés sur la démo selon l'outil). `search_yuno_help` traduit les
+mots anglais courants vers ceux des articles (`EN_TO_FR`, `help.ts`) et ne rend
+d'un long article que son ouverture et les phrases qui parlent de la question
+(≤ 2 400 caractères, `excerpt: true`). **Ajouter un outil** = une branche dans `_mcp_tool` (SQL, en appelant
 une RPC de la Console déjà gardée), une entrée dans `TOOLS` (description « use
 this when… », exemples de questions), un libellé `aiTool.*` (3 langues) pour le
 journal, une ligne ici, et un cas dans `worker/mcp/__tests__/mcp.test.ts`.
@@ -201,8 +219,14 @@ Gemini Enterprise : OAuth manuel (non configuré ici, DCR suffit ailleurs).
 - Adoption : `/admin/ai` → « Connecteur IA (MCP) » (`admin_mcp_usage`).
 - Ménage quotidien : cron `mcp-housekeeping` (04:41 UTC) — demandes et codes à
   7 j, jetons morts à 7 j, clients jamais utilisés à 30 j, journal à 13 mois.
-- Tests : `npx vitest run worker/mcp` (protocole, OAuth, validation, mise en
-  forme, relance) ; bout en bout contre la vraie base : Worker local (`wrangler
-  dev --var SUPABASE_MCP_KEY:…`) + compte démo.
+- Tests : `npx vitest run worker/mcp` (protocole, OAuth, CIMD, validation,
+  mise en forme, relance) ; bout en bout contre la vraie base : Worker local
+  (`wrangler dev --var SUPABASE_MCP_KEY:…`) + compte de relecture. Une
+  connexion est limitée à 60 appels / minute : un banc qui enchaîne les outils
+  doit attendre ~1 s entre deux appels, sinon il ne mesure que la limite.
+- Revue du 03/10 (compte `review@womber.fr`, 166 appels, 3 espaces) : avant
+  correction, 49 erreurs (CIMD cassé, rôles d'équipe refusés, délais non
+  relancés) ; après, seules restent les réponses voulues (soirée ou contact
+  introuvable, détail réservé au propriétaire du club).
 - `iss` est figé à `https://yunoapp.eu` en SQL : un aperçu `*.workers.dev` ne
   peut pas finir une connexion (les clients valident `iss`) — c'est voulu.
