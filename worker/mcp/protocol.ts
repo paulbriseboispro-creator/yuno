@@ -128,7 +128,7 @@ function toolErrorText(code: string, extra: Record<string, unknown> = {}): strin
     case 'customer_not_found':
       return 'No contact with this email in this space.';
     case 'space_not_allowed':
-      return `This space is not part of the connection. Allowed spaces: ${JSON.stringify(extra.spaces ?? [])}. Call get_account_overview.`;
+      return `This space is not part of the connection. Spaces of this connection: ${JSON.stringify(extra.spaces ?? [])}.`;
     case 'customers_level_required':
       return 'Customer identities are not shared with this AI. The user can reconnect Yuno and tick "Customer details" on the consent screen (Console → Settings → AI assistants to manage access). Meanwhile use aggregate tools (get_customer_segments, count_contacts).';
     case 'rate_limited':
@@ -437,10 +437,28 @@ async function callTool(
   if (code === 'internal' && r.message === 'invalid argument') code = 'invalid_args';
   let text: string;
   if (code) {
-    text = toolErrorText(code, { spaces: r.spaces, message: inner?.message });
+    let spaces: unknown = r.spaces;
+    if (code === 'space_not_allowed') {
+      const session = await loadSession(state).catch(() => null);
+      if (session?.ok && session.spaces?.length) spaces = session.spaces.map((s) => `${s.name} (${s.key})`);
+    }
+    text = toolErrorText(code, { spaces, message: inner?.message });
   } else {
     const payload: Record<string, unknown> = { space: r.space, ...(explainFindings(inner ?? {}) as Record<string, unknown>) };
-    if (tool.name === 'get_account_overview') payload.notes = OVERVIEW_NOTES;
+    if (tool.name === 'get_account_overview') {
+      payload.notes = OVERVIEW_NOTES;
+      // La description promet les autres espaces : sans eux, l'IA répondait
+      // pour l'espace par défaut sans savoir qu'il y en avait d'autres.
+      const session = await loadSession(state).catch(() => null);
+      const spaces = session?.ok ? session.spaces ?? [] : [];
+      if (spaces.length > 1) {
+        payload.connection_spaces = spaces.map((s) => ({
+          key: s.key, name: s.name, type: s.kind === 'venue' ? 'club' : 'organizer', product: s.product,
+          money_visible: s.money, customer_details: session?.level === 'customers' && s.customers,
+        }));
+        payload.spaces_note = `This connection covers ${spaces.length} spaces; the numbers above are for "${r.space?.name ?? ''}". Each tool reads one space: another one is read by passing its key as "space".`;
+      }
+    }
     if (narrowed) payload.note = 'The requested window was too heavy to compute: this answer covers the last 45 days. Ask for a shorter period to go further back.';
     text = compactResult(payload);
   }

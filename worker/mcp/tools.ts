@@ -31,7 +31,7 @@ export interface ToolDef {
 
 const SPACE: JsonSchema = {
   type: 'string',
-  description: 'Optional. Space key from get_account_overview ("venue:<id>" for a club, "org:<id>" for an organizer). Omit when the connection covers one space.',
+  description: 'Optional. Space key from connection_spaces in get_account_overview ("venue:<id>" for a club, "org:<id>" for an organizer), or the exact space name. Omitted: the default space, named in every result.',
 };
 const DAYS = (def: number): JsonSchema => ({
   type: 'integer', minimum: 1, maximum: 1095,

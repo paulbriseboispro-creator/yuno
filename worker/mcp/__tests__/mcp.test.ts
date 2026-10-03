@@ -462,6 +462,17 @@ describe('resilience', () => {
     expect(JSON.parse(body.result.content[0].text).community.contacts).toBe(12);
   });
 
+  it('lists every space of the connection in the account overview', async () => {
+    handlers.mcp_session = () => ({ ok: true, grant_id: 'g1', level: 'customers', client_name: 'Claude', first_name: 'Paul', language: 'en', spaces: [club, crmOrg] });
+    handlers.mcp_call = () => ({ ok: true, call_id: 7, space: { key: 'venue:womber', name: 'Yuno', kind: 'venue', product: 'suite' }, result: { ok: true, timezone: 'Europe/Paris' } });
+    handlers.mcp_call_finished = () => null;
+    const body = await (await mcp({ jsonrpc: '2.0', id: 34, method: 'tools/call', params: { name: 'get_account_overview', arguments: {} } })).json();
+    const out = JSON.parse(body.result.content[0].text);
+    expect(out.connection_spaces.map((s: { key: string }) => s.key)).toEqual(['venue:womber', 'org:1']);
+    expect(out.connection_spaces[1]).toMatchObject({ type: 'organizer', product: 'crm', customer_details: true });
+    expect(out.spaces_note).toContain('"Yuno"');
+  });
+
   it('says a role does not show a detail, never that access was lost', async () => {
     handlers.mcp_call = () => ({ ok: false, call_id: 6, space: { key: 'venue:womber', name: 'Yuno', kind: 'venue', product: 'suite' }, result: { ok: false, reason: 'forbidden' } });
     handlers.mcp_call_finished = () => null;
