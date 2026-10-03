@@ -49,6 +49,14 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
   clients : fondateur et admin seulement). Le super admin n'y a QUE ses propres espaces : une IA n'ouvre jamais les données
   d'un autre client. Un espace dont la personne perd l'accès disparaît aussitôt
   de la connexion.
+- **Plusieurs espaces dans une connexion** : `get_account_overview` liste
+  `connection_spaces` (nom, clé, type, produit, argent, fiches) et dit pour
+  quel espace il répond. Sans `space`, un outil lit l'espace où la personne a
+  le plus de droits (propriétaire / fondateur, puis admin, puis manager),
+  Suite avant CRM, club avant organisation (`mcp_call`, migration
+  `20261003140000`) ; `space` accepte la clé OU le nom exact de l'espace
+  (`20261003150000`). Avant, l'IA prenait la plus petite clé (le compte CRM du
+  relecteur) et croyait les autres espaces hors connexion.
 - **Statement timeout** : `anon` est à 3 s (trop court pour les analyses
   lourdes), `service_role` hérite des 8 s d'`authenticator`, comme la Console.
   Le Worker attend `mcp_call` 14 s ; un dépassement (57014 de la base OU
@@ -135,7 +143,7 @@ de le recommander.
 | `get_promoters_performance` | promoteurs (Suite) | `get_analytics_promoters` |
 | `get_live_now` | temps réel (Suite) | `get_live_view` |
 | `get_recommendations` | tout pour un plan d'action | `get_sales_takeaways`, `get_events_sales_summary`, `get_analytics_insights`, `get_analytics_rfm`, automatisations |
-| `list_customers` · `list_customers_by_segment` · `get_customer_profile` | fiches clients (niveau `customers`) | `list_contact_base`, `get_*_customer_segments`, `contact_rows`, `get_customer_automation_emails` |
+| `list_customers` · `list_customers_by_segment` · `get_customer_profile` | fiches clients (niveau `customers`) | `list_contact_base` (aussi pour la fiche, filtrée par l'adresse : 0,6 s contre 20 s par `contact_rows`), `get_*_customer_segments`, `get_customer_automation_emails` |
 | `get_glossary` · `search_yuno_help` | définitions, mode d'emploi | Worker (`guide.ts`, `_shared/console-help-articles.ts`) |
 
 Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
