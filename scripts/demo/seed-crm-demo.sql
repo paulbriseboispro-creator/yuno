@@ -22,7 +22,7 @@ DECLARE
   v_last text[] := ARRAY['Martin','Bernard','Dubois','Thomas','Robert','Richard','Petit','Durand','Leroy','Moreau','Simon','Laurent','Lefebvre','Michel','Garcia','David','Bertrand','Roux','Vincent','Fournier','Morel','Girard','Andre','Mercier','Dupont','Lambert','Bonnet','Francois','Martinez','Legrand'];
   v_cities text[] := ARRAY['Paris','Paris','Paris','Paris','Paris','Montreuil','Saint-Denis','Boulogne-Billancourt','Vincennes','Pantin','Lyon','Lille'];
   v_titles text[] := ARRAY['Warehouse Session','Nuit Sonore','Afro House Club','Techno Bunker','Disco Fever','Open Air Closing','Rooftop Sunset','Deep Night','Bass Culture','Minimal Room','House Nation'];
-  v_genres text[] := ARRAY['techno','house','afro_house','disco','techno','house','house','deep_house','drum_and_bass','minimal','house'];
+  v_genres text[] := ARRAY['techno','house','afro_house','techno','disco','house','house','deep_house','drum_and_bass','minimal','house'];
   v_start timestamptz;
   v_covers text[] := ARRAY[
     'https://fulawxvdlwtdlpkycixe.supabase.co/storage/v1/object/public/event-images/events/1781542670364-poster.jpg',
