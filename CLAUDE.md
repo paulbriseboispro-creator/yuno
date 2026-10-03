@@ -663,6 +663,17 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
 - Pilier boissons : `DRINKS_PILLAR_LIVE = false` aussi dans
   `worker/mcp/config.ts` (sixième miroir). Adoption : `/admin/ai` →
   « Connecteur IA (MCP) » (`admin_mcp_usage`). Tests : `npx vitest run worker/mcp`.
+- **Annuaires (Claude, ChatGPT)** : dossier `docs/mcp-directory/SUBMISSION.md`,
+  pas à pas de Paul `docs/MCP_GO_LIVE_GUIDE.md`, compte de relecture
+  `review@womber.fr` (`scripts/demo/create-reviewer-account.mjs`, démo seule).
+  Une description d'outil DÉCRIT ce que l'outil rend, elle ne donne jamais
+  d'ordre à l'IA (« appelle d'abord… », « réponds toujours… ») : c'est un motif
+  de refus des deux annuaires — les consignes vivent dans `INSTRUCTIONS`. Une
+  réponse d'outil ne porte ni horodatage technique ni identifiant de requête
+  (`NOISE_KEYS`, `compact.ts`). Jeton de domaine OpenAI = secret Worker
+  `OPENAI_APPS_CHALLENGE`, servi sur `/.well-known/openai-apps-challenge`.
+  La politique de confidentialité est `/legal/privacy` ; `/legal/confidentialite`
+  est l'engagement de confidentialité des aperçus démo : ne jamais les confondre.
 
 ## Collab à BARÈME sur le CA de la soirée + décompte de fin de soirée (2026-09-21)
 

@@ -133,33 +133,42 @@ une RPC de la Console déjà gardée), une entrée dans `TOOLS` (description « 
 this when… », exemples de questions), un libellé `aiTool.*` (3 langues) pour le
 journal, une ligne ici, et un cas dans `worker/mcp/__tests__/mcp.test.ts`.
 
-## 5. Mise en service (à faire par Paul)
+## 5. Mise en service — fait le 2026-10-03
 
-1. **Clé serveur** : Supabase → Project Settings → API Keys → *Secret keys* →
-   « Create new secret key », nom `mcp-worker`. (Révocable seule, sans toucher
-   aux autres clés. La clé `service_role` marche aussi.)
-2. **Cloudflare** → Workers & Pages → `yuno` → Settings → Variables and
-   Secrets → *Add* → type **Secret**, nom `SUPABASE_MCP_KEY`, valeur = la clé.
-   Sans elle, `/mcp` et `/oauth/*` répondent 503 proprement.
+1. **Clé serveur** : clé secrète Supabase dédiée `mcp_worker` (Project Settings
+   → API Keys → *Secret keys*), révocable seule sans toucher aux autres clés.
+2. **Cloudflare** : posée en secret `SUPABASE_MCP_KEY` sur le Worker `yuno`
+   (`wrangler secret put`, depuis `~` : le `.env.local` du projet porte un jeton
+   limité au DNS). Sans elle, `/mcp` et `/oauth/*` répondent 503 proprement.
+   Rotation : créer une nouvelle clé, la poser, puis révoquer l'ancienne.
 3. Le push sur `main` déploie le Worker (Workers Builds). Vérifier :
    `curl https://yunoapp.eu/.well-known/oauth-protected-resource/mcp`.
-4. Test réel : Claude → Paramètres → Connecteurs → Ajouter un connecteur
-   personnalisé → `https://yunoapp.eu/mcp`.
+4. Testé de bout en bout en production (OAuth, consentement, 22 outils, deux
+   époques du protocole, MCP Inspector, vraie conversation Claude :
+   `docs/mcp-directory/example-answer.md`).
+
+Ce qui reste à Paul (compte de relecture, soumissions Claude et OpenAI, jeton
+de domaine OpenAI) : **`docs/MCP_GO_LIVE_GUIDE.md`**.
 
 ## 6. Kit annuaires
+
+Tous les champs prêts à coller (Claude, OpenAI, Le Chat, Gemini) :
+**`docs/mcp-directory/SUBMISSION.md`**. Résumé :
 
 **Commun** — Nom : Yuno · Description courte : « Ask your nightlife numbers in
 plain words: sales, events, audience and marketing from your Yuno Console,
 read-only. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
 https://yunoapp.eu/legal/privacy · Conditions :
 https://yunoapp.eu/legal/cgu · Support : contact@yunoapp.eu · Icône :
-`public/icon-512.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Tous les outils
+`public/icon-1024.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Tous les outils
 en lecture seule, annotés.
 
-**Compte de test** : les annuaires veulent un compte rempli, sans 2FA. Créer un
-compte démo dédié (ex. `review@womber.fr`, rattaché au club démo comme
-manager analytique, mot de passe propre) — jamais un compte réel, jamais le mot
-de passe démo historique. Les données démo sont fictives ou masquées.
+**Compte de test** : `review@womber.fr`, créé par
+`node scripts/demo/create-reviewer-account.mjs` (mot de passe généré, affiché
+une fois ; manager en lecture du club démo + admin d'équipe de l'organisation
+démo et du compte Yuno CRM démo). Jamais un compte réel, jamais le mot de passe
+démo historique. Les données démo sont fictives ou masquées, aucun envoi
+possible (`demo_no_send`).
 
 **Claude** (https://claude.ai/directory/manage → MCP connector) : chaque outil a
 `title` + `readOnlyHint` ✅, noms ≤ 64 caractères ✅, lecture et écriture
