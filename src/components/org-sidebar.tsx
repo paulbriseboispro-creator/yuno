@@ -49,6 +49,7 @@ import {
 	PlugIcon,
 	RocketIcon,
 	LifeBuoyIcon,
+	BotIcon,
 	FolderOpenIcon,
 	LayersIcon,
 	GlobeIcon,
@@ -252,6 +253,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 				},
 				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },
 				{ title: t('sidebar.integrations'), path: "/organizer-app/integrations", icon: <PlugIcon />, badge: metaLive ? undefined : t('integ.buildingBadge') },
+				{ title: t('sidebar.aiAssistants'), path: "/organizer-app/ai-assistants", icon: <BotIcon /> },
 				{ title: tt("Assistance Yuno", "Yuno support", "Asistencia Yuno"), path: "/organizer-app/support-access", icon: <LifeBuoyIcon /> },
 			],
 		},
@@ -288,6 +290,9 @@ const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/profile", needs: "manageOrganization" },
 	{ prefix: "/organizer-app/integrations", needs: "manageOrganization" },
 	{ prefix: "/organizer-app/support-access", needs: "manageOrganization" },
+	// Une IA lit ce que la personne lit déjà : fondateur, admin, éditeur
+	// (même règle que _mcp_user_spaces côté serveur).
+	{ prefix: "/organizer-app/ai-assistants", needs: "viewInsights" },
 	// La page Équipe & Staff s'ouvre à un admin d'équipe, mais l'onglet
 	// « Équipe » lui-même reste au fondateur : `org_members` n'accepte
 	// d'écriture que de l'organisateur, un admin n'y peut rien. C'est le

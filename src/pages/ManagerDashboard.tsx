@@ -8,6 +8,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import {
+  Bot,
   Calendar,
   UtensilsCrossed,
   Users,
@@ -180,6 +181,18 @@ export default function ManagerDashboard() {
       path: '/manager/analytics',
       permission: permissions.canViewAnalytics,
       color: 'from-indigo-500/20 to-indigo-600/10',
+    },
+    {
+      // Brancher son IA (ChatGPT, Claude…) sur les chiffres du club : ouvert à
+      // qui lit déjà l'analytique, la finance ou les clients (même règle que
+      // _mcp_user_spaces côté serveur).
+      id: 'ai-assistants',
+      title: t('aiSettings.title'),
+      description: t('aiSettings.tileDesc'),
+      icon: <Bot className="h-6 w-6" />,
+      path: '/manager/ai-assistants',
+      permission: permissions.canViewAnalytics || permissions.canViewFinance || permissions.canViewCustomers || permissions.canManageCrm,
+      color: 'from-violet-500/20 to-violet-600/10',
     },
     {
       id: 'finance',

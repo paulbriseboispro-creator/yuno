@@ -35,6 +35,9 @@ const languages = [
 export function OnboardingGate() {
   const { pathname } = useLocation();
   if (isPublicLinktreePath(pathname)) return null;
+  // Un pro qui arrive de son IA (consentement MCP) ou qui lit la page qui
+  // l'explique n'est pas un client de soirée : aucune carte d'accueil.
+  if (pathname === '/connect-ai' || pathname === '/ai') return null;
   return <OnboardingGateSteps />;
 }
 

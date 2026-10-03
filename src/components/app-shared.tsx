@@ -31,6 +31,7 @@ import {
 	ActivityIcon,
 	CalculatorIcon,
 	LifeBuoyIcon,
+	BotIcon,
 	PlugIcon,
 	RocketIcon,
 	ListChecksIcon,
@@ -303,6 +304,13 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					path: "/owner/integrations",
 					icon: <PlugIcon />,
 					badge: metaLive ? undefined : t('integ.buildingBadge'),
+				},
+				{
+					// Assistants IA (serveur MCP) : brancher ChatGPT, Claude, Gemini ou
+					// Le Chat sur les chiffres du club, voir et couper les accès.
+					title: t('sidebar.aiAssistants'),
+					path: "/owner/ai-assistants",
+					icon: <BotIcon />,
 				},
 				{
 					// Accès assisté Yuno : consentement, journal, révocation.

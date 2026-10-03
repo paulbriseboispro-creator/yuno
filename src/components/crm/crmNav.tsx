@@ -11,7 +11,7 @@
 
 import {
   LayoutGridIcon, UsersIcon, CalendarIcon, MailIcon, ZapIcon, MessageSquareIcon,
-  RocketIcon, PlugIcon, StoreIcon, UserCheckIcon, LifeBuoyIcon, BarChart3Icon, CreditCardIcon,
+  RocketIcon, PlugIcon, StoreIcon, UserCheckIcon, LifeBuoyIcon, BarChart3Icon, CreditCardIcon, BotIcon,
 } from 'lucide-react';
 import type { SidebarNavGroup } from '@/components/app-shared';
 import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
@@ -77,6 +77,7 @@ export function buildCrmNavGroups(t: (key: string) => string, base: ConsoleBase,
           ? { title: t('crm.nav.team'), path: '/organizer-app/team', icon: <UserCheckIcon /> }
           : { title: t('crm.nav.team'), path: '/owner/managers', icon: <UserCheckIcon /> },
         { title: t('crm.nav.billing'), path: `${base}/crm/billing`, icon: <CreditCardIcon /> },
+        { title: t('sidebar.aiAssistants'), path: `${base}/ai-assistants`, icon: <BotIcon /> },
         { title: t('sidebar.supportAccess'), path: `${base}/support-access`, icon: <LifeBuoyIcon /> },
       ],
     },
@@ -86,13 +87,13 @@ export function buildCrmNavGroups(t: (key: string) => string, base: ConsoleBase,
 const CRM_PREFIXES: Record<ConsoleBase, string[]> = {
   '/owner': [
     '/owner/dashboard', '/owner/crm', '/owner/campaigns', '/owner/sms-campaigns', '/owner/sms',
-    '/owner/ads', '/owner/integrations', '/owner/venue', '/owner/managers', '/owner/support-access',
+    '/owner/ads', '/owner/integrations', '/owner/venue', '/owner/managers', '/owner/support-access', '/owner/ai-assistants',
     '/owner/help', '/owner/support', '/owner/notifications',
   ],
   '/organizer-app': [
     '/organizer-app/crm', '/organizer-app/campaigns', '/organizer-app/sms', '/organizer-app/ads',
     '/organizer-app/integrations', '/organizer-app/organization', '/organizer-app/profile',
-    '/organizer-app/team', '/organizer-app/support-access', '/organizer-app/help',
+    '/organizer-app/team', '/organizer-app/support-access', '/organizer-app/ai-assistants', '/organizer-app/help',
     '/organizer-app/support', '/organizer-app/notifications', '/organizer-app/dashboard',
   ],
 };

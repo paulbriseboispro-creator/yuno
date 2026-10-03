@@ -150,6 +150,11 @@ const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
 const OwnerHelpCenter = lazyWithRetry(() => import("./pages/OwnerHelpCenter"));
 const OwnerSupportRequest = lazyWithRetry(() => import("./pages/OwnerSupportRequest"));
 const SupportAccessSettings = lazyWithRetry(() => import("./pages/SupportAccessSettings"));
+// Serveur MCP : Assistants IA (Console), consentement OAuth, page publique /ai.
+const AiAssistantsSettings = lazyWithRetry(() => import("./pages/AiAssistantsSettings"));
+const AiAssistantsRedirect = lazyWithRetry(() => import("./pages/AiAssistantsRedirect"));
+const ConnectAi = lazyWithRetry(() => import("./pages/ConnectAi"));
+const AiConnectorPage = lazyWithRetry(() => import("./pages/AiConnectorPage"));
 const IntegrationsSettings = lazyWithRetry(() => import("./pages/IntegrationsSettings"));
 const AdsPage = lazyWithRetry(() => import("./pages/AdsPage"));
 const OwnerGuestList = lazyWithRetry(() => import("./pages/OwnerGuestList"));
@@ -715,6 +720,12 @@ const App = () => (
                     route, l'email menait droit sur la page 404. */}
                 <Route path="/accept-org-member" element={<AcceptOrgMember />} />
                 <Route path="/accept-cohost" element={<AcceptCohostInvitation />} />
+                {/* Assistants IA (serveur MCP, docs/MCP.md) : consentement OAuth où le
+                    Worker envoie la personne, page publique du connecteur, et raccourci
+                    vers la page de SA Console. */}
+                <Route path="/connect-ai" element={<ConnectAi />} />
+                <Route path="/ai" element={<AiConnectorPage />} />
+                <Route path="/ai-assistants" element={<AiAssistantsRedirect />} />
                 <Route path="/join" element={<JoinViaLink />} />
                 {/* Aperçu démo verrouillé par mot de passe (lien de preview) */}
                 <Route path="/preview" element={<PreviewGate />} />
@@ -807,6 +818,7 @@ const App = () => (
                   <Route path="integrations" element={<OrgAppRoute requires="manageOrganization"><IntegrationsSettings /></OrgAppRoute>} />
                   <Route path="ads" element={<OrgAppRoute requires="marketing"><AdsPage /></OrgAppRoute>} />
                   <Route path="support-access" element={<OrgAppRoute requires="manageOrganization"><SupportAccessSettings /></OrgAppRoute>} />
+                  <Route path="ai-assistants" element={<OrgAppRoute requires="viewInsights"><AiAssistantsSettings /></OrgAppRoute>} />
                   <Route path="payments" element={<OrgAppRoute requires="manageOrganization"><OrgAppPayments /></OrgAppRoute>} />
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
                   <Route path="settings" element={<OrgAppRoute requires="manageOrganization"><OrgAppPayments /></OrgAppRoute>} />
@@ -1012,6 +1024,7 @@ const App = () => (
                   <Route path="integrations" element={<IntegrationsSettings />} />
                   <Route path="ads" element={<AdsPage />} />
                   <Route path="support-access" element={<SupportAccessSettings />} />
+                  <Route path="ai-assistants" element={<AiAssistantsSettings />} />
                 </Route>
 
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
@@ -1236,6 +1249,11 @@ const App = () => (
                 <Route path="/manager/support-access" element={
                   <ManagerRoute>
                     <SupportAccessSettings />
+                  </ManagerRoute>
+                } />
+                <Route path="/manager/ai-assistants" element={
+                  <ManagerRoute>
+                    <AiAssistantsSettings />
                   </ManagerRoute>
                 } />
                 
