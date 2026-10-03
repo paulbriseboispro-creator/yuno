@@ -142,7 +142,7 @@ function toolErrorText(code: string, extra: Record<string, unknown> = {}): strin
     case 'invalid_args':
       return `Invalid arguments${extra.message ? `: ${String(extra.message)}` : ''}.`;
     case 'timeout':
-      return 'This analysis took too long. Narrow it (fewer days, one event, or one topic) and try again.';
+      return 'This analysis took too long: the first read of a large base can be slow. The same call usually answers quickly a few seconds later; for a period, a shorter window also helps.';
     case 'not_configured':
       return 'The Yuno connector is not available right now. Try again later.';
     default:
@@ -363,6 +363,15 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
   }
 }
 
+function failCall(state: RequestState, tool: string, timeout: boolean, ok: (r: Record<string, unknown>) => Reply): Reply {
+  console.error('mcp_call failed', tool, timeout ? 'timeout' : 'query_failed');
+  state.ctx.waitUntil(
+    rpc(state.env, 'mcp_log_failure', { p_access_hash: state.tokenHash, p_tool: tool, p_error: timeout ? 'timeout' : 'query_failed' })
+      .catch(() => undefined),
+  );
+  return ok(toolResult(toolErrorText(timeout ? 'timeout' : 'internal'), true));
+}
+
 function instructionsFor(session: Session): string {
   return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name);
 }
@@ -395,18 +404,23 @@ async function callTool(
   if (v.args.from) delete args.days;
   let r: CallResult | null = null;
   let narrowed = false;
-  // Une analyse lourde sur une base froide peut dépasser les 8 s de la base :
-  // une relance tombe le plus souvent sur un cache chaud. Un outil à fenêtre de
+  // Mesuré le 03/10 : à froid, une analyse de base de contacts prend 7 à 12 s
+  // (et davantage quand l'IA lance plusieurs outils en parallèle), et la base
+  // ne coupe PAS ces requêtes à 8 s. Abandonner tôt laissait la requête tourner
+  // en base pendant que la relance en ajoutait une seconde. Le Worker attend
+  // donc jusqu'à 25 s, et ne relance que s'il reste du temps dans un budget de
+  // 40 s (les clients MCP coupent une requête à 60 s). Un outil à fenêtre de
   // temps est relancé sur une fenêtre resserrée, et la réponse le dit.
+  const BUDGET_MS = 40_000;
   for (let attempt = 0; attempt < 2 && !r; attempt++) {
+    const left = BUDGET_MS - (Date.now() - started);
+    if (attempt > 0 && left < 8_000) break;
     try {
-      // La base coupe une requête à 8 s ; le Worker attend davantage pour ne pas
-      // prendre une file d'attente de connexions pour une analyse trop lourde.
-      r = await rpc<CallResult>(state.env, 'mcp_call', { p_access_hash: state.tokenHash, p_tool: tool.name, p_args: args }, 14_000);
+      r = await rpc<CallResult>(state.env, 'mcp_call', { p_access_hash: state.tokenHash, p_tool: tool.name, p_args: args }, Math.min(25_000, left));
     } catch (err) {
       if (err instanceof DbNotConfigured) throw err;
       const timeout = err instanceof DbError && err.isTimeout;
-      if (timeout && attempt === 0) {
+      if (timeout && attempt === 0 && BUDGET_MS - (Date.now() - started) >= 8_000) {
         if (tool.windowed && (Number(args.days ?? 0) > 45 || args.from)) {
           delete args.from;
           delete args.to;
@@ -415,15 +429,11 @@ async function callTool(
         }
         continue;
       }
-      console.error('mcp_call failed', tool.name, err instanceof Error ? err.message : String(err));
-      state.ctx.waitUntil(
-        rpc(state.env, 'mcp_log_failure', { p_access_hash: state.tokenHash, p_tool: tool.name, p_error: timeout ? 'timeout' : 'query_failed' })
-          .catch(() => undefined),
-      );
-      return ok(toolResult(toolErrorText(timeout ? 'timeout' : 'internal'), true));
+      return failCall(state, tool.name, timeout, ok);
     }
   }
-  if (!r || r.error === 'unauthorized') return { status: 401, body: null, unauthorized: true };
+  if (!r) return failCall(state, tool.name, true, ok);
+  if (r.error === 'unauthorized') return { status: 401, body: null, unauthorized: true };
 
   const inner = r.result;
   // `error` = refus du serveur MCP (espace perdu, soirée introuvable…) ;
