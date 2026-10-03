@@ -145,6 +145,34 @@ interface ClientRow {
 const CIMD_CACHE_MS = 3600_000;
 const CIMD_MAX_BYTES = 64 * 1024;
 
+// Documents des grands clients, relus et figés le 2026-10-03 : servis seulement
+// quand la lecture en direct est refusée et qu'aucune copie n'est en base.
+// chatgpt.com répond 403 aux requêtes d'un Worker (pare-feu anti-robot) alors
+// qu'il sert le même document à un navigateur. Seules les URI de retour du
+// document comptent : elles restent sur les domaines du client.
+export const PINNED_CIMD: Record<string, { client_id: string; client_name: string; client_uri: string; redirect_uris: string[] }> = {
+  'https://chatgpt.com/oauth/client.json': {
+    client_id: 'https://chatgpt.com/oauth/client.json',
+    client_name: 'ChatGPT',
+    client_uri: 'https://chatgpt.com/',
+    redirect_uris: ['https://chatgpt.com/connector_platform_oauth_redirect'],
+  },
+  'https://claude.ai/oauth/claude-code-client-metadata': {
+    client_id: 'https://claude.ai/oauth/claude-code-client-metadata',
+    client_name: 'Claude Code',
+    client_uri: 'https://claude.ai',
+    redirect_uris: ['http://localhost/callback', 'http://127.0.0.1/callback'],
+  },
+};
+
+async function loadPinnedCimd(env: McpEnv, clientId: string, cached: ClientRow | null): Promise<boolean> {
+  if (cached) return true;
+  const pinned = PINNED_CIMD[clientId];
+  if (!pinned) return false;
+  const r = await rpc<{ ok: boolean }>(env, 'mcp_oauth_upsert_cimd_client', { p_client_id: clientId, p_meta: pinned });
+  return !!r?.ok;
+}
+
 export function isCimdClientId(clientId: string): boolean {
   if (!clientId.startsWith('https://')) return false;
   try {
@@ -182,21 +210,30 @@ async function readLimited(res: Response, max: number): Promise<string> {
 async function ensureCimdClient(env: McpEnv, clientId: string, cached: ClientRow | null): Promise<boolean> {
   if (cached && cached.kind === 'cimd' && Date.now() - Date.parse(cached.updated_at) < CIMD_CACHE_MS) return true;
   try {
+    // Jamais `redirect: 'error'` : le runtime des Workers le refuse (TypeError
+    // levé avant toute requête), et plus aucun document ne se lisait. Une
+    // redirection se lit en `manual` et vaut refus : le document doit être servi
+    // à l'adresse exacte de son client_id.
     const res = await fetch(clientId, {
-      headers: { Accept: 'application/json' },
-      redirect: 'error',
+      headers: { Accept: 'application/json', 'User-Agent': 'Yuno-MCP/1.0 (+https://yunoapp.eu/ai)' },
+      redirect: 'manual',
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return !!cached;
+    if (!res.ok) {
+      console.error('cimd fetch refused', clientId, res.status);
+      return await loadPinnedCimd(env, clientId, cached);
+    }
     const meta = JSON.parse(await readLimited(res, CIMD_MAX_BYTES));
     if (!meta || typeof meta !== 'object' || meta.client_id !== clientId || !Array.isArray(meta.redirect_uris)) {
+      console.error('cimd document invalid', clientId);
       return false;
     }
     const r = await rpc<{ ok: boolean }>(env, 'mcp_oauth_upsert_cimd_client', { p_client_id: clientId, p_meta: meta });
     return !!r?.ok;
   } catch (err) {
     if (err instanceof DbNotConfigured) throw err;
-    return !!cached;
+    console.error('cimd fetch failed', clientId, err instanceof Error ? err.message : String(err));
+    return await loadPinnedCimd(env, clientId, cached);
   }
 }
 

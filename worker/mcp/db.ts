@@ -13,9 +13,10 @@ export class DbError extends Error {
     super(`db_${status}`);
   }
   // 57014 = statement_timeout (8 s côté PostgREST) : l'analyse demandée est trop
-  // lourde pour une seule réponse.
+  // lourde pour une seule réponse. 408 = le Worker a cessé d'attendre (base
+  // froide, file d'attente de connexions) : même traitement, une relance.
   get isTimeout(): boolean {
-    return this.body.includes('57014') || this.body.includes('canceling statement');
+    return this.status === 408 || this.body.includes('57014') || this.body.includes('canceling statement');
   }
 }
 
@@ -30,12 +31,20 @@ export async function rpc<T>(env: McpEnv, fn: string, args: Record<string, unkno
   // Clé héritée (JWT service_role) : aussi en Authorization. Les nouvelles clés
   // `sb_secret_…` ne vont QUE dans apikey.
   if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(args),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      throw new DbError(408, `worker timeout after ${timeoutMs} ms`);
+    }
+    throw err;
+  }
   if (!res.ok) throw new DbError(res.status, (await res.text()).slice(0, 500));
   const text = await res.text();
   return (text ? JSON.parse(text) : null) as T;

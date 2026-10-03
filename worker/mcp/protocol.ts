@@ -137,6 +137,8 @@ function toolErrorText(code: string, extra: Record<string, unknown> = {}): strin
       return 'Not available for a Yuno CRM account (sales come from the external ticketing). Use get_event_report, get_sales_overview, get_audience_overview or get_marketing_performance.';
     case 'forbidden':
       return 'This person no longer has access to these numbers in the Yuno Console.';
+    case 'role_restricted':
+      return "This detail is not shown to this person's role in the Yuno Console (for a club, VIP table and guest-list analytics are reserved to the owner). The headline numbers are in get_event_report; another space of this connection may show the detail.";
     case 'invalid_args':
       return `Invalid arguments${extra.message ? `: ${String(extra.message)}` : ''}.`;
     case 'timeout':
@@ -398,7 +400,9 @@ async function callTool(
   // temps est relancé sur une fenêtre resserrée, et la réponse le dit.
   for (let attempt = 0; attempt < 2 && !r; attempt++) {
     try {
-      r = await rpc<CallResult>(state.env, 'mcp_call', { p_access_hash: state.tokenHash, p_tool: tool.name, p_args: args });
+      // La base coupe une requête à 8 s ; le Worker attend davantage pour ne pas
+      // prendre une file d'attente de connexions pour une analyse trop lourde.
+      r = await rpc<CallResult>(state.env, 'mcp_call', { p_access_hash: state.tokenHash, p_tool: tool.name, p_args: args }, 14_000);
     } catch (err) {
       if (err instanceof DbNotConfigured) throw err;
       const timeout = err instanceof DbError && err.isTimeout;
@@ -422,8 +426,13 @@ async function callTool(
   if (!r || r.error === 'unauthorized') return { status: 401, body: null, unauthorized: true };
 
   const inner = r.result;
+  // `error` = refus du serveur MCP (espace perdu, soirée introuvable…) ;
+  // `reason` seul = refus de la RPC de la Console elle-même, c'est-à-dire un
+  // détail que le rôle de la personne ne montre pas.
   let code = !r.ok
-    ? (r.error ?? inner?.error ?? (typeof inner?.reason === 'string' ? inner.reason : 'internal'))
+    ? (r.error ?? inner?.error ?? (typeof inner?.reason === 'string'
+      ? (inner.reason === 'forbidden' ? 'role_restricted' : inner.reason)
+      : 'internal'))
     : undefined;
   if (code === 'internal' && r.message === 'invalid argument') code = 'invalid_args';
   let text: string;

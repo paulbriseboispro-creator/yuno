@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { compactResult } from '../compact';
 import { explainFindings } from '../enrich';
 import { pkceChallenge, sha256Hex } from '../crypto';
-import { searchHelp } from '../help';
+import { ANSWER_BUDGET, focusExcerpt, searchHelp } from '../help';
 import { handleMcpRoute, isMcpRoute } from '../index';
 import { decodeHeaderValue } from '../protocol';
 import { TOOLS, TOOL_BY_NAME, toolsFor, validateArgs, type SessionSpace } from '../tools';
@@ -122,6 +122,23 @@ describe('helpers', () => {
     expect(searchHelp('code promo', BASE, 'organizer')[0]?.console_url).toBe(`${BASE}/organizer-app/help`);
     expect(searchHelp('lien suivi pour ma bio instagram', BASE, 'venue')[0]?.id).toBe('tracked-links');
     expect(searchHelp('connect ChatGPT to my numbers', BASE, 'venue').map((h) => h.id)).toContain('ai-assistants');
+  });
+
+  it('finds French articles from English questions', () => {
+    expect(searchHelp('turn on abandoned cart email', BASE, 'venue')[0]?.id).toBe('email-automations');
+    expect(searchHelp('mark an event sold out', BASE, 'venue')[0]?.id).toBe('sold-out-manual');
+    expect(searchHelp('create a tracked link for my Instagram bio', BASE, 'venue')[0]?.id).toBe('tracked-links');
+  });
+
+  it('keeps long articles short and on topic', () => {
+    for (const q of ['email campaign A/B subject', 'turn on abandoned cart email', 'vip tables deposit']) {
+      for (const h of searchHelp(q, BASE, 'venue')) expect(h.answer.length).toBeLessThanOrEqual(ANSWER_BUDGET + 40);
+    }
+    const long = `Intro sentence about campaigns. ${'Filler sentence about something else entirely. '.repeat(80)}The A/B subject test splits the audience. ${'More filler text that is not relevant. '.repeat(40)}`;
+    const { text, cut } = focusExcerpt(long, ['subject']);
+    expect(cut).toBe(true);
+    expect(text.startsWith('Intro sentence')).toBe(true);
+    expect(text).toContain('The A/B subject test splits the audience.');
   });
 
   it('routes only MCP paths', () => {
@@ -323,6 +340,58 @@ describe('oauth', () => {
     expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 
+  it('reads a Client ID Metadata Document the way the Workers runtime allows', async () => {
+    const CC = 'https://claude.ai/oauth/claude-code-client-metadata';
+    const doc = { client_id: CC, client_name: 'Claude Code', redirect_uris: ['http://localhost/callback', 'http://127.0.0.1/callback'] };
+    let stored = false;
+    handlers.mcp_oauth_client = () => (stored ? { id: CC, kind: 'cimd', client_name: 'Claude Code', redirect_uris: doc.redirect_uris, token_endpoint_auth_method: 'none', updated_at: new Date().toISOString() } : null);
+    handlers.mcp_oauth_upsert_cimd_client = () => { stored = true; return { ok: true }; };
+    handlers.mcp_oauth_create_request = () => ({ ok: true, request_id: 'req-cc' });
+    const rpcFetch = globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    let docInit: RequestInit | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i?: RequestInit) => {
+      if (String(u) !== CC) return rpcFetch(u, i);
+      // Comme workerd : « redirect: 'error' » lève avant toute requête.
+      if (i?.redirect === 'error') throw new TypeError('Invalid redirect value, must be one of "follow" or "manual"');
+      docInit = i;
+      return new Response(JSON.stringify(doc), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }));
+    const q = new URLSearchParams({ response_type: 'code', client_id: CC, redirect_uri: 'http://localhost:53682/callback', code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', code_challenge_method: 'S256', state: 's', resource: `${BASE}/mcp` });
+    const res = await handleMcpRoute(new Request(`${BASE}/oauth/authorize?${q}`), ENV, ctx);
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe(`${BASE}/connect-ai?request=req-cc`);
+    expect(docInit?.redirect).toBe('manual');
+  });
+
+  it('falls back to the pinned ChatGPT document when chatgpt.com blocks the Worker', async () => {
+    const GPT = 'https://chatgpt.com/oauth/client.json';
+    let upserted: Record<string, unknown> | null = null;
+    handlers.mcp_oauth_client = () => (upserted ? { id: GPT, kind: 'cimd', client_name: 'ChatGPT', redirect_uris: (upserted.p_meta as { redirect_uris: string[] }).redirect_uris, token_endpoint_auth_method: 'none', updated_at: new Date().toISOString() } : null);
+    handlers.mcp_oauth_upsert_cimd_client = (a) => { upserted = a; return { ok: true }; };
+    handlers.mcp_oauth_create_request = () => ({ ok: true, request_id: 'req-gpt' });
+    const rpcFetch = globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i?: RequestInit) => (String(u) === GPT ? new Response('blocked', { status: 403 }) : rpcFetch(u, i))));
+    const q = new URLSearchParams({ response_type: 'code', client_id: GPT, redirect_uri: 'https://chatgpt.com/connector_platform_oauth_redirect', code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', code_challenge_method: 'S256', state: 's' });
+    const res = await handleMcpRoute(new Request(`${BASE}/oauth/authorize?${q}`), ENV, ctx);
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe(`${BASE}/connect-ai?request=req-gpt`);
+    expect((upserted!.p_meta as { redirect_uris: string[] }).redirect_uris).toEqual(['https://chatgpt.com/connector_platform_oauth_redirect']);
+  });
+
+  it('refuses a Client ID Metadata Document served through a redirect', async () => {
+    const ID = 'https://client.example/meta.json';
+    handlers.mcp_oauth_client = () => null;
+    handlers.mcp_oauth_upsert_cimd_client = () => ({ ok: true });
+    const rpcFetch = globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i?: RequestInit) => (String(u) === ID
+      ? new Response(null, { status: 302, headers: { Location: 'https://elsewhere.example/meta.json' } })
+      : rpcFetch(u, i))));
+    const q = new URLSearchParams({ response_type: 'code', client_id: ID, redirect_uri: 'https://client.example/cb', code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', code_challenge_method: 'S256' });
+    const res = await handleMcpRoute(new Request(`${BASE}/oauth/authorize?${q}`), ENV, ctx);
+    expect(res.status).toBe(400);
+    expect(calls.some((c) => c.fn === 'mcp_oauth_upsert_cimd_client')).toBe(false);
+  });
+
   it('maps a dead refresh token to invalid_grant', async () => {
     handlers.mcp_oauth_refresh = () => ({ ok: false, error: 'invalid_grant' });
     const res = await handleMcpRoute(new Request(`${BASE}/oauth/token`, {
@@ -376,6 +445,30 @@ describe('resilience', () => {
     expect(seen[0]).toEqual({ days: 365 });
     expect(seen[1]).toEqual({ days: 45 });
     expect(JSON.parse(body.result.content[0].text).note).toContain('45 days');
+  });
+
+  it('treats the Worker giving up on a slow query as a timeout and retries once', async () => {
+    let n = 0;
+    handlers.mcp_call = () => ({ ok: true, call_id: 5, space: { key: 'venue:womber', name: 'Yuno', kind: 'venue', product: 'suite' }, result: { ok: true, community: { contacts: 12 } } });
+    handlers.mcp_call_finished = () => null;
+    const real = globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i?: RequestInit) => {
+      if (String(u).endsWith('/rpc/mcp_call') && n++ === 0) throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      return real(u, i);
+    }));
+    const body = await (await mcp({ jsonrpc: '2.0', id: 32, method: 'tools/call', params: { name: 'get_audience_overview', arguments: {} } })).json();
+    expect(n).toBe(2);
+    expect(body.result.isError).toBe(false);
+    expect(JSON.parse(body.result.content[0].text).community.contacts).toBe(12);
+  });
+
+  it('says a role does not show a detail, never that access was lost', async () => {
+    handlers.mcp_call = () => ({ ok: false, call_id: 6, space: { key: 'venue:womber', name: 'Yuno', kind: 'venue', product: 'suite' }, result: { ok: false, reason: 'forbidden' } });
+    handlers.mcp_call_finished = () => null;
+    const body = await (await mcp({ jsonrpc: '2.0', id: 33, method: 'tools/call', params: { name: 'get_event_details', arguments: { event: 'last', topic: 'tables' } } })).json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain('reserved to the owner');
+    expect(body.result.content[0].text).not.toContain('no longer has access');
   });
 
   it('applies tool defaults when the AI gives no window', async () => {
