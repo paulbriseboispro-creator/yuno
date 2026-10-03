@@ -72,7 +72,7 @@ async function loadRow(ctx: CrmActionContext, scope: string): Promise<CrmRow | n
 /** Configuration du portail réservée au CRM, créée une fois puis retrouvée par sa métadonnée. */
 async function crmPortalConfiguration(stripe: Stripe): Promise<string> {
   const list = await stripe.billingPortal.configurations.list({ active: true, limit: 100 });
-  const found = list.data.find((c) => c.metadata?.yuno_product === "crm");
+  const found = list.data.find((c: Stripe.BillingPortal.Configuration) => c.metadata?.yuno_product === "crm");
   if (found) return found.id;
   const created = await stripe.billingPortal.configurations.create({
     business_profile: { headline: "Yuno CRM" },

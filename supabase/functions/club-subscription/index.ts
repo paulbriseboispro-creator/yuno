@@ -239,7 +239,7 @@ serve(async (req) => {
       logStep("Customer found", { customerId });
 
       const allSubs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
-      const subscription = allSubs.data.find((s) =>
+      const subscription = allSubs.data.find((s: Stripe.Subscription) =>
         s.status === "active" || s.status === "trialing" || s.status === "past_due"
       );
 
@@ -458,7 +458,7 @@ serve(async (req) => {
         logStep("Existing customer found", { customerId });
 
         const existingSubs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
-        const activeOrTrialing = existingSubs.data.find((s) =>
+        const activeOrTrialing = existingSubs.data.find((s: Stripe.Subscription) =>
           ["active", "trialing", "past_due"].includes(s.status)
         );
 
