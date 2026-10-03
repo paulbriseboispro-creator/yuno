@@ -2335,6 +2335,27 @@ const help: Record<string, string> = {
   "ohelp.crm.billing.s4b": "• Emails per month: 1,000, 15,000, 50,000 or 100,000. Beyond that, top-ups are sold at cost.\n• Automations on at once: none on Free, 3 on Essential, all from Pro.\n• A/B tests and resend to non-openers: from Pro.\n• Users: 1, 3, 5 or unlimited.\nWhen a limit is reached, Yuno says so at the moment of the action and offers \"See plans\".",
   "ohelp.crm.billing.s5h": "Good to know",
   "ohelp.crm.billing.s5b": "Only the account holder changes the plan. A cancellation takes effect at the end of the paid period. In assisted access, Yuno never subscribes on your behalf.",
+  // Assistants IA (serveur MCP, docs/MCP.md).
+  "ohelp.action.goToAiAssistants": "Open AI assistants →",
+  "ohelp.ai.title": "AI assistants: ChatGPT, Claude, Gemini on your numbers",
+  "ohelp.ai.desc": "Connect your AI to Yuno in one minute and ask your questions in plain words: it reads your numbers, read-only, and turns them into analyses and advice.",
+  "ohelp.ai.s1h": "What it is for",
+  "ohelp.ai.s1b": "The \"AI assistants\" page (Settings → AI assistants) connects the AI you already use — Claude, ChatGPT, Gemini or Le Chat — to your Yuno Console. Once connected, you ask \"how did Saturday go?\" or \"who should I invite back?\" and the AI answers with your real numbers: sales, events, audience, marketing, promoters. It compares, spots what changed and tells you what to do in Yuno. It never changes anything.",
+  "ohelp.ai.s2h": "Connect your AI",
+  "ohelp.ai.s2b": "1. Open Settings → AI assistants and click \"Copy\" next to the server address (https://yunoapp.eu/mcp).\n2. In your AI, add a connector: Claude → Settings → Connectors → \"Add custom connector\"; ChatGPT → Settings → Apps → Advanced settings → Developer mode, then \"Create app\"; Gemini → Settings → Connected apps → \"Add a custom app\"; Le Chat → Intelligence → Connectors → \"Add connector\".\n3. Paste the address and confirm: a Yuno window opens.\n4. Sign in with your Yuno account, tick the club or organization, choose \"Numbers and analyses\" (recommended) and click \"Allow\".\n5. Back in your AI, turn the Yuno connector on in a chat and ask your question.",
+  "ohelp.ai.s3h": "Example",
+  "ohelp.ai.s3b": "You ask: \"Is my next Saturday selling faster than usual, and what should I do this week?\" The AI reads the event report, compares sales with the previous event at the same number of days before, checks where buyers come from and which automations are off, then answers: the gap in numbers, the 2 or 3 actions that weigh the most (for example \"turn on the last-call email\" or \"send a campaign to the 340 past buyers of this night\"), with the exact path in the Console.",
+  "ohelp.ai.s4h": "What the AI sees, and what it will never do",
+  "ohelp.ai.s4b": "• ✅ The same numbers as your Console, with the same formulas: revenue net of Yuno fees, entries, D-N comparisons, attributed sales.\n• ✅ Only what your role sees: amounts hidden for your role stay hidden from the AI.\n• ❌ Never a change, never an email, push or SMS sent, never a refund or a payment setting touched: the connection is read-only, enforced by the database.\n• ❌ No customer identity unless you ticked \"Numbers + customer details\".",
+  "ohelp.ai.s5h": "Numbers only, or customer details",
+  "ohelp.ai.s5b": "\"Numbers and analyses\" is enough for almost every question: sales, trends, audience size, segments, marketing results — without a single name. \"Numbers + customer details\" also lets the AI list customers with their name and email (\"who are my 20 best customers?\", \"which regulars stopped coming?\"). What the AI reads goes through the servers of its provider, under its own terms: only tick it if you need names, and check your AI's data settings.",
+  "ohelp.ai.s6h": "Keep control: activity log, cut access, your team",
+  "ohelp.ai.s6b": "Each connected AI appears under \"Connected AIs\" with its level, the date of its last question and the number of questions asked. \"Activity\" shows each analysis it ran (event report, sales, segments…) — never the content of the answer. \"Cut access\" disconnects it at once. Each person on your team connects their own AI with their own account and sees what their role sees; the club owner or the organization founder sees every AI connected to their space and can cut it.",
+  "ohelp.ai.s7h": "Tip: ask like you would ask a manager",
+  "ohelp.ai.s7b": "Name the event or the period (\"last Saturday\", \"September\", \"my last 4 parties\") and the goal (\"sell more tables\", \"win back regulars\"). Ask for a plan: \"give me 3 actions for this week with where to click\". If a number surprises you, ask where it comes from: the AI only reads Yuno's numbers, it does not invent them.",
+  "ohelp.ai.s8h": "Common problems",
+  "ohelp.ai.s8b": "• The connector option is missing in ChatGPT: developer mode is needed (Plus, Pro, Business, Enterprise or Edu, on the web); in a company workspace an admin may have to allow it.\n• Gemini does not offer custom apps: they are opening country by country; use Claude or ChatGPT meanwhile.\n• \"No pro space\": you signed in with a client account, or your role does not give access to the numbers. Use your pro account.\n• The AI says customer details are not shared: reconnect it and tick \"Numbers + customer details\".\n• An analysis \"took too long\": ask for a shorter period or a single event.",
+
 };
 
 export default help;

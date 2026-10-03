@@ -1046,6 +1046,27 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        // Assistants IA (serveur MCP, docs/MCP.md) : brancher ChatGPT, Claude,
+        // Gemini ou Le Chat sur les chiffres, en lecture seule, et garder la main.
+        id: 'ai-assistants',
+        titleKey: 'ohelp.ai.title',
+        descKey: 'ohelp.ai.desc',
+        icon: 'Sparkles',
+        actionLink: { labelKey: 'ohelp.action.goToAiAssistants', path: '/ai-assistants' },
+        relatedArticleIds: ['support-access'],
+        keywords: ['intelligence artificielle', 'chatgpt', 'claude', 'gemini', 'le chat', 'mistral', 'openai', 'anthropic', 'mcp', 'connecteur', 'connector', 'conector', 'assistant', 'asistente', 'analyse', 'analysis', 'análisis', 'conseils', 'advice', 'consejos', 'questions', 'preguntas', 'lecture seule', 'read-only', 'brancher mon ia', 'connect my ai', 'conectar mi ia'],
+        sections: [
+          { headingKey: 'ohelp.ai.s1h', bodyKey: 'ohelp.ai.s1b' },
+          { headingKey: 'ohelp.ai.s2h', bodyKey: 'ohelp.ai.s2b', type: 'steps' },
+          { headingKey: 'ohelp.ai.s3h', bodyKey: 'ohelp.ai.s3b', type: 'example' },
+          { headingKey: 'ohelp.ai.s4h', bodyKey: 'ohelp.ai.s4b', type: 'warning' },
+          { headingKey: 'ohelp.ai.s5h', bodyKey: 'ohelp.ai.s5b' },
+          { headingKey: 'ohelp.ai.s6h', bodyKey: 'ohelp.ai.s6b' },
+          { headingKey: 'ohelp.ai.s7h', bodyKey: 'ohelp.ai.s7b', type: 'tip' },
+          { headingKey: 'ohelp.ai.s8h', bodyKey: 'ohelp.ai.s8b' },
+        ],
+      },
+      {
         id: 'appearance',
         titleKey: 'ohelp.appearance.title',
         descKey: 'ohelp.appearance.desc',

@@ -688,7 +688,7 @@ Le présent accord encadre, conformément à l'article 28 du RGPD, les traitemen
 • Durée : durée d'utilisation de la plateforme par le Partenaire.
 
 **3. Instructions**
-Yuno traite ces données uniquement sur instruction documentée du Partenaire ; le paramétrage et l'utilisation des fonctionnalités de la plateforme valent instruction. Yuno informe le Partenaire si, à son avis, une instruction constitue une violation du RGPD.
+Yuno traite ces données uniquement sur instruction documentée du Partenaire ; le paramétrage et l'utilisation des fonctionnalités de la plateforme valent instruction. La connexion, par le Partenaire, d'un assistant IA de son choix à sa Console (connecteur Yuno pour assistants IA) vaut instruction de transmettre à cet assistant les données que le Partenaire a choisies (statistiques, et fiches clients seulement s'il l'a coché) ; le fournisseur de cet assistant n'est pas un sous-traitant ultérieur de Yuno mais un destinataire désigné par le Partenaire, qui peut couper cet accès à tout moment depuis sa Console. Yuno informe le Partenaire si, à son avis, une instruction constitue une violation du RGPD.
 
 **4. Confidentialité et sécurité**
 Les personnes autorisées à traiter les données sont soumises à une obligation de confidentialité. Yuno met en œuvre les mesures techniques et organisationnelles appropriées (article 32 RGPD) : chiffrement en transit (HTTPS/TLS), cloisonnement des données par établissement (row level security), contrôle d'accès par rôle, authentification renforcée (MFA), journalisation de sécurité.
@@ -726,7 +726,7 @@ This agreement governs, in accordance with Article 28 GDPR, the processing of pe
 • Duration: for as long as the Partner uses the platform.
 
 **3. Instructions**
-Yuno processes this data only on the Partner's documented instructions; configuring and using platform features constitutes instructions. Yuno informs the Partner if, in its opinion, an instruction infringes the GDPR.
+Yuno processes this data only on the Partner's documented instructions; configuring and using platform features constitutes instructions. When the Partner connects an AI assistant of its choice to its Console (Yuno connector for AI assistants), this is an instruction to send that assistant the data the Partner selected (statistics, and customer records only if the Partner ticked it); the assistant's provider is not a sub-processor of Yuno but a recipient designated by the Partner, who can cut this access at any time from its Console. Yuno informs the Partner if, in its opinion, an instruction infringes the GDPR.
 
 **4. Confidentiality and Security**
 Persons authorized to process the data are bound by confidentiality obligations. Yuno implements appropriate technical and organizational measures (Article 32 GDPR): encryption in transit (HTTPS/TLS), per-venue data isolation (row level security), role-based access control, strong authentication (MFA), security logging.
@@ -764,7 +764,7 @@ Este acuerdo regula, conforme al artículo 28 del RGPD, los tratamientos de dato
 • Duración: mientras el Socio utilice la plataforma.
 
 **3. Instrucciones**
-Yuno trata estos datos únicamente siguiendo instrucciones documentadas del Socio; la configuración y el uso de las funcionalidades de la plataforma constituyen instrucciones. Yuno informa al Socio si, en su opinión, una instrucción infringe el RGPD.
+Yuno trata estos datos únicamente siguiendo instrucciones documentadas del Socio; la configuración y el uso de las funcionalidades de la plataforma constituyen instrucciones. La conexión, por parte del Socio, de un asistente de IA de su elección a su Consola (conector de Yuno para asistentes de IA) constituye una instrucción de transmitir a ese asistente los datos que el Socio ha elegido (estadísticas, y fichas de clientes solo si lo ha marcado); el proveedor de ese asistente no es un subencargado de Yuno sino un destinatario designado por el Socio, que puede cortar este acceso en cualquier momento desde su Consola. Yuno informa al Socio si, en su opinión, una instrucción infringe el RGPD.
 
 **4. Confidencialidad y seguridad**
 Las personas autorizadas a tratar los datos están sujetas a obligaciones de confidencialidad. Yuno aplica las medidas técnicas y organizativas apropiadas (artículo 32 RGPD): cifrado en tránsito (HTTPS/TLS), aislamiento de datos por establecimiento (row level security), control de acceso por rol, autenticación reforzada (MFA), registro de seguridad.
@@ -795,7 +795,7 @@ Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro en lo relativ
   'privacy': {
     fr: {
       title: 'Politique de Confidentialité',
-      content: `Dernière mise à jour : 24 septembre 2026
+      content: `Dernière mise à jour : 3 octobre 2026
 
 Cette politique explique quelles données Yuno collecte, pourquoi, avec qui elles sont partagées et quels sont vos droits. Elle s'applique au site yunoapp.eu et aux applications mobiles Yuno et Yuno Pro.
 
@@ -834,6 +834,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 Yuno ne vend jamais vos données. Elles ne sont partagées qu'avec :
 • Les clubs et organisateurs concernés par vos achats (commande, identité nécessaire à l'entrée, QR) ; pour une guest list via promoteur, le club et l'équipe concernés voient votre inscription
 • Statistiques de goûts pour les clubs et organisateurs : si vous êtes venu chez eux, vos préférences musicales (quiz de goûts) et les genres des soirées où vous êtes allé sur Yuno peuvent entrer dans des statistiques AGRÉGÉES de leur communauté. Elles ne sont jamais présentées personne par personne, et un genre n'est affiché que s'il réunit au moins 10 personnes. Désactivable dans Réglages → Recommandations personnalisées
+• Assistants IA choisis par un club ou un organisateur : si un club ou un organisateur chez qui vous êtes venu connecte son propre assistant IA (par exemple Claude, ChatGPT, Gemini ou Le Chat) à sa Console Yuno, cet assistant lit ses statistiques ; il ne reçoit votre identité (nom, email, historique d'achat chez ce club ou cet organisateur) que si ce professionnel l'a explicitement autorisé. Ce transfert se fait sur instruction du professionnel, qui en est responsable ; le fournisseur de l'assistant traite ces données selon ses propres conditions. Yuno n'utilise pas vos données pour entraîner une IA
 • Stripe (paiements — vos données bancaires sont traitées directement par Stripe et ne transitent jamais par les serveurs de Yuno)
 • Supabase (hébergement backend — chiffrement en transit HTTPS/TLS)
 • Cloudflare (diffusion sécurisée du site)
@@ -881,7 +882,7 @@ Cette politique peut évoluer avec le service. En cas de changement substantiel,
     },
     en: {
       title: 'Privacy Policy',
-      content: `Last updated: 24 September 2026
+      content: `Last updated: 3 October 2026
 
 This policy explains what data Yuno collects, why, who it is shared with, and what your rights are. It applies to yunoapp.eu and to the Yuno and Yuno Pro mobile apps.
 
@@ -920,6 +921,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 Yuno never sells your data. It is only shared with:
 • The clubs and organizers involved in your purchases (order, identity needed at the door, QR); for a guest list joined through a promoter, the relevant club and team see your registration
 • Taste statistics for clubs and organizers: if you went to their events, your music preferences (taste quiz) and the genres of the events you attended on Yuno may be included in AGGREGATED statistics about their community. They are never shown person by person, and a genre is only displayed when it gathers at least 10 people. You can turn this off in Settings → Personalized recommendations
+• AI assistants chosen by a club or organizer: if a club or organizer whose events you attended connects its own AI assistant (for example Claude, ChatGPT, Gemini or Le Chat) to its Yuno Console, that assistant reads its statistics; it only receives your identity (name, email, purchase history with that club or organizer) if that professional explicitly allowed it. This transfer happens on the professional's instruction, who is responsible for it; the assistant's provider processes this data under its own terms. Yuno does not use your data to train any AI
 • Stripe (payments — your card details are processed directly by Stripe and never pass through Yuno's servers)
 • Supabase (backend hosting — encryption in transit via HTTPS/TLS)
 • Cloudflare (secure site delivery)
@@ -967,7 +969,7 @@ This policy may evolve with the service. In case of substantial change, you will
     },
     es: {
       title: 'Política de Privacidad',
-      content: `Última actualización: 24 de septiembre de 2026
+      content: `Última actualización: 3 de octubre de 2026
 
 Esta política explica qué datos recoge Yuno, por qué, con quién se comparten y cuáles son tus derechos. Se aplica a yunoapp.eu y a las apps móviles Yuno y Yuno Pro.
 
@@ -1006,6 +1008,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 Yuno nunca vende tus datos. Solo se comparten con:
 • Los clubs y organizadores implicados en tus compras (pedido, identidad necesaria en la puerta, QR); si te apuntas a una guest list a través de un promotor, el club y el equipo implicados ven tu inscripción
 • Estadísticas de gustos para clubs y organizadores: si has ido a sus eventos, tus preferencias musicales (quiz de gustos) y los géneros de los eventos a los que has ido en Yuno pueden formar parte de estadísticas AGREGADAS de su comunidad. Nunca se muestran persona por persona, y un género solo aparece si reúne al menos 10 personas. Puedes desactivarlo en Ajustes → Recomendaciones personalizadas
+• Asistentes de IA elegidos por un club u organizador: si un club u organizador a cuyas fiestas has ido conecta su propio asistente de IA (por ejemplo Claude, ChatGPT, Gemini o Le Chat) a su Consola Yuno, ese asistente lee sus estadísticas; solo recibe tu identidad (nombre, email, historial de compras con ese club u organizador) si ese profesional lo ha autorizado expresamente. Esta transferencia se hace por instrucción del profesional, que es responsable de ella; el proveedor del asistente trata estos datos según sus propias condiciones. Yuno no utiliza tus datos para entrenar ninguna IA
 • Stripe (pagos — tus datos bancarios los procesa directamente Stripe y nunca pasan por los servidores de Yuno)
 • Supabase (alojamiento backend — cifrado en tránsito HTTPS/TLS)
 • Cloudflare (distribución segura del sitio)

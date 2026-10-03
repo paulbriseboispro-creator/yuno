@@ -122,11 +122,11 @@ const CRM_ARTICLES: Record<'start' | 'base', OwnerHelpArticle[]> = {
 const REUSED: Record<ConsoleBase, { marketing: string[]; account: string[] }> = {
   '/organizer-app': {
     marketing: ['org-campaigns', 'org-sms', 'org-ads', 'org-meta-ads'],
-    account: ['org-team', 'appearance'],
+    account: ['org-team', 'ai-assistants', 'appearance'],
   },
   '/owner': {
     marketing: ['email-campaigns', 'marketing-consent', 'sms-credits', 'ads', 'meta-ads'],
-    account: ['support-access', 'appearance'],
+    account: ['support-access', 'ai-assistants', 'appearance'],
   },
 };
 
