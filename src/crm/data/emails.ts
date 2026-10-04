@@ -35,6 +35,7 @@ export interface EmailCampaignRow {
   total_recipients: number | null;
   has_content: boolean;
   paused_reason: string | null;
+  theme?: { bg?: string; headerBg?: string; accent?: string; divider?: string; tile?: string } | null;
   stats?: EmailStats;
 }
 
