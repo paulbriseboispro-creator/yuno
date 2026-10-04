@@ -5,7 +5,7 @@ import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-g
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { resolveReturnOrigin } from "../_shared/cors.ts";
 import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
-import { handleCrmAction } from "./crm.ts";
+import { CRM_ACTIONS, handleCrmAction } from "./crm.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -127,7 +127,7 @@ serve(async (req) => {
     }
 
     // Yuno CRM : abonnement par portée, client Stripe propre (./crm.ts).
-    if (action === "crm_checkout" || action === "crm_portal") {
+    if ((CRM_ACTIONS as readonly string[]).includes(action)) {
       const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
       return await handleCrmAction(
         { req, user, token, admin: supabaseClient, stripe, json, log: logStep },

@@ -7,7 +7,7 @@ import { isTieredCollab } from "../_shared/payment-split.ts";
 import { heldLegAfterRefund, refundContext, releasedLegReversal } from "../_shared/refund-legs.ts";
 import { recordChargeRefund } from "../_shared/sale-refund-effects.ts";
 import { connectStatusOf, organizerConnectColumns, stateFromV1Account, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
-import { crmSubscriptionUpdate, type StripeSubLike } from "../_shared/crm-billing.ts";
+import { crmRechargeFromSession, crmSubscriptionUpdate, type StripeSubLike } from "../_shared/crm-billing.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -261,7 +261,7 @@ async function applyCrmSubscription(
     p_subscription_id: u.subscription_id,
     p_customer_id: u.customer_id,
     p_stripe_status: u.stripe_status,
-    p_plan: u.plan,
+    p_plan: "base",
     p_interval: u.interval,
     p_founder: u.founder,
     p_trial_end: u.trial_end,
@@ -272,6 +272,27 @@ async function applyCrmSubscription(
   });
   if (error) throw new Error(`crm_apply_stripe_subscription: ${error.message}`);
   logStep("CRM subscription applied", { scope: u.scope_key, result: data });
+}
+
+async function creditCrmRecharge(admin: SupabaseClient, session: Stripe.Checkout.Session): Promise<void> {
+  const r = crmRechargeFromSession(session as unknown as Parameters<typeof crmRechargeFromSession>[0]);
+  if (!r) {
+    logStep("CRM recharge not credited (unpaid or unreadable)", { sessionId: session.id, status: session.payment_status });
+    return;
+  }
+  const expires = new Date();
+  expires.setMonth(expires.getMonth() + 12);
+  const { data, error } = await admin.rpc("crm_yunits_credit", {
+    p_scope_key: r.scope_key,
+    p_kind: "purchase",
+    p_amount: r.received,
+    p_expires_at: expires.toISOString(),
+    p_source_ref: `stripe:${r.session_id}`,
+    p_label: "Recharge",
+    p_meta: { session_id: r.session_id, base: r.base, amount_total: session.amount_total ?? null },
+  });
+  if (error) throw new Error(`crm_yunits_credit: ${error.message}`);
+  logStep("CRM recharge credited", { scope: r.scope_key, received: r.received, result: data });
 }
 
 async function delegateToVerify(
@@ -511,6 +532,14 @@ serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session;
         const metadata = session.metadata || {};
         logStep("Checkout session completed", { sessionId: session.id, metadata });
+
+        // Yuno CRM : une recharge payée crédite ses Yunits (valables un an).
+        // Idempotent par la session : les deux endpoints et les rejeux de Stripe
+        // retombent sur le même lot.
+        if (metadata.yuno_product === "crm" && metadata.kind === "recharge") {
+          await creditCrmRecharge(supabaseClient, session);
+          break;
+        }
 
         if (metadata.orderId) {
           // RELIABILITY FALLBACK — même logique que les billets/tables ci-dessous.
