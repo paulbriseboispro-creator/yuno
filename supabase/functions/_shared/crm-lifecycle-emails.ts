@@ -6,7 +6,7 @@
 // Tout est ÉTEINT par défaut : sans interrupteur allumé, la collecte rend vide.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { isDemoEmail } from "./demo-scope.ts";
-import { renderLifecycleEmail, type LifecycleCopy, type LifecycleKey, type LifecycleLang } from "./crm-lifecycle-html.ts";
+import { renderLifecycleEmail, renderSignupConfirmEmail, type LifecycleCopy, type LifecycleKey, type LifecycleLang } from "./crm-lifecycle-html.ts";
 
 const ORIGIN = Deno.env.get("APP_BASE_URL") ?? "https://yunoapp.eu";
 
@@ -46,6 +46,43 @@ export async function dispatchCrmLifecycleEmails(admin: SupabaseClient, opts: { 
     } catch (e) {
       await mark(false, "network"); out.failed++;
       console.error("[CRM-LIFECYCLE] send failed:", String(e));
+    }
+  }
+  return out;
+}
+
+// ── Pages d'inscription : e-mail de confirmation des fans ──────────────────
+// La base prépare la file (crm_signup_confirm_queue : jeton neuf, haché en
+// base, démo écartée) ; ici on envoie. Un envoi raté rend la ligne à la file.
+interface SignupQueued { id: string; email: string; first_name: string; lang: string; slug: string; title: string; host: string | null; token: string }
+
+export async function dispatchCrmSignupConfirmations(admin: SupabaseClient, opts: { timeBudgetMs?: number } = {}): Promise<{ queued: number; sent: number; failed: number }> {
+  const out = { queued: 0, sent: 0, failed: 0 };
+  const stop = Date.now() + (opts.timeBudgetMs ?? 15_000);
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) return out;
+  const { data, error } = await admin.rpc("crm_signup_confirm_queue", { p_limit: 50 });
+  if (error) { console.error("[CRM-SIGNUP] queue:", error.message); return out; }
+  const rows = (data as SignupQueued[] | null) ?? [];
+  out.queued = rows.length;
+  const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
+  const from = rawFrom ? (rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`) : "Yuno <noreply@yunoapp.eu>";
+  for (const r of rows) {
+    if (Date.now() > stop || isDemoEmail(r.email)) { await admin.rpc("crm_signup_confirm_failed", { p_id: r.id }); continue; }
+    const lang: LifecycleLang = r.lang === "en" || r.lang === "es" ? r.lang : "fr";
+    const { subject, html } = renderSignupConfirmEmail({ lang, title: r.title, host: r.host ?? "Yuno", slug: r.slug, token: r.token, origin: ORIGIN });
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "Idempotency-Key": `crm-signup-${r.id}-${r.token.slice(0, 12)}` },
+        body: JSON.stringify({ from, to: [r.email], subject, html, tags: [{ name: "kind", value: "crm_signup_confirm" }] }),
+      });
+      if (res.ok) out.sent++;
+      else { out.failed++; await admin.rpc("crm_signup_confirm_failed", { p_id: r.id }); console.error(`[CRM-SIGNUP] ${res.status} ${(await res.text()).slice(0, 200)}`); }
+    } catch (e) {
+      out.failed++;
+      await admin.rpc("crm_signup_confirm_failed", { p_id: r.id });
+      console.error("[CRM-SIGNUP] send failed:", String(e));
     }
   }
   return out;
