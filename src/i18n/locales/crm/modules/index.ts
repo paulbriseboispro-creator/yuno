@@ -13,6 +13,7 @@ import emailTemplates from './emailTemplates';
 import emailStudio from './emailStudio';
 import emailSend from './emailSend';
 import emailResult from './emailResult';
+import emailAnalysis from './emailAnalysis';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -30,6 +31,7 @@ export const CRM_DICT: CrmDict = {
   ...emailStudio,
   ...emailSend,
   ...emailResult,
+  ...emailAnalysis,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

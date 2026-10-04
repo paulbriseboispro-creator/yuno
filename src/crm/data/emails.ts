@@ -122,6 +122,7 @@ export interface EmailAnalysis {
   grid: { d: number; h: number; n: number; clicked: number }[];
   subjects: { b: number; campaigns: number; received: number; opened: number }[];
   segments: { seg: string; people: number; received: number; opened: number; clicked: number; purchases: number }[];
+  audience: { clients: number; reachable: number; unsub: number; bounced: number; no_consent: number; by_seg: Record<string, number> };
 }
 
 export function useEmailAnalysis() {

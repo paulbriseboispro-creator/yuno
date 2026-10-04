@@ -19,6 +19,7 @@ const EmailTemplatesPage = lazyWithRetry(() => import('./pages/emails/EmailTempl
 const EmailStudioPage = lazyWithRetry(() => import('./pages/emails/studio/EmailStudioPage'));
 const EmailSendPage = lazyWithRetry(() => import('./pages/emails/send/EmailSendPage'));
 const EmailResultPage = lazyWithRetry(() => import('./pages/emails/results/EmailResultPage'));
+const EmailAnalysisPage = lazyWithRetry(() => import('./pages/emails/analysis/EmailAnalysisPage'));
 const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
@@ -47,6 +48,7 @@ export function crmRoutes() {
         <Route path="emails/campaigns" element={<EmailCampaignsPage />} />
         <Route path="emails/templates" element={<EmailTemplatesPage />} />
         <Route path="emails/results/:id" element={<EmailResultPage />} />
+        <Route path="emails/analysis" element={<EmailAnalysisPage />} />
         <Route path="instagram" element={<InstagramSoonPage />} />
         <Route path="signup-pages" element={<SignupPagesSoonPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
