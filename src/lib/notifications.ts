@@ -196,6 +196,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // avec lui) ; la règle de conservation n'a pas pu s'appliquer.
   admin_crm_deletion_request:    { icon: UserX,      category: 'compliance', label: 'notif.type.admin_crm_deletion_request' },
   admin_crm_retention_failed:    { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_crm_retention_failed' },
+  // Yuno CRM : un incident de données approche de l'échéance CNIL (72 h).
+  admin_crm_incident_deadline:   { icon: AlertTriangle, category: 'compliance', label: 'notif.type.admin_crm_incident_deadline' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
@@ -744,6 +746,9 @@ function adminNotifLink(n: AppNotif): string | null {
       if (scopeKey.startsWith('org:')) return `/admin/people/${scopeKey.slice(4)}`;
       return '/admin/alerts';
     }
+
+    case 'admin_crm_incident_deadline':
+      return '/admin/crm/legal';
 
     // Réglages d'un espace Yuno CRM (référence = clé de portée).
     case 'admin_crm_deletion_request':

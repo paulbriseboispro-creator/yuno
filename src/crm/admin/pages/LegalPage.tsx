@@ -2,7 +2,7 @@
  * Admin CRM › Légal (« Admin Legal » du design) : Yuno est sous-traitant de chaque
  * pro. Ce qui est LU en base : acceptations (CGU, confidentialité…) par titulaire,
  * preuve de consentement des contacts, attestations d'import, accès assisté,
- * demandes de suppression. La liste des sous-traitants ultérieurs est celle de la
+ * demandes de suppression, et le registre des incidents (CNIL 72 h). La liste des sous-traitants ultérieurs est celle de la
  * pile technique de Yuno (fixe, relue à chaque changement de fournisseur).
  */
 import { Link } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Skel } from '@/crm/ui/kit';
 import { ADMIN_ROUTES } from '../adminNav';
 import { useAdminLegal } from '../data';
+import IncidentsSection from './IncidentsSection';
 import { EmptyNote, Kpi, PageHead, RowLine, Section, kpiGrid, pageWrap, twoCols } from '../ui';
 
 const DOCS = ['terms_pro', 'confidentiality', 'dpa'] as const;
@@ -28,6 +29,7 @@ export default function LegalPage() {
   return (
     <main style={pageWrap}>
       <PageHead kicker={t('adm.crm.lg.kicker')} title={t('adm.crm.lg.title')} sub={t('adm.crm.lg.sub')} />
+      <IncidentsSection />
       {!d ? <><div style={kpiGrid}>{[0, 1, 2].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></> : (
         <>
           <div style={kpiGrid}>
