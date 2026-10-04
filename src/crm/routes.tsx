@@ -25,6 +25,7 @@ const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) =
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
 const SignupPagesSoonPage = lazyWithRetry(() => import('./pages/soon/SignupPagesSoonPage'));
+const AccountPage = lazyWithRetry(() => import('./pages/account/AccountPage'));
 
 export function crmRoutes() {
   return (
@@ -53,6 +54,8 @@ export function crmRoutes() {
         <Route path="emails/settings" element={<EmailSettingsPage />} />
         <Route path="instagram" element={<InstagramSoonPage />} />
         <Route path="signup-pages" element={<SignupPagesSoonPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="account/:section" element={<AccountPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>
