@@ -313,6 +313,16 @@ export function capturePosthog(event: YunoEvent, properties?: Record<string, unk
 }
 
 /**
+ * Erreur d'affichage attrapée par une garde de l'app (écran « erreur 500 » de
+ * la Console CRM) : envoyée à l'Error Tracking avec sa référence. Sans
+ * consentement ni SDK chargé : rien, et rien n'est mis en file.
+ */
+export function capturePosthogException(error: unknown, properties?: Record<string, unknown>) {
+  if (!posthogEnabled() || !client) return;
+  client.captureException(error, properties);
+}
+
+/**
  * Version de l'app native : `app_version` = version App Store (build),
  * `ota_bundle` = bundle web livré par Capgo. Posées sur chaque événement
  * (before_send) pour lire les erreurs et l'adoption version par version.

@@ -77,7 +77,7 @@ export async function commitImport(args: Record<string, unknown>, p: CommitParam
       const r: { list_import_id: string } = await rpc<{ list_import_id: string }>('crm_import_commit', {
         ...args, p_list_import_id: list, p_rows: batches[b], p_consent: p.consent, p_mode: p.mode,
         p_title: p.title, p_final: last, p_stats: b === 0 || last ? p.stats : null, p_kind: p.kind ?? 'file',
-      });
+      }, { timeoutMs: 120_000 });
       list = r.list_import_id;
       p.onProgress?.((b + 1) / batches.length);
     }
