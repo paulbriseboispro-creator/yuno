@@ -19,25 +19,20 @@ import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
-import { useNights, type NightRow } from '@/crm/data/nights';
 import { useEmailCampaigns, useInvalidateEmails } from '@/crm/data/emails';
 import { peekPendingAudience, takePendingAudience, type PendingAudience } from '@/crm/data/clients';
-import { createDraftFromTemplate, duplicateCampaigns, pendingToAudience } from '@/crm/data/emailActions';
+import { duplicateCampaigns } from '@/crm/data/emailActions';
 import {
-  CRM_TEMPLATES, CRM_TEMPLATE_GOALS, buildCrmTemplate, crmTemplate, draftName, templateFromStart, venueAt,
-  type CrmTemplateGoal, type CrmTemplateKind, type TemplateNight,
+  CRM_TEMPLATES, CRM_TEMPLATE_GOALS, crmTemplate, templateFromStart, venueAt,
+  type CrmTemplateGoal, type CrmTemplateKind,
 } from '@/crm/lib/emailTemplates';
 import { useStudioLiveData } from '@/components/email-studio/hooks';
 import { renderEmailHtml, type EmailBlock, type LiveData } from '@/lib/email';
 import type { TemplateContent } from '@/lib/email/templates';
 import { EmailsShell } from './EmailsShell';
+import { useTemplateDraft } from './templateDraft';
 
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
-
-function toNight(n: NightRow | null | undefined): TemplateNight | null {
-  if (!n) return null;
-  return { id: n.id, title: n.title, coverUrl: n.cover_url, url: n.url, lineup: n.lineup ?? [] };
-}
 
 /** Achats pour 1 000 e-mails envoyés. */
 function perK(purchases: number, sent: number): number | null {
@@ -45,8 +40,8 @@ function perK(purchases: number, sent: number): number | null {
 }
 
 export default function EmailTemplatesPage() {
-  const { t, tp, n, n1, dShort, dLong, lang } = useCrmT();
-  const { space, rpc: scopeArgs } = useCrmScope();
+  const { t, tp, n, n1, dShort, dLong } = useCrmT();
+  const { space } = useCrmScope();
   const nav = useNavigate();
   const toast = useCrmToast();
   const invalidate = useInvalidateEmails();
@@ -75,7 +70,6 @@ export default function EmailTemplatesPage() {
     }, { replace: true });
   }, [params, setParams]);
 
-  const nights = useNights();
   const camps = useEmailCampaigns();
   const list = camps.data?.campaigns;
   const drafts = (list ?? []).filter((c) => c.status === 'draft').length;
@@ -83,27 +77,13 @@ export default function EmailTemplatesPage() {
   // Soirées utilisées par les modèles : celle annoncée (adresse ou audience
   // gardée), sinon la prochaine ; la suivante pour la lettre du mois ; la
   // dernière passée pour « Merci pour hier soir ».
-  const { night, second, last } = useMemo(() => {
-    const all = nights.data?.nights ?? [];
-    const up = all.filter((x) => x.upcoming).sort((a, b) => a.start_at.localeCompare(b.start_at));
-    const past = all.filter((x) => !x.upcoming).sort((a, b) => b.start_at.localeCompare(a.start_at));
-    const wanted = params.get('event') ?? pending?.eventId ?? null;
-    const picked = (wanted && all.find((x) => x.id === wanted)) || up[0] || null;
-    const after = up.find((x) => x.id !== picked?.id) ?? null;
-    return { night: picked, second: after, last: past[0] ?? null };
-  }, [nights.data, params, pending]);
+  const draft = useTemplateDraft(params.get('event') ?? pending?.eventId ?? null);
+  const { night, second, last, contents } = draft;
 
   // Données live des deux soirées (tarifs, jauge, lien suivi de billetterie) :
   // les vignettes montrent l'e-mail qui partira, pas une carte d'exemple.
   const liveBlocks = useMemo(() => [night, second].filter(Boolean).map((x) => ({ id: x!.id, type: 'event', eventId: x!.id }) as unknown as EmailBlock), [night, second]);
   const live = useStudioLiveData(liveBlocks, null);
-
-  const contents = useMemo(() => {
-    const ctx = { venueName: space.name, lang, t, night: toNight(night), second: toNight(second), last: toNight(last) };
-    const out = {} as Record<CrmTemplateKind, TemplateContent>;
-    for (const m of CRM_TEMPLATES) out[m.kind] = buildCrmTemplate(m.kind, ctx);
-    return out;
-  }, [space.name, lang, t, night, second, last]);
 
   const render = useMemo(() => (content: TemplateContent, liveData: LiveData) => renderEmailHtml(content.blocks, content.theme, {
     venueName: space.name, city: space.city, logoUrl: space.logoUrl,
@@ -145,23 +125,10 @@ export default function EmailTemplatesPage() {
   const use = async (kind: CrmTemplateKind) => {
     if (busy) return;
     if (!canWrite) { toast(t('yc.em.tp.ownerOnly')); return; }
-    const meta = crmTemplate(kind)!;
     setBusy(kind);
     try {
       const keep = pending ? takePendingAudience() ?? pending : null;
-      const linked = meta.night || kind === 'mois' ? night : null;
-      const id = await createDraftFromTemplate({
-        venueId: scopeArgs.p_venue_id,
-        organizerUserId: scopeArgs.p_organizer_user_id,
-        name: draftName(kind, t, linked),
-        kind,
-        content: contents[kind],
-        eventId: linked?.id ?? null,
-        audiences: keep ? [pendingToAudience(keep)] : [],
-        // Pas deux e-mails en trois jours ; un dernier rappel épargne ceux qui
-        // ont déjà leur place.
-        exclusions: { recentDays: 3, ...(kind === 'lastcall' ? { excludeEventBuyers: true } : {}) },
-      });
+      const id = await draft.create(kind, keep);
       invalidate();
       nav(CRM_ROUTES.emailStudio(id));
     } catch {
@@ -229,7 +196,7 @@ export default function EmailTemplatesPage() {
             key={m.kind}
             kind={m.kind}
             html={html[m.kind] ?? ''}
-            ready={!nights.isLoading}
+            ready={draft.ready}
             delay={i * 60 + 420}
             onOpen={() => (m.kind === 'vide' ? void use('vide') : patch({ m: m.kind }))}
             busy={busy === m.kind}

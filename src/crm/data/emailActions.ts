@@ -82,6 +82,8 @@ export async function createDraftFromTemplate(d: NewDraft): Promise<string> {
     logo_url: content.logoUrl,
     event_id: d.eventId,
     audiences_json: d.audiences,
+    // Miroir hérité : jamais « toute la base » par défaut (cf. legacyAudienceType).
+    audience_type: d.audiences.length ? 'imported_list' : null,
     exclusions_json: d.exclusions,
     template_kind: d.kind,
     status: 'draft',
