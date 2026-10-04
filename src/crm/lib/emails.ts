@@ -64,3 +64,24 @@ export function cleanLink(url: string): string {
     return s.replace(/\/$/, '');
   } catch { return url; }
 }
+
+export type LinkKind = 'ticketing' | 'social' | 'unsub' | 'yuno' | 'other';
+
+const SOCIAL_HOSTS = ['instagram.com', 'tiktok.com', 'facebook.com', 'x.com', 'twitter.com', 'youtube.com', 'soundcloud.com', 'spotify.com'];
+const TICKETING_HOSTS = ['shotgun.live', 'shotgun.io', 'dice.fm', 'weezevent.com', 'billetweb.fr', 'eventbrite.', 'fourvenues.com', 'whan.es', 'xceed.me'];
+
+/**
+ * La nature d'un lien cliqué dans un e-mail : billetterie (boutique connue ou
+ * hôte d'une soirée du compte), réseau social, désinscription, lien suivi
+ * Yuno (`/l/…`, qui mène à la billetterie d'une soirée), sinon « lien ».
+ */
+export function linkKind(url: string, ticketHosts: string[] = []): LinkKind {
+  let host = '';
+  let path = '';
+  try { const u = new URL(url); host = u.host.toLowerCase().replace(/^www\./, ''); path = u.pathname; } catch { return 'other'; }
+  if (/unsubscribe|desinscri|\/u\//i.test(path)) return 'unsub';
+  if (SOCIAL_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) return 'social';
+  if (ticketHosts.some((h) => h && (host === h || host.endsWith(`.${h}`))) || TICKETING_HOSTS.some((h) => host.includes(h))) return 'ticketing';
+  if (/(^|\.)yunoapp\.eu$/.test(host) && path.startsWith('/l/')) return 'yuno';
+  return 'other';
+}

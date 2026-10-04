@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audienceLabel, cleanLink, delta, draftGaps, perK, rate, shortName } from '../emails';
+import { audienceLabel, cleanLink, delta, draftGaps, perK, rate, shortName, linkKind } from '../emails';
 
 const t = (k: string) => ({ 'yc.em.aud.all': 'Toute la base', 'yc.em.aud.custom': 'Sélection', 'yc.cli.seg.hab': 'Habitués', 'yc.cli.seg.nou': 'Nouveaux' } as Record<string, string>)[k] ?? k;
 
@@ -35,5 +35,17 @@ describe('textes', () => {
   it('tronque et nettoie', () => {
     expect(shortName('Nouveautés de la rentrée au Bunker', 20)).toBe('Nouveautés de la r…');
     expect(cleanLink('https://shotgun.live/events/x/?yc=abc&utm_source=yuno&ref=2')).toBe('shotgun.live/events/x/?ref=2');
+  });
+});
+
+describe('linkKind', () => {
+  it('sorts the links of an email', () => {
+    expect(linkKind('https://shotgun.live/events/techno-night?yc=1')).toBe('ticketing');
+    expect(linkKind('https://tickets.monclub.fr/x', ['tickets.monclub.fr'])).toBe('ticketing');
+    expect(linkKind('https://www.instagram.com/lebunker')).toBe('social');
+    expect(linkKind('https://yunoapp.eu/l/abc123')).toBe('yuno');
+    expect(linkKind('https://yunoapp.eu/unsubscribe?t=1')).toBe('unsub');
+    expect(linkKind('https://lebunker.fr')).toBe('other');
+    expect(linkKind('pas un lien')).toBe('other');
   });
 });

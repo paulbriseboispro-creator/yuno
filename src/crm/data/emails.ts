@@ -98,7 +98,7 @@ export function useEmailResult(id: string | null) {
   });
 }
 
-export type RecipientFilter = 'all' | 'opened' | 'clicked' | 'bought' | 'unopened' | 'bounced';
+export type RecipientFilter = 'all' | 'opened' | 'clicked' | 'bought' | 'hot' | 'unopened' | 'bounced';
 
 export interface EmailRecipients {
   total: number;
@@ -215,5 +215,28 @@ export function useAudiencePreview(audiences: CrmAudience[], eventId: string | n
     }),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+  });
+}
+
+export interface ResultSegment { lifecycle: 'hab' | 'occ' | 'nou' | 'end' | 'none'; n: number; opened: number; clicked: number; purchases: number; revenue: number }
+
+export function useEmailResultSegments(id: string | null, enabled = true) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'emails', 'result-segments', id],
+    queryFn: () => rpc<ResultSegment[]>('crm_email_result_segments', { ...args, p_campaign_id: id }),
+    enabled: !!id && enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Toutes les adresses d'un filtre de destinataires (5 000 au plus), pour « Leur écrire ». */
+export function useEmailRecipientEmails(id: string | null, filter: RecipientFilter, enabled = true) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'emails', 'recipient-emails', id, filter],
+    queryFn: () => rpc<{ emails: string[] }>('crm_email_recipient_emails', { ...args, p_campaign_id: id, p_filter: filter }),
+    enabled: !!id && enabled,
+    staleTime: 60_000,
   });
 }
