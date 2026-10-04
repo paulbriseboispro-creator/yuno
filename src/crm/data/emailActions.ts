@@ -5,6 +5,10 @@
  * RLS « Owners manage email campaigns » (titulaire du compte).
  */
 import { supabase } from '@/integrations/supabase/client';
+import type { TemplateContent } from '@/lib/email/templates';
+import type { AudienceExclusions } from '@/lib/email/types';
+import type { CrmAudience } from '@/crm/data/emails';
+import type { ClientFilterDef, PendingAudience } from '@/crm/data/clients';
 
 const COPY_COLUMNS = [
   'name', 'type', 'subject', 'subject_b', 'ab_enabled', 'preheader', 'blocks_json', 'blocks_version', 'theme_json',
@@ -41,4 +45,58 @@ export async function deleteDrafts(ids: string[]): Promise<void> {
 export async function unscheduleCampaign(id: string): Promise<void> {
   const { error } = await supabase.from('email_campaigns').update({ status: 'draft' } as never).eq('id', id).eq('status', 'scheduled');
   if (error) throw error;
+}
+
+export interface NewDraft {
+  venueId: string | null;
+  organizerUserId: string | null;
+  name: string;
+  kind: string;
+  content: TemplateContent;
+  eventId: string | null;
+  audiences: CrmAudience[];
+  exclusions: AudienceExclusions;
+}
+
+/**
+ * Crée le brouillon d'une campagne depuis un modèle de la Console : le design
+ * (blocs, thème), la soirée reliée, l'audience gardée
+ * depuis « Écrire à… » et le type de modèle (`template_kind`, qui regroupe
+ * les résultats). Rend l'id du brouillon.
+ */
+export async function createDraftFromTemplate(d: NewDraft): Promise<string> {
+  const { data: auth } = await supabase.auth.getUser();
+  // Les blocs Yuno GARDENT leur soirée : « Le mois au Bunker » relie chacune
+  // de ses deux dates à la sienne (un modèle de la Console est construit pour
+  // ce brouillon, pas rejoué d'une autre soirée).
+  const content: TemplateContent = JSON.parse(JSON.stringify(d.content));
+  const row: Record<string, unknown> = {
+    name: d.name.slice(0, 200),
+    type: content.type,
+    subject: content.subject || '—',
+    preheader: content.preheader,
+    blocks_json: content.blocks,
+    blocks_version: 2,
+    theme_json: content.theme,
+    social_links_json: content.socialLinks,
+    logo_url: content.logoUrl,
+    event_id: d.eventId,
+    audiences_json: d.audiences,
+    exclusions_json: d.exclusions,
+    template_kind: d.kind,
+    status: 'draft',
+    venue_id: d.venueId,
+    organizer_user_id: d.organizerUserId,
+    created_by: auth.user?.id ?? null,
+  };
+  const { data, error } = await supabase.from('email_campaigns').insert(row as never).select('id').single();
+  if (error || !data) throw error ?? new Error('insert_failed');
+  return (data as { id: string }).id;
+}
+
+/** L'audience gardée par « Écrire à… » devient une audience CRM du brouillon. */
+export function pendingToAudience(p: PendingAudience): CrmAudience {
+  const base: ClientFilterDef = p.def ?? { seg: 'all' };
+  const def: ClientFilterDef = p.emails?.length ? { ...base, f: { ...(base.f ?? {}), emails: p.emails } } : base;
+  return { kind: 'crm', ...(p.segmentId ? { segmentId: p.segmentId } : {}), def, label: p.label };
 }

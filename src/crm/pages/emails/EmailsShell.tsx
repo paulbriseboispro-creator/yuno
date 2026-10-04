@@ -55,8 +55,8 @@ export function EmailsNav({ current, drafts }: { current: EmailsTab; drafts: num
 }
 
 export function EmailsShell({
-  tab, title, sub, drafts, children, kicker,
-}: { tab: EmailsTab; title: ReactNode; sub: string; drafts: number; children: ReactNode; kicker?: string }) {
+  tab, title, sub, drafts, children, kicker, hideNew = false,
+}: { tab: EmailsTab; title: ReactNode; sub: string; drafts: number; children: ReactNode; kicker?: string; hideNew?: boolean }) {
   const { t } = useCrmT();
   const [open, setOpen] = useState(false);
   return (
@@ -68,7 +68,7 @@ export function EmailsShell({
             <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...enter(170) }}>{title}</h1>
             <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 640, ...enter(240) }}>{sub}</p>
           </div>
-          <div style={enter(300)}>
+          {!hideNew && <div style={enter(300)}>
             <Hv
               as="button"
               type="button"
@@ -80,7 +80,7 @@ export function EmailsShell({
               {t('yc.em.new')}
               <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon name="plus" size={16} stroke={2.6} /></span>
             </Hv>
-          </div>
+          </div>}
         </div>
         <div style={enter(340)}><EmailsNav current={tab} drafts={drafts} /></div>
       </div>
