@@ -124,6 +124,12 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-flow { 0% { left: 0; opacity: 0; } 14% { opacity: 1; } 86% { opacity: 1; } 100% { left: calc(100% - 30px); opacity: 0; } }
 @keyframes yc-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
 @keyframes yc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* Lignes qui montent en se défloutant (listes des Soirées), point rouge qui
+   bat (« Ce soir »), ligne verte « Mis à jour ». */
+@keyframes yc-row { from { opacity: 0; transform: translateY(18px); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes yc-ring { 0% { box-shadow: 0 0 0 0 rgba(227,20,27,.45); } 100% { box-shadow: 0 0 0 9px rgba(227,20,27,0); } }
+@keyframes yc-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(23,163,74,0); } 50% { box-shadow: 0 0 0 6px rgba(23,163,74,.22); } }
+.yc .yc-focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--red-200); }
 
 @media (prefers-reduced-motion: reduce) {
   .yc *, .yc *::before, .yc *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }

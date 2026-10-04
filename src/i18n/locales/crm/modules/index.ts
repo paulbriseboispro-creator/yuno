@@ -6,6 +6,7 @@ import clients from './clients';
 import segments from './segments';
 import imports from './imports';
 import soon from './soon';
+import nights from './nights';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -16,6 +17,7 @@ export const CRM_DICT: CrmDict = {
   ...segments,
   ...imports,
   ...soon,
+  ...nights,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

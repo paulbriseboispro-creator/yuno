@@ -148,6 +148,8 @@ export interface PendingAudience {
   def?: ClientFilterDef;
   emails?: string[];
   segmentId?: string;
+  /** La soirée que le message annonce (écran Soirées) : le brouillon lui sera relié. */
+  eventId?: string;
   count: number;
 }
 

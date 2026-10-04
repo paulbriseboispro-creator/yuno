@@ -1,5 +1,5 @@
 /**
- * « Écrire à… » (Clients, Segments) : choisir le canal, voir qui recevra le
+ * « Écrire à… » (Clients, Segments, Soirées) : choisir le canal, voir qui recevra le
  * message, ce qu'il coûte en Yunits et ce qu'il restera. « Préparer le
  * message » garde l'audience pour l'éditeur (e-mail : galerie de modèles ;
  * SMS : composeur) — rien ne part d'ici.
@@ -18,7 +18,7 @@ import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
 export type WriteScope = 'one' | 'sel' | 'filtered' | 'all';
 
 export function WriteModal({
-  open, onClose, scope, who, def, emails, segmentId, eyebrow,
+  open, onClose, scope, who, def, emails, segmentId, eyebrow, eventId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,6 +30,8 @@ export function WriteModal({
   segmentId?: string | null;
   /** Remplace le surtitre (« Segment · Habitués »). */
   eyebrow?: string;
+  /** Soirée annoncée : le brouillon lui sera relié. */
+  eventId?: string | null;
 }) {
   const { t, tp, n } = useCrmT();
   const nav = useNavigate();
@@ -57,6 +59,7 @@ export function WriteModal({
       def: def ?? undefined,
       emails: emails ?? undefined,
       segmentId: segmentId ?? undefined,
+      eventId: eventId ?? undefined,
       count: reach,
     });
     onClose();

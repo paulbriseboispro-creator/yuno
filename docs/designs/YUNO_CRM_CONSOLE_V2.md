@@ -45,7 +45,7 @@
 | SMS (vue, campagnes, modèles, analyse, réglages, résultats, composeur, envoi) | `/crm/sms/*` | `sms_campaigns` | ⏳ |
 | Automatisations | `/crm/automations` | `email_automations` | ⏳ |
 | Instagram (bientôt) | `/crm/instagram` | `crm_feature_waitlist_get/_set` | ✅ Bientôt |
-| Soirées | `/crm/nights`, `/crm/nights/past`, `/crm/nights/:id` | `get_crm_nights`, `get_crm_night_report` | ⏳ |
+| Soirées | `/crm/nights`, `/crm/nights/past` (tiroir `?e=`), `/crm/nights/:id` | `crm_nights`, `crm_night_detail`, `ticketing_sync_now` | ✅ |
 | Pages d'inscription (bientôt) | `/crm/signup-pages` | `crm_feature_waitlist_get/_set` | ✅ Bientôt |
 | Clients | `/crm/clients` | `crm_clients_overview` / `_list` / `crm_client`, `crm_clients_export` | ✅ |
 | Segments | `/crm/segments` | `crm_segments_overview`, `crm_segment_detail`, `crm_audience_counts` | ✅ |
@@ -77,6 +77,7 @@
 | `20261004163000_crm_segment_counts_cleanup` | un segment supprimé emporte son historique | ✅ 04/10 |
 | `20261004170000_crm_imports` | imports journalisés, annulation exacte, historique, cron de clôture | ✅ 04/10 |
 | `20261004180000_crm_feature_waitlist` | « Me prévenir » des fonctions à venir | ✅ 04/10 |
+| `20261004190000_crm_nights` | écran Soirées : les deux onglets, le tiroir, séries, capacité | ✅ 04/10 |
 
 ## Choix faits pendant la transposition
 
@@ -117,6 +118,28 @@
   « Me prévenir », enregistré par portée et par personne
   (`crm_feature_waitlist`) pour les recontacter au lancement. Les pages
   d'inscription reprennent la mise en page de la maquette Instagram.
+- **Soirées, capacité** : vendu + places restantes annoncées par Shotgun
+  (`leftTicketsCount`), sinon somme des stocks de tarifs si chacun a le sien,
+  sinon inconnue — l'écran n'affiche alors ni jauge ni « il reste », jamais une
+  capacité inventée. Un tarif sans stock montre « N vendus ».
+- **Soirées, « la fois d'avant »** : la soirée passée précédente de la même
+  SÉRIE (titre sans « #22 », « Vol. 3 », date), sinon la soirée passée
+  précédente tout court, nommée « (la soirée d'avant) ». Comparaison au même
+  J-N, en jours calendaires du fuseau de la soirée. Le verdict « dans la
+  moyenne de la série » exige au moins deux AUTRES soirées de la série.
+- **Soirées, messages** : les campagnes e-mail et SMS manuelles reliées à la
+  soirée (`event_id`). « Écrire » ouvre la fenêtre « Écrire à… » sur les
+  acheteurs de la soirée (`f.ev`) et garde la soirée pour le brouillon
+  (`PendingAudience.eventId`). Une soirée annulée n'apparaît pas.
+- **Soirées, Synchroniser** : relance `ticketing_sync_now`, attend la fin de
+  la lecture (≤ 24 s), puis dit ce qui a changé (« X mis à jour : N places de
+  plus », ligne « Mis à jour ») ou « déjà à jour » ; au-delà, « les chiffres se
+  mettront à jour d'ici quelques minutes ». La maquette plaçait la bulle d'une
+  colonne en supposant que les colonnes remplissent toute la largeur : elle
+  suit désormais la colonne réelle.
+- **Démo Soirées** : `scripts/demo/seed-crm-nights.sql` (stocks par tarif,
+  deux soirées pas encore en vente, envois reliés à leur soirée, un brouillon
+  et un envoi planifié — jamais envoyé, la démo rend `demo_no_send`).
 - **Démo** : `scripts/demo/seed-crm-messages.sql` sème 12 envois passés
   (destinataires, ouvertures, clics placés avant de vrais achats démo).
 
