@@ -16,28 +16,26 @@ Vérifications faites : `tsc` 0 erreur, `eslint` 0 erreur (30 avertissements d'e
 
 ## Ce qui reste à construire
 
-**Priorité 1 — ouvrir vraiment le SMS** (le seul point qui contredit l'affichage actuel : un tap sur « Envoyer » dit « en cours de mise en place »)
-- Choisir le fournisseur / le numéro (décision Paul), brancher le moteur (`docs/designs/CRM_SMS_PLAN.md` : débit des Yunits, variables, réglages d'envoi), passer `CRM_SMS_ENGINE_READY` à `true`, lever la garde `crm_sms_not_open`.
+**SMS** : traité par Paul dans une session à part (moteur d'envoi, fournisseur, numéro). Hors du prompt de fin de build.
 
-**Priorité 2 — finir l'Admin CRM (écrans présents mais incomplets)**
+**Priorité 1 — finir l'Admin CRM (écrans présents mais incomplets)**
 - Durée médiane d'une synchro : `ticketing_sync_runs` a `started_at` / `finished_at` mais aucune ligne n'est finie en base à ce jour → vérifier que le connecteur écrit `finished_at`, puis l'afficher.
 - « Activité en direct » du Pilotage, onglet « E-mails du cycle de vie » de Réglages, tiroir de la liste Clients, « Comptes cibles » de Vente, écran de connexion admin, lien « Voir sa Console » depuis une fiche.
-- Mesure de la landing (visites, profondeur de lecture, clics, A/B) : demande une instrumentation dans le dépôt landing + une table. À décider (utile seulement avec du trafic).
-- NPS, demandes libres de fonctionnalités, registre d'incidents (CNIL 72 h) : rien ne les collecte. À décider.
+- Mesure de la landing (visites, profondeur de lecture, clics), NPS + demandes de fonctionnalités, registre d'incidents (CNIL 72 h) : **décidé oui** (pas de test A/B) ; dans le prompt de fin de build.
 
-**Priorité 3 — réglages qui n'agissent encore sur rien**
+**Priorité 2 — réglages qui n'agissent encore sur rien**
 - `trial_extensions` (prolongations gratuites) : stocké, jamais lu → le brancher à « Prolonger l'essai » ou le retirer.
 - `price_switch_at` (50) : affiché dans Argent / Réglages, mais le passage à 34 € se fait en activant les prix Stripe publics à la main → soit un bouton « Activer le prix public » (écrit chez Stripe, accord explicite), soit le laisser manuel et le dire.
 - Coûts réels d'envoi par défaut = ceux du design (à vérifier avec les factures fournisseurs).
 
-**Priorité 4 — écrans du design volontairement « Bientôt »**
+**Priorité 3 — écrans du design volontairement « Bientôt »**
 - Pages d'inscription (builder + page publique fan, 3 fichiers de design) et Instagram : aujourd'hui des pages « Bientôt » avec liste d'attente. Pages d'inscription est une vraie fonctionnalité (consentements) à planifier à part ; Instagram attend l'App Review Meta.
 
 ## À faire par Paul (pas par un agent)
 1. Déployer les edge : `send-campaign`, `process-scheduled-campaigns`, `affiliate-ticket-sync`, `invite-org-member`, `club-subscription`, `stripe-webhook`, **`owner-assistant`**.
 2. Enregistrer Stripe Tax FR ; renommer les produits « packs » (encore « néons ») chez Stripe.
 3. Fusionner la PR #13 une fois le build Cloudflare vert et la revue faite (voir `CRM_REVIEW_PLAN.md`).
-4. Fournir le fournisseur SMS / le numéro quand tu veux ouvrir l'envoi.
+4. SMS : ouvrir l'envoi dans ta session dédiée (fournisseur, numéro).
 
 ## Risques connus
 - L'Admin CRM n'a jamais été vu avec une vraie session super admin (aucun compte démo ne l'est) : à ouvrir une fois par Paul.

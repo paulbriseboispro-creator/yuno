@@ -17,7 +17,7 @@ L'audit génère `docs/audits/review/index.html` : toutes les pages en capture, 
 4. **Automatisations** (4 min) : activer / couper une recette, ouvrir un modèle dans le Studio.
 5. **Rôles** (6 min) : se connecter en lecteur / éditeur (comptes de test de `sql/smoke_journey_roles.sql`) : un lecteur ne voit ni montants ni boutons d'envoi.
 6. **Erreurs** (4 min) : couper le réseau → bandeau ; ouvrir `/crm/nimportequoi` → 404 ; se déconnecter sur une page profonde → 401 puis retour au même endroit.
-7. **SMS** (3 min) : la suite SMS s'affiche ouverte ; « Envoyer » dit « en cours de mise en place » (c'est normal tant que le moteur n'est pas branché).
+7. **SMS** (hors de ce build, traité à part) : saute ce parcours ; vérifie seulement qu'aucun « Bientôt » ne reste sur les écrans SMS.
 
 ## Palier 3 — Admin CRM, avec TA session super admin (15 min)
 Ouvre `/admin/crm` (les comptes démo ne sont pas admin).
@@ -31,7 +31,7 @@ Ouvre `/admin/crm` (les comptes démo ne sont pas admin).
 Dans le rapport d'audit, section « Droits » : aucune fonction `crm_*` / `crm_admin_*` appelable sans connexion ; montants masqués sans accès à l'argent ; `price_*` jamais écrits en dur. Si tout est PASS, rien à faire.
 
 ## Palier 5 — décisions à trancher après la revue (pas de revue)
-Fournisseur SMS · Pages d'inscription oui/non · mesure de la landing oui/non · NPS oui/non · bouton « Activer le prix public ».
+Fournisseur SMS (session à part) · allumer ou non les e-mails du cycle de vie · activer le prix public chez Stripe au 50ᵉ compte payant.
 
 ## Avant de fusionner (checklist de 6 lignes)
 - [ ] Rapport d'audit : 0 « Bloquant » FAIL
@@ -39,4 +39,4 @@ Fournisseur SMS · Pages d'inscription oui/non · mesure de la landing oui/non �
 - [ ] Palier 2 parcours 1, 3 et 5 faits
 - [ ] Palier 3 gestes faits (et prix remis)
 - [ ] Edge déployées (liste dans le statut)
-- [ ] Décision sur le texte « SMS ouvert » vs envoi fermé
+- [ ] SMS : géré dans sa session (hors de cette revue)
