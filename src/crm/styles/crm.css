@@ -134,6 +134,19 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-row { from { opacity: 0; transform: translateY(18px); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
 @keyframes yc-ring { 0% { box-shadow: 0 0 0 0 rgba(227,20,27,.45); } 100% { box-shadow: 0 0 0 9px rgba(227,20,27,0); } }
 @keyframes yc-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(23,163,74,0); } 50% { box-shadow: 0 0 0 6px rgba(23,163,74,.22); } }
+/* Réglages : le mot en dégradé qui se dessine, le point vert « enregistré »
+   qui bat, la barre d'enregistrement qui monte. */
+.yc-accent-wipe {
+  background: var(--gradient-brand) no-repeat left / 0% 100%; -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent; padding-bottom: .08em;
+  animation: yc-wipe 900ms cubic-bezier(.22,1,.36,1) 650ms forwards;
+}
+@keyframes yc-wipe { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+.yc fieldset:disabled input:not([type=range]) { background: var(--sand-50); color: var(--sand-600); cursor: not-allowed; }
+.yc fieldset:disabled input[type=range] { cursor: not-allowed; opacity: .6; }
+@keyframes yc-ping { 0% { box-shadow: 0 0 0 0 rgba(23,163,74,.45); } 100% { box-shadow: 0 0 0 7px rgba(23,163,74,0); } }
+@keyframes yc-bar-up { from { opacity: 0; transform: translate(-50%, 24px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes yc-in-blur { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
 .yc .yc-focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--red-200); }
 
 /* Éditeur d'e-mail (Studio) : panneaux qui glissent, trait de dépôt, champs. */
