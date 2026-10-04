@@ -10,9 +10,10 @@ import {
 } from '@/components/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { SearchBox, safeLike } from './directory/Paginator';
+import { AccountProductsButton, ProductPills, normalizeProducts, type Product } from '@/components/admin/AccountProducts';
 
 interface Invitation { id: string; email: string; profile_type: string; organization_name: string | null; status: string; created_at: string; expires_at: string; accepted_at: string | null }
-interface Org { user_id: string; display_name: string; slug: string | null; is_public: boolean; bde_verified: boolean; is_showcase_shadow: boolean | null; city: string | null; created_at: string; email: string | null; eventCount: number; venueCount: number }
+interface Org { user_id: string; display_name: string; slug: string | null; is_public: boolean; bde_verified: boolean; is_showcase_shadow: boolean | null; city: string | null; created_at: string; email: string | null; eventCount: number; venueCount: number; product: Product; extra: Product[] }
 
 export default function AdminOrganizers() {
   const { t, language } = useLanguage();
@@ -45,12 +46,12 @@ export default function AdminOrganizers() {
     const [inv, op] = await Promise.all([
       // Seules les invitations ORGANISATEUR : la table sert aussi aux affiliés.
       supabase.from('platform_invitations').select('id, email, profile_type, organization_name, status, created_at, expires_at, accepted_at').eq('profile_type', 'organizer').order('created_at', { ascending: false }),
-      supabase.from('organizer_profiles').select('user_id, display_name, slug, is_public, bde_verified, is_showcase_shadow, city, created_at').order('created_at', { ascending: false }),
+      supabase.from('organizer_profiles').select('user_id, display_name, slug, is_public, bde_verified, is_showcase_shadow, city, created_at, product, extra_products').order('created_at', { ascending: false }),
     ]);
     if (inv.error) toast.error(inv.error.message);
     if (op.error) toast.error(op.error.message);
     setInvitations((inv.data ?? []) as Invitation[]);
-    const rows = (op.data ?? []) as Omit<Org, 'email' | 'eventCount' | 'venueCount'>[];
+    const rows = (op.data ?? []) as unknown as Omit<Org, 'email' | 'eventCount' | 'venueCount'>[];
     const ids = rows.map((r) => r.user_id);
     const [profiles, events, partners] = await Promise.all([
       ids.length ? supabase.from('profiles').select('id, email').in('id', ids) : Promise.resolve({ data: [] as { id: string; email: string | null }[] }),
@@ -60,7 +61,7 @@ export default function AdminOrganizers() {
     const emailMap = Object.fromEntries((profiles.data ?? []).map((p) => [p.id, p.email]));
     const ev: Record<string, number> = {}; for (const e of events.data ?? []) if (e.organizer_user_id) ev[e.organizer_user_id] = (ev[e.organizer_user_id] || 0) + 1;
     const vn: Record<string, Set<string>> = {}; for (const p of partners.data ?? []) (vn[p.organizer_user_id] ??= new Set()).add(p.venue_id);
-    setOrgs(rows.map((r) => ({ ...r, email: emailMap[r.user_id] ?? null, eventCount: ev[r.user_id] || 0, venueCount: vn[r.user_id]?.size || 0 })));
+    setOrgs(rows.map((r) => ({ ...r, ...normalizeProducts((r as { product?: unknown }).product, (r as { extra_products?: unknown }).extra_products), email: emailMap[r.user_id] ?? null, eventCount: ev[r.user_id] || 0, venueCount: vn[r.user_id]?.size || 0 })));
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -171,8 +172,8 @@ export default function AdminOrganizers() {
 
       <Card title={t('adm.org.accounts')} icon={Sparkles} flush right={<SearchBox value={search} onChange={setSearch} placeholder={t('adm.org.search')} />}>
         {loading ? <Spinner /> : filtered.length === 0 ? <EmptyState text={t('adm.org.noAccounts')} /> : (
-          <TableWrap minWidth={760}>
-            <thead><tr><Th>{t('adm.org.col.name')}</Th><Th>{t('adm.common.city')}</Th><Th right>{t('adm.org.col.events')}</Th><Th right>{t('adm.org.col.venues')}</Th><Th>{t('adm.org.col.public')}</Th><Th>{t('adm.org.col.bde')}</Th><Th right>{t('adm.common.created')}</Th><Th right>{t('adm.common.actions')}</Th></tr></thead>
+          <TableWrap minWidth={860}>
+            <thead><tr><Th>{t('adm.org.col.name')}</Th><Th>{t('adm.common.city')}</Th><Th right>{t('adm.org.col.events')}</Th><Th right>{t('adm.org.col.venues')}</Th><Th>{t('adm.prod.col')}</Th><Th>{t('adm.org.col.public')}</Th><Th>{t('adm.org.col.bde')}</Th><Th right>{t('adm.common.created')}</Th><Th right>{t('adm.common.actions')}</Th></tr></thead>
             <tbody>{filtered.map((o) => (
               <tr key={o.user_id}>
                 <Td strong>
@@ -186,10 +187,11 @@ export default function AdminOrganizers() {
                 <Td muted>{o.city ?? '—'}</Td>
                 <Td right>{fmtNum(o.eventCount, language)}</Td>
                 <Td right>{fmtNum(o.venueCount, language)}</Td>
+                <Td><ProductPills product={o.product} extra={o.extra} /></Td>
                 <Td><Pill size="xs" tone={o.is_public ? 'pos' : 'muted'} icon={Eye}>{o.is_public ? t('adm.common.yes') : t('adm.common.no')}</Pill></Td>
                 <Td><Btn size="sm" variant={o.bde_verified ? 'primary' : 'ghost'} icon={GraduationCap} loading={busy === o.user_id} onClick={() => setBde(o, !o.bde_verified)} title={o.bde_verified ? t('adm.org.bdeTitleOn') : t('adm.org.bdeTitleOff')}>{o.bde_verified ? t('adm.org.bdeOn') : t('adm.org.bdeOff')}</Btn></Td>
                 <Td right muted>{fmtDate(o.created_at, language)}</Td>
-                <Td right><div className="flex justify-end gap-1"><Btn size="sm" variant="subtle" icon={Pencil} onClick={() => { setEditTarget(o); setEditName(o.display_name); }} title={t('adm.org.edit')} /><Btn size="sm" variant="subtle" icon={Trash2} onClick={() => setDeleteTarget(o)} title={t('adm.org.remove')} style={{ color: RED }} /></div></Td>
+                <Td right><div className="flex justify-end gap-1"><AccountProductsButton account={{ organizerUserId: o.user_id, name: o.display_name, product: o.product, extra: o.extra }} onChanged={load} /><Btn size="sm" variant="subtle" icon={Pencil} onClick={() => { setEditTarget(o); setEditName(o.display_name); }} title={t('adm.org.edit')} /><Btn size="sm" variant="subtle" icon={Trash2} onClick={() => setDeleteTarget(o)} title={t('adm.org.remove')} style={{ color: RED }} /></div></Td>
               </tr>
             ))}</tbody>
           </TableWrap>

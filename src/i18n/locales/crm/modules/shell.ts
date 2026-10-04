@@ -28,6 +28,8 @@ const dict: CrmDict = {
   'yc.nav.settings': ['Settings', 'Réglages', 'Ajustes'],
   'yc.nav.help': ['Help', 'Aide', 'Ayuda'],
   'yc.nav.collapse': ['Collapse menu', 'Réduire le menu', 'Reducir el menú'],
+  'yc.nav.openTicketing': ['Yuno Ticketing', 'Yuno Billetterie', 'Yuno Ticketing'],
+  'yc.nav.openTicketingTitle': ['Open the Yuno Ticketing console of this account', 'Ouvrir la console Yuno Billetterie de ce compte', 'Abrir la consola Yuno Ticketing de esta cuenta'],
   'yc.nav.collapseTitle': ['Collapse / expand the menu', 'Réduire / agrandir le menu', 'Reducir / ampliar el menú'],
   'yc.nav.soon': ['Soon', 'Bientôt', 'Pronto'],
   'yc.nav.switchSpace': ['Switch venue', 'Changer d’établissement', 'Cambiar de establecimiento'],

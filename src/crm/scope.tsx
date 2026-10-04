@@ -31,6 +31,8 @@ export interface CrmSpace {
   city: string | null;
   logoUrl: string | null;
   role: CrmSpaceRole;
+  /** Produits du compte (principal d'abord) : 'suite' = la Billetterie est aussi ouverte. */
+  products: ('suite' | 'crm')[];
 }
 
 export interface CrmScope {
@@ -48,6 +50,7 @@ const PICK_KEY = 'yuno.crm.space';
 type SpaceRow = {
   kind: 'venue' | 'org'; key: string; venue_id: string | null; organizer_user_id: string | null;
   name: string; city: string | null; logo_url: string | null; role: string;
+  products?: string[] | null;
 };
 
 export function useCrmSpaces() {
@@ -68,6 +71,7 @@ export function useCrmSpaces() {
         logoUrl: r.logo_url,
         // Un rôle inconnu vaut le plus restreint (lecteur), jamais plus.
         role: (['owner', 'manager', 'admin', 'editor', 'viewer'].includes(r.role) ? r.role : 'viewer') as CrmSpaceRole,
+        products: (r.products ?? ['crm']).filter((p): p is 'suite' | 'crm' => p === 'suite' || p === 'crm'),
       }));
     },
   });

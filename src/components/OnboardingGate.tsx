@@ -42,6 +42,9 @@ export function OnboardingGate() {
   // La Console Yuno CRM est une surface pro : ni langue, ni push, ni quiz.
   if (/^\/crm(-admin)?(\/|$)/.test(pathname)) return null;
   if (pathname === '/auth' && search.includes('connect-ai')) return null;
+  // Un pro qui ouvre l'autre produit (Billetterie ⇄ CRM), connexion comprise.
+  if (pathname.startsWith('/open/')) return null;
+  if (pathname === '/auth' && search.includes('%2Fopen%2F')) return null;
   return <OnboardingGateSteps />;
 }
 

@@ -28,6 +28,9 @@ export async function duplicateCampaigns(ids: string[], copySuffix: string): Pro
     status: 'draft',
     scheduled_at: null,
     created_by: auth.user?.id ?? null,
+    // Campagne de la Console CRM : Yunits et règles du CRM, même sur un compte
+    // qui a aussi la Billetterie (crm_campaign_is_crm, migration 20261006100000).
+    product: 'crm',
   }));
   const { data: ins, error: e2 } = await supabase.from('email_campaigns').insert(rows as never).select('id');
   if (e2) throw e2;
@@ -97,6 +100,7 @@ export async function createDraftFromTemplate(d: NewDraft): Promise<string> {
     venue_id: d.venueId,
     organizer_user_id: d.organizerUserId,
     created_by: auth.user?.id ?? null,
+    product: 'crm',
   };
   const { data, error } = await supabase.from('email_campaigns').insert(row as never).select('id').single();
   if (error || !data) throw error ?? new Error('insert_failed');
