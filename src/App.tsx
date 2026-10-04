@@ -295,6 +295,10 @@ const AdminCrmLayout = lazyWithRetry(() => import("./crm/admin/AdminCrmLayout"))
 const AdminCrmCockpit = lazyWithRetry(() => import("./crm/admin/pages/CockpitPage"));
 const AdminCrmClients = lazyWithRetry(() => import("./crm/admin/pages/ClientsPage"));
 const AdminCrmAccount = lazyWithRetry(() => import("./crm/admin/pages/AccountPage"));
+const AdminCrmMoney = lazyWithRetry(() => import("./crm/admin/pages/MoneyPage"));
+const AdminCrmPlatform = lazyWithRetry(() => import("./crm/admin/pages/PlatformPage"));
+const AdminCrmLegal = lazyWithRetry(() => import("./crm/admin/pages/LegalPage"));
+const AdminCrmSettings = lazyWithRetry(() => import("./crm/admin/pages/SettingsPage"));
 const AdminCrmSoon = lazyWithRetry(() => import("./crm/admin/pages/SoonPage"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const ForYouSelection = lazyWithRetry(() => import("./pages/ForYouSelection"));
@@ -1282,6 +1286,10 @@ const App = () => (
                   <Route index element={<AdminCrmCockpit />} />
                   <Route path="clients" element={<AdminCrmClients />} />
                   <Route path="clients/:id" element={<AdminCrmAccount />} />
+                  <Route path="money" element={<AdminCrmMoney />} />
+                  <Route path="platform" element={<AdminCrmPlatform />} />
+                  <Route path="legal" element={<AdminCrmLegal />} />
+                  <Route path="settings" element={<AdminCrmSettings />} />
                   <Route path="*" element={<AdminCrmSoon />} />
                 </Route>
 

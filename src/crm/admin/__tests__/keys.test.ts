@@ -42,6 +42,12 @@ describe('Admin CRM : dictionnaire', () => {
       'adm.crm.group.': ['pilot', 'grow', 'serve', 'hold'],
       'adm.crm.ac.plan.': ['month', 'year'],
       'adm.crm.ac.move.': ['credit', 'debit', 'refund', 'expire'],
+      'adm.crm.pf.imp.': ['running', 'done', 'undone'],
+      'adm.crm.lg.doc.': ['terms_pro', 'confidentiality', 'dpa'],
+      'adm.crm.lg.use.': ['db', 'pay', 'email', 'maps', 'host', 'analytics'],
+      'adm.crm.se.ch.': ['email', 'sms', 'whatsapp', 'instagram'],
+      'adm.crm.se.err.': ['reason_required', 'bad_value', 'unknown_key'],
+      'adm.crm.se.k.': ['price_month', 'price_month_next', 'price_year', 'price_switch_at', 'trial_days', 'trial_yunits', 'trial_extensions', 'monthly_yunits', 'annual_bonus_yunits', 'rates', 'costs', 'channels_live', 'low_balance'],
       'adm.crm.ac.a.': ['crm_grant_yunits', 'crm_extend_trial', 'crm_freeze_sending', 'crm_unfreeze_sending'],
     };
     const missing = Object.entries(fam).flatMap(([p, ks]) => ks.map((k) => p + k)).filter((k) => !(k in ADMIN_DICT));

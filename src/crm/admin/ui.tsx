@@ -130,3 +130,31 @@ export function Chip({ on, onClick, children, n }: { on: boolean; onClick: () =>
     </Hv>
   );
 }
+
+/** Carte de section : titre, sous-titre, contenu. */
+export function Section({ title, sub, right, children, pad = 28, gap = 16 }: { title: ReactNode; sub?: ReactNode; right?: ReactNode; children: ReactNode; pad?: number; gap?: number }) {
+  return (
+    <section style={{ ...card, borderRadius: 28, padding: pad, display: 'flex', flexDirection: 'column', gap, overflow: pad === 0 ? 'hidden' : undefined }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: pad === 0 ? '24px 28px 16px' : undefined }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.03em' }}>{title}</h2>
+          {sub && <span style={{ fontSize: 14, color: 'var(--sand-500)', lineHeight: 1.45 }}>{sub}</span>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export const pageWrap: CSSProperties = { maxWidth: 1360, margin: '0 auto', padding: 'clamp(20px,3vw,40px) clamp(16px,3vw,40px) 64px', display: 'flex', flexDirection: 'column', gap: 24 };
+export const kpiGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(176px,1fr))', gap: 16 };
+export const twoCols: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,420px),1fr))', gap: 20, alignItems: 'start' };
+
+export function RowLine({ children, first, onClick }: { children: ReactNode; first?: boolean; onClick?: () => void }) {
+  return (
+    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderTop: first ? 0 : '1px solid var(--sand-100)', fontSize: 14.5, cursor: onClick ? 'pointer' : undefined }}>
+      {children}
+    </div>
+  );
+}
