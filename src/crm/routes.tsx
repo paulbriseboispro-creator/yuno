@@ -21,6 +21,8 @@ const EmailSendPage = lazyWithRetry(() => import('./pages/emails/send/EmailSendP
 const EmailResultPage = lazyWithRetry(() => import('./pages/emails/results/EmailResultPage'));
 const EmailAnalysisPage = lazyWithRetry(() => import('./pages/emails/analysis/EmailAnalysisPage'));
 const EmailSettingsPage = lazyWithRetry(() => import('./pages/emails/settings/EmailSettingsPage'));
+const CrmPublicShell = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmPublicShell })));
+const NotFoundScreen = lazyWithRetry(() => import('./errors/ErrorScreens').then((m) => ({ default: m.NotFoundScreen })));
 const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
@@ -92,8 +94,8 @@ export function crmRoutes() {
         <Route path="sms/results/:id" element={<SmsResultPage />} />
         <Route path="sms/analysis" element={<SmsAnalysisPage />} />
         <Route path="sms/settings" element={<SmsSettingsPage />} />
-        <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
+      <Route path="/crm/*" element={<CrmPublicShell><NotFoundScreen /></CrmPublicShell>} />
     </>
   );
 }

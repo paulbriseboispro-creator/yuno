@@ -290,6 +290,7 @@ const ClubMap = lazyWithRetry(() => import("./pages/ClubMap"));
 const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
 const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
+const CrmMaintenance = lazyWithRetry(() => import("./crm/errors/CrmMaintenance"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const ForYouSelection = lazyWithRetry(() => import("./pages/ForYouSelection"));
 const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
@@ -391,6 +392,8 @@ const PageLoader = () => <RouteSkeleton />;
 // Component to check maintenance mode and bypass for super admins or password
 function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState<string | null>(null);
+  const { pathname } = useLocation();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasBypass, setHasBypass] = useState(false);
 
@@ -442,11 +445,12 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('app_settings')
-        .select('maintenance_mode')
+        .select('maintenance_mode, maintenance_message')
         .eq('id', 'global')
         .maybeSingle();
 
       if (!error && data) {
+        setMaintenanceMessage(data.maintenance_message ?? null);
         setIsMaintenanceMode(data.maintenance_mode);
         return !!data.maintenance_mode;
       }
@@ -467,6 +471,14 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
 
   // Show children immediately - only redirect to maintenance if confirmed active
   if (isMaintenanceMode && !isSuperAdmin && !hasBypass) {
+    // La Console CRM a son propre écran de maintenance (pas la page de pré-lancement de la Suite).
+    if (pathname === '/crm' || pathname.startsWith('/crm/')) {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <CrmMaintenance message={maintenanceMessage} onRetry={() => { void checkMaintenanceStatus(); }} />
+        </Suspense>
+      );
+    }
     return (
       <Suspense fallback={<PageLoader />}>
         <Maintenance />

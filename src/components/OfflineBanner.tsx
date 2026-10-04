@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { WifiOff } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const { t } = useLanguage();
+  // La Console CRM a son propre bandeau de connexion (src/crm/errors/OfflineBar.tsx).
+  const { pathname } = useLocation();
+  const inCrm = pathname === '/crm' || pathname.startsWith('/crm/');
 
   useEffect(() => {
     const handleOffline = () => setIsOffline(true);
@@ -20,7 +24,7 @@ export function OfflineBanner() {
 
   return (
     <AnimatePresence>
-      {isOffline && (
+      {isOffline && !inCrm && (
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

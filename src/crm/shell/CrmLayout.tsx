@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import '@/crm/styles/crm.css';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocaleSection } from '@/contexts/LanguageContext';
@@ -21,6 +21,12 @@ import { useCrmT } from '@/crm/i18n';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useNarrow } from '@/crm/ui/useNarrow';
 import type { YunitMood } from '@/crm/ui/YunitFace';
+import { CrmErrorBoundary } from '@/crm/errors/CrmErrorBoundary';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
+import { ForbiddenScreen, OfflineScreen, SignedOutScreen, useCountdown } from '@/crm/errors/ErrorScreens';
+import { OfflineBar } from '@/crm/errors/OfflineBar';
+import { useOnline } from '@/crm/errors/useOnline';
+import { classifyLoadError, retryDelaySeconds } from '@/crm/lib/errors';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { screenFor } from './nav';
@@ -54,17 +60,26 @@ function Splash() {
   );
 }
 
-function NoSpace() {
-  const { t } = useCrmT();
+/** Spaces impossibles à lire : hors ligne (réessai automatique) ou erreur en ligne. */
+function SpacesFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const online = useOnline();
+  const [tries, setTries] = useState(0);
+  const left = useCountdown(retryDelaySeconds(tries), tries);
+  const offline = classifyLoadError(error, online) === 'offline';
+  const retry = () => { setTries((n) => n + 1); onRetry(); };
+  useEffect(() => { if (offline && left === 0) retry(); }, [offline, left]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (online) onRetry(); }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (offline) return <OfflineScreen seconds={left} onRetry={retry} />;
   return (
     <div className="yc yc-page-bg" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center', maxWidth: 380 }}>
-        <YunitFace mood="inquiet" size={64} />
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em' }}>{t('yc.common.noAccess')}</span>
-        <a href="/" style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>yunoapp.eu</a>
-      </div>
+      <CrmLoadError error={error} onRetry={retry} />
     </div>
   );
+}
+
+function NoSpace() {
+  const { user, signOut } = useAuth();
+  return <ForbiddenScreen noSpace email={user?.email ?? ''} onSwitch={() => { void signOut().finally(() => window.location.assign('/auth')); }} />;
 }
 
 /** Garde + portée : qui entre, et dans quel espace. */
@@ -76,9 +91,11 @@ export function CrmGate({ children }: { children: ReactNode }) {
   const spaces = useCrmSpaces();
 
   if (loading) return <Splash />;
-  if (!user) return <Navigate to="/auth" replace state={{ from: location }} />;
-  if (!ready || spaces.isLoading) return <Splash />;
-  if (spaces.isError || !spaces.data?.length) return <NoSpace />;
+  if (!ready) return <Splash />;
+  if (!user) return <SignedOutScreen path={`${location.pathname}${location.search}`} />;
+  if (spaces.isLoading) return <Splash />;
+  if (spaces.isError) return <SpacesFailure error={spaces.error} onRetry={() => { void spaces.refetch(); }} />;
+  if (!spaces.data?.length) return <NoSpace />;
   return (
     <CrmScopeProvider spaces={spaces.data}>
       <SpaceGuards>{children}</SpaceGuards>
@@ -162,8 +179,9 @@ export function CrmLayout() {
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ position: 'sticky', top: 0, zIndex: 40 }}>
           <TopBar shell={shell.data} showMenuButton={narrow} onOpenMenu={() => setMobileOpen(true)} />
+          <OfflineBar />
         </div>
-        <Outlet />
+        <CrmErrorBoundary resetKey={pathname}><Outlet /></CrmErrorBoundary>
       </div>
       <div id="yc-portal" className="yc" />
     </div>
@@ -172,9 +190,11 @@ export function CrmLayout() {
 
 /** Éditeurs plein écran : sans menu, retour vers les campagnes. */
 export function CrmBareLayout() {
+  const { pathname } = useLocation();
   return (
     <div className="yc yc-page-bg" style={{ minHeight: '100vh' }}>
-      <Outlet />
+      <OfflineBar />
+      <CrmErrorBoundary resetKey={pathname}><Outlet /></CrmErrorBoundary>
       <div id="yc-portal" className="yc" />
     </div>
   );
