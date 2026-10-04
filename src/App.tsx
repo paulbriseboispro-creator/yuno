@@ -292,6 +292,7 @@ const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const CrmMaintenance = lazyWithRetry(() => import("./crm/errors/CrmMaintenance"));
 const AdminCrmLayout = lazyWithRetry(() => import("./crm/admin/AdminCrmLayout"));
+const AdminCrmLogin = lazyWithRetry(() => import("./crm/admin/AdminLogin"));
 const AdminCrmCockpit = lazyWithRetry(() => import("./crm/admin/pages/CockpitPage"));
 const AdminCrmClients = lazyWithRetry(() => import("./crm/admin/pages/ClientsPage"));
 const AdminCrmAccount = lazyWithRetry(() => import("./crm/admin/pages/AccountPage"));
@@ -1285,6 +1286,7 @@ const App = () => (
                 <Route path="/account-suspended" element={<AccountSuspended />} />
 
                 {/* Admin CRM : sa propre coquille (menu, ⌘K), hors de celle de la Suite. */}
+                <Route path="/admin/crm/login" element={<AdminCrmLogin />} />
                 <Route path="/admin/crm" element={<AdminCrmLayout />}>
                   <Route index element={<AdminCrmCockpit />} />
                   <Route path="clients" element={<AdminCrmClients />} />

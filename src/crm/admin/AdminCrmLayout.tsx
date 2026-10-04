@@ -24,30 +24,14 @@ import yunoIcon from '@/crm/assets/yuno-app-icon.webp';
 import { ADMIN_NAV, ADMIN_ROUTES, adminScreenFor } from './adminNav';
 import type { AdminScreen } from './adminNav';
 import { useAdminAccounts, useAdminLiveSignups } from './data';
-
-const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
-
-function useDocument() {
-  useEffect(() => {
-    if (!document.getElementById('yc-fonts')) {
-      const l = document.createElement('link');
-      l.id = 'yc-fonts'; l.rel = 'stylesheet'; l.href = FONTS_HREF;
-      document.head.appendChild(l);
-    }
-    const html = document.documentElement;
-    const prev = [html.style.background, document.body.style.background];
-    html.style.background = '#FCFAF9';
-    document.body.style.background = '#FCFAF9';
-    return () => { html.style.background = prev[0]; document.body.style.background = prev[1]; };
-  }, []);
-}
+import { hasValidMfaSession, useAdminDocument } from './adminSession';
 
 function Splash() {
   return <div className="yc yc-page-bg" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}><YunitFace mood="content" size={56} /></div>;
 }
 
 export default function AdminCrmLayout() {
-  useDocument();
+  useAdminDocument();
   const navigate = useNavigate();
   const adminReady = useLocaleSection('admin');
   const crmReady = useLocaleSection('crm');
@@ -58,13 +42,17 @@ export default function AdminCrmLayout() {
     (async () => {
       try {
         if (isPreviewActive()) { navigate('/', { replace: true }); return; }
+        const login = `${ADMIN_ROUTES.login}?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { navigate('/auth', { state: { returnTo: ADMIN_ROUTES.cockpit } }); return; }
+        if (!user) { navigate(login, { replace: true }); return; }
         const { data: ok, error } = await supabase.rpc('is_super_admin');
         if (error || !ok) { navigate('/'); return; }
+        // 2FA activée sur le compte et pas encore confirmée dans ce navigateur : l'étape 2 de la connexion.
+        const { data: prof } = await supabase.from('profiles').select('mfa_enabled').eq('id', user.id).maybeSingle();
+        if (prof?.mfa_enabled && !hasValidMfaSession(user.id)) { navigate(`${login}&step=code`, { replace: true }); return; }
         if (!off) setState('ok');
       } catch {
-        navigate('/auth', { state: { returnTo: ADMIN_ROUTES.cockpit } });
+        navigate(ADMIN_ROUTES.login, { replace: true });
       }
     })();
     return () => { off = true; };

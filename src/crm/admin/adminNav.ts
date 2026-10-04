@@ -6,6 +6,7 @@ export const ADMIN_BASE = '/admin/crm';
 
 export const ADMIN_ROUTES = {
   cockpit: ADMIN_BASE,
+  login: `${ADMIN_BASE}/login`,
   cockpitActivity: `${ADMIN_BASE}?tab=activity`,
   acquisition: `${ADMIN_BASE}/acquisition`,
   sales: `${ADMIN_BASE}/sales`,
