@@ -17,6 +17,7 @@ export const ICON_PATHS = {
   sliders: 'M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
   chevronDown: 'm6 9 6 6 6-6',
+  chevronUp: 'm18 15-6-6-6 6',
   chevronRight: 'm9 6 6 6-6 6',
   chevronLeft: 'm15 18-6-6 6-6',
   chevronsUpDown: 'm7 15 5 5 5-5M7 9l5-5 5 5',

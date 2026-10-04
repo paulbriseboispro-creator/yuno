@@ -8,12 +8,14 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 const CrmGate = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmGate })));
 const CrmLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmLayout })));
 const HomePage = lazyWithRetry(() => import('./pages/home/HomePage'));
+const ClientsPage = lazyWithRetry(() => import('./pages/clients/ClientsPage'));
 
 export function crmRoutes() {
   return (
     <>
       <Route path="/crm" element={<CrmGate><CrmLayout /></CrmGate>}>
         <Route index element={<HomePage />} />
+        <Route path="clients" element={<ClientsPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>

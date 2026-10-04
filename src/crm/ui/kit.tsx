@@ -298,8 +298,8 @@ function useEscape(open: boolean, onClose: () => void) {
 
 /** Modale centrée (voile sombre, carte blanche qui « pop »). */
 export function Modal({
-  open, onClose, children, width = 520, label, blur = false,
-}: { open: boolean; onClose: () => void; children: ReactNode; width?: number; label?: string; blur?: boolean }) {
+  open, onClose, children, width = 520, label, blur = false, radius = 28,
+}: { open: boolean; onClose: () => void; children: ReactNode; width?: number; label?: string; blur?: boolean; radius?: number }) {
   useEscape(open, onClose);
   if (!open) return null;
   return (
@@ -317,7 +317,7 @@ export function Modal({
           aria-label={label}
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: `min(${width}px, 100%)`, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', borderRadius: 24,
+            width: `min(${width}px, 100%)`, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', borderRadius: radius,
             background: '#fff', boxShadow: 'var(--shadow-md), 0 0 0 1px var(--sand-200)', animation: `yc-pop 280ms ${EASE} both`,
           }}
         >

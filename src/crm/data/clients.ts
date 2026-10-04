@@ -1,0 +1,169 @@
+/**
+ * Données de l'écran Clients : vue d'ensemble, liste filtrée (paginée côté
+ * serveur), fiche client, notes et étiquettes, segments enregistrés, soirées
+ * du filtre, effectifs d'une audience (« Écrire à… »).
+ */
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@/crm/lib/rpc';
+import { useCrmScope } from '@/crm/scope';
+
+export type Lifecycle = 'hab' | 'occ' | 'nou' | 'end' | 'none';
+
+/** Définition d'un filtre de clients (= d'un segment « à vous »). */
+export interface ClientFilterDef {
+  seg?: 'all' | Lifecycle;
+  f?: {
+    ev?: string[];
+    last?: '' | '0-30' | '30-90' | '90-180' | '180+';
+    last_gt_days?: number;
+    nb?: '' | '0' | '1' | '2' | '3-5' | '6+';
+    sp?: '' | '<50' | '50-200' | '200+';
+    rc?: ('mail' | 'sms' | 'none')[];
+    src?: ('shotgun' | 'utm' | 'import' | 'page' | 'other')[];
+    tags?: string[];
+    /** Liste fixe : une sélection enregistrée en segment. */
+    emails?: string[];
+  };
+  q?: string;
+}
+
+export interface ClientsOverview {
+  total: number; today: number; month: number;
+  lifecycle: Record<Lifecycle, number>;
+  end_reachable: number; reachable: number; unreachable: number;
+  returning_pct: number | null; once: number; avg_spend: number | null;
+  spark: number[];
+  prev: { total: number; returning_pct: number | null; avg_spend: number | null };
+  rules: { min_nights: number; window_months: number; lapse_months: number };
+  updated_at: string;
+}
+
+export interface ClientRow {
+  email: string; first_name: string | null; last_name: string | null; lifecycle: Lifecycle;
+  nights: number; last_night: string | null; added_at: string | null; spent: number;
+  email_ok: boolean; phone_ok: boolean; tonight: boolean; tag: string | null; source: string;
+}
+
+export interface ClientsList { total: number; rows: ClientRow[]; counts: Record<'all' | Lifecycle, number> }
+
+export interface ClientCard {
+  email: string; first_name: string | null; last_name: string | null; phone: string | null;
+  email_ok: boolean; phone_ok: boolean; bounced: boolean; eng_status: string;
+  lifecycle: Lifecycle; nights: number; nights_win: number; spent: number;
+  first_night: string | null; last_night: string | null; added_at: string | null;
+  tonight: boolean; source: string; utm_source: string | null; origin: string | null;
+  tags: string[]; note: string | null;
+  buys: { kind: 'buy'; at: string; event_id: string; title: string | null; event_start: string; amount: number; tickets: number; scanned: boolean; first: boolean; upcoming: boolean }[];
+  messages: { kind: 'email'; at: string; name: string | null; campaign_id: string; opened: boolean; clicked: boolean }[];
+  months: { m: string; n: number }[];
+  rules: { min_nights: number; window_months: number; lapse_months: number };
+}
+
+export interface SavedSegment { id: string; name: string; description: string | null; template: string | null; definition: ClientFilterDef; n: number; reachable: number; created_at: string }
+export interface EventBrief { id: string; title: string | null; start_at: string; upcoming: boolean }
+
+export function useClientsOverview() {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({ queryKey: ['crm', qk, 'clients-overview'], queryFn: () => rpc<ClientsOverview>('crm_clients_overview', args), staleTime: 60_000 });
+}
+
+export function useClientsList(def: ClientFilterDef, sort: string, dir: number, limit: number) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'clients-list', def, sort, dir, limit],
+    queryFn: () => rpc<ClientsList>('crm_clients_list', { ...args, p_def: def, p_sort: sort, p_dir: dir, p_limit: limit, p_offset: 0 }),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useClientCard(email: string | null) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'client', email],
+    queryFn: () => rpc<ClientCard | null>('crm_client', { ...args, p_email: email }),
+    enabled: !!email,
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveClient() {
+  const { rpc: args, qk } = useCrmScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: { email: string; tags?: string[]; note?: string }) =>
+      rpc('crm_client_save', { ...args, p_email: p.email, p_tags: p.tags ?? null, p_note: p.note ?? null }),
+    onSuccess: (_d, p) => {
+      qc.invalidateQueries({ queryKey: ['crm', qk, 'client', p.email] });
+      if (p.tags) qc.invalidateQueries({ queryKey: ['crm', qk, 'clients-list'] });
+    },
+  });
+}
+
+export function useSegmentsBrief() {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({ queryKey: ['crm', qk, 'segments-brief'], queryFn: () => rpc<SavedSegment[]>('crm_segments_brief', args), staleTime: 60_000 });
+}
+
+export function useSaveSegment() {
+  const { rpc: args, qk } = useCrmScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: { id?: string | null; name: string; definition: ClientFilterDef; template?: string | null; description?: string | null }) =>
+      rpc<{ id: string }>('crm_segment_save', { ...args, p_id: p.id ?? null, p_name: p.name, p_definition: p.definition, p_template: p.template ?? null, p_description: p.description ?? null }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['crm', qk, 'segments-brief'] }); qc.invalidateQueries({ queryKey: ['crm', qk, 'segments'] }); },
+  });
+}
+
+export function useDeleteSegment() {
+  const { rpc: args, qk } = useCrmScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => rpc<boolean>('crm_segment_delete', { ...args, p_id: id }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['crm', qk, 'segments-brief'] }); qc.invalidateQueries({ queryKey: ['crm', qk, 'segments'] }); },
+  });
+}
+
+export function useEventsBrief(limit = 12) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({ queryKey: ['crm', qk, 'events-brief', limit], queryFn: () => rpc<EventBrief[]>('crm_events_brief', { ...args, p_limit: limit }), staleTime: 5 * 60_000 });
+}
+
+export function useAudienceCount(def: ClientFilterDef | null, emails: string[] | null, enabled: boolean) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'audience-count', def, emails],
+    queryFn: () => rpc<{ total: number; email: number; sms: number }>('crm_audience_count', { ...args, p_def: def, p_emails: emails }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+/** Une audience préparée depuis Clients ou Segments, reprise par l'éditeur. */
+export interface PendingAudience {
+  channel: 'email' | 'sms';
+  label: string;
+  def?: ClientFilterDef;
+  emails?: string[];
+  segmentId?: string;
+  count: number;
+}
+
+const PENDING_KEY = 'yuno.crm.pendingAudience';
+
+export function setPendingAudience(a: PendingAudience) {
+  try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(a)); } catch { /* sans stockage, l'éditeur repart sans audience */ }
+}
+
+export function takePendingAudience(): PendingAudience | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(PENDING_KEY);
+    return JSON.parse(raw) as PendingAudience;
+  } catch { return null; }
+}
+
+export function peekPendingAudience(): PendingAudience | null {
+  try { const raw = sessionStorage.getItem(PENDING_KEY); return raw ? (JSON.parse(raw) as PendingAudience) : null; } catch { return null; }
+}
