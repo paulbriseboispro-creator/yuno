@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Lock, ShieldCheck, TriangleAlert, XCircle, CheckCircle2 } from 'lucide-react';
-import '@/crm/styles/crm.css';
+import '@/styles/connect-ai.css';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,7 +14,7 @@ import { buildMcpRedirect, isLoopbackRedirectHost } from '@/lib/mcp';
  * chiffres Yuno d'un pro — l'écran où le serveur OAuth du MCP (worker/mcp)
  * envoie la personne : /connect-ai?request=<id>.
  *
- * DA de Yuno CRM (src/crm/styles/crm.css, scopée sous `.yc`) : papier clair,
+ * DA de Yuno CRM (src/styles/connect-ai.css, scopée sous `.yc`) : papier clair,
  * Bricolage Grotesque / Geist, dégradé rouge → mandarine, cartes 24 px.
  * UNE seule décision : Autoriser ou Refuser. Il n'y a ni choix d'espaces ni
  * choix de niveau — l'IA reçoit l'accès à tout le compte (tous les espaces de la
@@ -291,6 +291,12 @@ export default function ConnectAi() {
           {t('aiConsent.privacyNote').replace('{client}', clientName)} {t('aiConsent.manageLater')}
         </p>
       </Panel>
+
+      {/claude/i.test(clientName) && (
+        <p className="mb-5" style={{ fontSize: 13, color: T2, lineHeight: 1.55, background: 'var(--bg-subtle)', border: `1px solid ${BORDER}`, borderRadius: 16, padding: '12px 16px' }}>
+          {t('aiConsent.autoAllowTip')}
+        </p>
+      )}
 
       {error && <p role="alert" className="mb-3" style={{ color: 'var(--red-600)', fontSize: 13.5 }}>{error}</p>}
 

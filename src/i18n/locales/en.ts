@@ -16726,6 +16726,7 @@ const en: Record<string, string> = {
   'aiConsent.organizer': "Organization",
   'aiConsent.moneyHidden': "amounts hidden for your role",
   'aiConsent.levelTitle': "What can it see?",
+  'aiConsent.autoAllowTip': "Tip: so Claude doesn't ask before every question, open Settings → Connectors → Yuno, then set \"Read-only tools\" to \"Always allow\". These tools only read, they never change anything.",
   'aiConsent.accessTitle': "Access to your whole account",
   'aiConsent.accessDesc': "Sales, events, audience, marketing and your customers' details: everything you see in your Console, in every space below.",
   'aiConsent.accessDescNoCustomers': "Sales, events, audience and marketing: everything you see in your Console, in every space below. Your role does not open customer details.",
