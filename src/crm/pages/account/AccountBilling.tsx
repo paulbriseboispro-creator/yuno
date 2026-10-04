@@ -257,7 +257,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
         </Card>
 
         <div style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {manage && (
+          {manage && !!b.subscription?.has_customer && (
             <PaymentCard ov={o} loading={ov.isLoading && !!b.subscription?.has_customer} busy={busy === 'crm_portal'} onEdit={() => void run('crm_portal')} hasCustomer={!!b.subscription?.has_customer} />
           )}
           <Hv as={Link} to={CRM_ROUTES.yunits} style={{ boxSizing: 'border-box', borderRadius: 24, background: 'var(--sand-50)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, color: 'var(--ink)', textDecoration: 'none', transition: `background 200ms,translate 240ms ${EASE}`, animation: `yc-rise 700ms ${EASE} 220ms both` }} hover={{ background: 'var(--sand-100)', translate: '0 -3px', color: 'var(--ink)', textDecoration: 'none' }}>
@@ -355,7 +355,7 @@ function PaymentCard({ ov, loading, busy, onEdit, hasCustomer }: { ov: BillingOv
             <span style={{ width: 34, height: 24, borderRadius: 6, background: 'rgba(255,255,255,.18)' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, letterSpacing: '.16em' }}>•••• •••• •••• {card?.last4 ?? '····'}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, letterSpacing: '.1em', whiteSpace: 'nowrap' }}>•••• •••• •••• {card?.last4 ?? '····'}</span>
             <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--text-on-night-2)' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ov?.customer?.name ?? ''}</span>
               {exp && <span style={{ flex: 'none' }}>{t('yc.acc.b.cardExp', { d: exp })}</span>}
@@ -463,7 +463,7 @@ function Invoices({ invoices, loading, hasMore, all, onToggle, dFull }: { invoic
             return (
               <Hv key={iv.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', alignItems: 'center', gap: '4px 16px', padding: 12, margin: '0 -12px', borderTop: '1px solid var(--sand-100)', borderRadius: 14, animation: `yc-rise 520ms ${EASE} ${(all && i >= 5 ? i - 5 : i) * 60}ms both` }} hover={{ background: 'var(--sand-50)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.title || t('yc.acc.b.inv.subscription')}</span>
+                  <span style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.kind === 'subscription' ? t(iv.interval === 'year' ? 'yc.acc.b.inv.subYear' : 'yc.acc.b.inv.subMonth') : iv.title || t('yc.acc.b.inv.subscription')}</span>
                   <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{dFull(iv.at)}{iv.number ? ` · ${iv.number}` : ''}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>

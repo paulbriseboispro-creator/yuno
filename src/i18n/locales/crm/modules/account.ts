@@ -227,6 +227,8 @@ const dict: CrmDict = {
   'yc.acc.b.inv.more': ['See older invoices', 'Voir les factures plus anciennes', 'Ver facturas más antiguas'],
   'yc.acc.b.inv.less': ['See less', 'Voir moins', 'Ver menos'],
   'yc.acc.b.inv.none': ['No invoice yet. The first one comes with your first payment.', 'Aucune facture pour l’instant. La première arrive avec votre premier paiement.', 'Aún no hay facturas. La primera llega con su primer pago.'],
+  'yc.acc.b.inv.subMonth': ['Monthly subscription', 'Abonnement mensuel', 'Suscripción mensual'],
+  'yc.acc.b.inv.subYear': ['Yearly subscription', 'Abonnement annuel', 'Suscripción anual'],
   'yc.acc.b.inv.subscription': ['Subscription', 'Abonnement', 'Suscripción'],
   'yc.acc.b.cancel': ['Cancel the subscription', 'Résilier l’abonnement', 'Cancelar la suscripción'],
   'yc.acc.b.cancelT': ['Cancel the subscription?', 'Résilier l’abonnement ?', '¿Cancelar la suscripción?'],

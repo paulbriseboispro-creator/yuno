@@ -151,9 +151,15 @@ async function releaseSchedule(ctx: CrmActionContext, sub: Stripe.Subscription):
   });
 }
 
-function invoiceTitle(inv: Stripe.Invoice): string {
+/** Ce que dit une facture : abonnement (et son rythme), recharge (sa description), autre. */
+function invoiceKind(inv: Stripe.Invoice): { kind: "subscription" | "recharge" | "other"; interval: CrmInterval | null; title: string } {
   const line = inv.lines?.data?.[0];
-  return line?.description ?? inv.description ?? "";
+  if (String(inv.billing_reason ?? "").startsWith("subscription")) {
+    const span = line?.period ? line.period.end - line.period.start : 0;
+    return { kind: "subscription", interval: span > 40 * 86400 ? "year" : "month", title: "" };
+  }
+  if (inv.metadata?.kind === "recharge") return { kind: "recharge", interval: null, title: inv.description ?? line?.description ?? "" };
+  return { kind: "other", interval: null, title: inv.description ?? line?.description ?? "" };
 }
 
 export async function handleCrmAction(ctx: CrmActionContext, action: string, body: Record<string, unknown>): Promise<Response> {
@@ -225,7 +231,7 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
           total: i.total,
           currency: i.currency,
           status: i.status,
-          title: invoiceTitle(i),
+          ...invoiceKind(i),
           pdf: i.invoice_pdf ?? null,
           url: i.hosted_invoice_url ?? null,
         })),

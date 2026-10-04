@@ -158,7 +158,7 @@ export function useCrmBilling() {
 }
 
 export interface BillingCustomer { name: string; email: string; line1: string; line2: string; postal_code: string; city: string; country: string; siret: string; vat: string }
-export interface BillingInvoice { id: string; number: string | null; at: string; total: number; currency: string; status: string | null; title: string; pdf: string | null; url: string | null }
+export interface BillingInvoice { id: string; number: string | null; at: string; total: number; currency: string; status: string | null; kind: 'subscription' | 'recharge' | 'other'; interval: 'month' | 'year' | null; title: string; pdf: string | null; url: string | null }
 export interface BillingOverview {
   customer: BillingCustomer | null;
   card: { kind: 'card' | 'sepa'; brand: string; last4: string; exp_month: number | null; exp_year: number | null } | null;
