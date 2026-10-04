@@ -19,6 +19,7 @@ import { CrmToastProvider } from '@/crm/ui/kit';
 import { useCrmShell } from '@/crm/data/shell';
 import { useCrmT } from '@/crm/i18n';
 import { YunitFace } from '@/crm/ui/YunitFace';
+import { useNarrow } from '@/crm/ui/useNarrow';
 import type { YunitMood } from '@/crm/ui/YunitFace';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -110,17 +111,7 @@ function useCompact(): [boolean, () => void] {
   return [compact, toggle];
 }
 
-function useNarrow(px = 900) {
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < px);
-  useEffect(() => {
-    const on = () => setNarrow(window.innerWidth < px);
-    window.addEventListener('resize', on);
-    return () => window.removeEventListener('resize', on);
-  }, [px]);
-  return narrow;
-}
-
-export function moodFor(balance: number | null, low: number): YunitMood {
+function moodFor(balance: number | null, low: number): YunitMood {
   if (balance === null) return 'content';
   if (balance <= 0) return 'endormi';
   if (balance < low) return 'inquiet';

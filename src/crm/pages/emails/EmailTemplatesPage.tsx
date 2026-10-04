@@ -31,6 +31,7 @@ import { renderEmailHtml, type EmailBlock, type LiveData } from '@/lib/email';
 import type { TemplateContent } from '@/lib/email/templates';
 import { EmailsShell } from './EmailsShell';
 import { useTemplateDraft } from './templateDraft';
+import { ScaledFrame } from './ScaledFrame';
 
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
@@ -308,29 +309,6 @@ function thumbHtml(html: string): string {
 }
 
 /** Aperçu « Ordinateur » : l'e-mail à 640 px, réduit pour tenir dans le volet. */
-function ScaledFrame({ html, title, mobile }: { html: string; title: string; mobile: boolean }) {
-  const [box, setBox] = useState<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ w: 640, h: 560 });
-  useEffect(() => {
-    if (!box) return undefined;
-    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
-    ro.observe(box);
-    return () => ro.disconnect();
-  }, [box]);
-  const inner = mobile ? 375 : 640;
-  const scale = Math.min(1, size.w / inner);
-  return (
-    <div ref={setBox} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 420, overflow: 'hidden' }}>
-      <iframe
-        title={title}
-        srcDoc={html}
-        sandbox=""
-        style={{ position: 'absolute', top: 0, left: '50%', width: inner, height: size.h / scale, border: 0, background: '#fff', transform: `translateX(-50%) scale(${scale})`, transformOrigin: 'top center', borderRadius: 14 }}
-      />
-    </div>
-  );
-}
-
 function PreviewModal({
   kind, html, perf, nightLine, busy, onClose, onUse,
 }: {
