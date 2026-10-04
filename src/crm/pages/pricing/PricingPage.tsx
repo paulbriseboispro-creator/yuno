@@ -77,7 +77,7 @@ function PricingBody() {
   return <Pricing cfg={q.data} />;
 }
 
-/** useCrmT, mais un nombre ne se coupe jamais en fin de ligne (« 30 000 », « 29 € »). */
+/** useCrmT, mais un nombre ne se coupe jamais en fin de ligne (« 30 000 », « 24 € »). */
 function usePrT() {
   const T = useCrmT();
   return { ...T, n: (x: number | null | undefined) => T.n(x).replace(/ /g, '\u00a0') };

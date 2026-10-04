@@ -31,6 +31,12 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'team', c: 'account', to: CRM_ROUTES.accountSection('team') },
   { id: 'invoices', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  { id: 'journey', c: 'clients', to: CRM_ROUTES.journey },
+  { id: 'auto', c: 'start', to: CRM_ROUTES.automations },
+  { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
+  { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
+  { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  { id: 'offline', c: 'account' },
 ];
 /** Sujet → catégorie et priorité du retour (comme le formulaire de la Suite). */
 const SUBJECTS: { k: string; category: string; priority: string }[] = [
