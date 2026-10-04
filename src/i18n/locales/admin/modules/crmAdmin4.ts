@@ -171,5 +171,21 @@ const dict: AdminDict = {
   'adm.crm.lg.notAdmin': ['This account does not have super admin access.', 'Ce compte n’a pas l’accès super admin.', 'Esta cuenta no tiene acceso de super admin.'],
   'adm.crm.lg.badCode': ['Wrong or expired code.', 'Code incorrect ou expiré.', 'Código incorrecto o caducado.'],
   'adm.crm.lg.back': ['← Use another account', '← Utiliser un autre compte', '← Usar otra cuenta'],
+
+  // Argent › prix public
+  'adm.crm.pt.title': ['Public price at Stripe', 'Prix public chez Stripe', 'Precio público en Stripe'],
+  'adm.crm.pt.sub': ['New accounts switch to the public price only once the threshold is reached AND the public prices are active at Stripe. Existing subscribers always keep the launch price.', 'Les nouveaux comptes ne passent au prix public qu’une fois le seuil atteint ET les prix publics actifs chez Stripe. Un abonné existant garde toujours le prix de lancement.', 'Las cuentas nuevas solo pasan al precio público cuando se alcanza el umbral Y los precios públicos están activos en Stripe. Un suscriptor existente conserva siempre el precio de lanzamiento.'],
+  'adm.crm.pt.check': ['Check at Stripe', 'Vérifier chez Stripe', 'Comprobar en Stripe'],
+  'adm.crm.pt.checking': ['Reading Stripe…', 'Lecture de Stripe…', 'Leyendo Stripe…'],
+  'adm.crm.pt.checkFail': ['Stripe could not be read.', 'Stripe n’a pas pu être lu.', 'No se pudo leer Stripe.'],
+  'adm.crm.pt.active': ['Public price: active', 'Prix public : actif', 'Precio público: activo'],
+  'adm.crm.pt.pending': ['Public price: awaiting activation at Stripe', 'Prix public : en attente d’activation chez Stripe', 'Precio público: pendiente de activación en Stripe'],
+  'adm.crm.pt.tierLaunch': ['Shown to new accounts: launch price ({n} / {at} paying)', 'Montré aux nouveaux comptes : prix de lancement ({n} / {at} payants)', 'Mostrado a cuentas nuevas: precio de lanzamiento ({n} / {at} de pago)'],
+  'adm.crm.pt.tierPublic': ['Shown to new accounts: public price ({n} / {at} paying)', 'Montré aux nouveaux comptes : prix public ({n} / {at} payants)', 'Mostrado a cuentas nuevas: precio público ({n} / {at} de pago)'],
+  'adm.crm.pt.missing': ['missing', 'absent', 'ausente'],
+  'adm.crm.pt.on': ['active', 'actif', 'activo'],
+  'adm.crm.pt.off': ['inactive', 'inactif', 'inactivo'],
+  'adm.crm.pt.lastCheck': ['Last check: {date}', 'Dernière vérification : {date}', 'Última comprobación: {date}'],
+  'adm.crm.pt.howto': ['To switch: in the Stripe dashboard (live mode) → Product catalogue → Yuno CRM, activate the two prices with lookup_key yuno_crm_base_month_public and yuno_crm_base_year_public, then click “Check at Stripe”. Yuno never activates them itself. Until then, every checkout bills the launch price.', 'Pour basculer : dans le tableau de bord Stripe (mode live) → Catalogue de produits → Yuno CRM, activez les deux prix de lookup_key yuno_crm_base_month_public et yuno_crm_base_year_public, puis cliquez « Vérifier chez Stripe ». Yuno ne les active jamais lui-même. D’ici là, tout checkout facture le prix de lancement.', 'Para cambiar: en el panel de Stripe (modo live) → Catálogo de productos → Yuno CRM, active los dos precios con lookup_key yuno_crm_base_month_public y yuno_crm_base_year_public y pulse «Comprobar en Stripe». Yuno nunca los activa por sí mismo. Hasta entonces, todo checkout factura el precio de lanzamiento.'],
 };
 export default dict;

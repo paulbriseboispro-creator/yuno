@@ -251,9 +251,11 @@ function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolea
       <div style={{ flex: '1 1 380px', minWidth: 0, padding: 'clamp(24px,3.4vw,44px)', display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={kick}>{t('yc.pr.card.k')}</span>
-          <span style={{ height: 26, padding: '0 11px', borderRadius: 99, background: 'var(--red-50)', color: 'var(--red-700)', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--red-500)' }} />{t('yc.pr.card.launch')}
-          </span>
+          {cfg.tier !== 'public' && (
+            <span style={{ height: 26, padding: '0 11px', borderRadius: 99, background: 'var(--red-50)', color: 'var(--red-700)', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--red-500)' }} />{t('yc.pr.card.launch')}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(84px,11vw,124px)', lineHeight: 0.9, letterSpacing: '-.06em', fontVariantNumeric: 'tabular-nums' }}>{n(price)}</span>
@@ -261,7 +263,7 @@ function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolea
           <span style={{ fontSize: 16, color: 'var(--sand-600)' }}>{t(annual ? 'yc.pr.card.per.year' : 'yc.pr.card.per.month')}</span>
         </div>
         <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: 'var(--sand-700)', textWrap: 'pretty', minHeight: 50 }}>
-          {annual ? t('yc.pr.card.subYear', { p: n(cfg.price_month) }) : t('yc.pr.card.subMonth', { p: n(cfg.price_month), next: n(cfg.price_month_next) })}
+          {annual ? t('yc.pr.card.subYear', { p: n(cfg.price_month) }) : cfg.tier === 'public' ? t('yc.pr.card.subMonthPublic') : t('yc.pr.card.subMonth', { p: n(cfg.price_month), next: n(cfg.price_month_next) })}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 18, background: 'var(--sand-50)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 15.5, fontWeight: 600 }}>
@@ -718,7 +720,7 @@ function Faq({ cfg }: { cfg: CrmPricingConfig }) {
           </Reveal>
         </div>
         <Reveal i={2} style={{ flex: '1.3 1 440px', minWidth: 0, borderTop: '1px solid var(--sand-200)' }}>
-          {[1, 2, 3, 4, 5, 6, 7].map((k, i) => {
+          {[1, 2, 3, 4, 5, 6, 7].filter((k) => k !== 4 || cfg.tier !== 'public').map((k, i) => {
             const on = open === i;
             const v = vars[k] ?? {};
             return (

@@ -13,6 +13,7 @@ import { Skel } from '@/crm/ui/kit';
 import { ADMIN_ROUTES } from '../adminNav';
 import { useAdminMoney } from '../data';
 import type { AdminMoney } from '../data';
+import PriceTierCard from './PriceTierCard';
 import { EmptyNote, Kpi, PageHead, RowLine, Section, Tabs, kpiGrid, pageWrap, twoCols } from '../ui';
 
 type Tab = 'mrr' | 'buys' | 'margin';
@@ -110,6 +111,7 @@ function MrrTab({ d }: { d: AdminMoney }) {
           </p>
         </Section>
       </div>
+      <PriceTierCard />
     </>
   );
 }
