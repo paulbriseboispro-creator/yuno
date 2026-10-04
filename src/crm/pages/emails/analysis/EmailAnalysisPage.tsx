@@ -4,6 +4,7 @@
  * les campagnes envoyées des 12 derniers mois (`crm_email_analysis`, mêmes
  * chiffres que les Résultats). Sans envoi : une invitation à écrire.
  */
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -55,7 +56,7 @@ export default function EmailAnalysisPage() {
           </div>
         </div>
       ) : q.isError || !a ? (
-        <div style={{ padding: '24px 0', fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.common.loadError')}</div>
+        <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
       ) : !N ? (
         <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: 'clamp(32px,5vw,56px) 24px', borderRadius: 28, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', animation: 'yc-rise 520ms both' }}>
           <YunitFace mood="endormi" size={72} />

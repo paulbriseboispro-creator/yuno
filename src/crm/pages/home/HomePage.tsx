@@ -11,6 +11,7 @@
  * Tout vient de crm_home (un appel par période) ; aucun chiffre n'est calculé
  * ici, seulement mis en forme.
  */
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useState } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -123,11 +124,7 @@ export default function HomePage() {
           </div>
         </div>
       ) : home.isError && !data ? (
-        <div style={{ padding: 28, borderRadius: 24, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <YunitFace mood="inquiet" size={44} />
-          <span style={{ flex: 1, fontSize: 15 }}>{t('yc.common.loadError')}</span>
-          <PillButton onClick={() => home.refetch()}>{t('yc.common.retry')}</PillButton>
-        </div>
+        <CrmLoadError error={home.error} onRetry={() => { void home.refetch(); }} retrying={home.isFetching} />
       ) : (
         <>
           <SalesHero data={data} period={period} onPeriod={setPeriod} intro={intro} connected={!!data?.connection} />

@@ -70,8 +70,8 @@ export default function ClientsPage() {
 
   const [def, setDefRaw] = useState<ClientFilterDef>(() => defFromParams(sp));
   const [activeSaved, setActiveSaved] = useState<string | null>(() => sp.get('seg'));
-  const [q, setQ] = useState('');
-  const [dq, setDq] = useState('');
+  const [q, setQ] = useState(() => sp.get('q') ?? '');
+  const [dq, setDq] = useState(() => sp.get('q') ?? '');
   const [sort, setSort] = useState('last');
   const [dir, setDir] = useState(1);
   const [limit, setLimit] = useState(PAGE);

@@ -9,6 +9,7 @@
  * dans l'adresse (?p=&e=&m=&ch=&s=&cmp=) : un lien partagé rouvre la même
  * lecture.
  */
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
@@ -239,12 +240,7 @@ export default function JourneyPage() {
       </div>
 
       {q.isError && !d && (
-        <section style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, padding: 24, borderRadius: 24, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>
-          <span style={{ flex: '1 1 260px', fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.common.loadError')}</span>
-          <Hv as="button" type="button" onClick={() => q.refetch()} style={{ height: 42, padding: '0 18px', borderRadius: 99, border: 0, background: 'var(--ink)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--sand-700)' }}>
-            {t('yc.common.retry')}
-          </Hv>
-        </section>
+        <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
       )}
 
       {!d && !q.isError && <JourneySkeleton />}

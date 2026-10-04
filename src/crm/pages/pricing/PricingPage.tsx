@@ -23,6 +23,7 @@ import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
 import { CRM_RECHARGE, crmRechargeQuote } from '@/lib/crmBilling';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Skel } from '@/crm/ui/kit';
 import { EASE, SPRING, prefersReducedMotion } from '@/crm/ui/motion';
 import { useNarrow } from '@/crm/ui/useNarrow';
@@ -61,6 +62,9 @@ function PricingBody() {
     document.title = 'Yuno CRM · Tarifs';
     return () => { document.title = prev; };
   }, []);
+  if (!q.data && q.isError) {
+    return <div style={{ ...wrap, paddingTop: 120 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></div>;
+  }
   if (!q.data) {
     return (
       <div style={{ ...wrap, paddingTop: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>

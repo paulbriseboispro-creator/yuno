@@ -13,6 +13,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Modal, Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
@@ -147,7 +148,7 @@ export default function SmsCampaignsPage() {
         </div>
       </div>
 
-      {!data.data ? <Skel h={420} r={28} /> : view === 'cal' ? (
+      {!data.data ? (data.isError ? <CrmLoadError error={data.error} onRetry={() => { void data.refetch(); }} retrying={data.isFetching} /> : <Skel h={420} r={28} />) : view === 'cal' ? (
         <Calendar campaigns={all} kindOf={kindOf} locale={locale} />
       ) : list.length === 0 ? (
         <section style={{ padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', borderRadius: 28, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>

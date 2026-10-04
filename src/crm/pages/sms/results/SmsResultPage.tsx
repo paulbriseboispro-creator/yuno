@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, useProgress } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
@@ -52,7 +53,7 @@ export default function SmsResultPage() {
   }, [r]);
 
   if (q.isLoading || !r) {
-    return <main style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px)' }}><Skel h={520} r={28} /></main>;
+    return <main style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px)' }}>{q.isError && !r ? <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /> : <Skel h={520} r={28} />}</main>;
   }
   if (r.error === 'not_found' || !s) {
     return (

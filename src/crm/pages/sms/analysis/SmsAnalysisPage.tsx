@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EASE, useProgress } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useNarrow } from '@/crm/ui/useNarrow';
@@ -88,7 +89,7 @@ export default function SmsAnalysisPage() {
   const bandL = (bi: number) => t('yc.sm.an.band', { a: BANDS[bi][0], b: BANDS[bi][1] });
   const title = <>{t('yc.sm.an.h.a')}<span className="yc-accent-word">{t('yc.sm.an.h.b')}</span>{t('yc.sm.an.h.c')}</>;
 
-  if (!q.data) return <SmsShell tab="analysis" title={title} sub={t('yc.sm.an.subEmpty')} drafts={drafts}><Skel h={520} r={28} /></SmsShell>;
+  if (!q.data) return <SmsShell tab="analysis" title={title} sub={t('yc.sm.an.subEmpty')} drafts={drafts}>{q.isError ? <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /> : <Skel h={520} r={28} />}</SmsShell>;
   if (rows.length === 0) {
     return (
       <SmsShell tab="analysis" title={title} sub={t('yc.sm.an.subEmpty')} drafts={drafts}>

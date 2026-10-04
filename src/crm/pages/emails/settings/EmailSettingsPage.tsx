@@ -7,6 +7,7 @@
  * test. Une barre « Modifications non enregistrées » porte Annuler /
  * Enregistrer (`crm_email_settings_set`).
  */
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
@@ -51,7 +52,7 @@ export default function EmailSettingsPage() {
   return (
     <EmailsShell tab="settings" title={title} sub={t('yc.em.rg.sub')} drafts={drafts} kicker={t('yc.em.rg.kick')} hideNew>
       {q.isLoading || !q.data ? (
-        q.isError ? <div style={{ fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.common.loadError')}</div> : (
+        q.isError ? <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900 }}>
             {[260, 300, 240].map((h, i) => <Skel key={i} h={h} r={28} />)}
           </div>

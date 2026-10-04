@@ -7,6 +7,7 @@
  * Une barre « Modifications non enregistrées » porte Annuler / Enregistrer
  * (`crm_sms_settings_set`).
  */
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
@@ -56,7 +57,7 @@ export default function SmsSettingsPage() {
   return (
     <SmsShell tab="settings" title={title} sub={t('yc.sm.rg.sub')} drafts={drafts} hideNew>
       {q.isLoading || !q.data ? (
-        q.isError ? <div style={{ fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.common.loadError')}</div> : (
+        q.isError ? <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /> : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
             <div style={{ flex: '1 1 520px', display: 'flex', flexDirection: 'column', gap: 20 }}>{[240, 340, 220].map((h, i) => <Skel key={i} h={h} r={28} />)}</div>
             <div style={{ flex: '1 1 300px', maxWidth: 360 }}><Skel h={480} r={28} /></div>

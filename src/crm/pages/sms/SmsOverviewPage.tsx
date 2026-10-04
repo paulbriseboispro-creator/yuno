@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Skel } from '@/crm/ui/kit';
 import { EASE, useProgress } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
@@ -109,7 +110,9 @@ export default function SmsOverviewPage() {
 
   return (
     <SmsShell tab="home" title={title} sub={t(vide ? 'yc.sm.ov.subEmpty' : 'yc.sm.ov.sub')} drafts={drafts.length}>
-      {!data ? (
+      {!data && q.isError ? (
+        <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
+      ) : !data ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 12 }}>{[0, 1, 2].map((i) => <Skel key={i} h={170} r={20} />)}</div>
           <Skel h={460} r={28} />
