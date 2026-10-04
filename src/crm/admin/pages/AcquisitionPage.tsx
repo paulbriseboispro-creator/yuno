@@ -84,7 +84,7 @@ function SessionsTab({ d }: { d: AdminAcquisition }) {
   const rows = d.sessions.filter((s) => dev === 'all' || s.device === dev);
   return (
     <Section title={t('adm.crm.aq.sess')} sub={t('adm.crm.aq.sessSub')} right={
-      <Segmented value={dev} onChange={setDev} options={[{ value: 'all', label: t('adm.crm.aq.dev.all') }, { value: 'mobile', label: t('adm.crm.device.mobile') }, { value: 'desktop', label: t('adm.crm.device.desktop') }]} />} pad={24} gap={4}>
+      <Segmented<'all' | 'mobile' | 'desktop'> value={dev} onChange={setDev} options={[{ value: 'all', label: t('adm.crm.aq.dev.all') }, { value: 'mobile', label: t('adm.crm.device.mobile') }, { value: 'desktop', label: t('adm.crm.device.desktop') }]} />} pad={24} gap={4}>
       {rows.length === 0 && <EmptyNote>{t('adm.crm.aq.sessNone')}</EmptyNote>}
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 760 }}>

@@ -27,7 +27,7 @@ const dict: AdminDict = {
   'adm.crm.sa.f.cards': ['Accounts', 'Comptes', 'Cuentas'],
   'adm.crm.sa.f.proba': ['Probability', 'Proba.', 'Prob.'],
   'adm.crm.sa.f.weighted': ['Weighted', 'Pondéré', 'Ponderado'],
-  'adm.crm.sa.f.note': ['The probabilities are fixed estimates (5, 10, 35, 50 %): there is not enough history yet to draw them from your own numbers.', 'Les probabilités sont des estimations fixes (5, 10, 35, 50 %) : il n’y a pas encore assez d’historique pour les tirer de vos propres chiffres.', 'Las probabilidades son estimaciones fijas (5, 10, 35, 50 %): aún no hay historial suficiente para sacarlas de sus propias cifras.'],
+  'adm.crm.sa.f.fnote': ['The probabilities are fixed estimates (5, 10, 35, 50 %): there is not enough history yet to draw them from your own numbers.', 'Les probabilités sont des estimations fixes (5, 10, 35, 50 %) : il n’y a pas encore assez d’historique pour les tirer de vos propres chiffres.', 'Las probabilidades son estimaciones fijas (5, 10, 35, 50 %): aún no hay historial suficiente para sacarlas de sus propias cifras.'],
   'adm.crm.sa.l.why': ['Why we lose', 'Pourquoi on perd', 'Por qué perdemos'],
   'adm.crm.sa.l.none': ['No lost prospect yet.', 'Aucun prospect perdu pour l’instant.', 'Aún ningún prospecto perdido.'],
   'adm.crm.sa.l.last': ['Latest lost', 'Derniers perdus', 'Últimos perdidos'],

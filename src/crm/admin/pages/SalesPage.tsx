@@ -119,7 +119,7 @@ function Forecast({ d }: { d: AdminPipeline }) {
           {rows.map((r) => <RowLine key={r.s}><span style={{ flex: 1 }}>{t(`adm.crm.sa.s.${r.s}`)}</span><span style={{ width: 90, textAlign: 'right' }}>{n(r.cnt)}</span><span style={{ width: 90, textAlign: 'right' }}>{Math.round(STAGE_PROBA[r.s] * 100)} %</span><b style={{ width: 100, textAlign: 'right' }}>{eur(r.w)}</b></RowLine>)}
         </div>
       </div>
-      <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--sand-500)', lineHeight: 1.5 }}>{t('adm.crm.sa.f.note')}</p>
+      <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--sand-500)', lineHeight: 1.5 }}>{t('adm.crm.sa.f.fnote')}</p>
     </Section>
   );
 }
