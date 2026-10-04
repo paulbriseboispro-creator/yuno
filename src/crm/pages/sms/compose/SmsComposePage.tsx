@@ -22,7 +22,7 @@ import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
 import { useSmsActions, useSmsCampaigns, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_SEND_OPEN, defaultSender, hasLink, isSmsTemplate, SAMPLE_LINK, simplifySms, SMS_TEMPLATES, smsFinalText, type SmsVar,
+  countSms, CRM_SMS_ENGINE_READY, CRM_SMS_SEND_OPEN, defaultSender, hasLink, isSmsTemplate, SAMPLE_LINK, simplifySms, SMS_TEMPLATES, smsFinalText, type SmsVar,
 } from '@/crm/lib/sms';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SmsPhone } from '../SmsPhone';
@@ -155,7 +155,7 @@ export default function SmsComposePage() {
 
   const testBtn = (
     <Hv
-      as="button" type="button" disabled={!CRM_SMS_SEND_OPEN} title={CRM_SMS_SEND_OPEN ? undefined : t('yc.sm.soon.badge')}
+      as="button" type="button" disabled={!CRM_SMS_SEND_OPEN} title={CRM_SMS_SEND_OPEN ? undefined : t('yc.sm.soon.badge')} onClick={() => { if (!CRM_SMS_ENGINE_READY) toast(t('yc.sm.engineToast')); }}
       style={{ height: 42, padding: '0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: CRM_SMS_SEND_OPEN ? 'var(--ink)' : 'var(--sand-400)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: CRM_SMS_SEND_OPEN ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap', font: 'inherit' }}
       hover={{ background: CRM_SMS_SEND_OPEN ? 'var(--paper)' : '#fff' }}
     >

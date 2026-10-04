@@ -83,7 +83,7 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   jusqu'au passage au prix public ; `yuno_crm_pack_<yunits>`). Stripe live est à
   24 / 34 / 288 depuis le 04/10 (`scripts/stripe/create-crm-prices.mjs` en est le
   miroir idempotent) ; les noms des produits « packs » y parlent encore de
-  « néons » (à renommer chez Stripe). Le lot 4b est fait : `club-subscription/crm.ts`
+  « néons » (à renommer chez Stripe). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
   (`crm_checkout`, `crm_portal`), webhook → `crm_apply_stripe_subscription`. Ne
   jamais recréer les prix Essentiel / Pro / Business.
 
@@ -656,6 +656,7 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   FAQ `yc.faq.*` (Compte › Aide), article `ohelp.crm.*` pour la Suite, et les
   articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
   (redéployer `owner-assistant` après modification).
+- **SMS affiché OUVERT (décision de Paul, 05/10), envoi pas encore branché** : `CRM_SMS_DISPLAY_LIVE = true` (`src/crm/lib/sms.ts`) retire les pastilles « Bientôt » de la Console ; `CRM_SMS_ENGINE_READY = false` et la garde serveur `crm_sms_not_open` gardent l'envoi fermé (un tap sur « Envoyer » / « Tester » dit que c'est en cours de mise en place). `SMS_MARKETING_LIVE` (achat de crédits de la Suite) reste FAUX tant que le numéro Twilio n'est pas en place. À faire ensuite : brancher le moteur (`docs/designs/CRM_SMS_PLAN.md`), passer `CRM_SMS_ENGINE_READY` à true et lever la garde serveur.
 - **Inscription** : vit dans le dépôt de la landing (`yuno-landing-crm`) : parcours
   tiré du design, Google et Apple, lien de confirmation e-mail à la place d'un code.
 

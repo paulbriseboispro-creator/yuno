@@ -23,7 +23,7 @@ import { useNights } from '@/crm/data/nights';
 import type { CrmAudience } from '@/crm/data/emails';
 import { useSmsActions, useSmsAnalysis, useSmsAudiencePreview, useSmsCampaigns, useSmsSendOptions, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCost, smsEffectiveAt, smsFinalText,
+  countSms, CRM_SMS_ENGINE_READY, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCost, smsEffectiveAt, smsFinalText,
 } from '@/crm/lib/sms';
 import { SmsFlowHeader, type SmsStep } from '../flow/SmsFlowHeader';
 import { SmsSoonBanner } from '../SmsShell';
@@ -174,7 +174,8 @@ export default function SmsSendPage() {
     if (step === 'aud') { if (net === 0) { toast(t('yc.sm.sd.aud.none')); return; } go('plan'); return; }
     if (step === 'plan') { if (past) { toast(t('yc.em.sd.plan.past')); return; } go('check'); return; }
     if (!CRM_SMS_SEND_OPEN) { toast(t('yc.sm.sd.soonToast')); return; }
-    if (!canSend) toast(t('yc.em.sd.nav.fixFirst'));
+    if (!canSend) { toast(t('yc.em.sd.nav.fixFirst')); return; }
+    if (!CRM_SMS_ENGINE_READY) toast(t('yc.sm.engineToast'));
   };
   const back = () => { if (idx === 0) go('msg'); else go(STEPS[idx - 1]); };
 

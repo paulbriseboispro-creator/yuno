@@ -14,7 +14,7 @@ import { setPendingAudience, useAudienceCount } from '@/crm/data/clients';
 import type { ClientFilterDef } from '@/crm/data/clients';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmCaps } from '@/crm/scope';
-import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 
 export type WriteScope = 'one' | 'sel' | 'filtered' | 'all';
 
@@ -124,7 +124,7 @@ export function WriteModal({
             {t('yc.common.readOnly')}
           </div>
         )}
-        {ch === 'sms' && !SMS_MARKETING_LIVE && !none && (
+        {ch === 'sms' && !CRM_SMS_DISPLAY_LIVE && !none && (
           <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>
             {t('yc.cli.msg.smsSoon')}
           </div>

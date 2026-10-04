@@ -8,12 +8,19 @@
  * le moteur doit d'abord débiter les Yunits, remplir les variables et lire les
  * réglages d'envoi. Le serveur refuse de toute façon (`crm_sms_not_open`).
  */
-import { composeSmsBody, nonGsmChars, smsSizing, SMS_MARKETING_LIVE, type SmsLang } from '@/lib/smsMarketing';
+import { composeSmsBody, nonGsmChars, smsSizing, type SmsLang } from '@/lib/smsMarketing';
 
-/** Le moteur SMS est-il branché pour les comptes CRM (Yunits, variables, réglages) ? */
+/**
+ * Le SMS est AFFICHÉ comme ouvert dans la Console (décision de Paul, 05/10) : plus
+ * de pastille « Bientôt », plus de bandeau, les boutons sont actifs. Un drapeau
+ * propre au CRM, distinct de `SMS_MARKETING_LIVE` (qui ouvre l'achat de crédits
+ * de la Suite et reste fermé tant que le numéro Twilio n'est pas en place).
+ */
+export const CRM_SMS_DISPLAY_LIVE = true;
+/** Le moteur SMS est-il branché pour les comptes CRM (Yunits, variables, réglages) ? Tant que non, rien ne part : le serveur refuse (`crm_sms_not_open`). */
 export const CRM_SMS_ENGINE_READY = false;
-/** On peut programmer, tester et envoyer un SMS depuis la Console CRM. */
-export const CRM_SMS_SEND_OPEN = SMS_MARKETING_LIVE && CRM_SMS_ENGINE_READY;
+/** Les écrans SMS se comportent comme ouverts (programmer, tester, envoyer). */
+export const CRM_SMS_SEND_OPEN = CRM_SMS_DISPLAY_LIVE;
 
 /** Variables qu'on insère dans un SMS (le lien à part). */
 export const SMS_VARS = ['prénom', 'nom_club', 'soirée'] as const;
