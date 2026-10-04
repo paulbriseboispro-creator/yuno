@@ -121,6 +121,8 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-slide-in { from { transform: translateX(-100%); } to { transform: none; } }
 @keyframes yc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 @keyframes yc-spin { to { transform: rotate(360deg); } }
+@keyframes yc-flow { 0% { left: 0; opacity: 0; } 14% { opacity: 1; } 86% { opacity: 1; } 100% { left: calc(100% - 30px); opacity: 0; } }
+@keyframes yc-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
 @keyframes yc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 @media (prefers-reduced-motion: reduce) {

@@ -49,7 +49,7 @@
 | Pages d'inscription (bientôt) | `/crm/signup-pages` | — | ⏳ |
 | Clients | `/crm/clients` | `crm_clients_overview` / `_list` / `crm_client`, `crm_clients_export` | ✅ |
 | Segments | `/crm/segments` | `crm_segments_overview`, `crm_segment_detail`, `crm_audience_counts` | ✅ |
-| Imports | `/crm/imports` | `import_contact_list` | ⏳ |
+| Imports | `/crm/imports` | `crm_imports_overview`, `crm_import_check`, `crm_import_commit` (→ `import_contact_list`), `crm_import_undo` | ✅ |
 | Connecteurs | `/crm/connectors` | actions `ticketing_*` | ⏳ |
 | Réglages | `/crm/settings` | `crm_settings` | ⏳ |
 | Compte (profil, équipe, facturation, notifications, aide) | `/crm/account/*` | — | ⏳ |
@@ -75,6 +75,7 @@
 | `20261004161000_crm_people_msg_behaviour` | `_cp.msg_n / click_n / click_nobuy`, `f.msg` | ✅ 04/10 |
 | `20261004162000_crm_audience_counts` | effectifs de plusieurs définitions | ✅ 04/10 |
 | `20261004163000_crm_segment_counts_cleanup` | un segment supprimé emporte son historique | ✅ 04/10 |
+| `20261004170000_crm_imports` | imports journalisés, annulation exacte, historique, cron de clôture | ✅ 04/10 |
 
 ## Choix faits pendant la transposition
 
@@ -100,6 +101,16 @@
   jamais cliqué, cliqué sans acheter, moins de 50 €) + les trois « à vous »
   montrés en exemple (gros dépensiers, habitués qui s'éloignent, venus une
   fois) ; « Inscrits via vos pages » attend les pages d'inscription (Bientôt).
+- **Imports, accord « oui / non » du design** au lieu de l'origine détaillée
+  de l'outil de la Suite : « oui » ouvre e-mail + SMS via `import_contact_list`
+  (origine `other`, détail « Console CRM : le pro atteste… ») ; « non » range les
+  contacts sans aucun canal. Chaque lot note l'état d'abonnement d'avant
+  (`crm_import_journal`) : « Annuler » retire les abonnements créés, rend leur
+  état aux abonnements réactivés, retire les numéros SMS créés et les lignes du
+  fichier, sans jamais effacer un désabonnement survenu depuis. Un lot qui
+  échoue annule l'import entier. Le fichier d'exemple se vérifie mais ne
+  s'ajoute jamais (pas de faux contacts dans une vraie base). Excel (.xlsx)
+  est lu en plus du CSV.
 - **Démo** : `scripts/demo/seed-crm-messages.sql` sème 12 envois passés
   (destinataires, ouvertures, clics placés avant de vrais achats démo).
 

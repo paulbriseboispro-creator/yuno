@@ -10,6 +10,7 @@ const CrmLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({
 const HomePage = lazyWithRetry(() => import('./pages/home/HomePage'));
 const ClientsPage = lazyWithRetry(() => import('./pages/clients/ClientsPage'));
 const SegmentsPage = lazyWithRetry(() => import('./pages/segments/SegmentsPage'));
+const ImportsPage = lazyWithRetry(() => import('./pages/imports/ImportsPage'));
 
 export function crmRoutes() {
   return (
@@ -18,6 +19,7 @@ export function crmRoutes() {
         <Route index element={<HomePage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="segments" element={<SegmentsPage />} />
+        <Route path="imports" element={<ImportsPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>
