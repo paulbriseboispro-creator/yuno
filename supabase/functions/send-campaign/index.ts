@@ -873,7 +873,18 @@ Deno.serve(async (req) => {
     if (actingUserId && sender.ownerUserId !== actingUserId) {
       const { data: roles } = await admin.from('user_roles').select('role').eq('user_id', actingUserId);
       const isAdmin = roles?.some((r: { role: string }) => r.role === 'admin');
-      if (!isAdmin) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: jsonHeaders });
+      // Yuno CRM : l'équipe de l'espace (gérant d'un club, admin / éditeur
+      // d'une organisation) écrit et envoie, pas seulement le titulaire.
+      let crmTeam = false;
+      if (!isAdmin) {
+        const { data: inScope } = await admin.rpc('crm_user_in_scope', {
+          p_user_id: actingUserId,
+          p_venue_id: (campaign.venue_id as string | null) ?? null,
+          p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+        });
+        crmTeam = inScope === true;
+      }
+      if (!isAdmin && !crmTeam) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: jsonHeaders });
     }
 
     // ── Test ────────────────────────────────────────────────────────────────
@@ -973,6 +984,14 @@ Deno.serve(async (req) => {
           .update({ status: 'draft', paused_reason: null, error_message: 'yunits_insufficient' })
           .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
         return new Response(JSON.stringify({ error: 'yunits_insufficient', code: 'yunits_insufficient' }), { status: 402, headers: jsonHeaders });
+      }
+      // Yuno CRM : compte en pause (essai fini sans abonnement) — rien ne part,
+      // la campagne redevient un brouillon que la Console signale.
+      if (eErr && eErr.message.includes('crm_paused')) {
+        await admin.from('email_campaigns')
+          .update({ status: 'draft', paused_reason: null, error_message: 'crm_paused' })
+          .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
+        return new Response(JSON.stringify({ error: 'crm_paused', code: 'crm_paused' }), { status: 402, headers: jsonHeaders });
       }
       if (eErr) throw new Error(`Audience resolution failed: ${eErr.message}`);
       if (!enq || (Number(enq.total) - Number(enq.already_sent)) <= 0) {

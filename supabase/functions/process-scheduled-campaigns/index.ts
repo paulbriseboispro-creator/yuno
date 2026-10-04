@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ campaign_id: c.id, scheduled: true }),
         });
-        // 402 : Yunits insuffisants (Yuno CRM) — send-campaign a remis la
+        // 402 : Yunits insuffisants ou compte en pause (Yuno CRM) — send-campaign a remis la
         // campagne en brouillon, elle ne doit pas finir « échouée ».
         if (!res.ok && res.status !== 402) {
           await admin.from('email_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` }).eq('id', c.id);
