@@ -66,10 +66,13 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
 - `useAccountProductFor` ne replie la Console de la Suite en mode CRM que pour
   un compte CRM pur.
 
-## Reste à faire
+## Aide et assistants
 
-(L'admin CRM compte les comptes à CRM ajouté depuis la migration `20261005249000`.)
+- Centre d'aide Billetterie (club et organisateur), groupe Paramètres : article
+  `open-crm` (clés `ohelp.openCrm.*`, bouton vers `~/open/crm`).
+- Aide de la Console CRM : réponse `ticketing` (« Puis-je aussi vendre mes
+  billets avec Yuno ? », lien `/open/suite`).
+- Assistant Console et serveur MCP : article `open-crm` de
+  `_shared/console-help-articles.ts`.
 
-
-- Mode d'emploi (`ohelp.*`) et assistants IA : article sur l'ouverture du
-  second produit.
+L'admin CRM compte les comptes à CRM ajouté depuis la migration `20261005249000`.
