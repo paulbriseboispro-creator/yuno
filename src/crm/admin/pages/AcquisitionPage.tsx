@@ -2,8 +2,8 @@
  * Admin CRM › Acquisition (« Admin Acquisition » du design), limitée à ce que
  * Yuno mesure vraiment : l'entonnoir des inscriptions (de la page ouverte au
  * paiement), les parcours un par un, les sources et ce qu'elles amènent en
- * payants. Les visites de la landing, la profondeur de lecture, les clics et
- * les tests A/B ne sont pas collectés : l'écran le dit au lieu de les inventer.
+ * payants ; et la page CRM elle-même (visites, profondeur, clics, sources :
+ * onglet « Page CRM », mesure first-party sans cookie). Le test A/B n'existe pas.
  */
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -14,9 +14,10 @@ import { TrendChart } from '@/crm/pages/analytics/anaUi';
 import { ADMIN_ROUTES } from '../adminNav';
 import { useAdminAcquisition } from '../data';
 import type { AdminAcquisition } from '../data';
+import LandingTab from './LandingTab';
 import { EmptyNote, Kpi, PageHead, RowLine, Section, Tabs, kpiGrid, pageWrap, twoCols, useAgo } from '../ui';
 
-type Tab = 'funnel' | 'sessions' | 'sources';
+type Tab = 'landing' | 'funnel' | 'sessions' | 'sources';
 const STEPS = ['opened', 'role', 'structure', 'account', 'created', 'console'] as const;
 
 export default function AcquisitionPage() {
@@ -24,15 +25,15 @@ export default function AcquisitionPage() {
   const [sp, setSp] = useSearchParams();
   const [days, setDays] = useState<30 | 90>(30);
   const q = useAdminAcquisition(days);
-  const tab = (['sessions', 'sources'] as const).find((x) => x === sp.get('tab')) ?? 'funnel';
+  const tab = (['landing', 'sessions', 'sources'] as const).find((x) => x === sp.get('tab')) ?? 'funnel';
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   return (
     <main style={pageWrap}>
       <PageHead kicker={t('adm.crm.aq.kicker')} title={t('adm.crm.aq.title')} sub={t('adm.crm.aq.sub')}
         right={<Segmented value={String(days)} onChange={(v) => setDays(v === '90' ? 90 : 30)} options={[{ value: '30', label: t('adm.crm.ck.d30') }, { value: '90', label: t('adm.crm.ck.d90') }]} />} />
       <Tabs<Tab> value={tab} onChange={(v) => setSp(v === 'funnel' ? {} : { tab: v }, { replace: true })}
-        tabs={[{ id: 'funnel', label: t('adm.crm.aq.t.funnel') }, { id: 'sessions', label: t('adm.crm.aq.t.sessions') }, { id: 'sources', label: t('adm.crm.aq.t.sources') }]} />
-      {!q.data ? <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={360} r={28} /></> : (
+        tabs={[{ id: 'funnel', label: t('adm.crm.aq.t.funnel') }, { id: 'landing', label: t('adm.crm.aq.t.landing') }, { id: 'sessions', label: t('adm.crm.aq.t.sessions') }, { id: 'sources', label: t('adm.crm.aq.t.sources') }]} />
+      {tab === 'landing' ? <LandingTab days={days} /> : !q.data ? <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={360} r={28} /></> : (
         tab === 'funnel' ? <FunnelTab d={q.data} /> : tab === 'sessions' ? <SessionsTab d={q.data} /> : <SourcesTab d={q.data} />
       )}
     </main>
