@@ -14,6 +14,7 @@ import { OnboardingTasteQuiz } from '@/components/onboarding/OnboardingTasteQuiz
 import { LAUNCH_TASTE_QUIZ_EVENT } from '@/lib/demoQuiz';
 import { useLocation } from 'react-router-dom';
 import { isPublicLinktreePath } from '@/lib/linktreePaths';
+import { onCrmHost } from '@/lib/productHost';
 
 const PUSH_ANSWERED_KEY = 'onboarding_push_answered';
 const LANG_ANSWERED_KEY = 'onboarding_language_answered';
@@ -39,8 +40,9 @@ export function OnboardingGate() {
   // le précède) ou qui lit la page qui l'explique n'est pas un client de
   // soirée : aucune carte d'accueil.
   if (pathname === '/connect-ai' || pathname === '/ai') return null;
-  // La Console Yuno CRM est une surface pro : ni langue, ni push, ni quiz.
-  if (/^\/crm(-admin)?(\/|$)/.test(pathname)) return null;
+  // La Console Yuno CRM est une surface pro : ni langue, ni push, ni quiz —
+  // ni sur son domaine (crm.yunoapp.eu), ni sur sa page de connexion.
+  if (/^\/crm(-admin)?(\/|$)/.test(pathname) || pathname === '/login' || onCrmHost()) return null;
   if (pathname === '/auth' && search.includes('connect-ai')) return null;
   // Un pro qui ouvre l'autre produit (Billetterie ⇄ CRM), connexion comprise.
   if (pathname.startsWith('/open/')) return null;

@@ -77,6 +77,7 @@ import { NativeStatusBarScrim } from "@/components/NativeStatusBarScrim";
 import { ProThemeController } from "@/components/ProThemeController";
 import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
+import { ProductHostGate } from "@/components/ProductHostGate";
 import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp, isNative } from "@/lib/native";
 import { shouldShowLanding } from "@/lib/webHome";
@@ -292,6 +293,8 @@ const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
 const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const CrmMaintenance = lazyWithRetry(() => import("./crm/errors/CrmMaintenance"));
+// Connexion de Yuno CRM (crm.yunoapp.eu/login) — src/lib/productHost.ts.
+const CrmLogin = lazyWithRetry(() => import("./crm/pages/login/LoginPage"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const ForYouSelection = lazyWithRetry(() => import("./pages/ForYouSelection"));
 const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
@@ -635,6 +638,8 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
               <ProAppGate>
               <NativeProGate>
+              {/* Billetterie sur yunoapp.eu, CRM sur crm.yunoapp.eu (src/lib/productHost.ts). */}
+              <ProductHostGate>
               <Routes>
                 {/* Yuno Pro (app staff) — accueil / sélecteur de rôle */}
                 <Route path="/pro" element={<ProHome />} />
@@ -709,6 +714,8 @@ const App = () => (
                 {/* Legacy /org/:slug removed — public organizer profile lives at /o/:slug */}
                 
                 <Route path="/auth" element={<Auth />} />
+                {/* Connexion de Yuno CRM : sa DA, son domaine (crm.yunoapp.eu). */}
+                <Route path="/login" element={<CrmLogin />} />
                 {/* Handoff de session app native → web (token magiclink en fragment) */}
                 <Route path="/auth/handoff" element={<AuthHandoff />} />
                 <Route path="/mfa-setup" element={<MFASetup />} />
@@ -1398,6 +1405,7 @@ const App = () => (
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </ProductHostGate>
               </NativeProGate>
               </ProAppGate>
             </Suspense>
