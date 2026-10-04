@@ -49,6 +49,8 @@ export function useAdminCockpit(days: number) {
 
 export interface AdminAccountDetail {
   account: AdminAccount;
+  owner_id: string | null;
+  trial_ext: { used: number; free: number };
   moves: { at: string; delta: number; kind: string; lot_kind: string | null; channel: string | null; label: string | null }[];
   runs: { at: string; trigger: string | null; status: string | null; requests: number | null; tickets: number | null; error: string | null }[];
   sends: { at: string; name: string; status: string; recipients: number | null; bounced: number | null; complained: number | null; channel: string }[];

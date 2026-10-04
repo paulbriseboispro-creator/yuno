@@ -9,17 +9,17 @@ import { Link, useParams } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import { HEALTH_MAX, initials, OB_STEPS } from '@/crm/lib/admin';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
-import { Modal, Skel } from '@/crm/ui/kit';
-import { useCrmToast } from '@/crm/ui/toast';
+import { Skel } from '@/crm/ui/kit';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
 import { ADMIN_ROUTES } from '../adminNav';
 import { useAdminAccount, useAdminGesture } from '../data';
+import { GestureDialog, SupportConsoleButton } from '../gestures';
+import type { Gesture } from '../gestures';
 import type { AdminAccountDetail } from '../data';
 import { Avatar, card, EmptyNote, HealthRing, StateBadge, useAgo } from '../ui';
 
-type Gesture = null | 'grant' | 'extend' | 'freeze' | 'unfreeze';
 
 export default function AccountPage() {
   const { t } = useCrmT();
@@ -38,7 +38,7 @@ export default function AccountPage() {
         <Icon name="arrowLeft" size={15} stroke={2.4} />{t('adm.crm.ac.all')}
       </Link>
       {!d ? <><Skel h={150} r={28} /><Skel h={360} r={28} /></> : <Fiche d={d} onGesture={setGesture} />}
-      {d && <GestureDialog gesture={gesture} d={d} onClose={() => setGesture(null)} />}
+      {d && <GestureDialog gesture={gesture} account={d.account} ext={d.trial_ext} onClose={() => setGesture(null)} />}
     </main>
   );
 }
@@ -76,7 +76,7 @@ function Fiche({ d, onGesture }: { d: AdminAccountDetail; onGesture: (g: Gesture
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, flex: '1 1 100%' }}>
           {wa && <Hv as="a" href={wa} target="_blank" rel="noreferrer" style={btn} hover={hov}>WhatsApp</Hv>}
           {a.email && <Hv as="a" href={`mailto:${a.email}`} style={btn} hover={hov}><Icon name="mail" size={16} stroke={2.2} />{t('adm.crm.ac.mail')}</Hv>}
-          <Hv as={Link} to="/admin/support" style={btn} hover={hov}>{t('adm.crm.ac.assist')}</Hv>
+          <SupportConsoleButton ownerId={d.owner_id} name={a.name} style={btn} hover={hov} />
           <Hv as="button" type="button" onClick={() => onGesture('grant')} style={btn} hover={hov}>{t('adm.crm.ac.grant')}</Hv>
           {(a.state === 'trial' || a.state === 'paused' || a.state === 'churned') && !a.paid && <Hv as="button" type="button" onClick={() => onGesture('extend')} style={btn} hover={hov}>{t('adm.crm.ac.extend')}</Hv>}
           {!frozen && <Hv as="button" type="button" onClick={() => onGesture('freeze')} style={{ ...btn, color: 'var(--red-700)' }} hover={hov}>{t('adm.crm.ac.freeze')}</Hv>}
@@ -186,72 +186,27 @@ function Fiche({ d, onGesture }: { d: AdminAccountDetail; onGesture: (g: Gesture
 const h2 = { margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.03em' } as const;
 
 /** Notes internes : enregistrées toutes seules, une seconde après la dernière frappe. */
-function NoteCard({ d }: { d: AdminAccountDetail }) {
+export function NoteCard({ d, compact = false }: { d: AdminAccountDetail; compact?: boolean }) {
   const { t } = useCrmT();
   const save = useAdminGesture<{ p_scope_key: string; p_body: string }>('crm_admin_note_save');
   const [text, setText] = useState(d.note);
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const first = useRef(true);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const scope = d.account.id;
   useEffect(() => {
     if (first.current) { first.current = false; return; }
     setState('saving');
-    const id = setTimeout(() => { save.mutate({ p_scope_key: d.account.id, p_body: text }, { onSuccess: () => setState('saved') }); }, 1000);
+    const id = setTimeout(() => { saveRef.current.mutate({ p_scope_key: scope, p_body: text }, { onSuccess: () => setState('saved') }); }, 1000);
     return () => clearTimeout(id);
-  }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [text, scope]);
   return (
-    <section style={{ ...card, padding: '24px 28px', borderRadius: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <h2 style={h2}>{t('adm.crm.ac.notes')}</h2>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} maxLength={4000} aria-label={t('adm.crm.ac.notes')} style={{ width: '100%', boxSizing: 'border-box', borderRadius: 16, border: 0, boxShadow: 'inset 0 0 0 1.5px var(--sand-200)', padding: 14, font: 'inherit', fontSize: 14.5, lineHeight: 1.5, resize: 'vertical', outline: 'none' }} />
+    <section style={{ ...card, padding: compact ? 16 : '24px 28px', borderRadius: compact ? 18 : 28, display: 'flex', flexDirection: 'column', gap: compact ? 8 : 12 }}>
+      <h2 style={compact ? { ...h2, fontSize: 14, fontFamily: 'inherit' } : h2}>{t('adm.crm.ac.notes')}</h2>
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={compact ? 3 : 7} maxLength={4000} aria-label={t('adm.crm.ac.notes')} style={{ width: '100%', boxSizing: 'border-box', borderRadius: 16, border: 0, boxShadow: 'inset 0 0 0 1.5px var(--sand-200)', padding: 14, font: 'inherit', fontSize: 14.5, lineHeight: 1.5, resize: 'vertical', outline: 'none' }} />
       <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t(state === 'saving' ? 'adm.crm.ac.noteSaving' : 'adm.crm.ac.noteAuto')}</span>
     </section>
   );
 }
 
-function GestureDialog({ gesture, d, onClose }: { gesture: Gesture; d: AdminAccountDetail; onClose: () => void }) {
-  const { t, n, dShort } = useCrmT();
-  const toast = useCrmToast();
-  const id = d.account.id;
-  const grant = useAdminGesture<{ p_scope_key: string; p_amount: number; p_reason: string }>('crm_admin_grant_yunits');
-  const extend = useAdminGesture<{ p_scope_key: string; p_days: number; p_reason: string }>('crm_admin_extend_trial');
-  const freeze = useAdminGesture<{ p_scope_key: string; p_frozen: boolean; p_reason: string }>('crm_admin_freeze');
-  const [reason, setReason] = useState('');
-  const [amount, setAmount] = useState(2000);
-  const [days, setDays] = useState(7);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => { setReason(''); setErr(null); }, [gesture]);
-  if (!gesture) return null;
-  const busy = grant.isPending || extend.isPending || freeze.isPending;
-  const ok = reason.trim().length >= 3;
-  const fail = (e: unknown) => {
-    const code = (e as { message?: string } | null)?.message ?? '';
-    const known = ['reason_required', 'bad_amount', 'bad_days', 'not_extendable', 'not_found'].includes(code);
-    setErr(t(`adm.crm.ac.err.${known ? code : 'x'}`));
-  };
-  const submit = () => {
-    if (!ok || busy) return;
-    const done = (msg: string) => () => { toast(msg); onClose(); };
-    if (gesture === 'grant') grant.mutate({ p_scope_key: id, p_amount: amount, p_reason: reason }, { onSuccess: done(t('adm.crm.ac.doneGrant', { n: n(amount) })), onError: fail });
-    else if (gesture === 'extend') extend.mutate({ p_scope_key: id, p_days: days, p_reason: reason }, { onSuccess: done(t('adm.crm.ac.doneExtend', { n: days })), onError: fail });
-    else freeze.mutate({ p_scope_key: id, p_frozen: gesture === 'freeze', p_reason: reason }, { onSuccess: done(t(gesture === 'freeze' ? 'adm.crm.ac.doneFreeze' : 'adm.crm.ac.doneUnfreeze')), onError: fail });
-  };
-  const title = { grant: 'adm.crm.ac.grant', extend: 'adm.crm.ac.extend', freeze: 'adm.crm.ac.freeze', unfreeze: 'adm.crm.ac.unfreeze' }[gesture];
-  const input = { height: 44, borderRadius: 12, border: 0, boxShadow: 'inset 0 0 0 1.5px var(--sand-200)', padding: '0 14px', font: 'inherit', fontSize: 15, outline: 'none', width: '100%', boxSizing: 'border-box' } as const;
-  return (
-    <Modal open onClose={onClose} width={500} label={t(title)}>
-      <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <h2 style={{ ...h2, fontSize: 24 }}>{t(title)} · {d.account.name}</h2>
-        {gesture === 'grant' && <label style={lbl}>{t('adm.crm.ac.amount')}<input type="number" min={1} max={100000} step={500} value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} style={input} /></label>}
-        {gesture === 'extend' && <label style={lbl}>{t('adm.crm.ac.days')}<input type="number" min={1} max={30} value={days} onChange={(e) => setDays(Math.max(1, Math.min(30, Number(e.target.value))))} style={input} /></label>}
-        {gesture === 'freeze' && <p style={{ margin: 0, fontSize: 14.5, color: 'var(--sand-600)', lineHeight: 1.5 }}>{t('adm.crm.ac.freezeBody')}</p>}
-        {gesture === 'extend' && d.account.trial_ends_at && <p style={{ margin: 0, fontSize: 13.5, color: 'var(--sand-500)' }}>{t('adm.crm.ac.trialEnds', { date: dShort(d.account.trial_ends_at) })}</p>}
-        <label style={lbl}>{t('adm.crm.ac.reason')}<textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={300} style={{ ...input, height: 'auto', padding: 12, resize: 'vertical' }} /></label>
-        {err && <span role="alert" style={{ fontSize: 13.5, color: 'var(--red-600)' }}>{err}</span>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <Hv as="button" type="button" onClick={onClose} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--sand-100)', fontWeight: 600, fontSize: 15, cursor: 'pointer' }} hover={{ background: 'var(--sand-200)' }}>{t('yc.common.cancel')}</Hv>
-          <Hv as="button" type="button" onClick={submit} disabled={!ok || busy} style={{ height: 44, padding: '0 22px', borderRadius: 99, border: 0, background: gesture === 'freeze' ? 'var(--red-600)' : 'var(--ink)', color: '#fff', fontWeight: 600, fontSize: 15, cursor: ok && !busy ? 'pointer' : 'default', opacity: ok && !busy ? 1 : 0.45 }}>{t('adm.crm.ac.confirm')}</Hv>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-const lbl = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, fontWeight: 600 } as const;

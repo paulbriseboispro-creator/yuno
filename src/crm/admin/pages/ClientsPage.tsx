@@ -1,10 +1,11 @@
 /**
  * Admin CRM › Clients (« Admin Clients » du design) : trois lectures d'une même
  * liste de comptes réels : tous les comptes, santé et risques, onboarding.
- * Un clic sur un compte ouvre sa fiche complète.
+ * Un clic sur un compte ouvre son tiroir latéral (`?open=<compte>`), d'où
+ * « Ouvrir la fiche complète » mène à la fiche.
  */
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import {
   atRisk, blockedStep, countStates, initials, matchesFilter, OB_STEPS, searchAccounts, sortAccounts, topBlocker,
@@ -16,9 +17,16 @@ import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { ADMIN_ROUTES } from '../adminNav';
 import { useAdminAccounts } from '../data';
+import ClientDrawer from './ClientDrawer';
 import { Avatar, Chip, EmptyNote, HealthRing, Kpi, PageHead, StateBadge, Tabs, card, useAgo } from '../ui';
 
 type Tab = 'all' | 'risks' | 'onboarding';
+
+/** Ouvre le tiroir d'un compte sans quitter l'onglet (?open=<compte>). */
+function useOpenAccount() {
+  const [, setSp] = useSearchParams();
+  return useCallback((id: string) => setSp((prev) => { const n = new URLSearchParams(prev); n.set('open', id); return n; }), [setSp]);
+}
 
 export default function ClientsPage() {
   const { t } = useCrmT();
@@ -28,6 +36,9 @@ export default function ClientsPage() {
   const rows = useMemo(() => q.data?.accounts ?? [], [q.data]);
   const counts = useMemo(() => countStates(rows), [rows]);
   const setTab = (v: Tab) => setSp(v === 'all' ? {} : { tab: v }, { replace: true });
+  const openId = sp.get('open');
+  const opened = openId ? rows.find((r) => r.id === openId) ?? null : null;
+  const closeDrawer = () => setSp((prev) => { const n = new URLSearchParams(prev); n.delete('open'); return n; });
 
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
 
@@ -48,6 +59,7 @@ export default function ClientsPage() {
           {tab === 'onboarding' && <OnboardingTab rows={rows} />}
         </>
       )}
+      {opened && <ClientDrawer key={opened.id} account={opened} onClose={closeDrawer} />}
     </main>
   );
 }
@@ -71,7 +83,7 @@ function Strip({ rows, counts }: { rows: AdminAccount[]; counts: ReturnType<type
 
 function AllTab({ rows, counts }: { rows: AdminAccount[]; counts: ReturnType<typeof countStates> }) {
   const { t, n, eur } = useCrmT();
-  const nav = useNavigate();
+  const openAcc = useOpenAccount();
   const ago = useAgo();
   const [filter, setFilter] = useState<StateFilter>('all');
   const [search, setSearch] = useState('');
@@ -101,7 +113,7 @@ function AllTab({ rows, counts }: { rows: AdminAccount[]; counts: ReturnType<typ
           </div>
           {list.length === 0 && <EmptyNote>{rows.length ? t('adm.crm.cl.none') : t('adm.crm.cl.empty')}</EmptyNote>}
           {list.map((a) => (
-            <Hv key={a.id} as="div" role="link" tabIndex={0} onClick={() => nav(ADMIN_ROUTES.account(a.id))} onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') nav(ADMIN_ROUTES.account(a.id)); }} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 12, alignItems: 'center', padding: '12px', borderTop: '1px solid var(--sand-100)', cursor: 'pointer', borderRadius: 12 }} hover={{ background: 'var(--sand-50)' }}>
+            <Hv key={a.id} as="div" role="link" tabIndex={0} onClick={() => openAcc(a.id)} onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') openAcc(a.id); }} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 12, alignItems: 'center', padding: '12px', borderTop: '1px solid var(--sand-100)', cursor: 'pointer', borderRadius: 12 }} hover={{ background: 'var(--sand-50)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                 <Avatar text={initials(a.name)} />
                 <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -128,7 +140,7 @@ const GRID = 'minmax(220px,2.2fr) 110px 70px 80px 70px 90px 90px 110px minmax(10
 
 function RisksTab({ rows }: { rows: AdminAccount[] }) {
   const { t, n } = useCrmT();
-  const nav = useNavigate();
+  const openAcc = useOpenAccount();
   const live = rows.filter((r) => r.state !== 'churned');
   const maxC = Math.max(1, ...live.map((r) => r.contacts));
   const risks = sortAccounts(rows.filter(atRisk), 'health');
@@ -166,7 +178,7 @@ function RisksTab({ rows }: { rows: AdminAccount[] }) {
           {risks.map((a, i) => {
             const b = blockedStep(a.ob);
             return (
-              <Hv key={a.id} as={Link} to={ADMIN_ROUTES.account(a.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 8px', borderTop: i ? '1px solid var(--sand-100)' : 0, textDecoration: 'none', color: 'inherit', borderRadius: 12 }} hover={{ background: 'var(--sand-50)', textDecoration: 'none', color: 'inherit' }}>
+              <Hv key={a.id} as="div" role="link" tabIndex={0} onClick={() => openAcc(a.id)} onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') openAcc(a.id); }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 8px', borderTop: i ? '1px solid var(--sand-100)' : 0, textDecoration: 'none', color: 'inherit', borderRadius: 12 }} hover={{ background: 'var(--sand-50)', textDecoration: 'none', color: 'inherit' }}>
                 <HealthRing score={a.health} />
                 <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: 14.5, fontWeight: 700 }}>{a.name}</span>
@@ -193,7 +205,7 @@ function RisksTab({ rows }: { rows: AdminAccount[] }) {
 
 function OnboardingTab({ rows }: { rows: AdminAccount[] }) {
   const { t, dShort } = useCrmT();
-  const nav = useNavigate();
+  const openAcc = useOpenAccount();
   const recent = useMemo(() => rows.filter((r) => r.state !== 'churned' && r.signup_at && Date.now() - new Date(r.signup_at).getTime() < 30 * 86_400_000), [rows]);
   const top = topBlocker(recent);
   return (
@@ -211,7 +223,7 @@ function OnboardingTab({ rows }: { rows: AdminAccount[] }) {
             {recent.map((a) => {
               const b = blockedStep(a.ob);
               return (
-                <Hv key={a.id} as="div" role="link" tabIndex={0} onClick={() => nav(ADMIN_ROUTES.account(a.id))} onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') nav(ADMIN_ROUTES.account(a.id)); }} style={{ display: 'grid', gridTemplateColumns: '200px repeat(7,1fr)', gap: 8, alignItems: 'center', padding: '10px 8px', borderTop: '1px solid var(--sand-100)', cursor: 'pointer', borderRadius: 12 }} hover={{ background: 'var(--sand-50)' }}>
+                <Hv key={a.id} as="div" role="link" tabIndex={0} onClick={() => openAcc(a.id)} onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') openAcc(a.id); }} style={{ display: 'grid', gridTemplateColumns: '200px repeat(7,1fr)', gap: 8, alignItems: 'center', padding: '10px 8px', borderTop: '1px solid var(--sand-100)', cursor: 'pointer', borderRadius: 12 }} hover={{ background: 'var(--sand-50)' }}>
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: 14.5, fontWeight: 700 }}>{a.name}</span>
                     <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{t('adm.crm.cl.obSigned', { date: dShort(a.signup_at as string) })}</span>
