@@ -31,6 +31,7 @@ const NotificationsPage = lazyWithRetry(() => import('./pages/notifications/Noti
 const SettingsPage = lazyWithRetry(() => import('./pages/settings/SettingsPage'));
 const AnalyticsPage = lazyWithRetry(() => import('./pages/analytics/AnalyticsPage'));
 const JourneyPage = lazyWithRetry(() => import('./pages/journey/JourneyPage'));
+const AutomationsPage = lazyWithRetry(() => import('./pages/automations/AutomationsPage'));
 
 export function crmRoutes() {
   return (
@@ -67,6 +68,7 @@ export function crmRoutes() {
         <Route path="analytics" element={<Navigate to="/crm/analytics/sales" replace />} />
         <Route path="analytics/:tab" element={<AnalyticsPage />} />
         <Route path="journey" element={<JourneyPage />} />
+        <Route path="automations" element={<AutomationsPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>

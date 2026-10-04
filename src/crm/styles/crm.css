@@ -168,6 +168,8 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-row-a { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes yc-row-b { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes yc-pulse-red { 0% { box-shadow: 0 0 0 0 rgba(227,20,27,.4); } 100% { box-shadow: 0 0 0 12px rgba(227,20,27,0); } }
+/* Automatisations : le point qui file le long du lien déclencheur → e-mail. */
+@keyframes yc-travel { 0% { left: -8px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
 @keyframes yc-drawer-in { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
