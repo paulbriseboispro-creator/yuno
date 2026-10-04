@@ -116,7 +116,10 @@ export default defineConfig({
         ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/~oauth/],
+        // Serveur MCP : ces chemins sont servis par le Worker (OAuth, découverte).
+        // Sans cette exclusion, le service worker répond index.html à la place et
+        // l'IA qui se connecte atterrit sur la 404 de l'app.
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/oauth\//, /^\/mcp(\/|$)/, /^\/\.well-known\//],
         runtimeCaching: [
           {
             // Chunks de build hashés (JS/CSS immuables). CacheFirst : un chunk

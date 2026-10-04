@@ -16699,6 +16699,7 @@ const fr: Record<string, string> = {
   'aiConsent.organizer': "Organisation",
   'aiConsent.moneyHidden': "montants masqués pour ton rôle",
   'aiConsent.levelTitle': "Que pourra-t-elle voir ?",
+  'aiConsent.autoAllowTip': "Astuce : pour que Claude ne te demande pas confirmation à chaque question, ouvre Réglages → Connecteurs → Yuno, puis passe « Outils en lecture seule » sur « Toujours autoriser ». Ces outils ne font que lire, ils ne modifient rien.",
   'aiConsent.accessTitle': "Accès à tout ton compte",
   'aiConsent.accessDesc': "Ventes, soirées, audience, marketing et fiches clients : tout ce que tu vois dans ta Console, dans chacun des espaces ci-dessous.",
   'aiConsent.accessDescNoCustomers': "Ventes, soirées, audience et marketing : tout ce que tu vois dans ta Console, dans chacun des espaces ci-dessous. Ton rôle n'ouvre pas les fiches clients.",
