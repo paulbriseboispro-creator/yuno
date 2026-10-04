@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Loader2, Lock, ShieldCheck, TriangleAlert, XCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Lock, ShieldCheck, TriangleAlert, XCircle, CheckCircle2 } from 'lucide-react';
+import '@/crm/styles/crm.css';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Seo } from '@/components/Seo';
+import { Wordmark } from '@/components/brand/Wordmark';
 import { buildMcpRedirect, isLoopbackRedirectHost } from '@/lib/mcp';
 
 /**
@@ -12,24 +14,23 @@ import { buildMcpRedirect, isLoopbackRedirectHost } from '@/lib/mcp';
  * chiffres Yuno d'un pro — l'écran où le serveur OAuth du MCP (worker/mcp)
  * envoie la personne : /connect-ai?request=<id>.
  *
- * DA publique (docs/DESIGN_SYSTEM_PUBLIC.md) : la personne sort de son IA, elle
- * n'est pas dans un dashboard. Trois décisions, dans cet ordre : quels espaces,
- * quel niveau (chiffres seuls par défaut, fiches clients sur choix explicite),
- * puis Autoriser / Refuser. Le contrat (lecture seule, révocable, journalisé)
- * est dit avant le bouton, pas dans une page à part.
+ * DA de Yuno CRM (src/crm/styles/crm.css, scopée sous `.yc`) : papier clair,
+ * Bricolage Grotesque / Geist, dégradé rouge → mandarine, cartes 24 px.
+ * UNE seule décision : Autoriser ou Refuser. Il n'y a ni choix d'espaces ni
+ * choix de niveau — l'IA reçoit l'accès à tout le compte (tous les espaces de la
+ * personne, fiches clients comprises quand son rôle les ouvre). Le contrat
+ * (lecture seule, révocable, journalisé) est dit avant le bouton.
  *
  * Toute la décision est serveur (mcp_get_authorization_request /
  * mcp_approve_authorization) : cette page ne fait qu'afficher et transmettre.
  */
 
-const BLACK = '#0A0A0A';
-const CARD = '#141414';
-const RED = '#E8192C';
-const WHITE = '#FFFFFF';
-const GRAY_1 = '#E5E5E5';
-const GRAY_2 = '#9A9A9A';
-const GRAY_3 = '#5A5A5E';
-const BORDER = 'rgba(255,255,255,0.08)';
+const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
+
+const T1 = 'var(--text-primary)';
+const T2 = 'var(--text-secondary)';
+const T3 = 'var(--text-tertiary)';
+const BORDER = 'var(--border-default)';
 
 interface SpaceOption {
   key: string;
@@ -58,46 +59,58 @@ interface DecisionResult {
   params?: Record<string, string>;
 }
 
-const PAGE_SAFE = {
-  background: BLACK,
-  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)',
-  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
-};
+function useCrmFonts() {
+  useEffect(() => {
+    if (document.getElementById('yc-fonts')) return;
+    const pre = document.createElement('link');
+    pre.rel = 'preconnect'; pre.href = 'https://fonts.gstatic.com'; pre.crossOrigin = 'anonymous';
+    document.head.appendChild(pre);
+    const l = document.createElement('link');
+    l.id = 'yc-fonts'; l.rel = 'stylesheet'; l.href = FONTS_HREF;
+    document.head.appendChild(l);
+  }, []);
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
+  useCrmFonts();
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center px-5" style={PAGE_SAFE}>
+    <div
+      className="yc yc-page-bg relative min-h-[100dvh] flex items-center justify-center px-4 sm:px-5"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
+    >
       <Seo title="Yuno" description="" noindex />
-      <div className="w-full" style={{ maxWidth: 480 }}>{children}</div>
+      <div className="relative z-10 w-full" style={{ maxWidth: 480 }}>
+        <Wordmark height={22} tone="dark" className="mb-7" alt="Yuno" />
+        {children}
+      </div>
     </div>
   );
 }
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={className} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 4, padding: '20px 18px' }}>
+    <div className={className} style={{ background: 'var(--surface-card)', border: `1px solid ${BORDER}`, borderRadius: 24, boxShadow: 'var(--shadow-sm)', padding: 22 }}>
       {children}
     </div>
   );
 }
 
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="font-mono uppercase mb-3" style={{ fontSize: 10, color: GRAY_2, letterSpacing: '0.14em', fontWeight: 600 }}>
-      {children}
-    </p>
-  );
-}
+const BTN_PRIMARY: React.CSSProperties = {
+  background: 'var(--gradient-brand)', color: 'var(--text-on-accent)', borderRadius: 14, height: 50,
+  fontSize: 15, fontWeight: 600, boxShadow: 'var(--shadow-cta)', fontFamily: 'var(--font-body)',
+};
+const BTN_GHOST: React.CSSProperties = {
+  background: 'var(--surface-card)', color: T1, border: `1px solid ${BORDER}`, borderRadius: 14, height: 50,
+  fontSize: 15, fontWeight: 560, fontFamily: 'var(--font-body)',
+};
 
 function Outcome({ tone, title, body, children }: { tone: 'ok' | 'ko'; title: string; body: string; children?: React.ReactNode }) {
   const Icon = tone === 'ok' ? CheckCircle2 : XCircle;
   return (
     <Panel>
-      <Icon className="h-10 w-10 mb-5" style={{ color: tone === 'ok' ? '#22C55E' : RED }} aria-hidden="true" />
-      <h1 className="font-display uppercase" style={{ color: WHITE, fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
-        {title}
-      </h1>
-      <p style={{ color: GRAY_1, fontSize: 15, lineHeight: 1.6, marginTop: 12 }}>{body}</p>
+      <Icon className="h-9 w-9 mb-5" style={{ color: tone === 'ok' ? 'var(--green-500)' : 'var(--red-500)' }} aria-hidden="true" />
+      <h1 style={{ color: T1, fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{title}</h1>
+      <p style={{ color: T2, fontSize: 15, lineHeight: 1.6, marginTop: 10 }}>{body}</p>
       {children}
     </Panel>
   );
@@ -112,8 +125,6 @@ export default function ConnectAi() {
 
   const [view, setView] = useState<RequestView | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [level, setLevel] = useState<'analytics' | 'customers'>('analytics');
   const [busy, setBusy] = useState<'allow' | 'deny' | null>(null);
   const [done, setDone] = useState<'allowed' | 'denied' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,20 +144,17 @@ export default function ConnectAi() {
     (async () => {
       const { data, error: rpcError } = await supabase.rpc('mcp_get_authorization_request' as never, { p_request_id: requestId } as never);
       if (cancelled) return;
-      const v = (rpcError ? { ok: false, error: 'expired' } : data) as RequestView;
-      setView(v);
-      if (v?.ok && v.spaces?.length) {
-        // Un seul espace : coché d'office. Plusieurs : tous cochés, la personne retire.
-        setSelected(v.spaces.map((s) => s.key));
-      }
+      setView((rpcError ? { ok: false, error: 'expired' } : data) as RequestView);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [authLoading, user, requestId]);
 
   const spaces = useMemo(() => view?.spaces ?? [], [view]);
-  const customersAllowed = selected.length > 0 && selected.every((k) => spaces.find((s) => s.key === k)?.customers);
-  useEffect(() => { if (!customersAllowed && level === 'customers') setLevel('analytics'); }, [customersAllowed, level]);
+  // Tout le compte : tous les espaces, fiches clients comprises quand le rôle
+  // les ouvre sur CHAQUE espace (le serveur applique ce niveau à toute la connexion).
+  const selected = useMemo(() => spaces.map((s) => s.key), [spaces]);
+  const level: 'analytics' | 'customers' = spaces.length > 0 && spaces.every((s) => s.customers) ? 'customers' : 'analytics';
 
   const clientName = view?.client?.name ?? 'AI';
   const redirectHost = view?.client?.redirect_host ?? '';
@@ -179,8 +187,8 @@ export default function ConnectAi() {
     return (
       <Shell>
         <div className="flex flex-col items-center" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin motion-reduce:animate-none" style={{ color: RED }} aria-hidden="true" />
-          <p className="font-mono uppercase mt-5" style={{ fontSize: 10.5, color: GRAY_3, letterSpacing: '0.16em' }}>{t('aiConsent.kicker')}</p>
+          <Loader2 className="h-8 w-8 animate-spin motion-reduce:animate-none" style={{ color: 'var(--red-500)' }} aria-hidden="true" />
+          <p className="mt-4" style={{ fontSize: 13, color: T3, fontWeight: 560 }}>{t('aiConsent.kicker')}</p>
         </div>
       </Shell>
     );
@@ -202,7 +210,7 @@ export default function ConnectAi() {
     return (
       <Shell>
         <Outcome tone="ko" title={t('aiConsent.expiredTitle')} body={t('aiConsent.expiredBody')}>
-          <button className="btn btn--ghost w-full mt-6" onClick={() => navigate('/')}>{t('aiConsent.home')}</button>
+          <button className="w-full mt-6 cursor-pointer" style={BTN_GHOST} onClick={() => navigate('/')}>{t('aiConsent.home')}</button>
         </Outcome>
       </Shell>
     );
@@ -220,135 +228,82 @@ export default function ConnectAi() {
     return (
       <Shell>
         <Outcome tone="ko" title={t('aiConsent.noSpaceTitle')} body={t('aiConsent.noSpaceBody')}>
-          <p className="font-mono mt-4" style={{ fontSize: 11, color: GRAY_2, wordBreak: 'break-all' }}>{user?.email}</p>
-          <button className="btn btn--ghost w-full mt-5" onClick={switchAccount}>{t('aiConsent.switchAccount')}</button>
+          <p className="mt-4" style={{ fontSize: 13, color: T2, wordBreak: 'break-all' }}>{user?.email}</p>
+          <button className="w-full mt-5 cursor-pointer" style={BTN_GHOST} onClick={switchAccount}>{t('aiConsent.switchAccount')}</button>
         </Outcome>
       </Shell>
     );
   }
 
-  const toggle = (key: string) =>
-    setSelected((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
-
   return (
     <Shell>
       <header className="mb-6">
-        <p className="section-label-ruled mb-4">{t('aiConsent.kicker')}</p>
-        <h1 className="font-display uppercase" style={{ color: WHITE, fontSize: 'clamp(30px, 8vw, 44px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 0.95, wordBreak: 'break-word' }}>
+        <p className="yc-mono-label mb-3 inline-flex items-center gap-2" style={{ color: 'var(--text-accent)', fontWeight: 600 }}>
+          <span style={{ width: 18, height: 2, borderRadius: 2, background: 'var(--gradient-brand)' }} aria-hidden="true" />
+          {t('aiConsent.kicker')}
+        </p>
+        <h1 style={{ color: T1, fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 8vw, 40px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.02, wordBreak: 'break-word' }}>
           {clientName}
         </h1>
-        <p style={{ color: GRAY_1, fontSize: 16, lineHeight: 1.5, marginTop: 12 }}>{t('aiConsent.wants')}</p>
-        <p className="font-mono mt-3" style={{ fontSize: 11, color: GRAY_2, letterSpacing: '0.04em' }}>
-          {t('aiConsent.returnTo')} <span style={{ color: GRAY_1 }}>{redirectHost}</span>
-          {' · '}{t('aiConsent.signedInAs')} <span style={{ color: GRAY_1, wordBreak: 'break-all' }}>{user?.email}</span>
+        <p style={{ color: T2, fontSize: 16, lineHeight: 1.5, marginTop: 10 }}>{t('aiConsent.wants')}</p>
+        <p className="mt-3" style={{ fontSize: 12.5, color: T3, lineHeight: 1.6 }}>
+          {t('aiConsent.returnTo')} <span style={{ color: T2 }}>{redirectHost}</span>
+          {' · '}{t('aiConsent.signedInAs')} <span style={{ color: T2, wordBreak: 'break-all' }}>{user?.email}</span>
         </p>
         {isLoopbackRedirectHost(redirectHost) && (
-          <p className="flex items-start gap-2 mt-3" style={{ fontSize: 13, color: '#F5B041', lineHeight: 1.5 }}>
+          <p className="flex items-start gap-2 mt-3" style={{ fontSize: 13, color: 'var(--amber-700)', lineHeight: 1.5 }}>
             <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
             {t('aiConsent.localhostWarn')}
           </p>
         )}
       </header>
 
-      <Panel className="mb-3">
-        <Label>{t('aiConsent.spacesTitle')}</Label>
-        <div className="space-y-2" role="group" aria-label={t('aiConsent.spacesTitle')}>
-          {spaces.map((s) => {
-            const on = selected.includes(s.key);
-            return (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => toggle(s.key)}
-                aria-pressed={on}
-                className="w-full flex items-center gap-3 text-left"
-                style={{ padding: '12px 12px', borderRadius: 4, border: `1px solid ${on ? 'rgba(232,25,44,0.45)' : BORDER}`, background: on ? 'rgba(232,25,44,0.06)' : 'transparent' }}
-              >
-                <span className="flex items-center justify-center shrink-0" style={{ width: 20, height: 20, borderRadius: 3, border: `1px solid ${on ? RED : GRAY_3}`, background: on ? RED : 'transparent' }}>
-                  {on && <Check className="w-3.5 h-3.5" style={{ color: WHITE }} aria-hidden="true" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate" style={{ color: WHITE, fontSize: 15, fontWeight: 600 }}>{s.name}</span>
-                  <span className="block font-mono uppercase" style={{ fontSize: 9.5, color: GRAY_2, letterSpacing: '0.12em', marginTop: 3 }}>
-                    {s.kind === 'venue' ? t('aiConsent.club') : t('aiConsent.organizer')}
-                    {s.product === 'crm' ? ' · CRM' : ''}
-                    {!s.money ? ` · ${t('aiConsent.moneyHidden')}` : ''}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Panel>
-
-      <Panel className="mb-3">
-        <Label>{t('aiConsent.levelTitle')}</Label>
-        <div className="space-y-2" role="radiogroup" aria-label={t('aiConsent.levelTitle')}>
-          {(['analytics', 'customers'] as const).map((lv) => {
-            const on = level === lv;
-            const disabled = lv === 'customers' && !customersAllowed;
-            return (
-              <button
-                key={lv}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={disabled}
-                onClick={() => setLevel(lv)}
-                className="w-full flex items-start gap-3 text-left disabled:opacity-40"
-                style={{ padding: '12px 12px', borderRadius: 4, border: `1px solid ${on ? 'rgba(232,25,44,0.45)' : BORDER}`, background: on ? 'rgba(232,25,44,0.06)' : 'transparent' }}
-              >
-                <span className="shrink-0 mt-0.5 flex items-center justify-center" style={{ width: 18, height: 18, borderRadius: 999, border: `1px solid ${on ? RED : GRAY_3}` }}>
-                  {on && <span style={{ width: 8, height: 8, borderRadius: 999, background: RED }} />}
-                </span>
-                <span className="min-w-0">
-                  <span className="block" style={{ color: WHITE, fontSize: 15, fontWeight: 600 }}>
-                    {lv === 'analytics' ? t('aiConsent.levelAnalytics') : t('aiConsent.levelCustomers')}
-                    {lv === 'analytics' && (
-                      <span className="font-mono uppercase ml-2" style={{ fontSize: 9, color: RED, letterSpacing: '0.12em' }}>{t('aiConsent.recommended')}</span>
-                    )}
-                  </span>
-                  <span className="block" style={{ color: GRAY_2, fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>
-                    {lv === 'analytics' ? t('aiConsent.levelAnalyticsDesc')
-                      : disabled ? t('aiConsent.levelCustomersLocked') : t('aiConsent.levelCustomersDesc')}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Panel>
-
       <Panel className="mb-5">
-        <div className="space-y-2.5">
-          {['aiMcp.can1', 'aiMcp.can2'].map((k) => (
-            <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13, color: GRAY_1, lineHeight: 1.5 }}>
-              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: '#22C55E' }} aria-hidden="true" />{t(k)}
+        <h2 style={{ color: T1, fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 650, letterSpacing: '-0.015em' }}>
+          {t('aiConsent.accessTitle')}
+        </h2>
+        <p style={{ color: T2, fontSize: 14.5, lineHeight: 1.55, marginTop: 6 }}>
+          {level === 'customers' ? t('aiConsent.accessDesc') : t('aiConsent.accessDescNoCustomers')}
+        </p>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {spaces.map((s) => (
+            <span key={s.key} className="inline-flex items-center" style={{ background: 'var(--bg-subtle)', border: `1px solid ${BORDER}`, borderRadius: 999, padding: '5px 12px', fontSize: 13, color: T1, fontWeight: 560 }}>
+              {s.name}
+              <span style={{ color: T3, fontWeight: 500, marginLeft: 6 }}>
+                {s.kind === 'venue' ? t('aiConsent.club') : t('aiConsent.organizer')}
+              </span>
+            </span>
+          ))}
+        </div>
+        <div className="space-y-2.5 mt-5 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
+          {['aiMcp.can2'].map((k) => (
+            <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13.5, color: T1, lineHeight: 1.5 }}>
+              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--green-500)' }} aria-hidden="true" />{t(k)}
             </p>
           ))}
           {['aiMcp.cant1', 'aiMcp.cant2'].map((k) => (
-            <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13, color: GRAY_1, lineHeight: 1.5 }}>
-              <Lock className="w-4 h-4 mt-0.5 shrink-0" style={{ color: RED }} aria-hidden="true" />{t(k)}
+            <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13.5, color: T1, lineHeight: 1.5 }}>
+              <Lock className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--red-500)' }} aria-hidden="true" />{t(k)}
             </p>
           ))}
         </div>
-        <p style={{ fontSize: 12, color: GRAY_2, lineHeight: 1.55, marginTop: 14 }}>
+        <p style={{ fontSize: 12.5, color: T3, lineHeight: 1.55, marginTop: 16 }}>
           {t('aiConsent.privacyNote').replace('{client}', clientName)} {t('aiConsent.manageLater')}
         </p>
       </Panel>
 
-      {error && <p role="alert" className="mb-3" style={{ color: RED, fontSize: 13 }}>{error}</p>}
+      {error && <p role="alert" className="mb-3" style={{ color: 'var(--red-600)', fontSize: 13.5 }}>{error}</p>}
 
       <div className="flex flex-col gap-2.5">
-        <button className="btn btn--primary w-full" disabled={!selected.length || !!busy} onClick={() => decide('allow')}>
+        <button className="w-full inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50" style={BTN_PRIMARY} disabled={!!busy} onClick={() => decide('allow')}>
           {busy === 'allow' ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
           {busy === 'allow' ? t('aiConsent.allowing') : t('aiConsent.allow').replace('{client}', clientName)}
         </button>
-        <button className="btn btn--ghost w-full" disabled={!!busy} onClick={() => decide('deny')}>
+        <button className="w-full cursor-pointer disabled:opacity-50" style={BTN_GHOST} disabled={!!busy} onClick={() => decide('deny')}>
           {t('aiConsent.deny')}
         </button>
       </div>
-      <button onClick={switchAccount} className="w-full mt-4 font-mono uppercase" style={{ fontSize: 10, color: GRAY_3, letterSpacing: '0.12em' }}>
+      <button onClick={switchAccount} className="w-full mt-4 cursor-pointer" style={{ fontSize: 13, color: T3, fontWeight: 560 }}>
         {t('aiConsent.switchAccount')}
       </button>
     </Shell>
