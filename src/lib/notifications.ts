@@ -191,6 +191,10 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_meta_token_invalid:  { icon: AlertTriangle, category: 'system',    label: 'notif.type.admin_meta_token_invalid' },
   admin_ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_token_invalid' },
   admin_ticketing_sync_failing:  { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_sync_failing' },
+  // Yuno CRM : le titulaire demande la suppression de son espace (à confirmer
+  // avec lui) ; la règle de conservation n'a pas pu s'appliquer.
+  admin_crm_deletion_request:    { icon: UserX,      category: 'compliance', label: 'notif.type.admin_crm_deletion_request' },
+  admin_crm_retention_failed:    { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_crm_retention_failed' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
@@ -728,6 +732,15 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_ticketing_token_invalid':
     case 'admin_ticketing_sync_failing': {
       const scopeKey = typeof n.metadata?.scope === 'string' ? n.metadata.scope : '';
+      if (scopeKey.startsWith('venue:')) return `/admin/venues/${scopeKey.slice(6)}`;
+      if (scopeKey.startsWith('org:')) return `/admin/people/${scopeKey.slice(4)}`;
+      return '/admin/alerts';
+    }
+
+    // Réglages d'un espace Yuno CRM (référence = clé de portée).
+    case 'admin_crm_deletion_request':
+    case 'admin_crm_retention_failed': {
+      const scopeKey = n.reference_id ?? '';
       if (scopeKey.startsWith('venue:')) return `/admin/venues/${scopeKey.slice(6)}`;
       if (scopeKey.startsWith('org:')) return `/admin/people/${scopeKey.slice(4)}`;
       return '/admin/alerts';

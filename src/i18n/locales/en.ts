@@ -14232,6 +14232,8 @@ const en: Record<string, string> = {
   "cookies.banner.marketingDesc": "Lets the club, the organizer or Yuno measure their Instagram and Facebook ads through the Meta Pixel. Off unless you allow it.",
   "notif.type.meta_token_invalid": "Meta connection cut",
   "notif.type.admin_meta_token_invalid": "Meta token invalid",
+  "notif.type.admin_crm_deletion_request": "CRM space deletion requested",
+  "notif.type.admin_crm_retention_failed": "CRM retention rule failed",
   "integ.title": "Integrations",
   "integ.subtitle": "Connect the tools you already use. Every connection is optional, reversible, and only ever uses data from people who said yes.",
   "crm.space": "Yuno CRM",
