@@ -120,17 +120,19 @@ serve(async (req) => {
       });
     }
 
-    // Check existing
-    const { data: existing } = await supabaseAdmin
+    // Déjà dans l'équipe, déjà invitée, ou le titulaire lui-même : rien à envoyer.
+    const { data: existingRows } = await supabaseAdmin
       .from("org_members")
-      .select("id")
+      .select("id, invitation_status")
       .eq("organizer_user_id", orgId)
       .eq("member_email", normalizedEmail)
-      .eq("invitation_status", "pending")
-      .maybeSingle();
-
-    if (existing) {
-      return new Response(JSON.stringify({ error: "Une invitation est déjà en attente pour cet email." }), {
+      .in("invitation_status", ["pending", "accepted"])
+      .limit(1);
+    const existing = existingRows?.[0] ?? null;
+    const isHolder = String((profile as { email?: string | null } | null)?.email ?? "").toLowerCase() === normalizedEmail;
+    if (existing || isHolder) {
+      const code = existing?.invitation_status === "pending" ? "already_invited" : "already_member";
+      return new Response(JSON.stringify({ error: code, code }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

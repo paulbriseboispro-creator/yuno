@@ -19,7 +19,7 @@ import { rpc } from '@/crm/lib/rpc';
 import { useAuth } from '@/hooks/useAuth';
 import { rememberActingOrganizer } from '@/hooks/useActingOrganizer';
 
-export type CrmSpaceRole = 'owner' | 'manager' | 'admin' | 'editor';
+export type CrmSpaceRole = 'owner' | 'manager' | 'admin' | 'editor' | 'viewer';
 
 export interface CrmSpace {
   kind: 'venue' | 'org';
@@ -65,7 +65,8 @@ export function useCrmSpaces() {
         name: r.name,
         city: r.city,
         logoUrl: r.logo_url,
-        role: (['owner', 'manager', 'admin', 'editor'].includes(r.role) ? r.role : 'editor') as CrmSpaceRole,
+        // Un rôle inconnu vaut le plus restreint (lecteur), jamais plus.
+        role: (['owner', 'manager', 'admin', 'editor', 'viewer'].includes(r.role) ? r.role : 'viewer') as CrmSpaceRole,
       }));
     },
   });
