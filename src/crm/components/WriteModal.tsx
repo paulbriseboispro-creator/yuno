@@ -18,7 +18,7 @@ import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
 export type WriteScope = 'one' | 'sel' | 'filtered' | 'all';
 
 export function WriteModal({
-  open, onClose, scope, who, def, emails, segmentId,
+  open, onClose, scope, who, def, emails, segmentId, eyebrow,
 }: {
   open: boolean;
   onClose: () => void;
@@ -28,6 +28,8 @@ export function WriteModal({
   def?: ClientFilterDef | null;
   emails?: string[] | null;
   segmentId?: string | null;
+  /** Remplace le surtitre (« Segment · Habitués »). */
+  eyebrow?: string;
 }) {
   const { t, tp, n } = useCrmT();
   const nav = useNavigate();
@@ -61,7 +63,7 @@ export function WriteModal({
     nav(ch === 'email' ? `${CRM_ROUTES.emailTemplates}?from=audience` : CRM_ROUTES.smsCompose('new'));
   };
 
-  const scopeLabel = t(`yc.cli.msg.scope.${scope}`);
+  const scopeLabel = eyebrow ?? t(`yc.cli.msg.scope.${scope}`);
   const chs: { k: 'email' | 'sms'; l: string; n: number; s: string }[] = [
     { k: 'email', l: 'E-mail', n: mail, s: t('yc.cli.msg.reachable', { rate: t('yc.cli.msg.rate.email') }) },
     { k: 'sms', l: 'SMS', n: sms, s: t('yc.cli.msg.reachable', { rate: t('yc.cli.msg.rate.sms', { n: rates.sms ?? 40 }) }) },

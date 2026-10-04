@@ -23,6 +23,8 @@ export interface ClientFilterDef {
     tags?: string[];
     /** Liste fixe : une sélection enregistrée en segment. */
     emails?: string[];
+    /** Réponse aux messages : 3 reçus sans clic, ou clic sans achat sous 7 jours. */
+    msg?: '' | 'never_clicked' | 'clicked_no_buy';
   };
   q?: string;
 }

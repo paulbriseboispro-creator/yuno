@@ -47,7 +47,9 @@
 | Instagram (bientôt) | `/crm/instagram` | — | ⏳ |
 | Soirées | `/crm/nights`, `/crm/nights/past`, `/crm/nights/:id` | `get_crm_nights`, `get_crm_night_report` | ⏳ |
 | Pages d'inscription (bientôt) | `/crm/signup-pages` | — | ⏳ |
-| Clients, Segments, Imports | `/crm/clients`, `/segments`, `/imports` | base vivante, `contact_segments`, `import_contact_list` | ⏳ |
+| Clients | `/crm/clients` | `crm_clients_overview` / `_list` / `crm_client`, `crm_clients_export` | ✅ |
+| Segments | `/crm/segments` | `crm_segments_overview`, `crm_segment_detail`, `crm_audience_counts` | ✅ |
+| Imports | `/crm/imports` | `import_contact_list` | ⏳ |
 | Connecteurs | `/crm/connectors` | actions `ticketing_*` | ⏳ |
 | Réglages | `/crm/settings` | `crm_settings` | ⏳ |
 | Compte (profil, équipe, facturation, notifications, aide) | `/crm/account/*` | — | ⏳ |
@@ -65,6 +67,41 @@
 | `20261004110000_crm_yunits_wallet` | portefeuille de Yunits | ✅ 04/10 |
 | `20261004120000_crm_console_shell` | `get_crm_shell`, `crm_search` | ✅ 04/10 |
 | `20261004130000_crm_home` | `_crm_tickets`, `crm_home` | ✅ 04/10 |
+| `20261004140000_crm_people_clients` | base clients `_crm_people_build`, filtres, fiche, notes | ✅ 04/10 |
+| `20261004150000_crm_segments_store` | `crm_segments`, `crm_events_brief`, `crm_audience_count` | ✅ 04/10 |
+| `20261004151000_crm_clients_export` | export CSV (refusé en accès assisté) | ✅ 04/10 |
+| `20261004152000_crm_filter_static_list` | segment = liste fixe (`f.emails`) | ✅ 04/10 |
+| `20261004160000_crm_segments_overview` | écran Segments, `crm_segment_counts`, cron `crm-segment-counts` | ✅ 04/10 |
+| `20261004161000_crm_people_msg_behaviour` | `_cp.msg_n / click_n / click_nobuy`, `f.msg` | ✅ 04/10 |
+| `20261004162000_crm_audience_counts` | effectifs de plusieurs définitions | ✅ 04/10 |
+| `20261004163000_crm_segment_counts_cleanup` | un segment supprimé emporte son historique | ✅ 04/10 |
+
+## Choix faits pendant la transposition
+
+- **Segments, étape « billetterie » au lieu de « a visité la page du club ».**
+  Un compte CRM n'a pas de page de club chez Yuno (il vend sur Shotgun) : on
+  ne peut pas mesurer cette visite. L'étape mesurable entre le clic et l'achat
+  est le clic vers une page de vente (lien suivi `/l/`, page de soirée Yuno,
+  Shotgun, ou l'hôte de billetterie d'une soirée de la portée,
+  `_crm_is_ticketing_link`). Libellés « Sont allés en billetterie » / « Vont
+  en billetterie ».
+- **Les chiffres d'un segment se lisent sur ses membres d'aujourd'hui** (tous
+  les messages qu'ils ont reçus), pas seulement sur les envois qui le
+  visaient : ça marche pour chaque segment, même jamais ciblé. La colonne
+  « Segment » des Derniers envois, elle, dit qui l'envoi visait
+  (`audiences_json`, convention `[{kind:'crm', segmentId?, def}]`).
+- **Vente attribuée = billet acheté dans les 7 jours après un clic** sur un
+  e-mail de la portée, même adresse, dernier clic gagnant, billet compté une
+  fois (remboursés exclus). L'accueil garde ses propres fenêtres (48 h après
+  l'envoi, 72 h après le clic), comme son design.
+- **SMS** : comptés dans les reçus (rattachés par numéro), jamais dans les
+  clics (pas de clic par personne en SMS). Aucun SMS n'est parti à ce jour.
+- **Modèles de segment** : ceux de la fenêtre du design (dernier mois, SMS,
+  jamais cliqué, cliqué sans acheter, moins de 50 €) + les trois « à vous »
+  montrés en exemple (gros dépensiers, habitués qui s'éloignent, venus une
+  fois) ; « Inscrits via vos pages » attend les pages d'inscription (Bientôt).
+- **Démo** : `scripts/demo/seed-crm-messages.sql` sème 12 envois passés
+  (destinataires, ouvertures, clics placés avant de vrais achats démo).
 
 ## Vérification
 
