@@ -50,7 +50,7 @@
 | Clients | `/crm/clients` | `crm_clients_overview` / `_list` / `crm_client`, `crm_clients_export` | ✅ |
 | Segments | `/crm/segments` | `crm_segments_overview`, `crm_segment_detail`, `crm_audience_counts` | ✅ |
 | Imports | `/crm/imports` | `crm_imports_overview`, `crm_import_check`, `crm_import_commit` (→ `import_contact_list`), `crm_import_undo` | ✅ |
-| Connecteurs | `/crm/connectors` | actions `ticketing_*` | ⏳ |
+| Connecteurs | `/crm/connectors` (`?v=wizard&s=1-3`, `&r=1` remplacer le jeton, `?v=manage`) | `get_my_ticketing_connections`, actions `ticketing_*`, `crm_ticketing_set_cohosted` | ✅ |
 | Réglages | `/crm/settings` | `crm_settings` | ⏳ |
 | Compte (profil, équipe, facturation, notifications, aide) | `/crm/account/*` | — | ⏳ |
 | Notifications | `/crm/notifications` | — | ⏳ |
@@ -78,6 +78,7 @@
 | `20261004170000_crm_imports` | imports journalisés, annulation exacte, historique, cron de clôture | ✅ 04/10 |
 | `20261004180000_crm_feature_waitlist` | « Me prévenir » des fonctions à venir | ✅ 04/10 |
 | `20261004190000_crm_nights` | écran Soirées : les deux onglets, le tiroir, séries, capacité | ✅ 04/10 |
+| `20261004200000_crm_ticketing_cohosted` | Connecteurs : « soirées co-organisées » depuis la gestion | ✅ 04/10 |
 
 ## Choix faits pendant la transposition
 
@@ -137,6 +138,15 @@
   mettront à jour d'ici quelques minutes ». La maquette plaçait la bulle d'une
   colonne en supposant que les colonnes remplissent toute la largeur : elle
   suit désormais la colonne réelle.
+- **Connecteurs** : l'assistant appelle les vraies actions de l'edge
+  (vérification du jeton chez Shotgun, coffre, import) ; l'étape 3 suit
+  l'import en direct (barre continue tant que Shotgun lit, compteurs relus
+  toutes les 3 s), sans pourcentage inventé. Seul le titulaire du compte voit
+  les boutons (`ticketing_scope_allowed`) ; les autres rôles lisent l'état dans
+  la coquille. « Déconnecter » et « Tout supprimer » refusent désormais un compte
+  démo (`demoAccountGuard`, edge à redéployer). En local, les actions edge
+  échouent (CORS limité à yunoapp.eu) et `invokeEdgeFunction` recharge la
+  page : elles se testent depuis yunoapp.eu.
 - **Démo Soirées** : `scripts/demo/seed-crm-nights.sql` (stocks par tarif,
   deux soirées pas encore en vente, envois reliés à leur soirée, un brouillon
   et un envoi planifié — jamais envoyé, la démo rend `demo_no_send`).

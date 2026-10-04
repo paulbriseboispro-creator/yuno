@@ -12,6 +12,7 @@ const ClientsPage = lazyWithRetry(() => import('./pages/clients/ClientsPage'));
 const SegmentsPage = lazyWithRetry(() => import('./pages/segments/SegmentsPage'));
 const ImportsPage = lazyWithRetry(() => import('./pages/imports/ImportsPage'));
 const NightsPage = lazyWithRetry(() => import('./pages/nights/NightsPage'));
+const ConnectorsPage = lazyWithRetry(() => import('./pages/connectors/ConnectorsPage'));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
 const SignupPagesSoonPage = lazyWithRetry(() => import('./pages/soon/SignupPagesSoonPage'));
@@ -27,6 +28,7 @@ export function crmRoutes() {
         <Route path="nights" element={<NightsPage />} />
         <Route path="nights/past" element={<NightsPage />} />
         <Route path="nights/:id" element={<NightRedirect />} />
+        <Route path="connectors" element={<ConnectorsPage />} />
         <Route path="instagram" element={<InstagramSoonPage />} />
         <Route path="signup-pages" element={<SignupPagesSoonPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
