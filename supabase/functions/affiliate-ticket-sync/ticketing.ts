@@ -600,6 +600,9 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
 
   if (action === "ticketing_disconnect") {
     if (supportSession) return json({ error: "support_session_forbidden" }, 403);
+    // Un compte démo garde sa connexion de démonstration (lien d'aperçu compris).
+    const demoRefusal = await demoAccountGuard(req, cors);
+    if (demoRefusal) return demoRefusal;
     const { error } = await admin.rpc("forget_ticketing_token", { p_connection_id: existing.id });
     if (error) return json({ error: "disconnect_failed" }, 500);
     return json({ ok: true });
@@ -607,6 +610,8 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
 
   if (action === "ticketing_purge") {
     if (supportSession) return json({ error: "support_session_forbidden" }, 403);
+    const demoRefusal = await demoAccountGuard(req, cors);
+    if (demoRefusal) return demoRefusal;
     const { error } = await admin.from("ticketing_connections").delete().eq("id", existing.id);
     if (error) return json({ error: "purge_failed", detail: error.message }, 500);
     return json({ ok: true });
