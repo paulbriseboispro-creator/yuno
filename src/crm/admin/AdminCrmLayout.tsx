@@ -23,7 +23,7 @@ import { OfflineBar } from '@/crm/errors/OfflineBar';
 import yunoIcon from '@/crm/assets/yuno-app-icon.webp';
 import { ADMIN_NAV, ADMIN_ROUTES, adminScreenFor } from './adminNav';
 import type { AdminScreen } from './adminNav';
-import { useAdminAccounts } from './data';
+import { useAdminAccounts, useAdminLiveSignups } from './data';
 
 const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
 
@@ -89,6 +89,7 @@ export function Shell() {
   const [pal, setPal] = useState(false);
   const { includeDemo, setIncludeDemo } = useAdminScope();
   const accounts = useAdminAccounts();
+  const live = useAdminLiveSignups().data ?? 0;
   const current = adminScreenFor(pathname);
   const rows = useMemo(() => accounts.data?.accounts ?? [], [accounts.data]);
   const badges = useMemo<Partial<Record<AdminScreen, number>>>(() => ({
@@ -138,9 +139,13 @@ export function Shell() {
                   {!!badge && <span style={{ minWidth: 20, height: 20, padding: '0 6px', boxSizing: 'border-box', borderRadius: 99, background: it.id === 'cockpit' || it.id === 'clients' ? 'var(--red-500)' : 'var(--amber-500)', color: '#fff', fontSize: 11.5, fontWeight: 600, display: 'grid', placeItems: 'center' }}>{badge}</span>}
                 </Hv>
                 {on && it.subs?.map((s) => {
-                  const subOn = (s.tab ?? null) === tab && pathname === ADMIN_ROUTES.clients;
+                  const subOn = (s.tab ?? null) === tab && pathname.replace(/\/+$/, '') === it.to;
+                  const subBadge = s.key === 'cockpitLive' ? live : 0;
                   return (
-                    <Hv key={s.key} as={Link} to={s.to} style={{ marginLeft: 21, padding: '0 12px', height: 36, boxSizing: 'border-box', borderLeft: '1px solid var(--sand-200)', borderRadius: '0 10px 10px 0', background: subOn ? 'var(--red-50)' : 'transparent', display: 'flex', alignItems: 'center', fontSize: 14, fontWeight: subOn ? 600 : 500, color: subOn ? 'var(--red-700)' : 'var(--sand-600)', textDecoration: 'none' }} hover={{ background: subOn ? 'var(--red-50)' : 'var(--sand-50)', color: subOn ? 'var(--red-700)' : 'var(--ink)', textDecoration: 'none' }}>{t(`adm.crm.nav.${s.key}`)}</Hv>
+                    <Hv key={s.key} as={Link} to={s.to} style={{ marginLeft: 21, padding: '0 12px', height: 36, boxSizing: 'border-box', borderLeft: '1px solid var(--sand-200)', borderRadius: '0 10px 10px 0', background: subOn ? 'var(--red-50)' : 'transparent', display: 'flex', alignItems: 'center', fontSize: 14, fontWeight: subOn ? 600 : 500, color: subOn ? 'var(--red-700)' : 'var(--sand-600)', textDecoration: 'none' }} hover={{ background: subOn ? 'var(--red-50)' : 'var(--sand-50)', color: subOn ? 'var(--red-700)' : 'var(--ink)', textDecoration: 'none' }}>
+                      <span style={{ flex: 1 }}>{t(`adm.crm.nav.${s.key}`)}</span>
+                      {!!subBadge && <span style={{ minWidth: 20, height: 20, padding: '0 6px', boxSizing: 'border-box', borderRadius: 99, background: 'var(--red-500)', color: '#fff', fontSize: 11.5, fontWeight: 600, display: 'grid', placeItems: 'center' }}>{subBadge}</span>}
+                    </Hv>
                   );
                 })}
               </div>

@@ -100,7 +100,7 @@ export function useAdminMoney() {
 
 export interface AdminPlatform {
   at: string;
-  shotgun: { conns: number; runs24: number; errors24: number; req24: number; hours: { h: string; req: number; runs: number }[]; window: { used: number; window_start: string } | null; errors: { at: string; error: string | null; name: string | null; id: string }[] };
+  shotgun: { conns: number; runs24: number; errors24: number; req24: number; hours: { h: string; req: number; runs: number }[]; window: { used: number; window_start: string } | null; errors: { at: string; error: string | null; name: string | null; id: string }[]; duration: { n: number; p50: number | null; p95: number | null; open: number } };
   imports: Record<string, number>;
   quota: { used: number; free: number; credits: number; pool_used: number; pool_cap: number; day_used: number; day_cap: number } | null;
   bounce: { id: string; name: string; sent: number; bounced: number; complained: number }[];
@@ -172,4 +172,28 @@ export interface AdminProduct {
 export function useAdminProduct() {
   const { includeDemo } = useAdminScope();
   return useQuery({ queryKey: ['crm-admin', 'product', includeDemo], staleTime: 30_000, queryFn: () => rpc<AdminProduct>('crm_admin_product', { p_include_demo: includeDemo }) });
+}
+
+// ── Activité en direct ──────────────────────────────────────────────────────
+export type ActivityKind = 'signup' | 'account' | 'buy' | 'send' | 'fail' | 'admin';
+export interface ActivityEvent {
+  at: string; k: ActivityKind; who: string | null; tag: string; id: string | null;
+  meta: { step?: string | null; source?: string | null; city?: string | null; secs?: number | null; yunits?: number; eur?: number; name?: string | null; recipients?: number | null; error?: string | null; reason?: string | null };
+}
+export interface AdminActivity { at: string; live: number; events: ActivityEvent[] }
+/** Rafraîchi en douceur toutes les 30 s tant que l'onglet est visible. */
+export function useAdminActivity(enabled = true) {
+  const { includeDemo } = useAdminScope();
+  return useQuery({
+    queryKey: ['crm-admin', 'activity', includeDemo], enabled, staleTime: 15_000, refetchInterval: 30_000,
+    queryFn: () => rpc<AdminActivity>('crm_admin_activity', { p_include_demo: includeDemo, p_limit: 150 }),
+  });
+}
+/** Pastille du menu : les inscriptions en cours. */
+export function useAdminLiveSignups() {
+  const { includeDemo } = useAdminScope();
+  return useQuery({
+    queryKey: ['crm-admin', 'live', includeDemo], staleTime: 15_000, refetchInterval: 30_000,
+    queryFn: () => rpc<number>('crm_admin_live_signups', { p_include_demo: includeDemo }),
+  });
 }

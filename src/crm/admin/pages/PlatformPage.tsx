@@ -2,8 +2,8 @@
  * Admin CRM › Plateforme (« Admin Plateforme » du design) : les synchros de la
  * billetterie et le quota Shotgun partagé, l'envoi (quota, bounces, plaintes,
  * suppressions), les comptes gelés, les tâches planifiées. Tout est lu en base ;
- * la durée médiane d'une synchro et la liste des exceptions edge ne sont pas
- * enregistrées : elles n'apparaissent pas.
+ * la durée d'une synchro (p50 / p95) ne compte que les passes terminées ; la
+ * liste des exceptions edge n'est pas enregistrée : elle n'apparaît pas.
  */
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
@@ -19,6 +19,12 @@ type Tab = 'conn' | 'send' | 'abuse' | 'system';
 /** Plafond du limiteur commun (consume_ticketing_rate) : requêtes par minute. */
 const SHOTGUN_LIMIT = 45;
 const SHOTGUN_QUOTA = 100;
+
+/** 42 s, 3 min 05 s : une durée de passe lisible. */
+function secs(v: number): string {
+  const s = Math.round(v);
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`;
+}
 
 export default function PlatformPage() {
   const { t, time } = useCrmT();
@@ -62,6 +68,8 @@ function ConnTab({ d, rows }: { d: AdminPlatform; rows: AdminAccount[] }) {
         <Kpi delay={60} label={t('adm.crm.pf.k.bad')} value={n(bad.length)} dot="var(--red-500)" sub={bad[0] ? t('adm.crm.pf.k.badSub', { name: bad[0].name }) : t('adm.crm.pf.k.badNone')} />
         <Kpi delay={120} label={t('adm.crm.pf.k.runs')} value={n(s.runs24)} dot="var(--amber-500)" sub={t('adm.crm.pf.k.runsSub', { n: s.errors24 })} />
         <Kpi delay={180} label={t('adm.crm.pf.k.rate')} value={okRate === null ? '—' : pct(okRate, 1)} dot="var(--green-500)" sub={t('adm.crm.pf.k.rateSub')} />
+        <Kpi delay={240} label={t('adm.crm.pf.k.dur')} value={s.duration.p50 === null ? '—' : secs(s.duration.p50)}
+          sub={s.duration.p50 === null ? t('adm.crm.pf.k.durNone') : `${t('adm.crm.pf.k.durSub', { p95: secs(s.duration.p95 ?? s.duration.p50) })}${s.duration.open ? ` · ${t('adm.crm.pf.k.durOpen', { n: s.duration.open })}` : ''}`} />
       </div>
       <Section title={t('adm.crm.pf.quota')} sub={t('adm.crm.pf.quotaSub', { quota: SHOTGUN_QUOTA, limit: SHOTGUN_LIMIT })}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 150 }}>

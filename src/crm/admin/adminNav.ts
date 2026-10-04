@@ -6,6 +6,7 @@ export const ADMIN_BASE = '/admin/crm';
 
 export const ADMIN_ROUTES = {
   cockpit: ADMIN_BASE,
+  cockpitActivity: `${ADMIN_BASE}?tab=activity`,
   acquisition: `${ADMIN_BASE}/acquisition`,
   sales: `${ADMIN_BASE}/sales`,
   clients: `${ADMIN_BASE}/clients`,
@@ -41,7 +42,13 @@ export const ADMIN_NAV: { label: string; items: AdminNavItem[] }[] = [
   {
     label: 'pilot',
     items: [
-      { id: 'cockpit', key: 'cockpit', to: ADMIN_ROUTES.cockpit, d: 'm12 14 4-4M3.34 19a10 10 0 1 1 17.32 0' },
+      {
+        id: 'cockpit', key: 'cockpit', to: ADMIN_ROUTES.cockpit, d: 'm12 14 4-4M3.34 19a10 10 0 1 1 17.32 0',
+        subs: [
+          { key: 'cockpitAll', to: ADMIN_ROUTES.cockpit },
+          { key: 'cockpitLive', to: ADMIN_ROUTES.cockpitActivity, tab: 'activity' },
+        ],
+      },
     ],
   },
   {

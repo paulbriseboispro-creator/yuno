@@ -5,7 +5,7 @@
  * n'est PAS inventé : l'écran dit « pas encore mesuré ».
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import { buildTodo, healthTone, HEALTH_COLOR, initials } from '@/crm/lib/admin';
 import type { AdminAccount, Todo } from '@/crm/lib/admin';
@@ -14,9 +14,10 @@ import { Segmented, Skel } from '@/crm/ui/kit';
 import { TrendChart } from '@/crm/pages/analytics/anaUi';
 import { EASE } from '@/crm/ui/motion';
 import { ADMIN_ROUTES } from '../adminNav';
-import { useAdminCockpit } from '../data';
+import { useAdminCockpit, useAdminLiveSignups } from '../data';
 import type { Cockpit, CockpitSignup } from '../data';
-import { Avatar, card, HealthRing, Kpi, PageHead, useAgo } from '../ui';
+import { Avatar, card, HealthRing, Kpi, PageHead, Tabs, useAgo } from '../ui';
+import ActivityFeed from './ActivityFeed';
 
 const FUNNEL_STEPS = ['started', 'account', 'console', 'connected', 'sent', 'paid'] as const;
 const SIGNUP_STEPS = ['opened', 'role', 'structure', 'account', 'created', 'console'] as const;
@@ -29,7 +30,10 @@ function readDone(): string[] {
 export default function CockpitPage() {
   const { t, dLong } = useCrmT();
   const [days, setDays] = useState<30 | 90>(30);
+  const [sp, setSp] = useSearchParams();
+  const tab = sp.get('tab') === 'activity' ? 'activity' : 'overview';
   const q = useAdminCockpit(days);
+  const live = useAdminLiveSignups().data ?? 0;
 
   const todo = useMemo(() => (q.data ? buildTodo(q.data.accounts) : []), [q.data]);
   const urgent = todo.filter((x) => x.sev === 'red').length;
@@ -44,9 +48,11 @@ export default function CockpitPage() {
         kicker={`${dLong(new Date())} · ${t('adm.crm.nav.cockpit')}`}
         title={t('adm.crm.ck.title')}
         sub={k ? t('adm.crm.ck.sub', { created: k.created, started: k.started, paying: k.paying, eur: Math.round(k.buys_eur), urgent }) : undefined}
-        right={<Segmented value={String(days)} onChange={(v) => setDays(v === '90' ? 90 : 30)} options={[{ value: '30', label: t('adm.crm.ck.d30') }, { value: '90', label: t('adm.crm.ck.d90') }]} />}
+        right={tab === 'overview' && <Segmented value={String(days)} onChange={(v) => setDays(v === '90' ? 90 : 30)} options={[{ value: '30', label: t('adm.crm.ck.d30') }, { value: '90', label: t('adm.crm.ck.d90') }]} />}
       />
-      {!d || !k ? <CockpitSkeleton /> : (
+      <Tabs<'overview' | 'activity'> value={tab} onChange={(v) => setSp(v === 'overview' ? {} : { tab: v }, { replace: true })}
+        tabs={[{ id: 'overview', label: t('adm.crm.nav.cockpitAll') }, { id: 'activity', label: t('adm.crm.nav.cockpitLive'), badge: live }]} />
+      {tab === 'activity' ? <ActivityFeed /> : !d || !k ? <CockpitSkeleton /> : (
         <>
           <Kpis d={d} />
           <GrowthCard d={d} />
