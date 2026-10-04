@@ -32,6 +32,14 @@ const SettingsPage = lazyWithRetry(() => import('./pages/settings/SettingsPage')
 const AnalyticsPage = lazyWithRetry(() => import('./pages/analytics/AnalyticsPage'));
 const JourneyPage = lazyWithRetry(() => import('./pages/journey/JourneyPage'));
 const AutomationsPage = lazyWithRetry(() => import('./pages/automations/AutomationsPage'));
+const SmsOverviewPage = lazyWithRetry(() => import('./pages/sms/SmsOverviewPage'));
+const SmsCampaignsPage = lazyWithRetry(() => import('./pages/sms/SmsCampaignsPage'));
+const SmsTemplatesPage = lazyWithRetry(() => import('./pages/sms/SmsTemplatesPage'));
+const SmsComposePage = lazyWithRetry(() => import('./pages/sms/compose/SmsComposePage'));
+const SmsSendPage = lazyWithRetry(() => import('./pages/sms/send/SmsSendPage'));
+const SmsResultPage = lazyWithRetry(() => import('./pages/sms/results/SmsResultPage'));
+const SmsAnalysisPage = lazyWithRetry(() => import('./pages/sms/analysis/SmsAnalysisPage'));
+const SmsSettingsPage = lazyWithRetry(() => import('./pages/sms/settings/SmsSettingsPage'));
 
 export function crmRoutes() {
   return (
@@ -42,6 +50,12 @@ export function crmRoutes() {
       </Route>
       <Route path="/crm/emails/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<EmailSendPage />} />
+      </Route>
+      <Route path="/crm/sms/compose/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<SmsComposePage />} />
+      </Route>
+      <Route path="/crm/sms/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<SmsSendPage />} />
       </Route>
       <Route path="/crm" element={<CrmGate><CrmLayout /></CrmGate>}>
         <Route index element={<HomePage />} />
@@ -69,6 +83,12 @@ export function crmRoutes() {
         <Route path="analytics/:tab" element={<AnalyticsPage />} />
         <Route path="journey" element={<JourneyPage />} />
         <Route path="automations" element={<AutomationsPage />} />
+        <Route path="sms" element={<SmsOverviewPage />} />
+        <Route path="sms/campaigns" element={<SmsCampaignsPage />} />
+        <Route path="sms/templates" element={<SmsTemplatesPage />} />
+        <Route path="sms/results/:id" element={<SmsResultPage />} />
+        <Route path="sms/analysis" element={<SmsAnalysisPage />} />
+        <Route path="sms/settings" element={<SmsSettingsPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>
