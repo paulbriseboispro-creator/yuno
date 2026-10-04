@@ -294,6 +294,8 @@ const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const CrmMaintenance = lazyWithRetry(() => import("./crm/errors/CrmMaintenance"));
 const AdminCrmLayout = lazyWithRetry(() => import("./crm/admin/AdminCrmLayout"));
 const AdminCrmLogin = lazyWithRetry(() => import("./crm/admin/AdminLogin"));
+const CrmSignupPublic = lazyWithRetry(() => import("./crm/signup/SignupPagePublic"));
+const CrmSignupConfirm = lazyWithRetry(() => import("./crm/signup/SignupPagePublic").then((m) => ({ default: m.SignupConfirm })));
 const AdminCrmCockpit = lazyWithRetry(() => import("./crm/admin/pages/CockpitPage"));
 const AdminCrmClients = lazyWithRetry(() => import("./crm/admin/pages/ClientsPage"));
 const AdminCrmAccount = lazyWithRetry(() => import("./crm/admin/pages/AccountPage"));
@@ -1410,6 +1412,9 @@ const App = () => (
                 {/* Public affiliate pages — accessible without auth */}
                 <Route path="/affiliate-event/:slug" element={<AffiliateEventPage />} />
                 <Route path="/affiliate-venue/:slug" element={<AffiliateVenuePage />} />
+                {/* Yuno CRM : Pages d'inscription publiques (pas /p/, déjà le linktree). */}
+                <Route path="/j/:slug" element={<CrmSignupPublic />} />
+                <Route path="/j/:slug/ok" element={<CrmSignupConfirm />} />
                 <Route path="/p/:slug" element={<AffiliateLinktree />} />
                 <Route path="/promo/:slug" element={<PromoterLinktree />} />
                 {/* Vraie page in-Yuno d'une agence RP (design marketplace,
