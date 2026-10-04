@@ -22,6 +22,7 @@ import settings from './settings';
 import analytics from './analytics';
 import journey from './journey';
 import automations from './automations';
+import sms from './sms';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -48,6 +49,7 @@ export const CRM_DICT: CrmDict = {
   ...analytics,
   ...journey,
   ...automations,
+  ...sms,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
