@@ -67,7 +67,7 @@ export function bestSlots(grid: GridCell[] | undefined): { days: number[]; hours
 }
 
 export type CheckLevel = 'ok' | 'bad' | 'warn' | 'info';
-export type CheckFix = 'subject' | 'studio' | 'audience' | 'plan' | 'recharge' | null;
+export type CheckFix = 'subject' | 'studio' | 'audience' | 'plan' | 'recharge' | 'billing' | null;
 
 export interface SendCheck { id: string; level: CheckLevel; vars?: Record<string, string | number>; fix: CheckFix }
 
@@ -80,6 +80,8 @@ export interface CheckInput {
   balance: number;
   past: boolean;
   demo: boolean;
+  /** Compte Yuno CRM en pause (essai fini sans abonnement) : rien ne part. */
+  paused?: boolean;
 }
 
 const URL_RE = /^https?:\/\/\S+\.\S+/i;
@@ -110,6 +112,7 @@ export function sendChecks(x: CheckInput): SendCheck[] {
     { id: 'unsub', level: 'ok', fix: null },
     { id: 'dom', level: 'ok', fix: null },
   );
+  if (x.paused) list.push({ id: 'paused', level: 'bad', fix: 'billing' });
   if (x.demo) list.push({ id: 'demo', level: 'warn', fix: null });
   list.push({ id: 'var', level: usesVars ? 'ok' : 'info', fix: 'studio' });
   return list;

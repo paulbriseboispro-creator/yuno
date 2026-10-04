@@ -142,6 +142,8 @@ const dict: CrmDict = {
   'yc.em.sd.ck.unsub.ok': ['Added automatically at the bottom of every email.', 'Ajouté automatiquement en bas de chaque e-mail.', 'Se añade automáticamente al final de cada e-mail.'],
   'yc.em.sd.ck.dom.t': ['Authenticated sending', 'Envoi authentifié', 'Envío autenticado'],
   'yc.em.sd.ck.dom.ok': ['Sent by Yuno in your name, from an authenticated address (SPF, DKIM, DMARC).', 'Envoyé par Yuno à votre nom, depuis une adresse authentifiée (SPF, DKIM, DMARC).', 'Enviado por Yuno en su nombre, desde una dirección autenticada (SPF, DKIM, DMARC).'],
+  'yc.em.sd.ck.paused.t': ['Account active', 'Compte actif', 'Cuenta activa'],
+  'yc.em.sd.ck.paused.ko': ['Your account is paused: subscribe to send again. Your base stays readable and exportable.', 'Votre compte est en pause : abonnez-vous pour envoyer à nouveau. Votre base reste lisible et exportable.', 'Su cuenta está en pausa: suscríbase para volver a enviar. Su base sigue legible y exportable.'],
   'yc.em.sd.ck.demo.t': ['Demo account', 'Compte de démonstration', 'Cuenta de demostración'],
   'yc.em.sd.ck.demo.ko': ['Nothing leaves from a demo account: sending will be refused.', 'Rien ne part d’un compte de démonstration : l’envoi sera refusé.', 'Nada sale de una cuenta de demostración: el envío se rechazará.'],
   'yc.em.sd.ck.var.t': ['Personalisation', 'Personnalisation', 'Personalización'],
@@ -151,6 +153,7 @@ const dict: CrmDict = {
   'yc.em.sd.fix.studio': ['Open the Studio', 'Ouvrir le Studio', 'Abrir el Studio'],
   'yc.em.sd.fix.audience': ['Choose the audience', 'Choisir l’audience', 'Elegir la audiencia'],
   'yc.em.sd.fix.plan': ['Pick a date', 'Choisir une date', 'Elegir una fecha'],
+  'yc.em.sd.fix.billing': ['Subscribe', 'S’abonner', 'Suscribirse'],
   'yc.em.sd.fix.recharge': ['Top up', 'Recharger', 'Recargar'],
 
   // Navigation
@@ -214,6 +217,7 @@ const dict: CrmDict = {
   'yc.em.sd.c.contacts': ['{n} contacts', '{n} contacts', '{n} contactos'],
   'yc.em.sd.err.demo': ['Demo account: nothing left, as planned.', 'Compte de démonstration : rien n’est parti, comme prévu.', 'Cuenta de demostración: no salió nada, como estaba previsto.'],
   'yc.em.sd.err.yunits': ['Not enough Yunits when the send started: nothing left and nothing was charged.', 'Pas assez de Yunits au départ de l’envoi : rien n’est parti, rien n’a été débité.', 'No había Yunits suficientes al empezar el envío: no salió nada ni se cobró nada.'],
+  'yc.em.sd.err.paused': ['Your account is paused: nothing leaves until you subscribe. Your base stays readable and exportable.', 'Votre compte est en pause : rien ne part tant que vous n’êtes pas abonné. Votre base reste lisible et exportable.', 'Su cuenta está en pausa: no sale nada hasta que se suscriba. Su base sigue legible y exportable.'],
   'yc.em.sd.err.none': ['No one to send to: every address was excluded by the sending rules.', 'Personne à qui envoyer : toutes les adresses ont été écartées par les règles d’envoi.', 'Nadie a quien enviar: todas las direcciones fueron excluidas por las reglas de envío.'],
   'yc.em.sd.err.generic': ['The send couldn’t start. Nothing left. Try again in a moment.', 'L’envoi n’a pas pu démarrer. Rien n’est parti. Réessayez dans un instant.', 'El envío no pudo empezar. No salió nada. Inténtelo en un momento.'],
   'yc.em.sd.err.gone': ['This email is no longer a draft: it may already be leaving.', 'Cet e-mail n’est plus un brouillon : il est peut-être déjà en train de partir.', 'Este e-mail ya no es un borrador: puede que ya esté saliendo.'],

@@ -8,6 +8,7 @@ import { CollabTrailBar } from '@/components/collab/CollabTrail';
 import { useOwnerVenueContext } from '@/contexts/OwnerVenueContext';
 import { useAccountProductFor } from '@/lib/crmProduct';
 import { isCrmPathAllowed } from '@/components/crm/crmNav';
+import { crmConsoleTarget } from '@/lib/crmConsoleRedirect';
 
 function OwnerLayoutInner() {
   const { venueId } = useOwnerVenueContext();
@@ -15,6 +16,9 @@ function OwnerLayoutInner() {
   // Yuno CRM : un club qui garde sa billetterie n'ouvre pas les pages de vente
   // (billetterie, tables, porte, commandes, Stripe) — retour à son accueil.
   const { isCrm, loading: productLoading } = useAccountProductFor({ venueId });
+  // La Console CRM (/crm) remplace les pages CRM de la Suite qui y ont leur équivalent.
+  const crmTarget = isCrm && !productLoading ? crmConsoleTarget(pathname, '/owner') : null;
+  if (crmTarget) return <Navigate to={crmTarget} replace />;
   if (isCrm && !productLoading && !isCrmPathAllowed(pathname, '/owner')) {
     return <Navigate to="/owner/dashboard" replace />;
   }

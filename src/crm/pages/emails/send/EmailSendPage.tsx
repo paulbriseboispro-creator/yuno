@@ -212,7 +212,7 @@ export default function EmailSendPage() {
   const chosen = new Date(`${draft.plan.date}T${draft.plan.time}:00`);
   const eff = effectiveSendAt(mode === 'now' ? new Date() : chosen, draft.plan.quiet);
   const past = mode === 'later' && chosen.getTime() <= Date.now();
-  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo });
+  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo, paused: shell.data?.subscription?.state === 'paused' });
   const v = verdict(checks);
   const canSend = v.bad === 0 && !readOnly;
   const whenShort = mode === 'now' ? t('yc.em.sd.r.onConfirm') : `${dShort(eff.at)} · ${time(eff.at)}`;
@@ -234,7 +234,8 @@ export default function EmailSendPage() {
     if (ctx && typeof ctx.json === 'function') { try { body = await ctx.clone().json(); } catch { /* corps illisible : message générique */ } }
     const txt = JSON.stringify(body ?? {}) + String((err as Error | null)?.message ?? '');
     if (txt.includes('demo_no_send')) return 'yc.em.sd.err.demo';
-    if (txt.includes('crm_yunits_insufficient')) return 'yc.em.sd.err.yunits';
+    if (txt.includes('yunits_insufficient')) return 'yc.em.sd.err.yunits';
+    if (txt.includes('crm_paused')) return 'yc.em.sd.err.paused';
     if (txt.includes('No recipients')) return 'yc.em.sd.err.none';
     return 'yc.em.sd.err.generic';
   };

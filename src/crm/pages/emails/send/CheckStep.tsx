@@ -41,7 +41,9 @@ export function CheckStep({ checks, campaignId, dateText, onGo }: { checks: Send
     const css = { flex: 'none', height: 34, padding: '0 14px', borderRadius: 99, border: 0, background: 'var(--sand-100)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer' } as const;
     const hover = { background: 'var(--sand-200)', color: 'var(--ink)', textDecoration: 'none' };
     if (c.fix === 'audience' || c.fix === 'plan') return <Hv as="button" type="button" onClick={() => onGo(c.fix === 'audience' ? 'aud' : 'plan')} style={css} hover={hover}>{label}</Hv>;
-    const to = c.fix === 'recharge' ? CRM_ROUTES.yunits : c.fix === 'subject' ? `${CRM_ROUTES.emailStudio(campaignId)}?tab=subject` : CRM_ROUTES.emailStudio(campaignId);
+    const to = c.fix === 'recharge' ? CRM_ROUTES.yunits
+      : c.fix === 'billing' ? CRM_ROUTES.accountSection('billing')
+        : c.fix === 'subject' ? `${CRM_ROUTES.emailStudio(campaignId)}?tab=subject` : CRM_ROUTES.emailStudio(campaignId);
     return <Hv as={Link} to={to} style={css} hover={hover}>{label}</Hv>;
   };
 
