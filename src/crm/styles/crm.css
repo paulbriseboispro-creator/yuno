@@ -75,6 +75,7 @@
 .yc *, .yc *::before, .yc *::after { box-sizing: border-box; }
 .yc a { color: var(--red-600); text-decoration: none; }
 .yc button { font: inherit; }
+.yc input, .yc textarea, .yc select { font-family: inherit; }
 .yc ::selection { background: var(--red-200); }
 .yc h1, .yc h2, .yc h3, .yc h4 { margin: 0; text-wrap: balance; }
 .yc p { margin: 0; text-wrap: pretty; }
@@ -130,6 +131,17 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-ring { 0% { box-shadow: 0 0 0 0 rgba(227,20,27,.45); } 100% { box-shadow: 0 0 0 9px rgba(227,20,27,0); } }
 @keyframes yc-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(23,163,74,0); } 50% { box-shadow: 0 0 0 6px rgba(23,163,74,.22); } }
 .yc .yc-focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--red-200); }
+
+/* Éditeur d'e-mail (Studio) : panneaux qui glissent, trait de dépôt, champs. */
+@keyframes yc-slide-l { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+@keyframes yc-slide-r { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes yc-drop { from { transform: scaleX(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+.yc .yc-studio-name:hover { background: var(--sand-100); }
+.yc .yc-studio-name:focus { background: #fff; box-shadow: var(--focus-ring); }
+.yc .yc-field { transition: border-color 160ms, box-shadow 160ms; }
+.yc .yc-field:focus, .yc .yc-field:focus-within { border-color: var(--red-400) !important; box-shadow: var(--focus-ring); outline: none; }
+.yc .yc-thin-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.yc .yc-thin-scroll::-webkit-scrollbar-thumb { background: var(--sand-200); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
 
 @media (prefers-reduced-motion: reduce) {
   .yc *, .yc *::before, .yc *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }

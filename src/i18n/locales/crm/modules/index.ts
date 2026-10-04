@@ -10,6 +10,7 @@ import nights from './nights';
 import connectors from './connectors';
 import emails from './emails';
 import emailTemplates from './emailTemplates';
+import emailStudio from './emailStudio';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -24,6 +25,7 @@ export const CRM_DICT: CrmDict = {
   ...connectors,
   ...emails,
   ...emailTemplates,
+  ...emailStudio,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

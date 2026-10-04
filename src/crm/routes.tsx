@@ -16,6 +16,8 @@ const ConnectorsPage = lazyWithRetry(() => import('./pages/connectors/Connectors
 const EmailsOverviewPage = lazyWithRetry(() => import('./pages/emails/EmailsOverviewPage'));
 const EmailCampaignsPage = lazyWithRetry(() => import('./pages/emails/EmailCampaignsPage'));
 const EmailTemplatesPage = lazyWithRetry(() => import('./pages/emails/EmailTemplatesPage'));
+const EmailStudioPage = lazyWithRetry(() => import('./pages/emails/studio/EmailStudioPage'));
+const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
 const SignupPagesSoonPage = lazyWithRetry(() => import('./pages/soon/SignupPagesSoonPage'));
@@ -23,6 +25,10 @@ const SignupPagesSoonPage = lazyWithRetry(() => import('./pages/soon/SignupPages
 export function crmRoutes() {
   return (
     <>
+      {/* Éditeurs plein écran : même garde et même portée, sans menu. */}
+      <Route path="/crm/emails/studio/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<EmailStudioPage />} />
+      </Route>
       <Route path="/crm" element={<CrmGate><CrmLayout /></CrmGate>}>
         <Route index element={<HomePage />} />
         <Route path="clients" element={<ClientsPage />} />
