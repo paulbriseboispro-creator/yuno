@@ -17,6 +17,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { Card } from './accountUi';
+import { FeatureRequestCard, NpsCard } from './HelpFeedback';
 
 type Cat = 'all' | 'start' | 'yunits' | 'clients' | 'account';
 const CATS: Cat[] = ['all', 'start', 'yunits', 'clients', 'account'];
@@ -89,6 +90,7 @@ export function AccountHelp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <NpsCard />
       <Card gap={20} style={{ animation: `yc-rise 700ms ${EASE} 40ms both` }}>
         <label style={{ height: 58, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, padding: '0 10px 0 20px', borderRadius: 99, background: 'var(--paper)', border: `1px solid ${focus ? 'var(--red-400)' : 'var(--sand-200)'}`, boxShadow: focus ? '0 0 0 3px var(--red-100)' : 'none', cursor: 'text', transition: 'border-color 160ms,box-shadow 160ms' }}>
           <Icon name="search" size={19} stroke={2.2} style={{ flex: 'none', color: 'var(--sand-500)' }} />
@@ -216,6 +218,7 @@ export function AccountHelp() {
           </div>
         </aside>
       </div>
+      <FeatureRequestCard />
     </div>
   );
 }

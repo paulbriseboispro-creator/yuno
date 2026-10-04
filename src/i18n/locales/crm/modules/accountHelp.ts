@@ -47,6 +47,27 @@ const dict: CrmDict = {
   'yc.faq.trial.l': ['Open billing', 'Ouvrir la facturation', 'Abrir la facturación'],
   'yc.faq.offline.q': ['What if I lose the network?', 'Que se passe-t-il si je perds le réseau ?', '¿Qué pasa si pierdo la red?'],
   'yc.faq.offline.a': ['A banner tells you you are offline. Nothing can be saved or sent until the network is back, and nothing is queued behind your back: the pages reload by themselves when you reconnect. If a page takes more than 30 seconds, it offers “Retry” and a reference to give to support.', 'Un bandeau vous prévient que vous êtes hors connexion. Rien ne peut être enregistré ni envoyé tant que le réseau n’est pas revenu, et rien n’est mis en file dans votre dos : les pages se rechargent seules au retour de la connexion. Si une page met plus de 30 secondes, elle propose « Réessayer » et une référence à donner au support.', 'Un banner le avisa de que está sin conexión. No se puede guardar ni enviar nada hasta que vuelva la red, y nada se pone en cola a sus espaldas: las páginas se recargan solas al volver la conexión. Si una página tarda más de 30 segundos, ofrece «Reintentar» y una referencia para dar a soporte.'],
+
+  // NPS et demandes de fonctionnalités
+  'yc.nps.q': ['Would you recommend Yuno CRM to another organizer?', 'Recommanderiez-vous Yuno CRM à un autre organisateur ?', '¿Recomendaría Yuno CRM a otro organizador?'],
+  'yc.nps.s': ['From 0 (not at all) to 10 (without hesitation). It takes ten seconds and every answer is read.', 'De 0 (pas du tout) à 10 (sans hésiter). Dix secondes, et chaque réponse est lue.', 'De 0 (nada) a 10 (sin dudarlo). Diez segundos, y cada respuesta se lee.'],
+  'yc.nps.later': ['Later', 'Plus tard', 'Más tarde'],
+  'yc.nps.low': ['Not at all', 'Pas du tout', 'Nada'],
+  'yc.nps.high': ['Without hesitation', 'Sans hésiter', 'Sin dudarlo'],
+  'yc.nps.comment': ['Your comment', 'Votre commentaire', 'Su comentario'],
+  'yc.nps.phHigh': ['What do you like most? (optional)', 'Qu’est-ce qui vous plaît le plus ? (facultatif)', '¿Qué es lo que más le gusta? (opcional)'],
+  'yc.nps.phLow': ['What is missing to get a 10? (optional)', 'Que manque-t-il pour mettre 10 ? (facultatif)', '¿Qué falta para un 10? (opcional)'],
+  'yc.nps.send': ['Send', 'Envoyer', 'Enviar'],
+  'yc.nps.thanks': ['Thank you.', 'Merci.', 'Gracias.'],
+  'yc.nps.thanksS': ['Your answer has been passed on. We will not ask again for three months.', 'Votre réponse est transmise. On ne vous la reposera pas avant trois mois.', 'Su respuesta se ha transmitido. No volveremos a preguntar en tres meses.'],
+  'yc.nps.err': ['That did not go through. Try again in a moment.', 'Ça n’est pas passé. Réessayez dans un instant.', 'No se ha enviado. Inténtelo de nuevo en un momento.'],
+  'yc.fr.t': ['Is a feature missing?', 'Une fonction vous manque ?', '¿Le falta una función?'],
+  'yc.fr.s': ['One sentence is enough. Requests are read and counted: the most requested ones come first.', 'Une phrase suffit. Les demandes sont lues et comptées : les plus demandées passent en premier.', 'Basta una frase. Las solicitudes se leen y se cuentan: las más pedidas van primero.'],
+  'yc.fr.ph': ['e.g. export a segment as PDF', 'ex. exporter un segment en PDF', 'p. ej. exportar un segmento en PDF'],
+  'yc.fr.send': ['Suggest', 'Proposer', 'Proponer'],
+  'yc.fr.sent': ['Thanks, your request has been recorded.', 'Merci, votre demande est enregistrée.', 'Gracias, su solicitud está registrada.'],
+  'yc.fr.again': ['Another one', 'Une autre', 'Otra'],
+  'yc.fr.rate': ['That is a lot of requests for today: write to us instead.', 'Beaucoup de demandes pour aujourd’hui : écrivez-nous plutôt.', 'Muchas solicitudes por hoy: escríbanos mejor.'],
 };
 
 export default dict;
