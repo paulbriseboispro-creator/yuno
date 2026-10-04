@@ -84,18 +84,18 @@ BEGIN
     SELECT x.*, e.id AS event_id
       FROM (VALUES
         ('2026-08-02 10:00'::timestamp, 'Soirée d''été — nouveaux', '["nou"]'::jsonb, 'Open Air Closing #16',
-         'Nouveau chez nous, {{prénom}} ? Votre première soirée d''été : {{soirée}}, samedi. Places : {{lien}}', 0.18),
+         'Nouveau chez nous, {{prénom}} ? Votre première soirée d''été : {{soirée}}, samedi. Places : {{lien}}', 0.18, 'bienvenue'),
         ('2026-08-21 17:00', 'Last call Rooftop Sunset', '["hab","occ"]', 'Rooftop Sunset #17',
-         'Demain : {{soirée}}, {{prénom}}. Dernières places : {{lien}}', 0.24),
+         'Demain : {{soirée}}, {{prénom}}. Dernières places : {{lien}}', 0.24, 'lastcall'),
         ('2026-09-04 18:00', 'Demain : Deep Night', '["hab"]', 'Deep Night #18',
-         'C''est demain, {{prénom}} : {{soirée}}. Portes à 23 h. Vos places : {{lien}}', 0.28),
+         'C''est demain, {{prénom}} : {{soirée}}. Portes à 23 h. Vos places : {{lien}}', 0.28, 'rappel'),
         ('2026-09-12 11:00', 'On vous a manqué — endormis', '["end"]', 'Bass Culture #19',
-         '{{prénom}}, ca fait un moment ! On vous attend pour {{soirée}} : {{lien}}', 0.07),
+         '{{prénom}}, ca fait un moment ! On vous attend pour {{soirée}} : {{lien}}', 0.07, 'retrouvailles'),
         ('2026-09-17 10:00', 'Prévente Bass Culture — habitués', '["hab"]', 'Bass Culture #19',
-         '{{prénom}}, la prévente de {{soirée}} est ouverte, en avant-première pour vous : {{lien}}', 0.34),
+         '{{prénom}}, la prévente de {{soirée}} est ouverte, en avant-première pour vous : {{lien}}', 0.34, 'avantpremiere'),
         ('2026-10-01 10:00', 'Prévente Minimal Room #20', '["hab","occ"]', 'Minimal Room #20',
-         'La prévente de {{soirée}} est ouverte, {{prénom}}. Les places partent vite : {{lien}}', 0.26)
-      ) AS x(at, name, segs, ev, body, rate)
+         'La prévente de {{soirée}} est ouverte, {{prénom}}. Les places partent vite : {{lien}}', 0.26, 'avantpremiere')
+      ) AS x(at, name, segs, ev, body, rate, tpl)
       JOIN public.events e ON e.organizer_user_id = v_uid AND e.title = x.ev
      WHERE (x.at AT TIME ZONE 'Europe/Paris') < now() - interval '1 hour'
      ORDER BY x.at
@@ -111,7 +111,7 @@ BEGIN
                                       event_id, sender_name, quiet_hours, sent_at, send_started_at, created_at,
                                       segments_per_message, tracked_link_id)
     VALUES (v_uid, NULL, v_uid, v_c.name, v_c.body,
-            jsonb_build_object('type', 'crm', 'seed', 'crm-sms', 'exclude_buyers', false,
+            jsonb_build_object('type', 'crm', 'seed', 'crm-sms', 'exclude_buyers', false, 'tpl', v_c.tpl,
               'audiences', (SELECT jsonb_agg(jsonb_build_object('kind', 'crm', 'def', jsonb_build_object('seg', s),
                                      'label', CASE s WHEN 'hab' THEN 'Habitués' WHEN 'occ' THEN 'Occasionnels'
                                                      WHEN 'nou' THEN 'Nouveaux' ELSE 'Endormis' END))
@@ -168,23 +168,30 @@ BEGIN
        AND abs(hashtext(vc.phone_e164 || v_cid::text || 'stop')) % 1000 < CASE WHEN v_c.segs ? 'end' THEN 15 ELSE 4 END;
   END LOOP;
 
+  -- ------------------------------------------------- Réglages d'envoi
+  INSERT INTO public.crm_sms_settings (scope_key, sender_name, quiet_from, quiet_to, no_sunday, weekly_cap, test_phone, updated_by)
+  VALUES (public.crm_scope_key(NULL, v_uid), 'NUITSDEMO', 20, 8, true, 2, '+33639989999', v_uid)
+  ON CONFLICT (scope_key) DO UPDATE SET sender_name = EXCLUDED.sender_name, quiet_from = EXCLUDED.quiet_from,
+    quiet_to = EXCLUDED.quiet_to, no_sunday = EXCLUDED.no_sunday, weekly_cap = EXCLUDED.weekly_cap,
+    test_phone = EXCLUDED.test_phone, updated_at = now();
+
   -- ------------------------------------------------------------ Brouillons
   INSERT INTO public.sms_campaigns (organizer_id, venue_id, created_by, name, body_template, segment_filters, status,
                                     event_id, sender_name, quiet_hours, scheduled_at, created_at, updated_at,
                                     estimated_recipients, segments_per_message)
   SELECT v_uid, NULL, v_uid, d.name, d.body,
-         jsonb_build_object('type', 'crm', 'seed', 'crm-sms', 'exclude_buyers', d.ex, 'recent_days', 3,
+         jsonb_build_object('type', 'crm', 'seed', 'crm-sms', 'exclude_buyers', d.ex, 'tpl', d.tpl,
                             'audiences', d.aud),
          'draft', e.id, 'NUITSDEMO', true, d.at, now() - d.ago, now() - d.ago, 0, 1
     FROM (VALUES
-      ('Dernières places — Minimal Room #20', 'Dernières places pour {{soirée}} ce soir, {{prénom}}. On vous garde la vôtre : {{lien}}',
+      ('Dernières places — Minimal Room #20', 'Dernières places pour {{soirée}} ce soir, {{prénom}}. On vous en garde une : {{lien}}',
        '[{"kind":"crm","def":{"seg":"occ"},"label":"Occasionnels"}]'::jsonb, true,
-       ('2026-10-10 18:00'::timestamp AT TIME ZONE 'Europe/Paris'), interval '1 hour', 'Minimal Room #20'),
+       ('2026-10-10 18:00'::timestamp AT TIME ZONE 'Europe/Paris'), interval '1 hour', 'Minimal Room #20', 'lastcall'),
       ('Halloween Rave — avant-première', '{{prénom}}, Halloween Rave le 31 octobre. Les places partent vite : {{lien}}',
-       '[{"kind":"crm","def":{"seg":"hab"},"label":"Habitués"}]'::jsonb, false, NULL::timestamptz, interval '1 day', 'Halloween Rave'),
+       '[{"kind":"crm","def":{"seg":"hab"},"label":"Habitués"}]'::jsonb, false, NULL::timestamptz, interval '1 day', 'Halloween Rave', 'avantpremiere'),
       ('On vous a manqué', '{{prénom}}, ca fait un moment ! On vous attend ce week-end : {{lien}}',
-       '[]'::jsonb, false, NULL::timestamptz, interval '5 days', 'House Nation #21')
-    ) AS d(name, body, aud, ex, at, ago, ev)
+       '[]'::jsonb, false, NULL::timestamptz, interval '5 days', 'House Nation #21', 'retrouvailles')
+    ) AS d(name, body, aud, ex, at, ago, ev, tpl)
     JOIN public.events e ON e.organizer_user_id = v_uid AND e.title = d.ev;
 END
 $seed$;
