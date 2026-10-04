@@ -16,9 +16,10 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { ADMIN_ROUTES } from '../adminNav';
 import { useAdminGesture, useAdminPipeline } from '../data';
 import type { AdminPipeline, Prospect, ProspectStage } from '../data';
+import TargetsTab from './TargetsTab';
 import { EmptyNote, PageHead, RowLine, Section, Tabs, pageWrap, useAgo } from '../ui';
 
-type Tab = 'pipeline' | 'forecast' | 'lost';
+type Tab = 'pipeline' | 'targets' | 'forecast' | 'lost';
 const STAGES = ['prospect', 'contacted', 'demo', 'trial', 'paid'] as const;
 type Col = (typeof STAGES)[number];
 /** Estimations fixes (pas d'historique assez long pour les tirer des chiffres) : à réviser avec les premiers essais. */
@@ -28,7 +29,7 @@ export default function SalesPage() {
   const { t } = useCrmT();
   const [sp, setSp] = useSearchParams();
   const q = useAdminPipeline();
-  const tab = (['forecast', 'lost'] as const).find((x) => x === sp.get('tab')) ?? 'pipeline';
+  const tab = (['targets', 'forecast', 'lost'] as const).find((x) => x === sp.get('tab')) ?? 'pipeline';
   const [edit, setEdit] = useState<Prospect | 'new' | null>(null);
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   return (
@@ -36,8 +37,8 @@ export default function SalesPage() {
       <PageHead kicker={t('adm.crm.sa.kicker')} title={t('adm.crm.sa.title')} sub={t('adm.crm.sa.sub')}
         right={<Hv as="button" type="button" onClick={() => setEdit('new')} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1.5px solid var(--sand-200)', background: '#fff', fontWeight: 600, fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} hover={{ background: 'var(--sand-50)' }}><Icon name="plus" size={16} stroke={2.4} />{t('adm.crm.sa.add')}</Hv>} />
       <Tabs<Tab> value={tab} onChange={(v) => setSp(v === 'pipeline' ? {} : { tab: v }, { replace: true })}
-        tabs={[{ id: 'pipeline', label: t('adm.crm.sa.t.pipeline') }, { id: 'forecast', label: t('adm.crm.sa.t.forecast') }, { id: 'lost', label: t('adm.crm.sa.t.lost') }]} />
-      {!q.data ? <Skel h={420} r={28} /> : tab === 'pipeline' ? <Board d={q.data} onOpen={setEdit} /> : tab === 'forecast' ? <Forecast d={q.data} /> : <Lost d={q.data} onOpen={setEdit} />}
+        tabs={[{ id: 'pipeline', label: t('adm.crm.sa.t.pipeline') }, { id: 'targets', label: t('adm.crm.sa.t.targets') }, { id: 'forecast', label: t('adm.crm.sa.t.forecast') }, { id: 'lost', label: t('adm.crm.sa.t.lost') }]} />
+      {tab === 'targets' ? <TargetsTab /> : !q.data ? <Skel h={420} r={28} /> : tab === 'pipeline' ? <Board d={q.data} onOpen={setEdit} /> : tab === 'forecast' ? <Forecast d={q.data} /> : <Lost d={q.data} onOpen={setEdit} />}
       {edit && q.data && <ProspectDialog key={edit === 'new' ? 'new' : edit.id} prospect={edit === 'new' ? null : q.data.prospects.find((p) => p.id === edit.id) ?? edit} onClose={() => setEdit(null)} />}
     </main>
   );
