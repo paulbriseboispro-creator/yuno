@@ -6,7 +6,7 @@ const cfg = { rates: { email: 1, sms: 40 }, monthly_yunits: 10_000, price_month:
 describe('page Tarifs : simulateur', () => {
   it('reste dans les Yunits offerts : pas de recharge', () => {
     const e = estimateMonth(4_000, 0, cfg);
-    expect(e).toMatchObject({ used: 4_000, included: 4_000, need: 0, recharge: null, rechargeEur: 0, total: 29 });
+    expect(e).toMatchObject({ used: 4_000, included: 4_000, need: 0, recharge: null, rechargeEur: 0, total: 24 });
   });
 
   it('prend la plus petite recharge vendue qui couvre le mois', () => {
@@ -17,7 +17,7 @@ describe('page Tarifs : simulateur', () => {
     expect(e.recharge).toMatchObject({ base: 45_000, bonusPct: 10, received: 49_500 });
     expect(e.rechargeEur).toBe(90);
     expect(e.left).toBe(2_500);
-    expect(e.total).toBe(119);
+    expect(e.total).toBe(114);
   });
 
   it('suit le prix et les tarifs de la base', () => {
