@@ -26,6 +26,9 @@
 //                              is_showcase_shadow (migration 20260826110000).
 //                              La réclamation re-parente tout via
 //                              handoff_showcase_organizer.
+//   • "invite-product"        (admin) — invite le titulaire d'un compte à ouvrir
+//                              l'autre produit (Billetterie ⇄ CRM) par un email
+//                              au style Yuno CRM (migration 20261006100000).
 //   • "request-support-access" (admin) — crée (ou relance) une demande d'accès
 //                              assisté EN ATTENTE et prévient le pro par EMAIL
 //                              (en plus de la notif in-app + push posées par
@@ -45,6 +48,7 @@ import { buildSecureLink } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { jwtSessionId } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { buildProductInviteEmail, productInviteLang } from "../_shared/product-invite-email.ts";
 
 const APP_URL = "https://yunoapp.eu";
 
@@ -135,6 +139,60 @@ serve(async (req) => {
     const { data: adminRole } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!adminRole) return fail("Admin role required", 403);
+
+    // ── invite-product : inviter un compte à ouvrir l'autre produit ────────────
+    // (Billetterie ⇄ CRM, migration 20261006100000). Le jeton est tiré ICI et ne
+    // sort que dans l'email ; la base n'en garde que l'empreinte. Rien ne
+    // s'ouvre sans le clic du titulaire (accept_product_invite).
+    if (action === "invite-product") {
+      const product = body.product === "suite" ? "suite" : body.product === "crm" ? "crm" : null;
+      const venueId = typeof body.venueId === "string" && body.venueId ? body.venueId : null;
+      const organizerUserId = !venueId && typeof body.organizerUserId === "string" ? body.organizerUserId : null;
+      if (!product || (!venueId && !organizerUserId)) return fail("bad_input", 400);
+
+      const raw = crypto.getRandomValues(new Uint8Array(32));
+      const token = btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+      const tokenHash = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+
+      // Avec le JWT de l'admin : la RPC revérifie is_super_admin().
+      const { data: invite, error: inviteErr } = await supabaseClient.rpc("admin_create_product_invite", {
+        p_venue_id: venueId,
+        p_organizer_user_id: organizerUserId,
+        p_product: product,
+        p_token_hash: tokenHash,
+      });
+      if (inviteErr) return fail(inviteErr.message, inviteErr.message === "already_has_product" ? 409 : 400);
+      const inv = invite as { email: string; name: string; lang: string };
+
+      const mail = buildProductInviteEmail({
+        product,
+        lang: productInviteLang(inv.lang),
+        name: inv.name,
+        url: `${APP_URL}/open/${product}?token=${encodeURIComponent(token)}`,
+        origin: APP_URL,
+      });
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      let emailSent = false;
+      if (resendApiKey) {
+        const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+          body: JSON.stringify({ from: `Yuno <${fromEmail}>`, to: [inv.email], subject: mail.subject, html: mail.html }),
+        });
+        if (res.ok) emailSent = true;
+        else console.error("[ADMIN-ACCOUNT-RECOVERY] product invite email failed:", res.status, await res.text().catch(() => ""));
+      }
+      await supabaseAdmin.from("admin_audit_log").insert({
+        admin_id: user.id,
+        action: "invite_product",
+        entity_type: venueId ? "venue" : "organizer",
+        entity_id: venueId ?? organizerUserId,
+        metadata: { product, email_sent: emailSent },
+      });
+      return new Response(JSON.stringify({ success: true, emailSent, email: inv.email }), { headers: jsonHeaders });
+    }
 
     // ── request-support-access : demande d'accès assisté + email au pro ────────
     if (action === "request-support-access") {
