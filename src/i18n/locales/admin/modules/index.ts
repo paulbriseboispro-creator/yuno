@@ -27,12 +27,13 @@ import drinks from './drinks';
 import signups from './signups';
 import crmAdmin from './crmAdmin';
 import crmAdmin2 from './crmAdmin2';
+import crmAdmin3 from './crmAdmin3';
 
 /** Toutes les clés du super admin, un module par page. */
 export const ADMIN_DICT: AdminDict = {
   ...common, ...layout, ...cockpit, ...growth, ...revenue, ...product, ...ai, ...customers, ...links,
   ...venues, ...organizers, ...agencies, ...events, ...people, ...orders, ...demo, ...support, ...alerts,
-  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2,
+  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
