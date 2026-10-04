@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
-import { useCrmToast } from '@/crm/ui/kit';
+import { useCrmToast } from '@/crm/ui/toast';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useNights } from '@/crm/data/nights';
 import { useInvalidateEmails } from '@/crm/data/emails';

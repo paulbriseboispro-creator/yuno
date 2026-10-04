@@ -14,7 +14,8 @@ import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } 
 import { useQueryClient } from '@tanstack/react-query';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { Skel, useCrmToast } from '@/crm/ui/kit';
+import { Skel } from '@/crm/ui/kit';
+import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, useIntro, useProgress } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';

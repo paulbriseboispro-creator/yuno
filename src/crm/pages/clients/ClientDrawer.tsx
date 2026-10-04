@@ -7,7 +7,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { Sheet, Skel, useCrmToast } from '@/crm/ui/kit';
+import { Sheet, Skel } from '@/crm/ui/kit';
+import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useClientCard, useSaveClient } from '@/crm/data/clients';

@@ -10,6 +10,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { EASE, clamp01, useProgress, wipe } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useNarrow } from '@/crm/ui/useNarrow';
+import { niceTop } from '@/crm/lib/axis';
 import { useCrmT } from '@/crm/i18n';
 import type { EmailResult } from '@/crm/data/emails';
 
@@ -140,12 +141,6 @@ function Funnel({ r, s, g }: { r: EmailResult; s: Stats; g: number }) {
   );
 }
 
-function niceTop(v: number): number {
-  if (v <= 0) return 10;
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v * 1.05) return m * p;
-  return 10 * p;
-}
 
 function Timeline({ r, g }: { r: EmailResult; g: number }) {
   const { t, tp, n, pct, time, dShort, dWeek } = useCrmT();
@@ -155,7 +150,7 @@ function Timeline({ r, g }: { r: EmailResult; g: number }) {
   const pts = r.timeline.length ? r.timeline : [{ h: 0, opens: 0, clicks: 0 }];
   const vals = pts.map((p) => p[metric]);
   const tot = vals[vals.length - 1] || 0;
-  const top = niceTop(tot);
+  const top = niceTop(tot, { headroom: 1.05, empty: 10 });
   const sent = new Date(r.sent_at ?? Date.now());
   const px = (h: number) => (h / 72) * 100;
   const py = (v: number) => 100 - (v / top) * 100;

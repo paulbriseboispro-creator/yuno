@@ -7,7 +7,7 @@
 import type { ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { useCrmToast } from '@/crm/ui/kit';
+import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useFeatureWaitlist } from '@/crm/data/soon';

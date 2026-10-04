@@ -26,19 +26,11 @@ import { lacksMessage, upKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { EmailsShell } from './EmailsShell';
 import { EmailThumb } from './EmailThumb';
+import { niceTop } from '@/crm/lib/axis';
 
 const enter = (d: number) => ({ animation: `yc-rise 800ms ${EASE} ${d}ms both` });
 const ARROW = 'M5 12h14M13 6l6 6-6 6';
 
-/** Un haut d'axe « rond » (1 ; 1,2 ; 1,5 ; 2 ; 2,5 ; 3 ; 4 ; 5 ; 6 ; 8 × 10ⁿ). */
-function niceTop(max: number): number {
-  if (max <= 0) return 100;
-  const raw = max * 1.1;
-  const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  const m = raw / p;
-  const step = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((x) => m <= x) ?? 10;
-  return step * p;
-}
 
 interface TodoCard { key: string; badge: string; tone: 'red' | 'sand' | 'amber'; title: string; why: string; cta: string; to: string; primary: boolean }
 

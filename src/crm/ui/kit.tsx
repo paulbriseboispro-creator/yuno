@@ -8,13 +8,14 @@
  * coquille) : un bloc en cours d'animation d'entrée porte un `transform`, et un
  * `position: fixed` à l'intérieur se placerait par rapport à lui.
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Hv } from './Hv';
 import { Icon } from './Icon';
 import { EASE, SPRING } from './motion';
+import { ToastCtx } from './toast';
 
 // ── Portail ────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,6 @@ export function Portal({ children }: { children: ReactNode }) {
 // ── Toast ──────────────────────────────────────────────────────────────────
 
 type ToastState = { msg: string; action?: { label: string; onClick: () => void } } | null;
-const ToastCtx = createContext<(msg: string, action?: { label: string; onClick: () => void }) => void>(() => {});
 
 export function CrmToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState>(null);
@@ -68,10 +68,6 @@ export function CrmToastProvider({ children }: { children: ReactNode }) {
       )}
     </ToastCtx.Provider>
   );
-}
-
-export function useCrmToast() {
-  return useContext(ToastCtx);
 }
 
 // ── Boutons ────────────────────────────────────────────────────────────────
@@ -189,7 +185,7 @@ export function IconButton({
 
 export type Tone = 'todo' | 'warn' | 'wait' | 'done' | 'live' | 'brand' | 'night';
 
-export const TONES: Record<Tone, { bg: string; fg: string }> = {
+const TONES: Record<Tone, { bg: string; fg: string }> = {
   todo: { bg: 'var(--red-50)', fg: 'var(--red-700)' },
   warn: { bg: 'var(--amber-50)', fg: 'var(--amber-700)' },
   wait: { bg: 'var(--sand-100)', fg: 'var(--sand-600)' },

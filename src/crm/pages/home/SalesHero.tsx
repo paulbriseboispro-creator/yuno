@@ -9,17 +9,10 @@ import { Insight, Segmented } from '@/crm/ui/kit';
 import { clamp01, reveal, useProgress, wipe } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { CrmHome, HomePeriod } from '@/crm/data/home';
+import { COARSE_STEPS, niceTop } from '@/crm/lib/axis';
 
 const PERIODS: HomePeriod[] = ['24h', '48h', '7d', '30d', '90d'];
 
-/** Plafond « rond » de l'axe : 1, 2, 2,5 ou 5 × 10ⁿ au-dessus du maximum. */
-export function niceTop(max: number): number {
-  if (max <= 0) return 1;
-  const raw = max * 1.12;
-  const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= raw) return m * p;
-  return 10 * p;
-}
 
 export function SalesHero({
   data, period, onPeriod, intro, connected,
@@ -40,7 +33,7 @@ export function SalesHero({
     const N = s.series.length;
     const cur = s.series.map((x) => Number(x.cur));
     const prev = s.series.map((x) => Number(x.prev));
-    const top = niceTop(Math.max(0, ...cur, ...prev));
+    const top = niceTop(Math.max(0, ...cur, ...prev), { headroom: 1.12, empty: 1, steps: COARSE_STEPS });
     const starts = s.series.map((x) => new Date(x.t).getTime());
     const endMs = new Date(s.end).getTime();
     const idxOf = (iso: string) => {
