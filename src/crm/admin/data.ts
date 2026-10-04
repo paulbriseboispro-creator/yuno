@@ -130,3 +130,46 @@ export interface AdminPricing { cfg: PricingCfg; history: { at: string; reason: 
 export function useAdminPricing() {
   return useQuery({ queryKey: ['crm-admin', 'pricing'], staleTime: 15_000, queryFn: () => rpc<AdminPricing>('crm_admin_pricing_get') });
 }
+
+// ── Vente, Acquisition, Produit ─────────────────────────────────────────────
+export type ProspectStage = 'prospect' | 'contacted' | 'demo' | 'lost';
+export interface Prospect {
+  id: string; name: string; contact: string | null; phone: string | null; email: string | null; city: string | null; kind: 'club' | 'organizer' | 'association';
+  source: string | null; stage: ProspectStage; next_action: string | null; next_at: string | null; loss_reason: string | null; note: string | null; opposed: boolean;
+  stage_changed_at: string; created_at: string; events: { at: string; kind: 'created' | 'stage' | 'exchange'; text: string }[];
+}
+export interface AdminPipeline {
+  at: string; prospects: Prospect[]; price: number;
+  accounts: { id: string; name: string; city: string | null; state: AdminAccount['state']; mrr: number; trial_left: number | null; type: string }[];
+}
+export function useAdminPipeline() {
+  const { includeDemo } = useAdminScope();
+  return useQuery({ queryKey: ['crm-admin', 'pipeline', includeDemo], staleTime: 15_000, queryFn: () => rpc<AdminPipeline>('crm_admin_pipeline', { p_include_demo: includeDemo }) });
+}
+
+export interface AdminAcquisition {
+  at: string; days: number;
+  funnel: { k: 'opened' | 'role' | 'structure' | 'account' | 'created' | 'console' | 'paid'; n: number }[];
+  median_secs: number | null;
+  sessions: { at: string; started: string; who: string | null; org: string | null; city: string | null; last_step: string | null; steps: Record<string, string>; source: string | null; device: string | null; account: boolean; state: string | null; secs: number }[];
+  sources: { source: string; started: number; created: number; paid: number }[];
+  devices: { device: string; n: number }[];
+  series: { t: string; started: number; created: number }[];
+}
+export function useAdminAcquisition(days: number) {
+  const { includeDemo } = useAdminScope();
+  return useQuery({ queryKey: ['crm-admin', 'acquisition', includeDemo, days], staleTime: 30_000, queryFn: () => rpc<AdminAcquisition>('crm_admin_acquisition', { p_include_demo: includeDemo, p_days: days }) });
+}
+
+export interface AdminProduct {
+  at: string; live: number; paid: number;
+  usage: { step: number; n: number; paid: number }[];
+  ttv: { n: number; sync: number | null; sent: number | null; bought: number | null; n_sync: number; n_sent: number; n_bought: number };
+  waitlist: { feature: string; n: number }[];
+  recipes: { kind: string; n: number }[];
+  retention: { with_recipes: number; with_recipes_paid: number; without: number; without_paid: number };
+}
+export function useAdminProduct() {
+  const { includeDemo } = useAdminScope();
+  return useQuery({ queryKey: ['crm-admin', 'product', includeDemo], staleTime: 30_000, queryFn: () => rpc<AdminProduct>('crm_admin_product', { p_include_demo: includeDemo }) });
+}

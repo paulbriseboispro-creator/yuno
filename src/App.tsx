@@ -299,6 +299,9 @@ const AdminCrmMoney = lazyWithRetry(() => import("./crm/admin/pages/MoneyPage"))
 const AdminCrmPlatform = lazyWithRetry(() => import("./crm/admin/pages/PlatformPage"));
 const AdminCrmLegal = lazyWithRetry(() => import("./crm/admin/pages/LegalPage"));
 const AdminCrmSettings = lazyWithRetry(() => import("./crm/admin/pages/SettingsPage"));
+const AdminCrmSales = lazyWithRetry(() => import("./crm/admin/pages/SalesPage"));
+const AdminCrmAcquisition = lazyWithRetry(() => import("./crm/admin/pages/AcquisitionPage"));
+const AdminCrmProduct = lazyWithRetry(() => import("./crm/admin/pages/ProductPage"));
 const AdminCrmSoon = lazyWithRetry(() => import("./crm/admin/pages/SoonPage"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const ForYouSelection = lazyWithRetry(() => import("./pages/ForYouSelection"));
@@ -1286,6 +1289,9 @@ const App = () => (
                   <Route index element={<AdminCrmCockpit />} />
                   <Route path="clients" element={<AdminCrmClients />} />
                   <Route path="clients/:id" element={<AdminCrmAccount />} />
+                  <Route path="sales" element={<AdminCrmSales />} />
+                  <Route path="acquisition" element={<AdminCrmAcquisition />} />
+                  <Route path="product" element={<AdminCrmProduct />} />
                   <Route path="money" element={<AdminCrmMoney />} />
                   <Route path="platform" element={<AdminCrmPlatform />} />
                   <Route path="legal" element={<AdminCrmLegal />} />
