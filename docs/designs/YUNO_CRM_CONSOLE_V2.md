@@ -44,9 +44,9 @@
 | Email Studio, Email Envoi | `/crm/emails/studio/:id`, `/send/:id` | Email Studio v2 existant | ⏳ |
 | SMS (vue, campagnes, modèles, analyse, réglages, résultats, composeur, envoi) | `/crm/sms/*` | `sms_campaigns` | ⏳ |
 | Automatisations | `/crm/automations` | `email_automations` | ⏳ |
-| Instagram (bientôt) | `/crm/instagram` | — | ⏳ |
+| Instagram (bientôt) | `/crm/instagram` | `crm_feature_waitlist_get/_set` | ✅ Bientôt |
 | Soirées | `/crm/nights`, `/crm/nights/past`, `/crm/nights/:id` | `get_crm_nights`, `get_crm_night_report` | ⏳ |
-| Pages d'inscription (bientôt) | `/crm/signup-pages` | — | ⏳ |
+| Pages d'inscription (bientôt) | `/crm/signup-pages` | `crm_feature_waitlist_get/_set` | ✅ Bientôt |
 | Clients | `/crm/clients` | `crm_clients_overview` / `_list` / `crm_client`, `crm_clients_export` | ✅ |
 | Segments | `/crm/segments` | `crm_segments_overview`, `crm_segment_detail`, `crm_audience_counts` | ✅ |
 | Imports | `/crm/imports` | `crm_imports_overview`, `crm_import_check`, `crm_import_commit` (→ `import_contact_list`), `crm_import_undo` | ✅ |
@@ -76,6 +76,7 @@
 | `20261004162000_crm_audience_counts` | effectifs de plusieurs définitions | ✅ 04/10 |
 | `20261004163000_crm_segment_counts_cleanup` | un segment supprimé emporte son historique | ✅ 04/10 |
 | `20261004170000_crm_imports` | imports journalisés, annulation exacte, historique, cron de clôture | ✅ 04/10 |
+| `20261004180000_crm_feature_waitlist` | « Me prévenir » des fonctions à venir | ✅ 04/10 |
 
 ## Choix faits pendant la transposition
 
@@ -111,6 +112,11 @@
   échoue annule l'import entier. Le fichier d'exemple se vérifie mais ne
   s'ajoute jamais (pas de faux contacts dans une vraie base). Excel (.xlsx)
   est lu en plus du CSV.
+- **Instagram et Pages d'inscription = « Bientôt disponible »** (demande de
+  Paul) : maquette fidèle, téléphone animé, et le seul bouton qui agit est
+  « Me prévenir », enregistré par portée et par personne
+  (`crm_feature_waitlist`) pour les recontacter au lancement. Les pages
+  d'inscription reprennent la mise en page de la maquette Instagram.
 - **Démo** : `scripts/demo/seed-crm-messages.sql` sème 12 envois passés
   (destinataires, ouvertures, clics placés avant de vrais achats démo).
 
