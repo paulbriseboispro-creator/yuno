@@ -14,7 +14,7 @@ import { isNative, isProApp } from '@/lib/native';
 // Surfaces pro/staff : hors périmètre — on mesure l'audience publique/cliente.
 // (/promoteur, /p, /promo, /rp restent trackés : ce sont des pages PUBLIQUES.)
 const SKIP_PREFIXES = [
-  '/admin', '/owner', '/manager', '/organizer-app', '/agency-app', '/agency',
+  '/admin', '/owner', '/manager', '/organizer-app', '/agency-app', '/agency', '/crm', '/crm-admin',
   '/barman', '/bouncer', '/cloakroom', '/vip-host', '/staff', '/pro',
   // Dashboards — attention : /affiliate-event et /affiliate-venue sont publics,
   // d'où le test « segment exact » (p === x || p.startsWith(x + '/')).

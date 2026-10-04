@@ -43,7 +43,7 @@ export async function loadLocale(lang: Language): Promise<Record<string, string>
 // 2 000 clés `ohelp.*`) vivent dans des chunks séparés, fusionnés dans le
 // dictionnaire de la langue UNIQUEMENT quand la surface se monte.
 
-export type LocaleSection = 'help' | 'admin';
+export type LocaleSection = 'help' | 'admin' | 'crm';
 
 const sectionCache: Partial<Record<Language, Partial<Record<LocaleSection, Record<string, string>>>>> = {};
 
@@ -74,6 +74,20 @@ export async function loadLocaleSection(lang: Language, section: LocaleSection):
         break;
       default:
         mod = await import('./locales/admin/en');
+        break;
+    }
+  } else if (section === 'crm') {
+    // `crm` = la Console Yuno CRM (src/i18n/locales/crm/modules/*), chargée
+    // seulement quand un compte CRM ouvre `/crm`.
+    switch (lang) {
+      case 'fr':
+        mod = await import('./locales/crm/fr');
+        break;
+      case 'es':
+        mod = await import('./locales/crm/es');
+        break;
+      default:
+        mod = await import('./locales/crm/en');
         break;
     }
   } else {

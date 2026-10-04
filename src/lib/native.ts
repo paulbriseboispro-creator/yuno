@@ -30,6 +30,8 @@ export function isProApp(): boolean {
 /** Préfixes de routes réservées aux comptes pro/staff (gatées en natif). */
 const PRO_PATH_PREFIXES = [
   '/owner',
+  '/crm',
+  '/crm-admin',
   '/admin',
   '/organizer-app',
   '/agency-app',

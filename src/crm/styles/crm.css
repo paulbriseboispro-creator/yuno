@@ -1,0 +1,126 @@
+/*
+ * Yuno CRM — design system de la Console CRM (projet Claude Design
+ * « Design system Yuno créé », tokens/*.css). Tout est SCOPÉ sous `.yc` :
+ * la Suite garde ses variables (`--ink`, `--paper` y sont des triplets RGB du
+ * thème pro), le CRM a les siennes. Un composant de la Suite monté dans `.yc`
+ * lirait les mauvaises couleurs : le CRM n'en monte aucun.
+ *
+ * Polices : Bricolage Grotesque (titres, chiffres), Geist (interface),
+ * Geist Mono (étiquettes) — chargées par CrmFonts (lien Google Fonts posé au
+ * montage de la Console, comme le prototype).
+ */
+
+.yc {
+  /* Yuno Red — échantillonné sur l'icône de l'app */
+  --red-50:#FFF2F1; --red-100:#FFE1DF; --red-200:#FFC4C0; --red-300:#FF948D;
+  --red-400:#F5524B; --red-500:#E3141B; --red-600:#C30D15; --red-700:#9D0B12;
+  --red-800:#740A10; --red-900:#4B070B;
+  --tangerine-400:#FF8A4C; --tangerine-500:#FF6B35;
+  --white:#FFFFFF; --paper:#FCFAF9; --sand-50:#F7F4F3; --sand-100:#F0EBEA;
+  --sand-200:#E6DFDD; --sand-300:#CFC6C4; --sand-400:#A39A98; --sand-500:#857B7D;
+  --sand-600:#5E5457; --sand-700:#3D3437; --ink:#1C1517; --night:#120C0E; --night-2:#1E1619;
+  --green-50:#EAF8EF; --green-500:#17A34A; --green-700:#0F7A37;
+  --amber-50:#FFF6E5; --amber-500:#E59A0B; --amber-700:#9A6300;
+
+  --accent-start: var(--red-500);
+  --accent-end: var(--tangerine-500);
+  --gradient-brand: linear-gradient(110deg, var(--accent-start) 0%, #F2392A 45%, var(--accent-end) 100%);
+  --gradient-night: radial-gradient(120% 80% at 50% 0%, #3A1216 0%, var(--night) 60%);
+  --bg-base: var(--white);
+  --bg-subtle: var(--sand-50);
+  --bg-tint: var(--red-50);
+  --bg-night: var(--night);
+  --surface-card: var(--white);
+  --surface-muted: var(--sand-50);
+  --surface-night-card: var(--night-2);
+  --text-primary: var(--ink);
+  --text-secondary: var(--sand-600);
+  --text-tertiary: var(--sand-500);
+  --text-on-accent: var(--white);
+  --text-on-night: #F7F2F1;
+  --text-on-night-2: #B9AEB0;
+  --text-accent: var(--red-600);
+  --border-default: var(--sand-200);
+  --border-strong: var(--sand-300);
+  --border-night: rgba(255,255,255,.10);
+  --focus-ring: 0 0 0 3px var(--red-200);
+
+  --font-display: "Bricolage Grotesque", "Helvetica Neue", Helvetica, sans-serif;
+  --font-body: "Geist", "Helvetica Neue", Helvetica, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, Menlo, monospace;
+
+  --radius-xs: 6px; --radius-sm: 10px; --radius-input: 12px; --radius-card-sm: 16px;
+  --radius-card: 24px; --radius-frame: 28px; --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(28,21,23,.06);
+  --shadow-sm: 0 1px 2px rgba(28,21,23,.05), 0 4px 12px rgba(28,21,23,.06);
+  --shadow-md: 0 2px 4px rgba(28,21,23,.05), 0 12px 32px rgba(28,21,23,.10);
+  --shadow-cta: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.10), 0 8px 16px rgba(227,20,27,.32);
+  --shadow-halo: 0 0 0 1px rgba(255,255,255,.08), 0 30px 80px -10px rgba(227,20,27,.45), 0 0 140px 10px rgba(255,107,53,.18);
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 420ms;
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .11 0 0 0 0 .08 0 0 0 0 .09 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --noise-night: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  color-scheme: light;
+}
+
+.yc *, .yc *::before, .yc *::after { box-sizing: border-box; }
+.yc a { color: var(--red-600); text-decoration: none; }
+.yc button { font: inherit; }
+.yc ::selection { background: var(--red-200); }
+.yc h1, .yc h2, .yc h3, .yc h4 { margin: 0; text-wrap: balance; }
+.yc p { margin: 0; text-wrap: pretty; }
+.yc input, .yc textarea, .yc select { font-family: var(--font-body); }
+.yc :focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Fond de page de la Console : papier + deux halos (prototype, <body>). */
+.yc-page-bg {
+  background:
+    radial-gradient(55% 40% at 90% -5%, rgba(255,107,53,.08), transparent 70%),
+    radial-gradient(45% 40% at 0% 0%, rgba(227,20,27,.05), transparent 70%),
+    var(--paper);
+}
+
+.yc-num { font-variant-numeric: tabular-nums; }
+.yc-mono-label {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--sand-500);
+}
+.yc-accent-word { background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.yc-noscroll { scrollbar-width: none; }
+.yc-noscroll::-webkit-scrollbar { display: none; }
+
+/* Squelette (chargement). */
+.yc-skel {
+  background: linear-gradient(90deg, var(--sand-100) 0%, var(--sand-50) 50%, var(--sand-100) 100%);
+  background-size: 200% 100%;
+  animation: yc-skel 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes yc-skel { to { background-position: -200% 0; } }
+
+@keyframes yc-pop { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes yc-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes yc-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes yc-sheet-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes yc-slide-in { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes yc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes yc-spin { to { transform: rotate(360deg); } }
+@keyframes yc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .yc *, .yc *::before, .yc *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* Petits écrans : ce qui se replie dans la barre du haut. */
+@media (max-width: 720px) {
+  .yc .yc-hide-sm { display: none !important; }
+}

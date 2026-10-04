@@ -13,6 +13,7 @@ import { VenueNavProvider } from "./contexts/VenueNavContext";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { DashboardModeProvider } from "./contexts/DashboardModeContext";
 import { DRINKS_PILLAR_LIVE } from "@/lib/drinksPillar";
+import { crmRoutes } from "@/crm/routes";
 // Pilier boissons en pause (2026-10-01, src/lib/drinksPillar.ts) : les routes
 // du système boissons restent déclarées mais redirigent tant que le pilier
 // n'est pas relancé. Les pages ne sont pas supprimées.
@@ -1377,6 +1378,9 @@ const App = () => (
                 <Route path="/promo/:slug/agenda" element={<AffiliateAgenda mode="member" />} />
                 {/* Rapport Club public (lecture seule, par token) */}
                 <Route path="/r/:token" element={<ClubReport />} />
+
+                {/* Yuno CRM — la Console du deuxième produit (src/crm). */}
+                {crmRoutes()}
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
