@@ -11,6 +11,8 @@ const HomePage = lazyWithRetry(() => import('./pages/home/HomePage'));
 const ClientsPage = lazyWithRetry(() => import('./pages/clients/ClientsPage'));
 const SegmentsPage = lazyWithRetry(() => import('./pages/segments/SegmentsPage'));
 const ImportsPage = lazyWithRetry(() => import('./pages/imports/ImportsPage'));
+const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
+const SignupPagesSoonPage = lazyWithRetry(() => import('./pages/soon/SignupPagesSoonPage'));
 
 export function crmRoutes() {
   return (
@@ -20,6 +22,8 @@ export function crmRoutes() {
         <Route path="clients" element={<ClientsPage />} />
         <Route path="segments" element={<SegmentsPage />} />
         <Route path="imports" element={<ImportsPage />} />
+        <Route path="instagram" element={<InstagramSoonPage />} />
+        <Route path="signup-pages" element={<SignupPagesSoonPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>
