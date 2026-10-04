@@ -9,6 +9,7 @@
 //
 // SUPABASE_ACCESS_TOKEN est lu dans .env.local. La clé Resend n'est jamais écrite
 // ici ni affichée : elle ne vit que dans l'environnement du processus.
+// Les modèles d'e-mail se règlent à part (auth-emails.mjs).
 // Prérequis côté Resend : le domaine d'envoi (SENDER_EMAIL) est vérifié
 // (SPF / DKIM, voir docs/EMAIL_DELIVERABILITY.md).
 import { readFileSync } from 'node:fs';
@@ -32,15 +33,6 @@ const resendKey = env('RESEND_API_KEY');
 if (!token) { console.error('SUPABASE_ACCESS_TOKEN manquant (.env.local).'); process.exit(1); }
 if (!resendKey) { console.error('RESEND_API_KEY manquant : créez une clé « Sending access » dans Resend, puis relancez.'); process.exit(1); }
 
-// Modèle de confirmation : un LIEU, jamais un code (l'inscription n'a plus d'étape de code).
-const CONFIRM_SUBJECT = 'Confirmez votre adresse e-mail · Yuno';
-const CONFIRM_HTML = `<div style="font-family:Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1c1517">
-  <h2 style="margin:0 0 12px;font-size:22px">Confirmez votre e-mail</h2>
-  <p style="margin:0 0 24px;line-height:1.5;color:#5b4f52">Un clic suffit pour ouvrir votre console Yuno.</p>
-  <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#E3141B;color:#fff;text-decoration:none;font-weight:600;padding:14px 26px;border-radius:999px">Confirmer mon e-mail</a></p>
-  <p style="margin:0;font-size:13px;line-height:1.5;color:#8a7d80">Vous n'avez pas créé de compte Yuno ? Ignorez cet e-mail.</p>
-</div>`;
-
 const patch = {
   smtp_host: 'smtp.resend.com',
   smtp_port: '465',
@@ -49,8 +41,6 @@ const patch = {
   smtp_admin_email: SENDER_EMAIL,
   smtp_sender_name: SENDER_NAME,
   rate_limit_email_sent: 100,
-  mailer_subjects_confirmation: CONFIRM_SUBJECT,
-  mailer_templates_confirmation_content: CONFIRM_HTML,
   ...(confirmEmail ? { mailer_autoconfirm: false } : {}),
 };
 
