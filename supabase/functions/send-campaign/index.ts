@@ -254,10 +254,23 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
     .from('profiles').select('email, first_name, last_name').eq('id', ownerUserId!).single();
 
   const isPlatform = !venueId && !organizerUserId;
+  // Yuno CRM : nom d'expéditeur et adresse de réponse choisis dans Réglages
+  // d'envoi (crm_email_settings). L'adresse d'envoi garde le nom du compte :
+  // changer d'affichage ne doit pas changer de réputation.
+  let displayName = name;
+  let replyOverride: string | null = null;
+  if (!isPlatform) {
+    const { data: cs } = await admin
+      .from('crm_email_settings').select('sender_name, reply_to')
+      .eq('scope_key', senderScopeKey(venueId, organizerUserId)).maybeSingle();
+    const row = cs as { sender_name?: string | null; reply_to?: string | null } | null;
+    if (row?.sender_name?.trim()) displayName = row.sender_name.trim().replace(/[<>"]/g, '');
+    if (row?.reply_to?.trim()) replyOverride = row.reply_to.trim();
+  }
   return {
     name, city, logoUrl, ownerUserId: ownerUserId!,
-    from: `${name} <${slugifyVenueName(name)}@${marketingDomain()}>`,
-    replyTo: (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
+    from: `${displayName} <${slugifyVenueName(name)}@${marketingDomain()}>`,
+    replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
     venueId, organizerUserId,
     isPlatform,
@@ -952,6 +965,15 @@ Deno.serve(async (req) => {
       }
 
       const { data: enq, error: eErr } = await admin.rpc('enqueue_campaign_recipients', { p_campaign_id: campaign_id });
+      // Yuno CRM : solde de Yunits trop court au moment de la mise en file.
+      // La base a tout annulé (rien en file, rien débité) : la campagne
+      // redevient un brouillon, jamais « échouée » ni coincée en « envoi ».
+      if (eErr && eErr.message.includes('crm_yunits_insufficient')) {
+        await admin.from('email_campaigns')
+          .update({ status: 'draft', paused_reason: null, error_message: 'yunits_insufficient' })
+          .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
+        return new Response(JSON.stringify({ error: 'yunits_insufficient', code: 'yunits_insufficient' }), { status: 402, headers: jsonHeaders });
+      }
       if (eErr) throw new Error(`Audience resolution failed: ${eErr.message}`);
       if (!enq || (Number(enq.total) - Number(enq.already_sent)) <= 0) {
         await admin.from('email_campaigns').update({
