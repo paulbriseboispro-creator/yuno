@@ -17,6 +17,7 @@ import emailAnalysis from './emailAnalysis';
 import emailSettings from './emailSettings';
 import account from './account';
 import accountHelp from './accountHelp';
+import yunits from './yunits';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -38,6 +39,7 @@ export const CRM_DICT: CrmDict = {
   ...emailSettings,
   ...account,
   ...accountHelp,
+  ...yunits,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 
-export type SoonFeature = 'instagram' | 'signup_pages' | 'brand_domain';
+export type SoonFeature = 'instagram' | 'signup_pages' | 'brand_domain' | 'auto_recharge';
 
 export function useFeatureWaitlist() {
   const { rpc: args, qk } = useCrmScope();

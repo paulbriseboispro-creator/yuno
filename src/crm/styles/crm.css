@@ -127,6 +127,10 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 /* Lignes qui montent en se défloutant (listes des Soirées), point rouge qui
    bat (« Ce soir »), ligne verte « Mis à jour ». */
+@keyframes yc-rays { to { transform: rotate(360deg); } }
+@keyframes yc-ce-face { 0% { opacity: 0; transform: scale(.2) rotate(-18deg); } 70% { opacity: 1; transform: scale(1.15) rotate(6deg); } 100% { opacity: 1; transform: none; } }
+@keyframes yc-ce-num { from { opacity: 0; transform: scale(.6); filter: blur(14px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes yc-ce-pop { 0% { opacity: 0; transform: scale(.4); } 60% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
 @keyframes yc-row { from { opacity: 0; transform: translateY(18px); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
 @keyframes yc-ring { 0% { box-shadow: 0 0 0 0 rgba(227,20,27,.45); } 100% { box-shadow: 0 0 0 9px rgba(227,20,27,0); } }
 @keyframes yc-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(23,163,74,0); } 50% { box-shadow: 0 0 0 6px rgba(23,163,74,.22); } }

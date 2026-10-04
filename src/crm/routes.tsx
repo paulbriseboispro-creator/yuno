@@ -26,6 +26,7 @@ const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').th
 const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
 const SignupPagesSoonPage = lazyWithRetry(() => import('./pages/soon/SignupPagesSoonPage'));
 const AccountPage = lazyWithRetry(() => import('./pages/account/AccountPage'));
+const YunitsPage = lazyWithRetry(() => import('./pages/yunits/YunitsPage'));
 
 export function crmRoutes() {
   return (
@@ -56,6 +57,7 @@ export function crmRoutes() {
         <Route path="signup-pages" element={<SignupPagesSoonPage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="account/:section" element={<AccountPage />} />
+        <Route path="yunits" element={<YunitsPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>

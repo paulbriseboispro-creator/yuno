@@ -40,6 +40,8 @@ export interface CrmWallet {
   balance: number;
   lots: { kind: 'trial' | 'monthly' | 'bonus' | 'purchase'; remaining: number; expires_at: string | null }[];
   moves: { at: string; delta: number; kind: 'credit' | 'debit' | 'refund' | 'expire'; lot_kind: string | null; channel: string | null; label: string | null; ref_type: string | null; ref_id: string | null; meta: Record<string, unknown> }[];
+  /** Les 20 derniers crédits (recharges, Yunits du mois, bonus, essai, gestes). */
+  credits?: { at: string; delta: number; lot_kind: string | null; label: string | null; meta: Record<string, unknown> }[];
   reserved: { id: string; name: string; channel: 'email' | 'sms'; at: string; cost: number }[];
   reserved_total: number;
   spent_month: number;
