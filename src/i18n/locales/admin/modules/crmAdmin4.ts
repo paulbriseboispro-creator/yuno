@@ -234,5 +234,24 @@ const dict: AdminDict = {
   'adm.crm.ln.s.pricing': ['Pricing', 'Tarifs', 'Precios'],
   'adm.crm.ln.s.faq': ['FAQ', 'FAQ', 'FAQ'],
   'adm.crm.ln.s.final': ['Final call', 'Appel final', 'Llamada final'],
+
+  // Produit › NPS et demandes
+  'adm.crm.fb.nps': ['Would they recommend us?', 'Nous recommanderaient-ils ?', '¿Nos recomendarían?'],
+  'adm.crm.fb.npsSub': ['NPS over 12 months · {n} answers', 'NPS sur 12 mois · {n} réponses', 'NPS en 12 meses · {n} respuestas'],
+  'adm.crm.fb.npsFew': ['{n} answer(s): the score only appears from 10 answers. Read them one by one.', '{n} réponse(s) : le score n’apparaît qu’à partir de 10 réponses. Lisez-les une à une.', '{n} respuesta(s): la puntuación solo aparece a partir de 10. Léalas una a una.'],
+  'adm.crm.fb.npsNone': ['No answer yet. The question is asked after 30 days, at most once every 90 days.', 'Aucune réponse pour l’instant. La question est posée après 30 jours, au plus une fois tous les 90 jours.', 'Aún ninguna respuesta. La pregunta se hace tras 30 días, como mucho una vez cada 90 días.'],
+  'adm.crm.fb.prom': ['Promoters (9-10)', 'Promoteurs (9-10)', 'Promotores (9-10)'],
+  'adm.crm.fb.det': ['Detractors (0-6)', 'Détracteurs (0-6)', 'Detractores (0-6)'],
+  'adm.crm.fb.dismissed': ['{n} “later”', '{n} « plus tard »', '{n} «más tarde»'],
+  'adm.crm.fb.req': ['Feature requests', 'Demandes de fonctionnalités', 'Solicitudes de funciones'],
+  'adm.crm.fb.reqSub': ['Written in the Console, grouped by identical text. Click to change the status.', 'Écrites dans la Console, regroupées au texte identique. Cliquez pour changer le statut.', 'Escritas en la Consola, agrupadas por texto idéntico. Pulse para cambiar el estado.'],
+  'adm.crm.fb.reqNone': ['No request yet.', 'Aucune demande pour l’instant.', 'Ninguna solicitud por ahora.'],
+  'adm.crm.fb.accounts': ['{n} account(s)', '{n} compte(s)', '{n} cuenta(s)'],
+  'adm.crm.fb.st.new': ['New', 'Nouvelle', 'Nueva'],
+  'adm.crm.fb.st.seen': ['Seen', 'Vue', 'Vista'],
+  'adm.crm.fb.st.planned': ['Planned', 'Planifiée', 'Planificada'],
+  'adm.crm.fb.st.done': ['Done', 'Faite', 'Hecha'],
+  'adm.crm.fb.change': ['Change the status', 'Changer le statut', 'Cambiar el estado'],
+  'adm.crm.fb.saved': ['Status saved.', 'Statut enregistré.', 'Estado guardado.'],
 };
 export default dict;

@@ -1,14 +1,15 @@
 /**
  * Admin CRM › Produit et valeur (« Admin Produit » du design) : ce que les
  * comptes réels utilisent, en combien de temps ils voient la valeur, ce qu'ils
- * attendent. Pas de NPS ni de demandes libres : rien ne les collecte encore ;
- * les demandes de fonctionnalités sont les inscriptions aux listes d'attente.
+ * attendent : le NPS et les demandes libres (Console › Compte › Aide), et les
+ * inscriptions aux listes d'attente « bientôt ».
  */
 import { useCrmT } from '@/crm/i18n';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Skel } from '@/crm/ui/kit';
 import { useAdminProduct } from '../data';
 import type { AdminProduct } from '../data';
+import FeedbackSections from './FeedbackSections';
 import { EmptyNote, Kpi, PageHead, RowLine, Section, kpiGrid, pageWrap, twoCols } from '../ui';
 
 export default function ProductPage() {
@@ -32,6 +33,7 @@ function Body({ d }: { d: AdminProduct }) {
   const small = r.with_recipes + r.without < 10;
   return (
     <>
+      <FeedbackSections />
       <Section title={t('adm.crm.pr.retain')} sub={t('adm.crm.pr.retainSub')} pad={24} gap={12}>
         {rateWith === null && rateWithout === null ? <EmptyNote>{t('adm.crm.pr.retainNone')}</EmptyNote> : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 16 }}>
@@ -66,7 +68,6 @@ function Body({ d }: { d: AdminProduct }) {
         <Section title={t('adm.crm.pr.wait')} sub={t('adm.crm.pr.waitSub')} pad={24} gap={4}>
           {d.waitlist.length === 0 && <EmptyNote>{t('adm.crm.pr.waitNone')}</EmptyNote>}
           {d.waitlist.map((x, i) => <RowLine key={x.feature} first={i === 0}><span style={{ fontWeight: 600 }}>{t(`adm.crm.pr.feat.${x.feature}`) === `adm.crm.pr.feat.${x.feature}` ? x.feature : t(`adm.crm.pr.feat.${x.feature}`)}</span><b>{n(x.n)}</b></RowLine>)}
-          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--sand-500)', lineHeight: 1.5 }}>{t('adm.crm.pr.notMeasured')}</p>
         </Section>
       </div>
     </>

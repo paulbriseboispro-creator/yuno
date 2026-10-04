@@ -134,13 +134,12 @@ const dict: AdminDict = {
   'adm.crm.pr.kind.welcome': ['Welcome', 'Bienvenue', 'Bienvenida'],
   'adm.crm.pr.kind.win_back': ['Win-back', 'Reconquête', 'Reconquista'],
   'adm.crm.pr.kind.regular_lapse': ['A regular drifting away', 'L’habitué décroche', 'El habitual se aleja'],
-  'adm.crm.pr.wait': ['Feature requests', 'Demandes de fonctionnalités', 'Solicitudes de funciones'],
+  'adm.crm.pr.wait': ['Waiting lists', 'Listes d’attente', 'Listas de espera'],
   'adm.crm.pr.waitSub': ['People who joined a “coming soon” waiting list', 'Personnes inscrites à une liste d’attente « bientôt »', 'Personas apuntadas a una lista de espera «pronto»'],
   'adm.crm.pr.waitNone': ['No one waiting yet.', 'Personne n’attend pour l’instant.', 'Nadie espera por ahora.'],
   'adm.crm.pr.feat.instagram': ['Instagram', 'Instagram', 'Instagram'],
   'adm.crm.pr.feat.signup_pages': ['Signup pages', 'Pages d’inscription', 'Páginas de alta'],
   'adm.crm.pr.feat.brand_domain': ['Sending domain on your brand', 'Domaine d’envoi à votre marque', 'Dominio de envío con su marca'],
   'adm.crm.pr.feat.auto_recharge': ['Automatic top-up', 'Recharge automatique', 'Recarga automática'],
-  'adm.crm.pr.notMeasured': ['No satisfaction score or free-text request is collected yet.', 'Aucun score de satisfaction ni demande libre n’est collecté pour l’instant.', 'Aún no se recoge ninguna puntuación de satisfacción ni solicitud libre.'],
 };
 export default dict;
