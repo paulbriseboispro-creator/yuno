@@ -51,7 +51,7 @@ export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell 
         </div>
       )}
       <header style={{
-        height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '0 clamp(16px,3vw,40px)',
+        height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'clamp(8px,2vw,16px)', padding: '0 clamp(16px,3vw,40px)',
         background: 'rgba(252,250,249,.88)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--sand-100)',
       }}>
         {showMenuButton && (
@@ -60,7 +60,7 @@ export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell 
           </button>
         )}
         <SearchBox hasConnection={!!conn} balance={balance} />
-        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 'clamp(6px,1.4vw,10px)' }}>
           <span title={t('yc.top.sync.title')} className="yc-hide-sm" style={{ flex: 'none', height: 36, padding: '0 14px', borderRadius: 99, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, color: sync.fg, background: sync.bg, whiteSpace: 'nowrap' }}>
             <span style={{ flex: 'none', width: 7, height: 7, borderRadius: 99, background: sync.dot }} />
             {sync.label}

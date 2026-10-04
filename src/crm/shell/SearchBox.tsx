@@ -143,7 +143,7 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
 
   let k = 0;
   return (
-    <div style={{ position: 'relative', flex: '1 1 0', maxWidth: 380, minWidth: 150 }}>
+    <div style={{ position: 'relative', flex: '1 1 0', maxWidth: 380, minWidth: 44 }}>
       {open && <div onClick={() => { setOpen(false); inputRef.current?.blur(); }} style={{ position: 'fixed', inset: 0, zIndex: -1, background: 'rgba(26,20,18,.16)' }} />}
       <label style={{
         height: 40, display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 0 14px', borderRadius: 99, background: '#fff',
@@ -168,7 +168,7 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
               <Icon name="x" size={12} stroke={2.6} />
             </button>
           )
-          : <span style={{ flex: 'none', height: 22, padding: '0 7px', borderRadius: 7, background: 'var(--sand-100)', color: 'var(--sand-500)', font: '500 12px/22px var(--font-mono)' }}>⌘K</span>}
+          : <span className="yc-hide-sm" style={{ flex: 'none', height: 22, padding: '0 7px', borderRadius: 7, background: 'var(--sand-100)', color: 'var(--sand-500)', font: '500 12px/22px var(--font-mono)' }}>⌘K</span>}
       </label>
       {open && (
         <div style={{ position: 'absolute', top: 48, left: 0, width: 'min(580px, calc(100vw - 40px))', borderRadius: 20, background: '#fff', boxShadow: 'var(--shadow-md),0 0 0 1px var(--sand-200)', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'yc-pop 200ms cubic-bezier(.22,1,.36,1) both', zIndex: 2 }}>

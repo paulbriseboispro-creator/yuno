@@ -156,7 +156,12 @@ export function CrmLayout() {
 
   return (
     <div className="yc yc-page-bg" style={{ display: 'flex', minHeight: '100vh' }}>
-      {!narrow && <div style={{ position: 'sticky', top: 0, height: '100vh', zIndex: 30 }}>{sidebar}</div>}
+      {/* La colonne blanche descend jusqu'au bas de la page ; la barre, elle, reste collée en haut. */}
+      {!narrow && (
+        <div style={{ flex: 'none', background: '#fff', boxShadow: 'inset -1px 0 0 var(--sand-100)', zIndex: 30 }}>
+          <div style={{ position: 'sticky', top: 0, height: '100vh' }}>{sidebar}</div>
+        </div>
+      )}
       {narrow && mobileOpen && (
         <>
           <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(28,21,23,.32)', animation: 'yc-fade 200ms both' }} />

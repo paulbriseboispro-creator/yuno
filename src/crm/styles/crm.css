@@ -82,6 +82,13 @@
 .yc :focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* Fond de page de la Console : papier + deux halos (prototype, <body>). */
+/* La Console a sa page à elle. Le site public pose `overflow-x: hidden` sur
+   html et body : body devient alors un conteneur de défilement qui ne défile
+   jamais, et la barre latérale comme la barre du haut (position: sticky)
+   partent avec la page. `clip` coupe pareil sans créer de conteneur. Fond
+   clair pour le rebond du défilement (noir sur le site public). */
+html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9; color: #1C1517; }
+
 .yc-page-bg {
   background:
     radial-gradient(55% 40% at 90% -5%, rgba(255,107,53,.08), transparent 70%),
