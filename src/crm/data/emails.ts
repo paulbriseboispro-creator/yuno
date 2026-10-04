@@ -184,3 +184,36 @@ export function useEmailAudienceSizes(ids: string[]) {
     placeholderData: keepPreviousData,
   });
 }
+
+// ── Écran Envoi ─────────────────────────────────────────────────────────────
+
+export interface SendOptionRow { reach: number; open_pct: number | null; click_pct: number | null }
+export interface SendOptions {
+  auto: (SendOptionRow & { key: 'hab' | 'occ' | 'nou' | 'end' | 'none' })[];
+  saved: (SendOptionRow & { id: string; name: string; description: string | null })[];
+  rules: { regular_min_nights: number; regular_window_months: number; lapse_months: number } | null;
+}
+
+export function useSendOptions() {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'emails', 'send-options'],
+    queryFn: () => rpc<SendOptions>('crm_email_send_options', args),
+    staleTime: 60_000,
+  });
+}
+
+export interface AudiencePreview { reach: number; x_buyers: number; x_recent: number; net: number }
+
+export function useAudiencePreview(audiences: CrmAudience[], eventId: string | null, recentDays: number, excludeBuyers: boolean, campaignId: string | null) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'emails', 'preview', audiences, eventId, recentDays, excludeBuyers, campaignId],
+    queryFn: () => rpc<AudiencePreview>('crm_email_audience_preview', {
+      ...args, p_audiences: audiences, p_event_id: eventId, p_recent_days: recentDays || null,
+      p_exclude_buyers: excludeBuyers, p_campaign_id: campaignId,
+    }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}

@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { useNights, type NightRow } from '@/crm/data/nights';
+import { useEmailSettings } from '@/crm/data/emails';
 import type { PendingAudience } from '@/crm/data/clients';
 import { createDraftFromTemplate, pendingToAudience } from '@/crm/data/emailActions';
 import { CRM_TEMPLATES, buildCrmTemplate, crmTemplate, draftName, type CrmTemplateKind, type TemplateNight } from '@/crm/lib/emailTemplates';
@@ -22,6 +23,7 @@ export function useTemplateDraft(wanted: string | null) {
   const { t, lang } = useCrmT();
   const { space, rpc: scopeArgs } = useCrmScope();
   const nights = useNights();
+  const settings = useEmailSettings();
 
   const { night, second, last } = useMemo(() => {
     const all = nights.data?.nights ?? [];
@@ -54,6 +56,7 @@ export function useTemplateDraft(wanted: string | null) {
       // Pas deux e-mails en trois jours ; un dernier rappel épargne ceux qui
       // ont déjà leur place.
       exclusions: { recentDays: 3, ...(meta.kind === 'lastcall' ? { excludeEventBuyers: true } : {}) },
+      quietHours: settings.data?.quiet_hours ?? true,
     });
   };
 

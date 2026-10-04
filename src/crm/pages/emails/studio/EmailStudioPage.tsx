@@ -246,10 +246,14 @@ function StudioBody() {
     return () => document.removeEventListener('keydown', onKey);
   }, [api, ui, toast, t, readOnly]);
 
-  // Sur un téléphone, l'e-mail s'ouvre dans sa version mobile.
+  // Sur un téléphone, l'e-mail s'ouvre dans sa version mobile ; `?tab=subject`
+  // (lien « Modifier l'objet » de la vérification) ouvre l'onglet Objet.
+  const [search] = useSearchParams();
+  const openTab = search.get('tab');
   useEffect(() => {
     if (window.innerWidth < 640) api.getState().setDevice('mobile');
-  }, [api]);
+    if (openTab === 'subject') api.getState().setInspectorTab('data');
+  }, [api, openTab]);
 
   // Les tests vont avec la campagne enregistrée : on sauvegarde d'abord.
   const openTest = useCallback(async () => {

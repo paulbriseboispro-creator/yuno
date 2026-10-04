@@ -56,6 +56,8 @@ export interface NewDraft {
   eventId: string | null;
   audiences: CrmAudience[];
   exclusions: AudienceExclusions;
+  /** Heures calmes par défaut (Réglages d'envoi). */
+  quietHours: boolean;
 }
 
 /**
@@ -86,6 +88,7 @@ export async function createDraftFromTemplate(d: NewDraft): Promise<string> {
     audience_type: d.audiences.length ? 'imported_list' : null,
     exclusions_json: d.exclusions,
     template_kind: d.kind,
+    quiet_hours: d.quietHours,
     status: 'draft',
     venue_id: d.venueId,
     organizer_user_id: d.organizerUserId,
