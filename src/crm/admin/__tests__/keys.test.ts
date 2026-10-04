@@ -59,3 +59,18 @@ describe('Admin CRM : dictionnaire', () => {
     expect(missing).toEqual([]);
   });
 });
+
+describe('Admin : une clé n’est définie qu’une fois', () => {
+  it('aucune clé en double entre les modules (la dernière écraserait l’autre en silence)', () => {
+    const dir = join(process.cwd(), 'src/i18n/locales/admin/modules');
+    const seen = new Map<string, string>();
+    const dup: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.ts'))) {
+      for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/^\s*'([A-Za-z0-9_.]+)':\s*\[/gm)) {
+        if (seen.has(m[1])) dup.push(`${m[1]} (${seen.get(m[1])} / ${f})`);
+        else seen.set(m[1], f);
+      }
+    }
+    expect(dup).toEqual([]);
+  });
+});
