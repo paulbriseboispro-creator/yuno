@@ -100,6 +100,7 @@ BEGIN
   END LOOP;
 
   PERFORM public.ticketing_after_sync(v_conn);
+  PERFORM public.ticketing_refresh_stats(v_conn);
 
   -- 3. Envois reliés à leur soirée (le nom de l'envoi contient son titre).
   UPDATE public.email_campaigns c SET event_id = e.id
