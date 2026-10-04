@@ -10,6 +10,7 @@ import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { reveal } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 
@@ -51,6 +52,7 @@ export function ClientsTable({
   /** Change à chaque « En segment » de la barre de sélection : ouvre le champ de nom. */
   saveSignal?: number;
 }) {
+  const caps = useCrmCaps();
   const T = useCrmT();
   const { t, tp, n, eur, pct, locale } = T;
   const [pop, setPop] = useState<FilterKey | null>(null);
@@ -195,9 +197,9 @@ export function ClientsTable({
                 <button type="button" onClick={() => onPickSaved(v)} style={{ border: 0, background: 'none', padding: 0, color: 'inherit', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, font: 'inherit' }}>
                   {v.name}<span style={{ fontSize: 13, fontWeight: 500, color: on ? 'rgba(255,255,255,.7)' : 'var(--sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(v.n)}</span>
                 </button>
-                <Hv as="button" type="button" onClick={() => onDeleteSaved(v)} aria-label={t('yc.cli.list.segDelete')} title={t('yc.cli.list.segDelete')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: on ? 'rgba(255,255,255,.7)' : 'var(--sand-500)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(0,0,0,.08)' }}>
+                {caps.write && (<Hv as="button" type="button" onClick={() => onDeleteSaved(v)} aria-label={t('yc.cli.list.segDelete')} title={t('yc.cli.list.segDelete')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: on ? 'rgba(255,255,255,.7)' : 'var(--sand-500)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(0,0,0,.08)' }}>
                   <Icon name="x" size={12} stroke={2.6} />
-                </Hv>
+                </Hv>)}
               </span>
             );
           })}
@@ -278,7 +280,7 @@ export function ClientsTable({
           <span>{pcTxt}</span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px' }}>
-          {(saving || (hasFilt && !activeSaved && total > 0)) && (saving ? (
+          {caps.write && (saving || (hasFilt && !activeSaved && total > 0)) && (saving ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, animation: 'yc-pop 200ms cubic-bezier(.22,1,.36,1)' }}>
               <input
                 ref={svRef}
@@ -299,7 +301,7 @@ export function ClientsTable({
             <TextBtn onClick={() => { setSaving(true); setSvName(''); }} icon={<Icon d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" size={15} stroke={2.2} />}>{t('yc.cli.list.saveSeg')}</TextBtn>
           ))}
           {hasFilt && <TextBtn color="var(--red-600)" hover="var(--red-700)" onClick={() => { setQ(''); setDef({ seg: 'all', f: {} }); }}>{t('yc.cli.list.clearFilters')}</TextBtn>}
-          <TextBtn onClick={onExport} icon={<Icon name="download" size={15} stroke={2.2} />}>{t('yc.cli.list.export')}</TextBtn>
+          {caps.write && <TextBtn onClick={onExport} icon={<Icon name="download" size={15} stroke={2.2} />}>{t('yc.cli.list.export')}</TextBtn>}
         </div>
       </div>
 
@@ -315,11 +317,11 @@ export function ClientsTable({
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 990 }}>
           <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderTop: '1px solid var(--sand-100)', borderBottom: '1px solid var(--sand-100)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>
-            <CheckBox
+            {caps.write ? <CheckBox
               state={allSelVis ? 'on' : visSel > 0 ? 'part' : 'off'}
               label={t('yc.cli.list.selectAll')}
               onClick={() => { if (allSelVis) { setSel([]); setSelAll(false); } else { setSel(vis.map((c) => c.email)); setSelAll(false); } }}
-            />
+            /> : <span />}
             {hd('name', t('yc.cli.list.col.client'))}
             <span>{t('yc.cli.list.col.status')}</span>
             {hd('n', t('yc.cli.list.col.nights'))}
@@ -360,7 +362,7 @@ export function ClientsTable({
                   rowH={rowH}
                   selected={selAll || selSet.has(c.email)}
                   onOpen={() => onOpen(c.email)}
-                  onToggle={() => {
+                  onToggle={!caps.write ? undefined : () => {
                     if (selAll) { setSelAll(false); setSel(vis.filter((x) => x.email !== c.email).map((x) => x.email)); return; }
                     setSel((cur) => (cur.includes(c.email) ? cur.filter((x) => x !== c.email) : [...cur, c.email]));
                   }}
@@ -425,7 +427,7 @@ export function CheckBox({ state, label, onClick }: { state: 'on' | 'off' | 'par
 function Row({
   c, i, rowH, selected, onOpen, onToggle, now, locale, fmt,
 }: {
-  c: ClientRow; i: number; rowH: number; selected: boolean; onOpen: () => void; onToggle: () => void; now: number; locale: string;
+  c: ClientRow; i: number; rowH: number; selected: boolean; onOpen: () => void; onToggle?: () => void; now: number; locale: string;
   fmt: { n: (v: number) => string; eur: (v: number) => string; t: (k: string, v?: Record<string, string | number>) => string; tp: (k: string, n: number) => string };
 }) {
   const { n, eur, t, tp } = fmt;
@@ -447,7 +449,7 @@ function Row({
       }}
       hover={{ background: selected ? 'var(--red-50)' : 'var(--paper)' }}
     >
-      <CheckBox state={selected ? 'on' : 'off'} label={t('yc.cli.list.select')} onClick={onToggle} />
+      {onToggle ? <CheckBox state={selected ? 'on' : 'off'} label={t('yc.cli.list.select')} onClick={onToggle} /> : <span />}
       <span style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ flex: 'none', width: 40, height: 40, borderRadius: 99, background: av[0], color: av[1], display: 'grid', placeItems: 'center', fontSize: 13.5, fontWeight: 600 }}>{initials(c.first_name, c.last_name, c.email)}</span>
         <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>

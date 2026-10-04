@@ -31,7 +31,8 @@ export function SegmentsTable({
   setGroup: (g: SegGroup) => void;
   loading: boolean;
   onOpen: (key: string) => void;
-  onNew: () => void;
+  /** Absent pour un lecteur : pas de bouton « Créer ». */
+  onNew?: () => void;
 }) {
   const T = useCrmT();
   const { t, tp, n, eur, pct } = T;
@@ -164,9 +165,9 @@ export function SegmentsTable({
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '56px 24px', textAlign: 'center' }}>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('yc.seg.mine.none')}</span>
               <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-500)', maxWidth: 420, textWrap: 'pretty' }}>{t('yc.seg.mine.noneHint')}</span>
-              <Hv as="button" type="button" onClick={onNew} style={{ marginTop: 8, height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>
+              {onNew && (<Hv as="button" type="button" onClick={onNew} style={{ marginTop: 8, height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>
                 {t('yc.seg.new')}
-              </Hv>
+              </Hv>)}
             </div>
           ) : (
             <div>

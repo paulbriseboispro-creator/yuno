@@ -13,6 +13,7 @@ import { useCrmShell } from '@/crm/data/shell';
 import { setPendingAudience, useAudienceCount } from '@/crm/data/clients';
 import type { ClientFilterDef } from '@/crm/data/clients';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { useCrmCaps } from '@/crm/scope';
 import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
 
 export type WriteScope = 'one' | 'sel' | 'filtered' | 'all';
@@ -48,7 +49,8 @@ export function WriteModal({
   const left = balance - cost;
   const short = left < 0;
   const none = !counts.isLoading && reach === 0;
-  const blocked = none || short || counts.isLoading;
+  const caps = useCrmCaps();
+  const blocked = none || short || counts.isLoading || !caps.write;
   const chLabel = t(ch === 'email' ? 'yc.cli.msg.ch.email' : 'yc.cli.msg.ch.sms');
 
   const go = () => {
@@ -115,6 +117,11 @@ export function WriteModal({
         {none && (
           <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>
             {t('yc.cli.msg.none', { ch: chLabel })}
+          </div>
+        )}
+        {!caps.write && (
+          <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>
+            {t('yc.common.readOnly')}
           </div>
         )}
         {ch === 'sms' && !SMS_MARKETING_LIVE && !none && (

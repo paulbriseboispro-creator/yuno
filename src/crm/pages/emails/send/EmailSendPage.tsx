@@ -25,7 +25,7 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmScope } from '@/crm/scope';
+import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
@@ -111,7 +111,7 @@ export default function EmailSendPage() {
   const options = useSendOptions();
   const analysis = useEmailAnalysis();
   const best = useMemo(() => bestSlots(analysis.data?.grid), [analysis.data]);
-  const readOnly = space.role !== 'owner';
+  const readOnly = !useCrmCaps().write;
   const demo = isDemoEmail(user?.email);
 
   const go = (s: Step) => { setParams((p) => { const x = new URLSearchParams(p); x.set('step', s); return x; }, { replace: false }); window.scrollTo(0, 0); };

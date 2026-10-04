@@ -29,7 +29,7 @@ const dict: CrmDict = {
   'yc.em.st.next': ['Continue', 'Continuer', 'Continuar'],
   'yc.em.st.sentRedirect': ['This email has already left. Here are its results.', 'Cet e-mail est déjà parti. Voici ses résultats.', 'Este e-mail ya salió. Estos son sus resultados.'],
   'yc.em.st.notFound': ['This email doesn’t exist or isn’t in this space.', 'Cet e-mail n’existe pas ou n’est pas dans cet espace.', 'Este e-mail no existe o no está en este espacio.'],
-  'yc.em.st.readOnly': ['Only the account holder can edit emails for now. You can look, not change.', 'Pour l’instant, seul le titulaire du compte modifie les e-mails. Vous pouvez regarder, pas changer.', 'Por ahora, solo el titular de la cuenta edita los e-mails. Puede mirar, no cambiar.'],
+  'yc.em.st.readOnly': ['Your role (Viewer) lets you look at this email, not change it.', 'Votre rôle (Lecteur) permet de regarder cet e-mail, pas de le modifier.', 'Su rol (Lector) permite ver este e-mail, no modificarlo.'],
   'yc.em.st.scheduled': ['Leaves on {date} at {time}. Your changes are saved until then.', 'Part le {date} à {time}. Vos modifications sont prises en compte jusque-là.', 'Sale el {date} a las {time}. Sus cambios se guardan hasta entonces.'],
   'yc.em.st.scheduledSoon': ['Leaves in {n} min: a half-finished change could leave as is.', 'Part dans {n} min : une retouche à moitié faite peut partir telle quelle.', 'Sale en {n} min: un cambio a medias podría salir tal cual.'],
   'yc.em.st.unschedule': ['Cancel the send', 'Annuler l’envoi', 'Cancelar el envío'],

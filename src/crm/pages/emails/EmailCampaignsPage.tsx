@@ -18,6 +18,7 @@ import { EASE } from '@/crm/ui/motion';
 import { Rich } from '@/crm/ui/Rich';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { useEmailAnalysis, useEmailAudienceSizes, useEmailCampaigns, useInvalidateEmails } from '@/crm/data/emails';
 import type { EmailCampaignRow } from '@/crm/data/emails';
 import { deleteDrafts, duplicateCampaigns, unscheduleCampaign } from '@/crm/data/emailActions';
@@ -60,6 +61,7 @@ export default function EmailCampaignsPage() {
   const view = sp.get('v') === 'cal' ? 'cal' : 'list';
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<Sort>('def');
+  const caps = useCrmCaps();
   const [sel, setSel] = useState<string[]>([]);
   const [menu, setMenu] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -169,7 +171,7 @@ export default function EmailCampaignsPage() {
           <div className="yc-noscroll" style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 900 }}>
               <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 16, alignItems: 'center', padding: '14px 24px', borderBottom: '1px solid var(--sand-100)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-400)' }}>
-                <Tick on={allOn} onClick={() => setSel(allOn ? [] : list.map((c) => c.id))} label={t('yc.em.ca.sel.all')} />
+                {caps.write ? <Tick on={allOn} onClick={() => setSel(allOn ? [] : list.map((c) => c.id))} label={t('yc.em.ca.sel.all')} /> : <span />}
                 <span>{t('yc.em.ca.col.c')}</span><span>{t('yc.em.ca.col.s')}</span><span>{t('yc.em.ca.col.w')}</span><span>{t('yc.em.ca.col.r')}</span><span />
               </div>
               {list.map((c, i) => {
@@ -190,6 +192,8 @@ export default function EmailCampaignsPage() {
                 const nfg = ready ? 'var(--red-700)' : c.status === 'draft' ? 'var(--amber-700)' : 'var(--sand-600)';
                 const main = c.status === 'sent' ? CRM_ROUTES.emailResults(c.id) : CRM_ROUTES.emailStudio(c.id);
                 const go = c.status === 'sent' ? { l: t('yc.em.ca.go.results'), to: CRM_ROUTES.emailResults(c.id), brand: false }
+                  // Un lecteur regarde l'e-mail, il ne le valide ni ne le reprend.
+                  : !caps.write && (c.status === 'draft' || c.status === 'scheduled') ? { l: t('yc.em.ca.go.view'), to: CRM_ROUTES.emailStudio(c.id), brand: false }
                   : c.status === 'scheduled' ? { l: t('yc.em.ca.go.edit'), to: CRM_ROUTES.emailStudio(c.id), brand: false }
                     : ready ? { l: t('yc.em.ca.go.validate'), to: CRM_ROUTES.emailSend(c.id), brand: true }
                       : c.status === 'draft' ? { l: t('yc.em.ca.go.resume'), to: CRM_ROUTES.emailStudio(c.id), brand: false }
@@ -198,7 +202,7 @@ export default function EmailCampaignsPage() {
                 const [sbg, sfg] = ST[c.status] ?? ST.draft;
                 return (
                   <Hv key={c.id} style={{ position: 'relative', display: 'grid', gridTemplateColumns: GRID, gap: 16, alignItems: 'center', padding: '14px 24px', borderBottom: '1px solid var(--sand-100)', background: on ? 'var(--red-50)' : 'transparent', animation: `yc-row 520ms ${EASE} ${Math.min(i, 10) * 45 + 480}ms both`, transition: 'background 140ms' }} hover={{ background: on ? 'var(--red-50)' : 'var(--paper)' }}>
-                    <Tick on={on} onClick={() => setSel(on ? sel.filter((x) => x !== c.id) : [...sel, c.id])} label={t('yc.em.ca.sel.one1')} />
+                    {caps.write ? <Tick on={on} onClick={() => setSel(on ? sel.filter((x) => x !== c.id) : [...sel, c.id])} label={t('yc.em.ca.sel.one1')} /> : <span />}
                     <Hv as={Link} to={main} style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, color: 'var(--ink)', textDecoration: 'none' }} hover={{ color: 'var(--ink)', textDecoration: 'none' }}>
                       <span style={{ flex: 'none', width: 48, height: 60, borderRadius: 8, overflow: 'hidden', background: th.bg ?? '#fff', boxShadow: '0 0 0 1px var(--sand-200)', display: 'flex', flexDirection: 'column' }}>
                         <span style={{ height: 12, background: th.headerBg ?? 'var(--red-500)' }} />
@@ -238,9 +242,9 @@ export default function EmailCampaignsPage() {
                     {menu === c.id && (
                       <div role="menu" onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: 24, top: 58, zIndex: 20, width: 230, boxSizing: 'border-box', padding: 6, borderRadius: 18, background: '#fff', boxShadow: 'var(--shadow-md),0 0 0 1px var(--sand-200)', transformOrigin: 'top right', animation: `yc-pop 180ms ${EASE} both` }}>
                         <MenuLink to={c.status === 'sent' ? CRM_ROUTES.emailResults(c.id) : CRM_ROUTES.emailStudio(c.id)} d={c.status === 'sent' ? IC.chart : IC.edit} l={t(c.status === 'sent' ? 'yc.em.ca.m.results' : 'yc.em.ca.m.edit')} />
-                        <MenuBtn d={IC.copy} l={t('yc.em.ca.m.dup')} onClick={() => void dup([c.id])} />
-                        {c.status === 'scheduled' && <MenuBtn d={IC.undo} l={t('yc.em.ca.m.unsched')} onClick={() => void unsched(c.id)} />}
-                        {c.status === 'draft' && <MenuBtn d={IC.trash} l={t('yc.em.ca.m.del')} onClick={() => del([c.id])} danger />}
+                        {caps.write && <MenuBtn d={IC.copy} l={t('yc.em.ca.m.dup')} onClick={() => void dup([c.id])} />}
+                        {caps.write && c.status === 'scheduled' && <MenuBtn d={IC.undo} l={t('yc.em.ca.m.unsched')} onClick={() => void unsched(c.id)} />}
+                        {caps.write && c.status === 'draft' && <MenuBtn d={IC.trash} l={t('yc.em.ca.m.del')} onClick={() => del([c.id])} danger />}
                       </div>
                     )}
                   </Hv>
@@ -261,7 +265,7 @@ export default function EmailCampaignsPage() {
         <Calendar campaigns={all} locale={locale} />
       )}
 
-      {sel.length > 0 && (
+      {sel.length > 0 && caps.write && (
         <div role="toolbar" style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 60, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 8px 20px', borderRadius: 99, background: 'var(--ink)', color: '#fff', boxShadow: 'var(--shadow-md)', animation: `yc-toast-in 260ms ${EASE} both` }}>
           <span style={{ fontSize: 14.5, fontWeight: 600, marginRight: 10, whiteSpace: 'nowrap' }}>{tp('yc.em.ca.sel', sel.length)}</span>
           <Hv as="button" type="button" onClick={() => void dup(sel)} style={{ height: 38, padding: '0 16px', border: 0, borderRadius: 99, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'rgba(255,255,255,.22)' }}>{t('yc.em.ca.m.dup')}</Hv>

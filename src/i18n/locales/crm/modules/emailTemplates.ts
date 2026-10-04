@@ -46,7 +46,7 @@ const dict: CrmDict = {
   'yc.em.tp.m.use': ['Use this template', 'Utiliser ce modèle', 'Usar esta plantilla'],
   'yc.em.tp.m.creating': ['Creating…', 'Création…', 'Creando…'],
   'yc.em.tp.err': ['The draft could not be created. Try again.', 'Le brouillon n’a pas pu être créé. Réessayez.', 'No se pudo crear el borrador. Inténtelo de nuevo.'],
-  'yc.em.tp.ownerOnly': ['Only the account holder can create emails for now.', 'Pour l’instant, seul le titulaire du compte peut créer des e-mails.', 'Por ahora, solo el titular de la cuenta puede crear e-mails.'],
+  'yc.em.tp.ownerOnly': ['Your role (Viewer) doesn’t allow creating emails.', 'Votre rôle (Lecteur) ne permet pas de créer d’e-mails.', 'Su rol (Lector) no permite crear e-mails.'],
   'yc.em.tp.newName': ['New campaign', 'Nouvelle campagne', 'Nueva campaña'],
   // Briques (« Ce qu'il contient »)
   'yc.em.tp.p.header': ['Header', 'En-tête', 'Cabecera'],

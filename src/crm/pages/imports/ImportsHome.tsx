@@ -12,7 +12,7 @@ import { Modal, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING, reveal } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmScope } from '@/crm/scope';
+import { useCrmScope, useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { downloadText } from '@/crm/lib/csv';
 import { TEMPLATE_CSV, normEmail, normTel } from '@/crm/lib/fileImport';
@@ -76,6 +76,7 @@ export function ImportsHome({
     if (r === 'ok') setTimeout(refresh, 20_000);
   };
 
+  const canWrite = useCrmCaps().write;
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setDrag(false);
@@ -172,7 +173,7 @@ export function ImportsHome({
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 12px', paddingTop: 20, borderTop: '1px solid var(--sand-100)' }}>
-            {state === 'on' && (
+            {state === 'on' && canWrite && (
               <Hv as="button" type="button" onClick={() => void syncNow()} style={{ height: 46, padding: '0 20px 0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', boxShadow: 'var(--shadow-xs)', whiteSpace: 'nowrap', transition: `translate 240ms ${EASE},box-shadow 240ms,border-color 200ms` }} hover={{ translate: '0 -2px', boxShadow: 'var(--shadow-md)', borderColor: 'var(--sand-300)' }} active={{ translate: '0 0' }}>
                 <Icon name="refresh" size={17} stroke={2.2} style={{ animation: syncing ? 'yc-spin 800ms linear infinite' : 'none' }} />{t(syncing ? 'yc.imp.sync.reading' : 'yc.imp.sync.now')}
               </Hv>
@@ -195,7 +196,7 @@ export function ImportsHome({
         <section
           onDragOver={(e) => { e.preventDefault(); if (!drag) setDrag(true); }}
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDrag(false); }}
-          onDrop={onDrop}
+          onDrop={canWrite ? onDrop : (e) => { e.preventDefault(); setDrag(false); }}
           onMouseEnter={() => setHov(true)}
           onMouseLeave={() => setHov(false)}
           style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,30px)', borderRadius: 28, background: drag ? 'var(--red-50)' : '#fff', boxShadow: drag ? 'inset 0 0 0 2px var(--red-400),var(--shadow-md)' : hov ? 'inset 0 0 0 1px var(--sand-300),var(--shadow-md)' : 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)', ...reveal(intro, 400, 'background 240ms') }}
@@ -232,9 +233,11 @@ export function ImportsHome({
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 12px', paddingTop: 20, borderTop: '1px solid var(--sand-100)' }}>
+            {canWrite ? (
             <Hv as="button" type="button" onClick={onOpenWizard} style={{ height: 46, padding: '0 5px 0 22px', border: 0, borderRadius: 99, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }} hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }} active={{ transform: 'scale(.97)' }}>
               {t('yc.imp.file.pick')}<span style={{ width: 36, height: 36, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon name="upload" size={16} stroke={2.4} /></span>
             </Hv>
+            ) : <span style={{ fontSize: 14, color: 'var(--sand-600)' }}>{t('yc.common.readOnly')}</span>}
             <Hv as="button" type="button" onClick={() => { downloadText('modele-import-yuno.csv', TEMPLATE_CSV); toast(t('yc.imp.templateDone')); }} style={{ height: 46, padding: '0 14px', border: 0, background: 'none', borderRadius: 99, fontSize: 15, fontWeight: 600, color: 'var(--sand-600)', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} hover={{ color: 'var(--ink)', background: 'var(--sand-50)' }}>
               <Icon name="download" size={16} stroke={2.2} />{t('yc.imp.file.template')}
             </Hv>
@@ -286,7 +289,7 @@ export function ImportsHome({
               add={undone ? null : t('yc.imp.histNew', { n: n(h.new) })}
               dup={undone ? null : t('yc.imp.histDup', { n: n(h.existing + h.dup) })}
               undone={undone}
-              action={!undone ? (
+              action={!undone && canWrite ? (
                 <Hv as="button" type="button" onClick={() => setConfirm(h)} style={{ height: 36, padding: '0 14px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--sand-700)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }} hover={{ borderColor: 'var(--red-200)', background: 'var(--red-50)', color: 'var(--red-600)' }}>
                   <Icon d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" size={14} stroke={2.2} />{t('yc.imp.histUndo')}
                 </Hv>

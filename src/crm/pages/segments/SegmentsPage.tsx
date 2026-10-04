@@ -17,7 +17,7 @@ import { Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING, reveal, useIntro, useProgress } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmScope } from '@/crm/scope';
+import { useCrmScope, useCrmCaps } from '@/crm/scope';
 import { CrmRpcError, rpc } from '@/crm/lib/rpc';
 import { downloadCsv } from '@/crm/lib/csv';
 import { useDeleteSegment, useSaveSegment } from '@/crm/data/clients';
@@ -40,6 +40,7 @@ import type { SegVM } from './vm';
 type View = 'ens' | 'rep' | 'env';
 
 export default function SegmentsPage() {
+  const caps = useCrmCaps();
   const T = useCrmT();
   const { t, tp, n, pct, n1 } = T;
   const toast = useCrmToast();
@@ -183,7 +184,7 @@ export default function SegmentsPage() {
           </h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 660, ...reveal(intro, 260) }}>{t('yc.seg.sub')}</p>
         </div>
-        <div style={reveal(intro, 320)}>
+        {caps.write && <div style={reveal(intro, 320)}>
           <Hv
             as="button"
             type="button"
@@ -195,7 +196,7 @@ export default function SegmentsPage() {
             {t('yc.seg.new')}
             <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon name="plus" size={16} stroke={2.6} /></span>
           </Hv>
-        </div>
+        </div>}
       </div>
 
       {ov.isError && !data && (
@@ -260,7 +261,7 @@ export default function SegmentsPage() {
                 setGroup={setGroup}
                 loading={!data}
                 onOpen={(k) => patch({ s: k })}
-                onNew={() => setNw(true)}
+                onNew={caps.write ? () => setNw(true) : undefined}
               />
             )}
             {view === 'rep' && data && <BestView segs={segs} period={period} onOpen={(k) => patch({ s: k })} />}

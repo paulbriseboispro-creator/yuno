@@ -17,7 +17,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { StoreApi } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmScope } from '@/crm/scope';
+import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmToast } from '@/crm/ui/toast';
 import { YunitFace } from '@/crm/ui/YunitFace';
@@ -60,12 +60,12 @@ function StudioCreate() {
   const [params] = useSearchParams();
   const draft = useTemplateDraft(params.get('event'));
   const started = useRef(false);
-  const { space } = useCrmScope();
+  const caps = useCrmCaps();
 
   useEffect(() => {
     if (started.current || !draft.ready) return;
     started.current = true;
-    if (space.role !== 'owner') { toast(t('yc.em.tp.ownerOnly')); nav(CRM_ROUTES.emailCampaigns, { replace: true }); return; }
+    if (!caps.write) { toast(t('yc.em.tp.ownerOnly')); nav(CRM_ROUTES.emailCampaigns, { replace: true }); return; }
     const dup = params.get('dup');
     const job = dup
       ? duplicateCampaigns([dup], t('yc.em.tp.copy')).then((ids) => ids[0])
@@ -73,7 +73,7 @@ function StudioCreate() {
     job
       .then((newId) => { invalidate(); nav(CRM_ROUTES.emailStudio(newId), { replace: true }); })
       .catch(() => { toast(t('yc.em.tp.err')); nav(CRM_ROUTES.emailTemplates, { replace: true }); });
-  }, [draft, params, nav, toast, t, invalidate, space.role]);
+  }, [draft, params, nav, toast, t, invalidate, caps.write]);
 
   return <Centered><YunitFace mood="content" size={56} /></Centered>;
 }
@@ -156,7 +156,8 @@ function StudioBody() {
   const api = useStudioApi();
   const invalidate = useInvalidateEmails();
   const ui = useStudioUi();
-  const readOnly = space.role !== 'owner';
+  // Lecteur : le modèle se lit, rien ne s'enregistre (le serveur refuse de toute façon).
+  const readOnly = !useCrmCaps().write;
   const narrow = useNarrow(1100);
   const [failed, setFailed] = useState(false);
 

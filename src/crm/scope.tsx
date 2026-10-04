@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
 import { useAuth } from '@/hooks/useAuth';
 import { rememberActingOrganizer } from '@/hooks/useActingOrganizer';
+import { crmCaps, type CrmCaps } from '@/crm/lib/roles';
 
 export type CrmSpaceRole = 'owner' | 'manager' | 'admin' | 'editor' | 'viewer';
 
@@ -106,4 +107,9 @@ export function useCrmScope(): CrmScope {
   const v = useContext(Ctx);
   if (!v) throw new Error('useCrmScope hors de la Console CRM');
   return v;
+}
+
+/** Ce que le rôle de la personne permet dans l'espace ouvert (miroir des portes serveur). */
+export function useCrmCaps(): CrmCaps {
+  return crmCaps(useCrmScope().space.role);
 }

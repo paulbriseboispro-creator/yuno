@@ -12,6 +12,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { Modal } from '@/crm/ui/kit';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 
 export type EmailsTab = 'home' | 'campaigns' | 'analysis' | 'templates' | 'settings';
@@ -58,6 +59,7 @@ export function EmailsShell({
   tab, title, sub, drafts, children, kicker, hideNew = false,
 }: { tab: EmailsTab; title: ReactNode; sub: string; drafts: number; children: ReactNode; kicker?: string; hideNew?: boolean }) {
   const { t } = useCrmT();
+  const caps = useCrmCaps();
   const [open, setOpen] = useState(false);
   return (
     <main style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 72px', display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -68,7 +70,7 @@ export function EmailsShell({
             <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...enter(170) }}>{title}</h1>
             <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 640, ...enter(240) }}>{sub}</p>
           </div>
-          {!hideNew && <div style={enter(300)}>
+          {!hideNew && caps.write && <div style={enter(300)}>
             <Hv
               as="button"
               type="button"

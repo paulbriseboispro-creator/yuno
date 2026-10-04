@@ -16,6 +16,7 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { EASE } from '@/crm/ui/motion';
 import { useNarrow } from '@/crm/ui/useNarrow';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useEmailResult, useInvalidateEmails, type EmailResult } from '@/crm/data/emails';
 import { duplicateCampaigns } from '@/crm/data/emailActions';
@@ -84,7 +85,10 @@ function ResultView({ r }: { r: EmailResult }) {
   const sent = r.sent_at ? new Date(r.sent_at) : null;
   const s = r.stats;
   const nonOpeners = s?.non_openers ?? 0;
-  const resend = resendState(r);
+  const caps = useCrmCaps();
+  // Un lecteur voit si un renvoi est prévu ou fait, jamais le bouton qui le lance.
+  const resend0 = resendState(r);
+  const resend = !caps.write && resend0 === 'open' ? 'none' : resend0;
   const narrow = useNarrow(640);
 
   const dup = async () => {
@@ -129,9 +133,11 @@ function ResultView({ r }: { r: EmailResult }) {
                 {picks.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             )}
+{caps.write && (
             <Hv as="button" type="button" onClick={dup} disabled={dupBusy} style={{ height: 44, padding: '0 18px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'flex', alignItems: 'center', cursor: 'pointer', opacity: dupBusy ? 0.6 : 1 }} hover={{ borderColor: 'var(--sand-300)' }}>
               {t('yc.em.rs.dup')}
             </Hv>
+            )}
             {resend === 'open' && (
               <Hv as="button" type="button" onClick={() => setResendOpen(true)} style={{ height: 44, padding: '0 5px 0 18px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--shadow-cta)', whiteSpace: 'nowrap', cursor: 'pointer' }} hover={{ filter: 'brightness(1.05)' }}>
                 {tp('yc.em.rs.resendBtn', nonOpeners, { n: n(nonOpeners) })}

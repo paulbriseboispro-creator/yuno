@@ -11,6 +11,7 @@ import { Sheet, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { useClientCard, useSaveClient } from '@/crm/data/clients';
 import type { ClientCard } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
@@ -105,6 +106,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const { t, tp, n, eur, locale } = T;
   const toast = useCrmToast();
   const save = useSaveClient();
+  const canEdit = useCrmCaps().write;
   const [entered, setEntered] = useState(false);
   const [tlf, setTlf] = useState<'all' | 'buy' | 'msg'>('all');
   const [tlAll, setTlAll] = useState(false);
@@ -375,12 +377,12 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
           {tags.map((g) => (
             <span key={g} style={{ height: 30, padding: '0 6px 0 12px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-700)', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               {g}
-              <Hv as="button" type="button" onClick={() => persistTags(tags.filter((x) => x !== g))} aria-label={t('yc.cli.card.tagDel')} style={{ width: 22, height: 22, border: 0, borderRadius: 99, background: 'none', color: 'var(--sand-500)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'var(--sand-200)', color: 'var(--ink)' }}>
+              {canEdit && <Hv as="button" type="button" onClick={() => persistTags(tags.filter((x) => x !== g))} aria-label={t('yc.cli.card.tagDel')} style={{ width: 22, height: 22, border: 0, borderRadius: 99, background: 'none', color: 'var(--sand-500)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'var(--sand-200)', color: 'var(--ink)' }}>
                 <Icon name="x" size={11} stroke={2.8} />
-              </Hv>
+              </Hv>}
             </span>
           ))}
-          <input
+          {canEdit && <input
             value={tagIn}
             onChange={(e) => setTagIn(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagIn); } }}
@@ -389,9 +391,9 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
             aria-label={t('yc.cli.card.tagAdd')}
             maxLength={24}
             style={{ height: 30, width: 112, padding: '0 12px', borderRadius: 99, border: '1px dashed var(--sand-300)', outline: 0, background: 'transparent', font: '500 13.5px/1 var(--font-body)', color: 'var(--ink)', boxShadow: 'none' }}
-          />
+          />}
         </div>
-        {sugg.length > 0 && (
+        {canEdit && sugg.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {sugg.map((l) => (
               <Hv key={l} as="button" type="button" onClick={() => addTag(l)} style={{ height: 26, padding: '0 10px', borderRadius: 99, border: '1px dashed var(--sand-300)', background: 'none', color: 'var(--sand-500)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-500)', color: 'var(--ink)' }}>
@@ -401,6 +403,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
           </div>
         )}
         <textarea
+          readOnly={!canEdit}
           value={note}
           onChange={(e) => onNote(e.target.value)}
           onBlur={flushNote}

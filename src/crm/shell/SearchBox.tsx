@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/crm/ui/Icon';
 import type { IconName } from '@/crm/ui/Icon';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { useCrmSearch } from '@/crm/data/shell';
 import { CRM_ROUTES } from './nav';
 
@@ -26,6 +27,7 @@ const TL: Record<string, [string, string, string]> = {
 
 export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; balance: number | null }) {
   const { t, n, dShort, dWeek, time } = useCrmT();
+  const caps = useCrmCaps();
   const nav = useNavigate();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -111,8 +113,10 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
         { g: 'actions', tone: 'actions', icon: 'coin', t: t('yc.top.a.recharge'), m: balance === null ? '' : t('yc.top.a.rechargeSub', { n: n(balance) }), to: CRM_ROUTES.yunits },
       ];
     const recent = [...nights, ...campaigns];
-    return ([[t('yc.top.g.recent'), recent], [t('yc.top.g.actions'), actions]] as [string, Item[]][]).filter((x) => x[1].length);
-  }, [search.data, term, pages, t, n, dShort, dWeek, time, hasConnection, balance]);
+    // Un lecteur ne crée ni n'importe : seules les pages restent.
+    const allowed = caps.write ? actions : actions.filter((a) => a.to === CRM_ROUTES.yunits || a.to === CRM_ROUTES.connectors);
+    return ([[t('yc.top.g.recent'), recent], [t('yc.top.g.actions'), allowed]] as [string, Item[]][]).filter((x) => x[1].length);
+  }, [search.data, term, pages, t, n, dShort, dWeek, time, hasConnection, balance, caps.write]);
 
   const flat = groups.flatMap((g) => g[1]);
   const actC = Math.min(act, Math.max(0, flat.length - 1));

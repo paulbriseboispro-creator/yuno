@@ -15,7 +15,7 @@ import { Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmScope } from '@/crm/scope';
+import { useCrmScope, useCrmCaps } from '@/crm/scope';
 import { useEmailCampaigns, useEmailSettings, useSaveEmailSettings, type EmailSettings } from '@/crm/data/emails';
 import { useFeatureWaitlist } from '@/crm/data/soon';
 import { MARKETING_DOMAIN } from '@/crm/lib/emails';
@@ -66,6 +66,7 @@ function SettingsForm({ settings }: { settings: EmailSettings }) {
   const { space } = useCrmScope();
   const toast = useCrmToast();
   const save = useSaveEmailSettings();
+  const canWrite = useCrmCaps().write;
   const [base, setBase] = useState<Form>(() => toForm(settings));
   const [f, setF] = useState<Form>(base);
   const [newTest, setNewTest] = useState('');
@@ -100,7 +101,10 @@ function SettingsForm({ settings }: { settings: EmailSettings }) {
 
   return (
     <>
+      {/* Un lecteur lit les réglages : le fieldset désactive tous les champs d'un coup. */}
+      <fieldset disabled={!canWrite} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, paddingBottom: dirty ? 80 : 0 }}>
+        {!canWrite && <div style={{ padding: '12px 16px', borderRadius: 16, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>{t('yc.common.readOnly')}</div>}
         <Sender f={f} set={set} shownName={shownName} from={`${settings.from_local}@${MARKETING_DOMAIN}`} defaults={settings.defaults} replyBad={replyBad} />
         <Domain />
         <Footer f={f} set={set} defaults={settings.defaults} />
@@ -136,7 +140,8 @@ function SettingsForm({ settings }: { settings: EmailSettings }) {
           </div>
         </section>
       </div>
-      {dirty && (
+      </fieldset>
+      {dirty && canWrite && (
         <div role="region" aria-label={t('yc.em.rg.dirty')} style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 60, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 8px 8px 20px', borderRadius: 99, background: 'var(--ink)', color: '#fff', boxShadow: 'var(--shadow-md)', maxWidth: 'calc(100vw - 24px)', boxSizing: 'border-box', animation: `yc-toast-in 260ms ${EASE} both` }}>
           <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('yc.em.rg.dirty')}</span>
           <Hv as="button" type="button" onClick={() => setF(base)} style={{ flex: 'none', height: 38, padding: '0 16px', border: 0, borderRadius: 99, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'rgba(255,255,255,.22)' }}>

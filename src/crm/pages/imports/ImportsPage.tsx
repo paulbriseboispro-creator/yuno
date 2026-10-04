@@ -7,6 +7,7 @@ import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useIntro } from '@/crm/ui/motion';
 import { useImportsOverview } from '@/crm/data/imports';
+import { useCrmCaps } from '@/crm/scope';
 import { useClientsList } from '@/crm/data/clients';
 import { ImportsHome } from './ImportsHome';
 import { ImportWizard } from './ImportWizard';
@@ -17,7 +18,9 @@ export default function ImportsPage() {
   const [sp, setSp] = useSearchParams();
   const ov = useImportsOverview();
   const intro = useIntro(!!ov.data);
-  const wizard = sp.get('wizard') === '1';
+  // Un lecteur ne lance pas d'import, même par une adresse ?wizard=1.
+  const canWrite = useCrmCaps().write;
+  const wizard = canWrite && sp.get('wizard') === '1';
   const sample = sp.get('sample') === '1';
   const [file, setFile] = useState<File | null>(null);
   const [run, setRun] = useState(0);

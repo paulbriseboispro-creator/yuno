@@ -18,7 +18,7 @@ import { Modal, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmScope } from '@/crm/scope';
+import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useEmailCampaigns, useInvalidateEmails } from '@/crm/data/emails';
 import { peekPendingAudience, takePendingAudience, type PendingAudience } from '@/crm/data/clients';
@@ -52,7 +52,7 @@ export default function EmailTemplatesPage() {
   const opened = (params.get('m') as CrmTemplateKind | null) ?? null;
   const [pending, setPending] = useState<PendingAudience | null>(() => (params.get('from') === 'audience' ? peekPendingAudience() : null));
   const [busy, setBusy] = useState<string | null>(null);
-  const canWrite = space.role === 'owner';
+  const canWrite = useCrmCaps().write;
 
   const patch = (p: Record<string, string | null>, replace = false) => {
     const next = new URLSearchParams(params);

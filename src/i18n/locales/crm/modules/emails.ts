@@ -205,6 +205,7 @@ const dict: CrmDict = {
   'yc.em.ca.note.paused': ['Paused: Yuno resumes it as soon as possible.', 'En pause : Yuno la reprend dès que possible.', 'En pausa: Yuno la reanuda lo antes posible.'],
   'yc.em.ca.note.failed': ['The send failed. Duplicate it to try again.', 'L’envoi a échoué. Dupliquez-la pour réessayer.', 'El envío falló. Duplíquela para volver a intentarlo.'],
   'yc.em.ca.go.results': ['Results', 'Résultats', 'Resultados'],
+  'yc.em.ca.go.view': ['View', 'Voir', 'Ver'],
   'yc.em.ca.go.edit': ['Edit', 'Modifier', 'Modificar'],
   'yc.em.ca.go.validate': ['Validate', 'Valider', 'Validar'],
   'yc.em.ca.go.resume': ['Resume', 'Reprendre', 'Retomar'],

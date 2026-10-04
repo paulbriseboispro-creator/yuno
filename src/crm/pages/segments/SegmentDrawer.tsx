@@ -13,6 +13,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { Segmented, Sheet, Skel } from '@/crm/ui/kit';
 import { EASE, SPRING, clamp01, useProgress, wipe } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { useSegmentDetail } from '@/crm/data/segments';
 import type { MsgStats, SegPeriod } from '@/crm/data/segments';
 import { criteria, clientsHrefFor } from '@/crm/lib/segments';
@@ -134,6 +135,7 @@ function Body({
   const has = m.received > 0;
   const d = deltaText(s, t, n, period);
   const jpc = s.n ? Math.round((s.reachable / s.n) * 100) : 0;
+  const canEdit = useCrmCaps().write;
   const commitRename = () => {
     const nm = renName.trim();
     setRen(false);
@@ -229,7 +231,7 @@ function Body({
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, position: 'relative' }}>
-        {s.reachable > 0 && (
+        {canEdit && s.reachable > 0 && (
           <Hv
             as="button"
             type="button"
@@ -247,10 +249,12 @@ function Body({
             {tp('yc.seg.dr.see', s.n, { n: n(s.n) })}
           </Hv>
         )}
+        {canEdit && (
         <Hv as="button" type="button" onClick={onExport} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }}>
           {t('yc.cli.list.export')}
         </Hv>
-        {custom && (
+        )}
+        {custom && canEdit && (
           <Hv as="button" type="button" onClick={() => setMenu(!menu)} aria-label={t('yc.seg.dr.more')} aria-haspopup="menu" aria-expanded={menu} style={{ width: 44, height: 44, borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }}>
             <Icon name="more" size={18} />
           </Hv>
