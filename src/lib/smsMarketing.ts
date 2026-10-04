@@ -53,6 +53,15 @@ export function gsm7Length(text: string): number {
   return n;
 }
 
+/** Les caractères hors de l'alphabet SMS standard (ils font passer un SMS à 70 caractères). */
+export function nonGsmChars(text: string): string[] {
+  const out: string[] = [];
+  for (const ch of text) {
+    if (!GSM7_BASIC.includes(ch) && !GSM7_EXT.includes(ch) && !out.includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
 export interface SmsSizing {
   encoding: 'GSM-7' | 'UCS-2';
   length: number;
