@@ -25,7 +25,7 @@ import type { SupabaseClient, User } from "https://esm.sh/@supabase/supabase-js@
 import { resolveReturnOrigin } from "../_shared/cors.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import {
-  CRM_PRICE_TIERS, crmBaseLookupKey, crmRechargeQuote, crmScopeKey, parseCrmLookupKey, stripeTrialEnd,
+  CRM_PRICE_TIERS, crmBaseLookupKey, crmCheckoutTiers, crmPublicPricesActive, crmRechargeQuote, crmScopeKey, parseCrmLookupKey, stripeTrialEnd,
   type CrmInterval, type CrmPriceTier,
 } from "../_shared/crm-billing.ts";
 
@@ -40,7 +40,7 @@ export interface CrmActionContext {
 }
 
 export const CRM_ACTIONS = [
-  "crm_overview", "crm_checkout", "crm_switch_interval", "crm_cancel", "crm_resume",
+  "crm_price_status", "crm_overview", "crm_checkout", "crm_switch_interval", "crm_cancel", "crm_resume",
   "crm_portal", "crm_billing_details", "crm_recharge",
 ] as const;
 
@@ -99,9 +99,9 @@ async function ensureCustomer(ctx: CrmActionContext, scope: string, name: string
   return customer.id;
 }
 
-/** Le prix du socle pour ce rythme : le palier demandé s'il est actif, sinon le premier actif. */
-async function basePrice(ctx: CrmActionContext, interval: CrmInterval, prefer?: CrmPriceTier): Promise<Stripe.Price | null> {
-  const tiers = prefer ? [prefer] : CRM_PRICE_TIERS;
+/** Le prix du socle pour ce rythme : le premier palier ACTIF dans l'ordre donné. */
+async function basePrice(ctx: CrmActionContext, interval: CrmInterval, prefer?: CrmPriceTier | readonly CrmPriceTier[]): Promise<Stripe.Price | null> {
+  const tiers: readonly CrmPriceTier[] = Array.isArray(prefer) ? prefer : prefer ? [prefer as CrmPriceTier] : CRM_PRICE_TIERS;
   const keys = tiers.map((t) => crmBaseLookupKey(interval, t));
   const list = await ctx.stripe.prices.list({ lookup_keys: keys, active: true, limit: 10 });
   for (const k of keys) {
@@ -165,6 +165,26 @@ function invoiceKind(inv: Stripe.Invoice): { kind: "subscription" | "recharge" |
 export async function handleCrmAction(ctx: CrmActionContext, action: string, body: Record<string, unknown>): Promise<Response> {
   // Argent : jamais pendant un accès assisté (la session est celle du pro).
   if (await isSupportSessionToken(ctx.admin, ctx.token)) return refuse(ctx, "support_session_forbidden");
+
+  // ── crm_price_status (super admin) ────────────────────────────────────────
+  // LECTURE seule chez Stripe : les quatre prix du socle, actifs ou non. Rien
+  // n'est activé ici (l'activation des prix publics est un geste de Paul dans
+  // Stripe) ; l'état observé est rangé en base pour que le niveau affiché
+  // (crm_price_tier) suive ce que le checkout peut réellement facturer.
+  if (action === "crm_price_status") {
+    const { data: adminRole } = await ctx.admin.from("user_roles").select("user_id")
+      .eq("user_id", ctx.user.id).eq("role", "admin").maybeSingle();
+    if (!adminRole) return refuse(ctx, "forbidden");
+    const keys = (["month", "year"] as const).flatMap((i) => CRM_PRICE_TIERS.map((t) => crmBaseLookupKey(i, t)));
+    const list = await ctx.stripe.prices.list({ lookup_keys: keys, limit: 20 });
+    const prices = keys.map((k) => {
+      const p = list.data.find((x: Stripe.Price) => x.lookup_key === k);
+      return { lookup_key: k, found: !!p, active: p?.active ?? false, amount: p?.unit_amount != null ? p.unit_amount / 100 : null };
+    });
+    const publicActive = crmPublicPricesActive(prices);
+    await ctx.admin.rpc("crm_set_price_state", { p_public_active: publicActive });
+    return ctx.json({ success: true, prices, public_active: publicActive });
+  }
 
   const resolved = await resolveScope(ctx, body);
   if (resolved instanceof Response) return resolved;
@@ -396,10 +416,20 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
   // ── crm_checkout ──────────────────────────────────────────────────────────
   if (action !== "crm_checkout") return refuse(ctx, "unknown_action", 400);
   if (sub) return refuse(ctx, "already_subscribed", 409);
-  const price = await basePrice(ctx, interval);
+  // Le niveau vient de la base (seuil des 50, abonné existant = lancement) ;
+  // le lancement reste TOUJOURS le repli : jamais un paiement qui échoue parce
+  // que le prix public n'est pas (encore) actif chez Stripe.
+  const { data: dueTier } = await ctx.admin.rpc("crm_price_tier_for", { p_scope_key: scope });
+  const tiers = crmCheckoutTiers(dueTier);
+  const price = await basePrice(ctx, interval, tiers);
   if (!price) {
     ctx.log("CRM price missing", { interval });
     return refuse(ctx, "billing_not_configured", 409);
+  }
+  if (dueTier === "public" && parseCrmLookupKey(price.lookup_key)?.tier !== "public") {
+    // Le public était dû mais n'est pas actif : l'affichage revient au lancement.
+    await ctx.admin.rpc("crm_set_price_state", { p_public_active: false });
+    ctx.log("CRM public price inactive, launch used", { interval });
   }
   const tier = parseCrmLookupKey(price.lookup_key)?.tier ?? "launch";
   const customerId = await ensureCustomer(ctx, scope, name, row);
