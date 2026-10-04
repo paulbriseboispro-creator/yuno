@@ -14,9 +14,10 @@ import { Hv } from '@/crm/ui/Hv';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useAdminGesture, useAdminPricing } from '../data';
 import type { PricingCfg } from '../data';
+import LifecycleTab from './LifecycleTab';
 import { card, EmptyNote, PageHead, RowLine, Section, Tabs, pageWrap, useAgo } from '../ui';
 
-type Tab = 'offer' | 'switches' | 'audit';
+type Tab = 'offer' | 'lifecycle' | 'switches' | 'audit';
 const CHANNELS = ['email', 'sms', 'whatsapp', 'instagram'] as const;
 const NUM_KEYS = ['price_month', 'price_month_next', 'price_year', 'price_switch_at', 'trial_days', 'trial_yunits', 'trial_extensions', 'monthly_yunits', 'annual_bonus_yunits'] as const;
 
@@ -24,14 +25,14 @@ export default function SettingsPage() {
   const { t } = useCrmT();
   const [sp, setSp] = useSearchParams();
   const q = useAdminPricing();
-  const tab = (['switches', 'audit'] as const).find((x) => x === sp.get('tab')) ?? 'offer';
+  const tab = (['lifecycle', 'switches', 'audit'] as const).find((x) => x === sp.get('tab')) ?? 'offer';
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   return (
     <main style={pageWrap}>
       <PageHead kicker={t('adm.crm.se.kicker')} title={t('adm.crm.se.title')} sub={t('adm.crm.se.sub')} />
       <Tabs<Tab> value={tab} onChange={(v) => setSp(v === 'offer' ? {} : { tab: v }, { replace: true })}
-        tabs={[{ id: 'offer', label: t('adm.crm.se.t.offer') }, { id: 'switches', label: t('adm.crm.se.t.switches') }, { id: 'audit', label: t('adm.crm.se.t.audit') }]} />
-      {!q.data ? <Skel h={420} r={28} /> : tab === 'audit' ? <AuditTab history={q.data.history} /> : <Editor cfg={q.data.cfg} mode={tab} />}
+        tabs={[{ id: 'offer', label: t('adm.crm.se.t.offer') }, { id: 'lifecycle', label: t('adm.crm.se.t.lifecycle') }, { id: 'switches', label: t('adm.crm.se.t.switches') }, { id: 'audit', label: t('adm.crm.se.t.audit') }]} />
+      {!q.data ? <Skel h={420} r={28} /> : tab === 'audit' ? <AuditTab history={q.data.history} /> : tab === 'lifecycle' ? <LifecycleTab /> : <Editor cfg={q.data.cfg} mode={tab} />}
     </main>
   );
 }
