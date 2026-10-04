@@ -19,6 +19,7 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { useMyProfile, type MyProfile } from '@/crm/data/account';
+import { squareImage } from '@/crm/lib/image';
 import { Card, CardHead, Collapse, DirtyBar, Field, GhostToggle, InkSwitch, inputCss } from './accountUi';
 
 interface Form { first: string; last: string; email: string; phone: string; lang: 'fr' | 'en' | 'es'; avatar: string | null }
@@ -43,22 +44,6 @@ function pwScore(s: string): number {
   if (/[a-z]/.test(s) && /[A-Z]/.test(s)) n++;
   if (/\d/.test(s) || /[^A-Za-z0-9]/.test(s)) n++;
   return Math.max(1, n);
-}
-
-/** Photo carrée de 384 px en JPEG (recadrée au centre). */
-async function squareJpeg(file: File): Promise<Blob> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
-    const S = 384;
-    const c = document.createElement('canvas');
-    c.width = S; c.height = S;
-    const m = Math.min(img.width, img.height);
-    c.getContext('2d')!.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, S, S);
-    return await new Promise<Blob>((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new Error('canvas'))), 'image/jpeg', 0.86));
-  } finally {
-    URL.revokeObjectURL(url);
-  }
 }
 
 export function AccountProfile({ onDirty }: { onDirty: (v: boolean) => void }) {
@@ -105,7 +90,7 @@ function ProfileForm({ profile, email, lang, signedInAt, onDirty }: { profile: M
     if (!file || !user) return;
     setUploading(true);
     try {
-      const blob = await squareJpeg(file);
+      const blob = await squareImage(file);
       const path = `${user.id}/avatar-${Date.now()}.jpg`;
       const { error } = await supabase.storage.from('profile-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
       if (error) throw error;
