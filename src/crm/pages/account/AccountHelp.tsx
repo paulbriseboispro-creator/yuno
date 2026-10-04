@@ -31,6 +31,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'team', c: 'account', to: CRM_ROUTES.accountSection('team') },
   { id: 'invoices', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).
+  { id: 'ticketing', c: 'account', to: '/open/suite' },
 ];
 /** Sujet → catégorie et priorité du retour (comme le formulaire de la Suite). */
 const SUBJECTS: { k: string; category: string; priority: string }[] = [
