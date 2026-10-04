@@ -29,6 +29,7 @@ const AccountPage = lazyWithRetry(() => import('./pages/account/AccountPage'));
 const YunitsPage = lazyWithRetry(() => import('./pages/yunits/YunitsPage'));
 const NotificationsPage = lazyWithRetry(() => import('./pages/notifications/NotificationsPage'));
 const SettingsPage = lazyWithRetry(() => import('./pages/settings/SettingsPage'));
+const AnalyticsPage = lazyWithRetry(() => import('./pages/analytics/AnalyticsPage'));
 
 export function crmRoutes() {
   return (
@@ -62,6 +63,8 @@ export function crmRoutes() {
         <Route path="yunits" element={<YunitsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="analytics" element={<Navigate to="/crm/analytics/sales" replace />} />
+        <Route path="analytics/:tab" element={<AnalyticsPage />} />
         <Route path="*" element={<Navigate to="/crm" replace />} />
       </Route>
     </>
