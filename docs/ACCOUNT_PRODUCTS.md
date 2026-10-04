@@ -68,8 +68,8 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
 
 ## Reste à faire
 
-- L'admin CRM (`src/crm/admin`, `crm_admin_*`, `_crm_admin_rows`) filtre encore
-  sur `product = 'crm'` : les comptes Billetterie avec CRM ajouté n'y
-  apparaissent pas. Remplacer par `crm_scope_has_crm`.
+(L'admin CRM compte les comptes à CRM ajouté depuis la migration `20261005249000`.)
+
+
 - Mode d'emploi (`ohelp.*`) et assistants IA : article sur l'ouverture du
   second produit.
