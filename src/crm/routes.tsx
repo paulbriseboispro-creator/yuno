@@ -40,6 +40,7 @@ const SmsSendPage = lazyWithRetry(() => import('./pages/sms/send/SmsSendPage'));
 const SmsResultPage = lazyWithRetry(() => import('./pages/sms/results/SmsResultPage'));
 const SmsAnalysisPage = lazyWithRetry(() => import('./pages/sms/analysis/SmsAnalysisPage'));
 const SmsSettingsPage = lazyWithRetry(() => import('./pages/sms/settings/SmsSettingsPage'));
+const PricingPage = lazyWithRetry(() => import('./pages/pricing/PricingPage'));
 
 export function crmRoutes() {
   return (
@@ -57,6 +58,8 @@ export function crmRoutes() {
       <Route path="/crm/sms/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<SmsSendPage />} />
       </Route>
+      {/* Tarifs : page PUBLIQUE (visiteurs comme abonnés), hors de la porte du compte. */}
+      <Route path="/crm/tarifs" element={<PricingPage />} />
       <Route path="/crm" element={<CrmGate><CrmLayout /></CrmGate>}>
         <Route index element={<HomePage />} />
         <Route path="clients" element={<ClientsPage />} />
