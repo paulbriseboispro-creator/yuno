@@ -14,6 +14,7 @@ import emailStudio from './emailStudio';
 import emailSend from './emailSend';
 import emailResult from './emailResult';
 import emailAnalysis from './emailAnalysis';
+import emailSettings from './emailSettings';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -32,6 +33,7 @@ export const CRM_DICT: CrmDict = {
   ...emailSend,
   ...emailResult,
   ...emailAnalysis,
+  ...emailSettings,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

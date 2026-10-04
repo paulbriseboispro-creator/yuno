@@ -1,0 +1,71 @@
+import type { CrmDict } from './types';
+
+// Suite E-mails : Réglages d'envoi — [EN, FR, ES].
+const dict: CrmDict = {
+  'yc.em.rg.kick': ['Campaigns · Emails · Sending settings', 'Campagnes · E-mails · Réglages d’envoi', 'Campañas · E-mails · Ajustes de envío'],
+  'yc.em.rg.h.a': ['How do your emails ', 'Comment vos e-mails ', '¿Cómo '],
+  'yc.em.rg.h.b': ['leave', 'partent', 'salen'],
+  'yc.em.rg.h.c': ['?', '-ils ?', ' sus e-mails?'],
+  'yc.em.rg.sub': ['Who shows as the sender, which domain sends, and when sending is allowed. Set once, applied to all your campaigns.', 'Qui apparaît comme expéditeur, depuis quel domaine vos e-mails partent et quand les envois sont autorisés. Réglé une fois, appliqué à toutes vos campagnes.', 'Quién aparece como remitente, desde qué dominio salen sus e-mails y cuándo se permiten los envíos. Se ajusta una vez y se aplica a todas sus campañas.'],
+
+  'yc.em.rg.who.t': ['Who sends?', 'Qui envoie ?', '¿Quién envía?'],
+  'yc.em.rg.who.s': ['What your customers see in their inbox.', 'Ce que vos clients voient dans leur boîte de réception.', 'Lo que sus clientes ven en su bandeja de entrada.'],
+  'yc.em.rg.who.preview': ['Preview', 'Aperçu', 'Vista previa'],
+  'yc.em.rg.who.subject': ['Your email subject', 'Objet de votre e-mail', 'Asunto de su e-mail'],
+  'yc.em.rg.who.name': ['Display name', 'Nom affiché', 'Nombre mostrado'],
+  'yc.em.rg.who.nameD': ['The name your customers know you by.', 'Le nom sous lequel vos clients vous connaissent.', 'El nombre con el que le conocen sus clientes.'],
+  'yc.em.rg.who.from': ['Sending address', 'Adresse d’envoi', 'Dirección de envío'],
+  'yc.em.rg.who.fromD': ['Set by Yuno from your account name, on a verified domain.', 'Fixée par Yuno à partir du nom de votre compte, sur un domaine vérifié.', 'La fija Yuno a partir del nombre de su cuenta, en un dominio verificado.'],
+  'yc.em.rg.who.reply': ['Reply to', 'Répondre à', 'Responder a'],
+  'yc.em.rg.who.replyD': ['Your customers’ replies arrive here.', 'Les réponses de vos clients arrivent ici.', 'Las respuestas de sus clientes llegan aquí.'],
+  'yc.em.rg.who.replyBad': ['This address doesn’t look valid.', 'Cette adresse ne semble pas valide.', 'Esta dirección no parece válida.'],
+
+  'yc.em.rg.dom.t': ['Is the sending domain verified?', 'Le domaine d’envoi est-il vérifié ?', '¿Está verificado el dominio de envío?'],
+  'yc.em.rg.dom.s': ['These three checks prove to inboxes that the email really comes from you. Yuno keeps them up to date: nothing to set up.', 'Ces trois vérifications prouvent aux messageries que l’e-mail vient bien de vous. Yuno les tient à jour : rien à configurer.', 'Estas tres verificaciones demuestran a los servicios de correo que el e-mail viene de usted. Yuno las mantiene al día: nada que configurar.'],
+  'yc.em.rg.dom.ok': ['Verified', 'Vérifié', 'Verificado'],
+  'yc.em.rg.dom.spf': ['Allows Yuno to send for you', 'Autorise Yuno à envoyer pour vous', 'Autoriza a Yuno a enviar por usted'],
+  'yc.em.rg.dom.dkim': ['Signs every email to prove it wasn’t changed', 'Signe chaque e-mail pour prouver qu’il n’a pas été modifié', 'Firma cada e-mail para demostrar que no se modificó'],
+  'yc.em.rg.dom.dmarc': ['Tells inboxes what to do with a fake email', 'Dit aux messageries quoi faire d’un faux e-mail', 'Indica a los servicios de correo qué hacer con un e-mail falso'],
+  'yc.em.rg.dom.ownT': ['Send from your own domain', 'Envoyer depuis votre propre domaine', 'Enviar desde su propio dominio'],
+  'yc.em.rg.dom.ownS': ['Coming soon: emails from an address at your own domain. We’ll let you know when it opens.', 'Bientôt : des e-mails depuis une adresse à votre nom de domaine. Nous vous prévenons à l’ouverture.', 'Pronto: e-mails desde una dirección de su propio dominio. Le avisaremos cuando abra.'],
+  'yc.em.rg.dom.notify': ['Notify me', 'Me prévenir', 'Avisarme'],
+  'yc.em.rg.dom.notified': ['You’ll be notified', 'Vous serez prévenu', 'Le avisaremos'],
+
+  'yc.em.rg.foot.t': ['What does the bottom of your emails say?', 'Que dit le bas de vos e-mails ?', '¿Qué dice el pie de sus e-mails?'],
+  'yc.em.rg.foot.s': ['Required: your postal address and a link to unsubscribe.', 'Obligatoire : votre adresse postale et un lien pour se désinscrire.', 'Obligatorio: su dirección postal y un enlace para darse de baja.'],
+  'yc.em.rg.foot.addr': ['Postal address', 'Adresse postale', 'Dirección postal'],
+  'yc.em.rg.foot.addrD': ['Without it, your city shows instead.', 'Sans elle, votre ville s’affiche à la place.', 'Sin ella, se muestra su ciudad.'],
+  'yc.em.rg.foot.sent': ['This email was sent to camille@example.com because you subscribed to their newsletter.', 'Cet email a été envoyé à camille@exemple.fr car vous êtes abonné à sa newsletter.', 'Este e-mail se envió a camille@ejemplo.es porque está suscrito a su newsletter.'],
+  'yc.em.rg.foot.rights': ['© {year} {name}. All rights reserved.', '© {year} {name}. Tous droits réservés.', '© {year} {name}. Todos los derechos reservados.'],
+  'yc.em.rg.foot.unsub': ['Unsubscribe', 'Se désabonner', 'Darse de baja'],
+  'yc.em.rg.foot.oneClick': ['Unsubscribing takes one click, straight from the inbox. Unsubscribed people are never contacted again.', 'La désinscription se fait en un clic, directement depuis la boîte de réception. Les désinscrits ne sont jamais recontactés.', 'La baja se hace con un clic, desde la bandeja de entrada. Las personas dadas de baja nunca vuelven a ser contactadas.'],
+
+  'yc.em.rg.when.t': ['When is sending allowed?', 'Quand les envois sont-ils autorisés ?', '¿Cuándo se permiten los envíos?'],
+  'yc.em.rg.when.s': ['Defaults offered on every new campaign. You can change them for one campaign.', 'Valeurs proposées par défaut à chaque nouvelle campagne. Vous pouvez les changer pour une campagne précise.', 'Valores propuestos por defecto en cada nueva campaña. Puede cambiarlos para una campaña concreta.'],
+  'yc.em.rg.quiet': ['Quiet hours', 'Heures calmes', 'Horas tranquilas'],
+  'yc.em.rg.quietD': ['No email leaves at night: it’s moved to the first allowed slot.', 'Aucun e-mail ne part la nuit : il est décalé au premier créneau autorisé.', 'Ningún e-mail sale de noche: se pasa a la primera franja permitida.'],
+  'yc.em.rg.quietWin': ['No sending between 11 pm and 9 am (Paris time). An email planned in those hours leaves at 9 am.', 'Pas d’envoi entre 23 h et 9 h (heure de Paris). Un envoi prévu pendant ces heures part à 9 h.', 'Sin envíos entre las 23 h y las 9 h (hora de París). Un envío previsto en esas horas sale a las 9 h.'],
+  'yc.em.rg.waves': ['Send in waves', 'Envoyer par vagues', 'Enviar por oleadas'],
+  'yc.em.rg.wavesD': ['Spreads the send over time instead of all at once. Protects the sending reputation.', 'Étale l’envoi dans le temps au lieu de tout envoyer d’un coup. Protège la réputation d’envoi.', 'Reparte el envío en el tiempo en lugar de enviarlo todo de golpe. Protege la reputación de envío.'],
+  'yc.em.rg.notify': ['Notify me when a send ends', 'Me prévenir à la fin d’un envoi', 'Avisarme al terminar un envío'],
+  'yc.em.rg.notifyD': ['A notification when the campaign has left, then another when the first results are ready.', 'Une notification quand la campagne est partie, puis une autre quand les premiers résultats sont prêts.', 'Una notificación cuando la campaña ha salido y otra cuando los primeros resultados están listos.'],
+
+  'yc.em.rg.test.t': ['Who gets your test emails?', 'Qui reçoit vos e-mails de test ?', '¿Quién recibe sus e-mails de prueba?'],
+  'yc.em.rg.test.s': ['The addresses offered in the Studio to check an email before sending. A test costs no Yunit. Up to 5.', 'Les adresses proposées dans le Studio pour vérifier un e-mail avant l’envoi. Un test ne coûte aucun Yunit. 5 au plus.', 'Las direcciones propuestas en el Studio para revisar un e-mail antes del envío. Una prueba no cuesta ningún Yunit. Hasta 5.'],
+  'yc.em.rg.test.ph': ['first.name@example.com', 'prenom@exemple.fr', 'nombre@ejemplo.es'],
+  'yc.em.rg.test.add': ['Add', 'Ajouter', 'Añadir'],
+  'yc.em.rg.test.label': ['New test address', 'Nouvelle adresse de test', 'Nueva dirección de prueba'],
+  'yc.em.rg.test.rm': ['Remove {a}', 'Retirer {a}', 'Quitar {a}'],
+  'yc.em.rg.test.bad': ['This address doesn’t look valid', 'Cette adresse ne semble pas valide', 'Esta dirección no parece válida'],
+  'yc.em.rg.test.dup': ['Already in the list', 'Déjà dans la liste', 'Ya está en la lista'],
+  'yc.em.rg.test.max': ['5 test addresses at most', '5 adresses de test au plus', '5 direcciones de prueba como máximo'],
+  'yc.em.rg.test.none': ['No test address yet: tests go to your own email.', 'Aucune adresse de test : les tests partent à votre propre e-mail.', 'Ninguna dirección de prueba: las pruebas van a su propio e-mail.'],
+
+  'yc.em.rg.dirty': ['Unsaved changes', 'Modifications non enregistrées', 'Cambios sin guardar'],
+  'yc.em.rg.reset': ['Cancel', 'Annuler', 'Cancelar'],
+  'yc.em.rg.save': ['Save', 'Enregistrer', 'Guardar'],
+  'yc.em.rg.saved': ['Settings saved', 'Réglages enregistrés', 'Ajustes guardados'],
+  'yc.em.rg.err': ['The settings couldn’t be saved. Try again.', 'Les réglages n’ont pas pu être enregistrés. Réessayez.', 'No se pudieron guardar los ajustes. Inténtelo de nuevo.'],
+};
+
+export default dict;

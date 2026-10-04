@@ -135,6 +135,8 @@ export function useEmailAnalysis() {
 }
 
 export interface EmailSettings {
+  /** Partie avant @ de l'adresse d'envoi (même règle que send-campaign). */
+  from_local: string;
   sender_name: string | null;
   reply_to: string | null;
   postal_address: string | null;

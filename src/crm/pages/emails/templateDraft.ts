@@ -57,6 +57,7 @@ export function useTemplateDraft(wanted: string | null) {
       // ont déjà leur place.
       exclusions: { recentDays: 3, ...(meta.kind === 'lastcall' ? { excludeEventBuyers: true } : {}) },
       quietHours: settings.data?.quiet_hours ?? true,
+      waves: settings.data?.waves ?? false,
     });
   };
 

@@ -58,6 +58,9 @@ export interface NewDraft {
   exclusions: AudienceExclusions;
   /** Heures calmes par défaut (Réglages d'envoi). */
   quietHours: boolean;
+  /** Envoi par vagues par défaut (Réglages d'envoi). Le rythme réel est
+   *  recalculé sur l'audience par l'écran Envoi, juste avant le départ. */
+  waves?: boolean;
 }
 
 /**
@@ -89,6 +92,7 @@ export async function createDraftFromTemplate(d: NewDraft): Promise<string> {
     exclusions_json: d.exclusions,
     template_kind: d.kind,
     quiet_hours: d.quietHours,
+    ...(d.waves ? { throttle_per_hour: 500, throttle_window_minutes: 60, throttle_plan: { mode: 'hour', days: 2, custom: true } } : {}),
     status: 'draft',
     venue_id: d.venueId,
     organizer_user_id: d.organizerUserId,

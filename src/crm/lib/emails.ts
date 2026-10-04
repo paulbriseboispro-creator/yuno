@@ -85,3 +85,9 @@ export function linkKind(url: string, ticketHosts: string[] = []): LinkKind {
   if (/(^|\.)yunoapp\.eu$/.test(host) && path.startsWith('/l/')) return 'yuno';
   return 'other';
 }
+
+/**
+ * Domaine d'envoi des campagnes d'un compte CRM : celui de Yuno, vérifié
+ * (miroir du secret EMAIL_MARKETING_DOMAIN de send-campaign).
+ */
+export const MARKETING_DOMAIN = 'news.yunoapp.eu';
