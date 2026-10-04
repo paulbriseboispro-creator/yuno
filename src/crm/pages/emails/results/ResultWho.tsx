@@ -150,7 +150,7 @@ function RecipientList({ id }: { id: string }) {
   const loadingFirst = res.isLoading || (res.isPlaceholderData && offset === 0);
 
   const chip = (p: Row) => {
-    if (p.revenue > 0) return { l: t('yc.em.rs.st.bought', { v: eur(p.revenue) }), bg: 'var(--green-50)', fg: 'var(--green-700)' };
+    if (p.bought ?? (p.revenue ?? 0) > 0) return { l: p.revenue !== null && p.revenue > 0 ? t('yc.em.rs.st.bought', { v: eur(p.revenue) }) : t('yc.em.rs.st.boughtN'), bg: 'var(--green-50)', fg: 'var(--green-700)' };
     if (p.status === 'bounced') return { l: t('yc.em.rs.st.bounced'), bg: 'var(--amber-50)', fg: 'var(--amber-700)' };
     if (p.clicked) return { l: t('yc.em.rs.st.clicked'), bg: 'var(--red-50)', fg: 'var(--red-700)' };
     if (p.opened) return { l: t('yc.em.rs.st.opened'), bg: 'var(--sand-100)', fg: 'var(--sand-700)' };

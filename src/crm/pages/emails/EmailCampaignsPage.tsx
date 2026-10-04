@@ -87,7 +87,9 @@ export default function EmailCampaignsPage() {
   all.forEach((c) => { cnt[filterOf(c)] += 1; });
   const nq = norm(q.trim());
   let list = all.filter((c) => (filter === 'all' || filterOf(c) === filter) && (!nq || norm(`${c.name ?? ''} ${c.subject ?? ''}`).includes(nq)));
-  if (sort === 'sales') list = [...list].sort((a, b) => (b.stats?.revenue ?? -1) - (a.stats?.revenue ?? -1));
+  // Sans accès à l'argent, le serveur tait les montants : on classe par achats.
+  const sales = (c: EmailCampaignRow) => (c.stats ? (caps.money && c.stats.revenue !== null ? c.stats.revenue : c.stats.purchases) : -1);
+  if (sort === 'sales') list = [...list].sort((a, b) => sales(b) - sales(a));
   if (sort === 'open') list = [...list].sort((a, b) => (rate(b.stats?.opened ?? 0, b.stats?.received ?? 0) ?? -1) - (rate(a.stats?.opened ?? 0, a.stats?.received ?? 0) ?? -1));
 
   const fail = () => toast(t('yc.em.ca.t.err'));

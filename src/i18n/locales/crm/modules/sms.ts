@@ -74,6 +74,8 @@ const dict: CrmDict = {
   ],
   'yc.sm.sales.sub.one': ['{p} purchases from {n} SMS', '{p} achats venus de {n} SMS', '{p} compras de {n} SMS'],
   'yc.sm.sales.sub.other': ['{p} purchases from {n} SMS', '{p} achats venus de {n} SMS', '{p} compras de {n} SMS'],
+  'yc.sm.sales.subN.one': ['from {n} SMS', 'venus de {n} SMS', 'de {n} SMS'],
+  'yc.sm.sales.subN.other': ['from {n} SMS', 'venus de {n} SMS', 'de {n} SMS'],
   'yc.sm.purchasesN.one': ['{n} purchase', '{n} achat', '{n} compra'],
   'yc.sm.purchasesN.other': ['{n} purchases', '{n} achats', '{n} compras'],
   'yc.sm.bars.legend': ['One bar = one SMS sent to a group', 'Une barre = un SMS envoyé à un groupe', 'Una barra = un SMS enviado a un grupo'],

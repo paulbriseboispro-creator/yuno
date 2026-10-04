@@ -26,6 +26,8 @@ const dict: CrmDict = {
   'yc.em.rs.sell.s': ['Purchases within 7 days of a click on a link in this email, refunds deducted.', 'Achats faits dans les 7 jours après un clic sur un lien de cet e-mail, remboursements déduits.', 'Compras hechas en los 7 días tras un clic en un enlace de este e-mail, reembolsos descontados.'],
   'yc.em.rs.buys.one': ['purchase · {rev}', 'achat · {rev}', 'compra · {rev}'],
   'yc.em.rs.buys.other': ['purchases · {rev}', 'achats · {rev}', 'compras · {rev}'],
+  'yc.em.rs.buysN.one': ['purchase', 'achat', 'compra'],
+  'yc.em.rs.buysN.other': ['purchases', 'achats', 'compras'],
   'yc.em.rs.clickLine': ['{c} clicked · {t} went to the ticketing', '{c} ont cliqué · {t} sont allés en billetterie', '{c} hicieron clic · {t} fueron a la ticketera'],
   'yc.em.rs.rankGood': ['Ranked no. {r} of {of} of your campaigns for purchases relative to the size of the send.', 'Classée n° {r} sur {of} de vos campagnes pour les achats rapportés à la taille de l’envoi.', 'Clasificada n.º {r} de {of} de sus campañas en compras respecto al tamaño del envío.'],
   'yc.em.rs.rankLow': ['Ranked no. {r} of {of}: more modest than usual. Look at the Recipients tab to see which group responded least.', 'Classée n° {r} sur {of} : plus modeste que d’habitude. Regardez l’onglet Destinataires pour voir quel groupe a le moins répondu.', 'Clasificada n.º {r} de {of}: más modesta que de costumbre. Mire la pestaña Destinatarios para ver qué grupo respondió menos.'],
@@ -144,6 +146,7 @@ const dict: CrmDict = {
   'yc.em.rs.st.opened': ['Opened', 'A ouvert', 'Abrió'],
   'yc.em.rs.st.clicked': ['Clicked', 'A cliqué', 'Hizo clic'],
   'yc.em.rs.st.bought': ['Bought · {v}', 'A acheté · {v}', 'Compró · {v}'],
+  'yc.em.rs.st.boughtN': ['Bought', 'A acheté', 'Compró'],
   'yc.em.rs.st.bounced': ['Bounced', 'En erreur', 'Con error'],
   'yc.em.rs.st.received': ['Received', 'Reçu', 'Recibido'],
 

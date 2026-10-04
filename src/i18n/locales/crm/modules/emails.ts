@@ -82,6 +82,8 @@ const dict: CrmDict = {
   'yc.em.pt': ['{v} pt', '{v} pt', '{v} pt'],
   'yc.em.sales.sub.one': ['{p} purchases from 1 campaign', '{p} achats venus d’1 campagne', '{p} compras de 1 campaña'],
   'yc.em.sales.sub.other': ['{p} purchases from {n} campaigns', '{p} achats venus de {n} campagnes', '{p} compras de {n} campañas'],
+  'yc.em.sales.subN.one': ['from 1 campaign', 'venus d’1 campagne', 'de 1 campaña'],
+  'yc.em.sales.subN.other': ['from {n} campaigns', 'venus de {n} campagnes', 'de {n} campañas'],
   'yc.em.bars.legend': ['One bar = one campaign', 'Une barre = une campagne', 'Una barra = una campaña'],
   'yc.em.bars.hint': ['Click a bar to open its results', 'Cliquez sur une barre pour ouvrir ses résultats', 'Haga clic en una barra para abrir sus resultados'],
   'yc.em.bars.tip': ['{p} purchases · {n} emails', '{p} achats · {n} e-mails', '{p} compras · {n} e-mails'],

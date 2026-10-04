@@ -17,6 +17,7 @@ import { Skel } from '@/crm/ui/kit';
 import { EASE, useProgress } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmCaps } from '@/crm/scope';
 import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
 import { useEmailAudienceSizes, useEmailOverview } from '@/crm/data/emails';
@@ -41,6 +42,8 @@ export default function EmailsOverviewPage() {
   const days = (sp.get('p') === '90' ? 90 : 30) as 30 | 90;
   const q = useEmailOverview(days);
   const shell = useCrmShell();
+  const caps = useCrmCaps();
+  const canWrite = caps.write;
   const nights = useNights();
   const data = q.data;
   const g = useProgress(1200, 650, data ? `${data.days}` : 'wait', !!data);
@@ -102,8 +105,8 @@ export default function EmailsOverviewPage() {
         </div>
       ) : (
         <>
-          {/* À faire */}
-          <section style={{ display: 'flex', flexDirection: 'column', gap: 14, ...enter(400) }}>
+          {/* À faire — des actions : réservé à qui peut écrire. */}
+          {canWrite && (<section style={{ display: 'flex', flexDirection: 'column', gap: 14, ...enter(400) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em' }}>{t(vide ? 'yc.em.todo.start' : 'yc.em.todo.t')}</h2>
               {!vide && cards.length > 0 && cards[0].key !== 'ok' && (
@@ -135,7 +138,7 @@ export default function EmailsOverviewPage() {
                 );
               })}
             </div>
-          </section>
+          </section>)}
 
           {vide ? (
             <section style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 10px,var(--sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', ...enter(500) }}>
@@ -155,10 +158,10 @@ export default function EmailsOverviewPage() {
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {canWrite && <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <Hv as={Link} to={CRM_ROUTES.emailTemplates} style={{ height: 46, padding: '0 22px', borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-700)', color: '#fff', textDecoration: 'none' }}>{t('yc.em.empty.tpl')}</Hv>
                 <Hv as={Link} to={`${CRM_ROUTES.emailStudio('new')}?new=vide`} style={{ height: 46, padding: '0 20px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ borderColor: 'var(--sand-300)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.em.empty.blank')}</Hv>
-              </div>
+              </div>}
             </section>
           ) : (
             <>
@@ -196,14 +199,14 @@ export default function EmailsOverviewPage() {
                           <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name || t('yc.em.untitled')}</span>
                           <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.em.up.edited', { when })} · {gaps.length ? t('yc.em.up.missing', { gaps: g0.charAt(0).toUpperCase() + g0.slice(1) }) : t('yc.em.up.ready')}</span>
                         </span>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--red-600)' }}>{t('yc.em.todo.resume')}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--red-600)' }}>{t(canWrite ? 'yc.em.todo.resume' : 'yc.au.reco.see')}</span>
                       </Hv>
                     );
                   })}
                 </div>
               )}
             </section>
-            <YunitsCard balance={balance} rateEmail={emailRate} next={scheduled[0] ?? null} size={scheduled[0] ? sizes[scheduled[0].id] : undefined} c={c} />
+            <YunitsCard balance={balance} rateEmail={emailRate} next={scheduled[0] ?? null} size={scheduled[0] ? sizes[scheduled[0].id] : undefined} c={c} canBilling={caps.billing} />
           </div>
 
           {/* Dernières campagnes */}
@@ -265,7 +268,7 @@ function UpcomingRow({ u, size }: { u: EmailCampaignRow; size: number | undefine
   );
 }
 
-function YunitsCard({ balance: bal, rateEmail, next, size, c: cc }: { balance: number | null; rateEmail: number; next: EmailCampaignRow | null; size: number | undefined; c: number }) {
+function YunitsCard({ balance: bal, rateEmail, next, size, c: cc, canBilling }: { balance: number | null; rateEmail: number; next: EmailCampaignRow | null; size: number | undefined; c: number; canBilling: boolean }) {
   const { t, n, dShort, time } = useCrmT();
   const cost = next && size !== undefined ? size * rateEmail : null;
   const w = bal && cost !== null ? Math.min(100, (cost / Math.max(1, bal)) * 100) : 0;
@@ -290,7 +293,7 @@ function YunitsCard({ balance: bal, rateEmail, next, size, c: cc }: { balance: n
         </span>
       </div>
       <div style={{ marginTop: 'auto', display: 'flex', flexWrap: 'wrap', gap: '8px 14px', alignItems: 'center', paddingTop: 6 }}>
-        <Hv as={Link} to={CRM_ROUTES.yunits} style={{ height: 42, padding: '0 20px', borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-100)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.em.yu.reload')}</Hv>
+        {canBilling && <Hv as={Link} to={CRM_ROUTES.yunits} style={{ height: 42, padding: '0 20px', borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-100)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.em.yu.reload')}</Hv>}
         <span style={{ fontSize: 13, color: 'var(--text-on-night-2)' }}>{t('yc.em.yu.rate', { n: rateEmail })}</span>
       </div>
     </section>
@@ -304,9 +307,14 @@ function SalesHero({ data, days, setDays, g, hover, setHover, periodLabel }: {
 }) {
   const { t, tp, n, eur, pct, dShort, n1 } = useCrmT();
   const cur = data.current, prev = data.previous;
-  const dS = delta(cur.revenue, prev.campaigns ? prev.revenue : null, 'pct');
+  // Sans accès à l'argent (éditeur, lecteur), le serveur tait les montants :
+  // le héros compte alors les achats.
+  const money = useCrmCaps().money && cur.revenue !== null;
+  const val = (x: { revenue: number | null; purchases: number }) => (money ? Number(x.revenue ?? 0) : x.purchases);
+  const fmt = (v: number) => (money ? eur(v) : n(v));
+  const dS = delta(val(cur), prev.campaigns ? val(prev) : null, 'pct');
   const list = data.campaigns;
-  const top = niceTop(Math.max(0, ...list.map((x) => x.revenue)));
+  const top = niceTop(Math.max(0, ...list.map(val)));
   const best = list.filter((x) => x.n > 0 && x.purchases > 0).sort((a, b) => b.purchases / b.n - a.purchases / a.n)[0];
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)', ...enter(480) }}>
@@ -322,12 +330,12 @@ function SalesHero({ data, days, setDays, g, hover, setHover, periodLabel }: {
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{eur(cur.revenue * g)}</span>
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(val(cur) * g) : tp('yc.sm.purchasesN', Math.round(val(cur) * g), { n: n(val(cur) * g) })}</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
           <span style={{ fontSize: 17, fontWeight: 600, color: !dS ? 'var(--sand-500)' : dS.up ? 'var(--green-700)' : 'var(--red-600)' }}>
             {!dS ? t('yc.em.vsPrev.first') : t(dS.up ? 'yc.em.vsPrev.up' : 'yc.em.vsPrev.down', { v: pct(Math.abs(dS.v)) })}
           </span>
-          <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{tp('yc.em.sales.sub', cur.campaigns, { n: n(cur.campaigns), p: n(cur.purchases) })}</span>
+          <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{tp(money ? 'yc.em.sales.sub' : 'yc.em.sales.subN', cur.campaigns, { n: n(cur.campaigns), p: n(cur.purchases) })}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--sand-600)' }}>
@@ -341,14 +349,14 @@ function SalesHero({ data, days, setDays, g, hover, setHover, periodLabel }: {
           <div onMouseLeave={() => setHover(null)} style={{ position: 'relative', height: 250, marginLeft: 64 }}>
             {[0, 0.5, 1].map((r) => (
               <div key={r} style={{ position: 'absolute', left: -64, right: 0, bottom: `${r * 100}%`, height: 0, borderTop: '1px solid var(--sand-100)', pointerEvents: 'none' }}>
-                <span style={{ position: 'absolute', left: 0, top: -9, width: 56, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--sand-400)', background: '#fff', paddingRight: 4, boxSizing: 'border-box', whiteSpace: 'nowrap' }}>{r === 0 ? '0' : eur(top * r)}</span>
+                <span style={{ position: 'absolute', left: 0, top: -9, width: 56, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--sand-400)', background: '#fff', paddingRight: 4, boxSizing: 'border-box', whiteSpace: 'nowrap' }}>{r === 0 ? '0' : fmt(top * r)}</span>
               </div>
             ))}
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', gap: 10 }}>
               {list.map((x, i) => {
                 const lp = Math.max(0, Math.min(1, g * 1.6 - (i / Math.max(1, list.length)) * 0.6));
                 const e3 = 1 - Math.pow(1 - lp, 3);
-                const h = `${((x.revenue / top) * 100 * e3).toFixed(1)}%`;
+                const h = `${((val(x) / top) * 100 * e3).toFixed(1)}%`;
                 return (
                   <Link key={x.id} to={CRM_ROUTES.emailResults(x.id)} onMouseEnter={() => setHover(i)} aria-label={x.name ?? ''} style={{ position: 'relative', flex: '1 1 0', maxWidth: 110, height: '100%', display: 'flex', alignItems: 'flex-end', cursor: 'pointer', textDecoration: 'none' }}>
                     <div style={{ width: '100%', height: h, minHeight: 3, borderRadius: '6px 6px 0 0', background: hover === i ? 'var(--red-700)' : 'linear-gradient(180deg,var(--tangerine-500),var(--red-500))', opacity: hover !== null && hover !== i ? 0.45 : 1, transition: 'background 140ms,opacity 140ms' }} />
@@ -356,7 +364,7 @@ function SalesHero({ data, days, setDays, g, hover, setHover, periodLabel }: {
                       <div style={{ position: 'absolute', bottom: `calc(${h} + 10px)`, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none', background: 'var(--ink)', color: '#fff', borderRadius: 14, padding: '10px 14px', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: 2, whiteSpace: 'nowrap', zIndex: 3, animation: 'yc-fade 140ms both' }}>
                         <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{dShort(x.sent_at)}</span>
                         <span style={{ fontSize: 14, fontWeight: 600 }}>{x.name}</span>
-                        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{eur(x.revenue)}</span>
+                        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{money ? eur(x.revenue) : tp('yc.sm.purchasesN', x.purchases, { n: n(x.purchases) })}</span>
                         <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{t('yc.em.bars.tip', { p: n(x.purchases), n: n(x.n) })}</span>
                       </div>
                     )}

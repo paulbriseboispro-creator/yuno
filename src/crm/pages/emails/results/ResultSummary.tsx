@@ -45,7 +45,7 @@ export function ResultSummary({ r, s, html, onZoom }: { r: EmailResult; s: Stats
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,104px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(Math.round(s.purchases * g))}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 8 }}>
-              <span style={{ fontSize: 20, fontWeight: 600 }}>{tp('yc.em.rs.buys', s.purchases, { rev: eur(s.revenue) })}</span>
+              <span style={{ fontSize: 20, fontWeight: 600 }}>{s.revenue === null ? tp('yc.em.rs.buysN', s.purchases) : tp('yc.em.rs.buys', s.purchases, { rev: eur(s.revenue) })}</span>
               <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{t('yc.em.rs.clickLine', { c: n(s.clicked), t: n(s.ticketing) })}</span>
             </div>
           </div>

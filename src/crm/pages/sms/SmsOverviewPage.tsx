@@ -116,7 +116,8 @@ export default function SmsOverviewPage() {
         </div>
       ) : (
         <>
-          <section style={{ display: 'flex', flexDirection: 'column', gap: 14, ...enter(400) }}>
+          {/* À faire — des actions : réservé à qui peut écrire. */}
+          {caps.write && (<section style={{ display: 'flex', flexDirection: 'column', gap: 14, ...enter(400) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em' }}>{t(vide ? 'yc.sm.todo.start' : 'yc.sm.todo.t')}</h2>
               {!vide && cards.length > 0 && cards[0].key !== 'ok' && (
@@ -148,10 +149,10 @@ export default function SmsOverviewPage() {
                 );
               })}
             </div>
-          </section>
+          </section>)}
 
           {vide ? (
-            <EmptyStart />
+            <EmptyStart canWrite={caps.write} />
           ) : (
             <>
               <SalesHero data={data} days={days} money={caps.money} setDays={(d) => setSp(d === 30 ? {} : { p: '90' }, { replace: true })} g={g} hover={hover} setHover={setHover} periodLabel={periodLabel} />
@@ -187,14 +188,14 @@ export default function SmsOverviewPage() {
                           <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name || t('yc.sm.untitled')}</span>
                           <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.em.up.edited', { when })} · {g0.charAt(0).toUpperCase() + g0.slice(1)}</span>
                         </span>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--red-600)' }}>{t('yc.sm.todo.resume')}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--red-600)' }}>{t(caps.write ? 'yc.sm.todo.resume' : 'yc.au.reco.see')}</span>
                       </Hv>
                     );
                   })}
                 </div>
               )}
             </section>
-            <YunitsCard balance={balance} smsRate={smsRate} emailRate={Number(shell.data?.wallet.rates?.email ?? 1)} next={planned[0] ?? null} c={c} />
+            <YunitsCard balance={balance} smsRate={smsRate} emailRate={Number(shell.data?.wallet.rates?.email ?? 1)} next={planned[0] ?? null} c={c} canBilling={caps.billing} />
           </div>
 
           {data.last.length > 0 && <LastSms data={data} />}
@@ -205,7 +206,7 @@ export default function SmsOverviewPage() {
 }
 
 // ── Pièces ──────────────────────────────────────────────────────────────
-function EmptyStart() {
+function EmptyStart({ canWrite }: { canWrite: boolean }) {
   const { t } = useCrmT();
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 10px,var(--sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', ...enter(500) }}>
@@ -225,10 +226,10 @@ function EmptyStart() {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {canWrite && <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Hv as={Link} to={CRM_ROUTES.smsTemplates} style={{ height: 46, padding: '0 22px', borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-700)', color: '#fff', textDecoration: 'none' }}>{t('yc.sm.empty.tpl')}</Hv>
         <Hv as={Link} to={`${CRM_ROUTES.smsCompose('new')}?t=vide`} style={{ height: 46, padding: '0 20px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ borderColor: 'var(--sand-300)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.sm.empty.blank')}</Hv>
-      </div>
+      </div>}
     </section>
   );
 }
@@ -254,7 +255,7 @@ function UpcomingRow({ u, cost, balance }: { u: SmsCampaignRow; cost: number; ba
   );
 }
 
-function YunitsCard({ balance: bal, smsRate, emailRate, next, c: cc }: { balance: number | null; smsRate: number; emailRate: number; next: SmsCampaignRow | null; c: number }) {
+function YunitsCard({ balance: bal, smsRate, emailRate, next, c: cc, canBilling }: { balance: number | null; smsRate: number; emailRate: number; next: SmsCampaignRow | null; c: number; canBilling: boolean }) {
   const { t, n, time } = useCrmT();
   const cost = next ? smsCost(next.estimated, next.parts, smsRate) : null;
   const w = bal && cost !== null ? Math.min(100, (cost / Math.max(1, bal)) * 100) : 0;
@@ -284,7 +285,7 @@ function YunitsCard({ balance: bal, smsRate, emailRate, next, c: cc }: { balance
         </div>
       </div>
       <div style={{ marginTop: 'auto', display: 'flex', flexWrap: 'wrap', gap: '8px 14px', alignItems: 'center', paddingTop: 6 }}>
-        <Hv as={Link} to={CRM_ROUTES.yunits} style={{ height: 42, padding: '0 20px', borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-100)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.em.yu.reload')}</Hv>
+        {canBilling && <Hv as={Link} to={CRM_ROUTES.yunits} style={{ height: 42, padding: '0 20px', borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-100)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.em.yu.reload')}</Hv>}
         <span style={{ fontSize: 13, color: 'var(--text-on-night-2)' }}>{t('yc.em.yu.rate', { n: emailRate })}</span>
       </div>
     </section>
@@ -324,7 +325,7 @@ function SalesHero({ data, days, money, setDays, g, hover, setHover, periodLabel
           <span style={{ fontSize: 17, fontWeight: 600, color: !dS ? 'var(--sand-500)' : dS.up ? 'var(--green-700)' : 'var(--red-600)' }}>
             {!dS ? t('yc.em.vsPrev.first') : t(dS.up ? 'yc.em.vsPrev.up' : 'yc.em.vsPrev.down', { v: pct(Math.abs(dS.v)) })}
           </span>
-          <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{tp('yc.sm.sales.sub', cur.campaigns, { n: n(cur.campaigns), p: n(cur.purchases) })}</span>
+          <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{tp(money ? 'yc.sm.sales.sub' : 'yc.sm.sales.subN', cur.campaigns, { n: n(cur.campaigns), p: n(cur.purchases) })}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--sand-600)' }}>

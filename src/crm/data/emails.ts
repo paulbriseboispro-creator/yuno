@@ -13,9 +13,10 @@ import type { ClientFilterDef } from './clients';
 /** Une audience de la Console : un segment enregistré ou une définition de filtre. */
 export interface CrmAudience { kind: 'crm'; segmentId?: string; def?: ClientFilterDef; label?: string }
 
+/** Montants (`revenue`) : null pour qui ne voit pas l'argent (éditeur, lecteur) — le serveur les tait. */
 export interface EmailStats {
   n: number; received: number; opened: number; clicked: number; ticketing: number;
-  purchases: number; revenue: number; bounced: number; complained: number; unsub: number;
+  purchases: number; revenue: number | null; bounced: number; complained: number; unsub: number;
 }
 
 export type EmailStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused' | 'failed';
@@ -41,7 +42,7 @@ export interface EmailCampaignRow {
 
 export interface PeriodTotals {
   campaigns: number; sent: number; received: number; opened: number; clicked: number;
-  ticketing: number; purchases: number; revenue: number;
+  ticketing: number; purchases: number; revenue: number | null;
 }
 
 export interface EmailOverview {
@@ -50,9 +51,9 @@ export interface EmailOverview {
   to: string;
   current: PeriodTotals;
   previous: PeriodTotals;
-  campaigns: { id: string; name: string | null; sent_at: string; n: number; purchases: number; revenue: number }[];
+  campaigns: { id: string; name: string | null; sent_at: string; n: number; purchases: number; revenue: number | null }[];
   upcoming: EmailCampaignRow[];
-  last: { id: string; name: string | null; subject: string | null; sent_at: string; n: number; received: number; opened: number; clicked: number; purchases: number; revenue: number }[];
+  last: { id: string; name: string | null; subject: string | null; sent_at: string; n: number; received: number; opened: number; clicked: number; purchases: number; revenue: number | null }[];
   ever_sent: boolean;
 }
 
@@ -102,7 +103,7 @@ export type RecipientFilter = 'all' | 'opened' | 'clicked' | 'bought' | 'hot' | 
 
 export interface EmailRecipients {
   total: number;
-  rows: { email: string; first_name: string | null; last_name: string | null; status: string; lifecycle: string | null; opened: boolean; clicked: boolean; revenue: number }[];
+  rows: { email: string; first_name: string | null; last_name: string | null; status: string; lifecycle: string | null; opened: boolean; clicked: boolean; bought?: boolean; revenue: number | null }[];
   counts: Record<RecipientFilter, number>;
 }
 
@@ -118,7 +119,7 @@ export function useEmailRecipients(id: string | null, filter: RecipientFilter, q
 }
 
 export interface EmailAnalysis {
-  campaigns: { id: string; name: string | null; subject: string | null; sent_at: string; kind: string | null; n: number; received: number; opened: number; clicked: number; purchases: number; revenue: number; bounced: number; complained: number; unsub: number }[];
+  campaigns: { id: string; name: string | null; subject: string | null; sent_at: string; kind: string | null; n: number; received: number; opened: number; clicked: number; purchases: number; revenue: number | null; bounced: number; complained: number; unsub: number }[];
   grid: { d: number; h: number; n: number; clicked: number }[];
   subjects: { b: number; campaigns: number; received: number; opened: number }[];
   segments: { seg: string; people: number; received: number; opened: number; clicked: number; purchases: number }[];
@@ -221,7 +222,7 @@ export function useAudiencePreview(audiences: CrmAudience[], eventId: string | n
   });
 }
 
-export interface ResultSegment { lifecycle: 'hab' | 'occ' | 'nou' | 'end' | 'none'; n: number; opened: number; clicked: number; purchases: number; revenue: number }
+export interface ResultSegment { lifecycle: 'hab' | 'occ' | 'nou' | 'end' | 'none'; n: number; opened: number; clicked: number; purchases: number; revenue: number | null }
 
 export function useEmailResultSegments(id: string | null, enabled = true) {
   const { rpc: args, qk } = useCrmScope();
