@@ -66,6 +66,7 @@ import {
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 import { buildCrmNavGroups } from "@/components/crm/crmNav";
 import { useAccountProductFor } from "@/lib/crmProduct";
+import { OpenCrmSidebarLink } from "@/components/crm/OpenCrmSidebarLink";
 
 type TT = (fr: string, en: string, es?: string) => string;
 
@@ -357,7 +358,7 @@ export function OrgAppSidebar() {
 	const metaLive = useMetaIntegrationLive();
 	const { can, organizationName, organizationLogoUrl, organizerId } = useActingOrganizer();
 	// Yuno CRM : une organisation qui garde sa billetterie a sa propre barre.
-	const { isCrm } = useAccountProductFor({ organizerUserId: organizerId });
+	const { isCrm, hasCrm } = useAccountProductFor({ organizerUserId: organizerId });
 	const navGroups = filterNavGroups(isCrm ? buildCrmNavGroups(t, "/organizer-app", metaLive) : buildOrgNavGroups(tt, t, metaLive), can);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
@@ -377,6 +378,8 @@ export function OrgAppSidebar() {
 			<SidebarFooter>
 				<SidebarProThemeSwitch />
 				<SidebarMenu>
+					{/* Compte à deux produits : le passage vers la Console CRM. */}
+					{hasCrm && !isCrm && organizerId && <OpenCrmSidebarLink scopeKey={`org:${organizerId}`} />}
 					{footerNavLinks.map((item) => (
 						<SidebarMenuItem key={item.title}>
 							<SidebarMenuButton asChild className="text-muted-foreground" size="sm">

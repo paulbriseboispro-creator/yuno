@@ -8,6 +8,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
+import { rememberActingOrganizer } from '@/hooks/useActingOrganizer';
 import { Icon, PanelIcon } from '@/crm/ui/Icon';
 import type { IconName } from '@/crm/ui/Icon';
 import { YunitFace } from '@/crm/ui/YunitFace';
@@ -263,6 +264,20 @@ export function Sidebar({
             </Hv>
           );
         })}
+        {/* Compte qui a aussi la Billetterie : le passage vers sa Console. */}
+        {space.products.includes('suite') && (
+          <Hv
+            as="a"
+            href={space.kind === 'venue' ? '/owner/dashboard' : '/organizer-app'}
+            title={t('yc.nav.openTicketingTitle')}
+            onClick={() => { if (space.kind === 'org' && space.organizerUserId) rememberActingOrganizer(space.organizerUserId); }}
+            style={linkStyle(false, 40, 14.5)}
+            hover={hov}
+          >
+            <Icon name="ticket" size={20} />
+            {exp && <span>{t('yc.nav.openTicketing')}</span>}
+          </Hv>
+        )}
         <Hv
           as="button"
           type="button"

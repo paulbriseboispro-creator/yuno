@@ -155,6 +155,7 @@ const SupportAccessSettings = lazyWithRetry(() => import("./pages/SupportAccessS
 const AiAssistantsSettings = lazyWithRetry(() => import("./pages/AiAssistantsSettings"));
 const AiAssistantsRedirect = lazyWithRetry(() => import("./pages/AiAssistantsRedirect"));
 const ConnectAi = lazyWithRetry(() => import("./pages/ConnectAi"));
+const OpenProduct = lazyWithRetry(() => import("./pages/OpenProduct"));
 const AiConnectorPage = lazyWithRetry(() => import("./pages/AiConnectorPage"));
 const IntegrationsSettings = lazyWithRetry(() => import("./pages/IntegrationsSettings"));
 const AdsPage = lazyWithRetry(() => import("./pages/AdsPage"));
@@ -736,6 +737,8 @@ const App = () => (
                     Worker envoie la personne, page publique du connecteur, et raccourci
                     vers la page de SA Console. */}
                 <Route path="/connect-ai" element={<ConnectAi />} />
+                {/* Ouvrir l'autre produit (Billetterie ⇄ CRM) sur un compte existant. */}
+                <Route path="/open/:product" element={<OpenProduct />} />
                 <Route path="/ai" element={<AiConnectorPage />} />
                 <Route path="/ai-assistants" element={<AiAssistantsRedirect />} />
                 <Route path="/join" element={<JoinViaLink />} />

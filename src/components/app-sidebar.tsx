@@ -18,13 +18,14 @@ import { useMetaIntegrationLive } from "@/lib/metaIntegration";
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 import { buildCrmNavGroups } from "@/components/crm/crmNav";
 import { useAccountProductFor } from "@/lib/crmProduct";
+import { OpenCrmSidebarLink } from "@/components/crm/OpenCrmSidebarLink";
 
 export function AppSidebar() {
 	const { t } = useLanguage();
 	const { venue, venueId } = useOwnerVenueContext();
 	const metaLive = useMetaIntegrationLive();
 	// Yuno CRM : un club qui garde sa billetterie a sa propre barre.
-	const { isCrm } = useAccountProductFor({ venueId });
+	const { isCrm, hasCrm } = useAccountProductFor({ venueId });
 	const navGroups = isCrm ? buildCrmNavGroups(t, "/owner", metaLive) : buildNavGroups(t, metaLive);
 	const footerNavLinks = buildFooterNavLinks(t);
 
@@ -44,6 +45,8 @@ export function AppSidebar() {
 			<SidebarFooter>
 				<SidebarProThemeSwitch />
 				<SidebarMenu>
+					{/* Compte à deux produits : le passage vers la Console CRM. */}
+					{hasCrm && !isCrm && venueId && <OpenCrmSidebarLink scopeKey={`venue:${venueId}`} />}
 					{footerNavLinks.map((item) => (
 						<SidebarMenuItem key={item.title}>
 							<SidebarMenuButton asChild className="text-muted-foreground" size="sm">

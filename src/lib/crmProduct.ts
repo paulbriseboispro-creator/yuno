@@ -64,7 +64,7 @@ export const SHOTGUN_TOKEN_HELP_URL =
 export type AccountProduct = 'suite' | 'crm';
 
 export function useAccountProductFor(scope: { venueId?: string | null; organizerUserId?: string | null }): {
-  product: AccountProduct; isCrm: boolean; loading: boolean;
+  product: AccountProduct; isCrm: boolean; hasCrm: boolean; hasSuite: boolean; loading: boolean;
 } {
   const venueId = scope.venueId ?? null;
   const organizerUserId = venueId ? null : (scope.organizerUserId ?? null);
@@ -72,17 +72,31 @@ export function useAccountProductFor(scope: { venueId?: string | null; organizer
     queryKey: ['account-product', venueId, organizerUserId],
     enabled: !!(venueId || organizerUserId),
     staleTime: 5 * 60_000,
-    queryFn: async (): Promise<AccountProduct> => {
-      if (venueId) {
-        const { data } = await supabase.from('venues').select('product').eq('id', venueId).maybeSingle();
-        return data?.product === 'crm' ? 'crm' : 'suite';
-      }
-      const { data } = await supabase.from('organizer_profiles').select('product').eq('user_id', organizerUserId as string).maybeSingle();
-      return data?.product === 'crm' ? 'crm' : 'suite';
+    queryFn: async (): Promise<AccountProduct[]> => {
+      // Produit principal d'abord, puis les produits AJOUTÉS (Billetterie ⇄ CRM,
+      // migration 20261006100000). Une colonne absente ne doit rien casser.
+      const read = async (cols: string) => venueId
+        ? supabase.from('venues').select(cols).eq('id', venueId).maybeSingle()
+        : supabase.from('organizer_profiles').select(cols).eq('user_id', organizerUserId as string).maybeSingle();
+      const first = await read('product, extra_products');
+      const data = first.error ? (await read('product')).data : first.data;
+      const row = (data ?? null) as unknown as { product?: string; extra_products?: string[] | null } | null;
+      const primary: AccountProduct = row?.product === 'crm' ? 'crm' : 'suite';
+      const extra = (row?.extra_products ?? []).filter((p): p is AccountProduct => p === 'crm' || p === 'suite');
+      return [primary, ...extra.filter((p) => p !== primary)];
     },
   });
-  const product: AccountProduct = q.data === 'crm' ? 'crm' : 'suite';
-  return { product, isCrm: product === 'crm', loading: !!(venueId || organizerUserId) && q.isLoading };
+  const products = q.data ?? ['suite'];
+  // La Console de la Suite ne se replie en mode CRM que pour un compte CRM PUR :
+  // un compte CRM qui a ouvert la Billetterie retrouve toute la Suite ici.
+  const product: AccountProduct = products[0] === 'crm' && !products.includes('suite') ? 'crm' : 'suite';
+  return {
+    product,
+    isCrm: product === 'crm',
+    hasCrm: products.includes('crm'),
+    hasSuite: products.includes('suite'),
+    loading: !!(venueId || organizerUserId) && q.isLoading,
+  };
 }
 
 /** Racine de la Console courante (club ou organisateur). */
@@ -92,7 +106,7 @@ export function useConsoleBase(): '/owner' | '/organizer-app' {
 }
 
 /** Produit de la portée courante de la Console. */
-export function useAccountProduct(): { product: AccountProduct; isCrm: boolean; loading: boolean } {
+export function useAccountProduct(): { product: AccountProduct; isCrm: boolean; hasCrm: boolean; hasSuite: boolean; loading: boolean } {
   const { scope, venueId, organizerUserId, loading } = useVenueContext();
   const r = useAccountProductFor(scope === 'organizer' ? { organizerUserId } : { venueId });
   return { ...r, loading: loading || r.loading };

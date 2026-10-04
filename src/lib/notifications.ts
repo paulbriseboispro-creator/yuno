@@ -152,6 +152,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Inscription pro en libre-service depuis la landing (compte créé / lead).
   admin_pro_signup:          { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_pro_signup' },
   admin_pro_signup_lead:     { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_pro_signup_lead' },
+  admin_account_product_added: { icon: UserPlus,    category: 'growth',    label: 'notif.type.admin_account_product_added' },
   // Sécurité : lien d'onboarding émis sans droit et déjà utilisé (migration 20260924130000).
   admin_security_onboarding_link: { icon: ShieldAlert, category: 'system', label: 'notif.type.admin_security_onboarding_link' },
   // Sécurité : comptes passés organisateur sans chemin serveur (migration 20260924140000).
@@ -664,6 +665,13 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
       return '/admin/signups';
+
+    // Un compte a ouvert l'autre produit (Billetterie ⇄ CRM) : sa fiche.
+    case 'admin_account_product_added': {
+      const ref = n.reference_id ?? '';
+      if (ref.startsWith('venue:')) return `/admin/venues/${ref.slice(6)}`;
+      return '/admin/organizers';
+    }
 
     // Demande de crédits push : l'onglet Crédits du moteur de notifications,
     // cherché sur le compte demandeur (reference_id = 'venue:…' / 'org:…').
