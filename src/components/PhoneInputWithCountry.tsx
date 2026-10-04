@@ -66,7 +66,35 @@ interface PhoneInputWithCountryProps {
   triggerClassName?: string;
   inputStyle?: CSSProperties;
   triggerStyle?: CSSProperties;
+  /** `dark` (défaut) : DA publique et Console ; `light` : écrans clairs (Yuno CRM). */
+  tone?: 'dark' | 'light';
 }
+
+/** Les classes de chaque teinte : le champ, l'indicatif et la liste des pays. */
+const TONES = {
+  dark: {
+    trigger: 'border-white/[0.08] bg-[var(--sf-1f1f22)] hover:border-white/[0.16]',
+    code: 'text-white',
+    muted: 'text-[var(--tx-5a5a5e)]',
+    panel: 'border-white/[0.10] bg-[var(--sf-141414)] text-white shadow-[0_16px_40px_rgba(0,0,0,0.5)]',
+    divider: 'border-white/[0.08]',
+    search: 'text-white placeholder:text-[var(--tx-5a5a5e)]',
+    row: 'hover:bg-white/[0.05]',
+    name: 'text-[var(--tx-e5e5e5)]',
+    input: 'border-white/[0.08] bg-[var(--sf-1f1f22)] text-white placeholder:text-[var(--tx-5a5a5e)] focus-visible:border-primary/50',
+  },
+  light: {
+    trigger: 'border-[#E9E2DF] bg-white hover:border-[#D9CFCB]',
+    code: 'text-[#1C1517]',
+    muted: 'text-[#9A8F92]',
+    panel: 'border-[#E9E2DF] bg-white text-[#1C1517] shadow-[0_16px_40px_rgba(28,21,23,0.16)]',
+    divider: 'border-[#F1ECEA]',
+    search: 'text-[#1C1517] placeholder:text-[#9A8F92]',
+    row: 'hover:bg-[#F7F3F1]',
+    name: 'text-[#3D3437]',
+    input: 'border-[#E9E2DF] bg-white text-[#1C1517] placeholder:text-[#B5ABAE] focus-visible:border-[#F25A4D]',
+  },
+} as const;
 
 export function PhoneInputWithCountry({
   value,
@@ -85,7 +113,9 @@ export function PhoneInputWithCountry({
   triggerClassName,
   inputStyle,
   triggerStyle,
+  tone = 'dark',
 }: PhoneInputWithCountryProps) {
+  const k = TONES[tone];
   const { language, t } = useLanguage();
   const lang = (language === 'fr' || language === 'es' ? language : 'en') as 'en' | 'fr' | 'es';
   const fallback = useMemo(
@@ -160,26 +190,27 @@ export function PhoneInputWithCountry({
             aria-label={`${t('phone.countryCode')} : ${getCountryName(country, lang)} ${callingCodeOf(country)}`}
             className={cn(
               h,
-              'flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-[var(--sf-1f1f22)] px-2.5 transition-colors hover:border-white/[0.16] disabled:cursor-not-allowed disabled:opacity-50',
+              'flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              k.trigger,
               triggerClassName,
             )}
             style={triggerStyle}
           >
             <span className="text-lg leading-none">{country.flag}</span>
-            <span className="text-sm tabular-nums text-white">{callingCodeOf(country)}</span>
-            <ChevronDown className={cn('h-3.5 w-3.5 text-[var(--tx-5a5a5e)] transition-transform', open && 'rotate-180')} />
+            <span className={cn('text-sm tabular-nums', k.code)}>{callingCodeOf(country)}</span>
+            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', k.muted, open && 'rotate-180')} />
           </button>
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-72 overflow-hidden rounded-xl border border-white/[0.10] bg-[var(--sf-141414)] p-0 text-white shadow-[0_16px_40px_rgba(0,0,0,0.5)]"
+          className={cn('w-72 overflow-hidden rounded-xl border p-0', k.panel)}
           onOpenAutoFocus={(e) => {
             // Sur mobile, ouvrir le clavier par-dessus la liste la masquerait.
             if (window.matchMedia?.('(pointer: coarse)').matches) e.preventDefault();
           }}
         >
-          <div className="flex items-center gap-2 border-b border-white/[0.08] px-3">
-            <Search className="h-3.5 w-3.5 shrink-0 text-[var(--tx-5a5a5e)]" />
+          <div className={cn('flex items-center gap-2 border-b px-3', k.divider)}>
+            <Search className={cn('h-3.5 w-3.5 shrink-0', k.muted)} />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -190,12 +221,12 @@ export function PhoneInputWithCountry({
                 }
               }}
               placeholder={t('phone.searchCountry')}
-              className="h-10 w-full bg-transparent text-sm text-white outline-none placeholder:text-[var(--tx-5a5a5e)]"
+              className={cn('h-10 w-full bg-transparent text-sm outline-none', k.search)}
             />
           </div>
           <div className="max-h-64 overflow-y-auto overscroll-contain py-1" role="listbox">
             {results.length === 0 && (
-              <p className="px-3 py-4 text-center text-xs text-[var(--tx-5a5a5e)]">{t('phone.noCountry')}</p>
+              <p className={cn('px-3 py-4 text-center text-xs', k.muted)}>{t('phone.noCountry')}</p>
             )}
             {results.map((c) => {
               const active = c.code === country.code;
@@ -207,13 +238,14 @@ export function PhoneInputWithCountry({
                   aria-selected={active}
                   onClick={() => pick(c)}
                   className={cn(
-                    'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-white/[0.05]',
+                    'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors',
+                    k.row,
                     active && 'bg-primary/10',
                   )}
                 >
                   <span className="text-lg leading-none">{c.flag}</span>
-                  <span className="flex-1 truncate text-sm text-[var(--tx-e5e5e5)]">{getCountryName(c, lang)}</span>
-                  <span className="text-xs tabular-nums text-[var(--tx-5a5a5e)]">{callingCodeOf(c)}</span>
+                  <span className={cn('flex-1 truncate text-sm', k.name)}>{getCountryName(c, lang)}</span>
+                  <span className={cn('text-xs tabular-nums', k.muted)}>{callingCodeOf(c)}</span>
                   {active && <Check className="h-3.5 w-3.5 text-primary" />}
                 </button>
               );
@@ -237,7 +269,8 @@ export function PhoneInputWithCountry({
         onChange={(e) => handleNumber(e.target.value)}
         className={cn(
           h,
-          'min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-[var(--sf-1f1f22)] px-3 text-base text-white outline-none transition-colors placeholder:text-[var(--tx-5a5a5e)] focus-visible:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+          'min-w-0 flex-1 rounded-lg border px-3 text-base outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+          k.input,
           inputClassName,
         )}
         style={inputStyle}
