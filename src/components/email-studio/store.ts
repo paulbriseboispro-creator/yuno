@@ -101,7 +101,16 @@ function snapshot(c: StudioCampaign): ContentSnapshot {
  */
 const MERGE_MS = 700;
 
-export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCtx): StoreApi<StudioState> {
+/**
+ * `decorate` (facultatif) habille un bloc neuf à sa création : la Console CRM
+ * y pose ses textes par défaut (vouvoiement, libellés du design) sans créer un
+ * second état d'historique.
+ */
+export function createStudioStore(
+  initial: StudioCampaign,
+  blockCtx: MakeBlockCtx,
+  decorate?: (block: EmailBlock) => EmailBlock,
+): StoreApi<StudioState> {
   return createStore<StudioState>((set, get) => {
     /** Dernière rafale fusionnée : quel champ, et quand. */
     let burst: { key: string; at: number } | null = null;
@@ -173,7 +182,8 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
       ),
 
       addBlock: (type, index) => {
-        const block = makeBlock(type, { ...blockCtx, eventId: get().campaign.eventId || blockCtx.eventId });
+        const made = makeBlock(type, { ...blockCtx, eventId: get().campaign.eventId || blockCtx.eventId });
+        const block = decorate ? decorate(made) : made;
         withHistory((c) => {
           const blocks = [...c.blocks];
           const at = index == null ? blocks.length : Math.max(0, Math.min(index, blocks.length));

@@ -43,6 +43,8 @@ export interface RichTextHandle {
   applySize(size: number): void;
   applyLink(url: string): void;
   clearFormat(): void;
+  /** Insère un texte au curseur (variable {{prénom}}…), avec la mise en forme du passage. */
+  insertText(text: string): void;
 }
 
 interface Props {
@@ -567,6 +569,11 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     clearFormat: () => mutate((doc, start, end) => (
       start === end ? null : { doc: clearRange(doc, start, end), start, end }
     )),
+    insertText: (text) => mutate((doc, start, end) => {
+      if (!text) return null;
+      const caret = start + text.length;
+      return { doc: replaceRange(doc, start, end, text, attrAt(doc, start)), start: caret, end: caret };
+    }),
   }), [applyToSelection, mutate]);
 
   /**
