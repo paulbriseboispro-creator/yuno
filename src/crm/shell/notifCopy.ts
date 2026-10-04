@@ -37,7 +37,7 @@ function fmtParams(p: CrmNotif['params'], f: CrmFormatters): Record<string, stri
   for (const [k, v] of Object.entries(p ?? {})) {
     if (v === null || v === undefined) { out[k] = ''; continue; }
     if (typeof v === 'number') { out[k] = f.n(v); continue; }
-    if (/_at$/.test(k) && !Number.isNaN(Date.parse(String(v)))) {
+    if (/(^|_)at$/.test(k) && !Number.isNaN(Date.parse(String(v)))) {
       out[k] = f.time(String(v));
       out[`${k}_day`] = f.dShort(String(v));
       continue;
@@ -52,7 +52,8 @@ export function notifCopy(item: CrmNotif, t: T, f: CrmFormatters): { title: stri
   const p = fmtParams(item.params, f);
   if (!known) return { title: t('yc.notif.generic.title'), body: '', action: null, href: item.href };
   const title = t(`yc.notif.${item.kind}.title`, p);
-  const body = t(`yc.notif.${item.kind}.body`, p);
+  // Les achats d'un bilan se calculent à part : tant qu'ils manquent, la phrase s'en passe.
+  const body = item.kind === 'send_report' ? reportBody(item.params, t, f) : t(`yc.notif.${item.kind}.body`, p);
   const actionKey = `yc.notif.${item.kind}.action`;
   const action = t(actionKey);
   const href = item.href ?? defaultHref(item.kind, item.params);
@@ -72,4 +73,15 @@ function defaultHref(kind: string, p: CrmNotif['params']): string | null {
     case 'import_done': return CRM_ROUTES.imports;
     default: return null;
   }
+}
+
+/** Bilan d'un envoi : les clics, puis les achats s'ils sont déjà calculés, avec les bons pluriels. */
+function reportBody(params: CrmNotif['params'], t: T, f: CrmFormatters): string {
+  const clk = Number(params?.clickers ?? 0);
+  const plural = (x: number) => (f.lang === 'fr' ? (Math.abs(x) < 2 ? 'one' : 'other') : x === 1 ? 'one' : 'other');
+  const head = t(`yc.notif.sr.clk.${plural(clk)}`, { n: f.n(clk) });
+  const b = params?.buyers;
+  if (b === null || b === undefined) return head;
+  const nb = Number(b);
+  return head + t(`yc.notif.sr.buy.${nb === 0 ? 'none' : nb === 1 ? 'one' : 'other'}`, { n: f.n(nb) });
 }
