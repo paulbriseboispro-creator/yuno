@@ -160,6 +160,16 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 .yc .yc-thin-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
 .yc .yc-thin-scroll::-webkit-scrollbar-thumb { background: var(--sand-200); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
 
+/* Parcours client : panneau qui se redessine (deux noms pour rejouer
+   l'entrée à chaque choix), lignes qui montent, pastille de perte qui bat,
+   tiroir de campagne. */
+@keyframes yc-swap-a { from { opacity: .25; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes yc-swap-b { from { opacity: .25; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes yc-row-a { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes yc-row-b { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes yc-pulse-red { 0% { box-shadow: 0 0 0 0 rgba(227,20,27,.4); } 100% { box-shadow: 0 0 0 12px rgba(227,20,27,0); } }
+@keyframes yc-drawer-in { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .yc *, .yc *::before, .yc *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
