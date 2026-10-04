@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,8 +11,15 @@ import QRCode from 'qrcode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 
+/** Retour vers la Console CRM (« Mon profil ») : seul un chemin interne /crm est suivi. */
+function crmReturnPath(raw: string | null): string | null {
+  return raw && raw.startsWith('/crm') && !raw.startsWith('//') ? raw : null;
+}
+
 export default function MFASetup() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const crmBack = crmReturnPath(params.get('redirect'));
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'generate' | 'verify' | 'complete'>('generate');
@@ -69,13 +76,13 @@ export default function MFASetup() {
     // jamais forcés d'enrôler la 2FA. On les sort de la page d'activation même
     // s'ils y atterrissent par un lien ou une redirection résiduelle.
     if (profile?.mfa_exempt && !profile?.mfa_enabled) {
-      navigate(detectedRole === 'affiliate' ? '/affiliate' : '/owner');
+      navigate(crmBack ?? (detectedRole === 'affiliate' ? '/affiliate' : '/owner'));
       return;
     }
 
     if (profile?.mfa_enabled) {
       toast.success(t('mfa.alreadyEnabled'));
-      navigate(detectedRole === 'affiliate' ? '/affiliate' : '/owner');
+      navigate(crmBack ?? (detectedRole === 'affiliate' ? '/affiliate' : '/owner'));
     }
   };
 
@@ -165,7 +172,7 @@ export default function MFASetup() {
   };
 
   const finish = () => {
-    navigate(userRole === 'affiliate' ? '/affiliate' : '/owner');
+    navigate(crmBack ?? (userRole === 'affiliate' ? '/affiliate' : '/owner'));
   };
 
   return (
