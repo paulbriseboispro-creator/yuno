@@ -1081,6 +1081,11 @@ export function footerSocialEnabled(theme: EmailTheme): boolean {
   return theme.footerSocial !== false;
 }
 
+/** Où vit l'expéditeur au pied de page : son adresse postale si elle est réglée, sinon sa ville. */
+export function footerPlace(ctx: Pick<RenderCtx, 'postalAddress' | 'city'>): string {
+  return (ctx.postalAddress ?? '').trim() || (ctx.city ?? '').trim();
+}
+
 function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
   const reason = ctx.emailType === 'promotional'
@@ -1091,7 +1096,7 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): 
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
-    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${ctx.city ? ' — ' + escapeHtml(ctx.city) : ''}</p>
+    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${footerPlace(ctx) ? ' — ' + escapeHtml(footerPlace(ctx)) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${escapeHtml(ctx.recipient.email)} car ${reason}.</p>
      <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${escapeHtml(ctx.venueName)}. Tous droits réservés.</p>
      ${unsub}

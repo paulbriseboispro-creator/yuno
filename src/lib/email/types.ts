@@ -567,6 +567,8 @@ export type LiveData = Record<string, LiveEventData>;
 export interface RenderCtx {
   venueName: string;
   city?: string | null;
+  /** Adresse postale de l'expéditeur (Réglages d'envoi du CRM) : remplace la ville au pied de page. */
+  postalAddress?: string | null;
   /**
    * Logo du club / de l'organisateur, résolu par l'appelant (scope Studio en
    * aperçu, expéditeur en envoi). Sert de repli au bloc header : un header

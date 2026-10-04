@@ -93,6 +93,8 @@ export interface StudioRecipient {
 export interface StudioRenderCtx {
   venueName: string;
   city?: string | null;
+  /** Adresse postale de l'expéditeur (Réglages d'envoi du CRM) : remplace la ville au pied de page. */
+  postalAddress?: string | null;
   /** Logo du compte expéditeur — repli du bloc header (voir render.ts). */
   logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
@@ -1051,6 +1053,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
   }
 }
 
+/** Miroir de footerPlace (render.ts) : l'adresse postale si réglée, sinon la ville. */
+function footerPlace(ctx: Pick<StudioRenderCtx, 'postalAddress' | 'city'>): string {
+  return (ctx.postalAddress ?? '').trim() || (ctx.city ?? '').trim();
+}
+
 function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
   const reason = ctx.emailType === 'promotional'
@@ -1061,7 +1068,7 @@ function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boo
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
-    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${ctx.city ? ' — ' + esc(ctx.city) : ''}</p>
+    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${footerPlace(ctx) ? ' — ' + esc(footerPlace(ctx)) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}.</p>
      <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${esc(ctx.venueName)}. Tous droits réservés.</p>
      ${unsub}

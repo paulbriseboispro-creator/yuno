@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCrmScope } from '@/crm/scope';
 import { useCrmT } from '@/crm/i18n';
+import { useEmailSettings } from '@/crm/data/emails';
 import { normalizeTheme, normalizeV2Blocks, renderEmailHtml } from '@/lib/email';
 
 interface Row { blocks_json: unknown; theme_json: unknown; subject: string | null; preheader: string | null; social_links_json: unknown; logo_url: string | null }
@@ -13,9 +14,10 @@ interface Row { blocks_json: unknown; theme_json: unknown; subject: string | nul
 export function useEmailHtml(id: string | null) {
   const { space, qk } = useCrmScope();
   const { lang } = useCrmT();
+  const settings = useEmailSettings();
   return useQuery({
-    queryKey: ['crm', qk, 'emails', 'html', id, lang],
-    enabled: !!id,
+    queryKey: ['crm', qk, 'emails', 'html', id, lang, settings.data?.postal_address ?? null],
+    enabled: !!id && !settings.isLoading,
     staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.from('email_campaigns')
@@ -25,7 +27,7 @@ export function useEmailHtml(id: string | null) {
       const blocks = normalizeV2Blocks(row?.blocks_json);
       if (!row || !blocks.length) return null;
       return renderEmailHtml(blocks, normalizeTheme(row.theme_json), {
-        venueName: space.name, city: space.city, logoUrl: row.logo_url ?? space.logoUrl,
+        venueName: space.name, city: space.city, postalAddress: settings.data?.postal_address ?? null, logoUrl: row.logo_url ?? space.logoUrl,
         emailType: 'promotional', subject: row.subject ?? '', preheader: row.preheader ?? '',
         recipient: { email: 'camille@exemple.fr', firstName: 'Camille' },
         socialLinks: (row.social_links_json ?? {}) as Record<string, string>,

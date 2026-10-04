@@ -196,6 +196,8 @@ function unsubHeaders(token?: string | null): Record<string, string> {
 interface Sender {
   name: string;
   city: string | null;
+  /** Adresse postale réglée dans le CRM (pied de page), sinon null. */
+  postalAddress: string | null;
   /** Logo du compte — repli de marque du bloc header (voir email-studio-html.ts). */
   logoUrl: string | null;
   ownerUserId: string;
@@ -259,16 +261,18 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
   // changer d'affichage ne doit pas changer de réputation.
   let displayName = name;
   let replyOverride: string | null = null;
+  let postalAddress: string | null = null;
   if (!isPlatform) {
     const { data: cs } = await admin
-      .from('crm_email_settings').select('sender_name, reply_to')
+      .from('crm_email_settings').select('sender_name, reply_to, postal_address')
       .eq('scope_key', senderScopeKey(venueId, organizerUserId)).maybeSingle();
-    const row = cs as { sender_name?: string | null; reply_to?: string | null } | null;
+    const row = cs as { sender_name?: string | null; reply_to?: string | null; postal_address?: string | null } | null;
     if (row?.sender_name?.trim()) displayName = row.sender_name.trim().replace(/[<>"]/g, '');
     if (row?.reply_to?.trim()) replyOverride = row.reply_to.trim();
+    if (row?.postal_address?.trim()) postalAddress = row.postal_address.trim();
   }
   return {
-    name, city, logoUrl, ownerUserId: ownerUserId!,
+    name, city, postalAddress, logoUrl, ownerUserId: ownerUserId!,
     from: `${displayName} <${slugifyVenueName(name)}@${marketingDomain()}>`,
     replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
@@ -311,6 +315,7 @@ async function makeStudioHtmlBuilder(
   return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
     venueName: sender.name,
     city: sender.city,
+    postalAddress: sender.postalAddress,
     logoUrl: campaignLogo || sender.logoUrl,
     emailType: campaign.type as 'promotional' | 'informational',
     subject: subjectForRecipient(campaign, r),

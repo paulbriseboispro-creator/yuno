@@ -174,6 +174,14 @@ describe('renderEmailHtml — enveloppe', () => {
     expect(html).not.toContain('display:grid');
   });
 
+  it('le pied de page porte l’adresse postale réglée, sinon la ville', () => {
+    expect(html).toContain('— Bordeaux');
+    const withAddress = renderEmailHtml([makeBlock('text')], theme, { ...ctx, postalAddress: '12 rue des Lilas, 33000 Bordeaux' });
+    expect(withAddress).toContain('— 12 rue des Lilas, 33000 Bordeaux');
+    const blank = renderEmailHtml([makeBlock('text')], theme, { ...ctx, postalAddress: '   ' });
+    expect(blank).toContain('— Bordeaux');
+  });
+
   it('inclut les fallbacks MSO et le meta color-scheme', () => {
     expect(html).toContain('<!--[if mso]>');
     expect(html).toContain('color-scheme');

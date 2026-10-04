@@ -15,6 +15,7 @@ import { EASE } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
+import { useEmailSettings } from '@/crm/data/emails';
 import { useStudio, useStudioApi } from '@/components/email-studio/store';
 import BlockRenderer from '@/components/email-studio/blocks/BlockRenderer';
 import { blockBgColor, type CanvasCtx } from '@/components/email-studio/blocks/common';
@@ -49,16 +50,20 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
   const mob = device === 'mobile';
   const theme = campaign.theme;
   const N = campaign.blocks.length;
+  // Le pied de page montre l'adresse réglée dans Réglages d'envoi, comme l'envoi.
+  const settings = useEmailSettings();
+  const postalAddress = settings.data?.postal_address ?? null;
+  const place = (postalAddress ?? '').trim() || (space.city ?? '').trim();
 
   const ctx: CanvasCtx = useMemo(() => ({
     venueName: space.name, logoUrl: space.logoUrl, socialLinks: campaign.socialLinks, live, baseUrl: PUBLIC_BASE_URL, fallbackEventId: campaign.eventId,
   }), [space.name, space.logoUrl, campaign.socialLinks, live, campaign.eventId]);
 
   const html = useMemo(() => (preview ? renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
-    venueName: space.name, city: space.city, logoUrl: space.logoUrl, emailType: campaign.type,
+    venueName: space.name, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type,
     subject: campaign.subject, preheader: campaign.preheader, recipient: SAMPLE, unsubscribeUrl: '#',
     socialLinks: campaign.socialLinks, baseUrl: PUBLIC_BASE_URL, live, ignoreConds: true,
-  }) : ''), [preview, campaign, theme, space, live]);
+  }) : ''), [preview, campaign, theme, space, live, postalAddress]);
 
   const openInsert = (i: number) => {
     api.getState().setInsertIndex(i);
@@ -225,7 +230,7 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
               </div>
             )}
             <div style={{ padding: '22px 24px', background: theme.footerBg, textAlign: 'center', borderTop: socialLinks.length ? 'none' : footerBorder, fontFamily: FOOTER_FONT }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6 }}>{space.name}{space.city ? ` — ${space.city}` : ''}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6 }}>{space.name}{place ? ` — ${place}` : ''}</div>
               <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText }}>Cet email a été envoyé à {SAMPLE.email} car vous êtes abonné à sa newsletter.</div>
               <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText, marginTop: 4 }}>© {new Date().getFullYear()} {space.name}. Tous droits réservés.</div>
               <div style={{ fontSize: 11.5, marginTop: 8, color: theme.accent, textDecoration: 'underline' }}>Se désabonner</div>
