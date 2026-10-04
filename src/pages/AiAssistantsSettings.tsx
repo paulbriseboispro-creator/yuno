@@ -155,6 +155,7 @@ export default function AiAssistantsSettings() {
             </ol>
             {guide.command && <div className="mt-3"><CopyField value={guide.command} label="command" /></div>}
             {guide.note && <p className="text-xs text-muted-foreground mt-3">{t(guide.note)}</p>}
+            {client === 'claude' && <p className="text-xs text-muted-foreground mt-3">{t('aiConsent.autoAllowTip')}</p>}
           </div>
         </section>
 

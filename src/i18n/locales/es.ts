@@ -17066,6 +17066,7 @@ const es: Record<string, string> = {
   'aiConsent.organizer': "Organización",
   'aiConsent.moneyHidden': "importes ocultos para tu rol",
   'aiConsent.levelTitle': "¿Qué podrá ver?",
+  'aiConsent.autoAllowTip': "Consejo: para que Claude no te pida confirmación en cada pregunta, abre Ajustes → Conectores → Yuno y pon «Herramientas de solo lectura» en «Permitir siempre». Estas herramientas solo leen, no modifican nada.",
   'aiConsent.accessTitle': "Acceso a toda tu cuenta",
   'aiConsent.accessDesc': "Ventas, fiestas, público, marketing y fichas de clientes: todo lo que ves en tu Consola, en cada uno de los espacios de abajo.",
   'aiConsent.accessDescNoCustomers': "Ventas, fiestas, público y marketing: todo lo que ves en tu Consola, en cada uno de los espacios de abajo. Tu rol no abre las fichas de clientes.",

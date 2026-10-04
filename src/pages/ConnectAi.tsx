@@ -292,6 +292,12 @@ export default function ConnectAi() {
         </p>
       </Panel>
 
+      {/claude/i.test(clientName) && (
+        <p className="mb-5" style={{ fontSize: 13, color: T2, lineHeight: 1.55, background: 'var(--bg-subtle)', border: `1px solid ${BORDER}`, borderRadius: 16, padding: '12px 16px' }}>
+          {t('aiConsent.autoAllowTip')}
+        </p>
+      )}
+
       {error && <p role="alert" className="mb-3" style={{ color: 'var(--red-600)', fontSize: 13.5 }}>{error}</p>}
 
       <div className="flex flex-col gap-2.5">
