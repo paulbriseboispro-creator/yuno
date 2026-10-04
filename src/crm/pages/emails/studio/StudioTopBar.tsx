@@ -27,7 +27,7 @@ const IC = {
 
 type Step = 'aud' | 'plan' | 'check';
 
-export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { narrow: boolean; readOnly: boolean; failed: boolean; onStep: (s: Step | null) => void; onTest: () => void }) {
+export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, template = false }: { narrow: boolean; readOnly: boolean; failed: boolean; onStep: (s: Step | null) => void; onTest: () => void; template?: boolean }) {
   const { t } = useCrmT();
   const api = useStudioApi();
   const name = useStudio((s) => s.campaign.name);
@@ -70,7 +70,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { nar
     <>
       <header style={{ flex: 'none', height: 64, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: phone ? 8 : 16, padding: narrow ? '0 12px' : '0 20px', background: 'rgba(252,250,249,.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--sand-100)', position: 'relative', zIndex: 40 }}>
         <div style={{ flex: '1 1 0', minWidth: phone ? 60 : 120, display: 'flex', alignItems: 'center', gap: phone ? 8 : 12 }}>
-          <Hv as={Link} to={CRM_ROUTES.emailCampaigns} aria-label={t('yc.em.st.back')} title={t('yc.em.st.back')} style={{ flex: 'none', width: phone ? 36 : 40, height: phone ? 36 : 40, borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', display: 'grid', placeItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-50)', color: 'var(--ink)' }}>
+          <Hv as={Link} to={template ? CRM_ROUTES.automations : CRM_ROUTES.emailCampaigns} aria-label={t(template ? 'yc.au.tpl.back' : 'yc.em.st.back')} title={t(template ? 'yc.au.tpl.back' : 'yc.em.st.back')} style={{ flex: 'none', width: phone ? 36 : 40, height: phone ? 36 : 40, borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', display: 'grid', placeItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-50)', color: 'var(--ink)' }}>
             <Icon name="arrowLeft" size={17} stroke={2.3} />
           </Hv>
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -84,8 +84,8 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { nar
                 style={{ minWidth: 60, width: nameW, maxWidth: '100%', border: 0, outline: 0, background: 'transparent', padding: '2px 6px', margin: '0 -6px', borderRadius: 8, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', color: 'var(--ink)' }}
               />
               {!narrow && (
-                <span style={{ flex: 'none', height: 22, padding: '0 9px', borderRadius: 99, background: sched ? 'var(--green-50)' : 'var(--amber-50)', color: sched ? 'var(--green-700)' : 'var(--amber-700)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                  {t(sched ? 'yc.em.st.status.scheduled' : 'yc.em.st.status.draft')}
+                <span style={{ flex: 'none', height: 22, padding: '0 9px', borderRadius: 99, background: template ? 'var(--red-50)' : sched ? 'var(--green-50)' : 'var(--amber-50)', color: template ? 'var(--red-700)' : sched ? 'var(--green-700)' : 'var(--amber-700)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                  {t(template ? 'yc.au.tpl.badge' : sched ? 'yc.em.st.status.scheduled' : 'yc.em.st.status.draft')}
                 </span>
               )}
             </div>
@@ -100,7 +100,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { nar
           </div>
         </div>
 
-        {!narrow && !readOnly && (
+        {!narrow && !readOnly && !template && (
           <nav aria-label={t('yc.em.st.steps')} style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
             {steps.map((s, i) => {
               const cur = i === 0;
@@ -157,7 +157,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { nar
               >
                 <Icon d={IC.eye} size={16} stroke={2.1} />{!narrow && t('yc.em.st.preview')}
               </Hv>
-              <Hv
+              {!template && <Hv
                 as="button"
                 type="button"
                 onClick={onTest}
@@ -167,18 +167,18 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { nar
                 hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }}
               >
                 <Icon name="send" size={16} stroke={2.1} />{!narrow && t('yc.em.st.test')}
-              </Hv>
+              </Hv>}
               <Hv
                 as="button"
                 type="button"
                 onClick={() => onStep(null)}
-                aria-label={t('yc.em.st.next')}
+                aria-label={t(template ? 'yc.au.tpl.done' : 'yc.em.st.next')}
                 style={{ height: 44, padding: phone ? '0 5px' : '0 5px 0 20px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none', transition: `transform 200ms ${SPRING},filter 160ms` }}
                 hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
                 active={{ transform: 'scale(.97)' }}
               >
-                {!phone && t('yc.em.st.next')}
-                <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon name="arrowRight" size={16} stroke={2.4} /></span>
+                {!phone && t(template ? 'yc.au.tpl.done' : 'yc.em.st.next')}
+                <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon name={template ? 'check' : 'arrowRight'} size={16} stroke={2.4} /></span>
               </Hv>
             </>
           )}
@@ -187,7 +187,12 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest }: { nar
       {readOnly && (
         <div style={{ flex: 'none', padding: '10px 20px', background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14, fontWeight: 500, borderBottom: '1px solid var(--sand-100)', textAlign: 'center' }}>{t('yc.em.st.readOnly')}</div>
       )}
-      {sched && !readOnly && <ScheduledBand />}
+      {sched && !readOnly && !template && <ScheduledBand />}
+      {template && (
+        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 20px', background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 13.5, fontWeight: 500, borderBottom: '1px solid var(--sand-100)', textAlign: 'center' }}>
+          <Icon name="zap" size={14} stroke={2.2} />{t('yc.au.tpl.note')}
+        </div>
+      )}
     </>
   );
 }

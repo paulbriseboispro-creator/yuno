@@ -27,6 +27,7 @@ import { duplicateCampaigns } from '@/crm/data/emailActions';
 import { templateFromStart } from '@/crm/lib/emailTemplates';
 import { createStudioStore, StudioStoreContext, useStudio, useStudioApi, type StudioState } from '@/components/email-studio/store';
 import { campaignToRow, rowToCampaign, type CampaignRow } from '@/components/email-studio/campaignRow';
+import { stripEventBindings, templateContentToRow } from '@/lib/email/templates';
 import { useStudioLiveData, type StudioScope } from '@/components/email-studio/hooks';
 import type { EmailBlock } from '@/lib/email/types';
 import { useTemplateDraft } from '../templateDraft';
@@ -43,7 +44,10 @@ const EDITABLE = ['draft', 'scheduled'];
 
 export default function EmailStudioPage() {
   const { id } = useParams<{ id: string }>();
+  const [params] = useSearchParams();
   if (!id || id === 'new') return <StudioCreate />;
+  // `?template=<recette>` : l'e-mail d'une automatisation (un modèle, pas une campagne).
+  if (params.get('template')) return <TemplateLoader key={id} id={id} />;
   return <StudioLoader key={id} id={id} />;
 }
 
@@ -138,6 +142,75 @@ function StudioLoader({ id }: { id: string }) {
   );
 }
 
+/**
+ * L'e-mail d'une automatisation : un modèle (`email_campaign_templates`) que
+ * le moteur rejoue à chaque envoi. Même éditeur ; il s'enregistre dans le
+ * modèle, sans soirée figée, et la barre du haut n'a pas d'étapes d'envoi.
+ */
+function TemplateLoader({ id }: { id: string }) {
+  const { t } = useCrmT();
+  const nav = useNavigate();
+  const { space } = useCrmScope();
+  const [store, setStore] = useState<StoreApi<StudioState> | null>(null);
+  const [missing, setMissing] = useState(false);
+  const env = useRef({ t, space });
+  env.current = { t, space };
+  // L'aperçu se relie à la prochaine soirée, comme les vignettes de modèles ;
+  // le modèle, lui, n'enregistre jamais de soirée (choisie à chaque envoi).
+  const nights = useNights();
+  const nightsReady = !nights.isLoading;
+  const nextNight = useRef<string | null>(null);
+  nextNight.current = (nights.data?.nights ?? [])
+    .filter((x) => x.upcoming)
+    .sort((a, b) => a.start_at.localeCompare(b.start_at))[0]?.id ?? null;
+
+  useEffect(() => {
+    if (!nightsReady) return;
+    let off = false;
+    (async () => {
+      const { space: sp } = env.current;
+      const { data, error } = await supabase.from('email_campaign_templates').select('*').eq('id', id).maybeSingle();
+      if (off) return;
+      const tpl = data as (Record<string, unknown> & { id: string; name: string; venue_id: string | null; organizer_user_id: string | null }) | null;
+      const mine = !!tpl && (tpl.venue_id ?? null) === sp.venueId && (tpl.organizer_user_id ?? null) === sp.organizerUserId;
+      if (error || !tpl || !mine) { setMissing(true); return; }
+      const row = {
+        id: tpl.id, name: tpl.name, type: (tpl.type as string) || 'promotional', status: 'draft',
+        subject: (tpl.subject as string) || '', subject_b: null, ab_enabled: false, preheader: (tpl.preheader as string) || '',
+        blocks_json: tpl.blocks_json, blocks_version: (tpl.blocks_version as number) ?? 2, theme_json: tpl.theme_json,
+        social_links_json: tpl.social_links_json, logo_url: (tpl.logo_url as string) ?? null, event_id: nextNight.current,
+        audience_type: null, segment_id: null, audiences_json: [], exclusions_json: {}, scheduled_at: null,
+        throttle_per_hour: null, throttle_window_minutes: null, throttle_plan: null, quiet_hours: true,
+        followup_enabled: false, followup_delay_hours: null, followup_template_id: null, parent_campaign_id: null,
+        resend_enabled: false, resend_delay_hours: null, resend_subject: null,
+      } as CampaignRow;
+      const decorate = (b: EmailBlock) => decorateBlock(b, env.current.t, null);
+      setStore(createStudioStore(rowToCampaign(row, sp.name), { venueName: sp.name, logoUrl: sp.logoUrl ?? undefined }, decorate));
+    })();
+    return () => { off = true; };
+  }, [id, nightsReady]);
+
+  if (missing) {
+    return (
+      <Centered>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, maxWidth: 380 }}>
+          <YunitFace mood="inquiet" size={60} />
+          <b style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '-.02em' }}>{t('yc.em.st.notFound')}</b>
+          <button type="button" onClick={() => nav(CRM_ROUTES.automations)} style={{ height: 44, padding: '0 20px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{t('yc.au.tpl.back')}</button>
+        </div>
+      </Centered>
+    );
+  }
+  if (!store) return <Centered><YunitFace mood="content" size={56} /></Centered>;
+  return (
+    <StudioStoreContext.Provider value={store}>
+      <StudioProvider>
+        <StudioBody template />
+      </StudioProvider>
+    </StudioStoreContext.Provider>
+  );
+}
+
 function useNarrow(px: number) {
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < px);
   useEffect(() => {
@@ -148,7 +221,7 @@ function useNarrow(px: number) {
   return narrow;
 }
 
-function StudioBody() {
+function StudioBody({ template = false }: { template?: boolean }) {
   const { t } = useCrmT();
   const toast = useCrmToast();
   const nav = useNavigate();
@@ -170,10 +243,16 @@ function StudioBody() {
     const scope: StudioScope = space.venueId
       ? { kind: 'venue', venueId: space.venueId, name: space.name }
       : { kind: 'organizer', organizerId: space.organizerUserId ?? '', name: space.name };
-    const payload = campaignToRow(c, scope);
-    // Garde anti-course : on n'écrit que sur une campagne encore modifiable.
-    const { data, error } = await supabase.from('email_campaigns').update(payload as never)
-      .eq('id', c.id).in('status', EDITABLE).select('id');
+    // L'e-mail d'une automatisation s'écrit dans son modèle, sans soirée
+    // figée : le moteur la relie à chaque envoi.
+    const { data, error } = template
+      ? await supabase.from('email_campaign_templates').update({
+        ...templateContentToRow({ type: c.type, subject: c.subject, preheader: c.preheader, blocks: stripEventBindings(c.blocks), theme: c.theme, socialLinks: c.socialLinks, logoUrl: c.logoUrl }),
+        name: (c.name || '').trim().slice(0, 80) || 'Automatisation',
+      } as never).eq('id', c.id).select('id')
+      // Garde anti-course : on n'écrit que sur une campagne encore modifiable.
+      : await supabase.from('email_campaigns').update(campaignToRow(c, scope) as never)
+        .eq('id', c.id).in('status', EDITABLE).select('id');
     if (error) { api.getState().markSaveFailed(); setFailed(true); return false; }
     if (!data || data.length === 0) {
       api.getState().markSaveFailed();
@@ -184,7 +263,7 @@ function StudioBody() {
     api.getState().markSaved();
     invalidate();
     return true;
-  }, [api, readOnly, space.venueId, space.organizerUserId, space.name, toast, t, invalidate]);
+  }, [api, readOnly, space.venueId, space.organizerUserId, space.name, toast, t, invalidate, template]);
 
   // Autosave : 1,2 s après la dernière modification.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -206,9 +285,10 @@ function StudioBody() {
 
   const goStep = useCallback(async (step: 'aud' | 'plan' | 'check' | null) => {
     if (api.getState().dirty) await saveNow();
+    if (template) { nav(CRM_ROUTES.automations); return; }
     const id = api.getState().campaign.id;
     nav(`${CRM_ROUTES.emailSend(id)}${step ? `?step=${step}` : ''}`);
-  }, [api, nav, saveNow]);
+  }, [api, nav, saveNow, template]);
 
   // ── Clavier ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -269,7 +349,7 @@ function StudioBody() {
 
   return (
     <div className="yc" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'radial-gradient(55% 40% at 90% -5%,rgba(255,107,53,.08),transparent 70%),radial-gradient(45% 40% at 0% 0%,rgba(227,20,27,.05),transparent 70%),var(--paper)' }}>
-      <StudioTopBar narrow={narrow} readOnly={readOnly} failed={failed} onStep={goStep} onTest={() => void openTest()} />
+      <StudioTopBar narrow={narrow} readOnly={readOnly} failed={failed} onStep={goStep} onTest={() => void openTest()} template={template} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative' }}>
         {!narrow && !readOnly && <StudioLeft collapsed={preview} />}
         <StudioCanvas live={live} readOnly={readOnly} narrow={narrow} />
