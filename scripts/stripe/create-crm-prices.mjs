@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Yuno CRM — crée chez Stripe le produit d'abonnement et les packs de néons
 // (docs/designs/YUNO_CRM_PRICING.md, décision du 02/10 au soir : un abonnement
-// à 29 € HT par mois au lancement, 39 € ensuite ; annuel = 12 mois + 30 000
+// à 24 € HT par mois au lancement, 34 € ensuite (revu le 04/10) ; annuel = 12 mois + 30 000
 // néons offerts ; packs de néons de 10 € à 100 €).
 //
 // Chaque prix porte une `lookup_key` stable. L'edge `club-subscription`
 // (actions `crm_*`, réécrites au lot 4b) retrouvera les prix par ces clés :
 // aucun identifiant de prix n'est écrit dans le code.
 //   - abonnement : `yuno_crm_base_<month|year>_<launch|public>` ; les prix
-//     publics (39 € / 468 €) naissent INACTIFS, à activer le jour du passage ;
+//     publics (34 € / 408 €) naissent INACTIFS, à activer le jour du passage ;
 //   - packs : `yuno_crm_pack_<néons>`, paiement unique.
 //
 // Créés en LIVE le 02/10 sur le compte « Yuno 360 » par le MCP Stripe, avec
@@ -51,10 +51,10 @@ const BASE = {
   description:
     'Abonnement Yuno CRM : base clients, emails, automatisations et bilans branchés sur votre billetterie. 10 000 néons inclus chaque mois.',
   prices: [
-    { tier: 'launch', interval: 'month', amount: 29, active: true, nickname: 'Yuno CRM mensuel (lancement 29 €)' },
-    { tier: 'launch', interval: 'year', amount: 348, active: true, nickname: 'Yuno CRM annuel (lancement 348 € + 30 000 néons)' },
-    { tier: 'public', interval: 'month', amount: 39, active: false, nickname: "Yuno CRM mensuel (public 39 €, inactif jusqu'au passage)" },
-    { tier: 'public', interval: 'year', amount: 468, active: false, nickname: "Yuno CRM annuel (public 468 € + 30 000 néons, inactif jusqu'au passage)" },
+    { tier: 'launch', interval: 'month', amount: 24, active: true, nickname: 'Yuno CRM mensuel (lancement 24 €)' },
+    { tier: 'launch', interval: 'year', amount: 288, active: true, nickname: 'Yuno CRM annuel (lancement 288 € + 30 000 néons)' },
+    { tier: 'public', interval: 'month', amount: 34, active: false, nickname: "Yuno CRM mensuel (public 34 €, inactif jusqu'au passage)" },
+    { tier: 'public', interval: 'year', amount: 408, active: false, nickname: "Yuno CRM annuel (public 408 € + 30 000 néons, inactif jusqu'au passage)" },
   ],
 };
 

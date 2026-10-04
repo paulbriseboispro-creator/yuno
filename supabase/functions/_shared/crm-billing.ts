@@ -3,8 +3,8 @@
 // `stripe-webhook` et le front, testé par vitest
 // (src/lib/__tests__/crmBilling.test.ts).
 //
-// Une seule offre, le socle (décision du 02/10) : 29 € HT par mois au
-// lancement, 39 € ensuite pour les nouveaux comptes ; l'annuel coûte douze
+// Une seule offre, le socle (décision du 02/10, prix revus le 04/10) : 24 € HT par mois au
+// lancement, 34 € ensuite pour les nouveaux comptes ; l'annuel coûte douze
 // mois et ajoute 30 000 Yunits d'un coup. Les prix Stripe se retrouvent par
 // leur `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, posée par
 // scripts/stripe/create-crm-prices.mjs) : aucun identifiant de prix dans le code.

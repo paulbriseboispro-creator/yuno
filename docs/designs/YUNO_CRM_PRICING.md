@@ -1,5 +1,8 @@
 # Pricing Yuno CRM — six modèles comparés
 
+> **Révision du 04/10 : la grille en vigueur est 24 € HT / mois au lancement, 34 € ensuite, 288 € l'an.** Les montants 29 / 39 / 348 / 468 plus bas sont ceux de la décision du 02/10, conservés pour l'historique des calculs.
+
+
 > Analyse du 2026-10-02, à la demande de Paul. Il trouvait la première grille
 > (paliers tout compris) à revoir, et pose deux idées :
 >

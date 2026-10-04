@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { estimateMonth, fromSlider, rechargeExamples, snapEmails, snapSms, toSlider } from '@/crm/lib/pricing';
 
-const cfg = { rates: { email: 1, sms: 40 }, monthly_yunits: 10_000, price_month: 29 };
+const cfg = { rates: { email: 1, sms: 40 }, monthly_yunits: 10_000, price_month: 24 };
 
 describe('page Tarifs : simulateur', () => {
   it('reste dans les Yunits offerts : pas de recharge', () => {
