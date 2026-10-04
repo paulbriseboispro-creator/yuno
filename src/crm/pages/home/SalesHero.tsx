@@ -27,12 +27,15 @@ export function SalesHero({
   useEffect(() => { const id = setTimeout(() => { first.current = false; }, 2000); return () => clearTimeout(id); }, []);
   const gg = useProgress(first.current ? 1300 : 900, first.current ? 600 : 0, `${period}:${hasData}`, hasData);
   const H = s?.hourly ?? false;
+  // Sans accès au chiffre d'affaires, le serveur rend les montants à null :
+  // le bloc compte alors des billets (et la période d'avant, en total seulement).
+  const money = !s || s.total !== null;
 
   const view = useMemo(() => {
     if (!s || !hasData) return null;
     const N = s.series.length;
-    const cur = s.series.map((x) => Number(x.cur));
-    const prev = s.series.map((x) => Number(x.prev));
+    const cur = s.series.map((x) => Number(money ? x.cur : x.tickets));
+    const prev = money ? s.series.map((x) => Number(x.prev)) : [];
     const top = niceTop(Math.max(0, ...cur, ...prev), { headroom: 1.12, empty: 1, steps: COARSE_STEPS });
     const starts = s.series.map((x) => new Date(x.t).getTime());
     const endMs = new Date(s.end).getTime();
@@ -57,7 +60,7 @@ export function SalesHero({
     });
     const ratio = an && bn && b > 0 ? (a / an) / (b / bn) : null;
     return { N, cur, prev, top, marks, sendAt, ratio, starts };
-  }, [s, hasData, H]);
+  }, [s, hasData, H, money]);
 
   const fmtDate = (ms: number, withHour: boolean) => {
     const d = new Date(ms);
@@ -73,8 +76,8 @@ export function SalesHero({
       left: `${cx.toFixed(1)}%`,
       tx: cx < 55 ? 'translateX(24px)' : 'translateX(calc(-100% - 24px))',
       date: fmtDate(view.starts[hover], H),
-      value: eur(view.cur[hover]),
-      prev: t('yc.home.sales.tipPrev', { v: eur(view.prev[hover]) }),
+      value: money ? eur(view.cur[hover]) : t('yc.home.sales.tipTickets', { n: n(view.cur[hover]) }),
+      prev: money ? t('yc.home.sales.tipPrev', { v: eur(view.prev[hover]) }) : '',
       send: sd ? `${sd.channel === 'sms' ? 'SMS' : 'E-mail'} · ${sd.name}` : '',
     };
   }
@@ -87,8 +90,8 @@ export function SalesHero({
     })
     : [];
 
-  const total = s ? Number(s.total) : 0;
-  const ptotal = s ? Number(s.prev_total) : 0;
+  const total = s ? Number(money ? s.total : s.tickets) : 0;
+  const ptotal = s ? Number(money ? s.prev_total : s.prev_tickets) : 0;
   const vs = t(`yc.home.periodVs.${period}`);
   let deltaText = '';
   let deltaColor = 'var(--green-700)';
@@ -98,7 +101,7 @@ export function SalesHero({
   } else if (ptotal <= 0) {
     deltaText = total > 0 ? t('yc.home.sales.deltaNew', { vs }) : '';
     deltaColor = 'var(--sand-500)';
-    deltaSub = t('yc.home.sales.tickets', { n: n(s?.tickets ?? 0) });
+    deltaSub = money ? t('yc.home.sales.tickets', { n: n(s?.tickets ?? 0) }) : '';
   } else {
     const d = (total - ptotal) / ptotal;
     const p = Math.round(Math.abs(d) * 100);
@@ -106,7 +109,9 @@ export function SalesHero({
     else if (d > 0) deltaText = t('yc.home.sales.deltaUp', { pct: pct(p), vs });
     else { deltaText = t('yc.home.sales.deltaDown', { pct: pct(p), vs }); deltaColor = 'var(--red-600)'; }
     const diff = total - ptotal;
-    deltaSub = diff >= 0 ? t('yc.home.sales.more', { v: eur(diff) }) : t('yc.home.sales.less', { v: eur(-diff) });
+    deltaSub = money
+      ? (diff >= 0 ? t('yc.home.sales.more', { v: eur(diff) }) : t('yc.home.sales.less', { v: eur(-diff) }))
+      : (diff >= 0 ? t('yc.home.sales.moreTickets', { n: n(diff) }) : t('yc.home.sales.lessTickets', { n: n(-diff) }));
   }
 
   const insight = !view
@@ -147,7 +152,8 @@ export function SalesHero({
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(60px,9vw,128px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums', color: hasData ? 'var(--ink)' : 'var(--sand-300)' }}>
-          {hasData ? eur(total * gg) : '—'}
+          {hasData ? (money ? eur(total * gg) : n(total * gg)) : '—'}
+          {hasData && !money && <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--sand-500)' }}>{t('yc.home.sales.unitTickets')}</span>}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
           {deltaText && <span style={{ fontSize: 17, fontWeight: 600, color: deltaColor }}>{deltaText}</span>}
@@ -158,8 +164,8 @@ export function SalesHero({
       {view ? (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--sand-600)' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 10, height: 14, borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg,var(--tangerine-500),var(--red-500))', display: 'inline-block' }} />{t(H ? 'yc.home.sales.legendHour' : 'yc.home.sales.legendDay')}</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 18, height: 0, borderTop: '2px solid var(--ink)', display: 'inline-block' }} />{t('yc.home.sales.legendPrev')}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 10, height: 14, borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg,var(--tangerine-500),var(--red-500))', display: 'inline-block' }} />{t(money ? (H ? 'yc.home.sales.legendHour' : 'yc.home.sales.legendDay') : (H ? 'yc.home.sales.legendHourTk' : 'yc.home.sales.legendDayTk'))}</span>
+            {money && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 18, height: 0, borderTop: '2px solid var(--ink)', display: 'inline-block' }} />{t('yc.home.sales.legendPrev')}</span>}
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 9, height: 9, borderRadius: 99, background: 'var(--ink)', display: 'inline-block' }} />{t('yc.home.sales.legendSend')}</span>
           </div>
 
@@ -187,12 +193,12 @@ export function SalesHero({
                   );
                 })}
               </div>
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', clipPath: wipe(lp2) }}>
+              {view.prev.length > 0 && <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', clipPath: wipe(lp2) }}>
                 <path
                   d={'M' + view.prev.map((v, i) => `${(((i + 0.5) / view.N) * 100).toFixed(2)} ${(100 - (v / view.top) * 100).toFixed(2)}`).join(' L')}
                   fill="none" stroke="var(--ink)" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round"
                 />
-              </svg>
+              </svg>}
               {view.marks.map((m, k) => (
                 <div key={k} style={{ position: 'absolute', top: 0, bottom: 0, left: m.left, width: 0, borderLeft: '1.5px dashed var(--sand-400)', pointerEvents: 'none', opacity: markO }}>
                   <span title={m.title} style={{ position: 'absolute', top: -5, left: -6, width: 10, height: 10, borderRadius: 99, background: 'var(--ink)', boxShadow: '0 0 0 3px #fff', pointerEvents: 'auto' }} />
@@ -202,7 +208,7 @@ export function SalesHero({
                 <div style={{ position: 'absolute', top: 6, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ink)', color: '#fff', borderRadius: 14, padding: '10px 14px', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: 2, whiteSpace: 'nowrap', zIndex: 3 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{tip.date}</span>
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{tip.value}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{tip.prev}</span>
+                  {tip.prev && <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{tip.prev}</span>}
                   {tip.send && <span style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: '#FF948D' }}>● {tip.send}</span>}
                 </div>
               )}

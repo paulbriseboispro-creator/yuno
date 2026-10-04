@@ -18,8 +18,9 @@ export interface CrmHome {
   connection: { provider: string; status: string; last_ok_at: string | null; last_error_at: string | null; broken: boolean; broken_since: string | null } | null;
   sales: {
     period: HomePeriod; hourly: boolean; n: number; start: string; end: string;
-    series: { t: string; cur: number; prev: number; tickets: number }[];
-    total: number; prev_total: number; tickets: number; prev_tickets: number;
+    /** Montants à null pour un rôle sans accès au chiffre d'affaires. */
+    series: { t: string; cur: number | null; prev: number | null; tickets: number }[];
+    total: number | null; prev_total: number | null; tickets: number; prev_tickets: number;
     sends: { at: string; name: string; channel: 'email' | 'sms'; id: string }[];
     has_any: boolean;
   };
