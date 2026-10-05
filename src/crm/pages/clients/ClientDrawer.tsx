@@ -165,7 +165,11 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   // Guest list : un invité qui vient sans jamais payer appelle un autre conseil.
   const G = c.gl && c.gl.n > 0 ? c.gl : null;
   if (G && G.paid_n === 0) {
-    advT = t(G.came > 0 ? 'yc.gl.card.advT' : 'yc.gl.card.advTNoCome', { name: first, n: G.n, came: G.came });
+    // « 1 sur 3 soirées » se compte sur les soirées passées : une inscription à venir n'est pas une absence.
+    const past = c.guests ? c.guests.filter((g) => !g.upcoming).length : G.n;
+    advT = G.came > 0
+      ? tp('yc.gl.card.advT', past, { name: first, n: n(past), came: n(G.came) })
+      : tp('yc.gl.card.advTNoCome', G.n, { name: first, n: n(G.n) });
     advS = t(c.email_ok || c.phone_ok ? 'yc.gl.card.advS' : 'yc.gl.card.advSNone');
   }
   const prog = c.lifecycle === 'occ' || c.lifecycle === 'nou';

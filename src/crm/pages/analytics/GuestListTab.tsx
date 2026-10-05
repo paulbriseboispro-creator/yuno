@@ -42,7 +42,7 @@ export function guestlistCsv(d: AnaGuestList, T: T): { columns: string[]; rows: 
 export function GuestListTab({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }) {
   if (f.event) {
     return (
-      <div style={{ maxWidth: 900, width: '100%', alignSelf: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%' }}>
         <NightGuestList eventId={f.event} inDrawer={false} />
       </div>
     );
@@ -86,13 +86,13 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
     {
       kind: 'ring', label: t('yc.gl.a.t.showup'), value: X.showup !== null ? pct(X.showup * prog) : '—',
       delta: sD !== null ? pts(sD) : undefined, dc: sD !== null && sD < 0 ? 'var(--red-600)' : undefined,
-      cap: X.showup !== null ? tp('yc.gl.a.t.showupCap', X.scan_nights, { n: n(X.scan_nights) }) : t('yc.gl.a.t.noScan'),
+      cap: X.showup !== null ? tp('yc.gl.a.t.showupCap', X.scan_nights, { n: n(X.scan_nights) }) : X.scan_nights > 0 ? t('yc.gl.a.t.small') : t('yc.gl.a.t.noScan'),
       ring: X.showup ?? 0,
     },
     {
       kind: 'stack', label: t('yc.gl.a.t.share'), value: X.free_share !== null ? pct(X.free_share * prog) : '—',
       delta: fD !== null ? pts(fD) : undefined, dc: undefined,
-      cap: X.free_share !== null ? t('yc.gl.a.t.shareCap') : t('yc.gl.a.t.noScan'),
+      cap: X.free_share !== null ? t('yc.gl.a.t.shareCap') : X.scan_nights > 0 ? t('yc.gl.a.t.small') : t('yc.gl.a.t.noScan'),
       parts: X.free_share !== null ? [{ w: X.free_share, c: GL_COLORS.free }, { w: 100 - X.free_share, c: GL_COLORS.paid }] : [],
       legL: X.free_share !== null ? t('yc.gl.a.t.shareL', { pct: pct(X.free_share) }) : '', legR: X.free_share !== null ? t('yc.gl.a.t.shareR', { pct: pct(100 - X.free_share) }) : '',
     },
@@ -254,19 +254,26 @@ function NightsBars({ d, go, T }: { d: AnaGuestList; go: boolean; T: T }) {
               to={`${CRM_ROUTES.nights}?e=${x.id}&v=gl`}
               onMouseEnter={(ev) => { const el = ev.currentTarget; const box = el.offsetParent as HTMLElement | null; setHov({ i, x: Math.max(110, Math.min((box?.clientWidth ?? 0) - 110, el.offsetLeft + el.offsetWidth / 2)) }); }}
               aria-label={`${x.title} · ${t('yc.gl.a.barAria', { n: n(x.entries), came: x.scan_known ? n(x.came) : '—' })}`}
-              style={{ flex: '1 1 0', minWidth: 0, maxWidth: 52, height: '100%', display: 'flex', alignItems: 'flex-end' }}
+              style={{ flex: '1 1 0', minWidth: 0, height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
             >
-              <span style={{ position: 'relative', display: 'block', width: '100%', height: `${Math.max(2, th)}%`, borderRadius: '10px 10px 3px 3px', background: x.scan_known ? 'var(--red-100)' : 'var(--sand-200)', overflow: 'hidden', transform: `scaleY(${go ? 1 : 0})`, transformOrigin: 'bottom', transition: go ? `transform 650ms cubic-bezier(.22,1,.36,1) ${Math.min(i * 22, 600)}ms` : 'none', opacity: hov && hov.i !== i ? 0.5 : 1 }}>
+              <span style={{ position: 'relative', display: 'block', width: '100%', maxWidth: 52, height: `${Math.max(2, th)}%`, borderRadius: '10px 10px 3px 3px', background: x.scan_known ? 'var(--red-100)' : 'var(--sand-200)', overflow: 'hidden', transform: `scaleY(${go ? 1 : 0})`, transformOrigin: 'bottom', transition: go ? `transform 650ms cubic-bezier(.22,1,.36,1) ${Math.min(i * 22, 600)}ms` : 'none', opacity: hov && hov.i !== i ? 0.5 : 1 }}>
                 {x.scan_known && <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${cameH.toFixed(1)}%`, background: 'linear-gradient(180deg,var(--tangerine-500),var(--red-500))' }} />}
               </span>
             </Link>
           );
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--sand-500)' }}>
-        <span>{tzShort(locale, d.nights[0].start_at, d.nights[0].tz)}</span>
-        {d.nights.length > 1 && <span>{tzShort(locale, d.nights[d.nights.length - 1].start_at, d.nights[d.nights.length - 1].tz)}</span>}
-      </div>
+      {d.nights.length <= 12 ? (
+        // Peu de soirées : la date sous chaque barre.
+        <div style={{ display: 'flex', gap, fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--sand-500)' }}>
+          {d.nights.map((x) => <span key={x.id} style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tzShort(locale, x.start_at, x.tz)}</span>)}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--sand-500)' }}>
+          <span>{tzShort(locale, d.nights[0].start_at, d.nights[0].tz)}</span>
+          <span>{tzShort(locale, d.nights[d.nights.length - 1].start_at, d.nights[d.nights.length - 1].tz)}</span>
+        </div>
+      )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--sand-600)' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 10, height: 14, borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg,var(--tangerine-500),var(--red-500))' }} />{t('yc.gl.a.legCame')}</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 10, height: 14, borderRadius: '3px 3px 0 0', background: 'var(--red-100)' }} />{t('yc.gl.a.legNo')}</span>
@@ -277,7 +284,9 @@ function NightsBars({ d, go, T }: { d: AnaGuestList; go: boolean; T: T }) {
           <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{tzWeek(locale, h.start_at, h.tz)}</span>
           <span style={{ fontSize: 14, fontWeight: 600 }}>{h.title}</span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>
-            {h.scan_known && h.showup !== null ? t('yc.gl.a.tipKnown', { came: n(h.came), n: n(h.entries), pct: pct(h.showup) }) : t('yc.gl.a.tipEntries', { n: n(h.entries) })}
+            {!h.scan_known ? t('yc.gl.a.tipEntries', { n: n(h.entries) })
+              : h.showup !== null ? t('yc.gl.a.tipKnown', { came: n(h.came), n: n(h.entries), pct: pct(h.showup) })
+              : t('yc.gl.a.tipSmall', { came: n(h.came), n: n(h.entries) })}
           </span>
         </div>
       )}

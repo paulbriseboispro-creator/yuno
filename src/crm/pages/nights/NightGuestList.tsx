@@ -28,7 +28,7 @@ import { useCrmCaps } from '@/crm/scope';
 import { useNightGuestList } from '@/crm/data/guestlist';
 import type { GlArrivals, GlProfileSide, NightGuestList as GL } from '@/crm/data/guestlist';
 import type { ClientFilterDef } from '@/crm/data/clients';
-import { clockFromNoon, hourLabel, nightVerdict, rate } from '@/crm/lib/guestlist';
+import { GL_MIN_SAMPLE, clockFromNoon, hourLabel, nightVerdict, rate } from '@/crm/lib/guestlist';
 import { initials } from '@/crm/lib/lifecycle';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
@@ -143,16 +143,19 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
   } else if (ph === 'live') {
     tiles.push({ l: t('yc.gl.t.entries'), v: n(X.entries * p), s: t('yc.gl.t.mixLine', { inv: n(X.inv), free: n(X.free) }) });
     tiles.push({ l: t('yc.gl.t.inside'), v: n(X.came * p), s: t('yc.gl.t.insideS'), c: 'var(--green-700)' });
-    tiles.push({ l: t('yc.gl.t.share'), v: X.free_share !== null ? pct(X.free_share) : '—', s: t('yc.gl.t.shareLive', { n: n(X.came + X.paid_came) }) });
+    tiles.push({ l: t('yc.gl.t.share'), v: X.free_share !== null ? pct(X.free_share) : n(X.came), s: t('yc.gl.t.shareLive', { n: n(X.came + X.paid_came) }) });
   } else {
     tiles.push({ l: t('yc.gl.t.entries'), v: n(X.entries * p), s: t('yc.gl.t.mixLine', { inv: n(X.inv), free: n(X.free) }) });
     tiles.push({
       l: t('yc.gl.t.came'), v: d.scan_known ? n(X.came * p) : '—',
-      s: d.scan_known ? t('yc.gl.t.cameS', { pct: pct(X.showup ?? 0), paid: pct(X.paid_showup ?? 0) }) : t('yc.gl.t.noScan'),
+      s: !d.scan_known ? t('yc.gl.t.noScan')
+        : X.showup === null ? t('yc.gl.t.cameSmall', { n: n(X.entries) })
+        : X.paid_showup !== null ? t('yc.gl.t.cameS', { pct: pct(X.showup), paid: pct(X.paid_showup) })
+        : t('yc.gl.t.cameSOnly', { pct: pct(X.showup) }),
     });
     tiles.push({
       l: t('yc.gl.t.share'), v: X.free_share !== null ? pct(X.free_share * p) : '—',
-      s: X.free_share !== null ? t('yc.gl.t.shareS', { a: n(X.came), b: n(X.came + X.paid_came) }) : t('yc.gl.t.noScan'),
+      s: X.free_share !== null ? t('yc.gl.t.shareS', { a: n(X.came), b: n(X.came + X.paid_came) }) : d.scan_known ? t('yc.gl.t.small') : t('yc.gl.t.noScan'),
     });
     if (d.after) {
       tiles.push({
@@ -166,6 +169,8 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
   const mixTot = Math.max(1, X.inv + X.free);
   const curveSrc = { curve: d.curve, prev: d.prev, cap: null, tz, start_at: d.event.start_at };
   const showCurve = d.curve.length > 1 && X.entries > 0;
+  // Hors tiroir (Analyses › Guest list, une soirée), les cartes vont par deux.
+  const half: CSSProperties | undefined = inDrawer ? undefined : { flex: '1 1 420px', minWidth: 0 };
 
   return (
     <>
@@ -194,30 +199,31 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
             {X.free > 0 && <div style={{ flex: `${X.free} 1 0`, background: GL_COLORS.free, transformOrigin: 'left', transform: `scaleX(${p})` }} />}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '4px 14px', fontSize: 12.5, color: 'var(--sand-600)' }}>
-            <Legend c={GL_COLORS.inv}>{t('yc.gl.leg.inv', { n: n(X.inv), pct: pct((X.inv / mixTot) * 100) })}</Legend>
-            <Legend c={GL_COLORS.free}>{t('yc.gl.leg.free', { n: n(X.free), pct: pct((X.free / mixTot) * 100) })}</Legend>
+            {/* Une répartition ne se lit en pourcentage qu'à partir de 10. */}
+            <Legend c={GL_COLORS.inv}>{mixTot >= GL_MIN_SAMPLE ? t('yc.gl.leg.inv', { n: n(X.inv), pct: pct((X.inv / mixTot) * 100) }) : t('yc.gl.leg.invN', { n: n(X.inv) })}</Legend>
+            <Legend c={GL_COLORS.free}>{mixTot >= GL_MIN_SAMPLE ? t('yc.gl.leg.free', { n: n(X.free), pct: pct((X.free / mixTot) * 100) }) : t('yc.gl.leg.freeN', { n: n(X.free) })}</Legend>
           </div>
         </div>
         {showCurve && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>{t('yc.gl.curve.t')}</span>
-            <div style={{ paddingTop: 10 }}><SalesCurve detail={curveSrc} progress={p} height={110} tipKey="yc.gl.curve.tip" ariaKey="yc.gl.curve.aria" /></div>
+            <div style={{ paddingTop: 10 }}><SalesCurve detail={curveSrc} progress={p} height={inDrawer ? 110 : 160} tipKey="yc.gl.curve.tip" ariaKey="yc.gl.curve.aria" /></div>
             {d.prev && <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--sand-600)' }}>{t('yc.gl.curve.dashed', { title: d.prev.title, date: tzShort(locale, d.prev.start_at, tz) })}</span>}
           </div>
         )}
       </section>
 
-      {/* Quelle liste marche */}
-      {d.lists.length > 0 && <ListsCard d={d} T={T} p={p} />}
+      {/* Quelle liste marche · quand arrivent-ils (côte à côte sur une page large) */}
+      <Pair on={!inDrawer}>
+        {d.lists.length > 0 && <ListsCard d={d} T={T} p={p} style={half} />}
+        {ph !== 'upcoming' && d.arrivals.slots.length > 0 && <ArrivalsCard a={d.arrivals} T={T} p={p} delay={280} live={ph === 'live'} style={half} />}
+      </Pair>
 
-      {/* Quand arrivent-ils */}
-      {ph !== 'upcoming' && d.arrivals.slots.length > 0 && <ArrivalsCard a={d.arrivals} T={T} p={p} delay={280} live={ph === 'live'} />}
-
-      {/* Qui sont-ils */}
-      {X.people > 0 && <WhoCard who={d.who} profile={d.profile} T={T} p={p} delay={340} />}
-
-      {/* Et après */}
-      {d.after && d.after.eligible > 0 && <AfterCard d={d} T={T} onWrite={onWrite} />}
+      {/* Qui sont-ils · et après */}
+      <Pair on={!inDrawer}>
+        {X.people > 0 && <WhoCard who={d.who} profile={d.profile} T={T} p={p} delay={340} style={half} />}
+        {d.after && d.after.eligible > 0 && <AfterCard d={d} T={T} onWrite={onWrite} style={half} />}
+      </Pair>
 
       {/* La liste */}
       {d.people.length > 0 && <PeopleCard d={d} T={T} />}
@@ -246,13 +252,18 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
   );
 }
 
+/** Deux cartes côte à côte quand `on`, sinon rien de plus qu'un fragment. */
+function Pair({ on, children }: { on: boolean; children: ReactNode }) {
+  return on ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>{children}</div> : <>{children}</>;
+}
+
 function Legend({ c, children }: { c: string; children: ReactNode }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><i style={{ width: 9, height: 9, borderRadius: 3, background: c }} />{children}</span>;
 }
 
 // ── Par liste ──────────────────────────────────────────────────────────────
 
-function ListsCard({ d, T, p }: { d: GL; T: T; p: number }) {
+function ListsCard({ d, T, p, style }: { d: GL; T: T; p: number; style?: CSSProperties }) {
   const { t, n, pct } = T;
   const known = d.scan_known;
   const max = Math.max(1, ...d.lists.map((l) => l.entries));
@@ -261,7 +272,7 @@ function ListsCard({ d, T, p }: { d: GL; T: T; p: number }) {
     : null;
   const worst = best ? d.lists.filter((l) => l.entries >= 10 && l.showup !== null && l !== best).sort((a, b) => (a.showup ?? 0) - (b.showup ?? 0))[0] : null;
   return (
-    <section style={card(220)}>
+    <section style={card(220, style)}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <h3 style={h3}>{t('yc.gl.lists.t')}</h3>
         <span style={sub}>{t(known ? 'yc.gl.lists.s' : d.event.phase === 'past' ? 'yc.gl.lists.sNoScan' : 'yc.gl.lists.sUp')}</span>
@@ -284,7 +295,7 @@ function ListsCard({ d, T, p }: { d: GL; T: T; p: number }) {
               </div>
               <span style={{ fontSize: 13.5, color: 'var(--sand-600)', fontVariantNumeric: 'tabular-nums', textAlign: 'right', minWidth: 104 }}>
                 {known
-                  ? <><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{n(l.came)}</b> / {n(l.entries)} · {l.showup !== null ? pct(l.showup) : '—'}</>
+                  ? <><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{n(l.came)}</b> / {n(l.entries)}{l.showup !== null ? ` · ${pct(l.showup)}` : ''}</>
                   : t('yc.gl.lists.entries', { n: n(l.entries) })}
               </span>
             </div>
@@ -385,7 +396,7 @@ export function WhoCard({ who, profile, T, p, delay, style, title }: {
                 <i style={{ flex: 'none', width: 10, height: 10, marginTop: 5, borderRadius: 99, background: s.c }} />
                 <span style={{ display: 'flex', flexDirection: 'column' }}>
                   <b style={{ fontSize: 14.5, fontWeight: 600 }}>{t(`yc.gl.who.${s.k}`)}</b>
-                  <span style={{ fontSize: 13, color: 'var(--sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(s.v)} · {pct((s.v / tot) * 100)}</span>
+                  <span style={{ fontSize: 13, color: 'var(--sand-500)', fontVariantNumeric: 'tabular-nums' }}>{tot >= GL_MIN_SAMPLE ? `${n(s.v)} · ${pct((s.v / tot) * 100)}` : n(s.v)}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--sand-500)', marginTop: 2 }}>{t(`yc.gl.who.${s.k}D`)}</span>
                 </span>
               </div>
@@ -400,7 +411,7 @@ export function WhoCard({ who, profile, T, p, delay, style, title }: {
 
 // ── Et après ───────────────────────────────────────────────────────────────
 
-function AfterCard({ d, T, onWrite }: { d: GL; T: T; onWrite: (def: ClientFilterDef, who: string) => void }) {
+function AfterCard({ d, T, onWrite, style }: { d: GL; T: T; onWrite: (def: ClientFilterDef, who: string) => void; style?: CSSProperties }) {
   const { t, tp, n, eur, pct } = T;
   const caps = useCrmCaps();
   const a = d.after!;
@@ -409,7 +420,7 @@ function AfterCard({ d, T, onWrite }: { d: GL; T: T; onWrite: (def: ClientFilter
   const tooSoon = a.converted === 0 && days < 14;
   const stay = a.eligible - a.converted;
   return (
-    <section style={card(400, { background: 'radial-gradient(70% 90% at 100% 0%,rgba(31,166,90,.07),transparent 70%),#fff' })}>
+    <section style={card(400, { background: 'radial-gradient(70% 90% at 100% 0%,rgba(31,166,90,.07),transparent 70%),#fff', ...style })}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <h3 style={h3}>{t('yc.gl.after.t')}</h3>
         <span style={sub}>{t('yc.gl.after.s')}</span>
@@ -419,12 +430,12 @@ function AfterCard({ d, T, onWrite }: { d: GL; T: T; onWrite: (def: ClientFilter
           {n(a.converted)}<span style={{ fontSize: 18, color: 'var(--sand-500)', letterSpacing: '-.01em' }}> / {n(a.eligible)}</span>
         </span>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 4 }}>
-          <span style={{ fontSize: 14.5, fontWeight: 600 }}>{tp('yc.gl.after.big', a.converted, { n: n(a.converted) })}{r !== null ? ` · ${pct(r)}` : ''}</span>
+          <span style={{ fontSize: 14.5, fontWeight: 600 }}>{tp('yc.gl.after.big', a.converted, { n: n(a.converted) })}{r !== null && !tooSoon ? ` · ${pct(r)}` : ''}</span>
           {caps.money && a.revenue !== null && a.converted > 0 && <span style={{ fontSize: 13.5, color: 'var(--green-700)', fontWeight: 600 }}>{t('yc.gl.after.rev', { v: eur(a.revenue) })}</span>}
         </span>
       </div>
       <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-700)' }}>
-        {tooSoon ? t('yc.gl.after.soon', { n: days }) : a.back > 0 ? tp('yc.gl.after.back', a.back, { n: n(a.back) }) : t('yc.gl.after.noBack')}
+        {tooSoon ? (days === 0 ? t('yc.gl.after.soonToday') : tp('yc.gl.after.soon', days, { n: n(days) })) : a.back > 0 ? tp('yc.gl.after.back', a.back, { n: n(a.back) }) : t('yc.gl.after.noBack')}
       </span>
       {caps.write && stay > 0 && (
         <div>

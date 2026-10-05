@@ -18,6 +18,10 @@ describe('glKindOf (miroir de _crm_ticket_gl_kind)', () => {
     expect(glKindOf('other', 0, null)).toBeNull();
     expect(glKindOf('transferred', 0, { deal_channel: 'invitation' })).toBeNull();
   });
+  it('un duplicata n’est jamais une entrée, même à 0 €', () => {
+    expect(glKindOf('valid', 0, { deal_channel: 'duplicata' })).toBeNull();
+    expect(glKindOf('valid', 15, { deal_channel: 'duplicata' })).toBeNull();
+  });
   it('un brut qui n’est pas un objet ne fait pas une invitation', () => {
     expect(glKindOf('valid', 5, ['invitation'])).toBeNull();
     expect(glKindOf('valid', 5, 'invitation')).toBeNull();
@@ -79,6 +83,7 @@ describe('nightVerdict', () => {
   });
   it('après : le taux de venue seulement si la porte a scanné', () => {
     expect(nightVerdict({ ...base, phase: 'past', scanKnown: false, showup: null }).key).toBe('yc.gl.v.pastNoScan');
+    expect(nightVerdict({ ...base, phase: 'past', entries: 6, came: 4, showup: null })).toEqual({ key: 'yc.gl.v.pastSmall', vars: { came: 4, n: 6 } });
     const v = nightVerdict({ ...base, phase: 'past', prev: { title: 'Bass Culture #8', sameDay: 61, entries: 61, showup: 72.1 } });
     expect(v.key).toBe('yc.gl.v.past');
     expect(v.cmp).toEqual({ key: 'yc.gl.v.cmpDown', vars: { n: 14, title: 'Bass Culture #8' } });

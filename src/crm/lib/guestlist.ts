@@ -14,11 +14,15 @@ export type GlTicketKind = 'inv' | 'free';
 /**
  * Miroir de `_crm_ticket_gl_kind(status, price, raw)` : une invitation Shotgun
  * (`deal_channel = 'invitation'`) ou un billet valide à 0 €. Tout autre billet
- * (payant, annulé, remboursé, revendu, en attente) n'est pas une entrée.
+ * (payant, annulé, remboursé, revendu, en attente) n'est pas une entrée, ni un
+ * duplicata (`deal_channel = 'duplicata'`, la copie d'un billet existant —
+ * migration 20261008130000).
  */
 export function glKindOf(status: string | null | undefined, price: number | null | undefined, raw: unknown): GlTicketKind | null {
   if (status !== 'valid') return null;
-  if (raw && typeof raw === 'object' && !Array.isArray(raw) && (raw as Record<string, unknown>).deal_channel === 'invitation') return 'inv';
+  const channel = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>).deal_channel : undefined;
+  if (channel === 'duplicata') return null;
+  if (channel === 'invitation') return 'inv';
   if (price === 0) return 'free';
   return null;
 }
@@ -78,7 +82,9 @@ export function nightVerdict(d: NightVerdictInput): Verdict {
     };
   }
   if (d.phase === 'live') return { key: 'yc.gl.v.live', vars: { came: d.came, n: d.entries } };
-  if (!d.scanKnown || d.showup === null) return { key: 'yc.gl.v.pastNoScan', vars: { n: d.entries } };
+  if (!d.scanKnown) return { key: 'yc.gl.v.pastNoScan', vars: { n: d.entries } };
+  // Porte scannée mais moins de 10 inscrits : les nombres, sans pourcentage.
+  if (d.showup === null) return { key: 'yc.gl.v.pastSmall', vars: { came: d.came, n: d.entries } };
   const v: Verdict = { key: 'yc.gl.v.past', vars: { came: d.came, n: d.entries, pct: d.showup } };
   const gap = d.prev ? ptsDelta(d.showup, d.prev.showup) : null;
   if (d.prev && gap !== null) {
