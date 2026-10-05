@@ -18,6 +18,18 @@ import { persistedLanguage } from '@/contexts/LanguageContext';
 
 const MINT_TIMEOUT_MS = 5000;
 
+/**
+ * Le compte sur lequel on travaille suit le passage : « Ouvrir Yuno CRM » sur
+ * tel club pose `yuno.crm.space` (src/crm/scope.tsx), « Yuno Billetterie » sur
+ * telle organisation pose `yuno:acting-organizer` (useActingOrganizer) — chacun
+ * dans le stockage du domaine de DÉPART. Paramètre du fragment → clé locale ;
+ * l'arrivée revalide toujours le choix contre les droits réels.
+ */
+export const CARRIED_PICKS: Record<string, string> = {
+  space: 'yuno.crm.space',
+  org: 'yuno:acting-organizer',
+};
+
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
 }
@@ -41,6 +53,12 @@ export async function crossProductUrl(origin: string, path: string): Promise<str
       uid: session.user.id,
       lang: persistedLanguage(),
     });
+    for (const [param, key] of Object.entries(CARRIED_PICKS)) {
+      try {
+        const v = localStorage.getItem(key);
+        if (v) frag.set(param, v);
+      } catch { /* stockage indisponible : l'arrivée prend son espace par défaut */ }
+    }
     return `${origin}/auth/handoff#${frag.toString()}`;
   } catch {
     return plain;

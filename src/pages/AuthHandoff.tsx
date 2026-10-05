@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { onCrmHost } from '@/lib/productHost';
+import { CARRIED_PICKS } from '@/lib/productHandoff';
 
 /**
  * /auth/handoff — atterrissage d'un handoff de session vers le web.
@@ -78,6 +79,12 @@ export default function AuthHandoff() {
         localStorage.setItem('onboarding_taste_answered', 'true');
         localStorage.setItem('onboarding_push_answered', 'true');
       } catch { /* stockage indisponible : sans conséquence */ }
+    }
+    // Le compte choisi de l'autre côté (espace CRM, organisation servie) suit.
+    for (const [param, key] of Object.entries(CARRIED_PICKS)) {
+      const v = params.get(param);
+      if (!v || v.length > 200) continue;
+      try { localStorage.setItem(key, v); } catch { /* espace par défaut */ }
     }
 
     const exchange = () => supabase.auth
