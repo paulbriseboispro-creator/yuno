@@ -829,7 +829,11 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   (`groupSources(rows, links)`). Une publication (story, groupe…) se NOMME à
   la création (`NewLinkModal`) avec sa capture en option (`tracked_links.image_url`,
   bucket `email-assets`, migration `20261007120000`) : c'est ce qui permet de
-  dire quelle story a converti. Le lien en bio, unique, se crée d'un geste.
+  dire quelle story a converti. Dans Analyses, `yl` est éclaté en `ys`
+  (story Instagram), `yb` (lien en bio Instagram), `yt` (bio TikTok) et `yl`
+  (autres liens) par `_crm_ticket_source`, qui lit `tracked_links` par code
+  (`20261007130000`) : toute nouvelle famille s'ajoute aux listes de
+  `crm_ana_traffic__core` ET à `SOURCE_KEYS`. Le lien en bio, unique, se crée d'un geste.
 - **Fiche client** (`crm_client`, migration `20261006220000`) : chaque achat
   porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
   « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un

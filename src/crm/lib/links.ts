@@ -241,7 +241,7 @@ export function saleSourceText(
   t: (k: string, v?: Record<string, string | number | null | undefined>) => string,
 ): string | null {
   if (!src) return null;
-  if (src.kind === 'yl') return src.label ? t('yc.cli.card.src.link', { name: src.label }) : t('yc.ana.src.yl');
+  if (src.kind === 'yl' || src.kind === 'ys' || src.kind === 'yb' || src.kind === 'yt') return src.label ? t('yc.cli.card.src.link', { name: src.label }) : t('yc.ana.src.yl');
   if (src.kind === 'em') return src.label ? t('yc.cli.card.src.email', { name: src.label }) : t('yc.ana.src.em');
   if (src.kind === 'so' && src.src) return t('yc.cli.card.src.social', { name: src.src.charAt(0).toUpperCase() + src.src.slice(1) });
   if (src.kind === 'au' && src.src) return src.src;

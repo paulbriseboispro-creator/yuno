@@ -22,7 +22,7 @@ const NODE_STYLE: Record<NodeTone, [string, string]> = {
   2: ['var(--green-50)', 'var(--green-700)'],
 };
 const SRC_IC: Record<SourceKey, string> = {
-  em: JR_IC.mail, sm: JR_IC.sms, dm: JR_IC.send, yl: JR_IC.link, so: JR_IC.instagram, sg: JR_IC.ticket, au: JR_IC.globe, di: JR_IC.click, of: JR_IC.card,
+  em: JR_IC.mail, sm: JR_IC.sms, dm: JR_IC.send, ys: JR_IC.instagram, yb: JR_IC.instagram, yt: JR_IC.link, yl: JR_IC.link, so: JR_IC.instagram, sg: JR_IC.ticket, au: JR_IC.globe, di: JR_IC.click, of: JR_IC.card,
 };
 
 function pathNodes(key: JrPathKey, t: T['t']): { l: string; d: string; tone: NodeTone }[] {
