@@ -11,6 +11,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 import { Hv } from '@/crm/ui/Hv';
 import { useCrmToast } from '@/crm/ui/toast';
 import { setPendingAudience } from '@/crm/data/clients';
@@ -74,14 +75,19 @@ export default function SignupWho({ d, x }: { d: SignupPageRow; x: SignupDetail 
     return min < 60 ? t('yc.sp.f.agoMin', { n: min }) : min < 60 * 48 ? t('yc.sp.f.agoH', { n: Math.round(min / 60) }) : t('yc.sp.f.agoD', { n: Math.round(min / 1440) });
   };
   const head: CSSProperties = { fontFamily: "'Geist Mono'", fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-400)' };
-  const menuItem = (ch: 'email' | 'sms', d1: string, title: string, sub: string) => (
-    <Hv as="button" type="button" role="menuitem" onClick={() => { void write(ch); }}
-      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, color: 'var(--ink)', textDecoration: 'none', border: 0, background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
-      hover={{ background: 'var(--sand-50)' }}>
-      <span style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, background: 'var(--red-50)', color: 'var(--red-600)', display: 'grid', placeItems: 'center' }}><SpSvg d={d1} size={16} sw={2} /></span>
-      <span style={{ display: 'flex', flexDirection: 'column' }}><b style={{ fontSize: 14.5 }}>{title}</b><span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{sub}</span></span>
-    </Hv>
-  );
+  // Le SMS est « Bientôt » tant que CRM_SMS_DISPLAY_LIVE est faux : l'entrée se voit, ne s'ouvre pas.
+  const menuItem = (ch: 'email' | 'sms', d1: string, title: string, sub: string) => {
+    const soon = ch === 'sms' && !CRM_SMS_DISPLAY_LIVE;
+    return (
+      <Hv as="button" type="button" role="menuitem" disabled={soon} aria-disabled={soon} onClick={() => { if (!soon) void write(ch); }}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, color: 'var(--ink)', textDecoration: 'none', border: 0, background: 'none', width: '100%', textAlign: 'left', cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.6 : 1 }}
+        hover={soon ? undefined : { background: 'var(--sand-50)' }}>
+        <span style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, background: 'var(--red-50)', color: 'var(--red-600)', display: 'grid', placeItems: 'center' }}><SpSvg d={d1} size={16} sw={2} /></span>
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}><b style={{ fontSize: 14.5 }}>{title}</b><span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{sub}</span></span>
+        {soon && <span style={{ flex: 'none', height: 22, padding: '0 9px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>{t('yc.sp.f.wSoon')}</span>}
+      </Hv>
+    );
+  };
 
   return (
     <>

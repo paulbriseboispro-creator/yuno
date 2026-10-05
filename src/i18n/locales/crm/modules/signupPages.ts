@@ -570,6 +570,7 @@ const dict: CrmDict = {
   'yc.sp.f.wSms': ['SMS', 'SMS', 'SMS'],
   'yc.sp.f.wSmsS': ['{n} reachable · 40 Yunits each', '{n} joignables · 40 Yunits chacun', '{n} contactables · 40 Yunits cada uno'],
   'yc.sp.f.wNone': ['Nobody reachable on this channel yet.', 'Personne de joignable sur ce canal pour l’instant.', 'Nadie contactable por este canal por ahora.'],
+  'yc.sp.f.wSoon': ['Soon', 'Bientôt', 'Pronto'],
   'yc.sp.f.seeClients': ['See in Customers', 'Voir dans Clients', 'Ver en Clientes'],
   'yc.sp.f.gs.contacts': ['Contacts', 'Contacts', 'Contactos'],
   'yc.sp.f.gs.contactsD': ['all ticked the agreement box', 'tous ont coché la case d’accord', 'todos marcaron la casilla de acuerdo'],
