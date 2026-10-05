@@ -24,8 +24,8 @@ import { deltaPct, jLabelFor } from './SalesTab';
 type T = ReturnType<typeof useCrmT>;
 
 export const SOURCE_COLOR: Record<SourceKey, string> = {
-  ys: 'var(--red-600)', yb: 'var(--red-400)', yt: 'var(--sand-700)', yl: 'var(--red-500)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: 'var(--red-300)',
-  so: 'var(--red-700)', sg: 'var(--ink)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
+  ys: 'var(--red-600)', yb: 'var(--red-400)', yt: 'var(--red-900)', yl: 'var(--red-200)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: '#D62976',
+  so: '#962FBF', sg: 'var(--ink)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
 };
 
 export function trafficCsv(d: AnaTraffic, T: T, money: boolean): { columns: string[]; rows: unknown[][] } {
@@ -84,7 +84,7 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
     { kind: 'spark', label: t('yc.ana.t.t.clicks'), value: n(d.clicks.total * prog), delta: clD ? `${clD.text} ${t('yc.ana.vsBefore')}` : undefined, dc: clD && !clD.up ? 'var(--red-600)' : undefined, cap: t('yc.ana.t.t.clicksCap'), values: d.series.map((b) => b.clicks) },
     { kind: 'ring', label: t('yc.ana.t.t.new'), value: newPct !== null ? pct(newPct * prog) : '—', delta: f.cmp && newPct !== null && pnewPct !== null ? `${newPct - pnewPct >= 0 ? '▲' : '▼'} ${t('yc.ana.pts', { n: T.n1(Math.abs(newPct - pnewPct)) })} ${t('yc.ana.vsBefore')}` : undefined, cap: t('yc.ana.t.t.newCap'), ring: newPct ?? 0 },
     { kind: 'spark', label: t('yc.ana.t.t.gained'), value: n(d.gained.total * prog), cap: t('yc.ana.t.t.gainedCap'), values: d.gained.series },
-    { kind: 'txt', label: t('yc.ana.t.t.best'), value: v.best ? t(`yc.ana.src.${v.best.k}`) : '—', delta: v.best && totVal > 0 ? t('yc.ana.t.t.bestShare', { pct: pct((v.val(v.best) / totVal) * 100) }) : undefined, dc: 'var(--sand-600)', cap: v.bestNew && Number(v.bestNew.new_buyers) > 0 ? t('yc.ana.t.t.bestNew', { src: t(`yc.ana.src.${v.bestNew.k}`) }) : t('yc.ana.t.t.bestNewNone'), color: v.best ? SOURCE_COLOR[v.best.k] : 'var(--sand-100)' },
+    { kind: 'txt', label: t('yc.ana.t.t.best'), value: v.best ? t(`yc.ana.src.${v.best.k}.s`) : '—', delta: v.best && totVal > 0 ? t('yc.ana.t.t.bestShare', { pct: pct((v.val(v.best) / totVal) * 100) }) : undefined, dc: 'var(--sand-600)', cap: v.bestNew && Number(v.bestNew.new_buyers) > 0 ? t('yc.ana.t.t.bestNew', { src: t(`yc.ana.src.${v.bestNew.k}.s`) }) : t('yc.ana.t.t.bestNewNone'), color: v.best ? SOURCE_COLOR[v.best.k] : 'var(--sand-100)' },
   ];
   const rowMax = Math.max(1, ...v.rows.map((s) => v.val(s)));
   const grid = 'minmax(150px,1.3fr) 76px 92px 128px minmax(150px,1.4fr)';
@@ -170,7 +170,7 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
                   const off = hidden.includes(s.k);
                   return (
                     <div key={s.k} onMouseEnter={() => setFocus(s.k)} onMouseLeave={() => setFocus(null)} style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, alignItems: 'center', padding: '12px 10px', borderRadius: 14, background: focus === s.k ? 'var(--sand-50)' : 'transparent', opacity: off ? 0.4 : 1, transition: 'background 140ms,opacity 160ms', fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, minWidth: 0 }}><i style={{ flex: 'none', width: 10, height: 10, borderRadius: 3, background: SOURCE_COLOR[s.k], boxShadow: 'inset 0 0 0 1px rgba(28,21,23,.12)' }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`yc.ana.src.${s.k}`)}</span></span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, minWidth: 0 }}><i style={{ flex: 'none', width: 10, height: 10, borderRadius: 3, background: SOURCE_COLOR[s.k], boxShadow: 'inset 0 0 0 1px rgba(28,21,23,.12)' }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`yc.ana.src.${s.k}.s`)}</span></span>
                       <span style={{ textAlign: 'right', color: 'var(--sand-700)' }}>{n(Number(s.orders) * prog)}</span>
                       <span style={{ textAlign: 'right', color: 'var(--sand-700)' }}>{ns !== null ? pct(ns) : '—'}</span>
                       <b style={{ textAlign: 'right' }}>{n(Number(s.new_buyers) * prog)}</b>
@@ -200,14 +200,14 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
                 <div style={{ flex: 1, background: 'var(--sand-200)' }} />
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--sand-50)', fontSize: 14, lineHeight: 1.45, color: 'var(--sand-700)', textWrap: 'pretty' }}>
-                {d.buyers.new === 0 ? t('yc.ana.t.newNone') : topNew && topNewPct !== null ? t('yc.ana.t.newIns', { src: t(`yc.ana.src.${topNew.k}`), pct: pct(topNewPct) }) : ''}
+                {d.buyers.new === 0 ? t('yc.ana.t.newNone') : topNew && topNewPct !== null ? t('yc.ana.t.newIns', { src: t(`yc.ana.src.${topNew.k}.s`), pct: pct(topNewPct) }) : ''}
               </div>
               {newRows.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4, borderTop: '1px solid var(--sand-100)' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)', paddingTop: 12 }}>{t('yc.ana.t.newFrom')}</span>
                   {newRows.map((s, i) => (
                     <div key={s.k} style={{ display: 'grid', gridTemplateColumns: 'minmax(92px,120px) minmax(0,1fr) 48px', gap: 12, alignItems: 'center', fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>
-                      <span style={{ color: 'var(--sand-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`yc.ana.src.${s.k}`)}</span>
+                      <span style={{ color: 'var(--sand-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`yc.ana.src.${s.k}.s`)}</span>
                       <Fill pct={(Number(s.new_buyers) / newTot) * 100} go={go} delay={i * 80} h={10} bg={i === 0 ? 'var(--gradient-brand)' : 'var(--sand-400)'} dur={800} />
                       <b style={{ textAlign: 'right' }}>{pct((Number(s.new_buyers) / newTot) * 100)}</b>
                     </div>
