@@ -37,6 +37,10 @@ DECLARE
   v_conf boolean;
   v_ev uuid;
   v_ticket_emails text[];
+  v_bem text[];
+  v_bat timestamptz[];
+  v_bn integer;
+  v_k2 integer;
   v_lot_m uuid;
   v_lot_p uuid;
   v_left_m integer;
@@ -118,10 +122,14 @@ BEGIN
             now() - make_interval(days => p.started_days_ago + 1), now() - interval '2 hours', true);
   END LOOP;
 
+  -- La vente d'une prévente s'ouvre quelques jours après la page (sinon « Acheteurs » reste vide).
+  UPDATE public.crm_signup_pages SET sale_opens_at = published_at + interval '2 days'
+   WHERE organizer_user_id = v_uid AND kind = 'prevente' AND sale_opens_at IS NULL AND published_at IS NOT NULL;
+
   -- Visites, inscrits, confirmés : par page, étalés depuis la publication, plus denses
   -- les derniers jours (une page vit quand on l'annonce).
   FOR p IN
-    SELECT sp.id, sp.slug, sp.contact_import_id AS cli, sp.email_import_id AS eli, sp.published_at,
+    SELECT sp.id, sp.slug, sp.event_id, sp.contact_import_id AS cli, sp.email_import_id AS eli, sp.published_at,
            CASE sp.slug WHEN 'minimal-room-20' THEN 840 WHEN 'house-nation-21' THEN 520 WHEN 'la-liste-nuits-demo' THEN 1260 ELSE 410 END AS visits,
            CASE sp.slug WHEN 'minimal-room-20' THEN 214 WHEN 'house-nation-21' THEN 118 WHEN 'la-liste-nuits-demo' THEN 150 ELSE 112 END AS signed,
            CASE sp.slug WHEN 'minimal-room-20' THEN 171 WHEN 'house-nation-21' THEN 96 WHEN 'la-liste-nuits-demo' THEN 118 ELSE 90 END AS confirmed,
@@ -138,6 +146,20 @@ BEGIN
                  * power(random(), 0.55)) AS at) t
     ON CONFLICT DO NOTHING;
 
+    -- Acheteurs de la soirée visée : une partie des inscrits s'est inscrite AVANT d'acheter
+    -- (c'est « devenus acheteurs » : inscrit, puis billet pris sur Shotgun).
+    v_bem := ARRAY[]::text[]; v_bat := ARRAY[]::timestamptz[];
+    IF p.event_id IS NOT NULL THEN
+      SELECT COALESCE(array_agg(x.em ORDER BY x.at), ARRAY[]::text[]), COALESCE(array_agg(x.at ORDER BY x.at), ARRAY[]::timestamptz[])
+        INTO v_bem, v_bat
+        FROM (SELECT DISTINCT ON (lower(t.buyer_email)) lower(t.buyer_email) AS em, t.purchased_at AS at
+                FROM public.external_tickets t
+               WHERE t.organizer_user_id = v_uid AND t.event_id = p.event_id AND t.status = 'valid'
+                 AND t.purchased_at > p.published_at + interval '2 days'
+               ORDER BY lower(t.buyer_email), t.purchased_at) x;
+    END IF;
+    v_bn := COALESCE(array_length(v_bem, 1), 0);
+
     -- inscrits : les premiers confirment (la plupart), les derniers attendent le lien
     FOR v_i IN 1..p.signed LOOP
       v_fn := v_first[1 + floor(random() * 30)::int];
@@ -149,6 +171,13 @@ BEGIN
       END IF;
       v_at := LEAST(now() - make_interval(mins => 3 + floor(random() * 60)::int),
                     p.published_at + (CASE WHEN p.status = 'closed' THEN interval '30 days' ELSE now() - p.published_at END) * power(random(), 0.6));
+      v_k2 := NULL;
+      IF v_bn > 0 AND v_i % 4 = 0 THEN
+        v_k2 := 1 + ((v_i / 4) % v_bn);
+        v_email := v_bem[v_k2];
+        v_at := GREATEST(p.published_at + interval '1 hour', v_bat[v_k2] - make_interval(days => 1 + v_i % 5, hours => v_i % 7));
+        IF v_at >= v_bat[v_k2] THEN v_k2 := NULL; END IF;
+      END IF;
       -- Six confirmations d'aujourd'hui sur la page de la prochaine soirée, trois sur la liste générale.
       IF (p.slug = 'minimal-room-20' AND v_i <= 6) OR (p.slug = 'la-liste-nuits-demo' AND v_i <= 3) THEN
         v_at := now() - make_interval(mins => 20 + v_i * 47);
@@ -162,7 +191,7 @@ BEGIN
               v_srcs[1 + (v_i % array_length(v_srcs, 1))], 'fr',
               'J’accepte de recevoir les e-mails de Nuits Démo.', md5(p.slug || 'e' || v_i),
               v_at + interval '1 minute', CASE WHEN v_conf THEN v_at + make_interval(mins => 2 + (v_i % 40)) END, v_conf, v_at,
-              v_cities[1 + (v_i % array_length(v_cities, 1))], v_i % 7 = 0,
+              v_cities[1 + (v_i % array_length(v_cities, 1))], (v_i % 7 = 0 AND v_k2 IS NULL),
               CASE WHEN v_i % 3 = 0 THEN '@' || lower(v_fn) || v_i END)
       ON CONFLICT (page_id, lower(email)) DO NOTHING;
       IF v_conf THEN
