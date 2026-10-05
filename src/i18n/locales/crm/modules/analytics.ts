@@ -222,7 +222,7 @@ const dict: CrmDict = {
   'yc.ana.src.sm': ['Yuno SMS', 'SMS Yuno', 'SMS de Yuno'],
   'yc.ana.src.dm': ['Yuno Instagram replies', 'Réponses Instagram Yuno', 'Respuestas de Instagram de Yuno'],
   'yc.ana.src.yl': ['Share links (story, bio…)', 'Liens de partage (story, bio…)', 'Enlaces para compartir (story, bio…)'],
-  'yc.ana.src.so': ['Other social visits (no Yuno link)', 'Autres visites réseaux (hors lien Yuno)', 'Otras visitas de redes (sin enlace de Yuno)'],
+  'yc.ana.src.so': ['Instagram and TikTok (no Yuno link)', 'Instagram et TikTok (hors lien Yuno)', 'Instagram y TikTok (sin enlace de Yuno)'],
   'yc.ana.src.sg': ['Shotgun app and website', 'App et site Shotgun', 'App y web de Shotgun'],
   'yc.ana.src.au': ['Other websites', 'Autres sites', 'Otras webs'],
   'yc.ana.src.di': ['Direct', 'Accès direct', 'Acceso directo'],
