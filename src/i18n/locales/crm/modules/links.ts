@@ -59,7 +59,7 @@ const dict: CrmDict = {
   'yc.lk.unarchived': ['“{label}” is back in the list.', '« {label} » revient dans la liste.', '«{label}» vuelve a la lista.'],
 
   // Réseaux et emplacements
-  'yc.lk.kind.instagram.story': ['Instagram story', 'Story Instagram (sticker lien)', 'Story de Instagram (sticker enlace)'],
+  'yc.lk.kind.instagram.story': ['Instagram story', 'Story Instagram', 'Story de Instagram'],
   'yc.lk.kind.instagram.bio': ['Instagram bio link', 'Lien en bio Instagram', 'Enlace en la bio de Instagram'],
   'yc.lk.kind.instagram.post': ['Instagram post', 'Post Instagram', 'Publicación de Instagram'],
   'yc.lk.kind.instagram.reel': ['Reel', 'Reel', 'Reel'],
