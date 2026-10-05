@@ -15,6 +15,7 @@ import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Segmented, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
+import { useNarrow } from '@/crm/ui/useNarrow';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { PUBLIC_BASE_URL } from '@/lib/native';
@@ -407,6 +408,7 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
   const [edit, setEdit] = useState(false);
   const [name, setName] = useState(l.label);
   const [menu, setMenu] = useState(false);
+  const narrow = useNarrow(600);
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (fresh) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [fresh]);
   useEffect(() => { setName(l.label); }, [l.label]);
@@ -429,7 +431,7 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
       aria-label={label}
       title={label}
       onClick={(e: React.MouseEvent) => { e.stopPropagation(); onClick(); }}
-      style={{ width: 38, height: 38, borderRadius: 99, border: 0, background: on ? 'var(--green-50)' : 'var(--sand-100)', color: on ? 'var(--green-700)' : 'var(--ink)', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: 'none', transition: `background 160ms, transform 220ms ${SPRING}` }}
+      style={{ width: narrow ? 34 : 38, height: narrow ? 34 : 38, borderRadius: 99, border: 0, background: on ? 'var(--green-50)' : 'var(--sand-100)', color: on ? 'var(--green-700)' : 'var(--ink)', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: 'none', transition: `background 160ms, transform 220ms ${SPRING}` }}
       hover={{ background: on ? 'var(--green-50)' : 'var(--sand-200)' }}
       active={{ transform: 'scale(.92)' }}
     >
@@ -456,7 +458,7 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
         style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 12px 12px 14px', cursor: 'pointer', outline: 'none', flexWrap: 'wrap' }}
       >
         <PlatformBadge platform={l.platform} placement={l.placement} size={42} />
-        <span style={{ flex: '1 1 180px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ flex: narrow ? '1 1 0' : '1 1 180px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {edit ? (
             <input
               autoFocus
@@ -474,7 +476,10 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
           )}
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--sand-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{goDisplay(PUBLIC_BASE_URL, l.code)}</span>
         </span>
-        <span style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* Téléphone : chiffres sur leur propre ligne, sous le nom ; actions à droite du nom. */}
+        <span style={narrow
+          ? { order: 3, flex: '1 1 100%', display: 'flex', alignItems: 'center', gap: 16, paddingLeft: 56, marginTop: -4 }
+          : { flex: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Spark values={l.spark} width={72} height={26} />
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 64 }}>
             <b style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{n(l.visitors)}</b>
@@ -485,9 +490,9 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
             <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{tp('yc.lk.row.ticketsShort', l.tickets)}</span>
           </span>
         </span>
-        <span style={{ flex: 'none', display: 'flex', gap: 6 }}>
+        <span style={{ flex: 'none', display: 'flex', gap: 6, order: narrow ? 2 : undefined }}>
           {iconBtn(copied ? t('yc.lk.copied') : t('yc.lk.copy'), 'copy', onCopy, copied)}
-          {iconBtn(t('yc.lk.qr'), 'qr', onQr)}
+          {(!narrow || !canWrite) && iconBtn(t('yc.lk.qr'), 'qr', onQr)}
           {canWrite && (
             <span style={{ position: 'relative' }}>
               {iconBtn(t('yc.lk.menu'), 'more', () => setMenu((v) => !v))}
@@ -496,6 +501,8 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
                   <span onClick={(e) => { e.stopPropagation(); setMenu(false); }} style={{ position: 'fixed', inset: 0, zIndex: 5 }} />
                   <span onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: 0, top: 44, zIndex: 6, minWidth: 190, padding: 6, borderRadius: 16, background: '#fff', boxShadow: 'var(--shadow-md),0 0 0 1px var(--sand-200)', display: 'flex', flexDirection: 'column', animation: `yc-pop 200ms ${EASE} both` }}>
                     {([
+                      // Téléphone : le QR passe dans ce menu, pour laisser la place au nom.
+                      ...(narrow ? [['qr', t('yc.lk.qr'), () => { setMenu(false); onQr(); }]] as const : []),
                       ['edit', t('yc.lk.rename'), () => { setMenu(false); setEdit(true); }],
                       ['eye', t('yc.lk.test'), () => { setMenu(false); window.open(`${url}?t=1`, '_blank', 'noopener'); }],
                       ['x', l.archived ? t('yc.lk.unarchive') : t('yc.lk.archive'), () => { setMenu(false); onSave({ archived: !l.archived }); }],
