@@ -10,8 +10,13 @@ import { useCrmScope } from '@/crm/scope';
 export type AnaPeriod = '24h' | '48h' | '7d' | '30d' | '90d' | '12m';
 export type AnaSeg = 'all' | 'hab' | 'occ' | 'nou' | 'end';
 export type AnaTab = 'sales' | 'traffic' | 'community';
-export type SourceKey = 'em' | 'sm' | 'dm' | 'yl' | 'so' | 'pa' | 'au' | 'di';
-export const SOURCE_KEYS: SourceKey[] = ['em', 'sm', 'dm', 'yl', 'so', 'pa', 'au', 'di'];
+/**
+ * Famille de la source d'une vente, miroir de `_crm_ticket_source` (SQL,
+ * migration 20261006210000) : lue dans `utm_source`, le seul champ de suivi
+ * que l'API Tickets de Shotgun rend tel quel.
+ */
+export type SourceKey = 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'au' | 'di' | 'of';
+export const SOURCE_KEYS: SourceKey[] = ['yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of'];
 
 export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
 

@@ -23,8 +23,8 @@ import { deltaPct, jLabelFor } from './SalesTab';
 type T = ReturnType<typeof useCrmT>;
 
 export const SOURCE_COLOR: Record<SourceKey, string> = {
-  em: 'var(--tangerine-500)', sm: 'var(--ink)', dm: 'var(--red-300)', yl: 'var(--red-500)',
-  so: 'var(--red-700)', pa: 'var(--sand-400)', au: 'var(--sand-300)', di: 'var(--red-200)',
+  yl: 'var(--red-500)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: 'var(--red-300)',
+  so: 'var(--red-700)', sg: 'var(--ink)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
 };
 
 export function trafficCsv(d: AnaTraffic, T: T, money: boolean): { columns: string[]; rows: unknown[][] } {
@@ -53,7 +53,7 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
     const val = (s: AnaTraffic['sources'][number]) => (money ? Number(s.revenue ?? 0) : Number(s.tickets));
     // Les sources qui n'ont rien rapporté sur la période ne prennent pas de place.
     const used = SOURCE_KEYS.filter((k) => d.sources.find((s) => s.k === k && (Number(s.tickets) > 0 || Number(s.prev_tickets) > 0)));
-    const keys = used.length ? used : (['di'] as SourceKey[]);
+    const keys = used.length ? used : (['of'] as SourceKey[]);
     const series = keys.map((k) => ({ k, label: t(`yc.ana.src.${k}`), c: SOURCE_COLOR[k], v: d.series.map((b) => Number((money ? b.revenue?.[k] : b.tickets[k]) ?? 0)) }));
     const rows = d.sources.filter((s) => keys.includes(s.k)).sort((a, b) => val(b) - val(a));
     const tot = rows.reduce((a, s) => a + val(s), 0);
@@ -89,8 +89,10 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
   const grid = 'minmax(150px,1.3fr) 76px 92px 128px minmax(150px,1.4fr)';
   const newRows = [...v.rows].filter((s) => Number(s.new_buyers) > 0).sort((a, b) => Number(b.new_buyers) - Number(a.new_buyers)).slice(0, 4);
   const newTot = d.buyers.new || 1;
-  const fromOutside = v.rows.filter((s) => !['em', 'sm', 'dm'].includes(s.k)).reduce((a, s) => a + Number(s.new_buyers), 0);
-  const outsidePct = d.buyers.new > 0 ? (fromOutside / d.buyers.new) * 100 : null;
+  // La phrase ne dit que ce que les chiffres montrent : la source qui amène
+  // le plus de nouveaux clients, et sa part.
+  const topNew = newRows[0] ?? null;
+  const topNewPct = topNew && d.buyers.new > 0 ? (Number(topNew.new_buyers) / d.buyers.new) * 100 : null;
   const evMax = Math.max(1, ...d.events.map((e) => Number(e.buyers)));
 
   return (
@@ -197,7 +199,7 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
                 <div style={{ flex: 1, background: 'var(--sand-200)' }} />
               </div>
               <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--sand-50)', fontSize: 14, lineHeight: 1.45, color: 'var(--sand-700)', textWrap: 'pretty' }}>
-                {d.buyers.new === 0 ? t('yc.ana.t.newNone') : outsidePct !== null ? t('yc.ana.t.newIns', { pct: pct(outsidePct) }) : ''}
+                {d.buyers.new === 0 ? t('yc.ana.t.newNone') : topNew && topNewPct !== null ? t('yc.ana.t.newIns', { src: t(`yc.ana.src.${topNew.k}`), pct: pct(topNewPct) }) : ''}
               </div>
               {newRows.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4, borderTop: '1px solid var(--sand-100)' }}>

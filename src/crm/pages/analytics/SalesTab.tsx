@@ -478,8 +478,9 @@ function GoalCard({ d, loading, rv, go, prog }: { d: AnaSales; loading: boolean;
     rows = [
       { l: t('yc.ana.g.sold'), v: tCap ? `${n(sold)} / ${n(tCap)}` : n(sold) },
       { l: t('yc.ana.g.free'), v: free !== null ? n(free) : '—' },
-      { l: t('yc.ana.g.avgRate'), v: t('yc.ana.g.perDay', { n: n(sold / 21) }) },
-      { l: t('yc.ana.g.verdict'), v: p === null ? '—' : p >= 85 ? t('yc.ana.g.hit') : t('yc.ana.g.miss'), c: p !== null && p >= 85 ? 'var(--green-700)' : 'var(--amber-700)' },
+      // Ventes réellement faites sur les 21 jours de la courbe (cumul J-0 − J-21).
+      { l: t('yc.ana.g.avgRate'), v: t('yc.ana.g.perDay', { n: n(Math.max(0, Number(tg.curve[21] ?? sold) - Number(tg.curve[0] ?? 0)) / 21) }) },
+      { l: t('yc.ana.g.fill'), v: p === null ? '—' : p >= 100 ? t('yc.ana.g.full') : pct(p), c: p !== null && p >= 100 ? 'var(--green-700)' : undefined },
     ];
     text = p !== null ? t('yc.ana.g.txtPast', { pct: pct(p), sold: n(sold), cap: n(tCap!) }) : t('yc.ana.g.txtPastNoCap', { sold: n(sold) });
   }
