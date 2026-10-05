@@ -141,21 +141,26 @@ L'email doit sembler gratuit ; la marge se prend sur les canaux premium.
 
 Un email accepté par le fournisseur puis rebondi a été envoyé : il est décompté.
 
-**Les recharges**, au-delà des Yunits du mois :
+**Les recharges**, au-delà des Yunits du mois : **au curseur, sans pack
+pré-créé** (décision de Paul du 05/10, pour laisser le client choisir son
+montant). Règles lues dans `crm_pricing_config()`, recalculées par le serveur
+(`crmRechargeQuote`, `_shared/crm-billing.ts`) :
 
-| Pack | Prix HT | Yunits | Prix des 1 000 |
-|---|---|---|---|
-| Tube | 10 € | 5 000 | 2,00 € |
-| Enseigne | 25 € | 12 500 | 2,00 € |
-| Façade | 50 € | 27 500 (+10 %) | 1,82 € |
-| Boulevard | 100 € | 57 500 (+15 %) | 1,74 € |
+- de **5 000 à 300 000 Yunits, par pas de 5 000** (`recharge_min`,
+  `recharge_max`, `recharge_step`) ;
+- **500 Yunits par euro HT**, soit 10 € les 5 000 et 2 € les 1 000
+  (`yunits_per_euro`) ;
+- **bonus** : +10 % dès 25 000 Yunits achetés, +15 % dès 50 000
+  (`bonus_tiers`) ; à 50 € on reçoit donc 27 500 Yunits, à 100 € 57 500 ;
+- chaque recharge part en `price_data` à son montant exact : aucun produit
+  Stripe par montant.
 
 - **Durées de vie** : Yunits du mois jusqu'à l'échéance ; bonus annuel et Yunits
   achetés, 12 mois ; Yunits d'essai, jusqu'à la fin de l'essai.
 - On dépense toujours d'abord ceux qui s'éteignent le plus tôt.
 - **Recharge automatique** (« Toujours allumé »), facultative, proposée au
-  premier achat. Quand le solde passe sous 2 000 Yunits, Yuno achète le pack
-  choisi, dans un plafond mensuel fixé par le pro. Jamais allumée par défaut :
+  premier achat. Quand le solde passe sous 2 000 Yunits, Yuno recharge le
+  montant choisi sur le curseur, dans un plafond mensuel fixé par le pro. Jamais allumée par défaut :
   une dépense que le pro n'a pas vue venir coûte plus qu'elle ne rapporte.
 - **Un envoi n'est jamais coupé à moitié sans le dire.** Si le solde s'épuise en
   route, la campagne se met « en attente de Yunits », le pro est prévenu, et elle
@@ -173,7 +178,7 @@ Un email accepté par le fournisseur puis rebondi a été envoyé : il est déco
 ### Les chiffres
 
 Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisseur
-(4 c€). Prix au tarif de base, sans bonus de pack. Montants en € HT par mois.
+(4 c€). Prix au tarif de base, sans bonus de recharge. Montants en € HT par mois.
 
 | Profil | Yunits / mois | Prix à 24 € | Marge | Prix à 34 € | Marge | Ancienne grille (prix · marge) |
 |---|---|---|---|---|---|---|
@@ -219,9 +224,8 @@ Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisse
   vocabulaire de lumière (les crédits du mois « s'éteignent », un solde bas
   « faiblit ») et une icône en tube. Paul l'a écartée : pas de lien obligatoire
   avec la nuit. Écartés aussi : Watts, Jetons, Yunos (« 40 Yunos » mélangeait la
-  monnaie et le nom de l'app). Les noms des packs (Tube, Enseigne, Façade,
-  Boulevard) viennent de cette proposition ; ils ne sont pas affichés dans la
-  Console, qui vend des recharges libellées en Yunits.
+  monnaie et le nom de l'app). Les packs nommés de cette proposition (Tube,
+  Enseigne, Façade, Boulevard) ont disparu le 05/10 avec la recharge au curseur.
 
 ### Ce qui change dans le code (lot 4b, livré le 04/10)
 
@@ -231,7 +235,7 @@ Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisse
 | `crm_effective_plan()` | essai = Pro ; abonnement = son offre ; sinon Gratuit | essai ou abonnement actif / en retard = le socle ; sinon **en pause** (pas de synchro, pas d'envoi ; lecture et export de la base) |
 | Solde | email : `email_sender_state` (inclus + acheté) ; SMS : `sms_credit_balances` à part | un portefeuille de Yunits par portée, avec un grand livre par lot daté (du mois, bonus annuel, achetés, essai), dépensé du lot qui s'éteint le plus tôt au plus tard ; tarif par canal et par pays dans une table |
 | Débit | quota email à l'envoi (`consume_email_send_quota`), SMS débité avant Twilio | aux mêmes endroits, en Yunits, pour les comptes CRM seulement |
-| Stripe | `crm_checkout` cherche `yuno_crm_<offre>_<month\|year>[_founder]`, qui n'existent pas (il répond `billing_not_configured`) | ✅ prix créés le 02/10 (section suivante) ; `crm_checkout` à réécrire sur `yuno_crm_base_*_launch` ; packs par `yuno_crm_pack_*` ; recharge automatique hors session |
+| Stripe | `crm_checkout` cherche `yuno_crm_<offre>_<month\|year>[_founder]`, qui n'existent pas (il répond `billing_not_configured`) | ✅ prix créés le 02/10 (section suivante) ; `crm_checkout` sur `yuno_crm_base_*` ; recharge au curseur en `price_data`, sans pack (05/10) ; recharge automatique hors session |
 | Page Abonnement | 4 cartes d'offre | le socle, le solde de Yunits, l'historique, la preuve en euros, les recharges |
 | Aide (`ohelp.crm.billing.*`), assistant (`owner-assistant`), landing `/crm` | grille 49 / 129 / 249 | socle à 24 € + Yunits |
 | `scripts/stripe/create-crm-prices.mjs` | ✅ réécrit sur la nouvelle grille (mêmes clés, idempotent), pour recréer ailleurs | — |
@@ -249,26 +253,25 @@ Compte « Yuno 360 » (`acct_1SfNAdJxVnBQh5Ch`). Tous les prix sont HT
 | Annuel, lancement (+30 000 Yunits) | `yuno_crm_base_year_launch` | 288 € / an | **actif** | `price_1UMrAjJxVnBQh5Ch8n0yL5Du` |
 | Mensuel, public | `yuno_crm_base_month_public` | 34 € / mois | inactif | `price_1UMrAkJxVnBQh5Chu297Jkkc` |
 | Annuel, public (+30 000 Yunits) | `yuno_crm_base_year_public` | 408 € / an | inactif | `price_1UMrAlJxVnBQh5ChPwNSQbMG` |
-| Pack Tube, 5 000 Yunits | `yuno_crm_pack_5000` | 10 € | actif | `price_1UMAwHJxVnBQh5ChwZDHR7Wp` (`prod_VMulX84Kdeu6Ii`) |
-| Pack Enseigne, 12 500 Yunits | `yuno_crm_pack_12500` | 25 € | actif | `price_1UMAwKJxVnBQh5ChbuNwZxpp` (`prod_VMulZujMxx9dlP`) |
-| Pack Façade, 27 500 Yunits | `yuno_crm_pack_27500` | 50 € | actif | `price_1UMAwMJxVnBQh5Cht6jtuo5D` (`prod_VMuluGeVMdrOyx`) |
-| Pack Boulevard, 57 500 Yunits | `yuno_crm_pack_57500` | 100 € | actif | `price_1UMAwNJxVnBQh5ChOkpvoJwJ` (`prod_VMulG9EJSsM9Co`) |
+| Anciens packs (5 000, 12 500, 27 500, 57 500) | `yuno_crm_pack_*` | 10 à 100 € | **archivés le 05/10** (produits et prix) | `prod_VMulX84Kdeu6Ii`, `prod_VMulZujMxx9dlP`, `prod_VMuluGeVMdrOyx`, `prod_VMulG9EJSsM9Co` |
 
 - Les Yunits se lisent dans les métadonnées : `yunits_monthly` et
-  `yunits_annual_bonus` sur l'abonnement, `yunits` et `bonus_pct` sur les packs
-  (`yuno_crm_item = yunits_pack`). Aucun code ne les lit : le portefeuille est
-  crédité par la base, et une recharge part en `price_data` avec ses propres
-  métadonnées `yunits_*` (`club-subscription/crm.ts`). Les produits « packs »
-  ne servent donc à aucun paiement aujourd'hui.
+  `yunits_annual_bonus` sur l'abonnement. Aucun code ne les lit : le
+  portefeuille est crédité par la base, et une recharge part en `price_data`
+  avec ses propres métadonnées `yunits_*` (`club-subscription/crm.ts`).
+- **Pas de pack chez Stripe** : la recharge se choisit au curseur. Les quatre
+  produits « packs » créés le 02/10 n'ont jamais servi à un paiement ; ils sont
+  archivés depuis le 05/10 (pas supprimés : Stripe garde l'historique), et la
+  liste `packs` des réglages est retirée (migration `20261007140000`).
 - **Le jour du passage à 34 €** : activer les deux prix `…_public`, désactiver
   les `…_launch`. Les abonnés au prix de lancement le gardent : Stripe ne change
   jamais le prix d'un abonnement existant.
 - Rien n'est vendable tant que le code n'appelle pas ces clés : un prix actif
   sans checkout qui le vise ne fait rien.
 - **Renommés en Yunits chez Stripe le 05/10** : description du produit
-  d'abonnement (vue sur la page de paiement et la facture), surnoms des prix,
-  noms des produits packs et métadonnées (`neons_*` → `yunits_*`). Montants,
-  statuts et lookup keys, neutres, n'ont pas changé.
+  d'abonnement (vue sur la page de paiement et la facture), surnoms des prix et
+  métadonnées (`neons_*` → `yunits_*`). Montants, statuts et lookup keys,
+  neutres, n'ont pas changé.
 - **Révision du 04/10 : 29 / 39 € devenus 24 / 34 €** (décision de Paul). Un prix
   Stripe ne se modifie pas : quatre nouveaux prix ont été créés, les `lookup_key`
   leur ont été transférées (`transfer_lookup_key`), le prix par défaut du produit

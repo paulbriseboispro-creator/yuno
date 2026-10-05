@@ -467,8 +467,9 @@ externes, et vérifie RFM, exclusion 5b, attribution et rapport.
 >   15 minutes.
 > - **Les Yunits** : 1 Yunit = 1 email, 10 pour un DM Instagram, 40
 >   pour un SMS France, 100 pour un WhatsApp. 10 000 inclus chaque mois, mensuel
->   compris, qui s'éteignent à l'échéance. Recharges de 10 € (5 000) à 100 €
->   (57 500). Recharge automatique facultative, avec plafond.
+>   compris, qui s'éteignent à l'échéance. Recharges au curseur, sans pack :
+>   5 000 à 300 000 Yunits (10 € les 5 000, +10 % dès 25 000, +15 % dès 50 000).
+>   Recharge automatique facultative, avec plafond.
 > - **Annuel** = 288 € (12 mois) + 30 000 Yunits offerts d'un coup, sans remise.
 > - **Pas de compte gratuit.** Essai de 14 jours sans carte, avec 5 000 Yunits ;
 >   ensuite le compte passe en pause (base lisible et exportable, rien ne part,
@@ -595,7 +596,7 @@ n'avait été joué contre la vraie base ».
 | 2 Données dans le CRM | ✅ `20261002160000` → `180000` : soirées miroir, billets dans `contact_scope_customers`, automatisations, attribution, tarifs live dans l'email (`send-campaign` déployée) | — |
 | 3 Coquille produit | ✅ `20261002190000` : `product` du compte, Console CRM (accueil, soirées, bilan, audience), Clients et Audience aux mots du CRM, centre d'aide CRM, assistant ; démo `crm@womber.fr` | `owner-assistant` à redéployer à la fusion ; Console Manager d'un club CRM non adaptée |
 | 4 Prix et facturation | ✅ `20261002200000` + `201000` : `crm_subscriptions`, offre effective, quotas (emails, synchro, membres, automatisations, A/B), essai 14 j, page Abonnement, `crm_checkout` / `crm_portal`, branche webhook, revenu CRM dans `/admin/revenue` | **Grille remplacée le 02/10 (soir)** : voir lot 4b. Les prix de l'ancienne grille n'ont jamais été créés et ne le seront pas |
-| 4b Socle 24 € + Yunits | ✅ livré le 04/10 (`club-subscription/crm.ts`, webhook → `crm_apply_stripe_subscription`) ; **prix Stripe créés en live le 02/10**, revus le 04/10, renommés en Yunits le 05/10 (`yuno_crm_base_*`, `yuno_crm_pack_*`, détail dans `YUNO_CRM_PRICING.md`) | voir « Lot 4b » ci-dessous |
+| 4b Socle 24 € + Yunits | ✅ livré le 04/10 (`club-subscription/crm.ts`, webhook → `crm_apply_stripe_subscription`) ; **prix Stripe créés en live le 02/10**, revus le 04/10, renommés en Yunits le 05/10 (`yuno_crm_base_*` ; packs archivés le 05/10, recharge au curseur ; détail dans `YUNO_CRM_PRICING.md`) | voir « Lot 4b » ci-dessous |
 | 5 Landing, inscription, démo | en cours | |
 
 Rien n'est sur `main` : la fusion et le déploiement du front attendent Paul.
@@ -674,10 +675,12 @@ dans le code »).
   `20261007100000`) : la cagnotte de 40 000 / mois ne compte que l'offert ;
   Yunits et crédits passent au-delà, sous le plafond absolu
   `email_platform_monthly_ceiling()` (230 000). Détail : `EMAIL_DELIVERABILITY.md` § 0.
-- Stripe : les prix existent (lancement mois et an, publics inactifs, quatre
-  packs), renommés en Yunits le 05/10. `crm_checkout` vise `yuno_crm_base_*` par
-  lookup key ; une recharge part en `price_data` avec ses métadonnées `yunits_*`
-  (les produits `yuno_crm_pack_*` ne servent à aucun paiement).
+- Stripe : les prix d'abonnement existent (lancement mois et an, publics
+  inactifs), renommés en Yunits le 05/10. `crm_checkout` vise `yuno_crm_base_*`
+  par lookup key. **Pas de pack** : une recharge se choisit au curseur (5 000 à
+  300 000 Yunits, pas de 5 000, bonus +10 % / +15 %) et part en `price_data`
+  avec ses métadonnées `yunits_*` ; les quatre produits `yuno_crm_pack_*` sont
+  archivés depuis le 05/10.
 - Recharge automatique hors session avec plafond.
 - Page Abonnement : socle, solde, historique, preuve en euros, recharges.
 - Aide `ohelp.crm.billing.*` (3 langues), `owner-assistant`, landing `/crm`.

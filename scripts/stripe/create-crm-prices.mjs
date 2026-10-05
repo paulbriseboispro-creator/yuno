@@ -1,16 +1,19 @@
 #!/usr/bin/env node
-// Yuno CRM — crée chez Stripe le produit d'abonnement et les packs de Yunits
+// Yuno CRM — crée chez Stripe le produit d'abonnement et ses quatre prix
 // (docs/designs/YUNO_CRM_PRICING.md, décision du 02/10 au soir : un abonnement
 // à 24 € HT par mois au lancement, 34 € ensuite (revu le 04/10) ; annuel = 12 mois + 30 000
-// Yunits offerts ; packs de Yunits de 10 € à 100 €).
+// Yunits offerts).
+//
+// PAS de pack de Yunits chez Stripe (décision du 05/10) : une recharge se
+// choisit au curseur et part en `price_data` (`crmRechargeQuote`,
+// `_shared/crm-billing.ts`). Les quatre anciens produits « packs »
+// (`yuno_crm_pack_*`) sont archivés ; ce script ne les recrée pas.
 //
 // Chaque prix porte une `lookup_key` stable. L'edge `club-subscription`
 // (actions `crm_*`) retrouve les prix d'abonnement par ces clés : aucun
-// identifiant de prix n'est écrit dans le code. Les packs, eux, ne servent
-// pas au paiement : une recharge part en `price_data` (`crmRechargeQuote`).
+// identifiant de prix n'est écrit dans le code.
 //   - abonnement : `yuno_crm_base_<month|year>_<launch|public>` ; les prix
-//     publics (34 € / 408 €) naissent INACTIFS, à activer le jour du passage ;
-//   - packs : `yuno_crm_pack_<Yunits>`, paiement unique.
+//     publics (34 € / 408 €) naissent INACTIFS, à activer le jour du passage.
 //
 // Créés en LIVE le 02/10 sur le compte « Yuno 360 » par le MCP Stripe, avec
 // exactement ces clés et ces métadonnées (« néons » renommés en Yunits chez
@@ -60,16 +63,6 @@ const BASE = {
   ],
 };
 
-// Les recharges : un produit par pack, pour que le reçu dise combien de Yunits.
-const PACKS = [
-  { pack: 'tube', label: 'Tube', yunits: 5_000, amount: 10, bonus: 0 },
-  { pack: 'enseigne', label: 'Enseigne', yunits: 12_500, amount: 25, bonus: 0 },
-  { pack: 'facade', label: 'Façade', yunits: 27_500, amount: 50, bonus: 10 },
-  { pack: 'boulevard', label: 'Boulevard', yunits: 57_500, amount: 100, bonus: 15 },
-];
-
-const fmt = (n) => n.toLocaleString('fr-FR').replace(/ | /g, ' ');
-
 async function stripe(method, url, params) {
   const body = params ? new URLSearchParams(params).toString() : undefined;
   const res = await fetch(`https://api.stripe.com/v1/${url}`, {
@@ -92,9 +85,8 @@ async function main() {
   console.log(`Compte Stripe : ${live ? 'LIVE' : 'test'} · ${APPLY ? 'ÉCRITURE' : 'à blanc'}`);
 
   const baseKeys = BASE.prices.map((p) => `yuno_crm_base_${p.interval}_${p.tier}`);
-  const packKeys = PACKS.map((p) => `yuno_crm_pack_${p.yunits}`);
   // `active` non précisé : la liste rend aussi les prix inactifs (les prix publics).
-  const keys = [...baseKeys, ...packKeys].map((k) => `lookup_keys[]=${encodeURIComponent(k)}`).join('&');
+  const keys = baseKeys.map((k) => `lookup_keys[]=${encodeURIComponent(k)}`).join('&');
   const existing = await stripe('GET', `prices?limit=100&${keys}`);
   const have = new Set((existing.data ?? []).map((p) => p.lookup_key));
 
@@ -139,31 +131,6 @@ async function main() {
     }
   }
 
-  // 2. Les packs de Yunits.
-  for (const p of PACKS) {
-    const lookup = `yuno_crm_pack_${p.yunits}`;
-    if (have.has(lookup)) { console.log(`✓ pack ${p.label} : existe`); continue; }
-    console.log(`+ pack ${lookup} : ${p.amount.toFixed(2)} € → ${fmt(p.yunits)} Yunits`);
-    if (!APPLY) continue;
-    await stripe('POST', 'prices', {
-      currency: 'eur',
-      unit_amount: String(p.amount * 100),
-      tax_behavior: 'exclusive',
-      lookup_key: lookup,
-      nickname: `Pack ${p.label} : ${fmt(p.yunits)} Yunits${p.bonus ? ` (+${p.bonus} %)` : ''}`,
-      'metadata[yuno_product]': 'crm',
-      'metadata[yuno_crm_item]': 'yunits_pack',
-      'metadata[pack]': p.pack,
-      'metadata[yunits]': String(p.yunits),
-      'metadata[bonus_pct]': String(p.bonus),
-      'product_data[name]': `Yuno CRM · ${fmt(p.yunits)} Yunits (${p.label})`,
-      'product_data[tax_code]': TAX_CODE,
-      'product_data[metadata][yuno_product]': 'crm',
-      'product_data[metadata][yuno_crm_item]': 'yunits_pack',
-      'product_data[metadata][pack]': p.pack,
-      'product_data[metadata][yunits]': String(p.yunits),
-    });
-  }
   if (!APPLY) console.log('\nRien n\'a été écrit. Relancer avec --apply pour créer.');
 }
 

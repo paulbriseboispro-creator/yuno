@@ -70,8 +70,11 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   **Les Yunits** sont la monnaie de Yuno CRM (le nom « néons » est abandonné),
   jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
   France = 40 / segment, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
-  l'échéance, packs de 10 € (5 000) à 100 € (57 500), dépensés du lot qui
-  s'éteint le plus tôt ; jamais débités pour un test, un contact écarté par la
+  l'échéance ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
+  Paul, 05/10) : 5 000 à 300 000 Yunits par pas de 5 000, 500 par euro HT,
+  +10 % dès 25 000 et +15 % dès 50 000 (`crm_pricing_config()`, devis serveur
+  `crmRechargeQuote`, paiement en `price_data`) ; dépensés du lot qui s'éteint
+  le plus tôt ; jamais débités pour un test, un contact écarté par la
   politique d'envoi ou un refus du fournisseur ; l'IA ne coûte pas de Yunits. La
   Suite garde son modèle (emails offerts, recharges au prix coûtant).
   **Les prix se lisent en base, jamais au front** : `crm_pricing` (une ligne,
@@ -80,7 +83,8 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   là change ce qu'affichent la Console et la page Tarifs, PAS un abonnement
   existant ni Stripe : le montant facturé vient des prix Stripe retrouvés par
   `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, publics INACTIFS
-  jusqu'au passage au prix public ; `yuno_crm_pack_<yunits>`). Stripe live est à
+  jusqu'au passage au prix public ; les anciens produits `yuno_crm_pack_*`
+  sont ARCHIVÉS depuis le 05/10). Stripe live est à
   24 / 34 / 288 depuis le 04/10 (`scripts/stripe/create-crm-prices.mjs` en est le
   miroir idempotent) ; produits, surnoms de prix et métadonnées y disent
   « Yunits » depuis le 05/10 (`yunits_*`, aucun code ne les lit). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
