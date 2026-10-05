@@ -163,7 +163,7 @@ const dict: CrmDict = {
   'yc.cli.f.src.utm.s': ['First purchase via a Yuno link', 'Premier achat par un lien Yuno', 'Primera compra por un enlace Yuno'],
   'yc.cli.f.src.import': ['File import', 'Import de fichier', 'Importación de archivo'],
   'yc.cli.f.src.page': ['Sign-up pages', 'Pages d’inscription', 'Páginas de registro'],
-  'yc.cli.f.src.page.s': ['Coming soon', 'Bientôt', 'Pronto'],
+  'yc.cli.f.src.page.s': ['Came through one of your pages, before any purchase', 'Venus par l’une de vos pages, avant tout achat', 'Llegaron por una de sus páginas, antes de cualquier compra'],
 
   'yc.cli.card.label': ['Customer card · {pos}', 'Fiche client · {pos}', 'Ficha de cliente · {pos}'],
   'yc.cli.card.pos': ['{a} of {b}', '{a} sur {b}', '{a} de {b}'],

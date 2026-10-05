@@ -46,6 +46,8 @@ function defFromParams(sp: URLSearchParams): ClientFilterDef {
   if (nb && ['0', '1', '2', '3-5', '6+'].includes(nb)) f.nb = nb as NonNullable<ClientFilterDef['f']>['nb'];
   const ev = sp.get('ev');
   if (ev) f.ev = [ev];
+  const src = sp.get('src');
+  if (src && ['shotgun', 'utm', 'import', 'page', 'other'].includes(src)) f.src = [src as NonNullable<NonNullable<ClientFilterDef['f']>['src']>[number]];
   return { seg: s && (LIFE as string[]).includes(s) ? (s as Lifecycle) : 'all', f };
 }
 

@@ -102,7 +102,7 @@ export function ClientsTable({
         { v: 'shotgun', l: t('yc.cli.f.src.shotgun'), s: t('yc.cli.f.src.shotgun.s') },
         { v: 'utm', l: t('yc.cli.f.src.utm'), s: t('yc.cli.f.src.utm.s') },
         { v: 'import', l: t('yc.cli.f.src.import') },
-        { v: 'page', l: t('yc.cli.f.src.page'), s: t('yc.cli.f.src.page.s'), disabled: true },
+        { v: 'page', l: t('yc.cli.f.src.page'), s: t('yc.cli.f.src.page.s') },
       ],
     },
   ];

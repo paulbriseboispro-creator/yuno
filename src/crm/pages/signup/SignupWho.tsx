@@ -109,7 +109,7 @@ export default function SignupWho({ d, x }: { d: SignupPageRow; x: SignupDetail 
                 {menuItem('sms', SP_ICON.sms, t('yc.sp.f.wSms'), t('yc.sp.f.wSmsS', { n: n(x.reach.all_sms) }))}
               </div>
             )}
-            <Hv as={Link} to={CRM_ROUTES.clients}
+            <Hv as={Link} to={`${CRM_ROUTES.clients}?src=page`}
               style={{ height: 46, padding: '0 20px', borderRadius: 99, background: '#fff', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--sand-200)', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
               hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.sp.f.seeClients')}</Hv>
           </div>
@@ -165,7 +165,7 @@ export default function SignupWho({ d, x }: { d: SignupPageRow; x: SignupDetail 
           {ppl.length === 0 && <div style={{ padding: '36px 24px', textAlign: 'center', fontSize: 15, color: 'var(--sand-600)', borderTop: '1px solid var(--sand-100)' }}>{none ? t('yc.sp.f.noPeople') : t('yc.sp.f.noPeopleCat')}</div>}
           {ppl.length > 0 && (
             <div style={{ padding: '12px 22px', background: 'var(--sand-50)', borderTop: '1px solid var(--sand-100)', fontSize: 13.5, color: 'var(--sand-600)' }}>
-              {t('yc.sp.f.peopleFoot', { k: ppl.length, n: n(d.n) })} · <Link to={CRM_ROUTES.clients} style={{ fontWeight: 600 }}>{t('yc.sp.f.seeAll')}</Link>
+              {t('yc.sp.f.peopleFoot', { k: ppl.length, n: n(d.n) })} · <Link to={`${CRM_ROUTES.clients}?src=page`} style={{ fontWeight: 600 }}>{t('yc.sp.f.seeAll')}</Link>
             </div>
           )}
         </div>
