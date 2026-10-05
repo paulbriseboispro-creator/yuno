@@ -16,7 +16,7 @@
 
 ---
 
-## Décision du 02/10 (soir) : un abonnement à 29 €, et les néons
+## Décision du 02/10 (soir) : un abonnement à 24 €, et les néons
 
 > **Statut : décidé par Paul.** Le prix de l'abonnement est fixé. Le tarif des
 > néons est une base de travail proposée, que Paul ajustera à ses coûts réels
@@ -28,7 +28,7 @@
 ### Ce que Paul a décidé
 
 - **Abonnement + crédits**, sur le modèle de Laylo (étude de 16 h plus bas).
-- **Un seul abonnement, 29 € HT par mois au lancement.** Il passera à 39 € plus
+- **Un seul abonnement, 24 € HT par mois au lancement.** Il passera à 34 € plus
   tard, pour les nouveaux comptes.
 - **Pas de compte gratuit.** Une période d'essai à la place.
 - **Les crédits ont un nom, un dessin et un univers Yuno**, comme une monnaie.
@@ -55,22 +55,22 @@
 
 **2. L'annuel : une remise ou des néons ?** Des néons, sans remise.
 
-- 12 × 29 € = 348 € HT, plus 30 000 néons offerts d'un coup, soit 60 € de valeur
+- 12 × 24 € = 288 € HT, plus 30 000 néons offerts d'un coup, soit 60 € de valeur
   au tarif de base.
 - Le client voit l'équivalent de deux mois offerts. Yuno paie au plus 27 €
   d'envoi, si tout part en emails.
 - Ces néons font envoyer, ce qu'une remise ne fait pas.
 - La règle de la Suite « l'annuel coûte dix mois » ne s'applique pas au CRM.
 
-**3. 29 € au lancement, puis 39 €.** Oui, avec deux règles.
+**3. 24 € au lancement, puis 34 €.** Oui, avec deux règles.
 
 - **Le prix de lancement est garanti tant que l'abonnement reste actif.** Un
   compte qui résilie puis revient paie le prix du jour. C'est l'argument qui
   fait signer pendant le lancement. Tant que les comptes sont peu nombreux, il
   coûte peu.
-- **Le passage à 39 € est annoncé à l'avance**, sur la landing et dans la
+- **Le passage à 34 € est annoncé à l'avance**, sur la landing et dans la
   Console. Proposé : au 50e compte payant.
-- Pas de « 39 € » barré à côté de 29 € avant que 39 € ait été pratiqué : un prix
+- Pas de « 34 € » barré à côté de 24 € avant que 34 € ait été pratiqué : un prix
   barré doit être un prix réel.
 - Le « prix fondateur » de l'ancienne grille (15 comptes) disparaît. Le prix de
   lancement le remplace.
@@ -99,7 +99,7 @@
 - Un compte en pause n'est pas un compte gratuit. Il ne coûte rien à servir (pas
   de synchro), et sa base vieillit chaque jour : c'est sa raison de revenir.
 
-### Le socle à 29 €
+### Le socle à 24 €
 
 Tout ce qui fait envoyer est dans le socle. Dans un modèle à crédits, brider une
 fonction qui fait envoyer, c'est brider son propre revenu (étude de 16 h).
@@ -174,20 +174,20 @@ Un email accepté par le fournisseur puis rebondi a été envoyé : il est déco
 Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisseur
 (4 c€). Prix au tarif de base, sans bonus de pack. Montants en € HT par mois.
 
-| Profil | Néons / mois | Prix à 29 € | Marge | Prix à 39 € | Marge | Ancienne grille (prix · marge) |
+| Profil | Néons / mois | Prix à 24 € | Marge | Prix à 34 € | Marge | Ancienne grille (prix · marge) |
 |---|---|---|---|---|---|---|
-| A Asso saisonnière (4 000 emails) | 4 000 | 29 | 20 | 39 | 29 | 49 · 39 |
-| B Orga hebdo (45 000 emails, 300 SMS) | 57 000 | 123 | 62 | 133 | 72 | 133,50 · 73 |
-| C Club (70 000 emails, 1 000 SMS) | 110 000 | 229 | 115 | 239 | 125 | 216,50 · 104 |
-| D Festival (60 000 emails, 1 500 SMS) | 120 000 | 249 | 124 | 259 | 134 | 251,50 · 127 |
-| E Veut seulement la donnée | 0 | 29 | 23 | 39 | 33 | 129 · 121 |
+| A Asso saisonnière (4 000 emails) | 4 000 | 24 | 15 | 34 | 25 | 49 · 39 |
+| B Orga hebdo (45 000 emails, 300 SMS) | 57 000 | 118 | 57 | 128 | 67 | 133,50 · 73 |
+| C Club (70 000 emails, 1 000 SMS) | 110 000 | 224 | 110 | 234 | 120 | 216,50 · 104 |
+| D Festival (60 000 emails, 1 500 SMS) | 120 000 | 244 | 119 | 254 | 129 | 251,50 · 127 |
+| E Veut seulement la donnée | 0 | 24 | 18 | 34 | 28 | 129 · 121 |
 
 **Comment le lire :**
 
 - Sur ceux qui envoient (B, C, D), le socle + néons rapporte autant que
   l'ancienne grille, à quelques euros près.
 - Il rapporte moins sur ceux qui n'envoient pas (A, E). C'est le prix d'une
-  entrée à 29 €. Le profil E passe de 121 € à 23 € de marge : c'est exactement
+  entrée à 24 €. Le profil E passe de 121 € à 18 € de marge : c'est exactement
   la crainte de Paul.
 - **Tout le pari est que le produit fasse envoyer.** Les priorités produit après
   la facturation sont donc celles de l'étude de 16 h (« Faire du CRM un outil de
@@ -200,10 +200,10 @@ Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisse
 **Le pire cas pour Yuno :**
 
 - Un abonné qui dépense ses 10 000 néons du mois en emails coûte 9 € d'envoi,
-  5 € de fixe et 0,89 € de Stripe. Il reste 14 € (48 %) à 29 €.
-- En SMS chez Twilio, il ne resterait que 5 € (17 %). D'où la règle : **le SMS
-  n'ouvre qu'avec le nouveau fournisseur.** Au futur fournisseur, il reste 13 €
-  (45 %).
+  5 € de fixe et 0,89 € de Stripe. Il reste 9 € (38 %) à 24 €.
+- En SMS chez Twilio, il ne resterait rien (0 %). D'où la règle : **le SMS
+  n'ouvre qu'avec le nouveau fournisseur.** Au futur fournisseur, il reste 8 €
+  (33 %).
 - Un essai coûte au plus 4,50 € d'envoi et environ 2 € de fixe.
 
 ### L'univers des néons (proposition)
@@ -260,13 +260,13 @@ La métaphore reste légère : un écran qui parle d'argent dit d'abord les chif
 
 | Pièce | Aujourd'hui | Après |
 |---|---|---|
-| `crmPlans.ts` ⇄ `crm_plan_limits()` | 4 offres (`free`, `essential`, `pro`, `business`), quotas d'emails, d'automatisations, de membres | une offre unique (29 € au lancement, 39 € ensuite) et l'état « en pause » ; plus de limite d'automatisations, d'A/B ni de membres |
+| `crmPlans.ts` ⇄ `crm_plan_limits()` | 4 offres (`free`, `essential`, `pro`, `business`), quotas d'emails, d'automatisations, de membres | une offre unique (24 € au lancement, 34 € ensuite) et l'état « en pause » ; plus de limite d'automatisations, d'A/B ni de membres |
 | `crm_effective_plan()` | essai = Pro ; abonnement = son offre ; sinon Gratuit | essai ou abonnement actif / en retard = le socle ; sinon **en pause** (pas de synchro, pas d'envoi ; lecture et export de la base) |
 | Solde | email : `email_sender_state` (inclus + acheté) ; SMS : `sms_credit_balances` à part | un portefeuille de néons par portée, avec un grand livre par lot daté (du mois, bonus annuel, achetés, essai), dépensé du lot qui s'éteint le plus tôt au plus tard ; tarif par canal et par pays dans une table |
 | Débit | quota email à l'envoi (`consume_email_send_quota`), SMS débité avant Twilio | aux mêmes endroits, en néons, pour les comptes CRM seulement |
 | Stripe | `crm_checkout` cherche `yuno_crm_<offre>_<month\|year>[_founder]`, qui n'existent pas (il répond `billing_not_configured`) | ✅ prix créés le 02/10 (section suivante) ; `crm_checkout` à réécrire sur `yuno_crm_base_*_launch` ; packs par `yuno_crm_pack_*` ; recharge automatique hors session |
 | Page Abonnement | 4 cartes d'offre | le socle, le solde de néons, l'historique, la preuve en euros, les recharges |
-| Aide (`ohelp.crm.billing.*`), assistant (`owner-assistant`), landing `/crm` | grille 49 / 129 / 249 | socle à 29 € + néons |
+| Aide (`ohelp.crm.billing.*`), assistant (`owner-assistant`), landing `/crm` | grille 49 / 129 / 249 | socle à 24 € + néons |
 | `scripts/stripe/create-crm-prices.mjs` | ✅ réécrit sur la nouvelle grille (mêmes clés, idempotent), pour recréer ailleurs | — |
 
 ### Stripe : ce qui existe en live (créé le 02/10 par le MCP Stripe)
@@ -278,10 +278,10 @@ Compte « Yuno 360 » (`acct_1SfNAdJxVnBQh5Ch`). Tous les prix sont HT
 | Objet | Lookup key | Montant | État | ID |
 |---|---|---|---|---|
 | Produit « Yuno CRM » | — | — | actif, prix par défaut = mensuel lancement | `prod_VMukEsbyOEk3lk` |
-| Mensuel, lancement | `yuno_crm_base_month_launch` | 29 € / mois | **actif** | `price_1UMAvYJxVnBQh5ChrCl3rbad` |
-| Annuel, lancement (+30 000 néons) | `yuno_crm_base_year_launch` | 348 € / an | **actif** | `price_1UMAvZJxVnBQh5ChuLn2ZnKE` |
-| Mensuel, public | `yuno_crm_base_month_public` | 39 € / mois | inactif | `price_1UMAvbJxVnBQh5ChbnaVSnqw` |
-| Annuel, public (+30 000 néons) | `yuno_crm_base_year_public` | 468 € / an | inactif | `price_1UMAvcJxVnBQh5ChcETx0d7E` |
+| Mensuel, lancement | `yuno_crm_base_month_launch` | 24 € / mois | **actif** | `price_1UMrALJxVnBQh5Ch0WolPK4M` |
+| Annuel, lancement (+30 000 néons) | `yuno_crm_base_year_launch` | 288 € / an | **actif** | `price_1UMrAjJxVnBQh5Ch8n0yL5Du` |
+| Mensuel, public | `yuno_crm_base_month_public` | 34 € / mois | inactif | `price_1UMrAkJxVnBQh5Chu297Jkkc` |
+| Annuel, public (+30 000 néons) | `yuno_crm_base_year_public` | 408 € / an | inactif | `price_1UMrAlJxVnBQh5ChPwNSQbMG` |
 | Pack Tube, 5 000 néons | `yuno_crm_pack_5000` | 10 € | actif | `price_1UMAwHJxVnBQh5ChwZDHR7Wp` (`prod_VMulX84Kdeu6Ii`) |
 | Pack Enseigne, 12 500 néons | `yuno_crm_pack_12500` | 25 € | actif | `price_1UMAwKJxVnBQh5ChbuNwZxpp` (`prod_VMulZujMxx9dlP`) |
 | Pack Façade, 27 500 néons | `yuno_crm_pack_27500` | 50 € | actif | `price_1UMAwMJxVnBQh5Cht6jtuo5D` (`prod_VMuluGeVMdrOyx`) |
@@ -290,7 +290,7 @@ Compte « Yuno 360 » (`acct_1SfNAdJxVnBQh5Ch`). Tous les prix sont HT
 - Les néons se lisent dans les métadonnées : `neons_monthly` et
   `neons_annual_bonus` sur l'abonnement, `neons` et `bonus_pct` sur les packs.
   Le webhook créditera le portefeuille à partir d'elles (lot 4b).
-- **Le jour du passage à 39 €** : activer les deux prix `…_public`, désactiver
+- **Le jour du passage à 34 €** : activer les deux prix `…_public`, désactiver
   les `…_launch`. Les abonnés au prix de lancement le gardent : Stripe ne change
   jamais le prix d'un abonnement existant.
 - Rien n'est vendable tant que le code n'appelle pas ces clés : un prix actif
@@ -298,6 +298,11 @@ Compte « Yuno 360 » (`acct_1SfNAdJxVnBQh5Ch`). Tous les prix sont HT
 - Le nom « néons » apparaît dans les noms de produits et les descriptions (vus
   sur le reçu). Si Paul choisit un autre nom, on renomme les produits ; les
   lookup keys, neutres, ne changent pas.
+- **Révision du 04/10 : 29 / 39 € devenus 24 / 34 €** (décision de Paul). Un prix
+  Stripe ne se modifie pas : quatre nouveaux prix ont été créés, les `lookup_key`
+  leur ont été transférées (`transfer_lookup_key`), le prix par défaut du produit
+  pointe sur le nouveau mensuel, et les anciens (29 € / 348 €) sont archivés. Aucun
+  abonnement n'existait encore sur ces prix.
 - L'essai de 14 jours ne passe pas par Stripe : il vit dans `crm_subscriptions`,
   sans carte.
 
@@ -308,8 +313,8 @@ plus tard.
 
 ### Reste à trancher
 
-1. Le nom de la monnaie (« néons » proposé).
-2. Le moment du passage à 39 € (proposé : au 50e compte payant).
+1. ~~Le nom de la monnaie~~ : **Yunits**, décidé le 04/10 (« néons » abandonné, encore écrit dans ce document).
+2. ~~Le moment du passage à 34 €~~ : **au 50e compte payant**, validé le 05/10 (`price_switch_at`, Admin CRM › Réglages).
 3. Le tarif SMS une fois le fournisseur choisi (40 néons en France supposent
    environ 4 c€ d'achat).
 4. Combien de temps une base en pause reste gardée. À aligner sur le DPA ;
