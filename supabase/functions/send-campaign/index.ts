@@ -465,11 +465,14 @@ async function drainSlice(
     }
 
     // 2. Quota du jour (expéditeur + plateforme), consommé AVANT de réserver.
+    // La campagne dit si l'envoi est payé en Yunits (campagne CRM d'un compte
+    // à deux produits) : il ne consomme alors pas l'offert de la Billetterie.
     const { data: grantedRaw, error: qErr } = await admin.rpc('consume_email_send_quota', {
       p_scope_key: sender.scopeKey,
       p_requested: want,
       p_venue_id: sender.venueId,
       p_organizer_user_id: sender.organizerUserId,
+      p_campaign_id: campaignId,
     });
     if (qErr) { stopped = 'error'; detail = `quota: ${qErr.message}`; break; }
     const granted = Number(grantedRaw || 0);
@@ -481,7 +484,7 @@ async function drainSlice(
       p_limit: granted,
     });
     if (cErr) {
-      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: granted });
+      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: granted, p_campaign_id: campaignId });
       stopped = 'error'; detail = `claim: ${cErr.message}`; break;
     }
     const rows = (claimed || []) as Recipient[];
@@ -489,7 +492,7 @@ async function drainSlice(
       // File plus courte que le quota accordé : on rend la différence, sinon
       // le pro perdrait du quota sans avoir envoyé.
       await admin.rpc('refund_email_send_quota', {
-        p_scope_key: sender.scopeKey, p_amount: granted - rows.length,
+        p_scope_key: sender.scopeKey, p_amount: granted - rows.length, p_campaign_id: campaignId,
       });
     }
     if (rows.length === 0) {
@@ -527,7 +530,7 @@ async function drainSlice(
           });
         } catch (e) { console.error('suppress_email failed:', e); }
       }
-      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: bad.length });
+      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: bad.length, p_campaign_id: campaignId });
       failed += bad.length;
       console.warn(`${bad.length} adresse(s) inexpédiable(s) écartée(s) du lot`);
     }
@@ -587,7 +590,7 @@ async function drainSlice(
         p_error: `resend_422: ${result.rejected[0].error}`.slice(0, 500),
         p_retry_at: null,
       });
-      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: result.rejected.length });
+      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: result.rejected.length, p_campaign_id: campaignId });
       failed += result.rejected.length;
       console.warn(`${result.rejected.length} adresse(s) refusée(s) par Resend (422), isolée(s) :`, result.rejected[0].error);
     }
