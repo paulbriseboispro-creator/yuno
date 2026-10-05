@@ -37,7 +37,7 @@ Une campagne est CRM si : compte CRM pur ; sinon `email_campaigns.product = 'crm
 Limites connues : les automatisations (`email_automations`) sont communes aux deux
 Consoles et suivent le produit principal ; les SMS CRM restent fermés côté moteur.
 
-## Les trois chemins pour ouvrir l'autre produit
+## Les quatre chemins pour ouvrir l'autre produit
 
 1. **Funnel Yuno CRM (landing)** : un client qui se connecte avec Google / Apple
    et qui a déjà un compte voit l'étape « Vous avez déjà un compte Yuno » →
@@ -50,12 +50,23 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
    (`get_product_invite`, `accept_product_invite`). Seul le **titulaire** (club
    possédé, organisation fondée) ouvre un produit ; jamais en accès assisté ni
    sur un compte démo.
-3. **Super admin** : `/admin/organizers` (colonne « Produits ») et la fiche d'un
+3. **Écran 403 de la Console CRM** (`crm.yunoapp.eu/crm` sans espace CRM) :
+   si la personne est titulaire d'un compte Billetterie sans CRM
+   (`get_my_product_accounts`, `openCrmOffer` dans `src/crm/lib/openCrmOffer.ts`),
+   l'écran devient « Yuno CRM est à un clic » et mène à `/open/crm` (essai de
+   14 jours). « Changer de compte » ne fait que DÉCONNECTER : il n'ajoute ni ne
+   retire aucun produit, il n'est plus le geste principal.
+4. **Super admin** : `/admin/organizers` (colonne « Produits ») et la fiche d'un
    club (`/admin/venues/:id`) → bouton « Produits » (`AccountProductsButton`) :
    « Inviter par email » (edge `admin-account-recovery`, action
-   `invite-product`, email `_shared/product-invite-email.ts` au style Yuno CRM)
-   ou « Ouvrir directement » (`admin_add_account_product`). Chaque ajout émet
-   l'alerte `admin_account_product_added` (`/admin/alerts`).
+   `invite-product`, email `_shared/product-invite-email.ts` au style Yuno CRM),
+   « Ouvrir directement » (`admin_add_account_product`, essai de 14 jours) ou
+   **« Offrir Yuno CRM »** : ouvert s'il manque, puis
+   `admin_grant_crm_plan(scope, 'base', null)` = socle accordé sans abonnement
+   ni date de fin, 10 000 Yunits chaque mois (`crm_yunits_ensure_allowance`).
+   Réservé aux comptes de Yuno et aux partenaires ; refusé si le compte paie
+   déjà par Stripe (`has_stripe_subscription`). Chaque ajout émet l'alerte
+   `admin_account_product_added` (`/admin/alerts`).
 
 ## Passer d'une Console à l'autre
 

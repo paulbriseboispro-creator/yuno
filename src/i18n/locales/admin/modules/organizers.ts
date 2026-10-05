@@ -100,6 +100,12 @@ const dict: AdminDict = {
   'adm.prod.inviteNotSent': ['Invitation created but the email did not leave: check Resend.', 'Invitation créée mais l’email n’est pas parti : vérifier Resend.', 'Invitación creada pero el email no salió: revisa Resend.'],
   'adm.prod.added': ['{product} opened', '{product} ouvert', '{product} abierto'],
   'adm.prod.already': ['This account already has this product.', 'Ce compte a déjà ce produit.', 'Esta cuenta ya tiene este producto.'],
+  'adm.prod.gift': ['Give Yuno CRM for free', 'Offrir Yuno CRM', 'Regalar Yuno CRM'],
+  'adm.prod.confirmGift': ['Confirm: give it for free', 'Confirmer : offrir', 'Confirmar: regalar'],
+  'adm.prod.giftTitle': ['Yuno CRM for free', 'Yuno CRM offert', 'Yuno CRM regalado'],
+  'adm.prod.giftHint': ['Giving opens Yuno CRM with no trial, no subscription and no end date, with the monthly Yunits every month. For Yuno’s own accounts and partners, never for a paying customer.', 'Offrir ouvre Yuno CRM sans essai, sans abonnement et sans date de fin, avec les Yunits du mois chaque mois. Pour les comptes de Yuno et les partenaires, jamais pour un client qui paie.', 'Regalar abre Yuno CRM sin prueba, sin suscripción y sin fecha de fin, con los Yunits del mes cada mes. Para las cuentas de Yuno y los socios, nunca para un cliente que paga.'],
+  'adm.prod.gifted': ['Yuno CRM given to {name}', 'Yuno CRM offert à {name}', 'Yuno CRM regalado a {name}'],
+  'adm.prod.giftHasStripe': ['This account already pays for the CRM through Stripe: cancel that subscription before giving it.', 'Ce compte paie déjà le CRM par Stripe : résiliez cet abonnement avant de l’offrir.', 'Esta cuenta ya paga el CRM por Stripe: cancela esa suscripción antes de regalarlo.'],
 };
 
 export default dict;
