@@ -9,9 +9,9 @@ import { Icon, type IconName } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 
-export type SoonItem = 'visits' | 'conv' | 'curious' | 'carts' | 'page';
+export type SoonItem = 'visits' | 'conv' | 'curious' | 'carts' | 'page' | 'scanlist';
 
-const ICON: Record<SoonItem, IconName> = { visits: 'eye', conv: 'chart', curious: 'pointer', carts: 'ticket', page: 'globe' };
+const ICON: Record<SoonItem, IconName> = { visits: 'eye', conv: 'chart', curious: 'pointer', carts: 'ticket', page: 'globe', scanlist: 'users' };
 
 export function SoonTile({ icon, title, body }: { icon: IconName; title: string; body: string }) {
   const { t } = useCrmT();

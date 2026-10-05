@@ -13,6 +13,7 @@ export const CRM_ROUTES = {
   sales: '/crm/analytics/sales',
   traffic: '/crm/analytics/traffic',
   community: '/crm/analytics/community',
+  guestlist: '/crm/analytics/guestlist',
   journey: '/crm/journey',
   emails: '/crm/emails',
   emailCampaigns: '/crm/emails/campaigns',
@@ -50,7 +51,7 @@ export const CRM_ROUTES = {
 
 /** Identifiant de l'écran courant, tel que le menu le connaît. */
 export type CrmScreen =
-  | 'accueil' | 'ventes' | 'trafic' | 'communaute' | 'parcours'
+  | 'accueil' | 'ventes' | 'trafic' | 'communaute' | 'guestlist' | 'parcours'
   | 'emails' | 'sms' | 'auto' | 'instagram'
   | 'avenir' | 'passees'
   | 'inscriptions' | 'clients' | 'segments' | 'imports'
@@ -60,7 +61,7 @@ export function screenFor(pathname: string): CrmScreen {
   const p = pathname.replace(/\/+$/, '') || '/';
   if (p === '/crm') return 'accueil';
   const rules: [string, CrmScreen][] = [
-    ['/crm/analytics/sales', 'ventes'], ['/crm/analytics/traffic', 'trafic'], ['/crm/analytics/community', 'communaute'],
+    ['/crm/analytics/sales', 'ventes'], ['/crm/analytics/traffic', 'trafic'], ['/crm/analytics/community', 'communaute'], ['/crm/analytics/guestlist', 'guestlist'],
     ['/crm/analytics', 'ventes'], ['/crm/journey', 'parcours'],
     ['/crm/emails', 'emails'], ['/crm/sms', 'sms'], ['/crm/automations', 'auto'], ['/crm/instagram', 'instagram'],
     ['/crm/nights/past', 'passees'], ['/crm/nights', 'avenir'],
@@ -75,7 +76,7 @@ export function screenFor(pathname: string): CrmScreen {
 export type NavGroupKey = 'analyses' | 'campagnes' | 'soirees' | 'clients';
 
 export const NAV_GROUP_CHILDREN: Record<NavGroupKey, CrmScreen[]> = {
-  analyses: ['ventes', 'trafic', 'communaute', 'parcours'],
+  analyses: ['ventes', 'trafic', 'communaute', 'guestlist', 'parcours'],
   campagnes: ['emails', 'sms', 'auto', 'instagram'],
   soirees: ['avenir', 'passees'],
   clients: ['clients', 'segments', 'imports'],

@@ -10,6 +10,7 @@ const dict: CrmDict = {
   'yc.nav.sales': ['Sales', 'Ventes', 'Ventas'],
   'yc.nav.traffic': ['Traffic', 'Trafic', 'Tráfico'],
   'yc.nav.community': ['Community', 'Communauté', 'Comunidad'],
+  'yc.nav.guestlist': ['Guest list', 'Guest list', 'Lista de invitados'],
   'yc.nav.journey': ['Customer journey', 'Parcours client', 'Recorrido del cliente'],
   'yc.nav.campaigns': ['Campaigns', 'Campagnes', 'Campañas'],
   'yc.nav.emails': ['Emails', 'E-mails', 'E-mails'],

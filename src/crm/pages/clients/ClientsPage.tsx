@@ -33,6 +33,7 @@ import type { WriteScope } from '@/crm/components/WriteModal';
 import { ClientsOverview } from './ClientsOverview';
 import { ClientsTable } from './ClientsTable';
 import { ClientDrawer } from './ClientDrawer';
+import { isGlFilter } from '@/crm/lib/guestlist';
 
 const PAGE = 12;
 const LIFE: Lifecycle[] = ['hab', 'occ', 'nou', 'end', 'none'];
@@ -46,13 +47,21 @@ function defFromParams(sp: URLSearchParams): ClientFilterDef {
   if (nb && ['0', '1', '2', '3-5', '6+'].includes(nb)) f.nb = nb as NonNullable<ClientFilterDef['f']>['nb'];
   const ev = sp.get('ev');
   if (ev) f.ev = [ev];
+  // Guest list : depuis une soirée (?glev=) ou depuis Analyses › Guest list (?gl=).
+  const glev = sp.get('glev');
+  if (glev) f.glev = [glev];
+  const gl = sp.get('gl');
+  if (isGlFilter(gl)) f.gl = gl;
+  const src = sp.get('src');
+  if (src && ['shotgun', 'utm', 'import', 'page', 'other'].includes(src)) f.src = [src as NonNullable<NonNullable<ClientFilterDef['f']>['src']>[number]];
   return { seg: s && (LIFE as string[]).includes(s) ? (s as Lifecycle) : 'all', f };
 }
 
 const isEmptyDef = (d: ClientFilterDef) => {
   const f = d.f ?? {};
   return (d.seg ?? 'all') === 'all'
-    && !f.ev?.length && !f.last && !f.last_gt_days && !f.nb && !f.sp && !f.rc?.length && !f.src?.length && !f.tags?.length && !f.emails?.length;
+    && !f.ev?.length && !f.last && !f.last_gt_days && !f.nb && !f.sp && !f.rc?.length && !f.src?.length && !f.tags?.length && !f.emails?.length
+    && !f.gl && !f.glev?.length;
 };
 
 export default function ClientsPage() {

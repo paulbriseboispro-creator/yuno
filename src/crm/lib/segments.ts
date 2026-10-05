@@ -60,7 +60,7 @@ export function segmentRule(seg: Pick<SegmentRow, 'key' | 'kind' | 'description'
 
 export interface SegmentTemplate { id: string; def: ClientFilterDef | null; soon?: boolean }
 
-/** Les modèles de « Nouveau segment ». `page` attend les pages d'inscription. */
+/** Les modèles de « Nouveau segment ». `page` = provenance « Pages d'inscription » (`_crm_people_build`). */
 export const SEGMENT_TEMPLATES: SegmentTemplate[] = [
   { id: 'vip', def: { seg: 'all', f: { sp: '200+' } } },
   { id: 'loin', def: { seg: 'hab', f: { last_gt_days: 60 } } },
@@ -70,7 +70,7 @@ export const SEGMENT_TEMPLATES: SegmentTemplate[] = [
   { id: 'never_clicked', def: { seg: 'all', f: { msg: 'never_clicked' } } },
   { id: 'clicked_no_buy', def: { seg: 'all', f: { msg: 'clicked_no_buy' } } },
   { id: 'small_spend', def: { seg: 'all', f: { sp: '<50' } } },
-  { id: 'page', def: null, soon: true },
+  { id: 'page', def: { seg: 'all', f: { src: ['page'] } } },
 ];
 
 /** Lien vers la liste des clients d'un segment. */

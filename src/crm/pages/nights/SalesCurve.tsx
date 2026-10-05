@@ -2,15 +2,24 @@
  * Courbe des ventes d'une soirée, jour par jour (maquette : trait rouge plein,
  * aire rouge pâle, « la fois d'avant » en pointillé, jauge de capacité en
  * tirets, bulle au survol). Les jours sont comptés avant la soirée, dans son
- * fuseau : deux soirées se comparent au même J-N.
+ * fuseau : deux soirées se comparent au même J-N. Sert aussi aux inscriptions
+ * de guest list (onglet Guest list du tiroir) : seuls les libellés changent.
  */
 import { useState } from 'react';
 import { useCrmT } from '@/crm/i18n';
-import type { NightDetail } from '@/crm/data/nights';
+
+/** Ce que la courbe lit d'une soirée (détail des ventes ou guest list). */
+export interface CurveSource {
+  curve: { d: number; v: number; pv: number | null }[];
+  prev: unknown;
+  cap: number | null;
+  tz: string;
+  start_at: string;
+}
 
 export function SalesCurve({
-  detail, progress, height = 150, showCapLabel = true,
-}: { detail: NightDetail; progress: number; height?: number; showCapLabel?: boolean }) {
+  detail, progress, height = 150, showCapLabel = true, tipKey = 'yc.ni.curve.tipV', ariaKey = 'yc.ni.curve.aria',
+}: { detail: CurveSource; progress: number; height?: number; showCapLabel?: boolean; tipKey?: string; ariaKey?: string }) {
   const { t, n, locale } = useCrmT();
   const [hi, setHi] = useState<number | null>(null);
   const pts = detail.curve.length === 1 ? [detail.curve[0], detail.curve[0]] : detail.curve;
@@ -52,7 +61,7 @@ export function SalesCurve({
       onMouseLeave={() => setHi(null)}
       style={{ position: 'relative', height, cursor: 'crosshair' }}
     >
-      <svg viewBox="0 0 100 40" width="100%" height={height} preserveAspectRatio="none" role="img" aria-label={t('yc.ni.curve.aria')} style={{ display: 'block', overflow: 'visible' }}>
+      <svg viewBox="0 0 100 40" width="100%" height={height} preserveAspectRatio="none" role="img" aria-label={t(ariaKey)} style={{ display: 'block', overflow: 'visible' }}>
         {capY !== null && <line x1="0" x2="100" y1={capY} y2={capY} stroke="var(--sand-300)" strokeWidth={1} strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />}
         <g style={{ clipPath: clip }}>
           {hasPrev && <path d={prev} fill="none" stroke="var(--sand-400)" strokeWidth={1.6} strokeDasharray="4 4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />}
@@ -70,7 +79,7 @@ export function SalesCurve({
           <i style={{ position: 'absolute', left: tip.left, top: tip.top, width: 10, height: 10, margin: '-5px 0 0 -5px', borderRadius: 99, background: 'var(--red-500)', boxShadow: '0 0 0 4px rgba(227,20,27,.18)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: 0, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ink)', color: '#fff', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', zIndex: 3 }}>
             <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{tip.date}</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{t('yc.ni.curve.tipV', { n: tip.v })}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{t(tipKey, { n: tip.v })}</span>
             {tip.pv !== null && <span style={{ fontSize: 12, color: 'var(--text-on-night-2)' }}>{t('yc.ni.curve.tipPrev', { n: tip.pv })}</span>}
           </div>
         </>

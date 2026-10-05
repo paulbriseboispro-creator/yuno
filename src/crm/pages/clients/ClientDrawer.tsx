@@ -1,7 +1,7 @@
 /**
  * Fiche client (volet droit) : identité, statut, « Écrire à… », trois chiffres,
  * le conseil du moment, le chemin vers habitué, le rythme sur 12 mois, le
- * parcours (achats + messages), les coordonnées, les étiquettes et la note.
+ * parcours (achats + guest list + messages), les coordonnées, les étiquettes et la note.
  * Navigation ↑ / ↓ dans la liste en cours, Échap pour fermer.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -23,11 +23,12 @@ const TL_ICON = {
   click: 'M9 9l5 12 1.8-5.2L21 14zM7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1l-2.1 2M4.1 14l2.1-2',
   add: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6',
   tonight: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  gl: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
 };
-const TL_TONE = { buy: ['var(--sand-100)', 'var(--sand-700)'], msg: ['var(--sand-50)', 'var(--sand-600)'], todo: ['var(--red-50)', 'var(--red-600)'] } as const;
+const TL_TONE = { buy: ['var(--sand-100)', 'var(--sand-700)'], msg: ['var(--sand-50)', 'var(--sand-600)'], todo: ['var(--red-50)', 'var(--red-600)'], gl: ['var(--amber-50)', 'var(--amber-700)'] } as const;
 const SUGG = ['vip', 'guest', 'press', 'staff'] as const;
 
-type TlItem = { k: 'buy' | 'msg'; at: number; t: string; s: string; amt?: string; ic: keyof typeof TL_ICON; tone: keyof typeof TL_TONE };
+type TlItem = { k: 'buy' | 'msg' | 'gl'; at: number; t: string; s: string; amt?: string; ic: keyof typeof TL_ICON; tone: keyof typeof TL_TONE };
 
 export function ClientDrawer({
   email, onClose, pos, onStep, onWrite, guardEscape,
@@ -109,7 +110,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const save = useSaveClient();
   const canEdit = useCrmCaps().write;
   const [entered, setEntered] = useState(false);
-  const [tlf, setTlf] = useState<'all' | 'buy' | 'msg'>('all');
+  const [tlf, setTlf] = useState<'all' | 'buy' | 'gl' | 'msg'>('all');
   const [tlAll, setTlAll] = useState(false);
   const [tags, setTags] = useState<string[]>(c.tags ?? []);
   const [tagIn, setTagIn] = useState('');
@@ -161,6 +162,12 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   } else {
     advT = t('yc.cli.card.adv.none', { name: first }); advS = t('yc.cli.card.adv.noneS');
   }
+  // Guest list : un invité qui vient sans jamais payer appelle un autre conseil.
+  const G = c.gl && c.gl.n > 0 ? c.gl : null;
+  if (G && G.paid_n === 0) {
+    advT = t(G.came > 0 ? 'yc.gl.card.advT' : 'yc.gl.card.advTNoCome', { name: first, n: G.n, came: G.came });
+    advS = t(c.email_ok || c.phone_ok ? 'yc.gl.card.advS' : 'yc.gl.card.advSNone');
+  }
   const prog = c.lifecycle === 'occ' || c.lifecycle === 'nou';
   const progN = Math.min(c.nights_win, minN);
 
@@ -179,7 +186,18 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const tl = useMemo<TlItem[]>(() => {
     const out: TlItem[] = [];
     const fdShort = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    const glEvents = new Set((c.guests ?? []).map((g) => g.event_id));
+    (c.guests ?? []).forEach((g) => {
+      const title = g.title ?? '—';
+      const list = g.list ?? t(`yc.gl.kind.${g.gl === 'mix' ? 'inv' : g.gl}`);
+      const state = g.upcoming ? t('yc.gl.card.tlUp')
+        : g.came ? (g.scanned_at ? t('yc.gl.card.tlCameAt', { time: new Date(g.scanned_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) }) : t('yc.cli.card.tl.scanned'))
+          : g.scan_known ? t('yc.gl.card.tlNoShow') : '';
+      out.push({ k: 'gl', at: new Date(g.event_start).getTime(), t: t(g.gl === 'free' ? 'yc.gl.card.tlFree' : 'yc.gl.card.tlInv', { title }), s: [list, state].filter(Boolean).join(' · '), ic: 'gl', tone: g.upcoming ? 'todo' : 'gl' });
+    });
     c.buys.forEach((b) => {
+      // Un billet à 0 € d'une soirée déjà dans la guest list : une seule ligne.
+      if (glEvents.has(b.event_id) && Number(b.amount || 0) === 0) return;
       const title = b.title ?? '—';
       if (b.upcoming) {
         const via = saleSourceText(b.source, t);
@@ -298,6 +316,22 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
         <Stat l={t('yc.cli.card.last')} v={lastD ? fdShort(lastD) : '—'} s={days !== null ? relDays(days, t, tp) : t('yc.cli.list.never')} nowrap />
       </div>
 
+      {G && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: 'var(--amber-50)' }}>
+          <span style={{ flex: 'none', width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--amber-700)', display: 'grid', placeItems: 'center' }}><Icon d={TL_ICON.gl} size={16} stroke={2.2} /></span>
+          <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <b style={{ fontSize: 14.5, fontWeight: 600 }}>{tp('yc.gl.card.stripT', G.n, { n: n(G.n) })}</b>
+            <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>
+              {[
+                G.came > 0 ? tp('yc.gl.card.stripCame', G.came, { n: n(G.came) }) : '',
+                G.conv ? t('yc.gl.card.stripConv') : G.paid_n === 0 ? t('yc.gl.card.stripNeverPaid') : t('yc.gl.card.stripAlsoPaid'),
+                G.noshow >= 2 ? tp('yc.gl.card.stripNoShow', G.noshow, { n: n(G.noshow) }) : '',
+              ].filter(Boolean).join(' · ')}
+            </span>
+          </span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 12, padding: '16px 18px', borderRadius: 16, background: 'var(--red-50)' }}>
         <span style={{ flex: 'none', width: 8, height: 8, marginTop: 7, borderRadius: 99, background: 'var(--red-500)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -336,11 +370,11 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 16, fontWeight: 600 }}>{t('yc.cli.card.journey')}</span>
           <div role="group" aria-label={t('yc.cli.card.journey')} style={{ display: 'inline-flex', padding: 3, gap: 2, background: 'var(--sand-100)', borderRadius: 99 }}>
-            {(['all', 'buy', 'msg'] as const).map((k) => {
+            {(['all', 'buy', ...((c.guests?.length ?? 0) > 0 ? ['gl' as const] : []), 'msg'] as const).map((k) => {
               const on = tlf === k;
               return (
                 <button key={k} type="button" onClick={() => { setTlf(k); setTlAll(false); }} aria-pressed={on} style={{ height: 30, padding: '0 13px', border: 0, borderRadius: 99, background: on ? '#fff' : 'transparent', boxShadow: on ? 'var(--shadow-xs)' : 'none', fontSize: 13, fontWeight: 600, color: on ? 'var(--ink)' : 'var(--sand-600)', cursor: 'pointer', transition: 'background 160ms,color 160ms' }}>
-                  {t(`yc.cli.card.tl.${k}`)}
+                  {k === 'gl' ? t('yc.gl.tab') : t(`yc.cli.card.tl.${k}`)}
                 </button>
               );
             })}

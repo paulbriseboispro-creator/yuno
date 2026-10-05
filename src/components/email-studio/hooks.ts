@@ -58,8 +58,9 @@ export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | nul
       .order('start_at', { ascending: true }).limit(80);
     // Portée plateforme : Yuno peut mettre N'IMPORTE QUELLE soirée à venir dans
     // sa newsletter — c'est tout l'intérêt d'un « à l'affiche cette semaine ».
-    if (scope.kind === 'venue') q = q.or(venueEventsOr(scopeId));
-    else if (scope.kind === 'organizer') q = q.or(orgEventsOr(scopeId));
+    // Les soirées Shotgun (miroirs) s'annoncent aussi par e-mail (Yuno CRM).
+    if (scope.kind === 'venue') q = q.or(venueEventsOr(scopeId, { includeExternal: true }));
+    else if (scope.kind === 'organizer') q = q.or(orgEventsOr(scopeId, { includeExternal: true }));
     q.then(({ data }) => setEvents((data || []) as StudioEvent[]));
   }, [scope.kind, scopeId]);
 

@@ -8,7 +8,7 @@
 | Prix 24 / 34 / 288 € HT, Yunits | Base, script Stripe, code et tests alignés. Stripe live déjà à ces montants. Seuil des 50 comptes payants validé | migration `…230000` |
 | Pages d'erreur + délai de 30 s + erreurs de chargement | Fait (404, 401, 403, 500, 503, hors ligne, délai) | `src/crm/errors/*` |
 | Admin CRM `/admin/crm` (super admin) | Complet : 11 écrans + connexion `/admin/crm/login`, Activité en direct, tiroir Clients, Comptes cibles, « Voir sa Console » (accès assisté consenti), e-mails du cycle de vie (tous éteints), durée des synchros, prix public / seuil des 50, mesure de la landing, NPS + demandes, registre d'incidents | `src/crm/admin/*`, migrations `…240000` → `…252000` |
-| Pages d'inscription | Construit : `/crm/signup-pages` (éditeur + aperçu, liens / QR, chiffres, export) et page publique `/j/<slug>` sur crm.yunoapp.eu, double confirmation par e-mail, preuve de consentement | `src/crm/pages/signup/*`, `src/crm/signup/*`, migrations `…253000`, `…254000` |
+| Pages d'inscription | v2 à l'identique du design : quatre types, dix gabarits, assistant en 4 étapes, page publiée + vrai QR, fiche (Résultats, Partager, Inscrits, Relances), page publique `/j/<slug>`, inscription par téléphone, relances e-mail automatiques, provenance « Pages d'inscription » dans Clients et Segments | `src/crm/pages/signup/*`, `src/crm/signup/*`, migrations `…253000`, `…254000`, `20261007193500`, `20261007194500` |
 | Instagram | Écran complet, réponses en brouillon (réels, carrousels, photos), chiffres lus dans un journal encore vide ; activation fermée (`CRM_INSTAGRAM_LIVE = false` + garde serveur) jusqu'à l'App Review Meta | `src/crm/pages/instagram/*`, migrations `…255000`, `…256000` |
 | SMS | **Affiché ouvert** (décision de Paul). L'envoi réel est fermé : moteur non branché, garde serveur `crm_sms_not_open` | `CRM_SMS_DISPLAY_LIVE`, `CRM_SMS_ENGINE_READY=false` |
 | Aide | FAQ, article d'abonnement (3 langues), base de l'assistant à jour | commit « Aide CRM… » |
@@ -22,7 +22,7 @@ Vérifications faites (05/10, après fusion de `origin/main`) : `tsc` 0 erreur, 
 
 **Instagram** : brancher le moteur (lecture des commentaires, envoi des messages privés, écriture de `crm_instagram_events`) une fois l'App Review Meta accordée, puis passer `CRM_INSTAGRAM_LIVE` et `crm_instagram_open()` à vrai ENSEMBLE.
 
-**Pages d'inscription, version 2** : dix mises en page (une seule réglable aujourd'hui), téléversement d'une affiche (aujourd'hui celle de la soirée), choix d'un post Instagram déjà publié.
+**Pages d'inscription** : envoi des relances par SMS (avec le moteur SMS), choix d'un post Instagram déjà publié comme visuel.
 
 ## À faire par Paul (pas par un agent)
 1. Déployer les edge : `send-campaign`, `process-scheduled-campaigns` (e-mails du cycle de vie + confirmation des fans), `affiliate-ticket-sync`, `invite-org-member`, `club-subscription` (seuil des 50 + `crm_price_status`), `stripe-webhook`, `owner-assistant`. Poser le secret `CRM_BASE_URL` n'est pas nécessaire (défaut `https://crm.yunoapp.eu`).

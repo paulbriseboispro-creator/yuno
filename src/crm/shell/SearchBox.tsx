@@ -55,7 +55,8 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
     const acc = t('yc.top.pr.profile');
     return [
       pg(t('yc.nav.sales'), an, CRM_ROUTES.sales), pg(t('yc.nav.traffic'), an, CRM_ROUTES.traffic),
-      pg(t('yc.nav.community'), an, CRM_ROUTES.community), pg(t('yc.nav.journey'), an, CRM_ROUTES.journey),
+      pg(t('yc.nav.community'), an, CRM_ROUTES.community), pg(t('yc.nav.guestlist'), an, CRM_ROUTES.guestlist),
+      pg(t('yc.nav.journey'), an, CRM_ROUTES.journey),
       pg(t('yc.nav.allClients'), cl, CRM_ROUTES.clients), pg(t('yc.nav.segments'), cl, CRM_ROUTES.segments),
       pg(t('yc.nav.imports'), cl, CRM_ROUTES.imports), pg(t('yc.nav.signupPages'), cl, CRM_ROUTES.signupPages),
       pg(t('yc.nav.emails'), camp, CRM_ROUTES.emails), pg(t('yc.nav.sms'), camp, CRM_ROUTES.sms),

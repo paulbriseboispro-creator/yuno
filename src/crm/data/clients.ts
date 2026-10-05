@@ -25,6 +25,14 @@ export interface ClientFilterDef {
     emails?: string[];
     /** Réponse aux messages : 3 reçus sans clic, ou clic sans achat sous 7 jours. */
     msg?: '' | 'never_clicked' | 'clicked_no_buy';
+    /**
+     * Guest list Shotgun (migration 20261008100000) : déjà invité, invité qui
+     * n'a jamais payé, habitué de la guest list (3 soirées, jamais payé),
+     * devenu client, inscrit qui ne vient pas (2 fois, porte scannée).
+     */
+    gl?: '' | 'any' | 'only' | 'loyal' | 'conv' | 'noshow';
+    /** Invités (invitation ou billet gratuit) de ces soirées. */
+    glev?: string[];
   };
   q?: string;
 }
@@ -54,6 +62,8 @@ export interface ClientRow {
   email: string; first_name: string | null; last_name: string | null; lifecycle: Lifecycle;
   nights: number; last_night: string | null; added_at: string | null; spent: number;
   email_ok: boolean; phone_ok: boolean; tonight: boolean; tag: string | null; source: string;
+  /** Soirées en guest list ; `gl_only` : jamais un billet payant. */
+  gl?: number; gl_only?: boolean;
 }
 
 export interface ClientsList { total: number; rows: ClientRow[]; counts: Record<'all' | Lifecycle, number> }
@@ -75,6 +85,14 @@ export interface ClientCard {
   }[];
   months: { m: string; n: number }[];
   rules: { min_nights: number; window_months: number; lapse_months: number };
+  /** Une ligne par soirée où la personne était invitée ou inscrite gratuitement. */
+  guests?: {
+    kind: 'guest'; event_id: string; title: string | null; event_start: string; at: string;
+    gl: 'inv' | 'free' | 'mix'; list: string | null; came: boolean; scanned_at: string | null;
+    /** Faux = on ne sait pas si elle est venue (porte non scannée). */
+    scan_known: boolean; upcoming: boolean;
+  }[];
+  gl?: { n: number; came: number; first: string | null; conv: boolean; paid_n: number; noshow: number };
 }
 
 export interface SavedSegment { id: string; name: string; description: string | null; template: string | null; definition: ClientFilterDef; n: number; reachable: number; created_at: string }

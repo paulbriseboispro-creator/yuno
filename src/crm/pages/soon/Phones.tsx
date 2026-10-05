@@ -1,7 +1,7 @@
 /**
  * Téléphones d'exemple des pages « Bientôt » : un châssis commun (design
- * « InstagramPhone », 300 × 610) et deux écrans — Instagram (commentaire,
- * puis message privé) et page d'inscription (la page, puis « C'est noté »).
+ * « InstagramPhone », 300 × 610) et l'écran Instagram (commentaire, puis
+ * message privé).
  */
 import type { ReactNode } from 'react';
 import { useCrmT } from '@/crm/i18n';
@@ -108,69 +108,6 @@ export function InstagramPhone({ tab, scene, clubName, city, keyword, message, b
           <div style={{ flex: 'none', height: 44, margin: '0 10px 6px', borderRadius: 99, border: '1px solid #dbdbdb', display: 'flex', alignItems: 'center', padding: '0 14px', fontSize: 12.5, color: '#8e8e8e' }}>{t('yc.ig.message')}</div>
         </div>
       )}
-    </PhoneFrame>
-  );
-}
-
-/** Page d'inscription : la page (prévente, compte à rebours, champs), puis « C'est noté ». */
-export function SignupPhone({ tab, clubName }: { tab: 'page' | 'done'; clubName: string }) {
-  const { t } = useCrmT();
-  const ini = initialsOf(clubName);
-  const head = (
-    <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 16px 10px' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 26, height: 26, borderRadius: 99, background: 'var(--gradient-brand)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 9.5, fontWeight: 700 }}>{ini}</span>
-        <b style={{ fontSize: 12.5, fontWeight: 600, color: '#fff' }}>{clubName}</b>
-      </span>
-      <span style={{ height: 22, padding: '0 9px', borderRadius: 99, background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 10.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-        <i style={{ width: 5, height: 5, borderRadius: 99, background: '#FF5A4E' }} />{t('yc.sp.presale')}
-      </span>
-    </div>
-  );
-  const bg = 'radial-gradient(120% 70% at 100% 0%,rgba(227,20,27,.45),transparent 60%),repeating-linear-gradient(135deg,rgba(255,255,255,.03) 0 12px,transparent 12px 24px),#120C0E';
-  return (
-    <PhoneFrame dark>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: bg, color: '#fff' }}>
-        {head}
-        {tab === 'page' ? (
-          <div key="page" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12, padding: '22px 16px 14px', animation: 'yc-rise 420ms cubic-bezier(.22,1,.36,1) both' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}>{t('yc.sp.when')}</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1, letterSpacing: '-.04em' }}>{t('yc.sp.night')}</span>
-            <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'rgba(255,255,255,.75)' }}>{t('yc.sp.pitch')}</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: 11, borderRadius: 14, background: 'rgba(255,255,255,.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>{t('yc.sp.opensIn')}</span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
-                {[['03', 'd'], ['22', 'h'], ['38', 'm'], ['56', 's']].map(([v, k]) => (
-                  <div key={k} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 0', borderRadius: 9, background: 'rgba(255,255,255,.08)' }}>
-                    <b style={{ fontFamily: 'var(--font-display)', fontSize: 18, letterSpacing: '-.02em' }}>{v}</b>
-                    <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,.55)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{t(`yc.sp.cd.${k}`)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {[t('yc.sp.first'), t('yc.sp.contact')].map((ph) => (
-              <div key={ph} style={{ height: 36, borderRadius: 10, background: 'rgba(255,255,255,.08)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{ph}</div>
-            ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: 'rgba(255,255,255,.7)' }}>
-              <span style={{ width: 14, height: 14, borderRadius: 4, background: '#fff', color: '#E3141B', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 800 }}>✓</span>{t('yc.sp.agree')}
-            </div>
-            <div style={{ flex: 1 }} />
-            <div style={{ height: 42, borderRadius: 99, background: 'var(--gradient-brand)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 0 16px', fontSize: 13.5, fontWeight: 600, boxShadow: '0 10px 24px -10px rgba(227,20,27,.8)' }}>
-              {t('yc.sp.cta')}<span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: '#E3141B', display: 'grid', placeItems: 'center' }}>→</span>
-            </div>
-          </div>
-        ) : (
-          <div key="done" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12, padding: '22px 16px 14px', animation: 'yc-rise 420ms cubic-bezier(.22,1,.36,1) both' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1, letterSpacing: '-.04em' }}>{t('yc.sp.night')}</span>
-            <span style={{ width: 52, height: 52, borderRadius: 99, background: 'var(--gradient-brand)', display: 'grid', placeItems: 'center', fontSize: 24, fontWeight: 800, marginTop: 8, boxShadow: '0 10px 24px -10px rgba(227,20,27,.8)' }}>✓</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, lineHeight: 1.05, letterSpacing: '-.03em' }}>{t('yc.sp.doneTitle')}</span>
-            <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'rgba(255,255,255,.75)' }}>{t('yc.sp.doneSub')}</span>
-            <div style={{ flex: 1 }} />
-            <div style={{ height: 42, borderRadius: 99, background: 'var(--gradient-brand)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 13.5, fontWeight: 600 }}>{t('yc.sp.doneCal')}</div>
-            <div style={{ height: 42, borderRadius: 99, background: 'rgba(255,255,255,.1)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 13.5, fontWeight: 600 }}>{t('yc.sp.doneShare')}</div>
-          </div>
-        )}
-      </div>
     </PhoneFrame>
   );
 }

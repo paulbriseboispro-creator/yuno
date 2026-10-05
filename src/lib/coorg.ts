@@ -250,21 +250,30 @@ export const partyKeyOf = (scope: CoorgScope) =>
 // `cohost_org_ids` / `cohost_venue_ids` sont des champs CALCULÉS (fonctions SQL
 // sur la ligne events), filtrables dans un `or=` comme une colonne.
 
+// Les soirées MIROIR d'une billetterie externe (Shotgun, `external_source`)
+// appartiennent à la portée mais ne sont pas des soirées Yuno : les écrans de
+// la Billetterie ne les listent pas (compte à deux produits, Billetterie + CRM).
+// Une soirée miroir n'a jamais de partenaire ni de co-hôte : seule la branche
+// « menée » porte le filtre. La Console CRM et l'Email Studio, qui les
+// annoncent, passent `{ includeExternal: true }`.
+const ownBranch = (col: string, id: string, includeExternal?: boolean) =>
+  includeExternal ? `${col}.eq.${id}` : `and(${col}.eq.${id},external_source.is.null)`;
+
 /** Soirées d'un organisateur : menées, partenaire, ou co-hébergées. */
-export const orgEventsOr = (organizerUserId: string) =>
-  `organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId},cohost_org_ids.cs.{${organizerUserId}}`;
+export const orgEventsOr = (organizerUserId: string, opts?: { includeExternal?: boolean }) =>
+  `${ownBranch('organizer_user_id', organizerUserId, opts?.includeExternal)},partner_organizer_id.eq.${organizerUserId},cohost_org_ids.cs.{${organizerUserId}}`;
 
 /** Soirées qu'un organisateur MÈNE ou dont il est partenaire (pas co-hôte). */
 export const orgOwnEventsOr = (organizerUserId: string) =>
-  `organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`;
+  `${ownBranch('organizer_user_id', organizerUserId)},partner_organizer_id.eq.${organizerUserId}`;
 
 /** Soirées qu'un club MÈNE ou dont il est partenaire (pas co-hôte). */
 export const venueOwnEventsOr = (venueId: string) =>
-  `venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`;
+  `${ownBranch('venue_id', venueId)},partner_venue_id.eq.${venueId}`;
 
 /** Soirées d'un club : menées, partenaire, ou co-hébergées. */
-export const venueEventsOr = (venueId: string) =>
-  `venue_id.eq.${venueId},partner_venue_id.eq.${venueId},cohost_venue_ids.cs.{${venueId}}`;
+export const venueEventsOr = (venueId: string, opts?: { includeExternal?: boolean }) =>
+  `${ownBranch('venue_id', venueId, opts?.includeExternal)},partner_venue_id.eq.${venueId},cohost_venue_ids.cs.{${venueId}}`;
 
 // ── RPC ───────────────────────────────────────────────────────────────────────
 // Les nouvelles RPC ne sont pas encore dans les types générés.

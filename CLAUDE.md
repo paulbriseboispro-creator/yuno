@@ -687,18 +687,31 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
   (redéployer `owner-assistant` après modification).
 - **SMS = « Bientôt » (décision de Paul, 05/10 au soir, avant le premier client réel)** : `CRM_SMS_DISPLAY_LIVE` (`src/crm/lib/sms.ts`) lit `VITE_CRM_SMS_LIVE === '1'`, donc FAUX dans tout build de production. Alors toutes les adresses `/crm/sms/*` rendent `SmsSoonPage` (mise en page `ComingSoon`, liste d'attente `crm_feature_waitlist` feature `sms`, migration `20261007210000`), les éditeurs plein écran renvoient sur `/crm/sms`, le menu porte « Bientôt », Tarifs / Yunits disent bientôt et la fenêtre « Écrire » refuse le canal SMS. Les écrans SMS restent dans le code : pour y travailler, `VITE_CRM_SMS_LIVE=1` dans `.env.local`. Ouvrir = brancher le moteur (`docs/designs/CRM_SMS_PLAN.md`, fournisseur `docs/designs/SMS_PROVIDER_PLAN.md`), passer `CRM_SMS_ENGINE_READY` à true, lever la garde serveur `crm_sms_not_open`, puis remplacer la lecture du drapeau par `true`. `SMS_MARKETING_LIVE` (achat de crédits de la Suite) reste FAUX.
-- **Pages d'inscription** (plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`) :
-  `/crm/signup-pages` (liste, éditeur avec aperçu téléphone = le MÊME `FanView`
-  que la page publique, liens + QR par provenance, chiffres, export CSV des
-  confirmés). Page publique **`/j/<slug>`** (`?src=`), confirmation
+- **Pages d'inscription** (v2 du 05/10, plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`,
+  migrations `20261007193500` + `194500`) : reproduites À L'IDENTIQUE du design
+  Claude Design (`Pages inscription`, `FanPage`, `InscriptionPhone`,
+  `yuno-pages.js`). Quatre types (`prevente`, `venue`, `attente`, `communaute`,
+  règles dans `KIND_META`), dix gabarits + palettes + polices (`tokens()` de
+  `src/crm/signup/model.ts`, port pur testé), assistant en 4 étapes, page
+  publiée avec vrai QR, fiche à quatre onglets (Résultats, Partager, Inscrits,
+  Relances). La page publique **`/j/<slug>`** (`?src=`), confirmation
   `/j/<slug>/ok?t=` — jamais `/p/` (linktree des agences) ; `/j` est un chemin
-  CRM (`productHost.ts`) relayé par le Worker de la landing. Double confirmation
-  par e-mail (file `crm_signup_confirm_queue`, jeton neuf HACHÉ par envoi) ;
-  à la confirmation : preuve `marketing_consent_events` (texte exact, source
-  `signup_page:<id>`), groupe de la page (`imported_contacts`, créé à la 1re
-  publication), registre sans jamais réveiller un désabonné. Publier = titulaire
-  seul, jamais en accès assisté. Démo : aucune adresse collectée. Le téléphone
-  est gardé sur l'inscription mais n'entre pas au registre SMS.
+  CRM (`productHost.ts`) relayé par le Worker de la landing. Le MÊME `FanPage`
+  rend la page réelle, les aperçus et les vignettes : un écart entre aperçu et
+  page publique est un bug. Inscription par e-mail = double confirmation (file
+  `crm_signup_confirm_queue`, jeton neuf HACHÉ) puis preuve
+  `marketing_consent_events` (texte exact, `signup_page:<id>`), groupe de la page
+  (`imported_contacts`), registre sans jamais réveiller un désabonné ;
+  inscription par téléphone seul possible (preuve SMS, pas d'envoi SMS tant que
+  `CRM_SMS_ENGINE_READY` est faux). Relances = `crm_signup_relance_collect`
+  (cron `crm-signup-relance`, 5 min) : une campagne enfant `child_kind =
+  'signup'` par (page, étape), sa propre mère, registre `crm_signup_sends`
+  (jamais deux fois le même message), politique d'envoi Yuno, Yunits débités à
+  la mise en file, étapes qui expirent (rien ne part en retard), achat reconnu
+  par les billets Shotgun de la soirée. Provenance client « page » quand la
+  première inscription confirmée précède le premier achat (`_crm_people_build`)
+  → filtre Clients et segment « Inscrits via vos pages ». Publier = titulaire
+  seul, jamais en accès assisté. Démo : aucune adresse collectée.
 - **Instagram** (`/crm/instagram`) : réponse automatique aux commentaires sous
   les RÉELS, CARROUSELS ET PHOTOS (`post_types`, jamais vide, décision de Paul),
   aussi en message privé et en réponse aux stories. Écran complet mais l'App

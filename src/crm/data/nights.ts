@@ -21,6 +21,13 @@ export interface NightMsg {
 
 export interface NightTier { name: string; price: number | null; cap: number | null; sold: number }
 
+/**
+ * Guest list d'une soirée (invitations Shotgun + billets à 0 €, migration
+ * 20261008100000). `scan_known` : soirée passée dont la porte a vraiment
+ * scanné — sans lui, « venus » ne veut rien dire.
+ */
+export interface NightGl { entries: number; inv: number; came: number; today: number; scan_known: boolean }
+
 export interface NightRow {
   id: string;
   title: string;
@@ -45,6 +52,8 @@ export interface NightRow {
   /** Soirées à venir seulement. */
   tiers: NightTier[] | null;
   msgs: NightMsg[] | null;
+  /** null = aucune invitation ni billet gratuit sur la soirée. */
+  gl?: NightGl | null;
 }
 
 export interface NightsData { now: string; past_total: number; nights: NightRow[] }

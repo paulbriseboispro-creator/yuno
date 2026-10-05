@@ -14,7 +14,7 @@ import { useCrmCaps } from '@/crm/scope';
 import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 
-export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src';
+export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev';
 type Opt = { v: string; l: string; s?: string; short?: string; disabled?: boolean };
 
 const COLS = '44px minmax(260px,2.4fr) 150px 84px 132px 96px 140px 24px';
@@ -102,9 +102,19 @@ export function ClientsTable({
         { v: 'shotgun', l: t('yc.cli.f.src.shotgun'), s: t('yc.cli.f.src.shotgun.s') },
         { v: 'utm', l: t('yc.cli.f.src.utm'), s: t('yc.cli.f.src.utm.s') },
         { v: 'import', l: t('yc.cli.f.src.import') },
-        { v: 'page', l: t('yc.cli.f.src.page'), s: t('yc.cli.f.src.page.s'), disabled: true },
+        { v: 'page', l: t('yc.cli.f.src.page'), s: t('yc.cli.f.src.page.s') },
       ],
     },
+    // Guest list Shotgun (invitations + billets à 0 €), migration 20261008100000.
+    { k: 'gl', l: t('yc.gl.f'), title: t('yc.gl.f.title'), opts: (['any', 'only', 'loyal', 'conv', 'noshow'] as const).map((v) => ({ v, l: t(`yc.gl.f.${v}`), s: t(`yc.gl.f.${v}.s`), short: t(`yc.gl.f.${v}.short`) })) },
+    // Invités d'une soirée : seulement quand on arrive d'une soirée (?glev=).
+    ...(f.glev?.length ? [{
+      k: 'glev' as const, l: t('yc.gl.f.glev'), title: t('yc.gl.f.glev.title'), multi: true,
+      opts: [
+        ...f.glev.filter((id) => !events.some((e) => e.id === id)).map((id) => ({ v: id, l: t('yc.gl.f.glev.this'), short: t('yc.gl.f.glev.this') })),
+        ...events.map((e) => ({ v: e.id, l: e.title ?? '—', s: T.dShort(e.start_at) })),
+      ],
+    }] : []),
   ];
 
   const valOf = (k: FilterKey): string | string[] => (f as Record<string, string | string[] | undefined>)[k] ?? (FIL.find((x) => x.k === k)?.multi ? [] : '');
@@ -461,6 +471,11 @@ function Row({
               </span>
             )}
             {!c.tonight && c.tag && <span style={{ flex: 'none', height: 20, padding: '0 8px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-700)', fontSize: 11.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>{c.tag}</span>}
+            {!!c.gl && (
+              <span title={tp(c.gl_only ? 'yc.gl.badge.onlyTip' : 'yc.gl.badge.tip', c.gl)} style={{ flex: 'none', height: 20, padding: '0 8px', borderRadius: 99, background: c.gl_only ? 'var(--amber-50)' : 'var(--sand-100)', color: c.gl_only ? 'var(--amber-700)' : 'var(--sand-700)', fontSize: 11.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="users" size={11} stroke={2.6} />{t('yc.gl.badge', { n: c.gl })}
+              </span>
+            )}
           </span>
           <span style={{ fontSize: 13, lineHeight: '17px', color: 'var(--sand-500)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.email}</span>
         </span>

@@ -1,7 +1,8 @@
 /**
  * Tiroir d'une soirée (maquette « Détail de la soirée ») : naviguer de soirée
  * en soirée (flèches, clavier), le verdict, la courbe comparée, les tarifs,
- * qui a acheté, les messages, la fiche Shotgun en lecture seule.
+ * qui a acheté, les messages, la fiche Shotgun en lecture seule. Trois vues :
+ * Ventes, Guest list (NightGuestList) et Liens de partage.
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -17,13 +18,14 @@ import { fillOf, pastKind, upKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SalesCurve } from './SalesCurve';
 import { NightLinks } from './links/NightLinks';
+import { NightGuestList } from './NightGuestList';
 import { ShotgunLink, StatusPill } from './nightsUi';
 import { ICO, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
 
 const UP_ST = { full: 'yc.ni.st.full', soon: 'yc.ni.st.soon', almost: 'yc.ni.st.almost', sale: 'yc.ni.st.sale' } as const;
 const PA_ST = { full: 'yc.ni.pa.full', good: 'yc.ni.pa.good', fair: 'yc.ni.pa.fair', low: 'yc.ni.pa.low', unknown: 'yc.ni.pa.unknown' } as const;
 
-export type DrawerView = 'sales' | 'links';
+export type DrawerView = 'sales' | 'gl' | 'links';
 
 export function NightDrawer({
   id, ids, view, onView, onClose, onStep, onWrite,
@@ -68,7 +70,7 @@ export function NightDrawer({
   );
 
   return (
-    <Sheet open={!!id} onClose={onClose} width={view === 'links' ? 720 : 640} label={t('yc.ni.dr.aria')}>
+    <Sheet open={!!id} onClose={onClose} width={view === 'sales' ? 640 : 720} label={t('yc.ni.dr.aria')}>
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--sand-100)', background: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {navBtn(-1, t('yc.ni.dr.prev'), 'chevronUp', idx > 0)}
@@ -85,12 +87,14 @@ export function NightDrawer({
             value={view}
             onChange={onView}
             ariaLabel={t('yc.ni.dr.aria')}
-            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'links', label: t('yc.lk.tab.links') }]}
+            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'gl', label: t('yc.gl.tab') }, { value: 'links', label: t('yc.lk.tab.links') }]}
           />
         </div>
       )}
       {d?.error === 'not_found' ? (
         <div style={{ flex: 1, padding: 32, fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.ni.dr.notFound')}</div>
+      ) : id && view === 'gl' ? (
+        <NightGuestList key={`gl-${id}`} eventId={id} />
       ) : id && view === 'links' ? (
         <div key={`links-${id}`} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 20px 32px' }}>
           {d && (
