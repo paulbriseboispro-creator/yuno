@@ -301,6 +301,7 @@ const dict: CrmDict = {
   'yc.sm.sd.nav.toCheck': ['Check', 'Vérifier', 'Verificar'],
   'yc.sm.sd.nav.now': ['Send now', 'Envoyer maintenant', 'Enviar ahora'],
   'yc.sm.sd.nav.later': ['Schedule the send', 'Programmer l’envoi', 'Programar el envío'],
+  'yc.sm.engineToast': ['Sending SMS is being set up: nothing leaves yet, your draft is kept.', 'L’envoi de SMS est en cours de mise en place : rien ne part encore, votre brouillon est gardé.', 'El envío de SMS se está configurando: todavía no sale nada, su borrador se conserva.'],
   'yc.sm.sd.soonToast': ['Sending SMS opens soon: your draft is kept with its audience and date.', 'L’envoi des SMS ouvre bientôt : votre brouillon est gardé, avec son audience et sa date.', 'El envío de SMS abre pronto: su borrador se guarda con su audiencia y su fecha.'],
   'yc.sm.sd.date.now': ['The SMS leaves as soon as you confirm.', 'Le SMS part dès votre confirmation.', 'El SMS sale en cuanto confirme.'],
   'yc.sm.sd.date.later': ['It will leave {when}.', 'Il partira {when}.', 'Saldrá {when}.'],

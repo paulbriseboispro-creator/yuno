@@ -32,13 +32,19 @@ const handleOf = (name: string) => name.toLowerCase().normalize('NFD').replace(/
 const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || 'Y';
 
 /** Instagram : sous le post (scene 0-2 fait apparaître commentaire et réponse), puis le message privé (scene 3). */
-export function InstagramPhone({ tab, scene, clubName, city }: { tab: 'comment' | 'dm'; scene: number; clubName: string; city: string | null }) {
+export function InstagramPhone({ tab, scene, clubName, city, keyword, message, button, reply }: {
+  tab: 'comment' | 'dm'; scene: number; clubName: string; city: string | null;
+  /** Aperçu d'une règle en cours d'édition (écran Instagram) ; sinon le texte d'exemple. */
+  keyword?: string; message?: string; button?: string; reply?: string;
+}) {
   const { t } = useCrmT();
   const club = handleOf(clubName);
   const ini = initialsOf(clubName);
-  const kw = t('yc.ig.kw');
+  const kw = keyword ? keyword.toUpperCase() : t('yc.ig.kw');
   const fan = 'lea.mrt';
-  const msg = t('yc.ig.msg', { pseudo: `@${fan}` });
+  const msg = message !== undefined ? message.replace(/\{pseudo\}/g, `@${fan}`) : t('yc.ig.msg', { pseudo: `@${fan}` });
+  const btn = button || t('yc.ig.btn');
+  const rep = reply || t('yc.ig.reply');
   const show = (n: number, dy: number) => ({ opacity: scene >= n ? 1 : 0, transform: `translateY(${scene >= n ? 0 : dy}px)`, transition: 'opacity 380ms,transform 380ms cubic-bezier(.22,1,.36,1)' });
   const avatar = (size: number, fs: number) => (
     <span style={{ flex: 'none', width: size, height: size, borderRadius: 99, background: '#1C1517', color: '#fff', display: 'grid', placeItems: 'center', fontSize: fs, fontWeight: 700 }}>{ini}</span>
@@ -71,14 +77,14 @@ export function InstagramPhone({ tab, scene, clubName, city }: { tab: 'comment' 
               <span style={{ flex: 'none', width: 22, height: 22, borderRadius: 99, background: '#d9d9dd' }} />
               <div style={{ fontSize: 12, lineHeight: 1.3 }}><b style={{ fontWeight: 600 }}>tom.d75</b> {kw}
                 <div style={{ fontSize: 10, color: '#737373', marginTop: 1 }}>{t('yc.ig.min12')} · {t('yc.ig.reply1')}</div>
-                <div style={{ display: 'flex', gap: 7, marginTop: 6 }}>{avatar(18, 7)}<div><b style={{ fontWeight: 600 }}>{club}</b> {t('yc.ig.reply')}</div></div>
+                <div style={{ display: 'flex', gap: 7, marginTop: 6 }}>{avatar(18, 7)}<div><b style={{ fontWeight: 600 }}>{club}</b> {rep}</div></div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, ...show(1, 10) }}>
               <span style={{ flex: 'none', width: 22, height: 22, borderRadius: 99, background: '#c9d4e4' }} />
               <div style={{ fontSize: 12, lineHeight: 1.3 }}><b style={{ fontWeight: 600 }}>{fan}</b> {kw}
                 <div style={{ fontSize: 10, color: '#737373', marginTop: 1 }}>{t('yc.ig.justNow')} · {t('yc.ig.reply1')}</div>
-                <div style={{ display: 'flex', gap: 7, marginTop: 6, ...show(2, 8) }}>{avatar(18, 7)}<div><b style={{ fontWeight: 600 }}>{club}</b> {t('yc.ig.reply')}</div></div>
+                <div style={{ display: 'flex', gap: 7, marginTop: 6, ...show(2, 8) }}>{avatar(18, 7)}<div><b style={{ fontWeight: 600 }}>{club}</b> {rep}</div></div>
               </div>
             </div>
           </div>
@@ -96,7 +102,7 @@ export function InstagramPhone({ tab, scene, clubName, city }: { tab: 'comment' 
             <span style={{ alignSelf: 'center', fontSize: 10.5, color: '#8e8e8e', marginBottom: 6 }}>{t('yc.ig.replied', { club: clubName })}</span>
             <div style={{ alignSelf: 'flex-start', maxWidth: '84%', display: 'flex', flexDirection: 'column', gap: 5, ...show(3, 12) }}>
               <div style={{ padding: '9px 13px', borderRadius: 20, background: '#efefef', fontSize: 13, lineHeight: 1.35, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg}</div>
-              <div style={{ height: 38, borderRadius: 19, border: '1px solid #dbdbdb', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, color: '#0064e0', padding: '0 12px', textAlign: 'center' }}>{t('yc.ig.btn')}</div>
+              <div style={{ height: 38, borderRadius: 19, border: '1px solid #dbdbdb', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, color: '#0064e0', padding: '0 12px', textAlign: 'center' }}>{btn}</div>
             </div>
           </div>
           <div style={{ flex: 'none', height: 44, margin: '0 10px 6px', borderRadius: 99, border: '1px solid #dbdbdb', display: 'flex', alignItems: 'center', padding: '0 14px', fontSize: 12.5, color: '#8e8e8e' }}>{t('yc.ig.message')}</div>

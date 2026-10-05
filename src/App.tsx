@@ -293,6 +293,21 @@ const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
 const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const CrmMaintenance = lazyWithRetry(() => import("./crm/errors/CrmMaintenance"));
+const AdminCrmLayout = lazyWithRetry(() => import("./crm/admin/AdminCrmLayout"));
+const AdminCrmLogin = lazyWithRetry(() => import("./crm/admin/AdminLogin"));
+const CrmSignupPublic = lazyWithRetry(() => import("./crm/signup/SignupPagePublic"));
+const CrmSignupConfirm = lazyWithRetry(() => import("./crm/signup/SignupPagePublic").then((m) => ({ default: m.SignupConfirm })));
+const AdminCrmCockpit = lazyWithRetry(() => import("./crm/admin/pages/CockpitPage"));
+const AdminCrmClients = lazyWithRetry(() => import("./crm/admin/pages/ClientsPage"));
+const AdminCrmAccount = lazyWithRetry(() => import("./crm/admin/pages/AccountPage"));
+const AdminCrmMoney = lazyWithRetry(() => import("./crm/admin/pages/MoneyPage"));
+const AdminCrmPlatform = lazyWithRetry(() => import("./crm/admin/pages/PlatformPage"));
+const AdminCrmLegal = lazyWithRetry(() => import("./crm/admin/pages/LegalPage"));
+const AdminCrmSettings = lazyWithRetry(() => import("./crm/admin/pages/SettingsPage"));
+const AdminCrmSales = lazyWithRetry(() => import("./crm/admin/pages/SalesPage"));
+const AdminCrmAcquisition = lazyWithRetry(() => import("./crm/admin/pages/AcquisitionPage"));
+const AdminCrmProduct = lazyWithRetry(() => import("./crm/admin/pages/ProductPage"));
+const AdminCrmSoon = lazyWithRetry(() => import("./crm/admin/pages/SoonPage"));
 // Connexion de Yuno CRM (crm.yunoapp.eu/login) — src/lib/productHost.ts.
 const CrmLogin = lazyWithRetry(() => import("./crm/pages/login/LoginPage"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
@@ -1282,6 +1297,22 @@ const App = () => (
                 {/* Compte suspendu (public, hors guards) */}
                 <Route path="/account-suspended" element={<AccountSuspended />} />
 
+                {/* Admin CRM : sa propre coquille (menu, ⌘K), hors de celle de la Suite. */}
+                <Route path="/admin/crm/login" element={<AdminCrmLogin />} />
+                <Route path="/admin/crm" element={<AdminCrmLayout />}>
+                  <Route index element={<AdminCrmCockpit />} />
+                  <Route path="clients" element={<AdminCrmClients />} />
+                  <Route path="clients/:id" element={<AdminCrmAccount />} />
+                  <Route path="sales" element={<AdminCrmSales />} />
+                  <Route path="acquisition" element={<AdminCrmAcquisition />} />
+                  <Route path="product" element={<AdminCrmProduct />} />
+                  <Route path="money" element={<AdminCrmMoney />} />
+                  <Route path="platform" element={<AdminCrmPlatform />} />
+                  <Route path="legal" element={<AdminCrmLegal />} />
+                  <Route path="settings" element={<AdminCrmSettings />} />
+                  <Route path="*" element={<AdminCrmSoon />} />
+                </Route>
+
                 {/* Admin routes */}
                 <Route path="/admin" element={<AdminLayout />}>
                   {/* ── Pilotage ── */}
@@ -1388,6 +1419,9 @@ const App = () => (
                 {/* Public affiliate pages — accessible without auth */}
                 <Route path="/affiliate-event/:slug" element={<AffiliateEventPage />} />
                 <Route path="/affiliate-venue/:slug" element={<AffiliateVenuePage />} />
+                {/* Yuno CRM : Pages d'inscription publiques (pas /p/, déjà le linktree). */}
+                <Route path="/j/:slug" element={<CrmSignupPublic />} />
+                <Route path="/j/:slug/ok" element={<CrmSignupConfirm />} />
                 <Route path="/p/:slug" element={<AffiliateLinktree />} />
                 <Route path="/promo/:slug" element={<PromoterLinktree />} />
                 {/* Vraie page in-Yuno d'une agence RP (design marketplace,

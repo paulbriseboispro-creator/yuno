@@ -20,7 +20,7 @@ describe('isCrmHostname', () => {
 
 describe('isCrmPath / isSharedProductPath', () => {
   it('owns the CRM console, its login, its admin and the CRM opening', () => {
-    for (const p of ['/crm', '/crm/', '/crm/clients', '/crm/emails/studio/1', '/login', '/admin/crm', '/admin/crm/login', '/crm-admin', '/open/crm']) {
+    for (const p of ['/crm', '/crm/', '/crm/clients', '/crm/emails/studio/1', '/login', '/admin/crm', '/admin/crm/login', '/crm-admin', '/open/crm', '/j/nuit-electro', '/j/nuit-electro/ok']) {
       expect(isCrmPath(p)).toBe(true);
     }
   });
@@ -76,6 +76,8 @@ describe('productHostDecision on yunoapp.eu', () => {
       .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/crm/emails/results/abc?x=1' });
     expect(productHostDecision(at('www.yunoapp.eu', '/login')))
       .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/login' });
+    expect(productHostDecision(at('yunoapp.eu', '/j/nuit-electro/ok', '?t=abc')))
+      .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/j/nuit-electro/ok?t=abc' });
     expect(productHostDecision(at('yunoapp.eu', '/open/crm', '?token=t')))
       .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/open/crm?token=t' });
     expect(productHostDecision(at('yunoapp.eu', '/admin/crm/clients')))

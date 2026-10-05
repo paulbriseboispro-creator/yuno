@@ -1,7 +1,7 @@
 # CLAUDE.md — Yuno
 
 Source de vérité projet, lue automatiquement à chaque session. Tenir à jour.
-Dernière revue : 2026-06-14.
+Dernière revue : 2026-10-05.
 
 ## Ce qu'est Yuno
 
@@ -60,28 +60,32 @@ billetterie. Yuno CRM se connecte à leur billetterie (Shotgun d'abord) et ne
 vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
 `docs/designs/YUNO_CRM_PRICING.md`, première section. Règles déjà posées :
 
-- **Prix décidé par Paul le 02/10 au soir : UN abonnement + une monnaie.**
-  29 € HT / mois au lancement (garanti tant que l'abonnement vit), 39 € ensuite
-  pour les nouveaux comptes ; annuel = 12 mois + 30 000 néons offerts, sans
-  remise. Pas de compte gratuit : essai 14 jours sans carte (5 000 néons), puis
-  compte EN PAUSE (base lisible et exportable, ni synchro ni envoi). Tout ce qui
-  fait envoyer est dans le socle (automatisations, A/B, Meta, IA, équipe sans
+- **Prix : UN abonnement + une monnaie, révisé par Paul le 04/10.**
+  24 € HT / mois au lancement (garanti tant que l'abonnement vit), 34 € ensuite
+  pour les nouveaux comptes ; annuel = 288 € HT (12 mois) + 30 000 Yunits offerts,
+  sans remise. Pas de compte gratuit : essai 14 jours sans carte (5 000 Yunits),
+  puis compte EN PAUSE (base lisible et exportable, ni synchro ni envoi). Tout ce
+  qui fait envoyer est dans le socle (automatisations, A/B, Meta, IA, équipe sans
   limite) : brider une fonction qui fait envoyer, c'est brider le revenu.
-  **Les néons** (nom proposé, à valider) sont la monnaie de Yuno CRM, jamais
-  appelés « crédits » à l'écran : 1 email = 1, DM Instagram = 10, SMS France =
-  40 / segment, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à l'échéance,
-  packs de 10 € (5 000) à 100 € (57 500), dépensés du lot qui s'éteint le plus
-  tôt ; jamais débités pour un test, un contact écarté par la politique d'envoi
-  ou un refus du fournisseur ; l'IA ne coûte pas de néons. Le SMS n'ouvre
-  qu'avec le nouveau fournisseur (chez Twilio, 40 néons = prix coûtant). La
+  **Les Yunits** sont la monnaie de Yuno CRM (le nom « néons » est abandonné),
+  jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
+  France = 40 / segment, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
+  l'échéance, packs de 10 € (5 000) à 100 € (57 500), dépensés du lot qui
+  s'éteint le plus tôt ; jamais débités pour un test, un contact écarté par la
+  politique d'envoi ou un refus du fournisseur ; l'IA ne coûte pas de Yunits. La
   Suite garde son modèle (emails offerts, recharges au prix coûtant).
-  **Stripe live est prêt** (créé le 02/10 par le MCP) : `yuno_crm_base_<month|year>_<launch|public>`
-  (publics INACTIFS jusqu'au passage à 39 €) et `yuno_crm_pack_<néons>`,
-  métadonnées `neons_*` ; `scripts/stripe/create-crm-prices.mjs` en est le
-  miroir idempotent. **Le code est encore sur l'ancienne grille à quatre offres**
-  (ci-dessous) : `crm_checkout` y cherche des clés qui n'existent pas et répond
-  `billing_not_configured`. Le passage est le lot 4b du plan ; ne jamais
-  recréer les prix Essentiel / Pro / Business.
+  **Les prix se lisent en base, jamais au front** : `crm_pricing` (une ligne,
+  `crm_pricing_config()`), modifiable depuis l'Admin CRM › Réglages
+  (`crm_admin_pricing_set`, historique `crm_pricing_history`). Changer un prix
+  là change ce qu'affichent la Console et la page Tarifs, PAS un abonnement
+  existant ni Stripe : le montant facturé vient des prix Stripe retrouvés par
+  `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, publics INACTIFS
+  jusqu'au passage au prix public ; `yuno_crm_pack_<yunits>`). Stripe live est à
+  24 / 34 / 288 depuis le 04/10 (`scripts/stripe/create-crm-prices.mjs` en est le
+  miroir idempotent) ; les noms des produits « packs » y parlent encore de
+  « néons » (à renommer chez Stripe). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
+  (`crm_checkout`, `crm_portal`), webhook → `crm_apply_stripe_subscription`. Ne
+  jamais recréer les prix Essentiel / Pro / Business.
 
 - **Deux domaines, deux produits (2026-10-04)** : Yuno Billetterie sur
   `yunoapp.eu`, Yuno CRM sur `crm.yunoapp.eu` — connexion `/login` (page à la
@@ -644,6 +648,125 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
+
+## Yuno CRM — la Console `/crm` (design Claude Design) et l'Admin CRM (2026-10-05)
+
+La Console CRM est reconstruite écran par écran depuis le projet Claude Design
+(branche `crm/redesign`). Tout vit dans `src/crm/` (routes `src/crm/routes.tsx`
++ carte `shell/nav.ts`, données `data/*`, primitives `ui/kit` + `Hv`, `useCrmT()`,
+`useCrmScope()`, `useCrmCaps()`, `rpc()`) ; textes : section de langue `crm`
+(`src/i18n/locales/crm/modules/*`, triplets [EN, FR, ES], clés `yc.*`), chargée
+à la demande. Règles :
+
+- **Une RPC par écran, gardée par la portée** : lecture = `crm_scope_allowed`,
+  écriture = `crm_scope_writable`, équipe = `crm_user_manages_team`, montants =
+  enveloppe `_crm_money_gate` (clés revenue / spent / amount… mises à null sans
+  l'accès à l'argent). Une garde ne doit JAMAIS rendre NULL pour un inconnu :
+  `IF NOT NULL` laisse passer (corrigé le 04/10, migrations `…105000`, `…106000`).
+  Toute lecture qui crée des tables temporaires entre dans
+  `demo_preview_writable_rpc`. Toute fonction SECURITY DEFINER finit par ses
+  REVOKE / GRANT explicites.
+- **Les appels de la Console ont un délai de 30 s** (`rpc()`, code `timeout`,
+  `{ timeoutMs }` pour un import long) et chaque page rend ses erreurs par
+  `CrmLoadError` (délai / accès refusé / hors réseau / autre, « Réessayer ») :
+  jamais un « ces chiffres n'ont pas pu être chargés » nu.
+- **États d'erreur** (`src/crm/errors/`, design « Pages d'erreur ») : 404 =
+  route `/crm/*` hors coquille ; 401 / 403 / panne des espaces = `CrmGate` ; 500 =
+  `CrmErrorBoundary` (référence `YN-500-…`, envoyée à PostHog par
+  `capturePosthogException`) ; 503 = `MaintenanceWrapper` rend `CrmMaintenance`
+  pour `/crm*` ; hors connexion = `OfflineBar` (le bandeau global de l'app s'efface
+  sur `/crm`). Le texte est HONNÊTE : rien n'est mis en file hors ligne.
+  Pas de « Demander l'accès » (aucune action serveur), pas de compte à rebours de
+  maintenance (`app_settings` n'a pas d'heure de fin).
+- **Prix, Yunits, aide** : voir la section précédente ; l'aide d'un compte CRM =
+  FAQ `yc.faq.*` (Compte › Aide), article `ohelp.crm.*` pour la Suite, et les
+  articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
+  (redéployer `owner-assistant` après modification).
+- **SMS affiché OUVERT (décision de Paul, 05/10), envoi pas encore branché** : `CRM_SMS_DISPLAY_LIVE = true` (`src/crm/lib/sms.ts`) retire les pastilles « Bientôt » de la Console ; `CRM_SMS_ENGINE_READY = false` et la garde serveur `crm_sms_not_open` gardent l'envoi fermé (un tap sur « Envoyer » / « Tester » dit que c'est en cours de mise en place). `SMS_MARKETING_LIVE` (achat de crédits de la Suite) reste FAUX tant que le numéro Twilio n'est pas en place. À faire ensuite : brancher le moteur (`docs/designs/CRM_SMS_PLAN.md`), passer `CRM_SMS_ENGINE_READY` à true et lever la garde serveur.
+- **Pages d'inscription** (plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`) :
+  `/crm/signup-pages` (liste, éditeur avec aperçu téléphone = le MÊME `FanView`
+  que la page publique, liens + QR par provenance, chiffres, export CSV des
+  confirmés). Page publique **`/j/<slug>`** (`?src=`), confirmation
+  `/j/<slug>/ok?t=` — jamais `/p/` (linktree des agences) ; `/j` est un chemin
+  CRM (`productHost.ts`) relayé par le Worker de la landing. Double confirmation
+  par e-mail (file `crm_signup_confirm_queue`, jeton neuf HACHÉ par envoi) ;
+  à la confirmation : preuve `marketing_consent_events` (texte exact, source
+  `signup_page:<id>`), groupe de la page (`imported_contacts`, créé à la 1re
+  publication), registre sans jamais réveiller un désabonné. Publier = titulaire
+  seul, jamais en accès assisté. Démo : aucune adresse collectée. Le téléphone
+  est gardé sur l'inscription mais n'entre pas au registre SMS.
+- **Instagram** (`/crm/instagram`) : réponse automatique aux commentaires sous
+  les RÉELS, CARROUSELS ET PHOTOS (`post_types`, jamais vide, décision de Paul),
+  aussi en message privé et en réponse aux stories. Écran complet mais l'App
+  Review Meta n'est pas accordée : `CRM_INSTAGRAM_LIVE = false`
+  (`src/crm/lib/instagram.ts`) + `crm_instagram_open()` → `crm_instagram_not_open`
+  (une réponse se prépare en brouillon, ne s'allume pas). Chiffres lus dans
+  `crm_instagram_events` (vide, pseudo seulement) : rien d'inventé. AUCUN appel
+  à l'API Meta. Ouvrir = les deux interrupteurs ensemble + moteur à brancher.
+- **Inscription** : vit dans le dépôt de la landing (`yuno-landing-crm`) : parcours
+  tiré du design, Google et Apple, lien de confirmation e-mail à la place d'un code.
+
+**Admin CRM (`/admin/crm`, super admin)** : coquille propre (menu en quatre
+groupes, ⌘K, bascule Suite / CRM, interrupteur « démo incluse » partagé avec
+l'admin de la Suite) dans `src/crm/admin/` ; textes dans la section `admin`
+(`adm.crm.*`, modules `crmAdmin*.ts`, test des clés). Tout se LIT dans les
+tables réelles ; rien n'est inventé :
+
+- `_crm_admin_rows` est la ligne de compte unique (statut, MRR Stripe seulement,
+  santé /100 et ses quatre parts, onboarding en 7 étapes, synchro, solde, achats) ;
+  Clients, Pilotage, Argent, Plateforme, Légal, Vente, Acquisition et Produit la
+  réutilisent. La santé se définit UNE fois, dans l'en-tête de la migration
+  `20261005240000`. Un compte offert (sans abonnement Stripe) n'entre jamais dans
+  le MRR. Une résiliation est datée par `crm_subscriptions.updated_at`
+  (approximation assumée, dite à l'écran).
+- **Gestes audités** (`admin_audit_log`, `entity_type = 'crm_account'`, motif
+  obligatoire) : Yunits offerts, essai prolongé (compte sans Stripe seulement),
+  gel d'envoi (`crm_settings.sending_frozen_at`, refusé par le trigger
+  `guard_crm_send_frozen` sur les campagnes e-mail et SMS ; une recette automatique
+  est mise EN PAUSE plutôt que de lever une exception qui ferait tomber la
+  collecte des autres comptes), notes. Prospects : `crm_prospects` (+ événements),
+  pipeline réel (Essai et Payant se lisent dans les comptes).
+- **Ce que la base ne sait pas n'est pas rendu** : tests A/B, exceptions edge,
+  ouvertures / clics des e-mails du cycle de vie. Les coûts réels d'envoi sont un
+  RÉGLAGE (`crm_pricing.config.costs`).
+- **Fin de build (05/10, migrations `20261005243000` → `256000`)** :
+  - Connexion `/admin/crm/login` (vraie auth, `is_super_admin`, 2FA EXISTANTE
+    par l'edge `mfa` verify-login, preuve `mfaSession` partagée avec RequireMFA).
+  - Pilotage › Activité en direct (`crm_admin_activity`, pastille =
+    `crm_admin_live_signups`) ; Plateforme : durée p50 / p95 des synchros, une
+    passe tuée est marquée `abandoned` sans fin inventée (cron horaire).
+  - Clients : tiroir latéral `?open=<compte>` ; « Voir sa Console » = accès
+    assisté CONSENTI (`admin_support_grants`), jamais de session sans accord.
+  - **Prolongations d'essai** : `crm_subscriptions.trial_extensions_used` ; le
+    pro prolonge seul de 7 j (`crm_request_trial_extension`, Facturation) dans
+    la limite de `trial_extensions` ; un geste admin passe au-delà mais compte.
+  - **Seuil des 50** : `crm_price_tier()` = public seulement si payants ≥
+    `price_switch_at` ET prix publics ACTIFS chez Stripe (`crm_price_state`,
+    écrit par l'action `crm_price_status` de club-subscription — LECTURE Stripe,
+    super admin — et par un checkout qui retombe) ; un abonné existant
+    (`founder`) garde le lancement ; `crm_checkout` essaie public puis lancement,
+    jamais un paiement qui échoue. Tarifs et Facturation affichent le prix du niveau.
+  - Réglages › **E-mails du cycle de vie** (`crm_lifecycle_emails`, 8 e-mails
+    FR/EN/ES, TOUS éteints ; registre anti-doublon `crm_lifecycle_sends` ; démo =
+    `demo_no_send` ; envoi par `process-scheduled-campaigns`, rendu
+    `_shared/crm-lifecycle-html.ts` partagé avec l'aperçu admin).
+  - Vente › **Comptes cibles** (`crm_admin_targets`, villes où Yuno CRM a un
+    compte, sans espace CRM, démo exclue ; seul `crm_prospects` reçoit un contact).
+  - Acquisition › **Page CRM** : mesure first-party de crm.yunoapp.eu
+    (`crm_landing_events`, sans cookie, empreinte salée du jour, DNT/GPC
+    respectés, purge 180 j ; écrite par `track_crm_landing_event` depuis
+    `src/lib/crm-measure.ts` du dépôt landing, branche `crm/landing-measure`).
+  - Produit : **NPS** (`crm_nps_responses`, après 30 j, une fois / 90 j, score
+    dès 10 réponses) et **demandes** (`crm_feature_requests`, statut avec motif).
+  - Légal : **registre d'incidents** (`crm_incidents`, échéance CNIL 72 h,
+    alerte `admin_crm_incident_deadline` à H-24 / H-6, liste des pros PRÉPARÉE,
+    jamais envoyée).
+  - Un compte Billetterie avec CRM ajouté (`extra_products`) entre dans
+    `_crm_admin_rows` et sort des comptes cibles.
+  - Clés : une clé n'est définie qu'UNE fois (test dans `keys.test.ts`) — la
+    connexion utilisait `adm.crm.lg.*` et écrasait le sous-titre de Légal.
+- Vérification visuelle sans session super admin : un banc de données d'exemple
+  (jamais commité, `.crm-tools/`), car aucun compte `@womber.fr` n'est admin.
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 

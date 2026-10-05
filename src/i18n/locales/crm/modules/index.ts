@@ -25,6 +25,8 @@ import automations from './automations';
 import sms from './sms';
 import pricing from './pricing';
 import errors from './errors';
+import signupPages from './signupPages';
+import instagram from './instagram';
 import login from './login';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
@@ -36,6 +38,8 @@ export const CRM_DICT: CrmDict = {
   ...segments,
   ...imports,
   ...soon,
+  ...signupPages,
+  ...instagram,
   ...nights,
   ...connectors,
   ...emails,

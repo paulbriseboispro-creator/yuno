@@ -23,7 +23,7 @@ const CRM_BILLING_ARTICLE: OwnerHelpArticle = {
   icon: 'CreditCard',
   relatedArticleIds: ['crm-what-is', 'crm-connect'],
   keywords: ['abonnement', 'subscription', 'suscripción', 'offre', 'plan', 'prix', 'price', 'precio', 'essai', 'trial', 'prueba', 'fondateur', 'founder', 'fundador', 'facture', 'invoice', 'factura', 'résilier', 'cancel', 'cancelar', 'limite', 'limit', 'stripe'],
-  actionLink: { labelKey: OPEN, path: '/crm/billing' },
+  actionLink: { labelKey: OPEN, path: '/crm/account/billing' },
   sections: [
     { headingKey: 'ohelp.crm.billing.s1h', bodyKey: 'ohelp.crm.billing.s1b' },
     { headingKey: 'ohelp.crm.billing.s2h', bodyKey: 'ohelp.crm.billing.s2b' },

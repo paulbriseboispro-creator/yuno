@@ -35,6 +35,7 @@ const dict: CrmDict = {
   'yc.pr.card.per.month': ['excl. VAT / month', 'HT / mois', 'sin IVA / mes'],
   'yc.pr.card.per.year': ['excl. VAT / year', 'HT / an', 'sin IVA / año'],
   'yc.pr.card.subMonth': ['Then €{next} for new customers. You keep €{p} for as long as you stay subscribed.', 'Puis {next} € pour les nouveaux clients. Vous, vous gardez {p} € tant que vous restez abonné.', 'Luego {next} € para los nuevos clientes. Usted conserva {p} € mientras siga suscrito.'],
+  'yc.pr.card.subMonthPublic': ['No commitment: cancel whenever you want.', 'Sans engagement : résiliable quand vous voulez.', 'Sin permanencia: cancele cuando quiera.'],
   'yc.pr.card.subYear': ['That’s €{p} a month, no discount. Billed once a year.', 'Soit {p} € par mois, sans remise. Facturé une fois par an.', 'Es decir, {p} € al mes, sin descuento. Facturado una vez al año.'],
   'yc.pr.card.monthly': ['{n} Yunits included every month', '{n} Yunits offerts chaque mois', '{n} Yunits incluidos cada mes'],
   'yc.pr.card.bonus': ['+ {n} Yunits extra, at once', '+ {n} Yunits en plus, d’un coup', '+ {n} Yunits más, de una vez'],

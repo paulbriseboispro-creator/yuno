@@ -22,6 +22,17 @@ export interface CrmPricingConfig {
   yunits_per_euro: number;
   rates: Record<string, number>;
   channels_live: Record<string, boolean>;
+  /** Niveau de prix en vigueur pour un NOUVEAU compte (crm_price_tier), posé par usePricingConfig. */
+  tier?: 'launch' | 'public';
+}
+
+/**
+ * Les prix montrés à un nouveau compte selon le niveau (seuil des 50) : au
+ * niveau public, le mensuel est `price_month_next` et l'annuel douze fois ce
+ * prix (miroir des prix Stripe publics et de get_crm_billing).
+ */
+export function pricesForTier<T extends Pick<CrmPricingConfig, 'price_month' | 'price_month_next' | 'price_year'>>(cfg: T, tier: 'launch' | 'public'): T & { tier: 'launch' | 'public' } {
+  return tier === 'public' ? { ...cfg, tier, price_month: cfg.price_month_next, price_year: cfg.price_month_next * 12 } : { ...cfg, tier };
 }
 
 /** Recharges montrées en exemple : de vraies tranches de la page Yunits (sans bonus, puis les deux paliers). */

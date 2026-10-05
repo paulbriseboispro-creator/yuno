@@ -236,6 +236,7 @@ export default function EmailSendPage() {
     if (txt.includes('demo_no_send')) return 'yc.em.sd.err.demo';
     if (txt.includes('yunits_insufficient')) return 'yc.em.sd.err.yunits';
     if (txt.includes('crm_paused')) return 'yc.em.sd.err.paused';
+    if (txt.includes('crm_send_frozen')) return 'yc.em.sd.err.frozen';
     if (txt.includes('No recipients')) return 'yc.em.sd.err.none';
     return 'yc.em.sd.err.generic';
   };
@@ -254,6 +255,7 @@ export default function EmailSendPage() {
         .update({ status: 'scheduled', scheduled_at: chosen.toISOString() } as never)
         .eq('id', draft.id).in('status', EDITABLE).select('id');
       setBusy(false); setConfirm(false);
+      if (error?.message?.includes('crm_send_frozen')) { toast(t('yc.em.sd.err.frozen')); return; }
       if (error || !data?.length) { toast(t('yc.em.sd.err.gone')); return; }
       invalidate(); setDoneMode('later'); setPhase('done'); window.scrollTo(0, 0);
       return;

@@ -73,7 +73,7 @@ export function Sidebar({
       ],
     },
     { type: 'label', t: t('yc.nav.know') },
-    { type: 'link', id: 'inscriptions', t: t('yc.nav.signupPages'), icon: 'qr', to: CRM_ROUTES.signupPages, tag: t('yc.nav.soon') },
+    { type: 'link', id: 'inscriptions', t: t('yc.nav.signupPages'), icon: 'qr', to: CRM_ROUTES.signupPages },
     {
       type: 'group', key: 'clients', t: t('yc.nav.clients'), icon: 'users',
       badge: badges.clients ? { n: badges.clients, tone: 'sand' } : undefined,

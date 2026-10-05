@@ -10,7 +10,7 @@ import {
   Building2, Sparkles, Handshake, CalendarDays, BookUser, ShoppingBag, KeyRound, LifeBuoy,
   Megaphone, Bell, BellRing, MessageSquareWarning,
   Activity, Siren, ScrollText, Wine,
-  LogOut, Menu, ArrowLeft, FlaskConical, UserPlus, type LucideIcon,
+  LogOut, Menu, ArrowLeft, FlaskConical, UserPlus, Contact, type LucideIcon,
 } from 'lucide-react';
 import AdminSearchBar, { type AdminSearchPage } from '@/components/admin/AdminSearchBar';
 import { NotificationsBell } from '@/components/NotificationsBell';
@@ -76,6 +76,7 @@ function useNavGroups(): NavGroup[] {
     {
       label: t('adm.nav.group.system'),
       items: [
+        item('crm', '/admin/crm', Contact),
         item('system', '/admin/system', Activity),
         item('alerts', '/admin/alerts', Siren),
         item('audit', '/admin/audit', ScrollText),

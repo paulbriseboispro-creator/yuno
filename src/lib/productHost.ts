@@ -24,9 +24,10 @@ const TICKETING_HOSTS = new Set(['yunoapp.eu', 'www.yunoapp.eu']);
 /**
  * Chemins de Yuno CRM : sur crm.yunoapp.eu seulement. `/open/crm` est l'ajout
  * du CRM à un compte Billetterie (OpenProduct), `/crm-admin` et `/admin/crm`
- * l'Admin CRM du super admin.
+ * l'Admin CRM du super admin, `/j` les Pages d'inscription publiques des fans
+ * (`/j/<slug>`, confirmation `/j/<slug>/ok`).
  */
-export const CRM_PATH_PREFIXES = ['/crm', '/crm-admin', '/admin/crm', '/login', '/open/crm'] as const;
+export const CRM_PATH_PREFIXES = ['/crm', '/crm-admin', '/admin/crm', '/login', '/open/crm', '/j'] as const;
 
 /**
  * Chemins communs aux deux produits : connexion et passage de session

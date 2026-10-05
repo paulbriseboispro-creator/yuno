@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   crmBaseLookupKey, parseCrmLookupKey, crmScopeKey, stripeTrialEnd, crmSubscriptionUpdate,
   crmRechargeQuote, crmRechargeFor, crmRechargeFromSession, crmRechargeBonusPct, CRM_RECHARGE,
+  crmPriceTier, crmCheckoutTiers, crmPublicPricesActive,
 } from '../../../supabase/functions/_shared/crm-billing.ts';
 
 describe('crm-billing (edge)', () => {
@@ -77,5 +78,24 @@ describe('recharges de Yunits', () => {
     expect(crmRechargeFromSession({ id: 'cs_1', payment_status: 'unpaid', metadata: md })).toBeNull();
     expect(crmRechargeFromSession({ id: 'cs_1', payment_status: 'paid', metadata: { ...md, yunits_base: '1234' } })).toBeNull();
     expect(crmRechargeFromSession({ id: 'cs_1', payment_status: 'paid', metadata: { ...md, kind: 'subscription' } })).toBeNull();
+  });
+});
+
+describe('seuil des 50 comptes (miroir de crm_price_tier)', () => {
+  const base = { switchAt: 50, publicActive: true, founder: false };
+  it('avant le seuil : lancement', () => { expect(crmPriceTier({ ...base, paying: 49 })).toBe('launch'); });
+  it('au seuil : public', () => { expect(crmPriceTier({ ...base, paying: 50 })).toBe('public'); });
+  it('après le seuil : public', () => { expect(crmPriceTier({ ...base, paying: 120 })).toBe('public'); });
+  it('un abonné existant garde toujours le lancement', () => { expect(crmPriceTier({ ...base, paying: 120, founder: true })).toBe('launch'); });
+  it('prix public inactif chez Stripe : lancement, même au-delà du seuil', () => { expect(crmPriceTier({ ...base, paying: 120, publicActive: false })).toBe('launch'); });
+  it('le checkout retombe toujours sur le lancement', () => {
+    expect(crmCheckoutTiers('public')).toEqual(['public', 'launch']);
+    expect(crmCheckoutTiers('launch')).toEqual(['launch']);
+    expect(crmCheckoutTiers(null)).toEqual(['launch']);
+  });
+  it('les prix publics ne sont actifs que si les deux rythmes le sont', () => {
+    expect(crmPublicPricesActive([{ lookup_key: 'yuno_crm_base_month_public', active: true }, { lookup_key: 'yuno_crm_base_year_public', active: false }])).toBe(false);
+    expect(crmPublicPricesActive([{ lookup_key: 'yuno_crm_base_month_public', active: true }, { lookup_key: 'yuno_crm_base_year_public', active: true }])).toBe(true);
+    expect(crmPublicPricesActive([])).toBe(false);
   });
 });

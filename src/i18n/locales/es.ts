@@ -14574,6 +14574,7 @@ const es: Record<string, string> = {
   "cookies.banner.marketingDesc": "Permite al club, al organizador o a Yuno medir sus anuncios de Instagram y Facebook con el píxel de Meta. Inactivo hasta que lo permitas.",
   "notif.type.meta_token_invalid": "Conexión Meta cortada",
   "notif.type.admin_meta_token_invalid": "Token de Meta inválido",
+  "notif.type.admin_crm_incident_deadline": "Incidente CRM: plazo de notificación próximo",
   "notif.type.admin_crm_deletion_request": "Eliminación de espacio CRM solicitada",
   "notif.type.admin_crm_retention_failed": "Regla de conservación CRM fallida",
   "integ.title": "Integraciones",

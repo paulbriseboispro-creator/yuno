@@ -8,6 +8,7 @@ import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchNightRecaps } from "../_shared/night-recap.ts";
+import { dispatchCrmLifecycleEmails, dispatchCrmSignupConfirmations } from "../_shared/crm-lifecycle-emails.ts";
 import { dispatchWeeklyDigestEmails } from "../_shared/analytics-digest-emails.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
@@ -246,6 +247,23 @@ Deno.serve(async (req) => {
       console.error('[NIGHT-RECAP] dispatch failed:', String(e));
     }
 
+    // Yuno CRM : e-mails du cycle de vie (Yuno → pro). Éteints par défaut ;
+    // la base décide de tout (interrupteurs, déclencheurs, anti-doublon, démo).
+    let crmLifecycle = { queued: 0, sent: 0, failed: 0 };
+    try {
+      crmLifecycle = await dispatchCrmLifecycleEmails(admin, { timeBudgetMs: 15_000 });
+    } catch (e) {
+      console.error('[CRM-LIFECYCLE] dispatch failed:', String(e));
+    }
+
+    // Yuno CRM : e-mails de confirmation des Pages d'inscription (double opt-in).
+    let crmSignup = { queued: 0, sent: 0, failed: 0 };
+    try {
+      crmSignup = await dispatchCrmSignupConfirmations(admin, { timeBudgetMs: 15_000 });
+    } catch (e) {
+      console.error('[CRM-SIGNUP] dispatch failed:', String(e));
+    }
+
     // Meta Conversions API : filet sous le fire-and-forget des fonctions de
     // vente (retries, worker tué) + entretien (codes de test périmés, purge 90 j).
     let metaCapi: unknown = null;
@@ -273,7 +291,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap,
-        weeklyDigest, nightRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        weeklyDigest, nightRecap, crmLifecycle, crmSignup, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

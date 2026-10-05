@@ -14,7 +14,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoEmail } from '@/lib/demoPlan';
-import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 import { CRM_RECHARGE, crmRechargeFor, crmRechargeQuote } from '@/lib/crmBilling';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -67,7 +67,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
   const paused = b.effective_plan === 'paused';
   const canPay = b.can_manage && !demo && !paused;
   const vat = b.pricing.vat_rate;
-  const smsLive = SMS_MARKETING_LIVE && !!w.channels_live?.sms;
+  const smsLive = CRM_SMS_DISPLAY_LIVE && !!w.channels_live?.sms;
   const rate = (k: string, d: number) => Number(w.rates?.[k] ?? d) || d;
   const dFull = (d: string) => new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
   const dWhen = (d: string) => new Date(d).toLocaleString(locale, { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

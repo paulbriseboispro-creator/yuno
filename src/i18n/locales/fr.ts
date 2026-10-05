@@ -14205,6 +14205,7 @@ const fr: Record<string, string> = {
   "cookies.banner.marketingDesc": "Permet au club, à l'organisateur ou à Yuno de mesurer leurs pubs Instagram et Facebook via le pixel Meta. Inactif tant que vous ne l'autorisez pas.",
   "notif.type.meta_token_invalid": "Connexion Meta coupée",
   "notif.type.admin_meta_token_invalid": "Jeton Meta invalide",
+  "notif.type.admin_crm_incident_deadline": "Incident CRM : échéance CNIL proche",
   "notif.type.admin_crm_deletion_request": "Suppression d’espace CRM demandée",
   "notif.type.admin_crm_retention_failed": "Règle de conservation CRM en échec",
   "integ.title": "Intégrations",

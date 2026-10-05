@@ -28,6 +28,27 @@ export function parseCrmLookupKey(key: unknown): { interval: CrmInterval; tier: 
   return { interval: m[1] as CrmInterval, tier: m[2] as CrmPriceTier };
 }
 
+// ── Le seuil des 50 comptes ────────────────────────────────────────────────
+// Miroir EXACT de crm_price_tier() / crm_price_tier_for() (migration
+// 20261005248000) : le public n'est dû qu'au-delà du seuil ET quand les prix
+// publics sont actifs chez Stripe ; un abonné existant (founder) garde le lancement.
+
+export function crmPriceTier(o: { paying: number; switchAt: number; publicActive: boolean; founder: boolean }): CrmPriceTier {
+  if (o.founder) return "launch";
+  return o.paying >= o.switchAt && o.publicActive ? "public" : "launch";
+}
+
+/** Les paliers à essayer au checkout, dans l'ordre : le lancement est TOUJOURS le repli. */
+export function crmCheckoutTiers(tier: unknown): CrmPriceTier[] {
+  return tier === "public" ? ["public", "launch"] : ["launch"];
+}
+
+/** Les prix publics sont « actifs » quand les DEUX rythmes le sont chez Stripe. */
+export function crmPublicPricesActive(prices: readonly { lookup_key?: string | null; active?: boolean }[]): boolean {
+  const ok = (interval: CrmInterval) => prices.some((p) => p.lookup_key === crmBaseLookupKey(interval, "public") && p.active === true);
+  return ok("month") && ok("year");
+}
+
 export function crmScopeKey(venueId: unknown, organizerUserId: unknown): string | null {
   const v = typeof venueId === "string" && venueId.trim() ? venueId.trim() : null;
   const o = typeof organizerUserId === "string" && /^[0-9a-f-]{36}$/i.test(organizerUserId) ? organizerUserId : null;

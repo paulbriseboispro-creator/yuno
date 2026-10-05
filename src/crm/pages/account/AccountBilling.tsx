@@ -18,7 +18,7 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import {
-  useBillingAction, useBillingOverview, useCrmBilling,
+  useBillingAction, useBillingOverview, useCrmBilling, useTrialExtension,
   type BillingCustomer, type BillingOverview, type CrmBilling,
 } from '@/crm/data/account';
 import { Card, CardHead, Field, inputCss } from './accountUi';
@@ -79,6 +79,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   const [allInv, setAllInv] = useState(false);
   const ov = useBillingOverview(manage && !!b.subscription?.has_customer, allInv ? 50 : 12);
   const act = useBillingAction();
+  const extend = useTrialExtension();
   const [busy, setBusy] = useState<string | null>(null);
   const [cancelAsk, setCancelAsk] = useState(false);
   const o = ov.data;
@@ -247,6 +248,19 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
                   onClick={() => void run('crm_checkout', { interval: sel })}
                 />
               </div>
+              {trialing && (b.subscription?.trial_extensions_left ?? 0) > 0 && (
+                <Hv
+                  as="button" type="button" disabled={extend.isPending}
+                  onClick={() => extend.mutate(undefined, {
+                    onSuccess: (r) => toast(t('yc.acc.b.extendDone', { date: dFull(r.trial_ends_at) })),
+                    onError: (e) => toast(t((e as { message?: string }).message === 'no_extension_left' ? 'yc.acc.b.extendNone' : 'yc.acc.b.err')),
+                  })}
+                  style={{ alignSelf: 'flex-start', height: 40, padding: '0 16px', borderRadius: 99, border: '1.5px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: extend.isPending ? 'wait' : 'pointer' }}
+                  hover={{ background: 'var(--sand-50)', borderColor: 'var(--sand-300)' }}
+                >
+                  {t('yc.acc.b.extend', { n: b.subscription?.trial_extensions_left ?? 0 })}
+                </Hv>
+              )}
             </div>
           )}
           {(!manage) && (

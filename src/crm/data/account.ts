@@ -137,6 +137,7 @@ export interface CrmBilling {
     plan: string; status: string; interval: 'month' | 'year' | null; founder: boolean;
     trial_ends_at: string | null; current_period_end: string | null; cancel_at_period_end: boolean;
     has_stripe: boolean; has_customer: boolean; granted: boolean;
+    trial_extensions_used?: number; trial_extensions_left?: number;
   } | null;
   effective_plan: 'base' | 'paused';
   can_manage: boolean;
@@ -193,6 +194,19 @@ export function useBillingOverview(enabled: boolean, invoicesLimit = 12) {
     staleTime: 60_000,
     placeholderData: (prev) => prev,
     retry: false,
+  });
+}
+
+/** Le titulaire prolonge lui-même son essai de 7 jours, dans la limite du réglage. */
+export function useTrialExtension() {
+  const { rpc: args, qk } = useCrmScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => rpc<{ trial_ends_at: string; used: number; left: number }>('crm_request_trial_extension', args),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['crm', qk, 'billing'] });
+      void qc.invalidateQueries({ queryKey: ['crm', qk, 'shell'] });
+    },
   });
 }
 
