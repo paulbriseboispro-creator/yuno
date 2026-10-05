@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import { registerSW } from "virtual:pwa-register";
 import { isNative } from "@/lib/native";
+import { isCrmHostname } from "@/lib/productHost";
 import { loadLocale } from "@/i18n/data";
 import { persistedLanguage } from "@/contexts/LanguageContext";
 import App from "./App.tsx";
@@ -31,7 +32,15 @@ loadLocale(persistedLanguage()).catch(() => {});
 //
 // App native Capacitor : pas de SW — les assets sont locaux au bundle et les
 // MàJ passent par Capgo (OTA) ou l'App Store. Le push natif passe par APNs.
-if (!isNative()) {
+//
+// crm.yunoapp.eu non plus : la landing CRM y sert « / », « /fr », « /start »…
+// (src/lib/productHost.ts) et un SW de l'app répondrait index.html à leur
+// place dès la deuxième visite. Un SW posé là par erreur est retiré.
+if (isCrmHostname(window.location.hostname)) {
+  navigator.serviceWorker?.getRegistrations?.()
+    .then((regs) => regs.forEach((r) => { void r.unregister(); }))
+    .catch(() => {});
+} else if (!isNative()) {
   registerSW({
     immediate: true,
     onRegisteredSW(_swUrl, registration) {

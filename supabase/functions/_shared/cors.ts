@@ -1,8 +1,11 @@
 const ALLOWED_ORIGINS = [
   "https://yunoapp.eu",
+  // Yuno CRM a son domaine (src/lib/productHost.ts) : même bundle, autre origine.
+  "https://crm.yunoapp.eu",
   "http://localhost:5173",
   "http://localhost:4173",
   "http://localhost:8080",
+  "http://crm.localhost:8080",
   // App native Capacitor : origine du WebView iOS (et Android en v2).
   "capacitor://localhost",
   "https://localhost",

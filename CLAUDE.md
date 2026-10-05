@@ -87,6 +87,32 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   (`crm_checkout`, `crm_portal`), webhook → `crm_apply_stripe_subscription`. Ne
   jamais recréer les prix Essentiel / Pro / Business.
 
+- **Deux domaines, deux produits (2026-10-04)** : Yuno Billetterie sur
+  `yunoapp.eu`, Yuno CRM sur `crm.yunoapp.eu` — connexion `/login` (page à la
+  DA CRM, `src/crm/pages/login/LoginPage.tsx`), Console `/crm/*`, Admin CRM
+  `/admin/crm/*`. Le domaine CRM est servi par le Worker de la LANDING
+  (repo Yuno-landing, `src/i18n/hosts.ts`) : il garde ses pages (`/`, `/fr`,
+  `/es`, `/start`) et relaie à yunoapp.eu les chemins de l'app
+  (`appPathOnCrmHost`). Le même bundle tourne donc sur les deux origines ;
+  **porte unique `productHostDecision` (`src/lib/productHost.ts`, testée)**,
+  appliquée par `ProductHostGate` (App.tsx) : un chemin CRM sur yunoapp.eu part
+  sur crm.yunoapp.eu, un chemin Billetterie sur crm.yunoapp.eu part sur
+  yunoapp.eu, `/auth` du domaine CRM devient `/login`, les chemins communs
+  (`/auth/handoff`, `/get-started`, `/accept-org-member`, 2FA…) restent sur
+  place. **Un chemin CRM ajouté se déclare dans `CRM_PATH_PREFIXES` ET dans
+  `APP_PATH_PREFIXES` de la landing**, sinon il tombe en 301 vers
+  landing.yunoapp.eu. Deux origines = deux sessions : le passage garde la
+  connexion par une session NEUVE (`goToProduct`, `src/lib/productHandoff.ts` :
+  edge `mfa` action `web-handoff` → `/auth/handoff#token_hash…&uid…`), JAMAIS
+  une copie du refresh token (deux onglets qui le font tourner se déconnectent
+  l'un l'autre) ; le compte choisi (`yuno.crm.space`, `yuno:acting-organizer`)
+  suit dans le fragment. Aperçu démo et accès assisté ne changent jamais de
+  domaine (l'edge refuse de leur créer une session) ; localhost, aperçus
+  Cloudflare et app native non plus. Pas de service worker sur crm.yunoapp.eu
+  (il servirait index.html à la place de la landing) ; écran de démarrage,
+  bandeau cookies et `/auth/handoff` y prennent la DA claire. Toute fonction
+  edge appelée par la Console CRM accepte `https://crm.yunoapp.eu` (liste
+  `ALLOWED_ORIGINS` de `_shared/cors.ts` — redéployer la fonction après l'ajout).
 - **Connecteur = `affiliate-ticket-sync`, actions `ticketing_*`** (quota de
   fonctions atteint ; le code Whan n'est pas touché, `ticketing.ts` à part).
   Connexion par portée (`ticketing_connections`, jeton dans le Vault, jamais

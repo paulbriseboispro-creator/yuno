@@ -931,6 +931,24 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
     icon: 'Store',
     articles: [
       {
+        id: 'open-crm',
+        titleKey: 'ohelp.openCrm.title',
+        descKey: 'ohelp.openCrm.desc',
+        icon: 'Sparkles',
+        // Chemin absolu de l'app (préfixe ~) : /open/crm, hors de la Console.
+        actionLink: { labelKey: 'ohelp.action.goToOpenCrm', path: '~/open/crm' },
+        keywords: ['crm', 'yuno crm', 'ouvrir', 'open', 'abrir', 'ajouter', 'add', 'añadir', 'deux produits', 'two products', 'dos productos', 'shotgun', 'yunits', 'essai', 'trial', 'prueba', 'segments', 'fidéliser', 'loyalty', 'fidelizar', 'second compte', 'second account', 'otra cuenta', 'billetterie', 'ticketing'],
+        sections: [
+          { headingKey: 'ohelp.openCrm.s1h', bodyKey: 'ohelp.openCrm.s1b' },
+          { headingKey: 'ohelp.openCrm.s2h', bodyKey: 'ohelp.openCrm.s2b' },
+          { headingKey: 'ohelp.openCrm.s3h', bodyKey: 'ohelp.openCrm.s3b', type: 'steps' },
+          { headingKey: 'ohelp.openCrm.s4h', bodyKey: 'ohelp.openCrm.s4b' },
+          { headingKey: 'ohelp.openCrm.s5h', bodyKey: 'ohelp.openCrm.s5b', type: 'tip' },
+          { headingKey: 'ohelp.openCrm.s6h', bodyKey: 'ohelp.openCrm.s6b', type: 'warning' },
+          { headingKey: 'ohelp.openCrm.s7h', bodyKey: 'ohelp.openCrm.s7b' },
+        ],
+      },
+      {
         id: 'venue-settings',
         titleKey: 'ohelp.pg.venue.title',
         descKey: 'ohelp.pg.venue.desc',

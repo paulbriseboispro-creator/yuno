@@ -8,6 +8,39 @@ import {
   setConsent,
   CONSENT_OPEN_EVENT,
 } from '@/lib/consent';
+import { TICKETING_ORIGIN, onCrmHost } from '@/lib/productHost';
+
+/**
+ * Deux habits pour le même bandeau : sombre sur yunoapp.eu (DA publique), clair
+ * sur crm.yunoapp.eu (DA de Yuno CRM — src/lib/productHost.ts). Même texte, même
+ * choix, même stockage ; seuls les tons changent.
+ */
+const DARK = {
+  card: 'border-white/10 bg-[#111113]',
+  title: 'text-white',
+  body: 'text-white/70',
+  link: 'hover:text-white',
+  panel: 'bg-white/5',
+  label: 'text-white',
+  hint: 'text-white/55',
+  customize: 'text-white/55 hover:text-white/80',
+  switch: undefined as string | undefined,
+};
+const CRM = {
+  card: 'border-[#E6DFDD] bg-white',
+  title: 'text-[#1A1414]',
+  body: 'text-[#6B6264]',
+  link: 'hover:text-[#1A1414]',
+  panel: 'bg-[#F7F4F3]',
+  label: 'text-[#1A1414]',
+  hint: 'text-[#857B7D]',
+  customize: 'text-[#857B7D] hover:text-[#1A1414]',
+  // Le rond de l'interrupteur suit le fond de la carte, blanc ici.
+  switch: '[&>span]:bg-white' as string | undefined,
+};
+const CRM_PRIMARY = 'h-10 flex-1 rounded-full text-sm font-semibold text-white';
+const CRM_PRIMARY_STYLE = { background: 'linear-gradient(110deg, #E3141B 0%, #F2392A 45%, #FF6B35 100%)' };
+const CRM_SECONDARY = 'h-10 flex-1 rounded-full border-[1.5px] border-[#E6DFDD] bg-white text-sm font-semibold text-[#1A1414] hover:bg-[#F7F4F3]';
 
 /**
  * Bannière de consentement cookies (ePrivacy / CNIL). Montée une fois, B2C.
@@ -41,6 +74,8 @@ export function CookieConsentBanner() {
   }, []);
 
   if (!open) return null;
+  const crm = onCrmHost();
+  const tone = crm ? CRM : DARK;
 
   const acceptAll = () => {
     setConsent({ analytics: true, marketing: true });
@@ -63,43 +98,52 @@ export function CookieConsentBanner() {
       className="fixed inset-x-0 bottom-0 z-[70] px-3 pt-3"
       style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
     >
-      <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-[#111113] p-4 shadow-2xl">
-        <h2 className="text-sm font-semibold text-white">{t('cookies.banner.title')}</h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-white/70">
+      <div className={`mx-auto max-w-lg rounded-2xl border p-4 shadow-2xl ${tone.card}`}>
+        <h2 className={`text-sm font-semibold ${tone.title}`}>{t('cookies.banner.title')}</h2>
+        <p className={`mt-1.5 text-[13px] leading-relaxed ${tone.body}`}>
           {t('cookies.banner.body')}{' '}
-          <Link to="/legal/cookies" className="underline underline-offset-2 hover:text-white">
-            {t('cookies.banner.learnMore')}
-          </Link>
+          {crm ? (
+            // La politique vit sur yunoapp.eu : un nouvel onglet, pour ne pas quitter la connexion.
+            <a href={`${TICKETING_ORIGIN}/legal/cookies`} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-2 ${tone.link}`}>
+              {t('cookies.banner.learnMore')}
+            </a>
+          ) : (
+            <Link to="/legal/cookies" className={`underline underline-offset-2 ${tone.link}`}>
+              {t('cookies.banner.learnMore')}
+            </Link>
+          )}
         </p>
 
         {showDetails && (
-          <div className="mt-3 space-y-3 rounded-xl bg-white/5 p-3">
+          <div className={`mt-3 space-y-3 rounded-xl p-3 ${tone.panel}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[13px] font-medium text-white">{t('cookies.banner.necessaryLabel')}</p>
-                <p className="text-xs text-white/55">{t('cookies.banner.necessaryDesc')}</p>
+                <p className={`text-[13px] font-medium ${tone.label}`}>{t('cookies.banner.necessaryLabel')}</p>
+                <p className={`text-xs ${tone.hint}`}>{t('cookies.banner.necessaryDesc')}</p>
               </div>
-              <Switch checked disabled aria-label={t('cookies.banner.necessaryLabel')} />
+              <Switch checked disabled className={tone.switch} aria-label={t('cookies.banner.necessaryLabel')} />
             </div>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[13px] font-medium text-white">{t('cookies.banner.analyticsLabel')}</p>
-                <p className="text-xs text-white/55">{t('cookies.banner.analyticsDesc')}</p>
+                <p className={`text-[13px] font-medium ${tone.label}`}>{t('cookies.banner.analyticsLabel')}</p>
+                <p className={`text-xs ${tone.hint}`}>{t('cookies.banner.analyticsDesc')}</p>
               </div>
               <Switch
                 checked={analytics}
                 onCheckedChange={setAnalytics}
+                className={tone.switch}
                 aria-label={t('cookies.banner.analyticsLabel')}
               />
             </div>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[13px] font-medium text-white">{t('cookies.banner.marketingLabel')}</p>
-                <p className="text-xs text-white/55">{t('cookies.banner.marketingDesc')}</p>
+                <p className={`text-[13px] font-medium ${tone.label}`}>{t('cookies.banner.marketingLabel')}</p>
+                <p className={`text-xs ${tone.hint}`}>{t('cookies.banner.marketingDesc')}</p>
               </div>
               <Switch
                 checked={marketing}
                 onCheckedChange={setMarketing}
+                className={tone.switch}
                 aria-label={t('cookies.banner.marketingLabel')}
               />
             </div>
@@ -107,7 +151,22 @@ export function CookieConsentBanner() {
         )}
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          {showDetails ? (
+          {crm ? (
+            showDetails ? (
+              <button type="button" className={CRM_PRIMARY} style={CRM_PRIMARY_STYLE} onClick={saveChoice}>
+                {t('cookies.banner.save')}
+              </button>
+            ) : (
+              <>
+                <button type="button" className={CRM_PRIMARY} style={CRM_PRIMARY_STYLE} onClick={acceptAll}>
+                  {t('cookies.banner.acceptAll')}
+                </button>
+                <button type="button" className={CRM_SECONDARY} onClick={refuseAll}>
+                  {t('cookies.banner.refuseAll')}
+                </button>
+              </>
+            )
+          ) : showDetails ? (
             <Button className="flex-1" onClick={saveChoice}>
               {t('cookies.banner.save')}
             </Button>
@@ -127,7 +186,7 @@ export function CookieConsentBanner() {
           <button
             type="button"
             onClick={() => setShowDetails(true)}
-            className="mt-2 w-full text-center text-xs text-white/55 underline underline-offset-2 hover:text-white/80"
+            className={`mt-2 w-full text-center text-xs underline underline-offset-2 ${tone.customize}`}
           >
             {t('cookies.banner.customize')}
           </button>

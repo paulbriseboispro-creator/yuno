@@ -13,6 +13,7 @@ import {
 } from '@/components/promoter/promoter-ui';
 import { fetchLinksConfig, whatsappUrl } from '@/lib/yunoLinks';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { CRM_ROUTES } from '@/crm/shell/nav';
 import {
   KNOWN_TOOLS, PENDING_SIGNUP_KEY, isValidSignupKey, proSignupUrl, type MyProSignup,
 } from '@/lib/proSignup';
@@ -109,27 +110,26 @@ export default function GetStarted() {
   const isCrm = signup?.product === 'crm';
   const orgName = signup?.org_name || (isClub ? t('gs.fallbackClub') : t('gs.fallbackOrg'));
   const base = isClub ? '/owner' : '/organizer-app';
-  const startPath = isCrm ? `${base}/integrations` : isClub ? '/owner/onboarding' : '/organizer-app/onboarding';
+  // Un compte CRM part dans SA Console (/crm, servie par crm.yunoapp.eu), pas dans la Suite.
+  const startPath = isCrm ? CRM_ROUTES.connectors : isClub ? '/owner/onboarding' : '/organizer-app/onboarding';
 
   const plan = useMemo<PlanStep[]>(() => {
     if (!signup) return [];
     if (signup.product === 'crm') {
       const crmTool = signup.current_tool ? KNOWN_TOOLS[signup.current_tool] : undefined;
       const crmSteps: PlanStep[] = [
-        { id: 'connect', icon: Plug, title: t('gs.crm.connect.t'), desc: t('gs.crm.connect.d'), to: `${base}/integrations` },
-        { id: 'nights', icon: BarChart3, title: t('gs.crm.nights.t'), desc: t('gs.crm.nights.d'), to: `${base}/crm/nights` },
-        { id: 'auto', icon: Zap, title: t('gs.crm.auto.t'), desc: t('gs.crm.auto.d'), to: `${base}/campaigns/automations` },
+        { id: 'connect', icon: Plug, title: t('gs.crm.connect.t'), desc: t('gs.crm.connect.d'), to: CRM_ROUTES.connectors },
+        { id: 'nights', icon: BarChart3, title: t('gs.crm.nights.t'), desc: t('gs.crm.nights.d'), to: CRM_ROUTES.nights },
+        { id: 'auto', icon: Zap, title: t('gs.crm.auto.t'), desc: t('gs.crm.auto.d'), to: CRM_ROUTES.automations },
       ];
       if (signup.current_tool && signup.current_tool !== 'none' && signup.current_tool !== 'shotgun') {
         crmSteps.push({
           id: 'import', icon: Upload,
           title: crmTool ? t('gs.step.import.t').replace('{tool}', crmTool) : t('gs.step.importAny.t'),
-          desc: t('gs.step.import.d'), to: `${base}/campaigns/contacts`,
+          desc: t('gs.step.import.d'), to: CRM_ROUTES.imports,
         });
       }
-      crmSteps.push(isClub
-        ? { id: 'team', icon: Users, title: t('gs.crm.team.t'), desc: t('gs.crm.team.d'), to: '/owner/managers' }
-        : { id: 'team', icon: Users, title: t('gs.crm.team.t'), desc: t('gs.crm.team.d'), to: '/organizer-app/team' });
+      crmSteps.push({ id: 'team', icon: Users, title: t('gs.crm.team.t'), desc: t('gs.crm.team.d'), to: CRM_ROUTES.accountSection('team') });
       return crmSteps;
     }
     const pillars = new Set(signup.pillars ?? []);

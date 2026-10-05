@@ -13,6 +13,12 @@ export interface ConsoleHelpArticle {
 }
 
 export const CONSOLE_HELP_ARTICLES: Record<string, ConsoleHelpArticle> = {
+  "open-crm": {
+    title: "Ouvrir aussi Yuno CRM (ou Yuno Billetterie) sur le même compte",
+    keywords: ["yuno crm", "crm", "ouvrir le crm", "activer le crm", "deux produits", "deux consoles", "billetterie et crm", "shotgun", "yunits", "second compte", "autre compte", "fidéliser", "segments", "passer au crm", "open crm", "add crm", "abrir crm"],
+    path: "/open/crm",
+    snippet: "Un compte Yuno Billetterie (club ou organisation) peut ouvrir aussi Yuno CRM sans créer de second compte : même connexion, même base de contacts, deux consoles. Le titulaire (propriétaire du club, fondateur de l'organisation ; jamais un manager, jamais en accès assisté) ouvre yunoapp.eu/open/crm, choisit le compte et clique « Ouvrir Yuno CRM sur … » ; un e-mail d'invitation de l'équipe Yuno fait la même chose. Le CRM démarre par 14 jours d'essai sans carte, puis l'abonnement Yuno CRM, payé à part ; à la fin de l'essai sans abonnement, seul le CRM passe en pause. La billetterie ne change pas : les e-mails envoyés depuis la Billetterie gardent leurs 15 000 envois offerts par mois, ceux envoyés depuis la console CRM consomment des Yunits ; les automatisations sont communes et suivent les règles de la Billetterie. Pour passer d'une console à l'autre : « Ouvrir Yuno CRM » au pied de la barre latérale de la Billetterie, « Yuno Billetterie » au pied du menu du CRM. Un compte CRM ouvre de même Yuno Billetterie par yunoapp.eu/open/suite (sans abonnement). Ne jamais créer un second compte avec une autre adresse : il aurait une base vide et séparée.",
+  },
   "home-banner": {
     title: "Changer la photo en haut de l'accueil",
     keywords: ["bannière", "banniere", "banner", "photo accueil", "image accueil", "couverture", "cover", "photo du haut", "photo mal cadrée", "image coupée", "home banner", "header image"],

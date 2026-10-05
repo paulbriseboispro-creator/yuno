@@ -68,6 +68,9 @@ const dict: CrmDict = {
   'yc.fr.sent': ['Thanks, your request has been recorded.', 'Merci, votre demande est enregistrée.', 'Gracias, su solicitud está registrada.'],
   'yc.fr.again': ['Another one', 'Une autre', 'Otra'],
   'yc.fr.rate': ['That is a lot of requests for today: write to us instead.', 'Beaucoup de demandes pour aujourd’hui : écrivez-nous plutôt.', 'Muchas solicitudes por hoy: escríbanos mejor.'],
+  'yc.faq.ticketing.q': ['Can I also sell my tickets with Yuno?', 'Puis-je aussi vendre mes billets avec Yuno ?', '¿Puedo vender también mis entradas con Yuno?'],
+  'yc.faq.ticketing.l': ['Open Yuno Ticketing', 'Ouvrir Yuno Billetterie', 'Abrir Yuno Ticketing'],
+  'yc.faq.ticketing.a': ['Yes. Yuno Ticketing (tickets, VIP tables, guest lists) opens on this same account, with no subscription: same login, same contacts. Only the account holder can open it. Once open, "Yuno Ticketing" at the foot of the menu takes you to its console, and "Open Yuno CRM" there brings you back. Your CRM, its Yunits and its subscription don’t change.', 'Oui. Yuno Billetterie (billets, tables VIP, guest lists) s’ouvre sur ce même compte, sans abonnement : même connexion, mêmes contacts. Seul le titulaire du compte peut l’ouvrir. Une fois ouverte, « Yuno Billetterie » au pied du menu mène à sa console, et « Ouvrir Yuno CRM » vous ramène ici. Votre CRM, ses Yunits et son abonnement ne changent pas.', 'Sí. Yuno Ticketing (entradas, mesas VIP, guest lists) se abre en esta misma cuenta, sin suscripción: mismo acceso, mismos contactos. Solo el titular de la cuenta puede abrirlo. Una vez abierto, «Yuno Ticketing» al pie del menú lleva a su consola y «Abrir Yuno CRM» le trae de vuelta. Su CRM, sus Yunits y su suscripción no cambian.'],
 };
 
 export default dict;

@@ -197,6 +197,23 @@
       </div>
     </div>
     <script>
+      // Yuno CRM (crm.yunoapp.eu, src/lib/productHost.ts) : DA claire dès le
+      // premier pixel, sinon la connexion et la Console s'ouvrent sur un flash noir.
+      (function () {
+        try {
+          var h = location.hostname;
+          if (h !== 'crm.yunoapp.eu' && h !== 'crm.localhost') return;
+          document.documentElement.style.background = '#FCFAF9';
+          if (document.body) document.body.style.background = '#FCFAF9';
+          document.title = 'Yuno CRM';
+          var l = document.getElementById('initial-loader');
+          var sp = document.getElementById('initial-spinner');
+          if (l) l.style.background = '#FCFAF9';
+          if (sp) { sp.style.borderColor = '#E6DFDD'; sp.style.borderTopColor = '#E3141B'; }
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
+    <script>
       // App native B2C : dès le tout premier pixel, on affiche EXACTEMENT la même
       // image que le Launch Screen natif (rouge + logo terminé, coupe vide) pour
       // que le logo ne « clignote » pas entre le launch screen, ce loader et le

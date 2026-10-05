@@ -32,6 +32,7 @@ const PRO_PATH_PREFIXES = [
   '/owner',
   '/crm',
   '/crm-admin',
+  '/login', // connexion de Yuno CRM
   '/admin',
   '/organizer-app',
   '/agency-app',

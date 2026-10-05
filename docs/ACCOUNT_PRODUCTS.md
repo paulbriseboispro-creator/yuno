@@ -43,7 +43,7 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
    et qui a déjà un compte voit l'étape « Vous avez déjà un compte Yuno » →
    `open_product_on_my_account('crm', …, p_signup_key)` → Console `/crm`. Par
    email + mot de passe, « adresse déjà utilisée » mène à
-   `yunoapp.eu/auth?redirect=/open/crm`.
+   `crm.yunoapp.eu/login?redirect=/open/crm`.
 2. **Page `/open/crm` et `/open/suite`** (`src/pages/OpenProduct.tsx`, DA Yuno
    CRM) : sans jeton, le titulaire choisit un de ses comptes
    (`get_my_product_accounts`) ; avec `?token=`, il accepte l'invitation
@@ -59,6 +59,11 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
 
 ## Passer d'une Console à l'autre
 
+Les deux Consoles vivent sur deux domaines (yunoapp.eu et crm.yunoapp.eu, voir
+`src/lib/productHost.ts`) : chaque lien ci-dessous change de domaine et garde la
+connexion par une session neuve (`src/lib/productHandoff.ts`), le compte choisi
+compris.
+
 - Billetterie → CRM : lien « Ouvrir Yuno CRM » au pied des barres latérales
   club et organisateur (`OpenCrmSidebarLink`), qui pose `yuno.crm.space`.
 - CRM → Billetterie : lien « Yuno Billetterie » au pied de la barre de la
@@ -66,10 +71,13 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
 - `useAccountProductFor` ne replie la Console de la Suite en mode CRM que pour
   un compte CRM pur.
 
-## Reste à faire
+## Aide et assistants
 
-- L'admin CRM (`src/crm/admin`, `crm_admin_*`, `_crm_admin_rows`) filtre encore
-  sur `product = 'crm'` : les comptes Billetterie avec CRM ajouté n'y
-  apparaissent pas. Remplacer par `crm_scope_has_crm`.
-- Mode d'emploi (`ohelp.*`) et assistants IA : article sur l'ouverture du
-  second produit.
+- Centre d'aide Billetterie (club et organisateur), groupe Paramètres : article
+  `open-crm` (clés `ohelp.openCrm.*`, bouton vers `~/open/crm`).
+- Aide de la Console CRM : réponse `ticketing` (« Puis-je aussi vendre mes
+  billets avec Yuno ? », lien `/open/suite`).
+- Assistant Console et serveur MCP : article `open-crm` de
+  `_shared/console-help-articles.ts`.
+
+L'admin CRM compte les comptes à CRM ajouté depuis la migration `20261005249000`.
