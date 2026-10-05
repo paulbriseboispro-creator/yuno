@@ -27,7 +27,9 @@ const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) =
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const InstagramPage = lazyWithRetry(() => import('./pages/instagram/InstagramPage'));
 const SignupPagesPage = lazyWithRetry(() => import('./pages/signup/SignupPagesPage'));
-const SignupEditorPage = lazyWithRetry(() => import('./pages/signup/SignupEditorPage'));
+const SignupWizardPage = lazyWithRetry(() => import('./pages/signup/SignupWizardPage'));
+const SignupDetailPage = lazyWithRetry(() => import('./pages/signup/SignupDetailPage'));
+const SignupDonePage = lazyWithRetry(() => import('./pages/signup/SignupDonePage'));
 const AccountPage = lazyWithRetry(() => import('./pages/account/AccountPage'));
 const YunitsPage = lazyWithRetry(() => import('./pages/yunits/YunitsPage'));
 const NotificationsPage = lazyWithRetry(() => import('./pages/notifications/NotificationsPage'));
@@ -80,7 +82,10 @@ export function crmRoutes() {
         <Route path="emails/settings" element={<EmailSettingsPage />} />
         <Route path="instagram" element={<InstagramPage />} />
         <Route path="signup-pages" element={<SignupPagesPage />} />
-        <Route path="signup-pages/:id" element={<SignupEditorPage />} />
+        <Route path="signup-pages/new" element={<SignupWizardPage />} />
+        <Route path="signup-pages/:id" element={<SignupDetailPage />} />
+        <Route path="signup-pages/:id/edit" element={<SignupWizardPage />} />
+        <Route path="signup-pages/:id/published" element={<SignupDonePage />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="account/:section" element={<AccountPage />} />
         <Route path="yunits" element={<YunitsPage />} />
