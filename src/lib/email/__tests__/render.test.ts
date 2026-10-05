@@ -1426,6 +1426,7 @@ describe('soirée externe (billetterie connectée)', () => {
   it('marque le lien en UTM sans écraser ceux déjà posés', () => {
     expect(withEmailUtm('https://shotgun.live/events/x')).toBe('https://shotgun.live/events/x?utm_source=yuno&utm_medium=email');
     expect(withEmailUtm('https://shotgun.live/events/x?utm_source=insta')).toBe('https://shotgun.live/events/x?utm_source=insta&utm_medium=email');
+    expect(withEmailUtm('https://shotgun.live/events/x', 'yuno-m-1a2b3c4d')).toBe('https://shotgun.live/events/x?utm_source=yuno-m-1a2b3c4d&utm_medium=email');
     expect(withEmailUtm('pas une url')).toBe('pas une url');
   });
 });

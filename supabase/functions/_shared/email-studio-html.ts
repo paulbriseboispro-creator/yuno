@@ -1153,10 +1153,17 @@ function externalActivePrices(deals: readonly ExternalDeal[], soldOut: boolean):
   return deals.map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
 }
 
-function withEmailUtm(url: string): string {
+/**
+ * Lien vers la billetterie connectée (Shotgun). `source` = `yuno-m-<8 premiers
+ * caractères de la campagne>` à l'envoi réel : c'est le seul champ que l'API
+ * Tickets de Shotgun rend tel quel, il rattache donc chaque billet à SA
+ * campagne (src/crm/lib/links.ts, `_crm_ticket_source`). Sans campagne (test,
+ * aperçu) : `yuno`.
+ */
+function withEmailUtm(url: string, source: string | null = null): string {
   try {
     const u = new URL(url);
-    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'yuno');
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', source || 'yuno');
     if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
     return u.toString();
   } catch {
@@ -1661,6 +1668,8 @@ export async function fetchStudioLiveData(
    * reviennent dans « Qui fait vendre ? », jamais à l'hôte.
    */
   senderScope: { venueId?: string | null; organizerUserId?: string | null } | null = null,
+  /** Source portée vers une billetterie connectée (`yuno-m-…`), null = `yuno`. */
+  ticketingSource: string | null = null,
 ): Promise<StudioLiveData> {
   const live: StudioLiveData = {};
   const ids = collectStudioEventIds(blocks, fallbackEventId);
@@ -1843,7 +1852,7 @@ export async function fetchStudioLiveData(
           dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
           venueLabel: city ? `${venueName} — ${city}` : venueName,
           coverUrl: e.poster_url || e.image_url || null,
-          url: ticketUrl ? withEmailUtm(ticketUrl) : publicUrl,
+          url: ticketUrl ? withEmailUtm(ticketUrl, ticketingSource) : publicUrl,
           priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
           tickets: externalTicketRows(deals, soldOut),
           guestListOnly: false,

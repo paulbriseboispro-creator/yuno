@@ -310,6 +310,8 @@ async function makeStudioHtmlBuilder(
     admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL,
     opts.trackedLinks === false ? null : 'newsletter',
     { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
+    // Soirée Shotgun : la vente revient avec la source de CETTE campagne.
+    opts.trackedLinks === false ? null : `yuno-m-${String(campaign.id ?? '').replace(/-/g, '').slice(0, 8).toLowerCase()}`,
   );
 
   return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {

@@ -200,11 +200,15 @@ export function externalActivePrices(deals: readonly ExternalDeal[], soldOut: bo
   return deals.map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
 }
 
-/** Ajoute utm_source=yuno / utm_medium=email sans écraser ceux déjà posés. */
-export function withEmailUtm(url: string): string {
+/**
+ * Ajoute utm_source / utm_medium=email sans écraser ceux déjà posés. Miroir de
+ * l'edge : à l'envoi réel la source vaut `yuno-m-<campagne>` (seul champ que
+ * l'API Tickets de Shotgun rend tel quel) ; sans campagne (aperçu), `yuno`.
+ */
+export function withEmailUtm(url: string, source: string | null = null): string {
   try {
     const u = new URL(url);
-    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'yuno');
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', source || 'yuno');
     if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
     return u.toString();
   } catch {
