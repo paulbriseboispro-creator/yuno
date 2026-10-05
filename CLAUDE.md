@@ -1,7 +1,7 @@
 # CLAUDE.md — Yuno
 
 Source de vérité projet, lue automatiquement à chaque session. Tenir à jour.
-Dernière revue : 2026-10-05.
+Dernière revue : 2026-10-06.
 
 ## Ce qu'est Yuno
 
@@ -894,6 +894,37 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   prestataire a scanné.
 - Démo : `scripts/demo/seed-crm-links.sql` (à rejouer après
   `seed-crm-demo.sql`), sources réalistes (`utm_medium` = app / website).
+
+## Yuno CRM — la guest list Shotgun dans l'analyse (2026-10-06)
+
+Doc : `docs/designs/CRM_GUEST_LIST_ANALYTICS.md`. Migrations `20261008100000`
+→ `111000`. Onglet « Guest list » du tiroir d'une soirée (`?v=gl`,
+`crm_night_guestlist`), Analyses › Guest list (`/crm/analytics/guestlist`,
+`crm_ana_guestlist`, `?e=<soirée>` = une soirée en pleine largeur), filtres
+Clients `?gl=` / `?glev=`, badge « GL ×n », parcours d'invité sur la fiche. Règles :
+
+- **Porte unique `_crm_ticket_gl_kind(status, price, raw)`** = `'inv'`
+  (`deal_channel = 'invitation'`) | `'free'` (billet valide à 0 €) | NULL ;
+  un duplicata n'en est jamais une. Miroir EXACT `glKindOf`
+  (`src/crm/lib/guestlist.ts`, testé). Les listes de noms de Shotgun Scan ne
+  sont pas dans l'API : « Bientôt » (`ShotgunSoonCard` item `scanlist`).
+- **« Venu » = scanné, sur une soirée dont la porte a scanné ≥ la moitié des
+  billets** (`_crm_event_scan_known`), sinon « non mesuré », jamais 0 %. **Aucun
+  pourcentage sous 10** (venue, entrées gratuites, répartitions) : le SQL rend
+  NULL et l'écran montre les nombres bruts.
+- **`_crm_people_build` porte les colonnes guest list** (`paid_n`, `gl_n`,
+  `gl_came`, `gl_first`, `gl_events`, `gl_noshow`, `gl_conv`) que lisent
+  `_crm_filter_sql`, les segments et les audiences : toute réécriture repart de
+  la base liée et les garde (une migration d'une autre session a failli les
+  effacer le 06/10). Une invitation SCANNÉE vaut une soirée faite ; un billet à
+  0 € compte comme tout billet valide.
+- « Qui sont vos invités ? » = partition exacte (première fois / déjà invités /
+  clients payants ; un billet payant acheté avant la soirée, même pour une
+  date plus tardive, vaut « déjà vu »). « Devenus clients » = sans billet payant
+  avant leur première soirée en guest list, un billet payant depuis.
+- Démo : `scripts/demo/seed-crm-guestlist.sql`, joué par `refresh-crm-demo.sh`
+  après `seed-crm-nights.sql`. Aide : FAQ `yc.faq.guestlist.*`, article
+  assistant `crm-guest-list` (redéployer `owner-assistant`).
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
