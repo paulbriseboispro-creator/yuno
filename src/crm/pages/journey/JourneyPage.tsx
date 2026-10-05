@@ -20,6 +20,7 @@ import { useNarrow } from '@/crm/ui/useNarrow';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
 import { downloadCsv } from '@/crm/lib/csv';
 import { fullName } from '@/crm/lib/lifecycle';
 import { useEventsBrief, type ClientFilterDef } from '@/crm/data/clients';
@@ -332,6 +333,7 @@ export default function JourneyPage() {
                 sel={sel} onSel={(k) => { setSel(k); setSwap((x) => x + 1); }} swap={swap}
                 setF={setF} scope={scope} canWrite={caps.write} onRelaunch={relaunchStep}
               />
+              <ShotgunSoonCard items={['page', 'curious', 'carts']} />
               <BeforeBuy ref={s2Ref} d={d} f={f} T={T} a2={a2} style={scrollIn(s2on)} thin={thin} setF={setF} />
               <CampaignRank ref={s3Ref} d={d} f={f} T={T} a3={a3} style={scrollIn(s3on)} thin={thin} money={caps.money} campName={campName} setF={setF} onOpen={setDrawer} />
             </>

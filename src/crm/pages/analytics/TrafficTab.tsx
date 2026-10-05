@@ -1,9 +1,9 @@
 /**
  * Analyses › Trafic — « D'où vient mon public ? ». Les ventes par source
- * (lues dans les UTM des billets), les clics sur vos messages, les nouveaux
- * clients et ce qui les amène, et les soirées qui recrutent. Les visites de
- * page et l'appareil arriveront avec les pages d'inscription : rien n'est
- * inventé en attendant.
+ * (la source que Shotgun rend sur chaque billet), les clics sur vos messages,
+ * les nouveaux clients et ce qui les amène, et les soirées qui recrutent.
+ * Les visites de la page Shotgun ne sont pas dans l'API : « Bientôt », jamais
+ * un chiffre inventé.
  */
 import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -14,6 +14,7 @@ import { useProgress } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
 import { SOURCE_KEYS, type AnaFilters, type AnaTraffic, type SourceKey } from '@/crm/data/analytics';
 import {
   CardHead, ChartSkeleton, Fill, Sk, StackChart, StatePill, Tile, TileSkeleton, bucketTitle, card, fadeIn, useGo, xLabels, type TileSpec,
@@ -243,6 +244,8 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
           </div>
         )}
       </section>
+
+      <ShotgunSoonCard items={['visits', 'conv', 'carts']} style={fadeIn(rv, 200)} />
 
       <section style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '14px 24px', padding: '22px 26px', borderRadius: 24, background: 'var(--sand-50)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', ...fadeIn(rv, 240) }}>
         <div style={{ flex: '1 1 360px', display: 'flex', flexDirection: 'column', gap: 3 }}>

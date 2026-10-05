@@ -200,6 +200,10 @@ const dict: CrmDict = {
   'yc.lk.soon.curious.s': ['To send those who hesitated a reminder before prices go up.', 'Pour relancer ceux qui ont hésité avant que les prix montent.', 'Para recordárselo a quien dudó antes de que suban los precios.'],
   'yc.lk.soon.carts.t': ['Abandoned carts on Shotgun', 'Paniers abandonnés sur Shotgun', 'Carritos abandonados en Shotgun'],
   'yc.lk.soon.carts.s': ['An automatic e-mail to anyone who stopped at checkout.', 'Un e-mail automatique à qui s’est arrêté au paiement.', 'Un e-mail automático a quien se detuvo en el pago.'],
+  'yc.lk.soon.conv.t': ['Page → purchase conversion', 'Conversion page → achat', 'Conversión página → compra'],
+  'yc.lk.soon.conv.s': ['The share of visits to your Shotgun page that end in a purchase, source by source.', 'La part des visites de votre page Shotgun qui finissent en achat, source par source.', 'La parte de las visitas a su página de Shotgun que acaban en compra, fuente por fuente.'],
+  'yc.lk.soon.page.t': ['The step between the click and the purchase', 'L’étape entre le clic et l’achat', 'El paso entre el clic y la compra'],
+  'yc.lk.soon.page.s': ['Who reached your Shotgun page, how long they stayed, where they stopped.', 'Qui est arrivé sur votre page Shotgun, combien de temps, où il s’est arrêté.', 'Quién llegó a su página de Shotgun, cuánto tiempo, dónde se detuvo.'],
 
   // QR
   'yc.lk.qr.t': ['QR code of the link', 'QR code du lien', 'Código QR del enlace'],

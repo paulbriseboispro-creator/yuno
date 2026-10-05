@@ -1,6 +1,6 @@
 /**
  * Pièces de l'onglet « Liens » d'une soirée : pastille de réseau, mini-courbe
- * des clics, barre des sources Shotgun, fenêtre QR, cartes « Bientôt ».
+ * des clics, couleurs des sources Shotgun, fenêtre QR.
  */
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
@@ -97,24 +97,5 @@ export function QrModal({ open, onClose, url, label, display }: { open: boolean;
         </div>
       </div>
     </Modal>
-  );
-}
-
-/** Une mesure que seule l'intégration partenaire Shotgun ouvrira. */
-export function SoonTile({ icon, title, body }: { icon: IconName; title: string; body: string }) {
-  const { t } = useCrmT();
-  return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 16px 18px', borderRadius: 18, background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 10px,#fff 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ width: 34, height: 34, borderRadius: 12, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', color: 'var(--sand-600)', display: 'grid', placeItems: 'center' }}>
-          <Icon name={icon} size={16} stroke={2.2} />
-        </span>
-        <span style={{ height: 24, padding: '0 10px', borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 11.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Icon name="lock" size={11} stroke={2.6} />{t('yc.lk.soon.badge')}
-        </span>
-      </div>
-      <b style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.3 }}>{title}</b>
-      <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--sand-600)', textWrap: 'pretty' }}>{body}</span>
-    </div>
   );
 }

@@ -25,7 +25,8 @@ import {
   LINK_KINDS, QUICK_KINDS, bestLink, goDisplay, goUrl, groupSources, kindKey, linkConversion, linkState, nextIndex, reusableLink,
   type LinkKind, type NightLink,
 } from '@/crm/lib/links';
-import { PlatformBadge, QrModal, SOURCE_COLOR, SoonTile, Spark } from './linksUi';
+import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
+import { PlatformBadge, QrModal, SOURCE_COLOR, Spark } from './linksUi';
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -309,17 +310,7 @@ function Body({ d }: { d: NightLinksData }) {
       )}
 
       {/* ── Bientôt, avec l'intégration partenaire Shotgun ─────────────── */}
-      <section style={{ ...card(340), background: 'var(--paper)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <h3 style={h3}>{t('yc.lk.soon.t')}</h3>
-          <span style={sub}>{t('yc.lk.soon.s')}</span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
-          <SoonTile icon="eye" title={t('yc.lk.soon.visits.t')} body={t('yc.lk.soon.visits.s')} />
-          <SoonTile icon="pointer" title={t('yc.lk.soon.curious.t')} body={t('yc.lk.soon.curious.s')} />
-          <SoonTile icon="ticket" title={t('yc.lk.soon.carts.t')} body={t('yc.lk.soon.carts.s')} />
-        </div>
-      </section>
+      <ShotgunSoonCard items={['visits', 'curious', 'carts']} delay={340} />
 
       {qr && <QrModal open={!!qr} onClose={() => setQr(null)} url={goUrl(PUBLIC_BASE_URL, qr.code)} display={goDisplay(PUBLIC_BASE_URL, qr.code)} label={qr.label} />}
     </div>
