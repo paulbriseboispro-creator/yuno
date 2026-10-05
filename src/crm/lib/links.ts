@@ -196,3 +196,19 @@ export function linkState(l: Pick<NightLink, 'clicks' | 'tickets'>, confirmed: b
   if (l.clicks === 0) return 'new';
   return confirmed ? 'clicks' : 'waiting';
 }
+
+/**
+ * Phrase courte pour la source d'un achat (« Story 2 », « l'e-mail Line-up »,
+ * « App et site Shotgun »…). `t` = traducteur de la Console.
+ */
+export function saleSourceText(
+  src: { kind: string; label?: string | null; src?: string | null } | null | undefined,
+  t: (k: string, v?: Record<string, string | number | null | undefined>) => string,
+): string | null {
+  if (!src) return null;
+  if (src.kind === 'yl') return src.label ? t('yc.cli.card.src.link', { name: src.label }) : t('yc.ana.src.yl');
+  if (src.kind === 'em') return src.label ? t('yc.cli.card.src.email', { name: src.label }) : t('yc.ana.src.em');
+  if (src.kind === 'so' && src.src) return t('yc.cli.card.src.social', { name: src.src.charAt(0).toUpperCase() + src.src.slice(1) });
+  if (src.kind === 'au' && src.src) return src.src;
+  return t(`yc.ana.src.${src.kind}`);
+}

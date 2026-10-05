@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   LINK_KINDS, bestLink, buildGoDestination, findKind, goDisplay, goUrl, groupSources, linkConversion,
-  linkState, nextIndex, reusableLink, sourceKind, type NightLink,
+  linkState, nextIndex, reusableLink, saleSourceText, sourceKind, type NightLink,
 } from '../links';
 
 const link = (o: Partial<NightLink>): NightLink => ({
@@ -77,5 +77,15 @@ describe('liens de soirée', () => {
     expect(linkState(link({ clicks: 12 }), false)).toBe('waiting');
     expect(linkState(link({ clicks: 12 }), true)).toBe('clicks');
     expect(linkState(link({ clicks: 12, tickets: 1 }), false)).toBe('selling');
+  });
+
+  it('dit par où est arrivé un achat', () => {
+    const t = (k: string, v?: Record<string, unknown>) => (v ? `${k}:${Object.values(v).join('|')}` : k);
+    expect(saleSourceText({ kind: 'yl', label: 'Story 2' }, t)).toBe('yc.cli.card.src.link:Story 2');
+    expect(saleSourceText({ kind: 'em', label: 'Line-up' }, t)).toBe('yc.cli.card.src.email:Line-up');
+    expect(saleSourceText({ kind: 'em', label: null }, t)).toBe('yc.ana.src.em');
+    expect(saleSourceText({ kind: 'so', src: 'instagram' }, t)).toBe('yc.cli.card.src.social:Instagram');
+    expect(saleSourceText({ kind: 'sg', src: 'shotgun' }, t)).toBe('yc.ana.src.sg');
+    expect(saleSourceText(null, t)).toBeNull();
   });
 });

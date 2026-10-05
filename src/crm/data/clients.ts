@@ -40,6 +40,16 @@ export interface ClientsOverview {
   updated_at: string;
 }
 
+/** Source d'une vente telle que Shotgun la rend, avec son nom côté Yuno (`_crm_source_label`). */
+export interface SaleSourceLabel {
+  src: string | null;
+  kind: 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'au' | 'di' | 'of';
+  label?: string | null;
+  platform?: string | null;
+  placement?: string | null;
+  event_id?: string | null;
+}
+
 export interface ClientRow {
   email: string; first_name: string | null; last_name: string | null; lifecycle: Lifecycle;
   nights: number; last_night: string | null; added_at: string | null; spent: number;
@@ -54,9 +64,15 @@ export interface ClientCard {
   lifecycle: Lifecycle; nights: number; nights_win: number; spent: number;
   first_night: string | null; last_night: string | null; added_at: string | null;
   tonight: boolean; source: string; utm_source: string | null; origin: string | null;
+  /** Source du premier achat, lisible (lien de partage, campagne…). */
+  first_source?: SaleSourceLabel | null;
   tags: string[]; note: string | null;
-  buys: { kind: 'buy'; at: string; event_id: string; title: string | null; event_start: string; amount: number; tickets: number; scanned: boolean; first: boolean; upcoming: boolean }[];
-  messages: { kind: 'email'; at: string; name: string | null; campaign_id: string; opened: boolean; clicked: boolean }[];
+  buys: { kind: 'buy'; at: string; event_id: string; title: string | null; event_start: string; amount: number; tickets: number; scanned: boolean; first: boolean; upcoming: boolean; source?: SaleSourceLabel | null }[];
+  messages: {
+    kind: 'email'; at: string; name: string | null; campaign_id: string; opened: boolean; clicked: boolean;
+    /** La soirée dont parlait l'e-mail, le premier clic, et l'achat de cette soirée qui a suivi (null = non mesurable). */
+    event_id?: string | null; event_title?: string | null; clicked_at?: string | null; bought_after?: boolean | null;
+  }[];
   months: { m: string; n: number }[];
   rules: { min_nights: number; window_months: number; lapse_months: number };
 }

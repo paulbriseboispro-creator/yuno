@@ -11,6 +11,7 @@ import { Sheet, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
+import { saleSourceText } from '@/crm/lib/links';
 import { useCrmCaps } from '@/crm/scope';
 import { useClientCard, useSaveClient } from '@/crm/data/clients';
 import type { ClientCard } from '@/crm/data/clients';
@@ -136,6 +137,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const fdShort = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   const since = firstD ?? (c.added_at ? new Date(c.added_at) : null);
   const pastNights = c.buys.filter((b) => !b.upcoming);
+  const pastSpent = pastNights.reduce((a, b) => a + Number(b.amount || 0), 0);
   const firstStart = pastNights.length ? new Date(pastNights[pastNights.length - 1].event_start) : null;
   const span = firstStart && lastD ? (lastD.getTime() - firstStart.getTime()) / (7 * 86_400_000) : 0;
   const nSub = c.nights <= 1 ? t('yc.cli.card.once') : t('yc.cli.card.every', { n: Math.max(1, Math.round(span / Math.max(1, c.nights - 1))) });
@@ -180,17 +182,28 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
     c.buys.forEach((b) => {
       const title = b.title ?? '—';
       if (b.upcoming) {
-        out.push({ k: 'buy', at: new Date(b.event_start).getTime(), t: t('yc.cli.card.tl.upcoming', { title }), s: `${fdShort(new Date(b.event_start))} · ${new Date(b.event_start).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`, amt: eur(b.amount), ic: 'tonight', tone: 'todo' });
+        const via = saleSourceText(b.source, t);
+        out.push({ k: 'buy', at: new Date(b.event_start).getTime(), t: t('yc.cli.card.tl.upcoming', { title }), s: [`${fdShort(new Date(b.event_start))} · ${new Date(b.event_start).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`, via ? t('yc.cli.card.tl.via', { src: via }) : ''].filter(Boolean).join(' · '), amt: eur(b.amount), ic: 'tonight', tone: 'todo' });
       } else {
         const paid = tp('yc.cli.card.tl.paid', b.tickets, { n: b.tickets });
-        const s = [b.first ? t('yc.cli.card.tl.first') : paid, b.scanned ? t('yc.cli.card.tl.scanned') : ''].filter(Boolean).join(' · ');
+        const via = saleSourceText(b.source, t);
+        const s = [b.first ? t('yc.cli.card.tl.first') : paid, via ? t('yc.cli.card.tl.via', { src: via }) : '', b.scanned ? t('yc.cli.card.tl.scanned') : ''].filter(Boolean).join(' · ');
         out.push({ k: 'buy', at: new Date(b.event_start).getTime(), t: t('yc.cli.card.tl.buyT', { title }), s, amt: eur(b.amount), ic: 'buy', tone: 'buy' });
       }
     });
     c.messages.forEach((m) => {
       const at = new Date(m.at).getTime();
       out.push({ k: 'msg', at, t: t('yc.cli.card.tl.mailT', { name: m.name ?? '—' }), s: m.opened ? t('yc.cli.card.tl.opened') : t('yc.cli.card.tl.received'), ic: 'msg', tone: 'msg' });
-      if (m.clicked) out.push({ k: 'msg', at: at + 1, t: t('yc.cli.card.tl.clicked'), s: m.name ?? '', ic: 'click', tone: 'msg' });
+      if (m.clicked) {
+        // Le clic, la soirée vers laquelle il menait, et ce qui a suivi.
+        const cat = m.clicked_at ? new Date(m.clicked_at).getTime() : at + 1;
+        const after = m.bought_after === true ? t('yc.cli.card.tl.boughtAfter') : m.bought_after === false ? t('yc.cli.card.tl.notBought') : '';
+        out.push({
+          k: 'msg', at: cat,
+          t: m.event_title ? t('yc.cli.card.tl.clickedEv', { title: m.event_title }) : t('yc.cli.card.tl.clicked'),
+          s: [m.name ?? '', after].filter(Boolean).join(' · '), ic: 'click', tone: 'msg',
+        });
+      }
     });
     if (c.added_at && c.source !== 'shotgun') {
       out.push({ k: 'msg', at: new Date(c.added_at).getTime() - 1, t: t(c.source === 'import' ? 'yc.cli.card.tl.addedImport' : 'yc.cli.card.tl.added'), s: c.source === 'utm' && c.utm_source ? t('yc.cli.card.utmDeclared', { src: c.utm_source }) : '', ic: 'add', tone: 'msg' });
@@ -206,7 +219,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
     { l: t('yc.cli.card.email'), v: c.email_ok ? c.email : t('yc.cli.card.emailStop', { email: c.email }), fg: c.email_ok ? 'var(--ink)' : 'var(--amber-700)' },
     { l: t('yc.cli.card.phone'), v: c.phone_ok && c.phone ? c.phone : t('yc.cli.card.phoneNone'), fg: c.phone_ok && c.phone ? 'var(--ink)' : 'var(--sand-500)' },
     { l: t('yc.cli.card.reachBy'), v: t(`yc.cli.card.reach.${rc}`), fg: rc === 'none' ? 'var(--amber-700)' : 'var(--ink)' },
-    { l: t('yc.cli.card.came'), v: c.source === 'utm' && c.utm_source ? `${SRC.utm} · ${c.utm_source}` : SRC[c.source] ?? '—', fg: 'var(--ink)' },
+    { l: t('yc.cli.card.came'), v: c.source === 'shotgun' || c.source === 'utm' ? (saleSourceText(c.first_source, t) ?? SRC[c.source] ?? '—') : SRC[c.source] ?? '—', fg: 'var(--ink)' },
     ...(firstD ? [{ l: t('yc.cli.card.firstNight'), v: fdLong(firstD), fg: 'var(--ink)' }] : []),
   ];
 
@@ -280,7 +293,8 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>
         <Stat l={t('yc.cli.card.nights')} v={n(c.nights)} s={nSub} />
-        <Stat l={t('yc.cli.card.spent')} v={eur(c.spent)} s={c.nights > 0 ? t('yc.cli.card.perNight', { v: eur(c.spent / c.nights) }) : '—'} />
+        {/* Dépense par soirée : soirées PASSÉES seulement, des deux côtés de la division. */}
+        <Stat l={t('yc.cli.card.spent')} v={eur(c.spent)} s={c.nights > 0 ? t('yc.cli.card.perNight', { v: eur(pastSpent / c.nights) }) : '—'} />
         <Stat l={t('yc.cli.card.last')} v={lastD ? fdShort(lastD) : '—'} s={days !== null ? relDays(days, t, tp) : t('yc.cli.list.never')} nowrap />
       </div>
 
