@@ -2182,6 +2182,18 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
 
 ## Backend Supabase — gotchas critiques
 
+- **La prod tourne sur la plus PETITE machine Supabase (offre gratuite, 426 Mo
+  de RAM) et elle est déjà tombée** (05/10, ≈ 21:40 → 22:55 UTC : base, API,
+  connexion et stockage UNHEALTHY). À vide elle swappe déjà ~390 Mo ; l'API
+  REST met 21 s à recharger son cache de schéma après chaque migration (503
+  `PGRST002` pendant ce temps). Récit, diagnostic et réparation :
+  `docs/SUPABASE_PROD_HEALTH.md`. Règles pour TOUTE session : pas de cron
+  chaque minute (5 min au plus fréquent) ; UN seul test SQL lourd à la fois sur
+  la prod, après un coup d'œil à `pg_stat_activity`, jamais pendant la
+  migration d'une autre session ; grouper les migrations et ne `NOTIFY pgrst`
+  que si le schéma visible par l'API change. La base (525 Mo) dépasse aussi le
+  quota de 500 Mo de l'offre gratuite : risque de passage en LECTURE SEULE. Vraie
+  correction = offre Pro + machine Small, décision (et paiement) de Paul.
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
   d'historique hérités de la migration Lovable→Supabase (réconciliation déjà faite une fois).
 - **Gen types** : `supabase gen types ...` — **rediriger stderr** sinon le bruit pollue
