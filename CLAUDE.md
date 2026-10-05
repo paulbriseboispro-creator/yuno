@@ -82,8 +82,8 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, publics INACTIFS
   jusqu'au passage au prix public ; `yuno_crm_pack_<yunits>`). Stripe live est à
   24 / 34 / 288 depuis le 04/10 (`scripts/stripe/create-crm-prices.mjs` en est le
-  miroir idempotent) ; les noms des produits « packs » y parlent encore de
-  « néons » (à renommer chez Stripe). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
+  miroir idempotent) ; produits, surnoms de prix et métadonnées y disent
+  « Yunits » depuis le 05/10 (`yunits_*`, aucun code ne les lit). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
   (`crm_checkout`, `crm_portal`), webhook → `crm_apply_stripe_subscription`. Ne
   jamais recréer les prix Essentiel / Pro / Business.
 
