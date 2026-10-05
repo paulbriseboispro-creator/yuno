@@ -10,6 +10,7 @@ import { useCrmT } from '@/crm/i18n';
 import type { NightDetail, NightRow } from '@/crm/data/nights';
 import { daysUntil, fillOf, lacksMessage, pickMessage, type UpKind } from '@/crm/lib/nights';
 import { NightHero } from './NightHero';
+import type { DrawerView } from './NightDrawer';
 import { DateTile, FilterChip, KeyTiles, SearchField, StatusPill } from './nightsUi';
 import { ICO, tzDay, tzMonth, tzShort, tzTime, tzWeek } from './nightsFormat';
 import type { KeyTile } from './nightsUi';
@@ -33,7 +34,7 @@ export function UpcomingView({
   setQ: (v: string) => void;
   drId: string | null;
   upd: string | null;
-  open: (id: string, view?: 'sales' | 'links') => void;
+  open: (id: string, view?: DrawerView) => void;
   write: (n: NightRow) => void;
   intro: boolean;
   cc: number;
@@ -156,6 +157,7 @@ export function UpcomingView({
                             <div style={{ height: '100%', width: `${(f * 100 * cc).toFixed(1)}%`, borderRadius: 99, background: 'var(--gradient-brand)' }} />
                           </div>
                         )}
+                        {e.gl && <GlLine gl={e.gl} onClick={() => open(e.id, 'gl')} />}
                       </>
                     ) : (
                       <>
@@ -206,5 +208,24 @@ export function UpcomingView({
         </div>
       </section>
     </>
+  );
+}
+
+/** « Guest list · 48 inscrits · +12 aujourd'hui » sous la jauge : ouvre l'onglet Guest list. */
+function GlLine({ gl, onClick }: { gl: NonNullable<NightRow['gl']>; onClick: () => void }) {
+  const { t, n } = useCrmT();
+  return (
+    <Hv
+      as="button"
+      type="button"
+      onClick={(ev: React.MouseEvent) => { ev.stopPropagation(); onClick(); }}
+      title={t('yc.gl.row.open')}
+      style={{ alignSelf: 'flex-start', maxWidth: '100%', height: 24, padding: '0 9px 0 7px', borderRadius: 99, border: 0, background: 'var(--sand-100)', color: 'var(--sand-700)', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', transition: 'background 160ms,color 160ms' }}
+      hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}
+    >
+      <Icon name="users" size={13} stroke={2.4} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('yc.gl.row.up', { n: n(gl.entries) })}</span>
+      {gl.today > 0 && <span style={{ color: 'var(--green-700)' }}>{t('yc.gl.row.today', { n: n(gl.today) })}</span>}
+    </Hv>
   );
 }

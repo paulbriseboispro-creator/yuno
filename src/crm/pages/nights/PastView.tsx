@@ -13,11 +13,12 @@ import { PERIOD_MONTHS, deltaPct, fillOf, pastKind, totals, type PastKind, type 
 import { DateTile, FilterChip, KeyTiles, SearchField, StatusPill } from './nightsUi';
 import { ICO, tzDay, tzMonth, tzShort, tzWeek } from './nightsFormat';
 import type { KeyTile } from './nightsUi';
+import type { DrawerView } from './NightDrawer';
 
-export type PastSort = 'date' | 'sold' | 'ca' | 'nw';
+export type PastSort = 'date' | 'sold' | 'ca' | 'nw' | 'gl';
 
 const PA_KEY: Record<PastKind, string> = { full: 'yc.ni.pa.full', good: 'yc.ni.pa.good', fair: 'yc.ni.pa.fair', low: 'yc.ni.pa.low', unknown: 'yc.ni.pa.unknown' };
-const ROW_GRID = 'minmax(0,2.4fr) minmax(0,1.7fr) minmax(0,1fr) minmax(0,1.1fr) 140px 20px';
+const ROW_GRID = 'minmax(0,2.4fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,0.9fr) minmax(0,1.2fr) 140px 20px';
 const HC = 176;
 
 export function PastView({
@@ -39,7 +40,7 @@ export function PastView({
   lim: number;
   setLim: (n: number) => void;
   drId: string | null;
-  open: (id: string) => void;
+  open: (id: string, view?: DrawerView) => void;
   intro: boolean;
   cc: number;
 }) {
@@ -235,12 +236,13 @@ export function PastView({
               <SearchField value={q} onChange={setQ} placeholder={t('yc.ni.search')} />
             </div>
             <div style={{ overflowX: 'auto', margin: '0 -6px', padding: '0 6px' }}>
-              <div style={{ minWidth: 860, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ minWidth: 980, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: ROW_GRID, gap: 16, padding: '0 14px 10px', borderBottom: '1px solid var(--sand-100)' }}>
                   {head('date', t('yc.ni.col.night'))}
                   {head('sold', t('yc.ni.col.sold'))}
                   {head('ca', t('yc.ni.col.ca'))}
                   {head('nw', t('yc.ni.col.new'))}
+                  {head('gl', t('yc.gl.col'))}
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-400)' }}>{t('yc.ni.col.verdict')}</span>
                   <span />
                 </div>
@@ -283,6 +285,7 @@ export function PastView({
                       </div>
                       <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{eur(e.revenue)}</span>
                       <span style={{ fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>{n(e.new_buyers)}</span>
+                      <GlCell gl={e.gl ?? null} onOpen={() => open(e.id, 'gl')} />
                       <StatusPill past={k}>{t(PA_KEY[k])}</StatusPill>
                       <Icon name="chevronRight" size={18} stroke={2.2} color="var(--sand-400)" />
                     </Hv>
@@ -305,5 +308,27 @@ export function PastView({
         </>
       )}
     </>
+  );
+}
+
+/** Colonne Guest list : venus / inscrits et taux de venue (porte scannée), sinon les inscrits. */
+function GlCell({ gl, onOpen }: { gl: NightRow['gl'] | null; onOpen: () => void }) {
+  const { t, n, pct } = useCrmT();
+  if (!gl) return <span style={{ fontSize: 14, color: 'var(--sand-400)' }}>—</span>;
+  const r = gl.scan_known && gl.entries > 0 ? (gl.came / gl.entries) * 100 : null;
+  return (
+    <Hv
+      as="button"
+      type="button"
+      onClick={(ev: React.MouseEvent) => { ev.stopPropagation(); onOpen(); }}
+      title={t('yc.gl.row.open')}
+      style={{ justifySelf: 'start', minWidth: 0, border: 0, background: 'none', padding: '2px 6px', margin: '-2px -6px', borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, cursor: 'pointer', font: 'inherit', color: 'inherit', textAlign: 'left' }}
+      hover={{ background: 'var(--sand-100)' }}
+    >
+      <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        {r !== null ? <>{n(gl.came)}<span style={{ fontWeight: 400, color: 'var(--sand-500)' }}> / {n(gl.entries)}</span></> : n(gl.entries)}
+      </span>
+      <span style={{ fontSize: 12.5, color: 'var(--sand-500)', whiteSpace: 'nowrap' }}>{r !== null ? t('yc.gl.row.showup', { pct: pct(r) }) : t('yc.gl.row.entries')}</span>
+    </Hv>
   );
 }

@@ -53,6 +53,7 @@ export function Sidebar({
         { id: 'ventes', t: t('yc.nav.sales'), to: CRM_ROUTES.sales },
         { id: 'trafic', t: t('yc.nav.traffic'), to: CRM_ROUTES.traffic },
         { id: 'communaute', t: t('yc.nav.community'), to: CRM_ROUTES.community },
+        { id: 'guestlist', t: t('yc.nav.guestlist'), to: CRM_ROUTES.guestlist },
         { id: 'parcours', t: t('yc.nav.journey'), to: CRM_ROUTES.journey },
       ],
     },

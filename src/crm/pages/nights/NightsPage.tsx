@@ -46,7 +46,7 @@ export default function NightsPage() {
   const [sp, setSp] = useSearchParams();
   const isPast = loc.pathname.replace(/\/+$/, '').endsWith('/past');
   const drId = sp.get('e');
-  const drView: DrawerView = sp.get('v') === 'links' ? 'links' : 'sales';
+  const drView: DrawerView = sp.get('v') === 'links' ? 'links' : sp.get('v') === 'gl' ? 'gl' : 'sales';
 
   const q = useNights();
   const shell = useCrmShell();
@@ -92,7 +92,7 @@ export default function NightsPage() {
   const { inW, prevW } = useMemo(() => splitPeriods(past, months, new Date(now)), [past, months, now]);
   const series = useMemo(() => seriesChips(inW), [inW]);
   const paRows = useMemo(() => {
-    const key: Record<PastSort, (e: NightRow) => number> = { date: (e) => Date.parse(e.start_at), sold: (e) => e.sold, ca: (e) => e.revenue, nw: (e) => e.new_buyers };
+    const key: Record<PastSort, (e: NightRow) => number> = { date: (e) => Date.parse(e.start_at), sold: (e) => e.sold, ca: (e) => e.revenue, nw: (e) => e.new_buyers, gl: (e) => e.gl?.entries ?? 0 };
     return inW
       .filter((e) => (ser === 'all' || e.series.toLowerCase() === ser) && (!nq || norm(e.title).includes(nq)))
       .sort((a, b) => (key[sort](b) - key[sort](a)) * dir);
@@ -106,14 +106,14 @@ export default function NightsPage() {
     setSp((prev) => {
       const x = new URLSearchParams(prev);
       x.set('e', id);
-      if (view === 'links') x.set('v', 'links'); else x.delete('v');
+      if (view !== 'sales') x.set('v', view); else x.delete('v');
       return x;
     }, { replace: true });
   }, [setSp]);
   const close = useCallback(() => {
     setSp((prev) => { const x = new URLSearchParams(prev); x.delete('e'); x.delete('v'); return x; }, { replace: true });
   }, [setSp]);
-  const setView = useCallback((v: DrawerView) => setParam('v', v === 'links' ? 'links' : null), [setParam]);
+  const setView = useCallback((v: DrawerView) => setParam('v', v === 'sales' ? null : v), [setParam]);
   const drRow = useMemo(() => (drId ? (data?.nights ?? []).find((e) => e.id === drId) ?? null : null), [data, drId]);
   const ids = useMemo(() => {
     if (!drId) return [];
@@ -128,7 +128,7 @@ export default function NightsPage() {
   // Une soirée ouverte sur le mauvais onglet bascule sur le bon.
   useEffect(() => {
     if (!drRow) return;
-    const v = drView === 'links' ? '&v=links' : '';
+    const v = drView !== 'sales' ? `&v=${drView}` : '';
     if (drRow.upcoming && isPast) nav(`${CRM_ROUTES.nights}?e=${drRow.id}${v}`, { replace: true });
     if (!drRow.upcoming && !isPast) nav(`${CRM_ROUTES.nightsPast}?e=${drRow.id}${v}`, { replace: true });
   }, [drRow, isPast, nav, drView]);

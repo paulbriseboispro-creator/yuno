@@ -12,12 +12,13 @@ import { useCrmT } from '@/crm/i18n';
 import type { NightDetail, NightRow } from '@/crm/data/nights';
 import { dayIn, daysUntil, fillOf, pickMessage, type UpKind } from '@/crm/lib/nights';
 import { SalesCurve } from './SalesCurve';
+import type { DrawerView } from './NightDrawer';
 import { ShotgunLink } from './nightsUi';
 import { ICO, comparedLine, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
 
 export function NightHero({ night: h, detail, kind, progress, cc: c, open: openDr, write: writeTo, intro: shown }: {
   night: NightRow; detail: NightDetail | undefined; kind: UpKind; progress: number; cc: number;
-  open: (id: string, view?: 'sales' | 'links') => void; write: (n: NightRow) => void; intro: boolean;
+  open: (id: string, view?: DrawerView) => void; write: (n: NightRow) => void; intro: boolean;
 }) {
   const T = useCrmT();
   const { t, tp, n, eur, eur2, pct, locale, dShort } = T;
@@ -173,6 +174,7 @@ export function NightHero({ night: h, detail, kind, progress, cc: c, open: openD
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
         <CtaButton onClick={() => openDr(h.id)}>{t('yc.ni.detail')}</CtaButton>
+        {h.gl && <PillButton icon="users" onClick={() => openDr(h.id, 'gl')}>{t('yc.gl.heroCta', { n: n(h.gl.entries) })}</PillButton>}
         <PillButton icon="instagram" onClick={() => openDr(h.id, 'links')}>{t('yc.lk.heroCta')}</PillButton>
         <ShotgunLink href={h.url}>{t('yc.ni.editShotgun')}</ShotgunLink>
       </div>

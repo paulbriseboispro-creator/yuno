@@ -1,7 +1,8 @@
 /**
- * Analyses (`/crm/analytics/:tab`) — trois familles : Ventes (« Combien
+ * Analyses (`/crm/analytics/:tab`) — quatre familles : Ventes (« Combien
  * ai-je vendu ? »), Trafic (« D'où vient mon public ? »), Communauté (« Qui
- * sont mes clients ? »). Une barre de filtres collante, commune aux trois :
+ * sont mes clients ? »), Guest list (« Qui entre gratuitement, et qui finit
+ * par payer ? », migration 20261008100000). Une barre de filtres collante, commune aux trois :
  * période OU une soirée (de J-21 au jour J), segment de clients, comparaison
  * à avant. Les filtres vivent dans l'adresse (?p=&e=&s=&cmp=) : un lien
  * partagé rouvre la même analyse.
@@ -23,11 +24,14 @@ import { StatePill, type NightState } from './anaUi';
 import { SalesTab, salesCsv } from './SalesTab';
 import { TrafficTab, trafficCsv } from './TrafficTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
+import { GuestListTab, guestlistCsv } from './GuestListTab';
+import { useAnaGuestList } from '@/crm/data/guestlist';
 
 const TABS: { k: AnaTab; route: string; d: string }[] = [
   { k: 'sales', route: CRM_ROUTES.sales, d: 'M4 10h12M4 14h9M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2' },
   { k: 'traffic', route: CRM_ROUTES.traffic, d: 'm3 17 6-6 4 4 8-8M14 7h7v7' },
   { k: 'community', route: CRM_ROUTES.community, d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+  { k: 'guestlist', route: CRM_ROUTES.guestlist, d: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
 ];
 const PERIODS: AnaPeriod[] = ['24h', '48h', '7d', '30d', '90d', '12m'];
 const SEGS: AnaSeg[] = ['all', 'hab', 'occ', 'nou', 'end'];
@@ -43,7 +47,7 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   const s = sp.get('s') as AnaSeg | null;
   let seg: AnaSeg = s && SEGS.includes(s) ? s : 'all';
   if (seg === 'end' && tab !== 'community') seg = 'all';
-  if (tab === 'traffic') seg = 'all';
+  if (tab === 'traffic' || tab === 'guestlist') seg = 'all';
   return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0' };
 }
 
@@ -62,6 +66,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const sales = useAnaSales(f, tab === 'sales');
   const traffic = useAnaTraffic(f, tab === 'traffic');
   const community = useAnaCommunity(f, tab === 'community');
+  const guestlist = useAnaGuestList(f.period, tab === 'guestlist' && !f.event);
 
   const setF = (patch: Partial<AnaFilters>) => {
     const nf = { ...f, ...patch };
@@ -112,7 +117,8 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
     const stamp = `${tab}-${f.event ? 'soiree' : f.period}`;
     const out = tab === 'sales' ? (sales.data ? salesCsv(sales.data, T, caps.money) : null)
       : tab === 'traffic' ? (traffic.data ? trafficCsv(traffic.data, T, caps.money) : null)
-        : (community.data ? communityCsv(community.data, T) : null);
+        : tab === 'guestlist' ? (guestlist.data && !f.event ? guestlistCsv(guestlist.data, T) : null)
+          : (community.data ? communityCsv(community.data, T) : null);
     if (!out) return;
     downloadCsv(`yuno-analyses-${stamp}.csv`, out.columns, out.rows);
     toast(t('yc.ana.exported', { file: `yuno-analyses-${stamp}.csv` }));
@@ -219,7 +225,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
               </div>
             )}
           </div>
-          {tab !== 'traffic' && (
+          {tab !== 'traffic' && tab !== 'guestlist' && (
             <div role="group" aria-label={t('yc.ana.f.seg')} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {SEGS.filter((s) => s !== 'end' || tab === 'community').map((s) => {
                 const on = f.seg === s;
@@ -264,6 +270,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       {tab === 'sales' && <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />}
       {tab === 'traffic' && <TrafficTab q={traffic} f={f} setF={setF} />}
       {tab === 'community' && <CommunityTab q={community} f={f} setF={setF} />}
+      {tab === 'guestlist' && <GuestListTab q={guestlist} f={f} />}
     </main>
   );
 }
