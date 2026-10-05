@@ -515,8 +515,10 @@ export function eventsUrl(
 ): string {
   const u = new URL(`https://${SHOTGUN_EVENTS_HOST}/api/shotgun/organizers/${encodeURIComponent(organizerId)}/events`);
   u.searchParams.set(auth.param, auth.value);
-  if (opts.past) {
-    u.searchParams.set("past_events", "true");
+  if (opts.past) u.searchParams.set("past_events", "true");
+  // Pagination : toujours pour les soirées passées ; pour les soirées à venir
+  // dès qu'une page est demandée (la limite par défaut documentée est 20).
+  if (opts.past || opts.page !== undefined) {
     u.searchParams.set("page", String(opts.page ?? 0));
     u.searchParams.set("limit", String(opts.limit ?? 100));
   }

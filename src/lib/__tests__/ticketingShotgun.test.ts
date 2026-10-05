@@ -320,6 +320,12 @@ describe('URL', () => {
     expect(up.pathname).toBe('/api/shotgun/organizers/173027/events');
     expect(up.searchParams.get('key')).toBe('k');
     expect(up.searchParams.has('past_events')).toBe(false);
+    expect(up.searchParams.has('page')).toBe(false);
+    // Soirées à venir paginées : page + limite, sans past_events.
+    const upPaged = new URL(eventsUrl('173027', { param: 'key', value: 'k' }, { page: 1 }));
+    expect(upPaged.searchParams.has('past_events')).toBe(false);
+    expect(upPaged.searchParams.get('page')).toBe('1');
+    expect(upPaged.searchParams.get('limit')).toBe('100');
     const past = new URL(eventsUrl('173027', { param: 'token', value: 't' }, { past: true, page: 2, updatedAfter: '2026-10-01T00:00:00Z' }));
     expect(past.searchParams.get('past_events')).toBe('true');
     expect(past.searchParams.get('page')).toBe('2');

@@ -88,6 +88,9 @@ interface Scope {
 
 // ── HTTP vers Shotgun ───────────────────────────────────────────────────────
 
+/** Passe enchaînée du premier import : les soirées viennent d'être lues. */
+class SkipEvents extends Error {}
+
 class ProviderError extends Error {
   constructor(public kind: "auth" | "rate" | "http" | "network", public httpStatus: number | null, msg: string) {
     super(msg);
@@ -276,6 +279,7 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
 
   let cursor = conn.tickets_cursor;
   let eventsFailed = false;
+  let eventsComplete = false;
   try {
     // 1. Soirées : à venir + passées. Premier import = tout l'historique ;
     //    ensuite seulement ce qui a changé depuis la dernière passe complète.
@@ -288,40 +292,72 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
     // erreur ici est notée dans `schema_sample.events_error` et la passe
     // continue ; `events_synced_at` n'avance alors pas, la passe suivante
     // relit tout. Un jeton vraiment mort tombe sur les billets, juste après.
+    // Premier import : les soirées sont lues à la première passe ; les passes
+    // enchaînées qui suivent (billets) ne les relisent pas pendant 15 min —
+    // c'était ~10 % du débit Shotgun gaspillé à chaque passe.
+    const lastEventsAt = typeof sample.events_pass_at === "string" ? Date.parse(sample.events_pass_at) : NaN;
+    const skipEvents = !conn.initial_import_done_at && Number.isFinite(lastEventsAt)
+      && Date.now() - lastEventsAt < 15 * 60_000 && !sample.events_error;
     try {
-      // Les soirées À VENIR sont relues en entier à chaque passe (une seule
-      // requête) : rien ne dit que `leftTicketsCount` change leur date de mise
-      // à jour, et la capacité affichée (vendus + places restantes) se fige sinon.
-      const up = await fetchEvents(admin, conn, token, deadline, {}, preferred, counter);
-      sample.events_auth = up.param;
-      // Les tarifs des soirées sont documentés en EUROS (ex. `price: 10`) :
-      // jamais le diviseur de la connexion, qui ne vaut que pour les billets.
-      for (const raw of up.items) {
-        const m = mapShotgunEvent(raw, 1);
-        if (m) events.push(m);
-      }
-      // Soirées passées, page par page. On s'arrête sur une page VIDE ou qui
-      // n'apporte aucune soirée nouvelle, jamais sur « moins de 100 » : la
-      // limite par défaut documentée est 20, et rien ne dit que Shotgun
-      // accepte 100 — une page plafonnée arrêtait l'historique à la page 0.
-      const seen = new Set(events.map((e) => e.external_id));
-      for (let page = 0; page < 200; page++) {
-        if (Date.now() > deadline - 6_000) break;
-        const past = await fetchEvents(admin, conn, token, deadline, { past: true, page, updatedAfter }, up.param, counter);
+      if (skipEvents) throw new SkipEvents();
+      // Les soirées À VENIR sont relues en entier à chaque passe : rien ne dit
+      // que `leftTicketsCount` change leur date de mise à jour, et la capacité
+      // affichée (vendus + places restantes) se fige sinon. Page par page
+      // (défaut documenté : 20 par page) ; si Shotgun refuse la pagination
+      // sur les soirées à venir, une seule requête comme avant.
+      const seen = new Set<string>();
+      const take = (items: Json[]) => {
         let fresh = 0;
-        for (const raw of past.items) {
+        for (const raw of items) {
+          // Les tarifs des soirées sont documentés en EUROS (ex. `price: 10`) :
+          // jamais le diviseur de la connexion, qui ne vaut que pour les billets.
           const m = mapShotgunEvent(raw, 1);
           if (!m) continue;
           if (!seen.has(m.external_id)) { seen.add(m.external_id); fresh++; }
           events.push(m);
         }
-        if (past.items.length === 0 || fresh === 0) break;
+        return fresh;
+      };
+      let param: "key" | "token" = preferred ?? "key";
+      let upDone = false;
+      try {
+        for (let page = 0; page < 50; page++) {
+          if (Date.now() > deadline - 6_000) break;
+          const up = await fetchEvents(admin, conn, token, deadline, { page }, page === 0 ? preferred : param, counter);
+          param = up.param;
+          if (take(up.items) === 0) { upDone = true; break; }
+        }
+      } catch (e) {
+        if (!(e instanceof ProviderError) || e.kind !== "http" || (e.httpStatus !== 400 && e.httpStatus !== 422)) throw e;
+        const up = await fetchEvents(admin, conn, token, deadline, {}, preferred, counter);
+        param = up.param;
+        take(up.items);
+        upDone = true;
+      }
+      sample.events_auth = param;
+      // Soirées passées, page par page. On s'arrête sur une page VIDE ou qui
+      // n'apporte aucune soirée nouvelle, jamais sur « moins de 100 » : rien
+      // ne dit que Shotgun accepte 100 — une page plafonnée arrêtait
+      // l'historique à la page 0.
+      let pastDone = false;
+      for (let page = 0; page < 200; page++) {
+        if (Date.now() > deadline - 6_000) break;
+        const past = await fetchEvents(admin, conn, token, deadline, { past: true, page, updatedAfter }, param, counter);
+        if (take(past.items) === 0) { pastDone = true; break; }
       }
       delete sample.events_error;
+      // Lecture COMPLÈTE seulement (pas coupée par l'échéance) : c'est elle qui
+      // fait avancer events_synced_at et autorise les passes suivantes à sauter.
+      if (upDone && pastDone) { eventsComplete = true; sample.events_pass_at = startedIso; }
     } catch (e) {
-      eventsFailed = true;
-      sample.events_error = (e instanceof Error ? e.message : String(e)).slice(0, 200);
-      console.error("[ticketing] events:", sample.events_error);
+      if (e instanceof SkipEvents) {
+        // Rien à faire : les soirées de la première passe sont déjà en base.
+        eventsComplete = true;
+      } else {
+        eventsFailed = true;
+        sample.events_error = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+        console.error("[ticketing] events:", sample.events_error);
+      }
     }
     if (events.length) {
       if (!sample.event_keys) sample.event_keys = schemaKeys(events[0].raw);
@@ -371,7 +407,11 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       const firstImport = !conn.initial_import_done_at;
       await admin.from("ticketing_connections").update({
         status: "active", fail_count: 0, last_ok_at: now.toISOString(), last_error: null, last_error_at: null,
-        events_synced_at: eventsFailed ? conn.events_synced_at : startedIso, initial_import_done_at: conn.initial_import_done_at ?? now.toISOString(),
+        // Les soirées n'avancent que jusqu'au début de leur dernière lecture
+        // réussie (une passe qui ne les a pas relues ne doit rien sauter).
+        events_synced_at: eventsFailed || !eventsComplete ? conn.events_synced_at
+          : (typeof sample.events_pass_at === "string" ? sample.events_pass_at : startedIso),
+        initial_import_done_at: conn.initial_import_done_at ?? now.toISOString(),
         next_sync_at: new Date(now.getTime() + conn.sync_interval_minutes * 60_000).toISOString(),
         locked_until: null, schema_sample: sample,
       }).eq("id", conn.id);
