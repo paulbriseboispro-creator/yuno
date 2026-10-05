@@ -7,7 +7,8 @@
  * l'anglais sinon, et le visiteur voit tout de suite les soirées.
  */
 // '/j/' = Pages d'inscription Yuno CRM (un fan arrive d'un flyer, d'une story ou d'un QR).
-const LINKTREE_PREFIXES = ['/p/', '/promo/', '/promoteur/', '/rp/', '/l/', '/j/'];
+// '/go/' = liens de soirée Yuno CRM (story, bio…) : repli de la redirection du Worker.
+const LINKTREE_PREFIXES = ['/p/', '/promo/', '/promoteur/', '/rp/', '/l/', '/j/', '/go/'];
 
 export function isPublicLinktreePath(pathname: string): boolean {
   if (pathname === '/links') return true;

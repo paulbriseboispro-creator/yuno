@@ -33,12 +33,15 @@
     // /mcp, /oauth/* et /.well-known/oauth-* = serveur MCP et son serveur OAuth
     // (worker/mcp, docs/MCP.md) : réponses JSON, jamais l'app.
     //
+    // /go/* = liens de soirée Yuno CRM (story, bio…) : 302 vers Shotgun, clic
+    // compté par le Worker (worker/goLink.ts), sans charger l'app.
+    //
     // /_next/* et /static/* ne sont PAS des routes Yuno : ce sont les préfixes d'assets
     // d'autres frameworks (Next.js, CRA), hérités d'un ancien déploiement sur le domaine.
     // Sans eux ici, le SPA fallback leur répond 200 + index.html et Google range ces URLs
     // fantômes en « Autre page avec balise canonique correcte » (constaté en août 2026 sur
     // /_next/static/media/*.woff2). Le Worker leur renvoie un vrai 404 — cf. GHOST_ASSET_RE.
-    "run_worker_first": ["/mcp", "/oauth/*", "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/*", "/.well-known/oauth-authorization-server", "/.well-known/oauth-authorization-server/*", "/.well-known/openid-configuration", "/.well-known/openid-configuration/*", "/.well-known/openai-apps-challenge", "/mcp/*", "/sitemap.xml", "/events", "/events/*", "/clubs", "/djs", "/dj/*", "/event/*", "/l/*", "/club/*", "/o/*", "/affiliate-event/*", "/affiliate-venue/*", "/tickets", "/vip-tables", "/order-drinks", "/paris", "/madrid", "/_next/*", "/static/*"]
+    "run_worker_first": ["/mcp", "/oauth/*", "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/*", "/.well-known/oauth-authorization-server", "/.well-known/oauth-authorization-server/*", "/.well-known/openid-configuration", "/.well-known/openid-configuration/*", "/.well-known/openai-apps-challenge", "/mcp/*", "/sitemap.xml", "/events", "/events/*", "/clubs", "/djs", "/dj/*", "/event/*", "/l/*", "/go/*", "/club/*", "/o/*", "/affiliate-event/*", "/affiliate-venue/*", "/tickets", "/vip-tables", "/order-drinks", "/paris", "/madrid", "/_next/*", "/static/*"]
   },
   // SUPABASE_URL est public (= VITE_SUPABASE_URL). La clé anon (SUPABASE_ANON_KEY,
   // publique car déjà embarquée dans le bundle front) doit être ajoutée comme variable

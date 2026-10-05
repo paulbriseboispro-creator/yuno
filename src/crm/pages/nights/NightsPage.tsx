@@ -30,7 +30,7 @@ import { ShotgunLink } from './nightsUi';
 import { ICO } from './nightsFormat';
 import { UpcomingView, type UpFilter } from './UpcomingView';
 import { PastView, type PastSort } from './PastView';
-import { NightDrawer } from './NightDrawer';
+import { NightDrawer, type DrawerView } from './NightDrawer';
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +46,7 @@ export default function NightsPage() {
   const [sp, setSp] = useSearchParams();
   const isPast = loc.pathname.replace(/\/+$/, '').endsWith('/past');
   const drId = sp.get('e');
+  const drView: DrawerView = sp.get('v') === 'links' ? 'links' : 'sales';
 
   const q = useNights();
   const shell = useCrmShell();
@@ -101,8 +102,18 @@ export default function NightsPage() {
   const setParam = useCallback((k: string, v: string | null) => {
     setSp((prev) => { const x = new URLSearchParams(prev); if (v === null) x.delete(k); else x.set(k, v); return x; }, { replace: true });
   }, [setSp]);
-  const open = useCallback((id: string) => setParam('e', id), [setParam]);
-  const close = useCallback(() => setParam('e', null), [setParam]);
+  const open = useCallback((id: string, view: DrawerView = 'sales') => {
+    setSp((prev) => {
+      const x = new URLSearchParams(prev);
+      x.set('e', id);
+      if (view === 'links') x.set('v', 'links'); else x.delete('v');
+      return x;
+    }, { replace: true });
+  }, [setSp]);
+  const close = useCallback(() => {
+    setSp((prev) => { const x = new URLSearchParams(prev); x.delete('e'); x.delete('v'); return x; }, { replace: true });
+  }, [setSp]);
+  const setView = useCallback((v: DrawerView) => setParam('v', v === 'links' ? 'links' : null), [setParam]);
   const drRow = useMemo(() => (drId ? (data?.nights ?? []).find((e) => e.id === drId) ?? null : null), [data, drId]);
   const ids = useMemo(() => {
     if (!drId) return [];
@@ -117,9 +128,10 @@ export default function NightsPage() {
   // Une soirée ouverte sur le mauvais onglet bascule sur le bon.
   useEffect(() => {
     if (!drRow) return;
-    if (drRow.upcoming && isPast) nav(`${CRM_ROUTES.nights}?e=${drRow.id}`, { replace: true });
-    if (!drRow.upcoming && !isPast) nav(`${CRM_ROUTES.nightsPast}?e=${drRow.id}`, { replace: true });
-  }, [drRow, isPast, nav]);
+    const v = drView === 'links' ? '&v=links' : '';
+    if (drRow.upcoming && isPast) nav(`${CRM_ROUTES.nights}?e=${drRow.id}${v}`, { replace: true });
+    if (!drRow.upcoming && !isPast) nav(`${CRM_ROUTES.nightsPast}?e=${drRow.id}${v}`, { replace: true });
+  }, [drRow, isPast, nav, drView]);
 
   // ── Synchroniser : relancer Shotgun puis dire ce qui a changé.
   const doSync = async () => {
@@ -290,7 +302,7 @@ export default function NightsPage() {
         </>
       )}
 
-      <NightDrawer id={drId} ids={ids} onClose={close} onStep={step} onWrite={(d) => setWrite(d)} />
+      <NightDrawer id={drId} ids={ids} view={drView} onView={setView} onClose={close} onStep={step} onWrite={(d) => setWrite(d)} />
       <WriteModal
         open={!!write}
         onClose={() => setWrite(null)}

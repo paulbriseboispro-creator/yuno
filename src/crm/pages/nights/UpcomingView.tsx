@@ -33,7 +33,7 @@ export function UpcomingView({
   setQ: (v: string) => void;
   drId: string | null;
   upd: string | null;
-  open: (id: string) => void;
+  open: (id: string, view?: 'sales' | 'links') => void;
   write: (n: NightRow) => void;
   intro: boolean;
   cc: number;

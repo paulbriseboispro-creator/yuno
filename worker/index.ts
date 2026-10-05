@@ -29,6 +29,8 @@ import { CITY_PAGES } from '../src/data/cityPages';
 import { currentNightDate } from '../src/lib/affiliateEventTime';
 // Serveur MCP (Claude, ChatGPT, Gemini, Le Chat) + son serveur OAuth : docs/MCP.md.
 import { handleMcpRoute, isMcpRoute } from './mcp';
+// Liens de soirée Yuno CRM (story, bio…) : /go/<code> → page Shotgun.
+import { GO_PATH_RE, handleGoLink } from './goLink';
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -1625,6 +1627,23 @@ export default {
     // les liste dans run_worker_first). Avant tout le reste : aucune de ces
     // routes n'est une page de l'app.
     if (isMcpRoute(url.pathname)) return handleMcpRoute(request, env, ctx);
+
+    // Lien de soirée Yuno CRM : redirection immédiate vers Shotgun, clic compté
+    // côté serveur. Inconnu ou base muette : l'app sert sa page /go/ de repli.
+    const go = url.pathname.match(GO_PATH_RE);
+    if (go && (request.method === 'GET' || request.method === 'HEAD')) {
+      const redirect = await handleGoLink(request, env, go[1], url);
+      if (redirect) return redirect;
+      return serveApp(request, env);
+    }
+    // Un lien suivi /l/ posé sur une soirée Shotgun (campagne SMS ou e-mail
+    // d'un compte CRM) n'a pas de page Yuno à ouvrir : même redirection. Tout
+    // autre /l/ (soirée Yuno) suit son chemin habituel dans l'app.
+    const tl = url.pathname.match(/^\/l\/([A-Za-z0-9]{4,16})\/?$/);
+    if (tl && request.method === 'GET' && !CRAWLER_RE.test(request.headers.get('User-Agent') || '')) {
+      const redirect = await handleGoLink(request, env, tl[1], url);
+      if (redirect) return redirect;
+    }
 
     // Ghost asset paths → real 404, never the SPA shell. Workers Assets falls back to
     // index.html when a file is missing, so `/_next/…woff2` currently answers 200 + HTML

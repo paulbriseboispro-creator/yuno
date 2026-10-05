@@ -148,6 +148,10 @@ html:has(.yc), html:has(.yc) body { overflow-x: clip; background-color: #FCFAF9;
 @keyframes yc-bar-up { from { opacity: 0; transform: translate(-50%, 24px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes yc-in-blur { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
 .yc .yc-focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--red-200); }
+/* Liens de partage d'une soirée : barres qui poussent, lien neuf qui bat. */
+@keyframes yc-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes yc-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes yc-glow-red { 0%, 100% { box-shadow: 0 0 0 2px var(--red-300); } 50% { box-shadow: 0 0 0 7px rgba(232,25,44,.16); } }
 
 /* Éditeur d'e-mail (Studio) : panneaux qui glissent, trait de dépôt, champs. */
 @keyframes yc-slide-l { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }

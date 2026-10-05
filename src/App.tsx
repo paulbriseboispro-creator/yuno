@@ -188,6 +188,7 @@ const PromoterHub = lazyWithRetry(() => import("./pages/PromoterHub"));
 const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
 const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
+const CrmLinkRedirect = lazyWithRetry(() => import("./pages/CrmLinkRedirect"));
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
 const AcceptPlatformInvitation = lazyWithRetry(() => import("./pages/AcceptPlatformInvitation"));
 const ClubInvitation = lazyWithRetry(() => import("./pages/ClubInvitation"));
@@ -703,6 +704,7 @@ const App = () => (
                     les soirées s'ouvrent dans l'app via yuno:// quand elle est là */}
                 <Route path="/promoteur/:promoCode/agenda" element={<PromoterAgenda />} />
                 <Route path="/l/:code" element={<TrackedLinkRedirect />} />
+                <Route path="/go/:code" element={<CrmLinkRedirect />} />
                 
                 {/* Legacy /club/:slug/promo route — also renders PromoterHub */}
                 <Route path="/club/:slug/promo" element={<PromoterHub />} />

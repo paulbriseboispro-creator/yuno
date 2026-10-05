@@ -62,6 +62,14 @@ export const ICON_PATHS = {
   sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41',
   moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z',
   maximize: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+  // Liens de partage (story, bio, post…) : réseaux et emplacements.
+  tiktok: 'M9 12a4 4 0 1 0 4 4V2a5 5 0 0 0 5 5',
+  whatsapp: 'M7.9 20A9 9 0 1 0 4 16.1L2 22ZM9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0zm0 0a5 5 0 0 0 5 5m0 0h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1',
+  facebook: 'M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z',
+  snapchat: 'M9 10h.01M15 10h.01M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z',
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  story: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z',
+  pointer: 'm9 9 5 12 1.8-5.2L21 14ZM7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2',
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

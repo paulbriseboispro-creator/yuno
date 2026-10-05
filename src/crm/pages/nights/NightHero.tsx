@@ -6,7 +6,7 @@
 import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { CtaButton, Skel } from '@/crm/ui/kit';
+import { CtaButton, PillButton, Skel } from '@/crm/ui/kit';
 import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { NightDetail, NightRow } from '@/crm/data/nights';
@@ -17,7 +17,7 @@ import { ICO, comparedLine, comparedName, messageHref, priceLabel, tzLong, tzSho
 
 export function NightHero({ night: h, detail, kind, progress, cc: c, open: openDr, write: writeTo, intro: shown }: {
   night: NightRow; detail: NightDetail | undefined; kind: UpKind; progress: number; cc: number;
-  open: (id: string) => void; write: (n: NightRow) => void; intro: boolean;
+  open: (id: string, view?: 'sales' | 'links') => void; write: (n: NightRow) => void; intro: boolean;
 }) {
   const T = useCrmT();
   const { t, tp, n, eur, eur2, pct, locale, dShort } = T;
@@ -173,6 +173,7 @@ export function NightHero({ night: h, detail, kind, progress, cc: c, open: openD
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
         <CtaButton onClick={() => openDr(h.id)}>{t('yc.ni.detail')}</CtaButton>
+        <PillButton icon="instagram" onClick={() => openDr(h.id, 'links')}>{t('yc.lk.heroCta')}</PillButton>
         <ShotgunLink href={h.url}>{t('yc.ni.editShotgun')}</ShotgunLink>
       </div>
     </section>

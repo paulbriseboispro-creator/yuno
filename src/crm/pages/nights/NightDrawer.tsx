@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { CtaButton, Sheet, Skel } from '@/crm/ui/kit';
+import { CtaButton, Segmented, Sheet, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, useProgress } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
@@ -16,22 +16,27 @@ import type { NightDetail } from '@/crm/data/nights';
 import { fillOf, pastKind, upKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SalesCurve } from './SalesCurve';
+import { NightLinks } from './links/NightLinks';
 import { ShotgunLink, StatusPill } from './nightsUi';
 import { ICO, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
 
 const UP_ST = { full: 'yc.ni.st.full', soon: 'yc.ni.st.soon', almost: 'yc.ni.st.almost', sale: 'yc.ni.st.sale' } as const;
 const PA_ST = { full: 'yc.ni.pa.full', good: 'yc.ni.pa.good', fair: 'yc.ni.pa.fair', low: 'yc.ni.pa.low', unknown: 'yc.ni.pa.unknown' } as const;
 
+export type DrawerView = 'sales' | 'links';
+
 export function NightDrawer({
-  id, ids, onClose, onStep, onWrite,
+  id, ids, view, onView, onClose, onStep, onWrite,
 }: {
   id: string | null;
   ids: string[];
+  view: DrawerView;
+  onView: (v: DrawerView) => void;
   onClose: () => void;
   onStep: (dir: -1 | 1) => void;
   onWrite: (d: { id: string; title: string; buyers: number }) => void;
 }) {
-  const { t } = useCrmT();
+  const { t, locale } = useCrmT();
   const q = useNightDetail(id);
   const d = q.data && q.data.id === id ? q.data : undefined;
   const idx = id ? ids.indexOf(id) : -1;
@@ -63,7 +68,7 @@ export function NightDrawer({
   );
 
   return (
-    <Sheet open={!!id} onClose={onClose} width={640} label={t('yc.ni.dr.aria')}>
+    <Sheet open={!!id} onClose={onClose} width={view === 'links' ? 720 : 640} label={t('yc.ni.dr.aria')}>
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--sand-100)', background: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {navBtn(-1, t('yc.ni.dr.prev'), 'chevronUp', idx > 0)}
@@ -74,8 +79,28 @@ export function NightDrawer({
           <Icon name="x" size={16} stroke={2.4} />
         </Hv>
       </div>
+      {id && d?.error !== 'not_found' && (
+        <div style={{ flex: 'none', padding: '12px 20px', borderBottom: '1px solid var(--sand-100)', background: '#fff' }}>
+          <Segmented<DrawerView>
+            value={view}
+            onChange={onView}
+            ariaLabel={t('yc.ni.dr.aria')}
+            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'links', label: t('yc.lk.tab.links') }]}
+          />
+        </div>
+      )}
       {d?.error === 'not_found' ? (
         <div style={{ flex: 1, padding: 32, fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.ni.dr.notFound')}</div>
+      ) : id && view === 'links' ? (
+        <div key={`links-${id}`} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 20px 32px' }}>
+          {d && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18, animation: `yc-row 500ms ${EASE} 60ms both` }}>
+              <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(24px,3.4vw,30px)', lineHeight: 1.08, letterSpacing: '-.03em', textWrap: 'balance' }}>{d.title}</h2>
+              <span style={{ fontSize: 14, color: 'var(--sand-600)' }}>{`${tzLong(locale, d.start_at, d.tz)} · ${tzTime(locale, d.start_at, d.tz)}`}</span>
+            </div>
+          )}
+          <NightLinks eventId={id} />
+        </div>
       ) : d ? (
         <DrawerBody key={d.id} d={d} onWrite={onWrite} />
       ) : (

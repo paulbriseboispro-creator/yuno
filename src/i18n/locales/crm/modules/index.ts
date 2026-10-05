@@ -7,6 +7,7 @@ import segments from './segments';
 import imports from './imports';
 import soon from './soon';
 import nights from './nights';
+import links from './links';
 import connectors from './connectors';
 import emails from './emails';
 import emailTemplates from './emailTemplates';
@@ -41,6 +42,7 @@ export const CRM_DICT: CrmDict = {
   ...signupPages,
   ...instagram,
   ...nights,
+  ...links,
   ...connectors,
   ...emails,
   ...emailTemplates,
