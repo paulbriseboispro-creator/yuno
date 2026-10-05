@@ -141,5 +141,6 @@ const dict: AdminDict = {
   'adm.crm.pr.feat.signup_pages': ['Signup pages', 'Pages d’inscription', 'Páginas de alta'],
   'adm.crm.pr.feat.brand_domain': ['Sending domain on your brand', 'Domaine d’envoi à votre marque', 'Dominio de envío con su marca'],
   'adm.crm.pr.feat.auto_recharge': ['Automatic top-up', 'Recharge automatique', 'Recarga automática'],
+  'adm.crm.pr.feat.sms': ['SMS', 'SMS', 'SMS'],
 };
 export default dict;

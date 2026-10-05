@@ -269,7 +269,7 @@ const dict: CrmDict = {
   'yc.cli.msg.yunits.other': ['{n} Yunits', '{n} Yunits', '{n} Yunits'],
   'yc.cli.msg.short': ['{n} Yunits missing. Top up, or choose email, which costs {x} times less.', 'Il manque {n} Yunits. Rechargez ou choisissez l’e-mail, qui coûte {x} fois moins.', 'Faltan {n} Yunits. Recargue o elija el e-mail, que cuesta {x} veces menos.'],
   'yc.cli.msg.none': ['Nobody is reachable by {ch} in this selection.', 'Personne n’est joignable par {ch} dans cette sélection.', 'Nadie es contactable por {ch} en esta selección.'],
-  'yc.cli.msg.smsSoon': ['Sending SMS opens soon: you can prepare the message already.', 'L’envoi de SMS ouvre bientôt : vous pouvez déjà préparer le message.', 'El envío de SMS abre pronto: ya puede preparar el mensaje.'],
+  'yc.cli.msg.smsSoon': ['SMS sending is coming soon. Meanwhile, reach them by email.', 'L’envoi de SMS arrive bientôt. En attendant, écrivez-leur par e-mail.', 'El envío de SMS llega pronto. Mientras tanto, escríbales por e-mail.'],
   'yc.cli.msg.recharge': ['Top up', 'Recharger', 'Recargar'],
   'yc.cli.msg.prepare': ['Prepare the message', 'Préparer le message', 'Preparar el mensaje'],
   'yc.cli.msg.ch.email': ['email', 'e-mail', 'e-mail'],
