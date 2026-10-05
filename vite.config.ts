@@ -119,7 +119,9 @@ export default defineConfig({
         // Serveur MCP : ces chemins sont servis par le Worker (OAuth, découverte).
         // Sans cette exclusion, le service worker répond index.html à la place et
         // l'IA qui se connecte atterrit sur la 404 de l'app.
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/oauth\//, /^\/mcp(\/|$)/, /^\/\.well-known\//],
+        // /go/ = liens de partage Yuno CRM : la redirection vers Shotgun (et le
+        // comptage du clic) se fait dans le Worker, jamais dans le cache du SW.
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/oauth\//, /^\/mcp(\/|$)/, /^\/\.well-known\//, /^\/go\//],
         runtimeCaching: [
           {
             // Chunks de build hashés (JS/CSS immuables). CacheFirst : un chunk
