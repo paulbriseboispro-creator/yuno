@@ -15,8 +15,8 @@ export type AnaTab = 'sales' | 'traffic' | 'community';
  * migration 20261006210000) : lue dans `utm_source`, le seul champ de suivi
  * que l'API Tickets de Shotgun rend tel quel.
  */
-export type SourceKey = 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'au' | 'di' | 'of';
-export const SOURCE_KEYS: SourceKey[] = ['yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of'];
+export type SourceKey = 'ys' | 'yb' | 'yt' | 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'au' | 'di' | 'of';
+export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of'];
 
 export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
 

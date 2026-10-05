@@ -70,8 +70,11 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   **Les Yunits** sont la monnaie de Yuno CRM (le nom « néons » est abandonné),
   jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
   France = 40 / segment, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
-  l'échéance, packs de 10 € (5 000) à 100 € (57 500), dépensés du lot qui
-  s'éteint le plus tôt ; jamais débités pour un test, un contact écarté par la
+  l'échéance ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
+  Paul, 05/10) : 5 000 à 300 000 Yunits par pas de 5 000, 500 par euro HT,
+  +10 % dès 25 000 et +15 % dès 50 000 (`crm_pricing_config()`, devis serveur
+  `crmRechargeQuote`, paiement en `price_data`) ; dépensés du lot qui s'éteint
+  le plus tôt ; jamais débités pour un test, un contact écarté par la
   politique d'envoi ou un refus du fournisseur ; l'IA ne coûte pas de Yunits. La
   Suite garde son modèle (emails offerts, recharges au prix coûtant).
   **Les prix se lisent en base, jamais au front** : `crm_pricing` (une ligne,
@@ -80,10 +83,11 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   là change ce qu'affichent la Console et la page Tarifs, PAS un abonnement
   existant ni Stripe : le montant facturé vient des prix Stripe retrouvés par
   `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, publics INACTIFS
-  jusqu'au passage au prix public ; `yuno_crm_pack_<yunits>`). Stripe live est à
+  jusqu'au passage au prix public ; les anciens produits `yuno_crm_pack_*`
+  sont ARCHIVÉS depuis le 05/10). Stripe live est à
   24 / 34 / 288 depuis le 04/10 (`scripts/stripe/create-crm-prices.mjs` en est le
-  miroir idempotent) ; les noms des produits « packs » y parlent encore de
-  « néons » (à renommer chez Stripe). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
+  miroir idempotent) ; produits, surnoms de prix et métadonnées y disent
+  « Yunits » depuis le 05/10 (`yunits_*`, aucun code ne les lit). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
   (`crm_checkout`, `crm_portal`), webhook → `crm_apply_stripe_subscription`. Ne
   jamais recréer les prix Essentiel / Pro / Business.
 
@@ -816,6 +820,24 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   rapportée par Shotgun avec une source Yuno, l'écran dit « en attente » et
   « — », jamais « 0 »** (`confirmed`). Un lien n'est jamais désactivé : «
   Masquer » (`archived_at`) le retire seulement de la liste.
+  **Emplacements = là où un lien se clique** (`20261006240000`) : Instagram =
+  story (sticker lien) + lien en bio ; TikTok = lien en bio SEUL ; plus de
+  post, reel, DM ni vidéo TikTok à la création (`_crm_link_creatable` ⇄
+  `LINK_KINDS`). Ces anciens emplacements restent LUS (`_crm_link_kind_ok`,
+  `LEGACY_KINDS`) : un lien déjà posé garde ses ventes. Les liens d'e-mail
+  (`yuno-m-…`), de SMS et, plus tard, de réponse Instagram (`yuno-d-…`) se
+  génèrent SEULS à l'envoi : jamais un bouton de création. La famille `so`
+  (« Instagram et TikTok (hors lien Yuno) ») = utm_source `instagram`/`tiktok`… SANS code
+  Yuno, donc PAS nos liens : ne jamais la présenter comme « réseaux vus par
+  Shotgun » ni la confondre avec `yl`, que l'écran détaille par type de lien
+  (`groupSources(rows, links)`). Une publication (story, groupe…) se NOMME à
+  la création (`NewLinkModal`) avec sa capture en option (`tracked_links.image_url`,
+  bucket `email-assets`, migration `20261007120000`) : c'est ce qui permet de
+  dire quelle story a converti. Dans Analyses, `yl` est éclaté en `ys`
+  (story Instagram), `yb` (lien en bio Instagram), `yt` (bio TikTok) et `yl`
+  (autres liens) par `_crm_ticket_source`, qui lit `tracked_links` par code
+  (`20261007130000`) : toute nouvelle famille s'ajoute aux listes de
+  `crm_ana_traffic__core` ET à `SOURCE_KEYS`. Le lien en bio, unique, se crée d'un geste.
 - **Fiche client** (`crm_client`, migration `20261006220000`) : chaque achat
   porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
   « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un
@@ -3976,6 +3998,12 @@ intouchables :
   la session Stripe). Quota atteint = la campagne ATTEND (comme le plafond
   journalier), rien n'échoue. `resend-webhook` compte le transactionnel réel
   dans `email_send_quota_month` scope `transactional` (observabilité).
+  **Un email PAYÉ n'attend jamais la cagnotte** (2026-10-05, migration
+  `20261007100000`) : dépassement payant Resend activé, la cagnotte de
+  40 000 ne compte que l'OFFERT ; crédits Suite et Yunits CRM passent au-delà,
+  sous un plafond absolu `email_platform_monthly_ceiling()` (230 000, sous les
+  5 × 50 000 où Resend coupe TOUT, billets compris — à relever avec l'offre).
+  `email_send_quota_month.paid_sent` = part payée ; offert = `sent − paid_sent`.
 - **Warm-up non contournable côté client** : `email_sender_daily_cap()`
   (300 → 25 000 sur 6 jours) + plafond plateforme. Les quotas se consomment via
   `consume_email_send_quota` (service_role only) ; un plafond atteint met la

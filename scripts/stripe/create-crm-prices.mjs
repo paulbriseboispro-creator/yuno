@@ -1,18 +1,23 @@
 #!/usr/bin/env node
-// Yuno CRM — crée chez Stripe le produit d'abonnement et les packs de néons
+// Yuno CRM — crée chez Stripe le produit d'abonnement et ses quatre prix
 // (docs/designs/YUNO_CRM_PRICING.md, décision du 02/10 au soir : un abonnement
 // à 24 € HT par mois au lancement, 34 € ensuite (revu le 04/10) ; annuel = 12 mois + 30 000
-// néons offerts ; packs de néons de 10 € à 100 €).
+// Yunits offerts).
+//
+// PAS de pack de Yunits chez Stripe (décision du 05/10) : une recharge se
+// choisit au curseur et part en `price_data` (`crmRechargeQuote`,
+// `_shared/crm-billing.ts`). Les quatre anciens produits « packs »
+// (`yuno_crm_pack_*`) sont archivés ; ce script ne les recrée pas.
 //
 // Chaque prix porte une `lookup_key` stable. L'edge `club-subscription`
-// (actions `crm_*`, réécrites au lot 4b) retrouvera les prix par ces clés :
-// aucun identifiant de prix n'est écrit dans le code.
+// (actions `crm_*`) retrouve les prix d'abonnement par ces clés : aucun
+// identifiant de prix n'est écrit dans le code.
 //   - abonnement : `yuno_crm_base_<month|year>_<launch|public>` ; les prix
-//     publics (34 € / 408 €) naissent INACTIFS, à activer le jour du passage ;
-//   - packs : `yuno_crm_pack_<néons>`, paiement unique.
+//     publics (34 € / 408 €) naissent INACTIFS, à activer le jour du passage.
 //
 // Créés en LIVE le 02/10 sur le compte « Yuno 360 » par le MCP Stripe, avec
-// exactement ces clés et ces métadonnées. Ce script sert à les recréer ailleurs
+// exactement ces clés et ces métadonnées (« néons » renommés en Yunits chez
+// Stripe le 05/10, métadonnées `yunits_*` comprises). Ce script sert à les recréer ailleurs
 // (compte de test) ; il est idempotent : une clé qui existe n'est pas recréée.
 // À blanc par défaut ; `--apply` écrit chez Stripe (compte de STRIPE_SECRET_KEY,
 // lu dans .env.local).
@@ -42,31 +47,21 @@ const KEY = env.STRIPE_SECRET_KEY;
 if (!KEY) { console.error('STRIPE_SECRET_KEY absent (.env.local)'); process.exit(1); }
 
 const TAX_CODE = 'txcd_10000000';
-const NEONS_MONTHLY = 10_000;
-const NEONS_ANNUAL_BONUS = 30_000;
+const YUNITS_MONTHLY = 10_000;
+const YUNITS_ANNUAL_BONUS = 30_000;
 
 // L'abonnement : un produit, quatre prix (euros HT).
 const BASE = {
   name: 'Yuno CRM',
   description:
-    'Abonnement Yuno CRM : base clients, emails, automatisations et bilans branchés sur votre billetterie. 10 000 néons inclus chaque mois.',
+    'Abonnement Yuno CRM : base clients, emails, automatisations et bilans branchés sur votre billetterie. 10 000 Yunits inclus chaque mois.',
   prices: [
     { tier: 'launch', interval: 'month', amount: 24, active: true, nickname: 'Yuno CRM mensuel (lancement 24 €)' },
-    { tier: 'launch', interval: 'year', amount: 288, active: true, nickname: 'Yuno CRM annuel (lancement 288 € + 30 000 néons)' },
+    { tier: 'launch', interval: 'year', amount: 288, active: true, nickname: 'Yuno CRM annuel (lancement 288 € + 30 000 Yunits)' },
     { tier: 'public', interval: 'month', amount: 34, active: false, nickname: "Yuno CRM mensuel (public 34 €, inactif jusqu'au passage)" },
-    { tier: 'public', interval: 'year', amount: 408, active: false, nickname: "Yuno CRM annuel (public 408 € + 30 000 néons, inactif jusqu'au passage)" },
+    { tier: 'public', interval: 'year', amount: 408, active: false, nickname: "Yuno CRM annuel (public 408 € + 30 000 Yunits, inactif jusqu'au passage)" },
   ],
 };
-
-// Les recharges : un produit par pack, pour que le reçu dise combien de néons.
-const PACKS = [
-  { pack: 'tube', label: 'Tube', neons: 5_000, amount: 10, bonus: 0 },
-  { pack: 'enseigne', label: 'Enseigne', neons: 12_500, amount: 25, bonus: 0 },
-  { pack: 'facade', label: 'Façade', neons: 27_500, amount: 50, bonus: 10 },
-  { pack: 'boulevard', label: 'Boulevard', neons: 57_500, amount: 100, bonus: 15 },
-];
-
-const fmt = (n) => n.toLocaleString('fr-FR').replace(/ | /g, ' ');
 
 async function stripe(method, url, params) {
   const body = params ? new URLSearchParams(params).toString() : undefined;
@@ -90,9 +85,8 @@ async function main() {
   console.log(`Compte Stripe : ${live ? 'LIVE' : 'test'} · ${APPLY ? 'ÉCRITURE' : 'à blanc'}`);
 
   const baseKeys = BASE.prices.map((p) => `yuno_crm_base_${p.interval}_${p.tier}`);
-  const packKeys = PACKS.map((p) => `yuno_crm_pack_${p.neons}`);
   // `active` non précisé : la liste rend aussi les prix inactifs (les prix publics).
-  const keys = [...baseKeys, ...packKeys].map((k) => `lookup_keys[]=${encodeURIComponent(k)}`).join('&');
+  const keys = baseKeys.map((k) => `lookup_keys[]=${encodeURIComponent(k)}`).join('&');
   const existing = await stripe('GET', `prices?limit=100&${keys}`);
   const have = new Set((existing.data ?? []).map((p) => p.lookup_key));
 
@@ -130,38 +124,13 @@ async function main() {
         'metadata[yuno_product]': 'crm',
         'metadata[yuno_crm_plan]': 'base',
         'metadata[price_tier]': p.tier,
-        'metadata[neons_monthly]': String(NEONS_MONTHLY),
+        'metadata[yunits_monthly]': String(YUNITS_MONTHLY),
       };
-      if (p.interval === 'year') params['metadata[neons_annual_bonus]'] = String(NEONS_ANNUAL_BONUS);
+      if (p.interval === 'year') params['metadata[yunits_annual_bonus]'] = String(YUNITS_ANNUAL_BONUS);
       await stripe('POST', 'prices', params);
     }
   }
 
-  // 2. Les packs de néons.
-  for (const p of PACKS) {
-    const lookup = `yuno_crm_pack_${p.neons}`;
-    if (have.has(lookup)) { console.log(`✓ pack ${p.label} : existe`); continue; }
-    console.log(`+ pack ${lookup} : ${p.amount.toFixed(2)} € → ${fmt(p.neons)} néons`);
-    if (!APPLY) continue;
-    await stripe('POST', 'prices', {
-      currency: 'eur',
-      unit_amount: String(p.amount * 100),
-      tax_behavior: 'exclusive',
-      lookup_key: lookup,
-      nickname: `Pack ${p.label} : ${fmt(p.neons)} néons${p.bonus ? ` (+${p.bonus} %)` : ''}`,
-      'metadata[yuno_product]': 'crm',
-      'metadata[yuno_crm_item]': 'neons_pack',
-      'metadata[pack]': p.pack,
-      'metadata[neons]': String(p.neons),
-      'metadata[bonus_pct]': String(p.bonus),
-      'product_data[name]': `Yuno CRM · ${fmt(p.neons)} néons (${p.label})`,
-      'product_data[tax_code]': TAX_CODE,
-      'product_data[metadata][yuno_product]': 'crm',
-      'product_data[metadata][yuno_crm_item]': 'neons_pack',
-      'product_data[metadata][pack]': p.pack,
-      'product_data[metadata][neons]': String(p.neons),
-    });
-  }
   if (!APPLY) console.log('\nRien n\'a été écrit. Relancer avec --apply pour créer.');
 }
 

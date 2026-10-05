@@ -47,6 +47,31 @@ UPDATE public.email_sender_state
 Ordre de grandeur : 5 000 emails = 3 jours de rampe en Pro (300 + 600 + 1 200 +
 2 500 le 4e jour), contre **50 jours** en Free.
 
+### Depuis le 2026-10-05 : Pro + dépassement payant, et le payé passe
+
+Le compte est en **Pro avec le dépassement payant activé** (Resend → Settings →
+« Transactional Overages ») : au-delà des 50 000 du mois, Resend continue
+d'envoyer et facture 0,90 $ par tranche de 1 000 sur la carte. Il s'arrête net
+à **5 × le quota (250 000)** et met alors TOUT en pause, billets compris.
+
+`consume_email_send_quota` (migration `20261007100000`) en tire trois étages :
+
+| Garde | Valeur | Ce qu'elle compte |
+|---|---|---|
+| Cagnotte plateforme (`email_sender_monthly_free('platform')`) | 40 000 / mois | les emails **offerts** seulement (ce que Yuno paie seul) |
+| Plafond absolu (`email_platform_monthly_ceiling()`) | 230 000 / mois | tout le marketing, payé compris, sous les 250 000 de Resend (20 000 gardés au transactionnel) |
+| Plafond du jour (`email_sender_daily_cap('platform')`) | 25 000 / jour | tout, anti-emballement |
+
+Un email **payé** (crédits d'un pack de la Suite, Yunits d'un compte CRM)
+n'attend jamais la cagnotte. `email_send_quota_month.paid_sent` en est la part
+payée ; offert consommé = `sent − paid_sent`, pour l'expéditeur comme pour la
+plateforme. L'offert part d'abord ; cagnotte à sec, un expéditeur qui a des
+crédits envoie sur ses crédits. Un remboursement de lot rend le payé d'abord.
+Alertes `/admin/alerts` : cagnotte épuisée, plafond absolu atteint.
+
+**Changer d'offre Resend = changer `email_platform_monthly_ceiling()`**
+(Scale 100 000 → plafond dur 500 000, etc.).
+
 ---
 
 ## 1. DNS — à faire AVANT toute campagne de masse

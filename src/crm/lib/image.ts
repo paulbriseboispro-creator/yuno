@@ -40,3 +40,24 @@ export async function squareImage(file: File, size = 384, type: 'image/jpeg' | '
     URL.revokeObjectURL(url);
   }
 }
+
+/**
+ * Photo réduite (grand côté `max` px, ratio gardé), JPEG : une capture de
+ * story de 4 Mo ne part pas telle quelle.
+ */
+export async function fitImage(file: File, max = 720): Promise<Blob> {
+  const { img, url } = await loadImage(file);
+  try {
+    const k = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.width * k));
+    c.height = Math.max(1, Math.round(img.height * k));
+    const ctx = c.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise<Blob>((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new Error('canvas'))), 'image/jpeg', 0.86));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

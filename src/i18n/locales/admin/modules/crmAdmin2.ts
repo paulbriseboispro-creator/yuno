@@ -42,7 +42,7 @@ const dict: AdminDict = {
   'adm.crm.mo.b.totalSub': ['most recent 60, excl. VAT', '60 plus récents, HT', '60 más recientes, sin IVA'],
   'adm.crm.mo.b.weeks': ['Top-ups paid, week by week', 'Recharges payées, semaine par semaine', 'Recargas pagadas, semana a semana'],
   'adm.crm.mo.b.weeksSub': ['Last 13 weeks · amounts excl. VAT · hover a week', '13 dernières semaines · montants HT · survolez une semaine', 'Últimas 13 semanas · importes sin IVA · pase sobre una semana'],
-  'adm.crm.mo.b.packs': ['Which packs sell', 'Quels packs se vendent', 'Qué packs se venden'],
+  'adm.crm.mo.b.packs': ['Top-ups by amount', 'Recharges par montant', 'Recargas por importe'],
   'adm.crm.mo.b.best': ['Best buyers', 'Meilleurs acheteurs', 'Mejores compradores'],
   'adm.crm.mo.b.times': ['{n} purchases', '{n} achats', '{n} compras'],
   'adm.crm.mo.b.all': ['All purchases', 'Tous les achats', 'Todas las compras'],

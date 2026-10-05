@@ -28,7 +28,7 @@ Vérifications faites (05/10, après fusion de `origin/main`) : `tsc` 0 erreur, 
 1. Déployer les edge : `send-campaign`, `process-scheduled-campaigns` (e-mails du cycle de vie + confirmation des fans), `affiliate-ticket-sync`, `invite-org-member`, `club-subscription` (seuil des 50 + `crm_price_status`), `stripe-webhook`, `owner-assistant`. Poser le secret `CRM_BASE_URL` n'est pas nécessaire (défaut `https://crm.yunoapp.eu`).
 1b. Allumer les e-mails du cycle de vie un par un (Admin › Réglages), quand tu veux.
 1c. Pousser la branche landing `crm/landing-measure` (mesure de la page CRM + relais de `/j`) : non poussée, ton accord.
-2. Enregistrer Stripe Tax FR ; renommer les produits « packs » (encore « néons ») chez Stripe.
+2. Enregistrer Stripe Tax FR. (Produits « packs » renommés en Yunits chez Stripe le 05/10 : fait.)
 3. Fusionner la PR #13 une fois le build Cloudflare vert et la revue faite (voir `CRM_REVIEW_PLAN.md`).
 4. SMS : ouvrir l'envoi dans ta session dédiée (fournisseur, numéro).
 

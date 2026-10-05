@@ -23,7 +23,7 @@ interface Health {
   security: { by_action_7d: { action: string; n: number; failed: number }[]; failures_24h: number; mfa_enabled_users: number; suspended_users: number; active_support_sessions: number; recent_admin_actions: { at: string; action: string; entity_type: string | null; entity_id: string | null }[] };
   database: { size_mb: number; migrations: number; latest_migration: string; tables: number; largest: { table: string; rows: number; mb: number }[]; dead_tuples_top: { table: string; dead: number }[] };
   settings: { maintenance_mode: boolean; maintenance_message: string | null; payments_disabled: boolean; settings_updated_at: string | null; push_keys_disabled: number; push_keys_total: number; demo_live: boolean };
-  email: { quota: { used: number; free: number; credits: number; remaining: number; resets_on: string; day_used: number; day_cap: number; pool_used: number; pool_cap: number } | null; sender: { trust_level: string; lifetime_sent: number; daily_cap: number | null; restricted_reason: string | null } | null; transactional_month: number; suppressions_30d: number };
+  email: { quota: { used: number; free: number; credits: number; remaining: number; resets_on: string; day_used: number; day_cap: number; pool_used: number; pool_cap: number; platform_sent?: number; platform_ceiling?: number } | null; sender: { trust_level: string; lifetime_sent: number; daily_cap: number | null; restricted_reason: string | null } | null; transactional_month: number; suppressions_30d: number };
   push: { subscriptions: number; by_platform: { platform: string; n: number }[]; auto_failed_7d: number; auto_sent_7d: number; queue_pending: number };
   ai: { events_24h: number; errors_24h: number; cost_30d_usd: number; p95_latency_ms_7d: number };
 }
@@ -202,7 +202,8 @@ export default function AdminSystem() {
                 {[
                   { l: t('adm.system.em.month'), u: q.used, c: q.free + q.credits, s: `${t('adm.system.em.resets').replace('{d}', fmtDate(q.resets_on, language))}${q.credits ? ` · ${fmtPlural(q.credits, language, t('adm.system.em.creditsOne'), t('adm.system.em.credits'))}` : ''}` },
                   { l: t('adm.system.em.day'), u: q.day_used, c: q.day_cap, s: '' },
-                  { l: t('adm.system.em.pool'), u: q.pool_used, c: q.pool_cap, s: '' },
+                  { l: t('adm.system.em.pool'), u: q.pool_used, c: q.pool_cap, s: t('adm.system.em.poolHint') },
+                  ...(q.platform_ceiling ? [{ l: t('adm.system.em.ceiling'), u: q.platform_sent ?? 0, c: q.platform_ceiling, s: t('adm.system.em.ceilingHint') }] : []),
                 ].map((r) => (
                   <div key={r.l}>
                     <div className="flex items-center justify-between" style={{ fontSize: 12 }}><span style={{ color: T3 }}>{r.l}</span><span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>{fmtNum(r.u, language)} / {fmtNum(r.c, language)}</span></div>

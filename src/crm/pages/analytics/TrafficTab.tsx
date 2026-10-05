@@ -24,7 +24,7 @@ import { deltaPct, jLabelFor } from './SalesTab';
 type T = ReturnType<typeof useCrmT>;
 
 export const SOURCE_COLOR: Record<SourceKey, string> = {
-  yl: 'var(--red-500)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: 'var(--red-300)',
+  ys: 'var(--red-600)', yb: 'var(--red-400)', yt: 'var(--sand-700)', yl: 'var(--red-500)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: 'var(--red-300)',
   so: 'var(--red-700)', sg: 'var(--ink)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
 };
 

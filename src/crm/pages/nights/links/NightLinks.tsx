@@ -28,6 +28,7 @@ import {
 } from '@/crm/lib/links';
 import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
 import { PlatformBadge, QrModal, SOURCE_COLOR, Spark } from './linksUi';
+import { NewLinkModal } from './NewLinkModal';
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -86,6 +87,7 @@ function Body({ d }: { d: NightLinksData }) {
   const [showArchived, setShowArchived] = useState(false);
   const [sort, setSort] = useState<'recent' | 'best'>('recent');
   const [qr, setQr] = useState<NightLink | null>(null);
+  const [naming, setNaming] = useState<LinkKind | null>(null);
   const freshTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(freshTimer.current), []);
 
@@ -98,7 +100,7 @@ function Body({ d }: { d: NightLinksData }) {
       : base;
   }, [d.links, active, showArchived, sort]);
   const best = bestLink(active);
-  const groups = groupSources(d.sources);
+  const groups = groupSources(d.sources, d.links);
   const totalSold = d.totals.tickets;
 
   const kindLabel = (k: LinkKind) => t(`yc.lk.kind.${kindKey(k.platform, k.placement)}`);
@@ -122,25 +124,32 @@ function Body({ d }: { d: NightLinksData }) {
     }
   };
 
-  const create = async (k: LinkKind) => {
-    if (busy) return;
+  const defaultName = (k: LinkKind) => `${kindLabel(k)} ${nextIndex(d.links, k)}`;
+
+  /** Une publication (story, groupe…) se nomme d'abord ; un lien en bio est unique : créé ou recopié d'un geste. */
+  const create = async (k: LinkKind, named?: { name: string; imageUrl: string | null }): Promise<boolean> => {
+    if (busy) return false;
     const reuse = reusableLink(d.links, k);
     if (reuse) {
       await copyLink(reuse);
       flash(reuse.id);
-      return;
+      return true;
     }
+    if (k.perPost && !named) { setNaming(k); return false; }
     setBusy(kindKey(k.platform, k.placement));
-    const label = k.perPost ? `${kindLabel(k)} ${nextIndex(d.links, k)}` : kindLabel(k);
+    const label = named?.name ?? kindLabel(k);
     try {
-      const r = await m.create(k.platform, k.placement, label);
+      const r = await m.create(k.platform, k.placement, label, named?.imageUrl ?? null);
+      setNaming(null);
       const ok = await copyText(goUrl(PUBLIC_BASE_URL, r.code));
       flash(r.id);
       toast(ok ? t('yc.lk.created', { label: r.label }) + ' ' + tipFor(k) : t('yc.lk.createdNoCopy', { label: r.label }));
       setShowAll(false);
+      return true;
     } catch (e) {
       const code = e instanceof CrmRpcError ? e.code : undefined;
       toast(code === '25006' ? t('yc.lk.err.readonly') : code === '42501' ? t('yc.lk.err.forbidden') : t('yc.lk.err.create'));
+      return false;
     } finally {
       setBusy(null);
     }
@@ -298,7 +307,9 @@ function Body({ d }: { d: NightLinksData }) {
                 <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   <b style={{ fontSize: 14.5, fontWeight: 600 }}>{t(`yc.lk.src.${g.kind}`)}</b>
                   <span style={{ fontSize: 12.5, color: 'var(--sand-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {g.names.length ? g.names.slice(0, 4).join(', ') : t(`yc.lk.src.${g.kind}.d`)}
+                    {g.kinds.length
+                      ? g.kinds.slice(0, 4).map((x) => `${t(`yc.lk.kind.${x.key}`)} ${n(x.tickets)}`).join(' · ')
+                      : g.names.length ? g.names.slice(0, 4).join(', ') : t(`yc.lk.src.${g.kind}.d`)}
                   </span>
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{n(g.tickets)}</span>
@@ -313,6 +324,13 @@ function Body({ d }: { d: NightLinksData }) {
       {/* ── Bientôt, avec l'intégration partenaire Shotgun ─────────────── */}
       <ShotgunSoonCard items={['visits', 'curious', 'carts']} delay={340} />
 
+      <NewLinkModal
+        kind={naming}
+        kindLabel={naming ? kindLabel(naming) : ''}
+        defaultName={naming ? defaultName(naming) : ''}
+        onClose={() => setNaming(null)}
+        onCreate={async (name, imageUrl) => { if (naming && !(await create(naming, { name, imageUrl }))) throw new Error('create'); }}
+      />
       {qr && <QrModal open={!!qr} onClose={() => setQr(null)} url={goUrl(PUBLIC_BASE_URL, qr.code)} display={goDisplay(PUBLIC_BASE_URL, qr.code)} label={qr.label} />}
     </div>
   );
@@ -457,7 +475,14 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
         className="yc-focus-ring"
         style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 12px 12px 14px', cursor: 'pointer', outline: 'none', flexWrap: 'wrap' }}
       >
-        <PlatformBadge platform={l.platform} placement={l.placement} size={42} />
+        {l.image_url ? (
+          <span style={{ position: 'relative', flex: 'none' }}>
+            <img src={l.image_url} alt={l.label} loading="lazy" style={{ width: 42, height: 56, objectFit: 'cover', borderRadius: 10, display: 'block', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }} />
+            <span style={{ position: 'absolute', right: -6, bottom: -6 }}><PlatformBadge platform={l.platform} size={20} /></span>
+          </span>
+        ) : (
+          <PlatformBadge platform={l.platform} placement={l.placement} size={42} />
+        )}
         <span style={{ flex: narrow ? '1 1 0' : '1 1 180px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {edit ? (
             <input

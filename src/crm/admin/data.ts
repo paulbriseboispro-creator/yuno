@@ -80,7 +80,7 @@ export function useAdminGesture<A extends Record<string, unknown>>(fn: string) {
 export interface PricingCfg {
   price_month: number; price_month_next: number; price_year: number; vat_rate: number; trial_days: number; trial_yunits: number;
   monthly_yunits: number; annual_bonus_yunits: number; yunits_per_euro: number; price_switch_at: number; trial_extensions: number; low_balance: number;
-  bonus_tiers: { min: number; pct: number }[]; packs: number[];
+  bonus_tiers: { min: number; pct: number }[];
   rates: Record<string, number>; costs: Record<string, number>; channels_live: Record<string, boolean>;
 }
 

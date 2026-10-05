@@ -1,7 +1,7 @@
 # Yuno CRM — le CRM de la nuit branché sur la billetterie existante
 
 > Plan rédigé le 2026-10-02. **Statut : lots 1 à 5 construits ; prix décidé le
-> 02/10 au soir (lot 4b à coder).**
+> 02/10 au soir, revu le 04/10 (lot 4b livré le 04/10).**
 > Sources : l'étude « Devenir le CRM de la nuit — concept, intégration Shotgun et
 > analyse des concurrents » (02/10/2026, 13 acteurs, 70 sources), l'audit du code
 > Yuno (trois explorations du 02/10) et les deux pages publiques de l'API Shotgun,
@@ -40,11 +40,11 @@ allumés). Le détail est en section 3.
 2. **La coquille d'un produit à part.** Il faut un drapeau produit sur le compte,
    une navigation filtrée, un parcours de démarrage CRM, une page d'accueil CRM,
    une landing et une inscription dédiées.
-3. **Le prix.** Décidé le 02/10 au soir : un seul abonnement à **29 € HT par
-   mois** au lancement (39 € ensuite), 10 000 **néons** inclus chaque mois (la
-   monnaie de Yuno CRM, 1 néon = 1 email), pas de compte gratuit, un essai de
-   14 jours sans carte (section 6, `YUNO_CRM_PRICING.md`). La facturation déjà
-   codée en quatre offres est à refaire : lot 4b.
+3. **Le prix.** Décidé le 02/10 au soir : un seul abonnement à **24 € HT par
+   mois** au lancement (34 € ensuite), 10 000 **Yunits** inclus chaque mois (la
+   monnaie de Yuno CRM, 1 Yunit = 1 email), pas de compte gratuit, un essai de
+   14 jours sans carte (section 6, `YUNO_CRM_PRICING.md`). La facturation en
+   quatre offres a été remplacée au lot 4b (04/10).
 
 **Le MVP vendable** correspond aux lots 1 à 5 de la section 7 : connecter
 Shotgun, voir sa base unifiée et ses segments Yuno, lire le bilan de ses soirées,
@@ -460,17 +460,18 @@ externes, et vérifie RFM, exclusion 5b, attribution et rapport.
 > dépassées. Le détail, les chiffres et l'univers de la monnaie sont dans
 > `docs/designs/YUNO_CRM_PRICING.md`, première section.
 >
-> - **Un abonnement, et une monnaie.** 29 € HT par mois au lancement, garanti
->   tant que l'abonnement reste actif ; 39 € ensuite pour les nouveaux comptes
+> - **Un abonnement, et une monnaie.** 24 € HT par mois au lancement, garanti
+>   tant que l'abonnement reste actif ; 34 € ensuite pour les nouveaux comptes
 >   (proposé : au 50e compte payant). Tout ce qui fait envoyer est inclus :
 >   automatisations, A/B, Meta, IA, équipe sans limite, synchro toutes les
 >   15 minutes.
-> - **Les néons** (nom proposé) : 1 néon = 1 email, 10 pour un DM Instagram, 40
+> - **Les Yunits** : 1 Yunit = 1 email, 10 pour un DM Instagram, 40
 >   pour un SMS France, 100 pour un WhatsApp. 10 000 inclus chaque mois, mensuel
->   compris, qui s'éteignent à l'échéance. Recharges de 10 € (5 000) à 100 €
->   (57 500). Recharge automatique facultative, avec plafond.
-> - **Annuel** = 348 € (12 mois) + 30 000 néons offerts d'un coup, sans remise.
-> - **Pas de compte gratuit.** Essai de 14 jours sans carte, avec 5 000 néons ;
+>   compris, qui s'éteignent à l'échéance. Recharges au curseur, sans pack :
+>   5 000 à 300 000 Yunits (10 € les 5 000, +10 % dès 25 000, +15 % dès 50 000).
+>   Recharge automatique facultative, avec plafond.
+> - **Annuel** = 288 € (12 mois) + 30 000 Yunits offerts d'un coup, sans remise.
+> - **Pas de compte gratuit.** Essai de 14 jours sans carte, avec 5 000 Yunits ;
 >   ensuite le compte passe en pause (base lisible et exportable, rien ne part,
 >   pas de synchro).
 > - **La Suite garde son modèle** (emails offerts, recharges au prix coûtant).
@@ -595,7 +596,7 @@ n'avait été joué contre la vraie base ».
 | 2 Données dans le CRM | ✅ `20261002160000` → `180000` : soirées miroir, billets dans `contact_scope_customers`, automatisations, attribution, tarifs live dans l'email (`send-campaign` déployée) | — |
 | 3 Coquille produit | ✅ `20261002190000` : `product` du compte, Console CRM (accueil, soirées, bilan, audience), Clients et Audience aux mots du CRM, centre d'aide CRM, assistant ; démo `crm@womber.fr` | `owner-assistant` à redéployer à la fusion ; Console Manager d'un club CRM non adaptée |
 | 4 Prix et facturation | ✅ `20261002200000` + `201000` : `crm_subscriptions`, offre effective, quotas (emails, synchro, membres, automatisations, A/B), essai 14 j, page Abonnement, `crm_checkout` / `crm_portal`, branche webhook, revenu CRM dans `/admin/revenue` | **Grille remplacée le 02/10 (soir)** : voir lot 4b. Les prix de l'ancienne grille n'ont jamais été créés et ne le seront pas |
-| 4b Socle 29 € + néons | ⏳ décidé ; **prix Stripe créés en live le 02/10** (`yuno_crm_base_*`, `yuno_crm_pack_*`, détail dans `YUNO_CRM_PRICING.md`) ; code pas commencé | voir « Lot 4b » ci-dessous |
+| 4b Socle 24 € + Yunits | ✅ livré le 04/10 (`club-subscription/crm.ts`, webhook → `crm_apply_stripe_subscription`) ; **prix Stripe créés en live le 02/10**, revus le 04/10, renommés en Yunits le 05/10 (`yuno_crm_base_*` ; packs archivés le 05/10, recharge au curseur ; détail dans `YUNO_CRM_PRICING.md`) | voir « Lot 4b » ci-dessous |
 | 5 Landing, inscription, démo | en cours | |
 
 Rien n'est sur `main` : la fusion et le déploiement du front attendent Paul.
@@ -657,26 +658,33 @@ Rien n'est sur `main` : la fusion et le déploiement du front attendent Paul.
 - Essai de 14 jours, 15 comptes de lancement.
 - Revenu récurrent dans `/admin/revenue`.
 
-### Lot 4b — Un abonnement et les néons (M)
+### Lot 4b — Un abonnement et les Yunits (M)
 
 Décision du 02/10 (soir), détail dans `YUNO_CRM_PRICING.md` (« Ce qui change
 dans le code »).
 
-- Une offre unique (29 € au lancement, 39 € ensuite) et l'état « en pause » à
+- Une offre unique (24 € au lancement, 34 € ensuite) et l'état « en pause » à
   la place de Gratuit / Essentiel / Pro / Business ; limites d'automatisations,
   d'A/B et de membres supprimées.
-- Un portefeuille de néons par portée, avec un grand livre par lot daté (du
+- Un portefeuille de Yunits par portée, avec un grand livre par lot daté (du
   mois, bonus annuel, achetés, essai) et un tarif par canal et par pays.
   Débit aux endroits qui débitent déjà (quota email, SMS), pour les comptes CRM
   seulement. Rien n'est débité pour un test, un contact écarté par les règles
   d'envoi ou un refus du fournisseur.
-- Stripe : les prix existent (lancement mois et an, publics inactifs, quatre
-  packs). Reste le code : `crm_checkout` sur `yuno_crm_base_*_launch`, achat de
-  pack par `yuno_crm_pack_*`, crédit du portefeuille par le webhook (métadonnées
-  `neons_*`), recharge automatique hors session avec plafond.
+- ✅ **Un email payé n'attend jamais la cagnotte plateforme** (05/10, migration
+  `20261007100000`) : la cagnotte de 40 000 / mois ne compte que l'offert ;
+  Yunits et crédits passent au-delà, sous le plafond absolu
+  `email_platform_monthly_ceiling()` (230 000). Détail : `EMAIL_DELIVERABILITY.md` § 0.
+- Stripe : les prix d'abonnement existent (lancement mois et an, publics
+  inactifs), renommés en Yunits le 05/10. `crm_checkout` vise `yuno_crm_base_*`
+  par lookup key. **Pas de pack** : une recharge se choisit au curseur (5 000 à
+  300 000 Yunits, pas de 5 000, bonus +10 % / +15 %) et part en `price_data`
+  avec ses métadonnées `yunits_*` ; les quatre produits `yuno_crm_pack_*` sont
+  archivés depuis le 05/10.
+- Recharge automatique hors session avec plafond.
 - Page Abonnement : socle, solde, historique, preuve en euros, recharges.
 - Aide `ohelp.crm.billing.*` (3 langues), `owner-assistant`, landing `/crm`.
-- Le nom et le dessin de la monnaie, une fois choisis par Paul.
+- ✅ Le nom de la monnaie : **Yunits** (04/10).
 
 ### Lot 5 — Landing, inscription, démo, plaquette (M)
 
@@ -772,11 +780,11 @@ Hors = pas maintenant.
 |---|---|---|
 | 1 | Nom de l'offre | « Yuno CRM » : clair, et l'interface reste « la Console » |
 | 2 | Domaine | Console sur `yunoapp.eu` en mode CRM, landing CRM à part |
-| 3 | Grille de prix | ✅ **Décidé le 02/10 (soir)** : un abonnement à 29 € HT par mois au lancement, 39 € ensuite ; 10 000 néons par mois ; annuel = 348 € + 30 000 néons ; pas de gratuit, essai 14 jours sans carte puis pause. Tarif des néons = base à ajuster (`YUNO_CRM_PRICING.md`) |
+| 3 | Grille de prix | ✅ **Décidé le 02/10 (soir)** : un abonnement à 24 € HT par mois au lancement, 34 € ensuite ; 10 000 Yunits par mois ; annuel = 288 € + 30 000 Yunits ; pas de gratuit, essai 14 jours sans carte puis pause. Tarif des Yunits = base à ajuster (`YUNO_CRM_PRICING.md`) |
 | 4 | Suite = CRM inclus | Oui : c'est l'argument de passage à la billetterie Yuno |
-| 5 | Tarif association | Pas de remise au lancement : 29 € est déjà le prix d'entrée |
-| 5b | Nom de la monnaie | « Néons » proposé ; écartés : Watts, Jetons, Yunos |
-| 5c | Passage à 39 € | Proposé : au 50e compte payant, annoncé à l'avance |
+| 5 | Tarif association | Pas de remise au lancement : 24 € est déjà le prix d'entrée |
+| 5b | Nom de la monnaie | ✅ **Yunits** (décidé le 04/10 ; « néons » abandonné) |
+| 5c | Passage à 34 € | ✅ **Validé le 05/10** : au 50e compte payant (`price_switch_at`, Admin CRM › Réglages), annoncé à l'avance |
 | 6 | Soirées Shotgun visibles sur Yuno Explore ? | Non par défaut. Option « vitrine » plus tard, si les conditions Shotgun le permettent |
 | 7 | 2FA pour un compte CRM | Gardée, avec un report de 7 jours |
 | 8 | Ordre après le MVP | Collecte (lot 6) avant relation (lot 7) |

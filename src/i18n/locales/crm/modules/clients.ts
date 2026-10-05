@@ -222,7 +222,7 @@ const dict: CrmDict = {
   'yc.cli.card.tl.via': ['via {src}', 'via {src}', 'vía {src}'],
   'yc.cli.card.src.link': ['the link “{name}”', 'le lien « {name} »', 'el enlace «{name}»'],
   'yc.cli.card.src.email': ['the e-mail “{name}”', 'l’e-mail « {name} »', 'el e-mail «{name}»'],
-  'yc.cli.card.src.social': ['{name} (seen by Shotgun)', '{name} (vu par Shotgun)', '{name} (visto por Shotgun)'],
+  'yc.cli.card.src.social': ['{name} (not a Yuno link)', '{name} (hors lien Yuno)', '{name} (sin enlace de Yuno)'],
   'yc.cli.card.tl.added': ['Added to your base', 'Ajouté à votre base', 'Añadido a su base'],
   'yc.cli.card.tl.addedImport': ['Added by file import', 'Ajouté par import de fichier', 'Añadido por importación de archivo'],
   'yc.cli.card.tl.more': ['See the {n} others', 'Voir les {n} autres', 'Ver los {n} otros'],
