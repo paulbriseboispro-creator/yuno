@@ -129,7 +129,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   };
 
   // Pastille de la formule.
-  const pill = granted || demo ? { k: 'yc.acc.b.pill.granted', bg: 'var(--sand-100)', fg: 'var(--sand-700)' }
+  const pill = granted && !demo ? { k: 'yc.acc.b.pill.granted', bg: 'var(--sand-100)', fg: 'var(--sand-700)' }
     : paused ? { k: 'yc.acc.b.pill.paused', bg: 'var(--red-50)', fg: 'var(--red-700)' }
       : ending && periodEnd ? { k: 'yc.acc.b.pill.ending', bg: 'var(--amber-50)', fg: 'var(--amber-700)' }
         : (sub?.status ?? b.subscription?.status) === 'past_due' ? { k: 'yc.acc.b.pill.pastDue', bg: 'var(--red-50)', fg: 'var(--red-700)' }

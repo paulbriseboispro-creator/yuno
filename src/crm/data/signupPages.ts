@@ -23,7 +23,14 @@ export interface SignupStats {
 
 export function useSignupPages() {
   const { rpc: args, qk } = useCrmScope();
-  return useQuery({ queryKey: ['crm', qk, 'signup-pages'], staleTime: 15_000, queryFn: () => rpc<SignupPagesList>('crm_signup_pages_list', args) });
+  return useQuery({
+    queryKey: ['crm', qk, 'signup-pages'], staleTime: 15_000,
+    // Le serveur compte les inscrits sous `n` ; la Console les lit sous `entries`.
+    queryFn: async () => {
+      const r = await rpc<Omit<SignupPagesList, 'pages'> & { pages: (SignupPageRow & { n?: number })[] }>('crm_signup_pages_list', args);
+      return { ...r, pages: r.pages.map((x) => ({ ...x, entries: x.entries ?? x.n ?? 0 })) } as SignupPagesList;
+    },
+  });
 }
 
 export function useSignupStats(id: string | null) {
