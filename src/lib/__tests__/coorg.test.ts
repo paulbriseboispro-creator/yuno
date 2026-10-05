@@ -22,12 +22,15 @@ describe('co-organisation — nom des hôtes au checkout', () => {
 
 describe('co-organisation — filtres de portée PostgREST', () => {
   it('orga : menées, partenaire, co-hébergées', () => {
-    expect(orgEventsOr('u1')).toBe('organizer_user_id.eq.u1,partner_organizer_id.eq.u1,cohost_org_ids.cs.{u1}');
-    expect(orgOwnEventsOr('u1')).toBe('organizer_user_id.eq.u1,partner_organizer_id.eq.u1');
+    expect(orgEventsOr('u1')).toBe('and(organizer_user_id.eq.u1,external_source.is.null),partner_organizer_id.eq.u1,cohost_org_ids.cs.{u1}');
+    // Les soirées Shotgun (miroirs) restent visibles là où on les annonce (Email Studio).
+    expect(orgEventsOr('u1', { includeExternal: true })).toBe('organizer_user_id.eq.u1,partner_organizer_id.eq.u1,cohost_org_ids.cs.{u1}');
+    expect(orgOwnEventsOr('u1')).toBe('and(organizer_user_id.eq.u1,external_source.is.null),partner_organizer_id.eq.u1');
   });
   it('club : menées, partenaire, co-hébergées', () => {
-    expect(venueEventsOr('womber')).toBe('venue_id.eq.womber,partner_venue_id.eq.womber,cohost_venue_ids.cs.{womber}');
-    expect(venueOwnEventsOr('womber')).toBe('venue_id.eq.womber,partner_venue_id.eq.womber');
+    expect(venueEventsOr('womber')).toBe('and(venue_id.eq.womber,external_source.is.null),partner_venue_id.eq.womber,cohost_venue_ids.cs.{womber}');
+    expect(venueEventsOr('womber', { includeExternal: true })).toBe('venue_id.eq.womber,partner_venue_id.eq.womber,cohost_venue_ids.cs.{womber}');
+    expect(venueOwnEventsOr('womber')).toBe('and(venue_id.eq.womber,external_source.is.null),partner_venue_id.eq.womber');
   });
   it('clé de partie', () => {
     expect(partyKeyOf({ venueId: 'womber' })).toBe('venue:womber');
