@@ -19,14 +19,16 @@ export interface LinkKind {
   perPost: boolean;
 }
 
-/** Miroir EXACT de `_crm_link_kind_ok` (SQL). */
+/**
+ * Ce que le pro peut CRÉER — miroir EXACT de `_crm_link_creatable` (SQL).
+ * Seuls les emplacements où un lien se clique vraiment : Instagram = le sticker
+ * d'une story ou le lien en bio (une légende de post ou de reel n'est pas
+ * cliquable), TikTok = le lien en bio seulement. Les liens d'e-mail, de SMS et
+ * de réponse Instagram ne se créent pas ici : Yuno les pose seul à l'envoi.
+ */
 export const LINK_KINDS: readonly LinkKind[] = [
   { platform: 'instagram', placement: 'story', perPost: true },
   { platform: 'instagram', placement: 'bio', perPost: false },
-  { platform: 'instagram', placement: 'post', perPost: true },
-  { platform: 'instagram', placement: 'reel', perPost: true },
-  { platform: 'instagram', placement: 'dm', perPost: false },
-  { platform: 'tiktok', placement: 'video', perPost: true },
   { platform: 'tiktok', placement: 'bio', perPost: false },
   { platform: 'whatsapp', placement: 'group', perPost: true },
   { platform: 'whatsapp', placement: 'message', perPost: false },
@@ -38,18 +40,29 @@ export const LINK_KINDS: readonly LinkKind[] = [
   { platform: 'other', placement: 'link', perPost: true },
 ];
 
+/**
+ * Emplacements retirés de la création mais encore LUS : un lien déjà posé
+ * (post, reel, DM, vidéo TikTok) garde son libellé et ses ventes.
+ */
+export const LEGACY_KINDS: readonly LinkKind[] = [
+  { platform: 'instagram', placement: 'post', perPost: true },
+  { platform: 'instagram', placement: 'reel', perPost: true },
+  { platform: 'instagram', placement: 'dm', perPost: false },
+  { platform: 'tiktok', placement: 'video', perPost: true },
+];
+
 export const kindKey = (platform: string, placement: string) => `${platform}.${placement}`;
 
 export function findKind(platform: string, placement: string): LinkKind | null {
-  return LINK_KINDS.find((k) => k.platform === platform && k.placement === placement) ?? null;
+  return [...LINK_KINDS, ...LEGACY_KINDS].find((k) => k.platform === platform && k.placement === placement) ?? null;
 }
 
-/** Les quatre gestes du quotidien, en tête de l'écran. */
+/** Les quatre gestes du quotidien, en tête de l'écran (Instagram, TikTok, WhatsApp). */
 export const QUICK_KINDS: readonly LinkKind[] = [
   LINK_KINDS[0], // story Instagram
-  LINK_KINDS[1], // bio Instagram
-  LINK_KINDS[3], // reel Instagram
-  LINK_KINDS[7], // groupe WhatsApp
+  LINK_KINDS[1], // lien en bio Instagram
+  LINK_KINDS[2], // lien en bio TikTok
+  LINK_KINDS[3], // groupe WhatsApp
 ];
 
 export interface NightLink {
@@ -150,12 +163,32 @@ export const SOURCE_ORDER: readonly SourceKind[] = ['link', 'email', 'sms', 'dm'
 
 export interface SourceRow { source: string | null; tickets: number; orders: number; revenue: number | null }
 
-/** Regroupe les sources d'une soirée par famille, dans l'ordre d'affichage. */
-export function groupSources(rows: readonly SourceRow[]): { kind: SourceKind; tickets: number; revenue: number | null; names: string[] }[] {
-  const m = new Map<SourceKind, { kind: SourceKind; tickets: number; revenue: number | null; names: string[] }>();
+export interface SourceGroup {
+  kind: SourceKind;
+  tickets: number;
+  revenue: number | null;
+  names: string[];
+  /** Famille `link` seulement : billets par type de lien (`instagram.story`, `tiktok.bio`…), du plus vendeur au moins. */
+  kinds: { key: string; tickets: number }[];
+}
+
+/**
+ * Regroupe les sources d'une soirée par famille, dans l'ordre d'affichage.
+ * Avec les liens de la soirée, la famille `link` se détaille par type : une
+ * story Instagram et le lien en bio ne se confondent plus.
+ */
+export function groupSources(rows: readonly SourceRow[], links: readonly Pick<NightLink, 'source' | 'platform' | 'placement'>[] = []): SourceGroup[] {
+  const bySrc = new Map(links.map((l) => [l.source.toLowerCase(), kindKey(l.platform, l.placement)]));
+  const m = new Map<SourceKind, SourceGroup>();
   for (const r of rows) {
     const k = sourceKind(r.source);
-    const g = m.get(k) ?? { kind: k, tickets: 0, revenue: r.revenue === null ? null : 0, names: [] };
+    const g = m.get(k) ?? { kind: k, tickets: 0, revenue: r.revenue === null ? null : 0, names: [], kinds: [] };
+    if (k === 'link') {
+      const key = bySrc.get((r.source ?? '').toLowerCase()) ?? kindKey('other', 'link');
+      const e = g.kinds.find((x) => x.key === key);
+      if (e) e.tickets += r.tickets; else g.kinds.push({ key, tickets: r.tickets });
+      g.kinds.sort((a, b) => b.tickets - a.tickets);
+    }
     g.tickets += r.tickets;
     if (g.revenue !== null && r.revenue !== null) g.revenue += r.revenue;
     else g.revenue = null;

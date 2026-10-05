@@ -12,12 +12,21 @@ const link = (o: Partial<NightLink>): NightLink => ({
 });
 
 describe('liens de soirée', () => {
-  it('le catalogue est le miroir de _crm_link_kind_ok (15 paires, sans doublon)', () => {
-    expect(LINK_KINDS).toHaveLength(15);
-    expect(new Set(LINK_KINDS.map((k) => `${k.platform}.${k.placement}`)).size).toBe(15);
+  it('le catalogue est le miroir de _crm_link_creatable (11 paires, sans doublon)', () => {
+    expect(LINK_KINDS).toHaveLength(11);
+    expect(new Set(LINK_KINDS.map((k) => `${k.platform}.${k.placement}`)).size).toBe(11);
     expect(findKind('instagram', 'story')?.perPost).toBe(true);
     expect(findKind('instagram', 'bio')?.perPost).toBe(false);
     expect(findKind('instagram', 'flyer')).toBeNull();
+  });
+
+  it('Instagram = story + lien en bio, TikTok = lien en bio seulement', () => {
+    const at = (p: string) => LINK_KINDS.filter((k) => k.platform === p).map((k) => k.placement);
+    expect(at('instagram')).toEqual(['story', 'bio']);
+    expect(at('tiktok')).toEqual(['bio']);
+    // un ancien lien (reel, post, vidéo TikTok) garde son libellé
+    expect(findKind('instagram', 'reel')).not.toBeNull();
+    expect(findKind('tiktok', 'video')).not.toBeNull();
   });
 
   it('numérote les stories et réutilise la bio', () => {
@@ -63,6 +72,30 @@ describe('liens de soirée', () => {
     expect(g[0]).toMatchObject({ tickets: 5, revenue: 60 });
     expect(g.reduce((a, x) => a + x.tickets, 0)).toBe(20);
     expect(groupSources([{ source: 'shotgun', tickets: 1, orders: 1, revenue: null }])[0].revenue).toBeNull();
+  });
+
+  it('détaille les liens Yuno par type : story et lien en bio séparés', () => {
+    const links = [
+      link({ source: 'yuno-st1', platform: 'instagram', placement: 'story' }),
+      link({ source: 'yuno-st2', platform: 'instagram', placement: 'story' }),
+      link({ source: 'yuno-bio', platform: 'instagram', placement: 'bio' }),
+      link({ source: 'yuno-tt', platform: 'tiktok', placement: 'bio' }),
+    ];
+    const g = groupSources([
+      { source: 'yuno-st1', tickets: 3, orders: 3, revenue: null },
+      { source: 'yuno-st2', tickets: 2, orders: 2, revenue: null },
+      { source: 'yuno-bio', tickets: 4, orders: 4, revenue: null },
+      { source: 'yuno-tt', tickets: 1, orders: 1, revenue: null },
+      { source: 'yuno-inconnu', tickets: 1, orders: 1, revenue: null },
+    ], links);
+    expect(g).toHaveLength(1);
+    expect(g[0].tickets).toBe(11);
+    expect(g[0].kinds).toEqual([
+      { key: 'instagram.bio', tickets: 4 },
+      { key: 'instagram.story', tickets: 5 },
+      { key: 'tiktok.bio', tickets: 1 },
+      { key: 'other.link', tickets: 1 },
+    ].sort((a, b) => b.tickets - a.tickets));
   });
 
   it('ne donne un taux qu’à partir de 10 visiteurs', () => {

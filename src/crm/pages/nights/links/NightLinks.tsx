@@ -98,7 +98,7 @@ function Body({ d }: { d: NightLinksData }) {
       : base;
   }, [d.links, active, showArchived, sort]);
   const best = bestLink(active);
-  const groups = groupSources(d.sources);
+  const groups = groupSources(d.sources, d.links);
   const totalSold = d.totals.tickets;
 
   const kindLabel = (k: LinkKind) => t(`yc.lk.kind.${kindKey(k.platform, k.placement)}`);
@@ -298,7 +298,9 @@ function Body({ d }: { d: NightLinksData }) {
                 <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   <b style={{ fontSize: 14.5, fontWeight: 600 }}>{t(`yc.lk.src.${g.kind}`)}</b>
                   <span style={{ fontSize: 12.5, color: 'var(--sand-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {g.names.length ? g.names.slice(0, 4).join(', ') : t(`yc.lk.src.${g.kind}.d`)}
+                    {g.kinds.length
+                      ? g.kinds.slice(0, 4).map((x) => `${t(`yc.lk.kind.${x.key}`)} ${n(x.tickets)}`).join(' · ')
+                      : g.names.length ? g.names.slice(0, 4).join(', ') : t(`yc.lk.src.${g.kind}.d`)}
                   </span>
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{n(g.tickets)}</span>
