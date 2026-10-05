@@ -15,6 +15,7 @@ import {
   ticketsUrl,
   eventsUrl,
   isValidOrganizerId,
+  countryCodeFrom,
 } from '../../../supabase/functions/_shared/ticketing-shotgun.ts';
 
 // Exemple tiré de la doc officielle « Organizer events API » (relue le 02/10/2026).
@@ -103,6 +104,106 @@ describe('statut d’un billet', () => {
   it('un drapeau de remboursement gagne sur le statut', () => {
     expect(normalizeTicketStatus({ status: 'valid', refunded: true }).status).toBe('refunded');
     expect(normalizeTicketStatus({ status: 'valid', is_cancelled: 'true' }).status).toBe('cancelled');
+  });
+});
+
+// Billet au schéma officiel « /tickets API » (relu le 05/10/2026,
+// docs/designs/SHOTGUN_API_REFERENCE.md) : montants en centimes, contact_*.
+const DOC_TICKET = {
+  ticket_id: 123456,
+  ticket_scan_code: '42564997260325',
+  ticket_scanned_at: '2025-02-21 17:29:52.462881',
+  ticket_updated_at: '2025-02-21 17:29:52.462881',
+  ticket_canceled_at: null,
+  ticket_status: 'valid',
+  ticket_seating: null,
+  user_id: 46824,
+  deal_id: 12345678,
+  deal_sub_category: 'Friday',
+  deal_title: 'Early Bird',
+  deal_channel: 'online',
+  deal_visibilities: ['public'],
+  deal_price: 3999,
+  deal_service_fee: 99,
+  deal_user_service_fee: 150,
+  deal_producer_cost: 0,
+  deal_vat_rate: 0.055,
+  order_id: 654321,
+  currency: 'eur',
+  payment_method: 'card',
+  utm_source: 'yuno_k3f9a2',
+  utm_medium: 'app',
+  ordered_at: '2025-02-20 17:29:52.462881',
+  event_id: 410006,
+  event_start_time: '2025-06-07 18:00:00',
+  event_end_time: '2025-06-09 16:00:00',
+  contact_id: 123456789,
+  contact_email: 'A@Shotgun.live',
+  contact_phone: '+33612345678',
+  contact_first_name: 'Antoine',
+  contact_last_name: 'Rousseau',
+  contact_gender: 'male',
+  contact_company_name: 'Shotgun',
+  contact_birthday: '1985-01-01',
+  contact_newsletter_optin: true,
+  contact_country: 'France',
+  contact_postal_code: '31000',
+  contact_locality: 'Toulouse',
+};
+
+describe('billet Shotgun au schéma officiel', () => {
+  const now = new Date('2026-10-05T12:00:00Z');
+
+  it('lit chaque champ documenté, montants en centimes', () => {
+    const t = mapShotgunTicket(DOC_TICKET, 1, now)!;
+    expect(t.external_id).toBe('123456');
+    expect(t.external_order_id).toBe('654321');
+    expect(t.external_event_id).toBe('410006');
+    expect(t.deal_id).toBe('12345678');
+    expect(t.deal_name).toBe('Early Bird');
+    expect(t.status).toBe('valid');
+    expect(t.price).toBe(39.99);
+    expect(t.fees).toBe(1.5);
+    expect(t.currency).toBe('EUR');
+    expect(t.buyer_email).toBe('a@shotgun.live');
+    expect(t.buyer_first_name).toBe('Antoine');
+    expect(t.buyer_last_name).toBe('Rousseau');
+    expect(t.buyer_phone).toBe('+33612345678');
+    expect(t.buyer_ref).toBe('123456789');
+    expect(t.gender).toBe('male');
+    expect(t.age).toBe(41);
+    expect(t.newsletter_optin).toBe(true);
+    expect(t.city).toBe('Toulouse');
+    expect(t.zip_code).toBe('31000');
+    expect(t.country_code).toBe('FR');
+    expect(t.purchased_at).toBe(new Date('2025-02-20 17:29:52.462881').toISOString());
+    expect(t.scanned_at).not.toBeNull();
+    expect(t.utm).toEqual({ utm_source: 'yuno_k3f9a2', utm_medium: 'app' });
+  });
+
+  it('le diviseur de la connexion ne touche pas un montant documenté', () => {
+    expect(mapShotgunTicket(DOC_TICKET, 100, now)!.price).toBe(39.99);
+  });
+
+  it('lit les statuts et la date d’annulation documentés', () => {
+    const refunded = mapShotgunTicket({ ...DOC_TICKET, ticket_status: 'refunded', ticket_canceled_at: '2025-03-01 10:00:00' }, 1, now)!;
+    expect(refunded.status).toBe('refunded');
+    expect(refunded.refunded_at).not.toBeNull();
+    expect(mapShotgunTicket({ ...DOC_TICKET, ticket_status: 'canceled' }, 1, now)!.status).toBe('cancelled');
+    expect(mapShotgunTicket({ ...DOC_TICKET, ticket_status: 'resold' }, 1, now)!.status).toBe('transferred');
+    expect(mapShotgunTicket({ ...DOC_TICKET, ticket_status: 'rejected' }, 1, now)!.status).toBe('cancelled');
+    expect(mapShotgunTicket({ ...DOC_TICKET, ticket_status: 'payment_plan_pending' }, 1, now)!.status).toBe('other');
+    expect(mapShotgunTicket({ ...DOC_TICKET, ticket_status: 'pending_approval' }, 1, now)!.status).toBe('other');
+  });
+
+  it('convertit le nom de pays en code ISO, en trois langues', () => {
+    expect(countryCodeFrom('France')).toBe('FR');
+    expect(countryCodeFrom('Espagne')).toBe('ES');
+    expect(countryCodeFrom('España')).toBe('ES');
+    expect(countryCodeFrom('United Kingdom')).toBe('GB');
+    expect(countryCodeFrom('be')).toBe('BE');
+    expect(countryCodeFrom('Atlantide')).toBeNull();
+    expect(countryCodeFrom(null)).toBeNull();
   });
 });
 

@@ -281,17 +281,22 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
     const preferred = (sample.events_auth === "token" ? "token" : sample.events_auth === "key" ? "key" : null) as "key" | "token" | null;
     const updatedAfter = conn.events_synced_at;
     const events: MappedEvent[] = [];
-    const up = await fetchEvents(admin, conn, token, deadline, { updatedAfter }, preferred, counter);
+    // Les soirées À VENIR sont relues en entier à chaque passe (une seule
+    // requête) : rien ne dit que `leftTicketsCount` change leur date de mise à
+    // jour, et la capacité affichée (vendus + places restantes) se fige sinon.
+    const up = await fetchEvents(admin, conn, token, deadline, {}, preferred, counter);
     sample.events_auth = up.param;
+    // Les tarifs des soirées sont documentés en EUROS (ex. `price: 10`) : jamais
+    // le diviseur de la connexion, qui ne vaut que pour les billets.
     for (const raw of up.items) {
-      const m = mapShotgunEvent(raw, conn.amount_divisor);
+      const m = mapShotgunEvent(raw, 1);
       if (m) events.push(m);
     }
     for (let page = 0; page < 200; page++) {
       if (Date.now() > deadline - 6_000) break;
       const past = await fetchEvents(admin, conn, token, deadline, { past: true, page, updatedAfter }, up.param, counter);
       for (const raw of past.items) {
-        const m = mapShotgunEvent(raw, conn.amount_divisor);
+        const m = mapShotgunEvent(raw, 1);
         if (m) events.push(m);
       }
       if (past.items.length < PAGE_SIZE) break;

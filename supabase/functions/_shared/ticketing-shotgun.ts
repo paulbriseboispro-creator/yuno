@@ -5,17 +5,19 @@
 // `affiliate-ticket-sync` et testé par vitest
 // (src/lib/__tests__/ticketingShotgun.test.ts).
 //
-// Ce que Shotgun documente publiquement (relu le 02/10/2026) :
+// Ce que Shotgun documente publiquement (relu le 05/10/2026, référence
+// complète : docs/designs/SHOTGUN_API_REFERENCE.md) :
 //   • Events  : GET smartboard-api.shotgun.live/api/shotgun/organizers/{id}/events
 //               ?key=…  (upcoming par défaut ; past_events=true + page/limit ;
-//               updated_after) — schéma de réponse documenté.
+//               updated_after). Montants des tarifs (`deals`) en EUROS.
 //   • Tickets : GET api.shotgun.live/tickets?organizer_id=…&after=…
 //               (Bearer ; 100 par page ; pagination.next ; tri par mise à
-//               jour puis id) — schéma de réponse NON documenté.
-// La lecture d'un billet est donc TOLÉRANTE : chaque champ se cherche sous
-// plusieurs noms plausibles (snake_case, camelCase, objets imbriqués), la
-// réponse brute est gardée, et les CLÉS vues sont relevées (jamais les
-// valeurs) pour caler la lecture sur le vrai schéma dès la première synchro.
+//               jour puis id). Un objet = un billet, champs `ticket_*`,
+//               `deal_*`, `contact_*` ; montants en CENTIMES.
+// Le schéma des billets n'était pas publié au 02/10 : chaque champ se cherche
+// d'abord sous son NOM DOCUMENTÉ, puis sous des noms plausibles (repli pour
+// un changement de schéma), la réponse brute est gardée, et les CLÉS vues
+// sont relevées (jamais les valeurs) à chaque synchro.
 
 export type Json = Record<string, unknown>;
 
@@ -158,37 +160,79 @@ export function schemaKeys(obj: unknown, depth = 2, prefix = ""): string[] {
 
 // ── Billets ─────────────────────────────────────────────────────────────────
 
+// Le premier nom de chaque liste est le nom DOCUMENTÉ par Shotgun ; les
+// suivants ne servent que de repli.
 const P = {
-  id: ["id", "ticket_id", "ticketId", "uuid", "ticket.id"],
+  id: ["ticket_id", "id", "ticketId", "uuid", "ticket.id"],
   orderId: ["order_id", "orderId", "order.id", "order_uuid", "purchase_id", "booking_id"],
   eventId: ["event_id", "eventId", "event.id"],
   dealId: ["deal_id", "dealId", "deal.id", "deal.product_id", "product_id", "productId", "ticket_type_id"],
   dealName: ["deal_title", "deal_name", "dealName", "dealTitle", "deal.name", "deal.title", "product_name", "ticket_type", "ticket_title"],
   status: ["ticket_status", "status", "state", "ticketStatus"],
-  price: ["ticket_price", "deal_price", "price", "unit_price", "price_paid", "amount", "deal.price"],
+  price: ["ticket_price", "price", "unit_price", "price_paid", "amount", "deal.price"],
   fees: ["user_fees", "service_fee", "service_fees", "buyer_fees", "booking_fee", "fees", "deal.user_fees"],
   currency: ["currency", "currency_code", "currencyCode", "deal.currency"],
   quantity: ["quantity", "qty"],
-  buyerEmail: ["buyer_email", "contact_email", "purchaser_email", "customer_email", "email", "buyer.email", "contact.email", "customer.email", "user.email", "purchaser.email"],
-  buyerFirst: ["buyer_first_name", "contact_first_name", "customer_first_name", "first_name", "firstname", "firstName", "buyer.first_name", "buyer.firstName", "contact.first_name", "contact.firstName", "contact.firstname", "customer.first_name", "user.first_name"],
-  buyerLast: ["buyer_last_name", "contact_last_name", "customer_last_name", "last_name", "lastname", "lastName", "buyer.last_name", "buyer.lastName", "contact.last_name", "contact.lastName", "contact.lastname", "customer.last_name", "user.last_name"],
-  buyerPhone: ["buyer_phone", "contact_phone", "customer_phone", "phone", "phone_number", "phoneNumber", "buyer.phone", "contact.phone", "contact.phone_number", "customer.phone", "user.phone"],
-  buyerRef: ["buyer_id", "user_id", "userId", "contact_id", "customer_id", "buyer.id", "contact.id", "customer.id", "user.id"],
+  buyerEmail: ["contact_email", "buyer_email", "purchaser_email", "customer_email", "email", "buyer.email", "contact.email", "customer.email", "user.email", "purchaser.email"],
+  buyerFirst: ["contact_first_name", "buyer_first_name", "customer_first_name", "first_name", "firstname", "firstName", "buyer.first_name", "buyer.firstName", "contact.first_name", "contact.firstName", "contact.firstname", "customer.first_name", "user.first_name"],
+  buyerLast: ["contact_last_name", "buyer_last_name", "customer_last_name", "last_name", "lastname", "lastName", "buyer.last_name", "buyer.lastName", "contact.last_name", "contact.lastName", "contact.lastname", "customer.last_name", "user.last_name"],
+  buyerPhone: ["contact_phone", "buyer_phone", "customer_phone", "phone", "phone_number", "phoneNumber", "buyer.phone", "contact.phone", "contact.phone_number", "customer.phone", "user.phone"],
+  buyerRef: ["contact_id", "buyer_id", "user_id", "userId", "customer_id", "buyer.id", "contact.id", "customer.id", "user.id"],
   holderEmail: ["holder_email", "attendee_email", "ticket_holder_email", "beneficiary_email", "holder.email", "attendee.email", "owner.email", "beneficiary.email"],
   holderFirst: ["holder_first_name", "attendee_first_name", "ticket_holder_first_name", "holder.first_name", "holder.firstName", "attendee.first_name", "owner.first_name"],
   holderLast: ["holder_last_name", "attendee_last_name", "ticket_holder_last_name", "holder.last_name", "holder.lastName", "attendee.last_name", "owner.last_name"],
-  optin: ["newsletter_optin", "newsletterOptin", "newsletter_opt_in", "marketing_optin", "optin", "opt_in", "subscribed_to_newsletter", "contact.newsletter_optin", "buyer.newsletter_optin", "contact.newsletterOptin"],
+  optin: ["contact_newsletter_optin", "newsletter_optin", "newsletterOptin", "newsletter_opt_in", "marketing_optin", "optin", "opt_in", "subscribed_to_newsletter", "contact.newsletter_optin", "buyer.newsletter_optin", "contact.newsletterOptin"],
   age: ["age", "buyer_age", "contact.age", "buyer.age"],
-  birthdate: ["birthdate", "birthday", "birth_date", "date_of_birth", "contact.birthdate", "contact.birthday", "buyer.birthdate"],
-  gender: ["gender", "buyer_gender", "sex", "contact.gender", "buyer.gender"],
-  city: ["city", "buyer_city", "contact_city", "contact.city", "buyer.city", "address.city"],
-  zip: ["zip_code", "zipcode", "zipCode", "postal_code", "zip", "contact.zip_code", "contact.zipcode", "address.zip_code", "address.postal_code"],
-  country: ["country_code", "countryCode", "country", "contact.country_code", "contact.country", "address.country_code"],
+  birthdate: ["contact_birthday", "birthdate", "birthday", "birth_date", "date_of_birth", "contact.birthdate", "contact.birthday", "buyer.birthdate"],
+  gender: ["contact_gender", "gender", "buyer_gender", "sex", "contact.gender", "buyer.gender"],
+  city: ["contact_locality", "city", "buyer_city", "contact_city", "contact.city", "buyer.city", "address.city"],
+  zip: ["contact_postal_code", "zip_code", "zipcode", "zipCode", "postal_code", "zip", "contact.zip_code", "contact.zipcode", "address.zip_code", "address.postal_code"],
+  country: ["contact_country", "country_code", "countryCode", "country", "contact.country_code", "contact.country", "address.country_code"],
   purchasedAt: ["ordered_at", "order_date", "orderedAt", "purchased_at", "purchasedAt", "paid_at", "purchase_date", "created_at", "createdAt", "order.created_at"],
-  scannedAt: ["scanned_at", "ticket_scanned_at", "scannedAt", "scan_date", "checked_in_at", "checkedInAt", "used_at", "last_scan_at", "scan.scanned_at", "scans.0.scanned_at", "scans.0.date"],
-  refundedAt: ["refunded_at", "refundedAt", "refund_date", "cancelled_at", "canceled_at", "cancelledAt", "canceledAt"],
-  updatedAt: ["updated_at", "updatedAt", "ticket_updated_at", "last_updated_at", "modified_at", "modifiedAt"],
+  scannedAt: ["ticket_scanned_at", "scanned_at", "scannedAt", "scan_date", "checked_in_at", "checkedInAt", "used_at", "last_scan_at", "scan.scanned_at", "scans.0.scanned_at", "scans.0.date"],
+  refundedAt: ["ticket_canceled_at", "refunded_at", "refundedAt", "refund_date", "cancelled_at", "canceled_at", "cancelledAt", "canceledAt"],
+  updatedAt: ["ticket_updated_at", "updated_at", "updatedAt", "last_updated_at", "modified_at", "modifiedAt"],
 };
+
+/** Montants que Shotgun documente EN CENTIMES (billets) : toujours ÷ 100. */
+const CENTS = {
+  price: "deal_price",
+  userFees: "deal_user_service_fee",
+};
+
+// Nom de pays → code ISO (Shotgun rend `contact_country` en toutes lettres :
+// « France »). Table construite une fois depuis Intl, en trois langues.
+let countryIndex: Map<string, string> | null = null;
+function foldName(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+}
+export function countryCodeFrom(v: unknown): string | null {
+  const s = str(v, 80);
+  if (!s) return null;
+  if (/^[A-Za-z]{2}$/.test(s)) return s.toUpperCase();
+  if (!countryIndex) {
+    countryIndex = new Map();
+    for (const lang of ["en", "fr", "es"]) {
+      let dn: Intl.DisplayNames;
+      try { dn = new Intl.DisplayNames([lang], { type: "region" }); } catch { continue; }
+      for (let a = 65; a < 91; a++) {
+        for (let b = 65; b < 91; b++) {
+          const code = String.fromCharCode(a, b);
+          let name: string | undefined;
+          try { name = dn.of(code); } catch { name = undefined; }
+          if (name && name !== code) {
+            const k = foldName(name);
+            if (k && !countryIndex.has(k)) countryIndex.set(k, code);
+          }
+        }
+      }
+    }
+    for (const [k, code] of [["unitedstates", "US"], ["usa", "US"], ["uk", "GB"], ["england", "GB"], ["greatbritain", "GB"]] as const) {
+      countryIndex.set(k, code);
+    }
+  }
+  return countryIndex.get(foldName(s)) ?? null;
+}
 
 export type TicketStatus = "valid" | "refunded" | "cancelled" | "transferred" | "other";
 
@@ -199,7 +243,10 @@ export function normalizeTicketStatus(raw: Json): { status: TicketStatus; rawSta
   const s = (rawStatus ?? "").toLowerCase();
   if (!s) return { status: "valid", rawStatus };
   if (/refund|rembours/.test(s)) return { status: "refunded", rawStatus };
-  if (/cancel|annul|void|revok/.test(s)) return { status: "cancelled", rawStatus };
+  // `rejected` = demande d'achat refusée par l'organisateur : jamais un billet.
+  // `payment_plan_pending` / `pending_approval` restent « other » : ni vendus,
+  // ni annulés, tant que Shotgun ne les a pas validés.
+  if (/cancel|annul|void|revok|reject/.test(s)) return { status: "cancelled", rawStatus };
   if (/transfer|resold|resale|revendu|swap/.test(s)) return { status: "transferred", rawStatus };
   if (/^(valid|validated|paid|confirmed|completed|complete|ok|active|scanned|used|issued|sold)$/.test(s)) return { status: "valid", rawStatus };
   return { status: "other", rawStatus };
@@ -277,8 +324,11 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
   const id = str(pick(raw, P.id), 120);
   if (!id) return null;
   const { status, rawStatus } = normalizeTicketStatus(raw);
-  const country = str(pick(raw, P.country), 60);
   const qty = num(pick(raw, P.quantity));
+  // Champs documentés en centimes d'abord ; `divisor` (réglage de la
+  // connexion) ne vaut que pour un nom de repli non documenté.
+  const price = money(at(raw, CENTS.price), 100) ?? money(pick(raw, P.price), divisor);
+  const fees = money(at(raw, CENTS.userFees), 100) ?? money(pick(raw, P.fees), divisor);
   return {
     external_id: id,
     external_order_id: str(pick(raw, P.orderId), 120),
@@ -288,8 +338,8 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     status,
     raw_status: rawStatus,
     quantity: qty && qty > 0 && qty < 1000 ? Math.round(qty) : 1,
-    price: money(pick(raw, P.price), divisor),
-    fees: money(pick(raw, P.fees), divisor),
+    price,
+    fees,
     currency: (str(pick(raw, P.currency), 8) ?? "").toUpperCase() || null,
     buyer_email: email(pick(raw, P.buyerEmail)),
     buyer_first_name: str(pick(raw, P.buyerFirst), 120),
@@ -304,7 +354,7 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     gender: genderFrom(pick(raw, P.gender)),
     city: str(pick(raw, P.city), 120),
     zip_code: str(pick(raw, P.zip), 20),
-    country_code: country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : null,
+    country_code: countryCodeFrom(pick(raw, P.country)),
     purchased_at: isoDate(pick(raw, P.purchasedAt)),
     scanned_at: isoDate(pick(raw, P.scannedAt)),
     refunded_at: status === "refunded" || status === "cancelled" ? isoDate(pick(raw, P.refundedAt)) : null,
