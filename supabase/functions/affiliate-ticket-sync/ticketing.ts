@@ -275,31 +275,53 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
   }
 
   let cursor = conn.tickets_cursor;
+  let eventsFailed = false;
   try {
     // 1. Soirées : à venir + passées. Premier import = tout l'historique ;
     //    ensuite seulement ce qui a changé depuis la dernière passe complète.
     const preferred = (sample.events_auth === "token" ? "token" : sample.events_auth === "key" ? "key" : null) as "key" | "token" | null;
     const updatedAfter = conn.events_synced_at;
     const events: MappedEvent[] = [];
-    // Les soirées À VENIR sont relues en entier à chaque passe (une seule
-    // requête) : rien ne dit que `leftTicketsCount` change leur date de mise à
-    // jour, et la capacité affichée (vendus + places restantes) se fige sinon.
-    const up = await fetchEvents(admin, conn, token, deadline, {}, preferred, counter);
-    sample.events_auth = up.param;
-    // Les tarifs des soirées sont documentés en EUROS (ex. `price: 10`) : jamais
-    // le diviseur de la connexion, qui ne vaut que pour les billets.
-    for (const raw of up.items) {
-      const m = mapShotgunEvent(raw, 1);
-      if (m) events.push(m);
-    }
-    for (let page = 0; page < 200; page++) {
-      if (Date.now() > deadline - 6_000) break;
-      const past = await fetchEvents(admin, conn, token, deadline, { past: true, page, updatedAfter }, up.param, counter);
-      for (const raw of past.items) {
+    // Les soirées ne bloquent jamais les billets : l'API Events (autre hôte,
+    // autre paramètre d'authentification) peut refuser ou tomber alors que
+    // l'API Tickets répond — la connexion l'accepte déjà (verifyShotgun). Une
+    // erreur ici est notée dans `schema_sample.events_error` et la passe
+    // continue ; `events_synced_at` n'avance alors pas, la passe suivante
+    // relit tout. Un jeton vraiment mort tombe sur les billets, juste après.
+    try {
+      // Les soirées À VENIR sont relues en entier à chaque passe (une seule
+      // requête) : rien ne dit que `leftTicketsCount` change leur date de mise
+      // à jour, et la capacité affichée (vendus + places restantes) se fige sinon.
+      const up = await fetchEvents(admin, conn, token, deadline, {}, preferred, counter);
+      sample.events_auth = up.param;
+      // Les tarifs des soirées sont documentés en EUROS (ex. `price: 10`) :
+      // jamais le diviseur de la connexion, qui ne vaut que pour les billets.
+      for (const raw of up.items) {
         const m = mapShotgunEvent(raw, 1);
         if (m) events.push(m);
       }
-      if (past.items.length < PAGE_SIZE) break;
+      // Soirées passées, page par page. On s'arrête sur une page VIDE ou qui
+      // n'apporte aucune soirée nouvelle, jamais sur « moins de 100 » : la
+      // limite par défaut documentée est 20, et rien ne dit que Shotgun
+      // accepte 100 — une page plafonnée arrêtait l'historique à la page 0.
+      const seen = new Set(events.map((e) => e.external_id));
+      for (let page = 0; page < 200; page++) {
+        if (Date.now() > deadline - 6_000) break;
+        const past = await fetchEvents(admin, conn, token, deadline, { past: true, page, updatedAfter }, up.param, counter);
+        let fresh = 0;
+        for (const raw of past.items) {
+          const m = mapShotgunEvent(raw, 1);
+          if (!m) continue;
+          if (!seen.has(m.external_id)) { seen.add(m.external_id); fresh++; }
+          events.push(m);
+        }
+        if (past.items.length === 0 || fresh === 0) break;
+      }
+      delete sample.events_error;
+    } catch (e) {
+      eventsFailed = true;
+      sample.events_error = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+      console.error("[ticketing] events:", sample.events_error);
     }
     if (events.length) {
       if (!sample.event_keys) sample.event_keys = schemaKeys(events[0].raw);
@@ -349,7 +371,7 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       const firstImport = !conn.initial_import_done_at;
       await admin.from("ticketing_connections").update({
         status: "active", fail_count: 0, last_ok_at: now.toISOString(), last_error: null, last_error_at: null,
-        events_synced_at: startedIso, initial_import_done_at: conn.initial_import_done_at ?? now.toISOString(),
+        events_synced_at: eventsFailed ? conn.events_synced_at : startedIso, initial_import_done_at: conn.initial_import_done_at ?? now.toISOString(),
         next_sync_at: new Date(now.getTime() + conn.sync_interval_minutes * 60_000).toISOString(),
         locked_until: null, schema_sample: sample,
       }).eq("id", conn.id);
@@ -368,6 +390,12 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       locked_until: null, next_sync_at: new Date().toISOString(), last_ok_at: new Date().toISOString(),
       fail_count: 0, schema_sample: sample,
     }).eq("id", conn.id);
+    // Les compteurs montrés pendant le premier import (soirées, billets,
+    // acheteurs) avancent à chaque passe, pas seulement à la fin.
+    {
+      const { error: sErr } = await admin.rpc("ticketing_refresh_stats", { p_connection_id: conn.id });
+      if (sErr) console.error("[ticketing] refresh_stats:", sErr.message);
+    }
     await finishRun("partial", null, { cursor, ...(after ?? {}) });
     return { more: true, status: "partial", events: eventsUpserted, tickets: ticketsUpserted };
   } catch (e) {

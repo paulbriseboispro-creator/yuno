@@ -21,7 +21,7 @@ const dict: CrmDict = {
   'yc.co.line.broken': ['Last successful read at {time}.', 'Dernière lecture réussie à {time}.', 'Última lectura correcta a las {time}.'],
   'yc.co.line.brokenDay': ['Last successful read on {date}', 'Dernière lecture réussie le {date}', 'Última lectura correcta el {date}'],
   'yc.co.line.brokenNever': ['Shotgun has not answered yet with this token.', 'Shotgun n’a pas encore répondu avec ce jeton.', 'Shotgun aún no ha respondido con este token.'],
-  'yc.co.duration': ['About 2 minutes', 'Environ 2 minutes', 'Unos 2 minutos'],
+  'yc.co.duration': ['A few minutes', 'Quelques minutes', 'Unos minutos'],
   'yc.co.connect': ['Connect Shotgun', 'Connecter Shotgun', 'Conectar Shotgun'],
   'yc.co.reconnect': ['Reconnect', 'Reconnecter', 'Reconectar'],
   'yc.co.manage': ['Manage', 'Gérer', 'Gestionar'],

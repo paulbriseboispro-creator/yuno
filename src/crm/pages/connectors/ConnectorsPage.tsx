@@ -519,7 +519,7 @@ function ImportStep({ importing, stats, go }: { importing: boolean; stats: Ticke
         {cols.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '16px 18px', borderRadius: 18, background: 'var(--sand-50)' }}>
             <span style={{ fontSize: 13.5, color: 'var(--sand-600)' }}>{t(k)}</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{n(v * p)}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{importing && v === 0 ? '…' : n(v * p)}</span>
           </div>
         ))}
       </div>
