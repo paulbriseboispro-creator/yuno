@@ -192,6 +192,7 @@ const dict: CrmDict = {
   'yc.gl.a.heroT': ['Guests, night by night', 'Les invités, soirée par soirée', 'Los invitados, fiesta a fiesta'],
   'yc.gl.a.heroS': ['Invitations and free tickets of the nights held in the period. Click a night to open it.', 'Invitations et billets gratuits des soirées tenues sur la période. Cliquez une soirée pour l’ouvrir.', 'Invitaciones y entradas gratuitas de las fiestas celebradas en el periodo. Haga clic en una fiesta para abrirla.'],
   'yc.gl.a.unit': ['guests', 'invités', 'invitados'],
+  'yc.gl.a.t.none': ['No night with a guest list in this period', 'Aucune soirée avec guest list sur la période', 'Ninguna fiesta con lista en el periodo'],
   'yc.gl.a.noNights': ['No night held in this period.', 'Aucune soirée tenue sur cette période.', 'Ninguna fiesta celebrada en este periodo.'],
   'yc.gl.a.legCame': ['Came', 'Venus', 'Vinieron'],
   'yc.gl.a.legNo': ['Didn’t come', 'Pas venus', 'No vinieron'],

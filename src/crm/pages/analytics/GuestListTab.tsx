@@ -80,26 +80,26 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
     {
       kind: 'spark', label: t('yc.gl.a.t.entries'), value: n(X.entries * prog),
       delta: eD ? `${eD.text} ${t('yc.ana.vsBefore')}` : undefined, dc: eD && !eD.up ? 'var(--red-600)' : undefined,
-      cap: tp('yc.gl.a.t.entriesCap', X.gl_nights, { nights: n(X.gl_nights), people: n(X.people) }),
+      cap: X.gl_nights > 0 ? tp('yc.gl.a.t.entriesCap', X.gl_nights, { nights: n(X.gl_nights), people: n(X.people) }) : t('yc.gl.a.t.none'),
       values: d.nights.map((x) => x.entries),
     },
     {
       kind: 'ring', label: t('yc.gl.a.t.showup'), value: X.showup !== null ? pct(X.showup * prog) : '—',
       delta: sD !== null ? pts(sD) : undefined, dc: sD !== null && sD < 0 ? 'var(--red-600)' : undefined,
-      cap: X.showup !== null ? tp('yc.gl.a.t.showupCap', X.scan_nights, { n: n(X.scan_nights) }) : X.scan_nights > 0 ? t('yc.gl.a.t.small') : t('yc.gl.a.t.noScan'),
+      cap: X.gl_nights === 0 ? t('yc.gl.a.t.none') : X.showup !== null ? tp('yc.gl.a.t.showupCap', X.scan_nights, { n: n(X.scan_nights) }) : X.scan_nights > 0 ? t('yc.gl.a.t.small') : t('yc.gl.a.t.noScan'),
       ring: X.showup ?? 0,
     },
     {
       kind: 'stack', label: t('yc.gl.a.t.share'), value: X.free_share !== null ? pct(X.free_share * prog) : '—',
       delta: fD !== null ? pts(fD) : undefined, dc: undefined,
-      cap: X.free_share !== null ? t('yc.gl.a.t.shareCap') : X.scan_nights > 0 ? t('yc.gl.a.t.small') : t('yc.gl.a.t.noScan'),
+      cap: X.gl_nights === 0 ? t('yc.gl.a.t.none') : X.free_share !== null ? t('yc.gl.a.t.shareCap') : X.scan_nights > 0 ? t('yc.gl.a.t.small') : t('yc.gl.a.t.noScan'),
       parts: X.free_share !== null ? [{ w: X.free_share, c: GL_COLORS.free }, { w: 100 - X.free_share, c: GL_COLORS.paid }] : [],
       legL: X.free_share !== null ? t('yc.gl.a.t.shareL', { pct: pct(X.free_share) }) : '', legR: X.free_share !== null ? t('yc.gl.a.t.shareR', { pct: pct(100 - X.free_share) }) : '',
     },
     {
       kind: 'hb', label: t('yc.gl.a.t.conv'), value: n(C.converted * prog),
       delta: convR !== null ? t('yc.gl.a.t.convRate', { pct: pct(convR) }) : undefined,
-      cap: caps.money && C.revenue !== null && C.converted > 0 ? t('yc.gl.a.t.convRev', { v: eur(C.revenue) }) : tp('yc.gl.a.t.convCap', C.eligible, { n: n(C.eligible) }),
+      cap: caps.money && C.revenue !== null && C.converted > 0 ? t('yc.gl.a.t.convRev', { v: eur(C.revenue) }) : C.eligible > 0 ? tp('yc.gl.a.t.convCap', C.eligible, { n: n(C.eligible) }) : t('yc.gl.a.t.none'),
       hb: convR ?? 0, hbL: C.median_days !== null && C.converted > 0 ? tp('yc.gl.a.t.convDays', C.median_days, { n: n(C.median_days) }) : t('yc.gl.a.t.convBar'),
     },
   ];
@@ -132,7 +132,8 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
             {d.nights.length > 0
               ? <NightsBars d={d} go={go} T={T} />
               : <div style={{ padding: '22px 20px', borderRadius: 18, background: 'var(--sand-50)', fontSize: 14.5, color: 'var(--sand-600)' }}>{t('yc.gl.a.noNights')}</div>}
-            <Takeaway>{insight}</Takeaway>
+            {/* Sans soirée, la boîte « aucune soirée » suffit : pas de deuxième phrase vide. */}
+            {d.nights.length > 0 && <Takeaway>{insight}</Takeaway>}
           </div>
         )}
       </section>
