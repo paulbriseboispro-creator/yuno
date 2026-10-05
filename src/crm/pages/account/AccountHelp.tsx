@@ -33,6 +33,7 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'invoices', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'journey', c: 'clients', to: CRM_ROUTES.journey },
+  { id: 'signup', c: 'clients', to: CRM_ROUTES.signupPages },
   { id: 'auto', c: 'start', to: CRM_ROUTES.automations },
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },

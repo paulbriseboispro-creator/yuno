@@ -1,70 +1,94 @@
-# Yuno CRM — Pages d'inscription (plan, 05/10)
+# Yuno CRM — Pages d'inscription (v2, 05/10)
 
-Design : `Pages inscription.dc.html` (constructeur), `FanPage.dc.html` (page
-publique), `Pages inscription Fan.dc.html` (variante). Une page = un lien et un QR
-où un fan laisse son contact AVANT d'acheter ; il rejoint les Clients du pro.
+Design (projet Claude Design « Yuno CRM ») : `Pages inscription.dc.html`
+(liste, assistant, page publiée, fiche), `FanPage.dc.html` (la page publique,
+dix mises en page), `InscriptionPhone.dc.html` (aperçu téléphone : page, « C'est
+noté », jour J, e-mail, SMS), `assets/yuno-pages.js` (modèle : types, gabarits,
+palettes, polices, `tokens()`). La Console les reproduit à l'identique et les
+branche sur la vraie base. Une page = un lien et un QR où un fan laisse son
+contact AVANT d'acheter ; il rejoint les Clients du pro.
 
-## Données
+## Code
 
-- `crm_signup_pages` : portée (club OU organisateur), `slug` unique, statut
-  `draft | live | closed`, occasion (`night` lié à une soirée, `community` sans
-  date), soirée liée (`events.id`, miroir Shotgun compris), affiche, couleurs
-  (fond + accent), police des titres, textes (titre ≤ 40, accroche ≤ 140, bouton,
-  « C'est noté »), champs (`contact` = `email` | `email_phone` ; deux questions
-  au plus), compteur d'inscrits affiché ou non, récompense (texte, comment la
-  récupérer), dates (ouverture, ouverture de la vente → compte à rebours,
-  fermeture), et les deux groupes de contacts créés à la publication
-  (`contact_list_imports` + `email_list_imports`, source `website_form`).
-- `crm_signup_entries` : une inscription = prénom, e-mail, téléphone facultatif,
-  réponses, provenance (`src` du lien), empreinte du visiteur (jour), jeton de
-  confirmation HACHÉ, `confirmed_at`, et la ligne de preuve
-  `marketing_consent_events` une fois confirmée.
-- `crm_signup_visits` : une visite = page, jour, empreinte, provenance (pour
-  visites → inscrits par provenance). RLS sans policy partout : tout passe par
-  des RPC.
+- `src/crm/signup/model.ts` : port pur de `yuno-pages.js` (types, `KIND_META`,
+  10 gabarits `TPL`, palettes, `FONTS`, `tokens()`, récompenses, champs,
+  provenances, utilitaires `dt`, `venueOf`, `partySize`…). Testé
+  (`src/crm/lib/__tests__/signupPages.test.ts`).
+- `src/crm/signup/FanPage.tsx` : la page publique, partagée par la page réelle
+  (`mode="live"`), les aperçus (`preview`) et les vignettes de gabarit
+  (`frozen`). `InscriptionPhone.tsx` : le téléphone de l'aperçu (page, e-mail,
+  SMS). `SignupPagePublic.tsx` : `/j/<slug>` et `/j/<slug>/ok?t=`.
+- `src/crm/pages/signup/` : liste (`SignupPagesPage`), assistant en 4 étapes
+  (`SignupWizardPage`), « C'est en ligne ! » (`SignupDonePage`, + l'aperçu plein
+  écran `SignupPreview`), fiche (`SignupDetailPage` : Résultats, Partager,
+  `SignupWho`, `SignupRelance`), QR réel (`SignupQr`), logique pure
+  (`signupLogic.ts`), primitives (`signupUi.tsx`). Textes : `yc.sp.*`
+  (`src/i18n/locales/crm/modules/signupPages.ts`).
+- Routes : `/crm/signup-pages`, `/new?type=`, `/:id`, `/:id/edit`,
+  `/:id/published` ; la fiche a ses onglets dans `?tab=res|share|who|rel`.
 
-## Route publique
+## Les quatre types (`crm_signup_pages.kind`)
 
-`/j/<slug>` (`?src=<lieu>` pour la provenance), hors coquille de la Console, DA
-publique (`docs/DESIGN_SYSTEM_PUBLIC.md`). **Pas `/p/<slug>`** : ce chemin est
-déjà le linktree public des agences. Confirmation : `/j/<slug>/ok?t=<jeton>`.
+| Type | Soirée | Ferme | Relances |
+|---|---|---|---|
+| `prevente` | obligatoire | à l'ouverture de la vente, ou à une date | C'est ouvert · rappel · dernier appel |
+| `venue` (« Je viens ») | obligatoire | la veille de la soirée, ou à une date | rappel la veille à 18 h |
+| `attente` | soirée complète ou « prochaine date pas annoncée » | à la main, ou à une date | C'est ouvert (au clic « Prévenir ») · rappel · dernier appel |
+| `communaute` | aucune | jamais, ou à une date | bienvenue à l'inscription |
 
-## Inscription (anti-abus)
+État lu en base (`_crm_signup_state`) : `draft` / `scheduled` / `open` /
+`closed`. Rouvrir une page fermée par sa date la passe en « jamais ».
 
-`submit_crm_signup` (anon, SECURITY DEFINER) : page en ligne et dans ses dates ;
-empreinte salée du jour (`links_visitor_context`), 10 inscriptions / heure /
-visiteur, 300 / heure / page ; e-mail valide, domaine jetable refusé (liste en
-base `crm_disposable_domains`), même e-mail déjà inscrit sur la page = « déjà
-inscrit » (sans révéler plus) ; case d'accord OBLIGATOIRE ; le texte exact
-affiché à côté de la case est envoyé et conservé.
+## Données (migration `20261007193500_crm_signup_pages_v2.sql`)
 
-## RGPD
+- `crm_signup_pages` : `kind`, `design` (`{tpl, pal, bg, acc, font}`),
+  `countdown`, `closes_mode`, `relance` (par étape : on, canaux, délai, texte,
+  et l'e-mail composé par la Console en blocs de l'Email Studio), `notified_at`,
+  `lang`, `fields` (`{contact: both|email|phone|all, extra: {nom, naissance,
+  insta, ville}, questions[≤2]}`), récompense, dates, affiche (bucket
+  `email-assets`, `<portée>/signup/…`), groupes de contacts créés à la 1re
+  publication.
+- `crm_signup_entries` : e-mail FACULTATIF (inscription par téléphone seul
+  possible, contrainte « e-mail ou téléphone »), nom, date de naissance,
+  Instagram, ville, `was_known` (déjà client), `party_size`, réponses,
+  provenance, empreinte du jour, jeton de confirmation haché.
+- `crm_signup_sends` (une ligne par inscrit × étape × canal : jamais deux fois
+  le même message) et `crm_signup_relance_campaigns` (la campagne enfant d'une
+  étape). RLS sans policy partout : tout passe par les RPC.
 
-- Double confirmation : rien n'entre au registre avant le clic sur le lien de
-  confirmation (e-mail « Confirmez votre inscription », DA e-mail Yuno CRM,
-  file `crm_signup_entries.confirm_sent_at`, envoyé par
-  `process-scheduled-campaigns` toutes les 5 minutes, idempotence Resend).
-- À la confirmation : preuve dans `marketing_consent_events` (texte exact,
-  langue, `source = signup_page:<id>`), contact versé dans `imported_contacts`
-  (groupe de la page) et `newsletter_subscriptions` (opt-in) **sans jamais
-  réveiller un désabonné** (ligne `opted_in = false`, liste repoussoir
-  `email_opt_outs`, adresse supprimée → la preuve est gardée, l'abonnement non).
-- Le téléphone est conservé sur l'inscription mais n'entre PAS au registre SMS
-  (le SMS est hors périmètre de ce chantier) : l'écran le dit.
-- Démo : une page d'une portée démo répond « page de démonstration » et
-  n'enregistre aucune adresse ; aucun e-mail ne part vers une adresse démo.
+## Inscription et RGPD
 
-## Constructeur (Console › Clients › Pages d'inscription)
+- `submit_crm_signup` (anon) : page ouverte, anti-abus (empreinte salée du jour,
+  10 / h / visiteur, 300 / h / page), e-mail valide et non jetable, numéro
+  E.164, case d'accord obligatoire avec son texte exact conservé. Démo : la page
+  répond « démonstration » et n'enregistre rien.
+- Par e-mail : double confirmation (file `crm_signup_confirm_queue`, envoyée par
+  `process-scheduled-campaigns`), puis preuve `marketing_consent_events`
+  (`source = signup_page:<id>`), groupe de la page (`imported_contacts`),
+  registre `newsletter_subscriptions` sans jamais réveiller un désabonné.
+- Par téléphone seul : pas de lien à cliquer ; l'accord coché est la preuve
+  (SMS), le contact entre au groupe. Le SMS ne part pas encore
+  (`CRM_SMS_ENGINE_READY`).
+- Provenance d'un client : « page » quand sa première inscription confirmée
+  précède son premier achat (`_crm_people_build`, migration
+  `20261007194500`) → filtre Clients « Arrivé par : Pages d'inscription » et
+  modèle de segment « Inscrits via vos pages ».
 
-Liste (statut, visites, inscrits, confirmés), création en un écran avec
-l'aperçu téléphone en direct (le même composant que la page publique), lien
-et QR (`qrcode`, déjà dans le projet) avec un lien par provenance (flyer, bar,
-porte, story, message privé), chiffres de la page (visites → inscrits →
-confirmés par provenance), export CSV des confirmés. Publier / fermer = geste
-du titulaire (droit d'écriture CRM). Rien n'est publié tout seul ; l'ouverture
-programmée est une date que le titulaire pose.
+## Relances (`crm_signup_relance_collect`, cron `crm-signup-relance`, 5 min)
 
-## Hors périmètre de cette version
+- `open` : prévente = à l'ouverture de la vente ; venue = la veille à 18:00 ;
+  attente = au clic « Prévenir les inscrits maintenant »
+  (`crm_signup_page_notify_now`, une fois) ; communauté = à l'inscription.
+- `nudge` : open + 24 h / 48 h / 3 j, aux inscrits SANS achat (billet Shotgun
+  vu sur la soirée). `last` : J-2 / J-1 / le jour même à 12:00, sans achat.
+- Chaque étape expire (2 jours après son heure ou au début de la soirée) : rien
+  ne part en retard. Destinataires : inscription confirmée, abonné, politique
+  d'envoi Yuno respectée (sinon reporté au passage suivant). Une campagne
+  enfant par (page, étape), `child_kind = 'signup'`, sa propre mère (hors des
+  listes), drainée par `send-campaign` ; Yunits débités à la mise en file
+  (`_crm_yunits_debit_child_recipients`). Démo jamais.
 
-Dix mises en page (une seule, réglable), messages automatiques « C'est
-ouvert » aux inscrits (passent par les automatisations existantes), SMS.
+## Hors périmètre
+
+Envoi SMS (moteur à brancher), choix d'un post Instagram déjà publié comme
+visuel, export CSV dédié (la liste Clients filtrée par provenance s'exporte).
