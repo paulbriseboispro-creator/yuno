@@ -255,14 +255,21 @@ Classement des entrées de la Console (exploration du 02/10) :
 |---|---|---|
 | Analytics › Communauté, Trafic (liens suivis) ; Marketing & CRM : Clients, Email (campagnes, automatisations, base), SMS, Pubs ; Intégrations, Organisation, Profil public, Équipe (rôles non-porte), Aide, Accès assisté | Billetterie, Codes promo, Tables VIP, Service VIP, Bar, Porte / check-in, Vestiaire, Commandes, Remboursements, Facturation, Paiements Stripe, Promoteurs et commissions, Collaborations argent, En direct, Fidélité à points | Accueil (version CRM), Soirées (importées + créées à la main), Analytics › Ventes (lit les ventes importées), Guest list (option gratuite), Push (pas d'audience app), DJ |
 
-**Domaine.** Recommandation pour la v1 :
+**Domaine.** Décidé par Paul le 2026-10-04 : tout le CRM passe par
+`crm.yunoapp.eu` — landing, connexion (`/login`), Console (`/crm`) et Admin CRM.
+Règles et mécanique : CLAUDE.md, « Deux domaines, deux produits », porte
+`src/lib/productHost.ts`. Ce que la recommandation d'origine craignait s'est
+réglé ainsi :
 
-- La Console reste sur `yunoapp.eu`, en mode CRM. La landing CRM a sa propre
-  adresse, par exemple `crm.yunoapp.eu` ou une page dédiée de `landing.yunoapp.eu`.
-- Servir la **Console** sur un autre hôte coûte cher : `ALLOWED_ORIGINS` dans
-  `_shared/cors.ts`, les retours Stripe bornés à `yunoapp.eu`, les URL de
-  redirection Supabase Auth, et environ 70 URL `https://yunoapp.eu` en dur dans
-  les fonctions edge. On ne le fera que si la marque l'exige.
+- `ALLOWED_ORIGINS` (`_shared/cors.ts`) accepte `https://crm.yunoapp.eu` ; seule
+  `affiliate-ticket-sync` (connecteurs, imports) en avait besoin côté Console.
+- Les retours Stripe et les ~70 URL `https://yunoapp.eu/crm/…` en dur dans les
+  fonctions edge restent valables : `ProductHostGate` renvoie tout chemin CRM de
+  yunoapp.eu vers crm.yunoapp.eu, connexion gardée.
+- Supabase Auth : `https://crm.yunoapp.eu/**` dans les Redirect URLs (posé par
+  Paul le 04/10).
+- Deux origines = deux sessions : le passage en crée une neuve (edge `mfa`,
+  `web-handoff`), jamais une copie.
 
 **2FA.** Aujourd'hui, `RequireMFA` impose la double authentification aux owners
 pour protéger l'argent. Un compte CRM n'a pas de pages d'argent, mais il détient

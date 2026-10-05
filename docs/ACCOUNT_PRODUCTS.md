@@ -43,7 +43,7 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
    et qui a déjà un compte voit l'étape « Vous avez déjà un compte Yuno » →
    `open_product_on_my_account('crm', …, p_signup_key)` → Console `/crm`. Par
    email + mot de passe, « adresse déjà utilisée » mène à
-   `yunoapp.eu/auth?redirect=/open/crm`.
+   `crm.yunoapp.eu/login?redirect=/open/crm`.
 2. **Page `/open/crm` et `/open/suite`** (`src/pages/OpenProduct.tsx`, DA Yuno
    CRM) : sans jeton, le titulaire choisit un de ses comptes
    (`get_my_product_accounts`) ; avec `?token=`, il accepte l'invitation
@@ -58,6 +58,11 @@ Consoles et suivent le produit principal ; les SMS CRM restent fermés côté mo
    l'alerte `admin_account_product_added` (`/admin/alerts`).
 
 ## Passer d'une Console à l'autre
+
+Les deux Consoles vivent sur deux domaines (yunoapp.eu et crm.yunoapp.eu, voir
+`src/lib/productHost.ts`) : chaque lien ci-dessous change de domaine et garde la
+connexion par une session neuve (`src/lib/productHandoff.ts`), le compte choisi
+compris.
 
 - Billetterie → CRM : lien « Ouvrir Yuno CRM » au pied des barres latérales
   club et organisateur (`OpenCrmSidebarLink`), qui pose `yuno.crm.space`.
