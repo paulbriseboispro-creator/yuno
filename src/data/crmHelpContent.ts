@@ -77,7 +77,7 @@ const CRM_ARTICLES: Record<'start' | 'base', OwnerHelpArticle[]> = {
       descKey: 'ohelp.crm.nights.desc',
       icon: 'Calendar',
       relatedArticleIds: ['crm-audience', 'crm-connect'],
-      keywords: ['soirées', 'nights', 'events', 'fiestas', 'bilan', 'report', 'informe', 'billets', 'tickets', 'entradas', 'courbe', 'curve', 'comparaison', 'tarifs', 'prices', 'utm', 'sources'],
+      keywords: ['soirées', 'nights', 'events', 'fiestas', 'bilan', 'report', 'informe', 'billets', 'tickets', 'entradas', 'courbe', 'curve', 'comparaison', 'tarifs', 'prices', 'utm', 'sources', 'story', 'stories', 'bio', 'lien', 'liens', 'link', 'links', 'enlace', 'qr', 'partage', 'share', 'compartir'],
       actionLink: { labelKey: OPEN, path: '/crm/nights' },
       sections: [
         { headingKey: 'ohelp.crm.nights.s1h', bodyKey: 'ohelp.crm.nights.s1b' },
@@ -85,6 +85,7 @@ const CRM_ARTICLES: Record<'start' | 'base', OwnerHelpArticle[]> = {
         { headingKey: 'ohelp.crm.nights.s3h', bodyKey: 'ohelp.crm.nights.s3b', screenshotUrl: '/help/crm-report.webp' },
         { headingKey: 'ohelp.crm.nights.s4h', bodyKey: 'ohelp.crm.nights.s4b', type: 'tip' },
         { headingKey: 'ohelp.crm.nights.s5h', bodyKey: 'ohelp.crm.nights.s5b' },
+        { headingKey: 'ohelp.crm.nights.s6h', bodyKey: 'ohelp.crm.nights.s6b' },
       ],
     },
     {
