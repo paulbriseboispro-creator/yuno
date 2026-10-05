@@ -3976,6 +3976,12 @@ intouchables :
   la session Stripe). Quota atteint = la campagne ATTEND (comme le plafond
   journalier), rien n'échoue. `resend-webhook` compte le transactionnel réel
   dans `email_send_quota_month` scope `transactional` (observabilité).
+  **Un email PAYÉ n'attend jamais la cagnotte** (2026-10-05, migration
+  `20261007100000`) : dépassement payant Resend activé, la cagnotte de
+  40 000 ne compte que l'OFFERT ; crédits Suite et Yunits CRM passent au-delà,
+  sous un plafond absolu `email_platform_monthly_ceiling()` (230 000, sous les
+  5 × 50 000 où Resend coupe TOUT, billets compris — à relever avec l'offre).
+  `email_send_quota_month.paid_sent` = part payée ; offert = `sent − paid_sent`.
 - **Warm-up non contournable côté client** : `email_sender_daily_cap()`
   (300 → 25 000 sur 6 jours) + plafond plateforme. Les quotas se consomment via
   `consume_email_send_quota` (service_role only) ; un plafond atteint met la

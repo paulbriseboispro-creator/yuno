@@ -670,6 +670,10 @@ dans le code »).
   Débit aux endroits qui débitent déjà (quota email, SMS), pour les comptes CRM
   seulement. Rien n'est débité pour un test, un contact écarté par les règles
   d'envoi ou un refus du fournisseur.
+- ✅ **Un email payé n'attend jamais la cagnotte plateforme** (05/10, migration
+  `20261007100000`) : la cagnotte de 40 000 / mois ne compte que l'offert ;
+  Yunits et crédits passent au-delà, sous le plafond absolu
+  `email_platform_monthly_ceiling()` (230 000). Détail : `EMAIL_DELIVERABILITY.md` § 0.
 - Stripe : les prix existent (lancement mois et an, publics inactifs, quatre
   packs). Reste le code : `crm_checkout` sur `yuno_crm_base_*_launch`, achat de
   pack par `yuno_crm_pack_*`, crédit du portefeuille par le webhook (métadonnées
