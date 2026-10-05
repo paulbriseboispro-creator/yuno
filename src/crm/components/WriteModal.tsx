@@ -50,7 +50,7 @@ export function WriteModal({
   const short = left < 0;
   const none = !counts.isLoading && reach === 0;
   const caps = useCrmCaps();
-  const blocked = none || short || counts.isLoading || !caps.write;
+  const blocked = none || short || counts.isLoading || !caps.write || (ch === 'sms' && !CRM_SMS_DISPLAY_LIVE);
   const chLabel = t(ch === 'email' ? 'yc.cli.msg.ch.email' : 'yc.cli.msg.ch.sms');
 
   const go = () => {

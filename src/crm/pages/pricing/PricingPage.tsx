@@ -18,7 +18,6 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { PRO_SIGNUP_ORIGIN, proSignupUrl } from '@/lib/proSignup';
-import { CRM_CONNECTORS_LIVE } from '@/lib/crmProduct';
 import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
 import { CRM_RECHARGE, crmRechargeQuote } from '@/lib/crmBilling';
 import { Hv } from '@/crm/ui/Hv';
@@ -236,7 +235,8 @@ function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolea
   const { t, n } = usePrT();
   const price = useTween(annual ? cfg.price_year : cfg.price_month, 800);
   const feats: { k: string; soon: boolean; dSoon?: boolean }[] = [
-    { k: 'shotgun', soon: !CRM_CONNECTORS_LIVE },
+    // Le connecteur Shotgun est ouvert à tout compte Yuno CRM (CRM_CONNECTORS_LIVE ne garde que la carte de la Billetterie).
+    { k: 'shotgun', soon: false },
     { k: 'base', soon: false },
     { k: 'segments', soon: false },
     { k: 'reports', soon: false },

@@ -181,6 +181,13 @@ describe('billet Shotgun au schéma officiel', () => {
     expect(t.utm).toEqual({ utm_source: 'yuno_k3f9a2', utm_medium: 'app' });
   });
 
+  it('ne garde jamais la valeur du QR dans le billet brut', () => {
+    const t = mapShotgunTicket(DOC_TICKET, 1, now)!;
+    expect(t.raw).not.toHaveProperty('ticket_scan_code');
+    expect(JSON.stringify(t.raw)).not.toContain('42564997260325');
+    expect(t.raw).toHaveProperty('ticket_id');
+  });
+
   it('le diviseur de la connexion ne touche pas un montant documenté', () => {
     expect(mapShotgunTicket(DOC_TICKET, 100, now)!.price).toBe(39.99);
   });

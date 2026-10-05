@@ -4,6 +4,7 @@
  */
 import { Navigate, Route } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { CRM_SMS_DISPLAY_LIVE } from './lib/sms';
 
 const CrmGate = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmGate })));
 const CrmLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmLayout })));
@@ -45,6 +46,7 @@ const SmsSendPage = lazyWithRetry(() => import('./pages/sms/send/SmsSendPage'));
 const SmsResultPage = lazyWithRetry(() => import('./pages/sms/results/SmsResultPage'));
 const SmsAnalysisPage = lazyWithRetry(() => import('./pages/sms/analysis/SmsAnalysisPage'));
 const SmsSettingsPage = lazyWithRetry(() => import('./pages/sms/settings/SmsSettingsPage'));
+const SmsSoonPage = lazyWithRetry(() => import('./pages/soon/SmsSoonPage'));
 const PricingPage = lazyWithRetry(() => import('./pages/pricing/PricingPage'));
 
 export function crmRoutes() {
@@ -57,10 +59,11 @@ export function crmRoutes() {
       <Route path="/crm/emails/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<EmailSendPage />} />
       </Route>
-      <Route path="/crm/sms/compose/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+      {/* SMS « Bientôt » (CRM_SMS_DISPLAY_LIVE faux) : les éditeurs renvoient sur la page Bientôt. */}
+      <Route path="/crm/sms/compose/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>
         <Route index element={<SmsComposePage />} />
       </Route>
-      <Route path="/crm/sms/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+      <Route path="/crm/sms/send/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>
         <Route index element={<SmsSendPage />} />
       </Route>
       {/* Tarifs : page PUBLIQUE (visiteurs comme abonnés), hors de la porte du compte. */}
@@ -95,12 +98,21 @@ export function crmRoutes() {
         <Route path="analytics/:tab" element={<AnalyticsPage />} />
         <Route path="journey" element={<JourneyPage />} />
         <Route path="automations" element={<AutomationsPage />} />
-        <Route path="sms" element={<SmsOverviewPage />} />
-        <Route path="sms/campaigns" element={<SmsCampaignsPage />} />
-        <Route path="sms/templates" element={<SmsTemplatesPage />} />
-        <Route path="sms/results/:id" element={<SmsResultPage />} />
-        <Route path="sms/analysis" element={<SmsAnalysisPage />} />
-        <Route path="sms/settings" element={<SmsSettingsPage />} />
+        {CRM_SMS_DISPLAY_LIVE ? (
+          <>
+            <Route path="sms" element={<SmsOverviewPage />} />
+            <Route path="sms/campaigns" element={<SmsCampaignsPage />} />
+            <Route path="sms/templates" element={<SmsTemplatesPage />} />
+            <Route path="sms/results/:id" element={<SmsResultPage />} />
+            <Route path="sms/analysis" element={<SmsAnalysisPage />} />
+            <Route path="sms/settings" element={<SmsSettingsPage />} />
+          </>
+        ) : (
+          <>
+            <Route path="sms" element={<SmsSoonPage />} />
+            <Route path="sms/*" element={<Navigate to="/crm/sms" replace />} />
+          </>
+        )}
       </Route>
       <Route path="/crm/*" element={<CrmPublicShell><NotFoundScreen /></CrmPublicShell>} />
     </>

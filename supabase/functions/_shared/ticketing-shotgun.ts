@@ -360,8 +360,21 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     refunded_at: status === "refunded" || status === "cancelled" ? isoDate(pick(raw, P.refundedAt)) : null,
     source_updated_at: isoDate(pick(raw, P.updatedAt)),
     utm: utmFrom(raw),
-    raw,
+    raw: withoutScanCode(raw),
   };
+}
+
+/**
+ * La valeur du QR d'un billet (`ticket_scan_code`) ne se stocke JAMAIS chez Yuno
+ * (docs/designs/SHOTGUN_API_REFERENCE.md) : quiconque la lit entre à la soirée.
+ * Le reste du billet brut est gardé (`deal_channel` sert à reconnaître une
+ * invitation, `_crm_ticket_is_sale`).
+ */
+const SCAN_CODE_KEYS = ["ticket_scan_code", "scan_code", "scanCode", "ticketScanCode", "qr_code", "qrCode", "barcode"];
+export function withoutScanCode(raw: Json): Json {
+  const out: Json = { ...raw };
+  for (const k of SCAN_CODE_KEYS) delete out[k];
+  return out;
 }
 
 /**

@@ -11,12 +11,19 @@
 import { composeSmsBody, nonGsmChars, smsSizing, type SmsLang } from '@/lib/smsMarketing';
 
 /**
- * Le SMS est AFFICHÉ comme ouvert dans la Console (décision de Paul, 05/10) : plus
- * de pastille « Bientôt », plus de bandeau, les boutons sont actifs. Un drapeau
- * propre au CRM, distinct de `SMS_MARKETING_LIVE` (qui ouvre l'achat de crédits
- * de la Suite et reste fermé tant que le numéro Twilio n'est pas en place).
+ * Les écrans SMS de la Console sont-ils montrés ? Non en production (décision de
+ * Paul, 05/10 au soir, avant le premier client réel) : toutes les adresses
+ * /crm/sms/* rendent la page « Bientôt » (`SmsSoonPage`), le menu porte la
+ * pastille « Bientôt », Tarifs et Yunits disent « bientôt ».
+ *
+ * Pour travailler sur la suite SMS en local : `VITE_CRM_SMS_LIVE=1` dans
+ * `.env.local` (même modèle que `DRINKS_PILLAR_LIVE`). Un build de production
+ * n'a pas cette variable. Le jour de l'ouverture : brancher le moteur
+ * (`CRM_SMS_ENGINE_READY`, garde serveur `crm_sms_not_open`), puis remplacer la
+ * lecture par `true`. Distinct de `SMS_MARKETING_LIVE` (achat de crédits de la
+ * Suite).
  */
-export const CRM_SMS_DISPLAY_LIVE = true;
+export const CRM_SMS_DISPLAY_LIVE: boolean = import.meta.env.VITE_CRM_SMS_LIVE === '1';
 /** Le moteur SMS est-il branché pour les comptes CRM (Yunits, variables, réglages) ? Tant que non, rien ne part : le serveur refuse (`crm_sms_not_open`). */
 export const CRM_SMS_ENGINE_READY = false;
 /** Les écrans SMS se comportent comme ouverts (programmer, tester, envoyer). */

@@ -46,7 +46,7 @@ describe('Admin CRM : dictionnaire', () => {
       'adm.crm.aq.f.': ['opened', 'role', 'structure', 'account', 'created', 'console', 'paid'],
       'adm.crm.pr.t.': ['sync', 'sent', 'bought'],
       'adm.crm.pr.kind.': ['new_event', 'abandoned_checkout', 'tier_closing', 'last_call', 'table_upsell', 'post_event_thanks', 'post_event_missed', 'welcome', 'win_back', 'regular_lapse'],
-      'adm.crm.pr.feat.': ['instagram', 'signup_pages', 'brand_domain', 'auto_recharge'],
+      'adm.crm.pr.feat.': ['instagram', 'signup_pages', 'brand_domain', 'auto_recharge', 'sms'],
       'adm.crm.pf.imp.': ['running', 'done', 'undone'],
       'adm.crm.lg.doc.': ['terms_pro', 'confidentiality', 'dpa'],
       'adm.crm.lg.use.': ['db', 'pay', 'email', 'maps', 'host', 'analytics'],

@@ -15,6 +15,7 @@ import { YunitFace } from '@/crm/ui/YunitFace';
 import type { YunitMood } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 import { CRM_ROUTES, NAV_GROUP_CHILDREN } from './nav';
 import type { CrmScreen, NavGroupKey } from './nav';
 import yunoIcon from '@/crm/assets/yuno-app-icon.webp';
@@ -61,7 +62,7 @@ export function Sidebar({
       badge: badges.campaigns ? { n: badges.campaigns, tone: 'red' } : undefined,
       subs: [
         { id: 'emails', t: t('yc.nav.emails'), to: CRM_ROUTES.emails },
-        { id: 'sms', t: t('yc.nav.sms'), to: CRM_ROUTES.sms },
+        { id: 'sms', t: t('yc.nav.sms'), to: CRM_ROUTES.sms, tag: CRM_SMS_DISPLAY_LIVE ? undefined : t('yc.nav.soon') },
         { id: 'auto', t: t('yc.nav.automations'), to: CRM_ROUTES.automations },
         { id: 'instagram', t: t('yc.nav.instagram'), to: CRM_ROUTES.instagram, tag: t('yc.nav.soon') },
       ],
