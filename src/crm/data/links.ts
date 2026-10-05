@@ -35,14 +35,14 @@ export function useNightLinks(eventId: string | null) {
   });
 }
 
-export interface CreatedLink { id: string; code: string; label: string; platform: LinkPlatform; placement: LinkPlacement; created_at: string }
+export interface CreatedLink { id: string; code: string; label: string; platform: LinkPlatform; placement: LinkPlacement; created_at: string; image_url?: string | null }
 
 export function useLinkMutations(eventId: string | null) {
   const { rpc: args, qk } = useCrmScope();
   const qc = useQueryClient();
   const refresh = useCallback(() => qc.invalidateQueries({ queryKey: ['crm', qk, 'night-links', eventId] }), [qc, qk, eventId]);
-  const create = useCallback(async (platform: LinkPlatform, placement: LinkPlacement, label: string) => {
-    const r = await rpc<CreatedLink>('crm_link_create', { ...args, p_event_id: eventId, p_platform: platform, p_placement: placement, p_label: label });
+  const create = useCallback(async (platform: LinkPlatform, placement: LinkPlacement, label: string, imageUrl: string | null = null) => {
+    const r = await rpc<CreatedLink>('crm_link_create', { ...args, p_event_id: eventId, p_platform: platform, p_placement: placement, p_label: label, p_image_url: imageUrl });
     void refresh();
     return r;
   }, [args, eventId, refresh]);

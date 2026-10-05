@@ -823,10 +823,13 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   `LEGACY_KINDS`) : un lien déjà posé garde ses ventes. Les liens d'e-mail
   (`yuno-m-…`), de SMS et, plus tard, de réponse Instagram (`yuno-d-…`) se
   génèrent SEULS à l'envoi : jamais un bouton de création. La famille `so`
-  (« Autres visites réseaux ») = utm_source `instagram`/`tiktok`… SANS code
+  (« Instagram et TikTok (hors lien Yuno) ») = utm_source `instagram`/`tiktok`… SANS code
   Yuno, donc PAS nos liens : ne jamais la présenter comme « réseaux vus par
   Shotgun » ni la confondre avec `yl`, que l'écran détaille par type de lien
-  (`groupSources(rows, links)`).
+  (`groupSources(rows, links)`). Une publication (story, groupe…) se NOMME à
+  la création (`NewLinkModal`) avec sa capture en option (`tracked_links.image_url`,
+  bucket `email-assets`, migration `20261007120000`) : c'est ce qui permet de
+  dire quelle story a converti. Le lien en bio, unique, se crée d'un geste.
 - **Fiche client** (`crm_client`, migration `20261006220000`) : chaque achat
   porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
   « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un

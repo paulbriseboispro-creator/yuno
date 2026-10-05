@@ -28,6 +28,7 @@ import {
 } from '@/crm/lib/links';
 import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
 import { PlatformBadge, QrModal, SOURCE_COLOR, Spark } from './linksUi';
+import { NewLinkModal } from './NewLinkModal';
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -86,6 +87,7 @@ function Body({ d }: { d: NightLinksData }) {
   const [showArchived, setShowArchived] = useState(false);
   const [sort, setSort] = useState<'recent' | 'best'>('recent');
   const [qr, setQr] = useState<NightLink | null>(null);
+  const [naming, setNaming] = useState<LinkKind | null>(null);
   const freshTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(freshTimer.current), []);
 
@@ -122,25 +124,32 @@ function Body({ d }: { d: NightLinksData }) {
     }
   };
 
-  const create = async (k: LinkKind) => {
-    if (busy) return;
+  const defaultName = (k: LinkKind) => `${kindLabel(k)} ${nextIndex(d.links, k)}`;
+
+  /** Une publication (story, groupe…) se nomme d'abord ; un lien en bio est unique : créé ou recopié d'un geste. */
+  const create = async (k: LinkKind, named?: { name: string; imageUrl: string | null }): Promise<boolean> => {
+    if (busy) return false;
     const reuse = reusableLink(d.links, k);
     if (reuse) {
       await copyLink(reuse);
       flash(reuse.id);
-      return;
+      return true;
     }
+    if (k.perPost && !named) { setNaming(k); return false; }
     setBusy(kindKey(k.platform, k.placement));
-    const label = k.perPost ? `${kindLabel(k)} ${nextIndex(d.links, k)}` : kindLabel(k);
+    const label = named?.name ?? kindLabel(k);
     try {
-      const r = await m.create(k.platform, k.placement, label);
+      const r = await m.create(k.platform, k.placement, label, named?.imageUrl ?? null);
+      setNaming(null);
       const ok = await copyText(goUrl(PUBLIC_BASE_URL, r.code));
       flash(r.id);
       toast(ok ? t('yc.lk.created', { label: r.label }) + ' ' + tipFor(k) : t('yc.lk.createdNoCopy', { label: r.label }));
       setShowAll(false);
+      return true;
     } catch (e) {
       const code = e instanceof CrmRpcError ? e.code : undefined;
       toast(code === '25006' ? t('yc.lk.err.readonly') : code === '42501' ? t('yc.lk.err.forbidden') : t('yc.lk.err.create'));
+      return false;
     } finally {
       setBusy(null);
     }
@@ -315,6 +324,13 @@ function Body({ d }: { d: NightLinksData }) {
       {/* ── Bientôt, avec l'intégration partenaire Shotgun ─────────────── */}
       <ShotgunSoonCard items={['visits', 'curious', 'carts']} delay={340} />
 
+      <NewLinkModal
+        kind={naming}
+        kindLabel={naming ? kindLabel(naming) : ''}
+        defaultName={naming ? defaultName(naming) : ''}
+        onClose={() => setNaming(null)}
+        onCreate={async (name, imageUrl) => { if (naming && !(await create(naming, { name, imageUrl }))) throw new Error('create'); }}
+      />
       {qr && <QrModal open={!!qr} onClose={() => setQr(null)} url={goUrl(PUBLIC_BASE_URL, qr.code)} display={goDisplay(PUBLIC_BASE_URL, qr.code)} label={qr.label} />}
     </div>
   );
@@ -459,7 +475,14 @@ function LinkRow({ l, i, confirmed, money, canWrite, fresh, copied, onCopy, onQr
         className="yc-focus-ring"
         style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 12px 12px 14px', cursor: 'pointer', outline: 'none', flexWrap: 'wrap' }}
       >
-        <PlatformBadge platform={l.platform} placement={l.placement} size={42} />
+        {l.image_url ? (
+          <span style={{ position: 'relative', flex: 'none' }}>
+            <img src={l.image_url} alt={l.label} loading="lazy" style={{ width: 42, height: 56, objectFit: 'cover', borderRadius: 10, display: 'block', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }} />
+            <span style={{ position: 'absolute', right: -6, bottom: -6 }}><PlatformBadge platform={l.platform} size={20} /></span>
+          </span>
+        ) : (
+          <PlatformBadge platform={l.platform} placement={l.placement} size={42} />
+        )}
         <span style={{ flex: narrow ? '1 1 0' : '1 1 180px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {edit ? (
             <input

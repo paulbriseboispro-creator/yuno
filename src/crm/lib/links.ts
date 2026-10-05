@@ -72,6 +72,8 @@ export interface NightLink {
   platform: LinkPlatform;
   placement: LinkPlacement;
   source: string;
+  /** Capture de la story, jointe à la création (facultative). */
+  image_url?: string | null;
   created_at: string;
   archived: boolean;
   clicks: number;
