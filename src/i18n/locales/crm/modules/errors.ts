@@ -48,6 +48,20 @@ const dict: CrmDict = {
   'yc.er.403.whoV': ['The owner of the space', 'Le titulaire de l’espace', 'El titular del espacio'],
   'yc.er.403.wrong': ['Not the right account?', 'Ce n’est pas le bon compte ?', '¿No es la cuenta correcta?'],
   'yc.er.403.switch': ['Switch account', 'Changer de compte', 'Cambiar de cuenta'],
+  // 403, titulaire d'un compte Billetterie sans CRM : ajouter le CRM au compte
+  'yc.er.403.openKicker': ['Yuno CRM · Not opened yet', 'Yuno CRM · Pas encore ouvert', 'Yuno CRM · Aún no abierto'],
+  'yc.er.403.openTitle': ['Yuno CRM is one {word} away.', 'Yuno CRM est à un {word}.', 'Yuno CRM está a un {word}.'],
+  'yc.er.403.openWord': ['click', 'clic', 'clic'],
+  'yc.er.403.openBody': ['{name} uses Yuno Ticketing. Add Yuno CRM to the same account: same login, same contacts, and your ticketing stays exactly as it is.', '{name} utilise Yuno Billetterie. Ajoutez Yuno CRM au même compte : même connexion, mêmes contacts, et votre billetterie reste exactement comme elle est.', '{name} usa Yuno Ticketing. Añade Yuno CRM a la misma cuenta: mismo acceso, mismos contactos, y tu ticketing se queda exactamente como está.'],
+  'yc.er.403.openBodyMany': ['Your accounts use Yuno Ticketing. Add Yuno CRM to one of them: same login, same contacts, and your ticketing stays exactly as it is.', 'Vos comptes utilisent Yuno Billetterie. Ajoutez Yuno CRM à l’un d’eux : même connexion, mêmes contacts, et votre billetterie reste exactement comme elle est.', 'Tus cuentas usan Yuno Ticketing. Añade Yuno CRM a una de ellas: mismo acceso, mismos contactos, y tu ticketing se queda exactamente como está.'],
+  'yc.er.403.openCta': ['Add Yuno CRM to my account', 'Ajouter Yuno CRM à mon compte', 'Añadir Yuno CRM a mi cuenta'],
+  'yc.er.403.openWhy': ['What changes', 'Ce qui change', 'Qué cambia'],
+  'yc.er.403.ticketing': ['Yuno Ticketing', 'Yuno Billetterie', 'Yuno Ticketing'],
+  'yc.er.403.crmRow': ['Yuno CRM', 'Yuno CRM', 'Yuno CRM'],
+  'yc.er.403.crmRowV': ['Not opened yet', 'Pas encore ouvert', 'Aún no abierto'],
+  'yc.er.403.fact1': ['Your ticketing stays, nothing is removed', 'Votre billetterie reste, rien n’est retiré', 'Tu ticketing se queda, no se quita nada'],
+  'yc.er.403.fact2': ['14-day free trial, no card', '14 jours d’essai gratuit, sans carte', '14 días de prueba gratis, sin tarjeta'],
+  'yc.er.403.fact3': ['Then the Yuno CRM subscription, only if you keep it', 'Puis l’abonnement Yuno CRM, seulement si vous le gardez', 'Luego la suscripción a Yuno CRM, solo si la mantienes'],
 
   // 500
   'yc.er.500.kicker': ['Error 500 · On Yuno’s side', 'Erreur 500 · Côté Yuno', 'Error 500 · Por parte de Yuno'],

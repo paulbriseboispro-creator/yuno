@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import '@/crm/styles/crm.css';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocaleSection } from '@/contexts/LanguageContext';
@@ -27,6 +28,8 @@ import { ForbiddenScreen, OfflineScreen, SignedOutScreen, useCountdown } from '@
 import { OfflineBar } from '@/crm/errors/OfflineBar';
 import { useOnline } from '@/crm/errors/useOnline';
 import { classifyLoadError, retryDelaySeconds } from '@/crm/lib/errors';
+import { openCrmOffer, type ProductAccountRow } from '@/crm/lib/openCrmOffer';
+import { rpc } from '@/crm/lib/rpc';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { screenFor } from './nav';
@@ -77,9 +80,29 @@ function SpacesFailure({ error, onRetry }: { error: unknown; onRetry: () => void
   );
 }
 
+/**
+ * Aucun espace CRM. Le titulaire d'un compte Yuno Billetterie se voit proposer
+ * d'y AJOUTER le CRM (/open/crm, essai de 14 jours) ; « Changer de compte » ne
+ * fait que déconnecter. Une lecture en échec retombe sur l'écran 403 simple.
+ */
 function NoSpace() {
   const { user, signOut } = useAuth();
-  return <ForbiddenScreen noSpace email={user?.email ?? ''} onSwitch={() => { void signOut().finally(() => window.location.assign('/auth')); }} />;
+  const accounts = useQuery({
+    queryKey: ['crm-open-offer', user?.id ?? null],
+    enabled: !!user,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: () => rpc<ProductAccountRow[] | null>('get_my_product_accounts'),
+  });
+  if (accounts.isLoading) return <Splash />;
+  return (
+    <ForbiddenScreen
+      noSpace
+      email={user?.email ?? ''}
+      openCrm={accounts.isError ? null : openCrmOffer(accounts.data)}
+      onSwitch={() => { void signOut().finally(() => window.location.assign('/auth')); }}
+    />
+  );
 }
 
 /** Garde + portée : qui entre, et dans quel espace. */

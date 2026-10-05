@@ -20,6 +20,7 @@ import type { YunitMood } from '@/crm/ui/YunitFace';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { loginUrl, SUPPORT_EMAIL } from '@/crm/lib/errors';
+import type { OpenCrmOffer } from '@/crm/lib/openCrmOffer';
 
 const TOKEN = '/crm/yunit-token.webp';
 const mailto = `mailto:${SUPPORT_EMAIL}`;
@@ -196,10 +197,65 @@ export function SignedOutScreen({ path }: { path: string }) {
 }
 
 /* ───────────────────────── 403 ───────────────────────── */
-export function ForbiddenScreen({ email, page, noSpace = false, onSwitch }: { email: string; page?: string; noSpace?: boolean; onSwitch: () => void }) {
+
+/**
+ * Le titulaire d'un compte Yuno Billetterie sans CRM n'est pas « au mauvais
+ * endroit » : on lui propose d'AJOUTER Yuno CRM à ce compte (/open/crm,
+ * essai de 14 jours, la billetterie ne change pas). « Changer de compte » ne
+ * fait que déconnecter : ce n'est plus le geste principal.
+ */
+function OpenCrmScreen({ email, offer, onSwitch }: { email: string; offer: OpenCrmOffer; onSwitch: () => void }) {
+  const { t } = useCrmT();
+  const title = useTitle();
+  const rows: [string, string][] = [[t('yc.er.403.account'), email]];
+  if (offer.name) rows.push([t('yc.er.403.ticketing'), offer.name]);
+  rows.push([t('yc.er.403.crmRow'), t('yc.er.403.crmRowV')]);
+  return (
+    <Frame right={<span style={{ fontSize: 13.5, color: 'var(--sand-600)' }}>{email}</span>}>
+      <ErrStyles />
+      <main className="yc-er yc-er-rise" style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 48, padding: '0 clamp(20px,7vw,120px) 56px' }}>
+        <div style={{ flex: '1 1 380px', maxWidth: 520 }}>
+          <span style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--gradient-brand)', color: '#fff', display: 'grid', placeItems: 'center', marginBottom: 28 }}><Icon name="sparkles" size={22} stroke={2} /></span>
+          <MonoLabel>{t('yc.er.403.openKicker')}</MonoLabel>
+          <Headline tpl={title('yc.er.403.openTitle', 'word')} word={t('yc.er.403.openWord')} size={56} style={{ marginTop: 14, fontSize: 'clamp(38px,4.6vw,60px)' }} />
+          <p style={{ margin: '18px 0 0', fontSize: 16.5, lineHeight: 1.55, color: 'var(--sand-600)', textWrap: 'pretty' }}>
+            {offer.name ? t('yc.er.403.openBody', { name: offer.name }) : t('yc.er.403.openBodyMany')}
+          </p>
+          <div style={{ marginTop: 26, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <RedCta href={offer.href} icon="plus">{t('yc.er.403.openCta')}</RedCta>
+            <WhitePill href={mailto}>{t('yc.er.401.contact')}</WhitePill>
+          </div>
+          <p style={{ margin: '22px 0 0', fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.er.403.wrong')} <button type="button" onClick={onSwitch} style={{ color: 'var(--red-600)', background: 'none', border: 0, padding: 0, font: 'inherit', cursor: 'pointer' }}>{t('yc.er.403.switch')}</button></p>
+        </div>
+        <div style={{ flex: '0 1 400px', background: '#fff', borderRadius: 24, padding: '24px 28px', boxShadow: 'var(--shadow-lg)', width: 400, maxWidth: '100%', boxSizing: 'border-box' }}>
+          <MonoLabel size={11}>{t('yc.er.403.openWhy')}</MonoLabel>
+          <div style={{ marginTop: 10 }}>
+            {rows.map(([k, v], i) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '14px 0', borderTop: i ? '1px solid var(--sand-100)' : 0, fontSize: 13.5 }}>
+                <span style={{ color: 'var(--sand-500)', flex: 'none' }}>{k}</span>
+                <span style={{ fontWeight: 600, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <ul style={{ margin: '14px 0 0', padding: '14px 0 0', listStyle: 'none', borderTop: '1px solid var(--sand-100)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(['fact1', 'fact2', 'fact3'] as const).map((k) => (
+              <li key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13.5, lineHeight: 1.45, color: 'var(--ink)' }}>
+                <span style={{ color: 'var(--red-600)', display: 'inline-flex', flex: 'none', marginTop: 2 }}><Icon name="check" size={16} stroke={2.4} /></span>
+                {t(`yc.er.403.${k}`)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </main>
+    </Frame>
+  );
+}
+
+export function ForbiddenScreen({ email, page, noSpace = false, openCrm, onSwitch }: { email: string; page?: string; noSpace?: boolean; openCrm?: OpenCrmOffer | null; onSwitch: () => void }) {
   const { t } = useCrmT();
   const title = useTitle();
   const nav = useNavigate();
+  if (noSpace && openCrm) return <OpenCrmScreen email={email} offer={openCrm} onSwitch={onSwitch} />;
   const rows: [string, string, string?][] = [[t('yc.er.403.account'), email]];
   if (noSpace) rows.push([t('yc.er.403.page'), t('yc.er.403.noSpace')]);
   else { if (page) rows.push([t('yc.er.403.page'), page]); rows.push([t('yc.er.403.who'), t('yc.er.403.whoV')]); }

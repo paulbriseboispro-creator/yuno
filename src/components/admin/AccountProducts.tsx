@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Layers, Mail, Plus } from 'lucide-react';
+import { Gift, Layers, Mail, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Btn, Modal, Pill, Spinner, T1, T2, T3, F_BORDER } from '@/components/admin/ui';
@@ -10,7 +10,10 @@ import { fmtDate } from '@/lib/adminFormat';
  * Les produits d'un compte (Billetterie, CRM) et l'ouverture de l'autre
  * (migration 20261006100000) : pastilles dans les listes du super admin, et une
  * fenêtre pour inviter le titulaire par email (style Yuno CRM, edge
- * admin-account-recovery → invite-product) ou ouvrir directement.
+ * admin-account-recovery → invite-product), ouvrir directement, ou OFFRIR
+ * Yuno CRM : socle accordé sans abonnement ni date de fin
+ * (`admin_grant_crm_plan(scope, 'base', null)`), Yunits du mois compris —
+ * pour les comptes de Yuno et les partenaires, jamais pour un client qui paie.
  */
 
 export type Product = 'suite' | 'crm';
@@ -48,6 +51,7 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmGift, setConfirmGift] = useState(false);
   const [history, setHistory] = useState<{ events: ProductEvent[]; open_invites: OpenInvite[] } | null>(null);
 
   const scopeKey = account.venueId ? `venue:${account.venueId}` : `org:${account.organizerUserId}`;
@@ -55,6 +59,7 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
     ? (account.extra.includes('suite') ? null : 'suite')
     : (account.extra.includes('crm') ? null : 'crm');
   const productLabel = (p: Product) => t(p === 'crm' ? 'adm.prod.crm' : 'adm.prod.suite');
+  const hasCrm = account.product === 'crm' || account.extra.includes('crm');
 
   const loadHistory = useCallback(async () => {
     const { data, error } = await supabase.rpc('admin_account_products' as never, { p_scope_keys: [scopeKey] } as never);
@@ -93,6 +98,36 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
     setOpen(false);
   };
 
+  /** Offrir Yuno CRM : l'ouvrir s'il manque, puis l'accorder sans fin. */
+  const gift = async () => {
+    setBusy('gift');
+    if (!hasCrm) {
+      const { error } = await supabase.rpc('admin_add_account_product' as never, {
+        p_venue_id: account.venueId ?? null,
+        p_organizer_user_id: account.venueId ? null : account.organizerUserId,
+        p_product: 'crm',
+      } as never);
+      if (error) { setBusy(null); setConfirmGift(false); toast.error(error.message); return; }
+    }
+    const { error } = await supabase.rpc('admin_grant_crm_plan' as never, {
+      p_scope_key: scopeKey, p_plan: 'base', p_until: null,
+    } as never);
+    setBusy(null);
+    setConfirmGift(false);
+    if (error) {
+      toast.error(error.message.includes('has_stripe_subscription') ? t('adm.prod.giftHasStripe') : error.message);
+      if (!hasCrm) onChanged?.();
+      return;
+    }
+    toast.success(t('adm.prod.gifted').replace('{name}', account.name));
+    onChanged?.();
+    setOpen(false);
+  };
+
+  const giftButton = confirmGift
+    ? <Btn variant="danger" size="sm" icon={Gift} loading={busy === 'gift'} onClick={() => void gift()}>{t('adm.prod.confirmGift')}</Btn>
+    : <Btn size="sm" icon={Gift} onClick={() => setConfirmGift(true)}>{t('adm.prod.gift')}</Btn>;
+
   return (
     <>
       <Btn size="sm" variant="subtle" icon={Layers} onClick={() => setOpen(true)} title={t('adm.prod.manage')} />
@@ -112,10 +147,20 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
               {confirmOpen
                 ? <Btn variant="danger" size="sm" icon={Plus} loading={busy === 'add'} onClick={() => void addNow()}>{t('adm.prod.confirmAdd')}</Btn>
                 : <Btn size="sm" icon={Plus} onClick={() => setConfirmOpen(true)}>{t('adm.prod.addNow')}</Btn>}
+              {missing === 'crm' && giftButton}
             </div>
+            {missing === 'crm' && <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>{t('adm.prod.giftHint')}</div>}
           </div>
         ) : (
           <p style={{ color: T2, fontSize: 13, marginTop: 8 }}>{t('adm.prod.both')}</p>
+        )}
+
+        {hasCrm && (
+          <div className="rounded-xl p-3.5 mt-2" style={{ border: `1px solid ${F_BORDER}` }}>
+            <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('adm.prod.giftTitle')}</div>
+            <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftHint')}</div>
+            <div className="flex flex-wrap gap-2 mt-3">{giftButton}</div>
+          </div>
         )}
 
         <div style={{ color: T2, fontSize: 12, fontWeight: 600, marginTop: 18 }}>{t('adm.prod.history')}</div>
