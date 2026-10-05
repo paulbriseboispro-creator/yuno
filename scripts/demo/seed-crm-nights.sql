@@ -57,7 +57,7 @@ BEGIN
      '12 rue de la Nuit', 'Paris', '75011', 'FR', ARRAY['techno'],
      '[{"name":"DJ Maya"},{"name":"Ghoul Collective"}]'::jsonb,
      '[{"name":"Early bird","price":15,"quantity":150},{"name":"Prévente","price":22,"quantity":350},{"name":"Tarif normal","price":30,"quantity":300}]'::jsonb,
-     800, now() - interval '2 days', (current_date + 6 + time '12:00') AT TIME ZONE 'Europe/Paris', 'organizer', 'club'),
+     800, now() - interval '2 days', (current_date + 3 + time '12:00') AT TIME ZONE 'Europe/Paris', 'organizer', 'club'),
     (v_conn, v_uid, 'shotgun', 'demo-soon-2', 'Réveillon ' || extract(year FROM now())::int, 'demo-reveillon', 'https://shotgun.live/events/demo-reveillon',
      (make_date(extract(year FROM now())::int, 12, 31) + time '22:00') AT TIME ZONE 'Europe/Paris',
      (make_date(extract(year FROM now())::int, 12, 31) + time '22:00') AT TIME ZONE 'Europe/Paris' + interval '10 hours', 'Europe/Paris',
@@ -80,9 +80,9 @@ BEGIN
      WHERE connection_id = v_conn AND external_event_id = v_ev.external_id AND status IN ('valid', 'transferred');
     IF v_ev.start_at > now() THEN
       v_q := jsonb_build_array(
-        jsonb_build_object('name', 'Early bird', 'price', 12, 'quantity', CASE WHEN v_reg > 0 THEN v_early ELSE GREATEST(v_early + 30, 120) END),
-        jsonb_build_object('name', 'Regular', 'price', 16, 'quantity', 160),
-        jsonb_build_object('name', 'Late', 'price', 20, 'quantity', 130));
+        jsonb_build_object('name', 'Early bird', 'price', 14, 'quantity', CASE WHEN v_reg > 0 THEN v_early ELSE GREATEST(v_early + 30, 120) END),
+        jsonb_build_object('name', 'Regular', 'price', 18, 'quantity', 160),
+        jsonb_build_object('name', 'Late', 'price', 22, 'quantity', 130));
       UPDATE public.external_events SET deals = v_q,
              left_tickets = (CASE WHEN v_reg > 0 THEN v_early ELSE GREATEST(v_early + 30, 120) END) + 160 + 130 - v_sold,
              launched_at = LEAST(launched_at, v_first - interval '2 hours')
@@ -90,9 +90,9 @@ BEGIN
     ELSE
       v_slack := v_slacks[1 + (v_i % array_length(v_slacks, 1))];
       v_q := jsonb_build_array(
-        jsonb_build_object('name', 'Early bird', 'price', 12, 'quantity', v_early),
-        jsonb_build_object('name', 'Regular', 'price', 16, 'quantity', v_reg),
-        jsonb_build_object('name', 'Late', 'price', 20, 'quantity', v_late + v_slack));
+        jsonb_build_object('name', 'Early bird', 'price', 14, 'quantity', v_early),
+        jsonb_build_object('name', 'Regular', 'price', 18, 'quantity', v_reg),
+        jsonb_build_object('name', 'Late', 'price', 22, 'quantity', v_late + v_slack));
       UPDATE public.external_events SET deals = v_q, left_tickets = v_slack,
              launched_at = LEAST(launched_at, v_first - interval '2 hours')
        WHERE id = v_ev.id;
@@ -112,21 +112,36 @@ BEGIN
   DELETE FROM public.email_campaigns
    WHERE organizer_user_id = v_uid AND venue_id IS NULL AND theme_json->>'seed' = 'crm-nights';
 
-  -- Brouillon « dernier appel » sur la prochaine soirée en vente.
+  -- Brouillon « line-up » sur la 2e soirée à venir (à finir : tâche « Terminer »).
+  SELECT e.id INTO v_mirror FROM public.events e
+    JOIN public.external_events x ON x.event_id = e.id
+   WHERE e.organizer_user_id = v_uid AND e.external_source IS NOT NULL AND e.start_at > now()
+     AND (x.launched_at IS NULL OR x.launched_at <= now())
+   ORDER BY e.start_at OFFSET 1 LIMIT 1;
+  IF v_mirror IS NOT NULL THEN
+    INSERT INTO public.email_campaigns (organizer_user_id, venue_id, name, subject, type, status, event_id, created_by,
+           blocks_version, audiences_json, theme_json, created_at, updated_at)
+    SELECT v_uid, NULL, 'Le line-up — ' || e.title, 'Le line-up de ' || e.title || ' est tombé', 'promotional', 'draft', e.id, v_uid,
+           2, '[{"kind":"crm","def":{"seg":"hab","f":{}}}]'::jsonb, '{"seed":"crm-nights","kind":"lineup"}'::jsonb, now() - interval '5 hours', now() - interval '5 hours'
+      FROM public.events e WHERE e.id = v_mirror;
+  END IF;
+
+  -- Dernier rappel de la prochaine soirée, programmé demain 9 h : tâche « Valider ».
   SELECT e.id INTO v_mirror FROM public.events e
     JOIN public.external_events x ON x.event_id = e.id
    WHERE e.organizer_user_id = v_uid AND e.external_source IS NOT NULL AND e.start_at > now()
      AND (x.launched_at IS NULL OR x.launched_at <= now())
    ORDER BY e.start_at LIMIT 1;
   IF v_mirror IS NOT NULL THEN
-    INSERT INTO public.email_campaigns (organizer_user_id, venue_id, name, subject, type, status, event_id, created_by,
+    INSERT INTO public.email_campaigns (organizer_user_id, venue_id, name, subject, type, status, scheduled_at, event_id, created_by,
            blocks_version, audiences_json, theme_json, created_at, updated_at)
-    SELECT v_uid, NULL, 'Last call — ' || e.title, 'Last call — ' || e.title, 'promotional', 'draft', e.id, v_uid,
-           2, '[{"kind":"crm","def":{"seg":"all","f":{}}}]'::jsonb, '{"seed":"crm-nights"}'::jsonb, now() - interval '3 hours', now() - interval '3 hours'
+    SELECT v_uid, NULL, 'Dernier rappel · ' || e.title, 'Plus que 2 jours — ' || e.title, 'promotional', 'scheduled',
+           (((now() AT TIME ZONE 'Europe/Paris')::date + 1) + time '09:00') AT TIME ZONE 'Europe/Paris', e.id, v_uid,
+           2, '[{"kind":"crm","def":{"seg":"hab","f":{}}}]'::jsonb, '{"seed":"crm-nights","kind":"lastcall"}'::jsonb, now() - interval '1 day', now() - interval '1 day'
       FROM public.events e WHERE e.id = v_mirror;
   END IF;
 
-  -- Rappel planifié à J-3 de la soirée en vente suivante.
+  -- Rappel J-3 de la 2e soirée, programmé (visible au calendrier des envois).
   SELECT e.id INTO v_mirror FROM public.events e
     JOIN public.external_events x ON x.event_id = e.id
    WHERE e.organizer_user_id = v_uid AND e.external_source IS NOT NULL AND e.start_at > now() + interval '8 days'
@@ -137,7 +152,7 @@ BEGIN
            blocks_version, audiences_json, theme_json, created_at, updated_at)
     SELECT v_uid, NULL, 'Rappel J-3 ' || e.title, 'Plus que 3 jours — ' || e.title, 'promotional', 'scheduled',
            ((e.start_at AT TIME ZONE 'Europe/Paris')::date - 3 + time '09:00') AT TIME ZONE 'Europe/Paris', e.id, v_uid,
-           2, '[{"kind":"crm","def":{"seg":"hab","f":{}}}]'::jsonb, '{"seed":"crm-nights"}'::jsonb, now() - interval '1 day', now() - interval '1 day'
+           2, '[{"kind":"crm","def":{"seg":"hab","f":{}}}]'::jsonb, '{"seed":"crm-nights","kind":"lastcall"}'::jsonb, now() - interval '1 day', now() - interval '1 day'
       FROM public.events e WHERE e.id = v_mirror;
   END IF;
 

@@ -769,6 +769,12 @@ tables réelles ; rien n'est inventé :
     `_crm_admin_rows` et sort des comptes cibles.
   - Clés : une clé n'est définie qu'UNE fois (test dans `keys.test.ts`) — la
     connexion utilisait `adm.crm.lg.*` et écrasait le sous-titre de Légal.
+- **Compte démo CRM (`crm@womber.fr`) = `bash scripts/demo/refresh-crm-demo.sh`**
+  (6 min, rejouable, cf. `scripts/demo/README.md`), ancré sur `now()` : à relancer avant
+  chaque call de vente et au plus tard tous les 3-4 jours, sinon les courbes comparent
+  du vieux et l'accueil perd ses tâches. Ne jamais semer d'adresse avec accent ; les
+  Yunits de la démo ne comptent aucun SMS (écrans SMS « Bientôt » en production).
+  Écriture lourde : la lancer SEUL (règle de santé de la prod ci-dessus).
 - Vérification visuelle sans session super admin : un banc de données d'exemple
   (jamais commité, `.crm-tools/`), car aucun compte `@womber.fr` n'est admin.
 

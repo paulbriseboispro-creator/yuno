@@ -77,6 +77,38 @@ Ce qui ne se fait jamais, garde ou pas :
 - **Ni Playwright ni Puppeteer sur cette machine**, et le binaire `browse` de
   gstack sort en 137. CDP en direct avec le `WebSocket` natif de Node 22.
 
+## Compte démo Yuno CRM (`crm@womber.fr`) : à rafraîchir avant un call
+
+```bash
+bash scripts/demo/refresh-crm-demo.sh     # ~6 min, rejouable, borné au compte démo
+```
+
+Tout est **ancré sur la date du jour** : prochaine soirée dans 3 jours (à J-3, d'où la
+tâche « Relancer les habitués »), 12 soirées hebdomadaires avant elle + 12 bimensuelles
+d'historique (~7 mois : sans elles personne n'est « endormi »), ventes jusqu'à
+maintenant (heure comprise), envois et SMS positionnés par rapport à leur soirée,
+automatisations allumées depuis 7 semaines. Le calendrier avance, les données semées
+non : **relancer le script si la dernière exécution date de plus de 3-4 jours**
+(sinon « −x % vs période précédente », « Shotgun synchronisé · 2 oct. », plus de
+tâches). Ordre : `seed-crm-demo` (billets) → `seed-crm-sms` → `seed-crm-messages` →
+`seed-crm-nights` → `seed-crm-links` → automatisations (`.ts` puis `.sql`) → contenu des
+e-mails (`.ts`) → `seed-crm-extras` (réglages, pages d'inscription, imports, segments
+et leur historique de taille, grand livre des Yunits, équipe, Instagram en brouillon,
+NPS, notifications lues, statistiques de la base).
+
+- L'API de requêtes coupe à ~100 s (erreur 524 côté client, le serveur va au bout) :
+  le script attend la fin de la passe automatisations, réessaie une passe en cas
+  d'interblocage et finit par `ANALYZE` (sans lui les analyses passent de 4 à 25 s).
+- Les e-mails d'acheteurs sont **sans accent** (`translate`) : un `é` rend l'adresse
+  invalide et gonfle « contacts injoignables ».
+- SMS : affichés « Bientôt » en production (décision du 05/10), donc ils ne débitent
+  AUCUN Yunit dans le grand livre de la démo. En local, `VITE_CRM_SMS_LIVE=1`.
+- Aucun envoi réel, aucun appel Stripe / Shotgun / Meta : tout est lu en base.
+- **C'est une écriture lourde sur une prod fragile** (machine de 426 Mo, panne du 05/10 :
+  `docs/SUPABASE_PROD_HEALTH.md`) : la lancer SEUL, après un coup d'œil à
+  `pg_stat_activity`, jamais pendant une migration ni un autre test SQL lourd, et pas
+  en boucle. Une fois par call suffit.
+
 ## Piloter le front : `click` ou `mouse` ?
 
 - `page.click('text=…')` fait un `el.click()` : parfait pour un bouton ordinaire.

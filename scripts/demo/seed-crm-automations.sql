@@ -1,5 +1,5 @@
 -- ============================================================================
--- Démo Yuno CRM : 13 semaines d'automatisations pour crm@womber.fr, afin que
+-- Démo Yuno CRM : 7 semaines d'automatisations pour crm@womber.fr, afin que
 -- l'écran Automatisations montre ce qu'elles ont envoyé et fait vendre.
 -- Rien ne part : les campagnes enfants sont écrites directement en « sent »,
 -- avec leurs destinataires, ouvertures et clics, et le registre
@@ -21,15 +21,16 @@
 -- ============================================================================
 
 BEGIN;
+SET LOCAL statement_timeout = '900s';
 
--- Allumées depuis 14 semaines ; la reconquête coupée il y a 12 jours. Le
+-- Allumées depuis 7 semaines ; la reconquête coupée il y a 12 jours. Le
 -- trigger d'écriture repose updated_at / enabled_at à now() : coupé
 -- (session_replication_role) le temps de ces deux lignes seulement, jamais
 -- pendant le reste du semis (les suppressions en cascade en dépendent).
 SET session_replication_role = replica;
 UPDATE public.email_automations a
-   SET enabled = (a.kind <> 'win_back'), enabled_at = now() - interval '98 days',
-       updated_at = CASE WHEN a.kind = 'win_back' THEN now() - interval '12 days' ELSE now() - interval '98 days' END
+   SET enabled = (a.kind <> 'win_back'), enabled_at = now() - interval '49 days',
+       updated_at = CASE WHEN a.kind = 'win_back' THEN now() - interval '12 days' ELSE now() - interval '49 days' END
   FROM auth.users u
  WHERE u.id = a.organizer_user_id AND lower(u.email) = 'crm@womber.fr' AND public.is_demo_email(u.email)
    AND a.venue_id IS NULL AND a.template_id IS NOT NULL
@@ -40,7 +41,7 @@ DO $seed$
 DECLARE
   v_uid uuid;
   v_now timestamptz := now();
-  v_on timestamptz := now() - interval '98 days';
+  v_on timestamptz := now() - interval '49 days';
   v_pause timestamptz := now() - interval '12 days';
   v_s record;
   v_tpl record;
@@ -75,6 +76,12 @@ BEGIN
     SELECT t.id, t.email, t.amount, t.bought_at, t.event_id, t.event_start, t.scanned_at
       FROM public._crm_tickets(NULL, v_uid) t WHERE t.email IS NOT NULL;
   CREATE INDEX ON _st (email, bought_at);
+  CREATE INDEX ON _st (email, event_id);
+  CREATE INDEX ON _st (email, event_start);
+  CREATE INDEX ON _st (event_id);
+  CREATE INDEX ON _sp (email);
+  ANALYZE _st;
+  ANALYZE _sp;
   CREATE TEMP TABLE _se ON COMMIT DROP AS
     SELECT e.id, e.title, e.start_at, COALESCE(e.end_at, e.start_at + interval '8 hours') AS end_at, e.published_at
       FROM public.events e WHERE e.organizer_user_id = v_uid AND e.external_source IS NOT NULL;
@@ -120,6 +127,8 @@ BEGIN
 
   -- ------------------------------------------------------- Les destinataires
   CREATE TEMP TABLE _sr (idx int, email text, first_name text, last_name text, skip text) ON COMMIT DROP;
+  CREATE INDEX ON _sr (email, idx);
+  CREATE INDEX ON _sr (idx);
 
   -- Nouvelle soirée : toute la base consentante, sauf qui a déjà sa place.
   INSERT INTO _sr
@@ -204,7 +213,7 @@ BEGIN
 
       INSERT INTO public.email_campaign_recipients (campaign_id, email, first_name, last_name, status, sent_at, created_at)
       SELECT v_cid, r.email, r.first_name, r.last_name,
-             CASE WHEN abs(hashtext(r.email || 'b' || v_cid::text)) % 1000 < 5 THEN 'bounced' ELSE 'sent' END,
+             CASE WHEN abs(hashtext(r.email || 'b' || v_cid::text)) % 1000 < 1 THEN 'bounced' ELSE 'sent' END,
              v_s.sent_at + make_interval(secs => abs(hashtext(r.email || v_cid::text)) % 240),
              v_s.sent_at - interval '3 minutes'
         FROM _sr r WHERE r.idx = v_s.idx AND r.skip IS NULL;

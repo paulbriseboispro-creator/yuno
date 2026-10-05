@@ -23,6 +23,7 @@ DECLARE
   v_c record;
   v_cid uuid;
   v_sent timestamptz;
+  v_day date;
 BEGIN
   SELECT id INTO v_uid FROM auth.users WHERE lower(email) = 'crm@womber.fr';
   IF v_uid IS NULL THEN RAISE EXCEPTION 'crm@womber.fr absent : lancer create-crm-account.mjs'; END IF;
@@ -36,24 +37,31 @@ BEGIN
   CREATE TEMP TABLE _seed_t ON COMMIT DROP AS
     SELECT t.email, t.bought_at FROM public._crm_tickets(NULL, v_uid) t;
 
+  -- Dates RELATIVES : (n, j) = j jours avant la soirée n° n ; n NULL = il y a j jours.
   FOR v_c IN
     SELECT * FROM (VALUES
-      ('2026-06-02'::date, 18, 'Afro House Club #13 : le line-up', 'Afro House Club #13 : le line-up est tombé', 'lineup', 'occ', 0.12),
-      ('2026-06-23'::date, 12, 'Prévente Techno Bunker #14', '{{prénom}}, la prévente Techno Bunker ouvre', 'annonce', 'hab', 0.30),
-      ('2026-07-07'::date, 10, 'Vous nous manquez', 'Vous nous manquez, {{prénom}}', 'manque', 'end', 0.05),
-      ('2026-07-18'::date, 16, 'Disco Fever #15 : dernières places', 'Disco Fever #15 : les dernières places partent ce soir, ne traînez pas', 'lastcall', 'all', 0.13),
-      ('2026-08-01'::date, 14, 'Open Air Closing #16 : on vous attend', 'Open Air Closing #16 : on vous attend', 'annonce', 'nou', 0.18),
-      ('2026-08-16'::date, 20, 'Rooftop Sunset #17 : le line-up', '{{prénom}}, le line-up du Rooftop Sunset', 'lineup', 'hab', 0.32),
-      ('2026-08-30'::date, 18, 'Deep Night #18 : invitation', 'Deep Night #18 : votre invitation', 'annonce', 'occ', 0.14),
-      ('2026-09-13'::date, 12, 'Bass Culture #19 : prévente', 'Prévente Bass Culture #19 : 48 h seulement pour les habitués, avant tout le monde', 'annonce', 'hab', 0.34),
-      ('2026-09-16'::date, 10, 'Bienvenue dans la famille', 'Bienvenue dans la famille, {{prénom}}', 'bienvenue', 'nou', 0.20),
-      ('2026-09-24'::date, 18, 'Minimal Room #20 : billetterie ouverte', 'Minimal Room #20 : la billetterie est ouverte', 'annonce', 'all', 0.15),
-      ('2026-09-28'::date, 20, 'On ne vous a pas vus depuis un moment', 'On ne vous a pas vus depuis un moment', 'manque', 'end', 0.06),
-      ('2026-10-01'::date, 18, 'Minimal Room #20 : le line-up', 'Minimal Room #20 : le line-up', 'lineup', 'hab', 0.36)
-    ) AS x(d, hr, name, subject, kind, seg, rate)
-    WHERE x.d < (now() AT TIME ZONE 'Europe/Paris')::date
+      (13,  9, 18, 'Afro House Club #13 : le line-up', 'Afro House Club #13 : le line-up est tombé', 'lineup', 'occ', 0.12),
+      (14, 12, 12, 'Prévente Techno Bunker #14', '{{prénom}}, la prévente Techno Bunker ouvre', 'annonce', 'hab', 0.30),
+      (NULL, 46, 10, 'Vous nous manquez', 'Vous nous manquez, {{prénom}}', 'manque', 'end', 0.05),
+      (15,  1, 16, 'Disco Fever #15 : dernières places', 'Disco Fever #15 : les dernières places partent ce soir, ne traînez pas', 'lastcall', 'all', 0.13),
+      (16, 10, 14, 'Open Air Closing #16 : on vous attend', 'Open Air Closing #16 : on vous attend', 'annonce', 'nou', 0.18),
+      (17,  7, 20, 'Rooftop Sunset #17 : le line-up', '{{prénom}}, le line-up du Rooftop Sunset', 'lineup', 'hab', 0.32),
+      (18,  9, 18, 'Deep Night #18 : invitation', 'Deep Night #18 : votre invitation', 'annonce', 'occ', 0.14),
+      (19, 13, 12, 'Bass Culture #19 : prévente', 'Prévente Bass Culture #19 : 48 h seulement pour les habitués, avant tout le monde', 'annonce', 'hab', 0.34),
+      (NULL, 28, 10, 'Bienvenue dans la famille', 'Bienvenue dans la famille, {{prénom}}', 'bienvenue', 'nou', 0.20),
+      (19,  1, 17, 'Bass Culture #19 : dernier appel', 'Bass Culture #19 : dernier appel avant ce soir', 'lastcall', 'all', 0.15),
+      (20, 21, 18, 'Minimal Room #20 : billetterie ouverte', 'Minimal Room #20 : la billetterie est ouverte', 'annonce', 'all', 0.15),
+      (NULL, 12, 20, 'On ne vous a pas vus depuis un moment', 'On ne vous a pas vus depuis un moment', 'manque', 'end', 0.06),
+      (21, 14, 18, 'House Nation #21 : billetterie ouverte', 'House Nation #21 : la billetterie est ouverte', 'annonce', 'hab', 0.28),
+      (20,  1, 18, 'Minimal Room #20 : le line-up', 'Minimal Room #20 : le line-up', 'lineup', 'hab', 0.36)
+    ) AS x(n, j, hr, name, subject, kind, seg, rate)
   LOOP
-    v_sent := (v_c.d + make_time(v_c.hr, 0, 0)) AT TIME ZONE 'Europe/Paris';
+    v_day := CASE WHEN v_c.n IS NULL THEN (now() AT TIME ZONE 'Europe/Paris')::date - v_c.j
+                  ELSE (SELECT (e.start_at AT TIME ZONE 'Europe/Paris')::date FROM public.external_events e
+                         WHERE e.organizer_user_id = v_uid AND e.name LIKE '% #' || v_c.n) - v_c.j END;
+    CONTINUE WHEN v_day IS NULL;
+    v_sent := (v_day + make_time(v_c.hr, 0, 0)) AT TIME ZONE 'Europe/Paris';
+    CONTINUE WHEN v_sent > now() - interval '1 hour';
     INSERT INTO public.email_campaigns (
       organizer_user_id, venue_id, name, subject, template_kind, type, status, sent_at, send_started_at, created_at, created_by,
       blocks_version, audiences_json, theme_json)
@@ -66,7 +74,7 @@ BEGIN
     INSERT INTO public.email_campaign_recipients (campaign_id, email, first_name, last_name, status, sent_at, created_at)
     SELECT v_cid, p.email, p.first_name, p.last_name,
            -- Quelques adresses en erreur (moins de 1 %), comme dans la vraie vie.
-           CASE WHEN abs(hashtext(p.email || 'b' || v_c.d::text)) % 1000 < 7 THEN 'bounced' ELSE 'sent' END,
+           CASE WHEN abs(hashtext(p.email || 'b' || v_day::text)) % 1000 < 2 THEN 'bounced' ELSE 'sent' END,
            v_sent, v_sent
       FROM _cp p
      WHERE p.email_ok AND (v_c.seg = 'all' OR p.lifecycle = v_c.seg);
