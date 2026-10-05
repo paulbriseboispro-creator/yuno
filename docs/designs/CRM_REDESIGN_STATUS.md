@@ -36,3 +36,21 @@ Vérifications faites (05/10, après fusion de `origin/main`) : `tsc` 0 erreur, 
 - L'Admin CRM n'a jamais été vu avec une vraie session super admin (aucun compte démo ne l'est) : à ouvrir une fois par Paul.
 - Un seul vrai compte CRM en base (la démo) : les écrans Admin sont donc vides sans l'interrupteur « démo incluse ».
 - Beaucoup de textes ont été écrits d'un trait : relecture FR/EN/ES à faire sur les écrans que tu montreras à un client.
+
+## Audit des données et liens de partage (05/10, branche `crm/tracked-links`)
+
+- Chaque chiffre des écrans Accueil, Analyses, Parcours, Soirées, Clients,
+  Segments, E-mails et Automatisations a été tracé jusqu'à sa source et
+  confronté à l'API publique de Shotgun (`SHOTGUN_API_REFERENCE.md`).
+- Corrigé : prix ×100, consentement / âge / ville jamais lus, billets revendus
+  comptés deux fois, invitations comptées comme ventes, sources de vente
+  impossibles (e-mail, SMS, partenaires toujours à 0), places restantes figées,
+  phrases écrites en dur, « CA net », « Objectif atteint » à 85 %, rythme ÷ 21,
+  « On t'a manqué » sur une soirée à moitié scannée.
+- Ajouté : liens de partage par soirée (story, bio, reel, groupe…), source de
+  campagne sur chaque e-mail (`yuno-m-…`), fiche client « par où est arrivé
+  chaque achat », cartes « Bientôt » pour ce que Shotgun ne rend pas.
+- Migrations appliquées en base : `20261006200000` → `20261006230000`.
+- À déployer : `affiliate-ticket-sync` (lecteur Shotgun), `send-campaign`
+  (source par campagne), `owner-assistant` (base d'aide). Le Worker part avec le
+  front (route `/go/*`).

@@ -292,8 +292,10 @@ dans le navigateur le 02/10) :
 | Champs | **la page ne documente pas la réponse** | `id, name, startTime, endTime, slug, timezone, artists[], genres[], leftTicketsCount, description, coverUrl, trailerUrl, url, addressVisibility, geolocation{street, latitude, longitude, city, zipCode, country, countryIsoCode}, publishedAt, launchedAt, cancelledAt, organizer{name, slug}, role, deals[]{name, product_id, quantity, target, subcategory, visibility, sales_channel, price, organizer_fees, user_fees}, typeOfPlace` |
 
 D'après l'étude, les billets portent prix, frais, devise, statut, contacts
-facultatifs, certaines dates de scan, UTM et dates de mise à jour. **C'est à
-vérifier sur une vraie réponse** avant d'écrire le modèle (lot 0).
+facultatifs, certaines dates de scan, UTM et dates de mise à jour. **Mise à
+jour du 05/10 : la page Tickets publie désormais chaque champ** — référence
+complète dans `SHOTGUN_API_REFERENCE.md` (montants en centimes, `contact_*`,
+`utm_source` seul rendu tel quel).
 `newsletter_optin` ne prouve pas à lui seul un consentement par canal. Aucune
 écriture n'est possible : pas de création, de remboursement, de scan ni de segment.
 

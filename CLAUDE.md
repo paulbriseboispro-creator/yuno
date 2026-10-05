@@ -768,6 +768,64 @@ tables réelles ; rien n'est inventé :
 - Vérification visuelle sans session super admin : un banc de données d'exemple
   (jamais commité, `.crm-tools/`), car aucun compte `@womber.fr` n'est admin.
 
+## Yuno CRM — ce que Shotgun rapporte, et rien d'autre ; liens de partage (2026-10-05)
+
+Audit de chaque chiffre de la Console CRM contre l'API publique de Shotgun.
+Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
+(pages officielles « Tickets API » et « Organizer events API »). Règles :
+
+- **Un chiffre de la Console sort d'un champ de cette référence, ou d'une
+  mesure Yuno (e-mails, clics `/go/`, pages `/j/`, imports). Sinon il
+  s'affiche « Bientôt, avec l'intégration partenaire Shotgun »**
+  (`ShotgunSoonCard`, `src/crm/components/ShotgunSoon.tsx`), jamais un
+  chiffre estimé ni une phrase écrite en dur — décision de Paul : on montre
+  la valeur, on négocie l'intégration. Aujourd'hui en « Bientôt » : visites de
+  la page Shotgun, conversion page → achat, qui a cliqué sans acheter, paniers
+  abandonnés, l'étape entre le clic et l'achat. Une projection se libelle
+  « Estimation ».
+- **Le connecteur lit les noms documentés** (`_shared/ticketing-shotgun.ts`,
+  testé sur un billet au schéma officiel) : montants des billets en CENTIMES
+  (`deal_price`, `deal_user_service_fee`, toujours ÷ 100), tarifs des soirées
+  en EUROS (jamais divisés), `contact_*` (consentement, âge à l'année près,
+  ville, code postal, pays en toutes lettres → ISO). Soirées à venir relues en
+  entier à chaque passe (places restantes). Aucun compte réel n'était connecté
+  au 05/10 : rien à rattraper ; un compte importé avec l'ancien lecteur se
+  rattrape par une remise à zéro de `tickets_cursor`.
+- **Une vente = `_crm_ticket_is_sale(status, raw)`** : `valid` hors invitation
+  (`deal_channel = 'invitation'`). Un billet revendu (`resold` → `transferred`)
+  n'est pas une vente (l'acheteur de la revente a son propre billet). Utilisée
+  par `_crm_tickets`, `_crm_ana_setup`, Soirées, Liens ; le registre des
+  PERSONNES (« a acheté », automatisations) garde `valid, transferred`.
+- **La source d'une vente = `utm_source` seulement** (Shotgun écrase
+  `utm_medium` par la plateforme, ne rend pas `utm_campaign`). Familles
+  (`_crm_ticket_source` ⇄ `sourceKind`, `src/crm/lib/links.ts`) : `yl` lien de
+  partage `yuno-<code>` · `em` e-mail `yuno-m-<8 hex campagne>` (et `yuno`
+  d'avant) · `sm` `yuno-s-…` · `dm` `yuno-d-…` · `so` réseau vu par Shotgun ·
+  `sg` app/site Shotgun · `au` autre site · `di` direct · `of` hors ligne /
+  importé. « Partenaires » n'existe plus (rien dans l'API). Tout lien Yuno
+  vers Shotgun porte TOUT son identifiant dans `utm_source`.
+- **Liens de partage** (onglet « Liens de partage » du tiroir d'une soirée,
+  `?e=<id>&v=links`, migration `20261006200000`) : `tracked_links` sur la
+  soirée miroir (`utm_source` = réseau, `utm_medium` = emplacement, paires de
+  `_crm_link_kind_ok` ⇄ `LINK_KINDS`), URL `yunoapp.eu/go/<code>`. Le Worker
+  (`worker/goLink.ts`, route `run_worker_first` `/go/*`) appelle
+  `crm_link_hit` (empreinte salée du jour, jamais l'IP ; robots d'aperçu et
+  `?t=1` jamais comptés) puis 302 vers Shotgun avec `utm_source=yuno-<code>`.
+  Un `/l/` posé sur une soirée Shotgun prend la même redirection. Lecture
+  unique `crm_night_links` (pas de table temporaire). **Avant la première vente
+  rapportée par Shotgun avec une source Yuno, l'écran dit « en attente » et
+  « — », jamais « 0 »** (`confirmed`). Un lien n'est jamais désactivé : «
+  Masquer » (`archived_at`) le retire seulement de la liste.
+- **Fiche client** (`crm_client`, migration `20261006220000`) : chaque achat
+  porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
+  « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un
+  clic sur une story reste anonyme tant que la personne n'achète pas.
+- « On t'a manqué » ne part que si au moins la moitié des détenteurs ont été
+  scannés (`20261006230000`) : Shotgun laisse le scan vide quand un autre
+  prestataire a scanné.
+- Démo : `scripts/demo/seed-crm-links.sql` (à rejouer après
+  `seed-crm-demo.sql`), sources réalistes (`utm_medium` = app / website).
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un
