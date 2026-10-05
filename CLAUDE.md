@@ -816,6 +816,17 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   rapportée par Shotgun avec une source Yuno, l'écran dit « en attente » et
   « — », jamais « 0 »** (`confirmed`). Un lien n'est jamais désactivé : «
   Masquer » (`archived_at`) le retire seulement de la liste.
+  **Emplacements = là où un lien se clique** (`20261006240000`) : Instagram =
+  story (sticker lien) + lien en bio ; TikTok = lien en bio SEUL ; plus de
+  post, reel, DM ni vidéo TikTok à la création (`_crm_link_creatable` ⇄
+  `LINK_KINDS`). Ces anciens emplacements restent LUS (`_crm_link_kind_ok`,
+  `LEGACY_KINDS`) : un lien déjà posé garde ses ventes. Les liens d'e-mail
+  (`yuno-m-…`), de SMS et, plus tard, de réponse Instagram (`yuno-d-…`) se
+  génèrent SEULS à l'envoi : jamais un bouton de création. La famille `so`
+  (« Autres visites réseaux ») = utm_source `instagram`/`tiktok`… SANS code
+  Yuno, donc PAS nos liens : ne jamais la présenter comme « réseaux vus par
+  Shotgun » ni la confondre avec `yl`, que l'écran détaille par type de lien
+  (`groupSources(rows, links)`).
 - **Fiche client** (`crm_client`, migration `20261006220000`) : chaque achat
   porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
   « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un
