@@ -135,10 +135,24 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   la force inactive, privée, sans billetterie / tables / liste d'attente Yuno :
   invisible de toute lecture publique (RLS `is_active`, Explore, push, annonces).
   **Toute nouvelle lecture publique d'`events` filtre `is_active`** (c'est déjà la
-  règle) ; une lecture CRM qui doit voir les soirées externes écrit
-  `(e.is_active OR e.external_source IS NOT NULL)`. Pas de promoteurs ni de liens
+  règle). **Une soirée de la Console CRM est une soirée MIROIR** (`e.external_source
+  IS NOT NULL`, migration `20261008130000`) : tous ses chiffres viennent de
+  `external_tickets`, donc une soirée Yuno d'un compte Billetterie + CRM n'y
+  apparaît jamais (elle s'affichait à 0 vendu). **La Billetterie, elle, exclut les
+  miroirs** : `orgEventsOr` / `venueEventsOr` (`src/lib/coorg.ts`, branche
+  « menée ») et `analytics_scope_gate`, `get_sales_overview`,
+  `get_events_sales_summary`, `get_events_pnl` (migration `20261007230000`) ;
+  l'Email Studio, partagé avec le CRM, garde les miroirs (`{ includeExternal:
+  true }`). Une nouvelle lecture de la Billetterie qui liste les soirées d'une
+  portée écrit `external_source IS NULL`. Pas de promoteurs ni de liens
   suivis `/l/` sur une soirée externe ; dans un email, son bouton part vers la
   billetterie (UTM) et ses tarifs viennent de `get_external_event_live`.
+- **Compte Billetterie + CRM, les e-mails** (migration `20261007220000`) : une
+  campagne CRM (`crm_campaign_is_crm`) est payée en Yunits à la mise en file et
+  ne touche ni les 15 000 offerts ni les crédits de la Billetterie :
+  `consume_email_send_quota` / `refund_email_send_quota` prennent
+  `p_campaign_id` (passé par `send-campaign`). Sans ça, l'offert épuisé, la
+  campagne déjà payée attendait le 1er du mois.
 - **Billets externes dans le CRM** : `contact_scope_customers` les compte comme
   des billets (valides / transférés, valeur faciale hors frais). Automatisations :
   un acheteur Shotgun d'une soirée est « bought » (jamais de dernier appel pour
@@ -815,10 +829,24 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   au 05/10 : rien à rattraper ; un compte importé avec l'ancien lecteur se
   rattrape par une remise à zéro de `tickets_cursor`.
 - **Une vente = `_crm_ticket_is_sale(status, raw)`** : `valid` hors invitation
-  (`deal_channel = 'invitation'`). Un billet revendu (`resold` → `transferred`)
+  et hors duplicata (`deal_channel IN ('invitation', 'duplicata')`, le duplicata
+  est la copie d'un billet déjà vendu). Un billet revendu (`resold` → `transferred`)
   n'est pas une vente (l'acheteur de la revente a son propre billet). Utilisée
   par `_crm_tickets`, `_crm_ana_setup`, Soirées, Liens ; le registre des
   PERSONNES (« a acheté », automatisations) garde `valid, transferred`.
+- **Mêmes chiffres partout** (migration `20261008130000`) : un acheteur
+  « attribué » à un e-mail = `_crm_email_attrib` (un clic dans les 7 jours
+  avant l'achat, le dernier clic gagne) — Résultats, Parcours, Segments ET le
+  bilan du dernier envoi de l'Accueil ; un entonnoir compte des PERSONNES
+  (`buyers`), le héros des billets (`purchases`). Seul le KPI « Ont acheté dans
+  les 48 h après l'envoi » de l'Accueil mesure autre chose, et il le dit. Habitué
+  / occasionnel = `crm_scope_rules` (N soirées sur M mois, la soirée comprise),
+  à l'Accueil comme dans le volet d'une soirée ; la soirée de comparaison est la
+  précédente de la MÊME série d'abord. Cycle de vie (`_crm_people_build`) : un
+  acheteur d'une soirée à venir sans soirée faite est `nou` (jamais `none`, qui
+  reste « contact connu, aucune soirée ») ; un ancien qui a repris une place
+  n'est pas `end`. Imports : « nouveau » = absent de la base AVANT le jour de la
+  synchro (registre ou fichier), pas seulement « jamais vu par Shotgun ».
 - **La source d'une vente = `utm_source` seulement** (Shotgun écrase
   `utm_medium` par la plateforme, ne rend pas `utm_campaign`). Familles
   (`_crm_ticket_source` ⇄ `sourceKind`, `src/crm/lib/links.ts`) : `yl` lien de
