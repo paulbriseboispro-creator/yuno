@@ -37,6 +37,7 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'auto', c: 'start', to: CRM_ROUTES.automations },
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
+  { id: 'guestlist', c: 'clients', to: CRM_ROUTES.guestlist },
   { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'offline', c: 'account' },
   // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).
