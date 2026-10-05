@@ -25,7 +25,7 @@ const CrmPublicShell = lazyWithRetry(() => import('./shell/CrmLayout').then((m) 
 const NotFoundScreen = lazyWithRetry(() => import('./errors/ErrorScreens').then((m) => ({ default: m.NotFoundScreen })));
 const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
-const InstagramSoonPage = lazyWithRetry(() => import('./pages/soon/InstagramSoonPage'));
+const InstagramPage = lazyWithRetry(() => import('./pages/instagram/InstagramPage'));
 const SignupPagesPage = lazyWithRetry(() => import('./pages/signup/SignupPagesPage'));
 const SignupEditorPage = lazyWithRetry(() => import('./pages/signup/SignupEditorPage'));
 const AccountPage = lazyWithRetry(() => import('./pages/account/AccountPage'));
@@ -78,7 +78,7 @@ export function crmRoutes() {
         <Route path="emails/results/:id" element={<EmailResultPage />} />
         <Route path="emails/analysis" element={<EmailAnalysisPage />} />
         <Route path="emails/settings" element={<EmailSettingsPage />} />
-        <Route path="instagram" element={<InstagramSoonPage />} />
+        <Route path="instagram" element={<InstagramPage />} />
         <Route path="signup-pages" element={<SignupPagesPage />} />
         <Route path="signup-pages/:id" element={<SignupEditorPage />} />
         <Route path="account" element={<AccountPage />} />
