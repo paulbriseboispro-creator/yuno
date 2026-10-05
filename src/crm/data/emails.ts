@@ -78,7 +78,8 @@ export function useEmailCampaigns() {
 
 export interface EmailResult extends EmailCampaignRow {
   error?: 'not_found';
-  stats: (EmailStats & { non_openers: number }) | null;
+  /** `buyers` = personnes distinctes (l'entonnoir) ; `purchases` = billets (le héros). Absent avant la migration 20261008130000. */
+  stats: (EmailStats & { non_openers: number; buyers?: number }) | null;
   avg: { campaigns: number; open_rate: number | null; click_rate: number | null; per_k: number | null };
   rank: number | null;
   rank_of: number;

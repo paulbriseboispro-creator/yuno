@@ -22,7 +22,8 @@ const dict: CrmDict = {
   'yc.home.mission.title': ['“{name}” made {n} people click.', '« {name} » a fait cliquer {n} personnes.', '«{name}» hizo hacer clic a {n} personas.'],
   'yc.home.mission.titleOne': ['“{name}” made one person click.', '« {name} » a fait cliquer une personne.', '«{name}» hizo hacer clic a una persona.'],
   'yc.home.mission.titleNone': ['“{name}” went out to {n} contacts.', '« {name} » est parti vers {n} contacts.', '«{name}» salió hacia {n} contactos.'],
-  'yc.home.mission.sub': ['{buyers} purchases followed these clicks · {yunits} Yunits spent.', '{buyers} achats ont suivi ces clics · {yunits} Yunits dépensés.', '{buyers} compras siguieron a estos clics · {yunits} Yunits gastados.'],
+  'yc.home.mission.sub': ['{buyers} of them bought within 7 days · {yunits} Yunits spent.', '{buyers} d’entre elles ont acheté dans les 7 jours · {yunits} Yunits dépensés.', '{buyers} de ellas compraron en los 7 días · {yunits} Yunits gastados.'],
+  'yc.home.mission.subOne': ['One of them bought within 7 days · {yunits} Yunits spent.', 'Une d’entre elles a acheté dans les 7 jours · {yunits} Yunits dépensés.', 'Una de ellas compró en los 7 días · {yunits} Yunits gastados.'],
   'yc.home.mission.subNoBuy': ['No purchase followed yet · {yunits} Yunits spent.', 'Aucun achat n’a encore suivi · {yunits} Yunits dépensés.', 'Todavía ninguna compra · {yunits} Yunits gastados.'],
 
   'yc.home.sales.title': ['How much did I sell?', 'Combien ai-je vendu ?', '¿Cuánto he vendido?'],

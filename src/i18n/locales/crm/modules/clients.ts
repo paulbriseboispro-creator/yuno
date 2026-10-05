@@ -35,7 +35,7 @@ const dict: CrmDict = {
   'yc.cli.seg.none': ['Never came', 'Jamais venus', 'Nunca vinieron'],
   'yc.cli.seg.hab.def': ['Came {n} times or more over {m} months', 'Venus {n} fois ou plus sur {m} mois', 'Vinieron {n} veces o más en {m} meses'],
   'yc.cli.seg.occ.def': ['Came before, not yet a regular', 'Déjà venus, pas encore habitués', 'Ya vinieron, todavía no habituales'],
-  'yc.cli.seg.nou.def': ['First night less than 90 days ago', 'Première soirée il y a moins de 90 jours', 'Primera fiesta hace menos de 90 días'],
+  'yc.cli.seg.nou.def': ['First night less than 90 days ago, or coming up', 'Première soirée il y a moins de 90 jours, ou à venir', 'Primera fiesta hace menos de 90 días, o próxima'],
   'yc.cli.seg.end.def': ['Haven’t come back for {m} months', 'Pas venus depuis {m} mois', 'No han vuelto desde hace {m} meses'],
   'yc.cli.seg.none.def': ['Known contact, no night yet', 'Contact connu, aucune soirée', 'Contacto conocido, ninguna fiesta'],
 

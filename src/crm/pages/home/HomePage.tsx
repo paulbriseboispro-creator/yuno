@@ -109,7 +109,7 @@ export default function HomePage() {
                   : t('yc.home.mission.titleNone', { name: m.name, n: n(m.recipients) })}
             </span>
             <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-600)' }}>
-              {m.buyers > 0 ? t('yc.home.mission.sub', { buyers: n(m.buyers), yunits: n(m.yunits) }) : t('yc.home.mission.subNoBuy', { yunits: n(m.yunits) })}
+              {m.buyers === 1 ? t('yc.home.mission.subOne', { yunits: n(m.yunits) }) : m.buyers > 0 ? t('yc.home.mission.sub', { buyers: n(m.buyers), yunits: n(m.yunits) }) : t('yc.home.mission.subNoBuy', { yunits: n(m.yunits) })}
             </span>
           </div>
           <ArrowLink to={CRM_ROUTES.emailResults(m.id)}>{t('yc.common.seeDetail')}</ArrowLink>

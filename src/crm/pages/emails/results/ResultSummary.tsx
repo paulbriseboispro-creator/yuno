@@ -110,7 +110,8 @@ function Funnel({ r, s, g }: { r: EmailResult; s: Stats; g: number }) {
     { l: t('yc.em.rs.f.opened'), v: s.opened, d: t('yc.em.rs.f.openedD'), c: cmp(openRate, r.avg.open_rate) },
     { l: t('yc.em.rs.f.clicked'), v: s.clicked, d: t('yc.em.rs.f.clickedD'), c: cmp(clickRate, r.avg.click_rate) },
     { l: t('yc.em.rs.f.ticketing'), v: s.ticketing, d: t('yc.em.rs.f.ticketingD'), c: null },
-    { l: t('yc.em.rs.f.bought'), v: s.purchases, d: t('yc.em.rs.f.boughtD'), c: null },
+    // L'entonnoir compte des PERSONNES : un acheteur de trois billets compte une fois.
+    { l: t('yc.em.rs.f.bought'), v: s.buyers ?? s.purchases, d: t('yc.em.rs.f.boughtD'), c: null },
   ];
   return (
     <section style={{ ...box, gap: 18 }}>
