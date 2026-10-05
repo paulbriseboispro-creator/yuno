@@ -19,6 +19,8 @@ export const LIFECYCLE_PATH: Record<LifecycleKey, string> = {
   winback: "/crm/account/billing",
 };
 
+/** Les images des e-mails restent servies par yunoapp.eu (le domaine CRM ne relaie pas les fichiers statiques). */
+const ASSET_ORIGIN = "https://yunoapp.eu";
 const T = { ink: "#1c1517", sand50: "#f7f4f3", sand200: "#e6dfdd", sand400: "#a39a98", sand500: "#857b7d", sand600: "#5e5457", red: "#e3141b" };
 const FONT = `'Bricolage Grotesque','Helvetica Neue',Helvetica,Arial,sans-serif`;
 const BODY = `Geist,'Helvetica Neue',Helvetica,Arial,sans-serif`;
@@ -47,7 +49,7 @@ export function crmEmailShell(o: { lang: string; subject: string; titleHtml: str
 <body style="margin:0;padding:0;background:${T.sand50}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${T.sand50}"><tr><td align="center" style="padding:32px 16px">
   <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="width:520px;max-width:100%">
-    <tr><td style="padding:0 4px 18px"><img src="${o.origin}/yuno-wordmark-dark.png" width="88" height="30" alt="Yuno" style="display:block;border:0;width:88px;height:30px"></td></tr>
+    <tr><td style="padding:0 4px 18px"><img src="${ASSET_ORIGIN}/yuno-wordmark-dark.png" width="88" height="30" alt="Yuno" style="display:block;border:0;width:88px;height:30px"></td></tr>
     <tr><td style="background:#ffffff;border:1px solid ${T.sand200};border-radius:24px;padding:32px 32px 28px">
       <div style="font-family:${FONT};font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-0.02em;color:${T.ink}">${o.titleHtml}</div>
       <p style="margin:12px 0 0;font-family:${BODY};font-size:16px;line-height:1.55;color:${T.sand600}">${o.bodyHtml}</p>

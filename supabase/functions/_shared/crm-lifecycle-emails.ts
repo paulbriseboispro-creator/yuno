@@ -8,7 +8,9 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2
 import { isDemoEmail } from "./demo-scope.ts";
 import { renderLifecycleEmail, renderSignupConfirmEmail, type LifecycleCopy, type LifecycleKey, type LifecycleLang } from "./crm-lifecycle-html.ts";
 
-const ORIGIN = Deno.env.get("APP_BASE_URL") ?? "https://yunoapp.eu";
+// Yuno CRM vit sur crm.yunoapp.eu (Console, Pages d'inscription) ; le wordmark
+// des e-mails y est servi aussi (même bundle).
+const ORIGIN = Deno.env.get("CRM_BASE_URL") ?? "https://crm.yunoapp.eu";
 
 interface Queued { id: string; key: LifecycleKey; scope_key: string; email: string | null; lang: string; meta: Record<string, unknown> | null }
 interface Collect { new: number; queued: Queued[]; copies: Record<string, Record<LifecycleLang, LifecycleCopy>> | null }
