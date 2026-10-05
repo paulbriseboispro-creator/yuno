@@ -1,4 +1,4 @@
-# Yuno CRM — où on en est (05/10/2026, branche `crm/redesign`, PR #13)
+# Yuno CRM — où on en est (05/10/2026 soir, branche `crm/redesign`, PR #13)
 
 ## Ce qui est fait
 
@@ -7,32 +7,27 @@
 | Console `/crm` : Accueil, Analyses (Ventes, Trafic, Communauté), Parcours client, Soirées, Clients, Segments, Imports, E-mails (7 écrans + Studio + Envoi), Automatisations, SMS (8 écrans), Connecteurs, Yunits, Réglages, Compte (profil, équipe, facturation, notifications, aide), Tarifs publique | Construit, branché sur les vraies données, comparé au design (ordinateur + téléphone) | `src/crm/pages/*`, migrations `20261004…` → `20261005…` |
 | Prix 24 / 34 / 288 € HT, Yunits | Base, script Stripe, code et tests alignés. Stripe live déjà à ces montants. Seuil des 50 comptes payants validé | migration `…230000` |
 | Pages d'erreur + délai de 30 s + erreurs de chargement | Fait (404, 401, 403, 500, 503, hors ligne, délai) | `src/crm/errors/*` |
-| Admin CRM `/admin/crm` (super admin) | 10 écrans sur 11 + fiche d'un compte + gestes audités + gel d'envoi | `src/crm/admin/*`, migrations `…240000` → `…242000` |
+| Admin CRM `/admin/crm` (super admin) | Complet : 11 écrans + connexion `/admin/crm/login`, Activité en direct, tiroir Clients, Comptes cibles, « Voir sa Console » (accès assisté consenti), e-mails du cycle de vie (tous éteints), durée des synchros, prix public / seuil des 50, mesure de la landing, NPS + demandes, registre d'incidents | `src/crm/admin/*`, migrations `…240000` → `…252000` |
+| Pages d'inscription | Construit : `/crm/signup-pages` (éditeur + aperçu, liens / QR, chiffres, export) et page publique `/j/<slug>` sur crm.yunoapp.eu, double confirmation par e-mail, preuve de consentement | `src/crm/pages/signup/*`, `src/crm/signup/*`, migrations `…253000`, `…254000` |
+| Instagram | Écran complet, réponses en brouillon (réels, carrousels, photos), chiffres lus dans un journal encore vide ; activation fermée (`CRM_INSTAGRAM_LIVE = false` + garde serveur) jusqu'à l'App Review Meta | `src/crm/pages/instagram/*`, migrations `…255000`, `…256000` |
 | SMS | **Affiché ouvert** (décision de Paul). L'envoi réel est fermé : moteur non branché, garde serveur `crm_sms_not_open` | `CRM_SMS_DISPLAY_LIVE`, `CRM_SMS_ENGINE_READY=false` |
 | Aide | FAQ, article d'abonnement (3 langues), base de l'assistant à jour | commit « Aide CRM… » |
 | Inscription (landing) | Faite dans le dépôt `yuno-landing-crm` (Google, Apple, lien de confirmation) | dépôt landing |
 
-Vérifications faites : `tsc` 0 erreur, `eslint` 0 erreur (30 avertissements d'export de fichiers), **945 tests**, build de production, `supabase db lint --linked` propre, smokes SQL en transaction annulée. *Correction d'honnêteté : j'avais annoncé « tsc passe » avant que deux erreurs de type de l'Admin soient corrigées ; elles l'étaient avant le push.*
+Vérifications faites (05/10, après fusion de `origin/main`) : `tsc` 0 erreur, `eslint` 0 erreur (avertissements d'export seulement), **971 tests**, build de production, `supabase db lint --linked` sans alerte sur les fonctions de ce chantier, smokes SQL en transaction annulée pour chaque migration.
 
 ## Ce qui reste à construire
 
-**SMS** : traité par Paul dans une session à part (moteur d'envoi, fournisseur, numéro). Hors du prompt de fin de build.
+**SMS** : traité par Paul dans une session à part (moteur d'envoi, fournisseur, numéro).
 
-**Priorité 1 — finir l'Admin CRM (écrans présents mais incomplets)**
-- Durée médiane d'une synchro : `ticketing_sync_runs` a `started_at` / `finished_at` mais aucune ligne n'est finie en base à ce jour → vérifier que le connecteur écrit `finished_at`, puis l'afficher.
-- « Activité en direct » du Pilotage, onglet « E-mails du cycle de vie » de Réglages, tiroir de la liste Clients, « Comptes cibles » de Vente, écran de connexion admin, lien « Voir sa Console » depuis une fiche.
-- Mesure de la landing (visites, profondeur de lecture, clics), NPS + demandes de fonctionnalités, registre d'incidents (CNIL 72 h) : **décidé oui** (pas de test A/B) ; dans le prompt de fin de build.
+**Instagram** : brancher le moteur (lecture des commentaires, envoi des messages privés, écriture de `crm_instagram_events`) une fois l'App Review Meta accordée, puis passer `CRM_INSTAGRAM_LIVE` et `crm_instagram_open()` à vrai ENSEMBLE.
 
-**Priorité 2 — réglages qui n'agissent encore sur rien**
-- `trial_extensions` (prolongations gratuites) : stocké, jamais lu → le brancher à « Prolonger l'essai » ou le retirer.
-- `price_switch_at` (50) : affiché dans Argent / Réglages, mais le passage à 34 € se fait en activant les prix Stripe publics à la main → soit un bouton « Activer le prix public » (écrit chez Stripe, accord explicite), soit le laisser manuel et le dire.
-- Coûts réels d'envoi par défaut = ceux du design (à vérifier avec les factures fournisseurs).
-
-**Priorité 3 — écrans du design volontairement « Bientôt »**
-- Pages d'inscription (builder + page publique fan, 3 fichiers de design) et Instagram : aujourd'hui des pages « Bientôt » avec liste d'attente. Pages d'inscription est une vraie fonctionnalité (consentements) à planifier à part ; Instagram attend l'App Review Meta.
+**Pages d'inscription, version 2** : dix mises en page (une seule réglable aujourd'hui), téléversement d'une affiche (aujourd'hui celle de la soirée), choix d'un post Instagram déjà publié.
 
 ## À faire par Paul (pas par un agent)
-1. Déployer les edge : `send-campaign`, `process-scheduled-campaigns`, `affiliate-ticket-sync`, `invite-org-member`, `club-subscription`, `stripe-webhook`, **`owner-assistant`**.
+1. Déployer les edge : `send-campaign`, `process-scheduled-campaigns` (e-mails du cycle de vie + confirmation des fans), `affiliate-ticket-sync`, `invite-org-member`, `club-subscription` (seuil des 50 + `crm_price_status`), `stripe-webhook`, `owner-assistant`. Poser le secret `CRM_BASE_URL` n'est pas nécessaire (défaut `https://crm.yunoapp.eu`).
+1b. Allumer les e-mails du cycle de vie un par un (Admin › Réglages), quand tu veux.
+1c. Pousser la branche landing `crm/landing-measure` (mesure de la page CRM + relais de `/j`) : non poussée, ton accord.
 2. Enregistrer Stripe Tax FR ; renommer les produits « packs » (encore « néons ») chez Stripe.
 3. Fusionner la PR #13 une fois le build Cloudflare vert et la revue faite (voir `CRM_REVIEW_PLAN.md`).
 4. SMS : ouvrir l'envoi dans ta session dédiée (fournisseur, numéro).

@@ -683,6 +683,26 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
   (redéployer `owner-assistant` après modification).
 - **SMS affiché OUVERT (décision de Paul, 05/10), envoi pas encore branché** : `CRM_SMS_DISPLAY_LIVE = true` (`src/crm/lib/sms.ts`) retire les pastilles « Bientôt » de la Console ; `CRM_SMS_ENGINE_READY = false` et la garde serveur `crm_sms_not_open` gardent l'envoi fermé (un tap sur « Envoyer » / « Tester » dit que c'est en cours de mise en place). `SMS_MARKETING_LIVE` (achat de crédits de la Suite) reste FAUX tant que le numéro Twilio n'est pas en place. À faire ensuite : brancher le moteur (`docs/designs/CRM_SMS_PLAN.md`), passer `CRM_SMS_ENGINE_READY` à true et lever la garde serveur.
+- **Pages d'inscription** (plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`) :
+  `/crm/signup-pages` (liste, éditeur avec aperçu téléphone = le MÊME `FanView`
+  que la page publique, liens + QR par provenance, chiffres, export CSV des
+  confirmés). Page publique **`/j/<slug>`** (`?src=`), confirmation
+  `/j/<slug>/ok?t=` — jamais `/p/` (linktree des agences) ; `/j` est un chemin
+  CRM (`productHost.ts`) relayé par le Worker de la landing. Double confirmation
+  par e-mail (file `crm_signup_confirm_queue`, jeton neuf HACHÉ par envoi) ;
+  à la confirmation : preuve `marketing_consent_events` (texte exact, source
+  `signup_page:<id>`), groupe de la page (`imported_contacts`, créé à la 1re
+  publication), registre sans jamais réveiller un désabonné. Publier = titulaire
+  seul, jamais en accès assisté. Démo : aucune adresse collectée. Le téléphone
+  est gardé sur l'inscription mais n'entre pas au registre SMS.
+- **Instagram** (`/crm/instagram`) : réponse automatique aux commentaires sous
+  les RÉELS, CARROUSELS ET PHOTOS (`post_types`, jamais vide, décision de Paul),
+  aussi en message privé et en réponse aux stories. Écran complet mais l'App
+  Review Meta n'est pas accordée : `CRM_INSTAGRAM_LIVE = false`
+  (`src/crm/lib/instagram.ts`) + `crm_instagram_open()` → `crm_instagram_not_open`
+  (une réponse se prépare en brouillon, ne s'allume pas). Chiffres lus dans
+  `crm_instagram_events` (vide, pseudo seulement) : rien d'inventé. AUCUN appel
+  à l'API Meta. Ouvrir = les deux interrupteurs ensemble + moteur à brancher.
 - **Inscription** : vit dans le dépôt de la landing (`yuno-landing-crm`) : parcours
   tiré du design, Google et Apple, lien de confirmation e-mail à la place d'un code.
 
@@ -706,10 +726,45 @@ tables réelles ; rien n'est inventé :
   est mise EN PAUSE plutôt que de lever une exception qui ferait tomber la
   collecte des autres comptes), notes. Prospects : `crm_prospects` (+ événements),
   pipeline réel (Essai et Payant se lisent dans les comptes).
-- **Ce que la base ne sait pas n'est pas rendu** : visites de la landing,
-  profondeur de lecture, clics, tests A/B, NPS, registre d'incidents, durée
-  médiane d'une synchro, exceptions edge. Les coûts réels d'envoi sont un
-  RÉGLAGE (`crm_pricing.config.costs`). La maquette qui les montrait est fictive.
+- **Ce que la base ne sait pas n'est pas rendu** : tests A/B, exceptions edge,
+  ouvertures / clics des e-mails du cycle de vie. Les coûts réels d'envoi sont un
+  RÉGLAGE (`crm_pricing.config.costs`).
+- **Fin de build (05/10, migrations `20261005243000` → `256000`)** :
+  - Connexion `/admin/crm/login` (vraie auth, `is_super_admin`, 2FA EXISTANTE
+    par l'edge `mfa` verify-login, preuve `mfaSession` partagée avec RequireMFA).
+  - Pilotage › Activité en direct (`crm_admin_activity`, pastille =
+    `crm_admin_live_signups`) ; Plateforme : durée p50 / p95 des synchros, une
+    passe tuée est marquée `abandoned` sans fin inventée (cron horaire).
+  - Clients : tiroir latéral `?open=<compte>` ; « Voir sa Console » = accès
+    assisté CONSENTI (`admin_support_grants`), jamais de session sans accord.
+  - **Prolongations d'essai** : `crm_subscriptions.trial_extensions_used` ; le
+    pro prolonge seul de 7 j (`crm_request_trial_extension`, Facturation) dans
+    la limite de `trial_extensions` ; un geste admin passe au-delà mais compte.
+  - **Seuil des 50** : `crm_price_tier()` = public seulement si payants ≥
+    `price_switch_at` ET prix publics ACTIFS chez Stripe (`crm_price_state`,
+    écrit par l'action `crm_price_status` de club-subscription — LECTURE Stripe,
+    super admin — et par un checkout qui retombe) ; un abonné existant
+    (`founder`) garde le lancement ; `crm_checkout` essaie public puis lancement,
+    jamais un paiement qui échoue. Tarifs et Facturation affichent le prix du niveau.
+  - Réglages › **E-mails du cycle de vie** (`crm_lifecycle_emails`, 8 e-mails
+    FR/EN/ES, TOUS éteints ; registre anti-doublon `crm_lifecycle_sends` ; démo =
+    `demo_no_send` ; envoi par `process-scheduled-campaigns`, rendu
+    `_shared/crm-lifecycle-html.ts` partagé avec l'aperçu admin).
+  - Vente › **Comptes cibles** (`crm_admin_targets`, villes où Yuno CRM a un
+    compte, sans espace CRM, démo exclue ; seul `crm_prospects` reçoit un contact).
+  - Acquisition › **Page CRM** : mesure first-party de crm.yunoapp.eu
+    (`crm_landing_events`, sans cookie, empreinte salée du jour, DNT/GPC
+    respectés, purge 180 j ; écrite par `track_crm_landing_event` depuis
+    `src/lib/crm-measure.ts` du dépôt landing, branche `crm/landing-measure`).
+  - Produit : **NPS** (`crm_nps_responses`, après 30 j, une fois / 90 j, score
+    dès 10 réponses) et **demandes** (`crm_feature_requests`, statut avec motif).
+  - Légal : **registre d'incidents** (`crm_incidents`, échéance CNIL 72 h,
+    alerte `admin_crm_incident_deadline` à H-24 / H-6, liste des pros PRÉPARÉE,
+    jamais envoyée).
+  - Un compte Billetterie avec CRM ajouté (`extra_products`) entre dans
+    `_crm_admin_rows` et sort des comptes cibles.
+  - Clés : une clé n'est définie qu'UNE fois (test dans `keys.test.ts`) — la
+    connexion utilisait `adm.crm.lg.*` et écrasait le sous-titre de Légal.
 - Vérification visuelle sans session super admin : un banc de données d'exemple
   (jamais commité, `.crm-tools/`), car aucun compte `@womber.fr` n'est admin.
 
