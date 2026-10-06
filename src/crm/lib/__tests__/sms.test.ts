@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import smsDict from '@/i18n/locales/crm/modules/sms';
 import {
-  countSms, defaultSender, displayPhone, inQuiet, resolveSmsVars, simplifySms, SMS_TEMPLATES, smsBestSlots, smsCost,
+  countSms, defaultSender, displayPhone, inQuiet, resolveSmsVars, simplifySms, SMS_TEMPLATES, smsBestSlots, smsCost, smsCostSplit,
   smsDraftGaps, smsEffectiveAt, smsFinalText, toE164, validSender,
 } from '@/crm/lib/sms';
 
@@ -74,6 +74,12 @@ describe('SMS CRM : expéditeur, numéro, coût', () => {
     expect(toE164('')).toBeNull();
     expect(displayPhone('+33612345678')).toBe('06 12 34 56 78');
     expect(displayPhone('+447700900123')).toBe('+447700900123');
+  });
+
+  it('compte deux tarifs : France et étranger', () => {
+    expect(smsCostSplit(100, 10, 1, 35, 70)).toBe(90 * 35 + 10 * 70);
+    expect(smsCostSplit(100, 0, 2, 35, 70)).toBe(7000);
+    expect(smsCostSplit(5, 9, 1, 35, 70)).toBe(5 * 70); // jamais plus d'étrangers que de contacts
   });
 
   it('compte les Yunits : contacts × SMS × tarif', () => {

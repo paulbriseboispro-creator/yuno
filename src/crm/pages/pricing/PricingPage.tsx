@@ -310,9 +310,13 @@ function SoonTag() {
 function YunitsSection({ cfg }: { cfg: CrmPricingConfig }) {
   const { t, n } = usePrT();
   const rate = (k: string) => Number(cfg.rates[k] ?? 0);
-  const rows = (['email', 'sms', 'instagram', 'whatsapp'] as const).map((k) => ({
-    k, cost: rate(k), soon: !cfg.channels_live[k] || (k === 'sms' && !CRM_SMS_SEND_OPEN),
-  }));
+  // Le SMS a deux tarifs : France (+33) et étranger.
+  const rows = (['email', 'sms', 'sms_intl', 'instagram', 'whatsapp'] as const)
+    .filter((k) => k !== 'sms_intl' || cfg.rates.sms_intl != null)
+    .map((k) => {
+      const ch = k === 'sms_intl' ? 'sms' : k;
+      return { k, cost: rate(k), soon: !cfg.channels_live[ch] || (ch === 'sms' && !CRM_SMS_SEND_OPEN) };
+    });
   return (
     <section style={{ ...wrap, padding: 'clamp(72px,10vw,140px) clamp(16px,4vw,40px)' }}>
       <Reveal><span style={kick}>{t('yc.pr.y.k')}</span></Reveal>

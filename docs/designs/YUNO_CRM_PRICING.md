@@ -125,7 +125,7 @@ fonction qui fait envoyer, c'est brider son propre revenu (étude de 16 h).
 | Email | 1 | 0,2 c€ | 0,09 c€ (Resend) | ~55 % |
 | DM Instagram (à construire) | 10 | 2 c€ | 0 (Meta ne facture pas l'API) | ~100 % |
 | SMS France, par segment de 160 caractères | **35** (40 jusqu'au 08/10) | 7 c€ | 3,9 à 4,1 c€ (Octopush, route française) ; 7,3 c€ chez Twilio | ~42 % (négative chez Twilio) |
-| SMS autres pays | coût du fournisseur × 2, arrondi aux 5 Yunits, 40 au minimum | | | ~50 % |
+| SMS vers l'étranger (tout indicatif hors +33 ; +1 bloqué) | 70 (décision de Paul du 08/10) | 14 c€ | 6 à 10 c€ chez Octopush selon le pays (grille à lire dans le compte) | ~30-55 % |
 | WhatsApp marketing France (plus tard) | 100 | 20 c€ | ~13 c€ chez Meta (0,143 $), plus le fournisseur | ~35 % |
 
 L'email doit sembler gratuit ; la marge se prend sur les canaux premium.

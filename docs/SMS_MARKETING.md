@@ -22,7 +22,7 @@ Dernière revue : 2026-10-08.
 | Fournisseur | `_shared/sms-octopush.ts` | Un appel envoie le même texte à un lot de numéros, dans un ordre fixe. Le module classe les erreurs, lit les statuts et les webhooks. |
 | Texte | `_shared/sms-text.ts`, source unique ré-exportée par le front | Nom en tête, `{{variables}}`, « STOP au 30101 » vers la France, segments, nom d'expéditeur, heures d'envoi. |
 | Webhooks | `sms-inbound-webhook?k=dlr\|stop\|inbound&t=<jeton>` | Accusés → `apply_sms_delivery_status`, retrouvé par (ticket, numéro). STOP et réponse « STOP » → `sms_stop_unsubscribe`. |
-| Portefeuilles | Suite : `sms_credit_balances` (packs) ; Console CRM : Yunits (`crm_yunits_debit`, 35 par SMS, `crm_sms_rate()`) ; plateforme : aucun | Débit avant l'appel. Remboursement sur refus du fournisseur (`refund_sms_log_batch`) ou sur `failed`. Jamais sur `undelivered`, qui a été facturé. |
+| Portefeuilles | Suite : `sms_credit_balances` (packs) ; Console CRM : Yunits (`crm_yunits_debit`, 35 par SMS en France, 70 vers l'étranger, `crm_sms_rates()`, zone lue sur le numéro : `+1` jamais mis en file) ; plateforme : aucun | Débit avant l'appel. Remboursement sur refus du fournisseur (`refund_sms_log_batch`) ou sur `failed`. Jamais sur `undelivered`, qui a été facturé. |
 | Identité | `get_sms_sender_readiness`, `set_sms_sender_identity` | Raison sociale + SIRET / RNA / TVA, exigées par la charte AF2M avant tout envoi, test compris. |
 
 ## Règles non négociables (serveur, jamais retirables par le pro)

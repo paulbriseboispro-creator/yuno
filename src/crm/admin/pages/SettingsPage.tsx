@@ -19,6 +19,8 @@ import { card, EmptyNote, PageHead, RowLine, Section, Tabs, pageWrap, useAgo } f
 
 type Tab = 'offer' | 'lifecycle' | 'switches' | 'audit';
 const CHANNELS = ['email', 'sms', 'whatsapp', 'instagram'] as const;
+/** Grille des prix : le SMS a un second tarif, vers l'étranger (tout indicatif hors +33). */
+const PRICE_ROWS = ['email', 'sms', 'sms_intl', 'whatsapp', 'instagram'] as const;
 const NUM_KEYS = ['price_month', 'price_month_next', 'price_year', 'price_switch_at', 'trial_days', 'trial_yunits', 'trial_extensions', 'monthly_yunits', 'annual_bonus_yunits'] as const;
 
 export default function SettingsPage() {
@@ -113,13 +115,13 @@ function Editor({ cfg, mode }: { cfg: PricingCfg; mode: 'offer' | 'switches' }) 
                 <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr', gap: 12, padding: '10px 28px', background: 'var(--sand-50)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>
                   <span>{t('adm.crm.se.h.channel')}</span><span style={{ textAlign: 'right' }}>Yunits</span><span style={{ textAlign: 'right' }}>{t('adm.crm.se.h.billed')}</span><span style={{ textAlign: 'right' }}>{t('adm.crm.se.h.cost')}</span><span style={{ textAlign: 'right' }}>{t('adm.crm.se.h.margin')}</span>
                 </div>
-                {CHANNELS.map((c) => {
+                {PRICE_ROWS.map((c) => {
                   const billed = (draft.rates[c] ?? 0) / (draft.yunits_per_euro || 500);
                   const cost = draft.costs[c] ?? 0;
                   const m = billed > 0 ? ((billed - cost) / billed) * 100 : null;
                   return (
                     <div key={c} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr', gap: 12, alignItems: 'center', padding: '12px 28px', borderTop: '1px solid var(--sand-100)', background: m !== null && m < 0 ? 'var(--red-50)' : undefined }}>
-                      <b>{t(`adm.crm.se.ch.${c}`)}{!draft.channels_live[c] ? ` · ${t('adm.crm.se.soon')}` : ''}</b>
+                      <b>{t(`adm.crm.se.ch.${c}`)}{!draft.channels_live[c === 'sms_intl' ? 'sms' : c] ? ` · ${t('adm.crm.se.soon')}` : ''}</b>
                       <span style={{ display: 'flex', justifyContent: 'flex-end' }}><Num value={draft.rates[c] ?? 0} onChange={(v) => set('rates', { ...draft.rates, [c]: v })} width={80} /></span>
                       <span style={{ textAlign: 'right' }}>{price4(billed)}</span>
                       <span style={{ display: 'flex', justifyContent: 'flex-end' }}><Num value={cost} step={0.0001} onChange={(v) => set('costs', { ...draft.costs, [c]: v })} width={96} /></span>

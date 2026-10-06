@@ -25,7 +25,7 @@ import { useNights } from '@/crm/data/nights';
 import type { CrmAudience } from '@/crm/data/emails';
 import { smsErrorKey, useSmsActions, useSmsAnalysis, useSmsAudiencePreview, useSmsCampaigns, useSmsReadiness, useSmsSendOptions, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCost, smsEffectiveAt, smsFinalText,
+  countSms, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCostSplit, smsEffectiveAt, smsFinalText,
 } from '@/crm/lib/sms';
 import { SmsFlowHeader, type SmsStep } from '../flow/SmsFlowHeader';
 import { SmsAudienceStep } from './SmsAudienceStep';
@@ -66,6 +66,7 @@ export default function SmsSendPage() {
   const quiet = { from: s?.quiet_from ?? 20, to: s?.quiet_to ?? 8, noSunday: s?.no_sunday ?? true };
   const cap = s?.weekly_cap ?? 1;
   const rateSms = Number(shell.data?.wallet.rates?.sms ?? 35);
+  const rateIntl = Number(shell.data?.wallet.rates?.sms_intl ?? 70);
   const balance = Number(shell.data?.wallet.balance ?? 0);
 
   // Premier état : celui du brouillon ; un créneau proposé s'il n'a pas de date.
@@ -95,7 +96,9 @@ export default function SmsSendPage() {
   const night = (nights.data?.nights ?? []).find((x) => x.id === row?.event_id) ?? null;
   const text = smsFinalText(row?.body ?? '', { sender, lang, vals: { 'prénom': t('yc.sm.sample.name'), nom_club: space.name, 'soirée': night?.title ?? eventTitle ?? t('yc.sm.sample.night'), lien: SAMPLE_LINK } });
   const k = countSms(text);
-  const cost = smsCost(net, k.parts, rateSms);
+  // Deux tarifs : France (+33) et étranger, comptés numéro par numéro (crm_sms_audience_preview).
+  const netIntl = Math.min(net, preview.data?.net_intl ?? 0);
+  const cost = smsCostSplit(net, netIntl, k.parts, rateSms, rateIntl);
 
   // Enregistrement (brouillon) : chaque réglage, la taille et le coût estimés.
   const latest = useRef<{ d: Draft; net: number; parts: number } | null>(null);
@@ -272,7 +275,7 @@ export default function SmsSendPage() {
             </div>
           </div>
         </main>
-        <SmsSendAside campaignId={row.id} text={text} sender={sender} time={mode === 'now' ? time(new Date()) : time(eff.at)} day={mode === 'now' || eff.at.toDateString() === new Date().toDateString() ? t('yc.sm.ph.today') : dShort(eff.at)} parts={k.parts} net={net} whenShort={whenShort} cost={cost} rate={rateSms} balance={balance} readOnly={readOnly} />
+        <SmsSendAside campaignId={row.id} text={text} sender={sender} time={mode === 'now' ? time(new Date()) : time(eff.at)} day={mode === 'now' || eff.at.toDateString() === new Date().toDateString() ? t('yc.sm.ph.today') : dShort(eff.at)} parts={k.parts} net={net} whenShort={whenShort} cost={cost} rate={rateSms} intl={{ n: netIntl, rate: rateIntl }} balance={balance} readOnly={readOnly} />
       </div>
 
       <Modal open={confirm} onClose={() => setConfirm(false)} width={480} label={t('yc.sm.sd.c.label')}>
@@ -287,6 +290,7 @@ export default function SmsSendPage() {
               [t('yc.sm.sd.c.to'), tp('yc.sm.ck.aud.ok', net, { n: n(net) }).replace(/[.]$/, '')],
               [t('yc.sm.sd.c.when'), mode === 'now' ? t('yc.em.sd.r.onConfirm') : whenText(eff.at)],
               [t('yc.sm.sd.c.cost'), t('yc.sm.sd.c.costV', { n: n(cost), p: k.parts })],
+              ...(netIntl > 0 ? [[t('yc.sm.sd.c.intlL'), t('yc.sm.sd.c.intlV', { n: n(netIntl), r: rateIntl })]] : []),
             ].map(([l, val]) => (
               <div key={l} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, fontSize: 14.5 }}><span style={{ color: 'var(--sand-600)' }}>{l}</span><b style={{ textAlign: 'right' }}>{val}</b></div>
             ))}

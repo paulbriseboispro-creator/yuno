@@ -151,7 +151,7 @@ export function useSmsSendOptions() {
   });
 }
 
-export interface SmsAudiencePreview { reach: number; x_buyers: number; x_recent: number; x_cap: number; net: number }
+export interface SmsAudiencePreview { reach: number; x_buyers: number; x_recent: number; x_cap: number; net: number; /** Dont numéros étrangers (tarif étranger). */ net_intl?: number }
 
 export function useSmsAudiencePreview(p: { audiences: CrmAudience[]; eventId: string | null; recentDays: number | null; excludeBuyers: boolean; campaignId: string | null }) {
   const { rpc: args, qk } = useCrmScope();

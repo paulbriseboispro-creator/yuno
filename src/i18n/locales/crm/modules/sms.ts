@@ -591,6 +591,11 @@ const dict: CrmDict = {
   'yc.sm.err.provider': ['The sending service refused the SMS. Nothing was charged.', 'Le service d’envoi a refusé le SMS. Rien n’a été débité.', 'El servicio de envío rechazó el SMS. No se cobró nada.'],
   'yc.sm.err.date': ['Choose an upcoming date.', 'Choisissez une date à venir.', 'Elija una fecha próxima.'],
   'yc.sm.err.generic': ['The SMS could not leave. Try again in a moment.', 'Le SMS n’a pas pu partir. Réessayez dans un instant.', 'El SMS no pudo salir. Inténtelo de nuevo en un momento.'],
+  // SMS : tarif étranger (08/10).
+  'yc.sm.sd.c.intlL': ['Of which abroad', 'Dont à l’étranger', 'De ellos, en el extranjero'],
+  'yc.sm.sd.c.intlV': ['{n} numbers · {r} Yunits per SMS', '{n} numéros · {r} Yunits par SMS', '{n} números · {r} Yunits por SMS'],
+  'yc.sm.sd.y.okMix': ['This send uses {y} Yunits ({fr} in France × {p} SMS × {r}, {intl} abroad × {p} SMS × {ri}). You’ll have {left} left.', 'Cet envoi utilise {y} Yunits ({fr} en France × {p} SMS × {r}, {intl} à l’étranger × {p} SMS × {ri}). Il vous en restera {left}.', 'Este envío usa {y} Yunits ({fr} en Francia × {p} SMS × {r}, {intl} en el extranjero × {p} SMS × {ri}). Le quedarán {left}.'],
+  'yc.sm.sd.y.shortMix': ['{miss} Yunits missing for this send ({fr} in France × {p} SMS × {r}, {intl} abroad × {p} SMS × {ri}).', 'Il manque {miss} Yunits pour cet envoi ({fr} en France × {p} SMS × {r}, {intl} à l’étranger × {p} SMS × {ri}).', 'Faltan {miss} Yunits para este envío ({fr} en Francia × {p} SMS × {r}, {intl} en el extranjero × {p} SMS × {ri}).'],
 };
 
 export default dict;

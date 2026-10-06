@@ -203,6 +203,8 @@ const dict: CrmDict = {
   'yc.pr.end.cta': ['Create my console', 'Créer ma console', 'Crear mi consola'],
   'yc.pr.end.tIn': ['Your console is ready.', 'Votre console vous attend.', 'Su consola le espera.'],
   'yc.pr.end.sIn': ['Top up your Yunits or manage your subscription in a click.', 'Rechargez vos Yunits ou gérez votre abonnement en un clic.', 'Recargue sus Yunits o gestione su suscripción en un clic.'],
+  // SMS : tarif étranger (08/10).
+  'yc.pr.ch.sms_intl': ['SMS abroad', 'SMS à l’étranger', 'SMS al extranjero'],
 };
 
 export default dict;

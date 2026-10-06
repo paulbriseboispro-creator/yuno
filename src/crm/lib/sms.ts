@@ -78,6 +78,15 @@ export function simplifySms(text: string): string {
 /** Yunits d'un envoi : contacts × SMS par contact × tarif. */
 export const smsCost = (n: number, parts: number, rate: number): number => Math.max(0, n) * Math.max(1, parts) * rate;
 
+/**
+ * Yunits d'un envoi à deux tarifs (même règle que le moteur, zone lue sur le
+ * numéro) : `net` contacts dont `intl` à l'étranger (tout indicatif hors +33).
+ */
+export function smsCostSplit(net: number, intl: number, parts: number, rateFr: number, rateIntl: number): number {
+  const i = Math.max(0, Math.min(intl, net));
+  return smsCost(net - i, parts, rateFr) + smsCost(i, parts, rateIntl);
+}
+
 /** Un nom d'expéditeur valable à partir du nom de l'espace : 3 à 11 lettres ou chiffres. */
 export function defaultSender(name: string | null | undefined): string {
   return toSenderId(name) ?? 'YUNO';
