@@ -22,6 +22,10 @@ import {
   EXTRA_FIELD_INPUT, SP_ICON, activeExtras, countdownParts, dt, initials, rewardOf, titleSize, tokens, venueOf,
 } from './model';
 import type { ExtraField, SignupDesign, SignupFields, SignupKind, SignupReward } from './model';
+import { buildPageTagData, customTokens, normalizeCustomDesign, sectionVisible } from './custom';
+import type { CustomDesign, YunoSection } from './custom';
+import CustomSection from './CustomSection';
+import { useCustomFonts } from './useCustomFonts';
 
 export type FanScene = 'form' | 'noted' | 'open' | 'closed' | 'soon';
 export type FanMode = 'live' | 'preview' | 'frozen';
@@ -57,7 +61,17 @@ export interface FanCfg {
   eventEnd?: string | null;
   /** Pays proposé pour le téléphone (ISO alpha-2). */
   country?: string | null;
+  /**
+   * Design sur mesure (dessiné par l'IA du pro via le MCP, `custom.ts`) : il
+   * remplace le gabarit. Lu tel qu'en base, normalisé et nettoyé ici.
+   */
+  custom?: CustomDesign | null;
+  /** Marque de l'hôte, pour les balises d'un design sur mesure ({{host.logo}}…). */
+  brand?: { logo?: string | null; city?: string | null; instagram?: string | null } | null;
+  /** La soirée, pour les balises ({{event.venue}}, {{event.time}}…). */
+  eventFacts?: { title: string; start_at: string; tz?: string | null; venue?: string | null; city?: string | null; poster?: string | null; ticket_url?: string | null; sold_out?: boolean } | null;
 }
+
 
 export type SubmitResult = 'ok' | 'already' | 'closed' | 'demo' | 'invalid_email' | 'invalid_phone' | 'disposable' | 'rate_limited' | 'consent_required' | 'invalid' | 'error';
 
@@ -80,7 +94,13 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
   onToast?: (msg: string) => void;
 }) {
   const { t, lang, locale } = useCrmT();
-  const K = useMemo(() => tokens(cfg.design), [cfg.design]);
+  const custom = useMemo(() => normalizeCustomDesign(cfg.custom), [cfg.custom]);
+  const K = useMemo(() => (custom ? customTokens(custom.theme) : tokens(cfg.design)), [custom, cfg.design]);
+  useCustomFonts(custom?.theme);
+  // Blocs Yuno placés par le design sur mesure : ils quittent leur place par défaut dans le formulaire.
+  const placed = useMemo(() => new Set(custom ? custom.sections.filter((x): x is YunoSection => x.type === 'yuno').map((x) => x.block) : []), [custom]);
+  const formSection = custom?.sections.find((x): x is YunoSection => x.type === 'yuno' && x.block === 'form');
+  const wRef = useRef<HTMLDivElement>(null);
   const S = K.s, F = K.F, lay = K.lay;
   const frozen = mode === 'frozen';
 
@@ -114,6 +134,14 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
     setSub(null);
     if (scRef.current) scRef.current.scrollTop = 0;
   }, [sceneProp, cfg.kind]);
+  // Design sur mesure : la confirmation (dans le bloc formulaire) vient sous les yeux,
+  // après l'inscription comme dans l'onglet « C'est noté » d'un aperçu.
+  const notedNow = (sub ?? sceneProp) === 'noted';
+  useEffect(() => {
+    if (!custom || !notedNow || !wRef.current || !scRef.current) return;
+    // Sous la barre d'état du téléphone d'aperçu (46 px), en haut de la page publique.
+    scRef.current.scrollTop = Math.max(0, wRef.current.offsetTop - (mode === 'live' ? 16 : 62));
+  }, [custom, notedNow, mode]);
 
   const flash = (m: string) => {
     if (onToast && mode !== 'live') { onToast(m); return; }
@@ -368,6 +396,154 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
     </button>
   );
 
+  // ── Les blocs du formulaire, réutilisés par le design sur mesure ─────────
+  const cdBox = (
+    <div style={{ padding: 14, borderRadius: cdRad, background: K.kSoft, boxShadow: `inset 0 0 0 1px ${K.kLine}` }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '2px 10px', marginBottom: 10 }}>
+        <span style={{ fontFamily: "'Geist Mono'", fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: K.kM }}>{t('yc.sp.fan.saleIn')}</span>
+        <span style={{ fontSize: 12.5, color: K.kM }}>{saleStr}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+        {cd.map((c) => (
+          <div key={c.l} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '10px 0 8px', borderRadius: cdRad, background: K.kSoft }}>
+            <b style={{ fontFamily: F.f + ',sans-serif', fontWeight: F.w, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums' }}>{c.v}</b>
+            <span style={{ fontFamily: "'Geist Mono'", fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: K.kM }}>{c.l}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  const countRow = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: K.k }}>
+      <span style={{ display: 'flex' }}>
+        {['#5E5457', '#857B7D', '#A39A98'].map((c, i) => <i key={c} style={{ width: 22, height: 22, marginLeft: i ? -8 : 0, borderRadius: 99, background: c, boxShadow: `0 0 0 2px ${K.card || K.bg}`, display: 'block' }} />)}
+      </span>
+      <span><b style={{ fontWeight: 700 }}>{new Intl.NumberFormat(locale).format(Math.max(0, cfg.count)).replace(/[\u202f\u00a0]/g, ' ')}</b> {t('yc.sp.fan.count')}</span>
+    </div>
+  );
+
+  const widget = (
+    <div ref={wRef} style={{ position: 'relative', flex: S.wFlex, display: 'flex', flexDirection: 'column', gap: 18, margin: S.wMx, padding: S.wPad, background: S.wBg, border: S.wBd, borderTop: wBt, borderRadius: S.wRad, boxShadow: S.wSh, backdropFilter: S.wBlur, WebkitBackdropFilter: S.wBlur, color: K.k, boxSizing: 'border-box' }}>
+      {lay === 'ticket' && (
+        <>
+          <i style={{ position: 'absolute', left: -10, top: -11, width: 20, height: 20, borderRadius: 99, background: K.bg, display: 'block' }} />
+          <i style={{ position: 'absolute', right: -10, top: -11, width: 20, height: 20, borderRadius: 99, background: K.bg, display: 'block' }} />
+        </>
+      )}
+
+      {isForm && (
+        <>
+          {formSection?.tagline !== false && cfg.sub && <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textAlign: lay === 'clean' ? 'center' : 'left', textWrap: 'pretty' as never }}>{cfg.sub}</p>}
+          {showCd && !placed.has('countdown') && cdBox}
+          {!placed.has('reward') && rewardBox}
+          {cfg.showCount && !placed.has('count') && countRow}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: shake }}>
+            {inputs.map(renderInput)}
+            {qs.map((q, qi) => (
+              <div key={qi} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={lbStyle}>{S.lbPre}{q.q}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {q.opts.map((o) => (
+                    <button key={o.t} type="button" onClick={o.pick} aria-pressed={o.on} tabIndex={frozen ? -1 : undefined}
+                      style={{ height: 42, padding: '0 16px', borderRadius: S.chRad, borderWidth: S.chBw, borderStyle: 'solid', borderColor: o.bd, background: o.bg, color: o.fg, fontSize: 14.5, fontWeight: 600, fontFamily: famOf('body'), cursor: 'pointer', transition: 'background 160ms,border-color 160ms,color 160ms' }}>{o.t}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {inputsEnd.map(renderInput)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <button type="button" role="checkbox" aria-checked={consent} onClick={() => setConsent((c) => !c)} tabIndex={frozen ? -1 : undefined}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 0, border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', color: K.k }}>
+                <span style={{ flex: 'none', width: 24, height: 24, marginTop: 1, borderRadius: boxRad, boxSizing: 'border-box', border: `1.5px solid ${tried && !consent ? K.errC : consent ? K.a : K.kM}`, background: consent ? K.a : 'transparent', color: K.aFg, display: 'grid', placeItems: 'center', transition: 'background 160ms' }}>
+                  {consent && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
+                </span>
+                <span style={{ fontSize: 13.5, lineHeight: 1.45, color: K.kM }}>{consentTxt}</span>
+              </button>
+              {tried && !consent && <span style={{ fontSize: 13, color: K.errC, paddingLeft: 36 }}>{t('yc.sp.fan.eConsent')}</span>}
+            </div>
+            {err && <span role="alert" style={{ fontSize: 13.5, color: K.errC }}>{err}</span>}
+          </div>
+        </>
+      )}
+
+      {isNoted && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fpop 520ms cubic-bezier(.22,1,.36,1) both' }}>
+          <span style={{ width: 64, height: 64, borderRadius: okRad, background: K.a, color: K.aFg, display: 'grid', placeItems: 'center', boxShadow: okSh }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="30" style={{ animation: 'fdraw 600ms 260ms cubic-bezier(.22,1,.36,1) both' }}><path d="M20 6 9 17l-5-5" /></svg>
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <h2 style={{ margin: 0, fontFamily: F.f + ',sans-serif', fontWeight: F.w, fontSize: nSize, lineHeight: 1.02, letterSpacing: F.ls, textTransform: S.hup as CSSProperties['textTransform'], overflowWrap: 'anywhere' }}>
+              {result === 'demo' ? t('yc.sp.fan.demoT') : t('yc.sp.fan.noted', { name: nameShown })}
+            </h2>
+            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textWrap: 'pretty' as never }}>
+              {result === 'demo' ? t('yc.sp.fan.demoS') : result === 'already' ? t('yc.sp.fan.already') : cfg.noted}
+            </p>
+            {result === 'ok' && (all || cmode === 'email') && contact.trim() && (
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, fontWeight: 600, color: K.k }}>{t('yc.sp.fan.checkMail', { email: contact.trim() })}</p>
+            )}
+          </div>
+          {!placed.has('reward') && rewardBox}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: '6px 14px', borderRadius: cdRad, background: K.kSoft, boxShadow: `inset 0 0 0 1px ${K.kLine}` }}>
+            {steps.map((s) => (
+              <div key={s.n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: s.bt }}>
+                <span style={{ flex: 'none', width: 24, height: 24, borderRadius: boxRad, boxSizing: 'border-box', background: s.bg, color: s.fg, boxShadow: s.sh, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>
+                  {s.done ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> : s.n}
+                </span>
+                <span style={{ fontSize: 14.5, lineHeight: 1.35, color: s.c }}>{s.txt}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fpop 520ms cubic-bezier(.22,1,.36,1) both' }}>
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textWrap: 'pretty' as never }}>{t('yc.sp.fan.openTxt')}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: cdRad, background: 'rgba(23,163,74,.14)', boxShadow: 'inset 0 0 0 1px rgba(23,163,74,.45)' }}>
+            <span style={{ width: 9, height: 9, borderRadius: 99, background: '#22C55E', animation: 'fpulse 1.4s ease-in-out infinite' }} />
+            <b style={{ fontSize: 15, fontWeight: 600 }}>{t('yc.sp.fan.openBadge')}</b>
+          </div>
+        </div>
+      )}
+
+      {(isClosed || isSoon) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: cdRad, background: K.kSoft, boxShadow: `inset 0 0 0 1px ${K.kLine}` }}>
+          <b style={{ fontFamily: F.f + ',sans-serif', fontWeight: F.w, fontSize: 22, letterSpacing: F.ls, textTransform: S.hup as CSSProperties['textTransform'] }}>{isSoon ? t('yc.sp.fan.soonT') : t('yc.sp.fan.closedT')}</b>
+          <span style={{ fontSize: 15, lineHeight: 1.45, color: K.kM }}>{isSoon ? t('yc.sp.fan.soonS', { d: dt(cfg.opensAt, locale) }) : t('yc.sp.fan.closedS', { club, of })}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Design sur mesure : sections de l'IA + blocs Yuno, dans l'ordre ──────
+  const tagData = buildPageTagData({
+    locale, lang, kind, title, tagline: cfg.sub, button: cfg.btn, poster: cfg.poster, pageUrl: cfg.pageUrl ?? null,
+    host: { name: club, logo: cfg.brand?.logo, city: cfg.brand?.city, instagram: cfg.brand?.instagram },
+    event: kind === 'communaute' ? null : (cfg.eventFacts ?? null), count: cfg.showCount ? cfg.count : null,
+    saleAt: cfg.saleAt, saleOpen: !!cfg.saleAt && rem <= 0, reward: { on: rewardOn, label: rewardTxt, how: rw.sub },
+    scene, firstName: first.trim(), tbaLabel: t('yc.sp.w.nightNoneD'),
+  });
+  const customBody = custom && (
+    <>
+      {/* Sous la barre d'état du téléphone d'aperçu (la page publique n'en a pas). */}
+      {mode !== 'live' && <div style={{ height: 46, flex: 'none' }} />}
+      {custom.sections.filter((x) => sectionVisible(x, scene)).map((x) => {
+        if (x.type === 'html') return <CustomSection key={x.id} html={x.html} css={x.css} sharedCss={custom.theme.css} data={tagData} />;
+        if (x.block === 'form') return <div key={x.id} style={{ display: 'flex', flexDirection: 'column', flex: 'none' }}>{widget}</div>;
+        const inner = x.block === 'countdown' ? (showCd && isForm ? cdBox : null) : x.block === 'reward' ? rewardBox : (cfg.showCount ? countRow : null);
+        // Un bloc placé hors du formulaire est dessiné avec l'encre du formulaire : quand
+        // elle ne se lit pas sur le fond de la page (formulaire clair sur page sombre, ou
+        // l'inverse), il garde l'habit du formulaire ; sinon il se pose tel quel.
+        const dress = K.kDark !== K.dark;
+        return inner ? (
+          <div key={x.id} style={dress
+            ? { flex: 'none', margin: '8px 16px', padding: 14, background: S.wBg, border: S.wBd, borderRadius: S.wRad, backdropFilter: S.wBlur, WebkitBackdropFilter: S.wBlur, color: K.k }
+            : { flex: 'none', margin: '8px 20px', color: K.k }}>{inner}</div>
+        ) : null;
+      })}
+    </>
+  );
+
   return (
     <div className="yc-fan" style={{ position: 'relative', width: '100%', height: '100%', minHeight: 560, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', fontFamily: famOf('body'), color: K.ink, background: S.rootBg, pointerEvents: frozen ? 'none' : undefined }}>
       {lay === 'full' && (
@@ -530,118 +706,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
           </div>
         )}
 
-        <div style={{ position: 'relative', flex: S.wFlex, display: 'flex', flexDirection: 'column', gap: 18, margin: S.wMx, padding: S.wPad, background: S.wBg, border: S.wBd, borderTop: wBt, borderRadius: S.wRad, boxShadow: S.wSh, backdropFilter: S.wBlur, WebkitBackdropFilter: S.wBlur, color: K.k, boxSizing: 'border-box' }}>
-          {lay === 'ticket' && (
-            <>
-              <i style={{ position: 'absolute', left: -10, top: -11, width: 20, height: 20, borderRadius: 99, background: K.bg, display: 'block' }} />
-              <i style={{ position: 'absolute', right: -10, top: -11, width: 20, height: 20, borderRadius: 99, background: K.bg, display: 'block' }} />
-            </>
-          )}
-
-          {isForm && (
-            <>
-              <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textAlign: lay === 'clean' ? 'center' : 'left', textWrap: 'pretty' as never }}>{cfg.sub}</p>
-              {showCd && (
-                <div style={{ padding: 14, borderRadius: cdRad, background: K.kSoft, boxShadow: `inset 0 0 0 1px ${K.kLine}` }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '2px 10px', marginBottom: 10 }}>
-                    <span style={{ fontFamily: "'Geist Mono'", fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: K.kM }}>{t('yc.sp.fan.saleIn')}</span>
-                    <span style={{ fontSize: 12.5, color: K.kM }}>{saleStr}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-                    {cd.map((c) => (
-                      <div key={c.l} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '10px 0 8px', borderRadius: cdRad, background: K.kSoft }}>
-                        <b style={{ fontFamily: F.f + ',sans-serif', fontWeight: F.w, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums' }}>{c.v}</b>
-                        <span style={{ fontFamily: "'Geist Mono'", fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: K.kM }}>{c.l}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {rewardBox}
-              {cfg.showCount && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: K.k }}>
-                  <span style={{ display: 'flex' }}>
-                    {['#5E5457', '#857B7D', '#A39A98'].map((c, i) => <i key={c} style={{ width: 22, height: 22, marginLeft: i ? -8 : 0, borderRadius: 99, background: c, boxShadow: `0 0 0 2px ${K.card || K.bg}`, display: 'block' }} />)}
-                  </span>
-                  <span><b style={{ fontWeight: 700 }}>{new Intl.NumberFormat(locale).format(Math.max(0, cfg.count)).replace(/[\u202f\u00a0]/g, ' ')}</b> {t('yc.sp.fan.count')}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: shake }}>
-                {inputs.map(renderInput)}
-                {qs.map((q, qi) => (
-                  <div key={qi} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <span style={lbStyle}>{S.lbPre}{q.q}</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {q.opts.map((o) => (
-                        <button key={o.t} type="button" onClick={o.pick} aria-pressed={o.on} tabIndex={frozen ? -1 : undefined}
-                          style={{ height: 42, padding: '0 16px', borderRadius: S.chRad, borderWidth: S.chBw, borderStyle: 'solid', borderColor: o.bd, background: o.bg, color: o.fg, fontSize: 14.5, fontWeight: 600, fontFamily: famOf('body'), cursor: 'pointer', transition: 'background 160ms,border-color 160ms,color 160ms' }}>{o.t}</button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {inputsEnd.map(renderInput)}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  <button type="button" role="checkbox" aria-checked={consent} onClick={() => setConsent((c) => !c)} tabIndex={frozen ? -1 : undefined}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 0, border: 0, background: 'none', textAlign: 'left', cursor: 'pointer', color: K.k }}>
-                    <span style={{ flex: 'none', width: 24, height: 24, marginTop: 1, borderRadius: boxRad, boxSizing: 'border-box', border: `1.5px solid ${tried && !consent ? K.errC : consent ? K.a : K.kM}`, background: consent ? K.a : 'transparent', color: K.aFg, display: 'grid', placeItems: 'center', transition: 'background 160ms' }}>
-                      {consent && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
-                    </span>
-                    <span style={{ fontSize: 13.5, lineHeight: 1.45, color: K.kM }}>{consentTxt}</span>
-                  </button>
-                  {tried && !consent && <span style={{ fontSize: 13, color: K.errC, paddingLeft: 36 }}>{t('yc.sp.fan.eConsent')}</span>}
-                </div>
-                {err && <span role="alert" style={{ fontSize: 13.5, color: K.errC }}>{err}</span>}
-              </div>
-            </>
-          )}
-
-          {isNoted && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fpop 520ms cubic-bezier(.22,1,.36,1) both' }}>
-              <span style={{ width: 64, height: 64, borderRadius: okRad, background: K.a, color: K.aFg, display: 'grid', placeItems: 'center', boxShadow: okSh }}>
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="30" style={{ animation: 'fdraw 600ms 260ms cubic-bezier(.22,1,.36,1) both' }}><path d="M20 6 9 17l-5-5" /></svg>
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <h2 style={{ margin: 0, fontFamily: F.f + ',sans-serif', fontWeight: F.w, fontSize: nSize, lineHeight: 1.02, letterSpacing: F.ls, textTransform: S.hup as CSSProperties['textTransform'], overflowWrap: 'anywhere' }}>
-                  {result === 'demo' ? t('yc.sp.fan.demoT') : t('yc.sp.fan.noted', { name: nameShown })}
-                </h2>
-                <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textWrap: 'pretty' as never }}>
-                  {result === 'demo' ? t('yc.sp.fan.demoS') : result === 'already' ? t('yc.sp.fan.already') : cfg.noted}
-                </p>
-                {result === 'ok' && (all || cmode === 'email') && contact.trim() && (
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, fontWeight: 600, color: K.k }}>{t('yc.sp.fan.checkMail', { email: contact.trim() })}</p>
-                )}
-              </div>
-              {rewardBox}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: '6px 14px', borderRadius: cdRad, background: K.kSoft, boxShadow: `inset 0 0 0 1px ${K.kLine}` }}>
-                {steps.map((s) => (
-                  <div key={s.n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: s.bt }}>
-                    <span style={{ flex: 'none', width: 24, height: 24, borderRadius: boxRad, boxSizing: 'border-box', background: s.bg, color: s.fg, boxShadow: s.sh, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>
-                      {s.done ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg> : s.n}
-                    </span>
-                    <span style={{ fontSize: 14.5, lineHeight: 1.35, color: s.c }}>{s.txt}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fpop 520ms cubic-bezier(.22,1,.36,1) both' }}>
-              <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textWrap: 'pretty' as never }}>{t('yc.sp.fan.openTxt')}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: cdRad, background: 'rgba(23,163,74,.14)', boxShadow: 'inset 0 0 0 1px rgba(23,163,74,.45)' }}>
-                <span style={{ width: 9, height: 9, borderRadius: 99, background: '#22C55E', animation: 'fpulse 1.4s ease-in-out infinite' }} />
-                <b style={{ fontSize: 15, fontWeight: 600 }}>{t('yc.sp.fan.openBadge')}</b>
-              </div>
-            </div>
-          )}
-
-          {(isClosed || isSoon) && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: cdRad, background: K.kSoft, boxShadow: `inset 0 0 0 1px ${K.kLine}` }}>
-              <b style={{ fontFamily: F.f + ',sans-serif', fontWeight: F.w, fontSize: 22, letterSpacing: F.ls, textTransform: S.hup as CSSProperties['textTransform'] }}>{isSoon ? t('yc.sp.fan.soonT') : t('yc.sp.fan.closedT')}</b>
-              <span style={{ fontSize: 15, lineHeight: 1.45, color: K.kM }}>{isSoon ? t('yc.sp.fan.soonS', { d: dt(cfg.opensAt, locale) }) : t('yc.sp.fan.closedS', { club, of })}</span>
-            </div>
-          )}
-        </div>
+        {lay === 'custom' ? customBody : widget}
 
         <div style={{ marginTop: 'auto', padding: '14px 20px 22px', display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12, lineHeight: 1.4, color: K.inkF }}>
           <span>{t('yc.sp.fan.foot1', { club })}</span>

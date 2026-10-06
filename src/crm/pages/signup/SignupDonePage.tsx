@@ -72,13 +72,18 @@ export default function SignupDonePage() {
           <Hv as="button" type="button" onClick={() => nav(SP_ROUTES.list)} style={{ height: 46, padding: '0 16px', border: 0, background: 'none', fontSize: 15, fontWeight: 600, color: 'var(--sand-600)', cursor: 'pointer' }} hover={{ color: 'var(--ink)' }}>{t('yc.sp.d.toList')}</Hv>
         </div>
       </section>
-      {pv && <SignupPreview page={p} host={space.name} onClose={() => setPv(false)} />}
+      {pv && <SignupPreview page={p} host={space.name} logo={space.logoUrl} onClose={() => setPv(false)} />}
     </SpMain>
   );
 }
 
 /** L'aperçu plein écran : la page, « C'est noté », le jour J, l'e-mail et le SMS. */
-export function SignupPreview({ page, host, onClose }: { page: SignupPageRow; host: string; onClose: () => void }) {
+export function SignupPreview({ page, host, logo, title, onClose }: {
+  page: SignupPageRow; host: string; logo?: string | null;
+  /** Titre du panneau (ex. « Proposition de Claude ») ; sinon « Aperçu ». */
+  title?: string;
+  onClose: () => void;
+}) {
   const T = useCrmT();
   const { t } = T;
   const toast = useCrmToast();
@@ -88,7 +93,7 @@ export function SignupPreview({ page, host, onClose }: { page: SignupPageRow; ho
     ...((page.kind === 'prevente' || page.kind === 'attente') ? [{ v: 'open' as PhoneScene, l: t('yc.sp.w.tab.open') }] : []),
     { v: 'email', l: t('yc.sp.w.chEmail') }, { v: 'sms', l: t('yc.sp.w.chSms') },
   ];
-  const cfg = pageCfg(page, host, t, T.locale);
+  const cfg = pageCfg(page, host, t, T.locale, { logo });
   const msg = page.relance?.open?.msg || undefined;
   return (
     <Portal>
@@ -96,7 +101,7 @@ export function SignupPreview({ page, host, onClose }: { page: SignupPageRow; ho
         <div role="dialog" aria-label={t('yc.sp.pv.label')} onClick={(e) => e.stopPropagation()}
           style={{ maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '22px 20px 20px', borderRadius: 28, background: 'var(--sand-50)', boxShadow: 'var(--shadow-md)', animation: 'sp-pop 280ms cubic-bezier(.22,1,.36,1) both', fontFamily: 'Geist,system-ui,sans-serif' }}>
           <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <span style={monoLabel}>{t('yc.sp.pv.title')}</span>
+            <span style={monoLabel}>{title ?? t('yc.sp.pv.title')}</span>
             <Hv as="button" type="button" onClick={onClose} aria-label={t('yc.sp.pv.close')} style={{ width: 34, height: 34, border: 0, borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'var(--sand-200)' }}>
               <SpSvg d={D_X} size={14} sw={2.4} />
             </Hv>

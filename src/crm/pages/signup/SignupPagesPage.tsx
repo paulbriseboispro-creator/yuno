@@ -163,6 +163,11 @@ export default function SignupPagesPage() {
                         <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: m.pulse }} />{t(m.k)}
                       </span>
                       <span style={{ fontSize: 12.5, lineHeight: 1.35, color: 'var(--sand-500)' }}>{rowWindow(p, life, t)}</span>
+                      {p.ai_proposal ? (
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--red-600)' }}>{t('yc.sp.ai.propBadge', { ai: p.ai_proposal.author || p.ai_author || 'IA' })}</span>
+                      ) : p.ai_author ? (
+                        <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{t('yc.sp.ai.by', { ai: p.ai_author })}</span>
+                      ) : null}
                     </span>
                     <Num v={none ? '—' : n(p.visits)} c={none ? 'var(--sand-400)' : 'var(--ink)'} lab={t('yc.sp.l.h.visits')} />
                     <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

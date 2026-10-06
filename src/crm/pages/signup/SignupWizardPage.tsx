@@ -14,13 +14,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
-import { Skel } from '@/crm/ui/kit';
+import { Modal, PillButton, Skel } from '@/crm/ui/kit';
 import { Hv } from '@/crm/ui/Hv';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useNights } from '@/crm/data/nights';
 import type { NightRow } from '@/crm/data/nights';
 import { rpcCode, signupUrl, useSignupMutations, useSignupPages } from '@/crm/data/signupPages';
 import FanPage from '@/crm/signup/FanPage';
+import { normalizeCustomDesign } from '@/crm/signup/custom';
+import type { CustomDesign } from '@/crm/signup/custom';
 import type { FanCfg } from '@/crm/signup/FanPage';
 import InscriptionPhone from '@/crm/signup/InscriptionPhone';
 import type { PhoneScene } from '@/crm/signup/InscriptionPhone';
@@ -38,7 +40,7 @@ import {
 } from './signupLogic';
 import type { Wz } from './signupLogic';
 
-const KNOWN_ERRORS = ['owner_only', 'incomplete', 'closes_in_past', 'support_session', 'bad_fields', 'bad_event'];
+const KNOWN_ERRORS = ['owner_only', 'incomplete', 'closes_in_past', 'support_session', 'bad_fields', 'bad_event', 'ai_changed'];
 
 /** Image ramenée à 1600 px au plus (JPEG), pour une affiche légère. */
 async function fitImage(file: File, max = 1600): Promise<Blob> {
@@ -66,6 +68,14 @@ export default function SignupWizardPage() {
   const q = useSignupPages();
   const nights = useNights();
   const { t } = useCrmT();
+  // Pendant l'édition d'une page, la liste se relit toutes les 8 s (onglet
+  // visible) : une modification faite par l'IA du pro arrive dans l'écran.
+  const refetch = q.refetch;
+  useEffect(() => {
+    if (!id) return;
+    const iv = window.setInterval(() => { if (document.visibilityState === 'visible') void refetch(); }, 8000);
+    return () => window.clearInterval(iv);
+  }, [id, refetch]);
   if (!caps.write) return <Navigate to={SP_ROUTES.list} replace />;
   if ((q.isError && !q.data) || (nights.isError && !nights.data)) {
     const err = q.error ?? nights.error;
@@ -75,10 +85,16 @@ export default function SignupWizardPage() {
   const page = id ? q.data.pages.find((p) => p.id === id) ?? null : null;
   if (id && !page) return <SpMain><BackLink label={t('yc.sp.back')} onClick={() => history.back()} /><b>{t('yc.sp.f.notFound')}</b></SpMain>;
   const kind = (SIGNUP_KINDS as readonly string[]).includes(sp.get('type') ?? '') ? (sp.get('type') as SignupKind) : 'prevente';
-  return <Wizard key={id ?? 'new'} page={page} kind={kind} nights={nights.data.nights} canPublish={q.data.can_publish} />;
+  return <Wizard key={id ?? 'new'} page={page} kind={kind} nights={nights.data.nights} canPublish={q.data.can_publish} review={sp.get('review') === '1'} onStale={() => { void q.refetch(); }} />;
 }
 
-function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/signupPages').SignupPageRow | null; kind: SignupKind; nights: NightRow[]; canPublish: boolean }) {
+function Wizard({ page, kind, nights, canPublish, review, onStale }: {
+  page: import('@/crm/data/signupPages').SignupPageRow | null; kind: SignupKind; nights: NightRow[]; canPublish: boolean;
+  /** Ouvert depuis « Publier » d'une page préparée par l'IA : directement à la dernière étape. */
+  review?: boolean;
+  /** L'enregistrement a été refusé parce que l'IA venait d'écrire : relire tout de suite. */
+  onStale: () => void;
+}) {
   const T = useCrmT();
   const { t, lang, locale } = T;
   const { space } = useCrmScope();
@@ -88,7 +104,11 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
   const host = space.name;
   const upcoming = useMemo(() => nights.filter((n) => n.upcoming), [nights]);
   const [wz, setWzState] = useState<Wz>(() => fillWz(page ? wzFromPage(page, nights, t) : newWz(kind, nights, t), nights, host, t, lang));
-  const [step, setStep] = useState(page ? 3 : 1);
+  const [step, setStep] = useState(page ? (review ? 4 : 3) : 1);
+  // Design sur mesure (préparé par l'IA via le MCP) : il remplace le gabarit
+  // tant que le pro n'en choisit pas un autre.
+  const [custom, setCustom] = useState<CustomDesign | null>(() => normalizeCustomDesign(page?.custom_design));
+  const [askTpl, setAskTpl] = useState<string | null>(null);
   const [wzTab, setWzTab] = useState<'page' | 'noted' | 'msg'>('page');
   const [ch, setCh] = useState<'email' | 'sms'>('email');
   const [busy, setBusy] = useState(false);
@@ -99,6 +119,22 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
 
   const upd = (patch: Partial<Wz>, touched?: 'title' | 'sub' | 'btn' | 'noted') =>
     setWzState((s) => fillWz({ ...s, ...patch, touched: touched ? { ...s.touched, [touched]: true } : s.touched }, nights, host, t, lang));
+
+  // La version de l'IA : adoptée dès qu'elle arrive (rien n'est réécrit par-dessus),
+  // l'état d'avant reste à un clic (« Revenir à la mienne »), et l'enregistrement
+  // dit à la base quelle version l'écran a vue (`_seen_ai_at`).
+  const seenAi = useRef<string | null>(page?.ai_updated_at ?? null);
+  const latest = useRef<{ wz: Wz; custom: CustomDesign | null }>({ wz, custom });
+  latest.current = { wz, custom };
+  useEffect(() => {
+    const at = page?.ai_updated_at ?? null;
+    if (!page || !at || at === seenAi.current) return;
+    seenAi.current = at;
+    const before = latest.current;
+    setWzState(fillWz(wzFromPage(page, nights, t), nights, host, t, lang));
+    setCustom(normalizeCustomDesign(page.custom_design));
+    toast(t('yc.sp.ai.adopted', { ai: page.ai_author || 'IA' }), { label: t('yc.sp.ai.undo'), onClick: () => { setWzState(before.wz); setCustom(before.custom); } });
+  }, [page, nights, t, host, lang, toast]);
 
   const night = nights.find((n) => n.id === wz.eventId) ?? null;
   const TPLo = tplOf(wz.design.tpl);
@@ -116,7 +152,9 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
     showCount: wz.showCount, count: page?.n ?? 0, full: wz.kind === 'attente' && !!night?.sold_out,
     ticketUrl: night?.url ?? null, opensAt: fromLocalInput(wz.opensAt), pageUrl: page ? signupUrl(page.slug) : null,
     eventStart: night?.start_at ?? null, eventEnd: night?.end_at ?? null,
-  }), [wz, night, host, locale, t, page]);
+    custom, brand: { logo: space.logoUrl },
+    eventFacts: night ? { title: night.title, start_at: night.start_at, tz: night.tz, venue: host, city: night.city, poster: night.cover_url, ticket_url: night.url, sold_out: night.sold_out } : null,
+  }), [wz, night, host, locale, t, page, custom, space.logoUrl]);
 
   // ── Enregistrer ──────────────────────────────────────────────────────────
   const save = async (publish: boolean) => {
@@ -133,7 +171,7 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
       const nextNight = upcoming[0]?.url ?? null;
       const pageUrl = page ? signupUrl(page.slug) : '';
       const relance = relanceForSave(relBase, {
-        kind: wz.kind, title: wz.title, host, lang, t, reward: rewardTxt, accent: pageAccent(wz.design), logo: space.logoUrl,
+        kind: wz.kind, title: wz.title, host, lang, t, reward: rewardTxt, accent: custom ? custom.theme.accent : pageAccent(wz.design), logo: space.logoUrl,
         ctaUrl: relanceCta(wz.kind, night ? { ticket_url: night.url, venue: host, street: night.street, city: night.city } : null, nextNight, pageUrl),
       });
       const patch: Record<string, unknown> = {
@@ -147,6 +185,11 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
         closes_mode: wz.closes, closes_at: wz.closes === 'date' ? fromLocalInput(wz.closesAt) : null,
         countdown: wz.countdown, relance, lang,
       };
+      if (page) {
+        patch._seen_ai_at = seenAi.current;
+        // Un gabarit choisi à la place du design sur mesure : la base le retire.
+        if (page.custom_design && !custom) patch.custom_design = null;
+      }
       const id = await m.save.mutateAsync({ id: wz.id, patch });
       if (!publish) {
         toast(t('yc.sp.w.draftSaved'));
@@ -158,6 +201,7 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
     } catch (e) {
       const c = rpcCode(e);
       toast(KNOWN_ERRORS.includes(c) ? t(`yc.sp.e.${c}`) : t('yc.sp.err'));
+      if (c === 'ai_changed') onStale();
     } finally {
       setBusy(false);
     }
@@ -261,16 +305,38 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}><h2 style={h2}>{t('yc.sp.w.s2T')}</h2><span style={{ fontSize: 14.5, color: 'var(--sand-600)' }}>{t('yc.sp.w.s2S')}</span></div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(164px,1fr))', gap: 12 }}>
-                    {TPL.map((tp) => {
-                      const on = tp.id === TPLo.id;
+                    {page?.custom_design && (() => {
+                      const on = !!custom;
+                      const restore = () => { if (!custom) setCustom(normalizeCustomDesign(page.custom_design)); };
                       return (
-                        <Hv key={tp.id} as="div" role="button" tabIndex={0} aria-pressed={on} onClick={() => upd({ design: { tpl: tp.id, pal: tp.pals[0].id, bg: '', acc: '', font: '' } })}
-                          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); upd({ design: { tpl: tp.id, pal: tp.pals[0].id, bg: '', acc: '', font: '' } }); } }}
+                        <Hv as="div" role="button" tabIndex={0} aria-pressed={on} onClick={restore}
+                          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); restore(); } }}
                           style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 12, padding: '10px 10px 14px', borderRadius: 20, borderWidth: 1.5, borderStyle: 'solid', borderColor: on ? 'var(--red-400)' : 'var(--sand-200)', background: on ? 'var(--red-50)' : '#fff', textAlign: 'left', cursor: 'pointer', color: 'var(--ink)', transition: 'border-color 160ms,background 160ms,translate 220ms cubic-bezier(.22,1,.36,1)' }}
                           hover={{ borderColor: on ? 'var(--red-400)' : 'var(--sand-400)', translate: '0 -2px' }}>
                           <span style={{ display: 'block', position: 'relative', alignSelf: 'center', width: 144, height: 296, borderRadius: 16, overflow: 'hidden', pointerEvents: 'none', boxShadow: '0 0 0 1px rgba(28,21,23,.12),0 6px 16px -8px rgba(28,21,23,.3)' }}>
                             <span style={{ position: 'absolute', left: 0, top: 0, display: 'block', width: 360, height: 740, transform: 'scale(.4)', transformOrigin: 'top left' }}>
-                              <FanPage cfg={{ ...cfg, design: { tpl: tp.id, pal: tp.pals[0].id, bg: '', acc: '', font: '' } }} scene="form" mode="frozen" />
+                              <FanPage cfg={{ ...cfg, custom: normalizeCustomDesign(page.custom_design) }} scene="form" mode="frozen" />
+                            </span>
+                          </span>
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px' }}>
+                            <b style={{ fontSize: 15, paddingRight: 24 }}>{t('yc.sp.ai.custom')}</b>
+                            <span style={{ fontSize: 13, lineHeight: 1.35, color: 'var(--sand-600)' }}>{page.ai_author ? t('yc.sp.ai.by', { ai: page.ai_author }) : t('yc.sp.ai.customOwn')}</span>
+                          </span>
+                          {on && <span style={{ position: 'absolute', right: 14, bottom: 16, width: 22, height: 22, borderRadius: 99, background: 'var(--red-500)', color: '#fff', display: 'grid', placeItems: 'center' }}><SpSvg d={D_TICK} size={13} sw={3} /></span>}
+                        </Hv>
+                      );
+                    })()}
+                    {TPL.map((tp) => {
+                      const on = !custom && tp.id === TPLo.id;
+                      const pick = () => { if (custom) setAskTpl(tp.id); else upd({ design: { tpl: tp.id, pal: tp.pals[0].id, bg: '', acc: '', font: '' } }); };
+                      return (
+                        <Hv key={tp.id} as="div" role="button" tabIndex={0} aria-pressed={on} onClick={pick}
+                          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }}
+                          style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 12, padding: '10px 10px 14px', borderRadius: 20, borderWidth: 1.5, borderStyle: 'solid', borderColor: on ? 'var(--red-400)' : 'var(--sand-200)', background: on ? 'var(--red-50)' : '#fff', textAlign: 'left', cursor: 'pointer', color: 'var(--ink)', transition: 'border-color 160ms,background 160ms,translate 220ms cubic-bezier(.22,1,.36,1)' }}
+                          hover={{ borderColor: on ? 'var(--red-400)' : 'var(--sand-400)', translate: '0 -2px' }}>
+                          <span style={{ display: 'block', position: 'relative', alignSelf: 'center', width: 144, height: 296, borderRadius: 16, overflow: 'hidden', pointerEvents: 'none', boxShadow: '0 0 0 1px rgba(28,21,23,.12),0 6px 16px -8px rgba(28,21,23,.3)' }}>
+                            <span style={{ position: 'absolute', left: 0, top: 0, display: 'block', width: 360, height: 740, transform: 'scale(.4)', transformOrigin: 'top left' }}>
+                              <FanPage cfg={{ ...cfg, custom: null, design: { tpl: tp.id, pal: tp.pals[0].id, bg: '', acc: '', font: '' } }} scene="form" mode="frozen" />
                             </span>
                           </span>
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px' }}>
@@ -282,6 +348,21 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
                       );
                     })}
                   </div>
+                  {custom && <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)' }}>{page?.ai_author ? t('yc.sp.ai.customSub', { ai: page.ai_author }) : t('yc.sp.ai.customSubOwn')}</span>}
+                  <Modal open={!!askTpl} onClose={() => setAskTpl(null)} label={t('yc.sp.ai.replaceT')} width={440}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 24 }}>
+                      <b style={{ fontFamily: "'Bricolage Grotesque'", fontSize: 21, fontWeight: 600, letterSpacing: '-.02em' }}>{t('yc.sp.ai.replaceT')}</b>
+                      <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-600)' }}>{t('yc.sp.ai.replaceS')}</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                        <PillButton tone="ghost" onClick={() => setAskTpl(null)}>{t('yc.sp.ai.cancel')}</PillButton>
+                        <PillButton tone="dark" onClick={() => {
+                          const tp = TPL.find((x) => x.id === askTpl);
+                          if (tp) { setCustom(null); upd({ design: { tpl: tp.id, pal: tp.pals[0].id, bg: '', acc: '', font: '' } }); }
+                          setAskTpl(null);
+                        }}>{t('yc.sp.ai.replaceOk')}</PillButton>
+                      </div>
+                    </div>
+                  </Modal>
                 </>
               )}
 
@@ -310,6 +391,13 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
                       )}
                     </Hv>
                   </div>
+                  {custom && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px', borderRadius: 14, background: 'var(--sand-50)', fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)' }}>
+                      <SpSvg d={SP_ICON.pen} size={16} sw={2.2} style={{ flex: 'none', marginTop: 2 }} />
+                      <span>{t('yc.sp.ai.colorsCustom', { ai: page?.ai_author || 'IA' })}</span>
+                    </div>
+                  )}
+                  {!custom && (<>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <span style={lab}>{t('yc.sp.w.colours')}</span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
@@ -353,6 +441,7 @@ function Wizard({ page, kind, nights, canPublish }: { page: import('@/crm/data/s
                       })}
                     </div>
                   </div>
+                  </>)}
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <span style={lab}>{t('yc.sp.w.title')}</span>
                     <input value={wz.title} onChange={(e) => upd({ title: e.target.value }, 'title')} maxLength={40} style={inputBase} onFocus={focusOn} onBlur={focusOff} />

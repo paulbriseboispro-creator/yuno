@@ -14,14 +14,19 @@ import { useLocaleSection } from '@/contexts/LanguageContext';
 import { useCrmT } from '@/crm/i18n';
 import FanPage from './FanPage';
 import type { FanCfg, FanScene, FanSubmit, SubmitResult } from './FanPage';
-import { SIGNUP_FONTS_HREF, defaultReward, dt, normalizeDesign, normalizeFields, tokens } from './model';
+import { SIGNUP_FONTS_HREF, defaultReward, dt, normalizeDesign, normalizeFields } from './model';
 import type { SignupDesign, SignupFields, SignupKind, SignupReward } from './model';
+import { pageTokens } from './custom';
+import type { CustomDesign } from './custom';
 
 interface PublicPage {
   id: string; slug: string; kind: SignupKind; title: string; tagline: string; button_label: string; thanks_message: string;
   poster_url: string | null; design: SignupDesign; fields: SignupFields; reward: SignupReward | null;
   opens_at: string | null; sale_opens_at: string | null; countdown: boolean; close_at: string | null;
   state: 'open' | 'soon' | 'closed'; count: number | null; demo: boolean; host: string;
+  /** Design sur mesure (MCP) : remplace le gabarit quand il existe. */
+  custom_design?: CustomDesign | null;
+  brand?: { logo?: string | null; city?: string | null; instagram?: string | null } | null;
   event: { title: string; start_at: string; end_at: string; tz: string; ticket_url: string | null; cover_url: string | null; venue: string | null; city: string | null; country: string | null; sold_out: boolean } | null;
 }
 
@@ -84,7 +89,7 @@ function Inner() {
 
   const ev = page.event;
   const design = normalizeDesign(page.design);
-  const K = tokens(design);
+  const K = pageTokens({ design, custom: page.custom_design });
   const cfg: FanCfg = {
     kind: page.kind,
     title: page.title,
@@ -109,6 +114,9 @@ function Inner() {
     eventStart: ev?.start_at ?? null,
     eventEnd: ev?.end_at ?? null,
     country: ev?.country ?? null,
+    custom: page.custom_design ?? null,
+    brand: page.brand ?? null,
+    eventFacts: ev ? { title: ev.title, start_at: ev.start_at, tz: ev.tz, venue: ev.venue, city: ev.city, poster: ev.cover_url, ticket_url: ev.ticket_url, sold_out: ev.sold_out } : null,
   };
   const scene: FanScene = page.state === 'soon' ? 'soon' : page.state === 'closed' ? 'closed' : 'form';
   const submit = (v: FanSubmit): Promise<SubmitResult> => rpc<SubmitResult>('submit_crm_signup', {
