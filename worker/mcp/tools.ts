@@ -1,8 +1,11 @@
-// Les outils du serveur MCP Yuno. Tous en LECTURE SEULE, sauf trois : la
+// Les outils du serveur MCP Yuno. Tous en LECTURE SEULE, sauf cinq : la
 // création et la modification d'un BROUILLON d'e-mail (create_email_draft,
-// update_email_draft) et l'ajout d'une image pour ces brouillons
-// (add_email_image), réservés aux connexions qui en ont reçu le droit au
-// consentement et écrits par la seule porte mcp_write. Aucun outil n'envoie.
+// update_email_draft), l'ajout d'une image (add_email_image), et la création
+// et la modification d'une PAGE D'INSCRIPTION (create_signup_page en
+// brouillon, update_signup_page : brouillon modifié, page publiée = une
+// proposition que le pro applique). Chaque famille a sa permission, posée au
+// consentement ; tout s'écrit par la seule porte mcp_write. Aucun outil
+// n'envoie ni ne publie.
 //
 // Chaque description suit la même grammaire (guide OpenAI / Anthropic) : à quoi
 // sert l'outil, quand l'utiliser (avec des questions de pro en exemple), ce
@@ -40,6 +43,11 @@ export interface ToolDef {
   email?: boolean;
   // Réservé aux connexions qui ont le droit aux brouillons (sans être une écriture).
   drafts?: boolean;
+  // Outil des pages d'inscription : listé pour une connexion qui en a le droit
+  // (can_pages) et dont un espace a Yuno CRM actif.
+  pages?: boolean;
+  // Sert aux deux familles (e-mails ET pages) : listé si l'une est accordée.
+  shared?: boolean;
   // Métadonnées propres à un client (ex. `openai/fileParams` : ChatGPT y passe
   // le fichier que la personne a joint à la conversation).
   meta?: Record<string, unknown>;
@@ -110,6 +118,130 @@ const DRAFT_FIELDS: Record<string, JsonSchema> = {
   exclude_event_buyers: { type: 'boolean', description: 'Skip people who already bought a ticket for the linked night.' },
   exclude_recent_days: { type: 'integer', minimum: 0, maximum: 30, description: 'Skip people who received an email from this account in the last N days. Default 3, 0 = no exclusion.' },
   theme: THEME,
+};
+
+// ── Pages d'inscription ─────────────────────────────────────────────────────
+const FONT_FAMILY: JsonSchema = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9 ]{1,39}$', description: 'Google Fonts family name ("Anton", "Playfair Display", "Inter").' };
+const PAGE_SECTION: JsonSchema = {
+  type: 'object',
+  properties: {
+    html: { type: 'string', maxLength: 30000, description: 'HTML of a custom section (mobile first, 480 px wide at most) with Yuno tags such as {{page.title}}, {{event.date}}, {{page.poster}}. No scripts, forms, inputs or buttons: the Yuno form block collects sign-ups.' },
+    css: { type: 'string', maxLength: 15000, description: 'CSS of this section only (it is rendered on its own: style your classes or :host). @keyframes allowed; no @import or @font-face.' },
+    yuno_block: { type: 'string', enum: ['form', 'countdown', 'reward', 'count'], description: 'Instead of html: a Yuno block. form (required once: fields, consent box, confirmation), countdown (to the ticket sale, presale), reward, count (sign-up counter).' },
+    label: { type: 'string', maxLength: 60, description: 'Name of the section ("Hero", "Line-up", "FAQ").' },
+    show_on: { type: 'string', enum: ['always', 'before_signup', 'after_signup'], description: 'always (default), before_signup (hidden once the fan signed up), after_signup (only on the confirmation).' },
+    tagline: { type: 'boolean', description: 'Form block only: false hides the page tagline at the top of the form (when the hero already shows it).' },
+  },
+  additionalProperties: false,
+};
+const PAGE_THEME: JsonSchema = {
+  type: 'object',
+  description: 'Theme of a custom design: page, Yuno form, button and fonts (on update, only the keys to change). Colors are #rrggbb. Full meaning of each key in get_signup_page_kit.custom_design.theme.',
+  properties: {
+    bg: HEX,
+    bg_css: { type: 'string', maxLength: 2000, description: 'Extra CSS background layers drawn over bg: gradients, or url() of an image hosted on Yuno.' },
+    text: HEX, accent: HEX, accent2: HEX, accent_text: HEX,
+    font_heading: FONT_FAMILY, font_body: FONT_FAMILY,
+    heading_weight: { type: 'integer', minimum: 100, maximum: 900 },
+    heading_case: { type: 'string', enum: ['none', 'uppercase'] },
+    heading_tracking: { type: 'number', minimum: -0.1, maximum: 0.3, description: 'Letter-spacing of headlines in em.' },
+    card_bg: { type: 'string', pattern: '^(#[0-9a-fA-F]{6}|transparent|glass)$', description: 'Form box: #rrggbb, transparent or glass (frosted).' },
+    card_border: { type: 'string', pattern: '^(#[0-9a-fA-F]{6}|none)$' },
+    card_radius: { type: 'integer', minimum: 0, maximum: 40 },
+    card_shadow: { type: 'string', enum: ['none', 'soft', 'hard', 'glow'] },
+    shadow_color: { ...HEX, description: 'Color of hard offset shadows (form box and button). Default: the accent on a dark page, ink on a light page.' },
+    input_style: { type: 'string', enum: ['box', 'underline', 'pill'] },
+    input_bg: { type: 'string', pattern: '^(#[0-9a-fA-F]{6}|transparent)$' },
+    radius: { type: 'integer', minimum: 0, maximum: 40, description: 'Corners of inputs and answer chips.' },
+    button_style: { type: 'string', enum: ['solid', 'gradient', 'outline'] },
+    button_radius: { type: 'integer', minimum: 0, maximum: 99 },
+    button_shadow: { type: 'string', enum: ['none', 'soft', 'hard', 'glow'] },
+    button_case: { type: 'string', enum: ['none', 'uppercase'] },
+    button_arrow: { type: 'boolean' },
+    button_height: { type: 'integer', minimum: 44, maximum: 64 },
+    button_font: { type: 'string', enum: ['body', 'heading'] },
+    label_style: { type: 'string', enum: ['normal', 'uppercase', 'mono'] },
+    extra_fonts: { type: 'array', maxItems: 2, items: FONT_FAMILY },
+    css: { type: 'string', maxLength: 15000, description: 'CSS shared by every section (classes, @keyframes).' },
+  },
+  additionalProperties: false,
+};
+const PAGE_DATE: JsonSchema = { type: 'string', maxLength: 40, description: 'ISO 8601 with a timezone offset ("2026-10-24T18:00:00+02:00"), or "none" to clear it.' };
+const PAGE_FIELDS: Record<string, JsonSchema> = {
+  kind: {
+    type: 'string', enum: ['prevente', 'venue', 'attente', 'communaute'],
+    description: 'Page type: prevente (presale list: fans are told first when ticket sales open), venue ("I am coming" RSVP for a night), attente (waiting list: sold-out night or next date not announced), communaute (community list, no particular night). Default prevente.',
+  },
+  event: { ...EVENT, description: 'The night of the page: event id from get_signup_page_kit, "next", part of the title, or "none" to unlink. Not used by community pages.' },
+  language: { type: 'string', enum: ['fr', 'en', 'es'], description: 'Language the page is written in (follow-up emails use it). Default: the language of the person.' },
+  title: { type: 'string', maxLength: 40, description: 'Page title, the promise ("Prévente House Nation #21").' },
+  tagline: { type: 'string', maxLength: 140, description: 'Short pitch under the title.' },
+  button_label: { type: 'string', maxLength: 30, description: 'Label of the sign-up button ("Je veux ma place").' },
+  thanks_message: { type: 'string', maxLength: 200, description: 'Message after sign-up: what happens next.' },
+  poster_url: { type: 'string', maxLength: 600, description: 'Page visual hosted on Yuno (URL from add_email_image). Default: the event poster. "none" removes it.' },
+  fields: {
+    type: 'object',
+    description: 'The Yuno form. 3 to 4 fields in total convert best.',
+    properties: {
+      contact: { type: 'string', enum: ['both', 'email', 'phone', 'all'], description: 'both = the fan chooses email or phone (default), email, phone, all = both asked.' },
+      extra_fields: {
+        type: 'object',
+        properties: {
+          last_name: { type: 'string', enum: ['off', 'optional', 'required'] },
+          birthdate: { type: 'string', enum: ['off', 'optional', 'required'] },
+          instagram: { type: 'string', enum: ['off', 'optional', 'required'] },
+          city: { type: 'string', enum: ['off', 'optional', 'required'] },
+        },
+        additionalProperties: false,
+      },
+      questions: {
+        type: 'array', maxItems: 2,
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', minLength: 1, maxLength: 60 },
+            options: { type: 'array', minItems: 2, maxItems: 6, items: { type: 'string', minLength: 1, maxLength: 40 } },
+            multiple: { type: 'boolean', description: 'Several answers allowed.' },
+            party_size: { type: 'boolean', description: '"How many are you?" question of a venue page (answers like "1", "2", "3", "4+").' },
+          },
+          required: ['label', 'options'],
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
+  reward: {
+    type: 'object',
+    description: 'What a fan gets for signing up.',
+    properties: {
+      on: { type: 'boolean' },
+      preset: { type: 'string', enum: ['prio', 'drink', 'pre', 'custom'], description: 'prio (priority entry), drink (free drink), pre (presale access), custom (label + how).' },
+      label: { type: 'string', maxLength: 40 },
+      how: { type: 'string', maxLength: 70, description: 'How to get it (custom).' },
+      icon: { type: 'string', enum: ['gift', 'ticket', 'bolt', 'users', 'clock'] },
+    },
+    additionalProperties: false,
+  },
+  show_count: { type: 'boolean', description: 'Show the number of sign-ups on the page.' },
+  countdown: { type: 'boolean', description: 'Presale: countdown to sale_opens_at.' },
+  opens_at: { ...PAGE_DATE, description: 'When the page opens (empty = as soon as it is published).' },
+  sale_opens_at: { ...PAGE_DATE, description: 'Presale: when ticket sales open (countdown, then "it is open").' },
+  closes_mode: { type: 'string', enum: ['sale', 'eve', 'manual', 'never', 'date'], description: 'When the page closes; must fit the type (prevente: sale or date; venue: eve or date; attente: manual or date; communaute: never or date).' },
+  closes_at: { ...PAGE_DATE, description: 'Closing date when closes_mode is "date".' },
+  template: {
+    type: 'object',
+    description: 'A Yuno template instead of a custom design: name, palette from get_signup_page_kit.templates (or "custom" with background and accent), font.',
+    properties: {
+      name: { type: 'string', enum: ['soiree', 'affiche', 'brutal', 'edito', 'ticket', 'affichage', 'verre', 'epure', 'flyer', 'terminal'] },
+      palette: { type: 'string', pattern: '^(custom|red|lime|ice|rose|bone|p[0-4])$' },
+      background: HEX,
+      accent: HEX,
+      font: { type: 'string', enum: ['brico', 'anton', 'serif', 'space', 'black', 'mono'] },
+    },
+    additionalProperties: false,
+  },
+  theme: PAGE_THEME,
 };
 
 const READ_ONLY_ANNOTATIONS = {
@@ -581,23 +713,25 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'list_email_images',
-    title: 'Email images',
+    title: 'Email and page images',
     level: 'analytics',
     email: true,
     drafts: true,
+    shared: true,
     description:
-      'Images added for emails in this space through the connector in the last 30 days (newest first): ready images with their public URL, width and height, '
+      'Images added for emails and signup pages in this space through the connector in the last 30 days (newest first): ready images with their public URL, width and height, '
       + 'and upload links still waiting for the person to drop or paste an image. Use it after the person says they added the image on the upload page.',
     inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
   },
   {
     name: 'add_email_image',
-    title: 'Add an image for an email',
+    title: 'Add an image',
     level: 'analytics',
     email: true,
     write: true,
+    shared: true,
     description:
-      'Stores an image on Yuno to use in an email section (the event poster is already available in get_email_design_kit). '
+      'Stores an image on Yuno to use in an email section or a signup page (logo, photo, background; the event poster is already available in the design kits). '
       + 'Three ways: the image the person attached to the conversation (passed as "image" by apps that hand files to tools), a public image link ("url", copied to Yuno so it stays online), '
       + 'or neither, which returns a one-time upload page where the person pastes or drops the image. Returns the image URL with its width and height when ready, '
       + 'or the upload page. JPEG, PNG, GIF or WebP, 8 MB at most. Nothing is sent.',
@@ -623,6 +757,114 @@ export const TOOLS: ToolDef[] = [
       additionalProperties: false,
     },
     meta: { 'openai/fileParams': ['image'] },
+  },
+  {
+    name: 'get_signup_page_kit',
+    title: 'Signup page design kit',
+    level: 'analytics',
+    email: true,
+    pages: true,
+    description:
+      'What is needed to design a Yuno CRM signup page in one call: the brand of the space (name, logo, city, social links, colors of recent emails), '
+      + 'the upcoming nights with their ids, the facts of one night (title, local date, venue, poster, ticketing link, sold out), the existing pages with their ids and state, '
+      + 'the four page types and their rules, the ten Yuno templates with their palettes, the custom design model (theme, HTML/CSS sections, Yuno blocks), '
+      + 'the Yuno tags with what they show today, the web rules of a public page, a conversion method and an example. '
+      + 'Examples: "make a presale page for my next party", "redo my waiting list page like this screenshot", "a community page in my brand colors".',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, event: { ...EVENT, description: 'Optional. The night the page is about: id, "next" or part of the title.' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_signup_page',
+    title: 'Read a signup page',
+    level: 'analytics',
+    email: true,
+    pages: true,
+    description:
+      'One signup page of the space by id (ids in get_signup_page_kit.pages): type, night, texts, form fields, reward, dates, state (draft, scheduled, open, closed), '
+      + 'design (Yuno template, or custom: theme and every section with its id, visible text, HTML and CSS), a pending proposal if any, sign-ups and visits, '
+      + 'the Console link and the "version" to pass to update_signup_page. Useful before changing a page or to reuse its design.',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, page_id: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' } },
+      required: ['page_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'create_signup_page',
+    title: 'Create a signup page',
+    level: 'analytics',
+    email: true,
+    pages: true,
+    write: true,
+    description:
+      'Creates a Yuno CRM signup page as a DRAFT: page type, night, texts, form fields, reward, dates, and its design, either a Yuno template or a custom design '
+      + '(theme + HTML/CSS sections with Yuno tags + Yuno blocks; the Yuno form block, with its consent box, is always part of the page). Nothing is published: '
+      + 'the draft waits in the Console, where the person reviews it on a live phone preview and publishes it. The HTML and CSS are cleaned (scripts, forms, '
+      + 'external images removed) and checked: errors such as unknown tags or a missing form are returned without creating anything. '
+      + 'Returns the Console link, the version and the checks. Needs the signup pages permission of the connection and Yuno CRM on the space.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        ...PAGE_FIELDS,
+        sections: { type: 'array', minItems: 1, maxItems: 24, items: PAGE_SECTION, description: 'Custom design: the page top to bottom (with theme). Omit for a Yuno template.' },
+      },
+      required: ['title'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'update_signup_page',
+    title: 'Update a signup page',
+    level: 'analytics',
+    email: true,
+    pages: true,
+    write: true,
+    destructive: true,
+    description:
+      'Changes a signup page, for example after the person asked for changes or showed a screenshot: settings (texts, night, fields, reward, dates, language), '
+      + 'the template, the theme (only the keys given), every section (sections) or some of them (section_updates, by section id: rewrite html or css, remove, '
+      + 'insert a new section or Yuno block above or below, move, show before or after sign-up), or design_mode "template" to go back to a Yuno template. '
+      + 'A DRAFT page is changed directly. A PUBLISHED page does not change: the update is saved as a proposal that the person previews and applies or ignores '
+      + 'in the Console, and further updates add to it. Sections not targeted stay as they are. Same cleaning and checks as create_signup_page. '
+      + 'Returns what changed, the mode (updated or proposed), the version and the Console link.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        page_id: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
+        page_version: { type: 'string', maxLength: 40, description: 'The "version" from get_signup_page (or the last create/update). If the person changed the page in the Console since, nothing is written and the current sections are returned.' },
+        ...PAGE_FIELDS,
+        design_mode: { type: 'string', enum: ['custom', 'template'], description: '"template" removes the custom design (the page uses its Yuno template again).' },
+        sections: { type: 'array', minItems: 1, maxItems: 24, items: PAGE_SECTION, description: 'Replaces every section of the custom design.' },
+        section_updates: {
+          type: 'array', minItems: 1, maxItems: 24,
+          description: 'Targeted changes, applied in order. Target a section by its id from get_signup_page (preferred) or its index (0 = first).',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', maxLength: 80 },
+              index: { type: 'integer', minimum: 0, maximum: 30 },
+              action: { type: 'string', enum: ['edit', 'remove', 'insert_before', 'insert_after', 'move'], description: 'edit (default): new html and/or css, or yuno_block, label, show_on, tagline. insert_before / insert_after: a NEW section (html or yuno_block). remove (not the form). move: to move_to.' },
+              html: { type: 'string', maxLength: 30000 },
+              css: { type: 'string', maxLength: 15000 },
+              yuno_block: { type: 'string', enum: ['form', 'countdown', 'reward', 'count'] },
+              label: { type: 'string', maxLength: 60 },
+              show_on: { type: 'string', enum: ['always', 'before_signup', 'after_signup'] },
+              tagline: { type: 'boolean' },
+              move_to: { type: 'integer', minimum: 0, maximum: 30, description: 'move: new position (0 = top).' },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['page_id'],
+      additionalProperties: false,
+    },
   },
   {
     name: 'get_glossary',
@@ -663,15 +905,20 @@ export interface SessionSpace {
   role: string;
   money: boolean;
   customers: boolean;
+  // Yuno CRM actif sur l'espace (compte CRM, ou CRM ajouté à la Billetterie).
+  crm?: boolean;
 }
 
-// Les outils proposés à CETTE connexion : niveau accordé, produits couverts et
-// droit aux brouillons d'e-mails.
-export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = false): ToolDef[] {
+// Les outils proposés à CETTE connexion : niveau accordé, produits couverts,
+// droit aux brouillons d'e-mails et droit aux pages d'inscription.
+export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = false, pages = false): ToolDef[] {
   const products = new Set(spaces.map((s) => s.product));
   const anyCustomers = level === 'customers' && spaces.some((s) => s.customers);
+  const anyCrm = spaces.some((s) => s.crm || s.product === 'crm');
   return TOOLS.filter((t) => {
     if (t.level === 'customers' && !anyCustomers) return false;
+    if (t.shared) return drafts || (pages && anyCrm);
+    if (t.pages) return pages && anyCrm;
     if ((t.write || t.drafts) && !drafts) return false;
     if (t.products && !t.products.some((p) => products.has(p))) return false;
     return true;
