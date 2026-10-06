@@ -163,6 +163,15 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   rapporte son accord newsletter (`source = 'connector:shotgun'`,
   `consent_source = 'ticketing'`), jamais un désabonné / une adresse purgée.
   Une source `connector:%` ne déclenche JAMAIS la recette « bienvenue ».
+  **Ce que la billetterie a donné, elle peut le reprendre** (migration
+  `20261009172000`) : le signal LE PLUS RÉCENT d'un acheteur (billet le plus
+  récemment mis à jour) décide. `contact_newsletter_optin = false` postérieur à
+  l'accord retire du registre un abonné dont l'accord venait du connecteur
+  (`source LIKE 'connector:%'`), tracé `withdrawn` dans
+  `marketing_consent_events` (`ticketing_after_sync`, `consents_withdrawn`) ;
+  un accord donné ailleurs (page `/j/`, fichier attesté) n'est jamais effacé
+  par une case décochée au checkout. Dernier signal = retrait ⇒ jamais
+  d'entrée au registre.
 - **Le produit du compte choisit la Console** (`venues.product` /
   `organizer_profiles.product` = `suite` | `crm`, migration `20261002190000`).
   Écrit à l'inscription (`complete_pro_signup`) ou par le super admin
@@ -743,6 +752,13 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   venue d'un lien de partage `/go/`, d'Instagram ou d'une bio reste anonyme et
   ne déclenche rien ; panier abandonné et upsell table restent « À venir »
   (`AutoSoon`), ils demandent le checkout que Shotgun ne rapporte pas.
+- **Un lot automatique n'excède jamais le solde de Yunits** (compte CRM pur,
+  `20261009172000`) : le moteur n'inscrit au registre que ce que
+  `crm_yunits_balance` couvre (compte en pause = 0), le reste revient au
+  passage suivant (`yunits_held`). Avant, le trigger
+  `_crm_yunits_debit_child_recipients` écartait TOUT le lot sur un solde trop
+  court et le registre interdisait de le rejouer : un essai à 2 000 Yunits
+  face à un lot de 3 000 n'envoyait rien, jamais. Le trigger reste le filet.
 - **Instagram** (`/crm/instagram`) : réponse automatique aux commentaires sous
   les RÉELS, CARROUSELS ET PHOTOS (`post_types`, jamais vide, décision de Paul),
   aussi en message privé et en réponse aux stories. Écran complet mais l'App
