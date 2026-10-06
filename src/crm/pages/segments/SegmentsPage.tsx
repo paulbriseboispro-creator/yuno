@@ -4,9 +4,11 @@
  *   Quels groupes répondent le mieux ?                 [Nouveau segment]
  *   Ce que rapportent vos messages (période, courbe, 4 étapes, constat)
  *   Mes segments · Qui répond le mieux · Derniers envois
- *   Fiche segment (volet), Écrire à…, Nouveau segment
+ *   Fiche segment (volet), Écrire à…, Nouveau segment (le catalogue)
  *
- * Adresse : `?v=rep|env` la vue, `?p=90d|12m` la période, `?s=<clé>` une fiche.
+ * Adresse : `?v=rep|env` la vue, `?p=90d|12m` la période, `?s=<clé>` une fiche,
+ * `?new=1` ouvre le catalogue (`?new=rec` : recommandations cochées, depuis la
+ * tâche de l'accueil).
  * Tous les chiffres viennent de crm_segments_overview / crm_segment_detail.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -22,6 +24,7 @@ import { CrmRpcError, rpc } from '@/crm/lib/rpc';
 import { downloadCsv } from '@/crm/lib/csv';
 import { useDeleteSegment, useSaveSegment } from '@/crm/data/clients';
 import type { ClientFilterDef } from '@/crm/data/clients';
+import { SegmentCatalogModal } from '@/crm/components/SegmentCatalog';
 import { useSegmentsOverview } from '@/crm/data/segments';
 import type { SegPeriod } from '@/crm/data/segments';
 import { growthIsBad, segmentColor, segmentName, segmentRule } from '@/crm/lib/segments';
@@ -33,7 +36,6 @@ import type { SegGroup, SegSort } from './SegmentsTable';
 import { BestView } from './BestView';
 import { SendsView } from './SendsView';
 import { SegmentDrawer } from './SegmentDrawer';
-import { NewSegmentModal } from './NewSegmentModal';
 import { PERIODS, rate } from './segFormat';
 import type { SegVM } from './vm';
 
@@ -59,7 +61,8 @@ export default function SegmentsPage() {
   const [dir, setDir] = useState(1);
   const [group, setGroup] = useState<SegGroup>('all');
   const [envSeg, setEnvSeg] = useState('*');
-  const [nw, setNw] = useState(false);
+  const [nw, setNw] = useState(() => caps.write && !!sp.get('new'));
+  const nwRec = sp.get('new') === 'rec';
   const [write, setWrite] = useState<SegVM | null>(null);
   const saveSeg = useSaveSegment();
   const delSeg = useDeleteSegment();
@@ -151,16 +154,11 @@ export default function SegmentsPage() {
       onError: () => toast(t('yc.cli.list.segFailed')),
     });
   };
-  const create = (p: { template: string; name: string; definition: ClientFilterDef; description: string }) => {
-    saveSeg.mutate({ name: p.name, definition: p.definition, template: p.template, description: p.description }, {
-      onSuccess: (r) => {
-        setNw(false);
-        setGroup('all');
-        patch({ v: null, s: r.id });
-        toast(t('yc.seg.nw.created', { name: p.name }));
-      },
-      onError: () => toast(t('yc.cli.list.segFailed')),
-    });
+  const closeNew = () => { setNw(false); if (sp.get('new')) patch({ new: null }); };
+  // Un seul segment créé : sa fiche s'ouvre ; plusieurs : la liste les montre.
+  const created = (c: { template: string; id: string }[]) => {
+    setGroup('all');
+    patch({ v: null, new: null, s: c.length === 1 ? c[0].id : null });
   };
   const seeSends = (s: SegVM) => {
     const targeted = (data?.sends ?? []).some((e) => e.target === s.key);
@@ -299,13 +297,7 @@ export default function SegmentsPage() {
         />
       )}
 
-      <NewSegmentModal
-        open={nw}
-        onClose={() => setNw(false)}
-        existingTemplates={segs.map((s) => s.template).filter((x): x is string => !!x)}
-        onCreate={create}
-        busy={saveSeg.isPending}
-      />
+      <SegmentCatalogModal open={nw} onClose={closeNew} context="manual" preselect={nwRec} onCreated={created} />
     </main>
   );
 }

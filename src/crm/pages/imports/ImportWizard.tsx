@@ -23,6 +23,7 @@ import {
 import type { Analysis, ColField, ParsedFile } from '@/crm/lib/fileImport';
 import { checkAgainstBase, commitImport, useInvalidateBase } from '@/crm/data/imports';
 import { NightPanelRules } from './ImportsHome';
+import { SegmentsNextStep } from '@/crm/components/SegmentCatalog';
 import { NIGHT_BG, useZeroRules } from './zeroRules';
 
 type ReadErr = 'bad' | 'size';
@@ -509,6 +510,7 @@ function Done({ an, prog, finished, failed, onRetry, onAnother }: { an: Analysis
           <span style={{ fontSize: 15, lineHeight: 1.45, fontWeight: 500, textWrap: 'pretty' }}>{t('yc.imp.w4.noDup')}</span>
         </div>
       )}
+      {finished && <SegmentsNextStep context="file" autoOpen />}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', borderTop: '1px solid var(--sand-100)', paddingTop: 22 }}>
         {failed === 'cnx' && <InkBtn onClick={onRetry}>{t('yc.imp.w4.retry')}</InkBtn>}
         {!failed && (

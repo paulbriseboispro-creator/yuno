@@ -79,6 +79,8 @@ export function TodoList({
           cta: t('yc.home.todo.contacts.cta'),
           to: `${CRM_ROUTES.clients}?status=unreachable`,
         };
+      case 'segments':
+        return { badge: t('yc.home.todo.badge.minutes'), title: t('yc.home.todo.segments.title'), why: t('yc.home.todo.segments.why'), cta: t('yc.home.todo.segments.cta'), to: `${CRM_ROUTES.segments}?new=rec` };
       case 'connect':
         return { badge: t('yc.home.todo.badge.minutes'), title: t('yc.home.todo.connect.title'), why: t('yc.home.todo.connect.why'), cta: t('yc.home.todo.connect.cta'), to: CRM_ROUTES.connectors };
       case 'check':

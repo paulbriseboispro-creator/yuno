@@ -216,18 +216,8 @@ const dict: CrmDict = {
   'yc.seg.crit.fixedN': ['{n} customers', '{n} clients', '{n} clientes'],
   'yc.seg.crit.search': ['Search', 'Recherche', 'Búsqueda'],
 
-  'yc.seg.nw.eyebrow': ['New segment', 'Nouveau segment', 'Nuevo segmento'],
-  'yc.seg.nw.title1': ['Who do you want to ', 'Qui voulez-vous ', '¿A quién quiere '],
-  'yc.seg.nw.accent': ['find', 'retrouver', 'encontrar'],
-  'yc.seg.nw.title2': ['?', ' ?', '?'],
-  'yc.seg.nw.sub': ['Start from a template. The segment is then recalculated every night.', 'Partez d’un modèle. Le segment se recalcule ensuite chaque nuit.', 'Parta de una plantilla. El segmento se recalcula después cada noche.'],
-  'yc.seg.nw.clients': ['customers', 'clients', 'clientes'],
   'yc.seg.nw.done': ['Already created', 'Déjà créé', 'Ya creado'],
-  'yc.seg.nw.soon': ['Coming soon', 'Bientôt', 'Pronto'],
   'yc.seg.nw.fine': ['Or filter precisely from the customer list', 'Ou filtrez finement depuis la liste des clients', 'O filtre con precisión desde la lista de clientes'],
-  'yc.seg.nw.create': ['Create the segment', 'Créer le segment', 'Crear el segmento'],
-  'yc.seg.nw.created': ['Segment “{name}” created', 'Segment « {name} » créé', 'Segmento «{name}» creado'],
-  'yc.seg.nw.pick': ['Choose a template', 'Choisissez un modèle', 'Elija una plantilla'],
 
   'yc.seg.tpl.vip.name': ['Big spenders', 'Gros dépensiers', 'Grandes gastadores'],
   'yc.seg.tpl.vip.rule': ['Spent more than €200 in total, refunds deducted.', 'Ont dépensé plus de 200 € en tout, remboursements déduits.', 'Gastaron más de 200 € en total, reembolsos deducidos.'],

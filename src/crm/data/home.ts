@@ -7,7 +7,7 @@ export type HomePeriod = '24h' | '48h' | '7d' | '30d' | '90d';
 
 export interface HomeTodo {
   id: string;
-  kind: 'relaunch' | 'validate' | 'draft' | 'yunits' | 'contacts' | 'connect' | 'check' | 'first_send';
+  kind: 'relaunch' | 'validate' | 'draft' | 'yunits' | 'contacts' | 'connect' | 'check' | 'first_send' | 'segments';
   tone: 'todo' | 'warn' | 'wait';
   params: Record<string, string | number | null>;
 }

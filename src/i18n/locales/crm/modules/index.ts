@@ -4,6 +4,7 @@ import notifications from './notifications';
 import home from './home';
 import clients from './clients';
 import segments from './segments';
+import segmentCatalog from './segmentCatalog';
 import imports from './imports';
 import soon from './soon';
 import smsSoon from './smsSoon';
@@ -39,6 +40,7 @@ export const CRM_DICT: CrmDict = {
   ...home,
   ...clients,
   ...segments,
+  ...segmentCatalog,
   ...imports,
   ...soon,
   ...smsSoon,

@@ -29,6 +29,7 @@ import {
 } from '@/crm/data/connectors';
 import type { ConnState, TicketingConnection } from '@/crm/data/connectors';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { SegmentsNextStep } from '@/crm/components/SegmentCatalog';
 import shotgunLogo from '@/crm/assets/shotgun-logo.webp';
 
 const SMARTBOARD = 'https://smartboard.shotgun.live';
@@ -492,6 +493,9 @@ function Wizard({ conn, replace, step, go }: { conn: TicketingConnection | null;
 
 function ImportStep({ importing, stats, go }: { importing: boolean; stats: TicketingConnection['stats']; go: (p: Record<string, string> | null) => void }) {
   const { t, n, pct } = useCrmT();
+  // La fenêtre des segments s'ouvre seule quand l'import se termine SOUS les yeux du pro.
+  const [sawRun, setSawRun] = useState(importing);
+  useEffect(() => { if (importing) setSawRun(true); }, [importing]);
   const p = useProgress(1200, 200, `${stats?.events ?? 0}-${stats?.tickets ?? 0}-${stats?.buyers ?? 0}`);
   const cols = [['yc.co.col.nights', stats?.events ?? 0], ['yc.co.col.tickets', stats?.tickets ?? 0], ['yc.co.col.buyers', stats?.buyers ?? 0]] as const;
   return (
@@ -527,6 +531,7 @@ function ImportStep({ importing, stats, go }: { importing: boolean; stats: Ticke
         <span style={{ flex: 'none', width: 8, height: 8, borderRadius: 99, background: 'var(--red-500)' }} />
         <span style={{ fontSize: 15, lineHeight: 1.45, fontWeight: 500, textWrap: 'pretty' }}>{t('yc.co.s3.then')}</span>
       </div>
+      {!importing && <SegmentsNextStep context="shotgun" autoOpen={sawRun} />}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', borderTop: '1px solid var(--sand-100)', paddingTop: 22 }}>
         <GradientCta to={CRM_ROUTES.home}>{t('yc.co.s3.home')}</GradientCta>
         <Hv as="button" type="button" onClick={() => go({ v: 'manage' })} style={{ height: 46, padding: '0 6px', border: 0, background: 'none', fontSize: 15, fontWeight: 600, color: 'var(--sand-600)', cursor: 'pointer' }} hover={{ color: 'var(--ink)' }}>{t('yc.co.manageConn')}</Hv>

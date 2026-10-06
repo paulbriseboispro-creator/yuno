@@ -23,8 +23,38 @@ export interface ClientFilterDef {
     tags?: string[];
     /** Liste fixe : une sélection enregistrée en segment. */
     emails?: string[];
-    /** Réponse aux messages : 3 reçus sans clic, ou clic sans achat sous 7 jours. */
-    msg?: '' | 'never_clicked' | 'clicked_no_buy';
+    /** Réponse aux messages : 3 reçus sans clic, clic sans achat sous 7 jours, aucun reçu en 12 mois. */
+    msg?: '' | 'never_clicked' | 'clicked_no_buy' | 'never_sent';
+    /*
+     * Catalogue de segments (migration 20261008200000). Une valeur illisible
+     * ne retient personne (_crm_filter_sql).
+     */
+    /** Nombre de soirées faites, bornes comprises. */
+    nb_min?: number;
+    nb_max?: number;
+    /** Dernière soirée il y a moins de N jours. */
+    last_lt_days?: number;
+    /** Dépense totale (€) au moins égale. */
+    sp_min?: number;
+    /** Dépense par soirée payée (€) au moins égale. */
+    basket_min?: number;
+    /** Billets payants, au moins. */
+    paid_min?: number;
+    /** Âge connu (Shotgun, sinon vos fichiers), bornes comprises. */
+    age_min?: number;
+    age_max?: number;
+    gender?: 'female' | 'male' | 'other';
+    /** Clés de ville (`_crm_area_key` : minuscules, sans accents). */
+    area?: string[];
+    /** Pays (ISO 2) ; `country_not` : pays connu, autre que celui-ci. */
+    country?: string[];
+    country_not?: string;
+    /** A (ou non) un billet ou une invitation pour une soirée pas encore commencée. */
+    up?: 'yes' | 'no';
+    /** A cliqué un lien d'e-mail il y a moins de N jours. */
+    click_lt_days?: number;
+    /** Canaux joignables : les deux, e-mail seul, SMS seul. */
+    ch?: 'both' | 'email_only' | 'sms_only';
     /**
      * Guest list Shotgun (migration 20261008100000) : déjà invité, invité qui
      * n'a jamais payé, habitué de la guest list (3 soirées, jamais payé),
