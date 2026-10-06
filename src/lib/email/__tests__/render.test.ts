@@ -1408,11 +1408,13 @@ describe('soirée externe (billetterie connectée)', () => {
     { name: 'Late', price: 20 },
     { name: 'Door', price: 25 },
     { name: 'VIP', price: 60 },
+    { name: 'Table', price: 300 },
+    { name: 'Backstage', price: 500 },
   ];
 
-  it('rend au plus quatre tarifs nommés, épuisés si la soirée est complète', () => {
+  it('rend au plus six tarifs nommés (le pro décroche le reste), épuisés si la soirée est complète', () => {
     const rows = externalTicketRows(deals, false);
-    expect(rows.map((r) => r.n)).toEqual(['Early', 'Regular', 'Late', 'Door']);
+    expect(rows.map((r) => r.n)).toEqual(['Early', 'Regular', 'Late', 'Door', 'VIP', 'Table']);
     expect(rows[1].p).toBe('15,50 €');
     expect(rows.every((r) => !r.out)).toBe(true);
     expect(externalTicketRows(deals, true).every((r) => r.out)).toBe(true);

@@ -13577,6 +13577,8 @@ const es: Record<string, string> = {
   'studio.inspector.inkUnreadable': 'Un color del texto no se lee sobre este fondo.',
   'studio.inspector.inkUnreadableFix': 'Hacerlo legible',
   'studio.inspector.ticketsNone': 'Este evento no tiene ni entradas ni lista de invitados pública — este bloque no se enviará.',
+  'studio.lineup.none': 'Aún no hay artistas anunciados para esta fiesta. Añádalos a mano: sin artistas, este bloque no se envía.',
+  'studio.lineup.unlinked': 'El line-up de la fiesta vinculada aparece aquí. Sin artistas, este bloque no se envía.',
   'studio.inspector.ctaColor': 'Color del botón',
   'studio.inspector.ctaColorAuto': 'Volver al color del tema',
   'studio.inspector.ctaColorHelp': 'Por defecto el botón sigue el color de acento del tema. El texto se adapta automáticamente (claro u oscuro).',

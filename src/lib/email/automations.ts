@@ -95,7 +95,7 @@ export const AUTOMATION_META: Record<AutomationKind, AutomationMeta> = {
 
 /** Types de blocs que le moteur retire d'un email enfant sans soirée reliée
  *  (miroir de `_email_blocks_without_live`) : jamais de tarifs inventés. */
-export const LIVE_BLOCK_TYPES: readonly string[] = ['event', 'tickets', 'guestlist', 'table', 'countdown'];
+export const LIVE_BLOCK_TYPES: readonly string[] = ['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'];
 
 /** Miroir TS de `_email_blocks_without_live` : sert aux tests et aux aperçus. */
 export function blocksWithoutLive<T extends { type: string }>(blocks: readonly T[]): T[] {

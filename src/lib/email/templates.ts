@@ -96,6 +96,12 @@ export function stripEventBindings(blocks: EmailBlock[]): EmailBlock[] {
     // reste : c'est une photo du club, pas de la soirée.
     if (b.type === 'table') delete b.ctaUrl;
     if (b.type === 'countdown') delete b.targetAt;
+    // Le line-up d'un modèle est celui de la soirée reliée à chaque envoi :
+    // les artistes décrochés ou ajoutés à la main appartenaient à UNE soirée.
+    if (b.type === 'lineup') {
+      delete b.hidden;
+      delete b.extra;
+    }
     return b as EmailBlock;
   });
 }

@@ -13208,6 +13208,8 @@ const fr: Record<string, string> = {
   'studio.inspector.inkUnreadable': 'Une couleur du texte ne se lit pas sur ce fond.',
   'studio.inspector.inkUnreadableFix': 'Rendre lisible',
   'studio.inspector.ticketsNone': 'Aucun billet ni liste invités publique sur cette soirée — ce bloc ne sera pas envoyé.',
+  'studio.lineup.none': 'Aucun artiste annoncé pour cette soirée. Ajoutez-en à la main : sans artiste, ce bloc ne part pas.',
+  'studio.lineup.unlinked': 'Le line-up de la soirée reliée s’affiche ici. Sans artiste, ce bloc ne part pas.',
   'studio.inspector.ctaColor': 'Couleur du bouton',
   'studio.inspector.ctaColorAuto': 'Revenir à la couleur du thème',
   'studio.inspector.ctaColorHelp': 'Par défaut, le bouton suit la couleur d\'accent du thème. Le texte s\'adapte automatiquement (clair ou foncé).',

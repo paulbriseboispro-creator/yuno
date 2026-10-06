@@ -13235,6 +13235,8 @@ const en: Record<string, string> = {
   'studio.inspector.inkUnreadable': 'One of the text colours cannot be read on this background.',
   'studio.inspector.inkUnreadableFix': 'Make it readable',
   'studio.inspector.ticketsNone': 'No tickets and no public guest list on this event — this block will not be sent.',
+  'studio.lineup.none': 'No artist announced for this night yet. Add some by hand: without artists, this block isn’t sent.',
+  'studio.lineup.unlinked': 'The linked night’s line-up shows here. Without artists, this block isn’t sent.',
   'studio.inspector.ctaColor': 'Button color',
   'studio.inspector.ctaColorAuto': 'Back to theme color',
   'studio.inspector.ctaColorHelp': 'By default the button follows the theme accent color. The text adapts automatically (light or dark).',

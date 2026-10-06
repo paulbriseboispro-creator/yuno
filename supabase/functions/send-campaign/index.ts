@@ -853,7 +853,7 @@ Deno.serve(async (req) => {
         subject: (auto.subject as string) || tpl.subject || tpl.name,
         preheader: tpl.preheader || '',
         // Sans soirée reliée, les blocs Yuno partent — jamais de chiffres inventés.
-        blocks_json: bindEvent ? blocks : blocks.filter((b) => !['event', 'tickets', 'guestlist', 'table', 'countdown'].includes(b.type)),
+        blocks_json: bindEvent ? blocks : blocks.filter((b) => !['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type)),
         blocks_version: 2,
         theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
         logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',

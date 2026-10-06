@@ -7,7 +7,7 @@
 // unitaires du front (src/lib/email/__tests__) sont la référence de
 // comportement. Visuels par bloc : prototype claude.design « Email Studio ».
 //
-// Les blocs Yuno (event, tickets, table, countdown) lisent la base AU RENDU :
+// Les blocs Yuno (event, tickets, table, countdown, lineup) lisent la base AU RENDU :
 // fetchStudioLiveData() est appelé une fois par tranche d'envoi, jamais par
 // destinataire. Les règles de visibilité (cond) sont résolues par LOT via la
 // RPC get_recipient_block_conds — jamais une requête par destinataire.
@@ -33,6 +33,9 @@ export interface StudioTicketRow { id?: string; n: string; s: string; p: string;
 
 /** Sentinelle d'id de la ligne « Liste invités » (miroir de types.ts). */
 const GUEST_LIST_ROW_ID = 'guest-list';
+
+/** Un artiste du line-up (miroir de LineupArtist, types.ts). */
+export interface StudioLineupArtist { name: string; photo?: string | null }
 
 /** Formule de table telle qu'elle se lit dans l'email (miroir de TablePackRow). */
 export interface StudioTablePackRow { id?: string; n: string; s: string; p: string }
@@ -66,6 +69,11 @@ export interface StudioLiveEventData {
   tablePacks?: StudioTablePackRow[];
   /** Zones (carrés) et leur prix d'appel — la vue épurée du même inventaire. */
   tableZones?: StudioTablePackRow[];
+  /**
+   * Artistes de la soirée (RPC get_event_lineup_live). `undefined` = non
+   * résolu ; vide = aucun annoncé (miroir de LiveEventData.lineup).
+   */
+  lineup?: StudioLineupArtist[];
   /**
    * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
    * défaut), résolus à l'envoi seulement. `trackedUrl` mène à la page de la
@@ -164,6 +172,10 @@ export interface StudioBlock {
   kicker?: string;
   sub?: string;
   perks?: string[];
+  // lineup : photos, artistes décrochés, artistes ajoutés à la main
+  photos?: boolean;
+  hidden?: string[];
+  extra?: StudioLineupArtist[];
   metaDisplay?: string;
   coverPos?: 'top' | 'bottom';
   note?: string;
@@ -1036,6 +1048,8 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
     }
+    case 'lineup':
+      return renderLineup(b, theme, ctx, pad, bg);
     case 'social':
       return renderSocial(theme, ctx, true, { pad, iconColor: b.color, bg });
     case 'divider': {
@@ -1138,19 +1152,148 @@ function euro(amount: number): string {
 }
 
 // ── Yuno CRM : soirée d'une billetterie connectée (miroir de src/lib/email/live.ts) ──
-interface ExternalDeal { name: string | null; price: number | null }
-interface ExternalEventLiveRow { event_id: string; ticket_url: string | null; deals: ExternalDeal[] | null; left_tickets: number | null; sold_out: boolean | null }
+interface ExternalDeal { id?: string | null; name: string | null; price: number | null; out?: boolean | null }
+interface ExternalEventLiveRow {
+  event_id: string; ticket_url: string | null; deals: ExternalDeal[] | null; left_tickets: number | null;
+  sold_out: boolean | null; venue_label?: string | null;
+}
 
+const EXTERNAL_ROWS_MAX = 6;
+
+function externalRowId(d: ExternalDeal): string {
+  const id = String(d.id ?? '').trim();
+  return id ? `ext:${id}` : `ext:n:${artistKey(String(d.name || ''))}`;
+}
+
+/** Tarifs publics : un tarif vendu (ou la soirée complète) « épuisé », 0 € = « Gratuit ». */
 function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): StudioTicketRow[] {
   return deals
     .filter((d) => d.name && String(d.name).trim())
-    .slice(0, 4)
-    .map((d) => ({ n: String(d.name).trim(), s: '', p: euro(Number(d.price || 0)), out: soldOut }));
+    .slice(0, EXTERNAL_ROWS_MAX)
+    .map((d) => {
+      const price = Number(d.price || 0);
+      return {
+        id: externalRowId(d),
+        n: String(d.name).trim(),
+        s: '',
+        p: price > 0 ? euro(price) : GUEST_LIST_PRICE,
+        out: soldOut || !!d.out,
+      };
+    });
 }
 
 function externalActivePrices(deals: readonly ExternalDeal[], soldOut: boolean): number[] {
   if (soldOut) return [];
-  return deals.map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
+  return deals.filter((d) => !d.out).map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
+}
+
+/** « Club — Ville », ou la ville seule (jamais « — Paris »). Miroir de joinVenueLabel. */
+function joinVenueLabel(venueName: string | null | undefined, city: string | null | undefined): string {
+  const v = String(venueName || '').trim();
+  const c = String(city || '').trim();
+  if (v && c) return `${v} — ${c}`;
+  return v || c;
+}
+
+// ── Line-up (miroir de src/lib/email/live.ts + renderLineup de render.ts) ────
+const LINEUP_KICKER = 'LINE-UP';
+const LINEUP_MAX = 24;
+const LINEUP_AVATAR = 88;
+
+function artistKey(name: string): string {
+  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function lineupPhoto(url: unknown): string | null {
+  const u = typeof url === 'string' ? url.trim() : '';
+  return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : null;
+}
+
+function artistInitials(name: string): string {
+  const words = String(name || '').split(/\s+/)
+    .filter((w) => /[\p{L}\p{N}]/u.test(w) && !/^(b2b|b3b|vs\.?|x|feat\.?|ft\.?|&|and|et|y)$/i.test(w));
+  const letters = words.slice(0, 2).map((w) => (w.match(/[\p{L}\p{N}]/u) || [''])[0]);
+  return letters.join('').toUpperCase() || '?';
+}
+
+function lineupArtists(
+  live: readonly StudioLineupArtist[] | null | undefined,
+  block: { hidden?: string[] | null; extra?: readonly StudioLineupArtist[] | null },
+): StudioLineupArtist[] {
+  const hidden = new Set((block.hidden || []).map((h) => artistKey(h)));
+  const out: StudioLineupArtist[] = [];
+  const at = new Map<string, number>();
+  const push = (a: StudioLineupArtist | null | undefined, fromNight: boolean) => {
+    const name = String(a?.name || '').trim().slice(0, 120);
+    if (!name) return;
+    const key = artistKey(name);
+    if (fromNight && hidden.has(key)) return;
+    const photo = lineupPhoto(a?.photo);
+    const i = at.get(key);
+    if (i != null) {
+      if (!out[i].photo && photo) out[i] = { ...out[i], photo };
+      return;
+    }
+    at.set(key, out.length);
+    out.push({ name, photo });
+  };
+  for (const a of live || []) push(a, true);
+  for (const a of block.extra || []) push(a, false);
+  return out.slice(0, LINEUP_MAX);
+}
+
+function lineupUsesPhotos(photos: unknown, artists: readonly StudioLineupArtist[]): boolean {
+  return photos !== false && artists.some((a) => !!a.photo);
+}
+
+function lineupRows<T>(items: readonly T[], perRow = 3): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
+  return rows;
+}
+
+function lineupColors(accentIn: unknown, theme: StudioTheme, bg: string) {
+  const solid = solidBlockBg(bg, theme);
+  const accent = isHexColor(accentIn) ? (accentIn as string).trim() : theme.accent;
+  const chip = mixHex(accent, solid, theme.dark ? 0.3 : 0.14);
+  return { ink: defaultInkOn(bg, theme), kicker: readableOn(accent, solid), chip, chipInk: readableOn(accent, chip) };
+}
+
+/** Bloc Line-up (miroir de renderLineup) : liste de noms ou grille de photos ; vide = effacé. */
+function renderLineup(b: StudioBlock, theme: StudioTheme, ctx: StudioRenderCtx, pad: { px: number; py: number }, bg: string): string {
+  const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
+  const artists = lineupArtists(live?.lineup, {
+    hidden: Array.isArray(b.hidden) ? b.hidden : [],
+    extra: Array.isArray(b.extra) ? b.extra : [],
+  });
+  if (artists.length === 0) return '';
+  const c = lineupColors(b.accent, theme, bg);
+  const kickerText = typeof b.kicker === 'string' ? (b.kicker as string) : LINEUP_KICKER;
+  const grid = lineupUsesPhotos(b.photos, artists);
+  const align = grid ? 'center' : (((b.align as string) || 'left'));
+  const kicker = kickerText
+    ? `<p style="margin:0 0 ${grid ? 14 : 10}px;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${c.kicker};text-align:${align};">${esc(kickerText)}</p>`
+    : '';
+
+  if (!grid) {
+    const names = artists.map((a, i) => `<p style="margin:${i === artists.length - 1 ? '0' : '0 0 6px'};font-family:${FONT};font-size:21px;line-height:27px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${c.ink};text-align:${align};">${esc(a.name)}</p>`).join('');
+    return td(kicker + names, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+  }
+
+  const D = LINEUP_AVATAR;
+  const face = (a: StudioLineupArtist) => (a.photo
+    ? `<img src="${esc(a.photo)}" alt="${esc(a.name)}" width="${D}" height="${D}" style="display:block;width:${D}px;height:${D}px;border:0;border-radius:${D / 2}px;object-fit:cover;margin:0 auto;" />`
+    : `<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td width="${D}" height="${D}" align="center" valign="middle" style="width:${D}px;height:${D}px;border-radius:${D / 2}px;background:${c.chip};font-family:${FONT};font-size:28px;line-height:${D}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${c.chipInk};">${esc(artistInitials(a.name))}</td></tr></table>`);
+  const rows = lineupRows(artists).map((row) => {
+    const width = Math.round((row.length / 3) * 100);
+    const cells = row.map((a) => `<td width="${Math.floor(100 / row.length)}%" align="center" valign="top" style="padding:8px 4px;">
+        ${face(a)}
+        <p style="margin:10px 0 0;font-family:${FONT};font-size:15px;line-height:19px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.01em;color:${c.ink};text-align:center;">${esc(a.name)}</p>
+      </td>`).join('');
+    return `<table role="presentation" align="center" width="${width}%" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>${cells}</tr></table>`;
+  }).join('');
+  return td(kicker + rows, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
 }
 
 /**
@@ -1604,7 +1747,7 @@ function priceFromLabel(activePrices: number[], hasGuestList: boolean): string |
 export function collectStudioEventIds(blocks: StudioBlock[], fallbackEventId?: string | null): string[] {
   const ids = new Set<string>();
   for (const b of blocks) {
-    if (['event', 'tickets', 'guestlist', 'table', 'countdown'].includes(b.type)) {
+    if (['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type)) {
       const id = (b.eventId as string) || fallbackEventId || '';
       if (id) ids.add(id);
     }
@@ -1691,6 +1834,16 @@ export async function fetchStudioLiveData(
     if (externalIds.length) {
       const { data: extRows } = await admin.rpc('get_external_event_live', { p_event_ids: externalIds });
       for (const r of (extRows || []) as ExternalEventLiveRow[]) externalById.set(r.event_id, r);
+    }
+    // Line-up (soirée Shotgun : ses artistes ; soirée Yuno : DJ + invités).
+    // Lu seulement si un bloc Line-up est posé — même RPC que l'aperçu.
+    const needLineup = blocks.some((b) => b.type === 'lineup');
+    const lineupById = new Map<string, StudioLineupArtist[]>();
+    if (needLineup) {
+      const { data: lineupRows } = await admin.rpc('get_event_lineup_live', { p_event_ids: ids });
+      for (const r of (lineupRows || []) as { event_id: string; artists: StudioLineupArtist[] | null }[]) {
+        lineupById.set(r.event_id, Array.isArray(r.artists) ? r.artists : []);
+      }
     }
 
     const venueIds = [...new Set((events || []).map((e) => e.venue_id || e.partner_venue_id).filter(Boolean))] as string[];
@@ -1798,6 +1951,7 @@ export async function fetchStudioLiveData(
       const venue = venueById.get(e.venue_id || e.partner_venue_id);
       const venueName = venue?.name || e.location_name || '';
       const city = venue?.city || e.location_city || '';
+      const lineup = needLineup ? (lineupById.get(e.id) ?? []) : undefined;
       const tz = e.timezone && String(e.timezone).trim() ? e.timezone : 'Europe/Paris';
       const start = new Date(e.start_at);
       const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
@@ -1850,7 +2004,8 @@ export async function fetchStudioLiveData(
           title: e.title,
           startAt: e.start_at,
           dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
-          venueLabel: city ? `${venueName} — ${city}` : venueName,
+          // Adresse publique de la billetterie (une soirée miroir n'a pas de nom de lieu).
+          venueLabel: ext?.venue_label || joinVenueLabel(venueName, city),
           coverUrl: e.poster_url || e.image_url || null,
           url: ticketUrl ? withEmailUtm(ticketUrl, ticketingSource) : publicUrl,
           priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
@@ -1861,6 +2016,7 @@ export async function fetchStudioLiveData(
           tablesOpen: false,
           tablePacks: needTables ? [] : undefined,
           tableZones: needTables ? [] : undefined,
+          lineup,
         };
         continue;
       }
@@ -1869,7 +2025,7 @@ export async function fetchStudioLiveData(
         title: e.title,
         startAt: e.start_at,
         dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
-        venueLabel: city ? `${venueName} — ${city}` : venueName,
+        venueLabel: joinVenueLabel(venueName, city),
         coverUrl: e.poster_url || e.image_url || null,
         url: `${publicUrl}${eventPathFromHost(e.id, e.slug, hostById.get(e.id))}`,
         priceFromLabel: priceFromLabel(activePrices, !!guestList),
@@ -1882,6 +2038,7 @@ export async function fetchStudioLiveData(
         tablesOpen,
         tablePacks: needTables ? (tablesOpen ? (packRowsByEvent.get(e.id) || []) : []) : undefined,
         tableZones: needTables ? (tablesOpen ? (zoneRowsByEvent.get(e.id) || []) : []) : undefined,
+        lineup,
       };
     }
   } catch (e) {
@@ -1915,7 +2072,7 @@ export async function fetchStudioLiveData(
   // Les blocs sans eventId propre héritent de l'événement de la campagne.
   if (fallbackEventId && live[fallbackEventId]) {
     for (const b of blocks) {
-      if (['event', 'tickets', 'guestlist', 'table', 'countdown'].includes(b.type) && !b.eventId) {
+      if (['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type) && !b.eventId) {
         b.eventId = fallbackEventId;
       }
     }

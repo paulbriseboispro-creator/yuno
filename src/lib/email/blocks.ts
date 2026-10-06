@@ -113,6 +113,11 @@ export function makeBlock(type: BlockType, ctx: MakeBlockCtx = {}): EmailBlock {
       };
     case 'countdown':
       return { id, type, eventId: ctx.eventId, label: 'Ouverture de la billetterie' };
+    case 'lineup':
+      // Aucun nom d'exemple : les artistes viennent de la soirée reliée, ou
+      // de la main du pro. Les photos sont allumées : elles ne s'affichent
+      // que si la soirée en a.
+      return { id, type, eventId: ctx.eventId, photos: true, align: 'center', extra: [] };
     case 'social':
       return { id, type };
     case 'divider':

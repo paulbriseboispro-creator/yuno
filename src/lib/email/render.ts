@@ -19,7 +19,7 @@ import type {
   HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock, EventLayout,
   TicketsBlock, TableBlock, TablePackRow, TableLayout, CountdownBlock, SpacerBlock,
   HtmlBlock, DividerBlock,
-  GuestListBlock,
+  GuestListBlock, LineupBlock, LineupArtist,
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import {
@@ -27,6 +27,7 @@ import {
   ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
   GUEST_LIST_CTA_LABEL, GUEST_LIST_KICKER, GUEST_LIST_PRICE, guestListSummary, isGuestListClosed,
   EVENT_CTA_LABEL, EVENT_META_DATE, EVENT_META_VENUE, EVENT_META_PRICE,
+  LINEUP_KICKER, artistInitials, lineupArtists, lineupRows, lineupUsesPhotos,
 } from './live';
 import { interpolateVariables } from './variables';
 
@@ -989,6 +990,66 @@ function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, p
   );
 }
 
+/** Diamètre des photos du bloc Line-up (px) — 3 tiennent sur un téléphone. */
+export const LINEUP_AVATAR = 88;
+
+/**
+ * Couleurs du bloc Line-up, sur le fond OPAQUE du bloc : encre des noms,
+ * sur-titre accent lisible, pastille à initiales teintée de l'accent.
+ * Une définition, lue par le rendu et par le miroir du canvas (LineupView).
+ */
+export function lineupColors(accentIn: unknown, theme: EmailTheme, bg: string) {
+  const solid = solidBlockBg(bg, theme);
+  const accent = isHexColor(accentIn) ? accentIn.trim() : theme.accent;
+  const chip = mixHex(accent, solid, theme.dark ? 0.3 : 0.14);
+  return {
+    ink: defaultInkOn(bg, theme),
+    kicker: readableOn(accent, solid),
+    chip,
+    chipInk: readableOn(accent, chip),
+  };
+}
+
+/**
+ * Bloc Line-up : les artistes de la soirée, relus à l'envoi. Une liste de
+ * noms, ou — photos allumées et au moins une photo connue — une grille de
+ * pastilles rondes, trois par rangée, nom en dessous. Un artiste sans photo y
+ * prend ses initiales. Aucun artiste = le bloc s'efface : jamais de noms
+ * d'exemple dans un email.
+ */
+function renderLineup(b: LineupBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
+  const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
+  const artists = lineupArtists(live?.lineup, b);
+  if (artists.length === 0) return '';
+  const c = lineupColors(b.accent, theme, bg);
+  const kickerText = b.kicker ?? LINEUP_KICKER;
+  const grid = lineupUsesPhotos(b.photos, artists);
+  const align = grid ? 'center' : (b.align || 'left');
+  const kicker = kickerText
+    ? `<p style="margin:0 0 ${grid ? 14 : 10}px;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${c.kicker};text-align:${align};">${escapeHtml(kickerText)}</p>`
+    : '';
+
+  if (!grid) {
+    const names = artists.map((a, i) => `<p style="margin:${i === artists.length - 1 ? '0' : '0 0 6px'};font-family:${FONT};font-size:21px;line-height:27px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${c.ink};text-align:${align};">${escapeHtml(a.name)}</p>`).join('');
+    return td(kicker + names, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+  }
+
+  const D = LINEUP_AVATAR;
+  const face = (a: LineupArtist) => (a.photo
+    ? `<img src="${escapeHtml(a.photo)}" alt="${escapeHtml(a.name)}" width="${D}" height="${D}" style="display:block;width:${D}px;height:${D}px;border:0;border-radius:${D / 2}px;object-fit:cover;margin:0 auto;" />`
+    : `<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td width="${D}" height="${D}" align="center" valign="middle" style="width:${D}px;height:${D}px;border-radius:${D / 2}px;background:${c.chip};font-family:${FONT};font-size:28px;line-height:${D}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${c.chipInk};">${escapeHtml(artistInitials(a.name))}</td></tr></table>`);
+  const rows = lineupRows(artists).map((row) => {
+    // Une rangée incomplète se centre : sa table ne prend que la place de ses cellules.
+    const width = Math.round((row.length / 3) * 100);
+    const cells = row.map((a) => `<td width="${Math.floor(100 / row.length)}%" align="center" valign="top" style="padding:8px 4px;">
+        ${face(a)}
+        <p style="margin:10px 0 0;font-family:${FONT};font-size:15px;line-height:19px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.01em;color:${c.ink};text-align:center;">${escapeHtml(a.name)}</p>
+      </td>`).join('');
+    return `<table role="presentation" align="center" width="${width}%" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>${cells}</tr></table>`;
+  }).join('');
+  return td(kicker + rows, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+}
+
 /** Pastille + glyphe des réseaux : couleur choisie, glyphe auto-contrasté. */
 export function socialChip(color: unknown, theme: EmailTheme): { chip: string; glyph: 'w' | 'd' } {
   const chip = isHexColor(color) ? color.trim() : (isHexColor(theme.muted) ? theme.muted : '#7a7a7a');
@@ -1057,6 +1118,7 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
     case 'guestlist': return renderGuestList(b, theme, ctx, pad, bg);
     case 'table': return renderTable(b, theme, ctx, pad, bg);
     case 'countdown': return renderCountdown(b, theme, ctx, pad, bg);
+    case 'lineup': return renderLineup(b, theme, ctx, pad, bg);
     case 'social': return renderSocial(theme, ctx, true, { pad, iconColor: b.color, bg });
     case 'divider': return renderDivider(b, pad, theme, bg);
     case 'spacer': return renderSpacer(b, bg);

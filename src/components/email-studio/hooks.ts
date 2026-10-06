@@ -2,14 +2,14 @@ import { isRowListed } from '@/lib/freeTicketing';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type {
-  EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
+  EmailBlock, EmailTemplate, EmailTemplateRow, LineupArtist, LiveData, TemplateContent, TicketRow,
 } from '@/lib/email';
 import {
   applyTicketsSoldOut, buildEntryRows, buildGuestListLive, buildTablePackRows, buildTableZoneRows, formatEuro,
   liveSoldOut, openTablePacks, pickPublicGuestList, priceFromLabel, rowToTemplate, tablesLeftFor,
   templateContentToRow, YUNO_BLOCK_TYPES,
   type GuestListOffer, type LiveSoldOut, type TablePackOffer, type TableZoneOffer,
-  externalActivePrices, externalTicketRows, withEmailUtm, type ExternalDeal,
+  externalActivePrices, externalTicketRows, joinVenueLabel, withEmailUtm, type ExternalDeal,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
 import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
@@ -97,6 +97,9 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
     return [...set].sort();
   }, [blocks, fallbackEventId]);
   const idsKey = ids.join(',');
+  // Le line-up ne se lit que si un bloc Line-up est posé : poser le premier
+  // relance la lecture même quand la soirée était déjà résolue.
+  const needLineup = blocks.some((b) => b.type === 'lineup');
 
   useEffect(() => {
     if (!idsKey) { setLive({}); return; }
@@ -129,12 +132,23 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       // (même RPC que l'envoi, get_external_event_live).
       const externalIds = (events as { id: string; external_source?: string | null }[])
         .filter((e) => e.external_source).map((e) => e.id);
-      const externalById = new Map<string, { ticket_url: string | null; deals: ExternalDeal[] | null; sold_out: boolean | null }>();
-      if (externalIds.length) {
-        const { data: extRows } = await supabase.rpc('get_external_event_live' as never, { p_event_ids: externalIds } as never);
-        for (const r of ((extRows as unknown) as { event_id: string; ticket_url: string | null; deals: ExternalDeal[] | null; sold_out: boolean | null }[] | null) || []) {
-          externalById.set(r.event_id, r);
-        }
+      type ExternalLiveRow = { event_id: string; ticket_url: string | null; deals: ExternalDeal[] | null; sold_out: boolean | null; venue_label?: string | null };
+      const externalById = new Map<string, ExternalLiveRow>();
+      // Line-up des soirées (Shotgun ou Yuno), même RPC que l'envoi.
+      const lineupById = new Map<string, LineupArtist[]>();
+      const [extRes, lineupRes] = await Promise.all([
+        externalIds.length
+          ? supabase.rpc('get_external_event_live' as never, { p_event_ids: externalIds } as never)
+          : Promise.resolve({ data: null }),
+        needLineup
+          ? supabase.rpc('get_event_lineup_live' as never, { p_event_ids: wanted } as never)
+          : Promise.resolve({ data: null }),
+      ]);
+      for (const r of ((extRes.data as unknown) as ExternalLiveRow[] | null) || []) {
+        externalById.set(r.event_id, r);
+      }
+      for (const r of ((lineupRes.data as unknown) as { event_id: string; artists: LineupArtist[] | null }[] | null) || []) {
+        lineupById.set(r.event_id, Array.isArray(r.artists) ? r.artists : []);
       }
       if (cancelled) return;
       // Inscrits par part : les places restantes du bloc Liste invités (si le
@@ -260,6 +274,8 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         const guestListLive = buildGuestListLive(guestList, guestList?.id ? (entriesByList.get(guestList.id) || 0) : 0, flags);
         const venueName = venue?.name || e.location_name || '';
         const city = venue?.city || e.location_city || '';
+        // Miroir de l'envoi : la RPC du line-up n'a répondu que si un bloc en a besoin.
+        const lineup = needLineup ? (lineupById.get(e.id) ?? []) : undefined;
 
         if (e.external_source) {
           // Soirée d'une billetterie connectée : ses tarifs, son lien (miroir de l'envoi).
@@ -267,13 +283,12 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           const deals = ext?.deals || [];
           const soldOut = !!(ext?.sold_out ?? e.tickets_sold_out);
           const ticketUrl = ext?.ticket_url || e.external_ticket_url;
-          const venueNameExt = venue?.name || e.location_name || '';
-          const cityExt = venue?.city || e.location_city || '';
           next[e.id] = {
             title: e.title,
             startAt: e.start_at,
             dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
-            venueLabel: cityExt ? `${venueNameExt} — ${cityExt}` : venueNameExt,
+            // Adresse publique de la billetterie (une soirée miroir n'a pas de nom de lieu).
+            venueLabel: ext?.venue_label || joinVenueLabel(venueName, city),
             coverUrl: e.poster_url || e.image_url || null,
             url: ticketUrl ? withEmailUtm(ticketUrl) : PUBLIC_BASE_URL,
             priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
@@ -284,6 +299,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
             tablesOpen: false,
             tablePacks: [],
             tableZones: [],
+            lineup,
           };
           continue;
         }
@@ -292,7 +308,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           title: e.title,
           startAt: e.start_at,
           dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
-          venueLabel: city ? `${venueName} — ${city}` : venueName,
+          venueLabel: joinVenueLabel(venueName, city),
           coverUrl: e.poster_url || e.image_url || null,
           url: `${PUBLIC_BASE_URL}${eventPathFromHost(e.id, e.slug, hostById.get(e.id))}`,
           priceFromLabel: priceFromLabel(activePrices, !!guestList),
@@ -302,12 +318,13 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           guestListOnly,
           guestList: guestListLive,
           ...tableLiveFor(e.id, e.venue_id || e.partner_venue_id || null, flags, e.tables_enabled !== false),
+          lineup,
         };
       }
       setLive(next);
     })();
     return () => { cancelled = true; };
-  }, [idsKey]);
+  }, [idsKey, needLineup]);
 
   return live;
 }

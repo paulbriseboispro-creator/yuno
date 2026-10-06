@@ -9,6 +9,7 @@ import EventView from './EventView';
 import TicketsView from './TicketsView';
 import TableView from './TableView';
 import CountdownView from './CountdownView';
+import LineupView from './LineupView';
 import SocialView from './SocialView';
 import DividerView from './DividerView';
 import SpacerView from './SpacerView';
@@ -28,6 +29,7 @@ export default function BlockRenderer({ block, theme, ctx, mobile }: {
     case 'tickets': return <TicketsView block={block} theme={theme} ctx={ctx} />;
     case 'table': return <TableView block={block} theme={theme} ctx={ctx} />;
     case 'countdown': return <CountdownView block={block} theme={theme} ctx={ctx} />;
+    case 'lineup': return <LineupView block={block} theme={theme} ctx={ctx} />;
     case 'social': return <SocialView block={block} theme={theme} ctx={ctx} />;
     case 'divider': return <DividerView block={block} theme={theme} />;
     case 'spacer': return <SpacerView block={block} theme={theme} />;

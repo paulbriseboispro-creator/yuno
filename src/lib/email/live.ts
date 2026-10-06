@@ -11,7 +11,7 @@
 // copie de ces fonctions. Toute modification ici doit y être répercutée.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { GuestListLive, TablePackRow, TicketRow } from './types';
+import type { GuestListLive, LineupArtist, TablePackRow, TicketRow } from './types';
 import { GUEST_LIST_ROW_ID } from './types';
 
 // ── « Complet » posé à la main ───────────────────────────────────────────────
@@ -173,6 +173,17 @@ export function priceFromLabel(activePrices: readonly number[], hasGuestList: bo
   return null;
 }
 
+/**
+ * Lieu d'une carte Soirée : « Club — Ville ». Sans nom de lieu, la ville
+ * seule (jamais « — Paris »).
+ */
+export function joinVenueLabel(venueName: string | null | undefined, city: string | null | undefined): string {
+  const v = String(venueName || '').trim();
+  const c = String(city || '').trim();
+  if (v && c) return `${v} — ${c}`;
+  return v || c;
+}
+
 /** « 12 € » / « 12,50 € » — même formatage des deux côtés du rendu. */
 export function formatEuro(amount: number): string {
   return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace('.', ',')} €`;
@@ -184,20 +195,51 @@ export function formatEuro(amount: number): string {
 // viennent de la billetterie (RPC get_external_event_live), le bouton part
 // chez elle, marqué UTM pour que la vente se relise dans ses exports.
 
-export interface ExternalDeal { name: string | null; price: number | null }
+/**
+ * Un tarif public de la billetterie (RPC get_external_event_live). `out` =
+ * tout son stock est vendu ; `id` = son id chez la billetterie (absent pour
+ * une soirée importée sans id de tarif).
+ */
+export interface ExternalDeal { id?: string | null; name: string | null; price: number | null; out?: boolean | null }
 
-/** Tarifs publics d'une soirée externe, comme des tranches (4 au plus). */
+/** Tarifs montrés au plus (les tranches Yuno en montrent 4 ; un tarif se décroche). */
+export const EXTERNAL_ROWS_MAX = 6;
+
+/**
+ * Id de ligne d'un tarif externe — sert à le décrocher du bloc Billetterie
+ * (`hiddenRows`). L'id de la billetterie quand elle en donne un, sinon le nom.
+ */
+export function externalRowId(d: ExternalDeal): string {
+  const id = String(d.id ?? '').trim();
+  return id ? `ext:${id}` : `ext:n:${artistKey(String(d.name || ''))}`;
+}
+
+/**
+ * Tarifs publics d'une soirée externe, comme des tranches. Un tarif dont le
+ * stock est vendu, ou toute la soirée complète, se lit « épuisé » ; un tarif
+ * à 0 € est une entrée GRATUITE (la guest list Shotgun) : il se lit
+ * « Gratuit », en pastille, jamais « 0 € ».
+ */
 export function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): TicketRow[] {
   return deals
     .filter((d) => d.name && String(d.name).trim())
-    .slice(0, 4)
-    .map((d) => ({ n: String(d.name).trim(), s: '', p: formatEuro(Number(d.price || 0)), out: soldOut }));
+    .slice(0, EXTERNAL_ROWS_MAX)
+    .map((d) => {
+      const price = Number(d.price || 0);
+      return {
+        id: externalRowId(d),
+        n: String(d.name).trim(),
+        s: '',
+        p: price > 0 ? formatEuro(price) : GUEST_LIST_PRICE,
+        out: soldOut || !!d.out,
+      };
+    });
 }
 
-/** Prix d'appel d'une soirée externe : aucun si elle est complète. */
+/** Prix d'appel d'une soirée externe : aucun si elle est complète, jamais un tarif épuisé. */
 export function externalActivePrices(deals: readonly ExternalDeal[], soldOut: boolean): number[] {
   if (soldOut) return [];
-  return deals.map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
+  return deals.filter((d) => !d.out).map((d) => Number(d.price)).filter((p) => Number.isFinite(p) && p >= 0);
 }
 
 /**
@@ -214,6 +256,81 @@ export function withEmailUtm(url: string, source: string | null = null): string 
   } catch {
     return url;
   }
+}
+
+// ── Line-up (bloc « lineup ») ────────────────────────────────────────────────
+// Miroir EXACT dans supabase/functions/_shared/email-studio-html.ts.
+
+/** Sur-titre par défaut du bloc Line-up. */
+export const LINEUP_KICKER = 'LINE-UP';
+/** Artistes montrés au plus — au-delà, l'email devient un annuaire. */
+export const LINEUP_MAX = 24;
+
+/** Clé de comparaison d'un nom (casse, accents et espaces ignorés). */
+export function artistKey(name: string): string {
+  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** URL de photo utilisable dans un email : https, sans espace ni guillemet. */
+export function lineupPhoto(url: unknown): string | null {
+  const u = typeof url === 'string' ? url.trim() : '';
+  return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : null;
+}
+
+/**
+ * Initiales d'un artiste, pour la pastille sans photo : les deux premiers
+ * mots qui ne sont pas un liant de line-up (« b2b », « x », « & »…).
+ */
+export function artistInitials(name: string): string {
+  const words = String(name || '').split(/\s+/)
+    .filter((w) => /[\p{L}\p{N}]/u.test(w) && !/^(b2b|b3b|vs\.?|x|feat\.?|ft\.?|&|and|et|y)$/i.test(w));
+  const letters = words.slice(0, 2).map((w) => (w.match(/[\p{L}\p{N}]/u) || [''])[0]);
+  return letters.join('').toUpperCase() || '?';
+}
+
+/**
+ * Les artistes que montre un bloc Line-up : ceux de la soirée (moins ceux que
+ * le pro a décrochés), puis ceux qu'il a ajoutés à la main. Un même nom n'y
+ * figure qu'une fois ; la photo connue l'emporte sur l'absence de photo.
+ * Jamais de nom d'exemple : vide = le bloc s'efface.
+ */
+export function lineupArtists(
+  live: readonly LineupArtist[] | null | undefined,
+  block: { hidden?: string[] | null; extra?: readonly LineupArtist[] | null },
+): LineupArtist[] {
+  const hidden = new Set((block.hidden || []).map((h) => artistKey(h)));
+  const out: LineupArtist[] = [];
+  const at = new Map<string, number>();
+  const push = (a: LineupArtist | null | undefined, fromNight: boolean) => {
+    const name = String(a?.name || '').trim().slice(0, 120);
+    if (!name) return;
+    const key = artistKey(name);
+    if (fromNight && hidden.has(key)) return;
+    const photo = lineupPhoto(a?.photo);
+    const i = at.get(key);
+    if (i != null) {
+      if (!out[i].photo && photo) out[i] = { ...out[i], photo };
+      return;
+    }
+    at.set(key, out.length);
+    out.push({ name, photo });
+  };
+  for (const a of live || []) push(a, true);
+  for (const a of block.extra || []) push(a, false);
+  return out.slice(0, LINEUP_MAX);
+}
+
+/** true = le bloc se rend en grille de photos (au moins une photo connue). */
+export function lineupUsesPhotos(photos: boolean | undefined, artists: readonly LineupArtist[]): boolean {
+  return photos !== false && artists.some((a) => !!a.photo);
+}
+
+/** Les artistes en rangées de trois (la grille de photos). */
+export function lineupRows<T>(items: readonly T[], perRow = 3): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
+  return rows;
 }
 
 /**

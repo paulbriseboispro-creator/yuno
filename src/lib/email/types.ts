@@ -10,7 +10,7 @@
 
 export type BlockType =
   | 'header' | 'image' | 'text' | 'cta' | 'columns'
-  | 'event' | 'tickets' | 'guestlist' | 'table' | 'countdown' | 'social'
+  | 'event' | 'tickets' | 'guestlist' | 'table' | 'countdown' | 'lineup' | 'social'
   | 'divider' | 'spacer' | 'html';
 
 /** Règle de visibilité par destinataire, résolue À L'ENVOI (jamais figée). */
@@ -385,6 +385,46 @@ export interface CountdownBlock extends BlockBase {
   targetAt?: string;
 }
 
+/** Un artiste du line-up : son nom, et sa photo quand on la connaît. */
+export interface LineupArtist {
+  name: string;
+  /** URL https de la photo de profil. Absent = pastille à initiales. */
+  photo?: string | null;
+}
+
+/**
+ * Bloc Yuno — le line-up de la soirée, relu À L'ENVOI.
+ *
+ * Soirée d'une billetterie connectée (Shotgun) : ses artistes et leur photo de
+ * profil, tels que la synchro les rapporte. Soirée Yuno : les DJ du line-up
+ * puis les artistes invités (RPC `get_event_lineup_live`, même règle pour
+ * l'aperçu et l'envoi). Le bloc n'écrit JAMAIS de noms d'exemple : sans
+ * artiste connu ni ajouté à la main, il s'efface de l'email.
+ */
+export interface LineupBlock extends BlockBase {
+  type: 'lineup';
+  eventId?: string;
+  /** Couleur d'accent (sur-titre, pastilles à initiales) — hex. */
+  accent?: string;
+  /** Sur-titre. Absent = « LINE-UP » ; vide = aucun. */
+  kicker?: string;
+  /**
+   * Photos de profil des artistes, en grille de pastilles rondes. Sans
+   * aucune photo connue, le bloc reste une liste de noms : une grille de
+   * seules initiales n'apprend rien au lecteur.
+   */
+  photos?: boolean;
+  /** Alignement de la liste de noms (la grille de photos reste centrée). */
+  align?: 'left' | 'center' | 'right';
+  /** Artistes de la soirée que ce bloc ne montre pas (noms, casse ignorée). */
+  hidden?: string[];
+  /**
+   * Artistes ajoutés à la main, après ceux de la soirée : un invité surprise,
+   * ou tout le line-up quand la billetterie n'en annonce encore aucun.
+   */
+  extra?: LineupArtist[];
+}
+
 export interface SocialBlock extends BlockBase {
   type: 'social';
   /** Couleur des icônes (hex). Absent = muted du thème. */
@@ -405,11 +445,11 @@ export interface HtmlBlock extends BlockBase { type: 'html'; code: string }
 
 export type EmailBlock =
   | HeaderBlock | ImageBlock | TextBlock | CtaBlock | ColumnsBlock
-  | EventBlock | TicketsBlock | GuestListBlock | TableBlock | CountdownBlock | SocialBlock
+  | EventBlock | TicketsBlock | GuestListBlock | TableBlock | CountdownBlock | LineupBlock | SocialBlock
   | DividerBlock | SpacerBlock | HtmlBlock;
 
-/** Les 5 blocs « Yuno · données live ». */
-export const YUNO_BLOCK_TYPES: readonly BlockType[] = ['event', 'tickets', 'guestlist', 'table', 'countdown'];
+/** Les 6 blocs « Yuno · données live ». */
+export const YUNO_BLOCK_TYPES: readonly BlockType[] = ['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'];
 
 export const LOGO_SIZES: Record<HeaderBlock['logoSize'], number> = { sm: 42, md: 54, lg: 72 };
 export const SPACER_SIZES: Record<SpacerBlock['size'], number> = { sm: 8, md: 16, lg: 32, xl: 56 };
@@ -549,6 +589,12 @@ export interface LiveEventData {
    * inventaire que `tablePacks`. Mêmes règles de résolution.
    */
   tableZones?: TablePackRow[];
+  /**
+   * Artistes de la soirée (RPC `get_event_lineup_live`), relus au rendu.
+   * `undefined` = non résolu ou bloc absent ; tableau vide = aucun artiste
+   * annoncé (le bloc Line-up ne garde alors que ceux ajoutés à la main).
+   */
+  lineup?: LineupArtist[];
   /**
    * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
    * défaut). `trackedUrl` mène à la page de la soirée avec `?tl=`,
