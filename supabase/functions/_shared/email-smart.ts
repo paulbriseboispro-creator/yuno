@@ -640,15 +640,19 @@ const VOID_DROP = ['link', 'meta', 'base', 'frame', 'frameset', 'param', 'source
 const UNWRAP = ['form', 'button', 'label', 'fieldset'];
 const URL_ATTRS = ['href', 'src', 'background', 'poster', 'action', 'cite', 'longdesc', 'lowsrc', 'dynsrc'];
 
-function decodeForScheme(v: string): string {
-  return v
+/**
+ * Le schéma d'une URL tel que le navigateur le lit : entités décodées, blancs
+ * et caractères de contrôle ignorés (« java&#9;script: » reste `javascript:`).
+ */
+export function decodeForScheme(v: string): string {
+  const decoded = v
     .replace(/&#x([0-9a-f]+);?/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
     .replace(/&#(\d+);?/g, (_m, d: string) => String.fromCharCode(parseInt(d, 10)))
     .replace(/&colon;/gi, ':')
-    .replace(/&(tab|newline);/gi, '')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\s\u0000-\u001f]+/g, '')
-    .toLowerCase();
+    .replace(/&(tab|newline);/gi, '');
+  let out = '';
+  for (const ch of decoded) if (ch.charCodeAt(0) > 0x1f && !/\s/.test(ch)) out += ch;
+  return out.toLowerCase();
 }
 
 /** true = une URL sans danger dans un e-mail (https, http, mailto, tel, ancre, relative, balise). */
