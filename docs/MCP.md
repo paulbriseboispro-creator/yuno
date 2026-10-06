@@ -86,7 +86,7 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
 
 | Garantie | Où elle vit |
 |---|---|
-| Lecture seule (sauf brouillons d'e-mails) | `transaction_read_only = on` dans `mcp_call` ; la seule écriture passe par `mcp_write` (brouillons d'e-mails, statut `draft`, § 8) |
+| Lecture seule (sauf brouillons d'e-mails et pages d'inscription) | `transaction_read_only = on` dans `mcp_call` ; la seule écriture passe par `mcp_write` (brouillons d'e-mails au statut `draft`, § 8 ; pages d'inscription en brouillon ou en proposition, § 9) |
 | Portée = ce que voit le rôle | claims de la personne + portes des RPC (`analytics_scope_gate`, `contact_scope_allowed`, `crm_scope_allowed`) |
 | Montants masqués pour un rôle | `money` des RPC, rien n'est recalculé |
 | Pas d'identité par défaut | niveau `analytics` : outils fiches refusés + `_mcp_redact(…, true)` retire email, téléphone, nom, prénom, notes, adresse |
@@ -126,7 +126,10 @@ de le recommander.
 - Sans jeton ou jeton mort : 401 + `WWW-Authenticate: Bearer
   resource_metadata="https://yunoapp.eu/.well-known/oauth-protected-resource/mcp"`.
 
-## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8)
+## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9)
+
+33 outils : 28 en lecture, 5 en écriture (`create_email_draft`, `update_email_draft`,
+`add_email_image`, `create_signup_page`, `update_signup_page`).
 
 | Outil | Ce qu'il rend | Source |
 |---|---|---|
@@ -152,9 +155,12 @@ de le recommander.
 | `get_email_design_kit` | marque, soirées, faits de la soirée visée, balises Yuno + aperçu de leurs valeurs, règles HTML, méthode, exemple, brouillons récents | `_mcp_email_tool` (`_mcp_email_event_facts`, `get_external_event_live`, `get_event_lineup_live`, `_event_tables_left`) + Worker (`emailGuide.ts`) |
 | `list_email_audiences` | audiences et effectifs joignables (CRM : base, cycles de vie, segments, préréglages ; Billetterie : abonnés, VIP…, segments, listes) | `crm_email_send_options`, `count_campaign_recipients`, `count_organizer_audience_kinds` |
 | `get_email_draft` | un brouillon / une campagne : sections (id, texte visible, contenu), `version`, objet, langue, audience, thème | `email_campaigns` |
-| `list_email_images` | images ajoutées par l'IA (30 j) et liens de dépôt en attente | `mcp_email_images` |
+| `list_email_images` | images ajoutées par l'IA (30 j) et liens de dépôt en attente — pour les e-mails comme pour les pages | `mcp_email_images` |
 | `create_email_draft` · `update_email_draft` | **écriture** : un brouillon d'e-mail (§ 8) | `mcp_write` → `_mcp_email_write` |
-| `add_email_image` | **écriture** : un emplacement d'image (fichier joint, lien, ou page de dépôt) | `mcp_write` → `_mcp_email_image_add`, Worker `emailImages.ts` |
+| `add_email_image` | **écriture** : un emplacement d'image (fichier joint, lien, ou page de dépôt), pour un e-mail ou une page | `mcp_write` → `_mcp_email_image_add`, Worker `emailImages.ts` |
+| `get_signup_page_kit` | marque, soirées, pages existantes, les quatre types et leurs règles, gabarits et polices, modèle du design sur mesure, balises de page + aperçu, règles web, méthode, exemple | `_mcp_signup_tool` + Worker (`signupGuide.ts`) |
+| `get_signup_page` | une page : réglages, sections du design (id, texte visible, contenu), proposition en attente, `version`, liens Console et public | `crm_signup_pages` (`_mcp_signup_page_view`) |
+| `create_signup_page` · `update_signup_page` | **écriture** : une page d'inscription en brouillon, ou une proposition sur une page en ligne (§ 9) | `mcp_write` → `_mcp_signup_write` |
 
 Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
 (méthode, règles, définitions de `metrics.ts`, playbook de la nuit, catalogue
@@ -249,6 +255,77 @@ dans la Console (Billetterie ou Yuno CRM). Le pro relit et envoie.
   `guide.ts` ; prompt `design_event_email`.
 - Tests : `npx vitest run worker/mcp src/lib/email`.
 
+## 9. Pages d'inscription dessinées par l'IA (2026-10-06)
+
+Plan : `docs/designs/MCP_SIGNUP_PAGE_DESIGN_PLAN.md`. Migration
+`20261009160000`. Même mécanique que les brouillons d'e-mails (§ 8), pour les
+pages d'inscription de Yuno CRM (`/j/<nom>`). Le pro décrit sa page, colle sa
+charte ou une capture d'une page qui l'inspire ; l'IA la dessine, la dépose en
+brouillon, puis la retouche dans la conversation. Le titulaire publie.
+
+- **« Design sur mesure »** (`crm_signup_pages.custom_design`, NULL = un des
+  dix gabarits comme avant) : un thème (fond, encre, accent, polices Google,
+  rayon, ombre, CSS commun) et jusqu'à 24 sections, chacune soit du HTML/CSS
+  libre, soit un bloc Yuno (`form`, `countdown`, `reward`, `count`). Le
+  **formulaire Yuno est toujours là, une fois** : champs, case d'accord, double
+  confirmation et scène « inscrit » restent ceux de Yuno, l'IA ne les dessine
+  jamais. Une section peut ne s'afficher qu'avant ou après l'inscription
+  (`show_on`). Les **balises de page** (`{{page.title}}`, `{{event.date}}`,
+  `{{reward.text}}`, `{{page.count}}`, `{{#if scene.signed_up}}`…) passent par
+  le moteur des e-mails (`email-smart.ts`), avec leurs valeurs propres
+  (`buildPageTagData`). Module pur unique `src/crm/signup/custom.ts` (modèle,
+  nettoyage, contrôle, rendu des balises, thème) importé par le Worker et la
+  Console, testé (`signupCustom.test.ts`).
+- **Trois barrières contre un contenu piégé** : le Worker nettoie et refuse
+  avant d'écrire (balises et attributs interdits, `javascript:`, images hors
+  du stockage Yuno, CSS sans `@import`, `@font-face`, `expression()` ni image
+  d'un autre site) ; la base refuse une forme invalide ou un motif dangereux
+  (`_mcp_signup_write`) ; la page publique repasse chaque section par
+  DOMPurify et la rend dans un **Shadow DOM** sous `contain: paint` : son CSS
+  ne peut ni sortir, ni masquer ou recouvrir le formulaire, la case d'accord
+  ou le bouton (même un `position: fixed` reste dans la boîte de sa section). Les images d'une page viennent du stockage du projet Yuno
+  (même porte que les e-mails : `add_email_image`, `list_email_images`) ou
+  des fichiers d'image de yunoapp.eu, jamais d'un site tiers ni d'un autre
+  projet Supabase : une image hébergée ailleurs verrait l'IP de chaque fan.
+- **Permission** : `mcp_grants.can_pages` (défaut `false`), posée seulement si
+  l'écran de consentement passe `p_pages = true` ; `/connect-ai` l'annonce
+  (`aiMcp.can5`). Les connexions existantes ne la reçoivent pas : les
+  reconnecter. L'espace doit avoir Yuno CRM actif (`crm_not_active` sinon) et
+  la personne le droit d'écrire dans la Console (`_mcp_space_can_draft`).
+  Débits : 20 créations / 200 modifications par jour et par connexion.
+  Journal : un RÉSUMÉ (page, type, titre, gabarit ou design, nombre de
+  sections, poids), jamais le HTML.
+- **Ce que l'IA écrit** : `create_signup_page` = toujours un BROUILLON ;
+  `update_signup_page` sur un brouillon le modifie, sur une page EN LIGNE
+  écrit une **proposition** (`ai_proposal` : réglages + design, essayés à blanc
+  par `crm_signup_page_save` puis annulés) — rien ne change pour les fans. Le
+  pro la voit en bandeau sur la fiche de la page (« Aperçu », « Ignorer »,
+  « Appliquer », `crm_signup_page_ai_proposal`). Les réglages passent TOUS par
+  `crm_signup_page_save`, la fonction de la Console (mêmes contrôles). Aucun
+  outil ne publie, ne ferme, ne supprime, n'écrit les relances ni n'envoie :
+  une page préparée par l'IA dont les relances sont vides passe d'abord par
+  l'étape de relecture de l'assistant avant la mise en ligne.
+- **Itérer sans écraser le pro** : `get_signup_page` rend une `version`
+  (`updated_at` en µs) et les sections par id ; `update_signup_page` les vise
+  (`section_updates` : réécrire, insérer avant / après, déplacer, supprimer ;
+  le formulaire ne se supprime pas) et reçoit `page_version` (périmée =
+  `page_changed`). Chaque écriture pose `ai_updated_at` ; l'assistant ouvert
+  ADOPTE la version de l'IA (retour sur l'onglet, puis toutes les 8 s, toast
+  avec « Annuler ») et `crm_signup_page_save` refuse `ai_changed` quand l'écran
+  enregistrerait par-dessus une version de l'IA qu'il n'a pas vue
+  (`_seen_ai_at`). Choisir un gabarit dans l'assistant remplace le design sur
+  mesure (confirmation demandée).
+- **Annotations** : `create_signup_page` = `readOnlyHint: false`,
+  `destructiveHint: false` ; `update_signup_page` = `destructiveHint: true`.
+- **Le cerveau du designer** : `worker/mcp/signupGuide.ts` (types de page et
+  leurs règles, gabarits, polices, modèle du design, règles web mobile, méthode,
+  voix « tu » du formulaire, exemple) rendu par le kit et la ressource
+  `yuno://guide/signup-page-design` ; consignes « SIGNUP PAGE DESIGN » et
+  « ITERATING ON A SIGNUP PAGE » dans `guide.ts` ; prompt `design_signup_page`.
+  Écriture : `signupTools.ts` (lecture du travail en cours, chemins de design),
+  `signupDesign.ts` (construction, mises à jour par id, réglages, contrôles).
+- Tests : `npx vitest run worker/mcp src/crm/lib/__tests__/signupCustom.test.ts`.
+
 ## 5. Mise en service — fait le 2026-10-03
 
 1. **Clé serveur** : clé secrète Supabase dédiée `mcp_worker` (Project Settings
@@ -273,12 +350,13 @@ Tous les champs prêts à coller (Claude, OpenAI, Le Chat, Gemini) :
 
 **Commun** — Nom : Yuno · Description courte : « Ask your nightlife numbers in
 plain words: sales, events, audience and marketing from your Yuno Console,
-and have it prepare on-brand email drafts you review and send yourself. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
+and have it prepare on-brand email drafts and signup pages you review, send and publish yourself. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
 https://yunoapp.eu/legal/privacy · Conditions :
 https://yunoapp.eu/legal/cgu · Support : contact@yunoapp.eu · Icône :
 `public/icon-1024.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Outils de
-lecture annotés `readOnlyHint: true` ; deux outils d'écriture (brouillons
-d'e-mails, jamais d'envoi) annotés `readOnlyHint: false`.
+lecture annotés `readOnlyHint: true` ; cinq outils d'écriture (brouillons
+d'e-mails, images, pages d'inscription en brouillon ou en proposition ; jamais
+d'envoi ni de publication) annotés `readOnlyHint: false`.
 
 **Compte de test** : `review@womber.fr`, créé par
 `node scripts/demo/create-reviewer-account.mjs` (mot de passe généré, affiché
@@ -289,7 +367,7 @@ possible (`demo_no_send`).
 
 **Claude** (https://claude.ai/directory/manage → MCP connector) : chaque outil a
 `title` + `readOnlyHint` ✅, noms ≤ 64 caractères ✅, lecture et écriture
-séparées ✅ (deux outils d'écriture, brouillons seulement, annotés). Redirections Claude acceptées sans liste
+séparées ✅ (cinq outils d'écriture, brouillons et propositions seulement, annotés). Redirections Claude acceptées sans liste
 blanche (DCR et CIMD, https).
 
 **ChatGPT** (https://platform.openai.com/plugins) : `readOnlyHint`,
@@ -310,7 +388,9 @@ Cas négatifs (le connecteur ne doit PAS servir) :
 Cas positif d'écriture : « Design the announcement email for my next party for
 my whole base and save it as a draft. » → `get_email_design_kit`,
 `list_email_audiences`, `create_email_draft` (lien Console rendu, rien
-d'envoyé).
+d'envoyé). « Design a presale signup page for my next party, dark and neon,
+with a free drink for the first 100. » → `get_signup_page_kit`,
+`create_signup_page` (brouillon, lien Console rendu, rien de publié).
 
 **Gemini** : applis personnalisées encore réservées à certains pays / langues ;
 Gemini Enterprise : OAuth manuel (non configuré ici, DCR suffit ailleurs).

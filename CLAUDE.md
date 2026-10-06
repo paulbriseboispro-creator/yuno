@@ -1028,7 +1028,8 @@ organisateur branche Claude, ChatGPT, Gemini ou Le Chat sur sa Console
 (`https://yunoapp.eu/mcp`) ; l'IA lit ses chiffres et les transforme en
 analyses et conseils, et AGIT pour lui là où une porte d'écriture existe
 (aujourd'hui : brouillons d'e-mails et images, section « MCP : l'IA du pro
-dessine ses e-mails »). Le connecteur n'est PAS en lecture seule par principe
+dessine ses e-mails » ; pages d'inscription du CRM, section « MCP : l'IA du
+pro dessine ses pages d'inscription »). Le connecteur n'est PAS en lecture seule par principe
 (décision de Paul, 06/10) : chaque écriture passe par `mcp_write`, avec la
 permission de la connexion et les droits de la personne, et ce qui part vers
 des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `worker/mcp/*` (routé en tête de
@@ -1074,7 +1075,9 @@ des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `
   voie — le test unitaire simule désormais ce refus.
 - **Le protocole parle les deux générations** (moderne 2026-07-28 sans
   `initialize`, en-têtes vérifiés, `server/discover`, `resultType` ; legacy avec
-  `initialize`, sans session). Tous les outils `readOnlyHint: true`.
+  `initialize`, sans session). Tous les outils de LECTURE sont `readOnlyHint:
+  true` ; les cinq d'écriture `readOnlyHint: false` (et `destructiveHint: true`
+  pour ceux qui modifient : `update_email_draft`, `update_signup_page`).
 - **Le cerveau d'analyste = `worker/mcp/guide.ts`** (consignes, définitions de
   `metrics.ts`, playbook, actions Yuno, prompts) + `enrich.ts` (constats en
   phrases) : un changement de définition dans `metrics.ts` / `fees.ts` se
@@ -1101,7 +1104,7 @@ des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `
 Plan : `docs/designs/MCP_EMAIL_DESIGN_PLAN.md` ; doc : `docs/MCP.md` § 8.
 Migrations `20261009150000` → `153000`. Règles intouchables :
 
-- **Une seule écriture MCP : un brouillon d'e-mail, par `mcp_write`.** Elle
+- **Écrire un e-mail par MCP = un brouillon, par `mcp_write`.** Elle
   revérifie jeton, espace, débits (30 créations / 200 modifications par jour
   et par connexion), la permission de la connexion (`mcp_grants.can_draft`,
   posée SEULEMENT par un écran de consentement qui l'annonce : `p_drafts`
@@ -1109,7 +1112,7 @@ Migrations `20261009150000` → `153000`. Règles intouchables :
   anciennes restent à false et se reconnectent) et le droit d'écrire les campagnes de l'espace
   (`_mcp_space_can_draft`, miroir des policies d'`email_campaigns`). Elle
   n'écrit QUE des lignes au statut `draft`. Aucun outil MCP n'envoie, ne
-  programme, ne teste ni ne supprime : ne jamais en ajouter un.
+  programme, ne teste, ne publie ni ne supprime : ne jamais en ajouter un.
 - **Sections sur mesure = bloc `html` + balises Yuno**, moteur UNIQUE
   `supabase/functions/_shared/email-smart.ts` (rendu Handlebars échappé,
   nettoyage, `smartNeeds`, contrôle), ré-exporté par `src/lib/email/smart.ts`
@@ -1152,6 +1155,72 @@ Migrations `20261009150000` → `153000`. Règles intouchables :
   que la soirée charge) ; un brouillon d'IA porte « Préparé par … »
   (`ai_author`). Les messages de contrôle sont en anglais pour l'IA, traduits
   par code (`yc.em.st.lint.*`) pour le pro.
+
+## MCP : l'IA du pro dessine ses pages d'inscription (2026-10-06)
+
+Plan : `docs/designs/MCP_SIGNUP_PAGE_DESIGN_PLAN.md` ; doc : `docs/MCP.md` § 9.
+Migration `20261009160000`. Le pro décrit sa page, colle sa charte ou une
+capture qui l'inspire ; son IA la dessine en « Design sur mesure », la dépose
+en brouillon et la retouche dans la conversation. Décisions de Paul (06/10) :
+sections libres + formulaire Yuno, toute la page sauf publier, proposition à
+appliquer sur une page en ligne, nom « Design sur mesure ». Règles intouchables :
+
+- **Permission À PART : `mcp_grants.can_pages`** (défaut false, posée par
+  `mcp_approve_authorization(…, p_pages)` seulement quand `/connect-ai` passe
+  `p_pages = true` ; `aiMcp.can5` l'annonce). `can_draft` ne l'ouvre pas, et
+  une connexion antérieure se reconnecte. Les images restent la porte des
+  e-mails (`add_email_image` / `list_email_images`, outils `shared` : ouverts
+  par `can_draft` OU `can_pages`).
+- **L'IA ne publie jamais.** `create_signup_page` = toujours un BROUILLON ;
+  `update_signup_page` modifie un brouillon, et sur une page EN LIGNE n'écrit
+  qu'une PROPOSITION (`crm_signup_pages.ai_proposal`, essayée à blanc par
+  `crm_signup_page_save` puis annulée par `RAISE 'mcp_dry_run_ok'`) : rien ne
+  change pour les fans tant que le pro n'a pas cliqué « Appliquer »
+  (`crm_signup_page_ai_proposal(apply|discard)`, `crm_scope_writable`). Aucun
+  outil ne publie, ne ferme, n'archive, ne supprime ni n'écrit les relances ;
+  une page d'IA aux relances vides passe par l'étape de relecture de
+  l'assistant (`?review=1`) avant la mise en ligne. Les réglages passent TOUS
+  par `crm_signup_page_save` (la fonction de la Console) : jamais un UPDATE de
+  colonne de réglage à côté.
+- **Le formulaire Yuno est dans CHAQUE design, une fois** (bloc `form` ;
+  `normalizeCustomDesign`, Worker et SQL le vérifient) : champs, case d'accord,
+  double confirmation, scène « inscrit » restent ceux de Yuno. L'IA dessine
+  AUTOUR (sections `html` + CSS, blocs `countdown` / `reward` / `count`,
+  `show_on` avant / après l'inscription). Le formulaire se tutoie : une page
+  d'IA se tutoie aussi (règle VOICE du guide).
+- **Module pur unique `src/crm/signup/custom.ts`** (modèle v1, limites,
+  nettoyage HTML/CSS, URLs d'images, balises de page, contrôle, thème →
+  `Tokens`) importé par le Worker ET la Console ; balises rendues par le
+  moteur des e-mails `email-smart.ts` (jamais recopié). Une balise de page
+  nouvelle = `PAGE_TAGS` + `buildPageTagData` + un test (`signupCustom.test.ts`).
+- **Trois barrières, jamais une de moins** : nettoyage + contrôle du Worker
+  (une erreur = rien n'est écrit), défense SQL de `_mcp_signup_write` (forme
+  v1, un seul formulaire, motifs dangereux), et au RENDU : DOMPurify à chaque
+  affichage + Shadow DOM sous `contain: paint, isolation: isolate`
+  (`CustomSection.tsx`). Ne jamais rendre une section par
+  `dangerouslySetInnerHTML` dans la page, ni lever `contain: paint` : c'est ce
+  qui empêche une section de recouvrir la case d'accord ou le bouton. Images :
+  stockage du projet Supabase de Yuno, FICHIERS d'image de `yunoapp.eu` (pas
+  ses routes : un `/go/` en image compterait des visites) ou `data:image`
+  ≤ 120 Ko (`isAllowedAssetUrl`), jamais un site tiers ni un autre projet
+  Supabase (fuite d'IP des fans).
+  Polices : Google Fonts seulement (`useCustomFonts`).
+- **Itérer sans écraser le pro** : version = `_mcp_draft_version(updated_at)`,
+  sections visées par id, `page_changed` si périmée. Chaque écriture de l'IA
+  pose `ai_updated_at` ; l'assistant ouvert l'adopte (sondage 8 s, toast
+  « Annuler ») et `crm_signup_page_save` lève `ai_changed` quand l'écran
+  enregistre par-dessus une version de l'IA non vue (`_seen_ai_at`). Choisir
+  un gabarit dans l'assistant remplace le design sur mesure APRÈS
+  confirmation ; `crm_signup_page_save` n'accepte `custom_design` qu'à null
+  (le pro n'écrit jamais de design, il le retire).
+- Traçabilité : `ai_author`, `mcp_grant_id`, pastille « Préparé par … » (liste,
+  fiche), bandeau de proposition (`AiProposalCard`), nombre de pages dans
+  Réglages › Assistants IA (`pages_created`) ; journal `mcp_tool_calls` = un
+  RÉSUMÉ, jamais le HTML. Débits : 20 créations / 200 modifications par jour.
+- Le cerveau : `worker/mcp/signupGuide.ts` (méthode, règles web mobile,
+  exemple), `signupDesign.ts` (construction, mises à jour par id, réglages),
+  `signupTools.ts` (écriture), consignes « SIGNUP PAGE DESIGN » de `guide.ts`,
+  prompt `design_signup_page`, ressource `yuno://guide/signup-page-design`.
 
 ## Collab à BARÈME sur le CA de la soirée + décompte de fin de soirée (2026-09-21)
 
