@@ -394,6 +394,31 @@ const dict: CrmDict = {
     'Los clientes cuya última visita se remonta al plazo elegido (no más de 4 meses después), una vez por semestre.',
   ],
   'yc.au.r.win_back.when': ['Send: after {d} without coming', 'Envoi : après {d} sans venir', 'Envío: tras {d} sin venir'],
+
+  'yc.au.soon.title': ['Coming soon', 'À venir', 'Próximamente'],
+  'yc.au.soon.sub': [
+    'Three more automations are on the way. They need the data of an integrated ticketing partner.',
+    'Trois automatisations de plus arrivent. Elles demandent les données d’une billetterie intégrée.',
+    'Llegan tres automatizaciones más. Necesitan los datos de una taquilla integrada.',
+  ],
+  'yc.au.soon.cart.name': ['Abandoned cart', 'Panier abandonné', 'Carrito abandonado'],
+  'yc.au.soon.cart.desc': [
+    'A reminder to someone who started a purchase and didn’t finish it.',
+    'Un rappel à qui a commencé un achat sans le terminer.',
+    'Un recordatorio a quien empezó una compra y no la terminó.',
+  ],
+  'yc.au.soon.upsell.name': ['Table upsell', 'Upsell table', 'Upsell de mesa'],
+  'yc.au.soon.upsell.desc': [
+    'Offer a VIP table to someone who just bought a ticket.',
+    'Proposer une table VIP à qui vient d’acheter un billet.',
+    'Ofrecer una mesa VIP a quien acaba de comprar una entrada.',
+  ],
+  'yc.au.soon.visit.name': ['Page visited', 'Page visitée', 'Página visitada'],
+  'yc.au.soon.visit.desc': [
+    'A nudge to someone who looked at your night page without buying.',
+    'Une relance à qui a regardé la page d’une soirée sans acheter.',
+    'Un empujón a quien miró la página de una fiesta sin comprar.',
+  ],
 };
 
 export default dict;

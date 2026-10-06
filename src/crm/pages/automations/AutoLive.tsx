@@ -155,6 +155,27 @@ export function AutoIntro({ T }: { T: T }) {
   );
 }
 
+const SOON_AUTOS = ['cart', 'upsell', 'visit'] as const;
+
+/** Trois recettes pas encore branchées : elles lisent le checkout et les visites, que Shotgun ne rapporte pas. */
+export function AutoSoon({ T }: { T: T }) {
+  const { t } = T;
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: `yc-in-blur 800ms ${EASE} 760ms both` }}>
+      <SectionHead title={t('yc.au.soon.title')} sub={t('yc.au.soon.sub')} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,290px),1fr))', gap: 14 }}>
+        {SOON_AUTOS.map((k) => (
+          <div key={k} aria-disabled="true" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 20, borderRadius: 22, background: 'var(--paper)', border: '1px dashed var(--sand-300)', color: 'var(--sand-600)' }}>
+            <span style={{ alignSelf: 'flex-start', height: 22, padding: '0 9px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', fontSize: 12, fontWeight: 600, color: 'var(--sand-500)', display: 'inline-flex', alignItems: 'center' }}>{t('yc.au.m.soon')}</span>
+            <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-.02em', lineHeight: '23px', color: 'var(--ink)' }}>{t(`yc.au.soon.${k}.name`)}</b>
+            <span style={{ fontSize: 14, lineHeight: 1.45, textWrap: 'pretty' }}>{t(`yc.au.soon.${k}.desc`)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function AutoRecos({
   T, recos, empty, canWrite, rate, onPick, onBlank,
 }: { T: T; recos: AutoRecipe[]; empty: boolean; canWrite: boolean; rate: number; onPick: (k: CrmAutoKind) => void; onBlank: () => void }) {

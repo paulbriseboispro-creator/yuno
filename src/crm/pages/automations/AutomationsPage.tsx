@@ -24,7 +24,7 @@ import { useStaged } from '@/crm/pages/journey/jrLib';
 import { AU_IC, startModal, type ModalState } from './autoFmt';
 import { AutoSales, AutoKpis } from './AutoSales';
 import { AutoCards } from './AutoCards';
-import { AutoIntro, AutoLive, AutoRecos } from './AutoLive';
+import { AutoIntro, AutoLive, AutoRecos, AutoSoon } from './AutoLive';
 import { AutoTodo } from './AutoTodo';
 import { AutoModal } from './AutoModal';
 
@@ -189,6 +189,7 @@ export default function AutomationsPage() {
             onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3)); }}
             onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1))}
           />
+          <AutoSoon T={T} />
         </>
       )}
 
