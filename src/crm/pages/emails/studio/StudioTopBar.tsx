@@ -152,7 +152,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
                 aria-pressed={preview}
                 title={t('yc.em.st.previewKey')}
                 aria-label={t('yc.em.st.preview')}
-                style={{ height: 40, padding: narrow ? 0 : '0 16px', width: narrow ? 40 : undefined, justifyContent: 'center', borderRadius: 99, border: `1px solid ${preview ? 'var(--ink)' : 'var(--sand-200)'}`, background: preview ? 'var(--ink)' : '#fff', color: preview ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}
+                style={{ height: 40, padding: narrow ? 0 : '0 16px', width: narrow ? 40 : undefined, justifyContent: 'center', borderRadius: 99, borderWidth: 1, borderStyle: 'solid', borderColor: preview ? 'var(--ink)' : 'var(--sand-200)', background: preview ? 'var(--ink)' : '#fff', color: preview ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}
                 hover={{ borderColor: 'var(--sand-400)' }}
               >
                 <Icon d={IC.eye} size={16} stroke={2.1} />{!narrow && t('yc.em.st.preview')}
@@ -163,7 +163,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
                 onClick={onTest}
                 title={t('yc.em.st.testTitle')}
                 aria-label={t('yc.em.st.testTitle')}
-                style={{ height: 40, padding: narrow ? 0 : '0 16px', width: narrow ? 40 : undefined, justifyContent: 'center', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}
+                style={{ height: 40, padding: narrow ? 0 : '0 16px', width: narrow ? 40 : undefined, justifyContent: 'center', borderRadius: 99, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}
                 hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }}
               >
                 <Icon name="send" size={16} stroke={2.1} />{!narrow && t('yc.em.st.test')}

@@ -53,7 +53,7 @@ export function PaletteGrid({ q, onPicked }: { q: string; onPicked?: () => void 
                   onDragStart={(e: DragEvent<HTMLButtonElement>) => { try { e.dataTransfer.setData('text/plain', `new:${p.k}`); e.dataTransfer.effectAllowed = 'copy'; } catch { /* navigateur sans dataTransfer : le glisser reste interne */ } ui.setDrag({ kind: 'new', k: p.k }); }}
                   onDragEnd={() => { ui.setDrag(null); ui.setDropAt(null); }}
                   title={t(`yc.em.st.b.${p.k}.d`)}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: 12, borderRadius: 16, border: `1px solid ${yuno ? 'var(--red-200)' : 'var(--sand-200)'}`, background: yuno ? 'var(--red-50)' : '#fff', cursor: 'grab', textAlign: 'left', color: 'var(--ink)', transition: `translate 200ms ${EASE},box-shadow 200ms,border-color 160ms` }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderStyle: 'solid', borderColor: yuno ? 'var(--red-200)' : 'var(--sand-200)', background: yuno ? 'var(--red-50)' : '#fff', cursor: 'grab', textAlign: 'left', color: 'var(--ink)', transition: `translate 200ms ${EASE},box-shadow 200ms,border-color 160ms` }}
                   hover={{ translate: '0 -2px', boxShadow: 'var(--shadow-sm)', borderColor: 'var(--sand-300)' }}
                   active={{ cursor: 'grabbing', translate: '0 0' }}
                 >
