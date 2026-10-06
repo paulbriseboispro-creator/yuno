@@ -1,11 +1,11 @@
 // ───────────────────────────────────────────────────────────────────────────
 // Envoi de campagne SMS — worker de file, pas boucle monolithique.
+// Fournisseur : Octopush (depuis le 2026-10-08, docs/designs/SMS_PROVIDER_PLAN.md).
 //
 // Même architecture que send-campaign (email) :
 //
-//   • test    → un seul SMS vers le téléphone du pro, sans file. Consomme les
-//               crédits réels (c'est le seul moyen honnête de tester la chaîne
-//               Twilio de bout en bout).
+//   • test    → un SMS vers le pro, sans file. Suite : consomme ses crédits
+//               SMS. Console CRM : gratuit (10 par jour et par compte).
 //   • send    → constitue la file (enqueue), vérifie le solde POUR TOUTE LA
 //               CAMPAGNE, puis draine une première tranche. Appelé par le pro
 //               depuis l'app, ou par le cron pour une campagne planifiée.
@@ -13,22 +13,37 @@
 //               par le cron (filet de sécurité si l'auto-chaînage se perd).
 //   • resume  → une campagne en pause repart (crédits rechargés, pause levée).
 //
+// Deux portefeuilles, une mécanique : les crédits SMS de la Suite
+// (`sms_credit_balances`) ou les Yunits de la Console CRM (35 par SMS,
+// `crm_pricing.rates.sms`). La plateforme (Yuno à sa base) ne débite rien.
+//
 // GARANTIES :
 //   1. `claim_sms_campaign_recipients` (FOR UPDATE SKIP LOCKED) — deux workers
 //      ne réservent jamais le même numéro.
-//   2. Un crédit est débité AVANT l'appel Twilio et remboursé si Twilio refuse ;
-//      un échec de livraison ultérieur (webhook) rembourse aussi.
-//   3. Le solde est vérifié pour la campagne entière avant le premier envoi :
-//      on ne démarre pas une campagne qu'on ne peut pas finir. Si malgré tout
-//      le solde s'épuise en route (deux campagnes en parallèle), la campagne se
-//      met en PAUSE et reprend après rechargement — rien n'est perdu.
-//   4. Mention STOP + nom de l'annonceur ajoutés côté serveur, jamais retirables.
-//   5. Heures calmes (20 h → 8 h Europe/Paris, dimanche) : opt-out par campagne,
-//      le cron reprend au créneau suivant.
+//   2. Un lot porte un `request_id` posé AVANT l'appel : une ligne reprise
+//      repart avec le même, Octopush répond « déjà vu » (182) et rien ne part
+//      deux fois.
+//   3. Le débit précède l'appel ; un refus du fournisseur rembourse le lot.
+//      Un échec de livraison ultérieur (`failed`, webhook) rembourse aussi ;
+//      un « non délivré » a été facturé et reste décompté.
+//   4. Le solde est vérifié pour la campagne entière avant le premier envoi.
+//      S'il s'épuise en route, la campagne se met en PAUSE et reprend après
+//      rechargement — rien n'est perdu.
+//   5. Nom de l'annonceur en tête, « STOP au 30101 », nom d'expéditeur aux
+//      règles des opérateurs, identité de l'annonceur vérifiée : côté serveur,
+//      jamais retirables.
+//   6. Rien ne part de 21 h 30 à 8 h (Paris) ; heures calmes, dimanche et jours
+//      fériés selon les réglages. Le cron reprend au créneau suivant.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { composeSmsBody, smsSizing, normalizeLang, cleanSenderName } from "../_shared/sms-text.ts";
+import {
+  composeSmsBody, isFrenchNumber, normalizeLang, resolveSmsVars, senderIdError, smsHoldReason, smsSizing, toSenderId,
+  cleanSenderName, type SmsQuietRules,
+} from "../_shared/sms-text.ts";
+import {
+  batchRequestId, OCTOPUSH_BATCH, octopushConfig, octopushErrorLabel, sendOctopushBatch, type OctopushConfig,
+} from "../_shared/sms-octopush.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
 
@@ -43,94 +58,24 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const PUBLIC_URL = Deno.env.get("PUBLIC_APP_URL") || "https://yunoapp.eu";
+/** Lien court affiché dans un SMS CRM, sans « https:// » (la longueur compte). */
+const SHORT_HOST = PUBLIC_URL.replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
 const SLICE_MS = Number(Deno.env.get("SMS_SLICE_MS") || 40_000);
-const BATCH = 20;          // numéros réservés par salve
-const CONCURRENCY = 3;     // appels Twilio simultanés (un numéro long débite ~1 msg/s)
-const SPACING_MS = 150;    // respiration entre deux vagues
 const E164 = /^\+[1-9][0-9]{6,14}$/;
-
-const QUIET_START_HOUR = 20;
-const QUIET_END_HOUR = 8;
+/** Tests gratuits d'un compte CRM par 24 h. */
+const CRM_FREE_TESTS_PER_DAY = 10;
+/** Prénom d'exemple d'un test (celui du compte s'il est connu). */
+const SAMPLE_FIRST_NAME = "Camille";
 
 type Admin = SupabaseClient;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: jsonHeaders });
-
-// ── Twilio ─────────────────────────────────────────────────────────────────
-
-interface TwilioConfig {
-  sid: string;
-  token: string;
-  from: string | null;
-  messagingServiceSid: string | null;
-}
-
-function twilioConfig(): TwilioConfig | null {
-  const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const token = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const from = Deno.env.get("TWILIO_PHONE_NUMBER") || null;
-  const messagingServiceSid = Deno.env.get("TWILIO_MESSAGING_SERVICE_SID") || null;
-  if (!sid || !token || (!from && !messagingServiceSid)) return null;
-  return { sid, token, from, messagingServiceSid };
-}
-
-type TwilioOutcome =
-  | { ok: true; sid: string }
-  | { ok: false; status: number; code: string; message: string; retryable: boolean; systemic: boolean };
-
-// Codes Twilio qui condamnent TOUTE la campagne (pas seulement ce numéro) :
-// identifiants, expéditeur invalide, compte d'essai. Insister brûlerait des
-// crédits pour rien — on met la campagne en pause avec le message clair.
-const SYSTEMIC_CODES = new Set(["20003", "20005", "20008", "21606", "21608", "21212", "21603", "30034"]);
-// Codes transitoires : on remet le numéro en file.
-const RETRYABLE_CODES = new Set(["20429", "21611", "30001", "30002", "30022"]);
-
-async function sendTwilio(cfg: TwilioConfig, to: string, body: string, statusCallback: string): Promise<TwilioOutcome> {
-  const params = new URLSearchParams({ To: to, Body: body, StatusCallback: statusCallback });
-  if (cfg.messagingServiceSid) params.set("MessagingServiceSid", cfg.messagingServiceSid);
-  else params.set("From", cfg.from!);
-  try {
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${cfg.sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${btoa(`${cfg.sid}:${cfg.token}`)}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data?.sid) return { ok: true, sid: String(data.sid) };
-    const code = String(data?.code ?? res.status);
-    return {
-      ok: false,
-      status: res.status,
-      code,
-      message: String(data?.message ?? `Twilio HTTP ${res.status}`),
-      retryable: res.status === 429 || res.status >= 500 || RETRYABLE_CODES.has(code),
-      systemic: SYSTEMIC_CODES.has(code) || res.status === 401 || res.status === 403,
-    };
-  } catch (e) {
-    return { ok: false, status: 0, code: "network", message: e instanceof Error ? e.message : String(e), retryable: true, systemic: false };
-  }
-}
-
-// ── Utilitaires ────────────────────────────────────────────────────────────
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function bearer(req: Request): string | null {
   const h = req.headers.get("Authorization") || "";
   return h.startsWith("Bearer ") ? h.slice(7) : null;
-}
-
-function inQuietHours(now: Date = new Date()): boolean {
-  const parts = new Intl.DateTimeFormat("fr-FR", {
-    hour: "numeric", hour12: false, weekday: "short", timeZone: "Europe/Paris",
-  }).formatToParts(now);
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "12");
-  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
-  return hour >= QUIET_START_HOUR || hour < QUIET_END_HOUR || weekday.startsWith("dim");
 }
 
 /** Auto-chaînage : la tranche suivante démarre sans attendre notre réponse. */
@@ -144,59 +89,167 @@ function chainNextSlice(campaignId: string) {
   if (rt?.waitUntil) rt.waitUntil(p);
 }
 
-/**
- * Portée d'une campagne. La PLATEFORME (les deux à NULL) est le marketing de
- * Yuno lui-même : la facture Twilio est déjà la sienne, il n'y a pas de compte
- * de crédits à débiter. Toute la mécanique de crédits devient un no-op, et le
- * coût réel reste lisible dans `sms_campaign_recipients.credits`.
- */
-function isPlatformScope(venueId: string | null, organizerId: string | null): boolean {
-  return !venueId && !organizerId;
+function errorText(e: unknown): string {
+  if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
+  return String(e);
 }
 
-/** `null` = portée plateforme : aucun solde, aucun débit. */
-async function balanceIdFor(admin: Admin, venueId: string | null, organizerId: string | null): Promise<string | null> {
-  if (isPlatformScope(venueId, organizerId)) return null;
-  const { data, error } = await admin.rpc("get_or_create_sms_balance", {
-    p_venue_id: venueId,
-    p_organizer_id: organizerId,
-  });
+// ── Portée, portefeuille, réglages ─────────────────────────────────────────
+
+interface Scope {
+  venueId: string | null;
+  organizerId: string | null;
+  /** Clé CRM de la portée (`venue:<id>` / `org:<uuid>`), null pour la plateforme. */
+  scopeKey: string | null;
+  platform: boolean;
+  /** SMS de la Console CRM : Yunits, variables, réglages d'envoi du compte. */
+  crm: boolean;
+  /** Nom du club ou de l'organisation (variable {{nom_club}}, expéditeur par défaut). */
+  name: string;
+}
+
+async function loadScope(admin: Admin, venueId: string | null, organizerId: string | null, crm: boolean): Promise<Scope> {
+  const platform = !venueId && !organizerId;
+  let name = "Yuno";
+  if (venueId) {
+    const { data } = await admin.from("venues").select("name").eq("id", venueId).maybeSingle();
+    name = (data?.name as string) || name;
+  } else if (organizerId) {
+    const [{ data: op }, { data: pr }] = await Promise.all([
+      admin.from("organizer_profiles").select("display_name").eq("user_id", organizerId).maybeSingle(),
+      admin.from("profiles").select("organization_name").eq("id", organizerId).maybeSingle(),
+    ]);
+    name = (op?.display_name as string) || (pr?.organization_name as string) || "Organisation";
+  }
+  return {
+    venueId, organizerId, platform, crm: crm && !platform, name,
+    scopeKey: venueId ? `venue:${venueId}` : organizerId ? `org:${organizerId}` : null,
+  };
+}
+
+interface CrmSmsSettings { sender_name: string | null; quiet_from: number | null; quiet_to: number | null; no_sunday: boolean | null; test_phone: string | null }
+
+async function crmSettings(admin: Admin, scope: Scope): Promise<CrmSmsSettings | null> {
+  if (!scope.crm || !scope.scopeKey) return null;
+  const { data } = await admin.from("crm_sms_settings")
+    .select("sender_name, quiet_from, quiet_to, no_sunday, test_phone").eq("scope_key", scope.scopeKey).maybeSingle();
+  return (data as CrmSmsSettings | null) ?? null;
+}
+
+async function isCrmCampaign(admin: Admin, campaignId: string): Promise<boolean> {
+  const { data, error } = await admin.rpc("sms_campaign_is_crm", { p_campaign_id: campaignId });
+  if (error) throw new Error(`sms_campaign_is_crm: ${error.message}`);
+  return data === true;
+}
+
+/** Yunits par SMS (un segment) pour la Console CRM. */
+async function crmRate(admin: Admin): Promise<number> {
+  const { data } = await admin.rpc("crm_sms_rate");
+  return Math.max(1, Number(data) || 35);
+}
+
+interface Wallet {
+  /** Suite : id du solde de crédits SMS. Null = plateforme ou CRM. */
+  balanceId: string | null;
+  /** CRM : Yunits par segment. 0 = pas de Yunits. */
+  rate: number;
+}
+
+async function walletFor(admin: Admin, scope: Scope): Promise<Wallet> {
+  if (scope.platform) return { balanceId: null, rate: 0 };
+  if (scope.crm) return { balanceId: null, rate: await crmRate(admin) };
+  const { data, error } = await admin.rpc("get_or_create_sms_balance", { p_venue_id: scope.venueId, p_organizer_id: scope.organizerId });
   if (error || !data) throw new Error(`Balance error: ${error?.message ?? "unknown"}`);
-  return data as string;
+  return { balanceId: data as string, rate: 0 };
 }
 
-/** Solde de la portée. La plateforme n'en a pas : elle n'est jamais bloquée. */
-async function currentBalance(admin: Admin, balanceId: string | null): Promise<number> {
-  if (!balanceId) return Number.MAX_SAFE_INTEGER;
-  const { data } = await admin.from("sms_credit_balances").select("balance").eq("id", balanceId).single();
+/** Solde exprimé en SEGMENTS (crédits SMS, ou Yunits ÷ tarif). La plateforme n'est jamais bloquée. */
+async function segmentsAvailable(admin: Admin, scope: Scope, w: Wallet): Promise<number> {
+  if (scope.platform) return Number.MAX_SAFE_INTEGER;
+  if (scope.crm) {
+    const { data } = await admin.rpc("crm_yunits_balance", { p_scope_key: scope.scopeKey });
+    return Math.floor(Number(data || 0) / w.rate);
+  }
+  const { data } = await admin.from("sms_credit_balances").select("balance").eq("id", w.balanceId).single();
   return Number(data?.balance ?? 0);
 }
 
-async function consumeCredits(admin: Admin, balanceId: string | null, amount: number): Promise<boolean> {
-  if (!balanceId) return true;
-  const { data, error } = await admin.rpc("consume_sms_credits", { p_balance_id: balanceId, p_amount: amount });
+/** Débite `segments` segments ; false = solde insuffisant (rien n'est débité). */
+async function debit(admin: Admin, scope: Scope, w: Wallet, segments: number, campaignId: string | null, label: string): Promise<boolean> {
+  if (segments <= 0 || scope.platform) return true;
+  if (scope.crm) {
+    const { data, error } = await admin.rpc("crm_yunits_debit", {
+      p_scope_key: scope.scopeKey, p_amount: segments * w.rate, p_channel: "sms",
+      p_ref_type: "sms_campaign", p_ref_id: campaignId, p_label: label, p_meta: {},
+    });
+    return !error && (data as { ok?: boolean } | null)?.ok === true;
+  }
+  const { data, error } = await admin.rpc("consume_sms_credits", { p_balance_id: w.balanceId, p_amount: segments });
   return !error && data === true;
 }
 
-async function refundCredits(admin: Admin, balanceId: string | null, amount: number, smsLogId: string | null, notes: string): Promise<void> {
-  if (!balanceId) return;
-  await admin.rpc("refund_sms_credits", { p_balance_id: balanceId, p_amount: amount, p_sms_log_id: smsLogId, p_notes: notes });
-}
-
-/** Le pro connecté a-t-il la main sur cette portée ? (owner du club, organisateur, ou admin) */
+/** Le pro connecté a-t-il la main sur cette portée ? Même porte que la RLS SMS. */
 async function userOwnsScope(admin: Admin, userId: string, venueId: string | null, organizerId: string | null): Promise<boolean> {
   if (organizerId && organizerId === userId) return true;
   if (venueId) {
     const { data: ok } = await admin.rpc("can_manage_venue", { _user_id: userId, _venue_id: venueId });
     if (ok === true) return true;
   }
+  if (organizerId) {
+    const { data: member } = await admin.rpc("is_org_team_member", { _user_id: userId, _organizer_user_id: organizerId, _min_role: "admin" });
+    if (member === true) return true;
+    // Console CRM : un éditeur du compte écrit et envoie, comme pour l'e-mail.
+    const { data: inCrm } = await admin.rpc("crm_user_in_scope", { p_user_id: userId, p_venue_id: venueId, p_organizer_user_id: organizerId });
+    if (inCrm === true) return true;
+  }
   // La portée plateforme n'appartient qu'au super admin — comme la RLS.
   const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
   return isAdmin === true;
 }
 
-async function ensureTrackedLink(admin: Admin, campaign: Record<string, unknown>): Promise<string | null> {
+/** Identité de l'annonceur (charte AF2M) : raison sociale + SIRET / RNA / TVA. */
+async function identityOk(admin: Admin, scope: Scope): Promise<boolean> {
+  if (scope.platform) return true;
+  const { data, error } = await admin.rpc("get_sms_sender_readiness", { p_venue_id: scope.venueId, p_organizer_user_id: scope.organizerId });
+  if (error) throw new Error(`readiness: ${error.message}`);
+  return (data as { identity_ok?: boolean } | null)?.identity_ok === true;
+}
+
+/**
+ * Ce qui s'affiche à la place du numéro (3 à 11 lettres ou chiffres) et le nom
+ * écrit en tête du message. Console CRM : le nom d'expéditeur sert aux deux
+ * (comme l'aperçu du composeur). Suite : nom libre en tête, identifiant dérivé.
+ */
+function senderFor(campaign: Record<string, unknown>, scope: Scope, settings: CrmSmsSettings | null): { id: string; prefix: string } {
+  if (scope.platform) return { id: "YUNO", prefix: cleanSenderName(campaign.sender_name as string) || "Yuno" };
+  if (scope.crm) {
+    const id = (campaign.sender_name as string) || settings?.sender_name || toSenderId(scope.name) || "YUNO";
+    return { id: id.trim(), prefix: id.trim() };
+  }
+  const prefix = cleanSenderName(campaign.sender_name as string);
+  const id = (campaign.sender_id as string) || toSenderId(prefix) || toSenderId(scope.name) || "YUNO";
+  return { id, prefix };
+}
+
+function quietFor(campaign: Record<string, unknown>, scope: Scope, settings: CrmSmsSettings | null): SmsQuietRules {
+  if (scope.crm) {
+    return {
+      on: campaign.quiet_hours !== false,
+      from: settings?.quiet_from ?? 20, to: settings?.quiet_to ?? 8, noSunday: settings?.no_sunday ?? true,
+    };
+  }
+  return { on: campaign.quiet_hours === true, from: 20, to: 8, noSunday: true };
+}
+
+/** Lien de la soirée : court `/go/` ou `/l/` en Console CRM, lien suivi `/l/` complet dans la Suite. */
+async function linkFor(admin: Admin, campaign: Record<string, unknown>, scope: Scope): Promise<string | null> {
   if (!campaign.event_id) return null;
+  if (scope.crm) {
+    const { data, error } = await admin.rpc("ensure_crm_sms_link", { p_campaign_id: campaign.id });
+    if (error) { console.error("ensure_crm_sms_link:", error.message); return null; }
+    const r = data as { kind?: string; code?: string } | null;
+    return r?.code ? `${SHORT_HOST}/${r.kind === "go" ? "go" : "l"}/${r.code}` : null;
+  }
   if (campaign.tracked_link_id) {
     const { data } = await admin.from("tracked_links").select("code").eq("id", campaign.tracked_link_id).maybeSingle();
     if (data?.code) return `${PUBLIC_URL}/l/${data.code}`;
@@ -210,20 +263,33 @@ async function ensureTrackedLink(admin: Admin, campaign: Record<string, unknown>
   return `${PUBLIC_URL}/l/${row.code}`;
 }
 
-/** Corps final pour une langue donnée. */
-function makeBodyResolver(campaign: Record<string, unknown>, linkUrl: string | null) {
+async function eventTitle(admin: Admin, eventId: string | null): Promise<string> {
+  if (!eventId) return "";
+  const { data } = await admin.from("events").select("title").eq("id", eventId).maybeSingle();
+  return (data?.title as string) || "";
+}
+
+interface Composer {
+  /** Texte exact d'un destinataire. */
+  text: (lang: string | null | undefined, phone: string, firstName: string | null) => string;
+}
+
+function makeComposer(campaign: Record<string, unknown>, scope: Scope, prefix: string, link: string | null, title: string): Composer {
   const i18n = (campaign.body_i18n as Record<string, string> | null) || null;
-  const sender = cleanSenderName(campaign.sender_name as string);
-  return (lang: string | null | undefined): string => {
-    const l = normalizeLang(lang);
-    const base = (i18n && i18n[l]) || (campaign.body_template as string) || "";
-    return composeSmsBody(base, l, sender, linkUrl);
+  return {
+    text: (lang, phone, firstName) => {
+      const l = normalizeLang(lang);
+      const base = (i18n && i18n[l]) || (campaign.body_template as string) || "";
+      const filled = resolveSmsVars(base, { "prénom": firstName || "", nom_club: scope.name, "soirée": title, lien: link || "" });
+      return composeSmsBody(filled, l, prefix, link, { french: isFrenchNumber(phone) });
+    },
   };
 }
 
-/** Segments facturés par message, dans la pire des langues. */
-function worstSegments(resolve: (lang: string) => string): number {
-  return Math.max(1, ...["fr", "en", "es"].map((l) => smsSizing(resolve(l)).segments));
+/** Segments par message dans le pire des cas connus (langues, mention STOP, prénom d'exemple). */
+function worstSegments(c: Composer): number {
+  const samples: Array<[string, string]> = [["fr", "+33600000000"], ["en", "+33600000000"], ["es", "+33600000000"], ["fr", "+34600000000"]];
+  return Math.max(1, ...samples.map(([l, p]) => smsSizing(c.text(l, p, SAMPLE_FIRST_NAME)).segments));
 }
 
 // ── Tranche d'envoi ────────────────────────────────────────────────────────
@@ -237,16 +303,24 @@ interface SliceResult {
   detail?: string;
 }
 
-interface ClaimedRecipient { id: string; phone_e164: string; full_name: string | null; user_id: string | null; lang: string | null; attempts: number }
+interface ClaimedRecipient {
+  id: string; phone_e164: string; full_name: string | null; first_name: string | null;
+  user_id: string | null; lang: string | null; attempts: number; provider_request_id: string | null;
+}
 
-async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: TwilioConfig): Promise<SliceResult> {
+interface Prepared { row: ClaimedRecipient; text: string; segments: number }
+
+async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: OctopushConfig): Promise<SliceResult> {
   const campaignId = campaign.id as string;
-  const venueId = (campaign.venue_id as string | null) ?? null;
-  const organizerId = (campaign.organizer_id as string | null) ?? null;
-  const balanceId = await balanceIdFor(admin, venueId, organizerId);
-  const linkUrl = await ensureTrackedLink(admin, campaign);
-  const bodyFor = makeBodyResolver(campaign, linkUrl);
-  const statusCallback = `${SUPABASE_URL}/functions/v1/sms-twilio-status-webhook`;
+  const crm = await isCrmCampaign(admin, campaignId);
+  const scope = await loadScope(admin, (campaign.venue_id as string | null) ?? null, (campaign.organizer_id as string | null) ?? null, crm);
+  const settings = await crmSettings(admin, scope);
+  const wallet = await walletFor(admin, scope);
+  const sender = senderFor(campaign, scope, settings);
+  const quiet = quietFor(campaign, scope, settings);
+  const link = await linkFor(admin, campaign, scope);
+  const composer = makeComposer(campaign, scope, sender.prefix, link, await eventTitle(admin, (campaign.event_id as string | null) ?? null));
+  const label = String(campaign.name || "SMS").slice(0, 120);
   const deadline = Date.now() + SLICE_MS;
 
   let sent = 0;
@@ -255,111 +329,150 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
   let stopped: SliceResult["stopped"] = "done";
   let detail: string | undefined;
 
+  const pause = async (reason: "credits" | "send_error", message: string) => {
+    await admin.from("sms_campaigns").update({ status: "paused", paused_reason: reason, error_message: message.slice(0, 500) })
+      .eq("id", campaignId).eq("status", "sending");
+    status = "paused";
+  };
+
+  /** Remet des lignes en file (crédits, pause, passager) sans les compter comme tentative ratée. */
+  const requeue = async (ids: string[], error: string, code: string, countsAsAttempt: boolean, delayMs = 120_000) => {
+    if (!ids.length) return;
+    await admin.rpc("mark_sms_campaign_recipients_failed", {
+      p_campaign_id: campaignId, p_ids: ids, p_error: error, p_error_code: code,
+      p_retry_at: new Date(Date.now() + delayMs).toISOString(),
+      p_max_attempts: countsAsAttempt ? 3 : 1_000,
+    });
+  };
+  const kill = async (ids: string[], error: string, code: string) => {
+    if (!ids.length) return;
+    await admin.rpc("mark_sms_campaign_recipients_failed", {
+      p_campaign_id: campaignId, p_ids: ids, p_error: error, p_error_code: code, p_retry_at: null, p_max_attempts: 3,
+    });
+    failed += ids.length;
+  };
+
+  /**
+   * Un lot au même texte : débit, logs, identifiant d'envoi, appel, marquage.
+   * Rend « halt » quand toute la campagne doit s'arrêter.
+   */
+  const sendGroup = async (items: Prepared[], requestId: string | null): Promise<"ok" | "halt"> => {
+    const ids = items.map((p) => p.row.id);
+    const segments = items[0].segments;
+    if (!(await debit(admin, scope, wallet, segments * items.length, campaignId, label))) {
+      await requeue(ids, "Crédits épuisés", "credits", false);
+      await pause("credits", scope.crm ? "Yunits épuisés en cours d'envoi — rechargez puis reprenez." : "Crédits SMS épuisés en cours d'envoi — rechargez puis reprenez.");
+      stopped = "credits";
+      return "halt";
+    }
+    const logs = items.map((p) => ({
+      id: crypto.randomUUID(),
+      venue_id: scope.venueId, organizer_id: scope.organizerId, target_user_id: p.row.user_id ?? null,
+      to_phone: p.row.phone_e164, body: p.text, status: "queued", purpose: "campaign",
+      campaign_id: campaignId, event_id: (campaign.event_id as string | null) ?? null,
+      credits_consumed: segments, yunits_debited: scope.crm ? segments * wallet.rate : 0,
+      provider: "octopush", sender_id: sender.id,
+    }));
+    const logIds = logs.map((l) => l.id);
+    const { error: logErr } = await admin.from("sms_logs").insert(logs);
+    if (logErr) {
+      // Débit sans log : rendu tel quel au portefeuille.
+      if (scope.crm) await admin.rpc("crm_yunits_refund", { p_scope_key: scope.scopeKey, p_amount: segments * items.length * wallet.rate, p_channel: "sms", p_ref_type: "sms_campaign", p_ref_id: campaignId, p_label: "Journal indisponible" });
+      else if (wallet.balanceId) await admin.rpc("refund_sms_credits", { p_balance_id: wallet.balanceId, p_amount: segments * items.length, p_sms_log_id: null, p_notes: "log insert failed" });
+      await requeue(ids, logErr.message, "log_error", true);
+      return "ok";
+    }
+
+    const reqId = requestId ?? await batchRequestId(campaignId, ids);
+    if (!requestId) await admin.rpc("set_sms_recipients_request_id", { p_campaign_id: campaignId, p_ids: ids, p_request_id: reqId });
+
+    const args = { phones: items.map((p) => p.row.phone_e164), text: items[0].text, sender: sender.id, requestId: reqId };
+    let out = await sendOctopushBatch(cfg, args);
+    // Passager : un seul nouvel essai, avec le MÊME identifiant (s'il était
+    // passé, Octopush répond « déjà vu »).
+    if (!out.ok && out.kind === "retry") { await sleep(1500); out = await sendOctopushBatch(cfg, args); }
+
+    if (out.ok) {
+      const ticket = out.ticket;
+      await admin.from("sms_logs").update({ status: "sent", provider_message_id: ticket, sent_at: new Date().toISOString() }).in("id", logIds);
+      const rows = items.map((p, i) => ({ id: p.row.id, provider_message_id: ticket, sms_log_id: logIds[i], credits: segments }));
+      const { error } = await admin.rpc("mark_sms_campaign_recipients_sent", { p_campaign_id: campaignId, p_rows: rows });
+      if (error) console.error("mark sent failed:", error.message);
+      sent += items.length;
+      return "ok";
+    }
+
+    // Refus : jamais parti, rendu au portefeuille.
+    await admin.from("sms_logs").update({ status: "failed", error_code: out.code, error_message: out.message }).in("id", logIds);
+    await admin.rpc("refund_sms_log_batch", { p_log_ids: logIds, p_note: `Octopush ${out.code}` });
+
+    if (out.kind === "campaign") {
+      await requeue(ids, `Octopush ${out.code}: ${out.message}`, out.code, false);
+      if (out.code === "104" || out.code === "113" || out.code === "401" || out.code === "403") {
+        console.error(`[send-sms-campaign] Octopush account problem ${out.code}: ${out.message}`);
+      }
+      await pause("send_error", octopushErrorLabel(out.code));
+      stopped = "error"; detail = out.message;
+      return "halt";
+    }
+    if (out.kind === "batch") {
+      // Un numéro refusé fait tomber tout le lot : on renvoie chacun seul.
+      if (items.length > 1) {
+        await admin.rpc("set_sms_recipients_request_id", { p_campaign_id: campaignId, p_ids: ids, p_request_id: null });
+        for (const one of items) {
+          if ((await sendGroup([one], null)) === "halt") return "halt";
+        }
+        return "ok";
+      }
+      await kill(ids, out.message, out.code);
+      return "ok";
+    }
+    // Passager deux fois de suite : la ligne repart plus tard, même identifiant.
+    await requeue(ids, `Octopush ${out.code}: ${out.message}`, "retry", true);
+    return "ok";
+  };
+
   outer:
   while (true) {
     const { data: live } = await admin.from("sms_campaigns").select("status, paused_reason").eq("id", campaignId).single();
     status = (live?.status as string) || "sending";
     if (status !== "sending") { stopped = "paused"; detail = (live?.paused_reason as string) || status; break; }
     if (Date.now() >= deadline) { stopped = "deadline"; break; }
-    if (campaign.quiet_hours === true && inQuietHours()) {
-      stopped = "quiet";
-      detail = `heures calmes ${QUIET_START_HOUR}h→${QUIET_END_HOUR}h Europe/Paris`;
-      break;
-    }
+    const hold = smsHoldReason(new Date(), quiet);
+    if (hold) { stopped = "quiet"; detail = hold; break; }
 
-    const { data: claimed, error: cErr } = await admin.rpc("claim_sms_campaign_recipients", { p_campaign_id: campaignId, p_limit: BATCH });
+    const { data: claimed, error: cErr } = await admin.rpc("claim_sms_campaign_recipients", { p_campaign_id: campaignId, p_limit: OCTOPUSH_BATCH });
     if (cErr) { stopped = "error"; detail = `claim: ${cErr.message}`; break; }
     const rows = (claimed || []) as ClaimedRecipient[];
     if (rows.length === 0) { stopped = "done"; break; }
 
-    const okRows: Array<{ id: string; twilio_sid: string; sms_log_id: string; credits: number }> = [];
-    const retryIds: string[] = [];
-    const deadIds: Array<{ id: string; code: string; msg: string }> = [];
-    // Objet (pas deux `let`) : TypeScript ne sait pas qu'une closure les
-    // mute et rétrécirait le type à `never` après la boucle.
-    const halt: { credits: boolean; systemic: { code: string; message: string } | null } = { credits: false, systemic: null };
-
-    const handle = async (r: ClaimedRecipient) => {
-      if (!E164.test(r.phone_e164)) { deadIds.push({ id: r.id, code: "invalid_phone", msg: "Numéro non E.164" }); return; }
-      const text = bodyFor(r.lang);
-      const credits = Math.max(1, smsSizing(text).segments);
-
-      if (!(await consumeCredits(admin, balanceId, credits))) { halt.credits = true; retryIds.push(r.id); return; }
-
-      const { data: log, error: logErr } = await admin.from("sms_logs").insert({
-        venue_id: venueId, organizer_id: organizerId, target_user_id: r.user_id ?? null,
-        to_phone: r.phone_e164, body: text, status: "queued", purpose: "campaign",
-        campaign_id: campaignId, event_id: (campaign.event_id as string | null) ?? null, credits_consumed: credits,
-      }).select("id").single();
-      if (logErr || !log) {
-        await refundCredits(admin, balanceId, credits, null, "log insert failed");
-        deadIds.push({ id: r.id, code: "log_error", msg: logErr?.message ?? "log insert failed" });
-        return;
-      }
-
-      const out = await sendTwilio(cfg, r.phone_e164, text, statusCallback);
-      if (out.ok) {
-        await admin.from("sms_logs").update({ twilio_sid: out.sid, status: "sent", sent_at: new Date().toISOString() }).eq("id", log.id);
-        okRows.push({ id: r.id, twilio_sid: out.sid, sms_log_id: log.id, credits });
-        return;
-      }
-      await admin.from("sms_logs").update({ status: "failed", error_code: out.code, error_message: out.message.slice(0, 500) }).eq("id", log.id);
-      await refundCredits(admin, balanceId, credits, log.id, `Twilio ${out.code}`);
-      if (out.systemic) { halt.systemic = { code: out.code, message: out.message }; retryIds.push(r.id); return; }
-      if (out.retryable) retryIds.push(r.id);
-      else deadIds.push({ id: r.id, code: out.code, msg: out.message });
-    };
-
-    for (let i = 0; i < rows.length; i += CONCURRENCY) {
-      await Promise.all(rows.slice(i, i + CONCURRENCY).map(handle));
-      if (halt.credits || halt.systemic) {
-        // Les numéros pas encore traités de cette salve retournent en file.
-        for (const r of rows.slice(i + CONCURRENCY)) retryIds.push(r.id);
-        break;
-      }
-      await sleep(SPACING_MS);
+    // Préparation : texte exact de chacun, puis lots au même texte. Une ligne
+    // déjà partie dans un lot (reprise) garde son lot et son identifiant.
+    const dead = rows.filter((r) => !E164.test(r.phone_e164));
+    await kill(dead.map((r) => r.id), "Numéro non E.164", "invalid_phone");
+    const groups = new Map<string, { items: Prepared[]; requestId: string | null }>();
+    for (const r of rows) {
+      if (!E164.test(r.phone_e164)) continue;
+      const text = composer.text(r.lang, r.phone_e164, r.first_name);
+      const segments = Math.max(1, smsSizing(text).segments);
+      const key = r.provider_request_id ? `req:${r.provider_request_id}` : `txt:${text}`;
+      const g = groups.get(key) ?? { items: [], requestId: r.provider_request_id };
+      g.items.push({ row: r, text, segments });
+      groups.set(key, g);
     }
 
-    if (okRows.length) {
-      const { error } = await admin.rpc("mark_sms_campaign_recipients_sent", { p_campaign_id: campaignId, p_rows: okRows });
-      if (error) console.error("mark sent failed:", error.message);
-      sent += okRows.length;
-    }
-    if (retryIds.length) {
-      await admin.rpc("mark_sms_campaign_recipients_failed", {
-        p_campaign_id: campaignId, p_ids: retryIds, p_error: halt.systemic ? `Twilio ${halt.systemic.code}: ${halt.systemic.message}` : (halt.credits ? "Crédits épuisés" : "Refus transitoire"),
-        p_error_code: halt.systemic?.code ?? (halt.credits ? "credits" : "retry"),
-        p_retry_at: new Date(Date.now() + 120_000).toISOString(),
-        // Une pause (crédits / configuration) ne doit pas compter comme tentative :
-        // on relève le plafond pour que ces lignes repartent en 'pending'.
-        p_max_attempts: (halt.systemic || halt.credits) ? 1_000 : 3,
-      });
-    }
-    if (deadIds.length) {
-      // Regroupés par code pour garder un message d'erreur lisible.
-      const byCode = new Map<string, { ids: string[]; msg: string }>();
-      for (const d of deadIds) {
-        const e = byCode.get(d.code) ?? { ids: [], msg: d.msg };
-        e.ids.push(d.id); byCode.set(d.code, e);
+    const list = [...groups.values()];
+    for (let i = 0; i < list.length; i++) {
+      if ((await sendGroup(list[i].items, list[i].requestId)) === "halt") {
+        // Les lots pas encore traités retournent en file, sans compter de tentative.
+        await requeue(list.slice(i + 1).flatMap((g) => g.items.map((p) => p.row.id)), "En attente", "paused", false);
+        break outer;
       }
-      for (const [code, e] of byCode) {
-        await admin.rpc("mark_sms_campaign_recipients_failed", {
-          p_campaign_id: campaignId, p_ids: e.ids, p_error: e.msg, p_error_code: code, p_retry_at: null, p_max_attempts: 3,
-        });
+      if (Date.now() >= deadline && i < list.length - 1) {
+        await requeue(list.slice(i + 1).flatMap((g) => g.items.map((p) => p.row.id)), "Tranche suivante", "slice", false, 0);
+        stopped = "deadline";
+        break outer;
       }
-      failed += deadIds.length;
-    }
-
-    if (halt.credits) {
-      await admin.from("sms_campaigns").update({ status: "paused", paused_reason: "credits", error_message: "Crédits SMS épuisés en cours d'envoi — rechargez puis reprenez." })
-        .eq("id", campaignId).eq("status", "sending");
-      status = "paused"; stopped = "credits"; break outer;
-    }
-    if (halt.systemic) {
-      const s = halt.systemic;
-      await admin.from("sms_campaigns").update({ status: "paused", paused_reason: "send_error", error_message: `Twilio ${s.code}: ${s.message}`.slice(0, 500) })
-        .eq("id", campaignId).eq("status", "sending");
-      status = "paused"; stopped = "error"; detail = s.message; break outer;
     }
   }
 
@@ -388,12 +501,14 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
 // ── Test : un SMS vers le pro ──────────────────────────────────────────────
 
 interface TestPayload {
+  /** Console CRM : le test d'une campagne enregistrée (texte, soirée, expéditeur lus en base). */
+  campaign_id?: string | null;
   venue_id?: string | null;
   organizer_user_id?: string | null;
   /** Portée plateforme explicite : sans ce drapeau, deux portées à NULL est
    *  une erreur d'appel, pas « écris au nom de Yuno ». */
   platform?: boolean;
-  body: string;
+  body?: string;
   body_i18n?: Record<string, string> | null;
   sender_name?: string | null;
   event_id?: string | null;
@@ -401,46 +516,94 @@ interface TestPayload {
   lang?: string | null;
 }
 
-async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: TwilioConfig) {
-  const venueId = p.venue_id || null;
-  const organizerId = venueId ? null : (p.organizer_user_id || null);
-  if (!venueId && !organizerId && p.platform !== true) return json({ error: "scope required" }, 400);
+function toPhone(raw: string | null | undefined): string {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  if (s.startsWith("+")) return "+" + s.replace(/[^0-9]/g, "");
+  const d = s.replace(/[^0-9]/g, "");
+  if (d.startsWith("00")) return `+${d.slice(2)}`;
+  if (d.startsWith("0") && d.length === 10) return `+33${d.slice(1)}`;
+  return d;
+}
+
+async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: OctopushConfig) {
+  // La campagne enregistrée (Console CRM), ou le contenu envoyé par l'éditeur (Suite).
+  let campaign: Record<string, unknown>;
+  if (p.campaign_id) {
+    const { data, error } = await admin.from("sms_campaigns").select("*").eq("id", p.campaign_id).single();
+    if (error || !data) return json({ error: "Campaign not found" }, 404);
+    campaign = data as Record<string, unknown>;
+  } else {
+    const venueId = p.venue_id || null;
+    const organizerId = venueId ? null : (p.organizer_user_id || null);
+    if (!venueId && !organizerId && p.platform !== true) return json({ error: "scope required" }, 400);
+    campaign = {
+      id: null, venue_id: venueId, organizer_id: organizerId, body_template: p.body || "", body_i18n: p.body_i18n ?? null,
+      sender_name: p.sender_name ?? null, event_id: p.event_id ?? null, name: "Test",
+    };
+  }
+  const venueId = (campaign.venue_id as string | null) ?? null;
+  const organizerId = (campaign.organizer_id as string | null) ?? null;
   if (!(await userOwnsScope(admin, userId, venueId, organizerId))) return json({ error: "Forbidden" }, 403);
+  if (await isDemoMarketingScope(venueId, organizerId)) return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
 
-  const { data: prof } = await admin.from("profiles").select("phone, preferred_language").eq("id", userId).maybeSingle();
-  const raw = (p.test_phone || prof?.phone || "").trim();
-  const phone = raw.startsWith("+") ? "+" + raw.replace(/[^0-9]/g, "") : raw.replace(/[^0-9]/g, "");
-  if (!E164.test(phone)) return json({ error: "TEST_PHONE_INVALID" }, 400);
+  const crm = campaign.id ? await isCrmCampaign(admin, campaign.id as string) : false;
+  const scope = await loadScope(admin, venueId, organizerId, crm);
+  if (!(await identityOk(admin, scope))) return json({ error: "SMS_IDENTITY_REQUIRED", code: "SMS_IDENTITY_REQUIRED" }, 409);
+  const settings = await crmSettings(admin, scope);
+  const sender = senderFor(campaign, scope, settings);
+  if (senderIdError(sender.id)) return json({ error: "SENDER_INVALID", code: "SENDER_INVALID", reason: senderIdError(sender.id) }, 400);
 
-  const lang = normalizeLang(p.lang || prof?.preferred_language);
+  const { data: prof } = await admin.from("profiles").select("phone, preferred_language, first_name").eq("id", userId).maybeSingle();
+  const phone = toPhone(p.test_phone || settings?.test_phone || (prof?.phone as string | null));
+  if (!E164.test(phone)) return json({ error: "TEST_PHONE_INVALID", code: "TEST_PHONE_INVALID" }, 400);
+
+  // Console CRM : le test est gratuit, mais pas illimité.
+  if (scope.crm) {
+    const since = new Date(Date.now() - 86_400_000).toISOString();
+    let q = admin.from("sms_logs").select("id", { count: "exact", head: true }).eq("purpose", "manual").gte("created_at", since);
+    q = venueId ? q.eq("venue_id", venueId) : q.eq("organizer_id", organizerId!);
+    const { count } = await q;
+    if ((count ?? 0) >= CRM_FREE_TESTS_PER_DAY) return json({ error: "TEST_LIMIT", code: "TEST_LIMIT", limit: CRM_FREE_TESTS_PER_DAY }, 429);
+  }
+
+  const lang = normalizeLang(p.lang || (prof?.preferred_language as string | null));
   let link: string | null = null;
-  if (p.event_id) {
-    const { data } = await admin.rpc("ensure_sms_tracked_link", { p_event_id: p.event_id });
-    const row = Array.isArray(data) ? data[0] : data;
-    if (row?.code) link = `${PUBLIC_URL}/l/${row.code}`;
+  if (campaign.event_id) {
+    if (scope.crm && campaign.id) link = await linkFor(admin, campaign, scope);
+    else {
+      const { data } = await admin.rpc("ensure_sms_tracked_link", { p_event_id: campaign.event_id });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.code) link = `${PUBLIC_URL}/l/${row.code}`;
+    }
   }
-  const base = (p.body_i18n && p.body_i18n[lang]) || p.body;
-  const text = composeSmsBody(base, lang, cleanSenderName(p.sender_name), link);
-  const credits = Math.max(1, smsSizing(text).segments);
+  const composer = makeComposer(campaign, scope, sender.prefix, link, await eventTitle(admin, (campaign.event_id as string | null) ?? null));
+  const text = composer.text(lang, phone, ((prof?.first_name as string | null) || SAMPLE_FIRST_NAME).trim());
+  const segments = Math.max(1, smsSizing(text).segments);
 
-  const balanceId = await balanceIdFor(admin, venueId, organizerId);
-  if (!(await consumeCredits(admin, balanceId, credits))) {
-    return json({ error: "INSUFFICIENT_CREDITS", needed: credits, balance: await currentBalance(admin, balanceId) }, 402);
+  const wallet = scope.crm ? { balanceId: null, rate: 0 } : await walletFor(admin, scope);
+  const freeTest = scope.crm || scope.platform;
+  if (!freeTest && !(await debit(admin, scope, wallet, segments, null, "Test"))) {
+    return json({ error: "INSUFFICIENT_CREDITS", needed: segments, balance: await segmentsAvailable(admin, scope, wallet) }, 402);
   }
 
-  const { data: log } = await admin.from("sms_logs").insert({
-    venue_id: venueId, organizer_id: organizerId, target_user_id: userId, to_phone: phone, body: text,
-    status: "queued", purpose: "manual", event_id: p.event_id ?? null, credits_consumed: credits,
-  }).select("id").single();
+  const logId = crypto.randomUUID();
+  await admin.from("sms_logs").insert({
+    id: logId, venue_id: venueId, organizer_id: organizerId, target_user_id: userId, to_phone: phone, body: text,
+    status: "queued", purpose: "manual", event_id: (campaign.event_id as string | null) ?? null,
+    campaign_id: (campaign.id as string | null) ?? null, credits_consumed: freeTest ? 0 : segments,
+    provider: "octopush", sender_id: sender.id,
+  });
 
-  const out = await sendTwilio(cfg, phone, text, `${SUPABASE_URL}/functions/v1/sms-twilio-status-webhook`);
+  const out = await sendOctopushBatch(cfg, { phones: [phone], text, sender: sender.id, requestId: `t-${logId}` });
   if (!out.ok) {
-    if (log) await admin.from("sms_logs").update({ status: "failed", error_code: out.code, error_message: out.message.slice(0, 500) }).eq("id", log.id);
-    await refundCredits(admin, balanceId, credits, log?.id ?? null, `Test refusé: Twilio ${out.code}`);
-    return json({ error: "TWILIO_ERROR", code: out.code, message: out.message }, 502);
+    await admin.from("sms_logs").update({ status: "failed", error_code: out.code, error_message: out.message }).eq("id", logId);
+    if (!freeTest) await admin.rpc("refund_sms_log_batch", { p_log_ids: [logId], p_note: `Test refusé: Octopush ${out.code}` });
+    return json({ error: "PROVIDER_ERROR", code: out.code, message: octopushErrorLabel(out.code) }, 502);
   }
-  if (log) await admin.from("sms_logs").update({ twilio_sid: out.sid, status: "sent", sent_at: new Date().toISOString() }).eq("id", log.id);
-  return json({ success: true, test: true, sid: out.sid, to: phone, body: text, credits });
+  await admin.from("sms_logs").update({ provider_message_id: out.ticket, status: "sent", sent_at: new Date().toISOString() }).eq("id", logId);
+  if (campaign.id) await admin.from("sms_campaigns").update({ test_sent_at: new Date().toISOString() }).eq("id", campaign.id);
+  return json({ success: true, test: true, to: phone, body: text, segments, free: freeTest, simulated: cfg.simulation });
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────
@@ -471,16 +634,11 @@ Deno.serve(async (req) => {
       actingUserId = userData.user.id;
     }
 
-    const cfg = twilioConfig();
+    const cfg = octopushConfig((k) => Deno.env.get(k));
 
     // ── Test ────────────────────────────────────────────────────────────────
     if (mode === "test") {
       if (!actingUserId) return json({ error: "Unauthorized" }, 401);
-      // Périmètre démo : aucun SMS réel, même de test.
-      const tp = payload as TestPayload;
-      if (await isDemoMarketingScope(tp.venue_id ?? null, tp.organizer_user_id ?? null)) {
-        return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
-      }
       if (!cfg) return json({ error: "SMS_NOT_CONFIGURED" }, 503);
       return await sendTest(admin, actingUserId, payload as TestPayload, cfg);
     }
@@ -507,12 +665,18 @@ Deno.serve(async (req) => {
       if (campaign.status !== "paused") return json({ error: `Campagne ${campaign.status}, pas en pause` }, 409);
       if (campaign.paused_reason === "credits") {
         // Ne pas repartir pour se re-bloquer trois numéros plus loin.
-        const balanceId = await balanceIdFor(admin, campaign.venue_id, campaign.organizer_id);
+        const crm = await isCrmCampaign(admin, campaignId);
+        const scope = await loadScope(admin, campaign.venue_id, campaign.organizer_id, crm);
+        const wallet = await walletFor(admin, scope);
         const { count } = await admin.from("sms_campaign_recipients").select("id", { count: "exact", head: true })
           .eq("campaign_id", campaignId).in("status", ["pending", "sending"]);
         const needed = Number(count || 0) * Number(campaign.segments_per_message || 1);
-        const balance = await currentBalance(admin, balanceId);
-        if (balance < needed) return json({ error: "INSUFFICIENT_CREDITS", needed, balance, missing: needed - balance }, 402);
+        const balance = await segmentsAvailable(admin, scope, wallet);
+        if (balance < needed) {
+          return json(scope.crm
+            ? { error: "crm_yunits_insufficient", code: "crm_yunits_insufficient", needed: needed * wallet.rate, balance: balance * wallet.rate }
+            : { error: "INSUFFICIENT_CREDITS", needed, balance, missing: needed - balance }, 402);
+        }
       }
       await admin.from("sms_campaigns").update({ status: "sending", paused_reason: null, error_message: null }).eq("id", campaignId);
       campaign.status = "sending";
@@ -529,39 +693,72 @@ Deno.serve(async (req) => {
         return json({ error: `Campagne déjà ${campaign.status}` }, 409);
       }
 
-      // Coût par message : pire langue, avec un lien de la taille réelle.
-      const sampleLink = campaign.event_id ? `${PUBLIC_URL}/l/XXXXXXXX` : null;
-      const segments = worstSegments(makeBodyResolver(campaign, sampleLink));
+      const crm = await isCrmCampaign(admin, campaignId);
+      const scope = await loadScope(admin, campaign.venue_id, campaign.organizer_id, crm);
+      // Un refus avant la file laisse la campagne en brouillon (le cron d'une
+      // campagne programmée ne la marque pas « échouée » sur un 400 / 402).
+      const backToDraft = (message: string) =>
+        admin.from("sms_campaigns").update({ status: "draft", error_message: message }).eq("id", campaignId).in("status", ["draft", "scheduled", "failed"]);
 
-      const { data: enq, error: eErr } = await admin.rpc("enqueue_sms_campaign_recipients", { p_campaign_id: campaignId });
-      if (eErr) throw new Error(`Audience resolution failed: ${eErr.message}`);
-      const pending = Number(enq?.pending || 0);
-      if (pending <= 0) {
-        await admin.from("sms_campaigns").update({ status: "failed", error_message: "Aucun destinataire consentant pour cette audience" }).eq("id", campaignId);
-        return json({ error: "NO_RECIPIENTS", detail: enq }, 400);
+      if (!(await identityOk(admin, scope))) {
+        await backToDraft("sms_identity_required");
+        return json({ error: "SMS_IDENTITY_REQUIRED", code: "SMS_IDENTITY_REQUIRED" }, 400);
+      }
+      const settings = await crmSettings(admin, scope);
+      const sender = senderFor(campaign, scope, settings);
+      const senderErr = senderIdError(sender.id);
+      if (senderErr) {
+        await backToDraft(`sender_invalid:${senderErr}`);
+        return json({ error: "SENDER_INVALID", code: "SENDER_INVALID", reason: senderErr }, 400);
       }
 
-      const balanceId = await balanceIdFor(admin, campaign.venue_id, campaign.organizer_id);
-      const balance = await currentBalance(admin, balanceId);
+      // Coût par message : pire cas connu, avec un lien de la taille réelle.
+      const sampleLink = campaign.event_id ? (scope.crm ? `${SHORT_HOST}/go/XXXXXXXX` : `${PUBLIC_URL}/l/XXXXXXXX`) : null;
+      const segments = worstSegments(makeComposer(campaign, scope, sender.prefix, sampleLink, await eventTitle(admin, campaign.event_id)));
+
+      const { data: enq, error: eErr } = await admin.rpc("enqueue_sms_campaign_recipients", { p_campaign_id: campaignId });
+      if (eErr) {
+        const m = eErr.message || "";
+        if (m.includes("crm_paused")) { await backToDraft("crm_paused"); return json({ error: "crm_paused", code: "crm_paused" }, 402); }
+        throw new Error(`Audience resolution failed: ${m}`);
+      }
+      const pending = Number(enq?.pending || 0);
+      if (pending <= 0) {
+        if (scope.crm) await backToDraft("Aucun destinataire joignable par SMS pour cette audience");
+        else await admin.from("sms_campaigns").update({ status: "failed", error_message: "Aucun destinataire consentant pour cette audience" }).eq("id", campaignId);
+        return json({ error: "NO_RECIPIENTS", code: "NO_RECIPIENTS", detail: enq }, 400);
+      }
+
+      const wallet = await walletFor(admin, scope);
+      const balance = await segmentsAvailable(admin, scope, wallet);
       const needed = pending * segments;
       if (balance < needed) {
         await admin.from("sms_campaigns").update({
           status: "draft", segments_per_message: segments,
-          error_message: `Crédits insuffisants : ${needed} nécessaires, ${balance} disponibles`,
+          error_message: scope.crm ? "crm_yunits_insufficient" : `Crédits insuffisants : ${needed} nécessaires, ${balance} disponibles`,
         }).eq("id", campaignId);
-        return json({ error: "INSUFFICIENT_CREDITS", needed, balance, missing: needed - balance, recipients: pending, segments }, 402);
+        return json(scope.crm
+          ? { error: "crm_yunits_insufficient", code: "crm_yunits_insufficient", needed: needed * wallet.rate, balance: balance * wallet.rate, recipients: pending, segments }
+          : { error: "INSUFFICIENT_CREDITS", needed, balance, missing: needed - balance, recipients: pending, segments }, 402);
       }
 
-      await admin.from("sms_campaigns").update({
+      const { error: upErr } = await admin.from("sms_campaigns").update({
         status: "sending",
         segments_per_message: segments,
-        sender_name: cleanSenderName(campaign.sender_name) || null,
+        sender_id: sender.id,
+        ...(scope.crm ? {} : { sender_name: cleanSenderName(campaign.sender_name) || null }),
         send_started_at: new Date().toISOString(),
         paused_reason: null,
         error_message: null,
       }).eq("id", campaignId);
+      if (upErr) {
+        // Envois gelés par Yuno (garde guard_crm_send_frozen).
+        if ((upErr.message || "").includes("crm_send_frozen")) { await backToDraft("crm_send_frozen"); return json({ error: "crm_send_frozen", code: "crm_send_frozen" }, 409); }
+        throw new Error(upErr.message);
+      }
       campaign.status = "sending";
       campaign.segments_per_message = segments;
+      campaign.sender_id = sender.id;
 
       const slice = await drainSlice(admin, campaign, cfg);
       return json({ success: true, queued: enq, segments, ...slice });
@@ -572,7 +769,7 @@ Deno.serve(async (req) => {
     const slice = await drainSlice(admin, campaign, cfg);
     return json({ success: true, ...slice });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = errorText(e);
     console.error("[send-sms-campaign]", msg);
     return json({ error: msg }, 500);
   }

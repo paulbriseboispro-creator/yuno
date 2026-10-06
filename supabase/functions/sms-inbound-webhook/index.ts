@@ -1,153 +1,103 @@
-// Webhook Twilio des SMS ENTRANTS — traite les désinscriptions « STOP ».
+// Webhooks Octopush — accusés de réception, STOP et réponses des SMS marketing.
+//
+// Trois URL, une fonction (le quota de fonctions edge est atteint) :
+//   …/functions/v1/sms-inbound-webhook?k=dlr&t=<OCTOPUSH_WEBHOOK_TOKEN>      (livraisons)
+//   …/functions/v1/sms-inbound-webhook?k=stop&t=<OCTOPUSH_WEBHOOK_TOKEN>     (numéros en liste noire = STOP au 30101)
+//   …/functions/v1/sms-inbound-webhook?k=inbound&t=<OCTOPUSH_WEBHOOK_TOKEN>  (réponses)
+// Posées par scripts/sms/octopush-setup.mjs (ou dans le back-office Octopush,
+// menu Callbacks, en JSON).
+//
+// Octopush ne signe pas ses appels et ne publie pas ses IP : le jeton secret
+// de l'URL est la seule porte, comparé en temps constant. Sans lui, n'importe
+// qui pourrait désinscrire en masse les contacts des clubs ou réécrire des
+// statuts de livraison.
 //
 // L'art. L34-5 al. 4 CPCE impose d'offrir l'opposition dans chaque message de
-// prospection ; encore faut-il la traiter quand elle arrive. send-sms-campaign
-// ajoute la mention « STOP pour ne plus recevoir » à chaque envoi, ce webhook
-// est l'autre moitié : sans lui, on promet une désinscription qu'on n'honore
-// pas, ce qui est pire que de ne rien promettre.
+// prospection ; encore faut-il la traiter quand elle arrive. Octopush tient la
+// liste noire de TOUT son compte : un STOP désinscrit donc de tous les clubs
+// et organisateurs (sms_stop_unsubscribe + liste STOP globale de Yuno).
 //
-// À configurer côté Twilio : Phone Numbers → le numéro → Messaging →
-// « A MESSAGE COMES IN » → Webhook POST vers
-//   https://<project>.supabase.co/functions/v1/sms-inbound-webhook
-//
-// Le numéro d'envoi étant partagé par tous les clubs, un STOP désinscrit de
-// TOUS les clubs (cf. commentaire de sms_stop_unsubscribe dans la migration) :
-// la personne n'a aucun moyen de désigner un club, et sur-honorer une
-// opposition n'a jamais constitué un manquement.
+// Octopush attend une réponse en ~1 s, corps vide : le travail tient en une
+// RPC.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { parseOctopushCallback, sameSecret } from "../_shared/sms-octopush.ts";
 
-// Mots-clés d'opposition. Twilio en intercepte certains nativement sur les
-// numéros US, mais pas sur un numéro long européen : on les traite nous-mêmes.
-// « ARRET » est la forme française attendue par les opérateurs, avec ses
-// variantes accentuées et collées.
+// Réponse entrante qui vaut opposition (message ENTIER, pas une inclusion :
+// « je ne veux pas stopper mes invitations » ne désinscrit personne).
 const STOP_KEYWORDS = [
-  "stop",
-  "stopsms",
-  "stop sms",
-  "arret",
-  "arrêt",
-  "arreter",
-  "arrêter",
-  "unsubscribe",
-  "desabonnement",
-  "désabonnement",
-  "baja",
-  "cancelar",
+  "stop", "stopsms", "stop sms", "arret", "arrêt", "arreter", "arrêter",
+  "unsubscribe", "desabonnement", "désabonnement", "baja", "cancelar",
 ];
 
-/**
- * Validation de la signature Twilio (X-Twilio-Signature).
- *
- * Indispensable : sans elle, n'importe qui peut POSTer ici et désinscrire en
- * masse les contacts marketing des clubs. C'est une écriture destructrice,
- * même si elle va dans le sens « sûr » pour la personne concernée.
- *
- * Algorithme Twilio : HMAC-SHA1 de (URL + concaténation des paires clé/valeur
- * triées par clé), clé = auth token, résultat en base64.
- */
-async function isValidTwilioSignature(
-  authToken: string,
-  signature: string,
-  url: string,
-  params: Record<string, string>,
-): Promise<boolean> {
-  const payload = url + Object.keys(params).sort().map((k) => k + params[k]).join("");
+const ok = () => new Response(null, { status: 200 });
 
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(authToken),
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"],
-  );
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
-
-  // Comparaison à temps constant : une comparaison naïve laisse fuiter la
-  // signature attendue octet par octet.
-  if (expected.length !== signature.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+async function readBody(req: Request): Promise<Record<string, unknown>[]> {
+  const raw = await req.text();
+  if (!raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return (Array.isArray(parsed) ? parsed : [parsed]).filter((x) => x && typeof x === "object");
+  } catch {
+    // payload_type « html » : formulaire encodé.
+    const form = new URLSearchParams(raw);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of form.entries()) out[k] = v;
+    return [out];
   }
-  return diff === 0;
-}
-
-// Twilio attend du TwiML. Une réponse vide = « ne rien répondre à l'expéditeur ».
-// On n'envoie PAS d'accusé de réception : ce serait un SMS de plus vers
-// quelqu'un qui vient précisément de demander à ne plus en recevoir, et il
-// serait facturé.
-const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
-
-function twiml(status = 200): Response {
-  return new Response(EMPTY_TWIML, {
-    status,
-    headers: { "Content-Type": "text/xml" },
-  });
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+
+  const secret = Deno.env.get("OCTOPUSH_WEBHOOK_TOKEN") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret || !supabaseUrl || !serviceKey) {
+    console.error("[sms-webhook] configuration incomplète");
+    return new Response(null, { status: 500 });
   }
 
+  const url = new URL(req.url);
+  if (!sameSecret(url.searchParams.get("t") ?? "", secret)) {
+    console.warn("[sms-webhook] jeton absent ou faux — rejeté");
+    return new Response(null, { status: 403 });
+  }
+  const k = url.searchParams.get("k");
+
   try {
-    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!authToken || !supabaseUrl || !serviceKey) {
-      console.error("[sms-inbound] configuration incomplète");
-      return twiml(500);
-    }
-
-    const form = await req.formData();
-    const params: Record<string, string> = {};
-    for (const [k, v] of form.entries()) params[k] = String(v);
-
-    const signature = req.headers.get("X-Twilio-Signature") ?? "";
-    if (!signature) {
-      console.warn("[sms-inbound] requête sans signature — rejetée");
-      return twiml(403);
-    }
-
-    // L'URL signée par Twilio est celle qu'il a appelée. Derrière le proxy
-    // Supabase, req.url est fidèle, mais le protocole peut revenir en http :
-    // Twilio a signé du https, on reconstruit donc en https.
-    const url = new URL(req.url);
-    url.protocol = "https:";
-    const signedUrl = url.toString();
-
-    if (!(await isValidTwilioSignature(authToken, signature, signedUrl, params))) {
-      console.warn("[sms-inbound] signature invalide — rejetée");
-      return twiml(403);
-    }
-
-    const from = (params.From ?? "").trim();
-    const body = (params.Body ?? "").trim().toLowerCase().replace(/[.!,;:]/g, "");
-
-    if (!from) return twiml();
-
-    // Comparaison sur le message entier, pas une inclusion : « je ne veux pas
-    // stopper mes invitations » ne doit pas déclencher une désinscription.
-    if (!STOP_KEYWORDS.includes(body)) {
-      console.log("[sms-inbound] message entrant non-STOP, ignoré");
-      return twiml();
-    }
-
+    const events = await readBody(req);
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data, error } = await admin.rpc("sms_stop_unsubscribe", { _phone: from });
+    for (const body of events) {
+      const ev = parseOctopushCallback(k, body);
+      if (!ev) continue;
 
-    if (error) {
-      console.error("[sms-inbound] désinscription échouée", error);
-      return twiml(500);
+      if (ev.kind === "dlr") {
+        if (ev.status) {
+          const { error } = await admin.rpc("apply_sms_delivery_status", {
+            p_message_id: ev.messageId, p_phone: ev.phone, p_status: ev.status,
+            p_error_code: ev.status === "delivered" ? null : ev.raw, p_error_message: null,
+          });
+          if (error) { console.error("[sms-webhook] accusé", error.message); return new Response(null, { status: 500 }); }
+        }
+        // Numéro en liste noire chez Octopush : il a dit STOP, Yuno l'oublie aussi.
+        if (ev.blacklisted) await admin.rpc("sms_stop_unsubscribe", { _phone: ev.phone });
+        continue;
+      }
+
+      if (ev.kind === "inbound") {
+        const text = ev.text.toLowerCase().replace(/[.!,;:]/g, "").trim();
+        if (!STOP_KEYWORDS.includes(text)) continue;
+      }
+
+      // STOP au 30101, ou réponse « STOP ».
+      const { data, error } = await admin.rpc("sms_stop_unsubscribe", { _phone: ev.phone });
+      if (error) { console.error("[sms-webhook] STOP", error.message); return new Response(null, { status: 500 }); }
+      console.log(`[sms-webhook] STOP traité : ${data ?? 0} contact(s) désinscrit(s)`);
     }
-
-    console.log(`[sms-inbound] STOP traité : ${data ?? 0} contact(s) désinscrit(s)`);
-    return twiml();
+    return ok();
   } catch (err) {
-    console.error("[sms-inbound] erreur", err);
-    return twiml(500);
+    console.error("[sms-webhook] erreur", err instanceof Error ? err.message : err);
+    return new Response(null, { status: 500 });
   }
 });

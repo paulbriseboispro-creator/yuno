@@ -27,12 +27,9 @@ verify_jwt = false
 [functions.create-owner-recurring-events]
 verify_jwt = false
 
-[functions.sms-twilio-status-webhook]
-verify_jwt = false
-
-# Webhook Twilio des SMS entrants (STOP). Appelé par Twilio, donc sans JWT :
-# l'authenticité est établie par la signature X-Twilio-Signature, vérifiée
-# dans la fonction.
+# Webhooks Octopush des SMS (accusés de réception, STOP, réponses). Appelés
+# par Octopush, donc sans JWT : l'authenticité est établie par le jeton secret
+# de l'URL (OCTOPUSH_WEBHOOK_TOKEN), vérifié dans la fonction.
 [functions.sms-inbound-webhook]
 verify_jwt = false
 
