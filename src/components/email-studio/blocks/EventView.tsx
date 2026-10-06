@@ -1,8 +1,6 @@
 import { Fragment } from 'react';
 import type { EmailTheme, EventBlock } from '@/lib/email';
-import {
-  ctaColors, EVENT_META_DATE, EVENT_META_PRICE, EVENT_META_VENUE,
-} from '@/lib/email';
+import { ctaColors, emailWords, formatEuro, localizeDefaultLabel, wordsLang } from '@/lib/email';
 import {
   EMAIL_FONT, EMAIL_MONO, blockBgColor, blockPad, liveFor,
   offerCardViewColors, placeholderLabelStyle, splitVariables, stripesBg,
@@ -42,11 +40,12 @@ export default function EventView({ block, theme, ctx, mobile }: {
 
   // Prix : la base fait foi — un événement sans billetterie n'affiche rien
   // (l'email fait pareil), le montant d'exemple n'existe que sans événement.
-  const priceLabel = live ? live.priceFromLabel : 'À partir de 18 €';
+  const W = emailWords(ctx.language);
+  const priceLabel = live ? live.priceFromLabel : W.priceFrom(formatEuro(18, wordsLang(ctx.language)));
   const items: { k: string; v: string; strong?: boolean }[] = [];
-  if (dateLabel) items.push({ k: EVENT_META_DATE, v: dateLabel });
-  if (block.venue && venueLabel) items.push({ k: EVENT_META_VENUE, v: venueLabel });
-  if (block.price && priceLabel) items.push({ k: EVENT_META_PRICE, v: priceLabel, strong: true });
+  if (dateLabel) items.push({ k: W.metaDate, v: dateLabel });
+  if (block.venue && venueLabel) items.push({ k: W.metaVenue, v: venueLabel });
+  if (block.price && priceLabel) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
 
   const display = layout === 'banner' ? 'inline'
     : (layout === 'split' && (block.metaDisplay || 'stack') === 'rows') ? 'stack'
@@ -116,7 +115,7 @@ export default function EventView({ block, theme, ctx, mobile }: {
       perks={block.perks || []}
       extra={metaFlow}
       rows={metaRows}
-      ctaLabel={block.ctaLabel}
+      ctaLabel={localizeDefaultLabel(block.ctaLabel, ctx.language) || W.eventCta}
       full={block.full}
       note={block.note ? withVars(block.note) : null}
       coverUrl={block.cover ? coverUrl : undefined}

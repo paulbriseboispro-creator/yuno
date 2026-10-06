@@ -7,7 +7,7 @@ import { useStudio } from './store';
 import type { StudioScope } from './hooks';
 import { blockMeta } from './meta';
 import {
-  BORDER, FONT_UI, Help, MicroLabel, MONO, PanelCard, SUBTLE, Switch, T1, T2, T3, TextInput,
+  BORDER, FONT_UI, Help, MicroLabel, MONO, PanelCard, SegBtns, SUBTLE, Switch, T1, T2, T3, TextInput,
 } from './ui';
 
 /** Onglet Dynamique : variables, règle de visibilité du bloc, A/B d'objet. */
@@ -63,6 +63,19 @@ export default function DataPanel({ scope }: { scope: StudioScope }) {
           variables d'un autre onglet. Un même réglage à deux endroits fait
           douter de celui qui fait foi — il n'y en a plus qu'un.
           Voir BlockVisibility (Inspector.tsx). */}
+
+      {/* Langue de l'e-mail : boutons et libellés des blocs Yuno, prix, dates
+          et pied de page légal la suivent ; les textes du pro restent les siens. */}
+      <PanelCard style={{ gap: 11 }}>
+        <MicroLabel>{t('studio.data.language')}</MicroLabel>
+        <SegBtns
+          value={campaign.language || 'fr'}
+          onChange={(v) => patchCampaign({ language: v })}
+          ariaLabel={t('studio.data.language')}
+          options={[{ value: 'fr', label: 'Français' }, { value: 'en', label: 'English' }, { value: 'es', label: 'Español' }]}
+        />
+        <Help>{t('studio.data.languageHelp')}</Help>
+      </PanelCard>
 
       {/* A/B d'objet */}
       <PanelCard style={{ gap: 11 }}>

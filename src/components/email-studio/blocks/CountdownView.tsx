@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CountdownBlock, EmailTheme } from '@/lib/email';
-import { countdownParts, isHexColor } from '@/lib/email';
+import { countdownParts, emailWords, isHexColor, localizeDefaultLabel } from '@/lib/email';
 import { EMAIL_FONT, blockPad, liveFor, type CanvasCtx } from './common';
 
 /**
@@ -22,16 +22,17 @@ export default function CountdownView({ block, theme, ctx }: { block: CountdownB
   const startIso = live?.startAt || (typeof block.targetAt === 'string' ? block.targetAt : '');
   const parts = startIso ? countdownParts(startIso, now) : null;
   const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
+  const W = emailWords(ctx.language);
   const cells: [string, string][] = parts
-    ? [[pad2(parts.days), 'JOURS'], [pad2(parts.hours), 'HEURES'], [pad2(parts.mins), 'MIN']]
-    : [['—', 'JOURS'], ['—', 'HEURES'], ['—', 'MIN']];
+    ? [[pad2(parts.days), W.days], [pad2(parts.hours), W.hours], [pad2(parts.mins), W.minutes]]
+    : [['—', W.days], ['—', W.hours], ['—', W.minutes]];
   return (
     <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
       <div style={{ border: `1px solid ${theme.divider}`, borderRadius: 12, padding: 18, textAlign: 'center' }}>
         <div style={{
           fontFamily: EMAIL_FONT, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
           color: theme.muted, marginBottom: 12,
-        }}>{block.label}</div>
+        }}>{localizeDefaultLabel(block.label, ctx.language)}</div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
           {cells.map(([num, unit]) => (
             <div key={unit} style={{ minWidth: 62, padding: '10px 0', borderRadius: 9, background: theme.tile }}>

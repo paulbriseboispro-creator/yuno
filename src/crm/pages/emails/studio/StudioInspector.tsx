@@ -22,6 +22,7 @@ import { useStudioUi } from './studioUi';
 import { Field, Note, Seg, TextArea, TextInput, Toggle, VarChips } from './fields';
 import { useEmailImageUpload, type Patch } from './fieldHelpers';
 import { CountdownFields, EventFields, LineupFields, TicketsFields } from './YunoBlockFields';
+import { HtmlSectionFields } from './HtmlSectionFields';
 
 const ACCENTS = ['#E3141B', '#FF6B35', '#1C1517', '#9D0B12'];
 const THEME_KEYS: CrmThemeKey[] = ['clair', 'nuit', 'rouge', 'epure'];
@@ -204,12 +205,7 @@ function BlockFields({ block, patch, live, template }: { block: EmailBlock; patc
     case 'social':
       return <SocialFields />;
     case 'html':
-      return (
-        <>
-          <Note>{t('yc.em.st.f.htmlNote')}</Note>
-          <TextArea value={block.code} rows={8} onChange={(v) => patch({ code: v })} label="HTML" />
-        </>
-      );
+      return <HtmlSectionFields block={block} patch={patch} live={live} />;
     default:
       return <Note>{t('yc.em.st.f.genericNote')}</Note>;
   }
@@ -407,6 +403,7 @@ function SubjectTab() {
   const pre = useStudio((s) => s.campaign.preheader);
   const abOn = useStudio((s) => s.campaign.abOn);
   const subjectB = useStudio((s) => s.campaign.subjectB);
+  const language = useStudio((s) => s.campaign.language) || 'fr';
   const shown = subject.replace(/\{\{[^}]+\}\}/g, 'Camille');
   const n = shown.length;
   const tone = n === 0 ? 'var(--sand-500)' : n <= 45 ? 'var(--green-700)' : n <= 62 ? 'var(--amber-700)' : 'var(--red-600)';
@@ -422,6 +419,11 @@ function SubjectTab() {
       </Field>
       <Field label={t('yc.em.st.o.pre')} right={<span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{tp('yc.em.st.o.preN', pre.length)}</span>}>
         <TextInput value={pre} onChange={setPre} placeholder={t('yc.em.st.o.prePh')} label={t('yc.em.st.o.pre')} onFocusEl={focus(setPre)} />
+      </Field>
+      {/* Langue de l'e-mail : boutons des blocs Yuno, prix, dates et pied de page légal la suivent. */}
+      <Field label={t('yc.em.st.o.lang')} hint={t('yc.em.st.o.langHint')}>
+        <Seg value={language} onChange={(v) => api.getState().patchCampaign({ language: v })}
+          options={[{ v: 'fr', l: 'Français' }, { v: 'en', l: 'English' }, { v: 'es', l: 'Español' }]} />
       </Field>
       <VarChips active />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 18, background: 'var(--paper)', boxShadow: 'inset 0 0 0 1px var(--sand-100)' }}>

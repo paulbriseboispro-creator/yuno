@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { EmailTheme, TableBlock, TablePackRow } from '@/lib/email';
-import { ctaColors, mixHex, readableOn, tablesLeftLabel, VIP_GOLD } from '@/lib/email';
+import { ctaColors, emailWords, localizeDefaultLabel, mixHex, readableOn, tablesLeftLabel, VIP_GOLD, wordsLang } from '@/lib/email';
 import {
   EMAIL_FONT, EMAIL_MONO, blockBgColor, blockPad, liveFor,
   offerCardViewColors, splitVariables, varChipStyle, type CanvasCtx,
@@ -44,14 +44,14 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
       color: soldOut ? theme.muted : readableOn(VIP_GOLD, scarcityBg),
       fontFamily: EMAIL_MONO, fontSize: 10, fontWeight: 700,
       letterSpacing: '0.12em', textTransform: 'uppercase',
-    }}>{tablesLeftLabel(left)}</span>
+    }}>{tablesLeftLabel(left, wordsLang(ctx.language))}</span>
   ) : null;
 
   return (
     <OfferCardView
       theme={theme} pad={pad} blockBg={blockBg} layout={layout} align={align}
       accent={accent} btnColor={btnColors.color}
-      kicker={block.kicker} chip={scarcity}
+      kicker={localizeDefaultLabel(block.kicker, ctx.language) || emailWords(ctx.language).tableKicker} chip={scarcity}
       title={block.title ? withVars(block.title) : null}
       sub={block.sub ? withVars(block.sub) : null}
       perks={soldOut ? [] : (block.perks || [])}
@@ -78,7 +78,7 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
           }}>{r.p}</div>
         </div>
       )) : null}
-      ctaLabel={soldOut ? undefined : block.ctaLabel}
+      ctaLabel={soldOut ? undefined : (localizeDefaultLabel(block.ctaLabel, ctx.language) || emailWords(ctx.language).tableCta)}
       full={block.full}
       note={block.note && !soldOut ? withVars(block.note) : null}
       coverUrl={block.coverUrl}

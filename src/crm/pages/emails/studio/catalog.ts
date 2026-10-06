@@ -8,6 +8,7 @@
  * photos du line-up (get_event_lineup_live).
  */
 import type { BlockType, EmailBlock } from '@/lib/email/types';
+import { sectionText } from '@/lib/email/smart';
 
 export type PaletteKey = BlockType;
 
@@ -90,6 +91,7 @@ export function blockSummary(b: EmailBlock, t: T, nightTitle: (id?: string) => s
     case 'countdown': return b.label;
     case 'lineup': return nightTitle(b.eventId) ?? t('yc.em.st.b.lineup.d');
     case 'social': return t('yc.em.st.b.social.d');
+    case 'html': return b.label || plain(sectionText(b.code || '')).slice(0, 48);
     default: return '';
   }
 }

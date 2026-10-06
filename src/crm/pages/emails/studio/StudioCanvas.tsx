@@ -57,10 +57,11 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
 
   const ctx: CanvasCtx = useMemo(() => ({
     venueName: space.name, logoUrl: space.logoUrl, socialLinks: campaign.socialLinks, live, baseUrl: PUBLIC_BASE_URL, fallbackEventId: campaign.eventId,
-  }), [space.name, space.logoUrl, campaign.socialLinks, live, campaign.eventId]);
+    language: campaign.language ?? null,
+  }), [space.name, space.logoUrl, campaign.socialLinks, live, campaign.eventId, campaign.language]);
 
   const html = useMemo(() => (preview ? renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
-    venueName: space.name, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type,
+    venueName: space.name, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type, language: campaign.language ?? null,
     subject: campaign.subject, preheader: campaign.preheader, recipient: SAMPLE, unsubscribeUrl: '#',
     socialLinks: campaign.socialLinks, baseUrl: PUBLIC_BASE_URL, live, ignoreConds: true,
   }) : ''), [preview, campaign, theme, space, live, postalAddress]);

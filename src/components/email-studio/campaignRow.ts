@@ -40,6 +40,11 @@ export interface CampaignRow {
   resend_enabled: boolean | null;
   resend_delay_hours: number | null;
   resend_subject: string | null;
+  /** Langue de l'e-mail (pied de page, balises Yuno). Absent sur les anciennes lignes. */
+  language?: string | null;
+  /** IA qui a préparé le brouillon via le MCP Yuno. */
+  ai_author?: string | null;
+  ai_updated_at?: string | null;
 }
 
 /** Plan de lissage relu depuis la base ; forme inconnue ⇒ on repart de la proposition. */
@@ -100,6 +105,9 @@ export function rowToCampaign(row: CampaignRow, venueName: string): StudioCampai
     resendEnabled: !!row.resend_enabled,
     resendDelayHours: Math.min(168, Math.max(12, Math.floor(Number(row.resend_delay_hours) || 48))),
     resendSubject: row.resend_subject || '',
+    language: row.language === 'en' || row.language === 'es' || row.language === 'fr' ? row.language : null,
+    aiAuthor: row.ai_author || null,
+    aiUpdatedAt: row.ai_updated_at || null,
   };
 }
 
@@ -157,6 +165,9 @@ export function campaignToRow(c: StudioCampaign, scope: StudioScope): Record<str
     resend_delay_hours: c.resendDelayHours,
     resend_subject: c.resendSubject.trim() || null,
   };
+  // Langue posée par le MCP (ou plus tard par le Studio) : réécrite telle
+  // quelle, jamais effacée par une sauvegarde d'un écran qui ne la montre pas.
+  if (c.language) payload.language = c.language;
   if (scope.kind === 'venue') payload.segment_id = legacy.segment_id;
   return payload;
 }

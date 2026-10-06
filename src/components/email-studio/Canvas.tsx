@@ -82,12 +82,14 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
     // Les blocs Yuno sans événement propre héritent de celui de la campagne
     // (même repli que l'envoi côté edge).
     fallbackEventId: campaign.eventId,
-  }), [scope.name, scope.logoUrl, campaign.socialLinks, live, campaign.eventId]);
+    language: campaign.language ?? null,
+  }), [scope.name, scope.logoUrl, campaign.socialLinks, live, campaign.eventId, campaign.language]);
 
   // Le VRAI HTML email — sert à l'aperçu iframe, au poids et à la checklist.
   // Blocs reliés à la soirée de la campagne, comme à l'envoi (repli edge).
   const renderedHtml = useMemo(() => renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
     venueName: scope.name,
+    language: campaign.language ?? null,
     city: scope.city,
     logoUrl: scope.logoUrl,
     emailType: campaign.type,

@@ -74,6 +74,12 @@ export interface StudioState {
   applyThemePreset: (name: string) => void;
   patchTheme: (patch: Partial<EmailTheme>) => void;
   setBlocks: (blocks: EmailBlock[]) => void;
+  /**
+   * Adopte la version d'un brouillon modifiée ailleurs (par l'IA du pro, via
+   * le MCP) : contenu remplacé, version d'avant gardée dans l'historique (⌘Z
+   * la rend), rien à enregistrer.
+   */
+  adoptExternal: (next: StudioCampaign) => void;
   undo: () => void;
   redo: () => void;
 
@@ -246,6 +252,18 @@ export function createStudioStore(
       patchTheme: (patch) => withHistory((c) => ({ ...c, theme: { ...c.theme, ...patch } })),
 
       setBlocks: (blocks) => withHistory((c) => ({ ...c, blocks })),
+
+      adoptExternal: (next) => {
+        burst = null;
+        set((s) => ({
+          campaign: next,
+          past: [...s.past, snapshot(s.campaign)].slice(-HISTORY_LIMIT),
+          future: [],
+          dirty: false,
+          selectedId: s.selectedId && next.blocks.some((b) => b.id === s.selectedId) ? s.selectedId : null,
+          insertIndex: null,
+        }));
+      },
 
       undo: () => {
         const { past, future, campaign } = get();

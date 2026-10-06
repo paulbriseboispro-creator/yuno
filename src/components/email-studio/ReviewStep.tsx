@@ -50,6 +50,7 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
 
   const previewHtml = useMemo(() => renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), campaign.theme, {
     venueName: scope.name,
+    language: campaign.language ?? null,
     city: scope.city,
     logoUrl: scope.logoUrl,
     emailType: campaign.type,
