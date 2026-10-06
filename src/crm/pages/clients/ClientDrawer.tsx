@@ -138,8 +138,11 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const fdShort = (d: Date) => d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   const since = firstD ?? (c.added_at ? new Date(c.added_at) : null);
   const pastNights = c.buys.filter((b) => !b.upcoming);
-  const pastSpent = pastNights.reduce((a, b) => a + Number(b.amount || 0), 0);
-  const firstStart = pastNights.length ? new Date(pastNights[pastNights.length - 1].event_start) : null;
+  const H = c.history ?? null;
+  // Dépense des soirées passées : billets Shotgun, et l'historique du fichier quand il compte.
+  const pastSpent = H?.mode === 'file' ? Number(H.spent ?? 0)
+    : pastNights.reduce((a, b) => a + Number(b.amount || 0), 0) + (H?.mode === 'added' ? Number(H.spent ?? 0) : 0);
+  const firstStart = firstD ?? (pastNights.length ? new Date(pastNights[pastNights.length - 1].event_start) : null);
   const span = firstStart && lastD ? (lastD.getTime() - firstStart.getTime()) / (7 * 86_400_000) : 0;
   const nSub = c.nights <= 1 ? t('yc.cli.card.once') : t('yc.cli.card.every', { n: Math.max(1, Math.round(span / Math.max(1, c.nights - 1))) });
   const minN = c.rules.min_nights;
@@ -316,9 +319,32 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>
         <Stat l={t('yc.cli.card.nights')} v={n(c.nights)} s={nSub} />
         {/* Dépense par soirée : soirées PASSÉES seulement, des deux côtés de la division. */}
-        <Stat l={t('yc.cli.card.spent')} v={eur(c.spent)} s={c.nights > 0 ? t('yc.cli.card.perNight', { v: eur(pastSpent / c.nights) }) : '—'} />
+        <Stat l={t('yc.cli.card.spent')} v={eur(c.spent)} s={c.nights > 0 && c.spent !== null ? t('yc.cli.card.perNight', { v: eur(pastSpent / c.nights) }) : '—'} />
         <Stat l={t('yc.cli.card.last')} v={lastD ? fdShort(lastD) : '—'} s={days !== null ? relDays(days, t, tp) : t('yc.cli.list.never')} nowrap />
       </div>
+
+      {H && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: 'var(--sand-50)', boxShadow: 'inset 0 0 0 1px var(--sand-100)' }}>
+          <span style={{ flex: 'none', width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--sand-700)', display: 'grid', placeItems: 'center' }}><Icon name="file" size={16} stroke={2.2} /></span>
+          <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <b style={{ fontSize: 14.5, fontWeight: 600 }}>
+              {[
+                t('yc.cli.card.hist.t'),
+                tp('yc.cli.card.hist.nights', H.nights, { n: n(H.nights) }),
+                H.spent !== null && H.spent > 0 ? t('yc.cli.card.hist.spent', { v: eur(H.spent) }) : '',
+                H.last ? t('yc.cli.card.hist.last', { d: fdLong(new Date(H.last)) }) : '',
+              ].filter(Boolean).join(' · ')}
+            </b>
+            <span style={{ fontSize: 13, color: 'var(--sand-600)', textWrap: 'pretty' }}>
+              {[
+                H.list ? t('yc.cli.card.hist.file', { name: H.list }) : '',
+                t(H.mode === 'file' ? 'yc.cli.card.hist.fileWins' : H.mode === 'live' ? 'yc.cli.card.hist.live'
+                  : c.buys.length || (c.guests ?? []).length ? 'yc.cli.card.hist.added' : 'yc.cli.card.hist.only'),
+              ].filter(Boolean).join(' · ')}
+            </span>
+          </span>
+        </div>
+      )}
 
       {G && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, background: 'var(--amber-50)' }}>

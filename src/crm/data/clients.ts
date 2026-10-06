@@ -111,7 +111,8 @@ export interface ClientsList { total: number; rows: ClientRow[]; counts: Record<
 export interface ClientCard {
   email: string; first_name: string | null; last_name: string | null; phone: string | null;
   email_ok: boolean; phone_ok: boolean; bounced: boolean; eng_status: string;
-  lifecycle: Lifecycle; nights: number; nights_win: number; spent: number;
+  /** `spent` : null pour un rôle qui ne voit pas l'argent (_crm_null_money). */
+  lifecycle: Lifecycle; nights: number; nights_win: number; spent: number | null;
   first_night: string | null; last_night: string | null; added_at: string | null;
   tonight: boolean; source: string; utm_source: string | null; origin: string | null;
   /** Source du premier achat, lisible (lien de partage, campagne…). */
@@ -133,6 +134,13 @@ export interface ClientCard {
     scan_known: boolean; upcoming: boolean;
   }[];
   gl?: { n: number; came: number; first: string | null; conv: boolean; paid_n: number; noshow: number };
+  /**
+   * Historique d'un fichier importé (migration 20261008210000) : ce que dit le
+   * fichier et comment il compte — 'added' ajouté aux billets Shotgun (ou
+   * seule source), 'file' plus complet que Shotgun donc retenu, 'live' déjà
+   * compris dans Shotgun. `spent` est null pour un rôle qui ne voit pas l'argent.
+   */
+  history?: { nights: number; spent: number | null; last: string | null; mode: 'added' | 'file' | 'live'; list: string | null } | null;
 }
 
 export interface SavedSegment { id: string; name: string; description: string | null; template: string | null; definition: ClientFilterDef; n: number; reachable: number; created_at: string }
