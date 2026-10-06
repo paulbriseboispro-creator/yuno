@@ -992,8 +992,13 @@ trentaine à l'import. Règles :
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un
 organisateur branche Claude, ChatGPT, Gemini ou Le Chat sur sa Console
-(`https://yunoapp.eu/mcp`) ; l'IA lit ses chiffres en LECTURE SEULE et les
-transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
+(`https://yunoapp.eu/mcp`) ; l'IA lit ses chiffres et les transforme en
+analyses et conseils, et AGIT pour lui là où une porte d'écriture existe
+(aujourd'hui : brouillons d'e-mails et images, section « MCP : l'IA du pro
+dessine ses e-mails »). Le connecteur n'est PAS en lecture seule par principe
+(décision de Paul, 06/10) : chaque écriture passe par `mcp_write`, avec la
+permission de la connexion et les droits de la personne, et ce qui part vers
+des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `worker/mcp/*` (routé en tête de
 `worker/index.ts`, chemins dans `run_worker_first`), migrations
 `20261003100000` → `120000`, pages `/connect-ai` (consentement, DA publique),
 `/ai` (page publique = documentation des annuaires), Réglages → Assistants IA
@@ -1012,8 +1017,9 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   `count_contacts` / `list_customers` (tables temporaires), et n'appelle QUE les
   RPC d'analyse de la Console, avec leurs portes. Un outil nouveau = une RPC
   déjà gardée, jamais une lecture de table sans filtre de portée, jamais une
-  écriture — SAUF les brouillons d'e-mails, qui passent par la seule porte
-  `mcp_write` (section suivante). `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
+  écriture : TOUTE écriture passe par la seule porte `mcp_write` (permission
+  de la connexion, droits de la personne dans l'espace, débits, journal ;
+  section suivante), avec ses annotations `readOnlyHint: false`. `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
   fonction SECURITY INVOKER qui compterait sur la RLS.
 - **Deux niveaux, choisis au consentement** : `analytics` (aucune identité,
   `_mcp_redact` retire email / téléphone / nom / notes) et `customers` (fiches,

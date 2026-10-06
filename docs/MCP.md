@@ -273,7 +273,7 @@ Tous les champs prêts à coller (Claude, OpenAI, Le Chat, Gemini) :
 
 **Commun** — Nom : Yuno · Description courte : « Ask your nightlife numbers in
 plain words: sales, events, audience and marketing from your Yuno Console,
-read-only, plus on-brand email drafts you review and send yourself. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
+and have it prepare on-brand email drafts you review and send yourself. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
 https://yunoapp.eu/legal/privacy · Conditions :
 https://yunoapp.eu/legal/cgu · Support : contact@yunoapp.eu · Icône :
 `public/icon-1024.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Outils de
