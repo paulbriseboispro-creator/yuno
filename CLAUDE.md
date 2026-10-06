@@ -2398,6 +2398,18 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
   que si le schéma visible par l'API change. La base (525 Mo) dépasse aussi le
   quota de 500 Mo de l'offre gratuite : risque de passage en LECTURE SEULE. Vraie
   correction = offre Pro + machine Small, décision (et paiement) de Paul.
+- **Plafonds de l'API : anon 3 s, authenticated 8 s, service_role 30 s** (ce
+  dernier posé par `20261009170000` ; avant, il héritait des 8 s
+  d'authenticator). Un appel d'edge function ou de cron passe par l'API comme
+  un écran. Mesuré le 06/10 sur la base WOH (12 194 contacts) : la mise en file
+  d'une campagne « toute la base » prenait 17,5 s et le moteur
+  d'automatisations 29,8 s — la campagne ne partait pas, et une recette allumée
+  faisait tomber le passage de TOUS les comptes. **Jamais une fonction appelée
+  ligne à ligne sur toute une base** (`email_send_policy`,
+  `_email_engagement_rank`, ~1 ms par contact) : leurs miroirs ensemblistes
+  `_email_send_policy_many(emails[], kind)` et `_email_engagement_ranks(emails[],
+  venue, orga)` rendent la même réponse en une passe (0 écart vérifié contact
+  par contact). Une évolution des règles se fait dans les DEUX formes.
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
   d'historique hérités de la migration Lovable→Supabase (réconciliation déjà faite une fois).
 - **Gen types** : `supabase gen types ...` — **rediriger stderr** sinon le bruit pollue
@@ -4117,6 +4129,13 @@ et `docs/designs/EMAIL_AUTOMATION_V2_BRIEF.md` (v2). Migrations `20260915120000`
   front crée le modèle Yuno (`buildStarter('auto_<kind>')`) en allumant.
   `enabled_at` borne les déclencheurs : une bienvenue ne part jamais à toute
   la base existante le jour où on allume.
+- **Une recette « à toute la base » travaille par LOTS de 3 000**
+  (`v_batch`) : chaque sélection de candidats écarte qui est déjà au registre
+  pour ce déclencheur, le passage suivant prend la suite. Avant
+  `20261009170000`, le LIMIT tombait avant ce filtre et une base de 12 000 ne
+  recevait le dernier appel qu'à 5 000 personnes, jamais aux autres — alors
+  que l'aperçu en annonçait 12 194. Le passage s'arrête après 4 s
+  (`budget_hit`) ; les recettes restantes attendent le passage suivant.
 - **Le registre `email_automation_sends` est la garantie** : unique
   (automation, `trigger_key`, email) — `trigger_key` = id de soirée, `once`
   (bienvenue) ou `wb-YYYY-MM` (reconquête) — raison d'exclusion écrite,
