@@ -20,7 +20,7 @@ longueur respecte la limite du portail (comptée le 2026-10-03 : one-liner
 | Support | contact@yunoapp.eu (URL : https://yunoapp.eu/ai) |
 | Icon / logo | `public/icon-1024.png` (carré, PNG 1024×1024) — `public/icon-512.png` si une taille plus petite est demandée |
 | Auth | OAuth 2.1 : Dynamic Client Registration ET Client ID Metadata Documents, PKCE S256, `resource`, `iss` |
-| Read / write | Read only (22 outils, tous `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false`, avec `title`) |
+| Read / write | 26 outils de lecture (`readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false`, avec `title`) + 3 outils d'écriture liés aux BROUILLONS d'e-mails (`create_email_draft` et `add_email_image` : `readOnlyHint: false`, `destructiveHint: false` ; `update_email_draft` : `destructiveHint: true`). Aucun outil n'envoie, ne programme ni ne supprime. |
 | Test account | `review@womber.fr` — mot de passe affiché par `node scripts/demo/create-reviewer-account.mjs` |
 
 ## Claude — claude.ai/directory/manage → Submit new → MCP connector
@@ -32,7 +32,7 @@ longueur respecte la limite du portail (comptée le 2026-10-03 : one-liner
 - Server name (≤ 100) : `Yuno`
 - One-liner (≤ 200) :
 
-  > Ask about your nightlife business in plain words: Yuno reads your event sales, VIP tables, guest lists, audience and marketing, read-only, and turns them into analysis and next steps.
+  > Ask about your nightlife business in plain words: Yuno reads your event sales, VIP tables, guest lists, audience and marketing, turns them into analysis and next steps, and designs on-brand email drafts you send yourself.
 
 - Description (≤ 2 000) :
 
@@ -43,8 +43,9 @@ longueur respecte la limite du portail (comptée le 2026-10-03 : one-liner
   > - "Is my next party selling slower than usual? What should I do this week?" Pace against comparable events, computed signals and concrete actions with where to click in Yuno.
   > - "Which channel brings ticket sales? Did my last email make money?" Traffic sources, tracked links, email and push results with attributed revenue.
   > - "How many regulars stopped coming, and how big would that audience be?" Loyalty, customer segments and audience sizing.
+  > - "Design the announcement email of my next party in my brand style, plus a VIP version." Claude designs the email from an inspiration, the poster or a brand guide, and saves it as a DRAFT in the Yuno Console, with prices, sold-out states, line-up and sales links that stay live when the email leaves.
   >
-  > Read-only and private by design: the connector cannot change anything, send any message or touch money. You choose which club or organization the AI can read and whether customer identities are shared (numbers only by default). It sees exactly what your role sees in the Yuno Console, every question is logged, and access can be cut in one click from Settings > AI assistants.
+  > Private by design: the connector reads your numbers and can save email drafts in your Yuno Console; it never sends a message, never changes events, settings or customers, and never touches money. You choose which club or organization the AI can read and whether customer identities are shared (numbers only by default). It sees exactly what your role sees in the Yuno Console, every question is logged, and access can be cut in one click from Settings > AI assistants.
   >
   > Requires a Yuno pro account: club owner, manager with analytics access, or event organizer. Works with Yuno Suite and Yuno CRM accounts.
 
@@ -58,8 +59,9 @@ longueur respecte la limite du portail (comptée le 2026-10-03 : one-liner
   - Pre-event pacing: check whether an upcoming event sells faster or slower than usual and what to do about it.
   - Marketing performance: which channels, emails, push campaigns and promoters bring sales.
   - Audience and loyalty: size customer segments, find regulars who stopped coming, plan win-back campaigns.
+  - Email design: create on-brand event emails as drafts (never sent by the AI), linked to live prices, line-up and tracked sales links.
 - Prerequisites : a Yuno pro account (club or organizer) with access to analytics in the Yuno Console. Free to connect, no additional plan.
-- Reads or writes : **Reads data only.**
+- Reads or writes : **Reads data, and writes email drafts only** (the person reviews and sends them from the Yuno Console).
 
 **Company** : Yuno — https://yunoapp.eu — contact principal : toi (email pro).
 
@@ -71,14 +73,15 @@ longueur respecte la limite du portail (comptée le 2026-10-03 : one-liner
 
 > 1. Add a custom connector with the URL https://yunoapp.eu/mcp.
 > 2. When Claude opens the Yuno sign-in page, sign in with email + password: review@womber.fr / <PASSWORD>. There is no 2FA, no email code.
-> 3. On the consent screen, keep the three spaces checked (the demo club "Yuno", "Organisateur Démo" and "Nuits Démo", a Yuno CRM account connected to its ticketing), select "Numbers + customer details" to exercise every tool, then click Allow.
+> 3. On the consent screen, click Allow: the connection covers the three demo spaces of the account (the club "Yuno", "Organisateur Démo" and "Nuits Démo", a Yuno CRM account connected to its ticketing) and allows email drafts.
 > 4. Try: "How did my last party go compared with the previous one?", "Give me 3 actions to sell more for my next event", "How many people took a VIP table and have not come back in 60 days?", "Who are my 10 best customers?", "In Nuits Démo, which of my last parties brought the most new customers?"
 > 5. Roles, as in the Yuno Console: this account manages the club "Yuno" as a manager (not its owner), so in that space email-campaign results and VIP-table / guest-list detail are reserved to the owner and the connector says so in its answer; "Organisateur Démo" shows every tool with full data. Mentioning the space in a question ("in Organisateur Démo, …") avoids Claude asking which one you mean.
-> 6. All data in this account is fictitious demo data. The account cannot send any email, push or SMS (demo safeguard). Every connection is listed, logged and revocable by the account holder in the Yuno Console (Settings > AI assistants).
+> 6. Email drafts: "Design the announcement email of the next Nuits Démo party for the whole base, dark and fiery, and save it as a draft." Claude calls get_email_design_kit, list_email_audiences and create_email_draft, then gives a crm.yunoapp.eu link to the draft (sign in with the same account to see it). Nothing is sent. In the club "Yuno" this account is a manager, not the owner, so drafts there are refused, as in the Console.
+> 7. All data in this account is fictitious demo data. The account cannot send any email, push or SMS (demo safeguard). Every connection is listed, logged and revocable by the account holder in the Yuno Console (Settings > AI assistants).
 
 Coche « j'ai testé chaque outil » seulement après l'étape 2 de ton guide.
 
-**Compliance** (7 cases) : toutes vraies pour Yuno — directory guidelines, API first-party, aucune transaction financière (lecture seule), aucune génération d'image / vidéo / audio, descriptions sans injection de consignes (relues pour ça), aucune collecte de conversation (seuls les arguments d'outil sont journalisés, jamais la conversation ni les réponses), documentation publique (https://yunoapp.eu/ai).
+**Compliance** (7 cases) : toutes vraies pour Yuno — directory guidelines, API first-party, aucune transaction financière (lecture + brouillons d'e-mails, jamais d'envoi), aucune génération d'image / vidéo / audio, descriptions sans injection de consignes (relues pour ça), aucune collecte de conversation (seuls les arguments d'outil sont journalisés, jamais la conversation ni les réponses), documentation publique (https://yunoapp.eu/ai).
 
 ## OpenAI — platform.openai.com/plugins
 
@@ -112,18 +115,20 @@ Préalables : organisation **vérifiée** (Settings → Organization → General
 3. *Audience sizing* — prompt : `How many people took a VIP table and have not come back in 60 days?` — tools : `count_contacts` — expected : the number of matching contacts and how many are reachable by email and SMS.
 4. *Email results* — prompt : `Did my last email campaign make money?` — tools : `get_marketing_performance`, `get_campaign_report` — expected : delivery, open and click rates, unsubscribes and revenue attributed to the campaign (click then purchase within 72 h).
 5. *Action plan* — prompt : `Give me 3 actions to sell more tickets for my next event, with where to click in Yuno.` — tools : `get_recommendations`, `search_yuno_help` — expected : three ranked actions based on the account's signals, each with the exact place in the Yuno Console and the number that will show it worked.
+6. *Email draft* — prompt : `In Nuits Démo, design the announcement email of my next party for my whole base and save it as a draft.` — tools : `get_email_design_kit`, `list_email_audiences`, `create_email_draft` — expected : a draft created in the Yuno Console (link returned), with the audience size; nothing is sent.
+7. *Draft changes* — prompt (after case 6) : `In that draft, remove the line-up section and add a short dress-code line under the title.` — tools : `get_email_draft`, `update_email_draft` — expected : only those sections change (the result lists what changed), Console link returned; nothing is sent.
 
 **Test cases négatifs (3)** — le connecteur ne doit pas s'activer, ou doit refuser proprement :
 
 1. `What's the weather in Paris tonight?` — no Yuno tool should run.
 2. `Write me a short poem about techno music.` — no Yuno tool should run.
-3. `Send an email to all my customers about Saturday.` — the connector is read-only: no tool sends anything; ChatGPT explains the steps to send it from the Yuno Console (Marketing & CRM > Email).
+3. `Send an email to all my customers about Saturday.` — no tool sends anything: ChatGPT can prepare a draft and explains that sending happens in the Yuno Console (Marketing & CRM > Email).
 
 **Demo video** (2 à 3 min, URL accessible — YouTube non répertorié par exemple) — déroulé :
 
 1. ChatGPT web, mode développeur : Settings → Apps → Create app → `https://yunoapp.eu/mcp`, OAuth.
-2. La page Yuno de connexion, puis l'écran de consentement : les espaces, le niveau « Numbers and analyses », le contrat (lecture seule), « Allow ».
-3. Les 5 prompts positifs, l'un après l'autre (on voit les outils appelés et les réponses).
+2. La page Yuno de connexion, puis l'écran de consentement : les espaces, le contrat (lecture, brouillons d'e-mails, rien ne part sans le pro), « Allow ».
+3. Les 6 prompts positifs, l'un après l'autre (on voit les outils appelés et les réponses) ; pour le brouillon, ouvrir le lien rendu : l'e-mail est dans le Studio, marqué « Préparé par ChatGPT ».
 4. Un prompt négatif (`Send an email…`) : rien n'est envoyé.
 5. La Console Yuno → Settings → AI assistants : la connexion, son journal, « Cut access ».
 

@@ -2,8 +2,10 @@
 
 Construit le 2026-10-03. Un club ou un organisateur branche **son** assistant IA
 (Claude, ChatGPT, Gemini, Le Chat, Claude Code, Cursor…) sur sa Console Yuno et
-pose ses questions avec ses mots ; l'IA lit ses chiffres, en lecture seule, et
-les transforme en analyses, constats et conseils concrets.
+pose ses questions avec ses mots ; l'IA lit ses chiffres et les transforme en
+analyses, constats et conseils concrets. Depuis le 2026-10-06, elle peut aussi
+**dessiner ses e-mails de soirée et les déposer en BROUILLON** (§ 8) : la seule
+écriture du serveur, jamais un envoi.
 
 - Adresse à coller dans l'IA : **`https://yunoapp.eu/mcp`**
 - Page publique (documentation des annuaires) : **`https://yunoapp.eu/ai`**
@@ -84,7 +86,7 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
 
 | Garantie | Où elle vit |
 |---|---|
-| Lecture seule | `transaction_read_only = on` dans `mcp_call` ; aucun outil d'écriture |
+| Lecture seule (sauf brouillons d'e-mails) | `transaction_read_only = on` dans `mcp_call` ; la seule écriture passe par `mcp_write` (brouillons d'e-mails, statut `draft`, § 8) |
 | Portée = ce que voit le rôle | claims de la personne + portes des RPC (`analytics_scope_gate`, `contact_scope_allowed`, `crm_scope_allowed`) |
 | Montants masqués pour un rôle | `money` des RPC, rien n'est recalculé |
 | Pas d'identité par défaut | niveau `analytics` : outils fiches refusés + `_mcp_redact(…, true)` retire email, téléphone, nom, prénom, notes, adresse |
@@ -124,7 +126,7 @@ de le recommander.
 - Sans jeton ou jeton mort : 401 + `WWW-Authenticate: Bearer
   resource_metadata="https://yunoapp.eu/.well-known/oauth-protected-resource/mcp"`.
 
-## 4. Les outils (tous `readOnlyHint: true`, `destructiveHint: false`)
+## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8)
 
 | Outil | Ce qu'il rend | Source |
 |---|---|---|
@@ -147,6 +149,12 @@ de le recommander.
 | `get_recommendations` | tout pour un plan d'action | `get_sales_takeaways`, `get_events_sales_summary`, `get_analytics_insights`, `get_analytics_rfm`, automatisations |
 | `list_customers` · `list_customers_by_segment` · `get_customer_profile` | fiches clients (niveau `customers`) | `list_contact_base` (aussi pour la fiche, filtrée par l'adresse : 0,6 s contre 20 s par `contact_rows`), `get_*_customer_segments`, `get_customer_automation_emails` |
 | `get_glossary` · `search_yuno_help` | définitions, mode d'emploi | Worker (`guide.ts`, `_shared/console-help-articles.ts`) |
+| `get_email_design_kit` | marque, soirées, faits de la soirée visée, balises Yuno + aperçu de leurs valeurs, règles HTML, méthode, exemple, brouillons récents | `_mcp_email_tool` (`_mcp_email_event_facts`, `get_external_event_live`, `get_event_lineup_live`, `_event_tables_left`) + Worker (`emailGuide.ts`) |
+| `list_email_audiences` | audiences et effectifs joignables (CRM : base, cycles de vie, segments, préréglages ; Billetterie : abonnés, VIP…, segments, listes) | `crm_email_send_options`, `count_campaign_recipients`, `count_organizer_audience_kinds` |
+| `get_email_draft` | un brouillon / une campagne : sections (id, texte visible, contenu), `version`, objet, langue, audience, thème | `email_campaigns` |
+| `list_email_images` | images ajoutées par l'IA (30 j) et liens de dépôt en attente | `mcp_email_images` |
+| `create_email_draft` · `update_email_draft` | **écriture** : un brouillon d'e-mail (§ 8) | `mcp_write` → `_mcp_email_write` |
+| `add_email_image` | **écriture** : un emplacement d'image (fichier joint, lien, ou page de dépôt) | `mcp_write` → `_mcp_email_image_add`, Worker `emailImages.ts` |
 
 Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
 (méthode, règles, définitions de `metrics.ts`, playbook de la nuit, catalogue
@@ -160,6 +168,86 @@ d'un long article que son ouverture et les phrases qui parlent de la question
 une RPC de la Console déjà gardée), une entrée dans `TOOLS` (description « use
 this when… », exemples de questions), un libellé `aiTool.*` (3 langues) pour le
 journal, une ligne ici, et un cas dans `worker/mcp/__tests__/mcp.test.ts`.
+
+## 8. Brouillons d'e-mails dessinés par l'IA (2026-10-06)
+
+Plan : `docs/designs/MCP_EMAIL_DESIGN_PLAN.md`. Migrations `20261009150000`
+(outils, `mcp_write`), `151000` (soirées miroirs d'un espace CRM visibles des
+outils de soirée), `152000` (brouillons accordés seulement par un écran qui
+les annonce) et `153000` (itérer sans écraser le pro, images).
+Le pro demande à son IA « dessine l'e-mail de ma soirée, à ma DA, pour toute ma
+base, et une version VIP » ; l'IA lit le kit, dessine, et dépose les brouillons
+dans la Console (Billetterie ou Yuno CRM). Le pro relit et envoie.
+
+- **Sections sur mesure** : l'IA écrit du HTML (bloc `html` du Studio) et y
+  pose les **balises Yuno** (`{{event.title}}`, `{{event.date}}`,
+  `{{#each tickets}}`, `{{event.tickets_url}}`, `{{#if event.sold_out}}`,
+  `{{#each lineup}}`, `{{tables.left_label}}`, `{{countdown.days}}`,
+  `{{first_name}}`…). Moteur UNIQUE `supabase/functions/_shared/email-smart.ts`
+  (rendu, nettoyage, besoins en données, contrôle) partagé par le Studio, le
+  Worker et `send-campaign`. Les liens posés par balise sont SUIVIS (lien
+  `/l/` + `yc=`, ou `utm_source=yuno-m-<campagne>` vers Shotgun) : attribution
+  et résultats identiques aux autres e-mails.
+- **Une seule porte d'écriture, `mcp_write`** : jeton, espace, débits (30
+  créations / 200 modifications par jour et par connexion), permission de la
+  connexion (`mcp_grants.can_draft`, posée par `mcp_approve_authorization`
+  seulement quand l'écran de consentement passe `p_drafts = true`, défaut
+  `false` ; les connexions plus anciennes restent à `false` et se reconnectent), droit d'écrire dans
+  l'espace (`_mcp_space_can_draft` : CRM = `crm_scope_writable` + CRM actif ;
+  Billetterie = titulaire du club ou fondateur, comme la policy RLS). Elle
+  n'écrit QUE des lignes `email_campaigns` au statut `draft` ; une campagne
+  programmée ou envoyée est refusée (`draft_not_editable`). Aucun outil
+  n'envoie, ne programme, ne teste ni ne supprime.
+- **Contrôle avant écriture** (Worker, `emailDraft.ts`) : le HTML est nettoyé
+  (script, style, iframe, formulaire, svg, `on*`, `javascript:`), puis contrôlé
+  (balises inconnues, blocs mal fermés, soirée manquante, poids > 90 Ko,
+  objet). Une erreur = RIEN n'est écrit, l'IA reçoit la liste à corriger ; les
+  avertissements (alt manquant, flex, lien écrit en dur…) partent avec le
+  brouillon.
+- **Traçabilité** : `email_campaigns.ai_author` (« Claude ») et `mcp_grant_id`
+  → bandeau « Préparé par Claude » dans le Studio CRM, nombre de brouillons à
+  côté de l'IA dans Réglages → Assistants IA ; `mcp_tool_calls` garde un
+  RÉSUMÉ (nom, objet, nombre de sections, poids), jamais le HTML.
+- **Langue** : `email_campaigns.language` (`fr` | `en` | `es`, réglable
+  aussi dans les deux Studios) → blocs Yuno natifs (boutons, « From €18 »,
+  tables restantes, compte à rebours, guest list), dates, valeurs des balises,
+  pied de page légal, `lang` du document. Mots dans UNE source,
+  `_shared/email-words.ts` (Studio, envoi, Worker, moteur des sections) ; le
+  français y est celui d'avant, au caractère près. Un libellé resté au défaut
+  d'une des trois langues suit la langue (`localizeDefaultLabel`) ; un texte
+  écrit par le pro reste le sien.
+- **Itérer avec son IA** (migration `20261009153000`) : `get_email_draft` rend
+  chaque section avec son id stable, son texte visible et une `version`
+  (`updated_at` en µs) ; `update_email_draft` vise les sections par id
+  (réécrire, options d'un bloc natif, insérer au-dessus / en dessous, déplacer,
+  supprimer), reçoit `draft_version` (version périmée = `draft_changed`, les
+  sections actuelles rendues) et passe `expected_version` à la base (écriture
+  atomique). Chaque écriture de l'IA pose `email_campaigns.ai_updated_at` : les
+  deux Studios ADOPTENT cette version (retour sur l'onglet, puis toutes les 8 s
+  quand il est visible ; ⌘Z rend celle du pro) et leur sauvegarde automatique
+  filtre sur `ai_updated_at` (jamais d'écriture par-dessus une version de l'IA
+  pas encore vue). Une capture d'écran collée dans le chat est lue par l'IA
+  elle-même : rien à transmettre au connecteur.
+- **Images** : `add_email_image` ouvre un emplacement (`mcp_email_images`, code
+  à usage unique, 30 min, rattaché à l'espace, 60 / jour / connexion). Le
+  fichier part dans `email-assets/mcp/<code>/image.<ext>` avec la clé PUBLIQUE
+  (policy `Email assets: AI image slot` → `mcp_image_slot_open`) : le Worker
+  n'y gagne aucun droit. Format et dimensions lus dans les octets (JPEG, PNG,
+  GIF, WebP, 8 Mo), puis `mcp_image_finish` (service) vérifie l'objet et rend
+  l'image prête. Trois entrées : le fichier joint à la conversation (ChatGPT,
+  `_meta["openai/fileParams"]`), un lien https recopié, ou la page
+  `/ai/image/<code>` où le pro colle (⌘V) ou dépose l'image (même code :
+  `POST /mcp/image/<code>`, aussi utilisable par une IA qui exécute du code).
+- **Annotations** : `create_email_draft` et `add_email_image` =
+  `readOnlyHint: false`, `destructiveHint: false` ; `update_email_draft` =
+  `destructiveHint: true`.
+  Dans Claude, ces deux outils demandent confirmation même quand « Outils en
+  lecture seule » est sur « Toujours autoriser ».
+- **Le cerveau du designer** : `worker/mcp/emailGuide.ts` (règles HTML e-mail,
+  méthode ouverture + vente, exemple de section) rendu par le kit et par la
+  ressource `yuno://guide/email-design` ; consignes « EMAIL DESIGN » dans
+  `guide.ts` ; prompt `design_event_email`.
+- Tests : `npx vitest run worker/mcp src/lib/email`.
 
 ## 5. Mise en service — fait le 2026-10-03
 
@@ -185,11 +273,12 @@ Tous les champs prêts à coller (Claude, OpenAI, Le Chat, Gemini) :
 
 **Commun** — Nom : Yuno · Description courte : « Ask your nightlife numbers in
 plain words: sales, events, audience and marketing from your Yuno Console,
-read-only. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
+read-only, plus on-brand email drafts you review and send yourself. » · Documentation : https://yunoapp.eu/ai · Confidentialité :
 https://yunoapp.eu/legal/privacy · Conditions :
 https://yunoapp.eu/legal/cgu · Support : contact@yunoapp.eu · Icône :
-`public/icon-1024.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Tous les outils
-en lecture seule, annotés.
+`public/icon-1024.png` · Auth : OAuth 2.1 (DCR + CIMD, PKCE) · Outils de
+lecture annotés `readOnlyHint: true` ; deux outils d'écriture (brouillons
+d'e-mails, jamais d'envoi) annotés `readOnlyHint: false`.
 
 **Compte de test** : `review@womber.fr`, créé par
 `node scripts/demo/create-reviewer-account.mjs` (mot de passe généré, affiché
@@ -200,7 +289,7 @@ possible (`demo_no_send`).
 
 **Claude** (https://claude.ai/directory/manage → MCP connector) : chaque outil a
 `title` + `readOnlyHint` ✅, noms ≤ 64 caractères ✅, lecture et écriture
-séparées ✅ (aucune écriture). Redirections Claude acceptées sans liste
+séparées ✅ (deux outils d'écriture, brouillons seulement, annotés). Redirections Claude acceptées sans liste
 blanche (DCR et CIMD, https).
 
 **ChatGPT** (https://platform.openai.com/plugins) : `readOnlyHint`,
@@ -216,8 +305,12 @@ Cas de test positifs :
 Cas négatifs (le connecteur ne doit PAS servir) :
 1. « What's the weather in Paris? »
 2. « Write me a poem about techno. »
-3. « Send an email to all my customers now. » → aucun outil d'écriture : l'IA
-   explique les étapes dans la Console.
+3. « Send an email to all my customers now. » → aucun outil n'envoie : l'IA
+   peut préparer un brouillon et explique que l'envoi se fait dans la Console.
+Cas positif d'écriture : « Design the announcement email for my next party for
+my whole base and save it as a draft. » → `get_email_design_kit`,
+`list_email_audiences`, `create_email_draft` (lien Console rendu, rien
+d'envoyé).
 
 **Gemini** : applis personnalisées encore réservées à certains pays / langues ;
 Gemini Enterprise : OAuth manuel (non configuré ici, DCR suffit ailleurs).

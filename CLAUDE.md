@@ -1012,7 +1012,8 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   `count_contacts` / `list_customers` (tables temporaires), et n'appelle QUE les
   RPC d'analyse de la Console, avec leurs portes. Un outil nouveau = une RPC
   déjà gardée, jamais une lecture de table sans filtre de portée, jamais une
-  écriture. `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
+  écriture — SAUF les brouillons d'e-mails, qui passent par la seule porte
+  `mcp_write` (section suivante). `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
   fonction SECURITY INVOKER qui compterait sur la RLS.
 - **Deux niveaux, choisis au consentement** : `analytics` (aucune identité,
   `_mcp_redact` retire email / téléphone / nom / notes) et `customers` (fiches,
@@ -1055,6 +1056,63 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   `OPENAI_APPS_CHALLENGE`, servi sur `/.well-known/openai-apps-challenge`.
   La politique de confidentialité est `/legal/privacy` ; `/legal/confidentialite`
   est l'engagement de confidentialité des aperçus démo : ne jamais les confondre.
+
+## MCP : l'IA du pro dessine ses e-mails, en BROUILLON (2026-10-06)
+
+Plan : `docs/designs/MCP_EMAIL_DESIGN_PLAN.md` ; doc : `docs/MCP.md` § 8.
+Migrations `20261009150000` → `153000`. Règles intouchables :
+
+- **Une seule écriture MCP : un brouillon d'e-mail, par `mcp_write`.** Elle
+  revérifie jeton, espace, débits (30 créations / 200 modifications par jour
+  et par connexion), la permission de la connexion (`mcp_grants.can_draft`,
+  posée SEULEMENT par un écran de consentement qui l'annonce : `p_drafts`
+  vaut false par défaut, `/connect-ai` passe true ; les connexions plus
+  anciennes restent à false et se reconnectent) et le droit d'écrire les campagnes de l'espace
+  (`_mcp_space_can_draft`, miroir des policies d'`email_campaigns`). Elle
+  n'écrit QUE des lignes au statut `draft`. Aucun outil MCP n'envoie, ne
+  programme, ne teste ni ne supprime : ne jamais en ajouter un.
+- **Sections sur mesure = bloc `html` + balises Yuno**, moteur UNIQUE
+  `supabase/functions/_shared/email-smart.ts` (rendu Handlebars échappé,
+  nettoyage, `smartNeeds`, contrôle), ré-exporté par `src/lib/email/smart.ts`
+  et importé tel quel par le port Deno et le Worker : ne jamais le recopier.
+  Une section qui lit une soirée est un bloc LIVE (`isLiveBlock` ⇄
+  `isLiveStudioBlock`) : données relues à l'envoi, `eventId` hérité de la
+  campagne, liens posés par balise SUIVIS (`/l/` + `yc=`, ou
+  `utm_source=yuno-m-<campagne>`). Toute balise nouvelle se déclare dans
+  `SMART_TAGS` (référence du kit, contrôle) avec un test.
+- Le rendu NETTOIE chaque section (script, style, iframe, formulaire, svg,
+  `on*`, `javascript:`) et échappe toute valeur (pas de `{{{brut}}}`). Le
+  pied de page légal reste écrit par `renderFooter`, jamais par une section.
+- **Langue = `email_campaigns.language` (`fr` | `en` | `es`)**, posée par
+  l'IA ou par le pro (Studio CRM › Objet, Billetterie › Dynamique). Blocs Yuno
+  natifs, dates, valeurs des balises et pied de page la suivent. **Les mots
+  vivent dans UNE source, `_shared/email-words.ts`** (Studio `render.ts` /
+  `live.ts` / vues du canevas, envoi `email-studio-html.ts` +
+  `fetchStudioLiveData`, `useStudioLiveData`, moteur `email-smart.ts`,
+  Worker) : jamais un libellé de bloc écrit en dur ailleurs. Le français y est
+  celui d'avant au caractère près (aucun e-mail existant ne change) ; un
+  libellé resté au défaut d'une des trois langues suit la langue
+  (`localizeDefaultLabel`), un texte écrit par le pro reste le sien.
+- **Itérer sans écraser le pro** (migration `20261009153000`) : l'IA modifie
+  par ID de section avec la `version` lue (`draft_changed` sinon, et
+  `expected_version` vérifié en base, atomique). Chaque écriture de l'IA pose
+  `ai_updated_at` ; les deux Studios l'adoptent (`useAiDraftSync`,
+  `adoptExternal` : rien à réenregistrer, ⌘Z rend la version du pro) et leur
+  sauvegarde filtre sur `ai_updated_at`. **Ne jamais retirer ce filtre ni le
+  `if (!dirty) return` des abonnés d'autosave** : sans eux, le Studio ouvert
+  réécrit l'ancienne version à la frappe suivante et efface le travail de l'IA.
+- **Images de l'IA** : `add_email_image` / `list_email_images`, emplacements
+  `mcp_email_images` (code à usage unique, 30 min). Le fichier entre dans
+  `email-assets/mcp/<code>/…` par la clé PUBLIQUE seule (policy
+  `mcp_image_slot_open`), format lu dans les octets, validé par
+  `mcp_image_finish`. Page de dépôt `/ai/image/<code>` (coller / déposer),
+  point d'entrée `POST /mcp/image/<code>` (`run_worker_first` `/mcp/*`).
+  ChatGPT passe le fichier joint par `_meta["openai/fileParams"]` ; Claude ne
+  transmet pas les fichiers aux connecteurs : son IA donne le lien de dépôt.
+- Le Studio DESSINE une section (iframe sans script, `HtmlView`, cachée tant
+  que la soirée charge) ; un brouillon d'IA porte « Préparé par … »
+  (`ai_author`). Les messages de contrôle sont en anglais pour l'IA, traduits
+  par code (`yc.em.st.lint.*`) pour le pro.
 
 ## Collab à BARÈME sur le CA de la soirée + décompte de fin de soirée (2026-09-21)
 
