@@ -392,7 +392,7 @@ export default function ContactBasePanel({ scope, basePath }: {
               <div><StatusPill status={r.status} t={t} /></div>
               <div style={{ color: T2, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
                 {r.emails_sent > 0
-                  ? fill(t('cbase.row.mail'), { s: fmtN(r.emails_sent, language), o: fmtN(r.opens, language), c: fmtN(r.clicks, language) })
+                  ? fill(t(r.emails_sent === 1 ? 'cbase.row.mailOne' : 'cbase.row.mail'), { s: fmtN(r.emails_sent, language), o: fmtN(r.opens, language), c: fmtN(r.clicks, language) })
                   : <span style={{ color: T3 }}>{t('cbase.row.neverSent')}</span>}
               </div>
               <div style={{ color: T2, fontSize: 12 }}>{fmtDate(r.last_seen_at, language)}</div>
