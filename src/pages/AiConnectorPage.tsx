@@ -64,7 +64,7 @@ export default function AiConnectorPage() {
     { icon: History, title: 'aiPage.sec3Title', body: 'aiPage.sec3Body' },
     { icon: ShieldCheck, title: 'aiPage.sec4Title', body: 'aiPage.sec4Body' },
   ];
-  const faq = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ q: `aiPage.faq${n}Q`, a: `aiPage.faq${n}A` }));
+  const faq = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ q: `aiPage.faq${n}Q`, a: `aiPage.faq${n}A` }));
 
   return (
     <div className="min-h-[100dvh]" style={{ background: BLACK, color: WHITE }}>

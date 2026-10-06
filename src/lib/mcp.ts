@@ -32,7 +32,7 @@ export const MCP_CLIENT_GUIDES: McpClientGuide[] = [
   },
 ];
 
-export const MCP_EXAMPLE_QUESTIONS = ['aiMcp.q1', 'aiMcp.q2', 'aiMcp.q3', 'aiMcp.q4', 'aiMcp.q5', 'aiMcp.q6', 'aiMcp.q7'];
+export const MCP_EXAMPLE_QUESTIONS = ['aiMcp.q1', 'aiMcp.q2', 'aiMcp.q3', 'aiMcp.q4', 'aiMcp.q5', 'aiMcp.q6', 'aiMcp.q7', 'aiMcp.q8'];
 
 // Libellés lisibles des outils dans le journal d'une connexion (le nom
 // technique n'apprend rien au pro). Inconnu = nom brut.
@@ -62,6 +62,12 @@ export const MCP_TOOL_LABEL_KEYS: Record<string, string> = {
   get_email_draft: 'aiTool.emailDraftRead',
   create_email_draft: 'aiTool.emailDraftCreate',
   update_email_draft: 'aiTool.emailDraftUpdate',
+  add_email_image: 'aiTool.imageAdd',
+  list_email_images: 'aiTool.images',
+  get_signup_page_kit: 'aiTool.pageKit',
+  get_signup_page: 'aiTool.pageRead',
+  create_signup_page: 'aiTool.pageCreate',
+  update_signup_page: 'aiTool.pageUpdate',
 };
 
 export interface McpConnection {
@@ -75,6 +81,10 @@ export interface McpConnection {
   can_draft?: boolean;
   /** Brouillons d'e-mails créés par cette IA. */
   drafts_created?: number;
+  /** La connexion peut dessiner des pages d'inscription (brouillon ou proposition, jamais publiées). */
+  can_pages?: boolean;
+  /** Pages d'inscription préparées ou modifiées par cette IA. */
+  pages_created?: number;
   revoked_at: string | null;
   revoked_reason: string | null;
   mine: boolean;

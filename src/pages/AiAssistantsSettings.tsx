@@ -195,6 +195,9 @@ export default function AiAssistantsSettings() {
                           {c.can_draft && (
                             <Badge variant="outline" className="text-[10px]">{t('aiSettings.drafts')}</Badge>
                           )}
+                          {c.can_pages && (
+                            <Badge variant="outline" className="text-[10px]">{t('aiSettings.pages')}</Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {c.spaces.map((s) => s.name).join(' · ')}
@@ -206,6 +209,7 @@ export default function AiAssistantsSettings() {
                           {c.last_used_at ? `${t('aiSettings.lastUsed')} ${fmt(c.last_used_at)}` : t('aiSettings.never')}
                           {' · '}{callsLabel(c.calls_count)}
                           {c.drafts_created ? ` · ${c.drafts_created === 1 ? t('aiSettings.draftsCountOne') : t('aiSettings.draftsCount').replace('{n}', String(c.drafts_created))}` : ''}
+                          {c.pages_created ? ` · ${c.pages_created === 1 ? t('aiSettings.pagesCountOne') : t('aiSettings.pagesCount').replace('{n}', String(c.pages_created))}` : ''}
                         </p>
                       </div>
                     </div>
@@ -260,7 +264,7 @@ export default function AiAssistantsSettings() {
         <section className="rounded-xl border border-border bg-muted/20 p-4">
           <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('aiSettings.contractTitle')}</h2>
           <div className="space-y-2">
-            {['aiMcp.can1', 'aiMcp.can2', 'aiMcp.can3', 'aiMcp.can4'].map((k) => (
+            {['aiMcp.can1', 'aiMcp.can2', 'aiMcp.can3', 'aiMcp.can4', 'aiMcp.can5'].map((k) => (
               <p key={k} className="text-xs flex items-start gap-2">
                 <Check className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
                 <span className="text-muted-foreground">{t(k)}</span>
