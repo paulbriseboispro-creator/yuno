@@ -155,9 +155,13 @@ export function AutoIntro({ T }: { T: T }) {
   );
 }
 
-const SOON_AUTOS = ['cart', 'upsell', 'visit'] as const;
+const SOON_AUTOS = ['cart', 'upsell'] as const;
 
-/** Trois recettes pas encore branchées : elles lisent le checkout et les visites, que Shotgun ne rapporte pas. */
+/**
+ * Deux recettes pas encore branchées : elles lisent le checkout, que Shotgun
+ * ne rapporte pas. (« A cliqué sans acheter » est une vraie recette : le clic
+ * dans un de nos e-mails est nominatif.)
+ */
 export function AutoSoon({ T }: { T: T }) {
   const { t } = T;
   return (

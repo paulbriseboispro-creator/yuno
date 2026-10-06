@@ -726,6 +726,23 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   première inscription confirmée précède le premier achat (`_crm_people_build`)
   → filtre Clients et segment « Inscrits via vos pages ». Publier = titulaire
   seul, jamais en accès assisté. Démo : aucune adresse collectée.
+- **Automatisations CRM = sept recettes** (`CRM_AUTO_KINDS` ⇄ `v_kinds` de
+  `crm_automations__core` ⇄ délais de `crm_automation_save`), dont « A cliqué
+  sans acheter » (`click_no_buy`, migration `20261009171000`, décision de Paul
+  du 06/10) : un clic NOMINATIF dans un e-mail de la portée vers la page
+  Shotgun de la soirée (`_link_base` compare l'URL cliquée à
+  `external_ticket_url` : `…/nuit-1` ≠ `…/nuit-19`), puis aucune place à la même
+  adresse (`_email_event_holder`), 6 / 12 / 24 / 48 h après le DERNIER clic,
+  jamais dans les 2 h avant la soirée, une fois par personne et par soirée.
+  Famille URGENTE (palier 2 / 24 h, hors cooldown de 48 h) dans
+  `email_send_policy` ET `_email_send_policy_many`. Fenêtre « délai + 24 h »
+  IDENTIQUE dans le moteur et l'aperçu : ce que l'aperçu compte est ce qui part
+  si on allume. Le texte (`yc.em.tp.relance.*`, modèle hors galerie,
+  `CRM_AUTO_TEMPLATES`) dit « si vous avez déjà votre place, ignorez ce
+  message » : une place prise avec une autre adresse ne se voit pas. Une visite
+  venue d'un lien de partage `/go/`, d'Instagram ou d'une bio reste anonyme et
+  ne déclenche rien ; panier abandonné et upsell table restent « À venir »
+  (`AutoSoon`), ils demandent le checkout que Shotgun ne rapporte pas.
 - **Instagram** (`/crm/instagram`) : réponse automatique aux commentaires sous
   les RÉELS, CARROUSELS ET PHOTOS (`post_types`, jamais vide, décision de Paul),
   aussi en message privé et en réponse aux stories. Écran complet mais l'App

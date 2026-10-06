@@ -134,6 +134,7 @@ const dict: AdminDict = {
   'adm.crm.pr.kind.welcome': ['Welcome', 'Bienvenue', 'Bienvenida'],
   'adm.crm.pr.kind.win_back': ['Win-back', 'Reconquête', 'Reconquista'],
   'adm.crm.pr.kind.regular_lapse': ['A regular drifting away', 'L’habitué décroche', 'El habitual se aleja'],
+  'adm.crm.pr.kind.click_no_buy': ['Clicked without buying', 'A cliqué sans acheter', 'Hizo clic sin comprar'],
   'adm.crm.pr.wait': ['Waiting lists', 'Listes d’attente', 'Listas de espera'],
   'adm.crm.pr.waitSub': ['People who joined a “coming soon” waiting list', 'Personnes inscrites à une liste d’attente « bientôt »', 'Personas apuntadas a una lista de espera «pronto»'],
   'adm.crm.pr.waitNone': ['No one waiting yet.', 'Personne n’attend pour l’instant.', 'Nadie espera por ahora.'],

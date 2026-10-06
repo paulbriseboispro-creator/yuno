@@ -1,6 +1,6 @@
 import type { CrmDict } from './types';
 
-// Automatisations (/crm/automations) — [EN, FR, ES]. Six recettes d'un compte
+// Automatisations (/crm/automations) — [EN, FR, ES]. Sept recettes d'un compte
 // CRM, un e-mail chacune, montées par le moteur existant.
 const dict: CrmDict = {
   // En-tête
@@ -321,7 +321,7 @@ const dict: CrmDict = {
     'Este e-mail sale solo. La fiesta que muestra se elige en cada envío.',
   ],
 
-  // Les six recettes
+  // Les sept recettes
   'yc.au.r.new_event.name': ['Night announcement', 'Annonce d’une soirée', 'Anuncio de una fiesta'],
   'yc.au.r.new_event.desc': ['An email to your whole list as soon as a night goes on sale.', 'Un e-mail à toute votre base dès qu’une soirée est en vente.', 'Un e-mail a toda su base en cuanto una fiesta sale a la venta.'],
   'yc.au.r.new_event.trig': ['A night goes on sale', 'Une soirée est mise en vente', 'Una fiesta sale a la venta'],
@@ -346,6 +346,18 @@ const dict: CrmDict = {
     'Toda su base sin entrada; los compradores de Shotgun de la fiesta quedan fuera. Una fiesta agotada no desencadena nada.',
   ],
   'yc.au.r.last_call.when': ['Send: {d} before the night starts', 'Envoi : {d} avant le début de la soirée', 'Envío: {d} antes de que empiece la fiesta'],
+  'yc.au.r.click_no_buy.name': ['Clicked without buying', 'A cliqué sans acheter', 'Hizo clic sin comprar'],
+  'yc.au.r.click_no_buy.desc': ['A follow-up to those who looked at a night from one of your emails without getting a ticket.', 'Une relance à ceux qui ont regardé une soirée depuis un de vos e-mails sans prendre leur place.', 'Un recordatorio a quienes miraron una fiesta desde uno de sus e-mails sin conseguir su entrada.'],
+  'yc.au.r.click_no_buy.trig': ['A click without a purchase', 'Un clic sans achat', 'Un clic sin compra'],
+  'yc.au.r.click_no_buy.trigS': ['Clicked in an email, no ticket since', 'A cliqué dans un e-mail, pas de billet depuis', 'Hizo clic en un e-mail, sin entrada desde entonces'],
+  'yc.au.r.click_no_buy.q': ['When someone clicks a night in your emails and doesn’t buy', 'Quand quelqu’un clique sur une soirée dans vos e-mails sans acheter', 'Cuando alguien hace clic en una fiesta en sus e-mails y no compra'],
+  'yc.au.r.click_no_buy.short': ['Click, no ticket', 'Clic sans billet', 'Clic sin entrada'],
+  'yc.au.r.click_no_buy.target': [
+    'Those who clicked the night in one of your emails and have no ticket at the same address. Once per person and per night, never in the 2 hours before it starts. A visit from Instagram or your bio stays anonymous: it never triggers this.',
+    'Ceux qui ont cliqué sur la soirée dans un de vos e-mails et n’ont aucune place à la même adresse. Une fois par personne et par soirée, jamais dans les 2 h avant le début. Une visite venue d’Instagram ou de votre bio reste anonyme : elle ne déclenche rien.',
+    'Quienes hicieron clic en la fiesta en uno de sus e-mails y no tienen entrada con la misma dirección. Una vez por persona y por fiesta, nunca en las 2 h antes del inicio. Una visita desde Instagram o su bio sigue siendo anónima: no desencadena nada.',
+  ],
+  'yc.au.r.click_no_buy.when': ['Send: {d} after the click', 'Envoi : {d} après le clic', 'Envío: {d} después del clic'],
   'yc.au.r.post_event_thanks.name': ['Thanks after the night', 'Merci après la soirée', 'Gracias tras la fiesta'],
   'yc.au.r.post_event_thanks.desc': ['An email the next day to thank them and announce what’s next.', 'Un e-mail le lendemain pour remercier et annoncer la suite.', 'Un e-mail al día siguiente para agradecer y anunciar lo que viene.'],
   'yc.au.r.post_event_thanks.trig': ['The day after a night', 'Le lendemain d’une soirée', 'El día después de una fiesta'],
@@ -397,9 +409,9 @@ const dict: CrmDict = {
 
   'yc.au.soon.title': ['Coming soon', 'À venir', 'Próximamente'],
   'yc.au.soon.sub': [
-    'Three more automations are on the way. They need the data of an integrated ticketing partner.',
-    'Trois automatisations de plus arrivent. Elles demandent les données d’une billetterie intégrée.',
-    'Llegan tres automatizaciones más. Necesitan los datos de una taquilla integrada.',
+    'Two more automations are on the way. They need the data of an integrated ticketing partner.',
+    'Deux automatisations de plus arrivent. Elles demandent les données d’une billetterie intégrée.',
+    'Llegan dos automatizaciones más. Necesitan los datos de una taquilla integrada.',
   ],
   'yc.au.soon.cart.name': ['Abandoned cart', 'Panier abandonné', 'Carrito abandonado'],
   'yc.au.soon.cart.desc': [
@@ -412,12 +424,6 @@ const dict: CrmDict = {
     'Offer a VIP table to someone who just bought a ticket.',
     'Proposer une table VIP à qui vient d’acheter un billet.',
     'Ofrecer una mesa VIP a quien acaba de comprar una entrada.',
-  ],
-  'yc.au.soon.visit.name': ['Page visited', 'Page visitée', 'Página visitada'],
-  'yc.au.soon.visit.desc': [
-    'A nudge to someone who looked at your night page without buying.',
-    'Une relance à qui a regardé la page d’une soirée sans acheter.',
-    'Un empujón a quien miró la página de una fiesta sin comprar.',
   ],
 };
 

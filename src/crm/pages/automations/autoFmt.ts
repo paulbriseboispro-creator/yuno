@@ -29,6 +29,7 @@ export const AU_IC = {
 export const KIND_IC: Record<CrmAutoKind, string> = {
   new_event: AU_IC.cal,
   last_call: AU_IC.clock,
+  click_no_buy: AU_IC.bag,
   post_event_thanks: AU_IC.moon,
   post_event_missed: AU_IC.ticket,
   regular_lapse: AU_IC.trend,

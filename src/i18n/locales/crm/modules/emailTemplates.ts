@@ -118,6 +118,16 @@ const dict: CrmDict = {
   'yc.em.tp.manque.body': ['Hi {{prénom}}, we haven’t seen you {at} for a while. A new date might be just for you.', 'Bonjour {{prénom}}, on ne vous a pas vu {at} depuis un moment. Une nouvelle date pourrait vous plaire.', 'Hola {{prénom}}, hace tiempo que no le vemos {at}. Una nueva fecha podría gustarle.'],
   'yc.em.tp.manque.eventTitle': ['Your next night', 'Votre prochaine soirée', 'Su próxima fiesta'],
   'yc.em.tp.manque.cta': ['Come back to {venue}', 'Revenir {at}', 'Volver a {venue}'],
+  // Modèle de la recette « A cliqué sans acheter » (pas dans la galerie).
+  'yc.em.tp.relance.name': ['Clicked without buying', 'A cliqué sans acheter', 'Hizo clic sin comprar'],
+  'yc.em.tp.relance.desc': ['For those who looked at a night from one of your emails without getting a ticket.', 'Pour ceux qui ont regardé une soirée depuis un de vos e-mails sans prendre leur place.', 'Para quienes miraron una fiesta desde uno de sus e-mails sin conseguir su entrada.'],
+  'yc.em.tp.relance.aud': ['Those who clicked without buying', 'Ceux qui ont cliqué sans acheter', 'Quienes hicieron clic sin comprar'],
+  'yc.em.tp.relance.subject': ['{{prénom}}, this night is waiting for you', '{{prénom}}, cette soirée vous attend', '{{prénom}}, esta fiesta le espera'],
+  'yc.em.tp.relance.pre': ['You had a look: here is the link to get your spot.', 'Vous l’avez regardée : voici le lien pour prendre votre place.', 'La miró: aquí tiene el enlace para conseguir su plaza.'],
+  'yc.em.tp.relance.title': ['Still tempted?', 'Toujours tenté ?', '¿Sigue con ganas?'],
+  'yc.em.tp.relance.body': ['Hi {{prénom}},\nYou looked at this night {at}. If you already have your spot, ignore this message; otherwise, it’s waiting for you just below.', 'Bonjour {{prénom}},\nVous avez regardé cette soirée {at}. Si vous avez déjà votre place, ne tenez pas compte de ce message ; sinon, elle vous attend juste en dessous.', 'Hola {{prénom}},\nMiró esta fiesta {at}. Si ya tiene su plaza, ignore este mensaje; si no, le espera justo debajo.'],
+  'yc.em.tp.relance.eventTitle': ['The night you looked at', 'La soirée que vous avez regardée', 'La fiesta que miró'],
+  'yc.em.tp.relance.cta': ['Get my spot', 'Prendre ma place', 'Conseguir mi plaza'],
 
   // ── Merci pour hier soir ──
   'yc.em.tp.merci.name': ['Thanks for last night', 'Merci pour hier soir', 'Gracias por anoche'],

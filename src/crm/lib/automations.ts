@@ -1,17 +1,20 @@
 /**
- * Les six recettes d'automatisation d'un compte Yuno CRM (billetterie
+ * Les sept recettes d'automatisation d'un compte Yuno CRM (billetterie
  * connectée) et leurs règles d'écran : délais proposés (miroir des choix
  * acceptés par crm_automation_save), modèle CRM qui leur donne leur e-mail,
  * libellés de délai, état d'une recette, consommation de Yunits.
  *
  * Le panier abandonné, le tarif qui monte et la table à proposer lisent le
- * checkout de Yuno : jamais déclenchés sur Shotgun. La bienvenue attend les
+ * checkout de Yuno : jamais déclenchés sur Shotgun. « A cliqué sans acheter »
+ * lit un clic NOMINATIF dans un de nos e-mails, puis l'absence de billet
+ * Shotgun à la même adresse : une visite venue d'ailleurs (Instagram, bio)
+ * reste anonyme et n'y entre jamais. La bienvenue attend les
  * pages d'inscription (CRM_AUTOMATION_KINDS, src/lib/email/automations.ts).
  */
 import type { CrmTemplateKind } from '@/crm/lib/emailTemplates';
 import { interpolateVariables } from '@/lib/email/variables';
 
-export const CRM_AUTO_KINDS = ['new_event', 'last_call', 'post_event_thanks', 'post_event_missed', 'regular_lapse', 'win_back'] as const;
+export const CRM_AUTO_KINDS = ['new_event', 'last_call', 'click_no_buy', 'post_event_thanks', 'post_event_missed', 'regular_lapse', 'win_back'] as const;
 export type CrmAutoKind = (typeof CRM_AUTO_KINDS)[number];
 
 export type AutoDirection = 'after' | 'before' | 'dormant';
@@ -30,6 +33,8 @@ export interface CrmAutoMeta {
 export const CRM_AUTO_META: Record<CrmAutoKind, CrmAutoMeta> = {
   new_event: { tpl: 'annonce', delays: [2, 6, 24], def: 6, dir: 'after' },
   last_call: { tpl: 'lastcall', delays: [12, 24, 48, 72], def: 24, dir: 'before' },
+  // Miroir des délais acceptés par crm_automation_save (migration 20261009171000).
+  click_no_buy: { tpl: 'relance', delays: [6, 12, 24, 48], def: 24, dir: 'after' },
   post_event_thanks: { tpl: 'merci', delays: [6, 12, 24, 48], def: 12, dir: 'after', needsScan: true },
   post_event_missed: { tpl: 'manque', delays: [12, 24, 48, 72], def: 24, dir: 'after', needsScan: true },
   regular_lapse: { tpl: 'manque', delays: [672, 1008, 1344], def: 1008, dir: 'dormant' },
