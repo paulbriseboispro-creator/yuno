@@ -3,6 +3,7 @@ import type {
 } from './types';
 import { DEFAULT_STUDIO_THEME, THEME_PRESETS } from './themes';
 import { makeBlock } from './blocks';
+import { BLOCK_CONDS } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Migration des campagnes v1 (modèle src/lib/emailCampaign.ts) vers le modèle
@@ -53,8 +54,11 @@ export function htmlToPlain(html: string): string {
  */
 export function normalizeV2Blocks(raw: unknown): EmailBlock[] {
   const blocks = Array.isArray(raw) ? (raw as (EmailBlock & { cond?: unknown })[]) : [];
+  // Toutes les règles connues (BLOCK_CONDS, compléments `no_*` compris) plus
+  // les libellés du prototype. Une règle absente d'ici était remise à null à
+  // chaque ouverture : le bloc partait alors à tout le monde.
   const condMap: Record<string, EmailBlock['cond']> = {
-    'vip_table': 'vip_table', 'new_subscribers': 'new_subscribers', 'buyers': 'buyers',
+    ...Object.fromEntries(BLOCK_CONDS.map((c) => [c, c])),
     'VIP · Table': 'vip_table', 'Nouveaux abonnés': 'new_subscribers', 'A déjà acheté': 'buyers',
   };
   return blocks.map((b) => {
