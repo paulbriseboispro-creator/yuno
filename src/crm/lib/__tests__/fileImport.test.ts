@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoMap, parseCsv, prepareLines, splitWithBase, toImportRow, SAMPLE_CSV } from '../fileImport';
+import { autoMap, parseCsv, prepareLines, readAge, splitWithBase, toImportRow, SAMPLE_CSV } from '../fileImport';
 
 describe('parseCsv', () => {
   it('devine le point-virgule, garde les guillemets et retire le BOM', () => {
@@ -17,6 +17,14 @@ describe('autoMap', () => {
   it('reconnaît les en-têtes FR / EN / ES et ne sert un champ qu’une fois', () => {
     expect(autoMap(['Prénom', 'Nom', 'E-mail', 'Mobile', 'Ville', 'Courriel'])).toEqual(['prenom', 'nom', 'email', 'tel', 'ville', 'skip']);
     expect(autoMap(['First name', 'Last name', 'Phone'])).toEqual(['prenom', 'nom', 'tel']);
+  });
+  it('lit les colonnes de profil d’un export Shotgun ou Dice (catalogue de segments)', () => {
+    expect(autoMap(['Prénom', 'Nom', 'Email', 'Téléphone', 'Pays', 'Département', 'Ville', 'Code postal', 'Âge', 'Genre']))
+      .toEqual(['prenom', 'nom', 'email', 'tel', 'pays', 'skip', 'ville', 'cp', 'age', 'genre']);
+    expect(autoMap(['Date de naissance', 'Sexe', 'Zip', 'Country'])).toEqual(['naissance', 'genre', 'cp', 'pays']);
+  });
+  it('prend « Nombre » pour un prénom (espagnol), pas pour un nom', () => {
+    expect(autoMap(['Nombre', 'Apellidos', 'Correo', 'Edad'])).toEqual(['prenom', 'nom', 'email', 'age']);
   });
   it('repère une colonne d’adresses sans en-tête parlant', () => {
     expect(autoMap(['A', 'B'], [['x', 'a@b.fr'], ['y', 'c@d.fr'], ['z', 'e@f.fr']])).toEqual(['skip', 'email']);
@@ -56,5 +64,28 @@ describe('prepareLines + splitWithBase', () => {
   it('rend des lignes prêtes pour import_contact_list', () => {
     expect(toImportRow({ line: 2, name: 'x', email: 'a@b.fr', phone: null, first_name: 'A', last_name: null, city: 'Paris' }))
       .toEqual({ email: 'a@b.fr', first_name: 'A', city: 'Paris' });
+  });
+});
+
+describe('profil d’une ligne (âge, genre, pays, code postal)', () => {
+  const file = parseCsv('Email;Pays;CP;Âge;Naissance;Genre\nlea@exemple.fr;France;75011;24;;Femme\ntom@exemple.fr;Atlantide;;;1990-05-12;M\nzoe@exemple.fr;ES;28004;9;;?');
+  const prep = prepareLines(file, autoMap(file.head, file.rows));
+
+  it('normalise le pays en ISO 2, garde le texte d’un pays inconnu', () => {
+    expect(prep.lines.map((l) => [l.country_code ?? null, l.country ?? null])).toEqual([['FR', null], [null, 'Atlantide'], ['ES', null]]);
+  });
+  it('lit l’âge, sinon la date de naissance, et écarte un âge hors bornes', () => {
+    expect(prep.lines[0].age).toBe(24);
+    expect(prep.lines[1].age).toBeGreaterThanOrEqual(35);
+    expect(prep.lines[2].age).toBeNull();
+    expect(readAge('', '')).toBeNull();
+    expect(readAge('140', '')).toBeNull();
+  });
+  it('rend femme / homme, rien pour une valeur illisible', () => {
+    expect(prep.lines.map((l) => l.gender ?? null)).toEqual(['female', 'male', null]);
+  });
+  it('envoie ces champs à import_contact_list sous leurs noms serveur', () => {
+    expect(toImportRow(prep.lines[0])).toEqual({ email: 'lea@exemple.fr', postal_code: '75011', country_code: 'FR', age: '24', gender: 'female' });
+    expect(toImportRow(prep.lines[1])).toMatchObject({ email: 'tom@exemple.fr', country: 'Atlantide', gender: 'male' });
   });
 });

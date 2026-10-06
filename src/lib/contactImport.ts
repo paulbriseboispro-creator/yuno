@@ -254,7 +254,7 @@ function parseBool(v: string): boolean | undefined {
   return undefined;
 }
 
-function parseGender(v: string): Gender | undefined {
+export function parseGender(v: string): Gender | undefined {
   const n = normalizeHeader(v);
   if (!n) return undefined;
   if (['f', 'female', 'femme', 'woman', 'women', 'mujer', 'mme', 'madame', 'mlle', 'w', 'feminin', 'femenino'].includes(n)) return 'female';
@@ -306,7 +306,7 @@ export function parseDate(v: string): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
-function ageFromBirth(iso: string | undefined): number | undefined {
+export function ageFromBirth(iso: string | undefined): number | undefined {
   if (!iso) return undefined;
   const b = new Date(iso); const now = new Date();
   let age = now.getUTCFullYear() - b.getUTCFullYear();

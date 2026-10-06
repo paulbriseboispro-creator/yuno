@@ -8,9 +8,16 @@
  */
 import { isValidEmail } from '@/lib/emailImport';
 import { IMPORT_COUNTRIES, normalizePhone } from '@/lib/smsImport';
+import { ageFromBirth, countryToIso, parseDate, parseGender } from '@/lib/contactImport';
+import type { Gender } from '@/lib/contactImport';
 
-export type ColField = 'email' | 'tel' | 'prenom' | 'nom' | 'ville' | 'skip';
-export const COL_FIELDS: ColField[] = ['email', 'tel', 'prenom', 'nom', 'ville', 'skip'];
+/**
+ * Champs d'une colonne. Âge, date de naissance, genre, pays et code postal
+ * nourrissent les segments du catalogue (âge, genre, villes, pays) : la
+ * Billetterie les lisait déjà, l'import CRM les ignorait.
+ */
+export type ColField = 'email' | 'tel' | 'prenom' | 'nom' | 'ville' | 'cp' | 'pays' | 'age' | 'naissance' | 'genre' | 'skip';
+export const COL_FIELDS: ColField[] = ['email', 'tel', 'prenom', 'nom', 'ville', 'cp', 'pays', 'age', 'naissance', 'genre', 'skip'];
 export const MAX_LINES = 50_000;
 export const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -114,11 +121,17 @@ export function autoMap(head: string[], rows: string[][] = []): ColField[] {
   const map = head.map((h): ColField => {
     const s = norm(h);
     let k: ColField = 'skip';
-    if (/prenom|first|given/.test(s)) k = 'prenom';
+    // « Nombre » est un PRÉNOM en espagnol : avant /^nom/, qui le prenait pour un nom.
+    if (/prenom|first|given|^nombre$/.test(s)) k = 'prenom';
     else if (/^nom|last|surname|famil|apellido/.test(s)) k = 'nom';
     else if (/mail|courriel|correo/.test(s)) k = 'email';
     else if (/tel|mobile|portable|phone|gsm|movil|whatsapp/.test(s)) k = 'tel';
-    else if (/ville|city|ciudad|localite/.test(s)) k = 'ville';
+    else if (/code postal|codigo postal|^cp$|zip|postal|postcode/.test(s)) k = 'cp';
+    else if (/ville|city|ciudad|localite|commune|municipio/.test(s)) k = 'ville';
+    else if (/^pays|country|^pais|nationalit/.test(s)) k = 'pays';
+    else if (/naissance|birth|^dob$|nacimiento|anniversaire/.test(s)) k = 'naissance';
+    else if (/^age$|^edad$/.test(s)) k = 'age';
+    else if (/genre|sexe|gender|^sex|genero|sexo|civilit/.test(s)) k = 'genre';
     if (k !== 'skip') { if (used.has(k)) k = 'skip'; else used.add(k); }
     return k;
   });
@@ -141,6 +154,12 @@ export interface FileLine {
   first_name: string | null;
   last_name: string | null;
   city: string | null;
+  postal_code?: string | null;
+  /** ISO 2 quand le pays est reconnu ; sinon le texte, gardé tel quel. */
+  country_code?: string | null;
+  country?: string | null;
+  age?: number | null;
+  gender?: Gender | null;
 }
 
 export interface BucketItem { t: string; s: string }
@@ -160,11 +179,27 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
   const iP = map.indexOf('prenom');
   const iN = map.indexOf('nom');
   const iV = map.indexOf('ville');
+  const iC = map.indexOf('cp');
+  const iY = map.indexOf('pays');
+  const iA = map.indexOf('age');
+  const iB = map.indexOf('naissance');
+  const iG = map.indexOf('genre');
   const get = (r: string[], j: number) => (j >= 0 ? String(r[j] ?? '').trim() : '');
   const lines: FileLine[] = [];
   const dup: Analysis['dup'] = [];
   const bad: Analysis['bad'] = [];
   const seen = new Map<string, number>();
+  const profileOf = (r: string[]): Partial<FileLine> => {
+    const out: Partial<FileLine> = {};
+    const cp = get(r, iC);
+    if (cp) out.postal_code = cp.slice(0, 20);
+    const py = get(r, iY);
+    if (py) { const iso = countryToIso(py); if (iso) out.country_code = iso; else out.country = py.slice(0, 80); }
+    out.age = readAge(get(r, iA), get(r, iB));
+    const g = get(r, iG);
+    if (g) out.gender = parseGender(g) ?? null;
+    return out;
+  };
   file.rows.forEach((r, i) => {
     const line = i + 2;
     const rawE = get(r, iE);
@@ -189,7 +224,7 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
       return;
     }
     keys.forEach((k) => seen.set(k, line));
-    lines.push({ line, name, email: eOk ? e : null, phone: t, first_name: first, last_name: last, city: get(r, iV) || null });
+    lines.push({ line, name, email: eOk ? e : null, phone: t, first_name: first, last_name: last, city: get(r, iV) || null, ...profileOf(r) });
   });
   return {
     lines, dup, bad,
@@ -228,7 +263,22 @@ export function toImportRow(l: FileLine) {
   if (l.first_name) row.first_name = l.first_name;
   if (l.last_name) row.last_name = l.last_name;
   if (l.city) row.city = l.city;
+  if (l.postal_code) row.postal_code = l.postal_code;
+  if (l.country_code) row.country_code = l.country_code;
+  else if (l.country) row.country = l.country;
+  if (l.age) row.age = String(l.age);
+  if (l.gender) row.gender = l.gender;
   return row;
+}
+
+/**
+ * Âge d'une ligne : la colonne « Âge » (12 à 110 ans), sinon la date de
+ * naissance. Un âge hors bornes n'est pas gardé (le serveur le refuse aussi).
+ */
+export function readAge(age: string, birth: string): number | null {
+  const a = /^\d{1,3}$/.test(age.trim()) ? Number(age.trim()) : NaN;
+  if (a >= 12 && a <= 110) return a;
+  return ageFromBirth(parseDate(birth)) ?? null;
 }
 
 /** Le fichier d'exemple (adresses @exemple.fr, numéros de fiction). */
