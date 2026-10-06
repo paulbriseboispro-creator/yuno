@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSmartData, canonicalTag, hasSmartSalesLink, lintEmail, lintSmartSection, mapSectionLinks, parseSmart,
-  renderSmartSection, renderSmartTemplate, safeEmailUrl, sanitizeSectionHtml, sectionText, smartNeeds, smartSelectionUrl,
+  mobileSafeHtml, renderSmartSection, renderSmartTemplate, safeEmailUrl, sanitizeSectionHtml, sectionText, smartNeeds, smartSelectionUrl,
   type SmartEvent,
 } from '../smart';
 
@@ -262,5 +262,28 @@ describe('renderEmailHtml — sections sur mesure', () => {
     expect(html).toContain('<p>Salut Léa &amp; co</p>');
     expect(html).not.toContain('<script>x');
     expect(html).toContain('lang="fr"');
+  });
+});
+
+describe('mobileSafeHtml — débordement mobile', () => {
+  it('ajoute box-sizing à un bloc en 100 % qui porte un padding', () => {
+    const out = mobileSafeHtml('<div style="width:100%;padding:28px;background:#eb5">x</div>');
+    expect(out).toContain('box-sizing:border-box');
+  });
+  it('plafonne une largeur fixe de plus de 320 px, jamais une image', () => {
+    expect(mobileSafeHtml('<table style="width:520px"><tr><td>x</td></tr></table>')).toContain('max-width:100%');
+    expect(mobileSafeHtml('<img src="https://a.b/c.png" style="width:520px">')).not.toContain('max-width');
+    expect(mobileSafeHtml('<td style="width:200px">x</td>')).not.toContain('max-width');
+  });
+  it('laisse intact un style déjà sûr', () => {
+    const ok = '<div style="width:100%;padding:8px;box-sizing:border-box">x</div>';
+    expect(mobileSafeHtml(ok)).toBe(ok);
+  });
+  it('renderSmartSection applique le filet, le lint prévient', () => {
+    const code = '<div style="width:100%;padding:28px">x</div><table style="width:480px"></table>';
+    expect(renderSmartSection(code, {})).toContain('box-sizing:border-box');
+    const codes = lintSmartSection(code).map((i) => i.code);
+    expect(codes).toContain('fixed_width_mobile');
+    expect(codes).toContain('width_100_padding');
   });
 });

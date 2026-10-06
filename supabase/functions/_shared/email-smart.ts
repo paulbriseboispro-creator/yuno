@@ -740,8 +740,30 @@ export const SECTION_MAX_CHARS = 60_000;
  */
 export function renderSmartSection(code: string, data: Record<string, unknown>, track?: (url: string) => string): string {
   const resolved = renderSmartTemplate(String(code || '').slice(0, SECTION_MAX_CHARS * 2), data);
-  const clean = sanitizeSectionHtml(resolved).html;
+  const clean = mobileSafeHtml(sanitizeSectionHtml(resolved).html);
   return track ? mapSectionLinks(clean, track) : clean;
+}
+
+/**
+ * Filet anti-débordement mobile pour du HTML écrit à la main ou par une IA.
+ * Deux fautes récurrentes, corrigées à l'envoi comme à l'aperçu : un bloc en
+ * `width:100%` qui porte aussi un `padding` (sans `box-sizing`, il dépasse de
+ * son parent de la valeur du padding) et une largeur fixe de plus de 320 px
+ * sans `max-width` (elle dépasse d'un téléphone de 375 px).
+ */
+export function mobileSafeHtml(html: string): string {
+  return String(html || '').replace(/<(?!img\b)([a-z][a-z0-9]*)\b([^>]*?\sstyle\s*=\s*)("([^"]*)"|'([^']*)')([^>]*)>/gi,
+    (m, tag: string, pre: string, _q: string, dq: string | undefined, sq: string | undefined, post: string) => {
+      const style = dq ?? sq ?? '';
+      let add = '';
+      const full = /(^|;)\s*width\s*:\s*100%/i.test(style);
+      if (full && /(^|;)\s*padding(-[a-z]+)?\s*:\s*[^;]*[1-9]/i.test(style) && !/box-sizing/i.test(style)) add += ';box-sizing:border-box';
+      const px = /(^|;)\s*width\s*:\s*(\d+(?:\.\d+)?)px/i.exec(style);
+      if (px && Number(px[2]) > 320 && !/max-width/i.test(style)) add += ';max-width:100%;box-sizing:border-box';
+      if (!add) return m;
+      const q = dq !== undefined ? '"' : "'";
+      return `<${tag}${pre}${q}${style.replace(/;?\s*$/, '')}${add}${q}${post}>`;
+    });
 }
 
 // ── Ce qu'une section demande aux données ────────────────────────────────────
@@ -881,6 +903,10 @@ export function lintSmartSection(code: string, opt: LintSectionOptions = {}): Sm
   if (/\sclass\s*=/i.test(src) && !/style\s*=/i.test(src)) add('warning', 'css_classes', 'Classes have no CSS in an email (styles are removed): put every style inline.');
   const wide = attrValues(src, 'width').map((x) => Number(String(x).replace(/px$/i, ''))).filter((n) => Number.isFinite(n) && n > 600);
   if (wide.length || /width\s*:\s*(6[0-9]{2}|[7-9]\d{2}|\d{4,})px/i.test(src)) add('warning', 'too_wide', 'Elements wider than 600 px overflow on mobile: the email container is 600 px.');
+
+  if (/margin(-[a-z]+)?\s*:\s*[^;"']*-\d+(px)?/i.test(src)) add('warning', 'negative_margin', 'Negative margins push content outside its container on mobile: use the container padding instead.');
+  if (/(^|[;"'\s])width\s*:\s*(3[2-9]\d|[4-5]\d{2})px/i.test(src)) add('warning', 'fixed_width_mobile', 'Fixed widths above 320 px overflow on a 375 px phone: use width:100% with max-width, never a fixed pixel width, for cards and boxes (Yuno adds max-width:100% as a safety net, check the preview).');
+  if (/width\s*:\s*100%[^"']*padding\s*:/i.test(src) && !/box-sizing/i.test(src)) add('warning', 'width_100_padding', 'width:100% plus padding overflows its parent (the padding is added on top): put the padding on an inner <td> or add box-sizing:border-box.');
 
   // Liens.
   const hrefs = attrValues(src, 'href');
