@@ -8,16 +8,19 @@
  */
 import { isValidEmail } from '@/lib/emailImport';
 import { IMPORT_COUNTRIES, normalizePhone } from '@/lib/smsImport';
-import { ageFromBirth, countryToIso, parseDate, parseGender } from '@/lib/contactImport';
+import { ageFromBirth, countryToIso, parseDate, parseGender, parseMoney } from '@/lib/contactImport';
 import type { Gender } from '@/lib/contactImport';
 
 /**
  * Champs d'une colonne. Âge, date de naissance, genre, pays et code postal
- * nourrissent les segments du catalogue (âge, genre, villes, pays) : la
- * Billetterie les lisait déjà, l'import CRM les ignorait.
+ * nourrissent les segments du catalogue (âge, genre, villes, pays). Total
+ * dépensé, nombre de soirées, dernier achat et première venue sont
+ * l'historique du client : ils comptent dans son cycle de vie
+ * (_crm_people_build, sans jamais doubler ce que Shotgun rapporte).
  */
-export type ColField = 'email' | 'tel' | 'prenom' | 'nom' | 'ville' | 'cp' | 'pays' | 'age' | 'naissance' | 'genre' | 'skip';
-export const COL_FIELDS: ColField[] = ['email', 'tel', 'prenom', 'nom', 'ville', 'cp', 'pays', 'age', 'naissance', 'genre', 'skip'];
+export type ColField = 'email' | 'tel' | 'prenom' | 'nom' | 'ville' | 'cp' | 'pays' | 'age' | 'naissance' | 'genre'
+  | 'depense' | 'soirees' | 'dernier' | 'premier' | 'skip';
+export const COL_FIELDS: ColField[] = ['email', 'tel', 'prenom', 'nom', 'ville', 'cp', 'pays', 'age', 'naissance', 'genre', 'depense', 'soirees', 'dernier', 'premier', 'skip'];
 export const MAX_LINES = 50_000;
 export const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -121,10 +124,15 @@ export function autoMap(head: string[], rows: string[][] = []): ColField[] {
   const map = head.map((h): ColField => {
     const s = norm(h);
     let k: ColField = 'skip';
+    // Les dates d'historique d'abord : « Last purchase » n'est pas un nom, « First order » pas un prénom.
+    if (/^dernier|^derniere|last[ _-]?(purchase|order|event|visit|seen|activity|ticket)|ultim/.test(s)) k = 'dernier';
+    else if (/premier achat|premiere (venue|visite|commande)|first[ _-]?(purchase|order|visit|event)|^ajoute|^added|^created|creation|inscri|sign[ _-]?up|^alta|primera/.test(s)) k = 'premier';
     // « Nombre » est un PRÉNOM en espagnol : avant /^nom/, qui le prenait pour un nom.
-    if (/prenom|first|given|^nombre$/.test(s)) k = 'prenom';
+    else if (/prenom|first|given|^nombre$/.test(s)) k = 'prenom';
     else if (/^nom|last|surname|famil|apellido/.test(s)) k = 'nom';
     else if (/mail|courriel|correo/.test(s)) k = 'email';
+    else if (/depens|spent|spend|montant|gasto|importe|amount|ltv|chiffre d.?affaires|^ca$|revenue/.test(s)) k = 'depense';
+    else if (/evenement|\bevents?\b|event[ _-]?count|soirees?|visites?|eventos|visitas|attendance|commandes|orders|billets|tickets|entradas/.test(s)) k = 'soirees';
     else if (/tel|mobile|portable|phone|gsm|movil|whatsapp/.test(s)) k = 'tel';
     else if (/code postal|codigo postal|^cp$|zip|postal|postcode/.test(s)) k = 'cp';
     else if (/ville|city|ciudad|localite|commune|municipio/.test(s)) k = 'ville';
@@ -160,6 +168,11 @@ export interface FileLine {
   country?: string | null;
   age?: number | null;
   gender?: Gender | null;
+  /** Historique du fichier : total dépensé (€), soirées, dates ISO. */
+  total_spent?: number | null;
+  event_count?: number | null;
+  last_purchase_at?: string | null;
+  added_at?: string | null;
 }
 
 export interface BucketItem { t: string; s: string }
@@ -184,6 +197,10 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
   const iA = map.indexOf('age');
   const iB = map.indexOf('naissance');
   const iG = map.indexOf('genre');
+  const iD = map.indexOf('depense');
+  const iS = map.indexOf('soirees');
+  const iL = map.indexOf('dernier');
+  const iF = map.indexOf('premier');
   const get = (r: string[], j: number) => (j >= 0 ? String(r[j] ?? '').trim() : '');
   const lines: FileLine[] = [];
   const dup: Analysis['dup'] = [];
@@ -198,6 +215,14 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
     out.age = readAge(get(r, iA), get(r, iB));
     const g = get(r, iG);
     if (g) out.gender = parseGender(g) ?? null;
+    const sp = parseMoney(get(r, iD));
+    if (sp !== undefined && sp >= 0) out.total_spent = sp;
+    const ev = readCount(get(r, iS));
+    if (ev !== null) out.event_count = ev;
+    const ld = parseDate(get(r, iL));
+    if (ld) out.last_purchase_at = ld;
+    const fd = parseDate(get(r, iF));
+    if (fd) out.added_at = fd;
     return out;
   };
   file.rows.forEach((r, i) => {
@@ -268,7 +293,19 @@ export function toImportRow(l: FileLine) {
   else if (l.country) row.country = l.country;
   if (l.age) row.age = String(l.age);
   if (l.gender) row.gender = l.gender;
+  if (l.total_spent !== undefined && l.total_spent !== null) row.total_spent = String(l.total_spent);
+  if (l.event_count !== undefined && l.event_count !== null) row.event_count = String(l.event_count);
+  if (l.last_purchase_at) row.last_purchase_at = l.last_purchase_at;
+  if (l.added_at) row.added_at = l.added_at;
   return row;
+}
+
+/** « 12 », « 12 soirées », « 1 204 » → entier ; vide ou illisible → null. */
+export function readCount(v: string): number | null {
+  const s = (v ?? '').replace(/[\s\u00A0\u202F]/g, '');
+  if (!/^\d{1,6}/.test(s)) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 /**

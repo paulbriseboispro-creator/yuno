@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoMap, parseCsv, prepareLines, readAge, splitWithBase, toImportRow, SAMPLE_CSV } from '../fileImport';
+import { autoMap, parseCsv, prepareLines, readAge, readCount, splitWithBase, toImportRow, SAMPLE_CSV } from '../fileImport';
 
 describe('parseCsv', () => {
   it('devine le point-virgule, garde les guillemets et retire le BOM', () => {
@@ -87,5 +87,30 @@ describe('profil d’une ligne (âge, genre, pays, code postal)', () => {
   it('envoie ces champs à import_contact_list sous leurs noms serveur', () => {
     expect(toImportRow(prep.lines[0])).toEqual({ email: 'lea@exemple.fr', postal_code: '75011', country_code: 'FR', age: '24', gender: 'female' });
     expect(toImportRow(prep.lines[1])).toMatchObject({ email: 'tom@exemple.fr', country: 'Atlantide', gender: 'male' });
+  });
+});
+
+describe('historique d’une ligne (dépense, soirées, dernier achat, première venue)', () => {
+  it('reconnaît les colonnes d’historique d’un export Shotgun, Dice ou Weezevent', () => {
+    expect(autoMap(['Prénom', 'Nom', 'Email', 'Ajouté', 'Dernier achat', 'Total dépensé', 'Total évènements']))
+      .toEqual(['prenom', 'nom', 'email', 'premier', 'dernier', 'depense', 'soirees']);
+    expect(autoMap(['first_name', 'last_name', 'email', 'last_purchase', 'first_order', 'total_spent', 'event_count']))
+      .toEqual(['prenom', 'nom', 'email', 'dernier', 'premier', 'depense', 'soirees']);
+    expect(autoMap(['Last name', 'First name'])).toEqual(['nom', 'prenom']);
+  });
+  it('lit montants, nombres et dates, et les envoie sous leurs noms serveur', () => {
+    const f = parseCsv('Email;Total dépensé;Total évènements;Dernier achat;Ajouté\nlea@exemple.fr;"1 250,50 €";4;12/03/2025;2024-02-10\ntom@exemple.fr;;;;');
+    const prep = prepareLines(f, autoMap(f.head, f.rows));
+    expect(toImportRow(prep.lines[0])).toEqual({
+      email: 'lea@exemple.fr', total_spent: '1250.5', event_count: '4',
+      last_purchase_at: '2025-03-12T00:00:00.000Z', added_at: '2024-02-10T00:00:00.000Z',
+    });
+    expect(toImportRow(prep.lines[1])).toEqual({ email: 'tom@exemple.fr' });
+  });
+  it('compte un nombre écrit avec son unité, jamais un texte', () => {
+    expect(readCount('12 soirées')).toBe(12);
+    expect(readCount('1 204')).toBe(1204);
+    expect(readCount('beaucoup')).toBeNull();
+    expect(readCount('')).toBeNull();
   });
 });
