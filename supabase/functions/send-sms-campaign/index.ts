@@ -14,8 +14,9 @@
 //   • resume  → une campagne en pause repart (crédits rechargés, pause levée).
 //
 // Deux portefeuilles, une mécanique : les crédits SMS de la Suite
-// (`sms_credit_balances`) ou les Yunits de la Console CRM (35 par SMS,
-// `crm_pricing.rates.sms`). La plateforme (Yuno à sa base) ne débite rien.
+// (`sms_credit_balances`) ou les Yunits de la Console CRM (35 par SMS en
+// France, 70 vers l'étranger : `crm_sms_rates()`, zone lue sur le numéro).
+// La plateforme (Yuno à sa base) ne débite rien.
 //
 // GARANTIES :
 //   1. `claim_sms_campaign_recipients` (FOR UPDATE SKIP LOCKED) — deux workers
@@ -38,8 +39,8 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import {
-  composeSmsBody, isFrenchNumber, normalizeLang, resolveSmsVars, senderIdError, smsHoldReason, smsSizing, toSenderId,
-  cleanSenderName, type SmsQuietRules,
+  composeSmsBody, isFrenchNumber, normalizeLang, resolveSmsVars, senderIdError, smsHoldReason, smsSizing, smsTariffZone, toSenderId,
+  cleanSenderName, type SmsQuietRules, type SmsTariffZone,
 } from "../_shared/sms-text.ts";
 import {
   batchRequestId, OCTOPUSH_BATCH, octopushConfig, octopushErrorLabel, sendOctopushBatch, type OctopushConfig,
@@ -142,49 +143,66 @@ async function isCrmCampaign(admin: Admin, campaignId: string): Promise<boolean>
   return data === true;
 }
 
-/** Yunits par SMS (un segment) pour la Console CRM. */
-async function crmRate(admin: Admin): Promise<number> {
-  const { data } = await admin.rpc("crm_sms_rate");
-  return Math.max(1, Number(data) || 35);
-}
-
 interface Wallet {
   /** Suite : id du solde de crédits SMS. Null = plateforme ou CRM. */
   balanceId: string | null;
-  /** CRM : Yunits par segment. 0 = pas de Yunits. */
-  rate: number;
+  /** CRM : Yunits par SMS selon la zone du numéro. Null = pas de Yunits (Suite, plateforme). */
+  rates: { fr: number; intl: number } | null;
 }
 
 async function walletFor(admin: Admin, scope: Scope): Promise<Wallet> {
-  if (scope.platform) return { balanceId: null, rate: 0 };
-  if (scope.crm) return { balanceId: null, rate: await crmRate(admin) };
+  if (scope.platform) return { balanceId: null, rates: null };
+  if (scope.crm) {
+    const { data } = await admin.rpc("crm_sms_rates");
+    const r = (data as { fr?: number; intl?: number } | null) ?? {};
+    return { balanceId: null, rates: { fr: Math.max(1, Number(r.fr) || 35), intl: Math.max(1, Number(r.intl) || 70) } };
+  }
   const { data, error } = await admin.rpc("get_or_create_sms_balance", { p_venue_id: scope.venueId, p_organizer_id: scope.organizerId });
   if (error || !data) throw new Error(`Balance error: ${error?.message ?? "unknown"}`);
-  return { balanceId: data as string, rate: 0 };
+  return { balanceId: data as string, rates: null };
 }
 
-/** Solde exprimé en SEGMENTS (crédits SMS, ou Yunits ÷ tarif). La plateforme n'est jamais bloquée. */
-async function segmentsAvailable(admin: Admin, scope: Scope, w: Wallet): Promise<number> {
+/**
+ * Unités débitées pour `segments` SMS vers une zone : Yunits (CRM, tarif de la
+ * zone) ou crédits (Suite, 1 crédit = 1 segment). Zéro pour la plateforme.
+ */
+function unitsFor(scope: Scope, w: Wallet, segments: number, zone: SmsTariffZone): number {
+  if (scope.platform) return 0;
+  if (w.rates) return segments * (zone === "fr" ? w.rates.fr : w.rates.intl);
+  return segments;
+}
+
+/** Solde du portefeuille (Yunits ou crédits). La plateforme n'est jamais bloquée. */
+async function unitsAvailable(admin: Admin, scope: Scope, w: Wallet): Promise<number> {
   if (scope.platform) return Number.MAX_SAFE_INTEGER;
   if (scope.crm) {
     const { data } = await admin.rpc("crm_yunits_balance", { p_scope_key: scope.scopeKey });
-    return Math.floor(Number(data || 0) / w.rate);
+    return Number(data || 0);
   }
   const { data } = await admin.from("sms_credit_balances").select("balance").eq("id", w.balanceId).single();
   return Number(data?.balance ?? 0);
 }
 
-/** Débite `segments` segments ; false = solde insuffisant (rien n'est débité). */
-async function debit(admin: Admin, scope: Scope, w: Wallet, segments: number, campaignId: string | null, label: string): Promise<boolean> {
-  if (segments <= 0 || scope.platform) return true;
+/** Ce que coûtent les numéros encore en file, selon leur zone. */
+async function unitsNeeded(admin: Admin, scope: Scope, w: Wallet, campaignId: string, segments: number): Promise<number> {
+  const base = () => admin.from("sms_campaign_recipients").select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId).in("status", ["pending", "sending"]);
+  const [{ count: all }, { count: fr }] = await Promise.all([base(), base().like("phone_e164", "+33%")]);
+  const total = Number(all || 0), french = Number(fr || 0);
+  return unitsFor(scope, w, segments, "fr") * french + unitsFor(scope, w, segments, "intl") * (total - french);
+}
+
+/** Débite `units` (Yunits ou crédits) ; false = solde insuffisant (rien n'est débité). */
+async function debit(admin: Admin, scope: Scope, w: Wallet, units: number, campaignId: string | null, label: string): Promise<boolean> {
+  if (units <= 0 || scope.platform) return true;
   if (scope.crm) {
     const { data, error } = await admin.rpc("crm_yunits_debit", {
-      p_scope_key: scope.scopeKey, p_amount: segments * w.rate, p_channel: "sms",
+      p_scope_key: scope.scopeKey, p_amount: units, p_channel: "sms",
       p_ref_type: "sms_campaign", p_ref_id: campaignId, p_label: label, p_meta: {},
     });
     return !error && (data as { ok?: boolean } | null)?.ok === true;
   }
-  const { data, error } = await admin.rpc("consume_sms_credits", { p_balance_id: w.balanceId, p_amount: segments });
+  const { data, error } = await admin.rpc("consume_sms_credits", { p_balance_id: w.balanceId, p_amount: units });
   return !error && data === true;
 }
 
@@ -308,7 +326,7 @@ interface ClaimedRecipient {
   user_id: string | null; lang: string | null; attempts: number; provider_request_id: string | null;
 }
 
-interface Prepared { row: ClaimedRecipient; text: string; segments: number }
+interface Prepared { row: ClaimedRecipient; text: string; segments: number; zone: SmsTariffZone }
 
 async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: OctopushConfig): Promise<SliceResult> {
   const campaignId = campaign.id as string;
@@ -359,7 +377,9 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
   const sendGroup = async (items: Prepared[], requestId: string | null): Promise<"ok" | "halt"> => {
     const ids = items.map((p) => p.row.id);
     const segments = items[0].segments;
-    if (!(await debit(admin, scope, wallet, segments * items.length, campaignId, label))) {
+    // Un lot a un seul texte et une seule zone : un seul prix par SMS.
+    const unitsEach = unitsFor(scope, wallet, segments, items[0].zone);
+    if (!(await debit(admin, scope, wallet, unitsEach * items.length, campaignId, label))) {
       await requeue(ids, "Crédits épuisés", "credits", false);
       await pause("credits", scope.crm ? "Yunits épuisés en cours d'envoi — rechargez puis reprenez." : "Crédits SMS épuisés en cours d'envoi — rechargez puis reprenez.");
       stopped = "credits";
@@ -370,15 +390,15 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
       venue_id: scope.venueId, organizer_id: scope.organizerId, target_user_id: p.row.user_id ?? null,
       to_phone: p.row.phone_e164, body: p.text, status: "queued", purpose: "campaign",
       campaign_id: campaignId, event_id: (campaign.event_id as string | null) ?? null,
-      credits_consumed: segments, yunits_debited: scope.crm ? segments * wallet.rate : 0,
+      credits_consumed: segments, yunits_debited: scope.crm ? unitsEach : 0,
       provider: "octopush", sender_id: sender.id,
     }));
     const logIds = logs.map((l) => l.id);
     const { error: logErr } = await admin.from("sms_logs").insert(logs);
     if (logErr) {
       // Débit sans log : rendu tel quel au portefeuille.
-      if (scope.crm) await admin.rpc("crm_yunits_refund", { p_scope_key: scope.scopeKey, p_amount: segments * items.length * wallet.rate, p_channel: "sms", p_ref_type: "sms_campaign", p_ref_id: campaignId, p_label: "Journal indisponible" });
-      else if (wallet.balanceId) await admin.rpc("refund_sms_credits", { p_balance_id: wallet.balanceId, p_amount: segments * items.length, p_sms_log_id: null, p_notes: "log insert failed" });
+      if (scope.crm) await admin.rpc("crm_yunits_refund", { p_scope_key: scope.scopeKey, p_amount: unitsEach * items.length, p_channel: "sms", p_ref_type: "sms_campaign", p_ref_id: campaignId, p_label: "Journal indisponible" });
+      else if (wallet.balanceId) await admin.rpc("refund_sms_credits", { p_balance_id: wallet.balanceId, p_amount: unitsEach * items.length, p_sms_log_id: null, p_notes: "log insert failed" });
       await requeue(ids, logErr.message, "log_error", true);
       return "ok";
     }
@@ -450,14 +470,18 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
     // déjà partie dans un lot (reprise) garde son lot et son identifiant.
     const dead = rows.filter((r) => !E164.test(r.phone_e164));
     await kill(dead.map((r) => r.id), "Numéro non E.164", "invalid_phone");
+    // +1 : un nom d'expéditeur n'y est pas accepté (jamais mis en file, filet ici).
+    const blocked = rows.filter((r) => E164.test(r.phone_e164) && smsTariffZone(r.phone_e164) === "blocked");
+    await kill(blocked.map((r) => r.id), "Destination sans nom d'expéditeur (États-Unis, Canada)", "blocked_destination");
     const groups = new Map<string, { items: Prepared[]; requestId: string | null }>();
     for (const r of rows) {
-      if (!E164.test(r.phone_e164)) continue;
+      const zone = smsTariffZone(r.phone_e164);
+      if (!E164.test(r.phone_e164) || zone === "blocked") continue;
       const text = composer.text(r.lang, r.phone_e164, r.first_name);
       const segments = Math.max(1, smsSizing(text).segments);
-      const key = r.provider_request_id ? `req:${r.provider_request_id}` : `txt:${text}`;
+      const key = r.provider_request_id ? `req:${r.provider_request_id}` : `${zone}|txt:${text}`;
       const g = groups.get(key) ?? { items: [], requestId: r.provider_request_id };
-      g.items.push({ row: r, text, segments });
+      g.items.push({ row: r, text, segments, zone });
       groups.set(key, g);
     }
 
@@ -581,10 +605,10 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Octop
   const text = composer.text(lang, phone, ((prof?.first_name as string | null) || SAMPLE_FIRST_NAME).trim());
   const segments = Math.max(1, smsSizing(text).segments);
 
-  const wallet = scope.crm ? { balanceId: null, rate: 0 } : await walletFor(admin, scope);
+  const wallet: Wallet = scope.crm ? { balanceId: null, rates: null } : await walletFor(admin, scope);
   const freeTest = scope.crm || scope.platform;
   if (!freeTest && !(await debit(admin, scope, wallet, segments, null, "Test"))) {
-    return json({ error: "INSUFFICIENT_CREDITS", needed: segments, balance: await segmentsAvailable(admin, scope, wallet) }, 402);
+    return json({ error: "INSUFFICIENT_CREDITS", needed: segments, balance: await unitsAvailable(admin, scope, wallet) }, 402);
   }
 
   const logId = crypto.randomUUID();
@@ -668,13 +692,11 @@ Deno.serve(async (req) => {
         const crm = await isCrmCampaign(admin, campaignId);
         const scope = await loadScope(admin, campaign.venue_id, campaign.organizer_id, crm);
         const wallet = await walletFor(admin, scope);
-        const { count } = await admin.from("sms_campaign_recipients").select("id", { count: "exact", head: true })
-          .eq("campaign_id", campaignId).in("status", ["pending", "sending"]);
-        const needed = Number(count || 0) * Number(campaign.segments_per_message || 1);
-        const balance = await segmentsAvailable(admin, scope, wallet);
+        const needed = await unitsNeeded(admin, scope, wallet, campaignId, Number(campaign.segments_per_message || 1));
+        const balance = await unitsAvailable(admin, scope, wallet);
         if (balance < needed) {
           return json(scope.crm
-            ? { error: "crm_yunits_insufficient", code: "crm_yunits_insufficient", needed: needed * wallet.rate, balance: balance * wallet.rate }
+            ? { error: "crm_yunits_insufficient", code: "crm_yunits_insufficient", needed, balance }
             : { error: "INSUFFICIENT_CREDITS", needed, balance, missing: needed - balance }, 402);
         }
       }
@@ -730,15 +752,15 @@ Deno.serve(async (req) => {
       }
 
       const wallet = await walletFor(admin, scope);
-      const balance = await segmentsAvailable(admin, scope, wallet);
-      const needed = pending * segments;
+      const balance = await unitsAvailable(admin, scope, wallet);
+      const needed = await unitsNeeded(admin, scope, wallet, campaignId, segments);
       if (balance < needed) {
         await admin.from("sms_campaigns").update({
           status: "draft", segments_per_message: segments,
           error_message: scope.crm ? "crm_yunits_insufficient" : `Crédits insuffisants : ${needed} nécessaires, ${balance} disponibles`,
         }).eq("id", campaignId);
         return json(scope.crm
-          ? { error: "crm_yunits_insufficient", code: "crm_yunits_insufficient", needed: needed * wallet.rate, balance: balance * wallet.rate, recipients: pending, segments }
+          ? { error: "crm_yunits_insufficient", code: "crm_yunits_insufficient", needed, balance, recipients: pending, segments }
           : { error: "INSUFFICIENT_CREDITS", needed, balance, missing: needed - balance, recipients: pending, segments }, 402);
       }
 

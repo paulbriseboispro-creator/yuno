@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  composeSmsBody, smsSizing, worstSegments, gsm7Length, maskPhone, isFrenchNumber, toSenderId, senderIdError,
+  composeSmsBody, smsSizing, worstSegments, gsm7Length, maskPhone, isFrenchNumber, smsTariffZone, toSenderId, senderIdError,
   isFrenchPublicHoliday, smsHoldReason, parisClock, resolveSmsVars,
 } from '../smsMarketing';
 
@@ -57,6 +57,15 @@ describe('isFrenchNumber', () => {
     expect(isFrenchNumber('+262692123456')).toBe(true);
     expect(isFrenchNumber('+34612345678')).toBe(false);
     expect(isFrenchNumber(null)).toBe(false);
+  });
+});
+
+describe('smsTariffZone', () => {
+  it('reads the tariff from the number before sending: France, abroad, or not allowed', () => {
+    expect(smsTariffZone('+33612345678')).toBe('fr');
+    expect(smsTariffZone('+34612345678')).toBe('intl');
+    expect(smsTariffZone('+262692123456')).toBe('intl'); // outre-mer : grille Octopush encore inconnue
+    expect(smsTariffZone('+14155550100')).toBe('blocked'); // pas de nom d'expéditeur aux États-Unis / Canada
   });
 });
 

@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
           if (error) { console.error("[sms-webhook] accusé", error.message); return new Response(null, { status: 500 }); }
         }
         // Numéro en liste noire chez Octopush : il a dit STOP, Yuno l'oublie aussi.
-        if (ev.blacklisted) await admin.rpc("sms_stop_unsubscribe", { _phone: ev.phone });
+        if (ev.blacklisted) await admin.rpc("sms_stop_unsubscribe", { _phone: ev.phone, _message_id: ev.messageId });
         continue;
       }
 
@@ -90,8 +90,9 @@ Deno.serve(async (req) => {
         if (!STOP_KEYWORDS.includes(text)) continue;
       }
 
-      // STOP au 30101, ou réponse « STOP ».
-      const { data, error } = await admin.rpc("sms_stop_unsubscribe", { _phone: ev.phone });
+      // STOP au 30101, ou réponse « STOP ». Le ticket du SMS qui l'a provoqué
+      // rattache le STOP à son club (base du STOP par club, sous-comptes).
+      const { data, error } = await admin.rpc("sms_stop_unsubscribe", { _phone: ev.phone, _message_id: ev.kind === "stop" ? ev.messageId : null });
       if (error) { console.error("[sms-webhook] STOP", error.message); return new Response(null, { status: 500 }); }
       console.log(`[sms-webhook] STOP traité : ${data ?? 0} contact(s) désinscrit(s)`);
     }

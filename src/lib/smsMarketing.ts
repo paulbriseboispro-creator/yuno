@@ -38,10 +38,10 @@ export const SMS_LINK_TOKEN = '{lien}';
 
 export {
   STOP_SUFFIX, STOP_MENTION_FR, OCTOPUSH_STOP_SHORTCODE, gsm7Length, nonGsmChars, smsSizing, normalizeLang,
-  isFrenchNumber, cleanSenderName, senderIdError, toSenderId, resolveSmsVars, composeSmsBody,
+  isFrenchNumber, smsTariffZone, cleanSenderName, senderIdError, toSenderId, resolveSmsVars, composeSmsBody,
   parisClock, isFrenchPublicHoliday, smsHoldReason, LEGAL_NIGHT_FROM, LEGAL_NIGHT_TO,
 } from '../../supabase/functions/_shared/sms-text.ts';
-export type { SmsSizing, SmsValues, SenderIdError, SmsQuietRules, SmsHoldReason, ComposeOptions } from '../../supabase/functions/_shared/sms-text.ts';
+export type { SmsSizing, SmsValues, SenderIdError, SmsQuietRules, SmsHoldReason, ComposeOptions, SmsTariffZone } from '../../supabase/functions/_shared/sms-text.ts';
 
 /** Lien d'exemple de la taille réelle d'un lien suivi (/l/<8 car.>). */
 export const SAMPLE_TRACKED_LINK = 'https://yunoapp.eu/l/XXXXXXXX';

@@ -75,7 +75,9 @@ describe('Octopush : accusés de réception et webhooks', () => {
       .toEqual({ kind: 'dlr', messageId: 'sms_1', phone: '+33600112233', status: 'delivered', raw: 'DELIVERED', blacklisted: false });
     expect(parseOctopushCallback(null, { message_id: 'sms_1', number: '33600112233', status: 'BLACKLISTED_NUMBER' }))
       .toMatchObject({ kind: 'dlr', phone: '+33600112233', status: 'failed', blacklisted: true });
-    expect(parseOctopushCallback('stop', { number: '+33600112233', stop_date: '2026-10-08 12:00:00' })).toEqual({ kind: 'stop', phone: '+33600112233' });
+    expect(parseOctopushCallback('stop', { number: '+33600112233', stop_date: '2026-10-08 12:00:00', message_id: 'sms_9' }))
+      .toEqual({ kind: 'stop', phone: '+33600112233', messageId: 'sms_9' }); // le ticket rattache le STOP à son club
+    expect(parseOctopushCallback('stop', { number: '+33600112233', stop_date: '2026-10-08 12:00:00' })).toEqual({ kind: 'stop', phone: '+33600112233', messageId: null });
     expect(parseOctopushCallback(null, { number: '0600112233', text: 'STOP' })).toEqual({ kind: 'inbound', phone: '+33600112233', text: 'STOP' });
     expect(parseOctopushCallback('dlr', { number: 'pas un numéro', status: 'DELIVERED', message_id: 'x' })).toBeNull();
     expect(parseOctopushCallback('dlr', { number: '+33600112233', status: 'DELIVERED' })).toBeNull();

@@ -84,6 +84,20 @@ export function isFrenchNumber(phone: string | null | undefined): boolean {
   return /^\+(33|262|590|594|596|508)[0-9]{6,12}$/.test((phone || "").trim());
 }
 
+/**
+ * Zone de tarif d'un numéro, lue AVANT l'envoi (miroir SQL : sms_tariff_zone) :
+ * `fr` (+33), `intl` (tout autre indicatif, outre-mer compris tant que la
+ * grille Octopush n'est pas lue), `blocked` (+1 : un nom d'expéditeur n'y est
+ * pas accepté, jamais mis en file).
+ */
+export type SmsTariffZone = "fr" | "intl" | "blocked";
+export function smsTariffZone(phone: string | null | undefined): SmsTariffZone {
+  const p = (phone || "").trim();
+  if (p.startsWith("+33")) return "fr";
+  if (p.startsWith("+1")) return "blocked";
+  return "intl";
+}
+
 /** Nom affiché en tête du message : une ligne, 24 caractères max. */
 export function cleanSenderName(name: string | null | undefined): string {
   return (name || "").replace(/\s+/g, " ").trim().slice(0, 24);

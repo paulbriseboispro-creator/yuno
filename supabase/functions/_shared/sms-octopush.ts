@@ -158,7 +158,7 @@ export function mapOctopushStatus(status: string | null | undefined): SmsDeliver
 
 export type OctopushCallback =
   | { kind: "dlr"; messageId: string; phone: string; status: SmsDeliveryStatus | null; raw: string; blacklisted: boolean }
-  | { kind: "stop"; phone: string }
+  | { kind: "stop"; phone: string; messageId: string | null }
   | { kind: "inbound"; phone: string; text: string };
 
 const str = (v: unknown) => (v == null ? "" : String(v)).trim();
@@ -185,7 +185,7 @@ export function parseOctopushCallback(k: string | null, body: Record<string, unk
     if (!messageId) return null;
     return { kind: "dlr", messageId, phone, status: mapOctopushStatus(raw), raw, blacklisted: raw === "BLACKLISTED_NUMBER" };
   }
-  if (kind === "stop") return { kind: "stop", phone };
+  if (kind === "stop") return { kind: "stop", phone, messageId: str(body.message_id) || null };
   if (kind === "inbound") return { kind: "inbound", phone, text: str(body.text) };
   return null;
 }
