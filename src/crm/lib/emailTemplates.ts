@@ -3,9 +3,7 @@
  * Modèles »), écrits dans le modèle de blocs de l'Email Studio — celui que
  * l'envoi rend vraiment (renderEmailHtml, port Deno à l'identique).
  *
- * Trois écarts au prototype, voulus :
- * - le bloc « Line-up » n'existe pas dans le moteur : les artistes de la soirée
- *   (connus par la billetterie) deviennent un texte, un nom par ligne ;
+ * Deux écarts au prototype, voulus :
  * - le bloc « Liens du club » n'est pas posé : le pied de page porte déjà les
  *   réseaux, et les doubler est ce que la vérification avant envoi signale ;
  * - le bouton seul disparaît quand la carte Soirée est là : elle a le sien,
@@ -13,6 +11,8 @@
  *
  * Une image n'est posée que si elle a une vraie source (affiche de la soirée,
  * photo de la précédente) : un bloc Image vide ne s'affiche pas à l'envoi.
+ * Le Line-up est un bloc Yuno : les artistes de la soirée et leur photo de
+ * profil, relus chez la billetterie à l'envoi — jamais de noms d'exemple.
  */
 import { makeBlock } from '@/lib/email/blocks';
 import type { TemplateContent } from '@/lib/email/templates';
@@ -92,13 +92,12 @@ export function venueAt(name: string, lang: 'en' | 'fr' | 'es'): string {
   return `chez ${n}`;
 }
 
-/** Une soirée telle que le modèle s'en sert (affiche, lien, line-up). */
+/** Une soirée telle que le modèle s'en sert (affiche, lien). */
 export interface TemplateNight {
   id: string;
   title: string;
   coverUrl: string | null;
   url: string | null;
-  lineup: string[];
 }
 
 export interface BuildCtx {
@@ -118,8 +117,6 @@ type Loose = Record<string, unknown>;
 function block(type: Parameters<typeof makeBlock>[0], venueName: string, patch: Loose = {}): EmailBlock {
   return { ...makeBlock(type, { venueName }), ...patch } as EmailBlock;
 }
-
-const SAMPLE_LINEUP = ['Mira Kess', 'Odalys', 'Ferro b2b Jun'];
 
 /**
  * Construit le contenu d'un modèle. Les textes viennent des clés
@@ -162,8 +159,7 @@ export function buildCrmTemplate(kind: CrmTemplateKind, ctx: BuildCtx): Template
     case 'annonce':
       return { ...base, blocks: [header(), ...poster(night, k('eventTitle')), gap('md'), headline(k('title')), body(k('body')), eventCard(night), gap('sm')] };
 
-    case 'lineup': {
-      const names = night?.lineup?.length ? night.lineup.slice(0, 12) : SAMPLE_LINEUP;
+    case 'lineup':
       return {
         ...base,
         blocks: [
@@ -172,13 +168,13 @@ export function buildCrmTemplate(kind: CrmTemplateKind, ctx: BuildCtx): Template
           gap('md'),
           headline(k('title')),
           body(k('body')),
-          b('text', { body: k('program'), variant: 'kicker', size: 11, px: 32, py: 8 }),
-          b('text', { body: names.map((x) => `[b]${x.replace(/\[|\]/g, '')}[/b]`).join('\n'), size: 17, px: 32, py: 4 }),
+          // Les artistes de la soirée et leur photo de profil (Shotgun),
+          // relus à l'envoi ; la grille ne s'allume que si une photo existe.
+          b('lineup', { eventId: night?.id, kicker: k('program'), photos: true, align: 'left', extra: [], px: 32, py: 12 }),
           eventCard(night),
           gap('sm'),
         ],
       };
-    }
 
     case 'lastcall':
       return {

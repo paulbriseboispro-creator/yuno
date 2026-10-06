@@ -353,7 +353,7 @@ function StudioBody({ template = false }: { template?: boolean }) {
       <div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative' }}>
         {!narrow && !readOnly && <StudioLeft collapsed={preview} />}
         <StudioCanvas live={live} readOnly={readOnly} narrow={narrow} />
-        {!readOnly && <StudioInspector collapsed={preview} narrow={narrow} live={live} />}
+        {!readOnly && <StudioInspector collapsed={preview} narrow={narrow} live={live} template={template} />}
       </div>
       <StudioTestModal />
     </div>

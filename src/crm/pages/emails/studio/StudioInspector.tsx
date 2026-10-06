@@ -4,16 +4,13 @@
  * aperçu dans la boîte de réception). Sur petit écran, il s'ouvre en volet.
  */
 import { useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { useNights, type NightRow } from '@/crm/data/nights';
-import { supabase } from '@/integrations/supabase/client';
 import { useStudio, useStudioApi } from '@/components/email-studio/store';
 import RichTextField from '@/components/email-studio/RichTextField';
 import { defaultInkOn, solidBlockBg } from '@/lib/email/render';
@@ -21,122 +18,17 @@ import { blockBgColor } from '@/components/email-studio/blocks/common';
 import type { EmailBlock, EmailTheme, LiveData, SocialLinks, TextVariant } from '@/lib/email/types';
 import { CRM_EMAIL_THEMES, type CrmThemeKey } from '@/crm/lib/emailTemplates';
 import { BLOCK_ICONS } from './catalog';
-import { insertVariable, useStudioUi } from './studioUi';
+import { useStudioUi } from './studioUi';
+import { Field, Note, Seg, TextArea, TextInput, Toggle, VarChips } from './fields';
+import { useEmailImageUpload, type Patch } from './fieldHelpers';
+import { CountdownFields, EventFields, LineupFields, TicketsFields } from './YunoBlockFields';
 
-const VARS = ['prénom', 'nom_club', 'soirée', 'ville'] as const;
-const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const ACCENTS = ['#E3141B', '#FF6B35', '#1C1517', '#9D0B12'];
 const THEME_KEYS: CrmThemeKey[] = ['clair', 'nuit', 'rouge', 'epure'];
 
-type Patch = (p: Record<string, unknown>) => void;
-
-// ── Briques de formulaire (maquette : champs 44 px, rayon 12) ─────────────────
-
-function Field({ label, hint, children, right }: { label?: string; hint?: ReactNode; children: ReactNode; right?: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      {(label || right) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-          {label && <span style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</span>}
-          {right}
-        </div>
-      )}
-      {children}
-      {hint && <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--sand-500)', textWrap: 'pretty' }}>{hint}</span>}
-    </div>
-  );
-}
-
-const inputCss = { height: 44, boxSizing: 'border-box', padding: '0 14px', borderRadius: 12, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, color: 'var(--ink)', outline: 'none', width: '100%' } as const;
-
-function TextInput({ value, onChange, placeholder, label, onFocusEl }: { value: string; onChange: (v: string) => void; placeholder?: string; label?: string; onFocusEl?: (el: HTMLInputElement) => void }) {
-  return <input className="yc-field" value={value} onChange={(e) => onChange(e.target.value)} onFocus={(e) => onFocusEl?.(e.currentTarget)} placeholder={placeholder} aria-label={label} style={{ ...inputCss, fontSize: 14.5 }} />;
-}
-
-function TextArea({ value, onChange, rows = 3, label, onFocusEl }: { value: string; onChange: (v: string) => void; rows?: number; label?: string; onFocusEl?: (el: HTMLTextAreaElement) => void }) {
-  return <textarea className="yc-field" value={value} rows={rows} onChange={(e) => onChange(e.target.value)} onFocus={(e) => onFocusEl?.(e.currentTarget)} aria-label={label} style={{ ...inputCss, height: 'auto', padding: '12px 14px', lineHeight: 1.5, resize: 'vertical' }} />;
-}
-
-function Seg<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; l: string }[]; onChange: (v: T) => void }) {
-  return (
-    <div role="group" style={{ display: 'flex', padding: 3, gap: 2, background: 'var(--sand-100)', borderRadius: 99 }}>
-      {options.map((o) => {
-        const on = o.v === value;
-        return (
-          <button key={String(o.v)} type="button" onClick={() => onChange(o.v)} aria-pressed={on} style={{ flex: 1, height: 34, padding: '0 6px', border: 0, borderRadius: 99, background: on ? '#fff' : 'transparent', boxShadow: on ? 'var(--shadow-xs)' : 'none', fontSize: 13.5, fontWeight: 600, color: on ? 'var(--ink)' : 'var(--sand-600)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 160ms,color 160ms' }}>
-            {o.l}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: ReactNode }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 0, border: 0, background: 'none', cursor: 'pointer', textAlign: 'left' }}>
-      <span style={{ flex: 'none', position: 'relative', width: 44, height: 26, borderRadius: 99, background: on ? 'var(--green-500)' : 'var(--sand-300)', transition: 'background 200ms' }}>
-        <span style={{ position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 99, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: `left 220ms ${SPRING}` }} />
-      </span>
-      <span style={{ fontSize: 14, color: 'var(--sand-700)' }}>{label}</span>
-    </button>
-  );
-}
-
-function Note({ children }: { children: ReactNode }) {
-  return <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--sand-50)', fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)', textWrap: 'pretty' }}>{children}</div>;
-}
-
-function VarChips({ active }: { active?: boolean }) {
-  const { t } = useCrmT();
-  const ui = useStudioUi();
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      <span style={{ width: '100%', fontSize: 12.5, color: 'var(--sand-500)' }}>{t(active ? 'yc.em.st.f.varsActive' : 'yc.em.st.f.vars')}</span>
-      {VARS.map((v) => (
-        <Hv
-          key={v}
-          as="button"
-          type="button"
-          // onMouseDown : le champ garde son curseur, la variable s'insère à sa place.
-          onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); insertVariable(ui, v); }}
-          title={t(`yc.em.st.var.${v}`)}
-          style={{ height: 28, padding: '0 10px', border: 0, borderRadius: 99, background: 'var(--red-50)', color: 'var(--red-700)', font: "500 12px 'Geist Mono',monospace", cursor: 'pointer' }}
-          hover={{ background: 'var(--red-100)' }}
-        >
-          {`{{${v}}}`}
-        </Hv>
-      ))}
-    </div>
-  );
-}
-
-function NightPick({ value, onPick, nights }: { value?: string | null; onPick: (n: NightRow) => void; nights: NightRow[] }) {
-  const { t, dLong, time } = useCrmT();
-  if (!nights.length) return <Note>{t('yc.em.st.f.noNights')}</Note>;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {nights.map((n) => {
-        const on = value === n.id;
-        return (
-          <button key={n.id} type="button" onClick={() => onPick(n)} aria-pressed={on} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--red-400)' : 'var(--sand-200)'}`, background: on ? 'var(--red-50)' : '#fff', cursor: 'pointer', textAlign: 'left', transition: 'border-color 160ms,background 160ms' }}>
-            <span style={{ flex: 'none', width: 18, height: 18, borderRadius: 99, border: `2px solid ${on ? 'var(--red-500)' : 'var(--sand-300)'}`, display: 'grid', placeItems: 'center' }}>
-              <span style={{ width: 8, height: 8, borderRadius: 99, background: on ? 'var(--red-500)' : 'transparent' }} />
-            </span>
-            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <b style={{ fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</b>
-              <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{cap(dLong(n.start_at))} · {time(n.start_at)}</span>
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Panneau ───────────────────────────────────────────────────────────────
 
-export function StudioInspector({ collapsed, narrow, live }: { collapsed: boolean; narrow: boolean; live: LiveData }) {
+export function StudioInspector({ collapsed, narrow, live, template = false }: { collapsed: boolean; narrow: boolean; live: LiveData; template?: boolean }) {
   const { t } = useCrmT();
   const api = useStudioApi();
   const tab = useStudio((s) => s.inspectorTab);
@@ -168,7 +60,7 @@ export function StudioInspector({ collapsed, narrow, live }: { collapsed: boolea
         )}
       </div>
       <div className="yc-thin-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {tab === 'block' && <BlockTab live={live} />}
+        {tab === 'block' && <BlockTab live={live} template={template} />}
         {tab === 'theme' && <StyleTab />}
         {tab === 'data' && <SubjectTab />}
       </div>
@@ -201,7 +93,7 @@ export function StudioInspector({ collapsed, narrow, live }: { collapsed: boolea
 
 // ── Onglet Bloc ───────────────────────────────────────────────────────────
 
-function BlockTab({ live }: { live: LiveData }) {
+function BlockTab({ live, template }: { live: LiveData; template: boolean }) {
   const { t } = useCrmT();
   const api = useStudioApi();
   const selectedId = useStudio((s) => s.selectedId);
@@ -225,7 +117,7 @@ function BlockTab({ live }: { live: LiveData }) {
           <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t(`yc.em.st.b.${block.type}.d`)}</span>
         </span>
       </div>
-      <BlockFields key={block.id} block={block} patch={patch} live={live} />
+      <BlockFields key={block.id} block={block} patch={patch} live={live} template={template} />
     </>
   );
 }
@@ -238,7 +130,7 @@ function useNightOptions(current?: string | null): NightRow[] {
   return pinned ? [pinned, ...up] : up;
 }
 
-function BlockFields({ block, patch, live }: { block: EmailBlock; patch: Patch; live: LiveData }) {
+function BlockFields({ block, patch, live, template }: { block: EmailBlock; patch: Patch; live: LiveData; template: boolean }) {
   const { t } = useCrmT();
   const api = useStudioApi();
   const campaignEventId = useStudio((s) => s.campaign.eventId);
@@ -252,10 +144,9 @@ function BlockFields({ block, patch, live }: { block: EmailBlock; patch: Patch; 
     patch({ eventId: n.id, ...extra });
     if (!api.getState().campaign.eventId) api.getState().patchCampaign({ eventId: n.id });
   };
-  const src = (id?: string | null) => {
-    const ev = id ? live[id] : undefined;
-    return ev ? t('yc.em.st.f.ticketing') : t('yc.em.st.f.ticketing');
-  };
+  // Réglages communs des Blocs Yuno : la soirée du bloc et ses données live.
+  const boundId = ('eventId' in block && block.eventId) || campaignEventId || '';
+  const yuno = { patch, nights, onPick: (n: NightRow) => pickNight(n), campaignEventId, live: boundId ? live[boundId] : undefined, template };
 
   switch (block.type) {
     case 'header':
@@ -303,32 +194,13 @@ function BlockFields({ block, patch, live }: { block: EmailBlock; patch: Patch; 
     case 'spacer':
       return <Field label={t('yc.em.st.f.height')}><Seg value={block.size} onChange={(v) => patch({ size: v })} options={[{ v: 'sm', l: 'S' }, { v: 'md', l: 'M' }, { v: 'lg', l: 'L' }, { v: 'xl', l: 'XL' }]} /></Field>;
     case 'event':
-      return (
-        <>
-          <Field label={t('yc.em.st.f.night')}><NightPick value={block.eventId ?? campaignEventId} nights={nights} onPick={(n) => pickNight(n)} /></Field>
-          <Note>{t('yc.em.st.f.eventNote', { src: src(block.eventId) })}</Note>
-          <Field label={t('yc.em.st.f.btnLabel')}><TextInput value={block.ctaLabel} onChange={(v) => patch({ ctaLabel: v })} label={t('yc.em.st.f.btnLabel')} /></Field>
-          <Field label={t('yc.em.st.f.layout')}><Seg value={block.layout ?? 'showcase'} onChange={(v) => patch({ layout: v })} options={[{ v: 'showcase', l: t('yc.em.st.f.l.showcase') }, { v: 'split', l: t('yc.em.st.f.l.split') }, { v: 'minimal', l: t('yc.em.st.f.l.minimal') }]} /></Field>
-          <Field label={t('yc.em.st.f.poster')}><Toggle on={block.cover} onChange={(v) => patch({ cover: v })} label={t('yc.em.st.f.cover')} /></Field>
-          <Toggle on={block.price} onChange={(v) => patch({ price: v })} label={t('yc.em.st.f.price')} />
-        </>
-      );
+      return <EventFields block={block} {...yuno} />;
     case 'tickets':
-      return (
-        <>
-          <Field label={t('yc.em.st.f.night')}><NightPick value={block.eventId ?? campaignEventId} nights={nights} onPick={(n) => pickNight(n)} /></Field>
-          <Note>{t('yc.em.st.f.ticketsNote')}</Note>
-          <Field label={t('yc.em.st.f.btnLabel')}><TextInput value={block.ctaLabel ?? ''} onChange={(v) => patch({ ctaLabel: v })} label={t('yc.em.st.f.btnLabel')} /></Field>
-        </>
-      );
+      return <TicketsFields block={block} {...yuno} />;
     case 'countdown':
-      return (
-        <>
-          <Field label={t('yc.em.st.f.cdLabel')}><TextInput value={block.label} onChange={(v) => patch({ label: v })} label={t('yc.em.st.f.cdLabel')} /></Field>
-          <Field label={t('yc.em.st.f.nightCd')}><NightPick value={block.eventId ?? campaignEventId} nights={nights} onPick={(n) => pickNight(n)} /></Field>
-          <Note>{t('yc.em.st.f.cdNote')}</Note>
-        </>
-      );
+      return <CountdownFields block={block} {...yuno} />;
+    case 'lineup':
+      return <LineupFields block={block} {...yuno} />;
     case 'social':
       return <SocialFields />;
     case 'html':
@@ -345,28 +217,12 @@ function BlockFields({ block, patch, live }: { block: EmailBlock; patch: Patch; 
 
 function ImageFields({ block, patch, night }: { block: Extract<EmailBlock, { type: 'image' }>; patch: Patch; night: NightRow | null }) {
   const { t } = useCrmT();
-  const toast = useCrmToast();
-  const { space } = useCrmScope();
-  const [busy, setBusy] = useState(false);
+  const { busy, upload: send } = useEmailImageUpload();
   const input = useRef<HTMLInputElement>(null);
   const upload = async (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast(t('yc.em.st.f.imgTooBig')); return; }
-    setBusy(true);
-    try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-      const folder = space.venueId ? `venue/${space.venueId}` : `org/${space.organizerUserId}`;
-      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from('email-assets').upload(path, file, { upsert: false, contentType: file.type });
-      if (error) throw error;
-      const { data } = supabase.storage.from('email-assets').getPublicUrl(path);
-      patch({ url: data.publicUrl });
-    } catch {
-      toast(t('yc.em.st.f.imgFail'));
-    } finally {
-      setBusy(false);
-      if (input.current) input.current.value = '';
-    }
+    const url = await send(file);
+    if (url) patch({ url });
+    if (input.current) input.current.value = '';
   };
   return (
     <>

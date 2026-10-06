@@ -16,7 +16,7 @@ import type { TemplateContent } from '@/lib/email/templates';
 
 export function toTemplateNight(n: NightRow | null | undefined): TemplateNight | null {
   if (!n) return null;
-  return { id: n.id, title: n.title, coverUrl: n.cover_url, url: n.url, lineup: n.lineup ?? [] };
+  return { id: n.id, title: n.title, coverUrl: n.cover_url, url: n.url };
 }
 
 export function useTemplateDraft(wanted: string | null) {

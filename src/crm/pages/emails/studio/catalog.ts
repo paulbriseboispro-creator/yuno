@@ -3,13 +3,13 @@
  * prototype), textes par défaut d'un bloc neuf (vouvoiement), et le résumé
  * d'une ligne de l'onglet Structure.
  *
- * « Line-up » n'est pas un type du moteur : la tuile pose un bloc Texte avec
- * les artistes de la soirée, un nom par ligne (cf. emailTemplates.ts).
+ * Les Blocs Yuno lisent la soirée reliée À L'ENVOI : tarifs, lieu, affiche et
+ * lien de la billetterie connectée (get_external_event_live), artistes et
+ * photos du line-up (get_event_lineup_live).
  */
-import { makeBlock } from '@/lib/email/blocks';
 import type { BlockType, EmailBlock } from '@/lib/email/types';
 
-export type PaletteKey = BlockType | 'lineup';
+export type PaletteKey = BlockType;
 
 export interface PaletteTile { k: PaletteKey; group: 'content' | 'yuno'; d: string }
 
@@ -63,18 +63,9 @@ export function decorateBlock(b: EmailBlock, t: T, nightUrl: string | null): Ema
     case 'event': return { ...b, title: t('yc.em.st.def.event'), ctaLabel: t('yc.em.st.def.cta'), px: 32 };
     case 'tickets': return { ...b, ctaLabel: t('yc.em.st.def.tickets'), px: 32 };
     case 'countdown': return { ...b, label: t('yc.em.st.def.countdown') };
+    case 'lineup': return { ...b, kicker: t('yc.em.st.def.lineup'), px: 32 };
     default: return b;
   }
-}
-
-const SAMPLE_LINEUP = ['Mira Kess', 'Odalys', 'Ferro b2b Jun'];
-
-/** Les deux blocs Texte de la tuile « Line-up » (sur-titre + artistes). */
-export function lineupBlocks(t: T, venueName: string, names: string[] | null | undefined): EmailBlock[] {
-  const list = names?.length ? names.slice(0, 12) : SAMPLE_LINEUP;
-  const kicker = { ...makeBlock('text', { venueName }), body: t('yc.em.st.def.lineup'), variant: 'kicker', size: 11, px: 32, py: 8 } as EmailBlock;
-  const rows = { ...makeBlock('text', { venueName }), body: list.map((x) => `[b]${x.replace(/\[|\]/g, '')}[/b]`).join('\n'), size: 17, px: 32, py: 4 } as EmailBlock;
-  return [kicker, rows];
 }
 
 /** Libellé (catalogue) d'un bloc posé. */
@@ -97,6 +88,7 @@ export function blockSummary(b: EmailBlock, t: T, nightTitle: (id?: string) => s
     case 'event': return nightTitle(b.eventId) ?? b.title;
     case 'tickets': return nightTitle(b.eventId) ?? t('yc.em.st.b.tickets.d');
     case 'countdown': return b.label;
+    case 'lineup': return nightTitle(b.eventId) ?? t('yc.em.st.b.lineup.d');
     case 'social': return t('yc.em.st.b.social.d');
     default: return '';
   }

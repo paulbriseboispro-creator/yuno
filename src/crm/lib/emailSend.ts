@@ -89,7 +89,7 @@ const URL_RE = /^https?:\/\/\S+\.\S+/i;
 /** La liste de l'étape Vérification (clés `yc.em.sd.ck.<id>.ok|ko`). */
 export function sendChecks(x: CheckInput): SendCheck[] {
   const subject = x.subject.replace(/\{\{[^}]+\}\}/g, 'Camille').trim();
-  const yuno = x.blocks.filter((b) => b.type === 'event' || b.type === 'tickets' || b.type === 'countdown');
+  const yuno = x.blocks.filter((b) => b.type === 'event' || b.type === 'tickets' || b.type === 'countdown' || b.type === 'lineup');
   const unbound = yuno.some((b) => !('eventId' in b && b.eventId) && !x.eventId && !(b.type === 'countdown' && b.targetAt));
   const cta = x.blocks.some((b) => (b.type === 'cta' && URL_RE.test(b.url.trim())) || b.type === 'event' || b.type === 'tickets');
   const deadButton = x.blocks.some((b) => b.type === 'cta' && !URL_RE.test(b.url.trim()));

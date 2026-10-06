@@ -84,7 +84,11 @@ export default function EmailTemplatesPage() {
 
   // Données live des deux soirées (tarifs, jauge, lien suivi de billetterie) :
   // les vignettes montrent l'e-mail qui partira, pas une carte d'exemple.
-  const liveBlocks = useMemo(() => [night, second].filter(Boolean).map((x) => ({ id: x!.id, type: 'event', eventId: x!.id }) as unknown as EmailBlock), [night, second]);
+  // Le modèle Line-up montre les artistes et leurs photos : la lecture du line-up suit.
+  const liveBlocks = useMemo(() => [night, second].filter(Boolean).flatMap((x) => [
+    { id: x!.id, type: 'event', eventId: x!.id },
+    { id: `${x!.id}:lineup`, type: 'lineup', eventId: x!.id },
+  ]) as unknown as EmailBlock[], [night, second]);
   const live = useStudioLiveData(liveBlocks, null);
 
   const render = useMemo(() => (content: TemplateContent, liveData: LiveData) => renderEmailHtml(content.blocks, content.theme, {
