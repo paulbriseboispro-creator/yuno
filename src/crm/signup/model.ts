@@ -72,6 +72,8 @@ export const FONT_IDS = ['brico', 'anton', 'serif', 'space', 'black', 'mono'] as
 export type FontId = (typeof FONT_IDS)[number];
 
 export interface FontDef { id: FontId; f: string; sc: number; w: number; ls: string }
+/** La police des jetons d'une page : une des six du design, ou celle d'un design sur mesure (`custom`). */
+export type TokenFont = Omit<FontDef, 'id'> & { id: FontId | 'custom' };
 
 export const FONTS: readonly FontDef[] = [
   { id: 'brico', f: "'Bricolage Grotesque'", sc: 1, w: 600, ls: '-.035em' },
@@ -183,7 +185,8 @@ export function normalizeDesign(d: Partial<SignupDesign> | null | undefined): Si
 export type ResolvedStyle = typeof DEFAULT_STYLE;
 
 export interface Tokens {
-  id: TplId; lay: Layout; dark: boolean; card: string; kDark: boolean; errC: string; F: FontDef; s: ResolvedStyle;
+  /** `custom` = design sur mesure (`custom.ts`, `customTokens`). */
+  id: TplId | 'custom'; lay: Layout | 'custom'; dark: boolean; card: string; kDark: boolean; errC: string; F: TokenFont; s: ResolvedStyle;
   bg: string; bgRgb: string; ink: string; inkRgb: string; a: string; b: string; aRgb: string; aFg: string;
   k: string; kRgb: string; line: string; soft: string; kLine: string; kSoft: string; kM: string; inkM: string; inkF: string;
 }
