@@ -37,6 +37,16 @@ export interface ClientFilterDef {
   q?: string;
 }
 
+/**
+ * Le filtre pose-t-il au moins un critère ? Toute clé de `f` non vide compte,
+ * y compris une clé que la liste ne dessine pas (`msg`, âge, ville… d'un
+ * segment enregistré) : sinon « Écrire à… » visait toute la base.
+ */
+export function hasCriteria(d: ClientFilterDef): boolean {
+  if ((d.seg ?? 'all') !== 'all' || !!d.q?.trim()) return true;
+  return Object.values(d.f ?? {}).some((v) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ''));
+}
+
 export interface ClientsOverview {
   total: number; today: number; month: number;
   lifecycle: Record<Lifecycle, number>;

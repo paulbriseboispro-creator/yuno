@@ -23,9 +23,7 @@ import { useCrmScope, useCrmCaps } from '@/crm/scope';
 import { CrmRpcError, rpc } from '@/crm/lib/rpc';
 import { downloadCsv } from '@/crm/lib/csv';
 import { fullName } from '@/crm/lib/lifecycle';
-import {
-  useClientsList, useClientsOverview, useDeleteSegment, useEventsBrief, useSaveSegment, useSegmentsBrief,
-} from '@/crm/data/clients';
+import { useClientsList, useClientsOverview, useDeleteSegment, useEventsBrief, useSaveSegment, useSegmentsBrief, hasCriteria } from '@/crm/data/clients';
 import type { ClientCard, ClientFilterDef, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { WriteModal } from '@/crm/components/WriteModal';
@@ -57,12 +55,6 @@ function defFromParams(sp: URLSearchParams): ClientFilterDef {
   return { seg: s && (LIFE as string[]).includes(s) ? (s as Lifecycle) : 'all', f };
 }
 
-const isEmptyDef = (d: ClientFilterDef) => {
-  const f = d.f ?? {};
-  return (d.seg ?? 'all') === 'all'
-    && !f.ev?.length && !f.last && !f.last_gt_days && !f.nb && !f.sp && !f.rc?.length && !f.src?.length && !f.tags?.length && !f.emails?.length
-    && !f.gl && !f.glev?.length;
-};
 
 export default function ClientsPage() {
   const caps = useCrmCaps();
@@ -119,7 +111,7 @@ export default function ClientsPage() {
 
   const total = list.data?.total ?? 0;
   const rows = useMemo(() => list.data?.rows ?? [], [list.data]);
-  const hasFilt = !isEmptyDef(def) || !!dq;
+  const hasFilt = hasCriteria(def) || !!dq;
   const selCount = selAll ? total : sel.length;
 
   const openDrawer = useCallback((email: string | null) => {

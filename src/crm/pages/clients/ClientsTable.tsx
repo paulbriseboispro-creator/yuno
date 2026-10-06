@@ -11,6 +11,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { reveal } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
+import { hasCriteria } from '@/crm/data/clients';
 import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 
@@ -120,7 +121,7 @@ export function ClientsTable({
   const valOf = (k: FilterKey): string | string[] => (f as Record<string, string | string[] | undefined>)[k] ?? (FIL.find((x) => x.k === k)?.multi ? [] : '');
   const setF = (k: FilterKey, v: string | string[]) => setDef({ ...def, f: { ...f, [k]: v } });
   const nF = FIL.filter((fl) => { const v = valOf(fl.k); return Array.isArray(v) ? v.length > 0 : !!v; }).length;
-  const hasFilt = nF > 0 || seg !== 'all' || !!q.trim() || !!f.last_gt_days || !!(f.tags && f.tags.length);
+  const hasFilt = nF > 0 || hasCriteria({ ...def, q });
 
   const chips: { k: 'all' | Lifecycle; l: string; n: number }[] = [
     { k: 'all', l: t('yc.cli.list.all'), n: all },
