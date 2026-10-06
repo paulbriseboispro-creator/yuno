@@ -795,7 +795,7 @@ Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro en lo relativ
   'privacy': {
     fr: {
       title: 'Politique de Confidentialité',
-      content: `Dernière mise à jour : 3 octobre 2026
+      content: `Dernière mise à jour : 6 octobre 2026
 
 Cette politique explique quelles données Yuno collecte, pourquoi, avec qui elles sont partagées et quels sont vos droits. Elle s'applique au site yunoapp.eu et aux applications mobiles Yuno et Yuno Pro.
 
@@ -838,6 +838,7 @@ Yuno ne vend jamais vos données. Elles ne sont partagées qu'avec :
 • Stripe (paiements — vos données bancaires sont traitées directement par Stripe et ne transitent jamais par les serveurs de Yuno)
 • Supabase (hébergement backend — chiffrement en transit HTTPS/TLS)
 • Cloudflare (diffusion sécurisée du site)
+• Google (polices de caractères Google Fonts : votre navigateur les télécharge depuis les serveurs de Google, qui reçoivent votre adresse IP)
 • PostHog (mesure d'audience du site et des apps, hébergée dans l'UE, uniquement après votre consentement sur le web)
 • Mapbox (affichage cartographique des clubs)
 • Resend (emails transactionnels : confirmations, billets)
@@ -882,7 +883,7 @@ Cette politique peut évoluer avec le service. En cas de changement substantiel,
     },
     en: {
       title: 'Privacy Policy',
-      content: `Last updated: 3 October 2026
+      content: `Last updated: 6 October 2026
 
 This policy explains what data Yuno collects, why, who it is shared with, and what your rights are. It applies to yunoapp.eu and to the Yuno and Yuno Pro mobile apps.
 
@@ -925,6 +926,7 @@ Yuno never sells your data. It is only shared with:
 • Stripe (payments — your card details are processed directly by Stripe and never pass through Yuno's servers)
 • Supabase (backend hosting — encryption in transit via HTTPS/TLS)
 • Cloudflare (secure site delivery)
+• Google (Google Fonts typefaces: your browser downloads them from Google's servers, which receive your IP address)
 • PostHog (site and app usage analytics, hosted in the EU, only after your consent on the web)
 • Mapbox (map display of clubs)
 • Resend (transactional emails: confirmations, tickets)
@@ -969,7 +971,7 @@ This policy may evolve with the service. In case of substantial change, you will
     },
     es: {
       title: 'Política de Privacidad',
-      content: `Última actualización: 3 de octubre de 2026
+      content: `Última actualización: 6 de octubre de 2026
 
 Esta política explica qué datos recoge Yuno, por qué, con quién se comparten y cuáles son tus derechos. Se aplica a yunoapp.eu y a las apps móviles Yuno y Yuno Pro.
 
@@ -1012,6 +1014,7 @@ Yuno nunca vende tus datos. Solo se comparten con:
 • Stripe (pagos — tus datos bancarios los procesa directamente Stripe y nunca pasan por los servidores de Yuno)
 • Supabase (alojamiento backend — cifrado en tránsito HTTPS/TLS)
 • Cloudflare (distribución segura del sitio)
+• Google (tipografías Google Fonts: tu navegador las descarga desde los servidores de Google, que reciben tu dirección IP)
 • PostHog (analítica de uso del sitio y de las apps, alojada en la UE, solo tras tu consentimiento en la web)
 • Mapbox (visualización cartográfica de los clubs)
 • Resend (emails transaccionales: confirmaciones, entradas)
