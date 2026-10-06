@@ -18,6 +18,7 @@ function blockSnippet(b: EmailBlock): string {
     case 'event': return b.title;
     case 'table': return b.title;
     case 'countdown': return b.label;
+    case 'lineup': return b.kicker || '';
     case 'html': return b.code.slice(0, 34);
     default: return '';
   }

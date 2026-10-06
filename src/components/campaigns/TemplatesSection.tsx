@@ -33,8 +33,11 @@ const RED = '#E8192C';
  */
 interface PreviewEvent { id: string | null; live: LiveData }
 
-/** Bloc sonde : `useStudioLiveData` ne charge que les soirées de blocs Yuno. */
-const LIVE_PROBE: EmailBlock[] = [makeBlock('event')];
+/**
+ * Blocs sonde : `useStudioLiveData` ne charge que les soirées de blocs Yuno, et
+ * le line-up seulement si un bloc Line-up est posé.
+ */
+const LIVE_PROBE: EmailBlock[] = [makeBlock('event'), makeBlock('lineup')];
 
 function useTemplateHtml(tpl: EmailTemplate | null, scope: StudioScope, omitFooter: boolean, preview: PreviewEvent): string {
   return useMemo(() => {

@@ -1,20 +1,23 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, EyeOff, Italic, Link2, Lock,
+  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, EyeOff, Italic, Link2, Loader2, Lock,
   MousePointer, PanelBottom, Plus, RefreshCw, RemoveFormatting, Strikethrough, Trash2,
-  Underline, Users, Zap,
+  Underline, Upload, Users, X, Zap,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import ImageUploader from '@/components/campaigns/ImageUploader';
 import ColorField from '@/components/campaigns/ColorField';
 import type {
   CtaBlock, EmailBlock, EventBlock, HeaderBlock, HtmlBlock, ImageBlock,
   LiveData, SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow,
-  TicketsBlock, GuestListBlock, ColumnsBlock, CountdownBlock,
+  TicketsBlock, GuestListBlock, ColumnsBlock, CountdownBlock, LineupArtist, LineupBlock,
 } from '@/lib/email';
 import {
   blockPadDefaults, solidBlockBg, textLook,
   BLOCK_COND_LABELS, BLOCK_CONDS, TEXT_VARIANTS,
+  LINEUP_KICKER, artistInitials, artistKey, lineupArtists, lineupPhoto, lineupUsesPhotos,
 } from '@/lib/email';
 import RichTextField from './RichTextField';
 import type { RichTextHandle } from './RichTextField';
@@ -37,10 +40,12 @@ interface Props {
   bucketFolder: string;
   /** Marque du compte (club / organisateur) héritée par le bloc header. */
   brand: { name: string; logoUrl?: string | null };
+  /** Édition d'un MODÈLE : rien d'une soirée précise n'y est gardé. */
+  templateMode?: boolean;
 }
 
 /** Inspecteur contextuel — champs selon le type du bloc sélectionné. */
-export default function Inspector({ events, live, bucketFolder, brand }: Props) {
+export default function Inspector({ events, live, bucketFolder, brand, templateMode = false }: Props) {
   const { t } = useLanguage();
   const blocks = useStudio((s) => s.campaign.blocks);
   const selectedId = useStudio((s) => s.selectedId);
@@ -96,7 +101,7 @@ export default function Inspector({ events, live, bucketFolder, brand }: Props) 
 
       <BlockVisibility block={block} patch={patch} />
 
-      <BlockFields block={block} patch={patch} events={events} live={live} bucketFolder={bucketFolder} brand={brand} />
+      <BlockFields block={block} patch={patch} events={events} live={live} bucketFolder={bucketFolder} brand={brand} templateMode={templateMode} />
 
       {/* Espacement & fond — commun à tous les blocs (prototype).
           0 = aucune marge : les blocs s'enchaînent collés. Les défauts sont
@@ -454,6 +459,198 @@ function EventPicker({ value, events, onChange }: {
   );
 }
 
+// ── Line-up ───────────────────────────────────────────────────────────────────
+
+/** Pastille d'artiste : sa photo, sinon ses initiales (comme dans l'email). */
+function ArtistFace({ a, size = 30 }: { a: LineupArtist; size?: number }) {
+  const photo = lineupPhoto(a.photo);
+  return photo ? (
+    <img src={photo} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none', border: `1px solid ${BORDER}` }} />
+  ) : (
+    <span style={{
+      width: size, height: size, borderRadius: '50%', flex: 'none', display: 'grid', placeItems: 'center',
+      background: 'rgba(232,25,44,0.14)', color: RED, fontSize: size * 0.36, fontWeight: 700, fontFamily: FONT_UI,
+    }}>{artistInitials(a.name)}</span>
+  );
+}
+
+/** Photo d'un artiste ajouté à la main : un clic sur la pastille l'importe (email-assets). */
+function ArtistPhotoButton({ photo, bucketFolder, onChange }: {
+  photo?: string | null; bucketFolder: string; onChange: (url: string) => void;
+}) {
+  const { t } = useLanguage();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const url = lineupPhoto(photo);
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error(t('em.iu.tooLarge')); return; }
+    setBusy(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${bucketFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('email-assets').upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      onChange(supabase.storage.from('email-assets').getPublicUrl(path).data.publicUrl);
+    } catch {
+      toast.error(t('em.iu.uploadFailed'));
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+  return (
+    <label title={t('studio.inspector.lineupPhoto')} style={{
+      position: 'relative', width: 34, height: 34, borderRadius: '50%', flex: 'none', overflow: 'hidden',
+      display: 'grid', placeItems: 'center', background: SUBTLE, border: `1px dashed rgb(var(--ink)/0.2)`,
+      cursor: busy ? 'progress' : 'pointer',
+    }}>
+      {url
+        ? <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : busy
+          ? <Loader2 size={14} strokeWidth={1.75} className="animate-spin" style={{ color: T3 }} />
+          : <Upload size={14} strokeWidth={1.75} style={{ color: T3 }} />}
+      <input
+        ref={input} type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
+        aria-label={t('studio.inspector.lineupPhoto')}
+        onChange={(e) => void upload(e.target.files?.[0])}
+        style={{ display: 'none' }}
+      />
+    </label>
+  );
+}
+
+/**
+ * Bloc Line-up : la soirée, ses artistes (DJ du line-up puis artistes invités,
+ * relus à l'envoi) à garder ou décrocher, ceux ajoutés à la main, les photos,
+ * le sur-titre, l'alignement et la couleur. Dans un modèle, seuls les réglages
+ * de présentation restent : le line-up est celui de la soirée choisie à l'envoi.
+ */
+function LineupFields({ b, patch, events, live, bucketFolder, templateMode, campaignEventId, alignPills }: {
+  b: LineupBlock; patch: (p: Partial<EmailBlock>) => void; events: StudioEvent[]; live: LiveData;
+  bucketFolder: string; templateMode: boolean; campaignEventId: string | null;
+  alignPills: (value: 'left' | 'center' | 'right', onChange: (v: 'left' | 'center' | 'right') => void) => React.ReactNode;
+}) {
+  const { t } = useLanguage();
+  const theme = useStudio((s) => s.campaign.theme);
+  const boundId = b.eventId || campaignEventId || '';
+  const night = boundId ? live[boundId]?.lineup : undefined;
+  const hidden = new Set((b.hidden || []).map((h) => artistKey(h)));
+  const shown = lineupArtists(night, b);
+  const anyPhoto = shown.some((a) => !!a.photo);
+  const grid = lineupUsesPhotos(b.photos, shown);
+  const extra = b.extra || [];
+  const setHidden = (name: string, out: boolean) => {
+    const rest = (b.hidden || []).filter((h) => artistKey(h) !== artistKey(name));
+    patch({ hidden: out ? [...rest, name] : rest } as Partial<EmailBlock>);
+  };
+  const setExtra = (next: LineupArtist[]) => patch({ extra: next } as Partial<EmailBlock>);
+
+  return (
+    <>
+      <PanelCard>
+        <MicroLabel>{t('studio.inspector.event')}</MicroLabel>
+        <EventPicker value={b.eventId} events={events} onChange={(id) => patch({ eventId: id })} />
+        <Banner tone="green" icon={<RefreshCw size={13} strokeWidth={1.75} style={{ color: POS, marginTop: 1, flex: 'none' }} />}>
+          {t('studio.inspector.lineupHelp')}
+        </Banner>
+      </PanelCard>
+
+      {boundId && (
+        <PanelCard>
+          <MicroLabel>{t('studio.inspector.lineupNight')}</MicroLabel>
+          {night === undefined && <Help>{t('studio.inspector.lineupLoading')}</Help>}
+          {night && night.length === 0 && <Help>{t('studio.inspector.lineupNone')}</Help>}
+          {night && night.length > 0 && (
+            <>
+              <Help>{t('studio.inspector.lineupNightHelp')}</Help>
+              {night.map((a) => (
+                <div key={artistKey(a.name)} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <ArtistFace a={a} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <ToggleRow checked={!hidden.has(artistKey(a.name))} onChange={(v) => setHidden(a.name, !v)} label={a.name} />
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </PanelCard>
+      )}
+
+      <PanelCard>
+        <MicroLabel>{t('studio.inspector.lineupExtra')}</MicroLabel>
+        {templateMode ? (
+          <Help>{t('studio.inspector.lineupTemplate')}</Help>
+        ) : (
+          <>
+            <Help>{t('studio.inspector.lineupExtraHelp')}</Help>
+            {extra.map((a, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <ArtistPhotoButton
+                  photo={a.photo} bucketFolder={bucketFolder}
+                  onChange={(url) => setExtra(extra.map((x, j) => (j === i ? { ...x, photo: url } : x)))}
+                />
+                <TextInput
+                  value={a.name} placeholder={t('studio.inspector.lineupName')}
+                  aria-label={t('studio.inspector.lineupName')}
+                  onChange={(e) => setExtra(extra.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                />
+                {lineupPhoto(a.photo) && (
+                  <IconBtn size={26} ariaLabel={t('studio.inspector.lineupPhotoRemove')}
+                    onClick={() => setExtra(extra.map((x, j) => (j === i ? { ...x, photo: null } : x)))}>
+                    <X size={13} strokeWidth={1.75} />
+                  </IconBtn>
+                )}
+                <IconBtn size={26} danger ariaLabel={t('studio.inspector.rowRemove')}
+                  onClick={() => setExtra(extra.filter((_, j) => j !== i))}>
+                  <Trash2 size={13} strokeWidth={1.75} />
+                </IconBtn>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setExtra([...extra, { name: '', photo: null }])}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
+                borderRadius: 11, border: '1px dashed rgb(var(--ink)/0.16)', background: 'transparent',
+                color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+              }}
+            >
+              <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.lineupAdd')}
+            </button>
+          </>
+        )}
+      </PanelCard>
+
+      <PanelCard>
+        <ToggleRow
+          checked={b.photos !== false}
+          onChange={(v) => patch({ photos: v } as Partial<EmailBlock>)}
+          label={t('studio.inspector.lineupPhotos')}
+          help={shown.length > 0 && !anyPhoto ? t('studio.inspector.lineupNoPhoto') : t('studio.inspector.lineupPhotosHelp')}
+        />
+        <MicroLabel>{t('studio.inspector.tableKicker')}</MicroLabel>
+        <TextInput
+          value={b.kicker ?? ''} placeholder={LINEUP_KICKER}
+          onChange={(e) => patch({ kicker: e.target.value || undefined } as Partial<EmailBlock>)}
+        />
+        {!grid && (
+          <>
+            <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
+            {alignPills(b.align || 'center', (v) => patch({ align: v }))}
+          </>
+        )}
+        <ThemedColor
+          label={t('studio.inspector.accentColor')}
+          value={b.accent}
+          themeDefault={theme.accent}
+          onChange={(v) => patch({ accent: v })}
+        />
+      </PanelCard>
+    </>
+  );
+}
+
 function Banner({ tone, icon, children }: { tone: 'green' | 'red'; icon: React.ReactNode; children: React.ReactNode }) {
   const colors = tone === 'green'
     ? { bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)' }
@@ -563,10 +760,11 @@ function PerksEditor({ perks, onChange }: { perks: string[]; onChange: (next: st
   );
 }
 
-function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
+function BlockFields({ block, patch, events, live, bucketFolder, brand, templateMode }: {
   block: EmailBlock; patch: (p: Partial<EmailBlock>) => void;
   events: StudioEvent[]; live: LiveData; bucketFolder: string;
   brand: { name: string; logoUrl?: string | null };
+  templateMode: boolean;
 }) {
   const { t } = useLanguage();
   const setSocialLinks = useStudio((s) => s.setSocialLinks);
@@ -1341,6 +1539,14 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
         </PanelCard>
       );
     }
+    case 'lineup':
+      return (
+        <LineupFields
+          b={block as LineupBlock} patch={patch} events={events} live={live}
+          bucketFolder={bucketFolder} templateMode={templateMode} campaignEventId={campaignEventId}
+          alignPills={alignPills}
+        />
+      );
     case 'countdown': {
       const b = block as CountdownBlock;
       return (

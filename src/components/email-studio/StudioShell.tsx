@@ -449,6 +449,7 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
                     live={live}
                     bucketFolder={bucketFolder}
                     brand={{ name: scope.name, logoUrl: scope.logoUrl }}
+                    templateMode={templateMode}
                   />
                 )}
                 {inspectorTab === 'theme' && <ThemePanel />}
