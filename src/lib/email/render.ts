@@ -21,15 +21,15 @@ import type {
   HtmlBlock, DividerBlock,
   GuestListBlock, LineupBlock, LineupArtist,
 } from './types';
-import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
+import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES, themeRadius } from './types';
+import { buildSmartData, renderSmartSection, smartLang } from './smart';
 import {
   isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
-  ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
-  GUEST_LIST_CTA_LABEL, GUEST_LIST_KICKER, GUEST_LIST_PRICE, guestListSummary, isGuestListClosed,
-  EVENT_CTA_LABEL, EVENT_META_DATE, EVENT_META_VENUE, EVENT_META_PRICE,
+  ticketsCtaLabel, ticketsKicker, tablesLeftLabel, guestListSummary, isGuestListClosed,
   LINEUP_KICKER, artistInitials, lineupArtists, lineupRows, lineupUsesPhotos,
 } from './live';
 import { interpolateVariables } from './variables';
+import { emailWords, localizeDefaultLabel } from '../../../supabase/functions/_shared/email-words';
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 /** Métadonnées (kicker, jauge, badges) — signal nightlife du design public. */
@@ -453,10 +453,11 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const align = b.align || 'left';
   const c = offerCardColors(accent, theme, layout, bg);
 
+  const W = emailWords(ctx.language);
   const items: EventMetaItem[] = [];
-  if (dateLabel) items.push({ k: EVENT_META_DATE, v: dateLabel });
-  if (b.venue && venueLabel) items.push({ k: EVENT_META_VENUE, v: venueLabel });
-  if (b.price && priceLabel) items.push({ k: EVENT_META_PRICE, v: priceLabel, strong: true });
+  if (dateLabel) items.push({ k: W.metaDate, v: dateLabel });
+  if (b.venue && venueLabel) items.push({ k: W.metaVenue, v: venueLabel });
+  if (b.price && priceLabel) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
 
   // Le bandeau est une relance de trois lignes : sa fiche tient sur une ligne,
   // quoi qu'ait choisi le pro. En côte à côte, la demi-colonne ne porte pas un
@@ -475,7 +476,7 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
     extraHtml: useRows ? '' : renderEventMetaFlow(items, theme, c.inkOnCard, align, display === 'inline'),
     rowsHtml: useRows ? renderEventMetaRows(items, theme, c.inkOnRows) : '',
     btn: buttonHtml({
-      href: url, label: b.ctaLabel || EVENT_CTA_LABEL,
+      href: url, label: localizeDefaultLabel(b.ctaLabel, ctx.language) || W.eventCta,
       bg: btnColors.bg, color: btnColors.color, radius: 10,
       full: b.full ?? (layout !== 'minimal'), ctx,
     }),
@@ -500,13 +501,13 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
  * l'accent brut puisque son texte se contraste tout seul.
  */
 function renderTicketRows(
-  rows: TicketRow[], theme: EmailTheme, accent: string, accentText: string, pillBg = accent,
+  rows: TicketRow[], theme: EmailTheme, accent: string, accentText: string, pillBg = accent, soldOutChip = SOLD_OUT_CHIP,
 ): string {
   return rows.map((r, i) => {
     const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
     const sub = r.out ? soldOutSub(r.s) : r.s;
     const soldChip = r.out
-      ? `<span style="display:inline-block;margin:7px 0 0;padding:4px 8px;background:${theme.divider};border-radius:3px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:0.1em;color:${theme.muted};">${SOLD_OUT_CHIP}</span>`
+      ? `<span style="display:inline-block;margin:7px 0 0;padding:4px 8px;background:${theme.divider};border-radius:3px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:0.1em;color:${theme.muted};">${escapeHtml(soldOutChip)}</span>`
       : '';
     const price = isPricedRow(r.p)
       ? `<span style="font-family:${FONT};font-size:21px;font-weight:800;letter-spacing:-0.02em;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${escapeHtml(r.p)}</span>`
@@ -555,8 +556,9 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   // Vue épurée : le seul prix d'appel. « À partir de 18 € » suffit dans une
   // relance ; la liste des tranches sert à montrer que la prévente monte.
   const fromLabel = live?.priceFromLabel || priceFromLabel(
-    rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(',', '.')) || 0),
+    rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(/[^\d,.]/g, '').replace(',', '.')) || 0),
     rows.some((r) => !isPricedRow(r.p)),
+    ctx.language || 'fr',
   );
   const showRows = layout !== 'banner' && b.priceDisplay !== 'from';
   const fromHtml = (layout !== 'banner' && b.priceDisplay === 'from' && fromLabel)
@@ -565,23 +567,23 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
 
   return offerCard({
     theme, ctx, pad, bg, layout, align, accent,
-    kicker: b.kicker ?? ticketsKicker(guestListOnly),
+    kicker: b.kicker != null ? localizeDefaultLabel(b.kicker, ctx.language) : ticketsKicker(guestListOnly, ctx.language || 'fr'),
     title: b.title || '',
     sub: b.sub || '',
     perks: b.perks || [],
-    rowsHtml: showRows ? renderTicketRows(rows, theme, c.inkOnRows, btnColors.color, accent) : '',
+    rowsHtml: showRows ? renderTicketRows(rows, theme, c.inkOnRows, btnColors.color, accent, emailWords(ctx.language).soldOutChip) : '',
     extraHtml: fromHtml,
     // Une soirée en liste invités seule n'a pas de billet à prendre : le bouton
     // dit ce que le clic fait vraiment.
     btn: buttonHtml({
-      href: url, label: b.ctaLabel || ticketsCtaLabel(guestListOnly),
+      href: url, label: localizeDefaultLabel(b.ctaLabel, ctx.language) || ticketsCtaLabel(guestListOnly, ctx.language || 'fr'),
       bg: btnColors.bg, color: btnColors.color, radius: 10,
       full: b.full ?? (layout !== 'minimal'), ctx,
     }),
     note: b.note || '',
     coverUrl: b.coverUrl,
     coverPos: b.coverPos,
-    coverAlt: ticketsKicker(guestListOnly),
+    coverAlt: ticketsKicker(guestListOnly, ctx.language || 'fr'),
   });
 }
 
@@ -696,11 +698,11 @@ function renderOfferPerks(perks: string[], theme: EmailTheme, accent: string, al
 }
 
 /** Pastille de rareté — ambre quand il faut agir, grise quand c'est complet. */
-function tableScarcityChip(left: number, theme: EmailTheme, cardBg: string): string {
+function tableScarcityChip(left: number, theme: EmailTheme, cardBg: string, lang: RenderCtx['language'] = 'fr'): string {
   const complet = left <= 0;
   const bg = complet ? theme.divider : mixHex(VIP_GOLD, cardBg, theme.dark ? 0.20 : 0.17);
   const color = complet ? theme.muted : readableOn(VIP_GOLD, bg);
-  return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${bg};font-family:${MONO};font-size:10px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};">${escapeHtml(tablesLeftLabel(left))}</span>`;
+  return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${bg};font-family:${MONO};font-size:10px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};">${escapeHtml(tablesLeftLabel(left, lang || 'fr'))}</span>`;
 }
 
 /**
@@ -884,29 +886,30 @@ function renderGuestList(b: GuestListBlock, theme: EmailTheme, ctx: RenderCtx, p
   const layout = b.layout || 'showcase';
   const align = b.align || 'left';
   const c = offerCardColors(accent, theme, layout, bg);
+  const W = emailWords(ctx.language);
   const row: TicketRow = {
-    id: GUEST_LIST_ROW_ID, n: 'Liste invités',
-    s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: isGuestListClosed(gl),
+    id: GUEST_LIST_ROW_ID, n: W.guestListRow,
+    s: gl ? guestListSummary(gl, ctx.language || 'fr') : W.guestListSignup, p: W.free, out: isGuestListClosed(gl),
   };
   return offerCard({
     theme, ctx, pad, bg, layout, align, accent,
-    kicker: b.kicker ?? GUEST_LIST_KICKER,
+    kicker: b.kicker != null ? localizeDefaultLabel(b.kicker, ctx.language) : W.guestListKicker,
     title: b.title || '',
     sub: b.sub || '',
     perks: b.perks || [],
-    rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent) : '',
+    rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent, W.soldOutChip) : '',
     extraHtml: '',
     // Liste complète : la carte le dit, le bouton s'efface — un bouton vers une
     // liste pleine coûte plus de confiance qu'il ne rapporte de clics.
     btn: isGuestListClosed(gl) ? '' : buttonHtml({
-      href: url, label: b.ctaLabel || GUEST_LIST_CTA_LABEL,
+      href: url, label: localizeDefaultLabel(b.ctaLabel, ctx.language) || W.guestListCta,
       bg: btnColors.bg, color: btnColors.color, radius: 10,
       full: b.full ?? (layout !== 'minimal'), ctx,
     }),
     note: b.note || '',
     coverUrl: b.coverUrl,
     coverPos: b.coverPos,
-    coverAlt: GUEST_LIST_KICKER,
+    coverAlt: W.guestListKicker,
   });
 }
 
@@ -945,21 +948,21 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const c = offerCardColors(accent, theme, layout, bg);
   return offerCard({
     theme, ctx, pad, bg, layout, align, accent,
-    kicker: String(b.kicker || TABLE_KICKER),
-    chip: typeof left === 'number' ? tableScarcityChip(left, theme, c.cardBg) : '',
+    kicker: String(localizeDefaultLabel(b.kicker, ctx.language) || emailWords(ctx.language).tableKicker),
+    chip: typeof left === 'number' ? tableScarcityChip(left, theme, c.cardBg, ctx.language) : '',
     title: b.title,
     sub: b.sub,
     perks: soldOut ? [] : (b.perks || []),
     rowsHtml: showPacks ? renderTablePackRows(packs, theme, c.inkOnRows) : '',
     btn: soldOut ? '' : buttonHtml({
-      href: url, label: b.ctaLabel || TABLE_CTA_LABEL,
+      href: url, label: localizeDefaultLabel(b.ctaLabel, ctx.language) || emailWords(ctx.language).tableCta,
       bg: btnColors.bg, color: btnColors.color, radius: 10,
       full: b.full ?? (layout !== 'minimal'), ctx,
     }),
     note: soldOut ? '' : (b.note || ''),
     coverUrl: b.coverUrl,
     coverPos: b.coverPos,
-    coverAlt: TABLE_KICKER,
+    coverAlt: emailWords(ctx.language).tableKicker,
   });
 }
 
@@ -981,9 +984,9 @@ function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, p
     </td></tr></table></td>`;
   return td(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;"><tr><td style="padding:18px;text-align:center;">
-      <p style="margin:0 0 12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${theme.muted};">${escapeHtml(b.label || '')}</p>
+      <p style="margin:0 0 12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${theme.muted};">${escapeHtml(localizeDefaultLabel(b.label, ctx.language))}</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-        ${cell(pad2(parts.days), 'JOURS')}${cell(pad2(parts.hours), 'HEURES')}${cell(pad2(parts.mins), 'MIN')}
+        ${cell(pad2(parts.days), emailWords(ctx.language).days)}${cell(pad2(parts.hours), emailWords(ctx.language).hours)}${cell(pad2(parts.mins), emailWords(ctx.language).minutes)}
       </tr></table>
     </td></tr></table>`,
     `padding:${pad.py}px ${pad.px}px;background:${bg};`,
@@ -1099,8 +1102,27 @@ function renderDivider(b: DividerBlock, pad: Pad, theme: EmailTheme, bg: string)
   return td(`<hr style="border:none;border-top:1px solid ${color};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
 }
 
+/**
+ * Section sur mesure : balises Yuno résolues avec les données live de SA
+ * soirée (eventId, posé par le repli de la campagne), puis nettoyée, puis ses
+ * liens suivis (yc=). Moteur unique : email-smart.ts — l'aperçu du Studio, le
+ * contrôle du MCP et l'envoi rendent la même chose.
+ */
+export function smartDataFor(b: HtmlBlock, ctx: RenderCtx): Record<string, unknown> {
+  const event = b.eventId && ctx.live ? ctx.live[b.eventId] : undefined;
+  return buildSmartData({
+    event: event || null,
+    language: smartLang(ctx.language),
+    now: ctx.now,
+    recipient: ctx.recipient,
+    brand: { name: ctx.venueName, logoUrl: ctx.logoUrl, city: ctx.city },
+    social: ctx.socialLinks,
+  });
+}
+
 function renderHtmlBlock(b: HtmlBlock, ctx: RenderCtx, pad: Pad, bg: string): string {
-  return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${interpolateVariables(b.code || '', ctx)}</td></tr>`;
+  const html = renderSmartSection(b.code || '', smartDataFor(b, ctx), (u) => trackUrl(u, ctx));
+  return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${html}</td></tr>`;
 }
 
 export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): string {
@@ -1148,19 +1170,31 @@ export function footerPlace(ctx: Pick<RenderCtx, 'postalAddress' | 'city'>): str
   return (ctx.postalAddress ?? '').trim() || (ctx.city ?? '').trim();
 }
 
+/**
+ * Mentions légales du pied de page, dans la langue de l'e-mail. Miroir exact
+ * dans le port Deno (email-studio-html.ts). Jamais modifiables par le pro ni
+ * par son IA : c'est ce qui rend l'e-mail conforme.
+ */
+export const FOOTER_WORDS = {
+  fr: { promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
+  en: { promo: 'you subscribed to its newsletter', info: 'you bought a ticket', sent: (e: string, r: string) => `This email was sent to ${e} because ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. All rights reserved.`, unsub: 'Unsubscribe' },
+  es: { promo: 'te suscribiste a su newsletter', info: 'compraste una entrada', sent: (e: string, r: string) => `Este email se ha enviado a ${e} porque ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Todos los derechos reservados.`, unsub: 'Darse de baja' },
+} as const;
+
 function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
-  const reason = ctx.emailType === 'promotional'
-    ? 'vous êtes abonné à sa newsletter'
-    : 'vous avez acheté un billet';
+  const w = FOOTER_WORDS[smartLang(ctx.language)];
+  const reason = ctx.emailType === 'promotional' ? w.promo : w.info;
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
-    ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${escapeHtml(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
+    // Lisible sur le fond du pied de page : un accent rouge sur un pied de page
+    // bordeaux cachait le lien de désinscription (mention légale).
+    ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${escapeHtml(ctx.unsubscribeUrl)}" style="color:${isHexColor(theme.footerBg) && isHexColor(theme.accent) ? readableOn(theme.accent, theme.footerBg) : theme.accent};text-decoration:underline;">${w.unsub}</a></p>`
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${footerPlace(ctx) ? ' — ' + escapeHtml(footerPlace(ctx)) : ''}</p>
-     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${escapeHtml(ctx.recipient.email)} car ${reason}.</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${escapeHtml(ctx.venueName)}. Tous droits réservés.</p>
+     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.sent(escapeHtml(ctx.recipient.email), reason)}</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, escapeHtml(ctx.venueName))}</p>
      ${unsub}
      ${poweredBy(theme, ctx)}`,
     `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
@@ -1168,6 +1202,20 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): 
 }
 
 // ── Assemblage ───────────────────────────────────────────────────────────────
+
+/**
+ * Classes utilitaires des sections sur mesure (en-tête de l'e-mail) : une
+ * colonne qui s'empile sur mobile (`yn-col` / `yn-stack`), un élément masqué
+ * sur mobile (`yn-hide-sm`), une image pleine largeur (`yn-full-sm`), des
+ * marges resserrées (`yn-pad-sm`), un texte centré (`yn-center-sm`). Le canevas
+ * du Studio pose les mêmes règles autour d'une section.
+ */
+export const RESPONSIVE_UTILITY_CSS = `.yn-col{display:block!important;width:100%!important;padding:0 0 14px!important;}
+    .yn-stack{display:block!important;width:100%!important;}
+    .yn-hide-sm{display:none!important;max-height:0!important;overflow:hidden!important;}
+    .yn-full-sm{width:100%!important;max-width:100%!important;height:auto!important;}
+    .yn-pad-sm{padding-left:16px!important;padding-right:16px!important;}
+    .yn-center-sm{text-align:center!important;}`;
 
 export interface RenderOptions {
   /** Coupe footer + social + désinscription (usages transactionnels internes). */
@@ -1195,7 +1243,7 @@ export function renderEmailHtml(
     : `${footerSocial}\n${renderFooter(theme, ctx, footerSocial !== '')}`;
 
   return `<!DOCTYPE html>
-<html lang="fr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="${smartLang(ctx.language)}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1210,7 +1258,7 @@ export function renderEmailHtml(
   a{text-decoration:none;}
   @media only screen and (max-width:620px){
     .yn-container{width:100%!important;max-width:100%!important;border-radius:0!important;}
-    .yn-col{display:block!important;width:100%!important;padding:0 0 14px!important;}
+    ${RESPONSIVE_UTILITY_CSS}
   }
   @media (prefers-color-scheme:dark){
     .yn-bg{background:${theme.dark ? theme.bg : '#101012'}!important;}
@@ -1221,7 +1269,7 @@ export function renderEmailHtml(
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
   <tr><td align="center" style="padding:24px 8px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:12px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}
     </table>

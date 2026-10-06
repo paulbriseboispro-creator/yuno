@@ -312,6 +312,8 @@ async function makeStudioHtmlBuilder(
     { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
     // Soirée Shotgun : la vente revient avec la source de CETTE campagne.
     opts.trackedLinks === false ? null : `yuno-m-${String(campaign.id ?? '').replace(/-/g, '').slice(0, 8).toLowerCase()}`,
+    // Langue de l'e-mail : prix, dates et formules des blocs Yuno la suivent.
+    (campaign.language as string | null) || null,
   );
 
   return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
@@ -320,6 +322,8 @@ async function makeStudioHtmlBuilder(
     postalAddress: sender.postalAddress,
     logoUrl: campaignLogo || sender.logoUrl,
     emailType: campaign.type as 'promotional' | 'informational',
+    // Langue de l'e-mail (posée par le MCP) : pied de page légal et balises.
+    language: (campaign.language as string | null) || null,
     subject: subjectForRecipient(campaign, r),
     preheader: (campaign.preheader as string) || undefined,
     recipient: { email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds },

@@ -13,6 +13,11 @@
 
 import type { GuestListLive, LineupArtist, TablePackRow, TicketRow } from './types';
 import { GUEST_LIST_ROW_ID } from './types';
+import { emailWords, formatEuroIn, type EmailWordsLang } from '../../../supabase/functions/_shared/email-words';
+
+// Les libellés ci-dessous suivent la langue de l'e-mail (`lang`, français par
+// défaut, mots de _shared/email-words.ts). Les constantes françaises restent
+// exportées pour les écrans qui les montrent en exemple.
 
 // ── « Complet » posé à la main ───────────────────────────────────────────────
 //
@@ -136,12 +141,13 @@ export const GUEST_LIST_PRICE = 'Gratuit';
  * Ligne « Liste invités » du bloc Billetterie. Le sous-titre porte ce qui
  * conditionne l'entrée : l'heure limite de gratuité et la boisson offerte.
  */
-export function guestListTicketRow(part: GuestListOffer): TicketRow {
+export function guestListTicketRow(part: GuestListOffer, lang: EmailWordsLang = 'fr'): TicketRow {
+  const w = emailWords(lang);
   const before = String(part.free_before_time || '').slice(0, 5);
   const bits: string[] = [];
-  if (before) bits.push(`avant ${before}`);
-  if (part.includes_drink) bits.push('boisson offerte');
-  return { id: GUEST_LIST_ROW_ID, n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
+  if (before) bits.push(w.glBefore(before));
+  if (part.includes_drink) bits.push(w.freeDrink);
+  return { id: GUEST_LIST_ROW_ID, n: w.guestListRow, s: bits.join(' · '), p: w.free, out: false };
 }
 
 /**
@@ -166,10 +172,11 @@ export function buildEntryRows(
  * soirée sans aucun tarif connu ne dit rien (jamais « À partir de 0 € »).
  * Même vocabulaire que les surfaces publiques (eventPriceLabel).
  */
-export function priceFromLabel(activePrices: readonly number[], hasGuestList: boolean): string | null {
+export function priceFromLabel(activePrices: readonly number[], hasGuestList: boolean, lang: EmailWordsLang = 'fr'): string | null {
+  const w = emailWords(lang);
   const paid = activePrices.filter((p) => p > 0);
-  if (paid.length) return `À partir de ${formatEuro(Math.min(...paid))}`;
-  if (hasGuestList || activePrices.length) return GUEST_LIST_PRICE;
+  if (paid.length) return w.priceFrom(formatEuro(Math.min(...paid), lang));
+  if (hasGuestList || activePrices.length) return w.free;
   return null;
 }
 
@@ -184,9 +191,9 @@ export function joinVenueLabel(venueName: string | null | undefined, city: strin
   return v || c;
 }
 
-/** « 12 € » / « 12,50 € » — même formatage des deux côtés du rendu. */
-export function formatEuro(amount: number): string {
-  return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace('.', ',')} €`;
+/** « 12 € » / « 12,50 € » (« €12.50 » en anglais) — même formatage des deux côtés du rendu. */
+export function formatEuro(amount: number, lang: EmailWordsLang = 'fr'): string {
+  return formatEuroIn(amount, lang);
 }
 
 // ── Yuno CRM : soirée d'une billetterie connectée (Shotgun) ─────────────────
@@ -220,7 +227,7 @@ export function externalRowId(d: ExternalDeal): string {
  * à 0 € est une entrée GRATUITE (la guest list Shotgun) : il se lit
  * « Gratuit », en pastille, jamais « 0 € ».
  */
-export function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): TicketRow[] {
+export function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean, lang: EmailWordsLang = 'fr'): TicketRow[] {
   return deals
     .filter((d) => d.name && String(d.name).trim())
     .slice(0, EXTERNAL_ROWS_MAX)
@@ -230,7 +237,7 @@ export function externalTicketRows(deals: readonly ExternalDeal[], soldOut: bool
         id: externalRowId(d),
         n: String(d.name).trim(),
         s: '',
-        p: price > 0 ? formatEuro(price) : GUEST_LIST_PRICE,
+        p: price > 0 ? formatEuro(price, lang) : emailWords(lang).free,
         out: soldOut || !!d.out,
       };
     });
@@ -341,8 +348,9 @@ export function lineupRows<T>(items: readonly T[], perRow = 3): T[][] {
 export const TICKETS_CTA_LABEL = 'Prendre mes billets';
 export const GUEST_LIST_CTA_LABEL = 'M’inscrire à la liste';
 
-export function ticketsCtaLabel(guestListOnly?: boolean): string {
-  return guestListOnly ? GUEST_LIST_CTA_LABEL : TICKETS_CTA_LABEL;
+export function ticketsCtaLabel(guestListOnly?: boolean, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
+  return guestListOnly ? w.guestListCta : w.ticketsCta;
 }
 
 /**
@@ -351,21 +359,23 @@ export function ticketsCtaLabel(guestListOnly?: boolean): string {
  * En liste invités seule c'est « ENTRÉE » et pas « LISTE INVITÉS » : la ligne
  * en dessous porte déjà ce nom, et un titre qui se répète ressemble à un bug.
  */
-export function ticketsKicker(guestListOnly?: boolean): string {
-  return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
+export function ticketsKicker(guestListOnly?: boolean, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
+  return guestListOnly ? w.entryKicker : w.ticketsKicker;
 }
 
 export const GUEST_LIST_KICKER = 'LISTE INVITÉS';
 
 /** Sous-titre live du bloc Liste invités : « Gratuit avant 00:30 · boisson offerte · 42 places restantes ». */
-export function guestListSummary(gl: GuestListLive): string {
+export function guestListSummary(gl: GuestListLive, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const bits: string[] = [];
-  bits.push(gl.freeBefore ? `Gratuit avant ${gl.freeBefore}` : 'Entrée gratuite');
-  if (gl.includesDrink) bits.push('boisson offerte');
+  bits.push(gl.freeBefore ? w.glFreeBefore(gl.freeBefore) : w.glFreeEntry);
+  if (gl.includesDrink) bits.push(w.freeDrink);
   if (isGuestListClosed(gl)) {
-    bits.push('complet');
+    bits.push(w.full);
   } else if (gl.remaining != null) {
-    bits.push(`${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
+    bits.push(w.spotsLeft(gl.remaining));
   }
   return bits.join(' · ');
 }
@@ -424,15 +434,16 @@ export const TABLE_ON_SITE_NOTE = 'sans acompte';
  * règlement se fait au club. C'est la ligne qui VEND — « 6 pers. ·
  * 2 bouteilles » dit en cinq mots ce qu'un paragraphe rate.
  */
-export function tablePackSubtitle(p: TablePackOffer): string {
+export function tablePackSubtitle(p: TablePackOffer, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const bits: string[] = [];
   const seats = Number(p.base_capacity || 0);
-  if (seats > 0) bits.push(`${seats} pers.`);
+  if (seats > 0) bits.push(w.seats(seats));
   const bottles = Number(p.included_bottles_quota || 0);
-  if (bottles > 0) bits.push(`${bottles} bouteille${bottles > 1 ? 's' : ''} incluse${bottles > 1 ? 's' : ''}`);
+  if (bottles > 0) bits.push(w.bottles(bottles));
   const extras = String(p.included_items || '').trim();
   if (extras) bits.push(extras.toLowerCase());
-  if (String(p.payment_mode || '') === 'on_site') bits.push(TABLE_ON_SITE_NOTE);
+  if (String(p.payment_mode || '') === 'on_site') bits.push(w.noDeposit);
   return bits.join(' · ');
 }
 
@@ -446,13 +457,14 @@ export function tablePackSubtitle(p: TablePackOffer): string {
  * faire réserver SUR Yuno. À défaut de prix de base, le minimum de
  * consommation fait foi : c'est la somme qu'il devra sortir.
  */
-export function tablePackPrice(p: TablePackOffer): string {
+export function tablePackPrice(p: TablePackOffer, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const base = Number(p.base_price || 0);
-  if (base > 0) return formatEuro(base);
+  if (base > 0) return formatEuro(base, lang);
   const min = Number(p.minimum_spend || 0);
-  if (min > 0) return `Min. ${formatEuro(min)}`;
+  if (min > 0) return w.minSpend(formatEuro(min, lang));
   // Aucun montant connu : on invite à réserver au lieu d'écrire « 0 € ».
-  return 'Sur demande';
+  return w.onRequest;
 }
 
 /**
@@ -464,7 +476,7 @@ export function tablePackPrice(p: TablePackOffer): string {
  * C'est le BLOC qui choisit lesquelles montrer (`hiddenPacks`) — pas ce
  * calcul : le pro doit pouvoir décider, et pour décider il faut tout voir.
  */
-export function buildTablePackRows(packs: readonly TablePackOffer[]): TablePackRow[] {
+export function buildTablePackRows(packs: readonly TablePackOffer[], lang: EmailWordsLang = 'fr'): TablePackRow[] {
   const priced = packs.map((p) => ({
     p,
     amount: Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY,
@@ -472,9 +484,9 @@ export function buildTablePackRows(packs: readonly TablePackOffer[]): TablePackR
   priced.sort((a, b) => (a.amount - b.amount) || (Number(a.p.position || 0) - Number(b.p.position || 0)));
   return priced.map(({ p }) => ({
     id: p.id ? String(p.id) : undefined,
-    n: String(p.name || 'Table'),
-    s: tablePackSubtitle(p),
-    p: tablePackPrice(p),
+    n: String(p.name || emailWords(lang).tableDefault),
+    s: tablePackSubtitle(p, lang),
+    p: tablePackPrice(p, lang),
   }));
 }
 
@@ -485,11 +497,8 @@ export function buildTablePackRows(packs: readonly TablePackOffer[]): TablePackR
  */
 export const TABLE_SCARCITY_THRESHOLD = 3;
 
-export function tablesLeftLabel(left: number): string {
-  if (left <= 0) return 'Complet';
-  if (left === 1) return 'Dernière table';
-  if (left <= TABLE_SCARCITY_THRESHOLD) return `Plus que ${left} tables`;
-  return `${left} tables disponibles`;
+export function tablesLeftLabel(left: number, lang: EmailWordsLang = 'fr'): string {
+  return emailWords(lang).tablesLeft(left, TABLE_SCARCITY_THRESHOLD);
 }
 
 /** true = la rareté mérite la pastille d'alerte (ambre), pas une ligne calme. */
@@ -519,12 +528,13 @@ export interface TableZoneOffer {
 }
 
 /** « 6 à 8 pers. » quand la zone mélange les capacités, « 8 pers. » sinon. */
-function seatsRange(packs: readonly TablePackOffer[]): string {
+function seatsRange(packs: readonly TablePackOffer[], lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const seats = packs.map((p) => Number(p.base_capacity || 0)).filter((n) => n > 0);
   if (!seats.length) return '';
   const min = Math.min(...seats);
   const max = Math.max(...seats);
-  return min === max ? `${min} pers.` : `${min} à ${max} pers.`;
+  return min === max ? w.seats(min) : w.seatsRange(min, max);
 }
 
 /**
@@ -539,7 +549,9 @@ function seatsRange(packs: readonly TablePackOffer[]): string {
 export function buildTableZoneRows(
   zones: readonly TableZoneOffer[],
   packs: readonly TablePackOffer[],
+  lang: EmailWordsLang = 'fr',
 ): TablePackRow[] {
+  const w = emailWords(lang);
   const rows = zones.map((z) => {
     const mine = packs.filter((p) => p.zone_id && z.id && String(p.zone_id) === String(z.id));
     if (!mine.length) return null;
@@ -547,16 +559,16 @@ export function buildTableZoneRows(
       .map((p) => Number(p.base_price || 0) || Number(p.minimum_spend || 0))
       .filter((n) => n > 0);
     const from = amounts.length ? Math.min(...amounts) : 0;
-    const bits = [seatsRange(mine)].filter(Boolean);
+    const bits = [seatsRange(mine, lang)].filter(Boolean);
     // « sans acompte » ne vaut que si TOUTE la zone se règle au club :
     // l'annoncer pour une zone mixte serait une promesse fausse.
-    if (mine.every((p) => String(p.payment_mode || '') === 'on_site')) bits.push(TABLE_ON_SITE_NOTE);
+    if (mine.every((p) => String(p.payment_mode || '') === 'on_site')) bits.push(w.noDeposit);
     return {
       id: z.id ? String(z.id) : undefined,
-      n: String(z.name || 'Carré'),
+      n: String(z.name || w.zoneDefault),
       s: bits.join(' · '),
       // Un seul tarif dans la zone : c'est LE prix, pas un « à partir de ».
-      p: from > 0 ? (amounts.length > 1 && Math.max(...amounts) > from ? `dès ${formatEuro(from)}` : formatEuro(from)) : 'Sur demande',
+      p: from > 0 ? (amounts.length > 1 && Math.max(...amounts) > from ? w.fromShort(formatEuro(from, lang)) : formatEuro(from, lang)) : w.onRequest,
       amount: from || Number.POSITIVE_INFINITY,
       pos: Number(z.position || 0),
     };
@@ -572,7 +584,7 @@ export function buildTableZoneRows(
  */
 export function splitFromLabel(label: string): { label: string; value: string } {
   const s = String(label || '').trim();
-  const m = /^(.*?)(\d[\d\s.,\u00a0]*\s*€?)$/.exec(s);
+  const m = /^(.*?)(€?\s*\d[\d\s.,\u00a0]*\s*€?)$/.exec(s);
   if (!m || !m[2]) return { label: '', value: s };
   return { label: m[1].trim(), value: m[2].trim() };
 }

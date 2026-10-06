@@ -441,7 +441,20 @@ export interface SpacerBlock extends BlockBase {
   size: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export interface HtmlBlock extends BlockBase { type: 'html'; code: string }
+/**
+ * Section sur mesure : du HTML libre (écrit à la main ou par l'IA du pro via
+ * le MCP Yuno) que les balises Yuno rendent intelligent à l'envoi —
+ * {{event.title}}, {{#each tickets}}…, {{event.tickets_url}} (lien suivi).
+ * Moteur unique : supabase/functions/_shared/email-smart.ts.
+ */
+export interface HtmlBlock extends BlockBase {
+  type: 'html';
+  code: string;
+  /** Soirée de la section. Absent = celle de la campagne. */
+  eventId?: string;
+  /** Nom de la section dans l'onglet Structure (« Hero », « Line-up »…). */
+  label?: string;
+}
 
 export type EmailBlock =
   | HeaderBlock | ImageBlock | TextBlock | CtaBlock | ColumnsBlock
@@ -500,7 +513,18 @@ export interface EmailTheme {
    * sinon les pastilles apparaissent deux fois.
    */
   footerSocial?: boolean;
+  /** Coins du conteneur de l'e-mail (px, 0 à 40). Absent = 12. */
+  radius?: number;
 }
+
+/** Coins du conteneur : le réglage du thème, borné, 12 par défaut. */
+export function themeRadius(theme: Pick<EmailTheme, 'radius'>): number {
+  const r = Number(theme.radius);
+  return Number.isFinite(r) ? Math.max(0, Math.min(40, Math.round(r))) : 12;
+}
+
+/** Langue d'un e-mail : pied de page légal et valeurs des balises Yuno. */
+export type EmailLanguage = 'fr' | 'en' | 'es';
 
 export interface SocialLinks {
   instagram?: string;
@@ -606,6 +630,10 @@ export interface LiveEventData {
    */
   trackedUrl?: string | null;
   entryTrackedUrl?: string | null;
+  /** Fuseau de la soirée — les balises écrivent la date dans la langue de l'e-mail. */
+  timezone?: string | null;
+  /** Soirée d'une billetterie connectée (Shotgun…) : ni page ni tables Yuno. */
+  external?: boolean;
 }
 
 export type LiveData = Record<string, LiveEventData>;
@@ -622,6 +650,8 @@ export interface RenderCtx {
    */
   logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
+  /** Langue de l'e-mail (pied de page, balises). Absent = français. */
+  language?: EmailLanguage | null;
   subject: string;
   preheader?: string;
   recipient: RenderRecipient;
@@ -723,4 +753,13 @@ export interface StudioCampaign {
   resendDelayHours: number;
   /** Objet du renvoi ; vide = objet de la campagne. */
   resendSubject: string;
+  /** Langue de l'e-mail (blocs Yuno, dates, pied de page, balises). null = français. */
+  language?: EmailLanguage | null;
+  /** IA qui a préparé ce brouillon via le MCP Yuno (« Claude »), lecture seule. */
+  aiAuthor?: string | null;
+  /**
+   * Dernière écriture de l'IA (email_campaigns.ai_updated_at), lecture seule.
+   * Le Studio adopte une version plus récente et n'enregistre jamais par-dessus.
+   */
+  aiUpdatedAt?: string | null;
 }

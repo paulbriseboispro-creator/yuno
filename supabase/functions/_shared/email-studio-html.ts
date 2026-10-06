@@ -16,12 +16,24 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 
 import { isRowListed } from './free-ticketing.ts';
+// Sections sur mesure (balises Yuno) : module pur PARTAGÉ avec le front et le
+// Worker MCP — importé tel quel, jamais recopié.
+import { buildSmartData, renderSmartSection, smartLang, smartNeeds, type SmartLang } from './email-smart.ts';
+import { emailWords, eventDateLabel, formatEuroIn, localizeDefaultLabel, wordsLang, type EmailWordsLang } from './email-words.ts';
 export interface StudioTheme {
   name: string; bg: string; card: string; headerBg: string; headerText: string;
   text: string; muted: string; accent: string; btnText: string;
   divider: string; tile: string; footerBg: string; footerText: string; dark: boolean;
   /** Réseaux au pied de page. Absent = affichés (miroir de render.ts). */
   footerSocial?: boolean;
+  /** Coins du conteneur (px, 0 à 40). Absent = 12 (miroir de themeRadius). */
+  radius?: number;
+}
+
+/** Miroir de themeRadius (types.ts). */
+function themeRadius(theme: Pick<StudioTheme, 'radius'>): number {
+  const r = Number(theme.radius);
+  return Number.isFinite(r) ? Math.max(0, Math.min(40, Math.round(r))) : 12;
 }
 
 export interface StudioSocialLinks {
@@ -83,6 +95,10 @@ export interface StudioLiveEventData {
    */
   trackedUrl?: string | null;
   entryTrackedUrl?: string | null;
+  /** Fuseau de la soirée (balises Yuno : date dans la langue de l'e-mail). */
+  timezone?: string | null;
+  /** Soirée d'une billetterie connectée : ni page ni tables Yuno. */
+  external?: boolean;
 }
 
 export type StudioLiveData = Record<string, StudioLiveEventData>;
@@ -106,6 +122,8 @@ export interface StudioRenderCtx {
   /** Logo du compte expéditeur — repli du bloc header (voir render.ts). */
   logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
+  /** Langue de l'e-mail (pied de page, balises). Absent = français. */
+  language?: SmartLang | string | null;
   subject: string;
   preheader?: string;
   recipient: StudioRecipient;
@@ -556,13 +574,13 @@ function td(inner: string, style: string): string {
  * texte se contraste tout seul (miroir de render.ts).
  */
 function renderTicketRows(
-  rows: StudioTicketRow[], theme: StudioTheme, accent: string, accentText: string, pillBg = accent,
+  rows: StudioTicketRow[], theme: StudioTheme, accent: string, accentText: string, pillBg = accent, soldOutChip = SOLD_OUT_CHIP,
 ): string {
   return rows.map((r, i) => {
     const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
     const sub = r.out ? soldOutSub(r.s) : r.s;
     const soldChip = r.out
-      ? `<span style="display:inline-block;margin:7px 0 0;padding:4px 8px;background:${theme.divider};border-radius:3px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:0.1em;color:${theme.muted};">${SOLD_OUT_CHIP}</span>`
+      ? `<span style="display:inline-block;margin:7px 0 0;padding:4px 8px;background:${theme.divider};border-radius:3px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:0.1em;color:${theme.muted};">${esc(soldOutChip)}</span>`
       : '';
     const price = isPricedRow(r.p)
       ? `<span style="font-family:${FONT};font-size:21px;font-weight:800;letter-spacing:-0.02em;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>`
@@ -864,10 +882,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const align = ((b.align as 'left' | 'center' | 'right') || 'left');
       const c = offerCardColors(accent, theme, layout, bg);
 
+      const W = emailWords(ctx.language);
       const items: EventMetaItem[] = [];
-      if (dateLabel) items.push({ k: EVENT_META_DATE, v: dateLabel });
-      if (b.venue !== false && venueLabel) items.push({ k: EVENT_META_VENUE, v: venueLabel });
-      if (b.price && priceLabel) items.push({ k: EVENT_META_PRICE, v: priceLabel, strong: true });
+      if (dateLabel) items.push({ k: W.metaDate, v: dateLabel });
+      if (b.venue !== false && venueLabel) items.push({ k: W.metaVenue, v: venueLabel });
+      if (b.price && priceLabel) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
 
       // Le bandeau est une relance de trois lignes : sa fiche tient sur une
       // ligne, quoi qu'ait choisi le pro. En côte à côte, la demi-colonne ne
@@ -887,7 +906,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         extraHtml: useRows ? '' : renderEventMetaFlow(items, theme, c.inkOnCard, align, display === 'inline'),
         rowsHtml: useRows ? renderEventMetaRows(items, theme, c.inkOnRows) : '',
         btn: buttonHtml({
-          href: url, label: (b.ctaLabel as string) || EVENT_CTA_LABEL,
+          href: url, label: localizeDefaultLabel(b.ctaLabel as string, ctx.language) || W.eventCta,
           bg: btnColors.bg, color: btnColors.color, radius: 10,
           full: (b.full as boolean | undefined) ?? (layout !== 'minimal'), ctx,
         }),
@@ -919,9 +938,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const align = ((b.align as string) || 'left') as 'left' | 'center' | 'right';
       const c = offerCardColors(accent, theme, layout, bg);
 
+      const lang = wordsLang(ctx.language);
       const fromLabel = live?.priceFromLabel || priceFromLabel(
-        rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(',', '.')) || 0),
+        rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(/[^\d,.]/g, '').replace(',', '.')) || 0),
         rows.some((r) => !isPricedRow(r.p)),
+        lang,
       );
       const showRows = layout !== 'banner' && b.priceDisplay !== 'from';
       const fromHtml = (layout !== 'banner' && b.priceDisplay === 'from' && fromLabel)
@@ -930,21 +951,21 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
 
       return offerCard({
         theme, ctx, pad, bg, layout, align, accent,
-        kicker: (b.kicker as string) ?? ticketsKicker(guestListOnly),
+        kicker: b.kicker != null ? localizeDefaultLabel(b.kicker as string, lang) : ticketsKicker(guestListOnly, lang),
         title: (b.title as string) || '',
         sub: (b.sub as string) || '',
         perks: (b.perks as string[]) || [],
-        rowsHtml: showRows ? renderTicketRows(rows, theme, c.inkOnRows, btnColors.color, accent) : '',
+        rowsHtml: showRows ? renderTicketRows(rows, theme, c.inkOnRows, btnColors.color, accent, emailWords(lang).soldOutChip) : '',
         extraHtml: fromHtml,
         btn: buttonHtml({
-          href: url, label: (b.ctaLabel as string) || ticketsCtaLabel(guestListOnly),
+          href: url, label: localizeDefaultLabel(b.ctaLabel as string, lang) || ticketsCtaLabel(guestListOnly, lang),
           bg: btnColors.bg, color: btnColors.color, radius: 10,
           full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
         }),
         note: (b.note as string) || '',
         coverUrl: b.coverUrl as string | undefined,
         coverPos: b.coverPos as 'top' | 'bottom' | undefined,
-        coverAlt: ticketsKicker(guestListOnly),
+        coverAlt: ticketsKicker(guestListOnly, lang),
       });
     }
     case 'guestlist': {
@@ -958,27 +979,28 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
       const align = ((b.align as string) || 'left') as 'left' | 'center' | 'right';
       const c = offerCardColors(accent, theme, layout, bg);
+      const W = emailWords(ctx.language);
       const row: StudioTicketRow = {
-        id: GUEST_LIST_ROW_ID, n: 'Liste invités',
-        s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: isGuestListClosed(gl),
+        id: GUEST_LIST_ROW_ID, n: W.guestListRow,
+        s: gl ? guestListSummary(gl, wordsLang(ctx.language)) : W.guestListSignup, p: W.free, out: isGuestListClosed(gl),
       };
       return offerCard({
         theme, ctx, pad, bg, layout, align, accent,
-        kicker: (b.kicker as string) ?? 'LISTE INVITÉS',
+        kicker: b.kicker != null ? localizeDefaultLabel(b.kicker as string, ctx.language) : W.guestListKicker,
         title: (b.title as string) || '',
         sub: (b.sub as string) || '',
         perks: (b.perks as string[]) || [],
-        rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent) : '',
+        rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent, W.soldOutChip) : '',
         extraHtml: '',
         btn: isGuestListClosed(gl) ? '' : buttonHtml({
-          href: url, label: (b.ctaLabel as string) || GUEST_LIST_CTA_LABEL,
+          href: url, label: localizeDefaultLabel(b.ctaLabel as string, ctx.language) || W.guestListCta,
           bg: btnColors.bg, color: btnColors.color, radius: 10,
           full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
         }),
         note: (b.note as string) || '',
         coverUrl: b.coverUrl as string | undefined,
         coverPos: b.coverPos as 'top' | 'bottom' | undefined,
-        coverAlt: 'LISTE INVITÉS',
+        coverAlt: W.guestListKicker,
       });
     }
     case 'table': {
@@ -1009,21 +1031,21 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const c = offerCardColors(accent, theme, layout, bg);
       return offerCard({
         theme, ctx, pad, bg, layout, align, accent,
-        kicker: String((b.kicker as string) || TABLE_KICKER),
-        chip: typeof left === 'number' ? tableScarcityChip(left, theme, c.cardBg) : '',
+        kicker: String(localizeDefaultLabel(b.kicker as string, ctx.language) || emailWords(ctx.language).tableKicker),
+        chip: typeof left === 'number' ? tableScarcityChip(left, theme, c.cardBg, wordsLang(ctx.language)) : '',
         title: (b.title as string) || '',
         sub: (b.sub as string) || '',
         perks: soldOut ? [] : ((b.perks as string[]) || []),
         rowsHtml: showPacks ? renderTablePackRows(packs, theme, c.inkOnRows) : '',
         btn: soldOut ? '' : buttonHtml({
-          href: url, label: (b.ctaLabel as string) || TABLE_CTA_LABEL,
+          href: url, label: localizeDefaultLabel(b.ctaLabel as string, ctx.language) || emailWords(ctx.language).tableCta,
           bg: btnColors.bg, color: btnColors.color, radius: 10,
           full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
         }),
         note: soldOut ? '' : ((b.note as string) || ''),
         coverUrl: b.coverUrl as string | undefined,
         coverPos: b.coverPos as 'top' | 'bottom' | undefined,
-        coverAlt: TABLE_KICKER,
+        coverAlt: emailWords(ctx.language).tableKicker,
       });
     }
     case 'countdown': {
@@ -1040,9 +1062,9 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         </td></tr></table></td>`;
       return td(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;"><tr><td style="padding:18px;text-align:center;">
-          <p style="margin:0 0 12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${theme.muted};">${esc(b.label || '')}</p>
+          <p style="margin:0 0 12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${theme.muted};">${esc(localizeDefaultLabel(b.label as string, ctx.language))}</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-            ${cell(pad2(parts.days), 'JOURS')}${cell(pad2(parts.hours), 'HEURES')}${cell(pad2(parts.mins), 'MIN')}
+            ${cell(pad2(parts.days), emailWords(ctx.language).days)}${cell(pad2(parts.hours), emailWords(ctx.language).hours)}${cell(pad2(parts.mins), emailWords(ctx.language).minutes)}
           </tr></table>
         </td></tr></table>`,
         `padding:${pad.py}px ${pad.px}px;background:${bg};`,
@@ -1060,8 +1082,21 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const h = SPACER_SIZES[b.size as string] || SPACER_SIZES.md;
       return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;background:${bg};">&nbsp;</td></tr>`;
     }
-    case 'html':
-      return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${interpolate((b.code as string) || '', ctx)}</td></tr>`;
+    case 'html': {
+      // Section sur mesure (miroir de renderHtmlBlock, render.ts) : balises
+      // Yuno résolues avec la soirée de la section, nettoyage, liens suivis.
+      const ev = b.eventId && ctx.live ? ctx.live[b.eventId as string] : undefined;
+      const data = buildSmartData({
+        event: ev || null,
+        language: smartLang(ctx.language),
+        now: ctx.now,
+        recipient: ctx.recipient,
+        brand: { name: ctx.venueName, logoUrl: ctx.logoUrl, city: ctx.city },
+        social: ctx.socialLinks,
+      });
+      const html = renderSmartSection((b.code as string) || '', data, (u) => trackUrl(u, ctx));
+      return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${html}</td></tr>`;
+    }
     default:
       return '';
   }
@@ -1072,19 +1107,26 @@ function footerPlace(ctx: Pick<StudioRenderCtx, 'postalAddress' | 'city'>): stri
   return (ctx.postalAddress ?? '').trim() || (ctx.city ?? '').trim();
 }
 
+/** Miroir EXACT de FOOTER_WORDS (render.ts) : mentions légales dans la langue de l'e-mail. */
+const FOOTER_WORDS = {
+  fr: { promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
+  en: { promo: 'you subscribed to its newsletter', info: 'you bought a ticket', sent: (e: string, r: string) => `This email was sent to ${e} because ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. All rights reserved.`, unsub: 'Unsubscribe' },
+  es: { promo: 'te suscribiste a su newsletter', info: 'compraste una entrada', sent: (e: string, r: string) => `Este email se ha enviado a ${e} porque ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Todos los derechos reservados.`, unsub: 'Darse de baja' },
+} as const;
+
 function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
-  const reason = ctx.emailType === 'promotional'
-    ? 'vous êtes abonné à sa newsletter'
-    : 'vous avez acheté un billet';
+  const w = FOOTER_WORDS[smartLang(ctx.language)];
+  const reason = ctx.emailType === 'promotional' ? w.promo : w.info;
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
-    ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${esc(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
+    // Miroir de render.ts : lien lisible sur le fond du pied de page.
+    ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${esc(ctx.unsubscribeUrl)}" style="color:${isHexColor(theme.footerBg) && isHexColor(theme.accent) ? readableOn(theme.accent, theme.footerBg) : theme.accent};text-decoration:underline;">${w.unsub}</a></p>`
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${footerPlace(ctx) ? ' — ' + esc(footerPlace(ctx)) : ''}</p>
-     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}.</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${esc(ctx.venueName)}. Tous droits réservés.</p>
+     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.sent(esc(ctx.recipient.email), reason)}</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, esc(ctx.venueName))}</p>
      ${unsub}
      ${poweredBy(theme, ctx)}`,
     `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
@@ -1108,7 +1150,7 @@ export function renderStudioEmailHtml(
   const chrome = `${footerSocial}\n${renderFooter(theme, ctx, footerSocial !== '')}`;
 
   return `<!DOCTYPE html>
-<html lang="fr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="${smartLang(ctx.language)}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1124,6 +1166,11 @@ export function renderStudioEmailHtml(
   @media only screen and (max-width:620px){
     .yn-container{width:100%!important;max-width:100%!important;border-radius:0!important;}
     .yn-col{display:block!important;width:100%!important;padding:0 0 14px!important;}
+    .yn-stack{display:block!important;width:100%!important;}
+    .yn-hide-sm{display:none!important;max-height:0!important;overflow:hidden!important;}
+    .yn-full-sm{width:100%!important;max-width:100%!important;height:auto!important;}
+    .yn-pad-sm{padding-left:16px!important;padding-right:16px!important;}
+    .yn-center-sm{text-align:center!important;}
   }
   @media (prefers-color-scheme:dark){
     .yn-bg{background:${theme.dark ? theme.bg : '#101012'}!important;}
@@ -1134,7 +1181,7 @@ export function renderStudioEmailHtml(
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
   <tr><td align="center" style="padding:24px 8px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:12px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}
     </table>
@@ -1147,8 +1194,8 @@ ${chrome}
 // Une requête par tranche d'envoi, jamais par destinataire. Un échec de fetch
 // ne fait JAMAIS échouer l'envoi : le bloc retombe sur ses props figées.
 
-function euro(amount: number): string {
-  return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace('.', ',')} €`;
+function euro(amount: number, lang: EmailWordsLang = 'fr'): string {
+  return formatEuroIn(amount, lang);
 }
 
 // ── Yuno CRM : soirée d'une billetterie connectée (miroir de src/lib/email/live.ts) ──
@@ -1166,7 +1213,7 @@ function externalRowId(d: ExternalDeal): string {
 }
 
 /** Tarifs publics : un tarif vendu (ou la soirée complète) « épuisé », 0 € = « Gratuit ». */
-function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): StudioTicketRow[] {
+function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean, lang: EmailWordsLang = 'fr'): StudioTicketRow[] {
   return deals
     .filter((d) => d.name && String(d.name).trim())
     .slice(0, EXTERNAL_ROWS_MAX)
@@ -1176,7 +1223,7 @@ function externalTicketRows(deals: readonly ExternalDeal[], soldOut: boolean): S
         id: externalRowId(d),
         n: String(d.name).trim(),
         s: '',
-        p: price > 0 ? euro(price) : GUEST_LIST_PRICE,
+        p: price > 0 ? euro(price, lang) : emailWords(lang).free,
         out: soldOut || !!d.out,
       };
     });
@@ -1380,14 +1427,13 @@ function pickPublicGuestList<T extends GuestListOffer>(parts: T[]): T | null {
   return parts.find((p) => p.holder_type === 'club') ?? parts[0] ?? null;
 }
 
-const GUEST_LIST_PRICE = 'Gratuit';
-
-function guestListTicketRow(part: GuestListOffer): StudioTicketRow {
+function guestListTicketRow(part: GuestListOffer, lang: EmailWordsLang = 'fr'): StudioTicketRow {
+  const w = emailWords(lang);
   const before = String(part.free_before_time || '').slice(0, 5);
   const bits: string[] = [];
-  if (before) bits.push(`avant ${before}`);
-  if (part.includes_drink) bits.push('boisson offerte');
-  return { id: GUEST_LIST_ROW_ID, n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
+  if (before) bits.push(w.glBefore(before));
+  if (part.includes_drink) bits.push(w.freeDrink);
+  return { id: GUEST_LIST_ROW_ID, n: w.guestListRow, s: bits.join(' · '), p: w.free, out: false };
 }
 
 function buildEntryRows(
@@ -1399,14 +1445,15 @@ function buildEntryRows(
 }
 
 /** Sous-titre live du bloc Liste invités (miroir de live.ts guestListSummary). */
-function guestListSummary(gl: StudioGuestListLive): string {
+function guestListSummary(gl: StudioGuestListLive, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const bits: string[] = [];
-  bits.push(gl.freeBefore ? `Gratuit avant ${gl.freeBefore}` : 'Entrée gratuite');
-  if (gl.includesDrink) bits.push('boisson offerte');
+  bits.push(gl.freeBefore ? w.glFreeBefore(gl.freeBefore) : w.glFreeEntry);
+  if (gl.includesDrink) bits.push(w.freeDrink);
   if (isGuestListClosed(gl)) {
-    bits.push('complet');
+    bits.push(w.full);
   } else if (gl.remaining != null) {
-    bits.push(`${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
+    bits.push(w.spotsLeft(gl.remaining));
   }
   return bits.join(' · ');
 }
@@ -1420,18 +1467,16 @@ function eventPathFromHost(id: string, slug?: string | null, host?: string | nul
   return slug && host ? `/events/${host}/${slug}` : `/event/${id}`;
 }
 
-/** Kicker du bloc Billetterie — miroir de ticketsKicker (live.ts). */
-const TICKETS_CTA_LABEL = 'Prendre mes billets';
-const GUEST_LIST_CTA_LABEL = 'M’inscrire à la liste';
-
-function ticketsCtaLabel(guestListOnly?: boolean): string {
-  return guestListOnly ? GUEST_LIST_CTA_LABEL : TICKETS_CTA_LABEL;
+/** Bouton du bloc Billetterie — mots de _shared/email-words.ts. */
+function ticketsCtaLabel(guestListOnly?: boolean, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
+  return guestListOnly ? w.guestListCta : w.ticketsCta;
 }
 
 /** Coupe « À partir de 18 € » en libellé + montant (miroir de live.ts). */
 function splitFromLabel(label: string): { label: string; value: string } {
   const t = String(label || '').trim();
-  const m = /^(.*?)(\d[\d\s.,\u00a0]*\s*€?)$/.exec(t);
+  const m = /^(.*?)(€?\s*\d[\d\s.,\u00a0]*\s*€?)$/.exec(t);
   if (!m || !m[2]) return { label: '', value: t };
   return { label: m[1].trim(), value: m[2].trim() };
 }
@@ -1445,8 +1490,9 @@ function renderFromPrice(label: string, theme: StudioTheme, ink: string, align: 
   </div>`;
 }
 
-function ticketsKicker(guestListOnly?: boolean): string {
-  return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
+function ticketsKicker(guestListOnly?: boolean, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
+  return guestListOnly ? w.entryKicker : w.ticketsKicker;
 }
 
 const SOLD_OUT_CHIP = 'ÉPUISÉ';
@@ -1585,11 +1631,11 @@ function renderOfferPerks(perks: string[], theme: StudioTheme, accent: string, a
 }
 
 /** Pastille de rareté — ambre quand il faut agir, grise quand c'est complet. */
-function tableScarcityChip(left: number, theme: StudioTheme, cardBg: string): string {
+function tableScarcityChip(left: number, theme: StudioTheme, cardBg: string, lang: EmailWordsLang = 'fr'): string {
   const complet = left <= 0;
   const bg = complet ? theme.divider : mixHex(VIP_GOLD, cardBg, theme.dark ? 0.20 : 0.17);
   const color = complet ? theme.muted : readableOn(VIP_GOLD, bg);
-  return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${bg};font-family:${MONO};font-size:10px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};">${esc(tablesLeftLabel(left))}</span>`;
+  return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${bg};font-family:${MONO};font-size:10px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};">${esc(tablesLeftLabel(left, lang))}</span>`;
 }
 
 // ── Pilier tables VIP (miroir de live.ts) ────────────────────────────────────
@@ -1607,27 +1653,20 @@ export interface TablePackOffer {
   position?: number | null;
 }
 
-/** Mention « réglé au club » — un ARGUMENT, pas un prix (miroir de live.ts). */
-const TABLE_ON_SITE_NOTE = 'sans acompte';
+// Libellés des blocs (mention « sans acompte », boutons, en-têtes de la
+// fiche Soirée) : mots de _shared/email-words.ts, dans la langue de l'e-mail.
 const TABLE_SCARCITY_THRESHOLD = 3;
-const TABLE_KICKER = 'Bottle service';
-const TABLE_CTA_LABEL = 'Réserver une table';
 
-/** Libellés par défaut du bloc Soirée — miroir de src/lib/email/live.ts. */
-const EVENT_CTA_LABEL = "Voir l'événement";
-const EVENT_META_DATE = 'Date';
-const EVENT_META_VENUE = 'Lieu';
-const EVENT_META_PRICE = 'Tarif';
-
-function tablePackSubtitle(p: TablePackOffer): string {
+function tablePackSubtitle(p: TablePackOffer, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const bits: string[] = [];
   const seats = Number(p.base_capacity || 0);
-  if (seats > 0) bits.push(`${seats} pers.`);
+  if (seats > 0) bits.push(w.seats(seats));
   const bottles = Number(p.included_bottles_quota || 0);
-  if (bottles > 0) bits.push(`${bottles} bouteille${bottles > 1 ? 's' : ''} incluse${bottles > 1 ? 's' : ''}`);
+  if (bottles > 0) bits.push(w.bottles(bottles));
   const extras = String(p.included_items || '').trim();
   if (extras) bits.push(extras.toLowerCase());
-  if (String(p.payment_mode || '') === 'on_site') bits.push(TABLE_ON_SITE_NOTE);
+  if (String(p.payment_mode || '') === 'on_site') bits.push(w.noDeposit);
   return bits.join(' · ');
 }
 
@@ -1635,16 +1674,17 @@ function tablePackSubtitle(p: TablePackOffer): string {
  * Le PRIX, quel que soit le mode de règlement : une table à 300 € réglée au
  * club coûte 300 €, et la page de réservation affiche ce montant.
  */
-function tablePackPrice(p: TablePackOffer): string {
+function tablePackPrice(p: TablePackOffer, lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const base = Number(p.base_price || 0);
-  if (base > 0) return euro(base);
+  if (base > 0) return euro(base, lang);
   const min = Number(p.minimum_spend || 0);
-  if (min > 0) return `Min. ${euro(min)}`;
-  return 'Sur demande';
+  if (min > 0) return w.minSpend(euro(min, lang));
+  return w.onRequest;
 }
 
 /** TOUTES les formules, des moins chères aux plus chères (miroir de live.ts). */
-export function buildTablePackRows(packs: TablePackOffer[]): StudioTablePackRow[] {
+export function buildTablePackRows(packs: TablePackOffer[], lang: EmailWordsLang = 'fr'): StudioTablePackRow[] {
   const priced = packs.map((p) => ({
     p,
     amount: Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY,
@@ -1652,9 +1692,9 @@ export function buildTablePackRows(packs: TablePackOffer[]): StudioTablePackRow[
   priced.sort((a, b) => (a.amount - b.amount) || (Number(a.p.position || 0) - Number(b.p.position || 0)));
   return priced.map(({ p }) => ({
     id: p.id ? String(p.id) : undefined,
-    n: String(p.name || 'Table'),
-    s: tablePackSubtitle(p),
-    p: tablePackPrice(p),
+    n: String(p.name || emailWords(lang).tableDefault),
+    s: tablePackSubtitle(p, lang),
+    p: tablePackPrice(p, lang),
   }));
 }
 
@@ -1665,19 +1705,22 @@ export interface TableZoneOffer {
 }
 
 /** « 6 à 8 pers. » quand la zone mélange les capacités (miroir de live.ts). */
-function seatsRange(packs: TablePackOffer[]): string {
+function seatsRange(packs: TablePackOffer[], lang: EmailWordsLang = 'fr'): string {
+  const w = emailWords(lang);
   const seats = packs.map((p) => Number(p.base_capacity || 0)).filter((n) => n > 0);
   if (!seats.length) return '';
   const min = Math.min(...seats);
   const max = Math.max(...seats);
-  return min === max ? `${min} pers.` : `${min} à ${max} pers.`;
+  return min === max ? w.seats(min) : w.seatsRange(min, max);
 }
 
 /** Zones → lignes d'email avec leur prix d'appel (miroir de live.ts). */
 export function buildTableZoneRows(
   zones: TableZoneOffer[],
   packs: TablePackOffer[],
+  lang: EmailWordsLang = 'fr',
 ): StudioTablePackRow[] {
+  const w = emailWords(lang);
   const rows = zones.map((z) => {
     const mine = packs.filter((p) => p.zone_id && z.id && String(p.zone_id) === String(z.id));
     if (!mine.length) return null;
@@ -1685,13 +1728,13 @@ export function buildTableZoneRows(
       .map((p) => Number(p.base_price || 0) || Number(p.minimum_spend || 0))
       .filter((n) => n > 0);
     const from = amounts.length ? Math.min(...amounts) : 0;
-    const bits = [seatsRange(mine)].filter(Boolean);
-    if (mine.every((p) => String(p.payment_mode || '') === 'on_site')) bits.push(TABLE_ON_SITE_NOTE);
+    const bits = [seatsRange(mine, lang)].filter(Boolean);
+    if (mine.every((p) => String(p.payment_mode || '') === 'on_site')) bits.push(w.noDeposit);
     return {
       id: z.id ? String(z.id) : undefined,
-      n: String(z.name || 'Carré'),
+      n: String(z.name || w.zoneDefault),
       s: bits.join(' · '),
-      p: from > 0 ? (amounts.length > 1 && Math.max(...amounts) > from ? `dès ${euro(from)}` : euro(from)) : 'Sur demande',
+      p: from > 0 ? (amounts.length > 1 && Math.max(...amounts) > from ? w.fromShort(euro(from, lang)) : euro(from, lang)) : w.onRequest,
       amount: from || Number.POSITIVE_INFINITY,
       pos: Number(z.position || 0),
     };
@@ -1719,11 +1762,8 @@ function eventSelectionUrl(url: string, tracked: boolean): string {
   return `${path}/${SELECTION_HINT}${query ? `?${query}` : ''}`;
 }
 
-function tablesLeftLabel(left: number): string {
-  if (left <= 0) return 'Complet';
-  if (left === 1) return 'Dernière table';
-  if (left <= TABLE_SCARCITY_THRESHOLD) return `Plus que ${left} tables`;
-  return `${left} tables disponibles`;
+function tablesLeftLabel(left: number, lang: EmailWordsLang = 'fr'): string {
+  return emailWords(lang).tablesLeft(left, TABLE_SCARCITY_THRESHOLD);
 }
 
 function isPricedRow(price: string): boolean {
@@ -1737,17 +1777,27 @@ function soldOutSub(sub: string): string {
   return ['epuise', 'epuisee', 'complet', 'sold out', 'soldout', 'agotado', 'agotada'].includes(bare) ? '' : t;
 }
 
-function priceFromLabel(activePrices: number[], hasGuestList: boolean): string | null {
+function priceFromLabel(activePrices: number[], hasGuestList: boolean, lang: EmailWordsLang = 'fr'): string | null {
+  const w = emailWords(lang);
   const paid = activePrices.filter((p) => p > 0);
-  if (paid.length) return `À partir de ${euro(Math.min(...paid))}`;
-  if (hasGuestList || activePrices.length) return GUEST_LIST_PRICE;
+  if (paid.length) return w.priceFrom(euro(Math.min(...paid), lang));
+  if (hasGuestList || activePrices.length) return w.free;
   return null;
+}
+
+/**
+ * true = le bloc lit une soirée à l'envoi : un bloc Yuno, ou une section sur
+ * mesure qui utilise des balises de soirée. Miroir de isLiveBlock (templates.ts).
+ */
+export function isLiveStudioBlock(b: StudioBlock): boolean {
+  if (['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type)) return true;
+  return b.type === 'html' && smartNeeds(String(b.code || '')).event;
 }
 
 export function collectStudioEventIds(blocks: StudioBlock[], fallbackEventId?: string | null): string[] {
   const ids = new Set<string>();
   for (const b of blocks) {
-    if (['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type)) {
+    if (isLiveStudioBlock(b)) {
       const id = (b.eventId as string) || fallbackEventId || '';
       if (id) ids.add(id);
     }
@@ -1813,7 +1863,10 @@ export async function fetchStudioLiveData(
   senderScope: { venueId?: string | null; organizerUserId?: string | null } | null = null,
   /** Source portée vers une billetterie connectée (`yuno-m-…`), null = `yuno`. */
   ticketingSource: string | null = null,
+  /** Langue de l'e-mail : prix, dates, formules (miroir de useStudioLiveData). */
+  language: string | null = null,
 ): Promise<StudioLiveData> {
+  const lang = wordsLang(language);
   const live: StudioLiveData = {};
   const ids = collectStudioEventIds(blocks, fallbackEventId);
   if (ids.length === 0) return live;
@@ -1837,7 +1890,7 @@ export async function fetchStudioLiveData(
     }
     // Line-up (soirée Shotgun : ses artistes ; soirée Yuno : DJ + invités).
     // Lu seulement si un bloc Line-up est posé — même RPC que l'aperçu.
-    const needLineup = blocks.some((b) => b.type === 'lineup');
+    const needLineup = blocks.some((b) => b.type === 'lineup' || (b.type === 'html' && smartNeeds(String(b.code || '')).lineup));
     const lineupById = new Map<string, StudioLineupArtist[]>();
     if (needLineup) {
       const { data: lineupRows } = await admin.rpc('get_event_lineup_live', { p_event_ids: ids });
@@ -1893,7 +1946,7 @@ export async function fetchStudioLiveData(
       hostById.set(id, (data as string | null) || null);
     }));
 
-    const needTables = blocks.some((b) => b.type === 'table');
+    const needTables = blocks.some((b) => b.type === 'table' || (b.type === 'html' && smartNeeds(String(b.code || '')).tables));
     let packsByEvent = new Map<string, number>();
     let reservedByEvent = new Map<string, number>();
     let packRowsByEvent = new Map<string, StudioTablePackRow[]>();
@@ -1939,8 +1992,8 @@ export async function fetchStudioLiveData(
         );
         for (const p of mine) total += Number(p.tables_count || 0);
         packsByEvent.set(e.id, total);
-        packRowsByEvent.set(e.id, buildTablePackRows(mine));
-        zoneRowsByEvent.set(e.id, buildTableZoneRows(allZones, mine));
+        packRowsByEvent.set(e.id, buildTablePackRows(mine, lang));
+        zoneRowsByEvent.set(e.id, buildTableZoneRows(allZones, mine, lang));
       }
       for (const r of reservations || []) {
         reservedByEvent.set(r.event_id, (reservedByEvent.get(r.event_id) || 0) + 1);
@@ -1953,8 +2006,7 @@ export async function fetchStudioLiveData(
       const city = venue?.city || e.location_city || '';
       const lineup = needLineup ? (lineupById.get(e.id) ?? []) : undefined;
       const tz = e.timezone && String(e.timezone).trim() ? e.timezone : 'Europe/Paris';
-      const start = new Date(e.start_at);
-      const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
+      const dateLabel = eventDateLabel(e.start_at, tz, lang);
 
       const flags = liveSoldOut(e);
       // Billetterie libre : un billet caché (ou pas encore affiché) n'entre pas dans l'email.
@@ -1964,9 +2016,9 @@ export async function fetchStudioLiveData(
       // Billetterie éteinte : aucune tranche (bloc effacé). Fermée à la main :
       // chaque tranche « épuisé », aucun prix d'appel (miroir de hooks.ts).
       const roundRows: StudioTicketRow[] = e.ticketing_enabled === false ? [] : applyTicketsSoldOut(visible.map((r) => ({
-        n: r.name || 'Billet',
+        n: r.name || emailWords(lang).ticketDefault,
         s: r.description || '',
-        p: euro(Number(r.price || 0)),
+        p: euro(Number(r.price || 0), lang),
         out: isOut(r),
       })), flags);
       const activePrices = roundRows.length === 0 || flags.ticketsSoldOut
@@ -2008,8 +2060,8 @@ export async function fetchStudioLiveData(
           venueLabel: ext?.venue_label || joinVenueLabel(venueName, city),
           coverUrl: e.poster_url || e.image_url || null,
           url: ticketUrl ? withEmailUtm(ticketUrl, ticketingSource) : publicUrl,
-          priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
-          tickets: externalTicketRows(deals, soldOut),
+          priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false, lang),
+          tickets: externalTicketRows(deals, soldOut, lang),
           guestListOnly: false,
           guestList: null,
           tablesLeft: null,
@@ -2017,6 +2069,8 @@ export async function fetchStudioLiveData(
           tablePacks: needTables ? [] : undefined,
           tableZones: needTables ? [] : undefined,
           lineup,
+          timezone: tz,
+          external: true,
         };
         continue;
       }
@@ -2028,7 +2082,7 @@ export async function fetchStudioLiveData(
         venueLabel: joinVenueLabel(venueName, city),
         coverUrl: e.poster_url || e.image_url || null,
         url: `${publicUrl}${eventPathFromHost(e.id, e.slug, hostById.get(e.id))}`,
-        priceFromLabel: priceFromLabel(activePrices, !!guestList),
+        priceFromLabel: priceFromLabel(activePrices, !!guestList, lang),
         // Tableau TOUJOURS présent : vide = aucune entrée ouverte (bloc effacé),
         // undefined = événement non résolu (le bloc retombe sur ses props).
         tickets,
@@ -2039,6 +2093,8 @@ export async function fetchStudioLiveData(
         tablePacks: needTables ? (tablesOpen ? (packRowsByEvent.get(e.id) || []) : []) : undefined,
         tableZones: needTables ? (tablesOpen ? (zoneRowsByEvent.get(e.id) || []) : []) : undefined,
         lineup,
+        timezone: tz,
+        external: false,
       };
     }
   } catch (e) {
@@ -2072,7 +2128,7 @@ export async function fetchStudioLiveData(
   // Les blocs sans eventId propre héritent de l'événement de la campagne.
   if (fallbackEventId && live[fallbackEventId]) {
     for (const b of blocks) {
-      if (['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type) && !b.eventId) {
+      if (isLiveStudioBlock(b) && !b.eventId) {
         b.eventId = fallbackEventId;
       }
     }
