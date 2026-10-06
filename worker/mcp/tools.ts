@@ -1,4 +1,8 @@
-// Les outils du serveur MCP Yuno. Tous en LECTURE SEULE.
+// Les outils du serveur MCP Yuno. Tous en LECTURE SEULE, sauf trois : la
+// création et la modification d'un BROUILLON d'e-mail (create_email_draft,
+// update_email_draft) et l'ajout d'une image pour ces brouillons
+// (add_email_image), réservés aux connexions qui en ont reçu le droit au
+// consentement et écrits par la seule porte mcp_write. Aucun outil n'envoie.
 //
 // Chaque description suit la même grammaire (guide OpenAI / Anthropic) : à quoi
 // sert l'outil, quand l'utiliser (avec des questions de pro en exemple), ce
@@ -27,6 +31,18 @@ export interface ToolDef {
   // Outil à fenêtre de temps : sur un dépassement de délai, le Worker relance
   // une fois sur une fenêtre resserrée plutôt que de rendre une erreur.
   windowed?: boolean;
+  // Outil d'ÉCRITURE (brouillon d'e-mail) : listé seulement pour une connexion
+  // qui a le droit aux brouillons, exécuté par mcp_write.
+  write?: boolean;
+  // Écriture qui remplace un contenu existant (annotation destructiveHint).
+  destructive?: boolean;
+  // Outil d'e-mail : sa réponse garde les URL d'images (affiche, logo, photos).
+  email?: boolean;
+  // Réservé aux connexions qui ont le droit aux brouillons (sans être une écriture).
+  drafts?: boolean;
+  // Métadonnées propres à un client (ex. `openai/fileParams` : ChatGPT y passe
+  // le fichier que la personne a joint à la conversation).
+  meta?: Record<string, unknown>;
 }
 
 const SPACE: JsonSchema = {
@@ -42,6 +58,58 @@ const TO: JsonSchema = { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', desc
 const EVENT: JsonSchema = {
   type: 'string', minLength: 1, maxLength: 120,
   description: 'Event id (uuid from list_events), or "last" (most recent finished event), or "next" (next or ongoing event), or part of the event title (the closest date wins). Example: "last", "Reggaeton".',
+};
+
+const HEX: JsonSchema = { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' };
+const PRODUCT: JsonSchema = {
+  type: 'string', enum: ['suite', 'crm'],
+  description: 'suite = Yuno ticketing, crm = Yuno CRM (external ticketing such as Shotgun). Omitted: the product of the space. A Yuno ticketing account with Yuno CRM added has both (products_available in get_email_design_kit).',
+};
+const LANGUAGE: JsonSchema = {
+  type: 'string', enum: ['fr', 'en', 'es'],
+  description: 'Language of the email, the one the person writes in or asks for: native Yuno blocks (buttons, prices, tables left, countdown), dates, the values of Yuno tags and the legal footer follow it. Default fr.',
+};
+const SECTION: JsonSchema = {
+  type: 'object',
+  properties: {
+    html: { type: 'string', maxLength: 60000, description: 'Email-safe HTML of the section (tables and inline styles, 600 px wide) with Yuno tags such as {{event.title}} or {{event.tickets_url}}.' },
+    yuno_block: { type: 'string', enum: ['event', 'tickets', 'lineup', 'countdown', 'table', 'guestlist', 'social', 'divider', 'spacer'], description: 'Instead of html: a native Yuno block with a fixed design (event card, ticket tiers, line-up, countdown, VIP tables, guest list, social links, divider, spacer).' },
+    options: { type: 'object', description: 'Options of a native block: accent (#rrggbb), kicker, title, subtitle, button, layout (showcase, banner, minimal, split), align (left, center, right), photos (line-up), price_display (rows, from), pack_display (packs, zones), size (spacer: sm, md, lg, xl), color (social icons, divider).' },
+    label: { type: 'string', maxLength: 60, description: 'Name of the section in the Studio structure ("Hero", "Line-up", "VIP").' },
+    show_to: { type: 'string', enum: ['everyone', 'vip_table', 'no_vip_table', 'buyers', 'no_buyers', 'new_subscribers'], description: 'Who sees this section, decided per recipient at sending: people with a VIP table for the event (vip_table) or without (no_vip_table), buyers of the event or not, new subscribers. Default everyone.' },
+    padding: { type: 'integer', minimum: 0, maximum: 48, description: 'Space around the section in px. Default 0: the section HTML controls its own spacing.' },
+    background: { ...HEX, description: 'Color behind the section (#rrggbb).' },
+  },
+  additionalProperties: false,
+};
+const THEME: JsonSchema = {
+  type: 'object',
+  description: 'Colors of the email frame. background = page around the email, card = email body behind the sections, text, muted, accent (links and native Yuno blocks), button_text, divider, footer_background and footer_text (the legal footer Yuno adds), dark (dark design), radius (corners of the email, 0 to 40 px), footer_social (social icons in the footer, default true).',
+  properties: {
+    background: HEX, card: HEX, text: HEX, muted: HEX, accent: HEX, button_text: HEX, divider: HEX,
+    footer_background: HEX, footer_text: HEX,
+    dark: { type: 'boolean' },
+    radius: { type: 'integer', minimum: 0, maximum: 40 },
+    footer_social: { type: 'boolean' },
+  },
+  additionalProperties: false,
+};
+const DRAFT_FIELDS: Record<string, JsonSchema> = {
+  product: PRODUCT,
+  event: { ...EVENT, description: 'The night of the email: event id, "next", "last", part of the title, or "none" to unlink (update). Required when sections use event tags or native Yuno blocks.' },
+  name: { type: 'string', minLength: 1, maxLength: 120, description: 'Internal name of the draft in the Console ("Portalis — annonce").' },
+  subject: { type: 'string', minLength: 1, maxLength: 150, description: 'Email subject.' },
+  subject_b: { type: 'string', maxLength: 150, description: 'Second subject for an A/B test (Yuno sends both to a sample, then the winner to the rest). "none" removes it (update).' },
+  preheader: { type: 'string', maxLength: 200, description: 'Preview text shown after the subject in the inbox.' },
+  language: LANGUAGE,
+  audience: {
+    type: 'array', maxItems: 10, items: { type: 'string', minLength: 3, maxLength: 60 },
+    description: 'Audience ids from list_email_audiences ("all", "lifecycle:hab", "segment:<uuid>", "preset:vip", "kind:vip"…). Several ids add up. Empty or omitted: the person picks the audience in the Console.',
+  },
+  audience_label: { type: 'string', maxLength: 80, description: 'Name shown in the Console for a single Yuno CRM rule audience ("VIP Amoris").' },
+  exclude_event_buyers: { type: 'boolean', description: 'Skip people who already bought a ticket for the linked night.' },
+  exclude_recent_days: { type: 'integer', minimum: 0, maximum: 30, description: 'Skip people who received an email from this account in the last N days. Default 3, 0 = no exclusion.' },
+  theme: THEME,
 };
 
 const READ_ONLY_ANNOTATIONS = {
@@ -386,6 +454,177 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'get_email_design_kit',
+    title: 'Email design kit',
+    level: 'analytics',
+    email: true,
+    description:
+      'What is needed to design a Yuno email for a night, in one call: the brand of the space (name, logo, city, social links, sender, colors of recent emails), '
+      + 'the upcoming events with their ids, the facts of one event (title, local date and time, venue, poster URL, ticket tiers with prices and sold-out state, '
+      + 'VIP tables and packs, guest list, line-up with photos, sales page or external ticketing), the Yuno tags that make a custom HTML section live '
+      + '(prices, sold out, line-up, countdown, tracked buy links) with what they render today for that event, the email HTML rules, '
+      + 'a design method for opens and sales, an example section, the products available (suite, crm) and the 8 most recent drafts. '
+      + 'Examples: "design the email for my next party", "make a VIP version", "redo my newsletter in my brand colors".',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, product: PRODUCT, event: { ...EVENT, description: 'Optional. The night to design for: id, "next", "last" or part of the title.' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'list_email_audiences',
+    title: 'Email audiences',
+    level: 'analytics',
+    email: true,
+    description:
+      'Who an email can go to, with the number of contacts reachable by email now: the whole base, lifecycle groups (Yuno CRM: regulars, occasional, new, dormant, never came) '
+      + 'or built-in groups (Yuno ticketing: VIP, big spenders, regulars, new, dormant), saved segments, imported lists, and Yuno presets '
+      + '(big spenders 200 € and more, loyal, recent, to reactivate, no ticket yet for what is next, recent clickers). '
+      + 'Each audience has an id for create_email_draft. Can take a few seconds on large bases.',
+    inputSchema: { type: 'object', properties: { space: SPACE, product: PRODUCT }, additionalProperties: false },
+  },
+  {
+    name: 'get_email_draft',
+    title: 'Read an email draft',
+    level: 'analytics',
+    email: true,
+    description:
+      'One email draft or campaign of the space by id (ids in get_email_design_kit.recent_drafts or get_marketing_performance): its sections in order '
+      + '(custom HTML with Yuno tags, or native Yuno blocks), subject, B subject, preheader, language, linked event, audience, theme and status. '
+      + 'Useful before update_email_draft, or to reuse the design of a past email.',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, draft_id: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' } },
+      required: ['draft_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'create_email_draft',
+    title: 'Create an email draft',
+    level: 'analytics',
+    email: true,
+    write: true,
+    description:
+      'Creates an email campaign DRAFT in the Yuno Console: custom HTML sections (and optional native Yuno blocks), subject, optional B subject for an A/B test, '
+      + 'preheader, language, linked night, audience and theme. Nothing is sent or scheduled: the draft waits in the Console, where the person reviews it and sends it. '
+      + 'Yuno tags in the HTML are read again when the email leaves, and links written with tags are tracked (clicks and sales attributed to the email). '
+      + 'The HTML is cleaned (scripts, styles, forms removed) and checked: errors such as unknown tags, unclosed blocks or a missing event are returned without '
+      + 'creating anything. Returns the Console link, the current audience size and the quality checks. '
+      + 'Needs the email drafts permission of the connection and the right to create emails in the space.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        ...DRAFT_FIELDS,
+        sections: { type: 'array', minItems: 1, maxItems: 30, items: SECTION, description: 'The email body, top to bottom. Yuno adds the legal footer after the last section.' },
+      },
+      required: ['name', 'subject', 'sections'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'update_email_draft',
+    title: 'Update an email draft',
+    level: 'analytics',
+    email: true,
+    write: true,
+    destructive: true,
+    description:
+      'Changes an email DRAFT (never a scheduled or sent email), for example after the person asked for changes or showed a screenshot: '
+      + 'replace every section (sections) or change some (section_updates, by section id: rewrite one, change the options of a native Yuno block, '
+      + 'insert a new section above or below, move, remove, show to one audience only), and any of subject, B subject, preheader, language, night, '
+      + 'audience, exclusions, theme or name. Sections not targeted stay exactly as they are, including the ones the person edited in the Console. '
+      + 'Same tags, cleaning and checks as create_email_draft. Returns what changed, the new version, the Console link and the checks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        draft_id: { type: 'string', pattern: '^[0-9a-fA-F-]{36}$' },
+        ...DRAFT_FIELDS,
+        sections: { type: 'array', minItems: 1, maxItems: 30, items: SECTION, description: 'Replaces every section of the draft.' },
+        draft_version: {
+          type: 'string', maxLength: 40,
+          description: 'The "version" returned by get_email_draft (or by the last create/update). If the person changed the draft in the Console since, nothing is written and the new sections are returned.',
+        },
+        section_updates: {
+          type: 'array', minItems: 1, maxItems: 30,
+          description: 'Targeted changes, applied in order. Target a section by its id from get_email_draft (preferred) or its index (0 = first).',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', maxLength: 80, description: 'Section id from get_email_draft.' },
+              index: { type: 'integer', minimum: 0, maximum: 39, description: 'Section position, when no id.' },
+              action: {
+                type: 'string', enum: ['edit', 'remove', 'insert_before', 'insert_after', 'move'],
+                description: 'edit (default): new html (a native block given html becomes a custom section), or yuno_block to replace it by a native block, or options of a native block, plus label / show_to / background / padding. '
+                  + 'insert_before / insert_after: a NEW section (html or yuno_block) above or below the target. remove. move: to position move_to.',
+              },
+              html: { type: 'string', maxLength: 60000 },
+              yuno_block: { type: 'string', enum: ['event', 'tickets', 'lineup', 'countdown', 'table', 'guestlist', 'social', 'divider', 'spacer'] },
+              options: { type: 'object', description: 'Options of a native block (same names as in sections): accent, kicker, title, subtitle, button, layout, align, photos, price_display, pack_display, size, color. "none" clears accent or color.' },
+              label: { type: 'string', maxLength: 60 },
+              show_to: { type: 'string', enum: ['everyone', 'vip_table', 'no_vip_table', 'buyers', 'no_buyers', 'new_subscribers'] },
+              background: { type: 'string', maxLength: 7, description: '#rrggbb, or "none" to remove.' },
+              padding: { type: 'integer', minimum: 0, maximum: 48 },
+              move_to: { type: 'integer', minimum: 0, maximum: 39, description: 'move: new position (0 = top).' },
+              insert_after: { type: 'boolean', description: 'Older form of action "insert_after".' },
+              remove: { type: 'boolean', description: 'Older form of action "remove".' },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['draft_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'list_email_images',
+    title: 'Email images',
+    level: 'analytics',
+    email: true,
+    drafts: true,
+    description:
+      'Images added for emails in this space through the connector in the last 30 days (newest first): ready images with their public URL, width and height, '
+      + 'and upload links still waiting for the person to drop or paste an image. Use it after the person says they added the image on the upload page.',
+    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+  },
+  {
+    name: 'add_email_image',
+    title: 'Add an image for an email',
+    level: 'analytics',
+    email: true,
+    write: true,
+    description:
+      'Stores an image on Yuno to use in an email section (the event poster is already available in get_email_design_kit). '
+      + 'Three ways: the image the person attached to the conversation (passed as "image" by apps that hand files to tools), a public image link ("url", copied to Yuno so it stays online), '
+      + 'or neither, which returns a one-time upload page where the person pastes or drops the image. Returns the image URL with its width and height when ready, '
+      + 'or the upload page. JPEG, PNG, GIF or WebP, 8 MB at most. Nothing is sent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        name: { type: 'string', maxLength: 80, description: 'Short name to recognize the image ("Photo DJ", "Logo partenaire").' },
+        url: { type: 'string', maxLength: 2000, pattern: '^https://', description: 'Public https link to an image to copy to Yuno.' },
+        image: {
+          type: 'object',
+          description: 'The image the person attached to the conversation.',
+          properties: {
+            download_url: { type: 'string' },
+            file_id: { type: 'string' },
+            mime_type: { type: 'string' },
+            file_name: { type: 'string' },
+          },
+          required: ['download_url', 'file_id'],
+          additionalProperties: false,
+        },
+      },
+      additionalProperties: false,
+    },
+    meta: { 'openai/fileParams': ['image'] },
+  },
+  {
     name: 'get_glossary',
     title: 'Metric definitions',
     level: 'analytics',
@@ -426,12 +665,14 @@ export interface SessionSpace {
   customers: boolean;
 }
 
-// Les outils proposés à CETTE connexion : niveau accordé et produits couverts.
-export function toolsFor(level: ToolLevel, spaces: SessionSpace[]): ToolDef[] {
+// Les outils proposés à CETTE connexion : niveau accordé, produits couverts et
+// droit aux brouillons d'e-mails.
+export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = false): ToolDef[] {
   const products = new Set(spaces.map((s) => s.product));
   const anyCustomers = level === 'customers' && spaces.some((s) => s.customers);
   return TOOLS.filter((t) => {
     if (t.level === 'customers' && !anyCustomers) return false;
+    if ((t.write || t.drafts) && !drafts) return false;
     if (t.products && !t.products.some((p) => products.has(p))) return false;
     return true;
   });
@@ -443,7 +684,10 @@ export function toolListing(t: ToolDef): Record<string, unknown> {
     title: t.title,
     description: t.description,
     inputSchema: t.inputSchema,
-    annotations: { title: t.title, ...READ_ONLY_ANNOTATIONS },
+    ...(t.meta ? { _meta: t.meta } : {}),
+    annotations: t.write
+      ? { title: t.title, readOnlyHint: false, destructiveHint: !!t.destructive, idempotentHint: false, openWorldHint: false }
+      : { title: t.title, ...READ_ONLY_ANNOTATIONS },
   };
 }
 

@@ -11,8 +11,9 @@
 // diverger.
 
 import type { SessionSpace } from './tools';
+import { emailDesignGuideMarkdown } from './emailGuide';
 
-export const INSTRUCTIONS = `You are connected to Yuno, the nightlife platform (ticketing, VIP tables, guest list, CRM, email and push marketing) used by clubs and event organizers. Through these tools you read the pro's own Yuno Console data, READ-ONLY, with their consent. You are their analyst: turn numbers into findings and concrete actions.
+export const INSTRUCTIONS = `You are connected to Yuno, the nightlife platform (ticketing, VIP tables, guest list, CRM, email and push marketing) used by clubs and event organizers. Through these tools you read the pro's own Yuno Console data, with their consent, and — when the connection allows it — you prepare email DRAFTS that they review and send themselves. You are their analyst and their email designer: turn numbers into findings and concrete actions, and nights into emails that get opened and sell.
 
 START
 - Call get_account_overview first (once per conversation). It gives the space(s), today's date and timezone, whether money is visible, the access level, the product, and the last/next events with ids.
@@ -39,7 +40,7 @@ RULES
 - The drinks / bar ordering pillar is not available in Yuno right now: never recommend bar menus, drink pre-orders or bar upsells. A ticket that includes a free drink is fine.
 - CRM accounts (product "crm") sell through their own ticketing (e.g. Shotgun); Yuno reads those sales. Do not suggest Yuno ticketing features to a CRM account (ticket tiers, VIP tables, guest list, promo codes, push, promoters, Yuno tracked /l/ links: an external event carries none of them); suggest audience, email, automations, segments, and UTM-tagged links to the ticketing page (UTM sources per event are in get_event_report).
 - Personal data: only with the "customers" level. Use the minimum (first name + why they matter), never dump lists, never put personal data in links, images or code. For full exports, point to the Console (Customers → Export).
-- You cannot change anything in Yuno. To act, give the user the exact steps.
+- The only thing you can write in Yuno is an email DRAFT (create_email_draft, update_email_draft), and only when those tools are listed. You never send, schedule, test-send or delete anything: sending stays a click of the person in the Yuno Console. For every other action, give the exact steps in the Console.
 
 NIGHTLIFE ANALYSIS PLAYBOOK
 - Sales curve: nightlife buyers often decide late; read in the curve what share of the reference event's sales came in its last 7 days and last 72 h before judging a slow start. A party clearly behind its reference event at the same D-N needs action now (email to past buyers of similar events, story with a tracked link, last-call automation, promoters push), not a price cut first.
@@ -51,6 +52,24 @@ NIGHTLIFE ANALYSIS PLAYBOOK
 - Promoters: rank by people who actually came and new customers brought, not only by tickets.
 - Traffic: a source with many visits and few purchases (conversion) has a landing or offer problem; a source with few visits but high conversion deserves more budget.
 - Always separate one-off effects (holiday, artist, weather, competing event) from trends: compare several events before concluding.
+
+EMAIL DESIGN (when asked to create, design, rewrite or vary an email)
+1. Call get_email_design_kit (with the night: id, "next" or part of its title, and product "crm" when the person talks about Yuno CRM) and list_email_audiences in parallel. The kit gives the brand, the night's facts, the Yuno tags, the HTML rules, the design method and an example section: follow them.
+2. If an inspiration (image, link, description) or a design system is given, read it first: palette, shapes, type mood, rhythm. Rebuild that structure for nightlife and recolor it with the event poster and the brand. Without inspiration, start from the brand and the poster colors.
+3. Write each section as email-safe HTML (tables, inline styles, 600 px). Every live fact and every link to the night is a Yuno tag ({{event.title}}, {{event.date}}, {{#each tickets}}, {{event.tickets_url}}…): that keeps prices, sold-out states and line-up live and the sales attributed. Use only facts from the kit: never invent artists, prices, times or perks.
+4. Images: the event poster ({{event.cover}}) and line-up photos are the default. A specific image the person wants (attached to the conversation, or a link) goes through add_email_image first, then its Yuno URL goes in an <img>. If the image cannot be passed to the tool, give the person the upload page link it returns (they paste or drop the image there), then call list_email_images. Never use a local file path, a data: URI or a link that may expire.
+5. Write the whole email in the language the person writes in or asks for, and set "language" to it (fr, en or es): native Yuno blocks, dates, prices and the legal footer follow it. Write the subject (25 to 45 characters), a preheader that completes it, and a subject_b with another angle when an A/B test helps.
+6. Pick the audience from list_email_audiences as instructed ("all" for a global announcement; a VIP variation goes to a VIP segment or preset). One draft per audience and message.
+7. Call create_email_draft. If it returns errors, fix them and call it again. Mention its warnings when they matter.
+8. Tell the person what was created (name, audience size, subject) with the Console link of each draft, and that nothing is sent until they send it from the Console. Offer one concrete improvement.
+If email draft tools are not listed, design the email as HTML in the conversation and explain that reconnecting Yuno allows drafts.
+
+ITERATING ON A DRAFT (the person reacts, asks for changes, or shows a screenshot: "remove this", "make it like this", "add that below")
+1. Call get_email_draft first (the person may have edited it in the Console). Each section has an id, its visible "text" and its content; keep the "version".
+2. Find what they mean: match the words visible on their screenshot with the "text" of the sections (tags show the night's values in the email, e.g. {{event.title}} is the event title). If two sections could match, ask which one.
+3. Call update_email_draft with draft_version and the smallest set of section_updates, by id: edit, remove, insert_before / insert_after, move. Change only what was asked; keep the other sections, the design and the tags as they are. A screenshot of another design to add means a new section in the email's own style.
+4. If it answers draft_changed, read the draft again and redo the change on the new version.
+5. Say in one or two sentences what changed (the result lists it) and give the Console link: an open Console updates by itself, and the person can undo the change there.
 
 YUNO ACTIONS YOU CAN RECOMMEND (Console menus; confirm steps with search_yuno_help)
 - Email: Marketing & CRM → Email → New campaign (templates with live event blocks, A/B subject, resend to non-openers, click follow-up). Audiences: base, past buyers, segments, imported lists.
@@ -101,10 +120,10 @@ export function glossaryResult(): Record<string, unknown> {
 }
 
 // Le contexte personnalisé ajouté aux consignes : qui est connecté, sur quoi.
-export function sessionContext(spaces: SessionSpace[], level: string, firstName?: string | null): string {
+export function sessionContext(spaces: SessionSpace[], level: string, firstName?: string | null, drafts = false): string {
   const lines = spaces.map((s) =>
     `- ${s.name} (${s.kind === 'venue' ? 'club' : 'organizer'}, product ${s.product}, key ${s.key}${s.money ? '' : ', money hidden'})`);
-  return `\n\nCONNECTION\n${firstName ? `Person: ${firstName}.\n` : ''}Access level: ${level}${level === 'customers' ? ' (customer identities allowed)' : ' (aggregates only, no personal data)'}.\nSpaces:\n${lines.join('\n')}`;
+  return `\n\nCONNECTION\n${firstName ? `Person: ${firstName}.\n` : ''}Access level: ${level}${level === 'customers' ? ' (customer identities allowed)' : ' (aggregates only, no personal data)'}.\nEmail drafts: ${drafts ? 'allowed (create_email_draft, update_email_draft; never sent by the AI)' : 'not allowed for this connection'}.\nSpaces:\n${lines.join('\n')}`;
 }
 
 // Mémo factuel rendu par get_account_overview : ce que veulent dire les
@@ -117,7 +136,7 @@ export const OVERVIEW_NOTES = [
   'Below 10 people, Yuno shows counts only: no percentage, ranking or distribution.',
   'D-N means calendar days before the event, in the event timezone; events are compared at the same D-N.',
   'Drink ordering at the bar is not available in Yuno at the moment.',
-  'Related tools: get_event_report (one event), compare_events (several), get_sales_overview and get_sales_trends (periods), get_recommendations (signals for an action plan), search_yuno_help (steps in the Console).',
+  'Related tools: get_event_report (one event), compare_events (several), get_sales_overview and get_sales_trends (periods), get_recommendations (signals for an action plan), search_yuno_help (steps in the Console), get_email_design_kit and create_email_draft (design an email and save it as a draft).',
 ];
 
 // ── Prompts prêts à l'emploi (Claude les montre dans le menu « + ») ─────────
@@ -133,6 +152,16 @@ interface PromptDef {
 }
 
 export const PROMPTS: PromptDef[] = [
+  {
+    name: 'design_event_email',
+    title: { fr: "Dessiner l'e-mail de ma soirée", en: 'Design my event email', es: 'Diseñar el email de mi fiesta' },
+    description: { fr: 'Un e-mail à ta DA, qui vend, déposé en brouillon.', en: 'An on-brand email that sells, saved as a draft.', es: 'Un email con tu identidad, que vende, guardado como borrador.' },
+    text: {
+      fr: "Dessine l'e-mail d'annonce de ma prochaine soirée pour toute ma base : dans ma DA (couleurs de l'affiche et de mes derniers e-mails), optimisé pour l'ouverture et la vente, avec les tarifs et le line-up qui restent à jour. Fais aussi une variation pour mes clients VIP. Crée les deux brouillons dans Yuno et donne-moi les liens. Écris en français.",
+      en: 'Design the announcement email of my next event for my whole base: on brand (poster and recent email colors), optimized for opens and sales, with prices and line-up that stay up to date. Also make a variation for my VIP customers. Create both drafts in Yuno and give me the links.',
+      es: 'Diseña el email de anuncio de mi próxima fiesta para toda mi base: con mi identidad (colores del cartel y de mis últimos emails), optimizado para la apertura y la venta, con precios y line-up siempre al día. Haz también una variación para mis clientes VIP. Crea los dos borradores en Yuno y dame los enlaces. Escribe en español.',
+    },
+  },
   {
     name: 'last_event_recap',
     title: { fr: 'Bilan de ma dernière soirée', en: 'Last event recap', es: 'Balance de mi última fiesta' },
@@ -219,9 +248,10 @@ export function langOf(code: string | null | undefined): Lang {
   return code === 'fr' || code === 'es' ? code : 'en';
 }
 
-export function listPrompts(lang: Lang, products: Set<string>): Record<string, unknown>[] {
+export function listPrompts(lang: Lang, products: Set<string>, drafts = true): Record<string, unknown>[] {
   return PROMPTS
     .filter((p) => p.name !== 'release_live' || products.has('suite'))
+    .filter((p) => p.name !== 'design_event_email' || drafts)
     .map((p) => ({ name: p.name, title: p.title[lang], description: p.description[lang] }));
 }
 
@@ -239,10 +269,12 @@ export function getPrompt(name: string, lang: Lang): Record<string, unknown> | n
 export const RESOURCES = [
   { uri: 'yuno://guide/analysis', name: 'analysis-guide', title: 'How to analyse Yuno data', mimeType: 'text/markdown', description: 'Method, rules and nightlife playbook used by this server.' },
   { uri: 'yuno://guide/glossary', name: 'glossary', title: 'Yuno metric definitions', mimeType: 'text/markdown', description: 'Exact definition of every number returned by the tools.' },
+  { uri: 'yuno://guide/email-design', name: 'email-design-guide', title: 'Designing Yuno emails', mimeType: 'text/markdown', description: 'Email HTML rules, design method for opens and sales, Yuno tags and an example section.' },
 ];
 
 export function readResource(uri: string): { uri: string; mimeType: string; text: string } | null {
   if (uri === 'yuno://guide/analysis') return { uri, mimeType: 'text/markdown', text: INSTRUCTIONS };
+  if (uri === 'yuno://guide/email-design') return { uri, mimeType: 'text/markdown', text: emailDesignGuideMarkdown() };
   if (uri === 'yuno://guide/glossary') {
     return { uri, mimeType: 'text/markdown', text: Object.entries(GLOSSARY).map(([k, v]) => `- **${k}**: ${v}`).join('\n') };
   }

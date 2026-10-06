@@ -25,6 +25,8 @@ import {
 import { searchHelp } from './help';
 import { CORS_HEADERS, resourceMetadataUrl } from './oauth';
 import { TOOL_BY_NAME, toolListing, toolsFor, validateArgs, type SessionSpace, type ToolLevel } from './tools';
+import { formatEmailRead, runAddEmailImage, runEmailWrite } from './emailTools';
+import { smartLang } from '../../supabase/functions/_shared/email-smart';
 
 type JsonRpcId = string | number | null;
 interface JsonRpcMessage {
@@ -39,6 +41,8 @@ interface Session {
   error?: string;
   grant_id?: string;
   level?: ToolLevel;
+  // La connexion peut préparer des brouillons d'e-mails (create/update_email_draft).
+  drafts?: boolean;
   client_name?: string;
   first_name?: string | null;
   language?: string | null;
@@ -133,6 +137,10 @@ function toolErrorText(code: string, extra: Record<string, unknown> = {}): strin
       return 'Customer identities are not shared with this AI. The user can reconnect Yuno and tick "Customer details" on the consent screen (Console → Settings → AI assistants to manage access). Meanwhile use aggregate tools (get_customer_segments, count_contacts).';
     case 'rate_limited':
       return 'Too many requests for this connection. Wait a minute, and group questions into fewer tool calls.';
+    case 'product_not_available':
+      return 'This product is not active on this space (a Yuno ticketing account can add Yuno CRM). Call get_email_design_kit without "product" to see products_available.';
+    case 'draft_not_found':
+      return 'No email draft or campaign with this id in this space. get_email_design_kit lists the recent drafts.';
     case 'not_available_in_crm':
       return 'Not available for a Yuno CRM account (sales come from the external ticketing). Use get_event_report, get_sales_overview, get_audience_overview or get_marketing_performance.';
     case 'forbidden':
@@ -314,7 +322,7 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'tools/list': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const tools = toolsFor(session.level ?? 'analytics', session.spaces ?? []).map(toolListing);
+        const tools = toolsFor(session.level ?? 'analytics', session.spaces ?? [], !!session.drafts).map(toolListing);
         return ok(modern ? { tools, ttlMs: 300_000, cacheScope: 'private' } : { tools });
       }
       case 'tools/call':
@@ -322,7 +330,7 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'prompts/list': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const prompts = listPrompts(langOf(session.language), new Set((session.spaces ?? []).map((s) => s.product)));
+        const prompts = listPrompts(langOf(session.language), new Set((session.spaces ?? []).map((s) => s.product)), !!session.drafts);
         return ok(modern ? { prompts, ttlMs: 3_600_000, cacheScope: 'private' } : { prompts });
       }
       case 'prompts/get': {
@@ -373,7 +381,7 @@ function failCall(state: RequestState, tool: string, timeout: boolean, ok: (r: R
 }
 
 function instructionsFor(session: Session): string {
-  return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name);
+  return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name, !!session.drafts);
 }
 
 async function callTool(
@@ -397,6 +405,35 @@ async function callTool(
     return ok(toolResult(hits.length
       ? compactResult({ results: hits })
       : 'No article matches. Rephrase with Console words (campaign, automation, promo code, sold out, tables, guest list, tracked link...).'));
+  }
+
+  // Brouillons d'e-mails : préparer, contrôler, puis écrire par mcp_write.
+  if (tool.write) {
+    const session = await loadSession(state);
+    if (!session.ok) return { status: 401, body: null, unauthorized: true };
+    const startedW = Date.now();
+    if (!session.drafts) {
+      return ok(toolResult('This connection does not include email drafts (it was approved before they existed, or without them). The person can reconnect Yuno in their AI app to allow them. Meanwhile, share the email as HTML in the conversation.', true));
+    }
+    let outcome;
+    try {
+      outcome = tool.name === 'add_email_image'
+        ? await runAddEmailImage(state.env, state.tokenHash, v.args, state.origin)
+        : await runEmailWrite(state.env, state.tokenHash, tool.name as 'create_email_draft' | 'update_email_draft', v.args, session.language);
+    } catch (err) {
+      if (err instanceof DbNotConfigured) throw err;
+      const timeout = err instanceof DbError && err.isTimeout;
+      return failCall(state, tool.name, timeout, ok);
+    }
+    if (outcome.code === 'unauthorized') return { status: 401, body: null, unauthorized: true };
+    if (outcome.callId) {
+      const duration = Date.now() - startedW;
+      state.ctx.waitUntil(
+        rpc(state.env, 'mcp_call_finished', { p_call_id: outcome.callId, p_duration_ms: duration, p_bytes: outcome.text.length, p_error: outcome.isError ? (outcome.code ?? 'error') : null })
+          .catch(() => undefined),
+      );
+    }
+    return ok(toolResult(outcome.text, outcome.isError));
   }
 
   const started = Date.now();
@@ -453,6 +490,9 @@ async function callTool(
       if (session?.ok && session.spaces?.length) spaces = session.spaces.map((s) => `${s.name} (${s.key})`);
     }
     text = toolErrorText(code, { spaces, message: inner?.message });
+  } else if (tool.email) {
+    const session = await loadSession(state).catch(() => null);
+    text = formatEmailRead(tool.name, r.space, inner ?? {}, smartLang(session?.ok ? session.language : null));
   } else {
     const payload: Record<string, unknown> = { space: r.space, ...(explainFindings(inner ?? {}) as Record<string, unknown>) };
     if (tool.name === 'get_account_overview') {

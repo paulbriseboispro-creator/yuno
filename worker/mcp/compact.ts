@@ -34,7 +34,15 @@ function round(n: number): number {
   return Math.round(n * f) / f;
 }
 
-function compactValue(value: unknown, arrayCap: number, depth: number): unknown {
+export interface CompactOptions {
+  /**
+   * Garde les URL d'images (affiche, logo, photos du line-up) : les outils de
+   * design d'e-mail en ont besoin, ce sont elles que l'IA pose dans le HTML.
+   */
+  keepImages?: boolean;
+}
+
+function compactValue(value: unknown, arrayCap: number, depth: number, opt: CompactOptions = {}): unknown {
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'number') return Number.isFinite(value) ? round(value) : undefined;
   if (typeof value === 'string') {
@@ -45,7 +53,7 @@ function compactValue(value: unknown, arrayCap: number, depth: number): unknown 
   if (typeof value === 'boolean') return value;
   if (Array.isArray(value)) {
     const items = value.slice(0, arrayCap)
-      .map((v) => compactValue(v, arrayCap, depth + 1))
+      .map((v) => compactValue(v, arrayCap, depth + 1, opt))
       .filter((v) => v !== undefined);
     if (value.length > arrayCap) items.push(`… ${value.length - arrayCap} more not shown`);
     return items.length ? items : undefined;
@@ -54,9 +62,9 @@ function compactValue(value: unknown, arrayCap: number, depth: number): unknown 
     if (depth > 12) return undefined;
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (NOISE_KEYS.has(k) || IMAGE_KEY.test(k)) continue;
+      if (NOISE_KEYS.has(k) || (!opt.keepImages && IMAGE_KEY.test(k))) continue;
       if (!DRINKS_PILLAR_LIVE && DRINKS_KEYS.has(k)) continue;
-      const c = compactValue(v, arrayCap, depth + 1);
+      const c = compactValue(v, arrayCap, depth + 1, opt);
       if (c !== undefined) out[k] = c;
     }
     return Object.keys(out).length ? out : undefined;
@@ -65,11 +73,11 @@ function compactValue(value: unknown, arrayCap: number, depth: number): unknown 
 }
 
 // Rend le texte JSON le plus riche qui tienne dans le budget.
-export function compactResult(value: unknown, maxChars = DEFAULT_MAX_CHARS): string {
+export function compactResult(value: unknown, maxChars = DEFAULT_MAX_CHARS, opt: CompactOptions = {}): string {
   for (const cap of [120, 60, 30, 12, 5]) {
-    const text = JSON.stringify(compactValue(value, cap, 0) ?? {});
+    const text = JSON.stringify(compactValue(value, cap, 0, opt) ?? {});
     if (text.length <= maxChars) return text;
   }
-  const text = JSON.stringify(compactValue(value, 3, 0) ?? {});
+  const text = JSON.stringify(compactValue(value, 3, 0, opt) ?? {});
   return text.length <= maxChars ? text : `${text.slice(0, maxChars)}… [truncated]`;
 }
