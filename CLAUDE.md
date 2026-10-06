@@ -3892,8 +3892,10 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   `hidden`, puis `extra`, dédoublonné par `artistKey`, photo https seulement,
   24 max), rendu `renderLineup` ⇄ port Deno ⇄ `LineupView`, testés à l'octet
   près. Grille de 3 pastilles de 88 px (dernière rangée centrée), initiales
-  sans les liants (« b2b », « x »…). Pas dans la palette de la Suite (CRM
-  seulement) : l'y ajouter = un inspecteur Suite + clés `studio.*`.
+  sans les liants (« b2b », « x »…). Dans les DEUX palettes (Billetterie :
+  `BLOCK_META` + `LineupFields` de `Inspector.tsx`, clés `studio.inspector.lineup*` ;
+  CRM : `YunoBlockFields.tsx`). En mode modèle, l'inspecteur cache les artistes
+  ajoutés à la main (effacés à l'enregistrement par `stripEventBindings`).
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
