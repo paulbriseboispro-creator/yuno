@@ -968,9 +968,20 @@ trentaine à l'import. Règles :
   après un import, jamais depuis la page Segments.
 - **`_cp` porte le profil** : `age`, `gender`, `country`, `area`, `area_key`
   (`_crm_area_key`), `upcoming`, `basket` — Shotgun d'abord, sinon les fichiers.
-  Le cycle de vie ne lit PAS l'historique d'un fichier importé (décision à
-  prendre, voir la note). Nouvelles clés de filtre : voir l'en-tête de la
-  migration ; toute valeur illisible ⇒ personne.
+  Nouvelles clés de filtre : voir l'en-tête de la migration ; toute valeur
+  illisible ⇒ personne.
+- **L'historique d'un fichier importé COMPTE** (décision de Paul, 06/10,
+  migration `20261008210000`, `_crm_file_history`) : total dépensé, nombre de
+  soirées, dernier achat, première venue nourrissent `nights`, `spent`,
+  `paid_n`, `basket`, `last_night`, `first_night` et le cycle de vie de `_cp`.
+  Jamais de double compte (`hist_mode`) : `added` = le fichier précède de plus
+  de 2 jours le premier billet Shotgun (ou pas de Shotgun) → somme ; sinon
+  `file` / `live` = la source qui connaît le plus de soirées. « Habitué »
+  (`nights_win`) reste prouvé par des billets datés. Accueil (prochaine
+  soirée) et volet d'une soirée : un acheteur venu avant Shotgun d'après son
+  fichier n'est pas « nouveau ». Fiche client : `history` (encart « Historique
+  importé »). Toute nouvelle lecture « nouveau / déjà venu » sur les billets
+  applique la même règle.
 - **`hasCriteria` (`src/crm/data/clients.ts`) est la porte « le filtre pose-t-il
   un critère ? »** : une clé que la liste Clients ne dessine pas compte. Sans
   elle, « Écrire à… » sur un segment « Jamais cliqué » visait toute la base.
