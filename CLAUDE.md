@@ -885,6 +885,24 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   (autres liens) par `_crm_ticket_source`, qui lit `tracked_links` par code
   (`20261007130000`) : toute nouvelle famille s'ajoute aux listes de
   `crm_ana_traffic__core` ET à `SOURCE_KEYS`. Le lien en bio, unique, se crée d'un geste.
+- **Blocs Yuno d'un e-mail CRM = branchés sur la billetterie, relus à
+  l'envoi** (migration `20261008150000`). Tarifs, lien, lieu : RPC
+  `get_external_event_live` (v2 : chaque tarif porte `id` et `out` = billets
+  vendus `>=` stock Shotgun, même rapprochement que `_crm_night_tiers` ;
+  `venue_label` = adresse Shotgun si publique, sinon la ville — jamais
+  « — Paris »). Un tarif à 0 € se lit « Gratuit », un tarif épuisé n'entre
+  pas dans le prix d'appel, 6 tarifs au plus (décrochables, `hiddenRows`
+  `ext:<id>`). Le CRM a les MÊMES réglages que la Billetterie pour Soirée /
+  Billetterie / Compte à rebours (`YunoBlockFields.tsx`). **Line-up = un vrai
+  bloc (`type: 'lineup'`)**, plus deux blocs Texte : artistes + photo de
+  profil par `get_event_lineup_live` (Shotgun = `external_events.artists`,
+  relu à chaque synchro ; Yuno = DJ du line-up puis invités, règle du pass
+  Wallet), décrocher (`hidden`), ajouter à la main (`extra`), grille de
+  photos rondes seulement si une photo existe. Sans artiste, le bloc ne part
+  pas : JAMAIS de noms d'exemple. Un modèle (automatisation) efface `hidden` /
+  `extra` (`stripEventBindings`). Les données live d'un écran ne lisent le
+  line-up que si un bloc `lineup` est posé (`needLineup`) : une vignette qui
+  doit le montrer pose un bloc sonde `lineup` (EmailTemplatesPage).
 - **Fiche client** (`crm_client`, migration `20261006220000`) : chaque achat
   porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
   « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un
@@ -3868,6 +3886,14 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   ne lit le live que par `b.eventId` : sans ce lien, onglet Aperçu, Récap,
   aperçu de recette et vignettes « Mes modèles » montraient la carte
   d'exemple. Les vignettes de modèles se relient à la prochaine soirée du compte.
+- **Bloc Line-up (`LineupBlock`, 2026-10-08)** : 6ᵉ bloc Yuno live
+  (`YUNO_BLOCK_TYPES`, `LIVE_BLOCK_TYPES`, `_email_blocks_without_live`, liste
+  de `send-campaign`). Règle unique `lineupArtists(live, block)` (soirée moins
+  `hidden`, puis `extra`, dédoublonné par `artistKey`, photo https seulement,
+  24 max), rendu `renderLineup` ⇄ port Deno ⇄ `LineupView`, testés à l'octet
+  près. Grille de 3 pastilles de 88 px (dernière rangée centrée), initiales
+  sans les liants (« b2b », « x »…). Pas dans la palette de la Suite (CRM
+  seulement) : l'y ajouter = un inspecteur Suite + clés `studio.*`.
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
