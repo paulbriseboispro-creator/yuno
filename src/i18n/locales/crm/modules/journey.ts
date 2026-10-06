@@ -61,9 +61,9 @@ const dict: CrmDict = {
     'Esta campaña no tiene ningún destinatario en este grupo de clientes.',
   ],
   'yc.jr.empty.soon': [
-    'SMS and Instagram replies are coming soon to Yuno CRM: nothing has been sent on this channel yet.',
-    'Les SMS et les réponses Instagram arrivent bientôt dans Yuno CRM : rien n’est encore parti sur ce canal.',
-    'Los SMS y las respuestas de Instagram llegan pronto a Yuno CRM: todavía no se ha enviado nada por este canal.',
+    'The journey of SMS and Instagram replies will show here soon: this screen doesn’t count them yet.',
+    'Le parcours des SMS et des réponses Instagram s’affichera bientôt ici : cet écran ne les compte pas encore.',
+    'El recorrido de los SMS y de las respuestas de Instagram se mostrará aquí pronto: esta pantalla todavía no los cuenta.',
   ],
   'yc.jr.empty.any': [
     'No email sent by hand matches these filters. Widen the period or remove a filter.',
@@ -247,7 +247,7 @@ const dict: CrmDict = {
   'yc.jr.s3.subCamp': ['Selection: “{name}”.', 'Sélection : « {name} ».', 'Selección: «{name}».'],
   'yc.jr.s3.rec.one': ['{n} recipient', '{n} destinataire', '{n} destinatario'],
   'yc.jr.s3.rec.other': ['{n} recipients', '{n} destinataires', '{n} destinatarios'],
-  'yc.jr.s3.soonSms': ['SMS sends are coming soon to Yuno CRM.', 'Les envois de SMS arrivent bientôt dans Yuno CRM.', 'Los envíos de SMS llegan pronto a Yuno CRM.'],
+  'yc.jr.s3.soonSms': ['SMS results will show here soon.', 'Les résultats des SMS s’afficheront bientôt ici.', 'Los resultados de los SMS se mostrarán aquí pronto.'],
   'yc.jr.s3.soonIg': ['Instagram replies are coming soon to Yuno CRM.', 'Les réponses Instagram arrivent bientôt dans Yuno CRM.', 'Las respuestas de Instagram llegan pronto a Yuno CRM.'],
   'yc.jr.s3.emailNone': ['Choose “All” or “Email” to see this rate.', 'Choisissez « Tous » ou « E-mail » pour voir ce taux.', 'Elija «Todos» o «E-mail» para ver esta tasa.'],
   'yc.jr.s3.rate': ['Rate shown = buyers ÷ recipients, per channel.', 'Taux affiché = acheteurs ÷ destinataires, par canal.', 'Tasa mostrada = compradores ÷ destinatarios, por canal.'],

@@ -104,7 +104,7 @@ function YunitsPopover({ onClose }: { onClose: () => void }) {
   const { t, n, dShort } = useCrmT();
   const w = useCrmWallet(true);
   const bal = w.data?.balance ?? 0;
-  const rates = w.data?.rates ?? { email: 1, sms: 40 };
+  const rates = w.data?.rates ?? { email: 1, sms: 35 };
   const reserved = w.data?.reserved_total ?? 0;
   const debits = (w.data?.moves ?? []).filter((m) => m.kind === 'debit').slice(0, 3);
   const lotLabel = (k: string) => ({ trial: 'yc.top.yu.lot.trial', monthly: 'yc.top.yu.lot.monthly', purchase: 'yc.top.yu.lot.purchase', bonus: 'yc.top.yu.lot.bonus' } as Record<string, string>)[k] ?? 'yc.top.yu.lot.bonus';
@@ -130,7 +130,7 @@ function YunitsPopover({ onClose }: { onClose: () => void }) {
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 48, lineHeight: 1, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{w.isLoading ? '…' : n(bal)}</span>
               <span style={{ fontSize: 15, color: 'var(--sand-500)' }}>{t('yc.common.yunits')}</span>
             </div>
-            <span style={{ fontSize: 13.5, color: 'var(--sand-600)' }}>{t('yc.top.yu.eq', { emails: n(Math.floor(bal / (rates.email || 1))), sms: n(Math.floor(bal / (rates.sms || 40))) })}</span>
+            <span style={{ fontSize: 13.5, color: 'var(--sand-600)' }}>{t('yc.top.yu.eq', { emails: n(Math.floor(bal / (rates.email || 1))), sms: n(Math.floor(bal / (rates.sms || 35))) })}</span>
           </div>
           {reserved > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -140,7 +140,7 @@ function YunitsPopover({ onClose }: { onClose: () => void }) {
               </div>
               <Row dot="var(--red-500)" label={t('yc.top.yu.reserved')} value={`− ${n(reserved)}`} />
               <Row dot="var(--green-500)" label={t('yc.top.yu.after')} value={`${n(after)} ${t('yc.common.yunits')}`} />
-              {after < (rates.sms || 40) * 100 && (
+              {after < (rates.sms || 35) * 100 && (
                 <div style={{ padding: '10px 12px', borderRadius: 12, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 13.5, lineHeight: 1.4, fontWeight: 500 }}>{t('yc.top.yu.lowSms')}</div>
               )}
             </div>

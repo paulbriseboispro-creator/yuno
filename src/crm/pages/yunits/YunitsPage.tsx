@@ -145,7 +145,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
   const low = w.balance < LOW_VIEW && !paused;
   const mood = paused ? 'endormi' : cele ? 'ravi' : low ? 'inquiet' : 'content';
   const st = paused ? ['yc.yu.st.paused', 'var(--sand-100)', 'var(--sand-600)'] : low ? ['yc.yu.st.low', 'var(--amber-50)', 'var(--amber-700)'] : ['yc.yu.st.ok', 'var(--green-50)', 'var(--green-700)'];
-  const eq = (y: number) => (smsLive ? t('yc.yu.eq', { mail: n(Math.floor(y / rate('email', 1))), sms: n(Math.floor(y / rate('sms', 40))) }) : t('yc.yu.eqMail', { mail: n(Math.floor(y / rate('email', 1))) }));
+  const eq = (y: number) => (smsLive ? t('yc.yu.eq', { mail: n(Math.floor(y / rate('email', 1))), sms: n(Math.floor(y / rate('sms', 35))) }) : t('yc.yu.eqMail', { mail: n(Math.floor(y / rate('email', 1))) }));
 
   // ── Prochain envoi ──
   const next = w.reserved?.[0] ?? null;
@@ -293,7 +293,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em' }}>{next.name}</span>
                 <span style={{ fontSize: 14, color: 'var(--sand-700)' }}>
-                  {next.channel === 'sms' ? t('yc.yu.nextSms', { n: n(Math.round(next.cost / rate('sms', 40))) }) : t('yc.yu.nextMail', { n: n(Math.round(next.cost / rate('email', 1))) })} · <strong style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{t('yc.yu.nextCost', { n: n(next.cost) })}</strong>
+                  {next.channel === 'sms' ? t('yc.yu.nextSms', { n: n(Math.round(next.cost / rate('sms', 35))) }) : t('yc.yu.nextMail', { n: n(Math.round(next.cost / rate('email', 1))) })} · <strong style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{t('yc.yu.nextCost', { n: n(next.cost) })}</strong>
                 </span>
               </div>
               {missing > 0 ? (
@@ -328,7 +328,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,210px),1fr))', gap: 12 }}>
           <CostCard label={t('yc.yu.c.email')} rate={rate('email', 1)} count={quote.received} unit={t('yc.yu.c.emails')} live />
-          <CostCard label={t('yc.yu.c.sms')} rate={rate('sms', 40)} count={quote.received} unit={t('yc.yu.c.smss')} live={smsLive} />
+          <CostCard label={t('yc.yu.c.sms')} rate={rate('sms', 35)} count={quote.received} unit={t('yc.yu.c.smss')} live={smsLive} />
           <CostCard label={t('yc.yu.c.ig')} rate={rate('instagram', 10)} count={quote.received} unit={t('yc.yu.c.igs')} live={false} />
           <CostCard label={t('yc.yu.c.wa')} rate={rate('whatsapp', 100)} count={quote.received} unit={t('yc.yu.c.was')} live={false} />
         </div>
@@ -356,7 +356,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
           </div>
         </Portal>
       )}
-      {cele && <Celebration c={cele} line2={smsLive ? t('yc.yu.ce.sub2', { mail: n(Math.floor(cele.to / rate('email', 1))), sms: n(Math.floor(cele.to / rate('sms', 40))) }) : t('yc.yu.ce.sub2Mail', { mail: n(Math.floor(cele.to / rate('email', 1))) })} onDone={() => setCele(null)} />}
+      {cele && <Celebration c={cele} line2={smsLive ? t('yc.yu.ce.sub2', { mail: n(Math.floor(cele.to / rate('email', 1))), sms: n(Math.floor(cele.to / rate('sms', 35))) }) : t('yc.yu.ce.sub2Mail', { mail: n(Math.floor(cele.to / rate('email', 1))) })} onDone={() => setCele(null)} />}
     </main>
   );
 }

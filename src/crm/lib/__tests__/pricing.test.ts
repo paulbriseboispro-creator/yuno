@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { estimateMonth, fromSlider, rechargeExamples, snapEmails, snapSms, toSlider } from '@/crm/lib/pricing';
 
-const cfg = { rates: { email: 1, sms: 40 }, monthly_yunits: 10_000, price_month: 24 };
+const cfg = { rates: { email: 1, sms: 35 }, monthly_yunits: 10_000, price_month: 24 };
 
 describe('page Tarifs : simulateur', () => {
   it('reste dans les Yunits offerts : pas de recharge', () => {
@@ -10,13 +10,13 @@ describe('page Tarifs : simulateur', () => {
   });
 
   it('prend la plus petite recharge vendue qui couvre le mois', () => {
-    // 45 000 e-mails + 300 SMS = 57 000 Yunits ; 47 000 à acheter ; 45 000 + 10 % = 49 500.
+    // 45 000 e-mails + 300 SMS = 55 500 Yunits ; 45 500 à acheter ; 45 000 + 10 % = 49 500.
     const e = estimateMonth(45_000, 300, cfg);
-    expect(e.used).toBe(57_000);
-    expect(e.need).toBe(47_000);
+    expect(e.used).toBe(55_500);
+    expect(e.need).toBe(45_500);
     expect(e.recharge).toMatchObject({ base: 45_000, bonusPct: 10, received: 49_500 });
     expect(e.rechargeEur).toBe(90);
-    expect(e.left).toBe(2_500);
+    expect(e.left).toBe(4_000);
     expect(e.total).toBe(114);
   });
 

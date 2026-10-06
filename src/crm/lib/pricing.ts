@@ -60,7 +60,7 @@ export interface MonthEstimate {
 }
 
 export function estimateMonth(emails: number, sms: number, cfg: Pick<CrmPricingConfig, 'rates' | 'monthly_yunits' | 'price_month'>): MonthEstimate {
-  const used = Math.max(0, emails) * (cfg.rates.email ?? 1) + Math.max(0, sms) * (cfg.rates.sms ?? 40);
+  const used = Math.max(0, emails) * (cfg.rates.email ?? 1) + Math.max(0, sms) * (cfg.rates.sms ?? 35);
   const included = Math.min(used, cfg.monthly_yunits);
   const need = Math.max(0, used - cfg.monthly_yunits);
   const recharge = need > 0 ? crmRechargeQuote(crmRechargeFor(need)) : null;

@@ -74,7 +74,7 @@ const dict: CrmDict = {
   'yc.top.yu.reserved': ['Scheduled sends', 'Envois programmés', 'Envíos programados'],
   'yc.top.yu.after': ['Left after these sends', 'Restant après ces envois', 'Restante tras estos envíos'],
   'yc.top.yu.lowSms': ['Enough for emails, not for an SMS to everyone.', 'Assez pour des e-mails, pas pour un SMS à tous.', 'Suficiente para e-mails, no para un SMS a todos.'],
-  'yc.top.yu.noMoves': ['No send yet. An email costs 1 Yunit, an SMS 40.', 'Aucun envoi pour l’instant. Un e-mail coûte 1 Yunit, un SMS 40.', 'Ningún envío todavía. Un e-mail cuesta 1 Yunit, un SMS 40.'],
+  'yc.top.yu.noMoves': ['No send yet. An email costs 1 Yunit, an SMS 35.', 'Aucun envoi pour l’instant. Un e-mail coûte 1 Yunit, un SMS 35.', 'Ningún envío todavía. Un e-mail cuesta 1 Yunit, un SMS 35.'],
   'yc.top.yu.lastMoves': ['Last sends', 'Derniers envois', 'Últimos envíos'],
   'yc.top.yu.how': ['How it works', 'Comment ça marche', 'Cómo funciona'],
   'yc.top.yu.recharge': ['Top up', 'Recharger', 'Recargar'],

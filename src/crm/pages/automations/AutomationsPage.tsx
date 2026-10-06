@@ -52,7 +52,7 @@ export default function AutomationsPage() {
   const c = useStaged(animKey, !loading, 1400, 500, 800, 0);
   const g = useStaged(animKey, !loading, 1200, 650, 900, 0);
 
-  const rates = { email: Number(shell.data?.wallet.rates?.email ?? 1), sms: Number(shell.data?.wallet.rates?.sms ?? 40) };
+  const rates = { email: Number(shell.data?.wallet.rates?.email ?? 1), sms: Number(shell.data?.wallet.rates?.sms ?? 35) };
   const balance = Number(shell.data?.wallet.balance ?? 0);
 
   useEffect(() => {

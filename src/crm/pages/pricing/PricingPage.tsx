@@ -355,7 +355,7 @@ function YunitsSection({ cfg }: { cfg: CrmPricingConfig }) {
 /** Le solde qui vit : envois, gratuits, solde bas, recharge — en boucle. */
 function BalanceDemo({ cfg }: { cfg: CrmPricingConfig }) {
   const { t, n } = usePrT();
-  const e = Number(cfg.rates.email ?? 1), s = Number(cfg.rates.sms ?? 40);
+  const e = Number(cfg.rates.email ?? 1), s = Number(cfg.rates.sms ?? 35);
   const top = crmRechargeQuote(CRM_RECHARGE.min);
   const rows: { t: string; s: string; d: number; k: 'minus' | 'free' | 'plus' }[] = [
     { t: t('yc.pr.d.r1.t'), s: t('yc.pr.d.r1.s', { n: n(2200) }), d: -2200 * e, k: 'minus' },
@@ -422,7 +422,7 @@ function Simulator({ cfg, cta }: { cfg: CrmPricingConfig; cta: Cta }) {
   const [profile, setProfile] = useState<PricingProfileId | 'custom'>('orga');
   const est = estimateMonth(emails, sms, cfg);
   const total = useTween(est.total, 600);
-  const smsRate = Number(cfg.rates.sms ?? 40);
+  const smsRate = Number(cfg.rates.sms ?? 35);
   const pick = (id: PricingProfileId) => {
     const p = PRICING_PROFILES.find((x) => x.id === id);
     if (!p) return;
@@ -543,7 +543,7 @@ function Recharges({ cfg }: { cfg: CrmPricingConfig }) {
   const list = rechargeExamples();
   const maxY = Math.max(...list.map((q) => q.received));
   const [ref, seen] = useSeen<HTMLDivElement>();
-  const smsRate = Math.max(1, Number(cfg.rates.sms ?? 40));
+  const smsRate = Math.max(1, Number(cfg.rates.sms ?? 35));
   const emailRate = Math.max(1, Number(cfg.rates.email ?? 1));
   return (
     <section style={{ ...wrap, padding: 'clamp(72px,10vw,130px) clamp(16px,4vw,40px) 0' }}>
