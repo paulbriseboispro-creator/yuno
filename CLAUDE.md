@@ -944,6 +944,39 @@ Clients `?gl=` / `?glev=`, badge « GL ×n », parcours d'invité sur la fiche. 
   après `seed-crm-nights.sql`. Aide : FAQ `yc.faq.guestlist.*`, article
   assistant `crm-guest-list` (redéployer `owner-assistant`).
 
+## Yuno CRM — le catalogue de segments (2026-10-06)
+
+Conception : `docs/designs/CRM_SEGMENT_CATALOG.md`. Migration `20261008200000`.
+Le CRM ne proposait que neuf modèles quand la Billetterie en propose une
+trentaine à l'import. Règles :
+
+- **Une seule fenêtre, `SegmentCatalogModal`** (`src/crm/components/SegmentCatalog.tsx`) :
+  page Segments (« Nouveau segment », `?new=1`, `?new=rec` depuis la tâche de
+  l'accueil), fin d'import fichier et fin du premier import Shotgun
+  (`SegmentsNextStep`, qui ne s'ouvre seule que si une recommandation attend).
+  Effectifs : `crm_segment_catalog` (UNE lecture de `_cp`), création :
+  `crm_segments_create_many` (un `template` déjà créé n'est jamais doublé).
+- **Modèles fixes = `SEGMENT_TEMPLATES`** (`src/crm/lib/segments.ts`, une
+  famille chacun) ; **modèles calculés = serveur** (`spend_top` 90e centile dès 20
+  payeurs, `basket_high` 3e quartile, `geo_area:<clé>` six villes,
+  `geo_abroad`, `geo_country:<cc>`, 10 personnes au moins). Ne jamais renommer un
+  identifiant : un segment créé garde son `template`. Un modèle ajouté = sa
+  définition, sa famille, `yc.seg.tpl.<id>.name|rule` ×3 (test
+  `segmentCatalog.test.ts`).
+- **Recommandé** = dans `RECOMMENDED`, ≥ `REC_MIN` (10) personnes, pas déjà
+  créé, disponible (« Prochaine soirée » exige une soirée à venir). Coché d'office
+  après un import, jamais depuis la page Segments.
+- **`_cp` porte le profil** : `age`, `gender`, `country`, `area`, `area_key`
+  (`_crm_area_key`), `upcoming`, `basket` — Shotgun d'abord, sinon les fichiers.
+  Le cycle de vie ne lit PAS l'historique d'un fichier importé (décision à
+  prendre, voir la note). Nouvelles clés de filtre : voir l'en-tête de la
+  migration ; toute valeur illisible ⇒ personne.
+- **`hasCriteria` (`src/crm/data/clients.ts`) est la porte « le filtre pose-t-il
+  un critère ? »** : une clé que la liste Clients ne dessine pas compte. Sans
+  elle, « Écrire à… » sur un segment « Jamais cliqué » visait toute la base.
+- L'import de fichier lit aussi code postal, pays, âge / date de naissance et
+  genre (lecteurs de la Suite, `src/lib/contactImport.ts`).
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un

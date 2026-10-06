@@ -29,6 +29,7 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'order', c: 'yunits', to: CRM_ROUTES.yunits },
   { id: 'skip', c: 'yunits' },
   { id: 'regular', c: 'clients', to: CRM_ROUTES.clients },
+  { id: 'segments', c: 'clients', to: CRM_ROUTES.segments },
   { id: 'team', c: 'account', to: CRM_ROUTES.accountSection('team') },
   { id: 'invoices', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
