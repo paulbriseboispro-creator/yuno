@@ -3,7 +3,6 @@
  * en cartes (la première en CTA plein). « Plus tard » reporte une action
  * jusqu'au lendemain, sur cet appareil.
  */
-import { useEffect, useState } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { ArrowLink, CountBubble, CtaButton, IconButton } from '@/crm/ui/kit';
 import { Icon } from '@/crm/ui/Icon';
@@ -18,22 +17,6 @@ const TONE = {
   warn: { bg: 'var(--amber-50)', fg: 'var(--amber-700)', cardBd: 'var(--sand-200)' },
   wait: { bg: 'var(--sand-100)', fg: 'var(--sand-600)', cardBd: 'var(--sand-200)' },
 } as const;
-
-function laterKey(scopeKey: string) {
-  const d = new Date();
-  return `yuno.crm.later.${scopeKey}.${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-}
-
-export function useLater(scopeKey: string): [string[], (id: string) => void, () => void] {
-  const key = laterKey(scopeKey);
-  const [later, setLater] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(key) || '[]') as string[]; } catch { return []; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(later)); } catch { /* préférence perdue : sans gravité */ }
-  }, [key, later]);
-  return [later, (id) => setLater((l) => (l.includes(id) ? l : [...l, id])), () => setLater([])];
-}
 
 export function TodoList({
   items, later, onLater, onReset, intro, starting, nextDeadline, minNights,

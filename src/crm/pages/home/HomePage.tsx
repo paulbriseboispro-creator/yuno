@@ -27,7 +27,8 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SalesHero } from './SalesHero';
 import { KpiCards } from './KpiCards';
 import { NextNightCard, WhoBuysCard } from './NextNight';
-import { TodoList, useLater } from './TodoList';
+import { TodoList } from './TodoList';
+import { useLater } from './useLater';
 
 export default function HomePage() {
   const T = useCrmT();
