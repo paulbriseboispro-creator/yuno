@@ -11,7 +11,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
-import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
+import { CRM_SMS_SIGNUP_LIVE } from '@/crm/lib/sms';
 import { Hv } from '@/crm/ui/Hv';
 import { useCrmToast } from '@/crm/ui/toast';
 import { setPendingAudience } from '@/crm/data/clients';
@@ -75,9 +75,9 @@ export default function SignupWho({ d, x }: { d: SignupPageRow; x: SignupDetail 
     return min < 60 ? t('yc.sp.f.agoMin', { n: min }) : min < 60 * 48 ? t('yc.sp.f.agoH', { n: Math.round(min / 60) }) : t('yc.sp.f.agoD', { n: Math.round(min / 1440) });
   };
   const head: CSSProperties = { fontFamily: "'Geist Mono'", fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-400)' };
-  // Le SMS est « Bientôt » tant que CRM_SMS_DISPLAY_LIVE est faux : l'entrée se voit, ne s'ouvre pas.
+  // Le SMS d'une page d'inscription est « Bientôt » tant que CRM_SMS_SIGNUP_LIVE est faux : l'entrée se voit, ne s'ouvre pas.
   const menuItem = (ch: 'email' | 'sms', d1: string, title: string, sub: string) => {
-    const soon = ch === 'sms' && !CRM_SMS_DISPLAY_LIVE;
+    const soon = ch === 'sms' && !CRM_SMS_SIGNUP_LIVE;
     return (
       <Hv as="button" type="button" role="menuitem" disabled={soon} aria-disabled={soon} onClick={() => { if (!soon) void write(ch); }}
         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, color: 'var(--ink)', textDecoration: 'none', border: 0, background: 'none', width: '100%', textAlign: 'left', cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.6 : 1 }}

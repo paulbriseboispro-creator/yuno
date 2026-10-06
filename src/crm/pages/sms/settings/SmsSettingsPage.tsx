@@ -1,7 +1,9 @@
 /**
  * SMS › Réglages d'envoi (`/crm/sms/settings`, maquette « SMS Reglages.dc.html »)
- * — « comment vos SMS partent-ils ? ». Nom d'expéditeur (3 à 11 lettres ou
- * chiffres), heures calmes et dimanche, plafond par semaine, numéro de test,
+ * — « comment vos SMS partent-ils ? ». Identité de l'annonceur (raison sociale +
+ * SIRET / RNA / TVA, exigée par les opérateurs avant tout envoi, ancre
+ * `#identite`), nom d'expéditeur (3 à 11 lettres ou chiffres), heures calmes
+ * (jamais après 21 h 30), dimanche et jours fériés, plafond par semaine, numéro de test,
  * puis ce que Yuno gère seul (mention STOP, accord SMS, lien suivi). À droite,
  * le SMS tel que le verront les clients et le nombre de contacts joignables.
  * Une barre « Modifications non enregistrées » porte Annuler / Enregistrer
@@ -19,9 +21,9 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
-import { useSaveSmsSettings, useSmsCampaigns, useSmsSettings, type SmsSettings } from '@/crm/data/sms';
-import { defaultSender, SAMPLE_LINK, smsFinalText, toE164, validSender } from '@/crm/lib/sms';
-import { STOP_SUFFIX } from '@/lib/smsMarketing';
+import { useSaveSmsIdentity, useSaveSmsSettings, useSmsCampaigns, useSmsReadiness, useSmsSettings, type SmsSettings } from '@/crm/data/sms';
+import { defaultSender, SAMPLE_LINK, senderIdError, smsFinalText, toE164, validSender } from '@/crm/lib/sms';
+import { STOP_MENTION_FR } from '@/lib/smsMarketing';
 import { useNarrow } from '@/crm/ui/useNarrow';
 import { Toggle48 } from '../../emails/send/sendUi';
 import { SmsShell } from '../SmsShell';
@@ -31,7 +33,8 @@ interface Form { sender: string; from: number; to: number; noSunday: boolean; ca
 
 const rise = (d: number): CSSProperties => ({ animation: `yc-rise 800ms ${EASE} ${d}ms both` });
 const card: CSSProperties = { display: 'flex', flexDirection: 'column', padding: 'clamp(20px,2.4vw,28px)', borderRadius: 28, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' };
-const FROM_H = [18, 19, 20, 21, 22, 23];
+// Rien ne part après 21 h 30 (charte des opérateurs) : les heures calmes commencent au plus tard à 21 h.
+const FROM_H = [18, 19, 20, 21];
 const TO_H = [5, 6, 7, 8, 9, 10];
 const two = (h: number) => String(h).padStart(2, '0');
 
@@ -45,7 +48,7 @@ function shownPhone(e164: string | null): string {
 }
 
 function toForm(s: SmsSettings): Form {
-  return { sender: s.sender_name ?? '', from: s.quiet_from, to: s.quiet_to, noSunday: s.no_sunday, cap: s.weekly_cap, phone: shownPhone(s.test_phone) };
+  return { sender: s.sender_name ?? '', from: Math.min(s.quiet_from, 21), to: s.quiet_to, noSunday: s.no_sunday, cap: s.weekly_cap, phone: shownPhone(s.test_phone) };
 }
 
 export default function SmsSettingsPage() {
@@ -120,6 +123,8 @@ function SettingsForm({ settings }: { settings: SmsSettings }) {
         <fieldset disabled={!canWrite} style={{ flex: '1 1 560px', width: narrow ? '100%' : undefined, minWidth: 0, border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {!canWrite && <div style={{ padding: '12px 16px', borderRadius: 16, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>{t('yc.common.readOnly')}</div>}
 
+          <IdentityCard />
+
           <section style={{ ...card, gap: 18, ...rise(380) }}>
             <Head title={t('yc.sm.rg.who.t')} sub={t('yc.sm.rg.who.s')} />
             <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -135,7 +140,7 @@ function SettingsForm({ settings }: { settings: SmsSettings }) {
                 style={{ height: 52, boxSizing: 'border-box', padding: '0 16px', borderRadius: 14, border: `1px solid ${senderBad ? 'var(--red-400)' : 'var(--sand-200)'}`, background: '#fff', fontFamily: 'var(--font-mono)', fontSize: 17, letterSpacing: '.06em', color: 'var(--ink)', outline: 'none', width: '100%' }}
               />
               <span style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, color: senderBad ? 'var(--red-600)' : 'var(--sand-500)' }}>
-                <span>{senderBad ? t('yc.sm.rg.who.bad') : f.sender ? t('yc.sm.rg.who.rule') : t('yc.sm.rg.who.default', { name: fallback })}</span>
+                <span>{senderBad ? t(senderIdError(f.sender) === 'generic' ? 'yc.sm.rg.who.generic' : 'yc.sm.rg.who.bad') : f.sender ? t('yc.sm.rg.who.rule') : t('yc.sm.rg.who.default', { name: fallback })}</span>
                 <span style={{ fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{(f.sender || fallback).length} / 11</span>
               </span>
             </label>
@@ -183,7 +188,7 @@ function SettingsForm({ settings }: { settings: SmsSettings }) {
           <section style={{ ...card, gap: 0, background: 'var(--paper)', ...rise(620) }}>
             <Head title={t('yc.sm.rg.managed.t')} sub={t('yc.sm.rg.managed.s')} />
             {([
-              ['stop', { s: STOP_SUFFIX[lang].trim() }],
+              ['stop', { s: STOP_MENTION_FR }],
               ['consent', {}],
               ['link', { d: SAMPLE_LINK.split('/')[0] }],
             ] as const).map(([k, v], i) => (
@@ -211,6 +216,78 @@ function SettingsForm({ settings }: { settings: SmsSettings }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Identité de l'annonceur (charte AF2M du 01/03/2026) : raison sociale et
+ * SIRET (ou n° RNA d'une association, ou TVA d'une structure étrangère),
+ * écrits sur la fiche légale du compte (set_sms_sender_identity). Sans elle,
+ * aucun SMS ne part, test compris. Le titulaire du compte seul la renseigne.
+ */
+function IdentityCard() {
+  const { t } = useCrmT();
+  const toast = useCrmToast();
+  const caps = useCrmCaps();
+  const ready = useSmsReadiness();
+  const saveId = useSaveSmsIdentity();
+  const [legal, setLegal] = useState('');
+  const [reg, setReg] = useState('');
+  const ok = ready.data?.identity_ok === true;
+  const [open, setOpen] = useState(false);
+  // Arrivée depuis « Renseigner l'identité » (vérification avant l'envoi).
+  useEffect(() => {
+    if (window.location.hash === '#identite') document.getElementById('identite')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+  const editing = !ok || open;
+  const onSave = async () => {
+    if (!legal.trim() || !reg.trim() || saveId.isPending) return;
+    try {
+      const r = await saveId.mutateAsync({ legalName: legal.trim(), registration: reg.trim() });
+      if (r.identity_ok) { toast(t('yc.sm.rg.id.saved')); setOpen(false); setLegal(''); setReg(''); }
+    } catch (e) {
+      const m = String((e as Error | null)?.message ?? '');
+      toast(t(m.includes('bad_registration') ? 'yc.sm.rg.id.badReg' : m.includes('bad_legal_name') ? 'yc.sm.rg.id.badName' : m.includes('forbidden') ? 'yc.sm.rg.id.owner' : 'yc.em.rg.err'));
+    }
+  };
+  const field: CSSProperties = { height: 48, boxSizing: 'border-box', padding: '0 16px', borderRadius: 14, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 15, color: 'var(--ink)', outline: 'none', width: '100%' };
+  return (
+    <section id="identite" style={{ ...card, gap: 16, scrollMarginTop: 96, boxShadow: ok ? card.boxShadow : 'inset 0 0 0 1.5px var(--red-200)', ...rise(340) }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <Head title={t('yc.sm.rg.id.t')} sub={t('yc.sm.rg.id.s')} />
+        <span style={{ flex: 'none', height: 26, padding: '0 10px', borderRadius: 99, background: ok ? 'var(--green-50)' : 'var(--red-50)', color: ok ? 'var(--green-700)' : 'var(--red-700)', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+          {ready.isLoading && !ready.isError ? '…' : t(ok ? 'yc.sm.rg.id.ok' : 'yc.sm.rg.id.missing')}
+        </span>
+      </div>
+      {!caps.billing ? (
+        <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-600)' }}>{t(ok ? 'yc.sm.rg.id.okNote' : 'yc.sm.rg.id.owner')}</span>
+      ) : editing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{t('yc.sm.rg.id.legal')}</span>
+            <input value={legal} onChange={(e) => setLegal(e.target.value)} maxLength={160} autoComplete="organization" className="yc-field" style={field} placeholder={t('yc.sm.rg.id.legalPh')} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{t('yc.sm.rg.id.reg')}</span>
+            <input value={reg} onChange={(e) => setReg(e.target.value)} maxLength={20} spellCheck={false} className="yc-field" style={{ ...field, fontFamily: 'var(--font-mono)', letterSpacing: '.04em' }} placeholder="123 456 789 00012" />
+            <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.sm.rg.id.regHint')}</span>
+          </label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Hv as="button" type="button" onClick={() => void onSave()} disabled={!legal.trim() || !reg.trim() || saveId.isPending}
+              style={{ height: 44, padding: '0 20px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: !legal.trim() || !reg.trim() ? 'not-allowed' : 'pointer', opacity: !legal.trim() || !reg.trim() || saveId.isPending ? 0.55 : 1, font: 'inherit' }}
+              hover={{ filter: 'brightness(1.15)' }}>
+              {saveId.isPending ? '…' : t('yc.sm.rg.id.save')}
+            </Hv>
+            {ok && <Hv as="button" type="button" onClick={() => setOpen(false)} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', font: 'inherit' }} hover={{ background: 'var(--paper)' }}>{t('yc.em.rg.reset')}</Hv>}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-600)' }}>{t('yc.sm.rg.id.okNote')}</span>
+          <Hv as="button" type="button" onClick={() => setOpen(true)} style={{ height: 38, padding: '0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', font: 'inherit' }} hover={{ background: 'var(--paper)' }}>{t('yc.sm.rg.id.edit')}</Hv>
+        </div>
+      )}
+    </section>
   );
 }
 

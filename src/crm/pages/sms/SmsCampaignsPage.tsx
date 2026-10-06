@@ -68,7 +68,7 @@ export default function SmsCampaignsPage() {
   const sizes = useSmsDraftSizes(draftIds).data;
   const all = useMemo(() => rawAll.map((c) => (sizes && c.id in sizes ? { ...c, estimated: sizes[c.id] } : c)), [rawAll, sizes]);
   const balance = shell.data?.wallet.balance ?? null;
-  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 40);
+  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 35);
 
   const patch = (p: Record<string, string | null>) => setSp((prev) => {
     const x = new URLSearchParams(prev);

@@ -39,13 +39,13 @@ export function WriteModal({
   const [ch, setCh] = useState<'email' | 'sms'>('email');
   const shell = useCrmShell();
   const counts = useAudienceCount(def ?? null, emails ?? null, open);
-  const rates = shell.data?.wallet.rates ?? { email: 1, sms: 40 };
+  const rates = shell.data?.wallet.rates ?? { email: 1, sms: 35 };
   const balance = shell.data?.wallet.balance ?? 0;
   const total = counts.data?.total ?? 0;
   const mail = counts.data?.email ?? 0;
   const sms = counts.data?.sms ?? 0;
   const reach = ch === 'email' ? mail : sms;
-  const cost = reach * (ch === 'email' ? rates.email ?? 1 : rates.sms ?? 40);
+  const cost = reach * (ch === 'email' ? rates.email ?? 1 : rates.sms ?? 35);
   const left = balance - cost;
   const short = left < 0;
   const none = !counts.isLoading && reach === 0;
@@ -71,7 +71,7 @@ export function WriteModal({
   const scopeLabel = eyebrow ?? t(`yc.cli.msg.scope.${scope}`);
   const chs: { k: 'email' | 'sms'; l: string; n: number; s: string }[] = [
     { k: 'email', l: 'E-mail', n: mail, s: t('yc.cli.msg.reachable', { rate: t('yc.cli.msg.rate.email') }) },
-    { k: 'sms', l: 'SMS', n: sms, s: t('yc.cli.msg.reachable', { rate: t('yc.cli.msg.rate.sms', { n: rates.sms ?? 40 }) }) },
+    { k: 'sms', l: 'SMS', n: sms, s: t('yc.cli.msg.reachable', { rate: t('yc.cli.msg.rate.sms', { n: rates.sms ?? 35 }) }) },
   ];
 
   return (
@@ -111,7 +111,7 @@ export function WriteModal({
         </div>
         {short && !none && (
           <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14, lineHeight: 1.45, fontWeight: 500 }}>
-            {t('yc.cli.msg.short', { n: n(-left), x: Math.round((rates.sms ?? 40) / (rates.email ?? 1)) })}
+            {t('yc.cli.msg.short', { n: n(-left), x: Math.round((rates.sms ?? 35) / (rates.email ?? 1)) })}
           </div>
         )}
         {none && (

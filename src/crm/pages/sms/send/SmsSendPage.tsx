@@ -4,14 +4,16 @@
  *
  * Audience (même règle que crm_sms_audience_preview), planification (heures
  * calmes du compte), vérification. Chaque réglage s'enregistre sur le
- * brouillon (crm_sms_save), la date choisie comprise. Tant que l'envoi des
- * SMS n'est pas ouvert (CRM_SMS_SEND_OPEN), le dernier bouton reste fermé :
- * rien ne part, le brouillon attend l'ouverture.
+ * brouillon (crm_sms_save), la date choisie comprise. Rien ne part sans
+ * confirmation : « Maintenant » appelle send-sms-campaign (mise en file,
+ * Yunits, première tranche) ; « Programmer » passe le SMS en `scheduled`
+ * (crm_sms_schedule), le cron l'envoie à l'heure dite.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
+import { Modal } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { SPRING } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
@@ -21,12 +23,11 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
 import type { CrmAudience } from '@/crm/data/emails';
-import { useSmsActions, useSmsAnalysis, useSmsAudiencePreview, useSmsCampaigns, useSmsSendOptions, useSmsSettings } from '@/crm/data/sms';
+import { smsErrorKey, useSmsActions, useSmsAnalysis, useSmsAudiencePreview, useSmsCampaigns, useSmsReadiness, useSmsSendOptions, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_ENGINE_READY, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCost, smsEffectiveAt, smsFinalText,
+  countSms, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCost, smsEffectiveAt, smsFinalText,
 } from '@/crm/lib/sms';
 import { SmsFlowHeader, type SmsStep } from '../flow/SmsFlowHeader';
-import { SmsSoonBanner } from '../SmsShell';
 import { SmsAudienceStep } from './SmsAudienceStep';
 import { SmsPlanStep, type SmsPlan } from './SmsPlanStep';
 import { SmsCheckStep } from './SmsCheckStep';
@@ -55,19 +56,22 @@ export default function SmsSendPage() {
   const nights = useNights();
   const shell = useCrmShell();
   const act = useSmsActions();
+  const readiness = useSmsReadiness();
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
   const row = useMemo(() => (camps.data?.campaigns ?? []).find((c) => c.id === id) ?? null, [camps.data, id]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const best = useMemo(() => smsBestSlots(analysis.data?.campaigns ?? []), [analysis.data]);
   const s = settings.data;
   const quiet = { from: s?.quiet_from ?? 20, to: s?.quiet_to ?? 8, noSunday: s?.no_sunday ?? true };
   const cap = s?.weekly_cap ?? 1;
-  const rateSms = Number(shell.data?.wallet.rates?.sms ?? 40);
+  const rateSms = Number(shell.data?.wallet.rates?.sms ?? 35);
   const balance = Number(shell.data?.wallet.balance ?? 0);
 
   // Premier état : celui du brouillon ; un créneau proposé s'il n'a pas de date.
   useEffect(() => {
     if (draft || !row || !settings.data) return;
-    if (row.status === 'sent' || row.status === 'sending') { toast(t('yc.sm.sd.sentRedirect')); nav(CRM_ROUTES.smsResults(row.id), { replace: true }); return; }
+    if (row.status === 'sent' || row.status === 'sending' || row.status === 'paused') { toast(t('yc.sm.sd.sentRedirect')); nav(CRM_ROUTES.smsResults(row.id), { replace: true }); return; }
     let date: string; let tm: string;
     if (row.scheduled_at) { const d = new Date(row.scheduled_at); date = isoDay(d); tm = `${two(d.getHours())}:${two(Math.floor(d.getMinutes() / 15) * 15)}`; }
     else {
@@ -162,11 +166,12 @@ export default function SmsSendPage() {
   const chosen = new Date(`${draft.plan.date}T${draft.plan.time}:00`);
   const eff = smsEffectiveAt(mode === 'now' ? new Date() : chosen, { on: draft.plan.quiet, ...quiet });
   const past = mode === 'later' && chosen.getTime() <= Date.now();
-  const checks = smsChecks({ body: row.body ?? '', count: k, net, cost, balance, at: mode === 'later' ? chosen : null, now: new Date() });
+  const checks = smsChecks({ body: row.body ?? '', count: k, net, cost, balance, at: mode === 'later' ? chosen : null, now: new Date(), identityOk: readiness.data ? readiness.data.identity_ok : true });
   const bad = checks.filter((c) => smsCheckLevel(c) === 'bad').length;
   const canSend = bad === 0 && !readOnly;
   const idx = STEPS.indexOf(step);
-  const nextOff = (step === 'aud' && net === 0) || (step === 'check' && (!canSend || !CRM_SMS_SEND_OPEN));
+  const scheduled = row.status === 'scheduled';
+  const nextOff = scheduled || (step === 'aud' && net === 0) || (step === 'check' && (!canSend || !CRM_SMS_SEND_OPEN));
   const whenShort = mode === 'now' ? t('yc.em.sd.r.onConfirm') : `${dShort(eff.at)} · ${time(eff.at)}`;
   const dateText = mode === 'now' ? t('yc.sm.sd.date.now') : t('yc.sm.sd.date.later', { when: whenText(eff.at) });
 
@@ -175,7 +180,34 @@ export default function SmsSendPage() {
     if (step === 'plan') { if (past) { toast(t('yc.em.sd.plan.past')); return; } go('check'); return; }
     if (!CRM_SMS_SEND_OPEN) { toast(t('yc.sm.sd.soonToast')); return; }
     if (!canSend) { toast(t('yc.em.sd.nav.fixFirst')); return; }
-    if (!CRM_SMS_ENGINE_READY) toast(t('yc.sm.engineToast'));
+    setConfirm(true);
+  };
+  // Envoi confirmé : maintenant (send-sms-campaign) ou à l'heure dite (crm_sms_schedule).
+  const send = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await flush();
+      if (mode === 'later') {
+        await act.schedule(row.id, eff.at);
+        setConfirm(false);
+        toast(t('yc.sm.sd.done.later', { when: whenText(eff.at) }));
+        nav(`${CRM_ROUTES.smsCampaigns}?s=sched`);
+      } else {
+        await act.sendNow(row.id);
+        setConfirm(false);
+        toast(t('yc.sm.sd.done.now'));
+        nav(CRM_ROUTES.smsResults(row.id));
+      }
+    } catch (e) {
+      setConfirm(false);
+      toast(t(smsErrorKey(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const unschedule = async () => {
+    try { await act.unschedule(row.id); toast(t('yc.sm.sd.unscheduled')); } catch (e) { toast(t(smsErrorKey(e))); }
   };
   const back = () => { if (idx === 0) go('msg'); else go(STEPS[idx - 1]); };
 
@@ -193,6 +225,16 @@ export default function SmsSendPage() {
       <div style={{ maxWidth: 1220, margin: '0 auto', boxSizing: 'border-box', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 80px', display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' }}>
         <main style={{ flex: '1 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
           {readOnly && <div style={{ padding: '12px 16px', borderRadius: 16, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14, fontWeight: 500 }}>{t('yc.em.st.readOnly')}</div>}
+          {scheduled && row.scheduled_at && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderRadius: 18, background: 'var(--green-50)', boxShadow: 'inset 0 0 0 1px #BFE6CE' }}>
+              <span style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--green-700)' }}>{t('yc.sm.sd.schedBanner', { when: whenText(new Date(row.scheduled_at)) })}</span>
+              {!readOnly && (
+                <Hv as="button" type="button" onClick={() => void unschedule()} style={{ height: 38, padding: '0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', font: 'inherit' }} hover={{ background: 'var(--paper)' }}>
+                  {t('yc.sm.sd.unschedule')}
+                </Hv>
+              )}
+            </div>
+          )}
           {step === 'aud' && (
             <SmsAudienceStep
               options={options.data} audiences={draft.audiences} onAudiences={(a) => update({ audiences: a })} preview={preview.data} cost={cost}
@@ -202,10 +244,7 @@ export default function SmsSendPage() {
           )}
           {step === 'plan' && <SmsPlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} quiet={quiet} whenText={whenText} relText={relText} readOnly={readOnly} />}
           {step === 'check' && (
-            <>
-              <SmsSoonBanner />
-              <SmsCheckStep checks={checks} campaignId={row.id} count={k} net={net} cost={cost} left={balance - cost} sender={sender} dateText={dateText} onGo={go} />
-            </>
+            <SmsCheckStep checks={checks} campaignId={row.id} count={k} net={net} cost={cost} left={balance - cost} sender={sender} dateText={dateText} onGo={go} />
           )}
 
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 6 }}>
@@ -235,6 +274,31 @@ export default function SmsSendPage() {
         </main>
         <SmsSendAside campaignId={row.id} text={text} sender={sender} time={mode === 'now' ? time(new Date()) : time(eff.at)} day={mode === 'now' || eff.at.toDateString() === new Date().toDateString() ? t('yc.sm.ph.today') : dShort(eff.at)} parts={k.parts} net={net} whenShort={whenShort} cost={cost} rate={rateSms} balance={balance} readOnly={readOnly} />
       </div>
+
+      <Modal open={confirm} onClose={() => setConfirm(false)} width={480} label={t('yc.sm.sd.c.label')}>
+        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div>
+            <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, letterSpacing: '-.03em', lineHeight: 1.1 }}>{tp(mode === 'now' ? 'yc.sm.sd.c.now' : 'yc.sm.sd.c.later', net, { n: n(net) })}</h2>
+            <div style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--sand-500)', marginTop: 6 }}>{t(mode === 'now' ? 'yc.sm.sd.c.noteNow' : 'yc.sm.sd.c.noteLater')}</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 18px', borderRadius: 18, background: 'var(--paper)', boxShadow: 'inset 0 0 0 1px var(--sand-100)' }}>
+            {[
+              [t('yc.sm.sd.c.from'), sender],
+              [t('yc.sm.sd.c.to'), tp('yc.sm.ck.aud.ok', net, { n: n(net) }).replace(/[.]$/, '')],
+              [t('yc.sm.sd.c.when'), mode === 'now' ? t('yc.em.sd.r.onConfirm') : whenText(eff.at)],
+              [t('yc.sm.sd.c.cost'), t('yc.sm.sd.c.costV', { n: n(cost), p: k.parts })],
+            ].map(([l, val]) => (
+              <div key={l} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, fontSize: 14.5 }}><span style={{ color: 'var(--sand-600)' }}>{l}</span><b style={{ textAlign: 'right' }}>{val}</b></div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Hv as="button" type="button" onClick={() => setConfirm(false)} style={{ flex: 1, height: 50, borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 15, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', font: 'inherit' }} hover={{ background: 'var(--paper)' }}>{t('yc.em.sd.c.notYet')}</Hv>
+            <Hv as="button" type="button" onClick={() => void send()} disabled={busy} style={{ flex: 1.4, height: 50, border: 0, borderRadius: 99, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15.5, fontWeight: 600, cursor: busy ? 'progress' : 'pointer', boxShadow: 'var(--shadow-cta)', transition: `transform 200ms ${SPRING},filter 160ms`, font: 'inherit' }} hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }} active={{ transform: 'scale(.97)' }}>
+              {busy ? '…' : t(mode === 'now' ? 'yc.sm.sd.nav.now' : 'yc.sm.sd.nav.later')}
+            </Hv>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

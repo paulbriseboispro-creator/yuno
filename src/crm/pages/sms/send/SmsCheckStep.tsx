@@ -54,7 +54,8 @@ export function SmsCheckStep({
     const css = { flex: 'none', height: 34, padding: '0 14px', borderRadius: 99, border: 0, background: 'var(--sand-100)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer', font: 'inherit' } as const;
     const hover = { background: 'var(--sand-200)', color: 'var(--ink)', textDecoration: 'none' };
     if (c.fix === 'audience' || c.fix === 'date') return <Hv as="button" type="button" onClick={() => onGo(c.fix === 'audience' ? 'aud' : 'plan')} style={css} hover={hover}>{label}</Hv>;
-    return <Hv as={Link} to={c.fix === 'recharge' ? CRM_ROUTES.yunits : CRM_ROUTES.smsCompose(campaignId)} style={css} hover={hover}>{label}</Hv>;
+    const to = c.fix === 'recharge' ? CRM_ROUTES.yunits : c.fix === 'identity' ? `${CRM_ROUTES.smsSettings}#identite` : CRM_ROUTES.smsCompose(campaignId);
+    return <Hv as={Link} to={to} style={css} hover={hover}>{label}</Hv>;
   };
 
   return (

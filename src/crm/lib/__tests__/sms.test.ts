@@ -19,8 +19,9 @@ describe('SMS CRM : texte qui part', () => {
     const fr = smsFinalText('Ce soir {{soirée}}', { sender: 'LEBUNKER', lang: 'fr', vals: sample });
     expect(fr.startsWith('LEBUNKER')).toBe(true);
     expect(fr).toContain('Ce soir Techno Night');
-    expect(fr.endsWith('STOP pour ne plus recevoir')).toBe(true);
-    expect(smsFinalText('Last tickets', { sender: 'BUNKER', lang: 'en', vals: sample })).toMatch(/STOP to opt out$/);
+    // Les clients du CRM ont un numéro français : la mention est le code court d'Octopush.
+    expect(fr.endsWith('STOP au 30101')).toBe(true);
+    expect(smsFinalText('Last tickets', { sender: 'BUNKER', lang: 'en', vals: sample })).toMatch(/STOP au 30101$/);
   });
 
   it('compte les SMS : 160 puis 153 en GSM-7, 70 puis 67 dès un caractère spécial', () => {
@@ -120,7 +121,22 @@ describe('SMS CRM : heures d’envoi', () => {
   it('ne touche à rien hors des heures calmes ou sans elles', () => {
     const at = new Date(2026, 9, 9, 18, 0);
     expect(smsEffectiveAt(at, q)).toEqual({ at, shifted: false });
-    expect(smsEffectiveAt(new Date(2026, 9, 11, 3, 0), { ...q, on: false }).shifted).toBe(false);
+    expect(smsEffectiveAt(new Date(2026, 9, 9, 21, 0), { ...q, on: false }).shifted).toBe(false);
+  });
+
+  it('ne fait jamais partir un SMS entre 21 h 30 et 8 h, heures calmes ou non', () => {
+    const off = { ...q, on: false };
+    expect(smsEffectiveAt(new Date(2026, 9, 9, 3, 0), off).at).toEqual(new Date(2026, 9, 9, 8, 0));
+    expect(smsEffectiveAt(new Date(2026, 9, 9, 21, 45), off).at).toEqual(new Date(2026, 9, 10, 8, 0));
+    // Heures calmes réglées après 21 h 30 : la nuit légale l'emporte.
+    expect(smsEffectiveAt(new Date(2026, 9, 9, 21, 40), { ...q, from: 23 }).at).toEqual(new Date(2026, 9, 10, 8, 0));
+  });
+
+  it('repousse un jour férié au lendemain matin', () => {
+    // Mercredi 11 novembre 2026, 15 h → jeudi 12 à 8 h.
+    expect(smsEffectiveAt(new Date(2026, 10, 11, 15, 0), q).at).toEqual(new Date(2026, 10, 12, 8, 0));
+    // Lundi de Pentecôte 2027 (17 mai).
+    expect(smsEffectiveAt(new Date(2027, 4, 17, 10, 0), q).at).toEqual(new Date(2027, 4, 18, 8, 0));
   });
 
   it('classe les meilleurs jours (0 = lundi) et heures dès trois SMS', () => {

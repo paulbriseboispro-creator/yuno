@@ -12,6 +12,7 @@
 --    la règle des 7 jours.
 -- 3. Trois brouillons (prêt avec une date, date à choisir, audience à
 --    choisir).
+-- 4. L'identité de l'annonceur (raison sociale + SIRET de démonstration).
 -- Rien ne part : aucun appel au moteur d'envoi, aucun Yunit débité.
 --
 -- Rejouable : efface les SMS marqués segment_filters.seed = 'crm-sms' de CE
@@ -177,6 +178,16 @@ BEGIN
   ON CONFLICT (scope_key) DO UPDATE SET sender_name = EXCLUDED.sender_name, quiet_from = EXCLUDED.quiet_from,
     quiet_to = EXCLUDED.quiet_to, no_sunday = EXCLUDED.no_sunday, weekly_cap = EXCLUDED.weekly_cap,
     test_phone = EXCLUDED.test_phone, updated_at = now();
+
+  -- --------------------------------------------- Identité de l'annonceur
+  -- Exigée avant tout envoi (charte AF2M, get_sms_sender_readiness) : sans
+  -- elle, l'étape « Vérifier » de la démo afficherait un point bloquant. SIRET
+  -- de démonstration (14 zéros), jamais celui d'une vraie structure ; la démo
+  -- n'envoie de toute façon rien (demo_no_send).
+  UPDATE public.organizer_profiles
+     SET legal_name = COALESCE(NULLIF(btrim(legal_name), ''), 'Nuits Démo SAS'),
+         siret = COALESCE(NULLIF(btrim(siret), ''), '00000000000000')
+   WHERE user_id = v_uid;
 
   -- ------------------------------------------------------------ Brouillons
   INSERT INTO public.sms_campaigns (organizer_id, venue_id, created_by, name, body_template, segment_filters, status,

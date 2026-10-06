@@ -18,7 +18,7 @@ import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { useCrmShell } from '@/crm/data/shell';
-import { useSmsActions, useSmsResult, useSmsSettings } from '@/crm/data/sms';
+import { smsErrorKey, useSmsActions, useSmsResult, useSmsSettings, type SmsResult } from '@/crm/data/sms';
 import { audienceLabel, rate, shortName } from '@/crm/lib/emails';
 import { countSms, defaultSender, SAMPLE_LINK, smsCost, smsFinalText } from '@/crm/lib/sms';
 import { CRM_ROUTES } from '@/crm/shell/nav';
@@ -43,7 +43,7 @@ export default function SmsResultPage() {
   const q = useSmsResult(id);
   const r = q.data;
   const g = useProgress(1200, 500, r?.id ?? 'wait', !!r);
-  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 40);
+  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 35);
 
   const s = r?.stats ?? null;
   const avg = r?.avg;
@@ -54,6 +54,10 @@ export default function SmsResultPage() {
 
   if (q.isLoading || !r) {
     return <main style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px)' }}>{q.isError && !r ? <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /> : <Skel h={520} r={28} />}</main>;
+  }
+  const live = !r.error && (r.status === 'sending' || r.status === 'paused') ? <SendState r={r} onResumed={() => { void q.refetch(); }} /> : null;
+  if (live && !s) {
+    return <main style={{ maxWidth: 1280, margin: '0 auto', boxSizing: 'border-box', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px)' }}>{live}</main>;
   }
   if (r.error === 'not_found' || !s) {
     return (
@@ -97,6 +101,7 @@ export default function SmsResultPage() {
 
   return (
     <main style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 72px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {live}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Hv as={Link} to={CRM_ROUTES.smsCampaigns} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', textDecoration: 'none', ...enter(60) }} hover={{ color: 'var(--red-600)', textDecoration: 'none' }}>
           <Icon name="arrowLeft" size={15} stroke={2.4} />{t('yc.sm.rs.all')}
@@ -283,5 +288,48 @@ export default function SmsResultPage() {
         </section>
       )}
     </main>
+  );
+}
+
+/**
+ * Un SMS qui part encore (progression relue toutes les 4 s) ou mis en pause
+ * par le moteur (Yunits épuisés, refus du service d'envoi) : le motif et le
+ * geste qui le règle.
+ */
+function SendState({ r, onResumed }: { r: SmsResult; onResumed: () => void }) {
+  const { t, n } = useCrmT();
+  const toast = useCrmToast();
+  const caps = useCrmCaps();
+  const act = useSmsActions();
+  const sending = r.status === 'sending';
+  const total = Math.max(r.total_recipients ?? 0, r.sent_count ?? 0);
+  const p = total ? Math.min(1, (r.sent_count ?? 0) / total) : 0;
+  const credits = r.paused_reason === 'credits';
+  const resume = async () => {
+    try { await act.resume(r.id); toast(t('yc.sm.rs.resumed')); onResumed(); } catch (e) { toast(t(smsErrorKey(e))); }
+  };
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 22px', borderRadius: 24, background: sending ? 'var(--green-50)' : 'var(--amber-50)', boxShadow: `inset 0 0 0 1px ${sending ? '#BFE6CE' : '#F2D9A2'}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <YunitFace mood={sending ? 'content' : 'inquiet'} size={44} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 21, letterSpacing: '-.02em', color: sending ? 'var(--green-700)' : 'var(--amber-700)' }}>{t(sending ? 'yc.sm.rs.sending' : 'yc.sm.rs.paused')}</b>
+          <span style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--sand-700)' }}>
+            {sending ? t('yc.sm.rs.sendingD', { n: n(r.sent_count ?? 0), total: n(total) }) : credits ? t('yc.sm.rs.pausedCredits') : (r.error_message || t('yc.sm.rs.pausedD'))}
+          </span>
+        </div>
+      </div>
+      {sending && total > 0 && (
+        <div style={{ height: 8, borderRadius: 99, background: 'rgba(255,255,255,.7)', overflow: 'hidden' }} aria-hidden>
+          <div style={{ width: `${Math.round(p * 100)}%`, height: '100%', borderRadius: 99, background: 'var(--green-500)', transition: 'width 600ms' }} />
+        </div>
+      )}
+      {!sending && caps.write && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {credits && <Hv as={Link} to={CRM_ROUTES.yunits} style={{ height: 42, padding: '0 18px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--paper)', color: 'var(--ink)' }}>{t('yc.sm.ck.fix.recharge')}</Hv>}
+          <Hv as="button" type="button" onClick={() => void resume()} style={{ height: 42, padding: '0 20px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', font: 'inherit' }} hover={{ filter: 'brightness(1.15)' }}>{t('yc.sm.rs.resume')}</Hv>
+        </div>
+      )}
+    </section>
   );
 }

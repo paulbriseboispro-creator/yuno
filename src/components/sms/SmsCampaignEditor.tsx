@@ -255,7 +255,9 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     if (data.error === 'SMS_NOT_CONFIGURED') { toast.error(t('smsc.editor.notConfigured')); return; }
     if (data.error === 'support_session_forbidden') { toast.error(t('smsc.editor.supportForbidden')); return; }
     if (data.error === 'TEST_PHONE_INVALID') { setShowTestPhone(true); toast.error(t('smsc.editor.testPhoneInvalid')); return; }
-    if (data.error === 'TWILIO_ERROR') { toast.error(`${t('smsc.editor.twilioError')} ${data.code ?? ''} ${data.message ?? ''}`.trim()); return; }
+    if (data.error === 'PROVIDER_ERROR') { toast.error(`${t('smsc.editor.providerError')} ${data.message ?? data.code ?? ''}`.trim()); return; }
+    if (data.error === 'SMS_IDENTITY_REQUIRED') { toast.error(t('smsc.editor.identityRequired')); return; }
+    if (data.error === 'SENDER_INVALID') { toast.error(t('smsc.editor.senderInvalid')); return; }
     toast.error(data.message || data.error || t('smsCampaigns.errorSend'));
   };
 

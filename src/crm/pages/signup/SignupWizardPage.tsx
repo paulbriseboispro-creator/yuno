@@ -24,7 +24,7 @@ import FanPage from '@/crm/signup/FanPage';
 import type { FanCfg } from '@/crm/signup/FanPage';
 import InscriptionPhone from '@/crm/signup/InscriptionPhone';
 import type { PhoneScene } from '@/crm/signup/InscriptionPhone';
-import { CRM_SMS_ENGINE_READY } from '@/crm/lib/sms';
+import { CRM_SMS_SIGNUP_LIVE } from '@/crm/lib/sms';
 import {
   EXTRA_FIELDS, FONTS, KIND_META, REWARD_ICONS, REWARD_IDS, SIGNUP_KINDS, SP_ICON, TPL, dt, fieldCount, fromLocalInput, parseOpts, tokens, tplOf,
 } from '@/crm/signup/model';
@@ -654,7 +654,7 @@ function StepFields({ wz, upd, t }: { wz: Wz; upd: (p: Partial<Wz>, touched?: 't
               })}
             </div>
             <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.sp.w.chHint')}</span>
-            {wz.ch.sms && !CRM_SMS_ENGINE_READY && <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>{t('yc.sp.w.smsSoon')}</span>}
+            {wz.ch.sms && !CRM_SMS_SIGNUP_LIVE && <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>{t('yc.sp.w.smsSoon')}</span>}
           </div>
         )}
       </div>

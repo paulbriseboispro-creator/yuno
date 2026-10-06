@@ -6,6 +6,7 @@
  * 7 jours après le SMS, STOP.
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 import type { CrmAudience } from './emails';
@@ -39,6 +40,11 @@ export interface SmsCampaignRow {
   estimated: number;
   parts: number;
   paused_reason: string | null;
+  /** Envoi en cours : SMS partis sur le total de la file. */
+  sent_count?: number;
+  total_recipients?: number;
+  /** Motif d'une pause ou d'un refus, en clair (send-sms-campaign). */
+  error_message?: string | null;
   stats?: SmsStats;
 }
 
@@ -107,6 +113,8 @@ export function useSmsResult(id: string | null) {
     queryFn: () => rpc<SmsResult>('crm_sms_result', { ...args, p_campaign_id: id }),
     enabled: !!id,
     staleTime: 60_000,
+    // Envoi en cours : la progression se relit toutes les 4 s.
+    refetchInterval: (q) => (q.state.data?.status === 'sending' ? 4000 : false),
   });
 }
 
@@ -217,6 +225,95 @@ export function useSmsActions() {
       void refresh();
       return r.id;
     },
+    /** Programme un brouillon prêt : le cron l'envoie à l'heure dite (crm_sms_schedule vérifie l'identité). */
+    schedule: async (id: string, at: Date) => {
+      await rpc('crm_sms_schedule', { ...args, p_id: id, p_at: at.toISOString() });
+      void refresh();
+    },
+    /** Un SMS programmé redevient un brouillon. */
+    unschedule: async (id: string) => {
+      await rpc('crm_sms_unschedule', { ...args, p_id: id });
+      void refresh();
+    },
+    /** Envoie maintenant : mise en file, débit des Yunits, première tranche (send-sms-campaign). */
+    sendNow: async (id: string) => {
+      const r = await invokeSms({ campaign_id: id, mode: 'send' });
+      void refresh();
+      void qc.invalidateQueries({ queryKey: ['crm', qk, 'shell'] });
+      return r;
+    },
+    /** Reprend un SMS en pause (Yunits rechargés, erreur réglée). */
+    resume: async (id: string) => {
+      const r = await invokeSms({ campaign_id: id, mode: 'resume' });
+      void refresh();
+      return r;
+    },
+    /** Test gratuit : le SMS exact, au numéro de test des Réglages (ou celui donné). */
+    test: async (id: string, phone?: string | null) => invokeSms({ campaign_id: id, mode: 'test', test_phone: phone ?? null }),
     refresh,
   };
+}
+
+/** Réponse de send-sms-campaign ; une erreur devient `SmsSendError` avec le code serveur. */
+export class SmsSendError extends Error {
+  code: string;
+  data: Record<string, unknown>;
+  constructor(code: string, data: Record<string, unknown>) {
+    super(code);
+    this.code = code;
+    this.data = data;
+  }
+}
+
+async function invokeSms(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.functions.invoke('send-sms-campaign', { body });
+  let out = (data as Record<string, unknown> | null) ?? null;
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === 'function') { try { out = await ctx.clone().json(); } catch { /* corps illisible : code générique */ } }
+  if (error || !out || out.error) {
+    const raw = String(out?.code ?? out?.error ?? (error as Error | null)?.message ?? 'error');
+    throw new SmsSendError(raw, out ?? {});
+  }
+  return out;
+}
+
+/** Clé de message d'une erreur d'envoi (textes `yc.sm.err.*`). */
+export function smsErrorKey(e: unknown): string {
+  const code = e instanceof SmsSendError ? e.code : String((e as Error | null)?.message ?? '');
+  if (code.includes('SMS_IDENTITY_REQUIRED') || code.includes('sms_identity_required')) return 'yc.sm.err.identity';
+  if (code.includes('yunits_insufficient')) return 'yc.sm.err.yunits';
+  if (code.includes('crm_paused')) return 'yc.sm.err.paused';
+  if (code.includes('crm_send_frozen')) return 'yc.sm.err.frozen';
+  if (code.includes('demo_no_send')) return 'yc.sm.err.demo';
+  if (code.includes('NO_RECIPIENTS')) return 'yc.sm.err.none';
+  if (code.includes('SENDER_INVALID')) return 'yc.sm.err.sender';
+  if (code.includes('SMS_NOT_CONFIGURED')) return 'yc.sm.err.notConfigured';
+  if (code.includes('TEST_PHONE_INVALID')) return 'yc.sm.err.testPhone';
+  if (code.includes('TEST_LIMIT')) return 'yc.sm.err.testLimit';
+  if (code.includes('PROVIDER_ERROR')) return 'yc.sm.err.provider';
+  if (code.includes('bad_date')) return 'yc.sm.err.date';
+  return 'yc.sm.err.generic';
+}
+
+/** Identité de l'annonceur : exigée par les opérateurs avant tout envoi. */
+export interface SmsReadiness { identity_ok: boolean; missing: ('legal_name' | 'registration')[]; last_sender_id: string | null }
+
+export function useSmsReadiness() {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'sms', 'readiness'],
+    queryFn: () => rpc<SmsReadiness>('get_sms_sender_readiness', args),
+    staleTime: 60_000,
+  });
+}
+
+/** Enregistre la raison sociale et le SIRET / RNA / TVA (titulaire du compte seul). */
+export function useSaveSmsIdentity() {
+  const { rpc: args, qk } = useCrmScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { legalName: string; registration: string }) =>
+      rpc<SmsReadiness>('set_sms_sender_identity', { ...args, p_legal_name: v.legalName, p_registration: v.registration }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['crm', qk, 'sms'] }),
+  });
 }

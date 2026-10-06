@@ -1,53 +1,43 @@
 /**
  * Règles de la suite SMS de la Console CRM : variables du message, texte qui
- * part (mêmes règles que le moteur : nom d'expéditeur, lien, mention STOP),
- * nombre de SMS par contact, coût en Yunits, modèles, vérifications avant
- * l'envoi. Pures et testées.
+ * part (les mêmes règles que le moteur, importées de
+ * supabase/functions/_shared/sms-text.ts : nom d'expéditeur en tête, lien,
+ * « STOP au 30101 »), nombre de SMS par contact, coût en Yunits, modèles,
+ * vérifications avant l'envoi, heures d'envoi. Pures et testées.
  *
- * L'envoi n'est pas ouvert pour un compte CRM (docs/designs/CRM_SMS_PLAN.md) :
- * le moteur doit d'abord débiter les Yunits, remplir les variables et lire les
- * réglages d'envoi. Le serveur refuse de toute façon (`crm_sms_not_open`).
+ * L'envoi est OUVERT depuis le 2026-10-08 (Octopush, 35 Yunits par SMS,
+ * docs/designs/SMS_PROVIDER_PLAN.md) : send-sms-campaign débite les Yunits,
+ * remplit les variables et lit les réglages d'envoi du compte.
  */
-import { composeSmsBody, nonGsmChars, smsSizing, type SmsLang } from '@/lib/smsMarketing';
+import {
+  composeSmsBody, LEGAL_NIGHT_FROM, LEGAL_NIGHT_TO, isFrenchPublicHoliday, nonGsmChars, resolveSmsVars, senderIdError,
+  smsSizing, toSenderId, type SmsLang, type SmsValues,
+} from '@/lib/smsMarketing';
 
-/**
- * Les écrans SMS de la Console sont-ils montrés ? Non en production (décision de
- * Paul, 05/10 au soir, avant le premier client réel) : toutes les adresses
- * /crm/sms/* rendent la page « Bientôt » (`SmsSoonPage`), le menu porte la
- * pastille « Bientôt », Tarifs et Yunits disent « bientôt ».
- *
- * Pour travailler sur la suite SMS en local : `VITE_CRM_SMS_LIVE=1` dans
- * `.env.local` (même modèle que `DRINKS_PILLAR_LIVE`). Un build de production
- * n'a pas cette variable. Le jour de l'ouverture : brancher le moteur
- * (`CRM_SMS_ENGINE_READY`, garde serveur `crm_sms_not_open`), puis remplacer la
- * lecture par `true`. Distinct de `SMS_MARKETING_LIVE` (achat de crédits de la
- * Suite).
- */
-export const CRM_SMS_DISPLAY_LIVE: boolean = import.meta.env.VITE_CRM_SMS_LIVE === '1';
-/** Le moteur SMS est-il branché pour les comptes CRM (Yunits, variables, réglages) ? Tant que non, rien ne part : le serveur refuse (`crm_sms_not_open`). */
-export const CRM_SMS_ENGINE_READY = false;
+export { resolveSmsVars, senderIdError };
+export type { SmsValues };
+
+/** Les écrans SMS de la Console sont montrés (ouverture du 08/10). */
+export const CRM_SMS_DISPLAY_LIVE = true;
+/** Le moteur SMS est branché pour les comptes CRM (Yunits, variables, réglages, Octopush). */
+export const CRM_SMS_ENGINE_READY = true;
 /** Les écrans SMS se comportent comme ouverts (programmer, tester, envoyer). */
 export const CRM_SMS_SEND_OPEN = CRM_SMS_DISPLAY_LIVE;
+/**
+ * Pages d'inscription : relances SMS et recueil du numéro pour le SMS. PAS
+ * encore : `crm_signup_sends` note un SMS sans l'envoyer, et un numéro recueilli
+ * par une page n'entre pas au registre SMS (migration 20261007193500). Tant que
+ * c'est faux, ces écrans gardent « Bientôt ».
+ */
+export const CRM_SMS_SIGNUP_LIVE = false;
 
 /** Variables qu'on insère dans un SMS (le lien à part). */
 export const SMS_VARS = ['prénom', 'nom_club', 'soirée'] as const;
 export type SmsVar = (typeof SMS_VARS)[number];
 export const SMS_LINK = '{{lien}}';
 
-/** Lien d'exemple de la taille réelle d'un lien suivi. */
-export const SAMPLE_LINK = 'yunoapp.eu/l/k7Qp2xRa';
-
-export interface SmsValues { 'prénom'?: string | null; nom_club?: string | null; 'soirée'?: string | null; lien?: string | null }
-
-/** Remplace les variables connues ; une variable inconnue reste visible. */
-export function resolveSmsVars(text: string, vals: SmsValues): string {
-  return (text || '').replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (whole, raw: string) => {
-    const k = raw.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const key = k === 'prenom' || k === 'first_name' ? 'prénom' : k === 'soiree' || k === 'event' ? 'soirée' : k === 'link' ? 'lien' : k;
-    if (!(key in vals)) return whole;
-    return (vals as Record<string, string | null | undefined>)[key] ?? '';
-  }).replace(/[ \t]{2,}/g, ' ');
-}
+/** Lien d'exemple de la taille réelle d'un lien de soirée (`/go/` d'une soirée Shotgun). */
+export const SAMPLE_LINK = 'yunoapp.eu/go/k7Qp2xRa';
 
 export const hasLink = (text: string): boolean => /\{\{\s*(lien|link)\s*\}\}/i.test(text || '');
 export const hasFirstName = (text: string): boolean => /\{\{\s*(prénom|prenom|first_name)\s*\}\}/i.test(text || '');
@@ -90,10 +80,10 @@ export const smsCost = (n: number, parts: number, rate: number): number => Math.
 
 /** Un nom d'expéditeur valable à partir du nom de l'espace : 3 à 11 lettres ou chiffres. */
 export function defaultSender(name: string | null | undefined): string {
-  const s = (name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
-  return s.length >= 3 ? s : 'YUNO';
+  return toSenderId(name) ?? 'YUNO';
 }
-export const validSender = (s: string): boolean => /^[A-Za-z0-9]{3,11}$/.test(s);
+/** Valable pour les opérateurs : 3 à 11 lettres ou chiffres, au moins une lettre, pas un mot générique. */
+export const validSender = (s: string): boolean => senderIdError(s) === null;
 
 /** Un numéro saisi (« 06 12 34 56 78 ») en E.164 français par défaut ; null s'il ne tient pas. */
 export function toE164(raw: string): string | null {
@@ -126,8 +116,8 @@ export const SMS_TEMPLATES: { id: string; goal: SmsGoal }[] = [
 export const isSmsTemplate = (id: string | null | undefined): boolean => SMS_TEMPLATES.some((x) => x.id === id);
 
 // ── Vérification avant l'envoi ───────────────────────────────────────────
-export type SmsCheckKey = 'txt' | 'lien' | 'enc' | 'len' | 'maj' | 'aud' | 'bal' | 'date' | 'stop' | 'from' | 'var';
-export interface SmsCheck { key: SmsCheckKey; ok: boolean; crit?: boolean; info?: boolean; fix?: 'msg' | 'audience' | 'recharge' | 'date' }
+export type SmsCheckKey = 'txt' | 'lien' | 'enc' | 'len' | 'maj' | 'aud' | 'bal' | 'date' | 'id' | 'stop' | 'from' | 'var';
+export interface SmsCheck { key: SmsCheckKey; ok: boolean; crit?: boolean; info?: boolean; fix?: 'msg' | 'audience' | 'recharge' | 'date' | 'identity' }
 
 /** Trop de majuscules : plus de 40 % des lettres sur un texte de plus de 12 lettres. */
 export function shouts(text: string): boolean {
@@ -136,7 +126,8 @@ export function shouts(text: string): boolean {
   return (text || '').replace(/[^A-ZÀ-Þ]/g, '').length / letters.length > 0.4;
 }
 
-export function smsChecks(p: { body: string; count: SmsCount; net: number; cost: number; balance: number | null; at: Date | null; now: Date }): SmsCheck[] {
+/** `identityOk` : raison sociale + SIRET / RNA / TVA renseignés (exigé par les opérateurs avant tout envoi). */
+export function smsChecks(p: { body: string; count: SmsCount; net: number; cost: number; balance: number | null; at: Date | null; now: Date; identityOk?: boolean }): SmsCheck[] {
   const t = (p.body || '').trim();
   return [
     { key: 'txt', ok: t.length > 0, crit: true, fix: 'msg' },
@@ -147,6 +138,7 @@ export function smsChecks(p: { body: string; count: SmsCount; net: number; cost:
     { key: 'aud', ok: p.net > 0, crit: true, fix: 'audience' },
     { key: 'bal', ok: p.balance === null || p.cost <= p.balance, crit: true, fix: 'recharge' },
     { key: 'date', ok: !p.at || p.at.getTime() > p.now.getTime(), crit: true, fix: 'date' },
+    { key: 'id', ok: p.identityOk !== false, crit: true, fix: 'identity' },
     { key: 'stop', ok: true },
     { key: 'from', ok: true },
     { key: 'var', ok: hasFirstName(t), info: true, fix: 'msg' },
@@ -177,23 +169,30 @@ export function inQuiet(h: number, from: number, to: number): boolean {
 }
 
 /**
- * L'heure réelle de départ : un SMS prévu dans les heures calmes (ou un
- * dimanche) part au premier créneau autorisé, à l'heure de fin des heures
- * calmes. Heure locale de l'écran.
+ * L'heure réelle de départ : un SMS prévu dans les heures calmes, un dimanche
+ * ou un jour férié part au premier créneau autorisé. La nuit de 21 h 30 à 8 h
+ * vaut toujours, heures calmes ou non (même règle que le moteur,
+ * `smsHoldReason`). Heure locale de l'écran.
  */
 export function smsEffectiveAt(at: Date, q: SmsQuiet): { at: Date; shifted: boolean } {
-  if (!q.on) return { at, shifted: false };
   const d = new Date(at);
   let shifted = false;
-  for (let i = 0; i < 8; i++) {
-    const sunday = q.noSunday && d.getDay() === 0;
-    const quiet = inQuiet(d.getHours() + d.getMinutes() / 60, q.from, q.to);
-    if (!sunday && !quiet) break;
+  const setHour = (h: number) => d.setHours(Math.floor(h), Math.round((h % 1) * 60), 0, 0);
+  const ymd = () => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Heure de réouverture du matin : la fin des heures calmes, jamais avant 8 h.
+  const morning = Math.max(LEGAL_NIGHT_TO, q.on && q.from > q.to ? q.to : LEGAL_NIGHT_TO);
+  for (let i = 0; i < 12; i++) {
+    const h = d.getHours() + d.getMinutes() / 60;
+    const rest = q.on && q.noSunday && (d.getDay() === 0 || isFrenchPublicHoliday(ymd()));
+    const night = h >= LEGAL_NIGHT_FROM || h < LEGAL_NIGHT_TO;
+    const quiet = q.on && inQuiet(h, q.from, q.to);
+    if (!rest && !night && !quiet) break;
     shifted = true;
-    if (sunday) { d.setDate(d.getDate() + 1); d.setHours(q.to, 0, 0, 0); continue; }
-    // Dans les heures calmes : à l'heure de fin, aujourd'hui ou demain.
-    if (d.getHours() >= q.to && q.from > q.to) d.setDate(d.getDate() + 1);
-    d.setHours(q.to, 0, 0, 0);
+    if (rest) { d.setDate(d.getDate() + 1); setHour(morning); continue; }
+    if (quiet && q.from < q.to && !night) { setHour(q.to); continue; }
+    // Nuit (ou heures calmes à cheval sur minuit) : le matin même, ou le lendemain.
+    if (h >= 12) d.setDate(d.getDate() + 1);
+    setHour(morning);
   }
   return { at: d, shifted };
 }

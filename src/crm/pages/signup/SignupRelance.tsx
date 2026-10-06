@@ -17,7 +17,8 @@ import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { Hv } from '@/crm/ui/Hv';
 import { useCrmToast } from '@/crm/ui/toast';
-import { CRM_SMS_ENGINE_READY } from '@/crm/lib/sms';
+import { CRM_SMS_SIGNUP_LIVE } from '@/crm/lib/sms';
+import { useCrmShell } from '@/crm/data/shell';
 import { rpcCode, signupUrl, useSignupMutations } from '@/crm/data/signupPages';
 import type { SignupDetail, SignupPageRow } from '@/crm/data/signupPages';
 import InscriptionPhone from '@/crm/signup/InscriptionPhone';
@@ -34,6 +35,8 @@ export default function SignupRelanceTab({ d, x, balance, host, logo }: { d: Sig
   const toast = useCrmToast();
   const m = useSignupMutations();
   const nights = useNights();
+  const shell = useCrmShell();
+  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 35) || 35;
   const steps = KIND_META[d.kind].relance;
   const rewardTxt = rewardFanText(rewardOfPage(d), t);
   const defs = useMemo(() => defaultRelance({ kind: d.kind, title: d.title, host, lang, t, reward: rewardTxt }, { on: true, email: true, sms: false }), [d.kind, d.title, host, lang, t, rewardTxt]);
@@ -91,7 +94,7 @@ export default function SignupRelanceTab({ d, x, balance, host, logo }: { d: Sig
     const eN = k === 'open' ? x.reach.all_email : x.reach.nobuy_email;
     const sN = k === 'open' ? x.reach.all_sms : x.reach.nobuy_sms;
     const rec = k === 'open' ? d.n : Math.max(0, d.n - (d.buyers ?? 0));
-    const cost = (r.email ? eN : 0) + (r.sms ? sN * 40 : 0);
+    const cost = (r.email ? eN : 0) + (r.sms ? sN * smsRate : 0);
     if (on) tot += cost;
     return { k, i, r, on, eN, sN, rec, cost };
   });
@@ -160,7 +163,7 @@ export default function SignupRelanceTab({ d, x, balance, host, logo }: { d: Sig
                       style={{ boxSizing: 'border-box', width: '100%', padding: '12px 14px', borderRadius: 12, borderWidth: 1.5, borderStyle: 'solid', borderColor: 'var(--sand-200)', background: '#fff', fontSize: 15, lineHeight: 1.45, color: 'var(--ink)', outline: 0, resize: 'vertical' }} />
                     <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.sp.rl.msgHint')}</span>
                   </label>
-                  {r.sms && !CRM_SMS_ENGINE_READY && <span style={{ fontSize: 12.5, color: 'var(--amber-700)' }}>{t('yc.sp.w.smsSoon')}</span>}
+                  {r.sms && !CRM_SMS_SIGNUP_LIVE && <span style={{ fontSize: 12.5, color: 'var(--amber-700)' }}>{t('yc.sp.w.smsSoon')}</span>}
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '6px 14px', padding: '10px 14px', borderRadius: 12, background: '#fff', fontSize: 13.5, color: 'var(--sand-600)' }}>
                     <span>{none ? t('yc.sp.rl.reachNone') : tp(k === 'open' ? 'yc.sp.rl.reach' : 'yc.sp.rl.reachNoBuy', rec, { n: n(rec), e: n(eN), s: n(sN) })}</span>
                     <b style={{ color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{none ? t('yc.sp.rl.costNone') : cost ? t('yc.sp.rl.cost', { n: n(cost) }) : t('yc.sp.rl.noChannel')}</b>

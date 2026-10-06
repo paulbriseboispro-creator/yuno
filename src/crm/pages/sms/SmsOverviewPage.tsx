@@ -65,7 +65,7 @@ export default function SmsOverviewPage() {
   const unfinished = drafts.filter((d) => smsDraftGaps(d).length > 0);
   const vide = !!data && !data.ever_sent;
   const balance = shell.data?.wallet.balance ?? null;
-  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 40);
+  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 35);
   const periodLabel = t(days === 90 ? 'yc.em.period.90' : 'yc.em.period.30');
 
   // ── À faire

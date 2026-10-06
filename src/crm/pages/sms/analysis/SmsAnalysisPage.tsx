@@ -50,7 +50,7 @@ export default function SmsAnalysisPage() {
   const narrow = useNarrow(720);
   const rows = q.data?.campaigns ?? [];
   const money = caps.money && rows.every((r) => r.revenue !== null);
-  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 40);
+  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 35);
   const emailRate = Number(shell.data?.wallet.rates?.email ?? 1);
   const drafts = (camps.data?.campaigns ?? []).filter((c) => c.status === 'draft').length;
   const qf = settings.data?.quiet_from ?? 20, qt = settings.data?.quiet_to ?? 8, noSun = settings.data?.no_sunday ?? true;

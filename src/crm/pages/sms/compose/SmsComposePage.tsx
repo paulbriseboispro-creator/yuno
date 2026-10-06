@@ -20,9 +20,9 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
-import { useSmsActions, useSmsCampaigns, useSmsSettings } from '@/crm/data/sms';
+import { smsErrorKey, useSmsActions, useSmsCampaigns, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_ENGINE_READY, CRM_SMS_SEND_OPEN, defaultSender, hasLink, isSmsTemplate, SAMPLE_LINK, simplifySms, SMS_TEMPLATES, smsFinalText, type SmsVar,
+  countSms, CRM_SMS_SEND_OPEN, defaultSender, hasLink, isSmsTemplate, SAMPLE_LINK, simplifySms, SMS_TEMPLATES, smsFinalText, type SmsVar,
 } from '@/crm/lib/sms';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SmsPhone } from '../SmsPhone';
@@ -48,7 +48,8 @@ export default function SmsComposePage() {
   const nights = useNights();
   const camps = useSmsCampaigns();
   const act = useSmsActions();
-  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 40);
+  const smsRate = Number(shell.data?.wallet.rates?.sms ?? 35);
+  const [testing, setTesting] = useState(false);
 
   const [id, setId] = useState<string | null>(rawId === 'new' ? null : rawId);
   const [name, setName] = useState('');
@@ -153,13 +154,30 @@ export default function SmsComposePage() {
     );
   }
 
+  // Test gratuit : le SMS exact (variables remplies, « STOP au 30101 ») au
+  // numéro de test des Réglages, sinon à celui du compte.
+  const sendTest = async () => {
+    if (testing || !caps.write) return;
+    setTesting(true);
+    try {
+      const sid = await save();
+      if (!sid) return;
+      const r = await act.test(sid);
+      toast(t('yc.sm.co.testSent', { phone: String(r.to ?? '') }));
+    } catch (e) {
+      toast(t(smsErrorKey(e)));
+    } finally {
+      setTesting(false);
+    }
+  };
+  const testOff = !CRM_SMS_SEND_OPEN || !caps.write || testing || !body.trim();
   const testBtn = (
     <Hv
-      as="button" type="button" disabled={!CRM_SMS_SEND_OPEN} title={CRM_SMS_SEND_OPEN ? undefined : t('yc.sm.soon.badge')} onClick={() => { if (!CRM_SMS_ENGINE_READY) toast(t('yc.sm.engineToast')); }}
-      style={{ height: 42, padding: '0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: CRM_SMS_SEND_OPEN ? 'var(--ink)' : 'var(--sand-400)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: CRM_SMS_SEND_OPEN ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap', font: 'inherit' }}
-      hover={{ background: CRM_SMS_SEND_OPEN ? 'var(--paper)' : '#fff' }}
+      as="button" type="button" disabled={testOff} title={CRM_SMS_SEND_OPEN ? t('yc.sm.co.testHint') : t('yc.sm.soon.badge')} onClick={() => void sendTest()}
+      style={{ height: 42, padding: '0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: testOff ? 'var(--sand-400)' : 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: testOff ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', font: 'inherit' }}
+      hover={{ background: testOff ? '#fff' : 'var(--paper)' }}
     >
-      <Icon name="phone" size={16} stroke={2.2} />{t('yc.sm.co.test')}
+      <Icon name="phone" size={16} stroke={2.2} />{testing ? '…' : t('yc.sm.co.test')}
       {!CRM_SMS_SEND_OPEN && <span style={{ height: 20, padding: '0 7px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center' }}>{t('yc.sm.soon.badge')}</span>}
     </Hv>
   );
