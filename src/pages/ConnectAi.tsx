@@ -18,8 +18,10 @@ import { buildMcpRedirect, isLoopbackRedirectHost } from '@/lib/mcp';
  * Bricolage Grotesque / Geist, dégradé rouge → mandarine, cartes 24 px.
  * UNE seule décision : Autoriser ou Refuser. Il n'y a ni choix d'espaces ni
  * choix de niveau — l'IA reçoit l'accès à tout le compte (tous les espaces de la
- * personne, fiches clients comprises quand son rôle les ouvre). Le contrat
- * (lecture seule, révocable, journalisé) est dit avant le bouton.
+ * personne, fiches clients comprises quand son rôle les ouvre) et le droit de
+ * préparer des BROUILLONS d'e-mails (jamais de les envoyer). Le contrat
+ * (lecture, brouillons, rien ne part sans le pro, révocable, journalisé) est
+ * dit avant le bouton.
  *
  * Toute la décision est serveur (mcp_get_authorization_request /
  * mcp_approve_authorization) : cette page ne fait qu'afficher et transmettre.
@@ -163,7 +165,9 @@ export default function ConnectAi() {
     setBusy(choice);
     setError(null);
     const { data, error: rpcError } = choice === 'allow'
-      ? await supabase.rpc('mcp_approve_authorization' as never, { p_request_id: requestId, p_spaces: selected, p_level: level } as never)
+      // Brouillons d'e-mails accordés avec la connexion : l'écran le dit
+      // (aiMcp.can4) avant le bouton ; l'envoi reste toujours au pro.
+      ? await supabase.rpc('mcp_approve_authorization' as never, { p_request_id: requestId, p_spaces: selected, p_level: level, p_drafts: true } as never)
       : await supabase.rpc('mcp_deny_authorization' as never, { p_request_id: requestId } as never);
     const r = data as DecisionResult | null;
     if (rpcError || !r?.ok || !r.redirect_uri || !r.params) {
@@ -276,7 +280,7 @@ export default function ConnectAi() {
           ))}
         </div>
         <div className="space-y-2.5 mt-5 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
-          {['aiMcp.can2'].map((k) => (
+          {['aiMcp.can2', 'aiMcp.can4'].map((k) => (
             <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13.5, color: T1, lineHeight: 1.5 }}>
               <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--green-500)' }} aria-hidden="true" />{t(k)}
             </p>

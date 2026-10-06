@@ -642,7 +642,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Sparkles',
         actionLink: { labelKey: 'ohelp.action.goToAiAssistants', path: '/ai-assistants' },
         relatedArticleIds: ['org-team'],
-        keywords: ['intelligence artificielle', 'chatgpt', 'claude', 'gemini', 'le chat', 'mistral', 'openai', 'anthropic', 'mcp', 'connecteur', 'connector', 'conector', 'assistant', 'asistente', 'analyse', 'analysis', 'análisis', 'conseils', 'advice', 'consejos', 'questions', 'preguntas', 'lecture seule', 'read-only', 'brancher mon ia', 'connect my ai', 'conectar mi ia'],
+        keywords: ['intelligence artificielle', 'chatgpt', 'claude', 'gemini', 'le chat', 'mistral', 'openai', 'anthropic', 'mcp', 'connecteur', 'connector', 'conector', 'assistant', 'asistente', 'analyse', 'analysis', 'análisis', 'conseils', 'advice', 'consejos', 'questions', 'preguntas', 'lecture seule', 'read-only', 'brancher mon ia', 'connect my ai', 'conectar mi ia', 'brouillon', 'draft', 'borrador', 'dessiner un email', 'design an email', 'diseñar un email', 'e-mail par ia', 'email by ai'],
         sections: [
           { headingKey: 'ohelp.ai.s1h', bodyKey: 'ohelp.ai.s1b' },
           { headingKey: 'ohelp.ai.s2h', bodyKey: 'ohelp.ai.s2b', type: 'steps' },
@@ -651,6 +651,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ai.s5h', bodyKey: 'ohelp.ai.s5b' },
           { headingKey: 'ohelp.ai.s6h', bodyKey: 'ohelp.ai.s6b' },
           { headingKey: 'ohelp.ai.s7h', bodyKey: 'ohelp.ai.s7b', type: 'tip' },
+          { headingKey: 'ohelp.ai.s9h', bodyKey: 'ohelp.ai.s9b', type: 'steps' },
           { headingKey: 'ohelp.ai.s8h', bodyKey: 'ohelp.ai.s8b' },
         ],
       },

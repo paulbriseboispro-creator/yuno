@@ -32,7 +32,7 @@ export const MCP_CLIENT_GUIDES: McpClientGuide[] = [
   },
 ];
 
-export const MCP_EXAMPLE_QUESTIONS = ['aiMcp.q1', 'aiMcp.q2', 'aiMcp.q3', 'aiMcp.q4', 'aiMcp.q5', 'aiMcp.q6'];
+export const MCP_EXAMPLE_QUESTIONS = ['aiMcp.q1', 'aiMcp.q2', 'aiMcp.q3', 'aiMcp.q4', 'aiMcp.q5', 'aiMcp.q6', 'aiMcp.q7'];
 
 // Libellés lisibles des outils dans le journal d'une connexion (le nom
 // technique n'apprend rien au pro). Inconnu = nom brut.
@@ -57,6 +57,11 @@ export const MCP_TOOL_LABEL_KEYS: Record<string, string> = {
   list_customers: 'aiTool.customers',
   list_customers_by_segment: 'aiTool.customersSegment',
   get_customer_profile: 'aiTool.customerProfile',
+  get_email_design_kit: 'aiTool.emailKit',
+  list_email_audiences: 'aiTool.emailAudiences',
+  get_email_draft: 'aiTool.emailDraftRead',
+  create_email_draft: 'aiTool.emailDraftCreate',
+  update_email_draft: 'aiTool.emailDraftUpdate',
 };
 
 export interface McpConnection {
@@ -66,6 +71,10 @@ export interface McpConnection {
   created_at: string;
   last_used_at: string | null;
   calls_count: number;
+  /** La connexion peut préparer des brouillons d'e-mails (jamais les envoyer). */
+  can_draft?: boolean;
+  /** Brouillons d'e-mails créés par cette IA. */
+  drafts_created?: number;
   revoked_at: string | null;
   revoked_reason: string | null;
   mine: boolean;

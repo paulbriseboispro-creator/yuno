@@ -158,6 +158,7 @@ const AiAssistantsRedirect = lazyWithRetry(() => import("./pages/AiAssistantsRed
 const ConnectAi = lazyWithRetry(() => import("./pages/ConnectAi"));
 const OpenProduct = lazyWithRetry(() => import("./pages/OpenProduct"));
 const AiConnectorPage = lazyWithRetry(() => import("./pages/AiConnectorPage"));
+const AiImageUpload = lazyWithRetry(() => import("./pages/AiImageUpload"));
 const IntegrationsSettings = lazyWithRetry(() => import("./pages/IntegrationsSettings"));
 const AdsPage = lazyWithRetry(() => import("./pages/AdsPage"));
 const OwnerGuestList = lazyWithRetry(() => import("./pages/OwnerGuestList"));
@@ -764,6 +765,7 @@ const App = () => (
                 {/* Ouvrir l'autre produit (Billetterie ⇄ CRM) sur un compte existant. */}
                 <Route path="/open/:product" element={<OpenProduct />} />
                 <Route path="/ai" element={<AiConnectorPage />} />
+                <Route path="/ai/image/:code" element={<AiImageUpload />} />
                 <Route path="/ai-assistants" element={<AiAssistantsRedirect />} />
                 <Route path="/join" element={<JoinViaLink />} />
                 {/* Aperçu démo verrouillé par mot de passe (lien de preview) */}
