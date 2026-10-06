@@ -69,7 +69,7 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   limite) : brider une fonction qui fait envoyer, c'est brider le revenu.
   **Les Yunits** sont la monnaie de Yuno CRM (le nom « néons » est abandonné),
   jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
-  France = 40 / segment, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
+  France = 35 / segment (40 jusqu'au 08/10), WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
   l'échéance ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
   Paul, 05/10) : 5 000 à 300 000 Yunits par pas de 5 000, 500 par euro HT,
   +10 % dès 25 000 et +15 % dès 50 000 (`crm_pricing_config()`, devis serveur
@@ -700,7 +700,7 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   FAQ `yc.faq.*` (Compte › Aide), article `ohelp.crm.*` pour la Suite, et les
   articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
   (redéployer `owner-assistant` après modification).
-- **SMS = « Bientôt » (décision de Paul, 05/10 au soir, avant le premier client réel)** : `CRM_SMS_DISPLAY_LIVE` (`src/crm/lib/sms.ts`) lit `VITE_CRM_SMS_LIVE === '1'`, donc FAUX dans tout build de production. Alors toutes les adresses `/crm/sms/*` rendent `SmsSoonPage` (mise en page `ComingSoon`, liste d'attente `crm_feature_waitlist` feature `sms`, migration `20261007210000`), les éditeurs plein écran renvoient sur `/crm/sms`, le menu porte « Bientôt », Tarifs / Yunits disent bientôt et la fenêtre « Écrire » refuse le canal SMS. Les écrans SMS restent dans le code : pour y travailler, `VITE_CRM_SMS_LIVE=1` dans `.env.local`. Ouvrir = brancher le moteur (`docs/designs/CRM_SMS_PLAN.md`, fournisseur `docs/designs/SMS_PROVIDER_PLAN.md`), passer `CRM_SMS_ENGINE_READY` à true, lever la garde serveur `crm_sms_not_open`, puis remplacer la lecture du drapeau par `true`. `SMS_MARKETING_LIVE` (achat de crédits de la Suite) reste FAUX.
+- **SMS OUVERT dans Yuno CRM depuis le 2026-10-08** (décision de Paul), par la route opérateurs française d'Octopush (plan `docs/designs/SMS_PROVIDER_PLAN.md`, état du 04/10 dans `docs/designs/CRM_SMS_PLAN.md`) ; la garde « Bientôt » du 05/10 (`CRM_SMS_DISPLAY_LIVE`, `SmsSoonPage`, `crm_sms_not_open`) est levée. 35 Yunits par segment (`crm_pricing.rates.sms`, jamais en dur au front ; repli `?? 35`). Expéditeur alphanumérique de 3 à 11 caractères (`crm_sms_settings`) ; mention « STOP au 30101 » ajoutée par le moteur, jamais retirable ; identité légale de l'expéditeur (raison sociale + SIRET / RNA / TVA) exigée avant tout envoi (`get_sms_sender_readiness`) ; SMS de test gratuit ; heures calmes de `crm_sms_settings` plus un plancher dur 21 h 30 → 8 h qu'aucun réglage ne lève. Envoi : « Maintenant » = `send-sms-campaign` (mise en file `_enqueue_crm_sms_recipients`, même règle que `crm_sms_audience_preview`, Yunits débités par lot) ; « Programmer » = `crm_sms_schedule` (identité vérifiée), annulable (`crm_sms_unschedule`) ; lien de soirée court `yunoapp.eu/go/<code>` (`ensure_crm_sms_link`, source Shotgun `yuno-s-<code>`). Les relances SMS et le recueil du numéro des PAGES D'INSCRIPTION restent « Bientôt » (`CRM_SMS_SIGNUP_LIVE = false` : `crm_signup_sends` note sans envoyer, le numéro n'entre pas au registre SMS). `SMS_MARKETING_LIVE` (SMS de la Suite) reste FAUX.
 - **Pages d'inscription** (v2 du 05/10, plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`,
   migrations `20261007193500` + `194500`) : reproduites À L'IDENTIQUE du design
   Claude Design (`Pages inscription`, `FanPage`, `InscriptionPhone`,
@@ -800,7 +800,7 @@ tables réelles ; rien n'est inventé :
   (6 min, rejouable, cf. `scripts/demo/README.md`), ancré sur `now()` : à relancer avant
   chaque call de vente et au plus tard tous les 3-4 jours, sinon les courbes comparent
   du vieux et l'accueil perd ses tâches. Ne jamais semer d'adresse avec accent ; les
-  Yunits de la démo ne comptent aucun SMS (écrans SMS « Bientôt » en production).
+  Yunits de la démo ne comptent aucun SMS (la démo n'envoie jamais rien, SMS compris).
   Écriture lourde : la lancer SEUL (règle de santé de la prod ci-dessus).
 - Vérification visuelle sans session super admin : un banc de données d'exemple
   (jamais commité, `.crm-tools/`), car aucun compte `@womber.fr` n'est admin.
@@ -3631,8 +3631,8 @@ SMS, imports attestés, segments). Règles intouchables :
   plateforme. Les segments sont des POPULATIONS (`clients`, `pros`, `waitlist`,
   `leads`, `app_users`, `no_account`, `buyers`, `import`, `contact_segment`),
   pas des paliers de dépense : Yuno n'encaisse pas pour lui-même.
-- **Le SMS plateforme n'a pas de crédits** — il part sur le compte Twilio de
-  Yuno. `balanceIdFor` rend `null` et le débit/remboursement devient un no-op ;
+- **Le SMS plateforme n'a pas de crédits** — il part sur le compte Octopush de
+  Yuno (expéditeur `YUNO`). `balanceIdFor` rend `null` et le débit/remboursement devient un no-op ;
   le coût reste lisible dans `sms_campaign_recipients.credits`. Ne pas
   réintroduire un solde plateforme.
 - **Piège vécu, à ne pas rejouer** : `210100` a ouvert la portée sur les
@@ -3642,27 +3642,55 @@ SMS, imports attestés, segments). Règles intouchables :
   fonctions repart de l'ÉTAT LIVE (`pg_get_functiondef` sur la base liée),
   jamais d'un ancien fichier de migration.
 
-## SMS marketing (club + organisateur — 2026-09-07)
+## SMS marketing (club + organisateur — 2026-09-07 ; fournisseur Octopush depuis le 2026-10-08)
 
-Doc complète + runbook de mise en service : `docs/SMS_MARKETING.md`. Règles
+Doc complète + runbook de mise en service : `docs/SMS_MARKETING.md` ; choix du
+fournisseur et règles françaises : `docs/designs/SMS_PROVIDER_PLAN.md`. Règles
 intouchables :
+
+- **Octopush, jamais un numéro.** Un SMS marketing part avec un NOM
+  d'expéditeur alphanumérique (3-11 lettres/chiffres, au moins une lettre, pas
+  de mot générique : `senderIdError`), jamais un 06/07 (interdit aux envois
+  automatisés depuis 2023, ARCEP 2022-1583). Vers un numéro français la mention
+  est « STOP au 30101 » (code court d'Octopush ; un message marketing sans elle
+  est refusé, erreur 121). Rien ne part de 21 h 30 à 8 h (charte AF2M du
+  01/03/2026), quels que soient les réglages ; dimanche et fériés selon les
+  réglages (`smsHoldReason`). Identité de l'annonceur (raison sociale + SIRET /
+  RNA / TVA, `get_sms_sender_readiness`, saisie `set_sms_sender_identity`)
+  exigée AVANT tout envoi, test compris.
+- **Adaptateur unique** `_shared/sms-octopush.ts` (corps de requête, classement
+  des erreurs, statuts, webhooks : pur et testé). Un appel = un lot au MÊME
+  texte et UN ticket ; les accusés portent (ticket, numéro). `request_id` posé
+  sur la file AVANT l'appel (`set_sms_recipients_request_id`) : une ligne reprise
+  renvoie le même, Octopush répond 182 (« déjà vu ») et rien ne part deux fois.
+  Requêtes l'une après l'autre (consigne Octopush). Webhooks (livraisons, STOP,
+  réponses) sur la SEULE fonction `sms-inbound-webhook?k=dlr|stop|inbound&t=<jeton>`
+  (Octopush ne signe rien : jeton `OCTOPUSH_WEBHOOK_TOKEN`, temps constant).
+  Secrets : `OCTOPUSH_API_KEY`, `OCTOPUSH_API_LOGIN`, `OCTOPUSH_WEBHOOK_TOKEN`,
+  `OCTOPUSH_SIMULATION=1` pour un essai sans envoi. Branchement :
+  `node scripts/sms/octopush-setup.mjs`.
+- **STOP global** : la liste noire d'Octopush vaut pour tout le compte ; Yuno
+  garde la même mémoire (`sms_stop_list`, écrite par `sms_stop_unsubscribe`,
+  jamais vidée) et ne remet jamais en file un numéro qui y est.
 
 - **Une seule implémentation, deux portées.** `SmsCampaignsPanel` (+ éditeur,
   rapport, achat de crédits) sert `/owner/sms-campaigns` ET `/organizer-app/sms`.
   `venue_sms_contacts` porte `venue_id` OU `organizer_user_id` (XOR) ;
   `_shared/sms-consent.ts` résout l'organisateur depuis la soirée quand il n'y
   a pas de club. Ne JAMAIS réintroduire un chemin club-only.
-- **Interrupteur « bientôt » = `SMS_MARKETING_LIVE`** (`src/lib/smsMarketing.ts`).
-  À `false` : bannière, envoi/test/planification/achat verrouillés, brouillons
-  autorisés. À flipper seulement une fois le numéro Twilio en place.
-- **`_shared/sms-text.ts` ⇄ `src/lib/smsMarketing.ts` sont des miroirs** :
-  composition (nom d'expéditeur + STOP + `{lien}`) et comptage de segments.
-  Modifier l'un sans l'autre = coût annoncé ≠ coût débité.
+- **Interrupteur « bientôt » de la SUITE = `SMS_MARKETING_LIVE`**
+  (`src/lib/smsMarketing.ts`), toujours `false` : bannière, envoi/test/
+  planification/achat verrouillés, brouillons autorisés. La Console CRM a le
+  sien (`CRM_SMS_DISPLAY_LIVE`, ouvert le 08/10).
+- **`_shared/sms-text.ts` est la SOURCE UNIQUE** (composition, variables,
+  segments, nom d'expéditeur, heures) : `src/lib/smsMarketing.ts` la
+  ré-exporte, il n'y a plus de miroir.
 - **File, pas boucle** : `send-sms-campaign` draine par tranches
   (`claim_sms_campaign_recipients` SKIP LOCKED, marquage en lot), le cron
   `process-scheduled-campaigns` relance et lance les campagnes planifiées.
-  Crédit débité AVANT Twilio, remboursé sur REFUS seulement (API Twilio ou
-  statut `failed` : jamais parti, non facturé). Un `undelivered` est facturé à
+  Crédit (Suite) ou Yunits (CRM, `sms_logs.yunits_debited`) débité AVANT
+  Octopush, remboursé sur REFUS seulement (`refund_sms_log_batch`, ou statut
+  `failed` : jamais parti, non facturé). Un `undelivered` est facturé à
   Yuno et reste décompté au pro — ne pas le rembourser, c'est toute la marge
   du pack Scale (`apply_sms_delivery_status`, seule porte du webhook de statut).
 - **Solde vérifié pour toute la campagne avant envoi ; épuisement en route ⇒

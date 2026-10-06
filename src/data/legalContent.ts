@@ -841,7 +841,7 @@ Yuno ne vend jamais vos données. Elles ne sont partagées qu'avec :
 • PostHog (mesure d'audience du site et des apps, hébergée dans l'UE, uniquement après votre consentement sur le web)
 • Mapbox (affichage cartographique des clubs)
 • Resend (emails transactionnels : confirmations, billets)
-• Twilio (SMS, lorsque vous y avez consenti)
+• Octopush (SMS, lorsque vous y avez consenti ; société française, données hébergées en France)
 • OpenAI (assistant conversationnel et moteur de recommandations : les questions posées à l'assistant et des descriptions d'événements/préférences musicales sont transmises à OpenAI pour générer réponses et suggestions)
 • Apple et Google (livraison des notifications push, connexion Sign in, cartes Wallet le cas échéant)
 • Sous-traitants techniques strictement nécessaires
@@ -875,7 +875,7 @@ Yuno est réservé aux personnes majeures (18+). Nous ne collectons pas sciemmen
 La sélection « Pour toi » et les suggestions de soirées reposent sur vos goûts musicaux, vos favoris et votre historique pour ordonner l'affichage. Ce profilage n'a aucun effet juridique sur vous et se désactive à tout moment dans Réglages → Recommandations personnalisées. Yuno ne prend aucune décision entièrement automatisée produisant des effets juridiques.
 
 **12. Transferts hors UE**
-Certains sous-traitants — notamment Stripe (paiements), OpenAI (assistant IA), Twilio (SMS), Apple et Google (notifications) — peuvent impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne ou le Data Privacy Framework, conformément au RGPD. Supabase, Mapbox, Resend et Cloudflare utilisent des infrastructures conformes aux normes européennes de protection des données.
+Certains sous-traitants — notamment Stripe (paiements), OpenAI (assistant IA), Apple et Google (notifications) — peuvent impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne ou le Data Privacy Framework, conformément au RGPD. Supabase, Mapbox, Resend et Cloudflare utilisent des infrastructures conformes aux normes européennes de protection des données.
 
 **13. Modifications**
 Cette politique peut évoluer avec le service. En cas de changement substantiel, vous serez informé dans l'app ou par email. La date de dernière mise à jour figure en haut de cette page.`
@@ -928,7 +928,7 @@ Yuno never sells your data. It is only shared with:
 • PostHog (site and app usage analytics, hosted in the EU, only after your consent on the web)
 • Mapbox (map display of clubs)
 • Resend (transactional emails: confirmations, tickets)
-• Twilio (SMS, when you have consented)
+• Octopush (SMS, when you have consented; French company, data hosted in France)
 • OpenAI (conversational assistant and recommendation engine: questions you ask the assistant, and event descriptions/music preferences, are sent to OpenAI to generate answers and suggestions)
 • Apple and Google (push notification delivery, Sign-in, Wallet passes where applicable)
 • Strictly necessary technical subcontractors
@@ -962,7 +962,7 @@ Yuno is restricted to adults (18+). We do not knowingly collect data from minors
 The "For You" selection and party suggestions rely on your music tastes, favorites and history to order what you see. This profiling has no legal effect on you and can be turned off anytime in Settings → Personalized recommendations. Yuno makes no fully automated decision producing legal effects.
 
 **12. Transfers Outside the EU**
-Some sub-processors — notably Stripe (payments), OpenAI (AI assistant), Twilio (SMS), Apple and Google (notifications) — may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses or the Data Privacy Framework, in accordance with GDPR. Supabase, Mapbox, Resend and Cloudflare use infrastructure compliant with European data protection standards.
+Some sub-processors — notably Stripe (payments), OpenAI (AI assistant), Apple and Google (notifications) — may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses or the Data Privacy Framework, in accordance with GDPR. Supabase, Mapbox, Resend and Cloudflare use infrastructure compliant with European data protection standards.
 
 **13. Changes**
 This policy may evolve with the service. In case of substantial change, you will be informed in the app or by email. The last update date appears at the top of this page.`
@@ -1015,7 +1015,7 @@ Yuno nunca vende tus datos. Solo se comparten con:
 • PostHog (analítica de uso del sitio y de las apps, alojada en la UE, solo tras tu consentimiento en la web)
 • Mapbox (visualización cartográfica de los clubs)
 • Resend (emails transaccionales: confirmaciones, entradas)
-• Twilio (SMS, cuando lo has consentido)
+• Octopush (SMS, cuando lo has consentido; empresa francesa, datos alojados en Francia)
 • OpenAI (asistente conversacional y motor de recomendaciones: las preguntas al asistente y descripciones de eventos/preferencias musicales se envían a OpenAI para generar respuestas y sugerencias)
 • Apple y Google (entrega de notificaciones push, inicio de sesión, tarjetas Wallet cuando aplique)
 • Subencargados técnicos estrictamente necesarios
@@ -1049,7 +1049,7 @@ Yuno está reservado a personas adultas (18+). No recogemos conscientemente dato
 La selección "Para ti" y las sugerencias de fiestas se basan en tus gustos musicales, tus favoritos y tu historial para ordenar lo que ves. Este perfilado no tiene ningún efecto jurídico sobre ti y puede desactivarse en cualquier momento en Ajustes → Recomendaciones personalizadas. Yuno no toma ninguna decisión totalmente automatizada con efectos jurídicos.
 
 **12. Transferencias fuera de la UE**
-Algunos subencargados — en particular Stripe (pagos), OpenAI (asistente IA), Twilio (SMS), Apple y Google (notificaciones) — pueden implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea o el Data Privacy Framework, de conformidad con el RGPD. Supabase, Mapbox, Resend y Cloudflare utilizan infraestructuras conformes con los estándares europeos de protección de datos.
+Algunos subencargados — en particular Stripe (pagos), OpenAI (asistente IA), Apple y Google (notificaciones) — pueden implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea o el Data Privacy Framework, de conformidad con el RGPD. Supabase, Mapbox, Resend y Cloudflare utilizan infraestructuras conformes con los estándares europeos de protección de datos.
 
 **13. Modificaciones**
 Esta política puede evolucionar con el servicio. En caso de cambio sustancial, se te informará en la app o por email. La fecha de última actualización figura en la parte superior de esta página.`

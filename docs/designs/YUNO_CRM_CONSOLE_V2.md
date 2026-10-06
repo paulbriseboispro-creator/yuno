@@ -27,7 +27,7 @@
   `[EN, FR, ES]`, comme le super admin). Vouvoiement en français, « usted » en
   espagnol. `useCrmT()` → `t`, `tp` (pluriels `.one/.other`), formats.
 - **Monnaie** : les **Yunits** (nom choisi par Paul dans le design). 1 e-mail
-  = 1, SMS = 40, DM Instagram = 10 (bientôt), WhatsApp = 100 (bientôt). Grille
+  = 1, SMS = 35 (40 jusqu'au 08/10), DM Instagram = 10 (bientôt), WhatsApp = 100 (bientôt). Grille
   en base (`crm_pricing`, réglée par le super admin), jamais en dur au front.
 - **Instagram et Pages d'inscription : « bientôt »** (demande de Paul du
   04/10) — écrans d'attente, rien de mesuré ni d'envoyé.

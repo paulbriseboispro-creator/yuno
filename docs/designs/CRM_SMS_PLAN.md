@@ -1,5 +1,9 @@
 # Yuno CRM — SMS : ce qui est prêt, ce qui reste avant d'ouvrir l'envoi
 
+> **Mise à jour du 08/10 :** l'envoi SMS est OUVERT dans Yuno CRM, par la route
+> opérateurs française d'Octopush, à 35 Yunits par segment. Plan et état :
+> `docs/designs/SMS_PROVIDER_PLAN.md`. Ce qui suit est l'état du 04/10.
+
 État au 2026-10-04. La suite SMS de la Console CRM (`/crm/sms/*`) est
 construite et branchée sur les tables SMS réelles : on y compose, on choisit
 l'audience, on prépare la date, on lit les résultats et l'analyse des SMS
@@ -32,7 +36,8 @@ les contacts » : ce refus est la garantie, pas un confort.
 
 ## Ce qu'il faut faire avant d'ouvrir l'envoi (avec le nouveau fournisseur)
 
-1. **Yunits** : un SMS CRM coûte 40 Yunits par segment (`rates.sms`). Le
+1. **Yunits** : un SMS CRM coûte 35 Yunits par segment (`rates.sms`, 40
+   jusqu'au 08/10). Le
    moteur actuel débite les crédits SMS de la Suite. Il faut, pour une portée
    CRM, débiter les Yunits à la mise en file (même modèle que l'e-mail :
    `crm_yunits_debit`, refus `crm_yunits_insufficient`) et rembourser un échec

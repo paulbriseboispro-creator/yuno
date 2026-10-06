@@ -140,7 +140,7 @@ Entre parenthèses, la pièce de code qui porte la fonction.
 | Email | ✅ | Email Studio, blocs Yuno en direct, modèles, A/B d'objet. |
 | Destinataires | ✅ | Audiences v2, exclusions, comptage net, porte opt-in. |
 | Programmation | ✅ | Programmation, heures calmes, envoi par file. |
-| SMS | 🟡 | Codé de bout en bout, verrouillé (`SMS_MARKETING_LIVE=false`) en attendant le numéro Twilio. |
+| SMS | ✅ | Ouvert dans la Console CRM le 08/10 (Octopush, 35 Yunits par SMS, `docs/designs/SMS_PROVIDER_PLAN.md`). La Suite reste verrouillée (`SMS_MARKETING_LIVE=false`). |
 | Parcours simples | ✅ | Neuf recettes (`collect_email_automations`) + « l'habitué décroche » (migration du 02/10). |
 | Conditions et délais | 🟡 | Délais et seuils par recette, relance après clic, renvoi aux non-ouvreurs. **Pas d'éditeur de parcours à branches.** |
 | Journal d'exécution | ✅ | `email_automation_sends`, avec la raison écrite de chaque exclusion. |
@@ -718,7 +718,7 @@ dans le code »).
 
 ### Lot 8 — Les distinctifs (au cas par cas)
 
-Meta en ligne (App Review), SMS en ligne (Twilio), parcours à branches, import
+Meta en ligne (App Review), SMS en ligne (Octopush), parcours à branches, import
 de fichier au billet, autres connecteurs, espaces multiples pour les agences,
 parrainage et collecte gamifiée, agent de vente IA. Voir la section 8.
 

@@ -20,7 +20,8 @@
 
 > **Statut : décidé par Paul.** Le prix de l'abonnement est fixé. Le tarif des
 > Yunits est une base de travail proposée, que Paul ajustera à ses coûts réels
-> (fournisseur SMS, WhatsApp). La monnaie s'appelle **Yunits** depuis le 04/10
+> (fournisseur SMS, WhatsApp). **Le SMS France est fixé à 35 Yunits le 08/10**
+> (au lieu de 40), avec l'ouverture de l'envoi par Octopush. La monnaie s'appelle **Yunits** depuis le 04/10
 > (le nom proposé au départ, « néons », est abandonné).
 > Cette décision remplace la grille 49 / 129 / 249 de la « Révision ».
 > **Stripe est prêt** (créé en live le 02/10, voir « Stripe » plus bas) et le
@@ -123,7 +124,7 @@ fonction qui fait envoyer, c'est brider son propre revenu (étude de 16 h).
 |---|---|---|---|---|
 | Email | 1 | 0,2 c€ | 0,09 c€ (Resend) | ~55 % |
 | DM Instagram (à construire) | 10 | 2 c€ | 0 (Meta ne facture pas l'API) | ~100 % |
-| SMS France, par segment de 160 caractères | 40 | 8 c€ | 3,5 à 4,5 c€ (routeur français) ; 7,3 c€ chez Twilio | ~50 % (~10 % chez Twilio) |
+| SMS France, par segment de 160 caractères | **35** (40 jusqu'au 08/10) | 7 c€ | 3,9 à 4,1 c€ (Octopush, route française) ; 7,3 c€ chez Twilio | ~42 % (négative chez Twilio) |
 | SMS autres pays | coût du fournisseur × 2, arrondi aux 5 Yunits, 40 au minimum | | | ~50 % |
 | WhatsApp marketing France (plus tard) | 100 | 20 c€ | ~13 c€ chez Meta (0,143 $), plus le fournisseur | ~35 % |
 
@@ -188,6 +189,9 @@ Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisse
 | D Festival (60 000 emails, 1 500 SMS) | 120 000 | 244 | 119 | 254 | 129 | 251,50 · 127 |
 | E Veut seulement la donnée | 0 | 24 | 18 | 34 | 28 | 129 · 121 |
 
+Calculé avec le SMS à 40 Yunits. Avec le SMS à 35 (08/10), B, C et D
+consomment 1 500, 5 000 et 7 500 Yunits de moins par mois.
+
 **Comment le lire :**
 
 - Sur ceux qui envoient (B, C, D), le socle + Yunits rapporte autant que
@@ -209,7 +213,7 @@ Mêmes profils et mêmes coûts que la section 1, avec le SMS au futur fournisse
   5 € de fixe et 0,89 € de Stripe. Il reste 9 € (38 %) à 24 €.
 - En SMS chez Twilio, il ne resterait rien (0 %). D'où la règle : **le SMS
   n'ouvre qu'avec le nouveau fournisseur.** Au futur fournisseur, il reste 8 €
-  (33 %).
+  (33 %) ; avec le SMS à 35 Yunits chez Octopush (08/10), environ 6,5 € (27 %).
 - Un essai coûte au plus 4,50 € d'envoi et environ 2 € de fixe.
 
 ### Le nom : les Yunits (décidé le 04/10)
@@ -289,8 +293,8 @@ plus tard.
 
 1. ~~Le nom de la monnaie~~ : **Yunits**, décidé le 04/10 (« néons » abandonné).
 2. ~~Le moment du passage à 34 €~~ : **au 50e compte payant**, validé le 05/10 (`price_switch_at`, Admin CRM › Réglages).
-3. Le tarif SMS une fois le fournisseur choisi (40 Yunits en France supposent
-   environ 4 c€ d'achat).
+3. ~~Le tarif SMS une fois le fournisseur choisi~~ : **35 Yunits par segment en
+   France**, décidé le 08/10 avec Octopush (environ 4 c€ d'achat).
 4. Combien de temps une base en pause reste gardée. À aligner sur le DPA ;
    proposé : 90 jours, avec l'export proposé et deux emails de préavis.
 5. Le prix de l'offre Réseau par espace.

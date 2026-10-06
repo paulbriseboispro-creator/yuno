@@ -1,82 +1,82 @@
 # SMS marketing — architecture et mise en service
 
-Dernière revue : 2026-09-07. Système livré côté code, base et edge functions ;
-**verrouillé « Bientôt disponible » côté interface** tant que le numéro
-d'envoi n'est pas en place (`SMS_MARKETING_LIVE` dans `src/lib/smsMarketing.ts`).
+Dernière revue : 2026-10-08.
+
+- **Fournisseur : Octopush.** Il remplace Twilio, jamais branché. Le choix et
+  les règles françaises sont dans `docs/designs/SMS_PROVIDER_PLAN.md`.
+- **Console CRM : SMS ouvert** (`CRM_SMS_DISPLAY_LIVE`, `src/crm/lib/sms.ts`).
+- **Suite (Billetterie) : SMS encore verrouillé** (`SMS_MARKETING_LIVE = false`,
+  `src/lib/smsMarketing.ts`). Le moteur est le même ; ouvrir la Suite est une
+  décision de Paul.
 
 ## Ce que fait le système
 
-Une seule implémentation pour le **club** (`/owner/sms`, `/owner/sms-campaigns`)
-et l'**organisateur sans club** (`/organizer-app/sms`) : composant partagé
-`src/components/sms/SmsCampaignsPanel.tsx`, portée injectée
-(`{kind:'venue'}` / `{kind:'organizer'}`).
-
 | Brique | Où | Rôle |
 |---|---|---|
-| Contacts | `venue_sms_contacts` (venue_id **ou** organizer_user_id) | Liste consentante, alimentée par `_shared/sms-consent.ts` à chaque paiement coché « Offres par SMS », ou par import de fichier (`import_sms_contacts` + `sms_list_imports` : attestation d'origine, numéros ayant dit STOP jamais réabonnés, chaque fichier = segment `import`). |
-| Campagnes | `sms_campaigns` | Statuts `draft → scheduled/sending → paused → sent/failed/cancelled`. Colonnes de stats (`sent/delivered/undelivered/failed_count`, crédits, `tracked_link_id`). |
-| File d'envoi | `sms_campaign_recipients` | Une ligne par numéro. `claim_sms_campaign_recipients` (FOR UPDATE SKIP LOCKED), marquage en lot, reprise des claims morts. |
-| Worker | `send-sms-campaign` | Modes `send` / `drain` / `resume` / `test`. Tranches de 40 s auto-chaînées ; cron `process-scheduled-campaigns` (5 min) = filet + campagnes planifiées. |
-| Livraison | `sms-twilio-status-webhook` → RPC `apply_sms_delivery_status` | Log + file + compteurs, atomique et idempotent. **Remboursement uniquement sur `failed`** (jamais parti, non facturé par Twilio) ; un `undelivered` est facturé à Yuno et reste décompté au pro (norme du marché, décision 2026-09-08). |
-| STOP | `sms-inbound-webhook` → `sms_stop_unsubscribe` | Retire le numéro de **toutes** les listes (clubs et organisateurs). |
-| Crédits | `sms_packs`, `sms_credit_balances`, `sms-purchase-checkout` (+ `return_path`), `sms-purchase-verify` | 1 crédit = 1 segment SMS. Achat depuis n'importe quelle page via `SmsCreditsDialog`. Grille 2026-09 : 100 → 9,90 €, 500 → 45 €, 2 000 → 165 €, 5 000 → 390 € (coût Twilio ≈ 0,073 € FR, 0,08 € ES ; les prix vivent en base, migration `20260908090000`). |
-| Rapport | RPC `get_sms_campaign_report` | Livraison, clics sur le lien suivi `sms` (`ensure_sms_tracked_link`), billets/tables attribués, crédits nets, timeline par heure. |
+| Contacts | `venue_sms_contacts` (club, organisateur ou plateforme) ; Console CRM : la base `_cp`, filtrée par `phone_ok` | Seuls les contacts qui ont donné leur accord. L'accord vient d'un paiement coché « Offres par SMS » (`_shared/sms-consent.ts`) ou d'un fichier importé avec son attestation. |
+| Liste STOP | `sms_stop_list` | Mémoire globale des STOP, à l'image de la liste noire Octopush, qui vaut pour tout le compte. Jamais vidée. Un numéro qui y figure n'est plus jamais mis en file. |
+| Campagnes | `sms_campaigns` | Suite : `segment_filters.type`. Console CRM : `type = 'crm'` et `audiences`. Statuts `draft → scheduled/sending → paused → sent/failed`. |
+| File d'envoi | `sms_campaign_recipients` | Une ligne par numéro. `claim_sms_campaign_recipients` réserve sans doublon (SKIP LOCKED). `provider_request_id` est posé avant l'appel et `first_name` sert à `{{prénom}}`. |
+| Mise en file | `enqueue_sms_campaign_recipients` | Une seule porte. Console CRM → `_enqueue_crm_sms_recipients`, avec la même règle que l'aperçu (`crm_sms_audience_preview`) : exclusions et plafond par semaine. Suite → `resolve_sms_campaign_recipients`. Les deux écartent la liste STOP. |
+| Worker | `send-sms-campaign` | Modes `send`, `drain`, `resume` et `test`. Il travaille par tranches de 40 s, enchaînées seules. Le cron `process-scheduled-campaigns` sert de filet et lance les campagnes programmées. |
+| Fournisseur | `_shared/sms-octopush.ts` | Un appel envoie le même texte à un lot de numéros, dans un ordre fixe. Le module classe les erreurs, lit les statuts et les webhooks. |
+| Texte | `_shared/sms-text.ts`, source unique ré-exportée par le front | Nom en tête, `{{variables}}`, « STOP au 30101 » vers la France, segments, nom d'expéditeur, heures d'envoi. |
+| Webhooks | `sms-inbound-webhook?k=dlr\|stop\|inbound&t=<jeton>` | Accusés → `apply_sms_delivery_status`, retrouvé par (ticket, numéro). STOP et réponse « STOP » → `sms_stop_unsubscribe`. |
+| Portefeuilles | Suite : `sms_credit_balances` (packs) ; Console CRM : Yunits (`crm_yunits_debit`, 35 par SMS, `crm_sms_rate()`) ; plateforme : aucun | Débit avant l'appel. Remboursement sur refus du fournisseur (`refund_sms_log_batch`) ou sur `failed`. Jamais sur `undelivered`, qui a été facturé. |
+| Identité | `get_sms_sender_readiness`, `set_sms_sender_identity` | Raison sociale + SIRET / RNA / TVA, exigées par la charte AF2M avant tout envoi, test compris. |
 
-### Règles non négociables (côté serveur, jamais retirables par le pro)
+## Règles non négociables (serveur, jamais retirables par le pro)
 
-- **Nom d'expéditeur en tête + mention STOP en pied** de chaque message
-  (`_shared/sms-text.ts` ⇄ miroir `src/lib/smsMarketing.ts`, **à modifier
-  ensemble** : l'éditeur annonce le coût que le worker débite).
-- **Crédits = segments réels** : GSM-7 160/153, UCS-2 70/67. Un emoji fait
-  basculer tout le message en UCS-2 ; l'éditeur le montre en direct.
-- **Solde vérifié pour toute la campagne avant le premier envoi**. Solde
-  épuisé en route (deux campagnes en parallèle) ⇒ `paused` / `credits`, reprise
-  après rechargement là où ça s'était arrêté.
-- **Heures calmes par défaut** : rien ne part 20 h → 8 h Europe/Paris ni le
-  dimanche (déontologie AFMM du SMS commercial). Opt-out par campagne
-  (`quiet_hours`), le cron reprend au créneau suivant.
-- **Audience résolue à l'envoi** : consentement < 36 mois, non désinscrit,
-  numéro E.164. Segment `not_event` = contacts sans billet ni table pour la
-  soirée (jamais ceux qui ont payé).
-- Envoi de masse **refusé en session d'assistance** (`isSupportSessionToken`) ;
-  le test à son propre téléphone reste ouvert.
+- **Nom d'expéditeur** : 3 à 11 lettres ou chiffres, au moins une lettre, pas
+  de mot générique (`senderIdError`). Jamais un numéro 06/07.
+- **Nom de l'annonceur en tête** du message, puis **« STOP au 30101 »** pour un
+  numéro français, ou le libellé de la langue ailleurs.
+- **Crédits = segments réels** : GSM-7 compte 160 / 153 caractères, UCS-2 70 /
+  67. Un emoji fait passer tout le message en UCS-2.
+- **Heures d'envoi** :
+  - rien ne part de 21 h 30 à 8 h (Paris), quels que soient les réglages ;
+  - heures calmes, dimanche et jours fériés selon les réglages (Suite : 20 h →
+    8 h et dimanche ; CRM : `crm_sms_settings`) ;
+  - le cron reprend au créneau suivant.
+- **Solde vérifié pour toute la campagne avant le premier envoi.** S'il
+  s'épuise en route, la campagne passe en `paused` / `credits`, puis repart
+  après rechargement.
+- **Envoi de masse refusé en session d'assistance.** Le test reste possible.
+- **Compte démo** : rien ne part (`demo_no_send`).
 
 ## Mise en service — ce que Paul doit faire
 
-1. **Acheter le numéro d'envoi** dans Twilio (Phone Numbers → Buy). Pour la
-   France, préférer un numéro **long français (+33) avec SMS activé**, ou mieux
-   un **Messaging Service** (pool de numéros + expéditeur alphanumérique
-   « YUNO » là où c'est permis). Un STOP en réponse n'est possible qu'avec un
-   numéro (pas avec un alphanumérique seul) : garder au moins un numéro.
-2. **Secrets Supabase** (Dashboard → Edge Functions → Secrets, ou CLI) :
-   - `TWILIO_PHONE_NUMBER` = le numéro au format E.164 (`+33…`) — **ou**
-     `TWILIO_MESSAGING_SERVICE_SID` (`MG…`) si Messaging Service (prioritaire).
-   - `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` existent déjà : vérifier que
-     c'est le compte payant (pas le trial : erreur 21608 « unverified number »).
-   - Optionnel : `TWILIO_STATUS_CALLBACK_URL` si Twilio est configuré pour
-     appeler une autre URL que celle par défaut (validation de signature).
-3. **Webhooks Twilio** sur le numéro (ou le Messaging Service) :
-   - « A MESSAGE COMES IN » → `POST https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/sms-inbound-webhook`
-   - Le status callback est passé **par message** par le worker
-     (`…/functions/v1/sms-twilio-status-webhook`), rien à saisir.
-4. **Geo-permissions Twilio** : autoriser FR, ES, BE, CH, et les pays des
-   clients (Messaging → Settings → Geo permissions), sinon erreur 21408.
-5. **Test réel** : `/organizer-app/sms` (ou `/owner/sms-campaigns`) →
-   Nouvelle campagne → « M'envoyer un test » (consomme des crédits réels ; le
-   compte démo `@womber.fr` obtient les crédits gratuitement via
-   `sms-purchase-checkout`).
-6. **Ouvrir** : passer `SMS_MARKETING_LIVE` à `true` dans
-   `src/lib/smsMarketing.ts`, build, push (Cloudflare) puis `npm run ota:beta`
-   → `ota:promote` pour l'app Pro. Mettre à jour les textes « bientôt » de
-   l'aide si besoin (`ohelp.pg.sms.*`, `ohelp.org.sms.*` ne mentionnent déjà
-   plus « bientôt »).
+1. **Créer le compte Octopush** (client.octopush.com) : vérification d'identité
+   de Yuno, offre **Basique** (9 € / mois, 0,045 € par SMS), puis des crédits.
+   Plus de ~1 600 SMS par mois : passer à Essentiel.
+2. **Récupérer la clé API** (Octopush → API) et le login (l'e-mail du compte).
+3. **Poser les secrets** dans `.env.local` (pour le script) **et** dans
+   Supabase :
+   ```bash
+   supabase secrets set OCTOPUSH_API_KEY=… OCTOPUSH_API_LOGIN=… OCTOPUSH_WEBHOOK_TOKEN=…
+   ```
+   Le script ci-dessous propose un jeton s'il n'y en a pas.
+   `OCTOPUSH_SIMULATION=1` fait tout jouer sans rien envoyer.
+4. **Brancher** :
+   ```bash
+   node scripts/sms/octopush-setup.mjs
+   ```
+   Le script lit le solde, pose les trois webhooks en JSON et fait un envoi
+   simulé. À défaut, poser les webhooks à la main dans le back-office
+   (Callbacks, JSON) :
+   - livraisons → `…/functions/v1/sms-inbound-webhook?k=dlr&t=<jeton>`
+   - numéros en liste noire → `…?k=stop&t=<jeton>`
+   - réponses → `…?k=inbound&t=<jeton>`
+5. **Premier vrai SMS** : Console CRM → SMS → un brouillon → « Recevoir un
+   test » (gratuit, au numéro de test des Réglages). Le compte doit avoir
+   renseigné son identité (SMS → Réglages → « Qui envoie ? »).
 
 ### Diagnostic rapide
 
 | Symptôme | Cause probable |
 |---|---|
-| `SMS_NOT_CONFIGURED` (503) à l'envoi | Aucun de `TWILIO_PHONE_NUMBER` / `TWILIO_MESSAGING_SERVICE_SID` posé. |
-| Campagne `paused` / `send_error` avec code 21608 / 21606 / 20003 | Compte trial, `From` invalide, identifiants faux. Corriger le secret puis « Reprendre ». |
-| Livraisons qui restent « Remis à l'opérateur » | Le status callback n'arrive pas : signature refusée (`TWILIO_STATUS_CALLBACK_URL`) ou URL non joignable. Voir les logs de `sms-twilio-status-webhook`. |
-| Un STOP ne désinscrit pas | Webhook entrant non configuré sur le numéro, ou signature refusée. |
-| Clics à 0 | La campagne n'a pas de soirée liée, ou le message ne contient pas `{lien}`. |
+| « Le service d'envoi des SMS est en cours d'activation » (`SMS_NOT_CONFIGURED`) | Secrets `OCTOPUSH_API_KEY` / `OCTOPUSH_API_LOGIN` absents. |
+| Campagne `paused` / `send_error` | 113 : compte Octopush pas encore validé. 106 : nom d'expéditeur refusé. 121 : mention STOP. 104 : plus de crédit Octopush. Le motif est sur la page de résultats. |
+| Statuts qui restent « envoyé » | Webhook des livraisons absent, ou jeton faux (403 dans les logs de `sms-inbound-webhook`). |
+| Un STOP ne désinscrit pas | Webhook « liste noire » absent, ou jeton faux. |
+| Clics à 0 | Le SMS n'a pas de soirée liée, ou le texte ne contient pas `{{lien}}`. |
