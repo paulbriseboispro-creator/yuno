@@ -484,12 +484,14 @@ export interface EmailQuota {
 export function useEmailQuota(scope: StudioScope): { quota: EmailQuota | null; refresh: () => void } {
   const [quota, setQuota] = useState<EmailQuota | null>(null);
   const [seq, setSeq] = useState(0);
-  const scopeId = studioScopeId(scope);
+  // Des valeurs, pas l'objet de portée (recréé à chaque rendu) : l'effet ne
+  // relit le quota que quand la portée change vraiment.
+  const { p_venue_id: venueArg, p_organizer_user_id: orgArg } = studioScopeArgs(scope);
 
   useEffect(() => {
     let cancelled = false;
     supabase.rpc('get_email_quota_status' as never, {
-      ...studioScopeArgs(scope),
+      p_venue_id: venueArg, p_organizer_user_id: orgArg,
     } as never).then(({ data }) => {
       if (cancelled || !data) return;
       const d = (data as unknown) as {
@@ -503,7 +505,7 @@ export function useEmailQuota(scope: StudioScope): { quota: EmailQuota | null; r
       });
     });
     return () => { cancelled = true; };
-  }, [scope.kind, scopeId, seq]);
+  }, [venueArg, orgArg, seq]);
 
   const refresh = useCallback(() => setSeq((s) => s + 1), []);
   return { quota, refresh };
