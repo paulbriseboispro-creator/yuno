@@ -27,6 +27,7 @@ q seed-crm-messages.sql    # e-mails partis (ouvertures, clics)
 q seed-crm-nights.sql      # stocks, soirées à venir, brouillon + envoi programmé
 q seed-crm-links.sql       # liens de partage et sources de vente
 q seed-crm-guestlist.sql   # guest list Shotgun : invitations, liste gratuite, scans (après seed-crm-nights)
+q seed-crm-analysis.sql    # analyse client : line-up, formats, délais d'achat, commandes à plusieurs, codes postaux, calcul (après la guest list)
 
 echo "→ automatisations (modèles + recettes)"
 npx esbuild scripts/demo/seed-crm-automations.ts --bundle --platform=node --format=esm \
@@ -50,7 +51,7 @@ node scripts/demo/.content.mjs; rm -f scripts/demo/.content.mjs
 q seed-crm-extras.sql      # Yunits, inscriptions, équipe, imports, notifications, Instagram…
 # Statistiques fraîches : après des milliers de lignes réécrites, la base garde de
 # vieux plans et les analyses mettent 20 s au lieu de 4 tant qu'elle n'a pas relu les tables.
-for t in external_tickets external_events tracked_links email_campaign_recipients email_campaign_events imported_contacts newsletter_subscriptions crm_signup_entries; do
+for t in external_tickets external_events crm_person_profile crm_night_profile tracked_links email_campaign_recipients email_campaign_events imported_contacts newsletter_subscriptions crm_signup_entries; do
   echo "analyze public.$t" > "${TMPDIR:-/tmp}/analyze.sql"
   supabase db query --linked -f "${TMPDIR:-/tmp}/analyze.sql" >/dev/null 2>&1 || true
 done
