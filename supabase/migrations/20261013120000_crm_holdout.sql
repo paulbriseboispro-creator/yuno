@@ -17,7 +17,8 @@
 -- APRÈS les règles d'envoi : le témoin est tiré parmi ceux qui auraient reçu
 -- le message, c'est ce qui rend la comparaison juste. Jamais débité en Yunits.
 -- Lecture : crm_holdout_overview (acheteurs du groupe contacté contre ceux du
--- témoin, acheteurs en plus, z). Réglage : crm_holdout_set.
+-- témoin, acheteurs en plus, z) ; crm_holdout_settings (la part, le droit de
+-- la changer). Réglage : crm_holdout_set.
 -- Corps repris du dépôt (= prod, vérifié par scripts/crm-bench/same-as-prod.mjs).
 -- ============================================================================
 
@@ -1267,6 +1268,7 @@ BEGIN
       FROM grp g
   ), s AS (
     SELECT y.channel, y.id, max(y.label) AS label,
+           CASE WHEN count(DISTINCT y.event_id) = 1 THEN (array_agg(y.event_id))[1] END AS event_id,
            count(*) FILTER (WHERE NOT y.ctl) AS n_c, count(*) FILTER (WHERE NOT y.ctl AND y.bought) AS b_c,
            count(*) FILTER (WHERE y.ctl) AS n_h, count(*) FILTER (WHERE y.ctl AND y.bought) AS b_h,
            min(y.t0) AS sent_at,
@@ -1275,7 +1277,8 @@ BEGIN
       FROM y GROUP BY y.channel, y.id
   )
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'channel', s.channel, 'id', s.id, 'label', s.label, 'sent_at', s.sent_at, 'done', s.done, 'nights', s.nights,
+           'channel', s.channel, 'id', s.id, 'label', s.label, 'event_id', s.event_id,
+           'sent_at', s.sent_at, 'done', s.done, 'nights', s.nights,
            'contacted', jsonb_build_object('n', s.n_c, 'buyers', s.b_c),
            'control', jsonb_build_object('n', s.n_h, 'buyers', s.b_h),
            -- Acheteurs en plus = contactés × (taux contacté − taux témoin) ;
@@ -1294,3 +1297,22 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.crm_holdout_overview(text, uuid, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.crm_holdout_overview(text, uuid, integer) TO authenticated, service_role;
+
+-- Le réglage seul (Réglages, fenêtre « Écrire à… ») : sans la mesure.
+CREATE OR REPLACE FUNCTION public.crm_holdout_settings(p_venue_id text, p_organizer_user_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NOT COALESCE(public.crm_scope_allowed(p_venue_id, p_organizer_user_id), false) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+  RETURN jsonb_build_object(
+    'pct', public.crm_holdout_pct(public.crm_scope_key(p_venue_id, p_organizer_user_id)),
+    'can_edit', COALESCE(public.crm_scope_writable(p_venue_id, p_organizer_user_id), false));
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.crm_holdout_settings(text, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.crm_holdout_settings(text, uuid) TO authenticated, service_role;
