@@ -29,7 +29,13 @@ import { useInsertBlock } from './insert';
 import { useStudioUi } from './studioUi';
 
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
-const SAMPLE = { email: 'camille@exemple.fr', firstName: 'Camille', lastName: 'Martin', city: 'Paris', lastEventTitle: null };
+const SAMPLE = { email: 'camille@exemple.fr', firstName: 'Camille', lastName: 'Martin', city: 'Paris', lastEventTitle: null, nightsCount: 3 };
+
+/** Aperçu : {{artiste}} prend le 1er artiste du line-up de la soirée reliée, s'il y en a un. */
+function sampleFor(live: LiveData) {
+  const first = Object.values(live ?? {}).find((e) => e?.lineup?.length);
+  return { ...SAMPLE, artistName: first?.lineup?.[0]?.name ?? null };
+}
 const FOOTER_FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
 
@@ -62,7 +68,7 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
 
   const html = useMemo(() => (preview ? renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
     venueName: space.name, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type, language: campaign.language ?? null,
-    subject: campaign.subject, preheader: campaign.preheader, recipient: SAMPLE, unsubscribeUrl: '#',
+    subject: campaign.subject, preheader: campaign.preheader, recipient: sampleFor(live), unsubscribeUrl: '#',
     socialLinks: campaign.socialLinks, baseUrl: PUBLIC_BASE_URL, live, ignoreConds: true,
   }) : ''), [preview, campaign, theme, space, live, postalAddress]);
 

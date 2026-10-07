@@ -13,6 +13,8 @@ export interface VariableDef {
   /** Alias acceptés à l'interpolation (formes sans accent, héritées, etc.) */
   aliases: string[];
   fallback: string;
+  /** Variable de Yuno CRM (profil d'analyse client) : proposée dans la Console CRM seulement. */
+  crm?: boolean;
 }
 
 export const EMAIL_VARIABLES: readonly VariableDef[] = [
@@ -26,6 +28,12 @@ export const EMAIL_VARIABLES: readonly VariableDef[] = [
   // automatiques, toutes déclenchées par une soirée précise : « le tarif de
   // {{soirée}} monte ». Repli : « la soirée », jamais du vide dans une phrase.
   { key: 'soirée', aliases: ['soiree', 'event', 'event_title'], fallback: 'la soirée' },
+  // Yuno CRM (20261011120000) : l'artiste que la personne a vu le plus souvent
+  // et qui joue à la soirée de l'e-mail (sinon son artiste le plus vu, hors
+  // résidents), le titre de sa 1re soirée, son nombre de soirées.
+  { key: 'artiste', aliases: ['artist'], fallback: 'nos artistes', crm: true },
+  { key: '1re_soiree', aliases: ['1re_soirée', 'premiere_soiree', 'first_night'], fallback: 'ta première soirée', crm: true },
+  { key: 'nb_soirees', aliases: ['nb_soirées', 'nights'], fallback: 'plusieurs', crm: true },
 ];
 
 /**
@@ -53,8 +61,14 @@ export function variableValues(ctx: RenderCtx): Record<string, string> {
     'points_fidélité': r.loyaltyPoints != null ? String(r.loyaltyPoints) : '',
     'nom_club': ctx.venueName,
     'soirée': liveEventTitle(ctx),
+    'artiste': (r.artistName || '').trim(),
+    '1re_soiree': (r.firstNightTitle || '').trim(),
+    'nb_soirees': r.nightsCount != null && r.nightsCount > 0 ? String(r.nightsCount) : '',
   };
 }
+
+/** Clés des variables Yuno CRM, pour savoir si un e-mail doit les résoudre à l'envoi. */
+export const CRM_VARIABLE_KEYS: readonly string[] = EMAIL_VARIABLES.filter((v) => v.crm).flatMap((v) => [v.key, ...v.aliases]);
 
 /**
  * Remplace chaque {{variable}} par sa valeur, ou son repli si vide.

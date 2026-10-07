@@ -1059,6 +1059,13 @@ describe('variables', () => {
     expect(interpolateVariables('{{dernier_event}}', anon)).toBe('ta dernière soirée');
     expect(interpolateVariables('{{inconnu}}', anon)).toBe('{{inconnu}}');
   });
+  it('variables Yuno CRM : valeur du profil, sinon repli', () => {
+    const crm: RenderCtx = { ...ctx, recipient: { email: 'x@y.z', artistName: 'Malaa', firstNightTitle: 'Nuit Noire #12', nightsCount: 4 } };
+    expect(interpolateVariables('{{artiste}} revient · {{1re_soiree}} · {{nb_soirees}} soirées', crm)).toBe('Malaa revient · Nuit Noire #12 · 4 soirées');
+    expect(interpolateVariables('{{artist}} / {{first_night}} / {{nights}}', crm)).toBe('Malaa / Nuit Noire #12 / 4');
+    const anon: RenderCtx = { ...ctx, recipient: { email: 'x@y.z', nightsCount: 0 } };
+    expect(interpolateVariables('{{artiste}} · {{1re_soirée}} · {{nb_soirées}}', anon)).toBe('nos artistes · ta première soirée · plusieurs');
+  });
   it('usesVariables détecte les clés connues', () => {
     expect(usesVariables(['salut {{ville}}'])).toBe(true);
     expect(usesVariables(['salut {{nawak}}'])).toBe(false);

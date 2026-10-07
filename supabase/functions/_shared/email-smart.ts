@@ -77,6 +77,10 @@ export interface SmartRecipient {
   city?: string | null;
   lastEventTitle?: string | null;
   loyaltyPoints?: number | null;
+  /** Yuno CRM (profil d'analyse, résolu par lot à l'envoi). */
+  artistName?: string | null;
+  firstNightTitle?: string | null;
+  nightsCount?: number | null;
 }
 
 export interface SmartSocial {
@@ -253,6 +257,9 @@ export function buildSmartData(input: SmartInput): Record<string, unknown> {
     city: (r.city || input.brand?.city || '').trim(),
     last_event: (r.lastEventTitle || '').trim(),
     loyalty_points: r.loyaltyPoints != null ? String(r.loyaltyPoints) : '',
+    artist: (r.artistName || '').trim(),
+    first_night: (r.firstNightTitle || '').trim(),
+    nights: r.nightsCount != null && r.nightsCount > 0 ? r.nightsCount : '',
     venue_name: (input.brand?.name || '').trim(),
     brand: {
       name: (input.brand?.name || '').trim(),
@@ -434,6 +441,9 @@ export const SMART_TAGS: readonly SmartTagDef[] = [
   { tag: 'countdown.over', kind: 'boolean', desc: 'The event has started.' },
   { tag: 'first_name', kind: 'text', desc: 'Recipient first name, often unknown: {{#if first_name}}Salut {{first_name}}{{else}}Salut{{/if}}. Alias {{prénom}}.' },
   { tag: 'last_name', kind: 'text', desc: 'Recipient last name. Alias {{nom}}.' },
+  { tag: 'artist', kind: 'text', desc: 'Yuno CRM: the artist the recipient saw most who plays this event, else their most seen non-resident artist, often empty: {{#if artist}}{{artist}} is back{{else}}The line-up is out{{/if}}. Alias {{artiste}}.' },
+  { tag: 'first_night', kind: 'text', desc: 'Yuno CRM: title of the recipient\'s first night, often empty. Alias {{premiere_soiree}}.' },
+  { tag: 'nights', kind: 'number', desc: 'Yuno CRM: number of nights the recipient came to, empty when unknown. Alias {{nb_soirees}}.' },
   { tag: 'city', kind: 'text', desc: 'Recipient city when known, else the account city. Alias {{ville}}.' },
   { tag: 'venue_name', kind: 'text', desc: 'Account (club or organizer) name. Alias {{nom_club}}.' },
   { tag: 'event_title', kind: 'text', desc: 'Same as event.title. Alias {{soirée}}.' },
@@ -459,6 +469,9 @@ const ROOT_ALIASES: Record<string, string> = {
   points_fidelite: 'loyalty_points', loyalty_points: 'loyalty_points',
   nom_club: 'venue_name', club: 'venue_name', venue_name: 'venue_name',
   soiree: 'event_title', event_title: 'event_title',
+  artiste: 'artist', artist: 'artist',
+  premiere_soiree: 'first_night', first_night: 'first_night',
+  nb_soirees: 'nights', nights: 'nights',
 };
 
 const KNOWN_PATHS = new Set<string>([

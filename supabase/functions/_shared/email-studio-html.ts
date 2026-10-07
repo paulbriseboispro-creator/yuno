@@ -110,6 +110,10 @@ export interface StudioRecipient {
   city?: string | null;
   lastEventTitle?: string | null;
   loyaltyPoints?: number | null;
+  /** Yuno CRM : résolus par lot (get_recipient_crm_vars), miroir de variables.ts. */
+  artistName?: string | null;
+  firstNightTitle?: string | null;
+  nightsCount?: number | null;
   /** Règles de visibilité satisfaites par CE destinataire. */
   conds?: Set<string>;
 }
@@ -335,7 +339,50 @@ const EMAIL_VARIABLES: VariableDef[] = [
   { key: 'points_fidélité', aliases: ['points_fidelite', 'loyalty_points'], fallback: '0' },
   { key: 'nom_club', aliases: ['club', 'venue_name'], fallback: '' },
   { key: 'soirée', aliases: ['soiree', 'event', 'event_title'], fallback: 'la soirée' },
+  { key: 'artiste', aliases: ['artist'], fallback: 'nos artistes' },
+  { key: '1re_soiree', aliases: ['1re_soirée', 'premiere_soiree', 'first_night'], fallback: 'ta première soirée' },
+  { key: 'nb_soirees', aliases: ['nb_soirées', 'nights'], fallback: 'plusieurs' },
 ];
+
+/** Variables Yuno CRM (profil d'analyse) : à résoudre par lot avant le rendu. */
+const CRM_VARIABLE_KEYS = ['artiste', 'artist', '1re_soiree', '1re_soirée', 'premiere_soiree', 'first_night', 'nb_soirees', 'nb_soirées', 'nights'];
+
+/** true si l'e-mail (objet, pré-en-tête ou blocs) utilise une variable Yuno CRM. */
+export function usesCrmVariables(parts: unknown[]): boolean {
+  const keys = new Set(CRM_VARIABLE_KEYS.map((k) => stripAccents(k).toLowerCase()));
+  const re = /\{\{\s*([^{}]+?)\s*\}\}/g;
+  for (const part of parts) {
+    const s = typeof part === 'string' ? part : JSON.stringify(part ?? '');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s)) !== null) if (keys.has(stripAccents(m[1].trim()).toLowerCase())) return true;
+  }
+  return false;
+}
+
+export interface CrmRecipientVars { artistName: string | null; firstNightTitle: string | null; nightsCount: number | null }
+
+/**
+ * Valeurs Yuno CRM d'UN LOT de destinataires (RPC get_recipient_crm_vars).
+ * Échec ⇒ map vide : chaque variable prend son repli, l'e-mail part quand même.
+ */
+export async function fetchRecipientCrmVars(
+  admin: SupabaseClient,
+  campaignId: string,
+  emails: string[],
+): Promise<Map<string, CrmRecipientVars>> {
+  const map = new Map<string, CrmRecipientVars>();
+  if (emails.length === 0) return map;
+  try {
+    const { data, error } = await admin.rpc('get_recipient_crm_vars', { p_campaign_id: campaignId, p_emails: emails });
+    if (error) throw error;
+    for (const row of (data || []) as { email: string; artist: string | null; first_night: string | null; nights: number | null }[]) {
+      map.set(String(row.email || '').toLowerCase(), { artistName: row.artist, firstNightTitle: row.first_night, nightsCount: row.nights });
+    }
+  } catch (e) {
+    console.error('fetchRecipientCrmVars failed (replis utilisés):', e instanceof Error ? e.message : e);
+  }
+  return map;
+}
 
 /** Titre de la soirée de l'email — miroir de liveEventTitle (variables.ts). */
 function liveEventTitle(ctx: StudioRenderCtx): string {
@@ -358,6 +405,9 @@ function interpolate(input: string, ctx: StudioRenderCtx): string {
     'points_fidélité': r.loyaltyPoints != null ? String(r.loyaltyPoints) : '',
     'nom_club': ctx.venueName,
     'soirée': liveEventTitle(ctx),
+    'artiste': (r.artistName || '').trim(),
+    '1re_soiree': (r.firstNightTitle || '').trim(),
+    'nb_soirees': r.nightsCount != null && r.nightsCount > 0 ? String(r.nightsCount) : '',
   };
   const lookup = new Map<string, VariableDef>();
   for (const def of EMAIL_VARIABLES) {

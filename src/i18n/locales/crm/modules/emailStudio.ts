@@ -324,6 +324,21 @@ const dict: CrmDict = {
   'yc.em.st.var.nom_club': ['Club name', 'Nom du club', 'Nombre del club'],
   'yc.em.st.var.soirée': ['Night', 'Soirée', 'Fiesta'],
   'yc.em.st.var.ville': ['City', 'Ville', 'Ciudad'],
+  'yc.em.st.var.artiste': [
+    'The artist they saw most who plays this night (otherwise their most seen artist). If unknown: “nos artistes”',
+    'L’artiste le plus vu par la personne qui joue à cette soirée (sinon son artiste le plus vu). Inconnu : « nos artistes »',
+    'El artista que más ha visto la persona y que toca esta noche (si no, el que más ha visto). Desconocido: «nos artistes»',
+  ],
+  'yc.em.st.var.1re_soiree': [
+    'Title of their first night. If unknown: “ta première soirée”',
+    'Titre de sa 1re soirée. Inconnu : « ta première soirée »',
+    'Título de su primera noche. Desconocido: «ta première soirée»',
+  ],
+  'yc.em.st.var.nb_soirees': [
+    'Number of nights they came to. If unknown: “plusieurs”',
+    'Nombre de soirées faites. Inconnu : « plusieurs »',
+    'Número de noches a las que vino. Desconocido: «plusieurs»',
+  ],
 
   // Test
   'yc.em.st.t.title': ['Receive a test', 'Recevoir un test', 'Recibir una prueba'],

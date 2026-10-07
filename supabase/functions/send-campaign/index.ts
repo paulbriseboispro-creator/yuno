@@ -29,6 +29,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
   renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
+  usesCrmVariables, fetchRecipientCrmVars, type CrmRecipientVars,
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
@@ -68,6 +69,8 @@ interface Recipient {
   ab_variant?: string | null;
   /** Règles de visibilité satisfaites (résolues par lot avant le rendu). */
   conds?: Set<string>;
+  /** Variables Yuno CRM ({{artiste}}, {{1re_soiree}}, {{nb_soirees}}), résolues par lot. */
+  crm?: CrmRecipientVars;
 }
 
 // ── Adresses expédiables ────────────────────────────────────────────────────
@@ -326,7 +329,10 @@ async function makeStudioHtmlBuilder(
     language: (campaign.language as string | null) || null,
     subject: subjectForRecipient(campaign, r),
     preheader: (campaign.preheader as string) || undefined,
-    recipient: { email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds },
+    recipient: {
+      email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds,
+      artistName: r.crm?.artistName, firstNightTitle: r.crm?.firstNightTitle, nightsCount: r.crm?.nightsCount,
+    },
     unsubscribeUrl: r.unsubscribe_token ? `${PUBLIC_URL}/unsubscribe?token=${r.unsubscribe_token}` : undefined,
     socialLinks: (campaign.social_links_json || {}) as StudioSocialLinks,
     hideBranding,
@@ -406,6 +412,9 @@ async function drainSlice(
   const usedConds = Number(campaign.blocks_version || 1) >= 2
     ? collectStudioConds((campaign.blocks_json as StudioBlock[]) || [])
     : [];
+  // Variables Yuno CRM : une RPC par lot, seulement si l'e-mail en utilise une.
+  const usedCrmVars = Number(campaign.blocks_version || 1) >= 2
+    && usesCrmVariables([campaign.preheader, campaign.blocks_json]);
   const deadline = Date.now() + SLICE_MS;
 
   let sent = 0;
@@ -545,6 +554,10 @@ async function drainSlice(
     if (usedConds.length > 0) {
       const condMap = await fetchRecipientConds(admin, campaignId, sendable.map((r) => r.email), usedConds);
       for (const r of sendable) r.conds = condMap.get(r.email.toLowerCase()) || new Set();
+    }
+    if (usedCrmVars) {
+      const varMap = await fetchRecipientCrmVars(admin, campaignId, sendable.map((r) => r.email));
+      for (const r of sendable) r.crm = varMap.get(r.email.toLowerCase());
     }
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)

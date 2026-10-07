@@ -41,7 +41,8 @@ export default function DataPanel({ scope }: { scope: StudioScope }) {
       <PanelCard style={{ gap: 11 }}>
         <MicroLabel>{t('studio.data.variables')}</MicroLabel>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {EMAIL_VARIABLES.map((v) => (
+          {/* Les variables du profil d'analyse ({{artiste}}…) appartiennent à Yuno CRM. */}
+          {EMAIL_VARIABLES.filter((v) => !v.crm).map((v) => (
             <button
               key={v.key} type="button"
               onClick={() => insertVariable(v.key)}

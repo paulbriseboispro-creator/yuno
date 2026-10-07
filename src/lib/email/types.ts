@@ -543,6 +543,10 @@ export interface RenderRecipient {
   city?: string | null;
   lastEventTitle?: string | null;
   loyaltyPoints?: number | null;
+  /** Yuno CRM (analyse client, résolu par lot à l'envoi : get_recipient_crm_vars). */
+  artistName?: string | null;
+  firstNightTitle?: string | null;
+  nightsCount?: number | null;
   /** Règles de visibilité satisfaites par CE destinataire (résolues à l'envoi). */
   conds?: ReadonlySet<BlockCond> | BlockCond[];
 }
