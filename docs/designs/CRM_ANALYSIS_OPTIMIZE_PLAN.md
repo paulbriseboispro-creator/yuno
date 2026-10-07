@@ -140,8 +140,6 @@ premier appel est lent dans les deux cas : cache froid de la machine Nano,
 pas les migrations. À chaud, la cible (< 1 s, < 2 s) est tenue.
 
 
-- Mise en ligne (avec le go de Paul) : répéter les migrations 20261013100000
-  → 120000 sur la prod dans une transaction annulée, les appliquer, `db lint`,
-  front, puis redéployer `owner-assistant` (article « Qui cibler »).
+- Fusionner la branche (front) et redéployer `owner-assistant` (article « Qui cibler »).
 - Lot 2 : la correction de la part des achats à venir (constat ci-dessus),
   puis les facteurs.
