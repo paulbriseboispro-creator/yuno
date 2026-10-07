@@ -29,7 +29,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
   renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
-  usesCrmVariables, fetchRecipientCrmVars, type CrmRecipientVars,
+  usesCrmVariables, fetchRecipientCrmVars, interpolateText, type CrmRecipientVars,
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
@@ -319,7 +319,17 @@ async function makeStudioHtmlBuilder(
     (campaign.language as string | null) || null,
   );
 
-  return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
+  const recipientOf = (r: Recipient) => ({
+    email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds,
+    artistName: r.crm?.artistName, firstNightTitle: r.crm?.firstNightTitle, nightsCount: r.crm?.nightsCount,
+  });
+  // L'objet passe par les MÊMES variables que le corps ({{prénom}}, {{soirée}}…) :
+  // sans ça, « {{prénom}}, … » partait tel quel dans la boîte de réception.
+  const subject = (r: Recipient) => interpolateText(subjectForRecipient(campaign, r), {
+    recipient: recipientOf(r), venueName: sender.name, city: sender.city, live,
+    language: (campaign.language as string | null) || null,
+  }).trim() || sender.name;
+  const render = (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
     venueName: sender.name,
     city: sender.city,
     postalAddress: sender.postalAddress,
@@ -329,10 +339,7 @@ async function makeStudioHtmlBuilder(
     language: (campaign.language as string | null) || null,
     subject: subjectForRecipient(campaign, r),
     preheader: (campaign.preheader as string) || undefined,
-    recipient: {
-      email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds,
-      artistName: r.crm?.artistName, firstNightTitle: r.crm?.firstNightTitle, nightsCount: r.crm?.nightsCount,
-    },
+    recipient: recipientOf(r),
     unsubscribeUrl: r.unsubscribe_token ? `${PUBLIC_URL}/unsubscribe?token=${r.unsubscribe_token}` : undefined,
     socialLinks: (campaign.social_links_json || {}) as StudioSocialLinks,
     hideBranding,
@@ -341,7 +348,11 @@ async function makeStudioHtmlBuilder(
     live,
     ignoreConds: !!opts.ignoreConds,
   });
+  return Object.assign(render, { subject });
 }
+
+/** Le rendu d'un destinataire ; `subject` quand l'objet passe par les variables (Studio v2). */
+type Builder = ((r: Recipient) => string) & { subject?: (r: Recipient) => string };
 
 /** Route vers le builder selon la version du modèle de blocs. */
 async function makeBuilder(
@@ -349,7 +360,7 @@ async function makeBuilder(
   campaign: Record<string, unknown>,
   sender: Sender,
   opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
-) {
+): Promise<Builder> {
   if (Number(campaign.blocks_version || 1) >= 2) {
     return makeStudioHtmlBuilder(admin, campaign, sender, opts);
   }
@@ -414,7 +425,7 @@ async function drainSlice(
     : [];
   // Variables Yuno CRM : une RPC par lot, seulement si l'e-mail en utilise une.
   const usedCrmVars = Number(campaign.blocks_version || 1) >= 2
-    && usesCrmVariables([campaign.preheader, campaign.blocks_json]);
+    && usesCrmVariables([campaign.subject, campaign.subject_b, campaign.preheader, campaign.blocks_json]);
   const deadline = Date.now() + SLICE_MS;
 
   let sent = 0;
@@ -566,7 +577,7 @@ async function drainSlice(
     const payload: ResendEmail[] = sendable.map((r) => ({
       from: sender.from,
       to: [addressOf.get(r.email)!],
-      subject: subjectForRecipient(campaign, r),
+      subject: buildHtml.subject ? buildHtml.subject(r) : subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
       headers: unsubHeaders(r.unsubscribe_token),
@@ -789,20 +800,23 @@ async function sendTest(
   // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
   // doit voir l'email complet.
   const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true, trackedLinks: false });
-  const payload: ResendEmail[] = targets.map((email) => ({
-    from: sender.from,
-    to: [email],
-    subject: campaign.subject as string,
-    html: buildHtml({
+  const payload: ResendEmail[] = targets.map((email) => {
+    const tr: Recipient = {
       email,
       first_name: ownerProfile?.first_name,
       last_name: ownerProfile?.last_name,
       unsubscribe_token: '00000000-0000-0000-0000-000000000000',
-    }),
-    reply_to: sender.replyTo || undefined,
-    headers: unsubHeaders('00000000-0000-0000-0000-000000000000'),
-    tags: [{ name: 'campaign_id', value: campaignId }],
-  }));
+    };
+    return {
+      from: sender.from,
+      to: [email],
+      subject: buildHtml.subject ? buildHtml.subject(tr) : campaign.subject as string,
+      html: buildHtml(tr),
+      reply_to: sender.replyTo || undefined,
+      headers: unsubHeaders('00000000-0000-0000-0000-000000000000'),
+      tags: [{ name: 'campaign_id', value: campaignId }],
+    };
+  });
 
   const outcome = await sendResendBatch(RESEND_API_KEY!, payload);
   if (!outcome.ok) throw new Error(outcome.error || 'Test send failed');
