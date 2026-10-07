@@ -143,7 +143,9 @@ export async function generate(db, p, now = new Date()) {
       genre: r() < 0.7 && night.genres[0] ? night.genres[0] : r.pick(GENRES),
       wd: night.wd, habit: h < p.earlyShare ? 'early' : h < p.earlyShare + p.lateShare ? 'late' : 'mid',
       passing: country !== 'FR' || (pos && km(pos, PARIS) > 80),
-      country, zip, friends: [], last: null, seen: new Set(), series: new Set(), visits: 0,
+      country, zip, friends: [], last: null,
+      // Numéro de fiction (plage ARCEP 06 39 98) pour 60 % des personnes.
+      phone: r() < 0.6 ? `+3363998${String(people.length + 1).padStart(4, '0')}` : null, seen: new Set(), series: new Set(), visits: 0,
     };
     if (person.passing) person.base -= 1.5;
     people.push(person);
@@ -188,7 +190,7 @@ export async function generate(db, p, now = new Date()) {
         external_id: `t${p.seed}-${++tk}`, external_order_id: `o${p.seed}-${order}`, external_event_id: n.ext,
         event_id: n.mirror, deal_id: `d${tier}`, deal_name: invite ? 'Invitation' : `Tarif ${tier} €`,
         status: 'valid', quantity: 1, price: tier, currency: 'EUR',
-        buyer_email: holder.email, holder_email: holder.email, newsletter_optin: r() < 0.55,
+        buyer_email: holder.email, holder_email: holder.email, buyer_phone: holder.phone, newsletter_optin: r() < 0.55,
         zip_code: holder.zip, country_code: holder.country,
         purchased_at: at.toISOString(), first_seen_at: at.toISOString(),
         scanned_at: !n.upcoming && r() < p.scanRate ? new Date(n.start.getTime() + r.between(0.2, 4) * 3600e3).toISOString() : null,
@@ -237,7 +239,7 @@ export async function generate(db, p, now = new Date()) {
   const evRows = nights.map((n) => ({
     id: n.mirror, title: n.name, start_at: n.start.toISOString(),
     end_at: new Date(n.start.getTime() + 6 * 3600e3).toISOString(), organizer_user_id: org,
-    external_source: 'shotgun', is_active: false,
+    external_source: 'shotgun', is_active: false, external_ticket_url: `https://shotgun.live/events/${n.ext}`,
   }));
   await insertMany(db, 'events', evRows);
   const eeRows = nights.map((n) => ({
@@ -252,6 +254,25 @@ export async function generate(db, p, now = new Date()) {
   }));
   await insertMany(db, 'external_events', eeRows);
   await insertMany(db, 'external_tickets', tickets);
+  // L'accord newsletter rapporté par Shotgun entre au registre (comme
+  // ticketing_after_sync) ; un lot de Yunits pour que les envois du banc partent.
+  const optin = new Map();
+  for (const t of tickets) if (t.newsletter_optin) optin.set(t.buyer_email, t.purchased_at);
+  await insertMany(db, 'newsletter_subscriptions', [...optin].map(([email, at]) => ({
+    organizer_user_id: org, email, opted_in: true, source: 'connector:shotgun', consent_source: 'ticketing',
+    consent_recorded_at: at, created_at: at,
+  })));
+  // Consentement SMS : les inscrits qui ont un numéro (de fiction) sur leurs billets.
+  const phones = new Map();
+  for (const t of tickets) if (t.buyer_phone && optin.has(t.buyer_email)) phones.set(t.buyer_email, t.buyer_phone);
+  await insertMany(db, 'venue_sms_contacts', [...phones].map(([email, phone]) => ({
+    organizer_user_id: org, email, full_name: 'Banc', phone_e164: phone,
+    sms_consent_at: optin.get(email), consent_source: 'ticketing',
+  })));
+  await db.query(`INSERT INTO public.crm_yunit_lots (scope_key, organizer_user_id, kind, amount, remaining, label)
+                  VALUES ($1, $2, 'grant', 1000000, 1000000, 'banc')`, [`org:${org}`, org]);
+  await db.query(`INSERT INTO public.crm_subscriptions (scope_key, organizer_user_id, status, current_period_end)
+                  VALUES ($1, $2, 'active', now() + interval '1 year')`, [`org:${org}`, org]);
   await db.exec(`CREATE TABLE IF NOT EXISTS public.bench_future (
     organizer_user_id uuid, external_event_id text, email text, purchased_at timestamptz)`);
   await insertMany(db, 'bench_future', future.map((f) => ({ organizer_user_id: org, ...f })));

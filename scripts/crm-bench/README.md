@@ -105,3 +105,16 @@ BENCH_UNTIL=20261013100000 node run.mjs compute grand
 node run.mjs build && node run.mjs gen grand && node run.mjs compute grand
 node diff.mjs grand-before-20261013100000-computed grand-computed
 ```
+
+## Témoin, journal, droits
+
+```bash
+node run.mjs journal demo      # relevé, achats futurs rejoués, règlement 70 j plus tard
+node run.mjs holdout demo      # envoi « Qui cibler » e-mail + SMS, témoin, mesure (test A/A)
+node security.mjs              # qui peut exécuter quoi (anon, autre compte, titulaire)
+```
+
+La commande `journal` ABAISSE les portes du score dans la base du banc pour
+qu'il note (le compte synthétique est `weak`) ; jamais ailleurs. Au banc, un
+envoi ne change aucun achat : le gain mesuré par `holdout` doit être nul
+(|z| < 2), c'est la preuve que la mesure n'invente pas d'effet.
