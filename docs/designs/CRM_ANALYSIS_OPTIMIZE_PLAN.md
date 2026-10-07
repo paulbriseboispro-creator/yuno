@@ -9,7 +9,7 @@ Paul dans la conversation.
 
 | Sujet | Décision |
 |---|---|
-| Groupe témoin | Oui, **10 % partout** (« Qui cibler » et recettes), tirés au hasard, réglable par compte, désactivable, dit à l'écran. Libellé exact à choisir avec Paul avant de l'écrire |
+| Groupe témoin | Oui, **10 % partout** (« Qui cibler » et recettes), tirés au hasard, réglable par compte, désactivable. Libellé choisi par Paul : **« 10 % non contactés, pour mesurer l'effet réel »** |
 | Raisons contradictoires | Une raison du score ne s'affiche **jamais** si sa famille d'hypothèse est `not_supported` sur le compte |
 | Tests multiples | **Corriger** (Benjamini-Hochberg sur les z + marge anti-bascule) ; « confirmée depuis » seulement après **2 calculs complets consécutifs** |
 | Projection de remplissage | Ouverte **automatiquement** à un compte quand son écart moyen à la réalité est **sous 15 % sur ses 8 dernières soirées** (journal du lot 1) |
@@ -74,3 +74,54 @@ machine étant chargée (moyenne de charge 9,7 : Spotlight, rekordbox) ; le
 - `slot` « pas confirmée » avec z = 6,0 sur « grand » (gain 1,06 < 1,1) : un
   effet réel mais faible, dit « pas confirmée » — le cas du libellé « pas de
   différence nette » (lot 3).
+
+### Lot 1 — mesurer dans le temps (migrations `20261013110000`, `120000`)
+
+**Journal prévu / réel.** Joué au banc sur `demo` (portes du score abaissées
+dans la base du banc seulement, le compte synthétique étant `weak`) : 10 117
+chances relevées, 4 soirées réglées en 65 ms, lignes par personne effacées
+après le règlement.
+
+| Soirée | Moment | Notés | Achats après | Attendus | AUC | Calibration | Projection (acheteurs) |
+|---|---|---|---|---|---|---|---|
+| Velvet #3 | J-7 | 2 345 | 103 | 196,7 | 0,881 | 4,0 pts | 553 prévus / 461 réels (20 %) |
+| Goya #5 | 1re note | 2 501 | 245 | 287,4 | 0,831 | 2,9 pts | 465 / 466 (0,3 %) |
+| Ouverture | 1re note | 2 548 | 215 | 229,2 | 0,861 | 1,2 pt | 348 / 378 (7,8 %) |
+| Nuit Noire #4 | 1re note | 2 566 | 138 | 188,5 | 0,872 | 2,0 pts | 289 / 223 (29,5 %) |
+
+Constat pour le lot 2 : la calibration PAR PERSONNE tient (1 à 4 points), mais
+la somme des chances SURESTIME les acheteurs de 15 à 90 % sur certaines
+soirées (audience « achètent tôt » : 45 attendus, 6 réels). C'est la
+correction « part des achats encore à venir » (§3 du prompt) : enfin
+mesurable, elle est à refaire.
+
+**« 10 % non contactés, pour mesurer l'effet réel ».** Au banc (`holdout`) :
+e-mail « Qui cibler » 820 éligibles → 78 non contactés (9,5 %), 742 en file,
+742 Yunits débités ; SMS 507 → 60 ; recette « Faire revenir après la 1re
+soirée » 53 dues → 5 non contactées, second passage = 0 (idempotent). Test
+A/A (au banc, un envoi ne change aucun achat) : z = 0,71, 0,13 et −0,96,
+jamais ≥ 2 — la mesure n'invente pas de gain. Matrice de droits
+(`security.mjs`) : anon ne voit rien, un autre compte est refusé, le titulaire
+règle de 0 à 30 %, 50 % refusé.
+
+**Écrans** (banc visuel local, ordinateur et 390 px, sans débordement) :
+Admin CRM › tiroir › « Prévu / réel » (porte, barres prévu / réel, une ligne
+par soirée) ; Réglages › Données › la part non contactée ; « Écrire à… »
+(« Recevront le message » = contactés seulement, la part non contactée à
+côté, coût calculé sur les contactés) ; « Qui cibler » et Automatisations ›
+« Ce que vos envois ont vraiment rapporté » ; « Qui cibler » › « Estimation :
+≈ N acheteurs au total » quand la porte est ouverte. Alertes
+`admin_crm_score_drift` et `admin_crm_analysis_failed` (cette dernière
+émise depuis le 07/10 sans libellé ni lien) au catalogue, vers le tiroir du
+compte dans l'Admin CRM.
+
+**Corrigé au passage** : « ≈ N places attendues » (`yc.sc.expAll`) disait
+places pour une somme de chances PAR PERSONNE ; c'est « acheteurs attendus ».
+
+### Reste à décider / à faire
+
+- Mise en ligne (avec le go de Paul) : répéter les migrations 20261013100000
+  → 120000 sur la prod dans une transaction annulée, les appliquer, `db lint`,
+  front, puis redéployer `owner-assistant` (article « Qui cibler »).
+- Lot 2 : la correction de la part des achats à venir (constat ci-dessus),
+  puis les facteurs.

@@ -1149,6 +1149,38 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
   pourcentage, décision de Paul), Admin CRM (santé + projection de
   remplissage, super admin SEUL au début). MCP : `chances_to_come`. Purge et
   opposition effacent les scores ; toute lecture exige le profil.
+- **Optimisation (plan `docs/designs/CRM_ANALYSIS_OPTIMIZE_PLAN.md`, migrations
+  `20261013100000` → `120000`)** :
+  - **Banc gardé dans le dépôt** : `scripts/crm-bench/` (PGlite, schéma de la
+    prod lu en lecture seule + migrations du dépôt rejouées, comptes
+    synthétiques à vérité cachée `demo` / `grand` / `petit` / `hasard`,
+    `node run.mjs bench grand` donne les instructions imbriquées les plus
+    lentes, `diff.mjs` prouve qu'une optimisation ne change rien,
+    `same-as-prod.mjs` qu'une fonction à réécrire est la même en prod). Toute
+    modification du moteur se mesure là d'abord, jamais sur la prod.
+  - **Journal prévu / réel** : chaque nuit, `_crm_score_journal` relève la
+    projection par soirée (`crm_prediction_nights`, gardé) et la chance de
+    chaque personne à sa 1re note et à J-7 (`crm_prediction_people`, EFFACÉ au
+    règlement, avec le contact, le compte, l'opposition) ; 48 h après la
+    soirée, `_crm_score_settle` compare à la réalité (`crm_prediction_results` :
+    AUC, perte log, calibration, attendus contre réels par audience, écart de
+    la projection en ACHETEURS). Dérive de calibration sur 8 soirées =
+    `admin_crm_score_drift`. Admin CRM : « Prévu / réel ».
+  - **La projection s'ouvre seule au pro** (décision de Paul) quand
+    `_crm_projection_gate` est ouverte : écart moyen < 15 % sur les 8
+    dernières soirées à J-7 ; « Qui cibler » dit alors « Estimation : ≈ N
+    acheteurs au total (entre A et B) ». Jamais avant.
+  - **« 10 % non contactés, pour mesurer l'effet réel »** (libellé de Paul) :
+    `crm_settings.holdout_pct` (10 par défaut, 0 à 30, 0 = désactivé).
+    E-mail et SMS « Qui cibler » (audience portant `ntgt`, directement ou par
+    segment) reliés à une soirée, et toutes les recettes d'un compte CRM :
+    tirage déterministe `_crm_holdout_pick` APRÈS les règles d'envoi,
+    destinataire `skipped` + `holdout` (`skip_reason` pour les recettes),
+    jamais débité. `crm_holdout_overview` compare les acheteurs des deux
+    groupes ; l'écran (`HoldoutResults`, `holdoutVerdict`) ne dit « ≈ N
+    acheteurs en plus » que si |z| ≥ 2 et 10 personnes par groupe. Un SMS
+    du CRM porte l'adresse de son destinataire (`sms_campaign_recipients.email`,
+    effacée avec le contact).
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
