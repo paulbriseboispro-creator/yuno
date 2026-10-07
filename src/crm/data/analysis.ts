@@ -157,7 +157,12 @@ export interface NightTargets {
   computed?: boolean;
   union?: { n: number; email: number; sms: number };
   /** Score de prédiction : `ok` (validé, `expected` = acheteurs attendus parmi les clients connus sans place), sinon son état. */
-  score?: { status: ScoreStatus; expected?: number; people?: number };
+  score?: {
+    status: ScoreStatus; expected?: number; people?: number;
+    /** Projection de remplissage, en acheteurs : seulement quand elle a tenu
+     *  sur les 8 dernières soirées du compte (journal prévu / réel). */
+    projection?: { buyers: number; expected: number; band: number; newcomers: number; total: number; low: number; high: number };
+  };
   audiences?: NightTargetAudience[];
 }
 

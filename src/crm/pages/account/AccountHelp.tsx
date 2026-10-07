@@ -50,6 +50,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'target', c: 'clients', to: CRM_ROUTES.nights },
   { id: 'firstreturn', c: 'start', to: CRM_ROUTES.automations },
   { id: 'chances', c: 'clients', to: CRM_ROUTES.nights },
+  // « 10 % non contactés, pour mesurer l'effet réel » (20261013120000).
+  { id: 'holdout', c: 'clients', to: CRM_ROUTES.settings },
   { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'offline', c: 'account' },
   // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).

@@ -33,6 +33,7 @@ import signupPages from './signupPages';
 import instagram from './instagram';
 import login from './login';
 import analysis from './analysis';
+import holdout from './holdout';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -70,6 +71,7 @@ export const CRM_DICT: CrmDict = {
   ...errors,
   ...login,
   ...analysis,
+  ...holdout,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

@@ -14,6 +14,7 @@ import { useCrmCaps } from '@/crm/scope';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { WriteModal } from '@/crm/components/WriteModal';
+import { HoldoutResults } from '@/crm/components/HoldoutResults';
 import { StatusBadge } from '@/crm/components/analysis/HypBits';
 import { familyKind } from '@/crm/lib/analysis';
 import type { AnFamily } from '@/crm/lib/analysis';
@@ -67,6 +68,11 @@ function Body({ d, T }: { d: Targets; T: T }) {
                   {d.score?.status === 'ok' && d.score.expected !== undefined && (
                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>{t('yc.sc.expAll', { n: n(d.score.expected), p: n(d.score.people ?? 0) })}</span>
                   )}
+                  {d.score?.projection && (
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {t('yc.sc.proj', { n: n(d.score.projection.total), lo: n(d.score.projection.low), hi: n(d.score.projection.high) })}
+                    </span>
+                  )}
                   {(d.score?.status === 'weak' || d.score?.status === 'insufficient') && (
                     <span style={{ color: 'var(--sand-600)' }}>{t(`yc.sc.st.${d.score.status}`)}</span>
                   )}
@@ -76,6 +82,7 @@ function Body({ d, T }: { d: Targets; T: T }) {
               {auds.map((a) => <AudienceCard key={a.key} a={a} d={d} T={T} />)}
             </>
           )}
+      {d.event?.id && <HoldoutResults eventId={d.event.id} />}
     </>
   );
 }

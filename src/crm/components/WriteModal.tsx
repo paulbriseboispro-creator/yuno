@@ -15,6 +15,8 @@ import type { ClientFilterDef } from '@/crm/data/clients';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
+import { useHoldoutSettings } from '@/crm/data/holdout';
+import { holdoutEstimate, keepsHoldout } from '@/crm/lib/holdout';
 
 export type WriteScope = 'one' | 'sel' | 'filtered' | 'all';
 
@@ -45,7 +47,12 @@ export function WriteModal({
   const mail = counts.data?.email ?? 0;
   const sms = counts.data?.sms ?? 0;
   const reach = ch === 'email' ? mail : sms;
-  const cost = reach * (ch === 'email' ? rates.email ?? 1 : rates.sms ?? 35);
+  // « Qui cibler » relié à une soirée : une part n'est pas contactée (et pas
+  // débitée), pour mesurer l'effet réel. Le tirage exact est fait à l'envoi.
+  const hold = keepsHoldout(def, eventId);
+  const holdQ = useHoldoutSettings(open && hold);
+  const held = hold ? holdoutEstimate(reach, holdQ.data?.pct ?? 0) : 0;
+  const cost = (reach - held) * (ch === 'email' ? rates.email ?? 1 : rates.sms ?? 35);
   const left = balance - cost;
   const short = left < 0;
   const none = !counts.isLoading && reach === 0;
@@ -102,7 +109,8 @@ export function WriteModal({
           })}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14.5 }}>
-          <Line l={t('yc.cli.msg.will')} v={n(reach)} />
+          <Line l={t('yc.cli.msg.will')} v={n(reach - held)} />
+          {held > 0 && <Line l={t('yc.hold.write')} v={`≈ ${n(held)}`} muted />}
           <Line l={t('yc.cli.msg.excluded', { ch: chLabel })} v={n(Math.max(0, total - reach))} muted />
           <div style={{ paddingTop: 10, borderTop: '1px solid var(--sand-100)', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Line l={t('yc.cli.msg.cost')} v={tp('yc.cli.msg.yunits', cost, { n: n(cost) })} />

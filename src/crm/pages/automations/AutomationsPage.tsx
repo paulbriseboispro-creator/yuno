@@ -27,6 +27,7 @@ import { AutoCards } from './AutoCards';
 import { AutoIntro, AutoLive, AutoRecos, AutoSoon } from './AutoLive';
 import { AutoTodo } from './AutoTodo';
 import { AutoModal } from './AutoModal';
+import { HoldoutResults } from '@/crm/components/HoldoutResults';
 
 export default function AutomationsPage() {
   const T = useCrmT();
@@ -190,6 +191,7 @@ export default function AutomationsPage() {
               onEditMail={editMail}
             />
           )}
+          {hasAny && <HoldoutResults recipes />}
           {hasData && <AutoLive d={d} T={T} c={c} balance={balance} rates={rates} canBilling={caps.billing} />}
           <AutoRecos
             T={T} recos={recos} empty={!hasAny && !hasData} canWrite={caps.write} rate={rates.email}
