@@ -299,8 +299,11 @@ BEGIN
         UNION ALL SELECT 'group_first', '', true, w.has_sale AND w.order_size >= v_grp
         UNION ALL SELECT 'brought', '', true, w.with_returning
         UNION ALL SELECT 'passing', 'km:' || trim_scale(d)::text, d = v_far,
+                         -- Sans distance connue, un client du pays principal compte comme
+                         -- « pas de passage » (mode réduit : seuls les étrangers sont repérés).
                          CASE WHEN w.country IS NOT NULL AND w.country <> w.main_country THEN true
-                              WHEN w.dist_first IS NOT NULL THEN w.dist_first > d END
+                              WHEN w.dist_first IS NOT NULL THEN w.dist_first > d
+                              WHEN w.country IS NOT NULL THEN false END
           FROM unnest(v_far_all) d
       ) u
      WHERE u.g IS NOT NULL
