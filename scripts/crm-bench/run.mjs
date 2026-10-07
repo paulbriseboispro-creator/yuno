@@ -15,24 +15,26 @@ const log = (o) => console.log(typeof o === 'string' ? o : JSON.stringify(o, nul
 if (cmd === 'build') {
   const t0 = Date.now();
   const db = await build();
-  await save(db, 'schema');
-  log(`schéma construit en ${Date.now() - t0} ms → .data/schema.tar.gz`);
+  await save(db, process.env.BENCH_UNTIL ? `schema-before-${process.env.BENCH_UNTIL}` : 'schema');
+  log(`schéma construit en ${Date.now() - t0} ms → .data/${process.env.BENCH_UNTIL ? `schema-before-${process.env.BENCH_UNTIL}` : 'schema'}.tar.gz`);
 } else if (cmd === 'gen') {
   const p = profile(name);
-  const db = await openSaved('schema');
+  const sch = process.env.BENCH_UNTIL ? `schema-before-${process.env.BENCH_UNTIL}` : 'schema';
+  const db = await openSaved(sch);
   const t0 = Date.now();
   const stats = await generate(db, p);
-  await save(db, name);
+  await save(db, process.env.BENCH_UNTIL ? `${name}-before-${process.env.BENCH_UNTIL}` : name);
   log({ ...stats, ms: Date.now() - t0 });
 } else if (cmd === 'compute') {
   const p = profile(name);
-  const db = await openSaved(name);
+  const tag = process.env.BENCH_UNTIL ? `${name}-before-${process.env.BENCH_UNTIL}` : name;
+  const db = await openSaved(tag);
   const org = (await db.query(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).rows[0].organizer_user_id;
   const a = await timed(db, `SELECT crm_analysis_compute(NULL, $1, true, 0) AS r`, [org]);
   const s = await timed(db, `SELECT crm_score_compute(NULL, $1) AS r`, [org]);
   const fam = await db.query(`SELECT family, status, n, round(o::numeric, 1) o, round(e::numeric, 1) e, round(z::numeric, 2) z
                                 FROM crm_family_status WHERE scope_key = $1 ORDER BY family`, [`org:${org}`]);
-  await save(db, `${name}-computed`);
+  await save(db, `${tag}-computed`);
   log({ profile: p.name, analysis_ms: a.ms, score_ms: s.ms, analysis: a.rows[0].r, score: s.rows[0].r });
   console.table(fam.rows);
 } else if (cmd === 'bench') {

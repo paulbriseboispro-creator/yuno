@@ -40,6 +40,14 @@ function rng(seed) {
     for (let i = 0; i < xs.length; i++) { u -= w[i]; if (u <= 0) return xs[i]; }
     return xs[xs.length - 1];
   };
+  // Identifiants tirés de la graine : l'échantillonnage du score hache les
+  // identifiants de soirée, un uuid aléatoire rendrait le banc non reproductible.
+  r.uuid = () => {
+    const h = Array.from({ length: 32 }, () => r.int(16).toString(16));
+    h[12] = '4'; h[16] = ((r.int(4)) + 8).toString(16);
+    const x = h.join('');
+    return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+  };
   return r;
 }
 
@@ -109,7 +117,7 @@ export async function generate(db, p, now = new Date()) {
     const star = Math.max(...[...picked].map((g) => g.pop));
     const launch = new Date(start.getTime() - r.between(25, 45) * DAY);
     nights.push({
-      i, ext: `ev${i + 1}`, mirror: crypto.randomUUID(), name, series: s, place, wd, start, launch,
+      i, ext: `ev${i + 1}`, mirror: r.uuid(), nid: r.uuid(), name, series: s, place, wd, start, launch,
       genres: s ? s.genres : [r.pick(GENRES)], lineup, star, upcoming,
       prices: [12, 15, 20].map((x) => x + (s ? 0 : 5)),
     });
@@ -176,7 +184,7 @@ export async function generate(db, p, now = new Date()) {
     for (const who of group) {
       const holder = named ? who : buyer;
       const row = {
-        id: crypto.randomUUID(), connection_id: conn, organizer_user_id: org, provider: 'shotgun',
+        id: r.uuid(), connection_id: conn, organizer_user_id: org, provider: 'shotgun',
         external_id: `t${p.seed}-${++tk}`, external_order_id: `o${p.seed}-${order}`, external_event_id: n.ext,
         event_id: n.mirror, deal_id: `d${tier}`, deal_name: invite ? 'Invitation' : `Tarif ${tier} €`,
         status: 'valid', quantity: 1, price: tier, currency: 'EUR',
@@ -233,7 +241,7 @@ export async function generate(db, p, now = new Date()) {
   }));
   await insertMany(db, 'events', evRows);
   const eeRows = nights.map((n) => ({
-    connection_id: conn, organizer_user_id: org, provider: 'shotgun', external_id: n.ext, name: n.name,
+    id: n.nid, connection_id: conn, organizer_user_id: org, provider: 'shotgun', external_id: n.ext, name: n.name,
     start_at: n.start.toISOString(), end_at: new Date(n.start.getTime() + 6 * 3600e3).toISOString(),
     timezone: 'Europe/Paris', street: n.place.street, city: 'Paris', country_code: 'FR',
     latitude: n.place.lat, longitude: n.place.lng, genres: n.genres, type_of_place: n.place.fmt,

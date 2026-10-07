@@ -92,3 +92,16 @@ erreur). Jeton : `SUPABASE_ACCESS_TOKEN` de `.env.local`, jamais affiché.
 2. Répéter la migration sur la prod dans une transaction annulée.
 3. Avec le « go » de Paul : une transaction qui contient le fichier ET sa
    ligne `supabase_migrations.schema_migrations`, puis `db lint`.
+
+## Comparer avant / après une migration
+
+`BENCH_UNTIL=<version>` construit, génère et calcule SANS cette migration ni
+les suivantes ; `diff.mjs` compare ensuite les tables calculées des deux bases.
+
+```bash
+BENCH_UNTIL=20261013100000 node run.mjs build
+BENCH_UNTIL=20261013100000 node run.mjs gen grand
+BENCH_UNTIL=20261013100000 node run.mjs compute grand
+node run.mjs build && node run.mjs gen grand && node run.mjs compute grand
+node diff.mjs grand-before-20261013100000-computed grand-computed
+```

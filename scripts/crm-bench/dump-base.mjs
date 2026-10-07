@@ -58,8 +58,9 @@ while (frontier.size) {
   frontier = next;
 }
 
-// Colonnes, défauts, clés primaires et index uniques (les ON CONFLICT en ont
-// besoin) ; ni clés étrangères, ni CHECK, ni RLS : le banc mesure le calcul.
+// Colonnes, défauts et TOUS les index (uniques pour les ON CONFLICT, les autres
+// pour que les plans du banc ressemblent à ceux de la prod) ; ni clés
+// étrangères, ni CHECK, ni RLS : le banc mesure le calcul.
 const cols = await prodQuery(`
   SELECT c.relname, c.relkind, a.attname, format_type(a.atttypid, a.atttypmod) AS typ, a.attnotnull,
          pg_get_expr(d.adbin, d.adrelid) AS def, a.attgenerated
@@ -71,7 +72,7 @@ const cols = await prodQuery(`
 const idx = await prodQuery(`
   SELECT i.indexrelid::regclass::text AS name, pg_get_indexdef(i.indexrelid) AS def, c.relname
     FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid JOIN pg_namespace n ON n.oid = c.relnamespace
-   WHERE n.nspname = 'public' AND c.relname = ANY(${q(tables)}) AND (i.indisunique OR i.indisprimary)`);
+   WHERE n.nspname = 'public' AND c.relname = ANY(${q(tables)})`);
 const enums = await prodQuery(`
   SELECT t.typname, array_agg(e.enumlabel ORDER BY e.enumsortorder) AS labels
     FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace JOIN pg_enum e ON e.enumtypid = t.oid
@@ -106,7 +107,11 @@ for (const [rel, cs] of [...byRel].sort()) {
   out.push(`CREATE TABLE IF NOT EXISTS public.${rel} (\n${lines.join(',\n')}\n);`);
 }
 out.push('');
-for (const i of idx) out.push(i.def.replace(/^CREATE (UNIQUE )?INDEX /, 'CREATE $1INDEX IF NOT EXISTS ') + ';');
+for (const i of idx) {
+  // Un index sur une colonne pgvector n'a pas de sens au banc (colonne en texte).
+  if (/USING (hnsw|ivfflat)|vector_/.test(i.def)) continue;
+  out.push(i.def.replace(/^CREATE (UNIQUE )?INDEX /, 'CREATE $1INDEX IF NOT EXISTS ') + ';');
+}
 out.push('');
 for (const [, defs] of [...funcs].sort()) {
   for (const d of defs) {
@@ -117,4 +122,4 @@ for (const [, defs] of [...funcs].sort()) {
 
 mkdirSync(join(here, 'schema'), { recursive: true });
 writeFileSync(join(here, 'schema', 'base.sql'), out.join('\n'));
-console.log(`base.sql : ${tables.size} tables, ${funcs.size} fonctions, ${idx.length} index uniques`);
+console.log(`base.sql : ${tables.size} tables, ${funcs.size} fonctions, ${idx.length} index`);

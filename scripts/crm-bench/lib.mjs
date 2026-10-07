@@ -15,7 +15,9 @@ export const DATA = join(HERE, '.data');
 const MIG = join(ROOT, 'supabase', 'migrations');
 
 export function analysisMigrations() {
-  return readdirSync(MIG).filter((f) => f.endsWith('.sql') && f >= FIRST_MIGRATION).sort();
+  // BENCH_UNTIL=<version> : s'arrêter avant une migration (comparer avant / après).
+  const until = process.env.BENCH_UNTIL;
+  return readdirSync(MIG).filter((f) => f.endsWith('.sql') && f >= FIRST_MIGRATION && (!until || f < until)).sort();
 }
 
 async function session(db) {
