@@ -1021,6 +1021,76 @@ trentaine à l'import. Règles :
 - L'import de fichier lit aussi code postal, pays, âge / date de naissance et
   genre (lecteurs de la Suite, `src/lib/contactImport.ts`).
 
+## Yuno CRM — analyse client : « Ce qui fait venir » (2026-10-07)
+
+Plan : `docs/designs/CRM_CLIENT_ANALYSIS_PLAN.md` (§14 état, §15 clause, §16
+suite). Migrations `20261010100000` → `150000`. On n'AFFIRME jamais pourquoi
+un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
+
+- **Interdit à l'écran, dans l'aide, l'assistant et le MCP** : « vient pour »,
+  « fan de », « aime », « son ami », « il préfère ». Une hypothèse = un FAIT
+  (`yc.why.ev.<clé>`, « A vu Malaa 2 fois, à 2 séries différentes ») + le
+  statut de sa famille sur le compte. Test des textes dans
+  `src/crm/lib/__tests__/analysis.test.ts`. Mots choisis par Paul :
+  « Hypothèse », « Ce qui fait venir ».
+- **Tout se pré-calcule, rien à l'écran** : `crm_person_profile`,
+  `crm_night_profile`, `crm_artist_stats`, `crm_family_status` (+ historique)
+  par `crm_analysis_compute` ; `_cp` ne fait qu'UNE jointure (`an_tags`,
+  `an_dist_km`). `ticketing_after_sync` marque les e-mails touchés
+  (`_crm_analysis_mark_sync`, jamais bloquant) ; cron `crm-analysis-refresh`
+  (7,37 min, 4 s de budget, une portée à la fois) et `crm-analysis-nightly`
+  (une portée par passage, 2 h-4 h 30 UTC, statuts des familles). Jamais un
+  cron plus fréquent, jamais le moteur dans une RPC d'écran.
+- **Seuils dans UNE fonction** : `crm_analysis_config()` lit
+  `crm_analysis_rules` (version active). Ne jamais écrire un seuil en dur au
+  front : la RPC le rend (`resident`, `far_km`, `min_sample`).
+- **Le test** (`_crm_an_engine`) : affinité = pour chaque passage N → N+1, les
+  soirées « au choix » (commencées après N, en vente avant l'achat de N+1) ;
+  p = part qui partage le trait avec ce qu'il avait vu JUSQU'À N (rareté des
+  artistes à la date de N) ; O, E, V, gain = O/E, z. Comportement : classe à
+  N → classe à N+1 contre la part de la classe. Retour : 1res soirées de plus
+  de 180 j, groupe contre les autres. Statuts : `supported` (≥ 30, gain ≥ 1,3,
+  z ≥ 2 ; retour : écart ≥ 30 %, |z| ≥ 2), `not_supported` (gain < 1,1 ou
+  z < 1), `untested` / `inconclusive` (« à tester »), `prior_only` décidé à
+  l'affichage. Disponibilité `unavailable` (couverture, lot A) ou `uniform`
+  (toutes les soirées pareilles) = famille éteinte, dite en une ligne. Miroir
+  TS : `statusOf` / `displayStatus` (`src/crm/lib/analysis.ts`, testé).
+- **Hypothèses d'une personne** (`_crm_an_fill_hyps`) : force tirée de SES
+  faits ; une seule venue = jamais au-dessus de « moyenne ». Un contact venu
+  seulement d'un fichier n'a pas de profil. Un groupe de retour confirmé dit
+  son sens (« Reviennent plus / moins »), jamais « confirmée » seul.
+- **Purge et opposition** : profils effacés avec la connexion (suppression OU
+  déconnexion, trigger), avec le contact (`_crm_erase_contacts`), avec le
+  compte (clés étrangères). `crm_profile_optout` (fiche client, éditeur+,
+  jamais en accès assisté) efface et exclut pour de bon.
+- **Apprendre sans exposer** (lot E) : seuls des comptages (O, E, V, n ≥ 10)
+  sortent, sous une clé opaque (`crm_learning_keys`, effacée avec le compte) ;
+  leçon publiée à 5 comptes, aucun > 50 % de E ; propositions de seuils par
+  comptes laissés de côté, appliquées seulement par Paul
+  (`crm_admin_rules_approve`, motif, audit). Drapeau du compte
+  (`crm_settings.learning_contrib`, titulaire seul) ET global
+  (`crm_learning_settings.enabled`, ÉTEINT jusqu'à la clause validée). Démo
+  toujours exclue. Interdit : modèle entraîné sur des personnes, données
+  personnelles envoyées à une IA, croisement de deux comptes sur une personne.
+- **Écrans** : fiche client (`ClientHypotheses`), Analyses › Communauté
+  (`?v=why`, `WhyView` : familles, nouveaux venus, venus une fois locaux / de
+  passage, délai de retour, couverture, artistes), tiroir d'une soirée
+  (`?v=why`, `NightAttracted`), filtre Clients `?hyp=` / `?pass=`, famille de
+  segments `why` (recommandée seulement si confirmée :
+  `supportedForSegments`), Réglages › Données (`LearningRow`), Admin CRM
+  (tiroir `AnalysisCard`, Réglages › Analyse client `LearningTab`). Textes
+  `yc.why.*` (module `analysis.ts`), `adm.crm.an.*`.
+- **MCP** : `get_customer_analysis` (analytics, CRM), `analysis` dans
+  `get_customer_profile`, `hypothesis` / `passing` dans `list_customers`. La
+  consigne d'honnêteté vit dans `INSTRUCTIONS`, jamais dans une description
+  d'outil. Assistant : article `crm-what-brings-them` (redéployer
+  `owner-assistant`).
+- **Démo** : `scripts/demo/seed-crm-analysis.sql` (après la guest list dans
+  `refresh-crm-demo.sh`) retouche billet contre billet, ne change aucun
+  compte de billets. Smoke annulé : `scripts/demo/smoke-crm-analysis.sql`.
+- **Banc de test hors prod** : PGlite (Postgres en WebAssembly) sur un schéma
+  réduit ; c'est là que le moteur a été mis au point, jamais sur la prod.
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un
