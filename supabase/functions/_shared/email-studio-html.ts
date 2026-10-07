@@ -329,7 +329,7 @@ function esc(s: unknown): string {
 
 // ── Variables ────────────────────────────────────────────────────────────────
 
-interface VariableDef { key: string; aliases: string[]; fallback: string }
+interface VariableDef { key: string; aliases: string[]; fallback: string; fallbacks?: { en?: string; es?: string } }
 
 const EMAIL_VARIABLES: VariableDef[] = [
   { key: 'prénom', aliases: ['prenom', 'first_name', 'firstname'], fallback: '' },
@@ -339,9 +339,9 @@ const EMAIL_VARIABLES: VariableDef[] = [
   { key: 'points_fidélité', aliases: ['points_fidelite', 'loyalty_points'], fallback: '0' },
   { key: 'nom_club', aliases: ['club', 'venue_name'], fallback: '' },
   { key: 'soirée', aliases: ['soiree', 'event', 'event_title'], fallback: 'la soirée' },
-  { key: 'artiste', aliases: ['artist'], fallback: 'nos artistes' },
-  { key: '1re_soiree', aliases: ['1re_soirée', 'premiere_soiree', 'first_night'], fallback: 'ta première soirée' },
-  { key: 'nb_soirees', aliases: ['nb_soirées', 'nights'], fallback: 'plusieurs' },
+  { key: 'artiste', aliases: ['artist'], fallback: 'nos artistes', fallbacks: { en: 'our artists', es: 'nuestros artistas' } },
+  { key: '1re_soiree', aliases: ['1re_soirée', 'premiere_soiree', 'first_night'], fallback: 'votre première soirée', fallbacks: { en: 'your first night', es: 'su primera noche' } },
+  { key: 'nb_soirees', aliases: ['nb_soirées', 'nights'], fallback: 'plusieurs', fallbacks: { en: 'several', es: 'varias' } },
 ];
 
 /** Variables Yuno CRM (profil d'analyse) : à résoudre par lot avant le rendu. */
@@ -409,6 +409,7 @@ function interpolate(input: string, ctx: StudioRenderCtx): string {
     '1re_soiree': (r.firstNightTitle || '').trim(),
     'nb_soirees': r.nightsCount != null && r.nightsCount > 0 ? String(r.nightsCount) : '',
   };
+  const lang = smartLang(ctx.language);
   const lookup = new Map<string, VariableDef>();
   for (const def of EMAIL_VARIABLES) {
     lookup.set(stripAccents(def.key).toLowerCase(), def);
@@ -418,8 +419,19 @@ function interpolate(input: string, ctx: StudioRenderCtx): string {
     const def = lookup.get(stripAccents(rawKey).toLowerCase());
     if (!def) return whole;
     const value = values[def.key];
-    return value && value.length > 0 ? value : def.fallback;
+    return value && value.length > 0 ? value : (lang !== 'fr' && def.fallbacks?.[lang]) || def.fallback;
   }).replace(/ {2,}/g, ' ');
+}
+
+/**
+ * Les variables d'un texte hors blocs (l'OBJET de l'e-mail), mêmes règles que
+ * le corps. Sans elle, « {{prénom}}, … » partait tel quel dans la boîte.
+ */
+export function interpolateText(
+  input: string,
+  ctx: Pick<StudioRenderCtx, 'recipient' | 'city' | 'venueName' | 'live' | 'language'>,
+): string {
+  return interpolate(input, ctx as StudioRenderCtx);
 }
 
 // ── Briques de rendu (miroir strict de src/lib/email/render.ts) ─────────────

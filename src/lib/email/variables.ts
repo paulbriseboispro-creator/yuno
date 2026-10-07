@@ -1,4 +1,5 @@
 import type { RenderCtx } from './types';
+import { smartLang } from './smart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Variables de personnalisation — interpolées AU MOMENT DE L'ENVOI, avec une
@@ -13,6 +14,8 @@ export interface VariableDef {
   /** Alias acceptés à l'interpolation (formes sans accent, héritées, etc.) */
   aliases: string[];
   fallback: string;
+  /** Repli dans la langue de l'e-mail (anglais, espagnol) ; sinon `fallback`. */
+  fallbacks?: { en?: string; es?: string };
   /** Variable de Yuno CRM (profil d'analyse client) : proposée dans la Console CRM seulement. */
   crm?: boolean;
 }
@@ -31,9 +34,10 @@ export const EMAIL_VARIABLES: readonly VariableDef[] = [
   // Yuno CRM (20261011120000) : l'artiste que la personne a vu le plus souvent
   // et qui joue à la soirée de l'e-mail (sinon son artiste le plus vu, hors
   // résidents), le titre de sa 1re soirée, son nombre de soirées.
-  { key: 'artiste', aliases: ['artist'], fallback: 'nos artistes', crm: true },
-  { key: '1re_soiree', aliases: ['1re_soirée', 'premiere_soiree', 'first_night'], fallback: 'ta première soirée', crm: true },
-  { key: 'nb_soirees', aliases: ['nb_soirées', 'nights'], fallback: 'plusieurs', crm: true },
+  // Replis au vouvoiement (le registre des modèles du CRM) et dans la langue de l'e-mail.
+  { key: 'artiste', aliases: ['artist'], fallback: 'nos artistes', fallbacks: { en: 'our artists', es: 'nuestros artistas' }, crm: true },
+  { key: '1re_soiree', aliases: ['1re_soirée', 'premiere_soiree', 'first_night'], fallback: 'votre première soirée', fallbacks: { en: 'your first night', es: 'su primera noche' }, crm: true },
+  { key: 'nb_soirees', aliases: ['nb_soirées', 'nights'], fallback: 'plusieurs', fallbacks: { en: 'several', es: 'varias' }, crm: true },
 ];
 
 /**
@@ -78,6 +82,7 @@ export const CRM_VARIABLE_KEYS: readonly string[] = EMAIL_VARIABLES.filter((v) =
 export function interpolateVariables(input: string, ctx: RenderCtx): string {
   if (!input || input.indexOf('{{') === -1) return input;
   const values = variableValues(ctx);
+  const lang = smartLang(ctx.language);
   const lookup = new Map<string, VariableDef>();
   for (const def of EMAIL_VARIABLES) {
     lookup.set(stripAccents(def.key).toLowerCase(), def);
@@ -87,7 +92,7 @@ export function interpolateVariables(input: string, ctx: RenderCtx): string {
     const def = lookup.get(stripAccents(rawKey).toLowerCase());
     if (!def) return whole;
     const value = values[def.key];
-    return value && value.length > 0 ? value : def.fallback;
+    return value && value.length > 0 ? value : (lang !== 'fr' && def.fallbacks?.[lang]) || def.fallback;
   })
     // « Salut  ! » quand le prénom manque → on resserre les doubles espaces.
     .replace(/ {2,}/g, ' ');

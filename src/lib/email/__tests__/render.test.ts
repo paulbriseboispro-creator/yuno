@@ -1064,7 +1064,10 @@ describe('variables', () => {
     expect(interpolateVariables('{{artiste}} revient · {{1re_soiree}} · {{nb_soirees}} soirées', crm)).toBe('Malaa revient · Nuit Noire #12 · 4 soirées');
     expect(interpolateVariables('{{artist}} / {{first_night}} / {{nights}}', crm)).toBe('Malaa / Nuit Noire #12 / 4');
     const anon: RenderCtx = { ...ctx, recipient: { email: 'x@y.z', nightsCount: 0 } };
-    expect(interpolateVariables('{{artiste}} · {{1re_soirée}} · {{nb_soirées}}', anon)).toBe('nos artistes · ta première soirée · plusieurs');
+    expect(interpolateVariables('{{artiste}} · {{1re_soirée}} · {{nb_soirées}}', anon)).toBe('nos artistes · votre première soirée · plusieurs');
+    expect(interpolateVariables('{{artiste}} · {{1re_soiree}}', { ...anon, language: 'en' })).toBe('our artists · your first night');
+    // Les variables d'avant gardent leur repli unique.
+    expect(interpolateVariables('{{soirée}}', { ...anon, language: 'en', live: {} })).toBe('la soirée');
   });
   it('usesVariables détecte les clés connues', () => {
     expect(usesVariables(['salut {{ville}}'])).toBe(true);

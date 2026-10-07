@@ -325,19 +325,19 @@ const dict: CrmDict = {
   'yc.em.st.var.soirée': ['Night', 'Soirée', 'Fiesta'],
   'yc.em.st.var.ville': ['City', 'Ville', 'Ciudad'],
   'yc.em.st.var.artiste': [
-    'The artist they saw most who plays this night (otherwise their most seen artist). If unknown: “nos artistes”',
-    'L’artiste le plus vu par la personne qui joue à cette soirée (sinon son artiste le plus vu). Inconnu : « nos artistes »',
-    'El artista que más ha visto la persona y que toca esta noche (si no, el que más ha visto). Desconocido: «nos artistes»',
+    'The guest artist they saw most who plays this night (otherwise their most seen guest, never a resident). If unknown: “our artists”',
+    'L’invité le plus vu par la personne qui joue à cette soirée (sinon son invité le plus vu, jamais un résident). Inconnu : « nos artistes »',
+    'El invitado que más ha visto la persona y que toca esta noche (si no, el que más ha visto, nunca un residente). Desconocido: «nuestros artistas»',
   ],
   'yc.em.st.var.1re_soiree': [
-    'Title of their first night. If unknown: “ta première soirée”',
-    'Titre de sa 1re soirée. Inconnu : « ta première soirée »',
-    'Título de su primera noche. Desconocido: «ta première soirée»',
+    'Title of their first night. If unknown: “your first night”',
+    'Titre de sa 1re soirée. Inconnu : « votre première soirée »',
+    'Título de su primera noche. Desconocido: «su primera noche»',
   ],
   'yc.em.st.var.nb_soirees': [
-    'Number of nights they came to. If unknown: “plusieurs”',
+    'Number of nights they came to. If unknown: “several”',
     'Nombre de soirées faites. Inconnu : « plusieurs »',
-    'Número de noches a las que vino. Desconocido: «plusieurs»',
+    'Número de noches a las que vino. Desconocido: «varias»',
   ],
 
   // Test
