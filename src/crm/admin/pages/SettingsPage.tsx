@@ -16,8 +16,9 @@ import { useAdminGesture, useAdminPricing } from '../data';
 import type { PricingCfg } from '../data';
 import LifecycleTab from './LifecycleTab';
 import { card, EmptyNote, PageHead, RowLine, Section, Tabs, pageWrap, useAgo } from '../ui';
+import { LearningTab } from './LearningTab';
 
-type Tab = 'offer' | 'lifecycle' | 'switches' | 'audit';
+type Tab = 'offer' | 'lifecycle' | 'switches' | 'analysis' | 'audit';
 const CHANNELS = ['email', 'sms', 'whatsapp', 'instagram'] as const;
 /** Grille des prix : le SMS a un second tarif, vers l'étranger (tout indicatif hors +33). */
 const PRICE_ROWS = ['email', 'sms', 'sms_intl', 'whatsapp', 'instagram'] as const;
@@ -27,14 +28,14 @@ export default function SettingsPage() {
   const { t } = useCrmT();
   const [sp, setSp] = useSearchParams();
   const q = useAdminPricing();
-  const tab = (['lifecycle', 'switches', 'audit'] as const).find((x) => x === sp.get('tab')) ?? 'offer';
+  const tab = (['lifecycle', 'switches', 'analysis', 'audit'] as const).find((x) => x === sp.get('tab')) ?? 'offer';
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   return (
     <main style={pageWrap}>
       <PageHead kicker={t('adm.crm.se.kicker')} title={t('adm.crm.se.title')} sub={t('adm.crm.se.sub')} />
       <Tabs<Tab> value={tab} onChange={(v) => setSp(v === 'offer' ? {} : { tab: v }, { replace: true })}
-        tabs={[{ id: 'offer', label: t('adm.crm.se.t.offer') }, { id: 'lifecycle', label: t('adm.crm.se.t.lifecycle') }, { id: 'switches', label: t('adm.crm.se.t.switches') }, { id: 'audit', label: t('adm.crm.se.t.audit') }]} />
-      {!q.data ? <Skel h={420} r={28} /> : tab === 'audit' ? <AuditTab history={q.data.history} /> : tab === 'lifecycle' ? <LifecycleTab /> : <Editor cfg={q.data.cfg} mode={tab} />}
+        tabs={[{ id: 'offer', label: t('adm.crm.se.t.offer') }, { id: 'lifecycle', label: t('adm.crm.se.t.lifecycle') }, { id: 'switches', label: t('adm.crm.se.t.switches') }, { id: 'analysis', label: t('adm.crm.se.t.analysis') }, { id: 'audit', label: t('adm.crm.se.t.audit') }]} />
+      {tab === 'analysis' ? <LearningTab /> : !q.data ? <Skel h={420} r={28} /> : tab === 'audit' ? <AuditTab history={q.data.history} /> : tab === 'lifecycle' ? <LifecycleTab /> : <Editor cfg={q.data.cfg} mode={tab} />}
     </main>
   );
 }

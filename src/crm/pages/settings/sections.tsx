@@ -16,6 +16,7 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import type { CrmSettings, RulesPreview } from '@/crm/data/settings';
 import { hourLabel, initials, nightHours, slugify, type SettingsForm } from './form';
 import { fieldCss, GreenSwitch, LockNote, SecCard, SecHead, Seg, useTween } from './settingsUi';
+import { LearningRow } from './LearningRow';
 
 type Set = <K extends keyof SettingsForm>(k: K, v: SettingsForm[K]) => void;
 
@@ -547,6 +548,7 @@ export function SectionData({
           </span>
         ))}
       </div>
+      <LearningRow />
     </SecCard>
   );
 }
