@@ -46,7 +46,7 @@ export default function NightsPage() {
   const [sp, setSp] = useSearchParams();
   const isPast = loc.pathname.replace(/\/+$/, '').endsWith('/past');
   const drId = sp.get('e');
-  const drView: DrawerView = sp.get('v') === 'links' ? 'links' : sp.get('v') === 'gl' ? 'gl' : 'sales';
+  const drView: DrawerView = sp.get('v') === 'links' ? 'links' : sp.get('v') === 'gl' ? 'gl' : sp.get('v') === 'why' ? 'why' : 'sales';
 
   const q = useNights();
   const shell = useCrmShell();

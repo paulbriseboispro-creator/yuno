@@ -16,6 +16,7 @@ import { useCrmCaps } from '@/crm/scope';
 import { useClientCard, useSaveClient } from '@/crm/data/clients';
 import type { ClientCard } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
+import { ClientHypotheses } from './ClientHypotheses';
 
 const TL_ICON = {
   buy: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
@@ -369,6 +370,9 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
           <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--red-800)', textWrap: 'pretty' }}>{advS}</span>
         </div>
       </div>
+
+      {/* Analyse client : hypothèses testées (un fait + le statut de sa famille), jamais une affirmation. */}
+      <ClientHypotheses email={c.email} fromFileOnly={c.buys.length === 0 && (c.guests?.length ?? 0) === 0 && c.origin !== 'yuno'} />
 
       {prog && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
