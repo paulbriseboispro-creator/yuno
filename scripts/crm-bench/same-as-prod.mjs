@@ -3,6 +3,8 @@
 // réécrire une fonction dans une migration.
 //
 //   node scripts/crm-bench/same-as-prod.mjs _crm_an_load crm_score_compute
+//   node scripts/crm-bench/same-as-prod.mjs --before 20261013100000 _crm_an_load
+//     (avant d'appliquer : comparer à la version d'AVANT les migrations à venir)
 //
 // Compare le corps (`prosrc`) de chaque surcharge en prod au corps du DERNIER
 // fichier de migration du dépôt qui la définit (entre `AS $tag$` et `$tag$;`).
@@ -11,11 +13,14 @@ import { join } from 'node:path';
 import { prodQuery } from './prod.mjs';
 import { ROOT } from './lib.mjs';
 
-const names = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const bi = argv.indexOf('--before');
+const before = bi >= 0 ? argv[bi + 1] : null;
+const names = bi >= 0 ? argv.filter((_, i) => i !== bi && i !== bi + 1) : argv;
 if (!names.length) { console.error('usage: same-as-prod.mjs <fonction> [...]'); process.exit(2); }
 
 const dir = join(ROOT, 'supabase', 'migrations');
-const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+const files = readdirSync(dir).filter((f) => f.endsWith('.sql') && (!before || f < before)).sort();
 const norm = (s) => s.replace(/\r/g, '').replace(/[ \t]+$/gm, '').trim();
 
 function lastDefinition(name) {

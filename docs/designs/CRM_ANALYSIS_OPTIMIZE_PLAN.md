@@ -118,7 +118,27 @@ compte dans l'Admin CRM.
 **Corrigé au passage** : « ≈ N places attendues » (`yc.sc.expAll`) disait
 places pour une somme de chances PAR PERSONNE ; c'est « acheteurs attendus ».
 
-### Reste à décider / à faire
+### Répétition sur la prod (07/10, transaction annulée, rien n'est resté)
+
+Prod = dépôt vérifié pour les 13 fonctions réécrites
+(`same-as-prod.mjs --before 20261013100000`), registre à `20261012110000`,
+aucune autre requête en cours. `rehearse.mjs` : les trois migrations puis
+`smoke/lot01.sql` dans une seule transaction, annulée par `SMOKE_OK`.
+
+| Compte démo (prod) | Avant (07/10) | Répétition |
+|---|---|---|
+| Analyse complète | 10,9 s | 5,1 s |
+| Score | 15,8 s | 4,3 s (3,4 s à chaud) |
+| AUC / actifs / calibration | 0,705 / 0,699 / 1,7 pt | 0,7053 / 0,6991 / 1,65 pt (identiques) |
+| Journal | — | 10 441 chances relevées, 4 soirées réglées, 5 résultats, lignes effacées |
+| Témoin « Qui cibler » (audience « achètent tôt ») | — | 303 éligibles, 24 non contactés, 279 Yunits |
+
+Lectures d'écran seules (`smoke/reads.sql`, trois appels de suite), avant /
+avec les migrations : « Qui cibler » 4 296 → 464 → 412 ms / 2 108 → 422 →
+407 ms ; Automatisations 3 424 → 2 021 → 575 ms / 1 142 → 558 → 581 ms. Le
+premier appel est lent dans les deux cas : cache froid de la machine Nano,
+pas les migrations. À chaud, la cible (< 1 s, < 2 s) est tenue.
+
 
 - Mise en ligne (avec le go de Paul) : répéter les migrations 20261013100000
   → 120000 sur la prod dans une transaction annulée, les appliquer, `db lint`,
