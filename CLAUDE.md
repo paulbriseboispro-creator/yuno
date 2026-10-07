@@ -1090,6 +1090,45 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
   compte de billets. Smoke annulé : `scripts/demo/smoke-crm-analysis.sql`.
 - **Banc de test hors prod** : PGlite (Postgres en WebAssembly) sur un schéma
   réduit ; c'est là que le moteur a été mis au point, jamais sur la prod.
+- **La suite (plan `docs/designs/CRM_ANALYSIS_NEXT_PLAN.md`, migrations
+  `20261011100000` → `130000`)** :
+  - **« Qui cibler »** (onglet du tiroir d'une soirée À VENIR, `?v=target`,
+    RPC `crm_night_targets`) : audiences SANS place `concept`, `lineup`
+    (résidents exclus), `genre`, `early`, `last_minute`, `once_local`. Porte
+    unique `_crm_night_target_set(scope, soirée, audience)`, lue par la RPC ET
+    par la clé de filtre `ntgt: {e, a}` de `_crm_filter_sql` : le chiffre
+    affiché = le filtre = l'envoi. La portée de la clé vient de
+    `_crm_people_build`, qui pose `yuno.crm_scope` (transaction) : une soirée
+    d'un autre compte rend personne. « Fidèles du concept sans place » = segment
+    `template = 'concept_no_ticket:<soirée>'`.
+  - **MCP sur un compte CRM** : `get_sales_overview`, `get_sales_trends`,
+    `get_purchase_behavior`, `get_audience_overview`, `get_customer_segments`,
+    `get_web_traffic`, `get_recommendations`, `list_customers_by_segment`
+    lisent les RPC de la Console CRM avec la période (`_mcp_crm_period`). Ces
+    RPC créent des tables temporaires : `_mcp_needs_temp(tool, product)`
+    n'ouvre l'écriture temporaire qu'aux comptes CRM (`mcp_call` l'appelle).
+    Outil `get_event_targets`, invite `target_next_event` (argument `event`,
+    `getPrompt(name, lang, args)`).
+  - **Variables par personne** `{{artiste}}` (invité le plus vu qui joue à la
+    soirée de l'e-mail, sinon le plus vu, JAMAIS un résident),
+    `{{1re_soiree}}`, `{{nb_soirees}}` : résolues par lot à l'envoi
+    (`get_recipient_crm_vars`, service_role), repli par langue au vouvoiement
+    (`fallbacks`), proposées dans le Studio du CRM seulement. **L'objet d'un
+    e-mail passe désormais par les variables** (`interpolateText` dans
+    send-campaign) : il partait brut, « {{prénom}}, … » a été reçu tel quel.
+  - **Recette `first_return` « Faire revenir après la 1re soirée »** : venus
+    une fois, pas de passage, sans place, au délai médian de retour du compte
+    (`_first_return_delay_days`, 7 → 60 j, 21 sans mesure), fenêtre de 7 jours,
+    une fois par personne (`trigger_key 'fr'`), soirée choisie par personne
+    (`_first_return_candidates` : artiste invité déjà vu +4, concept +4, genre,
+    jour). Étape SMS (`email_automations.sms_enabled / sms_body /
+    sms_delay_days`, réglée par `crm_automation_sms_save`) : cron
+    `crm-first-return-sms` (30 min) → `crm_first_return_sms_collect` crée un
+    `sms_campaigns` du CRM par soirée, pose ses destinataires (consentement
+    36 mois, jamais un STOP, ni +1), puis `scheduled` : le cron d'envoi le
+    prend comme un SMS programmé (identité légale, heures, Yunits, lien court).
+    Registre `crm_first_return_sms` (une fois par personne). Le premier SMS
+    AUTOMATIQUE du CRM ; démo et compte en pause : rien. Modèle CRM `retour`.
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 

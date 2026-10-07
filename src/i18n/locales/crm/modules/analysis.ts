@@ -704,7 +704,7 @@ const dict: CrmDict = {
   'yc.tgt.when.week': ['When: the week before, {d}', 'Quand : la semaine d’avant, {d}', 'Cuándo: la semana antes, {d}'],
   'yc.tgt.when.eve': ['When: the day before, {d}', 'Quand : la veille, {d}', 'Cuándo: la víspera, {d}'],
   'yc.tgt.reach': ['{e} by email · {s} by SMS', '{e} par e-mail · {s} par SMS', '{e} por email · {s} por SMS'],
-  'yc.tgt.people': ['{n} people', '{n} personnes', '{n} personas'],
+  'yc.tgt.people.other': ['{n} people', '{n} personnes', '{n} personas'],
   'yc.tgt.people.one': ['{n} person', '{n} personne', '{n} persona'],
   'yc.tgt.write': ['Write to them', 'Leur écrire', 'Escribirles'],
   'yc.tgt.see': ['See them', 'Voir ces clients', 'Ver estos clientes'],
@@ -713,6 +713,21 @@ const dict: CrmDict = {
   'yc.tgt.segName': ['Concept regulars without a ticket · {s}', 'Fidèles du concept sans place · {s}', 'Fieles del concepto sin entrada · {s}'],
   'yc.tgt.eyebrow': ['Who to target · {t}', 'Qui cibler · {t}', 'A quién dirigirse · {t}'],
   'yc.tgt.noFamily': ['No hypothesis behind it: a simple rule.', 'Aucune hypothèse derrière : une règle simple.', 'Ninguna hipótesis detrás: una regla simple.'],
+
+  'yc.faq.target.q': ['Who should I write to for my next night?', 'À qui écrire pour ma prochaine soirée ?', '¿A quién escribir para mi próxima fiesta?'],
+  'yc.faq.target.a': [
+    'Open the night in Nights, tab “Who to target”. You get the audiences of people who don’t have a ticket yet: concept regulars (came to a past edition), people who saw an artist of the line-up (residents excluded), their most attended genre, people who buy early, people who buy at the last minute, people who came once and live nearby. For each: how many, how many you can reach by email and SMS, whether the hypothesis behind it is confirmed on your account, the right moment and the angle. “Write to them” prepares the message with the night linked; people who buy in the meantime are left out at sending. Your AI assistant can do the same (“Who to target for my event”).',
+    'Ouvrez la soirée dans Soirées, onglet « Qui cibler ». Vous y trouvez les audiences de ceux qui n’ont pas encore de place : fidèles du concept (venus à une édition passée), ceux qui ont vu un artiste du line-up (résidents exclus), leur genre le plus fréquenté, ceux qui achètent tôt, ceux qui achètent à la dernière minute, ceux venus une fois qui habitent près. Pour chacune : combien, combien sont joignables par e-mail et SMS, si l’hypothèse derrière est confirmée sur votre compte, le bon moment et l’angle. « Leur écrire » prépare le message avec la soirée reliée ; ceux qui achètent entre-temps sont écartés à l’envoi. Votre assistant IA peut faire la même chose (« Qui cibler pour ma soirée »).',
+    'Abra la fiesta en Fiestas, pestaña «A quién dirigirse». Encontrará las audiencias de quienes aún no tienen entrada: fieles del concepto (vinieron a una edición pasada), quienes vieron a un artista del line-up (residentes excluidos), su género más frecuentado, quienes compran pronto, quienes compran en el último momento, quienes vinieron una vez y viven cerca. Para cada una: cuántos, cuántos son alcanzables por email y SMS, si la hipótesis detrás está confirmada en su cuenta, el buen momento y el enfoque. «Escribirles» prepara el mensaje con la fiesta vinculada; quienes compren mientras tanto quedan fuera al enviar. Su asistente IA puede hacer lo mismo («A quién dirigirme para mi fiesta»).',
+  ],
+  'yc.faq.target.l': ['Open my nights', 'Ouvrir mes soirées', 'Abrir mis fiestas'],
+  'yc.faq.firstreturn.q': ['How do I bring back people who came only once?', 'Comment faire revenir ceux venus une seule fois ?', '¿Cómo hacer volver a quienes vinieron una sola vez?'],
+  'yc.faq.firstreturn.a': [
+    'Turn on the automation “Bring them back after the first night”. When someone who came to a single night, lives nearby and has no ticket hasn’t come back by your account’s usual return delay (the median of people who did come back), they get one email with the next night chosen for them: same concept, a guest artist they already saw, their genre, their usual day. Five days later (or 3, or 7), if they still have no ticket and their number is consented, an SMS follows (35 Yunits in France), with the same rules as your SMS. Once per person. In your emails, {{artiste}}, {{1re_soiree}} and {{nb_soirees}} write the guest they saw most, their first night and how many nights they came to.',
+    'Allumez l’automatisation « Faire revenir après la 1re soirée ». Quand quelqu’un venu à une seule soirée, qui habite près et n’a pas de place, n’est pas revenu dans le délai de retour habituel de votre compte (la médiane de ceux qui sont revenus), il reçoit un e-mail avec la prochaine soirée choisie pour lui : même concept, un invité qu’il a déjà vu, son genre, son jour habituel. Cinq jours plus tard (ou 3, ou 7), s’il n’a toujours pas de place et que son numéro est consenti, un SMS suit (35 Yunits en France), avec les mêmes règles que vos SMS. Une fois par personne. Dans vos e-mails, {{artiste}}, {{1re_soiree}} et {{nb_soirees}} écrivent l’invité le plus vu, sa première soirée et son nombre de soirées.',
+    'Active la automatización «Hacer volver tras la primera noche». Cuando alguien que vino a una sola fiesta, vive cerca y no tiene entrada no ha vuelto en el plazo de vuelta habitual de su cuenta (la mediana de quienes volvieron), recibe un e-mail con la próxima fiesta elegida para esa persona: mismo concepto, un invitado que ya vio, su género, su día habitual. Cinco días después (o 3, o 7), si sigue sin entrada y su número tiene consentimiento, llega un SMS (35 Yunits en Francia), con las mismas reglas que sus SMS. Una vez por persona. En sus e-mails, {{artiste}}, {{1re_soiree}} y {{nb_soirees}} escriben el invitado más visto, su primera noche y su número de noches.',
+  ],
+  'yc.faq.firstreturn.l': ['Open automations', 'Ouvrir les automatisations', 'Abrir las automatizaciones'],
 };
 
 export default dict;
