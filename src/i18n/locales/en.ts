@@ -14257,6 +14257,8 @@ const en: Record<string, string> = {
   "notif.type.meta_token_invalid": "Meta connection cut",
   "notif.type.admin_meta_token_invalid": "Meta token invalid",
   "notif.type.admin_crm_incident_deadline": "CRM incident: CNIL deadline approaching",
+  "notif.type.admin_crm_analysis_failed": "CRM customer analysis failed",
+  "notif.type.admin_crm_score_drift": "Yuno CRM: “Chance of coming” is drifting",
   "notif.type.admin_crm_deletion_request": "CRM space deletion requested",
   "notif.type.admin_crm_retention_failed": "CRM retention rule failed",
   "integ.title": "Integrations",

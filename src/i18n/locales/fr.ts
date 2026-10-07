@@ -14230,6 +14230,8 @@ const fr: Record<string, string> = {
   "notif.type.meta_token_invalid": "Connexion Meta coupée",
   "notif.type.admin_meta_token_invalid": "Jeton Meta invalide",
   "notif.type.admin_crm_incident_deadline": "Incident CRM : échéance CNIL proche",
+  "notif.type.admin_crm_analysis_failed": "Analyse client CRM en échec",
+  "notif.type.admin_crm_score_drift": "Yuno CRM : « Chances de venir » se décale",
   "notif.type.admin_crm_deletion_request": "Suppression d’espace CRM demandée",
   "notif.type.admin_crm_retention_failed": "Règle de conservation CRM en échec",
   "integ.title": "Intégrations",

@@ -79,11 +79,44 @@ const dict: AdminDict = {
     'Noches apartadas: AUC {auc} (solo recencia {base}) · clientes activos {act} ({actb}) · desvío de calibración {ece} pts · {pos} compras aprendidas, {vpos} verificadas',
   ],
   'adm.crm.an.sc.proj': [
-    'Fill projection (super admin only): sold + known customers expected ± margin + newcomers, share of purchases still to come',
-    'Projection de remplissage (super admin seulement) : vendues + clients connus attendus ± marge + nouveaux, part des achats encore à venir',
-    'Proyección de aforo (solo super admin): vendidas + clientes conocidos esperados ± margen + nuevos, parte de las compras aún por venir',
+    'Fill projection: sold + known customers expected ± margin + newcomers, share of purchases still to come',
+    'Projection de remplissage : vendues + clients connus attendus ± marge + nouveaux, part des achats encore à venir',
+    'Proyección de aforo: vendidas + clientes conocidos esperados ± margen + nuevos, parte de las compras aún por venir',
   ],
   'adm.crm.an.sc.row': ['{sold} sold + {k} ±{b} + {nw} new · {r} to come', '{sold} vendues + {k} ±{b} + {nw} nouveaux · {r} à venir', '{sold} vendidas + {k} ±{b} + {nw} nuevos · {r} por venir'],
+
+  // Journal prévu / réel (20261013110000).
+  'adm.crm.an.jr.t': ['Predicted vs actual', 'Prévu / réel', 'Previsto / real'],
+  'adm.crm.an.jr.none': [
+    'No night settled yet: each night is compared with what really happened 48 h after it ends.',
+    'Aucune soirée réglée : chaque soirée est comparée à ce qui s’est vraiment passé 48 h après sa fin.',
+    'Ninguna noche liquidada: cada noche se compara con lo que pasó de verdad 48 h después de terminar.',
+  ],
+  'adm.crm.an.jr.open': [
+    'Projection shown to the pro: average gap {err} over the last {n} nights (limit {max}).',
+    'Projection montrée au pro : écart moyen {err} sur les {n} dernières soirées (seuil {max}).',
+    'Proyección visible para el pro: desvío medio {err} en las últimas {n} noches (límite {max}).',
+  ],
+  'adm.crm.an.jr.closed': [
+    'Projection for super admin only: average gap {err} over {n} of {k} nights needed (limit {max}).',
+    'Projection réservée au super admin : écart moyen {err} sur {n} des {k} soirées nécessaires (seuil {max}).',
+    'Proyección solo para super admin: desvío medio {err} en {n} de las {k} noches necesarias (límite {max}).',
+  ],
+  'adm.crm.an.jr.legend': [
+    'Buyers predicted at D-7 (light) and actual (solid), per night',
+    'Acheteurs prévus à J-7 (clair) et réels (plein), par soirée',
+    'Compradores previstos a D-7 (claro) y reales (lleno), por noche',
+  ],
+  'adm.crm.an.jr.legendFirst': [
+    'Buyers predicted at first score (light) and actual (solid), per night',
+    'Acheteurs prévus à la première note (clair) et réels (plein), par soirée',
+    'Compradores previstos en la primera nota (claro) y reales (lleno), por noche',
+  ],
+  'adm.crm.an.jr.row': [
+    '{p} predicted → {a} actual · gap {e} · AUC {auc} · calibration {ece} pts',
+    '{p} prévus → {a} réels · écart {e} · AUC {auc} · calibration {ece} pts',
+    '{p} previstos → {a} reales · desvío {e} · AUC {auc} · calibración {ece} pts',
+  ],
 };
 
 export default dict;

@@ -29,6 +29,15 @@ interface AdminAnalysis {
   } | null;
   projection: { event_id: string; title: string; start_at: string; sold: number; expected_known: number; band: number;
                 newcomers_est: number | null; remaining_share: number | null }[];
+  /** Journal prévu / réel (20261013110000) : soirées réglées, par moment. */
+  journal?: JournalRow[];
+  projection_gate?: { open: boolean; nights: number; needed: number; err: number | null; max: number };
+}
+
+interface JournalRow {
+  event_id: string; title: string | null; start_at: string; horizon: 'first' | 'd7';
+  n?: number; buyers?: number; expected?: number; auc?: number | null; ece?: number | null;
+  projection?: { predicted?: number; actual?: number; err?: number | null };
 }
 
 const box = { display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderRadius: 18, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' } as const;
@@ -116,6 +125,7 @@ export function AnalysisCard({ scopeKey }: { scopeKey: string }) {
           )}
         </>
       )}
+      <Journal rows={d.journal ?? []} gate={d.projection_gate} T={T} />
       <span style={{ fontSize: 12.5, color: 'var(--sand-600)', paddingTop: 4 }}>
         {t('adm.crm.an.learn', {
           g: t(L.global_enabled ? 'adm.crm.an.on' : 'adm.crm.an.off'),
@@ -123,6 +133,71 @@ export function AnalysisCard({ scopeKey }: { scopeKey: string }) {
           c: n(L.cells),
         })}
       </span>
+    </div>
+  );
+}
+
+/** Prévu / réel : une soirée réglée par paire de barres (J-7, sinon 1re note). */
+function Journal({ rows, gate, T }: { rows: JournalRow[]; gate?: AdminAnalysis['projection_gate']; T: ReturnType<typeof useCrmT> }) {
+  const { t, n, pct, dShort } = T;
+  const byNight = new Map<string, JournalRow>();
+  for (const r of rows) {
+    const cur = byNight.get(r.event_id);
+    if (!cur || (r.horizon === 'd7' && cur.horizon !== 'd7')) byNight.set(r.event_id, r);
+  }
+  const nights = [...byNight.values()].sort((a, b) => a.start_at.localeCompare(b.start_at)).slice(-12);
+  const allD7 = nights.length > 0 && nights.every((r) => r.horizon === 'd7');
+  const max = Math.max(1, ...nights.flatMap((r) => [r.projection?.predicted ?? 0, r.projection?.actual ?? 0]));
+  const W = 320;
+  const H = 90;
+  const slot = nights.length ? W / nights.length : W;
+  const bar = Math.max(3, Math.min(14, slot / 3));
+  // Une décimale : 14,5 % ne doit pas se lire « 15 % » à côté d'un seuil de 15 %.
+  const fmtPct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : pct(v * 100, 1));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }}>
+      <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t('adm.crm.an.jr.t')}</span>
+      {gate && (
+        <span style={{ fontSize: 12.5, color: gate.open ? 'var(--green-700)' : 'var(--sand-600)' }}>
+          {t(gate.open ? 'adm.crm.an.jr.open' : 'adm.crm.an.jr.closed', {
+            err: fmtPct(gate.err), n: n(gate.nights), k: n(gate.needed), max: fmtPct(gate.max),
+          })}
+        </span>
+      )}
+      {nights.length === 0 ? (
+        <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('adm.crm.an.jr.none')}</span>
+      ) : (
+        <>
+          <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={t(allD7 ? 'adm.crm.an.jr.legend' : 'adm.crm.an.jr.legendFirst')}>
+            <line x1={0} y1={H - 0.5} x2={W} y2={H - 0.5} stroke="var(--sand-200)" />
+            {nights.map((r, i) => {
+              const x = i * slot + slot / 2;
+              const hp = ((r.projection?.predicted ?? 0) / max) * (H - 6);
+              const ha = ((r.projection?.actual ?? 0) / max) * (H - 6);
+              return (
+                <g key={r.event_id}>
+                  <title>{`${r.title ?? ''} · ${dShort(r.start_at)}`}</title>
+                  <rect x={x - bar - 1} y={H - hp} width={bar} height={hp} rx={2} fill="var(--sand-300)" />
+                  <rect x={x + 1} y={H - ha} width={bar} height={ha} rx={2} fill="var(--ink)" />
+                </g>
+              );
+            })}
+          </svg>
+          <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{t(allD7 ? 'adm.crm.an.jr.legend' : 'adm.crm.an.jr.legendFirst')}</span>
+          {[...nights].reverse().map((r) => (
+            <span key={r.event_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{`${r.title ?? ''} · ${dShort(r.start_at)}`}</span>
+              <b style={{ flex: 'none', whiteSpace: 'nowrap' }}>
+                {t('adm.crm.an.jr.row', {
+                  p: n(Math.round(r.projection?.predicted ?? 0)), a: n(r.projection?.actual ?? 0), e: fmtPct(r.projection?.err),
+                  auc: r.auc === null || r.auc === undefined ? '—' : r.auc.toFixed(3),
+                  ece: r.ece === null || r.ece === undefined ? '—' : (r.ece * 100).toFixed(1),
+                })}
+              </b>
+            </span>
+          ))}
+        </>
+      )}
     </div>
   );
 }
