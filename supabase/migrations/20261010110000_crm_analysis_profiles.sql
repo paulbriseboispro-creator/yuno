@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS public.crm_analysis_state (
   coverage          jsonb,
   duration_ms       integer,
   people            integer,
+  -- Calcul complet : trajectoire du compte (délai de retour, revenants), sans
+  -- donnée personnelle.
+  stats             jsonb,
   last_error        text,
   last_error_at     timestamptz,
   CHECK ((venue_id IS NULL) <> (organizer_user_id IS NULL))
@@ -819,6 +822,28 @@ BEGIN
   PERFORM public._crm_an_write_people(p_venue_id, p_organizer_user_id, now(), v_cfg);
 
   IF p_full THEN
+    -- Trajectoire du compte : délai entre la 1re et la 2e venue (quand
+    -- relancer), retour à 180 jours des nouveaux venus assez anciens.
+    UPDATE public.crm_analysis_state s SET stats = (
+      WITH r AS (
+        SELECT extract(epoch FROM b.start_at - a.start_at) / 86400.0 AS d
+          FROM _ana a JOIN _ana b ON b.em = a.em AND b.k = 2 WHERE a.k = 1
+      ), w AS (
+        SELECT count(*) FILTER (WHERE eligible) AS n, count(*) FILTER (WHERE eligible AND returned) AS ret FROM _annew
+      ), o AS (
+        SELECT count(*) AS people, count(*) FILTER (WHERE mk = 1) AS once
+          FROM (SELECT em, max(k) AS mk FROM _ana GROUP BY em) z
+      )
+      SELECT jsonb_build_object(
+               'people', o.people, 'once', o.once,
+               'returners', (SELECT count(*) FROM r),
+               'median_days', (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY d)::numeric) FROM r),
+               'p25_days', (SELECT round(percentile_cont(0.25) WITHIN GROUP (ORDER BY d)::numeric) FROM r),
+               'p75_days', (SELECT round(percentile_cont(0.75) WITHIN GROUP (ORDER BY d)::numeric) FROM r),
+               'eligible', w.n, 'returned', w.ret)
+        FROM w, o)
+     WHERE s.scope_key = v_key;
+
     -- Une personne qui n'a plus de venue (billets remboursés, adresse effacée)
     -- perd son profil.
     DELETE FROM public.crm_person_profile pp
