@@ -63,6 +63,32 @@ export interface ClientFilterDef {
     gl?: '' | 'any' | 'only' | 'loyal' | 'conv' | 'noshow';
     /** Invités (invitation ou billet gratuit) de ces soirées. */
     glev?: string[];
+    /*
+     * Analyse client (migration 20261010110000) : clés pré-calculées
+     * (crm_person_profile.tags). Un contact venu seulement d'un fichier n'a
+     * aucune clé et n'entre dans aucun de ces filtres.
+     */
+    /** Porte l'hypothèse (moyenne ou forte) de l'une de ces familles. */
+    hyp?: string[];
+    /** A vu l'un de ces artistes (clés `id:…`, `slug:…`, `name:…`). */
+    artist?: string[];
+    /** Genres BRUTS de Shotgun (minuscules). */
+    genre?: string[];
+    /** Type de lieu des soirées (minuscules). */
+    fmt?: string[];
+    /** Séries (`_crm_night_series`, minuscules). */
+    series?: string[];
+    /** Profil d'achat dominant. */
+    buy?: ('early' | 'launch' | 'last_minute' | 'door')[];
+    /** Commandes : à plusieurs, seul, 1re place avec un client déjà venu. */
+    grp?: 'group' | 'solo' | 'brought';
+    /** Canal d'arrivée (1er billet vendu), codes de `_crm_ticket_source` + `gl`. */
+    arr?: string[];
+    /** Distance à sa 1re soirée (km), bornes comprises. */
+    dist_min?: number;
+    dist_max?: number;
+    /** De passage (loin ou étranger) / habite à proximité ; distance inconnue = ni l'un ni l'autre. */
+    pass?: 'yes' | 'no';
   };
   q?: string;
 }

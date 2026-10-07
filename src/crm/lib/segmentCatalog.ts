@@ -5,7 +5,7 @@
  * dans __tests__/segmentCatalog.test.ts.
  */
 import type { CatalogItem, NewSegmentItem, SegmentCatalog } from '@/crm/data/segmentCatalog';
-import { RECOMMENDED, REC_MIN, SEG_GROUPS, templateBase, templateGroup } from './segments';
+import { RECOMMENDED, REC_MIN, SEG_GROUPS, WHY_FAMILY, templateBase, templateGroup } from './segments';
 import type { SegGroupKey } from './segments';
 
 type T = (k: string, v?: Record<string, string | number>) => string;
@@ -34,6 +34,12 @@ export interface CatalogFormat {
   eur: (v: number) => string;
   /** Nom d'un pays depuis son code ISO 2. */
   country: (code: string) => string;
+  /**
+   * Familles d'hypothèses CONFIRMÉES sur le compte (analyse client) : un modèle
+   * « Ce qui fait venir » n'est recommandé que si la sienne y figure. Absent =
+   * aucun n'est recommandé.
+   */
+  supported?: ReadonlySet<string>;
 }
 
 /** Nom d'un pays dans la langue de l'écran, le code s'il est inconnu. */
@@ -67,7 +73,8 @@ export function catalogEntries(cat: SegmentCatalog, f: CatalogFormat): CatalogEn
     if (base === 'geo_abroad' && it.n < REC_MIN) continue;
     const v = vars(it, f);
     const disabled = group === 'next' && !cat.has_next_event ? 'noNext' : null;
-    const isRec = RECOMMENDED.includes(base);
+    const whyFamily = WHY_FAMILY[base];
+    const isRec = RECOMMENDED.includes(base) && (!whyFamily || !!f.supported?.has(whyFamily));
     const done = existing.has(it.key);
     out.push({
       key: it.key,

@@ -50,6 +50,11 @@ function defFromParams(sp: URLSearchParams): ClientFilterDef {
   if (glev) f.glev = [glev];
   const gl = sp.get('gl');
   if (isGlFilter(gl)) f.gl = gl;
+  // Analyse client : depuis Analyses › Communauté › Ce qui fait venir.
+  const hyp = sp.get('hyp');
+  if (hyp && /^[a-z_]{2,24}$/.test(hyp)) f.hyp = [hyp];
+  const pass = sp.get('pass');
+  if (pass === 'yes' || pass === 'no') f.pass = pass;
   const src = sp.get('src');
   if (src && ['shotgun', 'utm', 'import', 'page', 'other'].includes(src)) f.src = [src as NonNullable<NonNullable<ClientFilterDef['f']>['src']>[number]];
   return { seg: s && (LIFE as string[]).includes(s) ? (s as Lifecycle) : 'all', f };

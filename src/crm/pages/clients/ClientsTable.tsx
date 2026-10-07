@@ -15,7 +15,11 @@ import { hasCriteria } from '@/crm/data/clients';
 import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 
-export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev';
+export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev' | 'hyp';
+
+/** Familles d'hypothèses qui ont une clé par personne (`h:<famille>`, analyse client). */
+const HYP_FILTER = ['artist', 'series', 'genre', 'format', 'slot', 'weekday', 'place', 'launch', 'early', 'last_minute', 'door',
+  'group', 'table', 'brought', 'discovery', 'invited', 'passing'] as const;
 type Opt = { v: string; l: string; s?: string; short?: string; disabled?: boolean };
 
 const COLS = '44px minmax(260px,2.4fr) 150px 84px 132px 96px 140px 24px';
@@ -108,6 +112,8 @@ export function ClientsTable({
     },
     // Guest list Shotgun (invitations + billets à 0 €), migration 20261008100000.
     { k: 'gl', l: t('yc.gl.f'), title: t('yc.gl.f.title'), opts: (['any', 'only', 'loyal', 'conv', 'noshow'] as const).map((v) => ({ v, l: t(`yc.gl.f.${v}`), s: t(`yc.gl.f.${v}.s`), short: t(`yc.gl.f.${v}.short`) })) },
+    // Analyse client : porte une hypothèse (moyenne ou forte) de ces familles.
+    { k: 'hyp', l: t('yc.why.f'), title: t('yc.why.f.title'), multi: true, opts: HYP_FILTER.map((v) => ({ v, l: t(`yc.why.fam.${v}`) })) },
     // Invités d'une soirée : seulement quand on arrive d'une soirée (?glev=).
     ...(f.glev?.length ? [{
       k: 'glev' as const, l: t('yc.gl.f.glev'), title: t('yc.gl.f.glev.title'), multi: true,
