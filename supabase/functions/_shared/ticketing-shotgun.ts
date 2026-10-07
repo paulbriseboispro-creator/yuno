@@ -401,6 +401,9 @@ export interface MappedDeal {
   visibility: string | null;
   sales_channel: string | null;
   category: string | null;
+  category_id: string | null;
+  /** Ouverture de la vente de ce tarif (`subcategory.start_time`) : la phase de vente. */
+  phase_starts_at: string | null;
 }
 
 export interface MappedEvent {
@@ -481,6 +484,8 @@ export function mapShotgunEvent(raw: Json, divisor = 1): MappedEvent | null {
           visibility: str(pick(d, ["visibility", "visiblity"]), 30),
           sales_channel: str(pick(d, ["sales_channel", "salesChannel"]), 30),
           category: str(pick(d, ["subcategory.name"]), 120),
+          category_id: str(pick(d, ["subcategory_id", "subcategory.id"]), 60),
+          phase_starts_at: isoDate(pick(d, ["subcategory.start_time", "subcategory.startTime"])),
         })).slice(0, 100)
       : [],
     left_tickets: num(pick(raw, ["leftTicketsCount", "left_tickets_count"])),

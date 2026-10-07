@@ -44,7 +44,7 @@ const DOC_EVENT = {
   organizer: { name: 'Mysterious music', slug: 'mysterious-music' },
   role: 'organizer',
   deals: [
-    { name: 'Pass Regular Entry', product_id: 284482, quantity: 50, visiblity: 'public', sales_channel: 'online', price: 10, organizer_fees: 0.99, user_fees: 0.3, subcategory: { id: 1, name: 'Reserved Tables with Drinks Included' } },
+    { name: 'Pass Regular Entry', product_id: 284482, quantity: 50, visiblity: 'public', sales_channel: 'online', price: 10, organizer_fees: 0.99, user_fees: 0.3, subcategory_id: 1, subcategory: { id: 1, name: 'Reserved Tables with Drinks Included', start_time: '2026-09-01T10:00:00.000Z' } },
   ],
   typeOfPlace: 'club',
 };
@@ -297,7 +297,7 @@ describe('soirée Shotgun (exemple de la doc)', () => {
     expect(e.cancelled_at).toBeNull();
     expect(e.organizer_name).toBe('Mysterious music');
     expect(e.external_role).toBe('organizer');
-    expect(e.deals[0]).toMatchObject({ id: '284482', name: 'Pass Regular Entry', price: 10, quantity: 50, visibility: 'public', category: 'Reserved Tables with Drinks Included' });
+    expect(e.deals[0]).toMatchObject({ id: '284482', name: 'Pass Regular Entry', price: 10, quantity: 50, visibility: 'public', category: 'Reserved Tables with Drinks Included', category_id: '1', phase_starts_at: '2026-09-01T10:00:00.000Z' });
   });
 
   it('refuse une URL non https', () => {
