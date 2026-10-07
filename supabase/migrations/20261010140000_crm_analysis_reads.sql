@@ -153,7 +153,7 @@ BEGIN
   SELECT COALESCE(jsonb_agg(h.h || jsonb_build_object(
            'status', fs.status, 'availability', fs.availability, 'kind', fs.kind,
            'gain', fs.gain, 'o', round(fs.o, 1), 'e', round(fs.e, 1), 'n', fs.n, 'direction', fs.direction,
-           'since', fs.status_since,
+           'detail', fs.detail, 'since', fs.status_since,
            'prior', CASE WHEN pr.family IS NOT NULL THEN jsonb_build_object('accounts', pr.accounts, 'gain', pr.gain, 'status', pr.status) END)
          ORDER BY h.ord), '[]'::jsonb)
     INTO v_hyps
@@ -184,7 +184,8 @@ SET search_path TO 'public'
 AS $$
 DECLARE
   v_key text := public.crm_scope_key(p_venue_id, p_organizer_user_id);
-  v_min int := COALESCE((public.crm_analysis_config()->>'min_sample')::int, 10);
+  v_cfg jsonb := public.crm_analysis_config();
+  v_min int := COALESCE((v_cfg->>'min_sample')::int, 10);
   np public.crm_night_profile%ROWTYPE;
   v_med jsonb;
   v_new jsonb;
@@ -234,7 +235,8 @@ BEGIN
     'origin', np.new_origin,
     'return', jsonb_build_object('eligible', np.new_eligible, 'returned', np.new_returned,
                                  'rate', CASE WHEN np.new_eligible >= v_min THEN round(np.new_returned::numeric / np.new_eligible, 3) END),
-    'artists', v_arts, 'usual', v_med, 'newcomers', v_new, 'min_sample', v_min);
+    'artists', v_arts, 'usual', v_med, 'newcomers', v_new, 'min_sample', v_min,
+    'far_km', COALESCE((v_cfg->'distance'->>'far_km')::numeric, 80));
 END;
 $$;
 REVOKE ALL ON FUNCTION public.crm_night_analysis(text, uuid, uuid) FROM PUBLIC, anon;
@@ -252,6 +254,8 @@ DECLARE
   v_key text := public.crm_scope_key(p_venue_id, p_organizer_user_id);
   v_cfg jsonb := public.crm_analysis_config();
   v_min int := COALESCE((v_cfg->>'min_sample')::int, 10);
+  v_res numeric := COALESCE((v_cfg->'rarity'->>'resident_share')::numeric, 0.2);
+  v_minb int := COALESCE((v_cfg->'rarity'->>'min_nights')::int, 5);
   v_base jsonb;
 BEGIN
   IF NOT COALESCE(public.crm_scope_allowed(p_venue_id, p_organizer_user_id), false) THEN
@@ -265,6 +269,7 @@ BEGIN
 
   RETURN jsonb_build_object(
     'min_sample', v_min,
+    'resident_share', v_res,
     'baseline', v_base,
     'family', (SELECT f FROM jsonb_array_elements(public._crm_an_families_json(v_key, v_cfg)) f
                 WHERE f->>'family' = 'artist' LIMIT 1),
@@ -272,6 +277,9 @@ BEGIN
                   'k', s.artist_key, 'name', s.name, 'slug', s.slug, 'avatar', s.avatar,
                   'nights', s.nights, 'entries', s.entries, 'new_brought', s.new_brought, 'fans', s.fans,
                   'share', s.share, 'last_night', s.last_night,
+                  -- Résident : joue à plus de `resident_share` des soirées du compte.
+                  'resident', s.share IS NOT NULL AND s.share > v_res
+                              AND (SELECT count(*) FROM public.crm_night_profile np WHERE np.scope_key = v_key) >= v_minb,
                   'new_eligible', s.new_eligible, 'new_returned', s.new_returned,
                   'return_rate', CASE WHEN s.new_eligible >= v_min THEN round(s.new_returned::numeric / s.new_eligible, 3) END)
                   ORDER BY s.new_brought DESC, s.entries DESC, s.name)
