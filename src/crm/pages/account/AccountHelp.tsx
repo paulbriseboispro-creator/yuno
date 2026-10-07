@@ -42,6 +42,10 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
   { id: 'guestlist', c: 'clients', to: CRM_ROUTES.guestlist },
+  // Analyse client : le test au hasard, les statuts, ce qui sort du compte.
+  { id: 'why', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },
+  { id: 'whystatus', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },
+  { id: 'whydata', c: 'account', to: CRM_ROUTES.settings },
   { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'offline', c: 'account' },
   // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).
