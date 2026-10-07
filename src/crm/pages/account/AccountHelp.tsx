@@ -49,6 +49,7 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   // La suite de l'analyse : à qui écrire pour une soirée, faire revenir les nouveaux.
   { id: 'target', c: 'clients', to: CRM_ROUTES.nights },
   { id: 'firstreturn', c: 'start', to: CRM_ROUTES.automations },
+  { id: 'chances', c: 'clients', to: CRM_ROUTES.nights },
   { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'offline', c: 'account' },
   // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).

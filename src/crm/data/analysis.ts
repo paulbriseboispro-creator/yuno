@@ -30,10 +30,17 @@ export interface AnalysisOverview {
   once: { n: number; local: number; passing: number; unknown: number };
 }
 
+/** « Chances de venir » : état du modèle d'un compte (crm_score_model). */
+export type ScoreStatus = 'ok' | 'weak' | 'insufficient' | 'failed' | 'none';
+export type ChanceLabel = 'high' | 'medium' | 'low';
+export interface ClientChance { event_id: string; title: string; start_at: string; label: ChanceLabel; reasons: string[] }
+
 export interface ClientAnalysis {
   excluded: boolean;
   profile: boolean;
   computed_at: string | null;
+  score_status?: ScoreStatus;
+  chances?: ClientChance[];
   nights?: number;
   first?: {
     nid: string; event_id: string | null; title: string | null; start_at: string; series: string | null;
@@ -136,6 +143,8 @@ export interface NightTargetAudience {
   gain?: number;
   moment: 'now' | 'week' | 'eve';
   send_at: string;
+  /** Acheteurs attendus (somme des chances), seulement avec un score validé. */
+  expected?: number | null;
   params?: { series?: string | null; editions?: number; artists?: { name: string; n: number }[]; genres?: string[] };
 }
 
@@ -147,6 +156,8 @@ export interface NightTargets {
   has_ticket?: number;
   computed?: boolean;
   union?: { n: number; email: number; sms: number };
+  /** Score de prédiction : `ok` (validé, `expected` = acheteurs attendus parmi les clients connus sans place), sinon son état. */
+  score?: { status: ScoreStatus; expected?: number; people?: number };
   audiences?: NightTargetAudience[];
 }
 

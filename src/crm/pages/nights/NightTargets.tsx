@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PillButton, Skel } from '@/crm/ui/kit';
+import { Badge, PillButton, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
@@ -64,6 +64,12 @@ function Body({ d, T }: { d: Targets; T: T }) {
               {d.union && (
                 <div style={{ padding: '14px 16px', borderRadius: 16, background: 'var(--sand-50)', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 14 }}>
                   <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{t('yc.tgt.union', { n: n(d.union.n), e: n(d.union.email), s: n(d.union.sms) })}</span>
+                  {d.score?.status === 'ok' && d.score.expected !== undefined && (
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{t('yc.sc.expAll', { n: n(d.score.expected), p: n(d.score.people ?? 0) })}</span>
+                  )}
+                  {(d.score?.status === 'weak' || d.score?.status === 'insufficient') && (
+                    <span style={{ color: 'var(--sand-600)' }}>{t(`yc.sc.st.${d.score.status}`)}</span>
+                  )}
                   {(d.has_ticket ?? 0) > 0 && <span style={{ color: 'var(--sand-600)' }}>{t('yc.tgt.hasTicket', { n: n(d.has_ticket ?? 0) })}</span>}
                 </div>
               )}
@@ -119,10 +125,15 @@ function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T })
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>
             {tp('yc.tgt.people', a.n, { n: n(a.n) })}
           </span>
+          {a.expected !== null && a.expected !== undefined && (
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--red-700)', fontVariantNumeric: 'tabular-nums' }}>{t('yc.sc.exp', { n: n(a.expected) })}</span>
+          )}
         </div>
         {fam
           ? <StatusBadge f={{ status: a.status ?? null, availability: a.availability ?? null, kind: familyKind(fam) }} T={T} />
-          : <span style={{ fontSize: 12.5, color: 'var(--sand-500)', maxWidth: 220, textAlign: 'right' }}>{t('yc.tgt.noFamily')}</span>}
+          : a.key === 'likely'
+            ? <Badge tone="warn">{t('yc.sc.estimate')}</Badge>
+            : <span style={{ fontSize: 12.5, color: 'var(--sand-500)', maxWidth: 220, textAlign: 'right' }}>{t('yc.tgt.noFamily')}</span>}
       </div>
       <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--sand-700)', textWrap: 'pretty' }}>{ruleText(a, T)}</span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13.5, color: 'var(--sand-600)' }}>

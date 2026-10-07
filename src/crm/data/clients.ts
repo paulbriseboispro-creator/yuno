@@ -10,7 +10,7 @@ import { useCrmScope } from '@/crm/scope';
 export type Lifecycle = 'hab' | 'occ' | 'nou' | 'end' | 'none';
 
 /** Audiences de « Qui cibler » (miroir de _crm_night_target_set). */
-export type TargetAudience = 'concept' | 'lineup' | 'genre' | 'early' | 'last_minute' | 'once_local';
+export type TargetAudience = 'likely' | 'concept' | 'lineup' | 'genre' | 'early' | 'last_minute' | 'once_local';
 
 /** Définition d'un filtre de clients (= d'un segment « à vous »). */
 export interface ClientFilterDef {

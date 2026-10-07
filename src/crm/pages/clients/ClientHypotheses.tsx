@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { Skel } from '@/crm/ui/kit';
+import { Badge, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
@@ -119,6 +119,26 @@ function Body({ d, email, fromFileOnly, T }: { d: ClientAnalysis; email: string;
             </Hv>
           )}
           {(d.nights ?? 0) === 1 && <span style={{ fontSize: 12.5, color: 'var(--sand-500)', textWrap: 'pretty' }}>{t('yc.why.card.once')}</span>}
+        </div>
+      )}
+
+      {(d.chances?.length ?? 0) > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 12, borderTop: '1px solid var(--sand-100)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{t('yc.sc.card.t')}</span>
+          {d.chances!.map((c) => (
+            <div key={c.event_id} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14 }}>
+                <span style={{ minWidth: 0, fontWeight: 500, overflowWrap: 'anywhere' }}>{`${c.title} · ${T.dShort(c.start_at)}`}</span>
+                <Badge tone={c.label === 'high' ? 'done' : c.label === 'medium' ? 'warn' : 'wait'}>{t(`yc.sc.label.${c.label}`)}</Badge>
+              </div>
+              {c.reasons.length > 0 && (
+                <span style={{ fontSize: 12.5, color: 'var(--sand-600)' }}>
+                  {c.reasons.map((r) => t(`yc.sc.reason.${r}`)).join(' · ')}
+                </span>
+              )}
+            </div>
+          ))}
+          <span style={{ fontSize: 12.5, color: 'var(--sand-500)', textWrap: 'pretty' }}>{t('yc.sc.card.hint')}</span>
         </div>
       )}
 

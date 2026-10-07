@@ -728,6 +728,46 @@ const dict: CrmDict = {
     'Active la automatización «Hacer volver tras la primera noche». Cuando alguien que vino a una sola fiesta, vive cerca y no tiene entrada no ha vuelto en el plazo de vuelta habitual de su cuenta (la mediana de quienes volvieron), recibe un e-mail con la próxima fiesta elegida para esa persona: mismo concepto, un invitado que ya vio, su género, su día habitual. Cinco días después (o 3, o 7), si sigue sin entrada y su número tiene consentimiento, llega un SMS (35 Yunits en Francia), con las mismas reglas que sus SMS. Una vez por persona. En sus e-mails, {{artiste}}, {{1re_soiree}} y {{nb_soirees}} escriben el invitado más visto, su primera noche y su número de noches.',
   ],
   'yc.faq.firstreturn.l': ['Open automations', 'Ouvrir les automatisations', 'Abrir las automatizaciones'],
+
+  // « Chances de venir » : le score de prédiction (20261012100000).
+  'yc.tgt.aud.likely.name': ['Most likely to come', 'Les plus probables', 'Los más probables'],
+  'yc.tgt.aud.likely.rule': [
+    'High chance of coming to this night, from their past nights. An estimate, never a certainty.',
+    'Chances de venir élevées pour cette soirée, d’après leurs soirées passées. Une estimation, jamais une certitude.',
+    'Probabilidad alta de venir a esta noche, según sus noches pasadas. Una estimación, nunca una certeza.',
+  ],
+  'yc.tgt.angle.likely': ['Angle: a simple reminder of the night, no discount.', 'Angle : un simple rappel de la soirée, sans remise.', 'Enfoque: un simple recordatorio de la noche, sin descuento.'],
+  'yc.sc.exp': ['≈ {n} buyers expected', '≈ {n} acheteurs attendus', '≈ {n} compradores esperados'],
+  'yc.sc.expAll': [
+    'Estimate: ≈ {n} tickets expected from your {p} known customers without a ticket.',
+    'Estimation : ≈ {n} places attendues parmi vos {p} clients connus sans place.',
+    'Estimación: ≈ {n} entradas esperadas entre sus {p} clientes conocidos sin entrada.',
+  ],
+  'yc.sc.st.weak': ['The estimate of buyers isn’t reliable enough on your account yet.', 'L’estimation des acheteurs n’est pas encore assez fiable sur votre compte.', 'La estimación de compradores aún no es lo bastante fiable en su cuenta.'],
+  'yc.sc.st.insufficient': ['Not enough history yet to estimate buyers.', 'Pas encore assez d’historique pour estimer les acheteurs.', 'Aún no hay suficiente historial para estimar los compradores.'],
+  'yc.sc.estimate': ['Estimate', 'Estimation', 'Estimación'],
+  'yc.sc.card.t': ['Chance of coming', 'Chances de venir', 'Probabilidad de venir'],
+  'yc.sc.card.hint': ['An estimate from their past nights, never a certainty.', 'Une estimation d’après ses soirées passées, jamais une certitude.', 'Una estimación según sus noches pasadas, nunca una certeza.'],
+  'yc.sc.label.high': ['High', 'Élevées', 'Altas'],
+  'yc.sc.label.medium': ['Medium', 'Moyennes', 'Medias'],
+  'yc.sc.label.low': ['Low', 'Faibles', 'Bajas'],
+  'yc.sc.reason.rec': ['came recently', 'venu récemment', 'vino hace poco'],
+  'yc.sc.reason.freq': ['regular', 'habitué', 'habitual'],
+  'yc.sc.reason.series': ['loyal to the concept', 'fidèle du concept', 'fiel al concepto'],
+  'yc.sc.reason.artist': ['saw an artist of the line-up', 'a vu un artiste de l’affiche', 'vio a un artista del cartel'],
+  'yc.sc.reason.genre': ['often at this genre', 'fréquente ce genre', 'frecuenta este género'],
+  'yc.sc.reason.fmt': ['usual format', 'son format habituel', 'su formato habitual'],
+  'yc.sc.reason.slot': ['usual time slot', 'son créneau habituel', 'su franja habitual'],
+  'yc.sc.reason.wd': ['usual day', 'son jour habituel', 'su día habitual'],
+  'yc.sc.reason.early': ['buys early', 'achète tôt', 'compra pronto'],
+  'yc.sc.reason.last': ['buys at the last minute', 'achète à la dernière minute', 'compra en el último momento'],
+  'yc.faq.chances.q': ['What is “Chance of coming”?', 'Que veut dire « Chances de venir » ?', '¿Qué significa «Probabilidad de venir»?'],
+  'yc.faq.chances.a': [
+    'Each night, Yuno learns from your past nights who buys and who doesn’t: how recently they came, how often, the concept, the artists they saw, the genre, their buying habits. It then estimates, for each customer who already came and has no ticket yet, the chance of buying for each upcoming night, taking into account the time left before the night. You see it as a label (high, medium, low) with its reasons on the customer card, and as expected buyers per audience in “Who to target”, plus a “Most likely to come” audience. Yuno only shows it if the model passed its tests on your last nights (it must sort buyers better than “came recently” alone, and its estimates must match what really happened); otherwise the screen says there isn’t enough history yet. It is always an estimate, never a certainty, and a customer excluded from profiling is never scored.',
+    'Chaque nuit, Yuno apprend de vos soirées passées qui achète et qui n’achète pas : depuis quand ils sont venus, à quelle fréquence, le concept, les artistes vus, le genre, leurs habitudes d’achat. Il estime ensuite, pour chaque client déjà venu sans place, la chance d’acheter pour chaque soirée à venir, en tenant compte du temps qui reste avant la soirée. Vous la voyez en étiquette (élevées, moyennes, faibles) avec ses raisons sur la fiche client, et en acheteurs attendus par audience dans « Qui cibler », avec une audience « Les plus probables ». Yuno ne l’affiche que si le modèle a passé ses tests sur vos dernières soirées (il doit mieux départager acheteurs et non-acheteurs que la seule « venue récente », et ses estimations doivent coller à ce qui s’est vraiment passé) ; sinon l’écran dit qu’il manque encore de l’historique. C’est toujours une estimation, jamais une certitude, et un client exclu du profilage n’est jamais noté.',
+    'Cada noche, Yuno aprende de sus noches pasadas quién compra y quién no: desde cuándo vinieron, con qué frecuencia, el concepto, los artistas vistos, el género, sus hábitos de compra. Luego estima, para cada cliente que ya vino y no tiene entrada, la probabilidad de comprar para cada próxima noche, teniendo en cuenta el tiempo que queda. La ve como etiqueta (altas, medias, bajas) con sus razones en la ficha del cliente, y como compradores esperados por audiencia en «A quién dirigirse», con una audiencia «Los más probables». Yuno solo la muestra si el modelo superó sus pruebas en sus últimas noches (debe separar mejor compradores y no compradores que la sola «visita reciente», y sus estimaciones deben coincidir con lo que pasó de verdad); si no, la pantalla dice que aún falta historial. Siempre es una estimación, nunca una certeza, y un cliente excluido del perfilado nunca se puntúa.',
+  ],
+  'yc.faq.chances.l': ['Open my nights', 'Ouvrir mes soirées', 'Abrir mis fiestas'],
 };
 
 export default dict;

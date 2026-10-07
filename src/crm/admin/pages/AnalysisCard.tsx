@@ -18,6 +18,17 @@ interface AdminAnalysis {
               connections: { place_values: string[] }[] };
   families: FamilyStatus[];
   learning: { global_enabled: boolean; account_contributes: boolean; demo: boolean; cells: number };
+  score: {
+    status: 'ok' | 'weak' | 'insufficient' | 'failed'; trained_at: string; features: string[] | null;
+    metrics: {
+      train?: { nights?: number; rows?: number; pos?: number };
+      valid?: { auc?: number; ece?: number; pos?: number; active?: { auc?: number } };
+      baseline?: { auc?: number; active?: { auc?: number } };
+      error?: string;
+    };
+  } | null;
+  projection: { event_id: string; title: string; start_at: string; sold: number; expected_known: number; band: number;
+                newcomers_est: number | null; remaining_share: number | null }[];
 }
 
 const box = { display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderRadius: 18, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' } as const;
@@ -74,6 +85,37 @@ export function AnalysisCard({ scopeKey }: { scopeKey: string }) {
           </span>
         ))}
       </div>
+      {d.score && (
+        <>
+          <span style={{ fontSize: 12.5, fontWeight: 600, paddingTop: 4 }}>{t('adm.crm.an.sc.t')}</span>
+          <span style={{ fontSize: 12.5, color: d.score.status === 'ok' ? 'var(--green-700)' : 'var(--sand-600)' }}>
+            {t(`adm.crm.an.sc.st.${d.score.status}`, { date: dShort(d.score.trained_at) })}
+          </span>
+          {d.score.metrics?.valid?.auc !== undefined && (
+            <span style={{ fontSize: 12.5, color: 'var(--sand-600)', fontVariantNumeric: 'tabular-nums' }}>
+              {t('adm.crm.an.sc.m', {
+                auc: (d.score.metrics.valid.auc ?? 0).toFixed(3), base: (d.score.metrics.baseline?.auc ?? 0).toFixed(3),
+                act: (d.score.metrics.valid.active?.auc ?? 0).toFixed(3), actb: (d.score.metrics.baseline?.active?.auc ?? 0).toFixed(3),
+                ece: ((d.score.metrics.valid.ece ?? 0) * 100).toFixed(1), pos: n(d.score.metrics.train?.pos ?? 0), vpos: n(d.score.metrics.valid.pos ?? 0),
+              })}
+            </span>
+          )}
+          {d.score.metrics?.error && <span style={{ fontSize: 12.5, color: 'var(--red-700)' }}>{d.score.metrics.error}</span>}
+          {d.projection.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--sand-600)' }}>{t('adm.crm.an.sc.proj')}</span>
+              {d.projection.map((p) => (
+                <span key={p.event_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{`${p.title} · ${dShort(p.start_at)}`}</span>
+                  <b style={{ flex: 'none', whiteSpace: 'nowrap' }}>
+                    {t('adm.crm.an.sc.row', { sold: n(p.sold), k: n(p.expected_known), b: n(p.band), nw: n(p.newcomers_est ?? 0), r: pct((p.remaining_share ?? 1) * 100) })}
+                  </b>
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
       <span style={{ fontSize: 12.5, color: 'var(--sand-600)', paddingTop: 4 }}>
         {t('adm.crm.an.learn', {
           g: t(L.global_enabled ? 'adm.crm.an.on' : 'adm.crm.an.off'),

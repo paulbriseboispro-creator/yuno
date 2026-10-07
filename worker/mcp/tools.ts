@@ -564,7 +564,9 @@ export const TOOLS: ToolDef[] = [
       + 'how many are reachable by email and by SMS, the status on this account of the hypothesis family behind it, the suggested moment '
       + '(now, the week before at 18:00, the eve at 18:00) and evidence: concept (came to a past edition of the same series), lineup (saw a non-resident artist '
       + 'who plays that night, with the artists), genre (most attended genre is one of the event genres), early (buys early or at sales opening), '
-      + 'last_minute (buys the eve or the same day), once_local (came once, lives nearby). Also the union of all audiences and how many already have a ticket. '
+      + 'last_minute (buys the eve or the same day), once_local (came once, lives nearby), likely (high chance of coming per the account\'s prediction model). '
+      + 'When the model is validated: expected buyers per audience and for all known customers without a ticket (score.expected), an estimate. '
+      + 'Also the union of all audiences and how many already have a ticket. '
       + 'Examples: "who should I target for Saturday?", "who can I bring back for the next Bunker?".',
     inputSchema: {
       type: 'object',
@@ -630,7 +632,9 @@ export const TOOLS: ToolDef[] = [
     description:
       "One customer's profile by email: origin (imported, Yuno, both), spend, events, tickets, tables, guest lists, first and last activity, email engagement, "
       + 'consent (email, SMS), the automated emails they received and, on Yuno CRM, their hypotheses: facts (evidence key and values) with the status of each '
-      + 'family on the account, plus the facts of their first night. Only with the "customers" level. Example: "tell me about julie@example.com".',
+      + 'family on the account, plus the facts of their first night, and chances_to_come: for up to 3 upcoming nights without a ticket, a label '
+      + '(high, medium, low) and its reasons, only when the account\'s prediction model passed its validation. Only with the "customers" level. '
+      + 'Example: "tell me about julie@example.com".',
     inputSchema: {
       type: 'object',
       properties: { space: SPACE, email: { type: 'string', maxLength: 200 } },
