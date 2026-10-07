@@ -486,3 +486,91 @@ FROM external_events WHERE connection_id = '<conn>';
 
 Noms de colonnes à revérifier sur la base liée avant de lancer (le mapping est
 dans `_shared/ticketing-shotgun.ts`).
+
+## 14. Décisions de Paul (07/10) et état de la construction
+
+**Décisions.**
+1. Mots : **« Hypothèse »** pour une personne, **« Ce qui fait venir »** pour la
+   vue (EN « Hypothesis » / « What brings them », ES « Hipótesis » / « Lo que
+   les hace venir »).
+2. Fiche client : hypothèses visibles, avec statut et preuve, pour tout rôle
+   qui voit déjà les clients nommés (lecteur compris) ; jamais dans un export.
+3. Contribution anonyme : **par défaut, refus possible** (Réglages, titulaire
+   seul) ; drapeau global **éteint** tant qu'un juriste n'a pas validé la clause.
+4. « De passage » (étranger ou à plus de 80 km) : **montrés à part**, jamais
+   retirés.
+Défaut posé : un contact venu seulement d'un fichier importé n'a ni line-up ni
+commande, donc pas de profil d'analyse ; il garde profil et trajectoire dans `_cp`.
+
+**Construit (branche `crm/client-analysis`).**
+
+| Lot | Contenu | Fichiers |
+|---|---|---|
+| A | Règles versionnées `crm_analysis_config()`, couverture des signaux, phase de vente gardée au mapping | `20261010100000_crm_analysis_coverage.sql`, `_shared/ticketing-shotgun.ts` |
+| B | Codes postaux FR, profils pré-calculés (soirée, personne, artiste), mémoire des annonces, file de recalcul, crons 30 min + nuit, purge, droit d'opposition, `first_utm` corrigé, jointure `_cp`, nouvelles clés de filtre | `20261010105000`, `20261010110000` |
+| C | Moteur d'hypothèses : test au hasard (affinité), comportement, retour à 180 jours ; statuts + historique ; hypothèses par personne | `20261010120000` |
+| E | Contributions anonymes, leçons communes (5 comptes, 50 %), propositions de seuils par comptes laissés de côté, validation audité | `20261010130000` |
+| D | Une RPC par écran ; fiche client, Communauté › Ce qui fait venir, tiroir d'une soirée, artistes, filtres et segments, Réglages, Admin CRM | `20261010140000`, `src/crm/**` |
+| F | MCP `get_customer_analysis`, profil enrichi, filtres `list_customers`, consignes et glossaire ; article d'assistant ; FAQ | `20261010150000`, `worker/mcp/*`, `_shared/console-help-articles.ts` |
+| G | Semis démo rejouable + smoke SQL annulé | `scripts/demo/seed-crm-analysis.sql`, `smoke-crm-analysis.sql` |
+
+**Coûts mesurés** (banc PGlite, WebAssembly, plus lent qu'un vrai Postgres) :
+compte de 700 clients / 60 soirées = 0,8 s par calcul complet ; démo réelle
+(1 235 clients, 6 228 billets, 39 soirées) = moins de 2 s pour le calcul,
+27 s pour le semis entier. Estimation pour 30 000 billets / 12 000 contacts /
+200 soirées : ~8 000 passages × ~100 soirées au choix = ~800 k lignes dans
+le test au hasard, quelques secondes sur Postgres natif ; il ne tourne que
+la nuit (une portée par passage). Les lectures d'écran ne lisent que les
+tables pré-calculées (index de clé primaire).
+
+## 15. Clause « statistiques anonymes » — PROPOSITION pour le juriste (à ne pas publier)
+
+À insérer dans les conditions de Yuno CRM et dans l'accord de sous-traitance
+(DPA, `src/data/legalContent.ts`) :
+
+> **Statistiques anonymes.** Le Client autorise Yuno, en sa qualité de
+> sous-traitant, à produire à partir des données traitées pour son compte des
+> statistiques agrégées et anonymes (comptages par famille d'analyse, tels que
+> « nombre de retours testés », « nombre de choix conformes », « nombre attendu
+> au hasard »), destinées exclusivement à améliorer les règles d'analyse du
+> service pour l'ensemble de ses utilisateurs. Ces statistiques ne contiennent
+> aucune donnée à caractère personnel, ni identifiant direct ou indirect
+> (adresse électronique ou empreinte de celle-ci, nom, identifiant de personne),
+> ni information commerciale du Client (titre de soirée, nom d'artiste, ville) ;
+> tout comptage portant sur moins de dix personnes est supprimé à la source.
+> Elles sont rattachées à une clé aléatoire propre au compte, détruite avec lui.
+> Un résultat commun n'est publié qu'à partir de cinq comptes contributeurs et
+> lorsqu'aucun compte ne représente plus de la moitié du total. Le Client peut
+> s'opposer à tout moment à cette contribution depuis les réglages de son
+> compte ; ses contributions passées sont alors supprimées. Yuno ne croise
+> jamais les données de deux comptes au niveau d'une personne, n'entraîne aucun
+> modèle sur des données de personnes et ne transmet aucune donnée personnelle
+> à un tiers pour cette finalité.
+
+À valider par le juriste : (1) l'anonymisation est elle-même un traitement
+que le responsable (l'organisateur) doit autoriser — d'où « Le Client
+autorise » ; (2) l'information des clients finaux (politique de
+confidentialité de l'organisateur) ; (3) le profilage par l'organisateur
+(intérêt légitime, droit d'opposition dans la fiche client) à mentionner dans
+la politique de confidentialité CRM.
+
+**Conditions de l'API Shotgun** : non lues. `shotgun.live/privacy.html` a
+répondu 429 et l'article du centre d'aide pro 403 le 07/10 ; les pages Notion
+de l'API (référence) ne contiennent pas de conditions d'usage. À demander à
+Shotgun dans la négociation partenaire : usage des données de billets par un
+outil tiers mandaté par l'organisateur, et statistiques agrégées.
+
+## 16. La suite (plan à part, rien de codé ici)
+
+- Relances en plusieurs temps (séquences avec leur propre budget de pression).
+- Automatisation « 1re → 2e soirée », calée sur le délai médian de retour.
+- Plan ou audit d'une soirée à venir (qui cibler, quand, avec quel angle).
+- Ciblage « venus aux éditions passées de cette série, pas encore de place ».
+- Variables par personne dans un e-mail (« {{artiste}} », « ta 1re soirée »).
+- Signal « a acheté dans les 24 h après l'annonce de X » quand
+  `crm_artist_seen` aura trois mois de recul.
+- MCP sur un compte CRM : outils qui reviennent vides (RFM, segments par cycle
+  de vie, comportement d'achat, goûts, cohortes), `get_event_report` qui lit
+  l'ancienne RPC, période ignorée, invites sans argument.
+- Plus tard (lot E) : repères entre comptes (8 comptes, quartiles) ;
+  statistiques d'artistes entre comptes (3 orgas, aucune au-dessus de 50 %).
