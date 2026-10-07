@@ -101,6 +101,13 @@ if (cmd === 'build') {
     .map(([k, v]) => ({ soiree: r.title, audience: k, n: v.n, attendus: v.p, reels: v.y })));
   console.table(aud);
   log({ gate: (await db.query(`SELECT _crm_projection_gate($1) AS g`, [`org:${org}`])).rows[0].g });
+  // Porte ouverte au banc (1 soirée suffit) : « Qui cibler » montre la projection.
+  await db.exec(`UPDATE crm_analysis_rules SET config = jsonb_set(jsonb_set(config, '{score,projection_nights}', '1'), '{score,projection_err_max}', '1')`);
+  // Une nouvelle nuit de calcul : le score note les soirées encore à venir.
+  await db.query(`SELECT crm_score_compute(NULL, $1)`, [org]);
+  const up = (await db.query(`SELECT event_id FROM external_events WHERE organizer_user_id = $1 AND start_at > now() ORDER BY start_at LIMIT 1`, [org])).rows[0]?.event_id;
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: org, role: 'authenticated' })]);
+  if (up) log({ qui_cibler_score: (await db.query(`SELECT crm_night_targets(NULL, $1, $2) -> 'score' AS s`, [org, up])).rows[0].s });
   await save(db, `${name}-journal`);
 } else if (cmd === 'holdout') {
   // « 10 % non contactés » : un envoi « Qui cibler » mis en file comme le ferait
