@@ -1,0 +1,12 @@
+{
+  "name": "yuno-crm-bench",
+  "private": true,
+  "type": "module",
+  "description": "Banc d'essai de l'analyse client Yuno CRM (PGlite, hors prod)",
+  "scripts": {
+    "bench": "node run.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}
