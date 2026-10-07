@@ -16,6 +16,7 @@ export const AU_IC = {
   ticket: 'M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2ZM13 5v2M13 17v2M13 11v2',
   trend: 'm22 17-8.5-8.5-5 5L2 7M16 17h6v-6',
   repeat: 'm17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3',
+  back: 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
   mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
   sms: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
   bag: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
@@ -32,6 +33,7 @@ export const KIND_IC: Record<CrmAutoKind, string> = {
   click_no_buy: AU_IC.bag,
   post_event_thanks: AU_IC.moon,
   post_event_missed: AU_IC.ticket,
+  first_return: AU_IC.back,
   regular_lapse: AU_IC.trend,
   win_back: AU_IC.repeat,
 };
@@ -90,10 +92,18 @@ export function deltaPts(T: T, cur: number, prev: number, hasPrev: boolean): [st
 }
 
 /** État de la fenêtre de création / réglage d'une recette. */
-export interface ModalState { mode: 'new' | 'edit' | 'reco'; kind: CrmAutoKind; step: 1 | 2 | 3; delay: number; subject: string }
+export interface ModalState {
+  mode: 'new' | 'edit' | 'reco'; kind: CrmAutoKind; step: 1 | 2 | 3; delay: number; subject: string;
+  /** « 1re soirée » : le SMS qui suit l'e-mail (texte pré-rempli à la 1re ouverture). */
+  sms?: { on: boolean; body: string; delay: number };
+}
 
 /** Ouvre la fenêtre sur une recette, avec ses réglages actuels. */
-export function startModal(d: Automations, mode: ModalState['mode'], kind: CrmAutoKind, step: ModalState['step']): ModalState {
+export function startModal(d: Automations, mode: ModalState['mode'], kind: CrmAutoKind, step: ModalState['step'], smsDefault = ''): ModalState {
   const r = d.recipes.find((x) => x.kind === kind);
-  return { mode, kind, step, delay: r?.delay_hours ?? CRM_AUTO_META[kind].def, subject: r?.subject ?? '' };
+  const base: ModalState = { mode, kind, step, delay: r?.delay_hours ?? CRM_AUTO_META[kind].def, subject: r?.subject ?? '' };
+  if (kind !== 'first_return') return base;
+  // Une étape jamais réglée s'ouvre allumée, avec un texte à relire.
+  const fresh = !r?.sms?.body;
+  return { ...base, sms: { on: fresh ? true : !!r?.sms?.enabled, body: r?.sms?.body ?? smsDefault, delay: r?.sms?.delay_days ?? 5 } };
 }

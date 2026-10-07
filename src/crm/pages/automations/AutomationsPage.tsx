@@ -18,7 +18,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmShell } from '@/crm/data/shell';
-import { createAutomationTemplate, useAutomations, useSaveAutomation, type AutoPeriod, type AutoRecipe } from '@/crm/data/automations';
+import { createAutomationTemplate, useAutomations, useSaveAutomation, useSaveAutomationSms, type AutoPeriod, type AutoRecipe } from '@/crm/data/automations';
 import { CRM_AUTO_KINDS, autoState, type CrmAutoKind } from '@/crm/lib/automations';
 import { useStaged } from '@/crm/pages/journey/jrLib';
 import { AU_IC, startModal, type ModalState } from './autoFmt';
@@ -39,10 +39,12 @@ export default function AutomationsPage() {
   const [period, setPeriod] = useState<AutoPeriod>('30d');
   const q = useAutomations(period);
   const save = useSaveAutomation();
+  const saveSms = useSaveAutomationSms();
   const [open, setOpen] = useState<CrmAutoKind | null>(null);
   const [hl, setHl] = useState<CrmAutoKind | null>(null);
   const [busy, setBusy] = useState<CrmAutoKind | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const smsDefault = t('yc.au.fr.smsDefault');
 
   const d = q.data;
   const loading = !d || (q.isFetching && q.isPlaceholderData);
@@ -107,13 +109,18 @@ export default function AutomationsPage() {
     try {
       const tpl = await ensureTemplate(r, m.kind);
       await save.mutateAsync({ kind: m.kind, delayHours: m.delay, subject: m.subject.trim(), templateId: tpl, ...(activate ? { enabled: true } : {}) });
+      // « 1re soirée » : l'étape SMS qui suit l'e-mail (texte vide = étape coupée).
+      if (m.kind === 'first_return' && m.sms) {
+        const body = m.sms.body.trim();
+        await saveSms.mutateAsync({ kind: m.kind, enabled: m.sms.on && body.length > 0, body, delayDays: m.sms.delay });
+      }
       toast(t(activate ? 'yc.au.t.on' : 'yc.au.t.saved', { name: t(`yc.au.r.${m.kind}.name`) }));
       setModal(null);
       setOpen(m.kind);
       setHl(m.kind);
       scrollTo(m.kind);
     } catch (e) { fail(e); } finally { setBusy(null); }
-  }, [busy, d, save, toast, t, ensureTemplate, fail, scrollTo]);
+  }, [busy, d, save, saveSms, toast, t, ensureTemplate, fail, scrollTo]);
 
   const editMail = (r: AutoRecipe) => {
     if (r.template_id) navigate(`${CRM_ROUTES.emailStudio(r.template_id)}?template=${r.kind}`);
@@ -142,7 +149,7 @@ export default function AutomationsPage() {
             <Hv
               as="button"
               type="button"
-              onClick={() => setModal(startModal(d, 'new', firstFree, 1))}
+              onClick={() => setModal(startModal(d, 'new', firstFree, 1, smsDefault))}
               style={{ height: 46, padding: '0 6px 0 20px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform 200ms cubic-bezier(.34,1.56,.64,1),filter 160ms' }}
               hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
               active={{ transform: 'scale(.97)' }}
@@ -167,7 +174,7 @@ export default function AutomationsPage() {
             d={d} T={T} money={caps.money} balance={balance} rate={rates.email} canWrite={caps.write} canBilling={caps.billing}
             onRecharge={() => navigate(CRM_ROUTES.yunits)}
             onResume={(k) => { const r = d.recipes.find((x) => x.kind === k); if (r) void toggle(r); }}
-            onPropose={(k) => setModal(startModal(d, 'reco', k, 3))}
+            onPropose={(k) => setModal(startModal(d, 'reco', k, 3, smsDefault))}
           />
           {hasData && (
             <>
@@ -179,22 +186,22 @@ export default function AutomationsPage() {
             <AutoCards
               d={d} T={T} money={caps.money} c={c} g={g} canWrite={caps.write} open={open} onOpen={setOpen} hl={hl} busy={busy} rates={rates}
               onToggle={(r) => void toggle(r)}
-              onEdit={(r) => setModal(startModal(d, 'edit', r.kind, 2))}
+              onEdit={(r) => setModal(startModal(d, 'edit', r.kind, 2, smsDefault))}
               onEditMail={editMail}
             />
           )}
           {hasData && <AutoLive d={d} T={T} c={c} balance={balance} rates={rates} canBilling={caps.billing} />}
           <AutoRecos
             T={T} recos={recos} empty={!hasAny && !hasData} canWrite={caps.write} rate={rates.email}
-            onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3)); }}
-            onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1))}
+            onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3, smsDefault)); }}
+            onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1, smsDefault))}
           />
           <AutoSoon T={T} />
         </>
       )}
 
       {modal && d && (
-        <AutoModal m={modal} setM={setModal} d={d} T={T} balance={balance} rate={rates.email} busy={!!busy} onClose={() => setModal(null)} onSave={(m) => void submit(m)} />
+        <AutoModal m={modal} setM={setModal} d={d} T={T} balance={balance} rate={rates.email} smsRate={rates.sms} busy={!!busy} onClose={() => setModal(null)} onSave={(m) => void submit(m)} />
       )}
     </main>
   );

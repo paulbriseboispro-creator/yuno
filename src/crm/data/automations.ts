@@ -50,7 +50,13 @@ export interface AutoRecipe {
   pending: number;
   skipped: number;
   preview: AutoPreview;
+  /** « 1re soirée » : délai en jours, calé sur le délai médian de retour du compte. */
+  auto_delay_days?: number | null;
+  /** « 1re soirée » : l'étape SMS qui suit l'e-mail. */
+  sms?: AutoSms | null;
 }
+
+export interface AutoSms { enabled: boolean; body: string | null; delay_days: number; sent: number; identity_ok: boolean }
 
 export interface AutoWeek { start: string; revenue: number | null; purchases: number; sent: number; contacted: number }
 export interface AutoTotals { sent: number; contacted?: number; clicked: number; purchases: number; revenue: number | null; recipes?: number }
@@ -107,6 +113,16 @@ export function useSaveAutomation() {
       p_subject: p.subject ?? null,
       p_template_id: p.templateId ?? null,
     }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['crm', qk, 'automations'] }); },
+  });
+}
+
+export function useSaveAutomationSms() {
+  const { rpc: a, qk } = useCrmScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: { kind: CrmAutoKind; enabled: boolean; body: string; delayDays: number }) =>
+      rpc('crm_automation_sms_save', { ...a, p_kind: p.kind, p_enabled: p.enabled, p_body: p.body, p_delay_days: p.delayDays }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['crm', qk, 'automations'] }); },
   });
 }

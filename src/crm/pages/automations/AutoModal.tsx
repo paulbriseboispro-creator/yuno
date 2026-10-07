@@ -3,7 +3,8 @@
  * étapes, comme le prototype : Quand (le déclencheur, parmi les six recettes
  * d'un compte CRM), Quoi (le canal, le délai, l'objet), Vérifier (qui serait
  * concerné aujourd'hui, ce que ça coûte en Yunits, les garanties). Une recette
- * = un e-mail : le SMS et un second message sont annoncés, pas proposés.
+ * = un e-mail ; « Faire revenir après la 1re soirée » y ajoute un SMS, N jours
+ * après l'e-mail, à qui n'a toujours pas de place (crm_automation_sms_save).
  */
 import { useEffect } from 'react';
 import { Hv } from '@/crm/ui/Hv';
@@ -12,16 +13,16 @@ import { Portal } from '@/crm/ui/kit';
 import { EASE } from '@/crm/ui/motion';
 import type { useCrmT } from '@/crm/i18n';
 import type { Automations } from '@/crm/data/automations';
-import { CRM_AUTO_KINDS, CRM_AUTO_META, autoState, quietSendAt } from '@/crm/lib/automations';
+import { CRM_AUTO_KINDS, CRM_AUTO_META, FIRST_RETURN_SMS_DELAYS, autoState, quietSendAt, recipeHours } from '@/crm/lib/automations';
 import { AU_IC, KIND_IC, chipLabel, startModal, type ModalState } from './autoFmt';
 import { Flow } from './autoUi';
 
 type T = ReturnType<typeof useCrmT>;
 
 export function AutoModal({
-  m, setM, d, T, balance, rate, busy, onClose, onSave,
+  m, setM, d, T, balance, rate, smsRate, busy, onClose, onSave,
 }: {
-  m: ModalState; setM: (m: ModalState) => void; d: Automations; T: T; balance: number; rate: number; busy: boolean;
+  m: ModalState; setM: (m: ModalState) => void; d: Automations; T: T; balance: number; rate: number; smsRate: number; busy: boolean;
   onClose: () => void; onSave: (m: ModalState) => void;
 }) {
   const { t, tp, n } = T;
@@ -42,6 +43,10 @@ export function AutoModal({
   const sub = t(`yc.au.m.sub${m.step}`);
   const placeholder = rec?.template_subject || t(`yc.em.tp.${meta.tpl}.subject`).replace('{{prénom}}', '…');
   const set = (patch: Partial<ModalState>) => setM({ ...m, ...patch });
+  const fr = m.kind === 'first_return';
+  const frDays = rec?.auto_delay_days ?? 21;
+  const sms = m.sms;
+  const setSms = (patch: Partial<NonNullable<ModalState['sms']>>) => sms && set({ sms: { ...sms, ...patch } });
 
   return (
     <Portal>
@@ -70,7 +75,7 @@ export function AutoModal({
               ))}
             </div>
             <div style={{ padding: '14px 16px', borderRadius: 16, background: 'var(--sand-50)' }}>
-              <Flow key={`${m.kind}-${m.delay}`} T={T} kind={m.kind} delay={m.delay} on={false} size="modal" />
+              <Flow key={`${m.kind}-${m.delay}`} T={T} kind={m.kind} delay={fr && rec ? recipeHours(rec) ?? m.delay : m.delay} on={false} size="modal" />
             </div>
           </div>
 
@@ -87,7 +92,7 @@ export function AutoModal({
                       as="button"
                       type="button"
                       aria-pressed={on}
-                      onClick={() => setM({ ...startModal(d, m.mode, k, m.step), mode: m.mode })}
+                      onClick={() => setM({ ...startModal(d, m.mode, k, m.step, t('yc.au.fr.smsDefault')), mode: m.mode })}
                       style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: 20, border: `1.5px solid ${on ? 'var(--red-300)' : 'var(--sand-200)'}`, background: on ? 'var(--red-50)' : '#fff', textAlign: 'left', cursor: 'pointer', color: 'var(--ink)', transition: `translate 220ms ${EASE},box-shadow 220ms,border-color 200ms` }}
                       hover={{ translate: '0 -3px', boxShadow: 'var(--shadow-md)' }}
                     >
@@ -117,13 +122,19 @@ export function AutoModal({
                         <span style={{ height: 34, padding: '0 16px', borderRadius: 99, background: '#fff', boxShadow: 'var(--shadow-xs)', fontSize: 14, fontWeight: 600, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                           {t('yc.au.m.email')}<span style={{ fontSize: 12, fontWeight: 500, color: 'var(--sand-500)' }}>{tp('yc.au.m.cost', rate, { n: n(rate) })}</span>
                         </span>
-                        <span aria-disabled="true" title={t('yc.au.x.smsSoon')} style={{ height: 34, padding: '0 16px', borderRadius: 99, fontSize: 14, fontWeight: 600, color: 'var(--sand-400)', display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'not-allowed' }}>
+                        {/* « 1re soirée » : le SMS est le message 2, juste en dessous. */}
+                        {!fr && <span aria-disabled="true" title={t('yc.au.x.smsSoon')} style={{ height: 34, padding: '0 16px', borderRadius: 99, fontSize: 14, fontWeight: 600, color: 'var(--sand-400)', display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'not-allowed' }}>
                           {t('yc.au.m.sms')}<span style={{ height: 20, padding: '0 7px', borderRadius: 99, background: '#fff', fontSize: 11.5, fontWeight: 600, color: 'var(--sand-500)', display: 'inline-flex', alignItems: 'center' }}>{t('yc.au.m.soon')}</span>
-                        </span>
+                        </span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
                       <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.when')}</span>
+                      {fr ? (
+                        <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-700)', maxWidth: 360, textWrap: 'pretty' }}>
+                          {tp('yc.au.fr.when', frDays, { n: n(frDays) })}
+                        </span>
+                      ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {meta.delays.map((h) => {
                           const on = m.delay === h;
@@ -142,6 +153,7 @@ export function AutoModal({
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   </div>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -158,9 +170,62 @@ export function AutoModal({
                     <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.subjectHint')}</span>
                   </label>
                 </div>
-                <div style={{ height: 46, borderRadius: 16, border: '1.5px dashed var(--sand-300)', color: 'var(--sand-500)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 14px', textAlign: 'center' }}>
-                  <Icon d={AU_IC.plus} size={15} stroke={2.2} />{t('yc.au.m.more')}
-                </div>
+                {fr && sms ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px 18px', borderRadius: 18, border: '1px solid var(--sand-200)', background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <b style={{ fontSize: 15 }}>{t('yc.au.m.msg')} 2 · {t('yc.au.m.sms')}</b>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={sms.on} onChange={(e) => setSms({ on: e.target.checked })} style={{ width: 18, height: 18, accentColor: 'var(--red-500)' }} />
+                        {t(sms.on ? 'yc.au.fr.smsOn' : 'yc.au.fr.smsOff')}
+                      </label>
+                    </div>
+                    <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)', textWrap: 'pretty' }}>{t('yc.au.fr.smsWho')}</span>
+                    {sms.on && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.when')}</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {FIRST_RETURN_SMS_DELAYS.map((dd) => {
+                              const on = sms.delay === dd;
+                              return (
+                                <Hv
+                                  key={dd}
+                                  as="button"
+                                  type="button"
+                                  aria-pressed={on}
+                                  onClick={() => setSms({ delay: dd })}
+                                  style={{ height: 36, padding: '0 13px', borderRadius: 99, border: `1.5px solid ${on ? 'var(--red-400)' : 'var(--sand-200)'}`, background: on ? 'var(--red-50)' : '#fff', color: on ? 'var(--red-700)' : 'var(--sand-700)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  hover={on ? {} : { borderColor: 'var(--sand-400)' }}
+                                >
+                                  {tp('yc.au.fr.smsAfter', dd, { n: n(dd) })}
+                                </Hv>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.fr.smsText')}</span>
+                          <textarea
+                            className="yc-field"
+                            value={sms.body}
+                            maxLength={480}
+                            rows={3}
+                            onChange={(e) => setSms({ body: e.target.value })}
+                            style={{ boxSizing: 'border-box', padding: '12px 14px', borderRadius: 12, border: '1.5px solid var(--sand-200)', background: '#fff', fontSize: 15, lineHeight: 1.45, color: 'var(--ink)', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                          />
+                          <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.fr.smsHint', { n: n(smsRate) })}</span>
+                        </label>
+                        {rec?.sms && !rec.sms.identity_ok && (
+                          <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--amber-700)' }}>{t('yc.au.fr.identity')}</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ height: 46, borderRadius: 16, border: '1.5px dashed var(--sand-300)', color: 'var(--sand-500)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 14px', textAlign: 'center' }}>
+                    <Icon d={AU_IC.plus} size={15} stroke={2.2} />{t('yc.au.m.more')}
+                  </div>
+                )}
               </div>
             )}
             {m.step === 3 && (
@@ -181,6 +246,9 @@ export function AutoModal({
                     <span style={{ fontSize: 13, color: left < 0 ? 'var(--amber-700)' : 'var(--sand-500)' }}>{t('yc.au.m.yuS', { left: left >= 0 ? t('yc.au.m.left', { n: n(left) }) : t('yc.au.m.short') })}</span>
                   </div>
                 </div>
+                {fr && sms?.on && (
+                  <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-600)' }}>{t('yc.au.fr.smsCost', { n: n(smsRate) })}</span>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, lineHeight: 1.45, color: 'var(--sand-600)' }}>
                   {['c1', 'c2', 'c4', 'c3'].map((c) => (
                     <span key={c} style={{ display: 'flex', gap: 10 }}><Icon d={AU_IC.check} size={16} stroke={2.4} color="var(--green-700)" style={{ marginTop: 2 }} />{t(`yc.au.m.${c}`)}</span>

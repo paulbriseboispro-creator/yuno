@@ -12,7 +12,7 @@ import { EASE } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import type { useCrmT } from '@/crm/i18n';
 import type { AutoRecipe, Automations } from '@/crm/data/automations';
-import { CRM_AUTO_META, quietSendAt, receivedSubject, runwayWeeks, weeklyYunits, type CrmAutoKind } from '@/crm/lib/automations';
+import { CRM_AUTO_META, quietSendAt, receivedSubject, recipeHours, runwayWeeks, weeklyYunits, type CrmAutoKind } from '@/crm/lib/automations';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { AU_IC, agoLabel, linkLabel } from './autoFmt';
 import { Flow, SectionHead } from './autoUi';
@@ -65,7 +65,7 @@ export function AutoLive({ d, T, c, balance, rates, canBilling }: { d: Automatio
                       <b style={{ fontWeight: 600 }}>{who}</b> {t('yc.au.feed.got')} {t('yc.jr.quote', { s: t(`yc.au.r.${e.kind}.name`) })}
                     </span>
                     <span style={{ fontSize: 13, color: 'var(--sand-500)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {t('yc.au.m.email')} · {linkLabel(T, e.kind, rec?.delay_hours ?? null)}{e.subject ? ` · ${receivedSubject(e.subject, e.first_name)}` : ''}
+                      {t('yc.au.m.email')} · {linkLabel(T, e.kind, rec ? recipeHours(rec) : null)}{e.subject ? ` · ${receivedSubject(e.subject, e.first_name)}` : ''}
                     </span>
                   </span>
                   <span style={{ flex: 'none', fontSize: 13, color: 'var(--sand-500)', whiteSpace: 'nowrap' }}>{agoLabel(T, e.at)}</span>
@@ -205,7 +205,7 @@ export function AutoRecos({
                 <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-.02em', lineHeight: '23px' }}>{t(`yc.au.r.${r.kind}.name`)}</b>
                 <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-600)', textWrap: 'pretty' }}>{t(`yc.au.r.${r.kind}.desc`)}</span>
               </div>
-              <Flow T={T} kind={r.kind} delay={CRM_AUTO_META[r.kind].def} on={false} size="reco" />
+              <Flow T={T} kind={r.kind} delay={recipeHours({ ...r, delay_hours: CRM_AUTO_META[r.kind].def })} on={false} size="reco" />
               <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 12, borderTop: '1px solid var(--sand-100)' }}>
                 <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>
                   {elig === 0 && r.preview?.next_due_at

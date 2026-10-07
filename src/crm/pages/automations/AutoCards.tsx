@@ -11,7 +11,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
 import type { useCrmT } from '@/crm/i18n';
 import type { AutoRecipe, Automations } from '@/crm/data/automations';
-import { autoState, quietSendAt, type CrmAutoKind, type CrmAutoState } from '@/crm/lib/automations';
+import { autoState, quietSendAt, recipeHours, type CrmAutoKind, type CrmAutoState } from '@/crm/lib/automations';
 import { AU_IC, KIND_IC, linkLabel, whenLabel } from './autoFmt';
 import { Flow, GreenSwitch, Pills, SectionHead, StateBadge, SubjectText } from './autoUi';
 
@@ -135,7 +135,7 @@ function Card({
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px 28px' }}>
           <div style={{ flex: '1 1 380px', minWidth: 0 }}>
-            <Flow T={T} kind={r.kind} delay={r.delay_hours} on={on} base={600 + idx * 80} />
+            <Flow T={T} kind={r.kind} delay={recipeHours(r)} on={on} base={600 + idx * 80} />
           </div>
           {hasStats ? (
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22 }}>
@@ -169,7 +169,7 @@ function Card({
               <div style={{ marginLeft: 21, borderLeft: '2px dashed var(--sand-300)', display: 'flex', flexDirection: 'column', gap: 14, padding: '2px 0' }}>
                 <div style={{ position: 'relative', paddingLeft: 26 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 28, padding: '4px 12px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', fontSize: 12.5, fontWeight: 600, color: 'var(--sand-600)' }}>
-                    <Icon d={AU_IC.clock} size={13} stroke={2.2} />{whenLabel(T, r.kind, r.delay_hours)}
+                    <Icon d={AU_IC.clock} size={13} stroke={2.2} />{whenLabel(T, r.kind, recipeHours(r))}
                   </span>
                 </div>
                 <div style={{ position: 'relative', paddingLeft: 26 }}>
@@ -179,7 +179,7 @@ function Card({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 16, background: '#fff', border: '1px solid var(--sand-200)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '4px 12px' }}>
                       <span style={{ fontSize: 15, fontWeight: 600, overflowWrap: 'anywhere' }}>{subject ? <SubjectText T={T} subject={subject} /> : '—'}</span>
-                      <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.email')} · {linkLabel(T, r.kind, r.delay_hours)}</span>
+                      <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.email')} · {linkLabel(T, r.kind, recipeHours(r))}</span>
                     </div>
                     {r.sent > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -193,6 +193,23 @@ function Card({
                     )}
                   </div>
                 </div>
+                {r.kind === 'first_return' && r.sms && (
+                  <div style={{ position: 'relative', paddingLeft: 26 }}>
+                    <span style={{ position: 'absolute', left: -23, top: 2, width: 44, height: 44, borderRadius: 14, background: on && r.sms.enabled ? 'var(--red-50)' : 'var(--sand-100)', color: on && r.sms.enabled ? 'var(--red-700)' : 'var(--sand-600)', display: 'grid', placeItems: 'center', border: '3px solid var(--sand-50)', boxSizing: 'border-box' }}>
+                      <Icon d={AU_IC.sms} size={17} stroke={2} />
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '14px 16px', borderRadius: 16, background: '#fff', border: '1px solid var(--sand-200)' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '4px 12px' }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, overflowWrap: 'anywhere', color: r.sms.enabled ? 'var(--ink)' : 'var(--sand-500)' }}>
+                          {r.sms.enabled ? (r.sms.body ?? '') : t('yc.au.fr.smsOff')}
+                        </span>
+                        <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.sms')} · {tp('yc.au.fr.smsAfter', r.sms.delay_days, { n: n(r.sms.delay_days) })}</span>
+                      </div>
+                      {r.sms.enabled && !r.sms.identity_ok && <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>{t('yc.au.fr.identity')}</span>}
+                      {r.sms.sent > 0 && <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{tp('yc.au.fr.smsSent', r.sms.sent, { n: n(r.sms.sent) })}</span>}
+                    </div>
+                  </div>
+                )}
               </div>
               {(r.pending > 0 || r.skipped > 0) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--sand-500)', paddingLeft: 4 }}>

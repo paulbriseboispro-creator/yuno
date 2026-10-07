@@ -160,6 +160,22 @@ const dict: CrmDict = {
   'yc.em.tp.vide.title': ['Your title here', 'Votre titre ici', 'Su título aquí'],
   'yc.em.tp.vide.body': ['Hi {{prénom}},\nWrite your message here.', 'Bonjour {{prénom}},\nÉcrivez votre message ici.', 'Hola {{prénom}},\nEscriba su mensaje aquí.'],
   'yc.em.tp.vide.cta': ['See the night', 'Voir la soirée', 'Ver la fiesta'],
+
+  // « Faire revenir après la 1re soirée » (20261011130000), modèle d'automatisation.
+  'yc.em.tp.retour.name': ['Bring them back after the first night', 'Faire revenir après la 1re soirée', 'Hacer volver tras la primera noche'],
+  'yc.em.tp.retour.desc': ['For those who came once: the next night chosen for them.', 'Pour ceux venus une fois : la prochaine soirée choisie pour eux.', 'Para quienes vinieron una vez: la próxima fiesta elegida para ellos.'],
+  'yc.em.tp.retour.aud': ['Came once, live nearby', 'Venus une fois, habitent près', 'Vinieron una vez, viven cerca'],
+  'yc.em.tp.retour.subject': ['{{prénom}}, shall we do it again?', '{{prénom}}, on remet ça ?', '{{prénom}}, ¿repetimos?'],
+  'yc.em.tp.retour.pre': ['The next night, chosen from your first one.', 'La prochaine soirée, choisie d’après votre première.', 'La próxima fiesta, elegida a partir de la primera.'],
+  'yc.em.tp.retour.title': ['Shall we do it again?', 'On remet ça ?', '¿Repetimos?'],
+  'yc.em.tp.retour.body': [
+    'Hi {{prénom}},\nYou were there for {{1re_soiree}} {at}. Here is the next one we picked for you, with its line-up.',
+    'Bonjour {{prénom}},\nVous étiez là pour {{1re_soiree}} {at}. Voici la prochaine que nous avons choisie pour vous, avec son line-up.',
+    'Hola {{prénom}},\nEstuvo en {{1re_soiree}} {at}. Aquí tiene la próxima que hemos elegido para usted, con su line-up.',
+  ],
+  'yc.em.tp.retour.program': ['On the bill', 'Au programme', 'En el cartel'],
+  'yc.em.tp.retour.eventTitle': ['Your next night', 'Votre prochaine soirée', 'Su próxima fiesta'],
+  'yc.em.tp.retour.cta': ['Get my spot', 'Prendre ma place', 'Conseguir mi plaza'],
 };
 
 export default dict;

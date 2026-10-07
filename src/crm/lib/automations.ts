@@ -1,5 +1,5 @@
 /**
- * Les sept recettes d'automatisation d'un compte Yuno CRM (billetterie
+ * Les huit recettes d'automatisation d'un compte Yuno CRM (billetterie
  * connectée) et leurs règles d'écran : délais proposés (miroir des choix
  * acceptés par crm_automation_save), modèle CRM qui leur donne leur e-mail,
  * libellés de délai, état d'une recette, consommation de Yunits.
@@ -14,7 +14,7 @@
 import type { CrmTemplateKind } from '@/crm/lib/emailTemplates';
 import { interpolateVariables } from '@/lib/email/variables';
 
-export const CRM_AUTO_KINDS = ['new_event', 'last_call', 'click_no_buy', 'post_event_thanks', 'post_event_missed', 'regular_lapse', 'win_back'] as const;
+export const CRM_AUTO_KINDS = ['new_event', 'last_call', 'click_no_buy', 'post_event_thanks', 'post_event_missed', 'first_return', 'regular_lapse', 'win_back'] as const;
 export type CrmAutoKind = (typeof CRM_AUTO_KINDS)[number];
 
 export type AutoDirection = 'after' | 'before' | 'dormant';
@@ -37,6 +37,9 @@ export const CRM_AUTO_META: Record<CrmAutoKind, CrmAutoMeta> = {
   click_no_buy: { tpl: 'relance', delays: [6, 12, 24, 48], def: 24, dir: 'after' },
   post_event_thanks: { tpl: 'merci', delays: [6, 12, 24, 48], def: 12, dir: 'after', needsScan: true },
   post_event_missed: { tpl: 'manque', delays: [12, 24, 48, 72], def: 24, dir: 'after', needsScan: true },
+  // « Faire revenir après la 1re soirée » : le délai suit le délai médian de
+  // retour du compte (auto_delay_days, serveur) ; 504 h n'est qu'un repère.
+  first_return: { tpl: 'retour', delays: [504], def: 504, dir: 'dormant' },
   regular_lapse: { tpl: 'manque', delays: [672, 1008, 1344], def: 1008, dir: 'dormant' },
   win_back: { tpl: 'manque', delays: [1080, 1440, 2160, 2880], def: 2160, dir: 'dormant' },
 };
@@ -48,9 +51,19 @@ export function isCrmAutoKind(k: string): k is CrmAutoKind {
 /** Valeur et unité lisibles d'un délai : « 6 h », « 2 j », « 6 sem. ». */
 export function delayParts(kind: CrmAutoKind, hours: number): { n: number; unit: 'h' | 'd' | 'w' } {
   if (kind === 'regular_lapse') return { n: Math.round(hours / 168), unit: 'w' };
+  if (kind === 'first_return') return { n: Math.round(hours / 24), unit: 'd' };
   if (hours >= 24 && hours % 24 === 0) return { n: hours / 24, unit: 'd' };
   return { n: hours, unit: 'h' };
 }
+
+/** Délai réel d'une recette en heures : « 1re soirée » suit le délai de retour du compte. */
+export function recipeHours(r: { kind: CrmAutoKind; delay_hours: number | null; auto_delay_days?: number | null }): number | null {
+  if (r.kind === 'first_return') return (r.auto_delay_days ?? 21) * 24;
+  return r.delay_hours;
+}
+
+/** Délais proposés pour le SMS qui suit l'e-mail de « 1re soirée » (crm_automation_sms_save). */
+export const FIRST_RETURN_SMS_DELAYS = [3, 5, 7] as const;
 
 export type CrmAutoState = 'on' | 'off' | 'ready' | 'none';
 
