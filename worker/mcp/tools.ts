@@ -352,10 +352,12 @@ export const TOOLS: ToolDef[] = [
       + 'tickets (with capacity), VIP tables (booked, guests, arrived), guest list (registered, entered), entries at the door, attendance, customers, '
       + 'spend per head, plus best ticket tiers, best table packs and computed takeaways. '
       + 'period: last (last event), last4 (default), month, year, all. '
+      + 'On a Yuno CRM account: tickets, buyers and revenue reported by the connected ticketing over a rolling period '
+      + '(last and month = 30 days, last4 = 90 days, year and all = 12 months, or days), compared with the period before, with fill rate, tiers and sales per event. '
       + 'Examples: "how are we doing?", "this month vs last month", "is it going up or down?".',
     inputSchema: {
       type: 'object',
-      properties: { space: SPACE, period: { type: 'string', enum: ['last', 'last4', 'month', 'year', 'all'] } },
+      properties: { space: SPACE, period: { type: 'string', enum: ['last', 'last4', 'month', 'year', 'all'] }, days: DAYS(90) },
       additionalProperties: false,
     },
   },
@@ -367,7 +369,9 @@ export const TOOLS: ToolDef[] = [
     description:
       'Sales dynamics over a date window (events that started in it), compared with the previous window of the same length: '
       + 'the average sales curve per event by D-N (how early people buy), what drives sales (channels, tracked links, emails and push with attributed revenue), '
-      + 'and new vs returning buyers. Examples: "when do people buy?", "which channel brings sales?", "is Instagram worth it?". Suite accounts.',
+      + 'and new vs returning buyers. On a Yuno CRM account: tickets and revenue per day (or hour, or month) of the period vs the period before, '
+      + 'Yuno sends placed on that series, the sell-through pace vs reference nights, and where buyers came from (sources reported by the ticketing). '
+      + 'Examples: "when do people buy?", "which channel brings sales?", "is Instagram worth it?".',
     inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(90), from: FROM, to: TO }, additionalProperties: false },
   },
   {
@@ -379,6 +383,8 @@ export const TOOLS: ToolDef[] = [
     description:
       'How customers buy: lead time before the event, day x hour heatmap of purchases, group size, basket, ticket tiers, options taken, '
       + 'new vs regulars and revenue concentration, cross-purchases the same night (ticket + table), channels and devices, visit to purchase funnel, attendance at the door. '
+      + 'On a Yuno CRM account: purchases by weekday and two-hour slot, ticket tiers, and the tested buying habits (at sales opening, early, last minute, '
+      + 'several tickets) with their status on the account. '
       + 'Examples: "when should I open sales?", "at what time should I send my email?", "do people come in groups?".',
     inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(90), from: FROM, to: TO }, additionalProperties: false },
   },
@@ -390,8 +396,10 @@ export const TOOLS: ToolDef[] = [
       'The contact base and its loyalty: total contacts, reachable by email and push, followers, growth over 24 months, participation (events per person), '
       + 'last purchase recency, new contacts per event, music tastes of the community (only genres shared by 10+ people) and monthly cohort retention '
       + '(RFM segments are in get_customer_segments). Examples: "how big is my base?", "is my audience growing?", "how loyal are they?", "what music do they like?". '
+      + 'On a Yuno CRM account: base, lifecycle (regulars, occasional, new, lapsed), nights per person, reachable by email and SMS, people to bring back, '
+      + 'age and cities when the ticketing reports them, return of each recent night\'s buyers, and the artists who bring new people. '
       + 'Can take a few seconds on large bases.',
-    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+    inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(365) }, additionalProperties: false },
   },
   {
     name: 'get_customer_segments',
@@ -400,8 +408,9 @@ export const TOOLS: ToolDef[] = [
     description:
       'Segmentation without personal data: RFM segments with counts and revenue (champions, loyal, promising/big occasional, new, at risk, dormant/lost), '
       + 'saved segments and their rules, imported contact lists health (active, unsubscribed, dead), and the suggested "high basket" threshold. '
+      + 'On a Yuno CRM account: saved CRM segments, lifecycle segments (regulars, occasional, new, lapsed) with counts and message results over the period. '
       + 'Use before sizing or building a campaign audience. Examples: "who are my best customers?", "how many are at risk?".',
-    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+    inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(90) }, additionalProperties: false },
   },
   {
     name: 'count_contacts',
@@ -458,7 +467,9 @@ export const TOOLS: ToolDef[] = [
     windowed: true,
     description:
       'Visits to the public page and the event pages: daily visits, sources (Instagram, direct, Google, email, links...), devices, '
-      + 'purchases and conversion by source, funnel visit to cart to purchase. Examples: "where do my visitors come from?", "does Instagram convert?".',
+      + 'purchases and conversion by source, funnel visit to cart to purchase. On a Yuno CRM account: where ticket buyers came from '
+      + '(sources reported by the ticketing, Yuno share links, signup pages); visits to the ticketing site itself are not reported. '
+      + 'Examples: "where do my visitors come from?", "does Instagram convert?".',
     inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(30), from: FROM, to: TO }, additionalProperties: false },
   },
   {
@@ -544,6 +555,24 @@ export const TOOLS: ToolDef[] = [
     inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
   },
   {
+    name: 'get_event_targets',
+    title: 'Who to target for an upcoming event',
+    level: 'analytics',
+    products: ['crm'],
+    description:
+      'Yuno CRM, one upcoming event (the next one when "event" is omitted): the audiences of people WITHOUT a ticket for it, each with its size, '
+      + 'how many are reachable by email and by SMS, the status on this account of the hypothesis family behind it, the suggested moment '
+      + '(now, the week before at 18:00, the eve at 18:00) and evidence: concept (came to a past edition of the same series), lineup (saw a non-resident artist '
+      + 'who plays that night, with the artists), genre (most attended genre is one of the event genres), early (buys early or at sales opening), '
+      + 'last_minute (buys the eve or the same day), once_local (came once, lives nearby). Also the union of all audiences and how many already have a ticket. '
+      + 'Examples: "who should I target for Saturday?", "who can I bring back for the next Bunker?".',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, event: { type: 'string', minLength: 1, maxLength: 120, description: 'Event id or name (default: the next upcoming event).' } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'list_customers',
     title: 'List customers',
     level: 'customers',
@@ -581,6 +610,7 @@ export const TOOLS: ToolDef[] = [
     description:
       'List the customers of an RFM segment, sorted by spend, with name, email, spend, nights, tickets, tables, average basket, days since last visit and favourite event. '
       + 'segment: champions, loyal, promising, new, at_risk, dormant, lost, or churn_risk (regulars who stopped coming). Only with the "customers" level. '
+      + 'On a Yuno CRM account the segment maps to the CRM lifecycle: champions and loyal = regulars, promising = occasional, new = new, the others = lapsed. '
       + 'Examples: "which VIPs stopped coming?", "who should I personally invite back?".',
     inputSchema: {
       type: 'object',

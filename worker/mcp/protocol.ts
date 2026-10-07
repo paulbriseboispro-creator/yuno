@@ -340,7 +340,8 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'prompts/get': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const prompt = typeof params.name === 'string' ? getPrompt(params.name, langOf(session.language)) : null;
+        const prompt = typeof params.name === 'string' ? getPrompt(params.name, langOf(session.language),
+          params.arguments && typeof params.arguments === 'object' ? params.arguments as Record<string, unknown> : {}) : null;
         if (!prompt) return { status: 200, body: rpcError(id, RPC.INVALID_PARAMS, `Unknown prompt: ${String(params.name)}`) };
         return ok(prompt);
       }

@@ -55,6 +55,7 @@ NIGHTLIFE ANALYSIS PLAYBOOK
 - Traffic: a source with many visits and few purchases (conversion) has a landing or offer problem; a source with few visits but high conversion deserves more budget.
 - Always separate one-off effects (holiday, artist, weather, competing event) from trends: compare several events before concluding.
 - What brings customers (Yuno CRM, get_customer_analysis): start from the supported families. A supported line-up family means returning customers pick nights with an artist they already saw more often than chance: announce artists early to those who saw them (segment "Line-up hypothesis", hypothesis filter in list_customers). Supported series → announce the next edition to past attendees first. A return group that comes back LESS (passing through, Shotgun discovery) should not weigh on loyalty targets; people who came once and live nearby are the ones to invite back, timed with the median return delay.
+- Who to target for an upcoming night (Yuno CRM, get_event_targets): lead with the audiences whose family is supported, give each its size and reachable count, then a calendar (concept and line-up now, genre and people who came once the week before, last-minute buyers the eve at 18:00). People already holding a ticket are never in these audiences. In the Console: the night's drawer, "Qui cibler" tab, "Écrire à…".
 
 EMAIL DESIGN (when asked to create, design, rewrite or vary an email)
 1. Call get_email_design_kit (with the night: id, "next" or part of its title, and product "crm" when the person talks about Yuno CRM) and list_email_audiences in parallel. The kit gives the brand, the night's facts, the Yuno tags, the HTML rules, the design method and an example section: follow them.
@@ -179,6 +180,8 @@ interface PromptDef {
   description: Record<Lang, string>;
   text: Record<Lang, string>;
   arguments?: { name: string; description: string; required?: boolean }[];
+  /** Produits qui voient l'invite (absent = tous). */
+  products?: string[];
 }
 
 export const PROMPTS: PromptDef[] = [
@@ -273,6 +276,18 @@ export const PROMPTS: PromptDef[] = [
     },
   },
   {
+    name: 'target_next_event',
+    title: { fr: 'Qui cibler pour ma soirée', en: 'Who to target for my event', es: 'A quién dirigirme para mi fiesta' },
+    description: { fr: 'Les audiences de la soirée, quand et avec quel angle.', en: 'The audiences of the event, when and with which angle.', es: 'Las audiencias de la fiesta, cuándo y con qué enfoque.' },
+    products: ['crm'],
+    arguments: [{ name: 'event', description: 'Event name or id (default: the next upcoming event).' }],
+    text: {
+      fr: "Pour {{event}}, dis-moi qui cibler : les audiences sans place (fidèles du concept, ceux qui ont vu un artiste du line-up, le genre, ceux qui achètent tôt ou à la dernière minute, les venus une fois), leur taille et combien sont joignables par e-mail et SMS, ce que mes hypothèses confirment ou non sur mon compte, et un calendrier d'envois jusqu'au soir J avec le moment et l'angle de chaque message. Termine par les 3 envois à faire en premier, avec où cliquer dans Yuno.",
+      en: 'For {{event}}, tell me who to target: the audiences without a ticket (concept regulars, people who saw an artist of the line-up, the genre, early and last-minute buyers, people who came once), their size and how many are reachable by email and SMS, what my hypotheses confirm or not on my account, and a sending schedule until the night with the moment and angle of each message. End with the 3 sends to do first, with where to click in Yuno.',
+      es: 'Para {{event}}, dime a quién dirigirme: las audiencias sin entrada (fieles del concepto, quienes vieron a un artista del line-up, el género, quienes compran pronto o a última hora, quienes vinieron una vez), su tamaño y cuántos son alcanzables por email y SMS, lo que mis hipótesis confirman o no en mi cuenta, y un calendario de envíos hasta la noche con el momento y el enfoque de cada mensaje. Termina con los 3 envíos a hacer primero, con dónde hacer clic en Yuno. Escribe en español.',
+    },
+  },
+  {
     name: 'release_live',
     title: { fr: 'Suivre une mise en vente en direct', en: 'Follow a release live', es: 'Seguir un lanzamiento en directo' },
     description: { fr: 'Ventes de la dernière heure et réaction.', en: 'Last hour sales and what to do.', es: 'Ventas de la última hora y qué hacer.' },
@@ -293,15 +308,31 @@ export function listPrompts(lang: Lang, products: Set<string>, drafts = true, pa
     .filter((p) => p.name !== 'release_live' || products.has('suite'))
     .filter((p) => p.name !== 'design_event_email' || drafts)
     .filter((p) => p.name !== 'design_signup_page' || pages)
-    .map((p) => ({ name: p.name, title: p.title[lang], description: p.description[lang] }));
+    .filter((p) => !p.products || p.products.some((x) => products.has(x)))
+    .map((p) => ({
+      name: p.name, title: p.title[lang], description: p.description[lang],
+      ...(p.arguments ? { arguments: p.arguments } : {}),
+    }));
 }
 
-export function getPrompt(name: string, lang: Lang): Record<string, unknown> | null {
+/** Valeur d'argument d'invite : texte court, sans retour à la ligne ni accolades. */
+function promptArg(v: unknown): string {
+  return typeof v === 'string' ? v.replace(/[\r\n{}]+/g, ' ').trim().slice(0, 120) : '';
+}
+
+export function getPrompt(name: string, lang: Lang, args: Record<string, unknown> = {}): Record<string, unknown> | null {
   const p = PROMPTS.find((x) => x.name === name);
   if (!p) return null;
+  // Seul argument à ce jour : la soirée, nommée ou « la prochaine ».
+  const named = { fr: (v: string) => `ma soirée « ${v} »`, en: (v: string) => `my event "${v}"`, es: (v: string) => `mi fiesta «${v}»` }[lang];
+  const next = { fr: 'ma prochaine soirée', en: 'my next event', es: 'mi próxima fiesta' }[lang];
+  const text = p.text[lang].replace(/\{\{(\w+)\}\}/g, (_m, k: string) => {
+    const v = promptArg(args[k]);
+    return v ? named(v) : next;
+  });
   return {
     description: p.description[lang],
-    messages: [{ role: 'user', content: { type: 'text', text: p.text[lang] } }],
+    messages: [{ role: 'user', content: { type: 'text', text } }],
   };
 }
 

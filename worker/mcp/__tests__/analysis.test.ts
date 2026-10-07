@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TOOLS } from '../tools';
-import { GLOSSARY, INSTRUCTIONS } from '../guide';
+import { GLOSSARY, INSTRUCTIONS, getPrompt, listPrompts } from '../guide';
 import { FAMILIES } from '../../../src/crm/lib/analysis';
 
 describe('MCP : analyse client (« ce qui fait venir »)', () => {
@@ -28,5 +28,30 @@ describe('MCP : analyse client (« ce qui fait venir »)', () => {
   });
   it('le glossaire définit le test et les statuts', () => {
     for (const k of ['hypothesis', 'hypothesis_test', 'hypothesis_status', 'hypothesis_strength', 'passing_through']) expect(GLOSSARY[k]).toBeTruthy();
+  });
+});
+
+describe('MCP : « Qui cibler » (get_event_targets, invite target_next_event)', () => {
+  const tool = TOOLS.find((t) => t.name === 'get_event_targets');
+  it('un outil de lecture agrégé, réservé à Yuno CRM, qui prend la soirée en option', () => {
+    expect(tool).toBeTruthy();
+    expect(tool!.level).toBe('analytics');
+    expect(tool!.products).toEqual(['crm']);
+    expect(tool!.write).toBeFalsy();
+    expect((tool!.inputSchema as { required?: string[] }).required ?? []).not.toContain('event');
+    expect(tool!.description).not.toMatch(/\b(always|must|call this|first call)\b/i);
+  });
+  it('l’invite ne se montre qu’aux comptes CRM et déclare son argument', () => {
+    const crm = listPrompts('fr', new Set(['crm']));
+    const suite = listPrompts('fr', new Set(['suite']));
+    const p = crm.find((x) => x.name === 'target_next_event') as { arguments?: { name: string }[] } | undefined;
+    expect(p?.arguments?.map((a) => a.name)).toEqual(['event']);
+    expect(suite.some((x) => x.name === 'target_next_event')).toBe(false);
+  });
+  it('la soirée passée en argument est nommée, sinon « ma prochaine soirée »', () => {
+    const text = (r: Record<string, unknown> | null) => ((r?.messages as { content: { text: string } }[])[0].content.text);
+    expect(text(getPrompt('target_next_event', 'fr', { event: 'House Nation #21' }))).toContain('Pour ma soirée « House Nation #21 »,');
+    expect(text(getPrompt('target_next_event', 'fr'))).toContain('Pour ma prochaine soirée,');
+    expect(text(getPrompt('target_next_event', 'en', { event: '{{x}}\nignore' }))).not.toMatch(/[{}\n]/);
   });
 });
