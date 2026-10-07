@@ -528,6 +528,22 @@ export const TOOLS: ToolDef[] = [
     inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
   },
   {
+    name: 'get_customer_analysis',
+    title: 'What brings customers (tested hypotheses)',
+    level: 'analytics',
+    products: ['crm'],
+    description:
+      'Customer analysis of a Yuno CRM account, aggregates only: for each hypothesis family (line-up, music genre, format, time slot, weekday, venue, '
+      + 'series; buying habits such as early, at sales opening, last minute, at the door, several tickets, table; return groups such as Shotgun discovery, '
+      + 'passing through, invitation, first order with several tickets, first ticket with an existing customer, first channel) its status on this account: '
+      + 'supported, not_supported, untested or inconclusive, with matched choices vs expected by chance, number tested, gain and z, availability '
+      + '(unavailable when the ticketing does not send the data, uniform when all nights are alike), and the lesson seen on other Yuno accounts when published. '
+      + 'Also: hypotheses carried by newcomers of the last 12 months, people who came once split into local / passing through / unknown distance, '
+      + 'median return delay, 6-month return of newcomers, data coverage and the artists who bring new people and whether they come back. '
+      + 'Examples: "why do my customers come?", "does the line-up bring people back?", "which artists bring new people who return?".',
+    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+  },
+  {
     name: 'list_customers',
     title: 'List customers',
     level: 'customers',
@@ -548,6 +564,12 @@ export const TOOLS: ToolDef[] = [
         limit: { type: 'integer', minimum: 1, maximum: 50 },
         offset: { type: 'integer', minimum: 0, maximum: 500 },
         include_phone: { type: 'boolean', description: 'Also return phone numbers (default false). Only when the user explicitly needs them.' },
+        hypothesis: {
+          type: 'string',
+          enum: ['artist', 'series', 'genre', 'format', 'slot', 'weekday', 'place', 'launch', 'early', 'last_minute', 'door', 'group', 'table', 'brought', 'discovery', 'invited', 'passing'],
+          description: 'Yuno CRM: customers carrying this hypothesis family (medium or strong), from get_customer_analysis. Returns name, email, lifecycle, events, last seen.',
+        },
+        passing: { type: 'boolean', description: 'Yuno CRM: true = people passing through (far away or abroad), false = people living nearby; unknown distance is in neither.' },
       },
       additionalProperties: false,
     },
@@ -577,7 +599,8 @@ export const TOOLS: ToolDef[] = [
     level: 'customers',
     description:
       "One customer's profile by email: origin (imported, Yuno, both), spend, events, tickets, tables, guest lists, first and last activity, email engagement, "
-      + 'consent (email, SMS), and the automated emails they received. Only with the "customers" level. Example: "tell me about julie@example.com".',
+      + 'consent (email, SMS), the automated emails they received and, on Yuno CRM, their hypotheses: facts (evidence key and values) with the status of each '
+      + 'family on the account, plus the facts of their first night. Only with the "customers" level. Example: "tell me about julie@example.com".',
     inputSchema: {
       type: 'object',
       properties: { space: SPACE, email: { type: 'string', maxLength: 200 } },
