@@ -97,7 +97,7 @@ export async function generate(db, p, now = new Date()) {
   for (let i = 0; i < total; i++) {
     const upcoming = i >= p.nights;
     const base = upcoming
-      ? now.getTime() + ((i - p.nights + 1) / (p.nightsUpcoming + 1)) * 60 * DAY
+      ? now.getTime() + (1 + (i - p.nights) * 14) * DAY   // J+1 à J+7 (relevé à J-7), puis toutes les 2 semaines
       : now.getTime() - span + (i / p.nights) * (span - 3 * DAY);
     const oneOff = r() < p.oneOffShare;
     const s = oneOff ? null : r.pick(seriesList);

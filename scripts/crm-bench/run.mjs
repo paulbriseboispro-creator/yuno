@@ -10,6 +10,12 @@ import { generate } from './gen.mjs';
 import { profile } from './profiles.mjs';
 
 const [cmd, name, ...rest] = process.argv.slice(2);
+// PGlite joint son code minifié à chaque erreur : on n'affiche que l'utile.
+process.on('uncaughtException', (e) => {
+  console.error(`ERREUR ${e.code || ''} : ${e.message}${e.where ? `\n  où : ${e.where}` : ''}${e.hint ? `\n  indice : ${e.hint}` : ''}`);
+  process.exit(1);
+});
+process.on('unhandledRejection', (e) => { throw e; });
 const log = (o) => console.log(typeof o === 'string' ? o : JSON.stringify(o, null, 1));
 
 if (cmd === 'build') {
@@ -65,6 +71,37 @@ if (cmd === 'build') {
     console.log(`\n■ ${o.label} : ${o.error ? 'ERREUR ' + o.error : o.ms + ' ms'}`);
     for (const s of o.slow || []) console.log(`   ${String(s.ms).padStart(7)} ms ×${s.calls}  ${s.stmt}`);
   }
+} else if (cmd === 'journal') {
+  // Journal prévu / réel : on note les soirées à venir, on rejoue les achats
+  // futurs (bench_future), puis on règle « 70 jours plus tard ».
+  // BANC SEULEMENT : les portes du score sont abaissées pour qu'il note.
+  const db = await openSaved(name);
+  const org = (await db.query(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).rows[0].organizer_user_id;
+  await db.exec(`UPDATE crm_analysis_rules SET config = jsonb_set(jsonb_set(config, '{score,auc_gain}', '-1'), '{score,auc_min}', '0')`);
+  await db.query(`SELECT crm_analysis_compute(NULL, $1, true, 0)`, [org]);
+  const sc = (await db.query(`SELECT crm_score_compute(NULL, $1) AS r`, [org])).rows[0].r;
+  log({ score: sc.status, scored: sc.scored, journal: sc.journal });
+  await db.query(`
+    INSERT INTO external_tickets (connection_id, organizer_user_id, provider, external_id, external_event_id, event_id,
+                                  buyer_email, holder_email, status, price, raw, purchased_at, first_seen_at)
+    SELECT c.id, f.organizer_user_id, 'shotgun', 'future-' || row_number() OVER (), f.external_event_id, e.event_id,
+           f.email, f.email, 'valid', 15, '{"deal_channel":"online"}'::jsonb, f.purchased_at, f.purchased_at
+      FROM bench_future f
+      JOIN external_events e ON e.external_id = f.external_event_id AND e.organizer_user_id = f.organizer_user_id
+      JOIN ticketing_connections c ON c.organizer_user_id = f.organizer_user_id`);
+  const t = await timed(db, `SELECT _crm_score_settle($1, NULL, $2, now() + interval '70 days') AS n`, [`org:${org}`, org]);
+  const res = (await db.query(`SELECT title, horizon, metrics FROM crm_prediction_results ORDER BY start_at, horizon`)).rows;
+  log(`règlement : ${t.rows[0].n} soirées en ${t.ms} ms ; lignes par personne restantes : ${
+    (await db.query(`SELECT count(*)::int AS n FROM crm_prediction_people`)).rows[0].n}`);
+  console.table(res.map((r) => ({
+    soiree: r.title, moment: r.horizon, n: r.metrics.n, achats: r.metrics.buyers, attendus: r.metrics.expected,
+    auc: r.metrics.auc, ece: r.metrics.ece, prevu: r.metrics.projection?.predicted, reel: r.metrics.projection?.actual,
+    ecart: r.metrics.projection?.err })));
+  const aud = res.filter((r) => r.horizon === 'first').flatMap((r) => Object.entries(r.metrics.audiences || {})
+    .map(([k, v]) => ({ soiree: r.title, audience: k, n: v.n, attendus: v.p, reels: v.y })));
+  console.table(aud);
+  log({ gate: (await db.query(`SELECT _crm_projection_gate($1) AS g`, [`org:${org}`])).rows[0].g });
+  await save(db, `${name}-journal`);
 } else {
   console.error('usage: node run.mjs build | gen <profil> | compute <profil> | bench <profil>');
   process.exit(2);
