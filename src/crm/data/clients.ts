@@ -9,6 +9,9 @@ import { useCrmScope } from '@/crm/scope';
 
 export type Lifecycle = 'hab' | 'occ' | 'nou' | 'end' | 'none';
 
+/** Audiences de « Qui cibler » (miroir de _crm_night_target_set). */
+export type TargetAudience = 'concept' | 'lineup' | 'genre' | 'early' | 'last_minute' | 'once_local';
+
 /** Définition d'un filtre de clients (= d'un segment « à vous »). */
 export interface ClientFilterDef {
   seg?: 'all' | Lifecycle;
@@ -89,6 +92,8 @@ export interface ClientFilterDef {
     dist_max?: number;
     /** De passage (loin ou étranger) / habite à proximité ; distance inconnue = ni l'un ni l'autre. */
     pass?: 'yes' | 'no';
+    /** « Qui cibler » : une audience SANS place d'une soirée à venir (porte serveur _crm_night_target_set). */
+    ntgt?: { e: string; a: TargetAudience };
   };
   q?: string;
 }

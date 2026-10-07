@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 import type { FamilyStatus, Hypothesis } from '@/crm/lib/analysis';
+import type { TargetAudience } from '@/crm/data/clients';
 
 export interface AnalysisCoverage {
   families: Record<string, 'ok' | 'reduced' | 'unavailable'>;
@@ -122,6 +123,40 @@ export function useNightAnalysis(eventId: string | null) {
     queryFn: () => rpc<NightAnalysis>('crm_night_analysis', { ...args, p_event_id: eventId }),
     enabled: !!eventId,
     staleTime: 5 * 60_000,
+  });
+}
+
+/** « Qui cibler » (migration 20261011110000) : audiences sans place d'une soirée à venir. */
+export interface NightTargetAudience {
+  key: TargetAudience;
+  n: number; email: number; sms: number;
+  family?: string;
+  status?: FamilyStatus['status'];
+  availability?: FamilyStatus['availability'];
+  gain?: number;
+  moment: 'now' | 'week' | 'eve';
+  send_at: string;
+  params?: { series?: string | null; editions?: number; artists?: { name: string; n: number }[]; genres?: string[] };
+}
+
+export interface NightTargets {
+  ok: boolean;
+  error?: 'event_not_found' | 'not_upcoming';
+  event?: { id: string; title: string; start_at: string; series: string | null; genres: string[] };
+  days_left?: number;
+  has_ticket?: number;
+  computed?: boolean;
+  union?: { n: number; email: number; sms: number };
+  audiences?: NightTargetAudience[];
+}
+
+export function useNightTargets(eventId: string | null) {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'night-targets', eventId],
+    queryFn: () => rpc<NightTargets>('crm_night_targets', { ...args, p_event_id: eventId }),
+    enabled: !!eventId,
+    staleTime: 2 * 60_000,
   });
 }
 

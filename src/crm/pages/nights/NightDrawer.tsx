@@ -1,8 +1,9 @@
 /**
  * Tiroir d'une soirée (maquette « Détail de la soirée ») : naviguer de soirée
  * en soirée (flèches, clavier), le verdict, la courbe comparée, les tarifs,
- * qui a acheté, les messages, la fiche Shotgun en lecture seule. Trois vues :
- * Ventes, Guest list (NightGuestList) et Liens de partage.
+ * qui a acheté, les messages, la fiche Shotgun en lecture seule. Vues :
+ * Ventes, Guest list (NightGuestList), Liens de partage, Ce qu'elle a attiré
+ * (NightAttracted) et, pour une soirée à venir, Qui cibler (NightTargets).
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -20,13 +21,14 @@ import { SalesCurve } from './SalesCurve';
 import { NightLinks } from './links/NightLinks';
 import { NightGuestList } from './NightGuestList';
 import { NightAttracted } from './NightAttracted';
+import { NightTargets } from './NightTargets';
 import { ShotgunLink, StatusPill } from './nightsUi';
 import { ICO, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
 
 const UP_ST = { full: 'yc.ni.st.full', soon: 'yc.ni.st.soon', almost: 'yc.ni.st.almost', sale: 'yc.ni.st.sale' } as const;
 const PA_ST = { full: 'yc.ni.pa.full', good: 'yc.ni.pa.good', fair: 'yc.ni.pa.fair', low: 'yc.ni.pa.low', unknown: 'yc.ni.pa.unknown' } as const;
 
-export type DrawerView = 'sales' | 'gl' | 'links' | 'why';
+export type DrawerView = 'sales' | 'gl' | 'links' | 'why' | 'target';
 
 export function NightDrawer({
   id, ids, view, onView, onClose, onStep, onWrite,
@@ -88,7 +90,8 @@ export function NightDrawer({
             value={view}
             onChange={onView}
             ariaLabel={t('yc.ni.dr.aria')}
-            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'gl', label: t('yc.gl.tab') }, { value: 'links', label: t('yc.lk.tab.links') }, { value: 'why', label: t('yc.why.night.tab') }]}
+            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'gl', label: t('yc.gl.tab') }, { value: 'links', label: t('yc.lk.tab.links') }, { value: 'why', label: t('yc.why.night.tab') },
+              ...(d?.upcoming || view === 'target' ? [{ value: 'target' as const, label: t('yc.tgt.tab') }] : [])]}
           />
         </div>
       )}
@@ -98,6 +101,8 @@ export function NightDrawer({
         <NightGuestList key={`gl-${id}`} eventId={id} />
       ) : id && view === 'why' ? (
         <NightAttracted key={`why-${id}`} eventId={id} />
+      ) : id && view === 'target' ? (
+        <NightTargets key={`target-${id}`} eventId={id} />
       ) : id && view === 'links' ? (
         <div key={`links-${id}`} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 20px 32px' }}>
           {d && (
