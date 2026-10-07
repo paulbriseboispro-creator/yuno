@@ -1129,6 +1129,26 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
     prend comme un SMS programmé (identité légale, heures, Yunits, lien court).
     Registre `crm_first_return_sms` (une fois par personne). Le premier SMS
     AUTOMATIQUE du CRM ; démo et compte en pause : rien. Modèle CRM `retour`.
+- **« Chances de venir » = le score de prédiction** (plan
+  `docs/designs/CRM_PREDICTION_SCORE_PLAN.md`, migrations `20261012100000` +
+  `110000`). Régression logistique L2 PAR COMPTE, ajustée en SQL (IRLS,
+  `_crm_logit_fit`, `_crm_solve`), 12 facteurs lus AVANT l'ouverture de la
+  vente (`_crm_score_build`), soirées des 12 derniers mois, les 4 dernières
+  tenues à l'écart. **Portes** (`crm_analysis_config().score`) : AUC ≥ 0,70,
+  meilleure que le modèle naïf (récence + fréquence) d'au moins 0,02 SUR LES
+  CLIENTS ACTIFS (sur toute la base la récence trie déjà tout), ECE ≤ 0,05,
+  200 achats appris / 50 vérifiés ; sinon `weak` / `insufficient` et rien
+  n'est montré. Ventes seulement (pas les invitations). La chance d'une soirée
+  à venir est corrigée de la part des achats déjà passée (`crm_score_night`,
+  p·f / (1 − p·(1 − f))). Tables `crm_score_model`, `crm_person_night_score`
+  (étiquette `high` ≥ 0,30, `medium` ≥ 0,10, `low`, 3 raisons parmi les
+  facteurs que la personne POSSÈDE, jamais « de passage » ni « découverte »).
+  Cron `crm-score-nightly` (`27,57 5-6`, un compte par passage). Écrans :
+  « Qui cibler » (acheteurs attendus, audience `likely` = porte
+  `_crm_night_target_set`), fiche client (étiquette + raisons, JAMAIS un
+  pourcentage, décision de Paul), Admin CRM (santé + projection de
+  remplissage, super admin SEUL au début). MCP : `chances_to_come`. Purge et
+  opposition effacent les scores ; toute lecture exige le profil.
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 

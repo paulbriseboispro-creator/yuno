@@ -189,3 +189,11 @@ anonymes entre organisateurs.
    pour réutiliser ses propres données de billetterie dans un CRM tiers est-elle
    couverte par ses CGV / sa politique sur Shotgun ?
 6. **OpenAI** comme sous-traitant ultérieur (partie C).
+7. **« Chances de venir »** (score de prédiction, en ligne après validation) :
+   pour chaque client déjà venu, une estimation de sa chance d'acheter pour
+   une soirée à venir, montrée à l'organisateur en étiquette (élevées /
+   moyennes / faibles) avec ses raisons, jamais en pourcentage, jamais
+   exportée, jamais utilisée pour une décision automatique. C'est une
+   évaluation au sens de la CNIL : l'analyse d'impact devient-elle
+   obligatoire, et la mention du modèle de la partie D (« analyse de la
+   fréquentation ») suffit-elle, ou faut-il nommer l'estimation ?

@@ -144,7 +144,26 @@ Toujours dit comme une **estimation**, jamais une certitude.
 Le lot S0 peut arrêter le chantier : si les vrais comptes ont trop peu de
 retours, le score resterait masqué partout ; on le saura avant de construire.
 
-## 6. Décisions à prendre (Paul)
+## 6. Décisions de Paul (07/10)
+
+| Sujet | Décision |
+|---|---|
+| Fiche client | Une étiquette (élevées / moyennes / faibles) et ses raisons, jamais un pourcentage |
+| Nom | « Chances de venir » |
+| Projection de remplissage | Super admin seulement au début, le temps de vérifier qu'elle tient |
+| Invitations | Non : on prédit les ventes |
+
+Constats de la construction (07/10) :
+
+- Sur toute la base, la récence seule trie déjà presque tout (ceux qui ne
+  reviennent jamais) : la valeur ajoutée se mesure sur les clients ACTIFS
+  (venus dans les 180 jours).
+- La chance d'acheter sur toute la vente surestime une soirée proche : elle est
+  corrigée de la part des achats qui reste à venir (historique du compte).
+- Démo (prod, annulé) : AUC 0,705 (récence seule 0,684), actifs 0,699 (0,674),
+  calibration 1,7 point, 15 s de calcul.
+
+## Questions posées à Paul (archive)
 
 1. **Le score par personne sur la fiche client** : une étiquette (élevées /
    moyennes / faibles) avec ses raisons, un pourcentage, ou rien (agrégats
