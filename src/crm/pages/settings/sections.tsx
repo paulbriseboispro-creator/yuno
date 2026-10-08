@@ -17,6 +17,7 @@ import type { CrmSettings, RulesPreview } from '@/crm/data/settings';
 import { hourLabel, initials, nightHours, slugify, type SettingsForm } from './form';
 import { fieldCss, GreenSwitch, LockNote, SecCard, SecHead, Seg, useTween } from './settingsUi';
 import { LearningRow } from './LearningRow';
+import { LegalDocsRow } from './LegalDocsRow';
 import { HoldoutRow } from './HoldoutRow';
 
 type Set = <K extends keyof SettingsForm>(k: K, v: SettingsForm[K]) => void;
@@ -551,6 +552,7 @@ export function SectionData({
       </div>
       <LearningRow />
       <HoldoutRow />
+      <LegalDocsRow />
     </SecCard>
   );
 }

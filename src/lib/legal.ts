@@ -17,7 +17,11 @@ export type LegalDocType =
   | 'terms_pro'
   | 'confidentiality'
   | 'demo_confidentiality'
-  | 'privacy';
+  | 'privacy'
+  // Yuno CRM : conditions + accord de sous-traitance (chapitre 12), demandés
+  // au titulaire d'un espace par CrmLegalGate (migration 20261015100000).
+  | 'terms_crm'
+  | 'dpa';
 
 export const LEGAL_VERSIONS: Record<LegalDocType, string> = {
   cgu: '2026-07-06',
@@ -26,6 +30,8 @@ export const LEGAL_VERSIONS: Record<LegalDocType, string> = {
   confidentiality: '2026-07-06',
   demo_confidentiality: '2026-07-06',
   privacy: '2026-07-06',
+  terms_crm: '2026-10-08',
+  dpa: '2026-10-08',
 };
 
 /** SHA-256 hex du contenu accepté (preuve de la version exacte du texte). */
