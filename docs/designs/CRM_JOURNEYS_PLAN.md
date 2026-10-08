@@ -526,3 +526,15 @@ Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
   en prod = `legal/crm-analysis` : ne le redéployer qu'après la fusion des deux
   branches, sinon l'article « crm-legal » disparaît.
 
+**Migrations appliquées en prod (08/10, go de Paul)** — `20261016100000` →
+`180000` en UNE requête (fichiers + lignes `schema_migrations` + `NOTIFY
+pgrst`), 2,4 s, après une dernière répétition annulée SMOKE_OK (avec la
+mesure démo sans verdict). Vérifié : 11 lignes d'historique, fonctions et
+10 tables en place, crons `crm-scenario-tick` (10 min) et `crm-admin-daily`
+(07:20 UTC) actifs, une seule `mcp_approve_authorization`, l'API connaît les
+nouvelles fonctions. Pas encore faits : fusion dans main (front + Worker),
+fonctions `send-campaign` / `send-sms-campaign` (puis `owner-assistant`
+après la fusion de `legal/crm-analysis`), semis démo, smoke. Tant que le
+front n'est pas fusionné, une notification `night_plan_ready` s'affiche
+dans l'ancien front avec un titre générique (pas d'erreur).
+
