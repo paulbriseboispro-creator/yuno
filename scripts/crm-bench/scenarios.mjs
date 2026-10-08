@@ -12,6 +12,7 @@
 //   node scenarios.mjs seed [base]         lot J5 : le semis démo, rejoué deux fois
 //   node scenarios.mjs plan [base]         lot A1 : plan de soirée, audience « target » d'un brouillon d'IA
 //   node scenarios.mjs review [base]       lot A3 : bilan de la semaine
+//   node scenarios.mjs daily [base]        lot A5 : bilan du jour de la plateforme, alerte, audits prêts
 //
 // La base (défaut : demo-computed, déjà analysée) reçoit les migrations des
 // Scénarios (20261016100000 et suivantes) avant les essais : c'est la même
@@ -928,6 +929,49 @@ if (cmd === 'conditions') {
   let refused = false;
   try { await one(`SELECT crm_weekly_review(NULL, $1) AS r`, [org]); } catch (e) { refused = /forbidden/.test(e.message); }
   check('porte : un inconnu est refusé', refused);
+} else if (cmd === 'daily') {
+  // Agents, lot A5 : le bilan du jour de la plateforme et son alerte (super admin).
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  // Le banc n'a ni la ligne de compte de l'Admin CRM ni le flux d'alertes : un compte en essai, et un journal des alertes.
+  await db.exec(`CREATE OR REPLACE FUNCTION public._crm_admin_rows(p boolean) RETURNS jsonb LANGUAGE sql AS $$
+    SELECT jsonb_build_array(jsonb_build_object('id', 'org:${org}', 'name', 'Banc', 'state', 'trial', 'venue_id', NULL,
+      'organizer_user_id', '${org}', 'sync', 'error', 'sync_error', 'Jeton invalide', 'trial_ends_at', (now() + interval '2 days')::text)) $$;`);
+  if (!(await one(`SELECT to_regprocedure('public._crm_admin_gate()') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public._crm_admin_gate() RETURNS void LANGUAGE sql AS $$ SELECT $$;`);
+  }
+  await db.exec(`CREATE TABLE IF NOT EXISTS bench_admin_alerts (type text, title text, message text, priority text, dedup text, meta jsonb);
+    CREATE OR REPLACE FUNCTION public.emit_admin_notification(p_type text, p_title text, p_message text, p_priority text DEFAULT 'normal',
+      p_reference_type text DEFAULT NULL, p_reference_id text DEFAULT NULL, p_metadata jsonb DEFAULT '{}'::jsonb, p_dedup_key text DEFAULT NULL, p_event_id uuid DEFAULT NULL)
+    RETURNS uuid LANGUAGE plpgsql AS $f$ BEGIN
+      IF p_dedup_key IS NOT NULL AND EXISTS (SELECT 1 FROM bench_admin_alerts WHERE dedup = p_dedup_key) THEN RETURN NULL; END IF;
+      INSERT INTO bench_admin_alerts VALUES (p_type, p_title, p_message, p_priority, p_dedup_key, p_metadata); RETURN gen_random_uuid(); END $f$;`);
+  await db.query(`UPDATE ticketing_connections SET initial_import_done_at = COALESCE(initial_import_done_at, now() - interval '3 days') WHERE organizer_user_id = $1`, [org]);
+  await db.query(`UPDATE crm_analysis_state SET computed_at = COALESCE(computed_at, now() - interval '1 day') WHERE scope_key = $1`, [`org:${org}`]);
+  await db.exec('BEGIN');
+  const d = (await one(`SELECT crm_admin_daily(false) AS r`)).r;
+  await db.exec('COMMIT');
+  console.log('bilan du jour :', JSON.stringify(d.counts));
+  check('bilan du jour : synchro en erreur, essai qui finit, compte sans envoi', d.counts.sync_errors === 1 && d.counts.trials_ending === 1 && d.counts.silent === 1, d.counts);
+  const next = await one(`SELECT id FROM events WHERE organizer_user_id = $1 AND external_source IS NOT NULL AND cancelled_at IS NULL
+                           AND start_at > now() AND start_at < now() + interval '21 days' ORDER BY start_at LIMIT 1`, [org]);
+  check('audit de prospect prêt : sa prochaine soirée', !next || (d.audits.length === 1 && d.audits[0].event_id === next.id), d.audits);
+  for (let i = 0; i < 2; i += 1) {
+    await db.exec('BEGIN');
+    await one(`SELECT crm_admin_daily_notify() AS r`);
+    await db.exec('COMMIT');
+  }
+  const alerts = await q(`SELECT type, message, priority, dedup FROM bench_admin_alerts`);
+  check('une alerte par jour, même passée deux fois (dedup_key)', alerts.length === 1 && alerts[0].type === 'admin_crm_daily' && alerts[0].priority === 'high', alerts);
+  check('l’alerte dit ce qui se passe, en chiffres', /1 synchro\(s\) en erreur/.test(alerts[0]?.message ?? '') && /essai\(s\) finissent/.test(alerts[0]?.message ?? ''), alerts[0]?.message);
+  // Au banc, la session est toujours postgres : la protection réelle est le droit EXECUTE (service_role seul).
+  const priv = await one(`SELECT has_function_privilege('authenticated', 'public.crm_admin_daily_notify()', 'execute') AS notify,
+                                 has_function_privilege('anon', 'public.crm_admin_daily(boolean)', 'execute') AS anon_read,
+                                 has_function_privilege('authenticated', 'public._crm_admin_daily_core(boolean)', 'execute') AS core`);
+  check('droits : alerte et calcul brut fermés aux sessions, lecture fermée aux anonymes', !priv.notify && !priv.anon_read && !priv.core, priv);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);
