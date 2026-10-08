@@ -36,6 +36,8 @@ export interface ScnRow {
   id: string; name: string; status: ScnStatus; state: ScnState; trigger: string | null;
   source_kind: string | null; template: string | null; version: number; has_changes: boolean;
   published_at: string | null; updated_at: string;
+  /** L'IA connectée qui a préparé ce brouillon (MCP), sinon null. */
+  ai_author?: string | null;
   entered: number; active: number; goal: number; holdout: number; goal_holdout: number;
   measure: ScnHoldout;
 }
@@ -46,6 +48,7 @@ export interface ScnDetail {
   id: string; name: string; status: ScnStatus; state: ScnState;
   draft: ScenarioGraph; draft_updated_at: string; version: number;
   source_kind: string | null; template: string | null;
+  ai_author?: string | null; ai_updated_at?: string | null;
   live: { id: string; version: number; graph: ScenarioGraph; published_at: string } | null;
   has_changes: boolean; published_at: string | null; paused_at: string | null; archived_at: string | null;
   errors: ScnIssue[]; warnings: ScnIssue[]; stats: GraphStats;

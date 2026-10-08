@@ -339,6 +339,7 @@ function Editor() {
             <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--sand-500)' }}>
               <StateBadge state={state} label={t(`yc.scn.state.${state}`)} />
               {published && hasChanges && <span style={{ color: 'var(--amber-700)', fontWeight: 600 }}>{t('yc.scn.ed.changes')}</span>}
+              {d.ai_author && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}><Icon name="sparkles" size={12} stroke={2.2} />{t('yc.scn.byAi', { ai: d.ai_author })}</span>}
               {!readOnly && <span>{saveLabel}</span>}
               {readOnly && <span>{t('yc.scn.ed.readOnly')}</span>}
             </span>

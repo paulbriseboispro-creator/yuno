@@ -186,6 +186,7 @@ const dict: CrmDict = {
     'Votre abonnement Yuno CRM est en pause : le scénario attend. Il reprend dès que l’abonnement est de nouveau actif.',
     'Su suscripción de Yuno CRM está en pausa: el escenario espera. Se reanuda en cuanto la suscripción vuelva a estar activa.',
   ],
+  'yc.scn.byAi': ['Prepared by {ai}', 'Préparé par {ai}', 'Preparado por {ai}'],
   'yc.scn.untitled': ['Untitled scenario', 'Scénario sans nom', 'Escenario sin nombre'],
 
   // ── Le flux ──────────────────────────────────────────────────────────────

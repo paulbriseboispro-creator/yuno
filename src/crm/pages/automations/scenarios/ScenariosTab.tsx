@@ -103,6 +103,7 @@ function Row({ T, r, i, canEdit, onAct, act }: {
         </Hv>
         <StateBadge state={r.state} label={t(`yc.scn.state.${r.state}`)} />
         {r.has_changes && <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--amber-700)' }}>{t('yc.scn.ed.changes')}</span>}
+        {r.ai_author && <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--sand-600)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="sparkles" size={13} stroke={2.2} />{t('yc.scn.byAi', { ai: r.ai_author })}</span>}
       </div>
       {r.version > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', fontSize: 13.5, color: 'var(--sand-700)', fontVariantNumeric: 'tabular-nums' }}>

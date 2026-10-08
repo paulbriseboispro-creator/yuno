@@ -167,10 +167,10 @@ export default function ConnectAi() {
     setBusy(choice);
     setError(null);
     const { data, error: rpcError } = choice === 'allow'
-      // Brouillons d'e-mails et pages d'inscription accordés avec la connexion :
-      // l'écran le dit (aiMcp.can4, aiMcp.can5) avant le bouton ; l'envoi et la
-      // mise en ligne restent toujours au pro.
-      ? await supabase.rpc('mcp_approve_authorization' as never, { p_request_id: requestId, p_spaces: selected, p_level: level, p_drafts: true, p_pages: true } as never)
+      // Brouillons d'e-mails, pages d'inscription et brouillons de scénarios
+      // accordés avec la connexion : l'écran le dit (aiMcp.can4, can5, can6)
+      // avant le bouton ; l'envoi et la mise en ligne restent toujours au pro.
+      ? await supabase.rpc('mcp_approve_authorization' as never, { p_request_id: requestId, p_spaces: selected, p_level: level, p_drafts: true, p_pages: true, p_scenarios: true } as never)
       : await supabase.rpc('mcp_deny_authorization' as never, { p_request_id: requestId } as never);
     const r = data as DecisionResult | null;
     if (rpcError || !r?.ok || !r.redirect_uri || !r.params) {
@@ -283,7 +283,7 @@ export default function ConnectAi() {
           ))}
         </div>
         <div className="space-y-2.5 mt-5 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
-          {['aiMcp.can2', 'aiMcp.can4', 'aiMcp.can5'].map((k) => (
+          {['aiMcp.can2', 'aiMcp.can4', 'aiMcp.can5', 'aiMcp.can6'].map((k) => (
             <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13.5, color: T1, lineHeight: 1.5 }}>
               <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--green-500)' }} aria-hidden="true" />{t(k)}
             </p>

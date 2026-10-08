@@ -68,6 +68,11 @@ export const MCP_TOOL_LABEL_KEYS: Record<string, string> = {
   get_signup_page: 'aiTool.pageRead',
   create_signup_page: 'aiTool.pageCreate',
   update_signup_page: 'aiTool.pageUpdate',
+  list_scenarios: 'aiTool.scenarios',
+  get_scenario_report: 'aiTool.scenarioReport',
+  get_scenario_kit: 'aiTool.scenarioKit',
+  create_scenario_draft: 'aiTool.scenarioCreate',
+  update_scenario_draft: 'aiTool.scenarioUpdate',
 };
 
 export interface McpConnection {
@@ -85,6 +90,10 @@ export interface McpConnection {
   can_pages?: boolean;
   /** Pages d'inscription préparées ou modifiées par cette IA. */
   pages_created?: number;
+  /** La connexion peut préparer des brouillons de scénarios (jamais les publier). */
+  can_scenarios?: boolean;
+  /** Brouillons de scénarios créés par cette IA. */
+  scenarios_created?: number;
   revoked_at: string | null;
   revoked_reason: string | null;
   mine: boolean;
