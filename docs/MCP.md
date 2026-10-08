@@ -126,10 +126,11 @@ de le recommander.
 - Sans jeton ou jeton mort : 401 + `WWW-Authenticate: Bearer
   resource_metadata="https://yunoapp.eu/.well-known/oauth-protected-resource/mcp"`.
 
-## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9)
+## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9 ; scénarios : voir § 10)
 
-33 outils : 28 en lecture, 5 en écriture (`create_email_draft`, `update_email_draft`,
-`add_email_image`, `create_signup_page`, `update_signup_page`).
+38 outils : 31 en lecture, 7 en écriture (`create_email_draft`, `update_email_draft`,
+`add_email_image`, `create_signup_page`, `update_signup_page`,
+`create_scenario_draft`, `update_scenario_draft`).
 
 | Outil | Ce qu'il rend | Source |
 |---|---|---|
@@ -161,6 +162,9 @@ de le recommander.
 | `get_signup_page_kit` | marque, soirées, pages existantes, les quatre types et leurs règles, gabarits et polices, modèle du design sur mesure, balises de page + aperçu, règles web, méthode, exemple | `_mcp_signup_tool` + Worker (`signupGuide.ts`) |
 | `get_signup_page` | une page : réglages, sections du design (id, texte visible, contenu), proposition en attente, `version`, liens Console et public | `crm_signup_pages` (`_mcp_signup_page_view`) |
 | `create_signup_page` · `update_signup_page` | **écriture** : une page d'inscription en brouillon, ou une proposition sur une page en ligne (§ 9) | `mcp_write` → `_mcp_signup_write` |
+| `list_scenarios` · `get_scenario_report` | scénarios d'un espace Yuno CRM : état, entrés, objectif, témoin ; un scénario en détail (graphe, contrôles, résultats par étape) | `_mcp_scenario_tool` (`crm_scenarios`, `crm_scenario`, `crm_scenario_report`) |
+| `get_scenario_kit` | format du graphe, déclencheurs, étapes, conditions (famille, format), limites, 7 exemples + modèles d'e-mail, segments, pages, soirées, familles confirmées du compte | `_mcp_scenario_tool` + Worker (`scenarioTools.ts`, depuis le validateur de l'éditeur) |
+| `create_scenario_draft` · `update_scenario_draft` | **écriture** : un BROUILLON de scénario (§ 10) | `mcp_write` → `_mcp_scenario_write` |
 
 Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
 (méthode, règles, définitions de `metrics.ts`, playbook de la nuit, catalogue
@@ -325,6 +329,41 @@ brouillon, puis la retouche dans la conversation. Le titulaire publie.
   Écriture : `signupTools.ts` (lecture du travail en cours, chemins de design),
   `signupDesign.ts` (construction, mises à jour par id, réglages, contrôles).
 - Tests : `npx vitest run worker/mcp src/crm/lib/__tests__/signupCustom.test.ts`.
+
+## 10. Scénarios préparés par l'IA (2026-10-16)
+
+Migration `20261016160000_crm_scenario_mcp.sql`, Worker `scenarioTools.ts`.
+
+- **Lecture pour toute connexion dont un espace a Yuno CRM** : `list_scenarios`
+  et `get_scenario_report` rendent des agrégats (jamais une personne) par les
+  RPC de la Console, avec leurs portes (`crm_scope_allowed`, montants derrière
+  `_crm_money_gate`). Le rapport passe par une table temporaire
+  (`_mcp_needs_temp`).
+- **Brouillons derrière un droit propre** : `mcp_grants.can_scenarios`
+  (défaut `false`), posé seulement si l'écran de consentement passe
+  `p_scenarios = true` ; `/connect-ai` l'annonce (`aiMcp.can6`). Les
+  connexions existantes ne le reçoivent pas : les reconnecter. Le kit
+  (`get_scenario_kit`) n'est listé qu'avec ce droit.
+- **Ce que l'IA écrit** : `crm_scenario_save`, la fonction de l'éditeur, au
+  nom de la personne (claims posés par `mcp_write`, `crm_scope_writable`,
+  `_mcp_space_can_draft`). Un brouillon incomplet s'enregistre ; la réponse
+  donne les contrôles qui bloquent la publication, étape par étape (forme
+  vérifiée d'abord dans le Worker par le MÊME validateur que l'éditeur,
+  `graphErrors`). Sur un scénario en ligne, seul le brouillon change : la
+  version en ligne tourne jusqu'à ce que le pro publie. **Aucun outil ne
+  publie, ne reprend, ne met en pause, n'archive ni ne supprime** un
+  scénario (`unknown_tool` en base pour tout autre nom). Le brouillon porte
+  « Préparé par <IA> » (`crm_scenarios.ai_author`, `mcp_grant_id`), compté
+  dans Réglages → Assistants IA (`scenarios_created`).
+- **Débits** : 20 créations / 200 modifications par jour et par connexion.
+  Journal : un RÉSUMÉ (scénario, nombre d'étapes, déclencheur), jamais le
+  graphe.
+- **Consignes** : bloc « SCENARIOS » d'`INSTRUCTIONS` (lire avant d'écrire,
+  partir de l'exemple le plus proche, modèles d'e-mail existants seulement,
+  familles confirmées seulement, dire que c'est un brouillon, ne jamais
+  inventer un gain). Les descriptions d'outils décrivent, sans ordre.
+- Tests : `npx vitest run worker/mcp` ; banc SQL :
+  `node scripts/crm-bench/scenarios.mjs mcp`.
 
 ## 5. Mise en service — fait le 2026-10-03
 
