@@ -7,7 +7,7 @@ import { TARGET_AUDIENCES } from '../scenarioConditions';
 import { CRM_AUTO_META } from '../automations';
 
 const ROOT = join(__dirname, '..', '..');
-const FILES = ['components/AskMyAi.tsx', 'pages/nights/plan/NightPlanPage.tsx', 'pages/nights/NightTargets.tsx',
+const FILES = ['components/AskMyAi.tsx', 'pages/nights/plan/NightPlanPage.tsx', 'pages/nights/plan/NightPlanReport.tsx', 'pages/nights/NightTargets.tsx',
   'pages/automations/scenarios/CreateWithAi.tsx', 'pages/automations/scenarios/ScenarioEditorPage.tsx', 'pages/review/WeeklyReviewPage.tsx', 'pages/automations/scenarios/Suggestions.tsx'].map((f) => join(ROOT, f));
 const has = (k: string) => Object.prototype.hasOwnProperty.call(CRM_DICT, k);
 const plural = (k: string) => has(`${k}.one`) && has(`${k}.other`);
