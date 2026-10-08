@@ -269,7 +269,9 @@ l'envoient aussitôt, la demande ne fait que préparer des brouillons), sinon
 | J3 | File des déclencheurs, moteur, nœuds, politique, témoin, Yunits, report / expiration, démo | fait (08/10) |
 | J4 | Éditeur, conditions, modèles, estimation, tests, rapport | fait (08/10) |
 | J5 | MCP, aide, assistant, Admin CRM, fil de notifications, CLAUDE.md, semis démo | fait (08/10) |
-| A0-A5 | Agents | après J5 |
+| A0 | Fondations : « Préparer avec mon IA » (connexion MCP du pro, `?q=`), aucune IA chez Yuno | fait (08/10) |
+| A1 | Plan de soirée : `crm_night_plan`, page imprimable, outil MCP `get_night_plan`, invite `plan_night`, audience `target:` des brouillons, annonce aux comptes en essai | fait (08/10) |
+| A2-A5 | Bâtisseur, bilan de la semaine, pistes d'amélioration, agents Yuno | à faire |
 
 ## 9. Décisions ouvertes (à soumettre à Paul au fil de l'eau)
 
@@ -430,3 +432,31 @@ Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
   prompt, à confirmer par Paul. Banc : `scenarios.mjs seed` (joué deux fois,
   puis un passage du vrai moteur).
 - CLAUDE.md : section « Yuno CRM — les Scénarios ».
+
+**A0 + A1 faits (08/10)** — rien de poussé, appliqué, déployé ni semé.
+- A0 : pas de runtime d'agent ni de fournisseur (décision 6). « Préparer avec
+  mon IA » = `src/crm/lib/askAi.ts` (choix de la connexion de la PERSONNE sur
+  l'espace, jamais celle d'un coéquipier ; `claude.ai/new?q=` /
+  `chatgpt.com/?q=`, 1 800 caractères au plus) + `components/AskMyAi.tsx`
+  (sans connexion : adresse `yunoapp.eu/mcp` et le pas à pas ; sans le droit :
+  « reconnectez » ; IA sans application web : demande à copier). Identité et
+  journal d'agent = ceux du MCP (`mcp_grants`, `mcp_tool_calls`) : pas de
+  `crm_agent_*`. Vérificateur de chiffres : par construction, tout chiffre
+  d'un plan est calculé par le serveur ; ce que l'IA écrit dans sa
+  conversation échappe à Yuno (limite dite à Paul).
+- A1 : migration `20261016155000_crm_night_plan.sql` (`crm_night_plan`,
+  `_mcp_email_audience` + `target:<soirée>:<audience>`, prod identique
+  vérifiée ; `demo_preview_writable_rpc`), outil `get_night_plan` routé dans
+  `20261016160000` (modifiée sur place, non appliquée), invite `plan_night`,
+  consigne NIGHT PLAN ; page `/crm/nights/:id/plan` (coquille plein écran,
+  imprimable), bouton dans « Qui cibler » ; notification
+  `night_plan_ready` (compte en essai, premier import fait, analyse
+  calculée) ajoutée à `20261016150000`. Banc : `scenarios.mjs plan`, `mcp`,
+  `feed` ; vitest `askAi`, `agentKeys`, `worker/mcp` (1 432 tests verts) ;
+  banc visuel 1440 et 390 px (mocks du plan et des connexions).
+- Écart assumé : la page de plan n'a pas de lien PUBLIC partageable (une page
+  publique d'agrégats = une surface de plus) : « partageable » = imprimer /
+  PDF, ou le lien Console pour l'équipe. À décider par Paul.
+- Constat à remonter : la Console CRM n'a PAS de page « Assistants IA »
+  (connexions, journal, coupure) ; un pro CRM ne branche son IA que par le
+  guide public `yunoapp.eu/ai`.
