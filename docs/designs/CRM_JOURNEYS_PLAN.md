@@ -538,3 +538,15 @@ après la fusion de `legal/crm-analysis`), semis démo, smoke. Tant que le
 front n'est pas fusionné, une notification `night_plan_ready` s'affiche
 dans l'ancien front avec un titre générique (pas d'erreur).
 
+**En ligne (08/10, gos de Paul)** — main avancé à `4b9241df` (fusion du seul
+commit arrivé entre-temps, sans recoupement ; build de prod vérifié avant),
+Workers Build réussi : front et Worker MCP en ligne (écrans Plan de soirée,
+Bilan de la semaine, éditeur, audit Admin dans le bundle servi).
+`send-campaign` et `send-sms-campaign` déployées depuis main, relues
+identiques. Semis démo joué en prod (6 s), puis smoke sur l'état réel :
+SMOKE_OK, la mesure démo dit `demo: true`. Cron `crm-scenario-tick` :
+passes réussies. À froid sur la machine Nano : effectif d'un groupe 7,4 s
+et bilan quotidien Admin 6,7 s, proches des 8 s de l'API (le cron, lui, n'a
+pas cette limite). Reste : `owner-assistant` à redéployer APRÈS la fusion de
+`legal/crm-analysis` (conflit trivial dans `src/i18n/locales/crm/modules/index.ts`).
+
