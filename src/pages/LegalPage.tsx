@@ -11,7 +11,7 @@ export default function LegalPage() {
   const goBack = useProBack();
   const { language, t } = useLanguage();
 
-  const validSections: LegalSection[] = ['mentions-legales', 'cgu', 'cgv-utilisateurs', 'cgv-clubs', 'confidentialite', 'dpa', 'privacy', 'cookies'];
+  const validSections: LegalSection[] = ['mentions-legales', 'cgu', 'cgv-utilisateurs', 'cgv-clubs', 'cgv-crm', 'confidentialite', 'dpa', 'privacy', 'cookies'];
   const sectionKey = section as LegalSection;
 
   if (!validSections.includes(sectionKey)) {

@@ -1080,6 +1080,22 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
   (`crm_learning_settings.enabled`, ÉTEINT jusqu'à la clause validée). Démo
   toujours exclue. Interdit : modèle entraîné sur des personnes, données
   personnelles envoyées à une IA, croisement de deux comptes sur une personne.
+- **Textes légaux (v1 du 08/10, dossier `docs/legal/CRM_ANALYSE_CLIENT_REVUE_JURIDIQUE.md`)** :
+  Conditions Yuno CRM `/legal/cgv-crm` (annexe = modèle d'information pour les
+  clients du pro), chapitre 12 « Yuno CRM » de l'Accord de sous-traitance
+  (`/legal/dpa` : profilage 12.4, obligations du pro 12.5, statistiques
+  anonymes = réutilisation autorisée par écrit, Yuno RESPONSABLE, 12.6),
+  section 14 de `/legal/privacy`, modèle d'AIPD `docs/legal/CRM_AIPD_MODELE.md`.
+  Acceptation par le TITULAIRE dans `CrmLegalGate` (types `terms_crm` + `dpa`,
+  migration `20261015100000`, à appliquer AVANT le front) ; changer un texte de
+  façon importante = monter sa version dans `LEGAL_VERSIONS`. Les textes
+  AFFIRMENT que l'analyse et le score n'utilisent ni le genre ni les ouvertures /
+  clics d'e-mails, jamais de pourcentage ni d'export, et interdisent tout usage
+  pour un prix, une remise, une prévente ou l'entrée : une évolution qui casserait
+  l'une de ces promesses change d'abord les textes (et relève peut-être de
+  l'article 22). Chantiers ouverts (partie 6 du dossier) : traceurs d'e-mails
+  soumis à accord (recommandation CNIL 2026-042, tout le moteur), mineurs,
+  soirées sensibles, désinscrit = hors score, conservation.
 - **Écrans** : fiche client (`ClientHypotheses`), Analyses › Communauté
   (`?v=why`, `WhyView` : familles, nouveaux venus, venus une fois locaux / de
   passage, délai de retour, couverture, artistes), tiroir d'une soirée
