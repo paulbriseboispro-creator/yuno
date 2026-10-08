@@ -165,7 +165,11 @@ BEGIN
     IF p_n ? 'not' AND jsonb_typeof(p_n->'not') <> 'boolean' THEN
       errs := errs || jsonb_build_object('code', 'bad_not', 'path', p_path);
     END IF;
-    IF jsonb_typeof(p_n->'items') IS DISTINCT FROM 'array' OR jsonb_array_length(p_n->'items') = 0 THEN
+    -- Deux IF : Postgres ne promet pas l'ordre d'un OR (jsonb_array_length lèverait sur un objet).
+    IF jsonb_typeof(p_n->'items') IS DISTINCT FROM 'array' THEN
+      RETURN jsonb_build_object('errors', errs || jsonb_build_object('code', 'empty_group', 'path', p_path), 'leaves', 0);
+    END IF;
+    IF jsonb_array_length(p_n->'items') = 0 THEN
       RETURN jsonb_build_object('errors', errs || jsonb_build_object('code', 'empty_group', 'path', p_path), 'leaves', 0);
     END IF;
     FOR i IN 0 .. jsonb_array_length(p_n->'items') - 1 LOOP
@@ -246,7 +250,7 @@ DECLARE
 BEGIN
   IF p_tree IS NULL OR jsonb_typeof(p_tree) <> 'object' THEN RETURN p_tree; END IF;
   IF p_tree ? 'op' THEN
-    IF jsonb_typeof(p_tree->'items') <> 'array' THEN RETURN p_tree; END IF;
+    IF jsonb_typeof(p_tree->'items') IS DISTINCT FROM 'array' THEN RETURN p_tree; END IF;
     v_out := '[]'::jsonb;
     FOR i IN 0 .. jsonb_array_length(p_tree->'items') - 1 LOOP
       v_out := v_out || jsonb_build_array(public._crm_cond_resolve(p_scope, p_tree->'items'->i, p_event));
@@ -292,7 +296,7 @@ DECLARE
 BEGIN
   -- Une définition de segment, déjà résolue depuis la base.
   IF p_k = '_def' THEN
-    IF jsonb_typeof(p_v) <> 'object' THEN RETURN NULL; END IF;
+    IF p_v IS NULL OR jsonb_typeof(p_v) <> 'object' THEN RETURN NULL; END IF;
     RETURN public._crm_filter_sql(p_v, p_p);
   END IF;
   CASE p_k
@@ -404,7 +408,7 @@ DECLARE
 BEGIN
   IF p_n IS NULL OR jsonb_typeof(p_n) <> 'object' THEN RETURN p_n; END IF;
   IF p_n ? 'op' THEN
-    IF jsonb_typeof(p_n->'items') <> 'array' THEN RETURN p_n; END IF;
+    IF jsonb_typeof(p_n->'items') IS DISTINCT FROM 'array' THEN RETURN p_n; END IF;
     v_out := '[]'::jsonb;
     FOR i IN 0 .. jsonb_array_length(p_n->'items') - 1 LOOP
       v_out := v_out || jsonb_build_array(public._crm_cond_strip_defs(p_n->'items'->i));

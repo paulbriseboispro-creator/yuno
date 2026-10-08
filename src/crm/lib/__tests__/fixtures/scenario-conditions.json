@@ -1679,6 +1679,56 @@
      "path": ""
     }
    ]
+  },
+  {
+   "name": "éléments en objet",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": {}
+   },
+   "errors": [
+    {
+     "code": "empty_group",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "groupe sans éléments",
+   "ctx": "step",
+   "tree": {
+    "op": "or",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "op": "and"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "empty_group",
+     "path": "1"
+    }
+   ]
+  },
+  {
+   "name": "éléments en texte",
+   "ctx": "entry",
+   "tree": {
+    "op": "and",
+    "items": "nb_min"
+   },
+   "errors": [
+    {
+     "code": "empty_group",
+     "path": ""
+    }
+   ]
   }
  ]
 }

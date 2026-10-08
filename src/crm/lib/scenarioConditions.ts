@@ -135,6 +135,8 @@ export function isCondGroup(n: unknown): n is CondGroup {
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
+/** `btrim` de Postgres : seules les espaces sont retirées (miroir exact du SQL). */
+const btrim = (x: string) => x.replace(/^ +| +$/g, '');
 const isInt = (x: unknown, max: number) => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x <= max;
 
 function valueOk(spec: Spec, v: unknown): boolean {
@@ -146,10 +148,10 @@ function valueOk(spec: Spec, v: unknown): boolean {
     case 'money': return typeof v === 'number' && /^[0-9]{1,7}(\.[0-9]{1,2})?$/.test(String(v));
     case 'bool': return typeof v === 'boolean';
     case 'strings': return Array.isArray(v) && v.length > 0
-      && v.every((x) => typeof x === 'string' && x.trim().length >= spec.min && x.trim().length <= spec.max);
-    case 'pattern': return typeof v === 'string' && spec.re.test(v.trim());
+      && v.every((x) => typeof x === 'string' && btrim(x).length >= spec.min && btrim(x).length <= spec.max);
+    case 'pattern': return typeof v === 'string' && spec.re.test(btrim(v));
     case 'patterns': return Array.isArray(v) && v.length > 0
-      && v.every((x) => typeof x === 'string' && spec.re.test(spec.trim ? x.trim() : x));
+      && v.every((x) => typeof x === 'string' && spec.re.test(spec.trim ? btrim(x) : x));
     case 'uuid': return typeof v === 'string' && UUID_CI.test(v);
     // Soirées : des id (minuscules, comme _crm_filter_sql), « T » (ce soir), ou « $event » (la soirée du scénario).
     case 'events': return Array.isArray(v) && v.length > 0
