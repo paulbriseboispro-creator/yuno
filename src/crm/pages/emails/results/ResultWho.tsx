@@ -14,6 +14,7 @@ import { YunitFace } from '@/crm/ui/YunitFace';
 import { useNarrow } from '@/crm/ui/useNarrow';
 import { useCrmT } from '@/crm/i18n';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useEmailRecipients, useEmailResultSegments, type EmailRecipients, type EmailResult, type RecipientFilter } from '@/crm/data/emails';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials } from '@/crm/lib/lifecycle';
 import type { Lifecycle } from '@/crm/data/clients';
@@ -179,7 +180,9 @@ function RecipientList({ id }: { id: string }) {
           );
         })}
       </div>
-      {loadingFirst ? (
+      {res.isError && !res.data ? (
+        <CrmLoadError error={res.error} onRetry={() => void res.refetch()} retrying={res.isFetching} />
+      ) : loadingFirst ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{[0, 1, 2, 3].map((k) => <Skel key={k} h={52} r={14} />)}</div>
       ) : !rows.length ? (
         <div style={{ padding: '18px 0', fontSize: 15, color: 'var(--sand-500)' }}>{t('yc.em.rs.list.empty')}</div>
