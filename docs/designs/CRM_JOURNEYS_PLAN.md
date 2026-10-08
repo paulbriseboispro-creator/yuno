@@ -38,7 +38,10 @@ Brevo et Customer.io.
 | 2 | Recettes et scénarios | Les 8 recettes restent. « Personnaliser » crée un scénario qui copie la recette ; publier ce scénario éteint la recette ; jamais les deux allumés sur un même sujet |
 | 3 | Pression d'envoi | L'ENTRÉE respecte le délai de 48 h avec les autres automatisations du compte. Les étapes en sont exemptées, restent à 20 h au moins l'une de l'autre, et comptent dans les plafonds globaux (1 / 24 h, 3 / 7 j, fatigue). Deux e-mails d'un même scénario sont donc à 24 h au moins en pratique : celui qui tombe trop tôt est reporté, jamais perdu |
 | 4 | Qui publie | Les rôles qui allument une recette (`crm_scope_writable`), jamais un lecteur, **jamais en accès assisté** |
-| 5-8 | Agents | À poser au début de la phase agents |
+| 5 | Autonomie | Les agents PRÉPARENT (brouillons, plans, bilans), le pro valide. Jamais un envoi, une publication ni un interrupteur |
+| 6 | Fournisseur d'IA | **Aucun chez Yuno pour commencer** : l'IA du pro (Claude, ChatGPT…) branchée par le MCP fait le travail d'IA ; ce qui doit tourner seul est calculé en SQL, sans IA. Pas de clé, pas de sous-traitant, pas de coût. Des agents Claude côté Yuno viendront si l'usage le justifie |
+| 7 | Où | Boutons en contexte (« Préparer avec mon IA ») + bilan de la semaine dans les notifications. Pas de fenêtre de discussion de plus |
+| 8 | Noms | Noms de tâche, sans mascotte : « Plan de soirée », « Créer avec l'IA », « Bilan de la semaine », « Pistes d'amélioration » |
 
 Identifiants techniques : `scenario` (`crm_scenarios`, `crm_scenario_versions`,
 `crm_scenario_runs`…), pas `journey` : `/crm/journey`, `crm_journey` et
@@ -233,7 +236,29 @@ mémoire, semis démo.
 
 ## 7. Les agents (A0-A5)
 
-Prompt §3. Décisions 5 à 8 à poser au début de la phase.
+Prompt §3, recadré par les décisions 5 à 8 (08/10). Un « agent » n'est pas un
+programme qui appelle une IA chez Yuno : c'est soit l'IA DU PRO, guidée par le
+MCP (consignes, prompts, lectures composites, brouillons), soit un calcul SQL
+déterministe pour ce qui doit tourner seul.
+
+Pourquoi : aucune clé ni coût d'IA chez Yuno, aucun sous-traitant nouveau ; le
+consentement, le retrait des données personnelles et les brouillons existent
+déjà dans le MCP (principe 3 tenu par construction : un seul plan d'outils).
+Limites assumées : un pro sans IA branchée n'a que la partie calculée ; le
+vérificateur de chiffres ne voit que ce que l'IA DÉPOSE dans Yuno, pas ce
+qu'elle dit dans sa conversation — d'où la règle : tout chiffre d'un plan ou
+d'un bilan est CALCULÉ par le serveur, jamais écrit par l'IA.
+
+Où ça tourne : SQL (RPC gardées) + Worker MCP existant. Ni fonction edge
+nouvelle (quota atteint), ni Workers / Agents SDK, ni cron de plus que
+nécessaire (le bilan de la semaine se calcule à la lecture, comme le fil de
+notifications ; le bilan plateforme passe par le balayage admin quotidien).
+
+Bouton « Préparer avec mon IA » : ouvre l'IA de la connexion MCP du pro avec
+la demande écrite (`claude.ai/new?q=…`, `chatgpt.com/?q=…` ; les deux
+l'envoient aussitôt, la demande ne fait que préparer des brouillons), sinon
+« Copier la demande » ; sans connexion, il explique comment en brancher une
+(Réglages › Assistants IA).
 
 ## 8. Lots
 
