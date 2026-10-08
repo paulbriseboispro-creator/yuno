@@ -231,3 +231,36 @@ chantier à part, non commencé.
 au banc : un réglage ne se juge que sur plusieurs comptes (`demo` + 3 tirages
 de `grand`, `BENCH_PROFILE='{"seed":N}'`).
 
+
+### Lot 3 — des statuts plus sûrs (migration `20261014110000`, PAS appliquée)
+
+Décisions de Paul : correction des tests multiples et « Confirmée » après 2
+calculs complets (07/10) ; « Pas de différence nette sur votre compte » à la
+place de « Testée, pas confirmée » ET d'un « À tester » qui dure (08/10).
+
+Le statut stocké passe par : p-valeur exacte (Poisson) quand E < 10, sinon
+normale ; Benjamini-Hochberg à 10 % sur toutes les familles testées du compte ;
+au moins 5 cas attendus pour confirmer ; marge anti-bascule (gain ≥ 1,2 et
+z ≥ 1,5 pour rester candidate) ; « Confirmée » après 2 JOURS de calcul complet
+consécutifs (un recalcul le même jour ne compte pas deux fois) ; « pas de
+différence nette » pour une famille indécise depuis 60 jours avec 100 cas ou
+plus. Les familles déjà confirmées en prod repartent à 1 jour : confirmées de
+nouveau au calcul suivant si elles passent la correction, sans clignoter.
+
+Banc (`stability.mjs`, deux calculs « à un jour d'intervalle ») :
+
+| Compte | Confirmées avant | Après | Changent sans 10 % des clients |
+|---|---|---|---|
+| `demo` | 7 | 6 (`launch` : 3 cas pour 0,8 attendu) | 1, `invited` passe sous 30 cas (pas confirmée → à tester) |
+| `grand` | 9 | 7 (`launch`, un canal) | 0 |
+| `petit` | 4 | 4 | 3, toutes entre « à tester » et « pas de différence nette » (31 cas, z = 0,98) |
+| `hasard` | 5 | 5 | 0 |
+
+L'ensemble des familles CONFIRMÉES ne bouge sur aucun compte quand on retire
+10 % des clients. Sur `hasard` (aucune affinité plantée), rien d'affinité
+n'est confirmé ; les 5 confirmées (tôt, dernière minute, à plusieurs, de
+passage, amené par un client) sont de vrais effets du générateur.
+
+Constat : Benjamini-Hochberg seul ne suffisait pas pour `launch` (p = 0,045
+passe quand les autres familles sont massivement significatives) ; c'est la
+règle des 5 cas attendus qui la retient.
