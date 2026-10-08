@@ -658,6 +658,45 @@ if (cmd === 'conditions') {
   check('Réglages : droit et brouillons créés', mine?.can_scenarios === true && Number(mine.scenarios_created) === 1, mine && { can: mine.can_scenarios, n: mine.scenarios_created });
   const log = await q(`SELECT tool, status, error, args FROM mcp_tool_calls WHERE grant_id = $1 ORDER BY id`, [grant]);
   check('journal : un résumé, jamais le graphe entier', log.every((x) => !JSON.stringify(x.args ?? {}).includes('"nodes"')), log.map((x) => `${x.tool}:${x.status}`).join(' '));
+} else if (cmd === 'admin') {
+  // Lot J5 : Admin CRM › Plateforme › Scénarios (agrégats par compte).
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  // Le banc n'a pas les fonctions de l'Admin CRM : la porte et la ligne de compte
+  // sont simulées (un compte, le nôtre).
+  if (!(await one(`SELECT to_regprocedure('public._crm_admin_gate()') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public._crm_admin_gate() RETURNS void LANGUAGE sql AS $$ SELECT $$;`);
+  }
+  if (!(await one(`SELECT to_regprocedure('public._crm_admin_rows(boolean)') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public._crm_admin_rows(p boolean) RETURNS jsonb LANGUAGE sql AS $$
+      SELECT jsonb_build_array(jsonb_build_object('id', 'org:' || '${org}', 'name', 'Banc', 'city', 'Paris', 'kind', 'organizer')) $$;`);
+  }
+  const owner = JSON.stringify({ sub: org, role: 'authenticated' });
+  const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
+  const graph = JSON.parse(JSON.stringify(gx.cases[0].graph));
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`UPDATE organizer_profiles SET legal_name = 'Banc SAS', siret = '12345678900011' WHERE user_id = $1`, [org]);
+  const tpl = (await one(`INSERT INTO email_campaign_templates (organizer_user_id, name) VALUES ($1, 'Banc') RETURNING id`, [org])).id;
+  graph.nodes.e1.template_id = tpl;
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+  const id = (await one(`SELECT crm_scenario_save(NULL, $1, NULL, 'Banc admin', $2::jsonb) AS r`, [org, JSON.stringify(graph)])).r.id;
+  const pub = (await one(`SELECT crm_scenario_publish(NULL, $1, $2) AS r`, [org, id])).r;
+  check('publié pour le test', pub.ok === true, pub);
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  const run = (await one(`INSERT INTO crm_scenario_runs (scenario_id, version_id, scope_key, email, trigger_key, node_id, status)
+                            SELECT s.id, s.live_version_id, s.scope_key, 'a@banc.test', 'k', 'e1', 'active' FROM crm_scenarios s WHERE s.id = $1 RETURNING id`, [id])).id;
+  await db.query(`INSERT INTO crm_scenario_steps (run_id, node_id, scenario_id, version_id, status, reason, due_at)
+                  SELECT $1, 'e1', s.id, s.live_version_id, 'held', 'yunits', now() FROM crm_scenarios s WHERE s.id = $2`, [run, id]);
+  let r = (await one(`SELECT crm_admin_scenarios(false) AS r`)).r;
+  const acc = r.accounts[0];
+  check('admin : un compte, un scénario en ligne, une personne en route', r.totals.active === 1 && acc?.on_their_way === 1 && acc.entered7 === 1, r.totals);
+  check('admin : message reporté et sa raison', acc?.held_now === 1 && acc.held_reason === 'yunits' && r.held.yunits === 1, { held: acc?.held_now, why: acc?.held_reason });
+  check('admin : version en ligne saine', acc?.broken === 0, acc?.broken);
+  await db.query(`DELETE FROM email_campaign_templates WHERE id = $1`, [tpl]);
+  r = (await one(`SELECT crm_admin_scenarios(false) AS r`)).r;
+  check('admin : modèle supprimé → scénario en ligne signalé', r.accounts[0]?.broken === 1 && r.totals.broken === 1, r.accounts[0]?.broken);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);

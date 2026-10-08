@@ -47,7 +47,7 @@ const dict: AdminDict = {
   'adm.crm.nav.kw.clients': ['accounts clubs organizers health', 'comptes clubs organisateurs santé', 'cuentas clubes organizadores salud'],
   'adm.crm.nav.kw.product': ['usage value nps features', 'usage valeur nps fonctionnalités', 'uso valor nps funciones'],
   'adm.crm.nav.kw.money': ['mrr invoices payments yunits revenue', 'mrr factures paiements yunits revenu', 'mrr facturas pagos yunits ingresos'],
-  'adm.crm.nav.kw.platform': ['quota shotgun resend syncs bounces', 'quota shotgun resend synchros bounces', 'cuota shotgun resend sincronizaciones rebotes'],
+  'adm.crm.nav.kw.platform': ['quota shotgun resend syncs bounces scenarios', 'quota shotgun resend synchros bounces scénarios', 'cuota shotgun resend sincronizaciones rebotes escenarios'],
   'adm.crm.nav.kw.legal': ['dpa terms consent gdpr', 'dpa cgu consentement rgpd', 'dpa términos consentimiento rgpd'],
   'adm.crm.nav.kw.settings': ['pricing price trial beta', 'prix tarifs essai bêta', 'precios tarifas prueba beta'],
 

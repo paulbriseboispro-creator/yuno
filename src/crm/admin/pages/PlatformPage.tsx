@@ -1,21 +1,23 @@
 /**
  * Admin CRM › Plateforme (« Admin Plateforme » du design) : les synchros de la
  * billetterie et le quota Shotgun partagé, l'envoi (quota, bounces, plaintes,
- * suppressions), les comptes gelés, les tâches planifiées. Tout est lu en base ;
+ * suppressions), les scénarios (en ligne, en route, reportés, à revoir, par
+ * compte), les comptes gelés, les tâches planifiées. Tout est lu en base ;
  * la durée d'une synchro (p50 / p95) ne compte que les passes terminées ; la
  * liste des exceptions edge n'est pas enregistrée : elle n'apparaît pas.
  */
+import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Skel } from '@/crm/ui/kit';
 import { ADMIN_ROUTES } from '../adminNav';
-import { useAdminAccounts, useAdminPlatform } from '../data';
-import type { AdminPlatform } from '../data';
+import { useAdminAccounts, useAdminPlatform, useAdminScenarios } from '../data';
+import type { AdminPlatform, AdminScenarioAccount } from '../data';
 import { EmptyNote, Kpi, PageHead, RowLine, Section, Tabs, kpiGrid, pageWrap, twoCols, useAgo } from '../ui';
 import type { AdminAccount } from '@/crm/lib/admin';
 
-type Tab = 'conn' | 'send' | 'abuse' | 'system';
+type Tab = 'conn' | 'send' | 'scn' | 'abuse' | 'system';
 /** Plafond du limiteur commun (consume_ticketing_rate) : requêtes par minute. */
 const SHOTGUN_LIMIT = 45;
 const SHOTGUN_QUOTA = 100;
@@ -31,7 +33,7 @@ export default function PlatformPage() {
   const [sp, setSp] = useSearchParams();
   const q = useAdminPlatform();
   const acc = useAdminAccounts();
-  const tab = (['send', 'abuse', 'system'] as const).find((x) => x === sp.get('tab')) ?? 'conn';
+  const tab = (['send', 'scn', 'abuse', 'system'] as const).find((x) => x === sp.get('tab')) ?? 'conn';
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   const d = q.data;
   const rows = acc.data?.accounts ?? [];
@@ -39,10 +41,10 @@ export default function PlatformPage() {
   const abuse = d ? d.frozen.length + d.bounce.filter((b) => b.sent >= 200 && (b.bounced / b.sent > 0.05 || b.complained / b.sent > 0.003)).length : 0;
   return (
     <main style={pageWrap}>
-      <PageHead kicker={`${t('adm.crm.nav.platform')}${d ? ` · ${t('adm.crm.pf.at', { time: time(d.at) })}` : ''}`} title={t('adm.crm.pf.title')} sub={t('adm.crm.pf.sub')} />
+      <PageHead kicker={`${t('adm.crm.nav.platform')}${d ? ` · ${t('adm.crm.pf.at', { time: time(d.at) })}` : ''}`} title={t(tab === 'scn' ? 'adm.crm.pf.sc.title' : 'adm.crm.pf.title')} sub={t(tab === 'scn' ? 'adm.crm.pf.sc.sub' : 'adm.crm.pf.sub')} />
       <Tabs<Tab> value={tab} onChange={(v) => setSp(v === 'conn' ? {} : { tab: v }, { replace: true })}
-        tabs={[{ id: 'conn', label: t('adm.crm.pf.t.conn'), badge: badConn }, { id: 'send', label: t('adm.crm.pf.t.send') }, { id: 'abuse', label: t('adm.crm.pf.t.abuse'), badge: abuse }, { id: 'system', label: t('adm.crm.pf.t.system') }]} />
-      {!d ? <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></> : (
+        tabs={[{ id: 'conn', label: t('adm.crm.pf.t.conn'), badge: badConn }, { id: 'send', label: t('adm.crm.pf.t.send') }, { id: 'scn', label: t('adm.crm.pf.t.scn') }, { id: 'abuse', label: t('adm.crm.pf.t.abuse'), badge: abuse }, { id: 'system', label: t('adm.crm.pf.t.system') }]} />
+      {tab === 'scn' ? <ScnTab /> : !d ? <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></> : (
         tab === 'conn' ? <ConnTab d={d} rows={rows} /> : tab === 'send' ? <SendTab d={d} /> : tab === 'abuse' ? <AbuseTab d={d} /> : <SystemTab d={d} />
       )}
     </main>
@@ -177,5 +179,83 @@ function SystemTab({ d }: { d: AdminPlatform }) {
         </RowLine>
       ))}
     </Section>
+  );
+}
+
+const PILL = {
+  red: { background: 'var(--red-50)', color: 'var(--red-700)' },
+  amber: { background: 'var(--amber-50)', color: 'var(--amber-700)' },
+  sand: { background: 'var(--sand-100)', color: 'var(--sand-700)' },
+} as const;
+function Pill({ tone, children }: { tone: keyof typeof PILL; children: ReactNode }) {
+  return <span style={{ ...PILL[tone], height: 22, padding: '0 9px', borderRadius: 99, fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}>{children}</span>;
+}
+
+/**
+ * Scénarios : des agrégats par compte (jamais une personne). « À revoir » = un
+ * scénario en ligne dont la version publiée ne passerait plus les contrôles de
+ * contenu (modèle supprimé, soirée passée, identité SMS retirée) : le moteur
+ * saute alors le message, le pro doit corriger et republier.
+ */
+function ScnTab() {
+  const { t, n } = useCrmT();
+  const ago = useAgo();
+  const q = useAdminScenarios();
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
+  const d = q.data;
+  if (!d) return <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></>;
+  const k = d.totals;
+  const why = (r: string) => { const key = `yc.scn.why.${r}`; const v = t(key); return v === key ? t('yc.scn.why.other') : v; };
+  const held = Object.entries(d.held).sort((a, b) => b[1] - a[1]);
+  const pl = (v: number, one: string, many: string) => t(v === 1 ? one : many, { n: n(v) });
+  const activeSub = [pl(k.accounts, 'adm.crm.pf.sc.k.accountsOne', 'adm.crm.pf.sc.k.accounts'), t('adm.crm.pf.sc.k.paused', { n: n(k.paused) }), pl(k.drafts, 'adm.crm.pf.sc.k.draftsOne', 'adm.crm.pf.sc.k.drafts')].join(' · ');
+  return (
+    <>
+      <div style={kpiGrid}>
+        <Kpi label={t('adm.crm.pf.sc.k.active')} value={n(k.active)} dot="var(--green-500)" sub={activeSub} />
+        <Kpi delay={60} label={t('adm.crm.pf.sc.k.way')} value={n(k.on_their_way)} sub={pl(k.entered7, 'adm.crm.pf.sc.k.waySubOne', 'adm.crm.pf.sc.k.waySub')} />
+        <Kpi delay={120} label={t('adm.crm.pf.sc.k.sent')} value={n(k.sent7)} sub={pl(k.expired7, 'adm.crm.pf.sc.k.sentSubOne', 'adm.crm.pf.sc.k.sentSub')} />
+        <Kpi delay={180} label={t('adm.crm.pf.sc.k.held')} value={n(k.held_now)} dot="var(--amber-500)" sub={held[0] ? t('adm.crm.pf.sc.k.heldSub', { why: why(held[0][0]) }) : t('adm.crm.pf.sc.k.heldNone')} />
+        <Kpi delay={240} label={t('adm.crm.pf.sc.k.broken')} value={n(k.broken)} dot="var(--red-500)" sub={k.broken ? t('adm.crm.pf.sc.k.brokenSub') : t('adm.crm.pf.sc.k.brokenNone')} />
+      </div>
+      <Section title={t('adm.crm.pf.sc.acc')} sub={t('adm.crm.pf.sc.accSub')} pad={24} gap={4}>
+        {d.accounts.length === 0 && <EmptyNote>{t('adm.crm.pf.sc.none')}</EmptyNote>}
+        {d.accounts.map((a, i) => <ScnAccountRow key={a.id} a={a} first={i === 0} why={why} ago={ago} />)}
+      </Section>
+      <Section title={t('adm.crm.pf.sc.held')} sub={t('adm.crm.pf.sc.heldSub')} pad={24} gap={4}>
+        {held.length === 0 && <EmptyNote>{t('adm.crm.pf.sc.heldEmpty')}</EmptyNote>}
+        {held.map(([r, c], i) => <RowLine key={r} first={i === 0}><span style={{ fontWeight: 600 }}>{why(r).charAt(0).toUpperCase() + why(r).slice(1)}</span><b>{n(c)}</b></RowLine>)}
+        <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--sand-500)' }}>{t('adm.crm.pf.sc.privacy')}</p>
+      </Section>
+    </>
+  );
+}
+
+function ScnAccountRow({ a, first, why, ago }: { a: AdminScenarioAccount; first: boolean; why: (r: string) => string; ago: (iso: string) => string }) {
+  const { t, n } = useCrmT();
+  const stat = (v: number, one: string, many = one) => (
+    <span style={{ whiteSpace: 'nowrap' }}><b style={{ color: 'var(--ink)' }}>{n(v)}</b> {t(v === 1 ? one : many)}</span>
+  );
+  return (
+    <div style={{ padding: '14px 0', borderTop: first ? 0 : '1px solid var(--sand-100)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <Link to={ADMIN_ROUTES.account(a.id)} style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', textDecoration: 'none' }}>{a.name}</Link>
+        {a.city && <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{a.city}</span>}
+        {a.state !== 'ok' && <Pill tone={a.state === 'frozen' ? 'red' : 'amber'}>{t(`adm.crm.pf.sc.state.${a.state}`)}</Pill>}
+        {a.broken > 0 && <Pill tone="red">{t('adm.crm.pf.sc.brokenN', { n: a.broken })}</Pill>}
+        {a.by_ai > 0 && <Pill tone="sand">{t(a.by_ai === 1 ? 'adm.crm.pf.sc.byAiOne' : 'adm.crm.pf.sc.byAi', { n: a.by_ai })}</Pill>}
+        {a.last_change && <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--sand-500)', whiteSpace: 'nowrap' }}>{t('adm.crm.pf.sc.changed', { when: ago(a.last_change) })}</span>}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 13.5, color: 'var(--sand-600)' }}>
+        {stat(a.active, 'adm.crm.pf.sc.c.active')}
+        {a.paused > 0 && stat(a.paused, 'adm.crm.pf.sc.c.paused')}
+        {a.drafts > 0 && stat(a.drafts, 'adm.crm.pf.sc.c.draftsOne', 'adm.crm.pf.sc.c.drafts')}
+        {stat(a.on_their_way, 'adm.crm.pf.sc.c.way')}
+        {stat(a.sent7, 'adm.crm.pf.sc.c.sentOne', 'adm.crm.pf.sc.c.sent')}
+        {a.would_send7 > 0 && stat(a.would_send7, 'adm.crm.pf.sc.c.wouldOne', 'adm.crm.pf.sc.c.would')}
+        {a.expired7 > 0 && stat(a.expired7, 'adm.crm.pf.sc.c.expiredOne', 'adm.crm.pf.sc.c.expired')}
+        {a.held_now > 0 && <span style={{ whiteSpace: 'nowrap', color: 'var(--amber-700)' }}><b>{n(a.held_now)}</b> {t(a.held_now === 1 ? 'adm.crm.pf.sc.c.heldOne' : 'adm.crm.pf.sc.c.held')}{a.held_reason ? ` · ${why(a.held_reason)}` : ''}</span>}
+      </div>
+    </div>
   );
 }
