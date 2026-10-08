@@ -791,6 +791,8 @@ if (cmd === 'conditions') {
   const by = Object.fromEntries(list.map((x) => [x.template, x]));
   console.log(list.map((x) => `  ${x.name} · ${x.state} · entrés ${x.entered} · en route ${x.active} · objectif ${x.goal}`).join('\n'));
   check('« Fidèles sans place » : des entrées, des personnes en route, des objectifs atteints', by.loyal_no_ticket?.entered > 0 && by.loyal_no_ticket.goal > 0, by.loyal_no_ticket);
+  check('compte démo : la mesure le dit, sans écart ni z (jamais un gain ou une perte tirés au hasard)',
+    by.loyal_no_ticket.measure?.demo === true && by.loyal_no_ticket.measure.z === null && by.loyal_no_ticket.measure.extra === null, by.loyal_no_ticket.measure);
   const rep = async (id) => (await one(`SELECT crm_scenario_report(NULL, $1, $2) AS r`, [org, id])).r;
   const rl = await rep(by.loyal_no_ticket.id);
   check('rapport des fidèles : l\'annonce « aurait été envoyée » (démo), le témoin compté',

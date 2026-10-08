@@ -30,6 +30,8 @@ export interface ScnHoldout {
   control: { n: number; buyers: number };
   extra: number | null;
   z: number | null;
+  /** Compte démo : rien n'est parti, pas de comparaison (écart et z restent vides). */
+  demo?: boolean;
 }
 
 export interface ScnRow {

@@ -853,6 +853,7 @@ const dict: CrmDict = {
   'yc.scn.exit.stop': ['Replied STOP', 'Ont répondu STOP', 'Respondieron STOP'],
   'yc.scn.exit.event_cancelled': ['Night cancelled', 'Soirée annulée', 'Fiesta cancelada'],
 
+  'yc.scn.verdict.demo': ['Demo account: nothing was sent, so there is no comparison with the people kept aside.', 'Compte démo : rien n’est parti, donc aucune comparaison avec les personnes mises de côté.', 'Cuenta demo: no se envió nada, así que no hay comparación con las personas apartadas.'],
   'yc.scn.verdict.few': ['Too few people to compare yet.', 'Encore trop peu de personnes pour comparer.', 'Aún muy pocas personas para comparar.'],
   'yc.scn.verdict.pending': ['Measuring: people are still on their way.', 'Mesure en cours : des personnes sont encore en route.', 'Midiendo: aún hay personas en curso.'],
   'yc.scn.verdict.none': ['No clear difference with the people not contacted.', 'Pas de différence nette avec les non-contactés.', 'Sin diferencia clara con las personas sin contactar.'],

@@ -93,7 +93,7 @@ function Row({ T, r, i, canEdit, onAct, act }: {
 }) {
   const { t, n, dShort } = T;
   const nav = useNavigate();
-  const v = r.version > 0 ? holdoutVerdict(r.measure) : null;
+  const v = r.version > 0 ? (r.measure.demo ? 'demo' : holdoutVerdict(r.measure)) : null;
   return (
     <article style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '18px 20px', borderRadius: 22, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', animation: `yc-in-blur 600ms ${EASE} ${Math.min(i, 6) * 60}ms both`, minWidth: 0 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 12px' }}>

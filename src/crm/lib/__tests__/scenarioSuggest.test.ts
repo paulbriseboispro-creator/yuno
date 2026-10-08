@@ -54,6 +54,11 @@ describe('pistes d’amélioration d’un scénario', () => {
     expect(scenarioSuggestions(g, rep).suggestions).toEqual([]);
   });
 
+  it('compte démo : aucune piste, quel que soit le tirage du témoin', () => {
+    const rep = { nodes: { e2: node({ entered: 200, reasons: { 'expired:pressure_24h': 80 } }) }, holdout: holdout({ z: -3, demo: true }) };
+    expect(scenarioSuggestions(loyal, rep)).toEqual({ verdict: 'demo', suggestions: [] });
+  });
+
   it('une étape trop petite ne fait rien proposer', () => {
     const rep = { nodes: { e2: node({ entered: 12, reasons: { 'expired:pressure_24h': 10 } }) }, holdout: holdout() };
     expect(scenarioSuggestions(loyal, rep).suggestions).toEqual([]);

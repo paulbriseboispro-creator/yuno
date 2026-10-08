@@ -41,8 +41,8 @@ export function Suggestions({ T, live, draft, report, name, nodeLabel, canEdit, 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 16, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{t('yc.ag.sug.title')}</span>
-      {verdict === 'few' || verdict === 'pending'
-        ? <span style={{ fontSize: 14, color: 'var(--sand-600)', lineHeight: 1.5 }}>{t('yc.ag.sug.wait')}</span>
+      {verdict === 'demo' || verdict === 'few' || verdict === 'pending'
+        ? <span style={{ fontSize: 14, color: 'var(--sand-600)', lineHeight: 1.5 }}>{t(verdict === 'demo' ? 'yc.ag.sug.demo' : 'yc.ag.sug.wait')}</span>
         : suggestions.length === 0
           ? <span style={{ fontSize: 14, color: 'var(--sand-600)', lineHeight: 1.5 }}>{t('yc.ag.sug.none')}</span>
           : suggestions.map((s, i) => {

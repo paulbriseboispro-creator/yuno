@@ -671,14 +671,21 @@ AS $function$
            count(*) FILTER (WHERE holdout AND settled) AS n_h, count(*) FILTER (WHERE holdout AND settled AND goal) AS b_h,
            bool_and(settled) AS done
       FROM r
+  ), d AS (
+    -- Compte démo : rien n'est parti, contactés et témoin ne diffèrent que par le
+    -- hasard. Pas d'écart ni de z : jamais un gain ou une perte affichés.
+    SELECT COALESCE(public.is_demo_marketing_scope(s.venue_id, s.organizer_user_id), false) AS demo
+      FROM public.crm_scenarios s WHERE s.id = p_scenario
   )
   SELECT jsonb_build_object(
            'done', COALESCE(g.done, false),
+           'demo', COALESCE((SELECT d.demo FROM d), false),
            'contacted', jsonb_build_object('n', g.n_c, 'buyers', g.b_c),
            'control', jsonb_build_object('n', g.n_h, 'buyers', g.b_h),
-           'extra', CASE WHEN g.n_c >= 10 AND g.n_h >= 10
+           'extra', CASE WHEN g.n_c >= 10 AND g.n_h >= 10 AND NOT COALESCE((SELECT d.demo FROM d), false)
                          THEN round(g.n_c * (g.b_c::numeric / g.n_c - g.b_h::numeric / g.n_h), 1) END,
-           'z', CASE WHEN g.n_c >= 10 AND g.n_h >= 10 AND (g.b_c + g.b_h) > 0 AND (g.b_c + g.b_h) < (g.n_c + g.n_h) THEN round((
+           'z', CASE WHEN g.n_c >= 10 AND g.n_h >= 10 AND (g.b_c + g.b_h) > 0 AND (g.b_c + g.b_h) < (g.n_c + g.n_h)
+                          AND NOT COALESCE((SELECT d.demo FROM d), false) THEN round((
                   (g.b_c::numeric / g.n_c - g.b_h::numeric / g.n_h)
                   / sqrt(((g.b_c + g.b_h)::numeric / (g.n_c + g.n_h)) * (1 - (g.b_c + g.b_h)::numeric / (g.n_c + g.n_h))
                          * (1.0 / g.n_c + 1.0 / g.n_h)))::numeric, 2) END)

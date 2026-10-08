@@ -185,7 +185,8 @@ export function TestModal({
 
 export function ReportSummary({ T, r, entered, goal }: { T: T; r: ScnReport; entered: number; goal: number }) {
   const { t, tp, n, eur } = T;
-  const v = holdoutVerdict(r.holdout);
+  const demo = !!r.holdout.demo;
+  const v = demo ? 'demo' : holdoutVerdict(r.holdout);
   const exits = Object.entries(r.exits ?? {}).sort((a, b) => b[1] - a[1]);
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 16, background: 'var(--sand-50)' }}>
@@ -197,11 +198,13 @@ export function ReportSummary({ T, r, entered, goal }: { T: T; r: ScnReport; ent
         {r.attributed && r.attributed.revenue !== null && <Num label={t('yc.scn.rep.revenue')} v={eur(r.attributed.revenue)} />}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <span style={{ fontSize: 13.5, color: 'var(--sand-700)', fontVariantNumeric: 'tabular-nums' }}>
-          {tp('yc.hold.res.buyers', r.holdout.contacted.buyers, { b: n(r.holdout.contacted.buyers), n: n(r.holdout.contacted.n), who: t('yc.hold.res.contacted') })}
-          {' · '}
-          {tp('yc.hold.res.buyers', r.holdout.control.buyers, { b: n(r.holdout.control.buyers), n: n(r.holdout.control.n), who: t('yc.hold.res.control') })}
-        </span>
+        {!demo && (
+          <span style={{ fontSize: 13.5, color: 'var(--sand-700)', fontVariantNumeric: 'tabular-nums' }}>
+            {tp('yc.hold.res.buyers', r.holdout.contacted.buyers, { b: n(r.holdout.contacted.buyers), n: n(r.holdout.contacted.n), who: t('yc.hold.res.contacted') })}
+            {' · '}
+            {tp('yc.hold.res.buyers', r.holdout.control.buyers, { b: n(r.holdout.control.buyers), n: n(r.holdout.control.n), who: t('yc.hold.res.control') })}
+          </span>
+        )}
         <span style={{ fontSize: 13.5, fontWeight: v === 'gain' || v === 'loss' ? 600 : 500, color: v === 'gain' ? 'var(--green-700)' : v === 'loss' ? 'var(--amber-700)' : 'var(--sand-600)' }}>
           {t(`yc.scn.verdict.${v}`, { x: n(Math.round(r.holdout.extra ?? 0)) })}
         </span>

@@ -195,6 +195,7 @@ function issues(list: unknown): { step: string | null; field: string | null; cod
 
 function holdoutVerdict(m: Record<string, unknown> | null | undefined): string {
   if (!m) return 'not measured';
+  if (m.demo) return 'demo account: nothing was sent, so there is no comparison with the people kept aside';
   const c = (m.contacted ?? {}) as { n?: number }; const h = (m.control ?? {}) as { n?: number };
   if ((c.n ?? 0) < 10 || (h.n ?? 0) < 10) return 'too few people to compare';
   if (!m.done) return 'measuring: people are still on their way';

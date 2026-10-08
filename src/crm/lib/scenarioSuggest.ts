@@ -12,8 +12,10 @@ import type { ScenarioGraph } from './scenarioGraph';
  * Verdict du témoin : miroir EXACT de `holdoutVerdict` (src/crm/lib/holdout.ts,
  * testé contre lui) sans dépendre de l'alias `@/`, que le Worker MCP ne lit pas.
  */
-export type SuggestVerdict = 'few' | 'pending' | 'none' | 'gain' | 'loss';
+export type SuggestVerdict = 'demo' | 'few' | 'pending' | 'none' | 'gain' | 'loss';
 export function suggestVerdict(h: SuggestReport['holdout']): SuggestVerdict {
+  // Compte démo : rien n'est parti, aucune comparaison (le serveur ne rend ni écart ni z).
+  if (h.demo) return 'demo';
   if (h.contacted.n < 10 || h.control.n < 10) return 'few';
   if (!h.done) return 'pending';
   if (h.z === null || Math.abs(h.z) < 2) return 'none';
@@ -25,7 +27,7 @@ export interface SuggestNodeStats {
 }
 export interface SuggestReport {
   nodes: Record<string, SuggestNodeStats>;
-  holdout: { done: boolean; contacted: { n: number; buyers: number }; control: { n: number; buyers: number }; z: number | null };
+  holdout: { done: boolean; contacted: { n: number; buyers: number }; control: { n: number; buyers: number }; z: number | null; demo?: boolean };
 }
 
 export type ScenarioSuggestion =
@@ -75,7 +77,7 @@ function shift(w: WaitNode, later: boolean): { field: 'hours' | 'days'; from: nu
 export function scenarioSuggestions(graph: ScenarioGraph, report: SuggestReport): { verdict: SuggestVerdict; suggestions: ScenarioSuggestion[] } {
   const verdict = suggestVerdict(report.holdout);
   const out: ScenarioSuggestion[] = [];
-  if (verdict === 'few' || verdict === 'pending') return { verdict, suggestions: out };
+  if (verdict === 'demo' || verdict === 'few' || verdict === 'pending') return { verdict, suggestions: out };
   for (const [id, n] of Object.entries(graph.nodes ?? {})) {
     const type = (n as { type?: string }).type;
     if (type !== 'email' && type !== 'sms') continue;
