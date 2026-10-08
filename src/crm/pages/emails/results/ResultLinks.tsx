@@ -18,6 +18,7 @@ import { cleanLink, linkKind, type LinkKind } from '@/crm/lib/emails';
 import { LIFECYCLE_AVATAR, fullName, initials } from '@/crm/lib/lifecycle';
 import type { Lifecycle } from '@/crm/data/clients';
 import { WriteModal } from '@/crm/components/WriteModal';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 
 const box = { display: 'flex', flexDirection: 'column', padding: 'clamp(20px,2.4vw,28px)', borderRadius: 28, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' } as const;
 const h2 = { margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' } as const;
@@ -101,9 +102,13 @@ function HotClickers({ id }: { id: string }) {
   const total = q.data?.total ?? 0;
   // Toutes les adresses, pas la première page : la fenêtre « Écrire » ne
   // s'ouvre qu'une fois la liste complète lue (sans elle, elle viserait
-  // toute la base).
-  const all = useEmailRecipientEmails(id, 'hot', total > 0);
-  const emails = all.data?.emails ?? null;
+  // toute la base). Lue au clic seulement : chaque lecture reconstruit la
+  // table des destinataires, la faire d'office doublait le temps d'ouverture.
+  // Quand la première page les contient tous, aucune seconde lecture.
+  const [want, setWant] = useState(false);
+  const complete = total > 0 && rows.length >= total;
+  const all = useEmailRecipientEmails(id, 'hot', want && !complete);
+  const emails = complete ? rows.map((p) => p.email) : (all.data?.emails ?? null);
   const shown = rows.slice(0, 12);
   const who = tp('yc.em.rs.hot.who', total, { n: n(total) });
 
@@ -112,12 +117,14 @@ function HotClickers({ id }: { id: string }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div><h2 style={h2}>{t('yc.em.rs.hot.t')}</h2><div style={subCss}>{t('yc.em.rs.hot.s')}</div></div>
         {total > 0 && (
-          <Hv as="button" type="button" disabled={!emails?.length} onClick={() => setWrite(true)} style={{ height: 40, padding: '0 16px', borderRadius: 99, border: 0, background: 'var(--ink)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: emails?.length ? 'pointer' : 'default', opacity: emails?.length ? 1 : 0.5 }} hover={{ background: 'var(--sand-700)' }}>
+          <Hv as="button" type="button" disabled={write && !emails?.length} onClick={() => { setWant(true); setWrite(true); }} style={{ height: 40, padding: '0 16px', borderRadius: 99, border: 0, background: 'var(--ink)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', opacity: write && !emails?.length ? 0.5 : 1 }} hover={{ background: 'var(--sand-700)' }}>
             <Icon name="mail" size={16} stroke={2.2} />{t('yc.em.rs.hot.write')}
           </Hv>
         )}
       </div>
-      {q.isLoading ? (
+      {q.isError && !q.data ? (
+        <CrmLoadError error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />
+      ) : q.isLoading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 10 }}>
           {[0, 1, 2].map((k) => <Skel key={k} h={62} r={16} />)}
         </div>
