@@ -241,7 +241,7 @@ Prompt §3. Décisions 5 à 8 à poser au début de la phase.
 |---|---|---|
 | J1 | Langage de conditions, compilateur, miroir TS, validateur du graphe (forme) | fait (08/10) |
 | J2 | Tables, versions, RPC (brouillon, publication, pause, archives, chiffres), gardes | fait (08/10) |
-| J3 | File des déclencheurs, moteur, nœuds, politique, témoin, Yunits, report / expiration, démo | à faire |
+| J3 | File des déclencheurs, moteur, nœuds, politique, témoin, Yunits, report / expiration, démo | fait (08/10) |
 | J4 | Éditeur, conditions, modèles, estimation, tests, rapport | à faire |
 | J5 | MCP, aide, assistant, CLAUDE.md, semis démo | à faire |
 | A0-A5 | Agents | après J5 |
@@ -287,5 +287,59 @@ scripts/crm-bench/scenarios.mjs crud` (36 vérifications, rôles compris).
 Le banc a été reconstruit (`run.mjs build`, `gen demo`, `compute demo`) : la
 base copiée du lot d'optimisation n'avait pas `crm_sms_rates`.
 
-Prochaine étape : J3 (moteur). À faire en J3 : réécrire `_crm_erase_contacts`
-(purge des inscriptions) après `same-as-prod.mjs`.
+**J3 fait (08/10)** — migration `20261016130000_crm_scenario_engine` :
+`crm_scenario_tick()` (cron `crm-scenario-tick`, minutes 2, 12… 52, budget
+4 s, une portée à la fois sous verrou consultatif, une portée en erreur
+n'arrête pas les autres). Choix pris en route, à connaître pour reprendre :
+- **Pas de file remplie par `ticketing_after_sync`** : les billets neufs et
+  les inscriptions confirmées se lisent depuis un repère par portée
+  (`crm_scenario_scope_state`, une heure de marge, `first_seen_at`). Même
+  effet, et la synchro Shotgun n'est jamais touchée ni bloquée (la règle
+  « jamais bloquante » tenue par construction).
+- **Entrées** : candidats par déclencheur, déjà-inscrits écartés AVANT de
+  construire `_cp`, filtre d'entrée compilé par soirée (`$event`), joignable
+  (e-mail ou SMS), pas d'exclusion du profilage, règle de retour, 48 h avec
+  les recettes et les autres scénarios du compte → `crm_scenario_pending`
+  (« en attente ») jusqu'à la fin de la fenêtre, puis `crm_scenario_skips`
+  (« non entrés », par raison). Témoin `_crm_holdout_pick('scn:<id>:<clé>')`.
+  3 000 entrées au plus par scénario et par passage. Une soirée (ou un jour)
+  dont le déclencheur a été lu en entier est marquée dans `trigger_state.done`
+  et n'est plus relue (sinon `_cp` serait reconstruit 144 fois par jour).
+- **Avance** en ensembles par paquet (version, nœud), jusqu'à 32 tours :
+  sorties forcées (exclusion du profilage, adresse supprimée, désinscription,
+  STOP, soirée annulée), objectif (jointure, heure de l'achat ou du scan),
+  puis le nœud. Attentes, embranchement, A/B déterministe, étiquette (dans
+  `crm_contact_notes`), notification (compteur `crm_scenario_notify_daily`).
+- **Messages** : e-mail = une campagne enfant par (version, nœud, soirée),
+  `child_kind = 'scenario'`, `product = 'crm'`, SA PROPRE MÈRE (hors des
+  listes et des bilans d'e-mails, comme les relances des pages), drainée par
+  `send-campaign` ; SMS = une campagne CRM programmée par passage (dans la
+  liste SMS sous « <scénario> · SMS », comme ceux de « 1re soirée »). Fenêtre
+  d'un message : 48 h après l'arrivée, jamais après « 2 h avant la soirée ».
+  Reporté (raison) : gel, compte en pause, 20 h (tous scénarios du compte),
+  politique d'envoi (1 / 24 h, 3 / 7 j, fatigue), plafond SMS de la semaine,
+  Yunits (place réservée au tarif étranger, au pire). Expiré : fenêtre
+  passée (avec la dernière raison), pas d'accord, adresse supprimée, plus de
+  soirée. Un SMS retombé en brouillon (Yunits, identité, pause) attend et
+  repart seul (`_crm_scenario_sms_retry`). Démo : « aurait envoyé ».
+- Journal prévu / réel : `crm_prediction_people.contacted_at` posé par un
+  message de scénario relié à la soirée. `_crm_erase_contacts` réécrite
+  (prod = dépôt vérifié) : inscriptions anonymisées, en route → sortie.
+
+Mesures au banc (PGlite, plus lent qu'un vrai Postgres) : « demo » 1 733
+entrées + 586 e-mails au 1er passage en 0,84 s, 2e passage 7 ms ; « grand »
+7 845 entrées en trois passages, le plus long à 2,6 s. Smoke :
+`node scripts/crm-bench/scenarios.mjs engine` (19 vérifications : entrée,
+« ou », témoin, campagne, idempotence, objectif, STOP, 20 h, SMS, reprise
+Yunits, effacement, rapport, pression puis expiration, gel, démo).
+
+Ouvert après J3 (pour J4-J5) :
+- le fil de notifications du CRM (`get_crm_notifications`, calculé à la
+  volée) ne lit pas encore `crm_scenario_notify_daily` ;
+- la règle des 48 h des RECETTES ne voit pas les messages des scénarios
+  (asymétrie assumée : la politique 1 / 24 h les voit ; changer la recette
+  demanderait de réécrire `collect_email_automations`) ;
+- `crm_holdout_overview` ne liste pas les scénarios (leur témoin vit dans
+  `crm_scenario_report`).
+
+Prochaine étape : J4 (éditeur).

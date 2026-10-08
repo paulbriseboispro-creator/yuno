@@ -7,6 +7,7 @@
 //                                          compilés contre _crm_filter_sql
 //   node scenarios.mjs crud [base]         lot J2 : brouillon, publication,
 //                                          versions, rôles, accès assisté, recette
+//   node scenarios.mjs engine [base]       lot J3 : le moteur de bout en bout
 //
 // La base (défaut : demo-computed, déjà analysée) reçoit les migrations des
 // Scénarios (20261016100000 et suivantes) avant les essais : c'est la même
@@ -324,6 +325,197 @@ if (cmd === 'conditions') {
   // Le rapport se lit même vide.
   r = await call(owner, `SELECT crm_scenario_report(NULL, $1, $2) AS r`, [org, id]);
   check('rapport vide lisible', r.ok && r.r.holdout?.contacted?.n === 0, r.err ?? r.r);
+} else if (cmd === 'engine') {
+  // Lot J3 : le moteur, de bout en bout (smoke du prompt §5).
+  const setup = async ({ demo = false } = {}) => {
+    const db = await withScenarios(base);
+    const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+    const one = async (sql, p = []) => (await q(sql, p))[0];
+    const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+    await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    await db.query(`UPDATE organizer_profiles SET legal_name = 'Banc SAS', siret = '12345678900011' WHERE user_id = $1`, [org]);
+    // Le banc n'a pas de profil pour le compte : on en pose un, au courriel de démo.
+    if (demo) await db.query(`INSERT INTO profiles (id, email) VALUES ($1, 'banc@womber.fr')
+                              ON CONFLICT (id) DO UPDATE SET email = 'banc@womber.fr'`, [org]);
+    const tpl = (await one(`INSERT INTO email_campaign_templates (organizer_user_id, name, subject, blocks_json)
+                            VALUES ($1, 'Banc · J-3', 'On vous attend', '[]') RETURNING id`, [org])).id;
+    // La deuxième soirée à venir (Goya #5 sur « demo »).
+    const goya = (await one(`SELECT id, start_at FROM events WHERE organizer_user_id = $1 AND start_at > now() ORDER BY start_at OFFSET 1 LIMIT 1`, [org]));
+    const days = Number((await one(`SELECT (($1::timestamptz AT TIME ZONE 'Europe/Paris')::date - (now() AT TIME ZONE 'Europe/Paris')::date) AS d`, [goya.start_at])).d);
+    const graph = {
+      v: 1, trigger: { type: 'before_event', days },
+      entry: { filter: { op: 'and', items: [{ k: 'nb_min', v: 1 }, { op: 'and', not: true, items: [{ k: 'ev', v: ['$event'] }] }] },
+               reentry: { mode: 'per_event' }, holdout: true },
+      goal: { type: 'bought_event' }, start: 'b1',
+      nodes: {
+        b1: { type: 'branch', cond: { op: 'or', items: [{ k: 'nb_min', v: 3 }, { k: 'hyp', v: ['artist'] }] }, yes: 'e1', no: 'x' },
+        e1: { type: 'email', template_id: tpl, subject: 'Goya #5 approche', event: 'scenario', next: 'w2' },
+        w2: { type: 'wait', mode: 'duration', hours: 24, next: 's1' },
+        s1: { type: 'sms', body: 'Goya #5 : on vous attend {{lien}}', event: 'scenario', next: 'x' },
+        x: { type: 'end' },
+      },
+    };
+    await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: org, role: 'authenticated' })]);
+    const id = (await one(`SELECT crm_scenario_save(NULL, $1, NULL, 'Banc · Goya', $2::jsonb) AS r`, [org, JSON.stringify(graph)])).r.id;
+    const pub = (await one(`SELECT crm_scenario_publish(NULL, $1, $2) AS r`, [org, id])).r;
+    await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    const tick = async () => {
+      await db.exec('BEGIN');
+      try { const r = (await one(`SELECT crm_scenario_tick() AS r`)).r; await db.exec('COMMIT'); return r; }
+      catch (e) { await db.exec('ROLLBACK'); throw e; }
+    };
+    return { db, q, one, org, id, pub, tick, goya, tpl, scope: `org:${org}` };
+  };
+
+  const A = await setup();
+  check('publié (identité SMS posée)', A.pub.ok === true, A.pub);
+  // Attendus : la base (consentie ou non), déjà venus, sans place pour Goya.
+  await A.db.exec('BEGIN');
+  await A.one(`SELECT public._crm_people_build(NULL, $1::uuid) AS n`, [A.org]);
+  const expect = Number((await A.one(`SELECT count(*) AS n FROM _cp p WHERE (p.email_ok OR p.phone_ok) AND p.nights >= 1
+                                        AND NOT ($1::uuid = ANY (p.events))`, [A.goya.id])).n);
+  const expectYes = Number((await A.one(`SELECT count(*) AS n FROM _cp p WHERE (p.email_ok OR p.phone_ok) AND p.nights >= 1
+                                           AND NOT ($1::uuid = ANY (p.events)) AND (p.nights >= 3 OR 'h:artist' = ANY (p.an_tags))`, [A.goya.id])).n);
+  await A.db.exec('ROLLBACK');
+  // Le moteur plafonne les entrées à 3 000 par passage : on passe jusqu'à ce que tout soit entré.
+  let r;
+  for (let i = 1; i <= 6; i += 1) {
+    const t0 = Date.now();
+    r = await A.tick();
+    const enter = r.scopes?.[0]?.advance;
+    console.log(`passage ${i} : ${Date.now() - t0} ms (moteur ${r.ms} ms)`, JSON.stringify(enter));
+    if (!enter || (enter.moved === 0 && enter.sent === 0)) break;
+  }
+  const last = await A.one(`SELECT last_result FROM crm_scenario_scope_state WHERE scope_key = $1`, [A.scope]);
+  console.log('  dernier passage :', JSON.stringify(last.last_result?.enter));
+  const runs = await A.one(`SELECT count(*) AS n, count(*) FILTER (WHERE holdout) AS h FROM crm_scenario_runs WHERE scenario_id = $1`, [A.id]);
+  check('entrée : la base filtrée (déjà venus, sans place)', Number(runs.n) === expect && expect > 0, `${runs.n} = ${expect}`);
+  check('témoin ≈ 10 %', Number(runs.h) > 0 && Number(runs.h) < Number(runs.n) * 0.2, `${runs.h} / ${runs.n}`);
+  const b1 = await A.q(`SELECT r.node_id, count(*) AS n FROM crm_scenario_runs r WHERE r.scenario_id = $1 GROUP BY 1 ORDER BY 1`, [A.id]);
+  const atW2 = Number(b1.find((x) => x.node_id === 'w2')?.n || 0);
+  const done = Number((await A.one(`SELECT count(*) AS n FROM crm_scenario_runs WHERE scenario_id = $1 AND status = 'done'`, [A.id])).n);
+  check('embranchement « ou » : oui → e-mail, non → fin', atW2 + Number((await A.one(`SELECT count(*) AS n FROM crm_scenario_steps WHERE scenario_id = $1 AND node_id = 'e1' AND status = 'expired'`, [A.id])).n) === expectYes
+    && done === expect - expectYes, { atW2, done, expectYes, expect });
+  const st = await A.q(`SELECT status, reason, count(*) AS n FROM crm_scenario_steps WHERE scenario_id = $1 AND node_id = 'e1' GROUP BY 1, 2 ORDER BY 1, 2`, [A.id]);
+  console.log('  étape e1 :', JSON.stringify(st));
+  const sent = Number(st.filter((x) => x.status === 'sent').reduce((a, x) => a + Number(x.n), 0));
+  const camp = await A.one(`SELECT c.id, c.child_kind, c.status, c.event_id, (SELECT count(*) FROM email_campaign_recipients q WHERE q.campaign_id = c.id) AS n
+                              FROM crm_scenario_messages m JOIN email_campaigns c ON c.id = m.campaign_id
+                              JOIN crm_scenario_versions v ON v.id = m.version_id WHERE v.scenario_id = $1`, [A.id]);
+  check('e-mail : une campagne enfant « scenario », un destinataire par envoi', camp?.child_kind === 'scenario' && Number(camp.n) === sent && sent > 0
+    && camp.event_id === A.goya.id, { camp, sent });
+  check('le témoin ne reçoit rien', Number(st.find((x) => x.status === 'holdout')?.n || 0) > 0
+    && Number((await A.one(`SELECT count(*) AS n FROM email_campaign_recipients q JOIN crm_scenario_runs r ON r.email = lower(q.email)
+                             WHERE q.campaign_id = $1 AND r.scenario_id = $2 AND r.holdout`, [camp.id, A.id])).n) === 0);
+  r = await A.tick();
+  const runs2 = await A.one(`SELECT count(*) AS n FROM crm_scenario_runs WHERE scenario_id = $1`, [A.id]);
+  const n2 = Number((await A.one(`SELECT count(*) AS n FROM email_campaign_recipients WHERE campaign_id = $1`, [camp.id])).n);
+  check('deuxième passage : rien de neuf (idempotent)', Number(runs2.n) === Number(runs.n) && n2 === sent, { runs: runs2.n, n2 });
+
+  check('e-mail : sa propre mère, produit CRM (hors des listes Campagnes)',
+    (await A.one(`SELECT parent_campaign_id = id AS self, product FROM email_campaigns WHERE id = $1`, [camp.id])).self === true, camp.id);
+  // Objectif : un achat pour Goya sort la personne, à l'heure de l'achat.
+  const goalRun = await A.one(`SELECT r.id, r.email FROM crm_scenario_runs r WHERE r.scenario_id = $1 AND r.status = 'active' AND r.node_id = 'w2' LIMIT 1`, [A.id]);
+  if (goalRun) {
+    await A.db.query(`INSERT INTO external_tickets (connection_id, organizer_user_id, provider, external_id, event_id, buyer_email, status, price, purchased_at, first_seen_at, raw)
+                       SELECT connection_id, organizer_user_id, provider, 'banc-goal-1', $2, $3, 'valid', 20, now(), now(), '{}'::jsonb
+                         FROM external_tickets WHERE organizer_user_id = $1 LIMIT 1`, [A.org, A.goya.id, goalRun.email]);
+    await A.db.query(`UPDATE crm_scenario_runs SET due_at = now() - interval '1 minute' WHERE id = $1`, [goalRun.id]);
+    await A.tick();
+    const g = await A.one(`SELECT status, exit_reason, goal_at FROM crm_scenario_runs WHERE id = $1`, [goalRun.id]);
+    check('objectif atteint : sortie « goal », heure de l’achat', g.status === 'exited' && g.exit_reason === 'goal' && g.goal_at, g);
+  }
+  // STOP : sortie forcée.
+  const stopRun = await A.one(`SELECT r.id, vc.phone_e164 FROM crm_scenario_runs r
+                                 JOIN venue_sms_contacts vc ON lower(vc.email) = r.email AND vc.organizer_user_id = $2
+                                WHERE r.scenario_id = $1 AND r.status = 'active' AND r.node_id = 'w2' LIMIT 1`, [A.id, A.org]);
+  if (stopRun) {
+    await A.db.query(`INSERT INTO sms_stop_list (phone_e164, scope_key) VALUES ($1, $2)`, [stopRun.phone_e164, A.scope]);
+    await A.db.query(`UPDATE crm_scenario_runs SET due_at = now() - interval '1 minute' WHERE id = $1`, [stopRun.id]);
+    await A.tick();
+    const g = await A.one(`SELECT status, exit_reason FROM crm_scenario_runs WHERE id = $1`, [stopRun.id]);
+    check('STOP : sortie forcée', g.status === 'exited' && g.exit_reason === 'stop', g);
+  } else check('STOP : une inscription active avec un numéro', false);
+
+  // L'attente de 24 h, puis le SMS : trop tôt après l'e-mail → reporté (20 h).
+  await A.db.query(`UPDATE crm_scenario_runs SET node_since = node_since - interval '25 hours', due_at = now() - interval '1 minute'
+                     WHERE scenario_id = $1 AND node_id = 'w2'`, [A.id]);
+  r = await A.tick();
+  const s1 = await A.q(`SELECT status, reason, count(*) AS n FROM crm_scenario_steps WHERE scenario_id = $1 AND node_id = 's1' GROUP BY 1, 2 ORDER BY 1, 2`, [A.id]);
+  console.log('  étape s1 (même jour que l’e-mail) :', JSON.stringify(s1));
+  check('SMS trop tôt après l’e-mail : reporté « 20 h »', s1.some((x) => x.status === 'held' && x.reason === 'spacing'), s1);
+  // 21 h plus tard : le SMS part (numéro consenti), sinon « pas d'accord ».
+  await A.db.query(`UPDATE crm_scenario_steps SET done_at = done_at - interval '21 hours' WHERE scenario_id = $1 AND node_id = 'e1'`, [A.id]);
+  await A.db.query(`UPDATE crm_scenario_runs SET last_message_at = last_message_at - interval '21 hours', due_at = now() - interval '1 minute'
+                     WHERE scenario_id = $1 AND node_id = 's1'`, [A.id]);
+  r = await A.tick();
+  const s2 = await A.q(`SELECT status, reason, count(*) AS n FROM crm_scenario_steps WHERE scenario_id = $1 AND node_id = 's1' GROUP BY 1, 2 ORDER BY 1, 2`, [A.id]);
+  console.log('  étape s1 (21 h après) :', JSON.stringify(s2));
+  const sms = await A.one(`SELECT c.status, c.event_id, (SELECT count(*) FROM sms_campaign_recipients q WHERE q.campaign_id = c.id) AS n
+                             FROM crm_scenario_messages m JOIN sms_campaigns c ON c.id = m.sms_campaign_id
+                             JOIN crm_scenario_versions v ON v.id = m.version_id WHERE v.scenario_id = $1`, [A.id]);
+  const smsSent = Number(s2.find((x) => x.status === 'sent')?.n || 0);
+  check('SMS : une campagne CRM programmée, un numéro par envoi', sms?.status === 'scheduled' && Number(sms.n) === smsSent && smsSent > 0, { sms, smsSent });
+
+  // Un SMS retombé en brouillon faute de Yunits : reporté, puis il repart seul.
+  await A.db.query(`UPDATE sms_campaigns SET status = 'draft', error_message = 'crm_yunits_insufficient' WHERE id IN (
+                      SELECT m.sms_campaign_id FROM crm_scenario_messages m JOIN crm_scenario_versions v ON v.id = m.version_id
+                       WHERE v.scenario_id = $1 AND m.channel = 'sms')`, [A.id]);
+  r = await A.tick();
+  const retry = await A.one(`SELECT c.status, (SELECT count(*) FROM crm_scenario_steps st WHERE st.sms_campaign_id = c.id AND st.status = 'sent') AS sent
+                               FROM crm_scenario_messages m JOIN sms_campaigns c ON c.id = m.sms_campaign_id
+                               JOIN crm_scenario_versions v ON v.id = m.version_id WHERE v.scenario_id = $1`, [A.id]);
+  check('SMS retombé faute de Yunits : reprogrammé quand le solde couvre', retry.status === 'scheduled' && Number(retry.sent) === smsSent, retry);
+  // Effacer un contact : ses inscriptions restent comptées, sans adresse ; en route, il sort.
+  const er = await A.one(`SELECT r.email FROM crm_scenario_runs r WHERE r.scenario_id = $1 ORDER BY r.email LIMIT 1`, [A.id]);
+  const before = Number((await A.one(`SELECT count(*) AS n FROM crm_scenario_runs WHERE scenario_id = $1`, [A.id])).n);
+  await A.one(`SELECT public._crm_erase_contacts(NULL, $1::uuid, ARRAY[$2]) AS n`, [A.org, er.email]);
+  const after = await A.one(`SELECT count(*) AS n, count(*) FILTER (WHERE email = $2) AS still FROM crm_scenario_runs WHERE scenario_id = $1`, [A.id, er.email]);
+  check('effacer un contact : plus d’adresse, le compte reste juste', Number(after.n) === before && Number(after.still) === 0, after);
+  // Rapport : les chiffres du nœud et le témoin se lisent.
+  await A.db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: A.org, role: 'authenticated' })]);
+  const rep = (await A.one(`SELECT crm_scenario_report(NULL, $1, $2) AS r`, [A.org, A.id])).r;
+  check('rapport : e1 envoyés = registre', rep.nodes?.e1?.sent === sent, rep.nodes?.e1);
+  await A.db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+
+  // Pression : un e-mail promotionnel reçu il y a 2 h → reporté, puis expiré à la fin de la fenêtre.
+  const P = await setup();
+  const victim = (await P.one(`SELECT lower(n.email) AS em FROM newsletter_subscriptions n
+                                WHERE n.organizer_user_id = $1 AND n.opted_in
+                                  AND EXISTS (SELECT 1 FROM crm_person_profile pp WHERE pp.email = lower(n.email) AND 'h:artist' = ANY (pp.tags))
+                                  AND NOT EXISTS (SELECT 1 FROM external_tickets t WHERE lower(t.buyer_email) = lower(n.email) AND t.event_id = $2)
+                                LIMIT 1`, [P.org, P.goya.id])).em;
+  const other = (await P.one(`INSERT INTO email_campaigns (organizer_user_id, name, subject, status, sent_at, type) VALUES ($1, 'Autre', 'x', 'sent', now(), 'promotional') RETURNING id`, [P.org])).id;
+  await P.db.query(`INSERT INTO email_campaign_recipients (campaign_id, email, status, sent_at) VALUES ($1, $2, 'sent', now() - interval '2 hours')`, [other, victim]);
+  await P.tick();
+  let vs = await P.one(`SELECT st.status, st.reason FROM crm_scenario_steps st JOIN crm_scenario_runs r ON r.id = st.run_id
+                         WHERE r.scenario_id = $1 AND r.email = $2 AND st.node_id = 'e1'`, [P.id, victim]);
+  const hold = vs?.status;
+  check('pression : un e-mail reçu il y a 2 h → reporté (1 / 24 h)', vs?.status === 'held' && vs.reason === 'pressure_24h'
+    || (await P.one(`SELECT holdout FROM crm_scenario_runs WHERE scenario_id = $1 AND email = $2`, [P.id, victim]))?.holdout === true, vs);
+  if (hold === 'held') {
+    await P.db.query(`UPDATE crm_scenario_steps st SET window_end = now() - interval '1 minute' FROM crm_scenario_runs r
+                       WHERE r.id = st.run_id AND r.scenario_id = $1 AND r.email = $2 AND st.node_id = 'e1'`, [P.id, victim]);
+    await P.db.query(`UPDATE crm_scenario_runs SET due_at = now() - interval '1 minute' WHERE scenario_id = $1 AND email = $2`, [P.id, victim]);
+    await P.tick();
+    vs = await P.one(`SELECT st.status, st.reason FROM crm_scenario_steps st JOIN crm_scenario_runs r ON r.id = st.run_id
+                       WHERE r.scenario_id = $1 AND r.email = $2 AND st.node_id = 'e1'`, [P.id, victim]);
+    check('fenêtre passée : expiré, avec sa raison', vs?.status === 'expired' && vs.reason === 'pressure_24h', vs);
+  }
+
+  // Gel d'envoi : rien n'entre, rien ne part, rien n'est perdu.
+  const G = await setup();
+  await G.db.query(`INSERT INTO crm_settings (scope_key, organizer_user_id, sending_frozen_at) VALUES ($1, $2, now())
+                    ON CONFLICT (scope_key) DO UPDATE SET sending_frozen_at = now()`, [G.scope, G.org]);
+  await G.tick();
+  check('gel : aucune entrée', Number((await G.one(`SELECT count(*) AS n FROM crm_scenario_runs WHERE scenario_id = $1`, [G.id])).n) === 0);
+
+  // Démo : le moteur inscrit, avance, et n'envoie rien.
+  const D = await setup({ demo: true });
+  await D.tick();
+  const dst = await D.q(`SELECT status, count(*) AS n FROM crm_scenario_steps WHERE scenario_id = $1 AND node_id = 'e1' GROUP BY 1`, [D.id]);
+  const dmsg = Number((await D.one(`SELECT count(*) AS n FROM crm_scenario_messages m JOIN crm_scenario_versions v ON v.id = m.version_id WHERE v.scenario_id = $1`, [D.id])).n);
+  check('démo : « aurait envoyé », aucune campagne', dst.some((x) => x.status === 'would_send') && !dst.some((x) => x.status === 'sent') && dmsg === 0, dst);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);
