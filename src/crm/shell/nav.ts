@@ -32,6 +32,7 @@ export const CRM_ROUTES = {
   smsCompose: (id: string) => `/crm/sms/compose/${id}`,
   smsSend: (id: string) => `/crm/sms/send/${id}`,
   automations: '/crm/automations',
+  scenario: (id: string) => `/crm/automations/scenarios/${id}`,
   instagram: '/crm/instagram',
   nights: '/crm/nights',
   nightsPast: '/crm/nights/past',

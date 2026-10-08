@@ -38,6 +38,7 @@ const SettingsPage = lazyWithRetry(() => import('./pages/settings/SettingsPage')
 const AnalyticsPage = lazyWithRetry(() => import('./pages/analytics/AnalyticsPage'));
 const JourneyPage = lazyWithRetry(() => import('./pages/journey/JourneyPage'));
 const AutomationsPage = lazyWithRetry(() => import('./pages/automations/AutomationsPage'));
+const ScenarioEditorPage = lazyWithRetry(() => import('./pages/automations/scenarios/ScenarioEditorPage'));
 const SmsOverviewPage = lazyWithRetry(() => import('./pages/sms/SmsOverviewPage'));
 const SmsCampaignsPage = lazyWithRetry(() => import('./pages/sms/SmsCampaignsPage'));
 const SmsTemplatesPage = lazyWithRetry(() => import('./pages/sms/SmsTemplatesPage'));
@@ -58,6 +59,10 @@ export function crmRoutes() {
       </Route>
       <Route path="/crm/emails/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<EmailSendPage />} />
+      </Route>
+      {/* Scénarios : l'éditeur (flux vertical + inspecteur). */}
+      <Route path="/crm/automations/scenarios/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<ScenarioEditorPage />} />
       </Route>
       {/* SMS « Bientôt » (CRM_SMS_DISPLAY_LIVE faux) : les éditeurs renvoient sur la page Bientôt. */}
       <Route path="/crm/sms/compose/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>
