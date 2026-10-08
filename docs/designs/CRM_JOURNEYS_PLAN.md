@@ -242,7 +242,7 @@ Prompt §3. Décisions 5 à 8 à poser au début de la phase.
 | J1 | Langage de conditions, compilateur, miroir TS, validateur du graphe (forme) | fait (08/10) |
 | J2 | Tables, versions, RPC (brouillon, publication, pause, archives, chiffres), gardes | fait (08/10) |
 | J3 | File des déclencheurs, moteur, nœuds, politique, témoin, Yunits, report / expiration, démo | fait (08/10) |
-| J4 | Éditeur, conditions, modèles, estimation, tests, rapport | à faire |
+| J4 | Éditeur, conditions, modèles, estimation, tests, rapport | fait (08/10) |
 | J5 | MCP, aide, assistant, CLAUDE.md, semis démo | à faire |
 | A0-A5 | Agents | après J5 |
 
@@ -342,4 +342,39 @@ Ouvert après J3 (pour J4-J5) :
 - `crm_holdout_overview` ne liste pas les scénarios (leur témoin vit dans
   `crm_scenario_report`).
 
-Prochaine étape : J4 (éditeur).
+**J4 (08/10)** — serveur : `crm_scenario_counts` (effectif en direct de
+chaque groupe, même compilation que l'envoi ; un groupe qui porte une
+feuille d'inscription rend « au lancement »), `crm_scenario_preview`
+(moteur À BLANC pour « qui entrerait aujourd'hui », estimation par semaine
+sur les 8 dernières, coût au pire par personne), tests d'un e-mail
+(`send-campaign`, `scenario_id` + `node_id`) et d'un SMS
+(`send-sms-campaign`) lus dans le brouillon ENREGISTRÉ ; ces lectures et
+« Qui cibler » (`crm_night_targets`, absent depuis le 11/10 — bug trouvé
+en chemin) entrent dans `demo_preview_writable_rpc`.
+Front : onglets Recettes / Scénarios (`?tab=scenarios`), liste (état,
+entrés, en route, objectif, verdict du témoin), galerie des sept modèles +
+page blanche (chaque modèle crée ses e-mails CRM et ses SMS en GSM-7),
+« Personnaliser » une recette (`recipeToGraph`, publier éteint la
+recette ; allumer une recette couverte le dit), éditeur plein écran
+`/crm/automations/scenarios/:id` (`src/crm/pages/automations/scenarios/`) :
+flux vertical (`flowLayout` : colonnes qui se rejoignent à l'étape commune
+la plus proche, empilées quand la place manque), inspecteur (départ :
+déclencheur, qui entre, nouvelle entrée, objectif, témoin ; chaque étape),
+conditions par famille avec effectif en direct, ajout / retrait d'étape
+(`insertAt`, `removalPlan`), enregistrement automatique (conflit
+`draft_changed` → bandeau « Recharger »), « Avant de publier », tests,
+résultats par étape. Vérifié au banc visuel (front du worktree + session
+démo, RPC des scénarios servies en mémoire) : 1440 px et 390 px, aucun
+débordement. tsc, eslint, vitest (1 413), build : verts.
+
+Écarts assumés :
+- « 1re → 2e soirée » : le prompt dit « SMS à J-2 sans achat » ; le moteur
+  ne sait pas ancrer une attente sur la soirée choisie POUR la personne
+  (`until_event` lit la soirée du déclencheur, ici passée). Le modèle envoie
+  donc le SMS cinq jours après l'e-mail. L'ancrage par personne est une
+  évolution du moteur (à décider).
+- Créer un modèle depuis la galerie écrit ses e-mails dans
+  `email_campaign_templates` (comme une recette) : ils apparaissent dans
+  E-mails › Modèles.
+
+Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
