@@ -14,14 +14,14 @@ type T = (key: string, vars?: Record<string, string | number | null | undefined>
 export const NOTIF_KINDS = [
   'send_soon', 'yunits_short', 'sync_broken', 'contacts_unreadable', 'trial_ending', 'account_paused',
   'send_done', 'send_report', 'send_blocked', 'import_done', 'sync_resolved', 'yunits_low', 'recharge_done',
-  'team_joined', 'new_device',
+  'team_joined', 'new_device', 'scenario_notify',
 ] as const;
 
 export const NOTIF_ICON: Record<string, IconName> = {
   send_soon: 'clock', send_done: 'clock', yunits_short: 'coin', yunits_low: 'coin', recharge_done: 'coin',
   sync_broken: 'plug', sync_resolved: 'plug', contacts_unreadable: 'upload', import_done: 'upload',
   send_report: 'chart', send_blocked: 'alert', team_joined: 'users', new_device: 'shield',
-  trial_ending: 'card', account_paused: 'lock',
+  trial_ending: 'card', account_paused: 'lock', scenario_notify: 'zap',
 };
 
 export const NOTIF_TONE_COLORS: Record<string, [string, string]> = {
@@ -51,9 +51,12 @@ export function notifCopy(item: CrmNotif, t: T, f: CrmFormatters): { title: stri
   const known = (NOTIF_KINDS as readonly string[]).includes(item.kind);
   const p = fmtParams(item.params, f);
   if (!known) return { title: t('yc.notif.generic.title'), body: '', action: null, href: item.href };
-  const title = t(`yc.notif.${item.kind}.title`, p);
+  // L'étape « Me prévenir » d'un scénario : le titre est le libellé choisi par le pro.
+  const title = item.kind === 'scenario_notify' && p.label ? p.label : t(`yc.notif.${item.kind}.title`, p);
   // Les achats d'un bilan se calculent à part : tant qu'ils manquent, la phrase s'en passe.
-  const body = item.kind === 'send_report' ? reportBody(item.params, t, f) : t(`yc.notif.${item.kind}.body`, p);
+  const body = item.kind === 'send_report' ? reportBody(item.params, t, f)
+    : item.kind === 'scenario_notify' ? scenarioBody(item.params, t, f)
+      : t(`yc.notif.${item.kind}.body`, p);
   const actionKey = `yc.notif.${item.kind}.action`;
   const action = t(actionKey);
   const href = item.href ?? defaultHref(item.kind, item.params);
@@ -71,6 +74,7 @@ function defaultHref(kind: string, p: CrmNotif['params']): string | null {
     case 'team_joined': return CRM_ROUTES.accountSection('team');
     case 'new_device': return CRM_ROUTES.accountSection('profile');
     case 'import_done': return CRM_ROUTES.imports;
+    case 'scenario_notify': return p.scenario_id ? CRM_ROUTES.scenario(String(p.scenario_id)) : `${CRM_ROUTES.automations}?tab=scenarios`;
     default: return null;
   }
 }
@@ -84,4 +88,12 @@ function reportBody(params: CrmNotif['params'], t: T, f: CrmFormatters): string 
   if (b === null || b === undefined) return head;
   const nb = Number(b);
   return head + t(`yc.notif.sr.buy.${nb === 0 ? 'none' : nb === 1 ? 'one' : 'other'}`, { n: f.n(nb) });
+}
+
+/** Étape « Me prévenir » : combien de personnes y sont passées, quel jour, dans quel scénario. */
+function scenarioBody(params: CrmNotif['params'], t: T, f: CrmFormatters): string {
+  const n = Number(params?.n ?? 0);
+  const plural = f.lang === 'fr' ? (Math.abs(n) < 2 ? 'one' : 'other') : n === 1 ? 'one' : 'other';
+  const day = params?.today ? t('yc.notif.scenario_notify.today') : t('yc.notif.scenario_notify.on', { d: params?.seen_at ? f.dShort(String(params.seen_at)) : '' });
+  return t(`yc.notif.scenario_notify.body.${plural}`, { n: f.n(n), day, name: String(params?.name ?? '') });
 }

@@ -556,6 +556,40 @@ if (cmd === 'conditions') {
   check('aperçu : estimation par semaine', p.week?.estimate > 0 && p.week.basis === 'events', p.week);
   check('aperçu : plafond de Yunits (e-mail + SMS)', p.cost?.max_fr === 1 + p.cost.sms_segments * p.cost.sms_fr && p.cost.max_intl > p.cost.max_fr, p.cost);
   check('lectures permises en aperçu démo', (await one(`SELECT public.demo_preview_writable_rpc('crm_scenario_preview') AND public.demo_preview_writable_rpc('crm_night_targets') AS ok`)).ok === true);
+} else if (cmd === 'feed') {
+  // Lot J5 : l'étape « Me prévenir » dans le fil de notifications. Le banc ne
+  // porte pas le centre de notifications : on le charge (versions du dépôt =
+  // prod), puis on rejoue la migration du lot pour avoir la dernière version.
+  const db = await withScenarios(base);
+  for (const f of ['20261004231000_crm_account_team_prefs.sql', '20261004235000_crm_notifications.sql',
+                   '20261007251000_crm_unreachable_scope_key.sql', '20261016150000_crm_scenario_feed.sql']) {
+    await execFile(db, join(MIG, f), f);
+  }
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  const owner = JSON.stringify({ sub: org, role: 'authenticated' });
+  const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
+  const graph = JSON.parse(JSON.stringify(gx.cases[0].graph));
+  graph.nodes.n9 = { type: 'notify', label: 'Un habitué est revenu', next: graph.nodes.e1.next };
+  graph.nodes.e1.next = 'n9';
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+  const id = (await one(`SELECT crm_scenario_save(NULL, $1, NULL, 'Banc fil', $2::jsonb) AS r`, [org, JSON.stringify(graph)])).r.id;
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`INSERT INTO crm_scenario_notify_daily (scenario_id, node_id, day, n) VALUES
+                    ($1, 'n9', (now() AT TIME ZONE 'Europe/Paris')::date, 4),
+                    ($1, 'n9', (now() AT TIME ZONE 'Europe/Paris')::date - 3, 7),
+                    ($1, 'n9', (now() AT TIME ZONE 'Europe/Paris')::date - 40, 9)`, [id]);
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+  const list = (await one(`SELECT get_crm_notifications(NULL, $1) AS r`, [org])).r;
+  const mine = list.filter((x) => x.kind === 'scenario_notify');
+  check('fil : une entrée par jour (30 derniers jours seulement)', mine.length === 2, mine.length);
+  const today = mine.find((x) => x.params.today === true);
+  check('fil : libellé, compteur, scénario', today?.params.label === 'Un habitué est revenu' && today.params.n === 4 && today.params.scenario_id === id, today?.params);
+  check('fil : identifiant stable (lu / archivé)', /^scenario_notify:[0-9a-f-]{36}:n9:\d{8}$/.test(today?.id ?? ''), today?.id);
+  await db.query(`SELECT crm_notifications_mark(NULL, $1, ARRAY[$2], 'read')`, [org, today.id]);
+  const again = (await one(`SELECT get_crm_notifications(NULL, $1) AS r`, [org])).r.find((x) => x.id === today.id);
+  check('fil : marquée lue', again?.read === true, again?.read);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);
