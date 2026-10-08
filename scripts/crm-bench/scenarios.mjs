@@ -53,6 +53,19 @@ if (cmd === 'conditions') {
   }
   check(`${same} / ${fx.cases.length} cas : le SQL rend les mêmes erreurs que le TypeScript`, same === fx.cases.length);
 
+  // ── 1 bis. Les graphes (graphErrors ⇄ _crm_scenario_graph_errors) ─────────
+  const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
+  let gsame = 0;
+  for (const c of gx.cases) {
+    const got = (await one(`SELECT public._crm_scenario_graph_errors($1::jsonb) AS r`, [JSON.stringify(c.graph)])).r;
+    const okErr = JSON.stringify(got.errors) === JSON.stringify(c.errors);
+    // jsonb range ses clés à sa façon : on compare champ par champ.
+    const okStats = !c.stats || Object.keys(c.stats).every((k) => got.stats[k] === c.stats[k]);
+    if (okErr && okStats) gsame += 1;
+    else check(`graphe « ${c.name} »`, false, { attendu: c.errors, sql: got.errors, stats: c.stats, sqlStats: got.stats });
+  }
+  check(`${gsame} / ${gx.cases.length} graphes : le SQL rend les mêmes erreurs et chiffres que le TypeScript`, gsame === gx.cases.length);
+
   // ── 2. Compiler, puis compter sur la base du compte ───────────────────────
   const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
   const scope = `org:${org}`;
