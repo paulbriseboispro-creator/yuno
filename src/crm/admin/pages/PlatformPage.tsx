@@ -12,12 +12,12 @@ import { useCrmT } from '@/crm/i18n';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Skel } from '@/crm/ui/kit';
 import { ADMIN_ROUTES } from '../adminNav';
-import { useAdminAccounts, useAdminPlatform, useAdminScenarios } from '../data';
+import { useAdminAccounts, useAdminDaily, useAdminPlatform, useAdminScenarios } from '../data';
 import type { AdminPlatform, AdminScenarioAccount } from '../data';
 import { EmptyNote, Kpi, PageHead, RowLine, Section, Tabs, kpiGrid, pageWrap, twoCols, useAgo } from '../ui';
 import type { AdminAccount } from '@/crm/lib/admin';
 
-type Tab = 'conn' | 'send' | 'scn' | 'abuse' | 'system';
+type Tab = 'conn' | 'day' | 'send' | 'scn' | 'abuse' | 'system';
 /** Plafond du limiteur commun (consume_ticketing_rate) : requêtes par minute. */
 const SHOTGUN_LIMIT = 45;
 const SHOTGUN_QUOTA = 100;
@@ -33,7 +33,7 @@ export default function PlatformPage() {
   const [sp, setSp] = useSearchParams();
   const q = useAdminPlatform();
   const acc = useAdminAccounts();
-  const tab = (['send', 'scn', 'abuse', 'system'] as const).find((x) => x === sp.get('tab')) ?? 'conn';
+  const tab = (['day', 'send', 'scn', 'abuse', 'system'] as const).find((x) => x === sp.get('tab')) ?? 'conn';
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   const d = q.data;
   const rows = acc.data?.accounts ?? [];
@@ -41,10 +41,10 @@ export default function PlatformPage() {
   const abuse = d ? d.frozen.length + d.bounce.filter((b) => b.sent >= 200 && (b.bounced / b.sent > 0.05 || b.complained / b.sent > 0.003)).length : 0;
   return (
     <main style={pageWrap}>
-      <PageHead kicker={`${t('adm.crm.nav.platform')}${d ? ` · ${t('adm.crm.pf.at', { time: time(d.at) })}` : ''}`} title={t(tab === 'scn' ? 'adm.crm.pf.sc.title' : 'adm.crm.pf.title')} sub={t(tab === 'scn' ? 'adm.crm.pf.sc.sub' : 'adm.crm.pf.sub')} />
+      <PageHead kicker={`${t('adm.crm.nav.platform')}${d ? ` · ${t('adm.crm.pf.at', { time: time(d.at) })}` : ''}`} title={t(tab === 'scn' ? 'adm.crm.pf.sc.title' : tab === 'day' ? 'adm.crm.pf.dy.title' : 'adm.crm.pf.title')} sub={t(tab === 'scn' ? 'adm.crm.pf.sc.sub' : tab === 'day' ? 'adm.crm.pf.dy.sub' : 'adm.crm.pf.sub')} />
       <Tabs<Tab> value={tab} onChange={(v) => setSp(v === 'conn' ? {} : { tab: v }, { replace: true })}
-        tabs={[{ id: 'conn', label: t('adm.crm.pf.t.conn'), badge: badConn }, { id: 'send', label: t('adm.crm.pf.t.send') }, { id: 'scn', label: t('adm.crm.pf.t.scn') }, { id: 'abuse', label: t('adm.crm.pf.t.abuse'), badge: abuse }, { id: 'system', label: t('adm.crm.pf.t.system') }]} />
-      {tab === 'scn' ? <ScnTab /> : !d ? <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></> : (
+        tabs={[{ id: 'conn', label: t('adm.crm.pf.t.conn'), badge: badConn }, { id: 'day', label: t('adm.crm.pf.t.day') }, { id: 'send', label: t('adm.crm.pf.t.send') }, { id: 'scn', label: t('adm.crm.pf.t.scn') }, { id: 'abuse', label: t('adm.crm.pf.t.abuse'), badge: abuse }, { id: 'system', label: t('adm.crm.pf.t.system') }]} />
+      {tab === 'scn' ? <ScnTab /> : tab === 'day' ? <DayTab /> : !d ? <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></> : (
         tab === 'conn' ? <ConnTab d={d} rows={rows} /> : tab === 'send' ? <SendTab d={d} /> : tab === 'abuse' ? <AbuseTab d={d} /> : <SystemTab d={d} />
       )}
     </main>
@@ -259,3 +259,72 @@ function ScnAccountRow({ a, first, why, ago }: { a: AdminScenarioAccount; first:
     </div>
   );
 }
+
+/**
+ * Bilan du jour (agents, lot A5) : ce que Paul regarde le matin, sans IA. Les
+ * audits de prospects prêts mènent au plan de soirée du compte, en lecture.
+ * La même chose part en alerte (admin_crm_daily) quand il y a quelque chose.
+ */
+function DayTab() {
+  const { t, n, dShort } = useCrmT();
+  const ago = useAgo();
+  const q = useAdminDaily();
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
+  const d = q.data;
+  if (!d) return <><div style={kpiGrid}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={24} />)}</div><Skel h={320} r={28} /></>;
+  const c = d.counts;
+  const acct = (id: string, name: string) => <Link to={ADMIN_ROUTES.account(id)} style={{ flex: 1, minWidth: 0, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none' }}>{name}</Link>;
+  return (
+    <>
+      <div style={kpiGrid}>
+        <Kpi label={t('adm.crm.pf.dy.k.audits')} value={n(c.audits)} dot="var(--green-500)" sub={t('adm.crm.pf.dy.k.auditsSub')} />
+        <Kpi delay={60} label={t('adm.crm.pf.dy.k.sync')} value={n(c.sync_errors)} dot="var(--red-500)" sub={t('adm.crm.pf.dy.k.syncSub')} />
+        <Kpi delay={120} label={t('adm.crm.pf.dy.k.trials')} value={n(c.trials_ending)} dot="var(--amber-500)" sub={t('adm.crm.pf.dy.k.trialsSub')} />
+        <Kpi delay={180} label={t('adm.crm.pf.dy.k.silent')} value={n(c.silent)} sub={t('adm.crm.pf.dy.k.silentSub')} />
+      </div>
+      <Section title={t('adm.crm.pf.dy.audits')} sub={t('adm.crm.pf.dy.auditsSub')} pad={24} gap={4}>
+        {d.audits.length === 0 && <EmptyNote>{t('adm.crm.pf.dy.auditsNone')}</EmptyNote>}
+        {d.audits.map((a, i) => (
+          <RowLine key={`${a.id}:${a.event_id}`} first={i === 0}>
+            {acct(a.id, a.name)}
+            <span style={{ color: 'var(--sand-600)', fontSize: 13.5 }}>{a.title} · {dShort(a.start_at)}</span>
+            <Link to={`${ADMIN_ROUTES.platform}/plan/${encodeURIComponent(a.id)}/${a.event_id}?n=${encodeURIComponent(a.name)}`} style={{ fontWeight: 600, color: 'var(--ink)' }}>{t('adm.crm.pf.dy.read')}</Link>
+          </RowLine>
+        ))}
+      </Section>
+      <div style={twoCols}>
+        <Section title={t('adm.crm.pf.dy.sync')} pad={24} gap={4}>
+          {d.sync_errors.length === 0 && <EmptyNote>{t('adm.crm.pf.dy.syncNone')}</EmptyNote>}
+          {d.sync_errors.map((a, i) => (
+            <RowLine key={a.id} first={i === 0}>{acct(a.id, a.name)}<span style={{ color: 'var(--red-600)', fontSize: 13.5 }}>{a.error ?? t('adm.crm.sync.error')}</span></RowLine>
+          ))}
+        </Section>
+        <Section title={t('adm.crm.pf.dy.trials')} pad={24} gap={4}>
+          {d.trials_ending.length === 0 && <EmptyNote>{t('adm.crm.pf.dy.trialsNone')}</EmptyNote>}
+          {d.trials_ending.map((a, i) => (
+            <RowLine key={a.id} first={i === 0}>{acct(a.id, a.name)}<span style={{ color: 'var(--sand-600)', fontSize: 13.5 }}>{dShort(a.trial_ends_at)}</span></RowLine>
+          ))}
+        </Section>
+      </div>
+      <div style={twoCols}>
+        <Section title={t('adm.crm.pf.dy.silent')} sub={t('adm.crm.pf.dy.silentSub')} pad={24} gap={4}>
+          {d.silent.length === 0 && <EmptyNote>{t('adm.crm.pf.dy.silentNone')}</EmptyNote>}
+          {d.silent.map((a, i) => (
+            <RowLine key={a.id} first={i === 0}>{acct(a.id, a.name)}<span style={{ color: 'var(--sand-600)', fontSize: 13.5 }}>{a.last_send_at ? ago(a.last_send_at) : t('adm.crm.pf.dy.never')}</span></RowLine>
+          ))}
+        </Section>
+        <Section title={t('adm.crm.pf.dy.deliv')} sub={t('adm.crm.pf.dy.delivSub')} pad={24} gap={4}>
+          {d.deliverability.length === 0 && d.forecast.length === 0 && <EmptyNote>{t('adm.crm.pf.dy.delivNone')}</EmptyNote>}
+          {d.deliverability.map((a, i) => (
+            <RowLine key={a.id} first={i === 0}>{acct(a.id, a.name)}<span style={{ color: 'var(--red-600)', fontSize: 13.5 }}>{t('adm.crm.pf.dy.delivLine', { b: n(a.bounced), c: n(a.complained), s: n(a.sent) })}</span></RowLine>
+          ))}
+          {d.forecast.map((a, i) => (
+            <RowLine key={`f:${a.id}:${a.title}`} first={i === 0 && d.deliverability.length === 0}>{acct(a.id, a.name)}<span style={{ color: 'var(--amber-700)', fontSize: 13.5 }}>{t('adm.crm.pf.dy.forecastLine', { t: a.title, e: n(a.err_pct) })}</span></RowLine>
+          ))}
+        </Section>
+      </div>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--sand-500)' }}>{t('adm.crm.pf.dy.foot')}</p>
+    </>
+  );
+}
+

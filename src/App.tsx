@@ -304,6 +304,7 @@ const AdminCrmClients = lazyWithRetry(() => import("./crm/admin/pages/ClientsPag
 const AdminCrmAccount = lazyWithRetry(() => import("./crm/admin/pages/AccountPage"));
 const AdminCrmMoney = lazyWithRetry(() => import("./crm/admin/pages/MoneyPage"));
 const AdminCrmPlatform = lazyWithRetry(() => import("./crm/admin/pages/PlatformPage"));
+const AdminCrmNightPlan = lazyWithRetry(() => import("./crm/admin/pages/NightPlanAdminPage"));
 const AdminCrmLegal = lazyWithRetry(() => import("./crm/admin/pages/LegalPage"));
 const AdminCrmSettings = lazyWithRetry(() => import("./crm/admin/pages/SettingsPage"));
 const AdminCrmSales = lazyWithRetry(() => import("./crm/admin/pages/SalesPage"));
@@ -1312,6 +1313,7 @@ const App = () => (
                   <Route path="product" element={<AdminCrmProduct />} />
                   <Route path="money" element={<AdminCrmMoney />} />
                   <Route path="platform" element={<AdminCrmPlatform />} />
+                  <Route path="platform/plan/:scope/:event" element={<AdminCrmNightPlan />} />
                   <Route path="legal" element={<AdminCrmLegal />} />
                   <Route path="settings" element={<AdminCrmSettings />} />
                   <Route path="*" element={<AdminCrmSoon />} />

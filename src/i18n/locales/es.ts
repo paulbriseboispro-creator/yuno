@@ -14599,6 +14599,7 @@ const es: Record<string, string> = {
   "notif.type.meta_token_invalid": "Conexión Meta cortada",
   "notif.type.admin_meta_token_invalid": "Token de Meta inválido",
   "notif.type.admin_crm_incident_deadline": "Incidente CRM: plazo de notificación próximo",
+  "notif.type.admin_crm_daily": "Yuno CRM: el balance del día",
   "notif.type.admin_crm_analysis_failed": "Análisis de clientes CRM fallido",
   "notif.type.admin_crm_score_drift": "Yuno CRM: «Probabilidad de venir» se desvía",
   "notif.type.admin_crm_deletion_request": "Eliminación de espacio CRM solicitada",

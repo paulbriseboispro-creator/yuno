@@ -136,6 +136,23 @@ export function useAdminScenarios(enabled = true) {
   return useQuery({ queryKey: ['crm-admin', 'scenarios', includeDemo], staleTime: 30_000, enabled, queryFn: () => rpc<AdminScenarios>('crm_admin_scenarios', { p_include_demo: includeDemo }) });
 }
 
+export interface AdminDailyItem { id: string; name: string; [k: string]: unknown }
+export interface AdminDaily {
+  at: string;
+  sync_errors: (AdminDailyItem & { error: string | null })[];
+  deliverability: (AdminDailyItem & { sent: number; bounced: number; complained: number })[];
+  trials_ending: (AdminDailyItem & { trial_ends_at: string })[];
+  silent: (AdminDailyItem & { state: string; last_send_at: string | null })[];
+  forecast: (AdminDailyItem & { title: string; start_at: string; err_pct: number })[];
+  audits: (AdminDailyItem & { event_id: string; title: string; start_at: string; trial_ends_at: string | null })[];
+  counts: Record<'sync_errors' | 'deliverability' | 'trials_ending' | 'silent' | 'forecast' | 'audits', number>;
+}
+/** Admin CRM › Plateforme › Bilan du jour (agents, lot A5) : agrégats, jamais une personne. */
+export function useAdminDaily(enabled = true) {
+  const { includeDemo } = useAdminScope();
+  return useQuery({ queryKey: ['crm-admin', 'daily', includeDemo], staleTime: 60_000, enabled, queryFn: () => rpc<AdminDaily>('crm_admin_daily', { p_include_demo: includeDemo }) });
+}
+
 export interface AdminLegal {
   at: string;
   accept: { id: string; name: string; email: string | null; docs: Record<string, { v: string; at: string; ip: string | null }> }[];

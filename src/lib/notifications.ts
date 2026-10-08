@@ -202,6 +202,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // venir » se décale de la réalité (journal prévu / réel).
   admin_crm_analysis_failed:     { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_crm_analysis_failed' },
   admin_crm_score_drift:         { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_crm_score_drift' },
+  // Yuno CRM : le bilan du jour de la plateforme (agents, lot A5) — synchros,
+  // délivrabilité, essais qui finissent, audits de prospects prêts.
+  admin_crm_daily:               { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_crm_daily' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
@@ -753,6 +756,9 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_crm_incident_deadline':
       return '/admin/crm/legal';
+
+    case 'admin_crm_daily':
+      return '/admin/crm/platform?tab=day';
 
     // Analyse client d'un espace Yuno CRM : son tiroir dans l'Admin CRM
     // (référence = clé de portée, qui est l'identifiant du compte).
