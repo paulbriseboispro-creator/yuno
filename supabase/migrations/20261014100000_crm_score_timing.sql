@@ -38,12 +38,13 @@
 --   4. Raisons (décision de Paul, 07/10) : une raison dont la famille
 --      d'hypothèse est « pas confirmée » (not_supported) sur le compte ne
 --      s'affiche jamais, même si le modèle lui donne du poids.
---   5. Deux facteurs de plus (« vu un invité de l'affiche dans les 180
---      jours », « a déjà fait ce concept » oui / non), gardés au banc ; les
---      autres formats essayés sont refusés (voir § 2).
+--   5. Un facteur de plus, « a déjà fait ce concept » oui / non, gardé au
+--      banc et neutre sur le compte démo ; les autres formats essayés sont
+--      refusés (voir § 2).
 --   6. Temps : la hessienne de Newton n'est recalculée qu'aux deux premières
 --      itérations et quand le pas reste grand ; départ à chaud par nom de
---      facteur (banc, compte « grand » : 1er calcul 57,6 → 45,6 s).
+--      facteur (banc, compte « grand », avec deux facteurs de plus : 1er
+--      calcul 57,6 → 45,6 s).
 --
 -- Mesure ajoutée au modèle (metrics.backtest) : sur les soirées tenues à
 -- l'écart, à J-7, les acheteurs attendus parmi ceux qui n'avaient pas encore
@@ -117,17 +118,20 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public._crm_score_targets(text, text, uuid, jsonb, boolean) FROM PUBLIC, anon, authenticated;
 
--- ── 2. Les facteurs : deux formats de plus, prouvés au banc ─────────────────
+-- ── 2. Les facteurs : un format de plus, prouvé ─────────────────────────────
 -- Les 12 facteurs d'origine gardent leur place (rec reste le 1er : la porte des
--- clients actifs le lit). Deux facteurs s'ajoutent, gardés parce qu'ils
--- améliorent la perte logarithmique ET la calibration sur les soirées tenues à
--- l'écart des 4 comptes du banc (demo + 3 tirages de grand) :
---   artist_recent  a vu un invité de l'affiche dans les 180 jours d'avant la soirée
+-- clients actifs le lit). Un facteur s'ajoute, gardé parce qu'il améliore la
+-- perte logarithmique ET la calibration sur les soirées tenues à l'écart des 4
+-- comptes du banc (demo + 3 tirages de grand), sans rien dégrader sur le compte
+-- démo de la prod (répétition annulée du 08/10) :
 --   series_done    a déjà fait une édition du concept (oui / non)
--- Essayés puis REFUSÉS (rien, ou pire sur un compte) : artiste vu oui / non,
--- dernière édition du concept faite, achat à plusieurs, venu avec un client
--- déjà venu, jour + créneau habituels, saison, prix de la soirée contre son
--- prix habituel (son gain sur un compte venait d'un artefact du générateur).
+-- Essayés puis REFUSÉS : « a vu un invité de l'affiche dans les 180 jours »
+-- (meilleur au banc, mais AUC 0,7053 → 0,7040 et perte log 0,4157 → 0,4166
+-- sur le compte démo : une baisse sur un compte n'est pas une amélioration),
+-- artiste vu oui / non, dernière édition du concept faite, achat à plusieurs,
+-- venu avec un client déjà venu, jour + créneau habituels, saison (rien ou
+-- pire), prix de la soirée contre son prix habituel (son gain sur un compte
+-- venait d'un artefact du générateur).
 -- score.off éteint un facteur par son nom (essais au banc).
 -- Une raison ne s'affiche que sous un libellé existant (_crm_score_reason_key).
 CREATE OR REPLACE FUNCTION public._crm_score_features()
@@ -136,7 +140,7 @@ CREATE OR REPLACE FUNCTION public._crm_score_features()
  IMMUTABLE
 AS $function$
   SELECT ARRAY['rec', 'freq', 'series', 'artist', 'genre', 'fmt', 'slot', 'wd', 'early', 'last', 'far', 'disc',
-               'artist_recent', 'series_done'];
+               'series_done'];
 $function$;
 REVOKE ALL ON FUNCTION public._crm_score_features() FROM PUBLIC, anon, authenticated;
 
@@ -149,7 +153,7 @@ AS $function$
   SELECT CASE p_feature
     WHEN 'rec' THEN 'rec' WHEN 'freq' THEN 'freq'
     WHEN 'series' THEN 'series' WHEN 'series_done' THEN 'series'
-    WHEN 'artist' THEN 'artist' WHEN 'artist_recent' THEN 'artist'
+    WHEN 'artist' THEN 'artist'
     WHEN 'genre' THEN 'genre' WHEN 'fmt' THEN 'fmt' WHEN 'slot' THEN 'slot'
     WHEN 'wd' THEN 'wd'
     WHEN 'early' THEN 'early' WHEN 'last' THEN 'last'
@@ -209,10 +213,9 @@ BEGIN
       FROM _sch h JOIN _scx x ON x.xid = h.xid
      GROUP BY h.xid, h.em
   ), art AS (
-    -- L'invité de l'affiche qu'il a vu le plus souvent : combien de fois, et
-    -- la dernière fois qu'il a vu un invité de l'affiche.
-    SELECT z.xid, z.em, max(z.n) AS n, max(z.seen_at) AS seen_at
-      FROM (SELECT h.xid, h.em, a.ak, count(DISTINCT h.hn) AS n, max(h.hs) AS seen_at
+    -- L'invité de l'affiche qu'il a vu le plus souvent : combien de fois.
+    SELECT z.xid, z.em, max(z.n) AS n
+      FROM (SELECT h.xid, h.em, a.ak, count(DISTINCT h.hn) AS n
               FROM _sch h JOIN _scx x ON x.xid = h.xid
               JOIN _annart a ON a.nid = h.hn
              WHERE a.ak = ANY (x.arts)
@@ -235,7 +238,6 @@ BEGIN
            COALESCE(g.last, 0),
            CASE WHEN ap.passing THEN 1 ELSE 0 END,
            CASE WHEN fi.src = 'sg' THEN 1 ELSE 0 END,
-           CASE WHEN ar.seen_at > x.start_at - interval '180 days' THEN 1 ELSE 0 END,
            CASE WHEN g.series > 0 THEN 1 ELSE 0 END
          ]::float8[] AS f
     FROM _scp p

@@ -178,22 +178,25 @@ Audience « achètent tôt » de Velvet : 35 attendus → 8 (5 réels). Écart d
 projection à J-7 (Velvet) : 18 % → 1,2 %.
 
 **Format des facteurs** (ablation `ablate.mjs`, validation sur les 4 soirées
-tenues à l'écart de 4 comptes : `demo` + `grand` tirages 23, 24, 25).
-Gardés : « a vu un invité de l'affiche dans les 180 jours » (`artist_recent`)
-et « a déjà fait ce concept » oui / non (`series_done`). Ensemble : perte log
-meilleure sur les 4 comptes (demo 0,2449 → 0,2420), calibration meilleure sur
-les 4 (demo 1,6 → 1,2 pt), AUC des actifs +0,002 sur 3 comptes (−0,0003 sur le
-4ᵉ). Refusés : artiste vu oui / non (pire sur `demo`), dernière édition du
-concept faite, achat à plusieurs, venu avec un client déjà venu, jour +
-créneau, saison (rien ou pire), prix de la soirée contre prix habituel (son
-gain sur `demo` vient d'un artefact du générateur : les soirées uniques y sont
-5 € plus chères). Pénalité L2 0,3 / 1 / 3 / 10 : aucun écart au 4ᵉ chiffre
-(trop de lignes pour qu'elle pèse) ; on garde 1.
+tenues à l'écart de 4 comptes : `demo` + `grand` tirages 23, 24, 25 ; puis le
+compte démo de la prod, répétition annulée). Gardé : « a déjà fait ce
+concept » oui / non (`series_done`) — perte log meilleure sur les 4 comptes du
+banc, calibration meilleure ou égale, neutre au 4ᵉ chiffre sur la démo de la
+prod. REFUSÉ après la prod : « a vu un invité de l'affiche dans les 180 jours »
+(`artist_recent`), meilleur sur les 4 comptes du banc mais, sur la démo de la
+prod, AUC 0,7053 → 0,7040, actifs 0,6991 → 0,6977, perte log 0,4157 → 0,4166 :
+une baisse sur un compte n'est pas une amélioration. Refusés au banc : artiste
+vu oui / non (pire sur `demo`), dernière édition du concept faite, achat à
+plusieurs, venu avec un client déjà venu, jour + créneau, saison (rien ou
+pire), prix de la soirée contre prix habituel (son gain sur `demo` vient d'un
+artefact du générateur : les soirées uniques y sont 5 € plus chères).
+Pénalité L2 0,3 / 1 / 3 / 10 : aucun écart au 4ᵉ chiffre (trop de lignes pour
+qu'elle pèse) ; on garde 1.
 
-Journal des soirées à venir, mêmes comptes, sans / avec les deux facteurs :
-perte log 0,1871 → 0,1844 (`demo`), 0,0575 → 0,0567, 0,0525 → 0,0522,
-0,0825 → 0,0820 (`grand`) ; excès des acheteurs attendus sur `grand` 46 → 39 %,
-49 → 46 %, 10,5 → 9 %.
+Journal des soirées à venir, mêmes comptes, sans / avec les deux facteurs
+(avant le retrait d'`artist_recent`) : perte log 0,1871 → 0,1844 (`demo`),
+0,0575 → 0,0567, 0,0525 → 0,0522, 0,0825 → 0,0820 (`grand`) ; excès des
+acheteurs attendus sur `grand` 46 → 39 %, 49 → 46 %, 10,5 → 9 %.
 
 **A priori de la part restante** (k achats « au rythme du compte ») : 1 gagne
 0,1 à 0,3 % de perte log sur 2 bancs, 4 perd autant. On garde 2 : le banc fige
@@ -207,13 +210,14 @@ créneau est « pas confirmé », 0 raison « créneau » sur 8 891 chances not�
 Les 3 raisons restent celles qui poussent le plus la chance de la personne
 (contribution au modèle, par construction).
 
-**Temps** (compte `grand`, banc, machine calme) : 1er calcul du score 41 s →
-57,6 s avec les deux facteurs (15 variables : 120 sommes de hessienne par
-itération), ramené à 45,6 s en ne recalculant la hessienne qu'aux deux
-premières itérations et quand le pas reste grand (mêmes chiffres au 4ᵉ
-chiffre). À chaud 14,2 s ; 35,8 s quand il note les soirées à venir (notes +
-journal). Départ à chaud par NOM de facteur : la nuit de la mise en ligne
-(12 → 14 facteurs) ne repart pas à froid.
+**Temps** (compte `grand`, banc, machine calme) : avec deux facteurs de plus,
+le 1er calcul du score passait de 41 à 57,6 s (15 variables : 120 sommes de
+hessienne par itération), ramené à 45,6 s en ne recalculant la hessienne
+qu'aux deux premières itérations et quand le pas reste grand (mêmes chiffres
+au 4ᵉ chiffre). Avec le seul facteur gardé : 1er calcul 40,9 s, à chaud
+13,6 s, 35,8 s quand il note les soirées à venir (notes + journal). Départ à
+chaud par NOM de facteur : la nuit de la mise en ligne (12 → 13 facteurs) ne
+repart pas à froid.
 
 **Ce qui reste, et pourquoi.** Sur deux tirages de `grand`, les soirées à
 venir restent surestimées (+39 %, +46 %). Les 4 mêmes soirées placées dans le
@@ -264,3 +268,67 @@ passage, amené par un client) sont de vrais effets du générateur.
 Constat : Benjamini-Hochberg seul ne suffisait pas pour `launch` (p = 0,045
 passe quand les autres familles sont massivement significatives) ; c'est la
 règle des 5 cas attendus qui la retient.
+
+### Lot 4 — recette 1re soirée et « Qui cibler » fiables (migrations `20261014120000`, `130000`, PAS appliquées)
+
+**SMS bloqué faute de Yunits** (décision de Paul, 08/10 : « 12 SMS en attente de
+Yunits », « 12 SMS non envoyés (fenêtre passée) »). Le collecteur reprend une
+campagne de la recette retombée en brouillon : ceux dont la fenêtre est encore
+ouverte attendent, les autres sont marqués non envoyés ; la campagne repart
+seule dès que le solde couvre ceux qui restent, vide elle est annulée ; la
+carte compte les SMS réellement partis. Banc (`first-return-sms.mjs`) : 11
+vérifications (attente, reprise, aucun double envoi, expiration). Trouvé au
+passage : une recette sans auteur faisait tomber la collecte de TOUS les
+comptes (insertion refusée) ; auteur de repli et une recette en erreur est
+sautée. Aucune recette `first_return` n'existe encore en prod (23 recettes,
+toutes signées).
+
+**« Qui cibler »** (décisions de Paul, 08/10) : cartes rangées et numérotées
+(« 1er envoi »…), « dont N nouveaux », et le plus gros recouvrement (« 62 %
+sont aussi dans… », 10 personnes et 25 % au moins). Ordre : le moment, la
+famille confirmée, puis les acheteurs attendus PAR PERSONNE (en total, la
+grosse audience « line-up » passait devant et laissait « Les plus probables »
+à 0 nouveau). L'envoi ne change pas. Temps : grand avec score 1,46 → 1,56 s au
+banc ; prod (démo) 0,43 s à chaud, comme avant.
+
+**Délai de la recette** : pas de changement. Aucune mesure ne peut montrer un
+gain aujourd'hui : le journal mesure l'effet d'un envoi (témoin), pas celui de
+son délai, et les comptes du banc comme la démo n'ont pas de délai de retour
+propre à un profil. À reprendre avec un vrai compte (comparer le délai médian
+de retour par profil, puis un essai de délai via le témoin si l'écart est net).
+
+### Répétition sur la prod (08/10, transaction annulée, rien n'est resté)
+
+Prod = dépôt vérifié pour les 10 fonctions réécrites
+(`same-as-prod.mjs --before 20261014100000`), registre à `20261013120000`,
+aucune autre requête en cours. `rehearse.mjs smoke/lot24.sql` + les quatre
+migrations, compte démo CRM, « nuit suivante » simulée :
+
+| Compte démo (prod) | Avant | Répétition |
+|---|---|---|
+| Modèle (AUC / actifs / naïf actifs / ECE) | 0,7053 / 0,6991 / 0,6743 / 1,65 pt | identique (11 facteurs, `series_done` neutre) |
+| Acheteurs attendus (somme des chances) | 1 296 | 1 201 |
+| Rejeu à J-7 (soirées tenues à l'écart) | — | 541 attendus pour 497 acheteurs |
+| 1re venue pendant la vente | — | 10,3 % sur 2 648 cas |
+| Familles confirmées | artiste, tôt, à plusieurs, dernière minute, lancement | les mêmes, 2 jours |
+| Raisons interdites (famille « pas de différence nette ») | possibles | 0 |
+| Analyse / score / score à chaud | 5,1 / 4,3 / 3,4 s | 4,3 / 4,3 / 3,7 s |
+| Collecteur SMS de la recette | — | sans erreur, rien à faire |
+
+Lecture de « Qui cibler » seule (`smoke/targets.sql`) : actuelle 8 107 / 448 /
+431 ms, nouvelle 900 / 428 / 427 ms. Le PREMIER appel à froid frôle déjà les
+8 s de l'API sur la machine Nano (avant comme après) : c'est le dimensionnement
+de la base (offre gratuite), pas ces migrations.
+
+### Décisions ouvertes
+
+- « Leur écrire » depuis « Qui cibler » écrit à toute l'audience : faut-il
+  écarter ceux déjà contactés pour cette soirée (dédoublonnage réel à l'envoi,
+  au-delà de l'ordre conseillé) ?
+- Les « ≈ acheteurs attendus » par audience s'affichent dès que le score est
+  validé, sans passer par la porte du journal (contrairement à la projection).
+  Au banc, une soirée à venir peut rester surestimée (+39 % sur un tirage de
+  `grand`) : les soumettre aussi au journal ?
+- La projection des NOUVEAUX ignore la tête d'affiche (Goya : 82 estimés pour
+  116) : chantier à part.
+- Lot 5 quand un vrai compte se branche (couverture, statuts, portes, journal).
