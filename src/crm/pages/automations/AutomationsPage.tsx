@@ -9,7 +9,7 @@
  */
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
@@ -28,6 +28,10 @@ import { AutoIntro, AutoLive, AutoRecos, AutoSoon } from './AutoLive';
 import { AutoTodo } from './AutoTodo';
 import { AutoModal } from './AutoModal';
 import { HoldoutResults } from '@/crm/components/HoldoutResults';
+import { Segmented } from '@/crm/ui/kit';
+import { useScenarioActions } from '@/crm/data/scenarios';
+import { recipeToGraph } from '@/crm/lib/scenarioTemplates';
+import { ScenariosTab } from './scenarios/ScenariosTab';
 
 export default function AutomationsPage() {
   const T = useCrmT();
@@ -46,6 +50,11 @@ export default function AutomationsPage() {
   const [busy, setBusy] = useState<CrmAutoKind | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const smsDefault = t('yc.au.fr.smsDefault');
+  const [sp, setSp] = useSearchParams();
+  const tab: 'recipes' | 'scenarios' = sp.get('tab') === 'scenarios' ? 'scenarios' : 'recipes';
+  const setTab = (v: 'recipes' | 'scenarios') => setSp((p) => { const n = new URLSearchParams(p); if (v === 'recipes') n.delete('tab'); else n.set('tab', v); return n; }, { replace: true });
+  const [gallery, setGallery] = useState(false);
+  const scn = useScenarioActions();
 
   const d = q.data;
   const loading = !d || (q.isFetching && q.isPlaceholderData);
@@ -73,7 +82,7 @@ export default function AutomationsPage() {
 
   const fail = useCallback((e: unknown) => {
     const msg = e instanceof Error ? e.message : String(e ?? '');
-    toast(t(msg.includes('crm_automation_limit') ? 'yc.au.t.limit' : 'yc.au.t.err'));
+    toast(t(msg.includes('crm_automation_limit') ? 'yc.au.t.limit' : msg.includes('scenario_covers_recipe') ? 'yc.scn.custom.covered' : 'yc.au.t.err'));
   }, [toast, t]);
 
   /** Le modèle de la recette, créé s'il manque (sans modèle, rien ne part). */
@@ -127,6 +136,18 @@ export default function AutomationsPage() {
     if (r.template_id) navigate(`${CRM_ROUTES.emailStudio(r.template_id)}?template=${r.kind}`);
   };
 
+  /** « Personnaliser » : la recette devient un scénario qui fait la même chose (publier le scénario l'éteint). */
+  const customize = useCallback(async (r: AutoRecipe) => {
+    if (busy) return;
+    setBusy(r.kind);
+    try {
+      const tpl = await ensureTemplate(r, r.kind);
+      const graph = recipeToGraph({ ...r, template_id: tpl });
+      const res = await scn.save({ id: null, name: t('yc.scn.custom.name', { name: t(`yc.au.r.${r.kind}.name`) }), graph, sourceKind: r.kind });
+      navigate(CRM_ROUTES.scenario(res.id));
+    } catch (e) { fail(e); } finally { setBusy(null); }
+  }, [busy, ensureTemplate, scn, t, navigate, fail]);
+
   const hasAny = !!d && d.recipes.some((r) => autoState(r) !== 'none');
   const hasData = !!d && d.recipes.some((r) => r.all.contacted > 0);
   const recos = d ? d.recipes.filter((r) => autoState(r) === 'none') : [];
@@ -145,30 +166,42 @@ export default function AutomationsPage() {
           </h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 680, animation: `yc-in-blur 800ms ${EASE} 240ms both` }}>{t(hasAny || hasData ? 'yc.au.sub' : 'yc.au.subEmpty')}</p>
         </div>
-        {caps.write && d && (
+        {caps.write && (tab === 'scenarios' || d) && (
           <div style={{ animation: `yc-in-blur 800ms ${EASE} 300ms both` }}>
             <Hv
               as="button"
               type="button"
-              onClick={() => setModal(startModal(d, 'new', firstFree, 1, smsDefault))}
+              onClick={() => { if (tab === 'scenarios') setGallery(true); else if (d) setModal(startModal(d, 'new', firstFree, 1, smsDefault)); }}
               style={{ height: 46, padding: '0 6px 0 20px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform 200ms cubic-bezier(.34,1.56,.64,1),filter 160ms' }}
               hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
               active={{ transform: 'scale(.97)' }}
             >
-              {t('yc.au.new')}
+              {t(tab === 'scenarios' ? 'yc.scn.list.new' : 'yc.au.new')}
               <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon d={AU_IC.plus} size={16} stroke={2.4} /></span>
             </Hv>
           </div>
         )}
       </div>
 
-      {q.isError && !d && (
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px', marginTop: -8 }}>
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          ariaLabel={t('yc.scn.tabs.aria')}
+          options={[{ value: 'recipes', label: t('yc.scn.tabs.recipes') }, { value: 'scenarios', label: t('yc.scn.tabs.scenarios') }]}
+        />
+        <span style={{ fontSize: 13.5, color: 'var(--sand-500)', textWrap: 'pretty' }}>{t(tab === 'scenarios' ? 'yc.scn.tabs.scenariosHint' : 'yc.scn.tabs.recipesHint')}</span>
+      </div>
+
+      {tab === 'scenarios' && <ScenariosTab galleryOpen={gallery} setGalleryOpen={setGallery} />}
+
+      {tab === 'recipes' && q.isError && !d && (
         <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
       )}
 
-      {!d && !q.isError && <AutoSkeleton />}
+      {tab === 'recipes' && !d && !q.isError && <AutoSkeleton />}
 
-      {d && (
+      {tab === 'recipes' && d && (
         <>
           {!hasAny && !hasData && <AutoIntro T={T} />}
           <AutoTodo
@@ -189,6 +222,7 @@ export default function AutomationsPage() {
               onToggle={(r) => void toggle(r)}
               onEdit={(r) => setModal(startModal(d, 'edit', r.kind, 2, smsDefault))}
               onEditMail={editMail}
+              onCustomize={(r) => void customize(r)}
               onRecharge={caps.billing ? () => navigate(CRM_ROUTES.yunits) : undefined}
             />
           )}

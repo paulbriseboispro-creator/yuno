@@ -20,12 +20,14 @@ type Filter = 'all' | Exclude<CrmAutoState, 'none'>;
 const cl01 = (x: number) => Math.max(0, Math.min(1, x));
 
 export function AutoCards({
-  d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail, onRecharge,
+  d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail, onRecharge, onCustomize,
 }: {
   d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: CrmAutoKind | null; onOpen: (k: CrmAutoKind | null) => void; hl: CrmAutoKind | null; busy: CrmAutoKind | null;
   rates: { email: number; sms: number };
   onToggle: (r: AutoRecipe) => void; onEdit: (r: AutoRecipe) => void; onEditMail: (r: AutoRecipe) => void;
+  /** « Personnaliser » : la recette devient un scénario modifiable. */
+  onCustomize?: (r: AutoRecipe) => void;
   /** Seulement pour qui gère la facturation. */
   onRecharge?: () => void;
 }) {
@@ -63,6 +65,7 @@ export function AutoCards({
             open={open === r.kind} hl={hl === r.kind} busy={busy === r.kind} rates={rates}
             onOpen={() => onOpen(open === r.kind ? null : r.kind)}
             onToggle={() => onToggle(r)} onEdit={() => onEdit(r)} onEditMail={() => onEditMail(r)}
+            onCustomize={onCustomize ? () => onCustomize(r) : undefined}
             onRecharge={onRecharge}
           />
         ))}
@@ -75,11 +78,11 @@ export function AutoCards({
 }
 
 function Card({
-  r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail, onRecharge,
+  r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail, onRecharge, onCustomize,
 }: {
   r: AutoRecipe; idx: number; d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: boolean; hl: boolean; busy: boolean; rates: { email: number; sms: number };
-  onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void; onRecharge?: () => void;
+  onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void; onRecharge?: () => void; onCustomize?: () => void;
 }) {
   const { t, tp, n, eur, dShort, time } = T;
   const st = autoState(r) as Exclude<CrmAutoState, 'none'>;
@@ -252,8 +255,13 @@ function Card({
                   </Hv>
                 )}
                 {r.template_id && (
-                  <Hv as="button" type="button" onClick={onEditMail} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }} active={{ transform: 'scale(.97)' }}>
+                  <Hv as="button" type="button" onClick={onEditMail} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: '#fff', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--sand-200)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }} active={{ transform: 'scale(.97)' }}>
                     {t(canWrite ? 'yc.au.x.editMail' : 'yc.au.x.readMail')}
+                  </Hv>
+                )}
+                {canWrite && onCustomize && (
+                  <Hv as="button" type="button" onClick={onCustomize} title={t('yc.scn.custom.hint')} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--sand-300)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-400)', background: 'var(--paper)' }} active={{ transform: 'scale(.97)' }}>
+                    {t('yc.scn.custom.btn')}
                   </Hv>
                 )}
               </div>
