@@ -7,9 +7,11 @@
 -- recrée :
 --   • « Fidèles sans place : J-10, J-3, J-1 » EN LIGNE, avec son historique sur
 --     les soirées du dernier mois et des personnes en route pour les suivantes ;
---   • « Acheteurs absents → prochaine soirée » EN LIGNE, dont le SMS des
---     dernières entrées est RETENU faute de Yunits (l'attente avant le SMS, de 1
---     à 5 jours, est réglée sur le calendrier pour que ce SMS soit dû au semis) ;
+--   • « Acheteurs absents → prochaine soirée » EN LIGNE ; son SMS suit la règle
+--     des 20 h du moteur (retenu tant que la personne a reçu un autre message
+--     d'un scénario du compte depuis moins de 20 h ; aucun cas certains jours ;
+--     l'attente avant le SMS, de 1 à 5 jours, est réglée sur le calendrier pour
+--     que ce SMS soit dû au semis) ;
 --   • « Reconquête en 2 temps » EN PAUSE (des personnes attendent la reprise) ;
 --   • « Invités en guest list → payants » en BROUILLON.
 -- Les chiffres rejouent le moteur sur les vraies soirées et les vrais billets de
@@ -37,6 +39,7 @@ DECLARE
   v_n     integer;
   v_last  timestamptz;
   v_days  integer;
+  v_absent uuid;
 BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
@@ -160,6 +163,7 @@ BEGIN
   VALUES (v_key, v_uid, 'Acheteurs absents → prochaine soirée', 'active', v_g, v_pub, 1, 'absent_buyers', v_uid,
           v_pub - interval '25 minutes', v_pub, v_pub)
   RETURNING id INTO v_scn;
+  v_absent := v_scn;
   INSERT INTO public.crm_scenario_versions (scenario_id, scope_key, version, graph, stats, published_by, published_at)
   VALUES (v_scn, v_key, 1, v_g, COALESCE(public._crm_scenario_graph_errors(v_g)->'stats', '{}'::jsonb), v_uid, v_pub)
   RETURNING id INTO v_ver;
@@ -176,9 +180,7 @@ BEGIN
      AND public._crm_event_scan_known(n.eid)
      AND EXISTS (SELECT 1 FROM _jok o WHERE o.email = t.email);
   INSERT INTO _jl (run, ord, node, at, msg, win, held)
-  SELECT r.id, x.ord, x.node, x.at, x.msg, CASE WHEN x.msg THEN x.at + interval '48 hours' END,
-         -- Le SMS des entrées les plus récentes attend des Yunits.
-         x.node = 's1' AND NOT r.holdout AND x.at > now() - interval '48 hours' AND x.at <= now()
+  SELECT r.id, x.ord, x.node, x.at, x.msg, CASE WHEN x.msg THEN x.at + interval '48 hours' END, false
     FROM _jr r
     CROSS JOIN LATERAL (VALUES (1, 'e1', r.entered_at + interval '1 minute', true),
                                (2, 'w1', r.entered_at + make_interval(days => v_days), false),
@@ -231,6 +233,24 @@ BEGIN
   SELECT l.*, r.scn, r.ver, r.holdout
     FROM _jl l JOIN _jr r ON r.id = l.run
    WHERE l.at <= r.cutoff AND (r.goal_at IS NULL OR l.at < r.goal_at);
+  -- La règle des 20 h, comme le moteur, pour le SMS des absents : il attend 20 h
+  -- après le dernier message reçu par la même personne (autre passage, tous
+  -- scénarios du compte, jamais un message du témoin). 20 h pas encore écoulées :
+  -- retenu ; sinon il est parti à l'heure dite. Aucun cas certains jours : la
+  -- démo ne montre alors aucun SMS retenu (jamais une raison inventée).
+  ALTER TABLE _jv ADD COLUMN retry timestamptz;
+  UPDATE _jv v SET held = (p.last + interval '20 hours' > now()),
+                   retry = p.last + interval '20 hours',
+                   at = CASE WHEN p.last + interval '20 hours' > now() THEN v.at ELSE p.last + interval '20 hours' END
+    FROM (SELECT v2.run, v2.ord, max(o.at) AS last
+            FROM _jv v2
+            JOIN _jr r2 ON r2.id = v2.run
+            JOIN _jr ro ON ro.email = r2.email AND ro.id <> r2.id AND NOT ro.holdout
+            JOIN _jv o ON o.run = ro.id AND o.msg AND o.at < v2.at AND o.at > v2.at - interval '20 hours'
+           WHERE v2.scn = v_absent AND v2.node = 's1' AND NOT v2.holdout
+           GROUP BY 1, 2) p
+   WHERE v.run = p.run AND v.ord = p.ord;
+
   -- Après une étape retenue, rien n'avance.
   DELETE FROM _jv v USING (SELECT run, min(ord) AS o FROM _jv WHERE held GROUP BY run) h
    WHERE v.run = h.run AND v.ord > h.o;
@@ -243,10 +263,10 @@ BEGIN
          CASE WHEN r.goal_at IS NOT NULL THEN 'goal' WHEN h.node IS NULL AND nx.node IS NULL THEN 'end' END,
          COALESCE(h.node, nx.node, 'x'),
          COALESCE(lv.at, r.entered_at),
-         CASE WHEN h.node IS NOT NULL THEN h.win WHEN r.goal_at IS NOT NULL THEN r.goal_at ELSE COALESCE(nx.at, lv.at, r.entered_at) END,
+         CASE WHEN h.node IS NOT NULL THEN LEAST(h.retry, h.win + interval '1 minute') WHEN r.goal_at IS NOT NULL THEN r.goal_at ELSE COALESCE(nx.at, lv.at, r.entered_at) END,
          r.holdout, lm.at, r.goal_at, COALESCE(r.goal_at, lv.at, r.entered_at)
     FROM _jr r
-    LEFT JOIN LATERAL (SELECT v.node, v.win FROM _jv v WHERE v.run = r.id AND v.held) h ON true
+    LEFT JOIN LATERAL (SELECT v.node, v.win, v.retry FROM _jv v WHERE v.run = r.id AND v.held) h ON true
     LEFT JOIN LATERAL (SELECT max(v.at) AS at FROM _jv v WHERE v.run = r.id) lv ON true
     LEFT JOIN LATERAL (SELECT max(v.at) AS at FROM _jv v WHERE v.run = r.id AND v.msg AND NOT v.held AND NOT r.holdout) lm ON true
     LEFT JOIN LATERAL (SELECT l.node, l.at FROM _jl l WHERE l.run = r.id AND NOT EXISTS (SELECT 1 FROM _jv v WHERE v.run = l.run AND v.ord = l.ord)
@@ -255,12 +275,12 @@ BEGIN
   INSERT INTO public.crm_scenario_steps (run_id, node_id, pass, scenario_id, version_id, status, reason, due_at, window_end, created_at, done_at)
   SELECT v.run, v.node, 1, v.scn, v.ver,
          CASE WHEN v.held THEN 'held' WHEN v.msg AND v.holdout THEN 'holdout' WHEN v.msg THEN 'would_send' ELSE 'passed' END,
-         CASE WHEN v.held THEN 'yunits' END,
+         CASE WHEN v.held THEN 'spacing' END,
          v.at, v.win, v.at, CASE WHEN v.held THEN NULL ELSE v.at END
     FROM _jv v;
 
   SELECT count(*) INTO v_n FROM _jr;
-  RAISE NOTICE 'scénarios démo : 4 (2 en ligne, 1 en pause, 1 brouillon), % entrées, % étapes, % retenues faute de Yunits',
+  RAISE NOTICE 'scénarios démo : 4 (2 en ligne, 1 en pause, 1 brouillon), % entrées, % étapes, % retenues par la règle des 20 h',
     v_n, (SELECT count(*) FROM _jv), (SELECT count(*) FROM _jv WHERE held);
 END;
 $seed$;

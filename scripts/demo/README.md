@@ -96,7 +96,7 @@ e-mails (`.ts`) → `seed-crm-extras` (réglages, pages d'inscription, imports, 
 et leur historique de taille, grand livre des Yunits, équipe, Instagram en brouillon,
 NPS, notifications lues, statistiques de la base) → `seed-crm-journeys` (Scénarios :
 « Fidèles sans place » et « Acheteurs absents » en ligne avec leurs chiffres rejoués
-sur les vraies soirées de la démo, le SMS des derniers absents retenu faute de Yunits,
+sur les vraies soirées de la démo, le SMS des absents soumis à la règle des 20 h du moteur,
 « Reconquête en 2 temps » en pause, « Invités en guest list → payants » en brouillon ;
 il efface et recrée TOUS les scénarios du compte démo, et ses e-mails sont des copies
 de ceux des recettes). Après mise en ligne, le moteur fait avancer ces scénarios

@@ -796,7 +796,14 @@ if (cmd === 'conditions') {
   check('rapport des fidèles : l\'annonce « aurait été envoyée » (démo), le témoin compté',
     rl.nodes.e1?.would_send > 0 && rl.nodes.e1.holdout > 0 && rl.nodes.e1.sent === 0, rl.nodes.e1);
   const ra = await rep(by.absent_buyers.id);
-  check('absents : le SMS est retenu faute de Yunits', ra.nodes.s1?.held > 0 && (ra.nodes.s1.reasons['held:yunits'] ?? 0) > 0, ra.nodes.s1);
+  // Un SMS retenu n'existe que si la règle des 20 h le demande (aucun certains jours) : jamais une autre raison.
+  check('absents : un SMS retenu ne l\'est que par la règle des 20 h', (ra.nodes.s1?.held ?? 0) === (ra.nodes.s1?.reasons?.['held:spacing'] ?? 0), ra.nodes.s1);
+  const spaced = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps a JOIN crm_scenario_runs ra ON ra.id = a.run_id
+                               JOIN crm_scenario_runs rb ON rb.email = ra.email AND rb.id <> ra.id AND NOT rb.holdout
+                               JOIN crm_scenario_steps b ON b.run_id = rb.id AND b.status = 'would_send'
+                              WHERE ra.scenario_id = $1 AND a.node_id = 's1' AND a.status = 'would_send'
+                                AND b.done_at < a.done_at AND b.done_at > a.done_at - interval '20 hours'`, [by.absent_buyers.id])).n;
+  check('absents : aucun SMS parti moins de 20 h après un autre message', spaced === 0, spaced);
   const rw = await rep(by.winback_2.id);
   check('reconquête : en pause, rien d\'écrit après la pause', rw.state === 'paused', { state: rw.state, e1: rw.nodes.e1 });
   const late = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps st JOIN crm_scenarios s ON s.id = st.scenario_id
@@ -814,14 +821,14 @@ if (cmd === 'conditions') {
   // Le vrai moteur passe par-dessus le semis (compte démo : rien ne part) : il ne doit ni tomber, ni
   // relâcher les SMS retenus avant la fin de leur fenêtre, ni faire entrer deux fois la même personne.
   await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
-  const heldBefore = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'held' AND reason = 'yunits'`)).n;
+  const heldBefore = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'held' AND reason = 'spacing'`)).n;
   await db.exec('BEGIN');
   let tick;
   try { tick = (await one(`SELECT crm_scenario_tick() AS r`)).r; await db.exec('COMMIT'); } catch (e) { await db.exec('ROLLBACK'); throw e; }
   const adv = tick.scopes?.find((x) => x.scope === `org:${org}` || x.scope_key === `org:${org}`) ?? tick.scopes?.[0];
   console.log('passage du moteur :', JSON.stringify(adv ?? tick).slice(0, 300));
-  const heldAfter = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'held' AND reason = 'yunits'`)).n;
-  check('moteur : les SMS retenus le restent jusqu\'à la fin de leur fenêtre', heldAfter === heldBefore && heldBefore > 0, { heldBefore, heldAfter });
+  const heldAfter = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'held' AND reason = 'spacing'`)).n;
+  check('moteur : les SMS retenus le restent jusqu\'à leur heure', heldAfter === heldBefore, { heldBefore, heldAfter });
   const dup = (await one(`SELECT count(*)::int AS n FROM (SELECT scenario_id, email FROM crm_scenario_runs WHERE status = 'active'
                            GROUP BY 1, 2 HAVING count(*) > 1) x`)).n;
   check('moteur : personne en route deux fois dans un même scénario', dup === 0, dup);

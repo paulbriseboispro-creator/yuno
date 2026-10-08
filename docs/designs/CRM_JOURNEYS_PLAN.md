@@ -431,10 +431,11 @@ Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
 - Gel → pause : déjà tenu par le moteur (J3) ; rien à ajouter.
 - Démo : `scripts/demo/seed-crm-journeys.sql` (fin de `refresh-crm-demo.sh`) :
   deux scénarios en ligne aux chiffres rejoués sur les vraies soirées de la
-  démo, un SMS retenu faute de Yunits, un en pause, un brouillon. Le SMS
-  « retenu » contredit le solde de Yunits de la démo (≈ 27 000) : choix du
-  prompt, à confirmer par Paul. Banc : `scenarios.mjs seed` (joué deux fois,
-  puis un passage du vrai moteur).
+  démo, un en pause, un brouillon. Le SMS des absents suit la règle des 20 h
+  du moteur (décision de Paul, 08/10 : plus de « retenu faute de Yunits »,
+  qui contredisait le solde de la démo et qu'un compte démo ne produit
+  jamais) ; certains jours, aucun SMS n'est retenu. Banc : `scenarios.mjs
+  seed` (joué deux fois, puis un passage du vrai moteur, puis le smoke).
 - CLAUDE.md : section « Yuno CRM — les Scénarios ».
 
 **A0 + A1 faits (08/10)** — rien de poussé, appliqué, déployé ni semé.
