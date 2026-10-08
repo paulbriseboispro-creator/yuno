@@ -5,7 +5,8 @@
 -- Lecture, pour toute connexion dont un espace a Yuno CRM (des agrégats, jamais
 -- une personne) : list_scenarios, get_scenario_report, get_scenario_kit, et le
 -- plan d'une soirée à venir, get_night_plan (crm_night_plan, 20261016155000 :
--- tout chiffre y est calculé par le serveur, l'IA ne fait que le lire).
+-- tout chiffre y est calculé par le serveur, l'IA ne fait que le lire), et le
+-- bilan de la semaine, get_weekly_review (crm_weekly_review, 20261016175000).
 -- Écriture : des BROUILLONS de scénarios seulement (create_scenario_draft,
 -- update_scenario_draft), derrière un droit propre accordé au consentement
 -- (mcp_grants.can_scenarios, comme can_draft / can_pages). Une IA ne publie,
@@ -307,6 +308,10 @@ BEGIN
       'note', 'Every number here is computed by Yuno from the account data. A person counts once, in the first '
            || 'audience of the suggested order that contains them (first_n). cost_* are Yunits (SMS at the France rate); '
            || 'audience_id is ready for create_email_draft. status is what the account data says about a hypothesis family, never a certainty about a person.');
+
+  -- Bilan de la semaine écoulée (lundi → dimanche, Paris), calculé à la lecture.
+  ELSIF p_tool = 'get_weekly_review' THEN
+    RETURN public.crm_weekly_review(v_venue, v_org) || jsonb_build_object('console_url', 'https://crm.yunoapp.eu/crm/review');
   END IF;
   RETURN jsonb_build_object('ok', false, 'error', 'unknown_tool');
 END;
@@ -479,7 +484,7 @@ BEGIN
       v_res := public._mcp_email_tool(p_tool, s.kind, s.space_id, s.product, s.timezone, v_args, a.user_id);
     ELSIF p_tool IN ('get_signup_page_kit', 'get_signup_page') THEN
       v_res := public._mcp_signup_tool(p_tool, s.kind, s.space_id, s.product, s.timezone, v_args, a.user_id);
-    ELSIF p_tool IN ('list_scenarios', 'get_scenario_report', 'get_scenario_kit', 'get_night_plan') THEN
+    ELSIF p_tool IN ('list_scenarios', 'get_scenario_report', 'get_scenario_kit', 'get_night_plan', 'get_weekly_review') THEN
       v_res := public._mcp_scenario_tool(p_tool, s.kind, s.space_id, v_args);
     ELSE
       v_res := public._mcp_tool(p_tool, s.kind, s.space_id, s.product, s.timezone, v_args, a.level);

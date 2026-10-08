@@ -8,7 +8,11 @@
 --     et par étape, préférence « rapport ») ;
 --   • « Votre plan de soirée est prêt » (agents, lot A1, crm_night_plan) : un
 --     compte EN ESSAI dont le premier import est fait et l'analyse calculée,
---     pour sa prochaine soirée, une fois (préférence « rapport »).
+--     pour sa prochaine soirée, une fois (préférence « rapport ») ;
+--   • « Votre bilan de la semaine » (agents, lot A3, crm_weekly_review) : chaque
+--     lundi à 8 h, pour la semaine écoulée, si le compte a envoyé quelque chose,
+--     a un scénario en ligne ou une soirée dans les 3 semaines. Condition légère :
+--     le bilan lui-même ne se calcule qu'à l'ouverture.
 -- ============================================================================
 
 SET lock_timeout = '5s';
@@ -222,6 +226,24 @@ BEGIN
       'at', LEAST(now(), r.at), 'due_at', r.start_at,
       'params', jsonb_build_object('event_id', r.id, 'title', r.title, 'start_at', r.start_at));
   END LOOP;
+
+  -- Bilan de la semaine (lot A3) : le lundi à partir de 8 h (Paris).
+  IF now() >= ((date_trunc('week', now() AT TIME ZONE 'Europe/Paris') + interval '8 hours') AT TIME ZONE 'Europe/Paris')
+     AND (EXISTS (SELECT 1 FROM public.email_campaigns c
+                   WHERE c.venue_id IS NOT DISTINCT FROM p_venue_id AND (p_venue_id IS NOT NULL OR c.organizer_user_id = p_organizer_user_id)
+                     AND c.sent_at >= ((date_trunc('week', now() AT TIME ZONE 'Europe/Paris') - interval '7 days') AT TIME ZONE 'Europe/Paris')
+                     AND c.sent_at < ((date_trunc('week', now() AT TIME ZONE 'Europe/Paris')) AT TIME ZONE 'Europe/Paris'))
+       OR EXISTS (SELECT 1 FROM public.crm_scenarios s WHERE s.scope_key = v_scope AND s.status = 'active')
+       OR EXISTS (SELECT 1 FROM public.events ev
+                   WHERE ev.external_source IS NOT NULL AND ev.cancelled_at IS NULL AND ev.start_at > now() AND ev.start_at < now() + interval '21 days'
+                     AND ((p_venue_id IS NOT NULL AND ev.venue_id = p_venue_id) OR (p_venue_id IS NULL AND ev.organizer_user_id = p_organizer_user_id)))) THEN
+    v_items := v_items || jsonb_build_object(
+      'id', 'weekly_review:' || to_char(date_trunc('week', now() AT TIME ZONE 'Europe/Paris') - interval '7 days', 'IYYYIW'),
+      'kind', 'weekly_review', 'cat', 'envois', 'tone', 'info', 'need', false, 'lock', false, 'pref', 'rapport',
+      'at', (date_trunc('week', now() AT TIME ZONE 'Europe/Paris') + interval '8 hours') AT TIME ZONE 'Europe/Paris', 'due_at', NULL,
+      'params', jsonb_build_object('from_at', (date_trunc('week', now() AT TIME ZONE 'Europe/Paris') - interval '7 days') AT TIME ZONE 'Europe/Paris',
+                                   'to_at', (date_trunc('week', now() AT TIME ZONE 'Europe/Paris') - interval '1 day') AT TIME ZONE 'Europe/Paris'));
+  END IF;
 
   -- ── Préférences et état de la personne ────────────────────────────────────
   FOR it IN SELECT x FROM jsonb_array_elements(v_items) x LOOP

@@ -11,6 +11,7 @@
 //   node scenarios.mjs editor [base]       lot J4 : effectifs en direct, aperçu
 //   node scenarios.mjs seed [base]         lot J5 : le semis démo, rejoué deux fois
 //   node scenarios.mjs plan [base]         lot A1 : plan de soirée, audience « target » d'un brouillon d'IA
+//   node scenarios.mjs review [base]       lot A3 : bilan de la semaine
 //
 // La base (défaut : demo-computed, déjà analysée) reçoit les migrations des
 // Scénarios (20261016100000 et suivantes) avant les essais : c'est la même
@@ -607,6 +608,9 @@ if (cmd === 'conditions') {
                                  AND start_at > now() + interval '24 hours' ORDER BY start_at LIMIT 1`, [org])).id;
   check('fil : « plan de soirée prêt » pour la prochaine soirée d\'un compte en essai', pi.length === 1 && pi[0].params.event_id === nextNight
     && pi[0].id === `night_plan_ready:${nextNight}`, pi.map((x) => x.id));
+  // Bilan de la semaine (lot A3) : une entrée par semaine écoulée, le lundi dès 8 h.
+  const wk = (await one(`SELECT get_crm_notifications(NULL, $1) AS r`, [org])).r.filter((x) => x.kind === 'weekly_review');
+  check('fil : « bilan de la semaine » (soirée dans les 3 semaines)', wk.length === 1 && /^weekly_review:\d{6}$/.test(wk[0].id), wk.map((x) => x.id));
 } else if (cmd === 'mcp') {
   // Lot J5 : le connecteur IA. Lecture pour toute connexion d'un espace CRM ;
   // brouillons derrière can_scenarios ; jamais de publication.
@@ -619,6 +623,9 @@ if (cmd === 'conditions') {
   await db.exec(`ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS banned_until timestamptz;
                  ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
                  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_suspended boolean DEFAULT false;`);
+  if (!(await one(`SELECT to_regprocedure('public.crm_campaign_is_crm(uuid)') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public.crm_campaign_is_crm(p uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT true $$;`);
+  }
   // Le banc ne porte pas la première version de _mcp_needs_temp (outils de la Suite) :
   // aucune ne sert ici.
   if (!(await one(`SELECT to_regprocedure('public._mcp_needs_temp(text)') IS NOT NULL AS ok`)).ok) {
@@ -655,6 +662,9 @@ if (cmd === 'conditions') {
     && /\/crm\/nights\/[0-9a-f-]{36}\/plan$/.test(pl.result?.console_url ?? ''), pl.result?.error ?? pl.error);
   const plBad = await call('get_night_plan', { event: 'soirée qui n’existe pas' });
   check('lecture : get_night_plan, soirée introuvable dite telle', plBad.result?.error === 'event_not_found', plBad.result?.error);
+  const wr = await call('get_weekly_review');
+  check('lecture : get_weekly_review (semaine écoulée, lien Console)', wr.ok && wr.result?.ok === true && Array.isArray(wr.result?.actions)
+    && wr.result?.console_url === 'https://crm.yunoapp.eu/crm/review', wr.result?.error ?? wr.error);
   const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
   const graph = JSON.parse(JSON.stringify(gx.cases[0].graph));
   const denied = await write('create_scenario_draft', { name: 'IA', graph });
@@ -876,6 +886,47 @@ if (cmd === 'conditions') {
   await db.exec('BEGIN');
   try { await one(`SELECT crm_night_plan(NULL, $1, NULL) AS r`, [org]); } catch (e) { refused = /forbidden/.test(e.message); }
   await db.exec('ROLLBACK');
+  check('porte : un inconnu est refusé', refused);
+} else if (cmd === 'review') {
+  // Agents, lot A3 : le bilan de la semaine (crm_weekly_review), calculé à la lecture.
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  for (const f of ['crm_campaign_is_crm(uuid)', 'crm_holdout_overview(text, uuid, integer)']) {
+    if (!(await one(`SELECT to_regprocedure('public.${f}') IS NOT NULL AS ok`)).ok) console.log(`(banc) ${f} absente`);
+  }
+  // Le banc n'a pas crm_campaign_is_crm (cohabitation des produits) : le compte du banc est CRM pur.
+  if (!(await one(`SELECT to_regprocedure('public.crm_campaign_is_crm(uuid)') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public.crm_campaign_is_crm(p uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT true $$;`);
+  }
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  const owner = JSON.stringify({ sub: org, role: 'authenticated' });
+  const read = async () => {
+    await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+    const r = (await one(`SELECT crm_weekly_review(NULL, $1) AS r`, [org])).r;
+    await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    return r;
+  };
+  const t0 = Date.now();
+  const r0 = await read();
+  console.log(`bilan : ${Date.now() - t0} ms`, JSON.stringify({ activity: r0.activity, drift: r0.drift.map((d) => d.kind), actions: r0.actions.map((a) => a.kind) }));
+  check('bilan : la semaine écoulée, lundi → dimanche', r0.ok === true && new Date(r0.to) - new Date(r0.from) > 6.9 * 86400_000 && new Date(r0.to) < new Date(), { from: r0.from, to: r0.to });
+  // Une campagne de la semaine aux bounces trop nombreux, une part protégée trop grande.
+  const lastWeek = (await one(`SELECT ((date_trunc('week', now() AT TIME ZONE 'Europe/Paris') - interval '3 days') AT TIME ZONE 'Europe/Paris')::text AS t`)).t;
+  await db.query(`INSERT INTO email_campaigns (organizer_user_id, name, subject, status, sent_at, recipients_count, bounced_count, complained_count, policy_skipped_count, created_at)
+                  VALUES ($1, 'Banc · semaine', 'Banc', 'sent', $2::timestamptz, 1000, 50, 2, 400, $2::timestamptz)`, [org, lastWeek]);
+  const r1 = await read();
+  check('bilan : e-mails de la semaine comptés', r1.activity.emails >= 1000 && r1.activity.email_campaigns >= 1, r1.activity);
+  check('bilan : délivrabilité et part protégée signalées', r1.drift.some((d) => d.kind === 'deliverability') && r1.drift.some((d) => d.kind === 'protected'), r1.drift.map((d) => d.kind));
+  check('bilan : 3 actions au plus, l’une pour la base', r1.actions.length <= 3 && r1.actions.some((a) => a.kind === 'base'), r1.actions.map((a) => a.kind));
+  const next = await one(`SELECT id FROM events WHERE organizer_user_id = $1 AND external_source IS NOT NULL AND cancelled_at IS NULL
+                           AND start_at > now() AND start_at < now() + interval '14 days' ORDER BY start_at LIMIT 1`, [org]);
+  check('bilan : la prochaine soirée proche a son plan à préparer', !next || r1.actions.some((a) => a.kind === 'plan' && a.event_id === next.id) || r1.actions.length === 3, { next: next?.id, actions: r1.actions });
+  check('bilan : rien n’est mesuré sans 10 personnes de chaque côté', r1.measured.every((m) => m.contacted.n >= 10 && m.control.n >= 10));
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: '00000000-0000-4000-8000-0000000000aa', role: 'authenticated' })]);
+  let refused = false;
+  try { await one(`SELECT crm_weekly_review(NULL, $1) AS r`, [org]); } catch (e) { refused = /forbidden/.test(e.message); }
   check('porte : un inconnu est refusé', refused);
 } else {
   console.error(`commande inconnue : ${cmd}`);
