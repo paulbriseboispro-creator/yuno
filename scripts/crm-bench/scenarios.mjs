@@ -827,6 +827,23 @@ if (cmd === 'conditions') {
   check('moteur : personne en route deux fois dans un même scénario', dup === 0, dup);
   const sent = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'sent'`)).n;
   check('moteur : compte démo, aucun message réellement parti', sent === 0, sent);
+  // Le smoke de la répétition en prod (smoke/journeys.sql) doit d'abord passer ici : il lit chaque écran
+  // en titulaire démo, fait tourner le moteur et le bilan quotidien, et finit en SMOKE_OK.
+  // Ce que la prod a et que le banc n'a pas : le centre de notifications (chargé comme dans « feed ») et
+  // la ligne de compte de l'Admin CRM (simulée).
+  for (const f of ['20261004231000_crm_account_team_prefs.sql', '20261004235000_crm_notifications.sql',
+                   '20261007251000_crm_unreachable_scope_key.sql', '20261016150000_crm_scenario_feed.sql']) {
+    await execFile(db, join(MIG, f), f);
+  }
+  if (!(await one(`SELECT to_regprocedure('public._crm_admin_rows(boolean)') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public._crm_admin_rows(p boolean) RETURNS jsonb LANGUAGE sql AS $$
+      SELECT jsonb_build_array(jsonb_build_object('id', 'org:${org}', 'name', 'Banc', 'state', 'trial', 'venue_id', NULL,
+        'organizer_user_id', '${org}', 'trial_ends_at', (now() + interval '9 days')::text)) $$;`);
+  }
+  let smoke = '';
+  try { await db.exec(readFileSync(join(ROOT, 'scripts/crm-bench/smoke/journeys.sql'), 'utf8')); } catch (e) { smoke = String(e.message ?? e); }
+  console.log(smoke.slice(0, 1500));
+  check('smoke de la répétition : SMOKE_OK sur le banc', smoke.includes('SMOKE_OK'), smoke.includes('SMOKE_OK') ? undefined : smoke.slice(0, 400));
 } else if (cmd === 'plan') {
   // Agents, lot A1 : le plan de soirée (crm_night_plan) et l'audience « target » d'un brouillon d'IA.
   const db = await withScenarios(base);
