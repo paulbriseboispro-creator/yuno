@@ -1,0 +1,1684 @@
+{
+ "_doc": "Cas partagés du langage de conditions des Scénarios : condErrors (TS) et _crm_cond_errors (SQL) rendent exactement ces erreurs.",
+ "cases": [
+  {
+   "name": "pas de condition",
+   "ctx": "step",
+   "tree": null,
+   "errors": []
+  },
+  {
+   "name": "une feuille",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "et / ou imbriqués",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "op": "or",
+      "items": [
+       {
+        "k": "hyp",
+        "v": [
+         "artist"
+        ]
+       },
+       {
+        "k": "sc_family",
+        "v": "series"
+       }
+      ]
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "famille confirmée permise à l'entrée",
+   "ctx": "entry",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_family",
+      "v": "series"
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "chances permises à l'entrée",
+   "ctx": "entry",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_chance",
+      "v": [
+       "high",
+       "medium"
+      ]
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "Qui cibler de la soirée du scénario",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "ntgt",
+      "v": {
+       "e": "$event",
+       "a": "lineup"
+      }
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "place pour la soirée du scénario",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "ev",
+      "v": [
+       "$event"
+      ]
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "groupe nié",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "op": "or",
+      "items": [
+       {
+        "k": "pass",
+        "v": "yes"
+       },
+       {
+        "k": "seg",
+        "v": "end"
+       }
+      ],
+      "not": true
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "profondeur 3 exactement",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "op": "or",
+      "items": [
+       {
+        "op": "and",
+        "items": [
+         {
+          "k": "nb",
+          "v": "1"
+         },
+         {
+          "k": "up",
+          "v": "no"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "20 feuilles",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 0
+     },
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "k": "nb_min",
+      "v": 2
+     },
+     {
+      "k": "nb_min",
+      "v": 3
+     },
+     {
+      "k": "nb_min",
+      "v": 4
+     },
+     {
+      "k": "nb_min",
+      "v": 5
+     },
+     {
+      "k": "nb_min",
+      "v": 6
+     },
+     {
+      "k": "nb_min",
+      "v": 7
+     },
+     {
+      "k": "nb_min",
+      "v": 8
+     },
+     {
+      "k": "nb_min",
+      "v": 9
+     },
+     {
+      "k": "nb_min",
+      "v": 10
+     },
+     {
+      "k": "nb_min",
+      "v": 11
+     },
+     {
+      "k": "nb_min",
+      "v": 12
+     },
+     {
+      "k": "nb_min",
+      "v": 13
+     },
+     {
+      "k": "nb_min",
+      "v": 14
+     },
+     {
+      "k": "nb_min",
+      "v": 15
+     },
+     {
+      "k": "nb_min",
+      "v": 16
+     },
+     {
+      "k": "nb_min",
+      "v": 17
+     },
+     {
+      "k": "nb_min",
+      "v": 18
+     },
+     {
+      "k": "nb_min",
+      "v": 19
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "segment en majuscules",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "segment",
+      "v": "3F2A6C1E-9B7D-4E2F-8A1C-5D6E7F8A9B0C"
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "montant à deux décimales",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sp_min",
+      "v": 50.5
+     },
+     {
+      "k": "basket_min",
+      "v": 0
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "artiste",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "artist",
+      "v": [
+       "name:Malaa",
+       "id:42"
+      ]
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "pays nettoyés",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "country",
+      "v": [
+       "fr",
+       " be "
+      ]
+     },
+     {
+      "k": "country_not",
+      "v": "ES"
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "toutes les clés de messages en étape",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_opened",
+      "v": "e1"
+     },
+     {
+      "k": "sc_clicked",
+      "v": "e1"
+     },
+     {
+      "k": "sc_sms_delivered",
+      "v": "s-1"
+     },
+     {
+      "k": "sc_bought",
+      "v": false
+     },
+     {
+      "k": "sc_entered",
+      "v": true
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "listes connues",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "src",
+      "v": [
+       "shotgun",
+       "page"
+      ]
+     },
+     {
+      "k": "rc",
+      "v": [
+       "mail"
+      ]
+     },
+     {
+      "k": "buy",
+      "v": [
+       "early"
+      ]
+     },
+     {
+      "k": "arr",
+      "v": [
+       "em",
+       "gl"
+      ]
+     },
+     {
+      "k": "glev",
+      "v": [
+       "T"
+      ]
+     },
+     {
+      "k": "tags",
+      "v": [
+       "VIP"
+      ]
+     },
+     {
+      "k": "genre",
+      "v": [
+       "techno"
+      ]
+     },
+     {
+      "k": "fmt",
+      "v": [
+       "club"
+      ]
+     },
+     {
+      "k": "series",
+      "v": [
+       "goya"
+      ]
+     },
+     {
+      "k": "area",
+      "v": [
+       "paris"
+      ]
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "valeurs uniques connues",
+   "ctx": "step",
+   "tree": {
+    "op": "or",
+    "items": [
+     {
+      "k": "gender",
+      "v": "female"
+     },
+     {
+      "k": "grp",
+      "v": "group"
+     },
+     {
+      "k": "msg",
+      "v": "never_sent"
+     },
+     {
+      "k": "gl",
+      "v": "conv"
+     },
+     {
+      "k": "ch",
+      "v": "both"
+     },
+     {
+      "k": "last",
+      "v": "0-30"
+     },
+     {
+      "k": "sp",
+      "v": "200+"
+     },
+     {
+      "k": "dist_max",
+      "v": 80
+     },
+     {
+      "k": "age_min",
+      "v": 18
+     },
+     {
+      "k": "last_gt_days",
+      "v": 30
+     },
+     {
+      "k": "last_lt_days",
+      "v": 60
+     },
+     {
+      "k": "click_lt_days",
+      "v": 7
+     },
+     {
+      "k": "paid_min",
+      "v": 2
+     },
+     {
+      "k": "nb_max",
+      "v": 3
+     }
+    ]
+   },
+   "errors": []
+  },
+  {
+   "name": "racine feuille",
+   "ctx": "step",
+   "tree": {
+    "k": "nb_min",
+    "v": 1
+   },
+   "errors": [
+    {
+     "code": "root_not_group",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "racine tableau",
+   "ctx": "step",
+   "tree": [
+    {
+     "k": "nb_min",
+     "v": 1
+    }
+   ],
+   "errors": [
+    {
+     "code": "root_not_group",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "racine sans op",
+   "ctx": "step",
+   "tree": {
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "root_not_group",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "opérateur inconnu",
+   "ctx": "step",
+   "tree": {
+    "op": "xor",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_op",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "non pas booléen",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     }
+    ],
+    "not": "yes"
+   },
+   "errors": [
+    {
+     "code": "bad_not",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "non à null",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     }
+    ],
+    "not": null
+   },
+   "errors": [
+    {
+     "code": "bad_not",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "groupe vide",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": []
+   },
+   "errors": [
+    {
+     "code": "empty_group",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "groupe imbriqué vide",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "op": "or",
+      "items": []
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "empty_group",
+     "path": "1"
+    }
+   ]
+  },
+  {
+   "name": "trop profond",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "op": "or",
+      "items": [
+       {
+        "op": "and",
+        "items": [
+         {
+          "op": "or",
+          "items": [
+           {
+            "k": "nb_min",
+            "v": 1
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "too_deep",
+     "path": "0.0.0"
+    }
+   ]
+  },
+  {
+   "name": "21 feuilles",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 0
+     },
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "k": "nb_min",
+      "v": 2
+     },
+     {
+      "k": "nb_min",
+      "v": 3
+     },
+     {
+      "k": "nb_min",
+      "v": 4
+     },
+     {
+      "k": "nb_min",
+      "v": 5
+     },
+     {
+      "k": "nb_min",
+      "v": 6
+     },
+     {
+      "k": "nb_min",
+      "v": 7
+     },
+     {
+      "k": "nb_min",
+      "v": 8
+     },
+     {
+      "k": "nb_min",
+      "v": 9
+     },
+     {
+      "k": "nb_min",
+      "v": 10
+     },
+     {
+      "k": "nb_min",
+      "v": 11
+     },
+     {
+      "k": "nb_min",
+      "v": 12
+     },
+     {
+      "k": "nb_min",
+      "v": 13
+     },
+     {
+      "k": "nb_min",
+      "v": 14
+     },
+     {
+      "k": "nb_min",
+      "v": 15
+     },
+     {
+      "k": "nb_min",
+      "v": 16
+     },
+     {
+      "k": "nb_min",
+      "v": 17
+     },
+     {
+      "k": "nb_min",
+      "v": 18
+     },
+     {
+      "k": "nb_min",
+      "v": 19
+     },
+     {
+      "k": "nb_min",
+      "v": 20
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "too_many_leaves",
+     "path": ""
+    }
+   ]
+  },
+  {
+   "name": "élément nombre",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     5
+    ]
+   },
+   "errors": [
+    {
+     "code": "not_object",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "élément null",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     null
+    ]
+   },
+   "errors": [
+    {
+     "code": "not_object",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "feuille sans clé",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "v": 1
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "unknown_key",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "liste fixe d'adresses refusée",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "emails",
+      "v": [
+       "a@b.fr"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "unknown_key",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "recherche texte refusée",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "q",
+      "v": "martin"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "unknown_key",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "définition interne refusée",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "_def",
+      "v": {
+       "seg": "hab"
+      }
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "unknown_key",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "clé du prototype",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "__proto__",
+      "v": 1
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "unknown_key",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "clé constructor",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "constructor",
+      "v": 1
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "unknown_key",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "clic SMS bientôt",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_sms_clicked",
+      "v": "s1"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "soon",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "clic SMS bientôt, même à l'entrée",
+   "ctx": "entry",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_sms_clicked",
+      "v": "s1"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "soon",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "achat du scénario refusé à l'entrée",
+   "ctx": "entry",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_bought",
+      "v": true
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "not_in_entry",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "ouverture refusée à l'entrée",
+   "ctx": "entry",
+   "tree": {
+    "op": "or",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "k": "sc_opened",
+      "v": "e1"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "not_in_entry",
+     "path": "1"
+    }
+   ]
+  },
+  {
+   "name": "entier négatif",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": -1
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "entier décimal",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 1.5
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "entier en texte",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": "3"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "âge trop grand",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "age_min",
+      "v": 1000
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "montant à trois décimales",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sp_min",
+      "v": 50.555
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "montant négatif",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "basket_min",
+      "v": -5
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "genre inconnu",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "gender",
+      "v": "f"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "genre nombre",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "gender",
+      "v": 5
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "liste vide",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "src",
+      "v": []
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "liste avec un intrus",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "src",
+      "v": [
+       "shotgun",
+       "x"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "liste en texte",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "src",
+      "v": "shotgun"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "soirée en majuscules",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "ev",
+      "v": [
+       "3F2A6C1E-9B7D-4E2F-8A1C-5D6E7F8A9B0C"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "soirée illisible",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "glev",
+      "v": [
+       "demain"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "Qui cibler, clé en trop",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "ntgt",
+      "v": {
+       "e": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+       "a": "lineup",
+       "x": 1
+      }
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "Qui cibler, audience inconnue",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "ntgt",
+      "v": {
+       "e": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+       "a": "xx"
+      }
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "Qui cibler en tableau",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "ntgt",
+      "v": [
+       "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+       "lineup"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "artiste avec espace",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "artist",
+      "v": [
+       " name:X"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "hypothèse inconnue",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "hyp",
+      "v": [
+       "artist",
+       "nope"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "famille inconnue",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_family",
+      "v": "nope"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "chances inconnues",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_chance",
+      "v": [
+       "sure"
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "pays nombre",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "country_not",
+      "v": 7
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "nœud illisible",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_opened",
+      "v": "e 1"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "booléen en texte",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "sc_bought",
+      "v": "true"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "segment illisible",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "segment",
+      "v": "abc"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "valeur absente",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min"
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_value",
+     "path": "0"
+    }
+   ]
+  },
+  {
+   "name": "ordre de lecture",
+   "ctx": "entry",
+   "tree": {
+    "op": "xor",
+    "items": [
+     {
+      "k": "x",
+      "v": 1
+     },
+     {
+      "op": "or",
+      "items": []
+     },
+     {
+      "k": "nb",
+      "v": "9"
+     },
+     {
+      "op": "and",
+      "items": [
+       {
+        "k": "sc_opened",
+        "v": "e1"
+       },
+       {
+        "k": "gender",
+        "v": null
+       }
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "bad_op",
+     "path": ""
+    },
+    {
+     "code": "unknown_key",
+     "path": "0"
+    },
+    {
+     "code": "empty_group",
+     "path": "1"
+    },
+    {
+     "code": "bad_value",
+     "path": "2"
+    },
+    {
+     "code": "not_in_entry",
+     "path": "3.0"
+    },
+    {
+     "code": "bad_value",
+     "path": "3.1"
+    }
+   ]
+  },
+  {
+   "name": "trop profond et trop de feuilles",
+   "ctx": "step",
+   "tree": {
+    "op": "and",
+    "items": [
+     {
+      "k": "nb_min",
+      "v": 0
+     },
+     {
+      "k": "nb_min",
+      "v": 1
+     },
+     {
+      "k": "nb_min",
+      "v": 2
+     },
+     {
+      "k": "nb_min",
+      "v": 3
+     },
+     {
+      "k": "nb_min",
+      "v": 4
+     },
+     {
+      "k": "nb_min",
+      "v": 5
+     },
+     {
+      "k": "nb_min",
+      "v": 6
+     },
+     {
+      "k": "nb_min",
+      "v": 7
+     },
+     {
+      "k": "nb_min",
+      "v": 8
+     },
+     {
+      "k": "nb_min",
+      "v": 9
+     },
+     {
+      "k": "nb_min",
+      "v": 10
+     },
+     {
+      "k": "nb_min",
+      "v": 11
+     },
+     {
+      "k": "nb_min",
+      "v": 12
+     },
+     {
+      "k": "nb_min",
+      "v": 13
+     },
+     {
+      "k": "nb_min",
+      "v": 14
+     },
+     {
+      "k": "nb_min",
+      "v": 15
+     },
+     {
+      "k": "nb_min",
+      "v": 16
+     },
+     {
+      "k": "nb_min",
+      "v": 17
+     },
+     {
+      "k": "nb_min",
+      "v": 18
+     },
+     {
+      "k": "nb_min",
+      "v": 19
+     },
+     {
+      "k": "nb_min",
+      "v": 20
+     },
+     {
+      "op": "or",
+      "items": [
+       {
+        "op": "and",
+        "items": [
+         {
+          "op": "or",
+          "items": [
+           {
+            "k": "nb_min",
+            "v": 1
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "errors": [
+    {
+     "code": "too_deep",
+     "path": "21.0.0"
+    },
+    {
+     "code": "too_many_leaves",
+     "path": ""
+    }
+   ]
+  }
+ ]
+}

@@ -134,3 +134,14 @@ La commande `journal` ABAISSE les portes du score dans la base du banc pour
 qu'il note (le compte synthétique est `weak`) ; jamais ailleurs. Au banc, un
 envoi ne change aucun achat : le gain mesuré par `holdout` doit être nul
 (|z| < 2), c'est la preuve que la mesure n'invente pas d'effet.
+
+## Scénarios (automatisations sur mesure)
+
+```bash
+node scenarios.mjs conditions          # langage « et / ou » : cas partagés avec le
+                                       # miroir TypeScript, effectifs compilés
+```
+
+Le script ouvre une base déjà analysée (`demo-computed` par défaut) et y
+applique les migrations des Scénarios (`20261016100000` et suivantes) avant
+les essais. Plan : `docs/designs/CRM_JOURNEYS_PLAN.md`.
