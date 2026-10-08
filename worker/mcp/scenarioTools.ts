@@ -13,6 +13,7 @@ import {
 } from '../../src/crm/lib/scenarioGraph';
 import { CHANCE_LABELS, CHANNEL_CODES, COND_LEAVES, COND_MAX_DEPTH, COND_MAX_LEAVES, TARGET_AUDIENCES } from '../../src/crm/lib/scenarioConditions';
 import { SCENARIO_TEMPLATES, TEMPLATE_EMAILS, TEMPLATE_SMS, buildScenarioTemplate } from '../../src/crm/lib/scenarioTemplates';
+import { forbiddenWording, scenarioTexts } from '../../src/crm/lib/agentText';
 
 interface CallEnvelope {
   ok: boolean;
@@ -45,6 +46,8 @@ export function scenarioErrorText(code: string, extra: Record<string, unknown> =
       return 'This night is over: a plan is only for an upcoming night. get_event_report tells how it went.';
     case 'event_not_found':
       return 'No upcoming night of this space matches. list_events gives the nights with their ids and dates.';
+    case 'forbidden_wording':
+      return `Nothing was saved: these texts tell what a person likes, prefers or comes for, which Yuno never claims (the account data shows what is confirmed on the account, not what someone feels): ${JSON.stringify(extra.found ?? [])}. Rewrite them around the night itself (the artist, the series, the date, the places left) and call again.`;
     case 'scenario_archived':
       return 'This scenario is archived: it cannot change any more. Create a new draft instead.';
     case 'invalid_graph':
@@ -258,6 +261,12 @@ export async function runScenarioWrite(
       return { text: scenarioErrorText('invalid_graph'), isError: true, code: 'invalid_graph' };
     }
     local = graphErrors(a.graph).errors;
+  }
+  // Vocabulaire de l'analyse (principe 4 des agents) : un message ne prête
+  // jamais un goût ou un motif à une personne. Refusé avant toute écriture.
+  const wording = scenarioTexts(a.name, a.graph).flatMap((t) => forbiddenWording(t.text).map((w) => `${t.where}: "${w}"`));
+  if (wording.length) {
+    return { text: scenarioErrorText('forbidden_wording', { found: wording }), isError: true, code: 'forbidden_wording' };
   }
   const payload: Record<string, unknown> = {};
   if (a.space) payload.space = a.space;

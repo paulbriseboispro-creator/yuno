@@ -61,6 +61,14 @@ describe('tool listing', () => {
     expect(p.messages[0].content.text).toMatch(/ma soirée « Velvet #3 »/);
     expect(p.messages[0].content.text).toMatch(/Rien n'est envoyé/);
   });
+
+  it('offers « Create with AI » only with scenario drafts, and passes the idea through', () => {
+    expect(listPrompts('fr', new Set(['crm']), true, false, false).map((p) => p.name)).not.toContain('build_scenario');
+    expect(listPrompts('fr', new Set(['crm']), true, false, true).map((p) => p.name)).toContain('build_scenario');
+    const p = getPrompt('build_scenario', 'fr', { idea: 'relancer ceux venus une fois pour un artiste quand il revient' }) as { messages: { content: { text: string } }[] };
+    expect(p.messages[0].content.text).toMatch(/brouillon de scénario : relancer ceux venus une fois pour un artiste quand il revient\./);
+    expect(p.messages[0].content.text).toMatch(/confirmée sur mon compte/);
+  });
 });
 
 describe('the kit catalog', () => {
@@ -137,6 +145,20 @@ async function callTool(name: string, args: Record<string, unknown>) {
   return { text: body.result.content[0].text, isError: body.result.isError };
 }
 
+describe('prompts over MCP', () => {
+  it('lists the Yuno CRM prompts to a ticketing account that added Yuno CRM', async () => {
+    handlers.mcp_session = () => ({ ok: true, grant_id: 'g1', level: 'analytics', drafts: true, pages: false, scenarios: true, client_name: 'Claude',
+      first_name: 'Paul', language: 'fr', spaces: [{ ...suiteClub, crm: true }] });
+    const res = await handleMcpRoute(new Request('https://yunoapp.eu/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer yuno_mcp_at_abc', 'MCP-Protocol-Version': '2025-06-18' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'prompts/list', params: {} }),
+    }), ENV, ctx);
+    const names = ((await res.json()) as { result: { prompts: { name: string }[] } }).result.prompts.map((p) => p.name);
+    expect(names).toEqual(expect.arrayContaining(['plan_night', 'target_next_event', 'build_scenario', 'release_live']));
+  });
+});
+
 describe('scenario tools over MCP', () => {
   it('lists scenarios with a measured verdict and Console links', async () => {
     const r = await callTool('list_scenarios', {});
@@ -178,6 +200,17 @@ describe('scenario tools over MCP', () => {
     const w = calls.find((c) => c.fn === 'mcp_write')!;
     expect(w.args.p_tool).toBe('create_scenario_draft');
     expect((w.args.p_args as Record<string, unknown>).graph).toEqual(GRAPH);
+  });
+
+  it('refuses a text that tells what a person likes, before writing', async () => {
+    const bad = JSON.parse(JSON.stringify(GRAPH));
+    bad.nodes.e1 = { type: 'sms', body: 'Toi qui aimes la house : {{lien}}', event: 'scenario', next: 'x' };
+    const r = await callTool('create_scenario_draft', { name: 'Fans de house', graph: bad });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/Nothing was saved/);
+    expect(r.text).toMatch(/aimes/);
+    expect(r.text).toMatch(/fans de/);
+    expect(calls.some((c) => c.fn === 'mcp_write')).toBe(false);
   });
 
   it('refuses an unreadable graph before writing', async () => {

@@ -363,6 +363,15 @@ Migration `20261016160000_crm_scenario_mcp.sql`, Worker `scenarioTools.ts`.
   partir de l'exemple le plus proche, modèles d'e-mail existants seulement,
   familles confirmées seulement, dire que c'est un brouillon, ne jamais
   inventer un gain). Les descriptions d'outils décrivent, sans ordre.
+- **Vocabulaire** (agents, principe 4) : un brouillon dont un texte (nom,
+  objet, SMS, étiquette) prête un goût ou un motif à une personne (« aime »,
+  « fan de », « vient pour », « son ami », « préfère », et leurs équivalents
+  EN / ES) est refusé AVANT toute écriture (`forbidden_wording`,
+  `src/crm/lib/agentText.ts`, partagé avec la Console et le jeu d'évaluation).
+- **Invite `build_scenario`** (« Créer avec l'IA », argument `idea`), listée
+  seulement pour une connexion qui a `can_scenarios`. Les invites réservées
+  au CRM sont aussi listées pour un compte Billetterie + CRM (`crm: true`) :
+  avant, `products` ne lisait que le produit de l'espace.
 - Tests : `npx vitest run worker/mcp` ; banc SQL :
   `node scripts/crm-bench/scenarios.mjs mcp`.
 

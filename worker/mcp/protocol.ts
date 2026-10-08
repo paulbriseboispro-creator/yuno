@@ -336,8 +336,10 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'prompts/list': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const prompts = listPrompts(langOf(session.language), new Set((session.spaces ?? []).map((s) => s.product)), !!session.drafts,
-          !!session.pages && (session.spaces ?? []).some((s) => s.crm || s.product === 'crm'));
+        // Un compte Billetterie + CRM (`crm: true`) reçoit aussi les invites du CRM.
+        const anyCrm = (session.spaces ?? []).some((s) => s.crm || s.product === 'crm');
+        const prompts = listPrompts(langOf(session.language), new Set((session.spaces ?? []).flatMap((s) => (s.crm ? [s.product, 'crm'] : [s.product]))),
+          !!session.drafts, !!session.pages && anyCrm, !!session.scenarios && anyCrm);
         return ok(modern ? { prompts, ttlMs: 3_600_000, cacheScope: 'private' } : { prompts });
       }
       case 'prompts/get': {

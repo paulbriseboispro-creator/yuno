@@ -103,7 +103,7 @@ NIGHT PLAN (Yuno CRM: when asked to prepare, plan or audit an upcoming night)
 SCENARIOS (Yuno CRM: multi-step automations — when asked to build, change or explain one)
 1. Read before writing: list_scenarios and get_scenario_report for what exists (a running scenario may already do the job), get_scenario_kit for the graph format, the account's email templates, segments, signup pages, nights and confirmed families.
 2. Start from the closest example of the kit and adapt it. Email steps use an existing email template id from the kit: never invent one; if none fits, say which template to create in the Console (Emails → Templates) or that the editor's "Create an email" button makes one.
-3. Use what the account knows: sc_family conditions only on families listed in confirmed_families (others keep nobody), sc_chance only when chances_available is true, SMS only when sms_sender_ready is true. Respect the limits (20 h between messages on a path, 6 messages, 30 steps).
+3. Use what the account knows: hyp and sc_family conditions only on families listed in confirmed_families (others keep nobody); when the request needs a family that is not confirmed, say so plainly and use a broader condition (for example people who came once, recently), never the unconfirmed family. sc_chance only when chances_available is true, SMS only when sms_sender_ready is true. Message texts talk about the night (artists, series, date, places left), never about what a person likes, prefers or comes for. Respect the limits (20 h between messages on a path, 6 messages, 30 steps).
 4. Call create_scenario_draft (or update_scenario_draft with the whole graph). If it returns errors, fix them and call again.
 5. Explain the scenario in plain words (who enters, what they receive and when, when they leave), with its Console link. Say it is a DRAFT: the person reviews "Before publishing" (who would enter today, weekly estimate, Yunits ceiling), tests each message and publishes it there. Never say it is running.
 6. Results (get_scenario_report): judge by purchases after a click and the comparison with the people not contacted; below 10 people per group, or without a clear difference, say so: never invent a gain.
@@ -309,6 +309,18 @@ export const PROMPTS: PromptDef[] = [
     },
   },
   {
+    name: 'build_scenario',
+    title: { fr: 'Créer avec l\'IA', en: 'Create with AI', es: 'Crear con la IA' },
+    description: { fr: 'Une phrase devient un brouillon de scénario, expliqué étape par étape.', en: 'One sentence becomes a scenario draft, explained step by step.', es: 'Una frase se convierte en un borrador de escenario, explicado paso a paso.' },
+    products: ['crm'],
+    arguments: [{ name: 'idea', description: 'What the scenario should do, in one or two sentences.', required: true }],
+    text: {
+      fr: "Avec Yuno, crée un brouillon de scénario : {{idea}}. Regarde d'abord mes scénarios et le kit (modèles d'e-mail, segments, familles confirmées), pars de l'exemple le plus proche, n'utilise une famille « ce qui fait venir » que si elle est confirmée sur mon compte (sinon dis-le et propose une condition plus large), puis explique-moi chaque étape en mots simples avec le lien vers l'éditeur. C'est un brouillon : je le relis et je le publie moi-même.",
+      en: "With Yuno, create a scenario draft: {{idea}}. First look at my scenarios and the kit (email templates, segments, confirmed families), start from the closest example, use a \"what brings them\" family only if it is confirmed on my account (otherwise say so and propose a broader condition), then explain each step in plain words with the editor link. It is a draft: I review and publish it myself.",
+      es: "Con Yuno, crea un borrador de escenario: {{idea}}. Mira primero mis escenarios y el kit (plantillas de e-mail, segmentos, familias confirmadas), parte del ejemplo más cercano, usa una familia de «lo que atrae» solo si está confirmada en mi cuenta (si no, dilo y propone una condición más amplia), y explícame cada paso con palabras sencillas con el enlace al editor. Es un borrador: lo reviso y lo publico yo. Escribe en español.",
+    },
+  },
+  {
     name: 'plan_night',
     title: { fr: 'Plan de soirée', en: 'Night plan', es: 'Plan de la fiesta' },
     description: { fr: 'Le plan d\'envois daté d\'une soirée, chiffré par Yuno, et ses brouillons.', en: 'The dated sending plan of an event, sized by Yuno, and its drafts.', es: 'El plan de envíos fechado de una fiesta, calculado por Yuno, y sus borradores.' },
@@ -336,11 +348,12 @@ export function langOf(code: string | null | undefined): Lang {
   return code === 'fr' || code === 'es' ? code : 'en';
 }
 
-export function listPrompts(lang: Lang, products: Set<string>, drafts = true, pages = false): Record<string, unknown>[] {
+export function listPrompts(lang: Lang, products: Set<string>, drafts = true, pages = false, scenarios = false): Record<string, unknown>[] {
   return PROMPTS
     .filter((p) => p.name !== 'release_live' || products.has('suite'))
     .filter((p) => p.name !== 'design_event_email' || drafts)
     .filter((p) => p.name !== 'design_signup_page' || pages)
+    .filter((p) => p.name !== 'build_scenario' || scenarios)
     .filter((p) => !p.products || p.products.some((x) => products.has(x)))
     .map((p) => ({
       name: p.name, title: p.title[lang], description: p.description[lang],
@@ -349,8 +362,8 @@ export function listPrompts(lang: Lang, products: Set<string>, drafts = true, pa
 }
 
 /** Valeur d'argument d'invite : texte court, sans retour à la ligne ni accolades. */
-function promptArg(v: unknown): string {
-  return typeof v === 'string' ? v.replace(/[\r\n{}]+/g, ' ').trim().slice(0, 120) : '';
+function promptArg(v: unknown, max = 120): string {
+  return typeof v === 'string' ? v.replace(/[\r\n{}]+/g, ' ').trim().slice(0, max) : '';
 }
 
 export function getPrompt(name: string, lang: Lang, args: Record<string, unknown> = {}): Record<string, unknown> | null {
@@ -359,7 +372,10 @@ export function getPrompt(name: string, lang: Lang, args: Record<string, unknown
   // Seul argument à ce jour : la soirée, nommée ou « la prochaine ».
   const named = { fr: (v: string) => `ma soirée « ${v} »`, en: (v: string) => `my event "${v}"`, es: (v: string) => `mi fiesta «${v}»` }[lang];
   const next = { fr: 'ma prochaine soirée', en: 'my next event', es: 'mi próxima fiesta' }[lang];
+  // Les autres arguments (une idée de scénario) passent tels quels, bornés.
+  const blank = { fr: 'ce que je vais te décrire', en: 'what I am about to describe', es: 'lo que te voy a describir' }[lang];
   const text = p.text[lang].replace(/\{\{(\w+)\}\}/g, (_m, k: string) => {
+    if (k !== 'event') return promptArg(args[k], 600) || blank;
     const v = promptArg(args[k]);
     return v ? named(v) : next;
   });
