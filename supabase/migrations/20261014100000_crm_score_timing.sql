@@ -138,6 +138,7 @@ AS $function$
   SELECT ARRAY['rec', 'freq', 'series', 'artist', 'genre', 'fmt', 'slot', 'wd', 'early', 'last', 'far', 'disc',
                'artist_recent', 'series_done'];
 $function$;
+REVOKE ALL ON FUNCTION public._crm_score_features() FROM PUBLIC, anon, authenticated;
 
 -- Le libellé de raison d'un facteur (yc.sc.reason.<clé>), ou NULL s'il n'en a pas.
 CREATE OR REPLACE FUNCTION public._crm_score_reason_key(p_feature text)
@@ -154,6 +155,7 @@ AS $function$
     WHEN 'early' THEN 'early' WHEN 'last' THEN 'last'
   END;
 $function$;
+REVOKE ALL ON FUNCTION public._crm_score_reason_key(text) FROM PUBLIC, anon, authenticated;
 
 -- La famille d'hypothèse d'une raison (décision 2 : jamais une raison dont la
 -- famille est « pas confirmée » sur le compte).
@@ -167,6 +169,7 @@ AS $function$
     WHEN 'slot' THEN 'slot' WHEN 'wd' THEN 'weekday' WHEN 'early' THEN 'early' WHEN 'last' THEN 'last_minute'
   END;
 $function$;
+REVOKE ALL ON FUNCTION public._crm_score_reason_family(text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public._crm_score_build(p_cfg jsonb)
  RETURNS integer

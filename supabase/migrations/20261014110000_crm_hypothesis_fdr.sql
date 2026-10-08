@@ -93,8 +93,7 @@ BEGIN
   RETURN (CASE WHEN p_z >= 0 THEN q ELSE 1 - q END)::numeric;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public._crm_an_pvalue(text, numeric, numeric, numeric) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public._crm_an_pvalue(text, numeric, numeric, numeric) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public._crm_an_pvalue(text, numeric, numeric, numeric) FROM PUBLIC, anon, authenticated;
 
 -- ── 3. Le moteur : statuts corrigés ──────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public._crm_an_engine(p_venue_id text, p_organizer_user_id uuid, p_at timestamptz, p_cfg jsonb, p_full boolean)
