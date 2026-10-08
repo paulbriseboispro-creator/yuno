@@ -111,6 +111,34 @@ const dict: CrmDict = {
     'Con Yuno, prepara el plan de mi fiesta «{t}» del {d}: lee el plan de la fiesta, muéstrame los pasos fechados con sus cifras tal como Yuno las da, propone el enfoque de cada mensaje y prepara los borradores de e-mail de cada paso. No envíes nada.',
   ],
 
+  // ── « Créer avec l'IA » (bâtisseur de scénarios) ─────────────────────────
+  'yc.ag.build.open': ['Create with AI', 'Créer avec l’IA', 'Crear con la IA'],
+  'yc.ag.build.sub': [
+    'Say in one sentence what the scenario should do. Your AI prepares the draft from your account and explains each step; you review it and publish it here.',
+    'Dites en une phrase ce que le scénario doit faire. Votre IA prépare le brouillon à partir de votre compte et en explique chaque étape ; vous le relisez et le publiez ici.',
+    'Diga en una frase lo que debe hacer el escenario. Su IA prepara el borrador a partir de su cuenta y explica cada paso; usted lo revisa y lo publica aquí.',
+  ],
+  'yc.ag.build.ph': ['e.g. bring back people who came once for an artist when that artist plays again', 'ex. faire revenir ceux venus une fois pour un artiste quand il rejoue', 'p. ej. hacer volver a quienes vinieron una vez por un artista cuando vuelva a tocar'],
+  'yc.ag.build.ex.1': ['Bring back people who came once for an artist when that artist plays again', 'Faire revenir ceux venus une fois pour un artiste quand il rejoue', 'Hacer volver a quienes vinieron una vez por un artista cuando vuelva a tocar'],
+  'yc.ag.build.ex.2': ['Regulars without a ticket: an e-mail 10 days before, a reminder the day before', 'Les habitués sans place : un e-mail 10 jours avant, un rappel la veille', 'Los habituales sin entrada: un e-mail 10 días antes, un recordatorio la víspera'],
+  'yc.ag.build.ex.3': ['People who clicked without buying: an SMS the next day', 'Ceux qui ont cliqué sans acheter : un SMS le lendemain', 'Quienes hicieron clic sin comprar: un SMS al día siguiente'],
+  'yc.ag.build.ex.4': ['Guest list guests who never paid: offer them the next night', 'Les invités en guest list qui n’ont jamais payé : leur proposer la prochaine soirée', 'Los invitados en lista que nunca pagaron: ofrecerles la próxima fiesta'],
+  'yc.ag.build.short': ['A few more words, so your AI understands.', 'Quelques mots de plus, pour que votre IA comprenne.', 'Unas palabras más, para que su IA entienda.'],
+  'yc.ag.edit.title': ['Change this scenario with your AI', 'Changer ce scénario avec votre IA', 'Cambiar este escenario con su IA'],
+  'yc.ag.edit.sub': ['Say what to change. Your AI rewrites the draft; the live version keeps running until you publish.', 'Dites ce qu’il faut changer. Votre IA réécrit le brouillon ; la version en ligne continue jusqu’à ce que vous publiiez.', 'Diga qué hay que cambiar. Su IA reescribe el borrador; la versión activa sigue hasta que usted publique.'],
+  'yc.ag.edit.ph': ['e.g. send the reminder 2 days before instead of the day before', 'ex. envoyer le rappel 2 jours avant plutôt que la veille', 'p. ej. enviar el recordatorio 2 días antes en lugar de la víspera'],
+  'yc.ag.edit.adopted': ['The draft changed elsewhere (your AI or another tab): the editor shows the latest version.', 'Le brouillon a changé ailleurs (votre IA ou un autre onglet) : l’éditeur montre la dernière version.', 'El borrador cambió en otro lugar (su IA u otra pestaña): el editor muestra la última versión.'],
+  'yc.ag.ai.q.build': [
+    'With Yuno, create a scenario draft: {idea}. First look at my scenarios and the kit, use a “what brings them” family only if it is confirmed on my account (otherwise say so and propose a broader condition), then explain each step to me. It is a draft: I review and publish it myself.',
+    'Avec Yuno, crée un brouillon de scénario : {idea}. Regarde d’abord mes scénarios et le kit, n’utilise une famille « ce qui fait venir » que si elle est confirmée sur mon compte (sinon dis-le et propose une condition plus large), puis explique-moi chaque étape. C’est un brouillon : je le relis et je le publie moi-même.',
+    'Con Yuno, crea un borrador de escenario: {idea}. Mira primero mis escenarios y el kit, usa una familia de «lo que atrae» solo si está confirmada en mi cuenta (si no, dilo y propone una condición más amplia) y explícame cada paso. Es un borrador: lo reviso y lo publico yo.',
+  ],
+  'yc.ag.ai.q.edit': [
+    'With Yuno, change the draft of my scenario “{name}”: {idea}. Read it first, keep what I did not ask to change, then explain what changed. Do not publish anything.',
+    'Avec Yuno, modifie le brouillon de mon scénario « {name} » : {idea}. Lis-le d’abord, garde ce que je n’ai pas demandé de changer, puis explique-moi ce qui a changé. Ne publie rien.',
+    'Con Yuno, modifica el borrador de mi escenario «{name}»: {idea}. Léelo primero, conserva lo que no pedí cambiar y explícame qué cambió. No publiques nada.',
+  ],
+
   // ── Aide (Compte › Aide) ──────────────────────────────────────────────────
   'yc.faq.nightplan.q': ['What is the night plan, and what does “Prepare with my AI” do?', 'Qu’est-ce que le plan de soirée, et que fait « Préparer avec mon IA » ?', '¿Qué es el plan de la fiesta y qué hace «Preparar con mi IA»?'],
   'yc.faq.nightplan.a': [
@@ -119,6 +147,13 @@ const dict: CrmDict = {
     'Fiestas → una fiesta próxima → «A quién dirigirse» → «Plan de la fiesta». Yuno convierte las audiencias sin entrada en un plan fechado: ahora, la semana anterior, la víspera a las 18:00. Cada persona cuenta una vez, en la primera audiencia que la contiene; cada paso indica quién es alcanzable por e-mail y por SMS, el canal aconsejado y su coste en Yunits, y luego el total frente a su saldo. La página también compara las ventas con la edición anterior en el mismo momento, lista lo que ya está previsto para la fiesta, las hipótesis confirmadas en su cuenta y la parte apartada para medir el efecto. Se imprime, para compartirla con su equipo. «Preparar con mi IA» abre la IA que conectó a Yuno (Claude, ChatGPT…) con la petición ya escrita: lee el mismo plan y prepara borradores de e-mail que usted revisa aquí. Yuno no usa ninguna IA propia y nunca sale nada sin usted. Una cuenta en prueba recibe un aviso en sus notificaciones cuando el plan de su próxima fiesta está listo.',
   ],
   'yc.faq.nightplan.l': ['Open nights', 'Ouvrir les soirées', 'Abrir las fiestas'],
+  'yc.faq.scenarioai.q': ['Can my AI build a scenario for me?', 'Mon IA peut-elle construire un scénario pour moi ?', '¿Puede mi IA construir un escenario por mí?'],
+  'yc.faq.scenarioai.a': [
+    'Yes, as a draft. Automations → Scenarios → “Create with AI”: say in one sentence what it should do (for example “bring back people who came once for an artist when that artist plays again”). Your AI connected to Yuno (Claude, ChatGPT…) reads your scenarios, templates, segments and the hypotheses confirmed on your account, then saves a draft explained step by step. It only uses a “what brings them” family if it is confirmed on your account; otherwise it says so and proposes a broader condition. Its texts never say what a person likes or comes for. In the editor, “Prepare with my AI” asks it to change the open draft. You review, test and publish yourself: an AI never publishes, pauses or deletes a scenario.',
+    'Oui, en brouillon. Automatisations → Scénarios → « Créer avec l’IA » : dites en une phrase ce qu’il doit faire (par exemple « faire revenir ceux venus une fois pour un artiste quand il rejoue »). Votre IA branchée sur Yuno (Claude, ChatGPT…) lit vos scénarios, vos modèles, vos segments et les hypothèses confirmées sur votre compte, puis dépose un brouillon expliqué étape par étape. Elle n’utilise une famille « ce qui fait venir » que si elle est confirmée sur votre compte ; sinon elle le dit et propose une condition plus large. Ses textes ne disent jamais ce qu’une personne aime ou vient chercher. Dans l’éditeur, « Préparer avec mon IA » lui demande de changer le brouillon ouvert. Vous relisez, testez et publiez vous-même : une IA ne publie, ne met en pause ni ne supprime jamais un scénario.',
+    'Sí, en borrador. Automatizaciones → Escenarios → «Crear con la IA»: diga en una frase lo que debe hacer (por ejemplo «hacer volver a quienes vinieron una vez por un artista cuando vuelva a tocar»). Su IA conectada a Yuno (Claude, ChatGPT…) lee sus escenarios, plantillas, segmentos y las hipótesis confirmadas en su cuenta, y guarda un borrador explicado paso a paso. Solo usa una familia de «lo que atrae» si está confirmada en su cuenta; si no, lo dice y propone una condición más amplia. Sus textos nunca dicen lo que a una persona le gusta o viene a buscar. En el editor, «Preparar con mi IA» le pide cambiar el borrador abierto. Usted revisa, prueba y publica: una IA nunca publica, pausa ni elimina un escenario.',
+  ],
+  'yc.faq.scenarioai.l': ['Open scenarios', 'Ouvrir les scénarios', 'Abrir los escenarios'],
 
   // ── Fil de notifications ──────────────────────────────────────────────────
   'yc.notif.night_plan_ready.title': ['The plan of your night is ready', 'Le plan de votre soirée est prêt', 'El plan de su fiesta está listo'],

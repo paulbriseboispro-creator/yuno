@@ -6,7 +6,8 @@ import agents from '@/i18n/locales/crm/modules/agents';
 import { TARGET_AUDIENCES } from '../scenarioConditions';
 
 const ROOT = join(__dirname, '..', '..');
-const FILES = ['components/AskMyAi.tsx', 'pages/nights/plan/NightPlanPage.tsx', 'pages/nights/NightTargets.tsx'].map((f) => join(ROOT, f));
+const FILES = ['components/AskMyAi.tsx', 'pages/nights/plan/NightPlanPage.tsx', 'pages/nights/NightTargets.tsx',
+  'pages/automations/scenarios/CreateWithAi.tsx', 'pages/automations/scenarios/ScenarioEditorPage.tsx'].map((f) => join(ROOT, f));
 const has = (k: string) => Object.prototype.hasOwnProperty.call(CRM_DICT, k);
 const plural = (k: string) => has(`${k}.one`) && has(`${k}.other`);
 

@@ -41,6 +41,7 @@ import { Inspector, type InspectorRefs, type Selection } from './Inspector';
 import { AddStepModal, PublishModal, ReportSummary, TestModal, type TestState } from './Panels';
 import { condSummary, nodeSummary, triggerSummary } from './scnText';
 import { SmallButton, StateBadge } from './scnUi';
+import { EditWithAiButton } from './CreateWithAi';
 import { useMeasuredHeight } from './scnStyle';
 
 /** Codes que seule la base peut dire (le reste est recalculé ici, à chaque frappe). */
@@ -164,6 +165,22 @@ function Editor() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
   const flush = useCallback(async () => (dirty ? saveRef.current() : true), [dirty]);
+  // Brouillon changé ailleurs (l'IA du pro par le MCP, un autre onglet) : au
+  // retour sur l'onglet, sans rien de non enregistré, l'éditeur relit et adopte
+  // la version la plus récente. Avec des changements en cours, l'enregistrement
+  // rencontre `draft_changed` et le bandeau « Recharger » s'affiche, comme avant.
+  useEffect(() => {
+    const onFocus = () => { if (!dirty) void q.refetch(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [dirty, q]);
+  useEffect(() => {
+    if (dirty || !d.draft_updated_at || d.draft_updated_at === expected.current) return;
+    expected.current = d.draft_updated_at;
+    setGraphRaw(d.draft);
+    setName(d.name);
+    toast(t('yc.ag.edit.adopted'));
+  }, [d.draft_updated_at, d.draft, d.name, dirty, toast, t]);
 
   // ── Ce que l'écran nomme ─────────────────────────────────────────────────
   const order = useMemo(() => nodesInFlowOrder(graph), [graph]);
@@ -347,6 +364,7 @@ function Editor() {
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginLeft: 'auto' }}>
           {published && <SmallButton tone={results ? 'dark' : 'light'} icon="chart" onClick={() => setResults((v) => !v)}>{t('yc.scn.ed.results')}</SmallButton>}
+          {!narrow && d.can_edit && !readOnly && <EditWithAiButton name={name.trim() || t('yc.scn.untitled')} />}
           {!narrow && <SmallButton icon="send" onClick={() => void openTest()}>{t('yc.scn.ed.test')}</SmallButton>}
           {d.can_edit && published && status === 'active' && <SmallButton icon="pause" disabled={busy} onClick={() => void setLive('paused')}>{t('yc.scn.ed.pause')}</SmallButton>}
           {d.can_edit && published && status === 'paused' && !hasChanges && <SmallButton icon="play" disabled={busy || !d.can_publish} onClick={() => void setLive('active')}>{t('yc.scn.ed.resume')}</SmallButton>}

@@ -32,6 +32,7 @@ import { Segmented } from '@/crm/ui/kit';
 import { useScenarioActions } from '@/crm/data/scenarios';
 import { recipeToGraph } from '@/crm/lib/scenarioTemplates';
 import { ScenariosTab } from './scenarios/ScenariosTab';
+import { CreateWithAiButton } from './scenarios/CreateWithAi';
 
 export default function AutomationsPage() {
   const T = useCrmT();
@@ -167,7 +168,8 @@ export default function AutomationsPage() {
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 680, animation: `yc-in-blur 800ms ${EASE} 240ms both` }}>{t(hasAny || hasData ? 'yc.au.sub' : 'yc.au.subEmpty')}</p>
         </div>
         {caps.write && (tab === 'scenarios' || d) && (
-          <div style={{ animation: `yc-in-blur 800ms ${EASE} 300ms both` }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, animation: `yc-in-blur 800ms ${EASE} 300ms both` }}>
+            {tab === 'scenarios' && <CreateWithAiButton />}
             <Hv
               as="button"
               type="button"
