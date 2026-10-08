@@ -265,7 +265,8 @@ export class SmsSendError extends Error {
   }
 }
 
-async function invokeSms(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+/** Appel de send-sms-campaign ; aussi utilisé pour le test d'un SMS de scénario (data/scenarios.ts). */
+export async function invokeSms(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.functions.invoke('send-sms-campaign', { body });
   let out = (data as Record<string, unknown> | null) ?? null;
   const ctx = (error as { context?: Response } | null)?.context;
