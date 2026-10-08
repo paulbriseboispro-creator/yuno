@@ -862,6 +862,30 @@ const dict: CrmDict = {
     'Menos compras entre las personas contactadas que entre las demás: a revisar.',
   ],
 
+  // ── Aide (Compte › Aide) ──────────────────────────────────────────────────
+  'yc.faq.scenario.q': ['What is a scenario, and how is it different from a recipe?', 'Qu’est-ce qu’un scénario, et quelle différence avec une recette ?', '¿Qué es un escenario y en qué se diferencia de una receta?'],
+  'yc.faq.scenario.a': [
+    'A recipe is one e-mail, ready to switch on. A scenario follows each person step by step: a trigger (before or after a night, a ticket bought, a signup, an absence…), conditions, waits, e-mails and SMS, until a goal such as buying a ticket. Start from a template in Automations › Scenarios, or “Customize” a recipe: publishing the scenario switches that recipe off, never both on the same subject. Each condition shows how many people match today, read the same way as the send.',
+    'Une recette, c’est un e-mail prêt à allumer. Un scénario suit chaque personne pas à pas : un déclencheur (avant ou après une soirée, un billet acheté, une inscription, une absence…), des conditions, des attentes, des e-mails et des SMS, jusqu’à un objectif comme l’achat d’une place. Partez d’un modèle dans Automatisations › Scénarios, ou « Personnalisez » une recette : publier le scénario éteint la recette, jamais les deux sur un même sujet. Chaque condition montre combien de personnes correspondent aujourd’hui, compté comme l’envoi.',
+    'Una receta es un e-mail listo para activar. Un escenario sigue a cada persona paso a paso: un disparador (antes o después de una fiesta, una entrada comprada, un registro, una ausencia…), condiciones, esperas, e-mails y SMS, hasta un objetivo como comprar una entrada. Empiece con una plantilla en Automatizaciones › Escenarios, o «Personalice» una receta: publicar el escenario apaga la receta, nunca las dos sobre el mismo tema. Cada condición muestra cuántas personas coinciden hoy, contadas igual que el envío.',
+  ],
+  'yc.faq.scenario.l': ['Open scenarios', 'Ouvrir les scénarios', 'Abrir los escenarios'],
+  'yc.faq.scenariorules.q': ['Can a scenario send too much?', 'Un scénario peut-il envoyer trop ?', '¿Puede un escenario enviar demasiado?'],
+  'yc.faq.scenariorules.a': [
+    'No. Nobody enters if another of your automations wrote to them in the last 48 hours. Then each message follows the Yuno rules (1 per 24 hours, 3 per 7 days, nobody who no longer opens), two messages on a path are 20 hours apart, e-mails wait out the night (11 pm to 9 am) and SMS never leave between 9:30 pm and 8 am. A held message leaves later; past its deadline it is not sent. Without enough Yunits, messages wait for a top-up. A share of entrants receives nothing, to measure what the scenario really brought in.',
+    'Non. Personne n’entre si une autre de vos automatisations lui a écrit dans les 48 heures. Ensuite chaque message suit les règles Yuno (1 par 24 heures, 3 par 7 jours, personne qui n’ouvre plus), deux messages d’un chemin sont espacés de 20 heures, les e-mails attendent la fin de la nuit (23 h → 9 h) et les SMS ne partent jamais de 21 h 30 à 8 h. Un message retenu part plus tard ; passé son échéance, il ne part pas. Sans Yunits suffisants, les messages attendent une recharge. Une part des entrants ne reçoit rien, pour mesurer ce que le scénario a vraiment rapporté.',
+    'No. Nadie entra si otra de sus automatizaciones le escribió en las últimas 48 horas. Después cada mensaje sigue las reglas de Yuno (1 cada 24 horas, 3 cada 7 días, nadie que ya no abre), dos mensajes de un camino tienen 20 horas de separación, los e-mails esperan al final de la noche (23:00 a 9:00) y los SMS nunca salen entre las 21:30 y las 8:00. Un mensaje retenido sale más tarde; pasado su plazo, no sale. Sin Yunits suficientes, los mensajes esperan una recarga. Una parte de quienes entran no recibe nada, para medir lo que el escenario aportó de verdad.',
+  ],
+  'yc.faq.scenariorules.l': ['Open scenarios', 'Ouvrir les scénarios', 'Abrir los escenarios'],
+
+  // ── Fil de notifications : l'étape « Me prévenir » ─────────────────────────
+  'yc.notif.scenario_notify.title': ['A scenario step was reached', 'Une étape de scénario a été atteinte', 'Se alcanzó un paso de escenario'],
+  'yc.notif.scenario_notify.body.one': ['{n} person went through this step {day} · “{name}”.', '{n} personne est passée par cette étape {day} · « {name} ».', '{n} persona pasó por este paso {day} · «{name}».'],
+  'yc.notif.scenario_notify.body.other': ['{n} people went through this step {day} · “{name}”.', '{n} personnes sont passées par cette étape {day} · « {name} ».', '{n} personas pasaron por este paso {day} · «{name}».'],
+  'yc.notif.scenario_notify.today': ['today', 'aujourd’hui', 'hoy'],
+  'yc.notif.scenario_notify.on': ['on {d}', 'le {d}', 'el {d}'],
+  'yc.notif.scenario_notify.action': ['See the scenario', 'Voir le scénario', 'Ver el escenario'],
+
   // ── Commun ────────────────────────────────────────────────────────────────
   'yc.scn.soon': ['Coming soon', 'Bientôt', 'Próximamente'],
   'yc.scn.soonShotgun': ['Coming with the Shotgun partner integration', 'Bientôt, avec l’intégration partenaire Shotgun', 'Pronto, con la integración de socio de Shotgun'],

@@ -49,6 +49,9 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   // La suite de l'analyse : à qui écrire pour une soirée, faire revenir les nouveaux.
   { id: 'target', c: 'clients', to: CRM_ROUTES.nights },
   { id: 'firstreturn', c: 'start', to: CRM_ROUTES.automations },
+  // Scénarios : plusieurs étapes, conditions et attentes (Automatisations › Scénarios).
+  { id: 'scenario', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
+  { id: 'scenariorules', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
   { id: 'chances', c: 'clients', to: CRM_ROUTES.nights },
   // « 10 % non contactés, pour mesurer l'effet réel » (20261013120000).
   { id: 'holdout', c: 'clients', to: CRM_ROUTES.settings },
