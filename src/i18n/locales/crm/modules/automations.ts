@@ -475,6 +475,10 @@ const dict: CrmDict = {
   ],
   'yc.au.fr.smsSent.other': ['{n} SMS sent', '{n} SMS envoyés', '{n} SMS enviados'],
   'yc.au.fr.smsSent.one': ['{n} SMS sent', '{n} SMS envoyé', '{n} SMS enviado'],
+  'yc.au.fr.smsWaiting.other': ['{n} SMS waiting for Yunits', '{n} SMS en attente de Yunits', '{n} SMS a la espera de Yunits'],
+  'yc.au.fr.smsWaiting.one': ['{n} SMS waiting for Yunits', '{n} SMS en attente de Yunits', '{n} SMS a la espera de Yunits'],
+  'yc.au.fr.smsExpired.other': ['{n} SMS not sent (window passed)', '{n} SMS non envoyés (fenêtre passée)', '{n} SMS no enviados (plazo pasado)'],
+  'yc.au.fr.smsExpired.one': ['{n} SMS not sent (window passed)', '{n} SMS non envoyé (fenêtre passée)', '{n} SMS no enviado (plazo pasado)'],
   'yc.au.fr.identity': [
     'Add your legal identity in the SMS settings, otherwise the SMS won’t leave.',
     'Ajoutez votre identité légale dans les réglages SMS, sinon le SMS ne partira pas.',

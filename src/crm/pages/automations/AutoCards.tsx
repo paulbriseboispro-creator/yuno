@@ -20,12 +20,14 @@ type Filter = 'all' | Exclude<CrmAutoState, 'none'>;
 const cl01 = (x: number) => Math.max(0, Math.min(1, x));
 
 export function AutoCards({
-  d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail,
+  d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail, onRecharge,
 }: {
   d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: CrmAutoKind | null; onOpen: (k: CrmAutoKind | null) => void; hl: CrmAutoKind | null; busy: CrmAutoKind | null;
   rates: { email: number; sms: number };
   onToggle: (r: AutoRecipe) => void; onEdit: (r: AutoRecipe) => void; onEditMail: (r: AutoRecipe) => void;
+  /** Seulement pour qui gère la facturation. */
+  onRecharge?: () => void;
 }) {
   const { t } = T;
   const [filter, setFilter] = useState<Filter>('all');
@@ -61,6 +63,7 @@ export function AutoCards({
             open={open === r.kind} hl={hl === r.kind} busy={busy === r.kind} rates={rates}
             onOpen={() => onOpen(open === r.kind ? null : r.kind)}
             onToggle={() => onToggle(r)} onEdit={() => onEdit(r)} onEditMail={() => onEditMail(r)}
+            onRecharge={onRecharge}
           />
         ))}
         {list.length === 0 && (
@@ -72,11 +75,11 @@ export function AutoCards({
 }
 
 function Card({
-  r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail,
+  r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail, onRecharge,
 }: {
   r: AutoRecipe; idx: number; d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: boolean; hl: boolean; busy: boolean; rates: { email: number; sms: number };
-  onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void;
+  onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void; onRecharge?: () => void;
 }) {
   const { t, tp, n, eur, dShort, time } = T;
   const st = autoState(r) as Exclude<CrmAutoState, 'none'>;
@@ -207,6 +210,15 @@ function Card({
                       </div>
                       {r.sms.enabled && !r.sms.identity_ok && <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>{t('yc.au.fr.identity')}</span>}
                       {r.sms.sent > 0 && <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{tp('yc.au.fr.smsSent', r.sms.sent, { n: n(r.sms.sent) })}</span>}
+                      {(r.sms.waiting ?? 0) > 0 && (
+                        <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>
+                          {tp('yc.au.fr.smsWaiting', r.sms.waiting ?? 0, { n: n(r.sms.waiting ?? 0) })}
+                          {onRecharge && (
+                            <> · <button type="button" onClick={onRecharge} style={{ padding: 0, border: 0, background: 'none', font: 'inherit', fontWeight: 600, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}>{t('yc.au.todo.yunits.cta')}</button></>
+                          )}
+                        </span>
+                      )}
+                      {(r.sms.expired ?? 0) > 0 && <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{tp('yc.au.fr.smsExpired', r.sms.expired ?? 0, { n: n(r.sms.expired ?? 0) })}</span>}
                     </div>
                   </div>
                 )}

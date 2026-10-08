@@ -189,6 +189,7 @@ export default function AutomationsPage() {
               onToggle={(r) => void toggle(r)}
               onEdit={(r) => setModal(startModal(d, 'edit', r.kind, 2, smsDefault))}
               onEditMail={editMail}
+              onRecharge={caps.billing ? () => navigate(CRM_ROUTES.yunits) : undefined}
             />
           )}
           {hasAny && <HoldoutResults recipes />}

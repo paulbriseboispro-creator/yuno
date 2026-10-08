@@ -56,7 +56,11 @@ export interface AutoRecipe {
   sms?: AutoSms | null;
 }
 
-export interface AutoSms { enabled: boolean; body: string | null; delay_days: number; sent: number; identity_ok: boolean }
+export interface AutoSms {
+  enabled: boolean; body: string | null; delay_days: number; identity_ok: boolean;
+  /** Partis vraiment ; en attente de Yunits ; non envoyés, la fenêtre passée (20261014120000). */
+  sent: number; waiting?: number; expired?: number;
+}
 
 export interface AutoWeek { start: string; revenue: number | null; purchases: number; sent: number; contacted: number }
 export interface AutoTotals { sent: number; contacted?: number; clicked: number; purchases: number; revenue: number | null; recipes?: number }
