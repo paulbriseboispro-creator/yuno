@@ -1,5 +1,5 @@
 -- GÉNÉRÉ par scripts/crm-bench/dump-base.mjs — ne pas éditer à la main.
--- Prod lue le 2026-10-07T16:23:33.864Z ; 93 tables, 201 fonctions.
+-- Prod lue le 2026-10-08T00:39:41.312Z ; 93 tables, 202 fonctions.
 
 DO $$ BEGIN CREATE TYPE public.app_role AS ENUM ('client', 'barman', 'owner', 'bouncer', 'promoter', 'dj', 'manager', 'admin', 'vip_host', 'cloakroom', 'organizer', 'affiliate', 'affiliate_member', 'agency'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.discovery_status AS ENUM ('pending', 'approved', 'rejected'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -270,7 +270,8 @@ CREATE TABLE IF NOT EXISTS public.crm_settings (
   "sending_frozen_at" timestamp with time zone,
   "sending_frozen_reason" text,
   "sending_frozen_by" uuid,
-  "learning_contrib" boolean DEFAULT true
+  "learning_contrib" boolean DEFAULT true,
+  "holdout_pct" smallint DEFAULT 10
 );
 CREATE TABLE IF NOT EXISTS public.crm_signup_entries (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -623,7 +624,8 @@ CREATE TABLE IF NOT EXISTS public.email_campaigns (
   "language" text,
   "ai_author" text,
   "mcp_grant_id" uuid,
-  "ai_updated_at" timestamp with time zone
+  "ai_updated_at" timestamp with time zone,
+  "holdout_count" integer DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS public.email_list_imports (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1475,7 +1477,8 @@ CREATE TABLE IF NOT EXISTS public.sms_campaign_recipients (
   "delivered_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now(),
   "provider_request_id" text,
-  "first_name" text
+  "first_name" text,
+  "email" text
 );
 CREATE TABLE IF NOT EXISTS public.sms_campaigns (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1510,7 +1513,8 @@ CREATE TABLE IF NOT EXISTS public.sms_campaigns (
   "send_started_at" timestamp with time zone,
   "last_slice_at" timestamp with time zone,
   "test_sent_at" timestamp with time zone,
-  "sender_id" text
+  "sender_id" text,
+  "holdout_count" integer DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS public.sms_stop_list (
   "phone_e164" text NOT NULL,
@@ -7636,6 +7640,17 @@ BEGIN
     'computed_at', v_now,
     'rebuilt_anchors', v_builds);
 END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.crm_sms_rates()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT jsonb_build_object(
+    'fr', GREATEST(1, COALESCE((public.crm_pricing_config()->'rates'->>'sms')::integer, 35)),
+    'intl', GREATEST(1, COALESCE((public.crm_pricing_config()->'rates'->>'sms_intl')::integer, 70)));
 $function$;
 
 CREATE OR REPLACE FUNCTION public.crm_yunits_balance(p_scope_key text)
