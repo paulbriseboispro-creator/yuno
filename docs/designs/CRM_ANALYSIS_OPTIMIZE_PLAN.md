@@ -140,6 +140,94 @@ premier appel est lent dans les deux cas : cache froid de la machine Nano,
 pas les migrations. À chaud, la cible (< 1 s, < 2 s) est tenue.
 
 
-- Fusionner la branche (front) et redéployer `owner-assistant` (article « Qui cibler »).
-- Lot 2 : la correction de la part des achats à venir (constat ci-dessus),
-  puis les facteurs.
+- ~~Fusionner la branche (front) et redéployer `owner-assistant`~~ : fait le
+  07/10 au soir (main 7ad9b597, Workers Builds ; `owner-assistant` v256).
+- Lot 2 : voir ci-dessous.
+
+### Lot 2 — un meilleur score, prouvé (migration `20261014100000`, PAS appliquée)
+
+**La surestimation des acheteurs (constat du lot 1), décomposée au banc.**
+La calibration par personne tenait sur les soirées tenues à l'écart ; la somme
+des chances d'une soirée À VENIR, non. Trois causes, mesurées une à une :
+
+1. *Décalage apprentissage / note.* Le modèle apprend avec ce qu'on savait
+   d'une personne à l'ouverture de la vente (dernière venue d'au moins 25
+   jours) ; une soirée à venir était notée avec l'historique jusqu'à
+   aujourd'hui. Facteurs repris à l'ouverture de la vente : Velvet (J-3)
+   179 → 91 attendus pour 81 réels, Goya 285 → 225 pour 225. Ceux venus pour la
+   première fois depuis l'ouverture reçoivent le taux observé pour ce cas
+   sur les soirées passées du compte (14 % sur `demo`, 5 % sur `grand`).
+2. *Part restante par personne* (`p·f / (1 − p·(1 − f))`, f = son historique
+   + 2 achats « au rythme du compte »). Rejeu sur les soirées passées de
+   `demo` : perte log 0,1672 → 0,1566 (soirées d'apprentissage), 0,1563 →
+   0,1451 (tenues à l'écart) ; ceux qui achètent tôt : 825 → 480 attendus pour
+   158 réels (la part globale gardait le même f pour tous).
+3. *Recalage du niveau* sur les 4 soirées tenues à l'écart : ESSAYÉ puis
+   RETIRÉ. Perte log totale sur 4 comptes : 0,35043 sans, 0,35032 niveau seul,
+   0,35012 Platt ; le décalage estimé change de signe d'un tirage à l'autre
+   (+0,06 / −0,27 / −0,64) : il suit le hasard des 4 soirées.
+
+Journal (`run.mjs journal`, même génération, avant / après la migration) :
+
+| Compte | Attendus / réels avant | Après | Perte log avant | Après |
+|---|---|---|---|---|
+| `demo` | 1 052 / 798 (+32 %) | 808 / 798 (+1,2 %) | 0,1799 | 0,1757 |
+| `grand` | 1 853 / 859 (+116 %) | 1 261 / 859 (+47 %) | 0,0666 | 0,0576 |
+
+Audience « achètent tôt » de Velvet : 35 attendus → 8 (5 réels). Écart de la
+projection à J-7 (Velvet) : 18 % → 1,2 %.
+
+**Format des facteurs** (ablation `ablate.mjs`, validation sur les 4 soirées
+tenues à l'écart de 4 comptes : `demo` + `grand` tirages 23, 24, 25).
+Gardés : « a vu un invité de l'affiche dans les 180 jours » (`artist_recent`)
+et « a déjà fait ce concept » oui / non (`series_done`). Ensemble : perte log
+meilleure sur les 4 comptes (demo 0,2449 → 0,2420), calibration meilleure sur
+les 4 (demo 1,6 → 1,2 pt), AUC des actifs +0,002 sur 3 comptes (−0,0003 sur le
+4ᵉ). Refusés : artiste vu oui / non (pire sur `demo`), dernière édition du
+concept faite, achat à plusieurs, venu avec un client déjà venu, jour +
+créneau, saison (rien ou pire), prix de la soirée contre prix habituel (son
+gain sur `demo` vient d'un artefact du générateur : les soirées uniques y sont
+5 € plus chères). Pénalité L2 0,3 / 1 / 3 / 10 : aucun écart au 4ᵉ chiffre
+(trop de lignes pour qu'elle pèse) ; on garde 1.
+
+Journal des soirées à venir, mêmes comptes, sans / avec les deux facteurs :
+perte log 0,1871 → 0,1844 (`demo`), 0,0575 → 0,0567, 0,0525 → 0,0522,
+0,0825 → 0,0820 (`grand`) ; excès des acheteurs attendus sur `grand` 46 → 39 %,
+49 → 46 %, 10,5 → 9 %.
+
+**A priori de la part restante** (k achats « au rythme du compte ») : 1 gagne
+0,1 à 0,3 % de perte log sur 2 bancs, 4 perd autant. On garde 2 : le banc fige
+l'habitude d'achat de chacun (tôt / milieu / dernière minute), un vrai public
+est moins régulier. À revoir avec le journal du premier vrai compte.
+
+**Raisons** (décision 2) : une raison n'a que les libellés existants
+(`_crm_score_reason_key`, deux facteurs du même libellé comptés une fois) et
+jamais une famille « pas confirmée » sur le compte. Vérifié sur `demo` : le
+créneau est « pas confirmé », 0 raison « créneau » sur 8 891 chances notées.
+Les 3 raisons restent celles qui poussent le plus la chance de la personne
+(contribution au modèle, par construction).
+
+**Temps** (compte `grand`, banc, machine calme) : 1er calcul du score 41 s →
+57,6 s avec les deux facteurs (15 variables : 120 sommes de hessienne par
+itération), ramené à 45,6 s en ne recalculant la hessienne qu'aux deux
+premières itérations et quand le pas reste grand (mêmes chiffres au 4ᵉ
+chiffre). À chaud 14,2 s ; 35,8 s quand il note les soirées à venir (notes +
+journal). Départ à chaud par NOM de facteur : la nuit de la mise en ligne
+(12 → 14 facteurs) ne repart pas à froid.
+
+**Ce qui reste, et pourquoi.** Sur deux tirages de `grand`, les soirées à
+venir restent surestimées (+39 %, +46 %). Les 4 mêmes soirées placées dans le
+passé le sont aussi (+21 %, Nuit Blanche ×2) : le modèle rate des effets
+propres à une soirée (surtout les soirées uniques). L'écart de plus quand
+elles sont à venir (21 → 39 %) n'est pas encore expliqué. Protection en place :
+la projection ne s'ouvre au pro qu'avec moins de 15 % d'écart sur 8 soirées
+réglées ; les « ≈ acheteurs attendus » par audience de « Qui cibler » ne
+passent pas par cette porte (décision à prendre, voir la fin). Et la
+projection des NOUVEAUX (moyenne des 8 dernières soirées × part restante des
+premiers achats) ignore la tête d'affiche : Goya 82 estimés pour 116 réels —
+chantier à part, non commencé.
+
+**Leçon de méthode.** Les 4 soirées tenues à l'écart varient de ±35 % chacune
+au banc : un réglage ne se juge que sur plusieurs comptes (`demo` + 3 tirages
+de `grand`, `BENCH_PROFILE='{"seed":N}'`).
+
