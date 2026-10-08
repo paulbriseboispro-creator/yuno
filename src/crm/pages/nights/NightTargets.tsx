@@ -134,7 +134,7 @@ function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T })
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: 20, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-          {a.order !== undefined && <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--sand-500)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{orderLabel(a.order, T)}</span>}
+          {a.order !== undefined && <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--sand-500)' }}>{orderLabel(a.order, T)}</span>}
           <span style={{ fontSize: 16, fontWeight: 600 }}>{name}</span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>
             {tp('yc.tgt.people', a.n, { n: n(a.n) })}
