@@ -8,7 +8,7 @@ import { CRM_AUTO_META } from '../automations';
 
 const ROOT = join(__dirname, '..', '..');
 const FILES = ['components/AskMyAi.tsx', 'pages/nights/plan/NightPlanPage.tsx', 'pages/nights/NightTargets.tsx',
-  'pages/automations/scenarios/CreateWithAi.tsx', 'pages/automations/scenarios/ScenarioEditorPage.tsx', 'pages/review/WeeklyReviewPage.tsx'].map((f) => join(ROOT, f));
+  'pages/automations/scenarios/CreateWithAi.tsx', 'pages/automations/scenarios/ScenarioEditorPage.tsx', 'pages/review/WeeklyReviewPage.tsx', 'pages/automations/scenarios/Suggestions.tsx'].map((f) => join(ROOT, f));
 const has = (k: string) => Object.prototype.hasOwnProperty.call(CRM_DICT, k);
 const plural = (k: string) => has(`${k}.one`) && has(`${k}.other`);
 
@@ -31,6 +31,7 @@ describe('textes des agents (plan de soirée, « Préparer avec mon IA »)', () 
     for (const c of ['email', 'sms']) want.push(`yc.ag.plan.planned.${c}`, `yc.ag.plan.channel.${c}`);
     for (const w of ['today', 'one', 'other']) want.push(`yc.ag.plan.when.${w}`);
     for (const k of ['drafts', 'scenarios']) want.push(`yc.ag.ai.right.${k}`);
+    for (const k of ['later', 'earlier']) for (const f of ['days', 'hours']) want.push(`yc.ag.sug.${k}.${f}`);
     for (const p of ['sold', 'step.people', 'aud.first', 'total.people']) want.push(`yc.ag.plan.${p}.one`, `yc.ag.plan.${p}.other`);
     for (const a of TARGET_AUDIENCES) want.push(`yc.tgt.aud.${a}.name`, `yc.tgt.angle.${a}`);
     for (const f of ['artist', 'genre', 'format', 'slot', 'weekday', 'place', 'series', 'early', 'launch', 'last_minute',

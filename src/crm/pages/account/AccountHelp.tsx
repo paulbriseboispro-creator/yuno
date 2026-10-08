@@ -53,6 +53,7 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'scenario', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
   { id: 'scenariorules', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
   { id: 'scenarioai', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
+  { id: 'scenariotips', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
   // Plan de soirée (agents, lot A1) et « Préparer avec mon IA » (l'IA du pro, par le MCP).
   { id: 'nightplan', c: 'clients', to: CRM_ROUTES.nights },
   { id: 'weekly', c: 'clients', to: CRM_ROUTES.review },

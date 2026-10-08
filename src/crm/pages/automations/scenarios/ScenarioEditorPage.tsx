@@ -42,6 +42,7 @@ import { AddStepModal, PublishModal, ReportSummary, TestModal, type TestState } 
 import { condSummary, nodeSummary, triggerSummary } from './scnText';
 import { SmallButton, StateBadge } from './scnUi';
 import { EditWithAiButton } from './CreateWithAi';
+import { Suggestions } from './Suggestions';
 import { useMeasuredHeight } from './scnStyle';
 
 /** Codes que seule la base peut dire (le reste est recalculé ici, à chaque frappe). */
@@ -175,7 +176,10 @@ function Editor() {
     return () => window.removeEventListener('focus', onFocus);
   }, [dirty, q]);
   useEffect(() => {
-    if (dirty || !d.draft_updated_at || d.draft_updated_at === expected.current) return;
+    // Seulement une version PLUS RÉCENTE que la dernière connue : juste après un
+    // enregistrement, la donnée en cache est encore l'ancienne version.
+    if (dirty || !d.draft_updated_at) return;
+    if (expected.current && Date.parse(d.draft_updated_at) <= Date.parse(expected.current)) return;
     expected.current = d.draft_updated_at;
     setGraphRaw(d.draft);
     setName(d.name);
@@ -391,6 +395,12 @@ function Editor() {
           {results && report.data && (
             <div style={{ maxWidth: 520, margin: '0 auto 24px' }}>
               <ReportSummary T={T} r={report.data} entered={row?.entered ?? 0} goal={row?.goal ?? 0} />
+              {d.live?.graph && (
+                <div style={{ marginTop: 12 }}>
+                  <Suggestions T={T} live={d.live.graph} draft={graph} report={report.data} name={name.trim() || t('yc.scn.untitled')}
+                    nodeLabel={nodeLabel} canEdit={!readOnly} onApply={(g) => setGraph(() => g)} />
+                </div>
+              )}
             </div>
           )}
           <FlowView
