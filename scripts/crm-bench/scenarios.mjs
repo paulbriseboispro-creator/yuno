@@ -14,6 +14,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { openSaved, execFile, ROOT } from './lib.mjs';
+import { SCENARIO_FIRST } from './config.mjs';
 
 process.on('uncaughtException', (e) => {
   console.error(`ERREUR ${e.code || ''} : ${e.message}${e.where ? `\n  où : ${e.where}` : ''}`);
@@ -21,7 +22,6 @@ process.on('uncaughtException', (e) => {
 });
 process.on('unhandledRejection', (e) => { throw e; });
 
-export const SCENARIO_FIRST = '20261016100000';
 const MIG = join(ROOT, 'supabase', 'migrations');
 
 /** Applique les migrations des Scénarios à une base sauvée. */
@@ -78,7 +78,7 @@ if (cmd === 'conditions') {
                           AND e.start_at < now() ORDER BY e.start_at DESC LIMIT 1`, [org])).id;
   // La ligne d'inscription fictive : scope, soirée, entrée il y a longtemps.
   await db.exec(`CREATE TEMP TABLE _bench_r ON COMMIT DROP AS
-                   SELECT '${scope}'::text AS scope_key, '${ev}'::uuid AS event_id, p.email, '-infinity'::timestamptz AS entered_at,
+                   SELECT gen_random_uuid() AS id, '${scope}'::text AS scope_key, '${ev}'::uuid AS event_id, p.email, '-infinity'::timestamptz AS entered_at,
                           NULL::uuid AS version_id FROM _cp p`);
   const countTree = async (tree, event = null) => {
     const resolved = (await one(`SELECT public._crm_cond_resolve($1, $2::jsonb, $3::uuid) AS t`, [scope, JSON.stringify(tree), event])).t;

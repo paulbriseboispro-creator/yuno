@@ -281,7 +281,7 @@ GRANT EXECUTE ON FUNCTION public._crm_cond_resolve(text, jsonb, uuid) TO service
 
 -- ── 5. Compiler une feuille : NULL = illisible (l'arbre entier sera faux) ───
 -- p_p : alias de la ligne personne (_cp) ; p_r : alias de la ligne
--- d'inscription (scope_key, event_id, email, entered_at, version_id).
+-- d'inscription (id, scope_key, event_id, email, entered_at, version_id).
 CREATE OR REPLACE FUNCTION public._crm_cond_leaf_sql(p_k text, p_v jsonb, p_p text, p_r text)
  RETURNS text
  LANGUAGE plpgsql
@@ -309,16 +309,17 @@ BEGIN
       q := format('EXISTS (SELECT 1 FROM public.external_tickets t WHERE t.event_id = %s.event_id'
                   ' AND lower(t.buyer_email) = %s.email AND t.scanned_at IS NOT NULL)', r, r);
       RETURN CASE WHEN p_v = 'true'::jsonb THEN q ELSE 'NOT ' || q END;
+    -- Le message de CETTE inscription (registre des étapes), pas celui d'un autre passage.
     WHEN 'sc_opened', 'sc_clicked' THEN
-      RETURN format('EXISTS (SELECT 1 FROM public.crm_scenario_messages m'
-                    ' JOIN public.email_campaign_events ev ON ev.campaign_id = m.campaign_id'
-                    ' WHERE m.version_id = %s.version_id AND m.node_id = %L AND ev.event_type IN (%s)'
+      RETURN format('EXISTS (SELECT 1 FROM public.crm_scenario_steps st'
+                    ' JOIN public.email_campaign_events ev ON ev.campaign_id = st.campaign_id'
+                    ' WHERE st.run_id = %s.id AND st.node_id = %L AND st.status = ''sent'' AND ev.event_type IN (%s)'
                     ' AND lower(ev.recipient_email) = %s.email)',
                     r, p_v #>> '{}', CASE p_k WHEN 'sc_opened' THEN '''opened'', ''clicked''' ELSE '''clicked''' END, r);
     WHEN 'sc_sms_delivered' THEN
-      RETURN format('EXISTS (SELECT 1 FROM public.crm_scenario_messages m'
-                    ' JOIN public.sms_campaign_recipients sr ON sr.campaign_id = m.sms_campaign_id'
-                    ' WHERE m.version_id = %s.version_id AND m.node_id = %L AND sr.status = ''delivered'''
+      RETURN format('EXISTS (SELECT 1 FROM public.crm_scenario_steps st'
+                    ' JOIN public.sms_campaign_recipients sr ON sr.campaign_id = st.sms_campaign_id'
+                    ' WHERE st.run_id = %s.id AND st.node_id = %L AND st.status = ''sent'' AND sr.status = ''delivered'''
                     ' AND lower(sr.email) = %s.email)', r, p_v #>> '{}', r);
     WHEN 'sc_chance' THEN
       SELECT string_agg(format('%L', x), ',') INTO lst FROM jsonb_array_elements_text(p_v) x;

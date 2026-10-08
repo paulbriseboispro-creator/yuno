@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS public.crm_scenarios (
                       'first_return', 'regular_lapse', 'win_back')),
   -- Modèle de départ (lot J4), pour les chiffres « par type de modèle ».
   template          text CHECK (template IS NULL OR template ~ '^[a-z0-9_]{1,40}$'),
+  -- État du déclencheur tenu par le moteur (segment : base posée ; inscription
+  -- manuelle : faite).
+  trigger_state     jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by        uuid,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
@@ -118,16 +121,21 @@ CREATE TABLE IF NOT EXISTS public.crm_scenario_steps (
 CREATE INDEX IF NOT EXISTS crm_scenario_steps_scenario ON public.crm_scenario_steps (scenario_id, version_id, node_id);
 ALTER TABLE public.crm_scenario_steps ENABLE ROW LEVEL SECURITY;
 
+-- Les campagnes d'un nœud : UNE campagne enfant e-mail par (version, nœud,
+-- soirée), remplie au fil des passages ; une campagne SMS programmée par
+-- passage du moteur (un SMS programmé part une fois).
 CREATE TABLE IF NOT EXISTS public.crm_scenario_messages (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   version_id      uuid NOT NULL REFERENCES public.crm_scenario_versions(id) ON DELETE CASCADE,
   node_id         text NOT NULL,
+  channel         text NOT NULL CHECK (channel IN ('email', 'sms')),
   -- La soirée liée au message ('00000000-…' = aucune).
   event_key       uuid NOT NULL,
   campaign_id     uuid REFERENCES public.email_campaigns(id) ON DELETE SET NULL,
   sms_campaign_id uuid REFERENCES public.sms_campaigns(id) ON DELETE SET NULL,
-  created_at      timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (version_id, node_id, event_key)
+  created_at      timestamptz NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS crm_scenario_messages_email ON public.crm_scenario_messages (version_id, node_id, event_key) WHERE channel = 'email';
 CREATE INDEX IF NOT EXISTS crm_scenario_messages_campaign ON public.crm_scenario_messages (campaign_id);
 ALTER TABLE public.crm_scenario_messages ENABLE ROW LEVEL SECURITY;
 

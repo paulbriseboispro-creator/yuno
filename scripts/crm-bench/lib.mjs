@@ -5,7 +5,7 @@ import { pg_stat_statements } from '@electric-sql/pglite/contrib/pg_stat_stateme
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIRST_MIGRATION } from './config.mjs';
+import { FIRST_MIGRATION, SCENARIO_FIRST } from './config.mjs';
 
 const EXT = { pgcrypto, pg_stat_statements };
 
@@ -17,7 +17,7 @@ const MIG = join(ROOT, 'supabase', 'migrations');
 export function analysisMigrations() {
   // BENCH_UNTIL=<version> : s'arrêter avant une migration (comparer avant / après).
   const until = process.env.BENCH_UNTIL;
-  return readdirSync(MIG).filter((f) => f.endsWith('.sql') && f >= FIRST_MIGRATION && (!until || f < until)).sort();
+  return readdirSync(MIG).filter((f) => f.endsWith('.sql') && f >= FIRST_MIGRATION && f < SCENARIO_FIRST && (!until || f < until)).sort();
 }
 
 async function session(db) {
