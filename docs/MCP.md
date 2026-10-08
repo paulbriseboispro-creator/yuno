@@ -128,7 +128,7 @@ de le recommander.
 
 ## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9 ; scénarios : voir § 10)
 
-38 outils : 31 en lecture, 7 en écriture (`create_email_draft`, `update_email_draft`,
+39 outils : 32 en lecture, 7 en écriture (`create_email_draft`, `update_email_draft`,
 `add_email_image`, `create_signup_page`, `update_signup_page`,
 `create_scenario_draft`, `update_scenario_draft`).
 
@@ -163,12 +163,13 @@ de le recommander.
 | `get_signup_page` | une page : réglages, sections du design (id, texte visible, contenu), proposition en attente, `version`, liens Console et public | `crm_signup_pages` (`_mcp_signup_page_view`) |
 | `create_signup_page` · `update_signup_page` | **écriture** : une page d'inscription en brouillon, ou une proposition sur une page en ligne (§ 9) | `mcp_write` → `_mcp_signup_write` |
 | `list_scenarios` · `get_scenario_report` | scénarios d'un espace Yuno CRM : état, entrés, objectif, témoin ; un scénario en détail (graphe, contrôles, résultats par étape) | `_mcp_scenario_tool` (`crm_scenarios`, `crm_scenario`, `crm_scenario_report`) |
+| `get_night_plan` | plan d'envois daté d'une soirée à venir (Yuno CRM), calculé par Yuno : étapes (maintenant, la semaine d'avant, la veille), audiences « Qui cibler » où chaque personne compte une fois, joignables, canal et coût en Yunits, solde, rythme contre l'édition précédente, envois déjà prévus, familles confirmées ; un `audience_id` par audience pour `create_email_draft` | `_mcp_scenario_tool` → `crm_night_plan` |
 | `get_scenario_kit` | format du graphe, déclencheurs, étapes, conditions (famille, format), limites, 7 exemples + modèles d'e-mail, segments, pages, soirées, familles confirmées du compte | `_mcp_scenario_tool` + Worker (`scenarioTools.ts`, depuis le validateur de l'éditeur) |
 | `create_scenario_draft` · `update_scenario_draft` | **écriture** : un BROUILLON de scénario (§ 10) | `mcp_write` → `_mcp_scenario_write` |
 
 Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
 (méthode, règles, définitions de `metrics.ts`, playbook de la nuit, catalogue
-des actions Yuno), glossaire, 8 prompts localisés. `enrich.ts` traduit les
+des actions Yuno), glossaire, 12 prompts localisés (dont `plan_night`, « Plan de soirée »). `enrich.ts` traduit les
 constats calculés par la base (`mix_shift`, `channel_gap`…) en phrases avec
 leurs chiffres ; `compact.ts` retire images, vides et bruit (−15 à −50 % de
 caractères mesurés sur la démo selon l'outil). `search_yuno_help` traduit les
@@ -364,6 +365,26 @@ Migration `20261016160000_crm_scenario_mcp.sql`, Worker `scenarioTools.ts`.
   inventer un gain). Les descriptions d'outils décrivent, sans ordre.
 - Tests : `npx vitest run worker/mcp` ; banc SQL :
   `node scripts/crm-bench/scenarios.mjs mcp`.
+
+### 10 bis. Le plan de soirée (agents, lot A1)
+
+Aucune IA chez Yuno (décision de Paul, 08/10) : c'est l'IA du pro, par le MCP,
+qui prépare. Migration `20261016155000_crm_night_plan.sql`.
+
+- `get_night_plan` (lecture, toute connexion d'un espace Yuno CRM) rend
+  `crm_night_plan` : les étapes datées de « Qui cibler », chaque personne
+  comptée UNE fois (`first_n`), joignables, canal conseillé (SMS la veille
+  seulement si l'identité de l'expéditeur est prête), coût en Yunits, solde,
+  rythme contre l'édition précédente au même moment, envois déjà prévus,
+  témoin, familles confirmées. **Tout chiffre est calculé par le serveur** :
+  l'IA le lit, elle ne l'écrit jamais.
+- Chaque audience porte un `audience_id` (`target:<soirée>:<audience>`) que
+  `create_email_draft` accepte (`_mcp_email_audience`) : le brouillon vise le
+  filtre `ntgt`, la même porte serveur que les chiffres du plan.
+- Invite `plan_night` (« Plan de soirée ») et bloc « NIGHT PLAN »
+  d'`INSTRUCTIONS`. La même page existe dans la Console
+  (`/crm/nights/<id>/plan`), pour les pros sans IA branchée.
+- Banc : `node scripts/crm-bench/scenarios.mjs plan`.
 
 ## 5. Mise en service — fait le 2026-10-03
 

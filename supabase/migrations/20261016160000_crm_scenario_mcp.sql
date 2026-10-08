@@ -3,7 +3,9 @@
 -- Plan : docs/designs/CRM_JOURNEYS_PLAN.md.
 --
 -- Lecture, pour toute connexion dont un espace a Yuno CRM (des agrégats, jamais
--- une personne) : list_scenarios, get_scenario_report, get_scenario_kit.
+-- une personne) : list_scenarios, get_scenario_report, get_scenario_kit, et le
+-- plan d'une soirée à venir, get_night_plan (crm_night_plan, 20261016155000 :
+-- tout chiffre y est calculé par le serveur, l'IA ne fait que le lire).
 -- Écriture : des BROUILLONS de scénarios seulement (create_scenario_draft,
 -- update_scenario_draft), derrière un droit propre accordé au consentement
 -- (mcp_grants.can_scenarios, comme can_draft / can_pages). Une IA ne publie,
@@ -169,7 +171,8 @@ CREATE OR REPLACE FUNCTION public._mcp_needs_temp(p_tool text, p_product text)
 AS $function$
   SELECT public._mcp_needs_temp(p_tool)
       -- Rapport d'un scénario : l'attribution des e-mails passe par une table temporaire.
-      OR p_tool = 'get_scenario_report'
+      -- Plan de soirée : « Qui cibler » construit `_cp`.
+      OR p_tool IN ('get_scenario_report', 'get_night_plan')
       OR (p_product = 'crm' AND p_tool IN ('get_sales_overview', 'get_sales_trends', 'get_purchase_behavior',
             'get_audience_overview', 'get_customer_segments', 'get_web_traffic', 'get_recommendations',
             'list_customers_by_segment', 'get_event_targets'))
@@ -206,6 +209,8 @@ DECLARE
   v_list  jsonb;
   v_det   jsonb;
   v_rep   jsonb;
+  v_ev    uuid;
+  v_ref   text;
 BEGIN
   IF NOT coalesce(public.crm_scope_allowed(v_venue, v_org), false) THEN
     RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
@@ -278,6 +283,30 @@ BEGIN
       'yunits', jsonb_build_object('email', greatest(1, coalesce((public.crm_pricing_config()->'rates'->>'email')::integer, 1)),
                                    'sms', public.crm_sms_rates()),
       'console_url', 'https://crm.yunoapp.eu/crm/automations?tab=scenarios');
+
+  -- Plan d'une soirée à venir : id, partie du titre, ou rien / « next » = la prochaine.
+  ELSIF p_tool = 'get_night_plan' THEN
+    v_ref := nullif(btrim(coalesce(p_args->>'event', '')), '');
+    IF v_ref IS NOT NULL AND lower(v_ref) <> 'next' THEN
+      IF v_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        v_ev := v_ref::uuid;
+      ELSE
+        SELECT e.id INTO v_ev FROM public.events e
+         WHERE e.external_source IS NOT NULL AND e.cancelled_at IS NULL
+           AND coalesce(e.end_at, e.start_at + interval '6 hours') > now()
+           AND ((v_venue IS NOT NULL AND e.venue_id = v_venue) OR (v_org IS NOT NULL AND e.organizer_user_id = v_org))
+           AND position(lower(v_ref) IN lower(e.title)) > 0
+         ORDER BY e.start_at LIMIT 1;
+        IF v_ev IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'event_not_found'); END IF;
+      END IF;
+    END IF;
+    v_det := public.crm_night_plan(v_venue, v_org, v_ev);
+    IF NOT coalesce((v_det->>'ok')::boolean, false) THEN RETURN v_det; END IF;
+    RETURN v_det || jsonb_build_object(
+      'console_url', 'https://crm.yunoapp.eu/crm/nights/' || (v_det->'event'->>'id') || '/plan',
+      'note', 'Every number here is computed by Yuno from the account data. A person counts once, in the first '
+           || 'audience of the suggested order that contains them (first_n). cost_* are Yunits (SMS at the France rate); '
+           || 'audience_id is ready for create_email_draft. status is what the account data says about a hypothesis family, never a certainty about a person.');
   END IF;
   RETURN jsonb_build_object('ok', false, 'error', 'unknown_tool');
 END;
@@ -450,7 +479,7 @@ BEGIN
       v_res := public._mcp_email_tool(p_tool, s.kind, s.space_id, s.product, s.timezone, v_args, a.user_id);
     ELSIF p_tool IN ('get_signup_page_kit', 'get_signup_page') THEN
       v_res := public._mcp_signup_tool(p_tool, s.kind, s.space_id, s.product, s.timezone, v_args, a.user_id);
-    ELSIF p_tool IN ('list_scenarios', 'get_scenario_report', 'get_scenario_kit') THEN
+    ELSIF p_tool IN ('list_scenarios', 'get_scenario_report', 'get_scenario_kit', 'get_night_plan') THEN
       v_res := public._mcp_scenario_tool(p_tool, s.kind, s.space_id, v_args);
     ELSE
       v_res := public._mcp_tool(p_tool, s.kind, s.space_id, s.product, s.timezone, v_args, a.level);

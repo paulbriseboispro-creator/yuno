@@ -10,6 +10,7 @@
 //   node scenarios.mjs engine [base]       lot J3 : le moteur de bout en bout
 //   node scenarios.mjs editor [base]       lot J4 : effectifs en direct, aperçu
 //   node scenarios.mjs seed [base]         lot J5 : le semis démo, rejoué deux fois
+//   node scenarios.mjs plan [base]         lot A1 : plan de soirée, audience « target » d'un brouillon d'IA
 //
 // La base (défaut : demo-computed, déjà analysée) reçoit les migrations des
 // Scénarios (20261016100000 et suivantes) avant les essais : c'est la même
@@ -633,6 +634,12 @@ if (cmd === 'conditions') {
   const l0 = await call('list_scenarios');
   if (!l0.ok) console.log('journal :', JSON.stringify(await q(`SELECT tool, status, error FROM mcp_tool_calls ORDER BY id DESC LIMIT 3`)));
   check('lecture : list_scenarios sans droit d’écriture', l0.ok && Array.isArray(l0.result?.scenarios), l0.result?.error ?? l0.error);
+  // Plan de soirée (lot A1) : lecture pour toute connexion CRM, tables temporaires permises, chiffres du serveur.
+  const pl = await call('get_night_plan', { event: 'next' });
+  check('lecture : get_night_plan (prochaine soirée), étapes et lien Console', pl.ok && Array.isArray(pl.result?.steps)
+    && /\/crm\/nights\/[0-9a-f-]{36}\/plan$/.test(pl.result?.console_url ?? ''), pl.result?.error ?? pl.error);
+  const plBad = await call('get_night_plan', { event: 'soirée qui n’existe pas' });
+  check('lecture : get_night_plan, soirée introuvable dite telle', plBad.result?.error === 'event_not_found', plBad.result?.error);
   const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
   const graph = JSON.parse(JSON.stringify(gx.cases[0].graph));
   const denied = await write('create_scenario_draft', { name: 'IA', graph });
@@ -794,6 +801,67 @@ if (cmd === 'conditions') {
   check('moteur : personne en route deux fois dans un même scénario', dup === 0, dup);
   const sent = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'sent'`)).n;
   check('moteur : compte démo, aucun message réellement parti', sent === 0, sent);
+} else if (cmd === 'plan') {
+  // Agents, lot A1 : le plan de soirée (crm_night_plan) et l'audience « target » d'un brouillon d'IA.
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`UPDATE organizer_profiles SET legal_name = 'Banc SAS', siret = '12345678900011' WHERE user_id = $1`, [org]);
+  const asOwner = () => db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: org, role: 'authenticated' })]);
+  await asOwner();
+  const t0 = Date.now();
+  await db.exec('BEGIN');
+  const plan = (await one(`SELECT crm_night_plan(NULL, $1, NULL) AS r`, [org])).r;
+  await db.exec('ROLLBACK');
+  console.log(`plan : ${Date.now() - t0} ms`, JSON.stringify({ event: plan.event?.title, days: plan.days_left, totals: plan.totals, pace: plan.pace }));
+  check('plan de la prochaine soirée', plan.ok === true && Array.isArray(plan.steps), plan.error);
+  const next = (await one(`SELECT id FROM events WHERE organizer_user_id = $1 AND external_source IS NOT NULL AND cancelled_at IS NULL
+                            AND coalesce(end_at, start_at + interval '6 hours') > now() ORDER BY start_at LIMIT 1`, [org])).id;
+  check('sans soirée désignée : la prochaine', plan.event?.id === next, plan.event?.id);
+  const auds = plan.steps.flatMap((x) => x.audiences);
+  const sumPeople = plan.steps.reduce((a, x) => a + x.people, 0);
+  check('chaque personne comptée une fois : étapes = union', sumPeople === plan.union.n && plan.totals.people === plan.union.n, { sumPeople, union: plan.union.n });
+  check('premier passage ≤ audience', auds.every((a) => a.first_n <= a.n && a.first_email <= a.email && a.first_sms <= a.sms));
+  check('étapes dans l\'ordre des moments', plan.steps.map((x) => ['now', 'week', 'eve'].indexOf(x.moment)).every((v, i, arr) => i === 0 || arr[i - 1] < v), plan.steps.map((x) => x.moment));
+  check('coûts = joignables × tarif', plan.steps.every((x) => x.cost_email === x.email * plan.rates.email && x.cost_sms === x.sms * plan.rates.sms));
+  const cost = plan.steps.reduce((a, x) => a + (x.channel === 'sms' ? x.cost_sms : x.cost_email), 0);
+  check('total = canal conseillé de chaque étape', plan.totals.cost === cost && plan.totals.enough === (plan.totals.balance >= cost), { cost, totals: plan.totals });
+  check('la veille passe en SMS seulement si l\'identité est prête', plan.steps.every((x) => x.channel === 'email' || (x.moment === 'eve' && plan.sms_ready)));
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  const sold = Number((await one(`SELECT COALESCE(sum(COALESCE(quantity, 1)), 0) AS n FROM external_tickets WHERE event_id = $1 AND public._crm_ticket_is_sale(status, raw)`, [next])).n);
+  check('rythme : billets vendus de la soirée', plan.pace.sold === sold, { plan: plan.pace.sold, sold });
+  check('rythme : une édition précédente, vendue au même moment ≤ total', !plan.pace.prev || plan.pace.prev.sold_same <= plan.pace.prev.total, plan.pace.prev);
+  check('l\'aperçu démo laisse passer le plan (tables temporaires)', (await one(`SELECT demo_preview_writable_rpc('crm_night_plan') AS ok`)).ok === true);
+
+  // L'audience « target:<soirée>:<audience> » d'un brouillon = celle du plan.
+  const a0 = auds.find((a) => a.n > 0);
+  const aud = (await one(`SELECT _mcp_email_audience($1, 'crm', NULL, $2, 'fr') AS r`, [a0.audience_id, org])).r;
+  check('audience d\'IA : filtre « Qui cibler » de la soirée', aud?.[0]?.def?.f?.ntgt?.e === next && aud[0].def.f.ntgt.a === a0.key && /·/.test(aud[0].label), aud);
+  await asOwner();
+  await db.exec('BEGIN');
+  // Le compilateur de l'envoi (_crm_filter_sql sur `_cp`), comme crm_audience_count.
+  await db.query(`SELECT public._crm_people_build(NULL, $1::uuid)`, [org]);
+  const where = (await one(`SELECT public._crm_filter_sql($1::jsonb, 'p') AS w`, [JSON.stringify(aud[0].def)])).w;
+  const cnt = Number((await one(`SELECT count(*) AS n FROM _cp p WHERE ${where}`)).n);
+  await db.exec('ROLLBACK');
+  check('même effectif que le plan', cnt === a0.n, { count: cnt, plan: a0.n });
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  const other = (await one(`SELECT _mcp_email_audience($1, 'crm', NULL, gen_random_uuid(), 'fr') AS r`, [a0.audience_id])).r;
+  check('audience d\'IA : soirée d\'un autre compte refusée', other === null, other);
+  const past = (await one(`SELECT id FROM events WHERE organizer_user_id = $1 AND external_source IS NOT NULL AND start_at < now() - interval '2 days' LIMIT 1`, [org])).id;
+  const old = (await one(`SELECT _mcp_email_audience($1, 'crm', NULL, $2, 'fr') AS r`, [`target:${past}:concept`, org])).r;
+  check('audience d\'IA : soirée passée refusée', old === null, old);
+  const bad = (await one(`SELECT _mcp_email_audience($1, 'crm', NULL, $2, 'fr') AS r`, [`target:${next}:everyone`, org])).r;
+  check('audience d\'IA : audience inconnue refusée', bad === null, bad);
+  // Porte : un inconnu ne lit pas le plan.
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: '00000000-0000-4000-8000-0000000000aa', role: 'authenticated' })]);
+  let refused = false;
+  await db.exec('BEGIN');
+  try { await one(`SELECT crm_night_plan(NULL, $1, NULL) AS r`, [org]); } catch (e) { refused = /forbidden/.test(e.message); }
+  await db.exec('ROLLBACK');
+  check('porte : un inconnu est refusé', refused);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);

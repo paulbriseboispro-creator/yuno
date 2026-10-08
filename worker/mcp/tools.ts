@@ -123,7 +123,7 @@ const DRAFT_FIELDS: Record<string, JsonSchema> = {
   language: LANGUAGE,
   audience: {
     type: 'array', maxItems: 10, items: { type: 'string', minLength: 3, maxLength: 60 },
-    description: 'Audience ids from list_email_audiences ("all", "lifecycle:hab", "segment:<uuid>", "preset:vip", "kind:vip"…). Several ids add up. Empty or omitted: the person picks the audience in the Console.',
+    description: 'Audience ids from list_email_audiences ("all", "lifecycle:hab", "segment:<uuid>", "preset:vip", "kind:vip"…) or, on Yuno CRM, an audience_id of get_night_plan ("target:<night id>:<audience>"). Several ids add up. Empty or omitted: the person picks the audience in the Console.',
   },
   audience_label: { type: 'string', maxLength: 80, description: 'Name shown in the Console for a single Yuno CRM rule audience ("VIP Amoris").' },
   exclude_event_buyers: { type: 'boolean', description: 'Skip people who already bought a ticket for the linked night.' },
@@ -959,6 +959,24 @@ export const TOOLS: ToolDef[] = [
       type: 'object',
       properties: { space: SPACE, scenario: { type: 'string', minLength: 2, maxLength: 120, description: 'The scenario: its id (from list_scenarios) or part of its name.' } },
       required: ['scenario'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_night_plan',
+    title: 'Night plan',
+    level: 'analytics',
+    scenario: true,
+    description:
+      'Yuno CRM, one upcoming night (the next one when "event" is omitted): a dated sending plan computed by Yuno. The steps (now, the week before, '
+      + 'the eve at 18:00), each with its "Who to target" audiences in the suggested order where a person counts once (first_n), the people reachable '
+      + 'by email and SMS, the suggested channel and its cost in Yunits, and the account balance; ticket sales against the previous edition at the '
+      + 'same moment; emails and SMS already planned for this night; the share kept aside to measure the effect; the hypothesis families confirmed '
+      + 'on the account; expected buyers when the model is validated (an estimate). Each audience has an audience_id that create_email_draft accepts. '
+      + 'Examples: "prepare the plan of my next night", "what should I send for Velvet #3 and when?". Aggregates only.',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, event: { type: 'string', minLength: 2, maxLength: 120, description: 'The night: its id, part of its title, or "next" (default).' } },
       additionalProperties: false,
     },
   },

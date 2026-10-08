@@ -39,6 +39,12 @@ export function scenarioErrorText(code: string, extra: Record<string, unknown> =
       return 'Scenarios are a Yuno CRM feature, and Yuno CRM is not active on this space. Another space of the connection may have it (get_account_overview lists them).';
     case 'scenario_not_found':
       return 'No scenario of this space matches. list_scenarios gives their ids and names.';
+    case 'no_upcoming':
+      return 'This space has no upcoming night synced from its ticketing: there is nothing to plan yet.';
+    case 'not_upcoming':
+      return 'This night is over: a plan is only for an upcoming night. get_event_report tells how it went.';
+    case 'event_not_found':
+      return 'No upcoming night of this space matches. list_events gives the nights with their ids and dates.';
     case 'scenario_archived':
       return 'This scenario is archived: it cannot change any more. Create a new draft instead.';
     case 'invalid_graph':
@@ -199,6 +205,17 @@ export function formatScenarioRead(tool: string, space: CallEnvelope['space'], i
     return compactResult({
       space, ...inner, ...scenarioCatalog(),
       drafts_only: 'create_scenario_draft saves a DRAFT in the Yuno CRM Console; update_scenario_draft changes the draft (a live scenario keeps its live version). Only the person publishes, after "Before publishing".',
+    }, 90_000);
+  }
+  if (tool === 'get_night_plan') {
+    return compactResult({
+      space, ...inner,
+      notes: 'steps: now, week (the week before, 18:00), eve (the day before, 18:00). In each step, audiences come in the suggested order and a person counts once, '
+        + 'in the first audience that contains them (first_n, first_email, first_sms); n is the whole audience. channel is the suggested one (SMS on the eve only when '
+        + 'the SMS sender identity is ready and the step has numbers); cost_email / cost_sms are Yunits (SMS at the France rate, one segment). '
+        + 'status / availability: what the account data says about the family behind an audience (supported = confirmed here), never a certainty about a person. '
+        + 'score.expected and score.projection are estimates (validated model only). pace: tickets sold now vs the previous edition (same series first) at the same time before its night. '
+        + 'planned: manual emails and SMS already linked to this night. Nothing is sent from this plan.',
     }, 90_000);
   }
   if (tool === 'list_scenarios') {

@@ -509,7 +509,7 @@ async function callTool(
     }
     text = tool.pages && ['crm_not_active', 'page_not_found', 'event_not_found'].includes(code)
       ? pageErrorText(code, { spaces })
-      : tool.scenario && ['crm_not_active', 'scenario_not_found', 'forbidden'].includes(code)
+      : tool.scenario && ['crm_not_active', 'scenario_not_found', 'forbidden', 'no_upcoming', 'not_upcoming', 'event_not_found'].includes(code)
         ? scenarioErrorText(code === 'forbidden' ? 'write_forbidden' : code, { spaces })
         : toolErrorText(code, { spaces, message: inner?.message });
   } else if (tool.scenario) {

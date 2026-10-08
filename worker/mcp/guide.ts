@@ -93,6 +93,13 @@ ITERATING ON A SIGNUP PAGE (the person reacts, asks for changes, or shows a scre
 4. If it answers page_changed, read the page again and redo the change on the new version.
 5. Say what changed and give the Console link. On a published page the change is a PROPOSAL: visitors still see the current page until the person previews and applies it on the page in the Console.
 
+NIGHT PLAN (Yuno CRM: when asked to prepare, plan or audit an upcoming night)
+1. Call get_night_plan (the night: id, part of its title, or nothing for the next one). Every number in it is computed by Yuno: quote them as given, never add your own counts, rates or costs.
+2. Present the plan by step (now, the week before, the eve), each audience with its size, how many are new in the plan (first_n) and how many are reachable, the suggested channel and its Yunits cost, then the total against the balance. Say "estimate" for expected buyers and the projection; give the status of the family behind an audience (confirmed on this account or not tested yet).
+3. Compare sales with the previous edition at the same moment (pace), and list what is already planned for this night so nothing is sent twice.
+4. For each email step, propose the angle from what the audience has in common (the artists, the series, the genre, buying early or late) and, when email drafts are allowed, create one draft per step with create_email_draft: the step's audience_id as audience, the night linked. Never schedule or send. SMS steps are prepared in the Console (SMS → New SMS).
+5. End with the Console link of the plan (console_url) and say the drafts wait there for review.
+
 SCENARIOS (Yuno CRM: multi-step automations — when asked to build, change or explain one)
 1. Read before writing: list_scenarios and get_scenario_report for what exists (a running scenario may already do the job), get_scenario_kit for the graph format, the account's email templates, segments, signup pages, nights and confirmed families.
 2. Start from the closest example of the kit and adapt it. Email steps use an existing email template id from the kit: never invent one; if none fits, say which template to create in the Console (Emails → Templates) or that the editor's "Create an email" button makes one.
@@ -299,6 +306,18 @@ export const PROMPTS: PromptDef[] = [
       fr: "Pour {{event}}, dis-moi qui cibler : les audiences sans place (fidèles du concept, ceux qui ont vu un artiste du line-up, le genre, ceux qui achètent tôt ou à la dernière minute, les venus une fois), leur taille et combien sont joignables par e-mail et SMS, ce que mes hypothèses confirment ou non sur mon compte, et un calendrier d'envois jusqu'au soir J avec le moment et l'angle de chaque message. Termine par les 3 envois à faire en premier, avec où cliquer dans Yuno.",
       en: 'For {{event}}, tell me who to target: the audiences without a ticket (concept regulars, people who saw an artist of the line-up, the genre, early and last-minute buyers, people who came once), their size and how many are reachable by email and SMS, what my hypotheses confirm or not on my account, and a sending schedule until the night with the moment and angle of each message. End with the 3 sends to do first, with where to click in Yuno.',
       es: 'Para {{event}}, dime a quién dirigirme: las audiencias sin entrada (fieles del concepto, quienes vieron a un artista del line-up, el género, quienes compran pronto o a última hora, quienes vinieron una vez), su tamaño y cuántos son alcanzables por email y SMS, lo que mis hipótesis confirman o no en mi cuenta, y un calendario de envíos hasta la noche con el momento y el enfoque de cada mensaje. Termina con los 3 envíos a hacer primero, con dónde hacer clic en Yuno. Escribe en español.',
+    },
+  },
+  {
+    name: 'plan_night',
+    title: { fr: 'Plan de soirée', en: 'Night plan', es: 'Plan de la fiesta' },
+    description: { fr: 'Le plan d\'envois daté d\'une soirée, chiffré par Yuno, et ses brouillons.', en: 'The dated sending plan of an event, sized by Yuno, and its drafts.', es: 'El plan de envíos fechado de una fiesta, calculado por Yuno, y sus borradores.' },
+    products: ['crm'],
+    arguments: [{ name: 'event', description: 'Event name or id (default: the next upcoming event).' }],
+    text: {
+      fr: "Prépare le plan de {{event}} avec Yuno : lis le plan de soirée, présente-moi les étapes datées avec leurs chiffres tels que Yuno les donne (audiences, joignables, coût en Yunits, rythme des ventes contre l'édition précédente, ce qui est déjà prévu), propose l'angle de chaque message, puis prépare les brouillons d'e-mails de chaque étape si la connexion le permet. Rien n'est envoyé : dis-moi où les relire dans Yuno.",
+      en: "Prepare the plan of {{event}} with Yuno: read the night plan, show me the dated steps with their numbers as Yuno gives them (audiences, reachable people, Yunits cost, sales pace against the previous edition, what is already planned), propose the angle of each message, then prepare the email drafts of each step if the connection allows it. Nothing is sent: tell me where to review them in Yuno.",
+      es: "Prepara el plan de {{event}} con Yuno: lee el plan de la fiesta, muéstrame los pasos fechados con sus cifras tal como Yuno las da (audiencias, personas alcanzables, coste en Yunits, ritmo de ventas frente a la edición anterior, lo que ya está previsto), propone el enfoque de cada mensaje y prepara los borradores de email de cada paso si la conexión lo permite. No se envía nada: dime dónde revisarlos en Yuno. Escribe en español.",
     },
   },
   {

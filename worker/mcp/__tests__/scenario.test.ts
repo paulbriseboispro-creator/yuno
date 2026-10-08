@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleMcpRoute } from '../index';
 import { TOOL_BY_NAME, toolListing, toolsFor, type SessionSpace } from '../tools';
 import { scenarioCatalog } from '../scenarioTools';
-import { INSTRUCTIONS, sessionContext } from '../guide';
+import { INSTRUCTIONS, getPrompt, listPrompts, sessionContext } from '../guide';
 import { graphErrors } from '../../../src/crm/lib/scenarioGraph';
 import { COND_LEAVES } from '../../../src/crm/lib/scenarioConditions';
 
 const ENV = { SUPABASE_URL: 'https://db.example', SUPABASE_MCP_KEY: 'sb_secret_test', SUPABASE_ANON_KEY: 'sb_publishable_test' };
 const crmOrg: SessionSpace = { key: 'org:1', kind: 'organizer', name: 'Nuits Démo', product: 'crm', timezone: 'Europe/Paris', role: 'founder', money: true, customers: true, crm: true };
 const suiteClub: SessionSpace = { key: 'venue:v1', kind: 'venue', name: 'Le Bunker', product: 'suite', timezone: 'Europe/Paris', role: 'owner', money: true, customers: true, crm: false };
-const READS = ['list_scenarios', 'get_scenario_report'];
+const READS = ['list_scenarios', 'get_scenario_report', 'get_night_plan'];
 const DRAFTS = ['get_scenario_kit', 'create_scenario_draft', 'update_scenario_draft'];
 const U = '3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c';
 
@@ -51,6 +51,15 @@ describe('tool listing', () => {
     expect(sessionContext([suiteClub], 'analytics', 'Paul', false, false, true)).toMatch(/Scenarios: no space of this connection has Yuno CRM/);
     expect(INSTRUCTIONS).toMatch(/SCENARIOS \(Yuno CRM/);
     expect(INSTRUCTIONS).toMatch(/Never say it is running/);
+    expect(INSTRUCTIONS).toMatch(/NIGHT PLAN/);
+  });
+
+  it('offers the night plan prompt to Yuno CRM spaces only, with the night filled in', () => {
+    expect(listPrompts('fr', new Set(['crm'])).map((p) => p.name)).toContain('plan_night');
+    expect(listPrompts('fr', new Set(['suite'])).map((p) => p.name)).not.toContain('plan_night');
+    const p = getPrompt('plan_night', 'fr', { event: 'Velvet #3' }) as { messages: { content: { text: string } }[] };
+    expect(p.messages[0].content.text).toMatch(/ma soirée « Velvet #3 »/);
+    expect(p.messages[0].content.text).toMatch(/Rien n'est envoyé/);
   });
 });
 
@@ -93,6 +102,13 @@ beforeEach(() => {
       }
       if (a.p_tool === 'get_scenario_kit') return { ok: true, call_id: 4, space: SPACE, result: { ok: true, email_templates: [{ id: U, name: 'Annonce' }], confirmed_families: ['series'] } };
       if (a.p_tool === 'get_scenario_report') return { ok: false, call_id: 5, space: SPACE, result: { ok: false, error: 'scenario_not_found' } };
+      if (a.p_tool === 'get_night_plan') {
+        if ((a.p_args as Record<string, unknown>).event === 'vide') return { ok: false, call_id: 7, space: SPACE, result: { ok: false, error: 'no_upcoming' } };
+        return { ok: true, call_id: 6, space: SPACE, result: { ok: true, event: { id: 'e1', title: 'Velvet #3' }, steps: [
+          { moment: 'now', people: 120, email: 100, sms: 60, channel: 'email', cost_email: 100, cost_sms: 2100,
+            audiences: [{ key: 'concept', n: 120, first_n: 120, audience_id: 'target:e1:concept', status: 'supported' }] },
+        ], totals: { people: 120, cost: 100, balance: 5000, enough: true }, console_url: 'https://crm.yunoapp.eu/crm/nights/e1/plan' } };
+      }
       return { ok: false, error: 'unknown_tool' };
     },
     mcp_write: (a) => ({ ok: true, call_id: 9, space: SPACE, result: { ok: true, scenario_id: 's-new', name: (a.p_args as Record<string, unknown>).name ?? 'Bienvenue',
@@ -135,6 +151,16 @@ describe('scenario tools over MCP', () => {
     expect(out.email_templates[0].id).toBe(U);
     expect(out.triggers.before_event).toMatch(/days/);
     expect(out.examples).toHaveLength(7);
+  });
+
+  it('returns the night plan with its reading notes, and says when there is nothing to plan', async () => {
+    const out = JSON.parse((await callTool('get_night_plan', {})).text);
+    expect(out.steps[0].audiences[0].audience_id).toBe('target:e1:concept');
+    expect(out.notes).toMatch(/counts once/);
+    expect(out.console_url).toBe('https://crm.yunoapp.eu/crm/nights/e1/plan');
+    const none = await callTool('get_night_plan', { event: 'vide' });
+    expect(none.isError).toBe(true);
+    expect(none.text).toMatch(/no upcoming night/);
   });
 
   it('says plainly when a scenario is not found', async () => {
