@@ -56,6 +56,16 @@ function toImportScope(scope: StudioScope): ImportScope {
   return { kind: 'platform' };
 }
 
+/** Une erreur PostgREST est un objet simple, pas une Error : String(e) rend « [object Object] ». */
+function rpcErrorText(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === 'object') {
+    const o = e as { message?: unknown; details?: unknown; code?: unknown };
+    if (typeof o.message === 'string' && o.message) return o.code ? `${o.message} (${String(o.code)})` : o.message;
+  }
+  return String(e);
+}
+
 export default function ContactBasePanel({ scope, basePath }: {
   scope: StudioScope;
   /** Racine des campagnes de la portée (« /owner/campaigns »). */
@@ -149,11 +159,24 @@ export default function ContactBasePanel({ scope, basePath }: {
       setSeq((n) => n + 1);
       toast.success(t('cbase.refreshed'));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(rpcErrorText(e));
     } finally {
       setRefreshing(false);
     }
   }, [refreshing, scopeArgs, t]);
+
+  // Après un import : le nouveau fichier n'existe dans les statuts d'engagement
+  // qu'une fois l'engagement recalculé (le cron passe toutes les 10 minutes).
+  // On le recalcule tout de suite, puis on recharge la page ; un échec du
+  // recalcul ne masque jamais l'import réussi, le cron rattrapera.
+  const afterImport = useCallback(async () => {
+    setSeq((n) => n + 1);
+    try {
+      const { error } = await supabase.rpc('refresh_contact_engagement' as never, scopeArgs as never);
+      if (!error) await supabase.rpc('refresh_campaign_list_impacts' as never, scopeArgs as never);
+    } catch { /* le cron rattrape */ }
+    setSeq((n) => n + 1);
+  }, [scopeArgs]);
 
   // Export complet : le fichier importé mis à jour + les clients Yuno +
   // l'engagement + les segments. Même fabrique que la page Clients.
@@ -420,8 +443,8 @@ export default function ContactBasePanel({ scope, basePath }: {
         </div>
       </div>
 
-      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => setSeq((n) => n + 1)} />
-      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => setSeq((n) => n + 1)} />
+      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void afterImport()} />
+      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void afterImport()} />
     </div>
   );
 }
