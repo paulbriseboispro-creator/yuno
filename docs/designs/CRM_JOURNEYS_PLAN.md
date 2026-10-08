@@ -239,8 +239,8 @@ Prompt §3. Décisions 5 à 8 à poser au début de la phase.
 
 | Lot | Contenu | État |
 |---|---|---|
-| J1 | Langage de conditions, compilateur, miroir TS, validateur du graphe (forme) | à faire |
-| J2 | Tables, versions, RPC (brouillon, publication, pause, archives, chiffres), gardes | à faire |
+| J1 | Langage de conditions, compilateur, miroir TS, validateur du graphe (forme) | fait (08/10) |
+| J2 | Tables, versions, RPC (brouillon, publication, pause, archives, chiffres), gardes | fait (08/10) |
 | J3 | File des déclencheurs, moteur, nœuds, politique, témoin, Yunits, report / expiration, démo | à faire |
 | J4 | Éditeur, conditions, modèles, estimation, tests, rapport | à faire |
 | J5 | MCP, aide, assistant, CLAUDE.md, semis démo | à faire |
@@ -256,4 +256,36 @@ Prompt §3. Décisions 5 à 8 à poser au début de la phase.
 ## 10. État
 
 **08/10** — Section 0 faite (lectures, worktree, `launch.json`), décisions
-1-4 prises, plan écrit. Prochaine étape : J1.
+1-4 prises, plan écrit.
+
+**J1 fait (08/10)** — migrations `20261016100000_crm_scenario_conditions`
+(`_crm_cond_errors`, `_crm_cond_sql`, `_crm_cond_resolve`,
+`_crm_family_confirmed`) et `20261016110000_crm_scenario_graph`
+(`_crm_scenario_graph_errors`) ; miroirs `src/crm/lib/scenarioConditions.ts`
+et `scenarioGraph.ts` ; cas partagés `src/crm/lib/__tests__/fixtures/
+scenario-conditions.json` (69) et `scenario-graphs.json` (57), rejoués par
+vitest ET par `node scripts/crm-bench/scenarios.mjs conditions` (identiques).
+Choix pris en route : le temps du rythme se compte en minutes entières ; un
+déclencheur illisible ne fait pas pleuvoir les « sans soirée » ; une attente
+illisible ne compte pas dans le rythme ; espaces retirées comme `btrim`.
+
+**J2 fait (08/10)** — migration `20261016120000_crm_scenarios` : tables
+`crm_scenarios`, `crm_scenario_versions` (immuables, trigger),
+`crm_scenario_runs`, `crm_scenario_steps`, `crm_scenario_messages` (RLS
+sans policy) ; `child_kind = 'scenario'` ; garde `guard_recipe_vs_scenario`
+sur `email_automations` (une recette copiée ne se rallume pas tant que le
+scénario vit) ; contrôles de base `_crm_scenario_content` (modèle, soirée
+fixe, page, segment, identité SMS, avertissements famille non confirmée /
+chances indisponibles) ; RPC `crm_scenarios`, `crm_scenario`,
+`crm_scenario_save` (brouillon, `draft_changed`), `crm_scenario_publish`
+(éteint la recette copiée, refusé en accès assisté), `crm_scenario_set_status`
+(reprendre refusé en accès assisté), `crm_scenario_delete` (jamais publié),
+`crm_scenario_duplicate`, `crm_scenario_report` (nœuds, témoin, CA par
+`_crm_email_attrib`, `_crm_money_gate`). État affiché : gel d'envoi =
+`frozen`, compte en pause = `plan_paused`. Banc : `node
+scripts/crm-bench/scenarios.mjs crud` (36 vérifications, rôles compris).
+Le banc a été reconstruit (`run.mjs build`, `gen demo`, `compute demo`) : la
+base copiée du lot d'optimisation n'avait pas `crm_sms_rates`.
+
+Prochaine étape : J3 (moteur). À faire en J3 : réécrire `_crm_erase_contacts`
+(purge des inscriptions) après `same-as-prod.mjs`.
