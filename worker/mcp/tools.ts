@@ -1,11 +1,12 @@
-// Les outils du serveur MCP Yuno. Tous en LECTURE SEULE, sauf cinq : la
+// Les outils du serveur MCP Yuno. Tous en LECTURE SEULE, sauf sept : la
 // création et la modification d'un BROUILLON d'e-mail (create_email_draft,
 // update_email_draft), l'ajout d'une image (add_email_image), et la création
 // et la modification d'une PAGE D'INSCRIPTION (create_signup_page en
 // brouillon, update_signup_page : brouillon modifié, page publiée = une
-// proposition que le pro applique). Chaque famille a sa permission, posée au
-// consentement ; tout s'écrit par la seule porte mcp_write. Aucun outil
-// n'envoie ni ne publie.
+// proposition que le pro applique), et la création et la modification d'un
+// BROUILLON de scénario (create_scenario_draft, update_scenario_draft). Chaque
+// famille a sa permission, posée au consentement ; tout s'écrit par la seule
+// porte mcp_write. Aucun outil n'envoie ni ne publie.
 //
 // Chaque description suit la même grammaire (guide OpenAI / Anthropic) : à quoi
 // sert l'outil, quand l'utiliser (avec des questions de pro en exemple), ce
@@ -14,6 +15,10 @@
 //
 // Le niveau `customers` (fiches nominatives) n'apparaît que si la personne l'a
 // coché à la connexion ; la base le revérifie à chaque appel (mcp_call).
+
+import { SCENARIO_TEMPLATES } from '../../src/crm/lib/scenarioTemplates';
+
+const SCENARIO_TEMPLATE_KEYS: readonly string[] = SCENARIO_TEMPLATES;
 
 export type ToolLevel = 'analytics' | 'customers';
 export type Product = 'suite' | 'crm';
@@ -48,6 +53,12 @@ export interface ToolDef {
   pages?: boolean;
   // Sert aux deux familles (e-mails ET pages) : listé si l'une est accordée.
   shared?: boolean;
+  // Outil des scénarios (Yuno CRM) : listé si un espace a Yuno CRM. Lecture
+  // (liste, rapport) pour toute connexion ; le kit et les brouillons
+  // (`scenarioDrafts`) seulement pour une connexion qui en a le droit
+  // (can_scenarios). Aucun outil ne publie un scénario.
+  scenario?: boolean;
+  scenarioDrafts?: boolean;
   // Métadonnées propres à un client (ex. `openai/fileParams` : ChatGPT y passe
   // le fichier que la personne a joint à la conversation).
   meta?: Record<string, unknown>;
@@ -924,6 +935,94 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'list_scenarios',
+    title: 'Yuno CRM scenarios',
+    level: 'analytics',
+    scenario: true,
+    description:
+      'The scenarios of a Yuno CRM space (multi-step automations: a trigger, conditions, waits, emails and SMS, a goal): name, state (draft, live, paused, frozen, archived), '
+      + 'trigger, version, unpublished changes, people who entered, are on their way and reached the goal, the share kept aside to measure the real effect and what it shows, '
+      + 'and the Console link of each. Examples: "which scenarios are running?", "is my welcome scenario working?". Aggregates only.',
+    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+  },
+  {
+    name: 'get_scenario_report',
+    title: 'Scenario report',
+    level: 'analytics',
+    scenario: true,
+    description:
+      'One scenario in detail: its draft graph (trigger, entry filter, goal, steps by id) and live graph, the checks that block publishing (step by step), '
+      + 'and once published its results per step (entered, sent, opened, clicked, held or expired with the reason), the people who left and why, '
+      + 'purchases and revenue after a click on its emails, and the comparison with the people not contacted. '
+      + 'Examples: "where do people drop in my 1st-to-2nd-night scenario?", "did the reminder SMS help?". Aggregates only.',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, scenario: { type: 'string', minLength: 2, maxLength: 120, description: 'The scenario: its id (from list_scenarios) or part of its name.' } },
+      required: ['scenario'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_scenario_kit',
+    title: 'Scenario building kit',
+    level: 'analytics',
+    scenario: true,
+    scenarioDrafts: true,
+    description:
+      'What is needed to write a Yuno CRM scenario graph in one call: the graph format, the triggers and their parameters, the step types, every condition with its family and value format, '
+      + 'the limits and sending rules, seven example graphs (1st to 2nd night by what brings them, regulars without a ticket at D-10/D-3/D-1, high chances of coming, guest list to paying, absent buyers, welcome in 3 steps, win-back in 2 steps), '
+      + 'and from the space: its email templates (ids for email steps), saved segments, signup pages, upcoming nights, the "what brings them" families confirmed on the account, '
+      + 'whether "Chances of coming" and SMS sending are available, the share kept aside and the Yunits rates.',
+    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+  },
+  {
+    name: 'create_scenario_draft',
+    title: 'Create a scenario draft',
+    level: 'analytics',
+    scenario: true,
+    scenarioDrafts: true,
+    write: true,
+    description:
+      'Saves a new scenario as a DRAFT in the Yuno CRM Console, prepared by this AI: the whole graph (format and examples in get_scenario_kit) and a name. '
+      + 'Returns the scenario id, the checks that block publishing step by step (an incomplete draft is still saved), the most messages a person can receive and the Console link. '
+      + 'Nothing runs: the person reviews "Before publishing", tests each message and publishes in the Console.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        name: { type: 'string', minLength: 1, maxLength: 80, description: 'Name in the Console ("1st to 2nd night — techno").' },
+        graph: { type: 'object', description: 'The scenario graph: {"v": 1, "trigger", "entry", "goal", "start", "nodes"} (see get_scenario_kit).' },
+        template: { type: 'string', enum: [...SCENARIO_TEMPLATE_KEYS], description: 'Optional. The example the graph starts from (for the account statistics).' },
+      },
+      required: ['name', 'graph'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'update_scenario_draft',
+    title: 'Update a scenario draft',
+    level: 'analytics',
+    scenario: true,
+    scenarioDrafts: true,
+    write: true,
+    destructive: true,
+    description:
+      'Replaces the draft graph and / or the name of an existing scenario (the whole graph, as returned in get_scenario_report.scenario.draft, with the changes). '
+      + 'A live scenario keeps running its live version until the person publishes the changes in the Console. Returns the same checks as create_scenario_draft. '
+      + 'An archived scenario cannot change.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        scenario: { type: 'string', minLength: 2, maxLength: 120, description: 'The scenario: its id (from list_scenarios) or part of its name.' },
+        name: { type: 'string', minLength: 1, maxLength: 80 },
+        graph: { type: 'object', description: 'The whole new draft graph.' },
+      },
+      required: ['scenario'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'get_glossary',
     title: 'Metric definitions',
     level: 'analytics',
@@ -967,8 +1066,9 @@ export interface SessionSpace {
 }
 
 // Les outils proposés à CETTE connexion : niveau accordé, produits couverts,
-// droit aux brouillons d'e-mails et droit aux pages d'inscription.
-export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = false, pages = false): ToolDef[] {
+// droit aux brouillons d'e-mails, aux pages d'inscription et aux brouillons de
+// scénarios.
+export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = false, pages = false, scenarios = false): ToolDef[] {
   const products = new Set(spaces.map((s) => s.product));
   const anyCustomers = level === 'customers' && spaces.some((s) => s.customers);
   const anyCrm = spaces.some((s) => s.crm || s.product === 'crm');
@@ -976,6 +1076,8 @@ export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = fals
     if (t.level === 'customers' && !anyCustomers) return false;
     if (t.shared) return drafts || (pages && anyCrm);
     if (t.pages) return pages && anyCrm;
+    if (t.scenarioDrafts) return scenarios && anyCrm;
+    if (t.scenario) return anyCrm;
     if ((t.write || t.drafts) && !drafts) return false;
     if (t.products && !t.products.some((p) => products.has(p))) return false;
     return true;

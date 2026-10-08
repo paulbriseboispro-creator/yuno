@@ -27,6 +27,7 @@ import { CORS_HEADERS, resourceMetadataUrl } from './oauth';
 import { TOOL_BY_NAME, toolListing, toolsFor, validateArgs, type SessionSpace, type ToolLevel } from './tools';
 import { formatEmailRead, runAddEmailImage, runEmailWrite } from './emailTools';
 import { formatPageRead, pageErrorText, runPageWrite } from './signupTools';
+import { formatScenarioRead, runScenarioWrite, scenarioErrorText } from './scenarioTools';
 import { smartLang } from '../../supabase/functions/_shared/email-smart';
 
 type JsonRpcId = string | number | null;
@@ -46,6 +47,8 @@ interface Session {
   drafts?: boolean;
   // La connexion peut dessiner des pages d'inscription (create/update_signup_page).
   pages?: boolean;
+  // La connexion peut préparer des brouillons de scénarios (create/update_scenario_draft).
+  scenarios?: boolean;
   client_name?: string;
   first_name?: string | null;
   language?: string | null;
@@ -325,7 +328,7 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'tools/list': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const tools = toolsFor(session.level ?? 'analytics', session.spaces ?? [], !!session.drafts, !!session.pages).map(toolListing);
+        const tools = toolsFor(session.level ?? 'analytics', session.spaces ?? [], !!session.drafts, !!session.pages, !!session.scenarios).map(toolListing);
         return ok(modern ? { tools, ttlMs: 300_000, cacheScope: 'private' } : { tools });
       }
       case 'tools/call':
@@ -386,7 +389,7 @@ function failCall(state: RequestState, tool: string, timeout: boolean, ok: (r: R
 }
 
 function instructionsFor(session: Session): string {
-  return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name, !!session.drafts, !!session.pages);
+  return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name, !!session.drafts, !!session.pages, !!session.scenarios);
 }
 
 async function callTool(
@@ -418,8 +421,10 @@ async function callTool(
     const session = await loadSession(state);
     if (!session.ok) return { status: 401, body: null, unauthorized: true };
     const startedW = Date.now();
-    const allowed = tool.pages ? !!session.pages : tool.shared ? !!(session.drafts || session.pages) : !!session.drafts;
+    const allowed = tool.scenarioDrafts ? !!session.scenarios
+      : tool.pages ? !!session.pages : tool.shared ? !!(session.drafts || session.pages) : !!session.drafts;
     if (!allowed) {
+      if (tool.scenarioDrafts) return ok(toolResult(scenarioErrorText('scenarios_not_allowed'), true));
       return ok(toolResult(tool.pages
         ? 'This connection does not include signup pages (it was approved before they existed, or without them). The person can reconnect Yuno in their AI app to allow them. Meanwhile, describe the page in the conversation.'
         : 'This connection does not include email drafts (it was approved before they existed, or without them). The person can reconnect Yuno in their AI app to allow them. Meanwhile, share the email as HTML in the conversation.', true));
@@ -428,6 +433,8 @@ async function callTool(
     try {
       outcome = tool.name === 'add_email_image'
         ? await runAddEmailImage(state.env, state.tokenHash, v.args, state.origin)
+        : tool.scenarioDrafts
+          ? await runScenarioWrite(state.env, state.tokenHash, tool.name as 'create_scenario_draft' | 'update_scenario_draft', v.args)
         : tool.pages
           ? await runPageWrite(state.env, state.tokenHash, tool.name as 'create_signup_page' | 'update_signup_page', v.args)
           : await runEmailWrite(state.env, state.tokenHash, tool.name as 'create_email_draft' | 'update_email_draft', v.args, session.language);
@@ -502,7 +509,11 @@ async function callTool(
     }
     text = tool.pages && ['crm_not_active', 'page_not_found', 'event_not_found'].includes(code)
       ? pageErrorText(code, { spaces })
-      : toolErrorText(code, { spaces, message: inner?.message });
+      : tool.scenario && ['crm_not_active', 'scenario_not_found', 'forbidden'].includes(code)
+        ? scenarioErrorText(code === 'forbidden' ? 'write_forbidden' : code, { spaces })
+        : toolErrorText(code, { spaces, message: inner?.message });
+  } else if (tool.scenario) {
+    text = formatScenarioRead(tool.name, r.space, inner ?? {});
   } else if (tool.pages) {
     const session = await loadSession(state).catch(() => null);
     text = formatPageRead(tool.name, r.space, inner ?? {}, session?.ok ? session.language : null);
