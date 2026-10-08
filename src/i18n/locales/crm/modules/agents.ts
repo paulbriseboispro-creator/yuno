@@ -1,0 +1,129 @@
+import type { CrmDict } from './types';
+
+// Agents (décisions 5 à 8 de Paul, 08/10) : le « Plan de soirée », le bouton
+// « Préparer avec mon IA » (l'IA du pro, branchée par le MCP ; Yuno n'appelle
+// aucune IA) et l'annonce du plan prêt — [EN, FR, ES]. Les demandes écrites
+// pour l'IA (`yc.ag.ai.q.*`) sont dites par le pro à SON IA : elles se tutoient.
+const dict: CrmDict = {
+  // ── Plan de soirée ────────────────────────────────────────────────────────
+  'yc.ag.plan.open': ['Night plan', 'Plan de soirée', 'Plan de la fiesta'],
+  'yc.ag.plan.kicker': ['Night plan', 'Plan de soirée', 'Plan de la fiesta'],
+  'yc.ag.plan.back': ['Nights', 'Soirées', 'Fiestas'],
+  'yc.ag.plan.print': ['Print', 'Imprimer', 'Imprimir'],
+  'yc.ag.plan.when.today': ['{d} · tonight', '{d} · ce soir', '{d} · esta noche'],
+  'yc.ag.plan.when.one': ['{d} · tomorrow', '{d} · demain', '{d} · mañana'],
+  'yc.ag.plan.when.other': ['{d} · in {n} days', '{d} · dans {n} jours', '{d} · en {n} días'],
+  'yc.ag.plan.sub': [
+    'Who to target, when, through which channel and for how many Yunits. Each person counts once, in the first audience that contains them.',
+    'Qui cibler, quand, par quel canal et pour combien de Yunits. Chaque personne compte une fois, dans la première audience qui la contient.',
+    'A quién dirigirse, cuándo, por qué canal y por cuántos Yunits. Cada persona cuenta una vez, en la primera audiencia que la contiene.',
+  ],
+  'yc.ag.plan.err.not_upcoming': ['This night is over: a plan is only for an upcoming night.', 'Cette soirée est passée : un plan ne vaut que pour une soirée à venir.', 'Esta fiesta ya pasó: un plan solo vale para una fiesta próxima.'],
+  'yc.ag.plan.err.no_upcoming': ['No upcoming night is synced from your ticketing yet.', 'Aucune soirée à venir n’est encore synchronisée depuis votre billetterie.', 'Aún no hay ninguna fiesta próxima sincronizada desde su ticketera.'],
+
+  'yc.ag.plan.where.title': ['Where the night stands', 'Où en est la soirée', 'Cómo va la fiesta'],
+  'yc.ag.plan.sold.one': ['{n} ticket sold', '{n} billet vendu', '{n} entrada vendida'],
+  'yc.ag.plan.sold.other': ['{n} tickets sold', '{n} billets vendus', '{n} entradas vendidas'],
+  'yc.ag.plan.prev': ['{n} for “{t}” at the same moment, {total} in the end', '{n} pour « {t} » au même moment, {total} au final', '{n} para «{t}» en el mismo momento, {total} al final'],
+  'yc.ag.plan.prevSeries': ['(same series)', '(même série)', '(misma serie)'],
+  'yc.ag.plan.prevNone': ['No previous night to compare with yet.', 'Pas encore de soirée précédente à comparer.', 'Aún no hay fiesta anterior con la que comparar.'],
+
+  'yc.ag.plan.steps.title': ['The plan', 'Le plan', 'El plan'],
+  'yc.ag.plan.step.now': ['Now', 'Maintenant', 'Ahora'],
+  'yc.ag.plan.step.week': ['The week before · {d}', 'La semaine d’avant · {d}', 'La semana anterior · {d}'],
+  'yc.ag.plan.step.eve': ['The day before · {d}', 'La veille · {d}', 'La víspera · {d}'],
+  'yc.ag.plan.step.people.one': ['{n} person', '{n} personne', '{n} persona'],
+  'yc.ag.plan.step.people.other': ['{n} people', '{n} personnes', '{n} personas'],
+  'yc.ag.plan.step.reach': ['{e} by e-mail · {s} by SMS', '{e} par e-mail · {s} par SMS', '{e} por e-mail · {s} por SMS'],
+  'yc.ag.plan.channel.email': ['E-mail suggested · {c} Yunits', 'E-mail conseillé · {c} Yunits', 'E-mail aconsejado · {c} Yunits'],
+  'yc.ag.plan.channel.sms': ['SMS suggested · {c} Yunits', 'SMS conseillé · {c} Yunits', 'SMS aconsejado · {c} Yunits'],
+  'yc.ag.plan.channel.alt': ['by e-mail: {c} Yunits', 'en e-mail : {c} Yunits', 'por e-mail: {c} Yunits'],
+  'yc.ag.plan.channel.smsOff': ['SMS needs your sender identity (SMS › Settings).', 'Le SMS demande votre identité d’expéditeur (SMS › Réglages).', 'El SMS requiere su identidad de remitente (SMS › Ajustes).'],
+  'yc.ag.plan.aud.first.one': ['{n} new in the plan', '{n} nouveau dans le plan', '{n} nuevo en el plan'],
+  'yc.ag.plan.aud.first.other': ['{n} new in the plan', '{n} nouveaux dans le plan', '{n} nuevos en el plan'],
+  'yc.ag.plan.aud.firstAll': ['all new in the plan', 'tous nouveaux dans le plan', 'todos nuevos en el plan'],
+
+  'yc.ag.plan.total.title': ['What the plan costs', 'Ce que coûte le plan', 'Lo que cuesta el plan'],
+  'yc.ag.plan.total.people.one': ['{n} person in all', '{n} personne en tout', '{n} persona en total'],
+  'yc.ag.plan.total.people.other': ['{n} people in all', '{n} personnes en tout', '{n} personas en total'],
+  'yc.ag.plan.total.cost': ['{c} Yunits at most', '{c} Yunits au plus', '{c} Yunits como máximo'],
+  'yc.ag.plan.total.balance': ['Balance: {b} Yunits', 'Solde : {b} Yunits', 'Saldo: {b} Yunits'],
+  'yc.ag.plan.total.short': ['The balance does not cover the whole plan.', 'Le solde ne couvre pas tout le plan.', 'El saldo no cubre todo el plan.'],
+  'yc.ag.plan.total.topUp': ['Top up', 'Recharger', 'Recargar'],
+  'yc.ag.plan.total.note': ['SMS at the France rate, one message per person. People who unsubscribe or are held back by the sending rules cost nothing.', 'SMS au tarif France, un message par personne. Une personne désabonnée ou retenue par les règles d’envoi ne coûte rien.', 'SMS a la tarifa de Francia, un mensaje por persona. Quien se dio de baja o queda retenido por las reglas de envío no cuesta nada.'],
+
+  'yc.ag.plan.planned.title': ['Already planned for this night', 'Déjà prévu pour cette soirée', 'Ya previsto para esta fiesta'],
+  'yc.ag.plan.planned.empty': ['Nothing is planned for this night yet.', 'Rien n’est encore prévu pour cette soirée.', 'Aún no hay nada previsto para esta fiesta.'],
+  'yc.ag.plan.planned.email': ['E-mail', 'E-mail', 'E-mail'],
+  'yc.ag.plan.planned.sms': ['SMS', 'SMS', 'SMS'],
+  'yc.ag.plan.planned.noName': ['Untitled', 'Sans titre', 'Sin título'],
+  'yc.ag.plan.st.draft': ['Draft', 'Brouillon', 'Borrador'],
+  'yc.ag.plan.st.scheduled': ['Scheduled', 'Programmé', 'Programado'],
+  'yc.ag.plan.st.sending': ['Sending', 'En cours d’envoi', 'Enviándose'],
+  'yc.ag.plan.st.paused': ['Paused', 'En pause', 'En pausa'],
+  'yc.ag.plan.st.sent': ['Sent', 'Envoyé', 'Enviado'],
+
+  'yc.ag.plan.fam.title': ['What brings people to you', 'Ce qui fait venir chez vous', 'Lo que atrae a su público'],
+  'yc.ag.plan.fam.sub': ['The hypotheses confirmed on your account. The plan puts them first.', 'Les hypothèses confirmées sur votre compte. Le plan les met en avant.', 'Las hipótesis confirmadas en su cuenta. El plan las pone primero.'],
+  'yc.ag.plan.fam.empty': ['No hypothesis is confirmed yet: the plan follows the buying habits of your base.', 'Aucune hypothèse n’est encore confirmée : le plan suit les habitudes d’achat de votre base.', 'Aún no hay ninguna hipótesis confirmada: el plan sigue los hábitos de compra de su base.'],
+
+  'yc.ag.plan.holdout.title': ['Measuring the effect', 'Mesurer l’effet', 'Medir el efecto'],
+  'yc.ag.plan.holdout.body': ['{p} % of each audience receives nothing: comparing them is how you will know what your messages really brought.', '{p} % de chaque audience ne reçoit rien : c’est en comparant que vous saurez ce que vos messages ont vraiment apporté.', 'El {p} % de cada audiencia no recibe nada: comparando sabrá lo que sus mensajes aportaron de verdad.'],
+  'yc.ag.plan.holdout.zero': ['No share is kept aside: you will not know what your messages brought.', 'Aucune part n’est mise de côté : vous ne saurez pas ce que vos messages ont apporté.', 'No se aparta ninguna parte: no sabrá lo que aportaron sus mensajes.'],
+  'yc.ag.plan.holdout.set': ['Settings', 'Réglages', 'Ajustes'],
+
+  'yc.ag.plan.foot': ['Computed by Yuno on {d} at {h}, from the contacts who gave their consent. Estimates are marked as such.', 'Calculé par Yuno le {d} à {h}, sur les contacts qui ont donné leur accord. Les estimations sont signalées.', 'Calculado por Yuno el {d} a las {h}, sobre los contactos que dieron su consentimiento. Las estimaciones están señaladas.'],
+
+  // ── « Préparer avec mon IA » ───────────────────────────────────────────────
+  'yc.ag.ai.button': ['Prepare with my AI', 'Préparer avec mon IA', 'Preparar con mi IA'],
+  'yc.ag.ai.opened': ['{app} opens with the request. Drafts will land here; nothing goes out without you.', '{app} s’ouvre avec la demande. Les brouillons arriveront ici ; rien ne part sans vous.', '{app} se abre con la petición. Los borradores llegarán aquí; nada sale sin usted.'],
+  'yc.ag.ai.close': ['Close', 'Fermer', 'Cerrar'],
+  'yc.ag.ai.none.title': ['Connect your AI to Yuno', 'Branchez votre IA à Yuno', 'Conecte su IA a Yuno'],
+  'yc.ag.ai.none.body': [
+    'Claude, ChatGPT or Le Chat can read your numbers (never an e-mail address) and prepare drafts that you review. Add Yuno as a connector with this address:',
+    'Claude, ChatGPT ou Le Chat peuvent lire vos chiffres (jamais une adresse e-mail) et préparer des brouillons que vous relisez. Ajoutez Yuno comme connecteur avec cette adresse :',
+    'Claude, ChatGPT o Le Chat pueden leer sus cifras (nunca una dirección de e-mail) y preparar borradores que usted revisa. Añada Yuno como conector con esta dirección:',
+  ],
+  'yc.ag.ai.none.copy': ['Copy', 'Copier', 'Copiar'],
+  'yc.ag.ai.none.copied': ['Address copied', 'Adresse copiée', 'Dirección copiada'],
+  'yc.ag.ai.none.guide': ['Step-by-step guide', 'Le pas à pas', 'La guía paso a paso'],
+  'yc.ag.ai.none.after': ['Then come back here: this button will open your AI with the request.', 'Revenez ensuite ici : ce bouton ouvrira votre IA avec la demande.', 'Luego vuelva aquí: este botón abrirá su IA con la petición.'],
+  'yc.ag.ai.right.title': ['Your AI can read, not prepare yet', 'Votre IA peut lire, pas encore préparer', 'Su IA puede leer, aún no preparar'],
+  'yc.ag.ai.right.drafts': [
+    'The {client} connection does not allow e-mail drafts. Reconnect Yuno in {client} and accept drafts; meanwhile it can read the plan and advise you.',
+    'La connexion de {client} ne permet pas les brouillons d’e-mails. Reconnectez Yuno dans {client} en acceptant les brouillons ; en attendant, elle peut lire le plan et vous conseiller.',
+    'La conexión de {client} no permite borradores de e-mail. Vuelva a conectar Yuno en {client} aceptando los borradores; mientras tanto, puede leer el plan y aconsejarle.',
+  ],
+  'yc.ag.ai.right.scenarios': [
+    'The {client} connection does not allow scenario drafts. Reconnect Yuno in {client} and accept scenario drafts; meanwhile it can describe the scenario step by step.',
+    'La connexion de {client} ne permet pas les brouillons de scénarios. Reconnectez Yuno dans {client} en acceptant les brouillons de scénarios ; en attendant, elle peut décrire le scénario étape par étape.',
+    'La conexión de {client} no permite borradores de escenarios. Vuelva a conectar Yuno en {client} aceptando los borradores de escenarios; mientras tanto, puede describir el escenario paso a paso.',
+  ],
+  'yc.ag.ai.right.go': ['Continue anyway', 'Continuer quand même', 'Continuar de todos modos'],
+  'yc.ag.ai.copy.title': ['Copy the request', 'Copiez la demande', 'Copie la petición'],
+  'yc.ag.ai.copy.body': ['Paste it into {client}: it will read your data in Yuno and prepare the drafts.', 'Collez-la dans {client} : elle lira vos données dans Yuno et préparera les brouillons.', 'Péguela en {client}: leerá sus datos en Yuno y preparará los borradores.'],
+  'yc.ag.ai.copy.btn': ['Copy the request', 'Copier la demande', 'Copiar la petición'],
+  'yc.ag.ai.copy.done': ['Request copied', 'Demande copiée', 'Petición copiada'],
+  // Demandes écrites pour l'IA du pro (il la tutoie).
+  'yc.ag.ai.q.plan': [
+    'With Yuno, prepare the plan of my night “{t}” on {d}: read the night plan, show me the dated steps with their numbers as Yuno gives them, propose the angle of each message, then prepare the e-mail drafts of each step. Do not send anything.',
+    'Avec Yuno, prépare le plan de ma soirée « {t} » du {d} : lis le plan de soirée, présente-moi les étapes datées avec leurs chiffres tels que Yuno les donne, propose l’angle de chaque message, puis prépare les brouillons d’e-mails de chaque étape. N’envoie rien.',
+    'Con Yuno, prepara el plan de mi fiesta «{t}» del {d}: lee el plan de la fiesta, muéstrame los pasos fechados con sus cifras tal como Yuno las da, propone el enfoque de cada mensaje y prepara los borradores de e-mail de cada paso. No envíes nada.',
+  ],
+
+  // ── Aide (Compte › Aide) ──────────────────────────────────────────────────
+  'yc.faq.nightplan.q': ['What is the night plan, and what does “Prepare with my AI” do?', 'Qu’est-ce que le plan de soirée, et que fait « Préparer avec mon IA » ?', '¿Qué es el plan de la fiesta y qué hace «Preparar con mi IA»?'],
+  'yc.faq.nightplan.a': [
+    'Nights → an upcoming night → “Who to target” → “Night plan”. Yuno turns the audiences without a ticket into a dated plan: now, the week before, the day before at 18:00. Each person counts once, in the first audience that contains them; each step shows who is reachable by e-mail and SMS, the suggested channel and its cost in Yunits, then the total against your balance. The page also compares sales with the previous edition at the same moment, lists what is already planned for the night, the hypotheses confirmed on your account and the share kept aside to measure the effect. It prints, to share with your team. “Prepare with my AI” opens the AI you connected to Yuno (Claude, ChatGPT…) with the request already written: it reads the same plan and prepares e-mail drafts that you review here. Yuno uses no AI of its own and nothing is ever sent without you. An account on trial is told in its notifications when the plan of its next night is ready.',
+    'Soirées → une soirée à venir → « Qui cibler » → « Plan de soirée ». Yuno fait des audiences sans place un plan daté : maintenant, la semaine d’avant, la veille à 18 h. Chaque personne compte une fois, dans la première audience qui la contient ; chaque étape dit qui est joignable par e-mail et par SMS, le canal conseillé et son coût en Yunits, puis le total face à votre solde. La page compare aussi les ventes à l’édition précédente au même moment, liste ce qui est déjà prévu pour la soirée, les hypothèses confirmées sur votre compte et la part mise de côté pour mesurer l’effet. Elle s’imprime, pour la partager avec votre équipe. « Préparer avec mon IA » ouvre l’IA que vous avez branchée sur Yuno (Claude, ChatGPT…) avec la demande déjà écrite : elle lit le même plan et prépare des brouillons d’e-mails que vous relisez ici. Yuno n’utilise aucune IA de son côté et rien ne part jamais sans vous. Un compte en essai est prévenu dans ses notifications quand le plan de sa prochaine soirée est prêt.',
+    'Fiestas → una fiesta próxima → «A quién dirigirse» → «Plan de la fiesta». Yuno convierte las audiencias sin entrada en un plan fechado: ahora, la semana anterior, la víspera a las 18:00. Cada persona cuenta una vez, en la primera audiencia que la contiene; cada paso indica quién es alcanzable por e-mail y por SMS, el canal aconsejado y su coste en Yunits, y luego el total frente a su saldo. La página también compara las ventas con la edición anterior en el mismo momento, lista lo que ya está previsto para la fiesta, las hipótesis confirmadas en su cuenta y la parte apartada para medir el efecto. Se imprime, para compartirla con su equipo. «Preparar con mi IA» abre la IA que conectó a Yuno (Claude, ChatGPT…) con la petición ya escrita: lee el mismo plan y prepara borradores de e-mail que usted revisa aquí. Yuno no usa ninguna IA propia y nunca sale nada sin usted. Una cuenta en prueba recibe un aviso en sus notificaciones cuando el plan de su próxima fiesta está listo.',
+  ],
+  'yc.faq.nightplan.l': ['Open nights', 'Ouvrir les soirées', 'Abrir las fiestas'],
+
+  // ── Fil de notifications ──────────────────────────────────────────────────
+  'yc.notif.night_plan_ready.title': ['The plan of your night is ready', 'Le plan de votre soirée est prêt', 'El plan de su fiesta está listo'],
+  'yc.notif.night_plan_ready.body': ['“{title}” on {start_at_day}: who to target, when and for how many Yunits, computed on your base.', '« {title} » le {start_at_day} : qui cibler, quand et pour combien de Yunits, calculé sur votre base.', '«{title}» el {start_at_day}: a quién dirigirse, cuándo y por cuántos Yunits, calculado sobre su base.'],
+  'yc.notif.night_plan_ready.action': ['See the plan', 'Voir le plan', 'Ver el plan'],
+};
+
+export default dict;

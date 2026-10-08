@@ -37,6 +37,7 @@ export const CRM_ROUTES = {
   nights: '/crm/nights',
   nightsPast: '/crm/nights/past',
   night: (id: string) => `/crm/nights/${id}`,
+  nightPlan: (id: string) => `/crm/nights/${id}/plan`,
   signupPages: '/crm/signup-pages',
   clients: '/crm/clients',
   segments: '/crm/segments',

@@ -26,6 +26,7 @@ const CrmPublicShell = lazyWithRetry(() => import('./shell/CrmLayout').then((m) 
 const NotFoundScreen = lazyWithRetry(() => import('./errors/ErrorScreens').then((m) => ({ default: m.NotFoundScreen })));
 const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
+const NightPlanPage = lazyWithRetry(() => import('./pages/nights/plan/NightPlanPage'));
 const InstagramPage = lazyWithRetry(() => import('./pages/instagram/InstagramPage'));
 const SignupPagesPage = lazyWithRetry(() => import('./pages/signup/SignupPagesPage'));
 const SignupWizardPage = lazyWithRetry(() => import('./pages/signup/SignupWizardPage'));
@@ -63,6 +64,10 @@ export function crmRoutes() {
       {/* Scénarios : l'éditeur (flux vertical + inspecteur). */}
       <Route path="/crm/automations/scenarios/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<ScenarioEditorPage />} />
+      </Route>
+      {/* Plan de soirée (agents, lot A1) : un rapport plein écran, imprimable. */}
+      <Route path="/crm/nights/:id/plan" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<NightPlanPage />} />
       </Route>
       {/* SMS « Bientôt » (CRM_SMS_DISPLAY_LIVE faux) : les éditeurs renvoient sur la page Bientôt. */}
       <Route path="/crm/sms/compose/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>

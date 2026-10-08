@@ -17257,6 +17257,7 @@ const es: Record<string, string> = {
   'aiTool.scenarios': "Lista de escenarios",
   'aiTool.scenarioReport': "Informe de un escenario",
   'aiTool.scenarioKit': "Kit de escenarios",
+  'aiTool.nightPlan': "Plan de la fiesta",
   'aiTool.scenarioCreate': "Borrador de escenario creado",
   'aiTool.scenarioUpdate': "Borrador de escenario modificado",
   'aiPage.seoTitle': "Yuno en ChatGPT, Claude y Gemini",

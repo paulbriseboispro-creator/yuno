@@ -21,15 +21,11 @@ import type { AnFamily } from '@/crm/lib/analysis';
 import { useNightTargets } from '@/crm/data/analysis';
 import type { NightTargetAudience, NightTargets as Targets } from '@/crm/data/analysis';
 import { useSaveSegment } from '@/crm/data/clients';
-import { joinHostNames } from '@/lib/coorg';
 import type { ClientFilterDef } from '@/crm/data/clients';
+import { targetRuleText } from './targetText';
 
 type T = ReturnType<typeof useCrmT>;
 
-const genreName = (g: string) => {
-  const s = g.replace(/_/g, ' ');
-  return s.charAt(0).toUpperCase() + s.slice(1);
-};
 
 export function NightTargets({ eventId }: { eventId: string }) {
   const T = useCrmT();
@@ -57,6 +53,11 @@ function Body({ d, T }: { d: Targets; T: T }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(22px,3vw,28px)', lineHeight: 1.1, letterSpacing: '-.03em' }}>{t('yc.tgt.title')}</h2>
         <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}>{t('yc.tgt.sub')}</span>
+        {d.event?.id && d.computed && (
+          <div style={{ paddingTop: 6 }}>
+            <PillButton tone="dark" size="sm" icon="calendar" to={CRM_ROUTES.nightPlan(d.event.id)}>{t('yc.ag.plan.open')}</PillButton>
+          </div>
+        )}
       </div>
       {!d.computed ? <Note text={t('yc.tgt.notComputed')} />
         : auds.length === 0 ? <Note text={t('yc.tgt.empty')} />
@@ -91,19 +92,6 @@ function Body({ d, T }: { d: Targets; T: T }) {
 /** « 1er envoi », « 2e envoi »… (ordre conseillé, décision de Paul du 08/10). */
 function orderLabel(k: number, T: T): string {
   return k <= 3 ? T.t(`yc.tgt.order.${k}`) : T.t('yc.tgt.order.n', { n: T.n(k) });
-}
-
-function ruleText(a: NightTargetAudience, T: T): string {
-  const p = a.params ?? {};
-  if (a.key === 'concept') return T.t('yc.tgt.aud.concept.rule', { s: p.series ?? '', e: T.n(p.editions ?? 0) });
-  if (a.key === 'lineup') {
-    const names = (p.artists ?? []).slice(0, 3).map((x) => x.name);
-    return names.length
-      ? T.t('yc.tgt.aud.lineup.rule', { a: joinHostNames(names, T.locale) })
-      : T.t('yc.tgt.aud.lineup.ruleNone');
-  }
-  if (a.key === 'genre') return T.t('yc.tgt.aud.genre.rule', { g: (p.genres ?? []).map(genreName).join(', ') });
-  return T.t(`yc.tgt.aud.${a.key}.rule`);
 }
 
 function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T }) {
@@ -157,7 +145,7 @@ function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T })
             ? <Badge tone="warn">{t('yc.sc.estimate')}</Badge>
             : <span style={{ fontSize: 12.5, color: 'var(--sand-500)', maxWidth: 220, textAlign: 'right' }}>{t('yc.tgt.noFamily')}</span>}
       </div>
-      <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--sand-700)', textWrap: 'pretty' }}>{ruleText(a, T)}</span>
+      <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--sand-700)', textWrap: 'pretty' }}>{targetRuleText(a, T)}</span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13.5, color: 'var(--sand-600)' }}>
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{t('yc.tgt.reach', { e: n(a.email), s: n(a.sms) })}</span>
         <span>{when}</span>
