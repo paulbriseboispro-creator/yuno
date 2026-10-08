@@ -63,9 +63,14 @@ export const DEFAULT_RULES = {
 type Rules = { status: { min_n: number; gain_supported: number; z_supported: number; gain_not: number; z_not: number }; return: { min_n: number; gap: number; z: number } };
 
 /**
- * Miroir de `_crm_an_status` (SQL). Affinité et comportement : gain = O/E,
- * z = (O − E)/√V. Retour : gain = O/E (E = n × taux des autres), z sur deux
- * proportions, rendu par le moteur.
+ * Miroir de `_crm_an_status` (SQL) : le test d'UNE famille. Affinité et
+ * comportement : gain = O/E, z = (O − E)/√V. Retour : gain = O/E (E = n × taux
+ * des autres), z sur deux proportions, rendu par le moteur. Le statut stocké
+ * ajoute ensuite des étapes qui portent sur toutes les familles du compte et
+ * sur le temps (20261014110000) : p-valeur exacte sur petits effectifs,
+ * Benjamini-Hochberg, au moins 5 cas attendus, marge anti-bascule,
+ * « Confirmée » après 2 jours de calcul, « pas de différence nette » pour une
+ * famille indécise depuis 60 jours. Seul le moteur décide ; l'écran lit.
  */
 export function statusOf(
   kind: AnKind,
