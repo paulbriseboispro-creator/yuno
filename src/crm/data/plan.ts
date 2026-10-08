@@ -67,3 +67,43 @@ export function useAiConnections() {
     },
   });
 }
+
+/** Bilan de la semaine (agents, lot A3, migration 20261016175000) : calculé à la lecture, sans IA. */
+export interface WeeklyMeasured {
+  channel: 'email' | 'sms' | 'recipe'; id: string; label: string | null; event_id: string | null; event: string | null;
+  contacted: { n: number; buyers: number }; control: { n: number; buyers: number };
+  extra: number | null; z: number | null; verdict: 'gain' | 'loss' | 'none';
+}
+export interface WeeklyScenario {
+  id: string; name: string; status: string; verdict: 'gain' | 'loss';
+  measure: { contacted: { n: number; buyers: number }; control: { n: number; buyers: number }; extra: number | null; z: number | null };
+}
+export type WeeklyDrift =
+  | { kind: 'pace'; event_id: string; title: string; start_at: string; sold: number; prev_title: string; prev_sold: number }
+  | { kind: 'deliverability'; sent: number; bounced: number; complained: number }
+  | { kind: 'protected'; protected: number; reached: number }
+  | { kind: 'journal'; title: string; start_at: string; predicted: number; actual: number; err_pct: number };
+export type WeeklyAction =
+  | { kind: 'targets' | 'plan'; event_id: string; title: string; start_at: string }
+  | { kind: 'scenario'; id: string; name: string }
+  | { kind: 'base' | 'automate' };
+export interface WeeklyReview {
+  ok: boolean;
+  from: string; to: string;
+  activity: { emails: number; email_campaigns: number; sms: number; sms_campaigns: number; scenario_messages: number; recipe_messages: number; protected: number };
+  measured: WeeklyMeasured[];
+  scenarios: WeeklyScenario[];
+  drift: WeeklyDrift[];
+  actions: WeeklyAction[];
+  holdout_pct: number | null;
+  quiet: boolean;
+}
+
+export function useWeeklyReview() {
+  const { rpc: args, qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'weekly-review'],
+    queryFn: () => rpc<WeeklyReview>('crm_weekly_review', { ...args }),
+    staleTime: 10 * 60_000,
+  });
+}

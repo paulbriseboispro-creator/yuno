@@ -4,10 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { CRM_DICT } from '@/i18n/locales/crm/modules';
 import agents from '@/i18n/locales/crm/modules/agents';
 import { TARGET_AUDIENCES } from '../scenarioConditions';
+import { CRM_AUTO_META } from '../automations';
 
 const ROOT = join(__dirname, '..', '..');
 const FILES = ['components/AskMyAi.tsx', 'pages/nights/plan/NightPlanPage.tsx', 'pages/nights/NightTargets.tsx',
-  'pages/automations/scenarios/CreateWithAi.tsx', 'pages/automations/scenarios/ScenarioEditorPage.tsx'].map((f) => join(ROOT, f));
+  'pages/automations/scenarios/CreateWithAi.tsx', 'pages/automations/scenarios/ScenarioEditorPage.tsx', 'pages/review/WeeklyReviewPage.tsx'].map((f) => join(ROOT, f));
 const has = (k: string) => Object.prototype.hasOwnProperty.call(CRM_DICT, k);
 const plural = (k: string) => has(`${k}.one`) && has(`${k}.other`);
 
@@ -15,7 +16,7 @@ describe('textes des agents (plan de soirée, « Préparer avec mon IA »)', () 
   it('chaque clé écrite en toutes lettres existe', () => {
     const missing: string[] = [];
     for (const f of FILES) {
-      for (const m of readFileSync(f, 'utf8').matchAll(/'(yc\.(?:ag|tgt|sc|ni|why)\.[A-Za-z0-9_.]+)'/g)) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/'(yc\.(?:ag|tgt|sc|ni|why|au)\.[A-Za-z0-9_.]+)'/g)) {
         if (!has(m[1]) && !plural(m[1])) missing.push(`${m[1]} (${f.split('/').pop()})`);
       }
     }
@@ -34,7 +35,8 @@ describe('textes des agents (plan de soirée, « Préparer avec mon IA »)', () 
     for (const a of TARGET_AUDIENCES) want.push(`yc.tgt.aud.${a}.name`, `yc.tgt.angle.${a}`);
     for (const f of ['artist', 'genre', 'format', 'slot', 'weekday', 'place', 'series', 'early', 'launch', 'last_minute',
       'door', 'group', 'table', 'discovery', 'passing', 'invited', 'group_first', 'brought', 'channel']) want.push(`yc.why.fam.${f}`);
-    for (const x of ['title', 'body', 'action']) want.push(`yc.notif.night_plan_ready.${x}`);
+    for (const x of ['title', 'body', 'action']) want.push(`yc.notif.night_plan_ready.${x}`, `yc.notif.weekly_review.${x}`);
+    for (const r of Object.keys(CRM_AUTO_META)) want.push(`yc.au.r.${r}.name`);
     expect(want.filter((k) => !has(k))).toEqual([]);
   });
 

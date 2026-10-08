@@ -16916,6 +16916,7 @@ const en: Record<string, string> = {
   'aiTool.scenarioReport': "Scenario report",
   'aiTool.scenarioKit': "Scenario kit",
   'aiTool.nightPlan': "Night plan",
+  'aiTool.weeklyReview': "Weekly review",
   'aiTool.scenarioCreate': "Scenario draft created",
   'aiTool.scenarioUpdate': "Scenario draft updated",
   'aiPage.seoTitle': "Yuno in ChatGPT, Claude and Gemini",

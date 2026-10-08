@@ -27,6 +27,7 @@ const NotFoundScreen = lazyWithRetry(() => import('./errors/ErrorScreens').then(
 const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
 const NightPlanPage = lazyWithRetry(() => import('./pages/nights/plan/NightPlanPage'));
+const WeeklyReviewPage = lazyWithRetry(() => import('./pages/review/WeeklyReviewPage'));
 const InstagramPage = lazyWithRetry(() => import('./pages/instagram/InstagramPage'));
 const SignupPagesPage = lazyWithRetry(() => import('./pages/signup/SignupPagesPage'));
 const SignupWizardPage = lazyWithRetry(() => import('./pages/signup/SignupWizardPage'));
@@ -86,6 +87,7 @@ export function crmRoutes() {
         <Route path="nights" element={<NightsPage />} />
         <Route path="nights/past" element={<NightsPage />} />
         <Route path="nights/:id" element={<NightRedirect />} />
+        <Route path="review" element={<WeeklyReviewPage />} />
         <Route path="connectors" element={<ConnectorsPage />} />
         <Route path="emails" element={<EmailsOverviewPage />} />
         <Route path="emails/campaigns" element={<EmailCampaignsPage />} />

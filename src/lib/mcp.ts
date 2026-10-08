@@ -72,6 +72,7 @@ export const MCP_TOOL_LABEL_KEYS: Record<string, string> = {
   get_scenario_report: 'aiTool.scenarioReport',
   get_scenario_kit: 'aiTool.scenarioKit',
   get_night_plan: 'aiTool.nightPlan',
+  get_weekly_review: 'aiTool.weeklyReview',
   create_scenario_draft: 'aiTool.scenarioCreate',
   update_scenario_draft: 'aiTool.scenarioUpdate',
 };
