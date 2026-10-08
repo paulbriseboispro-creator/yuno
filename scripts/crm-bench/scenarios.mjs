@@ -8,6 +8,7 @@
 //   node scenarios.mjs crud [base]         lot J2 : brouillon, publication,
 //                                          versions, rôles, accès assisté, recette
 //   node scenarios.mjs engine [base]       lot J3 : le moteur de bout en bout
+//   node scenarios.mjs editor [base]       lot J4 : effectifs en direct, aperçu
 //
 // La base (défaut : demo-computed, déjà analysée) reçoit les migrations des
 // Scénarios (20261016100000 et suivantes) avant les essais : c'est la même
@@ -516,6 +517,45 @@ if (cmd === 'conditions') {
   const dst = await D.q(`SELECT status, count(*) AS n FROM crm_scenario_steps WHERE scenario_id = $1 AND node_id = 'e1' GROUP BY 1`, [D.id]);
   const dmsg = Number((await D.one(`SELECT count(*) AS n FROM crm_scenario_messages m JOIN crm_scenario_versions v ON v.id = m.version_id WHERE v.scenario_id = $1`, [D.id])).n);
   check('démo : « aurait envoyé », aucune campagne', dst.some((x) => x.status === 'would_send') && !dst.some((x) => x.status === 'sent') && dmsg === 0, dst);
+} else if (cmd === 'editor') {
+  // Lot J4 : les lectures de l'éditeur (effectifs en direct, « Avant de publier »).
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  const owner = JSON.stringify({ sub: org, role: 'authenticated' });
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+  const tree = { op: 'and', items: [{ k: 'nb_min', v: 1 }, { op: 'or', items: [{ k: 'nb_min', v: 3 }, { k: 'hyp', v: ['artist'] }] },
+                                    { op: 'and', items: [{ k: 'sc_bought', v: false }] }] };
+  let t0 = Date.now();
+  const c = (await one(`SELECT crm_scenario_counts(NULL, $1, $2::jsonb, NULL, 'step') AS r`, [org, JSON.stringify(tree)])).r;
+  console.log(`effectifs : ${Date.now() - t0} ms`, JSON.stringify(c));
+  await db.exec('BEGIN');
+  await one(`SELECT public._crm_people_build(NULL, $1::uuid) AS n`, [org]);
+  const exp = await one(`SELECT count(*) FILTER (WHERE nights >= 1) AS root1, count(*) FILTER (WHERE nights >= 3 OR 'h:artist' = ANY (an_tags)) AS g1
+                           FROM _cp WHERE email_ok OR phone_ok`);
+  await db.exec('ROLLBACK');
+  check('groupe « ou » : même chiffre que le filtre', c.groups['1'] === Number(exp.g1), `${c.groups['1']} = ${exp.g1}`);
+  check('groupe d’inscription : « au lancement » (null)', c.groups['2'] === null, c.groups['2']);
+  check('racine avec une feuille d’inscription : null', c.groups[''] === null, c.groups['']);
+  const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
+  const graph = JSON.parse(JSON.stringify(gx.cases[0].graph));
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`UPDATE organizer_profiles SET legal_name = 'Banc SAS', siret = '12345678900011' WHERE user_id = $1`, [org]);
+  graph.nodes.e1.template_id = (await one(`INSERT INTO email_campaign_templates (organizer_user_id, name) VALUES ($1, 'Banc') RETURNING id`, [org])).id;
+  const up = await q(`SELECT id, start_at FROM events WHERE organizer_user_id = $1 AND start_at > now() ORDER BY start_at`, [org]);
+  graph.trigger.days = Number((await one(`SELECT (($1::timestamptz AT TIME ZONE 'Europe/Paris')::date - (now() AT TIME ZONE 'Europe/Paris')::date) AS d`, [up[1].start_at])).d);
+  graph.entry.filter = { op: 'and', items: [{ k: 'nb_min', v: 1 }] };
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+  const id = (await one(`SELECT crm_scenario_save(NULL, $1, NULL, 'Banc', $2::jsonb) AS r`, [org, JSON.stringify(graph)])).r.id;
+  t0 = Date.now();
+  const p = (await one(`SELECT crm_scenario_preview(NULL, $1, $2) AS r`, [org, id])).r;
+  console.log(`aperçu : ${Date.now() - t0} ms`, JSON.stringify({ now: p.now, week: p.week, cost: p.cost, errors: p.errors }));
+  check('aperçu : qui entrerait aujourd’hui, sans rien écrire', p.now?.entered > 0
+    && Number((await one(`SELECT count(*) AS n FROM crm_scenario_runs`)).n) === 0, p.now);
+  check('aperçu : estimation par semaine', p.week?.estimate > 0 && p.week.basis === 'events', p.week);
+  check('aperçu : plafond de Yunits (e-mail + SMS)', p.cost?.max_fr === 1 + p.cost.sms_segments * p.cost.sms_fr && p.cost.max_intl > p.cost.max_fr, p.cost);
+  check('lectures permises en aperçu démo', (await one(`SELECT public.demo_preview_writable_rpc('crm_scenario_preview') AND public.demo_preview_writable_rpc('crm_night_targets') AS ok`)).ok === true);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);

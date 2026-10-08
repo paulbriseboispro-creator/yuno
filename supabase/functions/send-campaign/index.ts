@@ -835,8 +835,8 @@ Deno.serve(async (req) => {
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
     const body = await req.json();
-    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id, automation_id, event_id } = body ?? {};
-    if (!campaign_id && !(send_test && automation_id)) {
+    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id, automation_id, event_id, scenario_id, node_id } = body ?? {};
+    if (!campaign_id && !(send_test && (automation_id || (scenario_id && node_id)))) {
       return new Response(JSON.stringify({ error: 'campaign_id required' }), { status: 400, headers: jsonHeaders });
     }
 
@@ -889,6 +889,36 @@ Deno.serve(async (req) => {
         theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
         logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',
         subject_b: null, ab_enabled: false, automation_id,
+      };
+    } else if (!campaign_id && send_test && typeof scenario_id === 'string' && typeof node_id === 'string') {
+      // Test d'un message de SCÉNARIO (Yuno CRM) : comme une recette, aucune
+      // campagne n'existe avant le moteur ; on rejoue la composition du nœud
+      // (son modèle, son objet, la portée du scénario, la soirée choisie).
+      const { data: scn } = await admin
+        .from('crm_scenarios').select('id, venue_id, organizer_user_id, draft').eq('id', scenario_id).maybeSingle();
+      if (!scn) throw new Error('Scenario not found');
+      const node = ((scn.draft as { nodes?: Record<string, Record<string, unknown>> } | null)?.nodes ?? {})[node_id];
+      if (!node || node.type !== 'email' || typeof node.template_id !== 'string') throw new Error('scenario_node_not_email');
+      const { data: tpl } = await admin
+        .from('email_campaign_templates').select('*').eq('id', node.template_id).maybeSingle();
+      const sameScope = !!tpl && ((tpl.venue_id as string | null) || null) === ((scn.venue_id as string | null) || null)
+        && ((tpl.organizer_user_id as string | null) || null) === ((scn.organizer_user_id as string | null) || null);
+      if (!tpl || !sameScope) throw new Error('Template not found');
+      const bindEvent = typeof event_id === 'string' && event_id
+        ? event_id
+        : (node.event === 'fixed' && typeof node.event_id === 'string' ? node.event_id : null);
+      const blocks = (tpl.blocks_json as StudioBlock[]) || [];
+      campaign = {
+        id: `scenario-test-${scenario_id}-${node_id}`,
+        venue_id: scn.venue_id, organizer_user_id: scn.organizer_user_id,
+        name: tpl.name, type: 'promotional',
+        subject: (typeof node.subject === 'string' && node.subject.trim()) || tpl.subject || tpl.name,
+        preheader: tpl.preheader || '',
+        blocks_json: bindEvent ? blocks : blocks.filter((b) => !['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type)),
+        blocks_version: 2,
+        theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
+        logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',
+        subject_b: null, ab_enabled: false,
       };
     } else {
       const { data: row, error: cErr } = await admin

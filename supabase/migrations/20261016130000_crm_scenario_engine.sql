@@ -218,8 +218,11 @@ $function$;
 
 -- ── 3. Les candidats d'un déclencheur ───────────────────────────────────────
 -- Remplit _scn_cand (email, event_id, window_end) pour un scénario.
+-- p_dry : l'aperçu « Avant de publier » ; rien n'est écrit (ni base d'un
+-- segment, ni repère d'inscription manuelle).
 CREATE OR REPLACE FUNCTION public._crm_scenario_candidates(p_s public.crm_scenarios, p_graph jsonb, p_published timestamptz,
-                                                            p_ticket_mark timestamptz, p_signup_mark timestamptz)
+                                                            p_ticket_mark timestamptz, p_signup_mark timestamptz,
+                                                            p_dry boolean DEFAULT false)
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -387,6 +390,7 @@ BEGIN
       IF tt = 'segment_joined' THEN
         IF NOT COALESCE((p_s.trigger_state->>'baseline')::boolean, false) THEN
           -- Première lecture : la base est posée, personne n'entre.
+          IF p_dry THEN TRUNCATE _scn_cand; RETURN 0; END IF;
           INSERT INTO public.crm_scenario_seen (scenario_id, email) SELECT p_s.id, c.email FROM _scn_cand c ON CONFLICT DO NOTHING;
           TRUNCATE _scn_cand;
           UPDATE public.crm_scenarios SET trigger_state = trigger_state || jsonb_build_object('baseline', true, 'day',
@@ -395,10 +399,11 @@ BEGIN
         END IF;
         -- Les nouveaux membres seulement ; ils rejoignent la base.
         DELETE FROM _scn_cand c USING public.crm_scenario_seen sn WHERE sn.scenario_id = p_s.id AND sn.email = c.email;
+        IF p_dry THEN SELECT count(*) INTO v_n FROM _scn_cand; RETURN v_n; END IF;
         INSERT INTO public.crm_scenario_seen (scenario_id, email) SELECT p_s.id, c.email FROM _scn_cand c ON CONFLICT DO NOTHING;
         UPDATE public.crm_scenarios SET trigger_state = trigger_state || jsonb_build_object('day',
                  to_char(now() AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD')) WHERE id = p_s.id;
-      ELSE
+      ELSIF NOT p_dry THEN
         UPDATE public.crm_scenarios SET trigger_state = trigger_state || '{"manual_done": true}'::jsonb WHERE id = p_s.id;
       END IF;
     END IF;
@@ -441,8 +446,10 @@ END;
 $function$;
 
 -- ── 4. Les entrées d'un scénario ────────────────────────────────────────────
+-- p_dry : compter ceux qui entreraient maintenant, sans rien écrire (aperçu).
 CREATE OR REPLACE FUNCTION public._crm_scenario_enter(p_s public.crm_scenarios, p_v public.crm_scenario_versions,
-                                                       p_ticket_mark timestamptz, p_signup_mark timestamptz)
+                                                       p_ticket_mark timestamptz, p_signup_mark timestamptz,
+                                                       p_dry boolean DEFAULT false)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -463,10 +470,11 @@ DECLARE
   v_wait   integer := 0;
   v_lost   integer := 0;
 BEGIN
-  v_cand := public._crm_scenario_candidates(p_s, g, p_v.published_at, p_ticket_mark, p_signup_mark);
+  v_cand := public._crm_scenario_candidates(p_s, g, p_v.published_at, p_ticket_mark, p_signup_mark, p_dry);
   TRUNCATE _scn_cand_all;
   INSERT INTO _scn_cand_all (event_id) SELECT DISTINCT c.event_id FROM _scn_cand c;
   -- Les entrées en attente (48 h) reviennent tant que leur fenêtre est ouverte.
+  IF NOT p_dry THEN
   WITH gone AS (
     DELETE FROM public.crm_scenario_pending pd
      WHERE pd.scenario_id = p_s.id AND pd.window_end <= now()
@@ -482,6 +490,7 @@ BEGIN
   SELECT pd.email, pd.event_id, pd.window_end, pd.trigger_key FROM public.crm_scenario_pending pd
    WHERE pd.scenario_id = p_s.id
   ON CONFLICT DO NOTHING;
+  END IF;
   -- Clé de retour.
   UPDATE _scn_cand c SET tk = CASE v_mode
       WHEN 'per_event' THEN COALESCE(c.event_id::text, 'once')
@@ -492,7 +501,7 @@ BEGIN
   DELETE FROM _scn_cand c USING public.crm_scenario_runs x
    WHERE x.scenario_id = p_s.id AND x.email = c.email AND (x.trigger_key = c.tk OR x.status = 'active');
   IF NOT EXISTS (SELECT 1 FROM _scn_cand) THEN
-    PERFORM public._crm_scenario_mark_done(p_s, g);
+    IF NOT p_dry THEN PERFORM public._crm_scenario_mark_done(p_s, g); END IF;
     RETURN jsonb_build_object('candidates', v_cand, 'entered', 0, 'lost', v_lost);
   END IF;
   PERFORM public._crm_scenario_need_cp(p_s.venue_id, p_s.organizer_user_id);
@@ -520,6 +529,10 @@ BEGIN
     $q$, v_key, v_ev.event_id, p_s.id, v_mode, v_days, v_sql);
   END LOOP;
 
+  IF p_dry THEN
+    RETURN jsonb_build_object('candidates', v_cand, 'entered', (SELECT count(*) FROM _scn_ok),
+                              'holdout_pct', v_hold);
+  END IF;
   -- 48 h avec les autres automatisations du compte (recettes, autres scénarios) :
   -- EN ATTENTE jusqu'à la fin de la fenêtre du déclencheur.
   WITH busy AS (
@@ -1078,6 +1091,20 @@ END;
 $function$;
 
 -- ── 7. Le passage du moteur ─────────────────────────────────────────────────
+-- Les tables de travail des entrées (le passage et l'aperçu).
+CREATE OR REPLACE FUNCTION public._crm_scenario_temp()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  CREATE TEMP TABLE IF NOT EXISTS _scn_cand (email text, event_id uuid, window_end timestamptz, tk text,
+                                             UNIQUE NULLS NOT DISTINCT (email, event_id)) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS _scn_cand_all (event_id uuid) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS _scn_ok (email text, event_id uuid, tk text, window_end timestamptz,
+                                           UNIQUE (email, tk)) ON COMMIT DROP;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.crm_scenario_tick()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1101,11 +1128,7 @@ BEGIN
   IF COALESCE(auth.role(), '') <> 'service_role' AND session_user NOT IN ('postgres', 'supabase_admin') THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
   END IF;
-  CREATE TEMP TABLE IF NOT EXISTS _scn_cand (email text, event_id uuid, window_end timestamptz, tk text,
-                                             UNIQUE NULLS NOT DISTINCT (email, event_id)) ON COMMIT DROP;
-  CREATE TEMP TABLE IF NOT EXISTS _scn_cand_all (event_id uuid) ON COMMIT DROP;
-  CREATE TEMP TABLE IF NOT EXISTS _scn_ok (email text, event_id uuid, tk text, window_end timestamptz,
-                                           UNIQUE (email, tk)) ON COMMIT DROP;
+  PERFORM public._crm_scenario_temp();
   CREATE TEMP TABLE IF NOT EXISTS _scn_due (id uuid PRIMARY KEY) ON COMMIT DROP;
   CREATE TEMP TABLE IF NOT EXISTS _scn_grp (id uuid PRIMARY KEY, email text, event_id uuid, entered_at timestamptz,
                                             node_since timestamptz, holdout boolean, last_message_at timestamptz,
@@ -1287,11 +1310,11 @@ DO $grants$
 DECLARE f text;
 BEGIN
   FOREACH f IN ARRAY ARRAY[
-    '_crm_scenario_event_time(uuid, jsonb)', '_crm_sms_segments_estimate(text)',
+    '_crm_scenario_event_time(uuid, jsonb)', '_crm_sms_segments_estimate(text)', '_crm_scenario_temp()',
     '_crm_scenario_pick_events(text, uuid, text[])', '_crm_scenario_hold_reason(text)',
     '_crm_scenario_need_cp(text, uuid)', '_crm_scenario_mark_done(public.crm_scenarios, jsonb)',
-    '_crm_scenario_candidates(public.crm_scenarios, jsonb, timestamptz, timestamptz, timestamptz)',
-    '_crm_scenario_enter(public.crm_scenarios, public.crm_scenario_versions, timestamptz, timestamptz)',
+    '_crm_scenario_candidates(public.crm_scenarios, jsonb, timestamptz, timestamptz, timestamptz, boolean)',
+    '_crm_scenario_enter(public.crm_scenarios, public.crm_scenario_versions, timestamptz, timestamptz, boolean)',
     '_crm_scenario_message(public.crm_scenarios, public.crm_scenario_versions, text, jsonb, boolean, text)',
     '_crm_scenario_advance(text, text, uuid, timestamptz, boolean, text)', '_crm_scenario_sms_retry(text)',
     'crm_scenario_tick()'
