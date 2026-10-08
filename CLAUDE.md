@@ -1305,8 +1305,42 @@ ci-dessous ; publier = les rôles qui allument une recette. Règles intouchables
   `_shared/console-help-articles.ts` (redéployer `owner-assistant`). Démo :
   `scripts/demo/seed-crm-journeys.sql` (fin de `refresh-crm-demo.sh`), qui
   efface et recrée TOUS les scénarios du compte démo. Banc :
-  `node scripts/crm-bench/scenarios.mjs conditions|crud|engine|editor|feed|mcp|admin|seed`.
-- Mise en ligne, dans cet ordre : migrations `20261016100000` → `170000`,
+  `node scripts/crm-bench/scenarios.mjs conditions|crud|engine|editor|feed|mcp|admin|seed|plan|review|daily`.
+- **Les « agents » (décisions 5 à 8 de Paul, 08/10) : AUCUNE IA chez Yuno.**
+  Ce qui demande de l'IA passe par l'IA DU PRO, branchée par le MCP ; ce qui
+  doit tourner seul est du SQL déterministe. Ils PRÉPARENT, le pro valide :
+  jamais un envoi, une publication ni une activation. Tout chiffre d'un plan
+  ou d'un bilan est CALCULÉ par le serveur, jamais écrit par l'IA ; une IA ne
+  reçoit que des agrégats (couche d'outils MCP, `_mcp_redact`). Pas de
+  fenêtre de discussion : des boutons dans l'écran + le bilan de la semaine.
+  Noms de tâche, sans mascotte : « Plan de soirée », « Créer avec l'IA »,
+  « Bilan de la semaine », « Pistes d'amélioration ».
+  - « Préparer avec mon IA » (`src/crm/lib/askAi.ts`,
+    `components/AskMyAi.tsx`) : ouvre l'IA de la connexion MCP de la PERSONNE
+    sur l'espace (`claude.ai/new?q=`, `chatgpt.com/?q=`, 1 800 caractères),
+    sinon copie la demande, sinon explique comment brancher son IA.
+  - Plan de soirée : `crm_night_plan` (sur `crm_night_targets`, une personne
+    dans UNE audience, coût en Yunits, rythme contre l'édition précédente),
+    page `/crm/nights/:id/plan` (imprimable, `NightPlanReport`), outil
+    `get_night_plan`, invite `plan_night`, audience `target:<soirée>:<clé>`
+    des brouillons ; notification `night_plan_ready` aux comptes en essai.
+  - Bâtisseur : « Créer avec l'IA » / « Modifier avec l'IA », invite
+    `build_scenario` ; le Worker refuse un texte aux formulations interdites
+    (`agentText.ts`, partagé) ; banc sans IA `builderEval.ts`.
+  - Bilan de la semaine : `crm_weekly_review` (lu à l'ouverture), page
+    `/crm/review`, notification `weekly_review` du lundi, outil
+    `get_weekly_review`, invite `weekly_review`. « A marché » = mesuré contre
+    le témoin, jamais une impression.
+  - Pistes d'amélioration (`scenarioSuggest.ts`, règles fixes, verdict miroir
+    de `holdoutVerdict`) : appliquées au BROUILLON par le pro ;
+    `ways_to_improve` dans le rapport MCP.
+  - Yuno : `crm_admin_daily` (audits de prospects prêts, synchros en erreur,
+    essais qui finissent, comptes muets, délivrabilité, prévisions), onglet
+    Admin CRM › Plateforme › « Bilan du jour », alerte `admin_crm_daily` (cron
+    `crm-admin-daily`, 07:20 UTC, une par jour, seulement s'il y a quelque
+    chose), plan d'un prospect lu avant l'appel sous
+    `/admin/crm/platform/plan/<compte>/<soirée>` (lecture seule).
+- Mise en ligne, dans cet ordre : migrations `20261016100000` → `180000`,
   front, Worker (MCP) et fonctions (`send-campaign`, `send-sms-campaign`,
   `owner-assistant`), semis démo, smoke.
 

@@ -252,7 +252,8 @@ d'un bilan est CALCULÉ par le serveur, jamais écrit par l'IA.
 Où ça tourne : SQL (RPC gardées) + Worker MCP existant. Ni fonction edge
 nouvelle (quota atteint), ni Workers / Agents SDK, ni cron de plus que
 nécessaire (le bilan de la semaine se calcule à la lecture, comme le fil de
-notifications ; le bilan plateforme passe par le balayage admin quotidien).
+notifications ; le bilan plateforme a UN cron quotidien, `crm-admin-daily`,
+qui n'émet une alerte que s'il y a quelque chose).
 
 Bouton « Préparer avec mon IA » : ouvre l'IA de la connexion MCP du pro avec
 la demande écrite (`claude.ai/new?q=…`, `chatgpt.com/?q=…` ; les deux
@@ -271,7 +272,10 @@ l'envoient aussitôt, la demande ne fait que préparer des brouillons), sinon
 | J5 | MCP, aide, assistant, Admin CRM, fil de notifications, CLAUDE.md, semis démo | fait (08/10) |
 | A0 | Fondations : « Préparer avec mon IA » (connexion MCP du pro, `?q=`), aucune IA chez Yuno | fait (08/10) |
 | A1 | Plan de soirée : `crm_night_plan`, page imprimable, outil MCP `get_night_plan`, invite `plan_night`, audience `target:` des brouillons, annonce aux comptes en essai | fait (08/10) |
-| A2-A5 | Bâtisseur, bilan de la semaine, pistes d'amélioration, agents Yuno | à faire |
+| A2 | Bâtisseur : « Créer avec l'IA » (liste et éditeur), invite `build_scenario`, refus des formulations interdites, banc d'évaluation déterministe | fait (08/10) |
+| A3 | Bilan de la semaine : `crm_weekly_review`, page `/crm/review`, notification du lundi, outil `get_weekly_review`, invite `weekly_review` | fait (08/10) |
+| A4 | Pistes d'amélioration : `scenarioSuggestions` (sans IA), appliquées au brouillon par le pro, `ways_to_improve` dans le rapport MCP | fait (08/10) |
+| A5 | Agents Yuno : `crm_admin_daily` + alerte `admin_crm_daily`, onglet Plateforme › Bilan du jour, lecture d'un plan de prospect avant l'appel | fait (08/10) |
 
 ## 9. Décisions ouvertes (à soumettre à Paul au fil de l'eau)
 
@@ -460,3 +464,35 @@ Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
 - Constat à remonter : la Console CRM n'a PAS de page « Assistants IA »
   (connexions, journal, coupure) ; un pro CRM ne branche son IA que par le
   guide public `yunoapp.eu/ai`.
+
+**A2 → A5 faits (08/10)** — rien de poussé, appliqué, déployé ni semé.
+- A2 (bâtisseur) : « Créer avec l'IA » sur la liste des automatisations et
+  « Modifier avec l'IA » dans l'éditeur (`CreateWithAi.tsx`), qui ouvrent
+  l'IA du pro avec une demande ; l'IA écrit un BROUILLON par les outils
+  scénarios du MCP. Le Worker refuse avant toute écriture un texte aux
+  formulations interdites (`src/crm/lib/agentText.ts`, partagé). Banc
+  d'évaluation : `src/crm/lib/builderEval.ts` + 30 cas
+  (`fixtures/builder-evals.json`), sans IA ; l'évaluation PAYANTE avec un vrai
+  modèle n'est pas construite (clé et go de Paul).
+- A3 (bilan de la semaine) : migration `20261016175000_crm_weekly_review.sql`
+  (`crm_weekly_review`, STABLE, calcul à la lecture) ; page `/crm/review` ;
+  notification `weekly_review` le lundi 8 h Paris si le compte a vécu
+  (ajoutée à `20261016150000`) ; outil MCP `get_weekly_review` (routé dans
+  `20261016160000`) et invite `weekly_review`. Pas d'e-mail du bilan (la
+  notification suffit tant que Paul ne décide pas d'un e-mail).
+- A4 (pistes) : `src/crm/lib/scenarioSuggest.ts` (règles fixes, verdict miroir
+  exact de `holdoutVerdict`), section « Pistes d'amélioration » de l'éditeur,
+  « Appliquer au brouillon » (jamais publié seul) ; l'objet d'un e-mail peu
+  ouvert se réécrit avec l'IA du pro. `ways_to_improve` dans le rapport MCP.
+  Correction trouvée au banc visuel : l'éditeur ne reprend un brouillon du
+  cache que s'il est STRICTEMENT plus récent que celui qu'il vient
+  d'enregistrer.
+- A5 (Yuno) : migration `20261016180000_crm_admin_daily.sql`
+  (`_crm_admin_daily_core`, `crm_admin_daily` super admin,
+  `crm_admin_daily_notify` service_role, cron `crm-admin-daily` 07:20 UTC,
+  alerte `admin_crm_daily` dédupliquée par jour) ; onglet Plateforme ›
+  « Bilan du jour » ; « Lire le plan » ouvre
+  `/admin/crm/platform/plan/<compte>/<soirée>` (même `crm_night_plan`,
+  `NightPlanReport writable={false}` : aucun geste d'écriture). Banc :
+  `scenarios.mjs daily` ; banc visuel 1440 et 390 px (liste pleine et vide).
+
