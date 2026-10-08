@@ -496,3 +496,32 @@ Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
   `NightPlanReport writable={false}` : aucun geste d'écriture). Banc :
   `scenarios.mjs daily` ; banc visuel 1440 et 390 px (liste pleine et vide).
 
+**Répétition en prod (08/10, go de Paul)** — rien ne reste en base.
+- Avant : les 10 fonctions existantes que la branche réécrit sont identiques
+  en prod à leur dernière définition du dépôt (`same-as-prod.mjs --before
+  20261016100000`) ; dernière migration en prod `20261015100000_legal_crm_terms`
+  (branche `legal/crm-analysis`, non fusionnée), sans objet commun.
+- `rehearse.mjs smoke/journeys.sql` + les 11 migrations + le semis démo :
+  SMOKE_OK en 18,9 s, annulé. En prod (froid) : liste 30 ms, rapport 865 ms,
+  éditeur 55 ms, effectif d'un groupe 6,5 s, « Avant de publier » 670 ms, plan
+  de soirée 1 s, bilan de la semaine 557 ms, notifications 123 ms, passe du
+  moteur 81 ms, bilan quotidien Admin 2,9 s ; deux crons posés.
+- L'effectif d'un groupe (6,5 s) = la construction à froid de la base des
+  personnes (`_crm_people_build` seul : 7,1 s à froid, 0,4 s ensuite, 2 646
+  personnes), la même que Segments et Clients : coût existant de la machine
+  Nano, pas des Scénarios. Risque : sur un gros compte, le premier effectif
+  de l'éditeur peut dépasser les 8 s de l'API (l'écran le montre sans
+  chiffre, rien ne casse).
+- Lint `plpgsql_check` (`smoke/lint-journeys.sql`, annulé) : 52 fonctions,
+  0 erreur, 61 avertissements sans effet (`jsonb_build_object`, classé STABLE,
+  dans des fonctions IMMUTABLE ; variables de boucle doublées ; `'{}'` vers
+  `text[]`). Laissés tels quels.
+- Démo en prod : le témoin de « Fidèles sans place » finit défavorable
+  (contactés 100 / 625 acheteurs, témoin 23 / 76, z = -3,09, mesure non close) :
+  une fois close, l'écran dira « moins d'achats chez les contactés ». À décider
+  avec Paul avant de montrer la démo.
+- Conflit de fusion attendu avec `legal/crm-analysis` : deux lignes d'import
+  dans `src/i18n/locales/crm/modules/index.ts` (garder les deux). `owner-assistant`
+  en prod = `legal/crm-analysis` : ne le redéployer qu'après la fusion des deux
+  branches, sinon l'article « crm-legal » disparaît.
+
