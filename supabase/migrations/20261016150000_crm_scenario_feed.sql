@@ -3,9 +3,12 @@
 -- notifications de la Console (2026-10-16). Plan : docs/designs/CRM_JOURNEYS_PLAN.md.
 --
 -- _crm_notif_list : corps repris de 20261007251000 (= prod, vérifié par
--- scripts/crm-bench/same-as-prod.mjs --before 20261016100000) ; seul ajout,
--- la boucle des compteurs `crm_scenario_notify_daily` (une entrée par jour et
--- par étape, préférence « rapport »).
+-- scripts/crm-bench/same-as-prod.mjs --before 20261016100000) ; deux ajouts :
+--   • la boucle des compteurs `crm_scenario_notify_daily` (une entrée par jour
+--     et par étape, préférence « rapport ») ;
+--   • « Votre plan de soirée est prêt » (agents, lot A1, crm_night_plan) : un
+--     compte EN ESSAI dont le premier import est fait et l'analyse calculée,
+--     pour sa prochaine soirée, une fois (préférence « rapport »).
 -- ============================================================================
 
 SET lock_timeout = '5s';
@@ -196,6 +199,28 @@ BEGIN
       'params', jsonb_build_object('scenario_id', r.scenario_id, 'name', r.name, 'label', COALESCE(r.label, ''), 'n', r.n,
                                    'seen_at', (r.day::timestamp + interval '12 hours') AT TIME ZONE 'Europe/Paris',
                                    'today', r.day = (now() AT TIME ZONE 'Europe/Paris')::date));
+  END LOOP;
+
+  -- Plan de soirée prêt (lot A1) : compte en essai, premier import fait,
+  -- analyse calculée, prochaine soirée à plus de 24 h. Une entrée par soirée.
+  FOR r IN SELECT e.id, e.title, e.start_at, GREATEST(an.computed_at, tc.done_at) AS at
+             FROM public.crm_subscriptions cs
+             JOIN public.crm_analysis_state an ON an.scope_key = v_scope AND an.computed_at IS NOT NULL
+             CROSS JOIN LATERAL (SELECT max(c.initial_import_done_at) AS done_at FROM public.ticketing_connections c
+                                  WHERE c.venue_id IS NOT DISTINCT FROM p_venue_id
+                                    AND (p_venue_id IS NOT NULL OR c.organizer_user_id = p_organizer_user_id)) tc
+             CROSS JOIN LATERAL (SELECT ev.id, ev.title, ev.start_at FROM public.events ev
+                                  WHERE ev.external_source IS NOT NULL AND ev.cancelled_at IS NULL
+                                    AND ev.start_at > now() + interval '24 hours'
+                                    AND ((p_venue_id IS NOT NULL AND ev.venue_id = p_venue_id)
+                                      OR (p_venue_id IS NULL AND ev.organizer_user_id = p_organizer_user_id))
+                                  ORDER BY ev.start_at LIMIT 1) e
+            WHERE cs.scope_key = v_scope AND cs.status = 'trialing' AND COALESCE(cs.trial_ends_at, now() + interval '1 day') > now()
+              AND tc.done_at IS NOT NULL LOOP
+    v_items := v_items || jsonb_build_object('id', 'night_plan_ready:' || r.id,
+      'kind', 'night_plan_ready', 'cat', 'donnees', 'tone', 'todo', 'need', false, 'lock', false, 'pref', 'rapport',
+      'at', LEAST(now(), r.at), 'due_at', r.start_at,
+      'params', jsonb_build_object('event_id', r.id, 'title', r.title, 'start_at', r.start_at));
   END LOOP;
 
   -- ── Préférences et état de la personne ────────────────────────────────────

@@ -592,6 +592,21 @@ if (cmd === 'conditions') {
   await db.query(`SELECT crm_notifications_mark(NULL, $1, ARRAY[$2], 'read')`, [org, today.id]);
   const again = (await one(`SELECT get_crm_notifications(NULL, $1) AS r`, [org])).r.find((x) => x.id === today.id);
   check('fil : marquée lue', again?.read === true, again?.read);
+  // Plan de soirée prêt (lot A1) : seulement un compte EN ESSAI, premier import fait, analyse calculée.
+  const planItem = async () => (await one(`SELECT get_crm_notifications(NULL, $1) AS r`, [org])).r.filter((x) => x.kind === 'night_plan_ready');
+  check('fil : pas de plan annoncé hors essai', (await planItem()).length === 0);
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`INSERT INTO crm_subscriptions (scope_key, organizer_user_id, plan, status, trial_ends_at)
+                  VALUES ($1, $2, 'pro', 'trialing', now() + interval '10 days')
+                  ON CONFLICT (scope_key) DO UPDATE SET status = 'trialing', trial_ends_at = now() + interval '10 days'`, [`org:${org}`, org]);
+  await db.query(`UPDATE ticketing_connections SET initial_import_done_at = COALESCE(initial_import_done_at, now() - interval '2 days') WHERE organizer_user_id = $1`, [org]);
+  await db.query(`UPDATE crm_analysis_state SET computed_at = COALESCE(computed_at, now() - interval '1 day') WHERE scope_key = $1`, [`org:${org}`]);
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [owner]);
+  const pi = await planItem();
+  const nextNight = (await one(`SELECT id FROM events WHERE organizer_user_id = $1 AND external_source IS NOT NULL AND cancelled_at IS NULL
+                                 AND start_at > now() + interval '24 hours' ORDER BY start_at LIMIT 1`, [org])).id;
+  check('fil : « plan de soirée prêt » pour la prochaine soirée d\'un compte en essai', pi.length === 1 && pi[0].params.event_id === nextNight
+    && pi[0].id === `night_plan_ready:${nextNight}`, pi.map((x) => x.id));
 } else if (cmd === 'mcp') {
   // Lot J5 : le connecteur IA. Lecture pour toute connexion d'un espace CRM ;
   // brouillons derrière can_scenarios ; jamais de publication.
