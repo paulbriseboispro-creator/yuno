@@ -109,6 +109,12 @@ beforeEach(() => {
         ] } };
       }
       if (a.p_tool === 'get_scenario_kit') return { ok: true, call_id: 4, space: SPACE, result: { ok: true, email_templates: [{ id: U, name: 'Annonce' }], confirmed_families: ['series'] } };
+      if (a.p_tool === 'get_scenario_report' && (a.p_args as Record<string, unknown>).scenario === 'fidèles') {
+        return { ok: true, call_id: 5, space: SPACE, result: { ok: true, url: 'https://crm.yunoapp.eu/crm/automations/scenarios/s1',
+          scenario: { id: 's1', name: 'Fidèles', live: GRAPH, draft: GRAPH, errors: [], warnings: [] },
+          report: { nodes: { e1: { entered: 400, sent: 360, opened: 20, reasons: {} } },
+            holdout: { done: true, contacted: { n: 360, buyers: 20 }, control: { n: 40, buyers: 6 }, extra: -34, z: -2.5 } } } };
+      }
       if (a.p_tool === 'get_scenario_report') return { ok: false, call_id: 5, space: SPACE, result: { ok: false, error: 'scenario_not_found' } };
       if (a.p_tool === 'get_weekly_review') return { ok: true, call_id: 8, space: SPACE, result: { ok: true, activity: { emails: 980 }, measured: [], drift: [], actions: [{ kind: 'plan' }], console_url: 'https://crm.yunoapp.eu/crm/review' } };
       if (a.p_tool === 'get_night_plan') {
@@ -190,6 +196,11 @@ describe('scenario tools over MCP', () => {
     const out = JSON.parse((await callTool('get_weekly_review', {})).text);
     expect(out.activity.emails).toBe(980);
     expect(out.notes).toMatch(/kept aside/);
+  });
+
+  it('adds Yuno’s ways to improve once the comparison has a verdict', async () => {
+    const out = JSON.parse((await callTool('get_scenario_report', { scenario: 'fidèles' })).text);
+    expect(out.ways_to_improve.map((x: { kind: string }) => x.kind)).toEqual(['subject', 'narrow']);
   });
 
   it('says plainly when a scenario is not found', async () => {

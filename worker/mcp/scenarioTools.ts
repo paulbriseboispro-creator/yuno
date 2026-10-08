@@ -14,6 +14,7 @@ import {
 import { CHANCE_LABELS, CHANNEL_CODES, COND_LEAVES, COND_MAX_DEPTH, COND_MAX_LEAVES, TARGET_AUDIENCES } from '../../src/crm/lib/scenarioConditions';
 import { SCENARIO_TEMPLATES, TEMPLATE_EMAILS, TEMPLATE_SMS, buildScenarioTemplate } from '../../src/crm/lib/scenarioTemplates';
 import { forbiddenWording, scenarioTexts } from '../../src/crm/lib/agentText';
+import { scenarioSuggestions, type SuggestReport } from '../../src/crm/lib/scenarioSuggest';
 
 interface CallEnvelope {
   ok: boolean;
@@ -247,6 +248,10 @@ export function formatScenarioRead(tool: string, space: CallEnvelope['space'], i
     space,
     scenario: { ...sc, errors: issues(sc.errors), warnings: issues(sc.warnings) },
     report: rep ? { ...rep, holdout_verdict: holdoutVerdict(rep.holdout as Record<string, unknown>) } : null,
+    // Pistes d'amélioration (lot A4) : calculées par Yuno sur la version en ligne, seulement avec un verdict du témoin.
+    ways_to_improve: rep && sc.live && typeof sc.live === 'object' && rep.nodes && rep.holdout
+      ? scenarioSuggestions(sc.live as ScenarioGraph, rep as unknown as SuggestReport).suggestions
+      : null,
     console_url: inner.url,
     notes: rep
       ? 'nodes: per step id — entered, passed, sent (would_send on a demo account), holdout, opened / clicked (emails), held and expired with their reasons. attributed: purchases after a click on the scenario\'s emails in the 7 days before (last click wins); revenue is absent when the role does not show money.'

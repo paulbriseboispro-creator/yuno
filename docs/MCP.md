@@ -396,6 +396,14 @@ qui prépare. Migration `20261016155000_crm_night_plan.sql`.
   (`/crm/nights/<id>/plan`), pour les pros sans IA branchée.
 - Banc : `node scripts/crm-bench/scenarios.mjs plan`.
 
+### 10 quater. Pistes d'amélioration (agents, lot A4)
+
+`get_scenario_report` porte `ways_to_improve` : les pistes de
+`src/crm/lib/scenarioSuggest.ts` (partagé avec l'éditeur), calculées sur la
+version en ligne, sans IA, seulement quand le témoin a un verdict. L'IA les
+présente et ne change le brouillon (`update_scenario_draft`) qu'avec l'accord
+du pro (consigne SCENARIOS, point 6).
+
 ### 10 ter. Le bilan de la semaine (agents, lot A3)
 
 `get_weekly_review` (lecture, toute connexion d'un espace Yuno CRM) rend
