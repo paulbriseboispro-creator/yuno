@@ -145,6 +145,11 @@ export interface NightTargetAudience {
   send_at: string;
   /** Acheteurs attendus (somme des chances), seulement avec un score validé. */
   expected?: number | null;
+  /** Ordre d'envoi conseillé (1 = d'abord) et ceux absents des audiences d'avant (20261014130000). */
+  order?: number;
+  new_n?: number;
+  /** Le plus gros recouvrement avec une autre audience (10 en commun et 25 % au moins). */
+  overlap?: { key: TargetAudience; n: number; pct: number } | null;
   params?: { series?: string | null; editions?: number; artists?: { name: string; n: number }[]; genres?: string[] };
 }
 

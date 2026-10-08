@@ -79,12 +79,18 @@ function Body({ d, T }: { d: Targets; T: T }) {
                   {(d.has_ticket ?? 0) > 0 && <span style={{ color: 'var(--sand-600)' }}>{t('yc.tgt.hasTicket', { n: n(d.has_ticket ?? 0) })}</span>}
                 </div>
               )}
+              {auds.length > 1 && auds.some((a) => a.order) && <Note text={t('yc.tgt.orderHint')} />}
               {auds.map((a) => <AudienceCard key={a.key} a={a} d={d} T={T} />)}
             </>
           )}
       {d.event?.id && <HoldoutResults eventId={d.event.id} />}
     </>
   );
+}
+
+/** « 1er envoi », « 2e envoi »… (ordre conseillé, décision de Paul du 08/10). */
+function orderLabel(k: number, T: T): string {
+  return k <= 3 ? T.t(`yc.tgt.order.${k}`) : T.t('yc.tgt.order.n', { n: T.n(k) });
 }
 
 function ruleText(a: NightTargetAudience, T: T): string {
@@ -128,12 +134,21 @@ function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T })
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 18, borderRadius: 20, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          {a.order !== undefined && <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--sand-500)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{orderLabel(a.order, T)}</span>}
           <span style={{ fontSize: 16, fontWeight: 600 }}>{name}</span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>
             {tp('yc.tgt.people', a.n, { n: n(a.n) })}
+            {(a.order ?? 1) > 1 && a.new_n !== undefined && a.new_n < a.n && (
+              <span style={{ fontFamily: 'var(--font-body, inherit)', fontSize: 14, fontWeight: 500, letterSpacing: 0, color: 'var(--sand-600)' }}> {tp('yc.tgt.newOf', a.new_n, { n: n(a.new_n) })}</span>
+            )}
           </span>
           {a.expected !== null && a.expected !== undefined && (
             <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--red-700)', fontVariantNumeric: 'tabular-nums' }}>{t('yc.sc.exp', { n: n(a.expected) })}</span>
+          )}
+          {a.overlap && (
+            <span style={{ fontSize: 13.5, color: 'var(--sand-600)', fontVariantNumeric: 'tabular-nums' }}>
+              {t('yc.tgt.overlap', { p: n(a.overlap.pct), a: t(`yc.tgt.aud.${a.overlap.key}.name`) })}
+            </span>
           )}
         </div>
         {fam
