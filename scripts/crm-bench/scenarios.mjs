@@ -9,6 +9,7 @@
 //                                          versions, rôles, accès assisté, recette
 //   node scenarios.mjs engine [base]       lot J3 : le moteur de bout en bout
 //   node scenarios.mjs editor [base]       lot J4 : effectifs en direct, aperçu
+//   node scenarios.mjs seed [base]         lot J5 : le semis démo, rejoué deux fois
 //
 // La base (défaut : demo-computed, déjà analysée) reçoit les migrations des
 // Scénarios (20261016100000 et suivantes) avant les essais : c'est la même
@@ -697,6 +698,102 @@ if (cmd === 'conditions') {
   await db.query(`DELETE FROM email_campaign_templates WHERE id = $1`, [tpl]);
   r = (await one(`SELECT crm_admin_scenarios(false) AS r`)).r;
   check('admin : modèle supprimé → scénario en ligne signalé', r.accounts[0]?.broken === 1 && r.totals.broken === 1, r.accounts[0]?.broken);
+} else if (cmd === 'seed') {
+  // Lot J5 : le semis démo (scripts/demo/seed-crm-journeys.sql) joué sur le banc,
+  // deux fois (rejouable), puis lu par les écrans (liste, rapport, admin).
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  // Le banc devient « le compte démo » : courriel, connexion démo, porte démo, recettes et leurs modèles.
+  await db.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'crm@womber.fr') ON CONFLICT (id) DO UPDATE SET email = 'crm@womber.fr'`, [org]);
+  await db.query(`UPDATE ticketing_connections SET external_org_id = 'demo-crm' WHERE organizer_user_id = $1`, [org]);
+  await db.exec(`CREATE OR REPLACE FUNCTION public.is_demo_marketing_scope(p_venue_id text, p_organizer_user_id uuid) RETURNS boolean
+                 LANGUAGE sql STABLE AS $$ SELECT p_organizer_user_id = '${org}'::uuid $$;`);
+  await db.query(`UPDATE organizer_profiles SET legal_name = 'Banc SAS', siret = '12345678900011' WHERE user_id = $1`, [org]);
+  // La porte « la soirée a été scannée » (guest list, 08/10) n'est pas dans la base du banc : on la prend dans sa migration.
+  if (!(await one(`SELECT to_regprocedure('public._crm_event_scan_known(uuid)') IS NOT NULL AS ok`)).ok) {
+    const src = readFileSync(join(MIG, '20261008100000_crm_guest_list.sql'), 'utf8');
+    const at = src.indexOf('CREATE OR REPLACE FUNCTION public._crm_event_scan_known');
+    await db.exec(src.slice(at, src.indexOf('$$;', src.indexOf('AS $$', at)) + 3));
+  }
+  for (const kind of ['new_event', 'last_call', 'win_back', 'post_event_thanks']) {
+    const tpl = (await one(`INSERT INTO email_campaign_templates (organizer_user_id, name, subject, blocks_json, theme_json)
+                            VALUES ($1, $2, 'Banc', '[]', '{"seed":"crm-automations"}') RETURNING id`, [org, `Recette ${kind}`])).id;
+    await db.query(`INSERT INTO email_automations (organizer_user_id, kind, enabled, template_id) VALUES ($1, $2, true, $3)
+                    ON CONFLICT (organizer_user_id, kind) WHERE organizer_user_id IS NOT NULL DO UPDATE SET template_id = EXCLUDED.template_id`, [org, kind, tpl]);
+  }
+  // Le calendrier de la démo : seed-crm-demo.sql ancre la dernière soirée passée à J-4 (23 h) au jour du
+  // semis. Le banc, généré une fois, vieillit : on le décale pour que sa dernière soirée scannée tombe là.
+  const d = (await one(`SELECT ((date_trunc('day', now()) - interval '4 days' + interval '21 hours') - max(x.start_at))::text AS d
+                          FROM external_events x WHERE x.start_at < now()
+                           AND EXISTS (SELECT 1 FROM external_tickets t WHERE t.external_event_id = x.external_id AND t.scanned_at IS NOT NULL)`)).d;
+  await db.query(`UPDATE external_events SET start_at = start_at + $1::interval, end_at = end_at + $1::interval`, [d]);
+  await db.query(`UPDATE events SET start_at = start_at + $1::interval, end_at = end_at + $1::interval WHERE external_source IS NOT NULL`, [d]);
+  await db.query(`UPDATE external_tickets SET purchased_at = purchased_at + $1::interval, scanned_at = scanned_at + $1::interval,
+                                              first_seen_at = first_seen_at + $1::interval`, [d]);
+  console.log(`calendrier du banc décalé de ${d}`);
+  const play = async () => {
+    const t0 = Date.now();
+    await execFile(db, join(ROOT, 'scripts/demo/seed-crm-journeys.sql'), 'seed-crm-journeys.sql');
+    return Date.now() - t0;
+  };
+  const ms1 = await play();
+  const count = async () => one(`SELECT (SELECT count(*) FROM crm_scenarios WHERE scope_key = $1)::int AS scn,
+                                        (SELECT count(*) FROM crm_scenario_runs WHERE scope_key = $1)::int AS runs,
+                                        (SELECT count(*) FROM crm_scenario_steps st JOIN crm_scenarios s ON s.id = st.scenario_id WHERE s.scope_key = $1)::int AS steps,
+                                        (SELECT count(*) FROM email_campaign_templates WHERE organizer_user_id = $2 AND theme_json->>'seed' = 'crm-journeys')::int AS tpl`,
+                                 [`org:${org}`, org]);
+  const c1 = await count();
+  const ms2 = await play();
+  const c2 = await count();
+  console.log(`semis : ${ms1} ms, rejoué : ${ms2} ms`, JSON.stringify(c2));
+  check('rejouable : mêmes lignes au deuxième passage', c1.scn === c2.scn && c1.tpl === c2.tpl && c1.tpl === 4 && Math.abs(c1.runs - c2.runs) <= c1.runs * 0.2, { c1, c2 });
+  const st = await q(`SELECT name, status, version_no, live_version_id IS NOT NULL AS live FROM crm_scenarios WHERE scope_key = $1 ORDER BY name`, [`org:${org}`]);
+  check('quatre scénarios : 2 en ligne, 1 en pause, 1 brouillon', st.filter((x) => x.status === 'active').length === 2
+    && st.filter((x) => x.status === 'paused').length === 1 && st.filter((x) => x.status === 'draft' && !x.live).length === 1, st.map((x) => `${x.name}: ${x.status}`));
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: org, role: 'authenticated' })]);
+  const list = (await one(`SELECT crm_scenarios(NULL, $1) AS r`, [org])).r.scenarios;
+  const by = Object.fromEntries(list.map((x) => [x.template, x]));
+  console.log(list.map((x) => `  ${x.name} · ${x.state} · entrés ${x.entered} · en route ${x.active} · objectif ${x.goal}`).join('\n'));
+  check('« Fidèles sans place » : des entrées, des personnes en route, des objectifs atteints', by.loyal_no_ticket?.entered > 0 && by.loyal_no_ticket.goal > 0, by.loyal_no_ticket);
+  const rep = async (id) => (await one(`SELECT crm_scenario_report(NULL, $1, $2) AS r`, [org, id])).r;
+  const rl = await rep(by.loyal_no_ticket.id);
+  check('rapport des fidèles : l\'annonce « aurait été envoyée » (démo), le témoin compté',
+    rl.nodes.e1?.would_send > 0 && rl.nodes.e1.holdout > 0 && rl.nodes.e1.sent === 0, rl.nodes.e1);
+  const ra = await rep(by.absent_buyers.id);
+  check('absents : le SMS est retenu faute de Yunits', ra.nodes.s1?.held > 0 && (ra.nodes.s1.reasons['held:yunits'] ?? 0) > 0, ra.nodes.s1);
+  const rw = await rep(by.winback_2.id);
+  check('reconquête : en pause, rien d\'écrit après la pause', rw.state === 'paused', { state: rw.state, e1: rw.nodes.e1 });
+  const late = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps st JOIN crm_scenarios s ON s.id = st.scenario_id
+                            WHERE s.template = 'winback_2' AND s.scope_key = $1 AND st.created_at > s.paused_at`, [`org:${org}`])).n;
+  check('reconquête : aucune étape datée après la pause', late === 0, late);
+  // Cohérence avec le moteur : une personne déjà sortie par l'objectif n'a plus d'étape après son achat.
+  const after = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps st JOIN crm_scenario_runs r ON r.id = st.run_id
+                             WHERE r.scope_key = $1 AND r.goal_at IS NOT NULL AND st.created_at >= r.goal_at`, [`org:${org}`])).n;
+  check('aucune étape après l\'objectif atteint', after === 0, after);
+  const fut = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps st JOIN crm_scenarios s ON s.id = st.scenario_id
+                           WHERE s.scope_key = $1 AND st.created_at > now()`, [`org:${org}`])).n;
+  check('aucune étape dans le futur', fut === 0, fut);
+  const v = (await one(`SELECT crm_scenario(NULL, $1, $2) AS r`, [org, by.loyal_no_ticket.id])).r;
+  check('version en ligne valide (aucune erreur de contenu)', (v.errors ?? []).length === 0, v.errors);
+  // Le vrai moteur passe par-dessus le semis (compte démo : rien ne part) : il ne doit ni tomber, ni
+  // relâcher les SMS retenus avant la fin de leur fenêtre, ni faire entrer deux fois la même personne.
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  const heldBefore = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'held' AND reason = 'yunits'`)).n;
+  await db.exec('BEGIN');
+  let tick;
+  try { tick = (await one(`SELECT crm_scenario_tick() AS r`)).r; await db.exec('COMMIT'); } catch (e) { await db.exec('ROLLBACK'); throw e; }
+  const adv = tick.scopes?.find((x) => x.scope === `org:${org}` || x.scope_key === `org:${org}`) ?? tick.scopes?.[0];
+  console.log('passage du moteur :', JSON.stringify(adv ?? tick).slice(0, 300));
+  const heldAfter = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'held' AND reason = 'yunits'`)).n;
+  check('moteur : les SMS retenus le restent jusqu\'à la fin de leur fenêtre', heldAfter === heldBefore && heldBefore > 0, { heldBefore, heldAfter });
+  const dup = (await one(`SELECT count(*)::int AS n FROM (SELECT scenario_id, email FROM crm_scenario_runs WHERE status = 'active'
+                           GROUP BY 1, 2 HAVING count(*) > 1) x`)).n;
+  check('moteur : personne en route deux fois dans un même scénario', dup === 0, dup);
+  const sent = (await one(`SELECT count(*)::int AS n FROM crm_scenario_steps WHERE status = 'sent'`)).n;
+  check('moteur : compte démo, aucun message réellement parti', sent === 0, sent);
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);

@@ -94,7 +94,13 @@ tâches). Ordre : `seed-crm-demo` (billets) → `seed-crm-sms` → `seed-crm-mes
 `seed-crm-nights` → `seed-crm-links` → automatisations (`.ts` puis `.sql`) → contenu des
 e-mails (`.ts`) → `seed-crm-extras` (réglages, pages d'inscription, imports, segments
 et leur historique de taille, grand livre des Yunits, équipe, Instagram en brouillon,
-NPS, notifications lues, statistiques de la base).
+NPS, notifications lues, statistiques de la base) → `seed-crm-journeys` (Scénarios :
+« Fidèles sans place » et « Acheteurs absents » en ligne avec leurs chiffres rejoués
+sur les vraies soirées de la démo, le SMS des derniers absents retenu faute de Yunits,
+« Reconquête en 2 temps » en pause, « Invités en guest list → payants » en brouillon ;
+il efface et recrée TOUS les scénarios du compte démo, et ses e-mails sont des copies
+de ceux des recettes). Après mise en ligne, le moteur fait avancer ces scénarios
+comme pour un vrai compte, sans jamais rien envoyer (« aurait été envoyé »).
 
 - L'API de requêtes coupe à ~100 s (erreur 524 côté client, le serveur va au bout) :
   le script attend la fin de la passe automatisations, réessaie une passe en cas

@@ -49,9 +49,10 @@ npx esbuild scripts/demo/seed-crm-email-content.ts --bundle --platform=node --fo
 node scripts/demo/.content.mjs; rm -f scripts/demo/.content.mjs
 
 q seed-crm-extras.sql      # Yunits, inscriptions, équipe, imports, notifications, Instagram…
+q seed-crm-journeys.sql    # scénarios : 2 en ligne (dont un SMS retenu faute de Yunits), 1 en pause, 1 brouillon
 # Statistiques fraîches : après des milliers de lignes réécrites, la base garde de
 # vieux plans et les analyses mettent 20 s au lieu de 4 tant qu'elle n'a pas relu les tables.
-for t in external_tickets external_events crm_person_profile crm_night_profile tracked_links email_campaign_recipients email_campaign_events imported_contacts newsletter_subscriptions crm_signup_entries; do
+for t in external_tickets external_events crm_person_profile crm_night_profile tracked_links email_campaign_recipients email_campaign_events imported_contacts newsletter_subscriptions crm_signup_entries crm_scenario_runs crm_scenario_steps; do
   echo "analyze public.$t" > "${TMPDIR:-/tmp}/analyze.sql"
   supabase db query --linked -f "${TMPDIR:-/tmp}/analyze.sql" >/dev/null 2>&1 || true
 done
