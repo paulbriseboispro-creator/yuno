@@ -398,7 +398,9 @@ BEGIN
                'published_at', s.published_at, 'updated_at', s.updated_at,
                'entered', COALESCE(r.entered, 0), 'active', COALESCE(r.active, 0),
                'goal', COALESCE(r.goal, 0), 'holdout', COALESCE(r.holdout, 0),
-               'goal_holdout', COALESCE(r.goal_holdout, 0))
+               'goal_holdout', COALESCE(r.goal_holdout, 0),
+               -- Le témoin, même règle que crm_scenario_report (mesure close).
+               'measure', public._crm_scenario_holdout(s.id))
              ORDER BY (s.status = 'archived'), s.updated_at DESC)
         FROM public.crm_scenarios s
         LEFT JOIN public.crm_scenario_versions v ON v.id = s.live_version_id
@@ -642,6 +644,41 @@ END;
 $function$;
 
 -- ── 6. Les chiffres d'un scénario ───────────────────────────────────────────
+-- Témoin : intention de contacter contre témoin, sur les inscriptions dont la
+-- mesure est close (sorties, finies, ou entrées il y a plus de 30 jours). Même
+-- formule que crm_holdout_overview : ≈ N acheteurs en plus et z seulement à
+-- partir de 10 personnes par groupe ; le verdict (|z| ≥ 2) est rendu par
+-- l'écran (holdoutVerdict).
+CREATE OR REPLACE FUNCTION public._crm_scenario_holdout(p_scenario uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH r AS (
+    SELECT x.holdout, x.goal_at IS NOT NULL AS goal,
+           (x.status <> 'active' OR x.entered_at < now() - interval '30 days') AS settled
+      FROM public.crm_scenario_runs x WHERE x.scenario_id = p_scenario
+  ), g AS (
+    SELECT count(*) FILTER (WHERE NOT holdout AND settled) AS n_c, count(*) FILTER (WHERE NOT holdout AND settled AND goal) AS b_c,
+           count(*) FILTER (WHERE holdout AND settled) AS n_h, count(*) FILTER (WHERE holdout AND settled AND goal) AS b_h,
+           bool_and(settled) AS done
+      FROM r
+  )
+  SELECT jsonb_build_object(
+           'done', COALESCE(g.done, false),
+           'contacted', jsonb_build_object('n', g.n_c, 'buyers', g.b_c),
+           'control', jsonb_build_object('n', g.n_h, 'buyers', g.b_h),
+           'extra', CASE WHEN g.n_c >= 10 AND g.n_h >= 10
+                         THEN round(g.n_c * (g.b_c::numeric / g.n_c - g.b_h::numeric / g.n_h), 1) END,
+           'z', CASE WHEN g.n_c >= 10 AND g.n_h >= 10 AND (g.b_c + g.b_h) > 0 AND (g.b_c + g.b_h) < (g.n_c + g.n_h) THEN round((
+                  (g.b_c::numeric / g.n_c - g.b_h::numeric / g.n_h)
+                  / sqrt(((g.b_c + g.b_h)::numeric / (g.n_c + g.n_h)) * (1 - (g.b_c + g.b_h)::numeric / (g.n_c + g.n_h))
+                         * (1.0 / g.n_c + 1.0 / g.n_h)))::numeric, 2) END)
+    FROM g;
+$function$;
+
+-- Le rapport :
 -- Par nœud : entrés, passés, envoyés (« aurait envoyé » pour la démo),
 -- ouverts, cliqués, objectif atteint après le nœud, reportés et expirés par
 -- raison. Par scénario : témoin (même règle que crm_holdout_overview : ≈ N
@@ -711,29 +748,7 @@ BEGIN
     INTO v_nodes
     FROM agg a LEFT JOIN ev e ON e.node_id = a.node_id LEFT JOIN rsn z ON z.node_id = a.node_id;
 
-  -- Témoin : intention de contacter contre témoin, sur les inscriptions dont
-  -- la mesure est close (sorties, finies, ou entrées il y a plus de 30 jours).
-  WITH r AS (
-    SELECT x.holdout, x.goal_at IS NOT NULL AS goal,
-           (x.status <> 'active' OR x.entered_at < now() - interval '30 days') AS settled
-      FROM public.crm_scenario_runs x WHERE x.scenario_id = s.id
-  ), g AS (
-    SELECT count(*) FILTER (WHERE NOT holdout AND settled) AS n_c, count(*) FILTER (WHERE NOT holdout AND settled AND goal) AS b_c,
-           count(*) FILTER (WHERE holdout AND settled) AS n_h, count(*) FILTER (WHERE holdout AND settled AND goal) AS b_h,
-           bool_and(settled) AS done
-      FROM r
-  )
-  SELECT jsonb_build_object(
-           'done', COALESCE(g.done, false),
-           'contacted', jsonb_build_object('n', g.n_c, 'buyers', g.b_c),
-           'control', jsonb_build_object('n', g.n_h, 'buyers', g.b_h),
-           'extra', CASE WHEN g.n_c >= 10 AND g.n_h >= 10
-                         THEN round(g.n_c * (g.b_c::numeric / g.n_c - g.b_h::numeric / g.n_h), 1) END,
-           'z', CASE WHEN g.n_c >= 10 AND g.n_h >= 10 AND (g.b_c + g.b_h) > 0 AND (g.b_c + g.b_h) < (g.n_c + g.n_h) THEN round((
-                  (g.b_c::numeric / g.n_c - g.b_h::numeric / g.n_h)
-                  / sqrt(((g.b_c + g.b_h)::numeric / (g.n_c + g.n_h)) * (1 - (g.b_c + g.b_h)::numeric / (g.n_c + g.n_h))
-                         * (1.0 / g.n_c + 1.0 / g.n_h)))::numeric, 2) END)
-    INTO v_hold FROM g;
+  v_hold := public._crm_scenario_holdout(s.id);
 
   -- CA attribué : la règle d'attribution existante, sur les campagnes du scénario.
   PERFORM public._crm_email_attrib(p_venue_id, p_organizer_user_id);
@@ -762,7 +777,7 @@ DECLARE f text;
 BEGIN
   FOREACH f IN ARRAY ARRAY[
     '_crm_scenario_uses_event(jsonb)', '_crm_cond_segment_ids(jsonb)', '_crm_cond_leaf_values(jsonb, text)',
-    '_crm_scenario_content(text, uuid, jsonb)', '_crm_scenario_state(text, text)',
+    '_crm_scenario_content(text, uuid, jsonb)', '_crm_scenario_state(text, text)', '_crm_scenario_holdout(uuid)',
     'guard_crm_scenario_version_immutable()'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon, authenticated', f);
