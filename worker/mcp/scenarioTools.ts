@@ -221,6 +221,16 @@ export function formatScenarioRead(tool: string, space: CallEnvelope['space'], i
         + 'planned: manual emails and SMS already linked to this night. Nothing is sent from this plan.',
     }, 90_000);
   }
+  if (tool === 'get_weekly_review') {
+    return compactResult({
+      space, ...inner,
+      notes: 'from / to: the week that ended (Paris time). measured: sends whose night took place that week, contacted vs people kept aside; verdict gain '
+        + '(extra buyers, z ≥ 2), loss (fewer purchases among people contacted, z ≤ -2) or none (no clear difference). scenarios: live or paused scenarios '
+        + 'with a clear verdict. drift kinds: pace (next night vs previous edition at the same moment), deliverability (bounces > 3 % or complaints > 0.1 %), '
+        + 'protected (more than 15 % held back by the sending rules), journal (forecast off by more than 15 %). actions kinds: targets and plan (a night), '
+        + 'scenario (review it), base (clean the base), automate (no automation running). No amount, no person.',
+    }, 60_000);
+  }
   if (tool === 'list_scenarios') {
     const rows = Array.isArray(inner.scenarios) ? inner.scenarios as Record<string, unknown>[] : [];
     return compactResult({

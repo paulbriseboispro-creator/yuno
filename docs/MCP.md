@@ -128,7 +128,7 @@ de le recommander.
 
 ## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9 ; scénarios : voir § 10)
 
-39 outils : 32 en lecture, 7 en écriture (`create_email_draft`, `update_email_draft`,
+40 outils : 33 en lecture, 7 en écriture (`create_email_draft`, `update_email_draft`,
 `add_email_image`, `create_signup_page`, `update_signup_page`,
 `create_scenario_draft`, `update_scenario_draft`).
 
@@ -164,12 +164,13 @@ de le recommander.
 | `create_signup_page` · `update_signup_page` | **écriture** : une page d'inscription en brouillon, ou une proposition sur une page en ligne (§ 9) | `mcp_write` → `_mcp_signup_write` |
 | `list_scenarios` · `get_scenario_report` | scénarios d'un espace Yuno CRM : état, entrés, objectif, témoin ; un scénario en détail (graphe, contrôles, résultats par étape) | `_mcp_scenario_tool` (`crm_scenarios`, `crm_scenario`, `crm_scenario_report`) |
 | `get_night_plan` | plan d'envois daté d'une soirée à venir (Yuno CRM), calculé par Yuno : étapes (maintenant, la semaine d'avant, la veille), audiences « Qui cibler » où chaque personne compte une fois, joignables, canal et coût en Yunits, solde, rythme contre l'édition précédente, envois déjà prévus, familles confirmées ; un `audience_id` par audience pour `create_email_draft` | `_mcp_scenario_tool` → `crm_night_plan` |
+| `get_weekly_review` | bilan de la semaine écoulée (Yuno CRM), calculé par Yuno : activité, ce qui a marché mesuré contre les non-contactés, dérives, 1 à 3 actions | `_mcp_scenario_tool` → `crm_weekly_review` |
 | `get_scenario_kit` | format du graphe, déclencheurs, étapes, conditions (famille, format), limites, 7 exemples + modèles d'e-mail, segments, pages, soirées, familles confirmées du compte | `_mcp_scenario_tool` + Worker (`scenarioTools.ts`, depuis le validateur de l'éditeur) |
 | `create_scenario_draft` · `update_scenario_draft` | **écriture** : un BROUILLON de scénario (§ 10) | `mcp_write` → `_mcp_scenario_write` |
 
 Le cerveau d'analyste vit dans `worker/mcp/guide.ts` : consignes du serveur
 (méthode, règles, définitions de `metrics.ts`, playbook de la nuit, catalogue
-des actions Yuno), glossaire, 12 prompts localisés (dont `plan_night`, « Plan de soirée »). `enrich.ts` traduit les
+des actions Yuno), glossaire, 14 prompts localisés (dont `plan_night`, `build_scenario`, `weekly_review`). `enrich.ts` traduit les
 constats calculés par la base (`mix_shift`, `channel_gap`…) en phrases avec
 leurs chiffres ; `compact.ts` retire images, vides et bruit (−15 à −50 % de
 caractères mesurés sur la démo selon l'outil). `search_yuno_help` traduit les
@@ -394,6 +395,16 @@ qui prépare. Migration `20261016155000_crm_night_plan.sql`.
   d'`INSTRUCTIONS`. La même page existe dans la Console
   (`/crm/nights/<id>/plan`), pour les pros sans IA branchée.
 - Banc : `node scripts/crm-bench/scenarios.mjs plan`.
+
+### 10 ter. Le bilan de la semaine (agents, lot A3)
+
+`get_weekly_review` (lecture, toute connexion d'un espace Yuno CRM) rend
+`crm_weekly_review` (migration `20261016175000`) : la semaine écoulée,
+calculée par Yuno sans IA — activité, mesures contre les personnes mises de
+côté (verdict net seulement), dérives, 1 à 3 actions. Invite
+`weekly_review`, consigne « WEEKLY REVIEW ». Annoncé le lundi dans le fil
+de notifications de la Console (`weekly_review`). Banc :
+`node scripts/crm-bench/scenarios.mjs review`.
 
 ## 5. Mise en service — fait le 2026-10-03
 

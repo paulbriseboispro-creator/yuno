@@ -12,7 +12,7 @@ import { COND_LEAVES } from '../../../src/crm/lib/scenarioConditions';
 const ENV = { SUPABASE_URL: 'https://db.example', SUPABASE_MCP_KEY: 'sb_secret_test', SUPABASE_ANON_KEY: 'sb_publishable_test' };
 const crmOrg: SessionSpace = { key: 'org:1', kind: 'organizer', name: 'Nuits Démo', product: 'crm', timezone: 'Europe/Paris', role: 'founder', money: true, customers: true, crm: true };
 const suiteClub: SessionSpace = { key: 'venue:v1', kind: 'venue', name: 'Le Bunker', product: 'suite', timezone: 'Europe/Paris', role: 'owner', money: true, customers: true, crm: false };
-const READS = ['list_scenarios', 'get_scenario_report', 'get_night_plan'];
+const READS = ['list_scenarios', 'get_scenario_report', 'get_night_plan', 'get_weekly_review'];
 const DRAFTS = ['get_scenario_kit', 'create_scenario_draft', 'update_scenario_draft'];
 const U = '3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c';
 
@@ -110,6 +110,7 @@ beforeEach(() => {
       }
       if (a.p_tool === 'get_scenario_kit') return { ok: true, call_id: 4, space: SPACE, result: { ok: true, email_templates: [{ id: U, name: 'Annonce' }], confirmed_families: ['series'] } };
       if (a.p_tool === 'get_scenario_report') return { ok: false, call_id: 5, space: SPACE, result: { ok: false, error: 'scenario_not_found' } };
+      if (a.p_tool === 'get_weekly_review') return { ok: true, call_id: 8, space: SPACE, result: { ok: true, activity: { emails: 980 }, measured: [], drift: [], actions: [{ kind: 'plan' }], console_url: 'https://crm.yunoapp.eu/crm/review' } };
       if (a.p_tool === 'get_night_plan') {
         if ((a.p_args as Record<string, unknown>).event === 'vide') return { ok: false, call_id: 7, space: SPACE, result: { ok: false, error: 'no_upcoming' } };
         return { ok: true, call_id: 6, space: SPACE, result: { ok: true, event: { id: 'e1', title: 'Velvet #3' }, steps: [
@@ -183,6 +184,12 @@ describe('scenario tools over MCP', () => {
     const none = await callTool('get_night_plan', { event: 'vide' });
     expect(none.isError).toBe(true);
     expect(none.text).toMatch(/no upcoming night/);
+  });
+
+  it('returns the weekly review with its reading notes', async () => {
+    const out = JSON.parse((await callTool('get_weekly_review', {})).text);
+    expect(out.activity.emails).toBe(980);
+    expect(out.notes).toMatch(/kept aside/);
   });
 
   it('says plainly when a scenario is not found', async () => {

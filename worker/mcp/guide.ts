@@ -100,6 +100,10 @@ NIGHT PLAN (Yuno CRM: when asked to prepare, plan or audit an upcoming night)
 4. For each email step, propose the angle from what the audience has in common (the artists, the series, the genre, buying early or late) and, when email drafts are allowed, create one draft per step with create_email_draft: the step's audience_id as audience, the night linked. Never schedule or send. SMS steps are prepared in the Console (SMS → New SMS).
 5. End with the Console link of the plan (console_url) and say the drafts wait there for review.
 
+WEEKLY REVIEW (Yuno CRM: "how did my week go?", "what should I do this week?")
+1. Call get_weekly_review. Lead with what was measured against the people kept aside: "≈ N extra buyers" only for a gain verdict; say plainly when there is no clear difference or too few people.
+2. Then what drifts, with its numbers as given, then the actions in their order: for a night, offer to prepare its plan (get_night_plan) and its drafts; for a scenario, read its report first. Never send or publish.
+
 SCENARIOS (Yuno CRM: multi-step automations — when asked to build, change or explain one)
 1. Read before writing: list_scenarios and get_scenario_report for what exists (a running scenario may already do the job), get_scenario_kit for the graph format, the account's email templates, segments, signup pages, nights and confirmed families.
 2. Start from the closest example of the kit and adapt it. Email steps use an existing email template id from the kit: never invent one; if none fits, say which template to create in the Console (Emails → Templates) or that the editor's "Create an email" button makes one.
@@ -318,6 +322,17 @@ export const PROMPTS: PromptDef[] = [
       fr: "Avec Yuno, crée un brouillon de scénario : {{idea}}. Regarde d'abord mes scénarios et le kit (modèles d'e-mail, segments, familles confirmées), pars de l'exemple le plus proche, n'utilise une famille « ce qui fait venir » que si elle est confirmée sur mon compte (sinon dis-le et propose une condition plus large), puis explique-moi chaque étape en mots simples avec le lien vers l'éditeur. C'est un brouillon : je le relis et je le publie moi-même.",
       en: "With Yuno, create a scenario draft: {{idea}}. First look at my scenarios and the kit (email templates, segments, confirmed families), start from the closest example, use a \"what brings them\" family only if it is confirmed on my account (otherwise say so and propose a broader condition), then explain each step in plain words with the editor link. It is a draft: I review and publish it myself.",
       es: "Con Yuno, crea un borrador de escenario: {{idea}}. Mira primero mis escenarios y el kit (plantillas de e-mail, segmentos, familias confirmadas), parte del ejemplo más cercano, usa una familia de «lo que atrae» solo si está confirmada en mi cuenta (si no, dilo y propone una condición más amplia), y explícame cada paso con palabras sencillas con el enlace al editor. Es un borrador: lo reviso y lo publico yo. Escribe en español.",
+    },
+  },
+  {
+    name: 'weekly_review',
+    title: { fr: 'Bilan de la semaine', en: 'Weekly review', es: 'Balance de la semana' },
+    description: { fr: 'Ce qui a marché, mesuré ; ce qui dérive ; les actions de la semaine.', en: 'What worked, measured; what drifts; this week\'s actions.', es: 'Lo que funcionó, medido; lo que se desvía; las acciones de la semana.' },
+    products: ['crm'],
+    text: {
+      fr: "Lis mon bilan de la semaine dans Yuno : dis-moi ce qui a marché d'après la comparaison avec les non-contactés, ce qui dérive, puis prépare les brouillons des actions proposées, sans rien envoyer.",
+      en: 'Read my weekly review in Yuno: tell me what worked according to the comparison with the people not contacted, what drifts, then prepare drafts for the suggested actions, without sending anything.',
+      es: 'Lee mi balance de la semana en Yuno: dime qué funcionó según la comparación con los no contactados, qué se desvía, y prepara borradores de las acciones propuestas, sin enviar nada. Escribe en español.',
     },
   },
   {

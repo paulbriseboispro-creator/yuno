@@ -981,6 +981,19 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'get_weekly_review',
+    title: 'Weekly review',
+    level: 'analytics',
+    scenario: true,
+    description:
+      'Yuno CRM, the week that ended (Monday to Sunday, Paris time), computed by Yuno: what was sent (emails, SMS, scenario and recipe messages, people '
+      + 'protected by the sending rules); the sends whose night took place this week compared with the people kept aside (extra buyers when the gap is '
+      + 'clear, z ≥ 2) and the scenarios with a clear verdict; what drifts (next night selling slower than the previous edition at the same moment, '
+      + 'bounces or complaints, a growing protected share, the forecast journal); and 1 to 3 actions with the screen that prepares each. '
+      + 'Examples: "how did my week go?", "what should I do this week?". Aggregates only.',
+    inputSchema: { type: 'object', properties: { space: SPACE }, additionalProperties: false },
+  },
+  {
     name: 'get_scenario_kit',
     title: 'Scenario building kit',
     level: 'analytics',
