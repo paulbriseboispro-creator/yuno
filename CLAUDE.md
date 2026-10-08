@@ -1051,8 +1051,16 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
   N → classe à N+1 contre la part de la classe. Retour : 1res soirées de plus
   de 180 j, groupe contre les autres. Statuts : `supported` (≥ 30, gain ≥ 1,3,
   z ≥ 2 ; retour : écart ≥ 30 %, |z| ≥ 2), `not_supported` (gain < 1,1 ou
-  z < 1), `untested` / `inconclusive` (« à tester »), `prior_only` décidé à
-  l'affichage. Disponibilité `unavailable` (couverture, lot A) ou `uniform`
+  z < 1 ; « Pas de différence nette sur votre compte », décision de Paul du
+  08/10), `untested` / `inconclusive` (« à tester »), `prior_only` décidé à
+  l'affichage. **Le statut STOCKÉ** (migration `20261014110000`) ajoute :
+  p-valeur exacte (Poisson) quand E < 10 ; Benjamini-Hochberg à 10 % sur toutes
+  les familles testées du compte ; au moins 5 cas attendus pour confirmer ;
+  marge anti-bascule (gain ≥ 1,2, z ≥ 1,5 pour rester candidate) ;
+  « Confirmée » après 2 JOURS de calcul complet consécutifs
+  (`supported_runs`) ; indécise 60 jours avec 100 cas ou plus →
+  `not_supported` (`flat_since`). `statusOf` ne mirroite que le test d'une
+  famille : seul le moteur décide. Disponibilité `unavailable` (couverture, lot A) ou `uniform`
   (toutes les soirées pareilles) = famille éteinte, dite en une ligne. Miroir
   TS : `statusOf` / `displayStatus` (`src/crm/lib/analysis.ts`, testé).
 - **Hypothèses d'une personne** (`_crm_an_fill_hyps`) : force tirée de SES
@@ -1129,6 +1137,16 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
     prend comme un SMS programmé (identité légale, heures, Yunits, lien court).
     Registre `crm_first_return_sms` (une fois par personne). Le premier SMS
     AUTOMATIQUE du CRM ; démo et compte en pause : rien. Modèle CRM `retour`.
+    **Un SMS bloqué faute de Yunits attend** (`20261014120000`) : une campagne
+    de la recette retombée en brouillon (`crm_yunits_insufficient`) repart
+    seule quand le solde couvre ceux qui restent ; passé la fenêtre (délai + 3
+    jours), une place prise ou un STOP, la personne est `expired_at` (« non
+    envoyés »). La carte lit `sent` (partis vraiment), `waiting`, `expired`.
+    Une recette en erreur ne fait jamais tomber la collecte des autres comptes.
+  - **Ordre d'envoi de « Qui cibler »** (`20261014130000`, décisions de Paul) :
+    `order` (moment, famille confirmée, acheteurs attendus PAR PERSONNE),
+    `new_n` (absents des audiences d'avant), `overlap` (plus gros recouvrement,
+    10 personnes et 25 % au moins). L'envoi ne change pas.
 - **« Chances de venir » = le score de prédiction** (plan
   `docs/designs/CRM_PREDICTION_SCORE_PLAN.md`, migrations `20261012100000` +
   `110000`). Régression logistique L2 PAR COMPTE, ajustée en SQL (IRLS,
@@ -1138,11 +1156,22 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
   meilleure que le modèle naïf (récence + fréquence) d'au moins 0,02 SUR LES
   CLIENTS ACTIFS (sur toute la base la récence trie déjà tout), ECE ≤ 0,05,
   200 achats appris / 50 vérifiés ; sinon `weak` / `insufficient` et rien
-  n'est montré. Ventes seulement (pas les invitations). La chance d'une soirée
-  à venir est corrigée de la part des achats déjà passée (`crm_score_night`,
-  p·f / (1 − p·(1 − f))). Tables `crm_score_model`, `crm_person_night_score`
+  n'est montré. Ventes seulement (pas les invitations). **Une soirée à venir
+  est notée comme le modèle a appris** (`20261014100000`) : facteurs pris à
+  l'ouverture de SA vente (jamais l'historique jusqu'à aujourd'hui : c'était
+  la cause d'une surestimation de 15 à 90 %) ; ceux venus pour la 1re fois
+  depuis cette ouverture prennent le taux observé pour ce cas (`metrics.recent`) ;
+  chance d'ici la soirée p·f / (1 − p·(1 − f)) avec f PAR PERSONNE (son
+  historique + `score.timing_prior` achats au rythme du compte) ;
+  `crm_score_night.remaining_share` = part restante des PREMIERS achats
+  (projection des nouveaux). Rejeu à J-7 dans `metrics.backtest`. 13 facteurs
+  (+ `series_done`) ; toute nouvelle variable se prouve par `ablate.mjs` sur 4
+  comptes du banc PUIS sur la démo de la prod (une baisse sur un compte la
+  refuse : `artist_recent` l'a été). Tables `crm_score_model`, `crm_person_night_score`
   (étiquette `high` ≥ 0,30, `medium` ≥ 0,10, `low`, 3 raisons parmi les
-  facteurs que la personne POSSÈDE, jamais « de passage » ni « découverte »).
+  facteurs que la personne POSSÈDE, sous un libellé existant
+  (`_crm_score_reason_key`), jamais « de passage » ni « découverte », jamais
+  une famille `not_supported` sur le compte — décision de Paul).
   Cron `crm-score-nightly` (`27,57 5-6`, un compte par passage). Écrans :
   « Qui cibler » (acheteurs attendus, audience `likely` = porte
   `_crm_night_target_set`), fiche client (étiquette + raisons, JAMAIS un
