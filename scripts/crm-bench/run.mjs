@@ -24,7 +24,8 @@ if (cmd === 'build') {
   await save(db, process.env.BENCH_UNTIL ? `schema-before-${process.env.BENCH_UNTIL}` : 'schema');
   log(`schéma construit en ${Date.now() - t0} ms → .data/${process.env.BENCH_UNTIL ? `schema-before-${process.env.BENCH_UNTIL}` : 'schema'}.tar.gz`);
 } else if (cmd === 'gen') {
-  const p = profile(name);
+  // BENCH_PROFILE='{"upcomingEvery":7}' : surcharger un réglage du profil (essai).
+  const p = profile(name, process.env.BENCH_PROFILE ? JSON.parse(process.env.BENCH_PROFILE) : {});
   const sch = process.env.BENCH_UNTIL ? `schema-before-${process.env.BENCH_UNTIL}` : 'schema';
   const db = await openSaved(sch);
   const t0 = Date.now();
@@ -78,6 +79,10 @@ if (cmd === 'build') {
   const db = await openSaved(name);
   const org = (await db.query(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).rows[0].organizer_user_id;
   await db.exec(`UPDATE crm_analysis_rules SET config = jsonb_set(jsonb_set(config, '{score,auc_gain}', '-1'), '{score,auc_min}', '0')`);
+  // BENCH_SCORE='{"calib":"none"}' : essayer un réglage du score (base du banc seulement).
+  if (process.env.BENCH_SCORE) {
+    await db.query(`UPDATE crm_analysis_rules SET config = jsonb_set(config, '{score}', config->'score' || $1::jsonb)`, [process.env.BENCH_SCORE]);
+  }
   await db.query(`SELECT crm_analysis_compute(NULL, $1, true, 0)`, [org]);
   const sc = (await db.query(`SELECT crm_score_compute(NULL, $1) AS r`, [org])).rows[0].r;
   log({ score: sc.status, scored: sc.scored, journal: sc.journal });

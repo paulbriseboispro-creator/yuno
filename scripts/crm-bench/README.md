@@ -110,9 +110,25 @@ node diff.mjs grand-before-20261013100000-computed grand-computed
 
 ```bash
 node run.mjs journal demo      # relevé, achats futurs rejoués, règlement 70 j plus tard
+node journal-report.mjs demo-journal   # le détail : perte log, Brier, projection décomposée
 node run.mjs holdout demo      # envoi « Qui cibler » e-mail + SMS, témoin, mesure (test A/A)
 node security.mjs              # qui peut exécuter quoi (anon, autre compte, titulaire)
 ```
+
+## Essayer un réglage du score
+
+```bash
+# un autre tirage du même profil, ou un réglage du générateur (essai, écrase la base du profil)
+BENCH_PROFILE='{"seed":24}' node run.mjs gen grand
+# un réglage du score pour le journal (config.score de la base du banc seulement)
+BENCH_SCORE='{"timing_prior":1}' node run.mjs journal demo
+# ablation : le score seul, recalculé sur des comptes déjà analysés, un réglage à la fois
+node ablate.mjs demo-computed,grand-computed '{}' '{"l2":10}' '{"off":[]}'
+```
+
+Une soirée passée ne juge pas un réglage : les 4 soirées tenues à l'écart
+varient de ±35 % chacune au banc. Comparer sur plusieurs comptes (`demo` et
+au moins 3 tirages de `grand`) avant de garder quoi que ce soit.
 
 La commande `journal` ABAISSE les portes du score dans la base du banc pour
 qu'il note (le compte synthétique est `weak`) ; jamais ailleurs. Au banc, un
