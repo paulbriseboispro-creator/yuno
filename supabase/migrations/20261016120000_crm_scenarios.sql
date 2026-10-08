@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS public.crm_scenarios (
   -- État du déclencheur tenu par le moteur (segment : base posée ; inscription
   -- manuelle : faite).
   trigger_state     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- Brouillon préparé par une IA connectée (MCP, lot J5) : la connexion et le
+  -- nom de l'IA (« Préparé par Claude » à l'écran). L'IA ne publie jamais.
+  mcp_grant_id      uuid REFERENCES public.mcp_grants(id) ON DELETE SET NULL,
+  ai_author         text,
+  ai_updated_at     timestamptz,
   created_by        uuid,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
@@ -393,6 +398,7 @@ BEGIN
                'state', public._crm_scenario_state(s.status, v_key),
                'trigger', s.draft->'trigger'->>'type',
                'source_kind', s.source_kind, 'template', s.template,
+               'ai_author', s.ai_author, 'ai_updated_at', s.ai_updated_at,
                'version', s.version_no,
                'has_changes', s.live_version_id IS NOT NULL AND s.draft IS DISTINCT FROM v.graph,
                'published_at', s.published_at, 'updated_at', s.updated_at,
@@ -442,6 +448,7 @@ BEGIN
     'id', s.id, 'name', s.name, 'status', s.status, 'state', public._crm_scenario_state(s.status, v_key),
     'draft', s.draft, 'draft_updated_at', s.draft_updated_at, 'version', s.version_no,
     'source_kind', s.source_kind, 'template', s.template,
+    'ai_author', s.ai_author, 'ai_updated_at', s.ai_updated_at,
     'live', v_live, 'has_changes', v_live IS NOT NULL AND s.draft IS DISTINCT FROM v_live->'graph',
     'published_at', s.published_at, 'paused_at', s.paused_at, 'archived_at', s.archived_at,
     'errors', public._crm_scn_sorted((v_check->'errors') || (v_content->'errors')),

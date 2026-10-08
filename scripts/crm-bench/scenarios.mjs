@@ -590,6 +590,74 @@ if (cmd === 'conditions') {
   await db.query(`SELECT crm_notifications_mark(NULL, $1, ARRAY[$2], 'read')`, [org, today.id]);
   const again = (await one(`SELECT get_crm_notifications(NULL, $1) AS r`, [org])).r.find((x) => x.id === today.id);
   check('fil : marquée lue', again?.read === true, again?.read);
+} else if (cmd === 'mcp') {
+  // Lot J5 : le connecteur IA. Lecture pour toute connexion d'un espace CRM ;
+  // brouillons derrière can_scenarios ; jamais de publication.
+  const db = await withScenarios(base);
+  const q = async (sql, p = []) => (await db.query(sql, p)).rows;
+  const one = async (sql, p = []) => (await q(sql, p))[0];
+  const org = (await one(`SELECT organizer_user_id FROM ticketing_connections LIMIT 1`)).organizer_user_id;
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  // Colonnes d'auth.users / profiles que le banc ne copie pas (lues par _mcp_access).
+  await db.exec(`ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS banned_until timestamptz;
+                 ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+                 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_suspended boolean DEFAULT false;`);
+  // Le banc ne porte pas la première version de _mcp_needs_temp (outils de la Suite) :
+  // aucune ne sert ici.
+  if (!(await one(`SELECT to_regprocedure('public._mcp_needs_temp(text)') IS NOT NULL AS ok`)).ok) {
+    await db.exec(`CREATE FUNCTION public._mcp_needs_temp(p_tool text) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$ SELECT false $$;`);
+  }
+  // Les autres écritures de mcp_write (e-mails, images, pages) ne sont pas au
+  // banc : le CASE les planifie toutes, on pose des bouchons qui ne servent pas.
+  for (const [sig, def] of [
+    ['_mcp_email_image_add(text, text, text, jsonb, uuid, uuid)', `(a text, b text, c text, d jsonb, e uuid, f uuid)`],
+    ['_mcp_signup_write(text, text, text, text, jsonb, uuid, uuid, text)', `(a text, b text, c text, d text, e jsonb, f uuid, g uuid, h text)`],
+    ['_mcp_email_write(text, text, text, text, jsonb, uuid, uuid, text)', `(a text, b text, c text, d text, e jsonb, f uuid, g uuid, h text)`],
+  ]) {
+    if (!(await one(`SELECT to_regprocedure($1) IS NOT NULL AS ok`, [`public.${sig}`])).ok) {
+      await db.exec(`CREATE FUNCTION public.${sig.split('(')[0]}${def} RETURNS jsonb LANGUAGE sql AS $$ SELECT '{"ok":false,"error":"stub"}'::jsonb $$;`);
+    }
+  }
+  const grant = (await one(`INSERT INTO mcp_grants (user_id, client_id, client_name, spaces, level, can_draft, can_pages)
+                              VALUES ($1::uuid, 'banc', 'Claude', ARRAY[$2::text], 'analytics', false, false) RETURNING id`, [org, `org:${org}`])).id;
+  await db.query(`INSERT INTO mcp_tokens (token_hash, kind, grant_id, client_id, expires_at)
+                  VALUES ('banc-jeton-hache', 'access', $1, 'banc', now() + interval '1 hour')`, [grant]);
+  // Le banc n'a pas pgcrypto : le « hachage » n'est qu'une clé de jointure ici.
+  const hash = 'banc-jeton-hache';
+  const call = async (tool, args = {}) => (await one(`SELECT mcp_call($1, $2, $3::jsonb) AS r`, [hash, tool, JSON.stringify(args)])).r;
+  const write = async (tool, args = {}) => (await one(`SELECT mcp_write($1, $2, $3::jsonb) AS r`, [hash, tool, JSON.stringify(args)])).r;
+
+  const sess = (await one(`SELECT mcp_session($1) AS r`, [hash])).r;
+  check('session : le droit aux scénarios est éteint par défaut', sess.ok && sess.scenarios === false, sess.scenarios);
+  const l0 = await call('list_scenarios');
+  if (!l0.ok) console.log('journal :', JSON.stringify(await q(`SELECT tool, status, error FROM mcp_tool_calls ORDER BY id DESC LIMIT 3`)));
+  check('lecture : list_scenarios sans droit d’écriture', l0.ok && Array.isArray(l0.result?.scenarios), l0.result?.error ?? l0.error);
+  const gx = JSON.parse(readFileSync(join(ROOT, 'src/crm/lib/__tests__/fixtures/scenario-graphs.json'), 'utf8'));
+  const graph = JSON.parse(JSON.stringify(gx.cases[0].graph));
+  const denied = await write('create_scenario_draft', { name: 'IA', graph });
+  check('écriture refusée sans can_scenarios', denied.ok === false && denied.error === 'scenarios_not_allowed', denied.error);
+  await db.query(`UPDATE mcp_grants SET can_scenarios = true WHERE id = $1`, [grant]);
+  const kit = await call('get_scenario_kit');
+  check('kit : modèles, segments, soirées, familles confirmées', kit.ok && Array.isArray(kit.result?.email_templates) && Array.isArray(kit.result?.confirmed_families)
+    && typeof kit.result?.holdout_pct === 'number', Object.keys(kit.result ?? {}));
+  const c = await write('create_scenario_draft', { name: 'Préparé par l’IA', graph });
+  if (!c.result?.ok) console.log('journal :', JSON.stringify(await q(`SELECT tool, status, error FROM mcp_tool_calls ORDER BY id DESC LIMIT 2`)));
+  check('brouillon créé, au nom de la personne', c.ok && c.result?.ok && c.result.status === 'draft' && Array.isArray(c.result.errors), c.result ?? c.error);
+  const row = await one(`SELECT status, version_no, ai_author, mcp_grant_id, created_by FROM crm_scenarios WHERE id = $1`, [c.result?.scenario_id]);
+  check('brouillon : signé par l’IA, jamais publié', row?.ai_author === 'Claude' && row.mcp_grant_id === grant && row.version_no === 0 && row.status === 'draft', row);
+  const bad = await write('create_scenario_draft', { name: 'x', graph: { v: 2 } });
+  check('graphe illisible refusé', bad.result?.error === 'invalid_graph', bad.result?.error ?? bad.error);
+  const u = await write('update_scenario_draft', { scenario: 'Préparé', name: 'Préparé par l’IA (v2)' });
+  check('modification par le nom, toujours un brouillon', u.ok && u.result?.name === 'Préparé par l’IA (v2)' && u.result.status === 'draft', u.result ?? u.error);
+  const rep = await call('get_scenario_report', { scenario: c.result.scenario_id });
+  check('rapport : le brouillon, ses erreurs, pas de chiffres avant publication', rep.ok && rep.result?.scenario?.draft?.v === 1 && rep.result.report === null, rep.result?.error ?? rep.error);
+  const pub = await write('publish_scenario', { scenario: c.result.scenario_id });
+  check('aucun outil de publication', pub.ok === false && pub.error === 'unknown_tool', pub.error);
+  await db.query(`SELECT set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: org, role: 'authenticated' })]);
+  const mine = (await one(`SELECT mcp_my_connections() AS r`)).r.connections.find((x) => x.id === grant);
+  check('Réglages : droit et brouillons créés', mine?.can_scenarios === true && Number(mine.scenarios_created) === 1, mine && { can: mine.can_scenarios, n: mine.scenarios_created });
+  const log = await q(`SELECT tool, status, error, args FROM mcp_tool_calls WHERE grant_id = $1 ORDER BY id`, [grant]);
+  check('journal : un résumé, jamais le graphe entier', log.every((x) => !JSON.stringify(x.args ?? {}).includes('"nodes"')), log.map((x) => `${x.tool}:${x.status}`).join(' '));
 } else {
   console.error(`commande inconnue : ${cmd}`);
   process.exit(2);
