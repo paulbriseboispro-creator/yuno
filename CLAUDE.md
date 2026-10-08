@@ -1211,6 +1211,105 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
     du CRM porte l'adresse de son destinataire (`sms_campaign_recipients.email`,
     effacée avec le contact).
 
+## Yuno CRM — les Scénarios : automatisations sur mesure « et / ou » (2026-10-08)
+
+Plan et état des lots : `docs/designs/CRM_JOURNEYS_PLAN.md` (prompt
+`CRM_JOURNEYS_AGENTS_PROMPT.md`). Migrations `20261016100000` → `170000`.
+Un pro compose son automatisation : déclencheur, conditions par groupes
+« et / ou », attentes, embranchements, A/B, e-mails, SMS, objectif, témoin.
+Décisions de Paul (08/10) : nom « Scénarios » (EN Scenarios, ES Escenarios) ;
+les recettes restent, « Personnaliser » en fait un scénario ; pression
+ci-dessous ; publier = les rôles qui allument une recette. Règles intouchables :
+
+- **Noms** : l'identifiant technique est `scenario` (`crm_scenarios`,
+  `crm_scenario_versions`, `_runs`, `_steps`, `_messages`, clés `yc.scn.*`).
+  `journey`, `/crm/journey` et `yc.jr.*` sont l'écran d'analyse « Parcours
+  client », qui reste tel quel ; `yc.sc.*` est le score.
+- **Un langage de conditions, SQL = vérité** : `_crm_cond_errors`,
+  `_crm_cond_sql`, `_crm_cond_resolve` ⇄ miroir `src/crm/lib/scenarioConditions.ts`,
+  cas partagés `src/crm/lib/__tests__/fixtures/scenario-conditions.json` (vitest
+  ET banc). Les feuilles « personne » sont compilées par `_crm_filter_sql`
+  lui-même (le chiffre affiché = le filtre = l'envoi), plus `segment` et les
+  feuilles `sc_*` (contexte de l'inscription). **Une définition ne porte
+  jamais de donnée personnelle** (`emails`, `q` refusés : une liste fixe passe
+  par un segment) : c'est ce qui permet à une IA de l'écrire. Une feuille
+  inconnue, une valeur illisible, une référence morte rendent l'arbre ENTIER
+  faux, même sous un « non ». 3 niveaux, 20 feuilles.
+- **Le graphe** : `scenarioGraph.ts` ⇄ `_crm_scenario_graph_errors` (cas
+  `scenario-graphs.json`) : structure, 30 nœuds, 6 messages par chemin, 20 h
+  entre deux messages quand l'écart est calculable ; contenu
+  `_crm_scenario_content` (modèle du compte, soirée, page, segment, identité
+  SMS). **Aucun nœud webhook, jamais** ; un SMS n'a pas d'adresse web à part
+  `{{lien}}`. `instagram_dm` et le clic SMS par personne restent « Bientôt ».
+- **Versions immuables** (trigger) : publier fige le graphe ; modifier un
+  scénario en ligne = un brouillon (`crm_scenario_save`, conflit
+  `draft_changed`) ; les personnes en route finissent leur version.
+  **Publier et reprendre : `crm_scope_writable`, jamais un lecteur, jamais en
+  accès assisté.** Publier un scénario « Personnaliser » éteint sa recette, et
+  `guard_recipe_vs_scenario` refuse de rallumer une recette couverte par un
+  scénario en ligne ou en pause : jamais les deux.
+- **Le moteur `crm_scenario_tick()`** (cron `crm-scenario-tick` toutes les
+  10 min, minutes 2, 12… 52 ; ne JAMAIS le rendre plus fréquent ; budget 4 s,
+  une portée à la fois sous verrou consultatif, une portée en erreur n'arrête
+  pas les autres). Billets et inscriptions lus depuis un repère par portée
+  (`crm_scenario_scope_state`) : la synchro Shotgun n'est jamais touchée.
+  Messages par les chemins existants : e-mail = campagne enfant
+  `child_kind = 'scenario'` (sa propre mère, hors des listes d'e-mails),
+  drainée par `send-campaign` ; SMS = campagne CRM programmée. Politique
+  d'envoi, heures calmes, Yunits, identité, gel, `demo_no_send`, attribution
+  et témoin s'appliquent sans être réécrits. Démo = « aurait été envoyé »
+  (`would_send`).
+- **Pression (décision 3)** : l'ENTRÉE respecte 48 h avec les autres
+  automatisations du compte (sinon « en attente » `crm_scenario_pending`, puis
+  « non entré » `crm_scenario_skips`) ; les étapes en sont exemptées mais
+  restent à 20 h l'une de l'autre (tous scénarios du compte) et passent
+  `_email_send_policy_many(…, 'automation')`. Asymétrie assumée : la règle des
+  48 h des RECETTES ne voit pas les messages de scénarios (la politique
+  1 / 24 h, si).
+- **Rien ne se perd en silence** : un message bloqué est REPORTÉ avec sa
+  raison (`crm_scenario_steps.status = 'held'`, `reason` : pression, 20 h,
+  Yunits, gel, compte en pause, identité SMS…) jusqu'à la fin de sa fenêtre
+  (48 h, jamais après « 2 h avant la soirée »), puis EXPIRÉ avec sa raison.
+  Gel d'envoi et compte en pause = état `frozen` / `plan_paused`, messages
+  retenus, jamais une erreur. Témoin `_crm_holdout_pick('scn:<id>:<clé>')`,
+  qui suit le chemin sans rien recevoir. Journal prévu / réel :
+  `crm_prediction_people.contacted_at`.
+- **Écrans** (`src/crm/pages/automations/scenarios/`) : onglets Recettes /
+  Scénarios (`/crm/automations?tab=scenarios`), éditeur plein écran
+  `/crm/automations/scenarios/:id` (`CrmBareLayout`) : flux vertical
+  (`flowLayout`, `insertAt`, `removalPlan` dans `scenarioEdit.ts`), inspecteur,
+  effectif en direct de chaque groupe par `crm_scenario_counts` (même
+  compilation que l'envoi), « Avant de publier » = moteur à blanc
+  (`crm_scenario_preview`), tests gratuits d'un e-mail (`send-campaign`,
+  `scenario_id` + `node_id`) et d'un SMS (`send-sms-campaign`), lus dans le
+  brouillon ENREGISTRÉ. Sept modèles (`scenarioTemplates.ts`, SMS en GSM-7,
+  testé) qui créent leurs e-mails dans les Modèles. Rapport
+  `crm_scenario_report` (par nœud, raisons, témoin et son verdict, CA par
+  `_crm_email_attrib` sous `_crm_money_gate`). Fil de notifications :
+  `scenario_notify` (un compteur par jour, jamais une alerte par personne).
+- **MCP** (`worker/mcp/scenarioTools.ts`, migration `20261016160000`) :
+  `list_scenarios` / `get_scenario_report` pour toute connexion d'un espace
+  CRM ; `get_scenario_kit`, `create_scenario_draft`, `update_scenario_draft`
+  derrière une permission À PART, `mcp_grants.can_scenarios` (posée par
+  `mcp_approve_authorization(…, p_scenarios)`, `aiMcp.can6`), écrites par
+  `mcp_write` → `_mcp_scenario_write` → `crm_scenario_save` (20 créations /
+  200 modifications par jour). **L'IA ne publie, ne met en pause, n'archive et
+  ne supprime jamais** ; la consigne « ne jamais dire qu'il tourne » vit dans
+  `INSTRUCTIONS`. Traçabilité `ai_author`, `mcp_grant_id`, pastille « Préparé
+  par … ». Les outils disent `scenario`, pas `journey` (décision 1).
+- **Admin CRM › Plateforme › Scénarios** (`crm_admin_scenarios`,
+  `20261016170000`) : par compte, en ligne / en pause / brouillons, en route,
+  messages des 7 jours, retenus et leur raison, versions en ligne qui ne
+  passeraient plus les contrôles. Des agrégats, jamais une personne.
+- Aide : FAQ `yc.faq.scenario*` (Compte › Aide), article `crm-scenarios` de
+  `_shared/console-help-articles.ts` (redéployer `owner-assistant`). Démo :
+  `scripts/demo/seed-crm-journeys.sql` (fin de `refresh-crm-demo.sh`), qui
+  efface et recrée TOUS les scénarios du compte démo. Banc :
+  `node scripts/crm-bench/scenarios.mjs conditions|crud|engine|editor|feed|mcp|admin|seed`.
+- Mise en ligne, dans cet ordre : migrations `20261016100000` → `170000`,
+  front, Worker (MCP) et fonctions (`send-campaign`, `send-sms-campaign`,
+  `owner-assistant`), semis démo, smoke.
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un

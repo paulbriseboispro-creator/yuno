@@ -243,7 +243,7 @@ Prompt §3. Décisions 5 à 8 à poser au début de la phase.
 | J2 | Tables, versions, RPC (brouillon, publication, pause, archives, chiffres), gardes | fait (08/10) |
 | J3 | File des déclencheurs, moteur, nœuds, politique, témoin, Yunits, report / expiration, démo | fait (08/10) |
 | J4 | Éditeur, conditions, modèles, estimation, tests, rapport | fait (08/10) |
-| J5 | MCP, aide, assistant, CLAUDE.md, semis démo | à faire |
+| J5 | MCP, aide, assistant, Admin CRM, fil de notifications, CLAUDE.md, semis démo | fait (08/10) |
 | A0-A5 | Agents | après J5 |
 
 ## 9. Décisions ouvertes (à soumettre à Paul au fil de l'eau)
@@ -378,3 +378,30 @@ débordement. tsc, eslint, vitest (1 413), build : verts.
   E-mails › Modèles.
 
 Prochaine étape : J5 (MCP, aide, assistant, CLAUDE.md, semis démo).
+
+**J5 fait (08/10)** — rien de poussé, appliqué, déployé ni semé.
+- Fil de notifications : `20261016150000` (`_crm_notif_list` lit
+  `crm_scenario_notify_daily` : « N personnes ont atteint l'étape … », un
+  compteur par jour). Banc : `scenarios.mjs feed`.
+- Aide : FAQ `yc.faq.scenario` / `scenariorules` (Compte › Aide), article
+  `crm-scenarios` pour l'assistant (`owner-assistant` à redéployer).
+- MCP : `20261016160000` (`mcp_grants.can_scenarios`, `_mcp_scenario_tool`,
+  `_mcp_scenario_write`, `mcp_call` / `mcp_write` routés) ; Worker
+  `worker/mcp/scenarioTools.ts`, outils `list_scenarios`,
+  `get_scenario_report` (toute connexion d'un espace CRM), `get_scenario_kit`,
+  `create_scenario_draft`, `update_scenario_draft` (derrière `can_scenarios`) ;
+  consignes SCENARIOS de `guide.ts` ; `/connect-ai` et Réglages › Assistants IA
+  (`aiMcp.can6`, nombre de scénarios préparés) ; pastille « Préparé par … ».
+  Écart de nom assumé : le prompt dit `list_journeys`…, les outils disent
+  `scenario` (décision 1). Banc : `scenarios.mjs mcp` ; vitest
+  `worker/mcp/__tests__/scenario.test.ts`.
+- Admin CRM : `20261016170000` (`crm_admin_scenarios`), onglet Plateforme ›
+  Scénarios (agrégats par compte). Banc : `scenarios.mjs admin`.
+- Gel → pause : déjà tenu par le moteur (J3) ; rien à ajouter.
+- Démo : `scripts/demo/seed-crm-journeys.sql` (fin de `refresh-crm-demo.sh`) :
+  deux scénarios en ligne aux chiffres rejoués sur les vraies soirées de la
+  démo, un SMS retenu faute de Yunits, un en pause, un brouillon. Le SMS
+  « retenu » contredit le solde de Yunits de la démo (≈ 27 000) : choix du
+  prompt, à confirmer par Paul. Banc : `scenarios.mjs seed` (joué deux fois,
+  puis un passage du vrai moteur).
+- CLAUDE.md : section « Yuno CRM — les Scénarios ».
