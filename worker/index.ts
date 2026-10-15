@@ -40,6 +40,10 @@ interface Env {
   SUPABASE_MCP_KEY?: string;
   // Jeton de vérification de domaine du portail OpenAI (plugins).
   OPENAI_APPS_CHALLENGE?: string;
+  // Identité du déploiement en cours (binding `version_metadata` de wrangler.jsonc).
+  // Clé du cache du héros : une page mise en cache par la version précédente
+  // pointe vers des chunks qui n'existent plus après la bascule.
+  CF_VERSION_METADATA?: { id: string };
 }
 
 type Ctx = { waitUntil: (p: Promise<unknown>) => void };
@@ -1706,7 +1710,13 @@ export default {
         (fetchMode === null || fetchMode === 'navigate')
       ) {
         const cache = G.caches?.default;
-        const cacheKey = new Request(`${ORIGIN}${url.pathname}?__ssrhero=1`);
+        // La version du déploiement fait partie de la clé : le HTML garde les noms
+        // hachés du build qui l'a produit. Sans elle, une page mise en cache par
+        // l'ancienne version juste avant une mise en ligne était resservie jusqu'à
+        // 180 s après, avec un index-*.js déjà supprimé → « Something went wrong »,
+        // même au rechargement forcé (vécu le 15/10 sur une page soirée).
+        const deployId = env.CF_VERSION_METADATA?.id ?? '';
+        const cacheKey = new Request(`${ORIGIN}${url.pathname}?__ssrhero=1&v=${encodeURIComponent(deployId)}`);
         if (cache) {
           const hit = await cache.match(cacheKey);
           if (hit) return hit;
