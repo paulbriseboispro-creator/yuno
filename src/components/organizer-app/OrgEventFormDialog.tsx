@@ -31,7 +31,8 @@ import {
 } from 'lucide-react';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
-import { startEventVideoUpload, startOrganizerImageUpload } from '@/lib/eventMedia';
+import { EventWideFlyerField } from '@/components/owner/events/EventWideFlyerField';
+import { startEventVideoUpload, startEventWideFlyerUpload, startOrganizerImageUpload } from '@/lib/eventMedia';
 import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { PublishingOverlay, type PublishStage, type PublishedEvent } from '@/components/owner/events/PublishingOverlay';
@@ -225,6 +226,11 @@ export function OrgEventFormDialog({
   const video = useDeferredMedia(startEventVideoUpload);
   const { reset: resetVideo } = video;
   const [videoRemoved, setVideoRemoved] = useState(false);
+  // Flyer 16:9 du haut de la page soirée (l'affiche 1:1 reste partout ailleurs).
+  const [flyerWideUrl, setFlyerWideUrl] = useState<string>('');
+  const wideFlyer = useDeferredMedia(startEventWideFlyerUpload);
+  const { reset: resetWideFlyer } = wideFlyer;
+  const [wideFlyerRemoved, setWideFlyerRemoved] = useState(false);
   // Écran de mise en ligne — création seulement : une modification garde son
   // enregistrement discret. `publishStage` compte les étapes RÉELLEMENT
   // terminées côté serveur (voir `PublishingOverlay`).
@@ -304,6 +310,9 @@ export function OrgEventFormDialog({
       setVideoUrl('');
       resetVideo();
       setVideoRemoved(false);
+      setFlyerWideUrl('');
+      resetWideFlyer();
+      setWideFlyerRemoved(false);
       resetLocationLogo();
       setLocationLogoPreview('');
       return;
@@ -376,10 +385,13 @@ export function OrgEventFormDialog({
         setPosterPreview(ev.poster_url || '');
         setPosterPosition((ev.poster_position as unknown as PosterPosition | null) || null);
         setVideoUrl((ev as { video_url?: string | null }).video_url || '');
+        setFlyerWideUrl((ev as { flyer_wide_url?: string | null }).flyer_wide_url || '');
         resetVideo();
         resetPoster();
         resetLocationLogo();
         setVideoRemoved(false);
+        resetWideFlyer();
+        setWideFlyerRemoved(false);
 
         // DJ lineup — confirmés (event_djs) + demandes de booking en attente
         const entries = await loadLineupEntries(eventId);
@@ -389,7 +401,7 @@ export function OrgEventFormDialog({
       }
       setLoading(false);
     })();
-  }, [open, eventId, resetPoster, resetLocationLogo, resetVideo]);
+  }, [open, eventId, resetPoster, resetLocationLogo, resetVideo, resetWideFlyer]);
 
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -460,13 +472,15 @@ export function OrgEventFormDialog({
       let posterUrl = sanitize(posterPreview);
       let locationLogoUrl = sanitize(locationLogoPreview);
       let finalVideoUrl: string | null = videoRemoved ? null : (videoUrl || null);
+      let finalWideUrl: string | null = wideFlyerRemoved ? null : (flyerWideUrl || null);
       try {
-        const [posterUp, logoUp, videoUp] = await Promise.all([
-          poster.settle(), locationLogo.settle(), video.settle(),
+        const [posterUp, logoUp, videoUp, wideUp] = await Promise.all([
+          poster.settle(), locationLogo.settle(), video.settle(), wideFlyer.settle(),
         ]);
         if (posterUp) posterUrl = posterUp;
         if (logoUp) locationLogoUrl = logoUp;
         if (videoUp) finalVideoUrl = videoUp;
+        if (wideUp) finalWideUrl = wideUp;
       } catch (err) {
         console.error('Event media upload failed:', err);
         toast.error(t("L'envoi du média a échoué. Réessaie ou retire-le.", 'The media upload failed. Try again or remove it.', 'La subida del archivo falló. Inténtalo de nuevo o quítalo.'));
@@ -490,6 +504,7 @@ export function OrgEventFormDialog({
         description: description.trim() || null,
         poster_url: posterUrl || null,
         video_url: finalVideoUrl,
+        flyer_wide_url: finalWideUrl,
         poster_position: posterPosition
           ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale }
           : null,
@@ -518,7 +533,7 @@ export function OrgEventFormDialog({
       if (isEdit && partnerEdit) {
         const allowed = new Set<string>([
           ...(partnerEdit.design
-            ? ['title', 'description', 'poster_url', 'video_url', 'poster_position', 'music_genres', 'event_type']
+            ? ['title', 'description', 'poster_url', 'video_url', 'flyer_wide_url', 'poster_position', 'music_genres', 'event_type']
             : []),
           ...(partnerEdit.operations ? ['start_at', 'end_at'] : []),
         ]);
@@ -546,7 +561,7 @@ export function OrgEventFormDialog({
       }
       // La soirée pointe maintenant sur ces fichiers : la remise à zéro du
       // formulaire ne doit plus les retirer du bucket comme un envoi abandonné.
-      poster.commit(); locationLogo.commit(); video.commit();
+      poster.commit(); locationLogo.commit(); video.commit(); wideFlyer.commit();
       bump(3); // la ligne `events` existe
 
       // Sync DJ lineup — handshake booking : ajouts directs écrits dans
@@ -695,6 +710,15 @@ export function OrgEventFormDialog({
                 </div>
               )}
             </div>
+
+            {/* Flyer 16:9 — haut de la page soirée uniquement, l'affiche reste partout ailleurs */}
+            <EventWideFlyerField
+              existingUrl={wideFlyerRemoved ? '' : flyerWideUrl}
+              file={wideFlyer.file}
+              uploading={wideFlyer.uploading}
+              onFileChange={(f) => { wideFlyer.pick(f); if (f) setWideFlyerRemoved(false); }}
+              onRemoveExisting={() => setWideFlyerRemoved(true)}
+            />
 
             {/* Vidéo 16:9 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
             <EventVideoField

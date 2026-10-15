@@ -8,7 +8,8 @@ import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
-import { startEventVideoUpload } from '@/lib/eventMedia';
+import { EventWideFlyerField } from '@/components/owner/events/EventWideFlyerField';
+import { startEventVideoUpload, startEventWideFlyerUpload } from '@/lib/eventMedia';
 import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeSplitRules } from '@/lib/splitRules';
@@ -119,6 +120,8 @@ type TemplateRow = {
   poster_position: PosterPosition | null;
   /** Vidéo 16:9 par défaut, recopiée sur chaque occurrence. */
   video_url: string | null;
+  /** Flyer 16:9 par défaut (haut de la page soirée), recopié sur chaque occurrence. */
+  flyer_wide_url: string | null;
   music_genres: string[];
   event_type: string;
   day_of_week: number;
@@ -144,6 +147,7 @@ type FormState = {
   description: string;
   posterUrl: string;
   videoUrl: string;
+  flyerWideUrl: string;
   musicGenres: string[];
   eventType: string;
   dayOfWeek: number;
@@ -173,7 +177,7 @@ type FormState = {
 };
 
 const EMPTY_FORM: FormState = {
-  name: '', description: '', posterUrl: '', videoUrl: '', musicGenres: ['Open Format'], eventType: 'club',
+  name: '', description: '', posterUrl: '', videoUrl: '', flyerWideUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
   ticketPresetId: '', vipPresetId: '', tablePresetId: '', guestListTemplateId: '', autoEnableTables: false,
   partnerOrganizerId: '', collabMode: 'co_event',
@@ -277,6 +281,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   // `deferredUpload.ts`) : enregistrer un modèle n'attend plus 30 Mo.
   const video = useDeferredMedia(startEventVideoUpload);
   const [videoRemoved, setVideoRemoved] = useState(false);
+  const wideFlyer = useDeferredMedia(startEventWideFlyerUpload);
+  const [wideFlyerRemoved, setWideFlyerRemoved] = useState(false);
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -422,6 +428,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     setForm(EMPTY_FORM);
     setPosterFile(null); setPosterPreview(''); setPosterPosition(null);
     video.reset(); setVideoRemoved(false);
+    wideFlyer.reset(); setWideFlyerRemoved(false);
     setDialogOpen(true);
   };
 
@@ -433,6 +440,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       description: tpl.description || '',
       posterUrl: tpl.poster_url || '',
       videoUrl: tpl.video_url || '',
+      flyerWideUrl: tpl.flyer_wide_url || '',
       musicGenres: tpl.music_genres?.length ? tpl.music_genres : ['Open Format'],
       eventType: tpl.event_type || 'club',
       dayOfWeek: tpl.day_of_week,
@@ -459,6 +467,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     setPosterPreview(tpl.poster_url || '');
     setPosterPosition(tpl.poster_position || null);
     video.reset(); setVideoRemoved(false);
+    wideFlyer.reset(); setWideFlyerRemoved(false);
     setDialogOpen(true);
   };
 
@@ -560,9 +569,11 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       // Vidéo 16:9 par défaut de la série : déjà en vol depuis le choix du
       // fichier, on n'attend plus qu'une promesse. Un échec annule.
       let videoUrl: string | null = videoRemoved ? null : (form.videoUrl || null);
+      let flyerWideUrl: string | null = wideFlyerRemoved ? null : (form.flyerWideUrl || null);
       try {
-        const uploaded = await video.settle();
+        const [uploaded, wide] = await Promise.all([video.settle(), wideFlyer.settle()]);
         if (uploaded) videoUrl = uploaded;
+        if (wide) flyerWideUrl = wide;
       } catch (err) {
         console.error('Event video upload failed:', err);
         toast.error(t('owner.eventVideo.uploadError'));
@@ -577,6 +588,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         description: form.description || null,
         poster_url: posterUrl || null,
         video_url: videoUrl,
+        flyer_wide_url: flyerWideUrl,
         poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
         music_genres: form.musicGenres,
         event_type: form.eventType,
@@ -612,12 +624,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       if (editing) {
         const { error } = await supabase.from('owner_recurring_templates').update(payload as unknown as TablesUpdate<'owner_recurring_templates'>).eq('id', editing.id);
         if (error) throw error;
-        video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
+        video.commit(); wideFlyer.commit(); // les fichiers ont servi : plus d'envoi abandonné à nettoyer
       } else {
         const { data, error } = await supabase.from('owner_recurring_templates').insert(payload as unknown as TablesInsert<'owner_recurring_templates'>).select('id').single();
         if (error) throw error;
         templateId = data.id;
-        video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
+        video.commit(); wideFlyer.commit(); // les fichiers ont servi : plus d'envoi abandonné à nettoyer
       }
 
       // Generate occurrences immediately so the owner/organizer sees the events right away.
@@ -957,6 +969,15 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 </div>
               )}
             </div>
+
+            {/* Flyer 16:9 par défaut — recopié sur chaque occurrence, haut de la page soirée seulement */}
+            <EventWideFlyerField
+              existingUrl={wideFlyerRemoved ? '' : form.flyerWideUrl}
+              file={wideFlyer.file}
+              uploading={wideFlyer.uploading}
+              onFileChange={(f) => { wideFlyer.pick(f); if (f) setWideFlyerRemoved(false); }}
+              onRemoveExisting={() => setWideFlyerRemoved(true)}
+            />
 
             {/* Vidéo 16:9 par défaut — recopiée sur chaque occurrence, page soirée seulement */}
             <EventVideoField

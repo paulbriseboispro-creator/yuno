@@ -205,6 +205,8 @@ export type EventWithTicketing = {
   posterUrl?: string;
   /** Vidéo paysage 16:9 lue en boucle sur la page de la soirée uniquement (events.video_url). */
   videoUrl?: string;
+  /** Flyer paysage 16:9 du haut de la page soirée uniquement (events.flyer_wide_url) ; repli : l'affiche 1:1. */
+  flyerWideUrl?: string;
   posterPosition?: { x: number; y: number; scale: number };
   startAt: string;
   endAt: string;

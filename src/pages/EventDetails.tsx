@@ -634,6 +634,7 @@ export default function EventDetails() {
         description: eventData.description,
         posterUrl: eventData.poster_url,
         videoUrl: eventData.video_url || undefined,
+        flyerWideUrl: eventData.flyer_wide_url || undefined,
         posterPosition: eventData.poster_position as { x: number; y: number; scale: number } | undefined,
         startAt: eventData.start_at,
         endAt: eventData.end_at,
@@ -1167,7 +1168,7 @@ export default function EventDetails() {
             {heroControls}
           </div>
 
-          <EventHeroStage posterUrl={heroImage} videoUrl={heroVideo} title={event.title} />
+          <EventHeroStage key={event.flyerWideUrl || heroImage || event.id} posterUrl={heroImage} wideUrl={event.flyerWideUrl} videoUrl={heroVideo} title={event.title} />
 
           <div style={{ paddingTop: 'clamp(24px, 6vw, 34px)' }}>
             {heroBadges}

@@ -8,9 +8,10 @@ import { EventHeroVideo } from '@/components/event/EventHeroVideo';
  *
  * - Avec vidéo : le film joue seul, en boucle, sans bouton (EventHeroVideo).
  *   L'affiche reste dessous : premier rendu, puis repli si le fichier ne se lit pas.
- * - Sans vidéo : l'affiche. Une affiche paysage remplit le cadre ; une affiche
- *   carrée ou portrait (le cas courant : le reste de Yuno la veut en 1:1) tient
- *   ENTIÈRE au centre, sur sa propre copie floutée — jamais rognée de moitié.
+ * - Sans vidéo : le flyer 16:9 de la soirée (events.flyer_wide_url), posé en
+ *   plein cadre. Sans flyer large, l'affiche : paysage = plein cadre ; carrée
+ *   ou portrait (le cas courant, le reste de Yuno la veut en 1:1) = ENTIÈRE au
+ *   centre, sur sa propre copie floutée — jamais rognée de moitié.
  *
  * Le cadre ne porte JAMAIS de texte : le titre vit en dessous, sur le noir de
  * la page. Le halo est la même affiche, minuscule, très floutée et saturée,
@@ -18,15 +19,20 @@ import { EventHeroVideo } from '@/components/event/EventHeroVideo';
  */
 export function EventHeroStage({
   posterUrl,
+  wideUrl,
   videoUrl,
   title,
 }: {
   posterUrl?: string | null;
+  /** Flyer 16:9 dédié à la page soirée ; prioritaire sur l'affiche dans le cadre. */
+  wideUrl?: string | null;
   videoUrl?: string;
   title: string;
 }) {
-  const [fit, setFit] = useState<'cover' | 'contain'>('contain');
-  const haloSrc = posterUrl ? getOptimizedImageUrl(posterUrl, { width: 160, quality: 50 }) : null;
+  // Le visuel du cadre : le flyer large s'il existe, sinon l'affiche.
+  const frameUrl = wideUrl || posterUrl;
+  const [fit, setFit] = useState<'cover' | 'contain'>(wideUrl ? 'cover' : 'contain');
+  const haloSrc = frameUrl ? getOptimizedImageUrl(frameUrl, { width: 160, quality: 50 }) : null;
 
   return (
     <div className="relative" style={{ isolation: 'isolate' }}>
@@ -78,7 +84,7 @@ export function EventHeroStage({
           boxShadow: '0 28px 70px -24px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(255,255,255,0.07)',
         }}
       >
-        {posterUrl ? (
+        {frameUrl ? (
           <>
             {fit === 'contain' && (
               <img
@@ -90,7 +96,7 @@ export function EventHeroStage({
               />
             )}
             <img
-              src={getOptimizedImageUrl(posterUrl, { width: 1200, quality: 85 })}
+              src={getOptimizedImageUrl(frameUrl, { width: wideUrl ? 1600 : 1200, quality: 85 })}
               alt={title}
               {...({ fetchpriority: 'high' } as Record<string, string>)}
               onLoad={(e) => {
