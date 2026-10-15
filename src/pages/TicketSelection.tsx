@@ -401,18 +401,15 @@ export default function TicketSelection() {
       const tz = eventData?.timezone || undefined;
       const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
       return publicFreeTickets(allRounds).map(({ ticket, phase }) => {
-        // Un round qui attend qu'un autre billet soit complet le dit.
-        const awaited = phase === 'upcoming' && !ticket.isActive && ticket.opensAfterRoundId
-          ? allRounds.find(r => r.id === ticket.opensAfterRoundId)
-          : undefined;
+        // Un round qui attend qu'un autre billet soit complet reste un simple
+        // « Bientôt » : la mécanique de la file est l'affaire du pro, pas de
+        // l'acheteur (décision de Paul, 16/10). Seule une date de vente se dit.
         return {
           ...ticket,
           // Un billet épuisé est aussi fermé (is_active = false) : il se lit
           // « Complet », jamais « Bientôt » — c'est le cas normal d'un round passé.
           _previewOnly: phase === 'upcoming' && !isRoundSoldOut(ticket),
-          _previewLabel: awaited
-            ? t('tickets.free.phase.opensAfter').replace('{name}', awaited.name)
-            : phase === 'upcoming' && ticket.isActive && ticket.saleStartsAt
+          _previewLabel: phase === 'upcoming' && ticket.isActive && ticket.saleStartsAt
             ? t('tickets.free.phase.opensAt').replace('{date}', formatTicketDate(ticket.saleStartsAt, tz, locale))
             : undefined,
           _ended: phase === 'ended',
