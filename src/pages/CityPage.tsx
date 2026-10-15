@@ -61,7 +61,7 @@ function useCityData(cityName: string) {
         // Clubs natifs de la ville (publics) + clubs affiliés (billetterie externe).
         const [venuesRes, affVenuesRes] = await Promise.all([
           supabase.from('venues').select('id, name, city, cover_url, logo_url').eq('is_hidden', false).ilike('city', `%${cityName}%`),
-          supabase.from('affiliate_venues').select('id, name, slug, city, cover_image_url'),
+          supabase.from('affiliate_venues').select('id, name, slug, city, cover_image_url').eq('is_active', true),
         ]);
         if (cancelled) return;
 
