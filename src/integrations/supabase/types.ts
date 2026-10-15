@@ -16646,6 +16646,7 @@ export type Database = {
           manually_sold_out: boolean
           max_tickets: number
           name: string
+          opens_after_round_id: string | null
           position: number
           price: number
           sale_ends_at: string | null
@@ -16677,6 +16678,7 @@ export type Database = {
           manually_sold_out?: boolean
           max_tickets: number
           name: string
+          opens_after_round_id?: string | null
           position?: number
           price: number
           sale_ends_at?: string | null
@@ -16708,6 +16710,7 @@ export type Database = {
           manually_sold_out?: boolean
           max_tickets?: number
           name?: string
+          opens_after_round_id?: string | null
           position?: number
           price?: number
           sale_ends_at?: string | null
@@ -16723,6 +16726,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_rounds_opens_after_round_id_fkey"
+            columns: ["opens_after_round_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_rounds"
             referencedColumns: ["id"]
           },
         ]

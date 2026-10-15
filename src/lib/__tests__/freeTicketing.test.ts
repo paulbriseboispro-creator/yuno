@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   UNLIMITED_TICKETS, displayChoiceOf, freePresetToRoundRows, fromRelative, isRowListed,
-  normalizeFreePreset, roundsToFreePreset, saleChoiceOf, scheduleColumns, ticketPhase, toRelative,
+  normalizeFreePreset, presetSaleChoice, roundsToFreePreset, saleChoiceOf, scheduleColumns, ticketPhase, toRelative,
+  wouldCreateChainCycle,
 } from '../freeTicketing';
 
 const NOW = Date.parse('2026-10-10T18:00:00Z');
@@ -58,7 +59,7 @@ describe('prix public « à partir de »', () => {
 describe('formulaire ⇄ colonnes', () => {
   it('aller-retour des deux choix', () => {
     const cols = scheduleColumns({ display: 'at', visibleFrom: before, sale: 'at', saleStartsAt: after, saleEndsAt: null });
-    expect(cols).toEqual({ hidden: false, visible_from: before, is_active: true, sale_starts_at: after, sale_ends_at: null });
+    expect(cols).toEqual({ hidden: false, visible_from: before, is_active: true, sale_starts_at: after, sale_ends_at: null, opens_after_round_id: null });
     const back = { isActive: cols.is_active, hidden: cols.hidden, visibleFrom: cols.visible_from, saleStartsAt: cols.sale_starts_at };
     expect(displayChoiceOf(back)).toBe('at');
     expect(saleChoiceOf(back)).toBe('at');
@@ -176,5 +177,65 @@ describe('heure limite d’entrée', () => {
     expect(preset.map((p) => p.entryDeadline)).toEqual(['01:00', null]);
     const rows = freePresetToRoundRows(normalizeFreePreset(JSON.parse(JSON.stringify(preset))), 'e', '2026-10-24T21:00:00Z');
     expect(rows.map((r) => r.entry_deadline)).toEqual(['01:00:00', null]);
+  });
+});
+
+describe('rounds billet par billet (s’ouvre quand un autre est complet)', () => {
+  // La grille d'un pro : 4 rounds × 2 entrées (avant 1 h / toute la nuit),
+  // chaque entrée a sa propre file de rounds.
+  const grid = [
+    ['Early Round — Before 1 AM', 6, 10, '01:00'], ['Early Round — All Night Long', 10, 10, null],
+    ['First Round — Before 1 AM', 8, 25, '01:00'], ['First Round — All Night Long', 12, 25, null],
+    ['Second Round — Before 1 AM', 10, 45, '01:00'], ['Second Round — All Night Long', 14, 45, null],
+    ['Last Round — Before 1 AM', 12, 70, '01:00'], ['Last Round — All Night Long', 16, 70, null],
+  ] as const;
+  const rows = grid.map(([name, price, max, entry], i) => ({
+    id: `r${i}`, name, price, max_tickets: max, position: i, is_active: i < 2,
+    entry_deadline: entry ? `${entry}:00` : null,
+    opens_after_round_id: i >= 2 ? `r${i - 2}` : null,
+  }));
+
+  it('formulaire : « après un billet » ferme la vente et pose le lien', () => {
+    const cols = scheduleColumns({ display: 'now', sale: 'after', opensAfterRoundId: 'r0', saleStartsAt: after });
+    expect(cols).toMatchObject({ is_active: false, opens_after_round_id: 'r0', sale_starts_at: null });
+    expect(saleChoiceOf({ isActive: true, opensAfterRoundId: 'r0' })).toBe('after');
+    // Sans billet choisi, rien n'est lié (et rien n'est mis en vente).
+    expect(scheduleColumns({ display: 'now', sale: 'after', opensAfterRoundId: null })).toMatchObject({ is_active: false, opens_after_round_id: null });
+    expect(scheduleColumns({ display: 'now', sale: 'now', opensAfterRoundId: 'r0' }).opens_after_round_id).toBeNull();
+  });
+
+  it('un billet en attente est « Bientôt » côté public', () => {
+    expect(ticketPhase({ isActive: false, opensAfterRoundId: 'r0' }, NOW)).toBe('upcoming');
+  });
+
+  it('refuse les boucles', () => {
+    const links = Object.fromEntries(rows.map((r) => [r.id, r.opens_after_round_id]));
+    expect(wouldCreateChainCycle(links, 'r0', 'r6')).toBe(true); // r6 → r4 → r2 → r0
+    expect(wouldCreateChainCycle(links, 'r0', 'r0')).toBe(true);
+    expect(wouldCreateChainCycle(links, 'r1', 'r6')).toBe(false);
+  });
+
+  it('modèle : la grille complète fait l’aller-retour, liens et heures compris', () => {
+    const preset = roundsToFreePreset(rows, '2026-10-17T21:00:00Z');
+    expect(preset[2]).toMatchObject({ key: 'r2', opensAfter: 'r0', sale: 'manual', entryDeadline: '01:00' });
+    expect(presetSaleChoice(preset[2])).toBe('after');
+    expect(presetSaleChoice(preset[0])).toBe('now');
+    const out = freePresetToRoundRows(normalizeFreePreset(JSON.parse(JSON.stringify(preset))), 'ev', '2026-10-24T21:00:00Z');
+    expect(out.map((r) => r.is_active)).toEqual([true, true, false, false, false, false, false, false]);
+    // Les liens visent les NOUVEAUX ids, dans la même requête.
+    expect(out[2].opens_after_round_id).toBe(out[0].id);
+    expect(out[7].opens_after_round_id).toBe(out[5].id);
+    expect(new Set(out.map((r) => r.id)).size).toBe(8);
+    expect(out.reduce((a, r) => a + r.max_tickets, 0)).toBe(300);
+    expect(out.map((r) => r.entry_deadline)).toEqual(['01:00:00', null, '01:00:00', null, '01:00:00', null, '01:00:00', null]);
+  });
+
+  it('un lien vers une clé inconnue ne lie rien et ne met pas en vente', () => {
+    const out = freePresetToRoundRows([{ name: 'X', price: 1, maxTickets: 10, includesDrink: false, display: 'now', sale: 'manual', key: 'a', opensAfter: 'zz' }], 'e', '2026-10-24T21:00:00Z');
+    expect(out[0]).toMatchObject({ opens_after_round_id: null, is_active: false });
+  });
+
+  it('un vieux lecteur verrait « plus tard », jamais « en vente »', () => {
+    expect(normalizeFreePreset([{ name: 'A', sale: 'after', opensAfter: 'k' }])[0]).toMatchObject({ sale: 'manual', opensAfter: 'k' });
   });
 });

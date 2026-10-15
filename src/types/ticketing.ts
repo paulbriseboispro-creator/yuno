@@ -90,6 +90,8 @@ export type TicketRound = {
   visibleFrom?: string | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  /** Billetterie libre : s'ouvre quand ce billet-là est complet (rounds billet par billet). */
+  opensAfterRoundId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -8,7 +8,14 @@
 // billet par billet de deux choses seulement :
 //   • quand on le VOIT   : tout de suite · à une date · caché
 //   • quand on l'ACHÈTE  : tout de suite · à une date · plus tard (à la main)
+//     · quand un AUTRE billet est complet (les rounds, billet par billet)
 //     (+ une fin de vente facultative)
+//
+// « Quand un autre billet est complet » = ticket_rounds.opens_after_round_id.
+// Le billet reste fermé (is_active = false, « Bientôt ») jusqu'à ce que son
+// prédécesseur s'épuise ; c'est la BASE qui l'ouvre alors (trigger
+// auto_activate_next_round) et qui décide is_active quand le lien est posé
+// (guard_ticket_round_opens_after). ticketPhase n'a donc rien de plus à lire.
 //
 // Colonnes (ticket_rounds) : hidden, visible_from, sale_starts_at,
 // sale_ends_at, is_active (= « vente ouverte à la main »). Elles valent dans
@@ -27,7 +34,7 @@ export const DEFAULT_EVENT_TZ = 'Europe/Paris';
 
 export type FreeTicketPhase = 'hidden' | 'upcoming' | 'on_sale' | 'ended';
 export type DisplayChoice = 'now' | 'at' | 'hidden';
-export type SaleChoice = 'now' | 'at' | 'manual';
+export type SaleChoice = 'now' | 'at' | 'manual' | 'after';
 
 /** Les réglages d'un billet, en camelCase (lignes déjà mappées côté front). */
 export interface FreeSchedule {
@@ -36,6 +43,8 @@ export interface FreeSchedule {
   visibleFrom?: string | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  /** S'ouvre quand ce billet-là est complet (id ticket_rounds). */
+  opensAfterRoundId?: string | null;
 }
 
 const ms = (iso?: string | null): number | null => {
@@ -90,25 +99,51 @@ export function displayChoiceOf(t: FreeSchedule): DisplayChoice {
 }
 
 export function saleChoiceOf(t: FreeSchedule): SaleChoice {
+  if (t.opensAfterRoundId) return 'after';
   if (!t.isActive) return 'manual';
   return t.saleStartsAt ? 'at' : 'now';
 }
 
-/** Colonnes à écrire depuis les deux choix du formulaire (dates en ISO UTC). */
+/**
+ * Colonnes à écrire depuis les deux choix du formulaire (dates en ISO UTC).
+ * « Après un billet » : is_active part à false, la base le recalcule aussitôt
+ * (ouvert si le prédécesseur est déjà complet, ou si le billet l'était déjà).
+ */
 export function scheduleColumns(input: {
   display: DisplayChoice;
   visibleFrom?: string | null;
   sale: SaleChoice;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
-}): { hidden: boolean; visible_from: string | null; is_active: boolean; sale_starts_at: string | null; sale_ends_at: string | null } {
+  opensAfterRoundId?: string | null;
+}): {
+  hidden: boolean; visible_from: string | null; is_active: boolean;
+  sale_starts_at: string | null; sale_ends_at: string | null; opens_after_round_id: string | null;
+} {
+  const after = input.sale === 'after' && !!input.opensAfterRoundId;
   return {
     hidden: input.display === 'hidden',
     visible_from: input.display === 'at' ? input.visibleFrom ?? null : null,
-    is_active: input.sale !== 'manual',
+    is_active: input.sale === 'now' || input.sale === 'at',
     sale_starts_at: input.sale === 'at' ? input.saleStartsAt ?? null : null,
     sale_ends_at: input.saleEndsAt ?? null,
+    opens_after_round_id: after ? input.opensAfterRoundId ?? null : null,
   };
+}
+
+/**
+ * Le lien « s'ouvre après `candidate` » posé sur `id` ferait-il une boucle ?
+ * (deux billets qui s'attendent ne s'ouvriraient jamais). `links` : id → id
+ * du billet attendu. Même règle que la garde SQL ; sert aussi aux modèles,
+ * où les ids sont les clés des billets.
+ */
+export function wouldCreateChainCycle(links: Record<string, string | null | undefined>, id: string, candidate: string): boolean {
+  let cursor: string | null | undefined = candidate;
+  for (let i = 0; cursor && i < 100; i++) {
+    if (cursor === id) return true;
+    cursor = links[cursor];
+  }
+  return false;
 }
 
 /**
@@ -209,6 +244,19 @@ export interface FreePresetTicket {
   saleEndAt?: RelativeTime | null;
   /** Heure limite d'entrée « HH:MM » (heure murale de la soirée), null = aucune. */
   entryDeadline?: string | null;
+  /** Identifiant du billet DANS le modèle (stable quand on réordonne). */
+  key?: string | null;
+  /**
+   * S'ouvre quand le billet de clé `opensAfter` est complet. Un tel billet
+   * garde `sale: 'manual'` : un lecteur qui ne connaît pas le lien le laisse
+   * fermé, jamais en vente par accident.
+   */
+  opensAfter?: string | null;
+}
+
+/** Le choix de vente qu'un écran montre pour un billet de modèle. */
+export function presetSaleChoice(p: FreePresetTicket): SaleChoice {
+  return p.opensAfter ? 'after' : p.sale === 'after' ? 'manual' : p.sale;
 }
 
 export interface FreeRoundRow {
@@ -226,6 +274,8 @@ export interface FreeRoundRow {
   drink_deadline_hours?: number | null;
   drink_cutoff_time?: string | null;
   entry_deadline?: string | null;
+  id?: string | null;
+  opens_after_round_id?: string | null;
 }
 
 /** « HH:MM » valide, sinon null (une colonne time rend « HH:MM:SS »). */
@@ -236,11 +286,14 @@ export function normalizeEntryDeadline(v: unknown): string | null {
 
 /** Billets d'une soirée → contenu d'un modèle (dates rendues relatives). */
 export function roundsToFreePreset(rows: FreeRoundRow[], eventStartIso: string, tz: string = DEFAULT_EVENT_TZ): FreePresetTicket[] {
-  return [...rows]
-    .sort((a, b) => a.position - b.position)
-    .map((r) => {
+  const sorted = [...rows].sort((a, b) => a.position - b.position);
+  const keyOf = (r: FreeRoundRow, index: number) => r.id || `t${index + 1}`;
+  const keys = new Set(sorted.map(keyOf));
+  return sorted
+    .map((r, index) => {
       const display: DisplayChoice = r.hidden ? 'hidden' : r.visible_from ? 'at' : 'now';
-      const sale: SaleChoice = !r.is_active ? 'manual' : r.sale_starts_at ? 'at' : 'now';
+      const opensAfter = r.opens_after_round_id && keys.has(r.opens_after_round_id) ? r.opens_after_round_id : null;
+      const sale: SaleChoice = opensAfter || !r.is_active ? 'manual' : r.sale_starts_at ? 'at' : 'now';
       const drink = !!r.includes_drink;
       return {
         name: r.name,
@@ -256,6 +309,8 @@ export function roundsToFreePreset(rows: FreeRoundRow[], eventStartIso: string, 
         saleStartAt: sale === 'at' && r.sale_starts_at ? toRelative(r.sale_starts_at, eventStartIso, tz) : null,
         saleEndAt: r.sale_ends_at ? toRelative(r.sale_ends_at, eventStartIso, tz) : null,
         entryDeadline: normalizeEntryDeadline(r.entry_deadline),
+        key: keyOf(r, index),
+        opensAfter,
       };
     });
 }
@@ -268,6 +323,11 @@ export function freePresetToRoundRows(
   tz: string = DEFAULT_EVENT_TZ,
   startPosition = 0,
 ) {
+  // Chaque billet reçoit son id AVANT l'insertion : les liens « s'ouvre
+  // après » se posent dans la même requête (clé du modèle → nouvel id).
+  const ids = tickets.map(() => crypto.randomUUID());
+  const idByKey: Record<string, string> = {};
+  tickets.forEach((p, index) => { if (p.key) idByKey[p.key] = ids[index]; });
   return tickets.map((p, index) => {
     const at = (rel?: RelativeTime | null) => (rel ? fromRelative(rel, eventStartIso, tz) : null);
     // Une date qu'on ne sait pas recalculer retombe sur « tout de suite »
@@ -277,7 +337,10 @@ export function freePresetToRoundRows(
     const saleStarts = p.sale === 'at' ? at(p.saleStartAt) : null;
     const saleFallsBack = p.sale === 'at' && !saleStarts;
     const drink = !!p.includesDrink;
+    const opensAfter = p.opensAfter ? idByKey[p.opensAfter] ?? null : null;
+    const chained = !!opensAfter && opensAfter !== ids[index];
     return {
+      id: ids[index],
       event_id: eventId,
       name: p.name,
       price: Number(p.price) || 0,
@@ -288,8 +351,9 @@ export function freePresetToRoundRows(
       auto_activate: false,
       hidden: p.display === 'hidden',
       visible_from: visibleFrom,
-      is_active: p.sale !== 'manual' && !saleFallsBack,
-      sale_starts_at: saleStarts,
+      is_active: !chained && (p.sale === 'now' || p.sale === 'at') && !saleFallsBack,
+      opens_after_round_id: chained ? opensAfter : null,
+      sale_starts_at: chained ? null : saleStarts,
       sale_ends_at: at(p.saleEndAt),
       includes_drink: drink,
       drink_deadline_type: drink ? (p.drinkDeadlineType ?? 'none') : 'none',
@@ -308,7 +372,9 @@ export function normalizeFreePreset(raw: unknown): FreePresetTicket[] {
     return o && typeof o.daysBefore === 'number' && typeof o.time === 'string' ? { daysBefore: o.daysBefore, time: o.time } : null;
   };
   const display = (v: unknown): DisplayChoice => (v === 'at' || v === 'hidden' ? v : 'now');
-  const sale = (v: unknown): SaleChoice => (v === 'at' || v === 'manual' ? v : 'now');
+  // « after » n'est jamais écrit (un billet chaîné garde 'manual') : lu, il ferme.
+  const sale = (v: unknown): SaleChoice => (v === 'at' || v === 'manual' ? v : v === 'after' ? 'manual' : 'now');
+  const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
   return raw
     .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object' && typeof (r as { name?: unknown }).name === 'string')
     .map((r) => ({
@@ -325,5 +391,7 @@ export function normalizeFreePreset(raw: unknown): FreePresetTicket[] {
       saleStartAt: rel(r.saleStartAt),
       saleEndAt: rel(r.saleEndAt),
       entryDeadline: normalizeEntryDeadline(r.entryDeadline),
+      key: str(r.key),
+      opensAfter: str(r.opensAfter),
     }));
 }
