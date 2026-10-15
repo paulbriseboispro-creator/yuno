@@ -672,6 +672,22 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   (front) ou `freePresetToRoundRows` (séries récurrentes), jamais à la main.
   Mise en vente, prévente, mot de passe, limite par personne et « Complet »
   restent ceux de la soirée ; la jauge totale y est facultative.
+  **Rounds billet par billet** (2026-10-15, migrations `20261017100000` +
+  `110000`) : `ticket_rounds.opens_after_round_id` = « s'ouvre quand CE billet
+  est complet ». Le billet reste fermé (`is_active = false`, « Ouvre quand « … »
+  est complet ») ; c'est la BASE qui l'ouvre (`auto_activate_next_round`, quantité
+  atteinte ou « Complet ») et qui décide `is_active` quand le lien est posé,
+  changé, réécrit ou qu'on retire « Complet » (`guard_ticket_round_opens_after`,
+  même soirée, pas de boucle) — jamais le client. Chaque billet a sa file :
+  rounds × heures d'entrée se cumulent (Early/First/… × Before 1 AM / All Night
+  Long). « Ouvrir la vente » vide le lien. Un modèle l'écrit `sale: 'manual'` +
+  `opensAfter` (clé du billet dans le modèle) : un lecteur qui ignore le lien
+  garde le billet fermé. Les ids sont tirés avant l'insertion
+  (`freePresetToRoundRows`, wizard) pour poser les liens dans la même requête.
+  Le cron SQL des séries (`_insert_recurring_rounds`) rejoue enfin un modèle
+  libre : miroir SQL de `freePresetToRoundRows` (`_free_rel_to_ts` ⇄
+  `fromRelative`), vérifié ligne à ligne contre le TS. Un billet épuisé se lit
+  « Épuisé » côté public, jamais « Bientôt » (il est aussi `is_active = false`).
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
