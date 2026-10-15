@@ -86,7 +86,7 @@ IA (Claude, ChatGPT…) ──HTTPS──▶ Worker Cloudflare « yuno » (worke
 
 | Garantie | Où elle vit |
 |---|---|
-| Lecture seule (sauf brouillons d'e-mails et pages d'inscription) | `transaction_read_only = on` dans `mcp_call` ; la seule écriture passe par `mcp_write` (brouillons d'e-mails au statut `draft`, § 8 ; pages d'inscription en brouillon ou en proposition, § 9) |
+| Lecture seule (sauf brouillons d'e-mails, pages d'inscription, scénarios et billetterie, § 11) | `transaction_read_only = on` dans `mcp_call` ; la seule écriture passe par `mcp_write` (brouillons d'e-mails au statut `draft`, § 8 ; pages d'inscription en brouillon ou en proposition, § 9) |
 | Portée = ce que voit le rôle | claims de la personne + portes des RPC (`analytics_scope_gate`, `contact_scope_allowed`, `crm_scope_allowed`) |
 | Montants masqués pour un rôle | `money` des RPC, rien n'est recalculé |
 | Pas d'identité par défaut | niveau `analytics` : outils fiches refusés + `_mcp_redact(…, true)` retire email, téléphone, nom, prénom, notes, adresse |
@@ -126,7 +126,7 @@ de le recommander.
 - Sans jeton ou jeton mort : 401 + `WWW-Authenticate: Bearer
   resource_metadata="https://yunoapp.eu/.well-known/oauth-protected-resource/mcp"`.
 
-## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9 ; scénarios : voir § 10)
+## 4. Les outils (lecture : `readOnlyHint: true` ; brouillons d'e-mails : voir § 8 ; pages d'inscription : voir § 9 ; scénarios : voir § 10 ; billetterie : voir § 11)
 
 40 outils : 33 en lecture, 7 en écriture (`create_email_draft`, `update_email_draft`,
 `add_email_image`, `create_signup_page`, `update_signup_page`,
@@ -413,6 +413,37 @@ côté (verdict net seulement), dérives, 1 à 3 actions. Invite
 `weekly_review`, consigne « WEEKLY REVIEW ». Annoncé le lundi dans le fil
 de notifications de la Console (`weekly_review`). Banc :
 `node scripts/crm-bench/scenarios.mjs review`.
+
+## 11. Billetterie montée par l'IA (2026-10-15)
+
+`get_ticketing` (lecture, avec les ids) et `set_ticketing` (écriture,
+`destructiveHint`) : l'IA pose la billetterie LIBRE d'une soirée Yuno de
+l'espace — billets, prix, quantités, heures limite d'entrée, boisson offerte,
+affichage, dates de vente, rounds billet par billet (`sale: "after"` +
+`opens_after`, colonne `ticket_rounds.opens_after_round_id`) et jauge totale.
+Migration `20261017120000_mcp_ticketing.sql`, Worker `ticketingTools.ts`,
+consignes dans `guide.ts` (section TICKETING). Règles :
+
+- **Permission = celle des brouillons** (`mcp_grants.can_draft`, accordée par
+  l'écran de consentement, dont le texte le dit). Listés seulement pour un
+  espace Billetterie (`product = 'suite'`).
+- **Droits = ceux de la Console**, revérifiés dans `_mcp_ticketing` (qui tourne
+  sous `mcp_write`, SECURITY DEFINER, donc sans RLS) : propriétaire du club,
+  manager `tickets`, organisateur d'une soirée sans club,
+  `can_manage_event_tables`. Jamais une soirée externe (miroir Shotgun) ni finie.
+- **La liste remplace la liste** : billet avec `id` = mis à jour, sans = créé,
+  billet non vendu absent = retiré. Un billet vendu n'est jamais retiré
+  (`cannot_remove_sold`), une quantité jamais sous le vendu ; une soirée qui a
+  vendu dans un autre mode n'est jamais basculée en libre (`mode_has_sales`).
+  Tout est vérifié AVANT la première écriture : une erreur ne laisse rien à moitié.
+- **Jamais de mise en vente** : `ticketing_enabled` n'est pas touché ; le pro
+  clique « Activer la vente ». Une billetterie déjà EN VENTE n'est modifiée
+  qu'avec `apply_to_live: true` (sinon `ticketing_live`).
+- Liens de rounds posés après les billets : la garde
+  `guard_ticket_round_opens_after` décide `is_active` (ouvert si le précédent
+  est déjà complet, gardé ouvert si le lien ne change pas). Débit : 100
+  `set_ticketing` par jour et par connexion. Journal `mcp_tool_calls`
+  (nombre de billets, `apply_to_live`).
 
 ## 5. Mise en service — fait le 2026-10-03
 

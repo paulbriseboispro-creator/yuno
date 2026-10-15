@@ -1423,6 +1423,13 @@ des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `
   reporte au glossaire. Base de connaissances partagée avec l'Assistant Console :
   `supabase/functions/_shared/console-help-articles.ts` (redéployer
   `owner-assistant` après une modification).
+- **Billetterie par l'IA (2026-10-15, `docs/MCP.md` § 11)** : `get_ticketing` /
+  `set_ticketing` posent la billetterie LIBRE d'une soirée Yuno (billets,
+  rounds, heures d'entrée), sous la permission des brouillons et les droits de
+  la Console (`_mcp_ticketing`). Jamais de mise en vente (`ticketing_enabled`
+  intouché), billetterie en vente seulement avec `apply_to_live`, billet vendu
+  jamais retiré. Le texte de `/ai` et du consentement le dit : toute nouvelle
+  écriture MCP met ces deux textes à jour.
 - Pilier boissons : `DRINKS_PILLAR_LIVE = false` aussi dans
   `worker/mcp/config.ts` (sixième miroir). Adoption : `/admin/ai` →
   « Connecteur IA (MCP) » (`admin_mcp_usage`). Tests : `npx vitest run worker/mcp`.
