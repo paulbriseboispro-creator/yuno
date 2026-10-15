@@ -208,6 +208,7 @@ export default function TicketSelection() {
             ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
             audience: normalizeTicketAudience(r.audience),
             hidden: r.hidden ?? false, visibleFrom: r.visible_from, saleStartsAt: r.sale_starts_at, saleEndsAt: r.sale_ends_at,
+            opensAfterRoundId: r.opens_after_round_id ?? null,
             createdAt: r.created_at, updatedAt: r.updated_at,
           })));
         }
@@ -399,14 +400,24 @@ export default function TicketSelection() {
     if (isFree) {
       const tz = eventData?.timezone || undefined;
       const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
-      return publicFreeTickets(allRounds).map(({ ticket, phase }) => ({
-        ...ticket,
-        _previewOnly: phase === 'upcoming',
-        _previewLabel: phase === 'upcoming' && ticket.isActive && ticket.saleStartsAt
-          ? t('tickets.free.phase.opensAt').replace('{date}', formatTicketDate(ticket.saleStartsAt, tz, locale))
-          : undefined,
-        _ended: phase === 'ended',
-      }));
+      return publicFreeTickets(allRounds).map(({ ticket, phase }) => {
+        // Un round qui attend qu'un autre billet soit complet le dit.
+        const awaited = phase === 'upcoming' && !ticket.isActive && ticket.opensAfterRoundId
+          ? allRounds.find(r => r.id === ticket.opensAfterRoundId)
+          : undefined;
+        return {
+          ...ticket,
+          // Un billet épuisé est aussi fermé (is_active = false) : il se lit
+          // « Complet », jamais « Bientôt » — c'est le cas normal d'un round passé.
+          _previewOnly: phase === 'upcoming' && !isRoundSoldOut(ticket),
+          _previewLabel: awaited
+            ? t('tickets.free.phase.opensAfter').replace('{name}', awaited.name)
+            : phase === 'upcoming' && ticket.isActive && ticket.saleStartsAt
+            ? t('tickets.free.phase.opensAt').replace('{date}', formatTicketDate(ticket.saleStartsAt, tz, locale))
+            : undefined,
+          _ended: phase === 'ended',
+        };
+      });
     }
     if (isSimple || isTimedEntry) return allRounds;
     if (visibility === 'all_open') return allRounds;

@@ -93,6 +93,10 @@ export interface WizardCustomRound {
   ticketType: TicketType;
   includesDrink: boolean;
   entryDeadline?: string;
+  /** Billetterie libre : id du futur billet (uuid), posé dès la carte pour lier les rounds. */
+  key?: string;
+  /** Billetterie libre : s'ouvre quand le billet de cette clé est complet. */
+  opensAfter?: string | null;
 }
 
 // A private-list / waitlist registration row (verbatim from OwnerTicketing state).

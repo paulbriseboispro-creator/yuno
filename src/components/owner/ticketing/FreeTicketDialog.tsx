@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TicketRound } from '@/types/ticketing';
 import {
-  UNLIMITED_TICKETS, displayChoiceOf, normalizeEntryDeadline, saleChoiceOf, scheduleColumns,
+  UNLIMITED_TICKETS, displayChoiceOf, normalizeEntryDeadline, saleChoiceOf, scheduleColumns, wouldCreateChainCycle,
   type DisplayChoice, type SaleChoice,
 } from '@/lib/freeTicketing';
 import { RED, T1, C_FAINT, BORDER, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
@@ -33,6 +34,7 @@ export interface FreeTicketPatch {
   is_active: boolean;
   sale_starts_at: string | null;
   sale_ends_at: string | null;
+  opens_after_round_id: string | null;
 }
 
 interface FreeTicketDialogProps {
@@ -40,6 +42,8 @@ interface FreeTicketDialogProps {
   onOpenChange: (open: boolean) => void;
   /** null = nouveau billet. */
   ticket: TicketRound | null;
+  /** Les billets de la soirée : ceux qu'on peut attendre (« après un billet »). */
+  siblings: TicketRound[];
   onSave: (patch: FreeTicketPatch) => Promise<void> | void;
   freeDrinkMode: 'credits' | 'bouncer_notify';
   setFreeDrinkMode: (mode: 'credits' | 'bouncer_notify') => void;
@@ -57,6 +61,7 @@ interface FormState extends DrinkOptionsValue {
   sale: SaleChoice;
   saleStartsAt: string;
   saleEndsAt: string;
+  opensAfter: string;
 }
 
 function initialState(ticket: TicketRound | null): FormState {
@@ -65,6 +70,7 @@ function initialState(ticket: TicketRound | null): FormState {
     hidden: ticket?.hidden,
     visibleFrom: ticket?.visibleFrom,
     saleStartsAt: ticket?.saleStartsAt,
+    opensAfterRoundId: ticket?.opensAfterRoundId,
   };
   return {
     name: ticket?.name ?? '',
@@ -81,6 +87,7 @@ function initialState(ticket: TicketRound | null): FormState {
     sale: ticket ? saleChoiceOf(schedule) : 'now',
     saleStartsAt: toDateTimeLocalInput(ticket?.saleStartsAt ?? undefined),
     saleEndsAt: toDateTimeLocalInput(ticket?.saleEndsAt ?? undefined),
+    opensAfter: ticket?.opensAfterRoundId ?? '',
   };
 }
 
@@ -95,7 +102,9 @@ function Question({ icon, title, children }: { icon: ReactNode; title: string; c
 
 // Billet de la billetterie LIBRE : aucune règle imposée, deux questions
 // (quand on le voit, quand on l'achète). Règle de lecture : lib/freeTicketing.
-export function FreeTicketDialog({ open, onOpenChange, ticket, onSave, freeDrinkMode, setFreeDrinkMode, venueId }: FreeTicketDialogProps) {
+// « Après un billet » = les rounds, billet par billet : la base ouvre ce
+// billet quand celui qu'il attend est complet.
+export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave, freeDrinkMode, setFreeDrinkMode, venueId }: FreeTicketDialogProps) {
   const { t } = useLanguage();
   const [form, setForm] = useState<FormState>(() => initialState(ticket));
   const [saving, setSaving] = useState(false);
@@ -105,6 +114,14 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, onSave, freeDrink
   }, [open, ticket]);
 
   const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
+
+  // Billets qu'on peut attendre : pas lui-même, pas un billet qui l'attend déjà
+  // (deux billets qui s'attendent ne s'ouvriraient jamais).
+  const links = Object.fromEntries(siblings.map((s) => [s.id, s.opensAfterRoundId ?? null]));
+  const candidates = [...siblings]
+    .sort((a, b) => a.position - b.position)
+    .filter((s) => s.id !== ticket?.id && !(ticket && wouldCreateChainCycle(links, ticket.id, s.id)));
+  const awaited = candidates.find((s) => s.id === form.opensAfter);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -120,12 +137,19 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, onSave, freeDrink
       toast.error(t('tickets.free.dateRequired'));
       return;
     }
+    if (form.sale === 'after' && !awaited) {
+      toast.error(t('tickets.free.sale.afterRequired'));
+      return;
+    }
     if (saleStartsAt && saleEndsAt && Date.parse(saleEndsAt) <= Date.parse(saleStartsAt)) {
       toast.error(t('tickets.free.endBeforeStart'));
       return;
     }
     const qty = parseInt(form.maxTickets, 10);
-    const schedule = scheduleColumns({ display: form.display, visibleFrom, sale: form.sale, saleStartsAt, saleEndsAt });
+    const schedule = scheduleColumns({
+      display: form.display, visibleFrom, sale: form.sale, saleStartsAt, saleEndsAt,
+      opensAfterRoundId: form.sale === 'after' ? awaited?.id ?? null : null,
+    });
     setSaving(true);
     try {
       await onSave({
@@ -209,8 +233,26 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, onSave, freeDrink
                 { value: 'now', label: t('tickets.free.sale.now') },
                 { value: 'at', label: t('tickets.free.sale.at') },
                 { value: 'manual', label: t('tickets.free.sale.manual') },
+                { value: 'after', label: t('tickets.free.sale.after') },
               ]}
             />
+            {form.sale === 'after' && (
+              candidates.length === 0 ? (
+                <p style={HINT}>{t('tickets.free.sale.afterNone')}</p>
+              ) : (
+                <>
+                  <Label style={{ fontSize: 12.5 }}>{t('tickets.free.sale.afterPick')}</Label>
+                  <Select value={awaited?.id ?? ''} onValueChange={(opensAfter) => patch({ opensAfter })}>
+                    <SelectTrigger aria-label={t('tickets.free.sale.afterPick')}><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      {candidates.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p style={HINT}>{t('tickets.free.sale.afterHint')}</p>
+                  {awaited && awaited.maxTickets >= UNLIMITED_TICKETS && <p style={HINT}>{t('tickets.free.sale.afterUnlimited')}</p>}
+                </>
+              )
+            )}
             {form.sale === 'at' && (
               <>
                 <Input type="datetime-local" value={form.saleStartsAt} onChange={(e) => patch({ saleStartsAt: e.target.value })} aria-label={t('tickets.free.sale.at')} />

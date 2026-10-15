@@ -11,6 +11,8 @@ import { formatMoneyAuto } from '@/lib/money';
 
 interface FreeTicketRowProps {
   ticket: TicketRound;
+  /** Nom du billet qu'il attend (« après un billet »), s'il en attend un. */
+  awaitedName?: string | null;
   isFirst: boolean;
   isLast: boolean;
   onEdit: () => void;
@@ -25,7 +27,7 @@ const PILL = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5
 // Une ligne de la billetterie libre : ce que le public voit MAINTENANT
 // (ticketPhase), puis ce qui va changer et quand. Une seule couleur par
 // statut : vert en vente, or programmé, gris caché / terminé, rouge complet.
-export function FreeTicketRow({ ticket, isFirst, isLast, onEdit, onDelete, onToggleSoldOut, onOpenSale, onMove }: FreeTicketRowProps) {
+export function FreeTicketRow({ ticket, awaitedName, isFirst, isLast, onEdit, onDelete, onToggleSoldOut, onOpenSale, onMove }: FreeTicketRowProps) {
   const { t, language } = useLanguage();
   const locale = language === 'en' ? enUS : language === 'es' ? es : fr;
   const when = (iso: string) => formatInTimeZone(new Date(iso), PARIS_TIMEZONE, 'd MMM HH:mm', { locale });
@@ -39,6 +41,9 @@ export function FreeTicketRow({ ticket, isFirst, isLast, onEdit, onDelete, onTog
     if (phase === 'on_sale') return { label: t('tickets.free.phase.onSale'), color: POS, bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)' };
     if (phase === 'ended') return { label: t('tickets.free.phase.ended'), color: T3, bg: 'rgb(var(--ink)/0.06)', border: BORDER };
     if (phase === 'upcoming') {
+      if (!ticket.isActive && ticket.opensAfterRoundId && awaitedName) {
+        return { label: t('tickets.free.phase.afterSoldOut').replace('{name}', awaitedName), color: GOLD, bg: 'rgba(252,211,153,0.1)', border: 'rgba(252,211,153,0.3)' };
+      }
       return ticket.isActive && ticket.saleStartsAt
         ? { label: t('tickets.free.phase.opensAt').replace('{date}', when(ticket.saleStartsAt)), color: GOLD, bg: 'rgba(252,211,153,0.1)', border: 'rgba(252,211,153,0.3)' }
         : { label: t('tickets.free.phase.upcoming'), color: GOLD, bg: 'rgba(252,211,153,0.1)', border: 'rgba(252,211,153,0.3)' };

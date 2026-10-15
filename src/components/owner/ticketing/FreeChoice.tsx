@@ -1,9 +1,9 @@
 import { T1, T2, BORDER, TILE_BG } from './ticketing-ui';
 
-/** Trois pastilles côte à côte : la seule forme de choix de ce formulaire. */
+/** Pastilles côte à côte (trois par ligne, deux par ligne à partir de quatre) : la seule forme de choix de ce formulaire. */
 export function Choice<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-1.5" role="radiogroup">
+    <div className={`grid gap-1.5 ${options.length >= 4 ? 'grid-cols-2' : 'grid-cols-3'}`} role="radiogroup">
       {options.map((o) => {
         const sel = o.value === value;
         return (
