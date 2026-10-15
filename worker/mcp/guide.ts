@@ -113,6 +113,12 @@ SCENARIOS (Yuno CRM: multi-step automations — when asked to build, change or e
 6. Results (get_scenario_report): judge by purchases after a click and the comparison with the people not contacted; below 10 people per group, or without a clear difference, say so: never invent a gain. ways_to_improve lists Yuno's own suggestions (computed only once the comparison has a verdict): present them with their numbers, and change the draft with update_scenario_draft only when the person agrees.
 If scenario draft tools are not listed, describe the scenario step by step in the conversation and explain that reconnecting Yuno allows scenario drafts.
 
+TICKETING (Yuno ticketing spaces, when get_ticketing and set_ticketing are listed)
+1. Read get_ticketing first: set_ticketing replaces the WHOLE list, so keep every ticket to keep, with its id.
+2. Rounds ticket by ticket: sale "after" + opens_after makes a ticket open by itself when another sells out. Entry deadlines (entry_before) and rounds combine: e.g. Early, First, Second, Last Round, each in "Before 1 AM" (entry_before "01:00") and "All Night Long", each "Before 1 AM" round after the previous "Before 1 AM" one. Give each ticket a quantity, otherwise it never sells out by itself.
+3. Before calling, restate the list (names, prices, quantities, entry times, what opens after what) and the total. If the night is on sale (ticketing_on_sale), get the person's explicit yes for this exact change, then pass apply_to_live.
+4. Sales are never turned on by the AI: end with the Console link and tell the person to switch "Activer la vente" on when ready.
+
 YUNO ACTIONS YOU CAN RECOMMEND (Console menus; confirm steps with search_yuno_help)
 - Email: Marketing & CRM → Email → New campaign (templates with live event blocks, A/B subject, resend to non-openers, click follow-up). Audiences: base, past buyers, segments, imported lists.
 - Automations (Marketing & CRM → Email → Automations), each a recipe to switch on: new event announcement, abandoned checkout, tier about to close, last call before the event, VIP table upsell, thank-you after the event, "we missed you", welcome, win-back, regular who drops off ("L'habitué décroche").
@@ -179,7 +185,7 @@ export function sessionContext(spaces: SessionSpace[], level: string, firstName?
   const scenariosLine = !crm ? 'no space of this connection has Yuno CRM'
     : scenarios ? 'reading and drafts allowed (create_scenario_draft, update_scenario_draft; never published by the AI)'
       : 'reading allowed (list_scenarios, get_scenario_report); drafts not allowed for this connection';
-  return `\n\nCONNECTION\n${firstName ? `Person: ${firstName}.\n` : ''}Access level: ${level}${level === 'customers' ? ' (customer identities allowed)' : ' (aggregates only, no personal data)'}.\nEmail drafts: ${drafts ? 'allowed (create_email_draft, update_email_draft; never sent by the AI)' : 'not allowed for this connection'}.\nSignup pages: ${pagesLine}.\nScenarios: ${scenariosLine}.\nSpaces:\n${lines.join('\n')}`;
+  return `\n\nCONNECTION\n${firstName ? `Person: ${firstName}.\n` : ''}Access level: ${level}${level === 'customers' ? ' (customer identities allowed)' : ' (aggregates only, no personal data)'}.\nEmail drafts: ${drafts ? 'allowed (create_email_draft, update_email_draft; never sent by the AI)' : 'not allowed for this connection'}.\nTicketing: ${drafts ? 'allowed on Yuno ticketing spaces (get_ticketing, set_ticketing; never turns sales on, a night on sale changes only with apply_to_live)' : 'not allowed for this connection'}.\nSignup pages: ${pagesLine}.\nScenarios: ${scenariosLine}.\nSpaces:\n${lines.join('\n')}`;
 }
 
 // Mémo factuel rendu par get_account_overview : ce que veulent dire les

@@ -4,9 +4,12 @@
 // et la modification d'une PAGE D'INSCRIPTION (create_signup_page en
 // brouillon, update_signup_page : brouillon modifié, page publiée = une
 // proposition que le pro applique), et la création et la modification d'un
-// BROUILLON de scénario (create_scenario_draft, update_scenario_draft). Chaque
-// famille a sa permission, posée au consentement ; tout s'écrit par la seule
-// porte mcp_write. Aucun outil n'envoie ni ne publie.
+// BROUILLON de scénario (create_scenario_draft, update_scenario_draft), et la
+// BILLETTERIE d'une soirée Yuno (set_ticketing : billets, rounds, heures
+// d'entrée ; get_ticketing la relit), rangée sous la permission des
+// brouillons. Chaque famille a sa permission, posée au consentement ; tout
+// s'écrit par la seule porte mcp_write. Aucun outil n'envoie ni ne publie :
+// set_ticketing n'allume jamais la vente.
 //
 // Chaque description suit la même grammaire (guide OpenAI / Anthropic) : à quoi
 // sert l'outil, quand l'utiliser (avec des questions de pro en exemple), ce
@@ -59,6 +62,10 @@ export interface ToolDef {
   // (can_scenarios). Aucun outil ne publie un scénario.
   scenario?: boolean;
   scenarioDrafts?: boolean;
+  // Billetterie d'une soirée Yuno (get_ticketing, set_ticketing) : listée pour
+  // une connexion qui a le droit aux brouillons et un espace Billetterie ;
+  // exécutée par mcp_write, qui revérifie les droits de la Console.
+  ticketing?: boolean;
   // Métadonnées propres à un client (ex. `openai/fileParams` : ChatGPT y passe
   // le fichier que la personne a joint à la conversation).
   meta?: Record<string, unknown>;
@@ -112,6 +119,25 @@ const THEME: JsonSchema = {
     footer_social: { type: 'boolean' },
   },
   additionalProperties: false,
+};
+const TICKET_ITEM: JsonSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'Id of an existing ticket of the night (from get_ticketing), to keep and update it. Omitted: a new ticket.' },
+    ref: { type: 'string', maxLength: 40, description: 'Short label of this ticket inside the list ("e1"), used by opens_after of other tickets. Optional: the id or the exact name also work.' },
+    name: { type: 'string', minLength: 1, maxLength: 80, description: 'Name shown to buyers ("Early Round — Before 1 AM").' },
+    price: { type: 'number', minimum: 0, maximum: 10000, description: 'Price in euros, Yuno service fee not included. 0 = free ticket.' },
+    quantity: { type: ['integer', 'null'], minimum: 1, maximum: 99999, description: 'Tickets available. Omitted or null: no limit (then the ticket only sells out when marked Sold out).' },
+    entry_before: { type: 'string', pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'Entry deadline, HH:MM local time of the night ("01:00"): after it the door is warned and staff accept or refuse. Omitted: none.' },
+    includes_drink: { type: 'boolean', description: 'A free drink comes with the ticket, collected at the door. Default false.' },
+    visibility: { type: 'string', enum: ['now', 'at', 'hidden'], description: 'When buyers see it: now (default), at visible_from, or hidden.' },
+    visible_from: { type: 'string', description: 'ISO 8601 date-time with offset, for visibility "at" ("2026-10-20T20:00:00+02:00").' },
+    sale: { type: 'string', enum: ['now', 'at', 'manual', 'after'], description: 'When it can be bought: now (default), at sale_starts_at, manual (shown "Coming soon", opened later from the Console), or after: opens by itself as soon as the ticket named in opens_after sells out (rounds). Default "after" when opens_after is given.' },
+    sale_starts_at: { type: 'string', description: 'ISO 8601 date-time with offset, for sale "at".' },
+    sale_ends_at: { type: 'string', description: 'Optional end of sale, ISO 8601 date-time with offset: the ticket then shows "Sale ended".' },
+    opens_after: { type: 'string', maxLength: 120, description: 'The ticket that must sell out first: its ref, id or exact name in this list. Each ticket has its own queue (e.g. "First Round — Before 1 AM" after "Early Round — Before 1 AM").' },
+  },
+  required: ['name', 'price'],
 };
 const DRAFT_FIELDS: Record<string, JsonSchema> = {
   product: PRODUCT,
@@ -1054,6 +1080,52 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'get_ticketing',
+    title: 'Ticketing of a night',
+    level: 'analytics',
+    ticketing: true,
+    products: ['suite'],
+    description:
+      'The ticketing of one Yuno night as it is set up now, with the ids needed to change it: whether it is on sale, the selling mode, the total capacity, '
+      + 'and each ticket (id, name, price, quantity, sold, entry deadline, free drink, visibility, sale timing, the ticket it opens after, and its status: '
+      + 'on_sale, waiting_previous, not_open, scheduled, sold_out, hidden, ended). Read it before set_ticketing on a night that already has tickets. '
+      + 'Examples: "what tickets are on my next night?", "which round is open?". For sales analysis, get_event_details (topic ticket_types).',
+    inputSchema: {
+      type: 'object',
+      properties: { space: SPACE, event: EVENT },
+      required: ['event'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'set_ticketing',
+    title: 'Set up the ticketing of a night',
+    level: 'analytics',
+    ticketing: true,
+    write: true,
+    destructive: true,
+    products: ['suite'],
+    description:
+      'Sets the whole ticket list of one upcoming Yuno night, in the free-form mode: names, prices, quantities, entry deadlines, free drink, visibility, '
+      + 'sale dates and rounds ticket by ticket (a ticket can open by itself when another one sells out, e.g. Early, First, Second, Last Round, each in a '
+      + '"Before 1 AM" and an "All Night Long" version). The list replaces the current one: tickets given with their id are updated, new ones are created, '
+      + 'unsold tickets left out are removed. Tickets already sold are never removed and a quantity never goes below what is sold. '
+      + 'It never turns sales on: on a night not yet on sale, the person reviews and clicks "Activer la vente" in the Console; on a night already on sale, '
+      + 'the call is refused unless apply_to_live is true, and buyers then see the change immediately. Returns the resulting tickets with their status and the Console link.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        space: SPACE,
+        event: EVENT,
+        tickets: { type: 'array', minItems: 1, maxItems: 40, items: TICKET_ITEM, description: 'The complete list, in the order buyers see it.' },
+        capacity: { type: 'integer', minimum: 0, maximum: 99999, description: 'Optional total cap across all tickets. 0 = no total cap. Omitted: unchanged.' },
+        apply_to_live: { type: 'boolean', description: 'Required (true) to change a night whose tickets are already on sale.' },
+      },
+      required: ['event', 'tickets'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'get_glossary',
     title: 'Metric definitions',
     level: 'analytics',
@@ -1108,6 +1180,7 @@ export function toolsFor(level: ToolLevel, spaces: SessionSpace[], drafts = fals
     if (t.shared) return drafts || (pages && anyCrm);
     if (t.pages) return pages && anyCrm;
     if (t.scenarioDrafts) return scenarios && anyCrm;
+    if (t.ticketing) return drafts && products.has('suite');
     if (t.scenario) return anyCrm;
     if ((t.write || t.drafts) && !drafts) return false;
     if (t.products && !t.products.some((p) => products.has(p))) return false;

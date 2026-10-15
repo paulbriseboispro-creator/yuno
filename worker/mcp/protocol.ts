@@ -28,6 +28,7 @@ import { TOOL_BY_NAME, toolListing, toolsFor, validateArgs, type SessionSpace, t
 import { formatEmailRead, runAddEmailImage, runEmailWrite } from './emailTools';
 import { formatPageRead, pageErrorText, runPageWrite } from './signupTools';
 import { formatScenarioRead, runScenarioWrite, scenarioErrorText } from './scenarioTools';
+import { runTicketing, ticketingErrorText } from './ticketingTools';
 import { smartLang } from '../../supabase/functions/_shared/email-smart';
 
 type JsonRpcId = string | number | null;
@@ -415,6 +416,31 @@ async function callTool(
     return ok(toolResult(hits.length
       ? compactResult({ results: hits })
       : 'No article matches. Rephrase with Console words (campaign, automation, promo code, sold out, tables, guest list, tracked link...).'));
+  }
+
+  // Billetterie d'une soirée (lecture ET écriture) : par mcp_write, qui
+  // revérifie la permission des brouillons et les droits de la Console.
+  if (tool.ticketing) {
+    const session = await loadSession(state);
+    if (!session.ok) return { status: 401, body: null, unauthorized: true };
+    if (!session.drafts) return ok(toolResult(ticketingErrorText('drafts_not_allowed'), true));
+    const startedT = Date.now();
+    let outcome;
+    try {
+      outcome = await runTicketing(state.env, state.tokenHash, tool.name as 'get_ticketing' | 'set_ticketing', v.args);
+    } catch (err) {
+      if (err instanceof DbNotConfigured) throw err;
+      return failCall(state, tool.name, err instanceof DbError && err.isTimeout, ok);
+    }
+    if (outcome.code === 'unauthorized') return { status: 401, body: null, unauthorized: true };
+    if (outcome.callId) {
+      const duration = Date.now() - startedT;
+      state.ctx.waitUntil(
+        rpc(state.env, 'mcp_call_finished', { p_call_id: outcome.callId, p_duration_ms: duration, p_bytes: outcome.text.length, p_error: outcome.isError ? (outcome.code ?? 'error') : null })
+          .catch(() => undefined),
+      );
+    }
+    return ok(toolResult(outcome.text, outcome.isError));
   }
 
   // Brouillons d'e-mails et pages d'inscription : préparer, contrôler, puis
