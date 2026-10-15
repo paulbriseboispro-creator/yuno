@@ -31,7 +31,7 @@ Les deux univers partagent **le fond noir et le rouge `#E8192C`**. Tout le reste
 | **Border-radius** | **Tranchant** : 2–4px sur l'éditorial, pills 999px | Doux : 12–18px partout |
 | **Layout** | Colonne lecture `max-width: 768px`, mobile-first | Large `max-width: 1340px`, grilles KPI |
 | **Navigation** | `BottomNav` (PWA mobile) | Sidebar verticale |
-| **Hero** | Full-bleed cinématique 1:1 + overlay gradient | Carte avec glow ambiant rouge |
+| **Hero** | Club : full-bleed 1:1 + overlay ; soirée : scène 16:9 sur halo (§7) | Carte avec glow ambiant rouge |
 | **Motion** | Entrées staggered « affiche », press `scale(0.97)` | Apparitions framer-motion discrètes |
 | **Styling** | Classes CSS partagées **+** inline styles | Tokens inline copiés en tête de fichier |
 
@@ -331,6 +331,30 @@ Encadré tranchant radius 4px, bordure + fond rouge translucides, pour pousser u
 ---
 
 ## 7. Hero cinématique (page event / venue)
+
+### 7.1 Page soirée Yuno (club ou organisateur) — la scène 16:9 (2026-10-15)
+
+Rien n'est posé sur l'image : le titre gâchait le flyer et dansait sur le film.
+Tout tient dans la colonne de lecture (768 px), à 20 px des bords de l'écran.
+
+1. Top bar : retour (gauche) + partage / favori (droite), carrés 40 px, radius 4 px,
+   fond `rgb(var(--ink)/0.045)` + filet `rgb(var(--ink)/0.12)`.
+2. **Scène** (`EventHeroStage`) : cadre 16:9, radius 14 px, liseré intérieur blanc 7-8 %.
+   Vidéo de la soirée en lecture auto (muette, en boucle, sans bouton) ; sinon l'affiche :
+   paysage = plein cadre, carrée / portrait = entière au centre sur sa propre copie floutée.
+   **Halo** : la même affiche en 160 px, `blur(64px) saturate(1.7)` à 55 % sous masque radial,
+   plus une couche serrée `blur(28px)` à 70 % — la couleur de la soirée déborde du cadre
+   sans toucher l'image. Le `<header>` porte `overflow-x: clip` (jamais de scroll horizontal).
+3. Badges → titre (`clamp(34px, 9.5vw, 64px)`) → « AVATAR NOM présente » + countdown.
+4. Bloc date : jour de la semaine en label mono, quantième en grand ; « Ouverture », heure en
+   grand, « jusqu'à HH:mm ». Filets haut et bas, séparateur vertical.
+5. Ligne lieu : « À LIEU · VILLE » + flèche ↗ vers l'itinéraire (adresse publique seulement).
+6. Intéressé·e / Partager : deux boutons de même largeur.
+
+Les soirées partenaires (`affiliate_events`, `AffiliateEventPage`) gardent leur propre héros.
+Le reste de Yuno (cartes, Explore, emails, Wallet) garde l'affiche 1:1.
+
+### 7.2 Page club
 
 Section plein cadre, ratio 1:1, image en `object-cover`, overlay gradient noir, contenu ancré en
 bas, contrôles flottants en haut, entrées staggered.
