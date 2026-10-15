@@ -7,7 +7,7 @@ import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
-import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell, Armchair } from 'lucide-react';
+import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell, Armchair, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
@@ -33,7 +33,7 @@ import { EventCountdown } from '@/components/EventCountdown';
 import { FadeInView } from '@/components/motion';
 import { formatCompactCount } from '@/components/formater';
 import { PublicPage } from '@/components/PublicPage';
-import { EventHeroVideo } from '@/components/event/EventHeroVideo';
+import { EventHeroStage } from '@/components/event/EventHeroStage';
 import { shouldAutoplayHeroVideo } from '@/lib/eventVideo';
 import { EventDetailsSkeleton } from '@/components/skeletons/EventDetailsSkeleton';
 import { EventDrinksTeaser } from '@/components/upsell/EventDrinksTeaser';
@@ -971,25 +971,22 @@ export default function EventDetails() {
   const showSoldOutBadge = (isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets);
 
   // ── Héros ─────────────────────────────────────────────────────────────────
-  // Deux mises en page pour une seule matière.
-  //   • sans vidéo : l'affiche 1:1 porte le titre en surimpression — une image
-  //     fixe, assombrie au bon endroit, supporte du texte.
-  //   • avec vidéo : le plan 16:9 reste INTACT. Aucun texte, aucun voile, aucun
-  //     bouton par-dessus : un plan qui bouge et un titre au même endroit
-  //     s'annulent (le texte danse sur le montage, le montage disparaît sous le
-  //     texte). Le titre descend sous le film, sur le noir de la page, où il est
-  //     à son contraste maximum et où le film garde son cadrage entier.
-  // Largeur max du film : on borne la HAUTEUR du plan sur grand écran en bornant
-  // sa largeur, deux marges noires valant mieux qu'un recadrage — le pro a cadré
-  // en 16:9, il retrouve son cadrage entier.
-  const HERO_FILM_MAX_WIDTH = 'calc(66vh * 16 / 9)';
+  // Une seule mise en page, vidéo ou affiche : contrôles en haut, puis une
+  // SCÈNE 16:9 détachée des bords et posée sur un halo aux couleurs de
+  // l'affiche (EventHeroStage), puis le titre, qui présente, la date et le lieu
+  // — toujours SOUS l'image, jamais dessus : le texte gâchait le flyer et
+  // dansait sur le film. Tout tient dans la colonne de lecture de 768 px, à
+  // 20 px des bords de l'écran. (Les soirées partenaires `affiliate_events`
+  // ont leur propre page et gardent leur héros.)
+  const HERO_GUTTER = '20px';
+  const tz = getEventTimezone(event);
+  const startDate = new Date(event.startAt);
 
-  const heroChip = (onImage: boolean): React.CSSProperties =>
-    onImage
-      ? { width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }
-      : { width: 36, height: 36, borderRadius: '2px', background: 'rgb(var(--ink)/0.045)', color: 'var(--tx-e5e5e5)', border: '1px solid rgb(var(--ink)/0.10)', cursor: 'pointer' };
+  const heroChip: React.CSSProperties = {
+    width: 40, height: 40, borderRadius: '4px', background: 'rgb(var(--ink)/0.045)', color: 'var(--tx-e5e5e5)', border: '1px solid rgb(var(--ink)/0.12)', cursor: 'pointer',
+  };
 
-  const heroControls = (onImage: boolean) => (
+  const heroControls = (
     <>
       {/* Back button — hidden when the organizer locks visitors to the event page */}
       {event.hideYunoNavigation ? (
@@ -999,7 +996,7 @@ export default function EventDetails() {
           onClick={handleBack}
           aria-label={t('common.back')}
           className="flex items-center justify-center hover:opacity-80 transition-opacity"
-          style={heroChip(onImage)}
+          style={heroChip}
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -1010,7 +1007,7 @@ export default function EventDetails() {
           onClick={handleShare}
           aria-label={t('share.shareEvent')}
           className="flex items-center justify-center hover:opacity-80 transition-opacity"
-          style={heroChip(onImage)}
+          style={heroChip}
         >
           <Share2 className="h-4 w-4" />
         </button>
@@ -1019,8 +1016,8 @@ export default function EventDetails() {
           id={event.id}
           variant="ghost"
           size="icon"
-          className="text-white shadow-none ring-0 outline-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:opacity-80 border-none"
-          style={heroChip(onImage) as React.CSSProperties}
+          className="text-white shadow-none ring-0 outline-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:opacity-80"
+          style={heroChip as React.CSSProperties}
         />
       </div>
     </>
@@ -1034,216 +1031,194 @@ export default function EventDetails() {
         </span>
       )}
       {event.eventType && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgb(var(--ink)/0.07)', border: '1px solid rgb(var(--ink)/0.10)', color: 'var(--tx-e5e5e5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgb(var(--ink)/0.07)', border: '1px solid rgb(var(--ink)/0.10)', color: 'var(--tx-e5e5e5)' }}>
           {event.eventType}
         </span>
       )}
       {/* Genre musical de la soirée — pilule rouge à côté du type */}
       {event.musicGenres?.slice(0, 2).map((genre) => (
-        <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(232,25,44,0.85)', border: '1px solid rgba(232,25,44,0.9)', color: '#fff', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+        <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(232,25,44,0.85)', border: '1px solid rgba(232,25,44,0.9)', color: '#fff' }}>
           {genre}
         </span>
       ))}
     </div>
   );
 
-  const heroTitle = (fontSize: string) => (
-    <h1
-      className="font-display text-white uppercase animate-hero-h1"
-      style={{ fontSize, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 0.9, marginBottom: '18px' }}
-    >
-      {event.title}
-    </h1>
-  );
-
   const coOrganizerNames = primaryOrganizer
     ? eventOrganizers.filter((o) => o.id !== primaryOrganizer.user_id && o.name).map((o) => o.name)
     : [];
 
-  const heroMeta = (
-    <div className="flex items-end justify-between gap-4 flex-wrap animate-hero-body">
-      <div>
-        {primaryOrganizer && (
-          <div className="flex items-center gap-2 mb-1">
-            {primaryOrganizer.avatar_url && (
-              <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64, height: 64, resize: 'contain' })} alt={primaryOrganizer.display_name} className="rounded-full object-contain shrink-0" style={{ width: 18, height: 18, background: 'var(--sf-191919)' }} />
-            )}
-            <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
-              {primaryOrganizer.display_name.toUpperCase()}
-            </span>
-            {/* Co-organisateurs : la soirée est à eux aussi, l'en-tête le dit dès le
-                premier écran (« Presented by » les détaille plus bas). Au-delà de
-                deux, un compteur garde la ligne sur une ligne. */}
-            {coOrganizerNames.slice(0, 2).map((name) => (
-              <span key={name} className="contents">
-                <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
-                <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>{name.toUpperCase()}</span>
-              </span>
-            ))}
-            {coOrganizerNames.length > 2 && (
-              <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>+{coOrganizerNames.length - 2}</span>
-            )}
-            {venue && venue.id !== primaryOrganizer.user_id && (
-              <>
-                <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
-                <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>{venue.name.toUpperCase()}</span>
-              </>
-            )}
-            {/* Soirée d'un organisateur dans un lieu hors Yuno : le nom du lieu saisi. */}
-            {venue && venue.id === primaryOrganizer.user_id && event.locationName && !event.locationIsSecret && (
-              <>
-                <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>@</span>
-                <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>{event.locationName.toUpperCase()}</span>
-              </>
-            )}
-          </div>
+  // « AMORIS présente » : l'organisateur qui mène (et ses co-organisateurs),
+  // sinon le club. Le lieu a sa propre ligne plus bas.
+  const presenterName = primaryOrganizer?.display_name ?? venue.name;
+  const presenterLogo = primaryOrganizer ? primaryOrganizer.avatar_url : venue.logoUrl;
+  const presenterCount = 1 + Math.min(coOrganizerNames.length, 2) + (coOrganizerNames.length > 2 ? 1 : 0);
+
+  const heroPresenter = (
+    <div className="flex items-center justify-between gap-3 flex-wrap animate-hero-body">
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        {presenterLogo && (
+          <img
+            src={getOptimizedImageUrl(presenterLogo, { width: 64, height: 64, resize: 'contain' })}
+            alt={presenterName}
+            className="rounded-full object-contain shrink-0"
+            style={{ width: 22, height: 22, background: 'var(--sf-191919)' }}
+          />
         )}
-        <p className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.06em]" style={{ fontSize: '12px' }}>
-          {[
-            !primaryOrganizer && venue ? venue.name.toUpperCase() : null,
-            formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
-            `${t('event.doorsOpen').toUpperCase()} ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}`,
-            `${t('event.doorsClose').toUpperCase()} ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`,
-          ].filter(Boolean).join(' · ')}
-        </p>
+        <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
+          {presenterName.toUpperCase()}
+        </span>
+        {/* Co-organisateurs : la soirée est à eux aussi, l'en-tête le dit dès le
+            premier écran (« Presented by » les détaille plus bas). Au-delà de
+            deux, un compteur garde la ligne courte. */}
+        {coOrganizerNames.slice(0, 2).map((name) => (
+          <span key={name} className="contents">
+            <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
+            <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>{name.toUpperCase()}</span>
+          </span>
+        ))}
+        {coOrganizerNames.length > 2 && (
+          <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>+{coOrganizerNames.length - 2}</span>
+        )}
+        <span className="font-mono uppercase text-[var(--tx-5a5a5e)] tracking-[0.12em]" style={{ fontSize: '10px' }}>
+          {presenterCount > 1 ? t('event.presentPlural') : t('event.presents')}
+        </span>
       </div>
       <EventCountdown startAt={event.startAt} compact />
     </div>
   );
 
-  const heroPoster = heroImage ? (
-    <img
-      src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
-      alt={event.title}
-      {...({ fetchpriority: "high" } as Record<string, string>)}
-      className="absolute inset-0 w-full h-full object-cover object-center"
-    />
+  // Date et horaires en grand, deux colonnes — le premier renseignement après
+  // le titre, celui qu'on vient chercher.
+  const heroLabel: React.CSSProperties = { fontSize: '10px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.14em' };
+  const heroBig: React.CSSProperties = { fontSize: 'clamp(44px, 12vw, 64px)', letterSpacing: '-0.04em', lineHeight: 0.85 };
+  const heroWhen = (
+    <div className="flex items-stretch animate-hero-body" style={{ padding: '22px 0', borderTop: '1px solid rgb(var(--ink)/0.08)', borderBottom: '1px solid rgb(var(--ink)/0.08)' }}>
+      <div className="flex-1 min-w-0">
+        <p className="font-mono uppercase mb-2.5" style={heroLabel}>
+          {formatInTimeZone(startDate, tz, 'EEEE', { locale: getLocale() })}
+        </p>
+        <p className="font-display font-bold text-white" style={heroBig}>
+          {formatInTimeZone(startDate, tz, 'd', { locale: getLocale() })}
+        </p>
+        <p className="font-mono uppercase" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.1em', marginTop: 10 }}>
+          {formatInTimeZone(startDate, tz, 'MMM yyyy', { locale: getLocale() }).replace('.', '')}
+        </p>
+      </div>
+      <div className="shrink-0" style={{ width: 1, background: 'rgb(var(--ink)/0.08)', margin: '0 clamp(18px, 5vw, 32px)' }} />
+      <div className="flex-1 min-w-0">
+        <p className="font-mono uppercase mb-2.5" style={heroLabel}>{t('event.doorsOpen')}</p>
+        <p className="font-display font-bold text-white" style={heroBig}>
+          {formatInTimeZone(startDate, tz, 'HH:mm')}
+        </p>
+        <p className="font-mono uppercase" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.1em', marginTop: 10 }}>
+          {t('event.until')} {formatInTimeZone(new Date(event.endAt), tz, 'HH:mm')}
+        </p>
+      </div>
+    </div>
+  );
+
+  // « À TIA FELISA · SEGOVIA ↗ » — le lieu : club partenaire, lieu saisi par
+  // l'organisateur, ou « lieu secret ». La flèche ouvre l'itinéraire quand
+  // l'adresse est publique.
+  const isOrganizerPlace = venue.id === primaryOrganizer?.user_id;
+  const placeName = event.locationIsSecret
+    ? t('event.secretValue')
+    : isOrganizerPlace ? (event.locationName || null) : venue.name;
+  const placeParts = [placeName, venue.city || null].filter(Boolean) as string[];
+  const mapsHref = !event.locationIsSecret && venue.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`
+    : null;
+  const placeInner = (
+    <>
+      <span className="min-w-0 truncate font-mono uppercase" style={{ fontSize: '12px', letterSpacing: '0.1em' }}>
+        <span style={{ color: 'var(--tx-5a5a5e)' }}>{t('event.atPlace')}</span>
+        <span style={{ marginLeft: 10, color: 'rgb(var(--ink))', fontWeight: 600 }}>{placeParts[0]}</span>
+        {placeParts[1] && <span style={{ color: 'var(--tx-5a5a5e)' }}>{' · '}{placeParts[1]}</span>}
+      </span>
+      {mapsHref && <ArrowUpRight className="h-4 w-4 shrink-0" style={{ color: 'var(--tx-9a9a9a)' }} />}
+    </>
+  );
+  const heroPlace = placeParts.length === 0 ? null : mapsHref ? (
+    <a
+      href={mapsHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-between gap-3 animate-hero-body transition-opacity hover:opacity-80"
+      style={{ padding: '16px 0', borderBottom: '1px solid rgb(var(--ink)/0.08)' }}
+    >
+      {placeInner}
+    </a>
   ) : (
-    <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
+    <div className="flex items-center justify-between gap-3 animate-hero-body" style={{ padding: '16px 0', borderBottom: '1px solid rgb(var(--ink)/0.08)' }}>
+      {placeInner}
+    </div>
   );
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-0a0a0a)' }}>
       <PublicPage variant="immersive">
 
-      {/* ── CINEMATIC HERO ─────────────────────────────────────── */}
-      {heroVideo ? (
-        /* Variante FILM : contrôles au-dessus, plan intact, titre en dessous. */
-        <header className="relative" style={{ borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
-          {/* Contrôles alignés sur les bords du cadre, jamais posés dessus. */}
-          <div
-            className="flex items-start justify-between mx-auto"
-            style={{ width: '100%', maxWidth: HERO_FILM_MAX_WIDTH, padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px' }}
-          >
-            {heroControls(false)}
+      {/* ── HÉROS ──────────────────────────────────────────────── */}
+      {/* overflow-x clip : le halo déborde du cadre sans jamais élargir la page. */}
+      <header className="relative" style={{ overflowX: 'clip' }}>
+        <div style={{ maxWidth: '768px', margin: '0 auto', padding: `calc(env(safe-area-inset-top, 0px) + 10px) ${HERO_GUTTER} 0` }}>
+          <div className="relative z-10 flex items-start justify-between" style={{ marginBottom: 18 }}>
+            {heroControls}
           </div>
 
-          {/* Le film — plein cadre sur mobile, encadré de noir sur grand écran. */}
-          <div
-            className="relative overflow-hidden mx-auto"
-            style={{ width: '100%', maxWidth: HERO_FILM_MAX_WIDTH, aspectRatio: '16 / 9', background: 'var(--sf-000000)' }}
-          >
-            {/* L'affiche reste sous la vidéo : premier rendu, et repli si le fichier
-                ne se lit pas. Elle est carrée, le cadre est large : elle tient
-                ENTIÈRE au centre sur son propre flou plutôt que d'être rognée de
-                moitié — le repli doit ressembler à un choix, pas à un accident. */}
-            {heroImage ? (
-              <>
-                <img
-                  src={getOptimizedImageUrl(heroImage, { width: 320, quality: 55 })}
-                  alt=""
-                  aria-hidden="true"
-                  className="absolute inset-0 w-full h-full object-cover object-center"
-                  style={{ filter: 'blur(28px) saturate(0.9)', transform: 'scale(1.14)', opacity: 0.5 }}
-                />
-                <img
-                  src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
-                  alt={event.title}
-                  {...({ fetchpriority: "high" } as Record<string, string>)}
-                  className="absolute inset-0 w-full h-full object-contain object-center"
-                />
-              </>
-            ) : (
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
-            )}
-            <EventHeroVideo src={heroVideo} className="absolute inset-0 w-full h-full object-cover object-center" />
-          </div>
+          <EventHeroStage posterUrl={heroImage} videoUrl={heroVideo} title={event.title} />
 
-          {/* Bloc titre — aligné sur la colonne de lecture, sur le noir de la page. */}
-          <div style={{ maxWidth: '768px', margin: '0 auto', padding: 'clamp(22px, 4.5vw, 34px) 20px clamp(22px, 4vw, 30px)' }}>
+          <div style={{ paddingTop: 'clamp(24px, 6vw, 34px)' }}>
             {heroBadges}
-            {heroTitle('clamp(34px, 8vw, 68px)')}
-            {heroMeta}
-          </div>
-        </header>
-      ) : (
-        /* Variante AFFICHE : image fixe 1:1, titre en surimpression. */
-        <section
-          className="relative overflow-hidden"
-          style={{
-            aspectRatio: '1 / 1',
-            background: 'rgb(var(--ink)/0.05)',
-            borderBottom: '1px solid rgb(var(--ink)/0.07)',
-          }}
-        >
-          {heroPoster}
-
-          {/* Gradient overlay */}
-          <div
-            className="absolute inset-0"
-            style={{ background: 'linear-gradient(to top, rgb(var(--glass-10-10-10)/0.97) 0%, rgb(var(--glass-10-10-10)/0.2) 50%, rgb(var(--glass-10-10-10)/0.55) 100%)' }}
-          />
-
-          {/* Top: back (left) + share/fav (right) */}
-          <div
-            className="absolute top-0 left-0 right-0 z-20 flex items-start justify-between"
-            style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 16px 0' }}
-          >
-            {heroControls(true)}
+            <h1
+              className="font-display text-white uppercase animate-hero-h1"
+              style={{ fontSize: 'clamp(34px, 9.5vw, 64px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 0.92, marginBottom: '18px' }}
+            >
+              {event.title}
+            </h1>
+            {heroPresenter}
           </div>
 
-          {/* Bottom: badges + title + meta */}
-          <div
-            className="absolute bottom-0 left-0 right-0 z-10"
-            style={{ padding: '0 20px clamp(24px, 5vh, 44px)' }}
-          >
-            {heroBadges}
-            {heroTitle('clamp(38px, 9vw, 100px)')}
-            {heroMeta}
+          <div style={{ marginTop: 22 }}>
+            {heroWhen}
+            {heroPlace}
           </div>
-        </section>
-      )}
+        </div>
+      </header>
 
       {/* ── CONTENT ─────────────────────────────────────────────── */}
       <div style={{ maxWidth: '768px', margin: '0 auto' }}>
 
-        {/* ── Actions row ── */}
+        {/* ── Actions row ── deux boutons de même largeur, sous le lieu. */}
         <div
-          className="flex flex-wrap items-center gap-2.5 animate-hero-cta"
-          style={{ padding: 'clamp(20px, 4vw, 28px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
+          className="animate-hero-cta"
+          style={{ padding: '18px 20px clamp(20px, 4vw, 28px)', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
         >
-          <FavoriteButton
-            type="event"
-            id={event.id}
-            variant="outline"
-            size="sm"
-            showLabel
-            label={t('event.interestedLabel')}
-            className="font-mono font-semibold tracking-[0.08em] uppercase ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-[var(--sf-2a2a2a)] text-[var(--tx-9a9a9a)] hover:border-[var(--sf-3a3a3a)] hover:text-white"
-            style={{ fontSize: '11px', height: '32px', padding: '0 14px', borderRadius: '2px', background: 'transparent' } as React.CSSProperties}
-          />
-          <button
-            onClick={handleShare}
-            className="inline-flex items-center gap-2 font-mono font-semibold tracking-[0.08em] uppercase transition-colors hover:border-[var(--sf-3a3a3a)] hover:text-white"
-            style={{ fontSize: '11px', height: '32px', padding: '0 14px', background: 'transparent', border: '1px solid var(--sf-2a2a2a)', color: 'var(--tx-9a9a9a)', borderRadius: '2px', cursor: 'pointer' }}
-          >
-            <Share2 className="h-3 w-3" />
-            {t('share.shareEvent')}
-          </button>
+          <div className="grid grid-cols-2 gap-2.5">
+            <FavoriteButton
+              type="event"
+              id={event.id}
+              variant="outline"
+              size="sm"
+              showLabel
+              label={t('event.interestedLabel')}
+              className="w-full font-mono font-semibold tracking-[0.08em] uppercase ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-[var(--sf-2a2a2a)] text-[var(--tx-9a9a9a)] hover:border-[var(--sf-3a3a3a)] hover:text-white"
+              style={{ fontSize: '11px', height: '42px', padding: '0 14px', borderRadius: '4px', background: 'transparent' } as React.CSSProperties}
+            />
+            <button
+              onClick={handleShare}
+              className="w-full inline-flex items-center justify-center gap-2 font-mono font-semibold tracking-[0.08em] uppercase transition-colors hover:border-[var(--sf-3a3a3a)] hover:text-white"
+              style={{ fontSize: '11px', height: '42px', padding: '0 14px', background: 'transparent', border: '1px solid var(--sf-2a2a2a)', color: 'var(--tx-9a9a9a)', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              <Share2 className="h-3 w-3" />
+              {t('share.shareEvent')}
+            </button>
+          </div>
           {interestedCount > 0 && (
-            <span className="font-mono text-[var(--tx-5a5a5e)]" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
+            <p className="font-mono text-[var(--tx-5a5a5e)]" style={{ fontSize: '11px', letterSpacing: '0.04em', marginTop: 12 }}>
               {interestedCount >= 1000 ? `${(interestedCount / 1000).toFixed(1)}k` : interestedCount} {t('event.areInterested')}
-            </span>
+            </p>
           )}
         </div>
 
@@ -1505,38 +1480,12 @@ export default function EventDetails() {
         <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
           <p className="section-label-ruled mb-6">{t('event.date') || 'Infos'}</p>
 
-          {/* Large typographic date + time */}
-          <div className="flex items-stretch mb-6 pb-6" style={{ borderBottom: '1px solid rgb(var(--ink)/0.06)' }}>
-            <div className="flex-1">
-              <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.14em' }}>DATE</p>
-              <p
-                className="font-display font-bold text-white"
-                style={{ fontSize: 'clamp(48px, 12vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}
-              >
-                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'dd', { locale: getLocale() })}
-              </p>
-              <p className="font-display font-bold uppercase" style={{ fontSize: 'clamp(14px, 3.5vw, 20px)', color: 'var(--tx-9a9a9a)', letterSpacing: '-0.01em', lineHeight: 1.1, marginTop: 4 }}>
-                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'MMMM yyyy', { locale: getLocale() })}
-              </p>
-            </div>
-            <div className="shrink-0" style={{ width: 1, background: 'rgb(var(--ink)/0.07)', margin: '0 24px' }} />
-            <div className="flex-1">
-              <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.14em' }}>{t('event.doorsOpen')}</p>
-              <p
-                className="font-display font-bold text-white"
-                style={{ fontSize: 'clamp(48px, 12vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}
-              >
-                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}
-              </p>
-              <p className="font-mono uppercase" style={{ fontSize: '10px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.08em', marginTop: 8 }}>
-                {t('event.doorsClose')} {formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}
-              </p>
-            </div>
-          </div>
-
           {/* Compact details */}
           <div style={{ border: '1px solid rgb(var(--ink)/0.08)', borderRadius: '4px', padding: '0 16px' }}>
             {([
+              // La date et les horaires sont en grand dans le héros ; ici, la
+              // ligne complète, pour qui lit la fiche d'un bout à l'autre.
+              [t('event.whenLabel'), `${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() })} · ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')} → ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`],
               // Secret events show a sober "Secret location" value instead of the exact
               // address; the city always shows so the attendee knows where to travel and
               // the event stays city-filtered.
