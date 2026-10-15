@@ -93,6 +93,7 @@ export default function SegmentsPage() {
           color,
           good: !growthIsBad(s),
           delta: s.n_start === null ? null : s.n - s.n_start,
+          pending: s.n_start === null && (data.anchors_pending ?? 0) > 0,
         };
       });
   }, [data, rules, t]);

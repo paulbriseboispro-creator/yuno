@@ -2,7 +2,8 @@
  * Données de l'écran Segments : vue d'ensemble d'une période (crm_segments_overview),
  * fiche d'un segment (crm_segment_detail), effectifs des modèles (crm_audience_counts).
  */
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 import type { ClientFilterDef, Lifecycle } from './clients';
@@ -51,6 +52,8 @@ export interface SegmentsOverview {
   sends: SendRow[];
   rules: { regular_min_nights: number; regular_window_months: number; lapse_months: number };
   computed_at: string;
+  /** Dates repères de la période pas encore calculées : l'évolution arrive juste après. */
+  anchors_pending?: number;
 }
 
 export interface SegmentDetail {
@@ -63,12 +66,41 @@ export interface SegmentDetail {
 
 export function useSegmentsOverview(period: SegPeriod) {
   const { rpc: args, qk } = useCrmScope();
-  return useQuery({
+  const qc = useQueryClient();
+  const q = useQuery({
     queryKey: ['crm', qk, 'segments', period],
     queryFn: () => rpc<SegmentsOverview>('crm_segments_overview', { ...args, p_period: period }),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
+
+  // Les dates repères (début de période, puis deux points intermédiaires)
+  // manquent la première fois et après la création d'un segment : l'écran
+  // s'affiche sans elles, on les fait calculer une par une (~1,5 s chacune
+  // sur un gros compte), puis on relit l'écran. Une seule tentative par
+  // espace et par période : un échec laisse simplement l'évolution à « — ».
+  const pending = q.data?.period === period ? q.data.anchors_pending ?? 0 : 0;
+  const tried = useRef(new Set<string>());
+  useEffect(() => {
+    const key = `${qk}:${period}`;
+    if (!pending || tried.current.has(key)) return;
+    tried.current.add(key);
+    void (async () => {
+      let filled = false;
+      try {
+        for (let i = 0; i < 4; i++) {
+          const r = await rpc<{ remaining: number }>('crm_segments_fill_anchors', { ...args, p_period: period });
+          filled = true;
+          if (!r || r.remaining <= 0) break;
+        }
+      } catch {
+        // Rien à montrer : l'écart reste « — » jusqu'à la prochaine visite.
+      }
+      if (filled) await qc.invalidateQueries({ queryKey: ['crm', qk, 'segments', period], exact: true });
+    })();
+  }, [pending, qk, period, args, qc]);
+
+  return q;
 }
 
 export function useSegmentDetail(key: string | null, period: SegPeriod) {
