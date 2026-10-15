@@ -8484,6 +8484,7 @@ export type Database = {
           title: string
           updated_at: string
           venue_id: string | null
+          flyer_wide_url: string | null
           video_url: string | null
           vip_room_id: string | null
           visibility: Database["public"]["Enums"]["event_visibility"]
@@ -8567,6 +8568,7 @@ export type Database = {
           title: string
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_room_id?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
@@ -8648,6 +8650,7 @@ export type Database = {
           title?: string
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_room_id?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
@@ -12762,6 +12765,7 @@ export type Database = {
           ticket_preset_id: string | null
           updated_at: string
           venue_id: string | null
+          flyer_wide_url: string | null
           video_url: string | null
           vip_preset_id: string | null
         }
@@ -12790,6 +12794,7 @@ export type Database = {
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_preset_id?: string | null
         }
@@ -12818,6 +12823,7 @@ export type Database = {
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_preset_id?: string | null
         }
