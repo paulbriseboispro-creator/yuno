@@ -17481,6 +17481,11 @@ export type Database = {
           dj_id: string | null
           event_id: string | null
           guest_list_id: string | null
+          partner_contact: string | null
+          partner_name: string | null
+          partner_role: string | null
+          partner_shows_revenue: boolean
+          partner_token: string | null
           id: string
           is_active: boolean
           label: string
@@ -17502,6 +17507,11 @@ export type Database = {
           dj_id?: string | null
           event_id?: string | null
           guest_list_id?: string | null
+          partner_contact?: string | null
+          partner_name?: string | null
+          partner_role?: string | null
+          partner_shows_revenue?: boolean
+          partner_token?: string | null
           id?: string
           is_active?: boolean
           label: string
@@ -17523,6 +17533,11 @@ export type Database = {
           dj_id?: string | null
           event_id?: string | null
           guest_list_id?: string | null
+          partner_contact?: string | null
+          partner_name?: string | null
+          partner_role?: string | null
+          partner_shows_revenue?: boolean
+          partner_token?: string | null
           id?: string
           is_active?: boolean
           label?: string
@@ -23793,6 +23808,14 @@ export type Database = {
         Args: { p_code: string }
         Returns: string
       }
+      reset_partner_link_page: {
+        Args: { p_link_id: string }
+        Returns: string
+      }
+      get_partner_link_page: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       get_tracked_link_stats: {
         Args: {
           p_dj_id?: string
@@ -25876,3 +25899,4 @@ export const Constants = {
     },
   },
 } as const
+
