@@ -46,16 +46,21 @@ const LOCALE_RELOAD_KEY = 'yuno-locale-reload-attempted';
  * noir, et sur /l/<code> le clic d'un lien suivi n'est même pas compté.
  * On purge et on recharge UNE fois par onglet (comme lazyWithRetry), jamais
  * hors ligne : là, recharger ne ferait qu'effacer le cache utile.
+ *
+ * Rend true si un rechargement est parti ; false = aucune récupération possible
+ * (déjà tentée, hors ligne, stockage indisponible) : l'appelant doit alors rendre
+ * l'app quand même (clés brutes) plutôt que de laisser un écran noir.
  */
-export function recoverFromMissingLocaleOnce(): void {
+export function recoverFromMissingLocaleOnce(): boolean {
   try {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-    if (sessionStorage.getItem(LOCALE_RELOAD_KEY) === 'true') return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    if (sessionStorage.getItem(LOCALE_RELOAD_KEY) === 'true') return false;
     sessionStorage.setItem(LOCALE_RELOAD_KEY, 'true');
   } catch {
-    return;
+    return false;
   }
   void purgeServiceWorkersAndReload();
+  return true;
 }
 
 /** Le dictionnaire s'est chargé : la prochaine panne aura droit à sa propre récupération. */

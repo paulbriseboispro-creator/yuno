@@ -23,7 +23,8 @@ export function persistedLanguage(): Language {
     // partagé le lien pour SON public (voir `urlLanguage`).
     const fromUrl = urlLanguage();
     if (fromUrl) return fromUrl;
-    const saved = localStorage.getItem('language') as Language | null;
+    let saved: Language | null = null;
+    try { saved = localStorage.getItem('language') as Language | null; } catch { /* Safari sans stockage : langue de l'appareil */ }
     if (saved && VALID_LANGS.includes(saved)) return saved;
   }
   // Rien en local : on ouvre dans la langue du téléphone plutôt que d'imposer
@@ -83,13 +84,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       // Réseau KO sur le premier chunk : tenter EN pour ne pas bloquer l'app.
       // EN introuvable aussi = bundle périmé (ancien index en cache) : sans
-      // dictionnaire l'app ne rend rien, on recharge une version fraîche.
+      // dictionnaire l'app ne rend rien, on recharge une version fraîche. Si
+      // aucun rechargement n'est possible (déjà tenté, hors ligne), on rend l'app
+      // avec un dictionnaire vide (clés brutes) : un écran noir sans bouton est pire.
+      const giveUp = () => {
+        if (cancelled || getLoadedLocale(language)) return;
+        if (!recoverFromMissingLocaleOnce()) setStrings((prev) => prev ?? {});
+      };
       if (language !== 'en') {
         loadLocale('en')
           .then((dict) => { clearLocaleRecoveryFlag(); if (!cancelled) setStrings(dict); })
-          .catch(() => { if (!cancelled && !getLoadedLocale(language)) recoverFromMissingLocaleOnce(); });
-      } else if (!getLoadedLocale('en')) {
-        recoverFromMissingLocaleOnce();
+          .catch(giveUp);
+      } else {
+        giveUp();
       }
     });
     return () => { cancelled = true; };
