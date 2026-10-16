@@ -35,22 +35,52 @@ export function EventHeroVideo({ src, className }: { src: string; className?: st
   useEffect(() => {
     const v = ref.current;
     if (!v || !mounted) return;
-    // React pose la propriété `muted` mais pas toujours l'attribut ; Safari
-    // n'autorise l'autoplay que si les deux sont là.
+    // Safari n'accepte l'autoplay que si l'élément est muet AVANT de charger
+    // sa source, attributs compris (React ne pose que la propriété `muted`).
+    // La source n'est donc donnée qu'ici, une fois tout ça en place.
     v.muted = true;
     v.defaultMuted = true;
-    const tryPlay = () => { v.play().catch(() => { /* autoplay refusé → l'affiche reste */ }); };
+    v.setAttribute('muted', '');
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    if (v.getAttribute('src') !== src) {
+      v.src = src;
+      v.load();
+    }
 
+    let visible = true;
+    const tryPlay = () => {
+      if (!visible || document.hidden || !v.paused) return;
+      v.play().catch(() => { /* refusé : on retentera au prochain signal */ });
+    };
+
+    // Un seul play() au montage ne suffit pas : sur iPhone il échoue quand la
+    // vidéo n'a pas encore de données (4G), en mode économie d'énergie, ou au
+    // retour d'arrière-plan — l'affiche restait alors figée jusqu'au bout.
+    // On relance donc à chaque signal utile, jusqu'à ce qu'elle tourne :
+    // données prêtes, retour à l'écran, page restaurée, premier geste.
     const io = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) tryPlay(); else v.pause(); },
+      ([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible) tryPlay(); else v.pause();
+      },
       { threshold: 0.15 },
     );
     io.observe(v);
     const onVisibility = () => { if (document.hidden) v.pause(); else tryPlay(); };
+    const mediaEvents = ['loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'stalled', 'suspend'] as const;
+    const gestureEvents = ['touchend', 'pointerdown', 'click', 'keydown', 'scroll'] as const;
+    mediaEvents.forEach((e) => v.addEventListener(e, tryPlay));
+    gestureEvents.forEach((e) => window.addEventListener(e, tryPlay, { passive: true, capture: true }));
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', tryPlay);
+    tryPlay();
     return () => {
       io.disconnect();
+      mediaEvents.forEach((e) => v.removeEventListener(e, tryPlay));
+      gestureEvents.forEach((e) => window.removeEventListener(e, tryPlay, { capture: true }));
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', tryPlay);
       v.pause();
     };
   }, [mounted, src]);
@@ -60,12 +90,11 @@ export function EventHeroVideo({ src, className }: { src: string; className?: st
   return (
     <video
       ref={ref}
-      src={src}
       muted
       loop
       autoPlay
       playsInline
-      preload="metadata"
+      preload="auto"
       disablePictureInPicture
       disableRemotePlayback
       aria-hidden="true"

@@ -23,6 +23,7 @@
  *   · 60 s max — au-delà c'est une bande-annonce, pas un visuel de page
  */
 import { supabase } from '@/integrations/supabase/client';
+import { faststartFile } from '@/lib/mp4Faststart';
 
 export const EVENT_VIDEO_BUCKET = 'event-videos';
 export const EVENT_VIDEO_MAX_BYTES = 30 * 1024 * 1024;
@@ -158,12 +159,15 @@ export async function uploadEventVideo(file: File): Promise<string> {
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
   if (!uid) throw new Error('not_authenticated');
-  const mime = resolveMime(file) || 'video/mp4';
-  const ext = mime === 'video/quicktime' ? 'mov' : 'mp4';
-  const path = `${uid}/${Date.now()}.${ext}`;
+  // Index du film remis en tête (un iPhone l'écrit à la fin : la vidéo
+  // tardait ou ne démarrait pas sur 4G). Le codec étant forcément H.264, le
+  // fichier part en video/mp4, que tous les navigateurs acceptent — un
+  // video/quicktime n'est garanti que sur Safari.
+  const ready = await faststartFile(file);
+  const path = `${uid}/${Date.now()}.mp4`;
   const { error } = await supabase.storage
     .from(EVENT_VIDEO_BUCKET)
-    .upload(path, file, { upsert: false, contentType: mime, cacheControl: '31536000' });
+    .upload(path, ready, { upsert: false, contentType: 'video/mp4', cacheControl: '31536000' });
   if (error) throw error;
   return supabase.storage.from(EVENT_VIDEO_BUCKET).getPublicUrl(path).data.publicUrl;
 }
