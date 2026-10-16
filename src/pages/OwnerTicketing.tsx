@@ -45,7 +45,8 @@ import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCap
 import { FreeTicketDialog, type FreeTicketPatch } from '@/components/owner/ticketing/FreeTicketDialog';
 import { FreeTicketRow } from '@/components/owner/ticketing/FreeTicketRow';
 import { FreePresetDialog, type FreePresetDraft } from '@/components/owner/ticketing/FreePresetDialog';
-import { UNLIMITED_TICKETS, normalizeEntryDeadline, normalizeFreePreset, roundsToFreePreset } from '@/lib/freeTicketing';
+import { UNLIMITED_TICKETS, normalizeChainVisibility, normalizeEntryDeadline, normalizeFreePreset, roundsToFreePreset, type ChainVisibility } from '@/lib/freeTicketing';
+import { FreeChainVisibility } from '@/components/owner/ticketing/FreeChainVisibility';
 import { applyFreePreset } from '@/lib/applyFreePreset';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
@@ -60,7 +61,7 @@ export default function OwnerTicketing() {
   const { basePath, mode: dashboardMode } = useDashboardMode();
   const isOrganizerScope = scope === 'organizer';
   
-  const [events, setEvents] = useState<(Event & { ticketingEnabled: boolean; tablesEnabled: boolean; ticketSellingMode: TicketSellingMode; presaleStartAt?: string; publicSaleStartAt?: string; waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open'; maxTicketsPerPerson?: number | null; salePasswordEnabled?: boolean })[]>([]);
+  const [events, setEvents] = useState<(Event & { ticketingEnabled: boolean; tablesEnabled: boolean; ticketSellingMode: TicketSellingMode; presaleStartAt?: string; publicSaleStartAt?: string; waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open'; freeChainVisibility?: ChainVisibility; maxTicketsPerPerson?: number | null; salePasswordEnabled?: boolean })[]>([]);
   const [advancedOptionsDraft, setAdvancedOptionsDraft] = useState<Record<string, SalesDraft>>({});
   const [ticketRounds, setTicketRounds] = useState<Record<string, TicketRound[]>>({});
   const [presets, setPresets] = useState<TicketPreset[]>([]);
@@ -250,6 +251,7 @@ export default function OwnerTicketing() {
         tablesEnabled: event.tables_enabled,
         ticketSellingMode: (event.ticket_selling_mode as TicketSellingMode | null) || 'rounds',
         roundsVisibility: (event.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open' | null) || 'sequential',
+        freeChainVisibility: normalizeChainVisibility(event.free_chain_visibility),
         presaleStartAt: event.presale_start_at || undefined,
         publicSaleStartAt: event.public_sale_start_at || undefined,
         waitlistEnabled: event.waitlist_enabled || false,
@@ -1626,6 +1628,19 @@ export default function OwnerTicketing() {
                                   }
                                   setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, roundsVisibility: value } : ev));
                                   toast.success(t('common.saved') || 'Enregistré');
+                                }}
+                              />
+                            )}
+
+                            {/* Libre : ce que voit l'acheteur d'un billet « après un billet » (seulement s'il y en a un). */}
+                            {isFreeMode && (ticketRounds[event.id] || []).some(r => r.opensAfterRoundId) && (
+                              <FreeChainVisibility
+                                visibility={event.freeChainVisibility ?? 'preview'}
+                                onChange={async (value) => {
+                                  const { error } = await supabase.from('events').update({ free_chain_visibility: value }).eq('id', event.id);
+                                  if (error) { toast.error(t('tickets.errorSaving')); return; }
+                                  setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, freeChainVisibility: value } : ev));
+                                  toast.success(t('common.saved'));
                                 }}
                               />
                             )}

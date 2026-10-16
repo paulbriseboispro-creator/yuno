@@ -34,7 +34,7 @@ import { tint } from '@/lib/proTheme';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
-import { formatTicketDate, publicFreeTickets } from '@/lib/freeTicketing';
+import { formatTicketDate, normalizeChainVisibility, publicFreeTickets, type ChainVisibility } from '@/lib/freeTicketing';
 
 type SelectionType = 'ticket' | 'table' | 'guestlist';
 type Selection = {
@@ -76,7 +76,7 @@ export default function TicketSelection() {
     title: string; posterUrl?: string; startAt: string; endAt?: string;
     ticketingEnabled: boolean; tablesEnabled: boolean; venueId: string | null;
     ticketSellingMode: TicketSellingMode; presaleStartAt?: string; publicSaleStartAt?: string;
-    waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
+    waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open'; freeChainVisibility?: ChainVisibility;
     alcoholFree?: boolean; maxTicketsPerPerson?: number | null; salePasswordEnabled?: boolean;
     isBde?: boolean;
     /** Marché de la soirée (analytics PostHog). */
@@ -153,7 +153,7 @@ export default function TicketSelection() {
     try {
       const { data: ev, error } = await supabase
         .from('events')
-        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids, timezone, location_city, organizer_user_id')
+        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, free_chain_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids, timezone, location_city, organizer_user_id')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -174,6 +174,7 @@ export default function TicketSelection() {
         presaleStartAt: ev.presale_start_at || undefined, publicSaleStartAt: ev.public_sale_start_at || undefined,
         waitlistEnabled: ev.waitlist_enabled || false, maxTickets: ev.max_tickets ?? null,
         roundsVisibility: (ev.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open') ?? 'sequential',
+        freeChainVisibility: normalizeChainVisibility(ev.free_chain_visibility),
         alcoholFree: ev.alcohol_free ?? false,
         isBde: ev.is_bde ?? false,
         maxTicketsPerPerson: ev.max_tickets_per_person ?? null,
@@ -400,7 +401,7 @@ export default function TicketSelection() {
     if (isFree) {
       const tz = eventData?.timezone || undefined;
       const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
-      return publicFreeTickets(allRounds).map(({ ticket, phase }) => {
+      return publicFreeTickets(allRounds, Date.now(), eventData?.freeChainVisibility ?? 'preview').map(({ ticket, phase }) => {
         // Un round qui attend qu'un autre billet soit complet reste un simple
         // « Bientôt » : la mécanique de la file est l'affaire du pro, pas de
         // l'acheteur (décision de Paul, 16/10). Seule une date de vente se dit.

@@ -676,7 +676,10 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `110000`) : `ticket_rounds.opens_after_round_id` = « s'ouvre quand CE billet
   est complet ». Le billet reste fermé (`is_active = false`, « Bientôt » côté
   public — jamais quel billet il attend, décision de Paul du 16/10 ; la
-  Console, elle, dit « Après « … » ») ; c'est la BASE qui l'ouvre (`auto_activate_next_round`, quantité
+  Console, elle, dit « Après « … » » ; réglage de la soirée
+  `events.free_chain_visibility` = `preview` défaut | `hidden` | `open`, 3ᵉ argument
+  de `ticketPhase` / `rowPhase`, lu par la page ET le checkout, migration
+  `20261017140000` — distinct de `rounds_visibility`, au défaut « sequential ») ; c'est la BASE qui l'ouvre (`auto_activate_next_round`, quantité
   atteinte ou « Complet ») et qui décide `is_active` quand le lien est posé,
   changé, réécrit ou qu'on retire « Complet » (`guard_ticket_round_opens_after`,
   même soirée, pas de boucle) — jamais le client. Chaque billet a sa file :

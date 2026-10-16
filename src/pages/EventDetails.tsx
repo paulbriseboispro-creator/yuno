@@ -18,7 +18,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
 import { TicketRound, TableZone, TablePack, EventWithTicketing, TicketSellingMode, getEventSalesStatus, isCommunityAudience, normalizeTicketAudience } from '@/types/ticketing';
-import { publicFreeTickets } from '@/lib/freeTicketing';
+import { normalizeChainVisibility, publicFreeTickets } from '@/lib/freeTicketing';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 // EventWaitlistForm moved to dedicated page
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -575,6 +575,7 @@ export default function EventDetails() {
         visibleFrom: r.visible_from,
         saleStartsAt: r.sale_starts_at,
         saleEndsAt: r.sale_ends_at,
+        opensAfterRoundId: r.opens_after_round_id ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })));
@@ -654,6 +655,7 @@ export default function EventDetails() {
         publicSaleStartAt: eventData.public_sale_start_at || undefined,
         waitlistEnabled: eventData.waitlist_enabled || false,
         roundsVisibility: (eventData.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open' | null) ?? 'sequential',
+        freeChainVisibility: normalizeChainVisibility(eventData.free_chain_visibility),
         locationIsSecret: !!eventData.location_is_secret,
         locationName: eventData.location_name || undefined,
         createdAt: eventData.created_at,
@@ -824,7 +826,7 @@ export default function EventDetails() {
   // vendent en parallèle ; un billet « Bientôt » garde la soirée ouverte.
   const isFreeMode = event?.ticketSellingMode === 'free';
   const roundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
-  const freeListed = isFreeMode ? publicFreeTickets(ticketRounds) : [];
+  const freeListed = isFreeMode ? publicFreeTickets(ticketRounds, Date.now(), event?.freeChainVisibility ?? 'preview') : [];
   const allBuyableRounds = isFreeMode
     ? freeListed.filter(x => x.phase === 'on_sale' && !roundSoldOut(x.ticket)).map(x => x.ticket)
     : ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
