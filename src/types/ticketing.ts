@@ -235,6 +235,8 @@ export type EventWithTicketing = {
   waitlistEnabled?: boolean;
   /** Controls how upcoming ticket rounds are shown to buyers. */
   roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
+  /** Billetterie libre : ce que voit l'acheteur d'un billet « après un billet ». */
+  freeChainVisibility?: 'hidden' | 'preview' | 'open';
   createdAt: string;
   updatedAt: string;
 };

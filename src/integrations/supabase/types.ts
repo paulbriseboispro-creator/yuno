@@ -8428,6 +8428,7 @@ export type Database = {
           event_type: string
           external_source: string | null
           external_ticket_url: string | null
+          free_chain_visibility: string
           guest_list_sold_out: boolean
           hide_yuno_navigation: boolean
           id: string
@@ -8512,6 +8513,7 @@ export type Database = {
           event_type?: string
           external_source?: string | null
           external_ticket_url?: string | null
+          free_chain_visibility?: string
           guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
@@ -8594,6 +8596,7 @@ export type Database = {
           event_type?: string
           external_source?: string | null
           external_ticket_url?: string | null
+          free_chain_visibility?: string
           guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string

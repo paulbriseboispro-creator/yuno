@@ -35,6 +35,18 @@ export const DEFAULT_EVENT_TZ = 'Europe/Paris';
 export type FreeTicketPhase = 'hidden' | 'upcoming' | 'on_sale' | 'ended';
 export type DisplayChoice = 'now' | 'at' | 'hidden';
 export type SaleChoice = 'now' | 'at' | 'manual' | 'after';
+/**
+ * Ce que voit l'acheteur d'un billet qui attend qu'un autre soit complet
+ * (events.free_chain_visibility, réglage de la SOIRÉE) :
+ *   • preview (défaut) : affiché « Bientôt », pas achetable ;
+ *   • hidden           : absent tant que le billet attendu n'est pas complet ;
+ *   • open             : achetable tout de suite (la file ne ferme rien).
+ */
+export type ChainVisibility = 'hidden' | 'preview' | 'open';
+
+export function normalizeChainVisibility(v: unknown): ChainVisibility {
+  return v === 'hidden' || v === 'open' ? v : 'preview';
+}
 
 /** Les réglages d'un billet, en camelCase (lignes déjà mappées côté front). */
 export interface FreeSchedule {
@@ -45,6 +57,10 @@ export interface FreeSchedule {
   saleEndsAt?: string | null;
   /** S'ouvre quand ce billet-là est complet (id ticket_rounds). */
   opensAfterRoundId?: string | null;
+  /** Épuisement (facultatif) : un billet épuisé n'attend plus personne. */
+  manuallySoldOut?: boolean | null;
+  ticketsSold?: number | null;
+  maxTickets?: number | null;
 }
 
 const ms = (iso?: string | null): number | null => {
@@ -57,22 +73,42 @@ const ms = (iso?: string | null): number | null => {
  * Où en est un billet MAINTENANT. L'épuisement (capacité, « Complet ») se
  * juge à part : un billet épuisé garde sa phase, l'appelant le barre.
  */
-export function ticketPhase(t: FreeSchedule, now: number = Date.now()): FreeTicketPhase {
+export function ticketPhase(t: FreeSchedule, now: number = Date.now(), chain: ChainVisibility = 'preview'): FreeTicketPhase {
   if (t.hidden) return 'hidden';
   const visibleFrom = ms(t.visibleFrom);
   if (visibleFrom !== null && now < visibleFrom) return 'hidden';
   const saleEnds = ms(t.saleEndsAt);
   if (saleEnds !== null && now >= saleEnds) return 'ended';
-  if (!t.isActive) return 'upcoming';
+  if (!t.isActive) {
+    if (!isWaitingForPrevious(t)) return 'upcoming';
+    if (chain === 'hidden') return 'hidden';
+    if (chain !== 'open') return 'upcoming';
+    // « open » : la file ne ferme rien, seule une date de vente compte encore.
+  }
   const saleStarts = ms(t.saleStartsAt);
   if (saleStarts !== null && now < saleStarts) return 'upcoming';
   return 'on_sale';
 }
 
+/**
+ * Le billet est fermé SEULEMENT parce qu'il attend qu'un autre soit complet
+ * (« après un billet »). Un billet épuisé n'attend plus : il est complet.
+ */
+export function isWaitingForPrevious(t: FreeSchedule): boolean {
+  if (t.isActive || !t.opensAfterRoundId) return false;
+  if (t.manuallySoldOut) return false;
+  if (typeof t.ticketsSold === 'number' && typeof t.maxTickets === 'number' && t.ticketsSold >= t.maxTickets) return false;
+  return true;
+}
+
 /** Même règle sur une ligne brute (snake_case) de ticket_rounds. */
 export function rowPhase(
-  row: { is_active: boolean; hidden?: boolean | null; visible_from?: string | null; sale_starts_at?: string | null; sale_ends_at?: string | null },
+  row: {
+    is_active: boolean; hidden?: boolean | null; visible_from?: string | null; sale_starts_at?: string | null; sale_ends_at?: string | null;
+    opens_after_round_id?: string | null; manually_sold_out?: boolean | null; tickets_sold?: number | null; max_tickets?: number | null;
+  },
   now: number = Date.now(),
+  chain: ChainVisibility = 'preview',
 ): FreeTicketPhase {
   return ticketPhase({
     isActive: row.is_active,
@@ -80,7 +116,11 @@ export function rowPhase(
     visibleFrom: row.visible_from,
     saleStartsAt: row.sale_starts_at,
     saleEndsAt: row.sale_ends_at,
-  }, now);
+    opensAfterRoundId: row.opens_after_round_id,
+    manuallySoldOut: row.manually_sold_out,
+    ticketsSold: row.tickets_sold,
+    maxTickets: row.max_tickets,
+  }, now, chain);
 }
 
 /**
@@ -154,10 +194,11 @@ export function wouldCreateChainCycle(links: Record<string, string | null | unde
 export function publicFreeTickets<T extends FreeSchedule & { position: number }>(
   tickets: T[],
   now: number = Date.now(),
+  chain: ChainVisibility = 'preview',
 ): Array<{ ticket: T; phase: Exclude<FreeTicketPhase, 'hidden'> }> {
   return [...tickets]
     .sort((a, b) => a.position - b.position)
-    .map((ticket) => ({ ticket, phase: ticketPhase(ticket, now) }))
+    .map((ticket) => ({ ticket, phase: ticketPhase(ticket, now, chain) }))
     .filter((x): x is { ticket: T; phase: Exclude<FreeTicketPhase, 'hidden'> } => x.phase !== 'hidden');
 }
 

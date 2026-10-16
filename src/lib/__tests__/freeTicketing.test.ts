@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   UNLIMITED_TICKETS, displayChoiceOf, freePresetToRoundRows, fromRelative, isRowListed,
-  normalizeFreePreset, presetSaleChoice, roundsToFreePreset, saleChoiceOf, scheduleColumns, ticketPhase, toRelative,
+  normalizeFreePreset, presetSaleChoice, roundsToFreePreset, rowPhase, saleChoiceOf, scheduleColumns, ticketPhase, toRelative,
   wouldCreateChainCycle,
 } from '../freeTicketing';
 
@@ -237,5 +237,35 @@ describe('rounds billet par billet (s’ouvre quand un autre est complet)', () =
 
   it('un vieux lecteur verrait « plus tard », jamais « en vente »', () => {
     expect(normalizeFreePreset([{ name: 'A', sale: 'after', opensAfter: 'k' }])[0]).toMatchObject({ sale: 'manual', opensAfter: 'k' });
+  });
+});
+
+describe('visibilité des billets « après un billet » (réglage de la soirée)', () => {
+  const waiting = { isActive: false, opensAfterRoundId: 'r0', ticketsSold: 0, maxTickets: 25 };
+  it('aperçu par défaut : Bientôt', () => {
+    expect(ticketPhase(waiting, NOW)).toBe('upcoming');
+    expect(ticketPhase(waiting, NOW, 'preview')).toBe('upcoming');
+  });
+  it('masqué jusqu’à son tour', () => {
+    expect(ticketPhase(waiting, NOW, 'hidden')).toBe('hidden');
+  });
+  it('tous achetables maintenant, sauf une date de vente encore à venir', () => {
+    expect(ticketPhase(waiting, NOW, 'open')).toBe('on_sale');
+    expect(ticketPhase({ ...waiting, saleStartsAt: after }, NOW, 'open')).toBe('upcoming');
+  });
+  it('un billet épuisé n’attend plus : jamais masqué ni rouvert par le réglage', () => {
+    const sold = { ...waiting, ticketsSold: 25 };
+    expect(ticketPhase(sold, NOW, 'hidden')).toBe('upcoming');
+    expect(ticketPhase({ ...waiting, manuallySoldOut: true }, NOW, 'open')).toBe('upcoming');
+  });
+  it('un billet fermé à la main (sans lien) reste fermé', () => {
+    expect(ticketPhase({ isActive: false }, NOW, 'open')).toBe('upcoming');
+    expect(ticketPhase({ isActive: false }, NOW, 'hidden')).toBe('upcoming');
+  });
+  it('ligne brute (checkout) : même règle', () => {
+    const row = { is_active: false, opens_after_round_id: 'r0', tickets_sold: 0, max_tickets: 25 };
+    expect(rowPhase(row, NOW, 'open')).toBe('on_sale');
+    expect(rowPhase(row, NOW, 'hidden')).toBe('hidden');
+    expect(rowPhase(row, NOW)).toBe('upcoming');
   });
 });
