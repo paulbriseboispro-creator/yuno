@@ -1,5 +1,7 @@
 # Pricing Yuno CRM — six modèles comparés
 
+> **Révision du 06/10 (Paul) : plus AUCUN Yunit offert chaque mois.** Les 24 € HT d'abonnement sont déjà rentables par ce que le CRM fait ; ce sont les Yunits qui rémunèrent Yuno sur les outils marketing. Désormais : **essai 14 jours = 2 000 Yunits** ; **abonnement mensuel = 10 000 Yunits offerts UNE fois, à l'abonnement** (valables 12 mois) ; **annuel = 30 000 d'un coup, et rien chaque mois**. Le reste se recharge au curseur. Ce que disent plus bas les passages « 10 000 Yunits par mois » (réponse 1, tableaux de scénarios, « Yunits du mois ») est l'état d'avant, conservé pour l'historique. Code : migration `20261009100000` (`crm_yunits_ensure_allowance`, un seul lot `grant` / `welcome` par compte), clé `monthly_yunits` de `crm_pricing` = « offerts une fois à l'abonnement mensuel ». `low_balance` passe à 1 000.
+
 > **Révision du 04/10 : la grille en vigueur est 24 € HT / mois au lancement, 34 € ensuite, 288 € l'an.** Les montants 29 / 39 / 348 / 468 plus bas sont ceux de la décision du 02/10, conservés pour l'historique des calculs.
 
 

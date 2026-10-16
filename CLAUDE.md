@@ -63,14 +63,17 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
 - **Prix : UN abonnement + une monnaie, révisé par Paul le 04/10.**
   24 € HT / mois au lancement (garanti tant que l'abonnement vit), 34 € ensuite
   pour les nouveaux comptes ; annuel = 288 € HT (12 mois) + 30 000 Yunits offerts,
-  sans remise. Pas de compte gratuit : essai 14 jours sans carte (5 000 Yunits),
+  sans remise. Pas de compte gratuit : essai 14 jours sans carte (2 000 Yunits),
   puis compte EN PAUSE (base lisible et exportable, ni synchro ni envoi). Tout ce
   qui fait envoyer est dans le socle (automatisations, A/B, Meta, IA, équipe sans
   limite) : brider une fonction qui fait envoyer, c'est brider le revenu.
   **Les Yunits** sont la monnaie de Yuno CRM (le nom « néons » est abandonné),
   jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
-  France = 35 / segment (40 jusqu'au 08/10), étranger = 70, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
-  l'échéance ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
+  France = 35 / segment (40 jusqu'au 08/10), étranger = 70, WhatsApp = 100 ; **rien d'offert chaque mois** (décision de Paul, 06/10 : l'abonnement est déjà
+  rentable, ce sont les Yunits qui rémunèrent Yuno) : 10 000 offerts UNE fois à
+  l'abonnement mensuel, 30 000 d'un coup à l'annuel, 2 000 pendant l'essai (clé
+  `monthly_yunits` = « une fois », lot `grant`/`welcome`, migration
+  `20261009100000`) ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
   Paul, 05/10) : 5 000 à 300 000 Yunits par pas de 5 000, 500 par euro HT,
   +10 % dès 25 000 et +15 % dès 50 000 (`crm_pricing_config()`, devis serveur
   `crmRechargeQuote`, paiement en `price_data`) ; dépensés du lot qui s'éteint

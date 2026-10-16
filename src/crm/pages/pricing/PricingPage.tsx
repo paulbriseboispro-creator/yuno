@@ -267,11 +267,11 @@ function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolea
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 18, background: 'var(--sand-50)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 15.5, fontWeight: 600 }}>
-            <img src={TOKEN} alt="" style={{ width: 32, height: 32, flex: 'none' }} />{t('yc.pr.card.monthly', { n: n(cfg.monthly_yunits) })}
+            <img src={TOKEN} alt="" style={{ width: 32, height: 32, flex: 'none' }} />{annual ? t('yc.pr.card.bonus', { n: n(cfg.annual_bonus_yunits) }) : t('yc.pr.card.monthly', { n: n(cfg.monthly_yunits) })}
           </span>
           <div style={{ display: 'grid', gridTemplateRows: annual ? '1fr' : '0fr', transition: `grid-template-rows 420ms ${EASE}` }}>
             <span style={{ overflow: 'hidden', minHeight: 0, paddingLeft: 44, fontSize: 14.5, color: 'var(--sand-700)' }}>
-              <b style={{ fontWeight: 600, color: 'var(--red-600)' }}>{t('yc.pr.card.bonus', { n: n(cfg.annual_bonus_yunits) })}</b> · {t('yc.pr.card.bonusEq', { e: n(cfg.annual_bonus_yunits / cfg.yunits_per_euro) })}
+              {t('yc.pr.card.bonusEq', { e: n(cfg.annual_bonus_yunits / cfg.yunits_per_euro) })}
             </span>
           </div>
         </div>
@@ -472,18 +472,15 @@ function Simulator({ cfg, cta }: { cfg: CrmPricingConfig; cta: Cta }) {
               </div>
               <div>
                 <div style={{ display: 'flex', gap: 4, height: 12 }}>
-                  <div style={{ width: `${est.used ? (est.included / est.used) * 100 : 100}%`, minWidth: est.included ? 12 : 0, borderRadius: 99, background: '#fff', transition: `width 500ms ${EASE}` }} />
-                  {est.need > 0 && <div style={{ flex: 1, borderRadius: 99, background: 'var(--gradient-brand)' }} />}
+                  <div style={{ flex: 1, borderRadius: 99, background: est.need > 0 ? 'var(--gradient-brand)' : 'rgba(255,255,255,.18)' }} />
                 </div>
                 <div style={{ display: 'flex', gap: 18, marginTop: 10, fontSize: 13, color: 'var(--text-on-night-2)' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><i style={{ width: 8, height: 8, borderRadius: 2, background: '#fff' }} />{t('yc.pr.s.free')}</span>
-                  {est.need > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><i style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--tangerine-500)' }} />{t('yc.pr.s.bought')}</span>}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><i style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--tangerine-500)' }} />{t('yc.pr.s.bought')}</span>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <EstRow l={t('yc.pr.s.sub1')} v={`${n(cfg.price_month)} €`} />
                 <EstRow l={t('yc.pr.s.sends')} v={t('yc.pr.s.yunits', { n: n(est.used) })} />
-                <EstRow l={t('yc.pr.s.included')} v={`− ${n(est.included)}`} />
                 <EstRow l={t('yc.pr.s.recharges')} v={`${n(est.rechargeEur)} €`} />
               </div>
               {est.recharge ? (
@@ -611,7 +608,7 @@ function Annual({ cfg, freeMonths, signedIn, onChoose }: { cfg: CrmPricingConfig
   const { t, n } = usePrT();
   const [ref, seen] = useSeen<HTMLDivElement>();
   const unit = 56;
-  const bars = [cfg.annual_bonus_yunits, ...Array.from({ length: 12 }, () => cfg.monthly_yunits)];
+  const bars = [cfg.annual_bonus_yunits, cfg.monthly_yunits];
   const btn: CSSProperties = { alignSelf: 'flex-start', height: 50, padding: '0 24px', border: 0, borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 15.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer', transition: `transform 220ms ${SPRING}` };
   return (
     <section style={{ padding: 'clamp(72px,10vw,130px) clamp(12px,3vw,60px) 0' }}>
@@ -624,11 +621,11 @@ function Annual({ cfg, freeMonths, signedIn, onChoose }: { cfg: CrmPricingConfig
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.1)', fontSize: 15.5 }}>
                 <span style={{ color: 'var(--text-on-night-2)' }}>{t('yc.pr.a.m', { n: n(cfg.monthly_yunits) })}</span>
-                <b style={{ flex: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{t('yc.pr.s.yunits', { n: n(12 * cfg.monthly_yunits) })}</b>
+                <b style={{ flex: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{t('yc.pr.s.yunits', { n: n(cfg.monthly_yunits) })}</b>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.1)', borderBottom: '1px solid rgba(255,255,255,.1)', fontSize: 15.5 }}>
-                <span>{t('yc.pr.a.y', { b: n(cfg.annual_bonus_yunits), n: n(cfg.monthly_yunits) })}</span>
-                <b style={{ flex: 'none', fontWeight: 600, color: 'var(--tangerine-400)', whiteSpace: 'nowrap' }}>{t('yc.pr.s.yunits', { n: n(cfg.annual_bonus_yunits + 12 * cfg.monthly_yunits) })}</b>
+                <span>{t('yc.pr.a.y', { b: n(cfg.annual_bonus_yunits) })}</span>
+                <b style={{ flex: 'none', fontWeight: 600, color: 'var(--tangerine-400)', whiteSpace: 'nowrap' }}>{t('yc.pr.s.yunits', { n: n(cfg.annual_bonus_yunits) })}</b>
               </div>
             </div>
             {signedIn
@@ -638,8 +635,8 @@ function Annual({ cfg, freeMonths, signedIn, onChoose }: { cfg: CrmPricingConfig
           <div ref={ref} style={{ flex: '1 1 380px', minWidth: 0 }}>
             <div style={{ height: 220, display: 'flex', alignItems: 'flex-end', gap: 'clamp(4px,.8vw,9px)' }}>
               {bars.map((v, i) => (
-                <div key={i} style={{ flex: i === 0 ? 2.4 : 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  {i === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', opacity: seen ? 1 : 0, transition: 'opacity 400ms 700ms' }}>{n(v)}</span>}
+                <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', opacity: seen ? 1 : 0, transition: `opacity 400ms ${700 + i * 70}ms` }}>{n(v)}</span>
                   <div style={{ width: '100%', height: seen ? Math.min(180, unit * (v / Math.max(1, cfg.monthly_yunits))) : 0, borderRadius: 10, background: i === 0 ? 'var(--gradient-brand)' : 'rgba(255,255,255,.22)', transition: `height 800ms ${EASE} ${i * 70}ms` }} />
                 </div>
               ))}

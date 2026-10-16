@@ -76,7 +76,7 @@ const dict: CrmDict = {
   'yc.yu.hist': ['History', 'Historique', 'Historial'],
   'yc.yu.h.none': ['No movement yet.', 'Aucun mouvement pour l’instant.', 'Aún no hay movimientos.'],
   'yc.yu.h.purchase': ['Top-up {n} Yunits', 'Recharge {n} Yunits', 'Recarga {n} Yunits'],
-  'yc.yu.h.monthly': ['Yunits of the month', 'Yunits du mois', 'Yunits del mes'],
+  'yc.yu.h.monthly': ['Offered with your subscription', 'Offerts avec l’abonnement', 'Regalados con la suscripción'],
   'yc.yu.h.annual_bonus': ['Yearly plan bonus', 'Bonus de l’abonnement annuel', 'Bono de la suscripción anual'],
   'yc.yu.h.trial': ['Free during the trial', 'Offerts pendant l’essai', 'Gratis durante la prueba'],
   'yc.yu.h.grant': ['Offered by Yuno', 'Offerts par Yuno', 'Ofrecidos por Yuno'],

@@ -5,7 +5,7 @@
 //
 // Une seule offre, le socle (décision du 02/10, prix revus le 04/10) : 24 € HT par mois au
 // lancement, 34 € ensuite pour les nouveaux comptes ; l'annuel coûte douze
-// mois et ajoute 30 000 Yunits d'un coup. Les prix Stripe se retrouvent par
+// mois et ajoute 30 000 Yunits d'un coup (le mensuel offre 10 000 Yunits UNE fois, jamais chaque mois ; essai = 2 000). Les prix Stripe se retrouvent par
 // leur `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, posée par
 // scripts/stripe/create-crm-prices.mjs) : aucun identifiant de prix dans le code.
 // Les recharges ne passent pas par un prix enregistré : le montant se calcule
