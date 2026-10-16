@@ -36,3 +36,29 @@ export async function purgeServiceWorkersAndReload(): Promise<void> {
     window.location.reload();
   }
 }
+
+const LOCALE_RELOAD_KEY = 'yuno-locale-reload-attempted';
+
+/**
+ * Le dictionnaire de langue est introuvable (404 : l'onglet tourne sur un
+ * ancien index servi par le service worker, dont les fichiers ont disparu au
+ * déploiement suivant). Sans dictionnaire, LanguageContext ne rend RIEN : écran
+ * noir, et sur /l/<code> le clic d'un lien suivi n'est même pas compté.
+ * On purge et on recharge UNE fois par onglet (comme lazyWithRetry), jamais
+ * hors ligne : là, recharger ne ferait qu'effacer le cache utile.
+ */
+export function recoverFromMissingLocaleOnce(): void {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (sessionStorage.getItem(LOCALE_RELOAD_KEY) === 'true') return;
+    sessionStorage.setItem(LOCALE_RELOAD_KEY, 'true');
+  } catch {
+    return;
+  }
+  void purgeServiceWorkersAndReload();
+}
+
+/** Le dictionnaire s'est chargé : la prochaine panne aura droit à sa propre récupération. */
+export function clearLocaleRecoveryFlag(): void {
+  try { sessionStorage.removeItem(LOCALE_RELOAD_KEY); } catch { /* stockage indisponible */ }
+}

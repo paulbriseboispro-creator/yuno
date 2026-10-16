@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { loadLocale, getLoadedLocale, loadLocaleSection, hasLocaleSection, type Language, type LocaleSection } from '../i18n/data';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { deviceLanguage, urlLanguage, VALID_LANGS } from '@/lib/deviceLanguage';
+import { clearLocaleRecoveryFlag, recoverFromMissingLocaleOnce } from '@/lib/swRecovery';
 
 export type { Language };
 
@@ -75,12 +76,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       ? Promise.all(sections.map((sec) => loadLocaleSection(language, sec))).then((dicts) => dicts[dicts.length - 1])
       : loadLocale(language);
     load.then((dict) => {
+      clearLocaleRecoveryFlag();
       if (!cancelled) setStrings(dict);
     }).catch((e) => {
       console.error('[i18n] locale load failed:', e);
+      if (cancelled) return;
       // Réseau KO sur le premier chunk : tenter EN pour ne pas bloquer l'app.
-      if (!cancelled && language !== 'en') {
-        loadLocale('en').then((dict) => { if (!cancelled) setStrings(dict); }).catch(() => {});
+      // EN introuvable aussi = bundle périmé (ancien index en cache) : sans
+      // dictionnaire l'app ne rend rien, on recharge une version fraîche.
+      if (language !== 'en') {
+        loadLocale('en')
+          .then((dict) => { clearLocaleRecoveryFlag(); if (!cancelled) setStrings(dict); })
+          .catch(() => { if (!cancelled && !getLoadedLocale(language)) recoverFromMissingLocaleOnce(); });
+      } else if (!getLoadedLocale('en')) {
+        recoverFromMissingLocaleOnce();
       }
     });
     return () => { cancelled = true; };
