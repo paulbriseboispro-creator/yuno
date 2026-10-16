@@ -1025,20 +1025,23 @@ export default function EventDetails() {
   );
 
   const heroBadges = (
-    <div className="flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
+    // Posées SUR le halo de l'affiche (qui déborde sous la scène) : fonds
+    // pleins, au-dessus de lui, sinon une pastille translucide disparaît dans
+    // l'orange ou le rouge de l'image.
+    <div className="relative z-10 flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
       {showSoldOutBadge && (
         <span className="font-mono font-bold tracking-[0.18em] text-snow px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
           SOLD OUT
         </span>
       )}
       {event.eventType && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgb(var(--ink)/0.07)', border: '1px solid rgb(var(--ink)/0.10)', color: 'var(--tx-e5e5e5)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#141414', border: '1px solid rgba(255,255,255,0.18)', color: '#F2F2F2', boxShadow: '0 2px 10px rgba(0,0,0,0.45)' }}>
           {event.eventType}
         </span>
       )}
       {/* Genre musical de la soirée — pilule rouge à côté du type */}
       {event.musicGenres?.slice(0, 2).map((genre) => (
-        <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(232,25,44,0.85)', border: '1px solid rgba(232,25,44,0.9)', color: '#fff' }}>
+        <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#E8192C', border: '1px solid #E8192C', color: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.45)' }}>
           {genre}
         </span>
       ))}
