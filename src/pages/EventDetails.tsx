@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
+import { BookNowBar } from '@/components/BookNowBar';
 import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
 import { FadeInView } from '@/components/motion';
@@ -1883,20 +1884,16 @@ export default function EventDetails() {
 
         if (canUserAccessSales && hasTicketsOrTables && minPrice > 0) {
           return (
-            <StickyCheckoutFooter
-              amount={minPrice}
-              // Le bouton dit déjà « table » : le libellé reste court pour tenir
-              // sur une ligne à 375 px.
-              label={t('event.startingFrom')}
+            <BookNowBar
+              label={tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
+              fromAmount={minPrice}
               // La barre ancre le prix (c'est la ou est le revenu du club), mais
               // elle dit aussi qu'une entree gratuite existe : sans ce mot, un
               // visiteur qui ne fait que lire le bas de l'ecran croit que la
               // soiree est payante et repart. Sans billet, elle dit « table ».
-              subtitleText={guestListWithPaid
+              caption={guestListWithPaid
                 ? t('event.freeEntryAlso')
                 : tablesOnlyOffer ? t('event.minGuestsShort').replace('{n}', String(minTableCapacity)) : undefined}
-              buttonText={tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
-              icon={tablesOnlyOffer ? <Armchair className="h-4 w-4" /> : <Ticket className="h-4 w-4" />}
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
             />
           );
@@ -1907,10 +1904,8 @@ export default function EventDetails() {
         // seule — celle d'un organisateur qui n'a pas branché Stripe, entre autres.
         if (canUserAccessSales && !hasTicketsOrTables && hasPublicGuestList) {
           return (
-            <StickyCheckoutFooter
-              amount={0}
-              label=""
-              buttonText={t('guestList.register')}
+            <BookNowBar
+              label={t('guestList.register')}
               icon={<UserCheck className="h-4 w-4" />}
               accentColor="#F97316"
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}

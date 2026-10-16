@@ -19,7 +19,7 @@ import { EventWaitlistForm } from '@/components/ticketing/EventWaitlistForm';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { tableCapacityLabel } from '@/lib/tableCapacity';
 import { toast } from 'sonner';
-import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
+import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { getStoredPromoCodeForVenue, usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
@@ -611,7 +611,7 @@ export default function TicketSelection() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-36">
+    <div className={cn('min-h-screen bg-background', selection ? 'pb-44' : 'pb-36')}>
       {/* Blurred hero header */}
       <div className="relative overflow-hidden" style={{ height: 'calc(11rem + env(safe-area-inset-top, 0px))' }}>
         {heroImage && (
@@ -1022,12 +1022,10 @@ export default function TicketSelection() {
       {/* Sticky footer */}
       <AnimatePresence>
         {selection && (totalWithFees > 0 || selection.type === 'guestlist') && !saleLocked && (
-          <StickyCheckoutFooter
-            amount={selection.type === 'guestlist' ? 0 : totalWithFees}
-            label={selection.type === 'guestlist' ? `${selection.name} · ${t('guestList.free')}` : selection.name}
-            subtitle={selection.type === 'guestlist' ? undefined : `x${selection.quantity}`}
-            subtitleText={selection.type === 'guestlist' ? undefined : selection.onSite ? t('ticketSel.onSitePayment') : t('tickets.feesIncluded')}
-            buttonText={t('ticketSel.continue')}
+          <CheckoutSummaryBar
+            total={selection.type === 'guestlist' ? 0 : totalWithFees}
+            fee={selection.type === 'guestlist' ? 0 : Math.max(0, totalWithFees - total)}
+            buttonText={t('ticketSel.goToPayment')}
             onClick={handleContinue}
           />
         )}
