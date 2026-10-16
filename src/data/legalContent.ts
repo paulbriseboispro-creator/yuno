@@ -1,4 +1,4 @@
-export type LegalSection = 'mentions-legales' | 'cgu' | 'cgv-utilisateurs' | 'cgv-clubs' | 'confidentialite' | 'dpa' | 'privacy' | 'cookies';
+export type LegalSection = 'mentions-legales' | 'cgu' | 'cgv-utilisateurs' | 'cgv-clubs' | 'cgv-crm' | 'confidentialite' | 'dpa' | 'privacy' | 'cookies';
 
 interface LegalDocument {
   title: string;
@@ -564,6 +564,327 @@ Derecho francés.`
     }
   },
 
+  'cgv-crm': {
+    fr: {
+      title: 'Conditions Yuno CRM',
+      content: `Version du 8 octobre 2026
+
+Ces conditions forment le contrat entre WOMBER, entreprise individuelle (Paul Brisebois), SIRET 995 130 747 00018, 25 avenue Mercure, 31130 Quint-Fonsegrives, France, contact@yunoapp.eu (« Yuno »), et le club, l'organisateur d'événements ou l'association qui ouvre un compte Yuno CRM (le « Client »). Le contrat comprend aussi l'Accord de sous-traitance des données (yunoapp.eu/legal/dpa), dont le chapitre 12 « Yuno CRM » s'applique au Client, l'Engagement de confidentialité (yunoapp.eu/legal/confidentialite), et les prix affichés sur la page Tarifs et dans la Console au moment de la souscription. En cas de contradiction, l'Accord de sous-traitance prévaut pour la protection des données, puis les présentes conditions.
+
+**1. Le service**
+Yuno CRM est un logiciel en ligne, accessible sur crm.yunoapp.eu (la « Console »). Il se connecte à la billetterie du Client (Shotgun aujourd'hui), lit ses ventes et ses acheteurs, accepte des fichiers de contacts, et aide le Client à connaître son public et à lui écrire : base de contacts, segments, analyses, e-mails, SMS, automatisations, pages d'inscription et liens suivis.
+Yuno CRM ne vend rien : chaque billet reste vendu par la billetterie du Client, selon ses propres conditions. Une fonction marquée « Bientôt » dans la Console ne fait pas partie du service tant qu'elle n'est pas ouverte.
+Yuno CRM est réservé aux professionnels. Le Client agit pour son activité professionnelle ; le droit de rétractation prévu par le Code de la consommation ne s'applique pas.
+
+**2. Compte, équipe et sécurité**
+Le compte est ouvert par une personne habilitée à engager le Client (le « titulaire »), qui accepte les présentes conditions en son nom. Le titulaire invite son équipe, choisit les rôles, et répond des actions faites depuis le compte.
+Les identifiants sont personnels. Le Client garde ses accès confidentiels, active la double authentification quand la Console la demande, et prévient Yuno sans délai de tout accès suspect.
+Yuno n'accède aux données du Client que pour faire fonctionner le service, assurer sa sécurité, prévenir la fraude, traiter un incident ou répondre à une demande du Client. Yuno n'ouvre une session dans la Console du Client (« accès assisté ») qu'avec l'accord du titulaire, qu'il peut retirer à tout moment ; chaque accès est journalisé.
+
+**3. Essai, abonnement et prix**
+L'essai dure 14 jours, sans carte bancaire, avec la dotation de Yunits affichée à l'ouverture du compte. À la fin de l'essai sans abonnement, le compte passe en pause : la base reste lisible et exportable, mais la synchronisation avec la billetterie et les envois s'arrêtent.
+L'abonnement est mensuel ou annuel, payé d'avance par carte bancaire via Stripe, et se renouvelle à chaque échéance jusqu'à sa résiliation. Les prix et ce que chaque formule inclut figurent sur la page Tarifs et dans la Console. Le prix d'un abonnement en cours reste celui de sa souscription tant qu'il n'est pas interrompu. Si Yuno devait modifier le prix d'un abonnement en cours, il l'annoncerait au moins 30 jours à l'avance par e-mail et dans la Console ; le Client pourrait résilier avant l'application du nouveau prix.
+Les prix sont indiqués hors taxes. Tant que l'éditeur relève de la franchise en base de TVA, aucune TVA n'est facturée (article 293 B du Code général des impôts). Les factures sont disponibles dans la Console.
+En cas d'échec de paiement, Yuno relance le Client ; sans régularisation, le compte passe en pause.
+
+**4. Les Yunits**
+Les Yunits sont l'unité de compte des envois. Chaque envoi en consomme selon le barème affiché dans la Console avant l'envoi (par exemple un e-mail, un SMS vers la France, un SMS vers l'étranger). La Console montre le coût d'un envoi et le solde avant toute validation. Un changement de barème est annoncé dans la Console et ne s'applique jamais à un envoi déjà validé.
+Les Yunits sont offerts (essai, abonnement) ou achetés (recharge). Chacun a la date de validité affichée dans la Console au moment de son attribution ou de son achat ; les Yunits qui expirent le plus tôt sont utilisés en premier.
+Aucun Yunit n'est débité pour un envoi de test, pour un destinataire écarté par les règles d'envoi, ni pour un message refusé par le fournisseur avant son envoi. Un message accepté par le fournisseur, puis non distribué (numéro inexistant, téléphone éteint trop longtemps), reste décompté.
+Les Yunits ne sont ni remboursables, ni cessibles, ni convertibles en argent. Exception : si Yuno arrête définitivement Yuno CRM, il rembourse les Yunits achetés et non utilisés.
+
+**5. Connexion à la billetterie et données importées**
+Le Client connecte lui-même son compte de billetterie et fournit la clé d'accès. Sa billetterie traite les données de ses acheteurs pour son compte ; en connectant Yuno CRM, le Client désigne Yuno comme un autre prestataire chargé de les traiter pour lui, et garantit que son contrat avec sa billetterie le permet. Yuno lit ces données et n'écrit jamais rien chez la billetterie. La clé d'accès est conservée dans un coffre chiffré et n'est jamais réaffichée.
+Les chiffres de la Console viennent de ce que la billetterie rapporte. Quand une donnée n'est pas fournie par la billetterie, la Console le dit ; elle ne remplace jamais une donnée manquante par une estimation sans l'indiquer. Yuno ne répond pas des erreurs, interruptions ou changements de la billetterie.
+Pour tout fichier importé, le Client atteste l'origine des contacts et leur accord à recevoir ses messages ; Yuno conserve cette attestation, horodatée.
+
+**6. Analyses, hypothèses et « Chances de venir »**
+Pour le compte du Client, et sur ses seules données, Yuno CRM calcule :
+• des statistiques de ventes, de fréquentation et de messages ;
+• « Ce qui fait venir » : des hypothèses sur ce qui fait revenir le public du Client (artistes, genre musical, format, série de soirées, jour, habitudes d'achat comme l'achat tôt, de dernière minute ou à plusieurs, distance entre la commune déclarée et le lieu). Chaque hypothèse est testée sur les soirées passées du Client et porte un statut (« confirmée », « pas de différence nette sur votre compte », « à tester ») ; sur la fiche d'un client, elle s'affiche comme un fait observé dans ses achats, jamais comme une affirmation sur la personne ;
+• « Chances de venir » : pour chaque client déjà venu, un niveau (fortes, moyennes, faibles) de chances d'acheter pour une prochaine soirée, avec ses principales raisons, jamais un pourcentage ;
+• « Qui cibler » : des groupes de clients proposés pour une soirée à venir, et un groupe témoin de 10 % non contactés, tirés au hasard, pour mesurer l'effet réel des messages.
+Ces calculs n'utilisent ni le genre des personnes, ni les ouvertures ou les clics de leurs e-mails. Ce sont des estimations statistiques : elles peuvent se tromper. Elles servent à organiser la communication commerciale du Client (à qui écrire, quand, avec quel message) et à comprendre son public.
+Le Client s'interdit de s'en servir pour prendre une décision qui produit un effet juridique sur une personne ou l'affecte de manière significative : refuser l'entrée ou la vente, fixer un prix, réserver une remise ou une prévente selon la personne, inscrire quelqu'un sur une liste d'exclusion. Il s'interdit aussi toute utilisation visant à déduire ou à cibler l'origine, les opinions politiques, les convictions religieuses, la santé, la vie ou l'orientation sexuelle d'une personne, y compris à partir du thème d'une soirée, et tout ciblage de personnes mineures.
+Quand une personne s'oppose à l'analyse, le Client l'en exclut depuis sa fiche (« Exclure du profilage ») : son profil et ses estimations sont effacés et ne sont plus calculés.
+Yuno ne garantit aucun résultat commercial.
+
+**7. Envois de messages**
+Le Client est l'expéditeur et l'annonceur de ses messages. Il en choisit le contenu et les destinataires, et répond de leur conformité :
+• accord préalable du destinataire, ou relation client existante pour des produits analogues, dans les conditions de l'article L. 34-5 du Code des postes et des communications électroniques ; un accord pour les e-mails ne vaut pas pour les SMS ;
+• identité de l'annonceur, lien de désinscription dans chaque e-mail, mention STOP dans chaque SMS ;
+• accord du destinataire, lorsqu'il est requis, à la mesure individuelle de l'ouverture et des clics de ses e-mails, qui repose sur des traceurs (article 82 de la loi Informatique et Libertés ; recommandation de la CNIL n° 2026-042 du 12 mars 2026) ;
+• droit de la publicité des boissons alcooliques.
+Yuno applique à tous les comptes des règles d'envoi que le Client ne peut pas désactiver : pas d'envoi à une personne désinscrite, à une adresse en échec ou à un numéro qui a répondu STOP, limite de fréquence par personne, heures d'envoi (aucun SMS entre 21 h 30 et 8 h), surveillance des plaintes et des échecs. Yuno peut suspendre un envoi ou les envois d'un compte en cas de plaintes ou d'échecs anormaux, de contenu illicite ou de risque pour la réputation d'envoi de la plateforme ; il en informe le Client.
+Avant le premier SMS, le Client renseigne son identité légale (raison sociale et numéro SIRET, RNA ou TVA) et un nom d'expéditeur conforme aux règles des opérateurs.
+Sont interdits les messages illicites, trompeurs, haineux ou discriminatoires, et tout envoi à des adresses achetées, louées ou collectées sans accord.
+
+**8. Les données des clients du Client**
+Pour les données de ses clients, contacts et participants, le Client est responsable de traitement et Yuno agit comme sous-traitant, dans les conditions de l'Accord de sous-traitance (chapitre 12 « Yuno CRM »). Le Client :
+• informe ses clients de l'usage de leurs données, y compris de l'analyse décrite à l'article 6, de leur droit de s'y opposer et des traceurs de ses e-mails ; un modèle de texte figure en annexe, à publier notamment comme politique de confidentialité de sa billetterie ;
+• s'assure d'une base légale pour chaque usage, documente la mise en balance de son intérêt légitime pour l'analyse, et recueille les accords nécessaires à ses envois ;
+• répond aux demandes des personnes (accès, rectification, effacement, opposition), avec l'aide des outils de la Console et du support de Yuno ;
+• choisit une durée de conservation dans Réglages › Données ; Yuno recommande 3 ans après le dernier contact venu de la personne (achat, venue, clic, inscription) ;
+• réalise l'analyse d'impact prévue par l'article 35 du RGPD lorsqu'elle est requise ; Yuno lui fournit sur demande un modèle d'analyse d'impact et de mise en balance adapté à Yuno CRM.
+Pour les données des comptes professionnels (titulaire, équipe), la facturation, la sécurité et la mesure d'utilisation de la Console, Yuno est responsable de traitement (Politique de confidentialité, yunoapp.eu/legal/privacy).
+
+**9. Statistiques anonymes**
+Le Client autorise Yuno à réutiliser les données traitées pour son compte afin d'en tirer des comptages agrégés et anonymes, destinés à améliorer les règles d'analyse de Yuno CRM pour tous ses utilisateurs, dans les conditions précises de l'article 12.6 de l'Accord de sous-traitance. Pour cette réutilisation, Yuno est responsable de traitement. Ces comptages ne contiennent aucune donnée personnelle ni aucune information commerciale du Client (titre de soirée, artiste, ville). Le titulaire peut retirer cette autorisation à tout moment dans Réglages › Données ; les comptages déjà versés sont alors retirés.
+
+**10. Disponibilité, support et évolutions**
+Yuno met en œuvre les moyens raisonnables pour que le service soit disponible et fonctionne correctement, sans garantir une disponibilité continue : maintenances, mises à jour, pannes de prestataires ou de la billetterie peuvent l'interrompre. Le support répond depuis la Console et à contact@yunoapp.eu.
+Le service évolue. Si Yuno retire une fonction essentielle à l'usage du Client, il l'annonce au moins 30 jours à l'avance ; le Client peut alors résilier et obtenir le remboursement de la part non utilisée de son abonnement.
+
+**11. Propriété**
+Yuno reste titulaire de tous les droits sur le logiciel, les règles d'analyse, les modèles d'e-mails et de pages, et la marque Yuno. Il accorde au Client, pendant l'abonnement, un droit d'utilisation personnel, non exclusif et non cessible.
+Le Client reste propriétaire de ses données et de ses contenus (textes, images, logos). Il accorde à Yuno le droit de les héberger, reproduire et traiter dans la seule mesure nécessaire au service, et garantit disposer des droits sur les contenus qu'il importe.
+
+**12. Responsabilité**
+Yuno est tenu d'une obligation de moyens. Il ne répond pas des dommages indirects (perte de chiffre d'affaires, de clientèle, d'image), ni des conséquences des décisions commerciales du Client, ni des faits de la billetterie ou d'un opérateur de télécommunication.
+Sauf faute lourde ou intentionnelle, la responsabilité totale de Yuno est limitée aux sommes payées par le Client au titre de Yuno CRM au cours des 12 mois précédant le fait générateur.
+Le Client garantit Yuno contre toute réclamation née de ses messages, de ses contenus, des données qu'il importe ou de l'usage qu'il fait des analyses.
+
+**13. Durée, résiliation et sort des données**
+Le Client résilie à tout moment depuis Abonnement et facturation ; la résiliation prend effet à la fin de la période payée, sans remboursement de la période en cours. Le compte passe alors en pause.
+Yuno peut suspendre ou résilier le compte en cas de manquement grave du Client non corrigé 15 jours après une mise en demeure par e-mail, et sans délai en cas d'envoi massif non sollicité, de fraude ou d'atteinte à la sécurité du service.
+En pause, la base reste lisible et exportable. Le Client peut demander à tout moment la suppression de son compte et de ses données. Sans réactivation, Yuno clôt le compte 12 mois après la fin de l'abonnement ou de l'essai, après en avoir averti le titulaire par e-mail au moins 30 jours avant. À la clôture, les données des clients du Client sont supprimées dans les 30 jours, et des sauvegardes au plus tard 90 jours après ; les factures et preuves que la loi impose de garder sont conservées pour la durée légale.
+
+**14. Modification des conditions**
+Yuno peut modifier ces conditions. Un changement important est annoncé au moins 30 jours avant son entrée en vigueur, par e-mail et dans la Console, où le titulaire l'accepte. Le Client qui le refuse peut résilier sans frais avant cette date.
+
+**15. Droit applicable et litiges**
+Les présentes conditions sont soumises au droit français. En cas de différend, les parties cherchent d'abord une solution amiable pendant 30 jours à compter d'un écrit de l'une d'elles. À défaut, et sous réserve des règles d'ordre public, le litige est porté devant les juridictions compétentes du ressort de la cour d'appel de Toulouse.
+
+**Annexe — Modèle de texte pour informer vos clients**
+À adapter, puis à publier dans votre politique de confidentialité (y compris celle que votre billetterie affiche sur vos pages de soirée), sur vos pages d'inscription, et en lien dans vos e-mails. Remplacez ce qui est entre crochets. Si vous n'utilisez pas une fonction, retirez le paragraphe qui la décrit.
+
+« Vos données et nos messages
+[Nom de votre structure], [adresse], [e-mail de contact], est responsable du traitement de vos données. Nous utilisons notre billetterie ([Shotgun]) pour vendre nos billets, et Yuno CRM, édité par WOMBER (France), pour gérer notre relation avec notre public. Ces deux prestataires agissent pour notre compte.
+Données : celles que vous donnez en achetant un billet ou en vous inscrivant (nom, e-mail, téléphone, âge, genre, ville, code postal, pays s'ils sont demandés), vos billets, tarifs et entrées, et vos réactions à nos messages.
+Pourquoi :
+• gérer vos billets et nos soirées (exécution de la vente) ;
+• vous envoyer nos informations et offres par e-mail ou SMS, si vous l'avez accepté (ou, par e-mail, si vous êtes déjà client et ne vous y êtes pas opposé) ;
+• analyser vos achats (artistes, styles, jours, habitudes d'achat comme l'achat tôt ou à plusieurs, distance entre votre commune et le lieu) pour comprendre ce qui fait venir notre public, estimer vos chances de revenir à une prochaine soirée et choisir les messages les plus utiles. Une partie de notre public, tirée au sort, ne reçoit pas certains messages pour que nous en mesurions l'effet. Cette analyse repose sur notre intérêt légitime à connaître et fidéliser notre public ; elle n'a aucun effet juridique, ne fixe aucun prix et ne conditionne jamais l'accès à nos soirées ;
+• mesurer l'ouverture de nos e-mails et les clics sur leurs liens, si vous l'avez accepté.
+Notre prestataire Yuno peut aussi tirer de nos données des comptages anonymes (sans aucune donnée vous concernant) pour améliorer son service.
+Destinataires : notre équipe et nos prestataires techniques (billetterie, Yuno et ses sous-traitants d'hébergement, d'envoi d'e-mails et de SMS), dans l'Union européenne ou encadrés par les clauses types de la Commission européenne. Nous ne vendons pas vos données.
+Durée : [3 ans] après votre dernier achat, votre dernière venue ou votre dernière réponse à nos messages.
+Vos droits : vous pouvez à tout moment vous opposer à cette analyse et à nos messages, sans avoir à vous justifier : écrivez à [contact], cliquez sur le lien de désinscription en bas de chaque e-mail, ou répondez STOP à un SMS. Vous pouvez aussi accéder à vos données, les faire rectifier ou effacer, et retirer un accord donné. Vous pouvez saisir la CNIL (cnil.fr). »`
+    },
+    en: {
+      title: 'Yuno CRM Terms',
+      content: `Version of 8 October 2026
+
+These terms form the contract between WOMBER, a sole proprietorship (Paul Brisebois), SIRET 995 130 747 00018, 25 avenue Mercure, 31130 Quint-Fonsegrives, France, contact@yunoapp.eu ("Yuno"), and the club, event organizer or association that opens a Yuno CRM account (the "Client"). The contract also includes the Data Processing Agreement (yunoapp.eu/legal/dpa), whose chapter 12 "Yuno CRM" applies to the Client, the Confidentiality Commitment (yunoapp.eu/legal/confidentialite), and the prices shown on the Pricing page and in the Console when the Client subscribes. In case of conflict, the Data Processing Agreement prevails on data protection, then these terms. The French version of these terms prevails.
+
+**1. The service**
+Yuno CRM is online software available at crm.yunoapp.eu (the "Console"). It connects to the Client's ticketing (Shotgun today), reads its sales and buyers, accepts contact files, and helps the Client know its audience and write to it: contact base, segments, analyses, emails, SMS, automations, sign-up pages and tracked links.
+Yuno CRM sells nothing: every ticket is still sold by the Client's ticketing, under its own terms. A feature marked "Soon" in the Console is not part of the service until it opens.
+Yuno CRM is reserved for professionals. The Client acts for its business; the right of withdrawal under the French Consumer Code does not apply.
+
+**2. Account, team and security**
+The account is opened by a person authorised to bind the Client (the "account holder"), who accepts these terms on its behalf. The account holder invites the team, chooses roles, and answers for actions taken from the account.
+Credentials are personal. The Client keeps its access confidential, turns on two-factor authentication when the Console asks, and tells Yuno at once of any suspicious access.
+Yuno accesses the Client's data only to run the service, keep it secure, prevent fraud, handle an incident or answer a request from the Client. Yuno opens a session in the Client's Console ("assisted access") only with the account holder's agreement, which can be withdrawn at any time; every access is logged.
+
+**3. Trial, subscription and prices**
+The trial lasts 14 days, with no card, with the Yunits allowance shown when the account opens. If no subscription is taken at the end of the trial, the account is paused: the base stays readable and exportable, but syncing with the ticketing and sending stop.
+The subscription is monthly or yearly, paid in advance by card through Stripe, and renews at each term until cancelled. Prices and what each plan includes are on the Pricing page and in the Console. The price of a running subscription stays the one at which it was taken while it is not interrupted. Should Yuno change the price of a running subscription, it would announce it at least 30 days in advance by email and in the Console; the Client could cancel before the new price applies.
+Prices are shown excluding taxes. As long as the publisher benefits from the VAT franchise, no VAT is charged (article 293 B of the French General Tax Code). Invoices are available in the Console.
+If a payment fails, Yuno reminds the Client; without settlement, the account is paused.
+
+**4. Yunits**
+Yunits are the unit used for sends. Each send uses Yunits according to the rates shown in the Console before sending (for example an email, an SMS to France, an SMS abroad). The Console shows the cost of a send and the balance before any confirmation. A change of rates is announced in the Console and never applies to a send already confirmed.
+Yunits are free (trial, subscription) or bought (top-up). Each has the expiry date shown in the Console when granted or bought; the Yunits that expire first are used first.
+No Yunit is used for a test send, for a recipient set aside by the sending rules, or for a message refused by the provider before sending. A message accepted by the provider and then not delivered (number that does not exist, phone off for too long) is still counted.
+Yunits are not refundable, transferable or convertible into money. Exception: if Yuno permanently stops Yuno CRM, it refunds the bought Yunits not yet used.
+
+**5. Ticketing connection and imported data**
+The Client connects its ticketing account itself and provides the access key. Its ticketing processes its buyers' data on its behalf; by connecting Yuno CRM, the Client appoints Yuno as another provider to process that data for it, and warrants that its contract with its ticketing allows this. Yuno reads this data and never writes anything to the ticketing. The access key is kept in an encrypted vault and is never shown again.
+The figures in the Console come from what the ticketing reports. When the ticketing does not provide a piece of data, the Console says so; it never replaces missing data with an estimate without saying it. Yuno is not liable for errors, outages or changes of the ticketing.
+For any imported file, the Client attests where the contacts come from and that they agreed to receive its messages; Yuno keeps this attestation, time-stamped.
+
+**6. Analyses, hypotheses and "Chance of coming"**
+On the Client's behalf, and from its data only, Yuno CRM computes:
+• sales, attendance and messaging statistics;
+• "What brings them": hypotheses on what brings the Client's audience back (artists, music genre, format, series of nights, day, buying habits such as buying early, last minute or as a group, distance between the declared town and the venue). Each hypothesis is tested on the Client's past nights and has a status ("confirmed", "no clear difference on your account", "to test"); on a customer's card, it shows as a fact observed in their purchases, never as a statement about the person;
+• "Chance of coming": for each customer who already came, a level (high, medium, low) of chance of buying for an upcoming night, with its main reasons, never a percentage;
+• "Who to target": groups of customers suggested for an upcoming night, and a control group of 10% not contacted, drawn at random, to measure the real effect of messages.
+These computations use neither people's gender nor the opens and clicks measured in their emails. They are statistical estimates: they can be wrong. They serve to organise the Client's marketing communication (who to write to, when, with which message) and to understand its audience.
+The Client shall not use them to take a decision that produces a legal effect on a person or significantly affects them: refusing entry or a sale, setting a price, reserving a discount or a presale for some people, putting someone on an exclusion list. It shall not use them either to infer or target a person's origin, political opinions, religious beliefs, health, sex life or sexual orientation, including from the theme of a night, nor to target minors.
+When a person objects to the analysis, the Client excludes them from their card ("Exclude from profiling"): their profile and estimates are deleted and no longer computed.
+Yuno guarantees no commercial result.
+
+**7. Sending messages**
+The Client is the sender and advertiser of its messages. It chooses their content and recipients, and answers for their compliance:
+• the recipient's prior agreement, or an existing customer relationship for similar products, under article L. 34-5 of the French Postal and Electronic Communications Code; an agreement for emails does not cover SMS;
+• the advertiser's identity, an unsubscribe link in every email, the STOP mention in every SMS;
+• the recipient's agreement, where required, to the individual measurement of opens and clicks of its emails, which relies on trackers (article 82 of the French Data Protection Act; CNIL recommendation no. 2026-042 of 12 March 2026);
+• the law on advertising alcoholic beverages.
+Yuno applies to every account sending rules that the Client cannot turn off: no sending to an unsubscribed person, to a failing address or to a number that replied STOP, a frequency cap per person, sending hours (no SMS between 9:30 pm and 8 am), monitoring of complaints and failures. Yuno may suspend a send or an account's sends in case of abnormal complaints or failures, unlawful content or risk to the platform's sending reputation; it informs the Client.
+Before the first SMS, the Client enters its legal identity (company name and SIRET, RNA or VAT number) and a sender name that complies with operators' rules.
+Unlawful, misleading, hateful or discriminatory messages are forbidden, as is any send to addresses bought, rented or collected without agreement.
+
+**8. The data of the Client's customers**
+For the data of its customers, contacts and attendees, the Client is the controller and Yuno acts as processor, under the Data Processing Agreement (chapter 12 "Yuno CRM"). The Client:
+• informs its customers of how their data is used, including the analysis described in article 6, their right to object to it and the trackers in its emails; a template sits in the appendix, to be published in particular as the privacy policy of its ticketing;
+• ensures a legal basis for each use, documents the balancing of its legitimate interest for the analysis, and collects the agreements its sends require;
+• answers people's requests (access, rectification, erasure, objection), with the Console's tools and Yuno's support;
+• chooses a retention period in Settings › Data; Yuno recommends 3 years after the last contact coming from the person (purchase, visit, click, sign-up);
+• carries out the impact assessment under article 35 GDPR when required; on request, Yuno provides a template impact assessment and balancing test suited to Yuno CRM.
+For the data of professional accounts (account holder, team), billing, security and measurement of Console usage, Yuno is the controller (Privacy Policy, yunoapp.eu/legal/privacy).
+
+**9. Anonymous statistics**
+The Client authorises Yuno to reuse the data processed on its behalf to draw aggregated, anonymous counts from it, meant to improve Yuno CRM's analysis rules for all its users, under the precise conditions of article 12.6 of the Data Processing Agreement. For this reuse, Yuno is the controller. These counts contain no personal data and no commercial information of the Client (night title, artist, town). The account holder can withdraw this authorisation at any time in Settings › Data; counts already contributed are then removed.
+
+**10. Availability, support and changes**
+Yuno uses reasonable means for the service to be available and work properly, without guaranteeing continuous availability: maintenance, updates, provider or ticketing outages may interrupt it. Support answers from the Console and at contact@yunoapp.eu.
+The service evolves. If Yuno removes a feature essential to the Client's use, it announces it at least 30 days in advance; the Client can then cancel and be refunded the unused part of its subscription.
+
+**11. Ownership**
+Yuno keeps all rights in the software, the analysis rules, the email and page templates, and the Yuno brand. It grants the Client, during the subscription, a personal, non-exclusive and non-transferable right of use.
+The Client keeps ownership of its data and content (texts, images, logos). It grants Yuno the right to host, reproduce and process them only as needed for the service, and warrants that it holds the rights in the content it imports.
+
+**12. Liability**
+Yuno has an obligation of means. It is not liable for indirect damage (loss of revenue, customers, image), for the consequences of the Client's commercial decisions, or for acts of the ticketing or of a telecom operator.
+Except for gross or intentional misconduct, Yuno's total liability is capped at the amounts paid by the Client for Yuno CRM in the 12 months before the event giving rise to it.
+The Client holds Yuno harmless from any claim arising from its messages, its content, the data it imports or its use of the analyses.
+
+**13. Term, cancellation and fate of data**
+The Client cancels at any time from Subscription and billing; cancellation takes effect at the end of the paid period, with no refund of the current period. The account is then paused.
+Yuno may suspend or close the account for a serious breach by the Client not remedied 15 days after formal notice by email, and immediately in case of mass unsolicited sending, fraud or harm to the security of the service.
+While paused, the base stays readable and exportable. The Client may ask at any time for its account and data to be deleted. Without reactivation, Yuno closes the account 12 months after the end of the subscription or trial, after warning the account holder by email at least 30 days before. On closing, the data of the Client's customers is deleted within 30 days, and from backups no later than 90 days after; invoices and proofs the law requires are kept for the legal period.
+
+**14. Changes to these terms**
+Yuno may change these terms. A significant change is announced at least 30 days before it applies, by email and in the Console, where the account holder accepts it. A Client who refuses it may cancel at no cost before that date.
+
+**15. Governing law and disputes**
+These terms are governed by French law. In case of dispute, the parties first seek an amicable solution for 30 days from a written notice by either of them. Failing that, and subject to mandatory rules, the dispute is brought before the competent courts within the jurisdiction of the Toulouse Court of Appeal.
+
+**Appendix — Template text to inform your customers**
+Adapt it, then publish it in your privacy policy (including the one your ticketing shows on your event pages), on your sign-up pages, and as a link in your emails. Replace what is in brackets. If you do not use a feature, remove the paragraph describing it.
+
+"Your data and our messages
+[Name of your organisation], [address], [contact email], is the controller of your data. We use our ticketing ([Shotgun]) to sell our tickets, and Yuno CRM, published by WOMBER (France), to manage our relationship with our audience. Both providers act on our behalf.
+Data: what you give when buying a ticket or signing up (name, email, phone, age, gender, town, postcode, country where asked), your tickets, prices and entries, and how you react to our messages.
+Why:
+• manage your tickets and our nights (performance of the sale);
+• send you our news and offers by email or SMS, if you agreed (or, by email, if you are already a customer and did not object);
+• analyse your purchases (artists, styles, days, buying habits such as buying early or as a group, distance between your town and the venue) to understand what brings our audience, estimate your chance of coming back to an upcoming night and choose the most useful messages. Part of our audience, drawn at random, does not receive some messages so that we can measure their effect. This analysis relies on our legitimate interest in knowing and keeping our audience; it has no legal effect, sets no price and never conditions access to our nights;
+• measure the opening of our emails and the clicks on their links, if you agreed.
+Our provider Yuno may also draw anonymous counts from our data (with no data about you) to improve its service.
+Recipients: our team and our technical providers (ticketing, Yuno and its hosting, email and SMS sub-processors), in the European Union or covered by the European Commission's standard clauses. We do not sell your data.
+Retention: [3 years] after your last purchase, your last visit or your last response to our messages.
+Your rights: you can object at any time to this analysis and to our messages, without giving a reason: write to [contact], click the unsubscribe link at the bottom of every email, or reply STOP to an SMS. You can also access your data, have it rectified or erased, and withdraw an agreement you gave. You can lodge a complaint with the CNIL (cnil.fr) or your local data protection authority."`
+    },
+    es: {
+      title: 'Condiciones de Yuno CRM',
+      content: `Versión del 8 de octubre de 2026
+
+Estas condiciones forman el contrato entre WOMBER, empresa individual (Paul Brisebois), SIRET 995 130 747 00018, 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia, contact@yunoapp.eu («Yuno»), y la discoteca, el organizador de eventos o la asociación que abre una cuenta de Yuno CRM (el «Cliente»). El contrato incluye también el Acuerdo de encargo del tratamiento (yunoapp.eu/legal/dpa), cuyo capítulo 12 «Yuno CRM» se aplica al Cliente, el Compromiso de confidencialidad (yunoapp.eu/legal/confidentialite) y los precios mostrados en la página de Tarifas y en la Consola en el momento de la suscripción. En caso de contradicción, el Acuerdo de encargo del tratamiento prevalece en materia de protección de datos y, después, estas condiciones. Prevalece la versión francesa de estas condiciones.
+
+**1. El servicio**
+Yuno CRM es un software en línea, disponible en crm.yunoapp.eu (la «Consola»). Se conecta a la ticketera del Cliente (hoy Shotgun), lee sus ventas y sus compradores, acepta archivos de contactos y ayuda al Cliente a conocer a su público y a escribirle: base de contactos, segmentos, análisis, e-mails, SMS, automatizaciones, páginas de registro y enlaces de seguimiento.
+Yuno CRM no vende nada: cada entrada la sigue vendiendo la ticketera del Cliente, según sus propias condiciones. Una función marcada como «Próximamente» en la Consola no forma parte del servicio mientras no esté abierta.
+Yuno CRM está reservado a profesionales. El Cliente actúa para su actividad profesional; no se aplica el derecho de desistimiento previsto por el Código de consumo francés.
+
+**2. Cuenta, equipo y seguridad**
+La cuenta la abre una persona facultada para obligar al Cliente (el «titular»), que acepta estas condiciones en su nombre. El titular invita a su equipo, elige los roles y responde de las acciones realizadas desde la cuenta.
+Las credenciales son personales. El Cliente mantiene sus accesos confidenciales, activa la doble autenticación cuando la Consola lo pide y avisa a Yuno sin demora de cualquier acceso sospechoso.
+Yuno solo accede a los datos del Cliente para hacer funcionar el servicio, garantizar su seguridad, prevenir el fraude, tratar una incidencia o responder a una solicitud del Cliente. Yuno solo abre una sesión en la Consola del Cliente («acceso asistido») con el acuerdo del titular, que puede retirarlo en cualquier momento; cada acceso queda registrado.
+
+**3. Prueba, suscripción y precios**
+La prueba dura 14 días, sin tarjeta, con la dotación de Yunits mostrada al abrir la cuenta. Si al final de la prueba no hay suscripción, la cuenta queda en pausa: la base sigue legible y exportable, pero la sincronización con la ticketera y los envíos se detienen.
+La suscripción es mensual o anual, se paga por adelantado con tarjeta a través de Stripe y se renueva en cada vencimiento hasta su cancelación. Los precios y lo que incluye cada fórmula figuran en la página de Tarifas y en la Consola. El precio de una suscripción en curso sigue siendo el de su contratación mientras no se interrumpa. Si Yuno tuviera que modificar el precio de una suscripción en curso, lo anunciaría con al menos 30 días de antelación por e-mail y en la Consola; el Cliente podría cancelar antes de que se aplique el nuevo precio.
+Los precios se indican sin impuestos. Mientras el editor se acoja a la franquicia de IVA, no se factura IVA (artículo 293 B del Código General de Impuestos francés). Las facturas están disponibles en la Consola.
+Si un pago falla, Yuno se lo recuerda al Cliente; sin regularización, la cuenta queda en pausa.
+
+**4. Los Yunits**
+Los Yunits son la unidad de cuenta de los envíos. Cada envío consume Yunits según la tarifa mostrada en la Consola antes del envío (por ejemplo, un e-mail, un SMS a Francia, un SMS al extranjero). La Consola muestra el coste de un envío y el saldo antes de cualquier confirmación. Un cambio de tarifa se anuncia en la Consola y nunca se aplica a un envío ya confirmado.
+Los Yunits son gratuitos (prueba, suscripción) o comprados (recarga). Cada uno tiene la fecha de validez mostrada en la Consola al asignarse o comprarse; los Yunits que caducan antes se usan primero.
+No se descuenta ningún Yunit por un envío de prueba, por un destinatario apartado por las reglas de envío ni por un mensaje rechazado por el proveedor antes de su envío. Un mensaje aceptado por el proveedor y después no entregado (número inexistente, teléfono apagado demasiado tiempo) sigue descontándose.
+Los Yunits no son reembolsables, ni cedibles, ni convertibles en dinero. Excepción: si Yuno deja definitivamente de ofrecer Yuno CRM, reembolsa los Yunits comprados y no usados.
+
+**5. Conexión con la ticketera y datos importados**
+El Cliente conecta él mismo su cuenta de ticketera y facilita la clave de acceso. Su ticketera trata los datos de sus compradores por cuenta suya; al conectar Yuno CRM, el Cliente designa a Yuno como otro proveedor encargado de tratarlos para él, y garantiza que su contrato con la ticketera lo permite. Yuno lee estos datos y nunca escribe nada en la ticketera. La clave de acceso se guarda en una caja fuerte cifrada y nunca se vuelve a mostrar.
+Las cifras de la Consola proceden de lo que informa la ticketera. Cuando la ticketera no facilita un dato, la Consola lo dice; nunca sustituye un dato que falta por una estimación sin indicarlo. Yuno no responde de los errores, interrupciones o cambios de la ticketera.
+Para todo archivo importado, el Cliente certifica el origen de los contactos y su acuerdo para recibir sus mensajes; Yuno conserva esa certificación, con fecha y hora.
+
+**6. Análisis, hipótesis y «Probabilidad de venir»**
+Por cuenta del Cliente, y solo con sus datos, Yuno CRM calcula:
+• estadísticas de ventas, asistencia y mensajes;
+• «Lo que les hace venir»: hipótesis sobre lo que hace volver al público del Cliente (artistas, género musical, formato, serie de noches, día, hábitos de compra como comprar pronto, a última hora o en grupo, distancia entre el municipio declarado y el local). Cada hipótesis se prueba con las noches pasadas del Cliente y tiene un estado («confirmada», «sin diferencia clara en su cuenta», «por probar»); en la ficha de un cliente, se muestra como un hecho observado en sus compras, nunca como una afirmación sobre la persona;
+• «Probabilidad de venir»: para cada cliente que ya vino, un nivel (alta, media, baja) de probabilidad de comprar para una próxima noche, con sus principales motivos, nunca un porcentaje;
+• «A quién dirigirse»: grupos de clientes propuestos para una próxima noche, y un grupo de control del 10 % no contactado, sorteado, para medir el efecto real de los mensajes.
+Estos cálculos no usan ni el género de las personas ni las aperturas y clics medidos en sus e-mails. Son estimaciones estadísticas: pueden equivocarse. Sirven para organizar la comunicación comercial del Cliente (a quién escribir, cuándo, con qué mensaje) y para entender a su público.
+El Cliente se compromete a no usarlas para tomar una decisión que produzca efectos jurídicos sobre una persona o la afecte de forma significativa: denegar la entrada o la venta, fijar un precio, reservar un descuento o una preventa según la persona, incluir a alguien en una lista de exclusión. Se compromete también a no usarlas para deducir o dirigirse al origen, las opiniones políticas, las convicciones religiosas, la salud, la vida o la orientación sexual de una persona, incluso a partir de la temática de una noche, ni para dirigirse a menores.
+Cuando una persona se opone al análisis, el Cliente la excluye desde su ficha («Excluir del perfilado»): su perfil y sus estimaciones se borran y dejan de calcularse.
+Yuno no garantiza ningún resultado comercial.
+
+**7. Envío de mensajes**
+El Cliente es el remitente y el anunciante de sus mensajes. Elige su contenido y sus destinatarios, y responde de su conformidad:
+• acuerdo previo del destinatario, o relación de cliente existente para productos similares, en las condiciones del artículo L. 34-5 del Código de correos y comunicaciones electrónicas francés; un acuerdo para e-mails no vale para SMS;
+• identidad del anunciante, enlace de baja en cada e-mail, mención STOP en cada SMS;
+• acuerdo del destinatario, cuando se exija, para la medición individual de la apertura y los clics de sus e-mails, que se basa en rastreadores (artículo 82 de la ley francesa de protección de datos; recomendación de la CNIL n.º 2026-042 del 12 de marzo de 2026);
+• normativa sobre publicidad de bebidas alcohólicas.
+Yuno aplica a todas las cuentas reglas de envío que el Cliente no puede desactivar: ningún envío a una persona dada de baja, a una dirección con errores o a un número que respondió STOP, límite de frecuencia por persona, horarios de envío (ningún SMS entre las 21:30 y las 8:00), vigilancia de quejas y errores. Yuno puede suspender un envío o los envíos de una cuenta en caso de quejas o errores anormales, contenido ilícito o riesgo para la reputación de envío de la plataforma; informa de ello al Cliente.
+Antes del primer SMS, el Cliente indica su identidad legal (razón social y número SIRET, RNA o IVA) y un nombre de remitente conforme a las reglas de los operadores.
+Están prohibidos los mensajes ilícitos, engañosos, de odio o discriminatorios, y cualquier envío a direcciones compradas, alquiladas o recogidas sin acuerdo.
+
+**8. Los datos de los clientes del Cliente**
+Para los datos de sus clientes, contactos y asistentes, el Cliente es responsable del tratamiento y Yuno actúa como encargado, en las condiciones del Acuerdo de encargo del tratamiento (capítulo 12 «Yuno CRM»). El Cliente:
+• informa a sus clientes del uso de sus datos, incluido el análisis descrito en el artículo 6, su derecho a oponerse y los rastreadores de sus e-mails; en el anexo figura un modelo de texto, que puede publicar en particular como política de privacidad de su ticketera;
+• garantiza una base jurídica para cada uso, documenta la ponderación de su interés legítimo para el análisis y recoge los acuerdos que exigen sus envíos;
+• responde a las solicitudes de las personas (acceso, rectificación, supresión, oposición), con las herramientas de la Consola y el soporte de Yuno;
+• elige un plazo de conservación en Ajustes › Datos; Yuno recomienda 3 años tras el último contacto procedente de la persona (compra, visita, clic, registro);
+• realiza la evaluación de impacto del artículo 35 del RGPD cuando se exija; Yuno le facilita, si lo pide, un modelo de evaluación de impacto y de ponderación adaptado a Yuno CRM.
+Para los datos de las cuentas profesionales (titular, equipo), la facturación, la seguridad y la medición del uso de la Consola, Yuno es responsable del tratamiento (Política de privacidad, yunoapp.eu/legal/privacy).
+
+**9. Estadísticas anónimas**
+El Cliente autoriza a Yuno a reutilizar los datos tratados por su cuenta para obtener recuentos agregados y anónimos, destinados a mejorar las reglas de análisis de Yuno CRM para todos sus usuarios, en las condiciones precisas del artículo 12.6 del Acuerdo de encargo del tratamiento. Para esta reutilización, Yuno es responsable del tratamiento. Estos recuentos no contienen ningún dato personal ni ninguna información comercial del Cliente (título de noche, artista, ciudad). El titular puede retirar esta autorización en cualquier momento en Ajustes › Datos; los recuentos ya aportados se retiran entonces.
+
+**10. Disponibilidad, soporte y cambios**
+Yuno pone los medios razonables para que el servicio esté disponible y funcione correctamente, sin garantizar una disponibilidad continua: mantenimientos, actualizaciones o caídas de proveedores o de la ticketera pueden interrumpirlo. El soporte responde desde la Consola y en contact@yunoapp.eu.
+El servicio evoluciona. Si Yuno retira una función esencial para el uso del Cliente, lo anuncia con al menos 30 días de antelación; el Cliente puede entonces cancelar y obtener el reembolso de la parte no usada de su suscripción.
+
+**11. Propiedad**
+Yuno conserva todos los derechos sobre el software, las reglas de análisis, las plantillas de e-mails y páginas, y la marca Yuno. Concede al Cliente, durante la suscripción, un derecho de uso personal, no exclusivo e intransferible.
+El Cliente sigue siendo propietario de sus datos y contenidos (textos, imágenes, logotipos). Concede a Yuno el derecho a alojarlos, reproducirlos y tratarlos solo en la medida necesaria para el servicio, y garantiza que dispone de los derechos sobre los contenidos que importa.
+
+**12. Responsabilidad**
+Yuno asume una obligación de medios. No responde de daños indirectos (pérdida de facturación, clientela, imagen), ni de las consecuencias de las decisiones comerciales del Cliente, ni de hechos de la ticketera o de un operador de telecomunicaciones.
+Salvo culpa grave o dolo, la responsabilidad total de Yuno se limita a las cantidades pagadas por el Cliente por Yuno CRM en los 12 meses anteriores al hecho generador.
+El Cliente mantiene indemne a Yuno frente a cualquier reclamación derivada de sus mensajes, sus contenidos, los datos que importa o el uso que hace de los análisis.
+
+**13. Duración, cancelación y destino de los datos**
+El Cliente cancela en cualquier momento desde Suscripción y facturación; la cancelación surte efecto al final del periodo pagado, sin reembolso del periodo en curso. La cuenta queda entonces en pausa.
+Yuno puede suspender o cerrar la cuenta en caso de incumplimiento grave del Cliente no subsanado 15 días después de un requerimiento por e-mail, y sin demora en caso de envío masivo no solicitado, fraude o atentado contra la seguridad del servicio.
+En pausa, la base sigue legible y exportable. El Cliente puede pedir en cualquier momento la supresión de su cuenta y de sus datos. Sin reactivación, Yuno cierra la cuenta 12 meses después del final de la suscripción o de la prueba, tras avisar al titular por e-mail con al menos 30 días de antelación. Al cierre, los datos de los clientes del Cliente se suprimen en 30 días, y de las copias de seguridad a más tardar 90 días después; las facturas y pruebas que la ley obliga a conservar se guardan durante el plazo legal.
+
+**14. Modificación de las condiciones**
+Yuno puede modificar estas condiciones. Un cambio importante se anuncia al menos 30 días antes de su entrada en vigor, por e-mail y en la Consola, donde el titular lo acepta. El Cliente que lo rechace puede cancelar sin coste antes de esa fecha.
+
+**15. Derecho aplicable y litigios**
+Estas condiciones se rigen por el derecho francés. En caso de controversia, las partes buscan primero una solución amistosa durante 30 días desde un escrito de cualquiera de ellas. A falta de acuerdo, y sin perjuicio de las normas de orden público, el litigio se somete a los tribunales competentes de la jurisdicción de la Cour d'appel de Toulouse.
+
+**Anexo — Modelo de texto para informar a sus clientes**
+Adáptelo y publíquelo en su política de privacidad (incluida la que su ticketera muestra en sus páginas de eventos), en sus páginas de registro y como enlace en sus e-mails. Sustituya lo que está entre corchetes. Si no usa una función, elimine el párrafo que la describe.
+
+«Sus datos y nuestros mensajes
+[Nombre de su estructura], [dirección], [e-mail de contacto], es responsable del tratamiento de sus datos. Usamos nuestra ticketera ([Shotgun]) para vender nuestras entradas, y Yuno CRM, editado por WOMBER (Francia), para gestionar nuestra relación con nuestro público. Ambos proveedores actúan por cuenta nuestra.
+Datos: los que facilita al comprar una entrada o registrarse (nombre, e-mail, teléfono, edad, género, ciudad, código postal, país si se piden), sus entradas, tarifas y accesos, y sus reacciones a nuestros mensajes.
+Para qué:
+• gestionar sus entradas y nuestras noches (ejecución de la venta);
+• enviarle nuestras novedades y ofertas por e-mail o SMS, si lo aceptó (o, por e-mail, si ya es cliente y no se opuso);
+• analizar sus compras (artistas, estilos, días, hábitos de compra como comprar pronto o en grupo, distancia entre su municipio y el local) para entender qué hace venir a nuestro público, estimar su probabilidad de volver a una próxima noche y elegir los mensajes más útiles. Una parte de nuestro público, sorteada, no recibe algunos mensajes para que podamos medir su efecto. Este análisis se basa en nuestro interés legítimo en conocer y fidelizar a nuestro público; no tiene efectos jurídicos, no fija ningún precio y nunca condiciona el acceso a nuestras noches;
+• medir la apertura de nuestros e-mails y los clics en sus enlaces, si lo aceptó.
+Nuestro proveedor Yuno puede además obtener de nuestros datos recuentos anónimos (sin ningún dato sobre usted) para mejorar su servicio.
+Destinatarios: nuestro equipo y nuestros proveedores técnicos (ticketera, Yuno y sus encargados de alojamiento, envío de e-mails y SMS), en la Unión Europea o cubiertos por las cláusulas tipo de la Comisión Europea. No vendemos sus datos.
+Conservación: [3 años] tras su última compra, su última visita o su última respuesta a nuestros mensajes.
+Sus derechos: puede oponerse en cualquier momento a este análisis y a nuestros mensajes, sin justificarlo: escriba a [contacto], pulse el enlace de baja al final de cada e-mail o responda STOP a un SMS. También puede acceder a sus datos, rectificarlos o suprimirlos, y retirar un acuerdo dado. Puede presentar una reclamación ante la CNIL (cnil.fr) o la autoridad de protección de datos de su país.»`
+    }
+  },
+
   'confidentialite': {
     fr: {
       title: 'Engagement de Confidentialité',
@@ -678,8 +999,10 @@ Derecho francés. Tribunales competentes de la jurisdicción de la Corte de Apel
   'dpa': {
     fr: {
       title: 'Accord de Sous-Traitance des Données (DPA)',
-      content: `**1. Objet et rôles**
-Le présent accord encadre, conformément à l'article 28 du RGPD, les traitements de données personnelles que Yuno (éditée par WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives) réalise pour le compte des établissements et organisateurs partenaires (le « Partenaire »). Pour les données des clients finaux du Partenaire (participants, invités, acheteurs), le Partenaire est responsable de traitement et Yuno agit en qualité de sous-traitant. Pour la gestion des comptes professionnels, la facturation, la sécurité de la plateforme et l'amélioration du service, Yuno agit en qualité de responsable de traitement distinct (voir la Politique de Confidentialité). Le présent accord fait partie intégrante des Conditions Pro.
+      content: `Version du 8 octobre 2026
+
+**1. Objet et rôles**
+Le présent accord encadre, conformément à l'article 28 du RGPD, les traitements de données personnelles que Yuno (éditée par WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives) réalise pour le compte des établissements et organisateurs partenaires (le « Partenaire »). Pour les données des clients finaux du Partenaire (participants, invités, acheteurs), le Partenaire est responsable de traitement et Yuno agit en qualité de sous-traitant. Pour la gestion des comptes professionnels, la facturation, la sécurité de la plateforme et l'amélioration du service, Yuno agit en qualité de responsable de traitement distinct (voir la Politique de Confidentialité). Le présent accord fait partie intégrante des Conditions Pro et des Conditions Yuno CRM (yunoapp.eu/legal/cgv-crm).
 
 **2. Traitements concernés**
 • Nature et finalités : vente et contrôle de billets, gestion de guest lists, réservations de tables VIP, commandes de boissons, campagnes de communication du Partenaire, statistiques d'audience.
@@ -694,7 +1017,7 @@ Yuno traite ces données uniquement sur instruction documentée du Partenaire ; 
 Les personnes autorisées à traiter les données sont soumises à une obligation de confidentialité. Yuno met en œuvre les mesures techniques et organisationnelles appropriées (article 32 RGPD) : chiffrement en transit (HTTPS/TLS), cloisonnement des données par établissement (row level security), contrôle d'accès par rôle, authentification renforcée (MFA), journalisation de sécurité.
 
 **5. Sous-traitants ultérieurs**
-Le Partenaire autorise de manière générale le recours aux sous-traitants ultérieurs suivants : Supabase (hébergement base de données), Stripe (paiements), Resend (envoi d'emails), Mapbox (cartographie), Cloudflare (diffusion du site), PostHog (mesure d'audience, hébergement UE). Yuno informe le Partenaire de tout changement envisagé (ajout ou remplacement), lui laissant la possibilité d'émettre des objections raisonnables, et impose à ses sous-traitants des obligations équivalentes au présent accord.
+Le Partenaire autorise de manière générale le recours aux sous-traitants ultérieurs suivants : Supabase (hébergement base de données), Stripe (paiements), Resend (envoi d'emails), Octopush (envoi de SMS, société française, données hébergées en France), OpenAI (Assistant Console, lorsque le Partenaire l'utilise), Mapbox (cartographie), Cloudflare (diffusion du site), PostHog (mesure d'audience, hébergement UE). Yuno informe le Partenaire de tout changement envisagé (ajout ou remplacement), lui laissant la possibilité d'émettre des objections raisonnables, et impose à ses sous-traitants des obligations équivalentes au présent accord.
 
 **6. Assistance**
 Compte tenu de la nature du traitement, Yuno aide le Partenaire, par des mesures techniques et organisationnelles appropriées, à donner suite aux demandes d'exercice des droits des personnes concernées (accès, rectification, effacement, opposition, limitation, portabilité), et l'assiste pour ses obligations d'analyse d'impact et de consultation préalable le cas échéant.
@@ -709,15 +1032,82 @@ Au terme des prestations, Yuno supprime ou restitue au Partenaire, selon son cho
 Yuno met à la disposition du Partenaire les informations nécessaires pour démontrer le respect du présent accord et permet la réalisation d'audits, dans la limite d'un audit par période de douze mois, moyennant un préavis raisonnable de trente jours, aux frais du Partenaire, pendant les heures ouvrées et sans accès aux données d'autres partenaires.
 
 **10. Transferts hors UE**
-Les données sont hébergées dans l'Union Européenne. Certains sous-traitants ultérieurs (notamment Stripe, Resend, Cloudflare, Mapbox) peuvent réaliser des traitements hors UE, encadrés par les clauses contractuelles types de la Commission européenne ou tout autre mécanisme de transfert reconnu.
+Les données sont hébergées dans l'Union Européenne. Certains sous-traitants ultérieurs (notamment Stripe, Resend, Cloudflare, Mapbox, OpenAI) peuvent réaliser des traitements hors UE, encadrés par les clauses contractuelles types de la Commission européenne ou tout autre mécanisme de transfert reconnu.
 
 **11. Droit applicable**
-Droit français. Le présent accord prévaut sur les Conditions Pro pour ce qui concerne la protection des données traitées pour le compte du Partenaire.`
+Droit français. Le présent accord prévaut sur les Conditions Pro et les Conditions Yuno CRM pour ce qui concerne la protection des données traitées pour le compte du Partenaire.
+
+**12. Chapitre Yuno CRM**
+Ce chapitre s'applique au Partenaire qui utilise Yuno CRM (crm.yunoapp.eu). Il complète les articles 1 à 11 et prévaut sur eux pour ce qui concerne Yuno CRM.
+
+**12.1 Traitements confiés**
+Sur instruction du Partenaire, Yuno :
+• importe et met à jour, en lecture seule, les données de la billetterie que le Partenaire connecte (cette billetterie est elle-même son prestataire), et celles des fichiers qu'il importe ;
+• tient sa base de contacts, son registre des accords et des désinscriptions ;
+• produit ses statistiques, segments et analyses, dont le profilage décrit à l'article 12.4 ;
+• envoie ses e-mails et SMS, mesure leur remise, leurs ouvertures et leurs clics, applique les désinscriptions et les STOP ;
+• héberge ses pages d'inscription, ses liens suivis et ses automatisations ;
+• répond à ses questions dans l'Assistant Console, et transmet ses données à l'assistant IA qu'il connecte lui-même (article 3).
+
+**12.2 Données et personnes concernées**
+Personnes : acheteurs, invités, participants et contacts du Partenaire.
+Données : identité et coordonnées (nom, prénom, e-mail, téléphone) ; données transmises par la billetterie ou les fichiers (âge ou année de naissance, genre, ville, code postal, pays) ; achats et présence (soirées, tarifs, montants, canal d'achat, entrée scannée, invitations) ; accords, désinscriptions et leurs preuves ; interactions avec les messages et les pages (remise, ouverture, clic, inscription) ; données déduites (hypothèses, niveau de « Chances de venir » et ses raisons, appartenance à un segment, distance au lieu calculée à partir du code postal).
+Aucune donnée de carte bancaire n'est traitée. Aucune catégorie particulière de données (article 9 du RGPD) n'est demandée ni recherchée par Yuno.
+
+**12.3 Instructions**
+La connexion d'une billetterie, l'import d'un fichier, la création d'un segment, d'une campagne, d'une automatisation ou d'une page valent instruction documentée. L'analyse décrite à l'article 12.4 fait partie du service choisi par le Partenaire ; il peut en exclure toute personne depuis sa fiche client.
+
+**12.4 Profilage pour le compte du Partenaire**
+Yuno CRM calcule, pour le seul compte du Partenaire et à partir de ses seules données :
+• « Ce qui fait venir » : des hypothèses testées sur les soirées passées du Partenaire (artistes, genre musical, format, série, jour, habitudes d'achat, distance), affichées sur la fiche d'un client comme des faits observés dans ses achats, avec le statut de l'hypothèse sur le compte ;
+• « Chances de venir » : un niveau (fortes, moyennes, faibles) de chances d'acheter pour une prochaine soirée, avec ses principales raisons, calculé par un modèle statistique propre au compte du Partenaire, ajusté chaque nuit sur les soirées de ses douze derniers mois et effacé avec le compte ;
+• « Qui cibler » : des groupes proposés pour une soirée, avec un groupe témoin tiré au hasard et non contacté.
+Yuno s'engage à :
+• ne jamais rapprocher les données d'une personne entre deux comptes ;
+• n'utiliser pour ces calculs ni le genre des personnes, ni les ouvertures et les clics mesurés dans leurs e-mails ;
+• n'entraîner aucun modèle commun sur des données de personnes, et ne transmettre aucune donnée personnelle à un fournisseur d'IA pour ces calculs ;
+• ne pas afficher de pourcentage individuel, et montrer les raisons de chaque niveau ;
+• ne faire figurer ni hypothèse ni niveau dans un export ;
+• ne prendre aucune décision : ces estimations servent au Partenaire à choisir les destinataires et le moment de ses messages ; elles ne produisent aucun effet juridique et n'affectent pas les personnes de manière significative au sens de l'article 22 du RGPD ;
+• appliquer l'exclusion d'une personne (« Exclure du profilage ») : son profil, ses estimations et leur historique sont effacés, puis elle n'est plus calculée ; son adresse est gardée dans une liste d'exclusion, à cette seule fin ;
+• effacer profils et estimations avec la personne, avec la connexion à la billetterie, avec le compte, et à l'échéance de la durée de conservation choisie par le Partenaire.
+
+**12.5 Obligations propres du Partenaire**
+Le Partenaire, responsable de traitement :
+• informe les personnes (articles 13 et 14 du RGPD) au plus tard lors du premier message, y compris du profilage, de sa logique et de leur droit de s'y opposer, présenté séparément ; un modèle figure en annexe des Conditions Yuno CRM ;
+• dispose d'une base légale pour chaque finalité : intérêt légitime documenté pour l'analyse et la segmentation ; accord préalable ou relation client existante pour ses envois (article L. 34-5 du Code des postes et des communications électroniques), l'accord pour les e-mails ne valant pas pour les SMS ; accord du destinataire, lorsqu'il est requis, à la mesure individuelle des ouvertures et des clics (article 82 de la loi Informatique et Libertés ; recommandation de la CNIL n° 2026-042 du 12 mars 2026) ;
+• garantit que son contrat avec sa billetterie lui permet de transmettre ses données à Yuno ;
+• traite toute opposition d'une personne, à la prospection comme au profilage, sans délai et sans lui demander de justification ;
+• n'utilise pas les estimations pour fixer un prix, accorder ou refuser une remise, une prévente ou l'entrée, ni pour cibler des mineurs ou déduire une donnée de l'article 9 du RGPD, notamment à partir du thème d'une soirée ;
+• fixe une durée de conservation (Réglages › Données) ;
+• réalise l'analyse d'impact de l'article 35 lorsqu'elle est requise ; Yuno lui fournit sur demande un modèle d'analyse d'impact et de mise en balance adapté à Yuno CRM.
+
+**12.6 Statistiques anonymes (réutilisation autorisée)**
+En acceptant le présent accord, le Partenaire autorise par écrit Yuno à réutiliser les données traitées pour son compte, pour la seule finalité suivante : produire des comptages agrégés destinés à régler les seuils des règles d'analyse de Yuno CRM pour l'ensemble de ses utilisateurs. Cette réutilisation, compatible avec la finalité d'origine (elle améliore le service même que le Partenaire utilise, sans aucune conséquence pour les personnes), se fait aux conditions suivantes :
+• seuls des comptages sortent du compte (par exemple « nombre de retours testés », « nombre de choix conformes », « nombre attendu au hasard »), par famille d'analyse et par trimestre ;
+• aucune donnée personnelle ni identifiant (adresse e-mail ou empreinte de celle-ci, nom, téléphone, identifiant de personne), aucune information commerciale du Partenaire (titre de soirée, artiste, ville) ;
+• tout comptage portant sur moins de dix personnes est supprimé à la source ; les personnes exclues du profilage n'y entrent pas ;
+• les comptages sont rattachés à une clé aléatoire propre au compte, détruite avec lui ;
+• un résultat commun n'est publié qu'à partir de cinq comptes contributeurs, aucun ne représentant plus de la moitié du total ;
+• les règles d'analyse ne changent qu'après validation humaine par Yuno ;
+• aucune donnée de personne n'entraîne de modèle ni n'est transmise à un système d'IA pour cette finalité ;
+• le titulaire du compte peut retirer cette autorisation à tout moment depuis Réglages › Données ; ses comptages sont alors supprimés ;
+• le compte de démonstration n'y contribue jamais.
+Pour cette réutilisation, Yuno agit comme responsable de traitement, sur la base de son intérêt légitime à améliorer son service ; il documente l'évaluation du caractère anonyme des comptages et la tient à la disposition du Partenaire et de la CNIL.
+
+**12.7 Sous-traitants ultérieurs de Yuno CRM**
+Supabase (hébergement, Union européenne), Cloudflare (diffusion du site, liens courts), Resend (e-mails), Octopush (SMS, France), Stripe (facturation de l'abonnement, sans données des clients du Partenaire), OpenAI (Assistant Console, quand le Partenaire l'utilise : sa question et les données nécessaires à la réponse, sans réutilisation pour entraîner un modèle). La billetterie connectée n'est pas un sous-traitant de Yuno : c'est le prestataire du Partenaire, source des données.
+
+**12.8 Violations, durée et fin**
+Yuno notifie au Partenaire toute violation de données le concernant dans les meilleurs délais, et au plus tard 48 heures après en avoir pris connaissance.
+Les données sont traitées tant que le compte existe. En pause, elles restent lisibles et exportables par le Partenaire. Sans réactivation, le compte est clos 12 mois après la fin de l'abonnement ou de l'essai, après avertissement du titulaire au moins 30 jours avant. À la clôture, ou sur demande du Partenaire, Yuno supprime ses données dans les 30 jours, et des sauvegardes au plus tard 90 jours après ; le Partenaire peut les exporter auparavant.`
     },
     en: {
       title: 'Data Processing Agreement (DPA)',
-      content: `**1. Purpose and Roles**
-This agreement governs, in accordance with Article 28 GDPR, the processing of personal data that Yuno (operated by WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, France) carries out on behalf of partner venues and organizers (the "Partner"). For the Partner's end-customer data (attendees, guests, buyers), the Partner is the data controller and Yuno acts as processor. For professional account management, billing, platform security, and service improvement, Yuno acts as an independent controller (see the Privacy Policy). This agreement is an integral part of the Professional Terms.
+      content: `Version of 8 October 2026
+
+**1. Purpose and Roles**
+This agreement governs, in accordance with Article 28 GDPR, the processing of personal data that Yuno (operated by WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, France) carries out on behalf of partner venues and organizers (the "Partner"). For the Partner's end-customer data (attendees, guests, buyers), the Partner is the data controller and Yuno acts as processor. For professional account management, billing, platform security, and service improvement, Yuno acts as an independent controller (see the Privacy Policy). This agreement is an integral part of the Professional Terms and of the Yuno CRM Terms (yunoapp.eu/legal/cgv-crm).
 
 **2. Processing Covered**
 • Nature and purposes: ticket sales and check-in, guest list management, VIP table reservations, drink orders, Partner communication campaigns, audience statistics.
@@ -732,7 +1122,7 @@ Yuno processes this data only on the Partner's documented instructions; configur
 Persons authorized to process the data are bound by confidentiality obligations. Yuno implements appropriate technical and organizational measures (Article 32 GDPR): encryption in transit (HTTPS/TLS), per-venue data isolation (row level security), role-based access control, strong authentication (MFA), security logging.
 
 **5. Sub-Processors**
-The Partner grants general authorization for the following sub-processors: Supabase (database hosting), Stripe (payments), Resend (email delivery), Mapbox (maps), Cloudflare (site delivery), PostHog (product analytics, EU hosting). Yuno informs the Partner of any intended change (addition or replacement), giving the Partner the opportunity to raise reasonable objections, and imposes equivalent obligations on its sub-processors.
+The Partner grants general authorization for the following sub-processors: Supabase (database hosting), Stripe (payments), Resend (email delivery), Octopush (SMS delivery, French company, data hosted in France), OpenAI (Console Assistant, when the Partner uses it), Mapbox (maps), Cloudflare (site delivery), PostHog (product analytics, EU hosting). Yuno informs the Partner of any intended change (addition or replacement), giving the Partner the opportunity to raise reasonable objections, and imposes equivalent obligations on its sub-processors.
 
 **6. Assistance**
 Taking into account the nature of the processing, Yuno assists the Partner with appropriate technical and organizational measures in responding to data subject requests (access, rectification, erasure, objection, restriction, portability), and assists with impact assessments and prior consultation obligations where applicable.
@@ -747,15 +1137,82 @@ At the end of the services, Yuno deletes or returns to the Partner, at the Partn
 Yuno makes available the information necessary to demonstrate compliance with this agreement and allows audits, limited to one audit per twelve-month period, with reasonable thirty days' notice, at the Partner's expense, during business hours, and without access to other partners' data.
 
 **10. Transfers Outside the EU**
-Data is hosted in the European Union. Some sub-processors (notably Stripe, Resend, Cloudflare, Mapbox) may process data outside the EU, governed by the European Commission's Standard Contractual Clauses or any other recognized transfer mechanism.
+Data is hosted in the European Union. Some sub-processors (notably Stripe, Resend, Cloudflare, Mapbox, OpenAI) may process data outside the EU, governed by the European Commission's Standard Contractual Clauses or any other recognized transfer mechanism.
 
 **11. Applicable Law**
-French law. This agreement prevails over the Professional Terms with respect to the protection of data processed on behalf of the Partner.`
+French law. This agreement prevails over the Professional Terms and the Yuno CRM Terms with respect to the protection of data processed on behalf of the Partner.
+
+**12. Yuno CRM chapter**
+This chapter applies to a Partner using Yuno CRM (crm.yunoapp.eu). It supplements articles 1 to 11 and prevails over them for Yuno CRM.
+
+**12.1 Processing entrusted**
+On the Partner's instructions, Yuno:
+• imports and updates, read-only, the data of the ticketing the Partner connects (that ticketing is itself the Partner's provider), and that of the files it imports;
+• keeps its contact base and its register of agreements and unsubscriptions;
+• produces its statistics, segments and analyses, including the profiling described in article 12.4;
+• sends its emails and SMS, measures their delivery, opens and clicks, and applies unsubscriptions and STOPs;
+• hosts its sign-up pages, tracked links and automations;
+• answers its questions in the Console Assistant, and passes its data to the AI assistant it connects itself (article 3).
+
+**12.2 Data and data subjects**
+Data subjects: the Partner's buyers, guests, attendees and contacts.
+Data: identity and contact details (first name, last name, email, phone); data passed on by the ticketing or files (age or year of birth, gender, town, postcode, country); purchases and attendance (nights, prices, amounts, sales channel, scanned entry, invitations); agreements, unsubscriptions and their proofs; interactions with messages and pages (delivery, open, click, sign-up); inferred data (hypotheses, "Chance of coming" level and its reasons, segment membership, distance to the venue computed from the postcode).
+No card data is processed. No special category of data (article 9 GDPR) is requested or sought by Yuno.
+
+**12.3 Instructions**
+Connecting a ticketing, importing a file, creating a segment, a campaign, an automation or a page are documented instructions. The analysis described in article 12.4 is part of the service chosen by the Partner; it can exclude any person from it on their customer card.
+
+**12.4 Profiling on the Partner's behalf**
+Yuno CRM computes, for the Partner's account only and from its data only:
+• "What brings them": hypotheses tested on the Partner's past nights (artists, music genre, format, series, day, buying habits, distance), shown on a customer's card as facts observed in their purchases, with the hypothesis's status on the account;
+• "Chance of coming": a level (high, medium, low) of chance of buying for an upcoming night, with its main reasons, computed by a statistical model specific to the Partner's account, fitted every night on the nights of its last twelve months and deleted with the account;
+• "Who to target": groups suggested for a night, with a control group drawn at random and not contacted.
+Yuno undertakes to:
+• never link a person's data across two accounts;
+• use neither people's gender nor the opens and clicks measured in their emails for these computations;
+• train no shared model on personal data, and pass no personal data to an AI provider for these computations;
+• show no individual percentage, and show the reasons for each level;
+• include no hypothesis or level in any export;
+• take no decision: these estimates help the Partner choose the recipients and timing of its messages; they produce no legal effect and do not significantly affect people within the meaning of article 22 GDPR;
+• apply the exclusion of a person ("Exclude from profiling"): their profile, estimates and history are deleted, then they are no longer computed; their address is kept in an exclusion list for that sole purpose;
+• delete profiles and estimates with the person, with the ticketing connection, with the account, and at the end of the retention period chosen by the Partner.
+
+**12.5 The Partner's own obligations**
+The Partner, as controller:
+• informs people (articles 13 and 14 GDPR) at the latest with the first message, including about the profiling, its logic and their right to object, presented separately; a template sits in the appendix to the Yuno CRM Terms;
+• has a legal basis for each purpose: documented legitimate interest for the analysis and segmentation; prior agreement or existing customer relationship for its sends (article L. 34-5 of the French Postal and Electronic Communications Code), an agreement for emails not covering SMS; the recipient's agreement, where required, to the individual measurement of opens and clicks (article 82 of the French Data Protection Act; CNIL recommendation no. 2026-042 of 12 March 2026);
+• warrants that its contract with its ticketing allows it to pass its data to Yuno;
+• handles any objection, to marketing as to profiling, without delay and without asking for a reason;
+• does not use the estimates to set a price, grant or refuse a discount, a presale or entry, nor to target minors or infer article 9 GDPR data, in particular from the theme of a night;
+• sets a retention period (Settings › Data);
+• carries out the article 35 impact assessment when required; on request, Yuno provides a template impact assessment and balancing test suited to Yuno CRM.
+
+**12.6 Anonymous statistics (authorised reuse)**
+By accepting this agreement, the Partner authorises Yuno in writing to reuse the data processed on its behalf for the following sole purpose: producing aggregated counts used to tune the thresholds of Yuno CRM's analysis rules for all its users. This reuse, compatible with the original purpose (it improves the very service the Partner uses, with no consequence for people), takes place under these conditions:
+• only counts leave the account (for example "number of returns tested", "number of matching choices", "number expected by chance"), per analysis family and per quarter;
+• no personal data or identifier (email address or its hash, name, phone, person identifier), no commercial information of the Partner (night title, artist, town);
+• any count covering fewer than ten people is removed at source; people excluded from profiling are not included;
+• counts are attached to a random key specific to the account, destroyed with it;
+• a shared result is only published from five contributing accounts, none weighing more than half of the total;
+• analysis rules change only after human approval by Yuno;
+• no personal data trains a model or is passed to an AI system for this purpose;
+• the account holder can withdraw this authorisation at any time from Settings › Data; its counts are then deleted;
+• the demo account never contributes.
+For this reuse, Yuno acts as controller, on the basis of its legitimate interest in improving its service; it documents the assessment of the anonymous nature of the counts and keeps it available to the Partner and the CNIL.
+
+**12.7 Yuno CRM sub-processors**
+Supabase (hosting, European Union), Cloudflare (site delivery, short links), Resend (emails), Octopush (SMS, France), Stripe (billing of the subscription, without data of the Partner's customers), OpenAI (Console Assistant, when the Partner uses it: its question and the data needed for the answer, with no reuse to train a model). The connected ticketing is not a sub-processor of Yuno: it is the Partner's provider and the source of the data.
+
+**12.8 Breaches, term and end**
+Yuno notifies the Partner of any data breach concerning it without undue delay, and no later than 48 hours after becoming aware of it.
+Data is processed as long as the account exists. While paused, it stays readable and exportable by the Partner. Without reactivation, the account is closed 12 months after the end of the subscription or trial, after warning the account holder at least 30 days before. On closing, or on the Partner's request, Yuno deletes its data within 30 days, and from backups no later than 90 days after; the Partner can export it beforehand.`
     },
     es: {
       title: 'Acuerdo de Encargo de Tratamiento (DPA)',
-      content: `**1. Objeto y roles**
-Este acuerdo regula, conforme al artículo 28 del RGPD, los tratamientos de datos personales que Yuno (operada por WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia) realiza por cuenta de los establecimientos y organizadores asociados (el « Socio »). Para los datos de los clientes finales del Socio (participantes, invitados, compradores), el Socio es el responsable del tratamiento y Yuno actúa como encargado. Para la gestión de cuentas profesionales, la facturación, la seguridad de la plataforma y la mejora del servicio, Yuno actúa como responsable independiente (ver la Política de Privacidad). Este acuerdo forma parte integrante de las Condiciones Pro.
+      content: `Versión del 8 de octubre de 2026
+
+**1. Objeto y roles**
+Este acuerdo regula, conforme al artículo 28 del RGPD, los tratamientos de datos personales que Yuno (operada por WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia) realiza por cuenta de los establecimientos y organizadores asociados (el « Socio »). Para los datos de los clientes finales del Socio (participantes, invitados, compradores), el Socio es el responsable del tratamiento y Yuno actúa como encargado. Para la gestión de cuentas profesionales, la facturación, la seguridad de la plataforma y la mejora del servicio, Yuno actúa como responsable independiente (ver la Política de Privacidad). Este acuerdo forma parte integrante de las Condiciones Pro y de las Condiciones de Yuno CRM (yunoapp.eu/legal/cgv-crm).
 
 **2. Tratamientos cubiertos**
 • Naturaleza y finalidades: venta y control de entradas, gestión de guest lists, reservas de mesas VIP, pedidos de bebidas, campañas de comunicación del Socio, estadísticas de audiencia.
@@ -770,7 +1227,7 @@ Yuno trata estos datos únicamente siguiendo instrucciones documentadas del Soci
 Las personas autorizadas a tratar los datos están sujetas a obligaciones de confidencialidad. Yuno aplica las medidas técnicas y organizativas apropiadas (artículo 32 RGPD): cifrado en tránsito (HTTPS/TLS), aislamiento de datos por establecimiento (row level security), control de acceso por rol, autenticación reforzada (MFA), registro de seguridad.
 
 **5. Subencargados**
-El Socio autoriza de forma general los siguientes subencargados: Supabase (alojamiento de base de datos), Stripe (pagos), Resend (envío de emails), Mapbox (mapas), Cloudflare (distribución del sitio), PostHog (analítica de uso, alojamiento en la UE). Yuno informa al Socio de cualquier cambio previsto (adición o sustitución), dándole la posibilidad de presentar objeciones razonables, e impone a sus subencargados obligaciones equivalentes a este acuerdo.
+El Socio autoriza de forma general los siguientes subencargados: Supabase (alojamiento de base de datos), Stripe (pagos), Resend (envío de emails), Octopush (envío de SMS, empresa francesa, datos alojados en Francia), OpenAI (Asistente de la Consola, cuando el Socio lo usa), Mapbox (mapas), Cloudflare (distribución del sitio), PostHog (analítica de uso, alojamiento en la UE). Yuno informa al Socio de cualquier cambio previsto (adición o sustitución), dándole la posibilidad de presentar objeciones razonables, e impone a sus subencargados obligaciones equivalentes a este acuerdo.
 
 **6. Asistencia**
 Teniendo en cuenta la naturaleza del tratamiento, Yuno ayuda al Socio, mediante medidas técnicas y organizativas apropiadas, a responder a las solicitudes de ejercicio de derechos de los interesados (acceso, rectificación, supresión, oposición, limitación, portabilidad), y le asiste en sus obligaciones de evaluación de impacto y consulta previa cuando proceda.
@@ -785,17 +1242,82 @@ Al término de los servicios, Yuno suprime o devuelve al Socio, a su elección, 
 Yuno pone a disposición del Socio la información necesaria para demostrar el cumplimiento de este acuerdo y permite la realización de auditorías, con el límite de una auditoría por período de doce meses, con un preaviso razonable de treinta días, a cargo del Socio, en horario laboral y sin acceso a los datos de otros socios.
 
 **10. Transferencias fuera de la UE**
-Los datos se alojan en la Unión Europea. Algunos subencargados (en particular Stripe, Resend, Cloudflare, Mapbox) pueden realizar tratamientos fuera de la UE, regulados por las cláusulas contractuales tipo de la Comisión Europea o cualquier otro mecanismo de transferencia reconocido.
+Los datos se alojan en la Unión Europea. Algunos subencargados (en particular Stripe, Resend, Cloudflare, Mapbox, OpenAI) pueden realizar tratamientos fuera de la UE, regulados por las cláusulas contractuales tipo de la Comisión Europea o cualquier otro mecanismo de transferencia reconocido.
 
 **11. Derecho aplicable**
-Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro en lo relativo a la protección de los datos tratados por cuenta del Socio.`
+Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro y las Condiciones de Yuno CRM en lo relativo a la protección de los datos tratados por cuenta del Socio.
+
+**12. Capítulo Yuno CRM**
+Este capítulo se aplica al Socio que usa Yuno CRM (crm.yunoapp.eu). Completa los artículos 1 a 11 y prevalece sobre ellos en lo relativo a Yuno CRM.
+
+**12.1 Tratamientos encargados**
+Siguiendo las instrucciones del Socio, Yuno:
+• importa y actualiza, en modo de solo lectura, los datos de la ticketera que el Socio conecta (esa ticketera es a su vez proveedor del Socio), y los de los archivos que importa;
+• mantiene su base de contactos y su registro de acuerdos y bajas;
+• elabora sus estadísticas, segmentos y análisis, incluido el perfilado descrito en el artículo 12.4;
+• envía sus e-mails y SMS, mide su entrega, aperturas y clics, y aplica las bajas y los STOP;
+• aloja sus páginas de registro, enlaces de seguimiento y automatizaciones;
+• responde a sus preguntas en el Asistente de la Consola, y transmite sus datos al asistente de IA que él mismo conecta (artículo 3).
+
+**12.2 Datos e interesados**
+Interesados: compradores, invitados, asistentes y contactos del Socio.
+Datos: identidad y datos de contacto (nombre, apellidos, e-mail, teléfono); datos transmitidos por la ticketera o los archivos (edad o año de nacimiento, género, ciudad, código postal, país); compras y asistencia (noches, tarifas, importes, canal de compra, entrada escaneada, invitaciones); acuerdos, bajas y sus pruebas; interacciones con los mensajes y las páginas (entrega, apertura, clic, registro); datos deducidos (hipótesis, nivel de «Probabilidad de venir» y sus motivos, pertenencia a un segmento, distancia al local calculada a partir del código postal).
+No se trata ningún dato de tarjeta. Yuno no solicita ni busca ninguna categoría especial de datos (artículo 9 del RGPD).
+
+**12.3 Instrucciones**
+La conexión de una ticketera, la importación de un archivo y la creación de un segmento, una campaña, una automatización o una página constituyen instrucciones documentadas. El análisis descrito en el artículo 12.4 forma parte del servicio elegido por el Socio; este puede excluir a cualquier persona desde su ficha de cliente.
+
+**12.4 Perfilado por cuenta del Socio**
+Yuno CRM calcula, solo para la cuenta del Socio y solo con sus datos:
+• «Lo que les hace venir»: hipótesis probadas con las noches pasadas del Socio (artistas, género musical, formato, serie, día, hábitos de compra, distancia), mostradas en la ficha de un cliente como hechos observados en sus compras, con el estado de la hipótesis en la cuenta;
+• «Probabilidad de venir»: un nivel (alta, media, baja) de probabilidad de comprar para una próxima noche, con sus principales motivos, calculado por un modelo estadístico propio de la cuenta del Socio, ajustado cada noche con las noches de sus últimos doce meses y borrado con la cuenta;
+• «A quién dirigirse»: grupos propuestos para una noche, con un grupo de control sorteado y no contactado.
+Yuno se compromete a:
+• no vincular nunca los datos de una persona entre dos cuentas;
+• no usar para estos cálculos ni el género de las personas ni las aperturas y clics medidos en sus e-mails;
+• no entrenar ningún modelo común con datos de personas y no transmitir ningún dato personal a un proveedor de IA para estos cálculos;
+• no mostrar ningún porcentaje individual y mostrar los motivos de cada nivel;
+• no incluir ninguna hipótesis ni nivel en una exportación;
+• no tomar ninguna decisión: estas estimaciones ayudan al Socio a elegir los destinatarios y el momento de sus mensajes; no producen efectos jurídicos ni afectan de forma significativa a las personas en el sentido del artículo 22 del RGPD;
+• aplicar la exclusión de una persona («Excluir del perfilado»): su perfil, sus estimaciones y su historial se borran y deja de calcularse; su dirección se guarda en una lista de exclusión, con ese único fin;
+• borrar perfiles y estimaciones con la persona, con la conexión a la ticketera, con la cuenta y al vencer el plazo de conservación elegido por el Socio.
+
+**12.5 Obligaciones propias del Socio**
+El Socio, responsable del tratamiento:
+• informa a las personas (artículos 13 y 14 del RGPD) a más tardar con el primer mensaje, incluido el perfilado, su lógica y su derecho a oponerse, presentado por separado; en el anexo de las Condiciones de Yuno CRM figura un modelo;
+• dispone de una base jurídica para cada finalidad: interés legítimo documentado para el análisis y la segmentación; acuerdo previo o relación de cliente existente para sus envíos (artículo L. 34-5 del Código de correos y comunicaciones electrónicas francés), sin que el acuerdo para e-mails valga para SMS; acuerdo del destinatario, cuando se exija, para la medición individual de aperturas y clics (artículo 82 de la ley francesa de protección de datos; recomendación de la CNIL n.º 2026-042 del 12 de marzo de 2026);
+• garantiza que su contrato con su ticketera le permite transmitir sus datos a Yuno;
+• atiende toda oposición, a la prospección como al perfilado, sin demora y sin pedir justificación;
+• no usa las estimaciones para fijar un precio, conceder o denegar un descuento, una preventa o la entrada, ni para dirigirse a menores o deducir datos del artículo 9 del RGPD, en particular a partir de la temática de una noche;
+• fija un plazo de conservación (Ajustes › Datos);
+• realiza la evaluación de impacto del artículo 35 cuando se exija; Yuno le facilita, si lo pide, un modelo de evaluación de impacto y de ponderación adaptado a Yuno CRM.
+
+**12.6 Estadísticas anónimas (reutilización autorizada)**
+Al aceptar este acuerdo, el Socio autoriza por escrito a Yuno a reutilizar los datos tratados por su cuenta con la única finalidad siguiente: producir recuentos agregados destinados a ajustar los umbrales de las reglas de análisis de Yuno CRM para todos sus usuarios. Esta reutilización, compatible con la finalidad original (mejora el mismo servicio que usa el Socio, sin ninguna consecuencia para las personas), se realiza en las siguientes condiciones:
+• solo salen de la cuenta recuentos (por ejemplo, «número de vueltas probadas», «número de elecciones coincidentes», «número esperado al azar»), por familia de análisis y por trimestre;
+• ningún dato personal ni identificador (dirección de e-mail o su huella, nombre, teléfono, identificador de persona), ninguna información comercial del Socio (título de noche, artista, ciudad);
+• todo recuento sobre menos de diez personas se suprime en origen; las personas excluidas del perfilado no entran;
+• los recuentos se vinculan a una clave aleatoria propia de la cuenta, destruida con ella;
+• un resultado común solo se publica a partir de cinco cuentas contribuyentes, sin que ninguna represente más de la mitad del total;
+• las reglas de análisis solo cambian tras una validación humana de Yuno;
+• ningún dato de persona entrena un modelo ni se transmite a un sistema de IA con esta finalidad;
+• el titular de la cuenta puede retirar esta autorización en cualquier momento en Ajustes › Datos; sus recuentos se borran entonces;
+• la cuenta de demostración nunca contribuye.
+Para esta reutilización, Yuno actúa como responsable del tratamiento, sobre la base de su interés legítimo en mejorar su servicio; documenta la evaluación del carácter anónimo de los recuentos y la pone a disposición del Socio y de la CNIL.
+
+**12.7 Subencargados de Yuno CRM**
+Supabase (alojamiento, Unión Europea), Cloudflare (distribución del sitio, enlaces cortos), Resend (e-mails), Octopush (SMS, Francia), Stripe (facturación de la suscripción, sin datos de los clientes del Socio), OpenAI (Asistente de la Consola, cuando el Socio lo usa: su pregunta y los datos necesarios para la respuesta, sin reutilización para entrenar un modelo). La ticketera conectada no es un subencargado de Yuno: es el proveedor del Socio y la fuente de los datos.
+
+**12.8 Violaciones, duración y fin**
+Yuno notifica al Socio toda violación de datos que le afecte sin dilación indebida, y a más tardar 48 horas después de tener conocimiento de ella.
+Los datos se tratan mientras exista la cuenta. En pausa, siguen legibles y exportables por el Socio. Sin reactivación, la cuenta se cierra 12 meses después del final de la suscripción o de la prueba, tras avisar al titular con al menos 30 días de antelación. Al cierre, o a petición del Socio, Yuno suprime sus datos en 30 días, y de las copias de seguridad a más tardar 90 días después; el Socio puede exportarlos antes.`
     }
   },
 
   'privacy': {
     fr: {
       title: 'Politique de Confidentialité',
-      content: `Dernière mise à jour : 6 octobre 2026
+      content: `Dernière mise à jour : 8 octobre 2026
 
 Cette politique explique quelles données Yuno collecte, pourquoi, avec qui elles sont partagées et quels sont vos droits. Elle s'applique au site yunoapp.eu et aux applications mobiles Yuno et Yuno Pro.
 
@@ -879,11 +1401,18 @@ La sélection « Pour toi » et les suggestions de soirées reposent sur vos go�
 Certains sous-traitants — notamment Stripe (paiements), OpenAI (assistant IA), Apple et Google (notifications) — peuvent impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne ou le Data Privacy Framework, conformément au RGPD. Supabase, Mapbox, Resend et Cloudflare utilisent des infrastructures conformes aux normes européennes de protection des données.
 
 **13. Modifications**
-Cette politique peut évoluer avec le service. En cas de changement substantiel, vous serez informé dans l'app ou par email. La date de dernière mise à jour figure en haut de cette page.`
+Cette politique peut évoluer avec le service. En cas de changement substantiel, vous serez informé dans l'app ou par email. La date de dernière mise à jour figure en haut de cette page.
+
+**14. Yuno CRM : quand un club ou un organisateur utilise Yuno pour vous écrire**
+Des clubs et des organisateurs utilisent Yuno CRM pour gérer leur relation avec les personnes qui achètent leurs billets, y compris sur une autre billetterie (Shotgun par exemple). Pour ces données, le club ou l'organisateur est responsable de traitement : il décide de ce qu'il en fait et répond de vos demandes. Yuno agit pour son compte, comme sous-traitant (yunoapp.eu/legal/dpa), et ne vend jamais ces données.
+• Données : celles que la billetterie de l'organisateur lui transmet (nom, e-mail, téléphone, âge, genre, ville, code postal, pays s'ils ont été demandés, billets, entrées), celles que vous donnez sur ses pages d'inscription, et vos réactions à ses messages (remise, ouverture, clic).
+• Analyse : l'organisateur peut faire calculer par Yuno, sur ses seules données, ce qui semble faire venir son public (artistes, styles, jours, habitudes d'achat, distance) et une estimation de vos chances de revenir, pour choisir à qui il écrit et quand. Cette estimation n'utilise ni votre genre ni l'ouverture de vos e-mails, n'a aucun effet juridique et ne conditionne ni votre entrée ni le prix de vos billets. Les données d'un organisateur ne sont jamais rapprochées de celles d'un autre.
+• Vos droits : adressez-vous à l'organisateur (son identité figure dans chacun de ses messages). Vous pouvez vous opposer à cette analyse et à ses messages, sans justification, vous désinscrire à tout moment (lien en bas de chaque e-mail, STOP par SMS), et demander l'accès, la rectification ou l'effacement de vos données. Si vous écrivez à Yuno (contact@yunoapp.eu), nous transmettons votre demande à l'organisateur concerné et l'aidons à y répondre.
+• Statistiques anonymes : avec l'autorisation de chaque organisateur, Yuno tire de leurs comptes des comptages agrégés (par exemple « nombre de retours testés »), sans aucune donnée personnelle ni comptage portant sur moins de dix personnes, pour améliorer les règles d'analyse de Yuno CRM. Pour cette opération, Yuno est responsable de traitement, sur la base de son intérêt légitime ; les personnes exclues de l'analyse par l'organisateur n'y entrent pas.`
     },
     en: {
       title: 'Privacy Policy',
-      content: `Last updated: 6 October 2026
+      content: `Last updated: 8 October 2026
 
 This policy explains what data Yuno collects, why, who it is shared with, and what your rights are. It applies to yunoapp.eu and to the Yuno and Yuno Pro mobile apps.
 
@@ -967,11 +1496,18 @@ The "For You" selection and party suggestions rely on your music tastes, favorit
 Some sub-processors — notably Stripe (payments), OpenAI (AI assistant), Apple and Google (notifications) — may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses or the Data Privacy Framework, in accordance with GDPR. Supabase, Mapbox, Resend and Cloudflare use infrastructure compliant with European data protection standards.
 
 **13. Changes**
-This policy may evolve with the service. In case of substantial change, you will be informed in the app or by email. The last update date appears at the top of this page.`
+This policy may evolve with the service. In case of substantial change, you will be informed in the app or by email. The last update date appears at the top of this page.
+
+**14. Yuno CRM: when a club or organizer uses Yuno to write to you**
+Clubs and organizers use Yuno CRM to manage their relationship with the people who buy their tickets, including on another ticketing platform (Shotgun, for example). For this data, the club or organizer is the controller: it decides what it does with it and answers your requests. Yuno acts on its behalf, as processor (yunoapp.eu/legal/dpa), and never sells this data.
+• Data: what the organizer's ticketing passes on to it (name, email, phone, age, gender, town, postcode, country where asked, tickets, entries), what you give on its sign-up pages, and how you react to its messages (delivery, open, click).
+• Analysis: the organizer can have Yuno compute, from its data only, what seems to bring its audience (artists, styles, days, buying habits, distance) and an estimate of your chance of coming back, to choose who it writes to and when. This estimate uses neither your gender nor the opening of your emails, has no legal effect, and conditions neither your entry nor the price of your tickets. One organizer's data is never linked with another's.
+• Your rights: contact the organizer (its identity appears in each of its messages). You can object to this analysis and to its messages without giving a reason, unsubscribe at any time (link at the bottom of each email, STOP by SMS), and ask for access to, rectification or erasure of your data. If you write to Yuno (contact@yunoapp.eu), we pass your request to the organizer concerned and help it answer.
+• Anonymous statistics: with each organizer's authorisation, Yuno draws aggregated counts from their accounts (for example "number of returns tested"), with no personal data and no count covering fewer than ten people, to improve Yuno CRM's analysis rules. For this operation, Yuno is the controller, on the basis of its legitimate interest; people the organizer excluded from the analysis are not included.`
     },
     es: {
       title: 'Política de Privacidad',
-      content: `Última actualización: 6 de octubre de 2026
+      content: `Última actualización: 8 de octubre de 2026
 
 Esta política explica qué datos recoge Yuno, por qué, con quién se comparten y cuáles son tus derechos. Se aplica a yunoapp.eu y a las apps móviles Yuno y Yuno Pro.
 
@@ -1055,7 +1591,14 @@ La selección "Para ti" y las sugerencias de fiestas se basan en tus gustos musi
 Algunos subencargados — en particular Stripe (pagos), OpenAI (asistente IA), Apple y Google (notificaciones) — pueden implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea o el Data Privacy Framework, de conformidad con el RGPD. Supabase, Mapbox, Resend y Cloudflare utilizan infraestructuras conformes con los estándares europeos de protección de datos.
 
 **13. Modificaciones**
-Esta política puede evolucionar con el servicio. En caso de cambio sustancial, se te informará en la app o por email. La fecha de última actualización figura en la parte superior de esta página.`
+Esta política puede evolucionar con el servicio. En caso de cambio sustancial, se te informará en la app o por email. La fecha de última actualización figura en la parte superior de esta página.
+
+**14. Yuno CRM: cuando una discoteca o un organizador usa Yuno para escribirle**
+Discotecas y organizadores usan Yuno CRM para gestionar su relación con las personas que compran sus entradas, también en otra ticketera (Shotgun, por ejemplo). Para estos datos, la discoteca o el organizador es el responsable del tratamiento: decide qué hace con ellos y responde a sus solicitudes. Yuno actúa por su cuenta, como encargado (yunoapp.eu/legal/dpa), y nunca vende estos datos.
+• Datos: los que la ticketera del organizador le transmite (nombre, e-mail, teléfono, edad, género, ciudad, código postal, país si se pidieron, entradas, accesos), los que usted facilita en sus páginas de registro y sus reacciones a sus mensajes (entrega, apertura, clic).
+• Análisis: el organizador puede hacer que Yuno calcule, solo con sus datos, lo que parece hacer venir a su público (artistas, estilos, días, hábitos de compra, distancia) y una estimación de su probabilidad de volver, para elegir a quién escribe y cuándo. Esta estimación no usa ni su género ni la apertura de sus e-mails, no tiene efectos jurídicos y no condiciona ni su entrada ni el precio de sus entradas. Los datos de un organizador nunca se vinculan con los de otro.
+• Sus derechos: diríjase al organizador (su identidad figura en cada uno de sus mensajes). Puede oponerse a este análisis y a sus mensajes sin justificarlo, darse de baja en cualquier momento (enlace al final de cada e-mail, STOP por SMS) y solicitar el acceso, la rectificación o la supresión de sus datos. Si escribe a Yuno (contact@yunoapp.eu), transmitimos su solicitud al organizador correspondiente y le ayudamos a responder.
+• Estadísticas anónimas: con la autorización de cada organizador, Yuno obtiene de sus cuentas recuentos agregados (por ejemplo, «número de vueltas probadas»), sin ningún dato personal ni recuento sobre menos de diez personas, para mejorar las reglas de análisis de Yuno CRM. Para esta operación, Yuno es responsable del tratamiento, sobre la base de su interés legítimo; las personas que el organizador excluyó del análisis no entran.`
     }
   },
 

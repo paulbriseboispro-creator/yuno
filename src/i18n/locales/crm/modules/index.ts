@@ -36,6 +36,7 @@ import analysis from './analysis';
 import holdout from './holdout';
 import scenarios from './scenarios';
 import agents from './agents';
+import legal from './legal';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -76,6 +77,7 @@ export const CRM_DICT: CrmDict = {
   ...holdout,
   ...scenarios,
   ...agents,
+  ...legal,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

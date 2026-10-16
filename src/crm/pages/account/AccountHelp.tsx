@@ -46,6 +46,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'why', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },
   { id: 'whystatus', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },
   { id: 'whydata', c: 'account', to: CRM_ROUTES.settings },
+  // Conditions Yuno CRM : le modèle d'information pour les clients du pro.
+  { id: 'legal', c: 'account', to: CRM_ROUTES.settings },
   // La suite de l'analyse : à qui écrire pour une soirée, faire revenir les nouveaux.
   { id: 'target', c: 'clients', to: CRM_ROUTES.nights },
   { id: 'firstreturn', c: 'start', to: CRM_ROUTES.automations },

@@ -30,6 +30,7 @@ import { useOnline } from '@/crm/errors/useOnline';
 import { classifyLoadError, retryDelaySeconds } from '@/crm/lib/errors';
 import { openCrmOffer, type ProductAccountRow } from '@/crm/lib/openCrmOffer';
 import { rpc } from '@/crm/lib/rpc';
+import { CrmLegalGate } from './CrmLegalGate';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { screenFor } from './nav';
@@ -130,7 +131,11 @@ function SpaceGuards({ children }: { children: ReactNode }) {
   const { space } = useCrmScope();
   const inner = (
     <DashboardModeProvider mode={space.kind === 'org' ? 'organizer' : 'owner'}>
-      <CrmToastProvider>{children}</CrmToastProvider>
+      <CrmToastProvider>
+        {children}
+        {/* Conditions Yuno CRM + accord de sous-traitance : le titulaire seul, une fois par version. */}
+        <CrmLegalGate />
+      </CrmToastProvider>
     </DashboardModeProvider>
   );
   // Le titulaire d'un club protège ses données par la double authentification,

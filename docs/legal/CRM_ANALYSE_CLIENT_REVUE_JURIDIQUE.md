@@ -1,199 +1,216 @@
-# Yuno CRM — analyse client : textes à relire (PROPOSITION, rien n'est publié)
+# Yuno CRM — analyse client : dossier de conformité (v1, 8 octobre 2026)
 
-Dossier préparé le 7 octobre 2026 pour Paul et le juriste. Aucun de ces textes
-n'est en ligne : les pages `/legal/*` du site n'ont pas changé. L'apprentissage
-commun (partie C) est éteint en production (`crm_learning_settings.enabled =
-false`) et ne s'allumera qu'après validation de ce dossier.
+Version 1 des textes, écrite pour mettre l'analyse client en ligne et
+l'améliorer ensuite. Elle remplace la proposition du 7 octobre. **Ce n'est pas
+une consultation d'avocat** : les textes sont fondés sur les sources ci-dessous,
+lues le 8 octobre, et restent à faire relire (partie 8).
 
-## 0. Ce que fait la fonctionnalité, en clair
+## 1. Ce qui est publié (branche `legal/crm-analysis`)
 
-Un organisateur (club, association, collectif) relie Yuno CRM à sa billetterie
-Shotgun. Yuno importe ses soirées et ses billets (acheteur, détenteur, date
-d'achat, prix, scan à la porte, code postal et pays si Shotgun les transmet,
-source de l'achat).
+| Texte | Adresse | Contenu |
+|---|---|---|
+| Conditions Yuno CRM (nouveau, FR/EN/ES) | `/legal/cgv-crm` | Contrat du CRM : service, essai, abonnement, Yunits, connexion à la billetterie, analyses et interdits d'usage (art. 6), envois et traceurs (art. 7), données des clients du pro (art. 8), statistiques anonymes (art. 9), responsabilité, fin et sort des données ; annexe = modèle d'information pour les clients du pro |
+| Accord de sous-traitance (DPA) | `/legal/dpa` | Version datée ; art. 5 et 10 : Octopush et OpenAI ajoutés ; nouveau **chapitre 12 « Yuno CRM »** : traitements, données (dont données déduites), instructions, profilage et engagements de Yuno (12.4), obligations du pro (12.5), **statistiques anonymes = réutilisation autorisée par écrit, Yuno responsable** (12.6), sous-traitants (12.7), violation sous 48 h, fin (12.8) |
+| Politique de confidentialité de Yuno | `/legal/privacy` | Nouvelle section 14 : Yuno CRM vu par le client final (Yuno sous-traitant, analyse, droits, statistiques anonymes) |
+| Registre des traitements | `docs/legal/REGISTRE_TRAITEMENTS_RGPD.md` | A9 (statistiques anonymes, Yuno responsable), B7 à B9 (CRM), sous-traitants |
+| Modèle d'AIPD + mise en balance | `docs/legal/CRM_AIPD_MODELE.md` | Ce que l'article 8 des Conditions promet de fournir au pro |
 
-À partir de ces données, Yuno teste des **hypothèses** sur ce qui fait revenir
-ses clients : « les clients qui reviennent choisissent-ils plus souvent qu'au
-hasard une soirée avec un artiste déjà vu ? », « quelqu'un qui achète tôt
-le refait-il la fois suivante ? », « les nouveaux venus arrivés par une
-invitation reviennent-ils plus ou moins que les autres ? ». Chaque hypothèse
-reçoit un statut (confirmée sur le compte, pas confirmée, à tester), calculé
-sur les propres soirées de l'organisateur.
+Acceptation : fenêtre `CrmLegalGate` dans la Console CRM, pour le **titulaire**
+seul, une fois par version ; preuve dans `legal_acceptances` (types `terms_crm`
+et `dpa`, migration `20261015100000`, version + empreinte SHA-256 du texte + IP +
+user-agent + espace). Jamais en aperçu démo, en accès assisté ni sur un compte
+`@womber.fr`. Réglages › Données › « Vos documents » donne les quatre liens ; la
+FAQ `yc.faq.legal` dit au pro quoi dire à ses clients. Sur la landing CRM
+(dépôt `yuno-landing-crm`, branche `legal/crm-terms`), la case d'inscription et
+le pied de page pointent vers ces textes.
 
-Ce qui en sort :
+**Ordre de mise en ligne obligatoire** : migration `20261015100000` d'abord,
+puis le front. Sans la migration, l'enregistrement est refusé
+(`invalid_doc_type`) et la fenêtre revient à chaque visite.
 
-- **en agrégé** : quelles hypothèses tiennent sur ce compte (écran « Ce qui
-  fait venir ») ;
-- **par personne** : sur la fiche d'un client, les hypothèses qui le
-  concernent, avec leur statut et leur preuve (« 6 soirées sur 10 étaient
-  Techno ») — visibles par les rôles qui voient déjà les clients nommés,
-  jamais dans un export ;
-- **des segments** (« clients pour qui l'hypothèse line-up s'applique ») que
-  l'organisateur peut utiliser pour ses campagnes e-mail / SMS, à ses
-  contacts qui y ont consenti.
+**L'apprentissage commun reste éteint** (`crm_learning_settings.enabled =
+false`). Il ne produit rien avant 5 vrais comptes contributeurs ; voir la
+partie 5 avant de l'allumer.
 
-Aucune donnée sensible (art. 9) n'est lue ou déduite. Pas de décision
-automatisée produisant des effets juridiques (art. 22) : l'organisateur
-choisit à qui il écrit. Un droit d'opposition existe déjà sur la fiche
-client (« Exclure du profilage » : le profil est effacé et n'est plus
-calculé).
+## 2. Ce que le code garantit déjà (et que les textes affirment)
 
-**Apprentissage commun (éteint)** : chaque compte peut contribuer, par
-défaut et avec refus possible dans ses Réglages, à des **comptages anonymes**
-(par famille d'hypothèse : nombre de retours testés, nombre de choix
-conformes, nombre attendu au hasard). Ces comptages servent à proposer de
-meilleurs seuils à tous les comptes, après validation de Paul. Garde-fous
-techniques : aucun comptage sous 10 personnes, clé aléatoire par compte
-(détruite avec lui), un résultat commun seulement à partir de 5 comptes
-contributeurs et si aucun compte ne pèse plus de la moitié du total, aucune
-donnée de personne, aucun titre de soirée, nom d'artiste ou ville.
-
-## 1. Rôles (à confirmer)
-
-- **Organisateur = responsable de traitement** pour les données de ses
-  clients (achat, présence, profil et hypothèses).
-- **Yuno = sous-traitant** (art. 28) pour l'import, le calcul des hypothèses,
-  l'affichage et les envois.
-- **Shotgun** : la billetterie de l'organisateur, qui met les données à
-  disposition par son API à la demande de l'organisateur (jeton collé par
-  l'organisateur lui-même). Shotgun n'est ni sous-traitant de Yuno ni
-  destinataire.
-- **Apprentissage commun** : Yuno produit des statistiques anonymes à partir
-  de données traitées pour le compte du client. Question ouverte (point 5.1).
-
-## 2. Textes proposés
-
-### A. Accord de sous-traitance (DPA, `/legal/dpa`) — article 2, à compléter
-
-Aujourd'hui l'article 2 ne parle ni de Yuno CRM ni de l'import d'une
-billetterie tierce. Proposition (ajouts en gras) :
-
-> **2. Traitements concernés**
-> • Nature et finalités : vente et contrôle de billets, gestion de guest
-> lists, réservations de tables VIP, commandes de boissons, **import des
-> soirées et billets depuis une billetterie connectée par le Partenaire,
-> analyse du comportement d'achat et de présence de ses clients (hypothèses
-> statistiques sur ce qui les fait revenir, affichées en agrégé et sur la
-> fiche de chaque client)**, campagnes de communication du Partenaire,
-> statistiques d'audience.
-> • Catégories de données : identité, coordonnées, données de commande et
-> de présence, **code postal et pays de résidence lorsque la billetterie les
-> transmet, distance estimée au lieu de la soirée,** données démographiques
-> déclaratives.
-
-### B. DPA — nouvel article « Statistiques anonymes » (après l'article 3)
-
-> **3 bis. Statistiques anonymes.** Le Partenaire autorise Yuno à produire,
-> à partir des données traitées pour son compte, des statistiques agrégées et
-> anonymes (comptages par famille d'analyse, tels que « nombre de retours
-> testés », « nombre de choix conformes », « nombre attendu au hasard »),
-> destinées exclusivement à améliorer les règles d'analyse du service pour
-> l'ensemble de ses utilisateurs. Ces statistiques ne contiennent aucune
-> donnée à caractère personnel, ni identifiant direct ou indirect (adresse
-> électronique ou empreinte de celle-ci, nom, identifiant de personne), ni
-> information commerciale du Partenaire (titre de soirée, nom d'artiste,
-> ville) ; tout comptage portant sur moins de dix personnes est supprimé à
-> la source. Elles sont rattachées à une clé aléatoire propre au compte,
-> détruite avec lui. Un résultat commun n'est publié qu'à partir de cinq
-> comptes contributeurs et lorsqu'aucun compte ne représente plus de la
-> moitié du total. Le Partenaire peut s'opposer à tout moment à cette
-> contribution depuis les réglages de son compte ; ses contributions passées
-> sont alors supprimées. Yuno ne croise jamais les données de deux comptes au
-> niveau d'une personne, n'entraîne aucun modèle sur des données de
-> personnes et ne transmet aucune donnée personnelle à un tiers pour cette
-> finalité.
-
-(Le DPA dit « le Partenaire » partout ; la version du plan disait « le
-Client » : harmonisé.)
-
-### C. DPA — article 5, sous-traitants ultérieurs : Octopush manque
-
-Les SMS des organisateurs partent par Octopush depuis le 8 octobre. Octopush
-figure dans la politique de confidentialité client, mais **pas** dans la
-liste du DPA. Proposition :
-
-> … Resend (envoi d'emails), **Octopush (envoi de SMS, société française,
-> données hébergées en France),** Mapbox (cartographie), …
-
-À vérifier au passage : OpenAI. L'Assistant Console lit des chiffres du
-Partenaire (et, sur demande, des fiches clients) pour répondre ; s'il en
-reçoit des données de clients finaux, il est sous-traitant ultérieur et doit
-être listé (transfert hors UE compris, article 10).
-
-### D. Modèle de mention pour la politique de confidentialité de l'organisateur
-
-L'organisateur, responsable de traitement, doit informer ses clients (art.
-13/14 ; données obtenues via Shotgun = art. 14). Texte que Yuno peut lui
-fournir (centre d'aide ou mail d'accueil) :
-
-> **Analyse de la fréquentation.** Nous analysons l'historique de vos achats
-> de billets et de votre présence à nos soirées (dates, soirées choisies,
-> moment de l'achat, achat à plusieurs, code postal) pour comprendre ce qui
-> fait revenir notre public et vous proposer des soirées qui vous
-> correspondent. Cette analyse repose sur notre intérêt légitime à connaître
-> notre public ; elle ne produit aucun effet juridique à votre égard. Vous
-> pouvez vous y opposer à tout moment en écrivant à [contact] : votre profil
-> d'analyse est alors effacé et n'est plus calculé. Prestataire : Yuno
-> (WOMBER, France), qui traite ces données pour notre compte.
-
-### E. Registre des traitements de Yuno (`docs/legal/REGISTRE_TRAITEMENTS_RGPD.md`)
-
-À ajouter côté sous-traitant (art. 30.2) : « Yuno CRM — import billetterie
-connectée et analyse client », pour le compte des organisateurs, catégories
-ci-dessus, durée = celle de l'abonnement, purge à la déconnexion de la
-billetterie (déjà codée). Côté responsable distinct : « statistiques
-anonymes d'amélioration du service » si le juriste conclut qu'elles relèvent
-de Yuno (point 5.1).
-
-## 3. Ce que le code garantit déjà (pour appuyer les textes)
-
-| Engagement | Où c'est tenu |
+| Affirmation des textes | Où c'est tenu |
 |---|---|
-| Opposition par personne, profil effacé | `crm_profile_optout`, table `crm_profile_optouts` |
-| Purge à la déconnexion de la billetterie | trigger `trg_crm_analysis_connection_purge` |
-| Effacement d'un contact = effacement de son profil | `_crm_erase_contacts` |
-| Hypothèses jamais dans un export | lectures `crm_client_analysis` seulement, pas d'export |
-| Aucun comptage commun sous 10 personnes | `_crm_an_contribute` (n ≥ 10) |
-| Commun publié à 5 comptes, aucun > 50 % | `crm_learning_publish` |
-| Refus de contribution, passé supprimé | `crm_learning_contrib_set` (titulaire seul, jamais en accès assisté) |
-| Apprentissage commun éteint | `crm_learning_settings.enabled = false` |
-| Changement de seuils = décision humaine tracée | `crm_admin_rules_approve` → `admin_audit_log` |
+| Calcul par compte, jamais de rapprochement entre comptes | portée `scope_key` partout ; `_crm_people_build` pose `yuno.crm_scope` |
+| Score = modèle propre au compte, 12 derniers mois | `_crm_logit_fit`, `_crm_score_build` (4 dernières soirées tenues à l'écart) |
+| Ni genre, ni ouvertures, ni clics dans l'analyse et le score | facteurs `_crm_score_features()` (13, aucun e-mail, aucun genre) ; familles d'hypothèses sans genre ; la famille « canal » lit la source UTM du billet rapportée par la billetterie, pas un traceur |
+| Jamais de pourcentage, des raisons | `crm_person_night_score.label` + `_crm_score_reason_key` ; écrans |
+| Jamais dans un export | lectures `crm_client_analysis` seulement |
+| Opposition par personne : profil, scores, journal effacés, exclusion durable | `crm_profile_optout` + trigger `_crm_score_on_optout` (scores, `crm_prediction_people`) |
+| Purge avec la personne, la connexion, le compte, la durée choisie | `_crm_erase_contacts`, trigger de connexion, clés étrangères, `crm_retention_sweep` |
+| Statistiques : n ≥ 10, clé opaque, 5 comptes, aucun > 50 %, validation humaine, refus du titulaire | `_crm_an_contribute`, `crm_learning_keys`, `crm_learning_publish`, `crm_admin_rules_approve`, `crm_learning_contrib_set` |
+| Personnes exclues du profilage hors statistiques | le moteur retire `crm_profile_optouts` avant tout test |
+| Accès assisté seulement avec l'accord du titulaire, journalisé | `admin_support_grants`, `admin_support_audit` |
+| Clé de billetterie dans un coffre, jamais réaffichée | Vault (`ticketing_connections`) |
 
-## 4. Ce qui n'est pas encore lu
+## 3. Sources lues (vérifiées le 8 octobre 2026)
 
-**Conditions de l'API Shotgun.** Le 7 octobre, `shotgun.live/privacy.html`
-répondait 429 et l'article du centre d'aide pro 403 ; la documentation de
-l'API ne contient pas de conditions d'usage. À demander à Shotgun dans la
-discussion partenaire : (a) usage des données de billets par un outil tiers
-mandaté par l'organisateur ; (b) production de statistiques agrégées et
-anonymes entre organisateurs.
+Vérifiées directement : **CNIL, recommandation pixels** (délib. n° 2026-042 du
+12 mars 2026, publiée le 14 avril 2026,
+[page](https://www.cnil.fr/fr/recommandation-pixel-suivi-courriels)) et sa
+[FAQ](https://www.cnil.fr/fr/faq-recommandation-pixels-courriers-electroniques) ;
+**CNIL, réutilisation par un sous-traitant** (11 janvier 2022,
+[fiche](https://www.cnil.fr/fr/sous-traitants-la-reutilisation-de-donnees-confiees-par-un-responsable-de-traitement)) ;
+**politique de confidentialité de Shotgun** (Europe, en vigueur mai 2026,
+§ 3.2.1 : Shotgun est **sous-traitant de l'organisateur** pour les données
+d'achat et de contact).
 
-## 5. Questions pour le juriste
+Lues par les deux recherches (rapports complets dans la session du 08/10) :
+RGPD art. 4(4), 5, 6(1)(f) et 6(4), 9, 12-14, 21, 22, 25, 26, 28, 30, 32, 35,
+considérants 26, 38, 47, 50, 60, 71 ; WP251rev.01 (profilage), WP248rev.01
+(AIPD), WP216 (anonymisation) ; EDPB 07/2020 (rôles), 1/2024 (intérêt légitime,
+version de consultation) ; CJUE C-634/21 SCHUFA, C-203/22 Dun & Bradstreet,
+C-252/21 Meta, C-184/20 OT, C-21/23 Lindenapotheke, C-446/21 Schrems, C-621/22
+KNLTB, C-394/23 Mousse, C-683/21, C-604/22 IAB Europe, C-413/23 P CEPD c. CRU,
+C-654/23 Inteligo Media ; CNIL : référentiel « gestion des activités
+commerciales » (délib. 2021-131), listes AIPD (2018-327 et 2019-118), fiche
+anonymisation (2020), guide du sous-traitant (2017) ; CPCE L. 34-5 ; loi
+Informatique et Libertés art. 47 et 82 ; AI Act (annexe III, art. 5 et 50).
+Non vérifiés à la source : texte consolidé de L. 34-5 sur Légifrance, charte
+AF2M 2026, version finale des lignes directrices EDPB 1/2024 et 01/2025,
+conditions d'API de Shotgun (« Special Terms » non publics).
 
-1. **Anonymisation par le sous-traitant.** Produire des statistiques
-   anonymes à partir de données traitées pour le client est-il un traitement
-   que le client doit autoriser (d'où l'article 3 bis), ou une finalité
-   propre de Yuno (responsable distinct, base intérêt légitime) ? Cela
-   change le registre et la rédaction.
-2. **Contribution « par défaut, refus possible »** : acceptable sous forme
-   d'autorisation contractuelle avec opposition dans les réglages, ou faut-il
-   un accord actif ?
-3. **Profilage par l'organisateur** : la base intérêt légitime tient-elle
-   pour l'affichage d'hypothèses sur la fiche d'un client et leur usage pour
-   cibler des e-mails (aux seuls contacts qui ont accepté la newsletter) ?
-   Faut-il une analyse d'impact (critère « évaluation / scoring ») ?
-4. **Information des clients finaux** : le modèle de la partie D suffit-il,
-   et Yuno doit-il exiger contractuellement qu'il soit publié par
-   l'organisateur ?
-5. **Données obtenues via Shotgun** : la base juridique de l'organisateur
-   pour réutiliser ses propres données de billetterie dans un CRM tiers est-elle
-   couverte par ses CGV / sa politique sur Shotgun ?
-6. **OpenAI** comme sous-traitant ultérieur (partie C).
-7. **« Chances de venir »** (score de prédiction, en ligne après validation) :
-   pour chaque client déjà venu, une estimation de sa chance d'acheter pour
-   une soirée à venir, montrée à l'organisateur en étiquette (élevées /
-   moyennes / faibles) avec ses raisons, jamais en pourcentage, jamais
-   exportée, jamais utilisée pour une décision automatique. C'est une
-   évaluation au sens de la CNIL : l'analyse d'impact devient-elle
-   obligatoire, et la mention du modèle de la partie D (« analyse de la
-   fréquentation ») suffit-elle, ou faut-il nommer l'estimation ?
+## 4. Qualification et bases légales retenues
+
+- **Rôles.** Le pro est responsable ; Shotgun est son sous-traitant (vérifié) ;
+  Yuno est un autre sous-traitant qu'il désigne en connectant le CRM. Les données
+  d'achat sont donc collectées auprès de la personne par le prestataire du pro :
+  l'information relève de l'**article 13** (au moment de la collecte, sur la page
+  de soirée de la billetterie) et, pour ce que Yuno ajoute (ouvertures, analyse),
+  au plus tard au premier message (art. 14(3)(b) et 21(4)). D'où la consigne de
+  l'annexe : publier le texte comme politique de confidentialité de la billetterie.
+- **Profilage** (« Ce qui fait venir », « Chances de venir », « Qui cibler »,
+  groupe témoin) : art. 4(4). Base : **intérêt légitime du pro** (art. 6(1)(f),
+  considérant 47, KNLTB). Défendable parce que : données de première partie,
+  achats chez le pro lui-même, pas de suivi multi-sites, pas de genre ni de
+  traceur, fenêtre de 12 mois pour le score, opposition simple, aucun effet sur
+  le prix ou l'accès. Le pro doit écrire sa mise en balance (modèle fourni).
+- **Article 22** : ne s'applique pas tant que le score ne sert qu'à choisir les
+  destinataires de messages commerciaux (WP251 p. 22). D'où l'interdit
+  contractuel (Conditions art. 6, DPA 12.5) : jamais de prix, de remise réservée,
+  de prévente ou de refus d'entrée piloté par le score. Si un jour le produit le
+  propose, l'analyse change (SCHUFA).
+- **Envoi** : L. 34-5. Le soft opt-in est fragile pour des acheteurs Shotgun
+  (case d'adhésion à la collecte, pas une opposition) ; Yuno n'écrit déjà qu'aux
+  contacts dont Shotgun remonte l'accord, ou qui ont consenti sur une page Yuno.
+- **Traceurs d'e-mails** : art. 82 + recommandation 2026-042. Voir la partie 6,
+  point 1 : c'est le premier chantier.
+- **Statistiques anonymes** : réutilisation par le sous-traitant pour son propre
+  compte. Conditions CNIL (vérifiées) : autorisation **écrite**, **spécifique**
+  (« une autorisation préalable et générale […] n'est pas légale »), test de
+  compatibilité, information par le responsable ; le sous-traitant devient
+  **responsable** de ce traitement. Le DPA 12.6 les reprend : finalité unique et
+  décrite, conditions chiffrées, Yuno responsable, retrait possible.
+
+## 5. Statistiques anonymes : test de compatibilité et évaluation de l'anonymat
+
+**Compatibilité (art. 6(4)).** Lien entre les finalités : régler les seuils de
+l'analyse dont le pro se sert lui-même. Contexte : prestataire choisi par le pro
+pour analyser ses données. Nature : achats et présence, aucune donnée sensible
+recherchée. Conséquences pour les personnes : aucune (aucune décision, aucun
+message, aucune donnée nominative en sortie). Garanties : celles du DPA 12.6.
+Conclusion : compatible.
+
+**Anonymat (critères CNIL / WP216).**
+- *Individualisation* : impossible, chaque ligne est un comptage d'au moins 10
+  personnes, sans identifiant, sous une clé de compte aléatoire.
+- *Corrélation* : aucune donnée commune avec une autre source (ni e-mail, ni
+  empreinte, ni titre, ni ville) ; le lien clé ↔ compte n'existe que dans
+  `crm_learning_keys`, effacé avec le compte.
+- *Inférence* : une leçon commune exige 5 comptes et aucun > 50 %, donc on ne
+  peut pas lire un compte à travers elle.
+- *Attaque par différence* (comparer deux calculs qui diffèrent d'une personne) :
+  le grain est le **trimestre** et la famille ; les comptages du compte ne sont
+  jamais exposés à un autre compte, seulement agrégés. **À compléter avant
+  activation** : arrondir les comptages publiés (par exemple au multiple de 5) ou
+  ne publier une leçon qu'à chaque changement de trimestre.
+- Réserve : les données brutes restent dans chaque compte (WP216 p. 9) ; c'est
+  pourquoi le calcul en amont reste un traitement de données personnelles, que
+  le pro autorise.
+
+**Avant d'allumer** `crm_learning_settings.enabled` : (1) Conditions et DPA
+acceptés par les comptes contributeurs ; (2) arrondi ou rythme trimestriel
+ci-dessus ; (3) décision de Paul sur l'option par défaut (partie 7, point 1).
+
+## 6. Risques trouvés et corrections produit (par priorité)
+
+Aucune de ces corrections n'est faite dans cette branche ; les textes ne
+prétendent pas qu'elles le sont.
+
+1. **Pixels et liens de clic par destinataire (tout le moteur e-mail, Billetterie
+   comprise).** Depuis le 14 juillet 2026, mesurer les ouvertures pour la
+   performance, les segments d'engagement, le renvoi aux non-ouvreurs, le gagnant
+   A/B ou l'attribution exige le **consentement** du destinataire. Seule
+   exemption : la date de dernière ouverture, au jour, pour réduire les envois aux
+   inactifs, et seulement dans un e-mail demandé (newsletter consentie), jamais
+   en soft opt-in. Aujourd'hui Resend mesure ouvertures et clics pour tous.
+   Chantier : registre de consentement aux traceurs (case à la collecte : pages
+   d'inscription, imports), e-mail de demande **sans pixel**, mode « délivrabilité
+   exemptée » pour les autres, statut d'engagement et rapports sur les seuls
+   consentis, lien de retrait dans le pied. Les textes mettent l'accord à la
+   charge du pro (Conditions art. 7, DPA 12.5) ; sans l'outil, il ne peut pas le
+   tenir. **Le score et les hypothèses n'en dépendent pas.**
+2. **Mineurs.** L'âge est connu ; rien ne les exclut. Exclure de l'analyse, du
+   score, de « Qui cibler » et des statistiques toute personne de moins de 18 ans
+   (considérants 38 et 71, WP251 p. 28-29, EDPB 1/2024 § 91-95).
+3. **Soirées « sensibles ».** Une affinité pour une série queer ou confessionnelle
+   peut révéler l'orientation ou une conviction (C-184/20, C-252/21 § 68-69,
+   C-21/23). Ajouter un drapeau « soirée sensible » (posé par le pro, proposé par
+   mots-clés) qui retire la soirée des hypothèses individuelles, du score, des
+   segments et des statistiques. En attendant : interdit contractuel.
+4. **Opposition à la prospection = fin du profilage marketing** (art. 21(3)).
+   Une personne désinscrite de tout (e-mail et STOP) devrait sortir du score et de
+   « Qui cibler ». Décision de Paul (partie 7, point 2).
+5. **Conservation.** Défaut « Jamais » et activité qui compte une **ouverture**
+   d'e-mail ; la CNIL compte un achat, une venue, un clic, une inscription, pas
+   une ouverture (référentiel 2021-131 et Q&R). Proposer 3 ans par défaut aux
+   nouveaux comptes, ne plus compter l'ouverture.
+6. **Suppressions faites chez Shotgun** : elles ne se propagent pas à la copie de
+   Yuno. Les relire à la synchro, ou appliquer la règle des 3 ans.
+7. **Genre dans les segments** (`gender_female` / `gender_male` du catalogue) :
+   C-394/23 Mousse demande la sobriété. Ne plus les recommander, au minimum.
+8. **Clôture automatique après 12 mois de pause** et suppression sous 30 jours
+   (90 pour les sauvegardes) : promise par les Conditions (art. 13) et le DPA
+   (12.8), **procédure manuelle aujourd'hui**. À automatiser, ou à faire à la main
+   avec l'avertissement à J-30.
+9. **Information au premier message sans effort pour le pro** : une page
+   « Vos données chez [structure] » hébergée par Yuno pour chaque compte, et son
+   lien ajouté d'office au pied des e-mails CRM et aux pages d'inscription. Règle
+   la question « où publier ? » pour les organisateurs sans site.
+
+## 7. Décisions pour Paul
+
+1. **Statistiques anonymes : par défaut ou sur adhésion ?** Ta décision du 07/10
+   est « par défaut, refus possible » ; les textes l'appliquent (autorisation
+   écrite et spécifique donnée en acceptant le DPA, rappelée dans la fenêtre
+   d'acceptation, retirable). La recherche juge l'adhésion active plus sûre (la
+   CNIL refuse les autorisations « générales »). Rien ne sort tant que le drapeau
+   global est éteint : la question se pose seulement le jour où on l'allume.
+2. Désinscrit de tout = sorti du score et de « Qui cibler » ? (Recommandé : oui.)
+3. Durée de conservation par défaut à 3 ans pour les nouveaux comptes ?
+4. Ordre des chantiers de la partie 6 (proposé : 1, 2, 9, 3, 4, 5, 8, 6, 7).
+
+## 8. Engagements pris dans les textes, à tenir
+
+| Engagement | Texte | État |
+|---|---|---|
+| Violation notifiée au pro sous 48 h | DPA 12.8 | registre `crm_incidents` existe (échéance CNIL 72 h) ; ajouter l'alerte à 48 h côté pro |
+| Suppression à la clôture sous 30 jours, sauvegardes 90 jours | Conditions 13, DPA 12.8 | manuel |
+| Clôture après 12 mois de pause, avertissement à J-30 | Conditions 13, DPA 12.8 | manuel |
+| Prix d'un abonnement en cours : préavis 30 jours, résiliation possible | Conditions 3 | conforme à `crm_price_tier` (le fondateur garde le lancement) |
+| Retrait d'une fonction essentielle : préavis 30 jours et remboursement prorata | Conditions 10 | manuel |
+| Arrêt de Yuno CRM : Yunits achetés remboursés | Conditions 4 | manuel |
+| Modèle d'AIPD et de mise en balance fourni sur demande | Conditions 8, DPA 12.5 | `docs/legal/CRM_AIPD_MODELE.md` |
+| Évaluation d'anonymat documentée | DPA 12.6 | partie 5, à compléter avant activation |
+
+## 9. À faire relire par un avocat
+
+La rédaction complète des Conditions Yuno CRM (clauses de responsabilité,
+compétence, Yunits) ; le chapitre 12 du DPA ; le choix « par défaut » de la
+partie 7 ; la portée de la recommandation pixels sur les liens de clic ; les
+conditions d'API de Shotgun (à demander dans la discussion partenaire).

@@ -4,7 +4,7 @@
 25 avenue Mercure, 31130 Quint-Fonsegrives, France — contact@yunoapp.eu
 **Plateforme** : Yuno (yunoapp.eu) — SaaS nightlife : billetterie, tables VIP, commande de boissons.
 **Délégué à la protection des données (DPO)** : non désigné (non obligatoire à ce stade).
-**Dernière mise à jour** : 2026-07-04. ⚠️ Document interne — à tenir à jour à chaque nouveau traitement.
+**Dernière mise à jour** : 2026-10-08 (Yuno CRM : B7 à B9, A9, sous-traitants). ⚠️ Document interne — à tenir à jour à chaque nouveau traitement.
 
 > **Double casquette.** Pour les données des clients finaux traitées pour le compte des clubs/organisateurs
 > (billetterie, guest lists, VIP, boissons, campagnes), Yuno agit en **sous-traitant** (art. 28 — voir le DPA
@@ -74,6 +74,13 @@
 - **Données** : pages vues, ville/pays approximatifs, UTM.
 - **Conservation** : agrégats sans limite ; données brutes 13 mois — ⚠️ à valider.
 
+### A9. Statistiques anonymes d'amélioration de Yuno CRM
+- **Finalité** : améliorer les règles d'analyse de Yuno CRM (seuils de rareté, de délai, de distance) à partir de comptages agrégés venus des comptes clients.
+- **Origine** : produits par Yuno en sous-traitant, sur autorisation contractuelle du client (DPA art. 12.6, CGV CRM art. 9), refus possible par le titulaire (Réglages › Données).
+- **Données** : comptages O / E / V / n par famille d'analyse et par trimestre, n ≥ 10, rattachés à une clé aléatoire par compte (`crm_learning_keys`), aucune donnée personnelle, aucun titre de soirée, artiste ou ville. Publication commune à 5 comptes, aucun > 50 %.
+- **Base légale** : intérêt légitime de Yuno (amélioration du service) pour l'exploitation des comptages anonymes ; la production (anonymisation) est un traitement autorisé par chaque responsable.
+- **Conservation** : tant que le compte contributeur existe ; supprimés au refus ou à la suppression du compte. Drapeau global `crm_learning_settings.enabled`.
+
 ---
 
 ## Partie B — Yuno sous-traitant (pour le compte des clubs/organisateurs — cf. DPA)
@@ -105,6 +112,24 @@
 - **Finalité** : analytics post-soirée, origines clients (villes/pays), âge/sexe agrégés.
 - **Données** : agrégats démographiques (âge via date de naissance, genre via guest list), villes d'origine.
 
+### B7. Yuno CRM — import de la billetterie connectée et base de contacts
+- **Pour le compte de** : club, organisateur ou association abonné à Yuno CRM.
+- **Finalité** : importer en lecture seule les soirées et billets de la billetterie du client (Shotgun), les fichiers qu'il importe, tenir sa base, son registre d'accords et de désinscriptions, ses segments.
+- **Données** : nom, prénom, e-mail, téléphone, âge ou année de naissance, genre, ville, code postal, pays (si transmis), billets (soirée, tarif, montant, canal, source UTM), scan d'entrée, invitations, accord newsletter rapporté par la billetterie.
+- **Conservation** : durée de l'abonnement ; durée choisie par le client sans activité (Réglages › Données : 2, 3 ou 5 ans, ou jamais — Yuno recommande 3 ans) ; purge à la déconnexion de la billetterie (profils d'analyse) ; suppression 12 mois après la fin de l'abonnement (engagement CGV CRM art. 13, procédure MANUELLE à ce jour).
+
+### B8. Yuno CRM — analyse client et « Chances de venir » (profilage pour le compte du client)
+- **Finalité** : tester des hypothèses sur ce qui fait revenir le public du client (artistes, genre, format, série, jour, habitudes d'achat, distance), estimer la chance d'achat de chaque client déjà venu pour une soirée à venir, proposer des groupes à contacter avec un groupe témoin de 10 %.
+- **Base légale (du responsable)** : intérêt légitime (connaître et fidéliser son public) ; l'envoi qui en découle suit L. 34-5 CPCE.
+- **Données** : celles de B7 + données déduites (hypothèses, niveau de chance et raisons, distance au lieu calculée depuis le code postal, appartenance à un segment).
+- **Garanties** : calcul par compte, sans croisement entre comptes ; modèle statistique propre au compte (régression logistique en SQL), effacé avec lui ; jamais de pourcentage individuel ; jamais dans un export ; opposition par personne (`crm_profile_optout`, efface profil, scores, journal) ; pas de décision automatisée au sens de l'article 22.
+- **Conservation** : recalcul chaque nuit ; journal prévu / réel par personne effacé au règlement de la soirée ; profils effacés avec la personne, la connexion, le compte.
+
+### B9. Yuno CRM — envois e-mail et SMS, pages d'inscription, liens suivis
+- **Finalité** : envoyer les messages du client, mesurer remise, ouverture, clic ; appliquer désinscriptions et STOP ; pages d'inscription (double confirmation) ; liens courts `/go/` (empreinte salée du jour, jamais l'IP).
+- **Base légale (du responsable)** : consentement ou relation client (L. 34-5 CPCE) ; mesure d'ouverture : voir le dossier `CRM_ANALYSE_CLIENT_REVUE_JURIDIQUE.md` (recommandation CNIL sur les pixels).
+- **Données** : e-mail, téléphone, événements d'envoi, preuves d'accord (`marketing_consent_events`).
+
 ---
 
 ## Sous-traitants ultérieurs (chaîne complète)
@@ -115,7 +140,10 @@
 | Stripe | Paiements (Connect) | UE/US | SCC, PCI-DSS |
 | Resend | Emails transactionnels et campagnes | US possible | SCC |
 | Mapbox | Cartes (clubs, globe origines) | US possible | SCC — ne reçoit pas d'identité |
-| Cloudflare | Hébergement front (Workers), CDN | Monde | SCC — ne stocke pas de données client |
+| Cloudflare | Hébergement front (Workers), CDN, liens courts /go/ | Monde | SCC — ne stocke pas de données client |
+| Octopush | SMS (Yuno CRM, SMS de la Suite) | France | Société française, données en France |
+| OpenAI | Assistant Console (questions du pro et données nécessaires à la réponse) | US | DPF / SCC, pas d'entraînement sur les données de l'API |
+| PostHog | Mesure d'usage de l'app et de la Console | UE | Hébergement UE, consentement sur le web |
 
 ## Mesures de sécurité transverses
 
