@@ -2466,6 +2466,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                   organizerUserId={organizerUserId}
                   targetKind="event"
                   eventId={event.id}
+                  eventTitle={event.title}
                 />
               </motion.div>
             )}
