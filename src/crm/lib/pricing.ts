@@ -11,7 +11,9 @@ export interface CrmPricingConfig {
   price_month: number;
   price_month_next: number;
   price_year: number;
+  /** Yunits offerts UNE fois à l'abonnement mensuel (jamais chaque mois). */
   monthly_yunits: number;
+  /** Yunits offerts d'un coup à l'abonnement annuel. */
   annual_bonus_yunits: number;
   trial_days: number;
   trial_yunits: number;
@@ -45,9 +47,7 @@ export function rechargeExamples(): CrmRechargeQuote[] {
 export interface MonthEstimate {
   /** Yunits consommés par les envois du mois. */
   used: number;
-  /** Part couverte par les Yunits offerts avec l'abonnement. */
-  included: number;
-  /** Ce qu'il faut acheter en plus. */
+  /** Ce qu'il faut acheter : l'abonnement n'offre plus de Yunits chaque mois (10 000 une fois, 30 000 à l'annuel). */
   need: number;
   /** La recharge la moins chère qui couvre le besoin (null : aucune). */
   recharge: CrmRechargeQuote | null;
@@ -59,13 +59,12 @@ export interface MonthEstimate {
   total: number;
 }
 
-export function estimateMonth(emails: number, sms: number, cfg: Pick<CrmPricingConfig, 'rates' | 'monthly_yunits' | 'price_month'>): MonthEstimate {
+export function estimateMonth(emails: number, sms: number, cfg: Pick<CrmPricingConfig, 'rates' | 'price_month'>): MonthEstimate {
   const used = Math.max(0, emails) * (cfg.rates.email ?? 1) + Math.max(0, sms) * (cfg.rates.sms ?? 35);
-  const included = Math.min(used, cfg.monthly_yunits);
-  const need = Math.max(0, used - cfg.monthly_yunits);
+  const need = used;
   const recharge = need > 0 ? crmRechargeQuote(crmRechargeFor(need)) : null;
   const rechargeEur = recharge ? recharge.amountCents / 100 : 0;
-  return { used, included, need, recharge, rechargeEur, left: recharge ? Math.max(0, recharge.received - need) : 0, total: cfg.price_month + rechargeEur };
+  return { used, need, recharge, rechargeEur, left: recharge ? Math.max(0, recharge.received - need) : 0, total: cfg.price_month + rechargeEur };
 }
 
 /** Curseurs du simulateur : une échelle en racine carrée (fine en bas, large en haut), arrondie à un pas lisible. */
