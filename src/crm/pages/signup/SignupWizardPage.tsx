@@ -145,7 +145,7 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
   const cfg: FanCfg = useMemo(() => ({
     kind: wz.kind, title: wz.title, sub: wz.sub, btn: wz.btn, noted: wz.noted, design: wz.design,
     poster: wz.poster || night?.cover_url || null, club: host,
-    date: wz.kind === 'communaute' ? null : night ? cap1(dt(night.start_at, locale, night.tz)) : t('yc.sp.w.nightNoneD'),
+    date: wz.kind === 'communaute' ? null : night ? cap1(dt(night.start_at, locale, night.tz)) : wz.kind === 'attente' ? t('yc.sp.w.nightNoneD') : null,
     place: night ? [host, night.city].filter(Boolean).join(' · ') : host,
     fields: wzFields(wz), reward: wz.reward,
     saleAt: wz.kind === 'prevente' ? fromLocalInput(wz.saleAt) : null, countdown: wz.countdown,
@@ -291,11 +291,10 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
                       <span style={lab}>{t('yc.sp.w.night')}</span>
                       <select value={wz.eventId ?? ''} onChange={(e) => upd({ eventId: e.target.value === '' ? null : e.target.value })}
                         style={{ height: 50, boxSizing: 'border-box', padding: '0 14px', borderRadius: 12, borderWidth: 1.5, borderStyle: 'solid', borderColor: 'var(--sand-200)', background: '#fff', fontSize: 15, color: 'var(--ink)', outline: 0 }}>
-                        {wz.kind !== 'attente' && !wz.eventId && <option value="">{t('yc.sp.w.night')}</option>}
                         {upcoming.map((n) => <option key={n.id} value={n.id}>{n.title} · {cap1(dt(n.start_at, locale, n.tz))}{n.sold_out ? ` · ${t('yc.sp.w.nightFull')}` : ''}</option>)}
-                        {wz.kind === 'attente' && <option value="none">{t('yc.sp.w.nightNone')} · {t('yc.sp.w.nightNoneD')}</option>}
+                        <option value="none">{wz.kind === 'attente' ? `${t('yc.sp.w.nightNone')} · ${t('yc.sp.w.nightNoneD')}` : t('yc.sp.w.nightManual')}</option>
                       </select>
-                      <span style={hint}>{upcoming.length ? t('yc.sp.w.nightHint') : t('yc.sp.w.noNights')}</span>
+                      <span style={hint}>{wz.kind !== 'attente' && (!wz.eventId || wz.eventId === 'none') ? t('yc.sp.w.nightManualHint') : upcoming.length ? t('yc.sp.w.nightHint') : t('yc.sp.w.noNights')}</span>
                     </label>
                   )}
                 </>
@@ -472,7 +471,7 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 14, background: 'var(--sand-50)', fontSize: 13.5, color: 'var(--sand-600)' }}>
                     <SpSvg d={SP_ICON.pin} size={16} sw={2.2} style={{ flex: 'none' }} />
-                    <span>{wz.kind === 'communaute' ? t('yc.sp.w.dateCommunity') : !night ? t('yc.sp.w.dateNone') : t('yc.sp.w.dateFrom', { date: eventDate({ start_at: night.start_at, tz: night.tz }, locale), place: [host, night.city].filter(Boolean).join(' · ') })}</span>
+                    <span>{wz.kind === 'communaute' ? t('yc.sp.w.dateCommunity') : !night ? (wz.kind === 'attente' ? t('yc.sp.w.dateNone') : t('yc.sp.w.dateManual')) : t('yc.sp.w.dateFrom', { date: eventDate({ start_at: night.start_at, tz: night.tz }, locale), place: [host, night.city].filter(Boolean).join(' · ') })}</span>
                   </div>
                 </>
               )}
@@ -708,7 +707,7 @@ function StepFields({ wz, upd, t }: { wz: Wz; upd: (p: Partial<Wz>, touched?: 't
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span style={lab}>{t('yc.sp.w.closes')}</span>
-          {KIND_META[wz.kind].closes.map((c) => {
+          {KIND_META[wz.kind].closes.filter((c) => c !== 'eve' || (!!wz.eventId && wz.eventId !== 'none')).map((c) => {
             const on = wz.closes === c;
             return (
               <Hv key={c} as="button" type="button" aria-pressed={on} onClick={() => upd({ closes: c })}
