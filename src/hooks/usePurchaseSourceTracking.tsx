@@ -192,13 +192,18 @@ export function arrivalSource(referrer: string, params: URLSearchParams): Purcha
  * A click on /l/:code stores the tracked_link_id so that, after a Stripe
  * redirect, the checkout can attribute the purchase back to the link.
  *
- * Two storage scopes, same 6h TTL as the purchase source above:
- *  - per-event   : the link targets a specific event (key = event id).
+ * Two storage scopes:
+ *  - per-event   : the link targets a specific event (key = event id). Kept
+ *    7 DAYS : a partner (promoter, DJ…) is paid on the sales of their link, and
+ *    a buyer who clicks on Monday often pays on Thursday. It only ever applies
+ *    to THAT event, and a newer link click for the same event replaces it
+ *    (last click wins).
  *  - global slot : the link targets a venue/organizer profile (permanent
- *    link). It attributes the *next* purchase the visitor makes within TTL,
+ *    link). It attributes the *next* purchase the visitor makes within 6 h,
  *    used as a fallback when no event-scoped link is set.
  * ------------------------------------------------------------------------- */
 const TLINK_KEY_PREFIX = 'tracked_link__';
+export const EVENT_TRACKED_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const TLINK_GLOBAL_KEY = 'tracked_link__active';
 
 type StoredTrackedLink = { linkId: string; expiresAt: number };
@@ -207,9 +212,9 @@ function tlinkKey(eventId: string) {
   return `${TLINK_KEY_PREFIX}${eventId}`;
 }
 
-function writeTrackedLink(key: string, linkId: string) {
+function writeTrackedLink(key: string, linkId: string, ttlMs: number) {
   try {
-    const payload: StoredTrackedLink = { linkId, expiresAt: Date.now() + SOURCE_TTL_MS };
+    const payload: StoredTrackedLink = { linkId, expiresAt: Date.now() + ttlMs };
     sessionStorage.setItem(key, JSON.stringify(payload));
     localStorage.setItem(key, JSON.stringify(payload));
   } catch {
@@ -237,12 +242,12 @@ function readTrackedLink(key: string): string | null {
 
 /** Store a tracked link that targets a specific event. */
 export function setTrackedLinkForEvent(eventId: string, linkId: string) {
-  if (eventId && linkId) writeTrackedLink(tlinkKey(eventId), linkId);
+  if (eventId && linkId) writeTrackedLink(tlinkKey(eventId), linkId, EVENT_TRACKED_LINK_TTL_MS);
 }
 
 /** Store a tracked link from a venue/organizer (permanent) link — global fallback. */
 export function setActiveTrackedLink(linkId: string) {
-  if (linkId) writeTrackedLink(TLINK_GLOBAL_KEY, linkId);
+  if (linkId) writeTrackedLink(TLINK_GLOBAL_KEY, linkId, SOURCE_TTL_MS);
 }
 
 /**
