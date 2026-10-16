@@ -99,11 +99,13 @@ describe('assistant', () => {
     expect(defaultEventFor('attente', [night({ id: 'a' })])).toBe('none');
     expect(defaultEventFor('communaute', nights)).toBeNull();
   });
-  it('bloque la publication tant qu’il manque un titre, un bouton ou une soirée', () => {
+  it('bloque la publication tant qu’il manque un titre ou un bouton, mais pas une soirée', () => {
     const wz = newWz('prevente', [], t);
     const c = checkWz(wz, t);
-    expect(c.oks[0]).toBe(false);
-    expect(c.miss).toEqual(expect.arrayContaining(['yc.sp.w.m.night', 'yc.sp.w.m.title', 'yc.sp.w.m.btn']));
+    // La soirée connectée est facultative (8e006dff) : une page s'écrit à la main.
+    expect(c.oks[0]).toBe(true);
+    expect(c.miss).toEqual(expect.arrayContaining(['yc.sp.w.m.title', 'yc.sp.w.m.btn']));
+    expect(c.miss).not.toContain('yc.sp.w.m.night');
     const ok = checkWz({ ...newWz('prevente', nights, t), title: 'Minimal', btn: 'Me prévenir', qs: [{ q: 'Style ?', raw: 'Techno, House', multi: true }] }, t);
     expect(ok.oks).toEqual([true, true, true, true]);
     expect(ok.miss).toEqual([]);
