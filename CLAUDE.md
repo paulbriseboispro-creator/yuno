@@ -3307,6 +3307,34 @@ commande, liens promoteurs & affiliés (`/l/*`, `/promoteur/*`, `/p/*`, `/promo/
 staff/pro. Le web mobile doit rester un chemin d'achat complet — DICE gate, Yuno non :
 on vend du sans-friction dans une file d'attente.
 
+## Liens partenaires — un lien et une page de stats par personne, pour UNE soirée (2026-10-16)
+
+Brancher un promoteur, un DJ, un ami… sur une seule soirée SANS compte.
+Migration `20261017200000`, `src/lib/partnerLinks.ts` (testé), Console :
+onglet « Partenaires » des liens d'une soirée (`TrackedLinksManager` →
+`PartnerLinksPanel`, `PartnerLinkDialog`), page publique `/stats/:token`
+(`PartnerStatsPage`, DA publique). Règles :
+
+- **Ce n'est PAS un second système** : une ligne `tracked_links` (club ou
+  organisateur, cible `event`) qui porte `partner_name`, `partner_role`,
+  `partner_contact`, `partner_token`, `partner_shows_revenue`. Clics, ventes et
+  CA se comptent comme tout lien suivi ; la page (`_partner_link_sales`) reprend
+  les statuts et le CA club de `get_tracked_link_stats` : la Console et la page
+  disent les mêmes chiffres. Toute évolution de l'une se reporte à l'autre.
+- **Le jeton naît côté serveur** (trigger `tracked_links_partner_normalize`, 32
+  hex), ne change jamais à l'édition, se renouvelle seulement par
+  `reset_partner_link_page` (« Nouveau lien de page »). Le trigger pose aussi
+  `label = partner_name`, `utm_medium = 'partner_link'`, refuse un nom de canal
+  (`partner_name_reserved`) et éteint `partner_shows_revenue` posé par quelqu'un
+  qui ne voit pas l'argent (`tracked_link_team_sees_money`).
+- **Page publique = `get_partner_link_page(token)`** (anon) : prénom + initiale
+  de l'acheteur seulement, jamais email / téléphone / nom complet, le contact du
+  partenaire jamais rendu, CA seulement si `partner_shows_revenue`. Fermée 7 jours
+  après la fin de la soirée. `/stats/` est dans `LINKTREE_PREFIXES` (aucune étape
+  d'accueil).
+- Un lien partenaire ne verse AUCUNE commission : il compte. Le promoteur
+  régulier avec commissions reste l'espace Promoteurs.
+
 ## Yuno Links — la page de la bio Instagram / TikTok (2026-09-05)
 
 `/links` (`src/pages/YunoLinks.tsx`, design claude.design « Yuno Links », DA
