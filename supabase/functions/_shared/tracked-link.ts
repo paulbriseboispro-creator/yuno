@@ -3,7 +3,8 @@
 //
 // L'attribution ne doit JAMAIS faire échouer une vente. La colonne
 // `tracked_link_id` est une clé étrangère vers `tracked_links`, et le client
-// garde l'id du lien en localStorage 6 h (cf. usePurchaseSourceTracking). Or ce
+// garde l'id du lien en localStorage (7 jours pour une soirée, 6 h sinon ; cf.
+// usePurchaseSourceTracking). Or ce
 // TTL survit largement à la disparition de la ligne : un lien de promoteur est
 // supprimé en cascade quand le promoteur part (`promoter_id ... ON DELETE
 // CASCADE`), une réinitialisation des données démo efface les liens, une
