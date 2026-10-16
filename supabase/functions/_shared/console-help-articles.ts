@@ -409,6 +409,12 @@ export const CONSOLE_HELP_ARTICLES: Record<string, ConsoleHelpArticle> = {
     path: "/owner/analytics?tab=traffic&view=page",
     snippet: "Analytics → Trafic (RPC get_page_traffic). « Ma page » : visites de la page publique du club jour par jour sur 30 jours, 90 jours ou 1 an, avec aujourd'hui, visiteurs différents, part qui revient, et les sources (réseaux sociaux, recherche, email, QR, pub, promoteurs, direct). « Par soirée » : chaque page de soirée avec ses visites, celles du jour et combien ont commandé, un clic ouvre son rapport. « Sources » : canaux, campagnes, sites référents et navigation, toutes pages confondues. Seules les visites consenties (bandeau cookies) sont comptées : c'est un minimum.",
   },
+  "partner-links": {
+    title: "Liens partenaires — un lien et une page de stats par personne, pour une soirée",
+    keywords: ["lien partenaire", "liens partenaires", "partner link", "enlace de partner", "promoteur sans compte", "promoter without account", "lien pour un dj", "lien pour un promoteur", "ambassadeur", "ambassador", "page de stats", "stats page", "qui vend", "who sells", "lien perso", "personal link"],
+    path: "/owner/events",
+    snippet: "Événements → la soirée → « Liens » → onglet « Partenaires » → « Ajouter un partenaire ». Un lien partenaire est un lien suivi (yunoapp.eu/l/…) au nom d'UNE personne pour UNE soirée : promoteur invité, DJ, ambassadeur, ami. Pas de compte ni d'app : la personne reçoit son lien de vente et une page privée (yunoapp.eu/stats/…) avec ses clics, ses ventes, le CA si le club l'autorise (« Montrer le CA sur sa page »), ses clics des 7 derniers jours et l'historique de ses achats (prénom et initiale de l'acheteur seulement). Mêmes chiffres que l'onglet Partenaires. Le bouton d'envoi part sur WhatsApp ou par email si un contact est renseigné. « Nouveau lien de page » (menu ⋯) remplace une page qui a circulé sans changer le lien de vente. La page ferme 7 jours après la soirée. Aucune commission n'est versée par Yuno : pour un promoteur régulier avec commissions, l'espace Promoteurs reste l'outil. Côté organisateur : même chose dans /organizer-app/events.",
+  },
   "promo-codes": {
     title: "Codes promo — une réduction pour une soirée ou pour toutes",
     keywords: ["code promo", "codes promo", "promo code", "código promocional", "réduction", "remise", "discount", "descuento", "coupon", "early", "code réduction", "code partenaire", "quota", "offre flash"],
