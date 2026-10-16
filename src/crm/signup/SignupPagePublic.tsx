@@ -94,7 +94,7 @@ function Inner() {
     design,
     poster: page.poster_url || ev?.cover_url || null,
     club: page.host,
-    date: page.kind === 'communaute' ? null : ev ? (() => { const s = dt(ev.start_at, locale, ev.tz); return s.charAt(0).toUpperCase() + s.slice(1); })() : t('yc.sp.w.nightNoneD'),
+    date: page.kind === 'communaute' ? null : ev ? (() => { const s = dt(ev.start_at, locale, ev.tz); return s.charAt(0).toUpperCase() + s.slice(1); })() : page.kind === 'attente' ? t('yc.sp.w.nightNoneD') : null,
     place: ev ? [ev.venue || page.host, ev.city].filter(Boolean).join(' · ') : page.host,
     fields: normalizeFields(page.fields),
     reward: page.reward ? { ...defaultReward(page.kind), ...page.reward } : defaultReward(page.kind),

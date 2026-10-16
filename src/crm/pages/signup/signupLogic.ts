@@ -27,7 +27,7 @@ export interface WzQuestion { q: string; raw: string; multi: boolean; party?: bo
 export interface Wz {
   id: string | null;
   kind: SignupKind;
-  /** La soirée Shotgun ; 'none' = prochaine date pas encore annoncée (liste d'attente) ; null = sans soirée. */
+  /** La soirée Shotgun ; 'none' = aucune soirée connectée (liste d'attente : prochaine date pas encore annoncée ; autres types : page libre, sans date ni lien de billets repris) ; null = type sans soirée (communauté). */
   eventId: string | 'none' | null;
   title: string; sub: string; btn: string; noted: string;
   touched: Partial<Record<'title' | 'sub' | 'btn' | 'noted', boolean>>;
@@ -63,7 +63,7 @@ export function defaultEventFor(kind: SignupKind, nights: NightRow[]): string | 
   if (kind === 'communaute') return null;
   const up = nights.filter((n) => n.upcoming);
   if (kind === 'attente') return up.find((n) => n.sold_out)?.id ?? 'none';
-  return up[0]?.id ?? null;
+  return up[0]?.id ?? 'none';
 }
 
 /** Demain à 18:00 (heure de l'appareil), pour une prévente sans date de vente connue. */
@@ -85,7 +85,7 @@ export function newWz(kind: SignupKind, nights: NightRow[], t: T, base?: Partial
     qs: kind === 'venue' ? [partyQuestion(t)] : [styleQuestion(t)],
     reward: defaultReward(kind), showCount: false,
     opens: 'now', opensAt: '', saleAt: sale, countdown: true,
-    closes: KIND_META[kind].closes[0], closesAt: '',
+    closes: KIND_META[kind].closes[0] === 'eve' && (!eventId || eventId === 'none') ? 'date' : KIND_META[kind].closes[0], closesAt: '',
     notify: true, ch: { email: true, sms: false }, relance: {}, status: null,
     ...base,
   };
@@ -97,7 +97,8 @@ export function defaultTexts(wz: Wz, nights: NightRow[], host: string, t: T, lan
   const night = nights.find((n) => n.id === wz.eventId) ?? null;
   const reward = rewardFanText(wz.reward, t);
   const of = venueOf(host, lang);
-  const title = wz.kind === 'communaute' ? t('yc.sp.ty.communaute.title', { club: host, of }) : night ? night.title : t('yc.sp.w.nightNone');
+  // Sans soirée connectée, un type autre que la liste d'attente n'a pas de titre d'office : le pro écrit le sien.
+  const title = wz.kind === 'communaute' ? t('yc.sp.ty.communaute.title', { club: host, of }) : night ? night.title : wz.kind === 'attente' ? t('yc.sp.w.nightNone') : '';
   const sub = wz.kind === 'attente' && wz.eventId === 'none' ? t('yc.sp.ty.attente.subTba')
     : wz.kind === 'communaute' ? (wz.reward.on ? t('yc.sp.ty.communaute.subReward', { club: host, of, reward: reward.toLowerCase() }) : t('yc.sp.ty.communaute.subPlain', { club: host, of }))
     : wz.kind === 'attente' && !night?.sold_out ? t('yc.sp.ty.attente.subOpen')
@@ -109,6 +110,8 @@ export function defaultTexts(wz: Wz, nights: NightRow[], host: string, t: T, lan
 export function fillWz(wz: Wz, nights: NightRow[], host: string, t: T, lang: Lang): Wz {
   const d = defaultTexts(wz, nights, host, t, lang);
   const o = { ...wz };
+  // « La veille de la soirée » n'a pas de sens sans soirée : on retombe sur une date choisie.
+  if (o.closes === 'eve' && (!o.eventId || o.eventId === 'none')) o.closes = 'date';
   (['title', 'sub', 'btn', 'noted'] as const).forEach((k) => { if (!wz.touched[k]) o[k] = k === 'title' ? d.title.slice(0, 40) : d[k]; });
   return o;
 }
@@ -124,7 +127,7 @@ export function wzFromPage(p: SignupPageRow, nights: NightRow[], t: T): Wz {
   const open = p.relance?.open;
   return newWz(p.kind, nights, t, {
     id: p.id, status: p.status,
-    eventId: p.event_id ?? (p.kind === 'attente' ? 'none' : null),
+    eventId: p.event_id ?? (KIND_META[p.kind].night ? 'none' : null),
     title: p.title, sub: p.tagline, btn: p.button_label, noted: p.thanks_message,
     touched: { title: true, sub: true, btn: true, noted: true },
     design: normalizeDesign(p.design),
@@ -155,12 +158,12 @@ export function checkWz(wz: Wz, t: T): WzCheck {
     && (wz.kind !== 'prevente' || !!wz.saleAt)
     && !(wz.opens === 'date' && wz.closes === 'date' && wz.closesAt && wz.opensAt >= wz.closesAt)
     && !(wz.closes === 'eve' && (!wz.eventId || wz.eventId === 'none'));
-  const ok1 = !(KIND_META[wz.kind].night && wz.kind !== 'attente' && (!wz.eventId || wz.eventId === 'none'));
+  // La soirée est facultative : une page peut être écrite à la main, sans soirée connectée.
+  const ok1 = true;
   const ok2 = wz.title.trim().length > 0 && wz.btn.trim().length > 0;
   const rewardOk = !wz.reward.on || wz.reward.preset !== 'custom' || !!wz.reward.label.trim();
   const ok3 = qsOk && okDates && rewardOk && (!wz.notify || wz.ch.email || wz.ch.sms);
   const miss: string[] = [];
-  if (!ok1) miss.push(t('yc.sp.w.m.night'));
   if (!wz.title.trim()) miss.push(t('yc.sp.w.m.title'));
   if (!wz.btn.trim()) miss.push(t('yc.sp.w.m.btn'));
   if (!rewardOk) miss.push(t('yc.sp.w.m.reward'));
