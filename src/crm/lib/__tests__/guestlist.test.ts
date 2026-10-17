@@ -3,28 +3,28 @@ import { clockFromNoon, glKindOf, hourLabel, isGlFilter, nightVerdict, periodVer
 
 describe('glKindOf (miroir de _crm_ticket_gl_kind)', () => {
   it('une invitation Shotgun, quel que soit son prix', () => {
-    expect(glKindOf('valid', 0, { deal_channel: 'invitation' })).toBe('inv');
-    expect(glKindOf('valid', 12, { deal_channel: 'invitation' })).toBe('inv');
+    expect(glKindOf('valid', 0, 'invitation')).toBe('inv');
+    expect(glKindOf('valid', 12, 'invitation')).toBe('inv');
   });
   it('un billet valide à 0 € hors invitation', () => {
-    expect(glKindOf('valid', 0, { deal_channel: 'online' })).toBe('free');
+    expect(glKindOf('valid', 0, 'online')).toBe('free');
     expect(glKindOf('valid', 0, null)).toBe('free');
   });
   it('jamais un billet payant, au prix inconnu, ou qui n’est plus valide', () => {
-    expect(glKindOf('valid', 18, { deal_channel: 'online' })).toBeNull();
+    expect(glKindOf('valid', 18, 'online')).toBeNull();
     expect(glKindOf('valid', null, null)).toBeNull();
-    expect(glKindOf('cancelled', 0, { deal_channel: 'invitation' })).toBeNull();
+    expect(glKindOf('cancelled', 0, 'invitation')).toBeNull();
     expect(glKindOf('refunded', 0, null)).toBeNull();
     expect(glKindOf('other', 0, null)).toBeNull();
-    expect(glKindOf('transferred', 0, { deal_channel: 'invitation' })).toBeNull();
+    expect(glKindOf('transferred', 0, 'invitation')).toBeNull();
   });
   it('un duplicata n’est jamais une entrée, même à 0 €', () => {
-    expect(glKindOf('valid', 0, { deal_channel: 'duplicata' })).toBeNull();
-    expect(glKindOf('valid', 15, { deal_channel: 'duplicata' })).toBeNull();
+    expect(glKindOf('valid', 0, 'duplicata')).toBeNull();
+    expect(glKindOf('valid', 15, 'duplicata')).toBeNull();
   });
-  it('un brut qui n’est pas un objet ne fait pas une invitation', () => {
-    expect(glKindOf('valid', 5, ['invitation'])).toBeNull();
-    expect(glKindOf('valid', 5, 'invitation')).toBeNull();
+  it('le canal se lit tel quel (colonne deal_channel, sans normalisation)', () => {
+    expect(glKindOf('valid', 5, ' invitation ')).toBeNull();
+    expect(glKindOf('valid', 0, undefined)).toBe('free');
   });
 });
 
