@@ -324,6 +324,20 @@ const dict: CrmDict = {
   'yc.acc.h.human.t': ['A real person answers.', 'Une vraie personne vous répond.', 'Le responde una persona de verdad.'],
   'yc.acc.h.human.s': ['No bot, no ticket that drags. A problem on a party night? Write to us, we see it first.', 'Pas de robot, pas de ticket qui traîne. Un souci le soir d’une soirée ? Écrivez-nous, nous le voyons en priorité.', 'Sin robots ni tickets que se eternizan. ¿Un problema la noche de una fiesta? Escríbanos, lo vemos con prioridad.'],
   'yc.acc.h.hours': ['Monday to Friday, 10 am – 7 pm', 'Du lundi au vendredi, 10 h – 19 h', 'De lunes a viernes, 10 h – 19 h'],
+  // Offre fondateurs (migration 20261017230000) : Compte › Abonnement.
+  'yc.acc.b.pill.founder': ['Founder offer · until {date}', 'Offre fondateur · jusqu’au {date}', 'Oferta fundador · hasta el {date}'],
+  'yc.acc.b.fo.kicker': ['Founder offer · one of the first 5 accounts', 'Offre fondateur · l’un des 5 premiers comptes', 'Oferta fundador · una de las 5 primeras cuentas'],
+  'yc.acc.b.fo.title': ['{months} months free, until {date}', '{months} mois offerts, jusqu’au {date}', '{months} meses gratis, hasta el {date}'],
+  'yc.acc.b.fo.left': ['{n} days left', 'Encore {n} jours', 'Quedan {n} días'],
+  'yc.acc.b.fo.leftOne': ['Last day', 'Dernier jour', 'Último día'],
+  'yc.acc.b.fo.f1': ['{yunits} Yunits offered when your account opened', '{yunits} Yunits offerts à l’ouverture de votre compte', '{yunits} Yunits regalados al abrir su cuenta'],
+  'yc.acc.b.fo.f2': ['Nothing to pay until {date}', 'Rien à payer avant le {date}', 'Nada que pagar antes del {date}'],
+  'yc.acc.b.fo.f3': ['Then {price} € excl. VAT / month, launch price guaranteed', 'Ensuite {price} € HT / mois, prix de lancement garanti', 'Después {price} € sin IVA / mes, precio de lanzamiento garantizado'],
+  'yc.acc.b.fo.card': ['Card saved: the first payment happens on {date}.', 'Carte enregistrée : le premier prélèvement aura lieu le {date}.', 'Tarjeta guardada: el primer cobro será el {date}.'],
+  'yc.acc.b.fo.noCard': ['No card needed for now. Save it whenever you like so nothing stops on {date}.', 'Aucune carte n’est nécessaire pour l’instant. Enregistrez-la quand vous voulez pour que rien ne s’arrête le {date}.', 'No hace falta tarjeta por ahora. Guárdela cuando quiera para que nada se detenga el {date}.'],
+  'yc.acc.b.subNote.founder': ['Your founder offer runs until {date}. Save your card now: nothing is charged before that date, then {price} € excl. VAT / month.', 'Votre offre fondateur court jusqu’au {date}. Enregistrez votre carte dès maintenant : rien n’est prélevé avant cette date, puis {price} € HT / mois.', 'Su oferta fundador dura hasta el {date}. Guarde su tarjeta ya: no se cobra nada antes de esa fecha, luego {price} € sin IVA / mes.'],
+  'yc.acc.b.founderCta': ['Save my card · €0 today', 'Enregistrer ma carte · 0 € aujourd’hui', 'Guardar mi tarjeta · 0 € hoy'],
+  'yc.acc.b.row.yunitsFounder': ['{n} offered when your account opened', '{n} offerts à l’ouverture du compte', '{n} regalados al abrir la cuenta'],
 };
 
 export default dict;

@@ -63,6 +63,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   // « 10 % non contactés, pour mesurer l'effet réel » (20261013120000).
   { id: 'holdout', c: 'clients', to: CRM_ROUTES.settings },
   { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  // Offre fondateurs (migration 20261017230000) : les 5 comptes invités par Yuno.
+  { id: 'founder', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'offline', c: 'account' },
   // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).
   { id: 'ticketing', c: 'account', to: '/open/suite' },

@@ -94,6 +94,7 @@ const dict: CrmDict = {
   'yc.yu.sub.month': ['{price} € excl. VAT per month', '{price} € HT par mois', '{price} € sin IVA al mes'],
   'yc.yu.sub.year': ['{price} € excl. VAT per year', '{price} € HT par an', '{price} € sin IVA al año'],
   'yc.yu.sub.trial': ['Trial until {date}', 'Essai jusqu’au {date}', 'Prueba hasta el {date}'],
+  'yc.yu.sub.founder': ['Founder offer until {date}', 'Offre fondateur jusqu’au {date}', 'Oferta fundador hasta el {date}'],
   'yc.yu.sub.paused': ['Paused', 'En pause', 'En pausa'],
   'yc.yu.sub.launch': ['Launch price kept as long as you stay subscribed.', 'Prix de lancement conservé tant que vous restez abonné.', 'Precio de lanzamiento mantenido mientras siga suscrito.'],
   'yc.yu.sub.next': ['Next invoice on {date}.', 'Prochaine facture le {date}.', 'Próxima factura el {date}.'],
