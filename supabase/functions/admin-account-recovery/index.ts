@@ -34,6 +34,13 @@
 //                              (migration 20261017230000) : le lien vient de
 //                              crm_offer_invite_for_email, l'envoi réussi est
 //                              noté sur l'invitation.
+//   • "crm-invite-email"      (admin) — l'invitation Yuno CRM d'Admin CRM ›
+//                              Inviter (offre fondateurs ou essai standard,
+//                              accès démo et accès assisté en option ; migration
+//                              20261019420000) : contenu lu par
+//                              crm_offer_invite_for_email, envoi noté.
+//   • "crm-demo-email"        (admin) — l'accès à la démo Yuno CRM (lien + mot
+//                              de passe), lu par crm_demo_link_for_email.
 //   • "request-support-access" (admin) — crée (ou relance) une demande d'accès
 //                              assisté EN ATTENTE et prévient le pro par EMAIL
 //                              (en plus de la notif in-app + push posées par
@@ -55,6 +62,7 @@ import { jwtSessionId } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { buildProductInviteEmail, productInviteLang } from "../_shared/product-invite-email.ts";
 import { buildFounderOfferEmail, founderLang } from "../_shared/crm-founder-offer-email.ts";
+import { buildCrmDemoEmail, buildCrmInviteEmail, buildCrmSupportEmail, crmLang } from "../_shared/crm-invite-email.ts";
 
 const APP_URL = "https://yunoapp.eu";
 
@@ -128,6 +136,94 @@ async function sendFounderOfferEmail(db: SupabaseClient, body: Record<string, un
     });
   }
   return reply({ success: true, email: inv.email, messageId: sent.id ?? null });
+}
+
+/** Un e-mail Yuno CRM par Resend ; rend l'id du message, ou null en cas d'échec. */
+async function sendCrmMail(to: string, mail: { subject: string; html: string; text: string }, tag: string): Promise<{ ok: boolean; id: string | null; code?: string }> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) return { ok: false, id: null, code: "email_not_configured" };
+  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+    body: JSON.stringify({
+      from: `Yuno CRM <${fromEmail}>`, reply_to: "support@yunoapp.eu", to: [to],
+      subject: mail.subject, html: mail.html, text: mail.text,
+    }),
+  });
+  if (!res.ok) {
+    console.error(`[ADMIN-ACCOUNT-RECOVERY] ${tag} email failed:`, res.status, await res.text().catch(() => ""));
+    return { ok: false, id: null, code: "email_failed" };
+  }
+  const sent = await res.json().catch(() => ({})) as { id?: string };
+  return { ok: true, id: sent.id ?? null };
+}
+
+interface CrmInviteRow {
+  id: string; url: string; offer: string; org_name: string; contact_name: string | null; email: string;
+  lang: string; free_months: number; yunits: number; expires_at: string; price_month: number;
+  trial_days: number; trial_yunits: number; support_offer: boolean;
+  demo: { url: string; password: string | null; status: string } | null;
+}
+
+/** L'invitation Yuno CRM par e-mail (Admin CRM › Inviter). `db` porte les droits de l'appelant. */
+async function sendCrmInviteEmail(db: SupabaseClient, body: Record<string, unknown>, adminId: string, audit: SupabaseClient, jsonHeaders: Record<string, string>): Promise<Response> {
+  const reply = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { headers: jsonHeaders, status });
+  const inviteId = typeof body.inviteId === "string" ? body.inviteId : "";
+  if (!/^[0-9a-f-]{36}$/i.test(inviteId)) return reply({ error: "bad_input" }, 400);
+  const { data, error } = await db.rpc("crm_offer_invite_for_email", { p_id: inviteId });
+  if (error) {
+    const code = String(error.message ?? "error");
+    return reply({ error: code, code }, code === "not_found" ? 404 : code === "forbidden" ? 403 : 409);
+  }
+  const inv = data as CrmInviteRow;
+  // L'accès démo lié n'entre dans l'e-mail que s'il ouvre encore quelque chose.
+  const demo = inv.demo && inv.demo.password && !["revoked", "expired", "locked"].includes(inv.demo.status)
+    ? { url: inv.demo.url, password: inv.demo.password } : null;
+  const mail = buildCrmInviteEmail({
+    lang: crmLang(inv.lang), offer: inv.offer === "founder" ? "founder" : "standard", orgName: inv.org_name,
+    contactName: inv.contact_name, url: inv.url, freeMonths: inv.free_months, yunits: inv.yunits,
+    priceMonth: Number(inv.price_month), trialDays: inv.trial_days, trialYunits: inv.trial_yunits,
+    expiresAt: inv.expires_at, supportOffer: inv.support_offer, demo, origin: APP_URL,
+  });
+  const sent = await sendCrmMail(inv.email, mail, "crm invite");
+  if (!sent.ok) return reply({ error: sent.code, code: sent.code }, sent.code === "email_not_configured" ? 503 : 502);
+  await db.rpc("crm_admin_offer_invite_mark", { p_id: inviteId, p_channel: "email" });
+  await audit.from("admin_audit_log").insert({
+    admin_id: adminId, action: "crm_offer_invite_email", entity_type: "crm_offer_invite", entity_id: inviteId,
+    metadata: { email: inv.email, org_name: inv.org_name, offer: inv.offer, with_demo: !!demo },
+  });
+  return reply({ success: true, email: inv.email, messageId: sent.id });
+}
+
+interface CrmDemoRow {
+  id: string; url: string; password: string; contact_name: string | null; email: string; lang: string;
+  expires_at: string; signup_url: string | null; label: string;
+}
+
+/** L'accès à la démo Yuno CRM par e-mail (Admin CRM › Démo). */
+async function sendCrmDemoEmail(db: SupabaseClient, body: Record<string, unknown>, adminId: string, audit: SupabaseClient, jsonHeaders: Record<string, string>): Promise<Response> {
+  const reply = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { headers: jsonHeaders, status });
+  const linkId = typeof body.linkId === "string" ? body.linkId : "";
+  if (!/^[0-9a-f-]{36}$/i.test(linkId)) return reply({ error: "bad_input" }, 400);
+  const { data, error } = await db.rpc("crm_demo_link_for_email", { p_id: linkId });
+  if (error) {
+    const code = String(error.message ?? "error");
+    return reply({ error: code, code }, code === "not_found" ? 404 : code === "forbidden" ? 403 : 409);
+  }
+  const d = data as CrmDemoRow;
+  const mail = buildCrmDemoEmail({
+    lang: crmLang(d.lang), contactName: d.contact_name, url: d.url, password: d.password,
+    expiresAt: d.expires_at, signupUrl: d.signup_url, origin: APP_URL,
+  });
+  const sent = await sendCrmMail(d.email, mail, "crm demo");
+  if (!sent.ok) return reply({ error: sent.code, code: sent.code }, sent.code === "email_not_configured" ? 503 : 502);
+  await db.rpc("crm_admin_demo_link_mark", { p_id: linkId, p_channel: "email" });
+  await audit.from("admin_audit_log").insert({
+    admin_id: adminId, action: "crm_demo_link_email", entity_type: "demo_preview_link", entity_id: linkId,
+    metadata: { email: d.email, label: d.label },
+  });
+  return reply({ success: true, email: d.email, messageId: sent.id });
 }
 
 serve(async (req) => {
@@ -260,6 +356,14 @@ serve(async (req) => {
       return await sendFounderOfferEmail(supabaseClient, body, user.id, supabaseAdmin, jsonHeaders);
     }
 
+    // ── Admin CRM : l'invitation et l'accès démo par e-mail ────────────────────
+    if (action === "crm-invite-email") {
+      return await sendCrmInviteEmail(supabaseClient, body, user.id, supabaseAdmin, jsonHeaders);
+    }
+    if (action === "crm-demo-email") {
+      return await sendCrmDemoEmail(supabaseClient, body, user.id, supabaseAdmin, jsonHeaders);
+    }
+
     // ── request-support-access : demande d'accès assisté + email au pro ────────
     if (action === "request-support-access") {
       const targetId: string | undefined = typeof body.userId === "string" ? body.userId : undefined;
@@ -299,6 +403,33 @@ serve(async (req) => {
           .single();
         if (grantErr) return fail(grantErr.message, 500);
         grantId = created.id;
+      }
+
+      // Un compte Yuno CRM (demande venue de l'Admin CRM, ou titulaire qui ne
+      // tient que le CRM) : la page d'acceptation est dans SA Console, sur
+      // crm.yunoapp.eu, et l'e-mail a la DA du CRM (migration 20261019420000).
+      let crmTarget = body.product === "crm";
+      if (!crmTarget) {
+        const { data: only } = await supabaseAdmin.rpc("crm_user_crm_only", { p_uid: targetId });
+        crmTarget = only === true;
+      }
+      if (crmTarget) {
+        const lang = crmLang(target.preferred_language);
+        const mail = buildCrmSupportEmail({
+          lang,
+          contactName: target.first_name,
+          reason,
+          url: `https://crm.yunoapp.eu/crm/account/support?approve=${grantId}`,
+          origin: APP_URL,
+        });
+        const sent = await sendCrmMail(target.email, mail, "crm support request");
+        return new Response(JSON.stringify({
+          success: true,
+          grant_id: grantId,
+          reused: !!openGrant,
+          emailSent: sent.ok,
+          product: "crm",
+        }), { headers: jsonHeaders });
       }
 
       // La page d'acceptation dépend du rôle du pro (chaque app a la sienne).
