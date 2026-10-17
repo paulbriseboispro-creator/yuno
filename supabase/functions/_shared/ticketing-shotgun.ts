@@ -158,6 +158,20 @@ export function schemaKeys(obj: unknown, depth = 2, prefix = ""): string[] {
   return out.slice(0, 200);
 }
 
+/**
+ * Clés déjà relevées + celles d'une page (ordre d'apparition, 200 au plus) : le
+ * billet brut ne gardant plus tout (minimizeTicketRaw), c'est ici qu'un champ
+ * nouveau de la billetterie se voit.
+ */
+export function mergeSchemaKeys(prev: unknown, items: unknown[]): string[] {
+  const out = new Set<string>(Array.isArray(prev) ? prev.filter((k): k is string => typeof k === "string") : []);
+  for (const it of items) {
+    if (out.size >= 200) break;
+    for (const k of schemaKeys(it)) out.add(k);
+  }
+  return [...out].slice(0, 200);
+}
+
 // ── Billets ─────────────────────────────────────────────────────────────────
 
 // Le premier nom de chaque liste est le nom DOCUMENTÉ par Shotgun ; les
@@ -439,20 +453,75 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     org_fee: typeof raw.deal_service_fee === "number" && Number.isFinite(raw.deal_service_fee) ? raw.deal_service_fee / 100 : null,
     provider_contact_id: jsonText(raw.contact_id),
     provider_user_id: jsonText(raw.user_id),
-    raw: withoutScanCode(raw),
+    raw: minimizeTicketRaw(raw),
   };
 }
 
 /**
  * La valeur du QR d'un billet (`ticket_scan_code`) ne se stocke JAMAIS chez Yuno
  * (docs/designs/SHOTGUN_API_REFERENCE.md) : quiconque la lit entre à la soirée.
- * Le reste du billet brut est gardé (`deal_channel` sert à reconnaître une
- * invitation, `_crm_ticket_is_sale`).
  */
 const SCAN_CODE_KEYS = ["ticket_scan_code", "scan_code", "scanCode", "ticketScanCode", "qr_code", "qrCode", "barcode"];
 export function withoutScanCode(raw: Json): Json {
   const out: Json = { ...raw };
   for (const k of SCAN_CODE_KEYS) delete out[k];
+  return out;
+}
+
+// ── Ce que le billet brut garde (minimisation, plan CRM_AMORIS §5.3, S5) ────
+//
+// `external_tickets.raw` ne garde que ce qui n'est rangé nulle part ailleurs ET
+// ne désigne personne : ni un champ extrait en colonne (montants, dates, canal,
+// visibilités, identifiants…), ni la soirée du billet (elle vit dans
+// `external_events`), ni une coordonnée, ni la valeur du QR. Sur le schéma
+// documenté il reste `deal_sub_category`, `deal_vat_rate`,
+// `deal_producer_cost`, `ticket_seating` et toute clé nouvelle qui ne désigne
+// personne. Les CLÉS vues restent relevées dans `schema_sample` (jamais les
+// valeurs).
+//
+// Miroir EXACT : `public._ticketing_raw_key_dropped(text)` (migration
+// 20261019300000), appliqué par le trigger de `external_tickets` à toute
+// écriture : un ancien connecteur, un script ou une réimportation ne remet
+// jamais une coordonnée dans `raw`.
+
+/** Clés extraites en colonne (noms documentés et noms de repli), ou rangées ailleurs. */
+export const RAW_EXTRACTED_KEYS: ReadonlySet<string> = new Set([
+  ...Object.values(P).flat().filter((k) => !k.includes(".")),
+  ...Object.values(CENTS),
+  ...SCAN_CODE_KEYS,
+  // Colonnes typées (20261018200000).
+  "deal_channel", "deal_visibilities", "payment_method", "deal_service_fee", "contact_id", "user_id",
+  // Remboursement / annulation : drapeaux lus par normalizeTicketStatus.
+  "refunded", "is_refunded", "isRefunded", "cancelled", "canceled", "is_cancelled", "is_canceled",
+  // La soirée du billet : elle vit dans external_events (relue à chaque passe).
+  "event_name", "event_start_time", "event_end_time", "event_created_at", "event_published_at",
+  "event_launched_at", "event_canceled_at",
+]);
+
+/** Objets ou préfixes qui portent une personne (ou les UTM, rangés dans `utm`). */
+const RAW_PERSON_CONTAINERS = [
+  "contact", "buyer", "holder", "attendee", "customer", "purchaser", "beneficiary", "owner", "user",
+  "address", "utm", "utms", "tracking",
+];
+export const RAW_PERSON_PREFIX = new RegExp(`^(${RAW_PERSON_CONTAINERS.join("|")})(_|$)`);
+/** Mots qui désignent une coordonnée, où qu'ils soient dans le nom de la clé. */
+export const RAW_PERSONAL_WORD =
+  /(^|_)(e_?mail|mail|phone(_number)?|tel|telephone|mobile|first_?name|last_?name|full_?name|sur_?name|given_?name|family_?name|birth(_?(day|date))?|date_of_birth|dob|address|street|postal(_?code)?|post_?code|zip(_?code)?|city|locality|company(_name)?|ip(_address)?|gender|sex|age)($|_)/;
+
+/** « firstName » → « first_name » : la règle lit les deux écritures. */
+export function rawKeyName(k: string): string {
+  return k.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+export function rawKeyDropped(k: string): boolean {
+  if (RAW_EXTRACTED_KEYS.has(k)) return true;
+  const n = rawKeyName(k);
+  return RAW_PERSON_PREFIX.test(n) || RAW_PERSONAL_WORD.test(n);
+}
+
+export function minimizeTicketRaw(raw: Json): Json {
+  const out: Json = {};
+  for (const [k, v] of Object.entries(raw)) if (!rawKeyDropped(k)) out[k] = v;
   return out;
 }
 
