@@ -412,7 +412,10 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
         events_synced_at: eventsFailed || !eventsComplete ? conn.events_synced_at
           : (typeof sample.events_pass_at === "string" ? sample.events_pass_at : startedIso),
         initial_import_done_at: conn.initial_import_done_at ?? now.toISOString(),
-        next_sync_at: new Date(now.getTime() + conn.sync_interval_minutes * 60_000).toISOString(),
+        // Calée sur le DÉBUT de la passe, une minute plus tôt : le cron passe
+        // toutes les 5 min et une passe dure quelques secondes ; calée sur sa
+        // fin, l'échéance tombait juste après le tick et 15 min devenaient 20.
+        next_sync_at: new Date(Date.parse(startedIso) + (conn.sync_interval_minutes - 1) * 60_000).toISOString(),
         locked_until: null, schema_sample: sample,
       }).eq("id", conn.id);
       const { data: stats } = await admin.rpc("ticketing_refresh_stats", { p_connection_id: conn.id });
