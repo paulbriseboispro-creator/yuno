@@ -1383,6 +1383,52 @@ ci-dessous ; publier = les rôles qui allument une recette. Règles intouchables
   front, Worker (MCP) et fonctions (`send-campaign`, `send-sms-campaign`,
   `owner-assistant`), semis démo, smoke.
 
+## Yuno CRM — vitesse et charge à l'échelle d'un vrai compte (2026-10-17)
+
+Plan : `CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md` (S4). Migrations `20261018200000` →
+`270000`. Mesuré sur Amoris (48 388 billets) en tant que le titulaire : Ventes
+90 j 6,8 s → 0,8 s, Trafic 2,9 → 1,2 s, Communauté 12 m 3,8 → 2,8 s, Clients
+3,9 → 1,6 s, une passe du connecteur sans billet ~10 s à froid → 42 ms. Règles :
+
+- **Plus de `raw->>` dans une lecture chaude** : `external_tickets` porte
+  `deal_channel`, `deal_visibilities`, `seating_type`, `payment_method`,
+  `org_fee` (€), `provider_contact_id`, `provider_user_id`, dérivées de `raw` par
+  le trigger `trg_external_tickets_typed_fields` ET écrites par
+  `mapShotgunTicket`. `_crm_ticket_is_sale(status, deal_channel)` /
+  `_crm_ticket_gl_kind(status, price, deal_channel)` (versions texte) ; les
+  versions `jsonb` restent pour les lectures pas encore migrées (mêmes valeurs).
+- **Jamais une sous-requête par case** sur les billets (`(SELECT sum … WHERE
+  a.ci = g)` dans un `generate_series`) : un `GROUP BY` puis une jointure. Une
+  CTE lue DANS une sous-requête corrélée se pose `MATERIALIZED`, sinon elle est
+  recalculée à chaque ligne.
+- **`_crm_ana_setup` ne construit `_cp` que pour un segment** ; sans segment il
+  construit `_cr` (lu par Trafic). Un écran qui lit `_cp` appelle
+  `_crm_people_build` lui-même (Communauté). Plusieurs bases d'une même portée
+  dans une transaction = la mémoire `yuno.crm_cp_memo` (Clients).
+- **Base des personnes légère** (`_crm_people_build(…, p_light => true)`) :
+  mêmes colonnes, mais source, `utm_*`, profil Shotgun, `area_key`, analyse,
+  notes, messages, guest list (`gl_*`), `tonight`, `upcoming` non calculés et
+  `_cpt` sans index. Seuls Communauté et Clients la prennent ; ne JAMAIS la
+  passer à un écran qui lit une de ces colonnes. Mémoire propre
+  (`yuno.crm_cp_memo_light`), jamais réutilisée par une base complète.
+- **`ticketing_after_sync` est incrémental** : billets `synced_at >
+  post_synced_at − 10 min`, leurs adresses et celles de `ticketing_email_moves`
+  (adresse changée chez la billetterie) ; passe complète par 24 h. **Toute règle
+  changée dans cette fonction remet `post_full_at` à NULL**, sinon elle ne vaut
+  que pour les billets qui bougent.
+- **Cadence (D7)** : un compte Billetterie + CRM synchronise à la cadence de
+  l'offre (15 min, 60 hors offre) ; ses limites restent celles de la Billetterie
+  et sa fin d'essai ne coupe pas la synchro (règle à trancher).
+- **Cache de la base de contacts** : reconstruit si marqué (fichier, engagement,
+  billets via `ticketing_after_sync`) ou vieux de 15 min
+  (`contact_base_cache_due`), et n'écrit que les lignes changées. Le
+  consentement (`email_ok`, `phone_ok`) n'y est jamais lu : `contact_build_rows`
+  le recalcule en direct.
+- **Répéter une réécriture de fonction à temp tables** : jouer l'ancienne puis
+  la nouvelle dans la même transaction laisse à la nouvelle les tables
+  temporaires de l'ancienne (`_cr` a masqué une Trafic cassée le 17/10). Rejouer
+  aussi chaque écran dans une transaction NEUVE avant de dire « identique ».
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un
