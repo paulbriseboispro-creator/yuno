@@ -8,6 +8,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
+import type { SenderReadiness } from '@/crm/lib/emailIdentity';
 import type { ClientFilterDef } from './clients';
 
 /** Une audience de la Console : un segment enregistré ou une définition de filtre. */
@@ -140,6 +141,8 @@ export interface EmailSettings {
   /** Partie avant @ de l'adresse d'envoi (même règle que send-campaign). */
   from_local: string;
   sender_name: string | null;
+  /** Raison sociale de l'expéditeur : elle signe le pied de page. */
+  legal_name: string | null;
   reply_to: string | null;
   postal_address: string | null;
   quiet_hours: boolean;
@@ -147,7 +150,16 @@ export interface EmailSettings {
   notify_done: boolean;
   test_emails: string[];
   updated_at: string | null;
-  defaults: { sender_name: string | null; reply_to: string | null; city: string | null; address: string | null };
+  /** Peut-on envoyer ? La porte unique de la base (_crm_email_identity). */
+  readiness: SenderReadiness;
+  /**
+   * Suggestions tirées du compte, jamais appliquées d'office. L'identité légale
+   * du compte (raison sociale, adresse) n'arrive qu'à qui peut écrire.
+   */
+  defaults: {
+    sender_name: string | null; reply_to: string | null; city: string | null; address: string | null;
+    legal_name?: string | null; legal_address?: string | null;
+  };
 }
 
 export function useEmailSettings() {
@@ -163,7 +175,7 @@ export function useSaveEmailSettings() {
   const { rpc: args, qk } = useCrmScope();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (patch: Partial<Omit<EmailSettings, 'defaults' | 'updated_at'>>) => rpc<EmailSettings>('crm_email_settings_set', { ...args, p_patch: patch }),
+    mutationFn: (patch: Partial<Omit<EmailSettings, 'defaults' | 'updated_at' | 'readiness' | 'from_local'>>) => rpc<EmailSettings>('crm_email_settings_set', { ...args, p_patch: patch }),
     onSuccess: (d) => { qc.setQueryData(['crm', qk, 'emails', 'settings'], d); },
   });
 }

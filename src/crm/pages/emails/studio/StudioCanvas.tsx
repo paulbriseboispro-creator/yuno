@@ -16,6 +16,7 @@ import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { useEmailSettings } from '@/crm/data/emails';
+import { previewIdentity } from '@/crm/lib/emailIdentity';
 import { useStudio, useStudioApi } from '@/components/email-studio/store';
 import BlockRenderer from '@/components/email-studio/blocks/BlockRenderer';
 import { blockBgColor, type CanvasCtx } from '@/components/email-studio/blocks/common';
@@ -56,21 +57,24 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
   const mob = device === 'mobile';
   const theme = campaign.theme;
   const N = campaign.blocks.length;
-  // Le pied de page montre l'adresse réglée dans Réglages d'envoi, comme l'envoi.
+  // Marque, raison sociale et adresse de Réglages › Envoi : le pied de page
+  // et l'en-tête montrent ce que l'envoi rendra (resolveSender, footerSigner).
   const settings = useEmailSettings();
-  const postalAddress = settings.data?.postal_address ?? null;
+  const who = useMemo(() => previewIdentity(settings.data, space.name), [settings.data, space.name]);
+  const postalAddress = who.postalAddress;
   const place = (postalAddress ?? '').trim() || (space.city ?? '').trim();
+  const signer = who.legalName || who.venueName;
 
   const ctx: CanvasCtx = useMemo(() => ({
-    venueName: space.name, logoUrl: space.logoUrl, socialLinks: campaign.socialLinks, live, baseUrl: PUBLIC_BASE_URL, fallbackEventId: campaign.eventId,
+    venueName: who.venueName, logoUrl: space.logoUrl, socialLinks: campaign.socialLinks, live, baseUrl: PUBLIC_BASE_URL, fallbackEventId: campaign.eventId,
     language: campaign.language ?? null,
-  }), [space.name, space.logoUrl, campaign.socialLinks, live, campaign.eventId, campaign.language]);
+  }), [who.venueName, space.logoUrl, campaign.socialLinks, live, campaign.eventId, campaign.language]);
 
   const html = useMemo(() => (preview ? renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
-    venueName: space.name, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type, language: campaign.language ?? null,
+    venueName: who.venueName, legalName: who.legalName, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type, language: campaign.language ?? null,
     subject: campaign.subject, preheader: campaign.preheader, recipient: sampleFor(live), unsubscribeUrl: '#',
     socialLinks: campaign.socialLinks, baseUrl: PUBLIC_BASE_URL, live, ignoreConds: true,
-  }) : ''), [preview, campaign, theme, space, live, postalAddress]);
+  }) : ''), [preview, campaign, theme, space, live, postalAddress, who]);
 
   const openInsert = (i: number) => {
     api.getState().setInsertIndex(i);
@@ -237,9 +241,9 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
               </div>
             )}
             <div style={{ padding: '22px 24px', background: theme.footerBg, textAlign: 'center', borderTop: socialLinks.length ? 'none' : footerBorder, fontFamily: FOOTER_FONT }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6 }}>{space.name}{place ? ` — ${place}` : ''}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6 }}>{signer}{place ? ` — ${place}` : ''}</div>
               <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText }}>Cet email a été envoyé à {SAMPLE.email} car vous êtes abonné à sa newsletter.</div>
-              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText, marginTop: 4 }}>© {new Date().getFullYear()} {space.name}. Tous droits réservés.</div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText, marginTop: 4 }}>© {new Date().getFullYear()} {signer}. Tous droits réservés.</div>
               <div style={{ fontSize: 11.5, marginTop: 8, color: theme.accent, textDecoration: 'underline' }}>Se désabonner</div>
               <div style={{ marginTop: 18 }}>
                 <div style={{ fontFamily: MONO, fontSize: 9.5, lineHeight: '13px', fontWeight: 700, letterSpacing: '0.16em', color: theme.footerText }}>POWERED BY</div>

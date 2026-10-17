@@ -19,7 +19,7 @@ const ICN: Record<SendCheck['level'], [string, string, string]> = {
   info: ['var(--sand-100)', 'var(--sand-600)', 'M12 8h.01M11 12h1v5h1'],
 };
 
-export function CheckStep({ checks, campaignId, dateText, onGo }: { checks: SendCheck[]; campaignId: string; dateText: string; onGo: (step: 'aud' | 'plan') => void }) {
+export function CheckStep({ checks, campaignId, dateText, identityText, onGo }: { checks: SendCheck[]; campaignId: string; dateText: string; identityText: string; onGo: (step: 'aud' | 'plan') => void }) {
   const { t, tp, n } = useCrmT();
   const v = verdict(checks);
   const tone = v.level === 'ok' ? { bg: 'var(--green-50)', bd: '#BFE6CE', fg: 'var(--green-700)', mood: 'ravi' as const }
@@ -33,6 +33,7 @@ export function CheckStep({ checks, campaignId, dateText, onGo }: { checks: Send
     const vars = { ...c.vars, ...(c.vars?.n !== undefined ? { n: typeof c.vars.n === 'number' ? n(c.vars.n) : c.vars.n } : {}), ...(c.vars?.left !== undefined ? { left: n(Number(c.vars.left)) } : {}), ...(c.vars?.miss !== undefined ? { miss: n(Number(c.vars.miss)) } : {}) };
     if (c.id === 'date') return ok ? dateText : t('yc.em.sd.ck.date.ko');
     if (c.id === 'demo') return t('yc.em.sd.ck.demo.ko');
+    if (c.id === 'identity' && !ok) return identityText;
     return t(`yc.em.sd.ck.${c.id}.${ok ? 'ok' : 'ko'}`, vars);
   };
   const fix = (c: SendCheck) => {
@@ -43,6 +44,7 @@ export function CheckStep({ checks, campaignId, dateText, onGo }: { checks: Send
     if (c.fix === 'audience' || c.fix === 'plan') return <Hv as="button" type="button" onClick={() => onGo(c.fix === 'audience' ? 'aud' : 'plan')} style={css} hover={hover}>{label}</Hv>;
     const to = c.fix === 'recharge' ? CRM_ROUTES.yunits
       : c.fix === 'billing' ? CRM_ROUTES.accountSection('billing')
+      : c.fix === 'identity' ? CRM_ROUTES.emailSettings
         : c.fix === 'subject' ? `${CRM_ROUTES.emailStudio(campaignId)}?tab=subject` : CRM_ROUTES.emailStudio(campaignId);
     return <Hv as={Link} to={to} style={css} hover={hover}>{label}</Hv>;
   };

@@ -9,6 +9,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
+import { isIdentityRefusal, readSendCampaignError } from '@/crm/lib/emailIdentity';
 import { useCrmScope } from '@/crm/scope';
 import { buildCrmTemplate, type CrmTemplateKind } from '@/crm/lib/emailTemplates';
 import { stripEventBindings, templateContentToRow } from '@/lib/email/templates';
@@ -215,19 +216,22 @@ export function useScenarioEmailTemplates() {
   });
 }
 
-/** `code` quand le test n'est pas parti : 'demo' (compte de démonstration) ou 'failed'. */
-export interface ScnTestResult { ok: boolean; code?: 'demo' | 'failed' }
+/**
+ * `code` quand le test n'est pas parti : 'demo' (compte de démonstration),
+ * 'identity' (identité de l'expéditeur incomplète, Réglages › Envoi) ou 'failed'.
+ */
+export interface ScnTestResult { ok: boolean; code?: 'demo' | 'identity' | 'failed' }
 
 /** Test gratuit d'un e-mail de scénario (au titulaire et aux adresses de test). */
 export async function testScenarioEmail(scenarioId: string, nodeId: string, eventId: string | null): Promise<ScnTestResult> {
   const { data, error } = await supabase.functions.invoke('send-campaign', {
     body: { send_test: true, scenario_id: scenarioId, node_id: nodeId, event_id: eventId },
   });
-  const code = (data as { code?: string } | null)?.code;
-  const status = (error as { context?: { status?: number } } | null)?.context?.status;
-  if (code === 'demo_no_send' || status === 409) return { ok: false, code: 'demo' };
-  if (error) return { ok: false, code: 'failed' };
-  return { ok: true };
+  if (!error) return { ok: true };
+  const { text } = await readSendCampaignError(error, data);
+  if (text.includes('demo_no_send')) return { ok: false, code: 'demo' };
+  if (isIdentityRefusal(text)) return { ok: false, code: 'identity' };
+  return { ok: false, code: 'failed' };
 }
 
 /** Test gratuit d'un SMS de scénario (numéro de test des Réglages SMS, sinon celui du compte). */
