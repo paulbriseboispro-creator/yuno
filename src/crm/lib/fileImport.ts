@@ -17,10 +17,12 @@ import type { Gender } from '@/lib/contactImport';
  * dépensé, nombre de soirées, dernier achat et première venue sont
  * l'historique du client : ils comptent dans son cycle de vie
  * (_crm_people_build, sans jamais doubler ce que Shotgun rapporte).
+ * Le statut d'abonnement n'est pas importé : il écarte les personnes qui
+ * ont dit non (export Brevo, Mailchimp, Shotgun avec sa colonne newsletter).
  */
 export type ColField = 'email' | 'tel' | 'prenom' | 'nom' | 'ville' | 'cp' | 'pays' | 'age' | 'naissance' | 'genre'
-  | 'depense' | 'soirees' | 'dernier' | 'premier' | 'skip';
-export const COL_FIELDS: ColField[] = ['email', 'tel', 'prenom', 'nom', 'ville', 'cp', 'pays', 'age', 'naissance', 'genre', 'depense', 'soirees', 'dernier', 'premier', 'skip'];
+  | 'depense' | 'soirees' | 'dernier' | 'premier' | 'statut' | 'skip';
+export const COL_FIELDS: ColField[] = ['email', 'tel', 'prenom', 'nom', 'ville', 'cp', 'pays', 'age', 'naissance', 'genre', 'depense', 'soirees', 'dernier', 'premier', 'statut', 'skip'];
 export const MAX_LINES = 50_000;
 export const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -118,14 +120,35 @@ export async function readContactFile(file: File): Promise<ParsedFile> {
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+/** En-tête qui nomme un refus : une valeur VRAIE dans cette colonne veut dire « désabonné ». */
+const NEG_HEAD = /blacklist|blocklist|liste noire|lista negra|unsubscri|desabonn|desinscri|opt[ _-]?out|baja|bloqu/;
+/** En-tête qui nomme un accord : une valeur FAUSSE dans cette colonne veut dire « désabonné ». */
+const POS_HEAD = /newsletter|opt[ _-]?in|subscri|abonn|suscri|consent/;
+const TRUE_V = /^(1|true|vrai|yes|oui|si|y|o|x)$/;
+const FALSE_V = /^(0|false|faux|no|non|n)$/;
+/** Une valeur qui dit d'elle-même le refus, quel que soit l'en-tête. */
+const NEG_V = /unsubscri|desabonn|desinscri|blacklist|blocklist|bloqu|opt[ _-]?out|baja|bounce|non[ -]?abonn|not[ _-]?subscri|no[ _-]?suscri/;
+
+/** Une cellule de la colonne de statut dit-elle que la personne a refusé ? Vide = rien de dit. */
+export function isOptedOut(head: string, value: string): boolean {
+  const v = norm(String(value ?? '').trim());
+  if (!v) return false;
+  if (NEG_V.test(v)) return true;
+  return NEG_HEAD.test(norm(head ?? '')) ? TRUE_V.test(v) : FALSE_V.test(v);
+}
+
 /** Devine le champ de chaque colonne (un champ ne sert qu'une fois). */
 export function autoMap(head: string[], rows: string[][] = []): ColField[] {
   const used = new Set<ColField>();
   const map = head.map((h): ColField => {
     const s = norm(h);
     let k: ColField = 'skip';
+    // Une date de modification n'est ni un nom ni un achat (« Last Changed », « Dernière modification » de Brevo).
+    if (/modif|changed|updated|update[ _-]?(at|time|date)|mise? a jour|actualiz/.test(s)) k = 'skip';
+    // Le statut d'abonnement à l'e-mail, jamais celui du SMS ni une date d'abonnement.
+    else if (!/sms|whatsapp|tel|phone|date|time|heure|fecha/.test(s) && (NEG_HEAD.test(s) || POS_HEAD.test(s))) k = 'statut';
     // Les dates d'historique d'abord : « Last purchase » n'est pas un nom, « First order » pas un prénom.
-    if (/^dernier|^derniere|last[ _-]?(purchase|order|event|visit|seen|activity|ticket)|ultim/.test(s)) k = 'dernier';
+    else if (/^dernier|^derniere|last[ _-]?(purchase|order|event|visit|seen|activity|ticket)|ultim/.test(s)) k = 'dernier';
     else if (/premier achat|premiere (venue|visite|commande)|first[ _-]?(purchase|order|visit|event)|^ajoute|^added|^created|creation|inscri|sign[ _-]?up|^alta|primera/.test(s)) k = 'premier';
     // « Nombre » est un PRÉNOM en espagnol : avant /^nom/, qui le prenait pour un nom.
     else if (/prenom|first|given|^nombre$/.test(s)) k = 'prenom';
@@ -181,6 +204,8 @@ export interface Analysis {
   exist: (FileLine & { by: 'email' | 'tel'; who: string })[];
   dup: { line: number; name: string; other: number; by: 'email' | 'tel' }[];
   bad: { line: number; name: string; why: 'email' | 'tel' | 'none'; value: string }[];
+  /** Désabonnés d'après la colonne de statut : jamais envoyés au serveur. */
+  out: { line: number; name: string; value: string }[];
   emails: string[];
   phones: string[];
 }
@@ -201,11 +226,24 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
   const iS = map.indexOf('soirees');
   const iL = map.indexOf('dernier');
   const iF = map.indexOf('premier');
+  const iO = map.indexOf('statut');
   const get = (r: string[], j: number) => (j >= 0 ? String(r[j] ?? '').trim() : '');
   const lines: FileLine[] = [];
   const dup: Analysis['dup'] = [];
   const bad: Analysis['bad'] = [];
+  const out: Analysis['out'] = [];
   const seen = new Map<string, number>();
+  // Une personne désabonnée sur UNE de ses lignes est écartée de toutes : un refus gagne.
+  const refused = new Set<string>();
+  if (iO >= 0) {
+    for (const r of file.rows) {
+      if (!isOptedOut(file.head[iO] ?? '', get(r, iO))) continue;
+      const e = normEmail(get(r, iE));
+      const t = get(r, iT) ? normTel(get(r, iT)) : null;
+      if (e && isValidEmail(e)) refused.add(`e:${e}`);
+      if (t) refused.add(`t:${t}`);
+    }
+  }
   const profileOf = (r: string[]): Partial<FileLine> => {
     const out: Partial<FileLine> = {};
     const cp = get(r, iC);
@@ -242,6 +280,10 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
     const keys: string[] = [];
     if (eOk) keys.push(`e:${e}`);
     if (t) keys.push(`t:${t}`);
+    if (keys.some((k) => refused.has(k))) {
+      out.push({ line, name, value: get(r, iO) });
+      return;
+    }
     const hit = keys.find((k) => seen.has(k));
     if (hit) {
       dup.push({ line, name, other: seen.get(hit) as number, by: hit.startsWith('e') ? 'email' : 'tel' });
@@ -252,7 +294,7 @@ export function prepareLines(file: ParsedFile, map: ColField[]) {
     lines.push({ line, name, email: eOk ? e : null, phone: t, first_name: first, last_name: last, city: get(r, iV) || null, ...profileOf(r) });
   });
   return {
-    lines, dup, bad,
+    lines, dup, bad, out,
     emails: Array.from(new Set(lines.map((l) => l.email).filter((x): x is string => !!x))),
     phones: Array.from(new Set(lines.map((l) => l.phone).filter((x): x is string => !!x))),
   };
@@ -277,7 +319,7 @@ export function splitWithBase(
       exist.push({ ...l, by: mE ? 'email' : 'tel', who });
     } else fresh.push(l);
   }
-  return { fresh, exist, dup: prep.dup, bad: prep.bad, emails: prep.emails, phones: prep.phones };
+  return { fresh, exist, dup: prep.dup, bad: prep.bad, out: prep.out, emails: prep.emails, phones: prep.phones };
 }
 
 /** Une ligne pour import_contact_list. */
