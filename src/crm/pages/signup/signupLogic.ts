@@ -116,7 +116,9 @@ export function fillWz(wz: Wz, nights: NightRow[], host: string, t: T, lang: Lan
   return o;
 }
 
+/** Ce que le fan reçoit, ou '' quand la page ne promet rien (récompense éteinte). */
 export function rewardFanText(r: SignupReward, t: T): string {
+  if (!r.on) return '';
   if (r.preset === 'custom') return r.label || t('yc.sp.rw.customFan');
   return t(`yc.sp.rw.${r.preset}.fan`);
 }
@@ -189,7 +191,8 @@ export interface RelanceCtx { kind: SignupKind; title: string; host: string; lan
 /** Le message par défaut d'une étape (« {prénom} » reste à remplacer). */
 export function defaultRelanceMsg(step: RelanceStepId, c: Omit<RelanceCtx, 'accent' | 'ctaUrl' | 'logo'>): string {
   const vars = { title: c.title, club: c.host, at: venueAt(c.host, c.lang), of: venueOf(c.host, c.lang), reward: c.reward };
-  if (step === 'open') return c.t(`yc.sp.ty.${c.kind}.msg`, vars);
+  // Une communauté sans récompense n'en promet aucune (« {reward} » serait vide).
+  if (step === 'open') return c.t(c.kind === 'communaute' && !c.reward ? 'yc.sp.ty.communaute.msgPlain' : `yc.sp.ty.${c.kind}.msg`, vars);
   return c.t(step === 'nudge' ? 'yc.sp.rl.nudgeMsg' : 'yc.sp.rl.lastMsg', vars);
 }
 
