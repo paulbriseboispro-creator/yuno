@@ -771,6 +771,36 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   FAQ `yc.faq.*` (Compte › Aide), article `ohelp.crm.*` pour la Suite, et les
   articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
   (redéployer `owner-assistant` après modification).
+- **Aucun e-mail CRM ne part sans l'identité de l'expéditeur** (2026-10-18,
+  migration `20261019103000`, constaté sur Amoris × Shotgun de WOH : un envoi
+  serait parti « Amoris » sans adresse postale à 299 personnes qui avaient dit
+  oui à WOH). Porte unique `_crm_email_identity(venue, orga)` (lecture Console
+  `crm_email_sender_readiness`, `crm_email_settings_get.readiness`), miroir des
+  règles de champ `src/crm/lib/emailIdentity.ts` (testé) : nom d'expéditeur
+  (2-60), raison sociale (`crm_email_settings.legal_name`, 2-160), adresse
+  postale (≥ 10 caractères, un chiffre, deux lettres) et Conditions CRM + DPA
+  acceptées par le TITULAIRE (`legal_acceptances`, démo exemptée). La raison
+  sociale vit dans `crm_email_settings`, JAMAIS dans `organizer_profiles.legal_name`
+  / `venues.legal_name` (le vendeur des reçus de la Billetterie) : l'identité du
+  compte n'est qu'une suggestion (« Utiliser … »), jamais recopiée d'office, et
+  l'agent n'écrit jamais ces réglages à la place du pro. Garde
+  `trg_guard_crm_sender_identity` (passage en `sending` / `scheduled` d'une
+  campagne CRM) : campagne manuelle refusée (`crm_sender_identity`), enfant
+  (automatisation, scénario, page, renvoi, relance) mis en pause
+  (`paused_reason = 'sender_identity'`), repris par `_crm_email_identity_resume`
+  dès que l'identité est complète (Réglages › Envoi ou acceptation des
+  conditions, trigger sur `legal_acceptances`), annulé si sa soirée a commencé.
+  `send-campaign` refuse test et mise en file en 402 `crm_sender_identity`
+  (`missing`), lit Réglages › Envoi pour les seules campagnes CRM (une
+  campagne Billetterie d'un compte qui a aussi le CRM garde l'identité du
+  compte), et le nom affiché devient la marque du corps ; le pied de page est
+  signé par la raison sociale (`legalName`, `footerSigner` ⇄ port Deno). Une
+  recette réglée dans la Console CRM porte `email_automations.product = 'crm'`
+  (`crm_automation_save`) et ses e-mails en héritent à l'insertion
+  (`trg_a_email_automation_child_product`) : sur un compte Billetterie + CRM,
+  ses e-mails étaient classés Billetterie (identité du compte, pas de Yunits,
+  pas de garde). Aide : FAQ `yc.faq.sender.*`, article assistant
+  `crm-sender-identity`.
 - **SMS OUVERT dans Yuno CRM depuis le 2026-10-08** (décision de Paul), par la route opérateurs française d'Octopush (plan `docs/designs/SMS_PROVIDER_PLAN.md`, état du 04/10 dans `docs/designs/CRM_SMS_PLAN.md`) ; la garde « Bientôt » du 05/10 (`CRM_SMS_DISPLAY_LIVE`, `SmsSoonPage`, `crm_sms_not_open`) est levée. 35 Yunits par segment en France, 70 vers un numéro étranger (`crm_pricing.rates.sms` / `sms_intl`, jamais en dur au front ; replis `?? 35` / `?? 70`) : la zone se lit sur le numéro AVANT l'envoi (`smsTariffZone` ⇄ SQL `sms_tariff_zone` : `+33` = France, `+1` = jamais mis en file, le reste = étranger, outre-mer compris tant que la grille Octopush n'est pas lue), le débit se fait par lot et par zone, l'aperçu rend `net_intl`. Chaque STOP garde son club et son SMS (`sms_stop_list.scope_key`, `campaign_id`, via le ticket du webhook) : base du STOP par club, qui attend les sous-comptes Octopush (questions posées par Paul le 08/10). Expéditeur alphanumérique de 3 à 11 caractères (`crm_sms_settings`) ; mention « STOP au 30101 » ajoutée par le moteur, jamais retirable ; identité légale de l'expéditeur (raison sociale + SIRET / RNA / TVA) exigée avant tout envoi (`get_sms_sender_readiness`) ; SMS de test gratuit ; heures calmes de `crm_sms_settings` plus un plancher dur 21 h 30 → 8 h qu'aucun réglage ne lève. Envoi : « Maintenant » = `send-sms-campaign` (mise en file `_enqueue_crm_sms_recipients`, même règle que `crm_sms_audience_preview`, Yunits débités par lot) ; « Programmer » = `crm_sms_schedule` (identité vérifiée), annulable (`crm_sms_unschedule`) ; lien de soirée court `yunoapp.eu/go/<code>` (`ensure_crm_sms_link`, source Shotgun `yuno-s-<code>`). Les relances SMS et le recueil du numéro des PAGES D'INSCRIPTION restent « Bientôt » (`CRM_SMS_SIGNUP_LIVE = false` : `crm_signup_sends` note sans envoyer, le numéro n'entre pas au registre SMS). `SMS_MARKETING_LIVE` (SMS de la Suite) reste FAUX.
 - **Pages d'inscription** (v2 du 05/10, plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`,
   migrations `20261007193500` + `194500`) : reproduites À L'IDENTIQUE du design

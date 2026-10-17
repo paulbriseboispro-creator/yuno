@@ -26,6 +26,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'sync', c: 'start' },
   { id: 'import', c: 'clients', to: CRM_ROUTES.imports },
   { id: 'cost', c: 'yunits', to: CRM_ROUTES.yunits },
+  // Rien ne part sans l'identité de l'expéditeur (Réglages › Envoi).
+  { id: 'sender', c: 'start', to: CRM_ROUTES.emailSettings },
   { id: 'order', c: 'yunits', to: CRM_ROUTES.yunits },
   { id: 'skip', c: 'yunits' },
   { id: 'regular', c: 'clients', to: CRM_ROUTES.clients },
