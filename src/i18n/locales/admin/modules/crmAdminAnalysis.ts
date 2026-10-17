@@ -21,7 +21,9 @@ const dict: AdminDict = {
   'adm.crm.an.cov.zip': ['Sales with postal code', 'Ventes avec code postal', 'Ventas con código postal'],
   'adm.crm.an.cov.multi': ['Orders with several tickets', 'Commandes de plusieurs billets', 'Pedidos con varias entradas'],
   'adm.crm.an.cov.holders': ['…with different holders', '…à détenteurs différents', '…con titulares distintos'],
-  'adm.crm.an.cov.promo': ['Promoter-only rates', 'Tarifs réservés aux promoteurs', 'Tarifas solo para promotores'],
+  // Part des ventes dont le tarif est VISIBLE des promoteurs (`deal_visibilities`),
+  // pas des ventes faites par un promoteur : Shotgun ne rend pas le vendeur.
+  'adm.crm.an.cov.promo': ['Sales on rates open to promoters', 'Ventes sur des tarifs ouverts aux promoteurs', 'Ventas con tarifas abiertas a promotores'],
   'adm.crm.an.cov.scan': ['Tickets scanned', 'Billets scannés', 'Entradas escaneadas'],
   'adm.crm.an.cov.places': ['Place types seen: {list}', 'Types de lieu vus : {list}', 'Tipos de lugar vistos: {list}'],
   'adm.crm.an.fams': ['Families on this account', 'Familles sur ce compte', 'Familias en esta cuenta'],
