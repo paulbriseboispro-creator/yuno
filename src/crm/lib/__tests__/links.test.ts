@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   LINK_KINDS, bestLink, buildGoDestination, findKind, goDisplay, goUrl, groupSources, linkConversion,
-  linkState, nextIndex, reusableLink, saleSourceText, sourceKind, type NightLink,
+  linkState, nextIndex, reusableLink, saleSourceText, sourceFamily, sourceHost, sourceKind, sourceName, type NightLink,
 } from '../links';
 
 const link = (o: Partial<NightLink>): NightLink => ({
@@ -58,6 +58,119 @@ describe('liens de soirée', () => {
     expect(sourceKind('linktr.ee')).toBe('site');
     expect(sourceKind(null)).toBe('offline');
     expect(sourceKind('')).toBe('offline');
+  });
+
+  // MÊME jeu que la vérification SQL de `_crm_ticket_source` (migration
+  // 20261018100000) : valeurs réelles de utm_source vues le 17/10/2026, puis
+  // les cas qui testent l'ordre des règles. Les deux côtés doivent rendre
+  // exactement ces familles.
+  it('classe chaque utm_source Shotgun comme le SQL', () => {
+    const cases: [string, string][] = [
+    ["direct", 'di'],
+    ["shotgun", 'sg'],
+    ["instagram.com", 'so'],
+    ["instagram", 'so'],
+    ["ig", 'so'],
+    ["yuno", 'em'],
+    ["tiktok", 'so'],
+    ["facebook.com", 'so'],
+    ["ezapv.r.ag.d.sendibm3.com", 'ex'],
+    ["t4bs.app.link", 'au'],
+    ["l.instagram.com", 'so'],
+    ["google", 'se'],
+    ["shotgun-email", 'ex'],
+    ["snapchat", 'so'],
+    ["ezapv.r.a.d.sendibm1.com", 'ex'],
+    ["lumea-community", 'au'],
+    ["chatgpt.com", 'se'],
+    ["gifhi.r.ag.d.sendibm3.com", 'ex'],
+    ["m.facebook.com", 'so'],
+    ["facebook", 'so'],
+    ["www.google.fr", 'se'],
+    ["l.facebook.com", 'so'],
+    ["outlook.live.com", 'ex'],
+    ["snapchat.com", 'so'],
+    ["www.google.com", 'se'],
+    ["cysoh.r.ah.d.sendibm5.com", 'ex'],
+    ["bio.site", 'au'],
+    ["zimbra.free.fr", 'ex'],
+    ["spiritobrussels.com", 'au'],
+    ["da11v.r.sp1-brevo.net", 'ex'],
+    ["linktr.ee", 'au'],
+    ["boccamar.com", 'au'],
+    ["bandsintown", 'au'],
+    ["newsletter", 'ex'],
+    ["post-feed-ig", 'so'],
+    ["www.google.co.uk", 'se'],
+    ["appleid.apple.com", 'au'],
+    ["maitrey", 'au'],
+    ["localhost", 'au'],
+    ["arc.net", 'au'],
+    ["mail02.orange.fr", 'ex'],
+    ["petitbain.org", 'au'],
+    ["lm.facebook.com", 'so'],
+    ["com.snapchat.android", 'so'],
+    ["mailing-list", 'ex'],
+    ["songkick", 'au'],
+    ["google.fr", 'se'],
+    ["preview.mailerlite.io", 'ex'],
+    ["https://www.google.com/", 'se'],
+    ["itainparis", 'au'],
+    ["tickets-ens-paris", 'au'],
+    ["fb", 'so'],
+    ["sponso", 'au'],
+    ["smartboard.shotgun.live", 'sg'],
+    ["l.messenger.com", 'so'],
+    ["internal", 'au'],
+    ["partiful.com", 'au'],
+    ["www.snapchat.com", 'so'],
+    ["alohafind.com", 'au'],
+    ["app.link", 'au'],
+    ["lanuit.club", 'au'],
+    ["spotify", 'au'],
+    ["", 'of'],
+    ["  ", 'of'],
+    ["yuno-m-1a2b3c4d", 'em'],
+    ["yuno-s-1a2b3c4d", 'sm'],
+    ["yuno-d-1a2b3c4d", 'dm'],
+    ["yuno-k5s54beg", 'yl'],
+    ["X", 'so'],
+    ["x.com", 'so'],
+    ["t.co", 'so'],
+    ["https://t.co/abc", 'so'],
+    ["mail.google.com", 'ex'],
+    ["android-app://com.google.android.gm", 'ex'],
+    ["android-app://com.google.android.googlequicksearchbox", 'se'],
+    ["us12.list-manage.com", 'ex'],
+    ["e-mail", 'ex'],
+    ["bing.com", 'se'],
+    ["claude.ai", 'se'],
+    ["perplexity.ai", 'se'],
+    ["claude-promo", 'au'],
+    ["big-event", 'au'],
+    ["googleusercontent.com", 'au'],
+    ["https://", 'au'],
+    ["Instagram.com/stories", 'so'],
+    ["whatsapp", 'so'],
+    ["wa.me", 'so'],
+    ];
+    for (const [src, fam] of cases) expect([src, sourceFamily(src)]).toEqual([src, fam]);
+  });
+
+  it('lit le domaine nu et donne un nom lisible', () => {
+    expect(sourceHost('https://www.google.com/search?q=club')).toBe('google.com');
+    expect(sourceHost('lm.facebook.com')).toBe('facebook.com');
+    expect(sourceName('ezapv.r.ag.d.sendibm3.com')).toBe('Brevo');
+    expect(sourceName('l.instagram.com')).toBe('Instagram');
+    expect(sourceName('com.snapchat.android')).toBe('Snapchat');
+    expect(sourceName('chatgpt.com')).toBe('ChatGPT');
+    expect(sourceName('linktr.ee')).toBe('linktr.ee');
+  });
+
+  it('range les e-mails d’autres outils et la recherche à part', () => {
+    expect(sourceKind('ezapv.r.ag.d.sendibm3.com')).toBe('extmail');
+    expect(sourceKind('www.google.fr')).toBe('search');
+    expect(sourceKind('instagram.com')).toBe('social');
   });
 
   it('regroupe les sources sans perdre un billet', () => {
