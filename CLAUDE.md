@@ -1506,8 +1506,8 @@ Plan : `CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md` (S4). Migrations `20261018200000` →
   `org_fee` (€), `provider_contact_id`, `provider_user_id`, dérivées de `raw` par
   le trigger `trg_external_tickets_typed_fields` ET écrites par
   `mapShotgunTicket`. `_crm_ticket_is_sale(status, deal_channel)` /
-  `_crm_ticket_gl_kind(status, price, deal_channel)` (versions texte) ; les
-  versions `jsonb` restent pour les lectures pas encore migrées (mêmes valeurs).
+  `_crm_ticket_gl_kind(status, price, deal_channel)` ; les versions `jsonb` sont
+  SUPPRIMÉES depuis S5 (section suivante) : `raw` ne porte plus le canal.
 - **Jamais une sous-requête par case** sur les billets (`(SELECT sum … WHERE
   a.ci = g)` dans un `generate_series`) : un `GROUP BY` puis une jointure. Une
   CTE lue DANS une sous-requête corrélée se pose `MATERIALIZED`, sinon elle est
@@ -1539,6 +1539,55 @@ Plan : `CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md` (S4). Migrations `20261018200000` →
   la nouvelle dans la même transaction laisse à la nouvelle les tables
   temporaires de l'ancienne (`_cr` a masqué une Trafic cassée le 17/10). Rejouer
   aussi chaque écran dans une transaction NEUVE avant de dire « identique ».
+
+## Yuno CRM — le billet brut sans coordonnée, et l'effacement venu de Shotgun (2026-10-18)
+
+Plan : `CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md` (S5). Migrations `20261019300000`
+(minimisation) et `20261019310000` (effacement). `external_tickets.raw`
+recopiait tout le billet Shotgun, coordonnées comprises : 66 Mo de JSON pour
+56 000 billets. Après rattrapage et réécriture : `raw` 5,5 Mo, table 184 →
+40 Mo, base 753 → 609 Mo, les 40 écrans du banc Amoris identiques (md5) et sous
+3 s. Règles :
+
+- **Pas de coordonnée dans `raw`, ni de champ extrait.** Règle unique
+  `minimizeTicketRaw` / `rawKeyDropped` (`_shared/ticketing-shotgun.ts`) ⇄
+  `ticketing_minimize_raw` / `_ticketing_raw_key_dropped` (SQL, liste des clés
+  relue par le test) : retirés tout champ rangé en colonne (noms documentés et
+  de repli), la soirée (`event_*`, elle vit dans `external_events`), le QR, et
+  toute clé qui désigne une personne (préfixe `contact_`, `buyer_`, `holder_`,
+  `user_`… ou mot e-mail, téléphone, nom, naissance, adresse, code postal,
+  ville, société, IP, genre, âge, en snake_case comme en camelCase). Restent
+  `deal_sub_category`, `deal_vat_rate`, `deal_producer_cost`, `ticket_seating`
+  et toute clé nouvelle qui ne désigne personne. Le trigger
+  `trg_external_tickets_typed_fields` l'applique à TOUTE écriture de `raw`,
+  après avoir dérivé les colonnes typées : un ancien connecteur, un script de
+  démo ou un `INSERT … raw` à la main est réduit aussi. Les CLÉS vues (jamais
+  les valeurs) s'accumulent dans `ticketing_connections.schema_sample.ticket_keys`
+  (`mergeSchemaKeys`) : c'est là qu'un champ nouveau de Shotgun se voit.
+- **Aucune RPC ne lit `raw`.** Un besoin nouveau tiré du billet = une colonne
+  (ajoutée au trigger, à `mapShotgunTicket` et à `RAW_EXTRACTED_KEYS`), jamais
+  un `raw->>`. Les versions `jsonb` de `_crm_ticket_is_sale` /
+  `_crm_ticket_gl_kind` n'existent plus : une fonction recopiée d'une vieille
+  migration qui passe encore `t.raw` lève une erreur au lieu de compter une
+  invitation comme une vente. Une telle réécriture se fait depuis
+  `pg_get_functiondef` de la prod (la migration 300000 l'a fait par un
+  `DO` qui réécrit chaque définition en base et échoue s'il reste une lecture).
+- **Un contact effacé chez la billetterie sort de chez Yuno.** Un billet que le
+  connecteur rend SANS e-mail alors qu'il en avait un (droit à l'oubli exercé
+  chez Shotgun) : le trigger `trg_external_tickets_provider_erasure` (écriture
+  du connecteur seulement, `synced_at` avance) efface le reste de l'identité du
+  billet et met l'ancienne adresse dans `ticketing_erasures` ;
+  `ticketing_apply_erasures` (appelée par `ticketing_after_sync`, jamais
+  bloquante) supprime, si l'adresse n'a plus AUCUN billet nominatif dans la
+  portée, profil d'analyse, file de recalcul, chances de venir, ligne du cache
+  de contacts et accord ACTIF versé par la billetterie (retrait tracé
+  `connector_contact_erased`), et pose `email_opt_outs` raison `erased` : ni un
+  import, ni la synchro, ni une page d'inscription ne la réinscrivent. Un accord
+  donné ailleurs (page, fichier attesté) n'est pas touché. Un effacement fait
+  DANS Yuno reste `_crm_erase_contacts` (il efface aussi `provider_contact_id` /
+  `provider_user_id`). Limite connue : Shotgun ne documente pas l'anonymisation ;
+  si elle ne fait pas avancer `ticket_updated_at`, le billet ne revient jamais
+  par le curseur et rien ne se déclenche.
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
