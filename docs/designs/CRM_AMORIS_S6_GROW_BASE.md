@@ -12,7 +12,7 @@
 
 | Quoi | Où | État |
 |---|---|---|
-| Page d'inscription « La liste Club Sonore & Friends » (Communauté, FR, prénom + e-mail, affiche, encart « Prochaine soirée », après inscription un bouton « Prendre mon entrée » vers Shotgun) | [Console](https://crm.yunoapp.eu/crm/signup-pages/7b09175a-e458-4592-96b3-1e882211b481/edit) — adresse publique une fois publiée : `crm.yunoapp.eu/j/la-liste-club-sonore-friends` | brouillon, **ne pas publier avant la décision n°1** |
+| Page d'inscription « La liste Club Sonore & Friends » (Communauté, FR, prénom + e-mail, affiche, encart « Prochaine soirée », après inscription un bouton « Prendre mon entrée » vers Shotgun) | [Console](https://crm.yunoapp.eu/crm/signup-pages/7b09175a-e458-4592-96b3-1e882211b481/edit) — adresse publique une fois publiée : `crm.yunoapp.eu/j/la-liste-club-sonore-friends` | brouillon, à publier une fois Réglages › Envoi rempli |
 | E-mail « Annonce » (J-7, jeudi 22/10) | [Studio](https://crm.yunoapp.eu/crm/emails/studio/d14f24cc-382f-402c-85a6-899303d32d06) | brouillon, 299 destinataires aujourd'hui |
 | E-mail « Dernier appel » (J-2, mardi 27/10, sans ceux qui ont déjà leur entrée) | [Studio](https://crm.yunoapp.eu/crm/emails/studio/819f3e24-eff9-47ce-809a-f42e3fe05552) | brouillon, 297 destinataires aujourd'hui |
 | Liens `/go/` de la soirée | Soirée › onglet « Liens de partage » | créés, inertes tant qu'ils ne sont pas postés |
@@ -107,23 +107,16 @@ recalcul (299 → 300, recalcul 1,6 s). Rien n'est resté en base.
 
 ## 4. Décisions avant de publier la page ou d'envoyer
 
-1. **Le nom.** La case d'accord de la page dirait « Je veux être prévenu(e) par
-   **Amoris** des prochaines soirées », le pied des e-mails « **Amoris** — Madrid »
-   et « © 2026 Amoris ». Les 299 ont dit oui à l'organisateur que Shotgun affiche
-   « Club Sonore ». Réglages › Envoi (nom d'expéditeur, adresse postale) ne change
-   que le champ « De : » et l'adresse du pied de page, PAS le nom du pied de page
-   ni celui de la case d'accord (ils viennent du nom public de l'organisation).
-   Options :
-   - **(recommandé)** petite correction : la page et le pied de page prennent le
-     nom d'expéditeur des Réglages d'envoi quand il est rempli
-     (`get_crm_signup_page`, kit MCP, `send-campaign`). Migration + fonction edge :
-     à faire par S3 (identité de l'expéditeur) ou ici, une fois les migrations de
-     S1 / S4 passées.
-   - renommer l'espace Amoris : non, ça change la Billetterie d'Amoris à Madrid
-     (House Of Masquerade le 28/10).
-   - garder « Amoris » : déconseillé, ces personnes ne connaissent pas Amoris.
-   Et choisir le nom : « WOH » (D1 du plan) ou « Club Sonore » (ce que Shotgun leur
-   a montré) ; c'est le même nom partout (expéditeur, page, pied de page).
+1. **Le nom — réglé le 17/10 (choix de Paul).** La page `/j/` (case d'accord,
+   pied de page, e-mail de confirmation, relances) et le kit MCP prennent le **nom
+   d'expéditeur** de Réglages › Envoi quand il est rempli (migration
+   `20261019120000`, en prod ; Console : `useSignupHost`). Le pied des e-mails est
+   signé par la **raison sociale** (S3, `footerSigner`). Il reste à Paul de
+   remplir Réglages › Envoi d'Amoris : nom d'expéditeur (« WOH » ou « Club
+   Sonore », ce que Shotgun leur a montré), raison sociale et adresse postale de
+   WOH. Tant que ce n'est pas fait, la page dit encore « Amoris » et S3 bloque
+   l'envoi. Le logo, la ville et l'Instagram de la page restent ceux d'Amoris (la
+   page sur mesure du 29/10 ne les affiche pas).
 2. **« FESTIV DINNER : Gratuit »** apparaît dans les tarifs des deux e-mails
    (tarif à 0 € chez Shotgun). Si le dîner se paie sur place, le décrocher dans le
    bloc Billetterie du Studio, sinon on promet un dîner gratuit.
@@ -142,37 +135,37 @@ recalcul (299 → 300, recalcul 1,6 s). Rien n'est resté en base.
 | `80103c2d` | La CSP de yunoapp.eu / crm.yunoapp.eu bloquait `assets.shotgun.live` | les 281 affiches de la vraie connexion invisibles dans la Console (Soirées, Studio) et sur une page `/j/` ; la démo, hébergée chez nous, ne le montrait pas |
 | `7e4a96bd` | Import d'un export Brevo : « Last Changed » devenait le NOM, « Dernière modification » le DERNIER ACHAT ; la colonne de désinscription était ignorée | noms remplacés par des dates, cycle de vie faussé, désabonnés de Brevo importés comme consentants |
 | `39f465c6` | Aide CRM et assistant | la règle est dite (FAQ ×3, article `crm-segments`) |
+| `ed31995d` | Page `/j/`, confirmation, relances, kit MCP : le nom d'expéditeur des Réglages d'envoi, plus « Amoris » (migration `20261019120000`, appliquée) | les fans lisaient « prévenu(e) par Amoris » |
 | `8f63c587` | Page Communauté sans récompense : `rewardFanText` ignorait l'interrupteur | message de bienvenue promettant « une boisson offerte à la porte », confirmation « Ta récompense t'attend » |
 
 ### Pour Paul (pas petit, ou décision)
 
-1. Le nom de l'espace dans la case d'accord et le pied de page (décision n°1).
-2. Une seule attestation pour e-mail ET SMS à l'import : un pro qui a l'accord
+1. Une seule attestation pour e-mail ET SMS à l'import : un pro qui a l'accord
    e-mail de sa liste Brevo atteste aussi le SMS s'il garde la colonne téléphone.
    À séparer (deux cases).
-3. L'import ne demande pas d'où vient l'accord (formulaire, achat, Brevo) :
+2. L'import ne demande pas d'où vient l'accord (formulaire, achat, Brevo) :
    `consent_source = 'other'` pour tout import CRM, preuve plus faible que celle
    de l'import de la Billetterie.
-4. Après un import, « Voir mes clients » est proposé tout de suite, mais un compte
+3. Après un import, « Voir mes clients » est proposé tout de suite, mais un compte
    de plus de 3 000 contacts ne voit les nouveaux qu'après le recalcul (≤ 5 min).
    Le dire à l'écran, ou recalculer à la fin de l'import (1,6 s sur Amoris). À
    voir avec S4, qui réécrit `contact_base_cache_refresh` : un import doit rester
    recalculé.
-5. Prix d'appel : `priceFromLabel` dit « À partir de 10 € » quand une entrée
+4. Prix d'appel : `priceFromLabel` dit « À partir de 10 € » quand une entrée
    gratuite est ouverte (le plus petit prix PAYANT gagne). Même règle que les
    pages publiques ; sur ce compte (79 % de billets gratuits) c'est trompeur. Les
    deux brouillons ne s'en servent pas.
-6. Une soirée Shotgun n'a pas de nom de lieu (`event.venue` = l'adresse) : il a
+5. Une soirée Shotgun n'a pas de nom de lieu (`event.venue` = l'adresse) : il a
    fallu écrire « Nonsense » à la main.
-7. Types de page : « Je viens » dit « Soirée sur liste, confirme ta venue pour être
+6. Types de page : « Je viens » dit « Soirée sur liste, confirme ta venue pour être
    sur la liste » et son accord ne couvre que « cette soirée » ; il ne convient
    pas à une soirée dont l'entrée se prend sur Shotgun. Il manque un type « pour
    une soirée Shotgun » (accord pour les prochaines soirées + lien vers la
    billetterie), d'où la page Communauté avec une section sur mesure.
-8. `crm.yunoapp.eu/go/…` part en 301 vers `landing.yunoapp.eu/go/…`, qui rend 404 : ajouter
+7. `crm.yunoapp.eu/go/…` part en 301 vers `landing.yunoapp.eu/go/…`, qui rend 404 : ajouter
    `/go` aux chemins relayés de la landing (dépôt Yuno-landing) si quelqu'un
    recopie l'adresse depuis le domaine CRM.
-9. Kit MCP : `language_hint` vaut « en » pour Amoris alors que la soirée est à
+8. Kit MCP : `language_hint` vaut « en » pour Amoris alors que la soirée est à
    Paris ; et le kit e-mail rend le poster en WebP (Outlook ne l'affiche pas).
 
 ---
@@ -184,5 +177,6 @@ recalcul (299 → 300, recalcul 1,6 s). Rien n'est resté en base.
 - 1 page `crm_signup_pages` en brouillon (`7b09175a-…`).
 - 2 campagnes `email_campaigns` en brouillon (`d14f24cc-…`, `819f3e24-…`).
 - 2 images dans `email-assets/mcp/` (affiche WebP pour la page, JPEG pour les e-mails).
-- Aucune migration. Tests d'import, d'audience et d'attribution : transactions
-  annulées.
+- Une migration : `20261019120000_crm_signup_host_sender_name` (après celles
+  de S1, S3 et S4), répétée dans une transaction annulée puis appliquée.
+  Tests d'import, d'audience et d'attribution : transactions annulées.
