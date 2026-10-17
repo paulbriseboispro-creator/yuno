@@ -145,3 +145,16 @@ node scenarios.mjs conditions          # langage « et / ou » : cas partagés a
 Le script ouvre une base déjà analysée (`demo-computed` par défaut) et y
 applique les migrations des Scénarios (`20261016100000` et suivantes) avant
 les essais. Plan : `docs/designs/CRM_JOURNEYS_PLAN.md`.
+
+## Suivre une soirée (lecture seule)
+
+```bash
+node night-check.mjs                # relevé + écrans joués en tant que le titulaire (transaction annulée)
+node night-check.mjs --no-screens   # la nuit, ou quand une autre session migre
+node night-check.mjs --heavy        # + Ventes 90 j, Qui cibler, Plan de la soirée
+```
+
+Synchro, billets de la soirée (payants / gratuits / scannés), liens, campagnes,
+familles, score, prévu / réel, puis un verdict VERT / ORANGE / ROUGE. Réglé par
+défaut sur la soirée WOH du 29/10 dans l'espace Amoris ; runbook et seuils :
+`docs/designs/CRM_NIGHT_RUNBOOK.md`. Relevés gardés dans `.data/night-check/`.
