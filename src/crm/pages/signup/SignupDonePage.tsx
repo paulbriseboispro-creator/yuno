@@ -22,12 +22,14 @@ import type { PhoneScene } from '@/crm/signup/InscriptionPhone';
 import { SP_ROUTES, SpMain, copyText } from './SignupPagesPage';
 import { D_ARROW, D_X, Seg, SpSvg, anim, monoLabel, pageCfg } from './signupUi';
 import { QrSvg } from './SignupQr';
+import { useSignupHost } from './useSignupHost';
 
 export default function SignupDonePage() {
   const { id = '' } = useParams();
   const T = useCrmT();
   const { t } = T;
   const { space } = useCrmScope();
+  const host = useSignupHost();
   const nav = useNavigate();
   const toast = useCrmToast();
   const q = useSignupPages();
@@ -72,7 +74,7 @@ export default function SignupDonePage() {
           <Hv as="button" type="button" onClick={() => nav(SP_ROUTES.list)} style={{ height: 46, padding: '0 16px', border: 0, background: 'none', fontSize: 15, fontWeight: 600, color: 'var(--sand-600)', cursor: 'pointer' }} hover={{ color: 'var(--ink)' }}>{t('yc.sp.d.toList')}</Hv>
         </div>
       </section>
-      {pv && <SignupPreview page={p} host={space.name} logo={space.logoUrl} onClose={() => setPv(false)} />}
+      {pv && <SignupPreview page={p} host={host} logo={space.logoUrl} onClose={() => setPv(false)} />}
     </SpMain>
   );
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   countdownParts, famOf, fieldCount, normalizeDesign, normalizeFields, parseOpts, partySize, rewardOf, titleSize, toStudioVars, tokens, venueOf, withFirstName,
 } from '@/crm/signup/model';
-import { checkWz, defaultEventFor, defaultRelanceMsg, newWz, pageLife, relanceCta, relanceEmail, relanceTheme, rewardFanText, wzFields } from '@/crm/pages/signup/signupLogic';
+import { checkWz, defaultEventFor, defaultRelanceMsg, newWz, pageLife, relanceCta, relanceEmail, relanceTheme, rewardFanText, signupHostName, wzFields } from '@/crm/pages/signup/signupLogic';
 import type { NightRow } from '@/crm/data/nights';
 import type { SignupPageRow } from '@/crm/data/signupPages';
 
@@ -177,5 +177,14 @@ describe('récompense éteinte : la page ne promet rien', () => {
     const base = { kind: 'communaute' as const, title: 'La liste', host: 'Club', lang: 'fr' as const, t };
     expect(defaultRelanceMsg('open', { ...base, reward: '' })).toMatch(/^yc\.sp\.ty\.communaute\.msgPlain/);
     expect(defaultRelanceMsg('open', { ...base, reward: 'Un verre' })).toMatch(/^yc\.sp\.ty\.communaute\.msg\{/);
+  });
+});
+
+describe('nom de l’hôte d’une page', () => {
+  it('prend le nom d’expéditeur rempli, sinon le nom de l’espace', () => {
+    expect(signupHostName('Amoris', 'WOH')).toBe('WOH');
+    expect(signupHostName('Amoris', '  WOH  ')).toBe('WOH');
+    expect(signupHostName('Amoris', '   ')).toBe('Amoris');
+    expect(signupHostName('Amoris', null)).toBe('Amoris');
   });
 });

@@ -116,6 +116,15 @@ export function fillWz(wz: Wz, nights: NightRow[], host: string, t: T, lang: Lan
   return o;
 }
 
+/**
+ * Le nom que le fan lit sur une page (case d'accord, pied de page, relances) :
+ * le nom d'expéditeur des Réglages d'envoi quand il est rempli, sinon le nom de
+ * l'espace. Miroir de crm_space_display_name (SQL, migration 20261019120000).
+ */
+export function signupHostName(spaceName: string, senderName?: string | null): string {
+  return (senderName ?? '').trim() || spaceName;
+}
+
 /** Ce que le fan reçoit, ou '' quand la page ne promet rien (récompense éteinte). */
 export function rewardFanText(r: SignupReward, t: T): string {
   if (!r.on) return '';

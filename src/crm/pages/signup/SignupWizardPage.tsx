@@ -39,6 +39,7 @@ import {
   checkWz, defaultRelance, fillWz, newWz, pageAccent, partyQuestion, relanceCta, relanceForSave, rewardFanText, styleQuestion, wzFields, wzFromPage,
 } from './signupLogic';
 import type { Wz } from './signupLogic';
+import { useSignupHost } from './useSignupHost';
 
 const KNOWN_ERRORS = ['owner_only', 'incomplete', 'closes_in_past', 'support_session', 'bad_fields', 'bad_event', 'ai_changed'];
 
@@ -101,7 +102,8 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
   const nav = useNavigate();
   const toast = useCrmToast();
   const m = useSignupMutations();
-  const host = space.name;
+  // Le nom des Réglages d'envoi quand il est rempli : c'est lui que le fan lira.
+  const host = useSignupHost();
   const upcoming = useMemo(() => nights.filter((n) => n.upcoming), [nights]);
   const [wz, setWzState] = useState<Wz>(() => fillWz(page ? wzFromPage(page, nights, t) : newWz(kind, nights, t), nights, host, t, lang));
   const [step, setStep] = useState(page ? (review ? 4 : 3) : 1);
@@ -116,6 +118,15 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
   const fileRef = useRef<HTMLInputElement>(null);
   const isNew = !page;
   const go = (n: number) => { setStep(n); window.scrollTo(0, 0); };
+
+  // Le nom d'expéditeur arrive après le premier rendu : les textes pas encore
+  // touchés le reprennent (fillWz ne réécrit jamais un texte du pro).
+  const filledFor = useRef(host);
+  useEffect(() => {
+    if (filledFor.current === host) return;
+    filledFor.current = host;
+    setWzState((s) => fillWz(s, nights, host, t, lang));
+  }, [host, nights, t, lang]);
 
   const upd = (patch: Partial<Wz>, touched?: 'title' | 'sub' | 'btn' | 'noted') =>
     setWzState((s) => fillWz({ ...s, ...patch, touched: touched ? { ...s.touched, [touched]: true } : s.touched }, nights, host, t, lang));
