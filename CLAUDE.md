@@ -699,6 +699,45 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
 
+## Yuno CRM — l'offre fondateurs : 5 comptes choisis par Paul (2026-10-17)
+
+Décidée après le premier appel commercial (3AM). Migration `20261017230000`,
+écran Admin CRM › Vente › Offre fondateurs (`FounderOfferTab`, `?tab=founders`).
+Rien à voir avec le prix de lancement des 50 premiers PAYANTS (24 €,
+`price_switch_at`) : un compte fondateur ne paie pas, il n'entre pas dans
+`crm_paying_accounts`. Règles :
+
+- **5 places, une porte : `_crm_offer_seats_taken`** (compte ouvert + lien en
+  attente non expiré ; révoquer ou laisser expirer à 30 j rend la place), sous
+  verrou consultatif. Réglages dans `crm_founder_offer_config()` (5 places,
+  6 mois, 15 000 Yunits, lien 30 j), recopiés sur chaque invitation
+  (`crm_offer_invites`, RLS sans policy, tout par les RPC `crm_admin_offer_*`).
+- **Le lien** = `https://crm.yunoapp.eu/<fr|es>/start?offer=<jeton>`
+  (`crm_offer_invite_url`, source unique). Envoi : e-mail par
+  `admin-account-recovery` action `crm-founder-offer-email` (module PUR
+  `_shared/crm-founder-offer-email.ts`, aussi lu par le front pour le message
+  WhatsApp), ou WhatsApp (`wa.me/<numéro>?text=…`, `src/crm/lib/founderOffer.ts`).
+- **L'offre s'applique CÔTÉ SERVEUR, jamais par le navigateur** : la landing
+  passe `offer` à `track_pro_signup` (brouillon `pro_signups.offer_invite_id`),
+  puis `complete_pro_signup` / `open_product_on_my_account` appellent
+  `_crm_offer_apply` (ne lève jamais : l'ouverture du compte passe toujours).
+  Le lien de confirmation e-mail et Google / Apple marchent donc sans rien de
+  plus. Compte Yuno existant : `/open/crm?offer=` → `crm_offer_claim`.
+- **Dans Yuno, la période offerte EST un essai** (`status = 'trialing'`,
+  `trial_ends_at = offer_until`, `offer = 'founder'`, `founder = true`) : accès,
+  pause à la fin (`crm_billing_sweep`) et checkout suivent sans code à part.
+  **Chez Stripe, c'est la période gratuite native** : `crm_checkout` pose
+  `trial_end = offer_until` (+ métadonnée `offer`), Stripe affiche « 0 € aujourd'hui,
+  24 € à partir du … » et facture seul ensuite. Aucun coupon (il doublerait les
+  mois offerts si la carte arrive tard).
+- **Yunits** : lot `grant` / `founder_offer` (15 000, 12 mois). Il REMPLACE
+  l'essai (le lot d'essai jamais entamé est retiré) et le cadeau de
+  l'abonnement mensuel (`crm_yunits_ensure_allowance` le traite comme `welcome`) ;
+  le bonus annuel reste celui de tout le monde.
+- Console : carte « Offre fondateur » en tête de Compte › Abonnement
+  (`FounderOfferCard`), pastille, bouton « Enregistrer ma carte · 0 € aujourd'hui »,
+  FAQ `yc.faq.founder`. Alerte super admin `admin_crm_offer_claimed`.
+
 ## Yuno CRM — la Console `/crm` (design Claude Design) et l'Admin CRM (2026-10-05)
 
 La Console CRM est reconstruite écran par écran depuis le projet Claude Design
