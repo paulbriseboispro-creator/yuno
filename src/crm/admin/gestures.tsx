@@ -88,28 +88,23 @@ export function useSupportGrant(ownerId: string | null | undefined) {
 }
 
 /**
- * Le bouton « Voir sa Console » : accord actif → ouvre la session (confirmation,
- * puis rechargement sur /crm) ; sinon → envoie la demande de consentement au pro
- * (motif obligatoire). Rien ne s'ouvre sans accord accepté.
+ * Les deux gestes de l'accès assisté, partagés par « Voir sa Console » (fiche
+ * d'un compte) et la page Accès assisté :
+ *  • open : accord ACTIF → session ouverte dans CE navigateur (elle remplace
+ *    celle de l'admin sur ce domaine), rechargement sur /crm ;
+ *  • request : demande de consentement envoyée au titulaire (e-mail Yuno CRM,
+ *    notification de sa Console), motif obligatoire. Rien ne s'ouvre sans son accord.
  */
-export function SupportConsoleButton({ ownerId, name, style, hover }: { ownerId: string | null | undefined; name: string; style: React.CSSProperties; hover: React.CSSProperties }) {
+export function useSupportActions() {
   const { t } = useCrmT();
   const toast = useCrmToast();
   const qc = useQueryClient();
-  const g = useSupportGrant(ownerId);
-  const [ask, setAsk] = useState(false);
-  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
-  if (!ownerId) return null;
-  const grant = g.data;
-  const label = grant?.status === 'active' ? t('adm.crm.sup.open') : grant?.status === 'pending' ? t('adm.crm.sup.pending') : t('adm.crm.sup.ask');
-
-  const open = async () => {
-    if (!grant || busy) return;
-    if (!window.confirm(t('adm.crm.sup.confirm', { name }))) return;
+  const open = async (grantId: string, name: string): Promise<void> => {
+    if (busy) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin-account-recovery', { body: { action: 'open-support-session', grantId: grant.id } });
+      const { data, error } = await supabase.functions.invoke('admin-account-recovery', { body: { action: 'open-support-session', grantId } });
       if (error) throw error;
       if (!data?.access_token || !data?.refresh_token) throw new Error(data?.error || 'open_failed');
       setSupportSession({ sessionId: data.session_id, targetUserId: data.target_user_id, targetName: data.target_name || name, expiresAt: data.expires_at });
@@ -121,30 +116,80 @@ export function SupportConsoleButton({ ownerId, name, style, hover }: { ownerId:
       setBusy(false);
     }
   };
-  const request = async () => {
-    if (busy || reason.trim().length < 3) return;
+  const request = async (ownerId: string, reason: string): Promise<boolean> => {
+    if (busy || reason.trim().length < 3) return false;
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke('admin-account-recovery', { body: { action: 'request-support-access', userId: ownerId, reason: reason.trim() } });
+    const { data, error } = await supabase.functions.invoke('admin-account-recovery', { body: { action: 'request-support-access', userId: ownerId, reason: reason.trim(), product: 'crm' } });
     setBusy(false);
-    if (error || (data as { error?: string } | null)?.error) { toast(t('adm.crm.sup.askFailed')); return; }
-    toast(t((data as { emailSent?: boolean } | null)?.emailSent ? 'adm.crm.sup.askedEmail' : 'adm.crm.sup.askedApp'));
-    setAsk(false); setReason('');
-    void qc.invalidateQueries({ queryKey: ['crm-admin', 'support-grant', ownerId] });
+    if (error || (data as { error?: string } | null)?.error) { toast(t('adm.crm.sup.askFailed')); return false; }
+    const r = data as { emailSent?: boolean; already_active?: boolean } | null;
+    toast(t(r?.already_active ? 'adm.crm.sp.alreadyActive' : r?.emailSent ? 'adm.crm.sup.askedEmail' : 'adm.crm.sup.askedApp'));
+    void qc.invalidateQueries({ queryKey: ['crm-admin'] });
+    return true;
   };
+  return { open, request, busy };
+}
+
+/** Confirmation avant d'entrer : la session admin de ce navigateur sera remplacée. */
+export function OpenConsoleDialog({ name, open, onClose, onConfirm, busy }: { name: string; open: boolean; onClose: () => void; onConfirm: () => void; busy: boolean }) {
+  const { t } = useCrmT();
+  return (
+    <Modal open={open} onClose={onClose} width={500} label={t('adm.crm.sp.openT', { name })}>
+      <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <h2 style={{ ...h2, fontSize: 24 }}>{t('adm.crm.sp.openT', { name })}</h2>
+        <p style={{ margin: 0, fontSize: 14.5, color: 'var(--sand-600)', lineHeight: 1.55 }}>{t('adm.crm.sp.openB')}</p>
+        <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, color: 'var(--sand-700)', lineHeight: 1.45 }}>
+          <li>{t('adm.crm.sp.openL1')}</li><li>{t('adm.crm.sp.openL2')}</li><li>{t('adm.crm.sp.openL3')}</li>
+        </ul>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+          <Hv as="button" type="button" onClick={onClose} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--sand-100)', fontWeight: 600, fontSize: 15, cursor: 'pointer' }} hover={{ background: 'var(--sand-200)' }}>{t('yc.common.cancel')}</Hv>
+          <Hv as="button" type="button" disabled={busy} onClick={onConfirm} style={{ height: 44, padding: '0 22px', borderRadius: 99, border: 0, background: 'var(--ink)', color: '#fff', fontWeight: 600, fontSize: 15, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>{t('adm.crm.sup.open')}</Hv>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Demande (ou relance) : motif obligatoire, le titulaire reçoit l'e-mail et la notification. */
+export function RequestSupportDialog({ name, open, pending, onClose, onSend, busy }: { name: string; open: boolean; pending: boolean; onClose: () => void; onSend: (reason: string) => void; busy: boolean }) {
+  const { t } = useCrmT();
+  const [reason, setReason] = useState('');
+  useEffect(() => { if (open) setReason(''); }, [open]);
+  const ok = reason.trim().length >= 3 && !busy;
+  return (
+    <Modal open={open} onClose={onClose} width={500} label={t('adm.crm.sup.ask')}>
+      <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <h2 style={{ ...h2, fontSize: 24 }}>{t(pending ? 'adm.crm.sup.remindTitle' : 'adm.crm.sup.askTitle', { name })}</h2>
+        <p style={{ margin: 0, fontSize: 14.5, color: 'var(--sand-600)', lineHeight: 1.55 }}>{t('adm.crm.sup.askBody')}</p>
+        <label style={lbl}>{t('adm.crm.ac.reason')}<textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={300} placeholder={t('adm.crm.sp.reasonPh')} style={{ borderRadius: 12, border: 0, boxShadow: 'inset 0 0 0 1.5px var(--sand-200)', padding: 12, font: 'inherit', fontSize: 15, outline: 'none', resize: 'vertical' }} /></label>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <Hv as="button" type="button" onClick={onClose} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--sand-100)', fontWeight: 600, fontSize: 15, cursor: 'pointer' }} hover={{ background: 'var(--sand-200)' }}>{t('yc.common.cancel')}</Hv>
+          <Hv as="button" type="button" disabled={!ok} onClick={() => onSend(reason)} style={{ height: 44, padding: '0 22px', borderRadius: 99, border: 0, background: 'var(--ink)', color: '#fff', fontWeight: 600, fontSize: 15, cursor: ok ? 'pointer' : 'not-allowed', opacity: ok ? 1 : 0.5 }}>{t('adm.crm.sup.send')}</Hv>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Le bouton « Voir sa Console » : accord actif → ouvre la session (confirmation,
+ * puis rechargement sur /crm) ; sinon → envoie la demande de consentement au pro
+ * (motif obligatoire). Rien ne s'ouvre sans accord accepté.
+ */
+export function SupportConsoleButton({ ownerId, name, style, hover }: { ownerId: string | null | undefined; name: string; style: React.CSSProperties; hover: React.CSSProperties }) {
+  const { t } = useCrmT();
+  const g = useSupportGrant(ownerId);
+  const actions = useSupportActions();
+  const [ask, setAsk] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  if (!ownerId) return null;
+  const grant = g.data;
+  const label = grant?.status === 'active' ? t('adm.crm.sup.open') : grant?.status === 'pending' ? t('adm.crm.sup.pending') : t('adm.crm.sup.ask');
   return (
     <>
-      <Hv as="button" type="button" disabled={busy || g.isLoading} onClick={() => (grant?.status === 'active' ? void open() : setAsk(true))} style={style} hover={hover} title={grant?.status === 'pending' ? t('adm.crm.sup.pendingHint') : undefined}>{label}</Hv>
-      <Modal open={ask} onClose={() => setAsk(false)} width={500} label={t('adm.crm.sup.ask')}>
-        <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ ...h2, fontSize: 24 }}>{t(grant?.status === 'pending' ? 'adm.crm.sup.remindTitle' : 'adm.crm.sup.askTitle', { name })}</h2>
-          <p style={{ margin: 0, fontSize: 14.5, color: 'var(--sand-600)', lineHeight: 1.55 }}>{t('adm.crm.sup.askBody')}</p>
-          <label style={lbl}>{t('adm.crm.ac.reason')}<textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={300} style={{ borderRadius: 12, border: 0, boxShadow: 'inset 0 0 0 1.5px var(--sand-200)', padding: 12, font: 'inherit', fontSize: 15, outline: 'none', resize: 'vertical' }} /></label>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <Hv as="button" type="button" onClick={() => setAsk(false)} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--sand-100)', fontWeight: 600, fontSize: 15, cursor: 'pointer' }} hover={{ background: 'var(--sand-200)' }}>{t('yc.common.cancel')}</Hv>
-            <Hv as="button" type="button" disabled={reason.trim().length < 3 || busy} onClick={() => void request()} style={{ height: 44, padding: '0 22px', borderRadius: 99, border: 0, background: 'var(--ink)', color: '#fff', fontWeight: 600, fontSize: 15, cursor: reason.trim().length >= 3 ? 'pointer' : 'not-allowed', opacity: reason.trim().length >= 3 ? 1 : 0.5 }}>{t('adm.crm.sup.send')}</Hv>
-          </div>
-        </div>
-      </Modal>
+      <Hv as="button" type="button" disabled={actions.busy || g.isLoading} onClick={() => (grant?.status === 'active' ? setConfirm(true) : setAsk(true))} style={style} hover={hover} title={grant?.status === 'pending' ? t('adm.crm.sup.pendingHint') : undefined}>{label}</Hv>
+      <OpenConsoleDialog name={name} open={confirm} busy={actions.busy} onClose={() => setConfirm(false)} onConfirm={() => { if (grant) void actions.open(grant.id, name); }} />
+      <RequestSupportDialog name={name} open={ask} pending={grant?.status === 'pending'} busy={actions.busy} onClose={() => setAsk(false)} onSend={(r) => { void actions.request(ownerId, r).then((ok) => { if (ok) setAsk(false); }); }} />
     </>
   );
 }

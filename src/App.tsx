@@ -312,6 +312,9 @@ const AdminCrmSales = lazyWithRetry(() => import("./crm/admin/pages/SalesPage"))
 const AdminCrmAcquisition = lazyWithRetry(() => import("./crm/admin/pages/AcquisitionPage"));
 const AdminCrmProduct = lazyWithRetry(() => import("./crm/admin/pages/ProductPage"));
 const AdminCrmSoon = lazyWithRetry(() => import("./crm/admin/pages/SoonPage"));
+const AdminCrmInvite = lazyWithRetry(() => import("./crm/admin/pages/InvitePage"));
+const AdminCrmDemo = lazyWithRetry(() => import("./crm/admin/pages/DemoPage"));
+const AdminCrmSupport = lazyWithRetry(() => import("./crm/admin/pages/SupportPage"));
 // Connexion de Yuno CRM (crm.yunoapp.eu/login) — src/lib/productHost.ts.
 const CrmLogin = lazyWithRetry(() => import("./crm/pages/login/LoginPage"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
@@ -1311,6 +1314,9 @@ const App = () => (
                   <Route path="clients" element={<AdminCrmClients />} />
                   <Route path="clients/:id" element={<AdminCrmAccount />} />
                   <Route path="sales" element={<AdminCrmSales />} />
+                  <Route path="invite" element={<AdminCrmInvite />} />
+                  <Route path="demo" element={<AdminCrmDemo />} />
+                  <Route path="support" element={<AdminCrmSupport />} />
                   <Route path="acquisition" element={<AdminCrmAcquisition />} />
                   <Route path="product" element={<AdminCrmProduct />} />
                   <Route path="money" element={<AdminCrmMoney />} />

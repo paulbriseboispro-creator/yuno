@@ -14382,6 +14382,7 @@ const fr: Record<string, string> = {
   "notif.type.admin_crm_incident_deadline": "Incident CRM : échéance CNIL proche",
   "notif.type.admin_crm_daily": "Yuno CRM : le bilan du jour",
   "notif.type.admin_crm_offer_claimed": "Yuno CRM : un compte « offre fondateurs » vient d’ouvrir",
+  "notif.type.admin_crm_invite_claimed": "Yuno CRM : un compte invité vient d’ouvrir",
   "notif.type.admin_crm_analysis_failed": "Analyse client CRM en échec",
   "notif.type.admin_crm_score_drift": "Yuno CRM : « Chances de venir » se décale",
   "notif.type.admin_crm_deletion_request": "Suppression d’espace CRM demandée",

@@ -14751,6 +14751,7 @@ const es: Record<string, string> = {
   "notif.type.admin_crm_incident_deadline": "Incidente CRM: plazo de notificación próximo",
   "notif.type.admin_crm_daily": "Yuno CRM: el balance del día",
   "notif.type.admin_crm_offer_claimed": "Yuno CRM: se acaba de abrir una cuenta con la oferta fundadores",
+  "notif.type.admin_crm_invite_claimed": "Yuno CRM: se acaba de abrir una cuenta invitada",
   "notif.type.admin_crm_analysis_failed": "Análisis de clientes CRM fallido",
   "notif.type.admin_crm_score_drift": "Yuno CRM: «Probabilidad de venir» se desvía",
   "notif.type.admin_crm_deletion_request": "Eliminación de espacio CRM solicitada",
