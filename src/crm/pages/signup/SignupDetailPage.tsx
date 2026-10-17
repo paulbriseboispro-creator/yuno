@@ -28,6 +28,7 @@ import { QrSvg, downloadQr } from './SignupQr';
 import SignupWho from './SignupWho';
 import SignupRelanceTab from './SignupRelance';
 import { AiPreparedBadge, AiProposalCard } from './SignupAiProposal';
+import { useSignupHost } from './useSignupHost';
 
 type Tab = 'res' | 'share' | 'who' | 'rel';
 const TABS: Tab[] = ['res', 'share', 'who', 'rel'];
@@ -48,6 +49,7 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
   const { t, tp, locale } = T;
   const caps = useCrmCaps();
   const { space } = useCrmScope();
+  const host = useSignupHost();
   const nav = useNavigate();
   const toast = useCrmToast();
   const m = useSignupMutations();
@@ -121,7 +123,7 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
           </div>
         </div>
 
-        {d.ai_proposal && caps.write && <AiProposalCard page={d} host={space.name} logo={space.logoUrl} />}
+        {d.ai_proposal && caps.write && <AiProposalCard page={d} host={host} logo={space.logoUrl} />}
 
         <Seg aria={t('yc.sp.f.tabs')} value={tab} onChange={setTab} h={38} fs={14.5} padX={18} wrap style={{ alignSelf: 'flex-start' }}
           items={TABS.map((x) => ({ v: x, l: t(`yc.sp.f.t.${x}`) }))} />
@@ -131,9 +133,9 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
           : tab === 'res' ? <ResultsTab d={d} x={detail.data} g={g} />
           : tab === 'share' ? <ShareTab d={d} x={detail.data} />
           : tab === 'who' ? <SignupWho d={d} x={detail.data} />
-          : <SignupRelanceTab d={d} x={detail.data} balance={balance} host={space.name} logo={space.logoUrl} />}
+          : <SignupRelanceTab d={d} x={detail.data} balance={balance} host={host} logo={space.logoUrl} />}
       </div>
-      {pv && <SignupPreview page={d} host={space.name} logo={space.logoUrl} onClose={() => setPv(false)} />}
+      {pv && <SignupPreview page={d} host={host} logo={space.logoUrl} onClose={() => setPv(false)} />}
     </SpMain>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoMap, parseCsv, prepareLines, readAge, readCount, splitWithBase, toImportRow, SAMPLE_CSV } from '../fileImport';
+import { autoMap, isOptedOut, parseCsv, prepareLines, readAge, readCount, splitWithBase, toImportRow, SAMPLE_CSV } from '../fileImport';
 
 describe('parseCsv', () => {
   it('devine le point-virgule, garde les guillemets et retire le BOM', () => {
@@ -112,5 +112,40 @@ describe('historique d’une ligne (dépense, soirées, dernier achat, première
     expect(readCount('1 204')).toBe(1204);
     expect(readCount('beaucoup')).toBeNull();
     expect(readCount('')).toBeNull();
+  });
+});
+
+describe('export d’un outil d’e-mailing (Brevo, Mailchimp)', () => {
+  it('ne prend jamais une date de modification pour un nom ou un achat', () => {
+    expect(autoMap(['Email', 'Last Changed', 'Creation Date', 'FIRSTNAME', 'LASTNAME', 'SMS']))
+      .toEqual(['email', 'skip', 'premier', 'prenom', 'nom', 'skip']);
+    expect(autoMap(['E-mail', 'Dernière modification', 'Date de création', 'PRENOM', 'NOM']))
+      .toEqual(['email', 'skip', 'premier', 'prenom', 'nom']);
+    expect(autoMap(['EMAIL', 'MODIFIED_TIME', 'Updated at', 'Mis à jour le'])).toEqual(['email', 'skip', 'skip', 'skip']);
+  });
+  it('repère la colonne de statut e-mail, jamais celle du SMS ni une date d’abonnement', () => {
+    expect(autoMap(['EMAIL_BLACKLISTED', 'EMAIL', 'SMS_BLACKLISTED'])).toEqual(['statut', 'email', 'skip']);
+    expect(autoMap(['Email', 'Opt-in newsletter'])).toEqual(['email', 'statut']);
+    expect(autoMap(['Email', 'Date d’abonnement', 'Désinscrit'])).toEqual(['email', 'skip', 'statut']);
+  });
+  it('lit le refus selon le sens de l’en-tête', () => {
+    expect(isOptedOut('EMAIL_BLACKLISTED', 'true')).toBe(true);
+    expect(isOptedOut('EMAIL_BLACKLISTED', 'false')).toBe(false);
+    expect(isOptedOut('Opt-in newsletter', 'Non')).toBe(true);
+    expect(isOptedOut('Opt-in newsletter', 'oui')).toBe(false);
+    expect(isOptedOut('Statut', 'Unsubscribed')).toBe(true);
+    expect(isOptedOut('Statut', 'Abonné')).toBe(false);
+    expect(isOptedOut('Statut', 'Non abonné')).toBe(true);
+    expect(isOptedOut('Statut', '')).toBe(false);
+  });
+  it('écarte un désabonné de toutes ses lignes, même quand la ligne qui dit non vient après', () => {
+    const file = parseCsv('EMAIL;PRENOM;EMAIL_BLACKLISTED\nlea@exemple.fr;Léa;false\ntom@exemple.fr;Tom;false\nLEA@exemple.fr;Léa;true\nzoe@exemple.fr;Zoé;');
+    const prep = prepareLines(file, autoMap(file.head, file.rows));
+    expect(prep.lines.map((l) => l.email)).toEqual(['tom@exemple.fr', 'zoe@exemple.fr']);
+    expect(prep.out.map((o) => o.line)).toEqual([2, 4]);
+    expect(prep.dup).toEqual([]);
+    expect(prep.emails).toEqual(['tom@exemple.fr', 'zoe@exemple.fr']);
+    const an = splitWithBase(prep, new Map(), new Map());
+    expect(an.fresh.length + an.exist.length + an.dup.length + an.bad.length + an.out.length).toBe(file.rows.length);
   });
 });

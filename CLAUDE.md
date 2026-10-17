@@ -827,6 +827,16 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   première inscription confirmée précède le premier achat (`_crm_people_build`)
   → filtre Clients et segment « Inscrits via vos pages ». Publier = titulaire
   seul, jamais en accès assisté. Démo : aucune adresse collectée.
+  **Le nom que le fan lit = `crm_space_display_name(venue, orga)`** (migration
+  `20261019120000`, décision de Paul du 17/10) : le nom d'expéditeur de
+  `crm_email_settings`, sinon le nom du club, sinon celui de l'organisateur.
+  Case d'accord, pied de page, `{{host.name}}` (`get_crm_signup_page.host`),
+  e-mail de confirmation (`crm_signup_confirm_queue`), kit MCP (`brand.name`),
+  et côté Console `useSignupHost` ⇄ `signupHostName` (assistant, aperçus,
+  relances). Un espace qui écrit pour une autre marque (Amoris pour le Shotgun
+  de WOH) ne fait jamais dire « Amoris » au fan. Logo, ville et Instagram
+  restent ceux du compte. Une page Communauté SANS récompense n'en promet
+  aucune (`rewardFanText` rend '' quand elle est éteinte, `msgPlain`).
 - **Automatisations CRM = sept recettes** (`CRM_AUTO_KINDS` ⇄ `v_kinds` de
   `crm_automations__core` ⇄ délais de `crm_automation_save`), dont « A cliqué
   sans acheter » (`click_no_buy`, migration `20261009171000`, décision de Paul
