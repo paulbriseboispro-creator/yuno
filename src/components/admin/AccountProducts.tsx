@@ -4,7 +4,7 @@ import { Gift, Layers, Mail, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Btn, Modal, Pill, Spinner, T1, T2, T3, F_BORDER } from '@/components/admin/ui';
-import { fmtDate } from '@/lib/adminFormat';
+import { fmtDate, fmtNum } from '@/lib/adminFormat';
 
 /**
  * Les produits d'un compte (Billetterie, CRM) et l'ouverture de l'autre
@@ -14,6 +14,9 @@ import { fmtDate } from '@/lib/adminFormat';
  * Yuno CRM : socle accordé sans abonnement ni date de fin
  * (`admin_grant_crm_plan(scope, 'base', null)`), Yunits du mois compris —
  * pour les comptes de Yuno et les partenaires, jamais pour un client qui paie.
+ * Le don se lit dans `admin_account_products().crm` et s'écrit dans
+ * l'historique + l'audit (migration 20261018195500) : rouverte, la fenêtre dit
+ * qui l'a offert et quand.
  */
 
 export type Product = 'suite' | 'crm';
@@ -26,8 +29,37 @@ export interface AccountRef {
   extra: Product[];
 }
 
-interface ProductEvent { scope_key: string; product: Product; action: 'added' | 'invited'; via: string; email: string | null; created_at: string }
+interface ProductEvent { scope_key: string; product: Product; action: 'added' | 'invited' | 'gifted' | 'grant_ended'; via: string; email: string | null; created_at: string }
 interface OpenInvite { scope_key: string; product: Product; email: string; created_at: string; expires_at: string }
+
+/** L'abonnement CRM d'une portée, tel que le rend `admin_account_products`. */
+export interface CrmState {
+  status: string;
+  plan: string;
+  stripe: boolean;
+  /** Actif sans abonnement Stripe (la règle de get_crm_billing). */
+  granted: boolean;
+  /** Offre datée échue : le CRM est en pause. */
+  expired: boolean;
+  granted_by: string | null;
+  granted_by_name: string | null;
+  granted_at: string | null;
+  until: string | null;
+  trial_ends_at: string | null;
+  yunits: number;
+}
+interface ProductsData { events: ProductEvent[]; open_invites: OpenInvite[]; crm?: Record<string, CrmState> }
+
+/** Un don en cours : offert, pas échu. */
+export const isCrmGifted = (s: CrmState | null | undefined): boolean => !!s?.granted && !s.expired;
+
+/** L'état CRM de plusieurs portées (pastille « offert » des listes). Une panne rend un objet vide. */
+export async function fetchCrmStates(scopeKeys: string[]): Promise<Record<string, CrmState>> {
+  if (scopeKeys.length === 0) return {};
+  const { data, error } = await supabase.rpc('admin_account_products' as never, { p_scope_keys: scopeKeys } as never);
+  if (error) return {};
+  return (data as unknown as ProductsData | null)?.crm ?? {};
+}
 
 export function normalizeProducts(product: unknown, extra: unknown): { product: Product; extra: Product[] } {
   const p: Product = product === 'crm' ? 'crm' : 'suite';
@@ -35,13 +67,16 @@ export function normalizeProducts(product: unknown, extra: unknown): { product: 
   return { product: p, extra: e };
 }
 
-export function ProductPills({ product, extra }: { product: Product; extra: Product[] }) {
+export function ProductPills({ product, extra, crmGifted = false }: { product: Product; extra: Product[]; crmGifted?: boolean }) {
   const { t } = useLanguage();
   const label = (p: Product) => t(p === 'crm' ? 'adm.prod.crm' : 'adm.prod.suite');
+  const gift = <Pill size="xs" tone="muted" icon={Gift} title={t('adm.prod.giftedPillTitle')}>{t('adm.prod.giftedPill')}</Pill>;
   return (
     <span className="inline-flex flex-wrap gap-1">
       <Pill size="xs" tone={product === 'crm' ? 'accent' : 'default'}>{label(product)}</Pill>
+      {crmGifted && product === 'crm' && gift}
       {extra.map((p) => <Pill key={p} size="xs" tone="pos" title={t('adm.prod.addedTitle')}>+ {label(p)}</Pill>)}
+      {crmGifted && product !== 'crm' && extra.includes('crm') && gift}
     </span>
   );
 }
@@ -52,7 +87,7 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmGift, setConfirmGift] = useState(false);
-  const [history, setHistory] = useState<{ events: ProductEvent[]; open_invites: OpenInvite[] } | null>(null);
+  const [history, setHistory] = useState<ProductsData | null>(null);
 
   const scopeKey = account.venueId ? `venue:${account.venueId}` : `org:${account.organizerUserId}`;
   const missing: Product | null = account.product === 'crm'
@@ -63,7 +98,7 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
 
   const loadHistory = useCallback(async () => {
     const { data, error } = await supabase.rpc('admin_account_products' as never, { p_scope_keys: [scopeKey] } as never);
-    if (!error) setHistory(data as unknown as { events: ProductEvent[]; open_invites: OpenInvite[] });
+    if (!error) setHistory(data as unknown as ProductsData);
   }, [scopeKey]);
   useEffect(() => { if (open) void loadHistory(); }, [open, loadHistory]);
 
@@ -120,13 +155,25 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
       return;
     }
     toast.success(t('adm.prod.gifted').replace('{name}', account.name));
+    // La fenêtre reste ouverte : elle dit tout de suite « Offert le … ».
     onChanged?.();
-    setOpen(false);
+    void loadHistory();
   };
 
   const giftButton = confirmGift
     ? <Btn variant="danger" size="sm" icon={Gift} loading={busy === 'gift'} onClick={() => void gift()}>{t('adm.prod.confirmGift')}</Btn>
     : <Btn size="sm" icon={Gift} onClick={() => setConfirmGift(true)}>{t('adm.prod.gift')}</Btn>;
+
+  const crm = history?.crm?.[scopeKey] ?? null;
+  const gifted = isCrmGifted(crm);
+  const paysStripe = !!crm?.stripe && ['trialing', 'active', 'past_due'].includes(crm.status);
+  const giftedLine = (s: CrmState) => {
+    const until = s.until ? fmtDate(s.until, language) : null;
+    const key = s.granted_by_name
+      ? (until ? 'adm.prod.giftedByUntil' : 'adm.prod.giftedBy')
+      : (until ? 'adm.prod.giftedUntil' : 'adm.prod.giftedOn');
+    return t(key).replace('{d}', fmtDate(s.granted_at, language)).replace('{name}', s.granted_by_name ?? '').replace('{until}', until ?? '');
+  };
 
   return (
     <>
@@ -158,8 +205,21 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
         {hasCrm && (
           <div className="rounded-xl p-3.5 mt-2" style={{ border: `1px solid ${F_BORDER}` }}>
             <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('adm.prod.giftTitle')}</div>
-            <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftHint')}</div>
-            <div className="flex flex-wrap gap-2 mt-3">{giftButton}</div>
+            {!history ? <Spinner /> : gifted && crm ? (
+              <>
+                <div style={{ color: T2, fontSize: 12.5, lineHeight: 1.5, marginTop: 4 }}>{giftedLine(crm)}</div>
+                <div style={{ color: T3, fontSize: 12, marginTop: 2 }}>{t('adm.prod.yunits').replace('{n}', fmtNum(crm.yunits, language))}</div>
+                <div className="flex flex-wrap gap-2 mt-3"><Btn size="sm" icon={Gift} disabled>{t('adm.prod.alreadyGifted')}</Btn></div>
+              </>
+            ) : paysStripe ? (
+              <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftHasStripe')}</div>
+            ) : (
+              <>
+                {crm?.expired && <div style={{ color: T2, fontSize: 12.5, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftExpired').replace('{d}', fmtDate(crm.until, language))}</div>}
+                <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftHint')}</div>
+                <div className="flex flex-wrap gap-2 mt-3">{giftButton}</div>
+              </>
+            )}
           </div>
         )}
 
