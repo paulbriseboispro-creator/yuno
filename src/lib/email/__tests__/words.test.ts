@@ -119,6 +119,17 @@ describe('native Yuno blocks follow the email language', () => {
     }
   });
 
+  it('the legal name signs the footer in both renders (Réglages › Envoi)', () => {
+    const signed = { ...ctx('fr'), legalName: 'WOH Productions SAS', postalAddress: '10 rue Oberkampf, 75011 Paris' };
+    const studio = renderStudioEmailHtml(blocks() as unknown as StudioBlock[], DEFAULT_STUDIO_THEME,
+      { ...signed, recipient: { email: 'camille@example.com', firstName: 'Camille' } } as never);
+    const front = renderEmailHtml(blocks(), DEFAULT_STUDIO_THEME, signed);
+    for (const html of [studio, front]) {
+      expect(html).toContain('WOH Productions SAS — 10 rue Oberkampf, 75011 Paris');
+      expect(html).toMatch(/© \d{4} WOH Productions SAS\. Tous droits réservés\./);
+    }
+  });
+
   it('French stays French', () => {
     const html = renderEmailHtml(blocks(), DEFAULT_STUDIO_THEME, ctx('fr'));
     for (const s of ["Voir l&#39;événement", 'Prendre mes billets', 'Réserver une table', 'JOURS', 'Liste invités']) {

@@ -123,6 +123,8 @@ export interface StudioRenderCtx {
   city?: string | null;
   /** Adresse postale de l'expéditeur (Réglages d'envoi du CRM) : remplace la ville au pied de page. */
   postalAddress?: string | null;
+  /** Raison sociale de l'expéditeur (Réglages d'envoi du CRM) : elle signe le pied de page. Miroir de render.ts. */
+  legalName?: string | null;
   /** Logo du compte expéditeur — repli du bloc header (voir render.ts). */
   logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
@@ -1169,6 +1171,11 @@ function footerPlace(ctx: Pick<StudioRenderCtx, 'postalAddress' | 'city'>): stri
   return (ctx.postalAddress ?? '').trim() || (ctx.city ?? '').trim();
 }
 
+/** Miroir de footerSigner (render.ts) : la raison sociale si réglée, sinon le nom affiché. */
+function footerSigner(ctx: Pick<StudioRenderCtx, 'legalName' | 'venueName'>): string {
+  return (ctx.legalName ?? '').trim() || ctx.venueName;
+}
+
 /** Miroir EXACT de FOOTER_WORDS (render.ts) : mentions légales dans la langue de l'e-mail. */
 const FOOTER_WORDS = {
   fr: { promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
@@ -1186,9 +1193,9 @@ function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boo
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
-    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${footerPlace(ctx) ? ' — ' + esc(footerPlace(ctx)) : ''}</p>
+    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(footerSigner(ctx))}${footerPlace(ctx) ? ' — ' + esc(footerPlace(ctx)) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.sent(esc(ctx.recipient.email), reason)}</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, esc(ctx.venueName))}</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, esc(footerSigner(ctx)))}</p>
      ${unsub}
      ${poweredBy(theme, ctx)}`,
     `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
