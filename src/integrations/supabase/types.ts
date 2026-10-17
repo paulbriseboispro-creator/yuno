@@ -8371,8 +8371,11 @@ export type Database = {
           created_at: string | null
           email: string
           event_id: string
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
+          newsletter_opt_in: boolean
           presale_access: boolean | null
           show_in_orders: boolean
           user_id: string | null
@@ -8381,8 +8384,11 @@ export type Database = {
           created_at?: string | null
           email: string
           event_id: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
+          newsletter_opt_in?: boolean
           presale_access?: boolean | null
           show_in_orders?: boolean
           user_id?: string | null
@@ -8391,8 +8397,11 @@ export type Database = {
           created_at?: string | null
           email?: string
           event_id?: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
+          newsletter_opt_in?: boolean
           presale_access?: boolean | null
           show_in_orders?: boolean
           user_id?: string | null
