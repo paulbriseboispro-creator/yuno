@@ -25,7 +25,7 @@ type T = ReturnType<typeof useCrmT>;
 
 export const SOURCE_COLOR: Record<SourceKey, string> = {
   ys: 'var(--red-600)', yb: 'var(--red-400)', yt: 'var(--red-900)', yl: 'var(--red-200)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: '#D62976',
-  so: '#962FBF', sg: 'var(--ink)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
+  so: '#962FBF', sg: 'var(--ink)', ex: 'var(--green-600)', se: 'var(--amber-700)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
 };
 
 export function trafficCsv(d: AnaTraffic, T: T, money: boolean): { columns: string[]; rows: unknown[][] } {

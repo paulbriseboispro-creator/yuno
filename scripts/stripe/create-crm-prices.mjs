@@ -54,7 +54,7 @@ const YUNITS_ANNUAL_BONUS = 30_000;
 const BASE = {
   name: 'Yuno CRM',
   description:
-    'Abonnement Yuno CRM : base clients, emails, automatisations et bilans branchés sur votre billetterie. 10 000 Yunits inclus chaque mois.',
+    "Abonnement Yuno CRM : base clients, e-mails, automatisations et bilans branchés sur votre billetterie. Yunits offerts une fois à l'abonnement (10 000 au mensuel, 30 000 à l'annuel).",
   prices: [
     { tier: 'launch', interval: 'month', amount: 24, active: true, nickname: 'Yuno CRM mensuel (lancement 24 €)' },
     { tier: 'launch', interval: 'year', amount: 288, active: true, nickname: 'Yuno CRM annuel (lancement 288 € + 30 000 Yunits)' },

@@ -114,6 +114,9 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   const trialing = (sub?.status ?? b.subscription?.status) === 'trialing';
   const trialEnd = sub?.trial_end ?? b.subscription?.trial_ends_at ?? null;
   const granted = !!b.subscription?.granted;
+  // Offre fondateurs : la période offerte court tant que l'essai n'est pas fini.
+  const offer = b.subscription?.offer ?? null;
+  const founder = !!offer && !!offer.until && new Date(offer.until).getTime() > Date.now() && trialing;
 
   const run = async (action: string, extra?: Record<string, unknown>, ok?: string) => {
     if (busy) return;
@@ -129,13 +132,14 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   };
 
   // Pastille de la formule.
-  const pill = granted && !demo ? { k: 'yc.acc.b.pill.granted', bg: 'var(--sand-100)', fg: 'var(--sand-700)' }
+  const pill = founder ? { k: 'yc.acc.b.pill.founder', bg: 'var(--red-50)', fg: 'var(--red-700)' }
+    : granted && !demo ? { k: 'yc.acc.b.pill.granted', bg: 'var(--sand-100)', fg: 'var(--sand-700)' }
     : paused ? { k: 'yc.acc.b.pill.paused', bg: 'var(--red-50)', fg: 'var(--red-700)' }
       : ending && periodEnd ? { k: 'yc.acc.b.pill.ending', bg: 'var(--amber-50)', fg: 'var(--amber-700)' }
         : (sub?.status ?? b.subscription?.status) === 'past_due' ? { k: 'yc.acc.b.pill.pastDue', bg: 'var(--red-50)', fg: 'var(--red-700)' }
           : trialing && trialEnd ? { k: 'yc.acc.b.pill.trial', bg: 'var(--sand-100)', fg: 'var(--sand-700)' }
             : { k: 'yc.acc.b.pill.active', bg: 'var(--green-50)', fg: 'var(--green-700)' };
-  const pillDate = pill.k.endsWith('ending') ? periodEnd : pill.k.endsWith('trial') ? trialEnd : null;
+  const pillDate = pill.k.endsWith('ending') ? periodEnd : pill.k.endsWith('trial') ? trialEnd : pill.k.endsWith('founder') ? (offer?.until ?? null) : null;
 
   // Ce que le choix de rythme déclenche.
   let switchCta: { label: string; note: string; to: Interval } | null = null;
@@ -161,6 +165,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {founder && offer && <FounderOfferCard offer={offer} b={b} hasCard={!!b.subscription?.has_stripe} dFull={dFull} />}
       {manage && ending && periodEnd && (
         <div role="status" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', padding: '16px 20px', borderRadius: 20, background: 'var(--amber-50)', boxShadow: 'inset 0 0 0 1px rgba(229,154,11,.35)', animation: `yc-rise 600ms ${EASE} both` }}>
           <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -209,7 +214,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <Row l={t('yc.acc.b.row.yunits')} v={annual ? t('yc.acc.b.row.yunitsYear', { n: n(b.pricing.monthly_yunits), b: n(b.pricing.annual_bonus_yunits) }) : t('yc.acc.b.row.yunitsMonth', { n: n(b.pricing.monthly_yunits) })} />
+            <Row l={t('yc.acc.b.row.yunits')} v={annual ? t('yc.acc.b.row.yunitsYear', { n: n(b.pricing.monthly_yunits), b: n(b.pricing.annual_bonus_yunits) }) : offer?.yunits ? t('yc.acc.b.row.yunitsFounder', { n: n(offer.yunits) }) : t('yc.acc.b.row.yunitsMonth', { n: n(b.pricing.monthly_yunits) })} />
             {nextRow && <Row l={t('yc.acc.b.row.next')} v={nextRow} />}
             <Row l={t('yc.acc.b.row.tax')} v={t('yc.acc.b.row.taxVal', { n: b.pricing.vat_rate })} />
           </div>
@@ -238,12 +243,13 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 18, background: 'var(--sand-50)' }}>
               <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--sand-700)' }}>
                 {paused ? t('yc.acc.b.subNote.paused')
+                  : founder && offer ? t('yc.acc.b.subNote.founder', { date: dFull(offer.until), price: n(b.pricing.price_month) })
                   : trialing && trialEnd ? t('yc.acc.b.subNote.trial', { date: dFull(trialEnd) })
                     : granted && periodEnd ? t('yc.acc.b.subNote.granted', { date: dFull(periodEnd) }) : t('yc.acc.b.sub.month')}
               </span>
               <div>
                 <BrandButton
-                  label={busy === 'crm_checkout' ? t('yc.acc.b.redirect') : `${t('yc.acc.b.subscribe')} · ${n(unit)} € ${t('yc.acc.b.ht')} / ${t(`yc.acc.b.per.${sel}`)}`}
+                  label={busy === 'crm_checkout' ? t('yc.acc.b.redirect') : founder ? t('yc.acc.b.founderCta') : `${t('yc.acc.b.subscribe')} · ${n(unit)} € ${t('yc.acc.b.ht')} / ${t(`yc.acc.b.per.${sel}`)}`}
                   busy={busy === 'crm_checkout'}
                   onClick={() => void run('crm_checkout', { interval: sel })}
                 />
@@ -324,6 +330,45 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** Offre fondateurs : ce que le compte a reçu, jusqu'à quand, et ce qui suit. */
+function FounderOfferCard({ offer, b, hasCard, dFull }: { offer: NonNullable<NonNullable<CrmBilling['subscription']>['offer']>; b: CrmBilling; hasCard: boolean; dFull: (d: string) => string }) {
+  const { t, n } = useCrmT();
+  const until = dFull(offer.until);
+  const end = new Date(offer.until).getTime();
+  const start = offer.started_at ? new Date(offer.started_at).getTime() : end - (offer.free_months ?? 6) * 30.44 * 86_400_000;
+  const left = Math.max(0, Math.ceil((end - Date.now()) / 86_400_000));
+  const done = Math.min(1, Math.max(0.02, (Date.now() - start) / Math.max(1, end - start)));
+  const facts = [
+    { icon: 'coin' as const, text: t('yc.acc.b.fo.f1', { yunits: n(offer.yunits ?? 0) }), show: !!offer.yunits },
+    { icon: 'calendar' as const, text: t('yc.acc.b.fo.f2', { date: until }), show: true },
+    { icon: 'lock' as const, text: t('yc.acc.b.fo.f3', { price: n(b.pricing.price_month) }), show: true },
+  ].filter((f) => f.show);
+  return (
+    <section aria-label={t('yc.acc.b.fo.kicker')} style={{ position: 'relative', overflow: 'hidden', boxSizing: 'border-box', borderRadius: 28, padding: 'clamp(22px,3vw,30px)', color: 'var(--text-on-night)', background: 'radial-gradient(70% 90% at 100% 0%,rgba(255,107,53,.45),transparent 65%),radial-gradient(60% 80% at 0% 100%,rgba(227,20,27,.35),transparent 70%),var(--noise-night),var(--night)', display: 'flex', flexDirection: 'column', gap: 18, animation: `yc-rise 700ms ${EASE} both` }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--text-on-night-2)' }}>
+        <Icon name="sparkles" size={15} stroke={2.2} style={{ color: '#ff8a5c' }} />{t('yc.acc.b.fo.kicker')}
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '10px 24px' }}>
+        <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(26px,3.2vw,36px)', lineHeight: 1.05, letterSpacing: '-.04em', textWrap: 'balance' }}>
+          {t('yc.acc.b.fo.title', { months: offer.free_months ?? 6, date: until })}
+        </h2>
+        <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-on-night-2)', fontVariantNumeric: 'tabular-nums' }}>{left <= 1 ? t('yc.acc.b.fo.leftOne') : t('yc.acc.b.fo.left', { n: left })}</span>
+      </div>
+      <div aria-hidden style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,.14)', overflow: 'hidden' }}>
+        <div style={{ width: `${done * 100}%`, height: '100%', borderRadius: 99, background: 'var(--gradient-brand)' }} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,220px),1fr))', gap: 10 }}>
+        {facts.map((f) => (
+          <span key={f.icon} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 16, background: 'rgba(255,255,255,.08)', fontSize: 14.5, lineHeight: 1.4 }}>
+            <Icon name={f.icon} size={17} stroke={2.2} style={{ flex: 'none', marginTop: 1, color: '#ff8a5c' }} />{f.text}
+          </span>
+        ))}
+      </div>
+      <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-on-night-2)' }}>{t(hasCard ? 'yc.acc.b.fo.card' : 'yc.acc.b.fo.noCard', { date: until })}</span>
+    </section>
   );
 }
 

@@ -40,6 +40,8 @@ const dict: AdminDict = {
   'adm.crm.act.admin.crm_extend_trial': ['Trial extended', 'Essai prolongé', 'Prueba ampliada'],
   'adm.crm.act.admin.crm_freeze_sending': ['Sending frozen', 'Envoi gelé', 'Envío congelado'],
   'adm.crm.act.admin.crm_unfreeze_sending': ['Sending unfrozen', 'Envoi dégelé', 'Envío descongelado'],
+  'adm.crm.act.admin.crm_grant_plan': ['Yuno CRM given for free', 'Yuno CRM offert', 'Yuno CRM regalado'],
+  'adm.crm.act.admin.crm_end_grant': ['Yuno CRM paused', 'Yuno CRM mis en pause', 'Yuno CRM pausado'],
 
   // Réglages › E-mails du cycle de vie
   'adm.crm.se.t.lifecycle': ['Lifecycle e-mails', 'E-mails du cycle de vie', 'E-mails del ciclo de vida'],

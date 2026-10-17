@@ -202,36 +202,85 @@ const CENTS = {
 
 // Nom de pays → code ISO (Shotgun rend `contact_country` en toutes lettres :
 // « France »). Table construite une fois depuis Intl, en trois langues.
+//
+// Intl nomme aussi les codes RETIRÉS : `DD` (RDA) s'affiche « Germany » et
+// passe avant `DE` dans l'ordre alphabétique — l'Allemagne devenait « DD ».
+// Un code retiré n'entre donc jamais dans la table, et un code retiré reçu tel
+// quel est ramené à son successeur. Les codes de regroupement (UE, ONU,
+// « Région inconnue »…) ne sont pas des pays.
+export const RETIRED_COUNTRY_CODES: Readonly<Record<string, string | null>> = {
+  AN: "CW", BU: "MM", CS: "RS", DD: "DE", DY: "BJ", FX: "FR", HV: "BF", NH: "VU",
+  RH: "ZW", SU: "RU", TP: "TL", UK: "GB", VD: "VN", YD: "YE", YU: "RS", ZR: "CD",
+  // Regroupements et pseudo-régions : jamais un pays.
+  EU: null, EZ: null, QU: null, UN: null, QO: null, ZZ: null, XA: null, XB: null,
+};
+// Noms que Shotgun écrit (liste anglaise ISO d'avant les renommages) et
+// formes courantes que la table Intl ne connaît pas.
+const COUNTRY_ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ["unitedstates", "US"], ["unitedstatesofamerica", "US"], ["usa", "US"],
+  ["uk", "GB"], ["england", "GB"], ["scotland", "GB"], ["wales", "GB"], ["northernireland", "GB"],
+  ["greatbritain", "GB"], ["unitedkingdomofgreatbritainandnorthernireland", "GB"],
+  ["turkey", "TR"], ["czechrepublic", "CZ"], ["republicofmoldova", "MD"], ["russianfederation", "RU"],
+  ["republicofkorea", "KR"], ["southkorea", "KR"], ["democraticpeoplesrepublicofkorea", "KP"],
+  ["islamicrepublicofiran", "IR"], ["syrianarabrepublic", "SY"], ["laopeoplesdemocraticrepublic", "LA"],
+  ["unitedrepublicoftanzania", "TZ"], ["plurinationalstateofbolivia", "BO"],
+  ["bolivarianrepublicofvenezuela", "VE"], ["macedonia", "MK"], ["republicofnorthmacedonia", "MK"],
+  ["theformeryugoslavrepublicofmacedonia", "MK"], ["swaziland", "SZ"], ["holland", "NL"],
+  ["ivorycoast", "CI"], ["burma", "MM"], ["democraticrepublicofthecongo", "CD"],
+  ["republicofthecongo", "CG"], ["hongkong", "HK"], ["macao", "MO"], ["macau", "MO"],
+  ["palestine", "PS"], ["stateofpalestine", "PS"], ["capeverde", "CV"], ["caboverde", "CV"],
+  ["easttimor", "TL"], ["vaticancity", "VA"], ["holysee", "VA"], ["federatedstatesofmicronesia", "FM"],
+  ["bruneidarussalam", "BN"], ["vietnam", "VN"], ["reunion", "RE"], ["lareunion", "RE"],
+  ["myanmar", "MM"], ["congo", "CG"],
+];
 let countryIndex: Map<string, string> | null = null;
 function foldName(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 }
-export function countryCodeFrom(v: unknown): string | null {
-  const s = str(v, 80);
-  if (!s) return null;
-  if (/^[A-Za-z]{2}$/.test(s)) return s.toUpperCase();
-  if (!countryIndex) {
-    countryIndex = new Map();
-    for (const lang of ["en", "fr", "es"]) {
-      let dn: Intl.DisplayNames;
-      try { dn = new Intl.DisplayNames([lang], { type: "region" }); } catch { continue; }
-      for (let a = 65; a < 91; a++) {
-        for (let b = 65; b < 91; b++) {
-          const code = String.fromCharCode(a, b);
-          let name: string | undefined;
-          try { name = dn.of(code); } catch { name = undefined; }
-          if (name && name !== code) {
-            const k = foldName(name);
-            if (k && !countryIndex.has(k)) countryIndex.set(k, code);
-          }
+// Les noms Intl ne s'écrivent pas comme la liste ISO : « Bosnia & Herzegovina »,
+// « St. Lucia », « Myanmar (Burma) », « Congo - Kinshasa ». Chaque nom entre
+// dans la table sous ses formes usuelles.
+function nameKeys(name: string): string[] {
+  const forms = new Set([name, name.replace(/&/g, " and "), name.replace(/\s*\(.*?\)\s*/g, " ").trim()]);
+  for (const f of [...forms]) if (/\bSt\.\s/.test(f)) forms.add(f.replace(/\bSt\.\s/g, "Saint "));
+  return [...forms].map(foldName).filter(Boolean);
+}
+function buildCountryIndex(): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const lang of ["en", "fr", "es"]) {
+    let dn: Intl.DisplayNames;
+    try { dn = new Intl.DisplayNames([lang], { type: "region" }); } catch { continue; }
+    for (let a = 65; a < 91; a++) {
+      for (let b = 65; b < 91; b++) {
+        const code = String.fromCharCode(a, b);
+        if (code in RETIRED_COUNTRY_CODES) continue;
+        let name: string | undefined;
+        try { name = dn.of(code); } catch { name = undefined; }
+        if (name && name !== code) {
+          for (const k of nameKeys(name)) if (!index.has(k)) index.set(k, code);
         }
       }
     }
-    for (const [k, code] of [["unitedstates", "US"], ["usa", "US"], ["uk", "GB"], ["england", "GB"], ["greatbritain", "GB"]] as const) {
-      countryIndex.set(k, code);
-    }
   }
-  return countryIndex.get(foldName(s)) ?? null;
+  for (const [k, code] of COUNTRY_ALIASES) index.set(k, code);
+  return index;
+}
+export function countryCodeFrom(v: unknown): string | null {
+  const s = str(v, 80);
+  if (!s) return null;
+  if (/^[A-Za-z]{2}$/.test(s)) {
+    const code = s.toUpperCase();
+    return code in RETIRED_COUNTRY_CODES ? RETIRED_COUNTRY_CODES[code] : code;
+  }
+  countryIndex ??= buildCountryIndex();
+  // Forme inversée de la liste ISO : « Moldova, Republic of » → « Republic of Moldova ».
+  const comma = s.match(/^(.+?),\s*(.+)$/);
+  const tries = [s, ...(comma ? [`${comma[2]} ${comma[1]}`] : [])];
+  for (const k of tries.flatMap(nameKeys)) {
+    const hit = countryIndex.get(k) ?? countryIndex.get(k.replace(/^the/, ""));
+    if (hit) return hit;
+  }
+  return null;
 }
 
 export type TicketStatus = "valid" | "refunded" | "cancelled" | "transferred" | "other";

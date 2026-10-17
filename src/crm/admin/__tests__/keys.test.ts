@@ -54,7 +54,10 @@ describe('Admin CRM : dictionnaire', () => {
       'adm.crm.se.ch.': ['email', 'sms', 'whatsapp', 'instagram'],
       'adm.crm.se.err.': ['reason_required', 'bad_value', 'unknown_key'],
       'adm.crm.se.k.': ['price_month', 'price_month_next', 'price_year', 'price_switch_at', 'trial_days', 'trial_yunits', 'trial_extensions', 'monthly_yunits', 'annual_bonus_yunits', 'rates', 'costs', 'channels_live', 'low_balance'],
-      'adm.crm.ac.a.': ['crm_grant_yunits', 'crm_extend_trial', 'crm_freeze_sending', 'crm_unfreeze_sending'],
+      'adm.crm.ac.a.': ['crm_grant_yunits', 'crm_extend_trial', 'crm_freeze_sending', 'crm_unfreeze_sending', 'crm_grant_plan', 'crm_end_grant'],
+      'adm.crm.fo.st.': ['pending', 'opened', 'claimed', 'expired', 'revoked'],
+      'adm.crm.fo.lang.': ['fr', 'en', 'es'],
+      'adm.crm.fo.err.': ['offer_full', 'org_name_required', 'bad_email', 'not_pending', 'no_email', 'email_failed', 'reason_required', 'x'],
     };
     const missing = Object.entries(fam).flatMap(([p, ks]) => ks.map((k) => p + k)).filter((k) => !(k in ADMIN_DICT));
     expect(missing).toEqual([]);

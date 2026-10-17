@@ -205,6 +205,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Yuno CRM : le bilan du jour de la plateforme (agents, lot A5) — synchros,
   // délivrabilité, essais qui finissent, audits de prospects prêts.
   admin_crm_daily:               { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_crm_daily' },
+  // Yuno CRM : un compte choisi a ouvert son espace avec l'offre fondateurs (5 places).
+  admin_crm_offer_claimed:       { icon: UserPlus,   category: 'growth', label: 'notif.type.admin_crm_offer_claimed' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
@@ -759,6 +761,10 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_crm_daily':
       return '/admin/crm/platform?tab=day';
+
+    // Offre fondateurs : le suivi des 5 places (Admin CRM › Vente).
+    case 'admin_crm_offer_claimed':
+      return '/admin/crm/sales?tab=founders';
 
     // Analyse client d'un espace Yuno CRM : son tiroir dans l'Admin CRM
     // (référence = clé de portée, qui est l'identifiant du compte).

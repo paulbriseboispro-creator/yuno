@@ -10,10 +10,10 @@ import {
 } from '@/components/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { SearchBox, safeLike } from './directory/Paginator';
-import { AccountProductsButton, ProductPills, normalizeProducts, type Product } from '@/components/admin/AccountProducts';
+import { AccountProductsButton, ProductPills, fetchCrmStates, isCrmGifted, normalizeProducts, type Product } from '@/components/admin/AccountProducts';
 
 interface Invitation { id: string; email: string; profile_type: string; organization_name: string | null; status: string; created_at: string; expires_at: string; accepted_at: string | null }
-interface Org { user_id: string; display_name: string; slug: string | null; is_public: boolean; bde_verified: boolean; is_showcase_shadow: boolean | null; city: string | null; created_at: string; email: string | null; eventCount: number; venueCount: number; product: Product; extra: Product[] }
+interface Org { user_id: string; display_name: string; slug: string | null; is_public: boolean; bde_verified: boolean; is_showcase_shadow: boolean | null; city: string | null; created_at: string; email: string | null; eventCount: number; venueCount: number; product: Product; extra: Product[]; crmGifted: boolean }
 
 export default function AdminOrganizers() {
   const { t, language } = useLanguage();
@@ -51,17 +51,21 @@ export default function AdminOrganizers() {
     if (inv.error) toast.error(inv.error.message);
     if (op.error) toast.error(op.error.message);
     setInvitations((inv.data ?? []) as Invitation[]);
-    const rows = (op.data ?? []) as unknown as Omit<Org, 'email' | 'eventCount' | 'venueCount'>[];
+    const rows = (op.data ?? []) as unknown as Omit<Org, 'email' | 'eventCount' | 'venueCount' | 'crmGifted'>[];
     const ids = rows.map((r) => r.user_id);
-    const [profiles, events, partners] = await Promise.all([
+    const products = Object.fromEntries(rows.map((r) => [r.user_id, normalizeProducts((r as { product?: unknown }).product, (r as { extra_products?: unknown }).extra_products)]));
+    // Pastille « offert » : l'abonnement CRM des seuls comptes qui ont le CRM.
+    const crmKeys = ids.filter((id) => products[id].product === 'crm' || products[id].extra.includes('crm')).map((id) => `org:${id}`);
+    const [profiles, events, partners, crmStates] = await Promise.all([
       ids.length ? supabase.from('profiles').select('id, email').in('id', ids) : Promise.resolve({ data: [] as { id: string; email: string | null }[] }),
       ids.length ? supabase.from('events').select('organizer_user_id').in('organizer_user_id', ids) : Promise.resolve({ data: [] as { organizer_user_id: string | null }[] }),
       ids.length ? supabase.from('venue_organizer_partnerships').select('organizer_user_id, venue_id').in('organizer_user_id', ids).eq('status', 'active') : Promise.resolve({ data: [] as { organizer_user_id: string; venue_id: string }[] }),
+      fetchCrmStates(crmKeys),
     ]);
     const emailMap = Object.fromEntries((profiles.data ?? []).map((p) => [p.id, p.email]));
     const ev: Record<string, number> = {}; for (const e of events.data ?? []) if (e.organizer_user_id) ev[e.organizer_user_id] = (ev[e.organizer_user_id] || 0) + 1;
     const vn: Record<string, Set<string>> = {}; for (const p of partners.data ?? []) (vn[p.organizer_user_id] ??= new Set()).add(p.venue_id);
-    setOrgs(rows.map((r) => ({ ...r, ...normalizeProducts((r as { product?: unknown }).product, (r as { extra_products?: unknown }).extra_products), email: emailMap[r.user_id] ?? null, eventCount: ev[r.user_id] || 0, venueCount: vn[r.user_id]?.size || 0 })));
+    setOrgs(rows.map((r) => ({ ...r, ...products[r.user_id], crmGifted: isCrmGifted(crmStates[`org:${r.user_id}`]), email: emailMap[r.user_id] ?? null, eventCount: ev[r.user_id] || 0, venueCount: vn[r.user_id]?.size || 0 })));
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -187,7 +191,7 @@ export default function AdminOrganizers() {
                 <Td muted>{o.city ?? '—'}</Td>
                 <Td right>{fmtNum(o.eventCount, language)}</Td>
                 <Td right>{fmtNum(o.venueCount, language)}</Td>
-                <Td><ProductPills product={o.product} extra={o.extra} /></Td>
+                <Td><ProductPills product={o.product} extra={o.extra} crmGifted={o.crmGifted} /></Td>
                 <Td><Pill size="xs" tone={o.is_public ? 'pos' : 'muted'} icon={Eye}>{o.is_public ? t('adm.common.yes') : t('adm.common.no')}</Pill></Td>
                 <Td><Btn size="sm" variant={o.bde_verified ? 'primary' : 'ghost'} icon={GraduationCap} loading={busy === o.user_id} onClick={() => setBde(o, !o.bde_verified)} title={o.bde_verified ? t('adm.org.bdeTitleOn') : t('adm.org.bdeTitleOff')}>{o.bde_verified ? t('adm.org.bdeOn') : t('adm.org.bdeOff')}</Btn></Td>
                 <Td right muted>{fmtDate(o.created_at, language)}</Td>

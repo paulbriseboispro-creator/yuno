@@ -29,6 +29,11 @@
 //   • "invite-product"        (admin) — invite le titulaire d'un compte à ouvrir
 //                              l'autre produit (Billetterie ⇄ CRM) par un email
 //                              au style Yuno CRM (migration 20261006100000).
+//   • "crm-founder-offer-email" (admin, ou clé serveur pour les essais) — envoie
+//                              l'invitation « offre fondateurs » de Yuno CRM
+//                              (migration 20261017230000) : le lien vient de
+//                              crm_offer_invite_for_email, l'envoi réussi est
+//                              noté sur l'invitation.
 //   • "request-support-access" (admin) — crée (ou relance) une demande d'accès
 //                              assisté EN ATTENTE et prévient le pro par EMAIL
 //                              (en plus de la notif in-app + push posées par
@@ -43,12 +48,13 @@
 // NB déploiement : verify_jwt = true (config.toml). "end-support-session" reste
 // joignable car la session support EST un JWT valide.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildSecureLink } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { jwtSessionId } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { buildProductInviteEmail, productInviteLang } from "../_shared/product-invite-email.ts";
+import { buildFounderOfferEmail, founderLang } from "../_shared/crm-founder-offer-email.ts";
 
 const APP_URL = "https://yunoapp.eu";
 
@@ -78,6 +84,52 @@ const COPY: Record<Lang, { subject: string; title: string; body: string; cta: st
   },
 };
 
+interface FounderInvite {
+  id: string; url: string; org_name: string; contact_name: string | null; email: string;
+  lang: string; free_months: number; yunits: number; expires_at: string; price_month: number;
+}
+
+/** L'invitation « offre fondateurs » par e-mail. `db` porte les droits de l'appelant (la RPC revérifie l'admin). */
+async function sendFounderOfferEmail(db: SupabaseClient, body: Record<string, unknown>, adminId: string | null, audit: SupabaseClient, jsonHeaders: Record<string, string>): Promise<Response> {
+  const reply = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { headers: jsonHeaders, status });
+  const inviteId = typeof body.inviteId === "string" ? body.inviteId : "";
+  if (!/^[0-9a-f-]{36}$/i.test(inviteId)) return reply({ error: "bad_input" }, 400);
+  const { data, error } = await db.rpc("crm_offer_invite_for_email", { p_id: inviteId });
+  if (error) {
+    const code = String(error.message ?? "error");
+    return reply({ error: code, code }, code === "not_found" ? 404 : code === "forbidden" ? 403 : 409);
+  }
+  const inv = data as FounderInvite;
+  const mail = buildFounderOfferEmail({
+    lang: founderLang(inv.lang), orgName: inv.org_name, contactName: inv.contact_name, url: inv.url,
+    freeMonths: inv.free_months, yunits: inv.yunits, priceMonth: Number(inv.price_month), expiresAt: inv.expires_at, origin: APP_URL,
+  });
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) return reply({ error: "email_not_configured", code: "email_not_configured" }, 503);
+  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+    body: JSON.stringify({
+      from: `Yuno CRM <${fromEmail}>`, reply_to: "support@yunoapp.eu", to: [inv.email],
+      subject: mail.subject, html: mail.html, text: mail.text,
+    }),
+  });
+  if (!res.ok) {
+    console.error("[ADMIN-ACCOUNT-RECOVERY] founder offer email failed:", res.status, await res.text().catch(() => ""));
+    return reply({ error: "email_failed", code: "email_failed" }, 502);
+  }
+  const sent = await res.json().catch(() => ({})) as { id?: string };
+  await db.rpc("crm_admin_offer_invite_mark", { p_id: inviteId, p_channel: "email" });
+  if (adminId) {
+    await audit.from("admin_audit_log").insert({
+      admin_id: adminId, action: "crm_offer_invite_email", entity_type: "crm_offer_invite", entity_id: inviteId,
+      metadata: { email: inv.email, org_name: inv.org_name },
+    });
+  }
+  return reply({ success: true, email: inv.email, messageId: sent.id ?? null });
+}
+
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -104,6 +156,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    // La clé serveur peut envoyer une invitation « offre fondateurs » (essais, scripts) :
+    // elle a déjà tous les droits, et rien d'autre ne lui est ouvert ici.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (serviceKey && callerToken === serviceKey) {
+      const sysBody = await req.clone().json().catch(() => ({}));
+      if (sysBody.action !== "crm-founder-offer-email") return fail("Not authenticated", 401);
+      return await sendFounderOfferEmail(supabaseAdmin, sysBody, null, supabaseAdmin, jsonHeaders);
+    }
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) return fail("Not authenticated", 401);
@@ -192,6 +253,11 @@ serve(async (req) => {
         metadata: { product, email_sent: emailSent },
       });
       return new Response(JSON.stringify({ success: true, emailSent, email: inv.email }), { headers: jsonHeaders });
+    }
+
+    // ── crm-founder-offer-email : l'offre fondateurs de Yuno CRM par e-mail ────
+    if (action === "crm-founder-offer-email") {
+      return await sendFounderOfferEmail(supabaseClient, body, user.id, supabaseAdmin, jsonHeaders);
     }
 
     // ── request-support-access : demande d'accès assisté + email au pro ────────

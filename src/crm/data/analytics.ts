@@ -12,11 +12,12 @@ export type AnaSeg = 'all' | 'hab' | 'occ' | 'nou' | 'end';
 export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist';
 /**
  * Famille de la source d'une vente, miroir de `_crm_ticket_source` (SQL,
- * migration 20261006210000) : lue dans `utm_source`, le seul champ de suivi
- * que l'API Tickets de Shotgun rend tel quel.
+ * migration 20261018100000) et de `sourceFamily` (src/crm/lib/links.ts) : lue
+ * dans `utm_source`, le seul champ de suivi que l'API Tickets de Shotgun rend
+ * tel quel.
  */
-export type SourceKey = 'ys' | 'yb' | 'yt' | 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'au' | 'di' | 'of';
-export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of'];
+export type SourceKey = 'ys' | 'yb' | 'yt' | 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
+export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'ex', 'se', 'au', 'di', 'of'];
 
 export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
 

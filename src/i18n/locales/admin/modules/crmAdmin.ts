@@ -269,6 +269,8 @@ const dict: AdminDict = {
   'adm.crm.ac.a.crm_extend_trial': ['Trial extended', 'Essai prolongé', 'Prueba prorrogada'],
   'adm.crm.ac.a.crm_freeze_sending': ['Sending frozen', 'Envoi gelé', 'Envío congelado'],
   'adm.crm.ac.a.crm_unfreeze_sending': ['Sending unfrozen', 'Envoi dégelé', 'Envío descongelado'],
+  'adm.crm.ac.a.crm_grant_plan': ['Yuno CRM given for free', 'Yuno CRM offert', 'Yuno CRM regalado'],
+  'adm.crm.ac.a.crm_end_grant': ['Yuno CRM paused', 'Yuno CRM mis en pause', 'Yuno CRM pausado'],
   'adm.crm.ac.amount': ['Number of Yunits', 'Nombre de Yunits', 'Número de Yunits'],
   'adm.crm.ac.days': ['Extra days (30 max)', 'Jours en plus (30 max)', 'Días extra (30 máx.)'],
   'adm.crm.ac.freezeBody': ['No campaign or automation will leave this account until it is unfrozen. Sends already in progress are not recalled.', 'Aucune campagne ni recette ne partira de ce compte tant qu’il n’est pas dégelé. Les envois déjà en cours ne sont pas rappelés.', 'Ninguna campaña ni receta saldrá de esta cuenta hasta que se descongele. Los envíos ya en curso no se retiran.'],
