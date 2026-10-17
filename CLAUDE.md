@@ -1080,6 +1080,51 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
 - Démo : `scripts/demo/seed-crm-links.sql` (à rejouer après
   `seed-crm-demo.sql`), sources réalistes (`utm_medium` = app / website).
 
+## Yuno CRM — l'e-mail pratique aux détenteurs d'une soirée (2026-10-18)
+
+Doc et lecture juridique : `docs/designs/CRM_PRACTICAL_EMAIL.md`. Migration
+`20261019150000`. Un billet est un contrat d'accès à UNE soirée : ses infos
+pratiques s'écrivent à chaque détenteur SANS accord marketing (CNIL : message
+transactionnel, exécution du contrat), tant que l'e-mail ne vend rien — sinon
+c'est de la prospection (L34-5 CPCE). Shotgun propose les mêmes « e-mails
+pratiques » et suspend le compte qui les détourne. Règles :
+
+- **`email_campaigns.practical`** = e-mail pratique de `event_id` (soirée MIROIR
+  de la portée). La garde `guard_crm_practical_email` (trigger `trg_b_…`, passe
+  avant la garde de l'identité) pose `type = 'informational'`, `product = 'crm'`,
+  vide `exclusions_json`, refuse toute audience / segment / A/B / renvoi / relance
+  (`crm_practical_audience`, `crm_practical_feature`) et ne laisse jamais retirer
+  le drapeau (`crm_practical_locked`). Une campagne CRM « informative » qui
+  n'est pas pratique est refusée (`crm_informational_requires_practical`) : le
+  CRM n'a que deux types, marketing (registre de consentement) ou pratique.
+- **Audience = `_crm_practical_audience`** : acheteurs d'un billet `valid` de la
+  soirée (un `transferred` est un billet REVENDU chez Shotgun : exclu), désabonnés
+  du marketing compris, liste de suppression appliquée comme partout, aucun jeton
+  de désinscription. Branche `practical` en tête de `resolve_campaign_audience`.
+  Hors règles de pression (type informational). 1 Yunit par e-mail.
+- **Contenu = `_crm_practical_content_issues`** (codes stables, front
+  `src/crm/lib/practicalEmail.ts`) : blocs `header, text, image, cta, columns,
+  event, countdown, lineup, social, divider, spacer` seulement ; bloc Yuno sur
+  CETTE soirée ; carte sans prix ; liens refusés vers une page de vente Yuno
+  (`yunoapp.eu`), une autre page Shotgun que celle de la soirée, une autre
+  billetterie, un code promo ; mots de promotion (`_crm_practical_text_issue`,
+  FR/EN/ES). Jugé au passage en `sending` / `scheduled` et à chaque retouche
+  pendant l'envoi ; `send-campaign` revérifie avant un TEST et avant la mise en
+  file (`crm_practical_email_check`, 402 + motifs).
+- **Soirée = `_crm_practical_night_state`** : rôle `organizer` ou `editor` chez
+  la billetterie (jamais `viewer`), 3 au plus par soirée (programmés compris),
+  jusqu'à 24 h après la fin (`crm_practical_email_rules()`, une seule définition).
+- **Rendu** : `RenderCtx.practicalFor` (front ⇄ port Deno, testés ensemble par
+  `src/crm/lib/__tests__/practicalEmail.test.ts`) — carte Soirée sans prix ni
+  bouton, « Powered by » jamais vers la page de vente, pied de page « vous avez un
+  billet pour … : c'est un e-mail pratique », sans lien de désinscription.
+- **Console** : bouton « E-mail pratique » du tiroir de la soirée
+  (`PracticalEmailModal`, avertissement d'usage), éditeur sans bloc de vente,
+  étape d'audience fixe (`PracticalAudienceStep`), Vérification « Rien qui
+  vende » / « Infos complétées » (le modèle laisse des « à compléter » qui
+  bloquent) / « La soirée ». Aide `yc.faq.practical`, article assistant
+  `crm-practical-email`.
+
 ## Yuno CRM — la guest list Shotgun dans l'analyse (2026-10-06)
 
 Doc : `docs/designs/CRM_GUEST_LIST_ANALYTICS.md`. Migrations `20261008100000`
