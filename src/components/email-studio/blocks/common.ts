@@ -15,6 +15,11 @@ export interface CanvasCtx {
   fallbackEventId?: string | null;
   /** Langue de l'e-mail : valeurs des balises Yuno des sections sur mesure. */
   language?: EmailLanguage | null;
+  /**
+   * E-mail pratique aux détenteurs (Yuno CRM) : la carte Soirée sans prix ni
+   * bouton d'achat — miroir de RenderCtx.practicalFor.
+   */
+  practical?: boolean;
 }
 
 export const EMAIL_FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";

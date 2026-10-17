@@ -45,7 +45,7 @@ export default function EventView({ block, theme, ctx, mobile }: {
   const items: { k: string; v: string; strong?: boolean }[] = [];
   if (dateLabel) items.push({ k: W.metaDate, v: dateLabel });
   if (block.venue && venueLabel) items.push({ k: W.metaVenue, v: venueLabel });
-  if (block.price && priceLabel) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
+  if (block.price && priceLabel && !ctx.practical) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
 
   const display = layout === 'banner' ? 'inline'
     : (layout === 'split' && (block.metaDisplay || 'stack') === 'rows') ? 'stack'
@@ -115,7 +115,7 @@ export default function EventView({ block, theme, ctx, mobile }: {
       perks={block.perks || []}
       extra={metaFlow}
       rows={metaRows}
-      ctaLabel={localizeDefaultLabel(block.ctaLabel, ctx.language) || W.eventCta}
+      ctaLabel={ctx.practical ? undefined : (localizeDefaultLabel(block.ctaLabel, ctx.language) || W.eventCta)}
       full={block.full}
       note={block.note ? withVars(block.note) : null}
       coverUrl={block.cover ? coverUrl : undefined}
