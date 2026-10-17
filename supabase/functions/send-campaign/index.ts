@@ -201,6 +201,8 @@ interface Sender {
   city: string | null;
   /** Adresse postale réglée dans le CRM (pied de page), sinon null. */
   postalAddress: string | null;
+  /** Raison sociale réglée dans le CRM : elle signe le pied de page, sinon null. */
+  legalName: string | null;
   /** Logo du compte — repli de marque du bloc header (voir email-studio-html.ts). */
   logoUrl: string | null;
   ownerUserId: string;
@@ -213,7 +215,13 @@ interface Sender {
   isPlatform: boolean;
 }
 
-async function resolveSender(admin: Admin, campaign: Record<string, unknown>): Promise<Sender> {
+/**
+ * `isCrm` = la campagne est du Yuno CRM (crm_campaign_is_crm) : seules celles-là
+ * lisent Réglages › Envoi. Une campagne Billetterie d'un compte qui a aussi le
+ * CRM garde l'identité du compte — le CRM peut écrire au nom d'une autre
+ * structure (Amoris teste le Shotgun de WOH), ses reçus et ses newsletters non.
+ */
+async function resolveSender(admin: Admin, campaign: Record<string, unknown>, isCrm: boolean): Promise<Sender> {
   let name = '';
   let city: string | null = null;
   let logoUrl: string | null = null;
@@ -259,23 +267,29 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
     .from('profiles').select('email, first_name, last_name').eq('id', ownerUserId!).single();
 
   const isPlatform = !venueId && !organizerUserId;
-  // Yuno CRM : nom d'expéditeur et adresse de réponse choisis dans Réglages
-  // d'envoi (crm_email_settings). L'adresse d'envoi garde le nom du compte :
-  // changer d'affichage ne doit pas changer de réputation.
+  // Yuno CRM : nom d'expéditeur, raison sociale, adresse postale et adresse de
+  // réponse choisis dans Réglages › Envoi (crm_email_settings). L'adresse
+  // d'envoi garde le nom du compte : changer d'affichage ne doit pas changer
+  // de réputation. Le nom affiché devient aussi la marque du corps de l'e-mail
+  // ({{nom_club}}, en-tête sans nom) : ce que le client lit en haut et en bas
+  // est ce qu'il voit dans « De : ».
   let displayName = name;
   let replyOverride: string | null = null;
   let postalAddress: string | null = null;
-  if (!isPlatform) {
-    const { data: cs } = await admin
-      .from('crm_email_settings').select('sender_name, reply_to, postal_address')
+  let legalName: string | null = null;
+  if (!isPlatform && isCrm) {
+    const { data: cs, error: csErr } = await admin
+      .from('crm_email_settings').select('sender_name, legal_name, reply_to, postal_address')
       .eq('scope_key', senderScopeKey(venueId, organizerUserId)).maybeSingle();
-    const row = cs as { sender_name?: string | null; reply_to?: string | null; postal_address?: string | null } | null;
-    if (row?.sender_name?.trim()) displayName = row.sender_name.trim().replace(/[<>"]/g, '');
+    if (csErr) throw new Error(`crm_email_settings: ${csErr.message}`);
+    const row = cs as { sender_name?: string | null; legal_name?: string | null; reply_to?: string | null; postal_address?: string | null } | null;
+    if (row?.sender_name?.trim()) displayName = row.sender_name.trim().replace(/[<>"\r\n]/g, '');
     if (row?.reply_to?.trim()) replyOverride = row.reply_to.trim();
     if (row?.postal_address?.trim()) postalAddress = row.postal_address.trim();
+    if (row?.legal_name?.trim()) legalName = row.legal_name.trim();
   }
   return {
-    name, city, postalAddress, logoUrl, ownerUserId: ownerUserId!,
+    name: displayName, city, postalAddress, legalName, logoUrl, ownerUserId: ownerUserId!,
     from: `${displayName} <${slugifyVenueName(name)}@${marketingDomain()}>`,
     replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
@@ -333,6 +347,7 @@ async function makeStudioHtmlBuilder(
     venueName: sender.name,
     city: sender.city,
     postalAddress: sender.postalAddress,
+    legalName: sender.legalName,
     logoUrl: campaignLogo || sender.logoUrl,
     emailType: campaign.type as 'promotional' | 'informational',
     // Langue de l'e-mail (posée par le MCP) : pied de page légal et balises.
@@ -889,6 +904,8 @@ Deno.serve(async (req) => {
         theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
         logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',
         subject_b: null, ab_enabled: false, automation_id,
+        // Recette réglée dans la Console CRM : ses e-mails sont du CRM.
+        product: (auto as { product?: string | null }).product ?? null,
       };
     } else if (!campaign_id && send_test && typeof scenario_id === 'string' && typeof node_id === 'string') {
       // Test d'un message de SCÉNARIO (Yuno CRM) : comme une recette, aucune
@@ -939,7 +956,28 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'demo_no_send', code: 'demo_no_send' }), { status: 409, headers: jsonHeaders });
     }
 
-    const sender = await resolveSender(admin, campaign);
+    // Yuno CRM ? Même règle que la facturation en Yunits (crm_campaign_is_crm).
+    // Un test de scénario est toujours du CRM ; un test de recette aussi quand
+    // la Console CRM l'a réglée (email_automations.product), sinon il suit sa
+    // portée (CRM seulement sur un compte CRM pur), comme ses e-mails.
+    let isCrm = false;
+    if (campaign_id) {
+      const { data: c, error } = await admin.rpc('crm_campaign_is_crm', { p_campaign_id: campaign_id });
+      if (error) throw new Error(`crm_campaign_is_crm: ${error.message}`);
+      isCrm = c === true;
+    } else if (scenario_id) {
+      isCrm = true;
+    } else if (automation_id && campaign.product === 'crm') {
+      isCrm = true;
+    } else if (automation_id) {
+      const { data: c, error } = await admin.rpc('crm_scope_is_crm', {
+        p_scope_key: senderScopeKey(campaign.venue_id as string | null, campaign.organizer_user_id as string | null),
+      });
+      if (error) throw new Error(`crm_scope_is_crm: ${error.message}`);
+      isCrm = c === true;
+    }
+
+    const sender = await resolveSender(admin, campaign, isCrm);
 
     if (actingUserId && sender.ownerUserId !== actingUserId) {
       const { data: roles } = await admin.from('user_roles').select('role').eq('user_id', actingUserId);
@@ -956,6 +994,33 @@ Deno.serve(async (req) => {
         crmTeam = inScope === true;
       }
       if (!isAdmin && !crmTeam) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: jsonHeaders });
+    }
+
+    // ── Identité de l'expéditeur (Yuno CRM) ────────────────────────────────
+    // Rien ne part — ni test, ni envoi, ni programmé — sans nom d'expéditeur,
+    // raison sociale, adresse postale et conditions acceptées par le titulaire
+    // (crm_email_sender_readiness → _crm_email_identity, migration 20261019103000). La base le
+    // refuse aussi (trigger trg_guard_crm_sender_identity) : ici on répond
+    // AVANT de mettre en file, avec la liste de ce qui manque. 402 comme
+    // crm_paused : process-scheduled-campaigns lit ce code comme « remise en
+    // brouillon », jamais « échouée ». Une tranche (drain) a déjà passé la porte.
+    if (isCrm && mode !== 'drain') {
+      const { data: idn, error: idErr } = await admin.rpc('crm_email_sender_readiness', {
+        p_venue_id: (campaign.venue_id as string | null) ?? null,
+        p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+      });
+      if (idErr) throw new Error(`crm_email_sender_readiness: ${idErr.message}`);
+      const identity = idn as { ready?: boolean; missing?: string[] } | null;
+      if (!identity?.ready) {
+        if (campaign_id && !send_test && ['sending', 'scheduled'].includes(String(campaign.status))) {
+          await admin.from('email_campaigns')
+            .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: 'crm_sender_identity' })
+            .eq('id', campaign_id).in('status', ['sending', 'scheduled']);
+        }
+        return new Response(JSON.stringify({
+          error: 'crm_sender_identity', code: 'crm_sender_identity', missing: identity?.missing ?? [],
+        }), { status: 402, headers: jsonHeaders });
+      }
     }
 
     // ── Test ────────────────────────────────────────────────────────────────
@@ -1058,6 +1123,14 @@ Deno.serve(async (req) => {
       }
       // Yuno CRM : compte en pause (essai fini sans abonnement) — rien ne part,
       // la campagne redevient un brouillon que la Console signale.
+      // Identité de l'expéditeur retirée entre la vérification et la mise en
+      // file : la base a refusé le passage en envoi (trigger), même réponse.
+      if (eErr && eErr.message.includes('crm_sender_identity')) {
+        await admin.from('email_campaigns')
+          .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: 'crm_sender_identity' })
+          .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
+        return new Response(JSON.stringify({ error: 'crm_sender_identity', code: 'crm_sender_identity' }), { status: 402, headers: jsonHeaders });
+      }
       if (eErr && eErr.message.includes('crm_paused')) {
         await admin.from('email_campaigns')
           .update({ status: 'draft', paused_reason: null, error_message: 'crm_paused' })

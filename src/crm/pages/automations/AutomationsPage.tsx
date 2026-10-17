@@ -28,6 +28,7 @@ import { AutoIntro, AutoLive, AutoRecos, AutoSoon } from './AutoLive';
 import { AutoTodo } from './AutoTodo';
 import { AutoModal } from './AutoModal';
 import { HoldoutResults } from '@/crm/components/HoldoutResults';
+import { SenderIdentityNotice } from '@/crm/components/SenderIdentityNotice';
 import { Segmented } from '@/crm/ui/kit';
 import { useScenarioActions } from '@/crm/data/scenarios';
 import { recipeToGraph } from '@/crm/lib/scenarioTemplates';
@@ -194,6 +195,9 @@ export default function AutomationsPage() {
         />
         <span style={{ fontSize: 13.5, color: 'var(--sand-500)', textWrap: 'pretty' }}>{t(tab === 'scenarios' ? 'yc.scn.tabs.scenariosHint' : 'yc.scn.tabs.recipesHint')}</span>
       </div>
+
+      {/* Rien ne part sans l'identité de l'expéditeur : les envois attendent en pause. */}
+      <SenderIdentityNotice />
 
       {tab === 'scenarios' && <ScenariosTab galleryOpen={gallery} setGalleryOpen={setGallery} />}
 

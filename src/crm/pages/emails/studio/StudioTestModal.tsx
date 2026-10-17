@@ -3,6 +3,8 @@
  * cinq au plus), en ajouter une, puis l'envoi par la fonction d'envoi réelle
  * (`send-campaign`, mode test : le titulaire du compte le reçoit toujours).
  * Un test ne coûte aucun Yunit. Compte de démonstration : rien ne part.
+ * Identité de l'expéditeur incomplète (Réglages › Envoi) : le test non plus,
+ * le bandeau dit ce qui manque et y mène.
  */
 import { useEffect, useState } from 'react';
 import { Hv } from '@/crm/ui/Hv';
@@ -14,6 +16,8 @@ import { useCrmT } from '@/crm/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useEmailSettings, useSaveEmailSettings } from '@/crm/data/emails';
+import { isIdentityRefusal, readSendCampaignError } from '@/crm/lib/emailIdentity';
+import { SenderIdentityNotice } from '@/crm/components/SenderIdentityNotice';
 import { useStudio } from '@/components/email-studio/store';
 import { useStudioUi } from './studioUi';
 
@@ -38,7 +42,11 @@ function TestBody({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string[] | null>(null);
+  // Refus du serveur (la liste qu'il rend), qui prime sur l'état en cache.
+  const [refused, setRefused] = useState<string[] | null>(null);
   const me = (user?.email ?? '').toLowerCase();
+  const readiness = settings.data?.readiness;
+  const blocked = !!refused || (!!readiness && !readiness.ready && !readiness.demo);
 
   useEffect(() => {
     const saved = (settings.data?.test_emails ?? []).filter((e) => e.toLowerCase() !== me);
@@ -67,10 +75,17 @@ function TestBody({ onClose }: { onClose: () => void }) {
     setMsg(null);
     const { data, error } = await supabase.functions.invoke('send-campaign', { body: { campaign_id: campaignId, send_test: true, test_emails: sel } });
     setSending(false);
-    const code = (data as { code?: string } | null)?.code;
-    const ctxBody = (error as { context?: { status?: number } } | null)?.context;
-    if (code === 'demo_no_send' || ctxBody?.status === 409) { setMsg(t('yc.em.st.t.demo')); return; }
-    if (error) { setMsg(t('yc.em.st.t.fail')); return; }
+    if (error) {
+      const { text, body } = await readSendCampaignError(error, data);
+      if (text.includes('demo_no_send')) { setMsg(t('yc.em.st.t.demo')); return; }
+      if (isIdentityRefusal(text)) {
+        setRefused(Array.isArray(body?.missing) ? body.missing : []);
+        void settings.refetch();
+        return;
+      }
+      setMsg(t('yc.em.st.t.fail'));
+      return;
+    }
     setDone([user?.email ?? '', ...sel].filter(Boolean));
   };
 
@@ -118,12 +133,13 @@ function TestBody({ onClose }: { onClose: () => void }) {
               <Hv as="button" type="button" onClick={add} style={{ height: 44, padding: '0 18px', border: 0, borderRadius: 99, background: 'var(--sand-100)', fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--sand-200)' }}>{t('yc.em.st.t.addBtn')}</Hv>
             </div>
             {msg && <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 13.5, lineHeight: 1.45, fontWeight: 500 }}>{msg}</div>}
+            {blocked && <SenderIdentityNotice compact missing={refused ?? undefined} />}
             <Hv
               as="button"
               type="button"
               onClick={() => void send()}
-              disabled={sending || n === 0}
-              style={{ height: 50, border: 0, borderRadius: 99, background: n ? 'var(--gradient-brand)' : 'var(--sand-300)', color: '#fff', fontSize: 15.5, fontWeight: 600, cursor: sending ? 'progress' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, boxShadow: n ? 'var(--shadow-cta)' : 'none' }}
+              disabled={sending || n === 0 || blocked}
+              style={{ height: 50, border: 0, borderRadius: 99, background: n && !blocked ? 'var(--gradient-brand)' : 'var(--sand-300)', color: '#fff', fontSize: 15.5, fontWeight: 600, cursor: sending ? 'progress' : blocked ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, boxShadow: n && !blocked ? 'var(--shadow-cta)' : 'none' }}
               hover={{ filter: 'brightness(1.05)' }}
             >
               {sending && <Icon name="refresh" size={16} stroke={2.6} style={{ animation: 'yc-spin 800ms linear infinite' }} />}

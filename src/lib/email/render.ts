@@ -1171,6 +1171,15 @@ export function footerPlace(ctx: Pick<RenderCtx, 'postalAddress' | 'city'>): str
 }
 
 /**
+ * Qui signe le pied de page : la raison sociale réglée dans Réglages › Envoi
+ * (Yuno CRM), sinon le nom affiché. C'est l'identité légale de l'expéditeur
+ * (LCEN art. 20) ; miroir exact dans le port Deno.
+ */
+export function footerSigner(ctx: Pick<RenderCtx, 'legalName' | 'venueName'>): string {
+  return (ctx.legalName ?? '').trim() || ctx.venueName;
+}
+
+/**
  * Mentions légales du pied de page, dans la langue de l'e-mail. Miroir exact
  * dans le port Deno (email-studio-html.ts). Jamais modifiables par le pro ni
  * par son IA : c'est ce qui rend l'e-mail conforme.
@@ -1192,9 +1201,9 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): 
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
-    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${footerPlace(ctx) ? ' — ' + escapeHtml(footerPlace(ctx)) : ''}</p>
+    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(footerSigner(ctx))}${footerPlace(ctx) ? ' — ' + escapeHtml(footerPlace(ctx)) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.sent(escapeHtml(ctx.recipient.email), reason)}</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, escapeHtml(ctx.venueName))}</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, escapeHtml(footerSigner(ctx)))}</p>
      ${unsub}
      ${poweredBy(theme, ctx)}`,
     `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,

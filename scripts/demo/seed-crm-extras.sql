@@ -64,9 +64,11 @@ BEGIN
     FROM (SELECT buyer_email FROM public.external_tickets WHERE organizer_user_id = v_uid LIMIT 400) q;
 
   -- ── 1. Réglages d'envoi ────────────────────────────────────────────────
-  INSERT INTO public.crm_email_settings (scope_key, organizer_user_id, sender_name, reply_to, postal_address, quiet_hours, waves, notify_done, test_emails, updated_by)
-  VALUES (v_scope, v_uid, 'Nuits Démo', 'contact@nuitsdemo.example', '12 rue de la Nuit, 75011 Paris', true, true, true, ARRAY['crm@womber.fr'], v_uid)
-  ON CONFLICT (scope_key) DO UPDATE SET sender_name = EXCLUDED.sender_name, reply_to = EXCLUDED.reply_to,
+  -- Identité complète (nom, raison sociale fictive, adresse) : sans elle,
+  -- l'étape Vérification montrerait un point rouge aux prospects (20261019103000).
+  INSERT INTO public.crm_email_settings (scope_key, organizer_user_id, sender_name, legal_name, reply_to, postal_address, quiet_hours, waves, notify_done, test_emails, updated_by)
+  VALUES (v_scope, v_uid, 'Nuits Démo', 'Nuits Démo SAS', 'contact@nuitsdemo.example', '12 rue de la Nuit, 75011 Paris', true, true, true, ARRAY['crm@womber.fr'], v_uid)
+  ON CONFLICT (scope_key) DO UPDATE SET sender_name = EXCLUDED.sender_name, legal_name = EXCLUDED.legal_name, reply_to = EXCLUDED.reply_to,
     postal_address = EXCLUDED.postal_address, quiet_hours = true, waves = true, notify_done = true,
     test_emails = EXCLUDED.test_emails, updated_at = now();
   INSERT INTO public.crm_settings (scope_key, organizer_user_id, regular_min_nights, regular_window_months, lapse_months, night_end_hour, retention_months, business_type, updated_by)

@@ -182,6 +182,14 @@ describe('renderEmailHtml — enveloppe', () => {
     expect(blank).toContain('— Bordeaux');
   });
 
+  it('la raison sociale réglée signe le pied de page, sinon le nom affiché', () => {
+    const signed = renderEmailHtml([makeBlock('text')], theme, { ...ctx, legalName: 'WOH Productions SAS', postalAddress: '10 rue Oberkampf, 75011 Paris' });
+    expect(signed).toContain('WOH Productions SAS — 10 rue Oberkampf, 75011 Paris');
+    expect(signed).toMatch(/© \d{4} WOH Productions SAS\./);
+    const unsigned = renderEmailHtml([makeBlock('text')], theme, { ...ctx, legalName: '  ' });
+    expect(unsigned).toContain(`${ctx.venueName} — Bordeaux`);
+  });
+
   it('inclut les fallbacks MSO et le meta color-scheme', () => {
     expect(html).toContain('<!--[if mso]>');
     expect(html).toContain('color-scheme');
