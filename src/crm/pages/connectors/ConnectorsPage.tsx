@@ -558,7 +558,7 @@ function ImportStep({ importing, stats, go }: { importing: boolean; stats: Ticke
 
 function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnState; go: (p: Record<string, string> | null) => void }) {
   const T = useCrmT();
-  const { t, n } = T;
+  const { t, tp, n } = T;
   const toast = useCrmToast();
   const { space, rpc: args } = useCrmScope();
   const invalidate = useInvalidateTicketing();
@@ -679,6 +679,17 @@ function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnSta
             </div>
           ))}
         </div>
+        {/* Le seul endroit où l'écart avec un simple compte d'adresses se dit :
+            un client a au moins un billet valide, comme sur l'Accueil. */}
+        {stats.buyers_inactive != null && (
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}>
+            {[
+              t('yc.co.m.peopleDef'),
+              stats.buyers_inactive ? tp('yc.co.m.inactive', stats.buyers_inactive, { n: n(stats.buyers_inactive) }) : '',
+              stats.no_email_tickets ? tp('yc.co.m.noEmail', stats.no_email_tickets, { n: n(stats.no_email_tickets) }) : '',
+            ].filter(Boolean).join(' ')}
+          </p>
+        )}
       </section>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ flex: '1.7 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>

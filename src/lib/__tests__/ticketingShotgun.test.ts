@@ -214,6 +214,68 @@ describe('billet Shotgun au schéma officiel', () => {
   });
 });
 
+// Les 83 noms que Shotgun a rendus sur le premier vrai compte (Club Sonore,
+// 17/10/2026), avec le code attendu. « Germany » partait en « DD » (RDA),
+// « Serbia » en « CS », et les noms anglais d'avant les renommages ISO
+// (Turkey, Czech Republic, Republic Of Moldova) ne trouvaient rien.
+const SHOTGUN_COUNTRY_NAMES: ReadonlyArray<readonly [string, string]> = [
+    ['France', 'FR'], ['United States', 'US'], ['Italy', 'IT'], ['Spain', 'ES'], ['Germany', 'DE'],
+    ['United Kingdom', 'GB'], ['Belgium', 'BE'], ['Portugal', 'PT'], ['Mexico', 'MX'], ['Netherlands', 'NL'],
+    ['Switzerland', 'CH'], ['Morocco', 'MA'], ['Brazil', 'BR'], ['Luxembourg', 'LU'], ['Canada', 'CA'],
+    ['Norway', 'NO'], ['Sweden', 'SE'], ['Australia', 'AU'], ['Tunisia', 'TN'], ['Argentina', 'AR'],
+    ['Ireland', 'IE'], ['Austria', 'AT'], ['Denmark', 'DK'], ['Greece', 'GR'], ['Pakistan', 'PK'],
+    ['Turkey', 'TR'], ['North Korea', 'KP'], ['Albania', 'AL'], ['Monaco', 'MC'], ['Poland', 'PL'],
+    ['Ukraine', 'UA'], ['Egypt', 'EG'], ['La Réunion', 'RE'], ['Finland', 'FI'], ['Slovenia', 'SI'],
+    ['Thailand', 'TH'], ['Czech Republic', 'CZ'], ['Saudi Arabia', 'SA'], ['Chile', 'CL'], ['Latvia', 'LV'],
+    ['Algeria', 'DZ'], ['Israel', 'IL'], ['Bulgaria', 'BG'], ['Guadeloupe', 'GP'], ['Paraguay', 'PY'],
+    ['Singapore', 'SG'], ['Cambodia', 'KH'], ['Lebanon', 'LB'], ['Malta', 'MT'], ['Hungary', 'HU'],
+    ['Republic Of Moldova', 'MD'], ['Romania', 'RO'], ["Côte d'Ivoire", 'CI'], ['Venezuela', 'VE'],
+    ['Georgia', 'GE'], ['North Macedonia', 'MK'], ['Slovakia', 'SK'], ['Cyprus', 'CY'], ['China', 'CN'],
+    ['Croatia', 'HR'], ['Japan', 'JP'], ['South Africa', 'ZA'], ['Estonia', 'EE'], ['Iceland', 'IS'],
+    ['Indonesia', 'ID'], ['Djibouti', 'DJ'], ['Kosovo', 'XK'], ['Palestine', 'PS'], ['Colombia', 'CO'],
+    ['Lithuania', 'LT'], ['United Arab Emirates', 'AE'], ['New Zealand', 'NZ'], ['Serbia', 'RS'],
+    ['Madagascar', 'MG'], ['Martinique', 'MQ'], ['Uruguay', 'UY'], ['Montenegro', 'ME'],
+    ['French Polynesia', 'PF'], ['Qatar', 'QA'], ['Angola', 'AO'], ['Nigeria', 'NG'], ['India', 'IN'],
+    ['Senegal', 'SN'],
+];
+
+describe('pays des billets Shotgun', () => {
+  it('rend le bon code pour chaque nom vu sur un vrai compte', () => {
+    for (const [name, code] of SHOTGUN_COUNTRY_NAMES) expect([name, countryCodeFrom(name)]).toEqual([name, code]);
+  });
+
+  it('ne rend jamais un code retiré ou un regroupement', () => {
+    for (const name of ['Germany', 'Allemagne', 'Alemania', 'Serbia', 'Vietnam', 'Yemen', 'Myanmar', 'Zimbabwe', 'Vanuatu', 'Curaçao', 'Russia', 'France']) {
+      expect(['DD', 'CS', 'YU', 'VD', 'YD', 'BU', 'RH', 'NH', 'AN', 'SU', 'FX']).not.toContain(countryCodeFrom(name));
+    }
+    expect(countryCodeFrom('Germany')).toBe('DE');
+    expect(countryCodeFrom('Allemagne')).toBe('DE');
+    expect(countryCodeFrom('European Union')).toBeNull();
+  });
+
+  it('ramène un code retiré reçu tel quel à son successeur', () => {
+    expect(countryCodeFrom('DD')).toBe('DE');
+    expect(countryCodeFrom('uk')).toBe('GB');
+    expect(countryCodeFrom('CS')).toBe('RS');
+    expect(countryCodeFrom('ZZ')).toBeNull();
+  });
+
+  it('lit la forme inversée de la liste ISO', () => {
+    expect(countryCodeFrom('Moldova, Republic of')).toBe('MD');
+    expect(countryCodeFrom('Korea, Republic of')).toBe('KR');
+    expect(countryCodeFrom('Iran, Islamic Republic of')).toBe('IR');
+    expect(countryCodeFrom('Congo, The Democratic Republic of the')).toBe('CD');
+  });
+
+  it('lit les noms ISO que la table Intl écrit autrement', () => {
+    expect(countryCodeFrom('Myanmar')).toBe('MM');
+    expect(countryCodeFrom('Bosnia and Herzegovina')).toBe('BA');
+    expect(countryCodeFrom('Trinidad and Tobago')).toBe('TT');
+    expect(countryCodeFrom('Saint Lucia')).toBe('LC');
+    expect(countryCodeFrom('Congo')).toBe('CG');
+  });
+});
+
 describe('billet Shotgun', () => {
   const now = new Date('2026-10-02T12:00:00Z');
 

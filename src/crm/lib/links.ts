@@ -137,31 +137,96 @@ export function buildGoDestination(hit: GoHit): string | null {
 
 // ── Sources que Shotgun rapporte pour une vente ─────────────────────────────
 
-export type SourceKind = 'link' | 'email' | 'sms' | 'dm' | 'shotgun' | 'direct' | 'social' | 'site' | 'offline';
-
-const SOCIAL = new Set(['instagram', 'ig', 'facebook', 'fb', 'tiktok', 'snapchat', 'twitter', 'x', 'threads', 'linkedin', 'youtube', 'pinterest', 'messenger']);
+export type SourceKind = 'link' | 'email' | 'sms' | 'dm' | 'shotgun' | 'direct' | 'social' | 'extmail' | 'search' | 'site' | 'offline';
 
 /**
- * Miroir de `_crm_ticket_source` (SQL) pour l'affichage d'une soirée.
+ * Famille d'une source, MIROIR EXACT de `_crm_ticket_source` (SQL, migration
+ * 20261018100000) — même ordre de règles, mêmes expressions. Seule différence :
+ * le SQL détaille un lien Yuno (`ys`, `yb`, `yt`) en lisant `tracked_links`,
+ * ici tout lien Yuno rend `yl`.
+ *
+ * Shotgun écrit dans `utm_source` soit un mot (`instagram`, `newsletter`), soit
+ * le DOMAINE qui a amené l'acheteur (`instagram.com`, `l.facebook.com`,
+ * `ezapv.r.ag.d.sendibm3.com`) : le domaine est ramené à sa forme nue (schéma,
+ * chemin, `www.`, `l.`, `m.`, `lm.` retirés) puis lu mot par mot.
+ */
+export type SourceFamily = 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
+
+const RE_SOCIAL_WORD = /(^|[^a-z0-9])(instagram|insta|ig|facebook|fb|messenger|tiktok|snapchat|threads|twitter|linkedin|youtube|pinterest|reddit|whatsapp|telegram|discord)([^a-z0-9]|$)/;
+const RE_SOCIAL_HOST = /^(x\.com|t\.co|youtu\.be|lnkd\.in|pin\.it|wa\.me|t\.me)$/;
+const RE_SHOTGUN_HOST = /(^|\.)shotgun\.(live|app|io|fr)$/;
+const RE_EXT_MAIL = /(^|[^a-z0-9])(brevo|sendinblue|sendibm[0-9]*|mailchimp|list-manage|mcusercontent|mailerlite|mlsend|mailjet|klaviyo|sendgrid|substack|beehiiv|convertkit|hubspotemail|newsletters?|mailing|emailing|e?mail[0-9]*|webmail|zimbra|outlook|gmail|hotmail|roundcube)([^a-z0-9]|$)|android\.gm$/;
+const RE_SEARCH = /(^|[^a-z0-9])(google|bing|duckduckgo|qwant|ecosia|yahoo|yandex|baidu|startpage|chatgpt|openai|perplexity)([^a-z0-9]|$)|(^|\.)(claude|mistral)\.ai$|(^|\.)copilot\.microsoft\.com$/;
+
+/** Forme nue d'une source : `https://www.google.com/search?q=…` → `google.com`. */
+export function sourceHost(src: string | null | undefined): string {
+  return (src ?? '').trim().toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .replace(/[/?#:].*$/, '')
+    .replace(/^((www[0-9]*|l|m|lm|mobile|web|mbasic|touch)\.)+/, '');
+}
+
+export function sourceFamily(src: string | null | undefined): SourceFamily {
+  const s = (src ?? '').trim().toLowerCase();
+  if (!s) return 'of';
+  if (s === 'yuno' || s.startsWith('yuno-m-')) return 'em';
+  if (s.startsWith('yuno-s-')) return 'sm';
+  if (s.startsWith('yuno-d-')) return 'dm';
+  if (s.startsWith('yuno-')) return 'yl';
+  if (s === 'shotgun') return 'sg';
+  if (s === 'direct') return 'di';
+  const h = sourceHost(s);
+  if (!h) return 'au';
+  if (RE_SHOTGUN_HOST.test(h)) return 'sg';
+  if (h === 'x' || RE_SOCIAL_HOST.test(h) || RE_SOCIAL_WORD.test(h)) return 'so';
+  if (RE_EXT_MAIL.test(h)) return 'ex';
+  if (RE_SEARCH.test(h)) return 'se';
+  return 'au';
+}
+
+const KIND_OF: Record<SourceFamily, SourceKind> = {
+  yl: 'link', em: 'email', sm: 'sms', dm: 'dm', so: 'social', sg: 'shotgun',
+  ex: 'extmail', se: 'search', au: 'site', di: 'direct', of: 'offline',
+};
+
+/**
+ * Famille d'une source pour l'affichage d'une soirée (`sourceFamily` en clair).
  * `yuno-<code>` = un lien Yuno ; `yuno-m-…` / `yuno-s-…` / `yuno-d-…` = un
  * e-mail, un SMS, une réponse Instagram de Yuno ; `yuno` seul = e-mails Yuno
  * d'avant la source par campagne ; `shotgun` = l'app ou le site Shotgun ;
  * `direct` = lien collé, messagerie ; rien = billet importé ou vendu hors ligne.
  */
 export function sourceKind(src: string | null | undefined): SourceKind {
-  const s = (src ?? '').trim().toLowerCase();
-  if (!s) return 'offline';
-  if (s.startsWith('yuno-m-') || s === 'yuno') return 'email';
-  if (s.startsWith('yuno-s-')) return 'sms';
-  if (s.startsWith('yuno-d-')) return 'dm';
-  if (s.startsWith('yuno-')) return 'link';
-  if (s === 'shotgun') return 'shotgun';
-  if (s === 'direct') return 'direct';
-  if (SOCIAL.has(s)) return 'social';
-  return 'site';
+  return KIND_OF[sourceFamily(src)];
 }
 
-export const SOURCE_ORDER: readonly SourceKind[] = ['link', 'email', 'sms', 'dm', 'social', 'shotgun', 'site', 'direct', 'offline'];
+// Nom lisible d'une source, pour l'affichage seulement (jamais pour classer).
+const SOURCE_BRANDS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/(^|[^a-z0-9])(instagram|insta|ig)([^a-z0-9]|$)/, 'Instagram'],
+  [/(^|[^a-z0-9])(facebook|fb)([^a-z0-9]|$)/, 'Facebook'],
+  [/(^|[^a-z0-9])messenger([^a-z0-9]|$)/, 'Messenger'],
+  [/(^|[^a-z0-9])tiktok([^a-z0-9]|$)/, 'TikTok'],
+  [/(^|[^a-z0-9])snapchat([^a-z0-9]|$)/, 'Snapchat'],
+  [/(^|[^a-z0-9])(whatsapp)([^a-z0-9]|$)|^wa\.me$/, 'WhatsApp'],
+  [/(^|[^a-z0-9])(twitter)([^a-z0-9]|$)|^(x|x\.com|t\.co)$/, 'X'],
+  [/(^|[^a-z0-9])(brevo|sendinblue|sendibm[0-9]*)([^a-z0-9]|$)/, 'Brevo'],
+  [/(^|[^a-z0-9])(mailchimp|list-manage|mcusercontent)([^a-z0-9]|$)/, 'Mailchimp'],
+  [/(^|[^a-z0-9])(mailerlite|mlsend)([^a-z0-9]|$)/, 'MailerLite'],
+  [/(^|[^a-z0-9])outlook([^a-z0-9]|$)/, 'Outlook'],
+  [/(^|[^a-z0-9])gmail([^a-z0-9]|$)|android\.gm$/, 'Gmail'],
+  [/^shotgun-e?mail$/, 'Shotgun'],
+  [/(^|[^a-z0-9])google([^a-z0-9]|$)/, 'Google'],
+  [/(^|[^a-z0-9])bing([^a-z0-9]|$)/, 'Bing'],
+  [/(^|[^a-z0-9])(chatgpt|openai)([^a-z0-9]|$)/, 'ChatGPT'],
+  [/(^|[^a-z0-9])perplexity([^a-z0-9]|$)/, 'Perplexity'],
+];
+export function sourceName(src: string | null | undefined): string {
+  const h = sourceHost(src);
+  for (const [re, name] of SOURCE_BRANDS) if (re.test(h)) return name;
+  return h || (src ?? '').trim();
+}
+
+export const SOURCE_ORDER: readonly SourceKind[] = ['link', 'email', 'sms', 'dm', 'social', 'shotgun', 'extmail', 'search', 'site', 'direct', 'offline'];
 
 export interface SourceRow { source: string | null; tickets: number; orders: number; revenue: number | null }
 
@@ -194,7 +259,10 @@ export function groupSources(rows: readonly SourceRow[], links: readonly Pick<Ni
     g.tickets += r.tickets;
     if (g.revenue !== null && r.revenue !== null) g.revenue += r.revenue;
     else g.revenue = null;
-    if ((k === 'social' || k === 'site') && r.source && !g.names.includes(r.source)) g.names.push(r.source);
+    if (k === 'social' || k === 'extmail' || k === 'search' || k === 'site') {
+      const name = r.source ? sourceName(r.source) : '';
+      if (name && !g.names.includes(name)) g.names.push(name);
+    }
     m.set(k, g);
   }
   return SOURCE_ORDER.filter((k) => m.has(k)).map((k) => m.get(k)!);
@@ -243,7 +311,7 @@ export function saleSourceText(
   if (!src) return null;
   if (src.kind === 'yl' || src.kind === 'ys' || src.kind === 'yb' || src.kind === 'yt') return src.label ? t('yc.cli.card.src.link', { name: src.label }) : t('yc.ana.src.yl');
   if (src.kind === 'em') return src.label ? t('yc.cli.card.src.email', { name: src.label }) : t('yc.ana.src.em');
-  if (src.kind === 'so' && src.src) return t('yc.cli.card.src.social', { name: src.src.charAt(0).toUpperCase() + src.src.slice(1) });
-  if (src.kind === 'au' && src.src) return src.src;
+  if (src.kind === 'so' && src.src) return t('yc.cli.card.src.social', { name: sourceName(src.src) });
+  if ((src.kind === 'ex' || src.kind === 'se' || src.kind === 'au') && src.src) return sourceName(src.src);
   return t(`yc.ana.src.${src.kind}`);
 }

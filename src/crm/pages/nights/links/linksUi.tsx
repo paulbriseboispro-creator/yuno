@@ -60,6 +60,8 @@ export const SOURCE_COLOR: Record<SourceKind, string> = {
   dm: '#D62976',
   social: '#962FBF',
   shotgun: 'var(--ink)',
+  extmail: 'var(--green-600)',
+  search: 'var(--amber-700)',
   site: 'var(--sand-500)',
   direct: 'var(--sand-400)',
   offline: 'var(--sand-200)',
