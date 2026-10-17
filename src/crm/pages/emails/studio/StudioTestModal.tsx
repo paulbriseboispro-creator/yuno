@@ -20,6 +20,7 @@ import { isIdentityRefusal, readSendCampaignError } from '@/crm/lib/emailIdentit
 import { SenderIdentityNotice } from '@/crm/components/SenderIdentityNotice';
 import { useStudio } from '@/components/email-studio/store';
 import { useStudioUi } from './studioUi';
+import { practicalIssueKey, practicalRefusalKey, type PracticalIssue } from '@/crm/lib/practicalEmail';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -81,6 +82,14 @@ function TestBody({ onClose }: { onClose: () => void }) {
       if (isIdentityRefusal(text)) {
         setRefused(Array.isArray(body?.missing) ? body.missing : []);
         void settings.refetch();
+        return;
+      }
+      // E-mail pratique qui vend quelque chose : ce qui bloque, dit en clair.
+      const practicalKey = practicalRefusalKey(text);
+      if (practicalKey) {
+        const issues = ((body as { issues?: PracticalIssue[] } | null)?.issues ?? []);
+        const detail = [...new Set(issues.map((i) => t(practicalIssueKey(i.code), { term: i.term ?? '', block: i.type ? t(`yc.em.st.b.${i.type}`) : '' })))].slice(0, 3).join(' · ');
+        setMsg(detail ? `${t(practicalKey)} ${detail}` : t(practicalKey));
         return;
       }
       setMsg(t('yc.em.st.t.fail'));

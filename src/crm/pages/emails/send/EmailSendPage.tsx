@@ -39,6 +39,9 @@ import type { EmailBlock } from '@/lib/email/types';
 import { AudienceStep } from './AudienceStep';
 import { PlanStep, type PlanState } from './PlanStep';
 import { CheckStep } from './CheckStep';
+import { PracticalAudienceStep } from './PracticalAudienceStep';
+import { usePracticalCheck, usePracticalNight } from '@/crm/data/practical';
+import { hasPracticalTodo, practicalIssueKey, practicalReasonKey, practicalRefusalKey } from '@/crm/lib/practicalEmail';
 import { SendAside } from './SendAside';
 
 type Step = 'aud' | 'plan' | 'check';
@@ -52,12 +55,15 @@ interface Row {
   event_id: string | null; audiences_json: unknown; exclusions_json: unknown; scheduled_at: string | null;
   throttle_per_hour: number | null; throttle_window_minutes: number | null; quiet_hours: boolean | null;
   venue_id: string | null; organizer_user_id: string | null; total_recipients: number | null;
+  practical: boolean | null;
 }
 
 interface Draft {
   id: string; name: string; status: string; subject: string; abOn: boolean; abPct: number; abHours: number;
   preheader: string; blocks: EmailBlock[]; eventId: string | null; audiences: CrmAudience[];
   recentDays: number; excludeBuyers: boolean; plan: PlanState;
+  /** E-mail pratique aux détenteurs de `eventId` (Yuno CRM) : audience fixe. */
+  practical: boolean;
 }
 
 /** Créneau proposé par défaut : demain 10 h (ou le prochain meilleur jour). */
@@ -79,7 +85,7 @@ function rowToDraft(r: Row): Draft {
   return {
     id: r.id, name: r.name, status: r.status, subject: r.subject === '—' ? '' : r.subject ?? '', abOn: !!r.ab_enabled && !!(r.subject_b ?? '').trim(),
     abPct: r.ab_split_pct ?? 20, abHours: Math.round((r.ab_window_minutes ?? 240) / 60), preheader: r.preheader ?? '',
-    blocks: normalizeV2Blocks(r.blocks_json), eventId: r.event_id, audiences: aud,
+    blocks: normalizeV2Blocks(r.blocks_json), eventId: r.event_id, audiences: aud, practical: !!r.practical,
     recentDays: typeof excl.recentDays === 'number' ? excl.recentDays : 0, excludeBuyers: !!excl.excludeEventBuyers,
     plan: {
       mode: sched ? 'later' : 'later', date: slot.date, time: slot.time,
@@ -130,7 +136,8 @@ export default function EmailSendPage() {
       const { space: sp, nav: go2, toast: say, t: tt } = env.current;
       const { data, error } = await supabase.from('email_campaigns').select('*').eq('id', id!).maybeSingle();
       if (off) return;
-      const r = data as Row | null;
+      // `practical` (20261019150000) n'est pas encore dans les types générés.
+      const r = data as unknown as Row | null;
       if (error || !r || (r.venue_id ?? null) !== sp.venueId || (r.organizer_user_id ?? null) !== sp.organizerUserId) { setMissing(true); return; }
       if (!EDITABLE.includes(r.status)) { say(tt('yc.em.st.sentRedirect')); go2(CRM_ROUTES.emailResults(r.id), { replace: true }); return; }
       setDraft(rowToDraft(r));
@@ -149,17 +156,25 @@ export default function EmailSendPage() {
 
   const eventTitle = draft?.eventId ? nights.data?.nights.find((x) => x.id === draft.eventId)?.title ?? null : null;
   const preview = useAudiencePreview(draft?.audiences ?? [], draft?.eventId ?? null, draft?.recentDays ?? 0, !!draft?.excludeBuyers && !!draft?.eventId, draft?.id ?? null);
-  const net = preview.data?.net ?? 0;
+  // E-mail pratique : les détenteurs de la soirée, et la vérification serveur.
+  const practical = !!draft?.practical;
+  const pNight = usePracticalNight(draft?.eventId ?? null, practical);
+  const pCheck = usePracticalCheck(draft?.id ?? null, practical);
+  const net = practical ? pNight.data?.reachable ?? 0 : preview.data?.net ?? 0;
   const balance = shell.data?.wallet.balance ?? 0;
   const low = shell.data?.wallet.low_balance ?? 2000;
 
   // ── Enregistrement (brouillon) ───────────────────────────────────────────
   const payload = useCallback((d: Draft, nNet: number) => {
     const w = waveThrottle(nNet, d.plan.waveMin);
-    return {
+    // E-mail pratique : l'audience ne se choisit pas (la base la pose).
+    const audience = d.practical ? {} : {
       audiences_json: d.audiences,
       audience_type: d.audiences.length ? 'imported_list' : null,
       exclusions_json: { recentDays: d.recentDays || null, excludeEventBuyers: d.excludeBuyers },
+    };
+    return {
+      ...audience,
       quiet_hours: d.plan.quiet,
       throttle_per_hour: d.plan.wave ? w.perWindow : null,
       throttle_window_minutes: d.plan.wave ? w.window : 60,
@@ -218,7 +233,22 @@ export default function EmailSendPage() {
   const past = mode === 'later' && chosen.getTime() <= Date.now();
   const identityMissing = settings.data?.readiness?.missing;
   const identityText = t('yc.em.sd.ck.identity.ko', { list: (identityMissing ?? []).map((m) => t(`yc.em.id.${m}`)).join(', ') });
-  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo, paused: shell.data?.subscription?.state === 'paused', identityMissing });
+  const pIssues = pCheck.data?.issues ?? [];
+  const checks = sendChecks({
+    subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo,
+    paused: shell.data?.subscription?.state === 'paused', identityMissing,
+    practical: practical ? {
+      issues: pIssues.length, eligible: !!pCheck.data?.night?.eligible, todo: hasPracticalTodo(draft.blocks, draft.subject),
+      loading: pCheck.isLoading,
+    } : undefined,
+  });
+  // Ce qui bloque un e-mail pratique, dit en clair (codes stables du serveur).
+  const practicalTexts: Record<string, string> = !practical ? {} : pCheck.isLoading
+    ? { pContent: t('yc.pe.ck.loading'), pNight: t('yc.pe.ck.loading') }
+    : {
+      pContent: [...new Set(pIssues.map((i) => t(practicalIssueKey(i.code), { term: i.term ?? '', block: i.type ? t(`yc.em.st.b.${i.type}`) : '' })))].slice(0, 4).join(' · '),
+      pNight: t(practicalReasonKey(pCheck.data?.night?.reason), { max: pCheck.data?.night?.max ?? 3 }),
+    };
   const who = previewIdentity(settings.data, space.name);
   const fromText = settings.data ? fromLine(who.venueName, settings.data.from_local, MARKETING_DOMAIN) : who.venueName;
   const replyTo = settings.data?.reply_to || settings.data?.defaults.reply_to || user?.email || null;
@@ -247,6 +277,8 @@ export default function EmailSendPage() {
     if (txt.includes('crm_paused')) return 'yc.em.sd.err.paused';
     if (txt.includes('crm_send_frozen')) return 'yc.em.sd.err.frozen';
     if (isIdentityRefusal(txt)) return 'yc.em.sd.err.identity';
+    const practicalKey = practicalRefusalKey(txt);
+    if (practicalKey) return practicalKey;
     if (txt.includes('No recipients')) return 'yc.em.sd.err.none';
     return 'yc.em.sd.err.generic';
   };
@@ -267,6 +299,8 @@ export default function EmailSendPage() {
       setBusy(false); setConfirm(false);
       if (error?.message?.includes('crm_send_frozen')) { toast(t('yc.em.sd.err.frozen')); return; }
       if (error?.message && isIdentityRefusal(error.message)) { toast(t('yc.em.sd.err.identity')); void settings.refetch(); return; }
+      const practicalKey = error?.message ? practicalRefusalKey(error.message) : null;
+      if (practicalKey) { toast(t(practicalKey)); void pCheck.refetch(); return; }
       if (error || !data?.length) { toast(t('yc.em.sd.err.gone')); return; }
       invalidate(); setDoneMode('later'); setPhase('done'); window.scrollTo(0, 0);
       return;
@@ -277,6 +311,7 @@ export default function EmailSendPage() {
       const key = await errorKey(error, data);
       toast(t(key)); invalidate();
       if (key === 'yc.em.sd.err.identity') void settings.refetch();
+      if (practical) { void pCheck.refetch(); void pNight.refetch(); }
       return;
     }
     setDoneMode('now'); setProgress({ sent: 0, total: net }); setPhase('sending'); window.scrollTo(0, 0);
@@ -291,7 +326,8 @@ export default function EmailSendPage() {
         <div style={{ maxWidth: 1220, margin: '0 auto', boxSizing: 'border-box', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 80px', display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' }}>
           <main style={{ flex: '1 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
             {readOnly && <div style={{ padding: '12px 16px', borderRadius: 16, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14, fontWeight: 500 }}>{t('yc.em.st.readOnly')}</div>}
-            {step === 'aud' && (
+            {step === 'aud' && practical && <PracticalAudienceStep night={pNight.data} loading={pNight.isLoading} />}
+            {step === 'aud' && !practical && (
               <AudienceStep
                 options={options.data}
                 audiences={draft.audiences}
@@ -307,7 +343,7 @@ export default function EmailSendPage() {
             {step === 'plan' && (
               <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText} />
             )}
-            {step === 'check' && <CheckStep checks={checks} campaignId={draft.id} dateText={dateText} identityText={identityText} onGo={go} />}
+            {step === 'check' && <CheckStep checks={checks} campaignId={draft.id} dateText={dateText} identityText={identityText} texts={practicalTexts} onGo={go} />}
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 6 }}>
               <Hv as="button" type="button" onClick={back} style={{ height: 48, padding: '0 22px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 15, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }}>
@@ -359,11 +395,12 @@ export default function EmailSendPage() {
           <div>
             <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, letterSpacing: '-.03em', lineHeight: 1.1 }}>{tp(mode === 'now' ? 'yc.em.sd.c.now' : 'yc.em.sd.c.later', net, { n: n(net) })}</h2>
             <div style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--sand-500)', marginTop: 6 }}>{t(mode === 'now' ? 'yc.em.sd.c.noteNow' : 'yc.em.sd.c.noteLater')}</div>
+            {practical && <div style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--ink)', marginTop: 6, fontWeight: 500 }}>{t('yc.pe.c.note')}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 18px', borderRadius: 18, background: 'var(--paper)', boxShadow: 'inset 0 0 0 1px var(--sand-100)' }}>
             {[
               [t('yc.em.sd.r.subject'), (draft.subject || '').replace(/\{\{[^}]+\}\}/g, 'Camille') || t('yc.em.sd.r.noSubject')],
-              [t('yc.em.sd.r.to'), t('yc.em.sd.c.contacts', { n: n(net) })],
+              [t('yc.em.sd.r.to'), practical ? t('yc.pe.c.holders', { n: n(net) }) : t('yc.em.sd.c.contacts', { n: n(net) })],
               [t('yc.em.sd.r.when'), mode === 'now' ? t('yc.em.sd.r.onConfirm') : whenText(eff.at)],
               [t('yc.em.sd.r.cost'), t('yc.em.sd.r.costV', { n: n(net) })],
             ].map(([l, val]) => (

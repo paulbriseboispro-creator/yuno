@@ -87,6 +87,12 @@ export interface CheckInput {
    * _crm_email_identity) ; `undefined` tant que les réglages chargent.
    */
   identityMissing?: string[];
+  /**
+   * E-mail pratique aux détenteurs : verdict du serveur
+   * (crm_practical_email_check) et « à compléter » laissés dans le modèle.
+   * `undefined` = campagne marketing.
+   */
+  practical?: { issues: number; eligible: boolean; todo: boolean; loading: boolean };
 }
 
 const URL_RE = /^https?:\/\/\S+\.\S+/i;
@@ -101,12 +107,21 @@ export function sendChecks(x: CheckInput): SendCheck[] {
   const images = x.blocks.filter((b) => b.type === 'image' && b.url);
   const altOk = images.every((b) => b.type === 'image' && !!b.label?.trim());
   const usesVars = /\{\{/.test(x.subject + JSON.stringify(x.blocks));
+  const pr = x.practical;
   const list: SendCheck[] = [
     { id: 'subj', level: subject ? 'ok' : 'bad', vars: { subject }, fix: 'subject' },
     { id: 'len', level: subject.length <= 62 ? 'ok' : 'warn', vars: { n: subject.length }, fix: 'subject' },
     { id: 'pre', level: x.preheader.trim() ? 'ok' : 'warn', fix: 'subject' },
-    { id: 'cta', level: cta ? 'ok' : 'warn', fix: 'studio' },
   ];
+  // Un e-mail pratique n'a pas à pousser vers un bouton : il informe.
+  if (!pr) list.push({ id: 'cta', level: cta ? 'ok' : 'warn', fix: 'studio' });
+  if (pr) {
+    list.push(
+      { id: 'pContent', level: pr.loading ? 'info' : pr.issues ? 'bad' : 'ok', vars: { n: pr.issues }, fix: 'studio' },
+      { id: 'pTodo', level: pr.todo ? 'bad' : 'ok', fix: 'studio' },
+      { id: 'pNight', level: pr.loading ? 'info' : pr.eligible ? 'ok' : 'bad', fix: null },
+    );
+  }
   if (deadButton) list.push({ id: 'link', level: 'bad', fix: 'studio' });
   if (yuno.length) list.push({ id: 'night', level: unbound ? 'bad' : 'ok', fix: 'studio' });
   if (images.length) list.push({ id: 'alt', level: altOk ? 'ok' : 'warn', fix: 'studio' });
@@ -114,7 +129,9 @@ export function sendChecks(x: CheckInput): SendCheck[] {
     { id: 'aud', level: x.net > 0 ? 'ok' : 'bad', vars: { n: x.net }, fix: 'audience' },
     { id: 'bal', level: x.net <= x.balance ? 'ok' : 'bad', vars: { n: x.net, left: x.balance - x.net, miss: x.net - x.balance }, fix: 'recharge' },
     { id: 'date', level: x.past ? 'bad' : 'ok', fix: 'plan' },
-    { id: 'unsub', level: 'ok', fix: null },
+    // Un e-mail pratique n'a pas de lien de désinscription : rien à quitter,
+    // c'est l'information d'un achat (pied de page « vous avez un billet »).
+    { id: pr ? 'pFooter' : 'unsub', level: 'ok', fix: null },
     { id: 'dom', level: 'ok', fix: null },
   );
   if (x.identityMissing) {

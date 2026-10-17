@@ -185,10 +185,12 @@ export function EventFields({ block: b, patch, nights, onPick, campaignEventId }
   const { t } = useCrmT();
   const layout = b.layout ?? 'showcase';
   const metaLocked = layout === 'banner';
+  // E-mail pratique : la soirée de l'e-mail seule, ni prix ni bouton d'achat.
+  const practical = useStudio((s) => !!s.campaign.practical);
   return (
     <>
-      <NightField label={t('yc.em.st.f.night')} value={b.eventId ?? campaignEventId} nights={nights} onPick={onPick} />
-      <Note>{t('yc.em.st.f.eventNote', { src: t('yc.em.st.f.ticketing') })}</Note>
+      {!practical && <NightField label={t('yc.em.st.f.night')} value={b.eventId ?? campaignEventId} nights={nights} onPick={onPick} />}
+      <Note>{practical ? t('yc.pe.st.eventNote') : t('yc.em.st.f.eventNote', { src: t('yc.em.st.f.ticketing') })}</Note>
       <Field label={t('yc.em.st.f.layout')}>
         <SegGrid value={layout} onChange={(v) => patch({ layout: v })} options={[
           { v: 'showcase', l: t('yc.em.st.f.l.showcase') }, { v: 'split', l: t('yc.em.st.f.l.split') },
@@ -216,14 +218,16 @@ export function EventFields({ block: b, patch, nights, onPick, campaignEventId }
           ]} />
         )}
         <Toggle on={b.venue} onChange={(v) => patch({ venue: v })} label={t('yc.em.st.f.venueShow')} />
-        <Toggle on={b.price} onChange={(v) => patch({ price: v })} label={t('yc.em.st.f.price')} />
+        {!practical && <Toggle on={b.price} onChange={(v) => patch({ price: v })} label={t('yc.em.st.f.price')} />}
       </Field>
       <PerksField perks={b.perks ?? []} onChange={(v) => patch({ perks: v })} />
-      <ButtonFields
-        label={b.ctaLabel} placeholder={EVENT_CTA_LABEL} onLabel={(v) => patch({ ctaLabel: v })}
-        full={b.full ?? layout !== 'minimal'} onFull={(v) => patch({ full: v })}
-        note={b.note ?? ''} notePh={t('yc.em.st.f.notePhEvent')} onNote={(v) => patch({ note: v })}
-      />
+      {!practical && (
+        <ButtonFields
+          label={b.ctaLabel} placeholder={EVENT_CTA_LABEL} onLabel={(v) => patch({ ctaLabel: v })}
+          full={b.full ?? layout !== 'minimal'} onFull={(v) => patch({ full: v })}
+          note={b.note ?? ''} notePh={t('yc.em.st.f.notePhEvent')} onNote={(v) => patch({ note: v })}
+        />
+      )}
     </>
   );
 }
@@ -299,10 +303,12 @@ function toLocalInput(iso?: string): string {
 export function CountdownFields({ block: b, patch, nights, onPick, campaignEventId }: YunoFieldsProps<'countdown'>) {
   const { t } = useCrmT();
   const linked = !!(b.eventId ?? campaignEventId);
+  // E-mail pratique : toujours la soirée de l'e-mail.
+  const practical = useStudio((s) => !!s.campaign.practical);
   return (
     <>
       <Field label={t('yc.em.st.f.cdLabel')}><TextInput value={b.label} onChange={(v) => patch({ label: v })} label={t('yc.em.st.f.cdLabel')} /></Field>
-      <NightField label={t('yc.em.st.f.nightCd')} value={b.eventId ?? campaignEventId} nights={nights} onPick={onPick} />
+      {!practical && <NightField label={t('yc.em.st.f.nightCd')} value={b.eventId ?? campaignEventId} nights={nights} onPick={onPick} />}
       {!linked && (
         <Field label={t('yc.em.st.f.cdDate')} hint={t('yc.em.st.f.cdDateHint')}>
           <input
@@ -372,9 +378,10 @@ export function LineupFields({ block: b, patch, nights, onPick, campaignEventId,
     const rest = (b.hidden ?? []).filter((h) => artistKey(h) !== artistKey(name));
     patch({ hidden: out ? [...rest, name] : rest });
   };
+  const practical = useStudio((s) => !!s.campaign.practical);
   return (
     <>
-      <NightField label={t('yc.em.st.f.night')} value={b.eventId ?? campaignEventId} nights={nights} onPick={onPick} />
+      {!practical && <NightField label={t('yc.em.st.f.night')} value={b.eventId ?? campaignEventId} nights={nights} onPick={onPick} />}
       <Note>{t('yc.em.st.f.luNote')}</Note>
       {linked && (
         <Field label={t('yc.em.st.f.luNight')} hint={night && night.length ? t('yc.em.st.f.luNightHint') : undefined}>

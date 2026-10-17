@@ -19,7 +19,7 @@ const ICN: Record<SendCheck['level'], [string, string, string]> = {
   info: ['var(--sand-100)', 'var(--sand-600)', 'M12 8h.01M11 12h1v5h1'],
 };
 
-export function CheckStep({ checks, campaignId, dateText, identityText, onGo }: { checks: SendCheck[]; campaignId: string; dateText: string; identityText: string; onGo: (step: 'aud' | 'plan') => void }) {
+export function CheckStep({ checks, campaignId, dateText, identityText, texts, onGo }: { checks: SendCheck[]; campaignId: string; dateText: string; identityText: string; texts?: Record<string, string>; onGo: (step: 'aud' | 'plan') => void }) {
   const { t, tp, n } = useCrmT();
   const v = verdict(checks);
   const tone = v.level === 'ok' ? { bg: 'var(--green-50)', bd: '#BFE6CE', fg: 'var(--green-700)', mood: 'ravi' as const }
@@ -34,6 +34,8 @@ export function CheckStep({ checks, campaignId, dateText, identityText, onGo }: 
     if (c.id === 'date') return ok ? dateText : t('yc.em.sd.ck.date.ko');
     if (c.id === 'demo') return t('yc.em.sd.ck.demo.ko');
     if (c.id === 'identity' && !ok) return identityText;
+    // Texte calculé par l'écran (raison d'un refus d'e-mail pratique…).
+    if (!ok && texts?.[c.id]) return texts[c.id];
     return t(`yc.em.sd.ck.${c.id}.${ok ? 'ok' : 'ko'}`, vars);
   };
   const fix = (c: SendCheck) => {

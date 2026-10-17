@@ -16,6 +16,7 @@ import emails from './emails';
 import emailTemplates from './emailTemplates';
 import emailStudio from './emailStudio';
 import emailSend from './emailSend';
+import practicalEmail from './practicalEmail';
 import emailResult from './emailResult';
 import emailAnalysis from './emailAnalysis';
 import emailSettings from './emailSettings';
@@ -59,6 +60,7 @@ export const CRM_DICT: CrmDict = {
   ...emailTemplates,
   ...emailStudio,
   ...emailSend,
+  ...practicalEmail,
   ...emailResult,
   ...emailAnalysis,
   ...emailSettings,

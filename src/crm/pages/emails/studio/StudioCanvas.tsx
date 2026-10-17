@@ -22,7 +22,7 @@ import BlockRenderer from '@/components/email-studio/blocks/BlockRenderer';
 import { blockBgColor, type CanvasCtx } from '@/components/email-studio/blocks/common';
 import { Wordmark } from '@/components/brand/Wordmark';
 import {
-  bindBlocksToEvent, contrastText, footerSocialEnabled, isHexColor, renderEmailHtml, socialChip, socialLabel,
+  FOOTER_WORDS, bindBlocksToEvent, contrastText, footerSocialEnabled, isHexColor, renderEmailHtml, socialChip, socialLabel,
   type LiveData, type SocialLinks,
 } from '@/lib/email';
 import { PaletteModal } from './StudioLeft';
@@ -65,16 +65,21 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
   const place = (postalAddress ?? '').trim() || (space.city ?? '').trim();
   const signer = who.legalName || who.venueName;
 
+  // E-mail pratique : la carte de la soirée sans prix ni bouton d'achat, et le
+  // pied de page qui dit pourquoi la personne le reçoit (miroir de l'envoi).
+  const practical = !!campaign.practical;
+  const practicalFor = practical ? (live[campaign.eventId ?? '']?.title || campaign.name) : null;
   const ctx: CanvasCtx = useMemo(() => ({
     venueName: who.venueName, logoUrl: space.logoUrl, socialLinks: campaign.socialLinks, live, baseUrl: PUBLIC_BASE_URL, fallbackEventId: campaign.eventId,
-    language: campaign.language ?? null,
-  }), [who.venueName, space.logoUrl, campaign.socialLinks, live, campaign.eventId, campaign.language]);
+    language: campaign.language ?? null, practical,
+  }), [who.venueName, space.logoUrl, campaign.socialLinks, live, campaign.eventId, campaign.language, practical]);
 
   const html = useMemo(() => (preview ? renderEmailHtml(bindBlocksToEvent(campaign.blocks, campaign.eventId), theme, {
     venueName: who.venueName, legalName: who.legalName, city: space.city, postalAddress, logoUrl: space.logoUrl, emailType: campaign.type, language: campaign.language ?? null,
+    practicalFor,
     subject: campaign.subject, preheader: campaign.preheader, recipient: sampleFor(live), unsubscribeUrl: '#',
     socialLinks: campaign.socialLinks, baseUrl: PUBLIC_BASE_URL, live, ignoreConds: true,
-  }) : ''), [preview, campaign, theme, space, live, postalAddress, who]);
+  }) : ''), [preview, campaign, theme, space, live, postalAddress, who, practicalFor]);
 
   const openInsert = (i: number) => {
     api.getState().setInsertIndex(i);
@@ -110,6 +115,7 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
   const chip = socialChip(undefined, theme);
   const footerDark = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff';
   const footerBorder = footerDark ? 'none' : `1px solid ${theme.divider}`;
+  const footerWords = FOOTER_WORDS[campaign.language === 'en' || campaign.language === 'es' ? campaign.language : 'fr'];
   const width = (mob ? 375 : 600) + 48;
   // La barre d'un bloc se pose à droite de l'e-mail quand la place existe,
   // sinon dans le bloc (petit écran, panneaux ouverts sur un écran moyen).
@@ -138,6 +144,13 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
           <Hv as="button" type="button" onClick={() => api.getState().setPreview(false)} style={{ height: 32, padding: '0 14px', border: 0, borderRadius: 99, background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'rgba(255,255,255,.24)' }}>
             {t('yc.em.st.c.back')}
           </Hv>
+        </div>
+      )}
+
+      {practical && !preview && (
+        <div style={{ flex: 'none', width, maxWidth: '100%', boxSizing: 'border-box', marginBottom: 14, padding: '12px 16px', borderRadius: 16, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'var(--font-body)', color: 'var(--ink)' }}>
+          <b style={{ fontSize: 14.5, fontWeight: 600 }}>{t('yc.pe.st.t', { title: practicalFor ?? '' })}</b>
+          <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)' }}>{t('yc.pe.st.s')}</span>
         </div>
       )}
 
@@ -242,9 +255,9 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
             )}
             <div style={{ padding: '22px 24px', background: theme.footerBg, textAlign: 'center', borderTop: socialLinks.length ? 'none' : footerBorder, fontFamily: FOOTER_FONT }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6 }}>{signer}{place ? ` — ${place}` : ''}</div>
-              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText }}>Cet email a été envoyé à {SAMPLE.email} car vous êtes abonné à sa newsletter.</div>
-              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText, marginTop: 4 }}>© {new Date().getFullYear()} {signer}. Tous droits réservés.</div>
-              <div style={{ fontSize: 11.5, marginTop: 8, color: theme.accent, textDecoration: 'underline' }}>Se désabonner</div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText }}>{footerWords.sent(SAMPLE.email, practicalFor ? footerWords.practical(practicalFor) : campaign.type === 'promotional' ? footerWords.promo : footerWords.info)}</div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: theme.footerText, marginTop: 4 }}>{footerWords.rights(new Date().getFullYear(), signer)}</div>
+              {campaign.type === 'promotional' && !practical && <div style={{ fontSize: 11.5, marginTop: 8, color: theme.accent, textDecoration: 'underline' }}>{footerWords.unsub}</div>}
               <div style={{ marginTop: 18 }}>
                 <div style={{ fontFamily: MONO, fontSize: 9.5, lineHeight: '13px', fontWeight: 700, letterSpacing: '0.16em', color: theme.footerText }}>POWERED BY</div>
                 <Wordmark height={14} tone={footerDark ? 'white' : 'dark'} style={{ margin: '5px auto 0' }} />
