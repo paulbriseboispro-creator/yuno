@@ -21,13 +21,16 @@ import { AccountTeam } from './AccountTeam';
 import { AccountNotifications } from './AccountNotifications';
 import { AccountHelp } from './AccountHelp';
 import { AccountBilling } from './AccountBilling';
+import { AccountSupport } from './AccountSupport';
 
-type AccountSection = 'profile' | 'team' | 'billing' | 'notifications' | 'help';
+type AccountSection = 'profile' | 'team' | 'billing' | 'notifications' | 'support' | 'help';
 const SECTIONS: { k: AccountSection; icon: IconName; key: string }[] = [
   { k: 'profile', icon: 'user', key: 'yc.acc.profile' },
   { k: 'team', icon: 'users', key: 'yc.acc.team' },
   { k: 'billing', icon: 'card', key: 'yc.acc.billing' },
   { k: 'notifications', icon: 'bell', key: 'yc.acc.notifications' },
+  // Accès assisté de l'équipe Yuno (20261019420000).
+  { k: 'support', icon: 'shield', key: 'yc.acc.support' },
   { k: 'help', icon: 'help', key: 'yc.acc.help' },
 ];
 const HEAD: Record<AccountSection, [string, string]> = {
@@ -35,6 +38,7 @@ const HEAD: Record<AccountSection, [string, string]> = {
   team: ['yc.acc.team.t', 'yc.acc.team.s'],
   billing: ['yc.acc.billing.t', 'yc.acc.billing.s'],
   notifications: ['yc.acc.notif.t', 'yc.acc.notif.s'],
+  support: ['yc.acc.sup.headT', 'yc.acc.sup.headS'],
   help: ['yc.acc.help.t', 'yc.acc.help.s'],
 };
 
@@ -112,6 +116,7 @@ function AccountView({ section }: { section: AccountSection }) {
           {section === 'team' && <AccountTeam setHeadAction={setHeadAction} />}
           {section === 'billing' && <AccountBilling />}
           {section === 'notifications' && <AccountNotifications setHeadAction={setHeadAction} />}
+          {section === 'support' && <AccountSupport />}
           {section === 'help' && <AccountHelp />}
         </div>
       </div>

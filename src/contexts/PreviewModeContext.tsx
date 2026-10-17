@@ -23,6 +23,10 @@
 // ce prospect (brouillon pro_signups, migration 20260926120000). Stocké BRUT
 // ici — c'est `parseDemoSignup` (src/lib/demoSignup.ts) qui le valide à la
 // lecture — et c'est lui qui allume la barre « Crée le compte de <orga> ».
+//
+// `cta` (démo Yuno CRM seulement, migration 20261019420000) : où mène « Créer
+// mon compte » — `{ kind: 'invite' | 'signup', url }`, l'invitation liée à
+// l'accès démo si elle vaut encore, sinon l'inscription Yuno CRM.
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
@@ -40,13 +44,22 @@ export interface PreviewState {
   entitySlug: string;
   entityName: string;
   signup: Record<string, unknown> | null;
+  cta: { kind: 'invite' | 'signup'; url: string } | null;
 }
 
 const EMPTY: PreviewState = {
   label: '', roles: [], current: '', language: 'en',
   kind: 'demo', showcaseTarget: 'venue', entityId: '', entitySlug: '', entityName: '',
-  signup: null,
+  signup: null, cta: null,
 };
+
+/** Seule une adresse https de Yuno mène hors de la démo. */
+function asCta(v: unknown): PreviewState['cta'] {
+  const o = asRecord(v);
+  const url = typeof o?.url === 'string' ? o.url : '';
+  if (!/^https:\/\/([a-z0-9-]+\.)*yunoapp\.eu(\/|$)/i.test(url)) return null;
+  return { kind: o?.kind === 'invite' ? 'invite' : 'signup', url };
+}
 
 const asRecord = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -69,6 +82,7 @@ function parse(raw: string | null): PreviewState | null {
         entitySlug: o.entitySlug ?? o.venueSlug ?? '',
         entityName: o.entityName ?? o.venueName ?? '',
         signup: asRecord(o.signup),
+        cta: asCta(o.cta),
       };
     }
   } catch { /* ancien format (string label) : traité comme label seul */
@@ -105,6 +119,7 @@ export function enablePreviewMode(state: {
   kind?: 'demo' | 'showcase'; showcaseTarget?: 'venue' | 'organizer';
   entityId?: string; entitySlug?: string; entityName?: string;
   signup?: Record<string, unknown> | null;
+  cta?: unknown;
 }): void {
   const value = JSON.stringify({
     label: state.label ?? '',
@@ -117,6 +132,7 @@ export function enablePreviewMode(state: {
     entitySlug: state.entitySlug ?? '',
     entityName: state.entityName ?? '',
     signup: asRecord(state.signup),
+    cta: asCta(state.cta),
   });
   try { sessionStorage.setItem(PREVIEW_FLAG, value); } catch { /* storage indispo : ignore */ }
   try { window.dispatchEvent(new Event(PREVIEW_EVENT)); } catch { /* pas de window */ }

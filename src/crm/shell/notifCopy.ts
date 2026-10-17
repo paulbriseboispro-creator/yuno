@@ -15,6 +15,7 @@ export const NOTIF_KINDS = [
   'send_soon', 'yunits_short', 'sync_broken', 'contacts_unreadable', 'trial_ending', 'account_paused',
   'send_done', 'send_report', 'send_blocked', 'import_done', 'sync_resolved', 'yunits_low', 'recharge_done',
   'team_joined', 'new_device', 'scenario_notify', 'night_plan_ready', 'weekly_review',
+  'support_request', 'support_live',
 ] as const;
 
 export const NOTIF_ICON: Record<string, IconName> = {
@@ -22,6 +23,7 @@ export const NOTIF_ICON: Record<string, IconName> = {
   sync_broken: 'plug', sync_resolved: 'plug', contacts_unreadable: 'upload', import_done: 'upload',
   send_report: 'chart', send_blocked: 'alert', team_joined: 'users', new_device: 'shield',
   trial_ending: 'card', account_paused: 'lock', scenario_notify: 'zap', night_plan_ready: 'sparkles', weekly_review: 'chart',
+  support_request: 'shield', support_live: 'shield',
 };
 
 export const NOTIF_TONE_COLORS: Record<string, [string, string]> = {
@@ -77,6 +79,9 @@ function defaultHref(kind: string, p: CrmNotif['params']): string | null {
     case 'scenario_notify': return p.scenario_id ? CRM_ROUTES.scenario(String(p.scenario_id)) : `${CRM_ROUTES.automations}?tab=scenarios`;
     case 'night_plan_ready': return p.event_id ? CRM_ROUTES.nightPlan(String(p.event_id)) : CRM_ROUTES.nights;
     case 'weekly_review': return CRM_ROUTES.review;
+    // Accès assisté (20261019420000) : la page de consentement du titulaire.
+    case 'support_request': return p.grant_id ? `${CRM_ROUTES.accountSection('support')}?approve=${encodeURIComponent(String(p.grant_id))}` : CRM_ROUTES.accountSection('support');
+    case 'support_live': return CRM_ROUTES.accountSection('support');
     default: return null;
   }
 }

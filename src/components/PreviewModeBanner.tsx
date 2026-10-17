@@ -29,8 +29,21 @@ const SHOWCASE_COPY: Record<'en' | 'fr' | 'es', {
   es: { preview: 'Vista previa', publicPage: 'Página pública', dashboard: 'Panel', activate: 'Activar mi cuenta', quit: 'Salir' },
 };
 
+// Démo Yuno CRM (migration 20261019420000) : la pastille prend la DA claire
+// du CRM sur la Console `/crm`, et « Créer mon compte » quitte d'abord la démo
+// (session et lecture seule de l'onglet) avant d'ouvrir l'inscription.
+const CRM_COPY: Record<'en' | 'fr' | 'es', { demo: string; readOnly: string; create: string; quit: string }> = {
+  en: { demo: 'Yuno CRM demo', readOnly: 'read-only', create: 'Create my account', quit: 'Leave' },
+  fr: { demo: 'Démo Yuno CRM', readOnly: 'lecture seule', create: 'Créer mon compte', quit: 'Quitter' },
+  es: { demo: 'Demo de Yuno CRM', readOnly: 'solo lectura', create: 'Crear mi cuenta', quit: 'Salir' },
+};
+
+function crmSignupUrl(language: string): string {
+  return `https://crm.yunoapp.eu${language === 'fr' ? '/fr/start' : language === 'es' ? '/es/start' : '/start'}`;
+}
+
 export function PreviewModeBanner() {
-  const { isPreview, label, roles, current, kind, showcaseTarget, entitySlug, entityName, language, signup } = usePreviewMode();
+  const { isPreview, label, roles, current, kind, showcaseTarget, entitySlug, entityName, language, signup, cta } = usePreviewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -65,6 +78,35 @@ export function PreviewModeBanner() {
     try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
     navigate('/', { replace: true });
   };
+
+  // ── Variante YUNO CRM (Console /crm) ──────────────────────────────────────
+  const onCrm = location.pathname === '/crm' || location.pathname.startsWith('/crm/');
+  if (kind === 'demo' && onCrm) {
+    const c = CRM_COPY[language === 'fr' || language === 'es' ? language : 'en'];
+    const leaveTo = async (href: string) => {
+      disablePreviewMode();
+      clearDemoBypass();
+      try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+      window.location.assign(href);
+    };
+    return (
+      <div className="yc" role="region" aria-label={c.demo}
+        style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', zIndex: 70, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px 6px 14px', borderRadius: 99, background: '#fff', boxShadow: '0 12px 36px -12px rgba(28,21,23,.35), 0 0 0 1px var(--sand-200)', maxWidth: 'calc(100vw - 24px)', boxSizing: 'border-box', color: 'var(--ink)' }}>
+        <Eye className="h-4 w-4 shrink-0" style={{ color: 'var(--red-600)' }} />
+        <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {c.demo}<span className="hidden sm:inline" style={{ fontWeight: 500, color: 'var(--sand-500)' }}> · {c.readOnly}{label ? ` · ${label}` : ''}</span>
+        </span>
+        <button type="button" onClick={() => void leaveTo(cta?.url ?? crmSignupUrl(language))}
+          style={{ flex: 'none', height: 34, padding: '0 14px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+          <Rocket className="h-3.5 w-3.5" />{c.create}
+        </button>
+        <button type="button" onClick={() => void leaveTo('/')}
+          style={{ flex: 'none', height: 34, padding: '0 12px', borderRadius: 99, border: 0, background: 'var(--sand-100)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <X className="h-3.5 w-3.5" />{c.quit}
+        </button>
+      </div>
+    );
+  }
 
   // ── Variante VITRINE (club ou organisateur) ────────────────────────────────
   if (kind === 'showcase') {

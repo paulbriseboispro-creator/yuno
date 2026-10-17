@@ -16,6 +16,9 @@ import { useLanguage, type Language } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
 import { parseDemoSignup, serializeDemoSignup } from '@/lib/demoSignup';
+import { CRM_ORIGIN } from '@/lib/productHost';
+
+const TICKETING_HOSTS = new Set(['yunoapp.eu', 'www.yunoapp.eu']);
 
 const RED = '#E8192C';
 
@@ -198,7 +201,15 @@ export default function PreviewGate() {
       if (!active) return;
       if (rpcError) { setInfo(null); setLoading(false); return; }
       const row = Array.isArray(data) ? data[0] : data;
-      setInfo(row ? (row as unknown as LinkInfo) : null);
+      const li = row ? (row as unknown as LinkInfo) : null;
+      // Un lien vers la démo Yuno CRM seule s'ouvre sur son entrée, dans la DA
+      // du CRM et sur son domaine (migration 20261019420000).
+      if (li?.is_valid && li.target_accounts?.length === 1 && li.target_accounts[0] === 'crm' && !li.venue_id && !li.organizer_user_id
+          && TICKETING_HOSTS.has(window.location.hostname)) {
+        window.location.replace(`${CRM_ORIGIN}/crm/preview?token=${encodeURIComponent(token)}`);
+        return;
+      }
+      setInfo(li);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -298,6 +309,7 @@ export default function PreviewGate() {
       enablePreviewMode({
         label: info?.label ?? '', roles, current: primary, language,
         signup: signup ? serializeDemoSignup(signup) : null,
+        cta: (data as { cta?: unknown } | null)?.cta ?? null,
       });
       if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
       navigate(meta?.route ?? '/', { replace: true });

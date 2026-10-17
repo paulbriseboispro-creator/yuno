@@ -46,7 +46,7 @@ export const CRM_ROUTES = {
   connectors: '/crm/connectors',
   settings: '/crm/settings',
   account: '/crm/account',
-  accountSection: (s: 'profile' | 'team' | 'billing' | 'notifications' | 'help') => `/crm/account/${s}`,
+  accountSection: (s: 'profile' | 'team' | 'billing' | 'notifications' | 'support' | 'help') => `/crm/account/${s}`,
   notifications: '/crm/notifications',
   yunits: '/crm/yunits',
   pricing: '/crm/tarifs',
