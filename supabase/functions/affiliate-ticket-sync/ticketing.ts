@@ -37,6 +37,7 @@ import {
   type MappedTicket,
   safeNextUrl,
   schemaKeys,
+  mergeSchemaKeys,
   SHOTGUN_TICKETS_HOST,
   ticketCursor,
   ticketsUrl,
@@ -378,7 +379,8 @@ async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: str
       if (!page) break; // plus de créneau de débit avant l'échéance
       pages++;
       const mapped = page.items.map((raw) => mapShotgunTicket(raw, conn.amount_divisor)).filter((t): t is MappedTicket => !!t);
-      if (mapped.length && !sample.ticket_keys) sample.ticket_keys = schemaKeys(page.items[0]);
+      // Clés seulement, jamais les valeurs (le billet brut ne garde plus tout).
+      if (mapped.length) sample.ticket_keys = mergeSchemaKeys(sample.ticket_keys, page.items);
       if (mapped.length) {
         const byId = new Map(mapped.map((t) => [t.external_id, t]));
         ticketsUpserted += await upsertChunks(admin, "external_tickets", [...byId.values()].map((t) => ticketRow(conn, t)));

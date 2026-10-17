@@ -89,7 +89,7 @@ BEGIN
   SELECT lower(buyer_email) AS em, 1 + abs(hashtext('fan' || lower(buyer_email))) % array_length(v_guests, 1) AS fav
     FROM public.external_tickets
    WHERE connection_id = v_conn AND buyer_email IS NOT NULL AND status = 'valid'
-     AND COALESCE(raw->>'deal_channel', '') NOT IN ('invitation', 'duplicata')
+     AND COALESCE(deal_channel, '') NOT IN ('invitation', 'duplicata')
    GROUP BY 1
   HAVING count(*) >= 2 AND abs(hashtext('isfan' || lower(buyer_email))) % 2 = 0;
 
@@ -107,7 +107,7 @@ BEGIN
     FROM public.external_tickets y
     JOIN public.external_events m ON m.connection_id = y.connection_id AND m.external_id = y.external_event_id
    WHERE y.connection_id = v_conn AND y.status = 'valid' AND y.buyer_email IS NOT NULL
-     AND COALESCE(y.raw->>'deal_channel', '') NOT IN ('invitation', 'duplicata')
+     AND COALESCE(y.deal_channel, '') NOT IN ('invitation', 'duplicata')
      AND m.start_at < now();
   CREATE INDEX ON _cand (g, start_at);
 
@@ -117,7 +117,7 @@ BEGIN
       JOIN _fan f ON f.em = lower(x.buyer_email)
       JOIN public.external_events e ON e.connection_id = x.connection_id AND e.external_id = x.external_event_id
      WHERE x.connection_id = v_conn AND x.status = 'valid' AND e.start_at < now()
-       AND COALESCE(x.raw->>'deal_channel', '') NOT IN ('invitation', 'duplicata')
+       AND COALESCE(x.deal_channel, '') NOT IN ('invitation', 'duplicata')
        AND NOT e.artists @> jsonb_build_array(jsonb_build_object('id', (902000 + f.fav)::text))
      ORDER BY random()
   LOOP
@@ -159,7 +159,7 @@ BEGIN
     FROM public.external_events e
    WHERE x.connection_id = v_conn AND e.connection_id = x.connection_id AND e.external_id = x.external_event_id
      AND e.start_at < now() AND e.launched_at IS NOT NULL
-     AND COALESCE(x.raw->>'deal_channel', '') NOT IN ('invitation', 'duplicata')
+     AND COALESCE(x.deal_channel, '') NOT IN ('invitation', 'duplicata')
      AND abs(hashtext('pace' || lower(x.buyer_email))) % 9 IN (0, 1);
 
   -- ── 4. Commandes de plusieurs billets ────────────────────────────────────
@@ -170,7 +170,7 @@ BEGIN
            row_number() OVER (PARTITION BY x.external_event_id ORDER BY abs(hashtext('ord' || x.id::text))) AS r
       FROM public.external_tickets x
      WHERE x.connection_id = v_conn AND x.status = 'valid'
-       AND COALESCE(x.raw->>'deal_channel', '') NOT IN ('invitation', 'duplicata')
+       AND COALESCE(x.deal_channel, '') NOT IN ('invitation', 'duplicata')
        AND abs(hashtext('grp' || lower(x.buyer_email))) % 10 < 3
   ), g AS (
     SELECT c.*, (c.r + 1) / 2 AS grp FROM c

@@ -140,7 +140,7 @@ if (cmd === 'conditions') {
   // Feuilles « scénario ».
   const buyers = Number((await one(`SELECT count(DISTINCT p.email) AS n FROM _cp p JOIN external_tickets t
                                      ON lower(t.buyer_email) = p.email AND t.event_id = $1
-                                    WHERE public._crm_ticket_is_sale(t.status, t.raw)`, [ev])).n);
+                                    WHERE public._crm_ticket_is_sale(t.status, t.deal_channel)`, [ev])).n);
   a = await countTree({ op: 'and', items: [L('sc_bought', true)] });
   check('« a acheté pour la soirée du scénario »', a.n === buyers && buyers > 0, `${a.n} = ${buyers}`);
   a = await countTree({ op: 'and', items: [L('sc_bought', false)] });
@@ -882,7 +882,7 @@ if (cmd === 'conditions') {
   check('total = canal conseillé de chaque étape', plan.totals.cost === cost && plan.totals.enough === (plan.totals.balance >= cost), { cost, totals: plan.totals });
   check('la veille passe en SMS seulement si l\'identité est prête', plan.steps.every((x) => x.channel === 'email' || (x.moment === 'eve' && plan.sms_ready)));
   await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
-  const sold = Number((await one(`SELECT COALESCE(sum(COALESCE(quantity, 1)), 0) AS n FROM external_tickets WHERE event_id = $1 AND public._crm_ticket_is_sale(status, raw)`, [next])).n);
+  const sold = Number((await one(`SELECT COALESCE(sum(COALESCE(quantity, 1)), 0) AS n FROM external_tickets WHERE event_id = $1 AND public._crm_ticket_is_sale(status, deal_channel)`, [next])).n);
   check('rythme : billets vendus de la soirée', plan.pace.sold === sold, { plan: plan.pace.sold, sold });
   check('rythme : une édition précédente, vendue au même moment ≤ total', !plan.pace.prev || plan.pace.prev.sold_same <= plan.pace.prev.total, plan.pace.prev);
   check('l\'aperçu démo laisse passer le plan (tables temporaires)', (await one(`SELECT demo_preview_writable_rpc('crm_night_plan') AS ok`)).ok === true);
