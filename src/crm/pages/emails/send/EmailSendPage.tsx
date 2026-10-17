@@ -29,7 +29,9 @@ import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
-import { useAudiencePreview, useEmailAnalysis, useInvalidateEmails, useSendOptions, type CrmAudience } from '@/crm/data/emails';
+import { useAudiencePreview, useEmailAnalysis, useEmailSettings, useInvalidateEmails, useSendOptions, type CrmAudience } from '@/crm/data/emails';
+import { fromLine, isIdentityRefusal, previewIdentity } from '@/crm/lib/emailIdentity';
+import { MARKETING_DOMAIN } from '@/crm/lib/emails';
 import { unscheduleCampaign } from '@/crm/data/emailActions';
 import { bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
 import { normalizeV2Blocks } from '@/lib/email/migrate';
@@ -110,6 +112,8 @@ export default function EmailSendPage() {
   const nights = useNights();
   const options = useSendOptions();
   const analysis = useEmailAnalysis();
+  // Identité de l'expéditeur (Réglages › Envoi) : rien ne part sans elle.
+  const settings = useEmailSettings();
   const best = useMemo(() => bestSlots(analysis.data?.grid), [analysis.data]);
   const readOnly = !useCrmCaps().write;
   const demo = isDemoEmail(user?.email);
@@ -212,7 +216,12 @@ export default function EmailSendPage() {
   const chosen = new Date(`${draft.plan.date}T${draft.plan.time}:00`);
   const eff = effectiveSendAt(mode === 'now' ? new Date() : chosen, draft.plan.quiet);
   const past = mode === 'later' && chosen.getTime() <= Date.now();
-  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo, paused: shell.data?.subscription?.state === 'paused' });
+  const identityMissing = settings.data?.readiness?.missing;
+  const identityText = t('yc.em.sd.ck.identity.ko', { list: (identityMissing ?? []).map((m) => t(`yc.em.id.${m}`)).join(', ') });
+  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo, paused: shell.data?.subscription?.state === 'paused', identityMissing });
+  const who = previewIdentity(settings.data, space.name);
+  const fromText = settings.data ? fromLine(who.venueName, settings.data.from_local, MARKETING_DOMAIN) : who.venueName;
+  const replyTo = settings.data?.reply_to || settings.data?.defaults.reply_to || user?.email || null;
   const v = verdict(checks);
   const canSend = v.bad === 0 && !readOnly;
   const whenShort = mode === 'now' ? t('yc.em.sd.r.onConfirm') : `${dShort(eff.at)} · ${time(eff.at)}`;
@@ -237,6 +246,7 @@ export default function EmailSendPage() {
     if (txt.includes('yunits_insufficient')) return 'yc.em.sd.err.yunits';
     if (txt.includes('crm_paused')) return 'yc.em.sd.err.paused';
     if (txt.includes('crm_send_frozen')) return 'yc.em.sd.err.frozen';
+    if (isIdentityRefusal(txt)) return 'yc.em.sd.err.identity';
     if (txt.includes('No recipients')) return 'yc.em.sd.err.none';
     return 'yc.em.sd.err.generic';
   };
@@ -256,13 +266,19 @@ export default function EmailSendPage() {
         .eq('id', draft.id).in('status', EDITABLE).select('id');
       setBusy(false); setConfirm(false);
       if (error?.message?.includes('crm_send_frozen')) { toast(t('yc.em.sd.err.frozen')); return; }
+      if (error?.message && isIdentityRefusal(error.message)) { toast(t('yc.em.sd.err.identity')); void settings.refetch(); return; }
       if (error || !data?.length) { toast(t('yc.em.sd.err.gone')); return; }
       invalidate(); setDoneMode('later'); setPhase('done'); window.scrollTo(0, 0);
       return;
     }
     const { data, error } = await supabase.functions.invoke('send-campaign', { body: { campaign_id: draft.id } });
     setBusy(false); setConfirm(false);
-    if (error) { toast(t(await errorKey(error, data))); invalidate(); return; }
+    if (error) {
+      const key = await errorKey(error, data);
+      toast(t(key)); invalidate();
+      if (key === 'yc.em.sd.err.identity') void settings.refetch();
+      return;
+    }
     setDoneMode('now'); setProgress({ sent: 0, total: net }); setPhase('sending'); window.scrollTo(0, 0);
     invalidate();
     void qc.invalidateQueries({ queryKey: ['crm', qk, 'shell'] });
@@ -291,7 +307,7 @@ export default function EmailSendPage() {
             {step === 'plan' && (
               <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText} />
             )}
-            {step === 'check' && <CheckStep checks={checks} campaignId={draft.id} dateText={dateText} onGo={go} />}
+            {step === 'check' && <CheckStep checks={checks} campaignId={draft.id} dateText={dateText} identityText={identityText} onGo={go} />}
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 6 }}>
               <Hv as="button" type="button" onClick={back} style={{ height: 48, padding: '0 22px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 15, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }}>
@@ -320,7 +336,7 @@ export default function EmailSendPage() {
               </div>
             </div>
           </main>
-          <SendAside campaignId={draft.id} subject={draft.subject} fromName={space.name} replyTo={user?.email ?? null} net={net} whenShort={whenShort} balance={balance} low={low} />
+          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={net} whenShort={whenShort} balance={balance} low={low} />
         </div>
       )}
 

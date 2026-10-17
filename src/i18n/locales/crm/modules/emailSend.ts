@@ -142,6 +142,9 @@ const dict: CrmDict = {
   'yc.em.sd.ck.unsub.ok': ['Added automatically at the bottom of every email.', 'Ajouté automatiquement en bas de chaque e-mail.', 'Se añade automáticamente al final de cada e-mail.'],
   'yc.em.sd.ck.dom.t': ['Authenticated sending', 'Envoi authentifié', 'Envío autenticado'],
   'yc.em.sd.ck.dom.ok': ['Sent by Yuno in your name, from an authenticated address (SPF, DKIM, DMARC).', 'Envoyé par Yuno à votre nom, depuis une adresse authentifiée (SPF, DKIM, DMARC).', 'Enviado por Yuno en su nombre, desde una dirección autenticada (SPF, DKIM, DMARC).'],
+  'yc.em.sd.ck.identity.t': ['Sender identity', 'Identité de l’expéditeur', 'Identidad del remitente'],
+  'yc.em.sd.ck.identity.ok': ['Sender name, legal name, postal address and Yuno CRM terms: all set.', 'Nom d’expéditeur, raison sociale, adresse postale et conditions Yuno CRM : tout est en place.', 'Nombre del remitente, razón social, dirección postal y condiciones de Yuno CRM: todo listo.'],
+  'yc.em.sd.ck.identity.ko': ['Missing before any send: {list}.', 'Il manque avant tout envoi : {list}.', 'Falta antes de cualquier envío: {list}.'],
   'yc.em.sd.ck.paused.t': ['Account active', 'Compte actif', 'Cuenta activa'],
   'yc.em.sd.ck.paused.ko': ['Your account is paused: subscribe to send again. Your base stays readable and exportable.', 'Votre compte est en pause : abonnez-vous pour envoyer à nouveau. Votre base reste lisible et exportable.', 'Su cuenta está en pausa: suscríbase para volver a enviar. Su base sigue legible y exportable.'],
   'yc.em.sd.ck.demo.t': ['Demo account', 'Compte de démonstration', 'Cuenta de demostración'],
@@ -155,6 +158,7 @@ const dict: CrmDict = {
   'yc.em.sd.fix.plan': ['Pick a date', 'Choisir une date', 'Elegir una fecha'],
   'yc.em.sd.fix.billing': ['Subscribe', 'S’abonner', 'Suscribirse'],
   'yc.em.sd.fix.recharge': ['Top up', 'Recharger', 'Recargar'],
+  'yc.em.sd.fix.identity': ['Complete', 'Compléter', 'Completar'],
 
   // Navigation
   'yc.em.sd.nav.toPlan': ['Choose the date', 'Choisir la date', 'Elegir la fecha'],
@@ -217,6 +221,7 @@ const dict: CrmDict = {
   'yc.em.sd.c.contacts': ['{n} contacts', '{n} contacts', '{n} contactos'],
   'yc.em.sd.err.demo': ['Demo account: nothing left, as planned.', 'Compte de démonstration : rien n’est parti, comme prévu.', 'Cuenta de demostración: no salió nada, como estaba previsto.'],
   'yc.em.sd.err.yunits': ['Not enough Yunits when the send started: nothing left and nothing was charged.', 'Pas assez de Yunits au départ de l’envoi : rien n’est parti, rien n’a été débité.', 'No había Yunits suficientes al empezar el envío: no salió nada ni se cobró nada.'],
+  'yc.em.sd.err.identity': ['Nothing left: first complete your sender identity in Sending settings (sender name, legal name, postal address).', 'Rien n’est parti : complétez d’abord l’identité de l’expéditeur dans Réglages d’envoi (nom d’expéditeur, raison sociale, adresse postale).', 'No salió nada: complete primero la identidad del remitente en Ajustes de envío (nombre del remitente, razón social, dirección postal).'],
   'yc.em.sd.err.frozen': ['Sending is frozen on your account. Contact support.', 'L’envoi est gelé sur votre compte. Contactez le support.', 'El envío está congelado en su cuenta. Contacte con soporte.'],
   'yc.em.sd.err.paused': ['Your account is paused: nothing leaves until you subscribe. Your base stays readable and exportable.', 'Votre compte est en pause : rien ne part tant que vous n’êtes pas abonné. Votre base reste lisible et exportable.', 'Su cuenta está en pausa: no sale nada hasta que se suscriba. Su base sigue legible y exportable.'],
   'yc.em.sd.err.none': ['No one to send to: every address was excluded by the sending rules.', 'Personne à qui envoyer : toutes les adresses ont été écartées par les règles d’envoi.', 'Nadie a quien enviar: todas las direcciones fueron excluidas por las reglas de envío.'],

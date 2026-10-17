@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCrmScope } from '@/crm/scope';
 import { useEmailSettings } from '@/crm/data/emails';
+import { previewIdentity } from '@/crm/lib/emailIdentity';
 import { useStudioLiveData } from '@/components/email-studio/hooks';
 import { bindBlocksToEvent, normalizeTheme, normalizeV2Blocks, renderEmailHtml, smartLang } from '@/lib/email';
 
@@ -33,19 +34,20 @@ export function useEmailHtml(id: string | null) {
   const row = q.data ?? null;
   const blocks = useMemo(() => normalizeV2Blocks(row?.blocks_json), [row]);
   const live = useStudioLiveData(blocks, row?.event_id ?? null, (row as { language?: string | null } | null)?.language ?? null);
-  const postal = settings.data?.postal_address ?? null;
+  // Marque, raison sociale et adresse de Réglages › Envoi : ce que l'envoi rend.
+  const who = useMemo(() => previewIdentity(settings.data, space.name), [settings.data, space.name]);
 
   const data = useMemo(() => {
     if (!row || !blocks.length || settings.isLoading) return null;
     return renderEmailHtml(bindBlocksToEvent(blocks, row.event_id), normalizeTheme(row.theme_json), {
-      venueName: space.name, city: space.city, postalAddress: postal, logoUrl: row.logo_url ?? space.logoUrl,
+      venueName: who.venueName, legalName: who.legalName, city: space.city, postalAddress: who.postalAddress, logoUrl: row.logo_url ?? space.logoUrl,
       emailType: 'promotional', subject: row.subject ?? '', preheader: row.preheader ?? '',
       language: row.language ? smartLang(row.language) : null,
       recipient: { email: 'camille@exemple.fr', firstName: 'Camille' },
       socialLinks: (row.social_links_json ?? {}) as Record<string, string>,
       baseUrl: window.location.origin, live, ignoreConds: true,
     });
-  }, [row, blocks, live, postal, settings.isLoading, space.name, space.city, space.logoUrl]);
+  }, [row, blocks, live, who, settings.isLoading, space.city, space.logoUrl]);
 
   return { data, isLoading: q.isLoading || settings.isLoading, isError: q.isError };
 }
