@@ -219,10 +219,11 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
   const steps = [
     t(`yc.sp.ty.${kind}.s1`),
     kind === 'prevente' ? (cfg.saleAt ? t('yc.sp.ty.prevente.s2', { sale: saleStr }) : t('yc.sp.ty.prevente.s2none'))
-      : kind === 'communaute' ? (rewardOn ? t('yc.sp.ty.communaute.s2', { reward: rewardTxt }) : t('yc.sp.ty.communaute.s2none'))
+      // Une communauté sans récompense n'a pas d'étape « ta récompense t'attend ».
+      : kind === 'communaute' ? (rewardOn ? t('yc.sp.ty.communaute.s2', { reward: rewardTxt }) : null)
       : t(`yc.sp.ty.${kind}.s2`),
     t(`yc.sp.ty.${kind}.s3`),
-  ].map((txt, i) => ({ n: i + 1, txt, done: i === 0, bg: i === 0 ? K.a : 'transparent', fg: i === 0 ? K.aFg : K.kM, sh: i === 0 ? 'none' : 'inset 0 0 0 1.5px ' + K.kLine, c: i === 0 ? K.k : K.kM, bt: i === 0 ? '0' : '1px solid ' + K.kLine }));
+  ].filter((txt): txt is string => !!txt).map((txt, i) => ({ n: i + 1, txt, done: i === 0, bg: i === 0 ? K.a : 'transparent', fg: i === 0 ? K.aFg : K.kM, sh: i === 0 ? 'none' : 'inset 0 0 0 1.5px ' + K.kLine, c: i === 0 ? K.k : K.kM, bt: i === 0 ? '0' : '1px solid ' + K.kLine }));
   const isComm = kind === 'communaute', compact = isNoted;
   const badge = isOpen ? t('yc.sp.fan.badgeOpen') : isClosed ? t('yc.sp.fan.badgeClosed') : isSoon ? t('yc.sp.fan.badgeSoon')
     : kind === 'attente' && !cfg.full ? t('yc.sp.ty.attente.badgeOpen') : t(`yc.sp.ty.${kind}.badge`);
