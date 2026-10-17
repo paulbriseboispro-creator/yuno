@@ -91,6 +91,33 @@ describe('pagination', () => {
   });
 });
 
+describe('colonnes typées d’un billet (miroir du trigger SQL)', () => {
+  it('copie le canal, les visibilités, le placement, le paiement, les frais et les identifiants', () => {
+    const m = mapShotgunTicket({
+      ticket_id: 1, deal_channel: 'invitation', deal_visibilities: ['public', 'promoters'],
+      ticket_seating: { id: 3, type: 'Table' }, payment_method: 'card', deal_service_fee: 99,
+      contact_id: 123456789, user_id: 46824,
+    })!;
+    expect(m.deal_channel).toBe('invitation');
+    expect(m.deal_visibilities).toEqual(['public', 'promoters']);
+    expect(m.seating_type).toBe('Table');
+    expect(m.payment_method).toBe('card');
+    expect(m.org_fee).toBe(0.99);
+    expect(m.provider_contact_id).toBe('123456789');
+    expect(m.provider_user_id).toBe('46824');
+  });
+
+  it('rend null ce que le billet n’a pas, sans normaliser le canal', () => {
+    const m = mapShotgunTicket({ ticket_id: 2, deal_channel: ' Online ', ticket_seating: null, deal_service_fee: '99' })!;
+    expect(m.deal_channel).toBe(' Online ');
+    expect(m.deal_visibilities).toBeNull();
+    expect(m.seating_type).toBeNull();
+    expect(m.payment_method).toBeNull();
+    expect(m.org_fee).toBeNull();
+    expect(m.provider_contact_id).toBeNull();
+  });
+});
+
 describe('statut d’un billet', () => {
   it('lit les mots usuels', () => {
     expect(normalizeTicketStatus({}).status).toBe('valid');

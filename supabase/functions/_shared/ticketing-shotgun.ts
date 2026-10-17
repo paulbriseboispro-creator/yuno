@@ -317,7 +317,29 @@ export interface MappedTicket {
   refunded_at: string | null;
   source_updated_at: string | null;
   utm: Json | null;
+  /**
+   * Ce que le CRM lisait dans le billet brut, en colonnes (migration
+   * 20261018200000). Mêmes valeurs que le trigger SQL qui les dérive de `raw`
+   * (`raw->>'deal_channel'`… sans normalisation) : un billet écrit par une
+   * ancienne version du connecteur est juste lui aussi.
+   */
+  deal_channel: string | null;
+  deal_visibilities: (string | null)[] | null;
+  seating_type: string | null;
+  payment_method: string | null;
+  /** `deal_service_fee` (frais organisateur, centimes) en euros. */
+  org_fee: number | null;
+  provider_contact_id: string | null;
+  provider_user_id: string | null;
   raw: Json;
+}
+
+/** Valeur de `raw->>'clé'` côté SQL : texte tel quel, nombre et booléen en texte. */
+export function jsonText(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(v);
 }
 
 export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): MappedTicket | null {
@@ -360,6 +382,14 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     refunded_at: status === "refunded" || status === "cancelled" ? isoDate(pick(raw, P.refundedAt)) : null,
     source_updated_at: isoDate(pick(raw, P.updatedAt)),
     utm: utmFrom(raw),
+    deal_channel: jsonText(raw.deal_channel),
+    deal_visibilities: Array.isArray(raw.deal_visibilities) ? raw.deal_visibilities.map(jsonText) : null,
+    seating_type: raw.ticket_seating && typeof raw.ticket_seating === "object" && !Array.isArray(raw.ticket_seating)
+      ? jsonText((raw.ticket_seating as Json).type) : null,
+    payment_method: jsonText(raw.payment_method),
+    org_fee: typeof raw.deal_service_fee === "number" && Number.isFinite(raw.deal_service_fee) ? raw.deal_service_fee / 100 : null,
+    provider_contact_id: jsonText(raw.contact_id),
+    provider_user_id: jsonText(raw.user_id),
     raw: withoutScanCode(raw),
   };
 }
