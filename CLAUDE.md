@@ -850,7 +850,11 @@ tables réelles ; rien n'est inventé :
   gel d'envoi (`crm_settings.sending_frozen_at`, refusé par le trigger
   `guard_crm_send_frozen` sur les campagnes e-mail et SMS ; une recette automatique
   est mise EN PAUSE plutôt que de lever une exception qui ferait tomber la
-  collecte des autres comptes), notes. Prospects : `crm_prospects` (+ événements),
+  collecte des autres comptes), notes. « Offrir Yuno CRM » (fenêtre Produits du
+  super admin de la Billetterie, `admin_grant_crm_plan`) écrit `crm_grant_plan` /
+  `crm_end_grant` ET une ligne `account_product_events` (`gifted` / `grant_ended`),
+  sans motif ; `admin_account_products().crm` rend l'état du don (par qui, depuis
+  quand, jusqu'à quand, Yunits), migration `20261018195500`. Prospects : `crm_prospects` (+ événements),
   pipeline réel (Essai et Payant se lisent dans les comptes).
 - **Ce que la base ne sait pas n'est pas rendu** : tests A/B, exceptions edge,
   ouvertures / clics des e-mails du cycle de vie. Les coûts réels d'envoi sont un
