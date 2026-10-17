@@ -41,6 +41,9 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'blocks', c: 'start', to: CRM_ROUTES.emailTemplates },
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
+  // Familles de `_crm_ticket_source` (migration 20261018100000) et le compte des clients.
+  { id: 'sources', c: 'clients', to: CRM_ROUTES.traffic },
+  { id: 'customers', c: 'clients', to: CRM_ROUTES.clients },
   { id: 'guestlist', c: 'clients', to: CRM_ROUTES.guestlist },
   // Analyse client : le test au hasard, les statuts, ce qui sort du compte.
   { id: 'why', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },

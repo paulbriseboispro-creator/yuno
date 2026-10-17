@@ -10,8 +10,14 @@ import { CrmRpcError, rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 
 export interface TicketingStats {
-  events?: number; tickets?: number; valid_tickets?: number; buyers?: number; optin_buyers?: number;
+  events?: number; tickets?: number; valid_tickets?: number; optin_buyers?: number;
   upcoming_events?: number; scanned_tickets?: number; with_email_pct?: number;
+  /** Clients : adresses avec au moins un billet valide ou transféré (règle de la base de clients). */
+  buyers?: number;
+  /** Adresses dont tous les billets sont remboursés ou annulés (absentes de la base). */
+  buyers_inactive?: number;
+  /** Billets valides vendus sans e-mail (guichet) : des ventes, jamais des personnes. */
+  no_email_tickets?: number;
 }
 
 export interface TicketingConnection {
