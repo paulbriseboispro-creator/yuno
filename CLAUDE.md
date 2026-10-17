@@ -881,9 +881,15 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   (`deal_price`, `deal_user_service_fee`, toujours ÷ 100), tarifs des soirées
   en EUROS (jamais divisés), `contact_*` (consentement, âge à l'année près,
   ville, code postal, pays en toutes lettres → ISO). Soirées à venir relues en
-  entier à chaque passe (places restantes). Aucun compte réel n'était connecté
-  au 05/10 : rien à rattraper ; un compte importé avec l'ancien lecteur se
-  rattrape par une remise à zéro de `tickets_cursor`.
+  entier à chaque passe (places restantes). Un compte importé avec l'ancien
+  lecteur se rattrape par une remise à zéro de `tickets_cursor`.
+  **Pays : jamais un code retiré** (`countryCodeFrom`, 18/10, testé sur les 83
+  noms vus sur le 1er vrai compte) : Intl nomme aussi `DD` (RDA, « Germany »,
+  avant `DE` dans l'alphabet), `CS`, `YU`, `SU`… ; ils sont exclus de la table
+  (`RETIRED_COUNTRY_CODES`, ramenés à leur successeur s'ils arrivent tels
+  quels), et les noms anglais ISO d'avant les renommages (Turkey, Czech
+  Republic, Republic Of Moldova, « Korea, Republic of »…) ont leurs alias.
+  Les billets déjà en base ont été rattrapés (`20261018100000`).
 - **Une vente = `_crm_ticket_is_sale(status, raw)`** : `valid` hors invitation
   et hors duplicata (`deal_channel IN ('invitation', 'duplicata')`, le duplicata
   est la copie d'un billet déjà vendu). Un billet revendu (`resold` → `transferred`)
@@ -905,12 +911,34 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   synchro (registre ou fichier), pas seulement « jamais vu par Shotgun ».
 - **La source d'une vente = `utm_source` seulement** (Shotgun écrase
   `utm_medium` par la plateforme, ne rend pas `utm_campaign`). Familles
-  (`_crm_ticket_source` ⇄ `sourceKind`, `src/crm/lib/links.ts`) : `yl` lien de
+  (`_crm_ticket_source` ⇄ `sourceFamily` / `sourceKind`, `src/crm/lib/links.ts`,
+  miroir EXACT testé sur le même jeu de 87 valeurs) : `yl` lien de
   partage `yuno-<code>` · `em` e-mail `yuno-m-<8 hex campagne>` (et `yuno`
-  d'avant) · `sm` `yuno-s-…` · `dm` `yuno-d-…` · `so` réseau vu par Shotgun ·
-  `sg` app/site Shotgun · `au` autre site · `di` direct · `of` hors ligne /
-  importé. « Partenaires » n'existe plus (rien dans l'API). Tout lien Yuno
+  d'avant) · `sm` `yuno-s-…` · `dm` `yuno-d-…` · `so` réseaux sociaux hors
+  lien Yuno · `sg` app/site Shotgun · `ex` e-mail d'un AUTRE outil (Brevo
+  `*.sendibm*.com`, Mailchimp, `shotgun-email`, webmails) · `se` recherche et
+  IA (Google, ChatGPT…) · `au` autre site · `di` direct · `of` hors ligne /
+  importé. **Shotgun écrit souvent le DOMAINE référent** (`instagram.com`,
+  `l.instagram.com`, `m.facebook.com`, `ezapv.r.ag.d.sendibm3.com`) : il est
+  ramené à sa forme nue (`sourceHost` : schéma, chemin, `www.` `l.` `m.` `lm.`
+  retirés) puis lu mot par mot, dans CET ordre (une adresse `mail.google.com`
+  est un webmail, pas une recherche) — sans ça, 15 % des billets d'Amoris
+  tombaient dans « Autres sites » (20261018100000, < 1 % depuis). Une famille
+  ajoutée entre dans `SOURCE_KEYS`, `CHANNEL_CODES`, les listes de
+  `_crm_cond_leaf_check`, `_crm_filter_sql` et `crm_ana_traffic__core`, et
+  les libellés `yc.ana.src.*`, `yc.scn.v.arr.*`, `yc.lk.src.*`. Le nom affiché
+  d'une source vient de `sourceName` (« Brevo », « Instagram »), jamais du
+  domaine brut. « Partenaires » n'existe plus (rien dans l'API). Tout lien Yuno
   vers Shotgun porte TOUT son identifiant dans `utm_source`.
+- **Un client = une personne avec au moins un billet valide ou transféré**
+  (règle de `contact_scope_customers`), partout : Accueil, Clients et la carte
+  Connecteurs (`ticketing_refresh_stats.buyers`, qui ne compte plus toutes les
+  adresses). L'écart se dit UNE fois, sous la carte Connecteurs :
+  `buyers_inactive` (adresses aux billets tous remboursés ou annulés) et
+  `no_email_tickets` (billets vendus sans e-mail, au guichet : des ventes,
+  jamais des personnes). Les profils d'analyse (`crm_person_profile`) ne
+  comptent que les VENTES (`_crm_ticket_is_sale`), d'où un nombre plus petit,
+  lu par l'Admin CRM seul. FAQ `yc.faq.customers.*` et `yc.faq.sources.*`.
 - **Liens de partage** (onglet « Liens de partage » du tiroir d'une soirée,
   `?e=<id>&v=links`, migration `20261006200000`) : `tracked_links` sur la
   soirée miroir (`utm_source` = réseau, `utm_medium` = emplacement, paires de
@@ -930,7 +958,7 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   `LEGACY_KINDS`) : un lien déjà posé garde ses ventes. Les liens d'e-mail
   (`yuno-m-…`), de SMS et, plus tard, de réponse Instagram (`yuno-d-…`) se
   génèrent SEULS à l'envoi : jamais un bouton de création. La famille `so`
-  (« Instagram et TikTok (hors lien Yuno) ») = utm_source `instagram`/`tiktok`… SANS code
+  (« Réseaux sociaux (hors lien Yuno) ») = utm_source `instagram`/`tiktok`/`instagram.com`… SANS code
   Yuno, donc PAS nos liens : ne jamais la présenter comme « réseaux vus par
   Shotgun » ni la confondre avec `yl`, que l'écran détaille par type de lien
   (`groupSources(rows, links)`). Une publication (story, groupe…) se NOMME à
