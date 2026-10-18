@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { verifySvixSignature } from '../_shared/svix-verify.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,44 +10,20 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const WEBHOOK_SECRET = Deno.env.get('RESEND_WEBHOOK_SECRET'); // Svix secret from Resend dashboard (whsec_...)
 
-// Verify the Svix signature Resend sends on every webhook. Returns true when the
-// payload is authentic. If no secret is configured we fail OPEN (log a warning and
-// accept) so existing open/click tracking keeps working until the secret is set —
-// set RESEND_WEBHOOK_SECRET to enforce strict verification.
-async function verifySvix(rawBody: string, headers: Headers): Promise<boolean> {
-  if (!WEBHOOK_SECRET) {
-    console.warn('resend-webhook: RESEND_WEBHOOK_SECRET not set — accepting unverified payload');
-    return true;
-  }
-  const id = headers.get('svix-id');
-  const timestamp = headers.get('svix-timestamp');
-  const sigHeader = headers.get('svix-signature');
-  if (!id || !timestamp || !sigHeader) return false;
-
-  // Reject stale timestamps (>5 min skew) to blunt replay.
-  const ts = Number(timestamp);
-  if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false;
-
-  try {
-    const secretBytes = Uint8Array.from(atob(WEBHOOK_SECRET.replace(/^whsec_/, '')), (c) => c.charCodeAt(0));
-    const key = await crypto.subtle.importKey('raw', secretBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const signed = new TextEncoder().encode(`${id}.${timestamp}.${rawBody}`);
-    const mac = await crypto.subtle.sign('HMAC', key, signed);
-    const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
-    // Header is space-separated "v1,<sig> v1,<sig>" — accept if any matches.
-    return sigHeader.split(' ').some((part) => part.split(',')[1] === expected);
-  } catch (e) {
-    console.error('resend-webhook: signature verification error', e);
-    return false;
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     const rawBody = await req.text();
-    if (!(await verifySvix(rawBody, req.headers))) {
+    // Signature Svix obligatoire (audit du 18/10, MAIL-10) : sans secret posé,
+    // on refuse (503 : Resend réessaiera une fois le secret posé) au lieu
+    // d'accepter une charge que n'importe qui peut forger.
+    const verdict = await verifySvixSignature(WEBHOOK_SECRET, rawBody, req.headers).catch(() => 'bad_signature' as const);
+    if (verdict === 'no_secret') {
+      console.error('resend-webhook: RESEND_WEBHOOK_SECRET not set — refusing unverified payload');
+      return new Response(JSON.stringify({ error: 'webhook_not_configured' }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (verdict !== 'ok') {
       return new Response(JSON.stringify({ error: 'invalid signature' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const payload = JSON.parse(rawBody);
