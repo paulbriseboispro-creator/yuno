@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { unsubscribePageUrl, unsubscribeRequestKind } from '../_shared/one-click-unsubscribe.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +8,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const PUBLIC_URL = Deno.env.get('PUBLIC_APP_URL') || 'https://yunoapp.eu';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -24,11 +26,17 @@ Deno.serve(async (req) => {
       if (typeof body.action === 'string') bodyAction = body.action;
       if (typeof body.campaign_id === 'string') bodyCampaignId = body.campaign_id;
     }
-    const action = url.searchParams.get('action') || bodyAction || (req.method === 'POST' ? 'unsubscribe' : 'preview');
+    // POST (bouton « Se désabonner » de la messagerie, RFC 8058, ou la page du
+    // site) = désabonner ; GET sans action = une personne a ouvert l'adresse de
+    // l'en-tête List-Unsubscribe : on l'envoie sur la page du site.
+    const action = unsubscribeRequestKind(req.method, url.searchParams.get('action') || bodyAction);
     // Optional explicit campaign attribution (link can carry ?c=<id>); falls back to the
     // most recent campaign that emailed this subscriber.
     const explicitCampaignId = bodyCampaignId || url.searchParams.get('c');
     if (!token) return new Response(JSON.stringify({ error: 'token required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (action === 'redirect') {
+      return new Response(null, { status: 302, headers: { ...corsHeaders, Location: unsubscribePageUrl(PUBLIC_URL, token) } });
+    }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 

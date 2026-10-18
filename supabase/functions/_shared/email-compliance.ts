@@ -10,9 +10,7 @@
 // FAILS CLOSED: any lookup error returns an empty allowlist, so a transient DB
 // failure can never cause marketing to reach a non-consenting recipient.
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-
-const PUBLIC_URL =
-  Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu';
+import { listUnsubscribeHeaders } from './one-click-unsubscribe.ts';
 
 export interface OptInScope {
   venueId?: string | null;
@@ -89,10 +87,6 @@ export function optInToken(
 
 /** One-click unsubscribe headers for the Resend payload. Empty when no token. */
 export function unsubscribeHeaders(token: string | null): Record<string, string> {
-  if (!token) return {};
-  const url = `${PUBLIC_URL}/unsubscribe?token=${token}`;
-  return {
-    'List-Unsubscribe': `<${url}>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-  };
+  // RFC 8058 : la fonction qui traite le POST de la messagerie, pas la page de l'app.
+  return listUnsubscribeHeaders(Deno.env.get('SUPABASE_URL') ?? '', token);
 }

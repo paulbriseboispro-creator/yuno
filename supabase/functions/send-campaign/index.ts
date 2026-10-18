@@ -37,6 +37,7 @@ import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type Re
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { supportSessionFor } from '../_shared/support-session.ts';
 import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
+import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -185,13 +186,10 @@ function chainNextSlice(campaignId: string) {
   if (rt?.waitUntil) rt.waitUntil(p);
 }
 
-function unsubHeaders(token?: string | null): Record<string, string> {
-  if (!token) return {};
-  const url = `${PUBLIC_URL}/unsubscribe?token=${token}`;
-  return {
-    'List-Unsubscribe': `<${url}>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-  };
+// Désabonnement en un clic (RFC 8058) : l'en-tête pointe sur la fonction qui
+// traite le POST de la messagerie, jamais sur la page de l'app (voir le module).
+function unsubHeaders(token?: string | null, campaignId?: string | null): Record<string, string> {
+  return listUnsubscribeHeaders(SUPABASE_URL, token, campaignId);
 }
 
 // ── Résolution de l'expéditeur ─────────────────────────────────────────────
@@ -595,7 +593,7 @@ async function drainSlice(
       subject: buildHtml.subject ? buildHtml.subject(r) : subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
-      headers: unsubHeaders(r.unsubscribe_token),
+      headers: unsubHeaders(r.unsubscribe_token, campaignId),
       tags: [{ name: 'campaign_id', value: campaignId }],
     }));
 
