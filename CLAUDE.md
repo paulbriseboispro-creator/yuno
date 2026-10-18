@@ -28,8 +28,9 @@ gatées et marche à suivre pour relancer : `docs/DRINKS_PILLAR_PAUSED.md`. Règ
   (Cloudflare, Xcode Cloud, OTA). En local, poser la variable dans `.env.local` pour
   travailler sur le projet. Miroirs à la main (pas de Vite) : une constante
   `DRINKS_PILLAR_LIVE = false` en tête de `yuno-assistant`, `owner-assistant`,
-  `send-ticket-confirmation` et `worker/index.ts` ; `index.html` porte un commentaire.
-  Relancer = allumer les cinq ensemble.
+  `send-ticket-confirmation`, `worker/index.ts`, `worker/mcp/config.ts` et
+  `_shared/console-help-articles.ts` (phrases du bar des articles d'aide) ;
+  `index.html` porte un commentaire. Relancer = allumer les sept ensemble.
 - **Ne JAMAIS supprimer** une page, un composant, une table, une RPC ou une fonction edge
   du système boissons sous prétexte qu'elle est inatteignable. Ne jamais non plus
   « nettoyer » les clés i18n `cart.*`, `drinkCat.*`, `clickCollect.*`, `vipMenu.*`,
@@ -126,7 +127,7 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   **Limiteur commun `consume_ticketing_rate('shotgun', 45)` avant chaque
   requête** : le quota Shotgun est de 100 / min PAR IP, partagé par tous les
   clients. Jamais d'écriture chez Shotgun. Cron `ticketing-sync` toutes les
-  10 min. Carte « Billetterie (Shotgun) » dans Intégrations, réservée au super
+  5 min. Carte « Billetterie (Shotgun) » dans Intégrations, réservée au super
   admin / démo / bêta tant que `CRM_CONNECTORS_LIVE` (`src/lib/crmProduct.ts`)
   est à false.
 - **Une soirée Shotgun a une soirée MIROIR dans `events`**
@@ -182,34 +183,36 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   Yuno » ni « avec l'app »). Démo : `crm@womber.fr`
   (`scripts/demo/create-crm-account.mjs` puis `seed-crm-demo.sql`, rejouable).
 - **L'offre CRM se lit en base, jamais au front** (migrations `20261002200000`,
-  `201000`). `crm_subscriptions` (une ligne par portée, séparée de
-  `venue_subscriptions` : noms d'offres qui se croisent, trigger collab de la
-  Suite), `crm_effective_plan()` (essai = Pro, Business choisi pendant l'essai =
-  Business, actif / en retard = son offre, offre accordée échue = Gratuit) et
-  `crm_plan_limits()`, miroir EXACT de `CRM_PLAN_LIMITS` (`src/lib/crmPlans.ts`,
-  testé). Les limites (`crm_scope_limits`) ne valent que pour un compte au
-  produit `crm`. Elles pilotent le quota email (`email_sender_monthly_free`),
-  la fréquence de synchro (`crm_sync_scope`, trigger à la connexion, cron
-  `ticketing-sync` toutes les 5 min) et des gardes serveur qui lèvent un code
-  stable : `crm_member_limit` (`org_members`, `manager_permissions`),
-  `crm_automation_limit`, `crm_plan_ab_resend`. Le front les traduit par
-  `useCrmLimitToast` (« Voir les offres »). **Tout garde de limite exclut la
+  `201000`, puis l'offre unique `20261004227000`). `crm_subscriptions` (une
+  ligne par portée, séparée de `venue_subscriptions` : trigger collab de la
+  Suite), `crm_effective_plan()` (`base` pendant l'essai, pour un abonnement
+  actif ou en retard, ou pour une offre accordée pas encore échue ; `paused`
+  sinon) et `crm_plan_limits()`, miroir EXACT de `CRM_PLAN_LIMITS`
+  (`src/lib/crmPlans.ts`, testé) : deux entrées, `base` et `paused`. Les
+  limites (`crm_scope_limits`) ne valent que pour un compte au produit `crm`.
+  Elles pilotent l'envoi (`email_sender_monthly_free` : sans limite en `base`,
+  0 en pause ; le Yunit est la seule limite), la synchro (`crm_sync_scope`,
+  trigger à la connexion, cron `ticketing-sync` toutes les 5 min) et des gardes
+  serveur qui lèvent un code stable : `crm_member_limit` (`org_members`,
+  `manager_permissions`), `crm_automation_limit`, `crm_plan_ab_resend` — ils
+  restent en place mais ne refusent rien en `base` (membres et recettes sans
+  limite, A/B compris). Le front les traduit par `useCrmLimitToast`. **Tout garde de limite exclut la
   MÊME personne / la MÊME recette** : un UPSERT déclenche le BEFORE INSERT même
   sur une ligne existante. L'essai (14 j) naît quand un compte passe au produit
   `crm` (trigger). `crm_billing_sweep` (horaire) clôt les essais et éteint les
   automatisations au-delà de l'offre. Paiement : actions `crm_checkout` /
   `crm_portal` de `club-subscription` (client Stripe PROPRE au CRM, jamais par
-  email ; prix par `lookup_key` `yuno_crm_<offre>_<month|year>[_founder]`,
+  email ; prix par `lookup_key` `yuno_crm_base_<month|year>_<launch|public>`,
   créés par `scripts/stripe/create-crm-prices.mjs` ; portail sans changement
   d'offre) ; le webhook route `metadata.yuno_product = 'crm'` vers
   `crm_apply_stripe_subscription` AVANT la logique club. Sans prix créés,
-  `crm_checkout` répond `billing_not_configured`. Démo : Pro accordé un an.
+  `crm_checkout` répond `billing_not_configured`. Démo : socle accordé un an.
 
 ## Stack
 
 - **Frontend** : Vite 8 (rolldown) + React 18 + TypeScript + shadcn/ui + Tailwind. SPA statique.
 - **PWA** : `vite-plugin-pwa` (workbox `sw.js` auto) + `sw-push.js` manuel (push notifs).
-- **Backend** : 100 % **Supabase** (Postgres + RLS + Auth + Storage + 106 edge functions Deno).
+- **Backend** : 100 % **Supabase** (Postgres + RLS + Auth + Storage + edge functions Deno).
   Project ref : `fulawxvdlwtdlpkycixe`. (Ancien ref Lovable mort : `kredmghiqesyrmjqvxen`.)
 - **Paiements** : Stripe + **Stripe Connect double destination** (owner→venues, organizer→profiles).
 - **Autres** : Mapbox (carte clubs, lazy-load), Resend (emails), i18n maison.
@@ -233,15 +236,15 @@ Package manager : **npm** (un seul lockfile, `package-lock.json`). Node : voir `
 
 ```
 src/
-  pages/            # 106 pages (Owner*, Org*, Promoter*, Affiliate*, public, staff...)
+  pages/            # pages (Owner*, Org*, Promoter*, Affiliate*, public, staff...)
   components/       # composants + ui/ (shadcn) + dossiers par domaine (owner/, vip-host/, explore/...)
   i18n/data.ts      # ~1,5 Mo — TOUTES les traductions EN/FR/ES + helper t(). Fichier énorme, normal.
   integrations/supabase/  # client.ts (anon) + types.ts (généré)
   utils/fees.ts     # calcul frais/commissions Stripe (revenu club)
   lib/              # helpers (compressImage, countries, hypeForecast...)
 supabase/
-  functions/        # 106 edge functions Deno (checkout, webhooks, invitations, MFA...)
-  migrations/       # 388 migrations SQL (ordre chronologique par timestamp)
+  functions/        # edge functions Deno (checkout, webhooks, invitations, MFA...)
+  migrations/       # migrations SQL (ordre chronologique par timestamp)
   config.toml       # déclare chaque fonction (verify_jwt, etc.)
 docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
 ```
@@ -1875,11 +1878,8 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de
   large : pour le mobile, contraindre le CONTENEUR, pas la fenêtre. Ne jamais
   committer le banc.
-- **Reprise du 25/09 : rien n'avait été joué contre la vraie base, et ça se
-  voyait.** Quatre migrations (190000→220000) n'étaient pas appliquées (404 sur
-  Trafic, Communauté, Goûts, Codes promo), les edge functions de la branche
-  n'étaient pas déployées, l'Analytics orga restait sur un spinner et les
-  soirées démo à venir n'avaient aucune vente. Règles qui en sortent :
+- **Jouer une branche contre la vraie base avant de la livrer** : migrations
+  appliquées, edge functions déployées, démo semée de ventes. Règles :
   - **Une vue ne charge que ses chiffres.** `useAnalyticsData`,
     `useNightAnalytics`, `usePromoterAnalytics`, `useCustomerAnalytics`
     prennent `enabled` ; les pages ne les allument que sur la vue qui les lit
@@ -2103,7 +2103,7 @@ billet » quand le tableau en montrait 84). Règles :
   `git fetch origin main` et vérifier que le timestamp n'y existe pas** : le
   25/09, `20260925160000` existait des deux côtés (deux migrations, une seule
   ligne dans `schema_migrations`, la seconde jamais rejouée par `db push`).
-- **Revue du 25/09 — ce qu'elle a trouvé, à ne pas rejouer** :
+- **Garde-fous issus de la revue du 25/09** :
   - Ventes compte en SOIRÉES TERMINÉES (`end_at`, sinon `start_at + 8 h`), et
     chaque ratio a son dénominateur servi par `get_sales_overview`
     (`money_nights`, `spend_revenue/spend_entries`, `presence_entries/expected`,
@@ -2327,11 +2327,10 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
   d'historique hérités de la migration Lovable→Supabase (réconciliation déjà faite une fois).
 - **Gen types** : `supabase gen types ...` — **rediriger stderr** sinon le bruit pollue
   `src/integrations/supabase/types.ts`.
-- **Cap fonctions edge** : historiquement, `supabase functions deploy` renvoyait **402**
-  pour toute NOUVELLE fonction tant que le spend cap Supabase n'était pas relevé.
-  **2026-08-06 : `agency-assistant` (fonction neuve) s'est déployée sans 402** — le cap
-  ne bloque plus ; les fonctions codées-mais-jamais-déployées (auth mineurs, staff PIN,
-  `promoter-payout-notify`) sont probablement déployables, à retenter.
+- **Cap fonctions edge** : le quota de fonctions est ATTEINT (402 à tout
+  `supabase functions deploy` d'une fonction NEUVE, constaté le 29/09). Une nouvelle
+  capacité s'ajoute comme action d'une fonction existante, jamais comme nouvelle
+  fonction (voir « Quota de fonctions edge ATTEINT » plus haut).
   `promoter-payout-notify` EST déployée (constaté le 25/09) : elle embarque
   `_shared/auto-push.ts`, la redéployer avec les autres quand il change.
 - **`events` a DEUX clés vers `venues`** (`venue_id`, `partner_venue_id`) : un
@@ -2422,8 +2421,8 @@ interprété (JS/HTML/CSS) est livré, jamais du natif.
   par la clé d'équipe via les secrets `ASC_KEY_P8` / `ASC_KEY_ID` /
   `ASC_ISSUER_ID`, export `destination: upload`, ~7 min par app) — lancer avec
   `gh workflow run ios-release.yml -f app=both -f client_build=<n> -f pro_build=<n>`
-  (numéros > dernier build ASC), puis version + soumission par l'API
-  (`scripts/asc.mjs`). Xcode Cloud fait pareil mais son quota gratuit est de 25 h
+  (numéros > dernier build ASC), puis version + soumission par l'API App Store
+  Connect. Xcode Cloud fait pareil mais son quota gratuit est de 25 h
   par mois : épuisé, chaque run est annulé à la création sans message.
 - **Le 1er lancement après installation applique l'OTA AVANT le premier écran**
   (`autoUpdate: 'atInstall'` + `autoSplashscreen` + `SplashScreen.launchAutoHide:
