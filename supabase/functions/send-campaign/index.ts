@@ -1078,6 +1078,13 @@ Deno.serve(async (req) => {
       if (['sent', 'cancelled'].includes(campaign.status as string)) {
         return new Response(JSON.stringify({ error: `Campagne déjà ${campaign.status}` }), { status: 409, headers: jsonHeaders });
       }
+      // Appel du cron de planification : il vient de passer la campagne de
+      // « scheduled » à « sending ». Si elle n'y est plus, le pro l'a
+      // déprogrammée entre-temps (retour en brouillon) : on n'envoie rien
+      // (audit 18/10, MAIL-04).
+      if (scheduled === true && campaign.status !== 'sending') {
+        return new Response(JSON.stringify({ error: 'not_scheduled_anymore', status: campaign.status }), { status: 409, headers: jsonHeaders });
+      }
       // Le disjoncteur ne se contourne pas par un simple re-clic sur
       // « Envoyer ». Reprendre après une coupure pour plaintes ou adresses
       // mortes exige le bouton « Reprendre » de la barre de progression, qui
