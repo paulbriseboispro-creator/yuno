@@ -9,6 +9,12 @@
 // À relancer quand une migration plus ancienne change une fonction lue par
 // l'analyse (le bench rejoue alors une base à jour). Une requête légère à la
 // fois ; regarder `prod.mjs --activity` avant.
+//
+// Instantané (test de séparation entre espaces, isolation.mjs) :
+//   BENCH_SNAPSHOT_ROOTS=<fichier> BENCH_BASE_OUT=<fichier> node dump-base.mjs
+// prend TOUTES les définitions dans la prod (aucune migration rejouée), en
+// partant des fonctions listées dans le fichier (une par ligne) et de leur
+// fermeture.
 
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -24,11 +30,18 @@ const files = readdirSync(migDir).filter((f) => f.endsWith('.sql') && f >= FIRST
 const text = files.map((f) => readFileSync(join(migDir, f), 'utf8')).join('\n');
 
 const lower = (xs) => new Set([...xs].map((x) => x.toLowerCase()));
-const defined = lower([
+const SNAPSHOT = process.env.BENCH_SNAPSHOT_ROOTS
+  ? readFileSync(process.env.BENCH_SNAPSHOT_ROOTS, 'utf8').split(/\s+/).filter(Boolean)
+  : null;
+const defined = SNAPSHOT ? new Set() : lower([
   ...[...text.matchAll(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.(\w+)/gi)].map((m) => m[1]),
   ...[...text.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?public\.(\w+)/gi)].map((m) => m[1]),
 ]);
-const refsOf = (s) => lower([...s.matchAll(/public\.(\w+)/g)].map((m) => m[1]));
+const refsOf = (s) => SNAPSHOT
+  // Instantané : tout identifiant peut être une table ou une fonction citée
+  // sans « public. » ; la requête suivante ne garde que ce qui existe.
+  ? lower([...s.matchAll(/\b([a-z_][a-z0-9_]{2,62})\b/gi)].map((m) => m[1]))
+  : lower([...s.matchAll(/public\.(\w+)/g)].map((m) => m[1]));
 
 const q = (names) => `ARRAY[${[...names].map((n) => `'${n}'`).join(',')}]::text[]`;
 
@@ -36,7 +49,7 @@ const q = (names) => `ARRAY[${[...names].map((n) => `'${n}'`).join(',')}]::text[
 // citées, jusqu'au point fixe.
 const tables = new Set();
 const funcs = new Map(); // nom -> [définitions]
-let frontier = new Set([...refsOf(text), ...EXTRA_ROOTS].filter((n) => !defined.has(n)));
+let frontier = new Set(SNAPSHOT ?? [...refsOf(text), ...EXTRA_ROOTS].filter((n) => !defined.has(n)));
 const seen = new Set(frontier);
 while (frontier.size) {
   const names = q(frontier);
@@ -120,6 +133,7 @@ for (const [, defs] of [...funcs].sort()) {
   }
 }
 
-mkdirSync(join(here, 'schema'), { recursive: true });
-writeFileSync(join(here, 'schema', 'base.sql'), out.join('\n'));
-console.log(`base.sql : ${tables.size} tables, ${funcs.size} fonctions, ${idx.length} index`);
+const OUT = process.env.BENCH_BASE_OUT ?? join(here, 'schema', 'base.sql');
+mkdirSync(dirname(OUT), { recursive: true });
+writeFileSync(OUT, out.join('\n'));
+console.log(`${OUT} : ${tables.size} tables, ${funcs.size} fonctions, ${idx.length} index`);
