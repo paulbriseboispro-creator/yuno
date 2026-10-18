@@ -101,6 +101,7 @@ jamais. La rejouer après de nouvelles migrations annulerait celles-ci.
 
 ```bash
 node sec06.mjs dump && node sec06.mjs run <md>    # gardes du règlement promoteur (20261024100000)
+node sec07.mjs run <md>                           # colonnes qu'un promoteur écrit dans sa fiche (20261025100000), après sec06 dump
 node link01.mjs scan                              # tout quantificateur {n,m} > 255 de la prod
 node link01.mjs dump && node link01.mjs run <md>  # capture d'une story sur un lien (20261024100100)
 ```
@@ -108,9 +109,10 @@ node link01.mjs dump && node link01.mjs run <md>  # capture d'une story sur un l
 `dump` prend un instantané de la prod (dump-base.mjs en mode instantané, plus
 policies, triggers, contraintes et droits des fonctions pour SEC-06) ; `run`
 joue chaque scénario sous l'identité de l'API, AVANT puis APRÈS la migration,
-puis le smoke de répétition (`smoke/sec06.sql`, `smoke/link01.sql`) qui servira
+puis le smoke de répétition (`smoke/sec06.sql`, `smoke/link01.sql`,
+`smoke/sec07.sql`) qui servira
 à `rehearse.mjs` sur la prod. PGlite ne rend pas la session d'origine après un
-`RESET SESSION AUTHORIZATION` ni au `ROLLBACK` : les deux scripts changent
+`RESET SESSION AUTHORIZATION` ni au `ROLLBACK` : ces scripts changent
 d'identité par `SET LOCAL` seulement et repassent par `SET SESSION AUTHORIZATION
 postgres` entre deux scénarios.
 

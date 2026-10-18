@@ -1,7 +1,11 @@
--- Retour arrière des migrations de l'audit du 18/10 (20261021100000 → 20261024100100).
+-- Retour arrière des migrations de l'audit du 18/10 (20261021100000 → 20261025100000).
 -- Définitions lues en prod le 18/10 AVANT les corrections (pg_get_functiondef).
 -- À ne jouer que si une correction casse quelque chose : le bloc 1 ROUVRE la faille SEC-01.
 -- Jouer dans une transaction, puis supabase db lint --linked.
+
+-- ── 6. 20261025100000 (SEC-07) : ROUVRE la faille (le promoteur réécrit toute sa fiche) ──
+DROP TRIGGER IF EXISTS trg_a_guard_promoter_self_update ON public.promoters;
+DROP FUNCTION IF EXISTS public.guard_promoter_self_update();
 
 -- ── 5. 20261024100100 (LINK-01) : remet l'expression {1,480}, donc l'erreur 2201B ──
 CREATE OR REPLACE FUNCTION public.crm_link_create(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid, p_platform text, p_placement text, p_label text DEFAULT NULL::text, p_image_url text DEFAULT NULL::text)
