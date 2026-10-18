@@ -139,7 +139,8 @@ export default function EmailCampaignsPage() {
             return (
               <button key={k} type="button" role="tab" aria-selected={on} onClick={() => { patch({ s: k === 'all' ? null : k }); setSel([]); setMenu(null); }} style={{ flex: 'none', height: 38, padding: '0 16px', border: 0, borderRadius: 99, background: on ? '#fff' : 'transparent', boxShadow: on ? 'var(--shadow-xs)' : 'none', fontSize: 14, fontWeight: 600, color: on ? 'var(--ink)' : 'var(--sand-600)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', transition: 'background 160ms,color 160ms' }}>
                 {t(`yc.em.ca.f.${k}`)}
-                <span style={{ minWidth: 20, height: 20, padding: '0 6px', boxSizing: 'border-box', borderRadius: 99, background: on ? 'var(--red-500)' : 'var(--sand-200)', color: on ? '#fff' : 'var(--sand-700)', fontSize: 12, fontWeight: 600, display: 'grid', placeItems: 'center' }}>{n(cnt[k])}</span>
+                {/* Compteurs : seulement une fois la liste lue (un « 0 » pendant un échec dirait « aucune campagne »). */}
+                {data.data && <span style={{ minWidth: 20, height: 20, padding: '0 6px', boxSizing: 'border-box', borderRadius: 99, background: on ? 'var(--red-500)' : 'var(--sand-200)', color: on ? '#fff' : 'var(--sand-700)', fontSize: 12, fontWeight: 600, display: 'grid', placeItems: 'center' }}>{n(cnt[k])}</span>}
               </button>
             );
           })}
