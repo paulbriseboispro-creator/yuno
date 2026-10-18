@@ -33,9 +33,37 @@ export interface BatchOutcome {
   retryable: boolean;
   error?: string;
   status?: number;
+  /**
+   * Nom de l'erreur Resend (`name` du corps JSON), quand il y en a un. Deux
+   * comptent pour l'idempotence (doc Resend, « Idempotency keys ») :
+   * `concurrent_idempotent_requests` = la même clé est en cours ailleurs
+   * (réessayer plus tard) ; `invalid_idempotent_request` = la clé a déjà servi,
+   * avec une autre charge, dans les 24 dernières heures.
+   */
+  code?: string;
 }
 
-/** Clé d'idempotence stable : même lot (mêmes destinataires, même campagne) → même clé. */
+/** La même clé est en cours de traitement chez Resend : réessayer plus tard. */
+export const IDEMPOTENCY_IN_PROGRESS = 'concurrent_idempotent_requests';
+/** La clé a déjà servi pour une autre charge : Resend a déjà reçu ce lot. */
+export const IDEMPOTENCY_KEY_USED = 'invalid_idempotent_request';
+
+/** Nom d'erreur Resend lu dans le corps d'une réponse refusée (JSON `name`). */
+export function resendErrorCode(body: string): string | undefined {
+  try {
+    const name = (JSON.parse(body) as { name?: unknown })?.name;
+    return typeof name === 'string' && name ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Clé d'idempotence tirée de la composition du lot. Ne sert plus que de repli
+ * quand la base ne rend pas de clé de lot (`claim_campaign_recipients` d'avant
+ * la migration 20261023100000) : la composition d'un lot rejoué peut changer,
+ * sa clé avec (audit du 18/10, MAIL-03).
+ */
 export async function batchIdempotencyKey(campaignId: string, emails: string[]): Promise<string> {
   const material = `${campaignId}|${[...emails].map((e) => e.toLowerCase()).sort().join(',')}`;
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
@@ -97,8 +125,11 @@ export async function sendResendBatch(
 
     lastStatus = res.status;
     lastError = (await res.text().catch(() => '')).slice(0, 400) || `HTTP ${res.status}`;
+    const code = resendErrorCode(lastError);
 
-    const transient = res.status === 429 || res.status >= 500;
+    // Un 409 « en cours ailleurs » se réessaie comme un 429 ; un 409 « clé déjà
+    // servie » ne se réessaie jamais (même clé, même refus) : l'appelant décide.
+    const transient = res.status === 429 || res.status >= 500 || code === IDEMPOTENCY_IN_PROGRESS;
     if (transient && attempt < maxAttempts - 1) {
       await sleep(retryAfterMs(res, attempt));
       continue;
@@ -109,6 +140,7 @@ export async function sendResendBatch(
       retryable: transient,
       error: lastError,
       status: res.status,
+      code,
     };
   }
 

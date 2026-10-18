@@ -22,7 +22,10 @@
 //   1. `claim_campaign_recipients` (FOR UPDATE SKIP LOCKED) — deux workers ne
 //      réservent jamais la même adresse.
 //   2. clé d'idempotence Resend — si un worker meurt entre l'appel HTTP et le
-//      marquage, le rejeu du même lot ne ré-expédie pas.
+//      marquage, le rejeu du même lot ne ré-expédie pas. La clé est posée sur
+//      les lignes par la réclamation (`batch_key`) et la base rend le MÊME lot
+//      tant qu'il n'est pas soldé (audit du 18/10, MAIL-03) ; avant, elle était
+//      tirée de la composition du lot, qui pouvait changer au rejeu.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
@@ -33,7 +36,8 @@ import {
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
-import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type ResendEmail } from '../_shared/resend-batch.ts';
+import { sendResendBatch, batchIdempotencyKey, sleep, type ResendEmail } from '../_shared/resend-batch.ts';
+import { sendBatchIsolating, sortForBatch, refusalReleasesKey, withRetries } from '../_shared/campaign-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { supportSessionFor } from '../_shared/support-session.ts';
 import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
@@ -72,6 +76,8 @@ interface Recipient {
   conds?: Set<string>;
   /** Variables Yuno CRM ({{artiste}}, {{1re_soiree}}, {{nb_soirees}}), résolues par lot. */
   crm?: CrmRecipientVars;
+  /** Clé d'idempotence du lot, posée par la réclamation (MAIL-03). Absente sur une base d'avant. */
+  batch_key?: string | null;
 }
 
 // ── Adresses expédiables ────────────────────────────────────────────────────
@@ -96,36 +102,6 @@ function toSendableAddress(email: string): string | null {
   }
   if (!/^[A-Za-z0-9.-]+\.[A-Za-z0-9-]{2,}$/.test(host)) return null;
   return `${local}@${host}`;
-}
-
-interface IsolatedSend {
-  sent: Array<{ email: string; id: string | null }>;
-  /** Refusées une par une par Resend (422) : échec définitif, pas de pause. */
-  rejected: Array<{ email: string; error: string }>;
-  /** Refus non isolable (auth, domaine, réseau) : traité comme avant. */
-  fatal?: BatchOutcome;
-}
-
-/**
- * Envoie un lot ; sur un 422, coupe le lot en deux et recommence jusqu'à
- * isoler la ou les adresses fautives. Sept requêtes au pire pour 100 emails,
- * contre 100 envois bloqués et une campagne en pause avant.
- */
-async function sendBatchIsolating(
-  apiKey: string, campaignId: string, payload: ResendEmail[], emails: string[],
-): Promise<IsolatedSend> {
-  const key = await batchIdempotencyKey(campaignId, emails);
-  const outcome = await sendResendBatch(apiKey, payload, { idempotencyKey: key });
-  if (outcome.ok) return { sent: emails.map((e, i) => ({ email: e, id: outcome.ids[i] })), rejected: [] };
-  if (outcome.status !== 422) return { sent: [], rejected: [], fatal: outcome };
-  if (payload.length === 1) return { sent: [], rejected: [{ email: emails[0], error: outcome.error || 'HTTP 422' }] };
-  const mid = Math.ceil(payload.length / 2);
-  await sleep(BATCH_SPACING_MS);
-  const a = await sendBatchIsolating(apiKey, campaignId, payload.slice(0, mid), emails.slice(0, mid));
-  if (a.fatal) return a;
-  await sleep(BATCH_SPACING_MS);
-  const b = await sendBatchIsolating(apiKey, campaignId, payload.slice(mid), emails.slice(mid));
-  return { sent: [...a.sent, ...b.sent], rejected: [...a.rejected, ...b.rejected], fatal: b.fatal };
 }
 
 // ── Quiet hours (Europe/Paris) — opt-in par campagne ───────────────────────
@@ -571,8 +547,13 @@ async function drainSlice(
       failed += bad.length;
       console.warn(`${bad.length} adresse(s) inexpédiable(s) écartée(s) du lot`);
     }
-    const sendable = rows.filter((r) => addressOf.has(r.email));
+    // Ordre fixe : un lot rejoué sous sa clé doit porter la même charge (MAIL-03).
+    const sendable = sortForBatch(rows.filter((r) => addressOf.has(r.email)));
     if (sendable.length === 0) continue;
+    // Toutes les lignes d'une réclamation partagent la clé de leur lot. Sur une
+    // base d'avant la migration 20261023100000, repli sur la clé de composition.
+    const batchKey = rows.find((r) => r.batch_key)?.batch_key
+      || await batchIdempotencyKey(campaignId, sendable.map((r) => r.email));
 
     // 3 ter. Blocs conditionnels : quelles règles CE lot satisfait-il ?
     if (usedConds.length > 0) {
@@ -605,15 +586,30 @@ async function drainSlice(
 
     // 5. Envoi. Un 422 (adresse que Resend refuse malgré le tri) isole la
     //    fautive par bissection : les autres partent, elle seule échoue.
-    const result = await sendBatchIsolating(RESEND_API_KEY!, campaignId, payload, sendable.map((r) => r.email));
+    const result = await sendBatchIsolating(
+      (p, k) => sendResendBatch(RESEND_API_KEY!, p, { idempotencyKey: k }),
+      batchKey, payload, sendable.map((r) => r.email), () => sleep(BATCH_SPACING_MS),
+    );
 
-    if (result.sent.length > 0) {
-      const marked = result.sent.map((x) => ({ email: x.email, resend_email_id: x.id }));
-      const { error: mErr } = await admin.rpc('mark_campaign_recipients_sent', {
-        p_campaign_id: campaignId, p_rows: marked,
-      });
-      if (mErr) console.error('mark sent failed:', mErr.message);
-      sent += result.sent.length;
+    // Lot rejoué que Resend avait déjà accepté (409 « clé déjà servie ») : il
+    // est parti, rien ne repart, les lignes sont soldées « envoyé ».
+    if (result.alreadySent.length > 0) {
+      console.warn(`${result.alreadySent.length} envoi(s) déjà accepté(s) par Resend sous la clé ${batchKey} : soldés sans renvoi`);
+    }
+    const delivered = [
+      ...result.sent.map((x) => ({ email: x.email, resend_email_id: x.id })),
+      ...result.alreadySent.map((e) => ({ email: e, resend_email_id: null })),
+    ];
+    if (delivered.length > 0) {
+      // L'écriture « envoyé » se réessaie (~26 s) : l'API répond 503 pendant ~21 s
+      // après chaque migration. Si elle échoue encore, les lignes restent
+      // « sending » avec leur clé ; rendues à la file, elles repartent dans le
+      // même lot, sous la même clé, et Resend rend la réponse d'origine.
+      const marked = await withRetries(() => admin.rpc('mark_campaign_recipients_sent', {
+        p_campaign_id: campaignId, p_rows: delivered,
+      }));
+      if (!marked) console.error(`mark sent failed after retries (lot ${batchKey} gardé pour un rejeu sous la même clé)`);
+      sent += delivered.length;
 
       await admin.from('email_campaign_events').insert(
         result.sent.map((x) => ({
@@ -637,7 +633,7 @@ async function drainSlice(
     }
     if (result.fatal) {
       const outcome = result.fatal;
-      const done = new Set([...result.sent.map((x) => x.email), ...result.rejected.map((x) => x.email)]);
+      const done = new Set([...result.sent.map((x) => x.email), ...result.rejected.map((x) => x.email), ...result.alreadySent]);
       const left = sendable.filter((r) => !done.has(r.email));
       // Transitoire → retour en file dans 2 min. Définitif → échec marqué.
       // Toujours remettre en file : un refus « définitif » de Resend est presque
@@ -653,6 +649,16 @@ async function drainSlice(
       });
       failed += left.length;
       console.error(`batch failed (${outcome.status ?? 'net'}, retryable=${outcome.retryable}):`, outcome.error);
+      // Resend a refusé (rien n'est parti) : la clé est levée, ces lignes
+      // repartiront dans un lot neuf. Coupure réseau ou 5xx : doute, la clé
+      // reste et le lot repartira tel quel (MAIL-03).
+      if (refusalReleasesKey(outcome) && left.length > 0) {
+        const { error: rkErr } = await admin.from('email_campaign_recipients')
+          .update({ batch_key: null })
+          .eq('campaign_id', campaignId).eq('batch_key', batchKey).eq('status', 'pending')
+          .in('email', left.map((r) => r.email));
+        if (rkErr) console.error('batch key release failed:', rkErr.message);
+      }
 
       if (!outcome.retryable) {
         // Domaine non vérifié, clé invalide, payload refusé : rien ne sert
