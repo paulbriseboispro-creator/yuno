@@ -145,6 +145,8 @@ chiffre important faux ; P2 défaut avec contournement ; P3 mineur.
 | LINK-01 | P2 | `crm_link_create` : l'expression `'^https://[^[:space:]]{1,480}$'` est refusée par Postgres (répétition > 255, erreur 2201B, vérifié en prod en lecture). Créer un lien de partage **avec sa capture** échoue toujours ; sans capture, ça passe. 0 lien avec capture en prod (aucun des 774 liens suivis, dont 15 liens de partage CRM). Aucun autre quantificateur > 255 dans les fonctions, contraintes, policies et domaines de la prod (`link01.mjs scan`). | Le pro ne peut pas joindre la photo de sa story. | **Correctif écrit, non appliqué** : `20261024100100_crm_link_create_image_regex.sql`, `~ '^https://[^[:space:]]+$' AND length(p_image_url) <= 488`. Banc `link01.mjs` 13 / 13, 0 écart sur 400 URL au hasard ([link01-bench.md](link01-bench.md)). |
 | SEC-07 | P2 | La policy « Promoters can update their own IBAN » (`auth.uid() = user_id`, toutes colonnes) laisse un promoteur modifier toute sa ligne `promoters` : taux de commission que lit `record_promoter_conversion`, dû, payé, rattachements. Prouvé au banc (O2). | Billetterie : un promoteur peut relever sa propre commission sur ses ventes suivantes, offrir 100 % de remise sur les billets et les acomptes de table du club, se rouvrir le scan de la porte, se rattacher à un autre club, et antidater `iban_changed_at` pour annuler le gel de 24 h. | **Correctif écrit, non appliqué** : `20261025100000_promoter_self_update_guard.sql` (garde INVOKER, `is_direct_client_write()`, premier trigger BEFORE UPDATE : le promoteur sans droit de gestion n'écrit plus que IBAN, BIC et profil). Banc `sec07.mjs` 35 / 35 dans quatre phases ([sec07-bench.md](sec07-bench.md)), smoke de répétition validé, indépendant de SEC-06. |
 | SEC-08 | P2 (décision) | Supprimer un promoteur (policy owner / manager) efface en cascade ses commissions dues. Le garde « drapeau » empêche aujourd'hui, par accident, la suppression d'un promoteur qui a un lot de règlement ; avec le correctif de SEC-06 (version du dépôt), elle passe et emporte les lots (banc O1). | Une dette envers un promoteur peut disparaître avec sa fiche. | Décision de Paul avant SEC-06 : accepter, ou refuser la suppression directe d'un promoteur tant qu'une commission est due ou qu'un lot est ouvert. |
+| SEC-09 | P2 | Le promoteur d'une vente n'est pas borné à la soirée. (1) `create-ticket-checkout` et `create-table-checkout` appliquent la remise et la commission du `promoterId` envoyé par le navigateur sans vérifier le club ni l'organisateur (seule la recherche par code l'était) ; le code est lu en `ilike` brut (« % » trouve le plus ancien promoteur de la soirée) et tout `promoCode` non vide ouvrait la prévente. (2) `record_promoter_conversion` (exécutable par `authenticated`) ne vérifie aucun périmètre : en service_role la garde est sautée, en client le promoteur lui-même passe pour n'importe quelle soirée, n'importe quel type, n'importe quel montant, sans vente. (3) La policy « Agency owner manages own promoters » ne regarde que l'agence : un chef d'agence crée ou déplace un promoteur dans n'importe quel club, alors que `invite-promoter` exige un contrat actif. Prouvé au banc sur les définitions de la prod. En prod au 18/10 : 0 des 138 commissions hors périmètre, 2 promoteurs d'agence, tous deux sous contrat actif. | Billetterie : un promoteur du club A fait payer sa remise au club B et y touche une commission ; un promoteur se crédite 10 000 € de commission par un appel RPC, que le club réglera au prochain lot une fois SEC-06 appliqué ; une agence installe chez un club un promoteur à 100 % de remise. | **Correctif écrit, non appliqué** (branche `crm/audit-sec09`) : checkouts bornés par `_shared/promoter-scope.ts` (id puis code, périmètre de la soirée, actif, sans joker, avant la prévente) ; `20261026100000_promoter_conversion_scope.sql` (client = tête de guest list scannée seulement ; tout appelant = promoteur partie de la soirée, sinon `out_of_scope`) ; `20261026100100_agency_promoter_contract_policy.sql` (création et changement de périmètre sous contrat actif). Banc `sec09.mjs` 41 / 41 dans cinq phases ([sec09-bench.md](sec09-bench.md)), smoke de répétition validé, `deno check` OK. À appliquer avec ou avant SEC-06. |
+| SEC-10 | P2 (décision) | Un chef d'agence règle les taux et les remises client de ses promoteurs (policy agence ; SEC-07 le compte parmi ceux qui gèrent la fiche). Prouvé au banc (A15). | Sous contrat actif, une agence peut poser 100 % de remise sur les billets et acomptes de table d'un club, payée par le club. | Décision de Paul : la remise d'un promoteur d'agence est fixée par le club seul, ou par l'agence dans une limite inscrite au contrat. |
 | DEP-01 | P2 | `@capacitor/ios` 8.4.1 : avis critique GHSA-rvm3-566m-v7fv (une page distante chargée à l'origine de l'app via `/_capacitor_http_interceptor_`). | Apps natives seulement ; exploitable par un lien touché dans la WebView. | 8.4.3 dans la prochaine version App Store des deux apps ([npm-audit.md](npm-audit.md)). |
 | DEP-02 | P3 | Web : `react-router-dom` 6.30.3 (redirection ouverte, corrigé en 6.30.6 ; la variante « \ » seulement en 7.18), `fflate` 0.8.2 (boucle sur un ZIP malformé importé par le pro) ; `AuthHandoff.tsx` et `src/crm/lib/errors.ts` n'écartent pas `/\` dans `redirect`. | Faible. | 6.30.6, 0.8.3, refus de `\` dans les deux filtres. |
 | SYNC-03 | P3 | Pas de garde contre l'écrasement d'un billet par une version plus ancienne ; possible seulement si deux passes tournent à la fois (bail de 150 s, passe la plus longue observée 45,6 s ; `ticketing_connect` libère le verrou). | Statut d'un billet en retard jusqu'à sa prochaine mise à jour. | Trigger qui ignore une version plus ancienne ; connect qui respecte un verrou vivant. |
@@ -233,21 +235,25 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
 1. Fusionner `crm/s11-practical-email` dans main (OPS-05), puis rebaser cette branche.
 2. Migrations, dans l'ordre : `20261021100000` (sécurité), `20261021110000`
    (file d'envoi), `20261021120000` (connecteur), puis `20261024100000`
-   (SEC-06, après la décision SEC-08), `20261024100100` (LINK-01) et
-   `20261025100000` (SEC-07). Pour chacune : répétition dans une transaction
-   annulée sur la prod (SEC-06, LINK-01 et SEC-07 ont leur smoke :
-   `scripts/crm-bench/smoke/sec06.sql`, `link01.sql`, `sec07.sql`),
+   (SEC-06, après la décision SEC-08), `20261024100100` (LINK-01),
+   `20261025100000` (SEC-07, **à renuméroter avant** : la prod porte déjà
+   cette version, « partner_link_language ») et `20261026100000` +
+   `20261026100100` (SEC-09, avec ou avant SEC-06). Pour chacune : répétition
+   dans une transaction annulée sur la prod (SEC-06, LINK-01, SEC-07 et SEC-09
+   ont leur smoke : `scripts/crm-bench/smoke/sec06.sql`, `link01.sql`,
+   `sec07.sql`, `sec09.sql`),
    application avec sa ligne `schema_migrations`, puis `supabase db lint
    --linked`. Pas de `NOTIFY pgrst` nécessaire (aucune signature exposée ne
    change).
 3. Fonctions edge, depuis main à jour : `affiliate-ticket-sync`, `send-campaign`,
    `unsubscribe-newsletter`, `process-scheduled-campaigns`, `send-missed-you`,
    `send-next-event-recommendation`, `owner-assistant` (article d'aide des
-   connecteurs) (`supabase functions deploy --use-api`).
+   connecteurs), puis `create-ticket-checkout` et `create-table-checkout`
+   (SEC-09) (`supabase functions deploy --use-api`).
 4. Front (Cloudflare Workers Builds) après les fonctions.
 5. Contrôles après : RUNBOOK, « Après une mise en ligne ».
 
-Retour arrière : les six migrations sont réversibles par la définition
+Retour arrière : les huit migrations sont réversibles par la définition
 précédente (lue en prod le 18/10, reprise en tête de chaque fonction réécrite et
 dans [ROLLBACK.sql](ROLLBACK.sql)) ;
 les fonctions edge se redéploient depuis le commit précédent.

@@ -133,6 +133,26 @@ répété sur la prod. Tests au banc (PGlite, < 4 s).
 | ROLLBACK.sql bloc 6, au banc ; migration appliquée deux fois | retire le garde et son trigger, les 5 triggers de la prod restent ; migration idempotente |
 | lecture en passant | candidat SEC-09 (BACKLOG 16i) : le `promoterId` envoyé aux checkouts n'est pas borné à la soirée |
 
+## Correctif SEC-09 (18/10, nuit)
+
+Session « SEC-09 », branche `crm/audit-sec09` (partie de `crm/audit-sec07`).
+Lectures prod une à la fois après `prod.mjs --activity` ; rien d'appliqué ni de
+répété sur la prod, aucune fonction déployée. Tests au banc (PGlite, < 10 s).
+
+| Commande | Résultat |
+|---|---|
+| prod, lecture : `record_promoter_conversion` | SECURITY DEFINER, EXECUTE à `authenticated` et `service_role` ; aucune vérification promoteur ↔ soirée ; en service_role (checkouts, verify-*) la garde est sautée ; en client, le promoteur passe pour toute soirée, tout type, tout montant ; seuls index uniques : billet, table, commande, entrée de guest list (un appel sans référence ne heurte rien) |
+| `same-as-prod.mjs --before 20261026100000 record_promoter_conversion` | prod = `20260830180000_promoter_conversion_door_staff.sql` : la migration part de cette définition |
+| prod, lecture : appelants | front : `PromoterScanTab`, `OrgAppCheckin` (guest list, doublons du trigger) ; SQL : `record_guest_entry_promoter_conversion` (trigger AFTER UPDATE OF entry_scanned) ; edge : checkouts et `verify-*-payment` en service_role |
+| prod, lecture : policies de `promoters`, `agency_venue_contracts`, `invite-promoter` | « Agency owner manages own promoters » ALL sans `venue_id` ; 1 contrat d'agence (actif, club démo) ; `invite-promoter` refuse déjà `no_active_contract` ; les fiches d'agence naissent en service_role (`accept-promoter-invitation`) |
+| prod, lecture : données | 4 promoteurs (2 d'agence, sous contrat actif) ; 0 des 138 commissions hors périmètre (`event_parties`) ; 60 des 97 inscriptions de guest list rattachées à un promoteur hors périmètre : semis démo de juin-juillet (« Yuno Boat Party Seine », « Yuno Summer Closing »), jamais scannés ; tous les codes promoteur alphanumériques |
+| prod, lecture : `schema_migrations` | **`20261025100000` déjà prise** par « partner_link_language » (liens partenaires) : SEC-07 est à renuméroter (BACKLOG 16h), session de mise en ligne prévenue ; SEC-09 prend `20261026100000` / `100100` (libres en prod et sur toutes les branches) |
+| `npx vitest run src/lib/__tests__/promoterScope.test.ts` | 25 / 25 (périmètre, id, code sans joker) |
+| `node scripts/crm-bench/sec09.mjs dump` puis `run` | **41 / 41** dans cinq phases (prod, SEC-09, SEC-07 + SEC-09, SEC-09 puis ROLLBACK bloc 7, SEC-09 deux fois) → [sec09-bench.md](sec09-bench.md). Avant : l'id du promoteur du club A donne 50 % de remise sur la soirée du club B, « % » trouve un promoteur, la commission du club A s'écrit sur un billet du club B, un promoteur se crédite 10 € ×3 sans vente puis 500 € de table, l'owner du club B crédite un promoteur du club A, une agence crée ou déplace un promoteur hors contrat. Après : tout refusé ou `out_of_scope` ; porte (trigger), doublon du front, co-soirée, co-hôte accepté, organisateur sans club, agence sous contrat (y compris contrat en pause, périmètre inchangé), owner, super admin et service_role inchangés ; smoke `smoke/sec09.sql` SMOKE_OK au banc (SEC-09, SEC-07 + SEC-09, deux fois) |
+| `python3 scripts/deno-check-edge.py create-ticket-checkout create-table-checkout` | 2 / 2 OK |
+| `npx eslint` des fichiers touchés | 0 erreur |
+| lecture en passant | SEC-10 (BACKLOG 16j, décision) : un chef d'agence pose la remise client de ses promoteurs (100 % prouvé au banc, A15) ; les promoteurs d'un co-hôte ne sont pas reconnus par le code au checkout (périmètre des checkouts = 4 parties, la base accepte aussi les co-hôtes) |
+
 ## Ce que cet audit n'a pas pu faire
 
 - Appeler l'API publique de la prod ou jouer une RPC en tant qu'un compte réel :
