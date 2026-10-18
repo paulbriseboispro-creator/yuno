@@ -101,7 +101,7 @@ jamais. La rejouer après de nouvelles migrations annulerait celles-ci.
 
 ```bash
 node sec06.mjs dump && node sec06.mjs run <md>    # gardes du règlement promoteur (20261024100000)
-node sec07.mjs run <md>                           # colonnes qu'un promoteur écrit dans sa fiche (20261025100000), après sec06 dump
+node sec07.mjs run <md>                           # colonnes qu'un promoteur écrit dans sa fiche (20261025200000), après sec06 dump
 node link01.mjs scan                              # tout quantificateur {n,m} > 255 de la prod
 node link01.mjs dump && node link01.mjs run <md>  # capture d'une story sur un lien (20261024100100)
 node sec09.mjs dump && node sec09.mjs run <md>    # promoteur d'une vente et promoteurs d'agence (20261026100000 + 100100, checkouts)

@@ -1,6 +1,6 @@
 -- SEC-07 sur la PROD, annulé (rehearse.mjs) :
 --   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/sec07.sql \
---     20261025100000_promoter_self_update_guard.sql
+--     20261025200000_promoter_self_update_guard.sql
 -- Après la migration : le garde est INVOKER, posé, activé et premier des
 -- triggers BEFORE UPDATE de `promoters` ; un promoteur sans droit de gestion
 -- sur sa fiche ne relève plus sa commission ni n'antidate son changement

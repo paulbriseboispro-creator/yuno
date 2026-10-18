@@ -65,14 +65,14 @@
 -- Répéter avant d'appliquer : node scripts/crm-bench/sec07.mjs run (banc),
 -- puis sur la prod, en transaction annulée :
 --   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/sec07.sql \
---     20261025100000_promoter_self_update_guard.sql
+--     20261025200000_promoter_self_update_guard.sql
 --
 -- ── RETOUR ARRIÈRE ───────────────────────────────────────────────────────────
 -- Remet l'état de la prod du 18/10 (et donc la faille) :
 --
 --   DROP TRIGGER IF EXISTS trg_a_guard_promoter_self_update ON public.promoters;
 --   DROP FUNCTION IF EXISTS public.guard_promoter_self_update();
---   DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261025100000';
+--   DELETE FROM supabase_migrations.schema_migrations WHERE version = '20261025200000';
 --
 -- (is_direct_client_write n'a pas changé : rien à défaire.)
 -- ============================================================================

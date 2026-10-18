@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SEC-07 au banc : ce qu'un promoteur écrit dans sa propre fiche `promoters`,
-// AVANT (la prod du 18/10) et APRÈS la migration 20261025100000. Aucune
+// AVANT (la prod du 18/10) et APRÈS la migration 20261025200000. Aucune
 // écriture sur la prod.
 //
 //   node prod.mjs --activity        # rien de lourd ne tourne ?
@@ -11,8 +11,8 @@
 //   avant   = les définitions de la prod ;
 //   sec06   = + 20261024100000 (le cycle de règlement remarche : c'est là que
 //             le gel IBAN antidaté se paie vraiment) ;
-//   apres   = + 20261025100000 seule (SEC-07 ne dépend pas de SEC-06) ;
-//   deux    = + 20261024100000 + 20261025100000 (l'ordre de la mise en ligne).
+//   apres   = + 20261025200000 seule (SEC-07 ne dépend pas de SEC-06) ;
+//   deux    = + 20261024100000 + 20261025200000 (l'ordre de la mise en ligne).
 // Chaque scénario tourne dans une transaction annulée, sous l'identité de
 // l'API réelle (session `authenticator`, rôle `authenticated` ou
 // `service_role`, claims JWT) ; « cron » = propriétaire. Même échafaudage que
@@ -26,7 +26,7 @@ const SNAP = join(DIR, 'snapshot.sql');
 const EXTRAS = join(DIR, 'extras.json');
 const MIG = (f) => join(ROOT, 'supabase', 'migrations', f);
 const SEC06 = '20261024100000_promoter_settlement_guards.sql';
-const SEC07 = '20261025100000_promoter_self_update_guard.sql';
+const SEC07 = '20261025200000_promoter_self_update_guard.sql';
 const PHASES = [
   { key: 'avant', label: 'Avant (prod)', migs: [] },
   { key: 'sec06', label: 'SEC-06 seul', migs: [SEC06] },
@@ -272,7 +272,7 @@ const S = [
   { id: 'M10', label: 'Owner d’un autre club : la fiche de son voisin (RLS, témoin)', steps: [set('X', ID.PR1, 'ticket_commission_value = 0')], avant: isOk(0), apres: isOk(0) },
 
   // Les chemins serveur ne passent pas par le garde.
-  { id: 'S1', label: 'Porte : record_promoter_conversion (RPC DEFINER) met à jour le dû', steps: [['P', `SELECT public.record_promoter_conversion($1, 'ticket', 20) AS res`, [ID.PR1]]], avant: okRpc, apres: okRpc, state: { avant: /PR1\{pending_amount=4\d/, apres: /PR1\{pending_amount=4\d/ } },
+  { id: 'S1', label: 'Porte (service_role, comme le trigger de porte) : record_promoter_conversion met à jour le dû', steps: [['service', `SELECT public.record_promoter_conversion($1, 'ticket', 20) AS res`, [ID.PR1]]], avant: okRpc, apres: okRpc, state: { avant: /PR1\{pending_amount=4\d/, apres: /PR1\{pending_amount=4\d/ } },
   { id: 'S2', label: 'Fonction edge en service_role : commission', steps: [['service', `UPDATE public.promoters SET ticket_commission_value = 3 WHERE id = $1`, [ID.PR1]]], avant: isOk(1), apres: isOk(1) },
   { id: 'S3', label: 'Équipe supprimée : la cascade vide team_id du promoteur', steps: [['O', `DELETE FROM public.promoter_teams WHERE id = $1`, [ID.TEAM]]], avant: isOk(1), apres: isOk(1), state: { avant: /PR1\{team_id=null\}/, apres: /PR1\{team_id=null\}/ } },
 ];

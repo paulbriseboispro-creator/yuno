@@ -10,7 +10,7 @@
 // Cinq phases, chacune sur une base neuve (mêmes données) :
 //   avant  = les définitions de la prod ;
 //   sec09  = + 20261026100000 + 20261026100100 ;
-//   sec07  = + 20261025100000 (SEC-07, garde des colonnes du promoteur) puis
+//   sec07  = + 20261025200000 (SEC-07, garde des colonnes du promoteur) puis
 //            SEC-09 : les deux touchent `promoters`, ils doivent coexister ;
 //   retour = SEC-09 puis le bloc 7 de ROLLBACK.sql : mêmes résultats qu'avant ;
 //   twice  = SEC-09 appliquée deux fois : mêmes résultats qu'une fois.
@@ -36,7 +36,7 @@ const ROOTS = join(DIR, 'roots.txt');
 const SNAP = join(DIR, 'snapshot.sql');
 const EXTRAS = join(DIR, 'extras.json');
 const MIG = (f) => join(ROOT, 'supabase', 'migrations', f);
-const SEC07 = '20261025100000_promoter_self_update_guard.sql';
+const SEC07 = '20261025200000_promoter_self_update_guard.sql';
 const SEC09A = '20261026100000_promoter_conversion_scope.sql';
 const SEC09B = '20261026100100_agency_promoter_contract_policy.sql';
 const PHASES = [

@@ -332,7 +332,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.record_promoter_conversion(uuid, text, numeric, uuid, uuid, uuid, uuid, uuid, timestamptz, numeric) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.record_promoter_conversion(uuid, text, numeric, uuid, uuid, uuid, uuid, uuid, timestamptz, numeric) TO authenticated, service_role;
 
--- ── 6. 20261025100000 (SEC-07) : ROUVRE la faille (le promoteur réécrit toute sa fiche) ──
+-- ── 6. 20261025200000 (SEC-07) : ROUVRE la faille (le promoteur réécrit toute sa fiche) ──
 DROP TRIGGER IF EXISTS trg_a_guard_promoter_self_update ON public.promoters;
 DROP FUNCTION IF EXISTS public.guard_promoter_self_update();
 

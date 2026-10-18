@@ -1,6 +1,6 @@
-# SEC-07 — ce qu'un promoteur écrit dans sa fiche, au banc (2026-10-18T19:45Z)
+# SEC-07 — ce qu'un promoteur écrit dans sa fiche, au banc (2026-10-18T22:32Z)
 
-Définitions, policies, triggers, contraintes et droits lus sur la prod le 2026-10-18T19:39Z (`node scripts/crm-bench/sec06.mjs dump`, lecture seule) ; chaque scénario tourne dans une transaction annulée, sous l'identité de l'API (`authenticator` → `authenticated` / `service_role`, claims JWT). Quatre bases neuves, mêmes données : la prod du 18/10 ; + `20261024100000_promoter_settlement_guards.sql` ; + `20261025100000_promoter_self_update_guard.sql` seule ; + les deux, dans l'ordre de la mise en ligne.
+Définitions, policies, triggers, contraintes et droits lus sur la prod le 2026-10-18T22:32Z (`node scripts/crm-bench/sec06.mjs dump`, lecture seule) ; chaque scénario tourne dans une transaction annulée, sous l'identité de l'API (`authenticator` → `authenticated` / `service_role`, claims JWT). Quatre bases neuves, mêmes données : la prod du 18/10 ; + `20261024100000_promoter_settlement_guards.sql` ; + `20261025200000_promoter_self_update_guard.sql` seule ; + les deux, dans l'ordre de la mise en ligne.
 
 Garde de colonnes : Avant (prod) → aucun garde de colonnes ; SEC-06 seul → aucun garde de colonnes ; SEC-07 seul → guard_promoter_self_update INVOKER ; SEC-06 + SEC-07 → guard_promoter_self_update INVOKER.
 
@@ -42,7 +42,7 @@ Smoke de répétition sur la prod (`scripts/crm-bench/smoke/sec07.sql`), joué a
 | M8 | Owner qui est aussi son propre promoteur : sa commission | ok(1) | ok(1) | ok(1) | ok(1) |
 | M9 | Owner de l’autre club : la fiche que P a chez lui | ok(1) | ok(1) | ok(1) | ok(1) |
 | M10 | Owner d’un autre club : la fiche de son voisin (RLS, témoin) | ok(0) | ok(0) | ok(0) | ok(0) |
-| S1 | Porte : record_promoter_conversion (RPC DEFINER) met à jour le dû | ok | ok | ok | ok |
+| S1 | Porte (service_role, comme le trigger de porte) : record_promoter_conversion met à jour le dû | ok | ok | ok | ok |
 | S2 | Fonction edge en service_role : commission | ok(1) | ok(1) | ok(1) | ok(1) |
 | S3 | Équipe supprimée : la cascade vide team_id du promoteur | ok(1) | ok(1) | ok(1) | ok(1) |
 
