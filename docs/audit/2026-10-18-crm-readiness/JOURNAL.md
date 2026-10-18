@@ -78,3 +78,28 @@ prouvé.
   sauvegarde, rejouer les migrations sur une base vierge (Docker arrêté).
 - Voir à l'écran le bandeau « import en cours » : il faut une connexion non
   importée, donc une écriture en prod ; la règle est testée (`syncChip.test.ts`).
+
+## Suite du 18/10 (après-midi) : points d'envoi et finitions
+
+Branche `claude/affectionate-lamport-a1b8b9`, avance rapide sur
+`crm/readiness-audit`. Lectures de la prod une à la fois après
+`prod.mjs --activity` (toujours une seule connexion active, la réplication) :
+définitions de 11 fonctions, ACL, politiques et dépendances des fonctions
+d'aide, clés des 6 segments, événements Resend des 60 derniers jours, soirées
+miroirs, espaces qui ont déjà envoyé, recettes / scénarios / campagnes SMS.
+Aucune écriture, aucun envoi, aucun déploiement.
+
+| Commande | Résultat |
+|---|---|
+| `npx vitest run` (env public de la CI) | 133 fichiers, 1 636 tests, verts (aussi en `TZ=Europe/Paris`) ; sans env, 6 fichiers tombent faute d'URL Supabase (worktree sans `.env.local`) |
+| `npx eslint .` | 0 erreur, 341 avertissements (comme avant) |
+| `npx tsc --noEmit -p tsconfig.app.json` | 0 erreur |
+| `deno check` × 8 fonctions | vert |
+| `deno test` (`scheduled_test`, `demo-guard_test`, `ticketing_test`) | 23 / 23 |
+| `node scripts/crm-bench/audit-{send,filter,test-send,quota,helpers,event-scope,sender}.mjs` | avant : failles reproduites ; après : vert |
+| `node scripts/crm-bench/audit-suite-rollback.mjs` | 8 migrations à la suite puis retour arrière : définitions et droits de départ retrouvés |
+| `node scripts/crm-bench/audit-{mail,security,sync}.mjs` | toujours verts |
+
+Piège rencontré : le hook de réécriture de sortie (`rtk`) résume `vitest` en
+« PASS (0) FAIL (0) » même quand un fichier échoue au chargement. Toujours
+lancer `rtk proxy npx vitest run …` pour lire le vrai résultat.

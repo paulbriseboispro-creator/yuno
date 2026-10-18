@@ -115,7 +115,7 @@ chiffre important faux ; P2 défaut avec contournement ; P3 mineur.
 | SEC-02 | P2 | `get_customer_timeline` (historique d'un client, vide aujourd'hui) et deux rafraîchissements de vue matérialisée exécutables par `anon` sans garde (relance en boucle possible sur une machine de 1 Go). | catalogue prod | catalogue | révocation | `audit-security.mjs` |
 | SEC-03 | P2 | `analytics_daily_rollup` (vue matérialisée, donc sans RLS) lisible par `anon` : visites, paniers, ventes et montants par club et organisateur, jour par jour. Aucun lecteur. | catalogue prod | catalogue | révocation de la lecture | `audit-security.mjs` |
 | MAIL-05 | P2 | Gel d'envoi (Admin CRM) contournable : le trigger tournait avec les droits du client, qui lit `crm_settings` vide (RLS sans policy) et passe. | `guard_crm_send_frozen` | reproduit au banc avec les droits de la prod | la garde passe en `SECURITY DEFINER` (elle teste des données, pas `current_user`) | `audit-security.mjs` |
-| MAIL-04 | P2 | Une campagne déprogrammée au dernier moment partait quand même (le cron ne vérifiait pas qu'il l'avait prise ; l'envoi programmé ne refusait que `sent` / `cancelled`). | `process-scheduled-campaigns`, `send-campaign` | lu | le cron saute une campagne qu'il n'a pas prise ; refus `not_scheduled_anymore` ; « failed » jamais écrit sur un brouillon | relecture (pas de test automatique) |
+| MAIL-04 | P2 | Une campagne déprogrammée au dernier moment partait quand même (le cron ne vérifiait pas qu'il l'avait prise ; l'envoi programmé ne refusait que `sent` / `cancelled`). | `process-scheduled-campaigns`, `send-campaign` | lu | le cron saute une campagne qu'il n'a pas prise ; refus `not_scheduled_anymore` ; « failed » jamais écrit sur un brouillon | `scheduled_test.ts` (suite, §4 bis) |
 | MAIL-06 | P2 | Un envoi abandonné après 3 tentatives ne comptait pas dans `failed_count` et son Yunit ne revenait pas. | `requeue_stale_campaign_claims` | reproduit au banc | compté et rendu par campagne | `audit-mail.mjs` |
 | SYNC-02 | P2 | Une réponse 200 sans liste reconnue était lue comme « plus aucun billet » : import déclaré à jour sans rien avoir lu. | `ticketing.ts`, `ticketing-shotgun.ts` | le contrat échoue contre le code d'avant | `unexpected_response`, compté comme une panne | `ticketing_test.ts` |
 | SYNC-04 | P2 | Après 5 pannes (≈ 2 h 30 de panne Shotgun), la connexion restait arrêtée jusqu'à un clic du pro. | `claim_ticketing_connections` | reproduit au banc | retentée à l'échéance du repli (2 h au plus) ; jamais un jeton refusé | `audit-sync.mjs` |
@@ -124,32 +124,54 @@ chiffre important faux ; P2 défaut avec contournement ; P3 mineur.
 | OPS-01 | P2 | Aucune CI ne lançait lint, typage ni tests. | `.github/workflows/` | — | `ci.yml` (lint, tsc, vitest, vitest en heure de Paris, build, contrat Deno) | — |
 | SYNC-05 | P3 | Dates Shotgun sans fuseau lues dans le fuseau du serveur (juste en prod, faux sur un poste en France ; l'ancien test comparait à la même lecture). | `isoDate` | — | lues en UTC | tests en `TZ=Europe/Paris` et UTC |
 
+## 4 bis. Suite de l'audit : points d'envoi et finitions (18/10, après-midi)
+
+Branche `claude/affectionate-lamport-a1b8b9`, par-dessus `crm/readiness-audit` (avance rapide, 22 commits).
+Huit migrations `20261023100000` → `170000`, **aucune appliquée** ; fonctions
+edge modifiées, **aucune déployée** ; aucun envoi. Chaque définition SQL
+réécrite part de `pg_get_functiondef` de la prod (lu le 18/10, en lecture
+seule, une requête à la fois). Retour arrière : [ROLLBACK-suite.sql](ROLLBACK-suite.sql),
+rejoué au banc avec la séquence entière (`audit-suite-rollback.mjs`).
+
+| ID | P | Problème, impact | Correction | Preuve |
+|---|---|---|---|---|
+| MAIL-03 | P2 | La clé d'idempotence d'un lot venait de sa composition : écriture « envoyé » en échec après l'acceptation de Resend ⇒ lignes rendues à la file, regroupées autrement, envoyées une 2ᵉ fois. | `20261023100000` : la réclamation pose `batch_key` sur les lignes et reprend un lot ouvert EN ENTIER, sous la même clé, avant toute ligne neuve. `send-campaign` (module `_shared/campaign-batch.ts`) : ordre fixe du lot, sous-clés fixes des moitiés d'un 422, 409 « clé déjà servie » = déjà parti (rien ne repart), écriture « envoyé » réessayée ~26 s, clé levée quand Resend a refusé. | `audit-send.mjs` (faille reproduite avant : 2 personnes servies deux fois ; après : aucune), `campaignBatch.test.ts` (faux Resend aux règles de la doc, panne injectée) |
+| MAIL-09 | P2 | `_crm_filter_sql` rendait `true` quand aucune clé n'était reconnue : un segment de clés inconnues visait toute la base consentante. | `20261023110000` : clé inconnue ou valeur d'un type illisible = filtre entier faux (règle des Scénarios) ; vide, `seg: 'all'`, valeurs vides restent neutres. Texte repris de la prod (porte aussi le correctif posé en place par S5, OPS-04). Miroir `CLIENT_FILTER_KEYS`. | `audit-filter.mjs` (31 filtres valides identiques au caractère près, 12 illisibles faux), `filterKeys.test.ts` ; prod (lecture) : 6 segments, clés toutes connues, aucun ne change |
+| MAIL-08 | P2 | E-mail de test : titulaire + 5 adresses libres, sans limite. | `20261023120000` : `email_test_send_allow` : la personne qui clique + les adresses de l'ÉQUIPE de l'espace, 20 tests par jour de Paris et par espace ; les autres adresses sont écartées et nommées à l'écran (Billetterie, Console CRM, scénarios). | `audit-test-send.mjs`, `testSend.test.ts` |
+| MAIL-04 | P2 | (corrigé par l'audit, sans test) | Test automatique de la course ; il a trouvé un trou : une coupure réseau écrivait « failed » par-dessus un brouillon repris (corrigé). « Déprogrammer » trop tard le dit dans la Console CRM. | `process-scheduled-campaigns/scheduled_test.ts` (7 cas, en CI ; le cas réseau échoue contre le code d'avant) |
+| SMS-01 | P2 | Aucun secret Octopush, Console qui présentait le SMS comme ouvert. | `CRM_SMS_DISPLAY_LIVE = false` : « Bientôt » sur /crm/sms/*, « Écrire à… », étape SMS de « 1re soirée », ajout et publication d'une étape SMS dans un scénario ; FAQ et assistant. Prod (lecture) : 0 recette avec SMS, 1 scénario démo avec SMS, 0 SMS en file. | typage, relecture |
+| MAIL-07 | P3 | `email_campaigns.product` modifiable par le client. | `20261023130000` : trigger INVOKER, un client ne pose que `crm` ou NULL à la création et ne change jamais la valeur. | `audit-send.mjs` (avant / après) |
+| MAIL-10 | P3 | Webhook Resend accepté sans secret ; comparaison non constante. | `_shared/svix-verify.ts` : sans secret = 503, comparaison octet par octet en temps constant. | `svixVerify.test.ts` |
+| MAIL-11 | P3 | « Envoyés » / « Reçus » (« arrivés en boîte de réception »). | Libellés « Acceptés » / « Délivrés (boîte de réception ou indésirables) », 3 langues ; chiffres inchangés. Prod : Resend renvoie bien `delivered` (46 016 en 60 j). | tests de clés |
+| MAIL-12 | P3 | Porte démo ouverte sur panne. | `demoMarketingScopeState` (démo / réel / inconnu, retentée une fois) ; sur « inconnu », rien ne part dans les trois workers et la campagne attend le passage suivant (jamais « échouée » ni rendue en brouillon par erreur). | `demo-guard_test.ts`, cas ajouté à `scheduled_test.ts` |
+| MAIL-13 | P3 | Quotas journaliers à minuit UTC. | `20261023140000` : `paris_today()` dans les 6 fonctions des quotas et les valeurs par défaut. | `audit-quota.mjs` (session à une autre date que Paris : avant / après) |
+| MAIL-14 | P3 | Un bloc pouvait tirer (clé de service) les données d'une soirée privée d'un autre compte. | `20261023160000` : `email_scope_event_ids` (parties de la soirée, co-hôtes acceptés ; Yuno : toutes) ; `send-campaign` retire les blocs d'une soirée hors de l'espace avant le rendu. Prod : les 310 soirées miroirs sont dans l'espace de leur connexion. | `audit-event-scope.mjs`, `emailBlockScope.test.ts` |
+| MAIL-15 | P3 | Adresse d'expédition = slug du nom (homonymes, « support@ »). | `20261023170000` : registre `email_sender_locals` (unique, attribuée une fois ; suffixe tiré de l'espace pour un nom réservé ou pris) ; reprise : woh@, nuits-demo@, organisateur-demo@ gardés, Yuno garde yuno@, le club démo « Yuno » reçoit un suffixe. | `audit-sender.mjs` (slug SQL = slug de l'envoi sur 12 noms) |
+| SEC-04 | P3 | Fonctions d'aide exécutables par tout compte (une par `anon`, qui écrit un compteur). | `20261023150000` : 6 révoquées ; gardées et dites : `crm_user_in_scope` (politiques RLS), `crm_scope_key` / `crm_scope_has_crm` (fonctions MCP INVOKER), `crm_practical_email_check` (front). | `audit-helpers.mjs` |
+| SEC-05 | P3 | Injection de formule dans les CSV. | `csvCell` : apostrophe devant un texte qui commence par = + - @. | `csv.test.ts` |
+| UI-05 | P3 | Porte légale, puce « Testez-le », cache, Yunits réservés, « déjà abonné ». | Accord non enregistré dit (« Réessayer » / « Plus tard ») ; focus piégé dans les fenêtres ; adresse d'exemple jamais ajoutée ; vraies clés de cache relues ; disponible = solde − réservé ; `already_subscribed` dit et relu. | `focusTrap`, `exampleAddress`, `ticketingCacheKeys`, `availableYunits` (tests) |
+
+Restent de ces points : l'aperçu du Studio (MAIL-14) peut montrer un bloc
+d'une soirée publique d'un autre compte qui ne partira pas ; les exports CSV
+de la Billetterie gardent leurs échappements (SEC-05) ; le Récap de la
+Billetterie affiche encore l'ancienne adresse (`slug@yunoapp.eu`, MAIL-15).
+
 ## 5. Problèmes ouverts
 
 | ID | P | Problème | Impact client | Proposition |
 |---|---|---|---|---|
 | DATA-02 | **P1 (décision)** | Une entrée gratuite **non scannée** compte comme une soirée faite (`_crm_people_build`, `att` : « un billet acheté, même à 0 € »), y compris sur une porte mesurée où l'on sait que la personne n'est pas venue. | Sur WOH (79 % de billets à 0 €, trois quarts des gratuits absents) : « habitué », « fidèles », nombre de soirées surévalués. | Sur une porte mesurée, une entrée gratuite ne compte que si elle est scannée. Décision de Paul, puis migration + banc. |
 | OPS-05 | P2 | La prod fait tourner du code et une migration (`20261019150000`, e-mail pratique, branche `crm/s11-practical-email`) absents de main. | Déployer `send-campaign` depuis main retirerait l'e-mail pratique de la prod sans un mot. | Fusionner S11 avant cette branche (section 9). |
-| MAIL-03 | P2 | La clé d'idempotence d'un lot dépend de sa composition : si l'écriture « envoyé » échoue après que Resend a accepté (≈ 21 s d'API en 503 après chaque migration), les lignes reviennent en file, sont regroupées autrement, et repartent. | Un même e-mail reçu deux fois par une centaine de personnes, rarement. | Garder la clé de lot sur les lignes à la réclamation et renvoyer le même lot ; réessayer l'écriture « envoyé ». |
-| MAIL-08 | P2 | E-mail de test : le titulaire + 5 adresses libres, sans limite ni Yunit. | Relais d'envoi depuis le domaine marketing. | 20 tests / jour / espace ; adresses de l'équipe seulement. |
-| MAIL-09 | P2 | `_crm_filter_sql` rend `true` quand aucune clé n'est reconnue : un segment fait seulement de clés inconnues vise toute la base **consentante**. | Envoi plus large que prévu (le consentement tient). | Clé inconnue = faux, comme les Scénarios. |
 | DATA-01 | P2 | L'effacement pour durée de conservation (`_crm_erase_contacts`) n'écarte pas l'adresse d'un réimport : si Shotgun remet le billet à jour, identité et accord reviennent jusqu'au balayage suivant. | Rare (billets anciens). | Décision : repoussoir `erased` (bloque aussi un futur achat légitime) ou marque par billet. |
 | DATA-03 | P2 | `contact_scope_customers` (base de contacts, exports) compte la dépense des billets revendus, invitations et duplicatas, contrairement aux écrans CRM ; la FAQ `yc.faq.sales.a` dit « valides ou transférés » quand le code exclut les transférés. | Deux montants « dépense » pour la même personne. | Appliquer `_crm_ticket_is_sale` ; corriger la FAQ. |
 | DATA-05 | P2 | « Inclure les soirées co-organisées » ne rattrape pas le passé quand on l'allume, et ne retire rien quand on l'éteint. | Base incomplète ou trop large après un changement. | Remise à zéro du curseur à l'allumage ; purge ciblée à l'extinction. |
 | UI-04 | P2 | Pas d'état d'erreur : Soirées, E-mails, Campagnes, tiroir client (squelette sans fin) ; Clients montre « aucun client » sur une erreur ; étape Audience reste sur « … ». | Le client croit sa base vide. | `CrmLoadError` partout (règle déjà écrite dans CLAUDE.md). |
-| SMS-01 | P2 | Aucun secret Octopush en prod, mais la Console présente le SMS comme ouvert ; le test répond « SMS non configuré ». | Le premier client n'a aucun numéro consentant ; risque de confusion. | « Bientôt » tant qu'Octopush n'est pas branché. |
 | OPS-02 | P2 | Sauvegardes physiques quotidiennes (9 gardées, dernière 18/10 01:27 UTC), **pas de PITR**, restauration jamais testée. | Jusqu'à 24 h de preuves de consentement et d'événements d'e-mail perdues. | Tester une restauration sur un projet isolé ; PITR au 2ᵉ ou 3ᵉ client payant. |
 | OPS-03 | P2 | Rejeu des 1 231 migrations sur une base vierge non vérifié (Docker arrêté ; historique Lovable à trous connu). | Reconstruction de secours incertaine. | Un rejeu sur un projet de branche ; sinon un dump de schéma de référence. |
 | OPS-04 | P2 | Des fonctions réécrites en place par un bloc `DO` (S5, `20261019300000`) ont en prod un texte différent du dernier fichier du dépôt. | Une reconstruction depuis le dépôt réintroduit l'ancien texte. | Migration de référence générée depuis `pg_get_functiondef`. |
 | SYNC-03 | P3 | Pas de garde contre l'écrasement d'un billet par une version plus ancienne ; possible seulement si deux passes tournent à la fois (bail de 150 s, passe la plus longue observée 45,6 s ; `ticketing_connect` libère le verrou). | Statut d'un billet en retard jusqu'à sa prochaine mise à jour. | Trigger qui ignore une version plus ancienne ; connect qui respecte un verrou vivant. |
-| SEC-04 | P3 | Fonctions d'aide appelables par tout compte connecté : rôle d'un utilisateur dans une organisation, « a le CRM », plafonds d'envoi. Aucune donnée de client. | Information mineure. | Révoquer celles que le front n'appelle pas. |
-| SEC-05 | P3 | Export CSV : pas de neutralisation des cellules commençant par `= + - @`. | Injection de formule dans Excel via un nom saisi chez Shotgun. | Préfixer d'une apostrophe. |
-| MAIL-07 | P3 | `email_campaigns.product` modifiable par le client sur un compte à deux produits : la campagne passe sur le quota Billetterie, sans garde d'identité CRM. | Pas d'envoi gratuit sans limite (quota Billetterie). | Colonne écrite par le serveur seulement. |
-| MAIL-10 | P3 | Webhook Resend accepté sans signature si le secret manque (il est posé en prod) ; comparaison non constante. | Aucun aujourd'hui. | Refuser sans secret ; comparaison en temps constant. |
-| MAIL-11 | P3 | « Envoyé » = accepté par Resend ; « délivré » n'existe que comme événement ; « reçus » = envoyés − rebonds. | Libellé à préciser. | Montrer « acceptés » / « délivrés ». |
 | DATA-04 | P3 | Aucune gestion de devise (USD / BRL additionnés aux euros). | Aucun pour un compte français (100 % EUR mesuré). | Refuser ou marquer un billet non EUR. |
 | DATA-06 | P3 | `contact_*` = le **détenteur** du billet (doc Shotgun) ; Yuno dit « acheteurs ». | Vocabulaire. | « Détenteurs » dans l'aide. |
-| UI-05 | P3 | Porte légale : échec d'enregistrement ignoré ; fenêtre sans piège de focus. Puce « Testez-le » d'Imports qui ajoute un faux contact à la vraie base. | Mineur. | Voir BACKLOG. |
 
 ## 6. Données : définitions et rapprochement
 
@@ -231,6 +253,16 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
    connecteurs) (`supabase functions deploy --use-api`).
 4. Front (Cloudflare Workers Builds) après les fonctions.
 5. Contrôles après : RUNBOOK, « Après une mise en ligne ».
+6. Suite (§4 bis), après les étapes 2-5 : migrations `20261023100000` → `170000`
+   dans l'ordre (même procédure ; `20261023170000` réécrit
+   `crm_email_settings_get`, `20261023110000` `_crm_filter_sql` : rebaser d'abord,
+   et refaire la répétition si main les a touchées depuis le 18/10), PUIS
+   `send-campaign`, `process-scheduled-campaigns`, `send-sms-campaign`,
+   `send-push-campaign`, `resend-webhook`, `owner-assistant`, PUIS le front.
+   `send-campaign` déployé avant `20261023120000` refuserait tous les tests
+   (`email_test_send_allow` absente). Le SMS reste « Bientôt » jusqu'au
+   branchement d'Octopush : remettre `CRM_SMS_DISPLAY_LIVE` à true dans le même
+   déploiement que les secrets.
 
 Retour arrière : les trois migrations sont réversibles par la définition
 précédente (lue en prod le 18/10, reprise en tête de chaque fonction réécrite) ;
