@@ -154,3 +154,15 @@ attendent sa décision.
 | Fonctions (21:59) | affiliate-ticket-sync (après 130000) et owner-assistant, depuis `13cabe43`. Avant : prod = `46e385ff` ; owner-assistant embarque en plus l'article « langue de la page partenaire » de main. Après : retéléchargées, identiques au commit. |
 | Front | main poussé à `13cabe43`. |
 | Contrôle | Passe du cron de 22:00:07 `ok` (4,4 s) avec le nouveau connecteur ; appels des crons depuis le déploiement : 200. Recalcul de l'analyse : laissé au calcul de nuit (`crm-analysis-nightly`), choix de Paul. |
+
+### Lot « envois » (MAIL-03, 07 à 15, SEC-04, SEC-05, SMS-01, UI-05)
+
+| Étape | Résultat |
+|---|---|
+| Fusion `claude/affectionate-lamport-a1b8b9` → `aea7da78` | Trois conflits de code avec l'e-mail pratique (S11), les deux côtés gardés : `send-campaign` filtre les blocs d'un e-mail pratique et retire ceux d'une soirée hors de l'espace (MAIL-14) ; `readTestSend` rend le code et les motifs d'un e-mail pratique refusé, que le Studio CRM continue de dire ; le contrôle d'envoi lit les Yunits disponibles avec les contrôles de l'e-mail pratique. eslint 0, tsc 0, vitest 134 fichiers / 1 669 tests, build vert, `deno check` × 6, tests Deno 24 / 24. Bancs sur instantané frais (après le lot « données ») : send 19, filter 16, test-send 14, quota 12, event-scope 6, sender 13, suite-rollback 13, helpers 24, tous verts. |
+| Définitions prod | Les 9 fonctions réécrites identiques à `ROLLBACK-suite.sql` (dont `claim_campaign_recipients` = version de `20261021110000`) ; les 8 nouvelles absentes. Retraits de SEC-04 : aucun appelant client apparu depuis (front, politiques RLS, fonctions INVOKER ; `count_transactional_email` et `crm_user_manages_team` ne sont appelées qu'avec la clé serveur). File d'envoi vide. |
+| Répétition (22:09) | Les 8 migrations + smoke, transaction annulée : SMOKE_OK en 1,4 s (MAIL-09, MAIL-13, MAIL-03 : le lot repris est le même avec la même clé malgré deux adresses devenues dues ; MAIL-08 : équipe seulement, 21ᵉ test refusé ; MAIL-14 ; MAIL-15 : yuno@ gardé, un autre « Yuno » reçoit `yuno-xxxxxx` ; SEC-04 ; MAIL-07 joué comme un client démo). Contre-épreuve sans les migrations : « MAIL-09 : une clé inconnue garde toute la base (true) ». |
+| Migrations (22:10-22:11) | `20261023100000` → `170000` appliquées une par une. Registre des adresses : 5 espaces (Yuno + les 4 qui ont déjà envoyé, adresse inchangée). Catalogue : aucune fonction exécutable par `anon` ; `authenticated` garde les RPC de la Console (`crm_email_settings_get`, `get_email_quota_status`, `get_campaign_send_progress`), `paris_today` et `contact_base_scope_key` ; `service_role` exécute bien la file recréée. `db lint` : 87 avant comme après. |
+| Fonctions (22:11) | send-campaign (après 120000), process-scheduled-campaigns, send-sms-campaign, send-push-campaign, resend-webhook, owner-assistant depuis `aea7da78`. Avant : prod = main `13cabe43`. Après : identiques au commit. |
+| Front | main poussé à `aea7da78` (SMS en « Bientôt » tant qu'Octopush n'est pas branché, Acceptés / Délivrés, exports CSV protégés, finitions UI-05). |
+| Contrôle | Appels des crons depuis le déploiement : 200. |
