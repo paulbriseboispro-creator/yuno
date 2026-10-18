@@ -24,6 +24,7 @@ import type { EmailCampaignRow } from '@/crm/data/emails';
 import { deleteDrafts, duplicateCampaigns, unscheduleCampaign } from '@/crm/data/emailActions';
 import { audienceLabel, draftGaps, rate } from '@/crm/lib/emails';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EmailsShell } from './EmailsShell';
 
 type Filter = 'all' | 'draft' | 'sched' | 'sent';
@@ -168,7 +169,9 @@ export default function EmailCampaignsPage() {
         </div>
       </div>
 
-      {!data.data ? <Skel h={420} r={28} /> : view === 'list' ? (
+      {data.isError && !data.data ? (
+        <CrmLoadError error={data.error} onRetry={() => { void data.refetch(); }} retrying={data.isFetching} />
+      ) : !data.data ? <Skel h={420} r={28} /> : view === 'list' ? (
         <section style={{ display: 'flex', flexDirection: 'column', borderRadius: 28, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', animation: `yc-rise 800ms ${EASE} 460ms both` }}>
           <div className="yc-noscroll" style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 900 }}>
