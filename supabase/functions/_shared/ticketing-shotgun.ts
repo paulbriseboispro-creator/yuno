@@ -82,6 +82,14 @@ export function bool(v: unknown): boolean | null {
   return null;
 }
 
+/**
+ * Date sans fuseau (« 2025-02-21 17:29:52.462881 », le format documenté par
+ * Shotgun) : lue en UTC. `new Date()` la lirait dans le fuseau du serveur
+ * (UTC en prod, Paris sur un poste) ; la prod a confirmé l'UTC le 18/10
+ * (aucun billet « mis à jour » après l'instant où Yuno l'a lu).
+ */
+const NAIVE_DATETIME = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/;
+
 /** Date ISO normalisée (null si illisible). Accepte secondes / ms epoch. */
 export function isoDate(v: unknown): string | null {
   if (v === null || v === undefined || v === "") return null;
@@ -89,7 +97,8 @@ export function isoDate(v: unknown): string | null {
   if (typeof v === "number") {
     d = new Date(v < 1e12 ? v * 1000 : v);
   } else if (typeof v === "string") {
-    d = new Date(v);
+    const naive = NAIVE_DATETIME.exec(v.trim());
+    d = new Date(naive ? `${naive[1]}T${naive[2]}Z` : v);
   } else {
     return null;
   }
@@ -116,22 +125,26 @@ export function money(v: unknown, divisor: number): number | null {
 export interface Page {
   items: Json[];
   next: string | null;
+  /** false = aucune liste reconnue dans la réponse (ni à la racine ni sous une clé connue). */
+  found: boolean;
 }
 
 /** Les listes peuvent être à la racine ou sous data / tickets / results / events. */
 export function extractPage(body: unknown): Page {
   let items: unknown[] = [];
-  if (Array.isArray(body)) items = body;
+  let found = false;
+  if (Array.isArray(body)) { items = body; found = true; }
   else if (body && typeof body === "object") {
     for (const k of ["data", "tickets", "results", "events", "items"]) {
       const v = (body as Json)[k];
-      if (Array.isArray(v)) { items = v; break; }
+      if (Array.isArray(v)) { items = v; found = true; break; }
     }
   }
   const next = str(pick(body, ["pagination.next", "pagination.next_url", "next", "links.next"]), 2000);
   return {
     items: items.filter((x): x is Json => !!x && typeof x === "object" && !Array.isArray(x)),
     next,
+    found,
   };
 }
 
@@ -677,6 +690,22 @@ export function eventsUrl(
   }
   if (opts.updatedAfter) u.searchParams.set("updated_after", opts.updatedAfter);
   return u.toString();
+}
+
+/**
+ * Une connexion qui a déjà importé quelque chose (curseur, soirées ou premier
+ * import fini) ne se rebranche pas sur une AUTRE organisation Shotgun : les
+ * billets, soirées miroirs et accords de la première resteraient rattachés à
+ * la même connexion et à la même portée, mêlés à ceux de la seconde (audit du
+ * 18/10, SYNC-01). Il faut d'abord « Supprimer les données importées ».
+ * Même organisation (nouveau jeton) ou connexion vierge : rien n'est refusé.
+ */
+export function orgChangeBlocked(
+  existing: { external_org_id: string; tickets_cursor: string | null; events_synced_at: string | null; initial_import_done_at: string | null } | null,
+  organizerId: string,
+): boolean {
+  if (!existing || existing.external_org_id === organizerId) return false;
+  return !!(existing.tickets_cursor || existing.events_synced_at || existing.initial_import_done_at);
 }
 
 /** ID organisateur Shotgun : chiffres (ex. 173027), on tolère lettres / tirets. */
