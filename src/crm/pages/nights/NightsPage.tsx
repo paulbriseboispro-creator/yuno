@@ -26,6 +26,7 @@ import { syncShotgunNow } from '@/crm/data/imports';
 import { lacksMessage, seriesChips, splitPeriods, upKind, type PeriodMonths, type UpKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { WriteModal } from '@/crm/components/WriteModal';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { ShotgunLink } from './nightsUi';
 import { ICO } from './nightsFormat';
 import { UpcomingView, type UpFilter } from './UpcomingView';
@@ -220,7 +221,11 @@ export default function NightsPage() {
         )}
       </div>
 
-      {!data ? (
+      {q.isError && !data ? (
+        // Une lecture qui échoue (délai de 30 s compris) n'est ni un chargement
+        // sans fin ni une base vide (audit 18/10, UI-04).
+        <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
+      ) : !data ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Skel w={400} h={52} r={99} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,240px),1fr))', gap: 16 }}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={150} r={24} />)}</div>
@@ -321,7 +326,8 @@ export function NightRedirect() {
   const { id } = useParams();
   const q = useNights();
   if (!id) return <Navigate to={CRM_ROUTES.nights} replace />;
-  if (!q.data) return null;
+  // En échec, la page Soirées montre l'erreur (et Réessayer) avec le tiroir ouvert.
+  if (!q.data) return q.isError ? <Navigate to={`${CRM_ROUTES.nights}?e=${id}`} replace /> : null;
   const row = q.data.nights.find((e) => e.id === id);
   return <Navigate to={`${row && !row.upcoming ? CRM_ROUTES.nightsPast : CRM_ROUTES.nights}?e=${id}`} replace />;
 }
