@@ -5,6 +5,7 @@ import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 import { isDemoPreviewRequest } from "../_shared/demo-guard.ts";
 import { CONSOLE_HELP_ARTICLES, DRINKS_HELP_ARTICLE_IDS } from "../_shared/console-help-articles.ts";
+import { WRITE_TOOLS, checkWriteConfirmation, withConfirmationParam } from "./write-confirmation.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -48,15 +49,12 @@ Exemple bon : "Le CA Club de ce soir est de **4 120€** (CA Net : **3 980€**)
 Exemple mauvais : "Les ventes se passent bien !"
 
 ═══ CONFIRMATION OBLIGATOIRE ═══
-AVANT d'exécuter une action qui MODIFIE des données :
-1. Appelle list_events (ou le tool pertinent) pour identifier l'objet
-2. Si ambiguïté (même nom, différentes dates) → liste les options avec dates et statut
-3. Résume ce que tu vas faire en **gras**
-4. Demande "**Tu confirmes ?**"
-5. Exécute UNIQUEMENT après réponse affirmative ("oui", "ok", "go", "confirme")
+Les outils qui MODIFIENT des données exigent confirmed: true, et le serveur refuse tout appel sans. Procédure :
+1. Identifie l'objet avec list_events (ou le tool pertinent) ; si ambiguïté, liste les options avec dates et statut
+2. Résume l'action en **gras** et demande "**Tu confirmes ?**"
+3. Après un oui explicite ("oui", "ok", "go", "confirme"), appelle l'outil avec confirmed: true
 
 ⚠️ TOUJOURS cibler les événements À VENIR par défaut, jamais les passés.
-⚠️ JAMAIS d'action write sans confirmation explicite.
 
 ═══ MÉTRIQUES DE REVENUS ═══
 Quand tu donnes des chiffres de revenus, présente TOUJOURS :
@@ -542,7 +540,8 @@ const TOOLS_ALL = [
 // Pilier boissons en pause : les outils du bar ne sont pas proposés au modèle
 // (leurs handlers restent, pour le relancement). src/lib/drinksPillar.ts.
 const DRINKS_TOOLS = new Set(["list_drinks", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell", "get_top_drinks", "get_pending_orders"]);
-const TOOLS = TOOLS_ALL.filter((t) => DRINKS_PILLAR_LIVE || !DRINKS_TOOLS.has(t.function.name));
+// Chaque outil d'écriture porte le paramètre requis `confirmed` (write-confirmation.ts).
+const TOOLS = withConfirmationParam(TOOLS_ALL.filter((t) => DRINKS_PILLAR_LIVE || !DRINKS_TOOLS.has(t.function.name)));
 // ═══════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════
@@ -552,11 +551,6 @@ function calcStripeFee(totalEuros: number): number {
   return Math.round((totalEuros * 0.015 + 0.25) * 100) / 100;
 }
 
-const WRITE_TOOLS = new Set([
-  "activate_ticket_round", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell",
-  "toggle_event_ticketing", "update_event", "toggle_guest_list", "toggle_event_tables",
-  "set_night_brief", "set_email_automation",
-]);
 // Session d'un lien démo : l'IA ne se voit même pas proposer d'écrire.
 const READ_ONLY_TOOLS = TOOLS.filter((t) => !WRITE_TOOLS.has(t.function.name));
 
@@ -2707,6 +2701,15 @@ serve(async (req) => {
           conversationMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "demo_read_only", message: "Aperçu de démonstration : lecture seule, aucune modification possible." }) });
           continue;
         }
+        // Confirmation appliquée par le serveur : sans confirmed: true, l'outil
+        // d'écriture ne part pas et le modèle reçoit la procédure à suivre.
+        const guard = checkWriteConfirmation(fnName, fnArgs as Record<string, unknown>);
+        if (!guard.ok) {
+          log("write_unconfirmed", { round, tool: fnName });
+          conversationMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(guard.payload) });
+          continue;
+        }
+        fnArgs = guard.args as ToolArgs;
         const result = await executeTool(fnName, fnArgs, supabase, venueId, supabaseAuth);
         log("tool_result", { round, tool: fnName, result_length: result.length });
 
