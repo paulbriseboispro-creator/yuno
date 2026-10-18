@@ -90,6 +90,24 @@ les tests de cette session sont légers (PGlite, `node`, < 3 s chacun).
 | prod, lecture : triggers de `promoter_conversions` | `trg_guard_promoter_conversion_settlement` **absent** (migration `20260721090000` pourtant marquée appliquée) → SEC-06 |
 | prod, lecture : crons | 64 actifs, 16 appellent une fonction edge par son URL ; aucun ne vise l'ancien projet Lovable |
 
+## Correctifs SEC-06 et LINK-01 (18/10, fin d'après-midi)
+
+Session « correctifs SEC-06 / LINK-01 », branche `crm/audit-sec06-link01` (partie de
+`claude/blissful-faraday-d14300`). Lectures prod une à la fois après
+`prod.mjs --activity` ; rien d'appliqué ni de répété sur la prod. Tests au banc
+(PGlite, < 3 s chacun).
+
+| Commande | Résultat |
+|---|---|
+| prod, lecture : définitions du cycle (`pg_get_functiondef`), triggers, policies, droits | `guard_promoter_payout_write` = brouillon « drapeau » (DEFINER, `yuno.payout_rpc`), posé seulement par `dispute` et `auto_dispute` ; `prepare` / `declare` / `cancel` / `resolve` = `20261005212000`, `confirm` = `20260803140000` (sans drapeau) ; `is_direct_client_write()` présente (PUBLIC) ; aucun chemin client n'écrit `promoter_conversions` (front, edge : lectures) |
+| prod, lecture : lots et commissions | 9 lots, tous payés, le dernier le 28/07 ; 15 commissions en attente, toutes au club démo (promoteurs d'agence), 0 chez un vrai client |
+| `node scripts/crm-bench/sec06.mjs dump` puis `run` | **30 / 30** : avant, PATCH direct d'une commission accepté (owner, manager, organisateur, super admin) et cycle refusé à chaque étape ; après `20261024100000`, l'inverse, porte / remboursement / service_role / cron inchangés → [sec06-bench.md](sec06-bench.md) ; smoke `smoke/sec06.sql` SMOKE_OK au banc |
+| `node scripts/crm-bench/link01.mjs scan` | 5 fonctions avec un quantificateur à 3 chiffres, 1 seule au-delà de 255 (`crm_link_create`) ; aucune contrainte, policy ni domaine |
+| `node scripts/crm-bench/link01.mjs dump` puis `run` | **13 / 13** cas, 0 écart sur 400 URL au hasard → [link01-bench.md](link01-bench.md) ; smoke `smoke/link01.sql` SMOKE_OK au banc |
+| ROLLBACK.sql blocs 4 et 5, au banc | remettent l'état de la prod (garde DEFINER à drapeau, pas de garde des commissions, `{1,480}`) |
+| les deux migrations sur le schéma du banc d'analyse (`schema/base.sql`) | s'appliquent : `scenarios.mjs`, qui rejoue toutes les migrations ≥ 20261016100000, ne casse pas |
+| prod, lecture : `promoters` | la policy « Promoters can update their own IBAN » ouvre toute la ligne au promoteur (droit UPDATE sur chaque colonne) → SEC-07 |
+
 Ce qui reste bloqué, et pourquoi :
 - **OPS-02** (restauration testée) : « Restore to a new project » crée un projet
   facturé (≈ 0,0134 $ / h) et n'existe qu'au tableau de bord ; procédure prête

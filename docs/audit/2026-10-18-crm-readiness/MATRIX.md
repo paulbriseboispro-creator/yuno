@@ -78,6 +78,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Sessions, invitations, récupération, routes admin | non exécuté ici (audits antérieurs, CLAUDE.md) |
 | Dépendances exposées | **échoué, ouvert** ([npm-audit.md](npm-audit.md)) : `@capacitor/ios` 8.4.1 critique dans les apps natives (DEP-01, corrigé en 8.4.3, version App Store) ; web : `react-router-dom` 6.30.3, `fflate` 0.8.2 modérés (DEP-02) ; 16 paquets signalés ne sont que des outils de build |
 | Injection CSV | échoué, ouvert (SEC-05, P3) |
+| Règlement promoteur : une commission ne se solde que par l'accusé du promoteur (Billetterie) | échoué en prod (SEC-06 : owner, manager, organisateur, super admin soldent ou modifient une commission par un PATCH ; et le garde des lots, version « drapeau », bloque `prepare` / `declare` / `confirm` / `cancel` / `resolve`) → **corrigé au banc, pas en prod** : `20261024100000`, 30 / 30 scénarios avant / après sur les définitions de la prod ([sec06-bench.md](sec06-bench.md)) ; ouverts : SEC-07 (un promoteur modifie toute sa ligne), SEC-08 (suppression d'un promoteur, décision) |
 
 ## E. Envois
 
@@ -107,6 +108,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Contacts, recherche, filtres, segments, indicateurs, exports | relecture : états d'erreur manquants (UI-04, P2) |
 | Préparation d'une campagne | relecture : réussi ; étape Audience sans état d'erreur (UI-04) |
 | Rendu à l'écran (compte démo, 1440 px) | réussi : Accueil et Connecteurs, aucune erreur console |
+| Lien de partage avec la capture de sa story | échoué en prod (LINK-01 : erreur 2201B dès qu'une capture est jointe) → **corrigé au banc, pas en prod** : `20261024100100`, 13 / 13 cas, 0 écart sur 400 URL tirées au hasard ([link01-bench.md](link01-bench.md)) |
 | Formats d'écran, clavier | partiel (P3, BACKLOG) |
 
 ## G. Exploitation
@@ -119,6 +121,6 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Restauration testée | **bloqué** : « Restore to a new project » = projet facturé (≈ 0,0134 $ / h), bouton du tableau de bord ; procédure prête (RUNBOOK §4.1), dont la coupure des 64 crons dans la copie (16 appellent la prod) ; attend l'accord de Paul |
 | Migrations sur base vierge | rejeu **bloqué** (Docker arrêté ; projet vide = dépense à faire approuver) ; relevé statique **réussi** : 4 tables, 12 triggers, 6 policies (5 du Storage), 11 crons de la prod sans création dans le dépôt ([ops03-history-holes.md](ops03-history-holes.md)) |
 | Prod = dépôt (fonctions) | échoué, **mesuré** : 1 609 / 1 659 identiques, 50 divergentes (35 réécrites en place, 13 absentes du dépôt, 2 plus anciennes) ; migration de référence générée depuis `pg_get_functiondef`, 49 / 50 blocs validés au banc ([ops04-functions.md](ops04-functions.md), `supabase/reference/20261018_prod_functions_reference.sql`) |
-| Prod = dépôt (autres objets) | échoué : trigger `trg_guard_promoter_conversion_settlement` absent de la prod (SEC-06) ; S11 hors main (OPS-05) |
+| Prod = dépôt (autres objets) | échoué : trigger `trg_guard_promoter_conversion_settlement` absent de la prod et `guard_promoter_payout_write` resté à un brouillon de `20260721090000` (SEC-06, migration `20261024100000` écrite, à appliquer) ; S11 hors main (OPS-05) |
 | CI | échoué → **corrigé** (OPS-01, active une fois fusionnée) |
 | Performance | réussi selon S4 (17-18/10) ; non remesuré |

@@ -97,6 +97,23 @@ node isolation.mjs run --club <md>          # séparation entre deux espaces CLU
 La référence générée vit hors de `supabase/migrations` : `db push` ne la joue
 jamais. La rejouer après de nouvelles migrations annulerait celles-ci.
 
+## Correctifs de l'audit du 18/10 : avant / après sur les définitions de la prod
+
+```bash
+node sec06.mjs dump && node sec06.mjs run <md>    # gardes du règlement promoteur (20261024100000)
+node link01.mjs scan                              # tout quantificateur {n,m} > 255 de la prod
+node link01.mjs dump && node link01.mjs run <md>  # capture d'une story sur un lien (20261024100100)
+```
+
+`dump` prend un instantané de la prod (dump-base.mjs en mode instantané, plus
+policies, triggers, contraintes et droits des fonctions pour SEC-06) ; `run`
+joue chaque scénario sous l'identité de l'API, AVANT puis APRÈS la migration,
+puis le smoke de répétition (`smoke/sec06.sql`, `smoke/link01.sql`) qui servira
+à `rehearse.mjs` sur la prod. PGlite ne rend pas la session d'origine après un
+`RESET SESSION AUTHORIZATION` ni au `ROLLBACK` : les deux scripts changent
+d'identité par `SET LOCAL` seulement et repassent par `SET SESSION AUTHORIZATION
+postgres` entre deux scénarios.
+
 ## Mettre en ligne (jamais par ces scripts)
 
 1. Vérifier que la prod = le dépôt pour chaque fonction réécrite : lire
