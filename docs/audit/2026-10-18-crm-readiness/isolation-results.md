@@ -1,12 +1,12 @@
-# Séparation entre espaces — banc, 2026-10-18T10:12Z
+# Séparation entre espaces — banc, 2026-10-18T12:25Z
 
-206 fonctions (définitions de la prod), appelées par A (titulaire) puis par B (autre compte CRM), arguments visant l'espace A.
+206 fonctions (définitions de la prod), appelées par A (titulaire) puis par B (autre compte CRM), arguments visant l'espace A — couple d'ORGANISATEURS.
 
 | Verdict | Fonctions |
 |---|---|
-| refused | 157 |
+| refused | 158 |
 | silent | 9 |
-| SAME | 10 |
+| SAME | 9 |
 | inconclus | 30 |
 | non testée | 0 |
 
@@ -53,7 +53,7 @@
 | `crm_audience_counts(p_venue_id text, p_organizer_user_id uuid, p_defs jsonb)` | refused | ok n=1 ([]) | 42501 forbidden |
 | `crm_automation_save(p_venue_id text, p_organizer_user_id uuid, p_kind text, p_en)` | refused | 22023 bad_kind | 42501 forbidden |
 | `crm_automation_sms_save(p_venue_id text, p_organizer_user_id uuid, p_kind text, p_en)` | refused | 22023 bad_kind | 42501 forbidden |
-| `crm_automations(p_venue_id text, p_organizer_user_id uuid, p_period text)` | refused | ok n=1 ("{""now"": ""2026-10-18T10:12:12.624+00 | 42501 forbidden |
+| `crm_automations(p_venue_id text, p_organizer_user_id uuid, p_period text)` | refused | ok n=1 ("{""now"": ""2026-10-18T12:25:52.717+00 | 42501 forbidden |
 | `crm_client(p_venue_id text, p_organizer_user_id uuid, p_email text)` | refused | ok n=1 ("{""gl"": {""n"": 0, ""came"": 0, ""con | 42501 forbidden |
 | `crm_client_analysis(p_venue_id text, p_organizer_user_id uuid, p_email text)` | refused | ok n=1 ("{""profile"": false, ""excluded"": fal | 42501 forbidden |
 | `crm_client_save(p_venue_id text, p_organizer_user_id uuid, p_email text, p_t)` | refused | ok n=1 ("{""ok"": true}") | 42501 forbidden |
@@ -65,7 +65,7 @@
 | `crm_email_audience_preview(p_venue_id text, p_organizer_user_id uuid, p_audiences jsonb)` | refused | ok n=1 ("{""net"": 0, ""reach"": 0, ""x_buyers" | 42501 forbidden |
 | `crm_email_audience_sizes(p_venue_id text, p_organizer_user_id uuid, p_ids uuid[])` | refused | ok n=1 ({}) | 42501 forbidden |
 | `crm_email_campaigns(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""campaigns"": [{""id"": ""cccccccc-0 | 42501 forbidden |
-| `crm_email_overview(p_venue_id text, p_organizer_user_id uuid, p_days integer)` | refused | ok n=1 ("{""to"": ""2026-10-18T10:12:12.77+00:0 | 42501 forbidden |
+| `crm_email_overview(p_venue_id text, p_organizer_user_id uuid, p_days integer)` | refused | ok n=1 ("{""to"": ""2026-10-18T12:25:52.867+00: | 42501 forbidden |
 | `crm_email_recipient_emails(p_venue_id text, p_organizer_user_id uuid, p_campaign_id uui)` | refused | ok n=1 ("{""emails"": [""client0@a.test""]}") | 42501 forbidden |
 | `crm_email_recipients(p_venue_id text, p_organizer_user_id uuid, p_campaign_id uui)` | refused | ok n=1 ("{""rows"": [], ""total"": 1, ""counts" | 42501 forbidden |
 | `crm_email_result(p_venue_id text, p_organizer_user_id uuid, p_campaign_id uui)` | refused | ok n=1 ("{""id"": ""cccccccc-0000-4000-8000-000 | 42501 forbidden |
@@ -86,10 +86,10 @@
 | `crm_import_commit(p_venue_id text, p_organizer_user_id uuid, p_list_import_id )` | refused | 22023 invalid_rows | 42501 forbidden |
 | `crm_import_undo(p_venue_id text, p_organizer_user_id uuid, p_list_import_id )` | refused | P0002 import_not_found | 42501 forbidden |
 | `crm_imports_overview(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""sync"": {""day"": ""2026-10-18"", " | 42501 forbidden |
-| `crm_instagram_overview(p_venue_id text, p_organizer_user_id uuid, p_days integer)` | refused | ok n=1 ("{""at"": ""2026-10-18T10:12:12.904+00: | 42501 forbidden |
+| `crm_instagram_overview(p_venue_id text, p_organizer_user_id uuid, p_days integer)` | refused | ok n=1 ("{""at"": ""2026-10-18T12:25:53.01+00:0 | 42501 forbidden |
 | `crm_instagram_rule_delete(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | P0002 not_found | 42501 forbidden |
 | `crm_instagram_rule_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_patc)` | refused | 22023 bad_keyword | 42501 forbidden |
-| `crm_journey(p_venue_id text, p_organizer_user_id uuid, p_period text, p_)` | refused | ok n=1 ("{""to"": ""2026-10-18T10:12:12.909+00: | 42501 forbidden |
+| `crm_journey(p_venue_id text, p_organizer_user_id uuid, p_period text, p_)` | refused | ok n=1 ("{""to"": ""2026-10-18T12:25:53.016+00: | 42501 forbidden |
 | `crm_learning_contrib_get(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""demo"": false, ""holder"": true, "" | 42501 forbidden |
 | `crm_learning_contrib_set(p_venue_id text, p_organizer_user_id uuid, p_on boolean)` | refused | ok n=1 ("{""global_enabled"": false, ""learning | 42501 forbidden |
 | `crm_link_create(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid, )` | inconclus (même erreur) | 2201B invalid regular expression: invalid repetition count(s) | 2201B invalid regular expression: invalid repetition count(s) |
@@ -100,7 +100,7 @@
 | `crm_night_links(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid)` | refused | ok n=1 ("{""error"": ""not_found""}") | 42501 forbidden |
 | `crm_night_plan(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid)` | refused | ok n=1 ("{""ok"": false, ""error"": ""not_upcom | 42501 forbidden |
 | `crm_night_targets(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid)` | refused | ok n=1 ("{""ok"": false, ""error"": ""not_upcom | 42501 forbidden |
-| `crm_nights(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""now"": ""2026-10-18T10:12:12.964+00 | 42501 forbidden |
+| `crm_nights(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""now"": ""2026-10-18T12:25:53.069+00 | 42501 forbidden |
 | `crm_notif_prefs_get(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""kinds"": {""prog"": {""a"": true, " | 42501 forbidden |
 | `crm_notif_prefs_set(p_venue_id text, p_organizer_user_id uuid, p_patch jsonb)` | refused | ok n=1 ("{""kinds"": {""prog"": {""a"": true, " | 42501 forbidden |
 | `crm_notifications_mark(p_venue_id text, p_organizer_user_id uuid, p_ids text[], p_a)` | refused | 22023 bad_action | 42501 forbidden |
@@ -109,11 +109,11 @@
 | `crm_offer_claim(p_token text, p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""ok"": false, ""reason"": ""unknown" | 42501 not_account_owner |
 | `crm_offer_invite_for_email(p_id uuid)` | inconclus (même erreur) | 42501 forbidden | 42501 forbidden |
 | `crm_org_role(p_user_id uuid, p_organizer_user_id uuid)` | SAME | ok n=1 (owner) | ok n=1 (owner) |
-| `crm_practical_email_check(p_campaign_id uuid)` | SAME | ok n=1 ("{""ok"": true, ""issues"": [], ""pract | ok n=1 ("{""ok"": true, ""issues"": [], ""pract |
+| `crm_practical_email_check(p_campaign_id uuid)` | refused | 3F000 schema "extensions" does not exist | 42501 forbidden |
 | `crm_practical_night(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid)` | refused | ok n=1 ("{""max"": 3, ""role"": null, ""sent"": | 42501 forbidden |
 | `crm_profile_optout(p_venue_id text, p_organizer_user_id uuid, p_email text, p_o)` | refused | ok n=1 ("{""email"": ""client0@a.test"", ""excl | 42501 forbidden |
 | `crm_request_trial_extension(p_venue_id text, p_organizer_user_id uuid)` | refused | 22023 no_extension_left | 42501 forbidden |
-| `crm_rules_preview(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""at"": ""2026-10-18T10:12:12.985+00: | 42501 forbidden |
+| `crm_rules_preview(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""at"": ""2026-10-18T12:25:53.093+00: | 42501 forbidden |
 | `crm_scenario(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | P0002 not_found | 42501 forbidden |
 | `crm_scenario_counts(p_venue_id text, p_organizer_user_id uuid, p_tree jsonb, p_e)` | refused | ok n=1 ("{""total"": 4, ""errors"": [{""code"": | 42501 forbidden |
 | `crm_scenario_delete(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | P0002 not_found | 42501 forbidden |
@@ -134,11 +134,11 @@
 | `crm_segment_catalog(p_venue_id text, p_organizer_user_id uuid, p_items jsonb)` | refused | ok n=1 ("{""home"": null, ""items"": [], ""tota | 42501 forbidden |
 | `crm_segment_delete(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | ok n=1 (f) | 42501 forbidden |
 | `crm_segment_detail(p_venue_id text, p_organizer_user_id uuid, p_seg_key text, p)` | refused | ok n=1 () | 42501 forbidden |
-| `crm_segment_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_name)` | refused | ok n=1 ("{""id"": ""6cc00713-a6b7-49e1-9899-767 | 42501 forbidden |
+| `crm_segment_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_name)` | refused | ok n=1 ("{""id"": ""3a471c39-84e8-4339-98ac-ee6 | 42501 forbidden |
 | `crm_segments_brief(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ([]) | 42501 forbidden |
 | `crm_segments_create_many(p_venue_id text, p_organizer_user_id uuid, p_items jsonb)` | refused | 22023 invalid_items | 42501 forbidden |
 | `crm_segments_fill_anchors(p_venue_id text, p_organizer_user_id uuid, p_period text)` | refused | ok n=1 ("{""filled"": ""2026-09-18"", ""remaini | 42501 forbidden |
-| `crm_segments_overview(p_venue_id text, p_organizer_user_id uuid, p_period text)` | refused | ok n=1 ("{""to"": ""2026-10-18T10:12:13.089+00: | 42501 forbidden |
+| `crm_segments_overview(p_venue_id text, p_organizer_user_id uuid, p_period text)` | refused | ok n=1 ("{""to"": ""2026-10-18T12:25:53.195+00: | 42501 forbidden |
 | `crm_signal_coverage(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""totals"": {""sales"": 6, ""valid"": | 42501 forbidden |
 | `crm_signup_page_ai_proposal(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_acti)` | refused | P0002 not_found | 42501 forbidden |
 | `crm_signup_page_delete(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | 22023 not_deletable | 42501 forbidden |
@@ -146,19 +146,19 @@
 | `crm_signup_page_emails(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | ok n=1 ([]) | 42501 forbidden |
 | `crm_signup_page_export(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | ok n=1 ([]) | 42501 forbidden |
 | `crm_signup_page_notify_now(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | P0002 not_found | 42501 forbidden |
-| `crm_signup_page_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_patc)` | refused | ok n=1 (3f025429-f94f-4499-ab60-1b4b5038f20e) | 42501 forbidden |
+| `crm_signup_page_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_patc)` | refused | ok n=1 (55547d81-cf9a-47a6-a169-2e81b389eb33) | 42501 forbidden |
 | `crm_signup_page_set_status(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_stat)` | refused | P0002 not_found | 42501 owner_only |
 | `crm_signup_page_stats(p_venue_id text, p_organizer_user_id uuid, p_id uuid)` | refused | P0002 not_found | 42501 forbidden |
-| `crm_signup_pages_list(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""at"": ""2026-10-18T10:12:13.131+00: | 42501 forbidden |
+| `crm_signup_pages_list(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""at"": ""2026-10-18T12:25:53.238+00: | 42501 forbidden |
 | `crm_sms_analysis(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""campaigns"": []}") | 42501 forbidden |
 | `crm_sms_audience_preview(p_venue_id text, p_organizer_user_id uuid, p_audiences jsonb)` | refused | ok n=1 ("{""net"": 0, ""reach"": 0, ""x_cap"":  | 42501 forbidden |
 | `crm_sms_campaigns(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""campaigns"": [{""id"": ""88888888-0 | 42501 forbidden |
 | `crm_sms_delete(p_venue_id text, p_organizer_user_id uuid, p_ids uuid[])` | refused | ok n=1 ("{""deleted"": 0}") | 42501 forbidden |
 | `crm_sms_draft_sizes(p_venue_id text, p_organizer_user_id uuid, p_ids uuid[])` | refused | ok n=1 ({}) | 42501 forbidden |
 | `crm_sms_duplicate(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_name)` | refused | P0002 not_found | 42501 forbidden |
-| `crm_sms_overview(p_venue_id text, p_organizer_user_id uuid, p_days integer)` | refused | ok n=1 ("{""to"": ""2026-10-18T10:12:13.154+00: | 42501 forbidden |
+| `crm_sms_overview(p_venue_id text, p_organizer_user_id uuid, p_days integer)` | refused | ok n=1 ("{""to"": ""2026-10-18T12:25:53.26+00:0 | 42501 forbidden |
 | `crm_sms_result(p_venue_id text, p_organizer_user_id uuid, p_campaign_id uui)` | refused | ok n=1 ("{""error"": ""not_found""}") | 42501 forbidden |
-| `crm_sms_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_patc)` | refused | ok n=1 ("{""id"": ""5f76e2f7-97f1-45a5-9bc8-cbf | 42501 forbidden |
+| `crm_sms_save(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_patc)` | refused | ok n=1 ("{""id"": ""b479dcd5-1cf8-4d97-aad7-726 | 42501 forbidden |
 | `crm_sms_schedule(p_venue_id text, p_organizer_user_id uuid, p_id uuid, p_at t)` | refused | P0002 not_found | 42501 forbidden |
 | `crm_sms_send_options(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""auto"": [{""key"": ""hab"", ""reach | 42501 forbidden |
 | `crm_sms_settings_get(p_venue_id text, p_organizer_user_id uuid)` | refused | ok n=1 ("{""people"": 4, ""sms_ok"": 0, ""quiet | 42501 forbidden |
@@ -212,7 +212,7 @@
 | `rename_email_list_import(p_import_id uuid, p_name text)` | refused | ok n=1 ("Nom B") | P0001 Unauthorized |
 | `rename_sms_list_import(p_import_id uuid, p_name text)` | refused | ok n=1 ("Nom B") | P0001 Unauthorized |
 | `resolve_campaign_ab_winner(p_campaign_id uuid, p_force boolean)` | inconclus (même erreur) | P0001 resolve_campaign_ab_winner: service_role only | P0001 resolve_campaign_ab_winner: service_role only |
-| `resolve_campaign_audience(p_campaign_id uuid)` | refused | ok n=4 ("(client0@a.test,,,,9d37a62e-891d-426f- | P0001 Unauthorized |
+| `resolve_campaign_audience(p_campaign_id uuid)` | refused | ok n=4 ("(client0@a.test,,,,985673f0-fc78-43c5- | P0001 Unauthorized |
 | `resolve_contact_segment(p_segment_id uuid)` | refused | ok n=4 ("(client0@a.test,,Client0,)")/("(client | 42501 Unauthorized |
 | `resolve_contact_segment_def(p_venue_id text, p_organizer_user_id uuid, p_definition json)` | refused | ok n=4 ("(client0@a.test,,Client0,)")/("(client | 42501 Unauthorized |
 | `save_contact_segments(p_venue_id text, p_organizer_user_id uuid, p_segments jsonb,)` | refused | P0001 p_segments doit être un tableau | 42501 Unauthorized |

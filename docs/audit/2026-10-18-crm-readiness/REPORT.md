@@ -176,9 +176,17 @@ Billetterie affiche encore l'ancienne adresse (`slug@yunoapp.eu`, MAIL-15).
 |---|---|---|---|---|
 | OPS-05 | P2 | La prod fait tourner du code et une migration (`20261019150000`, e-mail pratique, branche `crm/s11-practical-email`) absents de main. | Déployer `send-campaign` depuis main retirerait l'e-mail pratique de la prod sans un mot. | Fusionner S11 avant cette branche (section 9). |
 | UI-04 | P2 | Pas d'état d'erreur : Soirées, E-mails, Campagnes, tiroir client (squelette sans fin) ; Clients montre « aucun client » sur une erreur ; étape Audience reste sur « … ». | Le client croit sa base vide. | `CrmLoadError` partout (règle déjà écrite dans CLAUDE.md). |
-| OPS-02 | P2 | Sauvegardes physiques quotidiennes (9 gardées, dernière 18/10 01:27 UTC), **pas de PITR**, restauration jamais testée. | Jusqu'à 24 h de preuves de consentement et d'événements d'e-mail perdues. | Tester une restauration sur un projet isolé ; PITR au 2ᵉ ou 3ᵉ client payant. |
-| OPS-03 | P2 | Rejeu des 1 231 migrations sur une base vierge non vérifié (Docker arrêté ; historique Lovable à trous connu). | Reconstruction de secours incertaine. | Un rejeu sur un projet de branche ; sinon un dump de schéma de référence. |
-| OPS-04 | P2 | Des fonctions réécrites en place par un bloc `DO` (S5, `20261019300000`) ont en prod un texte différent du dernier fichier du dépôt. | Une reconstruction depuis le dépôt réintroduit l'ancien texte. | Migration de référence générée depuis `pg_get_functiondef`. |
+| OPS-02 | P2 | Sauvegardes physiques quotidiennes (9 gardées, dernière 18/10 01:27 UTC), **pas de PITR**, restauration jamais testée. Procédure d'essai prête (RUNBOOK §4.1) ; piège relevé : une copie restaurée relance aussitôt `pg_cron` / `pg_net` avec le secret des crons, et 16 crons appellent les fonctions edge de la **prod**. | Jusqu'à 24 h de preuves de consentement et d'événements d'e-mail perdues ; une restauration faite sans couper les crons ferait tourner les crons de la prod en double. | Restauration d'essai dans un projet isolé (quelques centimes, accord de Paul), crons coupés dans la copie ; PITR au 2ᵉ ou 3ᵉ client payant. |
+| OPS-03 | P2 | Rejeu des 1 231 migrations sur une base vierge non fait (Docker arrêté). Relevé statique fait : la prod a 4 tables (`email_templates`, `private.secrets`, `contact_base_cache`, `contact_base_cache_state`), 12 triggers, 6 policies (dont 5 sur `storage.objects` : fichiers des clubs, des organisateurs, photos de profil, e-mails, lecture publique) qu'aucun fichier du dépôt ne crée ; 3 viennent de branches jamais fusionnées ([ops03-history-holes.md](ops03-history-holes.md)). | Une base reconstruite depuis le dépôt n'aurait pas ces objets : uploads refusés, cache de la base de contacts absent. | Rejeu réel (Docker local, gratuit, ou projet vide temporaire) ; puis une migration de rattrapage pour ces objets, lue depuis la prod. |
+| OPS-04 | P2 | Mesuré : 50 des 1 659 fonctions de la prod diffèrent du dépôt — 35 réécrites en place (21 par un bloc `DO` identifiable, 14 sans auteur : bloc `DO` générique comme S5, ou SQL joué à la main), 13 absentes du dépôt (9 de S11, 4 de branches jamais fusionnées : `claude/dashboard-perf-fullscreen-szl3ft`, `claude/nifty-cori-dcjxgd`), 2 restées à une version antérieure ([ops04-functions.md](ops04-functions.md)). | Une reconstruction depuis le dépôt réintroduirait l'ancien texte de ces 50 fonctions. | Référence générée, non appliquée : `supabase/reference/20261018_prod_functions_reference.sql` (hors `supabase/migrations`, validée au banc). Décision : la garder en secours, ou en faire une vraie migration marquée appliquée en prod. |
+| SEC-06 | P2 | Deux gardes du règlement promoteur ne sont pas ceux du dépôt, alors que `20260721090000` est marquée appliquée : la prod a reçu un brouillon de ce fichier. (1) `trg_guard_promoter_conversion_settlement` **n'existe pas** : owner, manager « promoteurs », organisateur et super admin modifient ou soldent une commission par un simple PATCH. (2) `guard_promoter_payout_write` est la version « drapeau » (`yuno.payout_rpc`, SECURITY DEFINER), que seules `dispute` et `auto_dispute` posent : `prepare`, `declare`, `confirm`, `cancel`, `resolve`, réécrites ensuite sans drapeau, sont refusées dès qu'un client les appelle. Prouvé au banc sur les définitions de la prod. Aucun lot réglé depuis le 28/07 ; les 15 commissions en attente au 18/10 sont au club démo (promoteurs d'agence), aucune chez un vrai client. | Billetterie, pas CRM : un club peut effacer une commission sans l'accord du promoteur, et le premier club ou organisateur qui voudra régler un promoteur ne le pourra pas. | **Correctif écrit, non appliqué** : `20261024100000_promoter_settlement_guards.sql` (gardes du dépôt, INVOKER, `is_direct_client_write()` ; toute écriture directe d'une commission refusée). Banc `sec06.mjs` 30 / 30 ([sec06-bench.md](sec06-bench.md)), smoke de répétition validé. Conséquence à trancher avant : SEC-08. |
+| LINK-01 | P2 | `crm_link_create` : l'expression `'^https://[^[:space:]]{1,480}$'` est refusée par Postgres (répétition > 255, erreur 2201B, vérifié en prod en lecture). Créer un lien de partage **avec sa capture** échoue toujours ; sans capture, ça passe. 0 lien avec capture en prod (aucun des 774 liens suivis, dont 15 liens de partage CRM). Aucun autre quantificateur > 255 dans les fonctions, contraintes, policies et domaines de la prod (`link01.mjs scan`). | Le pro ne peut pas joindre la photo de sa story. | **Correctif écrit, non appliqué** : `20261024100100_crm_link_create_image_regex.sql`, `~ '^https://[^[:space:]]+$' AND length(p_image_url) <= 488`. Banc `link01.mjs` 13 / 13, 0 écart sur 400 URL au hasard ([link01-bench.md](link01-bench.md)). |
+| SEC-07 | P2 | La policy « Promoters can update their own IBAN » (`auth.uid() = user_id`, toutes colonnes) laisse un promoteur modifier toute sa ligne `promoters` : taux de commission que lit `record_promoter_conversion`, dû, payé, rattachements. Prouvé au banc (O2). | Billetterie : un promoteur peut relever sa propre commission sur ses ventes suivantes, offrir 100 % de remise sur les billets et les acomptes de table du club, se rouvrir le scan de la porte, se rattacher à un autre club, et antidater `iban_changed_at` pour annuler le gel de 24 h. | **Correctif écrit, non appliqué** : `20261025200000_promoter_self_update_guard.sql` (garde INVOKER, `is_direct_client_write()`, premier trigger BEFORE UPDATE : le promoteur sans droit de gestion n'écrit plus que IBAN, BIC et profil). Banc `sec07.mjs` 35 / 35 dans quatre phases ([sec07-bench.md](sec07-bench.md)), smoke de répétition validé, indépendant de SEC-06. |
+| SEC-08 | P2 (décision) | Supprimer un promoteur (policy owner / manager) efface en cascade ses commissions dues. Le garde « drapeau » empêche aujourd'hui, par accident, la suppression d'un promoteur qui a un lot de règlement ; avec le correctif de SEC-06 (version du dépôt), elle passe et emporte les lots (banc O1). | Une dette envers un promoteur peut disparaître avec sa fiche. | Décision de Paul avant SEC-06 : accepter, ou refuser la suppression directe d'un promoteur tant qu'une commission est due ou qu'un lot est ouvert. |
+| SEC-09 | P2 | Le promoteur d'une vente n'est pas borné à la soirée. (1) `create-ticket-checkout` et `create-table-checkout` appliquent la remise et la commission du `promoterId` envoyé par le navigateur sans vérifier le club ni l'organisateur (seule la recherche par code l'était) ; le code est lu en `ilike` brut (« % » trouve le plus ancien promoteur de la soirée) et tout `promoCode` non vide ouvrait la prévente. (2) `record_promoter_conversion` (exécutable par `authenticated`) ne vérifie aucun périmètre : en service_role la garde est sautée, en client le promoteur lui-même passe pour n'importe quelle soirée, n'importe quel type, n'importe quel montant, sans vente. (3) La policy « Agency owner manages own promoters » ne regarde que l'agence : un chef d'agence crée ou déplace un promoteur dans n'importe quel club, alors que `invite-promoter` exige un contrat actif. Prouvé au banc sur les définitions de la prod. En prod au 18/10 : 0 des 138 commissions hors périmètre, 2 promoteurs d'agence, tous deux sous contrat actif. | Billetterie : un promoteur du club A fait payer sa remise au club B et y touche une commission ; un promoteur se crédite 10 000 € de commission par un appel RPC, que le club réglera au prochain lot une fois SEC-06 appliqué ; une agence installe chez un club un promoteur à 100 % de remise. | **Correctif écrit, non appliqué** (branche `crm/audit-sec09`) : checkouts bornés par `_shared/promoter-scope.ts` (id puis code, périmètre de la soirée, actif, sans joker, avant la prévente) ; `20261026100000_promoter_conversion_scope.sql` (client = tête de guest list scannée seulement ; tout appelant = promoteur partie de la soirée, sinon `out_of_scope`) ; `20261026100100_agency_promoter_contract_policy.sql` (création et changement de périmètre sous contrat actif). Banc `sec09.mjs` 41 / 41 dans cinq phases ([sec09-bench.md](sec09-bench.md)), smoke de répétition validé, `deno check` OK. À appliquer avec ou avant SEC-06. |
+| SEC-10 | P2 (décision) | Un chef d'agence règle les taux et les remises client de ses promoteurs (policy agence ; SEC-07 le compte parmi ceux qui gèrent la fiche). Prouvé au banc (A15). | Sous contrat actif, une agence peut poser 100 % de remise sur les billets et acomptes de table d'un club, payée par le club. | Décision de Paul : la remise d'un promoteur d'agence est fixée par le club seul, ou par l'agence dans une limite inscrite au contrat. |
+| DEP-01 | P2 | `@capacitor/ios` 8.4.1 : avis critique GHSA-rvm3-566m-v7fv (une page distante chargée à l'origine de l'app via `/_capacitor_http_interceptor_`). | Apps natives seulement ; exploitable par un lien touché dans la WebView. | 8.4.3 dans la prochaine version App Store des deux apps ([npm-audit.md](npm-audit.md)). |
+| DEP-02 | P3 | Web : `react-router-dom` 6.30.3 (redirection ouverte, corrigé en 6.30.6 ; la variante « \ » seulement en 7.18), `fflate` 0.8.2 (boucle sur un ZIP malformé importé par le pro) ; `AuthHandoff.tsx` et `src/crm/lib/errors.ts` n'écartent pas `/\` dans `redirect`. | Faible. | 6.30.6, 0.8.3, refus de `\` dans les deux filtres. |
 | DATA-08b | P3 | La projection de remplissage (« ≈ N acheteurs au total », `crm_night_targets`, `_crm_score_journal`, `crm_admin_analysis`) estime les nouveaux par `crm_night_profile.new_people`, qui compte depuis DATA-08 des nouveaux VENUS, alors qu'elle se règle sur les nouveaux ACHETEURS. | Sur un compte à entrées gratuites, la projection sous-estime ; la porte `_crm_projection_gate` (écart < 15 % sur 8 soirées) la garde fermée tant que c'est le cas : rien de faux n'est montré. | Une colonne « nouveaux acheteurs » (`new_buyers`) écrite par `_crm_an_write_nights` depuis `_anbought`, lue par les trois projections ; `new_people` reste le chiffre affiché « nouveaux venus ». |
 
 ## 6. Données : définitions et rapprochement
@@ -224,9 +232,14 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
   de droit, 9 lui rendent une réponse vide ou fausse, 10 rendent la même chose
   à A et à B mais ne sont que des clés ou des indicateurs sans donnée client
   (SEC-04), 30 refusent A comme B (fonctions super admin ou serveur, fonctions
-  de club appelées sans club). Aucune fuite d'une donnée de client. Limite : un
-  seul couple d'espaces organisateur ; les fonctions de club n'ont pas été jouées
-  avec un club.
+  de club appelées sans club). Aucune fuite d'une donnée de client. Rejoué le 18/10 après-midi avec un couple
+  d'espaces **club** (`venue:` A contre B, chacun propriétaire du sien) :
+  156 refusés, 9 silencieux, 8 « même réponse » (clés, booléens et plafonds, sans
+  donnée client), 33 non concluants (fonctions d'organisateur appelées sans
+  organisateur, super admin, serveur, et `crm_link_create`, cassée pour tous :
+  LINK-01) ([isolation-results-club.md](isolation-results-club.md)). Limite du
+  banc : pas de RLS sur les tables, donc les fonctions à droits de l'appelant ne
+  sont jugées que sur leur propre garde.
 - **Accès direct aux tables** : toutes les tables lisibles par `anon` ou
   `authenticated` ont la RLS, sauf des vues : celles qui portent des données
   sensibles sont en `security_invoker` (la RLS s'applique) ; `djs_public` est
@@ -266,14 +279,21 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
    `20261022140000` (moteur d'analyse, DATA-08 ; après `20261022100000`, dont
    elle lit les portes). Ses effets se lisent au calcul complet de la nuit
    (`crm-analysis-nightly`), ou tout de suite par `crm_analysis_compute(…, true)`
-   compte par compte, une écriture lourde à la fois. Pour chacune : répétition dans
-   une transaction annulée sur la prod, application avec sa ligne
-   `schema_migrations`, puis `supabase db lint --linked`. Pas de `NOTIFY pgrst`
-   nécessaire (aucune signature exposée ne change).
+   compte par compte, une écriture lourde à la fois.
+   Puis `20261024100000` (SEC-06, après la décision SEC-08), `20261024100100`
+   (LINK-01), `20261025200000` (SEC-07, renumérotée : la prod porte déjà
+   `20261025100000`, « partner_link_language ») et `20261026100000` +
+   `20261026100100` (SEC-09, avec ou avant SEC-06). Pour chacune : répétition
+   dans une transaction annulée sur la prod (SEC-06, LINK-01, SEC-07 et SEC-09
+   ont leur smoke : `scripts/crm-bench/smoke/sec06.sql`, `link01.sql`,
+   `sec07.sql`, `sec09.sql`), application avec sa ligne `schema_migrations`, puis
+   `supabase db lint --linked`. Pas de `NOTIFY pgrst` nécessaire (aucune
+   signature exposée ne change).
 3. Fonctions edge, depuis main à jour : `affiliate-ticket-sync`, `send-campaign`,
    `unsubscribe-newsletter`, `process-scheduled-campaigns`, `send-missed-you`,
    `send-next-event-recommendation`, `owner-assistant` (article d'aide des
-   connecteurs) (`supabase functions deploy --use-api`).
+   connecteurs), puis `create-ticket-checkout` et `create-table-checkout`
+   (SEC-09) (`supabase functions deploy --use-api`).
 4. Front (Cloudflare Workers Builds) après les fonctions.
 5. Contrôles après : RUNBOOK, « Après une mise en ligne ».
 6. Suite (§4 bis), après les étapes 2-5 : migrations `20261023100000` → `170000`
@@ -288,6 +308,7 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
    déploiement que les secrets.
 
 Retour arrière : les migrations sont réversibles par la définition précédente
-(lue en prod le 18/10) : `ROLLBACK.sql` (20261021…) et `ROLLBACK-data.sql`
-(20261022…, prouvé au banc par `audit-data.mjs`) ; les fonctions edge se
-redéploient depuis le commit précédent.
+(lue en prod le 18/10) : `ROLLBACK.sql` (20261021…, SEC-06, LINK-01, SEC-07,
+SEC-09), `ROLLBACK-data.sql` (20261022…, prouvé au banc par `audit-data.mjs`) et
+`ROLLBACK-suite.sql` (20261023…) ; les fonctions edge se redéploient depuis le
+commit précédent.

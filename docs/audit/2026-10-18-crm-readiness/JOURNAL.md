@@ -74,6 +74,90 @@ prouvé.
 | `node scripts/crm-bench/prod.mjs …` | lectures seules (connexion, passes, triggers, ACL, vues, crons, sauvegardes) |
 | `supabase secrets list` | noms et empreintes seulement (aucune valeur) : `RESEND_WEBHOOK_SECRET` posé, aucun secret Octopush |
 
+## Preuves d'exploitation (18/10, 14 h 15 → 14 h 45 heure de Paris)
+
+Session « preuves d'exploitation », worktree `blissful-faraday-d14300`, partie de
+`crm/readiness-audit`. Lectures prod une à la fois, chacune après
+`prod.mjs --activity` (rien d'autre que la réplication Realtime). Aucune écriture,
+aucune dépense, Docker non démarré. Charge du Mac : 7 à 13 (autres sessions) ; tous
+les tests de cette session sont légers (PGlite, `node`, < 3 s chacun).
+
+| Commande | Résultat |
+|---|---|
+| `node prod-functions-reference.mjs scan` | 1 229 versions appliquées, 1 659 fonctions (schémas `public`, `private`, `analytics_wh*`, hors extensions) |
+| `node prod-functions-reference.mjs report …` | **1 609 identiques**, 50 divergentes : 35 réécrites, 13 absentes du dépôt, 2 plus anciennes que le dépôt → [ops04-functions.md](ops04-functions.md) |
+| contrôle de la référence au banc (PGlite, instantané de la prod) | 49 / 50 blocs `CREATE OR REPLACE` + droits passent ; le 50ᵉ (`private.get_cron_secret`) échoue seulement faute du schéma `private` au banc |
+| `node isolation.mjs run --club …` | couple de CLUBS : 156 refusés, 9 silencieux, 8 « même réponse » (clés et booléens sans donnée client), 33 non concluants → [isolation-results-club.md](isolation-results-club.md) |
+| `node isolation.mjs run …` (fixture enrichie : e-mail pratique, import, segment club) | couple d'ORGANISATEURS : 158 refusés, 9 silencieux, 9 « même réponse », 30 non concluants (avant : 157 / 9 / 10 / 30 ; `crm_practical_email_check` est passé de « même réponse » à « refusé » une fois testé sur une vraie campagne pratique) |
+| `node history-holes.mjs scan` puis `report` | objets de la prod qu'aucun fichier du dépôt ne crée : 4 tables, 12 triggers, 6 policies, 11 crons (création dynamique) → [ops03-history-holes.md](ops03-history-holes.md) |
+| `npm audit --omit=dev --json` | 22 paquets signalés ; 4 partent chez l'utilisateur (1 critique natif, 3 modérés web) → [npm-audit.md](npm-audit.md) |
+| prod, lecture : `SELECT 'https://…' ~ '^https://[^[:space:]]{1,480}$'` | **erreur 2201B** : l'expression de `crm_link_create` est refusée par Postgres (répétition > 255) → LINK-01 |
+| prod, lecture : triggers de `promoter_conversions` | `trg_guard_promoter_conversion_settlement` **absent** (migration `20260721090000` pourtant marquée appliquée) → SEC-06 |
+| prod, lecture : crons | 64 actifs, 16 appellent une fonction edge par son URL ; aucun ne vise l'ancien projet Lovable |
+
+## Correctifs SEC-06 et LINK-01 (18/10, fin d'après-midi)
+
+Session « correctifs SEC-06 / LINK-01 », branche `crm/audit-sec06-link01` (partie de
+`claude/blissful-faraday-d14300`). Lectures prod une à la fois après
+`prod.mjs --activity` ; rien d'appliqué ni de répété sur la prod. Tests au banc
+(PGlite, < 3 s chacun).
+
+| Commande | Résultat |
+|---|---|
+| prod, lecture : définitions du cycle (`pg_get_functiondef`), triggers, policies, droits | `guard_promoter_payout_write` = brouillon « drapeau » (DEFINER, `yuno.payout_rpc`), posé seulement par `dispute` et `auto_dispute` ; `prepare` / `declare` / `cancel` / `resolve` = `20261005212000`, `confirm` = `20260803140000` (sans drapeau) ; `is_direct_client_write()` présente (PUBLIC) ; aucun chemin client n'écrit `promoter_conversions` (front, edge : lectures) |
+| prod, lecture : lots et commissions | 9 lots, tous payés, le dernier le 28/07 ; 15 commissions en attente, toutes au club démo (promoteurs d'agence), 0 chez un vrai client |
+| `node scripts/crm-bench/sec06.mjs dump` puis `run` | **30 / 30** : avant, PATCH direct d'une commission accepté (owner, manager, organisateur, super admin) et cycle refusé à chaque étape ; après `20261024100000`, l'inverse, porte / remboursement / service_role / cron inchangés → [sec06-bench.md](sec06-bench.md) ; smoke `smoke/sec06.sql` SMOKE_OK au banc |
+| `node scripts/crm-bench/link01.mjs scan` | 5 fonctions avec un quantificateur à 3 chiffres, 1 seule au-delà de 255 (`crm_link_create`) ; aucune contrainte, policy ni domaine |
+| `node scripts/crm-bench/link01.mjs dump` puis `run` | **13 / 13** cas, 0 écart sur 400 URL au hasard → [link01-bench.md](link01-bench.md) ; smoke `smoke/link01.sql` SMOKE_OK au banc |
+| ROLLBACK.sql blocs 4 et 5, au banc | remettent l'état de la prod (garde DEFINER à drapeau, pas de garde des commissions, `{1,480}`) |
+| les deux migrations sur le schéma du banc d'analyse (`schema/base.sql`) | s'appliquent : `scenarios.mjs`, qui rejoue toutes les migrations ≥ 20261016100000, ne casse pas |
+| prod, lecture : `promoters` | la policy « Promoters can update their own IBAN » ouvre toute la ligne au promoteur (droit UPDATE sur chaque colonne) → SEC-07 |
+
+Ce qui reste bloqué, et pourquoi :
+- **OPS-02** (restauration testée) : « Restore to a new project » crée un projet
+  facturé (≈ 0,0134 $ / h) et n'existe qu'au tableau de bord ; procédure prête
+  (RUNBOOK §4.1, crons à couper dans la copie). Attend l'accord de Paul.
+- **OPS-03** (rejeu des 1 231 migrations) : Docker arrêté ; la partie gratuite
+  (trous de l'historique) est faite. Attend : Docker démarré par Paul, ou un projet
+  vide temporaire (même coût horaire).
+
+## Correctif SEC-07 (18/10, soir)
+
+Session « SEC-07 », branche `crm/audit-sec07` (partie de `crm/audit-sec06-link01`).
+Lectures prod une à la fois après `prod.mjs --activity` ; rien d'appliqué ni de
+répété sur la prod. Tests au banc (PGlite, < 4 s).
+
+| Commande | Résultat |
+|---|---|
+| lecture du front et des fonctions edge : écritures sur `promoters` | le promoteur écrit `iban`, `bic` (dialogue IBAN), `instagram_url`, `whatsapp_number`, `promo_code` (régénéré du nom), `profile_image_url` (`PromoterProfileTab`, `PromoterProfilePage`) ; prénom et nom vont dans `profiles` ; les autres écritures sont celles d'owners, d'agences, du super admin (Console) ou en service_role (invitations) |
+| prod, lecture : policies, triggers, droits et écrivains de `promoters` | deux policies UPDATE ouvertes au promoteur (« Promoters can update their own IBAN », « Promoter can update own organizer profile »), `authenticated` a UPDATE sur les 50 colonnes ; 5 triggers BEFORE (code promo, gel IBAN, accès assisté, groupe d'agence, `updated_at`) ; les 8 fonctions qui écrivent la table sont SECURITY DEFINER de `postgres` ; 4 fiches en prod |
+| lecture des checkouts | `create-ticket-checkout` / `create-table-checkout` lisent `ticket_` / `table_discount_*` du promoteur : la remise qu'il se pose est payée par le club ; `prepare_promoter_payout` lit `iban_changed_at` pour le gel de 24 h |
+| `same-as-prod.mjs is_direct_client_write guard_promoter_self_update` | `is_direct_client_write` identique à la prod ; le garde est nouveau |
+| `node scripts/crm-bench/sec06.mjs dump` puis `sec07.mjs run` | **35 / 35** dans quatre phases : avant, le promoteur relève ses taux, se pose 100 % de remise, s'ouvre la porte, change de club, réécrit son dû et antidate son gel IBAN (avec SEC-06 seul, le lot part vers l'IBAN de la veille) ; après `20261025200000`, tout refusé, IBAN / BIC / profil acceptés et gel posé, owners, managers, organisateurs, admins d'équipe, chefs d'agence, super admin, RPC, service_role et cascades inchangés → [sec07-bench.md](sec07-bench.md) ; smoke `smoke/sec07.sql` SMOKE_OK au banc (SEC-07 seul et avec SEC-06) |
+| `sec06.mjs run` après l'ajout | toujours **30 / 30** (O2 renvoie à SEC-07) |
+| ROLLBACK.sql bloc 6, au banc ; migration appliquée deux fois | retire le garde et son trigger, les 5 triggers de la prod restent ; migration idempotente |
+| lecture en passant | candidat SEC-09 (BACKLOG 16i) : le `promoterId` envoyé aux checkouts n'est pas borné à la soirée |
+
+## Correctif SEC-09 (18/10, nuit)
+
+Session « SEC-09 », branche `crm/audit-sec09` (partie de `crm/audit-sec07`).
+Lectures prod une à la fois après `prod.mjs --activity` ; rien d'appliqué ni de
+répété sur la prod, aucune fonction déployée. Tests au banc (PGlite, < 10 s).
+
+| Commande | Résultat |
+|---|---|
+| prod, lecture : `record_promoter_conversion` | SECURITY DEFINER, EXECUTE à `authenticated` et `service_role` ; aucune vérification promoteur ↔ soirée ; en service_role (checkouts, verify-*) la garde est sautée ; en client, le promoteur passe pour toute soirée, tout type, tout montant ; seuls index uniques : billet, table, commande, entrée de guest list (un appel sans référence ne heurte rien) |
+| `same-as-prod.mjs --before 20261026100000 record_promoter_conversion` | prod = `20260830180000_promoter_conversion_door_staff.sql` : la migration part de cette définition |
+| prod, lecture : appelants | front : `PromoterScanTab`, `OrgAppCheckin` (guest list, doublons du trigger) ; SQL : `record_guest_entry_promoter_conversion` (trigger AFTER UPDATE OF entry_scanned) ; edge : checkouts et `verify-*-payment` en service_role |
+| prod, lecture : policies de `promoters`, `agency_venue_contracts`, `invite-promoter` | « Agency owner manages own promoters » ALL sans `venue_id` ; 1 contrat d'agence (actif, club démo) ; `invite-promoter` refuse déjà `no_active_contract` ; les fiches d'agence naissent en service_role (`accept-promoter-invitation`) |
+| prod, lecture : données | 4 promoteurs (2 d'agence, sous contrat actif) ; 0 des 138 commissions hors périmètre (`event_parties`) ; 60 des 97 inscriptions de guest list rattachées à un promoteur hors périmètre : semis démo de juin-juillet (« Yuno Boat Party Seine », « Yuno Summer Closing »), jamais scannés ; tous les codes promoteur alphanumériques |
+| prod, lecture : `schema_migrations` | **`20261025200000` déjà prise** par « partner_link_language » (liens partenaires) : SEC-07 est à renuméroter (BACKLOG 16h), session de mise en ligne prévenue ; SEC-09 prend `20261026100000` / `100100` (libres en prod et sur toutes les branches) |
+| `npx vitest run src/lib/__tests__/promoterScope.test.ts` | 25 / 25 (périmètre, id, code sans joker) |
+| `node scripts/crm-bench/sec09.mjs dump` puis `run` | **41 / 41** dans cinq phases (prod, SEC-09, SEC-07 + SEC-09, SEC-09 puis ROLLBACK bloc 7, SEC-09 deux fois) → [sec09-bench.md](sec09-bench.md). Avant : l'id du promoteur du club A donne 50 % de remise sur la soirée du club B, « % » trouve un promoteur, la commission du club A s'écrit sur un billet du club B, un promoteur se crédite 10 € ×3 sans vente puis 500 € de table, l'owner du club B crédite un promoteur du club A, une agence crée ou déplace un promoteur hors contrat. Après : tout refusé ou `out_of_scope` ; porte (trigger), doublon du front, co-soirée, co-hôte accepté, organisateur sans club, agence sous contrat (y compris contrat en pause, périmètre inchangé), owner, super admin et service_role inchangés ; smoke `smoke/sec09.sql` SMOKE_OK au banc (SEC-09, SEC-07 + SEC-09, deux fois) |
+| `python3 scripts/deno-check-edge.py create-ticket-checkout create-table-checkout` | 2 / 2 OK |
+| `npx eslint` des fichiers touchés | 0 erreur |
+| lecture en passant | SEC-10 (BACKLOG 16j, décision) : un chef d'agence pose la remise client de ses promoteurs (100 % prouvé au banc, A15) ; les promoteurs d'un co-hôte ne sont pas reconnus par le code au checkout (périmètre des checkouts = 4 parties, la base accepte aussi les co-hôtes) |
+
 ## Ce que cet audit n'a pas pu faire
 
 - Appeler l'API publique de la prod ou jouer une RPC en tant qu'un compte réel :

@@ -68,7 +68,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 
 | Contrôle | Statut |
 |---|---|
-| A ne lit pas B par les fonctions CRM (206 fonctions) | réussi — `isolation.mjs` |
+| A ne lit pas B par les fonctions CRM (206 fonctions) | réussi — `isolation.mjs` ; couple d'organisateurs 158 refusés / 9 silencieux / 9 même réponse sans donnée client / 30 non concluants ; **couple de clubs** (18/10 après-midi) 156 / 9 / 8 / 33 ([isolation-results-club.md](isolation-results-club.md)) |
 | Fonctions à droits du propriétaire ouvertes à `anon` sans garde | échoué → **corrigé** (SEC-01 P0, SEC-02) |
 | Tables / vues lisibles sans RLS | échoué → **corrigé** (SEC-03) ; le reste en `security_invoker` |
 | Gel d'envoi | échoué → **corrigé** (MAIL-05) |
@@ -76,8 +76,11 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Jeton Shotgun : stockage, accès, remplacement, révocation | réussi |
 | Secrets côté navigateur | réussi (clé anon seulement) |
 | Sessions, invitations, récupération, routes admin | non exécuté ici (audits antérieurs, CLAUDE.md) |
-| Dépendances exposées | non exécuté (`npm audit` non lancé, pas de mise à jour aveugle) |
+| Dépendances exposées | **échoué, ouvert** ([npm-audit.md](npm-audit.md)) : `@capacitor/ios` 8.4.1 critique dans les apps natives (DEP-01, corrigé en 8.4.3, version App Store) ; web : `react-router-dom` 6.30.3, `fflate` 0.8.2 modérés (DEP-02) ; 16 paquets signalés ne sont que des outils de build |
 | Injection CSV | échoué, ouvert (SEC-05, P3) |
+| Règlement promoteur : une commission ne se solde que par l'accusé du promoteur (Billetterie) | échoué en prod (SEC-06 : owner, manager, organisateur, super admin soldent ou modifient une commission par un PATCH ; et le garde des lots, version « drapeau », bloque `prepare` / `declare` / `confirm` / `cancel` / `resolve`) → **corrigé au banc, pas en prod** : `20261024100000`, 30 / 30 scénarios avant / après sur les définitions de la prod ([sec06-bench.md](sec06-bench.md)) ; ouvert : SEC-08 (suppression d'un promoteur, décision) |
+| Un promoteur n'écrit que ses coordonnées dans sa fiche `promoters` (Billetterie) | échoué en prod (SEC-07 : taux de commission, remises client jusqu'à 100 % payées par le club, scan de la porte, réactivation, rattachement à un autre club, dû et payé, `iban_changed_at` antidaté qui annule le gel de 24 h) → **corrigé au banc, pas en prod** : `20261025200000`, 35 / 35 scénarios dans quatre phases (prod, SEC-06 seul, SEC-07 seul, les deux) sur les définitions de la prod ([sec07-bench.md](sec07-bench.md)) ; IBAN, BIC et profil toujours modifiables, owners / managers / organisateurs / agences / super admin inchangés |
+| Le promoteur d'une vente appartient à la soirée, et seule une vente vérifiée par le serveur crée une commission (Billetterie) | échoué en prod (SEC-09 : l'id de promoteur envoyé au checkout n'est pas borné à la soirée, un code « % » trouve le plus ancien promoteur et ouvre la prévente, `record_promoter_conversion` ne vérifie aucun périmètre et un promoteur s'y crédite une commission de billet du montant de son choix ; un chef d'agence place un promoteur dans n'importe quel club) → **corrigé au banc, pas en prod** : `20261026100000` + `20261026100100` + `create-ticket-checkout` / `create-table-checkout` (`_shared/promoter-scope.ts`), 41 / 41 scénarios dans cinq phases (prod, SEC-09, SEC-07 + SEC-09, retour arrière, appliquée deux fois) ([sec09-bench.md](sec09-bench.md)) ; porte, guest list, co-soirée, co-hôte, organisateur sans club, agence sous contrat inchangés ; ouvert : SEC-10 (remise d'un promoteur d'agence, décision) |
 
 ## E. Envois
 
@@ -107,6 +110,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Contacts, recherche, filtres, segments, indicateurs, exports | relecture : états d'erreur manquants (UI-04, P2) |
 | Préparation d'une campagne | relecture : réussi ; étape Audience sans état d'erreur (UI-04) |
 | Rendu à l'écran (compte démo, 1440 px) | réussi : Accueil et Connecteurs, aucune erreur console |
+| Lien de partage avec la capture de sa story | échoué en prod (LINK-01 : erreur 2201B dès qu'une capture est jointe) → **corrigé au banc, pas en prod** : `20261024100100`, 13 / 13 cas, 0 écart sur 400 URL tirées au hasard ([link01-bench.md](link01-bench.md)) |
 | Formats d'écran, clavier | partiel (P3, BACKLOG) |
 
 ## G. Exploitation
@@ -115,8 +119,10 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 |---|---|
 | Tâches sans onglet ouvert | réussi (crons, chaîne de relance de la fonction) |
 | Journal, alertes | réussi |
-| Sauvegardes | réussi (quotidiennes, 9 gardées) ; **restauration non testée** ; pas de PITR (OPS-02) |
-| Migrations sur base vierge | **non exécuté** (Docker arrêté ; OPS-03) |
-| Prod = dépôt | échoué (OPS-04, OPS-05) |
+| Sauvegardes | réussi (quotidiennes, 9 gardées) ; pas de PITR (OPS-02) |
+| Restauration testée | **bloqué** : « Restore to a new project » = projet facturé (≈ 0,0134 $ / h), bouton du tableau de bord ; procédure prête (RUNBOOK §4.1), dont la coupure des 64 crons dans la copie (16 appellent la prod) ; attend l'accord de Paul |
+| Migrations sur base vierge | rejeu **bloqué** (Docker arrêté ; projet vide = dépense à faire approuver) ; relevé statique **réussi** : 4 tables, 12 triggers, 6 policies (5 du Storage), 11 crons de la prod sans création dans le dépôt ([ops03-history-holes.md](ops03-history-holes.md)) |
+| Prod = dépôt (fonctions) | échoué, **mesuré** : 1 609 / 1 659 identiques, 50 divergentes (35 réécrites en place, 13 absentes du dépôt, 2 plus anciennes) ; migration de référence générée depuis `pg_get_functiondef`, 49 / 50 blocs validés au banc ([ops04-functions.md](ops04-functions.md), `supabase/reference/20261018_prod_functions_reference.sql`) |
+| Prod = dépôt (autres objets) | échoué : trigger `trg_guard_promoter_conversion_settlement` absent de la prod et `guard_promoter_payout_write` resté à un brouillon de `20260721090000` (SEC-06, migration `20261024100000` écrite, à appliquer) ; S11 hors main (OPS-05) |
 | CI | échoué → **corrigé** (OPS-01, active une fois fusionnée) |
 | Performance | réussi selon S4 (17-18/10) ; non remesuré |

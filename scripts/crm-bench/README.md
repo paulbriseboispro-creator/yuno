@@ -84,6 +84,39 @@ node prod.mjs -f requete.sql
 Chaque requête part dans une transaction `READ ONLY` (une écriture lève une
 erreur). Jeton : `SUPABASE_ACCESS_TOKEN` de `.env.local`, jamais affiché.
 
+La prod est-elle le dépôt ? (lecture seule, quelques secondes)
+
+```bash
+node prod-functions-reference.mjs scan      # toutes les fonctions applicatives de la prod
+node prod-functions-reference.mjs list      # identiques / réécrites / absentes / plus anciennes, d'où vient le texte
+node prod-functions-reference.mjs report ../../docs/audit/…/ops04-functions.md ../../supabase/reference/<date>_prod_functions_reference.sql
+node history-holes.mjs scan && node history-holes.mjs report <md>   # tables, triggers, policies, crons sans création dans le dépôt
+node isolation.mjs run --club <md>          # séparation entre deux espaces CLUB (sans --club : deux organisateurs)
+```
+
+La référence générée vit hors de `supabase/migrations` : `db push` ne la joue
+jamais. La rejouer après de nouvelles migrations annulerait celles-ci.
+
+## Correctifs de l'audit du 18/10 : avant / après sur les définitions de la prod
+
+```bash
+node sec06.mjs dump && node sec06.mjs run <md>    # gardes du règlement promoteur (20261024100000)
+node sec07.mjs run <md>                           # colonnes qu'un promoteur écrit dans sa fiche (20261025200000), après sec06 dump
+node link01.mjs scan                              # tout quantificateur {n,m} > 255 de la prod
+node link01.mjs dump && node link01.mjs run <md>  # capture d'une story sur un lien (20261024100100)
+node sec09.mjs dump && node sec09.mjs run <md>    # promoteur d'une vente et promoteurs d'agence (20261026100000 + 100100, checkouts)
+```
+
+`dump` prend un instantané de la prod (dump-base.mjs en mode instantané, plus
+policies, triggers, contraintes et droits des fonctions pour SEC-06) ; `run`
+joue chaque scénario sous l'identité de l'API, AVANT puis APRÈS la migration,
+puis le smoke de répétition (`smoke/sec06.sql`, `smoke/link01.sql`,
+`smoke/sec07.sql`, `smoke/sec09.sql`) qui servira
+à `rehearse.mjs` sur la prod. PGlite ne rend pas la session d'origine après un
+`RESET SESSION AUTHORIZATION` ni au `ROLLBACK` : ces scripts changent
+d'identité par `SET LOCAL` seulement et repassent par `SET SESSION AUTHORIZATION
+postgres` entre deux scénarios.
+
 ## Mettre en ligne (jamais par ces scripts)
 
 1. Vérifier que la prod = le dépôt pour chaque fonction réécrite : lire

@@ -24,6 +24,7 @@ import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPa
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -552,48 +553,59 @@ serve(async (req) => {
       serverDeposit = serverTotalPrice; // Full payment if no deposit configured
     }
 
-    // Résolution du promoteur à partir de son CODE, comme create-ticket-checkout.
-    // Elle manquait totalement ici : la fonction n'acceptait qu'un promoterId, que
-    // le client ne peut pas fournir (la table promoters lui est fermée par RLS).
-    // Aucune vente de table n'était donc jamais attribuée. Le périmètre couvre le
-    // club hôte, le club partenaire, l'organisateur et l'organisateur partenaire.
-    let promoterId: string | null = rawPromoterId || null;
-    if (!promoterId && promoCode) {
-      const scopeOr: string[] = [];
-      if (event.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
-      if (event.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
-      if (event.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
-      if (event.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
-      if (scopeOr.length > 0) {
-        const { data: byCode, error: byCodeErr } = await supabaseAdmin
-          .from("promoters")
-          .select("id")
-          .or(scopeOr.join(","))
-          .ilike("promo_code", String(promoCode).trim())
-          .eq("is_active", true)
-          .limit(1);
-        if (byCodeErr) logStep("Promoter lookup by code failed", { error: byCodeErr.message });
-        promoterId = byCode?.[0]?.id ?? null;
-        logStep("Promoter resolved by code", { promoCode, promoterId });
-      }
-    }
-
-    // Validate promoter discount from database if provided
-    let validatedDiscount = 0;
-    if (promoterId && promoCode) {
-      const { data: promoter } = await supabaseAdmin
+    // Promoteur de la réservation : par l'id que le navigateur a mémorisé, sinon
+    // par son code, TOUJOURS dans le périmètre de la soirée (club hôte, club
+    // partenaire, organisateur, organisateur partenaire) et actif, comme
+    // create-ticket-checkout. L'id reçu n'était pas borné : un promoteur du
+    // club A donnait sa remise et touchait sa commission sur une table du
+    // club B (SEC-09, audit du 18/10). Le code est lu sans joker (`%`, `*`).
+    type CheckoutPromoter = {
+      id: string;
+      promo_code: string | null;
+      table_discount_type: string | null;
+      table_discount_value: number | null;
+    };
+    let checkoutPromoter: CheckoutPromoter | null = null;
+    const promoterScope = promoterScopeOr(event);
+    const promoterIdRef = promoterIdHint(rawPromoterId);
+    const promoterCodeRef = promoterCodePattern(promoCode);
+    if (promoterScope.length > 0 && promoterIdRef) {
+      const { data: byId, error: byIdErr } = await supabaseAdmin
         .from("promoters")
-        .select("table_discount_type, table_discount_value, is_active")
-        .eq("id", promoterId)
+        .select("id, promo_code, table_discount_type, table_discount_value")
+        .eq("id", promoterIdRef)
+        .or(promoterScope.join(","))
         .eq("is_active", true)
-        .maybeSingle();
+        .limit(1)
+        .returns<CheckoutPromoter[]>();
+      if (byIdErr) logStep("Promoter lookup by id failed", { error: byIdErr.message });
+      checkoutPromoter = byId?.[0] ?? null;
+      if (!checkoutPromoter) logStep("Promoter id ignored (outside the event scope or inactive)", { promoterId: promoterIdRef });
+    }
+    if (!checkoutPromoter && promoterScope.length > 0 && promoterCodeRef) {
+      const { data: byCode, error: byCodeErr } = await supabaseAdmin
+        .from("promoters")
+        .select("id, promo_code, table_discount_type, table_discount_value")
+        .or(promoterScope.join(","))
+        .ilike("promo_code", promoterCodeRef)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .returns<CheckoutPromoter[]>();
+      if (byCodeErr) logStep("Promoter lookup by code failed", { error: byCodeErr.message });
+      checkoutPromoter = byCode?.[0] ?? null;
+    }
+    const promoterId: string | null = checkoutPromoter?.id ?? null;
+    logStep("Promoter resolved", { promoterId, originalPromoterId: rawPromoterId ?? null, promoCode });
 
-      if (promoter) {
-        if (promoter.table_discount_type === 'percentage' && promoter.table_discount_value) {
-          validatedDiscount = Math.round(serverDeposit * (promoter.table_discount_value / 100) * 100) / 100;
-        } else if (promoter.table_discount_type === 'fixed' && promoter.table_discount_value) {
-          validatedDiscount = Math.min(promoter.table_discount_value, serverDeposit);
-        }
+    // Remise du promoteur : sur l'acompte, quand le lien porte un code (comme
+    // avant ; un id seul attribue la vente sans remise).
+    let validatedDiscount = 0;
+    if (checkoutPromoter && promoCode) {
+      if (checkoutPromoter.table_discount_type === 'percentage' && checkoutPromoter.table_discount_value) {
+        validatedDiscount = Math.round(serverDeposit * (checkoutPromoter.table_discount_value / 100) * 100) / 100;
+      } else if (checkoutPromoter.table_discount_type === 'fixed' && checkoutPromoter.table_discount_value) {
+        validatedDiscount = Math.min(checkoutPromoter.table_discount_value, serverDeposit);
       }
     }
 
@@ -1299,7 +1311,7 @@ serve(async (req) => {
       cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx) },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: checkoutPromoter?.promo_code || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx) },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;
