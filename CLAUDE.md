@@ -3716,6 +3716,15 @@ onglet « Partenaires » des liens d'une soirée (`TrackedLinksManager` →
   partenaire jamais rendu, CA seulement si `partner_shows_revenue`. Fermée 7 jours
   après la fin de la soirée. `/stats/` est dans `LINKTREE_PREFIXES` (aucune étape
   d'accueil).
+- **La page parle la langue choisie par le pro** (`partner_language` en / fr /
+  es, migration `20261025100000`, décision de Paul du 18/10), jamais celle du
+  téléphone du visiteur. Choisie à la création (la dernière choisie sur
+  l'appareil est reprise), modifiable ensuite ; le message d'envoi WhatsApp /
+  email suit la même langue. Le trigger pose `en` à un client qui ne l'envoie
+  pas ; les liens créés avant sont en anglais. Les mots de la page et du
+  message vivent dans `src/lib/partnerLinkWords.ts` (triplets [EN, FR, ES],
+  testés), PAS dans le dictionnaire de l'interface : la page ne charge jamais
+  un second dictionnaire.
 - Un lien partenaire ne verse AUCUNE commission : il compte. Le promoteur
   régulier avec commissions reste l'espace Promoteurs.
 
