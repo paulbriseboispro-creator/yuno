@@ -656,6 +656,12 @@ export interface RenderCtx {
    */
   logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
+  /**
+   * E-mail PRATIQUE aux détenteurs d'une soirée (Yuno CRM) : le titre de la
+   * soirée. La carte Soirée n'y porte ni prix ni bouton d'achat, et le pied de
+   * page dit pourquoi la personne le reçoit sans être inscrite (miroir Deno).
+   */
+  practicalFor?: string | null;
   /** Langue de l'e-mail (pied de page, balises). Absent = français. */
   language?: EmailLanguage | null;
   subject: string;
@@ -725,6 +731,11 @@ export interface StudioCampaign {
   id: string;
   name: string;
   type: 'promotional' | 'informational';
+  /**
+   * Yuno CRM : e-mail PRATIQUE aux détenteurs d'un billet de `eventId`
+   * (lecture seule, posé à la création ; garde serveur guard_crm_practical_email).
+   */
+  practical?: boolean;
   status: string;
   subject: string;
   subjectB: string;

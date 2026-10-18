@@ -28,6 +28,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'cost', c: 'yunits', to: CRM_ROUTES.yunits },
   // Rien ne part sans l'identité de l'expéditeur (Réglages › Envoi).
   { id: 'sender', c: 'start', to: CRM_ROUTES.emailSettings },
+  // E-mail pratique aux détenteurs d'une soirée, sans accord marketing (20261019150000).
+  { id: 'practical', c: 'start', to: CRM_ROUTES.nights },
   { id: 'order', c: 'yunits', to: CRM_ROUTES.yunits },
   { id: 'skip', c: 'yunits' },
   { id: 'regular', c: 'clients', to: CRM_ROUTES.clients },

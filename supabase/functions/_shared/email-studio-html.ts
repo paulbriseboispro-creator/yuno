@@ -128,6 +128,8 @@ export interface StudioRenderCtx {
   /** Logo du compte expéditeur — repli du bloc header (voir render.ts). */
   logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
+  /** E-mail pratique aux détenteurs d'une soirée (Yuno CRM) : son titre. Miroir de render.ts. */
+  practicalFor?: string | null;
   /** Langue de l'e-mail (pied de page, balises). Absent = français. */
   language?: SmartLang | string | null;
   subject: string;
@@ -298,7 +300,8 @@ function poweredBy(theme: StudioTheme, ctx: StudioRenderCtx): string {
   if (ctx.hideBranding) return '';
   // Sur la SOIRÉE de la campagne quand il y en a une (miroir de render.ts) :
   // le pied de page n'envoie plus les lecteurs du pro sur l'accueil Yuno.
-  const firstLive = ctx.live ? Object.values(ctx.live)[0] : undefined;
+  // E-mail pratique : jamais la page de vente de la soirée (miroir de render.ts).
+  const firstLive = ctx.live && !ctx.practicalFor ? Object.values(ctx.live)[0] : undefined;
   const href = firstLive?.trackedUrl || firstLive?.url || 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
   return `<a href="${href}" target="_blank" rel="noreferrer" style="display:inline-block;margin:18px 0 0;text-decoration:none;">
       <span style="display:block;font-family:${MONO};font-size:9.5px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;color:${theme.footerText};">POWERED BY</span>
@@ -950,7 +953,8 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const items: EventMetaItem[] = [];
       if (dateLabel) items.push({ k: W.metaDate, v: dateLabel });
       if (b.venue !== false && venueLabel) items.push({ k: W.metaVenue, v: venueLabel });
-      if (b.price && priceLabel) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
+      // E-mail pratique : la soirée que la personne tient déjà, jamais un tarif.
+      if (b.price && priceLabel && !ctx.practicalFor) items.push({ k: W.metaPrice, v: priceLabel, strong: true });
 
       // Le bandeau est une relance de trois lignes : sa fiche tient sur une
       // ligne, quoi qu'ait choisi le pro. En côte à côte, la demi-colonne ne
@@ -969,7 +973,8 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         perks: (b.perks as string[]) || [],
         extraHtml: useRows ? '' : renderEventMetaFlow(items, theme, c.inkOnCard, align, display === 'inline'),
         rowsHtml: useRows ? renderEventMetaRows(items, theme, c.inkOnRows) : '',
-        btn: buttonHtml({
+        // E-mail pratique : aucun bouton d'achat (miroir de render.ts).
+        btn: ctx.practicalFor ? '' : buttonHtml({
           href: url, label: localizeDefaultLabel(b.ctaLabel as string, ctx.language) || W.eventCta,
           bg: btnColors.bg, color: btnColors.color, radius: 10,
           full: (b.full as boolean | undefined) ?? (layout !== 'minimal'), ctx,
@@ -1178,16 +1183,17 @@ function footerSigner(ctx: Pick<StudioRenderCtx, 'legalName' | 'venueName'>): st
 
 /** Miroir EXACT de FOOTER_WORDS (render.ts) : mentions légales dans la langue de l'e-mail. */
 const FOOTER_WORDS = {
-  fr: { promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
-  en: { promo: 'you subscribed to its newsletter', info: 'you bought a ticket', sent: (e: string, r: string) => `This email was sent to ${e} because ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. All rights reserved.`, unsub: 'Unsubscribe' },
-  es: { promo: 'te suscribiste a su newsletter', info: 'compraste una entrada', sent: (e: string, r: string) => `Este email se ha enviado a ${e} porque ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Todos los derechos reservados.`, unsub: 'Darse de baja' },
+  fr: { promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', practical: (t: string) => `vous avez un billet pour « ${t} ». C'est un e-mail pratique sur cette soirée, sans publicité`, sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
+  en: { promo: 'you subscribed to its newsletter', info: 'you bought a ticket', practical: (t: string) => `you hold a ticket for “${t}”. This is a practical email about that night, with no advertising`, sent: (e: string, r: string) => `This email was sent to ${e} because ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. All rights reserved.`, unsub: 'Unsubscribe' },
+  es: { promo: 'te suscribiste a su newsletter', info: 'compraste una entrada', practical: (t: string) => `tienes una entrada para «${t}». Es un email práctico sobre ese evento, sin publicidad`, sent: (e: string, r: string) => `Este email se ha enviado a ${e} porque ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Todos los derechos reservados.`, unsub: 'Darse de baja' },
 } as const;
 
 function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
   const w = FOOTER_WORDS[smartLang(ctx.language)];
-  const reason = ctx.emailType === 'promotional' ? w.promo : w.info;
-  const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
+  const reason = ctx.practicalFor ? w.practical(esc(ctx.practicalFor))
+    : ctx.emailType === 'promotional' ? w.promo : w.info;
+  const unsub = ctx.emailType === 'promotional' && !ctx.practicalFor && ctx.unsubscribeUrl
     // Miroir de render.ts : lien lisible sur le fond du pied de page.
     ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${esc(ctx.unsubscribeUrl)}" style="color:${isHexColor(theme.footerBg) && isHexColor(theme.accent) ? readableOn(theme.accent, theme.footerBg) : theme.accent};text-decoration:underline;">${w.unsub}</a></p>`
     : '';

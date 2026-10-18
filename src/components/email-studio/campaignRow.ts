@@ -13,6 +13,8 @@ export interface CampaignRow {
   id: string;
   name: string;
   type: string;
+  /** Yuno CRM : e-mail pratique aux détenteurs de la soirée (jamais réécrit par le Studio). */
+  practical?: boolean | null;
   status: string;
   subject: string;
   subject_b: string | null;
@@ -81,6 +83,7 @@ export function rowToCampaign(row: CampaignRow, venueName: string): StudioCampai
     id: row.id,
     name: row.name,
     type: row.type === 'informational' ? 'informational' : 'promotional',
+    practical: !!row.practical,
     status: row.status,
     subject: row.subject === '—' ? '' : row.subject || '',
     subjectB: row.subject_b || '',

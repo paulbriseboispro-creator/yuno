@@ -185,6 +185,32 @@ function chainNextSlice(campaignId: string) {
   if (rt?.waitUntil) rt.waitUntil(p);
 }
 
+/** Blocs qu'un e-mail pratique peut porter (miroir de _crm_practical_content_issues). */
+const PRACTICAL_BLOCK_TYPES = new Set([
+  'header', 'text', 'image', 'cta', 'columns', 'event', 'countdown', 'lineup', 'social', 'divider', 'spacer',
+]);
+
+interface PracticalCheck {
+  practical?: boolean;
+  ok?: boolean;
+  issues?: { code: string }[];
+  night?: { eligible?: boolean; reason?: string | null };
+}
+
+/**
+ * E-mail pratique : contenu et soirée revérifiés AVANT un test ou une mise en
+ * file (crm_practical_email_check, la règle de la garde guard_crm_practical_email).
+ * Rend le code stable du refus, ou null.
+ */
+async function practicalRefusal(admin: Admin, campaignId: string): Promise<{ code: string; check: PracticalCheck } | null> {
+  const { data, error } = await admin.rpc('crm_practical_email_check', { p_campaign_id: campaignId });
+  if (error) throw new Error(`crm_practical_email_check: ${error.message}`);
+  const check = (data || {}) as PracticalCheck;
+  if (!check.practical || check.ok) return null;
+  if ((check.issues || []).length > 0) return { code: 'crm_practical_content', check };
+  return { code: `crm_practical_${check.night?.reason || 'event'}`, check };
+}
+
 function unsubHeaders(token?: string | null): Record<string, string> {
   if (!token) return {};
   const url = `${PUBLIC_URL}/unsubscribe?token=${token}`;
@@ -310,13 +336,27 @@ async function makeStudioHtmlBuilder(
   sender: Sender,
   opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
 ) {
-  const blocks = (((campaign.blocks_json as StudioBlock[]) || [])).map((b) => ({ ...b }));
+  // E-mail pratique (Yuno CRM) : la garde serveur a déjà refusé tout bloc qui
+  // vend ; on ne dessine de toute façon que les blocs permis, sans lien suivi
+  // de vente (ce n'est pas un canal marketing).
+  const practical = campaign.practical === true;
+  if (practical) opts = { ...opts, trackedLinks: false };
+  const blocks = (((campaign.blocks_json as StudioBlock[]) || []))
+    .filter((b) => !practical || PRACTICAL_BLOCK_TYPES.has(String(b.type)))
+    .map((b) => ({ ...b }));
   const campaignLogo = campaign.logo_url as string | null;
   if (campaignLogo) {
     for (const b of blocks) {
       if (b.type === 'header' && !b.logoUrl) b.logoUrl = campaignLogo;
     }
   }
+  // Le titre de la soirée signe la raison du pied de page d'un e-mail pratique.
+  let practicalTitle = '';
+  if (practical && campaign.event_id) {
+    const { data: ev } = await admin.from('events').select('title').eq('id', campaign.event_id as string).maybeSingle();
+    practicalTitle = ((ev as { title?: string | null } | null)?.title || '').trim();
+  }
+  if (practical && !practicalTitle) practicalTitle = String(campaign.name || '');
   const hideBranding = sender.isPlatform
     ? true
     : sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
@@ -350,6 +390,9 @@ async function makeStudioHtmlBuilder(
     legalName: sender.legalName,
     logoUrl: campaignLogo || sender.logoUrl,
     emailType: campaign.type as 'promotional' | 'informational',
+    // E-mail pratique : la carte de la soirée sans prix ni bouton d'achat, et
+    // le pied de page qui dit pourquoi la personne le reçoit.
+    practicalFor: practical ? practicalTitle : null,
     // Langue de l'e-mail (posée par le MCP) : pied de page légal et balises.
     language: (campaign.language as string | null) || null,
     subject: subjectForRecipient(campaign, r),
@@ -1023,6 +1066,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── E-mail pratique (Yuno CRM) : rien ne part s'il vend quelque chose ────
+    // Test compris : le pro apprend tout de suite ce qui bloque. 402 comme
+    // crm_sender_identity : le cron le lit comme « remis en brouillon ».
+    if (campaign_id && campaign.practical === true && mode !== 'drain') {
+      const refusal = await practicalRefusal(admin, campaign_id as string);
+      if (refusal) {
+        if (!send_test && ['sending', 'scheduled'].includes(String(campaign.status))) {
+          await admin.from('email_campaigns')
+            .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: refusal.code })
+            .eq('id', campaign_id).in('status', ['sending', 'scheduled']);
+        }
+        return new Response(JSON.stringify({
+          error: refusal.code, code: refusal.code,
+          issues: refusal.check.issues ?? [], night: refusal.check.night ?? null,
+        }), { status: 402, headers: jsonHeaders });
+      }
+    }
+
     // ── Test ────────────────────────────────────────────────────────────────
     if (send_test) {
       // Test de la RELANCE après clic : le design vient du modèle choisi, tout
@@ -1130,6 +1191,15 @@ Deno.serve(async (req) => {
           .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: 'crm_sender_identity' })
           .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
         return new Response(JSON.stringify({ error: 'crm_sender_identity', code: 'crm_sender_identity' }), { status: 402, headers: jsonHeaders });
+      }
+      // E-mail pratique refusé par la garde au passage en envoi (contenu,
+      // plafond, fenêtre) : brouillon, jamais « échouée ».
+      const practicalCode = eErr?.message.match(/crm_practical_[a-z_]+/)?.[0];
+      if (eErr && practicalCode) {
+        await admin.from('email_campaigns')
+          .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: practicalCode })
+          .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
+        return new Response(JSON.stringify({ error: practicalCode, code: practicalCode }), { status: 402, headers: jsonHeaders });
       }
       if (eErr && eErr.message.includes('crm_paused')) {
         await admin.from('email_campaigns')

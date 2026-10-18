@@ -16,6 +16,7 @@ import { useStudio, useStudioApi } from '@/components/email-studio/store';
 import { BLOCK_ICONS, PALETTE, blockSummary } from './catalog';
 import { useInsertBlock, useInsertTarget } from './insert';
 import { useStudioUi } from './studioUi';
+import { isPracticalBlockType } from '@/crm/lib/practicalEmail';
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -25,9 +26,12 @@ export function PaletteGrid({ q, onPicked }: { q: string; onPicked?: () => void 
   const insert = useInsertBlock();
   const target = useInsertTarget();
   const query = norm(q.trim());
+  // E-mail pratique : ni billetterie, ni bloc qui vend (la garde serveur les refuse).
+  const practical = useStudio((s) => !!s.campaign.practical);
   const groups = (['content', 'yuno'] as const).map((g) => ({
     g,
-    tiles: PALETTE.filter((p) => p.group === g && (!query || norm(`${t(`yc.em.st.b.${p.k}`)} ${t(`yc.em.st.b.${p.k}.d`)}`).includes(query))),
+    tiles: PALETTE.filter((p) => p.group === g && (!practical || isPracticalBlockType(p.k))
+      && (!query || norm(`${t(`yc.em.st.b.${p.k}`)} ${t(`yc.em.st.b.${p.k}.d`)}`).includes(query))),
   })).filter((x) => x.tiles.length);
 
   if (!groups.length) return <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: 14, color: 'var(--sand-500)' }}>{t('yc.em.st.l.none', { q })}</div>;

@@ -14,6 +14,8 @@ const COPY_COLUMNS = [
   'name', 'type', 'subject', 'subject_b', 'ab_enabled', 'preheader', 'blocks_json', 'blocks_version', 'theme_json',
   'social_links_json', 'logo_url', 'event_id', 'audience_type', 'audiences_json', 'exclusions_json', 'template_kind',
   'quiet_hours', 'throttle_per_hour', 'throttle_window_minutes', 'throttle_plan', 'venue_id', 'organizer_user_id', 'language',
+  // Un e-mail pratique reste pratique (la base refuse un « informatif » CRM qui ne l'est pas).
+  'practical',
 ].join(', ');
 
 /** Copie chaque campagne en brouillon (« Nom (copie) ») ; rend les nouveaux ids. */

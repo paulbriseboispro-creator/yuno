@@ -23,6 +23,7 @@ import { NightLinks } from './links/NightLinks';
 import { NightGuestList } from './NightGuestList';
 import { NightAttracted } from './NightAttracted';
 import { NightTargets } from './NightTargets';
+import { PracticalEmailModal } from '@/crm/components/PracticalEmailModal';
 import { ShotgunLink, StatusPill } from './nightsUi';
 import { ICO, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
 
@@ -133,6 +134,9 @@ function DrawerBody({ d, onWrite }: { d: NightDetail; onWrite: (x: { id: string;
   const { t, tp, n, eur, eur2, pct, locale, dShort, time } = T;
   const toast = useCrmToast();
   const [fiche, setFiche] = useState(false);
+  const [practical, setPractical] = useState(false);
+  // E-mail pratique : jusqu'au lendemain de la soirée (le serveur tranche).
+  const practicalOpen = d.upcoming || Date.now() < new Date(d.end_at).getTime() + 24 * 3600e3;
   const p = useProgress(1200, 350, d.id);
   const base = { sold: d.sold, cap: d.cap, sold_out: d.sold_out, sale_opens_at: d.sale_opens_at, msgs: d.msgs };
   const uk = upKind(base);
@@ -383,8 +387,14 @@ function DrawerBody({ d, onWrite }: { d: NightDetail; onWrite: (x: { id: string;
         <Hv as={Link} to={`${CRM_ROUTES.sales}?event=${d.id}`} style={{ height: 46, padding: '0 18px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-50)', color: 'var(--ink)', textDecoration: 'none' }}>
           {t('yc.ni.dr.analytics')}
         </Hv>
+        {practicalOpen && (
+          <Hv as="button" type="button" onClick={() => setPractical(true)} title={t('yc.pe.m.hint')} style={{ height: 46, padding: '0 18px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} hover={{ background: 'var(--sand-50)' }}>
+            <Icon d={ICO.mail} size={16} stroke={2.2} />{t('yc.pe.cta')}
+          </Hv>
+        )}
         <ShotgunLink href={d.url}>{t('yc.ni.editShotgun')}</ShotgunLink>
       </div>
+      <PracticalEmailModal open={practical} onClose={() => setPractical(false)} night={{ id: d.id, title: d.title, coverUrl: null, url: d.url }} />
     </>
   );
 }
