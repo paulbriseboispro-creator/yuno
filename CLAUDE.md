@@ -3673,9 +3673,16 @@ La racine `/` du web montre une **landing vitrine** (`src/pages/Landing.tsx`) au
 visiteur web déconnecté jamais engagé ; app native, PWA, sessions et habitués tombent
 sur le feed (`/explore` = `Explore`, porte dans `HomeGate`/`src/lib/webHome.ts`).
 La conversion vers l'app iOS vit dans `src/lib/appStore.ts` (constante unique
-`APP_STORE_READY` — **false tant qu'Apple n'a pas approuvé l'app client**, à flipper
-à l'approbation) + `src/components/install/*` (barre dismissible, carte post-achat,
-badge) + meta `apple-itunes-app` dans `index.html`.
+`APP_STORE_READY`, à true depuis l'approbation de l'app client) +
+`src/components/install/*` (carte post-achat, badge) + meta `apple-itunes-app` dans
+`index.html`. **Plus de barre fixe en bas des pages publiques du web** (retirée le
+2026-10-18, décision de Paul) : ne pas la remettre.
+
+**Langue d'une page ouverte depuis un lien** (`persistedLanguage`,
+`src/lib/deviceLanguage.ts`) : `?lang=` du lien d'abord, puis la langue déjà choisie
+dans Yuno, puis la langue du téléphone si Yuno la parle (fr / es / en), sinon
+l'anglais. Un lien suivi `/l/` n'a donc pas de réglage de langue : un téléphone en
+français ouvre la soirée en français.
 
 **Surfaces à ne JAMAIS gater derrière l'app** (aucun mur, aucun interstitiel) :
 commande de boissons au QR du bar, checkouts billets/tables/guest list, page QR de
