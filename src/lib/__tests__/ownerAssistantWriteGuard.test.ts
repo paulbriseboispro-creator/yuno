@@ -38,7 +38,7 @@ describe('checkWriteConfirmation', () => {
     for (const confirmed of [undefined, false, 'true', 1]) {
       const r = checkWriteConfirmation('update_event', { event_id: 'e', confirmed });
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.payload.error).toBe('confirmation_required');
+      if ('payload' in r) expect(r.payload.error).toBe('confirmation_required');
     }
   });
 
