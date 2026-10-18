@@ -9,6 +9,9 @@
 // la règle d'analyse active et les codes postaux), puis :
 //   avant = instantané + migrations 20261022100000 → 130000 (lot « données »)
 //   après = avant + 20261022140000 (cette mise au point)
+// Attendu (décision de Paul du 18/10) : hypothèses, profils et audiences
+// suivent la règle « soirée faite » ; le score « Chances de venir » ne change
+// pas (`bought_diff` et `passing_bought_diff` à 0, crm_score_model identique).
 // Un même compte synthétique (gen.mjs) est généré UNE fois, puis calculé de
 // chaque côté (crm_analysis_compute complet + crm_score_compute).
 //
@@ -17,10 +20,14 @@
 //   node audit-analysis.mjs <profil>        # demo | grand | petit | hasard | gratuit
 //   node diff.mjs <profil>-d08-before-computed <profil>-d08-after-computed
 //
+// BENCH_SCORE_OPEN=1 : portes du score abaissées des deux côtés (comme la
+// commande `journal` de run.mjs), pour que le score NOTE les soirées à venir ;
+// on compare alors chances et étiquettes par personne (attendu : identiques).
+//
 // Sortie : la table des venues comparée à l'ancienne dans la MÊME transaction
 // (preuve exacte, sans dérive d'horloge), puis les chiffres qui en sortent
 // (personnes, soirées, venus une fois, familles, score) avant / après.
-import { writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { openFresh, openSaved, save, execFile, timed, HERE, DATA, ROOT } from './lib.mjs';
@@ -36,6 +43,8 @@ const MIG = (f) => join(ROOT, 'supabase', 'migrations', f);
 const BEFORE = ['20261022100000_crm_free_entry_needs_scan.sql', '20261022110000_crm_customer_spend_sales_only.sql',
   '20261022120000_ticketing_cohosted_toggle.sql', '20261022130000_ticketing_ticket_guards.sql'].map(MIG);
 const AFTER = MIG('20261022140000_crm_analysis_free_entry_needs_scan.sql');
+const ROLLBACK = join(ROOT, 'docs', 'audit', '2026-10-18-crm-readiness', 'ROLLBACK-data.sql');
+const SCORE_OPEN = process.env.BENCH_SCORE_OPEN === '1';
 const log = (o) => console.log(typeof o === 'string' ? o : JSON.stringify(o, null, 1));
 
 if (process.argv[2] === 'dump') {
@@ -102,9 +111,10 @@ const org = stats.organizer_user_id;
   const r = await db.transaction(async (tx) => {
     const cfg = `public.crm_analysis_config()`;
     await tx.query(`SELECT public._crm_an_load_prod(NULL, $1, $2, ${cfg})`, [org, at]);
-    await tx.exec(`CREATE TEMP TABLE _old_ana AS SELECT * FROM _ana; CREATE TEMP TABLE _old_ant AS SELECT * FROM _ant`);
+    await tx.exec(`CREATE TEMP TABLE _old_ana AS SELECT * FROM _ana; CREATE TEMP TABLE _old_ant AS SELECT * FROM _ant;
+                   CREATE TEMP TABLE _old_anp AS SELECT * FROM _anp`);
     await tx.query(`SELECT public._crm_an_load(NULL, $1, $2, ${cfg})`, [org, at]);
-    await tx.query(`SELECT public._crm_an_load_bought()`);
+    await tx.query(`SELECT public._crm_an_load_bought(${cfg})`);
     const one = async (sql) => (await tx.query(sql)).rows[0];
     return {
       // Billets gratuits non scannés de soirées à porte mesurée : les seuls que la règle écarte.
@@ -120,9 +130,15 @@ const org = stats.organizer_user_id;
       ana_rows_only_after: (await one(`SELECT count(*)::int n FROM (SELECT * FROM _ana EXCEPT SELECT * FROM _old_ana) z`)).n,
       // _anbought = l'ancienne _ana sur ce que le score lit, toujours.
       bought_diff: (await one(`SELECT count(*)::int n FROM (
-          (SELECT em, nid, start_at, has_sale, lead_h, k FROM _old_ana EXCEPT SELECT em, nid, start_at, has_sale, lead_h, k FROM _anbought)
+          (SELECT em, nid, start_at, has_sale, lead_h, k, src FROM _old_ana EXCEPT SELECT em, nid, start_at, has_sale, lead_h, k, src FROM _anbought)
           UNION ALL
-          (SELECT em, nid, start_at, has_sale, lead_h, k FROM _anbought EXCEPT SELECT em, nid, start_at, has_sale, lead_h, k FROM _old_ana)) z`)).n,
+          (SELECT em, nid, start_at, has_sale, lead_h, k, src FROM _anbought EXCEPT SELECT em, nid, start_at, has_sale, lead_h, k, src FROM _old_ana)) z`)).n,
+      // « De passage » du score = l'ancien, personne par personne.
+      passing_bought_diff: (await one(`SELECT count(*)::int n FROM _anp p JOIN _old_anp o ON o.em = p.em
+          WHERE p.passing_bought IS DISTINCT FROM o.passing OR p.dist_first_bought IS DISTINCT FROM o.dist_first`)).n,
+      // « De passage » des profils (1re soirée FAITE) : ce qui bouge.
+      passing_changed: (await one(`SELECT count(*)::int n FROM _anp p JOIN _old_anp o ON o.em = p.em
+          WHERE p.passing IS DISTINCT FROM o.passing`)).n,
       // _ant inchangée hors la nouvelle colonne.
       ant_diff: (await one(`SELECT count(*)::int n FROM (
           (SELECT id, em, nid, sale, inv, scanned, price FROM _old_ant EXCEPT SELECT id, em, nid, sale, inv, scanned, price FROM _ant)
@@ -134,10 +150,32 @@ const org = stats.organizer_user_id;
   log({ venues: r });
 }
 
+// ── Retour arrière : la section 20261022140000 de ROLLBACK-data.sql rend les
+// définitions d'avant, et retire _crm_an_load_bought ─────────────────────────
+{
+  const rb = readFileSync(ROLLBACK, 'utf8');
+  const part = rb.slice(rb.indexOf('-- ── 20261022140000'), rb.indexOf('-- ── 20261022130000'));
+  const db = await openSaved(`${name}-d08`);
+  const defs = async () => JSON.stringify((await db.query(`SELECT p.proname, md5(p.prosrc) AS h
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public' AND p.proname IN ('_crm_an_load', '_crm_score_build', 'crm_score_compute', '_crm_an_load_bought')
+     ORDER BY 1, 2`)).rows);
+  const d0 = await defs();
+  await execFile(db, AFTER, AFTER.split('/').pop());
+  const d1 = await defs();
+  await db.exec(part);
+  const d2 = await defs();
+  await db.close();
+  log({ rollback: { migration_changes_definitions: d0 !== d1, rollback_restores_before: d0 === d2 } });
+}
+
 // ── Le calcul de nuit et le score, de chaque côté ───────────────────────────
 async function side(label, withMigration) {
   const db = await openSaved(`${name}-d08`);
   if (withMigration) await execFile(db, AFTER, AFTER.split('/').pop());
+  if (SCORE_OPEN) {
+    await db.exec(`UPDATE crm_analysis_rules SET config = jsonb_set(jsonb_set(config, '{score,auc_gain}', '-1'), '{score,auc_min}', '0')`);
+  }
   const a = await timed(db, `SELECT crm_analysis_compute(NULL, $1, true, 0) AS r`, [org]);
   const s = await timed(db, `SELECT crm_score_compute(NULL, $1) AS r`, [org]);
   const key = `org:${org}`;
@@ -154,6 +192,12 @@ async function side(label, withMigration) {
     families: await q(`SELECT family, status, n, round(o::numeric, 1) o, round(e::numeric, 1) e, round(z::numeric, 2) z
                          FROM crm_family_status WHERE scope_key = $1 AND variant = '' ORDER BY family`),
     score: s.rows[0].r,
+    // Chances et étiquettes par personne, puis les raisons à part (elles
+    // suivent le statut des familles, qui suit la règle).
+    scored: (await q(`SELECT count(*)::int n,
+        md5(COALESCE(string_agg(event_id::text || ':' || email || ':' || round(p::numeric, 6) || ':' || label, ',' ORDER BY event_id, email), '')) AS chances,
+        md5(COALESCE(string_agg(event_id::text || ':' || email || ':' || array_to_string(reasons, '|'), ',' ORDER BY event_id, email), '')) AS reasons
+        FROM crm_person_night_score WHERE scope_key = $1`))[0],
   };
   await save(db, `${name}-d08-${label}-computed`);
   await db.close();
@@ -168,9 +212,42 @@ log({ nights: { before: before.nights, after: after.nights }, artists: { before:
 const pick = (sc) => ({ status: sc.status, scored: sc.scored, auc: sc.auc, auc_base: sc.auc_base, ece: sc.ece,
   auc_active: sc.auc_active, auc_active_base: sc.auc_active_base, backtest: sc.backtest });
 log({ score: { before: pick(before.score), after: pick(after.score) } });
+log({ scored: { before: before.scored, after: after.scored,
+  same_chances: before.scored.chances === after.scored.chances, same_reasons: before.scored.reasons === after.scored.reasons } });
 const fam = new Map();
 for (const f of before.families) fam.set(f.family, { family: f.family, avant: f.status, n_avant: f.n, gain_avant: f.e > 0 ? Math.round((f.o / f.e) * 100) / 100 : null, z_avant: f.z });
 for (const f of after.families) Object.assign(fam.get(f.family) ?? fam.set(f.family, { family: f.family }).get(f.family),
   { apres: f.status, n_apres: f.n, gain_apres: f.e > 0 ? Math.round((f.o / f.e) * 100) / 100 : null, z_apres: f.z });
 console.table([...fam.values()].map((x) => ({ ...x, change: x.avant === x.apres ? '' : '◀' })));
 log({ ms: { analysis: [before.analysis_ms, after.analysis_ms], score: [before.score_ms, after.score_ms] } });
+
+// ── Le score, ancienne puis nouvelle définition, à la MÊME horloge ──────────
+// Les deux côtés ci-dessus tournent à quelques secondes d'écart : la part des
+// achats encore à venir (`now()`) bouge sur la soirée la plus proche, et avec
+// elle quelques chances. Dans une seule transaction, now() est figé : on note
+// avec l'ancien code, on applique la migration, on note avec le nouveau.
+if (SCORE_OPEN) {
+  const db = await openSaved(`${name}-d08-before-computed`);
+  const snap = `SELECT count(*)::int n,
+      md5(COALESCE(string_agg(event_id::text || ':' || email || ':' || p::text || ':' || label || ':' || array_to_string(reasons, '|'),
+                              ',' ORDER BY event_id, email), '')) AS h
+      FROM crm_person_night_score WHERE scope_key = $1`;
+  const night = `SELECT md5(COALESCE(string_agg(event_id::text || ':' || remaining_share::text, ',' ORDER BY event_id), '')) AS h
+      FROM crm_score_night WHERE scope_key = $1`;
+  // Poids arrondis à la 6e décimale (comme diff.mjs) : l'ajustement repart des
+  // poids de la passe précédente, la 2e passe de la transaction de ceux de la 1re.
+  const model = `SELECT md5(status || array_to_string(features, ',')
+                            || array_to_string(ARRAY(SELECT round(b::numeric, 6) FROM unnest(beta) b), ',')) AS h
+      FROM crm_score_model WHERE scope_key = $1`;
+  const res = await db.transaction(async (tx) => {
+    const key = [`org:${org}`];
+    await tx.query(`SELECT crm_score_compute(NULL, $1)`, [org]);
+    const s1 = (await tx.query(snap, key)).rows[0], n1 = (await tx.query(night, key)).rows[0].h, m1 = (await tx.query(model, key)).rows[0].h;
+    await tx.exec(readFileSync(AFTER, 'utf8'));
+    await tx.query(`SELECT crm_score_compute(NULL, $1)`, [org]);
+    const s2 = (await tx.query(snap, key)).rows[0], n2 = (await tx.query(night, key)).rows[0].h, m2 = (await tx.query(model, key)).rows[0].h;
+    return { scored: [s1.n, s2.n], same_people_chances_labels_reasons: s1.h === s2.h, same_remaining_share: n1 === n2, same_model: m1 === m2 };
+  });
+  await db.close();
+  log({ score_same_clock: res });
+}
