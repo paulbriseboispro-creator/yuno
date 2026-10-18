@@ -66,3 +66,23 @@ courrier électronique » ; article L34-5 du CPCE ; aide pro de Shotgun
 | P3 | Bornes | 3 e-mails pratiques au plus par soirée, jusqu'à 24 h après la fin (objets trouvés, incident). |
 | P4 | Qui reçoit | Les acheteurs d'un billet **valide** de la soirée. Pas les billets « transférés » : chez Shotgun c'est un billet **revendu**, l'acheteur n'y va plus (le nouvel acheteur a son propre billet valide). Désabonnés du marketing compris ; adresses sur la liste de suppression (bounce, plainte, invalide) exclues. |
 | P5 | Qui envoie | Organisateur ou co-organisateur éditeur de la soirée chez Shotgun ; jamais un simple lecteur. |
+
+Décisions validées par Paul le 18/10 : P1 oui, P2 1 Yunit, P3 3 par soirée et
+24 h après la fin, P4 et P5 comme recommandé.
+
+## Vérifié (18/10)
+
+- Migration `20261019150000` appliquée en prod ; `send-campaign` et
+  `owner-assistant` redéployés depuis main + cette branche (prod = main vérifié
+  fichier par fichier avant).
+- Répétition en transaction annulée, en tant que le titulaire d'Amoris :
+  9 motifs de refus repérés (bloc Billetterie, HTML, prix, autre soirée, lien
+  `/go/`, autre page Shotgun, autre billetterie, « code promo », « dernières
+  places »), audience combinée / A/B / drapeau retiré / soirée non miroir
+  refusés, plafond de 3 et fenêtre tenus, 5 détenteurs mis en file et 5 Yunits
+  débités (annulé).
+- Test réel sur la soirée du 29/10 (miroir `01eccd74`) : e-mail de test reçu
+  par Paul (carte sans prix ni bouton, line-up, pied de page « vous avez un
+  billet… e-mail pratique », « Powered by » vers yunoapp.eu) ; le même e-mail
+  avec un bloc Billetterie est refusé par `send-campaign` (402
+  `crm_practical_content`, `block_not_allowed`). Brouillons de test supprimés.
