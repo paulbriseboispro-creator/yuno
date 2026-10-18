@@ -94,11 +94,11 @@ function AccountRow({ a, first, onEnter, onAsk, onCancel }: { a: SupportAccount;
           {[a.contact, a.email, a.city].filter(Boolean).join(' · ')}{(a.contact || a.email || a.city) ? <br /> : null}
           {meta.join(' · ')}{g?.reason ? <><br />{t('adm.crm.sp.m.reason', { reason: g.reason })}</> : null}
         </span>
-      </span>
-      <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        {onEnter && <Hv as="button" type="button" onClick={onEnter} style={btnInk} hover={{ background: 'var(--sand-700)' }}><Icon name="arrowRight" size={14} stroke={2.4} />{t('adm.crm.sup.open')}</Hv>}
-        {onAsk && <Hv as="button" type="button" onClick={onAsk} style={btn} hover={{ background: 'var(--sand-50)' }}><Icon name="refresh" size={14} stroke={2.4} />{t('adm.crm.sp.remind')}</Hv>}
-        {onCancel && <Hv as="button" type="button" onClick={onCancel} style={btn} hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}>{t(g?.status === 'active' ? 'adm.crm.sp.cut' : 'adm.crm.sp.withdraw')}</Hv>}
+        <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+          {onEnter && <Hv as="button" type="button" onClick={onEnter} style={btnInk} hover={{ background: 'var(--sand-700)' }}><Icon name="arrowRight" size={14} stroke={2.4} />{t('adm.crm.sup.open')}</Hv>}
+          {onAsk && <Hv as="button" type="button" onClick={onAsk} style={btn} hover={{ background: 'var(--sand-50)' }}><Icon name="refresh" size={14} stroke={2.4} />{t('adm.crm.sp.remind')}</Hv>}
+          {onCancel && <Hv as="button" type="button" onClick={onCancel} style={btn} hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}>{t(g?.status === 'active' ? 'adm.crm.sp.cut' : 'adm.crm.sp.withdraw')}</Hv>}
+        </span>
       </span>
     </RowLine>
   );

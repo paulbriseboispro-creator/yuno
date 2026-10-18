@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { isSupportSessionActive } from '@/lib/supportSession';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Modal, Skel } from '@/crm/ui/kit';
@@ -55,7 +56,9 @@ export function AccountSupport() {
   const { user } = useAuth();
   const { space, qk } = useCrmScope();
   const holder = space.role === 'owner';
-  const assisted = isSupportSessionActive();
+  // Une session d'assistance ou un aperçu démo voient la page, sans les boutons
+  // (le serveur refuserait de toute façon : l'accord est celui du titulaire).
+  const assisted = isSupportSessionActive() || isPreviewActive();
   const q = useSupportState(holder ? user?.id : undefined);
   const [params, setParams] = useSearchParams();
   const [decide, setDecide] = useState<Grant | null>(null);

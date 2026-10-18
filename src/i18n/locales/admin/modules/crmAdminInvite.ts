@@ -61,6 +61,7 @@ const dict: AdminDict = {
   'adm.crm.iv.m.revoked': ['revoked: {reason}', 'révoquée : {reason}', 'revocada: {reason}'],
   'adm.crm.iv.extend': ['Extend', 'Prolonger', 'Prolongar'],
   'adm.crm.iv.extended': ['Link extended', 'Lien prolongé', 'Enlace prolongado'],
+  'adm.crm.iv.shareT': ['Send the invitation to {name}', 'Envoyer l’invitation à {name}', 'Enviar la invitación a {name}'],
   'adm.crm.iv.shareSub': ['Pick a channel. The link only works for this invitation; the email and the message say the same thing.', 'Choisis un canal. Le lien ne vaut que pour cette invitation ; l’e-mail et le message disent la même chose.', 'Elige un canal. El enlace solo vale para esta invitación; el e-mail y el mensaje dicen lo mismo.'],
   'adm.crm.iv.byEmailSub': ['The Yuno CRM invitation, with the offer, the demo access and the assisted access if you added them.', 'L’invitation Yuno CRM, avec l’offre, l’accès démo et l’accès assisté si tu les as ajoutés.', 'La invitación de Yuno CRM, con la oferta, el acceso demo y el acceso asistido si los añadiste.'],
   'adm.crm.iv.demoT': ['Demo access', 'Accès à la démo', 'Acceso a la demo'],

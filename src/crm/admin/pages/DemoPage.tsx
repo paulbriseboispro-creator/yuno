@@ -153,10 +153,10 @@ function DemoRow({ x, first, onShare, onCut }: { x: DemoAccess; first: boolean; 
           {!x.managed && <Pill tone="faded">{t('adm.crm.dm.fromSuite')}</Pill>}
         </span>
         <span style={{ fontSize: 12.5, color: 'var(--sand-500)', lineHeight: 1.45 }}>{who}{who ? <br /> : null}{meta.join(' · ')}</span>
-      </span>
-      <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        {live && x.managed && <Hv as="button" type="button" onClick={onShare} style={btnInk} hover={{ background: 'var(--sand-700)' }}><Icon name="send" size={14} stroke={2.4} />{t('adm.crm.fo.send')}</Hv>}
-        {live && <Hv as="button" type="button" onClick={onCut} style={btn} hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}>{t('adm.crm.dm.cut')}</Hv>}
+        <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+          {live && x.managed && <Hv as="button" type="button" onClick={onShare} style={btnInk} hover={{ background: 'var(--sand-700)' }}><Icon name="send" size={14} stroke={2.4} />{t('adm.crm.fo.send')}</Hv>}
+          {live && <Hv as="button" type="button" onClick={onCut} style={btn} hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}>{t('adm.crm.dm.cut')}</Hv>}
+        </span>
       </span>
     </RowLine>
   );

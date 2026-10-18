@@ -242,16 +242,16 @@ function InviteRow({ x, first, onShare, onRevoke }: { x: CrmInvite; first: boole
           {who}{who ? <br /> : null}{meta.join(' · ')}
           {x.status === 'revoked' && x.revoked_reason ? <><br />{t('adm.crm.iv.m.revoked', { reason: x.revoked_reason })}</> : null}
         </span>
-      </span>
-      <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        {x.status === 'pending' && <Hv as="button" type="button" onClick={onShare} style={btnInk} hover={{ background: 'var(--sand-700)' }}><Icon name="send" size={14} stroke={2.4} />{t('adm.crm.fo.send')}</Hv>}
-        {(x.status === 'expired' || (x.status === 'pending' && new Date(x.expires_at).getTime() - Date.now() < 7 * 86_400_000)) && (
-          <Hv as="button" type="button" disabled={extend.isPending} onClick={() => extend.mutate({ p_id: x.id }, { onSuccess: () => toast(t('adm.crm.iv.extended')), onError: (e) => toast(inviteErr(t, codeOf(e))) })} style={btn} hover={{ background: 'var(--sand-50)' }}>
-            <Icon name="refresh" size={14} stroke={2.4} />{t('adm.crm.iv.extend')}
-          </Hv>
-        )}
-        {x.status === 'pending' && <Hv as="button" type="button" onClick={onRevoke} style={btn} hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}>{t('adm.crm.fo.revoke')}</Hv>}
-        {x.status === 'claimed' && x.scope_key && <Hv as={Link} to={ADMIN_ROUTES.account(x.scope_key)} style={btn} hover={{ background: 'var(--sand-50)', textDecoration: 'none' }}>{t('adm.crm.fo.account')}<Icon name="arrowRight" size={14} stroke={2.4} /></Hv>}
+        <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+          {x.status === 'pending' && <Hv as="button" type="button" onClick={onShare} style={btnInk} hover={{ background: 'var(--sand-700)' }}><Icon name="send" size={14} stroke={2.4} />{t('adm.crm.fo.send')}</Hv>}
+          {(x.status === 'expired' || (x.status === 'pending' && new Date(x.expires_at).getTime() - Date.now() < 7 * 86_400_000)) && (
+            <Hv as="button" type="button" disabled={extend.isPending} onClick={() => extend.mutate({ p_id: x.id }, { onSuccess: () => toast(t('adm.crm.iv.extended')), onError: (e) => toast(inviteErr(t, codeOf(e))) })} style={btn} hover={{ background: 'var(--sand-50)' }}>
+              <Icon name="refresh" size={14} stroke={2.4} />{t('adm.crm.iv.extend')}
+            </Hv>
+          )}
+          {x.status === 'pending' && <Hv as="button" type="button" onClick={onRevoke} style={btn} hover={{ background: 'var(--red-50)', color: 'var(--red-700)' }}>{t('adm.crm.fo.revoke')}</Hv>}
+          {x.status === 'claimed' && x.scope_key && <Hv as={Link} to={ADMIN_ROUTES.account(x.scope_key)} style={btn} hover={{ background: 'var(--sand-50)', textDecoration: 'none' }}>{t('adm.crm.fo.account')}<Icon name="arrowRight" size={14} stroke={2.4} /></Hv>}
+        </span>
       </span>
     </RowLine>
   );
@@ -288,10 +288,10 @@ function ShareDialog({ x, d, onClose }: { x: CrmInvite; d: InvitesData; onClose:
     onClose();
   };
   return (
-    <Modal open onClose={onClose} width={640} label={t('adm.crm.fo.shareT', { name: x.org_name })}>
+    <Modal open onClose={onClose} width={640} label={t('adm.crm.iv.shareT', { name: x.org_name })}>
       <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <h2 style={h2}>{t('adm.crm.fo.shareT', { name: x.org_name })}</h2>
+          <h2 style={h2}>{t('adm.crm.iv.shareT', { name: x.org_name })}</h2>
           <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {x.offer === 'founder' ? <Pill tone="brand" icon="sparkles">{t('adm.crm.iv.offer.founder')}</Pill> : <Pill tone="sand">{t('adm.crm.iv.offer.standard')}</Pill>}
             {x.support_offer && <Pill tone="sand" icon="shield">{t('adm.crm.iv.support.offered')}</Pill>}
