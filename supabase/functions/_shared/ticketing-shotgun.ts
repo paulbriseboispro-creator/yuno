@@ -112,6 +112,16 @@ export function email(v: unknown): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
 }
 
+/**
+ * La billetterie a rendu QUELQUE CHOSE à la place d'une adresse, mais pas une
+ * adresse lisible (audit du 18/10, DATA-07). Ce n'est pas un effacement : la
+ * base garde l'adresse précédente (trigger d'effacement venu de la
+ * billetterie). Un champ absent, null ou vide en reste un.
+ */
+export function emailUnreadable(v: unknown): boolean {
+  return str(v, 320) !== null && email(v) === null;
+}
+
 /** Montant en unité monétaire. `divisor` = 100 si le fournisseur parle en centimes. */
 export function money(v: unknown, divisor: number): number | null {
   const n = num(v);
@@ -375,6 +385,8 @@ export interface MappedTicket {
   fees: number | null;
   currency: string | null;
   buyer_email: string | null;
+  /** Adresse rendue mais illisible : jamais lue comme un effacement (DATA-07). */
+  buyer_email_unreadable: boolean;
   buyer_first_name: string | null;
   buyer_last_name: string | null;
   buyer_phone: string | null;
@@ -427,6 +439,13 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
   // connexion) ne vaut que pour un nom de repli non documenté.
   const price = money(at(raw, CENTS.price), 100) ?? money(pick(raw, P.price), divisor);
   const fees = money(at(raw, CENTS.userFees), 100) ?? money(pick(raw, P.fees), divisor);
+  // Devise autre que l'euro (audit du 18/10, DATA-04) : le billet reste (une
+  // personne, une place), mais son prix est inconnu pour Yuno — jamais
+  // additionné à des euros, ni « payant » ni « gratuit ». 100 % EUR mesuré
+  // sur les comptes réels le 18/10.
+  const currency = (str(pick(raw, P.currency), 8) ?? "").toUpperCase() || null;
+  const foreign = currency !== null && currency !== "EUR";
+  const rawEmail = pick(raw, P.buyerEmail);
   return {
     external_id: id,
     external_order_id: str(pick(raw, P.orderId), 120),
@@ -436,10 +455,11 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     status,
     raw_status: rawStatus,
     quantity: qty && qty > 0 && qty < 1000 ? Math.round(qty) : 1,
-    price,
-    fees,
-    currency: (str(pick(raw, P.currency), 8) ?? "").toUpperCase() || null,
-    buyer_email: email(pick(raw, P.buyerEmail)),
+    price: foreign ? null : price,
+    fees: foreign ? null : fees,
+    currency,
+    buyer_email: email(rawEmail),
+    buyer_email_unreadable: emailUnreadable(rawEmail),
     buyer_first_name: str(pick(raw, P.buyerFirst), 120),
     buyer_last_name: str(pick(raw, P.buyerLast), 120),
     buyer_phone: str(pick(raw, P.buyerPhone), 40),
@@ -463,7 +483,7 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     seating_type: raw.ticket_seating && typeof raw.ticket_seating === "object" && !Array.isArray(raw.ticket_seating)
       ? jsonText((raw.ticket_seating as Json).type) : null,
     payment_method: jsonText(raw.payment_method),
-    org_fee: typeof raw.deal_service_fee === "number" && Number.isFinite(raw.deal_service_fee) ? raw.deal_service_fee / 100 : null,
+    org_fee: !foreign && typeof raw.deal_service_fee === "number" && Number.isFinite(raw.deal_service_fee) ? raw.deal_service_fee / 100 : null,
     provider_contact_id: jsonText(raw.contact_id),
     provider_user_id: jsonText(raw.user_id),
     raw: minimizeTicketRaw(raw),

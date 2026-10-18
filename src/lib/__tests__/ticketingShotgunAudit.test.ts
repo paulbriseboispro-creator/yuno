@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { extractPage, isCohostedRole, isoDate, orgChangeBlocked, ticketCursor } from '../../../supabase/functions/_shared/ticketing-shotgun';
+import {
+  emailUnreadable, extractPage, isCohostedRole, isoDate, leaseAlive, mapShotgunTicket, orgChangeBlocked, ticketCursor,
+} from '../../../supabase/functions/_shared/ticketing-shotgun';
 
 // Audit du 18/10 (docs/audit/2026-10-18-crm-readiness/REPORT.md).
 
@@ -62,5 +64,53 @@ describe('soirées co-organisées : le rôle rendu par Shotgun (DATA-05)', () =>
   });
   it('« organizer », un rôle absent ou inconnu : une soirée propre, jamais écartée', () => {
     for (const r of ['organizer', null, undefined, '', 'admin', 42]) expect(isCohostedRole(r)).toBe(false);
+  });
+});
+
+describe('adresse mal formée renvoyée par Shotgun (DATA-07)', () => {
+  it('rendue mais illisible : signalée, jamais lue comme un effacement', () => {
+    expect(emailUnreadable('jean.dupont@gmail')).toBe(true);
+    expect(emailUnreadable('jean dupont@gmail.com')).toBe(true);
+    const t = mapShotgunTicket({ ticket_id: 1, ticket_status: 'valid', contact_email: 'jean@@gmail.com' });
+    expect(t?.buyer_email).toBeNull();
+    expect(t?.buyer_email_unreadable).toBe(true);
+  });
+  it('absente, vide ou valide : pas signalée', () => {
+    for (const v of [null, undefined, '', '   ', 'jean@gmail.com']) expect(emailUnreadable(v)).toBe(false);
+    const t = mapShotgunTicket({ ticket_id: 1, ticket_status: 'valid', contact_email: 'Jean@Gmail.com' });
+    expect(t?.buyer_email).toBe('jean@gmail.com');
+    expect(t?.buyer_email_unreadable).toBe(false);
+    expect(mapShotgunTicket({ ticket_id: 2, ticket_status: 'valid' })?.buyer_email_unreadable).toBe(false);
+  });
+});
+
+describe('devise autre que l’euro (DATA-04)', () => {
+  const base = { ticket_id: 1, ticket_status: 'valid', deal_price: 2500, deal_user_service_fee: 150, deal_service_fee: 90 };
+  it('en euros : le prix est gardé', () => {
+    const t = mapShotgunTicket({ ...base, currency: 'eur' });
+    expect(t?.price).toBe(25);
+    expect(t?.fees).toBe(1.5);
+    expect(t?.currency).toBe('EUR');
+  });
+  it('en dollars : billet gardé, prix inconnu (jamais additionné à des euros)', () => {
+    const t = mapShotgunTicket({ ...base, currency: 'usd' });
+    expect(t).not.toBeNull();
+    expect(t?.price).toBeNull();
+    expect(t?.fees).toBeNull();
+    expect(t?.org_fee).toBeNull();
+    expect(t?.currency).toBe('USD');
+  });
+  it('devise absente : lue comme l’euro (le compte entier est en euros)', () => {
+    expect(mapShotgunTicket(base)?.price).toBe(25);
+  });
+});
+
+describe('reconnexion pendant une passe (SYNC-03)', () => {
+  const now = Date.parse('2026-10-18T12:00:00Z');
+  it('un bail dans le futur est vivant', () => {
+    expect(leaseAlive('2026-10-18T12:01:00Z', now)).toBe(true);
+  });
+  it('échu, absent ou illisible : libre', () => {
+    for (const v of ['2026-10-18T11:59:00Z', null, undefined, 'n/a']) expect(leaseAlive(v, now)).toBe(false);
   });
 });

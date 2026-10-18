@@ -664,7 +664,9 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
       include_cohosted: includeCohosted,
       status: "active",
       next_sync_at: new Date().toISOString(),
-      locked_until: null,
+      // Une passe encore en cours garde son bail : la libérer ferait tourner
+      // deux passes à la fois (audit 18/10, SYNC-03). La prochaine prend le relais.
+      ...(leaseAlive(existing?.locked_until) ? {} : { locked_until: null }),
       fail_count: 0,
       schema_sample: check.eventsAuth ? { ...(sameOrg ? existing?.schema_sample ?? {} : {}), events_auth: check.eventsAuth } : (sameOrg ? existing?.schema_sample ?? null : null),
       // Autre organisation Shotgun = autre historique : on repart de zéro.
