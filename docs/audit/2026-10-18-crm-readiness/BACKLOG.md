@@ -26,7 +26,7 @@ renvoient au [rapport](REPORT.md).
 | 12 | ~~DATA-03~~ : **fait** (`20261022110000`, FAQ corrigée) | — |
 | 13 | ~~DATA-05~~ : **fait** (`20261022120000`, connecteur, confirmation dans la Console) | — |
 | 14 | ~~DATA-01~~ : **fait** (décision de Paul : marque par billet ; `20261022130000`) | — |
-| 14b | DATA-08 : le moteur d'analyse client (`_crm_an_load`) suit la règle de DATA-02 ; banc de l'analyse (`run.mjs`, `diff.mjs`) puis démo | 1 j / 45 min |
+| 14b | ~~DATA-08~~ : migration `20261022140000` écrite (non appliquée, après `20261022100000`) ; banc `audit-analysis.mjs` (`dump`, puis un profil) ; reste : relancer `gratuit`, `demo`, `grand`, `hasard` et noter familles / score, puis colonne « nouveaux acheteurs » pour la projection | 30 min |
 | 15 | OPS-02 : restauration d'essai dans un projet isolé, chronométrée ; décider du PITR | ½ j |
 | 16 | OPS-03 / OPS-04 : rejeu des migrations sur un projet de branche ; migration de référence des fonctions réécrites par bloc `DO` | 1 j / 45 min |
 | 17 | MAIL-04 : test automatique de la course « déprogrammée pendant le passage du cron » (aujourd'hui relecture seulement) | ½ j / 20 min |
