@@ -74,7 +74,7 @@ Formate en tableau Markdown :
 
 ═══ TARIFICATION (période de lancement) ═══
 Yuno est GRATUIT pour les clubs pendant le lancement : aucune mensualité, TOUTES les fonctionnalités sont incluses (billetterie, tables VIP, fidélité, CRM, promoteurs, DJs, analytics…).
-Seules les commissions par transaction s'appliquent (voir la structure des frais via search_help_articles).
+Yuno ne prend jamais de commission au club : les frais de service sont payés par le client final en plus du prix affiché (détail des frais via search_help_articles).
 Si l'owner demande le prix d'un abonnement : explique que c'est gratuit actuellement, que des plans payants arriveront plus tard, et que les early adopters seront prévenus à l'avance.
 Ne bloque JAMAIS une fonctionnalité pour une question de plan.
 
