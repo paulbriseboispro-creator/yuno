@@ -120,3 +120,6 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Prod = dépôt | échoué (OPS-04, OPS-05) |
 | CI | échoué → **corrigé** (OPS-01, active une fois fusionnée) |
 | Performance | réussi selon S4 (17-18/10) ; non remesuré |
+| Calcul de nuit du score (`crm-score-nightly`) sous le délai de 120 s | échoué (PERF-01 : 3 passes sur 4 annulées le 18/10 sur Amoris, la 4ᵉ à 118,3 s) → **corrigé** (`20261027100000`, non appliqué) ; banc `score-nightly.mjs` : 243-250 s → 47-49 s à froid, 68-70 s → 32 s à chaud, six tables du score identiques |
+| Une portée trop lente ne prive pas les autres de leur calcul de nuit | échoué (PERF-02, P2) : délai dépassé non attrapé, compte démo non noté le 18/10 ; ouvert |
+| Premier règlement du journal (48 h après la soirée) sur un compte de cette taille | réussi au banc (0,2 s, 18 557 personnes) |
