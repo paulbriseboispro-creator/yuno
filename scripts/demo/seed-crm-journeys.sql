@@ -93,7 +93,7 @@ BEGIN
     FROM public.external_tickets t
     JOIN public.external_events x ON x.connection_id = t.connection_id AND x.external_id = t.external_event_id
    WHERE t.connection_id = v_conn AND t.buyer_email IS NOT NULL AND x.event_id IS NOT NULL
-     AND public._crm_ticket_is_sale(t.status, t.raw)
+     AND public._crm_ticket_is_sale(t.status, t.deal_channel)
    GROUP BY 1, 2, 3;
   CREATE INDEX ON _jt (email);
   -- Joignables : un accord e-mail dans le registre du compte.

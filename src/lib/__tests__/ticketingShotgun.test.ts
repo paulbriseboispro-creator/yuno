@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+  minimizeTicketRaw,
+  rawKeyDropped,
+  RAW_EXTRACTED_KEYS,
+  RAW_PERSON_PREFIX,
+  RAW_PERSONAL_WORD,
   at,
   pick,
   email,
@@ -8,6 +15,7 @@ import {
   extractPage,
   safeNextUrl,
   schemaKeys,
+  mergeSchemaKeys,
   normalizeTicketStatus,
   mapShotgunTicket,
   mapShotgunEvent,
@@ -88,6 +96,13 @@ describe('pagination', () => {
     const keys = schemaKeys({ id: 1, contact: { email: 'secret@x.fr', first_name: 'A' } });
     expect(keys).toEqual(['id', 'contact', 'contact.email', 'contact.first_name']);
     expect(keys.join(' ')).not.toContain('secret');
+  });
+
+  it('ajoute les clés nouvelles d’une page à celles déjà relevées, 200 au plus', () => {
+    expect(mergeSchemaKeys(['a', 'b'], [{ b: 1, c: 'secret@x.fr' }, { d: { e: 2 } }])).toEqual(['a', 'b', 'c', 'd', 'd.e']);
+    expect(mergeSchemaKeys(null, [{ x: 1 }])).toEqual(['x']);
+    const many = Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`k${i}`, i]));
+    expect(mergeSchemaKeys([], [many])).toHaveLength(200);
   });
 });
 
@@ -212,7 +227,20 @@ describe('billet Shotgun au schéma officiel', () => {
     const t = mapShotgunTicket(DOC_TICKET, 1, now)!;
     expect(t.raw).not.toHaveProperty('ticket_scan_code');
     expect(JSON.stringify(t.raw)).not.toContain('42564997260325');
-    expect(t.raw).toHaveProperty('ticket_id');
+  });
+
+  it('le billet brut ne garde que ce qui n’est rangé nulle part et ne désigne personne', () => {
+    const t = mapShotgunTicket({ ...DOC_TICKET, event_name: 'Club Sonore', event_published_at: '2025-05-01' }, 1, now)!;
+    expect(t.raw).toEqual({
+      ticket_seating: null,
+      deal_sub_category: 'Friday',
+      deal_producer_cost: 0,
+      deal_vat_rate: 0.055,
+    });
+    const flat = JSON.stringify(t.raw);
+    for (const secret of ['Antoine', 'Rousseau', '+33612345678', 'shotgun.live', '1985-01-01', '31000', 'Toulouse', '123456789']) {
+      expect(flat).not.toContain(secret);
+    }
   });
 
   it('le diviseur de la connexion ne touche pas un montant documenté', () => {
@@ -238,6 +266,41 @@ describe('billet Shotgun au schéma officiel', () => {
     expect(countryCodeFrom('be')).toBe('BE');
     expect(countryCodeFrom('Atlantide')).toBeNull();
     expect(countryCodeFrom(null)).toBeNull();
+  });
+});
+
+describe('billet brut minimisé (miroir de _ticketing_raw_key_dropped)', () => {
+  it('retire les coordonnées sous toutes leurs écritures, et les objets qui portent une personne', () => {
+    const raw = minimizeTicketRaw({
+      ticket_id: 1,
+      contact: { email: 'a@b.fr' }, buyer: { name: 'X' }, address: { street: '1 rue' },
+      firstName: 'A', lastName: 'B', phoneNumber: '06', zipCode: '75001', birthDate: '1990-01-01',
+      holder_email: 'h@b.fr', attendee_first_name: 'C', customer_id: 9, purchaser_email: 'p@b.fr',
+      user_email: 'u@b.fr', ip_address: '1.2.3.4', company: 'ACME', mobile: '07',
+      utm_campaign: 'x', utms: { source: 'ig' }, tracking: { a: 1 },
+      refunded: false, quantity: 1, created_at: '2026-01-01',
+      deal_vat_rate: 0.2, ticket_seating: { id: 3, type: 'Table', section: 'A' }, nouveau_champ: 'gardé',
+    });
+    expect(raw).toEqual({ deal_vat_rate: 0.2, ticket_seating: { id: 3, type: 'Table', section: 'A' }, nouveau_champ: 'gardé' });
+  });
+
+  it('ne retire pas un mot qui ressemble à une coordonnée sans en être une', () => {
+    for (const k of ['deal_sub_category', 'deal_producer_cost', 'hotel_partner', 'storage', 'message_id', 'ticket_seating']) {
+      expect(rawKeyDropped(k)).toBe(false);
+    }
+    for (const k of ['contact_newsletter_optin', 'contact_company_name', 'email', 'Email', 'e_mail', 'buyerEmail', 'city', 'gender', 'age']) {
+      expect(rawKeyDropped(k)).toBe(true);
+    }
+  });
+
+  it('la liste SQL des clés retirées est celle du connecteur, mot pour mot', () => {
+    const sql = readFileSync(resolve(__dirname, '../../../supabase/migrations/20261019300000_external_tickets_raw_minimized.sql'), 'utf8');
+    const block = sql.match(/-- RAW_EXTRACTED_KEYS:début\n([\s\S]*?)-- RAW_EXTRACTED_KEYS:fin/)?.[1] ?? '';
+    const keys = [...block.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(new Set(keys)).toEqual(new Set(RAW_EXTRACTED_KEYS));
+    expect(sql).toContain(`~ '${RAW_PERSON_PREFIX.source}'`);
+    expect(sql).toContain(`~ '${RAW_PERSONAL_WORD.source}'`);
+    expect(RAW_PERSON_PREFIX.source).toBe('^(contact|buyer|holder|attendee|customer|purchaser|beneficiary|owner|user|address|utm|utms|tracking)(_|$)');
   });
 });
 

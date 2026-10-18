@@ -4,7 +4,7 @@
 -- ses billets) ; rejouable seul : efface puis recrée SES lignes (external_id
 -- « …-gl-… »). Ce que Shotgun rend d'une guest list (docs/designs/
 -- CRM_GUEST_LIST_ANALYTICS.md) :
---   • invitations (raw.deal_channel = 'invitation') : promoteurs, artistes &
+--   • invitations (deal_channel = 'invitation') : promoteurs, artistes &
 --     équipe, presse & partenaires ;
 --   • « Guest list gratuite (avant 1h) » : un tarif à 0 € en libre-service.
 -- Viviers : des habitués de la guest list qui ne paient jamais, des visages
@@ -203,7 +203,7 @@ BEGIN
   PERFORM public.refresh_contact_engagement(NULL, v_uid);
   RAISE NOTICE 'guest list démo : % lignes effacées, % invitations, % inscriptions gratuites, % venus',
     v_removed,
-    (SELECT count(*) FROM public.external_tickets WHERE connection_id = v_conn AND external_id LIKE '%-gl-%' AND raw->>'deal_channel' = 'invitation'),
+    (SELECT count(*) FROM public.external_tickets WHERE connection_id = v_conn AND external_id LIKE '%-gl-%' AND deal_channel = 'invitation'),
     (SELECT count(*) FROM public.external_tickets WHERE connection_id = v_conn AND external_id LIKE '%-gl-f-%'),
     (SELECT count(*) FROM public.external_tickets WHERE connection_id = v_conn AND external_id LIKE '%-gl-%' AND scanned_at IS NOT NULL);
 END
