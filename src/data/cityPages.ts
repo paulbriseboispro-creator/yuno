@@ -10,7 +10,7 @@
  *
  * Ajouter une ville = ajouter une entrée ici PUIS :
  *   1. wrangler.jsonc → run_worker_first (« /laville »)
- *   2. PersistentBottomNav NAV_ROUTES + InstallBar SHOW_PATTERNS
+ *   2. PersistentBottomNav NAV_ROUTES
  *   3. Vérifier que `name` matche les valeurs `city` en base
  *      (venues.city / affiliate_venues.city, match ilike).
  * meta en anglais : yunoapp.eu indexe une seule langue canonique (cf. Seo.tsx).

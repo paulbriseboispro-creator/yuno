@@ -13098,9 +13098,6 @@ const es: Record<string, string> = {
   'city.other': 'Yuno en {city}',
 
   // ── Conversion app iOS (barra de instalación + post-compra) ──
-  'install.barTitle': 'Yuno es aún mejor en la app',
-  'install.barCta': 'App Store',
-  'install.barDismiss': 'Cerrar',
   'confirmation.appCard.kicker': 'La app Yuno',
   'confirmation.appCard.title': 'Lleva tu noche en el bolsillo',
   'confirmation.appCard.body': 'Descarga la app iOS: tu QR sigue disponible sin conexión en el club y recibes un aviso al segundo cuando tu pedido o tu mesa esté lista.',

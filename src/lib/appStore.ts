@@ -1,12 +1,11 @@
 // Conversion web → app iOS — source de vérité UNIQUE.
 //
-// Tout ce qui pousse l'app iOS (barre d'install, badges App Store de la
-// landing, carte post-achat, smart banner Safari) lit ce module. L'app
-// client (`eu.yunoapp.app`, App Store Connect id 6799487527) est soumise
-// mais PAS ENCORE approuvée : tant que APP_STORE_READY est false, toutes
-// les surfaces de conversion rendent null et le lien App Store n'apparaît
-// nulle part (il répondrait 404). Le jour de l'approbation Apple, passer
-// APP_STORE_READY à true — c'est le seul changement de code nécessaire.
+// Tout ce qui pousse l'app iOS (badges App Store de la landing, carte
+// post-achat, smart banner Safari) lit ce module. La barre fixe en bas des
+// pages publiques du web a été retirée le 2026-10-18 (décision de Paul) : ne
+// pas la remettre. L'app client (`eu.yunoapp.app`, App Store Connect id
+// 6799487527) est en ligne ; APP_STORE_READY reste l'interrupteur unique de
+// toutes ces surfaces (à false, elles rendent null).
 import { isNative } from '@/lib/native';
 
 export const APP_STORE_ID = '6799487527';
@@ -44,25 +43,4 @@ export function isStandaloneDisplay(): boolean {
  */
 export function canPromoteApp(): boolean {
   return APP_STORE_READY && !isNative() && !isStandaloneDisplay() && isIOSDevice();
-}
-
-// ── Barre d'install : dismiss persistant ────────────────────────────────────
-const DISMISS_KEY = 'yuno_install_bar_dismissed_at';
-const DISMISS_TTL_MS = 14 * 24 * 3600 * 1000; // re-proposer après 14 jours
-
-export function isInstallBarDismissed(): boolean {
-  try {
-    const at = Number(localStorage.getItem(DISMISS_KEY) || 0);
-    return at > 0 && Date.now() - at < DISMISS_TTL_MS;
-  } catch {
-    return false;
-  }
-}
-
-export function dismissInstallBar(): void {
-  try {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
-  } catch {
-    /* stockage privé plein / bloqué : la barre reviendra, tant pis */
-  }
 }

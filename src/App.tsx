@@ -82,7 +82,6 @@ import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp, isNative } from "@/lib/native";
 import { shouldShowLanding } from "@/lib/webHome";
 import { dismissSsrHero } from "@/lib/ssrHero";
-import { InstallBar } from "@/components/install/InstallBar";
 import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { PushTokenKeeper } from "@/components/PushTokenKeeper";
@@ -1462,10 +1461,6 @@ const App = () => (
                   page à l'autre, donc elle reste à l'écran pendant que la page
                   cible charge (skeleton compris). Voir PersistentBottomNav. */}
               <PersistentBottomNav />
-              {/* Conversion web → app iOS : barre fine dismissible, web mobile
-                  iOS uniquement, pages publiques uniquement. Inerte tant que
-                  APP_STORE_READY est false (l'app n'est pas encore approuvée). */}
-              {!isProApp() && !isNative() && <InstallBar />}
             </MaintenanceWrapper>
             </BottomNavVisibilityProvider>
             </LiveModeProvider>
