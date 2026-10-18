@@ -15,18 +15,18 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Exigence (doc) | Implémentation | Test | Résultat |
 |---|---|---|---|
 | `GET api.shotgun.live/tickets`, `organizer_id` obligatoire, jeton en `Bearer` | `ticketsUrl`, `fetchTicketsPage` | `ticketingShotgun.test.ts` | réussi |
-| `organizer_id` doit correspondre au jeton | vérification à la connexion (`verifyShotgun`), une requête vide authentifiée | — | réussi (lu) ; mauvais ID = 401/403 → « jeton non reconnu » plutôt que « ID inconnu » (P3, BACKLOG) |
+| `organizer_id` doit correspondre au jeton | vérification à la connexion (`verifyShotgun`), une requête vide authentifiée | — | réussi (lu) ; Shotgun refuse le couple ID + jeton sans dire lequel : le message nomme l'ID d'abord → **corrigé** (SYNC-06) |
 | 100 billets max par page ; `pagination.next` seulement si la page est pleine | arrêt sur page < 100 ou sans suivante ; lien suivi seulement sur l'hôte Shotgun en https | contrat `ticketing_test.ts` (350 billets → 4 requêtes) | réussi |
 | Tri par mise à jour puis id ; `after` = date ou `date_id` | curseur `ticketCursor` = `date_id` du dernier billet de la page | contrat (3 billets par horodatage) | réussi |
 | Dates sans fuseau (`2025-02-21 17:29:52.462881`) | `isoDate` | `ticketingShotgunAudit.test.ts` en UTC et en `Europe/Paris` | échoué → **corrigé** (SYNC-05) ; prod en UTC : aucun billet daté après sa lecture |
 | Curseur : microsecondes | coupé à la milliseconde | — | réussi (relecture de quelques billets, jamais un saut) |
 | Montants des billets en centimes, des tarifs de soirée en euros | `money(…, 100)` billets ; diviseur 1 soirées | `ticketingShotgun.test.ts` ; prix au centime sur 48 388 billets (17/10) | réussi |
-| `currency` : eur, usd, brl | stockée, jamais filtrée | — | échoué (DATA-04, P3) ; 100 % EUR sur le compte réel |
+| `currency` : eur, usd, brl | billet non EUR gardé, prix inconnu (jamais additionné à des euros) | `ticketingShotgunAudit.test.ts` | échoué → **corrigé** (DATA-04) ; 100 % EUR sur le compte réel |
 | Quota 100 req / min / IP, commun à tous les clients | limiteur `consume_ticketing_rate('shotgun', 45)` avant chaque requête | lu en prod (service_role seul) | réussi |
-| `include_cohosted_events` | case de la connexion | — | réussi ; rattrapage à l'allumage absent (DATA-05, P2) |
+| `include_cohosted_events` | case de la connexion ; rôle `editor` / `viewer` = co-organisée (`isCohostedRole`) | `audit-data.mjs`, contrat `ticketing_test.ts` (12ᵉ cas) | échoué → **corrigé** (DATA-05 : rattrapage à l'allumage, retrait à l'extinction ; le code cherchait un rôle `cohost` jamais rendu) |
 | Statuts `valid`, `resold`, `refunded`, `canceled`, `payment_plan_pending`, `pending_approval`, `rejected` | `normalizeTicketStatus` | `ticketingShotgun.test.ts` | réussi |
 | `ticket_scan_code` ne doit pas fuir | jamais stocké ; `raw` sans coordonnée (S5) | `ticketingShotgun.test.ts` | réussi |
-| `contact_*` = le détenteur | rangé en `buyer_*` | — | réussi sur la donnée ; vocabulaire « acheteurs » (DATA-06, P3) |
+| `contact_*` = le détenteur | rangé en `buyer_*` | — | réussi sur la donnée ; « détenteurs » dans l'aide → **corrigé** (DATA-06) |
 | Aucun webhook, aucun remboursement partiel, pas d'acheteur ≠ détenteur | sondage toutes les 5 min ; « Bientôt » à l'écran | — | non applicable |
 | Events : `?key=` (`token` déprécié), `past_events`, `page` / `limit`, `updated_after` | `eventsUrl`, essai `key` puis `token` | lu | réussi |
 
@@ -36,7 +36,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 |---|---|---|
 | Toutes les pages importées | contrat, cas 1 | réussi |
 | Rejouer l'import : aucun doublon | contrat, cas 2 ; prod : `(connection_id, external_id)` unique, 0 doublon | réussi |
-| Deux synchros concurrentes ne corrompent pas | relecture : verrou `locked_until` + `FOR UPDATE SKIP LOCKED`, bail 150 s, passe la plus longue 45,6 s | réussi ; écrasement par une version plus ancienne possible si le bail expire (SYNC-03, P3) |
+| Deux synchros concurrentes ne corrompent pas | relecture : verrou `locked_until` + `FOR UPDATE SKIP LOCKED`, bail 150 s, passe la plus longue 45,6 s ; `audit-data.mjs` | réussi ; écrasement par une version plus ancienne → **corrigé** (SYNC-03 : trigger + bail gardé à la reconnexion) |
 | Interruption reprise sans perte ni doublon | contrat, cas 3 (5xx en page 3) | réussi |
 | Curseur jamais au-delà de ce qui est enregistré | contrat, cas 4 (écriture en échec en page 3) | réussi |
 | Modification d'un ancien billet rattrapée | contrat, cas 5 ; prod : un scan avance le curseur (17/10) | réussi |
@@ -58,10 +58,10 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 |---|---|
 | Unicité par client et par source | réussi (index uniques ; personnes par espace) |
 | Plusieurs billets par commande, achats répétés, homonymes, e-mail absent ou modifié | réussi à la relecture (adresse = identité ; billet sans e-mail = vente sans personne ; changement d'adresse suivi par `ticketing_email_moves`) |
-| Gratuits, annulation, remboursement, transfert, scan | réussi à la relecture (miroirs TS testés) ; DATA-02 (gratuit non scanné = soirée faite) ouvert |
-| Fuseaux, devises, arrondis | réussi (UTC vérifié en prod) ; devise non gérée (DATA-04) |
+| Gratuits, annulation, remboursement, transfert, scan | réussi à la relecture (miroirs TS testés) ; DATA-02 (gratuit non scanné = soirée faite) → **corrigé** (`audit-data.mjs`, décision de Paul) ; suite dans le moteur d'analyse ouverte (DATA-08) |
+| Fuseaux, devises, arrondis | réussi (UTC vérifié en prod) ; devise → **corrigé** (DATA-04) |
 | Rapprochement source / stocké / affiché | stocké : réussi (18/10) ; source : réussi le 17/10 ; affiché : **bloqué** (RPC en tant que le titulaire refusée par le garde-fou de la session) |
-| Exclusions et désinscriptions survivent à une resynchro | réussi (`ON CONFLICT DO NOTHING`, suppression globale, repoussoir) ; effacement pour conservation non (DATA-01) |
+| Exclusions et désinscriptions survivent à une resynchro | réussi (`ON CONFLICT DO NOTHING`, suppression globale, repoussoir) ; effacement pour conservation → **corrigé** (DATA-01, marque par billet) ; adresse mal formée ≠ effacement → **corrigé** (DATA-07) |
 | Inférences présentées comme telles | réussi (`analysis.test.ts`) |
 
 ## D. Sécurité et séparation

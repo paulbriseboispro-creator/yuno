@@ -24,8 +24,9 @@ Les conditions :
    relu au moment de l'envoi (MAIL-02), organisation Shotgun qui ne change plus sur
    une connexion déjà importée (SYNC-01) et accords retirés à la suppression des
    données (SYNC-01b), bandeau « import en cours » (UI-01).
-3. Trancher DATA-02 (P1, décision produit) ou dire au client que « habitué »,
-   « fidèles » et le nombre de soirées comptent les entrées gratuites non scannées.
+3. DATA-02 tranché par Paul le 18/10 (une entrée gratuite non scannée sur une
+   porte mesurée n'est pas une soirée faite) et corrigé dans cette branche
+   (`20261022100000`) : à mettre en ligne avec les autres (section 9).
 4. Fusionner `crm/s11-practical-email` **avant** cette branche : la prod fait
    tourner son code et sa migration, absents de main (OPS-05).
 
@@ -123,32 +124,35 @@ chiffre important faux ; P2 défaut avec contournement ; P3 mineur.
 | UI-03 | P2 | Les boutons « Synchroniser » disaient « réessayez dans un instant » sur un jeton refusé, une connexion coupée ou un non-titulaire. | `imports.ts`, Soirées, Imports | lu | vrai motif affiché ; 3 messages ajoutés (FR / EN / ES) | `syncChip.test.ts` (clés) |
 | OPS-01 | P2 | Aucune CI ne lançait lint, typage ni tests. | `.github/workflows/` | — | `ci.yml` (lint, tsc, vitest, vitest en heure de Paris, build, contrat Deno) | — |
 | SYNC-05 | P3 | Dates Shotgun sans fuseau lues dans le fuseau du serveur (juste en prod, faux sur un poste en France ; l'ancien test comparait à la même lecture). | `isoDate` | — | lues en UTC | tests en `TZ=Europe/Paris` et UTC |
+| DATA-02 | **P1** | Une entrée gratuite **non scannée** comptait comme une soirée faite, y compris sur une porte mesurée où l'on sait que la personne n'est pas venue : « habitué », « fidèles » et nombre de soirées surévalués. **Décision de Paul (18/10)** : sur une porte mesurée, une entrée gratuite ne compte que scannée. | `_crm_people_build` (`att`), fiche client, aperçu des règles, Accueil, volet d'une soirée | mesuré en prod (lecture seule) : WOH habitués **399 → 72**, soirées 22 471 → 12 304, personnes avec au moins une soirée 16 966 → 10 566 ; autre compte 809 → 693 ; reproduit au banc | `20261022100000` : portes `_crm_sale_counts_as_night` et `_crm_measured_doors` (miroir `saleCountsAsNight`) ; la provenance garde « avait une place » ; un inscrit gratuit jamais venu sans place à venir = « aucune soirée » | `audit-data.mjs` ; `guestlist.test.ts` (cas partagés `sale-counts-as-night.json`, rejoués en SQL) |
+| DATA-03 | P2 | La base de contacts (exports, fiches) additionnait la dépense des billets revendus, invitations et duplicatas ; la FAQ disait « valides ou transférés ». | `contact_scope_customers`, `yc.faq.sales.a` | banc : 115 € au lieu de 20 € | `20261022110000` : dépense = ventes (`_crm_ticket_is_sale`) ; appartenance inchangée ; FAQ corrigée (3 langues) | `audit-data.mjs` |
+| DATA-05 | P2 | « Inclure les soirées co-organisées » : allumé, ne rattrapait rien ; éteint, ne retirait rien. Le connecteur cherchait un rôle `cohost` que Shotgun ne rend jamais (valeurs réelles : `editor`, `viewer`). | `crm_ticketing_set_cohosted`, connecteur | banc : éteindre laisse 22 billets et la soirée miroir ; prod : WOH 53 soirées `editor` et 25 `viewer` (33 281 billets) | `20261022120000` : allumer relit tout ; éteindre retire billets, miroirs et accords venus d'elles (tracé `connector_cohosted_off`) après confirmation dans la Console ; refusé pendant une lecture ; le connecteur ne crée plus ces soirées case éteinte (`isCohostedRole`) | `audit-data.mjs` ; contrat `ticketing_test.ts` (12ᵉ cas) ; `ticketingShotgunAudit.test.ts` |
+| DATA-01 | P2 | L'effacement pour durée de conservation était défait si Shotgun renvoyait le billet (identité et accord revenaient jusqu'au balayage suivant). **Décision de Paul (18/10)** : marque par billet, pas de repoussoir. | `_crm_erase_contacts` | reproduit au banc | `20261022130000` : `external_tickets.erased_at` + trigger `trg_external_tickets_zz_keep_erased` ; un nouvel achat entre normalement | `audit-data.mjs` |
+| DATA-07 | P3 | Une adresse que Shotgun rend mal formée devenait NULL, ce qui valait effacement (identité effacée, accord retiré, repoussoir « erased »). | connecteur, `external_tickets_note_provider_erasure` | reproduit au banc | le connecteur pose `buyer_email_unreadable` ; le trigger garde l'adresse précédente ; un champ vide reste un effacement | `audit-data.mjs` ; `ticketingShotgunAudit.test.ts` |
+| SYNC-03 | P3 | Une version plus ancienne d'un billet pouvait écraser la plus récente (deux passes à la fois ; la reconnexion libérait le verrou d'une passe vivante). | `external_tickets`, `ticketing_connect` | reproduit au banc | trigger `trg_external_tickets_0_skip_stale` ; la reconnexion garde un bail vivant (`leaseAlive`) | `audit-data.mjs` ; `ticketingShotgunAudit.test.ts` |
+| DATA-04 | P3 | Un billet en dollars ou en reais s'additionnait aux euros. | `mapShotgunTicket` | lu (100 % EUR en prod) | billet gardé, prix inconnu (`price` NULL) : ni payant ni gratuit, jamais dans une somme | `ticketingShotgunAudit.test.ts` |
+| DATA-06 | P3 | `contact_*` = le **détenteur** du billet ; l'aide disait « acheteurs ». | FAQ, articles de l'assistant | lu | « détenteurs » dans `yc.faq.shotgun.a`, `yc.faq.customers.a`, `crm-overview`, `crm-ticketing-connect` | relecture |
+| SYNC-06 | P3 | Un mauvais ID organisateur avec un jeton valide se lisait « jeton non reconnu ». Shotgun refuse le couple sans dire lequel ne va pas : rien ne permet de distinguer les deux. | `ticketingErrorKey` | lu | le message de la connexion nomme l'ID d'abord, puis le jeton (`yc.co.err.orgOrToken`) | relecture |
 
 ## 5. Problèmes ouverts
 
 | ID | P | Problème | Impact client | Proposition |
 |---|---|---|---|---|
-| DATA-02 | **P1 (décision)** | Une entrée gratuite **non scannée** compte comme une soirée faite (`_crm_people_build`, `att` : « un billet acheté, même à 0 € »), y compris sur une porte mesurée où l'on sait que la personne n'est pas venue. | Sur WOH (79 % de billets à 0 €, trois quarts des gratuits absents) : « habitué », « fidèles », nombre de soirées surévalués. | Sur une porte mesurée, une entrée gratuite ne compte que si elle est scannée. Décision de Paul, puis migration + banc. |
+| DATA-08 | P2 | Le moteur d'analyse client (« Ce qui fait venir », « Qui cibler », « Fidèles du concept », chances de venir) compte encore une vente comme une venue, entrée gratuite non scannée comprise (suite de DATA-02). | Sur WOH, des « fidèles du concept » et des artistes « vus » sur des soirées où la personne n'est pas venue. | Appliquer `_crm_sale_counts_as_night` dans `_crm_an_load` (lignes `_ana`), mesurer sur le banc de l'analyse (`run.mjs`, `diff.mjs`) puis sur la démo. |
 | OPS-05 | P2 | La prod fait tourner du code et une migration (`20261019150000`, e-mail pratique, branche `crm/s11-practical-email`) absents de main. | Déployer `send-campaign` depuis main retirerait l'e-mail pratique de la prod sans un mot. | Fusionner S11 avant cette branche (section 9). |
 | MAIL-03 | P2 | La clé d'idempotence d'un lot dépend de sa composition : si l'écriture « envoyé » échoue après que Resend a accepté (≈ 21 s d'API en 503 après chaque migration), les lignes reviennent en file, sont regroupées autrement, et repartent. | Un même e-mail reçu deux fois par une centaine de personnes, rarement. | Garder la clé de lot sur les lignes à la réclamation et renvoyer le même lot ; réessayer l'écriture « envoyé ». |
 | MAIL-08 | P2 | E-mail de test : le titulaire + 5 adresses libres, sans limite ni Yunit. | Relais d'envoi depuis le domaine marketing. | 20 tests / jour / espace ; adresses de l'équipe seulement. |
 | MAIL-09 | P2 | `_crm_filter_sql` rend `true` quand aucune clé n'est reconnue : un segment fait seulement de clés inconnues vise toute la base **consentante**. | Envoi plus large que prévu (le consentement tient). | Clé inconnue = faux, comme les Scénarios. |
-| DATA-01 | P2 | L'effacement pour durée de conservation (`_crm_erase_contacts`) n'écarte pas l'adresse d'un réimport : si Shotgun remet le billet à jour, identité et accord reviennent jusqu'au balayage suivant. | Rare (billets anciens). | Décision : repoussoir `erased` (bloque aussi un futur achat légitime) ou marque par billet. |
-| DATA-03 | P2 | `contact_scope_customers` (base de contacts, exports) compte la dépense des billets revendus, invitations et duplicatas, contrairement aux écrans CRM ; la FAQ `yc.faq.sales.a` dit « valides ou transférés » quand le code exclut les transférés. | Deux montants « dépense » pour la même personne. | Appliquer `_crm_ticket_is_sale` ; corriger la FAQ. |
-| DATA-05 | P2 | « Inclure les soirées co-organisées » ne rattrape pas le passé quand on l'allume, et ne retire rien quand on l'éteint. | Base incomplète ou trop large après un changement. | Remise à zéro du curseur à l'allumage ; purge ciblée à l'extinction. |
 | UI-04 | P2 | Pas d'état d'erreur : Soirées, E-mails, Campagnes, tiroir client (squelette sans fin) ; Clients montre « aucun client » sur une erreur ; étape Audience reste sur « … ». | Le client croit sa base vide. | `CrmLoadError` partout (règle déjà écrite dans CLAUDE.md). |
 | SMS-01 | P2 | Aucun secret Octopush en prod, mais la Console présente le SMS comme ouvert ; le test répond « SMS non configuré ». | Le premier client n'a aucun numéro consentant ; risque de confusion. | « Bientôt » tant qu'Octopush n'est pas branché. |
 | OPS-02 | P2 | Sauvegardes physiques quotidiennes (9 gardées, dernière 18/10 01:27 UTC), **pas de PITR**, restauration jamais testée. | Jusqu'à 24 h de preuves de consentement et d'événements d'e-mail perdues. | Tester une restauration sur un projet isolé ; PITR au 2ᵉ ou 3ᵉ client payant. |
 | OPS-03 | P2 | Rejeu des 1 231 migrations sur une base vierge non vérifié (Docker arrêté ; historique Lovable à trous connu). | Reconstruction de secours incertaine. | Un rejeu sur un projet de branche ; sinon un dump de schéma de référence. |
 | OPS-04 | P2 | Des fonctions réécrites en place par un bloc `DO` (S5, `20261019300000`) ont en prod un texte différent du dernier fichier du dépôt. | Une reconstruction depuis le dépôt réintroduit l'ancien texte. | Migration de référence générée depuis `pg_get_functiondef`. |
-| SYNC-03 | P3 | Pas de garde contre l'écrasement d'un billet par une version plus ancienne ; possible seulement si deux passes tournent à la fois (bail de 150 s, passe la plus longue observée 45,6 s ; `ticketing_connect` libère le verrou). | Statut d'un billet en retard jusqu'à sa prochaine mise à jour. | Trigger qui ignore une version plus ancienne ; connect qui respecte un verrou vivant. |
 | SEC-04 | P3 | Fonctions d'aide appelables par tout compte connecté : rôle d'un utilisateur dans une organisation, « a le CRM », plafonds d'envoi. Aucune donnée de client. | Information mineure. | Révoquer celles que le front n'appelle pas. |
 | SEC-05 | P3 | Export CSV : pas de neutralisation des cellules commençant par `= + - @`. | Injection de formule dans Excel via un nom saisi chez Shotgun. | Préfixer d'une apostrophe. |
 | MAIL-07 | P3 | `email_campaigns.product` modifiable par le client sur un compte à deux produits : la campagne passe sur le quota Billetterie, sans garde d'identité CRM. | Pas d'envoi gratuit sans limite (quota Billetterie). | Colonne écrite par le serveur seulement. |
 | MAIL-10 | P3 | Webhook Resend accepté sans signature si le secret manque (il est posé en prod) ; comparaison non constante. | Aucun aujourd'hui. | Refuser sans secret ; comparaison en temps constant. |
 | MAIL-11 | P3 | « Envoyé » = accepté par Resend ; « délivré » n'existe que comme événement ; « reçus » = envoyés − rebonds. | Libellé à préciser. | Montrer « acceptés » / « délivrés ». |
-| DATA-04 | P3 | Aucune gestion de devise (USD / BRL additionnés aux euros). | Aucun pour un compte français (100 % EUR mesuré). | Refuser ou marquer un billet non EUR. |
-| DATA-06 | P3 | `contact_*` = le **détenteur** du billet (doc Shotgun) ; Yuno dit « acheteurs ». | Vocabulaire. | « Détenteurs » dans l'aide. |
 | UI-05 | P3 | Porte légale : échec d'enregistrement ignoré ; fenêtre sans piège de focus. Puce « Testez-le » d'Imports qui ajoute un faux contact à la vraie base. | Mineur. | Voir BACKLOG. |
 
 ## 6. Données : définitions et rapprochement
@@ -163,6 +167,11 @@ Définitions appliquées par le code (CLAUDE.md, sections Shotgun et guest list)
   mesurée », jamais 0 %.
 - **Achat (vente)** : billet `valid`, hors invitation et duplicata ; affiché en
   deux : billets payants (prix > 0) et entrées gratuites.
+- **Soirée faite** (habitué, fidèles, nombre de soirées) : une vente ou une
+  invitation scannée, sauf une entrée gratuite non scannée sur une porte mesurée
+  (décision de Paul du 18/10, DATA-02).
+- **Dépense d'un contact** : la somme des ventes, hors invitations, duplicatas et
+  billets revendus (DATA-03).
 - **Chiffre d'affaires (Console CRM)** : somme des prix faciaux (`deal_price` ÷ 100)
   des ventes payantes, frais client exclus, frais organisateur Shotgun **non**
   déduits, remboursements partiels **inconnus** (Shotgun ne les rapporte pas).
@@ -221,7 +230,11 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
 
 1. Fusionner `crm/s11-practical-email` dans main (OPS-05), puis rebaser cette branche.
 2. Migrations, dans l'ordre : `20261021100000` (sécurité), `20261021110000`
-   (file d'envoi), `20261021120000` (connecteur). Pour chacune : répétition dans
+   (file d'envoi), `20261021120000` (connecteur), puis les migrations
+   « données » `20261022100000` (soirée faite), `20261022110000` (dépense),
+   `20261022120000` (soirées co-organisées), `20261022130000` (billets :
+   effacement, adresse illisible, version ancienne) — **cette dernière avant la
+   fonction `affiliate-ticket-sync`**, qui écrit sa colonne. Pour chacune : répétition dans
    une transaction annulée sur la prod, application avec sa ligne
    `schema_migrations`, puis `supabase db lint --linked`. Pas de `NOTIFY pgrst`
    nécessaire (aucune signature exposée ne change).
@@ -232,6 +245,7 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
 4. Front (Cloudflare Workers Builds) après les fonctions.
 5. Contrôles après : RUNBOOK, « Après une mise en ligne ».
 
-Retour arrière : les trois migrations sont réversibles par la définition
-précédente (lue en prod le 18/10, reprise en tête de chaque fonction réécrite) ;
-les fonctions edge se redéploient depuis le commit précédent.
+Retour arrière : les migrations sont réversibles par la définition précédente
+(lue en prod le 18/10) : `ROLLBACK.sql` (20261021…) et `ROLLBACK-data.sql`
+(20261022…, prouvé au banc par `audit-data.mjs`) ; les fonctions edge se
+redéploient depuis le commit précédent.
