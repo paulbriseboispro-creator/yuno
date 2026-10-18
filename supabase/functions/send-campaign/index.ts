@@ -33,7 +33,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
-  renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
+  renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds, collectStudioEventIds, isLiveStudioBlock,
   usesCrmVariables, fetchRecipientCrmVars, interpolateText, type CrmRecipientVars,
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
@@ -45,6 +45,7 @@ import { supportSessionFor } from '../_shared/support-session.ts';
 import { demoPreviewGuard, demoMarketingScopeState } from "../_shared/demo-guard.ts";
 import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
 import { DEMO_SCOPE_UNKNOWN, scheduledSendRefusal } from '../_shared/scheduled-email-campaigns.ts';
+import { dropBlocksOutsideScope } from '../_shared/email-block-scope.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -287,7 +288,21 @@ async function makeStudioHtmlBuilder(
   sender: Sender,
   opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
 ) {
-  const blocks = (((campaign.blocks_json as StudioBlock[]) || [])).map((b) => ({ ...b }));
+  let blocks = (((campaign.blocks_json as StudioBlock[]) || [])).map((b) => ({ ...b }));
+  // Une soirée hors de l'espace ne remplit jamais un bloc : le bloc ne part
+  // pas (audit du 18/10, MAIL-14). La portée Yuno garde toutes les soirées.
+  let liveEventId = (campaign.event_id as string) || null;
+  const wanted = collectStudioEventIds(blocks, liveEventId);
+  if (wanted.length && !sender.isPlatform) {
+    const { data: inScope, error: scErr } = await admin.rpc('email_scope_event_ids', {
+      p_venue_id: sender.venueId, p_organizer_user_id: sender.organizerUserId, p_event_ids: wanted,
+    });
+    if (scErr) throw new Error(`email_scope_event_ids: ${scErr.message}`);
+    const kept = dropBlocksOutsideScope(blocks, liveEventId, new Set((inScope as string[] | null) ?? []), isLiveStudioBlock);
+    if (kept.dropped) console.warn(`${kept.dropped} bloc(s) d'une soirée hors de l'espace retiré(s) de la campagne ${campaign.id}`);
+    blocks = kept.blocks;
+    liveEventId = kept.eventId;
+  }
   const campaignLogo = campaign.logo_url as string | null;
   if (campaignLogo) {
     for (const b of blocks) {
@@ -301,7 +316,7 @@ async function makeStudioHtmlBuilder(
   // suivis : clics et inscriptions remontent dans les stats de la soirée. Un
   // envoi de TEST reste sur l'URL nue — le pro ne doit pas s'auto-compter.
   const live = await fetchStudioLiveData(
-    admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL,
+    admin, blocks, liveEventId, PUBLIC_URL,
     opts.trackedLinks === false ? null : 'newsletter',
     { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
     // Soirée Shotgun : la vente revient avec la source de CETTE campagne.
