@@ -1022,12 +1022,15 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   quels), et les noms anglais ISO d'avant les renommages (Turkey, Czech
   Republic, Republic Of Moldova, « Korea, Republic of »…) ont leurs alias.
   Les billets déjà en base ont été rattrapés (`20261018100000`).
-- **Une vente = `_crm_ticket_is_sale(status, raw)`** : `valid` hors invitation
-  et hors duplicata (`deal_channel IN ('invitation', 'duplicata')`, le duplicata
-  est la copie d'un billet déjà vendu). Un billet revendu (`resold` → `transferred`)
-  n'est pas une vente (l'acheteur de la revente a son propre billet). Utilisée
-  par `_crm_tickets`, `_crm_ana_setup`, Soirées, Liens ; le registre des
-  PERSONNES (« a acheté », automatisations) garde `valid, transferred`.
+- **Une vente = `_crm_ticket_is_sale(status, deal_channel)`** (colonne depuis
+  S5, plus `raw`) : `valid` hors invitation et hors duplicata (le duplicata est
+  la copie d'un billet déjà vendu). Une vente se montre en deux : billets
+  PAYANTS (`_crm_ticket_is_paid`) et ENTRÉES GRATUITES (à 0 €), jamais un seul
+  « vendus » (section « billets payants, entrées gratuites » plus bas). Un
+  billet revendu (`resold` → `transferred`) n'est pas une vente (l'acheteur de
+  la revente a son propre billet). Utilisée par `_crm_tickets`,
+  `_crm_ana_setup`, Soirées, Liens ; le registre des PERSONNES (« a acheté »,
+  automatisations) garde `valid, transferred`.
 - **Mêmes chiffres partout** (migration `20261008130000`) : un acheteur
   « attribué » à un e-mail = `_crm_email_attrib` (un clic dans les 7 jours
   avant l'achat, le dernier clic gagne) — Résultats, Parcours, Segments ET le
@@ -1123,42 +1126,67 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   porte sa source nommée (`_crm_source_label` : lien « Story 2 », campagne
   « Line-up »…), chaque e-mail cliqué la soirée visée et `bought_after`. Un
   clic sur une story reste anonyme tant que la personne n'achète pas.
-- « On t'a manqué » ne part que si au moins la moitié des détenteurs ont été
-  scannés (`20261006230000`) : Shotgun laisse le scan vide quand un autre
-  prestataire a scanné.
+- « On t'a manqué » ne part que sur une porte mesurée (`_crm_door_measured` :
+  au moins 10 détenteurs scannés et 10 % d'entre eux, `20261020200000`) :
+  Shotgun laisse le scan vide quand un autre prestataire a scanné.
 - Démo : `scripts/demo/seed-crm-links.sql` (à rejouer après
   `seed-crm-demo.sql`), sources réalistes (`utm_medium` = app / website).
 
 ## Yuno CRM — la guest list Shotgun dans l'analyse (2026-10-06)
 
+Billets payants, entrées gratuites, guest list ; porte mesurée (revu le 18/10).
 Doc : `docs/designs/CRM_GUEST_LIST_ANALYTICS.md`. Migrations `20261008100000`
-→ `111000`. Onglet « Guest list » du tiroir d'une soirée (`?v=gl`,
-`crm_night_guestlist`), Analyses › Guest list (`/crm/analytics/guestlist`,
-`crm_ana_guestlist`, `?e=<soirée>` = une soirée en pleine largeur), filtres
-Clients `?gl=` / `?glev=`, badge « GL ×n », parcours d'invité sur la fiche. Règles :
+→ `111000`, puis `20261020200000` (décisions D3 et D4 de Paul du 17/10, sur le
+premier vrai compte Shotgun : 79 % de billets à 0 €, les trois quarts des
+gratuits ne viennent pas). Onglet « Gratuits » du tiroir d'une soirée
+(`?v=gl`, `crm_night_guestlist`), Analyses › Gratuits
+(`/crm/analytics/guestlist`, `crm_ana_guestlist`, `?e=<soirée>` = une soirée
+en pleine largeur), filtres Clients `?gl=` / `?glev=`, badge « Gratuit ×n »,
+parcours sur la fiche. Règles :
 
-- **Porte unique `_crm_ticket_gl_kind(status, price, raw)`** = `'inv'`
-  (`deal_channel = 'invitation'`) | `'free'` (billet valide à 0 €) | NULL ;
-  un duplicata n'en est jamais une. Miroir EXACT `glKindOf`
-  (`src/crm/lib/guestlist.ts`, testé). Les listes de noms de Shotgun Scan ne
-  sont pas dans l'API : « Bientôt » (`ShotgunSoonCard` item `scanlist`).
-- **« Venu » = scanné, sur une soirée dont la porte a scanné ≥ la moitié des
-  billets** (`_crm_event_scan_known`), sinon « non mesuré », jamais 0 %. **Aucun
-  pourcentage sous 10** (venue, entrées gratuites, répartitions) : le SQL rend
-  NULL et l'écran montre les nombres bruts.
+- **Trois sortes de billets, jamais mélangées à l'écran (D4)** : BILLET PAYANT
+  (`_crm_ticket_is_paid` : vente à plus de 0 €) ; ENTRÉE GRATUITE (vente à
+  0 €, `_crm_ticket_gl_kind` = `'free'`) ; GUEST LIST = les invitations Shotgun
+  seules (`'inv'`, `deal_channel = 'invitation'`, jamais une vente). Partout où
+  des places se comptent (Soirées, détail, Accueil, Analyses › Ventes), payants
+  et entrées gratuites côte à côte (`TicketSplit`, `src/crm/components/`) ;
+  « places prises » (`sold` = payants + entrées gratuites) ne sert qu'au
+  remplissage ; la tuile « Billets payants », le prix moyen et le mode
+  « billets » des courbes ne comptent que les payants. Champs AJOUTÉS (`paid`,
+  `free`, `inv`, `today_paid`, `paid_tickets`, `free_tickets`…), aucun retiré.
+  Ce qu'est une « vente » pour le registre des personnes ne change pas
+  (« a acheté » = `valid` / `transferred`, un billet à 0 € reste un billet).
+  Les deux gratuits ensemble = « inscrits gratuits » / « Gratuits », jamais
+  « invités » ni « guest list ». Miroirs testés : `glKindOf`, `isSaleTicket`,
+  `isPaidTicket`, `ticketKindOf` (`src/crm/lib/guestlist.ts`). Un duplicata
+  n'est jamais rien. Les listes de noms de Shotgun Scan ne sont pas dans l'API :
+  « Bientôt » (`ShotgunSoonCard` item `scanlist`).
+- **Porte mesurée (D3) = au moins 10 billets valides scannés ET au moins 10 %
+  d'entre eux** : porte unique `_crm_door_measured(valid, scanned)` (comparée en
+  entiers, `scans × 10 ≥ billets`), miroir `doorMeasured`. Elle décide
+  `_crm_event_scan_known`, la colonne `gl_noshow` de `_crm_people_build`, la
+  venue des Soirées et d'Analyses › Gratuits, les « absents » des scénarios
+  (moteur ET aperçu) et la recette « On t'a manqué » (`collect_email_automations`
+  et son aperçu, en PERSONNES : détenteurs et scannés). Sur le banc Amoris :
+  120 soirées mesurées sur 271 (33 avec l'ancienne règle « ≥ 50 % »). « Venu »
+  = scanné sur une porte mesurée, sinon « porte non mesurée », jamais 0 %.
+  **Aucun pourcentage sous 10** (venue, part des gratuits, répartitions) : le
+  SQL rend NULL et l'écran montre les nombres bruts. Une nouvelle règle de
+  scan passe par `_crm_door_measured`, jamais un `0.5 * count(*)` écrit à la main.
 - **`_crm_people_build` porte les colonnes guest list** (`paid_n`, `gl_n`,
   `gl_came`, `gl_first`, `gl_events`, `gl_noshow`, `gl_conv`) que lisent
   `_crm_filter_sql`, les segments et les audiences : toute réécriture repart de
   la base liée et les garde (une migration d'une autre session a failli les
-  effacer le 06/10). Une invitation SCANNÉE vaut une soirée faite ; un billet à
-  0 € compte comme tout billet valide.
-- « Qui sont vos invités ? » = partition exacte (première fois / déjà invités /
-  clients payants ; un billet payant acheté avant la soirée, même pour une
-  date plus tardive, vaut « déjà vu »). « Devenus clients » = sans billet payant
-  avant leur première soirée en guest list, un billet payant depuis.
+  effacer le 06/10). Une invitation SCANNÉE vaut une soirée faite.
+- « Qui sont vos inscrits gratuits ? » = partition exacte (première fois / déjà
+  en gratuit / clients payants ; un billet payant acheté avant la soirée, même
+  pour une date plus tardive, vaut « déjà vu »). « Gratuit → payant » = sans
+  billet payant avant leur première soirée en gratuit, un billet payant depuis :
+  c'est le chiffre mis en avant (première phrase d'Analyses › Gratuits).
 - Démo : `scripts/demo/seed-crm-guestlist.sql`, joué par `refresh-crm-demo.sh`
-  après `seed-crm-nights.sql`. Aide : FAQ `yc.faq.guestlist.*`, article
-  assistant `crm-guest-list` (redéployer `owner-assistant`).
+  après `seed-crm-nights.sql`. Aide : FAQ `yc.faq.guestlist.*` et
+  `yc.faq.sales.*`, article assistant `crm-guest-list` (redéployer
+  `owner-assistant`).
 
 ## Yuno CRM — le catalogue de segments (2026-10-06)
 
