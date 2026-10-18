@@ -324,7 +324,7 @@ const S = [
   { id: 'R10', label: 'L’ancien règlement en un clic reste fermé', steps: [['O', `SELECT public.settle_promoter_payout($1) AS res`, [ID.PR1]]], before: refused(/use_two_step_flow/), after: refused(/use_two_step_flow/) },
 
   { id: 'O1', label: 'Owner supprime un promoteur qui a un lot ouvert (cascade)', steps: [['O', `DELETE FROM public.promoters WHERE id = $1`, [ID.PRB]]], before: refused(REFUSE_PAY), after: isOk(1), stateAfter: /C5=paid C7=pending · .*lot PRB supprimé/, note: 'à décider : voir BACKLOG 16g' },
-  { id: 'O2', label: 'Promoteur : sa propre commission de billet relevée à 99 (SEC-07, hors migration)', steps: [['P', `UPDATE public.promoters SET ticket_commission_value = 99 WHERE id = $1`, [ID.PR1]]], before: isOk(1), after: isOk(1), note: 'non corrigé ici' },
+  { id: 'O2', label: 'Promoteur : sa propre commission de billet relevée à 99 (SEC-07, hors migration)', steps: [['P', `UPDATE public.promoters SET ticket_commission_value = 99 WHERE id = $1`, [ID.PR1]]], before: isOk(1), after: isOk(1), note: 'corrigé à part : 20261025100000, banc sec07.mjs' },
 ];
 
 async function phase() {

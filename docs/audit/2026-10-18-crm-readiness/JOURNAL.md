@@ -116,6 +116,23 @@ Ce qui reste bloqué, et pourquoi :
   (trous de l'historique) est faite. Attend : Docker démarré par Paul, ou un projet
   vide temporaire (même coût horaire).
 
+## Correctif SEC-07 (18/10, soir)
+
+Session « SEC-07 », branche `crm/audit-sec07` (partie de `crm/audit-sec06-link01`).
+Lectures prod une à la fois après `prod.mjs --activity` ; rien d'appliqué ni de
+répété sur la prod. Tests au banc (PGlite, < 4 s).
+
+| Commande | Résultat |
+|---|---|
+| lecture du front et des fonctions edge : écritures sur `promoters` | le promoteur écrit `iban`, `bic` (dialogue IBAN), `instagram_url`, `whatsapp_number`, `promo_code` (régénéré du nom), `profile_image_url` (`PromoterProfileTab`, `PromoterProfilePage`) ; prénom et nom vont dans `profiles` ; les autres écritures sont celles d'owners, d'agences, du super admin (Console) ou en service_role (invitations) |
+| prod, lecture : policies, triggers, droits et écrivains de `promoters` | deux policies UPDATE ouvertes au promoteur (« Promoters can update their own IBAN », « Promoter can update own organizer profile »), `authenticated` a UPDATE sur les 50 colonnes ; 5 triggers BEFORE (code promo, gel IBAN, accès assisté, groupe d'agence, `updated_at`) ; les 8 fonctions qui écrivent la table sont SECURITY DEFINER de `postgres` ; 4 fiches en prod |
+| lecture des checkouts | `create-ticket-checkout` / `create-table-checkout` lisent `ticket_` / `table_discount_*` du promoteur : la remise qu'il se pose est payée par le club ; `prepare_promoter_payout` lit `iban_changed_at` pour le gel de 24 h |
+| `same-as-prod.mjs is_direct_client_write guard_promoter_self_update` | `is_direct_client_write` identique à la prod ; le garde est nouveau |
+| `node scripts/crm-bench/sec06.mjs dump` puis `sec07.mjs run` | **35 / 35** dans quatre phases : avant, le promoteur relève ses taux, se pose 100 % de remise, s'ouvre la porte, change de club, réécrit son dû et antidate son gel IBAN (avec SEC-06 seul, le lot part vers l'IBAN de la veille) ; après `20261025100000`, tout refusé, IBAN / BIC / profil acceptés et gel posé, owners, managers, organisateurs, admins d'équipe, chefs d'agence, super admin, RPC, service_role et cascades inchangés → [sec07-bench.md](sec07-bench.md) ; smoke `smoke/sec07.sql` SMOKE_OK au banc (SEC-07 seul et avec SEC-06) |
+| `sec06.mjs run` après l'ajout | toujours **30 / 30** (O2 renvoie à SEC-07) |
+| ROLLBACK.sql bloc 6, au banc ; migration appliquée deux fois | retire le garde et son trigger, les 5 triggers de la prod restent ; migration idempotente |
+| lecture en passant | candidat SEC-09 (BACKLOG 16i) : le `promoterId` envoyé aux checkouts n'est pas borné à la soirée |
+
 ## Ce que cet audit n'a pas pu faire
 
 - Appeler l'API publique de la prod ou jouer une RPC en tant qu'un compte réel :
