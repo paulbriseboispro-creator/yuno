@@ -337,7 +337,7 @@ DROP TRIGGER IF EXISTS trg_a_guard_promoter_self_update ON public.promoters;
 DROP FUNCTION IF EXISTS public.guard_promoter_self_update();
 
 -- ── 5. 20261024100100 (LINK-01) : remet l'expression {1,480}, donc l'erreur 2201B ──
--- (NON appliquée en prod au 18/10 au soir : en attente de la décision de Paul ; ne rien jouer ici sans elle.)
+-- (Appliquée en prod le 18/10 à 23:03 UTC, sur la décision de Paul.)
 CREATE OR REPLACE FUNCTION public.crm_link_create(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid, p_platform text, p_placement text, p_label text DEFAULT NULL::text, p_image_url text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql

@@ -272,3 +272,12 @@ attendent sa décision.
 | Migrations (23:01) | `20261025200000`, `20261026100000`, `20261026100100`. Catalogue : rien d'exécutable par `anon` sauf `is_direct_client_write` (aide pure, INVOKER, lue par les policies) ; `trg_a_guard_promoter_self_update` premier trigger de `promoters`. `db lint` : 87 avant comme après. |
 | Fonctions (23:02) | create-ticket-checkout et create-table-checkout depuis `9a121c18`. Avant : prod = main d'avant le lot « envois » (seul `_shared/demo-guard.ts` différait, remplacé sur main par MAIL-12). Après : identiques au commit. |
 | Reste | SEC-06 (décision sur SEC-08) et LINK-01 (décision) : branche `crm/audit-sec06-link01`, blocs 4 et 5 de `ROLLBACK.sql` marqués « non appliquée ». |
+
+### LINK-01 (décision de Paul à l'étape SEC)
+
+| Étape | Résultat |
+|---|---|
+| Banc | `link01.mjs` sur instantané frais : 13 / 13, 0 écart sur 400 URL tirées au hasard, smoke vert. |
+| Répétition (23:03) | Compte démo CRM : lien de story créé AVEC sa capture (gardée), URL http écartée sans erreur : SMOKE_OK. Sans la migration : « crm_link_create contient encore {1,480} ». |
+| Migration (23:03) | `20261024100100` (fichier repris de `crm/audit-sec06-link01`, identique à celui répété). `crm_link_create` sans `{1,480}`, definer, fermée à `anon`. `db lint` : 87 avant comme après. |
+| Reste | SEC-06 (`20261024100000`) attend la décision de Paul sur SEC-08 : branche `crm/audit-sec06-link01`. |
