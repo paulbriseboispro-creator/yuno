@@ -84,6 +84,19 @@ node prod.mjs -f requete.sql
 Chaque requête part dans une transaction `READ ONLY` (une écriture lève une
 erreur). Jeton : `SUPABASE_ACCESS_TOKEN` de `.env.local`, jamais affiché.
 
+La prod est-elle le dépôt ? (lecture seule, quelques secondes)
+
+```bash
+node prod-functions-reference.mjs scan      # toutes les fonctions applicatives de la prod
+node prod-functions-reference.mjs list      # identiques / réécrites / absentes / plus anciennes, d'où vient le texte
+node prod-functions-reference.mjs report ../../docs/audit/…/ops04-functions.md ../../supabase/reference/<date>_prod_functions_reference.sql
+node history-holes.mjs scan && node history-holes.mjs report <md>   # tables, triggers, policies, crons sans création dans le dépôt
+node isolation.mjs run --club <md>          # séparation entre deux espaces CLUB (sans --club : deux organisateurs)
+```
+
+La référence générée vit hors de `supabase/migrations` : `db push` ne la joue
+jamais. La rejouer après de nouvelles migrations annulerait celles-ci.
+
 ## Mettre en ligne (jamais par ces scripts)
 
 1. Vérifier que la prod = le dépôt pour chaque fonction réécrite : lire
