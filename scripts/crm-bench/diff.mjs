@@ -14,7 +14,7 @@ const TABLES = [
   'crm_family_status', 'crm_score_model', 'crm_score_night', 'crm_person_night_score',
 ];
 const VOLATILE = new Set(['computed_at', 'updated_at', 'trained_at', 'created_at', 'marked_at', 'full_at',
-  'dirty_at', 'duration_ms', 'ms', 'computed_on', 'first_seen_at', 'last_error_at', 'status_since']);
+  'dirty_at', 'duration_ms', 'ms', 'computed_on', 'first_seen_at', 'last_error_at', 'status_since', 'flat_since']);
 
 function clean(v) {
   if (Array.isArray(v)) return v.map(clean);

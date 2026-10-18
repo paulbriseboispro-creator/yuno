@@ -88,19 +88,22 @@ export async function ticketingAction(
 }
 
 export function setCohosted(args: Record<string, unknown>, on: boolean) {
-  return rpc<{ ok?: boolean; error?: string }>('crm_ticketing_set_cohosted', { ...args, p_on: on });
+  return rpc<{ ok?: boolean; error?: string; reread?: boolean; removed?: { tickets?: number; events?: number; consents_withdrawn?: number } }>(
+    'crm_ticketing_set_cohosted', { ...args, p_on: on });
 }
 
 /** Clé de message d'un code d'erreur de l'edge. */
 export function ticketingErrorKey(code: string): string {
   const m: Record<string, string> = {
-    invalid_token: 'yc.co.err.invalidToken', invalid_token_format: 'yc.co.err.invalidToken', token_invalid: 'yc.co.err.invalidToken',
+    // `invalid_token` n'arrive qu'à la connexion : Shotgun refuse le COUPLE ID +
+    // jeton, il ne dit pas lequel (audit 18/10) — le message nomme l'ID d'abord.
+    invalid_token_format: 'yc.co.err.invalidToken', invalid_token: 'yc.co.err.orgOrToken', token_invalid: 'yc.co.err.invalidToken',
     invalid_organizer_id: 'yc.co.err.invalidOrg', unknown_organizer: 'yc.co.err.invalidOrg',
     rate_limited: 'yc.co.err.busy', provider_unreachable: 'yc.co.err.unreachable',
     support_session_forbidden: 'yc.co.err.support', demo_account_locked: 'yc.co.err.demo', demo_read_only: 'yc.co.err.demo',
     forbidden: 'yc.co.err.forbidden', too_soon: 'yc.co.err.tooSoon',
     org_change_requires_purge: 'yc.co.err.orgChange', not_connected: 'yc.co.err.notConnected',
-    unauthorized: 'yc.co.err.signedOut',
+    unauthorized: 'yc.co.err.signedOut', sync_running: 'yc.co.err.syncRunning',
   };
   const k = Object.keys(m).find((x) => code.includes(x));
   return k ? m[k] : 'yc.co.err.generic';

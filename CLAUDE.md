@@ -158,7 +158,8 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   `p_campaign_id` (passé par `send-campaign`). Sans ça, l'offert épuisé, la
   campagne déjà payée attendait le 1er du mois.
 - **Billets externes dans le CRM** : `contact_scope_customers` les compte comme
-  des billets (valides / transférés, valeur faciale hors frais). Automatisations :
+  des billets (valides / transférés, valeur faciale hors frais ; la DÉPENSE ne
+  compte que les ventes, `_crm_ticket_is_sale`, audit du 18/10). Automatisations :
   un acheteur Shotgun d'une soirée est « bought » (jamais de dernier appel pour
   une soirée payée), un scan Shotgun vaut une venue, un achat vaut une activité.
   Toute nouvelle requête « a acheté / est venu » ajoute la branche
@@ -1225,7 +1226,9 @@ parcours sur la fiche. Règles :
   `gl_came`, `gl_first`, `gl_events`, `gl_noshow`, `gl_conv`) que lisent
   `_crm_filter_sql`, les segments et les audiences : toute réécriture repart de
   la base liée et les garde (une migration d'une autre session a failli les
-  effacer le 06/10). Une invitation SCANNÉE vaut une soirée faite.
+  effacer le 06/10). Une invitation SCANNÉE vaut une soirée faite ; une entrée
+  gratuite non scannée sur une porte mesurée n'en est pas une (`_cpa.came`,
+  `_crm_sale_counts_as_night`, décision de Paul du 18/10).
 - « Qui sont vos inscrits gratuits ? » = partition exacte (première fois / déjà
   en gratuit / clients payants ; un billet payant acheté avant la soirée, même
   pour une date plus tardive, vaut « déjà vu »). « Gratuit → payant » = sans
@@ -1740,10 +1743,51 @@ Migrations `20261021100000` → `120000`. Règles nées de l'audit :
   (`unexpected_response`) ; les dates sans fuseau se lisent en UTC (`isoDate`).
 - Pendant le premier import, la Console le dit (bandeau + pastille, règle
   `syncChip`) : jamais « synchronisé » sur des chiffres partiels.
+- **Une soirée faite = un billet vendu ou une invitation scannée, SAUF une entrée
+  gratuite non scannée sur une porte mesurée** (décision de Paul du 18/10,
+  DATA-02, migration `20261022100000`) : portes `_crm_sale_counts_as_night`
+  (miroir `saleCountsAsNight`, cas partagés `sale-counts-as-night.json`) et
+  `_crm_measured_doors`. Base des personnes (`_cpa`, colonne `came` ; la
+  provenance garde « avait une place »), fiche client, aperçu des règles,
+  Accueil et volet d'une soirée. Un inscrit gratuit jamais venu sans place à
+  venir est « contact connu, aucune soirée ». Toute nouvelle lecture « soirées
+  faites / habitué » passe par ces portes. Le moteur d'analyse la suit
+  (DATA-08, `20261022140000`) : `_ana` = soirées faites, donc familles,
+  hypothèses, profils personne / soirée, artistes et audiences « Qui cibler ».
+  **Le score « Chances de venir » reste ENTIÈREMENT sur les achats**, facteurs
+  ET cible (décision de Paul du 18/10) : il lit `_anbought`
+  (`_crm_an_load_bought`, l'ancienne `_ana`) et `_anp.passing_bought`, car le
+  journal prévu / réel le juge sur les ventes. Banc :
+  `scripts/crm-bench/audit-analysis.mjs` (instantané de la prod, profil
+  `gratuit` = `demo` + entrées gratuites façon WOH).
+- **Dépense d'un contact = les ventes seulement** (`contact_scope_customers`,
+  DATA-03) : un billet revendu, une invitation, un duplicata restent un billet
+  (la personne reste cliente) mais ne coûtent rien.
+- **« Inclure les soirées que je co-organise »** (DATA-05, `20261022120000`) : une
+  soirée co-organisée = rôle Shotgun `editor` / `viewer` (`isCohostedRole` ⇄
+  `_ticketing_role_is_cohosted`, un rôle inconnu = soirée propre). Allumer relit
+  tout l'historique ; éteindre retire billets, soirées miroirs et accords venus
+  d'elles (`_ticketing_drop_cohosted`, traces `connector_cohosted_off`) après
+  confirmation dans la Console ; refusé pendant une lecture (`sync_running`). Le
+  connecteur ne crée plus ces soirées tant que la case est éteinte.
+- **Un billet effacé par Yuno reste anonyme** (DATA-01, décision de Paul :
+  marque par billet, pas de repoussoir) : `_crm_erase_contacts` pose
+  `external_tickets.erased_at`, le trigger `trg_external_tickets_zz_keep_erased`
+  (après la dérivation des colonnes typées) ré-efface ce que la billetterie
+  renvoie ; un nouvel achat est un autre billet. **Une adresse rendue mal formée
+  n'est pas un effacement** (DATA-07) : le connecteur écrit
+  `buyer_email_unreadable` et le trigger d'effacement garde l'adresse
+  précédente. **Une version plus ancienne d'un billet n'écrase jamais la plus
+  récente** (SYNC-03, `trg_external_tickets_0_skip_stale`, premier des
+  triggers) ; une reconnexion ne libère pas le bail d'une passe vivante
+  (`leaseAlive`). **Devise autre que l'euro** (DATA-04) : billet gardé, prix
+  inconnu (`price` NULL), jamais additionné à des euros. Migration
+  `20261022130000` AVANT la fonction `affiliate-ticket-sync`.
 - Bancs de l'audit (PGlite, définitions de la prod, rien n'écrit sur la prod) :
   `scripts/crm-bench/isolation.mjs` (séparation entre espaces, 206 fonctions),
-  `audit-security.mjs`, `audit-mail.mjs`, `audit-sync.mjs` ; contrat simulé de la
-  synchro : `supabase/functions/affiliate-ticket-sync/ticketing_test.ts`.
+  `audit-security.mjs`, `audit-mail.mjs`, `audit-sync.mjs`, `audit-data.mjs`
+  (DATA-01 à 07, SYNC-03) ; contrat simulé de la synchro :
+  `supabase/functions/affiliate-ticket-sync/ticketing_test.ts`.
 
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 

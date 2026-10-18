@@ -46,6 +46,13 @@ export const PROFILES = {
   // Contrôle : aucun effet planté, le moteur ne doit rien confirmer.
   hasard: { ...base, seed: 41, nights: 40, newPerNight: 50, loyalBase: -1.1, casualBase: -3.3,
             artist: 0, concept: 0, genre: 0, weekday: 0, headlinerPull: 1 },
+  // Le compte `demo` (même graine, mêmes venues) vu par une billetterie à
+  // entrées gratuites, ordre de grandeur WOH : la moitié des venues à 0 €, et
+  // 1,5 billet gratuit jamais scanné par billet vendu (≈ 80 % de billets à
+  // 0 €, les trois quarts des gratuits ne viennent pas), 60 % pris par des gens
+  // qui ne viennent jamais. Sert à mesurer DATA-08 (audit-analysis.mjs).
+  gratuit: { ...base, seed: 11, nights: 29, months: 12, newPerNight: 42, loyalBase: -0.9, casualBase: -3.1,
+             freeShare: 0.5, noShowPerTicket: 1.5, ghostShare: 0.6 },
 };
 
 export function profile(name, overrides = {}) {

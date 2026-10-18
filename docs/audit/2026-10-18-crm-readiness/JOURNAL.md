@@ -65,6 +65,11 @@ prouvé.
 | `node scripts/crm-bench/audit-security.mjs` | failles reproduites avant, fermées après |
 | `node scripts/crm-bench/audit-mail.mjs` | idem |
 | `node scripts/crm-bench/audit-sync.mjs` | idem |
+| `node scripts/crm-bench/prod.mjs -f impact02.sql` (lecture seule, 18/10) | DATA-02 sur WOH : habitués 399 → 72, soirées 22 471 → 12 304, personnes avec au moins une soirée 16 966 → 10 566 ; autre compte : 809 → 693 |
+| `node scripts/crm-bench/audit-data.mjs` (DATA-01, 02, 03, 05, 07, SYNC-03) | 41 contrôles : failles reproduites avant, fermées après, le reste identique ; base légère identique ; retour arrière (`ROLLBACK-data.sql`) = prod ; stable sur 5 passes |
+| `deno test --no-lock -A affiliate-ticket-sync/ticketing_test.ts` (après DATA-05) | 12 / 12 (nouveau cas : case éteinte, soirées `editor` / `viewer` non créées) |
+| `npx vitest run` (après les correctifs « données ») | 123 fichiers, 1 602 tests, verts ; `TZ=Europe/Paris` sur les tests Shotgun : 50 verts |
+| `npx tsc --noEmit -p tsconfig.app.json`, `npx eslint` des fichiers touchés | 0 erreur |
 | rollback (`ROLLBACK.sql`) au banc | revient à l'état de la prod |
 | `node scripts/crm-bench/prod.mjs …` | lectures seules (connexion, passes, triggers, ACL, vues, crons, sauvegardes) |
 | `supabase secrets list` | noms et empreintes seulement (aucune valeur) : `RESEND_WEBHOOK_SECRET` posé, aucun secret Octopush |

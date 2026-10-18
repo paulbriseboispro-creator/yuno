@@ -20,6 +20,7 @@ interface Res { data: unknown; error: { message: string } | null }
 class FakeDb {
   conn: ConnRow & Row; // + ce que la passe écrit (next_sync_at, last_ok_at…)
   tickets = new Map<string, Row>();
+  events = new Map<string, Row>();
   runs: Row[] = [];
   upsertCalls = 0;
   failUpsertAt = -1; // n° d'appel d'upsert qui échoue
@@ -27,7 +28,7 @@ class FakeDb {
     this.conn = {
       id: "conn-1", venue_id: null, organizer_user_id: "org-1", provider: "shotgun", external_org_id: "173027",
       external_org_name: null, status: "active", include_cohosted: true, tickets_cursor: null, events_synced_at: null,
-      initial_import_done_at: null, sync_interval_minutes: 15, fail_count: 0, amount_divisor: 100, schema_sample: null,
+      initial_import_done_at: null, locked_until: null, sync_interval_minutes: 15, fail_count: 0, amount_divisor: 100, schema_sample: null,
     };
   }
 }
@@ -68,6 +69,9 @@ class Query implements PromiseLike<Res> {
       if (this.table === "external_tickets") {
         for (const row of this.payload as Row[]) db.tickets.set(`${row.connection_id}|${row.external_id}`, row);
       }
+      if (this.table === "external_events") {
+        for (const row of this.payload as Row[]) db.events.set(String(row.external_id), row);
+      }
       return { data: null, error: null };
     }
     return { data: null, error: null };
@@ -91,6 +95,8 @@ interface FakeTicket { ticket_id: number; ticket_updated_at: string; ticket_stat
 
 class FakeShotgun {
   tickets: FakeTicket[] = [];
+  /** Réponse de l'API Events (la même à chaque page : la lecture s'arrête sur une page sans soirée nouvelle). */
+  events: Row[] = [];
   ticketCalls = 0;
   /** n° de requête /tickets → réponse forcée */
   faults = new Map<number, () => Response | Promise<Response>>();
@@ -112,7 +118,7 @@ class FakeShotgun {
   private key(t: FakeTicket): [number, number] { return [Date.parse(`${t.ticket_updated_at.replace(" ", "T")}Z`), t.ticket_id]; }
   handle = async (input: string | URL | Request): Promise<Response> => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
-    if (url.host === "smartboard-api.shotgun.live") return Response.json([]);
+    if (url.host === "smartboard-api.shotgun.live") return Response.json(this.events);
     this.ticketCalls++;
     const fault = this.faults.get(this.ticketCalls);
     if (fault) return await fault();
@@ -252,4 +258,20 @@ Deno.test("5 pannes de suite : connexion en erreur (alerte), jamais une boucle",
   assertEquals(db.conn.fail_count, 5);
   assertEquals(db.conn.status, "error");
   assertEquals(sg.ticketCalls, 5);
+});
+
+Deno.test("case « co-organisées » éteinte : une soirée editor / viewer n'entre pas (DATA-05)", async () => {
+  const evs = [
+    { id: 501, name: "Ma soirée", startTime: "2026-09-05T22:00:00Z", role: "organizer" },
+    { id: 502, name: "Co-organisée", startTime: "2026-09-06T22:00:00Z", role: "editor" },
+    { id: 503, name: "Invitée", startTime: "2026-09-07T22:00:00Z", role: "viewer" },
+  ];
+  const off = new FakeDb(); off.conn.include_cohosted = false;
+  const sgOff = new FakeShotgun(10); sgOff.events = evs;
+  assertEquals((await pass(off, sgOff)).status, "ok");
+  assertEquals([...off.events.keys()].sort(), ["501"]);
+  const on = new FakeDb();
+  const sgOn = new FakeShotgun(10); sgOn.events = evs;
+  assertEquals((await pass(on, sgOn)).status, "ok");
+  assertEquals([...on.events.keys()].sort(), ["501", "502", "503"]);
 });
