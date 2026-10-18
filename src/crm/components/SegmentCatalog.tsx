@@ -29,6 +29,8 @@ import { useCrmCaps } from '@/crm/scope';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCreateSegments, useSegmentCatalog } from '@/crm/data/segmentCatalog';
+import { useAnalysisOverview } from '@/crm/data/analysis';
+import { supportedForSegments } from '@/crm/lib/analysis';
 import {
   catalogEntries, countryNamer, coveragePct, groupEntries, hasNewRecommendation, recommendedEntries, selectable, toCreateItems,
 } from '@/crm/lib/segmentCatalog';
@@ -58,7 +60,10 @@ export function SegmentCatalogModal({
   const country = useMemo(() => countryNamer(lang), [lang]);
   const phone = useNarrow(600);
 
-  const entries = useMemo(() => (cat.data ? catalogEntries(cat.data, { t, eur, country }) : []), [cat.data, t, eur, country]);
+  // « Ce qui fait venir » : recommandé seulement si l'hypothèse est confirmée sur le compte.
+  const an = useAnalysisOverview(open);
+  const supported = useMemo(() => supportedForSegments(an.data?.families ?? []), [an.data]);
+  const entries = useMemo(() => (cat.data ? catalogEntries(cat.data, { t, eur, country, supported }) : []), [cat.data, t, eur, country, supported]);
   const recs = useMemo(() => recommendedEntries(entries), [entries]);
   const groups = useMemo(() => groupEntries(entries), [entries]);
   const recBases = useMemo(() => new Set(entries.filter((e) => e.idea !== null).map((e) => e.base)), [entries]);

@@ -51,6 +51,9 @@ interface CrmRow {
   trial_ends_at: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  /** Offre fondateurs (migration 20261017230000) : la période offerte est l'essai Yuno. */
+  offer: string | null;
+  offer_until: string | null;
 }
 
 const TAX_CODE = "txcd_10000000";
@@ -82,7 +85,7 @@ async function resolveScope(ctx: CrmActionContext, body: Record<string, unknown>
 
 async function loadRow(ctx: CrmActionContext, scope: string): Promise<CrmRow | null> {
   const { data } = await ctx.admin.from("crm_subscriptions")
-    .select("scope_key, status, billing_interval, trial_ends_at, stripe_customer_id, stripe_subscription_id")
+    .select("scope_key, status, billing_interval, trial_ends_at, stripe_customer_id, stripe_subscription_id, offer, offer_until")
     .eq("scope_key", scope).maybeSingle();
   return (data as CrmRow | null) ?? null;
 }
@@ -433,9 +436,15 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
   }
   const tier = parseCrmLookupKey(price.lookup_key)?.tier ?? "launch";
   const customerId = await ensureCustomer(ctx, scope, name, row);
-  const metadata = { yuno_product: "crm", scope_key: scope, plan: "base", interval, tier, user_id: ctx.user.id };
+  // Offre fondateurs : elle se lit chez Stripe (métadonnée, description de l'abonnement).
+  const offer = row?.offer ?? null;
+  const metadata = {
+    yuno_product: "crm", scope_key: scope, plan: "base", interval, tier, user_id: ctx.user.id,
+    ...(offer ? { offer, offer_until: row?.offer_until ?? "" } : {}),
+  };
 
-  // L'essai offert par Yuno continue : on ne paie qu'à sa fin.
+  // L'essai offert par Yuno continue : on ne paie qu'à sa fin. Pour l'offre
+  // fondateurs, c'est la période gratuite native de Stripe jusqu'à offer_until.
   const trialEnd = stripeTrialEnd(row?.status ?? null, row?.trial_ends_at ?? null);
   const session = await ctx.stripe.checkout.sessions.create({
     mode: "subscription",
@@ -452,6 +461,7 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
     subscription_data: {
       metadata,
       ...(trialEnd ? { trial_end: trialEnd } : {}),
+      ...(offer === "founder" ? { description: "Yuno CRM · Offre fondateur (période offerte, puis prix de lancement garanti)" } : {}),
     },
   });
   ctx.log("CRM checkout created", { scope, interval, tier, trialEnd });

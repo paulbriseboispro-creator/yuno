@@ -158,6 +158,7 @@ const AiAssistantsRedirect = lazyWithRetry(() => import("./pages/AiAssistantsRed
 const ConnectAi = lazyWithRetry(() => import("./pages/ConnectAi"));
 const OpenProduct = lazyWithRetry(() => import("./pages/OpenProduct"));
 const AiConnectorPage = lazyWithRetry(() => import("./pages/AiConnectorPage"));
+const AiImageUpload = lazyWithRetry(() => import("./pages/AiImageUpload"));
 const IntegrationsSettings = lazyWithRetry(() => import("./pages/IntegrationsSettings"));
 const AdsPage = lazyWithRetry(() => import("./pages/AdsPage"));
 const OwnerGuestList = lazyWithRetry(() => import("./pages/OwnerGuestList"));
@@ -188,6 +189,7 @@ const PromoterHub = lazyWithRetry(() => import("./pages/PromoterHub"));
 const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
 const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
+const PartnerStatsPage = lazyWithRetry(() => import("./pages/PartnerStatsPage"));
 const CrmLinkRedirect = lazyWithRetry(() => import("./pages/CrmLinkRedirect"));
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
 const AcceptPlatformInvitation = lazyWithRetry(() => import("./pages/AcceptPlatformInvitation"));
@@ -303,12 +305,16 @@ const AdminCrmClients = lazyWithRetry(() => import("./crm/admin/pages/ClientsPag
 const AdminCrmAccount = lazyWithRetry(() => import("./crm/admin/pages/AccountPage"));
 const AdminCrmMoney = lazyWithRetry(() => import("./crm/admin/pages/MoneyPage"));
 const AdminCrmPlatform = lazyWithRetry(() => import("./crm/admin/pages/PlatformPage"));
+const AdminCrmNightPlan = lazyWithRetry(() => import("./crm/admin/pages/NightPlanAdminPage"));
 const AdminCrmLegal = lazyWithRetry(() => import("./crm/admin/pages/LegalPage"));
 const AdminCrmSettings = lazyWithRetry(() => import("./crm/admin/pages/SettingsPage"));
 const AdminCrmSales = lazyWithRetry(() => import("./crm/admin/pages/SalesPage"));
 const AdminCrmAcquisition = lazyWithRetry(() => import("./crm/admin/pages/AcquisitionPage"));
 const AdminCrmProduct = lazyWithRetry(() => import("./crm/admin/pages/ProductPage"));
 const AdminCrmSoon = lazyWithRetry(() => import("./crm/admin/pages/SoonPage"));
+const AdminCrmInvite = lazyWithRetry(() => import("./crm/admin/pages/InvitePage"));
+const AdminCrmDemo = lazyWithRetry(() => import("./crm/admin/pages/DemoPage"));
+const AdminCrmSupport = lazyWithRetry(() => import("./crm/admin/pages/SupportPage"));
 // Connexion de Yuno CRM (crm.yunoapp.eu/login) — src/lib/productHost.ts.
 const CrmLogin = lazyWithRetry(() => import("./crm/pages/login/LoginPage"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
@@ -704,6 +710,7 @@ const App = () => (
                     les soirées s'ouvrent dans l'app via yuno:// quand elle est là */}
                 <Route path="/promoteur/:promoCode/agenda" element={<PromoterAgenda />} />
                 <Route path="/l/:code" element={<TrackedLinkRedirect />} />
+                <Route path="/stats/:token" element={<PartnerStatsPage />} />
                 <Route path="/go/:code" element={<CrmLinkRedirect />} />
                 
                 {/* Legacy /club/:slug/promo route — also renders PromoterHub */}
@@ -764,6 +771,7 @@ const App = () => (
                 {/* Ouvrir l'autre produit (Billetterie ⇄ CRM) sur un compte existant. */}
                 <Route path="/open/:product" element={<OpenProduct />} />
                 <Route path="/ai" element={<AiConnectorPage />} />
+                <Route path="/ai/image/:code" element={<AiImageUpload />} />
                 <Route path="/ai-assistants" element={<AiAssistantsRedirect />} />
                 <Route path="/join" element={<JoinViaLink />} />
                 {/* Aperçu démo verrouillé par mot de passe (lien de preview) */}
@@ -1306,10 +1314,14 @@ const App = () => (
                   <Route path="clients" element={<AdminCrmClients />} />
                   <Route path="clients/:id" element={<AdminCrmAccount />} />
                   <Route path="sales" element={<AdminCrmSales />} />
+                  <Route path="invite" element={<AdminCrmInvite />} />
+                  <Route path="demo" element={<AdminCrmDemo />} />
+                  <Route path="support" element={<AdminCrmSupport />} />
                   <Route path="acquisition" element={<AdminCrmAcquisition />} />
                   <Route path="product" element={<AdminCrmProduct />} />
                   <Route path="money" element={<AdminCrmMoney />} />
                   <Route path="platform" element={<AdminCrmPlatform />} />
+                  <Route path="platform/plan/:scope/:event" element={<AdminCrmNightPlan />} />
                   <Route path="legal" element={<AdminCrmLegal />} />
                   <Route path="settings" element={<AdminCrmSettings />} />
                   <Route path="*" element={<AdminCrmSoon />} />

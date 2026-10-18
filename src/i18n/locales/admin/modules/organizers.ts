@@ -103,9 +103,21 @@ const dict: AdminDict = {
   'adm.prod.gift': ['Give Yuno CRM for free', 'Offrir Yuno CRM', 'Regalar Yuno CRM'],
   'adm.prod.confirmGift': ['Confirm: give it for free', 'Confirmer : offrir', 'Confirmar: regalar'],
   'adm.prod.giftTitle': ['Yuno CRM for free', 'Yuno CRM offert', 'Yuno CRM regalado'],
-  'adm.prod.giftHint': ['Giving opens Yuno CRM with no trial, no subscription and no end date, with the monthly Yunits every month. For Yuno’s own accounts and partners, never for a paying customer.', 'Offrir ouvre Yuno CRM sans essai, sans abonnement et sans date de fin, avec les Yunits du mois chaque mois. Pour les comptes de Yuno et les partenaires, jamais pour un client qui paie.', 'Regalar abre Yuno CRM sin prueba, sin suscripción y sin fecha de fin, con los Yunits del mes cada mes. Para las cuentas de Yuno y los socios, nunca para un cliente que paga.'],
+  'adm.prod.giftHint': ['Giving opens Yuno CRM with no trial, no subscription and no end date, with the subscription’s Yunits offered once. For Yuno’s own accounts and partners, never for a paying customer.', 'Offrir ouvre Yuno CRM sans essai, sans abonnement et sans date de fin, avec les Yunits de l’abonnement offerts une fois. Pour les comptes de Yuno et les partenaires, jamais pour un client qui paie.', 'Regalar abre Yuno CRM sin prueba, sin suscripción y sin fecha de fin, con los Yunits de la suscripción regalados una vez. Para las cuentas de Yuno y los socios, nunca para un cliente que paga.'],
   'adm.prod.gifted': ['Yuno CRM given to {name}', 'Yuno CRM offert à {name}', 'Yuno CRM regalado a {name}'],
   'adm.prod.giftHasStripe': ['This account already pays for the CRM through Stripe: cancel that subscription before giving it.', 'Ce compte paie déjà le CRM par Stripe : résiliez cet abonnement avant de l’offrir.', 'Esta cuenta ya paga el CRM por Stripe: cancela esa suscripción antes de regalarlo.'],
+  // État du don, lu dans admin_account_products (migration 20261018195500).
+  'adm.prod.giftedOn': ['Given on {d}, with no end date', 'Offert le {d}, sans date de fin', 'Regalado el {d}, sin fecha de fin'],
+  'adm.prod.giftedUntil': ['Given on {d}, until {until}', 'Offert le {d}, jusqu’au {until}', 'Regalado el {d}, hasta el {until}'],
+  'adm.prod.giftedBy': ['Given on {d} by {name}, with no end date', 'Offert le {d} par {name}, sans date de fin', 'Regalado el {d} por {name}, sin fecha de fin'],
+  'adm.prod.giftedByUntil': ['Given on {d} by {name}, until {until}', 'Offert le {d} par {name}, jusqu’au {until}', 'Regalado el {d} por {name}, hasta el {until}'],
+  'adm.prod.giftExpired': ['The gift ended on {d}: the CRM is paused. You can give it again.', 'L’offre a pris fin le {d} : le CRM est en pause. Vous pouvez l’offrir à nouveau.', 'El regalo terminó el {d}: el CRM está en pausa. Puedes regalarlo de nuevo.'],
+  'adm.prod.alreadyGifted': ['Already given', 'Déjà offert', 'Ya regalado'],
+  'adm.prod.yunits': ['Yunits balance: {n}', 'Solde de Yunits : {n}', 'Saldo de Yunits: {n}'],
+  'adm.prod.giftedPill': ['given', 'offert', 'regalado'],
+  'adm.prod.giftedPillTitle': ['Yuno CRM given for free by Yuno, no subscription', 'Yuno CRM offert par Yuno, sans abonnement', 'Yuno CRM regalado por Yuno, sin suscripción'],
+  'adm.prod.ev.gifted.admin': ['Yuno CRM given for free', 'Yuno CRM offert', 'Yuno CRM regalado'],
+  'adm.prod.ev.grant_ended.admin': ['Yuno CRM paused by an admin', 'Yuno CRM mis en pause par un admin', 'Yuno CRM pausado por un admin'],
 };
 
 export default dict;

@@ -15,10 +15,37 @@
 import { duplicateBlock } from './blocks';
 import { normalizeTheme } from './themes';
 import { normalizeV2Blocks } from './migrate';
+import { smartNeeds } from './smart';
 import {
   YUNO_BLOCK_TYPES,
   type EmailBlock, type EmailTheme, type SocialLinks, type StudioCampaign,
 } from './types';
+
+/**
+ * true = le bloc lit une soirée à l'envoi : un bloc Yuno, ou une section sur
+ * mesure qui utilise des balises de soirée ({{event.title}}, {{#each tickets}}…).
+ * Miroir de collectStudioEventIds (port Deno).
+ */
+export function isLiveBlock(b: EmailBlock): boolean {
+  if (YUNO_BLOCK_TYPES.includes(b.type)) return true;
+  return b.type === 'html' && smartNeeds(b.code || '').event;
+}
+
+/** Les données live dont la campagne a besoin en plus de la soirée. */
+export function blocksNeed(blocks: EmailBlock[]): { lineup: boolean; tables: boolean } {
+  let lineup = false;
+  let tables = false;
+  for (const b of blocks) {
+    if (b.type === 'lineup') lineup = true;
+    if (b.type === 'table') tables = true;
+    if (b.type === 'html') {
+      const n = smartNeeds(b.code || '');
+      lineup = lineup || n.lineup;
+      tables = tables || n.tables;
+    }
+  }
+  return { lineup, tables };
+}
 
 /** Contenu réutilisable d'un modèle — le sous-ensemble « design » d'une campagne. */
 export interface TemplateContent {
@@ -85,7 +112,7 @@ export function rowToTemplate(row: EmailTemplateRow): EmailTemplate {
 export function stripEventBindings(blocks: EmailBlock[]): EmailBlock[] {
   return blocks.map((raw) => {
     const b = JSON.parse(JSON.stringify(raw)) as EmailBlock & Record<string, unknown>;
-    if (!YUNO_BLOCK_TYPES.includes(b.type)) return b as EmailBlock;
+    if (!isLiveBlock(b as EmailBlock)) return b as EmailBlock;
     delete b.eventId;
     if (b.type === 'event') {
       delete b.coverUrl;
@@ -117,7 +144,7 @@ export function stripEventBindings(blocks: EmailBlock[]): EmailBlock[] {
 export function bindBlocksToEvent(blocks: EmailBlock[], eventId: string | null | undefined): EmailBlock[] {
   if (!eventId) return blocks;
   return blocks.map((b) => {
-    if (!YUNO_BLOCK_TYPES.includes(b.type) || ('eventId' in b && b.eventId)) return b;
+    if (!isLiveBlock(b) || ('eventId' in b && b.eventId)) return b;
     return { ...b, eventId } as EmailBlock;
   });
 }
@@ -125,7 +152,7 @@ export function bindBlocksToEvent(blocks: EmailBlock[], eventId: string | null |
 /** Blocs Yuno qui resteront muets sans soirée choisie (un countdown daté à la main se suffit). */
 export function eventBoundBlocks(blocks: EmailBlock[]): EmailBlock[] {
   return blocks.filter((b) => {
-    if (!YUNO_BLOCK_TYPES.includes(b.type)) return false;
+    if (!isLiveBlock(b)) return false;
     if ('eventId' in b && b.eventId) return false;
     if (b.type === 'countdown' && typeof b.targetAt === 'string' && b.targetAt) return false;
     return true;

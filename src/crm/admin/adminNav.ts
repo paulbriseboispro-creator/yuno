@@ -10,6 +10,9 @@ export const ADMIN_ROUTES = {
   cockpitActivity: `${ADMIN_BASE}?tab=activity`,
   acquisition: `${ADMIN_BASE}/acquisition`,
   sales: `${ADMIN_BASE}/sales`,
+  invite: `${ADMIN_BASE}/invite`,
+  demo: `${ADMIN_BASE}/demo`,
+  support: `${ADMIN_BASE}/support`,
   clients: `${ADMIN_BASE}/clients`,
   clientsRisks: `${ADMIN_BASE}/clients?tab=risks`,
   clientsOnboarding: `${ADMIN_BASE}/clients?tab=onboarding`,
@@ -21,12 +24,12 @@ export const ADMIN_ROUTES = {
   settings: `${ADMIN_BASE}/settings`,
 } as const;
 
-export type AdminScreen = 'cockpit' | 'acquisition' | 'sales' | 'clients' | 'product' | 'money' | 'platform' | 'legal' | 'settings';
+export type AdminScreen = 'cockpit' | 'acquisition' | 'sales' | 'invite' | 'demo' | 'clients' | 'support' | 'product' | 'money' | 'platform' | 'legal' | 'settings';
 
 /** Écran courant d'après l'adresse (le plus long préfixe gagne). */
 export function adminScreenFor(pathname: string): AdminScreen {
   const p = pathname.replace(/\/+$/, '');
-  const hit = (['acquisition', 'sales', 'clients', 'product', 'money', 'platform', 'legal', 'settings'] as const).find((k) => p === `${ADMIN_BASE}/${k}` || p.startsWith(`${ADMIN_BASE}/${k}/`));
+  const hit = (['acquisition', 'sales', 'invite', 'demo', 'clients', 'support', 'product', 'money', 'platform', 'legal', 'settings'] as const).find((k) => p === `${ADMIN_BASE}/${k}` || p.startsWith(`${ADMIN_BASE}/${k}/`));
   return hit ?? 'cockpit';
 }
 
@@ -57,6 +60,9 @@ export const ADMIN_NAV: { label: string; items: AdminNavItem[] }[] = [
     items: [
       { id: 'acquisition', key: 'acquisition', to: ADMIN_ROUTES.acquisition, d: 'M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z' },
       { id: 'sales', key: 'sales', to: ADMIN_ROUTES.sales, d: 'M8 5v14M12 9v10M16 3v16M20 8v11M4 12v7' },
+      // Inviter un club / un organisateur (offre fondateurs comprise) et ouvrir la démo (20261019420000).
+      { id: 'invite', key: 'invite', to: ADMIN_ROUTES.invite, d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6' },
+      { id: 'demo', key: 'demo', to: ADMIN_ROUTES.demo, d: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z' },
     ],
   },
   {
@@ -71,6 +77,8 @@ export const ADMIN_NAV: { label: string; items: AdminNavItem[] }[] = [
           { key: 'clientsOb', to: ADMIN_ROUTES.clientsOnboarding, tab: 'onboarding' },
         ],
       },
+      // Accès assisté : entrer dans un compte avec l'accord de son titulaire.
+      { id: 'support', key: 'support', to: ADMIN_ROUTES.support, d: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24' },
       { id: 'product', key: 'product', to: ADMIN_ROUTES.product, d: 'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 22V12' },
     ],
   },

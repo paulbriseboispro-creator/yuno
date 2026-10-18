@@ -316,7 +316,11 @@ function Wizard({ conn, replace, step, go }: { conn: TicketingConnection | null;
 
   // Import en direct : relire la connexion tant que l'historique arrive.
   const live = q.data?.conn ?? conn;
-  const importing = s === 3 && (!live?.initial_import_done_at || !!live?.running);
+  // Premier import refusé par Shotgun (jeton, panne) : on le dit, jamais un
+  // import « en cours » qui tournerait sans fin.
+  const failed = s === 3 && !!live && !live.initial_import_done_at && connState(live) === 'broken'
+    ? (live.status === 'token_invalid' ? 'yc.co.err.invalidToken' : 'yc.co.err.unreachable') : null;
+  const importing = s === 3 && !failed && (!live?.initial_import_done_at || !!live?.running);
   useEffect(() => {
     if (s !== 3) return;
     const h = window.setInterval(() => { void q.refetch(); }, 3000);
@@ -352,7 +356,7 @@ function Wizard({ conn, replace, step, go }: { conn: TicketingConnection | null;
   const foot: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', borderTop: '1px solid var(--sand-100)', paddingTop: 22 };
   const field: CSSProperties = { height: 52, boxSizing: 'border-box', padding: '0 16px', borderRadius: 12, background: '#fff', fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--ink)', outline: 0, transition: 'border-color 140ms,box-shadow 140ms', width: '100%' };
   const stats = live?.stats ?? null;
-  const done = s === 3 && !importing;
+  const done = s === 3 && !importing && !failed;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, ...ENTER }}>
@@ -483,7 +487,17 @@ function Wizard({ conn, replace, step, go }: { conn: TicketingConnection | null;
             </div>
           )}
 
-          {s === 3 && <ImportStep importing={importing} stats={stats} go={go} />}
+          {s === 3 && failed && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div role="alert" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 14, background: 'var(--red-50)', boxShadow: 'inset 0 0 0 1px var(--red-200)', fontSize: 14.5, lineHeight: 1.45, color: 'var(--red-700)' }}>
+                <Icon d={P.alert} size={18} stroke={2} style={{ marginTop: 1 }} /><span>{t(failed)}</span>
+              </div>
+              <div style={foot}>
+                <GradientCta onClick={() => go({ v: 'wizard', s: '2' })}>{t('yc.co.s2.replace')}</GradientCta>
+              </div>
+            </div>
+          )}
+          {s === 3 && !failed && <ImportStep importing={importing} stats={stats} go={go} />}
         </section>
         <Reassure />
       </div>
@@ -544,7 +558,7 @@ function ImportStep({ importing, stats, go }: { importing: boolean; stats: Ticke
 
 function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnState; go: (p: Record<string, string> | null) => void }) {
   const T = useCrmT();
-  const { t, n } = T;
+  const { t, tp, n } = T;
   const toast = useCrmToast();
   const { space, rpc: args } = useCrmScope();
   const invalidate = useInvalidateTicketing();
@@ -665,6 +679,17 @@ function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnSta
             </div>
           ))}
         </div>
+        {/* Le seul endroit où l'écart avec un simple compte d'adresses se dit :
+            un client a au moins un billet valide, comme sur l'Accueil. */}
+        {stats.buyers_inactive != null && (
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}>
+            {[
+              t('yc.co.m.peopleDef'),
+              stats.buyers_inactive ? tp('yc.co.m.inactive', stats.buyers_inactive, { n: n(stats.buyers_inactive) }) : '',
+              stats.no_email_tickets ? tp('yc.co.m.noEmail', stats.no_email_tickets, { n: n(stats.no_email_tickets) }) : '',
+            ].filter(Boolean).join(' ')}
+          </p>
+        )}
       </section>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ flex: '1.7 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>

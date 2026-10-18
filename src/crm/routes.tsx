@@ -26,6 +26,8 @@ const CrmPublicShell = lazyWithRetry(() => import('./shell/CrmLayout').then((m) 
 const NotFoundScreen = lazyWithRetry(() => import('./errors/ErrorScreens').then((m) => ({ default: m.NotFoundScreen })));
 const CrmBareLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmBareLayout })));
 const NightRedirect = lazyWithRetry(() => import('./pages/nights/NightsPage').then((m) => ({ default: m.NightRedirect })));
+const NightPlanPage = lazyWithRetry(() => import('./pages/nights/plan/NightPlanPage'));
+const WeeklyReviewPage = lazyWithRetry(() => import('./pages/review/WeeklyReviewPage'));
 const InstagramPage = lazyWithRetry(() => import('./pages/instagram/InstagramPage'));
 const SignupPagesPage = lazyWithRetry(() => import('./pages/signup/SignupPagesPage'));
 const SignupWizardPage = lazyWithRetry(() => import('./pages/signup/SignupWizardPage'));
@@ -38,6 +40,7 @@ const SettingsPage = lazyWithRetry(() => import('./pages/settings/SettingsPage')
 const AnalyticsPage = lazyWithRetry(() => import('./pages/analytics/AnalyticsPage'));
 const JourneyPage = lazyWithRetry(() => import('./pages/journey/JourneyPage'));
 const AutomationsPage = lazyWithRetry(() => import('./pages/automations/AutomationsPage'));
+const ScenarioEditorPage = lazyWithRetry(() => import('./pages/automations/scenarios/ScenarioEditorPage'));
 const SmsOverviewPage = lazyWithRetry(() => import('./pages/sms/SmsOverviewPage'));
 const SmsCampaignsPage = lazyWithRetry(() => import('./pages/sms/SmsCampaignsPage'));
 const SmsTemplatesPage = lazyWithRetry(() => import('./pages/sms/SmsTemplatesPage'));
@@ -48,6 +51,7 @@ const SmsAnalysisPage = lazyWithRetry(() => import('./pages/sms/analysis/SmsAnal
 const SmsSettingsPage = lazyWithRetry(() => import('./pages/sms/settings/SmsSettingsPage'));
 const SmsSoonPage = lazyWithRetry(() => import('./pages/soon/SmsSoonPage'));
 const PricingPage = lazyWithRetry(() => import('./pages/pricing/PricingPage'));
+const CrmPreviewGate = lazyWithRetry(() => import('./pages/preview/CrmPreviewGate'));
 
 export function crmRoutes() {
   return (
@@ -59,6 +63,14 @@ export function crmRoutes() {
       <Route path="/crm/emails/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<EmailSendPage />} />
       </Route>
+      {/* Scénarios : l'éditeur (flux vertical + inspecteur). */}
+      <Route path="/crm/automations/scenarios/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<ScenarioEditorPage />} />
+      </Route>
+      {/* Plan de soirée (agents, lot A1) : un rapport plein écran, imprimable. */}
+      <Route path="/crm/nights/:id/plan" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<NightPlanPage />} />
+      </Route>
       {/* SMS « Bientôt » (CRM_SMS_DISPLAY_LIVE faux) : les éditeurs renvoient sur la page Bientôt. */}
       <Route path="/crm/sms/compose/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>
         <Route index element={<SmsComposePage />} />
@@ -68,6 +80,8 @@ export function crmRoutes() {
       </Route>
       {/* Tarifs : page PUBLIQUE (visiteurs comme abonnés), hors de la porte du compte. */}
       <Route path="/crm/tarifs" element={<PricingPage />} />
+      {/* Entrée de la démo (Admin CRM › Démo) : mot de passe du lien, hors de la porte du compte. */}
+      <Route path="/crm/preview" element={<CrmPreviewGate />} />
       <Route path="/crm" element={<CrmGate><CrmLayout /></CrmGate>}>
         <Route index element={<HomePage />} />
         <Route path="clients" element={<ClientsPage />} />
@@ -76,6 +90,7 @@ export function crmRoutes() {
         <Route path="nights" element={<NightsPage />} />
         <Route path="nights/past" element={<NightsPage />} />
         <Route path="nights/:id" element={<NightRedirect />} />
+        <Route path="review" element={<WeeklyReviewPage />} />
         <Route path="connectors" element={<ConnectorsPage />} />
         <Route path="emails" element={<EmailsOverviewPage />} />
         <Route path="emails/campaigns" element={<EmailCampaignsPage />} />

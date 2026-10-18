@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+  minimizeTicketRaw,
+  rawKeyDropped,
+  RAW_EXTRACTED_KEYS,
+  RAW_PERSON_PREFIX,
+  RAW_PERSONAL_WORD,
   at,
   pick,
   email,
@@ -8,6 +15,7 @@ import {
   extractPage,
   safeNextUrl,
   schemaKeys,
+  mergeSchemaKeys,
   normalizeTicketStatus,
   mapShotgunTicket,
   mapShotgunEvent,
@@ -44,7 +52,7 @@ const DOC_EVENT = {
   organizer: { name: 'Mysterious music', slug: 'mysterious-music' },
   role: 'organizer',
   deals: [
-    { name: 'Pass Regular Entry', product_id: 284482, quantity: 50, visiblity: 'public', sales_channel: 'online', price: 10, organizer_fees: 0.99, user_fees: 0.3, subcategory: { id: 1, name: 'Reserved Tables with Drinks Included' } },
+    { name: 'Pass Regular Entry', product_id: 284482, quantity: 50, visiblity: 'public', sales_channel: 'online', price: 10, organizer_fees: 0.99, user_fees: 0.3, subcategory_id: 1, subcategory: { id: 1, name: 'Reserved Tables with Drinks Included', start_time: '2026-09-01T10:00:00.000Z' } },
   ],
   typeOfPlace: 'club',
 };
@@ -88,6 +96,40 @@ describe('pagination', () => {
     const keys = schemaKeys({ id: 1, contact: { email: 'secret@x.fr', first_name: 'A' } });
     expect(keys).toEqual(['id', 'contact', 'contact.email', 'contact.first_name']);
     expect(keys.join(' ')).not.toContain('secret');
+  });
+
+  it('ajoute les clés nouvelles d’une page à celles déjà relevées, 200 au plus', () => {
+    expect(mergeSchemaKeys(['a', 'b'], [{ b: 1, c: 'secret@x.fr' }, { d: { e: 2 } }])).toEqual(['a', 'b', 'c', 'd', 'd.e']);
+    expect(mergeSchemaKeys(null, [{ x: 1 }])).toEqual(['x']);
+    const many = Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`k${i}`, i]));
+    expect(mergeSchemaKeys([], [many])).toHaveLength(200);
+  });
+});
+
+describe('colonnes typées d’un billet (miroir du trigger SQL)', () => {
+  it('copie le canal, les visibilités, le placement, le paiement, les frais et les identifiants', () => {
+    const m = mapShotgunTicket({
+      ticket_id: 1, deal_channel: 'invitation', deal_visibilities: ['public', 'promoters'],
+      ticket_seating: { id: 3, type: 'Table' }, payment_method: 'card', deal_service_fee: 99,
+      contact_id: 123456789, user_id: 46824,
+    })!;
+    expect(m.deal_channel).toBe('invitation');
+    expect(m.deal_visibilities).toEqual(['public', 'promoters']);
+    expect(m.seating_type).toBe('Table');
+    expect(m.payment_method).toBe('card');
+    expect(m.org_fee).toBe(0.99);
+    expect(m.provider_contact_id).toBe('123456789');
+    expect(m.provider_user_id).toBe('46824');
+  });
+
+  it('rend null ce que le billet n’a pas, sans normaliser le canal', () => {
+    const m = mapShotgunTicket({ ticket_id: 2, deal_channel: ' Online ', ticket_seating: null, deal_service_fee: '99' })!;
+    expect(m.deal_channel).toBe(' Online ');
+    expect(m.deal_visibilities).toBeNull();
+    expect(m.seating_type).toBeNull();
+    expect(m.payment_method).toBeNull();
+    expect(m.org_fee).toBeNull();
+    expect(m.provider_contact_id).toBeNull();
   });
 });
 
@@ -185,7 +227,20 @@ describe('billet Shotgun au schéma officiel', () => {
     const t = mapShotgunTicket(DOC_TICKET, 1, now)!;
     expect(t.raw).not.toHaveProperty('ticket_scan_code');
     expect(JSON.stringify(t.raw)).not.toContain('42564997260325');
-    expect(t.raw).toHaveProperty('ticket_id');
+  });
+
+  it('le billet brut ne garde que ce qui n’est rangé nulle part et ne désigne personne', () => {
+    const t = mapShotgunTicket({ ...DOC_TICKET, event_name: 'Club Sonore', event_published_at: '2025-05-01' }, 1, now)!;
+    expect(t.raw).toEqual({
+      ticket_seating: null,
+      deal_sub_category: 'Friday',
+      deal_producer_cost: 0,
+      deal_vat_rate: 0.055,
+    });
+    const flat = JSON.stringify(t.raw);
+    for (const secret of ['Antoine', 'Rousseau', '+33612345678', 'shotgun.live', '1985-01-01', '31000', 'Toulouse', '123456789']) {
+      expect(flat).not.toContain(secret);
+    }
   });
 
   it('le diviseur de la connexion ne touche pas un montant documenté', () => {
@@ -211,6 +266,103 @@ describe('billet Shotgun au schéma officiel', () => {
     expect(countryCodeFrom('be')).toBe('BE');
     expect(countryCodeFrom('Atlantide')).toBeNull();
     expect(countryCodeFrom(null)).toBeNull();
+  });
+});
+
+describe('billet brut minimisé (miroir de _ticketing_raw_key_dropped)', () => {
+  it('retire les coordonnées sous toutes leurs écritures, et les objets qui portent une personne', () => {
+    const raw = minimizeTicketRaw({
+      ticket_id: 1,
+      contact: { email: 'a@b.fr' }, buyer: { name: 'X' }, address: { street: '1 rue' },
+      firstName: 'A', lastName: 'B', phoneNumber: '06', zipCode: '75001', birthDate: '1990-01-01',
+      holder_email: 'h@b.fr', attendee_first_name: 'C', customer_id: 9, purchaser_email: 'p@b.fr',
+      user_email: 'u@b.fr', ip_address: '1.2.3.4', company: 'ACME', mobile: '07',
+      utm_campaign: 'x', utms: { source: 'ig' }, tracking: { a: 1 },
+      refunded: false, quantity: 1, created_at: '2026-01-01',
+      deal_vat_rate: 0.2, ticket_seating: { id: 3, type: 'Table', section: 'A' }, nouveau_champ: 'gardé',
+    });
+    expect(raw).toEqual({ deal_vat_rate: 0.2, ticket_seating: { id: 3, type: 'Table', section: 'A' }, nouveau_champ: 'gardé' });
+  });
+
+  it('ne retire pas un mot qui ressemble à une coordonnée sans en être une', () => {
+    for (const k of ['deal_sub_category', 'deal_producer_cost', 'hotel_partner', 'storage', 'message_id', 'ticket_seating']) {
+      expect(rawKeyDropped(k)).toBe(false);
+    }
+    for (const k of ['contact_newsletter_optin', 'contact_company_name', 'email', 'Email', 'e_mail', 'buyerEmail', 'city', 'gender', 'age']) {
+      expect(rawKeyDropped(k)).toBe(true);
+    }
+  });
+
+  it('la liste SQL des clés retirées est celle du connecteur, mot pour mot', () => {
+    const sql = readFileSync(resolve(__dirname, '../../../supabase/migrations/20261019300000_external_tickets_raw_minimized.sql'), 'utf8');
+    const block = sql.match(/-- RAW_EXTRACTED_KEYS:début\n([\s\S]*?)-- RAW_EXTRACTED_KEYS:fin/)?.[1] ?? '';
+    const keys = [...block.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(new Set(keys)).toEqual(new Set(RAW_EXTRACTED_KEYS));
+    expect(sql).toContain(`~ '${RAW_PERSON_PREFIX.source}'`);
+    expect(sql).toContain(`~ '${RAW_PERSONAL_WORD.source}'`);
+    expect(RAW_PERSON_PREFIX.source).toBe('^(contact|buyer|holder|attendee|customer|purchaser|beneficiary|owner|user|address|utm|utms|tracking)(_|$)');
+  });
+});
+
+// Les 83 noms que Shotgun a rendus sur le premier vrai compte (Club Sonore,
+// 17/10/2026), avec le code attendu. « Germany » partait en « DD » (RDA),
+// « Serbia » en « CS », et les noms anglais d'avant les renommages ISO
+// (Turkey, Czech Republic, Republic Of Moldova) ne trouvaient rien.
+const SHOTGUN_COUNTRY_NAMES: ReadonlyArray<readonly [string, string]> = [
+    ['France', 'FR'], ['United States', 'US'], ['Italy', 'IT'], ['Spain', 'ES'], ['Germany', 'DE'],
+    ['United Kingdom', 'GB'], ['Belgium', 'BE'], ['Portugal', 'PT'], ['Mexico', 'MX'], ['Netherlands', 'NL'],
+    ['Switzerland', 'CH'], ['Morocco', 'MA'], ['Brazil', 'BR'], ['Luxembourg', 'LU'], ['Canada', 'CA'],
+    ['Norway', 'NO'], ['Sweden', 'SE'], ['Australia', 'AU'], ['Tunisia', 'TN'], ['Argentina', 'AR'],
+    ['Ireland', 'IE'], ['Austria', 'AT'], ['Denmark', 'DK'], ['Greece', 'GR'], ['Pakistan', 'PK'],
+    ['Turkey', 'TR'], ['North Korea', 'KP'], ['Albania', 'AL'], ['Monaco', 'MC'], ['Poland', 'PL'],
+    ['Ukraine', 'UA'], ['Egypt', 'EG'], ['La Réunion', 'RE'], ['Finland', 'FI'], ['Slovenia', 'SI'],
+    ['Thailand', 'TH'], ['Czech Republic', 'CZ'], ['Saudi Arabia', 'SA'], ['Chile', 'CL'], ['Latvia', 'LV'],
+    ['Algeria', 'DZ'], ['Israel', 'IL'], ['Bulgaria', 'BG'], ['Guadeloupe', 'GP'], ['Paraguay', 'PY'],
+    ['Singapore', 'SG'], ['Cambodia', 'KH'], ['Lebanon', 'LB'], ['Malta', 'MT'], ['Hungary', 'HU'],
+    ['Republic Of Moldova', 'MD'], ['Romania', 'RO'], ["Côte d'Ivoire", 'CI'], ['Venezuela', 'VE'],
+    ['Georgia', 'GE'], ['North Macedonia', 'MK'], ['Slovakia', 'SK'], ['Cyprus', 'CY'], ['China', 'CN'],
+    ['Croatia', 'HR'], ['Japan', 'JP'], ['South Africa', 'ZA'], ['Estonia', 'EE'], ['Iceland', 'IS'],
+    ['Indonesia', 'ID'], ['Djibouti', 'DJ'], ['Kosovo', 'XK'], ['Palestine', 'PS'], ['Colombia', 'CO'],
+    ['Lithuania', 'LT'], ['United Arab Emirates', 'AE'], ['New Zealand', 'NZ'], ['Serbia', 'RS'],
+    ['Madagascar', 'MG'], ['Martinique', 'MQ'], ['Uruguay', 'UY'], ['Montenegro', 'ME'],
+    ['French Polynesia', 'PF'], ['Qatar', 'QA'], ['Angola', 'AO'], ['Nigeria', 'NG'], ['India', 'IN'],
+    ['Senegal', 'SN'],
+];
+
+describe('pays des billets Shotgun', () => {
+  it('rend le bon code pour chaque nom vu sur un vrai compte', () => {
+    for (const [name, code] of SHOTGUN_COUNTRY_NAMES) expect([name, countryCodeFrom(name)]).toEqual([name, code]);
+  });
+
+  it('ne rend jamais un code retiré ou un regroupement', () => {
+    for (const name of ['Germany', 'Allemagne', 'Alemania', 'Serbia', 'Vietnam', 'Yemen', 'Myanmar', 'Zimbabwe', 'Vanuatu', 'Curaçao', 'Russia', 'France']) {
+      expect(['DD', 'CS', 'YU', 'VD', 'YD', 'BU', 'RH', 'NH', 'AN', 'SU', 'FX']).not.toContain(countryCodeFrom(name));
+    }
+    expect(countryCodeFrom('Germany')).toBe('DE');
+    expect(countryCodeFrom('Allemagne')).toBe('DE');
+    expect(countryCodeFrom('European Union')).toBeNull();
+  });
+
+  it('ramène un code retiré reçu tel quel à son successeur', () => {
+    expect(countryCodeFrom('DD')).toBe('DE');
+    expect(countryCodeFrom('uk')).toBe('GB');
+    expect(countryCodeFrom('CS')).toBe('RS');
+    expect(countryCodeFrom('ZZ')).toBeNull();
+  });
+
+  it('lit la forme inversée de la liste ISO', () => {
+    expect(countryCodeFrom('Moldova, Republic of')).toBe('MD');
+    expect(countryCodeFrom('Korea, Republic of')).toBe('KR');
+    expect(countryCodeFrom('Iran, Islamic Republic of')).toBe('IR');
+    expect(countryCodeFrom('Congo, The Democratic Republic of the')).toBe('CD');
+  });
+
+  it('lit les noms ISO que la table Intl écrit autrement', () => {
+    expect(countryCodeFrom('Myanmar')).toBe('MM');
+    expect(countryCodeFrom('Bosnia and Herzegovina')).toBe('BA');
+    expect(countryCodeFrom('Trinidad and Tobago')).toBe('TT');
+    expect(countryCodeFrom('Saint Lucia')).toBe('LC');
+    expect(countryCodeFrom('Congo')).toBe('CG');
   });
 });
 
@@ -297,7 +449,7 @@ describe('soirée Shotgun (exemple de la doc)', () => {
     expect(e.cancelled_at).toBeNull();
     expect(e.organizer_name).toBe('Mysterious music');
     expect(e.external_role).toBe('organizer');
-    expect(e.deals[0]).toMatchObject({ id: '284482', name: 'Pass Regular Entry', price: 10, quantity: 50, visibility: 'public', category: 'Reserved Tables with Drinks Included' });
+    expect(e.deals[0]).toMatchObject({ id: '284482', name: 'Pass Regular Entry', price: 10, quantity: 50, visibility: 'public', category: 'Reserved Tables with Drinks Included', category_id: '1', phase_starts_at: '2026-09-01T10:00:00.000Z' });
   });
 
   it('refuse une URL non https', () => {

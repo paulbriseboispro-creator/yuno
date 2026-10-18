@@ -38,6 +38,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
   const canRedo = useStudio((s) => s.future.length > 0);
   const device = useStudio((s) => s.device);
   const preview = useStudio((s) => s.preview);
+  const aiAuthor = useStudio((s) => s.campaign.aiAuthor ?? null);
   const [, tick] = useState(0);
   useEffect(() => { const i = window.setInterval(() => tick((n) => n + 1), 5000); return () => window.clearInterval(i); }, []);
   // Les étapes se resserrent (numéro seul, sauf l'étape en cours) avant de
@@ -188,6 +189,12 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
         <div style={{ flex: 'none', padding: '10px 20px', background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14, fontWeight: 500, borderBottom: '1px solid var(--sand-100)', textAlign: 'center' }}>{t('yc.em.st.readOnly')}</div>
       )}
       {sched && !readOnly && !template && <ScheduledBand />}
+      {aiAuthor && !template && status === 'draft' && (
+        <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 20px', background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 13.5, fontWeight: 500, borderBottom: '1px solid var(--sand-100)', textAlign: 'center', textWrap: 'pretty' }}>
+          <Icon name="zap" size={14} stroke={2.2} />
+          <span><b style={{ fontWeight: 600, color: 'var(--ink)' }}>{t('yc.em.st.ai', { ai: aiAuthor })}</b> · {t('yc.em.st.aiTip')}</span>
+        </div>
+      )}
       {template && (
         <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 20px', background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 13.5, fontWeight: 500, borderBottom: '1px solid var(--sand-100)', textAlign: 'center' }}>
           <Icon name="zap" size={14} stroke={2.2} />{t('yc.au.tpl.note')}

@@ -18,7 +18,7 @@ import { makeBlock } from '@/lib/email/blocks';
 import type { TemplateContent } from '@/lib/email/templates';
 import type { EmailBlock, EmailTheme } from '@/lib/email/types';
 
-export const CRM_TEMPLATE_KINDS = ['annonce', 'lineup', 'lastcall', 'bienvenue', 'manque', 'merci', 'mois', 'vide'] as const;
+export const CRM_TEMPLATE_KINDS = ['annonce', 'lineup', 'lastcall', 'bienvenue', 'manque', 'merci', 'mois', 'vide', 'relance', 'retour'] as const;
 export type CrmTemplateKind = (typeof CRM_TEMPLATE_KINDS)[number];
 
 export type CrmTemplateGoal = 'announce' | 'remind' | 'welcome' | 'loyalty' | 'free';
@@ -57,8 +57,18 @@ export const CRM_TEMPLATES: readonly CrmTemplateMeta[] = [
   { kind: 'vide', goal: 'free', theme: 'clair', night: false, pieces: ['header', 'text', 'cta'] },
 ];
 
+/**
+ * Modèles qui ne servent qu'à une automatisation : ils ne s'affichent pas dans
+ * la galerie de l'écran Modèles (un e-mail « vous avez regardé la soirée »
+ * n'a de sens que déclenché par le clic).
+ */
+export const CRM_AUTO_TEMPLATES: readonly CrmTemplateMeta[] = [
+  { kind: 'relance', goal: 'remind', theme: 'epure', night: true, pieces: ['header', 'text', 'event', 'cta'] },
+  { kind: 'retour', goal: 'loyalty', theme: 'clair', night: true, pieces: ['header', 'text', 'lineup', 'event', 'cta'] },
+];
+
 export function crmTemplate(kind: string | null | undefined): CrmTemplateMeta | undefined {
-  return CRM_TEMPLATES.find((x) => x.kind === kind);
+  return CRM_TEMPLATES.find((x) => x.kind === kind) ?? CRM_AUTO_TEMPLATES.find((x) => x.kind === kind);
 }
 
 /**
@@ -206,6 +216,29 @@ export function buildCrmTemplate(kind: CrmTemplateKind, ctx: BuildCtx): Template
 
     case 'manque':
       return { ...base, blocks: [header(), gap('md'), headline(k('title')), body(k('body')), eventCard(night, { cover: true }), gap('sm')] };
+
+    case 'relance':
+      // « A cliqué sans acheter » : la soirée regardée, avec ses tarifs en
+      // direct. Le texte n'affirme jamais « vous n'avez pas acheté » (une
+      // place prise avec une autre adresse reste possible).
+      return { ...base, blocks: [header(), gap('md'), headline(k('title')), body(k('body')), eventCard(night, { cover: true }), gap('sm')] };
+
+    case 'retour':
+      // « Faire revenir après la 1re soirée » : la soirée choisie POUR la
+      // personne (le moteur relie chaque envoi à la sienne), son line-up relu
+      // à l'envoi. {{1re_soiree}} a un repli lisible (« votre première soirée »).
+      return {
+        ...base,
+        blocks: [
+          header(),
+          gap('md'),
+          headline(k('title')),
+          body(k('body')),
+          b('lineup', { eventId: night?.id, kicker: k('program'), photos: true, align: 'left', extra: [], px: 32, py: 12 }),
+          eventCard(night, { cover: true }),
+          gap('sm'),
+        ],
+      };
 
     case 'merci': {
       const last = ctx.last ?? null;

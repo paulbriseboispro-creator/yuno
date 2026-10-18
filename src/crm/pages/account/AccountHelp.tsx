@@ -26,21 +26,52 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'sync', c: 'start' },
   { id: 'import', c: 'clients', to: CRM_ROUTES.imports },
   { id: 'cost', c: 'yunits', to: CRM_ROUTES.yunits },
+  // Rien ne part sans l'identité de l'expéditeur (Réglages › Envoi).
+  { id: 'sender', c: 'start', to: CRM_ROUTES.emailSettings },
   { id: 'order', c: 'yunits', to: CRM_ROUTES.yunits },
   { id: 'skip', c: 'yunits' },
   { id: 'regular', c: 'clients', to: CRM_ROUTES.clients },
   { id: 'segments', c: 'clients', to: CRM_ROUTES.segments },
   { id: 'team', c: 'account', to: CRM_ROUTES.accountSection('team') },
   { id: 'invoices', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  // Accès assisté de l'équipe Yuno (Compte › Accès Yuno, 20261019420000).
+  { id: 'support', c: 'account', to: CRM_ROUTES.accountSection('support') },
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'journey', c: 'clients', to: CRM_ROUTES.journey },
   { id: 'signup', c: 'clients', to: CRM_ROUTES.signupPages },
+  // Le connecteur IA (MCP) dessine les pages : brouillon, ou proposition sur une page en ligne.
+  { id: 'aipage', c: 'clients', to: CRM_ROUTES.signupPages },
   { id: 'auto', c: 'start', to: CRM_ROUTES.automations },
   { id: 'blocks', c: 'start', to: CRM_ROUTES.emailTemplates },
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
+  // Familles de `_crm_ticket_source` (migration 20261018100000) et le compte des clients.
+  { id: 'sources', c: 'clients', to: CRM_ROUTES.traffic },
+  { id: 'customers', c: 'clients', to: CRM_ROUTES.clients },
   { id: 'guestlist', c: 'clients', to: CRM_ROUTES.guestlist },
+  // Analyse client : le test au hasard, les statuts, ce qui sort du compte.
+  { id: 'why', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },
+  { id: 'whystatus', c: 'clients', to: `${CRM_ROUTES.community}?v=why` },
+  { id: 'whydata', c: 'account', to: CRM_ROUTES.settings },
+  // Conditions Yuno CRM : le modèle d'information pour les clients du pro.
+  { id: 'legal', c: 'account', to: CRM_ROUTES.settings },
+  // La suite de l'analyse : à qui écrire pour une soirée, faire revenir les nouveaux.
+  { id: 'target', c: 'clients', to: CRM_ROUTES.nights },
+  { id: 'firstreturn', c: 'start', to: CRM_ROUTES.automations },
+  // Scénarios : plusieurs étapes, conditions et attentes (Automatisations › Scénarios).
+  { id: 'scenario', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
+  { id: 'scenariorules', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
+  { id: 'scenarioai', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
+  { id: 'scenariotips', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
+  // Plan de soirée (agents, lot A1) et « Préparer avec mon IA » (l'IA du pro, par le MCP).
+  { id: 'nightplan', c: 'clients', to: CRM_ROUTES.nights },
+  { id: 'weekly', c: 'clients', to: CRM_ROUTES.review },
+  { id: 'chances', c: 'clients', to: CRM_ROUTES.nights },
+  // « 10 % non contactés, pour mesurer l'effet réel » (20261013120000).
+  { id: 'holdout', c: 'clients', to: CRM_ROUTES.settings },
   { id: 'trial', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  // Offre fondateurs (migration 20261017230000) : les 5 comptes invités par Yuno.
+  { id: 'founder', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'offline', c: 'account' },
   // Billetterie ⇄ CRM sur le même compte (migration 20261006100000).
   { id: 'ticketing', c: 'account', to: '/open/suite' },

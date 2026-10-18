@@ -5,6 +5,7 @@
 import type { McpCtx, McpEnv } from './config';
 import { DbError, DbNotConfigured } from './db';
 import { CORS_HEADERS, authorizationServerMetadata, authorize, json, protectedResourceMetadata, register, revoke, token } from './oauth';
+import { handleImageUpload, isImageUploadRoute } from './emailImages';
 import { handleMcp } from './protocol';
 
 const MCP_ROUTES = new Set([
@@ -24,15 +25,19 @@ const MCP_ROUTES = new Set([
 ]);
 
 export function isMcpRoute(pathname: string): boolean {
-  return MCP_ROUTES.has(pathname.replace(/\/+$/, '') || '/');
+  return MCP_ROUTES.has(pathname.replace(/\/+$/, '') || '/') || isImageUploadRoute(pathname);
 }
 
 export async function handleMcpRoute(request: Request, env: McpEnv, ctx: McpCtx): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '');
   try {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: { ...CORS_HEADERS, 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS' } });
+    }
     if (path === '/mcp') return await handleMcp(request, env, ctx);
+    // Dépôt d'une image dans un emplacement ouvert par add_email_image.
+    if (isImageUploadRoute(url.pathname)) return await handleImageUpload(request, env);
     // Vérification de domaine OpenAI : le jeton exact, en texte brut, rien d'autre.
     if (path === '/.well-known/openai-apps-challenge') {
       const challenge = (env.OPENAI_APPS_CHALLENGE ?? '').trim();

@@ -158,6 +158,20 @@ export function schemaKeys(obj: unknown, depth = 2, prefix = ""): string[] {
   return out.slice(0, 200);
 }
 
+/**
+ * Clés déjà relevées + celles d'une page (ordre d'apparition, 200 au plus) : le
+ * billet brut ne gardant plus tout (minimizeTicketRaw), c'est ici qu'un champ
+ * nouveau de la billetterie se voit.
+ */
+export function mergeSchemaKeys(prev: unknown, items: unknown[]): string[] {
+  const out = new Set<string>(Array.isArray(prev) ? prev.filter((k): k is string => typeof k === "string") : []);
+  for (const it of items) {
+    if (out.size >= 200) break;
+    for (const k of schemaKeys(it)) out.add(k);
+  }
+  return [...out].slice(0, 200);
+}
+
 // ── Billets ─────────────────────────────────────────────────────────────────
 
 // Le premier nom de chaque liste est le nom DOCUMENTÉ par Shotgun ; les
@@ -202,36 +216,85 @@ const CENTS = {
 
 // Nom de pays → code ISO (Shotgun rend `contact_country` en toutes lettres :
 // « France »). Table construite une fois depuis Intl, en trois langues.
+//
+// Intl nomme aussi les codes RETIRÉS : `DD` (RDA) s'affiche « Germany » et
+// passe avant `DE` dans l'ordre alphabétique — l'Allemagne devenait « DD ».
+// Un code retiré n'entre donc jamais dans la table, et un code retiré reçu tel
+// quel est ramené à son successeur. Les codes de regroupement (UE, ONU,
+// « Région inconnue »…) ne sont pas des pays.
+export const RETIRED_COUNTRY_CODES: Readonly<Record<string, string | null>> = {
+  AN: "CW", BU: "MM", CS: "RS", DD: "DE", DY: "BJ", FX: "FR", HV: "BF", NH: "VU",
+  RH: "ZW", SU: "RU", TP: "TL", UK: "GB", VD: "VN", YD: "YE", YU: "RS", ZR: "CD",
+  // Regroupements et pseudo-régions : jamais un pays.
+  EU: null, EZ: null, QU: null, UN: null, QO: null, ZZ: null, XA: null, XB: null,
+};
+// Noms que Shotgun écrit (liste anglaise ISO d'avant les renommages) et
+// formes courantes que la table Intl ne connaît pas.
+const COUNTRY_ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ["unitedstates", "US"], ["unitedstatesofamerica", "US"], ["usa", "US"],
+  ["uk", "GB"], ["england", "GB"], ["scotland", "GB"], ["wales", "GB"], ["northernireland", "GB"],
+  ["greatbritain", "GB"], ["unitedkingdomofgreatbritainandnorthernireland", "GB"],
+  ["turkey", "TR"], ["czechrepublic", "CZ"], ["republicofmoldova", "MD"], ["russianfederation", "RU"],
+  ["republicofkorea", "KR"], ["southkorea", "KR"], ["democraticpeoplesrepublicofkorea", "KP"],
+  ["islamicrepublicofiran", "IR"], ["syrianarabrepublic", "SY"], ["laopeoplesdemocraticrepublic", "LA"],
+  ["unitedrepublicoftanzania", "TZ"], ["plurinationalstateofbolivia", "BO"],
+  ["bolivarianrepublicofvenezuela", "VE"], ["macedonia", "MK"], ["republicofnorthmacedonia", "MK"],
+  ["theformeryugoslavrepublicofmacedonia", "MK"], ["swaziland", "SZ"], ["holland", "NL"],
+  ["ivorycoast", "CI"], ["burma", "MM"], ["democraticrepublicofthecongo", "CD"],
+  ["republicofthecongo", "CG"], ["hongkong", "HK"], ["macao", "MO"], ["macau", "MO"],
+  ["palestine", "PS"], ["stateofpalestine", "PS"], ["capeverde", "CV"], ["caboverde", "CV"],
+  ["easttimor", "TL"], ["vaticancity", "VA"], ["holysee", "VA"], ["federatedstatesofmicronesia", "FM"],
+  ["bruneidarussalam", "BN"], ["vietnam", "VN"], ["reunion", "RE"], ["lareunion", "RE"],
+  ["myanmar", "MM"], ["congo", "CG"],
+];
 let countryIndex: Map<string, string> | null = null;
 function foldName(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 }
-export function countryCodeFrom(v: unknown): string | null {
-  const s = str(v, 80);
-  if (!s) return null;
-  if (/^[A-Za-z]{2}$/.test(s)) return s.toUpperCase();
-  if (!countryIndex) {
-    countryIndex = new Map();
-    for (const lang of ["en", "fr", "es"]) {
-      let dn: Intl.DisplayNames;
-      try { dn = new Intl.DisplayNames([lang], { type: "region" }); } catch { continue; }
-      for (let a = 65; a < 91; a++) {
-        for (let b = 65; b < 91; b++) {
-          const code = String.fromCharCode(a, b);
-          let name: string | undefined;
-          try { name = dn.of(code); } catch { name = undefined; }
-          if (name && name !== code) {
-            const k = foldName(name);
-            if (k && !countryIndex.has(k)) countryIndex.set(k, code);
-          }
+// Les noms Intl ne s'écrivent pas comme la liste ISO : « Bosnia & Herzegovina »,
+// « St. Lucia », « Myanmar (Burma) », « Congo - Kinshasa ». Chaque nom entre
+// dans la table sous ses formes usuelles.
+function nameKeys(name: string): string[] {
+  const forms = new Set([name, name.replace(/&/g, " and "), name.replace(/\s*\(.*?\)\s*/g, " ").trim()]);
+  for (const f of [...forms]) if (/\bSt\.\s/.test(f)) forms.add(f.replace(/\bSt\.\s/g, "Saint "));
+  return [...forms].map(foldName).filter(Boolean);
+}
+function buildCountryIndex(): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const lang of ["en", "fr", "es"]) {
+    let dn: Intl.DisplayNames;
+    try { dn = new Intl.DisplayNames([lang], { type: "region" }); } catch { continue; }
+    for (let a = 65; a < 91; a++) {
+      for (let b = 65; b < 91; b++) {
+        const code = String.fromCharCode(a, b);
+        if (code in RETIRED_COUNTRY_CODES) continue;
+        let name: string | undefined;
+        try { name = dn.of(code); } catch { name = undefined; }
+        if (name && name !== code) {
+          for (const k of nameKeys(name)) if (!index.has(k)) index.set(k, code);
         }
       }
     }
-    for (const [k, code] of [["unitedstates", "US"], ["usa", "US"], ["uk", "GB"], ["england", "GB"], ["greatbritain", "GB"]] as const) {
-      countryIndex.set(k, code);
-    }
   }
-  return countryIndex.get(foldName(s)) ?? null;
+  for (const [k, code] of COUNTRY_ALIASES) index.set(k, code);
+  return index;
+}
+export function countryCodeFrom(v: unknown): string | null {
+  const s = str(v, 80);
+  if (!s) return null;
+  if (/^[A-Za-z]{2}$/.test(s)) {
+    const code = s.toUpperCase();
+    return code in RETIRED_COUNTRY_CODES ? RETIRED_COUNTRY_CODES[code] : code;
+  }
+  countryIndex ??= buildCountryIndex();
+  // Forme inversée de la liste ISO : « Moldova, Republic of » → « Republic of Moldova ».
+  const comma = s.match(/^(.+?),\s*(.+)$/);
+  const tries = [s, ...(comma ? [`${comma[2]} ${comma[1]}`] : [])];
+  for (const k of tries.flatMap(nameKeys)) {
+    const hit = countryIndex.get(k) ?? countryIndex.get(k.replace(/^the/, ""));
+    if (hit) return hit;
+  }
+  return null;
 }
 
 export type TicketStatus = "valid" | "refunded" | "cancelled" | "transferred" | "other";
@@ -317,7 +380,29 @@ export interface MappedTicket {
   refunded_at: string | null;
   source_updated_at: string | null;
   utm: Json | null;
+  /**
+   * Ce que le CRM lisait dans le billet brut, en colonnes (migration
+   * 20261018200000). Mêmes valeurs que le trigger SQL qui les dérive de `raw`
+   * (`raw->>'deal_channel'`… sans normalisation) : un billet écrit par une
+   * ancienne version du connecteur est juste lui aussi.
+   */
+  deal_channel: string | null;
+  deal_visibilities: (string | null)[] | null;
+  seating_type: string | null;
+  payment_method: string | null;
+  /** `deal_service_fee` (frais organisateur, centimes) en euros. */
+  org_fee: number | null;
+  provider_contact_id: string | null;
+  provider_user_id: string | null;
   raw: Json;
+}
+
+/** Valeur de `raw->>'clé'` côté SQL : texte tel quel, nombre et booléen en texte. */
+export function jsonText(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(v);
 }
 
 export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): MappedTicket | null {
@@ -360,20 +445,83 @@ export function mapShotgunTicket(raw: Json, divisor = 1, now = new Date()): Mapp
     refunded_at: status === "refunded" || status === "cancelled" ? isoDate(pick(raw, P.refundedAt)) : null,
     source_updated_at: isoDate(pick(raw, P.updatedAt)),
     utm: utmFrom(raw),
-    raw: withoutScanCode(raw),
+    deal_channel: jsonText(raw.deal_channel),
+    deal_visibilities: Array.isArray(raw.deal_visibilities) ? raw.deal_visibilities.map(jsonText) : null,
+    seating_type: raw.ticket_seating && typeof raw.ticket_seating === "object" && !Array.isArray(raw.ticket_seating)
+      ? jsonText((raw.ticket_seating as Json).type) : null,
+    payment_method: jsonText(raw.payment_method),
+    org_fee: typeof raw.deal_service_fee === "number" && Number.isFinite(raw.deal_service_fee) ? raw.deal_service_fee / 100 : null,
+    provider_contact_id: jsonText(raw.contact_id),
+    provider_user_id: jsonText(raw.user_id),
+    raw: minimizeTicketRaw(raw),
   };
 }
 
 /**
  * La valeur du QR d'un billet (`ticket_scan_code`) ne se stocke JAMAIS chez Yuno
  * (docs/designs/SHOTGUN_API_REFERENCE.md) : quiconque la lit entre à la soirée.
- * Le reste du billet brut est gardé (`deal_channel` sert à reconnaître une
- * invitation, `_crm_ticket_is_sale`).
  */
 const SCAN_CODE_KEYS = ["ticket_scan_code", "scan_code", "scanCode", "ticketScanCode", "qr_code", "qrCode", "barcode"];
 export function withoutScanCode(raw: Json): Json {
   const out: Json = { ...raw };
   for (const k of SCAN_CODE_KEYS) delete out[k];
+  return out;
+}
+
+// ── Ce que le billet brut garde (minimisation, plan CRM_AMORIS §5.3, S5) ────
+//
+// `external_tickets.raw` ne garde que ce qui n'est rangé nulle part ailleurs ET
+// ne désigne personne : ni un champ extrait en colonne (montants, dates, canal,
+// visibilités, identifiants…), ni la soirée du billet (elle vit dans
+// `external_events`), ni une coordonnée, ni la valeur du QR. Sur le schéma
+// documenté il reste `deal_sub_category`, `deal_vat_rate`,
+// `deal_producer_cost`, `ticket_seating` et toute clé nouvelle qui ne désigne
+// personne. Les CLÉS vues restent relevées dans `schema_sample` (jamais les
+// valeurs).
+//
+// Miroir EXACT : `public._ticketing_raw_key_dropped(text)` (migration
+// 20261019300000), appliqué par le trigger de `external_tickets` à toute
+// écriture : un ancien connecteur, un script ou une réimportation ne remet
+// jamais une coordonnée dans `raw`.
+
+/** Clés extraites en colonne (noms documentés et noms de repli), ou rangées ailleurs. */
+export const RAW_EXTRACTED_KEYS: ReadonlySet<string> = new Set([
+  ...Object.values(P).flat().filter((k) => !k.includes(".")),
+  ...Object.values(CENTS),
+  ...SCAN_CODE_KEYS,
+  // Colonnes typées (20261018200000).
+  "deal_channel", "deal_visibilities", "payment_method", "deal_service_fee", "contact_id", "user_id",
+  // Remboursement / annulation : drapeaux lus par normalizeTicketStatus.
+  "refunded", "is_refunded", "isRefunded", "cancelled", "canceled", "is_cancelled", "is_canceled",
+  // La soirée du billet : elle vit dans external_events (relue à chaque passe).
+  "event_name", "event_start_time", "event_end_time", "event_created_at", "event_published_at",
+  "event_launched_at", "event_canceled_at",
+]);
+
+/** Objets ou préfixes qui portent une personne (ou les UTM, rangés dans `utm`). */
+const RAW_PERSON_CONTAINERS = [
+  "contact", "buyer", "holder", "attendee", "customer", "purchaser", "beneficiary", "owner", "user",
+  "address", "utm", "utms", "tracking",
+];
+export const RAW_PERSON_PREFIX = new RegExp(`^(${RAW_PERSON_CONTAINERS.join("|")})(_|$)`);
+/** Mots qui désignent une coordonnée, où qu'ils soient dans le nom de la clé. */
+export const RAW_PERSONAL_WORD =
+  /(^|_)(e_?mail|mail|phone(_number)?|tel|telephone|mobile|first_?name|last_?name|full_?name|sur_?name|given_?name|family_?name|birth(_?(day|date))?|date_of_birth|dob|address|street|postal(_?code)?|post_?code|zip(_?code)?|city|locality|company(_name)?|ip(_address)?|gender|sex|age)($|_)/;
+
+/** « firstName » → « first_name » : la règle lit les deux écritures. */
+export function rawKeyName(k: string): string {
+  return k.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+export function rawKeyDropped(k: string): boolean {
+  if (RAW_EXTRACTED_KEYS.has(k)) return true;
+  const n = rawKeyName(k);
+  return RAW_PERSON_PREFIX.test(n) || RAW_PERSONAL_WORD.test(n);
+}
+
+export function minimizeTicketRaw(raw: Json): Json {
+  const out: Json = {};
+  for (const [k, v] of Object.entries(raw)) if (!rawKeyDropped(k)) out[k] = v;
   return out;
 }
 
@@ -401,6 +549,9 @@ export interface MappedDeal {
   visibility: string | null;
   sales_channel: string | null;
   category: string | null;
+  category_id: string | null;
+  /** Ouverture de la vente de ce tarif (`subcategory.start_time`) : la phase de vente. */
+  phase_starts_at: string | null;
 }
 
 export interface MappedEvent {
@@ -481,6 +632,8 @@ export function mapShotgunEvent(raw: Json, divisor = 1): MappedEvent | null {
           visibility: str(pick(d, ["visibility", "visiblity"]), 30),
           sales_channel: str(pick(d, ["sales_channel", "salesChannel"]), 30),
           category: str(pick(d, ["subcategory.name"]), 120),
+          category_id: str(pick(d, ["subcategory_id", "subcategory.id"]), 60),
+          phase_starts_at: isoDate(pick(d, ["subcategory.start_time", "subcategory.startTime"])),
         })).slice(0, 100)
       : [],
     left_tickets: num(pick(raw, ["leftTicketsCount", "left_tickets_count"])),

@@ -90,6 +90,8 @@ export type TicketRound = {
   visibleFrom?: string | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  /** Billetterie libre : s'ouvre quand ce billet-là est complet (rounds billet par billet). */
+  opensAfterRoundId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -203,6 +205,8 @@ export type EventWithTicketing = {
   posterUrl?: string;
   /** Vidéo paysage 16:9 lue en boucle sur la page de la soirée uniquement (events.video_url). */
   videoUrl?: string;
+  /** Flyer paysage 16:9 du haut de la page soirée uniquement (events.flyer_wide_url) ; repli : l'affiche 1:1. */
+  flyerWideUrl?: string;
   posterPosition?: { x: number; y: number; scale: number };
   startAt: string;
   endAt: string;
@@ -231,6 +235,8 @@ export type EventWithTicketing = {
   waitlistEnabled?: boolean;
   /** Controls how upcoming ticket rounds are shown to buyers. */
   roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
+  /** Billetterie libre : ce que voit l'acheteur d'un billet « après un billet ». */
+  freeChainVisibility?: 'hidden' | 'preview' | 'open';
   createdAt: string;
   updatedAt: string;
 };

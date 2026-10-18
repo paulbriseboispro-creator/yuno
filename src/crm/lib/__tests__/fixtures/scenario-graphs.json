@@ -1,0 +1,4474 @@
+{
+ "_doc": "Cas partagés du graphe des Scénarios : graphErrors (TS) et _crm_scenario_graph_errors (SQL) rendent exactement ces erreurs, triées (nœud, champ, code ; le scénario d'abord).",
+ "cases": [
+  {
+   "name": "scénario complet valide",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 2,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "pas un objet",
+   "graph": [],
+   "errors": [
+    {
+     "code": "bad_version",
+     "node": null,
+     "field": "v"
+    }
+   ]
+  },
+  {
+   "name": "version inconnue",
+   "graph": {
+    "v": 2,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_version",
+     "node": null,
+     "field": "v"
+    }
+   ]
+  },
+  {
+   "name": "sans déclencheur",
+   "graph": {
+    "v": 1,
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_trigger",
+     "node": null,
+     "field": "trigger"
+    }
+   ]
+  },
+  {
+   "name": "panier abandonné : bientôt",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "cart_abandoned"
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "soon",
+     "node": null,
+     "field": "trigger"
+    }
+   ]
+  },
+  {
+   "name": "déclencheur inconnu",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "webhook"
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_trigger",
+     "node": null,
+     "field": "trigger"
+    }
+   ]
+  },
+  {
+   "name": "J-0 refusé",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 0
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": null,
+     "field": "trigger.days"
+    }
+   ]
+  },
+  {
+   "name": "après la soirée sans public",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "after_event",
+     "hours": 24
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": null,
+     "field": "trigger.who"
+    }
+   ]
+  },
+  {
+   "name": "sans soirée : tout ce qui en dépend",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "segment_joined",
+     "segment_id": "abc"
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "no_event",
+     "node": null,
+     "field": "entry.reentry"
+    },
+    {
+     "code": "no_event",
+     "node": null,
+     "field": "goal"
+    },
+    {
+     "code": "bad_param",
+     "node": null,
+     "field": "trigger.segment_id"
+    },
+    {
+     "code": "no_event",
+     "node": "b1",
+     "field": "cond"
+    },
+    {
+     "code": "no_event",
+     "node": "e1",
+     "field": "event"
+    },
+    {
+     "code": "no_event",
+     "node": "s1",
+     "field": "event"
+    },
+    {
+     "code": "no_event",
+     "node": "w1",
+     "field": "anchor"
+    }
+   ]
+  },
+  {
+   "name": "achat refusé dans l'entrée",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": {
+      "op": "and",
+      "items": [
+       {
+        "k": "sc_bought",
+        "v": true
+       }
+      ]
+     },
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "cond_not_in_entry",
+     "node": null,
+     "field": "entry.filter:0"
+    }
+   ]
+  },
+  {
+   "name": "chances sans soirée, à l'entrée",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "absence",
+     "days": 60
+    },
+    "entry": {
+     "filter": {
+      "op": "and",
+      "items": [
+       {
+        "k": "sc_chance",
+        "v": [
+         "high"
+        ]
+       }
+      ]
+     },
+     "reentry": {
+      "mode": "once"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_any"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 2,
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 1
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "for_person",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "for_person",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "no_event",
+     "node": null,
+     "field": "entry.filter"
+    }
+   ]
+  },
+  {
+   "name": "retour trop rapproché",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "every_days",
+      "days": 3
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_reentry",
+     "node": null,
+     "field": "entry.reentry"
+    }
+   ]
+  },
+  {
+   "name": "témoin non dit",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     }
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_entry",
+     "node": null,
+     "field": "entry.holdout"
+    }
+   ]
+  },
+  {
+   "name": "objectif inconnu",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "clicked"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_goal",
+     "node": null,
+     "field": "goal"
+    }
+   ]
+  },
+  {
+   "name": "sans objectif",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": null,
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 2,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "aucun nœud",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {}
+   },
+   "errors": [
+    {
+     "code": "no_nodes",
+     "node": null,
+     "field": "nodes"
+    }
+   ]
+  },
+  {
+   "name": "31 nœuds",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w0",
+    "nodes": {
+     "w0": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w1"
+     },
+     "w1": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w3"
+     },
+     "w3": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w4"
+     },
+     "w4": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w5"
+     },
+     "w5": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w6"
+     },
+     "w6": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w7"
+     },
+     "w7": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w8"
+     },
+     "w8": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w9"
+     },
+     "w9": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w10"
+     },
+     "w10": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w11"
+     },
+     "w11": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w12"
+     },
+     "w12": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w13"
+     },
+     "w13": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w14"
+     },
+     "w14": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w15"
+     },
+     "w15": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w16"
+     },
+     "w16": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w17"
+     },
+     "w17": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w18"
+     },
+     "w18": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w19"
+     },
+     "w19": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w20"
+     },
+     "w20": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w21"
+     },
+     "w21": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w22"
+     },
+     "w22": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w23"
+     },
+     "w23": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w24"
+     },
+     "w24": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w25"
+     },
+     "w25": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w26"
+     },
+     "w26": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w27"
+     },
+     "w27": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w28"
+     },
+     "w28": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "w29"
+     },
+     "w29": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 1,
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_many_nodes",
+     "node": null,
+     "field": "nodes"
+    }
+   ]
+  },
+  {
+   "name": "départ absent",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "zz",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_start",
+     "node": null,
+     "field": "start"
+    }
+   ]
+  },
+  {
+   "name": "id en majuscules",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "E1",
+      "no": "x"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     },
+     "E1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_node_id",
+     "node": "E1",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "nœud webhook refusé",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "webhook",
+      "url": "https://x.fr",
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    },
+    {
+     "code": "bad_node_type",
+     "node": "w2",
+     "field": "type"
+    }
+   ]
+  },
+  {
+   "name": "message privé Instagram : bientôt",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "instagram_dm",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "soon",
+     "node": "s1",
+     "field": "type"
+    }
+   ]
+  },
+  {
+   "name": "message sans suite",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "missing_next",
+     "node": "e1",
+     "field": "next"
+    },
+    {
+     "code": "orphan",
+     "node": "s1",
+     "field": null
+    },
+    {
+     "code": "orphan",
+     "node": "w2",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "suite inconnue",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "zz"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_ref",
+     "node": "e1",
+     "field": "next"
+    },
+    {
+     "code": "orphan",
+     "node": "s1",
+     "field": null
+    },
+    {
+     "code": "orphan",
+     "node": "w2",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "boucle",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "orphan",
+     "node": "s1",
+     "field": null
+    },
+    {
+     "code": "cycle",
+     "node": "w2",
+     "field": "next"
+    }
+   ]
+  },
+  {
+   "name": "nœud orphelin",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     },
+     "t9": {
+      "type": "tag",
+      "op": "add",
+      "tag": "VIP",
+      "next": "x"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "orphan",
+     "node": "t9",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "sept messages sur un chemin",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "e0",
+    "nodes": {
+     "e0": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d0"
+     },
+     "d0": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e1"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d1"
+     },
+     "d1": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e2"
+     },
+     "e2": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d2"
+     },
+     "d2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e3"
+     },
+     "e3": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d3"
+     },
+     "d3": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e4"
+     },
+     "e4": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d4"
+     },
+     "d4": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e5"
+     },
+     "e5": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d5"
+     },
+     "d5": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "e6"
+     },
+     "e6": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "d6"
+     },
+     "d6": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_many_messages",
+     "node": "e6",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "deux messages à 12 h",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 12,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "deux messages à 4 h, mêmes repères",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "22:00",
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "attente d'une condition : le moteur reporte",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "until_cond",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_opened",
+         "v": "e1"
+        }
+       ]
+      },
+      "max_hours": 48,
+      "next": "s1",
+      "timeout": "x"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 3,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "attente d'une condition bornée à 10 h",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "until_cond",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_opened",
+         "v": "e1"
+        }
+       ]
+      },
+      "max_hours": 10,
+      "next": "s1",
+      "timeout": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "attente après le début",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "hours": 2,
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "after_start",
+     "node": "w1",
+     "field": "when"
+    }
+   ]
+  },
+  {
+   "name": "heures et jours à la fois",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1",
+      "hours": -48
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": "w1",
+     "field": "when"
+    }
+   ]
+  },
+  {
+   "name": "heure illisible",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "25:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": "w1",
+     "field": "when"
+    }
+   ]
+  },
+  {
+   "name": "test A/B qui ne fait pas 100 %",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "split",
+      "paths": [
+       {
+        "pct": 60,
+        "next": "s1"
+       },
+       {
+        "pct": 30,
+        "next": "x"
+       }
+      ]
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    },
+    {
+     "code": "bad_split",
+     "node": "w2",
+     "field": "paths"
+    }
+   ]
+  },
+  {
+   "name": "test A/B",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "split",
+      "paths": [
+       {
+        "pct": 50,
+        "next": "w3"
+       },
+       {
+        "pct": 50,
+        "next": "x"
+       }
+      ]
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     },
+     "w3": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 20,
+      "next": "s1"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 3,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "adresse web dans un SMS",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Billets sur monsite.fr",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "url_in_text",
+     "node": "s1",
+     "field": "body"
+    }
+   ]
+  },
+  {
+   "name": "adresse web avec www",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Tout est sur WWW.shotgun.live",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "url_in_text",
+     "node": "s1",
+     "field": "body"
+    }
+   ]
+  },
+  {
+   "name": "pas une adresse : une heure",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Rdv 23h.Ce soir {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 2,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "lien sans soirée",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "none",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "link_without_event",
+     "node": "s1",
+     "field": "body"
+    }
+   ]
+  },
+  {
+   "name": "adresse dans l'objet",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Va sur www.yuno.fr",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "url_in_text",
+     "node": "e1",
+     "field": "subject"
+    }
+   ]
+  },
+  {
+   "name": "modèle illisible",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "x",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": "e1",
+     "field": "template_id"
+    }
+   ]
+  },
+  {
+   "name": "soirée fixe sans id",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "fixed",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": "e1",
+     "field": "event_id"
+    }
+   ]
+  },
+  {
+   "name": "ouverture d'un SMS : mauvais nœud",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_opened",
+         "v": "s1"
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_node_ref",
+     "node": "b1",
+     "field": "cond:sc_opened"
+    }
+   ]
+  },
+  {
+   "name": "remise d'un e-mail : mauvais nœud",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_sms_delivered",
+         "v": "e1"
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_node_ref",
+     "node": "b1",
+     "field": "cond:sc_sms_delivered"
+    }
+   ]
+  },
+  {
+   "name": "feuille inconnue dans un embranchement",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "x",
+         "v": 1
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "cond_unknown_key",
+     "node": "b1",
+     "field": "cond:0"
+    }
+   ]
+  },
+  {
+   "name": "embranchement sans condition",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "cond_root_not_group",
+     "node": "b1",
+     "field": "cond:"
+    }
+   ]
+  },
+  {
+   "name": "étiquette sans nom",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "tag",
+      "op": "add",
+      "tag": " ",
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    },
+    {
+     "code": "bad_param",
+     "node": "w2",
+     "field": "tag"
+    }
+   ]
+  },
+  {
+   "name": "notification à l'équipe",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "notify",
+      "label": "Nouvel inscrit",
+      "next": "w3"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     },
+     "w3": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 30,
+      "next": "s1"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 2,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "1 024 chemins",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "b0",
+    "nodes": {
+     "b0": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 0
+        }
+       ]
+      },
+      "yes": "b1",
+      "no": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 1
+        }
+       ]
+      },
+      "yes": "b2",
+      "no": "b2"
+     },
+     "b2": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 2
+        }
+       ]
+      },
+      "yes": "b3",
+      "no": "b3"
+     },
+     "b3": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 3
+        }
+       ]
+      },
+      "yes": "b4",
+      "no": "b4"
+     },
+     "b4": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 4
+        }
+       ]
+      },
+      "yes": "b5",
+      "no": "b5"
+     },
+     "b5": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 5
+        }
+       ]
+      },
+      "yes": "b6",
+      "no": "b6"
+     },
+     "b6": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 6
+        }
+       ]
+      },
+      "yes": "b7",
+      "no": "b7"
+     },
+     "b7": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 7
+        }
+       ]
+      },
+      "yes": "b8",
+      "no": "b8"
+     },
+     "b8": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 8
+        }
+       ]
+      },
+      "yes": "b9",
+      "no": "b9"
+     },
+     "b9": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 9
+        }
+       ]
+      },
+      "yes": "x",
+      "no": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_many_paths",
+     "node": null,
+     "field": "nodes"
+    }
+   ]
+  },
+  {
+   "name": "après la soirée, repère de fin",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "after_event",
+     "hours": 24,
+     "who": "entered"
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "once"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "end",
+      "hours": 48,
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 2,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "repère jour contre repère heure : on ne sait pas",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 1
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "e1",
+    "nodes": {
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "w1"
+     },
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "hours": -20,
+      "next": "e2"
+     },
+     "e2": {
+      "type": "email",
+      "template_id": "7b1e0c9a-2f3d-4c5b-9a8e-1d2c3b4a5f6e",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 1,
+    "maxMessages": 2,
+    "maxEmails": 2,
+    "maxSms": 0
+   }
+  },
+  {
+   "name": "même jour 10 h puis 18 h",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 1
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w0",
+    "nodes": {
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "event": "scenario",
+      "next": "w1"
+     },
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -1,
+      "at": "18:00",
+      "next": "e2"
+     },
+     "e2": {
+      "type": "email",
+      "template_id": "7b1e0c9a-2f3d-4c5b-9a8e-1d2c3b4a5f6e",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     },
+     "w0": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -1,
+      "at": "10:00",
+      "next": "e1"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "e2",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "billet acheté : 1er ou non à dire",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "ticket_bought"
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "bad_param",
+     "node": null,
+     "field": "trigger.first"
+    }
+   ]
+  },
+  {
+   "name": "exactement 20 h, à la minute",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -2,
+      "at": "18:10",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -1,
+      "at": "14:10",
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [],
+   "stats": {
+    "paths": 2,
+    "maxMessages": 2,
+    "maxEmails": 1,
+    "maxSms": 1
+   }
+  },
+  {
+   "name": "19 h 59 : trop proche",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -2,
+      "at": "18:10",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_bought",
+         "v": false
+        }
+       ]
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -1,
+      "at": "14:09",
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "too_close",
+     "node": "s1",
+     "field": null
+    }
+   ]
+  },
+  {
+   "name": "embranchement au groupe sans éléments",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and"
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "cond_empty_group",
+     "node": "b1",
+     "field": "cond:"
+    }
+   ]
+  },
+  {
+   "name": "embranchement aux éléments en objet",
+   "graph": {
+    "v": 1,
+    "trigger": {
+     "type": "before_event",
+     "days": 10
+    },
+    "entry": {
+     "filter": null,
+     "reentry": {
+      "mode": "per_event"
+     },
+     "holdout": true
+    },
+    "goal": {
+     "type": "bought_event"
+    },
+    "start": "w1",
+    "nodes": {
+     "w1": {
+      "type": "wait",
+      "mode": "until_event",
+      "anchor": "start",
+      "days": -3,
+      "at": "18:00",
+      "next": "b1"
+     },
+     "b1": {
+      "type": "branch",
+      "cond": {
+       "op": "and",
+       "items": {
+        "k": "sc_opened",
+        "v": "e1"
+       }
+      },
+      "yes": "e1",
+      "no": "x"
+     },
+     "e1": {
+      "type": "email",
+      "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b0c",
+      "subject": "Plus que 3 jours",
+      "event": "scenario",
+      "next": "w2"
+     },
+     "w2": {
+      "type": "wait",
+      "mode": "duration",
+      "hours": 24,
+      "next": "s1"
+     },
+     "s1": {
+      "type": "sms",
+      "body": "Plus que 2 jours ! {{lien}}",
+      "event": "scenario",
+      "next": "x"
+     },
+     "x": {
+      "type": "end"
+     }
+    }
+   },
+   "errors": [
+    {
+     "code": "cond_empty_group",
+     "node": "b1",
+     "field": "cond:"
+    }
+   ]
+  }
+ ]
+}

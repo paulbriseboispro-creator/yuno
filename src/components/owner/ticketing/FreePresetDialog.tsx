@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Wine, ChevronUp, ChevronDown, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { DisplayChoice, FreePresetTicket, RelativeTime, SaleChoice } from '@/lib/freeTicketing';
+import { presetSaleChoice, wouldCreateChainCycle, type DisplayChoice, type FreePresetTicket, type RelativeTime, type SaleChoice } from '@/lib/freeTicketing';
 import { RED, POS, T1, T3, C_FAINT, BORDER, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import { Choice } from './FreeChoice';
 
@@ -50,7 +51,9 @@ function RelativeInput({ value, onChange }: { value: RelativeTime; onChange: (v:
   );
 }
 
-const emptyTicket = (): FreePresetTicket => ({ name: '', price: 0, maxTickets: null, includesDrink: false, display: 'now', sale: 'now' });
+const emptyTicket = (): FreePresetTicket => ({ name: '', price: 0, maxTickets: null, includesDrink: false, display: 'now', sale: 'now', key: crypto.randomUUID(), opensAfter: null });
+/** Toute ligne a une clé : les liens « après un billet » s'y accrochent (stables quand on réordonne). */
+const withKeys = (tickets: FreePresetTicket[]) => tickets.map((tk) => (tk.key ? tk : { ...tk, key: crypto.randomUUID() }));
 
 // Modèle d'une billetterie LIBRE : les mêmes deux questions que sur une
 // soirée, mais les dates sont RELATIVES (J-N à HH:MM, fuseau de la soirée)
@@ -61,11 +64,17 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setDraft(initial.tickets.length ? initial : { ...initial, tickets: [emptyTicket()] });
+    if (open) setDraft(initial.tickets.length ? { ...initial, tickets: withKeys(initial.tickets) } : { ...initial, tickets: [emptyTicket()] });
   }, [open, initial]);
 
   const setTicket = (i: number, p: Partial<FreePresetTicket>) =>
     setDraft((d) => ({ ...d, tickets: d.tickets.map((tk, j) => (j === i ? { ...tk, ...p } : tk)) }));
+  // Billets qu'une ligne peut attendre : pas elle-même, pas un billet qui l'attend déjà.
+  const afterCandidates = (i: number) => {
+    const self = draft.tickets[i];
+    const links = Object.fromEntries(draft.tickets.filter((tk) => tk.key).map((tk) => [tk.key!, tk.opensAfter ?? null]));
+    return draft.tickets.filter((tk, j) => j !== i && !!tk.key && !(self?.key && wouldCreateChainCycle(links, self.key, tk.key!)));
+  };
   const move = (i: number, dir: -1 | 1) =>
     setDraft((d) => {
       const list = [...d.tickets];
@@ -78,6 +87,7 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const tickets = draft.tickets.filter((tk) => tk.name.trim());
+    const kept = new Set(tickets.map((tk) => tk.key));
     if (!draft.name.trim() || tickets.length === 0) {
       toast.error(t('tickets.fillRequired'));
       return;
@@ -92,6 +102,8 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
           name: tk.name.trim(),
           visibleAt: tk.display === 'at' ? tk.visibleAt ?? DEFAULT_REL : null,
           saleStartAt: tk.sale === 'at' ? tk.saleStartAt ?? DEFAULT_REL : null,
+          // Un billet attendu qui n'est plus dans le modèle : rien n'est lié (reste « plus tard »).
+          opensAfter: tk.opensAfter && kept.has(tk.opensAfter) ? tk.opensAfter : null,
         })),
       });
     } finally {
@@ -138,7 +150,7 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
                   <Input className="h-9 w-20" type="number" step="0.01" min="0" value={tk.price || ''} placeholder="€" onChange={(e) => setTicket(i, { price: parseFloat(e.target.value) || 0 })} aria-label={t('tickets.priceEuro')} />
                   <Input className="h-9 w-24" type="number" min="1" value={tk.maxTickets ?? ''} placeholder={t('tickets.free.quantityUnlimited')} onChange={(e) => { const n = parseInt(e.target.value, 10); setTicket(i, { maxTickets: n > 0 ? n : null }); }} aria-label={t('tickets.free.quantity')} />
                   {draft.tickets.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => setDraft((d) => ({ ...d, tickets: d.tickets.filter((_, j) => j !== i) }))} style={{ color: RED }}>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => setDraft((d) => ({ ...d, tickets: d.tickets.filter((_, j) => j !== i).map((x) => (x.opensAfter && x.opensAfter === tk.key ? { ...x, opensAfter: null } : x)) }))} style={{ color: RED }}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
@@ -161,14 +173,40 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
                 <div className="space-y-1.5">
                   <p style={{ ...LABEL, fontSize: 10.5 }}>{t('tickets.free.saleQ')}</p>
                   <Choice<SaleChoice>
-                    value={tk.sale}
-                    onChange={(sale) => setTicket(i, { sale, saleStartAt: sale === 'at' ? tk.saleStartAt ?? DEFAULT_REL : tk.saleStartAt })}
+                    value={presetSaleChoice(tk)}
+                    onChange={(sale) => {
+                      // « Après un billet » s'écrit 'manual' + opensAfter : un lecteur
+                      // qui ignore le lien garde le billet fermé (lib/freeTicketing).
+                      if (sale === 'after') {
+                        const first = afterCandidates(i)[0];
+                        setTicket(i, { sale: 'manual', opensAfter: tk.opensAfter ?? first?.key ?? null });
+                        return;
+                      }
+                      setTicket(i, { sale, opensAfter: null, saleStartAt: sale === 'at' ? tk.saleStartAt ?? DEFAULT_REL : tk.saleStartAt });
+                    }}
                     options={[
                       { value: 'now', label: t('tickets.free.sale.now') },
                       { value: 'at', label: t('tickets.free.sale.at') },
                       { value: 'manual', label: t('tickets.free.sale.manual') },
+                      { value: 'after', label: t('tickets.free.sale.after') },
                     ]}
                   />
+                  {presetSaleChoice(tk) === 'after' && (
+                    afterCandidates(i).length === 0 ? (
+                      <p style={HINT}>{t('tickets.free.sale.afterNone')}</p>
+                    ) : (
+                      <Select value={tk.opensAfter ?? ''} onValueChange={(opensAfter) => setTicket(i, { opensAfter })}>
+                        <SelectTrigger className="h-8" aria-label={t('tickets.free.sale.afterPick')}><SelectValue placeholder={t('tickets.free.sale.afterPick')} /></SelectTrigger>
+                        <SelectContent>
+                          {afterCandidates(i).map((c) => (
+                            <SelectItem key={c.key!} value={c.key!}>
+                              {t('tickets.free.phase.opensAfter').replace('{name}', c.name.trim() || t('tickets.free.ticketLabel').replace('{idx}', String(draft.tickets.indexOf(c) + 1)))}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  )}
                   {tk.sale === 'at' && <RelativeInput value={tk.saleStartAt ?? DEFAULT_REL} onChange={(saleStartAt) => setTicket(i, { saleStartAt })} />}
                   <div className="flex items-center gap-2 pt-1">
                     <Switch checked={!!tk.saleEndAt} onCheckedChange={(on) => setTicket(i, { saleEndAt: on ? { daysBefore: 1, time: '23:59' } : null })} />

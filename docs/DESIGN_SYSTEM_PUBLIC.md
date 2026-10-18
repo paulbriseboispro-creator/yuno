@@ -340,8 +340,10 @@ Tout tient dans la colonne de lecture (768 px), à 20 px des bords de l'écran.
 1. Top bar : retour (gauche) + partage / favori (droite), carrés 40 px, radius 4 px,
    fond `rgb(var(--ink)/0.045)` + filet `rgb(var(--ink)/0.12)`.
 2. **Scène** (`EventHeroStage`) : cadre 16:9, radius 14 px, liseré intérieur blanc 7-8 %.
-   Vidéo de la soirée en lecture auto (muette, en boucle, sans bouton) ; sinon l'affiche :
-   paysage = plein cadre, carrée / portrait = entière au centre sur sa propre copie floutée.
+   Vidéo de la soirée en lecture auto (muette, en boucle, sans bouton) ; sinon le **flyer 16:9**
+   de la soirée (`events.flyer_wide_url`, facultatif, page soirée seulement) en plein cadre ;
+   sinon l'affiche : paysage = plein cadre, carrée / portrait = entière au centre sur sa copie
+   floutée. La pré-page du Worker (`eventStageOverlay`) dessine la même scène avant l'app.
    **Halo** : la même affiche en 160 px, `blur(64px) saturate(1.7)` à 55 % sous masque radial,
    plus une couche serrée `blur(28px)` à 70 % — la couleur de la soirée déborde du cadre
    sans toucher l'image. Le `<header>` porte `overflow-x: clip` (jamais de scroll horizontal).

@@ -27,6 +27,8 @@ import { SignupPreview } from './SignupDonePage';
 import { QrSvg, downloadQr } from './SignupQr';
 import SignupWho from './SignupWho';
 import SignupRelanceTab from './SignupRelance';
+import { AiPreparedBadge, AiProposalCard } from './SignupAiProposal';
+import { useSignupHost } from './useSignupHost';
 
 type Tab = 'res' | 'share' | 'who' | 'rel';
 const TABS: Tab[] = ['res', 'share', 'who', 'rel'];
@@ -47,6 +49,7 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
   const { t, tp, locale } = T;
   const caps = useCrmCaps();
   const { space } = useCrmScope();
+  const host = useSignupHost();
   const nav = useNavigate();
   const toast = useCrmToast();
   const m = useSignupMutations();
@@ -64,6 +67,13 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
 
   const tgStatus = () => {
     if (!canPublish) { toast(t('yc.sp.e.owner_only')); return; }
+    // Une page préparée par l'IA et jamais relue dans l'assistant n'a pas encore
+    // ses messages de relance : on la publie depuis l'assistant, qui les compose.
+    if (d.state === 'draft' && !Object.keys(d.relance ?? {}).length) {
+      toast(t('yc.sp.ai.reviewFirst'));
+      nav(`${SP_ROUTES.edit(d.id)}?review=1`);
+      return;
+    }
     const status = isOpen ? 'closed' : d.state === 'scheduled' ? 'open' : 'live';
     m.status.mutate({ id: d.id, status }, {
       onSuccess: () => toast(isOpen ? t('yc.sp.f.closedToast') : t('yc.sp.f.openedToast')),
@@ -85,6 +95,7 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
               <span style={{ height: 28, padding: '0 12px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, background: meta.bg, color: meta.fg }}>
                 <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: meta.pulse }} />{t(meta.k)}
               </span>
+              {d.ai_author && <AiPreparedBadge author={d.ai_author} />}
             </div>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -112,6 +123,8 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
           </div>
         </div>
 
+        {d.ai_proposal && caps.write && <AiProposalCard page={d} host={host} logo={space.logoUrl} />}
+
         <Seg aria={t('yc.sp.f.tabs')} value={tab} onChange={setTab} h={38} fs={14.5} padX={18} wrap style={{ alignSelf: 'flex-start' }}
           items={TABS.map((x) => ({ v: x, l: t(`yc.sp.f.t.${x}`) }))} />
 
@@ -120,9 +133,9 @@ function Detail({ page: d, canPublish, balance }: { page: SignupPageRow; canPubl
           : tab === 'res' ? <ResultsTab d={d} x={detail.data} g={g} />
           : tab === 'share' ? <ShareTab d={d} x={detail.data} />
           : tab === 'who' ? <SignupWho d={d} x={detail.data} />
-          : <SignupRelanceTab d={d} x={detail.data} balance={balance} host={space.name} logo={space.logoUrl} />}
+          : <SignupRelanceTab d={d} x={detail.data} balance={balance} host={host} logo={space.logoUrl} />}
       </div>
-      {pv && <SignupPreview page={d} host={space.name} onClose={() => setPv(false)} />}
+      {pv && <SignupPreview page={d} host={host} logo={space.logoUrl} onClose={() => setPv(false)} />}
     </SpMain>
   );
 }

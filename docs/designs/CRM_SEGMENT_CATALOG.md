@@ -77,7 +77,26 @@ clients ≥ 170 € (145), âge connu pour 52 %.
   « habitués sans place » = tous les habitués).
 - Pas de chiffre inventé : âge, genre, ville, pays sont ceux que Shotgun ou les
   fichiers ont donnés, et la fenêtre dit pour quelle part de la base ils sont connus.
-- Hors périmètre, à décider : l'historique d'un fichier importé (dépense, nombre
-  de soirées, dernier achat) n'entre pas dans `_cp` — le compter changerait le cycle
-  de vie (« Jamais venus ») et les automatisations ; et des filtres âge / ville dans
-  la liste Clients.
+- Hors périmètre : des filtres âge / ville dans la liste Clients.
+
+## Suite : l'historique d'un fichier importé compte (migration `20261008210000`)
+
+Décision de Paul (06/10) : « c'est une vraie valeur si on peut analyser leur
+historique ». L'import CRM lit aussi total dépensé, nombre de soirées, dernier
+achat et première venue ; `_crm_file_history` en tire une ligne par adresse (la
+plus récente qui porte un historique) et `_crm_people_build` le combine aux
+billets Shotgun :
+
+| Cas (`hist_mode`) | Règle |
+|---|---|
+| `added` : le fichier précède de plus de 2 jours le premier billet Shotgun, ou pas de Shotgun | soirées, dépense, soirées payantes additionnées |
+| `file` : les deux se recouvrent, le fichier connaît plus de soirées | valeurs du fichier |
+| `live` : les deux se recouvrent, Shotgun connaît autant ou plus | valeurs de Shotgun |
+
+Dernière venue = la plus récente des deux, première venue = la plus ancienne.
+« Habitué » reste prouvé par des soirées datées : un total de fichier ne dit pas
+combien tombent dans la fenêtre. Répété sur la prod (transaction annulée) : copie
+démo de la base WOH, « Jamais venus » 16 001 → 4 129 (9 427 endormis, 1 565
+occasionnels, 880 nouveaux) ; Amoris 1 336 → 1 ; le compte démo CRM, sans
+fichier, ne bouge pas. Aucune automatisation allumée sur ces comptes au 06/10.
+

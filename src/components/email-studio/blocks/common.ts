@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { EmailBlock, EmailTheme, LiveData, LiveEventData, OfferLayout, SocialLinks } from '@/lib/email';
+import type { EmailBlock, EmailLanguage, EmailTheme, LiveData, LiveEventData, OfferLayout, SocialLinks } from '@/lib/email';
 import { blockPadDefaults, isHexColor, mixHex, readableOn } from '@/lib/email';
 
 /** Contexte de rendu du canvas (aperçu d'édition, PAS l'email final). */
@@ -13,6 +13,8 @@ export interface CanvasCtx {
   /** Événement de la campagne — hérité par les blocs Yuno sans eventId propre
    * (miroir du repli fait côté edge dans fetchStudioLiveData). */
   fallbackEventId?: string | null;
+  /** Langue de l'e-mail : valeurs des balises Yuno des sections sur mesure. */
+  language?: EmailLanguage | null;
 }
 
 export const EMAIL_FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";

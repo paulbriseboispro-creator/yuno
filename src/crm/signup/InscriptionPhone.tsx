@@ -6,9 +6,10 @@
  */
 import { useCrmT } from '@/crm/i18n';
 import FanPage from './FanPage';
+import { pageTokens } from './custom';
 import type { FanCfg, FanScene } from './FanPage';
 import { venueAt } from '@/crm/lib/emailTemplates';
-import { initials, tokens, venueOf, withFirstName } from './model';
+import { initials, venueOf, withFirstName } from './model';
 
 export type PhoneScene = 'page' | 'noted' | 'open' | 'closed' | 'soon' | 'email' | 'sms';
 
@@ -24,7 +25,7 @@ export default function InscriptionPhone({ cfg, scene = 'page', scale = 0.9, msg
 }) {
   const { t, lang } = useCrmT();
   const sc = scale;
-  const K = tokens(cfg.design);
+  const K = pageTokens(cfg);
   const isFan = scene === 'page' || scene === 'noted' || scene === 'open' || scene === 'closed' || scene === 'soon';
   const isEmail = scene === 'email', isSms = scene === 'sms';
   const fanScene: FanScene = ({ page: 'form', noted: 'noted', open: 'open', closed: 'closed', soon: 'soon' } as Record<string, FanScene>)[scene] ?? 'form';
@@ -33,13 +34,15 @@ export default function InscriptionPhone({ cfg, scene = 'page', scale = 0.9, msg
   const kind = cfg.kind;
   const link = cfg.pageUrl ? cfg.pageUrl.replace(/^https?:\/\//, '') : 'crm.yunoapp.eu/j/k7Qp2';
   const demo = t('yc.sp.fan.demoName');
-  const reward = cfg.reward.on ? (cfg.reward.preset === 'custom' ? (cfg.reward.label || t('yc.sp.rw.customFan')) : t(`yc.sp.rw.${cfg.reward.preset}.fan`)) : t('yc.sp.rw.customFan');
+  const reward = cfg.reward.on ? (cfg.reward.preset === 'custom' ? (cfg.reward.label || t('yc.sp.rw.customFan')) : t(`yc.sp.rw.${cfg.reward.preset}.fan`)) : '';
   const vars = { title, club, at: venueAt(club, lang), reward, of: venueOf(club, lang) };
-  const base = msgText ?? t(`yc.sp.ty.${kind}.msg`, { ...vars, 'prénom': '{prénom}' });
+  // Une communauté sans récompense n'en promet aucune.
+  const plain = kind === 'communaute' && !cfg.reward.on;
+  const base = msgText ?? t(plain ? 'yc.sp.ty.communaute.msgPlain' : `yc.sp.ty.${kind}.msg`, { ...vars, 'prénom': '{prénom}' });
   const msg = withFirstName(base, demo);
   const sms = `${msg} ${link}${t('yc.sp.ph.stop')}`;
   const smsParts = sms.split(LINK_RE).filter(Boolean).map((x) => (LINK_RE.test(x) ? { x, c: '#007AFF', u: 'underline' } : { x, c: '#000', u: 'none' }));
-  const mailBody = msgText ? msg : t(`yc.sp.ty.${kind}.mailBody`, vars);
+  const mailBody = msgText ? msg : t(plain ? 'yc.sp.ty.communaute.mailBodyPlain' : `yc.sp.ty.${kind}.mailBody`, vars);
   const grad = `linear-gradient(110deg,${K.a},${K.b})`;
   const time = isFan ? '14:21' : '18:00';
   const sbFg = isFan && K.dark ? '#fff' : '#000';

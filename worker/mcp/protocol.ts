@@ -25,6 +25,11 @@ import {
 import { searchHelp } from './help';
 import { CORS_HEADERS, resourceMetadataUrl } from './oauth';
 import { TOOL_BY_NAME, toolListing, toolsFor, validateArgs, type SessionSpace, type ToolLevel } from './tools';
+import { formatEmailRead, runAddEmailImage, runEmailWrite } from './emailTools';
+import { formatPageRead, pageErrorText, runPageWrite } from './signupTools';
+import { formatScenarioRead, runScenarioWrite, scenarioErrorText } from './scenarioTools';
+import { runTicketing, ticketingErrorText } from './ticketingTools';
+import { smartLang } from '../../supabase/functions/_shared/email-smart';
 
 type JsonRpcId = string | number | null;
 interface JsonRpcMessage {
@@ -39,6 +44,12 @@ interface Session {
   error?: string;
   grant_id?: string;
   level?: ToolLevel;
+  // La connexion peut préparer des brouillons d'e-mails (create/update_email_draft).
+  drafts?: boolean;
+  // La connexion peut dessiner des pages d'inscription (create/update_signup_page).
+  pages?: boolean;
+  // La connexion peut préparer des brouillons de scénarios (create/update_scenario_draft).
+  scenarios?: boolean;
   client_name?: string;
   first_name?: string | null;
   language?: string | null;
@@ -133,6 +144,10 @@ function toolErrorText(code: string, extra: Record<string, unknown> = {}): strin
       return 'Customer identities are not shared with this AI. The user can reconnect Yuno and tick "Customer details" on the consent screen (Console → Settings → AI assistants to manage access). Meanwhile use aggregate tools (get_customer_segments, count_contacts).';
     case 'rate_limited':
       return 'Too many requests for this connection. Wait a minute, and group questions into fewer tool calls.';
+    case 'product_not_available':
+      return 'This product is not active on this space (a Yuno ticketing account can add Yuno CRM). Call get_email_design_kit without "product" to see products_available.';
+    case 'draft_not_found':
+      return 'No email draft or campaign with this id in this space. get_email_design_kit lists the recent drafts.';
     case 'not_available_in_crm':
       return 'Not available for a Yuno CRM account (sales come from the external ticketing). Use get_event_report, get_sales_overview, get_audience_overview or get_marketing_performance.';
     case 'forbidden':
@@ -314,7 +329,7 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'tools/list': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const tools = toolsFor(session.level ?? 'analytics', session.spaces ?? []).map(toolListing);
+        const tools = toolsFor(session.level ?? 'analytics', session.spaces ?? [], !!session.drafts, !!session.pages, !!session.scenarios).map(toolListing);
         return ok(modern ? { tools, ttlMs: 300_000, cacheScope: 'private' } : { tools });
       }
       case 'tools/call':
@@ -322,13 +337,17 @@ async function handleMessage(input: unknown, state: RequestState): Promise<Reply
       case 'prompts/list': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const prompts = listPrompts(langOf(session.language), new Set((session.spaces ?? []).map((s) => s.product)));
+        // Un compte Billetterie + CRM (`crm: true`) reçoit aussi les invites du CRM.
+        const anyCrm = (session.spaces ?? []).some((s) => s.crm || s.product === 'crm');
+        const prompts = listPrompts(langOf(session.language), new Set((session.spaces ?? []).flatMap((s) => (s.crm ? [s.product, 'crm'] : [s.product]))),
+          !!session.drafts, !!session.pages && anyCrm, !!session.scenarios && anyCrm);
         return ok(modern ? { prompts, ttlMs: 3_600_000, cacheScope: 'private' } : { prompts });
       }
       case 'prompts/get': {
         const session = await loadSession(state);
         if (!session.ok) return { status: 401, body: null, unauthorized: true };
-        const prompt = typeof params.name === 'string' ? getPrompt(params.name, langOf(session.language)) : null;
+        const prompt = typeof params.name === 'string' ? getPrompt(params.name, langOf(session.language),
+          params.arguments && typeof params.arguments === 'object' ? params.arguments as Record<string, unknown> : {}) : null;
         if (!prompt) return { status: 200, body: rpcError(id, RPC.INVALID_PARAMS, `Unknown prompt: ${String(params.name)}`) };
         return ok(prompt);
       }
@@ -373,7 +392,7 @@ function failCall(state: RequestState, tool: string, timeout: boolean, ok: (r: R
 }
 
 function instructionsFor(session: Session): string {
-  return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name);
+  return INSTRUCTIONS + sessionContext(session.spaces ?? [], session.level ?? 'analytics', session.first_name, !!session.drafts, !!session.pages, !!session.scenarios);
 }
 
 async function callTool(
@@ -397,6 +416,70 @@ async function callTool(
     return ok(toolResult(hits.length
       ? compactResult({ results: hits })
       : 'No article matches. Rephrase with Console words (campaign, automation, promo code, sold out, tables, guest list, tracked link...).'));
+  }
+
+  // Billetterie d'une soirée (lecture ET écriture) : par mcp_write, qui
+  // revérifie la permission des brouillons et les droits de la Console.
+  if (tool.ticketing) {
+    const session = await loadSession(state);
+    if (!session.ok) return { status: 401, body: null, unauthorized: true };
+    if (!session.drafts) return ok(toolResult(ticketingErrorText('drafts_not_allowed'), true));
+    const startedT = Date.now();
+    let outcome;
+    try {
+      outcome = await runTicketing(state.env, state.tokenHash, tool.name as 'get_ticketing' | 'set_ticketing', v.args);
+    } catch (err) {
+      if (err instanceof DbNotConfigured) throw err;
+      return failCall(state, tool.name, err instanceof DbError && err.isTimeout, ok);
+    }
+    if (outcome.code === 'unauthorized') return { status: 401, body: null, unauthorized: true };
+    if (outcome.callId) {
+      const duration = Date.now() - startedT;
+      state.ctx.waitUntil(
+        rpc(state.env, 'mcp_call_finished', { p_call_id: outcome.callId, p_duration_ms: duration, p_bytes: outcome.text.length, p_error: outcome.isError ? (outcome.code ?? 'error') : null })
+          .catch(() => undefined),
+      );
+    }
+    return ok(toolResult(outcome.text, outcome.isError));
+  }
+
+  // Brouillons d'e-mails et pages d'inscription : préparer, contrôler, puis
+  // écrire par mcp_write (qui revérifie la permission de la connexion).
+  if (tool.write) {
+    const session = await loadSession(state);
+    if (!session.ok) return { status: 401, body: null, unauthorized: true };
+    const startedW = Date.now();
+    const allowed = tool.scenarioDrafts ? !!session.scenarios
+      : tool.pages ? !!session.pages : tool.shared ? !!(session.drafts || session.pages) : !!session.drafts;
+    if (!allowed) {
+      if (tool.scenarioDrafts) return ok(toolResult(scenarioErrorText('scenarios_not_allowed'), true));
+      return ok(toolResult(tool.pages
+        ? 'This connection does not include signup pages (it was approved before they existed, or without them). The person can reconnect Yuno in their AI app to allow them. Meanwhile, describe the page in the conversation.'
+        : 'This connection does not include email drafts (it was approved before they existed, or without them). The person can reconnect Yuno in their AI app to allow them. Meanwhile, share the email as HTML in the conversation.', true));
+    }
+    let outcome;
+    try {
+      outcome = tool.name === 'add_email_image'
+        ? await runAddEmailImage(state.env, state.tokenHash, v.args, state.origin)
+        : tool.scenarioDrafts
+          ? await runScenarioWrite(state.env, state.tokenHash, tool.name as 'create_scenario_draft' | 'update_scenario_draft', v.args)
+        : tool.pages
+          ? await runPageWrite(state.env, state.tokenHash, tool.name as 'create_signup_page' | 'update_signup_page', v.args)
+          : await runEmailWrite(state.env, state.tokenHash, tool.name as 'create_email_draft' | 'update_email_draft', v.args, session.language);
+    } catch (err) {
+      if (err instanceof DbNotConfigured) throw err;
+      const timeout = err instanceof DbError && err.isTimeout;
+      return failCall(state, tool.name, timeout, ok);
+    }
+    if (outcome.code === 'unauthorized') return { status: 401, body: null, unauthorized: true };
+    if (outcome.callId) {
+      const duration = Date.now() - startedW;
+      state.ctx.waitUntil(
+        rpc(state.env, 'mcp_call_finished', { p_call_id: outcome.callId, p_duration_ms: duration, p_bytes: outcome.text.length, p_error: outcome.isError ? (outcome.code ?? 'error') : null })
+          .catch(() => undefined),
+      );
+    }
+    return ok(toolResult(outcome.text, outcome.isError));
   }
 
   const started = Date.now();
@@ -452,7 +535,19 @@ async function callTool(
       const session = await loadSession(state).catch(() => null);
       if (session?.ok && session.spaces?.length) spaces = session.spaces.map((s) => `${s.name} (${s.key})`);
     }
-    text = toolErrorText(code, { spaces, message: inner?.message });
+    text = tool.pages && ['crm_not_active', 'page_not_found', 'event_not_found'].includes(code)
+      ? pageErrorText(code, { spaces })
+      : tool.scenario && ['crm_not_active', 'scenario_not_found', 'forbidden', 'no_upcoming', 'not_upcoming', 'event_not_found'].includes(code)
+        ? scenarioErrorText(code === 'forbidden' ? 'write_forbidden' : code, { spaces })
+        : toolErrorText(code, { spaces, message: inner?.message });
+  } else if (tool.scenario) {
+    text = formatScenarioRead(tool.name, r.space, inner ?? {});
+  } else if (tool.pages) {
+    const session = await loadSession(state).catch(() => null);
+    text = formatPageRead(tool.name, r.space, inner ?? {}, session?.ok ? session.language : null);
+  } else if (tool.email) {
+    const session = await loadSession(state).catch(() => null);
+    text = formatEmailRead(tool.name, r.space, inner ?? {}, smartLang(session?.ok ? session.language : null));
   } else {
     const payload: Record<string, unknown> = { space: r.space, ...(explainFindings(inner ?? {}) as Record<string, unknown>) };
     if (tool.name === 'get_account_overview') {

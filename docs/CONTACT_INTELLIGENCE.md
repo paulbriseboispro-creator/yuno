@@ -172,7 +172,9 @@ contact_rows v3 = imported_contacts (consolidés) FULL OUTER JOIN contact_scope_
   `unreachable` (suppression, bounce dur `Permanent`, plainte — passe DEVANT
   `unsubscribed` parce que `suppress_email` coupe aussi `opted_in`) ·
   `unsubscribed` · `active` (clic < 90 j ou ≥ 2 ouvertures en 90 j) ·
-  `passive` (ouverture < 180 j) · `silent` (≥ 2 emails reçus, rien) · `new`.
+  `passive` (ouverture < 180 j) · `silent` (≥ 2 emails reçus, rien) · `new` (0 ou 1 email reçu, jamais ouvert ;
+  affiché « Pas encore lus » depuis le 06/10 — « Jamais sollicités » reste le
+  segment `emails_received = 0`, qui ne compte que les 0 envoi).
   Un bounce transitoire (boîte pleine) ne rend pas injoignable. Le statut
   DÉCRIT ; seul `email_ok` / `phone_ok` (consentement) AUTORISE.
 - **Le rafraîchissement ne se fait jamais « en ligne » dans une RPC lue par le

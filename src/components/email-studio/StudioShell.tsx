@@ -34,6 +34,7 @@ import ReviewStep from './ReviewStep';
 import SendingStep from './SendingStep';
 import TemplateGallery from './TemplateGallery';
 import { campaignToRow, rowToCampaign, type CampaignRow } from './campaignRow';
+import { adoptAiVersion, useAiDraftSync } from './aiSync';
 import SaveTemplateDialog from './TemplateDialogs';
 
 interface Props {
@@ -142,9 +143,13 @@ export default function StudioShell({ scope, basePath, templateMode = false }: P
     // (brouillon ou planifiée). Si le cron l'a fait partir entre-temps, la
     // ligne est en 'sending' et l'UPDATE ne touche rien : on le dit au pro au
     // lieu d'afficher « Enregistré » sur une version qui n'existe plus.
-    const { data: touched, error } = await supabase.from('email_campaigns')
+    // Garde « IA » : on n'écrit pas par-dessus une version que l'IA du pro a
+    // posée depuis le dernier chargement (MCP) — on l'adopte à la place.
+    const base = supabase.from('email_campaigns')
       .update(payload as never).eq('id', c.id)
-      .in('status', ['draft', 'scheduled']).select('id');
+      .in('status', ['draft', 'scheduled']);
+    const { data: touched, error } = await base
+      .filter('ai_updated_at', c.aiUpdatedAt ? 'eq' : 'is', c.aiUpdatedAt ?? null).select('id');
     if (error) {
       store.getState().markSaveFailed();
       toast.error(error.message || t('em.toast.saveError'));
@@ -152,6 +157,11 @@ export default function StudioShell({ scope, basePath, templateMode = false }: P
     }
     if (!touched || touched.length === 0) {
       store.getState().markSaveFailed();
+      const adopted = await adoptAiVersion(store, (row) => rowToCampaign(row, scope.name));
+      if (adopted === 'adopted') {
+        toast(t('studio.aiUpdated').replace('{ai}', store.getState().campaign.aiAuthor || 'IA'));
+        return null;
+      }
       toast.error(t('studio.scheduled.gone'));
       return null;
     }
@@ -167,6 +177,8 @@ export default function StudioShell({ scope, basePath, templateMode = false }: P
     if (!store) return;
     const unsub = store.subscribe((state, prev) => {
       if (state.campaign === prev.campaign) return;
+      // Version adoptée (l'IA du pro l'a écrite) : rien à réenregistrer.
+      if (!state.dirty) return;
       if (state.step === 'sending') return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => { void saveNow(); }, 1200);
@@ -176,6 +188,13 @@ export default function StudioShell({ scope, basePath, templateMode = false }: P
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [store, saveNow]);
+
+  // L'IA du pro modifie le brouillon (MCP) : le Studio ouvert suit.
+  useAiDraftSync(store, {
+    enabled: !templateMode,
+    fromRow: (row) => rowToCampaign(row, scope.name),
+    onAdopted: (ai) => toast(t('studio.aiUpdated').replace('{ai}', ai)),
+  });
 
   if (isNew) return <TemplateGallery scope={scope} basePath={basePath} />;
 
@@ -316,7 +335,7 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
   const segments = useSavedSegments(scope);
   // Retour Stripe d'un achat d'emails lancé depuis l'écran Planification.
   useEmailCreditsReturn();
-  const live = useStudioLiveData(campaign.blocks, campaign.eventId);
+  const live = useStudioLiveData(campaign.blocks, campaign.eventId, campaign.language);
 
   const bucketFolder = scope.kind === 'venue'
     ? `venue/${scope.venueId}`

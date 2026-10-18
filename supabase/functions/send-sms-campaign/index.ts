@@ -538,6 +538,9 @@ interface TestPayload {
   event_id?: string | null;
   test_phone?: string | null;
   lang?: string | null;
+  /** Console CRM : le test d'un SMS de SCÉNARIO (texte lu dans le brouillon, portée du scénario). */
+  scenario_id?: string | null;
+  node_id?: string | null;
 }
 
 function toPhone(raw: string | null | undefined): string {
@@ -553,10 +556,26 @@ function toPhone(raw: string | null | undefined): string {
 async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: OctopushConfig) {
   // La campagne enregistrée (Console CRM), ou le contenu envoyé par l'éditeur (Suite).
   let campaign: Record<string, unknown>;
+  let scenarioCrm = false;
   if (p.campaign_id) {
     const { data, error } = await admin.from("sms_campaigns").select("*").eq("id", p.campaign_id).single();
     if (error || !data) return json({ error: "Campaign not found" }, 404);
     campaign = data as Record<string, unknown>;
+  } else if (p.scenario_id && p.node_id) {
+    // Un SMS de scénario n'a pas de campagne avant le moteur : son texte vit
+    // dans le brouillon du scénario, sa portée est celle du scénario.
+    const { data: scn } = await admin.from("crm_scenarios").select("venue_id, organizer_user_id, scope_key, draft").eq("id", p.scenario_id).maybeSingle();
+    if (!scn) return json({ error: "Scenario not found" }, 404);
+    const node = ((scn.draft as { nodes?: Record<string, Record<string, unknown>> } | null)?.nodes ?? {})[p.node_id];
+    if (!node || node.type !== "sms" || typeof node.body !== "string") return json({ error: "scenario_node_not_sms" }, 400);
+    const venueId = (scn.venue_id as string | null) ?? null;
+    campaign = {
+      id: null, venue_id: venueId, organizer_id: venueId ? null : ((scn.organizer_user_id as string | null) ?? null),
+      body_template: node.body, body_i18n: null, sender_name: null,
+      event_id: p.event_id ?? (node.event === "fixed" && typeof node.event_id === "string" ? node.event_id : null), name: "Test",
+    };
+    const { data: isCrm } = await admin.rpc("crm_scope_is_crm", { p_scope_key: scn.scope_key });
+    scenarioCrm = isCrm === true;
   } else {
     const venueId = p.venue_id || null;
     const organizerId = venueId ? null : (p.organizer_user_id || null);
@@ -571,7 +590,7 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Octop
   if (!(await userOwnsScope(admin, userId, venueId, organizerId))) return json({ error: "Forbidden" }, 403);
   if (await isDemoMarketingScope(venueId, organizerId)) return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
 
-  const crm = campaign.id ? await isCrmCampaign(admin, campaign.id as string) : false;
+  const crm = campaign.id ? await isCrmCampaign(admin, campaign.id as string) : scenarioCrm;
   const scope = await loadScope(admin, venueId, organizerId, crm);
   if (!(await identityOk(admin, scope))) return json({ error: "SMS_IDENTITY_REQUIRED", code: "SMS_IDENTITY_REQUIRED" }, 409);
   const settings = await crmSettings(admin, scope);

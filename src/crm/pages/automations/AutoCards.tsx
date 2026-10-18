@@ -11,7 +11,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
 import type { useCrmT } from '@/crm/i18n';
 import type { AutoRecipe, Automations } from '@/crm/data/automations';
-import { autoState, quietSendAt, type CrmAutoKind, type CrmAutoState } from '@/crm/lib/automations';
+import { autoState, quietSendAt, recipeHours, type CrmAutoKind, type CrmAutoState } from '@/crm/lib/automations';
 import { AU_IC, KIND_IC, linkLabel, whenLabel } from './autoFmt';
 import { Flow, GreenSwitch, Pills, SectionHead, StateBadge, SubjectText } from './autoUi';
 
@@ -20,12 +20,16 @@ type Filter = 'all' | Exclude<CrmAutoState, 'none'>;
 const cl01 = (x: number) => Math.max(0, Math.min(1, x));
 
 export function AutoCards({
-  d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail,
+  d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail, onRecharge, onCustomize,
 }: {
   d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: CrmAutoKind | null; onOpen: (k: CrmAutoKind | null) => void; hl: CrmAutoKind | null; busy: CrmAutoKind | null;
   rates: { email: number; sms: number };
   onToggle: (r: AutoRecipe) => void; onEdit: (r: AutoRecipe) => void; onEditMail: (r: AutoRecipe) => void;
+  /** « Personnaliser » : la recette devient un scénario modifiable. */
+  onCustomize?: (r: AutoRecipe) => void;
+  /** Seulement pour qui gère la facturation. */
+  onRecharge?: () => void;
 }) {
   const { t } = T;
   const [filter, setFilter] = useState<Filter>('all');
@@ -61,6 +65,8 @@ export function AutoCards({
             open={open === r.kind} hl={hl === r.kind} busy={busy === r.kind} rates={rates}
             onOpen={() => onOpen(open === r.kind ? null : r.kind)}
             onToggle={() => onToggle(r)} onEdit={() => onEdit(r)} onEditMail={() => onEditMail(r)}
+            onCustomize={onCustomize ? () => onCustomize(r) : undefined}
+            onRecharge={onRecharge}
           />
         ))}
         {list.length === 0 && (
@@ -72,11 +78,11 @@ export function AutoCards({
 }
 
 function Card({
-  r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail,
+  r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail, onRecharge, onCustomize,
 }: {
   r: AutoRecipe; idx: number; d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: boolean; hl: boolean; busy: boolean; rates: { email: number; sms: number };
-  onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void;
+  onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void; onRecharge?: () => void; onCustomize?: () => void;
 }) {
   const { t, tp, n, eur, dShort, time } = T;
   const st = autoState(r) as Exclude<CrmAutoState, 'none'>;
@@ -135,7 +141,7 @@ function Card({
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px 28px' }}>
           <div style={{ flex: '1 1 380px', minWidth: 0 }}>
-            <Flow T={T} kind={r.kind} delay={r.delay_hours} on={on} base={600 + idx * 80} />
+            <Flow T={T} kind={r.kind} delay={recipeHours(r)} on={on} base={600 + idx * 80} />
           </div>
           {hasStats ? (
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22 }}>
@@ -169,7 +175,7 @@ function Card({
               <div style={{ marginLeft: 21, borderLeft: '2px dashed var(--sand-300)', display: 'flex', flexDirection: 'column', gap: 14, padding: '2px 0' }}>
                 <div style={{ position: 'relative', paddingLeft: 26 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minHeight: 28, padding: '4px 12px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', fontSize: 12.5, fontWeight: 600, color: 'var(--sand-600)' }}>
-                    <Icon d={AU_IC.clock} size={13} stroke={2.2} />{whenLabel(T, r.kind, r.delay_hours)}
+                    <Icon d={AU_IC.clock} size={13} stroke={2.2} />{whenLabel(T, r.kind, recipeHours(r))}
                   </span>
                 </div>
                 <div style={{ position: 'relative', paddingLeft: 26 }}>
@@ -179,7 +185,7 @@ function Card({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 16, background: '#fff', border: '1px solid var(--sand-200)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '4px 12px' }}>
                       <span style={{ fontSize: 15, fontWeight: 600, overflowWrap: 'anywhere' }}>{subject ? <SubjectText T={T} subject={subject} /> : '—'}</span>
-                      <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.email')} · {linkLabel(T, r.kind, r.delay_hours)}</span>
+                      <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.email')} · {linkLabel(T, r.kind, recipeHours(r))}</span>
                     </div>
                     {r.sent > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -193,6 +199,32 @@ function Card({
                     )}
                   </div>
                 </div>
+                {r.kind === 'first_return' && r.sms && (
+                  <div style={{ position: 'relative', paddingLeft: 26 }}>
+                    <span style={{ position: 'absolute', left: -23, top: 2, width: 44, height: 44, borderRadius: 14, background: on && r.sms.enabled ? 'var(--red-50)' : 'var(--sand-100)', color: on && r.sms.enabled ? 'var(--red-700)' : 'var(--sand-600)', display: 'grid', placeItems: 'center', border: '3px solid var(--sand-50)', boxSizing: 'border-box' }}>
+                      <Icon d={AU_IC.sms} size={17} stroke={2} />
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '14px 16px', borderRadius: 16, background: '#fff', border: '1px solid var(--sand-200)' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '4px 12px' }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, overflowWrap: 'anywhere', color: r.sms.enabled ? 'var(--ink)' : 'var(--sand-500)' }}>
+                          {r.sms.enabled ? (r.sms.body ?? '') : t('yc.au.fr.smsOff')}
+                        </span>
+                        <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.sms')} · {tp('yc.au.fr.smsAfter', r.sms.delay_days, { n: n(r.sms.delay_days) })}</span>
+                      </div>
+                      {r.sms.enabled && !r.sms.identity_ok && <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>{t('yc.au.fr.identity')}</span>}
+                      {r.sms.sent > 0 && <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{tp('yc.au.fr.smsSent', r.sms.sent, { n: n(r.sms.sent) })}</span>}
+                      {(r.sms.waiting ?? 0) > 0 && (
+                        <span style={{ fontSize: 13, color: 'var(--amber-700)' }}>
+                          {tp('yc.au.fr.smsWaiting', r.sms.waiting ?? 0, { n: n(r.sms.waiting ?? 0) })}
+                          {onRecharge && (
+                            <> · <button type="button" onClick={onRecharge} style={{ padding: 0, border: 0, background: 'none', font: 'inherit', fontWeight: 600, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}>{t('yc.au.todo.yunits.cta')}</button></>
+                          )}
+                        </span>
+                      )}
+                      {(r.sms.expired ?? 0) > 0 && <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{tp('yc.au.fr.smsExpired', r.sms.expired ?? 0, { n: n(r.sms.expired ?? 0) })}</span>}
+                    </div>
+                  </div>
+                )}
               </div>
               {(r.pending > 0 || r.skipped > 0) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--sand-500)', paddingLeft: 4 }}>
@@ -223,8 +255,13 @@ function Card({
                   </Hv>
                 )}
                 {r.template_id && (
-                  <Hv as="button" type="button" onClick={onEditMail} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }} active={{ transform: 'scale(.97)' }}>
+                  <Hv as="button" type="button" onClick={onEditMail} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: '#fff', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--sand-200)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-300)', background: 'var(--paper)' }} active={{ transform: 'scale(.97)' }}>
                     {t(canWrite ? 'yc.au.x.editMail' : 'yc.au.x.readMail')}
+                  </Hv>
+                )}
+                {canWrite && onCustomize && (
+                  <Hv as="button" type="button" onClick={onCustomize} title={t('yc.scn.custom.hint')} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--sand-300)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-400)', background: 'var(--paper)' }} active={{ transform: 'scale(.97)' }}>
+                    {t('yc.scn.custom.btn')}
                   </Hv>
                 )}
               </div>

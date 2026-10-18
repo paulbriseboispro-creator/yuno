@@ -47,7 +47,7 @@ const dict: AdminDict = {
   'adm.crm.nav.kw.clients': ['accounts clubs organizers health', 'comptes clubs organisateurs santé', 'cuentas clubes organizadores salud'],
   'adm.crm.nav.kw.product': ['usage value nps features', 'usage valeur nps fonctionnalités', 'uso valor nps funciones'],
   'adm.crm.nav.kw.money': ['mrr invoices payments yunits revenue', 'mrr factures paiements yunits revenu', 'mrr facturas pagos yunits ingresos'],
-  'adm.crm.nav.kw.platform': ['quota shotgun resend syncs bounces', 'quota shotgun resend synchros bounces', 'cuota shotgun resend sincronizaciones rebotes'],
+  'adm.crm.nav.kw.platform': ['quota shotgun resend syncs bounces scenarios', 'quota shotgun resend synchros bounces scénarios', 'cuota shotgun resend sincronizaciones rebotes escenarios'],
   'adm.crm.nav.kw.legal': ['dpa terms consent gdpr', 'dpa cgu consentement rgpd', 'dpa términos consentimiento rgpd'],
   'adm.crm.nav.kw.settings': ['pricing price trial beta', 'prix tarifs essai bêta', 'precios tarifas prueba beta'],
 
@@ -269,6 +269,8 @@ const dict: AdminDict = {
   'adm.crm.ac.a.crm_extend_trial': ['Trial extended', 'Essai prolongé', 'Prueba prorrogada'],
   'adm.crm.ac.a.crm_freeze_sending': ['Sending frozen', 'Envoi gelé', 'Envío congelado'],
   'adm.crm.ac.a.crm_unfreeze_sending': ['Sending unfrozen', 'Envoi dégelé', 'Envío descongelado'],
+  'adm.crm.ac.a.crm_grant_plan': ['Yuno CRM given for free', 'Yuno CRM offert', 'Yuno CRM regalado'],
+  'adm.crm.ac.a.crm_end_grant': ['Yuno CRM paused', 'Yuno CRM mis en pause', 'Yuno CRM pausado'],
   'adm.crm.ac.amount': ['Number of Yunits', 'Nombre de Yunits', 'Número de Yunits'],
   'adm.crm.ac.days': ['Extra days (30 max)', 'Jours en plus (30 max)', 'Días extra (30 máx.)'],
   'adm.crm.ac.freezeBody': ['No campaign or automation will leave this account until it is unfrozen. Sends already in progress are not recalled.', 'Aucune campagne ni recette ne partira de ce compte tant qu’il n’est pas dégelé. Les envois déjà en cours ne sont pas rappelés.', 'Ninguna campaña ni receta saldrá de esta cuenta hasta que se descongele. Los envíos ya en curso no se retiran.'],

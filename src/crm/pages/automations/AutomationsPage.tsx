@@ -9,7 +9,7 @@
  */
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
@@ -18,7 +18,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmShell } from '@/crm/data/shell';
-import { createAutomationTemplate, useAutomations, useSaveAutomation, type AutoPeriod, type AutoRecipe } from '@/crm/data/automations';
+import { createAutomationTemplate, useAutomations, useSaveAutomation, useSaveAutomationSms, type AutoPeriod, type AutoRecipe } from '@/crm/data/automations';
 import { CRM_AUTO_KINDS, autoState, type CrmAutoKind } from '@/crm/lib/automations';
 import { useStaged } from '@/crm/pages/journey/jrLib';
 import { AU_IC, startModal, type ModalState } from './autoFmt';
@@ -27,6 +27,13 @@ import { AutoCards } from './AutoCards';
 import { AutoIntro, AutoLive, AutoRecos, AutoSoon } from './AutoLive';
 import { AutoTodo } from './AutoTodo';
 import { AutoModal } from './AutoModal';
+import { HoldoutResults } from '@/crm/components/HoldoutResults';
+import { SenderIdentityNotice } from '@/crm/components/SenderIdentityNotice';
+import { Segmented } from '@/crm/ui/kit';
+import { useScenarioActions } from '@/crm/data/scenarios';
+import { recipeToGraph } from '@/crm/lib/scenarioTemplates';
+import { ScenariosTab } from './scenarios/ScenariosTab';
+import { CreateWithAiButton } from './scenarios/CreateWithAi';
 
 export default function AutomationsPage() {
   const T = useCrmT();
@@ -39,10 +46,17 @@ export default function AutomationsPage() {
   const [period, setPeriod] = useState<AutoPeriod>('30d');
   const q = useAutomations(period);
   const save = useSaveAutomation();
+  const saveSms = useSaveAutomationSms();
   const [open, setOpen] = useState<CrmAutoKind | null>(null);
   const [hl, setHl] = useState<CrmAutoKind | null>(null);
   const [busy, setBusy] = useState<CrmAutoKind | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const smsDefault = t('yc.au.fr.smsDefault');
+  const [sp, setSp] = useSearchParams();
+  const tab: 'recipes' | 'scenarios' = sp.get('tab') === 'scenarios' ? 'scenarios' : 'recipes';
+  const setTab = (v: 'recipes' | 'scenarios') => setSp((p) => { const n = new URLSearchParams(p); if (v === 'recipes') n.delete('tab'); else n.set('tab', v); return n; }, { replace: true });
+  const [gallery, setGallery] = useState(false);
+  const scn = useScenarioActions();
 
   const d = q.data;
   const loading = !d || (q.isFetching && q.isPlaceholderData);
@@ -70,7 +84,7 @@ export default function AutomationsPage() {
 
   const fail = useCallback((e: unknown) => {
     const msg = e instanceof Error ? e.message : String(e ?? '');
-    toast(t(msg.includes('crm_automation_limit') ? 'yc.au.t.limit' : 'yc.au.t.err'));
+    toast(t(msg.includes('crm_automation_limit') ? 'yc.au.t.limit' : msg.includes('scenario_covers_recipe') ? 'yc.scn.custom.covered' : 'yc.au.t.err'));
   }, [toast, t]);
 
   /** Le modèle de la recette, créé s'il manque (sans modèle, rien ne part). */
@@ -107,17 +121,34 @@ export default function AutomationsPage() {
     try {
       const tpl = await ensureTemplate(r, m.kind);
       await save.mutateAsync({ kind: m.kind, delayHours: m.delay, subject: m.subject.trim(), templateId: tpl, ...(activate ? { enabled: true } : {}) });
+      // « 1re soirée » : l'étape SMS qui suit l'e-mail (texte vide = étape coupée).
+      if (m.kind === 'first_return' && m.sms) {
+        const body = m.sms.body.trim();
+        await saveSms.mutateAsync({ kind: m.kind, enabled: m.sms.on && body.length > 0, body, delayDays: m.sms.delay });
+      }
       toast(t(activate ? 'yc.au.t.on' : 'yc.au.t.saved', { name: t(`yc.au.r.${m.kind}.name`) }));
       setModal(null);
       setOpen(m.kind);
       setHl(m.kind);
       scrollTo(m.kind);
     } catch (e) { fail(e); } finally { setBusy(null); }
-  }, [busy, d, save, toast, t, ensureTemplate, fail, scrollTo]);
+  }, [busy, d, save, saveSms, toast, t, ensureTemplate, fail, scrollTo]);
 
   const editMail = (r: AutoRecipe) => {
     if (r.template_id) navigate(`${CRM_ROUTES.emailStudio(r.template_id)}?template=${r.kind}`);
   };
+
+  /** « Personnaliser » : la recette devient un scénario qui fait la même chose (publier le scénario l'éteint). */
+  const customize = useCallback(async (r: AutoRecipe) => {
+    if (busy) return;
+    setBusy(r.kind);
+    try {
+      const tpl = await ensureTemplate(r, r.kind);
+      const graph = recipeToGraph({ ...r, template_id: tpl });
+      const res = await scn.save({ id: null, name: t('yc.scn.custom.name', { name: t(`yc.au.r.${r.kind}.name`) }), graph, sourceKind: r.kind });
+      navigate(CRM_ROUTES.scenario(res.id));
+    } catch (e) { fail(e); } finally { setBusy(null); }
+  }, [busy, ensureTemplate, scn, t, navigate, fail]);
 
   const hasAny = !!d && d.recipes.some((r) => autoState(r) !== 'none');
   const hasData = !!d && d.recipes.some((r) => r.all.contacted > 0);
@@ -137,37 +168,53 @@ export default function AutomationsPage() {
           </h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 680, animation: `yc-in-blur 800ms ${EASE} 240ms both` }}>{t(hasAny || hasData ? 'yc.au.sub' : 'yc.au.subEmpty')}</p>
         </div>
-        {caps.write && d && (
-          <div style={{ animation: `yc-in-blur 800ms ${EASE} 300ms both` }}>
+        {caps.write && (tab === 'scenarios' || d) && (
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, animation: `yc-in-blur 800ms ${EASE} 300ms both` }}>
+            {tab === 'scenarios' && <CreateWithAiButton />}
             <Hv
               as="button"
               type="button"
-              onClick={() => setModal(startModal(d, 'new', firstFree, 1))}
+              onClick={() => { if (tab === 'scenarios') setGallery(true); else if (d) setModal(startModal(d, 'new', firstFree, 1, smsDefault)); }}
               style={{ height: 46, padding: '0 6px 0 20px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform 200ms cubic-bezier(.34,1.56,.64,1),filter 160ms' }}
               hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
               active={{ transform: 'scale(.97)' }}
             >
-              {t('yc.au.new')}
+              {t(tab === 'scenarios' ? 'yc.scn.list.new' : 'yc.au.new')}
               <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon d={AU_IC.plus} size={16} stroke={2.4} /></span>
             </Hv>
           </div>
         )}
       </div>
 
-      {q.isError && !d && (
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px', marginTop: -8 }}>
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          ariaLabel={t('yc.scn.tabs.aria')}
+          options={[{ value: 'recipes', label: t('yc.scn.tabs.recipes') }, { value: 'scenarios', label: t('yc.scn.tabs.scenarios') }]}
+        />
+        <span style={{ fontSize: 13.5, color: 'var(--sand-500)', textWrap: 'pretty' }}>{t(tab === 'scenarios' ? 'yc.scn.tabs.scenariosHint' : 'yc.scn.tabs.recipesHint')}</span>
+      </div>
+
+      {/* Rien ne part sans l'identité de l'expéditeur : les envois attendent en pause. */}
+      <SenderIdentityNotice />
+
+      {tab === 'scenarios' && <ScenariosTab galleryOpen={gallery} setGalleryOpen={setGallery} />}
+
+      {tab === 'recipes' && q.isError && !d && (
         <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
       )}
 
-      {!d && !q.isError && <AutoSkeleton />}
+      {tab === 'recipes' && !d && !q.isError && <AutoSkeleton />}
 
-      {d && (
+      {tab === 'recipes' && d && (
         <>
           {!hasAny && !hasData && <AutoIntro T={T} />}
           <AutoTodo
             d={d} T={T} money={caps.money} balance={balance} rate={rates.email} canWrite={caps.write} canBilling={caps.billing}
             onRecharge={() => navigate(CRM_ROUTES.yunits)}
             onResume={(k) => { const r = d.recipes.find((x) => x.kind === k); if (r) void toggle(r); }}
-            onPropose={(k) => setModal(startModal(d, 'reco', k, 3))}
+            onPropose={(k) => setModal(startModal(d, 'reco', k, 3, smsDefault))}
           />
           {hasData && (
             <>
@@ -179,22 +226,25 @@ export default function AutomationsPage() {
             <AutoCards
               d={d} T={T} money={caps.money} c={c} g={g} canWrite={caps.write} open={open} onOpen={setOpen} hl={hl} busy={busy} rates={rates}
               onToggle={(r) => void toggle(r)}
-              onEdit={(r) => setModal(startModal(d, 'edit', r.kind, 2))}
+              onEdit={(r) => setModal(startModal(d, 'edit', r.kind, 2, smsDefault))}
               onEditMail={editMail}
+              onCustomize={(r) => void customize(r)}
+              onRecharge={caps.billing ? () => navigate(CRM_ROUTES.yunits) : undefined}
             />
           )}
+          {hasAny && <HoldoutResults recipes />}
           {hasData && <AutoLive d={d} T={T} c={c} balance={balance} rates={rates} canBilling={caps.billing} />}
           <AutoRecos
             T={T} recos={recos} empty={!hasAny && !hasData} canWrite={caps.write} rate={rates.email}
-            onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3)); }}
-            onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1))}
+            onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3, smsDefault)); }}
+            onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1, smsDefault))}
           />
           <AutoSoon T={T} />
         </>
       )}
 
       {modal && d && (
-        <AutoModal m={modal} setM={setModal} d={d} T={T} balance={balance} rate={rates.email} busy={!!busy} onClose={() => setModal(null)} onSave={(m) => void submit(m)} />
+        <AutoModal m={modal} setM={setModal} d={d} T={T} balance={balance} rate={rates.email} smsRate={rates.sms} busy={!!busy} onClose={() => setModal(null)} onSave={(m) => void submit(m)} />
       )}
     </main>
   );

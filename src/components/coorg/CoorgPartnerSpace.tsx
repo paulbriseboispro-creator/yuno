@@ -204,6 +204,7 @@ export function CoorgPartnerSpace({ eventId, state, partnerVisibility = 'full' }
             organizerUserId={kind === 'org' ? id : null}
             targetKind="event"
             eventId={eventId}
+            eventTitle={state.event.title}
           />}
         </OrgCard>
       )}

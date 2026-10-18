@@ -1,0 +1,1197 @@
+{
+ "note": "Bâtisseur de scénarios (agents, lot A2) : demandes de pros, réponse d’IA enregistrée (graphe déposé par create_scenario_draft), attendus. Aucune IA appelée par les tests. fails = ce que evaluateBuild doit trouver (vide = la réponse tient).",
+ "cases": [
+  {
+   "id": "artist_returns",
+   "request": "Relancer ceux venus une fois pour un artiste quand il revient",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "event_published",
+    "leaves": [
+     [
+      "hyp",
+      "sc_family"
+     ],
+     [
+      "nb_max",
+      "seg"
+     ]
+    ]
+   },
+   "recorded": {
+    "name": "Venus une fois : l’artiste revient",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "event_published"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_max",
+         "v": 1
+        },
+        {
+         "k": "hyp",
+         "v": [
+          "artist"
+         ]
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 72,
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "{{soirée}} : un artiste déjà vu chez nous revient. {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "artist_returns_unconfirmed",
+   "request": "Relancer ceux venus une fois pour un artiste quand il revient (famille non confirmée sur le compte)",
+   "ctx": {
+    "confirmed": [],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "event_published",
+    "leaves": [
+     [
+      "nb_max",
+      "seg"
+     ]
+    ]
+   },
+   "recorded": {
+    "name": "Venus une fois : la nouvelle soirée",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "event_published"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_max",
+         "v": 1
+        },
+        {
+         "k": "last_lt_days",
+         "v": 365
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "loyal_no_ticket",
+   "request": "Les fidèles sans place : J-10, J-3 et un SMS la veille",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "before_event",
+    "leaves": [
+     [
+      "seg",
+      "nb_min"
+     ]
+    ],
+    "goal": "bought_event",
+    "maxMessages": 3
+   },
+   "recorded": {
+    "name": "Fidèles sans place : J-10, J-3, J-1",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "before_event",
+      "days": 10
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "seg",
+         "v": "hab"
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -3,
+       "at": "18:00",
+       "next": "e2"
+      },
+      "e2": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+       "event": "scenario",
+       "next": "w2"
+      },
+      "w2": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -1,
+       "at": "18:00",
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "Demain chez {{nom_club}} : {{soirée}}. Dernières places : {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "absent_buyers",
+   "request": "Ceux qui ont acheté mais ne sont pas venus, leur proposer la prochaine",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "after_event"
+   },
+   "recorded": {
+    "name": "Acheteurs absents → prochaine soirée",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "after_event",
+      "hours": 24,
+      "who": "absent_buyers"
+     },
+     "entry": {
+      "filter": null,
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_any"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+       "event": "for_person",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 120,
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "Vous nous avez manqué, {{prénom}}. La prochaine : {{soirée}}. {{lien}}",
+       "event": "for_person",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "welcome",
+   "request": "Souhaiter la bienvenue aux inscrits de ma page prévente, en trois messages",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "signup_confirmed",
+    "maxMessages": 3
+   },
+   "recorded": {
+    "name": "Bienvenue en 3 temps",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "signup_confirmed",
+      "page_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f"
+     },
+     "entry": {
+      "filter": null,
+      "reentry": {
+       "mode": "once"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_any"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04",
+       "event": "for_person",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 72,
+       "next": "e2"
+      },
+      "e2": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "for_person",
+       "next": "w2"
+      },
+      "w2": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 96,
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "Bienvenue chez {{nom_club}}, {{prénom}} ! {{lien}}",
+       "event": "for_person",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "winback",
+   "request": "Faire revenir ceux qui ne sont pas venus depuis 4 mois",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "absence",
+    "goal": "bought_any"
+   },
+   "recorded": {
+    "name": "Reconquête en 2 temps",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "absence",
+      "days": 120
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_min",
+         "v": 2
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "every_days",
+       "days": 180
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_any"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+       "event": "for_person",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 168,
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "{{prénom}}, ca fait un moment ! {{soirée}} chez {{nom_club}} : {{lien}}",
+       "event": "for_person",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "click_no_buy_sms",
+   "request": "Ceux qui ont cliqué sans acheter : un SMS le lendemain",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "click_no_buy"
+   },
+   "recorded": {
+    "name": "Clic sans achat : SMS du lendemain",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "click_no_buy",
+      "hours": 24
+     },
+     "entry": {
+      "filter": null,
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "s1",
+     "nodes": {
+      "s1": {
+       "type": "sms",
+       "body": "{{prénom}}, il reste des places pour {{soirée}} : {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "guestlist_paid",
+   "request": "Les invités en guest list qui n’ont jamais payé : les faire passer payants",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "after_event",
+    "leaves": [
+     [
+      "gl"
+     ]
+    ],
+    "noSms": true
+   },
+   "recorded": {
+    "name": "Invités en guest list → payants",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "after_event",
+      "hours": 24,
+      "who": "entered"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "gl",
+         "v": "only"
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "every_days",
+       "days": 60
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_any"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+       "event": "for_person",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 96,
+       "next": "e2"
+      },
+      "e2": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "for_person",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "chance_high",
+   "request": "Ceux qui ont de fortes chances de venir et pas encore de place",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "chance_high",
+    "leaves": [
+     [
+      "ev"
+     ]
+    ]
+   },
+   "recorded": {
+    "name": "Chances élevées, pas encore de place",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "chance_high"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -2,
+       "at": "18:00",
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "{{soirée}} approche : {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "series_next",
+   "request": "Annoncer la nouvelle édition aux habitués de la série",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "event_published",
+    "leaves": [
+     [
+      "sc_family",
+      "series"
+     ]
+    ]
+   },
+   "recorded": {
+    "name": "Nouvelle édition : les habitués de la série",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "event_published"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "sc_family",
+         "v": "series"
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": []
+  },
+  {
+   "id": "bad_unconfirmed",
+   "request": "Relancer ceux venus une fois pour un artiste quand il revient (famille non confirmée)",
+   "ctx": {
+    "confirmed": [],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "event_published"
+   },
+   "recorded": {
+    "name": "Venus une fois : l’artiste revient",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "event_published"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_max",
+         "v": 1
+        },
+        {
+         "k": "sc_family",
+         "v": "artist"
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 72,
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "{{soirée}} arrive : {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": [
+    "unconfirmed_family:artist"
+   ]
+  },
+  {
+   "id": "bad_number",
+   "request": "Les fidèles sans place, avec un SMS la veille",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "before_event"
+   },
+   "recorded": {
+    "name": "Fidèles sans place",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "before_event",
+      "days": 10
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "seg",
+         "v": "hab"
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -3,
+       "at": "18:00",
+       "next": "e2"
+      },
+      "e2": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+       "event": "scenario",
+       "next": "w2"
+      },
+      "w2": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -1,
+       "at": "18:00",
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "-20 % ce soir seulement : {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": [
+    "invented_number:20"
+   ]
+  },
+  {
+   "id": "bad_wording",
+   "request": "Annoncer la soirée techno aux amateurs du genre",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "event_published"
+   },
+   "recorded": {
+    "name": "Soirée techno",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "event_published"
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "nb_max",
+         "v": 1
+        },
+        {
+         "k": "hyp",
+         "v": [
+          "artist"
+         ]
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "duration",
+       "hours": 72,
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "Toi qui aimes la techno : {{soirée}} {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": [
+    "wording:aimes"
+   ]
+  },
+  {
+   "id": "bad_sms_without_identity",
+   "request": "Les fidèles sans place (pas d’identité SMS sur le compte)",
+   "ctx": {
+    "confirmed": [
+     "artist",
+     "series"
+    ],
+    "templates": [
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b03",
+     "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b04"
+    ],
+    "toolResults": "{\"holdout_pct\":10,\"yunits\":{\"email\":1,\"sms\":{\"fr\":35,\"intl\":70}},\"upcoming_nights\":[{\"title\":\"Velvet #3\",\"start_at\":\"2026-10-17T21:00:00Z\"}],\"confirmed_families\":[\"artist\",\"series\"]}"
+   },
+   "expect": {
+    "trigger": "before_event",
+    "noSms": true
+   },
+   "recorded": {
+    "name": "Fidèles sans place",
+    "graph": {
+     "v": 1,
+     "trigger": {
+      "type": "before_event",
+      "days": 10
+     },
+     "entry": {
+      "filter": {
+       "op": "and",
+       "items": [
+        {
+         "k": "seg",
+         "v": "hab"
+        },
+        {
+         "op": "and",
+         "not": true,
+         "items": [
+          {
+           "k": "ev",
+           "v": [
+            "$event"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "reentry": {
+       "mode": "per_event"
+      },
+      "holdout": true
+     },
+     "goal": {
+      "type": "bought_event"
+     },
+     "start": "e1",
+     "nodes": {
+      "e1": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b01",
+       "event": "scenario",
+       "next": "w1"
+      },
+      "w1": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -3,
+       "at": "18:00",
+       "next": "e2"
+      },
+      "e2": {
+       "type": "email",
+       "template_id": "3f2a6c1e-9b7d-4e2f-8a1c-5d6e7f8a9b02",
+       "event": "scenario",
+       "next": "w2"
+      },
+      "w2": {
+       "type": "wait",
+       "mode": "until_event",
+       "anchor": "start",
+       "days": -1,
+       "at": "18:00",
+       "next": "s1"
+      },
+      "s1": {
+       "type": "sms",
+       "body": "Demain : {{lien}}",
+       "event": "scenario",
+       "next": "x"
+      },
+      "x": {
+       "type": "end"
+      }
+     }
+    }
+   },
+   "fails": [
+    "channel_sms"
+   ]
+  }
+ ]
+}

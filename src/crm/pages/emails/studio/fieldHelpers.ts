@@ -8,7 +8,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { supabase } from '@/integrations/supabase/client';
 
-export const VARS = ['prénom', 'nom_club', 'soirée', 'ville'] as const;
+export const VARS = ['prénom', 'nom_club', 'soirée', 'ville', 'artiste', '1re_soiree', 'nb_soirees'] as const;
 export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 export type Patch = (p: Record<string, unknown>) => void;

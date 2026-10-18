@@ -47,6 +47,11 @@ export function SupportSessionBanner() {
     setLeaving(true);
     await endSupportSession();
     setSession(null);
+    // Depuis la Console Yuno CRM : retour à l'Admin CRM (migration 20261019420000).
+    if (window.location.pathname === '/crm' || window.location.pathname.startsWith('/crm/')) {
+      window.location.assign(`/admin/crm/login?next=${encodeURIComponent('/admin/crm/support')}`);
+      return;
+    }
     navigate('/auth', { replace: true });
   };
 

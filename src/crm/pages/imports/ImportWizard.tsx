@@ -27,7 +27,7 @@ import { SegmentsNextStep } from '@/crm/components/SegmentCatalog';
 import { NIGHT_BG, useZeroRules } from './zeroRules';
 
 type ReadErr = 'bad' | 'size';
-type Bucket = 'fresh' | 'exist' | 'dup' | 'bad';
+type Bucket = 'fresh' | 'exist' | 'dup' | 'bad' | 'out';
 
 /** Anime une valeur de 0 à 1 (ease-out) ; se coupe sans animations. */
 function animate(dur: number, onStep: (p: number) => void): Promise<void> {
@@ -156,7 +156,8 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
       await commitImport(args, {
         rows: toSend.map(toImportRow),
         consent, mode, title: file.name,
-        stats: { new: an.fresh.length, existing: an.exist.length, dup: an.dup.length, bad: an.bad.length },
+        // Les désabonnés du fichier comptent avec les lignes non ajoutées.
+        stats: { new: an.fresh.length, existing: an.exist.length, dup: an.dup.length, bad: an.bad.length + an.out.length },
         onProgress: (p) => setProg(p * 0.95),
       });
       await animate(300, (p) => setProg(0.95 + p * 0.05));
@@ -364,7 +365,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
               )}
             </div>
           ) : (
-            <Verify an={an} total={parsed.rows.length} mode={mode} setMode={setMode} open={open} setOpen={setOpen}
+            <Verify an={an} total={parsed.rows.length} hasStatus={map.includes('statut')} mode={mode} setMode={setMode} open={open} setOpen={setOpen}
               sample={!!file?.sample} canAdd={canAdd} addLabel={addLabel} onAdd={() => void startAdd()} onBack={() => setStep(2)} onPick={pick}
               onBad={dlBad} badText={badText} />
           ))}
@@ -384,9 +385,9 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
 }
 
 function Verify({
-  an, total, mode, setMode, open, setOpen, sample, canAdd, addLabel, onAdd, onBack, onPick, onBad, badText,
+  an, total, hasStatus, mode, setMode, open, setOpen, sample, canAdd, addLabel, onAdd, onBack, onPick, onBad, badText,
 }: {
-  an: Analysis; total: number; mode: 'complete' | 'keep'; setMode: (m: 'complete' | 'keep') => void;
+  an: Analysis; total: number; hasStatus: boolean; mode: 'complete' | 'keep'; setMode: (m: 'complete' | 'keep') => void;
   open: Bucket | null; setOpen: (b: Bucket | null) => void; sample: boolean; canAdd: boolean; addLabel: string;
   onAdd: () => void; onBack: () => void; onPick: () => void; onBad: () => void; badText: (b: Analysis['bad'][number]) => string;
 }) {
@@ -397,8 +398,10 @@ function Verify({
     { k: 'exist', c: 'var(--sand-400)', fg: 'var(--ink)', items: an.exist.map((l) => ({ t: l.name || t('yc.imp.it.noName'), s: t('yc.imp.it.sameAs', { by: by(l.by), name: l.who }) })) },
     { k: 'dup', c: 'var(--sand-300)', fg: 'var(--ink)', items: an.dup.map((d) => ({ t: d.name || t('yc.imp.it.noName'), s: t('yc.imp.it.sameLine', { l: d.line, by: by(d.by), o: d.other }) })) },
     { k: 'bad', c: 'var(--amber-500)', fg: 'var(--amber-700)', items: an.bad.map((b) => ({ t: b.name || t('yc.imp.it.line', { l: b.line }), s: badText(b) })) },
+    // Seulement quand le fichier dit qui s'est désabonné : sinon la rangée n'a rien à dire.
+    ...(hasStatus || an.out.length ? [{ k: 'out' as const, c: 'var(--red-400)', fg: 'var(--red-700)', items: an.out.map((o) => ({ t: o.name || t('yc.imp.it.line', { l: o.line }), s: t('yc.imp.it.out', { l: o.line, v: o.value }) })) }] : []),
   ];
-  const sub = (k: Bucket) => (k === 'fresh' ? t('yc.imp.b.freshS') : k === 'exist' ? t(mode === 'complete' ? 'yc.imp.b.existComplete' : 'yc.imp.b.existKeep') : k === 'dup' ? t('yc.imp.b.dupS') : t('yc.imp.b.badS'));
+  const sub = (k: Bucket) => (k === 'fresh' ? t('yc.imp.b.freshS') : k === 'exist' ? t(mode === 'complete' ? 'yc.imp.b.existComplete' : 'yc.imp.b.existKeep') : k === 'dup' ? t('yc.imp.b.dupS') : k === 'out' ? t('yc.imp.b.outS') : t('yc.imp.b.badS'));
   const label = (k: Bucket) => t(`yc.imp.b.${k}`);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: `yc-rise 600ms ${EASE} both` }}>
@@ -479,7 +482,7 @@ function Done({ an, prog, finished, failed, onRetry, onAnother }: { an: Analysis
     { l: t('yc.imp.w4.cFresh'), v: an.fresh.length, fg: 'var(--green-700)' },
     { l: t('yc.imp.w4.cExist'), v: an.exist.length, fg: 'var(--ink)' },
     { l: t('yc.imp.w4.cDup'), v: an.dup.length, fg: 'var(--ink)' },
-    { l: t('yc.imp.w4.cBad'), v: an.bad.length, fg: an.bad.length ? 'var(--amber-700)' : 'var(--ink)' },
+    { l: t('yc.imp.w4.cBad'), v: an.bad.length + an.out.length, fg: an.bad.length + an.out.length ? 'var(--amber-700)' : 'var(--ink)' },
   ];
   const title = failed ? t('yc.imp.w4.titleFail') : finished ? (an.fresh.length ? tp('yc.imp.w4.titleDone', an.fresh.length, { n: n(an.fresh.length) }) : t('yc.imp.w4.titleNothing')) : t('yc.imp.w4.titleRun');
   return (

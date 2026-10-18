@@ -101,5 +101,6 @@ export async function faststartFile(file: File): Promise<File> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const out = faststartBytes(bytes);
   if (out === bytes) return file;
-  return new File([out], file.name, { type: file.type, lastModified: file.lastModified });
+  // `out` vient d'un ArrayBuffer (file.arrayBuffer) : on le dit au type BlobPart, sans recopier la vidéo.
+  return new File([out as Uint8Array<ArrayBuffer>], file.name, { type: file.type, lastModified: file.lastModified });
 }

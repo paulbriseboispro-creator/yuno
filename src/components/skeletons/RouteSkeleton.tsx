@@ -76,6 +76,10 @@ function eventLeaf(rest: string[]): JSX.Element {
 function pickRouteSkeleton(pathname: string): JSX.Element {
   const path = pathname.replace(/\/+$/, '') || '/';
   if (isProPath(path)) return <AppSkeleton />;
+  // Consentement d'une IA (OAuth du MCP) : l'écran est à la DA claire de Yuno
+  // CRM, jamais la silhouette sombre d'une page client — le pro arrive d'une
+  // autre application et ne doit voir ni noir ni fond d'une autre marque.
+  if (path === '/connect-ai' || path === '/ai') return <ConnectAiSkeleton />;
 
   const seg = path.split('/').filter(Boolean);
   const [a, b, c] = seg;
@@ -132,6 +136,22 @@ function pickRouteSkeleton(pathname: string): JSX.Element {
     default:
       return <ClientPageSkeleton />;
   }
+}
+
+function ConnectAiSkeleton() {
+  return (
+    <div
+      className="flex min-h-[100dvh] items-center justify-center"
+      style={{ background: '#FCFAF9' }}
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        className="h-8 w-8 animate-spin rounded-full motion-reduce:animate-none"
+        style={{ border: '3px solid #E6DFDD', borderTopColor: '#E3141B' }}
+      />
+    </div>
+  );
 }
 
 export function RouteSkeleton() {

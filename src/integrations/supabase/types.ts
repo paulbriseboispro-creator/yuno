@@ -8371,8 +8371,11 @@ export type Database = {
           created_at: string | null
           email: string
           event_id: string
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
+          newsletter_opt_in: boolean
           presale_access: boolean | null
           show_in_orders: boolean
           user_id: string | null
@@ -8381,8 +8384,11 @@ export type Database = {
           created_at?: string | null
           email: string
           event_id: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
+          newsletter_opt_in?: boolean
           presale_access?: boolean | null
           show_in_orders?: boolean
           user_id?: string | null
@@ -8391,8 +8397,11 @@ export type Database = {
           created_at?: string | null
           email?: string
           event_id?: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
+          newsletter_opt_in?: boolean
           presale_access?: boolean | null
           show_in_orders?: boolean
           user_id?: string | null
@@ -8428,6 +8437,7 @@ export type Database = {
           event_type: string
           external_source: string | null
           external_ticket_url: string | null
+          free_chain_visibility: string
           guest_list_sold_out: boolean
           hide_yuno_navigation: boolean
           id: string
@@ -8484,6 +8494,7 @@ export type Database = {
           title: string
           updated_at: string
           venue_id: string | null
+          flyer_wide_url: string | null
           video_url: string | null
           vip_room_id: string | null
           visibility: Database["public"]["Enums"]["event_visibility"]
@@ -8511,6 +8522,7 @@ export type Database = {
           event_type?: string
           external_source?: string | null
           external_ticket_url?: string | null
+          free_chain_visibility?: string
           guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
@@ -8567,6 +8579,7 @@ export type Database = {
           title: string
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_room_id?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
@@ -8592,6 +8605,7 @@ export type Database = {
           event_type?: string
           external_source?: string | null
           external_ticket_url?: string | null
+          free_chain_visibility?: string
           guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
@@ -8648,6 +8662,7 @@ export type Database = {
           title?: string
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_room_id?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
@@ -12762,6 +12777,7 @@ export type Database = {
           ticket_preset_id: string | null
           updated_at: string
           venue_id: string | null
+          flyer_wide_url: string | null
           video_url: string | null
           vip_preset_id: string | null
         }
@@ -12790,6 +12806,7 @@ export type Database = {
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_preset_id?: string | null
         }
@@ -12818,6 +12835,7 @@ export type Database = {
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
+          flyer_wide_url?: string | null
           video_url?: string | null
           vip_preset_id?: string | null
         }
@@ -16646,6 +16664,7 @@ export type Database = {
           manually_sold_out: boolean
           max_tickets: number
           name: string
+          opens_after_round_id: string | null
           position: number
           price: number
           sale_ends_at: string | null
@@ -16677,6 +16696,7 @@ export type Database = {
           manually_sold_out?: boolean
           max_tickets: number
           name: string
+          opens_after_round_id?: string | null
           position?: number
           price: number
           sale_ends_at?: string | null
@@ -16708,6 +16728,7 @@ export type Database = {
           manually_sold_out?: boolean
           max_tickets?: number
           name?: string
+          opens_after_round_id?: string | null
           position?: number
           price?: number
           sale_ends_at?: string | null
@@ -16723,6 +16744,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_rounds_opens_after_round_id_fkey"
+            columns: ["opens_after_round_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_rounds"
             referencedColumns: ["id"]
           },
         ]
@@ -17462,6 +17490,11 @@ export type Database = {
           dj_id: string | null
           event_id: string | null
           guest_list_id: string | null
+          partner_contact: string | null
+          partner_name: string | null
+          partner_role: string | null
+          partner_shows_revenue: boolean
+          partner_token: string | null
           id: string
           is_active: boolean
           label: string
@@ -17483,6 +17516,11 @@ export type Database = {
           dj_id?: string | null
           event_id?: string | null
           guest_list_id?: string | null
+          partner_contact?: string | null
+          partner_name?: string | null
+          partner_role?: string | null
+          partner_shows_revenue?: boolean
+          partner_token?: string | null
           id?: string
           is_active?: boolean
           label: string
@@ -17504,6 +17542,11 @@ export type Database = {
           dj_id?: string | null
           event_id?: string | null
           guest_list_id?: string | null
+          partner_contact?: string | null
+          partner_name?: string | null
+          partner_role?: string | null
+          partner_shows_revenue?: boolean
+          partner_token?: string | null
           id?: string
           is_active?: boolean
           label?: string
@@ -23774,6 +23817,14 @@ export type Database = {
         Args: { p_code: string }
         Returns: string
       }
+      reset_partner_link_page: {
+        Args: { p_link_id: string }
+        Returns: string
+      }
+      get_partner_link_page: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       get_tracked_link_stats: {
         Args: {
           p_dj_id?: string
@@ -25857,3 +25908,4 @@ export const Constants = {
     },
   },
 } as const
+

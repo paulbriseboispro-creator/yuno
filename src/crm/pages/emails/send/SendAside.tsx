@@ -33,7 +33,7 @@ export function SendAside({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.em.sd.r.from')}</span>
-            <span style={{ fontSize: 14.5 }}>{fromName}</span>
+            <span style={{ fontSize: 14.5, overflowWrap: 'anywhere' }}>{fromName}</span>
             {replyTo && <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.em.sd.r.replyTo', { email: replyTo })}</span>}
           </div>
           <div style={{ height: 1, background: 'var(--sand-100)' }} />

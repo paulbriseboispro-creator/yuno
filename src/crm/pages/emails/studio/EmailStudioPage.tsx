@@ -29,6 +29,7 @@ import { createStudioStore, StudioStoreContext, useStudio, useStudioApi, type St
 import { campaignToRow, rowToCampaign, type CampaignRow } from '@/components/email-studio/campaignRow';
 import { stripEventBindings, templateContentToRow } from '@/lib/email/templates';
 import { useStudioLiveData, type StudioScope } from '@/components/email-studio/hooks';
+import { adoptAiVersion, useAiDraftSync } from '@/components/email-studio/aiSync';
 import type { EmailBlock } from '@/lib/email/types';
 import { useTemplateDraft } from '../templateDraft';
 import { decorateBlock } from './catalog';
@@ -250,12 +251,20 @@ function StudioBody({ template = false }: { template?: boolean }) {
         ...templateContentToRow({ type: c.type, subject: c.subject, preheader: c.preheader, blocks: stripEventBindings(c.blocks), theme: c.theme, socialLinks: c.socialLinks, logoUrl: c.logoUrl }),
         name: (c.name || '').trim().slice(0, 80) || 'Automatisation',
       } as never).eq('id', c.id).select('id')
-      // Garde anti-course : on n'écrit que sur une campagne encore modifiable.
-      : await supabase.from('email_campaigns').update(campaignToRow(c, scope) as never)
-        .eq('id', c.id).in('status', EDITABLE).select('id');
+      // Garde anti-course : on n'écrit que sur une campagne encore modifiable,
+      // et jamais par-dessus une version que l'IA du pro a posée depuis (MCP).
+      : await (() => {
+        const base = supabase.from('email_campaigns').update(campaignToRow(c, scope) as never)
+          .eq('id', c.id).in('status', EDITABLE);
+        return base.filter('ai_updated_at', c.aiUpdatedAt ? 'eq' : 'is', c.aiUpdatedAt ?? null).select('id');
+      })();
     if (error) { api.getState().markSaveFailed(); setFailed(true); return false; }
     if (!data || data.length === 0) {
       api.getState().markSaveFailed();
+      if (!template && await adoptAiVersion(api, (row) => rowToCampaign(row, space.name)) === 'adopted') {
+        toast(t('yc.em.st.aiUpdated', { ai: api.getState().campaign.aiAuthor || 'IA' }));
+        return false;
+      }
       toast(t('yc.em.st.gone'));
       return false;
     }
@@ -265,12 +274,21 @@ function StudioBody({ template = false }: { template?: boolean }) {
     return true;
   }, [api, readOnly, space.venueId, space.organizerUserId, space.name, toast, t, invalidate, template]);
 
+  // L'IA du pro modifie le brouillon (MCP) : le Studio ouvert suit.
+  useAiDraftSync(api, {
+    enabled: !template,
+    fromRow: (row) => rowToCampaign(row, space.name),
+    onAdopted: (ai) => toast(t('yc.em.st.aiUpdated', { ai })),
+  });
+
   // Autosave : 1,2 s après la dernière modification.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (readOnly) return undefined;
     const unsub = api.subscribe((s, prev) => {
       if (s.campaign === prev.campaign) return;
+      // Version adoptée (l'IA du pro l'a écrite) : rien à réenregistrer.
+      if (!s.dirty) return;
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => { void saveNow(); }, 1200);
     });
@@ -345,7 +363,8 @@ function StudioBody({ template = false }: { template?: boolean }) {
   const preview = useStudio((s) => s.preview) || readOnly;
   const blocks = useStudio((s) => s.campaign.blocks);
   const eventId = useStudio((s) => s.campaign.eventId);
-  const live = useStudioLiveData(blocks, eventId);
+  const language = useStudio((s) => s.campaign.language);
+  const live = useStudioLiveData(blocks, eventId, language);
 
   return (
     <div className="yc" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'radial-gradient(55% 40% at 90% -5%,rgba(255,107,53,.08),transparent 70%),radial-gradient(45% 40% at 0% 0%,rgba(227,20,27,.05),transparent 70%),var(--paper)' }}>

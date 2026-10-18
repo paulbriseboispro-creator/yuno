@@ -23,9 +23,20 @@ function detectDevice(): string {
   return 'desktop';
 }
 
+// Identifiant stable du navigateur pour dédoublonner les clics (30 min côté
+// serveur). Sans lui le serveur retombe sur une empreinte IP + user-agent.
+const TL_VISITOR_KEY = 'yuno_tl_visitor_id';
+
 function getVisitorId(): string | null {
   try {
-    return localStorage.getItem(VISITOR_ID_KEY);
+    const aff = localStorage.getItem(VISITOR_ID_KEY);
+    if (aff) return aff;
+    let id = localStorage.getItem(TL_VISITOR_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(TL_VISITOR_KEY, id);
+    }
+    return id;
   } catch {
     return null;
   }

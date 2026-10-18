@@ -118,6 +118,16 @@ const dict: CrmDict = {
   'yc.em.tp.manque.body': ['Hi {{prénom}}, we haven’t seen you {at} for a while. A new date might be just for you.', 'Bonjour {{prénom}}, on ne vous a pas vu {at} depuis un moment. Une nouvelle date pourrait vous plaire.', 'Hola {{prénom}}, hace tiempo que no le vemos {at}. Una nueva fecha podría gustarle.'],
   'yc.em.tp.manque.eventTitle': ['Your next night', 'Votre prochaine soirée', 'Su próxima fiesta'],
   'yc.em.tp.manque.cta': ['Come back to {venue}', 'Revenir {at}', 'Volver a {venue}'],
+  // Modèle de la recette « A cliqué sans acheter » (pas dans la galerie).
+  'yc.em.tp.relance.name': ['Clicked without buying', 'A cliqué sans acheter', 'Hizo clic sin comprar'],
+  'yc.em.tp.relance.desc': ['For those who looked at a night from one of your emails without getting a ticket.', 'Pour ceux qui ont regardé une soirée depuis un de vos e-mails sans prendre leur place.', 'Para quienes miraron una fiesta desde uno de sus e-mails sin conseguir su entrada.'],
+  'yc.em.tp.relance.aud': ['Those who clicked without buying', 'Ceux qui ont cliqué sans acheter', 'Quienes hicieron clic sin comprar'],
+  'yc.em.tp.relance.subject': ['{{prénom}}, this night is waiting for you', '{{prénom}}, cette soirée vous attend', '{{prénom}}, esta fiesta le espera'],
+  'yc.em.tp.relance.pre': ['You had a look: here is the link to get your spot.', 'Vous l’avez regardée : voici le lien pour prendre votre place.', 'La miró: aquí tiene el enlace para conseguir su plaza.'],
+  'yc.em.tp.relance.title': ['Still tempted?', 'Toujours tenté ?', '¿Sigue con ganas?'],
+  'yc.em.tp.relance.body': ['Hi {{prénom}},\nYou looked at this night {at}. If you already have your spot, ignore this message; otherwise, it’s waiting for you just below.', 'Bonjour {{prénom}},\nVous avez regardé cette soirée {at}. Si vous avez déjà votre place, ne tenez pas compte de ce message ; sinon, elle vous attend juste en dessous.', 'Hola {{prénom}},\nMiró esta fiesta {at}. Si ya tiene su plaza, ignore este mensaje; si no, le espera justo debajo.'],
+  'yc.em.tp.relance.eventTitle': ['The night you looked at', 'La soirée que vous avez regardée', 'La fiesta que miró'],
+  'yc.em.tp.relance.cta': ['Get my spot', 'Prendre ma place', 'Conseguir mi plaza'],
 
   // ── Merci pour hier soir ──
   'yc.em.tp.merci.name': ['Thanks for last night', 'Merci pour hier soir', 'Gracias por anoche'],
@@ -150,6 +160,22 @@ const dict: CrmDict = {
   'yc.em.tp.vide.title': ['Your title here', 'Votre titre ici', 'Su título aquí'],
   'yc.em.tp.vide.body': ['Hi {{prénom}},\nWrite your message here.', 'Bonjour {{prénom}},\nÉcrivez votre message ici.', 'Hola {{prénom}},\nEscriba su mensaje aquí.'],
   'yc.em.tp.vide.cta': ['See the night', 'Voir la soirée', 'Ver la fiesta'],
+
+  // « Faire revenir après la 1re soirée » (20261011130000), modèle d'automatisation.
+  'yc.em.tp.retour.name': ['Bring them back after the first night', 'Faire revenir après la 1re soirée', 'Hacer volver tras la primera noche'],
+  'yc.em.tp.retour.desc': ['For those who came once: the next night chosen for them.', 'Pour ceux venus une fois : la prochaine soirée choisie pour eux.', 'Para quienes vinieron una vez: la próxima fiesta elegida para ellos.'],
+  'yc.em.tp.retour.aud': ['Came once, live nearby', 'Venus une fois, habitent près', 'Vinieron una vez, viven cerca'],
+  'yc.em.tp.retour.subject': ['{{prénom}}, shall we do it again?', '{{prénom}}, on remet ça ?', '{{prénom}}, ¿repetimos?'],
+  'yc.em.tp.retour.pre': ['The next night, chosen from your first one.', 'La prochaine soirée, choisie d’après votre première.', 'La próxima fiesta, elegida a partir de la primera.'],
+  'yc.em.tp.retour.title': ['Shall we do it again?', 'On remet ça ?', '¿Repetimos?'],
+  'yc.em.tp.retour.body': [
+    'Hi {{prénom}},\nYou were there for {{1re_soiree}} {at}. Here is the next one we picked for you, with its line-up.',
+    'Bonjour {{prénom}},\nVous étiez là pour {{1re_soiree}} {at}. Voici la prochaine que nous avons choisie pour vous, avec son line-up.',
+    'Hola {{prénom}},\nEstuvo en {{1re_soiree}} {at}. Aquí tiene la próxima que hemos elegido para usted, con su line-up.',
+  ],
+  'yc.em.tp.retour.program': ['On the bill', 'Au programme', 'En el cartel'],
+  'yc.em.tp.retour.eventTitle': ['Your next night', 'Votre prochaine soirée', 'Su próxima fiesta'],
+  'yc.em.tp.retour.cta': ['Get my spot', 'Prendre ma place', 'Conseguir mi plaza'],
 };
 
 export default dict;

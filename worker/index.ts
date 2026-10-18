@@ -40,6 +40,10 @@ interface Env {
   SUPABASE_MCP_KEY?: string;
   // Jeton de vérification de domaine du portail OpenAI (plugins).
   OPENAI_APPS_CHALLENGE?: string;
+  // Identité du déploiement en cours (binding `version_metadata` de wrangler.jsonc).
+  // Clé du cache du héros : une page mise en cache par la version précédente
+  // pointe vers des chunks qui n'existent plus après la bascule.
+  CF_VERSION_METADATA?: { id: string };
 }
 
 type Ctx = { waitUntil: (p: Promise<unknown>) => void };
@@ -169,6 +173,12 @@ interface Entity {
   h1: string; // crawlable content heading
   bodyHtml: string; // crawlable content block (facts + internal links), pre-escaped
   noindex?: boolean; // soirée privée : aperçu social oui, indexation non
+  // Soirée Yuno : visuel du cadre 16:9 de la page (flyer large, sinon l'affiche),
+  // déjà passé par ogImage. Présent ⇒ la pré-page humaine reprend la mise en page
+  // de la page soirée (scène 16:9 sur halo, titre dessous) au lieu de l'affiche
+  // plein écran des autres fiches.
+  stage?: string;
+  stageWide?: boolean;
 }
 
 // Social + SEO crawlers that fetch a URL to build a link preview / index it.
@@ -249,6 +259,15 @@ function handleUrl(base: string, raw: unknown): string | null {
 // WhatsApp (and other social crawlers) drop link-preview images larger than a few
 // hundred KB. Route every Supabase public image through the Storage render transform →
 // a small WebP (~30-200 KB). Non-Supabase URLs pass through untouched.
+// Visuel du cadre 16:9 de la page soirée : le flyer large s'il existe, sinon
+// l'affiche (que la page montre alors entière sur son propre flou).
+function eventStage(ev: Row): Pick<Entity, 'stage' | 'stageWide'> {
+  const wide = (ev.flyer_wide_url as string) || '';
+  const poster = (ev.poster_url as string) || '';
+  const raw = wide || poster;
+  return raw ? { stage: ogImage(raw), stageWide: !!wide } : { stage: '', stageWide: false };
+}
+
 function ogImage(raw: string | undefined): string | undefined {
   if (!raw) return raw;
   const marker = '/storage/v1/object/public/';
@@ -882,7 +901,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const id = eventId;
     const ev = await fetchRow(
       env,
-      `events?id=eq.${encodeURIComponent(id)}&select=visibility,title,description,poster_url,` +
+      `events?id=eq.${encodeURIComponent(id)}&select=visibility,title,description,poster_url,flyer_wide_url,` +
         `start_at,end_at,music_genre,music_genres,location_name,location_city,location_address,` +
         `location_is_secret,status,cancelled_at,venue_id,slug,organizer_user_id,` +
         // Drapeaux « Complet » + interrupteurs de pilier : sans eux le balisage vend
@@ -906,6 +925,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         h1: pTitle,
         bodyHtml: '',
         noindex: true,
+        ...eventStage(ev),
       };
     }
     // Billetterie + line-up : alimentent offers[] (price / priceCurrency / validFrom) et
@@ -1174,6 +1194,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       image: img,
       canonical,
       jsonLd,
+      ...eventStage(ev),
       h1: title,
       bodyHtml:
         `<p>${esc(description)}</p>` +
@@ -1379,6 +1400,10 @@ class RootInjector {
 class HeroOverlayInjector {
   constructor(private e: Entity) {}
   element(el: El) {
+    if (this.e.stage !== undefined) {
+      this.eventStage(el);
+      return;
+    }
     // Gradient de marque TOUJOURS posé sous l'image : pendant que l'affiche
     // charge (transformation Supabase froide), le fond n'est jamais noir pur.
     const img = this.e.image
@@ -1396,10 +1421,52 @@ class HeroOverlayInjector {
         `</div>` +
         `<style>@keyframes yunossr{to{transform:rotate(360deg)}}</style>` +
         `</div>` +
-        `<script>(function(){var e=document.getElementById('yuno-ssr-hero');if(!e)return;var d=false;function g(){if(d)return;d=true;e.style.opacity='0';setTimeout(function(){try{e.parentNode&&e.parentNode.removeChild(e)}catch(_){}},260)}window.__yunoSsrHeroDismiss=g;setTimeout(g,6000)})();</script>`,
+        SSR_HERO_SCRIPT,
       { html: true },
     );
   }
+
+  private eventStage(el: El) {
+    el.prepend(
+      `<div id="yuno-ssr-hero" style="position:fixed;inset:0;z-index:60;background:#0A0A0A;opacity:1;transition:opacity 240ms ease;overflow:hidden">` +
+        eventStageOverlay(this.e) +
+        `<style>@keyframes yunossr{to{transform:rotate(360deg)}}</style>` +
+        `</div>` +
+        SSR_HERO_SCRIPT,
+      { html: true },
+    );
+  }
+}
+
+// Congédiement de la pré-page (contrat : voir HeroOverlayInjector).
+const SSR_HERO_SCRIPT =
+  `<script>(function(){var e=document.getElementById('yuno-ssr-hero');if(!e)return;var d=false;function g(){if(d)return;d=true;e.style.opacity='0';setTimeout(function(){try{e.parentNode&&e.parentNode.removeChild(e)}catch(_){}},260)}window.__yunoSsrHeroDismiss=g;setTimeout(g,6000)})();</script>`;
+
+// Variante SOIRÉE de la pré-page : la même mise en page que EventDetails
+// (EventHeroStage) — colonne 768 px à 20 px des bords, cadre 16:9 arrondi sur
+// un halo aux couleurs du visuel, titre en dessous. Sans elle, la pré-page
+// montrait l'ancienne affiche plein écran titrée, puis la page « sautait ».
+function eventStageOverlay(e: Entity): string {
+  const src = e.stage ? esc(e.stage) : '';
+  const halo = src
+    ? `<div style="position:absolute;inset:-26% -16% -34%;z-index:-1;background-image:url('${src}');background-size:cover;background-position:center;filter:blur(64px) saturate(1.8);opacity:.8;-webkit-mask-image:radial-gradient(closest-side,#000 55%,transparent 100%);mask-image:radial-gradient(closest-side,#000 55%,transparent 100%)"></div>`
+    : `<div style="position:absolute;inset:-18% -10%;z-index:-1;background:radial-gradient(closest-side,rgba(232,25,44,.28),transparent);filter:blur(30px)"></div>`;
+  const inner = !src
+    ? `<div style="position:absolute;inset:0;background:linear-gradient(160deg,#1a0a0d 0%,#4a0f1a 50%,#7a1428 100%)"></div>`
+    : e.stageWide
+    ? `<div style="position:absolute;inset:0;background-image:url('${src}');background-size:cover;background-position:center"></div>`
+    : `<div style="position:absolute;inset:0;background-image:url('${src}');background-size:cover;background-position:center;filter:blur(26px) saturate(1.3) brightness(.55);transform:scale(1.18)"></div>` +
+      `<div style="position:absolute;inset:0;background-image:url('${src}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`;
+  return (
+    `<div style="max-width:768px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 68px) 20px 0">` +
+      `<div style="position:relative;isolation:isolate">` +
+        halo +
+        `<div style="position:relative;overflow:hidden;width:100%;aspect-ratio:16/9;border-radius:14px;background:#050505;box-shadow:0 28px 70px -24px rgba(0,0,0,.75),inset 0 0 0 1px rgba(255,255,255,.07)">${inner}</div>` +
+      `</div>` +
+      `<p style="margin:clamp(62px,14vw,80px) 0 0;font-family:'Space Grotesk',system-ui,sans-serif;font-size:clamp(34px,9.5vw,64px);font-weight:700;letter-spacing:-0.025em;line-height:.92;text-transform:uppercase;color:#fff">${esc(e.h1)}</p>` +
+      `<div style="margin-top:22px;width:26px;height:26px;border:2.5px solid rgba(255,255,255,0.16);border-top-color:#E8192C;border-radius:50%;animation:yunossr 0.9s linear infinite"></div>` +
+    `</div>`
+  );
 }
 
 // Fiches éligibles à l'overlay humain — ancrées en fin : les sous-routes
@@ -1706,7 +1773,13 @@ export default {
         (fetchMode === null || fetchMode === 'navigate')
       ) {
         const cache = G.caches?.default;
-        const cacheKey = new Request(`${ORIGIN}${url.pathname}?__ssrhero=1`);
+        // La version du déploiement fait partie de la clé : le HTML garde les noms
+        // hachés du build qui l'a produit. Sans elle, une page mise en cache par
+        // l'ancienne version juste avant une mise en ligne était resservie jusqu'à
+        // 180 s après, avec un index-*.js déjà supprimé → « Something went wrong »,
+        // même au rechargement forcé (vécu le 15/10 sur une page soirée).
+        const deployId = env.CF_VERSION_METADATA?.id ?? '';
+        const cacheKey = new Request(`${ORIGIN}${url.pathname}?__ssrhero=1&v=${encodeURIComponent(deployId)}`);
         if (cache) {
           const hit = await cache.match(cacheKey);
           if (hit) return hit;

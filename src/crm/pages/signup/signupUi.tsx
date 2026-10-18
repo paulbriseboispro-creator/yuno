@@ -135,8 +135,13 @@ export function rewardOfPage(p: Pick<SignupPageRow, 'reward' | 'kind'>): SignupR
   return p.reward ? { ...defaultReward(p.kind), ...p.reward } : defaultReward(p.kind);
 }
 
-/** La configuration de la page du fan pour une page enregistrée. */
-export function pageCfg(p: SignupPageRow, host: string, t: T, locale: string): FanCfg {
+/** Les faits d'une soirée lus par les balises d'un design sur mesure. */
+function eventFactsOf(ev: SignupEvent | null | undefined): FanCfg['eventFacts'] {
+  return ev ? { title: ev.title, start_at: ev.start_at, tz: ev.tz, venue: ev.venue, city: ev.city, poster: ev.cover_url, ticket_url: ev.ticket_url, sold_out: ev.sold_out } : null;
+}
+
+/** La configuration de la page du fan pour une page enregistrée (avec son design sur mesure s'il existe). */
+export function pageCfg(p: SignupPageRow, host: string, t: T, locale: string, brand?: FanCfg['brand']): FanCfg {
   const ev = p.event;
   return {
     kind: p.kind,
@@ -162,6 +167,9 @@ export function pageCfg(p: SignupPageRow, host: string, t: T, locale: string): F
     eventStart: ev?.start_at ?? null,
     eventEnd: ev?.end_at ?? null,
     country: ev?.country ?? null,
+    custom: p.custom_design ?? null,
+    eventFacts: eventFactsOf(ev),
+    brand: brand ?? null,
   };
 }
 

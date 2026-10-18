@@ -10,6 +10,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Pencil, Plus, Check, Trash2, ExternalLink } from 'lucide-react';
+import { PartnerLinkDialog, type PartnerLinkRow } from './PartnerLinkDialog';
+import { PartnerLinksPanel, type PartnerStatsRow } from './PartnerLinksPanel';
+import { isPartnerRole } from '@/lib/partnerLinks';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -40,7 +43,11 @@ interface TrackedLinksManagerProps {
   targetVenueId?: string | null;
   /** guest_lists.id — required when targetKind === 'guestlist' */
   guestListId?: string | null;
+  /** Titre de la soirée : propose le code des liens partenaires et remplit le message. */
+  eventTitle?: string | null;
 }
+
+type PartnerMeta = Omit<PartnerLinkRow, 'id' | 'code'>;
 
 interface LinkRow {
   id: string;
@@ -78,11 +85,18 @@ function genCode(): string {
 }
 
 export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
-  const { ownerKind, venueId, organizerUserId, promoterId, djId, targetKind, eventId, targetVenueId, guestListId } = props;
+  const { ownerKind, venueId, organizerUserId, promoterId, djId, targetKind, eventId, targetVenueId, guestListId, eventTitle } = props;
   const { t, language } = useLanguage();
   // Une guest list est gratuite : « ventes » et « CA » n'ont pas de sens, la
   // conversion utile est le nombre d'inscrits.
   const isGuestList = targetKind === 'guestlist';
+  // Liens partenaires : un club ou un organisateur branche une personne sur
+  // CETTE soirée, avec sa page de stats (migration 20261017200000).
+  const partnersEnabled = targetKind === 'event' && !!eventId && (ownerKind === 'venue' || ownerKind === 'organizer');
+  const [tab, setTab] = useState<'channels' | 'partners'>('channels');
+  const [partnerMeta, setPartnerMeta] = useState<Record<string, PartnerMeta>>({});
+  const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
+  const [partnerEditing, setPartnerEditing] = useState<PartnerLinkRow | null>(null);
 
   const [rows, setRows] = useState<LinkRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,11 +140,31 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
       return;
     }
     let result = (data ?? []) as LinkRow[];
+    // Les liens partenaires sont des liens suivis ordinaires : leurs champs
+    // propres (nom, rôle, jeton de page) se lisent à part, sous la même RLS.
+    const meta: Record<string, PartnerMeta> = {};
+    if (partnersEnabled && result.length > 0) {
+      const { data: partners } = await supabase
+        .from('tracked_links')
+        .select('id, partner_name, partner_role, partner_contact, partner_token, partner_shows_revenue')
+        .in('id', result.map((r) => r.id))
+        .not('partner_name', 'is', null);
+      for (const p of partners ?? []) {
+        if (!p.partner_name || !p.partner_token) continue;
+        meta[p.id] = {
+          partner_name: p.partner_name,
+          partner_role: isPartnerRole(p.partner_role) ? p.partner_role : 'other',
+          partner_contact: p.partner_contact,
+          partner_token: p.partner_token,
+          partner_shows_revenue: p.partner_shows_revenue,
+        };
+      }
+    }
     // No links for an event the owner controls → seed the defaults once, then refetch.
     // Le lien direct d'une partie (« coorg ») ne compte pas : sans canal
     // Instagram / TikTok / Newsletter / WhatsApp, on les sème quand même.
     if (
-      result.filter((r) => r.label !== 'coorg').length === 0 &&
+      result.filter((r) => r.label !== 'coorg' && !meta[r.id]).length === 0 &&
       targetKind === 'event' && eventId &&
       ownerKind !== 'promoter' &&
       autoSeededRef.current !== eventId
@@ -178,9 +212,26 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
         if (!refetchErr) result = (seeded ?? []) as LinkRow[];
       }
     }
+    setPartnerMeta(meta);
     setRows(result);
     setLoading(false);
-  }, [fetchStats, ownerKind, targetKind, eventId, venueId, organizerUserId, guestListId, t]);
+  }, [fetchStats, ownerKind, targetKind, eventId, venueId, organizerUserId, guestListId, partnersEnabled, t]);
+
+  const channelRows = useMemo(() => rows.filter((r) => !partnerMeta[r.id]), [rows, partnerMeta]);
+  const partnerRows = useMemo<PartnerStatsRow[]>(
+    () => rows
+      .filter((r) => partnerMeta[r.id])
+      .map((r) => ({
+        ...partnerMeta[r.id],
+        id: r.id, code: r.code, clicks: r.clicks, conversions: Number(r.conversions) || 0,
+        revenue: r.revenue, is_active: r.is_active,
+      }))
+      .sort((a, b) => b.conversions - a.conversions || b.clicks - a.clicks),
+    [rows, partnerMeta],
+  );
+  // Le CA ne s'ouvre au partenaire que si l'on voit soi-même l'argent.
+  const canSeeMoney = rows.length > 0 ? rows.some((r) => r.revenue !== null && r.revenue !== undefined) : null;
+  const showingPartners = partnersEnabled && tab === 'partners';
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -197,14 +248,17 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
     }
   };
 
-  const openCreate = () => { setEditing(null); setLabelInput(''); setDialogOpen(true); };
+  const openCreate = () => {
+    if (showingPartners) { setPartnerEditing(null); setPartnerDialogOpen(true); return; }
+    setEditing(null); setLabelInput(''); setDialogOpen(true);
+  };
   const openEdit = (row: LinkRow) => { setEditing(row); setLabelInput(row.label); setDialogOpen(true); };
 
   const save = async () => {
     const label = labelInput.trim();
     if (!label) { toast.error(t('tlink.labelRequired')); return; }
     // One link per origin: block a second link for a channel that already exists.
-    if (!editing && rows.some((r) => r.label.trim().toLowerCase() === label.toLowerCase())) {
+    if (!editing && channelRows.some((r) => r.label.trim().toLowerCase() === label.toLowerCase())) {
       toast.error(t('tlink.duplicateChannel'));
       return;
     }
@@ -261,14 +315,34 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">{t('tlink.title')}</h3>
+        {partnersEnabled ? (
+          <div role="tablist" aria-label={t('tlink.title')} className="flex items-center gap-5">
+            {(['channels', 'partners'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={tab === k}
+                onClick={() => setTab(k)}
+                className={`-mb-px border-b-2 pb-1.5 text-xs font-semibold uppercase tracking-[0.2em] transition-colors ${
+                  tab === k ? 'border-[#E8192C] text-white' : 'border-transparent text-white/45 hover:text-white/75'
+                }`}
+              >
+                {k === 'channels' ? t('plink.tabChannels') : t('plink.tabPartners')}
+                <span className="ml-1.5 font-medium text-white/40">{k === 'channels' ? channelRows.length : partnerRows.length}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">{t('tlink.title')}</h3>
+        )}
         <Button
           onClick={openCreate}
           variant="outline"
           size="sm"
           className="border-white/15 bg-white/5 text-white hover:bg-white/10 uppercase tracking-wider text-xs"
         >
-          <Plus className="h-4 w-4 mr-1.5" />{t('tlink.create')}
+          <Plus className="h-4 w-4 mr-1.5" />{showingPartners ? t('plink.add') : t('tlink.create')}
         </Button>
       </div>
 
@@ -278,13 +352,22 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
             <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />
           ))}
         </div>
-      ) : rows.length === 0 ? (
+      ) : showingPartners ? (
+        <PartnerLinksPanel
+          rows={partnerRows}
+          eventTitle={eventTitle}
+          formatMoney={(n) => currency.format(n)}
+          onCreate={openCreate}
+          onEdit={(row) => { setPartnerEditing(row); setPartnerDialogOpen(true); }}
+          onChanged={fetchRows}
+        />
+      ) : channelRows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-white/40">
           {t('tlink.empty')}
         </div>
       ) : (
         <div className="space-y-2.5">
-          {rows.map((row) => (
+          {channelRows.map((row) => (
             <div
               key={row.id}
               className={`group rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent px-4 py-3.5 transition-colors hover:border-white/20 ${row.is_active ? '' : 'opacity-50'}`}
@@ -329,6 +412,21 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
             </div>
           ))}
         </div>
+      )}
+
+      {partnersEnabled && eventId && (
+        <PartnerLinkDialog
+          open={partnerDialogOpen}
+          onOpenChange={setPartnerDialogOpen}
+          editing={partnerEditing}
+          ownerKind={ownerKind as 'venue' | 'organizer'}
+          venueId={venueId}
+          organizerUserId={organizerUserId}
+          eventId={eventId}
+          eventTitle={eventTitle}
+          canSeeMoney={canSeeMoney}
+          onSaved={fetchRows}
+        />
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

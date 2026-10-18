@@ -33,6 +33,6 @@ export default function BlockRenderer({ block, theme, ctx, mobile }: {
     case 'social': return <SocialView block={block} theme={theme} ctx={ctx} />;
     case 'divider': return <DividerView block={block} theme={theme} />;
     case 'spacer': return <SpacerView block={block} theme={theme} />;
-    case 'html': return <HtmlView block={block} theme={theme} />;
+    case 'html': return <HtmlView block={block} theme={theme} ctx={ctx} mobile={mobile} />;
   }
 }

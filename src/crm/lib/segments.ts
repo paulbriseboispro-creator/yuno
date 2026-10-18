@@ -71,6 +71,21 @@ export function criteria(def: ClientFilterDef, t: T): { k: string; v: string }[]
   if (f.tags?.length) out.push({ k: t('yc.seg.crit.tags'), v: f.tags.join(', ') });
   if (f.msg) out.push({ k: t('yc.seg.crit.msg'), v: t(`yc.seg.crit.msg.${f.msg}`) });
   if (num(f.click_lt_days) !== undefined) out.push({ k: t('yc.seg.crit.click'), v: lessDays(num(f.click_lt_days) as number, t) });
+  // Analyse client (migration 20261010110000).
+  if (f.hyp?.length) out.push({ k: t('yc.why.crit.hyp'), v: f.hyp.map((x) => t(`yc.why.fam.${x}`)).join(', ') });
+  if (f.artist?.length) out.push({ k: t('yc.why.crit.artist'), v: t('yc.why.crit.artistN', { n: f.artist.length }) });
+  if (f.genre?.length) out.push({ k: t('yc.why.crit.genre'), v: f.genre.join(', ') });
+  if (f.fmt?.length) out.push({ k: t('yc.why.crit.fmt'), v: f.fmt.join(', ') });
+  if (f.series?.length) out.push({ k: t('yc.why.crit.series'), v: f.series.join(', ') });
+  if (f.buy?.length) out.push({ k: t('yc.why.crit.buy'), v: f.buy.map((x) => t(`yc.why.buy.${x}`)).join(', ') });
+  if (f.grp) out.push({ k: t('yc.why.crit.grp'), v: t(`yc.why.crit.grp.${f.grp}`) });
+  if (f.arr?.length) out.push({ k: t('yc.why.crit.arr'), v: f.arr.map((x) => (x === 'gl' ? t('yc.why.src.gl') : t(`yc.ana.src.${x}`))).join(', ') });
+  if (num(f.dist_min) !== undefined || num(f.dist_max) !== undefined) {
+    out.push({ k: t('yc.why.crit.dist'), v: num(f.dist_min) !== undefined && num(f.dist_max) !== undefined
+      ? t('yc.why.crit.distKm', { a: num(f.dist_min) as number, b: num(f.dist_max) as number })
+      : `${range(num(f.dist_min), num(f.dist_max), t)} km` });
+  }
+  if (f.pass) out.push({ k: t('yc.why.crit.pass'), v: t(`yc.why.crit.pass.${f.pass}`) });
   if (f.emails?.length) out.push({ k: t('yc.seg.crit.fixed'), v: t('yc.seg.crit.fixedN', { n: f.emails.length }) });
   if (def.q) out.push({ k: t('yc.seg.crit.search'), v: `« ${def.q} »` });
   return out;
@@ -88,8 +103,8 @@ export function segmentRule(seg: Pick<SegmentRow, 'key' | 'kind' | 'description'
 // ── Catalogue des modèles ───────────────────────────────────────────────────
 
 /** Les familles du catalogue, dans l'ordre de la fenêtre. */
-export type SegGroupKey = 'loyalty' | 'next' | 'spend' | 'recency' | 'guest' | 'messages' | 'geo' | 'people' | 'channel' | 'source';
-export const SEG_GROUPS: SegGroupKey[] = ['loyalty', 'next', 'spend', 'recency', 'guest', 'messages', 'geo', 'people', 'channel', 'source'];
+export type SegGroupKey = 'loyalty' | 'next' | 'why' | 'spend' | 'recency' | 'guest' | 'messages' | 'geo' | 'people' | 'channel' | 'source';
+export const SEG_GROUPS: SegGroupKey[] = ['loyalty', 'next', 'why', 'spend', 'recency', 'guest', 'messages', 'geo', 'people', 'channel', 'source'];
 
 export interface SegmentTemplate { id: string; def: ClientFilterDef; group: SegGroupKey }
 
@@ -109,6 +124,19 @@ export const SEGMENT_TEMPLATES: SegmentTemplate[] = [
   // Prochaine soirée
   { id: 'regulars_no_ticket', group: 'next', def: { seg: 'hab', f: { up: 'no' } } },
   { id: 'has_upcoming', group: 'next', def: { seg: 'all', f: { up: 'yes' } } },
+  // Ce qui fait venir (analyse client, migration 20261010110000) : des FAITS.
+  // « Recommandé » seulement si la famille est confirmée sur le compte
+  // (WHY_FAMILY, catalogEntries).
+  { id: 'why_artist', group: 'why', def: { seg: 'all', f: { hyp: ['artist'] } } },
+  { id: 'why_series', group: 'why', def: { seg: 'all', f: { hyp: ['series'] } } },
+  { id: 'why_genre', group: 'why', def: { seg: 'all', f: { hyp: ['genre'] } } },
+  { id: 'why_launch', group: 'why', def: { seg: 'all', f: { buy: ['launch'] } } },
+  { id: 'why_last_minute', group: 'why', def: { seg: 'all', f: { buy: ['last_minute'] } } },
+  { id: 'why_group', group: 'why', def: { seg: 'all', f: { grp: 'group' } } },
+  { id: 'why_brought', group: 'why', def: { seg: 'all', f: { grp: 'brought' } } },
+  { id: 'why_discovery', group: 'why', def: { seg: 'all', f: { arr: ['sg'] } } },
+  { id: 'why_passing', group: 'why', def: { seg: 'all', f: { pass: 'yes', nb_max: 1 } } },
+  { id: 'why_local_once', group: 'why', def: { seg: 'all', f: { pass: 'no', nb_max: 1, last_gt_days: 30 } } },
   // Dépense (+ spend_top et basket_high, calculés sur les données)
   { id: 'buyers', group: 'spend', def: { seg: 'all', f: { paid_min: 1 } } },
   { id: 'vip', group: 'spend', def: { seg: 'all', f: { sp: '200+' } } },
@@ -161,7 +189,20 @@ export const DYNAMIC_TEMPLATES: Record<string, SegGroupKey> = {
  */
 export const RECOMMENDED: readonly string[] = [
   'regulars_no_ticket', 'spend_top', 'once', 'loin', 'clicked_no_buy', 'lapsed', 'winback', 'gl_loyal',
+  'why_local_once', 'why_artist', 'why_series', 'why_genre', 'why_launch', 'why_last_minute', 'why_group',
+  'why_brought', 'why_discovery',
 ];
+
+/**
+ * La famille d'hypothèses de chaque modèle « Ce qui fait venir » : il n'est
+ * recommandé que si elle est CONFIRMÉE sur le compte (et, pour un groupe de
+ * retour, si ce groupe revient davantage).
+ */
+export const WHY_FAMILY: Record<string, string> = {
+  why_artist: 'artist', why_series: 'series', why_genre: 'genre', why_launch: 'launch',
+  why_last_minute: 'last_minute', why_group: 'group', why_brought: 'brought', why_discovery: 'discovery',
+  why_local_once: 'passing',
+};
 export const REC_MIN = 10;
 
 /** « geo_area:paris » → « geo_area ». */

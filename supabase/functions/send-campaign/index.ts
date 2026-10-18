@@ -29,6 +29,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
   renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
+  usesCrmVariables, fetchRecipientCrmVars, interpolateText, type CrmRecipientVars,
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
@@ -68,6 +69,8 @@ interface Recipient {
   ab_variant?: string | null;
   /** Règles de visibilité satisfaites (résolues par lot avant le rendu). */
   conds?: Set<string>;
+  /** Variables Yuno CRM ({{artiste}}, {{1re_soiree}}, {{nb_soirees}}), résolues par lot. */
+  crm?: CrmRecipientVars;
 }
 
 // ── Adresses expédiables ────────────────────────────────────────────────────
@@ -198,6 +201,8 @@ interface Sender {
   city: string | null;
   /** Adresse postale réglée dans le CRM (pied de page), sinon null. */
   postalAddress: string | null;
+  /** Raison sociale réglée dans le CRM : elle signe le pied de page, sinon null. */
+  legalName: string | null;
   /** Logo du compte — repli de marque du bloc header (voir email-studio-html.ts). */
   logoUrl: string | null;
   ownerUserId: string;
@@ -210,7 +215,13 @@ interface Sender {
   isPlatform: boolean;
 }
 
-async function resolveSender(admin: Admin, campaign: Record<string, unknown>): Promise<Sender> {
+/**
+ * `isCrm` = la campagne est du Yuno CRM (crm_campaign_is_crm) : seules celles-là
+ * lisent Réglages › Envoi. Une campagne Billetterie d'un compte qui a aussi le
+ * CRM garde l'identité du compte — le CRM peut écrire au nom d'une autre
+ * structure (Amoris teste le Shotgun de WOH), ses reçus et ses newsletters non.
+ */
+async function resolveSender(admin: Admin, campaign: Record<string, unknown>, isCrm: boolean): Promise<Sender> {
   let name = '';
   let city: string | null = null;
   let logoUrl: string | null = null;
@@ -256,23 +267,29 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
     .from('profiles').select('email, first_name, last_name').eq('id', ownerUserId!).single();
 
   const isPlatform = !venueId && !organizerUserId;
-  // Yuno CRM : nom d'expéditeur et adresse de réponse choisis dans Réglages
-  // d'envoi (crm_email_settings). L'adresse d'envoi garde le nom du compte :
-  // changer d'affichage ne doit pas changer de réputation.
+  // Yuno CRM : nom d'expéditeur, raison sociale, adresse postale et adresse de
+  // réponse choisis dans Réglages › Envoi (crm_email_settings). L'adresse
+  // d'envoi garde le nom du compte : changer d'affichage ne doit pas changer
+  // de réputation. Le nom affiché devient aussi la marque du corps de l'e-mail
+  // ({{nom_club}}, en-tête sans nom) : ce que le client lit en haut et en bas
+  // est ce qu'il voit dans « De : ».
   let displayName = name;
   let replyOverride: string | null = null;
   let postalAddress: string | null = null;
-  if (!isPlatform) {
-    const { data: cs } = await admin
-      .from('crm_email_settings').select('sender_name, reply_to, postal_address')
+  let legalName: string | null = null;
+  if (!isPlatform && isCrm) {
+    const { data: cs, error: csErr } = await admin
+      .from('crm_email_settings').select('sender_name, legal_name, reply_to, postal_address')
       .eq('scope_key', senderScopeKey(venueId, organizerUserId)).maybeSingle();
-    const row = cs as { sender_name?: string | null; reply_to?: string | null; postal_address?: string | null } | null;
-    if (row?.sender_name?.trim()) displayName = row.sender_name.trim().replace(/[<>"]/g, '');
+    if (csErr) throw new Error(`crm_email_settings: ${csErr.message}`);
+    const row = cs as { sender_name?: string | null; legal_name?: string | null; reply_to?: string | null; postal_address?: string | null } | null;
+    if (row?.sender_name?.trim()) displayName = row.sender_name.trim().replace(/[<>"\r\n]/g, '');
     if (row?.reply_to?.trim()) replyOverride = row.reply_to.trim();
     if (row?.postal_address?.trim()) postalAddress = row.postal_address.trim();
+    if (row?.legal_name?.trim()) legalName = row.legal_name.trim();
   }
   return {
-    name, city, postalAddress, logoUrl, ownerUserId: ownerUserId!,
+    name: displayName, city, postalAddress, legalName, logoUrl, ownerUserId: ownerUserId!,
     from: `${displayName} <${slugifyVenueName(name)}@${marketingDomain()}>`,
     replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
@@ -312,17 +329,32 @@ async function makeStudioHtmlBuilder(
     { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
     // Soirée Shotgun : la vente revient avec la source de CETTE campagne.
     opts.trackedLinks === false ? null : `yuno-m-${String(campaign.id ?? '').replace(/-/g, '').slice(0, 8).toLowerCase()}`,
+    // Langue de l'e-mail : prix, dates et formules des blocs Yuno la suivent.
+    (campaign.language as string | null) || null,
   );
 
-  return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
+  const recipientOf = (r: Recipient) => ({
+    email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds,
+    artistName: r.crm?.artistName, firstNightTitle: r.crm?.firstNightTitle, nightsCount: r.crm?.nightsCount,
+  });
+  // L'objet passe par les MÊMES variables que le corps ({{prénom}}, {{soirée}}…) :
+  // sans ça, « {{prénom}}, … » partait tel quel dans la boîte de réception.
+  const subject = (r: Recipient) => interpolateText(subjectForRecipient(campaign, r), {
+    recipient: recipientOf(r), venueName: sender.name, city: sender.city, live,
+    language: (campaign.language as string | null) || null,
+  }).trim() || sender.name;
+  const render = (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
     venueName: sender.name,
     city: sender.city,
     postalAddress: sender.postalAddress,
+    legalName: sender.legalName,
     logoUrl: campaignLogo || sender.logoUrl,
     emailType: campaign.type as 'promotional' | 'informational',
+    // Langue de l'e-mail (posée par le MCP) : pied de page légal et balises.
+    language: (campaign.language as string | null) || null,
     subject: subjectForRecipient(campaign, r),
     preheader: (campaign.preheader as string) || undefined,
-    recipient: { email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds },
+    recipient: recipientOf(r),
     unsubscribeUrl: r.unsubscribe_token ? `${PUBLIC_URL}/unsubscribe?token=${r.unsubscribe_token}` : undefined,
     socialLinks: (campaign.social_links_json || {}) as StudioSocialLinks,
     hideBranding,
@@ -331,7 +363,11 @@ async function makeStudioHtmlBuilder(
     live,
     ignoreConds: !!opts.ignoreConds,
   });
+  return Object.assign(render, { subject });
 }
+
+/** Le rendu d'un destinataire ; `subject` quand l'objet passe par les variables (Studio v2). */
+type Builder = ((r: Recipient) => string) & { subject?: (r: Recipient) => string };
 
 /** Route vers le builder selon la version du modèle de blocs. */
 async function makeBuilder(
@@ -339,7 +375,7 @@ async function makeBuilder(
   campaign: Record<string, unknown>,
   sender: Sender,
   opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
-) {
+): Promise<Builder> {
   if (Number(campaign.blocks_version || 1) >= 2) {
     return makeStudioHtmlBuilder(admin, campaign, sender, opts);
   }
@@ -402,6 +438,9 @@ async function drainSlice(
   const usedConds = Number(campaign.blocks_version || 1) >= 2
     ? collectStudioConds((campaign.blocks_json as StudioBlock[]) || [])
     : [];
+  // Variables Yuno CRM : une RPC par lot, seulement si l'e-mail en utilise une.
+  const usedCrmVars = Number(campaign.blocks_version || 1) >= 2
+    && usesCrmVariables([campaign.subject, campaign.subject_b, campaign.preheader, campaign.blocks_json]);
   const deadline = Date.now() + SLICE_MS;
 
   let sent = 0;
@@ -542,6 +581,10 @@ async function drainSlice(
       const condMap = await fetchRecipientConds(admin, campaignId, sendable.map((r) => r.email), usedConds);
       for (const r of sendable) r.conds = condMap.get(r.email.toLowerCase()) || new Set();
     }
+    if (usedCrmVars) {
+      const varMap = await fetchRecipientCrmVars(admin, campaignId, sendable.map((r) => r.email));
+      for (const r of sendable) r.crm = varMap.get(r.email.toLowerCase());
+    }
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
     //    peut faire exploser la taille du payload : on adapte plutôt que de se
@@ -549,7 +592,7 @@ async function drainSlice(
     const payload: ResendEmail[] = sendable.map((r) => ({
       from: sender.from,
       to: [addressOf.get(r.email)!],
-      subject: subjectForRecipient(campaign, r),
+      subject: buildHtml.subject ? buildHtml.subject(r) : subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
       headers: unsubHeaders(r.unsubscribe_token),
@@ -772,20 +815,23 @@ async function sendTest(
   // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
   // doit voir l'email complet.
   const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true, trackedLinks: false });
-  const payload: ResendEmail[] = targets.map((email) => ({
-    from: sender.from,
-    to: [email],
-    subject: campaign.subject as string,
-    html: buildHtml({
+  const payload: ResendEmail[] = targets.map((email) => {
+    const tr: Recipient = {
       email,
       first_name: ownerProfile?.first_name,
       last_name: ownerProfile?.last_name,
       unsubscribe_token: '00000000-0000-0000-0000-000000000000',
-    }),
-    reply_to: sender.replyTo || undefined,
-    headers: unsubHeaders('00000000-0000-0000-0000-000000000000'),
-    tags: [{ name: 'campaign_id', value: campaignId }],
-  }));
+    };
+    return {
+      from: sender.from,
+      to: [email],
+      subject: buildHtml.subject ? buildHtml.subject(tr) : campaign.subject as string,
+      html: buildHtml(tr),
+      reply_to: sender.replyTo || undefined,
+      headers: unsubHeaders('00000000-0000-0000-0000-000000000000'),
+      tags: [{ name: 'campaign_id', value: campaignId }],
+    };
+  });
 
   const outcome = await sendResendBatch(RESEND_API_KEY!, payload);
   if (!outcome.ok) throw new Error(outcome.error || 'Test send failed');
@@ -804,8 +850,8 @@ Deno.serve(async (req) => {
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
     const body = await req.json();
-    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id, automation_id, event_id } = body ?? {};
-    if (!campaign_id && !(send_test && automation_id)) {
+    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id, automation_id, event_id, scenario_id, node_id } = body ?? {};
+    if (!campaign_id && !(send_test && (automation_id || (scenario_id && node_id)))) {
       return new Response(JSON.stringify({ error: 'campaign_id required' }), { status: 400, headers: jsonHeaders });
     }
 
@@ -858,6 +904,38 @@ Deno.serve(async (req) => {
         theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
         logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',
         subject_b: null, ab_enabled: false, automation_id,
+        // Recette réglée dans la Console CRM : ses e-mails sont du CRM.
+        product: (auto as { product?: string | null }).product ?? null,
+      };
+    } else if (!campaign_id && send_test && typeof scenario_id === 'string' && typeof node_id === 'string') {
+      // Test d'un message de SCÉNARIO (Yuno CRM) : comme une recette, aucune
+      // campagne n'existe avant le moteur ; on rejoue la composition du nœud
+      // (son modèle, son objet, la portée du scénario, la soirée choisie).
+      const { data: scn } = await admin
+        .from('crm_scenarios').select('id, venue_id, organizer_user_id, draft').eq('id', scenario_id).maybeSingle();
+      if (!scn) throw new Error('Scenario not found');
+      const node = ((scn.draft as { nodes?: Record<string, Record<string, unknown>> } | null)?.nodes ?? {})[node_id];
+      if (!node || node.type !== 'email' || typeof node.template_id !== 'string') throw new Error('scenario_node_not_email');
+      const { data: tpl } = await admin
+        .from('email_campaign_templates').select('*').eq('id', node.template_id).maybeSingle();
+      const sameScope = !!tpl && ((tpl.venue_id as string | null) || null) === ((scn.venue_id as string | null) || null)
+        && ((tpl.organizer_user_id as string | null) || null) === ((scn.organizer_user_id as string | null) || null);
+      if (!tpl || !sameScope) throw new Error('Template not found');
+      const bindEvent = typeof event_id === 'string' && event_id
+        ? event_id
+        : (node.event === 'fixed' && typeof node.event_id === 'string' ? node.event_id : null);
+      const blocks = (tpl.blocks_json as StudioBlock[]) || [];
+      campaign = {
+        id: `scenario-test-${scenario_id}-${node_id}`,
+        venue_id: scn.venue_id, organizer_user_id: scn.organizer_user_id,
+        name: tpl.name, type: 'promotional',
+        subject: (typeof node.subject === 'string' && node.subject.trim()) || tpl.subject || tpl.name,
+        preheader: tpl.preheader || '',
+        blocks_json: bindEvent ? blocks : blocks.filter((b) => !['event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup'].includes(b.type)),
+        blocks_version: 2,
+        theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
+        logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',
+        subject_b: null, ab_enabled: false,
       };
     } else {
       const { data: row, error: cErr } = await admin
@@ -878,7 +956,28 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'demo_no_send', code: 'demo_no_send' }), { status: 409, headers: jsonHeaders });
     }
 
-    const sender = await resolveSender(admin, campaign);
+    // Yuno CRM ? Même règle que la facturation en Yunits (crm_campaign_is_crm).
+    // Un test de scénario est toujours du CRM ; un test de recette aussi quand
+    // la Console CRM l'a réglée (email_automations.product), sinon il suit sa
+    // portée (CRM seulement sur un compte CRM pur), comme ses e-mails.
+    let isCrm = false;
+    if (campaign_id) {
+      const { data: c, error } = await admin.rpc('crm_campaign_is_crm', { p_campaign_id: campaign_id });
+      if (error) throw new Error(`crm_campaign_is_crm: ${error.message}`);
+      isCrm = c === true;
+    } else if (scenario_id) {
+      isCrm = true;
+    } else if (automation_id && campaign.product === 'crm') {
+      isCrm = true;
+    } else if (automation_id) {
+      const { data: c, error } = await admin.rpc('crm_scope_is_crm', {
+        p_scope_key: senderScopeKey(campaign.venue_id as string | null, campaign.organizer_user_id as string | null),
+      });
+      if (error) throw new Error(`crm_scope_is_crm: ${error.message}`);
+      isCrm = c === true;
+    }
+
+    const sender = await resolveSender(admin, campaign, isCrm);
 
     if (actingUserId && sender.ownerUserId !== actingUserId) {
       const { data: roles } = await admin.from('user_roles').select('role').eq('user_id', actingUserId);
@@ -895,6 +994,33 @@ Deno.serve(async (req) => {
         crmTeam = inScope === true;
       }
       if (!isAdmin && !crmTeam) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: jsonHeaders });
+    }
+
+    // ── Identité de l'expéditeur (Yuno CRM) ────────────────────────────────
+    // Rien ne part — ni test, ni envoi, ni programmé — sans nom d'expéditeur,
+    // raison sociale, adresse postale et conditions acceptées par le titulaire
+    // (crm_email_sender_readiness → _crm_email_identity, migration 20261019103000). La base le
+    // refuse aussi (trigger trg_guard_crm_sender_identity) : ici on répond
+    // AVANT de mettre en file, avec la liste de ce qui manque. 402 comme
+    // crm_paused : process-scheduled-campaigns lit ce code comme « remise en
+    // brouillon », jamais « échouée ». Une tranche (drain) a déjà passé la porte.
+    if (isCrm && mode !== 'drain') {
+      const { data: idn, error: idErr } = await admin.rpc('crm_email_sender_readiness', {
+        p_venue_id: (campaign.venue_id as string | null) ?? null,
+        p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+      });
+      if (idErr) throw new Error(`crm_email_sender_readiness: ${idErr.message}`);
+      const identity = idn as { ready?: boolean; missing?: string[] } | null;
+      if (!identity?.ready) {
+        if (campaign_id && !send_test && ['sending', 'scheduled'].includes(String(campaign.status))) {
+          await admin.from('email_campaigns')
+            .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: 'crm_sender_identity' })
+            .eq('id', campaign_id).in('status', ['sending', 'scheduled']);
+        }
+        return new Response(JSON.stringify({
+          error: 'crm_sender_identity', code: 'crm_sender_identity', missing: identity?.missing ?? [],
+        }), { status: 402, headers: jsonHeaders });
+      }
     }
 
     // ── Test ────────────────────────────────────────────────────────────────
@@ -997,6 +1123,14 @@ Deno.serve(async (req) => {
       }
       // Yuno CRM : compte en pause (essai fini sans abonnement) — rien ne part,
       // la campagne redevient un brouillon que la Console signale.
+      // Identité de l'expéditeur retirée entre la vérification et la mise en
+      // file : la base a refusé le passage en envoi (trigger), même réponse.
+      if (eErr && eErr.message.includes('crm_sender_identity')) {
+        await admin.from('email_campaigns')
+          .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: 'crm_sender_identity' })
+          .eq('id', campaign_id).in('status', ['draft', 'sending', 'scheduled']);
+        return new Response(JSON.stringify({ error: 'crm_sender_identity', code: 'crm_sender_identity' }), { status: 402, headers: jsonHeaders });
+      }
       if (eErr && eErr.message.includes('crm_paused')) {
         await admin.from('email_campaigns')
           .update({ status: 'draft', paused_reason: null, error_message: 'crm_paused' })

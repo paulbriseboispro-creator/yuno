@@ -125,6 +125,9 @@ export default function OpenProduct() {
   const { user, loading } = useAuth();
   const { t } = useLanguage();
   const token = params.get('token');
+  // Offre fondateurs de Yuno CRM (migration 20261017230000) : un compte Yuno
+  // existant arrive ici depuis le lien d'invitation, l'offre s'applique à l'ouverture.
+  const offer = params.get('offer');
   const product: Product | null = raw === 'crm' || raw === 'suite' ? raw : null;
 
   const [invite, setInvite] = useState<InviteView | null>(null);
@@ -181,6 +184,16 @@ export default function OpenProduct() {
     window.location.assign(destination(product, r));
   };
 
+  /** Pose l'offre fondateurs sur le compte CRM choisi (sans bloquer l'ouverture si elle est refusée). */
+  const claimOffer = async (a: Account) => {
+    if (product !== 'crm' || !offer) return;
+    await supabase.rpc('crm_offer_claim' as never, {
+      p_token: offer,
+      p_venue_id: a.kind === 'venue' ? a.venue_id : null,
+      p_organizer_user_id: a.kind === 'org' ? a.organizer_user_id : null,
+    } as never);
+  };
+
   const openOnMine = async () => {
     if (!selected || busy) return;
     setBusy(true); setError(null);
@@ -190,6 +203,7 @@ export default function OpenProduct() {
       p_organizer_user_id: selected.kind === 'org' ? selected.organizer_user_id : null,
     } as never);
     if (e) { setError(errorText(e.message)); setBusy(false); return; }
+    await claimOffer(selected);
     window.location.assign(destination(product, selected));
   };
 
@@ -275,7 +289,7 @@ export default function OpenProduct() {
     return (
       <Shell>
         <Outcome tone="ok" title={fill(t('openProduct.alreadyTitle'), { product: productName, name: a.name })} body={t('openProduct.alreadyBody')}>
-          <button className="mt-6 w-full cursor-pointer" style={BTN_PRIMARY} onClick={() => window.location.assign(destination(product, a))}>
+          <button className="mt-6 w-full cursor-pointer" style={BTN_PRIMARY} onClick={() => { void claimOffer(a).finally(() => window.location.assign(destination(product, a))); }}>
             {fill(t('openProduct.goConsole'), { product: productName })}
           </button>
         </Outcome>

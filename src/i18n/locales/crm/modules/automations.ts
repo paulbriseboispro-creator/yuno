@@ -1,6 +1,6 @@
 import type { CrmDict } from './types';
 
-// Automatisations (/crm/automations) — [EN, FR, ES]. Six recettes d'un compte
+// Automatisations (/crm/automations) — [EN, FR, ES]. Sept recettes d'un compte
 // CRM, un e-mail chacune, montées par le moteur existant.
 const dict: CrmDict = {
   // En-tête
@@ -321,7 +321,7 @@ const dict: CrmDict = {
     'Este e-mail sale solo. La fiesta que muestra se elige en cada envío.',
   ],
 
-  // Les six recettes
+  // Les sept recettes
   'yc.au.r.new_event.name': ['Night announcement', 'Annonce d’une soirée', 'Anuncio de una fiesta'],
   'yc.au.r.new_event.desc': ['An email to your whole list as soon as a night goes on sale.', 'Un e-mail à toute votre base dès qu’une soirée est en vente.', 'Un e-mail a toda su base en cuanto una fiesta sale a la venta.'],
   'yc.au.r.new_event.trig': ['A night goes on sale', 'Une soirée est mise en vente', 'Una fiesta sale a la venta'],
@@ -346,6 +346,18 @@ const dict: CrmDict = {
     'Toda su base sin entrada; los compradores de Shotgun de la fiesta quedan fuera. Una fiesta agotada no desencadena nada.',
   ],
   'yc.au.r.last_call.when': ['Send: {d} before the night starts', 'Envoi : {d} avant le début de la soirée', 'Envío: {d} antes de que empiece la fiesta'],
+  'yc.au.r.click_no_buy.name': ['Clicked without buying', 'A cliqué sans acheter', 'Hizo clic sin comprar'],
+  'yc.au.r.click_no_buy.desc': ['A follow-up to those who looked at a night from one of your emails without getting a ticket.', 'Une relance à ceux qui ont regardé une soirée depuis un de vos e-mails sans prendre leur place.', 'Un recordatorio a quienes miraron una fiesta desde uno de sus e-mails sin conseguir su entrada.'],
+  'yc.au.r.click_no_buy.trig': ['A click without a purchase', 'Un clic sans achat', 'Un clic sin compra'],
+  'yc.au.r.click_no_buy.trigS': ['Clicked in an email, no ticket since', 'A cliqué dans un e-mail, pas de billet depuis', 'Hizo clic en un e-mail, sin entrada desde entonces'],
+  'yc.au.r.click_no_buy.q': ['When someone clicks a night in your emails and doesn’t buy', 'Quand quelqu’un clique sur une soirée dans vos e-mails sans acheter', 'Cuando alguien hace clic en una fiesta en sus e-mails y no compra'],
+  'yc.au.r.click_no_buy.short': ['Click, no ticket', 'Clic sans billet', 'Clic sin entrada'],
+  'yc.au.r.click_no_buy.target': [
+    'Those who clicked the night in one of your emails and have no ticket at the same address. Once per person and per night, never in the 2 hours before it starts. A visit from Instagram or your bio stays anonymous: it never triggers this.',
+    'Ceux qui ont cliqué sur la soirée dans un de vos e-mails et n’ont aucune place à la même adresse. Une fois par personne et par soirée, jamais dans les 2 h avant le début. Une visite venue d’Instagram ou de votre bio reste anonyme : elle ne déclenche rien.',
+    'Quienes hicieron clic en la fiesta en uno de sus e-mails y no tienen entrada con la misma dirección. Una vez por persona y por fiesta, nunca en las 2 h antes del inicio. Una visita desde Instagram o su bio sigue siendo anónima: no desencadena nada.',
+  ],
+  'yc.au.r.click_no_buy.when': ['Send: {d} after the click', 'Envoi : {d} après le clic', 'Envío: {d} después del clic'],
   'yc.au.r.post_event_thanks.name': ['Thanks after the night', 'Merci après la soirée', 'Gracias tras la fiesta'],
   'yc.au.r.post_event_thanks.desc': ['An email the next day to thank them and announce what’s next.', 'Un e-mail le lendemain pour remercier et annoncer la suite.', 'Un e-mail al día siguiente para agradecer y anunciar lo que viene.'],
   'yc.au.r.post_event_thanks.trig': ['The day after a night', 'Le lendemain d’une soirée', 'El día después de una fiesta'],
@@ -397,9 +409,9 @@ const dict: CrmDict = {
 
   'yc.au.soon.title': ['Coming soon', 'À venir', 'Próximamente'],
   'yc.au.soon.sub': [
-    'Three more automations are on the way. They need the data of an integrated ticketing partner.',
-    'Trois automatisations de plus arrivent. Elles demandent les données d’une billetterie intégrée.',
-    'Llegan tres automatizaciones más. Necesitan los datos de una taquilla integrada.',
+    'Two more automations are on the way. They need the data of an integrated ticketing partner.',
+    'Deux automatisations de plus arrivent. Elles demandent les données d’une billetterie intégrée.',
+    'Llegan dos automatizaciones más. Necesitan los datos de una taquilla integrada.',
   ],
   'yc.au.soon.cart.name': ['Abandoned cart', 'Panier abandonné', 'Carrito abandonado'],
   'yc.au.soon.cart.desc': [
@@ -413,11 +425,69 @@ const dict: CrmDict = {
     'Proposer une table VIP à qui vient d’acheter un billet.',
     'Ofrecer una mesa VIP a quien acaba de comprar una entrada.',
   ],
-  'yc.au.soon.visit.name': ['Page visited', 'Page visitée', 'Página visitada'],
-  'yc.au.soon.visit.desc': [
-    'A nudge to someone who looked at your night page without buying.',
-    'Une relance à qui a regardé la page d’une soirée sans acheter.',
-    'Un empujón a quien miró la página de una fiesta sin comprar.',
+
+  // « Faire revenir après la 1re soirée » (20261011130000) : e-mail puis SMS.
+  'yc.au.r.first_return.name': ['Bring them back after the first night', 'Faire revenir après la 1re soirée', 'Hacer volver tras la primera noche'],
+  'yc.au.r.first_return.desc': [
+    'An email at your account’s usual return delay, with the next night chosen for each person, then an SMS if they still have no ticket.',
+    'Un e-mail au délai de retour habituel de votre compte, avec la prochaine soirée choisie pour chacun, puis un SMS s’il n’a toujours pas de place.',
+    'Un e-mail en el plazo de vuelta habitual de su cuenta, con la próxima fiesta elegida para cada persona, y luego un SMS si sigue sin entrada.',
+  ],
+  'yc.au.r.first_return.trig': ['A first-timer doesn’t come back', 'Un nouveau ne revient pas', 'Un recién llegado no vuelve'],
+  'yc.au.r.first_return.trigS': ['One night, then nothing', 'Une soirée, puis plus rien', 'Una fiesta, y luego nada'],
+  'yc.au.r.first_return.q': ['When someone who came once hasn’t come back by the usual delay', 'Quand quelqu’un venu une fois n’est pas revenu dans le délai habituel', 'Cuando alguien que vino una vez no ha vuelto en el plazo habitual'],
+  'yc.au.r.first_return.short': ['After the 1st night', 'Après la 1re soirée', 'Tras la 1.ª noche'],
+  'yc.au.r.first_return.target': [
+    'People who came to a single night, live nearby (people passing through excluded) and have no ticket for a coming night, once your account’s usual return delay has passed. Once per person.',
+    'Les personnes venues à une seule soirée, qui habitent à proximité (les gens de passage exclus) et sans place pour une soirée à venir, une fois passé le délai de retour habituel de votre compte. Une fois par personne.',
+    'Las personas que vinieron a una sola fiesta, viven cerca (excluidos quienes están de paso) y no tienen entrada para una próxima fiesta, una vez pasado el plazo de vuelta habitual de su cuenta. Una vez por persona.',
+  ],
+  'yc.au.r.first_return.when': ['Send: {d} after the first night', 'Envoi : {d} après la 1re soirée', 'Envío: {d} tras la primera noche'],
+  'yc.au.fr.when.other': [
+    '{n} days after their first night: your account’s usual return delay (median of the people who came back).',
+    '{n} jours après leur 1re soirée : le délai de retour habituel de votre compte (médiane de ceux qui sont revenus).',
+    '{n} días tras su primera noche: el plazo de vuelta habitual de su cuenta (mediana de quienes volvieron).',
+  ],
+  'yc.au.fr.when.one': [
+    '{n} day after their first night: your account’s usual return delay (median of the people who came back).',
+    '{n} jour après leur 1re soirée : le délai de retour habituel de votre compte (médiane de ceux qui sont revenus).',
+    '{n} día tras su primera noche: el plazo de vuelta habitual de su cuenta (mediana de quienes volvieron).',
+  ],
+  'yc.au.fr.smsOn': ['On', 'Activé', 'Activado'],
+  'yc.au.fr.smsOff': ['No SMS', 'Pas de SMS', 'Sin SMS'],
+  'yc.au.fr.smsWho': [
+    'Only to people who still have no ticket for the night and whose number is consented. Same rules as your SMS: legal hours, STOP mention added, sender name and legal identity.',
+    'Seulement à ceux qui n’ont toujours pas de place pour la soirée et dont le numéro est consenti. Mêmes règles que vos SMS : heures légales, mention STOP ajoutée, nom d’expéditeur et identité légale.',
+    'Solo a quienes siguen sin entrada para la fiesta y cuyo número tiene consentimiento. Mismas reglas que sus SMS: horarios legales, mención STOP añadida, nombre de remitente e identidad legal.',
+  ],
+  'yc.au.fr.smsAfter.other': ['{n} days after the email', '{n} jours après l’e-mail', '{n} días tras el e-mail'],
+  'yc.au.fr.smsAfter.one': ['{n} day after the email', '{n} jour après l’e-mail', '{n} día tras el e-mail'],
+  'yc.au.fr.smsText': ['SMS text', 'Texte du SMS', 'Texto del SMS'],
+  'yc.au.fr.smsHint': [
+    'Variables: {{prénom}}, {{soirée}}, {{lien}} (short link to the night). {n} Yunits per SMS in France.',
+    'Variables : {{prénom}}, {{soirée}}, {{lien}} (lien court vers la soirée). {n} Yunits par SMS en France.',
+    'Variables: {{prénom}}, {{soirée}}, {{lien}} (enlace corto a la fiesta). {n} Yunits por SMS en Francia.',
+  ],
+  'yc.au.fr.smsCost': [
+    'Then {n} Yunits per SMS sent (France), only to people who still have no ticket.',
+    'Puis {n} Yunits par SMS envoyé (France), seulement à ceux qui n’ont toujours pas de place.',
+    'Luego {n} Yunits por SMS enviado (Francia), solo a quienes siguen sin entrada.',
+  ],
+  'yc.au.fr.smsSent.other': ['{n} SMS sent', '{n} SMS envoyés', '{n} SMS enviados'],
+  'yc.au.fr.smsSent.one': ['{n} SMS sent', '{n} SMS envoyé', '{n} SMS enviado'],
+  'yc.au.fr.smsWaiting.other': ['{n} SMS waiting for Yunits', '{n} SMS en attente de Yunits', '{n} SMS a la espera de Yunits'],
+  'yc.au.fr.smsWaiting.one': ['{n} SMS waiting for Yunits', '{n} SMS en attente de Yunits', '{n} SMS a la espera de Yunits'],
+  'yc.au.fr.smsExpired.other': ['{n} SMS not sent (window passed)', '{n} SMS non envoyés (fenêtre passée)', '{n} SMS no enviados (plazo pasado)'],
+  'yc.au.fr.smsExpired.one': ['{n} SMS not sent (window passed)', '{n} SMS non envoyé (fenêtre passée)', '{n} SMS no enviado (plazo pasado)'],
+  'yc.au.fr.identity': [
+    'Add your legal identity in the SMS settings, otherwise the SMS won’t leave.',
+    'Ajoutez votre identité légale dans les réglages SMS, sinon le SMS ne partira pas.',
+    'Añada su identidad legal en los ajustes de SMS; si no, el SMS no saldrá.',
+  ],
+  'yc.au.fr.smsDefault': [
+    '{{prénom}}, {{soirée}} is coming up. Your spot: {{lien}}',
+    '{{prénom}}, {{soirée}} arrive bientôt. Votre place : {{lien}}',
+    '{{prénom}}, {{soirée}} llega pronto. Su entrada: {{lien}}',
   ],
 };
 

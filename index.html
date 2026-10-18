@@ -214,6 +214,25 @@
       })();
     </script>
     <script>
+      // Consentement d'une IA (/connect-ai, arrivée depuis Claude, ChatGPT…) :
+      // l'écran est à la DA claire de Yuno CRM, donc le tout premier pixel l'est
+      // aussi. Sans ça, le loader sombre ci-dessus restait affiché le temps du
+      // chargement de l'app (un « écran noir » sans rien).
+      (function () {
+        try {
+          var p = location.pathname.replace(/\/+$/, '');
+          if (p !== '/connect-ai' && p !== '/ai') return;
+          window.__yunoLightBoot = true;
+          document.documentElement.style.background = '#FCFAF9';
+          if (document.body) document.body.style.background = '#FCFAF9';
+          var l = document.getElementById('initial-loader');
+          var sp = document.getElementById('initial-spinner');
+          if (l) l.style.background = '#FCFAF9';
+          if (sp) { sp.style.borderColor = '#E6DFDD'; sp.style.borderTopColor = '#E3141B'; }
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
+    <script>
       // App native B2C : dès le tout premier pixel, on affiche EXACTEMENT la même
       // image que le Launch Screen natif (rouge + logo terminé, coupe vide) pour
       // que le logo ne « clignote » pas entre le launch screen, ce loader et le
@@ -271,10 +290,11 @@
           };
           var c = texts[(navigator.language || 'en').slice(0, 2)] || texts.en;
           var native = location.protocol === 'capacitor:';
+          var light = !!window.__yunoLightBoot;
           var fg = native ? '#E51D2A' : '#fff';
           var bg = native ? '#fff' : '#c62828';
           l.innerHTML =
-            '<div style="text-align:center;font-family:-apple-system,ui-sans-serif,system-ui,sans-serif;color:#fff;padding:24px;">' +
+            '<div style="text-align:center;font-family:-apple-system,ui-sans-serif,system-ui,sans-serif;color:' + (light ? '#1A1414' : '#fff') + ';padding:24px;">' +
             '<p style="margin:0 0 18px;font-size:17px;font-weight:600;">' + c[0] + '</p>' +
             '<button onclick="window.location.reload()" style="appearance:none;-webkit-appearance:none;border:0;border-radius:14px;padding:13px 30px;font-size:16px;font-weight:600;background:' + bg + ';color:' + fg + ';">' + c[1] + '</button>' +
             '</div>';

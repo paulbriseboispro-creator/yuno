@@ -76,3 +76,26 @@ export function startVenuePosterUpload(cropped: Promise<Blob>): DeferredUpload {
     contentType: 'image/jpeg',
   });
 }
+
+/**
+ * Flyer 16:9 du haut de la page soirée (events.flyer_wide_url). Rien à
+ * recadrer : le pro l'a composé en paysage, le cadre le montre en plein.
+ * Compressé à 1920 px de large, puis rangé dans `event-images/<auth.uid()>/…`
+ * (policy « Own folder upload event images » : vaut pour un club, un
+ * organisateur ou un membre de son équipe).
+ */
+export function startEventWideFlyerUpload(file: File): DeferredUpload {
+  const prepared = compressImage(file, 1920, 0.85);
+  return startDeferredUpload({
+    bucket: 'event-images',
+    pathFor: async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id;
+      if (!uid) throw new Error('not_authenticated');
+      const ext = ((await prepared).name.split('.').pop() || 'jpg').toLowerCase();
+      return `${uid}/${Date.now()}-wide.${ext}`;
+    },
+    file: prepared,
+    cacheControl: '31536000',
+  });
+}

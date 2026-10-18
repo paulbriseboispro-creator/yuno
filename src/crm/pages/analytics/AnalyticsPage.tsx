@@ -24,6 +24,7 @@ import { StatePill, type NightState } from './anaUi';
 import { SalesTab, salesCsv } from './SalesTab';
 import { TrafficTab, trafficCsv } from './TrafficTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
+import { WhyView } from './WhyView';
 import { GuestListTab, guestlistCsv } from './GuestListTab';
 import { useAnaGuestList } from '@/crm/data/guestlist';
 
@@ -59,13 +60,20 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const f = readFilters(sp, tab);
+  // Communauté › « Ce qui fait venir » : toute l'histoire du compte, sans période.
+  const why = tab === 'community' && sp.get('v') === 'why';
+  const setCommunityView = (v: 'overview' | 'why') => setSp((prev) => {
+    const p = new URLSearchParams(prev);
+    if (v === 'why') p.set('v', 'why'); else p.delete('v');
+    return p;
+  }, { replace: true });
   const nights = useNights();
   const [evOpen, setEvOpen] = useState(false);
   const popRef = useRef<HTMLDivElement>(null);
 
   const sales = useAnaSales(f, tab === 'sales');
   const traffic = useAnaTraffic(f, tab === 'traffic');
-  const community = useAnaCommunity(f, tab === 'community');
+  const community = useAnaCommunity(f, tab === 'community' && !why);
   const guestlist = useAnaGuestList(f.period, tab === 'guestlist' && !f.event);
 
   const setF = (patch: Partial<AnaFilters>) => {
@@ -132,7 +140,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em' }}>{t(`yc.ana.title.${tab}`)}</h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 680 }}>{t(`yc.ana.sub.${tab}`)}</p>
         </div>
-        <Hv
+        {!why && <Hv
           as="button"
           type="button"
           onClick={exportCsv}
@@ -141,7 +149,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           active={{ transform: 'scale(.97)' }}
         >
           <Icon name="download" size={17} stroke={2.2} />{t('yc.ana.export')}
-        </Hv>
+        </Hv>}
       </div>
 
       <div role="tablist" aria-label={t('yc.ana.tabs')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -173,8 +181,19 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
         </Hv>
       </div>
 
+      {tab === 'community' && (
+        <div style={{ maxWidth: '100%', overflowX: 'auto' }} className="yc-noscroll">
+          <Segmented<'overview' | 'why'>
+            value={why ? 'why' : 'overview'}
+            onChange={setCommunityView}
+            ariaLabel={t('yc.ana.tab.community')}
+            options={[{ value: 'overview', label: t('yc.why.view.overview') }, { value: 'why', label: t('yc.why.view.why') }]}
+          />
+        </div>
+      )}
+
       {/* Filtres */}
-      <div style={{ position: 'sticky', top: 64, zIndex: 21, margin: '0 calc(-1 * clamp(16px,3vw,40px))', padding: '10px clamp(16px,3vw,40px)', background: 'rgba(252,250,249,.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--sand-100)' }}>
+      {!why && <div style={{ position: 'sticky', top: 64, zIndex: 21, margin: '0 calc(-1 * clamp(16px,3vw,40px))', padding: '10px clamp(16px,3vw,40px)', background: 'rgba(252,250,249,.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--sand-100)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 14px' }}>
           <div style={{ opacity: f.event ? 0.4 : 1, pointerEvents: f.event ? 'none' : 'auto', transition: 'opacity 200ms', maxWidth: '100%', overflowX: 'auto' }} className="yc-noscroll">
             <Segmented
@@ -265,11 +284,11 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--sand-500)' }}>{scope}</span>
         </div>
         {ev && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.ana.f.perNote')}</div>}
-      </div>
+      </div>}
 
       {tab === 'sales' && <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />}
       {tab === 'traffic' && <TrafficTab q={traffic} f={f} setF={setF} />}
-      {tab === 'community' && <CommunityTab q={community} f={f} setF={setF} />}
+      {tab === 'community' && (why ? <WhyView /> : <CommunityTab q={community} f={f} setF={setF} />)}
       {tab === 'guestlist' && <GuestListTab q={guestlist} f={f} />}
     </main>
   );

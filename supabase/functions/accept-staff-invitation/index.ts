@@ -32,7 +32,7 @@ const REDIRECTS: Record<string, string> = {
 // Type de compte démo → email démo. Le mot de passe partagé des comptes démo vit en
 // secret edge (DEMO_ACCOUNT_PASSWORD), JAMAIS embarqué côté client de preview.
 const DEMO_EMAIL_BY_ACCOUNT: Record<string, string> = {
-  owner: 'owner@womber.fr', organizer: 'organizer@womber.fr', bde: 'bde@womber.fr',
+  owner: 'owner@womber.fr', organizer: 'organizer@womber.fr', bde: 'bde@womber.fr', crm: 'crm@womber.fr',
   promoter: 'promoter@womber.fr', agency: 'agency@womber.fr', dj: 'dj@womber.fr',
   affiliate: 'affiliate@womber.fr', bouncer: 'bouncer@womber.fr', barman: 'barman@womber.fr',
   cloakroom: 'cloakroom@womber.fr', vip_host: 'viphost@womber.fr',
@@ -641,6 +641,17 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: Reque
     if (su && typeof su === 'object') signup = su;
   } catch { /* démo sans barre de création, jamais sans démo */ }
 
+  // 4) Démo Yuno CRM (migration 20261019420000) : où mène « Créer mon
+  //    compte » — l'invitation liée à cet accès si elle vaut encore, sinon
+  //    l'inscription. Même règle : une panne ne coûte jamais la démo.
+  let cta: unknown = null;
+  if (targets.includes('crm')) {
+    try {
+      const { data: c } = await supabase.rpc('crm_demo_link_cta', { p_token: token });
+      if (c && typeof c === 'object') cta = c;
+    } catch { /* démo sans bouton d'inscription, jamais sans démo */ }
+  }
+
   return json({
     success: true,
     target_accounts: targets,
@@ -648,6 +659,7 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: Reque
     access_token: signIn.session.access_token,
     refresh_token: signIn.session.refresh_token,
     signup,
+    cta,
   });
 }
 

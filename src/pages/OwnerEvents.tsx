@@ -51,9 +51,10 @@ import {
 } from '@/components/owner/events/events-ui';
 import { cropToSquare } from '@/components/owner/events/events-utils';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
+import { EventWideFlyerField } from '@/components/owner/events/EventWideFlyerField';
 import { PublishingOverlay, type PublishStage, type PublishedEvent } from '@/components/owner/events/PublishingOverlay';
 import { AddressAutocomplete } from '@/components/location/AddressAutocomplete';
-import { startEventVideoUpload, startOrganizerImageUpload } from '@/lib/eventMedia';
+import { startEventVideoUpload, startEventWideFlyerUpload, startOrganizerImageUpload } from '@/lib/eventMedia';
 import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 import { openExternal, publicUrl } from '@/lib/native';
@@ -169,6 +170,10 @@ export default function OwnerEvents() {
   // n'ait plus 30 Mo à attendre. `videoRemoved` = retrait d'une vidéo en ligne.
   const video = useDeferredMedia(startEventVideoUpload);
   const [videoRemoved, setVideoRemoved] = useState(false);
+  // Flyer 16:9 du haut de la page soirée : même circuit que la vidéo (envoi
+  // au choix du fichier). `wideFlyerRemoved` = retrait d'un flyer en ligne.
+  const wideFlyer = useDeferredMedia(startEventWideFlyerUpload);
+  const [wideFlyerRemoved, setWideFlyerRemoved] = useState(false);
   const [showArchivedEvents, setShowArchivedEvents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // Écran de publication : il ne s'ouvre QUE sur une création — une
@@ -184,7 +189,7 @@ export default function OwnerEvents() {
   // Line-up invité : artistes sans compte Yuno (nom + photo + Instagram).
   const [guestArtists, setGuestArtists] = useState<GuestArtist[]>([]);
   const [formData, setFormData] = useState({
-    title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '',
+    title: '', description: '', posterUrl: '', videoUrl: '', flyerWideUrl: '', startAt: '', endAt: '',
     isActive: true, musicGenres: ['Open Format'] as string[], eventType: 'club',
     timezone: PARIS_TIMEZONE,
   });
@@ -327,6 +332,7 @@ export default function OwnerEvents() {
         description: event.description || undefined,
         posterUrl: event.poster_url || undefined,
         videoUrl: event.video_url || undefined,
+        flyerWideUrl: event.flyer_wide_url || undefined,
         posterPosition: event.poster_position as unknown as PosterPosition | undefined,
         startAt: event.start_at, endAt: event.end_at, timezone: event.timezone,
         isActive: event.is_active,
@@ -492,11 +498,13 @@ export default function OwnerEvents() {
     let posterUrl = sanitize(posterPreview);
     let locationLogoUrl = sanitize(locationLogoPreview);
     let videoUrl: string | null = videoRemoved ? null : (formData.videoUrl || null);
+    let flyerWideUrl: string | null = wideFlyerRemoved ? null : (formData.flyerWideUrl || null);
     try {
-      const [poster, logo, vid] = await Promise.all([orgPoster.settle(), locationLogo.settle(), video.settle()]);
+      const [poster, logo, vid, wide] = await Promise.all([orgPoster.settle(), locationLogo.settle(), video.settle(), wideFlyer.settle()]);
       if (poster) posterUrl = poster;
       if (logo) locationLogoUrl = logo;
       if (vid) videoUrl = vid;
+      if (wide) flyerWideUrl = wide;
     } catch (err) {
       console.error('Event media upload failed:', err);
       toast.error(t('owner.eventVideo.uploadError'));
@@ -511,6 +519,7 @@ export default function OwnerEvents() {
       description: formData.description.trim() || null,
       poster_url: posterUrl || null,
       video_url: videoUrl,
+      flyer_wide_url: flyerWideUrl,
       poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
       start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE,
       location_name: locationName.trim() || null,
@@ -537,7 +546,7 @@ export default function OwnerEvents() {
     const partnerDomains = editingEvent?.orgPartnerDomains ?? null;
     if (editingEvent && partnerDomains) {
       const allowed = new Set<string>([
-        ...(partnerDomains.design ? ['title', 'description', 'poster_url', 'video_url', 'poster_position', 'music_genres', 'event_type'] : []),
+        ...(partnerDomains.design ? ['title', 'description', 'poster_url', 'video_url', 'flyer_wide_url', 'poster_position', 'music_genres', 'event_type'] : []),
         ...(partnerDomains.operations ? ['start_at', 'end_at', 'minors_disabled'] : []),
       ]);
       for (const k of Object.keys(payload)) if (!allowed.has(k)) delete (payload as Record<string, unknown>)[k];
@@ -560,7 +569,7 @@ export default function OwnerEvents() {
     }
     // La soirée pointe maintenant sur ces fichiers : `resetForm()` ne doit plus
     // les retirer du bucket comme il retire un envoi abandonné.
-    orgPoster.commit(); locationLogo.commit(); video.commit();
+    orgPoster.commit(); locationLogo.commit(); video.commit(); wideFlyer.commit();
     bump(3); // la ligne `events` existe
     // Le line-up et la demande de collaboration touchent des tables distinctes :
     // elles partent ensemble, la soirée est en ligne quand les deux ont répondu.
@@ -694,6 +703,7 @@ export default function OwnerEvents() {
       // est partie au choix du fichier : on n'attend plus qu'une promesse.
       let posterUrl = formData.posterUrl;
       let videoUrl: string | null = videoRemoved ? null : (formData.videoUrl || null);
+      let flyerWideUrl: string | null = wideFlyerRemoved ? null : (formData.flyerWideUrl || null);
       const posterUpload = (posterFile && posterPreview)
         ? (async () => {
             const croppedBlob = await cropToSquare(posterPreview, posterPosition);
@@ -704,12 +714,14 @@ export default function OwnerEvents() {
           })()
         : Promise.resolve(null);
       try {
-        const [poster, vid] = await Promise.all([
+        const [poster, vid, wide] = await Promise.all([
           posterUpload.catch((err) => { console.error('Poster upload exception:', err); return null; }),
           video.settle(),
+          wideFlyer.settle(),
         ]);
         if (poster) posterUrl = poster;
         if (vid) videoUrl = vid;
+        if (wide) flyerWideUrl = wide;
       } catch (err) {
         console.error('Event video upload failed:', err);
         toast.error(t('owner.eventVideo.uploadError'));
@@ -724,6 +736,7 @@ export default function OwnerEvents() {
           title: formData.title, description: formData.description || null,
           poster_url: posterUrl || null,
           video_url: videoUrl,
+          flyer_wide_url: flyerWideUrl,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
           start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
@@ -732,7 +745,7 @@ export default function OwnerEvents() {
         if (formData.isActive && !editingEvent.isActive) {
           capturePosthog('pro_event_published', { scope: phScope, pillars: phPillars(events.find((e) => e.id === editingEvent.id)), ...phMarket(editingEvent.id, formData.timezone) });
         }
-        video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
+        video.commit(); wideFlyer.commit(); // les fichiers ont servi : plus d'envoi abandonné à nettoyer
         bump(3);
         const oldDjIds = initialLineupEntries.filter(e => e.status === 'confirmed').map(e => e.djId).sort();
         const [lineupRes] = await Promise.all([persistLineup(editingEvent.id), invitePartners(editingEvent.id)]);
@@ -755,12 +768,13 @@ export default function OwnerEvents() {
           title: formData.title, description: formData.description || null,
           poster_url: posterUrl || null,
           video_url: videoUrl,
+          flyer_wide_url: flyerWideUrl,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
           start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).select('id').single();
         if (error) throw error;
-        video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
+        video.commit(); wideFlyer.commit(); // les fichiers ont servi : plus d'envoi abandonné à nettoyer
         bump(3);
         savedId = newEvent?.id;
         capturePosthog('pro_event_created', { scope: 'venue', source: 'events_page', ...phMarket(newEvent?.id, formData.timezone) });
@@ -1095,10 +1109,10 @@ export default function OwnerEvents() {
     setEditingEvent(event);
     setPosterPreview(event.posterUrl || '');
     setPosterPosition(event.posterPosition || null);
-    video.reset(); orgPoster.reset(); locationLogo.reset(); setVideoRemoved(false);
+    video.reset(); orgPoster.reset(); locationLogo.reset(); setVideoRemoved(false); wideFlyer.reset(); setWideFlyerRemoved(false);
     const eventTz = getEventTimezone(event);
     setFormData({
-      title: event.title, description: event.description || '', posterUrl: event.posterUrl || '', videoUrl: event.videoUrl || '',
+      title: event.title, description: event.description || '', posterUrl: event.posterUrl || '', videoUrl: event.videoUrl || '', flyerWideUrl: event.flyerWideUrl || '',
       startAt: toWallClockInputInTz(event.startAt, eventTz),
       endAt: toWallClockInputInTz(event.endAt, eventTz),
       isActive: event.isActive,
@@ -1165,8 +1179,8 @@ export default function OwnerEvents() {
   };
 
   const resetForm = () => {
-    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); orgPoster.reset(); video.reset(); setVideoRemoved(false); setLineupEntries([]); setInitialLineupEntries([]); setGuestArtists([]);
-    setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
+    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); orgPoster.reset(); video.reset(); setVideoRemoved(false); wideFlyer.reset(); setWideFlyerRemoved(false); setLineupEntries([]); setInitialLineupEntries([]); setGuestArtists([]);
+    setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', flyerWideUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setPrincipalMode('co_event'); setPartnerVenueId(''); setPartnerOrganizerId(''); setLinkedPartner(null);
     setLiveContract(null);
     setPartnerDrafts([]); setMoneyAgreement('external'); setYunoSplit(DEFAULT_YUNO_SPLIT); setCollectorsTouched(false); setPartnerVisibilityChoice('full');
@@ -1515,7 +1529,16 @@ export default function OwnerEvents() {
               )}
             </div>
 
-            {/* Vidéo 9:16 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
+            {/* Flyer 16:9 — haut de la page soirée uniquement, l'affiche 1:1 reste partout ailleurs */}
+            <EventWideFlyerField
+              existingUrl={wideFlyerRemoved ? '' : formData.flyerWideUrl}
+              file={wideFlyer.file}
+              uploading={wideFlyer.uploading}
+              onFileChange={(f) => { wideFlyer.pick(f); if (f) setWideFlyerRemoved(false); }}
+              onRemoveExisting={() => setWideFlyerRemoved(true)}
+            />
+
+            {/* Vidéo 16:9 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
             <EventVideoField
               existingUrl={videoRemoved ? '' : formData.videoUrl}
               file={video.file}
@@ -2443,6 +2466,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                   organizerUserId={organizerUserId}
                   targetKind="event"
                   eventId={event.id}
+                  eventTitle={event.title}
                 />
               </motion.div>
             )}

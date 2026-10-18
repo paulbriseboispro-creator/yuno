@@ -6,7 +6,7 @@ import { ArrowLeft, Bot, Building2, CalendarDays, CreditCard, Crown, ExternalLin
 import { AdminPage, Card, Stat, Btn, Pill, KeyValue, TableWrap, Th, Td, EmptyState, ErrorState, PageSkeleton, ProgressBar, POS, NEG, WARN, T1, T3, C_MID } from '@/components/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtRelative, fmtPct } from '@/lib/adminFormat';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
-import { AccountProductsButton, ProductPills, normalizeProducts, type Product } from '@/components/admin/AccountProducts';
+import { AccountProductsButton, ProductPills, fetchCrmStates, isCrmGifted, normalizeProducts, type Product } from '@/components/admin/AccountProducts';
 
 interface Overview {
   venue: { id: string; name: string; slug: string | null; city: string | null; address: string | null; created_at: string; is_hidden: boolean; decommissioned_at: string | null; purge_at: string | null; stripe_account_id: string | null; stripe_onboarding_complete: boolean; stripe_charges_enabled: boolean; stripe_payouts_enabled: boolean; menu_enabled: boolean; vip_placement_enabled: boolean; live_mode_enabled: boolean; timezone: string | null; owner_id: string | null; showcase_shadow_owner_id: string | null; logo_url: string | null; instagram_url: string | null; whatsapp_number: string | null; legal_name: string | null; siret: string | null; is_demo: boolean } | null;
@@ -26,7 +26,7 @@ export default function AdminVenueDetail() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [prods, setProds] = useState<{ product: Product; extra: Product[] } | null>(null);
+  const [prods, setProds] = useState<{ product: Product; extra: Product[]; crmGifted: boolean } | null>(null);
 
   const load = useCallback(async () => {
     if (!venueId) return;
@@ -36,7 +36,10 @@ export default function AdminVenueDetail() {
     // Produits du compte (Billetterie ⇄ CRM) : lus à part, une panne ne fait pas tomber la fiche.
     const { data: p } = await supabase.from('venues').select('product, extra_products' as never).eq('id', venueId).maybeSingle();
     const row = p as unknown as { product?: unknown; extra_products?: unknown } | null;
-    setProds(row ? normalizeProducts(row.product, row.extra_products) : null);
+    const np = row ? normalizeProducts(row.product, row.extra_products) : null;
+    const hasCrm = !!np && (np.product === 'crm' || np.extra.includes('crm'));
+    const crmStates = hasCrm ? await fetchCrmStates([`venue:${venueId}`]) : {};
+    setProds(np ? { ...np, crmGifted: isCrmGifted(crmStates[`venue:${venueId}`]) } : null);
     setLoading(false);
   }, [venueId]);
   useEffect(() => { load(); }, [load]);
@@ -55,7 +58,7 @@ export default function AdminVenueDetail() {
   return (
     <AdminPage eyebrow={<>{t('adm.venue.eyebrow')} · {v.city ?? ''}</>} title={<span className="inline-flex items-center gap-2 flex-wrap">{v.name}
       {v.is_demo && <Pill tone="accent">{t('adm.venue.demo')}</Pill>}{v.is_hidden && <Pill tone="muted">{t('adm.venue.hidden')}</Pill>}{v.showcase_shadow_owner_id && <Pill tone="accent">{t('adm.venue.showcase')}</Pill>}
-      {prods && <ProductPills product={prods.product} extra={prods.extra} />}
+      {prods && <ProductPills product={prods.product} extra={prods.extra} crmGifted={prods.crmGifted} />}
       {v.decommissioned_at && <Pill tone="neg">{t('adm.venue.decommissioned')}{v.purge_at ? ` · ${t('adm.venue.purgeAt').replace('{d}', fmtDate(v.purge_at, language))}` : ''}</Pill>}</span>}
       subtitle={v.address ?? undefined}
       actions={<>{back}{prods && <AccountProductsButton account={{ venueId: v.id, name: v.name, product: prods.product, extra: prods.extra }} onChanged={load} />}<Btn to="/admin/venues" icon={Building2}>{t('adm.venue.manageInList')}</Btn>{v.slug && <Btn href={`/club/${v.slug}`} icon={ExternalLink}>{t('adm.common.seePage')}</Btn>}<Btn onClick={load} icon={RefreshCw} loading={loading}>{t('adm.common.refresh')}</Btn></>}>

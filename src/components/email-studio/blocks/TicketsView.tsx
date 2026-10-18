@@ -3,8 +3,8 @@ import { EyeOff } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailTheme, TicketRow, TicketsBlock } from '@/lib/email';
 import {
-  ctaColors, isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel,
-  ticketsCtaLabel, ticketsKicker,
+  ctaColors, emailWords, isPricedRow, localizeDefaultLabel, priceFromLabel, soldOutSub, splitFromLabel,
+  ticketsCtaLabel, ticketsKicker, wordsLang,
 } from '@/lib/email';
 import {
   EMAIL_FONT, EMAIL_MONO, blockBgColor, blockPad, liveFor,
@@ -56,9 +56,11 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
     part.isVar ? <span key={pi} style={chipStyle}>{part.token}</span> : <Fragment key={pi}>{part.token}</Fragment>
   ));
 
+  const lang = wordsLang(ctx.language);
   const fromLabel = live?.priceFromLabel || priceFromLabel(
-    rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(',', '.')) || 0),
+    rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(/[^\d,.]/g, '').replace(',', '.')) || 0),
     rows.some((r) => !isPricedRow(r.p)),
+    lang,
   );
   const showRows = layout !== 'banner' && block.priceDisplay !== 'from';
   const from = (layout !== 'banner' && block.priceDisplay === 'from' && fromLabel)
@@ -68,7 +70,7 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
     <OfferCardView
       theme={theme} pad={pad} blockBg={blockBg} layout={layout} align={align}
       accent={accent} btnColor={btnColors.color}
-      kicker={block.kicker ?? ticketsKicker(guestListOnly)}
+      kicker={block.kicker != null ? localizeDefaultLabel(block.kicker, lang) : ticketsKicker(guestListOnly, lang)}
       title={block.title ? withVars(block.title) : null}
       sub={block.sub ? withVars(block.sub) : null}
       perks={block.perks || []}
@@ -112,7 +114,7 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
                   background: theme.divider, borderRadius: 3,
                   fontFamily: EMAIL_MONO, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
                   color: theme.muted,
-                }}>{SOLD_OUT_CHIP}</div>
+                }}>{emailWords(lang).soldOutChip}</div>
               )}
             </div>
             {isPricedRow(r.p) ? (
@@ -132,7 +134,7 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
           </div>
         );
       }) : null}
-      ctaLabel={block.ctaLabel || ticketsCtaLabel(guestListOnly)}
+      ctaLabel={localizeDefaultLabel(block.ctaLabel, lang) || ticketsCtaLabel(guestListOnly, lang)}
       full={block.full}
       note={block.note ? withVars(block.note) : null}
       coverUrl={block.coverUrl}

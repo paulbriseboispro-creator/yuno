@@ -532,7 +532,8 @@ function SubscriptionCard({ b, dFull }: { b: CrmBilling; dFull: (d: string) => s
   const annual = s?.interval === 'year';
   const trial = s?.status === 'trialing' && !!s.trial_ends_at;
   const paused = b.effective_plan === 'paused';
-  const title = paused ? t('yc.yu.sub.paused') : trial ? t('yc.yu.sub.trial', { date: dFull(s?.trial_ends_at as string) }) : annual ? t('yc.yu.sub.year', { price: n(b.pricing.price_year) }) : t('yc.yu.sub.month', { price: n(b.pricing.price_month) });
+  const founder = trial && !!s?.offer;
+  const title = paused ? t('yc.yu.sub.paused') : founder ? t('yc.yu.sub.founder', { date: dFull(s?.trial_ends_at as string) }) : trial ? t('yc.yu.sub.trial', { date: dFull(s?.trial_ends_at as string) }) : annual ? t('yc.yu.sub.year', { price: n(b.pricing.price_year) }) : t('yc.yu.sub.month', { price: n(b.pricing.price_month) });
   return (
     <section style={{ boxSizing: 'border-box', borderRadius: 24, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-xs)', padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

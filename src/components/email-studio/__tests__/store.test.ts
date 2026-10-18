@@ -87,3 +87,38 @@ describe('historique du Studio — ⌘Z rend une rafale, pas une lettre', () => 
     }
   });
 });
+
+describe('version écrite par l’IA du pro (MCP)', () => {
+  it('le Studio l’adopte sans rien réenregistrer, et ⌘Z rend la version du pro', () => {
+    const store = createStudioStore(campaign(), {});
+    const id = store.getState().campaign.blocks[0].id;
+    store.getState().updateBlock(id, { body: 'Ma version' });
+    store.getState().markSaved();
+    const cur = store.getState().campaign;
+    const fromAi = {
+      ...cur, subject: 'Objet de l’IA', aiAuthor: 'Claude', aiUpdatedAt: '2026-10-06T12:00:00.000001+00:00',
+      blocks: cur.blocks.map((b) => (b.type === 'text' ? { ...b, body: 'Version de l’IA' } : b)),
+    };
+    store.getState().select(id);
+    store.getState().adoptExternal(fromAi);
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().campaign.subject).toBe('Objet de l’IA');
+    expect(store.getState().selectedId).toBe(id); // le bloc existe encore : la sélection tient
+    expect(body(store)).toBe('Version de l’IA');
+    store.getState().undo();
+    expect(body(store)).toBe('Ma version');
+    expect(store.getState().dirty).toBe(true); // l'annulation, elle, s'enregistre
+    expect(store.getState().campaign.aiUpdatedAt).toBe('2026-10-06T12:00:00.000001+00:00');
+  });
+});
+
+describe('isNewerAiVersion', () => {
+  it('compare l’horodatage de la base à celui affiché', async () => {
+    const { isNewerAiVersion } = await import('../aiSync');
+    expect(isNewerAiVersion(null, null)).toBe(false);
+    expect(isNewerAiVersion('2026-10-06T12:00:00+00:00', null)).toBe(true);
+    expect(isNewerAiVersion('2026-10-06T12:00:00+00:00', '2026-10-06T12:00:00+00:00')).toBe(false);
+    expect(isNewerAiVersion('2026-10-06T12:00:01+00:00', '2026-10-06T12:00:00+00:00')).toBe(true);
+    expect(isNewerAiVersion('2026-10-06T11:00:00+00:00', '2026-10-06T12:00:00+00:00')).toBe(false);
+  });
+});

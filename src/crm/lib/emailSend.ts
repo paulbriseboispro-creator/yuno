@@ -67,7 +67,7 @@ export function bestSlots(grid: GridCell[] | undefined): { days: number[]; hours
 }
 
 export type CheckLevel = 'ok' | 'bad' | 'warn' | 'info';
-export type CheckFix = 'subject' | 'studio' | 'audience' | 'plan' | 'recharge' | 'billing' | null;
+export type CheckFix = 'subject' | 'studio' | 'audience' | 'plan' | 'recharge' | 'billing' | 'identity' | null;
 
 export interface SendCheck { id: string; level: CheckLevel; vars?: Record<string, string | number>; fix: CheckFix }
 
@@ -82,6 +82,11 @@ export interface CheckInput {
   demo: boolean;
   /** Compte Yuno CRM en pause (essai fini sans abonnement) : rien ne part. */
   paused?: boolean;
+  /**
+   * Ce qui manque à l'identité de l'expéditeur (Réglages › Envoi, porte
+   * _crm_email_identity) ; `undefined` tant que les réglages chargent.
+   */
+  identityMissing?: string[];
 }
 
 const URL_RE = /^https?:\/\/\S+\.\S+/i;
@@ -112,6 +117,9 @@ export function sendChecks(x: CheckInput): SendCheck[] {
     { id: 'unsub', level: 'ok', fix: null },
     { id: 'dom', level: 'ok', fix: null },
   );
+  if (x.identityMissing) {
+    list.push({ id: 'identity', level: x.identityMissing.length ? 'bad' : 'ok', vars: { n: x.identityMissing.length }, fix: 'identity' });
+  }
   if (x.paused) list.push({ id: 'paused', level: 'bad', fix: 'billing' });
   if (x.demo) list.push({ id: 'demo', level: 'warn', fix: null });
   list.push({ id: 'var', level: usesVars ? 'ok' : 'info', fix: 'studio' });

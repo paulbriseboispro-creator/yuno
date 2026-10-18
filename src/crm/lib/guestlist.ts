@@ -12,15 +12,14 @@ export const GL_MIN_SAMPLE = 10;
 export type GlTicketKind = 'inv' | 'free';
 
 /**
- * Miroir de `_crm_ticket_gl_kind(status, price, raw)` : une invitation Shotgun
+ * Miroir de `_crm_ticket_gl_kind(status, price, deal_channel)` : une invitation Shotgun
  * (`deal_channel = 'invitation'`) ou un billet valide à 0 €. Tout autre billet
  * (payant, annulé, remboursé, revendu, en attente) n'est pas une entrée, ni un
  * duplicata (`deal_channel = 'duplicata'`, la copie d'un billet existant —
  * migration 20261008130000).
  */
-export function glKindOf(status: string | null | undefined, price: number | null | undefined, raw: unknown): GlTicketKind | null {
+export function glKindOf(status: string | null | undefined, price: number | null | undefined, channel: string | null | undefined): GlTicketKind | null {
   if (status !== 'valid') return null;
-  const channel = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>).deal_channel : undefined;
   if (channel === 'duplicata') return null;
   if (channel === 'invitation') return 'inv';
   if (price === 0) return 'free';

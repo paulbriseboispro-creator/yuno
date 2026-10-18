@@ -9,6 +9,9 @@ import { useCrmScope } from '@/crm/scope';
 
 export type Lifecycle = 'hab' | 'occ' | 'nou' | 'end' | 'none';
 
+/** Audiences de « Qui cibler » (miroir de _crm_night_target_set). */
+export type TargetAudience = 'likely' | 'concept' | 'lineup' | 'genre' | 'early' | 'last_minute' | 'once_local';
+
 /** Définition d'un filtre de clients (= d'un segment « à vous »). */
 export interface ClientFilterDef {
   seg?: 'all' | Lifecycle;
@@ -63,6 +66,34 @@ export interface ClientFilterDef {
     gl?: '' | 'any' | 'only' | 'loyal' | 'conv' | 'noshow';
     /** Invités (invitation ou billet gratuit) de ces soirées. */
     glev?: string[];
+    /*
+     * Analyse client (migration 20261010110000) : clés pré-calculées
+     * (crm_person_profile.tags). Un contact venu seulement d'un fichier n'a
+     * aucune clé et n'entre dans aucun de ces filtres.
+     */
+    /** Porte l'hypothèse (moyenne ou forte) de l'une de ces familles. */
+    hyp?: string[];
+    /** A vu l'un de ces artistes (clés `id:…`, `slug:…`, `name:…`). */
+    artist?: string[];
+    /** Genres BRUTS de Shotgun (minuscules). */
+    genre?: string[];
+    /** Type de lieu des soirées (minuscules). */
+    fmt?: string[];
+    /** Séries (`_crm_night_series`, minuscules). */
+    series?: string[];
+    /** Profil d'achat dominant. */
+    buy?: ('early' | 'launch' | 'last_minute' | 'door')[];
+    /** Commandes : à plusieurs, seul, 1re place avec un client déjà venu. */
+    grp?: 'group' | 'solo' | 'brought';
+    /** Canal d'arrivée (1er billet vendu), codes de `_crm_ticket_source` + `gl`. */
+    arr?: string[];
+    /** Distance à sa 1re soirée (km), bornes comprises. */
+    dist_min?: number;
+    dist_max?: number;
+    /** De passage (loin ou étranger) / habite à proximité ; distance inconnue = ni l'un ni l'autre. */
+    pass?: 'yes' | 'no';
+    /** « Qui cibler » : une audience SANS place d'une soirée à venir (porte serveur _crm_night_target_set). */
+    ntgt?: { e: string; a: TargetAudience };
   };
   q?: string;
 }
@@ -91,7 +122,7 @@ export interface ClientsOverview {
 /** Source d'une vente telle que Shotgun la rend, avec son nom côté Yuno (`_crm_source_label`). */
 export interface SaleSourceLabel {
   src: string | null;
-  kind: 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'au' | 'di' | 'of';
+  kind: 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
   label?: string | null;
   platform?: string | null;
   placement?: string | null;
@@ -111,7 +142,8 @@ export interface ClientsList { total: number; rows: ClientRow[]; counts: Record<
 export interface ClientCard {
   email: string; first_name: string | null; last_name: string | null; phone: string | null;
   email_ok: boolean; phone_ok: boolean; bounced: boolean; eng_status: string;
-  lifecycle: Lifecycle; nights: number; nights_win: number; spent: number;
+  /** `spent` : null pour un rôle qui ne voit pas l'argent (_crm_null_money). */
+  lifecycle: Lifecycle; nights: number; nights_win: number; spent: number | null;
   first_night: string | null; last_night: string | null; added_at: string | null;
   tonight: boolean; source: string; utm_source: string | null; origin: string | null;
   /** Source du premier achat, lisible (lien de partage, campagne…). */
@@ -133,6 +165,13 @@ export interface ClientCard {
     scan_known: boolean; upcoming: boolean;
   }[];
   gl?: { n: number; came: number; first: string | null; conv: boolean; paid_n: number; noshow: number };
+  /**
+   * Historique d'un fichier importé (migration 20261008210000) : ce que dit le
+   * fichier et comment il compte — 'added' ajouté aux billets Shotgun (ou
+   * seule source), 'file' plus complet que Shotgun donc retenu, 'live' déjà
+   * compris dans Shotgun. `spent` est null pour un rôle qui ne voit pas l'argent.
+   */
+  history?: { nights: number; spent: number | null; last: string | null; mode: 'added' | 'file' | 'live'; list: string | null } | null;
 }
 
 export interface SavedSegment { id: string; name: string; description: string | null; template: string | null; definition: ClientFilterDef; n: number; reachable: number; created_at: string }

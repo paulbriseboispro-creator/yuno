@@ -6,7 +6,7 @@
  * probabilités de la prévision sont des estimations fixes, dites comme telles.
  */
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { Modal, Skel } from '@/crm/ui/kit';
@@ -31,6 +31,8 @@ export default function SalesPage() {
   const q = useAdminPipeline();
   const tab = (['targets', 'forecast', 'lost'] as const).find((x) => x === sp.get('tab')) ?? 'pipeline';
   const [edit, setEdit] = useState<Prospect | 'new' | null>(null);
+  // L'offre fondateurs vit désormais dans Inviter (20261019420000) : les anciens liens y mènent.
+  if (sp.get('tab') === 'founders') return <Navigate to={`${ADMIN_ROUTES.invite}?f=founder`} replace />;
   if (q.isError && !q.data) return <main style={{ padding: 32 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
   return (
     <main style={pageWrap}>

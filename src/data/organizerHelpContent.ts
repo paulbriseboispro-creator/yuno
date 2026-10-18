@@ -178,6 +178,22 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'org-partner-links',
+        titleKey: 'ohelp.plink.title',
+        descKey: 'ohelp.plink.desc',
+        icon: 'Link2',
+        actionLink: { labelKey: OPEN, path: '/events' },
+        relatedArticleIds: ['org-ticketing', 'org-promo-codes', 'org-analytics'],
+        keywords: ['lien partenaire', 'partner link', 'enlace de partner', 'lien tracké', 'tracked link', 'enlace', 'promoteur', 'promoter', 'promotor', 'dj', 'ambassadeur', 'ambassador', 'sans compte', 'without account', 'sin cuenta', 'page de stats', 'stats page', 'ventes', 'sales', 'ventas', 'whatsapp', 'qui vend', 'who sells'],
+        sections: [
+          { headingKey: 'ohelp.plink.s1h', bodyKey: 'ohelp.plink.s1b' },
+          { headingKey: 'ohelp.plink.s2h', bodyKey: 'ohelp.plink.s2b', type: 'steps' },
+          { headingKey: 'ohelp.plink.s3h', bodyKey: 'ohelp.plink.s3b' },
+          { headingKey: 'ohelp.plink.s4h', bodyKey: 'ohelp.plink.s4b', type: 'tip' },
+          { headingKey: 'ohelp.plink.s5h', bodyKey: 'ohelp.plink.s5b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-tables',
         titleKey: 'ohelp.org.tables.title',
         descKey: 'ohelp.org.tables.desc',
@@ -635,14 +651,15 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
       },
       {
         // Assistants IA (serveur MCP, docs/MCP.md) : brancher ChatGPT, Claude,
-        // Gemini ou Le Chat sur les chiffres, en lecture seule, et garder la main.
+        // Gemini ou Le Chat sur les chiffres (brouillons d’e-mails et pages
+        // d’inscription préparés par l’IA, jamais envoyés ni publiés), et garder la main.
         id: 'ai-assistants',
         titleKey: 'ohelp.ai.title',
         descKey: 'ohelp.ai.desc',
         icon: 'Sparkles',
         actionLink: { labelKey: 'ohelp.action.goToAiAssistants', path: '/ai-assistants' },
         relatedArticleIds: ['org-team'],
-        keywords: ['intelligence artificielle', 'chatgpt', 'claude', 'gemini', 'le chat', 'mistral', 'openai', 'anthropic', 'mcp', 'connecteur', 'connector', 'conector', 'assistant', 'asistente', 'analyse', 'analysis', 'análisis', 'conseils', 'advice', 'consejos', 'questions', 'preguntas', 'lecture seule', 'read-only', 'brancher mon ia', 'connect my ai', 'conectar mi ia'],
+        keywords: ['intelligence artificielle', 'chatgpt', 'claude', 'gemini', 'le chat', 'mistral', 'openai', 'anthropic', 'mcp', 'connecteur', 'connector', 'conector', 'assistant', 'asistente', 'analyse', 'analysis', 'análisis', 'conseils', 'advice', 'consejos', 'questions', 'preguntas', 'lecture seule', 'read-only', 'brancher mon ia', 'connect my ai', 'conectar mi ia', 'brouillon', 'draft', 'borrador', 'dessiner un email', 'design an email', 'diseñar un email', 'e-mail par ia', 'email by ai', 'page d’inscription', 'page d\'inscription', 'signup page', 'página de registro', 'prévente', 'presale', 'design sur mesure', 'custom design', 'diseño a medida'],
         sections: [
           { headingKey: 'ohelp.ai.s1h', bodyKey: 'ohelp.ai.s1b' },
           { headingKey: 'ohelp.ai.s2h', bodyKey: 'ohelp.ai.s2b', type: 'steps' },
@@ -651,6 +668,8 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ai.s5h', bodyKey: 'ohelp.ai.s5b' },
           { headingKey: 'ohelp.ai.s6h', bodyKey: 'ohelp.ai.s6b' },
           { headingKey: 'ohelp.ai.s7h', bodyKey: 'ohelp.ai.s7b', type: 'tip' },
+          { headingKey: 'ohelp.ai.s9h', bodyKey: 'ohelp.ai.s9b', type: 'steps' },
+          { headingKey: 'ohelp.ai.s10h', bodyKey: 'ohelp.ai.s10b', type: 'steps' },
           { headingKey: 'ohelp.ai.s8h', bodyKey: 'ohelp.ai.s8b' },
         ],
       },

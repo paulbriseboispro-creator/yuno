@@ -182,6 +182,14 @@ describe('renderEmailHtml — enveloppe', () => {
     expect(blank).toContain('— Bordeaux');
   });
 
+  it('la raison sociale réglée signe le pied de page, sinon le nom affiché', () => {
+    const signed = renderEmailHtml([makeBlock('text')], theme, { ...ctx, legalName: 'WOH Productions SAS', postalAddress: '10 rue Oberkampf, 75011 Paris' });
+    expect(signed).toContain('WOH Productions SAS — 10 rue Oberkampf, 75011 Paris');
+    expect(signed).toMatch(/© \d{4} WOH Productions SAS\./);
+    const unsigned = renderEmailHtml([makeBlock('text')], theme, { ...ctx, legalName: '  ' });
+    expect(unsigned).toContain(`${ctx.venueName} — Bordeaux`);
+  });
+
   it('inclut les fallbacks MSO et le meta color-scheme', () => {
     expect(html).toContain('<!--[if mso]>');
     expect(html).toContain('color-scheme');
@@ -1058,6 +1066,16 @@ describe('variables', () => {
     const anon: RenderCtx = { ...ctx, recipient: { email: 'x@y.z' } };
     expect(interpolateVariables('{{dernier_event}}', anon)).toBe('ta dernière soirée');
     expect(interpolateVariables('{{inconnu}}', anon)).toBe('{{inconnu}}');
+  });
+  it('variables Yuno CRM : valeur du profil, sinon repli', () => {
+    const crm: RenderCtx = { ...ctx, recipient: { email: 'x@y.z', artistName: 'Malaa', firstNightTitle: 'Nuit Noire #12', nightsCount: 4 } };
+    expect(interpolateVariables('{{artiste}} revient · {{1re_soiree}} · {{nb_soirees}} soirées', crm)).toBe('Malaa revient · Nuit Noire #12 · 4 soirées');
+    expect(interpolateVariables('{{artist}} / {{first_night}} / {{nights}}', crm)).toBe('Malaa / Nuit Noire #12 / 4');
+    const anon: RenderCtx = { ...ctx, recipient: { email: 'x@y.z', nightsCount: 0 } };
+    expect(interpolateVariables('{{artiste}} · {{1re_soirée}} · {{nb_soirées}}', anon)).toBe('nos artistes · votre première soirée · plusieurs');
+    expect(interpolateVariables('{{artiste}} · {{1re_soiree}}', { ...anon, language: 'en' })).toBe('our artists · your first night');
+    // Les variables d'avant gardent leur repli unique.
+    expect(interpolateVariables('{{soirée}}', { ...anon, language: 'en', live: {} })).toBe('la soirée');
   });
   it('usesVariables détecte les clés connues', () => {
     expect(usesVariables(['salut {{ville}}'])).toBe(true);

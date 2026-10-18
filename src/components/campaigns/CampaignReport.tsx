@@ -13,7 +13,7 @@ import {
   type EmailBlock, type EmailTheme, type SocialLinks,
 } from '@/lib/emailCampaign';
 import {
-  normalizeTheme, normalizeV2Blocks, renderEmailHtml,
+  bindBlocksToEvent, normalizeTheme, normalizeV2Blocks, renderEmailHtml, smartLang,
   type SocialLinks as StudioSocialLinks,
 } from '@/lib/email';
 import { useStudioLiveData, type StudioScope as SenderScope } from '@/components/email-studio/hooks';
@@ -403,13 +403,16 @@ export default function CampaignReport({ scope, basePath }: Props) {
     () => (campaign && isV2 ? normalizeV2Blocks(campaign.blocks_json) : []),
     [campaign, isV2],
   );
-  const v2Live = useStudioLiveData(v2Blocks, campaign?.event_id ?? null);
+  const v2Live = useStudioLiveData(v2Blocks, campaign?.event_id ?? null, (campaign as { language?: string | null } | null)?.language ?? null);
 
   const designHtml = useMemo(() => {
     if (!campaign) return '';
     if (isV2) {
-      return renderEmailHtml(v2Blocks, normalizeTheme(campaign.theme_json), {
+      // Blocs reliés à la soirée de la campagne, comme à l'envoi : sans ce
+      // lien, un bloc Yuno sans soirée propre montrait sa carte d'exemple.
+      return renderEmailHtml(bindBlocksToEvent(v2Blocks, campaign.event_id ?? null), normalizeTheme(campaign.theme_json), {
         venueName: scope.name,
+        language: smartLang((campaign as { language?: string | null }).language),
         city: scope.city,
         logoUrl: campaign.logo_url || scope.logoUrl,
         emailType: (campaign.type as 'promotional' | 'informational') || 'promotional',

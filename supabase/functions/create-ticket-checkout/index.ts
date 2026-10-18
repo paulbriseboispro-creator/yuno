@@ -23,7 +23,7 @@ import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/
 import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
-import { rowPhase } from "../_shared/free-ticketing.ts";
+import { isWaitingForPrevious, normalizeChainVisibility, rowPhase } from "../_shared/free-ticketing.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -161,7 +161,7 @@ serve(async (req) => {
     // Get event details
     const { data: event, error: eventError } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility, tickets_sold_out")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility, tickets_sold_out, free_chain_visibility")
       .eq("id", eventId)
       .single();
 
@@ -278,12 +278,24 @@ serve(async (req) => {
     // une date, en vente à une date, fin de vente). Même règle que la page
     // (ticketPhase, _shared/free-ticketing.ts). Hors mode libre ces colonnes
     // sont à leur défaut : la phase ne ferme rien de plus que is_active.
-    const roundPhase = rowPhase(ticketRound as Parameters<typeof rowPhase>[0]);
+    // Un billet « après un billet » suit le réglage de la soirée
+    // (events.free_chain_visibility) : « open » le rend achetable tout de suite.
+    const chainVisibility = event.ticket_selling_mode === "free"
+      ? normalizeChainVisibility((event as { free_chain_visibility?: string | null }).free_chain_visibility)
+      : "preview";
+    const roundPhase = rowPhase(ticketRound as Parameters<typeof rowPhase>[0], Date.now(), chainVisibility);
     if (roundPhase === "ended") throw new Error(t("checkout.saleEnded", lang));
     if (roundPhase === "hidden" || (roundPhase === "upcoming" && ticketRound.is_active)) {
       throw new Error(t("checkout.tierNotAvailable", lang));
     }
-    if (!ticketRound.is_active) throw new Error("Ticket round is not active");
+    const openByChain = chainVisibility === "open" && roundPhase === "on_sale" && isWaitingForPrevious({
+      isActive: ticketRound.is_active,
+      opensAfterRoundId: (ticketRound as { opens_after_round_id?: string | null }).opens_after_round_id,
+      manuallySoldOut: (ticketRound as { manually_sold_out?: boolean | null }).manually_sold_out,
+      ticketsSold: ticketRound.tickets_sold,
+      maxTickets: ticketRound.max_tickets,
+    });
+    if (!ticketRound.is_active && !openByChain) throw new Error("Ticket round is not active");
     // Billetterie de la SOIRÉE marquée complète à la main (events.tickets_sold_out).
     // Interrupteur réversible : il ne referme aucun palier, il ferme la vente.
     if ((event as { tickets_sold_out?: boolean }).tickets_sold_out) {

@@ -7,11 +7,12 @@ import type {
 import {
   applyTicketsSoldOut, buildEntryRows, buildGuestListLive, buildTablePackRows, buildTableZoneRows, formatEuro,
   liveSoldOut, openTablePacks, pickPublicGuestList, priceFromLabel, rowToTemplate, tablesLeftFor,
-  templateContentToRow, YUNO_BLOCK_TYPES,
+  templateContentToRow, isLiveBlock, blocksNeed,
   type GuestListOffer, type LiveSoldOut, type TablePackOffer, type TableZoneOffer,
   externalActivePrices, externalTicketRows, joinVenueLabel, withEmailUtm, type ExternalDeal,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
+import { emailWords, eventDateLabel, wordsLang } from '../../../supabase/functions/_shared/email-words';
 import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 /** Origine publique des liens de l'email — jamais window.location (WebView). */
@@ -83,13 +84,17 @@ export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | nul
  * Données live des blocs Yuno pour le CANVAS (aperçu). Le rendu d'envoi refait
  * ses propres requêtes côté edge — ici c'est purement visuel.
  */
-export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string | null): LiveData {
+export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string | null, language?: string | null): LiveData {
+  // Langue de l'e-mail : prix, dates, formules et lignes guest list la suivent
+  // (miroir de fetchStudioLiveData côté envoi).
+  const lang = wordsLang(language);
   const [live, setLive] = useState<LiveData>({});
 
   const ids = useMemo(() => {
     const set = new Set<string>();
     for (const b of blocks) {
-      if (YUNO_BLOCK_TYPES.includes(b.type)) {
+      // Blocs Yuno ET sections sur mesure qui lisent une soirée (balises).
+      if (isLiveBlock(b)) {
         const id = ('eventId' in b && b.eventId) || fallbackEventId || '';
         if (id) set.add(id);
       }
@@ -99,7 +104,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
   const idsKey = ids.join(',');
   // Le line-up ne se lit que si un bloc Line-up est posé : poser le premier
   // relance la lecture même quand la soirée était déjà résolue.
-  const needLineup = blocks.some((b) => b.type === 'lineup');
+  const needLineup = blocksNeed(blocks).lineup;
 
   useEffect(() => {
     if (!idsKey) { setLive({}); return; }
@@ -228,8 +233,8 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         return {
           tablesLeft: tablesLeftFor(total, reservedByEvent.get(eventId) || 0, flags),
           tablesOpen: true,
-          tablePacks: buildTablePackRows(mine),
-          tableZones: buildTableZoneRows(allZones, mine),
+          tablePacks: buildTablePackRows(mine, lang),
+          tableZones: buildTableZoneRows(allZones, mine, lang),
         };
       };
 
@@ -248,8 +253,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         const flags = liveSoldOut(e);
         const venue = venueById.get(e.venue_id || e.partner_venue_id || '');
         const tz = e.timezone && e.timezone.trim() ? e.timezone : 'Europe/Paris';
-        const start = new Date(e.start_at);
-        const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
+        const dateLabel = eventDateLabel(e.start_at, tz, lang);
         // Billetterie libre : un billet caché n'entre pas dans l'email (miroir de l'envoi).
         const evRounds = (rounds || []).filter((r) => (r as { event_id: string }).event_id === e.id && isRowListed(r)) as Array<{
           name: string | null; description: string | null; price: number | null;
@@ -263,7 +267,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         const roundRows: TicketRow[] = e.ticketing_enabled === false ? [] : applyTicketsSoldOut(evRounds
           .filter((r) => r.is_active || isOut(r))
           .slice(0, 4)
-          .map((r) => ({ n: r.name || 'Billet', s: r.description || '', p: formatEuro(Number(r.price || 0)), out: isOut(r) })), flags);
+          .map((r) => ({ n: r.name || emailWords(lang).ticketDefault, s: r.description || '', p: formatEuro(Number(r.price || 0), lang), out: isOut(r) })), flags);
         const activePrices = roundRows.length === 0 || flags.ticketsSoldOut
           ? []
           : evRounds.filter((r) => r.is_active && !isOut(r)).map((r) => Number(r.price || 0));
@@ -291,8 +295,8 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
             venueLabel: ext?.venue_label || joinVenueLabel(venueName, city),
             coverUrl: e.poster_url || e.image_url || null,
             url: ticketUrl ? withEmailUtm(ticketUrl) : PUBLIC_BASE_URL,
-            priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false),
-            tickets: externalTicketRows(deals, soldOut),
+            priceFromLabel: priceFromLabel(externalActivePrices(deals, soldOut), false, lang),
+            tickets: externalTicketRows(deals, soldOut, lang),
             guestListOnly: false,
             guestList: null,
             tablesLeft: null,
@@ -300,6 +304,8 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
             tablePacks: [],
             tableZones: [],
             lineup,
+            timezone: tz,
+            external: true,
           };
           continue;
         }
@@ -311,7 +317,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           venueLabel: joinVenueLabel(venueName, city),
           coverUrl: e.poster_url || e.image_url || null,
           url: `${PUBLIC_BASE_URL}${eventPathFromHost(e.id, e.slug, hostById.get(e.id))}`,
-          priceFromLabel: priceFromLabel(activePrices, !!guestList),
+          priceFromLabel: priceFromLabel(activePrices, !!guestList, lang),
           // Tableau TOUJOURS présent : vide = « aucune entrée ouverte » (le bloc
           // s'efface), undefined = « données pas encore résolues » (fallback).
           tickets,
@@ -319,12 +325,14 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           guestList: guestListLive,
           ...tableLiveFor(e.id, e.venue_id || e.partner_venue_id || null, flags, e.tables_enabled !== false),
           lineup,
+          timezone: tz,
+          external: false,
         };
       }
       setLive(next);
     })();
     return () => { cancelled = true; };
-  }, [idsKey, needLineup]);
+  }, [idsKey, needLineup, lang]);
 
   return live;
 }

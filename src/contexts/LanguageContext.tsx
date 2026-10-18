@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { loadLocale, getLoadedLocale, loadLocaleSection, hasLocaleSection, type Language, type LocaleSection } from '../i18n/data';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { deviceLanguage, urlLanguage, VALID_LANGS } from '@/lib/deviceLanguage';
-import { purgeServiceWorkersAndReload } from '@/lib/swRecovery';
+import { clearLocaleRecoveryFlag, recoverFromMissingLocaleOnce } from '@/lib/swRecovery';
 
 export type { Language };
 
@@ -33,39 +33,6 @@ export function persistedLanguage(): Language {
   return deviceLanguage() ?? 'en';
 }
 
-const LOCALE_RELOAD_KEY = 'yuno-locale-reload-attempted';
-
-/**
- * Le dictionnaire n'a pu se charger ni dans la langue active ni en anglais.
- * Tant que `strings` reste null, LanguageProvider rend `null` : React a déjà
- * remplacé le loader d'index.html (son filet de 12 s ne voit plus rien) et
- * l'utilisateur reste devant un écran NOIR, sans message ni bouton.
- *
- * Cause réelle : un Safari qui garde une coquille périmée (service worker ou
- * HTML en cache) après un déploiement redemande `fr-<ancien hash>.js`, qui
- * n'existe plus — ces chunks sont exclus du précache du SW.
- *
- * 1. Première fois : purger SW + caches et recharger (une seule fois par
- *    session, sinon boucle) — le rechargement récupère l'index et les chunks du
- *    build courant.
- * 2. Déjà tenté : rendre l'app avec un dictionnaire vide (clés brutes) plutôt
- *    qu'un écran mort — le visiteur voit la soirée, pas du noir.
- */
-function recoverFromLocaleFailure(setStrings: (dict: Record<string, string>) => void): void {
-  let alreadyTried = false;
-  try {
-    alreadyTried = sessionStorage.getItem(LOCALE_RELOAD_KEY) === 'true';
-    if (!alreadyTried) sessionStorage.setItem(LOCALE_RELOAD_KEY, 'true');
-  } catch { /* stockage indisponible : on ne risque pas de boucle, on rend l'app */
-    alreadyTried = true;
-  }
-  if (alreadyTried) {
-    setStrings({});
-    return;
-  }
-  void purgeServiceWorkersAndReload();
-}
-
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(persistedLanguage);
 
@@ -84,9 +51,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Dictionnaire actif + fallback EN. `strings === null` = premier chargement
   // en cours : on gate le render (le splash natif / fond #050505 couvre ~50 ms,
-  // le chunk de langue est bundlé via Capgo en natif ; sur web il est EXCLU du
-  // précache du SW — vite.config.ts `globIgnores` — donc il peut manquer à un
-  // navigateur qui garde une coquille périmée : voir `recoverFromLocaleFailure`).
+  // le chunk de langue est précaché par le SW sur web et bundlé via Capgo en natif).
   const [strings, setStrings] = useState<Record<string, string> | null>(() => getLoadedLocale(persistedLanguage()) ?? null);
   const [enStrings, setEnStrings] = useState<Record<string, string> | null>(() => getLoadedLocale('en') ?? null);
 
@@ -112,17 +77,27 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       ? Promise.all(sections.map((sec) => loadLocaleSection(language, sec))).then((dicts) => dicts[dicts.length - 1])
       : loadLocale(language);
     load.then((dict) => {
-      if (cancelled) return;
-      try { sessionStorage.removeItem(LOCALE_RELOAD_KEY); } catch { /* stockage indisponible */ }
-      setStrings(dict);
+      clearLocaleRecoveryFlag();
+      if (!cancelled) setStrings(dict);
     }).catch((e) => {
       console.error('[i18n] locale load failed:', e);
       if (cancelled) return;
-      // Réseau KO ou chunk disparu : tenter EN, puis la reprise.
-      const english = language !== 'en' ? loadLocale('en') : Promise.reject(e);
-      english
-        .then((dict) => { if (!cancelled) setStrings(dict); })
-        .catch(() => { if (!cancelled) recoverFromLocaleFailure(setStrings); });
+      // Réseau KO sur le premier chunk : tenter EN pour ne pas bloquer l'app.
+      // EN introuvable aussi = bundle périmé (ancien index en cache) : sans
+      // dictionnaire l'app ne rend rien, on recharge une version fraîche. Si
+      // aucun rechargement n'est possible (déjà tenté, hors ligne), on rend l'app
+      // avec un dictionnaire vide (clés brutes) : un écran noir sans bouton est pire.
+      const giveUp = () => {
+        if (cancelled || getLoadedLocale(language)) return;
+        if (!recoverFromMissingLocaleOnce()) setStrings((prev) => prev ?? {});
+      };
+      if (language !== 'en') {
+        loadLocale('en')
+          .then((dict) => { clearLocaleRecoveryFlag(); if (!cancelled) setStrings(dict); })
+          .catch(giveUp);
+      } else {
+        giveUp();
+      }
     });
     return () => { cancelled = true; };
   }, [language]);

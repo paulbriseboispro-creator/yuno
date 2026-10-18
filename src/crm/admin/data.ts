@@ -115,6 +115,44 @@ export function useAdminPlatform() {
   return useQuery({ queryKey: ['crm-admin', 'platform', includeDemo], staleTime: 30_000, queryFn: () => rpc<AdminPlatform>('crm_admin_platform', { p_include_demo: includeDemo }) });
 }
 
+export interface AdminScenarioAccount {
+  id: string; name: string; city: string | null; kind: string | null;
+  /** frozen = envoi gelé par un geste admin ; plan_paused = compte en pause (essai fini, impayé). */
+  state: 'frozen' | 'plan_paused' | 'ok';
+  active: number; paused: number; drafts: number; by_ai: number; broken: number;
+  on_their_way: number; entered7: number; sent7: number; would_send7: number; expired7: number;
+  held_now: number; held_reason: string | null; last_change: string | null;
+}
+export interface AdminScenarios {
+  at: string;
+  totals: { accounts: number; active: number; paused: number; drafts: number; by_ai: number; broken: number; on_their_way: number; entered7: number; sent7: number; expired7: number; held_now: number };
+  /** Messages retenus en ce moment, par raison (tous comptes). */
+  held: Record<string, number>;
+  accounts: AdminScenarioAccount[];
+}
+/** Admin CRM › Plateforme › Scénarios : des agrégats par compte, jamais une personne. */
+export function useAdminScenarios(enabled = true) {
+  const { includeDemo } = useAdminScope();
+  return useQuery({ queryKey: ['crm-admin', 'scenarios', includeDemo], staleTime: 30_000, enabled, queryFn: () => rpc<AdminScenarios>('crm_admin_scenarios', { p_include_demo: includeDemo }) });
+}
+
+export interface AdminDailyItem { id: string; name: string; [k: string]: unknown }
+export interface AdminDaily {
+  at: string;
+  sync_errors: (AdminDailyItem & { error: string | null })[];
+  deliverability: (AdminDailyItem & { sent: number; bounced: number; complained: number })[];
+  trials_ending: (AdminDailyItem & { trial_ends_at: string })[];
+  silent: (AdminDailyItem & { state: string; last_send_at: string | null })[];
+  forecast: (AdminDailyItem & { title: string; start_at: string; err_pct: number })[];
+  audits: (AdminDailyItem & { event_id: string; title: string; start_at: string; trial_ends_at: string | null })[];
+  counts: Record<'sync_errors' | 'deliverability' | 'trials_ending' | 'silent' | 'forecast' | 'audits', number>;
+}
+/** Admin CRM › Plateforme › Bilan du jour (agents, lot A5) : agrégats, jamais une personne. */
+export function useAdminDaily(enabled = true) {
+  const { includeDemo } = useAdminScope();
+  return useQuery({ queryKey: ['crm-admin', 'daily', includeDemo], staleTime: 60_000, enabled, queryFn: () => rpc<AdminDaily>('crm_admin_daily', { p_include_demo: includeDemo }) });
+}
+
 export interface AdminLegal {
   at: string;
   accept: { id: string; name: string; email: string | null; docs: Record<string, { v: string; at: string; ip: string | null }> }[];

@@ -138,6 +138,8 @@ export interface CrmBilling {
     trial_ends_at: string | null; current_period_end: string | null; cancel_at_period_end: boolean;
     has_stripe: boolean; has_customer: boolean; granted: boolean;
     trial_extensions_used?: number; trial_extensions_left?: number;
+    /** Offre fondateurs (migration 20261017230000) : la période offerte est l'essai, jusqu'à `until`. */
+    offer?: { kind: 'founder'; until: string; free_months?: number; yunits?: number; started_at?: string } | null;
   } | null;
   effective_plan: 'base' | 'paused';
   can_manage: boolean;

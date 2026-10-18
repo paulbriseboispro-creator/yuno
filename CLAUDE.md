@@ -64,14 +64,17 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
 - **Prix : UN abonnement + une monnaie, révisé par Paul le 04/10.**
   24 € HT / mois au lancement (garanti tant que l'abonnement vit), 34 € ensuite
   pour les nouveaux comptes ; annuel = 288 € HT (12 mois) + 30 000 Yunits offerts,
-  sans remise. Pas de compte gratuit : essai 14 jours sans carte (5 000 Yunits),
+  sans remise. Pas de compte gratuit : essai 14 jours sans carte (2 000 Yunits),
   puis compte EN PAUSE (base lisible et exportable, ni synchro ni envoi). Tout ce
   qui fait envoyer est dans le socle (automatisations, A/B, Meta, IA, équipe sans
   limite) : brider une fonction qui fait envoyer, c'est brider le revenu.
   **Les Yunits** sont la monnaie de Yuno CRM (le nom « néons » est abandonné),
   jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
-  France = 35 / segment (40 jusqu'au 08/10), étranger = 70, WhatsApp = 100 ; 10 000 par mois qui s'éteignent à
-  l'échéance ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
+  France = 35 / segment (40 jusqu'au 08/10), étranger = 70, WhatsApp = 100 ; **rien d'offert chaque mois** (décision de Paul, 06/10 : l'abonnement est déjà
+  rentable, ce sont les Yunits qui rémunèrent Yuno) : 10 000 offerts UNE fois à
+  l'abonnement mensuel, 30 000 d'un coup à l'annuel, 2 000 pendant l'essai (clé
+  `monthly_yunits` = « une fois », lot `grant`/`welcome`, migration
+  `20261009100000`) ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
   Paul, 05/10) : 5 000 à 300 000 Yunits par pas de 5 000, 500 par euro HT,
   +10 % dès 25 000 et +15 % dès 50 000 (`crm_pricing_config()`, devis serveur
   `crmRechargeQuote`, paiement en `price_data`) ; dépensés du lot qui s'éteint
@@ -164,6 +167,15 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   rapporte son accord newsletter (`source = 'connector:shotgun'`,
   `consent_source = 'ticketing'`), jamais un désabonné / une adresse purgée.
   Une source `connector:%` ne déclenche JAMAIS la recette « bienvenue ».
+  **Ce que la billetterie a donné, elle peut le reprendre** (migration
+  `20261009172000`) : le signal LE PLUS RÉCENT d'un acheteur (billet le plus
+  récemment mis à jour) décide. `contact_newsletter_optin = false` postérieur à
+  l'accord retire du registre un abonné dont l'accord venait du connecteur
+  (`source LIKE 'connector:%'`), tracé `withdrawn` dans
+  `marketing_consent_events` (`ticketing_after_sync`, `consents_withdrawn`) ;
+  un accord donné ailleurs (page `/j/`, fichier attesté) n'est jamais effacé
+  par une case décochée au checkout. Dernier signal = retrait ⇒ jamais
+  d'entrée au registre.
 - **Le produit du compte choisit la Console** (`venues.product` /
   `organizer_profiles.product` = `suite` | `crm`, migration `20261002190000`).
   Écrit à l'inscription (`complete_pro_signup`) ou par le super admin
@@ -666,9 +678,117 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   (front) ou `freePresetToRoundRows` (séries récurrentes), jamais à la main.
   Mise en vente, prévente, mot de passe, limite par personne et « Complet »
   restent ceux de la soirée ; la jauge totale y est facultative.
+  **Rounds billet par billet** (2026-10-15, migrations `20261017100000` +
+  `110000`) : `ticket_rounds.opens_after_round_id` = « s'ouvre quand CE billet
+  est complet ». Le billet reste fermé (`is_active = false`, « Bientôt » côté
+  public — jamais quel billet il attend, décision de Paul du 16/10 ; la
+  Console, elle, dit « Après « … » » ; réglage de la soirée
+  `events.free_chain_visibility` = `preview` défaut | `hidden` | `open`, 3ᵉ argument
+  de `ticketPhase` / `rowPhase`, lu par la page ET le checkout, migration
+  `20261017140000` — distinct de `rounds_visibility`, au défaut « sequential ») ; c'est la BASE qui l'ouvre (`auto_activate_next_round`, quantité
+  atteinte ou « Complet ») et qui décide `is_active` quand le lien est posé,
+  changé, réécrit ou qu'on retire « Complet » (`guard_ticket_round_opens_after`,
+  même soirée, pas de boucle) — jamais le client. Chaque billet a sa file :
+  rounds × heures d'entrée se cumulent (Early/First/… × Before 1 AM / All Night
+  Long). « Ouvrir la vente » vide le lien. Un modèle l'écrit `sale: 'manual'` +
+  `opensAfter` (clé du billet dans le modèle) : un lecteur qui ignore le lien
+  garde le billet fermé. Les ids sont tirés avant l'insertion
+  (`freePresetToRoundRows`, wizard) pour poser les liens dans la même requête.
+  Le cron SQL des séries (`_insert_recurring_rounds`) rejoue enfin un modèle
+  libre : miroir SQL de `freePresetToRoundRows` (`_free_rel_to_ts` ⇄
+  `fromRelative`), vérifié ligne à ligne contre le TS. Un billet épuisé se lit
+  « Épuisé » côté public, jamais « Bientôt » (il est aussi `is_active = false`).
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
+
+## Yuno CRM — l'offre fondateurs : 5 comptes choisis par Paul (2026-10-17)
+
+Décidée après le premier appel commercial (3AM). Migration `20261017230000`,
+écran Admin CRM › Inviter (`InvitePage`, choix « Offre fondateurs » ; l'ancien
+onglet Vente › Offre fondateurs y redirige, voir la section suivante).
+Rien à voir avec le prix de lancement des 50 premiers PAYANTS (24 €,
+`price_switch_at`) : un compte fondateur ne paie pas, il n'entre pas dans
+`crm_paying_accounts`. Règles :
+
+- **5 places, une porte : `_crm_offer_seats_taken`** (compte ouvert + lien en
+  attente non expiré ; révoquer ou laisser expirer à 30 j rend la place), sous
+  verrou consultatif. Réglages dans `crm_founder_offer_config()` (5 places,
+  6 mois, 15 000 Yunits, lien 30 j), recopiés sur chaque invitation
+  (`crm_offer_invites`, RLS sans policy, tout par les RPC `crm_admin_offer_*`).
+- **Le lien** = `https://crm.yunoapp.eu/<fr|es>/start?offer=<jeton>`
+  (`crm_offer_invite_url`, source unique). Envoi : e-mail par
+  `admin-account-recovery` action `crm-founder-offer-email` (module PUR
+  `_shared/crm-founder-offer-email.ts`, aussi lu par le front pour le message
+  WhatsApp), ou WhatsApp (`wa.me/<numéro>?text=…`, `src/crm/lib/founderOffer.ts`).
+- **L'offre s'applique CÔTÉ SERVEUR, jamais par le navigateur** : la landing
+  passe `offer` à `track_pro_signup` (brouillon `pro_signups.offer_invite_id`),
+  puis `complete_pro_signup` / `open_product_on_my_account` appellent
+  `_crm_offer_apply` (ne lève jamais : l'ouverture du compte passe toujours).
+  Le lien de confirmation e-mail et Google / Apple marchent donc sans rien de
+  plus. Compte Yuno existant : `/open/crm?offer=` → `crm_offer_claim`.
+- **Dans Yuno, la période offerte EST un essai** (`status = 'trialing'`,
+  `trial_ends_at = offer_until`, `offer = 'founder'`, `founder = true`) : accès,
+  pause à la fin (`crm_billing_sweep`) et checkout suivent sans code à part.
+  **Chez Stripe, c'est la période gratuite native** : `crm_checkout` pose
+  `trial_end = offer_until` (+ métadonnée `offer`), Stripe affiche « 0 € aujourd'hui,
+  24 € à partir du … » et facture seul ensuite. Aucun coupon (il doublerait les
+  mois offerts si la carte arrive tard).
+- **Yunits** : lot `grant` / `founder_offer` (15 000, 12 mois). Il REMPLACE
+  l'essai (le lot d'essai jamais entamé est retiré) et le cadeau de
+  l'abonnement mensuel (`crm_yunits_ensure_allowance` le traite comme `welcome`) ;
+  le bonus annuel reste celui de tout le monde.
+- Console : carte « Offre fondateur » en tête de Compte › Abonnement
+  (`FounderOfferCard`), pastille, bouton « Enregistrer ma carte · 0 € aujourd'hui »,
+  FAQ `yc.faq.founder`. Alerte super admin `admin_crm_offer_claimed`.
+
+## Yuno CRM — Admin CRM : Inviter, Démo, Accès assisté (2026-10-19)
+
+Demande de Paul (18/10) : « que le compte admin Yuno CRM soit vraiment 100 %
+fonctionnel ». Migration `20261019420000`, pages `src/crm/admin/pages/{InvitePage,
+DemoPage,SupportPage}.tsx` (menu : Grandir › Inviter, Démo ; Servir › Accès
+assisté), données `src/crm/admin/inviteData.ts`, e-mails
+`_shared/crm-invite-email.ts` (pur, testé, lu aussi par le front pour WhatsApp,
+actions `crm-invite-email` / `crm-demo-email` d'`admin-account-recovery`).
+Règles :
+
+- **Une invitation = `crm_offer_invites`, offre `founder` OU `standard`.**
+  Standard = l'essai de tout le monde : aucune place prise, rien posé sur
+  l'abonnement ni sur les Yunits (`_crm_offer_apply` la rattache seulement au
+  compte ouvert, alerte `admin_crm_invite_claimed`). Les 5 places suivent les
+  règles de la section précédente.
+- **Le pré-profil** (type club / organisateur, structure, contact « Prénom
+  Nom », e-mail, téléphone, ville, langue) entre dans le brouillon `pro_signups`
+  dès l'ouverture du lien (`track_pro_signup`, jamais par-dessus ce que la
+  personne tape) ; `complete_pro_signup` en remplit le profil. La landing
+  (`CrmSignup`, `?offer=`) le pré-remplit et dit l'essai (`invite.*`) : elle se
+  livre AVANT toute invitation standard (l'ancienne afficherait « 0 mois
+  offerts »).
+- **L'accès assisté proposé à l'invitation** (`support_offer`, coché par
+  défaut) dépose à l'ouverture du compte une demande EN ATTENTE
+  (`_crm_invite_offer_support`, `requested_by` = l'admin qui a invité) : jamais
+  un accès accordé à la place du pro.
+- **Un accès démo = un lien d'aperçu ordinaire** (`demo_preview_links`, cible
+  `crm`, lecture seule imposée par le serveur) + `crm_demo_accesses` (contact,
+  invitation liée, mot de passe gardé pour pouvoir le renvoyer ; RLS sans
+  policy, RPC `crm_admin_demo_*`). Entrée `crm.yunoapp.eu/crm/preview?token=`
+  (`CrmPreviewGate`, DA du CRM ; un lien `crm` seul ouvert sur
+  yunoapp.eu/preview y est renvoyé). Le redeem rend `cta` (`crm_demo_link_cta` :
+  l'invitation liée si elle vaut encore, sinon `/start`) ; la pastille d'aperçu
+  de la Console quitte la démo AVANT d'ouvrir l'inscription (même origine : la
+  session démo et la lecture seule de l'onglet ne doivent jamais la suivre).
+  Ouvrir un lien démo dans le navigateur de l'admin remplacerait sa session
+  (l'écran le dit) : fenêtre privée.
+- **Accès assisté d'un compte CRM** : Admin CRM › Accès assisté
+  (`crm_admin_support` : demander, relancer, entrer, couper, journal) ; côté
+  pro, Compte › Accès Yuno (`/crm/account/support`, `?approve=` depuis l'e-mail)
+  et les notifications `support_request` / `support_live` (`_crm_notif_list`).
+  `request-support-access` envoie un compte CRM (Admin CRM `product: 'crm'`, ou
+  titulaire `crm_user_crm_only`) vers SA Console avec un e-mail à la DA du CRM.
+  « Voir sa Console » REMPLACE la session admin du navigateur (confirmation) ;
+  « Quitter » ramène à `/admin/crm/login`. L'accord est celui du TITULAIRE
+  (`space.role = 'owner'`) ; un aperçu démo ou une session d'assistance voient
+  la page sans boutons.
 
 ## Yuno CRM — la Console `/crm` (design Claude Design) et l'Admin CRM (2026-10-05)
 
@@ -703,6 +823,36 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   FAQ `yc.faq.*` (Compte › Aide), article `ohelp.crm.*` pour la Suite, et les
   articles `crm-*` de `_shared/console-help-articles.ts` pour l'assistant
   (redéployer `owner-assistant` après modification).
+- **Aucun e-mail CRM ne part sans l'identité de l'expéditeur** (2026-10-18,
+  migration `20261019103000`, constaté sur Amoris × Shotgun de WOH : un envoi
+  serait parti « Amoris » sans adresse postale à 299 personnes qui avaient dit
+  oui à WOH). Porte unique `_crm_email_identity(venue, orga)` (lecture Console
+  `crm_email_sender_readiness`, `crm_email_settings_get.readiness`), miroir des
+  règles de champ `src/crm/lib/emailIdentity.ts` (testé) : nom d'expéditeur
+  (2-60), raison sociale (`crm_email_settings.legal_name`, 2-160), adresse
+  postale (≥ 10 caractères, un chiffre, deux lettres) et Conditions CRM + DPA
+  acceptées par le TITULAIRE (`legal_acceptances`, démo exemptée). La raison
+  sociale vit dans `crm_email_settings`, JAMAIS dans `organizer_profiles.legal_name`
+  / `venues.legal_name` (le vendeur des reçus de la Billetterie) : l'identité du
+  compte n'est qu'une suggestion (« Utiliser … »), jamais recopiée d'office, et
+  l'agent n'écrit jamais ces réglages à la place du pro. Garde
+  `trg_guard_crm_sender_identity` (passage en `sending` / `scheduled` d'une
+  campagne CRM) : campagne manuelle refusée (`crm_sender_identity`), enfant
+  (automatisation, scénario, page, renvoi, relance) mis en pause
+  (`paused_reason = 'sender_identity'`), repris par `_crm_email_identity_resume`
+  dès que l'identité est complète (Réglages › Envoi ou acceptation des
+  conditions, trigger sur `legal_acceptances`), annulé si sa soirée a commencé.
+  `send-campaign` refuse test et mise en file en 402 `crm_sender_identity`
+  (`missing`), lit Réglages › Envoi pour les seules campagnes CRM (une
+  campagne Billetterie d'un compte qui a aussi le CRM garde l'identité du
+  compte), et le nom affiché devient la marque du corps ; le pied de page est
+  signé par la raison sociale (`legalName`, `footerSigner` ⇄ port Deno). Une
+  recette réglée dans la Console CRM porte `email_automations.product = 'crm'`
+  (`crm_automation_save`) et ses e-mails en héritent à l'insertion
+  (`trg_a_email_automation_child_product`) : sur un compte Billetterie + CRM,
+  ses e-mails étaient classés Billetterie (identité du compte, pas de Yunits,
+  pas de garde). Aide : FAQ `yc.faq.sender.*`, article assistant
+  `crm-sender-identity`.
 - **SMS OUVERT dans Yuno CRM depuis le 2026-10-08** (décision de Paul), par la route opérateurs française d'Octopush (plan `docs/designs/SMS_PROVIDER_PLAN.md`, état du 04/10 dans `docs/designs/CRM_SMS_PLAN.md`) ; la garde « Bientôt » du 05/10 (`CRM_SMS_DISPLAY_LIVE`, `SmsSoonPage`, `crm_sms_not_open`) est levée. 35 Yunits par segment en France, 70 vers un numéro étranger (`crm_pricing.rates.sms` / `sms_intl`, jamais en dur au front ; replis `?? 35` / `?? 70`) : la zone se lit sur le numéro AVANT l'envoi (`smsTariffZone` ⇄ SQL `sms_tariff_zone` : `+33` = France, `+1` = jamais mis en file, le reste = étranger, outre-mer compris tant que la grille Octopush n'est pas lue), le débit se fait par lot et par zone, l'aperçu rend `net_intl`. Chaque STOP garde son club et son SMS (`sms_stop_list.scope_key`, `campaign_id`, via le ticket du webhook) : base du STOP par club, qui attend les sous-comptes Octopush (questions posées par Paul le 08/10). Expéditeur alphanumérique de 3 à 11 caractères (`crm_sms_settings`) ; mention « STOP au 30101 » ajoutée par le moteur, jamais retirable ; identité légale de l'expéditeur (raison sociale + SIRET / RNA / TVA) exigée avant tout envoi (`get_sms_sender_readiness`) ; SMS de test gratuit ; heures calmes de `crm_sms_settings` plus un plancher dur 21 h 30 → 8 h qu'aucun réglage ne lève. Envoi : « Maintenant » = `send-sms-campaign` (mise en file `_enqueue_crm_sms_recipients`, même règle que `crm_sms_audience_preview`, Yunits débités par lot) ; « Programmer » = `crm_sms_schedule` (identité vérifiée), annulable (`crm_sms_unschedule`) ; lien de soirée court `yunoapp.eu/go/<code>` (`ensure_crm_sms_link`, source Shotgun `yuno-s-<code>`). Les relances SMS et le recueil du numéro des PAGES D'INSCRIPTION restent « Bientôt » (`CRM_SMS_SIGNUP_LIVE = false` : `crm_signup_sends` note sans envoyer, le numéro n'entre pas au registre SMS). `SMS_MARKETING_LIVE` (SMS de la Suite) reste FAUX.
 - **Pages d'inscription** (v2 du 05/10, plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`,
   migrations `20261007193500` + `194500`) : reproduites À L'IDENTIQUE du design
@@ -729,6 +879,40 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   première inscription confirmée précède le premier achat (`_crm_people_build`)
   → filtre Clients et segment « Inscrits via vos pages ». Publier = titulaire
   seul, jamais en accès assisté. Démo : aucune adresse collectée.
+  **Le nom que le fan lit = `crm_space_display_name(venue, orga)`** (migration
+  `20261019120000`, décision de Paul du 17/10) : le nom d'expéditeur de
+  `crm_email_settings`, sinon le nom du club, sinon celui de l'organisateur.
+  Case d'accord, pied de page, `{{host.name}}` (`get_crm_signup_page.host`),
+  e-mail de confirmation (`crm_signup_confirm_queue`), kit MCP (`brand.name`),
+  et côté Console `useSignupHost` ⇄ `signupHostName` (assistant, aperçus,
+  relances). Un espace qui écrit pour une autre marque (Amoris pour le Shotgun
+  de WOH) ne fait jamais dire « Amoris » au fan. Logo, ville et Instagram
+  restent ceux du compte. Une page Communauté SANS récompense n'en promet
+  aucune (`rewardFanText` rend '' quand elle est éteinte, `msgPlain`).
+- **Automatisations CRM = sept recettes** (`CRM_AUTO_KINDS` ⇄ `v_kinds` de
+  `crm_automations__core` ⇄ délais de `crm_automation_save`), dont « A cliqué
+  sans acheter » (`click_no_buy`, migration `20261009171000`, décision de Paul
+  du 06/10) : un clic NOMINATIF dans un e-mail de la portée vers la page
+  Shotgun de la soirée (`_link_base` compare l'URL cliquée à
+  `external_ticket_url` : `…/nuit-1` ≠ `…/nuit-19`), puis aucune place à la même
+  adresse (`_email_event_holder`), 6 / 12 / 24 / 48 h après le DERNIER clic,
+  jamais dans les 2 h avant la soirée, une fois par personne et par soirée.
+  Famille URGENTE (palier 2 / 24 h, hors cooldown de 48 h) dans
+  `email_send_policy` ET `_email_send_policy_many`. Fenêtre « délai + 24 h »
+  IDENTIQUE dans le moteur et l'aperçu : ce que l'aperçu compte est ce qui part
+  si on allume. Le texte (`yc.em.tp.relance.*`, modèle hors galerie,
+  `CRM_AUTO_TEMPLATES`) dit « si vous avez déjà votre place, ignorez ce
+  message » : une place prise avec une autre adresse ne se voit pas. Une visite
+  venue d'un lien de partage `/go/`, d'Instagram ou d'une bio reste anonyme et
+  ne déclenche rien ; panier abandonné et upsell table restent « À venir »
+  (`AutoSoon`), ils demandent le checkout que Shotgun ne rapporte pas.
+- **Un lot automatique n'excède jamais le solde de Yunits** (compte CRM pur,
+  `20261009172000`) : le moteur n'inscrit au registre que ce que
+  `crm_yunits_balance` couvre (compte en pause = 0), le reste revient au
+  passage suivant (`yunits_held`). Avant, le trigger
+  `_crm_yunits_debit_child_recipients` écartait TOUT le lot sur un solde trop
+  court et le registre interdisait de le rejouer : un essai à 2 000 Yunits
+  face à un lot de 3 000 n'envoyait rien, jamais. Le trigger reste le filet.
 - **Instagram** (`/crm/instagram`) : réponse automatique aux commentaires sous
   les RÉELS, CARROUSELS ET PHOTOS (`post_types`, jamais vide, décision de Paul),
   aussi en message privé et en réponse aux stories. Écran complet mais l'App
@@ -758,7 +942,11 @@ tables réelles ; rien n'est inventé :
   gel d'envoi (`crm_settings.sending_frozen_at`, refusé par le trigger
   `guard_crm_send_frozen` sur les campagnes e-mail et SMS ; une recette automatique
   est mise EN PAUSE plutôt que de lever une exception qui ferait tomber la
-  collecte des autres comptes), notes. Prospects : `crm_prospects` (+ événements),
+  collecte des autres comptes), notes. « Offrir Yuno CRM » (fenêtre Produits du
+  super admin de la Billetterie, `admin_grant_crm_plan`) écrit `crm_grant_plan` /
+  `crm_end_grant` ET une ligne `account_product_events` (`gifted` / `grant_ended`),
+  sans motif ; `admin_account_products().crm` rend l'état du don (par qui, depuis
+  quand, jusqu'à quand, Yunits), migration `20261018195500`. Prospects : `crm_prospects` (+ événements),
   pipeline réel (Essai et Payant se lisent dans les comptes).
 - **Ce que la base ne sait pas n'est pas rendu** : tests A/B, exceptions edge,
   ouvertures / clics des e-mails du cycle de vie. Les coûts réels d'envoi sont un
@@ -828,9 +1016,15 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   (`deal_price`, `deal_user_service_fee`, toujours ÷ 100), tarifs des soirées
   en EUROS (jamais divisés), `contact_*` (consentement, âge à l'année près,
   ville, code postal, pays en toutes lettres → ISO). Soirées à venir relues en
-  entier à chaque passe (places restantes). Aucun compte réel n'était connecté
-  au 05/10 : rien à rattraper ; un compte importé avec l'ancien lecteur se
-  rattrape par une remise à zéro de `tickets_cursor`.
+  entier à chaque passe (places restantes). Un compte importé avec l'ancien
+  lecteur se rattrape par une remise à zéro de `tickets_cursor`.
+  **Pays : jamais un code retiré** (`countryCodeFrom`, 18/10, testé sur les 83
+  noms vus sur le 1er vrai compte) : Intl nomme aussi `DD` (RDA, « Germany »,
+  avant `DE` dans l'alphabet), `CS`, `YU`, `SU`… ; ils sont exclus de la table
+  (`RETIRED_COUNTRY_CODES`, ramenés à leur successeur s'ils arrivent tels
+  quels), et les noms anglais ISO d'avant les renommages (Turkey, Czech
+  Republic, Republic Of Moldova, « Korea, Republic of »…) ont leurs alias.
+  Les billets déjà en base ont été rattrapés (`20261018100000`).
 - **Une vente = `_crm_ticket_is_sale(status, raw)`** : `valid` hors invitation
   et hors duplicata (`deal_channel IN ('invitation', 'duplicata')`, le duplicata
   est la copie d'un billet déjà vendu). Un billet revendu (`resold` → `transferred`)
@@ -852,12 +1046,34 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   synchro (registre ou fichier), pas seulement « jamais vu par Shotgun ».
 - **La source d'une vente = `utm_source` seulement** (Shotgun écrase
   `utm_medium` par la plateforme, ne rend pas `utm_campaign`). Familles
-  (`_crm_ticket_source` ⇄ `sourceKind`, `src/crm/lib/links.ts`) : `yl` lien de
+  (`_crm_ticket_source` ⇄ `sourceFamily` / `sourceKind`, `src/crm/lib/links.ts`,
+  miroir EXACT testé sur le même jeu de 87 valeurs) : `yl` lien de
   partage `yuno-<code>` · `em` e-mail `yuno-m-<8 hex campagne>` (et `yuno`
-  d'avant) · `sm` `yuno-s-…` · `dm` `yuno-d-…` · `so` réseau vu par Shotgun ·
-  `sg` app/site Shotgun · `au` autre site · `di` direct · `of` hors ligne /
-  importé. « Partenaires » n'existe plus (rien dans l'API). Tout lien Yuno
+  d'avant) · `sm` `yuno-s-…` · `dm` `yuno-d-…` · `so` réseaux sociaux hors
+  lien Yuno · `sg` app/site Shotgun · `ex` e-mail d'un AUTRE outil (Brevo
+  `*.sendibm*.com`, Mailchimp, `shotgun-email`, webmails) · `se` recherche et
+  IA (Google, ChatGPT…) · `au` autre site · `di` direct · `of` hors ligne /
+  importé. **Shotgun écrit souvent le DOMAINE référent** (`instagram.com`,
+  `l.instagram.com`, `m.facebook.com`, `ezapv.r.ag.d.sendibm3.com`) : il est
+  ramené à sa forme nue (`sourceHost` : schéma, chemin, `www.` `l.` `m.` `lm.`
+  retirés) puis lu mot par mot, dans CET ordre (une adresse `mail.google.com`
+  est un webmail, pas une recherche) — sans ça, 15 % des billets d'Amoris
+  tombaient dans « Autres sites » (20261018100000, < 1 % depuis). Une famille
+  ajoutée entre dans `SOURCE_KEYS`, `CHANNEL_CODES`, les listes de
+  `_crm_cond_leaf_check`, `_crm_filter_sql` et `crm_ana_traffic__core`, et
+  les libellés `yc.ana.src.*`, `yc.scn.v.arr.*`, `yc.lk.src.*`. Le nom affiché
+  d'une source vient de `sourceName` (« Brevo », « Instagram »), jamais du
+  domaine brut. « Partenaires » n'existe plus (rien dans l'API). Tout lien Yuno
   vers Shotgun porte TOUT son identifiant dans `utm_source`.
+- **Un client = une personne avec au moins un billet valide ou transféré**
+  (règle de `contact_scope_customers`), partout : Accueil, Clients et la carte
+  Connecteurs (`ticketing_refresh_stats.buyers`, qui ne compte plus toutes les
+  adresses). L'écart se dit UNE fois, sous la carte Connecteurs :
+  `buyers_inactive` (adresses aux billets tous remboursés ou annulés) et
+  `no_email_tickets` (billets vendus sans e-mail, au guichet : des ventes,
+  jamais des personnes). Les profils d'analyse (`crm_person_profile`) ne
+  comptent que les VENTES (`_crm_ticket_is_sale`), d'où un nombre plus petit,
+  lu par l'Admin CRM seul. FAQ `yc.faq.customers.*` et `yc.faq.sources.*`.
 - **Liens de partage** (onglet « Liens de partage » du tiroir d'une soirée,
   `?e=<id>&v=links`, migration `20261006200000`) : `tracked_links` sur la
   soirée miroir (`utm_source` = réseau, `utm_medium` = emplacement, paires de
@@ -877,7 +1093,7 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   `LEGACY_KINDS`) : un lien déjà posé garde ses ventes. Les liens d'e-mail
   (`yuno-m-…`), de SMS et, plus tard, de réponse Instagram (`yuno-d-…`) se
   génèrent SEULS à l'envoi : jamais un bouton de création. La famille `so`
-  (« Instagram et TikTok (hors lien Yuno) ») = utm_source `instagram`/`tiktok`… SANS code
+  (« Réseaux sociaux (hors lien Yuno) ») = utm_source `instagram`/`tiktok`/`instagram.com`… SANS code
   Yuno, donc PAS nos liens : ne jamais la présenter comme « réseaux vus par
   Shotgun » ni la confondre avec `yl`, que l'écran détaille par type de lien
   (`groupSources(rows, links)`). Une publication (story, groupe…) se NOMME à
@@ -971,21 +1187,472 @@ trentaine à l'import. Règles :
   après un import, jamais depuis la page Segments.
 - **`_cp` porte le profil** : `age`, `gender`, `country`, `area`, `area_key`
   (`_crm_area_key`), `upcoming`, `basket` — Shotgun d'abord, sinon les fichiers.
-  Le cycle de vie ne lit PAS l'historique d'un fichier importé (décision à
-  prendre, voir la note). Nouvelles clés de filtre : voir l'en-tête de la
-  migration ; toute valeur illisible ⇒ personne.
+  Nouvelles clés de filtre : voir l'en-tête de la migration ; toute valeur
+  illisible ⇒ personne.
+- **L'historique d'un fichier importé COMPTE** (décision de Paul, 06/10,
+  migration `20261008210000`, `_crm_file_history`) : total dépensé, nombre de
+  soirées, dernier achat, première venue nourrissent `nights`, `spent`,
+  `paid_n`, `basket`, `last_night`, `first_night` et le cycle de vie de `_cp`.
+  Jamais de double compte (`hist_mode`) : `added` = le fichier précède de plus
+  de 2 jours le premier billet Shotgun (ou pas de Shotgun) → somme ; sinon
+  `file` / `live` = la source qui connaît le plus de soirées. « Habitué »
+  (`nights_win`) reste prouvé par des billets datés. Accueil (prochaine
+  soirée) et volet d'une soirée : un acheteur venu avant Shotgun d'après son
+  fichier n'est pas « nouveau ». Fiche client : `history` (encart « Historique
+  importé »). Toute nouvelle lecture « nouveau / déjà venu » sur les billets
+  applique la même règle.
 - **`hasCriteria` (`src/crm/data/clients.ts`) est la porte « le filtre pose-t-il
   un critère ? »** : une clé que la liste Clients ne dessine pas compte. Sans
   elle, « Écrire à… » sur un segment « Jamais cliqué » visait toute la base.
 - L'import de fichier lit aussi code postal, pays, âge / date de naissance et
   genre (lecteurs de la Suite, `src/lib/contactImport.ts`).
 
+## Yuno CRM — analyse client : « Ce qui fait venir » (2026-10-07)
+
+Plan : `docs/designs/CRM_CLIENT_ANALYSIS_PLAN.md` (§14 état, §15 clause, §16
+suite). Migrations `20261010100000` → `150000`. On n'AFFIRME jamais pourquoi
+un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
+
+- **Interdit à l'écran, dans l'aide, l'assistant et le MCP** : « vient pour »,
+  « fan de », « aime », « son ami », « il préfère ». Une hypothèse = un FAIT
+  (`yc.why.ev.<clé>`, « A vu Malaa 2 fois, à 2 séries différentes ») + le
+  statut de sa famille sur le compte. Test des textes dans
+  `src/crm/lib/__tests__/analysis.test.ts`. Mots choisis par Paul :
+  « Hypothèse », « Ce qui fait venir ».
+- **Tout se pré-calcule, rien à l'écran** : `crm_person_profile`,
+  `crm_night_profile`, `crm_artist_stats`, `crm_family_status` (+ historique)
+  par `crm_analysis_compute` ; `_cp` ne fait qu'UNE jointure (`an_tags`,
+  `an_dist_km`). `ticketing_after_sync` marque les e-mails touchés
+  (`_crm_analysis_mark_sync`, jamais bloquant) ; cron `crm-analysis-refresh`
+  (7,37 min, 4 s de budget, une portée à la fois) et `crm-analysis-nightly`
+  (une portée par passage, 2 h-4 h 30 UTC, statuts des familles). Jamais un
+  cron plus fréquent, jamais le moteur dans une RPC d'écran.
+- **Seuils dans UNE fonction** : `crm_analysis_config()` lit
+  `crm_analysis_rules` (version active). Ne jamais écrire un seuil en dur au
+  front : la RPC le rend (`resident`, `far_km`, `min_sample`).
+- **Le test** (`_crm_an_engine`) : affinité = pour chaque passage N → N+1, les
+  soirées « au choix » (commencées après N, en vente avant l'achat de N+1) ;
+  p = part qui partage le trait avec ce qu'il avait vu JUSQU'À N (rareté des
+  artistes à la date de N) ; O, E, V, gain = O/E, z. Comportement : classe à
+  N → classe à N+1 contre la part de la classe. Retour : 1res soirées de plus
+  de 180 j, groupe contre les autres. Statuts : `supported` (≥ 30, gain ≥ 1,3,
+  z ≥ 2 ; retour : écart ≥ 30 %, |z| ≥ 2), `not_supported` (gain < 1,1 ou
+  z < 1 ; « Pas de différence nette sur votre compte », décision de Paul du
+  08/10), `untested` / `inconclusive` (« à tester »), `prior_only` décidé à
+  l'affichage. **Le statut STOCKÉ** (migration `20261014110000`) ajoute :
+  p-valeur exacte (Poisson) quand E < 10 ; Benjamini-Hochberg à 10 % sur toutes
+  les familles testées du compte ; au moins 5 cas attendus pour confirmer ;
+  marge anti-bascule (gain ≥ 1,2, z ≥ 1,5 pour rester candidate) ;
+  « Confirmée » après 2 JOURS de calcul complet consécutifs
+  (`supported_runs`) ; indécise 60 jours avec 100 cas ou plus →
+  `not_supported` (`flat_since`). `statusOf` ne mirroite que le test d'une
+  famille : seul le moteur décide. Disponibilité `unavailable` (couverture, lot A) ou `uniform`
+  (toutes les soirées pareilles) = famille éteinte, dite en une ligne. Miroir
+  TS : `statusOf` / `displayStatus` (`src/crm/lib/analysis.ts`, testé).
+- **Hypothèses d'une personne** (`_crm_an_fill_hyps`) : force tirée de SES
+  faits ; une seule venue = jamais au-dessus de « moyenne ». Un contact venu
+  seulement d'un fichier n'a pas de profil. Un groupe de retour confirmé dit
+  son sens (« Reviennent plus / moins »), jamais « confirmée » seul.
+- **Purge et opposition** : profils effacés avec la connexion (suppression OU
+  déconnexion, trigger), avec le contact (`_crm_erase_contacts`), avec le
+  compte (clés étrangères). `crm_profile_optout` (fiche client, éditeur+,
+  jamais en accès assisté) efface et exclut pour de bon.
+- **Apprendre sans exposer** (lot E) : seuls des comptages (O, E, V, n ≥ 10)
+  sortent, sous une clé opaque (`crm_learning_keys`, effacée avec le compte) ;
+  leçon publiée à 5 comptes, aucun > 50 % de E ; propositions de seuils par
+  comptes laissés de côté, appliquées seulement par Paul
+  (`crm_admin_rules_approve`, motif, audit). Drapeau du compte
+  (`crm_settings.learning_contrib`, titulaire seul) ET global
+  (`crm_learning_settings.enabled`, ÉTEINT jusqu'à la clause validée). Démo
+  toujours exclue. Interdit : modèle entraîné sur des personnes, données
+  personnelles envoyées à une IA, croisement de deux comptes sur une personne.
+- **Textes légaux (v1 du 08/10, dossier `docs/legal/CRM_ANALYSE_CLIENT_REVUE_JURIDIQUE.md`)** :
+  Conditions Yuno CRM `/legal/cgv-crm` (annexe = modèle d'information pour les
+  clients du pro), chapitre 12 « Yuno CRM » de l'Accord de sous-traitance
+  (`/legal/dpa` : profilage 12.4, obligations du pro 12.5, statistiques
+  anonymes = réutilisation autorisée par écrit, Yuno RESPONSABLE, 12.6),
+  section 14 de `/legal/privacy`, modèle d'AIPD `docs/legal/CRM_AIPD_MODELE.md`.
+  Acceptation par le TITULAIRE dans `CrmLegalGate` (types `terms_crm` + `dpa`,
+  migration `20261015100000`, à appliquer AVANT le front) ; changer un texte de
+  façon importante = monter sa version dans `LEGAL_VERSIONS`. Les textes
+  AFFIRMENT que l'analyse et le score n'utilisent ni le genre ni les ouvertures /
+  clics d'e-mails, jamais de pourcentage ni d'export, et interdisent tout usage
+  pour un prix, une remise, une prévente ou l'entrée : une évolution qui casserait
+  l'une de ces promesses change d'abord les textes (et relève peut-être de
+  l'article 22). Chantiers ouverts (partie 6 du dossier) : traceurs d'e-mails
+  soumis à accord (recommandation CNIL 2026-042, tout le moteur), mineurs,
+  soirées sensibles, désinscrit = hors score, conservation.
+- **Écrans** : fiche client (`ClientHypotheses`), Analyses › Communauté
+  (`?v=why`, `WhyView` : familles, nouveaux venus, venus une fois locaux / de
+  passage, délai de retour, couverture, artistes), tiroir d'une soirée
+  (`?v=why`, `NightAttracted`), filtre Clients `?hyp=` / `?pass=`, famille de
+  segments `why` (recommandée seulement si confirmée :
+  `supportedForSegments`), Réglages › Données (`LearningRow`), Admin CRM
+  (tiroir `AnalysisCard`, Réglages › Analyse client `LearningTab`). Textes
+  `yc.why.*` (module `analysis.ts`), `adm.crm.an.*`.
+- **MCP** : `get_customer_analysis` (analytics, CRM), `analysis` dans
+  `get_customer_profile`, `hypothesis` / `passing` dans `list_customers`. La
+  consigne d'honnêteté vit dans `INSTRUCTIONS`, jamais dans une description
+  d'outil. Assistant : article `crm-what-brings-them` (redéployer
+  `owner-assistant`).
+- **Démo** : `scripts/demo/seed-crm-analysis.sql` (après la guest list dans
+  `refresh-crm-demo.sh`) retouche billet contre billet, ne change aucun
+  compte de billets. Smoke annulé : `scripts/demo/smoke-crm-analysis.sql`.
+- **Banc de test hors prod** : PGlite (Postgres en WebAssembly) sur un schéma
+  réduit ; c'est là que le moteur a été mis au point, jamais sur la prod.
+- **La suite (plan `docs/designs/CRM_ANALYSIS_NEXT_PLAN.md`, migrations
+  `20261011100000` → `130000`)** :
+  - **« Qui cibler »** (onglet du tiroir d'une soirée À VENIR, `?v=target`,
+    RPC `crm_night_targets`) : audiences SANS place `concept`, `lineup`
+    (résidents exclus), `genre`, `early`, `last_minute`, `once_local`. Porte
+    unique `_crm_night_target_set(scope, soirée, audience)`, lue par la RPC ET
+    par la clé de filtre `ntgt: {e, a}` de `_crm_filter_sql` : le chiffre
+    affiché = le filtre = l'envoi. La portée de la clé vient de
+    `_crm_people_build`, qui pose `yuno.crm_scope` (transaction) : une soirée
+    d'un autre compte rend personne. « Fidèles du concept sans place » = segment
+    `template = 'concept_no_ticket:<soirée>'`.
+  - **MCP sur un compte CRM** : `get_sales_overview`, `get_sales_trends`,
+    `get_purchase_behavior`, `get_audience_overview`, `get_customer_segments`,
+    `get_web_traffic`, `get_recommendations`, `list_customers_by_segment`
+    lisent les RPC de la Console CRM avec la période (`_mcp_crm_period`). Ces
+    RPC créent des tables temporaires : `_mcp_needs_temp(tool, product)`
+    n'ouvre l'écriture temporaire qu'aux comptes CRM (`mcp_call` l'appelle).
+    Outil `get_event_targets`, invite `target_next_event` (argument `event`,
+    `getPrompt(name, lang, args)`).
+  - **Variables par personne** `{{artiste}}` (invité le plus vu qui joue à la
+    soirée de l'e-mail, sinon le plus vu, JAMAIS un résident),
+    `{{1re_soiree}}`, `{{nb_soirees}}` : résolues par lot à l'envoi
+    (`get_recipient_crm_vars`, service_role), repli par langue au vouvoiement
+    (`fallbacks`), proposées dans le Studio du CRM seulement. **L'objet d'un
+    e-mail passe désormais par les variables** (`interpolateText` dans
+    send-campaign) : il partait brut, « {{prénom}}, … » a été reçu tel quel.
+  - **Recette `first_return` « Faire revenir après la 1re soirée »** : venus
+    une fois, pas de passage, sans place, au délai médian de retour du compte
+    (`_first_return_delay_days`, 7 → 60 j, 21 sans mesure), fenêtre de 7 jours,
+    une fois par personne (`trigger_key 'fr'`), soirée choisie par personne
+    (`_first_return_candidates` : artiste invité déjà vu +4, concept +4, genre,
+    jour). Étape SMS (`email_automations.sms_enabled / sms_body /
+    sms_delay_days`, réglée par `crm_automation_sms_save`) : cron
+    `crm-first-return-sms` (30 min) → `crm_first_return_sms_collect` crée un
+    `sms_campaigns` du CRM par soirée, pose ses destinataires (consentement
+    36 mois, jamais un STOP, ni +1), puis `scheduled` : le cron d'envoi le
+    prend comme un SMS programmé (identité légale, heures, Yunits, lien court).
+    Registre `crm_first_return_sms` (une fois par personne). Le premier SMS
+    AUTOMATIQUE du CRM ; démo et compte en pause : rien. Modèle CRM `retour`.
+    **Un SMS bloqué faute de Yunits attend** (`20261014120000`) : une campagne
+    de la recette retombée en brouillon (`crm_yunits_insufficient`) repart
+    seule quand le solde couvre ceux qui restent ; passé la fenêtre (délai + 3
+    jours), une place prise ou un STOP, la personne est `expired_at` (« non
+    envoyés »). La carte lit `sent` (partis vraiment), `waiting`, `expired`.
+    Une recette en erreur ne fait jamais tomber la collecte des autres comptes.
+  - **Ordre d'envoi de « Qui cibler »** (`20261014130000`, décisions de Paul) :
+    `order` (moment, famille confirmée, acheteurs attendus PAR PERSONNE),
+    `new_n` (absents des audiences d'avant), `overlap` (plus gros recouvrement,
+    10 personnes et 25 % au moins). L'envoi ne change pas.
+- **« Chances de venir » = le score de prédiction** (plan
+  `docs/designs/CRM_PREDICTION_SCORE_PLAN.md`, migrations `20261012100000` +
+  `110000`). Régression logistique L2 PAR COMPTE, ajustée en SQL (IRLS,
+  `_crm_logit_fit`, `_crm_solve`), 12 facteurs lus AVANT l'ouverture de la
+  vente (`_crm_score_build`), soirées des 12 derniers mois, les 4 dernières
+  tenues à l'écart. **Portes** (`crm_analysis_config().score`) : AUC ≥ 0,70,
+  meilleure que le modèle naïf (récence + fréquence) d'au moins 0,02 SUR LES
+  CLIENTS ACTIFS (sur toute la base la récence trie déjà tout), ECE ≤ 0,05,
+  200 achats appris / 50 vérifiés ; sinon `weak` / `insufficient` et rien
+  n'est montré. Ventes seulement (pas les invitations). **Une soirée à venir
+  est notée comme le modèle a appris** (`20261014100000`) : facteurs pris à
+  l'ouverture de SA vente (jamais l'historique jusqu'à aujourd'hui : c'était
+  la cause d'une surestimation de 15 à 90 %) ; ceux venus pour la 1re fois
+  depuis cette ouverture prennent le taux observé pour ce cas (`metrics.recent`) ;
+  chance d'ici la soirée p·f / (1 − p·(1 − f)) avec f PAR PERSONNE (son
+  historique + `score.timing_prior` achats au rythme du compte) ;
+  `crm_score_night.remaining_share` = part restante des PREMIERS achats
+  (projection des nouveaux). Rejeu à J-7 dans `metrics.backtest`. 13 facteurs
+  (+ `series_done`) ; toute nouvelle variable se prouve par `ablate.mjs` sur 4
+  comptes du banc PUIS sur la démo de la prod (une baisse sur un compte la
+  refuse : `artist_recent` l'a été). Tables `crm_score_model`, `crm_person_night_score`
+  (étiquette `high` ≥ 0,30, `medium` ≥ 0,10, `low`, 3 raisons parmi les
+  facteurs que la personne POSSÈDE, sous un libellé existant
+  (`_crm_score_reason_key`), jamais « de passage » ni « découverte », jamais
+  une famille `not_supported` sur le compte — décision de Paul).
+  Cron `crm-score-nightly` (`27,57 5-6`, un compte par passage). Écrans :
+  « Qui cibler » (acheteurs attendus, audience `likely` = porte
+  `_crm_night_target_set`), fiche client (étiquette + raisons, JAMAIS un
+  pourcentage, décision de Paul), Admin CRM (santé + projection de
+  remplissage, super admin SEUL au début). MCP : `chances_to_come`. Purge et
+  opposition effacent les scores ; toute lecture exige le profil.
+- **Optimisation (plan `docs/designs/CRM_ANALYSIS_OPTIMIZE_PLAN.md`, migrations
+  `20261013100000` → `120000`)** :
+  - **Banc gardé dans le dépôt** : `scripts/crm-bench/` (PGlite, schéma de la
+    prod lu en lecture seule + migrations du dépôt rejouées, comptes
+    synthétiques à vérité cachée `demo` / `grand` / `petit` / `hasard`,
+    `node run.mjs bench grand` donne les instructions imbriquées les plus
+    lentes, `diff.mjs` prouve qu'une optimisation ne change rien,
+    `same-as-prod.mjs` qu'une fonction à réécrire est la même en prod). Toute
+    modification du moteur se mesure là d'abord, jamais sur la prod.
+  - **Journal prévu / réel** : chaque nuit, `_crm_score_journal` relève la
+    projection par soirée (`crm_prediction_nights`, gardé) et la chance de
+    chaque personne à sa 1re note et à J-7 (`crm_prediction_people`, EFFACÉ au
+    règlement, avec le contact, le compte, l'opposition) ; 48 h après la
+    soirée, `_crm_score_settle` compare à la réalité (`crm_prediction_results` :
+    AUC, perte log, calibration, attendus contre réels par audience, écart de
+    la projection en ACHETEURS). Dérive de calibration sur 8 soirées =
+    `admin_crm_score_drift`. Admin CRM : « Prévu / réel ».
+  - **La projection s'ouvre seule au pro** (décision de Paul) quand
+    `_crm_projection_gate` est ouverte : écart moyen < 15 % sur les 8
+    dernières soirées à J-7 ; « Qui cibler » dit alors « Estimation : ≈ N
+    acheteurs au total (entre A et B) ». Jamais avant.
+  - **« 10 % non contactés, pour mesurer l'effet réel »** (libellé de Paul) :
+    `crm_settings.holdout_pct` (10 par défaut, 0 à 30, 0 = désactivé).
+    E-mail et SMS « Qui cibler » (audience portant `ntgt`, directement ou par
+    segment) reliés à une soirée, et toutes les recettes d'un compte CRM :
+    tirage déterministe `_crm_holdout_pick` APRÈS les règles d'envoi,
+    destinataire `skipped` + `holdout` (`skip_reason` pour les recettes),
+    jamais débité. `crm_holdout_overview` compare les acheteurs des deux
+    groupes ; l'écran (`HoldoutResults`, `holdoutVerdict`) ne dit « ≈ N
+    acheteurs en plus » que si |z| ≥ 2 et 10 personnes par groupe. Un SMS
+    du CRM porte l'adresse de son destinataire (`sms_campaign_recipients.email`,
+    effacée avec le contact).
+
+## Yuno CRM — les Scénarios : automatisations sur mesure « et / ou » (2026-10-08)
+
+Plan et état des lots : `docs/designs/CRM_JOURNEYS_PLAN.md` (prompt
+`CRM_JOURNEYS_AGENTS_PROMPT.md`). Migrations `20261016100000` → `170000`.
+Un pro compose son automatisation : déclencheur, conditions par groupes
+« et / ou », attentes, embranchements, A/B, e-mails, SMS, objectif, témoin.
+Décisions de Paul (08/10) : nom « Scénarios » (EN Scenarios, ES Escenarios) ;
+les recettes restent, « Personnaliser » en fait un scénario ; pression
+ci-dessous ; publier = les rôles qui allument une recette. Règles intouchables :
+
+- **Noms** : l'identifiant technique est `scenario` (`crm_scenarios`,
+  `crm_scenario_versions`, `_runs`, `_steps`, `_messages`, clés `yc.scn.*`).
+  `journey`, `/crm/journey` et `yc.jr.*` sont l'écran d'analyse « Parcours
+  client », qui reste tel quel ; `yc.sc.*` est le score.
+- **Un langage de conditions, SQL = vérité** : `_crm_cond_errors`,
+  `_crm_cond_sql`, `_crm_cond_resolve` ⇄ miroir `src/crm/lib/scenarioConditions.ts`,
+  cas partagés `src/crm/lib/__tests__/fixtures/scenario-conditions.json` (vitest
+  ET banc). Les feuilles « personne » sont compilées par `_crm_filter_sql`
+  lui-même (le chiffre affiché = le filtre = l'envoi), plus `segment` et les
+  feuilles `sc_*` (contexte de l'inscription). **Une définition ne porte
+  jamais de donnée personnelle** (`emails`, `q` refusés : une liste fixe passe
+  par un segment) : c'est ce qui permet à une IA de l'écrire. Une feuille
+  inconnue, une valeur illisible, une référence morte rendent l'arbre ENTIER
+  faux, même sous un « non ». 3 niveaux, 20 feuilles.
+- **Le graphe** : `scenarioGraph.ts` ⇄ `_crm_scenario_graph_errors` (cas
+  `scenario-graphs.json`) : structure, 30 nœuds, 6 messages par chemin, 20 h
+  entre deux messages quand l'écart est calculable ; contenu
+  `_crm_scenario_content` (modèle du compte, soirée, page, segment, identité
+  SMS). **Aucun nœud webhook, jamais** ; un SMS n'a pas d'adresse web à part
+  `{{lien}}`. `instagram_dm` et le clic SMS par personne restent « Bientôt ».
+- **Versions immuables** (trigger) : publier fige le graphe ; modifier un
+  scénario en ligne = un brouillon (`crm_scenario_save`, conflit
+  `draft_changed`) ; les personnes en route finissent leur version.
+  **Publier et reprendre : `crm_scope_writable`, jamais un lecteur, jamais en
+  accès assisté.** Publier un scénario « Personnaliser » éteint sa recette, et
+  `guard_recipe_vs_scenario` refuse de rallumer une recette couverte par un
+  scénario en ligne ou en pause : jamais les deux.
+- **Le moteur `crm_scenario_tick()`** (cron `crm-scenario-tick` toutes les
+  10 min, minutes 2, 12… 52 ; ne JAMAIS le rendre plus fréquent ; budget 4 s,
+  une portée à la fois sous verrou consultatif, une portée en erreur n'arrête
+  pas les autres). Billets et inscriptions lus depuis un repère par portée
+  (`crm_scenario_scope_state`) : la synchro Shotgun n'est jamais touchée.
+  Messages par les chemins existants : e-mail = campagne enfant
+  `child_kind = 'scenario'` (sa propre mère, hors des listes d'e-mails),
+  drainée par `send-campaign` ; SMS = campagne CRM programmée. Politique
+  d'envoi, heures calmes, Yunits, identité, gel, `demo_no_send`, attribution
+  et témoin s'appliquent sans être réécrits. Démo = « aurait été envoyé »
+  (`would_send`).
+- **Pression (décision 3)** : l'ENTRÉE respecte 48 h avec les autres
+  automatisations du compte (sinon « en attente » `crm_scenario_pending`, puis
+  « non entré » `crm_scenario_skips`) ; les étapes en sont exemptées mais
+  restent à 20 h l'une de l'autre (tous scénarios du compte) et passent
+  `_email_send_policy_many(…, 'automation')`. Asymétrie assumée : la règle des
+  48 h des RECETTES ne voit pas les messages de scénarios (la politique
+  1 / 24 h, si).
+- **Rien ne se perd en silence** : un message bloqué est REPORTÉ avec sa
+  raison (`crm_scenario_steps.status = 'held'`, `reason` : pression, 20 h,
+  Yunits, gel, compte en pause, identité SMS…) jusqu'à la fin de sa fenêtre
+  (48 h, jamais après « 2 h avant la soirée »), puis EXPIRÉ avec sa raison.
+  Gel d'envoi et compte en pause = état `frozen` / `plan_paused`, messages
+  retenus, jamais une erreur. Témoin `_crm_holdout_pick('scn:<id>:<clé>')`,
+  qui suit le chemin sans rien recevoir. Journal prévu / réel :
+  `crm_prediction_people.contacted_at`.
+- **Écrans** (`src/crm/pages/automations/scenarios/`) : onglets Recettes /
+  Scénarios (`/crm/automations?tab=scenarios`), éditeur plein écran
+  `/crm/automations/scenarios/:id` (`CrmBareLayout`) : flux vertical
+  (`flowLayout`, `insertAt`, `removalPlan` dans `scenarioEdit.ts`), inspecteur,
+  effectif en direct de chaque groupe par `crm_scenario_counts` (même
+  compilation que l'envoi), « Avant de publier » = moteur à blanc
+  (`crm_scenario_preview`), tests gratuits d'un e-mail (`send-campaign`,
+  `scenario_id` + `node_id`) et d'un SMS (`send-sms-campaign`), lus dans le
+  brouillon ENREGISTRÉ. Sept modèles (`scenarioTemplates.ts`, SMS en GSM-7,
+  testé) qui créent leurs e-mails dans les Modèles. Rapport
+  `crm_scenario_report` (par nœud, raisons, témoin et son verdict, CA par
+  `_crm_email_attrib` sous `_crm_money_gate`). Fil de notifications :
+  `scenario_notify` (un compteur par jour, jamais une alerte par personne).
+- **MCP** (`worker/mcp/scenarioTools.ts`, migration `20261016160000`) :
+  `list_scenarios` / `get_scenario_report` pour toute connexion d'un espace
+  CRM ; `get_scenario_kit`, `create_scenario_draft`, `update_scenario_draft`
+  derrière une permission À PART, `mcp_grants.can_scenarios` (posée par
+  `mcp_approve_authorization(…, p_scenarios)`, `aiMcp.can6`), écrites par
+  `mcp_write` → `_mcp_scenario_write` → `crm_scenario_save` (20 créations /
+  200 modifications par jour). **L'IA ne publie, ne met en pause, n'archive et
+  ne supprime jamais** ; la consigne « ne jamais dire qu'il tourne » vit dans
+  `INSTRUCTIONS`. Traçabilité `ai_author`, `mcp_grant_id`, pastille « Préparé
+  par … ». Les outils disent `scenario`, pas `journey` (décision 1).
+- **Admin CRM › Plateforme › Scénarios** (`crm_admin_scenarios`,
+  `20261016170000`) : par compte, en ligne / en pause / brouillons, en route,
+  messages des 7 jours, retenus et leur raison, versions en ligne qui ne
+  passeraient plus les contrôles. Des agrégats, jamais une personne.
+- Aide : FAQ `yc.faq.scenario*` (Compte › Aide), article `crm-scenarios` de
+  `_shared/console-help-articles.ts` (redéployer `owner-assistant`). Démo :
+  `scripts/demo/seed-crm-journeys.sql` (fin de `refresh-crm-demo.sh`), qui
+  efface et recrée TOUS les scénarios du compte démo. Banc :
+  `node scripts/crm-bench/scenarios.mjs conditions|crud|engine|editor|feed|mcp|admin|seed|plan|review|daily`.
+- **Les « agents » (décisions 5 à 8 de Paul, 08/10) : AUCUNE IA chez Yuno.**
+  Ce qui demande de l'IA passe par l'IA DU PRO, branchée par le MCP ; ce qui
+  doit tourner seul est du SQL déterministe. Ils PRÉPARENT, le pro valide :
+  jamais un envoi, une publication ni une activation. Tout chiffre d'un plan
+  ou d'un bilan est CALCULÉ par le serveur, jamais écrit par l'IA ; une IA ne
+  reçoit que des agrégats (couche d'outils MCP, `_mcp_redact`). Pas de
+  fenêtre de discussion : des boutons dans l'écran + le bilan de la semaine.
+  Noms de tâche, sans mascotte : « Plan de soirée », « Créer avec l'IA »,
+  « Bilan de la semaine », « Pistes d'amélioration ».
+  - « Préparer avec mon IA » (`src/crm/lib/askAi.ts`,
+    `components/AskMyAi.tsx`) : ouvre l'IA de la connexion MCP de la PERSONNE
+    sur l'espace (`claude.ai/new?q=`, `chatgpt.com/?q=`, 1 800 caractères),
+    sinon copie la demande, sinon explique comment brancher son IA.
+  - Plan de soirée : `crm_night_plan` (sur `crm_night_targets`, une personne
+    dans UNE audience, coût en Yunits, rythme contre l'édition précédente),
+    page `/crm/nights/:id/plan` (imprimable, `NightPlanReport`), outil
+    `get_night_plan`, invite `plan_night`, audience `target:<soirée>:<clé>`
+    des brouillons ; notification `night_plan_ready` aux comptes en essai.
+  - Bâtisseur : « Créer avec l'IA » / « Modifier avec l'IA », invite
+    `build_scenario` ; le Worker refuse un texte aux formulations interdites
+    (`agentText.ts`, partagé) ; banc sans IA `builderEval.ts`.
+  - Bilan de la semaine : `crm_weekly_review` (lu à l'ouverture), page
+    `/crm/review`, notification `weekly_review` du lundi, outil
+    `get_weekly_review`, invite `weekly_review`. « A marché » = mesuré contre
+    le témoin, jamais une impression.
+  - Pistes d'amélioration (`scenarioSuggest.ts`, règles fixes, verdict miroir
+    de `holdoutVerdict`) : appliquées au BROUILLON par le pro ;
+    `ways_to_improve` dans le rapport MCP.
+  - Yuno : `crm_admin_daily` (audits de prospects prêts, synchros en erreur,
+    essais qui finissent, comptes muets, délivrabilité, prévisions), onglet
+    Admin CRM › Plateforme › « Bilan du jour », alerte `admin_crm_daily` (cron
+    `crm-admin-daily`, 07:20 UTC, une par jour, seulement s'il y a quelque
+    chose), plan d'un prospect lu avant l'appel sous
+    `/admin/crm/platform/plan/<compte>/<soirée>` (lecture seule).
+- Mise en ligne, dans cet ordre : migrations `20261016100000` → `180000`,
+  front, Worker (MCP) et fonctions (`send-campaign`, `send-sms-campaign`,
+  `owner-assistant`), semis démo, smoke.
+
+## Yuno CRM — vitesse et charge à l'échelle d'un vrai compte (2026-10-17)
+
+Plan : `CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md` (S4). Migrations `20261018200000` →
+`270000`. Mesuré sur Amoris (48 388 billets) en tant que le titulaire : Ventes
+90 j 6,8 s → 0,8 s, Trafic 2,9 → 1,2 s, Communauté 12 m 3,8 → 2,8 s, Clients
+3,9 → 1,6 s, une passe du connecteur sans billet ~10 s à froid → 42 ms. Règles :
+
+- **Plus de `raw->>` dans une lecture chaude** : `external_tickets` porte
+  `deal_channel`, `deal_visibilities`, `seating_type`, `payment_method`,
+  `org_fee` (€), `provider_contact_id`, `provider_user_id`, dérivées de `raw` par
+  le trigger `trg_external_tickets_typed_fields` ET écrites par
+  `mapShotgunTicket`. `_crm_ticket_is_sale(status, deal_channel)` /
+  `_crm_ticket_gl_kind(status, price, deal_channel)` ; les versions `jsonb` sont
+  SUPPRIMÉES depuis S5 (section suivante) : `raw` ne porte plus le canal.
+- **Jamais une sous-requête par case** sur les billets (`(SELECT sum … WHERE
+  a.ci = g)` dans un `generate_series`) : un `GROUP BY` puis une jointure. Une
+  CTE lue DANS une sous-requête corrélée se pose `MATERIALIZED`, sinon elle est
+  recalculée à chaque ligne.
+- **`_crm_ana_setup` ne construit `_cp` que pour un segment** ; sans segment il
+  construit `_cr` (lu par Trafic). Un écran qui lit `_cp` appelle
+  `_crm_people_build` lui-même (Communauté). Plusieurs bases d'une même portée
+  dans une transaction = la mémoire `yuno.crm_cp_memo` (Clients).
+- **Base des personnes légère** (`_crm_people_build(…, p_light => true)`) :
+  mêmes colonnes, mais source, `utm_*`, profil Shotgun, `area_key`, analyse,
+  notes, messages, guest list (`gl_*`), `tonight`, `upcoming` non calculés et
+  `_cpt` sans index. Seuls Communauté et Clients la prennent ; ne JAMAIS la
+  passer à un écran qui lit une de ces colonnes. Mémoire propre
+  (`yuno.crm_cp_memo_light`), jamais réutilisée par une base complète.
+- **`ticketing_after_sync` est incrémental** : billets `synced_at >
+  post_synced_at − 10 min`, leurs adresses et celles de `ticketing_email_moves`
+  (adresse changée chez la billetterie) ; passe complète par 24 h. **Toute règle
+  changée dans cette fonction remet `post_full_at` à NULL**, sinon elle ne vaut
+  que pour les billets qui bougent.
+- **Cadence (D7)** : un compte Billetterie + CRM synchronise à la cadence de
+  l'offre (15 min, 60 hors offre) ; ses limites restent celles de la Billetterie
+  et sa fin d'essai ne coupe pas la synchro (règle à trancher).
+- **Cache de la base de contacts** : reconstruit si marqué (fichier, engagement,
+  billets via `ticketing_after_sync`) ou vieux de 15 min
+  (`contact_base_cache_due`), et n'écrit que les lignes changées. Le
+  consentement (`email_ok`, `phone_ok`) n'y est jamais lu : `contact_build_rows`
+  le recalcule en direct.
+- **Répéter une réécriture de fonction à temp tables** : jouer l'ancienne puis
+  la nouvelle dans la même transaction laisse à la nouvelle les tables
+  temporaires de l'ancienne (`_cr` a masqué une Trafic cassée le 17/10). Rejouer
+  aussi chaque écran dans une transaction NEUVE avant de dire « identique ».
+
+## Yuno CRM — le billet brut sans coordonnée, et l'effacement venu de Shotgun (2026-10-18)
+
+Plan : `CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md` (S5). Migrations `20261019300000`
+(minimisation) et `20261019310000` (effacement). `external_tickets.raw`
+recopiait tout le billet Shotgun, coordonnées comprises : 66 Mo de JSON pour
+56 000 billets. Après rattrapage et réécriture : `raw` 5,5 Mo, table 184 →
+40 Mo, base 753 → 609 Mo, les 40 écrans du banc Amoris identiques (md5) et sous
+3 s. Règles :
+
+- **Pas de coordonnée dans `raw`, ni de champ extrait.** Règle unique
+  `minimizeTicketRaw` / `rawKeyDropped` (`_shared/ticketing-shotgun.ts`) ⇄
+  `ticketing_minimize_raw` / `_ticketing_raw_key_dropped` (SQL, liste des clés
+  relue par le test) : retirés tout champ rangé en colonne (noms documentés et
+  de repli), la soirée (`event_*`, elle vit dans `external_events`), le QR, et
+  toute clé qui désigne une personne (préfixe `contact_`, `buyer_`, `holder_`,
+  `user_`… ou mot e-mail, téléphone, nom, naissance, adresse, code postal,
+  ville, société, IP, genre, âge, en snake_case comme en camelCase). Restent
+  `deal_sub_category`, `deal_vat_rate`, `deal_producer_cost`, `ticket_seating`
+  et toute clé nouvelle qui ne désigne personne. Le trigger
+  `trg_external_tickets_typed_fields` l'applique à TOUTE écriture de `raw`,
+  après avoir dérivé les colonnes typées : un ancien connecteur, un script de
+  démo ou un `INSERT … raw` à la main est réduit aussi. Les CLÉS vues (jamais
+  les valeurs) s'accumulent dans `ticketing_connections.schema_sample.ticket_keys`
+  (`mergeSchemaKeys`) : c'est là qu'un champ nouveau de Shotgun se voit.
+- **Aucune RPC ne lit `raw`.** Un besoin nouveau tiré du billet = une colonne
+  (ajoutée au trigger, à `mapShotgunTicket` et à `RAW_EXTRACTED_KEYS`), jamais
+  un `raw->>`. Les versions `jsonb` de `_crm_ticket_is_sale` /
+  `_crm_ticket_gl_kind` n'existent plus : une fonction recopiée d'une vieille
+  migration qui passe encore `t.raw` lève une erreur au lieu de compter une
+  invitation comme une vente. Une telle réécriture se fait depuis
+  `pg_get_functiondef` de la prod (la migration 300000 l'a fait par un
+  `DO` qui réécrit chaque définition en base et échoue s'il reste une lecture).
+- **Un contact effacé chez la billetterie sort de chez Yuno.** Un billet que le
+  connecteur rend SANS e-mail alors qu'il en avait un (droit à l'oubli exercé
+  chez Shotgun) : le trigger `trg_external_tickets_provider_erasure` (écriture
+  du connecteur seulement, `synced_at` avance) efface le reste de l'identité du
+  billet et met l'ancienne adresse dans `ticketing_erasures` ;
+  `ticketing_apply_erasures` (appelée par `ticketing_after_sync`, jamais
+  bloquante) supprime, si l'adresse n'a plus AUCUN billet nominatif dans la
+  portée, profil d'analyse, file de recalcul, chances de venir, ligne du cache
+  de contacts et accord ACTIF versé par la billetterie (retrait tracé
+  `connector_contact_erased`), et pose `email_opt_outs` raison `erased` : ni un
+  import, ni la synchro, ni une page d'inscription ne la réinscrivent. Un accord
+  donné ailleurs (page, fichier attesté) n'est pas touché. Un effacement fait
+  DANS Yuno reste `_crm_erase_contacts` (il efface aussi `provider_contact_id` /
+  `provider_user_id`). Limite connue : Shotgun ne documente pas l'anonymisation ;
+  si elle ne fait pas avancer `ticket_updated_at`, le billet ne revient jamais
+  par le curseur et rien ne se déclenche.
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un
 organisateur branche Claude, ChatGPT, Gemini ou Le Chat sur sa Console
-(`https://yunoapp.eu/mcp`) ; l'IA lit ses chiffres en LECTURE SEULE et les
-transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
+(`https://yunoapp.eu/mcp`) ; l'IA lit ses chiffres et les transforme en
+analyses et conseils, et AGIT pour lui là où une porte d'écriture existe
+(aujourd'hui : brouillons d'e-mails et images, section « MCP : l'IA du pro
+dessine ses e-mails » ; pages d'inscription du CRM, section « MCP : l'IA du
+pro dessine ses pages d'inscription »). Le connecteur n'est PAS en lecture seule par principe
+(décision de Paul, 06/10) : chaque écriture passe par `mcp_write`, avec la
+permission de la connexion et les droits de la personne, et ce qui part vers
+des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `worker/mcp/*` (routé en tête de
 `worker/index.ts`, chemins dans `run_worker_first`), migrations
 `20261003100000` → `120000`, pages `/connect-ai` (consentement, DA publique),
 `/ai` (page publique = documentation des annuaires), Réglages → Assistants IA
@@ -1004,7 +1671,9 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   `count_contacts` / `list_customers` (tables temporaires), et n'appelle QUE les
   RPC d'analyse de la Console, avec leurs portes. Un outil nouveau = une RPC
   déjà gardée, jamais une lecture de table sans filtre de portée, jamais une
-  écriture. `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
+  écriture : TOUTE écriture passe par la seule porte `mcp_write` (permission
+  de la connexion, droits de la personne dans l'espace, débits, journal ;
+  section suivante), avec ses annotations `readOnlyHint: false`. `_mcp_tool` tourne sous le propriétaire : n'y appeler AUCUNE
   fonction SECURITY INVOKER qui compterait sur la RLS.
 - **Deux niveaux, choisis au consentement** : `analytics` (aucune identité,
   `_mcp_redact` retire email / téléphone / nom / notes) et `customers` (fiches,
@@ -1026,13 +1695,22 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   voie — le test unitaire simule désormais ce refus.
 - **Le protocole parle les deux générations** (moderne 2026-07-28 sans
   `initialize`, en-têtes vérifiés, `server/discover`, `resultType` ; legacy avec
-  `initialize`, sans session). Tous les outils `readOnlyHint: true`.
+  `initialize`, sans session). Tous les outils de LECTURE sont `readOnlyHint:
+  true` ; les cinq d'écriture `readOnlyHint: false` (et `destructiveHint: true`
+  pour ceux qui modifient : `update_email_draft`, `update_signup_page`).
 - **Le cerveau d'analyste = `worker/mcp/guide.ts`** (consignes, définitions de
   `metrics.ts`, playbook, actions Yuno, prompts) + `enrich.ts` (constats en
   phrases) : un changement de définition dans `metrics.ts` / `fees.ts` se
   reporte au glossaire. Base de connaissances partagée avec l'Assistant Console :
   `supabase/functions/_shared/console-help-articles.ts` (redéployer
   `owner-assistant` après une modification).
+- **Billetterie par l'IA (2026-10-15, `docs/MCP.md` § 11)** : `get_ticketing` /
+  `set_ticketing` posent la billetterie LIBRE d'une soirée Yuno (billets,
+  rounds, heures d'entrée), sous la permission des brouillons et les droits de
+  la Console (`_mcp_ticketing`). Jamais de mise en vente (`ticketing_enabled`
+  intouché), billetterie en vente seulement avec `apply_to_live`, billet vendu
+  jamais retiré. Le texte de `/ai` et du consentement le dit : toute nouvelle
+  écriture MCP met ces deux textes à jour.
 - Pilier boissons : `DRINKS_PILLAR_LIVE = false` aussi dans
   `worker/mcp/config.ts` (sixième miroir). Adoption : `/admin/ai` →
   « Connecteur IA (MCP) » (`admin_mcp_usage`). Tests : `npx vitest run worker/mcp`.
@@ -1047,6 +1725,129 @@ transforme en analyses et conseils. Worker `worker/mcp/*` (routé en tête de
   `OPENAI_APPS_CHALLENGE`, servi sur `/.well-known/openai-apps-challenge`.
   La politique de confidentialité est `/legal/privacy` ; `/legal/confidentialite`
   est l'engagement de confidentialité des aperçus démo : ne jamais les confondre.
+
+## MCP : l'IA du pro dessine ses e-mails, en BROUILLON (2026-10-06)
+
+Plan : `docs/designs/MCP_EMAIL_DESIGN_PLAN.md` ; doc : `docs/MCP.md` § 8.
+Migrations `20261009150000` → `153000`. Règles intouchables :
+
+- **Écrire un e-mail par MCP = un brouillon, par `mcp_write`.** Elle
+  revérifie jeton, espace, débits (30 créations / 200 modifications par jour
+  et par connexion), la permission de la connexion (`mcp_grants.can_draft`,
+  posée SEULEMENT par un écran de consentement qui l'annonce : `p_drafts`
+  vaut false par défaut, `/connect-ai` passe true ; les connexions plus
+  anciennes restent à false et se reconnectent) et le droit d'écrire les campagnes de l'espace
+  (`_mcp_space_can_draft`, miroir des policies d'`email_campaigns`). Elle
+  n'écrit QUE des lignes au statut `draft`. Aucun outil MCP n'envoie, ne
+  programme, ne teste, ne publie ni ne supprime : ne jamais en ajouter un.
+- **Sections sur mesure = bloc `html` + balises Yuno**, moteur UNIQUE
+  `supabase/functions/_shared/email-smart.ts` (rendu Handlebars échappé,
+  nettoyage, `smartNeeds`, contrôle), ré-exporté par `src/lib/email/smart.ts`
+  et importé tel quel par le port Deno et le Worker : ne jamais le recopier.
+  Une section qui lit une soirée est un bloc LIVE (`isLiveBlock` ⇄
+  `isLiveStudioBlock`) : données relues à l'envoi, `eventId` hérité de la
+  campagne, liens posés par balise SUIVIS (`/l/` + `yc=`, ou
+  `utm_source=yuno-m-<campagne>`). Toute balise nouvelle se déclare dans
+  `SMART_TAGS` (référence du kit, contrôle) avec un test.
+- Le rendu NETTOIE chaque section (script, style, iframe, formulaire, svg,
+  `on*`, `javascript:`) et échappe toute valeur (pas de `{{{brut}}}`). Le
+  pied de page légal reste écrit par `renderFooter`, jamais par une section.
+- **Langue = `email_campaigns.language` (`fr` | `en` | `es`)**, posée par
+  l'IA ou par le pro (Studio CRM › Objet, Billetterie › Dynamique). Blocs Yuno
+  natifs, dates, valeurs des balises et pied de page la suivent. **Les mots
+  vivent dans UNE source, `_shared/email-words.ts`** (Studio `render.ts` /
+  `live.ts` / vues du canevas, envoi `email-studio-html.ts` +
+  `fetchStudioLiveData`, `useStudioLiveData`, moteur `email-smart.ts`,
+  Worker) : jamais un libellé de bloc écrit en dur ailleurs. Le français y est
+  celui d'avant au caractère près (aucun e-mail existant ne change) ; un
+  libellé resté au défaut d'une des trois langues suit la langue
+  (`localizeDefaultLabel`), un texte écrit par le pro reste le sien.
+- **Itérer sans écraser le pro** (migration `20261009153000`) : l'IA modifie
+  par ID de section avec la `version` lue (`draft_changed` sinon, et
+  `expected_version` vérifié en base, atomique). Chaque écriture de l'IA pose
+  `ai_updated_at` ; les deux Studios l'adoptent (`useAiDraftSync`,
+  `adoptExternal` : rien à réenregistrer, ⌘Z rend la version du pro) et leur
+  sauvegarde filtre sur `ai_updated_at`. **Ne jamais retirer ce filtre ni le
+  `if (!dirty) return` des abonnés d'autosave** : sans eux, le Studio ouvert
+  réécrit l'ancienne version à la frappe suivante et efface le travail de l'IA.
+- **Images de l'IA** : `add_email_image` / `list_email_images`, emplacements
+  `mcp_email_images` (code à usage unique, 30 min). Le fichier entre dans
+  `email-assets/mcp/<code>/…` par la clé PUBLIQUE seule (policy
+  `mcp_image_slot_open`), format lu dans les octets, validé par
+  `mcp_image_finish`. Page de dépôt `/ai/image/<code>` (coller / déposer),
+  point d'entrée `POST /mcp/image/<code>` (`run_worker_first` `/mcp/*`).
+  ChatGPT passe le fichier joint par `_meta["openai/fileParams"]` ; Claude ne
+  transmet pas les fichiers aux connecteurs : son IA donne le lien de dépôt.
+- Le Studio DESSINE une section (iframe sans script, `HtmlView`, cachée tant
+  que la soirée charge) ; un brouillon d'IA porte « Préparé par … »
+  (`ai_author`). Les messages de contrôle sont en anglais pour l'IA, traduits
+  par code (`yc.em.st.lint.*`) pour le pro.
+
+## MCP : l'IA du pro dessine ses pages d'inscription (2026-10-06)
+
+Plan : `docs/designs/MCP_SIGNUP_PAGE_DESIGN_PLAN.md` ; doc : `docs/MCP.md` § 9.
+Migration `20261009160000`. Le pro décrit sa page, colle sa charte ou une
+capture qui l'inspire ; son IA la dessine en « Design sur mesure », la dépose
+en brouillon et la retouche dans la conversation. Décisions de Paul (06/10) :
+sections libres + formulaire Yuno, toute la page sauf publier, proposition à
+appliquer sur une page en ligne, nom « Design sur mesure ». Règles intouchables :
+
+- **Permission À PART : `mcp_grants.can_pages`** (défaut false, posée par
+  `mcp_approve_authorization(…, p_pages)` seulement quand `/connect-ai` passe
+  `p_pages = true` ; `aiMcp.can5` l'annonce). `can_draft` ne l'ouvre pas, et
+  une connexion antérieure se reconnecte. Les images restent la porte des
+  e-mails (`add_email_image` / `list_email_images`, outils `shared` : ouverts
+  par `can_draft` OU `can_pages`).
+- **L'IA ne publie jamais.** `create_signup_page` = toujours un BROUILLON ;
+  `update_signup_page` modifie un brouillon, et sur une page EN LIGNE n'écrit
+  qu'une PROPOSITION (`crm_signup_pages.ai_proposal`, essayée à blanc par
+  `crm_signup_page_save` puis annulée par `RAISE 'mcp_dry_run_ok'`) : rien ne
+  change pour les fans tant que le pro n'a pas cliqué « Appliquer »
+  (`crm_signup_page_ai_proposal(apply|discard)`, `crm_scope_writable`). Aucun
+  outil ne publie, ne ferme, n'archive, ne supprime ni n'écrit les relances ;
+  une page d'IA aux relances vides passe par l'étape de relecture de
+  l'assistant (`?review=1`) avant la mise en ligne. Les réglages passent TOUS
+  par `crm_signup_page_save` (la fonction de la Console) : jamais un UPDATE de
+  colonne de réglage à côté.
+- **Le formulaire Yuno est dans CHAQUE design, une fois** (bloc `form` ;
+  `normalizeCustomDesign`, Worker et SQL le vérifient) : champs, case d'accord,
+  double confirmation, scène « inscrit » restent ceux de Yuno. L'IA dessine
+  AUTOUR (sections `html` + CSS, blocs `countdown` / `reward` / `count`,
+  `show_on` avant / après l'inscription). Le formulaire se tutoie : une page
+  d'IA se tutoie aussi (règle VOICE du guide).
+- **Module pur unique `src/crm/signup/custom.ts`** (modèle v1, limites,
+  nettoyage HTML/CSS, URLs d'images, balises de page, contrôle, thème →
+  `Tokens`) importé par le Worker ET la Console ; balises rendues par le
+  moteur des e-mails `email-smart.ts` (jamais recopié). Une balise de page
+  nouvelle = `PAGE_TAGS` + `buildPageTagData` + un test (`signupCustom.test.ts`).
+- **Trois barrières, jamais une de moins** : nettoyage + contrôle du Worker
+  (une erreur = rien n'est écrit), défense SQL de `_mcp_signup_write` (forme
+  v1, un seul formulaire, motifs dangereux), et au RENDU : DOMPurify à chaque
+  affichage + Shadow DOM sous `contain: paint, isolation: isolate`
+  (`CustomSection.tsx`). Ne jamais rendre une section par
+  `dangerouslySetInnerHTML` dans la page, ni lever `contain: paint` : c'est ce
+  qui empêche une section de recouvrir la case d'accord ou le bouton. Images :
+  stockage du projet Supabase de Yuno, FICHIERS d'image de `yunoapp.eu` (pas
+  ses routes : un `/go/` en image compterait des visites) ou `data:image`
+  ≤ 120 Ko (`isAllowedAssetUrl`), jamais un site tiers ni un autre projet
+  Supabase (fuite d'IP des fans).
+  Polices : Google Fonts seulement (`useCustomFonts`).
+- **Itérer sans écraser le pro** : version = `_mcp_draft_version(updated_at)`,
+  sections visées par id, `page_changed` si périmée. Chaque écriture de l'IA
+  pose `ai_updated_at` ; l'assistant ouvert l'adopte (sondage 8 s, toast
+  « Annuler ») et `crm_signup_page_save` lève `ai_changed` quand l'écran
+  enregistre par-dessus une version de l'IA non vue (`_seen_ai_at`). Choisir
+  un gabarit dans l'assistant remplace le design sur mesure APRÈS
+  confirmation ; `crm_signup_page_save` n'accepte `custom_design` qu'à null
+  (le pro n'écrit jamais de design, il le retire).
+- Traçabilité : `ai_author`, `mcp_grant_id`, pastille « Préparé par … » (liste,
+  fiche), bandeau de proposition (`AiProposalCard`), nombre de pages dans
+  Réglages › Assistants IA (`pages_created`) ; journal `mcp_tool_calls` = un
+  RÉSUMÉ, jamais le HTML. Débits : 20 créations / 200 modifications par jour.
+- Le cerveau : `worker/mcp/signupGuide.ts` (méthode, règles web mobile,
+  exemple), `signupDesign.ts` (construction, mises à jour par id, réglages),
+  `signupTools.ts` (écriture), consignes « SIGNUP PAGE DESIGN » de `guide.ts`,
+  prompt `design_signup_page`, ressource `yuno://guide/signup-page-design`.
 
 ## Collab à BARÈME sur le CA de la soirée + décompte de fin de soirée (2026-09-21)
 
@@ -2323,6 +3124,18 @@ remboursement fait depuis le tableau de bord Stripe du pro) suit la même règle
   que si le schéma visible par l'API change. La base (525 Mo) dépasse aussi le
   quota de 500 Mo de l'offre gratuite : risque de passage en LECTURE SEULE. Vraie
   correction = offre Pro + machine Small, décision (et paiement) de Paul.
+- **Plafonds de l'API : anon 3 s, authenticated 8 s, service_role 30 s** (ce
+  dernier posé par `20261009170000` ; avant, il héritait des 8 s
+  d'authenticator). Un appel d'edge function ou de cron passe par l'API comme
+  un écran. Mesuré le 06/10 sur la base WOH (12 194 contacts) : la mise en file
+  d'une campagne « toute la base » prenait 17,5 s et le moteur
+  d'automatisations 29,8 s — la campagne ne partait pas, et une recette allumée
+  faisait tomber le passage de TOUS les comptes. **Jamais une fonction appelée
+  ligne à ligne sur toute une base** (`email_send_policy`,
+  `_email_engagement_rank`, ~1 ms par contact) : leurs miroirs ensemblistes
+  `_email_send_policy_many(emails[], kind)` et `_email_engagement_ranks(emails[],
+  venue, orga)` rendent la même réponse en une passe (0 écart vérifié contact
+  par contact). Une évolution des règles se fait dans les DEUX formes.
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
   d'historique hérités de la migration Lovable→Supabase (réconciliation déjà faite une fois).
 - **Gen types** : `supabase gen types ...` — **rediriger stderr** sinon le bruit pollue
@@ -2766,6 +3579,34 @@ commande, liens promoteurs & affiliés (`/l/*`, `/promoteur/*`, `/p/*`, `/promo/
 `/rp/*` — trafic Instagram : les Universal Links n'y fonctionnent pas), surfaces
 staff/pro. Le web mobile doit rester un chemin d'achat complet — DICE gate, Yuno non :
 on vend du sans-friction dans une file d'attente.
+
+## Liens partenaires — un lien et une page de stats par personne, pour UNE soirée (2026-10-16)
+
+Brancher un promoteur, un DJ, un ami… sur une seule soirée SANS compte.
+Migration `20261017200000`, `src/lib/partnerLinks.ts` (testé), Console :
+onglet « Partenaires » des liens d'une soirée (`TrackedLinksManager` →
+`PartnerLinksPanel`, `PartnerLinkDialog`), page publique `/stats/:token`
+(`PartnerStatsPage`, DA publique). Règles :
+
+- **Ce n'est PAS un second système** : une ligne `tracked_links` (club ou
+  organisateur, cible `event`) qui porte `partner_name`, `partner_role`,
+  `partner_contact`, `partner_token`, `partner_shows_revenue`. Clics, ventes et
+  CA se comptent comme tout lien suivi ; la page (`_partner_link_sales`) reprend
+  les statuts et le CA club de `get_tracked_link_stats` : la Console et la page
+  disent les mêmes chiffres. Toute évolution de l'une se reporte à l'autre.
+- **Le jeton naît côté serveur** (trigger `tracked_links_partner_normalize`, 32
+  hex), ne change jamais à l'édition, se renouvelle seulement par
+  `reset_partner_link_page` (« Nouveau lien de page »). Le trigger pose aussi
+  `label = partner_name`, `utm_medium = 'partner_link'`, refuse un nom de canal
+  (`partner_name_reserved`) et éteint `partner_shows_revenue` posé par quelqu'un
+  qui ne voit pas l'argent (`tracked_link_team_sees_money`).
+- **Page publique = `get_partner_link_page(token)`** (anon) : prénom + initiale
+  de l'acheteur seulement, jamais email / téléphone / nom complet, le contact du
+  partenaire jamais rendu, CA seulement si `partner_shows_revenue`. Fermée 7 jours
+  après la fin de la soirée. `/stats/` est dans `LINKTREE_PREFIXES` (aucune étape
+  d'accueil).
+- Un lien partenaire ne verse AUCUNE commission : il compte. Le promoteur
+  régulier avec commissions reste l'espace Promoteurs.
 
 ## Yuno Links — la page de la bio Instagram / TikTok (2026-09-05)
 
@@ -4041,6 +4882,13 @@ et `docs/designs/EMAIL_AUTOMATION_V2_BRIEF.md` (v2). Migrations `20260915120000`
   front crée le modèle Yuno (`buildStarter('auto_<kind>')`) en allumant.
   `enabled_at` borne les déclencheurs : une bienvenue ne part jamais à toute
   la base existante le jour où on allume.
+- **Une recette « à toute la base » travaille par LOTS de 3 000**
+  (`v_batch`) : chaque sélection de candidats écarte qui est déjà au registre
+  pour ce déclencheur, le passage suivant prend la suite. Avant
+  `20261009170000`, le LIMIT tombait avant ce filtre et une base de 12 000 ne
+  recevait le dernier appel qu'à 5 000 personnes, jamais aux autres — alors
+  que l'aperçu en annonçait 12 194. Le passage s'arrête après 4 s
+  (`budget_hit`) ; les recettes restantes attendent le passage suivant.
 - **Le registre `email_automation_sends` est la garantie** : unique
   (automation, `trigger_key`, email) — `trigger_key` = id de soirée, `once`
   (bienvenue) ou `wb-YYYY-MM` (reconquête) — raison d'exclusion écrite,

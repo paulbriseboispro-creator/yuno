@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Ticket, Zap, Crown, Wine, Clock, Check, ArrowRight, ArrowLeft, Sparkles, FolderOpen, Shapes } from 'lucide-react';
+import { Plus, Trash2, Ticket, Zap, Crown, Wine, Clock, Check, ArrowRight, ArrowLeft, Sparkles, FolderOpen, Shapes, Copy } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { TicketSellingMode } from '@/types/ticketing';
@@ -13,6 +13,10 @@ import { RED, POS, GOLD, T1, T2, T3, C_FAINT, BORDER, TILE_BG, TILE, LABEL, DIAL
 import type { SalesDraft, TicketSalesMode, TicketPreset, WizardCustomRound } from './ticketing-types';
 import { presetTypeTagKey } from './ticketing-types';
 import { formatMoneyAuto } from '@/lib/money';
+import { wouldCreateChainCycle } from '@/lib/freeTicketing';
+
+/** Carte vide de la billetterie libre : sa clé est l'id du futur billet. */
+const newFreeCard = (): WizardCustomRound => ({ key: crypto.randomUUID(), name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false, entryDeadline: '', opensAfter: null });
 
 interface ActivationWizardDialogProps {
   isActivationWizardOpen: boolean;
@@ -55,6 +59,12 @@ export function ActivationWizardDialog({
 }: ActivationWizardDialogProps) {
   const { t, language } = useLanguage();
   const tl = (fr: string, en: string, es: string) => translate(language, fr, en, es);
+  const isFree = wizardSellingMode === 'free';
+  // Nom d'une carte tel qu'on le lit dans un choix (« Billet 3 » tant qu'il n'a pas de nom).
+  const cardName = (idx: number) => wizardCustomRounds[idx]?.name.trim() || t('tickets.free.ticketLabel').replace('{idx}', String(idx + 1));
+  const chainLinks = Object.fromEntries(wizardCustomRounds.filter(r => r.key).map(r => [r.key!, r.opensAfter ?? null]));
+  const patchCard = (idx: number, p: Partial<WizardCustomRound>) =>
+    setWizardCustomRounds(prev => prev.map((r, i) => i === idx ? { ...r, ...p } : r));
   return (
         <Dialog open={isActivationWizardOpen} onOpenChange={(open) => { setIsActivationWizardOpen(open); if (!open) setWizardModeChange(false); }}>
           <DialogContent className="max-w-lg" style={DIALOG_SURFACE}>
@@ -66,7 +76,7 @@ export function ActivationWizardDialog({
               <DialogDescription style={HINT}>
                 {wizardModeChange
                   ? t('tickets.changeModeDesc')
-                  : t('tickets.wizardStepOf').replace('{step}', wizardStep.toString())}
+                  : t('tickets.wizardStepOf').replace('{step}', String(Math.floor(wizardStep)))}
               </DialogDescription>
             </DialogHeader>
 
@@ -264,15 +274,17 @@ export function ActivationWizardDialog({
                           { name: 'Standard', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
                         ]);
                       } else if (wizardSellingMode === 'free') {
-                        setWizardCustomRounds([
-                          { name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
-                        ]);
+                        setWizardCustomRounds([newFreeCard()]);
                       } else {
                         setWizardCustomRounds([
                           { name: 'Early Birds', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
                           { name: 'First Release', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
                         ]);
                       }
+                    }
+                    // Libre : toute carte a une clé (les liens « après un billet » s'y accrochent).
+                    if (wizardSellingMode === 'free') {
+                      setWizardCustomRounds(prev => prev.map(r => r.key ? r : { ...r, key: crypto.randomUUID() }));
                     }
                     setWizardStep(2.5);
                   }}>
@@ -321,17 +333,39 @@ export function ActivationWizardDialog({
                               ? t('tickets.free.ticketLabel').replace('{idx}', String(idx + 1))
                               : t('owner.actw.tierLabel').replace('{idx}', String(idx + 1))}
                           </span>
-                          {wizardCustomRounds.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                              onClick={() => setWizardCustomRounds(prev => prev.filter((_, i) => i !== idx))}
-                              style={{ color: RED }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {isFree && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title={t('tickets.free.duplicate')}
+                                aria-label={t('tickets.free.duplicate')}
+                                onClick={() => setWizardCustomRounds(prev => [
+                                  ...prev.slice(0, idx + 1),
+                                  { ...prev[idx], key: crypto.randomUUID() },
+                                  ...prev.slice(idx + 1),
+                                ])}
+                                style={{ color: T2 }}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {wizardCustomRounds.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setWizardCustomRounds(prev => prev
+                                  .filter((_, i) => i !== idx)
+                                  // Un billet qui attendait celui-ci repasse « tout de suite ».
+                                  .map(r => r.opensAfter && r.opensAfter === round.key ? { ...r, opensAfter: null } : r))}
+                                style={{ color: RED }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
@@ -378,18 +412,36 @@ export function ActivationWizardDialog({
                               />
                             </div>
                           )}
-                          {wizardSellingMode === 'timed_entry' && (
-                            <div className="col-span-2">
-                              <Label className="text-xs">{t('owner.actw.entryDeadlineLabel')}</Label>
+                          {/* Heure murale (colonne SQL `time`) : une date complète y était refusée. */}
+                          {(wizardSellingMode === 'timed_entry' || isFree) && (
+                            <div className={isFree ? undefined : 'col-span-2'}>
+                              <Label className="text-xs">{isFree ? t('tickets.free.entryDeadline') : t('owner.actw.entryDeadlineLabel')}</Label>
                               <Input
-                                type="datetime-local"
+                                type="time"
                                 className="mt-1 h-9"
                                 value={round.entryDeadline || ''}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setWizardCustomRounds(prev => prev.map((r, i) => i === idx ? { ...r, entryDeadline: v } : r));
-                                }}
+                                onChange={(e) => patchCard(idx, { entryDeadline: e.target.value })}
                               />
+                            </div>
+                          )}
+                          {/* Les rounds, billet par billet : ce billet s'ouvre quand un autre est complet. */}
+                          {isFree && (
+                            <div className="col-span-2">
+                              <Label className="text-xs">{t('tickets.free.wizardSale')}</Label>
+                              <Select
+                                value={round.opensAfter && wizardCustomRounds.some(r => r.key === round.opensAfter) ? round.opensAfter : 'now'}
+                                onValueChange={(v) => patchCard(idx, { opensAfter: v === 'now' ? null : v })}
+                              >
+                                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="now">{t('tickets.free.sale.now')}</SelectItem>
+                                  {wizardCustomRounds.map((other, j) => (
+                                    other.key && j !== idx && !(round.key && wouldCreateChainCycle(chainLinks, round.key, other.key))
+                                      ? <SelectItem key={other.key} value={other.key}>{t('tickets.free.phase.opensAfter').replace('{name}', cardName(j))}</SelectItem>
+                                      : null
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           )}
                         </div>
@@ -430,7 +482,7 @@ export function ActivationWizardDialog({
                     onClick={() => {
                       setWizardCustomRounds(prev => [
                         ...prev,
-                        { name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
+                        isFree ? newFreeCard() : { name: '', price: '', maxTickets: '', ticketType: 'standard', includesDrink: false },
                       ]);
                     }}
                     style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}
@@ -465,11 +517,19 @@ export function ActivationWizardDialog({
                   const fromPresets = (['standard', 'vip'] as const)
                     .map((k) => presets.find((p) => p.id === wizardSelectedPresets[k]))
                     .filter(Boolean)
-                    .flatMap((p) => p!.rounds.map((r) => ({ name: r.name, price: Number(r.price), max: Number(r.maxTickets) || 0 })));
+                    .flatMap((p) => p!.rounds.map((r) => ({ name: r.name, price: Number(r.price), max: Number(r.maxTickets) || 0, detail: '' })));
                   const rows = fromPresets.length > 0
                     ? fromPresets
                     : wizardCustomRounds.filter((r) => r.name || r.price)
-                      .map((r) => ({ name: r.name, price: Number(r.price) || 0, max: Number(r.maxTickets) || 0 }));
+                      .map((r) => {
+                        // Libre : heure d'entrée et round, relus avant de publier.
+                        const awaited = isFree && r.opensAfter ? wizardCustomRounds.findIndex(o => o.key === r.opensAfter) : -1;
+                        const detail = [
+                          isFree && r.entryDeadline ? `${t('tickets.entryBefore')} ${r.entryDeadline}` : '',
+                          awaited >= 0 ? t('tickets.free.phase.opensAfter').replace('{name}', cardName(awaited)) : '',
+                        ].filter(Boolean).join(' · ');
+                        return { name: r.name, price: Number(r.price) || 0, max: Number(r.maxTickets) || 0, detail };
+                      });
                   if (rows.length === 0) return null;
                   const total = rows.reduce((a, r) => a + r.max, 0);
                   return (
@@ -477,9 +537,12 @@ export function ActivationWizardDialog({
                       <p style={{ ...LABEL, marginBottom: 6 }}>{tl('Ce qui sera publié', 'What will be published', 'Lo que se publicará')}</p>
                       <div className="space-y-1">
                         {rows.map((r, i) => (
-                          <div key={`${r.name}-${i}`} className="flex items-center justify-between gap-3" style={{ fontSize: 13 }}>
-                            <span style={{ color: T1 }}>{r.name || tl('Palier', 'Tier', 'Tramo')}</span>
-                            <span className="tabular-nums" style={{ color: T3 }}>
+                          <div key={`${r.name}-${i}`} className={`flex ${r.detail ? 'items-start' : 'items-center'} justify-between gap-3`} style={{ fontSize: 13 }}>
+                            <span className="min-w-0" style={{ color: T1 }}>
+                              {r.name || tl('Palier', 'Tier', 'Tramo')}
+                              {r.detail && <span className="block" style={{ ...HINT, marginTop: 1 }}>{r.detail}</span>}
+                            </span>
+                            <span className="tabular-nums whitespace-nowrap flex-none" style={{ color: T3 }}>
                               {r.price.toLocaleString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 })}
                               {r.max > 0 ? ` · ${r.max} ${tl('places', 'spots', 'plazas')}` : ''}
                             </span>

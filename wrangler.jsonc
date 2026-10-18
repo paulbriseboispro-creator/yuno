@@ -51,6 +51,11 @@
     "SUPABASE_URL": "https://fulawxvdlwtdlpkycixe.supabase.co",
     "SUPABASE_ANON_KEY": "sb_publishable_2rOH-YqTzz-YdIbQSrswpg_Os7DU-r1"
   },
+  // Identité du déploiement, lue par le Worker pour séparer le cache du héros
+  // d'une version à l'autre (env.CF_VERSION_METADATA.id, worker/index.ts).
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
   // Observability : logs d'invocation du Worker, persistés dans le dashboard.
   "observability": {
     "enabled": true,

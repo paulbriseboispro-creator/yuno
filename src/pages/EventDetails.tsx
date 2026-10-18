@@ -18,8 +18,10 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
 import { TicketRound, TableZone, TablePack, EventWithTicketing, TicketSellingMode, getEventSalesStatus, isCommunityAudience, normalizeTicketAudience } from '@/types/ticketing';
-import { publicFreeTickets } from '@/lib/freeTicketing';
+import { normalizeChainVisibility, publicFreeTickets } from '@/lib/freeTicketing';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
+import { useQueryClient } from '@tanstack/react-query';
+import { WaitlistSheet } from '@/components/ticketing/WaitlistSheet';
 // EventWaitlistForm moved to dedicated page
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { shareContent } from '@/lib/share';
@@ -106,6 +108,12 @@ export default function EventDetails() {
   // cette distinction, un lien promoteur annonçait « tu es sur la liste » à
   // quelqu'un qui n'y est pas, et une inscription réelle restait invisible.
   const [isOnWaitlist, setIsOnWaitlist] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const queryClient = useQueryClient();
+  // Anciens liens (e-mails, partages) /…/waitlist : redirigés ici avec ?waitlist=1.
+  useEffect(() => {
+    if (searchParams.get('waitlist') === '1') setWaitlistOpen(true);
+  }, [searchParams]);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [djs, setDjs] = useState<EventDJ[]>([]);
   const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
@@ -576,6 +584,7 @@ export default function EventDetails() {
         visibleFrom: r.visible_from,
         saleStartsAt: r.sale_starts_at,
         saleEndsAt: r.sale_ends_at,
+        opensAfterRoundId: r.opens_after_round_id ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })));
@@ -635,6 +644,7 @@ export default function EventDetails() {
         description: eventData.description,
         posterUrl: eventData.poster_url,
         videoUrl: eventData.video_url || undefined,
+        flyerWideUrl: eventData.flyer_wide_url || undefined,
         posterPosition: eventData.poster_position as { x: number; y: number; scale: number } | undefined,
         startAt: eventData.start_at,
         endAt: eventData.end_at,
@@ -654,6 +664,7 @@ export default function EventDetails() {
         publicSaleStartAt: eventData.public_sale_start_at || undefined,
         waitlistEnabled: eventData.waitlist_enabled || false,
         roundsVisibility: (eventData.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open' | null) ?? 'sequential',
+        freeChainVisibility: normalizeChainVisibility(eventData.free_chain_visibility),
         locationIsSecret: !!eventData.location_is_secret,
         locationName: eventData.location_name || undefined,
         createdAt: eventData.created_at,
@@ -824,7 +835,7 @@ export default function EventDetails() {
   // vendent en parallèle ; un billet « Bientôt » garde la soirée ouverte.
   const isFreeMode = event?.ticketSellingMode === 'free';
   const roundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
-  const freeListed = isFreeMode ? publicFreeTickets(ticketRounds) : [];
+  const freeListed = isFreeMode ? publicFreeTickets(ticketRounds, Date.now(), event?.freeChainVisibility ?? 'preview') : [];
   const allBuyableRounds = isFreeMode
     ? freeListed.filter(x => x.phase === 'on_sale' && !roundSoldOut(x.ticket)).map(x => x.ticket)
     : ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
@@ -1171,7 +1182,7 @@ export default function EventDetails() {
             {heroControls}
           </div>
 
-          <EventHeroStage posterUrl={heroImage} videoUrl={heroVideo} title={event.title} />
+          <EventHeroStage key={event.flyerWideUrl || heroImage || event.id} posterUrl={heroImage} wideUrl={event.flyerWideUrl} videoUrl={heroVideo} title={event.title} />
 
           <div style={{ paddingTop: 'clamp(24px, 6vw, 34px)' }}>
             {heroBadges}
@@ -1457,7 +1468,7 @@ export default function EventDetails() {
                     l'inscription. Le bouton reste un lien vers la page liste
                     d'attente, il ne promet plus une action déjà faite. */}
                 <button
-                  onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
+                  onClick={() => setWaitlistOpen(true)}
                   className="shrink-0 font-mono font-semibold uppercase inline-flex items-center gap-2"
                   style={{ height: 40, padding: '0 16px', background: 'transparent', color: isOnWaitlist ? 'rgb(var(--ink))' : 'var(--tx-9a9a9a)', border: `1px solid ${isOnWaitlist ? 'rgb(var(--ink)/var(--ink-a28,0.28))' : 'rgb(var(--ink)/0.12)'}`, borderRadius: 3, fontSize: '10px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                   onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
@@ -1868,7 +1879,7 @@ export default function EventDetails() {
                 // liste d'attente (rang, désinscription) — une barre morte
                 // laisse croire que l'écran a gelé.
                 accentColor="#1F1F22"
-                onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
+                onClick={() => setWaitlistOpen(true)}
               />
             );
           }
@@ -1878,7 +1889,7 @@ export default function EventDetails() {
               label=""
               buttonText={eventSalesStatus === 'presale' ? t('waitlist.joinWaitlist') : t('waitlist.signUpForRelease')}
               icon={<Bell className="h-4 w-4" />}
-              onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
+              onClick={() => setWaitlistOpen(true)}
             />
           );
         }
@@ -1974,6 +1985,20 @@ export default function EventDetails() {
             </div>
           </div>
         </div>
+      )}
+
+      {eventId && event && (
+        <WaitlistSheet
+          eventId={eventId}
+          eventTitle={event.title}
+          open={waitlistOpen}
+          onOpenChange={setWaitlistOpen}
+          alreadyJoined={isOnWaitlist}
+          onJoined={() => {
+            setIsOnWaitlist(true);
+            queryClient.invalidateQueries({ queryKey: ['event-details', eventId] });
+          }}
+        />
       )}
     </div>
   );

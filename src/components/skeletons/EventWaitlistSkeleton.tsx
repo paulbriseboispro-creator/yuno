@@ -1,37 +1,37 @@
 import { Shimmer, SkeletonLine } from './Shimmer';
 
-/* Silhouette fidèle de src/pages/EventWaitlistPage.tsx (formulaire invité) :
-   bloc retour p-4 (flèche seule) → bloc titre (icône + titre, soirée,
-   sous-titre) → 2 champs h-12 arrondis → bouton h-12 → lien de connexion
-   centré. Pas de header sticky ni de barre flottante. Mêmes conteneurs
-   (px-5, space-y-6) et mêmes jetons de thème (bg-background) que la page. */
+/* Silhouette fidèle de src/pages/EventWaitlistPage.tsx (formulaire) :
+   bouton retour rond → affiche + kicker/titre/date → titre d'accroche et
+   phrase → prénom / nom côte à côte → e-mail → bouton.
+   Mêmes conteneurs (max-w-md, px-5) et jetons de thème (bg-background). */
 export function EventWaitlistSkeleton() {
   return (
-    <div className="min-h-screen bg-background" aria-hidden>
-      {/* Retour */}
-      <div className="p-4">
-        <Shimmer width={20} height={20} className="rounded" />
-      </div>
+    <div className="relative min-h-screen bg-background" aria-hidden>
+      <Shimmer width={40} height={40} className="absolute left-4 top-4 rounded-full" />
 
-      <div className="px-5 space-y-6">
-        {/* Titre */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Shimmer width={20} height={20} className="rounded" />
-            <SkeletonLine width={170} height={20} />
+      <div className="mx-auto max-w-md px-5 pt-[88px]">
+        <div className="flex items-center gap-4">
+          <Shimmer width={84} height={104} className="shrink-0 rounded" />
+          <div className="flex-1 space-y-2">
+            <SkeletonLine width={90} height={10} />
+            <SkeletonLine width="80%" height={18} />
+            <SkeletonLine width="60%" height={11} />
           </div>
-          <SkeletonLine width="55%" height={14} />
-          <SkeletonLine width="70%" height={12} />
         </div>
 
-        {/* Formulaire invité */}
-        <div className="space-y-3">
-          <Shimmer width="100%" height={48} className="rounded-xl" />
-          <Shimmer width="100%" height={48} className="rounded-xl" />
-          <Shimmer width="100%" height={48} className="rounded-md" />
-          <div className="flex justify-center pt-1">
-            <SkeletonLine width={120} height={12} />
+        <div className="mt-9 space-y-3">
+          <SkeletonLine width="85%" height={32} />
+          <SkeletonLine width="100%" height={14} />
+          <SkeletonLine width="70%" height={14} />
+        </div>
+
+        <div className="mt-7 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Shimmer width="100%" height={54} className="rounded" />
+            <Shimmer width="100%" height={54} className="rounded" />
           </div>
+          <Shimmer width="100%" height={54} className="rounded" />
+          <Shimmer width="100%" height={56} className="rounded" />
         </div>
       </div>
     </div>

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  autoState, bestPerPerson, delayParts, periodDelta, quietSendAt, receivedSubject, runwayWeeks, weeklyYunits,
+  CRM_AUTO_KINDS, CRM_AUTO_META, autoState, bestPerPerson, delayParts, periodDelta, quietSendAt, receivedSubject, runwayWeeks, weeklyYunits,
 } from '@/crm/lib/automations';
+import { crmTemplate } from '@/crm/lib/emailTemplates';
+import { pickLanguage } from '@/i18n/locales/crm/modules';
 
 describe('automatisations CRM', () => {
   it('lit un délai dans la bonne unité', () => {
@@ -9,6 +11,29 @@ describe('automatisations CRM', () => {
     expect(delayParts('last_call', 48)).toEqual({ n: 2, unit: 'd' });
     expect(delayParts('regular_lapse', 1008)).toEqual({ n: 6, unit: 'w' });
     expect(delayParts('win_back', 2160)).toEqual({ n: 90, unit: 'd' });
+  });
+
+  it('« A cliqué sans acheter » relance de 6 h à 2 jours après le clic', () => {
+    expect(CRM_AUTO_META.click_no_buy.delays).toEqual([6, 12, 24, 48]);
+    expect(delayParts('click_no_buy', 6)).toEqual({ n: 6, unit: 'h' });
+    expect(delayParts('click_no_buy', 24)).toEqual({ n: 1, unit: 'd' });
+  });
+
+  it('chaque recette a ses textes et son modèle dans les trois langues', () => {
+    const parts = ['name', 'desc', 'trig', 'trigS', 'q', 'short', 'target', 'when'];
+    const tpl = ['name', 'subject', 'pre', 'title', 'body', 'cta'];
+    for (const lang of [0, 1, 2] as const) {
+      const d = pickLanguage(lang);
+      for (const k of CRM_AUTO_KINDS) {
+        for (const p of parts) expect(d[`yc.au.r.${k}.${p}`], `${lang} yc.au.r.${k}.${p}`).toBeTruthy();
+        const m = CRM_AUTO_META[k];
+        const meta = crmTemplate(m.tpl);
+        expect(meta, `modèle ${m.tpl}`).toBeDefined();
+        for (const p of meta?.night ? [...tpl, 'eventTitle'] : tpl) {
+          expect(d[`yc.em.tp.${m.tpl}.${p}`], `${lang} yc.em.tp.${m.tpl}.${p}`).toBeTruthy();
+        }
+      }
+    }
   });
 
   it('distingue allumée, en pause, réglée et à créer', () => {

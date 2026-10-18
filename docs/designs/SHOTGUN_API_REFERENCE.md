@@ -68,6 +68,42 @@ panier abandonné ; l'acheteur distinct du détenteur ; les remboursements parti
 Le centre d'aide Shotgun précise aussi : « Resold / transferred tickets are
 currently not counted in sales tracking metrics ».
 
+### Où Yuno range chaque champ d'un billet (minimisation, 2026-10-18)
+
+`external_tickets` garde chaque champ utile dans SA colonne ; le billet brut
+(`raw`) ne garde que le reste, **sans aucune coordonnée** (règle
+`minimizeTicketRaw` ⇄ `ticketing_minimize_raw`, migration `20261019300000`,
+appliquée par trigger à toute écriture). Aucune RPC ne lit `raw`.
+
+| Champ Shotgun | Colonne Yuno |
+|---|---|
+| `ticket_id`, `order_id`, `event_id`, `deal_id`, `deal_title` | `external_id`, `external_order_id`, `external_event_id`, `deal_id`, `deal_name` |
+| `ticket_status` | `status` (normalisé) + `raw_status` |
+| `deal_price`, `deal_user_service_fee` (÷ 100), `currency` | `price`, `fees`, `currency` |
+| `deal_service_fee` (÷ 100) | `org_fee` |
+| `deal_channel`, `deal_visibilities`, `ticket_seating.type`, `payment_method` | `deal_channel`, `deal_visibilities`, `seating_type`, `payment_method` |
+| `ordered_at`, `ticket_scanned_at`, `ticket_canceled_at`, `ticket_updated_at` | `purchased_at`, `scanned_at`, `refunded_at`, `source_updated_at` |
+| `utm_source`, `utm_medium` | `utm` |
+| `contact_email`, `contact_first_name`, `contact_last_name`, `contact_phone` | `buyer_email`, `buyer_first_name`, `buyer_last_name`, `buyer_phone` |
+| `contact_id`, `user_id` | `buyer_ref` / `provider_contact_id`, `provider_user_id` |
+| `contact_newsletter_optin`, `contact_gender`, `contact_birthday` (âge) | `newsletter_optin`, `gender`, `age` |
+| `contact_locality`, `contact_postal_code`, `contact_country` (→ ISO) | `city`, `zip_code`, `country_code` |
+| `event_*` (dates et nom de la soirée) | la soirée vit dans `external_events` |
+| `ticket_scan_code` | **jamais stocké** |
+| `contact_company_name` | non gardé |
+| `deal_sub_category`, `deal_vat_rate`, `deal_producer_cost`, `ticket_seating` | restent dans `raw` |
+
+Les CLÉS de chaque page (jamais les valeurs) s'accumulent dans
+`ticketing_connections.schema_sample.ticket_keys` : un champ nouveau se voit là.
+
+**Contact anonymisé.** L'API ne documente pas l'effacement d'un contact. Yuno
+lit comme un effacement un billet qui revient SANS `contact_email` alors qu'il
+en avait un (migration `20261019310000`) : identité du billet effacée, profil
+et accord versé par la billetterie retirés si l'adresse n'a plus de billet
+nominatif, adresse écartée de tout import (`email_opt_outs`, raison `erased`).
+Non vérifié sur un vrai effacement : on ne sait pas si Shotgun fait alors
+avancer `ticket_updated_at` (sans cela, le billet ne repasse pas par le curseur).
+
 ## Events — `GET https://smartboard-api.shotgun.live/api/shotgun/organizers/{ID}/events`
 
 Auth : `?key=` (`?token=` déprécié). À venir par défaut ; `past_events=true` +
