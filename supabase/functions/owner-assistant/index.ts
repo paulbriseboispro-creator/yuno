@@ -99,6 +99,25 @@ const HELP_ARTICLES: typeof HELP_ARTICLES_ALL = Object.fromEntries(
   Object.entries(HELP_ARTICLES_ALL).filter(([id]) => DRINKS_PILLAR_LIVE || !DRINKS_HELP_ARTICLES.has(id)),
 );
 
+// Réponse JSON d'un appel OpenAI non streamé (contenu, Night Report, actions).
+// Chez gpt-5-mini le raisonnement compte dans max_completion_tokens : une sortie
+// coupée (finish_reason = "length") ou illisible se journalise comme une erreur,
+// jamais comme un appel réussi qui rend du vide.
+interface JsonCompletion {
+  choices?: { finish_reason?: string | null; message?: { content?: string | null } }[];
+}
+function readJsonCompletion<T>(aiData: JsonCompletion | null | undefined): { value: T | null; failure: string | null } {
+  const choice = aiData?.choices?.[0];
+  if (choice?.finish_reason === "length") return { value: null, failure: "finish_reason=length" };
+  const content = choice?.message?.content;
+  if (!content) return { value: null, failure: `empty_content (finish_reason=${choice?.finish_reason ?? "none"})` };
+  try {
+    return { value: JSON.parse(content) as T, failure: null };
+  } catch {
+    return { value: null, failure: "invalid_json" };
+  }
+}
+
 // ═══════════════════════════════════════════
 // TOOL DEFINITIONS
 // ═══════════════════════════════════════════
@@ -1919,9 +1938,8 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
   }
 
   const aiData = await aiResponse.json();
-  logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: { variants?: ContentVariant[] } | null = null;
-  try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch { /* empty */ }
+  const { value: parsed, failure } = readJsonCompletion<{ variants?: ContentVariant[] }>(aiData);
+  logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), ...(failure ? { status: 'error' as const, error: failure } : {}), latencyMs: Date.now() - handlerStart });
   const limits = CHANNEL_LIMITS[channel];
   const variants = (parsed?.variants || []).slice(0, 3).map((v: ContentVariant) => {
     const clamp = (l: ContentFields | undefined) => ({
@@ -2080,11 +2098,10 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
   }
 
   const aiData = await aiResponse.json();
-  logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let report: NightReport | null = null;
-  try { report = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
+  const { value: report, failure } = readJsonCompletion<NightReport>(aiData);
+  logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), ...(failure ? { status: 'error' as const, error: failure } : {}), latencyMs: Date.now() - handlerStart });
   if (!report?.headline || !Array.isArray(report?.insights) || !Array.isArray(report?.actions)) {
-    log("report_empty", { event_id: eventId });
+    log("report_empty", { event_id: eventId, failure });
     return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
   }
   report.insights = report.insights.slice(0, 5);
@@ -2309,9 +2326,8 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
   }
 
   const aiData = await aiResponse.json();
-  logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: { actions?: NextBestAction[] } | null = null;
-  try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
+  const { value: parsed, failure } = readJsonCompletion<{ actions?: NextBestAction[] }>(aiData);
+  logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), ...(failure ? { status: 'error' as const, error: failure } : {}), latencyMs: Date.now() - handlerStart });
   const actions = (parsed?.actions || []).slice(0, 3)
     .filter((a: NextBestAction) => (ACTION_PATHS as readonly unknown[]).includes(a?.path));
   if (!actions.length) {
