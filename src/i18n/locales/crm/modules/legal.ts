@@ -29,6 +29,8 @@ const dict: CrmDict = {
   'yc.legal.gate.accept2': [' and the ', ' et l’', ' y el '],
   'yc.legal.gate.accept3': ['.', '.', '.'],
   'yc.legal.gate.cta': ['Accept and continue', 'Accepter et continuer', 'Aceptar y continuar'],
+  'yc.legal.gate.fail': ['Your acceptance wasn’t saved (connection problem). Try again: until it is, no email can be sent from Yuno CRM.', 'Votre accord n’a pas été enregistré (problème de connexion). Réessayez : tant qu’il ne l’est pas, aucun e-mail ne peut partir de Yuno CRM.', 'Su aceptación no se guardó (problema de conexión). Inténtelo de nuevo: mientras no se guarde, ningún e-mail puede salir de Yuno CRM.'],
+  'yc.legal.gate.later': ['Later', 'Plus tard', 'Más tarde'],
   'yc.legal.doc.terms': ['Yuno CRM Terms', 'Conditions Yuno CRM', 'Condiciones de Yuno CRM'],
   'yc.legal.doc.dpa': ['Data Processing Agreement', 'Accord de sous-traitance des données', 'Acuerdo de encargo del tratamiento'],
   'yc.legal.doc.template': ['Notice template for your customers', 'Modèle d’information pour vos clients', 'Modelo de información para sus clientes'],
