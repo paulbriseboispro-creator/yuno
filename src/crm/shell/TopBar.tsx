@@ -19,6 +19,7 @@ import { isSupportSessionActive } from '@/lib/supportSession';
 import { SearchBox } from './SearchBox';
 import { NotifBell } from './NotifBell';
 import { CRM_ROUTES } from './nav';
+import { syncChip } from '@/crm/lib/syncChip';
 
 export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell | undefined; onOpenMenu: () => void; showMenuButton: boolean }) {
   const { t, n, time, dShort } = useCrmT();
@@ -27,16 +28,21 @@ export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell 
   const balance = shell?.wallet.balance ?? null;
   const assist = isSupportSessionActive();
 
-  const sync = !conn
-    ? { label: t('yc.top.sync.none'), dot: 'var(--sand-400)', bg: 'transparent', fg: 'var(--sand-600)' }
-    : conn.state === 'broken'
-      ? { label: t('yc.top.sync.broken'), dot: 'var(--red-500)', bg: 'var(--red-50)', fg: 'var(--red-700)' }
-      : conn.state === 'running'
-        ? { label: t('yc.top.sync.running'), dot: 'var(--amber-500)', bg: 'transparent', fg: 'var(--sand-600)' }
-        : {
-          label: t('yc.top.sync.ok', { time: conn.last_ok_at ? (isToday(conn.last_ok_at) ? time(conn.last_ok_at) : dShort(conn.last_ok_at)) : '—' }),
-          dot: 'var(--green-500)', bg: 'transparent', fg: 'var(--sand-600)',
-        };
+  // Premier import pas fini : les chiffres de toute la Console sont partiels.
+  // Le dire en haut de chaque page (audit 18/10, UI-01 ; règle dans syncChip).
+  const chip = syncChip(conn);
+  const importing = chip === 'importing';
+  const grey = { dot: 'var(--sand-400)', bg: 'transparent', fg: 'var(--sand-600)' };
+  const sync = chip === 'none' ? { label: t('yc.top.sync.none'), ...grey }
+    : chip === 'off' ? { label: t('yc.top.sync.off'), ...grey }
+    : chip === 'paused' ? { label: t('yc.top.sync.paused'), ...grey }
+    : chip === 'broken' ? { label: t('yc.top.sync.broken'), dot: 'var(--red-500)', bg: 'var(--red-50)', fg: 'var(--red-700)' }
+    : chip === 'importing' ? { label: t('yc.top.sync.importing'), dot: 'var(--amber-500)', bg: 'transparent', fg: 'var(--sand-600)' }
+    : chip === 'running' ? { label: t('yc.top.sync.running'), dot: 'var(--amber-500)', bg: 'transparent', fg: 'var(--sand-600)' }
+    : {
+      label: t('yc.top.sync.ok', { time: conn?.last_ok_at ? (isToday(conn.last_ok_at) ? time(conn.last_ok_at) : dShort(conn.last_ok_at)) : '—' }),
+      dot: 'var(--green-500)', bg: 'transparent', fg: 'var(--sand-600)',
+    };
 
   return (
     <div style={{ fontFamily: 'var(--font-body)', color: 'var(--ink)' }}>
@@ -48,6 +54,18 @@ export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell 
             <b style={{ fontWeight: 600 }}>{t('yc.top.assist')}</b>
             <span style={{ color: 'var(--text-on-night-2)' }}>{t('yc.top.assistSub')}</span>
           </span>
+        </div>
+      )}
+      {importing && (
+        <div role="status" style={{ minHeight: 40, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '6px 14px', padding: '6px 16px', background: 'var(--amber-50)', color: 'var(--ink)', fontSize: 13.5, borderBottom: '1px solid var(--sand-100)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 99, background: 'var(--amber-500)' }} />
+            <b style={{ fontWeight: 600 }}>{t('yc.top.import')}</b>
+            <span style={{ color: 'var(--sand-600)' }}>{t('yc.top.importSub')}</span>
+          </span>
+          <Link to={CRM_ROUTES.connectors} style={{ color: 'var(--ink)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            {t('yc.top.importLink')}
+          </Link>
         </div>
       )}
       <header style={{

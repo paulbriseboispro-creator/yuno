@@ -99,6 +99,8 @@ export function ticketingErrorKey(code: string): string {
     rate_limited: 'yc.co.err.busy', provider_unreachable: 'yc.co.err.unreachable',
     support_session_forbidden: 'yc.co.err.support', demo_account_locked: 'yc.co.err.demo', demo_read_only: 'yc.co.err.demo',
     forbidden: 'yc.co.err.forbidden', too_soon: 'yc.co.err.tooSoon',
+    org_change_requires_purge: 'yc.co.err.orgChange', not_connected: 'yc.co.err.notConnected',
+    unauthorized: 'yc.co.err.signedOut',
   };
   const k = Object.keys(m).find((x) => code.includes(x));
   return k ? m[k] : 'yc.co.err.generic';

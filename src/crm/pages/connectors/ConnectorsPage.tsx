@@ -30,6 +30,7 @@ import {
 import type { ConnState, TicketingConnection } from '@/crm/data/connectors';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SegmentsNextStep } from '@/crm/components/SegmentCatalog';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import shotgunLogo from '@/crm/assets/shotgun-logo.webp';
 
 const SMARTBOARD = 'https://smartboard.shotgun.live';
@@ -88,6 +89,10 @@ export default function ConnectorsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <Skel w={160} h={14} /><Skel w="50%" h={38} /><Skel h={300} r={28} />
         </div>
+      ) : q.isError && !q.data ? (
+        // Un échec de lecture n'est pas « Non connecté » : un client connecté
+        // se voyait proposer de reconnecter Shotgun (audit 18/10, UI-02).
+        <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
       ) : view === 'wizard' && !forbidden ? (
         <Wizard conn={conn} replace={sp.get('r') === '1'} step={Number(sp.get('s')) || 1} go={go} />
       ) : view === 'manage' && !forbidden && conn ? (

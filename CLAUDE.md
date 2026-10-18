@@ -1714,6 +1714,37 @@ recopiait tout le billet Shotgun, coordonnées comprises : 66 Mo de JSON pour
   si elle ne fait pas avancer `ticket_updated_at`, le billet ne revient jamais
   par le curseur et rien ne se déclenche.
 
+## Yuno CRM — audit de préparation au premier client (2026-10-18)
+
+Rapport, matrice, procédures et backlog : `docs/audit/2026-10-18-crm-readiness/`.
+Migrations `20261021100000` → `120000`. Règles nées de l'audit :
+
+- **Un helper `_…` à droits du propriétaire n'est jamais exécutable par `anon` ni
+  `authenticated`** : `_admin_customer_activity / _identity / _rfm` l'étaient
+  (identité et achats de tous les clients lisibles avec la clé publique). Après
+  toute migration de fonction : `prosecdef` + `has_function_privilege('anon', …)`
+  sur le catalogue de la prod.
+- **L'accord se relit au moment de l'envoi** : `claim_campaign_recipients` écarte
+  (`skipped`, raison `policy:…_after_queue`, Yunit rendu) une adresse supprimée,
+  désabonnée dans l'espace ou au repoussoir depuis la mise en file. Marketing
+  seulement ; l'e-mail de service ou pratique passe.
+- **Désabonnement en un clic** : l'en-tête List-Unsubscribe pointe sur la fonction
+  `unsubscribe-newsletter` (`_shared/one-click-unsubscribe.ts`), jamais sur la page
+  de l'app, qui ne traite aucun POST.
+- **Une connexion billetterie qui a un historique ne change pas d'organisation**
+  (`orgChangeBlocked`, `org_change_requires_purge`) ; « Supprimer les données
+  importées » retire aussi les accords actifs versés par le connecteur (trigger
+  `trg_ticketing_connections_withdraw_consents`, traces `connector_purged`). Une
+  connexion `error` est retentée à l'échéance de son repli ; `token_invalid` jamais.
+- Une réponse 200 de Shotgun sans liste reconnue est une panne
+  (`unexpected_response`) ; les dates sans fuseau se lisent en UTC (`isoDate`).
+- Pendant le premier import, la Console le dit (bandeau + pastille, règle
+  `syncChip`) : jamais « synchronisé » sur des chiffres partiels.
+- Bancs de l'audit (PGlite, définitions de la prod, rien n'écrit sur la prod) :
+  `scripts/crm-bench/isolation.mjs` (séparation entre espaces, 206 fonctions),
+  `audit-security.mjs`, `audit-mail.mjs`, `audit-sync.mjs` ; contrat simulé de la
+  synchro : `supabase/functions/affiliate-ticket-sync/ticketing_test.ts`.
+
 ## Serveur MCP — les chiffres d'un pro dans son IA (2026-10-03)
 
 Doc complète, kit annuaires et mise en service : `docs/MCP.md`. Un club ou un

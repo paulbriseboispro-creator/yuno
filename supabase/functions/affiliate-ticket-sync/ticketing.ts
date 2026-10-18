@@ -38,6 +38,7 @@ import {
   safeNextUrl,
   schemaKeys,
   mergeSchemaKeys,
+  orgChangeBlocked,
   SHOTGUN_TICKETS_HOST,
   ticketCursor,
   ticketsUrl,
@@ -64,7 +65,7 @@ interface Ctx {
   cors: Record<string, string>;
 }
 
-interface ConnRow {
+export interface ConnRow {
   id: string;
   venue_id: string | null;
   organizer_user_id: string | null;
@@ -152,7 +153,10 @@ async function fetchEvents(
     counter.requests++;
     try {
       const body = await getJson(eventsUrl(conn.external_org_id, { param, value: token }, { ...opts, limit: PAGE_SIZE }), {});
-      return { items: extractPage(body).items, param };
+      const page = extractPage(body);
+      // Une réponse 200 sans liste n'est pas « aucune soirée » (audit 18/10, SYNC-02).
+      if (!page.found) throw new ProviderError("http", 200, "unexpected_response");
+      return { items: page.items, param };
     } catch (e) {
       if (e instanceof ProviderError && e.kind === "auth") { lastAuth = e; continue; }
       throw e;
@@ -168,6 +172,10 @@ async function fetchTicketsPage(
   counter.requests++;
   const body = await getJson(url, { Authorization: `Bearer ${token}` });
   const page = extractPage(body);
+  // Une réponse 200 sans liste n'est pas « plus aucun billet » : la lire comme
+  // une page vide déclarait l'import à jour sans rien avoir lu (audit 18/10,
+  // SYNC-02). C'est une panne, comptée comme telle (repli, alerte à 5).
+  if (!page.found) throw new ProviderError("http", 200, "unexpected_response");
   return { items: page.items, next: safeNextUrl(page.next, SHOTGUN_TICKETS_HOST) };
 }
 
@@ -210,7 +218,7 @@ async function upsertChunks(admin: SupabaseClient, table: string, rows: Record<s
 
 // ── Une passe sur une connexion ─────────────────────────────────────────────
 
-interface SyncResult {
+export interface SyncResult {
   more: boolean;
   status: "ok" | "partial" | "error" | "rate_limited";
   events: number;
@@ -251,7 +259,7 @@ async function notifyAdmin(admin: SupabaseClient, conn: ConnRow, type: string, t
   }
 }
 
-async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: string, deadline: number): Promise<SyncResult> {
+export async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigger: string, deadline: number): Promise<SyncResult> {
   const startedIso = new Date().toISOString();
   const counter = { requests: 0 };
   let pages = 0;
@@ -622,10 +630,18 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
     if (!isValidOrganizerId(organizerId)) return json({ error: "invalid_organizer_id" }, 400);
     if (token.length < 12 || token.length > 4000 || /\s/.test(token)) return json({ error: "invalid_token_format" }, 400);
 
+    const existing = await findConnection(admin, scope, provider);
+    // Une connexion qui porte l'historique d'une organisation Shotgun ne se
+    // rebranche pas sur une autre : deux historiques et leurs accords se
+    // mêleraient dans la même base (audit 18/10, SYNC-01). Refusé avant tout
+    // appel à Shotgun (le quota est commun à tous les clients).
+    if (orgChangeBlocked(existing, organizerId)) {
+      return json({ error: "org_change_requires_purge", current_org_id: existing!.external_org_id }, 409);
+    }
+
     const check = await verifyShotgun(admin, organizerId, token);
     if (!check.ok) return json({ error: check.error }, check.error === "invalid_token" ? 400 : 502);
 
-    const existing = await findConnection(admin, scope, provider);
     const sameOrg = existing?.external_org_id === organizerId;
     const patch = {
       external_org_id: organizerId,

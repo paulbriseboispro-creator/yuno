@@ -136,7 +136,7 @@ const dict: CrmDict = {
   'yc.co.m.discS': ['The token is erased. Data already imported stays in Yuno.', 'Le jeton est effacé. Les données déjà importées restent dans Yuno.', 'El token se borra. Los datos ya importados se quedan en Yuno.'],
   'yc.co.m.discBtn': ['Disconnect', 'Déconnecter', 'Desconectar'],
   'yc.co.m.del': ['Delete the imported data', 'Supprimer les données importées', 'Borrar los datos importados'],
-  'yc.co.m.delS': ['Nights, tickets and buyers from Shotgun. Nothing changes on Shotgun.', 'Soirées, billets et acheteurs venus de Shotgun. Rien ne change chez Shotgun.', 'Fiestas, entradas y compradores de Shotgun. Nada cambia en Shotgun.'],
+  'yc.co.m.delS': ['Nights, tickets and buyers from Shotgun, and the newsletter consents Shotgun passed on. Nothing changes on Shotgun.', 'Soirées, billets et acheteurs venus de Shotgun, et les accords newsletter que Shotgun avait transmis. Rien ne change chez Shotgun.', 'Fiestas, entradas y compradores de Shotgun, y los consentimientos de newsletter que Shotgun había transmitido. Nada cambia en Shotgun.'],
   'yc.co.m.delBtn': ['Delete everything', 'Tout supprimer', 'Borrarlo todo'],
   'yc.co.cf.disc.t': ['Disconnect Shotgun?', 'Déconnecter Shotgun ?', '¿Desconectar Shotgun?'],
   'yc.co.cf.disc.b': ['The token is erased from Yuno. Data already imported stays, and you can reconnect Shotgun at any time.', 'Le jeton est effacé de Yuno. Les données déjà importées restent, et vous pouvez reconnecter Shotgun à tout moment.', 'El token se borra de Yuno. Los datos ya importados se quedan y puede volver a conectar Shotgun en cualquier momento.'],
@@ -158,6 +158,9 @@ const dict: CrmDict = {
   'yc.co.err.demo': ['Demo account: the demonstration connection does not change.', 'Compte de démonstration : la connexion de démonstration ne se modifie pas.', 'Cuenta de demostración: la conexión de demostración no se modifica.'],
   'yc.co.err.forbidden': ['Only the account holder can manage the connection.', 'Seul le titulaire du compte peut gérer la connexion.', 'Solo el titular de la cuenta puede gestionar la conexión.'],
   'yc.co.err.tooSoon': ['Shotgun was read less than 5 minutes ago. Try again in a moment.', 'Shotgun a été relu il y a moins de 5 minutes. Réessayez dans un instant.', 'Shotgun se leyó hace menos de 5 minutos. Vuelva a intentarlo en un momento.'],
+  'yc.co.err.orgChange': ['This connection already holds the history of another Shotgun organiser. To connect a different one, first use « Delete the imported data », then connect again.', 'Cette connexion contient déjà l’historique d’une autre organisation Shotgun. Pour en connecter une autre, utilisez d’abord « Supprimer les données importées », puis reconnectez.', 'Esta conexión ya contiene el historial de otra organización de Shotgun. Para conectar otra, use primero « Borrar los datos importados » y vuelva a conectar.'],
+  'yc.co.err.notConnected': ['The Shotgun connection is off. Reconnect it in Connectors.', 'La connexion Shotgun est coupée. Reconnectez-la dans Connecteurs.', 'La conexión con Shotgun está cortada. Vuelva a conectarla en Conectores.'],
+  'yc.co.err.signedOut': ['Your session has expired. Sign in again, then retry.', 'Votre session a expiré. Reconnectez-vous, puis réessayez.', 'Su sesión ha caducado. Vuelva a iniciar sesión e inténtelo de nuevo.'],
   'yc.co.err.generic': ['Something went wrong. Try again in a moment.', 'Quelque chose n’a pas marché. Réessayez dans un instant.', 'Algo ha fallado. Vuelva a intentarlo en un momento.'],
 };
 

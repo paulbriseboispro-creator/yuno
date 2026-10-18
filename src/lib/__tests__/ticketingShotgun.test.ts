@@ -218,7 +218,8 @@ describe('billet Shotgun au schéma officiel', () => {
     expect(t.city).toBe('Toulouse');
     expect(t.zip_code).toBe('31000');
     expect(t.country_code).toBe('FR');
-    expect(t.purchased_at).toBe(new Date('2025-02-20 17:29:52.462881').toISOString());
+    // Valeur écrite en dur : la date documentée n'a pas de fuseau, elle se lit en UTC.
+    expect(t.purchased_at).toBe('2025-02-20T17:29:52.462Z');
     expect(t.scanned_at).not.toBeNull();
     expect(t.utm).toEqual({ utm_source: 'yuno_k3f9a2', utm_medium: 'app' });
   });

@@ -37,6 +37,7 @@ import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type Re
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { supportSessionFor } from '../_shared/support-session.ts';
 import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
+import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -211,13 +212,10 @@ async function practicalRefusal(admin: Admin, campaignId: string): Promise<{ cod
   return { code: `crm_practical_${check.night?.reason || 'event'}`, check };
 }
 
-function unsubHeaders(token?: string | null): Record<string, string> {
-  if (!token) return {};
-  const url = `${PUBLIC_URL}/unsubscribe?token=${token}`;
-  return {
-    'List-Unsubscribe': `<${url}>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-  };
+// Désabonnement en un clic (RFC 8058) : l'en-tête pointe sur la fonction qui
+// traite le POST de la messagerie, jamais sur la page de l'app (voir le module).
+function unsubHeaders(token?: string | null, campaignId?: string | null): Record<string, string> {
+  return listUnsubscribeHeaders(SUPABASE_URL, token, campaignId);
 }
 
 // ── Résolution de l'expéditeur ─────────────────────────────────────────────
@@ -638,7 +636,7 @@ async function drainSlice(
       subject: buildHtml.subject ? buildHtml.subject(r) : subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
-      headers: unsubHeaders(r.unsubscribe_token),
+      headers: unsubHeaders(r.unsubscribe_token, campaignId),
       tags: [{ name: 'campaign_id', value: campaignId }],
     }));
 
@@ -1140,6 +1138,13 @@ Deno.serve(async (req) => {
         : null;
       if (['sent', 'cancelled'].includes(campaign.status as string)) {
         return new Response(JSON.stringify({ error: `Campagne déjà ${campaign.status}` }), { status: 409, headers: jsonHeaders });
+      }
+      // Appel du cron de planification : il vient de passer la campagne de
+      // « scheduled » à « sending ». Si elle n'y est plus, le pro l'a
+      // déprogrammée entre-temps (retour en brouillon) : on n'envoie rien
+      // (audit 18/10, MAIL-04).
+      if (scheduled === true && campaign.status !== 'sending') {
+        return new Response(JSON.stringify({ error: 'not_scheduled_anymore', status: campaign.status }), { status: 409, headers: jsonHeaders });
       }
       // Le disjoncteur ne se contourne pas par un simple re-clic sur
       // « Envoyer ». Reprendre après une coupure pour plaintes ou adresses

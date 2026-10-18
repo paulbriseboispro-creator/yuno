@@ -1,0 +1,54 @@
+# Contrôles de base à chaque PR et sur main (audit du 18/10 : aucune CI ne
+# lançait les tests ; seul ios-release.yml existait). Rien n'est déployé ici.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint (0 erreur exigée, front et fonctions edge)
+        run: npx eslint . --quiet
+      - name: Typage
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Tests
+        run: npx vitest run
+      - name: Tests en heure de Paris (les dates ne doivent pas dépendre du poste)
+        run: TZ=Europe/Paris npx vitest run src/lib/__tests__/ticketingShotgunAudit.test.ts src/lib/__tests__/ticketingShotgun.test.ts
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
+
+  edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Contrat simulé de la synchro Shotgun
+        working-directory: supabase/functions
+        run: deno test --no-lock --allow-env affiliate-ticket-sync/ticketing_test.ts
+      - name: Typage des fonctions touchées par l'audit
+        run: |
+          for f in affiliate-ticket-sync send-campaign unsubscribe-newsletter process-scheduled-campaigns; do
+            deno check --no-lock "supabase/functions/$f/index.ts"
+          done

@@ -44,8 +44,12 @@ Deno.serve(async (req) => {
     let processed = 0;
     for (const c of campaigns || []) {
       try {
-        // Mark as sending to avoid double-fire
-        await admin.from('email_campaigns').update({ status: 'sending' }).eq('id', c.id).eq('status', 'scheduled');
+        // Mark as sending to avoid double-fire. Rien de pris = le pro l'a
+        // déprogrammée (ou un autre passage l'a déjà prise) : on n'appelle pas
+        // l'envoi (audit 18/10, MAIL-04).
+        const { data: took } = await admin.from('email_campaigns').update({ status: 'sending' })
+          .eq('id', c.id).eq('status', 'scheduled').select('id');
+        if (!took?.length) continue;
         // Invoke send-campaign with service role
         const res = await fetch(`${SUPABASE_URL}/functions/v1/send-campaign`, {
           method: 'POST',
@@ -58,8 +62,14 @@ Deno.serve(async (req) => {
         });
         // 402 : Yunits insuffisants ou compte en pause (Yuno CRM) — send-campaign a remis la
         // campagne en brouillon, elle ne doit pas finir « échouée ».
-        if (!res.ok && res.status !== 402) {
-          await admin.from('email_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` }).eq('id', c.id);
+        const refusal = !res.ok ? await res.json().catch(() => ({})) as { error?: string } : {};
+        if (!res.ok && res.status !== 402 && refusal.error !== 'not_scheduled_anymore') {
+          // Seulement si elle est encore « sending » : jamais par-dessus un
+          // brouillon que le pro vient de reprendre.
+          await admin.from('email_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` })
+            .eq('id', c.id).eq('status', 'sending');
+        } else if (res.ok) {
+          await res.body?.cancel();
         }
         processed++;
       } catch (e) {
