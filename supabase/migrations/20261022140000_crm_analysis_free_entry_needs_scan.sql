@@ -8,6 +8,10 @@
 -- fiche client la suivent depuis 20261022100000 ; le moteur d'analyse
 -- (_crm_an_load) comptait encore toute vente comme une venue.
 --
+-- Décision de Paul du 18/10 pour DATA-08 : la règle vaut pour les hypothèses,
+-- les profils et les audiences ; le score « Chances de venir » reste
+-- ENTIÈREMENT sur les achats, facteurs ET cible.
+--
 -- Ce qui change, et seulement ça :
 --   • _crm_an_load : la table des VENUES (_ana, une ligne par personne et
 --     soirée faite) ne garde une vente que si _crm_sale_counts_as_night le
@@ -20,25 +24,27 @@
 --     _ana : « Ce qui fait venir » (_crm_an_engine, statuts des familles), les
 --     hypothèses d'une personne (_crm_an_fill_hyps), le profil d'une personne
 --     (crm_person_profile : soirées, artistes vus, séries, « venu une fois »,
---     clés de filtre), le profil d'une soirée (crm_night_profile : entrées,
---     nouveaux venus, retour) et les artistes (crm_artist_stats), donc « Qui
---     cibler » (_crm_night_target_set lit crm_person_profile), « Fidèles du
---     concept » et la recette « Faire revenir après la 1re soirée ». Une
---     personne dont aucune soirée ne compte perd son profil d'analyse au
---     prochain calcul complet (règle existante de crm_analysis_compute).
---   • « Chances de venir » (crm_score_compute) : qui est « déjà venu » (paires
---     d'apprentissage, nouveaux venus, personnes à noter) et l'historique des
---     facteurs (_crm_score_build, inchangé) suivent la règle par _ana. La
---     CIBLE, elle, reste l'achat : le score dit la chance de prendre une place
---     d'ici la soirée, et le journal prévu / réel (_crm_score_settle,
---     _crm_score_journal) le compare aux VENTES. Une entrée gratuite prise par
---     quelqu'un qui n'est pas venu reste un achat : la cible et le rythme
---     d'achat lisent _anbought (nouvelle fonction _crm_an_load_bought),
---     exactement l'ancienne _ana.
+--     « de passage », clés de filtre), le profil d'une soirée
+--     (crm_night_profile : entrées, nouveaux venus, retour) et les artistes
+--     (crm_artist_stats), donc « Qui cibler » (_crm_night_target_set lit
+--     crm_person_profile), « Fidèles du concept » et la recette « Faire revenir
+--     après la 1re soirée ». Une personne dont aucune soirée ne compte perd son
+--     profil d'analyse au prochain calcul complet (règle existante de
+--     crm_analysis_compute).
+--   • « Chances de venir » (crm_score_compute, _crm_score_build) : tout ce qui
+--     lisait _ana lit _anbought (nouvelle fonction _crm_an_load_bought),
+--     exactement l'ancienne _ana : population (« déjà venu » = a déjà pris une
+--     place), historique des facteurs, cible, rythme d'achat, et « de passage »
+--     sur la 1re soirée achetée (_anp.passing_bought). Le score se compare aux
+--     VENTES dans le journal prévu / réel (_crm_score_settle) : son modèle, ses
+--     chances et ses étiquettes ne changent pas, sur aucun compte. Seules ses
+--     RAISONS suivent, comme avant, le statut des familles du compte (une
+--     famille « pas de différence nette » n'est jamais une raison), qui, lui,
+--     suit la règle. Essayé d'abord avec des facteurs sur les soirées faites :
+--     l'AUC du banc `gratuit` tombait de 0,87 à 0,69, d'où la décision.
 --   • Un compte sans entrée gratuite non scannée sur porte mesurée ne voit
---     rien changer : _ana et _anbought y sont l'ancienne _ana, ligne pour ligne
---     (banc : scripts/crm-bench/audit-analysis.mjs, comptes demo, grand,
---     petit, hasard identiques avant / après).
+--     rien changer : _ana y est l'ancienne _ana, ligne pour ligne (banc :
+--     scripts/crm-bench/audit-analysis.mjs).
 --
 -- Limite connue : la projection de remplissage (« ≈ N acheteurs au total »,
 -- crm_night_targets, _crm_score_journal, crm_admin_analysis) estime les
@@ -51,11 +57,11 @@
 -- Prérequis : 20261022100000 (portes _crm_sale_counts_as_night et
 -- _crm_measured_doors). Chaque fonction est reprise de pg_get_functiondef en
 -- prod au 18/10 (_crm_an_load y diffère du dépôt : la réécriture « raw » →
--- colonnes de 20261019300000 ; crm_score_compute = 20261014100000), patchée
--- bloc par bloc ; CREATE OR REPLACE garde les droits. Aucune signature exposée
--- ne change : pas de rechargement du cache de l'API. Les profils et les
--- statuts se recalculent au calcul complet de la nuit (crm-analysis-nightly,
--- crm-score-nightly) ; un statut « Confirmée » demande 2 nuits de suite.
+-- colonnes de 20261019300000 ; crm_score_compute et _crm_score_build =
+-- 20261014100000), patchée bloc par bloc ; CREATE OR REPLACE garde les droits.
+-- Aucune signature exposée ne change : pas de rechargement du cache de l'API.
+-- Les profils et les statuts se recalculent au calcul complet de la nuit
+-- (crm-analysis-nightly) ; un statut « Confirmée » demande 2 nuits de suite.
 
 -- ── Les venues ──────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public._crm_an_load(p_venue_id text, p_organizer_user_id uuid, p_at timestamp with time zone, p_cfg jsonb)
@@ -147,7 +153,7 @@ BEGIN
          public._crm_ticket_is_sale(t.status, t.deal_channel) AS sale,
          -- Une vente qui compte comme une SOIRÉE FAITE (DATA-02, 18/10) : pas
          -- une entrée gratuite non scannée sur une porte mesurée. C'est elle
-         -- qui fait une venue dans _ana ; `sale` reste l'achat (_anbought).
+         -- qui fait une venue dans _ana ; `sale` reste l'achat (_anbought, le score).
          public._crm_ticket_is_sale(t.status, t.deal_channel)
            AND public._crm_sale_counts_as_night(t.price, t.scanned_at IS NOT NULL, md.event_id IS NOT NULL) AS night,
          public._crm_ticket_gl_kind(t.status, t.price, t.deal_channel) = 'inv' AS inv,
@@ -275,26 +281,27 @@ BEGIN
 END;
 $function$;
 
--- ── Les achats, pour la cible du score ──────────────────────────────────────
-CREATE OR REPLACE FUNCTION public._crm_an_load_bought()
+-- ── Les achats : tout ce que lit le score ───────────────────────────────────
+CREATE OR REPLACE FUNCTION public._crm_an_load_bought(p_cfg jsonb)
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE
+  v_far numeric := COALESCE((p_cfg->'distance'->>'far_km')::numeric, 80);
   v_n integer;
 BEGIN
-  -- Les ACHATS de la portée chargée par _crm_an_load (lit _ant et _ann) : une
-  -- ligne par personne et soirée où elle a une vente ou une invitation
+  -- Les ACHATS de la portée chargée par _crm_an_load (lit _ant, _ann, _anp) :
+  -- une ligne par personne et soirée où elle a une vente ou une invitation
   -- scannée. C'est l'ancienne _ana (avant DATA-08), réduite à ce que le score
-  -- lit : la cible « a pris une place » (has_sale), le délai d'achat (lead_h)
-  -- et le rang (k). Une entrée gratuite non scannée y reste un achat.
+  -- lit (has_sale, lead_h, k, src) ; une entrée gratuite non scannée y reste
+  -- un achat. Mêmes règles, mot pour mot, que l'ancienne _crm_an_load.
   DROP TABLE IF EXISTS _anbought;
   CREATE TEMP TABLE _anbought ON COMMIT DROP AS
   WITH fs AS (
     -- Le premier billet VENDU de la personne pour la soirée.
-    SELECT DISTINCT ON (t.em, t.nid) t.em, t.nid, t.bought_at
+    SELECT DISTINCT ON (t.em, t.nid) t.em, t.nid, t.src, t.bought_at
       FROM _ant t WHERE t.sale
      ORDER BY t.em, t.nid, t.bought_at, t.id
   ), g AS (
@@ -303,21 +310,114 @@ BEGIN
      GROUP BY t.em, t.nid
     HAVING bool_or(t.sale) OR bool_or(t.inv AND t.scanned)
   )
-  SELECT g.em, g.nid, n.start_at, g.has_sale,
+  SELECT g.em, g.nid, n.start_at, g.has_sale, fs.src,
          extract(epoch FROM n.start_at - COALESCE(fs.bought_at, g.first_any)) / 3600.0 AS lead_h,
          row_number() OVER (PARTITION BY g.em ORDER BY n.start_at, n.nid)::int AS k
     FROM g JOIN _ann n ON n.nid = g.nid
     LEFT JOIN fs ON fs.em = g.em AND fs.nid = g.nid;
   CREATE INDEX ON _anbought (em, k);
   CREATE INDEX ON _anbought (nid);
+
+  -- « De passage » vu par le score : distance à la 1re soirée ACHETÉE, même
+  -- règle que _anp.passing (qui suit, lui, la 1re soirée faite).
+  ALTER TABLE _anp ADD COLUMN IF NOT EXISTS dist_first_bought integer,
+                   ADD COLUMN IF NOT EXISTS passing_bought boolean;
+  UPDATE _anp p SET dist_first_bought = NULL, passing_bought = NULL;
+  UPDATE _anp p SET
+    dist_first_bought = round(public._crm_km(p.lat, p.lng, n.lat, n.lng))::int
+    FROM _anbought a JOIN _ann n ON n.nid = a.nid
+   WHERE a.em = p.em AND a.k = 1;
+  UPDATE _anp p SET passing_bought = CASE
+      WHEN p.country IS NOT NULL AND p.country <> p.main_country THEN true
+      WHEN p.dist_first_bought IS NOT NULL THEN p.dist_first_bought > v_far
+      WHEN p.country IS NOT NULL THEN false END;
+
   SELECT count(*) INTO v_n FROM _anbought;
   RETURN v_n;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public._crm_an_load_bought() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public._crm_an_load_bought() TO service_role;
+REVOKE ALL ON FUNCTION public._crm_an_load_bought(jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._crm_an_load_bought(jsonb) TO service_role;
 
--- ── « Chances de venir » : la cible reste l'achat ───────────────────────────
+-- ── « Chances de venir » : facteurs et cible sur les achats ─────────────────
+CREATE OR REPLACE FUNCTION public._crm_score_build(p_cfg jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET plan_cache_mode TO 'force_custom_plan'
+AS $function$
+DECLARE
+  v_early float8 := COALESCE((p_cfg->'buy'->>'early_days')::float8, 14) * 24;
+  v_last float8 := COALESCE((p_cfg->'buy'->>'last_minute_hours')::float8, 24);
+  v_n integer;
+BEGIN
+  -- Historique des facteurs = les ACHATS (_anbought, « de passage » sur la 1re
+  -- soirée achetée) : le score ne suit pas la règle « soirée faite » (DATA-08).
+  DROP TABLE IF EXISTS _sch;
+  CREATE TEMP TABLE _sch ON COMMIT DROP AS
+  SELECT p.xid, p.em, a.nid AS hn, a.start_at AS hs, a.lead_h, a.has_sale,
+         n.series AS hser, n.genres AS hg, n.fmt AS hfmt, n.slot AS hslot, n.wd AS hwd
+    FROM _scp p
+    JOIN _scx x ON x.xid = p.xid
+    JOIN _anbought a ON a.em = p.em AND a.start_at < x.cutoff
+    JOIN _ann n ON n.nid = a.nid;
+  CREATE INDEX ON _sch (xid, em);
+
+  DROP TABLE IF EXISTS _scf;
+  CREATE TEMP TABLE _scf ON COMMIT DROP AS
+  WITH agg AS (
+    SELECT h.xid, h.em,
+           max(h.hs) AS last_hs,
+           count(*) FILTER (WHERE h.hs > x.start_at - interval '365 days') AS n12,
+           count(*) FILTER (WHERE h.hser IS NOT NULL AND h.hser = x.series) AS series,
+           avg(CASE WHEN cardinality(x.genres) > 0 AND h.hg && x.genres THEN 1 ELSE 0 END) AS genre,
+           mode() WITHIN GROUP (ORDER BY h.hfmt) AS mfmt,
+           mode() WITHIN GROUP (ORDER BY h.hslot) AS mslot,
+           mode() WITHIN GROUP (ORDER BY h.hwd) AS mwd,
+           avg(CASE WHEN h.lead_h >= v_early THEN 1 ELSE 0 END) FILTER (WHERE h.has_sale) AS early,
+           avg(CASE WHEN h.lead_h <= v_last THEN 1 ELSE 0 END) FILTER (WHERE h.has_sale) AS last
+      FROM _sch h JOIN _scx x ON x.xid = h.xid
+     GROUP BY h.xid, h.em
+  ), art AS (
+    -- L'invité de l'affiche qu'il a vu le plus souvent : combien de fois.
+    SELECT z.xid, z.em, max(z.n) AS n
+      FROM (SELECT h.xid, h.em, a.ak, count(DISTINCT h.hn) AS n
+              FROM _sch h JOIN _scx x ON x.xid = h.xid
+              JOIN _annart a ON a.nid = h.hn
+             WHERE a.ak = ANY (x.arts)
+             GROUP BY 1, 2, 3) z
+     GROUP BY 1, 2
+  ), first AS (
+    SELECT a.em, a.src FROM _anbought a WHERE a.k = 1
+  )
+  SELECT p.xid, p.em, p.y, p.w,
+         ARRAY[
+           ln(1 + GREATEST(0, extract(epoch FROM x.start_at - g.last_hs) / 86400.0)),
+           ln(1 + g.n12),
+           ln(1 + g.series),
+           ln(1 + COALESCE(ar.n, 0)),
+           COALESCE(g.genre, 0),
+           CASE WHEN x.fmt IS NOT NULL AND x.fmt = g.mfmt THEN 1 ELSE 0 END,
+           CASE WHEN x.slot IS NOT NULL AND x.slot = g.mslot THEN 1 ELSE 0 END,
+           CASE WHEN x.wd IS NOT NULL AND x.wd = g.mwd THEN 1 ELSE 0 END,
+           COALESCE(g.early, 0),
+           COALESCE(g.last, 0),
+           CASE WHEN ap.passing_bought THEN 1 ELSE 0 END,
+           CASE WHEN fi.src = 'sg' THEN 1 ELSE 0 END,
+           CASE WHEN g.series > 0 THEN 1 ELSE 0 END
+         ]::float8[] AS f
+    FROM _scp p
+    JOIN _scx x ON x.xid = p.xid
+    JOIN agg g ON g.xid = p.xid AND g.em = p.em
+    LEFT JOIN art ar ON ar.xid = p.xid AND ar.em = p.em
+    LEFT JOIN _anp ap ON ap.em = p.em
+    LEFT JOIN first fi ON fi.em = p.em;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.crm_score_compute(p_venue_id text, p_organizer_user_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -371,13 +471,11 @@ BEGIN
   v_neg := LEAST(1, GREATEST(0.01, COALESCE((sc->>'neg_sample')::float8, 0.2)));
 
   PERFORM public._crm_an_load(p_venue_id, p_organizer_user_id, now(), v_cfg);
-  -- Deux tables, deux questions (DATA-02, 18/10) : _ana = les soirées FAITES
-  -- (qui est « déjà venu », l'historique, les facteurs) ; _anbought = les
-  -- ACHATS (la cible : « a pris une place pour la soirée », et le rythme
-  -- d'achat). Le score dit la chance d'acheter d'ici la soirée et le journal
-  -- prévu / réel le compare aux ventes : une entrée gratuite prise reste un
-  -- achat, même si la personne n'est pas venue.
-  PERFORM public._crm_an_load_bought();
+  -- Le score lit les ACHATS, facteurs ET cible (décision de Paul, 18/10,
+  -- DATA-08) : _anbought = l'ancienne _ana, une entrée gratuite non scannée y
+  -- reste un achat. La règle « soirée faite » (_ana) ne vaut que pour les
+  -- hypothèses, les profils et les audiences.
+  PERFORM public._crm_an_load_bought(v_cfg);
   PERFORM public._crm_score_targets(v_key, p_venue_id, p_organizer_user_id, v_cfg, false);
 
   -- Les soirées des N derniers mois ; les dernières sont tenues à l'écart.
@@ -392,7 +490,7 @@ BEGIN
   SELECT count(*), avg(z.y) INTO v_rn, v_rate
     FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM _anbought b WHERE b.em = f.em AND b.nid = x.xid AND b.has_sale) THEN 1 ELSE 0 END AS y
             FROM _scx x
-            JOIN (SELECT em, min(start_at) AS first_at FROM _ana GROUP BY em) f
+            JOIN (SELECT em, min(start_at) AS first_at FROM _anbought GROUP BY em) f
               ON f.first_at >= x.cutoff AND f.first_at < x.start_at) z;
 
   IF v_cut IS NULL OR v_ntr < COALESCE((sc->>'min_train_nights')::int, 8) THEN
@@ -405,7 +503,7 @@ BEGIN
     CREATE TEMP TABLE _scp ON COMMIT DROP AS
     WITH known AS (
       SELECT x.xid, a.em
-        FROM _scx x JOIN _ana a ON a.start_at < x.cutoff
+        FROM _scx x JOIN _anbought a ON a.start_at < x.cutoff
        GROUP BY x.xid, a.em
     ), bought AS (
       SELECT a.em, a.nid FROM _anbought a WHERE a.has_sale
@@ -554,7 +652,7 @@ BEGIN
     CREATE TEMP TABLE _scw ON COMMIT DROP AS
     SELECT x.xid, p.em, p.first_at < x.cutoff AS known
       FROM _scx x
-      CROSS JOIN (SELECT em, min(start_at) AS first_at FROM _ana GROUP BY em) p
+      CROSS JOIN (SELECT em, min(start_at) AS first_at FROM _anbought GROUP BY em) p
      WHERE NOT EXISTS (
        SELECT 1 FROM public.external_tickets t
         WHERE t.event_id = x.event_id AND lower(t.buyer_email) = p.em AND t.status IN ('valid', 'transferred'));
