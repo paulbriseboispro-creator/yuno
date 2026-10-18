@@ -293,7 +293,7 @@ export default function NightsPage() {
               <UpcomingView
                 nights={up} rows={upRows} kinds={kinds} fs={fs} fm={fm} q={qText} setFs={setFs} setFm={setFm} setQ={setQText}
                 drId={drId} upd={upd} open={open} write={(e) => setWrite({ id: e.id, title: e.title, buyers: e.buyers })}
-                intro={intro} cc={cc} hero={hero} heroDetail={heroDetail.data} heroProgress={heroP}
+                intro={intro} cc={cc} hero={hero} heroDetail={heroDetail.data} heroFailed={heroDetail.isError} onRetryHero={() => { void heroDetail.refetch(); }} heroProgress={heroP}
               />
             )
           ) : (

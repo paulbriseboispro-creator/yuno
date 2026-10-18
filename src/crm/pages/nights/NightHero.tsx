@@ -17,8 +17,10 @@ import type { DrawerView } from './NightDrawer';
 import { ShotgunLink } from './nightsUi';
 import { ICO, comparedLine, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
 
-export function NightHero({ night: h, detail, kind, progress, cc: c, open: openDr, write: writeTo, intro: shown }: {
+export function NightHero({ night: h, detail, detailFailed = false, onRetryDetail, kind, progress, cc: c, open: openDr, write: writeTo, intro: shown }: {
   night: NightRow; detail: NightDetail | undefined; kind: UpKind; progress: number; cc: number;
+  /** crm_night_detail en échec : la courbe le dit, au lieu d'un squelette sans fin. */
+  detailFailed?: boolean; onRetryDetail?: () => void;
   open: (id: string, view?: DrawerView) => void; write: (n: NightRow) => void; intro: boolean;
 }) {
   const T = useCrmT();
@@ -128,6 +130,11 @@ export function NightHero({ night: h, detail, kind, progress, cc: c, open: openD
             </div>
             {detail && detail.id === h.id ? (
               <div style={{ paddingTop: 16 }}><SalesCurve detail={detail} progress={progress} /></div>
+            ) : detailFailed ? (
+              <div role="alert" style={{ minHeight: 150, boxSizing: 'border-box', padding: 20, borderRadius: 14, background: 'var(--sand-50)', fontSize: 14.5, color: 'var(--sand-700)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                {t('yc.ni.curve.err')}
+                {onRetryDetail && <button type="button" onClick={onRetryDetail} style={{ border: 0, background: 'none', color: 'var(--red-600)', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>{t('yc.common.retry')}</button>}
+              </div>
             ) : <Skel h={150} r={14} />}
             {detail && detail.id === h.id && cmpName && (
               <>

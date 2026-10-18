@@ -22,7 +22,7 @@ const ST_KEY: Record<UpKind, string> = { full: 'yc.ni.st.full', soon: 'yc.ni.st.
 const ROW_GRID = 'minmax(0,2.4fr) minmax(0,1.7fr) 170px minmax(0,1.7fr) 20px';
 
 export function UpcomingView({
-  nights, rows, kinds, fs, fm, q, setFs, setFm, setQ, drId, upd, open, write, intro, cc, hero, heroDetail, heroProgress,
+  nights, rows, kinds, fs, fm, q, setFs, setFm, setQ, drId, upd, open, write, intro, cc, hero, heroDetail, heroFailed, onRetryHero, heroProgress,
 }: {
   nights: NightRow[];
   rows: NightRow[];
@@ -41,6 +41,8 @@ export function UpcomingView({
   cc: number;
   hero: NightRow | null;
   heroDetail: NightDetail | undefined;
+  heroFailed: boolean;
+  onRetryHero: () => void;
   heroProgress: number;
 }) {
   const T = useCrmT();
@@ -83,7 +85,7 @@ export function UpcomingView({
   return (
     <>
       <KeyTiles tiles={tiles} intro={intro} />
-      {hero && <NightHero night={hero} detail={heroDetail} kind={kindOf(hero)} progress={heroProgress} cc={cc} open={open} write={write} intro={intro} />}
+      {hero && <NightHero night={hero} detail={heroDetail} detailFailed={heroFailed} onRetryDetail={onRetryHero} kind={kindOf(hero)} progress={heroProgress} cc={cc} open={open} write={write} intro={intro} />}
 
       <section
         id="yc-ni-list"
