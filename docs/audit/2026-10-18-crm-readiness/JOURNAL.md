@@ -2,8 +2,8 @@
 
 Branche `crm/readiness-audit`, worktree `/Users/paul/Desktop/yuno-audit.nosync`,
 partie d'`origin/main` = `f8049220` (= prod pour les migrations jusqu'à
-`20261020200000`). Rien n'est déployé, aucune migration n'est appliquée en prod,
-aucun envoi réel.
+`20261020200000`). Pendant l'audit (matin) : rien de déployé, aucune migration
+appliquée en prod, aucun envoi réel. Mise en ligne l'après-midi : dernière section.
 
 Point de départ : le plan `docs/designs/CRM_AMORIS_SHOTGUN_AUDIT_PLAN.md`
 (diagnostic du 17/10, sessions S0-S11, non commité dans main). Cet audit le
@@ -78,3 +78,31 @@ prouvé.
   sauvegarde, rejouer les migrations sur une base vierge (Docker arrêté).
 - Voir à l'écran le bandeau « import en cours » : il faut une connexion non
   importée, donc une écriture en prod ; la règle est testée (`syncChip.test.ts`).
+
+## Mise en ligne (18/10, après-midi, heures UTC)
+
+Faite par une session dédiée, chaque écriture sur le « go » explicite de Paul, dans
+l'ordre de REPORT §9. Avant chaque requête : `prod.mjs --activity` (rien ne tournait
+à part la réplication temps réel).
+
+| Étape | Résultat |
+|---|---|
+| Migration `20261021100000` (sécurité), vers 12:20 | Répétée d'abord en transaction annulée (SMOKE_OK : 6 fonctions fermées à `anon` / `authenticated`, `service_role` gardé, appel `anon` à `_admin_customer_identity` refusé en 42501, appelants admin toujours definer `postgres`). Appliquée avec sa ligne `schema_migrations`. **SEC-01 fermé en prod.** |
+| Fusion `crm/s11-practical-email` → main `1d686a54`, 12:18 | Sans conflit. eslint 0 erreur, tsc 0, vitest 121 fichiers / 1 571 tests, build vert. Poussée. |
+| Fusion `crm/readiness-audit` → main `46e385ff`, 12:28 | Un conflit dans `send-campaign` (contrôle de l'e-mail pratique de S11 gardé, en-tête de désabonnement en un clic de l'audit gardé). eslint 0, tsc 0, vitest 124 fichiers / 1 592 tests, build vert, `deno test` du contrat Shotgun 11 / 11, `deno check` des 7 fonctions vert. Bancs : `audit-mail` et `audit-sync` tout vert ; `audit-security` tout vert après, un seul « avant » en échec, attendu : le gel d'envoi (MAIL-05) était déjà corrigé en prod au moment de l'instantané, le banc ne peut plus le reproduire ; `isolation` 205 fonctions, 157 refus, 9 silencieuses, 10 identiques sans donnée client, 29 non concluantes (même répartition qu'à l'audit, aucune fuite). |
+| Définitions prod avant 110000 / 120000 | `claim_campaign_recipients`, `requeue_stale_campaign_claims`, `claim_ticketing_connections` identiques à ROLLBACK.sql (espaces normalisés). |
+| Migration `20261021110000` (file d'envoi), vers 12:36 | Répétée sur un espace démo (`bde@womber.fr`) : seul l'accord valable part ; désabonné, plainte, repoussoir écartés avec leur raison, compteur à 3 ; un e-mail de service part aux 4 ; un abandon après 3 tentatives compte. Contre-épreuve sans la migration : les 4 partent (faille reproduite sur la prod). Appliquée. |
+| Migration `20261021120000` (connecteur), vers 12:37 | Répétée sur une connexion fictive du même espace démo (aucune autre connexion lue : `p_connection_id`) : connexion en erreur reprise, jeton refusé jamais retenté, suppression = accord Shotgun retiré et tracé, refus et accord de page gardés. Contre-épreuve sans la migration : la connexion en erreur n'est pas reprise. Appliquée. La connexion d'Amoris n'a été ni lue en écriture ni réclamée. |
+| `supabase db lint --linked` | 86 erreurs avant comme après, toutes connues (tables temporaires lues comme absentes, et `staff_pin_rate_limits` protégée par `to_regclass`) ; aucune remarque sur les fonctions réécrites. |
+| Fonctions edge, vers 12:38-12:41 | Avant : les 7 fonctions en prod étaient identiques octet pour octet à main `1d686a54` (rien d'une autre branche à perdre). Déployées depuis `46e385ff` (`--use-api`) : affiliate-ticket-sync, send-campaign, unsubscribe-newsletter, process-scheduled-campaigns, send-missed-you, send-next-event-recommendation, owner-assistant. Après : retéléchargées, identiques octet pour octet à `46e385ff`. `unsubscribe-newsletter` répond sans jeton (GET d'un jeton bidon → 302 vers la page, aucun désabonnement). |
+| Front | Cloudflare a reconstruit depuis main : le bundle servi sur crm.yunoapp.eu contient le nouveau bandeau d'import (`yc.top.importSub`). |
+
+### Contrôles du RUNBOOK §5 (12:44-12:46)
+
+- SEC-01 : `_admin_customer_activity / _identity / _rfm` → `anon = false`, `authenticated = false`.
+- MAIL-02 : `claim_campaign_recipients` contient `opted_out_after_queue` → vrai.
+- SYNC-04 : `claim_ticketing_connections` contient `status IN` → vrai.
+- SYNC-01b : `trg_ticketing_connections_withdraw_consents` → 1.
+- Synchro : passe du cron de 12:45:03 `ok` (1,2 s) avec le nouveau connecteur ; les appels des crons vers les fonctions depuis le déploiement répondent tous 200 (`net._http_response`).
+- Console de prod ouverte avec le compte démo `crm@womber.fr` (session posée sans mot de passe) : Accueil, Connecteurs, Clients s'affichent, aucune erreur console.
+- Reste à faire par Paul : l'e-mail de test réel, et le bouton « Se désabonner » de Gmail sur un vrai envoi (RUNBOOK étape 12).

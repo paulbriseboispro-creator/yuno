@@ -1,8 +1,9 @@
 # Yuno CRM : audit de préparation au premier client (18/10/2026)
 
 Branche `crm/readiness-audit` (11 commits sur `origin/main` = `f8049220`).
-Rien n'est déployé, aucune migration n'est appliquée en prod, aucun e-mail ni SMS
-n'est parti. Matrice des contrôles : [MATRIX.md](MATRIX.md). Procédures :
+**Mis en ligne le 18/10 après-midi** (migrations, fonctions, front ; main
+`46e385ff`) : détail et contrôles dans [JOURNAL.md](JOURNAL.md), dernière section.
+Aucun e-mail ni SMS n'est parti. Matrice des contrôles : [MATRIX.md](MATRIX.md). Procédures :
 [RUNBOOK.md](RUNBOOK.md). Suite : [BACKLOG.md](BACKLOG.md). Journal et commandes :
 [JOURNAL.md](JOURNAL.md).
 
