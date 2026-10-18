@@ -6,6 +6,8 @@
 //   node audit-send.mjs dump      # instantané des fonctions touchées (lecture seule)
 //   node audit-send.mjs           # test (code 1 si une assertion tombe)
 //
+// Aussi : MAIL-07, le produit d'une campagne n'est plus choisi par le client.
+//
 // Le worker est joué en JS, au plus près de send-campaign : réclamer, envoyer
 // à un faux Resend qui applique la règle d'idempotence (même clé + même charge
 // = réponse d'origine, sans renvoi), écrire « envoyé ». La panne injectée :
@@ -21,6 +23,7 @@ const ROOTS = join(DATA, 'audit-send-roots.txt');
 const MIG = (f) => join(ROOT, 'supabase', 'migrations', f);
 const AUDIT = '20261021110000_audit_claim_recheck_consent.sql';
 const FIX = '20261023100000_mail_stable_batch_key.sql';
+const PRODUCT = '20261023130000_mail_campaign_product_server_only.sql';
 
 if (process.argv[2] === 'dump') {
   writeFileSync(ROOTS, ['claim_campaign_recipients', 'requeue_stale_campaign_claims', 'mark_campaign_recipients_sent',
@@ -157,6 +160,42 @@ const statuses = async (db) => (await db.query(`SELECT status, count(*)::int AS 
     [r1, r2].every((r) => [h1, h2].some((h) => h.key === r.key && h.emails.join(',') === r.emails.join(','))) && r1.key !== r2.key,
     `${r1.emails.length} + ${r2.emails.length}`);
   check('après : état final cohérent', true, await statuses(db));
+}
+
+// ── MAIL-07 : email_campaigns.product écrit par le serveur seulement ────────
+async function productCase(migrations) {
+  const db = await open(migrations);
+  // Le banc ne rejoue pas les policies : seul le trigger est testé.
+  await db.exec(`ALTER TABLE public.email_campaigns DISABLE ROW LEVEL SECURITY;
+    GRANT ALL ON public.email_campaigns TO authenticated, service_role;`);
+  const asClient = async (sql, params) => {
+    await db.exec('SET ROLE authenticated');
+    try { return await db.query(sql, params); } finally { await db.exec('RESET ROLE'); }
+  };
+  await db.query(`UPDATE public.email_campaigns SET product = 'crm' WHERE id = $1`, [CAMP]); // posé par le serveur
+  await asClient(`UPDATE public.email_campaigns SET product = 'suite' WHERE id = $1`, [CAMP]);
+  const afterUpdate = (await db.query(`SELECT product FROM public.email_campaigns WHERE id = $1`, [CAMP])).rows[0].product;
+  const NEW = 'cccccccc-0000-4000-8000-0000000000d9';
+  await asClient(`INSERT INTO public.email_campaigns (id, organizer_user_id, name, subject, status, type, product)
+    VALUES ($1, $2, 'x', 'x', 'draft', 'promotional', 'suite')`, [NEW, ORG]);
+  const afterInsert = (await db.query(`SELECT product FROM public.email_campaigns WHERE id = $1`, [NEW])).rows[0].product;
+  const NEW2 = 'cccccccc-0000-4000-8000-0000000000da';
+  await asClient(`INSERT INTO public.email_campaigns (id, organizer_user_id, name, subject, status, type, product)
+    VALUES ($1, $2, 'x', 'x', 'draft', 'promotional', 'crm')`, [NEW2, ORG]);
+  const crmInsert = (await db.query(`SELECT product FROM public.email_campaigns WHERE id = $1`, [NEW2])).rows[0].product;
+  await db.query(`UPDATE public.email_campaigns SET product = 'suite' WHERE id = $1`, [NEW2]); // serveur
+  const serverUpdate = (await db.query(`SELECT product FROM public.email_campaigns WHERE id = $1`, [NEW2])).rows[0].product;
+  return { afterUpdate, afterInsert, crmInsert, serverUpdate };
+}
+{
+  const b = await productCase([AUDIT]);
+  check('avant : un client passe sa campagne CRM en « suite » (faille reproduite)', b.afterUpdate === 'suite');
+  check('avant : un client crée une campagne « suite »', b.afterInsert === 'suite');
+  const a = await productCase([AUDIT, PRODUCT]);
+  check('après : la campagne CRM reste CRM malgré le client', a.afterUpdate === 'crm', a.afterUpdate);
+  check('après : « suite » posé par un client à la création devient NULL (règle de la portée)', a.afterInsert === null, String(a.afterInsert));
+  check('après : la Console CRM pose toujours « crm » à la création', a.crmInsert === 'crm');
+  check('après : le serveur écrit comme avant', a.serverUpdate === 'suite');
 }
 
 console.log(failed ? `${failed} échec(s)` : 'tout est vert');
