@@ -44,6 +44,9 @@ const dict: CrmDict = {
   'yc.em.sd.dnd.days': ['{n} days', '{n} jours', '{n} días'],
   'yc.em.sd.dnd.always': ['Unsubscribed and bouncing addresses are <b>always</b> excluded. This can’t be changed.', 'Les désinscrits et les adresses en erreur sont <b>toujours</b> exclus. Ce n’est pas réglable.', 'Las bajas y las direcciones con error se excluyen <b>siempre</b>. No se puede cambiar.'],
   'yc.em.sd.aud.none': ['Pick at least one segment', 'Choisissez au moins un segment', 'Elija al menos un segmento'],
+  'yc.em.sd.calc': ['Counting…', 'Calcul…', 'Calculando…'],
+  'yc.em.sd.aud.calcWait': ['Still counting your recipients, one moment.', 'Calcul des destinataires en cours, un instant.', 'Calculando los destinatarios, un momento.'],
+  'yc.em.sd.aud.calcErr': ['Your recipients could not be counted. Try again above.', 'Vos destinataires n’ont pas pu être comptés. Réessayez plus haut.', 'No se pudieron contar sus destinatarios. Vuelva a intentarlo arriba.'],
 
   // Planification
   'yc.em.sd.plan.kick': ['Step 3 of 4 · Schedule', 'Étape 3 sur 4 · Planification', 'Paso 3 de 4 · Programación'],
