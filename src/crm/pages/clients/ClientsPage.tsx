@@ -27,6 +27,7 @@ import { useClientsList, useClientsOverview, useDeleteSegment, useEventsBrief, u
 import type { ClientCard, ClientFilterDef, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { WriteModal } from '@/crm/components/WriteModal';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import type { WriteScope } from '@/crm/components/WriteModal';
 import { ClientsOverview } from './ClientsOverview';
 import { ClientsTable } from './ClientsTable';
@@ -201,6 +202,10 @@ export default function ClientsPage() {
 
   const writeLabel = selCount ? t('yc.cli.writeSel') : hasFilt ? t('yc.cli.writeThese', { n: n(total) }) : t('yc.cli.writeAll');
   const empty = !!ov && ov.total === 0;
+  // Lectures en échec (délai de 30 s compris) : la vue d'ensemble et la liste
+  // se rendent chacune seule ; une base vide ne se déduit jamais d'un échec.
+  const listError = list.isError && !list.data ? list.error : null;
+  const bothDown = overview.isError && !ov && !!listError;
 
   return (
     <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 96px', display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -238,13 +243,6 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {overview.isError && !ov && (
-        <div role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px', borderRadius: 20, background: 'var(--amber-50)', color: 'var(--amber-700)', fontWeight: 500 }}>
-          {t('yc.cli.loadError')}
-          <button type="button" onClick={() => overview.refetch()} style={{ border: 0, background: 'none', padding: 0, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}>{t('yc.common.retry')}</button>
-        </div>
-      )}
-
       {empty ? (
         <section style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 10px,var(--sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', ...reveal(intro, 400) }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{t('yc.cli.empty.label')}</span>
@@ -256,17 +254,23 @@ export default function ClientsPage() {
             </Hv>
           </div>
         </section>
-      ) : ov ? (
+      ) : bothDown ? (
+        <CrmLoadError error={overview.error} onRetry={() => { void overview.refetch(); void list.refetch(); }} retrying={overview.isFetching || list.isFetching} />
+      ) : ov || overview.isError ? (
         <>
-          <ClientsOverview
-            data={ov}
-            intro={intro}
-            cc={cc}
-            onSeg={openSeg}
-            onUnreachable={() => { setQ(''); setDef({ seg: 'all', f: { rc: ['none'] } }); goList(); }}
-            onOnce={() => { setQ(''); setDef({ seg: 'all', f: { nb: '1' } }); goList(); }}
-            onSpend={() => { setQ(''); setDef({ seg: 'all', f: {} }); setSort('sp'); setDir(1); goList(); }}
-          />
+          {ov ? (
+            <ClientsOverview
+              data={ov}
+              intro={intro}
+              cc={cc}
+              onSeg={openSeg}
+              onUnreachable={() => { setQ(''); setDef({ seg: 'all', f: { rc: ['none'] } }); goList(); }}
+              onOnce={() => { setQ(''); setDef({ seg: 'all', f: { nb: '1' } }); goList(); }}
+              onSpend={() => { setQ(''); setDef({ seg: 'all', f: {} }); setSort('sp'); setDir(1); goList(); }}
+            />
+          ) : (
+            <CrmLoadError error={overview.error} onRetry={() => { void overview.refetch(); }} retrying={overview.isFetching} />
+          )}
           <ClientsTable
             intro={intro}
             def={def}
@@ -293,6 +297,8 @@ export default function ClientsPage() {
             onOpen={(e) => openDrawer(e)}
             onExport={() => void doExport()}
             saveSignal={saveSignal}
+            error={listError}
+            onRetry={() => { void list.refetch(); }}
           />
         </>
       ) : (

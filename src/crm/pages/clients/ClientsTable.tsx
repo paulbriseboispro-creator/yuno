@@ -14,6 +14,7 @@ import { useCrmCaps } from '@/crm/scope';
 import { hasCriteria } from '@/crm/data/clients';
 import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, SavedSegment } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 
 export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev' | 'hyp';
 
@@ -27,7 +28,7 @@ const COLS = '44px minmax(260px,2.4fr) 150px 84px 132px 96px 140px 24px';
 export function ClientsTable({
   intro, def, setDef, q, setQ, sort, dir, onSort, list, loading, limit, onMore,
   events, saved, activeSaved, onPickSaved, onDeleteSaved, onSaveSegment,
-  sel, setSel, selAll, setSelAll, onOpen, onExport, dense, saveSignal,
+  sel, setSel, selAll, setSelAll, onOpen, onExport, dense, saveSignal, error, onRetry,
 }: {
   intro: boolean;
   def: ClientFilterDef;
@@ -56,6 +57,13 @@ export function ClientsTable({
   dense?: boolean;
   /** Change à chaque « En segment » de la barre de sélection : ouvre le champ de nom. */
   saveSignal?: number;
+  /**
+   * Échec de lecture SANS liste à montrer (délai de 30 s compris) : la table
+   * rend l'erreur à la place des lignes, jamais « Aucun client ne correspond ».
+   * Les filtres restent là : c'est souvent eux qu'il faut alléger.
+   */
+  error?: unknown;
+  onRetry?: () => void;
 }) {
   const caps = useCrmCaps();
   const T = useCrmT();
@@ -293,7 +301,7 @@ export function ClientsTable({
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px 16px', padding: '12px clamp(18px,2.2vw,28px)', borderTop: '1px solid var(--sand-100)', background: 'var(--sand-50)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 12px', fontSize: 14.5, color: 'var(--sand-600)' }}>
-          <b style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{list ? tp('yc.cli.list.n', total, { n: n(total) }) : '…'}</b>
+          <b style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{list ? tp('yc.cli.list.n', total, { n: n(total) }) : error ? '—' : '…'}</b>
           <span>{pcTxt}</span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px' }}>
@@ -331,77 +339,83 @@ export function ClientsTable({
         </div>
       )}
 
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 990 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderTop: '1px solid var(--sand-100)', borderBottom: '1px solid var(--sand-100)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>
-            {caps.write ? <CheckBox
-              state={allSelVis ? 'on' : visSel > 0 ? 'part' : 'off'}
-              label={t('yc.cli.list.selectAll')}
-              onClick={() => { if (allSelVis) { setSel([]); setSelAll(false); } else { setSel(vis.map((c) => c.email)); setSelAll(false); } }}
-            /> : <span />}
-            {hd('name', t('yc.cli.list.col.client'))}
-            <span>{t('yc.cli.list.col.status')}</span>
-            {hd('n', t('yc.cli.list.col.nights'))}
-            {hd('last', t('yc.cli.list.col.last'))}
-            {hd('sp', t('yc.cli.list.col.spent'))}
-            <span>{t('yc.cli.list.col.reach')}</span>
-            <span />
-          </div>
-
-          {loading && !list ? (
-            <div aria-busy="true">
-              {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: rowH, borderBottom: '1px solid var(--sand-100)' }}>
-                  <i style={{ width: 20, height: 20, borderRadius: 6, background: 'var(--sand-100)' }} />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <i style={{ width: 40, height: 40, borderRadius: 99, background: 'var(--sand-100)' }} />
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                      <i className="yc-skel" style={{ display: 'block', width: 110 + ((i * 37) % 70), height: 12, borderRadius: 6 }} />
-                      <i style={{ display: 'block', width: 150 + ((i * 53) % 60), height: 10, borderRadius: 6, background: 'var(--sand-100)' }} />
-                    </span>
-                  </span>
-                  <i style={{ display: 'block', width: 90, height: 24, borderRadius: 99, background: 'var(--sand-100)' }} />
-                  <i style={{ display: 'block', width: 24, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
-                  <i style={{ display: 'block', width: 80, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
-                  <i style={{ display: 'block', width: 52, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
-                  <i style={{ display: 'block', width: 84, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
-                  <span />
-                </div>
-              ))}
-            </div>
-          ) : total > 0 ? (
-            <div style={{ opacity: loading ? 0.55 : 1, transition: 'opacity 160ms' }}>
-              {vis.map((c, i) => (
-                <Row
-                  // L'aperçu démo masque les adresses (« en•••@e•••.com ») : deux lignes
-                  // peuvent alors partager la même. Le rang les départage.
-                  key={`${c.email}#${i}`}
-                  c={c}
-                  i={i}
-                  rowH={rowH}
-                  selected={selAll || selSet.has(c.email)}
-                  onOpen={() => onOpen(c.email)}
-                  onToggle={!caps.write ? undefined : () => {
-                    if (selAll) { setSelAll(false); setSel(vis.filter((x) => x.email !== c.email).map((x) => x.email)); return; }
-                    setSel((cur) => (cur.includes(c.email) ? cur.filter((x) => x !== c.email) : [...cur, c.email]));
-                  }}
-                  now={now}
-                  locale={locale}
-                  fmt={{ n, eur, t, tp }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '56px 24px', textAlign: 'center' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{q.trim() ? t('yc.cli.list.noMatchQ', { q: q.trim() }) : t('yc.cli.list.noMatch')}</span>
-              <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-500)', maxWidth: 420 }}>{q.trim() ? t('yc.cli.list.noMatchQHint') : t('yc.cli.list.noMatchHint')}</span>
-              <Hv as="button" type="button" onClick={() => { setQ(''); setDef({ seg: 'all', f: {} }); }} style={{ marginTop: 8, height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>
-                {t('yc.cli.list.clearFilters')}
-              </Hv>
-            </div>
-          )}
+      {error && !list ? (
+        <div style={{ padding: '0 clamp(12px,2.2vw,28px) 8px', borderTop: '1px solid var(--sand-100)' }}>
+          <CrmLoadError error={error} onRetry={() => onRetry?.()} retrying={loading} />
         </div>
-      </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: 990 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderTop: '1px solid var(--sand-100)', borderBottom: '1px solid var(--sand-100)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>
+              {caps.write ? <CheckBox
+                state={allSelVis ? 'on' : visSel > 0 ? 'part' : 'off'}
+                label={t('yc.cli.list.selectAll')}
+                onClick={() => { if (allSelVis) { setSel([]); setSelAll(false); } else { setSel(vis.map((c) => c.email)); setSelAll(false); } }}
+              /> : <span />}
+              {hd('name', t('yc.cli.list.col.client'))}
+              <span>{t('yc.cli.list.col.status')}</span>
+              {hd('n', t('yc.cli.list.col.nights'))}
+              {hd('last', t('yc.cli.list.col.last'))}
+              {hd('sp', t('yc.cli.list.col.spent'))}
+              <span>{t('yc.cli.list.col.reach')}</span>
+              <span />
+            </div>
+
+            {loading && !list ? (
+              <div aria-busy="true">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: rowH, borderBottom: '1px solid var(--sand-100)' }}>
+                    <i style={{ width: 20, height: 20, borderRadius: 6, background: 'var(--sand-100)' }} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <i style={{ width: 40, height: 40, borderRadius: 99, background: 'var(--sand-100)' }} />
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        <i className="yc-skel" style={{ display: 'block', width: 110 + ((i * 37) % 70), height: 12, borderRadius: 6 }} />
+                        <i style={{ display: 'block', width: 150 + ((i * 53) % 60), height: 10, borderRadius: 6, background: 'var(--sand-100)' }} />
+                      </span>
+                    </span>
+                    <i style={{ display: 'block', width: 90, height: 24, borderRadius: 99, background: 'var(--sand-100)' }} />
+                    <i style={{ display: 'block', width: 24, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
+                    <i style={{ display: 'block', width: 80, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
+                    <i style={{ display: 'block', width: 52, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
+                    <i style={{ display: 'block', width: 84, height: 12, borderRadius: 6, background: 'var(--sand-100)' }} />
+                    <span />
+                  </div>
+                ))}
+              </div>
+            ) : total > 0 ? (
+              <div style={{ opacity: loading ? 0.55 : 1, transition: 'opacity 160ms' }}>
+                {vis.map((c, i) => (
+                  <Row
+                    // L'aperçu démo masque les adresses (« en•••@e•••.com ») : deux lignes
+                    // peuvent alors partager la même. Le rang les départage.
+                    key={`${c.email}#${i}`}
+                    c={c}
+                    i={i}
+                    rowH={rowH}
+                    selected={selAll || selSet.has(c.email)}
+                    onOpen={() => onOpen(c.email)}
+                    onToggle={!caps.write ? undefined : () => {
+                      if (selAll) { setSelAll(false); setSel(vis.filter((x) => x.email !== c.email).map((x) => x.email)); return; }
+                      setSel((cur) => (cur.includes(c.email) ? cur.filter((x) => x !== c.email) : [...cur, c.email]));
+                    }}
+                    now={now}
+                    locale={locale}
+                    fmt={{ n, eur, t, tp }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '56px 24px', textAlign: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{q.trim() ? t('yc.cli.list.noMatchQ', { q: q.trim() }) : t('yc.cli.list.noMatch')}</span>
+                <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-500)', maxWidth: 420 }}>{q.trim() ? t('yc.cli.list.noMatchQHint') : t('yc.cli.list.noMatchHint')}</span>
+                <Hv as="button" type="button" onClick={() => { setQ(''); setDef({ seg: 'all', f: {} }); }} style={{ marginTop: 8, height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>
+                  {t('yc.cli.list.clearFilters')}
+                </Hv>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {total > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 16px', padding: '16px clamp(18px,2.2vw,28px)' }}>

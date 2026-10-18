@@ -111,7 +111,6 @@ const dict: CrmDict = {
   'yc.cli.list.segSavedSel': ['Segment “{name}” saved with these {n} customers', 'Segment « {name} » enregistré avec ces {n} clients', 'Segmento «{name}» guardado con estos {n} clientes'],
   'yc.cli.list.segFailed': ['The segment could not be saved.', 'Le segment n’a pas pu être enregistré.', 'No se pudo guardar el segmento.'],
   'yc.cli.list.selBar': ['Actions on the selection', 'Actions sur la sélection', 'Acciones sobre la selección'],
-  'yc.cli.loadError': ['Your customers could not be loaded.', 'Vos clients n’ont pas pu être chargés.', 'No se pudieron cargar sus clientes.'],
   'yc.cli.list.rel.today': ['today', 'aujourd’hui', 'hoy'],
   'yc.cli.list.rel.days': ['{n} d ago', 'il y a {n} j', 'hace {n} d'],
   'yc.cli.list.rel.weeks': ['{n} wk ago', 'il y a {n} sem.', 'hace {n} sem.'],
