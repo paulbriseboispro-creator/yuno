@@ -44,11 +44,23 @@ export async function deleteDrafts(ids: string[]): Promise<void> {
   if (error) throw error;
 }
 
-/** Annule un envoi programmé : la campagne redevient un brouillon prêt. */
+/** Code d'erreur : le cron a déjà pris la campagne, l'envoi a commencé. */
+export const UNSCHEDULE_TOO_LATE = 'unschedule_too_late';
+
+/**
+ * Annule un envoi programmé : la campagne redevient un brouillon prêt. Si le
+ * cron l'a déjà prise (« sending »), rien ne change et l'appel lève
+ * `UNSCHEDULE_TOO_LATE` : l'écran ne dit jamais « déprogrammée » sur un envoi
+ * parti (audit du 18/10, MAIL-04).
+ */
 export async function unscheduleCampaign(id: string): Promise<void> {
-  const { error } = await supabase.from('email_campaigns').update({ status: 'draft' } as never).eq('id', id).eq('status', 'scheduled');
+  const { data, error } = await supabase.from('email_campaigns').update({ status: 'draft' } as never)
+    .eq('id', id).eq('status', 'scheduled').select('id');
   if (error) throw error;
+  if (!data?.length) throw new Error(UNSCHEDULE_TOO_LATE);
 }
+
+export const isUnscheduleTooLate = (e: unknown): boolean => (e as Error | null)?.message === UNSCHEDULE_TOO_LATE;
 
 export interface NewDraft {
   venueId: string | null;

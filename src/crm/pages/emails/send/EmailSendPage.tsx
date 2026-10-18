@@ -32,7 +32,7 @@ import { useNights } from '@/crm/data/nights';
 import { useAudiencePreview, useEmailAnalysis, useEmailSettings, useInvalidateEmails, useSendOptions, type CrmAudience } from '@/crm/data/emails';
 import { fromLine, isIdentityRefusal, previewIdentity } from '@/crm/lib/emailIdentity';
 import { MARKETING_DOMAIN } from '@/crm/lib/emails';
-import { unscheduleCampaign } from '@/crm/data/emailActions';
+import { isUnscheduleTooLate, unscheduleCampaign } from '@/crm/data/emailActions';
 import { bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
 import { normalizeV2Blocks } from '@/lib/email/migrate';
 import type { EmailBlock } from '@/lib/email/types';
@@ -349,7 +349,10 @@ export default function EmailSendPage() {
           whenText={whenText(eff.at)}
           id={draft.id}
           onUnschedule={async () => {
-            try { await unscheduleCampaign(draft.id); invalidate(); toast(t('yc.em.sd.d.unscheduled')); setDraft({ ...draft, status: 'draft' }); setPhase('edit'); go('plan'); } catch { toast(t('yc.em.tp.err')); }
+            try { await unscheduleCampaign(draft.id); invalidate(); toast(t('yc.em.sd.d.unscheduled')); setDraft({ ...draft, status: 'draft' }); setPhase('edit'); go('plan'); } catch (e) {
+              if (isUnscheduleTooLate(e)) { invalidate(); toast(t('yc.em.unschedTooLate')); return; }
+              toast(t('yc.em.tp.err'));
+            }
           }}
         />
       )}

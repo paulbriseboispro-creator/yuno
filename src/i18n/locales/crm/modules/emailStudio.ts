@@ -341,6 +341,7 @@ const dict: CrmDict = {
   ],
 
   // Test
+  'yc.em.unschedTooLate': ['Too late: sending has already started, the email is going out.', 'Trop tard : l’envoi a déjà commencé, l’e-mail part.', 'Demasiado tarde: el envío ya empezó, el e-mail está saliendo.'],
   'yc.em.st.t.title': ['Receive a test', 'Recevoir un test', 'Recibir una prueba'],
   'yc.em.st.t.sub': ['Client details are filled with your own. A test costs no Yunit.', 'Les informations du client sont remplies avec les vôtres. Un test ne coûte aucun Yunit.', 'Los datos del cliente se rellenan con los suyos. Una prueba no cuesta ningún Yunit.'],
   'yc.em.st.t.always': ['Always sent to {email}', 'Toujours envoyé à {email}', 'Siempre se envía a {email}'],

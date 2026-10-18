@@ -44,6 +44,7 @@ import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identit
 import { supportSessionFor } from '../_shared/support-session.ts';
 import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
 import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
+import { scheduledSendRefusal } from '../_shared/scheduled-email-campaigns.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1109,8 +1110,9 @@ Deno.serve(async (req) => {
       // « scheduled » à « sending ». Si elle n'y est plus, le pro l'a
       // déprogrammée entre-temps (retour en brouillon) : on n'envoie rien
       // (audit 18/10, MAIL-04).
-      if (scheduled === true && campaign.status !== 'sending') {
-        return new Response(JSON.stringify({ error: 'not_scheduled_anymore', status: campaign.status }), { status: 409, headers: jsonHeaders });
+      const notMine = scheduledSendRefusal(scheduled, campaign.status);
+      if (notMine) {
+        return new Response(JSON.stringify({ error: notMine, status: campaign.status }), { status: 409, headers: jsonHeaders });
       }
       // Le disjoncteur ne se contourne pas par un simple re-clic sur
       // « Envoyer ». Reprendre après une coupure pour plaintes ou adresses

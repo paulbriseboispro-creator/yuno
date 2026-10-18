@@ -21,7 +21,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { useEmailAnalysis, useEmailAudienceSizes, useEmailCampaigns, useInvalidateEmails } from '@/crm/data/emails';
 import type { EmailCampaignRow } from '@/crm/data/emails';
-import { deleteDrafts, duplicateCampaigns, unscheduleCampaign } from '@/crm/data/emailActions';
+import { deleteDrafts, duplicateCampaigns, isUnscheduleTooLate, unscheduleCampaign } from '@/crm/data/emailActions';
 import { audienceLabel, draftGaps, rate } from '@/crm/lib/emails';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { EmailsShell } from './EmailsShell';
@@ -122,7 +122,10 @@ export default function EmailCampaignsPage() {
   };
   const unsched = async (id: string) => {
     setMenu(null);
-    try { await unscheduleCampaign(id); invalidate(); toast(t('yc.em.ca.t.unsched')); } catch { fail(); }
+    try { await unscheduleCampaign(id); invalidate(); toast(t('yc.em.ca.t.unsched')); } catch (e) {
+      if (isUnscheduleTooLate(e)) { invalidate(); toast(t('yc.em.unschedTooLate')); return; }
+      fail();
+    }
   };
 
   const allOn = list.length > 0 && list.every((c) => sel.includes(c.id));

@@ -12,7 +12,7 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { CRM_ROUTES } from '@/crm/shell/nav';
-import { unscheduleCampaign } from '@/crm/data/emailActions';
+import { isUnscheduleTooLate, unscheduleCampaign } from '@/crm/data/emailActions';
 import { useStudio, useStudioApi } from '@/components/email-studio/store';
 import { useInvalidateEmails } from '@/crm/data/emails';
 
@@ -223,7 +223,8 @@ function ScheduledBand() {
       api.getState().patchCampaign({ status: 'draft' });
       invalidate();
       toast(t('yc.em.st.unscheduled'));
-    } catch {
+    } catch (e) {
+      if (isUnscheduleTooLate(e)) { invalidate(); toast(t('yc.em.unschedTooLate')); return; }
       toast(t('yc.em.tp.err'));
     }
   };

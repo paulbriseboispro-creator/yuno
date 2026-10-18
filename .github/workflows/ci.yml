@@ -47,6 +47,9 @@ jobs:
       - name: Contrat simulé de la synchro Shotgun
         working-directory: supabase/functions
         run: deno test --no-lock --allow-env affiliate-ticket-sync/ticketing_test.ts
+      - name: Campagne déprogrammée pendant le passage du cron
+        working-directory: supabase/functions
+        run: deno test --no-lock process-scheduled-campaigns/scheduled_test.ts
       - name: Typage des fonctions touchées par l'audit
         run: |
           for f in affiliate-ticket-sync send-campaign unsubscribe-newsletter process-scheduled-campaigns; do
