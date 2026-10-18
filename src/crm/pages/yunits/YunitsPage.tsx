@@ -21,6 +21,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { Portal, Skel } from '@/crm/ui/kit';
 import { EASE, SPRING, useIntro } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
@@ -35,12 +36,28 @@ const mono = { fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.
 const h2 = { margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' } as const;
 const clampV = (v: number) => Math.max(CRM_RECHARGE.min, Math.min(CRM_RECHARGE.max, Math.round(v / CRM_RECHARGE.step) * CRM_RECHARGE.step));
 
+const PAGE = { flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 72px', display: 'flex', flexDirection: 'column', gap: 28 } as const;
+
 export default function YunitsPage() {
   const w = useCrmWallet();
   const b = useCrmBilling();
+  // Le solde ou l'offre illisibles : l'erreur et « Réessayer » (les deux lectures
+  // en échec se relancent ensemble), jamais un squelette sans fin.
+  const failed = (w.isError && !w.data) ? w : (b.isError && !b.data) ? b : null;
+  if (failed) {
+    return (
+      <main style={PAGE}>
+        <CrmLoadError
+          error={failed.error}
+          onRetry={() => { if (w.isError) void w.refetch(); if (b.isError) void b.refetch(); }}
+          retrying={w.isFetching || b.isFetching}
+        />
+      </main>
+    );
+  }
   if (!w.data || !b.data) {
     return (
-      <main style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 72px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <main style={PAGE}>
         <Skel h={90} w={420} r={14} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
           <Skel h={560} r={28} style={{ flex: '1 1 560px' }} />
