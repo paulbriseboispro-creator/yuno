@@ -10,7 +10,6 @@ const dict: CrmDict = {
   // ── Commun
   'yc.gl.tab': ['Free', 'Gratuits', 'Gratis'],
   'yc.gl.k': ['What Yuno counts as free', 'Ce que Yuno compte en gratuit', 'Lo que Yuno cuenta como gratis'],
-  'yc.gl.err': ['Free entries couldn’t be loaded. Try again in a moment.', 'Les entrées gratuites n’ont pas pu être chargées. Réessayez dans un instant.', 'Las entradas gratuitas no se han podido cargar. Vuelva a intentarlo en un momento.'],
   'yc.gl.kind.inv': ['Guest list (Shotgun invitations)', 'Guest list (invitations Shotgun)', 'Lista de invitados (invitaciones de Shotgun)'],
   'yc.gl.kind.inv.s': [
     'Free tickets with a QR code that you send from Shotgun (promoters, artists, press…). They never count as sales.',
