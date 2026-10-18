@@ -12,9 +12,11 @@ import { openSaved } from './lib.mjs';
 const TABLES = [
   'crm_analysis_state', 'crm_night_profile', 'crm_person_profile', 'crm_artist_stats',
   'crm_family_status', 'crm_score_model', 'crm_score_night', 'crm_person_night_score',
+  'crm_prediction_nights', 'crm_prediction_people', 'crm_prediction_results',
 ];
 const VOLATILE = new Set(['computed_at', 'updated_at', 'trained_at', 'created_at', 'marked_at', 'full_at',
-  'dirty_at', 'duration_ms', 'ms', 'computed_on', 'first_seen_at', 'last_error_at', 'status_since']);
+  'dirty_at', 'duration_ms', 'ms', 'computed_on', 'first_seen_at', 'last_error_at', 'status_since',
+  'snapshot_at', 'settled_at']);
 
 function clean(v) {
   if (Array.isArray(v)) return v.map(clean);
