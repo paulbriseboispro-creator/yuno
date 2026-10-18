@@ -17,6 +17,7 @@ import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Modal, Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
@@ -43,7 +44,10 @@ function useSupportState(uid: string | undefined) {
         supabase.from('admin_support_audit').select('id, action, table_name, created_at')
           .eq('target_user_id', uid as string).order('created_at', { ascending: false }).limit(60),
       ]);
+      // Une liste illisible n'est pas une liste vide : « aucune session » serait faux.
       if (g.error) throw g.error;
+      if (s.error) throw s.error;
+      if (a.error) throw a.error;
       return { grants: (g.data ?? []) as Grant[], sessions: (s.data ?? []) as Session[], audit: (a.data ?? []) as Audit[] };
     },
   });
@@ -73,12 +77,13 @@ export function AccountSupport() {
 
   // Arrivée depuis l'e-mail (?approve=…) : la décision s'ouvre une fois, d'elle-même.
   useEffect(() => {
-    if (consumed.current || q.isLoading || !params.get('approve')) return;
+    // Attend une lecture réussie : après un échec puis « Réessayer », la décision s'ouvre encore.
+    if (consumed.current || !params.get('approve') || (holder && !q.data)) return;
     consumed.current = true;
     if (pending && !assisted) setDecide(pending);
     params.delete('approve');
     setParams(params, { replace: true });
-  }, [q.isLoading, pending, params, setParams, assisted]);
+  }, [holder, q.data, pending, params, setParams, assisted]);
 
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['crm', 'support-access'] }); void qc.invalidateQueries({ queryKey: ['crm', qk, 'notifications'] }); };
   const run = async (fn: () => PromiseLike<{ error: unknown }>, done: string) => {
@@ -106,6 +111,8 @@ export function AccountSupport() {
     );
   }
   if (q.isLoading) return <Skel h={260} r={28} />;
+  // Pas « aucun accès en cours » : la lecture a échoué, on n'en sait rien.
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

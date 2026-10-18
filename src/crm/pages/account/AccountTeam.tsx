@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Modal, Sheet, Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
@@ -69,6 +70,7 @@ export function AccountTeam({ setHeadAction }: { setHeadAction: (n: ReactNode) =
     return () => setHeadAction(null);
   }, [canManage, setHeadAction, t]);
 
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
   if (q.isLoading || !q.data) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

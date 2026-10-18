@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EASE } from '@/crm/ui/motion';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
@@ -47,6 +48,7 @@ export function AccountNotifications({ setHeadAction }: { setHeadAction: (n: Rea
   useEffect(() => () => { setHeadAction(null); window.clearTimeout(timer.current); }, [setHeadAction]);
   const onSaved = () => { setSaved(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setSaved(false), 2200); };
 
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
   if (q.isLoading || !q.data) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

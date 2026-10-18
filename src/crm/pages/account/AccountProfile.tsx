@@ -15,6 +15,7 @@ import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
@@ -50,6 +51,8 @@ export function AccountProfile({ onDirty }: { onDirty: (v: boolean) => void }) {
   const { user, session } = useAuth();
   const { language } = useLanguage();
   const q = useMyProfile(user?.id);
+  // Sans le profil, un formulaire vide passerait pour le vôtre (et l'enregistrer l'écraserait).
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
   if (q.isLoading || !user) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

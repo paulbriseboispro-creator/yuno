@@ -12,6 +12,7 @@ import { isDemoEmail } from '@/lib/demoPlan';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Modal, Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmToast } from '@/crm/ui/toast';
@@ -60,6 +61,7 @@ export function AccountBilling() {
   const { user } = useAuth();
   const q = useCrmBilling();
   const demo = isDemoEmail(user?.email ?? '');
+  if (q.isError && !q.data) return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
   if (q.isLoading || !q.data) {
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
