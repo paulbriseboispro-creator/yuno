@@ -62,9 +62,12 @@ BEGIN
     RAISE EXCEPTION 'SMOKE_OK pièces posées ; scénarios non joués : aucun promoteur actif avec compte';
   END IF;
   SELECT e.id INTO v_ev FROM public.events e
-   WHERE e.venue_id IS DISTINCT FROM v_pr.venue_id AND e.partner_venue_id IS DISTINCT FROM v_pr.venue_id
-     AND e.organizer_user_id IS DISTINCT FROM v_pr.organizer_user_id
-     AND e.partner_organizer_id IS DISTINCT FROM v_pr.organizer_user_id
+   -- Une portée absente du promoteur (NULL) n'exclut rien : sans ces gardes,
+   -- un promoteur de club sans organisateur ne trouvait aucune soirée.
+   WHERE (v_pr.venue_id IS NULL OR (e.venue_id IS DISTINCT FROM v_pr.venue_id
+                                     AND e.partner_venue_id IS DISTINCT FROM v_pr.venue_id))
+     AND (v_pr.organizer_user_id IS NULL OR (e.organizer_user_id IS DISTINCT FROM v_pr.organizer_user_id
+                                              AND e.partner_organizer_id IS DISTINCT FROM v_pr.organizer_user_id))
      AND NOT EXISTS (SELECT 1 FROM public.event_cohosts c WHERE c.event_id = e.id AND c.status = 'accepted'
                         AND (c.venue_id = v_pr.venue_id OR c.organizer_user_id = v_pr.organizer_user_id))
    ORDER BY e.start_at DESC LIMIT 1;
