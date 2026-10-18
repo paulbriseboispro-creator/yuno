@@ -34,6 +34,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'segments', c: 'clients', to: CRM_ROUTES.segments },
   { id: 'team', c: 'account', to: CRM_ROUTES.accountSection('team') },
   { id: 'invoices', c: 'account', to: CRM_ROUTES.accountSection('billing') },
+  // Accès assisté de l'équipe Yuno (Compte › Accès Yuno, 20261019420000).
+  { id: 'support', c: 'account', to: CRM_ROUTES.accountSection('support') },
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'journey', c: 'clients', to: CRM_ROUTES.journey },
   { id: 'signup', c: 'clients', to: CRM_ROUTES.signupPages },

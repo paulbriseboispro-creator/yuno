@@ -86,6 +86,11 @@ const dict: CrmDict = {
   'yc.acc.sup.cutDone': ['Access cut', 'Accès coupé', 'Acceso cortado'],
   'yc.acc.sup.err': ['That didn’t work. Try again.', 'Ça n’a pas marché. Réessayez.', 'No ha funcionado. Inténtelo de nuevo.'],
 
+  // ── FAQ (Compte › Aide) ───────────────────────────────────────────────────
+  'yc.faq.support.q': ['Can the Yuno team set up my account with me?', 'L’équipe Yuno peut-elle configurer mon compte avec moi ?', '¿Puede el equipo de Yuno configurar mi cuenta conmigo?'],
+  'yc.faq.support.a': ['Yes, with your yes. In Account › Yuno access you accept or refuse their request, or ask for help yourself; you cut the access at any time. A session lasts 12 hours at most, your billing, login email and two-factor stay locked, and every change is listed on the same page.', 'Oui, avec votre accord. Dans Compte › Accès Yuno, vous acceptez ou refusez sa demande, ou demandez de l’aide vous-même ; vous coupez l’accès quand vous voulez. Une session dure 12 heures au plus, votre facturation, votre e-mail de connexion et votre double authentification restent verrouillés, et chaque modification est listée sur la même page.', 'Sí, con su aprobación. En Cuenta › Acceso Yuno acepta o rechaza su solicitud, o pide ayuda usted mismo; corta el acceso cuando quiera. Una sesión dura 12 horas como máximo, su facturación, su e-mail de acceso y su doble factor permanecen bloqueados, y cada cambio aparece en la misma página.'],
+  'yc.faq.support.l': ['Open Yuno access', 'Ouvrir l’accès Yuno', 'Abrir el acceso Yuno'],
+
   // ── Notifications ─────────────────────────────────────────────────────────
   'yc.notif.support_request.title': ['The Yuno team offers to help', 'L’équipe Yuno vous propose son aide', 'El equipo de Yuno le ofrece su ayuda'],
   'yc.notif.support_request.body': ['They ask for your yes to set up your account with you. Nothing opens until you accept.', 'Elle demande votre accord pour configurer votre compte avec vous. Rien ne s’ouvre tant que vous n’avez pas accepté.', 'Pide su aprobación para configurar su cuenta con usted. Nada se abre hasta que acepte.'],
