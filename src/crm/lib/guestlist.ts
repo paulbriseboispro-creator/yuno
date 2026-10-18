@@ -54,6 +54,17 @@ export function isPaidTicket(status: string | null | undefined, price: number | 
 }
 
 /**
+ * Miroir EXACT de `_crm_sale_counts_as_night(prix, scanné, porte mesurée)`
+ * (audit du 18/10, DATA-02, décision de Paul) : une vente compte comme une
+ * soirée faite, sauf une entrée gratuite (0 €) non scannée sur une porte
+ * mesurée — là, on sait que la personne n'est pas venue. Un prix inconnu
+ * n'est pas « gratuit ».
+ */
+export function saleCountsAsNight(price: number | null | undefined, scanned: boolean | null | undefined, doorIsMeasured: boolean | null | undefined): boolean {
+  return !(price === 0 && !scanned && !!doorIsMeasured);
+}
+
+/**
  * Ce qu'est un billet pour l'écran (D4) : payant, entrée gratuite (tarif à 0 €)
  * ou guest list (invitation). Les ventes affichées = payants + entrées gratuites.
  */

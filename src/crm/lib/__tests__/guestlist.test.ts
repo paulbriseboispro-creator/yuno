@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
   DOOR_MIN_SCANS, DOOR_MIN_SHARE, clockFromNoon, doorMeasured, glKindOf, hourLabel, isGlFilter, isPaidTicket, isSaleTicket,
-  nightVerdict, periodVerdict, ptsDelta, rate, ticketKindOf,
+  nightVerdict, periodVerdict, ptsDelta, rate, saleCountsAsNight, ticketKindOf,
 } from '../guestlist';
+import nightCases from './fixtures/sale-counts-as-night.json';
+
+describe('saleCountsAsNight (miroir de _crm_sale_counts_as_night, DATA-02)', () => {
+  it.each(nightCases.cases as [number | null, boolean | null, boolean | null, boolean][])(
+    'prix %s, scanné %s, porte mesurée %s → %s',
+    (price, scanned, measured, expected) => {
+      expect(saleCountsAsNight(price, scanned, measured)).toBe(expected);
+    },
+  );
+  it('seule une entrée gratuite non scannée sur une porte mesurée ne compte pas', () => {
+    expect(saleCountsAsNight(0, false, true)).toBe(false);
+    expect(saleCountsAsNight(0, false, false)).toBe(true);
+  });
+});
 
 describe('doorMeasured (miroir de _crm_door_measured)', () => {
   it('au moins 10 scans ET au moins 10 % des billets valides', () => {

@@ -1,0 +1,15 @@
+{
+  "note": "Cas partagés entre saleCountsAsNight (src/crm/lib/guestlist.ts) et _crm_sale_counts_as_night (SQL, rejoué par scripts/crm-bench/audit-data.mjs). [prix, scanné, porte mesurée, compte comme soirée faite]",
+  "cases": [
+    [0, false, true, false],
+    [0, true, true, true],
+    [0, false, false, true],
+    [0, null, true, false],
+    [0, false, null, true],
+    [15, false, true, true],
+    [15, true, true, true],
+    [0.5, false, true, true],
+    [null, false, true, true],
+    [null, null, null, true]
+  ]
+}
