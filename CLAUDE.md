@@ -702,7 +702,8 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
 ## Yuno CRM — l'offre fondateurs : 5 comptes choisis par Paul (2026-10-17)
 
 Décidée après le premier appel commercial (3AM). Migration `20261017230000`,
-écran Admin CRM › Vente › Offre fondateurs (`FounderOfferTab`, `?tab=founders`).
+écran Admin CRM › Inviter (`InvitePage`, choix « Offre fondateurs » ; l'ancien
+onglet Vente › Offre fondateurs y redirige, voir la section suivante).
 Rien à voir avec le prix de lancement des 50 premiers PAYANTS (24 €,
 `price_switch_at`) : un compte fondateur ne paie pas, il n'entre pas dans
 `crm_paying_accounts`. Règles :
@@ -737,6 +738,54 @@ Rien à voir avec le prix de lancement des 50 premiers PAYANTS (24 €,
 - Console : carte « Offre fondateur » en tête de Compte › Abonnement
   (`FounderOfferCard`), pastille, bouton « Enregistrer ma carte · 0 € aujourd'hui »,
   FAQ `yc.faq.founder`. Alerte super admin `admin_crm_offer_claimed`.
+
+## Yuno CRM — Admin CRM : Inviter, Démo, Accès assisté (2026-10-19)
+
+Demande de Paul (18/10) : « que le compte admin Yuno CRM soit vraiment 100 %
+fonctionnel ». Migration `20261019420000`, pages `src/crm/admin/pages/{InvitePage,
+DemoPage,SupportPage}.tsx` (menu : Grandir › Inviter, Démo ; Servir › Accès
+assisté), données `src/crm/admin/inviteData.ts`, e-mails
+`_shared/crm-invite-email.ts` (pur, testé, lu aussi par le front pour WhatsApp,
+actions `crm-invite-email` / `crm-demo-email` d'`admin-account-recovery`).
+Règles :
+
+- **Une invitation = `crm_offer_invites`, offre `founder` OU `standard`.**
+  Standard = l'essai de tout le monde : aucune place prise, rien posé sur
+  l'abonnement ni sur les Yunits (`_crm_offer_apply` la rattache seulement au
+  compte ouvert, alerte `admin_crm_invite_claimed`). Les 5 places suivent les
+  règles de la section précédente.
+- **Le pré-profil** (type club / organisateur, structure, contact « Prénom
+  Nom », e-mail, téléphone, ville, langue) entre dans le brouillon `pro_signups`
+  dès l'ouverture du lien (`track_pro_signup`, jamais par-dessus ce que la
+  personne tape) ; `complete_pro_signup` en remplit le profil. La landing
+  (`CrmSignup`, `?offer=`) le pré-remplit et dit l'essai (`invite.*`) : elle se
+  livre AVANT toute invitation standard (l'ancienne afficherait « 0 mois
+  offerts »).
+- **L'accès assisté proposé à l'invitation** (`support_offer`, coché par
+  défaut) dépose à l'ouverture du compte une demande EN ATTENTE
+  (`_crm_invite_offer_support`, `requested_by` = l'admin qui a invité) : jamais
+  un accès accordé à la place du pro.
+- **Un accès démo = un lien d'aperçu ordinaire** (`demo_preview_links`, cible
+  `crm`, lecture seule imposée par le serveur) + `crm_demo_accesses` (contact,
+  invitation liée, mot de passe gardé pour pouvoir le renvoyer ; RLS sans
+  policy, RPC `crm_admin_demo_*`). Entrée `crm.yunoapp.eu/crm/preview?token=`
+  (`CrmPreviewGate`, DA du CRM ; un lien `crm` seul ouvert sur
+  yunoapp.eu/preview y est renvoyé). Le redeem rend `cta` (`crm_demo_link_cta` :
+  l'invitation liée si elle vaut encore, sinon `/start`) ; la pastille d'aperçu
+  de la Console quitte la démo AVANT d'ouvrir l'inscription (même origine : la
+  session démo et la lecture seule de l'onglet ne doivent jamais la suivre).
+  Ouvrir un lien démo dans le navigateur de l'admin remplacerait sa session
+  (l'écran le dit) : fenêtre privée.
+- **Accès assisté d'un compte CRM** : Admin CRM › Accès assisté
+  (`crm_admin_support` : demander, relancer, entrer, couper, journal) ; côté
+  pro, Compte › Accès Yuno (`/crm/account/support`, `?approve=` depuis l'e-mail)
+  et les notifications `support_request` / `support_live` (`_crm_notif_list`).
+  `request-support-access` envoie un compte CRM (Admin CRM `product: 'crm'`, ou
+  titulaire `crm_user_crm_only`) vers SA Console avec un e-mail à la DA du CRM.
+  « Voir sa Console » REMPLACE la session admin du navigateur (confirmation) ;
+  « Quitter » ramène à `/admin/crm/login`. L'accord est celui du TITULAIRE
+  (`space.role = 'owner'`) ; un aperçu démo ou une session d'assistance voient
+  la page sans boutons.
 
 ## Yuno CRM — la Console `/crm` (design Claude Design) et l'Admin CRM (2026-10-05)
 
