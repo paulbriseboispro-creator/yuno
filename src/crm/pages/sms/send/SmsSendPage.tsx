@@ -17,6 +17,7 @@ import { Modal } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { SPRING } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
@@ -147,6 +148,21 @@ export default function SmsSendPage() {
     return tp('yc.em.sd.rel.d', Math.round(ms / 864e5));
   }, [t, tp]);
 
+  // Sans le SMS ni les réglages, la page ne peut rien montrer : l'erreur et « Réessayer »,
+  // jamais le Yunit qui attend sans fin (délai de 30 s de rpc() compris).
+  const pageError = (camps.isError && !camps.data) ? camps : (settings.isError && !settings.data) ? settings : null;
+  if (pageError) {
+    return (
+      <div className="yc yc-page-bg" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, boxSizing: 'border-box' }}>
+        <CrmLoadError
+          error={pageError.error}
+          onRetry={() => { if (camps.isError) void camps.refetch(); if (settings.isError) void settings.refetch(); }}
+          retrying={camps.isFetching || settings.isFetching}
+        />
+        <Hv as={Link} to={CRM_ROUTES.smsCampaigns} style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--sand-600)', textDecoration: 'none' }} hover={{ color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.sm.co.toList')}</Hv>
+      </div>
+    );
+  }
   if (camps.data && !row) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>
@@ -174,12 +190,22 @@ export default function SmsSendPage() {
   const canSend = bad === 0 && !readOnly;
   const idx = STEPS.indexOf(step);
   const scheduled = row.status === 'scheduled';
-  const nextOff = scheduled || (step === 'aud' && net === 0) || (step === 'check' && (!canSend || !CRM_SMS_SEND_OPEN));
+  // Sans compte lu (en échec, ou pas encore là), « Suivant » attend : l'erreur et
+  // « Réessayer » sont dans l'étape. Pendant un recalcul, le chiffre affiché est
+  // celui d'avant : on attend le bon plutôt que d'avancer sur un compte périmé.
+  const nextOff = scheduled || (step === 'aud' && (net === 0 || !preview.data)) || (step === 'check' && (!canSend || !CRM_SMS_SEND_OPEN));
+  const countFailed = preview.isError && !preview.data;
+  const retryPreview = () => { void preview.refetch(); };
   const whenShort = mode === 'now' ? t('yc.em.sd.r.onConfirm') : `${dShort(eff.at)} · ${time(eff.at)}`;
   const dateText = mode === 'now' ? t('yc.sm.sd.date.now') : t('yc.sm.sd.date.later', { when: whenText(eff.at) });
 
   const next = () => {
-    if (step === 'aud') { if (net === 0) { toast(t('yc.sm.sd.aud.none')); return; } go('plan'); return; }
+    if (step === 'aud') {
+      if (preview.isFetching) { toast(t('yc.sm.sd.aud.calcWait')); return; }
+      if (!preview.data) { toast(t('yc.sm.sd.aud.calcErr')); return; }
+      if (net === 0) { toast(t('yc.sm.sd.aud.none')); return; }
+      go('plan'); return;
+    }
     if (step === 'plan') { if (past) { toast(t('yc.em.sd.plan.past')); return; } go('check'); return; }
     if (!CRM_SMS_SEND_OPEN) { toast(t('yc.sm.sd.soonToast')); return; }
     if (!canSend) { toast(t('yc.em.sd.nav.fixFirst')); return; }
@@ -240,14 +266,19 @@ export default function SmsSendPage() {
           )}
           {step === 'aud' && (
             <SmsAudienceStep
-              options={options.data} audiences={draft.audiences} onAudiences={(a) => update({ audiences: a })} preview={preview.data} cost={cost}
+              options={options.data} optionsError={options.isError ? options.error : null} onRetryOptions={() => { void options.refetch(); }} optionsBusy={options.isFetching}
+              audiences={draft.audiences} onAudiences={(a) => update({ audiences: a })}
+              preview={preview.data} calc={preview.isFetching} previewError={preview.isError ? preview.error : null} onRetryPreview={retryPreview} cost={cost}
               eventTitle={eventTitle} excludeBuyers={draft.excludeBuyers} onExcludeBuyers={(x) => update({ excludeBuyers: x })}
               recentDays={draft.recentDays} onRecentDays={(x) => update({ recentDays: x })} cap={cap} readOnly={readOnly}
             />
           )}
           {step === 'plan' && <SmsPlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} quiet={quiet} whenText={whenText} relText={relText} readOnly={readOnly} />}
           {step === 'check' && (
-            <SmsCheckStep checks={checks} campaignId={row.id} count={k} net={net} cost={cost} left={balance - cost} sender={sender} dateText={dateText} onGo={go} />
+            <SmsCheckStep
+              checks={checks} campaignId={row.id} count={k} net={net} cost={cost} left={balance - cost} sender={sender} dateText={dateText} onGo={go}
+              audError={countFailed ? { error: preview.error, onRetry: retryPreview, retrying: preview.isFetching } : null}
+            />
           )}
 
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 6 }}>
@@ -275,7 +306,7 @@ export default function SmsSendPage() {
             </div>
           </div>
         </main>
-        <SmsSendAside campaignId={row.id} text={text} sender={sender} time={mode === 'now' ? time(new Date()) : time(eff.at)} day={mode === 'now' || eff.at.toDateString() === new Date().toDateString() ? t('yc.sm.ph.today') : dShort(eff.at)} parts={k.parts} net={net} whenShort={whenShort} cost={cost} rate={rateSms} intl={{ n: netIntl, rate: rateIntl }} balance={balance} readOnly={readOnly} />
+        <SmsSendAside campaignId={row.id} text={text} sender={sender} time={mode === 'now' ? time(new Date()) : time(eff.at)} day={mode === 'now' || eff.at.toDateString() === new Date().toDateString() ? t('yc.sm.ph.today') : dShort(eff.at)} parts={k.parts} net={preview.data ? net : null} whenShort={whenShort} cost={cost} rate={rateSms} intl={{ n: netIntl, rate: rateIntl }} balance={balance} readOnly={readOnly} />
       </div>
 
       <Modal open={confirm} onClose={() => setConfirm(false)} width={480} label={t('yc.sm.sd.c.label')}>

@@ -7,6 +7,7 @@ import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmT } from '@/crm/i18n';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { smsCheckLevel as levelOf, type SmsCheck, type SmsCheckLevel, type SmsCount } from '@/crm/lib/sms';
@@ -20,10 +21,12 @@ const ICN: Record<SmsCheckLevel, [string, string, string]> = {
 };
 
 export function SmsCheckStep({
-  checks, campaignId, count, net, cost, left, sender, dateText, onGo,
+  checks, campaignId, count, net, cost, left, sender, dateText, onGo, audError,
 }: {
   checks: SmsCheck[]; campaignId: string; count: SmsCount; net: number; cost: number; left: number; sender: string; dateText: string;
   onGo: (step: 'aud' | 'plan') => void;
+  /** Compte des destinataires en échec : l'erreur sous le titre, et la ligne Audience le dit (jamais « choisissez un groupe »). */
+  audError?: { error: unknown; onRetry: () => void; retrying: boolean } | null;
 }) {
   const { t, tp, n } = useCrmT();
   const bad = checks.filter((c) => levelOf(c) === 'bad').length;
@@ -41,8 +44,8 @@ export function SmsCheckStep({
       case 'txt': return c.ok ? t(k, { n: n(count.length), p: count.parts }) : t(k);
       case 'enc': return c.ok ? t(k) : t(k, { c: count.bad.join(' ') });
       case 'len': return c.ok ? t(count.parts === 1 ? 'yc.sm.ck.len.ok1' : 'yc.sm.ck.len.ok2') : t(k, { p: count.parts });
-      case 'aud': return c.ok ? tp('yc.sm.ck.aud.ok', net, { n: n(net) }) : t(k);
-      case 'bal': return c.ok ? t(k, { n: n(cost), left: n(left) }) : t(k, { miss: n(-left) });
+      case 'aud': return c.ok ? tp('yc.sm.ck.aud.ok', net, { n: n(net) }) : audError ? t('yc.sm.sd.aud.calcErr') : t(k);
+      case 'bal': return c.ok ? t(k, { n: audError ? '—' : n(cost), left: audError ? '—' : n(left) }) : t(k, { miss: n(-left) });
       case 'date': return c.ok ? dateText : t(k);
       case 'from': return t(k, { name: sender });
       default: return t(k);
@@ -61,6 +64,7 @@ export function SmsCheckStep({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, animation: `yc-rise 520ms ${EASE} both` }}>
       <SmsStepTitle kick={t('yc.sm.sd.ck.kick')} a={t('yc.em.sd.ck.h.a')} b={t('yc.em.sd.ck.h.b')} c={t('yc.em.sd.ck.h.c')} sub={t('yc.sm.sd.ck.sub')} />
+      {audError && <CrmLoadError error={audError.error} onRetry={audError.onRetry} retrying={audError.retrying} />}
       <section style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '14px 18px', padding: '18px 22px', borderRadius: 24, background: tone.bg, boxShadow: `inset 0 0 0 1px ${tone.bd}` }}>
         <YunitFace mood={tone.mood} size={52} />
         <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 2 }}>

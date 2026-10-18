@@ -12,6 +12,7 @@ import { Skel } from '@/crm/ui/kit';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { LIFECYCLE_COLOR } from '@/crm/lib/lifecycle';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import type { CrmAudience } from '@/crm/data/emails';
 import type { SmsAudiencePreview, SmsSendOptions } from '@/crm/data/sms';
 import { Card, CardHead, Pills, Row, Toggle48 } from '@/crm/pages/emails/send/sendUi';
@@ -23,12 +24,21 @@ const isAuto = (a: CrmAudience, k: string) => !a.segmentId && a.def?.seg === k &
 const autoKeyOf = (a: CrmAudience): Key | null => (!a.segmentId && a.def?.seg && a.def.seg !== 'all' && !a.def.f && !a.def.q ? (a.def.seg as Key) : null);
 
 export function SmsAudienceStep({
-  options, audiences, onAudiences, preview, cost, eventTitle, excludeBuyers, onExcludeBuyers, recentDays, onRecentDays, cap, readOnly,
+  options, optionsError, onRetryOptions, optionsBusy, audiences, onAudiences, preview, calc, previewError, onRetryPreview, cost, eventTitle, excludeBuyers, onExcludeBuyers, recentDays, onRecentDays, cap, readOnly,
 }: {
   options: SmsSendOptions | undefined;
+  /** Échec de crm_sms_send_options : l'erreur à la place des groupes, jamais un squelette sans fin. */
+  optionsError: unknown;
+  onRetryOptions: () => void;
+  optionsBusy: boolean;
   audiences: CrmAudience[];
   onAudiences: (a: CrmAudience[]) => void;
   preview: SmsAudiencePreview | undefined;
+  /** Le compte (crm_sms_audience_preview) est en cours : « Calcul… », jamais un « … » muet. */
+  calc: boolean;
+  /** Échec du compte (délai de 30 s compris) : l'erreur et « Réessayer » à la place du chiffre. */
+  previewError: unknown;
+  onRetryPreview: () => void;
   cost: number;
   eventTitle: string | null;
   excludeBuyers: boolean;
@@ -57,33 +67,50 @@ export function SmsAudienceStep({
     set(on ? audiences.filter((a) => a.segmentId !== id) : [...audiences, { kind: 'crm', segmentId: id, label: name }]);
   };
   const custom = audiences.filter((a) => !autoKeyOf(a) && !a.segmentId);
+  const countFailed = !!previewError && !preview;
+  const optionsFailed = !!optionsError && !options;
   const ruleOf = (k: Key) => t(`yc.cli.seg.${k}.def`, { n: Number(rules?.regular_min_nights ?? 3), m: k === 'end' ? Number(rules?.lapse_months ?? 4) : Number(rules?.regular_window_months ?? 6) });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, animation: `yc-rise 520ms ${EASE} both` }}>
       <SmsStepTitle kick={t('yc.sm.sd.aud.kick')} a={t('yc.sm.sd.aud.h.a')} b={t('yc.sm.sd.aud.h.b')} c={t('yc.sm.sd.aud.h.c')} sub={t('yc.sm.sd.aud.sub')} />
 
-      <section style={{ position: 'sticky', top: 76, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderRadius: 24, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(44px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{preview ? n(net) : '…'}</span>
-            <span style={{ fontSize: 16, color: 'var(--sand-500)' }}>{tp('yc.sm.sd.will', net)}</span>
+      {countFailed ? (
+        <CrmLoadError
+          error={previewError}
+          onRetry={() => { onRetryPreview(); if (optionsFailed) onRetryOptions(); }}
+          retrying={calc || optionsBusy}
+        />
+      ) : (
+        <section aria-busy={calc} style={{ position: 'sticky', top: 76, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderRadius: 24, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px 24px' }}>
+            {preview ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(44px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums', opacity: calc ? 0.4 : 1, transition: 'opacity 200ms' }}>{n(net)}</span>
+                <span style={{ fontSize: 16, color: 'var(--sand-500)' }}>{tp('yc.sm.sd.will', net)}</span>
+                {calc && <CalcChip label={t('yc.sm.sd.calc')} />}
+              </div>
+            ) : (
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(32px,3.6vw,44px)', lineHeight: 1, letterSpacing: '-.04em', color: 'var(--sand-400)', animation: 'yc-pulse 1.6s ease-in-out infinite' }}>{t('yc.sm.sd.calc')}</span>
+            )}
+            {preview && <span style={{ fontSize: 14, color: 'var(--sand-600)' }}><Rich text={t('yc.sm.sd.cost', { n: n(cost) })} /></span>}
           </div>
-          <span style={{ fontSize: 14, color: 'var(--sand-600)' }}><Rich text={t('yc.sm.sd.cost', { n: n(cost) })} /></span>
-        </div>
-        <div style={{ display: 'flex', height: 14, gap: 2, borderRadius: 99, overflow: 'hidden', background: 'var(--sand-100)' }}>
-          <div style={{ width: `${(net / reach) * 100}%`, background: 'var(--gradient-brand)', transition: `width 420ms ${EASE}` }} />
-          <div style={{ width: `${(xb / reach) * 100}%`, background: 'var(--sand-400)', transition: `width 420ms ${EASE}` }} />
-          <div style={{ width: `${(xr / reach) * 100}%`, background: 'var(--sand-300)', transition: `width 420ms ${EASE}` }} />
-          <div style={{ width: `${(xc / reach) * 100}%`, background: 'var(--sand-200)', transition: `width 420ms ${EASE}` }} />
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: 13, color: 'var(--sand-600)' }}>
-          <Legend c="var(--gradient-brand)" l={t('yc.sm.sd.leg.net', { n: n(net) })} />
-          <Legend c="var(--sand-400)" l={t('yc.sm.sd.leg.buyers', { n: n(xb) })} />
-          <Legend c="var(--sand-300)" l={t('yc.sm.sd.leg.recent', { n: n(xr) })} />
-          {xc > 0 && <Legend c="var(--sand-200)" l={tp('yc.sm.sd.leg.cap', cap, { n: n(xc), c: cap })} />}
-        </div>
-      </section>
+          <div style={{ display: 'flex', height: 14, gap: 2, borderRadius: 99, overflow: 'hidden', background: 'var(--sand-100)' }}>
+            <div style={{ width: `${(net / reach) * 100}%`, background: 'var(--gradient-brand)', transition: `width 420ms ${EASE}` }} />
+            <div style={{ width: `${(xb / reach) * 100}%`, background: 'var(--sand-400)', transition: `width 420ms ${EASE}` }} />
+            <div style={{ width: `${(xr / reach) * 100}%`, background: 'var(--sand-300)', transition: `width 420ms ${EASE}` }} />
+            <div style={{ width: `${(xc / reach) * 100}%`, background: 'var(--sand-200)', transition: `width 420ms ${EASE}` }} />
+          </div>
+          {preview && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: 13, color: 'var(--sand-600)' }}>
+              <Legend c="var(--gradient-brand)" l={t('yc.sm.sd.leg.net', { n: n(net) })} />
+              <Legend c="var(--sand-400)" l={t('yc.sm.sd.leg.buyers', { n: n(xb) })} />
+              <Legend c="var(--sand-300)" l={t('yc.sm.sd.leg.recent', { n: n(xr) })} />
+              {xc > 0 && <Legend c="var(--sand-200)" l={tp('yc.sm.sd.leg.cap', cap, { n: n(xc), c: cap })} />}
+            </div>
+          )}
+        </section>
+      )}
 
       {!readOnly && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -101,11 +128,15 @@ export function SmsAudienceStep({
         </Group>
       )}
 
-      <Group label={t('yc.em.sd.g.auto')}>
-        {!options ? [0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={20} />) : options.auto.filter((s) => s.key !== 'none' || s.reach > 0).map((s) => (
-          <SegCard key={s.key} on={audiences.some((a) => isAuto(a, s.key))} label={autoLabel(s.key)} rule={ruleOf(s.key)} color={LIFECYCLE_COLOR[s.key]} reach={n(s.reach)} phone={s.phone_pct === null ? null : pct(s.phone_pct)} onPick={() => toggleAuto(s.key)} />
-        ))}
-      </Group>
+      {/* Un seul encadré d'erreur : si le compte a échoué aussi, celui du haut relance les deux. */}
+      {optionsFailed && !countFailed && <CrmLoadError error={optionsError} onRetry={onRetryOptions} retrying={optionsBusy} />}
+      {!optionsFailed && (
+        <Group label={t('yc.em.sd.g.auto')}>
+          {!options ? [0, 1, 2, 3].map((i) => <Skel key={i} h={118} r={20} />) : options.auto.filter((s) => s.key !== 'none' || s.reach > 0).map((s) => (
+            <SegCard key={s.key} on={audiences.some((a) => isAuto(a, s.key))} label={autoLabel(s.key)} rule={ruleOf(s.key)} color={LIFECYCLE_COLOR[s.key]} reach={n(s.reach)} phone={s.phone_pct === null ? null : pct(s.phone_pct)} onPick={() => toggleAuto(s.key)} />
+          ))}
+        </Group>
+      )}
 
       {options && options.saved.length > 0 && (
         <Group label={t('yc.em.sd.g.saved')}>
@@ -119,12 +150,12 @@ export function SmsAudienceStep({
         <CardHead title={t('yc.em.sd.dnd.t')} sub={t('yc.em.sd.dnd.s')} />
         <Row
           title={t('yc.em.sd.dnd.buyers')}
-          sub={eventTitle ? <>{t('yc.em.sd.dnd.buyersSub', { title: eventTitle })} <b style={{ color: 'var(--ink)' }}>−{n(preview?.x_buyers ?? 0)}</b></> : t('yc.em.sd.dnd.buyersNone')}
+          sub={eventTitle ? <>{t('yc.em.sd.dnd.buyersSub', { title: eventTitle })} {preview && <b style={{ color: 'var(--ink)' }}>−{n(preview.x_buyers ?? 0)}</b>}</> : t('yc.em.sd.dnd.buyersNone')}
           right={<Toggle48 on={excludeBuyers && !!eventTitle} onChange={(v) => { if (!readOnly) onExcludeBuyers(v); }} label={t('yc.em.sd.dnd.buyers')} />}
         />
         <Row
           title={t('yc.em.sd.dnd.recent')}
-          sub={<>{t('yc.sm.sd.dnd.recentSub')} {recentDays > 0 && <b style={{ color: 'var(--ink)' }}>−{n(xr)}</b>}</>}
+          sub={<>{t('yc.sm.sd.dnd.recentSub')} {recentDays > 0 && preview && <b style={{ color: 'var(--ink)' }}>−{n(xr)}</b>}</>}
           right={<Pills value={recentDays} onChange={(v) => { if (!readOnly) onRecentDays(v); }} label={t('yc.em.sd.dnd.period')} options={[{ v: 0, l: t('yc.em.sd.dnd.no') }, ...[3, 7, 14].map((d) => ({ v: d, l: t('yc.em.sd.dnd.days', { n: d }) }))]} />}
         />
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '14px 0 0', borderTop: '1px solid var(--sand-100)', fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)' }}>
@@ -133,6 +164,14 @@ export function SmsAudienceStep({
         </div>
       </Card>
     </div>
+  );
+}
+
+function CalcChip({ label }: { label: string }) {
+  return (
+    <span style={{ alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 12.5, fontWeight: 600 }}>
+      <Icon name="refresh" size={13} stroke={2.4} style={{ animation: 'yc-spin 900ms linear infinite' }} />{label}
+    </span>
   );
 }
 
