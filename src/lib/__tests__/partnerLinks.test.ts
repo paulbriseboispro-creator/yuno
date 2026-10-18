@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  cleanPartnerName, contactKindOf, isPartnerToken, isReservedPartnerName, isValidPartnerCode,
-  isValidPartnerContact, partnerConversion, partnerInitial, partnerPageUrl, partnerSendHref,
-  partnerShareMessage, sanitizePartnerCodeInput, suggestPartnerCode,
+  buildPartnerShare, cleanPartnerName, contactKindOf, isPartnerToken, isReservedPartnerName,
+  isValidPartnerCode, isValidPartnerContact, partnerConversion, partnerInitial, partnerPageUrl,
+  partnerSendHref, partnerShareMessage, sanitizePartnerCodeInput, suggestPartnerCode,
 } from '../partnerLinks';
+import {
+  PARTNER_LANGUAGES, PARTNER_WORD_KEYS, partnerLocale, partnerWords, toPartnerLanguage,
+} from '../partnerLinkWords';
 
 describe('partnerLinks', () => {
   it('nettoie le nom et refuse un nom de canal', () => {
@@ -62,5 +65,41 @@ describe('partnerLinks', () => {
     expect(isPartnerToken('0d7253b08aa64457acaf7b5131f5e5d3')).toBe(true);
     expect(isPartnerToken('0D7253B08AA64457ACAF7B5131F5E5D3')).toBe(false);
     expect(isPartnerToken('short')).toBe(false);
+  });
+
+  it('écrit le message dans la langue de la page, pas celle de la Console', () => {
+    const row = {
+      code: 'sami-nuit', partner_name: 'Sami B.', partner_token: '0d7253b08aa64457acaf7b5131f5e5d3',
+      partner_contact: 'sami@example.com',
+    };
+    const es = buildPartnerShare({ ...row, partner_language: 'es' }, 'Nuit Amoris', 'https://yunoapp.eu');
+    expect(es.message.startsWith('¡Hola Sami! Aquí tienes tu enlace para Nuit Amoris: https://yunoapp.eu/l/sami-nuit')).toBe(true);
+    expect(es.message).toContain('https://yunoapp.eu/stats/0d7253b08aa64457acaf7b5131f5e5d3');
+    expect(es.href).toContain(encodeURIComponent('Tu enlace para Nuit Amoris'));
+    const fr = buildPartnerShare({ ...row, partner_language: 'fr' }, 'Nuit Amoris');
+    expect(fr.message.startsWith('Salut Sami !')).toBe(true);
+    // Langue absente ou inconnue (ancienne ligne) : anglais.
+    expect(buildPartnerShare({ ...row, partner_language: null }, 'X').message.startsWith('Hi Sami!')).toBe(true);
+    expect(buildPartnerShare({ ...row, partner_language: 'de' }, 'X').message.startsWith('Hi Sami!')).toBe(true);
+  });
+});
+
+describe('partnerLinkWords', () => {
+  it('a chaque mot dans les trois langues, avec les mêmes variables', () => {
+    const vars = (s: string) => (s.match(/\{[a-z]+\}/g) ?? []).sort().join(',');
+    for (const key of PARTNER_WORD_KEYS) {
+      const [en, fr, es] = PARTNER_LANGUAGES.map((l) => partnerWords(l)(key));
+      for (const v of [en, fr, es]) expect(v.trim().length, key).toBeGreaterThan(0);
+      expect(vars(fr), key).toBe(vars(en));
+      expect(vars(es), key).toBe(vars(en));
+    }
+  });
+
+  it('ramène toute langue inconnue à un repli', () => {
+    expect(toPartnerLanguage('es')).toBe('es');
+    expect(toPartnerLanguage('ES')).toBe('en');
+    expect(toPartnerLanguage(undefined, 'fr')).toBe('fr');
+    expect(partnerLocale('es')).toBe('es-ES');
+    expect(partnerWords('fr')('yourLink')).toBe('Ton lien');
   });
 });

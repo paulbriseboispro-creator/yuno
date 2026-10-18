@@ -19,6 +19,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { buildPartnerShare, contactKindOf, partnerConversion, partnerInitial } from '@/lib/partnerLinks';
+import { PARTNER_LANGUAGE_NAMES } from '@/lib/partnerLinkWords';
 import type { PartnerLinkRow } from './PartnerLinkDialog';
 
 export interface PartnerStatsRow extends PartnerLinkRow {
@@ -116,7 +117,7 @@ export function PartnerLinksPanel({ rows, eventTitle, formatMoney, onCreate, onE
 
       <div className="space-y-2.5">
         {rows.map((row) => {
-          const share = buildPartnerShare(row, t, eventTitle);
+          const share = buildPartnerShare(row, eventTitle);
           const conv = partnerConversion(Number(row.conversions || 0), row.clicks || 0);
           const contactKind = contactKindOf(row.partner_contact);
           return (
@@ -131,7 +132,7 @@ export function PartnerLinksPanel({ rows, eventTitle, formatMoney, onCreate, onE
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate font-semibold text-white">{row.partner_name}</span>
-                    <span className="block truncate text-xs text-white/50">{t(`plink.role.${row.partner_role}`)} · /l/{row.code}</span>
+                    <span className="block truncate text-xs text-white/50">{t(`plink.role.${row.partner_role}`)} · /l/{row.code} · <span title={PARTNER_LANGUAGE_NAMES[row.partner_language]}>{row.partner_language.toUpperCase()}</span></span>
                   </span>
                 </div>
 

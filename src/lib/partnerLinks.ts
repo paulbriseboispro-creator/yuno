@@ -5,8 +5,12 @@
  * Un lien partenaire est une ligne `tracked_links` qui porte `partner_name` et
  * un jeton secret (`partner_token`, posé par le serveur). Le jeton ouvre la
  * page publique /stats/<jeton>. Ce module garde les règles pures partagées par
- * la Console et la page publique.
+ * la Console et la page publique. Les mots de la page et du message d'envoi
+ * vivent dans `partnerLinkWords.ts` : ils suivent la langue choisie par le pro
+ * (`partner_language`), pas celle de l'écran.
  */
+
+import { partnerWords, toPartnerLanguage, type PartnerLanguage } from './partnerLinkWords';
 
 export const PARTNER_ROLES = ['promoter', 'dj', 'artist', 'ambassador', 'other'] as const;
 export type PartnerRole = (typeof PARTNER_ROLES)[number];
@@ -140,19 +144,26 @@ export function partnerInitial(name: string): string {
 /** Origine PUBLIQUE des liens partagés (jamais `window.location.origin`). */
 export const PUBLIC_BASE_URL = (import.meta.env?.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
-/** Les deux liens à transmettre, le message prêt et où l'envoyer (WhatsApp / email). */
+/**
+ * Les deux liens à transmettre, le message prêt et où l'envoyer (WhatsApp /
+ * email). Le message est écrit dans la langue de la page du partenaire, quelle
+ * que soit celle de la Console.
+ */
 export function buildPartnerShare(
-  row: { code: string; partner_name: string; partner_token: string; partner_contact: string | null },
-  t: (key: string) => string,
+  row: {
+    code: string; partner_name: string; partner_token: string; partner_contact: string | null;
+    partner_language: PartnerLanguage | string | null;
+  },
   eventTitle?: string | null,
   baseUrl: string = PUBLIC_BASE_URL,
 ) {
+  const w = partnerWords(toPartnerLanguage(row.partner_language));
   const link = partnerLinkUrl(baseUrl, row.code);
   const page = partnerPageUrl(baseUrl, row.partner_token);
-  const message = partnerShareMessage(t('plink.shareMessage'), {
+  const message = partnerShareMessage(w('shareMessage'), {
     name: row.partner_name.split(' ')[0], event: eventTitle ?? '', link, page,
   });
-  const subject = t('plink.shareSubject').replace('{event}', eventTitle ?? '');
+  const subject = w('shareSubject').replace('{event}', eventTitle ?? '');
   return { link, page, message, href: partnerSendHref(row.partner_contact, subject, message) };
 }
 
@@ -170,6 +181,8 @@ export interface PartnerPageSale {
 export interface PartnerPageData {
   found: boolean;
   closed?: boolean;
+  /** Langue choisie par le pro ; absente sur une page introuvable. */
+  language?: string | null;
   partner_name?: string;
   partner_role?: PartnerRole;
   event_title?: string;

@@ -13,6 +13,7 @@ import { Copy, Pencil, Plus, Check, Trash2, ExternalLink } from 'lucide-react';
 import { PartnerLinkDialog, type PartnerLinkRow } from './PartnerLinkDialog';
 import { PartnerLinksPanel, type PartnerStatsRow } from './PartnerLinksPanel';
 import { isPartnerRole } from '@/lib/partnerLinks';
+import { toPartnerLanguage } from '@/lib/partnerLinkWords';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -146,7 +147,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
     if (partnersEnabled && result.length > 0) {
       const { data: partners } = await supabase
         .from('tracked_links')
-        .select('id, partner_name, partner_role, partner_contact, partner_token, partner_shows_revenue')
+        .select('id, partner_name, partner_role, partner_contact, partner_token, partner_shows_revenue, partner_language')
         .in('id', result.map((r) => r.id))
         .not('partner_name', 'is', null);
       for (const p of partners ?? []) {
@@ -157,6 +158,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
           partner_contact: p.partner_contact,
           partner_token: p.partner_token,
           partner_shows_revenue: p.partner_shows_revenue,
+          partner_language: toPartnerLanguage(p.partner_language),
         };
       }
     }

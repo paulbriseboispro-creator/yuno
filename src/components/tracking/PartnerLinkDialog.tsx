@@ -4,10 +4,12 @@
  *
  * Le lien est une ligne `tracked_links` ordinaire qui porte `partner_*` ; le
  * serveur pose le jeton de la page de stats (trigger
- * tracked_links_partner_normalize). Après la création, le dialogue montre les
- * deux liens à transmettre et le bouton d'envoi.
+ * tracked_links_partner_normalize). Le pro choisit la langue de la page et du
+ * message d'envoi (`partner_language`) ; le dernier choix est repris au lien
+ * suivant. Après la création, le dialogue montre les deux liens à transmettre
+ * et le bouton d'envoi.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +26,9 @@ import {
   isReservedPartnerName, isValidPartnerCode, isValidPartnerContact, buildPartnerShare,
   sanitizePartnerCodeInput, slugifyPart, suggestPartnerCode,
 } from '@/lib/partnerLinks';
+import {
+  PARTNER_LANGUAGES, PARTNER_LANGUAGE_NAMES, type PartnerLanguage, isPartnerLanguage, toPartnerLanguage,
+} from '@/lib/partnerLinkWords';
 
 export interface PartnerLinkRow {
   id: string;
@@ -33,6 +38,23 @@ export interface PartnerLinkRow {
   partner_contact: string | null;
   partner_token: string;
   partner_shows_revenue: boolean;
+  partner_language: PartnerLanguage;
+}
+
+/** Dernière langue choisie sur cet appareil : souvent la même pour toute une soirée. */
+const LANG_KEY = 'yuno:plink:lang';
+
+function rememberedLanguage(): PartnerLanguage | null {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    return isPartnerLanguage(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberLanguage(lang: PartnerLanguage) {
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* stockage indisponible : on redemandera */ }
 }
 
 interface Props {
@@ -61,7 +83,11 @@ export function PartnerLinkDialog({
   open, onOpenChange, editing, ownerKind, venueId, organizerUserId, eventId, eventTitle,
   canSeeMoney, onSaved,
 }: Props) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // La langue de la Console n'est que la valeur de départ d'un nouveau lien :
+  // la changer pendant que le dialogue est ouvert ne remet pas le formulaire à zéro.
+  const consoleLanguage = useRef(language);
+  consoleLanguage.current = language;
   const [name, setName] = useState('');
   const [role, setRole] = useState<PartnerRole>('promoter');
   const [code, setCode] = useState('');
@@ -70,6 +96,7 @@ export function PartnerLinkDialog({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [showsRevenue, setShowsRevenue] = useState(true);
+  const [pageLang, setPageLang] = useState<PartnerLanguage>('en');
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<PartnerLinkRow | null>(null);
   const [copied, setCopied] = useState<'link' | 'page' | null>(null);
@@ -91,6 +118,7 @@ export function PartnerLinkDialog({
       setPhone(kind === 'phone' ? editing.partner_contact ?? '' : '');
       setEmail(kind === 'email' ? editing.partner_contact ?? '' : '');
       setShowsRevenue(editing.partner_shows_revenue);
+      setPageLang(editing.partner_language);
     } else {
       setName('');
       setRole('promoter');
@@ -100,6 +128,7 @@ export function PartnerLinkDialog({
       setPhone('');
       setEmail('');
       setShowsRevenue(true);
+      setPageLang(rememberedLanguage() ?? toPartnerLanguage(consoleLanguage.current));
     }
   }, [open, editing]);
 
@@ -134,6 +163,7 @@ export function PartnerLinkDialog({
       partner_name: cleanName,
       partner_role: role,
       partner_contact: contact || null,
+      partner_language: pageLang,
       ...(canSeeMoney === false ? {} : { partner_shows_revenue: showsRevenue }),
     };
 
@@ -161,7 +191,7 @@ export function PartnerLinkDialog({
         utm_medium: 'partner_link',
         ...fields,
       })
-      .select('id, code, partner_name, partner_role, partner_contact, partner_token, partner_shows_revenue')
+      .select('id, code, partner_name, partner_role, partner_contact, partner_token, partner_shows_revenue, partner_language')
       .single();
     setSaving(false);
     if (error || !data) {
@@ -170,11 +200,12 @@ export function PartnerLinkDialog({
       else toast.error(t('tlink.saveError'));
       return;
     }
-    setCreated(data as PartnerLinkRow);
+    rememberLanguage(pageLang);
+    setCreated({ ...data, partner_language: toPartnerLanguage(data.partner_language) } as PartnerLinkRow);
     onSaved();
   };
 
-  const createdShare = created ? buildPartnerShare(created, t, eventTitle) : null;
+  const createdShare = created ? buildPartnerShare(created, eventTitle) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -314,6 +345,30 @@ export function PartnerLinkDialog({
                   />
                 )}
                 <p className="text-xs text-white/45">{t('plink.contactHint')}</p>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[13px] font-medium text-white/85">{t('plink.pageLanguage')}</span>
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('plink.pageLanguage')}>
+                  {PARTNER_LANGUAGES.map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      role="radio"
+                      lang={l}
+                      aria-checked={pageLang === l}
+                      onClick={() => setPageLang(l)}
+                      className={`h-8 rounded-full px-3.5 text-xs font-medium transition-colors ${
+                        pageLang === l
+                          ? 'bg-white text-paper'
+                          : 'border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {PARTNER_LANGUAGE_NAMES[l]}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-white/45">{t('plink.pageLanguageHint')}</p>
               </div>
 
               {canSeeMoney !== false && (
