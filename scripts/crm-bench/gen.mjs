@@ -9,6 +9,13 @@
 //
 // Tout est tiré d'un générateur pseudo-aléatoire à graine : un même profil
 // rend toujours le même compte.
+//
+// Entrées gratuites (option, profil `gratuit`) : une part des venues prises à
+// 0 € et des billets gratuits pris par des gens qui ne viennent pas (jamais
+// scannés). Tirées d'un SECOND générateur : un profil sans ces réglages rend
+// exactement le même compte qu'avant, et un profil qui les active garde les
+// mêmes venues que le profil dont il reprend la graine (la vérité ne change
+// pas, seuls les billets gratuits s'y ajoutent).
 
 const DAY = 86400e3;
 const PARIS = { lat: 48.8566, lng: 2.3522 };
@@ -72,6 +79,9 @@ const ABROAD = ['BE', 'ES', 'GB', 'DE', 'IT'];
 /** Écrit un compte dans la base ouverte ; rend ses chiffres. */
 export async function generate(db, p, now = new Date()) {
   const r = rng(p.seed);
+  // Second générateur, réservé aux entrées gratuites (voir l'en-tête).
+  const withFree = (p.freeShare ?? 0) > 0 || (p.noShowPerTicket ?? 0) > 0;
+  const rf = rng((p.seed * 7919 + 13) >>> 0);
   const org = uuid(p.seed, 1);
   const conn = uuid(p.seed, 2);
 
@@ -178,7 +188,10 @@ export async function generate(db, p, now = new Date()) {
     order++;
     const lead = invite ? r.between(24, 72) : leadHours(buyer.habit, n);
     const at = new Date(n.start.getTime() - lead * 3600e3);
-    const tier = invite ? 0 : lead > 14 * 24 ? n.prices[0] : lead > 24 ? n.prices[1] : n.prices[2];
+    const paidTier = invite ? 0 : lead > 14 * 24 ? n.prices[0] : lead > 24 ? n.prices[1] : n.prices[2];
+    // Une venue sur une entrée gratuite (0 €) : scannée comme les autres.
+    const free = !invite && withFree && rf() < (p.freeShare ?? 0);
+    const tier = free ? 0 : paidTier;
     const group = !invite && buyer.friends.length ? [buyer, ...buyer.friends] : [buyer];
     const named = r() < p.namedTickets;
     const first = buyer.visits === 0;
@@ -188,7 +201,7 @@ export async function generate(db, p, now = new Date()) {
       const row = {
         id: r.uuid(), connection_id: conn, organizer_user_id: org, provider: 'shotgun',
         external_id: `t${p.seed}-${++tk}`, external_order_id: `o${p.seed}-${order}`, external_event_id: n.ext,
-        event_id: n.mirror, deal_id: `d${tier}`, deal_name: invite ? 'Invitation' : `Tarif ${tier} €`,
+        event_id: n.mirror, deal_id: `d${tier}`, deal_name: invite ? 'Invitation' : free ? 'Entrée gratuite' : `Tarif ${tier} €`,
         status: 'valid', quantity: 1, price: tier, currency: 'EUR',
         buyer_email: holder.email, holder_email: holder.email, buyer_phone: holder.phone, newsletter_optin: r() < 0.55,
         zip_code: holder.zip, country_code: holder.country,
@@ -197,11 +210,43 @@ export async function generate(db, p, now = new Date()) {
         utm, raw: invite ? { deal_channel: 'invitation' } : { deal_channel: 'online' },
       };
       if (n.upcoming && at > now) future.push({ external_event_id: n.ext, email: holder.email, purchased_at: row.purchased_at });
-      else tickets.push(row);
+      else { tickets.push(row); n.sold = (n.sold ?? 0) + 1; n.holders = (n.holders ?? new Set()).add(holder.email); }
       who.visits++;
       who.last = n.start.getTime();
       for (const a of n.lineup) if (a.id.startsWith('g')) who.seen.add(a.id);
       if (n.series) who.series.add(n.series.name);
+    }
+  };
+
+  // Billets gratuits jamais scannés : la personne a pris une place à 0 € et
+  // n'est pas venue. Pris par des gens qui ne viennent jamais (part
+  // `ghostShare`) ou par des clients connus absents ce soir-là. Ils ne
+  // touchent pas la vérité (venues, artistes vus, séries).
+  let ghosts = 0;
+  const noShows = (n) => {
+    const k = rf.poisson((p.noShowPerTicket ?? 0) * (n.sold ?? 0));
+    const known = people.filter((x) => x.visits > 0 && !(n.holders ?? new Set()).has(x.email));
+    for (let j = 0; j < k; j++) {
+      let holder;
+      if (!known.length || rf() < (p.ghostShare ?? 0.6)) {
+        const c = near.length ? rf.pick(near) : null;
+        holder = { email: `p${p.seed}-x${++ghosts}@bench.test`, zip: c ? c.cp : null, country: 'FR', phone: null };
+      } else holder = rf.pick(known);
+      const lead = Math.min(rf.between(2, 10 * 24), (n.start - n.launch) / 3600e3);
+      const at = new Date(n.start.getTime() - lead * 3600e3);
+      const u = rf();
+      tickets.push({
+        id: rf.uuid(), connection_id: conn, organizer_user_id: org, provider: 'shotgun',
+        external_id: `t${p.seed}-f${++tk}`, external_order_id: `of${p.seed}-${tk}`, external_event_id: n.ext,
+        event_id: n.mirror, deal_id: 'd0', deal_name: 'Entrée gratuite',
+        status: 'valid', quantity: 1, price: 0, currency: 'EUR',
+        buyer_email: holder.email, holder_email: holder.email, buyer_phone: holder.phone, newsletter_optin: rf() < 0.55,
+        zip_code: holder.zip, country_code: holder.country,
+        purchased_at: at.toISOString(), first_seen_at: at.toISOString(), scanned_at: null,
+        utm: u < 0.3 ? { utm_source: 'shotgun', utm_medium: 'app' } : u < 0.7 ? { utm_source: 'instagram', utm_medium: 'app' }
+          : { utm_source: 'direct', utm_medium: 'website' },
+        raw: { deal_channel: 'online' },
+      });
     }
   };
 
@@ -229,6 +274,7 @@ export async function generate(db, p, now = new Date()) {
       }
       buy(n, pr, r() < p.inviteShare);
     }
+    if (withFree && !n.upcoming) noShows(n);
   }
 
   // ── Écriture ────────────────────────────────────────────────────────────
