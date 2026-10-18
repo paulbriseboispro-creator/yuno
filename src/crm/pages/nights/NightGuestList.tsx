@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { CtaButton, Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EASE, useProgress } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
@@ -55,7 +56,8 @@ export function NightGuestList({ eventId, inDrawer = true }: { eventId: string; 
   const d = q.data && q.data.event?.id === eventId ? q.data : undefined;
   const [write, setWrite] = useState<{ def: ClientFilterDef; who: string } | null>(null);
 
-  if (q.isError) return <div style={{ padding: inDrawer ? 24 : 0, ...sub }}>{t('yc.gl.err')}</div>;
+  // Lecture en échec (délai compris) : l'erreur et « Réessayer », jamais un message seul.
+  if (q.isError && !d) return <div style={{ padding: inDrawer ? 24 : 0 }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></div>;
   if (!d) return <GlSkeleton pad={inDrawer} />;
   if (d.error === 'not_found') return <div style={{ padding: inDrawer ? 24 : 0, ...sub }}>{t('yc.ni.dr.notFound')}</div>;
 

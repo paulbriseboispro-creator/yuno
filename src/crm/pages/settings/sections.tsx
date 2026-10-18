@@ -303,7 +303,11 @@ function StepBtn({ dir, off, onClick, label }: { dir: -1 | 1; off: boolean; onCl
   );
 }
 
-export function SectionRules({ delay, f, set, preview, canEdit }: { delay: number | undefined; f: SettingsForm; set: Set; preview: RulesPreview | undefined; canEdit: boolean }) {
+export function SectionRules({ delay, f, set, preview, previewError, canEdit }: {
+  delay: number | undefined; f: SettingsForm; set: Set; preview: RulesPreview | undefined; canEdit: boolean;
+  /** crm_rules_preview en échec : « — » à la place des effectifs (jamais 0) et « Réessayer ». */
+  previewError?: { onRetry: () => void; retrying: boolean } | null;
+}) {
   const { t, tp, n, lang } = useCrmT();
   const shown = delay !== undefined;
   const total = preview?.total ?? null;
@@ -327,6 +331,12 @@ export function SectionRules({ delay, f, set, preview, canEdit }: { delay: numbe
   return (
     <SecCard id="c" delay={delay} gap={6}>
       <SecHead id="c" title={t('yc.set.c.t')} sub={t('yc.set.c.s')} mb={14} />
+      {previewError && (
+        <div role="alert" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px 12px', padding: '14px 18px', marginBottom: 6, borderRadius: 18, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14.5, fontWeight: 500 }}>
+          {t('yc.set.c.previewErr')}
+          <button type="button" onClick={previewError.onRetry} disabled={previewError.retrying} style={{ border: 0, background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--ink)', cursor: previewError.retrying ? 'default' : 'pointer', opacity: previewError.retrying ? 0.5 : 1 }}>{t('yc.common.retry')}</button>
+        </div>
+      )}
       <fieldset disabled={!canEdit} style={{ border: 0, margin: 0, padding: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Habitué */}
         <div style={block}>
@@ -361,8 +371,8 @@ export function SectionRules({ delay, f, set, preview, canEdit }: { delay: numbe
             </div>
           </div>
           <div style={{ flex: '0 1 230px', minWidth: 200, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, padding: '20px 22px', borderRadius: 22, background: 'var(--sand-50)' }}>
-            <span style={big}>{n(hNum)}</span>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>{tp('yc.set.hab.count', Math.round(hNum))}</span>
+            <span style={big}>{habTarget === null ? '—' : n(hNum)}</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>{tp('yc.set.hab.count', habTarget === null ? 2 : Math.round(hNum))}</span>
             <div style={{ height: 8, borderRadius: 99, background: 'var(--sand-200)', overflow: 'hidden', marginTop: 4 }}>
               <div style={{ height: '100%', borderRadius: 99, background: 'var(--gradient-brand)', width: `${hShare}%`, transition: `width 600ms ${EASE}` }} />
             </div>
@@ -402,8 +412,8 @@ export function SectionRules({ delay, f, set, preview, canEdit }: { delay: numbe
             </div>
           </div>
           <div style={{ flex: '0 1 230px', minWidth: 200, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, padding: '20px 22px', borderRadius: 22, background: 'var(--red-50)' }}>
-            <span style={big}>{n(rNum)}</span>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>{tp('yc.set.lapse.count', Math.round(rNum))}</span>
+            <span style={big}>{reactTarget === null ? '—' : n(rNum)}</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>{tp('yc.set.lapse.count', reactTarget === null ? 2 : Math.round(rNum))}</span>
             <span style={{ fontSize: 13, lineHeight: 1.4, color: 'var(--sand-600)' }}>{t('yc.set.lapse.desc', { n: f.mois })}</span>
           </div>
         </div>

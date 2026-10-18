@@ -21,6 +21,7 @@ import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmToast } from '@/crm/ui/toast';
 import { YunitFace } from '@/crm/ui/YunitFace';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useNights } from '@/crm/data/nights';
 import { useInvalidateEmails } from '@/crm/data/emails';
 import { duplicateCampaigns } from '@/crm/data/emailActions';
@@ -54,6 +55,18 @@ export default function EmailStudioPage() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <div className="yc yc-page-bg" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>{children}</div>;
+}
+
+/** La campagne ou le modèle n'a pas pu être lu : l'erreur, « Réessayer » et le chemin du retour. */
+function LoadFailed({ error, onRetry, back, backLabel }: { error: unknown; onRetry: () => void; back: () => void; backLabel: string }) {
+  return (
+    <Centered>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <CrmLoadError error={error} onRetry={onRetry} />
+        <button type="button" onClick={back} style={{ border: 0, background: 'none', padding: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--sand-600)', cursor: 'pointer' }}>{backLabel}</button>
+      </div>
+    </Centered>
+  );
 }
 
 /** `new?new=annonce` / `new?dup=<id>` : crée le brouillon, puis l'ouvre. */
@@ -90,6 +103,9 @@ function StudioLoader({ id }: { id: string }) {
   const { space } = useCrmScope();
   const [store, setStore] = useState<StoreApi<StudioState> | null>(null);
   const [missing, setMissing] = useState(false);
+  // Une lecture qui échoue (délai compris) n'est pas un e-mail disparu : erreur et « Réessayer ».
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
   const nights = useNights();
   // Ce que le chargement lit au moment où il part : une campagne s'ouvre une
   // fois, un changement de langue ne la recharge pas. Les blocs neufs se
@@ -104,9 +120,10 @@ function StudioLoader({ id }: { id: string }) {
       const { space: sp, toast: say, nav: go } = env.current;
       const { data, error } = await supabase.from('email_campaigns').select('*').eq('id', id).maybeSingle();
       if (off) return;
+      if (error) { setLoadError(error); return; }
       const row = data as (CampaignRow & { venue_id: string | null; organizer_user_id: string | null }) | null;
       const mine = !!row && (row.venue_id ?? null) === sp.venueId && (row.organizer_user_id ?? null) === sp.organizerUserId;
-      if (error || !row || !mine) { setMissing(true); return; }
+      if (!row || !mine) { setMissing(true); return; }
       if (!EDITABLE.includes(row.status)) {
         say(env.current.t('yc.em.st.sentRedirect'));
         go(CRM_ROUTES.emailResults(id), { replace: true });
@@ -116,7 +133,7 @@ function StudioLoader({ id }: { id: string }) {
       setStore(createStudioStore(rowToCampaign(row, sp.name), { venueName: sp.name, logoUrl: sp.logoUrl ?? undefined }, decorate));
     })();
     return () => { off = true; };
-  }, [id]);
+  }, [id, attempt]);
 
   // Lien de la soirée reliée : c'est lui que prend un bouton posé ensuite.
   const eventId = store ? store.getState().campaign.eventId : null;
@@ -133,6 +150,7 @@ function StudioLoader({ id }: { id: string }) {
       </Centered>
     );
   }
+  if (loadError) return <LoadFailed error={loadError} onRetry={() => { setLoadError(null); setAttempt((a) => a + 1); }} back={() => nav(CRM_ROUTES.emailCampaigns)} backLabel={t('yc.em.st.back')} />;
   if (!store) return <Centered><YunitFace mood="content" size={56} /></Centered>;
   return (
     <StudioStoreContext.Provider value={store}>
@@ -154,6 +172,8 @@ function TemplateLoader({ id }: { id: string }) {
   const { space } = useCrmScope();
   const [store, setStore] = useState<StoreApi<StudioState> | null>(null);
   const [missing, setMissing] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
   const env = useRef({ t, space });
   env.current = { t, space };
   // L'aperçu se relie à la prochaine soirée, comme les vignettes de modèles ;
@@ -172,9 +192,10 @@ function TemplateLoader({ id }: { id: string }) {
       const { space: sp } = env.current;
       const { data, error } = await supabase.from('email_campaign_templates').select('*').eq('id', id).maybeSingle();
       if (off) return;
+      if (error) { setLoadError(error); return; }
       const tpl = data as (Record<string, unknown> & { id: string; name: string; venue_id: string | null; organizer_user_id: string | null }) | null;
       const mine = !!tpl && (tpl.venue_id ?? null) === sp.venueId && (tpl.organizer_user_id ?? null) === sp.organizerUserId;
-      if (error || !tpl || !mine) { setMissing(true); return; }
+      if (!tpl || !mine) { setMissing(true); return; }
       const row = {
         id: tpl.id, name: tpl.name, type: (tpl.type as string) || 'promotional', status: 'draft',
         subject: (tpl.subject as string) || '', subject_b: null, ab_enabled: false, preheader: (tpl.preheader as string) || '',
@@ -189,7 +210,7 @@ function TemplateLoader({ id }: { id: string }) {
       setStore(createStudioStore(rowToCampaign(row, sp.name), { venueName: sp.name, logoUrl: sp.logoUrl ?? undefined }, decorate));
     })();
     return () => { off = true; };
-  }, [id, nightsReady]);
+  }, [id, nightsReady, attempt]);
 
   if (missing) {
     return (
@@ -202,6 +223,7 @@ function TemplateLoader({ id }: { id: string }) {
       </Centered>
     );
   }
+  if (loadError) return <LoadFailed error={loadError} onRetry={() => { setLoadError(null); setAttempt((a) => a + 1); }} back={() => nav(CRM_ROUTES.automations)} backLabel={t('yc.au.tpl.back')} />;
   if (!store) return <Centered><YunitFace mood="content" size={56} /></Centered>;
   return (
     <StudioStoreContext.Provider value={store}>

@@ -21,6 +21,7 @@ import { downloadCsv } from '@/crm/lib/csv';
 import { useNights } from '@/crm/data/nights';
 import { useAnaCommunity, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaSeg, type AnaTab } from '@/crm/data/analytics';
 import { StatePill, type NightState } from './anaUi';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { SalesTab, salesCsv } from './SalesTab';
 import { TrafficTab, trafficCsv } from './TrafficTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
@@ -50,6 +51,12 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   if (seg === 'end' && tab !== 'community') seg = 'all';
   if (tab === 'traffic' || tab === 'guestlist') seg = 'all';
   return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0' };
+}
+
+/** Lecture en échec et rien en mémoire : CrmLoadError avec « Réessayer » ; sinon rien (l'onglet s'affiche). */
+function failed(q: { isError: boolean; data: unknown; error: unknown; isFetching: boolean; refetch: () => Promise<unknown> }) {
+  if (!q.isError || q.data) return null;
+  return <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />;
 }
 
 function AnalyticsView({ tab }: { tab: AnaTab }) {
@@ -286,10 +293,11 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
         {ev && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.ana.f.perNote')}</div>}
       </div>}
 
-      {tab === 'sales' && <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />}
-      {tab === 'traffic' && <TrafficTab q={traffic} f={f} setF={setF} />}
-      {tab === 'community' && (why ? <WhyView /> : <CommunityTab q={community} f={f} setF={setF} />)}
-      {tab === 'guestlist' && <GuestListTab q={guestlist} f={f} />}
+      {/* Un onglet dont la lecture échoue (délai de 30 s compris) dit l'échec : ses squelettes attendraient sans fin. */}
+      {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />)}
+      {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} />)}
+      {tab === 'community' && (why ? <WhyView /> : failed(community) ?? <CommunityTab q={community} f={f} setF={setF} />)}
+      {tab === 'guestlist' && ((f.event ? null : failed(guestlist)) ?? <GuestListTab q={guestlist} f={f} />)}
     </main>
   );
 }

@@ -24,6 +24,7 @@ import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CrmRpcError, rpc } from '@/crm/lib/rpc';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { downloadCsv } from '@/crm/lib/csv';
 import { imageMinSide, squareImage } from '@/crm/lib/image';
 import { useNights } from '@/crm/data/nights';
@@ -36,11 +37,16 @@ import { SectionData, SectionElsewhere, SectionIdentity, SectionPage, SectionRul
 
 const SECS: SecId[] = ['a', 'b', 'c', 'd', 'e'];
 
+const PAGE = { flex: 1, width: '100%', maxWidth: 1240, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,40px) clamp(16px,3vw,40px) 140px', display: 'flex', flexDirection: 'column', gap: 30 } as const;
+
 export default function SettingsPage() {
   const q = useCrmSettings();
+  if (q.isError && !q.data) {
+    return <main style={PAGE}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></main>;
+  }
   if (!q.data) {
     return (
-      <main style={{ flex: 1, width: '100%', maxWidth: 1240, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,40px) clamp(16px,3vw,40px) 140px', display: 'flex', flexDirection: 'column', gap: 30 }}>
+      <main style={PAGE}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Skel w={180} h={14} />
           <Skel w="min(560px,90%)" h={38} r={10} />
@@ -317,7 +323,7 @@ function SettingsView() {
         <div style={{ flex: '999 1 560px', minWidth: 0, maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 24 }}>
           <SectionIdentity delay={rev.a} f={f} set={set} s={s} canEdit={canEdit && s.can.identity} lockNote={canEdit && !s.can.identity} onLogo={(file) => { void onLogo(file); }} uploading={uploading} next={next} senderName={senderName} />
           <SectionPage delay={rev.b} f={f} next={next} notified={notified} onNotify={notify} notifyBusy={wl.pending || !wl.loaded} />
-          <SectionRules delay={rev.c} f={f} set={set} preview={preview.data} canEdit={canEdit} />
+          <SectionRules delay={rev.c} f={f} set={set} preview={preview.data} previewError={preview.isError && !preview.data ? { onRetry: () => { void preview.refetch(); }, retrying: preview.isFetching } : null} canEdit={canEdit} />
           <SectionData delay={rev.d} f={f} set={set} s={s} preview={preview.data} exp={exp} onExport={() => { void doExport(); }} onDelete={() => { setDelTxt(''); setDelOpen(true); }} canExport={caps.read} />
           <SectionElsewhere delay={rev.e} />
         </div>

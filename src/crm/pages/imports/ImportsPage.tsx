@@ -58,6 +58,9 @@ export default function ImportsPage() {
       ) : (
         <ImportsHome
           data={ov.data}
+          error={ov.isError ? ov.error : null}
+          onRetry={() => { void ov.refetch(); }}
+          retrying={ov.isFetching}
           intro={intro}
           onFile={(f) => openWizard(f)}
           onOpenWizard={() => { if (pickRef.current) { pickRef.current.value = ''; pickRef.current.click(); } }}

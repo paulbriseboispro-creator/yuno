@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Modal, Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE, SPRING, reveal } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
@@ -38,9 +39,13 @@ export function NightPanelRules({ rules, small }: { rules: { b: string; t: strin
 }
 
 export function ImportsHome({
-  data, intro, onFile, onOpenWizard, sampleEmail,
+  data, error, onRetry, retrying, intro, onFile, onOpenWizard, sampleEmail,
 }: {
   data: ImportsOverview | undefined;
+  /** Échec de crm_imports_overview : l'erreur et « Réessayer » sous l'en-tête. */
+  error: unknown;
+  onRetry: () => void;
+  retrying: boolean;
   intro: boolean;
   onFile: (f: File) => void;
   onOpenWizard: () => void;
@@ -116,15 +121,31 @@ export function ImportsHome({
 
   const hist = data ? [...data.imports] : [];
 
+  // L'en-tête reste quand la lecture échoue : la page dit où l'on est, puis l'erreur.
+  const head = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)', ...reveal(intro, 100) }}>{t('yc.imp.eyebrow')}</span>
+      <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...reveal(intro, 170) }}>
+        {t('yc.imp.title1')}<span style={{ background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{t('yc.imp.titleAccent')}</span>{t('yc.imp.title2')}
+      </h1>
+      <p style={{ margin: 0, maxWidth: 680, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', ...reveal(intro, 240) }}>{t('yc.imp.sub')}</p>
+    </div>
+  );
+
+  // Sans la vue d'ensemble, la synchro passerait pour « non connectée » et
+  // l'historique resterait en squelettes : on dit l'échec (délai compris).
+  if (error && !data) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+        {head}
+        <CrmLoadError error={error} onRetry={onRetry} retrying={retrying} />
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)', ...reveal(intro, 100) }}>{t('yc.imp.eyebrow')}</span>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...reveal(intro, 170) }}>
-          {t('yc.imp.title1')}<span style={{ background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{t('yc.imp.titleAccent')}</span>{t('yc.imp.title2')}
-        </h1>
-        <p style={{ margin: 0, maxWidth: 680, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', ...reveal(intro, 240) }}>{t('yc.imp.sub')}</p>
-      </div>
+      {head}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,470px),1fr))', gap: 20, alignItems: 'stretch' }}>
         {/* Synchro automatique */}
