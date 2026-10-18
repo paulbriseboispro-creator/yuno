@@ -58,7 +58,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 |---|---|
 | Unicité par client et par source | réussi (index uniques ; personnes par espace) |
 | Plusieurs billets par commande, achats répétés, homonymes, e-mail absent ou modifié | réussi à la relecture (adresse = identité ; billet sans e-mail = vente sans personne ; changement d'adresse suivi par `ticketing_email_moves`) |
-| Gratuits, annulation, remboursement, transfert, scan | réussi à la relecture (miroirs TS testés) ; DATA-02 (gratuit non scanné = soirée faite) → **corrigé** (`audit-data.mjs`, décision de Paul) ; suite dans le moteur d'analyse ouverte (DATA-08) |
+| Gratuits, annulation, remboursement, transfert, scan | réussi à la relecture (miroirs TS testés) ; DATA-02 (gratuit non scanné = soirée faite) → **corrigé** (`audit-data.mjs`, décision de Paul) ; moteur d'analyse aligné (DATA-08, `audit-analysis.mjs` ; le score reste sur les achats, décision de Paul) |
 | Fuseaux, devises, arrondis | réussi (UTC vérifié en prod) ; devise → **corrigé** (DATA-04) |
 | Rapprochement source / stocké / affiché | stocké : réussi (18/10) ; source : réussi le 17/10 ; affiché : **bloqué** (RPC en tant que le titulaire refusée par le garde-fou de la session) |
 | Exclusions et désinscriptions survivent à une resynchro | réussi (`ON CONFLICT DO NOTHING`, suppression globale, repoussoir) ; effacement pour conservation → **corrigé** (DATA-01, marque par billet) ; adresse mal formée ≠ effacement → **corrigé** (DATA-07) |

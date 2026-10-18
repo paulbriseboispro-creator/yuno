@@ -26,7 +26,8 @@ renvoient au [rapport](REPORT.md).
 | 12 | ~~DATA-03~~ : **fait** (`20261022110000`, FAQ corrigée) | — |
 | 13 | ~~DATA-05~~ : **fait** (`20261022120000`, connecteur, confirmation dans la Console) | — |
 | 14 | ~~DATA-01~~ : **fait** (décision de Paul : marque par billet ; `20261022130000`) | — |
-| 14b | ~~DATA-08~~ : migration `20261022140000` écrite (non appliquée, après `20261022100000`) ; banc `audit-analysis.mjs` (`dump`, puis un profil) ; reste : relancer `gratuit`, `demo`, `grand`, `hasard` et noter familles / score, puis colonne « nouveaux acheteurs » pour la projection | 30 min |
+| 14b | ~~DATA-08~~ : **fait** (décision de Paul : hypothèses, profils et audiences sur les soirées faites, score « Chances de venir » sur les achats ; `20261022140000`, après `20261022100000`, banc `audit-analysis.mjs`) | — |
+| 14c | DATA-08b : colonne « nouveaux acheteurs » pour la projection de remplissage (`_crm_an_write_nights`, `crm_night_targets`, `_crm_score_journal`, `crm_admin_analysis`) | ½ j / 30 min |
 | 15 | OPS-02 : restauration d'essai dans un projet isolé, chronométrée ; décider du PITR | ½ j |
 | 16 | OPS-03 / OPS-04 : rejeu des migrations sur un projet de branche ; migration de référence des fonctions réécrites par bloc `DO` | 1 j / 45 min |
 | 17 | MAIL-04 : test automatique de la course « déprogrammée pendant le passage du cron » (aujourd'hui relecture seulement) | ½ j / 20 min |

@@ -26,7 +26,9 @@ Les conditions :
    données (SYNC-01b), bandeau « import en cours » (UI-01).
 3. DATA-02 tranché par Paul le 18/10 (une entrée gratuite non scannée sur une
    porte mesurée n'est pas une soirée faite) et corrigé dans cette branche
-   (`20261022100000`) : à mettre en ligne avec les autres (section 9).
+   (`20261022100000`), moteur d'analyse compris (`20261022140000`, DATA-08 ; le
+   score « Chances de venir » reste sur les achats, décision de Paul) : à mettre
+   en ligne avec les autres (section 9).
 4. Fusionner `crm/s11-practical-email` **avant** cette branche : la prod fait
    tourner son code et sa migration, absents de main (OPS-05).
 
@@ -132,13 +134,13 @@ chiffre important faux ; P2 défaut avec contournement ; P3 mineur.
 | SYNC-03 | P3 | Une version plus ancienne d'un billet pouvait écraser la plus récente (deux passes à la fois ; la reconnexion libérait le verrou d'une passe vivante). | `external_tickets`, `ticketing_connect` | reproduit au banc | trigger `trg_external_tickets_0_skip_stale` ; la reconnexion garde un bail vivant (`leaseAlive`) | `audit-data.mjs` ; `ticketingShotgunAudit.test.ts` |
 | DATA-04 | P3 | Un billet en dollars ou en reais s'additionnait aux euros. | `mapShotgunTicket` | lu (100 % EUR en prod) | billet gardé, prix inconnu (`price` NULL) : ni payant ni gratuit, jamais dans une somme | `ticketingShotgunAudit.test.ts` |
 | DATA-06 | P3 | `contact_*` = le **détenteur** du billet ; l'aide disait « acheteurs ». | FAQ, articles de l'assistant | lu | « détenteurs » dans `yc.faq.shotgun.a`, `yc.faq.customers.a`, `crm-overview`, `crm-ticketing-connect` | relecture |
+| DATA-08 | P2 | Le moteur d'analyse client comptait encore toute vente comme une venue, entrée gratuite non scannée sur porte mesurée comprise (suite de DATA-02) : « Ce qui fait venir », artistes « vus », séries « fidèles », « venus une fois », « Qui cibler » et « Fidèles du concept » portaient sur des soirées où la personne n'est pas venue. **Décision de Paul (18/10)** : la règle vaut pour les hypothèses, les profils et les audiences ; le score « Chances de venir » reste entièrement sur les achats, facteurs ET cible. | `_crm_an_load` (table `_ana`), donc `_crm_an_engine`, `_crm_an_fill_hyps`, `crm_person_profile`, `crm_night_profile`, `crm_artist_stats`, `_crm_night_target_set` ; score : `crm_score_compute`, `_crm_score_build` | prod, lecture seule (Amoris) : soirées-personnes de l'analyse 22 449 → 13 013, personnes analysées 16 952 → 11 207, revenues au moins une fois 2 513 → 1 076 ; banc `gratuit` : 18 518 → 6 531 | `20261022140000` : `_ana` = soirées faites (`_crm_sale_counts_as_night`, `_crm_measured_doors`) ; le score lit `_anbought` (`_crm_an_load_bought`, l'ancienne `_ana` ligne pour ligne) et `_anp.passing_bought`. Essayé d'abord avec des facteurs sur les venues : l'AUC du banc `gratuit` tombait de 0,87 à 0,69, d'où la décision. Seules les RAISONS d'une chance suivent le statut des familles, comme avant | `audit-analysis.mjs` (instantané de la prod) : `petit`, `demo`, `grand`, `hasard` identiques sur les huit tables (`diff.mjs`) ; `gratuit` : `_anbought` et « de passage » du score = l'ancien (0 écart), portes du score ouvertes (`BENCH_SCORE_OPEN=1`) : 40 367 chances, étiquettes et raisons identiques à la même horloge, modèle identique (AUC 0,880 / 0,880) ; familles discovery et slot « pas de différence nette » → « à tester », brought « non testée » → « à tester » ; retour arrière `ROLLBACK-data.sql` prouvé |
 | SYNC-06 | P3 | Un mauvais ID organisateur avec un jeton valide se lisait « jeton non reconnu ». Shotgun refuse le couple sans dire lequel ne va pas : rien ne permet de distinguer les deux. | `ticketingErrorKey` | lu | le message de la connexion nomme l'ID d'abord, puis le jeton (`yc.co.err.orgOrToken`) | relecture |
 
 ## 5. Problèmes ouverts
 
 | ID | P | Problème | Impact client | Proposition |
 |---|---|---|---|---|
-| DATA-08 | P2 | Le moteur d'analyse client (« Ce qui fait venir », « Qui cibler », « Fidèles du concept », chances de venir) comptait encore une vente comme une venue, entrée gratuite non scannée comprise (suite de DATA-02). | Prod, lecture seule (Amoris) : soirées-personnes de l'analyse 22 449 → 13 013, personnes 16 952 → 11 207, revenus au moins une fois 2 513 → 1 076. | **Corrigé, non appliqué** : `20261022140000` (après `20261022100000`). `_ana` = soirées faites (porte `_crm_sale_counts_as_night` / `_crm_measured_doors`) ; la CIBLE de « Chances de venir » reste l'achat (`_anbought`, comparé aux ventes par le journal prévu / réel). Banc `audit-analysis.mjs` : `petit` identique ligne pour ligne ; `gratuit` (façon WOH) 18 001 → 6 352 venues, `_anbought` = ancienne `_ana`. Familles / score de `gratuit`, `demo`, `grand`, `hasard` : à relancer. Limite : la projection de remplissage estime les nouveaux par `new_people` (nouveaux venus), elle sous-estimera sur un compte à entrées gratuites (porte `_crm_projection_gate` fermée). |
 | OPS-05 | P2 | La prod fait tourner du code et une migration (`20261019150000`, e-mail pratique, branche `crm/s11-practical-email`) absents de main. | Déployer `send-campaign` depuis main retirerait l'e-mail pratique de la prod sans un mot. | Fusionner S11 avant cette branche (section 9). |
 | MAIL-03 | P2 | La clé d'idempotence d'un lot dépend de sa composition : si l'écriture « envoyé » échoue après que Resend a accepté (≈ 21 s d'API en 503 après chaque migration), les lignes reviennent en file, sont regroupées autrement, et repartent. | Un même e-mail reçu deux fois par une centaine de personnes, rarement. | Garder la clé de lot sur les lignes à la réclamation et renvoyer le même lot ; réessayer l'écriture « envoyé ». |
 | MAIL-08 | P2 | E-mail de test : le titulaire + 5 adresses libres, sans limite ni Yunit. | Relais d'envoi depuis le domaine marketing. | 20 tests / jour / espace ; adresses de l'équipe seulement. |
@@ -154,6 +156,7 @@ chiffre important faux ; P2 défaut avec contournement ; P3 mineur.
 | MAIL-10 | P3 | Webhook Resend accepté sans signature si le secret manque (il est posé en prod) ; comparaison non constante. | Aucun aujourd'hui. | Refuser sans secret ; comparaison en temps constant. |
 | MAIL-11 | P3 | « Envoyé » = accepté par Resend ; « délivré » n'existe que comme événement ; « reçus » = envoyés − rebonds. | Libellé à préciser. | Montrer « acceptés » / « délivrés ». |
 | UI-05 | P3 | Porte légale : échec d'enregistrement ignoré ; fenêtre sans piège de focus. Puce « Testez-le » d'Imports qui ajoute un faux contact à la vraie base. | Mineur. | Voir BACKLOG. |
+| DATA-08b | P3 | La projection de remplissage (« ≈ N acheteurs au total », `crm_night_targets`, `_crm_score_journal`, `crm_admin_analysis`) estime les nouveaux par `crm_night_profile.new_people`, qui compte depuis DATA-08 des nouveaux VENUS, alors qu'elle se règle sur les nouveaux ACHETEURS. | Sur un compte à entrées gratuites, la projection sous-estime ; la porte `_crm_projection_gate` (écart < 15 % sur 8 soirées) la garde fermée tant que c'est le cas : rien de faux n'est montré. | Une colonne « nouveaux acheteurs » (`new_buyers`) écrite par `_crm_an_write_nights` depuis `_anbought`, lue par les trois projections ; `new_people` reste le chiffre affiché « nouveaux venus ». |
 
 ## 6. Données : définitions et rapprochement
 
@@ -169,7 +172,9 @@ Définitions appliquées par le code (CLAUDE.md, sections Shotgun et guest list)
   deux : billets payants (prix > 0) et entrées gratuites.
 - **Soirée faite** (habitué, fidèles, nombre de soirées) : une vente ou une
   invitation scannée, sauf une entrée gratuite non scannée sur une porte mesurée
-  (décision de Paul du 18/10, DATA-02).
+  (décision de Paul du 18/10, DATA-02), analyse client comprise (DATA-08). Le
+  score « Chances de venir » compte, lui, les ACHATS : il prédit une place prise
+  et se juge sur les ventes.
 - **Dépense d'un contact** : la somme des ventes, hors invitations, duplicatas et
   billets revendus (DATA-03).
 - **Chiffre d'affaires (Console CRM)** : somme des prix faciaux (`deal_price` ÷ 100)
@@ -234,7 +239,11 @@ formulations interdites testées (`analysis.test.ts`), aucun « vient pour ».
    « données » `20261022100000` (soirée faite), `20261022110000` (dépense),
    `20261022120000` (soirées co-organisées), `20261022130000` (billets :
    effacement, adresse illisible, version ancienne) — **cette dernière avant la
-   fonction `affiliate-ticket-sync`**, qui écrit sa colonne. Pour chacune : répétition dans
+   fonction `affiliate-ticket-sync`**, qui écrit sa colonne — et
+   `20261022140000` (moteur d'analyse, DATA-08 ; après `20261022100000`, dont
+   elle lit les portes). Ses effets se lisent au calcul complet de la nuit
+   (`crm-analysis-nightly`), ou tout de suite par `crm_analysis_compute(…, true)`
+   compte par compte, une écriture lourde à la fois. Pour chacune : répétition dans
    une transaction annulée sur la prod, application avec sa ligne
    `schema_migrations`, puis `supabase db lint --linked`. Pas de `NOTIFY pgrst`
    nécessaire (aucune signature exposée ne change).

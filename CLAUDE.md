@@ -1706,8 +1706,15 @@ Migrations `20261021100000` → `120000`. Règles nées de l'audit :
   provenance garde « avait une place »), fiche client, aperçu des règles,
   Accueil et volet d'une soirée. Un inscrit gratuit jamais venu sans place à
   venir est « contact connu, aucune soirée ». Toute nouvelle lecture « soirées
-  faites / habitué » passe par ces portes. Le moteur d'analyse (`_crm_an_load`)
-  ne la suit pas encore (suite à faire sur son banc).
+  faites / habitué » passe par ces portes. Le moteur d'analyse la suit
+  (DATA-08, `20261022140000`) : `_ana` = soirées faites, donc familles,
+  hypothèses, profils personne / soirée, artistes et audiences « Qui cibler ».
+  **Le score « Chances de venir » reste ENTIÈREMENT sur les achats**, facteurs
+  ET cible (décision de Paul du 18/10) : il lit `_anbought`
+  (`_crm_an_load_bought`, l'ancienne `_ana`) et `_anp.passing_bought`, car le
+  journal prévu / réel le juge sur les ventes. Banc :
+  `scripts/crm-bench/audit-analysis.mjs` (instantané de la prod, profil
+  `gratuit` = `demo` + entrées gratuites façon WOH).
 - **Dépense d'un contact = les ventes seulement** (`contact_scope_customers`,
   DATA-03) : un billet revendu, une invitation, un duplicata restent un billet
   (la personne reste cliente) mais ne coûtent rien.
