@@ -93,8 +93,9 @@ export default function SmsTemplatesPage() {
                 <span style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--sand-600)', textWrap: 'pretty' }}>{t(`yc.sm.tpl.${x.id}.desc`)}</span>
                 <span style={{ fontSize: 13.5, color: 'var(--sand-500)', marginTop: 4 }}>{tp('yc.sm.tp.len', k.length, { n: n(k.length) })} · {tp('yc.sm.tp.parts', k.parts, { n: k.parts })}</span>
                 <div style={{ marginTop: 'auto', paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--sand-100)' }}>
+                  {/* Sans vos envois (lecture en échec ou en cours), on ne dit pas « pas encore utilisé ». */}
                   <span style={{ fontSize: 13.5, color: u ? 'var(--ink)' : 'var(--sand-500)' }}>
-                    {u ? tp('yc.sm.tp.used', u.n, { p: pct((rate(u.c, u.d) ?? 0) * 100), n: n(u.n) }) : t('yc.sm.tp.unused')}
+                    {u ? tp('yc.sm.tp.used', u.n, { p: pct((rate(u.c, u.d) ?? 0) * 100), n: n(u.n) }) : camps.data ? t('yc.sm.tp.unused') : null}
                   </span>
                   {caps.write && (
                     <Hv as={Link} to={to} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14.5, fontWeight: 600, color: 'var(--red-600)', textDecoration: 'none', whiteSpace: 'nowrap' }} hover={{ color: 'var(--red-700)', textDecoration: 'none' }}>
