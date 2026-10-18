@@ -5,9 +5,10 @@
  * « STOP au 30101 »), nombre de SMS par contact, coût en Yunits, modèles,
  * vérifications avant l'envoi, heures d'envoi. Pures et testées.
  *
- * L'envoi est OUVERT depuis le 2026-10-08 (Octopush, 35 Yunits par SMS,
+ * Le moteur est prêt depuis le 2026-10-08 (Octopush, 35 Yunits par SMS,
  * docs/designs/SMS_PROVIDER_PLAN.md) : send-sms-campaign débite les Yunits,
- * remplit les variables et lit les réglages d'envoi du compte.
+ * remplit les variables et lit les réglages d'envoi du compte. Les écrans
+ * restent « Bientôt » tant que le fournisseur n'est pas branché en prod.
  */
 import {
   composeSmsBody, LEGAL_NIGHT_FROM, LEGAL_NIGHT_TO, isFrenchPublicHoliday, nonGsmChars, resolveSmsVars, senderIdError,
@@ -17,8 +18,16 @@ import {
 export { resolveSmsVars, senderIdError };
 export type { SmsValues };
 
-/** Les écrans SMS de la Console sont montrés (ouverture du 08/10). */
-export const CRM_SMS_DISPLAY_LIVE = true;
+/**
+ * Les écrans SMS de la Console sont montrés. FAUX tant qu'Octopush n'est pas
+ * branché en prod (audit du 18/10, SMS-01 : aucun secret OCTOPUSH_* posé, le
+ * test répondait « SMS non configuré » alors que la Console présentait le SMS
+ * comme ouvert). Faux = page « Bientôt » sur /crm/sms/*, SMS grisé dans
+ * « Écrire à… », pas d'étape SMS dans « 1re soirée » ni dans un scénario
+ * publié. Remettre à true dans le MÊME déploiement que les secrets Octopush
+ * (docs/designs/SMS_PROVIDER_PLAN.md, scripts/sms/octopush-setup.mjs).
+ */
+export const CRM_SMS_DISPLAY_LIVE = false;
 /** Le moteur SMS est branché pour les comptes CRM (Yunits, variables, réglages, Octopush). */
 export const CRM_SMS_ENGINE_READY = true;
 /** Les écrans SMS se comportent comme ouverts (programmer, tester, envoyer). */

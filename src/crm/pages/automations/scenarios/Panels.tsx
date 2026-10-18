@@ -10,6 +10,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { CtaButton, Modal, Skel } from '@/crm/ui/kit';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { holdoutVerdict } from '@/crm/lib/holdout';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 import { useScenarioPreview, type ScnIssue, type ScnReport } from '@/crm/data/scenarios';
 import { WARN_CODES, errorText, type T } from './scnText';
 import { NodeGlyph, Note, SmallButton } from './scnUi';
@@ -41,7 +42,8 @@ export function AddStepModal({ T, allowEnd, onPick, onClose }: { T: T; allowEnd:
         <Head T={T} title={t('yc.scn.add.title')} sub={t('yc.scn.add.sub')} onClose={onClose} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,210px),1fr))', gap: 8 }}>
           {types.map((type) => {
-            const soon = type === 'instagram_dm';
+            // Instagram (App Review Meta) et SMS (fournisseur pas encore branché) : « Bientôt ».
+            const soon = type === 'instagram_dm' || (type === 'sms' && !CRM_SMS_DISPLAY_LIVE);
             return (
               <Hv key={type} as="button" type="button" disabled={soon} onClick={() => onPick(type)}
                 style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--sand-200)', background: '#fff', textAlign: 'left', cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.55 : 1 }}

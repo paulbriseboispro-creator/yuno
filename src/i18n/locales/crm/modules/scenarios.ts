@@ -889,6 +889,7 @@ const dict: CrmDict = {
   'yc.notif.scenario_notify.action': ['See the scenario', 'Voir le scénario', 'Ver el escenario'],
 
   // ── Commun ────────────────────────────────────────────────────────────────
+  'yc.scn.err.sms_soon': ['SMS is coming soon: remove this SMS step to publish.', 'Le SMS arrive bientôt : retirez cette étape SMS pour publier.', 'El SMS llega pronto: quite este paso SMS para publicar.'],
   'yc.scn.soon': ['Coming soon', 'Bientôt', 'Próximamente'],
   'yc.scn.soonShotgun': ['Coming with the Shotgun partner integration', 'Bientôt, avec l’intégration partenaire Shotgun', 'Pronto, con la integración de socio de Shotgun'],
   'yc.scn.close': ['Close', 'Fermer', 'Cerrar'],
