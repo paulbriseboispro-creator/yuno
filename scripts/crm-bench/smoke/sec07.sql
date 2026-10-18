@@ -41,6 +41,8 @@ BEGIN
     LEFT JOIN public.venues v ON v.id = p.venue_id
     LEFT JOIN public.agencies a ON a.id = p.agency_id
    WHERE p.user_id IS NOT NULL
+     -- Sur la prod, jamais un vrai compte : promoteurs démo (@womber.fr) seulement ; @bench.test = le banc.
+     AND (SELECT u.email FROM auth.users u WHERE u.id = p.user_id) ~* '@((demo\.)?womber\.fr|bench\.test)$'
      AND COALESCE(a.owner_user_id, v.owner_id, p.organizer_user_id) IS NOT NULL
      AND COALESCE(a.owner_user_id, v.owner_id, p.organizer_user_id) <> p.user_id
      AND NOT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = p.user_id AND r.role = 'admin')

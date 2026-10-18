@@ -53,6 +53,8 @@ BEGIN
   SELECT p.id, p.user_id, p.venue_id, p.organizer_user_id INTO v_pr
     FROM public.promoters p
    WHERE p.user_id IS NOT NULL AND p.is_active
+     -- Sur la prod, jamais un vrai compte : promoteurs démo (@womber.fr) seulement ; @bench.test = le banc.
+     AND (SELECT u.email FROM auth.users u WHERE u.id = p.user_id) ~* '@((demo\.)?womber\.fr|bench\.test)$'
      AND (p.venue_id IS NOT NULL OR p.organizer_user_id IS NOT NULL)
    ORDER BY (p.venue_id = 'womber') DESC, p.created_at
    LIMIT 1;
@@ -113,6 +115,8 @@ BEGIN
   SELECT a.id AS agency_id, a.owner_user_id INTO v_ag
     FROM public.agencies a
    WHERE a.owner_user_id IS NOT NULL
+     -- Sur la prod, jamais un vrai compte : agences démo (@womber.fr) seulement ; @bench.test = le banc.
+     AND (SELECT u.email FROM auth.users u WHERE u.id = a.owner_user_id) ~* '@((demo\.)?womber\.fr|bench\.test)$'
      AND NOT EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = a.owner_user_id AND r.role = 'admin')
    ORDER BY EXISTS (SELECT 1 FROM public.promoters p WHERE p.agency_id = a.id) DESC, a.created_at
    LIMIT 1;

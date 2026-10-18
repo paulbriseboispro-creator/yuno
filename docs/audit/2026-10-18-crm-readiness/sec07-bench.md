@@ -1,4 +1,4 @@
-# SEC-07 — ce qu'un promoteur écrit dans sa fiche, au banc (2026-10-18T22:32Z)
+# SEC-07 — ce qu'un promoteur écrit dans sa fiche, au banc (2026-10-18T22:34Z)
 
 Définitions, policies, triggers, contraintes et droits lus sur la prod le 2026-10-18T22:32Z (`node scripts/crm-bench/sec06.mjs dump`, lecture seule) ; chaque scénario tourne dans une transaction annulée, sous l'identité de l'API (`authenticator` → `authenticated` / `service_role`, claims JWT). Quatre bases neuves, mêmes données : la prod du 18/10 ; + `20261024100000_promoter_settlement_guards.sql` ; + `20261025200000_promoter_self_update_guard.sql` seule ; + les deux, dans l'ordre de la mise en ligne.
 
