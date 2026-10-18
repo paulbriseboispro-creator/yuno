@@ -260,3 +260,15 @@ attendent sa décision.
 | Fusion `claude/cool-leakey-40bdf2` → `bfecbc09` | Sans conflit. |
 | Contrôles | eslint 0, tsc 0, vitest 134 fichiers / 1 669 tests, build vert. |
 | Front | main poussé. Aucune migration, aucune fonction. |
+
+### SEC-07 (renumérotée) et SEC-09, sans SEC-06 ni LINK-01
+
+| Étape | Résultat |
+|---|---|
+| Branche de mise en ligne `crm/audit-sec-release` (= `crm/audit-sec09` + 3 commits) | SEC-07 renumérotée `20261025200000` (`20261025100000` = « partner_link_language », déjà en prod ; numéro libre sur main, sur toutes les branches, dans les worktrees et en prod). R11 (`sec06.mjs`) et S1 (`sec07.mjs`) en `service_role`. Smokes SEC-07 et SEC-09 limités aux comptes démo (`@womber.fr`, `@bench.test` au banc) : ils jouaient le premier promoteur ou chef d'agence venu. Smoke SEC-09 : une portée NULL du promoteur n'exclut plus toutes les soirées (sur la prod, le cas « hors périmètre » n'était pas joué). Bancs sur instantanés frais : sec06 30 / 30, sec07 35 / 35, sec09 41 / 41, smokes verts. |
+| Définitions prod | `record_promoter_conversion` identique au bloc 7 de `ROLLBACK.sql` ; `is_direct_client_write` identique à la migration ; policy « Agency owner manages own promoters » présente (remplacée). |
+| Répétition (22:35-22:45) | SEC-07 seule : SMOKE_OK (IBAN modifié et gel posé, profil modifié, gel antidaté refusé, commission par le promoteur refusée, par le gestionnaire modifiée). SEC-07 + SEC-09 : SMOKE_OK, six cas (agence plafond modifié, hors périmètre → `out_of_scope` rien d'écrit, promoteur seul refusé, dans le périmètre écrite, création et déplacement hors contrat refusés). Sans les migrations : les pièces manquent (les failles « avant » sont reproduites aux bancs). |
+| Fusion → `9a121c18` | Sans les fichiers `20261024100000` (SEC-06) et `20261024100100` (LINK-01) : ni dans main, ni en prod. Conflits sur REPORT et BACKLOG, résolus en gardant les deux côtés. eslint 0, tsc 0, vitest 135 fichiers / 1 694 tests, build vert, `deno check` des deux checkouts. |
+| Migrations (23:01) | `20261025200000`, `20261026100000`, `20261026100100`. Catalogue : rien d'exécutable par `anon` sauf `is_direct_client_write` (aide pure, INVOKER, lue par les policies) ; `trg_a_guard_promoter_self_update` premier trigger de `promoters`. `db lint` : 87 avant comme après. |
+| Fonctions (23:02) | create-ticket-checkout et create-table-checkout depuis `9a121c18`. Avant : prod = main d'avant le lot « envois » (seul `_shared/demo-guard.ts` différait, remplacé sur main par MAIL-12). Après : identiques au commit. |
+| Reste | SEC-06 (décision sur SEC-08) et LINK-01 (décision) : branche `crm/audit-sec06-link01`, blocs 4 et 5 de `ROLLBACK.sql` marqués « non appliquée ». |
