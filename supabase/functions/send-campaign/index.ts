@@ -266,9 +266,18 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>, is
     if (row?.postal_address?.trim()) postalAddress = row.postal_address.trim();
     if (row?.legal_name?.trim()) legalName = row.legal_name.trim();
   }
+  // L'adresse vient du registre de l'espace : attribuée une fois, suffixe tiré
+  // de l'espace pour un nom réservé ou déjà pris (audit du 18/10, MAIL-15).
+  // Base d'avant la migration 20261023170000 : slug du nom, comme avant.
+  let localPart = slugifyVenueName(name);
+  const { data: claimed, error: lpErr } = await admin.rpc('email_sender_local_claim', {
+    p_scope_key: senderScopeKey(venueId, organizerUserId), p_name: name,
+  });
+  if (lpErr) console.error('email_sender_local_claim failed, slug du nom utilisé:', lpErr.message);
+  else if (typeof claimed === 'string' && claimed) localPart = claimed;
   return {
     name: displayName, city, postalAddress, legalName, logoUrl, ownerUserId: ownerUserId!,
-    from: `${displayName} <${slugifyVenueName(name)}@${marketingDomain()}>`,
+    from: `${displayName} <${localPart}@${marketingDomain()}>`,
     replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
     venueId, organizerUserId,
