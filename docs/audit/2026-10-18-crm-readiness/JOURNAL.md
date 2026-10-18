@@ -111,3 +111,21 @@ l'ordre de REPORT §9. Avant chaque requête : `prod.mjs --activity` (rien ne to
 - Synchro : passe du cron de 12:45:03 `ok` (1,2 s) avec le nouveau connecteur ; les appels des crons vers les fonctions depuis le déploiement répondent tous 200 (`net._http_response`).
 - Console de prod ouverte avec le compte démo `crm@womber.fr` (session posée sans mot de passe) : Accueil, Connecteurs, Clients s'affichent, aucune erreur console.
 - Reste à faire par Paul : l'e-mail de test réel, et le bouton « Se désabonner » de Gmail sur un vrai envoi (RUNBOOK étape 12).
+
+## Mise en ligne de la suite (18/10 au soir, heures UTC)
+
+Go de Paul pour les lots données, envois, écrans d'erreur, puis SEC-07 (renuméroté)
+et SEC-09, dans cet ordre, avec son go avant chaque écriture. SEC-06 et LINK-01
+attendent sa décision.
+
+### Lot « données » (DATA-01 à 08, SYNC-03, SYNC-06)
+
+| Étape | Résultat |
+|---|---|
+| Fusion `claude/nervous-fermat-c79e39` → `13cabe43` | Sans conflit. eslint 0, tsc 0, vitest 124 fichiers / 1 615 tests, build vert, contrat Shotgun 12 / 12, `deno check` affiliate-ticket-sync et owner-assistant. Bancs sur instantané frais : `audit-data` 41 / 41 ; `audit-analysis gratuit` : score « Chances de venir » identique (chances, étiquettes, raisons), familles recalculées sur les soirées faites. |
+| Définitions prod | Les 12 fonctions réécrites identiques à `ROLLBACK-data.sql` ; les 7 nouvelles absentes de la prod. Les deux connexions réelles ont « co-organisées » allumé : rien n'est retiré. |
+| Répétition (21:55) | Les 5 migrations + smoke dans une transaction annulée : SMOKE_OK en 1,6 s (SYNC-03, DATA-07 avec son témoin, DATA-01, règles DATA-02 et DATA-05, 7 fonctions nouvelles fermées aux clients, ordre des triggers). Contre-épreuve sans les migrations : « SYNC-03 : une version plus ancienne a écrasé le billet ». Démo CRM : personnes avec au moins une soirée 1 900 → 1 795, soirées 6 714 → 6 320. |
+| Migrations (21:58-21:59) | `20261022100000` → `140000` appliquées une par une avec leur ligne `schema_migrations`. Catalogue : aucune des 19 fonctions touchées n'est exécutable par `anon` ; seule `crm_ticketing_set_cohosted` (RPC de la Console) l'est par `authenticated`. `db lint` : deux faux positifs nouveaux du même type que les 86 connus (tables temporaires `_cpa`, `_ant`). |
+| Fonctions (21:59) | affiliate-ticket-sync (après 130000) et owner-assistant, depuis `13cabe43`. Avant : prod = `46e385ff` ; owner-assistant embarque en plus l'article « langue de la page partenaire » de main. Après : retéléchargées, identiques au commit. |
+| Front | main poussé à `13cabe43`. |
+| Contrôle | Passe du cron de 22:00:07 `ok` (4,4 s) avec le nouveau connecteur ; appels des crons depuis le déploiement : 200. Recalcul de l'analyse : laissé au calcul de nuit (`crm-analysis-nightly`), choix de Paul. |
