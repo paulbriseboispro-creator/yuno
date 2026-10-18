@@ -9,6 +9,7 @@ import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 import type { BaseMatch } from '@/crm/lib/fileImport';
+import { ticketingErrorKey } from '@/crm/data/connectors';
 
 export interface ImportRow {
   id: string; kind: 'file' | 'manual'; title: string | null; consent: 'yes' | 'no';
@@ -94,12 +95,27 @@ export function undoImport(args: Record<string, unknown>, id: string) {
   return rpc<{ ok: boolean; contacts: number }>('crm_import_undo', { ...args, p_list_import_id: id });
 }
 
-/** Relance la lecture de Shotgun. Rend 'ok' | 'too_soon' | 'error'. */
-export async function syncShotgunNow(scope: { venueId: string | null; organizerUserId: string | null }) {
+/**
+ * Relance la lecture de Shotgun. Rend 'ok' | 'too_soon' | 'error', ou le
+ * motif quand réessayer ne servirait à rien (jeton refusé, connexion coupée,
+ * pas le titulaire, accès assisté, session expirée) : l'écran le dit au lieu
+ * de « réessayez dans un instant » (audit 18/10).
+ */
+export type SyncShotgunResult = 'ok' | 'too_soon' | 'error' | 'token_invalid' | 'not_connected' | 'forbidden'
+  | 'support_session_forbidden' | 'unauthorized';
+export async function syncShotgunNow(scope: { venueId: string | null; organizerUserId: string | null }): Promise<SyncShotgunResult> {
   const { data, error } = await invokeEdgeFunction<{ ok?: boolean; error?: string }>('affiliate-ticket-sync', {
     body: { action: 'ticketing_sync_now', provider: 'shotgun', scope },
   });
-  if (data?.ok) return 'ok' as const;
+  if (data?.ok) return 'ok';
   const code = data?.error ?? (error as { message?: string } | null)?.message ?? '';
-  return code.includes('too_soon') ? ('too_soon' as const) : ('error' as const);
+  const known: SyncShotgunResult[] = ['too_soon', 'token_invalid', 'not_connected', 'support_session_forbidden', 'forbidden', 'unauthorized'];
+  return known.find((k) => code.includes(k)) ?? 'error';
+}
+
+/** Clé du message à montrer pour un résultat de synchro qui n'est pas 'ok'. */
+export function syncShotgunErrorKey(r: Exclude<SyncShotgunResult, 'ok'>, tooSoonKey: string, genericKey: string): string {
+  if (r === 'too_soon') return tooSoonKey;
+  if (r === 'error') return genericKey;
+  return ticketingErrorKey(r);
 }

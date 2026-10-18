@@ -158,6 +158,9 @@ const dict: CrmDict = {
   'yc.co.err.demo': ['Demo account: the demonstration connection does not change.', 'Compte de démonstration : la connexion de démonstration ne se modifie pas.', 'Cuenta de demostración: la conexión de demostración no se modifica.'],
   'yc.co.err.forbidden': ['Only the account holder can manage the connection.', 'Seul le titulaire du compte peut gérer la connexion.', 'Solo el titular de la cuenta puede gestionar la conexión.'],
   'yc.co.err.tooSoon': ['Shotgun was read less than 5 minutes ago. Try again in a moment.', 'Shotgun a été relu il y a moins de 5 minutes. Réessayez dans un instant.', 'Shotgun se leyó hace menos de 5 minutos. Vuelva a intentarlo en un momento.'],
+  'yc.co.err.orgChange': ['This connection already holds the history of another Shotgun organiser. To connect a different one, first use « Delete the imported data », then connect again.', 'Cette connexion contient déjà l’historique d’une autre organisation Shotgun. Pour en connecter une autre, utilisez d’abord « Supprimer les données importées », puis reconnectez.', 'Esta conexión ya contiene el historial de otra organización de Shotgun. Para conectar otra, use primero « Borrar los datos importados » y vuelva a conectar.'],
+  'yc.co.err.notConnected': ['The Shotgun connection is off. Reconnect it in Connectors.', 'La connexion Shotgun est coupée. Reconnectez-la dans Connecteurs.', 'La conexión con Shotgun está cortada. Vuelva a conectarla en Conectores.'],
+  'yc.co.err.signedOut': ['Your session has expired. Sign in again, then retry.', 'Votre session a expiré. Reconnectez-vous, puis réessayez.', 'Su sesión ha caducado. Vuelva a iniciar sesión e inténtelo de nuevo.'],
   'yc.co.err.generic': ['Something went wrong. Try again in a moment.', 'Quelque chose n’a pas marché. Réessayez dans un instant.', 'Algo ha fallado. Vuelva a intentarlo en un momento.'],
 };
 

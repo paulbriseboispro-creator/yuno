@@ -22,7 +22,7 @@ import { useCrmScope } from '@/crm/scope';
 import { useCrmShell } from '@/crm/data/shell';
 import { useNightDetail, useNights } from '@/crm/data/nights';
 import type { NightRow, NightsData } from '@/crm/data/nights';
-import { syncShotgunNow } from '@/crm/data/imports';
+import { syncShotgunErrorKey, syncShotgunNow } from '@/crm/data/imports';
 import { lacksMessage, seriesChips, splitPeriods, upKind, type PeriodMonths, type UpKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { WriteModal } from '@/crm/components/WriteModal';
@@ -142,7 +142,7 @@ export default function NightsPage() {
     const r = await syncShotgunNow({ venueId: space.venueId, organizerUserId: space.organizerUserId });
     if (r !== 'ok') {
       setSyncing(false);
-      toast(t(r === 'too_soon' ? 'yc.ni.sync.tooSoon' : 'yc.ni.sync.error'));
+      toast(t(syncShotgunErrorKey(r, 'yc.ni.sync.tooSoon', 'yc.ni.sync.error')));
       return;
     }
     let finished = false;

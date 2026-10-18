@@ -17,7 +17,7 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import { downloadText } from '@/crm/lib/csv';
 import { TEMPLATE_CSV, normEmail, normTel } from '@/crm/lib/fileImport';
 import { isValidEmail } from '@/lib/emailImport';
-import { checkAgainstBase, commitImport, syncShotgunNow, undoImport, useInvalidateBase } from '@/crm/data/imports';
+import { checkAgainstBase, commitImport, syncShotgunErrorKey, syncShotgunNow, undoImport, useInvalidateBase } from '@/crm/data/imports';
 import type { ImportsOverview, ImportRow } from '@/crm/data/imports';
 import type { BaseMatch } from '@/crm/lib/fileImport';
 import { NIGHT_BG, useZeroRules } from './zeroRules';
@@ -72,7 +72,7 @@ export function ImportsHome({
     setSyncing(true);
     const r = await syncShotgunNow({ venueId: space.venueId, organizerUserId: space.organizerUserId });
     setSyncing(false);
-    toast(t(r === 'ok' ? 'yc.imp.sync.started' : r === 'too_soon' ? 'yc.imp.sync.tooSoon' : 'yc.imp.sync.failed'));
+    toast(t(r === 'ok' ? 'yc.imp.sync.started' : syncShotgunErrorKey(r, 'yc.imp.sync.tooSoon', 'yc.imp.sync.failed')));
     if (r === 'ok') setTimeout(refresh, 20_000);
   };
 
