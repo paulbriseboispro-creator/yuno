@@ -373,7 +373,9 @@ export function ClientsTable({
             <div style={{ opacity: loading ? 0.55 : 1, transition: 'opacity 160ms' }}>
               {vis.map((c, i) => (
                 <Row
-                  key={c.email}
+                  // L'aperçu démo masque les adresses (« en•••@e•••.com ») : deux lignes
+                  // peuvent alors partager la même. Le rang les départage.
+                  key={`${c.email}#${i}`}
                   c={c}
                   i={i}
                   rowH={rowH}
