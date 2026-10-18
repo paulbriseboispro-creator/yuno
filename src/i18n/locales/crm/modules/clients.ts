@@ -167,6 +167,7 @@ const dict: CrmDict = {
   'yc.cli.card.label': ['Customer card · {pos}', 'Fiche client · {pos}', 'Ficha de cliente · {pos}'],
   'yc.cli.card.pos': ['{a} of {b}', '{a} sur {b}', '{a} de {b}'],
   'yc.cli.card.outOfList': ['outside the list', 'hors liste', 'fuera de la lista'],
+  'yc.cli.card.notFound': ['This customer is no longer in your base.', 'Ce client n’est plus dans votre base.', 'Este cliente ya no está en su base.'],
   'yc.cli.card.prev': ['Previous customer', 'Client précédent', 'Cliente anterior'],
   'yc.cli.card.next': ['Next customer', 'Client suivant', 'Cliente siguiente'],
   'yc.cli.card.since': ['Customer since {date}', 'Client depuis {date}', 'Cliente desde {date}'],
