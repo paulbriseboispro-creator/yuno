@@ -24,6 +24,7 @@ import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_sha
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { isWaitingForPrevious, normalizeChainVisibility, rowPhase } from "../_shared/free-ticketing.ts";
+import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -173,6 +174,50 @@ serve(async (req) => {
       throw new Error(t("checkout.eventEnded", lang));
     }
 
+    // Promoteur de la vente : par l'id que le navigateur a mémorisé, sinon par
+    // son code, TOUJOURS dans le périmètre de la soirée (club hôte, club
+    // partenaire, organisateur, organisateur partenaire) et actif. L'id reçu
+    // n'était pas borné : un promoteur du club A donnait sa remise et touchait
+    // sa commission sur une soirée du club B (SEC-09, audit du 18/10). Résolu
+    // avant la prévente : seul un vrai promoteur de la soirée l'ouvre, plus
+    // n'importe quel texte envoyé en `promoCode` / `promoterId`.
+    type CheckoutPromoter = {
+      id: string;
+      promo_code: string | null;
+      ticket_discount_type: string | null;
+      ticket_discount_value: number | null;
+    };
+    let checkoutPromoter: CheckoutPromoter | null = null;
+    const promoterScope = promoterScopeOr(event);
+    const promoterIdRef = promoterIdHint(promoterId);
+    const promoterCodeRef = promoterCodePattern(promoCode);
+    if (promoterScope.length > 0 && promoterIdRef) {
+      const { data: byId, error: byIdErr } = await supabaseAdmin
+        .from("promoters")
+        .select("id, promo_code, ticket_discount_type, ticket_discount_value")
+        .eq("id", promoterIdRef)
+        .or(promoterScope.join(","))
+        .eq("is_active", true)
+        .limit(1)
+        .returns<CheckoutPromoter[]>();
+      if (byIdErr) logStep("Promoter lookup by id failed", { error: byIdErr.message });
+      checkoutPromoter = byId?.[0] ?? null;
+      if (!checkoutPromoter) logStep("Promoter id ignored (outside the event scope or inactive)", { promoterId: promoterIdRef });
+    }
+    if (!checkoutPromoter && promoterScope.length > 0 && promoterCodeRef) {
+      const { data: byCode, error: byCodeErr } = await supabaseAdmin
+        .from("promoters")
+        .select("id, promo_code, ticket_discount_type, ticket_discount_value")
+        .or(promoterScope.join(","))
+        .ilike("promo_code", promoterCodeRef)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .returns<CheckoutPromoter[]>();
+      if (byCodeErr) logStep("Promoter lookup by code failed", { error: byCodeErr.message });
+      checkoutPromoter = byCode?.[0] ?? null;
+    }
+
     // Sales timing validation
     const now = Date.now();
     const presaleStart = event.presale_start_at ? new Date(event.presale_start_at).getTime() : null;
@@ -206,7 +251,7 @@ serve(async (req) => {
 
     // Presale access check
     if (isPresaleWindow) {
-      const hasPromoterRef = !!promoterId || !!promoCode;
+      const hasPromoterRef = !!checkoutPromoter;
       let hasWaitlistAccess = false;
 
       if (user) {
@@ -620,63 +665,19 @@ serve(async (req) => {
     const unitPrice = ticketRound.price;
     const subtotal = unitPrice * quantity;
     
-    // Find promoter by ID or by promoCode
-    let finalPromoterId = promoterId;
+    // Remise du promoteur résolu plus haut (périmètre de la soirée, actif). Une
+    // référence qui ne mène à aucun promoteur de la soirée ne donne ni remise
+    // ni commission.
+    const finalPromoterId: string | null = checkoutPromoter?.id ?? null;
     let validatedDiscount = 0;
-    
-    // If promoterId is not provided but we have a promoCode, look up the promoter
-    if (!finalPromoterId && promoCode) {
-      logStep("Looking up promoter by promoCode", { promoCode, venueId: event.venue_id });
-      // Même périmètre que create-table-checkout : club hôte, club partenaire,
-      // organisateur et organisateur partenaire. Avant, seul `venue_id` était lu :
-      // sur une soirée d'organisateur SANS club (association dans un lieu hors
-      // Yuno), aucun code promoteur n'était jamais reconnu.
-      const scopeOr: string[] = [];
-      if (event.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
-      if (event.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
-      if (event.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
-      if (event.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
-      const { data: promoterRows } = scopeOr.length > 0
-        ? await supabaseAdmin
-          .from("promoters")
-          .select("id, ticket_discount_type, ticket_discount_value")
-          .or(scopeOr.join(","))
-          .ilike("promo_code", promoCode.trim())
-          .eq("is_active", true)
-          .order("created_at", { ascending: true })
-          .limit(1)
-        : { data: [] as Array<{ id: string; ticket_discount_type: string | null; ticket_discount_value: number | null }> };
-      const promoterByCode = promoterRows?.[0] ?? null;
-      
-      if (promoterByCode) {
-        finalPromoterId = promoterByCode.id;
-        logStep("Found promoter by promoCode", { promoterId: finalPromoterId });
-        
-        // Calculate discount from this promoter
-        if (promoterByCode.ticket_discount_type === 'percentage' && promoterByCode.ticket_discount_value) {
-          validatedDiscount = Math.round(subtotal * (promoterByCode.ticket_discount_value / 100) * 100) / 100;
-        } else if (promoterByCode.ticket_discount_type === 'fixed' && promoterByCode.ticket_discount_value) {
-          validatedDiscount = Math.min(promoterByCode.ticket_discount_value * quantity, subtotal);
-        }
-      }
-    } else if (finalPromoterId) {
-      // Validate promoter discount from database using provided promoterId
-      const { data: promoter } = await supabaseAdmin
-        .from("promoters")
-        .select("ticket_discount_type, ticket_discount_value, is_active")
-        .eq("id", finalPromoterId)
-        .eq("is_active", true)
-        .single();
-
-      if (promoter) {
-        if (promoter.ticket_discount_type === 'percentage' && promoter.ticket_discount_value) {
-          validatedDiscount = Math.round(subtotal * (promoter.ticket_discount_value / 100) * 100) / 100;
-        } else if (promoter.ticket_discount_type === 'fixed' && promoter.ticket_discount_value) {
-          validatedDiscount = Math.min(promoter.ticket_discount_value * quantity, subtotal);
-        }
+    if (checkoutPromoter) {
+      if (checkoutPromoter.ticket_discount_type === 'percentage' && checkoutPromoter.ticket_discount_value) {
+        validatedDiscount = Math.round(subtotal * (checkoutPromoter.ticket_discount_value / 100) * 100) / 100;
+      } else if (checkoutPromoter.ticket_discount_type === 'fixed' && checkoutPromoter.ticket_discount_value) {
+        validatedDiscount = Math.min(checkoutPromoter.ticket_discount_value * quantity, subtotal);
       }
     }
-    
+
     logStep("Promoter resolved", { finalPromoterId, validatedDiscount, originalPromoterId: promoterId, promoCode });
 
     // ── Code promo autonome (lot F) ──────────────────────────────────────────
@@ -1343,7 +1344,10 @@ serve(async (req) => {
         ticketRoundId,
         userId: user?.id || '',
         venueId: event.venue_id || '',
-        promoCode: promoCode || '',
+        // Le code du promoteur RÉSOLU, jamais le texte brut du navigateur :
+        // verify-ticket-payment ne relit un code que si promoterId est vide, et
+        // un « % » brut y trouvait le plus ancien promoteur de la soirée.
+        promoCode: checkoutPromoter?.promo_code || '',
         // On transmet le promoteur DÉJÀ RÉSOLU ici, pas le champ brut reçu du
         // client. Le client ne peut pas fournir de promoterId (aucune policy ne
         // lui laisse lire la table promoters) : la metadata partait donc vide et
