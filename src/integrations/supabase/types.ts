@@ -17491,6 +17491,7 @@ export type Database = {
           event_id: string | null
           guest_list_id: string | null
           partner_contact: string | null
+          partner_language: string | null
           partner_name: string | null
           partner_role: string | null
           partner_shows_revenue: boolean
@@ -17517,6 +17518,7 @@ export type Database = {
           event_id?: string | null
           guest_list_id?: string | null
           partner_contact?: string | null
+          partner_language?: string | null
           partner_name?: string | null
           partner_role?: string | null
           partner_shows_revenue?: boolean
@@ -17543,6 +17545,7 @@ export type Database = {
           event_id?: string | null
           guest_list_id?: string | null
           partner_contact?: string | null
+          partner_language?: string | null
           partner_name?: string | null
           partner_role?: string | null
           partner_shows_revenue?: boolean
