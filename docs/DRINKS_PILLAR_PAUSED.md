@@ -20,6 +20,7 @@ assistants IA, ni aux moteurs de recherche.
 | `supabase/functions/owner-assistant/index.ts` | idem | miroir manuel |
 | `supabase/functions/send-ticket-confirmation/index.ts` | idem (CTA upsell de l'email billet) | miroir manuel |
 | `worker/index.ts` | idem (SEO crawler, sitemap) | miroir manuel |
+| `supabase/functions/_shared/console-help-articles.ts` | idem (phrases « bar » des articles d'aide de l'Assistant Console et du MCP ; les articles 100 % boissons sont en plus écartés par `DRINKS_HELP_ARTICLE_IDS`) | miroir manuel |
 | `index.html` | texte statique à deux piliers + commentaire | à remettre à la main |
 
 **Travailler sur le projet en local** : `VITE_DRINKS_PILLAR_LIVE=1` dans `.env.local`,
@@ -166,7 +167,8 @@ que prod ne faisait que suivre main), OTA production client 1.0.82 / Pro 1.0.78.
 
 1. Poser `VITE_DRINKS_PILLAR_LIVE=1` dans les builds (Cloudflare, `scripts/ci-web-env.sh`
    pour Xcode Cloud) OU remplacer la lecture par `true` dans `src/lib/drinksPillar.ts`.
-2. Passer à `true` les quatre miroirs manuels (deux assistants, email billet, worker) et
+2. Passer à `true` les miroirs manuels (deux assistants, email billet, worker, articles
+   d'aide de la Console `_shared/console-help-articles.ts`) et
    remettre la mention boissons dans `index.html`.
 3. Relire cet inventaire : chaque gate est une recherche `DRINKS_PILLAR_LIVE` dans `src/`.
 4. Redéployer les edge functions et le worker ; OTA pour les apps.

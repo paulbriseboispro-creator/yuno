@@ -5,6 +5,7 @@ import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 import { isDemoPreviewRequest } from "../_shared/demo-guard.ts";
 import { CONSOLE_HELP_ARTICLES, DRINKS_HELP_ARTICLE_IDS } from "../_shared/console-help-articles.ts";
+import { WRITE_TOOLS, checkWriteConfirmation, withConfirmationParam } from "./write-confirmation.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -48,15 +49,12 @@ Exemple bon : "Le CA Club de ce soir est de **4 120€** (CA Net : **3 980€**)
 Exemple mauvais : "Les ventes se passent bien !"
 
 ═══ CONFIRMATION OBLIGATOIRE ═══
-AVANT d'exécuter une action qui MODIFIE des données :
-1. Appelle list_events (ou le tool pertinent) pour identifier l'objet
-2. Si ambiguïté (même nom, différentes dates) → liste les options avec dates et statut
-3. Résume ce que tu vas faire en **gras**
-4. Demande "**Tu confirmes ?**"
-5. Exécute UNIQUEMENT après réponse affirmative ("oui", "ok", "go", "confirme")
+Les outils qui MODIFIENT des données exigent confirmed: true, et le serveur refuse tout appel sans. Procédure :
+1. Identifie l'objet avec list_events (ou le tool pertinent) ; si ambiguïté, liste les options avec dates et statut
+2. Résume l'action en **gras** et demande "**Tu confirmes ?**"
+3. Après un oui explicite ("oui", "ok", "go", "confirme"), appelle l'outil avec confirmed: true
 
 ⚠️ TOUJOURS cibler les événements À VENIR par défaut, jamais les passés.
-⚠️ JAMAIS d'action write sans confirmation explicite.
 
 ═══ MÉTRIQUES DE REVENUS ═══
 Quand tu donnes des chiffres de revenus, présente TOUJOURS :
@@ -72,14 +70,14 @@ Formate en tableau Markdown :
 | Tables VIP | X€ | Y€ |
 | **Total** | **X€** | **Y€** |
 
-═══ TARIFICATION (période de lancement) ═══
+${SUBSCRIPTIONS_ENABLED ? "" : `═══ TARIFICATION (période de lancement) ═══
 Yuno est GRATUIT pour les clubs pendant le lancement : aucune mensualité, TOUTES les fonctionnalités sont incluses (billetterie, tables VIP, fidélité, CRM, promoteurs, DJs, analytics…).
-Seules les commissions par transaction s'appliquent (voir la structure des frais via search_help_articles).
+Yuno ne prend jamais de commission au club : les frais de service sont payés par le client final en plus du prix affiché (détail des frais via search_help_articles).
 Si l'owner demande le prix d'un abonnement : explique que c'est gratuit actuellement, que des plans payants arriveront plus tard, et que les early adopters seront prévenus à l'avance.
 Ne bloque JAMAIS une fonctionnalité pour une question de plan.
 
-═══ NAVIGATION ═══
-Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu), [Staff](/owner/staff), [Billetterie](/owner/ticketing), [Tables VIP](/owner/tables), [Analytics](/owner/analytics), [Paramètres](/owner/venue), [Clients](/owner/customers), [Fidélité](/owner/loyalty), [DJs](/owner/djs), [Promoteurs](/owner/promoters), [Mode d'emploi](/owner/help)
+`}═══ NAVIGATION ═══
+Utilise des liens Markdown : [Événements](/owner/events), ${DRINKS_PILLAR_LIVE ? "[Menu](/owner/menu), " : ""}[Staff](/owner/staff), [Billetterie](/owner/ticketing), [Tables VIP](/owner/tables), [Analytics](/owner/analytics), [Paramètres](/owner/venue), [Clients](/owner/customers), [Fidélité](/owner/loyalty), [DJs](/owner/djs), [Promoteurs](/owner/promoters), [Mode d'emploi](/owner/help)
 
 ═══ NE MÉLANGE JAMAIS ═══
 - Ne mélange PAS documentation et réponses data
@@ -100,6 +98,25 @@ const DRINKS_HELP_ARTICLES = DRINKS_HELP_ARTICLE_IDS;
 const HELP_ARTICLES: typeof HELP_ARTICLES_ALL = Object.fromEntries(
   Object.entries(HELP_ARTICLES_ALL).filter(([id]) => DRINKS_PILLAR_LIVE || !DRINKS_HELP_ARTICLES.has(id)),
 );
+
+// Réponse JSON d'un appel OpenAI non streamé (contenu, Night Report, actions).
+// Chez gpt-5-mini le raisonnement compte dans max_completion_tokens : une sortie
+// coupée (finish_reason = "length") ou illisible se journalise comme une erreur,
+// jamais comme un appel réussi qui rend du vide.
+interface JsonCompletion {
+  choices?: { finish_reason?: string | null; message?: { content?: string | null } }[];
+}
+function readJsonCompletion<T>(aiData: JsonCompletion | null | undefined): { value: T | null; failure: string | null } {
+  const choice = aiData?.choices?.[0];
+  if (choice?.finish_reason === "length") return { value: null, failure: "finish_reason=length" };
+  const content = choice?.message?.content;
+  if (!content) return { value: null, failure: `empty_content (finish_reason=${choice?.finish_reason ?? "none"})` };
+  try {
+    return { value: JSON.parse(content) as T, failure: null };
+  } catch {
+    return { value: null, failure: "invalid_json" };
+  }
+}
 
 // ═══════════════════════════════════════════
 // TOOL DEFINITIONS
@@ -542,7 +559,8 @@ const TOOLS_ALL = [
 // Pilier boissons en pause : les outils du bar ne sont pas proposés au modèle
 // (leurs handlers restent, pour le relancement). src/lib/drinksPillar.ts.
 const DRINKS_TOOLS = new Set(["list_drinks", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell", "get_top_drinks", "get_pending_orders"]);
-const TOOLS = TOOLS_ALL.filter((t) => DRINKS_PILLAR_LIVE || !DRINKS_TOOLS.has(t.function.name));
+// Chaque outil d'écriture porte le paramètre requis `confirmed` (write-confirmation.ts).
+const TOOLS = withConfirmationParam(TOOLS_ALL.filter((t) => DRINKS_PILLAR_LIVE || !DRINKS_TOOLS.has(t.function.name)));
 // ═══════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════
@@ -552,11 +570,6 @@ function calcStripeFee(totalEuros: number): number {
   return Math.round((totalEuros * 0.015 + 0.25) * 100) / 100;
 }
 
-const WRITE_TOOLS = new Set([
-  "activate_ticket_round", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell",
-  "toggle_event_ticketing", "update_event", "toggle_guest_list", "toggle_event_tables",
-  "set_night_brief", "set_email_automation",
-]);
 // Session d'un lien démo : l'IA ne se voit même pas proposer d'écrire.
 const READ_ONLY_TOOLS = TOOLS.filter((t) => !WRITE_TOOLS.has(t.function.name));
 
@@ -1925,9 +1938,8 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
   }
 
   const aiData = await aiResponse.json();
-  logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: { variants?: ContentVariant[] } | null = null;
-  try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch { /* empty */ }
+  const { value: parsed, failure } = readJsonCompletion<{ variants?: ContentVariant[] }>(aiData);
+  logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), ...(failure ? { status: 'error' as const, error: failure } : {}), latencyMs: Date.now() - handlerStart });
   const limits = CHANNEL_LIMITS[channel];
   const variants = (parsed?.variants || []).slice(0, 3).map((v: ContentVariant) => {
     const clamp = (l: ContentFields | undefined) => ({
@@ -2086,11 +2098,10 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
   }
 
   const aiData = await aiResponse.json();
-  logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let report: NightReport | null = null;
-  try { report = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
+  const { value: report, failure } = readJsonCompletion<NightReport>(aiData);
+  logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), ...(failure ? { status: 'error' as const, error: failure } : {}), latencyMs: Date.now() - handlerStart });
   if (!report?.headline || !Array.isArray(report?.insights) || !Array.isArray(report?.actions)) {
-    log("report_empty", { event_id: eventId });
+    log("report_empty", { event_id: eventId, failure });
     return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
   }
   report.insights = report.insights.slice(0, 5);
@@ -2315,9 +2326,8 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
   }
 
   const aiData = await aiResponse.json();
-  logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: { actions?: NextBestAction[] } | null = null;
-  try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
+  const { value: parsed, failure } = readJsonCompletion<{ actions?: NextBestAction[] }>(aiData);
+  logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), ...(failure ? { status: 'error' as const, error: failure } : {}), latencyMs: Date.now() - handlerStart });
   const actions = (parsed?.actions || []).slice(0, 3)
     .filter((a: NextBestAction) => (ACTION_PATHS as readonly unknown[]).includes(a?.path));
   if (!actions.length) {
@@ -2707,6 +2717,15 @@ serve(async (req) => {
           conversationMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "demo_read_only", message: "Aperçu de démonstration : lecture seule, aucune modification possible." }) });
           continue;
         }
+        // Confirmation appliquée par le serveur : sans confirmed: true, l'outil
+        // d'écriture ne part pas et le modèle reçoit la procédure à suivre.
+        const guard = checkWriteConfirmation(fnName, fnArgs as Record<string, unknown>);
+        if (!guard.ok) {
+          log("write_unconfirmed", { round, tool: fnName });
+          conversationMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(guard.payload) });
+          continue;
+        }
+        fnArgs = guard.args as ToolArgs;
         const result = await executeTool(fnName, fnArgs, supabase, venueId, supabaseAuth);
         log("tool_result", { round, tool: fnName, result_length: result.length });
 
