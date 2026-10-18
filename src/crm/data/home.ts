@@ -19,8 +19,10 @@ export interface CrmHome {
   sales: {
     period: HomePeriod; hourly: boolean; n: number; start: string; end: string;
     /** Montants à null pour un rôle sans accès au chiffre d'affaires. */
-    series: { t: string; cur: number | null; prev: number | null; tickets: number }[];
+    series: { t: string; cur: number | null; prev: number | null; tickets: number; paid?: number }[];
     total: number | null; prev_total: number | null; tickets: number; prev_tickets: number;
+    /** Billets payants / entrées gratuites (tickets = les deux), 20261020200000. */
+    paid_tickets?: number; prev_paid_tickets?: number; free_tickets?: number; prev_free_tickets?: number;
     sends: { at: string; name: string; channel: 'email' | 'sms'; id: string }[];
     has_any: boolean;
   };
@@ -33,7 +35,7 @@ export interface CrmHome {
   mission: { id: string; name: string; sent_at: string; recipients: number; clickers: number; buyers: number; revenue: number; yunits: number } | null;
   next: {
     id: string; title: string; start_at: string; end_at: string | null; tz: string; city: string | null;
-    sold: number; today: number; left: number | null; days_to: number;
+    sold: number; paid?: number; free?: number; today: number; left: number | null; days_to: number;
     curve: { day: string; jn: number; cur: number; prev: number | null }[];
     prev: { id: string; title: string; start_at: string; final: number } | null;
     buyers: { total: number; regulars: number; occasional: number; new: number };

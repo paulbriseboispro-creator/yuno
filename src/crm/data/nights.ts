@@ -22,9 +22,10 @@ export interface NightMsg {
 export interface NightTier { name: string; price: number | null; cap: number | null; sold: number }
 
 /**
- * Guest list d'une soirée (invitations Shotgun + billets à 0 €, migration
- * 20261008100000). `scan_known` : soirée passée dont la porte a vraiment
- * scanné — sans lui, « venus » ne veut rien dire.
+ * Entrées gratuites d'une soirée (invitations Shotgun = guest list + billets à
+ * 0 €, migration 20261008100000). `scan_known` : soirée passée à porte mesurée
+ * (≥ 10 scans et ≥ 10 % des billets, 20261020200000) — sans elle, « venus » ne
+ * veut rien dire.
  */
 export interface NightGl { entries: number; inv: number; came: number; today: number; scan_known: boolean }
 
@@ -42,7 +43,14 @@ export interface NightRow {
   lineup: string[];
   upcoming: boolean;
   sale_opens_at: string | null;
+  /** Places prises (payants + entrées gratuites) : sert au remplissage. */
   sold: number;
+  /** Billets payants / entrées gratuites (tarif à 0 €) / guest list (invitations), 20261020200000. */
+  paid?: number;
+  free?: number;
+  inv?: number;
+  /** Billets payants achetés aujourd'hui (`today` compte aussi les gratuits). */
+  today_paid?: number;
   cap: number | null;
   sold_out: boolean;
   revenue: number;
@@ -85,6 +93,11 @@ export interface NightDetail {
   sale_opens_at: string | null;
   opened_at: string | null;
   sold: number;
+  paid?: number;
+  free?: number;
+  inv?: number;
+  /** Billets payants achetés aujourd'hui. */
+  today_paid?: number;
   cap: number | null;
   sold_out: boolean;
   revenue: number;
@@ -92,7 +105,7 @@ export interface NightDetail {
   series_avg_fill: number | null;
   tiers: NightTier[];
   /** Un point par jour, du plus loin au plus près ; d = jours avant la soirée. */
-  curve: { d: number; v: number; pv: number | null }[];
+  curve: { d: number; v: number; pv: number | null; paid?: number }[];
   prev: { id: string; title: string; start_at: string; same_series: boolean; total: number } | null;
   buyers: { total: number; new: number; occasional: number; regular: number };
   msgs: NightMsg[];

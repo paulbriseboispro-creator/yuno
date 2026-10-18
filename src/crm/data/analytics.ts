@@ -50,9 +50,11 @@ export interface AnaCurve {
 
 export interface AnaSales {
   meta: AnaMeta;
-  series: { revenue: number | null; tickets: number; prev_revenue: number | null; prev_tickets: number }[];
+  series: { revenue: number | null; tickets: number; prev_revenue: number | null; prev_tickets: number; paid_tickets?: number; prev_paid_tickets?: number }[];
   totals: {
     revenue: number | null; tickets: number; buyers: number; prev_revenue: number | null; prev_tickets: number;
+    /** Billets payants / entrées gratuites (tickets = les deux), 20261020200000. */
+    paid_tickets?: number; free_tickets?: number; prev_paid_tickets?: number; prev_free_tickets?: number;
     has_prev: boolean | null; refund_pct: number | null; prev_refund_pct: number | null;
     /** Soirée encore en vente : la précédente est comptée jusqu'au même J-k. */
     prev_same_day?: boolean;
@@ -67,7 +69,7 @@ export interface AnaSales {
   heat: { cells: { n: number; amount: number | null }[][]; outside: number; days30: boolean };
   events: {
     id: string; title: string; start_at: string; night: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past';
-    tickets: number; revenue: number | null; sold: number; cap: number | null; prev_sold: number | null;
+    tickets: number; paid?: number; free?: number; revenue: number | null; sold: number; cap: number | null; prev_sold: number | null;
   }[];
   events_other: { count: number; tickets: number; revenue: number | null } | null;
   sends: AnaSend[];

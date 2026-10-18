@@ -10,6 +10,7 @@ import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { NightRow } from '@/crm/data/nights';
 import { PERIOD_MONTHS, deltaPct, fillOf, pastKind, totals, type PastKind, type PeriodMonths } from '@/crm/lib/nights';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 import { DateTile, FilterChip, KeyTiles, SearchField, StatusPill } from './nightsUi';
 import { ICO, tzDay, tzMonth, tzShort, tzWeek } from './nightsFormat';
 import type { KeyTile } from './nightsUi';
@@ -79,7 +80,10 @@ export function PastView({
   const empty = W.length === 0;
   const tiles: KeyTile[] = [
     { label: t('yc.ni.t.nights'), big: empty ? '—' : n(cur.nights * cc), sub: t('yc.ni.t.nightsSub', { m: months }) + (serLabel ? ` · ${serLabel}` : ''), icon: ICO.calendar, ...nDelta },
-    { label: t('yc.ni.t.sold'), big: empty ? '—' : n(cur.sold * cc), sub: cur.cap ? t('yc.ni.t.soldOffered', { n: n(cur.cap) }) : t('yc.ni.t.soldShotgun'), icon: ICO.ticket, ...pctDelta(cur.sold, prev.sold) },
+    // Billets payants côte à côte avec les entrées gratuites (D4) ; places prises tant que le serveur ne rend pas la répartition.
+    cur.paid !== null && cur.free !== null
+      ? { label: t('yc.ni.t.paid'), big: empty ? '—' : n(cur.paid * cc), sub: cur.free > 0 ? tp('yc.ni.t.freeSub', cur.free, { n: n(cur.free) }) : cur.cap ? t('yc.ni.t.soldOffered', { n: n(cur.cap) }) : t('yc.ni.t.soldShotgun'), icon: ICO.ticket, ...(prev.paid !== null ? pctDelta(cur.paid, prev.paid) : {}) }
+      : { label: t('yc.ni.t.sold'), big: empty ? '—' : n(cur.sold * cc), sub: cur.cap ? t('yc.ni.t.soldOffered', { n: n(cur.cap) }) : t('yc.ni.t.soldShotgun'), icon: ICO.ticket, ...pctDelta(cur.sold, prev.sold) },
     { label: t('yc.ni.t.ca'), big: empty ? '—' : eur(cur.revenue * cc), sub: t('yc.ni.t.caPastSub'), icon: ICO.euro, ...pctDelta(cur.revenue, prev.revenue) },
     { label: t('yc.ni.t.fill'), big: empty || cur.fill === null ? '—' : pct(cur.fill * 100 * cc), sub: t('yc.ni.t.fillSub'), icon: ICO.chart, ...fDelta },
   ];
@@ -202,6 +206,7 @@ export function PastView({
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>
                     {hov.cap ? `${n(hov.sold)} / ${n(hov.cap)} · ${pct((fillOf(hov) ?? 0) * 100)}` : `${n(hov.sold)} · ${t('yc.ni.chart.noCap')}`}
                   </span>
+                  <TicketSplit paid={hov.paid} free={hov.free} inv={hov.inv} strong="#fff" style={{ fontSize: 12.5, color: 'var(--text-on-night-2)' }} />
                 </div>
               )}
             </div>
@@ -282,6 +287,7 @@ export function PastView({
                             <div style={{ height: '100%', width: `${(f * 100 * cc).toFixed(1)}%`, borderRadius: 99, background: 'var(--gradient-brand)' }} />
                           </div>
                         )}
+                        <TicketSplit paid={e.paid} free={e.free} style={{ fontSize: 12.5 }} />
                       </div>
                       <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{eur(e.revenue)}</span>
                       <span style={{ fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>{n(e.new_buyers)}</span>

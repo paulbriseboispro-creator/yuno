@@ -15759,7 +15759,7 @@ const es: Record<string, string> = {
   'em.auto.kind.post_event_missed.desc': 'A quienes tenían entrada, mesa o plaza en la guest list y no escanearon en la puerta.',
   'em.auto.kind.post_event_missed.trigger': 'Sale {n} después del fin de la fiesta, a quienes tenían sitio y no fueron escaneados.',
   'em.auto.kind.post_event_missed.rule1': 'Quienes escanearon, sea cual sea el pilar (entrada sin escanear pero mesa escaneada = vino).',
-  'em.auto.kind.post_event_missed.rule2': 'Una fiesta sin ningún escaneo no dispara nada.',
+  'em.auto.kind.post_event_missed.rule2': 'Una fiesta en la que la puerta escaneó menos de 10 entradas, o menos del 10 %, no dispara nada.',
   'em.auto.kind.post_event_missed.rule3': 'Un solo mensaje por persona y fiesta.',
   'em.auto.kind.welcome.title': 'Bienvenida',
   'em.auto.kind.welcome.desc': 'La primera impresión: por cada nueva inscripción en tu base, unas palabras de bienvenida con tu próxima fiesta.',

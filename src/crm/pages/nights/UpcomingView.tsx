@@ -9,6 +9,7 @@ import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { NightDetail, NightRow } from '@/crm/data/nights';
 import { daysUntil, fillOf, lacksMessage, pickMessage, type UpKind } from '@/crm/lib/nights';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 import { NightHero } from './NightHero';
 import type { DrawerView } from './NightDrawer';
 import { DateTile, FilterChip, KeyTiles, SearchField, StatusPill } from './nightsUi';
@@ -52,11 +53,18 @@ export function UpcomingView({
   const sold = onSale.reduce((a, e) => a + e.sold, 0);
   const capKnown = onSale.filter((e) => e.cap).reduce((a, e) => a + (e.cap ?? 0), 0);
   const today = nights.reduce((a, e) => a + e.today, 0);
+  // Billets payants et entrées gratuites (D4) : seulement quand le serveur rend la répartition.
+  const split = nights.length > 0 && nights.every((e) => e.paid !== undefined && e.free !== undefined);
+  const paid = onSale.reduce((a, e) => a + (e.paid ?? 0), 0);
+  const free = onSale.reduce((a, e) => a + (e.free ?? 0), 0);
+  const todayPaid = nights.reduce((a, e) => a + (e.today_paid ?? 0), 0);
   const revenue = nights.reduce((a, e) => a + e.revenue, 0);
   const noMsg = nights.filter((e) => lacksMessage(e, kindOf(e))).length;
   const tiles: KeyTile[] = [
     { label: t('yc.ni.t.up'), big: n(nights.length * cc), sub: nSoon ? tp('yc.ni.t.upSoon', nSoon) : t('yc.ni.t.upAll'), icon: ICO.calendar },
-    { label: t('yc.ni.t.sold'), big: n(sold * cc), sub: capKnown ? t('yc.ni.t.soldOf', { n: n(capKnown) }) : t('yc.ni.t.soldShotgun'), delta: today ? t('yc.ni.todayUp', { n: n(today) }) : '', icon: ICO.ticket },
+    split
+      ? { label: t('yc.ni.t.paid'), big: n(paid * cc), sub: free > 0 ? tp('yc.ni.t.freeSub', free, { n: n(free) }) : capKnown ? t('yc.ni.t.soldOf', { n: n(capKnown) }) : t('yc.ni.t.soldShotgun'), delta: todayPaid ? t('yc.ni.todayUp', { n: n(todayPaid) }) : '', icon: ICO.ticket }
+      : { label: t('yc.ni.t.sold'), big: n(sold * cc), sub: capKnown ? t('yc.ni.t.soldOf', { n: n(capKnown) }) : t('yc.ni.t.soldShotgun'), delta: today ? t('yc.ni.todayUp', { n: n(today) }) : '', icon: ICO.ticket },
     { label: t('yc.ni.t.ca'), big: eur(revenue * cc), sub: t('yc.ni.t.caSub'), icon: ICO.euro },
     {
       label: t('yc.ni.t.noMsg'), big: n(noMsg * cc), sub: noMsg ? t('yc.ni.t.noMsgSub') : t('yc.ni.t.noMsgNone'),
@@ -157,6 +165,7 @@ export function UpcomingView({
                             <div style={{ height: '100%', width: `${(f * 100 * cc).toFixed(1)}%`, borderRadius: 99, background: 'var(--gradient-brand)' }} />
                           </div>
                         )}
+                        <TicketSplit paid={e.paid} free={e.free} style={{ fontSize: 12.5 }} />
                         {e.gl && <GlLine gl={e.gl} onClick={() => open(e.id, 'gl')} />}
                       </>
                     ) : (

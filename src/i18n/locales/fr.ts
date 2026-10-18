@@ -15390,7 +15390,7 @@ const fr: Record<string, string> = {
   'em.auto.kind.post_event_missed.desc': 'À ceux qui avaient un billet, une table ou une place en liste invités et n\'ont pas scanné à la porte.',
   'em.auto.kind.post_event_missed.trigger': 'Part {n} après la fin de la soirée, à ceux qui avaient une place et n\'ont pas été scannés.',
   'em.auto.kind.post_event_missed.rule1': 'Ceux qui ont scanné, quel que soit le pilier (un billet non scanné mais une table scannée = venu).',
-  'em.auto.kind.post_event_missed.rule2': 'Une soirée sans aucun scan ne déclenche rien.',
+  'em.auto.kind.post_event_missed.rule2': 'Une soirée où la porte a scanné moins de 10 billets, ou moins de 10 % d\'entre eux, ne déclenche rien.',
   'em.auto.kind.post_event_missed.rule3': 'Un seul message par personne et par soirée.',
   'em.auto.kind.welcome.title': 'Bienvenue',
   'em.auto.kind.welcome.desc': 'La première impression : à chaque nouvelle inscription dans ta base, un mot de bienvenue avec ta prochaine soirée.',

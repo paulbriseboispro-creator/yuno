@@ -80,17 +80,29 @@ export function seriesChips(nights: NightRow[], max = 5): { key: string; label: 
     .map(([key, v]) => ({ key, label: v.label, n: v.n }));
 }
 
-export interface PeriodTotals { nights: number; sold: number; cap: number; capKnown: number; revenue: number; fill: number | null }
+export interface PeriodTotals {
+  nights: number; sold: number; cap: number; capKnown: number; revenue: number; fill: number | null;
+  /** Billets payants, entrées gratuites, invitations (guest list) ; null tant que le serveur ne les rend pas. */
+  paid: number | null; free: number | null; inv: number;
+}
 
 /** Totaux d'une liste de soirées ; le remplissage ne compte que les soirées à capacité connue. */
 export function totals(list: NightRow[]): PeriodTotals {
-  let sold = 0, cap = 0, capKnown = 0, soldKnown = 0, revenue = 0;
+  let sold = 0, cap = 0, capKnown = 0, soldKnown = 0, revenue = 0, paid = 0, free = 0, inv = 0;
+  let split = list.length > 0;
   for (const e of list) {
     sold += e.sold;
     revenue += e.revenue;
     if (e.cap && e.cap > 0) { cap += e.cap; capKnown += 1; soldKnown += e.sold; }
+    if (e.paid === undefined || e.free === undefined) split = false;
+    paid += e.paid ?? 0;
+    free += e.free ?? 0;
+    inv += e.inv ?? 0;
   }
-  return { nights: list.length, sold, cap, capKnown, revenue, fill: cap > 0 ? soldKnown / cap : null };
+  return {
+    nights: list.length, sold, cap, capKnown, revenue, fill: cap > 0 ? soldKnown / cap : null,
+    paid: split ? paid : null, free: split ? free : null, inv,
+  };
 }
 
 /** Écart en % vs la période d'avant ; null sous 3 soirées de comparaison. */

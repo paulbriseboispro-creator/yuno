@@ -17,6 +17,7 @@ import { useNightDetail } from '@/crm/data/nights';
 import type { NightDetail } from '@/crm/data/nights';
 import { fillOf, pastKind, upKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 import { SalesCurve } from './SalesCurve';
 import { NightLinks } from './links/NightLinks';
 import { NightGuestList } from './NightGuestList';
@@ -217,9 +218,12 @@ function DrawerBody({ d, onWrite }: { d: NightDetail; onWrite: (x: { id: string;
             <span style={{ ...sub, textWrap: 'pretty' }}>{verdict}</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '10px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 60, lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(d.sold * p)}</span>
-              {d.cap ? <span style={{ fontSize: 17, color: 'var(--sand-500)' }}>{t('yc.ni.of', { n: n(d.cap) })}</span> : null}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 60, lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(d.sold * p)}</span>
+                {d.cap ? <span style={{ fontSize: 17, color: 'var(--sand-500)' }}>{t('yc.ni.of', { n: n(d.cap) })}</span> : null}
+              </div>
+              <TicketSplit paid={d.paid} free={d.free} inv={d.inv} mult={p} style={{ fontSize: 14 }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'right' }}>
               <span style={{ fontSize: 20, fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{eur(d.revenue)}</span>

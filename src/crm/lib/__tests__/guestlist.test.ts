@@ -1,5 +1,56 @@
 import { describe, expect, it } from 'vitest';
-import { clockFromNoon, glKindOf, hourLabel, isGlFilter, nightVerdict, periodVerdict, ptsDelta, rate } from '../guestlist';
+import {
+  DOOR_MIN_SCANS, DOOR_MIN_SHARE, clockFromNoon, doorMeasured, glKindOf, hourLabel, isGlFilter, isPaidTicket, isSaleTicket,
+  nightVerdict, periodVerdict, ptsDelta, rate, ticketKindOf,
+} from '../guestlist';
+
+describe('doorMeasured (miroir de _crm_door_measured)', () => {
+  it('au moins 10 scans ET au moins 10 % des billets valides', () => {
+    expect(DOOR_MIN_SCANS).toBe(10);
+    expect(DOOR_MIN_SHARE).toBe(0.1);
+    expect(doorMeasured(756, 142)).toBe(true); // Osmoz : 18,8 %
+    expect(doorMeasured(100, 10)).toBe(true);
+    expect(doorMeasured(1000, 100)).toBe(true);
+    expect(doorMeasured(110, 11)).toBe(true); // exactement 10 %, sans arrondi flottant
+  });
+  it('jamais sous 10 scans, même à 100 %', () => {
+    expect(doorMeasured(9, 9)).toBe(false);
+    expect(doorMeasured(40, 9)).toBe(false);
+  });
+  it('jamais sous 10 % des billets', () => {
+    expect(doorMeasured(1000, 99)).toBe(false);
+    expect(doorMeasured(101, 10)).toBe(false);
+  });
+  it('rien de scanné ou de connu : pas mesurée', () => {
+    expect(doorMeasured(0, 0)).toBe(false);
+    expect(doorMeasured(null, null)).toBe(false);
+    expect(doorMeasured(undefined, 12)).toBe(true);
+  });
+});
+
+describe('ticketKindOf (payant / entrée gratuite / guest list)', () => {
+  it('une vente à plus de 0 € est payante', () => {
+    expect(ticketKindOf('valid', 12, 'online')).toBe('paid');
+    expect(isPaidTicket('valid', 0.5, null)).toBe(true);
+  });
+  it('un tarif à 0 € est une entrée gratuite, une invitation est la guest list', () => {
+    expect(ticketKindOf('valid', 0, 'online')).toBe('free');
+    expect(ticketKindOf('valid', 0, 'invitation')).toBe('inv');
+    expect(ticketKindOf('valid', 15, 'invitation')).toBe('inv');
+  });
+  it('ni duplicata, ni billet qui n’est plus valide, ni prix inconnu', () => {
+    expect(ticketKindOf('valid', 20, 'duplicata')).toBeNull();
+    expect(ticketKindOf('refunded', 20, null)).toBeNull();
+    expect(ticketKindOf('transferred', 20, null)).toBeNull();
+    expect(ticketKindOf('valid', null, null)).toBeNull();
+  });
+  it('une vente (miroir de _crm_ticket_is_sale) = payante ou entrée gratuite', () => {
+    expect(isSaleTicket('valid', null)).toBe(true);
+    expect(isSaleTicket('valid', 'invitation')).toBe(false);
+    expect(isSaleTicket('valid', 'duplicata')).toBe(false);
+    expect(isSaleTicket('cancelled', null)).toBe(false);
+  });
+});
 
 describe('glKindOf (miroir de _crm_ticket_gl_kind)', () => {
   it('une invitation Shotgun, quel que soit son prix', () => {

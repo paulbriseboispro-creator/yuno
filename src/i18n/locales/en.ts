@@ -15417,7 +15417,7 @@ const en: Record<string, string> = {
   'em.auto.kind.post_event_missed.desc': 'To those who had a ticket, a table or a guest-list spot and didn\'t scan at the door.',
   'em.auto.kind.post_event_missed.trigger': 'Sends {n} after the party ends, to those who had a spot and weren\'t scanned.',
   'em.auto.kind.post_event_missed.rule1': 'Those who scanned, whatever the pillar (an unscanned ticket but a scanned table = came).',
-  'em.auto.kind.post_event_missed.rule2': 'A party with no scan at all triggers nothing.',
+  'em.auto.kind.post_event_missed.rule2': 'A party where the door scanned fewer than 10 tickets, or under 10 % of them, triggers nothing.',
   'em.auto.kind.post_event_missed.rule3': 'One message per person per party.',
   'em.auto.kind.welcome.title': 'Welcome',
   'em.auto.kind.welcome.desc': 'The first impression: for every new signup to your base, a welcome note with your next party.',

@@ -14,6 +14,7 @@ import { Segmented } from '@/crm/ui/kit';
 import { useProgress } from '@/crm/ui/motion';
 import { useCrmT, type CrmFormatters } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import type { AnaFilters, AnaSales, AnaTab } from '@/crm/data/analytics';
 import {
@@ -39,8 +40,9 @@ export function deltaPct(cur: number, prev: number, f: CrmFormatters): { text: s
 
 export function salesCsv(d: AnaSales, T: T, money: boolean): { columns: string[]; rows: unknown[][] } {
   const jl = jLabelFor(T.t);
-  const cols = [T.t('yc.ana.csv.when'), ...(money ? [T.t('yc.ana.csv.revenue')] : []), T.t('yc.ana.csv.tickets'), ...(money ? [T.t('yc.ana.csv.prevRevenue')] : []), T.t('yc.ana.csv.prevTickets')];
-  const rows = d.series.map((s, i) => [bucketTitle(d.meta, i, T, jl), ...(money ? [s.revenue] : []), s.tickets, ...(money ? [s.prev_revenue] : []), s.prev_tickets]);
+  const split = d.totals.paid_tickets !== undefined;
+  const cols = [T.t('yc.ana.csv.when'), ...(money ? [T.t('yc.ana.csv.revenue')] : []), T.t('yc.ana.csv.tickets'), ...(split ? [T.t('yc.ana.csv.paidTickets')] : []), ...(money ? [T.t('yc.ana.csv.prevRevenue')] : []), T.t('yc.ana.csv.prevTickets')];
+  const rows = d.series.map((s, i) => [bucketTitle(d.meta, i, T, jl), ...(money ? [s.revenue] : []), s.tickets, ...(split ? [s.paid_tickets ?? 0] : []), ...(money ? [s.prev_revenue] : []), s.prev_tickets]);
   return { columns: cols, rows };
 }
 
@@ -64,19 +66,22 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const [hh, setHh] = useState<string | null>(null);
   const [rowH, setRowH] = useState<string | null>(null);
 
+  // Billets payants à part des entrées gratuites (D4, 20261020200000).
+  const split = !!d && d.totals.paid_tickets !== undefined && d.totals.free_tickets !== undefined;
   const v = useMemo(() => {
     if (!d) return null;
     const m = d.meta;
     const unit = m.mode === 'hour' ? 'hour' : m.mode === 'month' ? 'month' : 'day';
-    const pick = (s: AnaSales['series'][number], prev: boolean) => (metric === 'eur' ? Number((prev ? s.prev_revenue : s.revenue) ?? 0) : Number(prev ? s.prev_tickets : s.tickets));
+    const pick = (s: AnaSales['series'][number], prev: boolean) => (metric === 'eur' ? Number((prev ? s.prev_revenue : s.revenue) ?? 0)
+      : split ? Number((prev ? s.prev_paid_tickets : s.paid_tickets) ?? 0) : Number(prev ? s.prev_tickets : s.tickets));
     let cur = d.series.map((s) => pick(s, false));
     let prev = d.series.map((s) => pick(s, true));
     if (mode === 'cumul') {
       let a = 0; let b = 0;
       cur = cur.map((x) => (a += x)); prev = prev.map((x) => (b += x));
     }
-    const total = metric === 'eur' ? Number(d.totals.revenue ?? 0) : Number(d.totals.tickets);
-    const ptotal = metric === 'eur' ? Number(d.totals.prev_revenue ?? 0) : Number(d.totals.prev_tickets);
+    const total = metric === 'eur' ? Number(d.totals.revenue ?? 0) : Number(split ? d.totals.paid_tickets : d.totals.tickets);
+    const ptotal = metric === 'eur' ? Number(d.totals.prev_revenue ?? 0) : Number(split ? d.totals.prev_paid_tickets : d.totals.prev_tickets);
     const marks = d.sends.map((s) => ({ i: s.i, title: `${s.channel === 'sms' ? 'SMS' : t('yc.ana.email')} · ${s.name}` }));
     // Effet des envois : ventes moyennes dans les 2 cases qui suivent un envoi, contre le reste.
     const raw = d.series.map((s) => Number(s.tickets));
@@ -86,13 +91,13 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
     raw.forEach((x, i) => { if (win.has(i)) { a += x; an++; } else { b += x; bn++; } });
     const ratio = m.mode !== 'month' && an && bn && b > 0 ? (a / an) / (b / bn) : null;
     return { m, unit, cur, prev, total, ptotal, marks, ratio };
-  }, [d, metric, mode, t]);
+  }, [d, metric, mode, t, split]);
 
   if (!d || !v) return <SalesSkeleton />;
   const m = v.m;
   const ev = m.mode === 'event';
   const showPrev = f.cmp && !!d.totals.has_prev;
-  const fmtVal = (x: number) => (metric === 'eur' ? eur(x) : t('yc.ana.nTickets', { n: n(x) }));
+  const fmtVal = (x: number) => (metric === 'eur' ? eur(x) : t(split ? 'yc.ana.nPaidTickets' : 'yc.ana.nTickets', { n: n(x) }));
   const fmtAxis = (x: number) => (metric === 'eur' ? eur(x) : n(x));
   const vs = ev ? t(d.totals.prev_same_day ? 'yc.ana.vsPrevNightSame' : 'yc.ana.vsPrevNight') : t(`yc.ana.per.vs.${m.period}`);
   const dl = deltaPct(v.total, v.ptotal, T);
@@ -106,10 +111,15 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
 
   // ── Tuiles ──
   const tk = Number(d.totals.tickets);
+  // La tuile et le prix moyen comptent les billets PAYANTS : une entrée
+  // gratuite n'est pas une vente à 0 € qui ferait baisser le prix moyen.
   const ptk = Number(d.totals.prev_tickets);
-  const tkD = f.cmp ? deltaPct(tk, ptk, T) : null;
-  const avg = money && tk > 0 ? Number(d.totals.revenue) / tk : null;
-  const pavg = money && ptk > 0 ? Number(d.totals.prev_revenue) / ptk : null;
+  const paidTk = split ? Number(d.totals.paid_tickets) : tk;
+  const prevPaidTk = split ? Number(d.totals.prev_paid_tickets) : ptk;
+  const freeTk = split ? Number(d.totals.free_tickets) : 0;
+  const tkD = f.cmp ? deltaPct(paidTk, prevPaidTk, T) : null;
+  const avg = money && paidTk > 0 ? Number(d.totals.revenue) / paidTk : null;
+  const pavg = money && prevPaidTk > 0 ? Number(d.totals.prev_revenue) / prevPaidTk : null;
   const perBuyer = d.totals.buyers > 0 ? tk / d.totals.buyers : null;
   const tarTot = d.tariffs.reduce((s, x) => s + Number(x.tickets), 0) || 1;
   const t0 = d.tariffs[0]; const t1 = d.tariffs[1];
@@ -120,7 +130,9 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const pts = (a: number, b: number | null) => (b === null ? undefined : `${a - b >= 0 ? '▲' : '▼'} ${t('yc.ana.pts', { n: n1(Math.abs(a - b)) })} ${t('yc.ana.vsBefore')}`);
   const refund = d.totals.refund_pct;
   const tiles: TileSpec[] = [
-    { kind: 'spark', label: t('yc.ana.s.t.tickets'), value: n(tk * prog), delta: tkD ? `${tkD.text} ${t('yc.ana.vsBefore')}` : undefined, dc: tkD && !tkD.up ? 'var(--red-600)' : undefined, cap: t('yc.ana.s.t.ticketsCap'), values: d.series.map((s) => Number(s.tickets)) },
+    split
+      ? { kind: 'spark', label: t('yc.ana.s.t.paid'), value: n(paidTk * prog), delta: tkD ? `${tkD.text} ${t('yc.ana.vsBefore')}` : undefined, dc: tkD && !tkD.up ? 'var(--red-600)' : undefined, cap: freeTk > 0 ? tp('yc.ana.s.t.freeCap', freeTk, { n: n(freeTk) }) : t('yc.ana.s.t.ticketsCap'), values: d.series.map((s) => Number(s.paid_tickets ?? 0)) }
+      : { kind: 'spark', label: t('yc.ana.s.t.tickets'), value: n(tk * prog), delta: tkD ? `${tkD.text} ${t('yc.ana.vsBefore')}` : undefined, dc: tkD && !tkD.up ? 'var(--red-600)' : undefined, cap: t('yc.ana.s.t.ticketsCap'), values: d.series.map((s) => Number(s.tickets)) },
     money
       ? { kind: 'stack', label: t('yc.ana.s.t.avg'), value: avg !== null ? eur2(avg * prog) : '—', delta: f.cmp && avg !== null && pavg !== null ? `${avg - pavg >= 0 ? '▲' : '▼'} ${eur2(Math.abs(avg - pavg))} ${t('yc.ana.vsBefore')}` : undefined, dc: avg !== null && pavg !== null && avg < pavg ? 'var(--red-600)' : undefined, cap: t('yc.ana.s.t.avgCap'), parts: [{ w: p0, c: 'var(--red-500)' }, { w: p1, c: 'var(--red-200)' }, { w: 100 - p0 - p1, c: 'var(--sand-300)' }], legL: t0 ? `${t0.deal} ${pct(p0)}` : '', legR: t1 ? `${t1.deal} ${pct(p1)}` : '' }
       : { kind: 'stack', label: t('yc.ana.s.t.perBuyer'), value: perBuyer !== null ? n1(perBuyer * prog) : '—', cap: t('yc.ana.s.t.perBuyerCap'), parts: [{ w: p0, c: 'var(--red-500)' }, { w: p1, c: 'var(--red-200)' }, { w: 100 - p0 - p1, c: 'var(--sand-300)' }], legL: t0 ? `${t0.deal} ${pct(p0)}` : '', legR: t1 ? `${t1.deal} ${pct(p1)}` : '' },
@@ -149,13 +161,14 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>
                 {metric === 'eur' ? eur(v.total * prog) : n(v.total * prog)}
-                {metric === 'bil' && <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--sand-500)' }}>{t('yc.ana.tickets')}</span>}
+                {metric === 'bil' && <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--sand-500)' }}>{t(split ? 'yc.ana.paidTickets' : 'yc.ana.tickets')}</span>}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
                 {f.cmp && (dl
                   ? <span style={{ fontSize: 17, fontWeight: 600, color: dl.up ? 'var(--green-700)' : 'var(--red-600)' }}>{dl.text} {vs}</span>
                   : <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--sand-500)' }}>{t('yc.ana.noPrev')}</span>)}
                 {f.cmp && dl && <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{diff >= 0 ? t('yc.ana.more', { v: fmtVal(Math.abs(diff)) }) : t('yc.ana.less', { v: fmtVal(Math.abs(diff)) })}</span>}
+                {split && <TicketSplit paid={d.totals.paid_tickets} free={d.totals.free_tickets} mult={prog} style={{ fontSize: 14 }} />}
               </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--sand-600)' }}>
@@ -289,7 +302,8 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[0, 1, 2, 3, 4].map((i) => <Sk key={i} h={56} r={14} />)}</div> : d.events.length === 0 ? (
           <p style={{ margin: 0, fontSize: 14.5, color: 'var(--sand-500)' }}>{t('yc.ana.s.evEmpty')}</p>
         ) : (() => {
-          const amtMax = Math.max(1, ...d.events.map((e) => (money ? Number(e.revenue ?? 0) : Number(e.tickets))));
+          const tkOf = (e: AnaSales['events'][number]) => Number(e.paid ?? e.tickets);
+          const amtMax = Math.max(1, ...d.events.map((e) => (money ? Number(e.revenue ?? 0) : tkOf(e))));
           const grid = 'minmax(200px,1.5fr) minmax(180px,1.2fr) minmax(160px,1fr) 110px';
           return (
             <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="yc-thin-scroll">
@@ -300,7 +314,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                 {d.events.map((e, i) => {
                   const fillP = e.cap ? (Number(e.sold) / Number(e.cap)) * 100 : null;
                   const on = f.event === e.id;
-                  const amt = money ? Number(e.revenue ?? 0) : Number(e.tickets);
+                  const amt = money ? Number(e.revenue ?? 0) : tkOf(e);
                   const dlt = e.upcoming ? null : (e.prev_sold && Number(e.prev_sold) > 0 ? (Number(e.sold) - Number(e.prev_sold)) / Number(e.prev_sold) : null);
                   return (
                     <div
@@ -326,9 +340,10 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                           <b style={{ color: 'var(--ink)' }}>{fillP !== null ? pct(fillP) : '—'}</b>
                         </span>
                         <Fill pct={fillP ?? 0} go={go} delay={i * 90} />
+                        <TicketSplit paid={e.paid} free={e.free} style={{ fontSize: 12.5 }} />
                       </span>
                       <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : t('yc.ana.nTickets', { n: n(amt) })}</b>
+                        <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : t(e.paid !== undefined ? 'yc.ana.nPaidTickets' : 'yc.ana.nTickets', { n: n(amt) })}</b>
                         <Fill pct={(amt / amtMax) * 100} go={go} delay={i * 90} h={4} bg="var(--ink)" />
                       </span>
                       <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 600, color: e.upcoming ? 'var(--sand-500)' : dlt === null ? 'var(--sand-400)' : dlt >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>

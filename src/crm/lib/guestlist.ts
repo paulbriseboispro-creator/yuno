@@ -9,14 +9,31 @@
 /** Seuil sous lequel un pourcentage ne se montre pas (même règle que le reste de Yuno). */
 export const GL_MIN_SAMPLE = 10;
 
+/**
+ * Porte mesurée (décision de Paul, 17/10, migration 20261020200000) : la porte
+ * a scanné au moins `DOOR_MIN_SCANS` billets valides ET au moins `DOOR_MIN_SHARE`
+ * d'entre eux. Sans elle, « pas scanné » ne veut pas dire « pas venu ».
+ */
+export const DOOR_MIN_SCANS = 10;
+export const DOOR_MIN_SHARE = 0.1;
+
+/**
+ * Miroir EXACT de `_crm_door_measured(valid, scanned)`. Comparé en entiers
+ * (`scans × 10 ≥ billets`) : en virgule flottante, 0,1 × 110 vaut 11,000…02.
+ */
+export function doorMeasured(valid: number | null | undefined, scanned: number | null | undefined): boolean {
+  const s = scanned ?? 0;
+  return s >= DOOR_MIN_SCANS && s * Math.round(1 / DOOR_MIN_SHARE) >= (valid ?? 0);
+}
+
 export type GlTicketKind = 'inv' | 'free';
 
 /**
  * Miroir de `_crm_ticket_gl_kind(status, price, deal_channel)` : une invitation Shotgun
- * (`deal_channel = 'invitation'`) ou un billet valide à 0 €. Tout autre billet
- * (payant, annulé, remboursé, revendu, en attente) n'est pas une entrée, ni un
- * duplicata (`deal_channel = 'duplicata'`, la copie d'un billet existant —
- * migration 20261008130000).
+ * (`deal_channel = 'invitation'`, la guest list) ou un billet valide à 0 € (une
+ * entrée gratuite). Tout autre billet (payant, annulé, remboursé, revendu, en
+ * attente) n'en est pas, ni un duplicata (`deal_channel = 'duplicata'`, la copie
+ * d'un billet existant — migration 20261008130000).
  */
 export function glKindOf(status: string | null | undefined, price: number | null | undefined, channel: string | null | undefined): GlTicketKind | null {
   if (status !== 'valid') return null;
@@ -24,6 +41,26 @@ export function glKindOf(status: string | null | undefined, price: number | null
   if (channel === 'invitation') return 'inv';
   if (price === 0) return 'free';
   return null;
+}
+
+/** Miroir de `_crm_ticket_is_sale(status, deal_channel)` : ni invitation, ni duplicata. */
+export function isSaleTicket(status: string | null | undefined, channel: string | null | undefined): boolean {
+  return status === 'valid' && channel !== 'invitation' && channel !== 'duplicata';
+}
+
+/** Miroir de `_crm_ticket_is_paid(status, price, deal_channel)` : une vente à plus de 0 €. */
+export function isPaidTicket(status: string | null | undefined, price: number | null | undefined, channel: string | null | undefined): boolean {
+  return isSaleTicket(status, channel) && (price ?? 0) > 0;
+}
+
+/**
+ * Ce qu'est un billet pour l'écran (D4) : payant, entrée gratuite (tarif à 0 €)
+ * ou guest list (invitation). Les ventes affichées = payants + entrées gratuites.
+ */
+export type TicketKind = 'paid' | GlTicketKind;
+export function ticketKindOf(status: string | null | undefined, price: number | null | undefined, channel: string | null | undefined): TicketKind | null {
+  if (isPaidTicket(status, price, channel)) return 'paid';
+  return glKindOf(status, price, channel);
 }
 
 /** « 23:52 » depuis des minutes comptées à partir de midi (0 = 12:00, 795 = 01:15). */

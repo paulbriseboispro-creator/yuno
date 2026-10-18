@@ -10,6 +10,7 @@ import { clamp01, reveal, useProgress, wipe } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { CrmHome, HomePeriod } from '@/crm/data/home';
 import { COARSE_STEPS, niceTop } from '@/crm/lib/axis';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 
 const PERIODS: HomePeriod[] = ['24h', '48h', '7d', '30d', '90d'];
 
@@ -30,11 +31,14 @@ export function SalesHero({
   // Sans accès au chiffre d'affaires, le serveur rend les montants à null :
   // le bloc compte alors des billets (et la période d'avant, en total seulement).
   const money = !s || s.total !== null;
+  // Billets payants à part des entrées gratuites (D4, 20261020200000) : sans
+  // accès à l'argent, le bloc compte les billets PAYANTS.
+  const split = !!s && s.paid_tickets !== undefined && s.free_tickets !== undefined;
 
   const view = useMemo(() => {
     if (!s || !hasData) return null;
     const N = s.series.length;
-    const cur = s.series.map((x) => Number(money ? x.cur : x.tickets));
+    const cur = s.series.map((x) => Number(money ? x.cur : split ? (x.paid ?? 0) : x.tickets));
     const prev = money ? s.series.map((x) => Number(x.prev)) : [];
     const top = niceTop(Math.max(0, ...cur, ...prev), { headroom: 1.12, empty: 1, steps: COARSE_STEPS });
     const starts = s.series.map((x) => new Date(x.t).getTime());
@@ -90,8 +94,8 @@ export function SalesHero({
     })
     : [];
 
-  const total = s ? Number(money ? s.total : s.tickets) : 0;
-  const ptotal = s ? Number(money ? s.prev_total : s.prev_tickets) : 0;
+  const total = s ? Number(money ? s.total : split ? s.paid_tickets : s.tickets) : 0;
+  const ptotal = s ? Number(money ? s.prev_total : split ? s.prev_paid_tickets : s.prev_tickets) : 0;
   const vs = t(`yc.home.periodVs.${period}`);
   let deltaText = '';
   let deltaColor = 'var(--green-700)';
@@ -101,7 +105,7 @@ export function SalesHero({
   } else if (ptotal <= 0) {
     deltaText = total > 0 ? t('yc.home.sales.deltaNew', { vs }) : '';
     deltaColor = 'var(--sand-500)';
-    deltaSub = money ? t('yc.home.sales.tickets', { n: n(s?.tickets ?? 0) }) : '';
+    deltaSub = money && !split ? t('yc.home.sales.tickets', { n: n(s?.tickets ?? 0) }) : '';
   } else {
     const d = (total - ptotal) / ptotal;
     const p = Math.round(Math.abs(d) * 100);
@@ -157,7 +161,8 @@ export function SalesHero({
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
           {deltaText && <span style={{ fontSize: 17, fontWeight: 600, color: deltaColor }}>{deltaText}</span>}
-          <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{deltaSub}</span>
+          {deltaSub && <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{deltaSub}</span>}
+          {hasData && split && <TicketSplit paid={s?.paid_tickets} free={s?.free_tickets} mult={gg} style={{ fontSize: 14 }} />}
         </div>
       </div>
 

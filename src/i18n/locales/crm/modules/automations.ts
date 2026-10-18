@@ -376,11 +376,7 @@ const dict: CrmDict = {
   'yc.au.r.post_event_missed.trigS': ['For those who had a ticket and didn’t come', 'Pour ceux qui avaient un billet sans venir', 'Para quienes tenían entrada y no vinieron'],
   'yc.au.r.post_event_missed.q': ['After each night, for those who had a ticket and weren’t scanned', 'Après chaque soirée, pour ceux qui avaient un billet et n’ont pas été scannés', 'Tras cada fiesta, para quienes tenían entrada y no fueron escaneados'],
   'yc.au.r.post_event_missed.short': ['No-show', 'Absent', 'Ausente'],
-  'yc.au.r.post_event_missed.target': [
-    'Those who had a ticket and weren’t scanned at the door. A night with no scan triggers nothing.',
-    'Ceux qui avaient un billet et n’ont pas été scannés à la porte. Une soirée sans aucun scan ne déclenche rien.',
-    'Quienes tenían entrada y no fueron escaneados en la puerta. Una fiesta sin ningún escaneo no desencadena nada.',
-  ],
+  'yc.au.r.post_event_missed.target': ['Those who had a ticket and weren’t scanned at the door. Only on a night with a measured door: at least 10 tickets scanned and 10 % of the tickets.', 'Ceux qui avaient un billet et n’ont pas été scannés à la porte. Seulement sur une soirée à porte mesurée : au moins 10 billets scannés et 10 % des billets.', 'Quienes tenían entrada y no fueron escaneados en la puerta. Solo en una fiesta con la puerta medida: al menos 10 entradas escaneadas y el 10 % de las entradas.'],
   'yc.au.r.post_event_missed.when': ['Send: {d} after the night ends', 'Envoi : {d} après la fin de la soirée', 'Envío: {d} después del final de la fiesta'],
   'yc.au.r.regular_lapse.name': ['The regular who drifts away', 'L’habitué qui décroche', 'El habitual que se aleja'],
   'yc.au.r.regular_lapse.desc': ['An invitation to the coming night that suits them best, chosen for each person.', 'Une invitation à la soirée à venir qui lui ressemble le plus, choisie pour chacun.', 'Una invitación a la próxima fiesta que más se le parece, elegida para cada persona.'],

@@ -19,7 +19,7 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import type { AnaFilters } from '@/crm/data/analytics';
 import type { AnaGuestList } from '@/crm/data/guestlist';
 import type { ClientFilterDef } from '@/crm/data/clients';
-import { periodVerdict, ptsDelta, rate } from '@/crm/lib/guestlist';
+import { periodVerdict, ptsDelta, rate, DOOR_MIN_SCANS, DOOR_MIN_SHARE } from '@/crm/lib/guestlist';
 import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
 import { WriteModal } from '@/crm/components/WriteModal';
 import { ArrivalsCard, GL_COLORS, KindPill, NightGuestList, WhoCard } from '../nights/NightGuestList';
@@ -165,7 +165,7 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
                   </span>
                 </div>
               ))}
-              <span style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.45, color: 'var(--sand-500)' }}>{t('yc.gl.a.listsFoot')}</span>
+              <span style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.45, color: 'var(--sand-500)' }}>{t('yc.gl.a.listsFoot', { min: DOOR_MIN_SCANS, pct: pct(DOOR_MIN_SHARE * 100) })}</span>
             </div>
           )}
         </section>

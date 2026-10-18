@@ -13,6 +13,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import type { CrmHome } from '@/crm/data/home';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 
 type Next = NonNullable<CrmHome['next']>;
 
@@ -115,6 +116,7 @@ export function NextNightCard({ next, intro, cc }: { next: Next; intro: boolean;
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 80, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{n(next.sold * cc)}</span>
             <span style={{ fontSize: 16, color: 'var(--text-on-night-2)' }}>{cap !== null ? t('yc.home.next.ofPlaces', { n: n(cap) }) : t('yc.home.next.placesSold')}</span>
           </div>
+          <TicketSplit paid={next.paid} free={next.free} mult={cc} strong="#fff" style={{ fontSize: 14, color: 'var(--text-on-night-2)' }} />
           {cap !== null && cap > 0 && (
             <div style={{ height: 8, borderRadius: 99, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
               <div style={{ width: `${((next.sold / cap) * 100 * cc).toFixed(1)}%`, height: '100%', borderRadius: 99, background: 'var(--gradient-brand)' }} />

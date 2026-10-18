@@ -251,7 +251,7 @@ const dict: CrmDict = {
   'yc.why.slot.sunset': ['sunset', 'sunset', 'sunset'],
   'yc.why.slot.evening': ['evening', 'soirée', 'tarde-noche'],
   'yc.why.slot.night': ['night', 'nuit', 'noche'],
-  'yc.why.src.gl': ['the guest list', 'la guest list', 'la lista de invitados'],
+  'yc.why.src.gl': ['a free entry or the guest list', 'une entrée gratuite ou la guest list', 'una entrada gratuita o la lista de invitados'],
 
   // ── Fiche client
   'yc.why.card.t': ['Hypotheses', 'Hypothèses', 'Hipótesis'],

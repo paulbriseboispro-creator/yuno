@@ -73,6 +73,14 @@ describe('périodes, séries, totaux', () => {
     expect(tt).toMatchObject({ nights: 2, sold: 140, cap: 100, capKnown: 1, revenue: 1500 });
     expect(tt.fill).toBeCloseTo(0.9);
   });
+  it('payants, entrées gratuites et guest list s’additionnent (D4), sinon null', () => {
+    const osmoz = night({ sold: 756, paid: 52, free: 704, inv: 0, cap: 800 });
+    const other = night({ sold: 100, paid: 90, free: 10, inv: 12, cap: 120 });
+    expect(totals([osmoz, other])).toMatchObject({ sold: 856, paid: 142, free: 714, inv: 12 });
+    // Serveur pas encore à jour : jamais un 0 inventé.
+    expect(totals([osmoz, night({ sold: 30 })])).toMatchObject({ paid: null, free: null });
+    expect(totals([])).toMatchObject({ paid: null, free: null, inv: 0 });
+  });
   it('pas d’écart sous 3 soirées de comparaison', () => {
     expect(deltaPct(120, 100, 2)).toBeNull();
     expect(deltaPct(120, 100, 3)).toBeCloseTo(20);

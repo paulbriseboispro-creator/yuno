@@ -11,6 +11,7 @@ import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { NightDetail, NightRow } from '@/crm/data/nights';
 import { dayIn, daysUntil, fillOf, pickMessage, type UpKind } from '@/crm/lib/nights';
+import { TicketSplit } from '@/crm/components/TicketSplit';
 import { SalesCurve } from './SalesCurve';
 import type { DrawerView } from './NightDrawer';
 import { ShotgunLink } from './nightsUi';
@@ -103,6 +104,7 @@ export function NightHero({ night: h, detail, kind, progress, cc: c, open: openD
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,6vw,84px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(h.sold * c)}</span>
                 {h.cap ? <span style={{ fontSize: 18, fontWeight: 500, color: 'var(--sand-500)' }}>{t('yc.ni.of', { n: n(h.cap) })}</span> : null}
               </div>
+              <TicketSplit paid={h.paid} free={h.free} inv={h.inv} mult={c} style={{ fontSize: 14.5, marginTop: 4 }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'right', paddingBottom: 4 }}>
               <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--green-700)', minHeight: 22 }}>{h.today ? t('yc.ni.todayUp', { n: n(h.today) }) : ''}</span>
