@@ -42,9 +42,9 @@ import { sendResendBatch, batchIdempotencyKey, sleep, type ResendEmail } from '.
 import { sendBatchIsolating, sortForBatch, refusalReleasesKey, withRetries } from '../_shared/campaign-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { supportSessionFor } from '../_shared/support-session.ts';
-import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
+import { demoPreviewGuard, demoMarketingScopeState } from "../_shared/demo-guard.ts";
 import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
-import { scheduledSendRefusal } from '../_shared/scheduled-email-campaigns.ts';
+import { DEMO_SCOPE_UNKNOWN, scheduledSendRefusal } from '../_shared/scheduled-email-campaigns.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -967,7 +967,20 @@ Deno.serve(async (req) => {
     // n'envoie JAMAIS (ni masse, ni test, ni cron). Une campagne que le front
     // vient de passer en `sending` / `scheduled` retourne en brouillon, sinon
     // elle resterait « Envoi en cours, 0/0 » (cf. CLAUDE.md, refus du 17/09).
-    if (await isDemoMarketingScope(campaign.venue_id as string | null, campaign.organizer_user_id as string | null)) {
+    const demoState = await demoMarketingScopeState(campaign.venue_id as string | null, campaign.organizer_user_id as string | null);
+    if (demoState === 'unknown') {
+      // Lecture impossible (panne) : rien ne part, et la campagne attend le
+      // passage suivant (MAIL-12). Programmée : rendue au cron. Envoi du pro :
+      // rendue en brouillon (il réessaie). Tranche : le balayage repassera.
+      if (campaign_id && !send_test && scheduled === true) {
+        await admin.from('email_campaigns').update({ status: 'scheduled' }).eq('id', campaign_id).eq('status', 'sending');
+      } else if (campaign_id && !send_test && mode !== 'drain') {
+        await admin.from('email_campaigns').update({ status: 'draft', error_message: 'demo_scope_unknown' })
+          .eq('id', campaign_id).eq('status', 'sending');
+      }
+      return new Response(JSON.stringify({ error: DEMO_SCOPE_UNKNOWN, code: DEMO_SCOPE_UNKNOWN }), { status: 503, headers: jsonHeaders });
+    }
+    if (demoState === 'demo') {
       if (campaign_id && ['sending', 'scheduled'].includes(String(campaign.status))) {
         await admin.from('email_campaigns').update({ status: 'draft', scheduled_at: null })
           .eq('id', campaign_id).in('status', ['sending', 'scheduled']);

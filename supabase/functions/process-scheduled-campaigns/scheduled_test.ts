@@ -7,7 +7,7 @@
 
 import { assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { dispatchScheduledEmailCampaigns, scheduledSendRefusal, NOT_SCHEDULED_ANYMORE } from "../_shared/scheduled-email-campaigns.ts";
+import { DEMO_SCOPE_UNKNOWN, dispatchScheduledEmailCampaigns, scheduledSendRefusal, NOT_SCHEDULED_ANYMORE } from "../_shared/scheduled-email-campaigns.ts";
 
 type Row = { id: string; status: string; scheduled_at: string; error_message?: string | null };
 interface Res { data: unknown; error: null }
@@ -116,4 +116,18 @@ Deno.test("règle de send-campaign : un appel du cron sur autre chose que « sen
   for (const s of ["draft", "scheduled", "paused", "cancelled", "sent"]) assertEquals(scheduledSendRefusal(true, s), NOT_SCHEDULED_ANYMORE);
   assertEquals(scheduledSendRefusal(true, "sending"), null);
   assertEquals(scheduledSendRefusal(undefined, "draft"), null); // envoi du pro, pas du cron
+});
+
+Deno.test("porte démo illisible (panne) : la campagne est rendue au cron, jamais « failed » (MAIL-12)", async () => {
+  const db = new FakeDb(due("c1"));
+  // send-campaign : panne de la porte démo, rend la campagne « scheduled » puis 503.
+  const invoke = (id: string) => {
+    db.rows.get(id)!.status = "scheduled";
+    return Promise.resolve(new Response(JSON.stringify({ error: DEMO_SCOPE_UNKNOWN }), { status: 503 }));
+  };
+  await dispatchScheduledEmailCampaigns(fakeAdmin(db), invoke, NOW);
+  assertEquals(db.status("c1"), "scheduled");
+  const sent: string[] = [];
+  await dispatchScheduledEmailCampaigns(fakeAdmin(db), fakeSend(db, sent), NOW); // passage suivant
+  assertEquals(sent, ["c1"]);
 });

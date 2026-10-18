@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
           headers: { 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', 'apikey': SERVICE_KEY },
           body: JSON.stringify({ campaign_id: c.id, mode: 'send', scheduled: true }),
         });
+        // 503 « demo_scope_unknown » : send-sms-campaign l'a rendue « scheduled »
+        // (MAIL-12) ; le filtre sur « draft » ci-dessous n'y touche donc pas.
         if (!res.ok && res.status !== 402 && res.status !== 400) {
           await admin.from('sms_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` }).eq('id', c.id).eq('status', 'draft');
         }
@@ -144,12 +146,18 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ campaign_id: c.id }),
         });
-        if (!res.ok) {
-          await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id);
+        // Porte démo illisible (panne) : send-push-campaign l'a rendue
+        // « scheduled », le passage suivant la reprend (MAIL-12). Un échec ne
+        // s'écrit que sur une campagne encore « sending ».
+        const refusal = !res.ok ? await res.json().catch(() => ({})) as { error?: string } : {};
+        if (!res.ok && refusal.error !== 'demo_scope_unknown') {
+          await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id).eq('status', 'sending');
+        } else if (res.ok) {
+          await res.body?.cancel();
         }
         pushProcessed++;
       } catch (_e) {
-        await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id);
+        await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id).eq('status', 'sending');
       }
     }
 

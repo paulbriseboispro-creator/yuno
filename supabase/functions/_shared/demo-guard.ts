@@ -122,26 +122,41 @@ export async function demoAccountGuard(
  * Miroir de is_demo_marketing_scope() (SQL). Sert aux trois workers d'envoi
  * (email, SMS, push) : un compte démo peut composer, cibler, voir ses
  * segments — jamais envoyer, ni en masse ni en test, quelle que soit la
- * session (Paul, agent, cron, prospect). Fail-open sur panne de lecture :
- * une panne ne doit pas bloquer les vrais clients.
+ * session (Paul, agent, cron, prospect).
+ *
+ * FERMÉ sur panne (audit du 18/10, MAIL-12) : la lecture est retentée une
+ * fois, puis rend 'unknown'. Avant, une panne rendait « pas démo » et l'envoi
+ * partait. Sur 'unknown', l'appelant n'envoie RIEN et laisse la campagne
+ * reprendre au passage suivant — jamais « démo » (qui la remettrait en
+ * brouillon) ni « échouée » pour un vrai client pendant une coupure.
  */
+export type DemoScopeState = "demo" | "real" | "unknown";
+
+export async function demoMarketingScopeState(
+  venueId: string | null | undefined,
+  organizerUserId: string | null | undefined,
+  rpc?: (p: { p_venue_id: string | null; p_organizer_user_id: string | null }) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<DemoScopeState> {
+  if (!venueId && !organizerUserId) return "real"; // portée plateforme (Yuno)
+  const call = rpc ?? ((p) => createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
+  ).rpc("is_demo_marketing_scope", p));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { data, error } = await call({ p_venue_id: venueId ?? null, p_organizer_user_id: organizerUserId ?? null });
+      if (!error && typeof data === "boolean") return data ? "demo" : "real";
+    } catch { /* retentée une fois */ }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 400));
+  }
+  return "unknown";
+}
+
+/** Raccourci : true = démo OU inconnu (rien ne part). */
 export async function isDemoMarketingScope(
   venueId: string | null | undefined,
   organizerUserId: string | null | undefined,
 ): Promise<boolean> {
-  if (!venueId && !organizerUserId) return false; // portée plateforme (Yuno)
-  try {
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } },
-    );
-    const { data, error } = await admin.rpc("is_demo_marketing_scope", {
-      p_venue_id: venueId ?? null,
-      p_organizer_user_id: organizerUserId ?? null,
-    });
-    return !error && data === true;
-  } catch {
-    return false;
-  }
+  return (await demoMarketingScopeState(venueId, organizerUserId)) !== "real";
 }
