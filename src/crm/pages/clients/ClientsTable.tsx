@@ -145,7 +145,8 @@ export function ClientsTable({
   ];
 
   const pcBase = all ? (total / all) * 100 : 0;
-  const pcTxt = total === all ? t('yc.cli.list.wholeBase') : total === 0 ? '' : t('yc.cli.list.pctBase', { pct: pcBase < 0.1 ? '< 0,1 %' : pct(pcBase, 1) });
+  // Sans liste lue (chargement, échec), ni compteur ni « toute votre base » : un 0 y dirait « personne ».
+  const pcTxt = !list ? '' : total === all ? t('yc.cli.list.wholeBase') : total === 0 ? '' : t('yc.cli.list.pctBase', { pct: pcBase < 0.1 ? '< 0,1 %' : pct(pcBase, 1) });
   const shown = Math.min(limit, total);
   const vis = rows.slice(0, shown);
   const selSet = new Set(sel);
@@ -210,7 +211,7 @@ export function ClientsTable({
                 style={{ height: 38, padding: '0 14px', borderRadius: 99, border: `1px solid ${on ? 'var(--ink)' : 'var(--sand-200)'}`, background: on ? 'var(--ink)' : '#fff', color: on ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }}
                 hover={{ borderColor: 'var(--sand-400)' }}
               >
-                {c.l}<span style={{ fontSize: 13, fontWeight: 500, color: on ? 'rgba(255,255,255,.7)' : 'var(--sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(c.n)}</span>
+                {c.l}{list && <span style={{ fontSize: 13, fontWeight: 500, color: on ? 'rgba(255,255,255,.7)' : 'var(--sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(c.n)}</span>}
               </Hv>
             );
           })}
