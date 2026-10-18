@@ -29,8 +29,10 @@ import { demoAccountGuard } from "../_shared/demo-guard.ts";
 import {
   eventsUrl,
   extractPage,
+  isCohostedRole,
   isValidOrganizerId,
   type Json,
+  leaseAlive,
   mapShotgunEvent,
   mapShotgunTicket,
   type MappedEvent,
@@ -77,6 +79,7 @@ export interface ConnRow {
   tickets_cursor: string | null;
   events_synced_at: string | null;
   initial_import_done_at: string | null;
+  locked_until: string | null;
   sync_interval_minutes: number;
   fail_count: number;
   amount_divisor: number;
@@ -323,6 +326,11 @@ export async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigg
           const m = mapShotgunEvent(raw, 1);
           if (!m) continue;
           if (!seen.has(m.external_id)) { seen.add(m.external_id); fresh++; }
+          // Case « co-organisées » éteinte : ces soirées n'entrent pas (audit
+          // 18/10, DATA-05). Comptées quand même comme nouvelles ci-dessus :
+          // une page qui n'en porte que de celles-là ne doit pas arrêter la
+          // lecture de l'historique.
+          if (!conn.include_cohosted && isCohostedRole(m.external_role)) continue;
           events.push(m);
         }
         return fresh;
@@ -370,7 +378,7 @@ export async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigg
     }
     if (events.length) {
       if (!sample.event_keys) sample.event_keys = schemaKeys(events[0].raw);
-      const orgName = events.find((e) => e.external_role !== "cohost" && e.organizer_name)?.organizer_name ?? null;
+      const orgName = events.find((e) => !isCohostedRole(e.external_role) && e.organizer_name)?.organizer_name ?? null;
       if (orgName && !conn.external_org_name) {
         await admin.from("ticketing_connections").update({ external_org_name: orgName }).eq("id", conn.id);
       }
@@ -577,7 +585,7 @@ async function verifyShotgun(admin: SupabaseClient, organizerId: string, token: 
   }
   try {
     const ev = await fetchEvents(admin, { external_org_id: organizerId }, token, deadline, {}, null, counter);
-    const name = ev.items.map((r) => mapShotgunEvent(r)).find((m) => m && m.external_role !== "cohost" && m.organizer_name)?.organizer_name ?? null;
+    const name = ev.items.map((r) => mapShotgunEvent(r)).find((m) => m && !isCohostedRole(m.external_role) && m.organizer_name)?.organizer_name ?? null;
     return { ok: true, orgName: name, eventsAuth: ev.param };
   } catch {
     // Les billets passent : on accepte, la passe complète réessaiera les soirées.
@@ -639,14 +647,21 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
       return json({ error: "org_change_requires_purge", current_org_id: existing!.external_org_id }, 409);
     }
 
+    const sameOrg = existing?.external_org_id === organizerId;
+    const includeCohosted = body.includeCohosted !== false;
+    // Changer « co-organisées » en reconnectant suit la même règle que la case
+    // (audit 18/10, DATA-05) : refusé pendant une lecture, rallumer relit tout,
+    // éteindre retire ce qui en venait.
+    const cohostChange = !!existing && sameOrg && existing.include_cohosted !== includeCohosted;
+    if (cohostChange && leaseAlive(existing!.locked_until)) return json({ error: "sync_running" }, 409);
+
     const check = await verifyShotgun(admin, organizerId, token);
     if (!check.ok) return json({ error: check.error }, check.error === "invalid_token" ? 400 : 502);
 
-    const sameOrg = existing?.external_org_id === organizerId;
     const patch = {
       external_org_id: organizerId,
       external_org_name: check.orgName ?? (sameOrg ? existing?.external_org_name ?? null : null),
-      include_cohosted: body.includeCohosted !== false,
+      include_cohosted: includeCohosted,
       status: "active",
       next_sync_at: new Date().toISOString(),
       locked_until: null,
@@ -654,6 +669,10 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
       schema_sample: check.eventsAuth ? { ...(sameOrg ? existing?.schema_sample ?? {} : {}), events_auth: check.eventsAuth } : (sameOrg ? existing?.schema_sample ?? null : null),
       // Autre organisation Shotgun = autre historique : on repart de zéro.
       ...(sameOrg ? {} : { tickets_cursor: null, events_synced_at: null, initial_import_done_at: null }),
+      // Co-organisées changées : post-traitement complet ; rallumées, tout
+      // l'historique est relu (il n'a jamais été lu).
+      ...(cohostChange ? { post_full_at: null, stats_at: null } : {}),
+      ...(cohostChange && includeCohosted ? { tickets_cursor: null, events_synced_at: null } : {}),
     };
     let connectionId: string;
     if (existing) {
@@ -669,6 +688,10 @@ export async function handleTicketingAction(ctx: Ctx): Promise<Response> {
     }
     const { error: vaultErr } = await admin.rpc("store_ticketing_token", { p_connection_id: connectionId, p_token: token });
     if (vaultErr) return json({ error: "token_store_failed" }, 500);
+    if (cohostChange && !includeCohosted) {
+      const { error: dropErr } = await admin.rpc("_ticketing_drop_cohosted", { p_connection_id: connectionId });
+      if (dropErr) console.error("[ticketing] drop_cohosted:", dropErr.message);
+    }
 
     waitUntil(drainAndMaybeChain(admin, supabaseUrl, "connect", connectionId, 0));
     return json({ ok: true, connection_id: connectionId, org_name: patch.external_org_name });

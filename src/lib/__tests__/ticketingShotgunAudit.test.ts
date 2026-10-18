@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractPage, isoDate, orgChangeBlocked, ticketCursor } from '../../../supabase/functions/_shared/ticketing-shotgun';
+import { extractPage, isCohostedRole, isoDate, orgChangeBlocked, ticketCursor } from '../../../supabase/functions/_shared/ticketing-shotgun';
 
 // Audit du 18/10 (docs/audit/2026-10-18-crm-readiness/REPORT.md).
 
@@ -53,5 +53,14 @@ describe('changement d’organisation Shotgun sur une connexion (SYNC-01)', () =
   it('connexion vierge ou absente : accepté', () => {
     expect(orgChangeBlocked(vierge, '222')).toBe(false);
     expect(orgChangeBlocked(null, '222')).toBe(false);
+  });
+});
+
+describe('soirées co-organisées : le rôle rendu par Shotgun (DATA-05)', () => {
+  it('« editor », « viewer » (valeurs mesurées en prod) et « cohost » sont co-organisées', () => {
+    for (const r of ['editor', 'viewer', 'cohost', ' Editor ']) expect(isCohostedRole(r)).toBe(true);
+  });
+  it('« organizer », un rôle absent ou inconnu : une soirée propre, jamais écartée', () => {
+    for (const r of ['organizer', null, undefined, '', 'admin', 42]) expect(isCohostedRole(r)).toBe(false);
   });
 });

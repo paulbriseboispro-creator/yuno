@@ -572,7 +572,7 @@ function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnSta
   const when = useWhen();
   const [co, setCo] = useState(conn.include_cohosted);
   const [syncing, setSyncing] = useState(false);
-  const [confirm, setConfirm] = useState<null | 'disc' | 'del'>(null);
+  const [confirm, setConfirm] = useState<null | 'disc' | 'del' | 'co'>(null);
   const [working, setWorking] = useState(false);
   const broken = state === 'broken';
   const scope = { venueId: space.venueId, organizerUserId: space.organizerUserId };
@@ -597,21 +597,35 @@ function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnSta
     window.setTimeout(() => { setSyncing(false); invalidate(); }, 8000);
   };
 
-  const toggleCo = async () => {
-    const next = !co;
-    setCo(next);
+  // Allumer relit l'historique ; éteindre retire ce qui venait de ces soirées
+  // (audit 18/10, DATA-05) : on demande d'abord.
+  const applyCo = async (next: boolean) => {
     try {
-      await setCohosted(args, next);
-      toast(t(next ? 'yc.co.m.coOn' : 'yc.co.m.coOff'));
+      const r = await setCohosted(args, next);
+      if (r?.error) { toast(t(ticketingErrorKey(r.error))); return; }
+      setCo(next);
+      const removed = Number(r?.removed?.tickets ?? 0);
+      toast(next ? t('yc.co.m.coOn') : removed > 0 ? tp('yc.co.m.coOffN', removed, { n: n(removed) }) : t('yc.co.m.coOff'));
       void q.refetch();
+      if (!next) invalidate();
     } catch {
-      setCo(!next);
       toast(t('yc.co.err.generic'));
     }
+  };
+  const toggleCo = () => {
+    if (co) setConfirm('co');
+    else void applyCo(true);
   };
 
   const doConfirm = async () => {
     if (!confirm) return;
+    if (confirm === 'co') {
+      setWorking(true);
+      await applyCo(false);
+      setWorking(false);
+      setConfirm(null);
+      return;
+    }
     setWorking(true);
     const code = await ticketingAction(scope, confirm === 'disc' ? 'ticketing_disconnect' : 'ticketing_purge');
     setWorking(false);
@@ -735,8 +749,8 @@ function Manage({ conn, state, go }: { conn: TicketingConnection; state: ConnSta
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <Hv as="button" type="button" onClick={() => setConfirm(null)} disabled={working} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>{t('yc.co.cancel')}</Hv>
-              <Hv as="button" type="button" onClick={doConfirm} disabled={working} style={{ height: 44, padding: '0 22px', border: 0, borderRadius: 99, background: confirm === 'del' ? 'var(--red-500)' : 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: working ? 'progress' : 'pointer', opacity: working ? 0.7 : 1 }} hover={{ filter: 'brightness(1.1)' }}>
-                {t(confirm === 'disc' ? 'yc.co.m.discBtn' : 'yc.co.m.delBtn')}
+              <Hv as="button" type="button" onClick={doConfirm} disabled={working} style={{ height: 44, padding: '0 22px', border: 0, borderRadius: 99, background: confirm === 'disc' ? 'var(--ink)' : 'var(--red-500)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: working ? 'progress' : 'pointer', opacity: working ? 0.7 : 1 }} hover={{ filter: 'brightness(1.1)' }}>
+                {t(confirm === 'disc' ? 'yc.co.m.discBtn' : confirm === 'co' ? 'yc.co.cf.co.btn' : 'yc.co.m.delBtn')}
               </Hv>
             </div>
           </div>

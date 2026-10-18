@@ -700,6 +700,30 @@ export function eventsUrl(
  * 18/10, SYNC-01). Il faut d'abord « Supprimer les données importées ».
  * Même organisation (nouveau jeton) ou connexion vierge : rien n'est refusé.
  */
+/**
+ * Soirée co-organisée : Shotgun rend le rôle de l'organisation connectée sur la
+ * soirée — « organizer » pour les siennes, « editor » / « viewer » quand elle y
+ * est invitée (mesuré en prod le 18/10 : 203 / 53 / 25 soirées sur WOH).
+ * Miroir EXACT de `_ticketing_role_is_cohosted` (audit du 18/10, DATA-05). Un
+ * rôle inconnu ou absent compte comme une soirée propre : rien n'est jamais
+ * écarté sur une valeur qu'on ne connaît pas.
+ */
+export const COHOSTED_ROLES: ReadonlySet<string> = new Set(["editor", "viewer", "cohost"]);
+export function isCohostedRole(role: unknown): boolean {
+  return typeof role === "string" && COHOSTED_ROLES.has(role.trim().toLowerCase());
+}
+
+/**
+ * Le bail d'une passe est encore vivant (`locked_until` dans le futur) : une
+ * reconnexion ne le libère pas, sinon deux passes écrivent à la fois et une
+ * version plus ancienne d'un billet peut passer après la plus récente (audit
+ * du 18/10, SYNC-03).
+ */
+export function leaseAlive(lockedUntil: string | null | undefined, now = Date.now()): boolean {
+  const t = lockedUntil ? Date.parse(lockedUntil) : NaN;
+  return Number.isFinite(t) && t > now;
+}
+
 export function orgChangeBlocked(
   existing: { external_org_id: string; tickets_cursor: string | null; events_synced_at: string | null; initial_import_done_at: string | null } | null,
   organizerId: string,

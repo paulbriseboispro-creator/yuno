@@ -88,7 +88,8 @@ export async function ticketingAction(
 }
 
 export function setCohosted(args: Record<string, unknown>, on: boolean) {
-  return rpc<{ ok?: boolean; error?: string }>('crm_ticketing_set_cohosted', { ...args, p_on: on });
+  return rpc<{ ok?: boolean; error?: string; reread?: boolean; removed?: { tickets?: number; events?: number; consents_withdrawn?: number } }>(
+    'crm_ticketing_set_cohosted', { ...args, p_on: on });
 }
 
 /** Clé de message d'un code d'erreur de l'edge. */
@@ -100,7 +101,7 @@ export function ticketingErrorKey(code: string): string {
     support_session_forbidden: 'yc.co.err.support', demo_account_locked: 'yc.co.err.demo', demo_read_only: 'yc.co.err.demo',
     forbidden: 'yc.co.err.forbidden', too_soon: 'yc.co.err.tooSoon',
     org_change_requires_purge: 'yc.co.err.orgChange', not_connected: 'yc.co.err.notConnected',
-    unauthorized: 'yc.co.err.signedOut',
+    unauthorized: 'yc.co.err.signedOut', sync_running: 'yc.co.err.syncRunning',
   };
   const k = Object.keys(m).find((x) => code.includes(x));
   return k ? m[k] : 'yc.co.err.generic';
