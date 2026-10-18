@@ -88,7 +88,7 @@ const dict: CrmDict = {
   'yc.em.rg.notifyD': ['A notification when the campaign has left, then another when the first results are ready.', 'Une notification quand la campagne est partie, puis une autre quand les premiers résultats sont prêts.', 'Una notificación cuando la campaña ha salido y otra cuando los primeros resultados están listos.'],
 
   'yc.em.rg.test.t': ['Who gets your test emails?', 'Qui reçoit vos e-mails de test ?', '¿Quién recibe sus e-mails de prueba?'],
-  'yc.em.rg.test.s': ['The addresses offered in the Studio to check an email before sending. A test costs no Yunit. Up to 5.', 'Les adresses proposées dans le Studio pour vérifier un e-mail avant l’envoi. Un test ne coûte aucun Yunit. 5 au plus.', 'Las direcciones propuestas en el Studio para revisar un e-mail antes del envío. Una prueba no cuesta ningún Yunit. Hasta 5.'],
+  'yc.em.rg.test.s': ['The addresses offered in the Studio to check an email before sending: your team’s addresses only (Account › Team), 20 tests a day. A test costs no Yunit. Up to 5.', 'Les adresses proposées dans le Studio pour vérifier un e-mail avant l’envoi : celles de votre équipe seulement (Compte › Équipe), 20 tests par jour. Un test ne coûte aucun Yunit. 5 au plus.', 'Las direcciones propuestas en el Studio para revisar un e-mail antes del envío: solo las de su equipo (Cuenta › Equipo), 20 pruebas al día. Una prueba no cuesta ningún Yunit. Hasta 5.'],
   'yc.em.rg.test.ph': ['first.name@example.com', 'prenom@exemple.fr', 'nombre@ejemplo.es'],
   'yc.em.rg.test.add': ['Add', 'Ajouter', 'Añadir'],
   'yc.em.rg.test.label': ['New test address', 'Nouvelle adresse de test', 'Nueva dirección de prueba'],

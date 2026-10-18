@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, SendHorizontal, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isDemoAccountSession } from '@/lib/demoSession';
+import { readTestSend, testSendMessage } from '@/lib/email/testSend';
 import { BORDER, FONT_UI, PrimaryBtn, RED, SUBTLE, T1, T3, TextInput } from './ui';
 
 /** Modale « Envoyer un test » (prototype) : adresse, envoi réel, confirmation. */
@@ -37,11 +38,14 @@ export default function TestEmailDialog({ open, campaignId, onSave, onClose }: {
     try {
       const saved = await onSave();
       if (!saved || !campaignId) throw new Error(t('studio.test.saveFailed'));
-      const { error: fnError } = await supabase.functions.invoke('send-campaign', {
+      const { data, error: fnError } = await supabase.functions.invoke('send-campaign', {
         body: { campaign_id: campaignId, send_test: true, test_emails: extra ? [extra] : undefined },
       });
-      if (fnError) throw fnError;
+      // Un test ne part qu'aux adresses de l'équipe, 20 fois par jour (MAIL-08).
+      const r = await readTestSend(data, fnError);
+      if (!r.ok) throw new Error(testSendMessage(t, r));
       setSent(true);
+      if (r.refused.length) setError(t('studio.test.notTeam').replace('{list}', r.refused.join(', ')));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('studio.test.sendFailed'));
     } finally {

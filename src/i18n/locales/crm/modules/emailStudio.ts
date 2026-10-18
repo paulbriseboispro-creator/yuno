@@ -357,6 +357,8 @@ const dict: CrmDict = {
   'yc.em.st.t.back': ['Back to the email', 'Revenir à l’e-mail', 'Volver al e-mail'],
   'yc.em.st.t.demo': ['Demo account: no email leaves, not even a test.', 'Compte de démonstration : aucun e-mail ne part, pas même un test.', 'Cuenta de demostración: no sale ningún e-mail, ni siquiera una prueba.'],
   'yc.em.st.t.fail': ['The test didn’t leave. Try again in a moment.', 'Le test n’est pas parti. Réessayez dans un instant.', 'La prueba no salió. Inténtelo en un momento.'],
+  'yc.em.st.t.limit': ['{n} tests a day per account: this one will have to wait until tomorrow.', '{n} tests par jour et par compte : celui-ci attendra demain.', '{n} pruebas al día por cuenta: esta tendrá que esperar a mañana.'],
+  'yc.em.st.t.notTeam': ['Not sent to {list}: a test only goes to your team’s addresses (Account › Team).', 'Pas envoyé à {list} : un test ne part qu’aux adresses de votre équipe (Compte › Équipe).', 'No enviado a {list}: una prueba solo sale a las direcciones de su equipo (Cuenta › Equipo).'],
   'yc.em.st.t.noSubject': ['Add a subject first (Subject tab).', 'Ajoutez d’abord un objet (onglet Objet).', 'Añada primero un asunto (pestaña Asunto).'],
 };
 

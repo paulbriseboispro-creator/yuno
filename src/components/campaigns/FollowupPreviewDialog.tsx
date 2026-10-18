@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { bindBlocksToEvent, renderEmailHtml, type EmailTemplate } from '@/lib/email';
 import { useStudioLiveData, type StudioScope } from '@/components/email-studio/hooks';
+import { readTestSend, testSendMessage } from '@/lib/email/testSend';
 
 const RED = '#E8192C';
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
@@ -71,7 +72,7 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
     if (!campaignId && !automationId) { setError(t('studio.test.saveFailed')); return; }
     setSending(true); setError(null); setSent(false);
     try {
-      const { error: fnError } = await supabase.functions.invoke('send-campaign', {
+      const { data, error: fnError } = await supabase.functions.invoke('send-campaign', {
         body: automationId && !campaignId
           ? { send_test: true, automation_id: automationId, event_id: eventId, test_emails: extra ? [extra] : undefined }
           : {
@@ -81,8 +82,10 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
             test_emails: extra ? [extra] : undefined,
           },
       });
-      if (fnError) throw fnError;
+      const r = await readTestSend(data, fnError);
+      if (!r.ok) throw new Error(testSendMessage(t, r));
       setSent(true);
+      if (r.refused.length) setError(t('studio.test.notTeam').replace('{list}', r.refused.join(', ')));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('studio.test.sendFailed'));
     } finally {

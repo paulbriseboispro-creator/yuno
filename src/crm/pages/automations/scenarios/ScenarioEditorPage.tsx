@@ -283,7 +283,7 @@ function Editor() {
     try {
       if (n.type === 'email') {
         const r = await testScenarioEmail(id, nid, ev);
-        setTestState((s) => ({ ...s, [nid]: r.ok ? 'ok' : r.code === 'demo' ? 'yc.scn.test.err.demo' : r.code === 'identity' ? 'yc.scn.test.err.identity' : 'yc.scn.test.err.failed' }));
+        setTestState((s) => ({ ...s, [nid]: r.ok ? 'ok' : r.code === 'demo' ? 'yc.scn.test.err.demo' : r.code === 'identity' ? 'yc.scn.test.err.identity' : r.code === 'limit' ? 'yc.scn.test.err.limit' : 'yc.scn.test.err.failed' }));
       } else {
         await testScenarioSms(id, nid, ev);
         setTestState((s) => ({ ...s, [nid]: 'ok' }));

@@ -1,7 +1,9 @@
 /**
  * « Recevoir un test » : les adresses de test du compte (Réglages d'envoi,
  * cinq au plus), en ajouter une, puis l'envoi par la fonction d'envoi réelle
- * (`send-campaign`, mode test : le titulaire du compte le reçoit toujours).
+ * (`send-campaign`, mode test : la personne qui clique le reçoit toujours).
+ * Un test ne part qu'aux adresses de l'équipe de l'espace, 20 fois par jour
+ * (audit du 18/10, MAIL-08) : le serveur dit qui l'a reçu et qui est écarté.
  * Un test ne coûte aucun Yunit. Compte de démonstration : rien ne part.
  * Identité de l'expéditeur incomplète (Réglages › Envoi) : le test non plus,
  * le bandeau dit ce qui manque et y mène.
@@ -16,7 +18,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useEmailSettings, useSaveEmailSettings } from '@/crm/data/emails';
-import { isIdentityRefusal, readSendCampaignError } from '@/crm/lib/emailIdentity';
+import { readTestSend } from '@/lib/email/testSend';
 import { SenderIdentityNotice } from '@/crm/components/SenderIdentityNotice';
 import { useStudio } from '@/components/email-studio/store';
 import { useStudioUi } from './studioUi';
@@ -42,6 +44,8 @@ function TestBody({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string[] | null>(null);
+  // Adresses écartées par le serveur : hors de l'équipe de l'espace (MAIL-08).
+  const [outside, setOutside] = useState<string[]>([]);
   // Refus du serveur (la liste qu'il rend), qui prime sur l'état en cache.
   const [refused, setRefused] = useState<string[] | null>(null);
   const me = (user?.email ?? '').toLowerCase();
@@ -75,18 +79,21 @@ function TestBody({ onClose }: { onClose: () => void }) {
     setMsg(null);
     const { data, error } = await supabase.functions.invoke('send-campaign', { body: { campaign_id: campaignId, send_test: true, test_emails: sel } });
     setSending(false);
-    if (error) {
-      const { text, body } = await readSendCampaignError(error, data);
-      if (text.includes('demo_no_send')) { setMsg(t('yc.em.st.t.demo')); return; }
-      if (isIdentityRefusal(text)) {
-        setRefused(Array.isArray(body?.missing) ? body.missing : []);
+    const r = await readTestSend(data, error);
+    if (!r.ok) {
+      if (r.code === 'demo') { setMsg(t('yc.em.st.t.demo')); return; }
+      if (r.code === 'identity') {
+        setRefused(r.missing ?? []);
         void settings.refetch();
         return;
       }
+      if (r.code === 'limit') { setMsg(t('yc.em.st.t.limit', { n: r.limit ?? 20 })); return; }
+      if (r.code === 'not_team') { setMsg(t('yc.em.st.t.notTeam', { list: r.refused.join(', ') })); return; }
       setMsg(t('yc.em.st.t.fail'));
       return;
     }
-    setDone([user?.email ?? '', ...sel].filter(Boolean));
+    setOutside(r.refused);
+    setDone(r.to.length ? r.to : [user?.email ?? '', ...sel].filter(Boolean));
   };
 
   const n = sel.length + (me ? 1 : 0);
@@ -98,6 +105,7 @@ function TestBody({ onClose }: { onClose: () => void }) {
             <YunitFace mood="ravi" size={64} />
             <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em' }}>{t('yc.em.st.t.done')}</b>
             <span style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--sand-600)', maxWidth: 320, textWrap: 'pretty' }}>{t('yc.em.st.t.doneSub', { list: done.join(', ') })}</span>
+            {outside.length > 0 && <span style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 13.5, lineHeight: 1.45, fontWeight: 500, maxWidth: 360, textWrap: 'pretty' }}>{t('yc.em.st.t.notTeam', { list: outside.join(', ') })}</span>}
             <Hv as="button" type="button" onClick={onClose} style={{ marginTop: 6, height: 46, padding: '0 24px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--sand-700)' }}>{t('yc.em.st.t.back')}</Hv>
           </div>
         ) : (

@@ -7,8 +7,10 @@
 //
 // MAINTENANT, trois modes :
 //
-//   • test    → envoi direct à l'owner + jusqu'à 5 adresses (ne passe pas par
-//               la file, ne consomme pas de quota, ne compte pas en warm-up).
+//   • test    → envoi direct à la personne qui clique + les adresses de son
+//               équipe qu'elle a cochées, 20 tests par jour et par espace
+//               (email_test_send_allow) ; ne passe pas par la file, ne
+//               consomme pas de quota, ne compte pas en warm-up.
 //   • send    → constitue la file (enqueue), puis draine une première tranche.
 //               Appelé par le pro depuis l'app.
 //   • drain   → draine une tranche puis se ré-appelle. Appelé par lui-même et
@@ -792,29 +794,41 @@ async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign:
 
 // ── Envoi de test (hors file, hors quota) ──────────────────────────────────
 
+interface TestRefusal { refusal: 'test_limit' | 'no_team_address'; refused: string[]; limit?: number }
+
+/**
+ * Envoi de test. Ne part qu'à la personne qui clique et aux adresses de
+ * l'ÉQUIPE de l'espace, 20 fois par jour et par espace au plus : la porte est
+ * `email_test_send_allow` (audit du 18/10, MAIL-08). Avant, le titulaire +
+ * cinq adresses libres, sans limite : un relais d'envoi depuis le domaine
+ * marketing.
+ */
 async function sendTest(
   admin: Admin, campaignId: string, campaign: Record<string, unknown>, sender: Sender,
-  testEmail: unknown, testEmails: unknown,
-) {
-  const { data: ownerProfile } = await admin
-    .from('profiles').select('email, first_name, last_name').eq('id', sender.ownerUserId).single();
-
-  const candidates: string[] = [];
-  if (ownerProfile?.email) candidates.push(ownerProfile.email);
-  if (typeof testEmail === 'string' && testEmail.trim()) candidates.push(testEmail.trim());
+  actingUserId: string, testEmail: unknown, testEmails: unknown,
+): Promise<{ to: string[]; refused: string[] } | TestRefusal> {
+  const asked: string[] = [];
+  if (typeof testEmail === 'string' && testEmail.trim()) asked.push(testEmail.trim());
   if (Array.isArray(testEmails)) {
-    for (const e of testEmails) if (typeof e === 'string' && e.trim()) candidates.push(e.trim());
+    for (const e of testEmails) if (typeof e === 'string' && e.trim()) asked.push(e.trim());
   }
-  const seen = new Set<string>();
-  const targets: string[] = [];
-  for (const e of candidates) {
-    const lower = e.toLowerCase();
-    if (seen.has(lower)) continue;
-    seen.add(lower);
-    targets.push(e);
-    if (targets.length >= 6) break;
+  const { data: gateRaw, error: gErr } = await admin.rpc('email_test_send_allow', {
+    p_venue_id: (campaign.venue_id as string | null) ?? null,
+    p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+    p_caller: actingUserId,
+    p_emails: asked.slice(0, 20),
+  });
+  if (gErr) throw new Error(`email_test_send_allow: ${gErr.message}`);
+  const gate = gateRaw as { ok?: boolean; error?: string; allowed?: string[]; refused?: string[]; limit?: number } | null;
+  if (!gate?.ok) {
+    return {
+      refusal: gate?.error === 'test_limit' ? 'test_limit' : 'no_team_address',
+      refused: gate?.refused ?? [], limit: gate?.limit,
+    };
   }
-  if (targets.length === 0) throw new Error('No test email available');
+  const targets = gate.allowed ?? [];
+  const { data: me } = await admin
+    .from('profiles').select('first_name, last_name').eq('id', actingUserId).maybeSingle();
 
   // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
   // doit voir l'email complet.
@@ -822,8 +836,8 @@ async function sendTest(
   const payload: ResendEmail[] = targets.map((email) => {
     const tr: Recipient = {
       email,
-      first_name: ownerProfile?.first_name,
-      last_name: ownerProfile?.last_name,
+      first_name: me?.first_name,
+      last_name: me?.last_name,
       unsubscribe_token: '00000000-0000-0000-0000-000000000000',
     };
     return {
@@ -839,7 +853,7 @@ async function sendTest(
 
   const outcome = await sendResendBatch(RESEND_API_KEY!, payload);
   if (!outcome.ok) throw new Error(outcome.error || 'Test send failed');
-  return targets.length;
+  return { to: targets, refused: gate.refused ?? [] };
 }
 
 // ── Entrée ─────────────────────────────────────────────────────────────────
@@ -1058,8 +1072,15 @@ Deno.serve(async (req) => {
           ab_enabled: false,
         };
       }
-      const n = await sendTest(admin, (campaign_id as string) || (campaign.id as string), testCampaign, sender, test_email, test_emails);
-      return new Response(JSON.stringify({ success: true, sent: n, test: true }), { headers: jsonHeaders });
+      // Un test a toujours une personne derrière (jamais le cron).
+      if (!actingUserId) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
+      const out = await sendTest(admin, (campaign_id as string) || (campaign.id as string), testCampaign, sender, actingUserId, test_email, test_emails);
+      if ('refusal' in out) {
+        return new Response(JSON.stringify({ error: out.refusal, code: out.refusal, refused: out.refused, limit: out.limit ?? null }), {
+          status: out.refusal === 'test_limit' ? 429 : 403, headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ success: true, sent: out.to.length, to: out.to, refused: out.refused, test: true }), { headers: jsonHeaders });
     }
 
     // ── Constitution de la file (mode 'send') ───────────────────────────────

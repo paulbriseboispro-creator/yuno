@@ -9,7 +9,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
-import { isIdentityRefusal, readSendCampaignError } from '@/crm/lib/emailIdentity';
+import { readTestSend } from '@/lib/email/testSend';
 import { useCrmScope } from '@/crm/scope';
 import { buildCrmTemplate, type CrmTemplateKind } from '@/crm/lib/emailTemplates';
 import { stripEventBindings, templateContentToRow } from '@/lib/email/templates';
@@ -220,18 +220,16 @@ export function useScenarioEmailTemplates() {
  * `code` quand le test n'est pas parti : 'demo' (compte de démonstration),
  * 'identity' (identité de l'expéditeur incomplète, Réglages › Envoi) ou 'failed'.
  */
-export interface ScnTestResult { ok: boolean; code?: 'demo' | 'identity' | 'failed' }
+export interface ScnTestResult { ok: boolean; code?: 'demo' | 'identity' | 'limit' | 'failed' }
 
-/** Test gratuit d'un e-mail de scénario (au titulaire et aux adresses de test). */
+/** Test gratuit d'un e-mail de scénario (à la personne qui clique ; 20 tests par jour et par espace). */
 export async function testScenarioEmail(scenarioId: string, nodeId: string, eventId: string | null): Promise<ScnTestResult> {
   const { data, error } = await supabase.functions.invoke('send-campaign', {
     body: { send_test: true, scenario_id: scenarioId, node_id: nodeId, event_id: eventId },
   });
-  if (!error) return { ok: true };
-  const { text } = await readSendCampaignError(error, data);
-  if (text.includes('demo_no_send')) return { ok: false, code: 'demo' };
-  if (isIdentityRefusal(text)) return { ok: false, code: 'identity' };
-  return { ok: false, code: 'failed' };
+  const r = await readTestSend(data, error);
+  if (r.ok) return { ok: true };
+  return { ok: false, code: r.code === 'demo' || r.code === 'identity' || r.code === 'limit' ? r.code : 'failed' };
 }
 
 /** Test gratuit d'un SMS de scénario (numéro de test des Réglages SMS, sinon celui du compte). */
