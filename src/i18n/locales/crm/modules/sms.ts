@@ -278,6 +278,7 @@ const dict: CrmDict = {
   'yc.sm.co.link.s': ['The short Yuno link opens the page of the night on your public page. It’s what counts the clicks.', 'Le lien Yuno raccourci ouvre la page de la soirée sur votre page publique. C’est lui qui compte les clics.', 'El enlace Yuno corto abre la página de la fiesta en su página pública. Es el que cuenta los clics.'],
   'yc.sm.co.link.none': ['No link · nothing will be measured', 'Pas de lien · rien ne sera mesuré', 'Sin enlace · no se medirá nada'],
   'yc.sm.co.link.add': ['Add it', 'L’ajouter', 'Añadirlo'],
+  'yc.sm.co.link.err': ['Your nights could not be loaded, so none can be picked for the link yet.', 'Vos soirées n’ont pas pu être chargées : aucune ne peut encore être choisie pour le lien.', 'No se pudieron cargar sus fiestas: todavía no se puede elegir ninguna para el enlace.'],
   'yc.sm.co.link.noNight': ['No upcoming night: the link will lead to your public page.', 'Aucune soirée à venir : le lien mènera à votre page publique.', 'Ninguna fiesta próxima: el enlace llevará a su página pública.'],
   'yc.sm.co.link.to': ['Page of “{title}”, link created when sending', 'Page de « {title} », lien créé à l’envoi', 'Página de «{title}», enlace creado al enviar'],
   'yc.sm.co.added.t': ['What’s added for you', 'Ce qui est ajouté pour vous', 'Lo que se añade por usted'],

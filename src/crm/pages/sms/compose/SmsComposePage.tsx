@@ -13,6 +13,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Skel } from '@/crm/ui/kit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { useCrmToast } from '@/crm/ui/toast';
 import { EASE } from '@/crm/ui/motion';
 import { useNarrow } from '@/crm/ui/useNarrow';
@@ -142,6 +143,17 @@ export default function SmsComposePage() {
   const subLine = locked ? t('yc.sm.co.readonly')
     : saving === 'saving' ? t('yc.sm.co.saving') : saving === 'error' ? t('yc.sm.co.saveErr') : id ? t('yc.sm.co.saved') : t('yc.sm.co.notYet');
 
+  // Le brouillon (ou, pour un nouveau SMS, les soirées) illisible : l'erreur et
+  // « Réessayer », jamais un squelette sans fin (délai de 30 s de rpc() compris).
+  const loadFail = id ? (camps.isError && !camps.data ? camps : null) : (nights.isError && !nights.data ? nights : null);
+  if (!ready && loadFail) {
+    return (
+      <div style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <CrmLoadError error={loadFail.error} onRetry={() => { void loadFail.refetch(); }} retrying={loadFail.isFetching} />
+        <Hv as={Link} to={CRM_ROUTES.smsCampaigns} style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--sand-600)', textDecoration: 'none' }} hover={{ color: 'var(--ink)', textDecoration: 'none' }}>{t('yc.sm.co.toList')}</Hv>
+      </div>
+    );
+  }
   if (!ready) return <div style={{ padding: 40 }}><Skel h={520} r={28} /></div>;
   if (id && !row && camps.data) {
     return (
@@ -267,7 +279,13 @@ export default function SmsComposePage() {
                 {!locked && <button type="button" onClick={() => insert('{{lien}}')} style={{ border: 0, background: 'none', padding: 0, color: 'var(--ink)', fontSize: 13, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>{t('yc.sm.co.link.add')}</button>}
               </span>
             )}
-            {upcoming.length === 0 ? (
+            {nights.isError && !nights.data ? (
+              // Pas « aucune soirée à venir » : on n'en sait rien, la lecture a échoué.
+              <div role="alert" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px 12px', padding: '12px 16px', borderRadius: 16, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 14, fontWeight: 500 }}>
+                {t('yc.sm.co.link.err')}
+                <button type="button" onClick={() => { void nights.refetch(); }} disabled={nights.isFetching} style={{ border: 0, background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--ink)', cursor: nights.isFetching ? 'default' : 'pointer', opacity: nights.isFetching ? 0.5 : 1 }}>{t('yc.common.retry')}</button>
+              </div>
+            ) : upcoming.length === 0 ? (
               <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{t('yc.sm.co.link.noNight')}</span>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,180px),1fr))', gap: 10 }}>
