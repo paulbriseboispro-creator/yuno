@@ -166,3 +166,13 @@ attendent sa décision.
 | Fonctions (22:11) | send-campaign (après 120000), process-scheduled-campaigns, send-sms-campaign, send-push-campaign, resend-webhook, owner-assistant depuis `aea7da78`. Avant : prod = main `13cabe43`. Après : identiques au commit. |
 | Front | main poussé à `aea7da78` (SMS en « Bientôt » tant qu'Octopush n'est pas branché, Acceptés / Délivrés, exports CSV protégés, finitions UI-05). |
 | Contrôle | Appels des crons depuis le déploiement : 200. |
+
+### Lot « écrans d'erreur » (UI-04 et sa suite, front seulement)
+
+| Étape | Résultat |
+|---|---|
+| Fusion `claude/infallible-northcutt-7c1d1c` → `c4cce746` | Un conflit dans l'envoi d'un e-mail (colonne de droite : Yunits disponibles d'UI-05 et nombre de destinataires « — » tant qu'il n'est pas lu d'UI-04). Corrigé en fusionnant : « Suivant » attend le compte qui fait foi (détenteurs pour un e-mail pratique, aperçu d'audience sinon) ; avant, un e-mail pratique serait resté bloqué à l'étape Audience. |
+| `fa1a8120` | Écart relevé par la suite d'UI-04 : sans compte lu, la colonne de droite annonçait « il vous en restera <solde complet> » ; le reste s'affiche « — » et les alertes attendent le compte, comme pour le SMS. |
+| Fusion `claude/cool-leakey-40bdf2` → `bfecbc09` | Sans conflit. |
+| Contrôles | eslint 0, tsc 0, vitest 134 fichiers / 1 669 tests, build vert. |
+| Front | main poussé. Aucune migration, aucune fonction. |
