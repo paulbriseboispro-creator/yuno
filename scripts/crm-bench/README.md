@@ -104,13 +104,14 @@ node sec06.mjs dump && node sec06.mjs run <md>    # gardes du règlement promote
 node sec07.mjs run <md>                           # colonnes qu'un promoteur écrit dans sa fiche (20261025100000), après sec06 dump
 node link01.mjs scan                              # tout quantificateur {n,m} > 255 de la prod
 node link01.mjs dump && node link01.mjs run <md>  # capture d'une story sur un lien (20261024100100)
+node sec09.mjs dump && node sec09.mjs run <md>    # promoteur d'une vente et promoteurs d'agence (20261026100000 + 100100, checkouts)
 ```
 
 `dump` prend un instantané de la prod (dump-base.mjs en mode instantané, plus
 policies, triggers, contraintes et droits des fonctions pour SEC-06) ; `run`
 joue chaque scénario sous l'identité de l'API, AVANT puis APRÈS la migration,
 puis le smoke de répétition (`smoke/sec06.sql`, `smoke/link01.sql`,
-`smoke/sec07.sql`) qui servira
+`smoke/sec07.sql`, `smoke/sec09.sql`) qui servira
 à `rehearse.mjs` sur la prod. PGlite ne rend pas la session d'origine après un
 `RESET SESSION AUTHORIZATION` ni au `ROLLBACK` : ces scripts changent
 d'identité par `SET LOCAL` seulement et repassent par `SET SESSION AUTHORIZATION
