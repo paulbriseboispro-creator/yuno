@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoEmail } from '@/lib/demoPlan';
 import { Hv } from '@/crm/ui/Hv';
@@ -16,6 +17,7 @@ import { EASE, SPRING } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
+import { useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import {
   useBillingAction, useBillingOverview, useCrmBilling, useTrialExtension,
@@ -29,6 +31,9 @@ const BRANDS: Record<string, string> = { visa: 'Visa', mastercard: 'Mastercard',
 function errKey(code: string): string {
   if (code === 'support_session_forbidden') return 'yc.acc.b.errSupport';
   if (code === 'billing_not_configured') return 'yc.acc.b.errConfig';
+  // Abonnement déjà pris (autre onglet, autre membre, retour de Stripe en
+  // retard) : on le dit et on relit la page (audit du 18/10, UI-05).
+  if (code === 'already_subscribed') return 'yc.acc.b.errAlready';
   return 'yc.acc.b.err';
 }
 
@@ -79,6 +84,8 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   const [allInv, setAllInv] = useState(false);
   const ov = useBillingOverview(manage && !!b.subscription?.has_customer, allInv ? 50 : 12);
   const act = useBillingAction();
+  const qc = useQueryClient();
+  const { qk } = useCrmScope();
   const extend = useTrialExtension();
   const [busy, setBusy] = useState<string | null>(null);
   const [cancelAsk, setCancelAsk] = useState(false);
@@ -126,7 +133,13 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
       if (r.url) { window.location.assign(r.url); return; }
       if (ok) toast(ok);
     } catch (e) {
-      toast(t(errKey(e instanceof Error ? e.message : '')));
+      const code = e instanceof Error ? e.message : '';
+      toast(t(errKey(code)));
+      if (code === 'already_subscribed') {
+        void qc.invalidateQueries({ queryKey: ['crm', qk, 'billing'] });
+        void qc.invalidateQueries({ queryKey: ['crm', qk, 'billing-overview'] });
+        void qc.invalidateQueries({ queryKey: ['crm', qk, 'shell'] });
+      }
     }
     setBusy(null);
   };

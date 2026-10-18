@@ -14,6 +14,7 @@ import { EASE } from '@/crm/ui/motion';
 import type { useCrmT } from '@/crm/i18n';
 import type { Automations } from '@/crm/data/automations';
 import { CRM_AUTO_KINDS, CRM_AUTO_META, FIRST_RETURN_SMS_DELAYS, autoState, quietSendAt, recipeHours } from '@/crm/lib/automations';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 import { AU_IC, KIND_IC, chipLabel, startModal, type ModalState } from './autoFmt';
 import { Flow } from './autoUi';
 
@@ -44,6 +45,8 @@ export function AutoModal({
   const placeholder = rec?.template_subject || t(`yc.em.tp.${meta.tpl}.subject`).replace('{{prénom}}', '…');
   const set = (patch: Partial<ModalState>) => setM({ ...m, ...patch });
   const fr = m.kind === 'first_return';
+  // L'étape SMS de « 1re soirée » attend que le SMS soit ouvert (SMS-01).
+  const smsStep = fr && CRM_SMS_DISPLAY_LIVE;
   const frDays = rec?.auto_delay_days ?? 21;
   const sms = m.sms;
   const setSms = (patch: Partial<NonNullable<ModalState['sms']>>) => sms && set({ sms: { ...sms, ...patch } });
@@ -123,7 +126,7 @@ export function AutoModal({
                           {t('yc.au.m.email')}<span style={{ fontSize: 12, fontWeight: 500, color: 'var(--sand-500)' }}>{tp('yc.au.m.cost', rate, { n: n(rate) })}</span>
                         </span>
                         {/* « 1re soirée » : le SMS est le message 2, juste en dessous. */}
-                        {!fr && <span aria-disabled="true" title={t('yc.au.x.smsSoon')} style={{ height: 34, padding: '0 16px', borderRadius: 99, fontSize: 14, fontWeight: 600, color: 'var(--sand-400)', display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'not-allowed' }}>
+                        {!smsStep && <span aria-disabled="true" title={t('yc.au.x.smsSoon')} style={{ height: 34, padding: '0 16px', borderRadius: 99, fontSize: 14, fontWeight: 600, color: 'var(--sand-400)', display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'not-allowed' }}>
                           {t('yc.au.m.sms')}<span style={{ height: 20, padding: '0 7px', borderRadius: 99, background: '#fff', fontSize: 11.5, fontWeight: 600, color: 'var(--sand-500)', display: 'inline-flex', alignItems: 'center' }}>{t('yc.au.m.soon')}</span>
                         </span>}
                       </div>
@@ -170,7 +173,7 @@ export function AutoModal({
                     <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.au.m.subjectHint')}</span>
                   </label>
                 </div>
-                {fr && sms ? (
+                {smsStep && sms ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px 18px', borderRadius: 18, border: '1px solid var(--sand-200)', background: '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <b style={{ fontSize: 15 }}>{t('yc.au.m.msg')} 2 · {t('yc.au.m.sms')}</b>

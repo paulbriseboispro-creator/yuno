@@ -46,7 +46,7 @@ import {
   batchRequestId, OCTOPUSH_BATCH, octopushConfig, octopushErrorLabel, sendOctopushBatch, type OctopushConfig,
 } from "../_shared/sms-octopush.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
-import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
+import { demoPreviewGuard, demoMarketingScopeState } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -588,7 +588,10 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Octop
   const venueId = (campaign.venue_id as string | null) ?? null;
   const organizerId = (campaign.organizer_id as string | null) ?? null;
   if (!(await userOwnsScope(admin, userId, venueId, organizerId))) return json({ error: "Forbidden" }, 403);
-  if (await isDemoMarketingScope(venueId, organizerId)) return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
+  // Porte démo fermée sur panne (MAIL-12) : rien ne part, réessayer.
+  const demoState = await demoMarketingScopeState(venueId, organizerId);
+  if (demoState === "unknown") return json({ error: "demo_scope_unknown", code: "demo_scope_unknown" }, 503);
+  if (demoState === "demo") return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
 
   const crm = campaign.id ? await isCrmCampaign(admin, campaign.id as string) : scenarioCrm;
   const scope = await loadScope(admin, venueId, organizerId, crm);
@@ -695,7 +698,14 @@ Deno.serve(async (req) => {
     }
     // Périmètre démo : on compose, on n'envoie jamais (cron compris). Une
     // campagne passée en file retourne en brouillon.
-    if (await isDemoMarketingScope(campaign.venue_id as string | null, campaign.organizer_id as string | null)) {
+    const demoState = await demoMarketingScopeState(campaign.venue_id as string | null, campaign.organizer_id as string | null);
+    // Porte démo fermée sur panne (MAIL-12) : rien ne part. Une campagne
+    // programmée (que le cron a verrouillée en « draft ») lui est rendue.
+    if (demoState === "unknown") {
+      if (scheduled) await admin.from("sms_campaigns").update({ status: "scheduled" }).eq("id", campaignId).eq("status", "draft");
+      return json({ error: "demo_scope_unknown", code: "demo_scope_unknown" }, 503);
+    }
+    if (demoState === "demo") {
       if (["sending", "scheduled"].includes(String(campaign.status))) {
         await admin.from("sms_campaigns").update({ status: "draft" }).eq("id", campaignId).in("status", ["sending", "scheduled"]);
       }

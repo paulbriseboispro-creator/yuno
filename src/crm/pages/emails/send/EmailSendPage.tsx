@@ -32,8 +32,8 @@ import { useNights } from '@/crm/data/nights';
 import { useAudiencePreview, useEmailAnalysis, useEmailSettings, useInvalidateEmails, useSendOptions, type CrmAudience } from '@/crm/data/emails';
 import { fromLine, isIdentityRefusal, previewIdentity } from '@/crm/lib/emailIdentity';
 import { MARKETING_DOMAIN } from '@/crm/lib/emails';
-import { unscheduleCampaign } from '@/crm/data/emailActions';
-import { bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
+import { isUnscheduleTooLate, unscheduleCampaign } from '@/crm/data/emailActions';
+import { availableYunits, bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
 import { normalizeV2Blocks } from '@/lib/email/migrate';
 import type { EmailBlock } from '@/lib/email/types';
 import { AudienceStep } from './AudienceStep';
@@ -162,6 +162,9 @@ export default function EmailSendPage() {
   const pCheck = usePracticalCheck(draft?.id ?? null, practical);
   const net = practical ? pNight.data?.reachable ?? 0 : preview.data?.net ?? 0;
   const balance = shell.data?.wallet.balance ?? 0;
+  // Ce qui reste vraiment pour cet envoi : les campagnes programmées ont déjà
+  // réservé leur part (celle-ci exceptée si elle l'est elle-même).
+  const available = availableYunits(balance, shell.data?.wallet.reserved ?? 0, draft?.status === 'scheduled' ? net : 0);
   const low = shell.data?.wallet.low_balance ?? 2000;
 
   // ── Enregistrement (brouillon) ───────────────────────────────────────────
@@ -235,7 +238,7 @@ export default function EmailSendPage() {
   const identityText = t('yc.em.sd.ck.identity.ko', { list: (identityMissing ?? []).map((m) => t(`yc.em.id.${m}`)).join(', ') });
   const pIssues = pCheck.data?.issues ?? [];
   const checks = sendChecks({
-    subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo,
+    subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance: available, past, demo,
     paused: shell.data?.subscription?.state === 'paused', identityMissing,
     practical: practical ? {
       issues: pIssues.length, eligible: !!pCheck.data?.night?.eligible, todo: hasPracticalTodo(draft.blocks, draft.subject),
@@ -372,7 +375,7 @@ export default function EmailSendPage() {
               </div>
             </div>
           </main>
-          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={net} whenShort={whenShort} balance={balance} low={low} />
+          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={net} whenShort={whenShort} balance={available} low={low} />
         </div>
       )}
 
@@ -385,7 +388,10 @@ export default function EmailSendPage() {
           whenText={whenText(eff.at)}
           id={draft.id}
           onUnschedule={async () => {
-            try { await unscheduleCampaign(draft.id); invalidate(); toast(t('yc.em.sd.d.unscheduled')); setDraft({ ...draft, status: 'draft' }); setPhase('edit'); go('plan'); } catch { toast(t('yc.em.tp.err')); }
+            try { await unscheduleCampaign(draft.id); invalidate(); toast(t('yc.em.sd.d.unscheduled')); setDraft({ ...draft, status: 'draft' }); setPhase('edit'); go('plan'); } catch (e) {
+              if (isUnscheduleTooLate(e)) { invalidate(); toast(t('yc.em.unschedTooLate')); return; }
+              toast(t('yc.em.tp.err'));
+            }
           }}
         />
       )}

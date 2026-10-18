@@ -250,6 +250,7 @@ const dict: CrmDict = {
   'yc.acc.b.err': ['That didn’t go through. Try again in a moment.', 'L’action n’a pas abouti. Réessayez dans un instant.', 'No se completó. Inténtelo de nuevo en un momento.'],
   'yc.acc.b.errSupport': ['Not available in assisted access: the account holder does it.', 'Indisponible en accès assisté : le titulaire du compte s’en charge.', 'No disponible en acceso asistido: lo hace el titular de la cuenta.'],
   'yc.acc.b.errConfig': ['Billing isn’t open yet. Write to us.', 'La facturation n’est pas encore ouverte. Écrivez-nous.', 'La facturación aún no está abierta. Escríbanos.'],
+  'yc.acc.b.errAlready': ['Your subscription is already active: the page is updating.', 'Votre abonnement est déjà actif : la page se met à jour.', 'Su suscripción ya está activa: la página se está actualizando.'],
   'yc.acc.b.checkoutOk': ['Subscription activated. Thank you!', 'Abonnement activé. Merci !', 'Suscripción activada. ¡Gracias!'],
   'yc.acc.b.loadErr': ['Stripe details couldn’t be loaded.', 'Les informations Stripe n’ont pas pu être chargées.', 'No se pudieron cargar los datos de Stripe.'],
   'yc.acc.b.retry': ['Try again', 'Réessayer', 'Reintentar'],

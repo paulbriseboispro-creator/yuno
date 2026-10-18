@@ -35,6 +35,7 @@ import { defaultSender } from '@/crm/lib/sms';
 import { EVENT_TRIGGERS, graphErrors, type ScenarioGraph } from '@/crm/lib/scenarioGraph';
 import { blankNode, flowLayout, insertAt, nodesInFlowOrder, removalPlan, type Inlet } from '@/crm/lib/scenarioEdit';
 import { newNodeId } from '@/crm/lib/scenarioTemplates';
+import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
 import type { CrmTemplateKind } from '@/crm/lib/emailTemplates';
 import { FlowView } from './FlowView';
 import { Inspector, type InspectorRefs, type Selection } from './Inspector';
@@ -283,7 +284,7 @@ function Editor() {
     try {
       if (n.type === 'email') {
         const r = await testScenarioEmail(id, nid, ev);
-        setTestState((s) => ({ ...s, [nid]: r.ok ? 'ok' : r.code === 'demo' ? 'yc.scn.test.err.demo' : r.code === 'identity' ? 'yc.scn.test.err.identity' : 'yc.scn.test.err.failed' }));
+        setTestState((s) => ({ ...s, [nid]: r.ok ? 'ok' : r.code === 'demo' ? 'yc.scn.test.err.demo' : r.code === 'identity' ? 'yc.scn.test.err.identity' : r.code === 'limit' ? 'yc.scn.test.err.limit' : 'yc.scn.test.err.failed' }));
       } else {
         await testScenarioSms(id, nid, ev);
         setTestState((s) => ({ ...s, [nid]: 'ok' }));
@@ -298,6 +299,12 @@ function Editor() {
     if (nid) void sendTest(nid);
   };
   const publish = async () => {
+    // SMS « Bientôt » (fournisseur pas encore branché) : un scénario avec une
+    // étape SMS ne se publie pas, l'étape est nommée (audit du 18/10, SMS-01).
+    if (!CRM_SMS_DISPLAY_LIVE) {
+      const smsNodes = order.filter((x) => graph.nodes[x]?.type === 'sms');
+      if (smsNodes.length) return { ok: false, errors: smsNodes.map((node) => ({ code: 'sms_soon', node, field: null })) };
+    }
     try {
       const r = await act.publish(id, expected.current);
       if (r.ok) {

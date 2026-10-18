@@ -65,12 +65,23 @@ export function useTicketingConnection() {
   });
 }
 
-/** Relit tout ce qui dépend de la billetterie (coquille, soirées, accueil, clients). */
+/**
+ * Relit tout ce qui dépend de la billetterie (coquille, soirées, accueil,
+ * clients, segments, analyses). Les clés sont celles des requêtes, au mot près :
+ * « clients » ne préfixait ni `clients-overview` ni `clients-list`, et après une
+ * suppression des données importées les écrans Clients montraient encore
+ * l'ancienne base (audit du 18/10, UI-05).
+ */
+export const TICKETING_DEPENDENT_KEYS = [
+  'ticketing', 'shell', 'wallet', 'nights', 'night', 'night-gl', 'night-analysis', 'night-targets', 'night-plan', 'night-links', 'home',
+  'clients-overview', 'clients-list', 'client', 'client-analysis', 'segments', 'segments-brief', 'segment-catalog', 'ana', 'journey',
+] as const;
+
 export function useInvalidateTicketing() {
   const qc = useQueryClient();
   const { qk } = useCrmScope();
   return () => {
-    for (const k of ['ticketing', 'shell', 'nights', 'night', 'home', 'clients']) void qc.invalidateQueries({ queryKey: ['crm', qk, k] });
+    for (const k of TICKETING_DEPENDENT_KEYS) void qc.invalidateQueries({ queryKey: ['crm', qk, k] });
   };
 }
 

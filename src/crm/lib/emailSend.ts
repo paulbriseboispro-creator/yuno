@@ -148,3 +148,15 @@ export function verdict(checks: SendCheck[]): { level: 'ok' | 'warn' | 'bad'; ba
   const warn = checks.filter((c) => c.level === 'warn').length;
   return { level: bad ? 'bad' : warn ? 'warn' : 'ok', bad, warn };
 }
+
+/**
+ * Yunits disponibles pour un envoi : le solde, moins ce que les campagnes
+ * programmées de l'espace ont déjà réservé (`wallet.reserved` : leur estimation,
+ * débitée à leur départ), sans compter deux fois la campagne qu'on regarde si
+ * elle est elle-même programmée. Avant, le contrôle d'envoi comparait au solde
+ * brut : deux campagnes programmées pouvaient chacune « passer » et la seconde
+ * tomber faute de Yunits à son heure (audit du 18/10, UI-05).
+ */
+export function availableYunits(balance: number, reserved: number, ownHold = 0): number {
+  return Math.max(0, balance - Math.max(0, reserved - Math.max(0, ownHold)));
+}

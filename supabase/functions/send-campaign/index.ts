@@ -7,8 +7,10 @@
 //
 // MAINTENANT, trois modes :
 //
-//   • test    → envoi direct à l'owner + jusqu'à 5 adresses (ne passe pas par
-//               la file, ne consomme pas de quota, ne compte pas en warm-up).
+//   • test    → envoi direct à la personne qui clique + les adresses de son
+//               équipe qu'elle a cochées, 20 tests par jour et par espace
+//               (email_test_send_allow) ; ne passe pas par la file, ne
+//               consomme pas de quota, ne compte pas en warm-up.
 //   • send    → constitue la file (enqueue), puis draine une première tranche.
 //               Appelé par le pro depuis l'app.
 //   • drain   → draine une tranche puis se ré-appelle. Appelé par lui-même et
@@ -22,22 +24,28 @@
 //   1. `claim_campaign_recipients` (FOR UPDATE SKIP LOCKED) — deux workers ne
 //      réservent jamais la même adresse.
 //   2. clé d'idempotence Resend — si un worker meurt entre l'appel HTTP et le
-//      marquage, le rejeu du même lot ne ré-expédie pas.
+//      marquage, le rejeu du même lot ne ré-expédie pas. La clé est posée sur
+//      les lignes par la réclamation (`batch_key`) et la base rend le MÊME lot
+//      tant qu'il n'est pas soldé (audit du 18/10, MAIL-03) ; avant, elle était
+//      tirée de la composition du lot, qui pouvait changer au rejeu.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
-  renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
+  renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds, collectStudioEventIds, isLiveStudioBlock,
   usesCrmVariables, fetchRecipientCrmVars, interpolateText, type CrmRecipientVars,
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
-import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type ResendEmail } from '../_shared/resend-batch.ts';
+import { sendResendBatch, batchIdempotencyKey, sleep, type ResendEmail } from '../_shared/resend-batch.ts';
+import { sendBatchIsolating, sortForBatch, refusalReleasesKey, withRetries } from '../_shared/campaign-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { supportSessionFor } from '../_shared/support-session.ts';
-import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
+import { demoPreviewGuard, demoMarketingScopeState } from "../_shared/demo-guard.ts";
 import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
+import { DEMO_SCOPE_UNKNOWN, scheduledSendRefusal } from '../_shared/scheduled-email-campaigns.ts';
+import { dropBlocksOutsideScope } from '../_shared/email-block-scope.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,6 +80,8 @@ interface Recipient {
   conds?: Set<string>;
   /** Variables Yuno CRM ({{artiste}}, {{1re_soiree}}, {{nb_soirees}}), résolues par lot. */
   crm?: CrmRecipientVars;
+  /** Clé d'idempotence du lot, posée par la réclamation (MAIL-03). Absente sur une base d'avant. */
+  batch_key?: string | null;
 }
 
 // ── Adresses expédiables ────────────────────────────────────────────────────
@@ -96,36 +106,6 @@ function toSendableAddress(email: string): string | null {
   }
   if (!/^[A-Za-z0-9.-]+\.[A-Za-z0-9-]{2,}$/.test(host)) return null;
   return `${local}@${host}`;
-}
-
-interface IsolatedSend {
-  sent: Array<{ email: string; id: string | null }>;
-  /** Refusées une par une par Resend (422) : échec définitif, pas de pause. */
-  rejected: Array<{ email: string; error: string }>;
-  /** Refus non isolable (auth, domaine, réseau) : traité comme avant. */
-  fatal?: BatchOutcome;
-}
-
-/**
- * Envoie un lot ; sur un 422, coupe le lot en deux et recommence jusqu'à
- * isoler la ou les adresses fautives. Sept requêtes au pire pour 100 emails,
- * contre 100 envois bloqués et une campagne en pause avant.
- */
-async function sendBatchIsolating(
-  apiKey: string, campaignId: string, payload: ResendEmail[], emails: string[],
-): Promise<IsolatedSend> {
-  const key = await batchIdempotencyKey(campaignId, emails);
-  const outcome = await sendResendBatch(apiKey, payload, { idempotencyKey: key });
-  if (outcome.ok) return { sent: emails.map((e, i) => ({ email: e, id: outcome.ids[i] })), rejected: [] };
-  if (outcome.status !== 422) return { sent: [], rejected: [], fatal: outcome };
-  if (payload.length === 1) return { sent: [], rejected: [{ email: emails[0], error: outcome.error || 'HTTP 422' }] };
-  const mid = Math.ceil(payload.length / 2);
-  await sleep(BATCH_SPACING_MS);
-  const a = await sendBatchIsolating(apiKey, campaignId, payload.slice(0, mid), emails.slice(0, mid));
-  if (a.fatal) return a;
-  await sleep(BATCH_SPACING_MS);
-  const b = await sendBatchIsolating(apiKey, campaignId, payload.slice(mid), emails.slice(mid));
-  return { sent: [...a.sent, ...b.sent], rejected: [...a.rejected, ...b.rejected], fatal: b.fatal };
 }
 
 // ── Quiet hours (Europe/Paris) — opt-in par campagne ───────────────────────
@@ -312,9 +292,18 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>, is
     if (row?.postal_address?.trim()) postalAddress = row.postal_address.trim();
     if (row?.legal_name?.trim()) legalName = row.legal_name.trim();
   }
+  // L'adresse vient du registre de l'espace : attribuée une fois, suffixe tiré
+  // de l'espace pour un nom réservé ou déjà pris (audit du 18/10, MAIL-15).
+  // Base d'avant la migration 20261023170000 : slug du nom, comme avant.
+  let localPart = slugifyVenueName(name);
+  const { data: claimed, error: lpErr } = await admin.rpc('email_sender_local_claim', {
+    p_scope_key: senderScopeKey(venueId, organizerUserId), p_name: name,
+  });
+  if (lpErr) console.error('email_sender_local_claim failed, slug du nom utilisé:', lpErr.message);
+  else if (typeof claimed === 'string' && claimed) localPart = claimed;
   return {
     name: displayName, city, postalAddress, legalName, logoUrl, ownerUserId: ownerUserId!,
-    from: `${displayName} <${slugifyVenueName(name)}@${marketingDomain()}>`,
+    from: `${displayName} <${localPart}@${marketingDomain()}>`,
     replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
     venueId, organizerUserId,
@@ -339,9 +328,23 @@ async function makeStudioHtmlBuilder(
   // de vente (ce n'est pas un canal marketing).
   const practical = campaign.practical === true;
   if (practical) opts = { ...opts, trackedLinks: false };
-  const blocks = (((campaign.blocks_json as StudioBlock[]) || []))
+  let blocks = (((campaign.blocks_json as StudioBlock[]) || []))
     .filter((b) => !practical || PRACTICAL_BLOCK_TYPES.has(String(b.type)))
     .map((b) => ({ ...b }));
+  // Une soirée hors de l'espace ne remplit jamais un bloc : le bloc ne part
+  // pas (audit du 18/10, MAIL-14). La portée Yuno garde toutes les soirées.
+  let liveEventId = (campaign.event_id as string) || null;
+  const wanted = collectStudioEventIds(blocks, liveEventId);
+  if (wanted.length && !sender.isPlatform) {
+    const { data: inScope, error: scErr } = await admin.rpc('email_scope_event_ids', {
+      p_venue_id: sender.venueId, p_organizer_user_id: sender.organizerUserId, p_event_ids: wanted,
+    });
+    if (scErr) throw new Error(`email_scope_event_ids: ${scErr.message}`);
+    const kept = dropBlocksOutsideScope(blocks, liveEventId, new Set((inScope as string[] | null) ?? []), isLiveStudioBlock);
+    if (kept.dropped) console.warn(`${kept.dropped} bloc(s) d'une soirée hors de l'espace retiré(s) de la campagne ${campaign.id}`);
+    blocks = kept.blocks;
+    liveEventId = kept.eventId;
+  }
   const campaignLogo = campaign.logo_url as string | null;
   if (campaignLogo) {
     for (const b of blocks) {
@@ -362,7 +365,7 @@ async function makeStudioHtmlBuilder(
   // suivis : clics et inscriptions remontent dans les stats de la soirée. Un
   // envoi de TEST reste sur l'URL nue — le pro ne doit pas s'auto-compter.
   const live = await fetchStudioLiveData(
-    admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL,
+    admin, blocks, liveEventId, PUBLIC_URL,
     opts.trackedLinks === false ? null : 'newsletter',
     { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
     // Soirée Shotgun : la vente revient avec la source de CETTE campagne.
@@ -614,8 +617,13 @@ async function drainSlice(
       failed += bad.length;
       console.warn(`${bad.length} adresse(s) inexpédiable(s) écartée(s) du lot`);
     }
-    const sendable = rows.filter((r) => addressOf.has(r.email));
+    // Ordre fixe : un lot rejoué sous sa clé doit porter la même charge (MAIL-03).
+    const sendable = sortForBatch(rows.filter((r) => addressOf.has(r.email)));
     if (sendable.length === 0) continue;
+    // Toutes les lignes d'une réclamation partagent la clé de leur lot. Sur une
+    // base d'avant la migration 20261023100000, repli sur la clé de composition.
+    const batchKey = rows.find((r) => r.batch_key)?.batch_key
+      || await batchIdempotencyKey(campaignId, sendable.map((r) => r.email));
 
     // 3 ter. Blocs conditionnels : quelles règles CE lot satisfait-il ?
     if (usedConds.length > 0) {
@@ -648,15 +656,30 @@ async function drainSlice(
 
     // 5. Envoi. Un 422 (adresse que Resend refuse malgré le tri) isole la
     //    fautive par bissection : les autres partent, elle seule échoue.
-    const result = await sendBatchIsolating(RESEND_API_KEY!, campaignId, payload, sendable.map((r) => r.email));
+    const result = await sendBatchIsolating(
+      (p, k) => sendResendBatch(RESEND_API_KEY!, p, { idempotencyKey: k }),
+      batchKey, payload, sendable.map((r) => r.email), () => sleep(BATCH_SPACING_MS),
+    );
 
-    if (result.sent.length > 0) {
-      const marked = result.sent.map((x) => ({ email: x.email, resend_email_id: x.id }));
-      const { error: mErr } = await admin.rpc('mark_campaign_recipients_sent', {
-        p_campaign_id: campaignId, p_rows: marked,
-      });
-      if (mErr) console.error('mark sent failed:', mErr.message);
-      sent += result.sent.length;
+    // Lot rejoué que Resend avait déjà accepté (409 « clé déjà servie ») : il
+    // est parti, rien ne repart, les lignes sont soldées « envoyé ».
+    if (result.alreadySent.length > 0) {
+      console.warn(`${result.alreadySent.length} envoi(s) déjà accepté(s) par Resend sous la clé ${batchKey} : soldés sans renvoi`);
+    }
+    const delivered = [
+      ...result.sent.map((x) => ({ email: x.email, resend_email_id: x.id })),
+      ...result.alreadySent.map((e) => ({ email: e, resend_email_id: null })),
+    ];
+    if (delivered.length > 0) {
+      // L'écriture « envoyé » se réessaie (~26 s) : l'API répond 503 pendant ~21 s
+      // après chaque migration. Si elle échoue encore, les lignes restent
+      // « sending » avec leur clé ; rendues à la file, elles repartent dans le
+      // même lot, sous la même clé, et Resend rend la réponse d'origine.
+      const marked = await withRetries(() => admin.rpc('mark_campaign_recipients_sent', {
+        p_campaign_id: campaignId, p_rows: delivered,
+      }));
+      if (!marked) console.error(`mark sent failed after retries (lot ${batchKey} gardé pour un rejeu sous la même clé)`);
+      sent += delivered.length;
 
       await admin.from('email_campaign_events').insert(
         result.sent.map((x) => ({
@@ -680,7 +703,7 @@ async function drainSlice(
     }
     if (result.fatal) {
       const outcome = result.fatal;
-      const done = new Set([...result.sent.map((x) => x.email), ...result.rejected.map((x) => x.email)]);
+      const done = new Set([...result.sent.map((x) => x.email), ...result.rejected.map((x) => x.email), ...result.alreadySent]);
       const left = sendable.filter((r) => !done.has(r.email));
       // Transitoire → retour en file dans 2 min. Définitif → échec marqué.
       // Toujours remettre en file : un refus « définitif » de Resend est presque
@@ -696,6 +719,16 @@ async function drainSlice(
       });
       failed += left.length;
       console.error(`batch failed (${outcome.status ?? 'net'}, retryable=${outcome.retryable}):`, outcome.error);
+      // Resend a refusé (rien n'est parti) : la clé est levée, ces lignes
+      // repartiront dans un lot neuf. Coupure réseau ou 5xx : doute, la clé
+      // reste et le lot repartira tel quel (MAIL-03).
+      if (refusalReleasesKey(outcome) && left.length > 0) {
+        const { error: rkErr } = await admin.from('email_campaign_recipients')
+          .update({ batch_key: null })
+          .eq('campaign_id', campaignId).eq('batch_key', batchKey).eq('status', 'pending')
+          .in('email', left.map((r) => r.email));
+        if (rkErr) console.error('batch key release failed:', rkErr.message);
+      }
 
       if (!outcome.retryable) {
         // Domaine non vérifié, clé invalide, payload refusé : rien ne sert
@@ -829,29 +862,41 @@ async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign:
 
 // ── Envoi de test (hors file, hors quota) ──────────────────────────────────
 
+interface TestRefusal { refusal: 'test_limit' | 'no_team_address'; refused: string[]; limit?: number }
+
+/**
+ * Envoi de test. Ne part qu'à la personne qui clique et aux adresses de
+ * l'ÉQUIPE de l'espace, 20 fois par jour et par espace au plus : la porte est
+ * `email_test_send_allow` (audit du 18/10, MAIL-08). Avant, le titulaire +
+ * cinq adresses libres, sans limite : un relais d'envoi depuis le domaine
+ * marketing.
+ */
 async function sendTest(
   admin: Admin, campaignId: string, campaign: Record<string, unknown>, sender: Sender,
-  testEmail: unknown, testEmails: unknown,
-) {
-  const { data: ownerProfile } = await admin
-    .from('profiles').select('email, first_name, last_name').eq('id', sender.ownerUserId).single();
-
-  const candidates: string[] = [];
-  if (ownerProfile?.email) candidates.push(ownerProfile.email);
-  if (typeof testEmail === 'string' && testEmail.trim()) candidates.push(testEmail.trim());
+  actingUserId: string, testEmail: unknown, testEmails: unknown,
+): Promise<{ to: string[]; refused: string[] } | TestRefusal> {
+  const asked: string[] = [];
+  if (typeof testEmail === 'string' && testEmail.trim()) asked.push(testEmail.trim());
   if (Array.isArray(testEmails)) {
-    for (const e of testEmails) if (typeof e === 'string' && e.trim()) candidates.push(e.trim());
+    for (const e of testEmails) if (typeof e === 'string' && e.trim()) asked.push(e.trim());
   }
-  const seen = new Set<string>();
-  const targets: string[] = [];
-  for (const e of candidates) {
-    const lower = e.toLowerCase();
-    if (seen.has(lower)) continue;
-    seen.add(lower);
-    targets.push(e);
-    if (targets.length >= 6) break;
+  const { data: gateRaw, error: gErr } = await admin.rpc('email_test_send_allow', {
+    p_venue_id: (campaign.venue_id as string | null) ?? null,
+    p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+    p_caller: actingUserId,
+    p_emails: asked.slice(0, 20),
+  });
+  if (gErr) throw new Error(`email_test_send_allow: ${gErr.message}`);
+  const gate = gateRaw as { ok?: boolean; error?: string; allowed?: string[]; refused?: string[]; limit?: number } | null;
+  if (!gate?.ok) {
+    return {
+      refusal: gate?.error === 'test_limit' ? 'test_limit' : 'no_team_address',
+      refused: gate?.refused ?? [], limit: gate?.limit,
+    };
   }
-  if (targets.length === 0) throw new Error('No test email available');
+  const targets = gate.allowed ?? [];
+  const { data: me } = await admin
+    .from('profiles').select('first_name, last_name').eq('id', actingUserId).maybeSingle();
 
   // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
   // doit voir l'email complet.
@@ -859,8 +904,8 @@ async function sendTest(
   const payload: ResendEmail[] = targets.map((email) => {
     const tr: Recipient = {
       email,
-      first_name: ownerProfile?.first_name,
-      last_name: ownerProfile?.last_name,
+      first_name: me?.first_name,
+      last_name: me?.last_name,
       unsubscribe_token: '00000000-0000-0000-0000-000000000000',
     };
     return {
@@ -876,7 +921,7 @@ async function sendTest(
 
   const outcome = await sendResendBatch(RESEND_API_KEY!, payload);
   if (!outcome.ok) throw new Error(outcome.error || 'Test send failed');
-  return targets.length;
+  return { to: targets, refused: gate.refused ?? [] };
 }
 
 // ── Entrée ─────────────────────────────────────────────────────────────────
@@ -989,7 +1034,20 @@ Deno.serve(async (req) => {
     // n'envoie JAMAIS (ni masse, ni test, ni cron). Une campagne que le front
     // vient de passer en `sending` / `scheduled` retourne en brouillon, sinon
     // elle resterait « Envoi en cours, 0/0 » (cf. CLAUDE.md, refus du 17/09).
-    if (await isDemoMarketingScope(campaign.venue_id as string | null, campaign.organizer_user_id as string | null)) {
+    const demoState = await demoMarketingScopeState(campaign.venue_id as string | null, campaign.organizer_user_id as string | null);
+    if (demoState === 'unknown') {
+      // Lecture impossible (panne) : rien ne part, et la campagne attend le
+      // passage suivant (MAIL-12). Programmée : rendue au cron. Envoi du pro :
+      // rendue en brouillon (il réessaie). Tranche : le balayage repassera.
+      if (campaign_id && !send_test && scheduled === true) {
+        await admin.from('email_campaigns').update({ status: 'scheduled' }).eq('id', campaign_id).eq('status', 'sending');
+      } else if (campaign_id && !send_test && mode !== 'drain') {
+        await admin.from('email_campaigns').update({ status: 'draft', error_message: 'demo_scope_unknown' })
+          .eq('id', campaign_id).eq('status', 'sending');
+      }
+      return new Response(JSON.stringify({ error: DEMO_SCOPE_UNKNOWN, code: DEMO_SCOPE_UNKNOWN }), { status: 503, headers: jsonHeaders });
+    }
+    if (demoState === 'demo') {
       if (campaign_id && ['sending', 'scheduled'].includes(String(campaign.status))) {
         await admin.from('email_campaigns').update({ status: 'draft', scheduled_at: null })
           .eq('id', campaign_id).in('status', ['sending', 'scheduled']);
@@ -1113,8 +1171,15 @@ Deno.serve(async (req) => {
           ab_enabled: false,
         };
       }
-      const n = await sendTest(admin, (campaign_id as string) || (campaign.id as string), testCampaign, sender, test_email, test_emails);
-      return new Response(JSON.stringify({ success: true, sent: n, test: true }), { headers: jsonHeaders });
+      // Un test a toujours une personne derrière (jamais le cron).
+      if (!actingUserId) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
+      const out = await sendTest(admin, (campaign_id as string) || (campaign.id as string), testCampaign, sender, actingUserId, test_email, test_emails);
+      if ('refusal' in out) {
+        return new Response(JSON.stringify({ error: out.refusal, code: out.refusal, refused: out.refused, limit: out.limit ?? null }), {
+          status: out.refusal === 'test_limit' ? 429 : 403, headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ success: true, sent: out.to.length, to: out.to, refused: out.refused, test: true }), { headers: jsonHeaders });
     }
 
     // ── Constitution de la file (mode 'send') ───────────────────────────────
@@ -1143,8 +1208,9 @@ Deno.serve(async (req) => {
       // « scheduled » à « sending ». Si elle n'y est plus, le pro l'a
       // déprogrammée entre-temps (retour en brouillon) : on n'envoie rien
       // (audit 18/10, MAIL-04).
-      if (scheduled === true && campaign.status !== 'sending') {
-        return new Response(JSON.stringify({ error: 'not_scheduled_anymore', status: campaign.status }), { status: 409, headers: jsonHeaders });
+      const notMine = scheduledSendRefusal(scheduled, campaign.status);
+      if (notMine) {
+        return new Response(JSON.stringify({ error: notMine, status: campaign.status }), { status: 409, headers: jsonHeaders });
       }
       // Le disjoncteur ne se contourne pas par un simple re-clic sur
       // « Envoyer ». Reprendre après une coupure pour plaintes ou adresses

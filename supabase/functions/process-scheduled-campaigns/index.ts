@@ -11,6 +11,7 @@ import { dispatchNightRecaps } from "../_shared/night-recap.ts";
 import { dispatchCrmLifecycleEmails, dispatchCrmSignupConfirmations } from "../_shared/crm-lifecycle-emails.ts";
 import { dispatchWeeklyDigestEmails } from "../_shared/analytics-digest-emails.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
+import { dispatchScheduledEmailCampaigns } from "../_shared/scheduled-email-campaigns.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { dispatchEmailAutomations, dispatchCampaignResends } from "../_shared/email-automations.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
@@ -34,48 +35,17 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: campaigns } = await admin
-      .from('email_campaigns')
-      .select('id')
-      .eq('status', 'scheduled')
-      .lte('scheduled_at', new Date().toISOString())
-      .limit(20);
-
-    let processed = 0;
-    for (const c of campaigns || []) {
-      try {
-        // Mark as sending to avoid double-fire. Rien de pris = le pro l'a
-        // déprogrammée (ou un autre passage l'a déjà prise) : on n'appelle pas
-        // l'envoi (audit 18/10, MAIL-04).
-        const { data: took } = await admin.from('email_campaigns').update({ status: 'sending' })
-          .eq('id', c.id).eq('status', 'scheduled').select('id');
-        if (!took?.length) continue;
-        // Invoke send-campaign with service role
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-campaign`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SERVICE_KEY}`,
-            'Content-Type': 'application/json',
-            'apikey': SERVICE_KEY,
-          },
-          body: JSON.stringify({ campaign_id: c.id, scheduled: true }),
-        });
-        // 402 : Yunits insuffisants ou compte en pause (Yuno CRM) — send-campaign a remis la
-        // campagne en brouillon, elle ne doit pas finir « échouée ».
-        const refusal = !res.ok ? await res.json().catch(() => ({})) as { error?: string } : {};
-        if (!res.ok && res.status !== 402 && refusal.error !== 'not_scheduled_anymore') {
-          // Seulement si elle est encore « sending » : jamais par-dessus un
-          // brouillon que le pro vient de reprendre.
-          await admin.from('email_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` })
-            .eq('id', c.id).eq('status', 'sending');
-        } else if (res.ok) {
-          await res.body?.cancel();
-        }
-        processed++;
-      } catch (e) {
-        await admin.from('email_campaigns').update({ status: 'failed', error_message: String(e) }).eq('id', c.id);
-      }
-    }
+    // Campagnes programmées échues : prise conditionnelle, puis send-campaign.
+    // Une campagne déprogrammée pendant le passage ne part pas (MAIL-04).
+    const processed = await dispatchScheduledEmailCampaigns(admin, (id) => fetch(`${SUPABASE_URL}/functions/v1/send-campaign`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'apikey': SERVICE_KEY,
+      },
+      body: JSON.stringify({ campaign_id: id, scheduled: true }),
+    }));
 
     // Envois de masse en cours : libérer les réservations mortes et relancer
     // une tranche. C'est le filet sous l'auto-chaînage de send-campaign — une
@@ -134,6 +104,8 @@ Deno.serve(async (req) => {
           headers: { 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', 'apikey': SERVICE_KEY },
           body: JSON.stringify({ campaign_id: c.id, mode: 'send', scheduled: true }),
         });
+        // 503 « demo_scope_unknown » : send-sms-campaign l'a rendue « scheduled »
+        // (MAIL-12) ; le filtre sur « draft » ci-dessous n'y touche donc pas.
         if (!res.ok && res.status !== 402 && res.status !== 400) {
           await admin.from('sms_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` }).eq('id', c.id).eq('status', 'draft');
         }
@@ -174,12 +146,18 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ campaign_id: c.id }),
         });
-        if (!res.ok) {
-          await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id);
+        // Porte démo illisible (panne) : send-push-campaign l'a rendue
+        // « scheduled », le passage suivant la reprend (MAIL-12). Un échec ne
+        // s'écrit que sur une campagne encore « sending ».
+        const refusal = !res.ok ? await res.json().catch(() => ({})) as { error?: string } : {};
+        if (!res.ok && refusal.error !== 'demo_scope_unknown') {
+          await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id).eq('status', 'sending');
+        } else if (res.ok) {
+          await res.body?.cancel();
         }
         pushProcessed++;
       } catch (_e) {
-        await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id);
+        await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id).eq('status', 'sending');
       }
     }
 

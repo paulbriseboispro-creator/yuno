@@ -800,6 +800,7 @@ const dict: CrmDict = {
   'yc.scn.test.err.demo': ['Demo account: nothing is sent', 'Compte de démonstration : rien ne part', 'Cuenta de demostración: no se envía nada'],
   'yc.scn.test.err.failed': ['The test could not be sent', 'Le test n’a pas pu partir', 'No se pudo enviar la prueba'],
   'yc.scn.test.err.identity': ['Complete your sender identity first (Sending settings)', 'Complétez d’abord l’identité de l’expéditeur (Réglages d’envoi)', 'Complete primero la identidad del remitente (Ajustes de envío)'],
+  'yc.scn.test.err.limit': ['20 tests a day per account: try again tomorrow', '20 tests par jour et par compte : réessayez demain', '20 pruebas al día por cuenta: inténtelo mañana'],
   'yc.scn.test.err.save': ['Save first: the test reads the saved scenario', 'Enregistrez d’abord : le test lit le scénario enregistré', 'Guarde primero: la prueba lee el escenario guardado'],
   'yc.scn.test.note': [
     'Tests are free. E-mails go to the account holder and your test addresses (e-mail settings); SMS to the test number (SMS settings). The night used is the next one.',
@@ -888,6 +889,7 @@ const dict: CrmDict = {
   'yc.notif.scenario_notify.action': ['See the scenario', 'Voir le scénario', 'Ver el escenario'],
 
   // ── Commun ────────────────────────────────────────────────────────────────
+  'yc.scn.err.sms_soon': ['SMS is coming soon: remove this SMS step to publish.', 'Le SMS arrive bientôt : retirez cette étape SMS pour publier.', 'El SMS llega pronto: quite este paso SMS para publicar.'],
   'yc.scn.soon': ['Coming soon', 'Bientôt', 'Próximamente'],
   'yc.scn.soonShotgun': ['Coming with the Shotgun partner integration', 'Bientôt, avec l’intégration partenaire Shotgun', 'Pronto, con la integración de socio de Shotgun'],
   'yc.scn.close': ['Close', 'Fermer', 'Cerrar'],

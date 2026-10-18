@@ -16,6 +16,7 @@ import { Hv } from './Hv';
 import { Icon } from './Icon';
 import { EASE, SPRING } from './motion';
 import { ToastCtx } from './toast';
+import { nextTrapIndex } from './focusTrap';
 
 // ── Portail ────────────────────────────────────────────────────────────────
 
@@ -292,11 +293,48 @@ function useEscape(open: boolean, onClose: () => void) {
   }, [open, onClose]);
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Le focus reste dans la fenêtre tant qu'elle est ouverte (audit du 18/10,
+ * UI-05) : il y entre à l'ouverture, Tab et Maj+Tab tournent dans ses
+ * éléments, et il revient à ce qui l'avait ouverte à la fermeture.
+ */
+function useFocusTrap(ref: { current: HTMLElement | null }, open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    const before = document.activeElement as HTMLElement | null;
+    const box = ref.current;
+    const items = () => (box ? [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement) : []);
+    // Un champ en autoFocus garde la main ; sinon, la fenêtre elle-même.
+    if (box && !box.contains(document.activeElement)) box.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !box) return;
+      const list = items();
+      if (!list.length) { e.preventDefault(); box.focus({ preventScroll: true }); return; }
+      const at = list.indexOf(document.activeElement as HTMLElement);
+      const inside = box.contains(document.activeElement);
+      // Seulement aux bords (ou depuis l'extérieur) : sinon le navigateur fait son travail.
+      if (!inside || at === -1 || (e.shiftKey && at === 0) || (!e.shiftKey && at === list.length - 1)) {
+        e.preventDefault();
+        list[nextTrapIndex(list.length, at, e.shiftKey)]?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (before && document.contains(before)) before.focus({ preventScroll: true });
+    };
+  }, [open, ref]);
+}
+
 /** Modale centrée (voile sombre, carte blanche qui « pop »). */
 export function Modal({
   open, onClose, children, width = 520, label, blur = false, radius = 28,
 }: { open: boolean; onClose: () => void; children: ReactNode; width?: number; label?: string; blur?: boolean; radius?: number }) {
   useEscape(open, onClose);
+  const box = useRef<HTMLDivElement>(null);
+  useFocusTrap(box, open);
   if (!open) return null;
   return (
     <Portal>
@@ -308,11 +346,14 @@ export function Modal({
         }}
       >
         <div
+          ref={box}
           role="dialog"
           aria-modal="true"
           aria-label={label}
+          tabIndex={-1}
           onClick={(e) => e.stopPropagation()}
           style={{
+            outline: 'none',
             width: `min(${width}px, 100%)`, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', borderRadius: radius,
             background: '#fff', boxShadow: 'var(--shadow-md), 0 0 0 1px var(--sand-200)', animation: `yc-pop 280ms ${EASE} both`,
           }}
