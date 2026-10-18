@@ -33,7 +33,7 @@ import { useAudiencePreview, useEmailAnalysis, useEmailSettings, useInvalidateEm
 import { fromLine, isIdentityRefusal, previewIdentity } from '@/crm/lib/emailIdentity';
 import { MARKETING_DOMAIN } from '@/crm/lib/emails';
 import { isUnscheduleTooLate, unscheduleCampaign } from '@/crm/data/emailActions';
-import { bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
+import { availableYunits, bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
 import { normalizeV2Blocks } from '@/lib/email/migrate';
 import type { EmailBlock } from '@/lib/email/types';
 import { AudienceStep } from './AudienceStep';
@@ -151,6 +151,9 @@ export default function EmailSendPage() {
   const preview = useAudiencePreview(draft?.audiences ?? [], draft?.eventId ?? null, draft?.recentDays ?? 0, !!draft?.excludeBuyers && !!draft?.eventId, draft?.id ?? null);
   const net = preview.data?.net ?? 0;
   const balance = shell.data?.wallet.balance ?? 0;
+  // Ce qui reste vraiment pour cet envoi : les campagnes programmées ont déjà
+  // réservé leur part (celle-ci exceptée si elle l'est elle-même).
+  const available = availableYunits(balance, shell.data?.wallet.reserved ?? 0, draft?.status === 'scheduled' ? net : 0);
   const low = shell.data?.wallet.low_balance ?? 2000;
 
   // ── Enregistrement (brouillon) ───────────────────────────────────────────
@@ -218,7 +221,7 @@ export default function EmailSendPage() {
   const past = mode === 'later' && chosen.getTime() <= Date.now();
   const identityMissing = settings.data?.readiness?.missing;
   const identityText = t('yc.em.sd.ck.identity.ko', { list: (identityMissing ?? []).map((m) => t(`yc.em.id.${m}`)).join(', ') });
-  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance, past, demo, paused: shell.data?.subscription?.state === 'paused', identityMissing });
+  const checks = sendChecks({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, eventId: draft.eventId, net, balance: available, past, demo, paused: shell.data?.subscription?.state === 'paused', identityMissing });
   const who = previewIdentity(settings.data, space.name);
   const fromText = settings.data ? fromLine(who.venueName, settings.data.from_local, MARKETING_DOMAIN) : who.venueName;
   const replyTo = settings.data?.reply_to || settings.data?.defaults.reply_to || user?.email || null;
@@ -336,7 +339,7 @@ export default function EmailSendPage() {
               </div>
             </div>
           </main>
-          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={net} whenShort={whenShort} balance={balance} low={low} />
+          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={net} whenShort={whenShort} balance={available} low={low} />
         </div>
       )}
 
