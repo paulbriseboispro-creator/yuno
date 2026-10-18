@@ -16,6 +16,7 @@ import { useCrmCaps } from '@/crm/scope';
 import { useClientCard, useSaveClient } from '@/crm/data/clients';
 import type { ClientCard } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { ClientHypotheses } from './ClientHypotheses';
 
 const TL_ICON = {
@@ -74,7 +75,11 @@ export function ClientDrawer({
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {card ? <CardBody key={card.email} card={card} onWrite={() => onWrite(card)} /> : <CardSkeleton />}
+        {card ? <CardBody key={card.email} card={card} onWrite={() => onWrite(card)} />
+          : q.isError ? <div style={{ padding: '0 20px 32px' }}><CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} /></div>
+            // crm_client rend null pour une adresse hors de la base (lien ancien, contact effacé).
+            : q.isSuccess ? <div style={{ padding: 32, fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.cli.card.notFound')}</div>
+              : <CardSkeleton />}
       </div>
     </Sheet>
   );

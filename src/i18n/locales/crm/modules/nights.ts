@@ -104,6 +104,7 @@ const dict: CrmDict = {
   'yc.ni.capUnknown': ['Capacity not given by Shotgun', 'Capacité non donnée par Shotgun', 'Capacidad no indicada por Shotgun'],
   'yc.ni.curve.t': ['How sales progressed', 'Comment les ventes ont avancé', 'Cómo avanzaron las ventas'],
   'yc.ni.curve.since': ['Since sales opened, on {date}', 'Depuis l’ouverture, le {date}', 'Desde la apertura, el {date}'],
+  'yc.ni.curve.err': ['The sales curve could not be loaded.', 'La courbe des ventes n’a pas pu être chargée.', 'No se pudo cargar la curva de ventas.'],
   'yc.ni.curve.range': ['{a} → {b}', '{a} → {b}', '{a} → {b}'],
   'yc.ni.curve.today': ['today', 'aujourd’hui', 'hoy'],
   'yc.ni.curve.cap': ['{n} tickets', '{n} places', '{n} entradas'],

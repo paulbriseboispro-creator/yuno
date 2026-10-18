@@ -9,10 +9,12 @@ import { EmailThumb } from '../EmailThumb';
 export function SendAside({
   campaignId, subject, fromName, replyTo, net, whenShort, balance, low,
 }: {
-  campaignId: string; subject: string; fromName: string; replyTo: string | null; net: number; whenShort: string; balance: number; low: number;
+  /** null = destinataires pas encore comptés (ou compte en échec) : « — », jamais 0. */
+  campaignId: string; subject: string; fromName: string; replyTo: string | null; net: number | null; whenShort: string; balance: number; low: number;
 }) {
   const { t, n } = useCrmT();
-  const left = balance - net;
+  const toTxt = net === null ? '—' : n(net);
+  const left = balance - (net ?? 0);
   const short = left < 0;
   const warn = !short && left < low;
   const subj = subject.replace(/\{\{[^}]+\}\}/g, 'Camille').trim();
@@ -37,9 +39,9 @@ export function SendAside({
             {replyTo && <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.em.sd.r.replyTo', { email: replyTo })}</span>}
           </div>
           <div style={{ height: 1, background: 'var(--sand-100)' }} />
-          <Line l={t('yc.em.sd.r.to')} v={<b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{n(net)}</b>} />
+          <Line l={t('yc.em.sd.r.to')} v={<b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{toTxt}</b>} />
           <Line l={t('yc.em.sd.r.when')} v={<b style={{ fontSize: 14.5, textAlign: 'right' }}>{whenShort}</b>} />
-          <Line l={t('yc.em.sd.r.cost')} v={<b style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>{t('yc.em.sd.r.costV', { n: n(net) })}</b>} />
+          <Line l={t('yc.em.sd.r.cost')} v={<b style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>{t('yc.em.sd.r.costV', { n: toTxt })}</b>} />
         </div>
       </section>
       <section style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '18px 20px', borderRadius: 24, background: short ? 'var(--red-50)' : warn ? 'var(--amber-50)' : 'var(--paper)', boxShadow: `inset 0 0 0 1px ${short ? 'var(--red-200)' : 'var(--sand-200)'}` }}>
@@ -48,10 +50,10 @@ export function SendAside({
           <span style={{ fontSize: 13.5, color: 'var(--sand-600)', fontVariantNumeric: 'tabular-nums' }}>{t('yc.em.sd.y.avail', { n: n(balance) })}</span>
         </div>
         <div style={{ display: 'flex', height: 10, borderRadius: 99, overflow: 'hidden', background: 'rgba(0,0,0,.06)' }}>
-          <div style={{ width: `${Math.min(100, balance > 0 ? (net / balance) * 100 : 100)}%`, background: 'var(--gradient-brand)', transition: `width 420ms ${EASE}` }} />
+          <div style={{ width: `${Math.min(100, balance > 0 ? ((net ?? 0) / balance) * 100 : 100)}%`, background: 'var(--gradient-brand)', transition: `width 420ms ${EASE}` }} />
         </div>
         <span style={{ fontSize: 13.5, lineHeight: 1.4, color: short ? 'var(--red-700)' : warn ? 'var(--amber-700)' : 'var(--sand-600)', textWrap: 'pretty' }}>
-          {short ? t('yc.em.sd.y.short', { miss: n(-left) }) : t(warn ? 'yc.em.sd.y.low' : 'yc.em.sd.y.ok', { n: n(net), left: n(left) })}
+          {short ? t('yc.em.sd.y.short', { miss: n(-left) }) : t(warn ? 'yc.em.sd.y.low' : 'yc.em.sd.y.ok', { n: toTxt, left: n(left) })}
         </span>
         {(short || warn) && (
           <Hv as={Link} to={CRM_ROUTES.yunits} style={{ alignSelf: 'flex-start', height: 38, padding: '0 16px', borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-700)', color: '#fff', textDecoration: 'none' }}>{t('yc.em.sd.y.recharge')}</Hv>

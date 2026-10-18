@@ -18,6 +18,7 @@ import type { NightDetail } from '@/crm/data/nights';
 import { fillOf, pastKind, upKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { TicketSplit } from '@/crm/components/TicketSplit';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { SalesCurve } from './SalesCurve';
 import { NightLinks } from './links/NightLinks';
 import { NightGuestList } from './NightGuestList';
@@ -117,6 +118,10 @@ export function NightDrawer({
         </div>
       ) : d ? (
         <DrawerBody key={d.id} d={d} onWrite={onWrite} />
+      ) : id && q.isError ? (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 20px 32px' }}>
+          <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
+        </div>
       ) : (
         <div style={{ flex: 1, padding: '24px 24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Skel w={180} h={30} r={99} />

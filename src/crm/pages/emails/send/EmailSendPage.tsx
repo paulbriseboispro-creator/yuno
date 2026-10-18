@@ -161,6 +161,9 @@ export default function EmailSendPage() {
   const pNight = usePracticalNight(draft?.eventId ?? null, practical);
   const pCheck = usePracticalCheck(draft?.id ?? null, practical);
   const net = practical ? pNight.data?.reachable ?? 0 : preview.data?.net ?? 0;
+  // Le compte qui fait foi : les détenteurs pour un e-mail pratique, l'aperçu d'audience sinon.
+  const counted = practical ? pNight.data : preview.data;
+  const counting = practical ? pNight.isFetching : preview.isFetching;
   const balance = shell.data?.wallet.balance ?? 0;
   // Ce qui reste vraiment pour cet envoi : les campagnes programmées ont déjà
   // réservé leur part (celle-ci exceptée si elle l'est elle-même).
@@ -260,10 +263,18 @@ export default function EmailSendPage() {
   const whenShort = mode === 'now' ? t('yc.em.sd.r.onConfirm') : `${dShort(eff.at)} · ${time(eff.at)}`;
   const dateText = mode === 'now' ? t('yc.em.sd.ck.date.now') : t('yc.em.sd.ck.date.later', { when: whenText(eff.at) });
   const idx = STEPS.indexOf(step);
-  const nextOff = (step === 'aud' && net === 0) || (step === 'check' && !canSend);
+  // Sans compte lu (en échec, ou pas encore là), « Suivant » attend : l'erreur et
+  // « Réessayer » sont dans l'étape. Pendant un recalcul, le chiffre affiché est
+  // celui d'avant : on attend le bon plutôt que d'avancer sur un compte périmé.
+  const nextOff = (step === 'aud' && (net === 0 || !counted)) || (step === 'check' && !canSend);
 
   const next = () => {
-    if (step === 'aud') { if (net === 0) { toast(t('yc.em.sd.aud.none')); return; } go('plan'); return; }
+    if (step === 'aud') {
+      if (counting) { toast(t('yc.em.sd.aud.calcWait')); return; }
+      if (!counted) { toast(t('yc.em.sd.aud.calcErr')); return; }
+      if (net === 0) { toast(t('yc.em.sd.aud.none')); return; }
+      go('plan'); return;
+    }
     if (step === 'plan') { if (past) { toast(t('yc.em.sd.plan.past')); return; } go('check'); return; }
     if (!canSend) { toast(t('yc.em.sd.nav.fixFirst')); return; }
     setConfirm(true);
@@ -336,6 +347,9 @@ export default function EmailSendPage() {
                 audiences={draft.audiences}
                 onAudiences={(a) => update({ audiences: a })}
                 preview={preview.data}
+                calc={preview.isFetching}
+                previewError={preview.isError ? preview.error : null}
+                onRetryPreview={() => { void preview.refetch(); }}
                 eventTitle={eventTitle}
                 excludeBuyers={draft.excludeBuyers}
                 onExcludeBuyers={(x) => update({ excludeBuyers: x })}
@@ -375,7 +389,7 @@ export default function EmailSendPage() {
               </div>
             </div>
           </main>
-          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={net} whenShort={whenShort} balance={available} low={low} />
+          <SendAside campaignId={draft.id} subject={draft.subject} fromName={fromText} replyTo={replyTo} net={counted ? net : null} whenShort={whenShort} balance={available} low={low} />
         </div>
       )}
 

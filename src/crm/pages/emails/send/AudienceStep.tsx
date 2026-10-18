@@ -10,6 +10,7 @@ import { Skel } from '@/crm/ui/kit';
 import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { LIFECYCLE_COLOR } from '@/crm/lib/lifecycle';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import type { AudiencePreview, CrmAudience, SendOptions } from '@/crm/data/emails';
 import { Card, CardHead, Pills, Row, StepTitle, Toggle48 } from './sendUi';
 
@@ -19,12 +20,17 @@ const isAuto = (a: CrmAudience, k: string) => !a.segmentId && a.def?.seg === k &
 const autoKeyOf = (a: CrmAudience): Key | null => (!a.segmentId && a.def?.seg && a.def.seg !== 'all' && !a.def.f && !a.def.q ? (a.def.seg as Key) : null);
 
 export function AudienceStep({
-  options, audiences, onAudiences, preview, eventTitle, excludeBuyers, onExcludeBuyers, recentDays, onRecentDays,
+  options, audiences, onAudiences, preview, calc, previewError, onRetryPreview, eventTitle, excludeBuyers, onExcludeBuyers, recentDays, onRecentDays,
 }: {
   options: SendOptions | undefined;
   audiences: CrmAudience[];
   onAudiences: (a: CrmAudience[]) => void;
   preview: AudiencePreview | undefined;
+  /** Le compte (crm_email_audience_preview) est en cours : « Calcul… », jamais un « … » muet. */
+  calc: boolean;
+  /** Échec du compte (délai de 30 s compris) : l'erreur et « Réessayer » à la place du chiffre. */
+  previewError: unknown;
+  onRetryPreview: () => void;
   eventTitle: string | null;
   excludeBuyers: boolean;
   onExcludeBuyers: (v: boolean) => void;
@@ -57,25 +63,36 @@ export function AudienceStep({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, animation: `yc-rise 520ms ${EASE} both` }}>
       <StepTitle kick={t('yc.em.sd.aud.kick')} a={t('yc.em.sd.aud.h.a')} b={t('yc.em.sd.aud.h.b')} c={t('yc.em.sd.aud.h.c')} sub={t('yc.em.sd.aud.sub')} />
 
-      <section style={{ position: 'sticky', top: 76, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderRadius: 24, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(44px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{preview ? n(net) : '…'}</span>
-            <span style={{ fontSize: 16, color: 'var(--sand-500)' }}>{tp('yc.em.sd.will', net)}</span>
+      {previewError && !preview ? (
+        <CrmLoadError error={previewError} onRetry={onRetryPreview} retrying={calc} />
+      ) : (
+        <section aria-busy={calc} style={{ position: 'sticky', top: 76, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 24px', borderRadius: 24, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px 24px' }}>
+            {preview ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(44px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums', opacity: calc ? 0.4 : 1, transition: 'opacity 200ms' }}>{n(net)}</span>
+                <span style={{ fontSize: 16, color: 'var(--sand-500)' }}>{tp('yc.em.sd.will', net)}</span>
+                {calc && <CalcChip label={t('yc.em.sd.calc')} />}
+              </div>
+            ) : (
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(32px,3.6vw,44px)', lineHeight: 1, letterSpacing: '-.04em', color: 'var(--sand-400)', animation: 'yc-pulse 1.6s ease-in-out infinite' }}>{t('yc.em.sd.calc')}</span>
+            )}
+            {preview && <span style={{ fontSize: 14, color: 'var(--sand-600)' }}><Rich text={t('yc.em.sd.cost', { n: n(net) })} /></span>}
           </div>
-          <span style={{ fontSize: 14, color: 'var(--sand-600)' }}><Rich text={t('yc.em.sd.cost', { n: n(net) })} /></span>
-        </div>
-        <div style={{ display: 'flex', height: 14, gap: 2, borderRadius: 99, overflow: 'hidden', background: 'var(--sand-100)' }}>
-          <div style={{ width: `${(net / reach) * 100}%`, background: 'var(--gradient-brand)', transition: `width 420ms ${EASE}` }} />
-          <div style={{ width: `${(xb / reach) * 100}%`, background: 'var(--sand-400)', transition: `width 420ms ${EASE}` }} />
-          <div style={{ width: `${(xr / reach) * 100}%`, background: 'var(--sand-300)', transition: `width 420ms ${EASE}` }} />
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: 13, color: 'var(--sand-600)' }}>
-          <Legend c="var(--gradient-brand)" l={t('yc.em.sd.leg.net', { n: n(net) })} />
-          {excludeBuyers && <Legend c="var(--sand-400)" l={t('yc.em.sd.leg.buyers', { n: n(xb) })} />}
-          {recentDays > 0 && <Legend c="var(--sand-300)" l={t('yc.em.sd.leg.recent', { n: n(xr) })} />}
-        </div>
-      </section>
+          <div style={{ display: 'flex', height: 14, gap: 2, borderRadius: 99, overflow: 'hidden', background: 'var(--sand-100)' }}>
+            <div style={{ width: `${(net / reach) * 100}%`, background: 'var(--gradient-brand)', transition: `width 420ms ${EASE}` }} />
+            <div style={{ width: `${(xb / reach) * 100}%`, background: 'var(--sand-400)', transition: `width 420ms ${EASE}` }} />
+            <div style={{ width: `${(xr / reach) * 100}%`, background: 'var(--sand-300)', transition: `width 420ms ${EASE}` }} />
+          </div>
+          {preview && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: 13, color: 'var(--sand-600)' }}>
+              <Legend c="var(--gradient-brand)" l={t('yc.em.sd.leg.net', { n: n(net) })} />
+              {excludeBuyers && <Legend c="var(--sand-400)" l={t('yc.em.sd.leg.buyers', { n: n(xb) })} />}
+              {recentDays > 0 && <Legend c="var(--sand-300)" l={t('yc.em.sd.leg.recent', { n: n(xr) })} />}
+            </div>
+          )}
+        </section>
+      )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {([['all', ['hab', 'occ', 'nou', 'end', 'none']], ['come', ['hab', 'occ', 'nou']], ['wake', ['end']], ['clear', []]] as [string, Key[]][]).map(([k, keys]) => (
@@ -145,6 +162,14 @@ export function AudienceStep({
         </div>
       </Card>
     </div>
+  );
+}
+
+function CalcChip({ label }: { label: string }) {
+  return (
+    <span style={{ alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 12.5, fontWeight: 600 }}>
+      <Icon name="refresh" size={13} stroke={2.4} style={{ animation: 'yc-spin 900ms linear infinite' }} />{label}
+    </span>
   );
 }
 

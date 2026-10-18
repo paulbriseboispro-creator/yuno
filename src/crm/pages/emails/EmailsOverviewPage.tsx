@@ -25,6 +25,7 @@ import type { EmailCampaignRow, PeriodTotals } from '@/crm/data/emails';
 import { delta, draftGaps, perK, rate, shortName } from '@/crm/lib/emails';
 import { lacksMessage, upKind } from '@/crm/lib/nights';
 import { CRM_ROUTES } from '@/crm/shell/nav';
+import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EmailsShell } from './EmailsShell';
 import { EmailThumb } from './EmailThumb';
 import { niceTop } from '@/crm/lib/axis';
@@ -98,7 +99,9 @@ export default function EmailsOverviewPage() {
 
   return (
     <EmailsShell tab="home" title={title} sub={t(vide ? 'yc.em.ov.subEmpty' : 'yc.em.ov.sub')} drafts={drafts.length}>
-      {!data ? (
+      {q.isError && !data ? (
+        <CrmLoadError error={q.error} onRetry={() => { void q.refetch(); }} retrying={q.isFetching} />
+      ) : !data ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 12 }}>{[0, 1, 2].map((i) => <Skel key={i} h={170} r={20} />)}</div>
           <Skel h={460} r={28} />
