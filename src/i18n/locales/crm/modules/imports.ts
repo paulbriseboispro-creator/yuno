@@ -65,6 +65,7 @@ const dict: CrmDict = {
   'yc.imp.testNew': ['New contact', 'Nouveau contact', 'Contacto nuevo'],
   'yc.imp.testNewS': ['Nobody has it in your base yet.', 'Personne ne l’a encore dans votre base.', 'Nadie lo tiene aún en su base.'],
   'yc.imp.testAdd': ['Add', 'Ajouter', 'Añadir'],
+  'yc.imp.testSample': ['Example address: it’s never added to your base. Type a real address to add it.', 'Adresse d’exemple : elle n’est jamais ajoutée à votre base. Tapez une vraie adresse pour l’ajouter.', 'Dirección de ejemplo: nunca se añade a su base. Escriba una dirección real para añadirla.'],
   'yc.imp.testAdded': ['Contact added · it can never be added a second time', 'Contact ajouté · il ne pourra plus être ajouté une deuxième fois', 'Contacto añadido · ya no podrá añadirse una segunda vez'],
   'yc.imp.testBad': ['We don’t recognise this format', 'On ne reconnaît pas ce format', 'No reconocemos este formato'],
   'yc.imp.testBadS': ['A complete email (name@example.com) or a phone number.', 'Un e-mail complet (nom@exemple.fr) ou un téléphone à 10 chiffres.', 'Un e-mail completo (nombre@ejemplo.es) o un número de teléfono.'],

@@ -15,7 +15,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmScope, useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { downloadText } from '@/crm/lib/csv';
-import { TEMPLATE_CSV, normEmail, normTel } from '@/crm/lib/fileImport';
+import { TEMPLATE_CSV, isExampleAddress, normEmail, normTel } from '@/crm/lib/fileImport';
 import { isValidEmail } from '@/lib/emailImport';
 import { checkAgainstBase, commitImport, syncShotgunErrorKey, syncShotgunNow, undoImport, useInvalidateBase } from '@/crm/data/imports';
 import type { ImportsOverview, ImportRow } from '@/crm/data/imports';
@@ -383,8 +383,11 @@ function Tester({ sampleEmail, onAdded }: { sampleEmail: string | null; onAdded:
     return () => { live = false; clearTimeout(h); };
   }, [parsed, q, vId, oId]);
 
+  // Adresse d'exemple (la puce « nouveau.contact@exemple.fr ») : elle montre le
+  // contrôle, jamais un ajout à la vraie base (audit du 18/10, UI-05).
+  const sample = !!res?.email && isExampleAddress(res.email);
   const add = async () => {
-    if (!res || res.kind !== 'new' || adding) return;
+    if (!res || res.kind !== 'new' || adding || sample) return;
     setAdding(true);
     try {
       const row: Record<string, string> = {};
@@ -451,9 +454,13 @@ function Tester({ sampleEmail, onAdded }: { sampleEmail: string | null; onAdded:
             <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--green-700)' }}>{t('yc.imp.testNew')}</span>
             <span style={{ fontSize: 13.5, lineHeight: 1.4, color: 'var(--sand-600)' }}>{t('yc.imp.testNewS')}</span>
           </div>
-          <Hv as="button" type="button" onClick={() => void add()} disabled={adding} style={{ flex: 'none', height: 40, padding: '0 18px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: adding ? 'wait' : 'pointer', transition: `transform 200ms ${SPRING}` }} hover={{ background: 'var(--sand-700)' }} active={{ transform: 'scale(.96)' }}>
-            {t('yc.imp.testAdd')}
-          </Hv>
+          {sample ? (
+            <span style={{ flex: '1 1 100%', fontSize: 13.5, lineHeight: 1.4, color: 'var(--sand-600)' }}>{t('yc.imp.testSample')}</span>
+          ) : (
+            <Hv as="button" type="button" onClick={() => void add()} disabled={adding} style={{ flex: 'none', height: 40, padding: '0 18px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: adding ? 'wait' : 'pointer', transition: `transform 200ms ${SPRING}` }} hover={{ background: 'var(--sand-700)' }} active={{ transform: 'scale(.96)' }}>
+              {t('yc.imp.testAdd')}
+            </Hv>
+          )}
         </div>
       )}
       {res?.kind === 'bad' && (

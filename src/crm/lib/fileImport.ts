@@ -382,3 +382,16 @@ export const SAMPLE_CSV = [
 ].join('\n');
 
 export const TEMPLATE_CSV = 'Prénom;Nom;Email;Mobile;Ville\nLéa;Martin;lea@exemple.fr;06 12 34 56 78;Paris\n';
+
+/**
+ * Adresse d'exemple : domaines réservés par la RFC 2606 / 6761 (example.*,
+ * .test, .invalid, .localhost) et leurs équivalents français et espagnols
+ * (exemple.*, ejemplo.*). Sert aux puces de démonstration : une telle adresse
+ * n'entre jamais dans la vraie base (audit du 18/10, UI-05).
+ */
+export function isExampleAddress(email: string): boolean {
+  const domain = (email.split('@')[1] ?? '').trim().toLowerCase();
+  if (!domain) return false;
+  if (/(^|\.)(test|invalid|localhost|example)$/.test(domain)) return true;
+  return /^(example|exemple|ejemplo)\.[a-z]{2,}$/.test(domain);
+}
