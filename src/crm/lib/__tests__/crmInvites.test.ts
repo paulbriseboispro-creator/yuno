@@ -8,7 +8,7 @@ const base = {
   orgName: 'Le Rex', contactName: 'Kevin Martin', url: 'https://crm.yunoapp.eu/fr/start?offer=abc123',
   freeMonths: 0, yunits: 0, priceMonth: 24, trialDays: 14, trialYunits: 2000, expiresAt: '2026-11-16T12:00:00Z',
 };
-const nb = (s: string) => s.replace(/ | /g, ' ');
+const nb = (s: string) => s.replace(/[\u202f\u00a0]/g, ' ');
 
 describe('invitation Yuno CRM : e-mail', () => {
   it('essai standard : objet, essai et Yunits de l’essai, prix, bouton', () => {
