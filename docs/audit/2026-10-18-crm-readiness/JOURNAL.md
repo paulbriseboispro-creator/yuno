@@ -69,6 +69,35 @@ prouvé.
 | `node scripts/crm-bench/prod.mjs …` | lectures seules (connexion, passes, triggers, ACL, vues, crons, sauvegardes) |
 | `supabase secrets list` | noms et empreintes seulement (aucune valeur) : `RESEND_WEBHOOK_SECRET` posé, aucun secret Octopush |
 
+## Preuves d'exploitation (18/10, 14 h 15 → 14 h 45 heure de Paris)
+
+Session « preuves d'exploitation », worktree `blissful-faraday-d14300`, partie de
+`crm/readiness-audit`. Lectures prod une à la fois, chacune après
+`prod.mjs --activity` (rien d'autre que la réplication Realtime). Aucune écriture,
+aucune dépense, Docker non démarré. Charge du Mac : 7 à 13 (autres sessions) ; tous
+les tests de cette session sont légers (PGlite, `node`, < 3 s chacun).
+
+| Commande | Résultat |
+|---|---|
+| `node prod-functions-reference.mjs scan` | 1 229 versions appliquées, 1 659 fonctions (schémas `public`, `private`, `analytics_wh*`, hors extensions) |
+| `node prod-functions-reference.mjs report …` | **1 609 identiques**, 50 divergentes : 35 réécrites, 13 absentes du dépôt, 2 plus anciennes que le dépôt → [ops04-functions.md](ops04-functions.md) |
+| contrôle de la référence au banc (PGlite, instantané de la prod) | 49 / 50 blocs `CREATE OR REPLACE` + droits passent ; le 50ᵉ (`private.get_cron_secret`) échoue seulement faute du schéma `private` au banc |
+| `node isolation.mjs run --club …` | couple de CLUBS : 156 refusés, 9 silencieux, 8 « même réponse » (clés et booléens sans donnée client), 33 non concluants → [isolation-results-club.md](isolation-results-club.md) |
+| `node isolation.mjs run …` (fixture enrichie : e-mail pratique, import, segment club) | couple d'ORGANISATEURS : 158 refusés, 9 silencieux, 9 « même réponse », 30 non concluants (avant : 157 / 9 / 10 / 30 ; `crm_practical_email_check` est passé de « même réponse » à « refusé » une fois testé sur une vraie campagne pratique) |
+| `node history-holes.mjs scan` puis `report` | objets de la prod qu'aucun fichier du dépôt ne crée : 4 tables, 12 triggers, 6 policies, 11 crons (création dynamique) → [ops03-history-holes.md](ops03-history-holes.md) |
+| `npm audit --omit=dev --json` | 22 paquets signalés ; 4 partent chez l'utilisateur (1 critique natif, 3 modérés web) → [npm-audit.md](npm-audit.md) |
+| prod, lecture : `SELECT 'https://…' ~ '^https://[^[:space:]]{1,480}$'` | **erreur 2201B** : l'expression de `crm_link_create` est refusée par Postgres (répétition > 255) → LINK-01 |
+| prod, lecture : triggers de `promoter_conversions` | `trg_guard_promoter_conversion_settlement` **absent** (migration `20260721090000` pourtant marquée appliquée) → SEC-06 |
+| prod, lecture : crons | 64 actifs, 16 appellent une fonction edge par son URL ; aucun ne vise l'ancien projet Lovable |
+
+Ce qui reste bloqué, et pourquoi :
+- **OPS-02** (restauration testée) : « Restore to a new project » crée un projet
+  facturé (≈ 0,0134 $ / h) et n'existe qu'au tableau de bord ; procédure prête
+  (RUNBOOK §4.1, crons à couper dans la copie). Attend l'accord de Paul.
+- **OPS-03** (rejeu des 1 231 migrations) : Docker arrêté ; la partie gratuite
+  (trous de l'historique) est faite. Attend : Docker démarré par Paul, ou un projet
+  vide temporaire (même coût horaire).
+
 ## Ce que cet audit n'a pas pu faire
 
 - Appeler l'API publique de la prod ou jouer une RPC en tant qu'un compte réel :

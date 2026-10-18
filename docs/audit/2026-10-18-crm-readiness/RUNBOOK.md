@@ -131,7 +131,64 @@ Du plus ciblé au plus large.
    (15 min). Ce qui ne se reconstruit pas : preuves de consentement,
    désinscriptions, événements d'e-mail, Yunits.
 4. À faire une fois avant le 2ᵉ client : une restauration d'essai dans un projet
-   isolé, chronométrée, notée ici.
+   isolé, chronométrée, notée ici. **Pas encore faite** (18/10 : en attente de
+   l'accord de Paul, coût ci-dessous). Procédure préparée :
+
+### 4.1 Restauration d'essai dans un projet isolé (préparée, non jouée)
+
+Ce que Supabase fait (doc « Restore to a new project », relue le 18/10) : copie
+physique de la base (schéma, données, rôles, comptes Auth, **clé racine du Vault**),
+même région, même taille de machine que la source (Micro). Pas copiés : fichiers
+du Storage et réglages des buckets, fonctions edge, réglages Auth et clés d'API,
+Realtime. Une copie ne peut pas être clonée à son tour. Pas d'API : bouton du
+tableau de bord seulement, donc **c'est Paul qui clique**.
+
+**Piège à neutraliser : `pg_cron` et `pg_net` repartent dès la fin de la copie,
+sans qu'on puisse les mettre en pause.** La copie a les 64 crons actifs et le secret
+des crons (Vault déchiffrable) ; au moins 16 appellent une fonction edge par son
+URL, qui est celle de la **prod** (`fulawxvdlwtdlpkycixe`). Sans rien faire, la
+copie déclencherait des passes supplémentaires des crons de la prod (envois
+programmés, synchro Shotgun, scénarios) pendant toute sa vie. Les crons purement
+SQL tournent dans la copie, sur ses données.
+
+Coût : machine Micro facturée à l'heure (≈ 0,0134 $ / h, soit ≈ 10 $ / mois au
+prorata ; les 10 $ de crédit de l'offre Pro couvrent déjà la prod) : quelques
+centimes pour un essai de 2 h. La copie contient des données personnelles réelles :
+la supprimer le jour même.
+
+Étapes :
+1. `node scripts/crm-bench/prod.mjs --activity` : rien de lourd ne tourne.
+2. Paul : tableau de bord du projet › Database › Backups › onglet **« Restore to
+   a New Project »** › la sauvegarde de la nuit › **Restore**. Noter l'heure du clic
+   (chrono T0) et le coût affiché.
+3. Dès que le nouveau projet répond (chrono T1), **dans la COPIE** (jamais la prod),
+   SQL Editor de la copie :
+   ```sql
+   SELECT cron.alter_job(jobid, active := false) FROM cron.job;   -- tout de suite, avant tout le reste
+   DELETE FROM net.http_request_queue;            -- requêtes en attente au moment de la sauvegarde
+   SELECT count(*) FILTER (WHERE active) FROM cron.job;   -- doit rendre 0
+   ```
+   La fenêtre entre T1 et cette requête est le seul moment où la copie peut toucher
+   la prod : la garder sous 2 minutes (les crons les plus fréquents passent toutes
+   les 5 min).
+4. Vérifications (lecture, dans la copie) — à comparer aux mêmes requêtes sur la prod :
+   ```sql
+   SELECT count(*) FROM public.newsletter_subscriptions WHERE opted_in;
+   SELECT count(*) FROM public.marketing_consent_events;
+   SELECT count(*) FROM public.email_suppressions;
+   SELECT count(*), max(synced_at) FROM public.external_tickets;
+   SELECT count(*) FROM public.ticketing_connections;
+   SELECT max(created_at) FROM public.email_campaign_events;   -- âge réel de la sauvegarde
+   SELECT count(*) FROM auth.users;
+   SELECT count(*) FROM vault.decrypted_secrets;               -- le Vault est lisible
+   ```
+   Écart attendu = l'activité entre l'heure de la sauvegarde (≈ 01:30 UTC) et
+   maintenant ; tout autre écart est un défaut de la sauvegarde.
+5. Chrono : T1 − T0 = durée réelle d'une restauration ; la noter ici avec la
+   taille de la base.
+6. Paul : supprimer le projet de test (Settings › General › Delete project), le
+   jour même.
+
 
 ## 5. Après une mise en ligne des corrections de l'audit
 

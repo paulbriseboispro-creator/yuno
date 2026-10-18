@@ -26,8 +26,13 @@ renvoient au [rapport](REPORT.md).
 | 12 | DATA-03 : dépense de `contact_scope_customers` sur `_crm_ticket_is_sale` ; FAQ `yc.faq.sales.a` | ½ j / 20 min |
 | 13 | DATA-05 : allumer « co-organisées » remet le curseur à zéro ; l'éteindre retire ce qui en venait | 1 j / 30 min |
 | 14 | DATA-01 : effacement pour conservation non défait par un réimport (décision : repoussoir ou marque par billet) | ½ j / 30 min |
-| 15 | OPS-02 : restauration d'essai dans un projet isolé, chronométrée ; décider du PITR | ½ j |
-| 16 | OPS-03 / OPS-04 : rejeu des migrations sur un projet de branche ; migration de référence des fonctions réécrites par bloc `DO` | 1 j / 45 min |
+| 15 | OPS-02 : restauration d'essai dans un projet isolé, chronométrée (procédure prête, RUNBOOK §4.1 : couper les crons de la copie d'abord) ; décider du PITR | 1 h, accord de Paul |
+| 16 | OPS-03 : rejeu réel des migrations (Docker local ou projet vide temporaire) ; puis migration de rattrapage des objets créés hors dépôt (ops03-history-holes.md) | 2 h / 45 min |
+| 16b | OPS-04 : décider du sort de `supabase/reference/20261018_prod_functions_reference.sql` (secours seulement, ou vraie migration marquée appliquée en prod) ; la régénérer après chaque réécriture par bloc `DO` | 15 min |
+| 16c | SEC-06 : recréer `trg_guard_promoter_conversion_settlement` en prod (répétition annulée d'abord) | ½ j / 20 min |
+| 16d | LINK-01 : expression de `crm_link_create` (`{1,480}` refusé par Postgres) + test | 1 h / 10 min |
+| 16e | DEP-01 : `@capacitor/ios` 8.4.3 dans la prochaine version App Store des deux apps | ½ j / build CI |
+| 16f | DEP-02 : `react-router-dom` 6.30.6, `fflate` 0.8.3, refus de `\` dans `AuthHandoff.tsx` et `crm/lib/errors.ts` | 2 h / 15 min |
 | 17 | MAIL-04 : test automatique de la course « déprogrammée pendant le passage du cron » (aujourd'hui relecture seulement) | ½ j / 20 min |
 | 18 | Étendre `isolation.mjs` à un couple d'espaces CLUB (les fonctions de club n'ont été jouées qu'avec un espace organisateur) | ½ j / 20 min |
 

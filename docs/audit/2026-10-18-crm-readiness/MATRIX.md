@@ -68,7 +68,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 
 | Contrôle | Statut |
 |---|---|
-| A ne lit pas B par les fonctions CRM (206 fonctions) | réussi — `isolation.mjs` |
+| A ne lit pas B par les fonctions CRM (206 fonctions) | réussi — `isolation.mjs` ; couple d'organisateurs 158 refusés / 9 silencieux / 9 même réponse sans donnée client / 30 non concluants ; **couple de clubs** (18/10 après-midi) 156 / 9 / 8 / 33 ([isolation-results-club.md](isolation-results-club.md)) |
 | Fonctions à droits du propriétaire ouvertes à `anon` sans garde | échoué → **corrigé** (SEC-01 P0, SEC-02) |
 | Tables / vues lisibles sans RLS | échoué → **corrigé** (SEC-03) ; le reste en `security_invoker` |
 | Gel d'envoi | échoué → **corrigé** (MAIL-05) |
@@ -76,7 +76,7 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 | Jeton Shotgun : stockage, accès, remplacement, révocation | réussi |
 | Secrets côté navigateur | réussi (clé anon seulement) |
 | Sessions, invitations, récupération, routes admin | non exécuté ici (audits antérieurs, CLAUDE.md) |
-| Dépendances exposées | non exécuté (`npm audit` non lancé, pas de mise à jour aveugle) |
+| Dépendances exposées | **échoué, ouvert** ([npm-audit.md](npm-audit.md)) : `@capacitor/ios` 8.4.1 critique dans les apps natives (DEP-01, corrigé en 8.4.3, version App Store) ; web : `react-router-dom` 6.30.3, `fflate` 0.8.2 modérés (DEP-02) ; 16 paquets signalés ne sont que des outils de build |
 | Injection CSV | échoué, ouvert (SEC-05, P3) |
 
 ## E. Envois
@@ -115,8 +115,10 @@ qui répond 403 à un robot). Copie du projet : `docs/designs/SHOTGUN_API_REFERE
 |---|---|
 | Tâches sans onglet ouvert | réussi (crons, chaîne de relance de la fonction) |
 | Journal, alertes | réussi |
-| Sauvegardes | réussi (quotidiennes, 9 gardées) ; **restauration non testée** ; pas de PITR (OPS-02) |
-| Migrations sur base vierge | **non exécuté** (Docker arrêté ; OPS-03) |
-| Prod = dépôt | échoué (OPS-04, OPS-05) |
+| Sauvegardes | réussi (quotidiennes, 9 gardées) ; pas de PITR (OPS-02) |
+| Restauration testée | **bloqué** : « Restore to a new project » = projet facturé (≈ 0,0134 $ / h), bouton du tableau de bord ; procédure prête (RUNBOOK §4.1), dont la coupure des 64 crons dans la copie (16 appellent la prod) ; attend l'accord de Paul |
+| Migrations sur base vierge | rejeu **bloqué** (Docker arrêté ; projet vide = dépense à faire approuver) ; relevé statique **réussi** : 4 tables, 12 triggers, 6 policies (5 du Storage), 11 crons de la prod sans création dans le dépôt ([ops03-history-holes.md](ops03-history-holes.md)) |
+| Prod = dépôt (fonctions) | échoué, **mesuré** : 1 609 / 1 659 identiques, 50 divergentes (35 réécrites en place, 13 absentes du dépôt, 2 plus anciennes) ; migration de référence générée depuis `pg_get_functiondef`, 49 / 50 blocs validés au banc ([ops04-functions.md](ops04-functions.md), `supabase/reference/20261018_prod_functions_reference.sql`) |
+| Prod = dépôt (autres objets) | échoué : trigger `trg_guard_promoter_conversion_settlement` absent de la prod (SEC-06) ; S11 hors main (OPS-05) |
 | CI | échoué → **corrigé** (OPS-01, active une fois fusionnée) |
 | Performance | réussi selon S4 (17-18/10) ; non remesuré |
