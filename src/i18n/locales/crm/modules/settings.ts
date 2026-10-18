@@ -88,6 +88,7 @@ const dict: CrmDict = {
 
   // C · Règles clients
   'yc.set.c.t': ['How does Yuno classify your customers?', 'Comment Yuno classe vos clients ?', '¿Cómo clasifica Yuno a sus clientes?'],
+  'yc.set.c.previewErr': ['Your customer counts could not be calculated. Your rules are still saved as usual.', 'Les effectifs de vos clients n’ont pas pu être calculés. Vos règles s’enregistrent quand même.', 'No se pudieron calcular los efectivos de sus clientes. Sus reglas se guardan igualmente.'],
   'yc.set.c.s': ['Three rules, to your measure. They feed your segments and your figures.', 'Trois règles, à votre mesure. Elles alimentent vos segments et vos chiffres.', 'Tres reglas, a su medida. Alimentan sus segmentos y sus cifras.'],
   'yc.set.hab.q': ['Who is a regular?', 'Qui est un habitué ?', '¿Quién es un habitual?'],
   'yc.set.hab.a': ['Came at least', 'Venu au moins', 'Vino al menos'],
