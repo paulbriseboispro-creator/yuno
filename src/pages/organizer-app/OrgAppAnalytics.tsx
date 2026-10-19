@@ -12,7 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
+import { format, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -20,8 +20,6 @@ import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
-import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
-import { buildOrganizerScopeOr } from '@/components/analytics/scopeFilter';
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 import { VipTablesPillar } from '@/components/analytics/VipTablesPillar';
 import { EventsPnlLedger } from '@/components/analytics/EventsPnlLedger';
@@ -447,7 +445,6 @@ export default function OrgAppAnalytics() {
   // La carte « Guest list » lit le même total que son onglet.
   const guestListSignups = useGuestListSignups({ organizerUserId: organizerId, eventId: mode === 'event' ? selectedEventId : null, from: webWindow.from, to: webWindow.to });
 
-  const { eventIds, venueIds } = useOrganizerEventIds(organizerId);
   const {
     ticketAnalytics, tableAnalytics, refundAnalytics,
     currentTotals, previousTotals, uniqueGuestsTotal, loading,
@@ -540,41 +537,49 @@ export default function OrgAppAnalytics() {
     return () => { cancelled = true; };
   }, [organizerId, dateRange, mode, selectedEventId]);
 
-  // Visitor funnel (organizer scope) + live count
+  // Tunnel des visites + « en ligne », comptés par la BASE (get_visit_analytics,
+  // get_visitors_now) : la lecture ligne à ligne d'avant plafonnait à 1 000
+  // visites, ne voyait rien pour un membre d'équipe, et comptait les pages des
+  // clubs qui ont accueilli une soirée. Étapes : panier = a choisi un billet /
+  // une formule / s'est inscrit ; paiement = a ouvert la page de paiement ;
+  // achat = une vente payée est née de la visite.
   useEffect(() => {
     if (!organizerId) return;
     let cancelled = false;
-    const orFilter = buildOrganizerScopeOr(organizerId, eventIds, venueIds);
+    const eventScoped = mode === 'event' && !!selectedEventId;
 
     const fetchFunnel = async () => {
       const since = rangeStart(dateRange);
-      const base = supabase.from('visitor_sessions').select('id, added_to_cart, proceeded_to_checkout, completed_order');
-      let q = mode === 'event' && selectedEventId ? base.eq('event_id', selectedEventId) : base.or(orFilter);
-      if (since) q = q.gte('visited_at', since.toISOString());
-      const { data } = await q.limit(10000);
+      const { data } = await supabase.rpc('get_visit_analytics' as never, {
+        p_organizer_user_id: eventScoped ? null : organizerId,
+        p_event_id: eventScoped ? selectedEventId : null,
+        p_from: since ? since.toISOString() : null,
+      } as never);
       if (cancelled) return;
-      const visitors = data?.length ?? 0;
-      const addedToCart = (data ?? []).filter((r) => r.added_to_cart).length;
-      const proceededToCheckout = (data ?? []).filter((r) => r.proceeded_to_checkout).length;
-      const completed = (data ?? []).filter((r) => r.completed_order).length;
-      setFunnel({ visitors, addedToCart, proceededToCheckout, completed, conversionRate: visitors > 0 ? (completed / visitors) * 100 : 0 });
+      const r = (data ?? {}) as { ok?: boolean; visits?: number; carts?: number; checkouts?: number; conversions?: number };
+      const visitors = r.ok ? Number(r.visits ?? 0) : 0;
+      const completed = r.ok ? Number(r.conversions ?? 0) : 0;
+      setFunnel({
+        visitors,
+        addedToCart: r.ok ? Number(r.carts ?? 0) : 0,
+        proceededToCheckout: r.ok ? Number(r.checkouts ?? 0) : 0,
+        completed,
+        conversionRate: visitors > 0 ? (completed / visitors) * 100 : 0,
+      });
     };
 
     const fetchLive = async () => {
-      const fiveMinutesAgo = subMinutes(new Date(), 5);
-      const sessions = supabase.from('visitor_sessions').select('id');
-      const q = mode === 'event' && selectedEventId
-        ? sessions.eq('event_id', selectedEventId).gte('visited_at', fiveMinutesAgo.toISOString())
-        : sessions.or(orFilter).gte('visited_at', fiveMinutesAgo.toISOString());
-      const { data } = await q;
-      if (!cancelled) setLiveVisitors(data?.length ?? 0);
+      const { data } = await supabase.rpc('get_visitors_now' as never, (eventScoped
+        ? { p_event_id: selectedEventId }
+        : { p_organizer_user_id: organizerId }) as never);
+      if (!cancelled && typeof data === 'number') setLiveVisitors(data);
     };
 
     fetchFunnel();
     fetchLive();
     const interval = setInterval(fetchLive, 10000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [organizerId, eventIds.join(','), venueIds.join(','), dateRange, mode, selectedEventId]);
+  }, [organizerId, dateRange, mode, selectedEventId]);
 
   const handleExportData = async () => {
     if (!ticketAnalytics || !tableAnalytics) return;

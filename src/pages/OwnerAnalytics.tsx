@@ -11,7 +11,7 @@ import {
   } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subMinutes, subHours } from 'date-fns';
+import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
@@ -432,7 +432,6 @@ export default function OwnerAnalytics() {
   };
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
-  const [recentActivity, setRecentActivity] = useState(0);
   const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'drinks' | 'tables' | 'guestlist' | 'refunds'>('overview');
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
   // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
@@ -457,23 +456,19 @@ export default function OwnerAnalytics() {
   const { promoterAnalytics } = usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId });
   const { customerAnalytics } = useCustomerAnalytics({ venueId });
 
+  // « En ligne » = les visiteurs présents EN CE MOMENT (battement < 75 s),
+  // comme la Vue en direct — pas les visites ouvertes dans les 5 dernières
+  // minutes. Compté par la base (un manager n'a pas le droit de lire la table).
   useEffect(() => {
     if (!venueId) return;
+    let cancelled = false;
     const fetchLive = async () => {
-      const fiveMinutesAgo = subMinutes(new Date(), 5);
-      const oneHourAgo = subHours(new Date(), 1);
-      const { data: liveData } = await supabase.from('visitor_sessions').select('id').eq('venue_id', venueId).gte('visited_at', fiveMinutesAgo.toISOString());
-      setLiveVisitors(liveData?.length || 0);
-      const { data: recentData } = await supabase.from('visitor_sessions').select('id').eq('venue_id', venueId).gte('visited_at', oneHourAgo.toISOString());
-      setRecentActivity(recentData?.length || 0);
+      const { data } = await supabase.rpc('get_visitors_now' as never, { p_venue_id: venueId } as never);
+      if (!cancelled && typeof data === 'number') setLiveVisitors(data);
     };
     fetchLive();
     const interval = setInterval(fetchLive, 10000);
-    const channel = supabase
-      .channel(`visitor_sessions_changes_${venueId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visitor_sessions', filter: `venue_id=eq.${venueId}` }, () => fetchLive())
-      .subscribe();
-    return () => { clearInterval(interval); supabase.removeChannel(channel); };
+    return () => { cancelled = true; clearInterval(interval); };
   }, [venueId]);
 
   const handleExportData = async () => {
