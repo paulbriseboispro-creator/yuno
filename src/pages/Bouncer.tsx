@@ -220,7 +220,41 @@ export default function Bouncer() {
     if (!TABS.some((tab) => tab.key === activeTab)) setActiveTab('entry');
   }, [TABS, activeTab]);
   const [scanning, setScanning] = useState(false);
-  const [scannedTicket, setScannedTicket] = useState<ScannedTicket | null>(null);
+  const [scannedTicket, setScannedTicketState] = useState<ScannedTicket | null>(null);
+  /**
+   * Miroir synchrone de `scannedTicket`, comme `scanResultRef` : l'entrée par
+   * la liste lit la carte du billet (boisson offerte, mineur) dès que
+   * `onScanSuccess` a rendu la main, avant de l'effacer. L'état React, lui,
+   * est encore périmé dans la closure de `handleDoorPick`.
+   */
+  const scannedTicketRef = useRef<ScannedTicket | null>(null);
+  const setScannedTicket = useCallback(
+    (v: ScannedTicket | null | ((prev: ScannedTicket | null) => ScannedTicket | null)) => {
+      const next = typeof v === 'function' ? v(scannedTicketRef.current) : v;
+      scannedTicketRef.current = next;
+      setScannedTicketState(next);
+    },
+    [],
+  );
+  /**
+   * Ce que la porte doit encore faire pour une personne entrée PAR LA LISTE :
+   * la carte de verdict s'efface (la ligne passe au vert), mais la boisson
+   * offerte à remettre (ou plus après son heure) et l'alerte « mineur » restent
+   * affichées au-dessus de la liste jusqu'au nom suivant.
+   */
+  const [doorPickNotice, setDoorPickNotice] = useState<{
+    name: string | null;
+    headcount: number;
+    includesDrink: boolean;
+    drinkCutoff?: string;
+    drinkTooLate: boolean;
+    alcoholFree: boolean;
+  } | null>(null);
+  // Le rappel ne survit pas à un changement d'onglet : revenir sur la liste
+  // plus tard ne doit pas montrer la boisson d'une personne déjà loin.
+  useEffect(() => {
+    if (activeTab !== 'search') setDoorPickNotice(null);
+  }, [activeTab]);
   const [scannedVipReservation, setScannedVipReservation] = useState<ScannedVipReservation | null>(null);
   type ScanOutcome = 'success' | 'error' | 'already' | 'vip_success' | 'cancel_ready' | null;
   const [scanResult, setScanResultState] = useState<ScanOutcome>(null);
@@ -377,7 +411,7 @@ export default function Bouncer() {
       lastCodeRef.current = { code: pendingCodeRef.current, at: Date.now() };
     }
     processingRef.current = false;
-  }, []);
+  }, [setScannedTicket, setScanResult]);
 
   /** Sortie du mode rapide : caméra coupée, tout l'état de scan remis à zéro. */
   const closeRapid = () => {
@@ -683,6 +717,8 @@ export default function Bouncer() {
    */
   const handleDoorPick = async (qr: string): Promise<boolean> => {
     scanResultRef.current = null;
+    scannedTicketRef.current = null;
+    setDoorPickNotice(null);
     await onScanSuccess(qr);
     const outcome = scanResultRef.current;
     // Un retard en attente de décision n'est PAS une entrée : la carte reste.
@@ -690,6 +726,19 @@ export default function Bouncer() {
     // Une entrée acceptée se voit sur la ligne elle-même (elle passe au vert) :
     // on efface la carte de verdict pour que la liste reste lisible. Un REFUS
     // reste affiché — c'est la seule façon pour le videur de savoir pourquoi.
+    // Ce que la carte disait encore à faire (boisson offerte, mineur) reste
+    // visible au-dessus de la liste : chaque billet Amoris inclut une boisson.
+    const entered = scannedTicketRef.current;
+    if (ok && entered && (entered.includesDrink || entered.alcoholFree)) {
+      setDoorPickNotice({
+        name: entered.fullName ?? null,
+        headcount: entered.headcount ?? entered.quantity,
+        includesDrink: entered.includesDrink,
+        drinkCutoff: entered.drinkCutoff,
+        drinkTooLate: !!entered.drinkCutoff && computeLateness(entered.drinkCutoff, nowInParis()).isPast,
+        alcoholFree: entered.alcoholFree,
+      });
+    }
     if (ok) {
       setScanResult(null);
       setOverlayResult(null);
@@ -2030,6 +2079,47 @@ export default function Bouncer() {
 
             {/* Recherche par nom : le filet quand le QR ne passe pas. Le clic
                 rejoue le pipeline de scan normal — mêmes règles, même trace. */}
+            {activeTab === 'search' && doorPickNotice && (
+              <div className="space-y-2" style={{ ...mainCard, padding: 14 }}>
+                {doorPickNotice.name && (
+                  <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
+                    <CheckCircle className="mr-1.5 inline h-4 w-4 align-[-3px] text-green-500" />{doorPickNotice.name}
+                  </p>
+                )}
+                {doorPickNotice.includesDrink && (
+                  freeDrinkMode !== 'bouncer_notify' ? (
+                    <div className="flex items-center gap-2">
+                      <Wine className="h-4 w-4 flex-none" style={{ color: RED }} />
+                      <span style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{t('bouncer.freeDrinkIncluded')}</span>
+                    </div>
+                  ) : doorPickNotice.drinkTooLate ? (
+                    <div className="p-3 rounded-lg flex items-center gap-3 bg-orange-500/10 border border-orange-500/40">
+                      <Wine className="h-5 w-5 flex-none text-orange-500" />
+                      <p className="text-sm font-semibold text-orange-500">
+                        {t('bouncer.drinkCutoffPassed').replace('{time}', doorPickNotice.drinkCutoff ?? '')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg flex items-center gap-3 bg-green-500/15 border-2 border-green-500/50">
+                      <Wine className="h-6 w-6 flex-none text-green-500" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-green-500 text-base">{t('bouncer.giveDrink')}</p>
+                        <p className="text-xs text-green-400 mt-0.5">
+                          {doorPickNotice.headcount}x — {t('bouncer.giveDrinkDesc')}
+                          {doorPickNotice.drinkCutoff ? ` · ${t('bouncer.drinkUntil').replace('{time}', doorPickNotice.drinkCutoff)}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                )}
+                {doorPickNotice.alcoholFree && (
+                  <div className="p-3 rounded-lg flex items-center gap-3" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.55)' }}>
+                    <AlertTriangle className="h-5 w-5 flex-none" style={{ color: '#F59E0B' }} />
+                    <p className="text-sm font-semibold" style={{ color: '#F59E0B' }}>{t('bouncer.minorNoAlcohol')}</p>
+                  </div>
+                )}
+              </div>
+            )}
             {activeTab === 'search' && (
               <DoorSearchPanel eventId={offlineEventId} onPick={handleDoorPick} />
             )}
