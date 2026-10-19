@@ -180,6 +180,36 @@ describe('heure limite d’entrée', () => {
   });
 });
 
+describe('description d’un billet', () => {
+  it('bords nettoyés, vide = rien, 200 caractères au plus', async () => {
+    const { TICKET_DESCRIPTION_MAX, normalizeTicketDescription } = await import('../freeTicketing');
+    expect(TICKET_DESCRIPTION_MAX).toBe(200);
+    expect(normalizeTicketDescription('  Entry must be before 1:00 AM.\r\n')).toBe('Entry must be before 1:00 AM.');
+    expect(normalizeTicketDescription('Ligne 1\r\nLigne 2')).toBe('Ligne 1\nLigne 2');
+    expect(normalizeTicketDescription('   ')).toBeNull();
+    expect(normalizeTicketDescription(null)).toBeNull();
+    expect(normalizeTicketDescription(42)).toBeNull();
+    expect(normalizeTicketDescription('x'.repeat(250))).toHaveLength(200);
+    // Le plafond se compte en caractères, comme char_length côté SQL.
+    expect(Array.from(normalizeTicketDescription('🎟️'.repeat(150)) ?? '').length).toBeLessThanOrEqual(200);
+  });
+  it('suit le billet dans le modèle, aller et retour', () => {
+    const before1 = 'Entry must be before 1:00 AM. Includes one free drink, redeemable before 2:00 AM.';
+    const preset = roundsToFreePreset([
+      { name: 'Before 1 AM', price: 6, max_tickets: 50, position: 0, is_active: true, description: before1 },
+      { name: 'All Night Long', price: 10, max_tickets: 50, position: 1, is_active: true, description: null },
+    ], '2026-10-28T22:59:00Z');
+    expect(preset.map((p) => p.description)).toEqual([before1, null]);
+    const rows = freePresetToRoundRows(normalizeFreePreset(JSON.parse(JSON.stringify(preset))), 'e', '2026-11-04T22:59:00Z');
+    expect(rows.map((r) => r.description)).toEqual([before1, null]);
+  });
+  it('un vieux modèle sans description reste valide', () => {
+    const [ticket] = normalizeFreePreset([{ name: 'Entrée', price: 10, display: 'now', sale: 'now' }]);
+    expect(ticket.description).toBeNull();
+    expect(freePresetToRoundRows([ticket], 'e', '2026-11-04T22:59:00Z')[0].description).toBeNull();
+  });
+});
+
 describe('rounds billet par billet (s’ouvre quand un autre est complet)', () => {
   // La grille d'un pro : 4 rounds × 2 entrées (avant 1 h / toute la nuit),
   // chaque entrée a sa propre file de rounds.

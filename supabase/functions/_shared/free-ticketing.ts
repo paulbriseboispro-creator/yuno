@@ -285,6 +285,8 @@ export interface FreePresetTicket {
   saleEndAt?: RelativeTime | null;
   /** Heure limite d'entrée « HH:MM » (heure murale de la soirée), null = aucune. */
   entryDeadline?: string | null;
+  /** Description affichée sous le billet (normalizeTicketDescription), null = aucune. */
+  description?: string | null;
   /** Identifiant du billet DANS le modèle (stable quand on réordonne). */
   key?: string | null;
   /**
@@ -315,8 +317,24 @@ export interface FreeRoundRow {
   drink_deadline_hours?: number | null;
   drink_cutoff_time?: string | null;
   entry_deadline?: string | null;
+  description?: string | null;
   id?: string | null;
   opens_after_round_id?: string | null;
+}
+
+// ── Description d'un billet (tous modes de vente) ────────────────────────────
+// Facultative, sous le billet côté client (page de la soirée, page d'achat).
+// Plafond = CHECK SQL ticket_rounds_description_length_check ; la recopie d'un
+// modèle par la série récurrente (_insert_recurring_rounds) suit cette règle.
+
+/** Au plus 200 caractères : une précision sur ce que le billet donne. */
+export const TICKET_DESCRIPTION_MAX = 200;
+
+/** Texte saisi → valeur stockée : bords nettoyés, vide = null, 200 au plus. */
+export function normalizeTicketDescription(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/\r\n?/g, '\n').trim();
+  return s ? Array.from(s).slice(0, TICKET_DESCRIPTION_MAX).join('').trim() : null;
 }
 
 /** « HH:MM » valide, sinon null (une colonne time rend « HH:MM:SS »). */
@@ -350,6 +368,7 @@ export function roundsToFreePreset(rows: FreeRoundRow[], eventStartIso: string, 
         saleStartAt: sale === 'at' && r.sale_starts_at ? toRelative(r.sale_starts_at, eventStartIso, tz) : null,
         saleEndAt: r.sale_ends_at ? toRelative(r.sale_ends_at, eventStartIso, tz) : null,
         entryDeadline: normalizeEntryDeadline(r.entry_deadline),
+        description: normalizeTicketDescription(r.description),
         key: keyOf(r, index),
         opensAfter,
       };
@@ -401,6 +420,7 @@ export function freePresetToRoundRows(
       drink_deadline_hours: drink && p.drinkDeadlineType === 'hours_after_start' ? p.drinkDeadlineHours ?? 2 : null,
       drink_cutoff_time: drink && p.drinkDeadlineType === 'fixed_time' ? p.drinkCutoffTime ?? '02:00' : null,
       entry_deadline: normalizeEntryDeadline(p.entryDeadline) ? `${normalizeEntryDeadline(p.entryDeadline)}:00` : null,
+      description: normalizeTicketDescription(p.description),
     };
   });
 }
@@ -432,6 +452,7 @@ export function normalizeFreePreset(raw: unknown): FreePresetTicket[] {
       saleStartAt: rel(r.saleStartAt),
       saleEndAt: rel(r.saleEndAt),
       entryDeadline: normalizeEntryDeadline(r.entryDeadline),
+      description: normalizeTicketDescription(r.description),
       key: str(r.key),
       opensAfter: str(r.opensAfter),
     }));
