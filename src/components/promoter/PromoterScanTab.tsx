@@ -10,6 +10,7 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import type { Tables } from '@/integrations/supabase/types';
+import { isPlaceRefunded } from '@/lib/scan/doorRefund';
 
 /** A ticket reached through one of its named attendees' QR codes. */
 type AttendeeTicketHit = Pick<Tables<'tickets'>, 'id' | 'event_id' | 'entry_scanned' | 'status'> & {
@@ -173,7 +174,9 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
 
       const resolvedTicket = ticket || attendeeTicket;
 
-      if (!resolvedTicket || resolvedTicket.status !== 'paid') {
+      // Une place remboursée seule à la porte ne passe plus, comme un billet non payé.
+      if (!resolvedTicket || resolvedTicket.status !== 'paid'
+        || (attendeeTicket?.attendee && await isPlaceRefunded(attendeeTicket.attendee.id))) {
         setLastResult({ status: 'invalid' });
         toast.error(t('promoterScan.invalid'));
         return;
@@ -194,7 +197,11 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
       }
 
       // Check if already scanned
-      const isScanned = attendeeTicket?.attendee?.entry_scanned || resolvedTicket.entry_scanned;
+      // QR nominatif : seule SA place compte — le billet parent est marqué dès
+      // qu'un premier ami entre, ce qui refusait à tort les suivants.
+      const isScanned = attendeeTicket?.attendee
+        ? !!attendeeTicket.attendee.entry_scanned
+        : resolvedTicket.entry_scanned;
       if (isScanned) {
         setLastResult({ status: 'already_scanned' });
         toast.warning(t('promoterScan.alreadyScanned'));
