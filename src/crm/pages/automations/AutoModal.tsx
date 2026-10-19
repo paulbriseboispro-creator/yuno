@@ -14,7 +14,7 @@ import { EASE } from '@/crm/ui/motion';
 import type { useCrmT } from '@/crm/i18n';
 import type { Automations } from '@/crm/data/automations';
 import { CRM_AUTO_KINDS, CRM_AUTO_META, FIRST_RETURN_SMS_DELAYS, autoState, quietSendAt, recipeHours } from '@/crm/lib/automations';
-import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 import { AU_IC, KIND_IC, chipLabel, startModal, type ModalState } from './autoFmt';
 import { Flow } from './autoUi';
 
@@ -45,8 +45,9 @@ export function AutoModal({
   const placeholder = rec?.template_subject || t(`yc.em.tp.${meta.tpl}.subject`).replace('{{prénom}}', '…');
   const set = (patch: Partial<ModalState>) => setM({ ...m, ...patch });
   const fr = m.kind === 'first_return';
-  // L'étape SMS de « 1re soirée » attend que le SMS soit ouvert (SMS-01).
-  const smsStep = fr && CRM_SMS_DISPLAY_LIVE;
+  // L'étape SMS de « 1re soirée » attend que l'accès SMS du compte soit ouvert (bêta privée).
+  const smsOpen = useSmsAccess().open;
+  const smsStep = fr && smsOpen;
   const frDays = rec?.auto_delay_days ?? 21;
   const sms = m.sms;
   const setSms = (patch: Partial<NonNullable<ModalState['sms']>>) => sms && set({ sms: { ...sms, ...patch } });

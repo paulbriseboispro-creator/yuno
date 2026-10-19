@@ -10,7 +10,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { CtaButton, Modal, Skel } from '@/crm/ui/kit';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { holdoutVerdict } from '@/crm/lib/holdout';
-import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 import { useScenarioPreview, type ScnIssue, type ScnReport } from '@/crm/data/scenarios';
 import { WARN_CODES, errorText, type T } from './scnText';
 import { NodeGlyph, Note, SmallButton } from './scnUi';
@@ -35,6 +35,7 @@ const STEP_TYPES = ['email', 'sms', 'wait', 'branch', 'split', 'tag', 'notify', 
 
 export function AddStepModal({ T, allowEnd, onPick, onClose }: { T: T; allowEnd: boolean; onPick: (type: string) => void; onClose: () => void }) {
   const { t } = T;
+  const smsOpen = useSmsAccess().open;
   const types: string[] = [...STEP_TYPES, ...(allowEnd ? ['end'] : [])];
   return (
     <Modal open onClose={onClose} width={520} label={t('yc.scn.add.title')}>
@@ -42,15 +43,16 @@ export function AddStepModal({ T, allowEnd, onPick, onClose }: { T: T; allowEnd:
         <Head T={T} title={t('yc.scn.add.title')} sub={t('yc.scn.add.sub')} onClose={onClose} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,210px),1fr))', gap: 8 }}>
           {types.map((type) => {
-            // Instagram (App Review Meta) et SMS (fournisseur pas encore branché) : « Bientôt ».
-            const soon = type === 'instagram_dm' || (type === 'sms' && !CRM_SMS_DISPLAY_LIVE);
+            // Instagram (App Review Meta) : « Bientôt ». SMS : bêta privée, sur demande.
+            const smsLocked = type === 'sms' && !smsOpen;
+            const soon = type === 'instagram_dm' || smsLocked;
             return (
               <Hv key={type} as="button" type="button" disabled={soon} onClick={() => onPick(type)}
                 style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--sand-200)', background: '#fff', textAlign: 'left', cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.55 : 1 }}
                 hover={soon ? undefined : { borderColor: 'var(--sand-300)', background: 'var(--paper)' }}>
                 <NodeGlyph type={type} size={32} />
                 <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{t(`yc.scn.node.${type}`)}{soon ? ` · ${t('yc.scn.soon')}` : ''}</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{t(`yc.scn.node.${type}`)}{smsLocked ? ` · ${t('yc.scn.betaAsk')}` : soon ? ` · ${t('yc.scn.soon')}` : ''}</span>
                   <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--sand-500)' }}>{t(`yc.scn.node.${type}.d`)}</span>
                 </span>
               </Hv>

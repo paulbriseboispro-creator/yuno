@@ -126,6 +126,7 @@ const dict: CrmDict = {
   'yc.common.tomorrow': ['Tomorrow', 'Demain', 'Mañana'],
   'yc.common.yunits': ['Yunits', 'Yunits', 'Yunits'],
   'yc.common.noAccess': ['No Yuno CRM space on this account.', 'Aucun espace Yuno CRM sur ce compte.', 'Ningún espacio Yuno CRM en esta cuenta.'],
+  'yc.nav.beta': ['Beta', 'Bêta', 'Beta'],
 };
 
 export default dict;

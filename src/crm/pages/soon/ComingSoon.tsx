@@ -3,6 +3,10 @@
  * Bientot ») : en-tête avec pastille, bloc nuit (promesse, trois étapes,
  * « Me prévenir à l'ouverture », téléphone d'exemple), ce que vous réglerez,
  * ce que vous mesurerez, où en sommes-nous.
+ *
+ * Elle sert aussi aux fonctions en BÊTA PRIVÉE (SMS, 2026-10-19) : pastille
+ * « Bêta privée », bouton de demande d'accès à la place de « Me prévenir », et
+ * les étapes de l'ouverture du compte à la place de la feuille de route.
  */
 import type { ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
@@ -13,8 +17,20 @@ import { useCrmT } from '@/crm/i18n';
 import { useFeatureWaitlist } from '@/crm/data/soon';
 import type { SoonFeature } from '@/crm/data/soon';
 
+export type SoonTrackItem = { l: string; s: string; st: 'done' | 'now' | 'next' };
+
 export interface ComingSoonProps {
   feature: SoonFeature;
+  /** Bêta privée : pastille sombre sans pulsation (défaut : « Bientôt disponible »). */
+  badge?: { label: string; tone: 'soon' | 'beta' };
+  /** Surtitre du bloc nuit (défaut : « En développement »). */
+  heroLabel?: string;
+  /** Remplace « Me prévenir à l'ouverture » (ex. demande d'accès à la bêta). */
+  cta?: ReactNode;
+  /** Titre de la section du bas et ses étapes (défaut : feuille de route Yuno). */
+  trackTitle?: string;
+  trackItems?: SoonTrackItem[];
+  setupTitle?: string;
   eyebrow: string;
   title: [string, string, string];
   sub: string;
@@ -30,7 +46,7 @@ export interface ComingSoonProps {
   measureSub: string;
   measures: { l: string; d: string; h: string }[];
   insight: string;
-  track: [string, string];
+  track?: [string, string];
 }
 
 const fade = (delay: number) => ({ animation: `yc-rise 800ms ${EASE} ${delay}ms both` });
@@ -48,21 +64,28 @@ export function ComingSoon(p: ComingSoonProps) {
       toast(t('yc.soon.failed'));
     }
   };
-  const track = [
-    { l: t('yc.soon.t1'), s: p.track[0], st: 'done' },
-    { l: t('yc.soon.t2'), s: p.track[1], st: 'now' },
+  const track: SoonTrackItem[] = p.trackItems ?? [
+    { l: t('yc.soon.t1'), s: p.track?.[0] ?? '', st: 'done' },
+    { l: t('yc.soon.t2'), s: p.track?.[1] ?? '', st: 'now' },
     { l: t('yc.soon.t3'), s: t('yc.soon.t3s'), st: 'next' },
     { l: t('yc.soon.t4'), s: t('yc.soon.t4s'), st: 'next' },
   ];
+  const beta = p.badge?.tone === 'beta';
 
   return (
     <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 72px', display: 'flex', flexDirection: 'column', gap: 28 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 12px', ...fade(100) }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{p.eyebrow}</span>
-          <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: 'var(--red-50)', color: 'var(--red-700)' }}>
-            <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: 'yc-pulse 1.6s ease-in-out infinite' }} />{t('yc.soon.badge')}
-          </span>
+          {beta ? (
+            <span style={{ height: 24, padding: '0 10px 0 8px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: 'var(--ink)', color: '#fff' }}>
+              <span style={{ width: 14, height: 14, borderRadius: 99, background: 'var(--gradient-brand)', display: 'grid', placeItems: 'center' }}><Icon name="lock" size={8} stroke={3} /></span>{p.badge?.label}
+            </span>
+          ) : (
+            <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: 'var(--red-50)', color: 'var(--red-700)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: 'yc-pulse 1.6s ease-in-out infinite' }} />{p.badge?.label ?? t('yc.soon.badge')}
+            </span>
+          )}
         </div>
         <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...fade(170) }}>
           {p.title[0]}<span style={{ background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{p.title[1]}</span>{p.title[2]}
@@ -73,7 +96,7 @@ export function ComingSoon(p: ComingSoonProps) {
       <section style={{ position: 'relative', overflow: 'hidden', isolation: 'isolate', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '32px 48px', padding: 'clamp(24px,3.4vw,52px)', borderRadius: 32, color: 'var(--text-on-night)', background: 'radial-gradient(70% 80% at 85% 100%,rgba(227,20,27,.42),transparent 65%),radial-gradient(50% 50% at 0% 0%,rgba(255,107,53,.16),transparent 70%),var(--noise-night),var(--night)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)', animation: `yc-rise 900ms ${EASE} 320ms both` }}>
         <div style={{ flex: '1 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--text-on-night-2)' }}>{t('yc.soon.dev')}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--text-on-night-2)' }}>{p.heroLabel ?? t('yc.soon.dev')}</span>
             <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(30px,3.6vw,46px)', lineHeight: 1.02, letterSpacing: '-.04em', textWrap: 'balance', color: '#fff' }}>{p.hero}</h2>
             <p style={{ margin: 0, fontSize: 16.5, lineHeight: 1.5, color: 'var(--text-on-night-2)', textWrap: 'pretty', maxWidth: 520 }}>{p.heroSub}</p>
           </div>
@@ -85,6 +108,7 @@ export function ComingSoon(p: ComingSoonProps) {
               </li>
             ))}
           </ol>
+          {p.cta ?? (
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 18px' }}>
             {!notified ? (
               <Hv
@@ -109,6 +133,7 @@ export function ComingSoon(p: ComingSoonProps) {
             )}
             <span style={{ fontSize: 13.5, color: 'var(--text-on-night-2)' }}>{t('yc.soon.notifyHow')}</span>
           </div>
+          )}
         </div>
         <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
           <div style={{ display: 'inline-flex', padding: 3, gap: 2, background: 'rgba(255,255,255,.1)', borderRadius: 99 }}>
@@ -126,7 +151,7 @@ export function ComingSoon(p: ComingSoonProps) {
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 14, ...fade(460) }}>
         <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em' }}>{t('yc.soon.setup')}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em' }}>{p.setupTitle ?? t('yc.soon.setup')}</h2>
           <div style={{ fontSize: 14, color: 'var(--sand-500)', marginTop: 2 }}>{p.setupSub}</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,250px),1fr))', gap: 14 }}>
@@ -162,7 +187,7 @@ export function ComingSoon(p: ComingSoonProps) {
       </section>
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 14, ...fade(620) }}>
-        <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('yc.soon.track')}</h2>
+        <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{p.trackTitle ?? t('yc.soon.track')}</h2>
         <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,200px),1fr))', gap: 12 }}>
           {track.map((x, i) => (
             <li key={x.l} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 18px', borderRadius: 18, background: x.st === 'now' ? 'var(--red-50)' : '#fff', border: `1px solid ${x.st === 'now' ? 'var(--red-200)' : 'var(--sand-200)'}` }}>

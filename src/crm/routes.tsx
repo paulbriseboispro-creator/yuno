@@ -4,7 +4,6 @@
  */
 import { Navigate, Route } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { CRM_SMS_DISPLAY_LIVE } from './lib/sms';
 
 const CrmGate = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmGate })));
 const CrmLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmLayout })));
@@ -49,7 +48,7 @@ const SmsSendPage = lazyWithRetry(() => import('./pages/sms/send/SmsSendPage'));
 const SmsResultPage = lazyWithRetry(() => import('./pages/sms/results/SmsResultPage'));
 const SmsAnalysisPage = lazyWithRetry(() => import('./pages/sms/analysis/SmsAnalysisPage'));
 const SmsSettingsPage = lazyWithRetry(() => import('./pages/sms/settings/SmsSettingsPage'));
-const SmsSoonPage = lazyWithRetry(() => import('./pages/soon/SmsSoonPage'));
+const SmsAccessGate = lazyWithRetry(() => import('./pages/sms/SmsAccessGate').then((m) => ({ default: m.SmsAccessGate })));
 const PricingPage = lazyWithRetry(() => import('./pages/pricing/PricingPage'));
 const CrmPreviewGate = lazyWithRetry(() => import('./pages/preview/CrmPreviewGate'));
 
@@ -71,12 +70,12 @@ export function crmRoutes() {
       <Route path="/crm/nights/:id/plan" element={<CrmGate><CrmBareLayout /></CrmGate>}>
         <Route index element={<NightPlanPage />} />
       </Route>
-      {/* SMS « Bientôt » (CRM_SMS_DISPLAY_LIVE faux) : les éditeurs renvoient sur la page Bientôt. */}
-      <Route path="/crm/sms/compose/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>
-        <Route index element={<SmsComposePage />} />
+      {/* SMS en bêta privée : un compte non ouvert est renvoyé sur la page de demande d'accès. */}
+      <Route path="/crm/sms/compose/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<SmsAccessGate redirect><SmsComposePage /></SmsAccessGate>} />
       </Route>
-      <Route path="/crm/sms/send/:id" element={CRM_SMS_DISPLAY_LIVE ? <CrmGate><CrmBareLayout /></CrmGate> : <Navigate to="/crm/sms" replace />}>
-        <Route index element={<SmsSendPage />} />
+      <Route path="/crm/sms/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
+        <Route index element={<SmsAccessGate redirect><SmsSendPage /></SmsAccessGate>} />
       </Route>
       {/* Tarifs : page PUBLIQUE (visiteurs comme abonnés), hors de la porte du compte. */}
       <Route path="/crm/tarifs" element={<PricingPage />} />
@@ -113,21 +112,14 @@ export function crmRoutes() {
         <Route path="analytics/:tab" element={<AnalyticsPage />} />
         <Route path="journey" element={<JourneyPage />} />
         <Route path="automations" element={<AutomationsPage />} />
-        {CRM_SMS_DISPLAY_LIVE ? (
-          <>
-            <Route path="sms" element={<SmsOverviewPage />} />
-            <Route path="sms/campaigns" element={<SmsCampaignsPage />} />
-            <Route path="sms/templates" element={<SmsTemplatesPage />} />
-            <Route path="sms/results/:id" element={<SmsResultPage />} />
-            <Route path="sms/analysis" element={<SmsAnalysisPage />} />
-            <Route path="sms/settings" element={<SmsSettingsPage />} />
-          </>
-        ) : (
-          <>
-            <Route path="sms" element={<SmsSoonPage />} />
-            <Route path="sms/*" element={<Navigate to="/crm/sms" replace />} />
-          </>
-        )}
+        {/* SMS en bêta privée : /crm/sms montre la demande d'accès tant que le compte n'est pas ouvert. */}
+        <Route path="sms" element={<SmsAccessGate><SmsOverviewPage /></SmsAccessGate>} />
+        <Route path="sms/campaigns" element={<SmsAccessGate redirect><SmsCampaignsPage /></SmsAccessGate>} />
+        <Route path="sms/templates" element={<SmsAccessGate redirect><SmsTemplatesPage /></SmsAccessGate>} />
+        <Route path="sms/results/:id" element={<SmsAccessGate redirect><SmsResultPage /></SmsAccessGate>} />
+        <Route path="sms/analysis" element={<SmsAccessGate redirect><SmsAnalysisPage /></SmsAccessGate>} />
+        <Route path="sms/settings" element={<SmsAccessGate redirect><SmsSettingsPage /></SmsAccessGate>} />
+        <Route path="sms/*" element={<Navigate to="/crm/sms" replace />} />
       </Route>
       <Route path="/crm/*" element={<CrmPublicShell><NotFoundScreen /></CrmPublicShell>} />
     </>

@@ -1,7 +1,7 @@
 /**
  * Haut commun des écrans SMS (maquettes « SMS » et sœurs) : surtitre, titre,
- * sous-titre, « Nouveau SMS », les onglets, et tant que l'envoi n'est pas
- * ouvert (CRM_SMS_SEND_OPEN), un bandeau qui le dit.
+ * sous-titre, « Nouveau SMS », les onglets, et tant que l'accès SMS du compte
+ * n'est pas ouvert (bêta privée, `useSmsAccess`), un bandeau qui le dit.
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -13,7 +13,7 @@ import { EASE, SPRING } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
-import { CRM_SMS_SEND_OPEN } from '@/crm/lib/sms';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 
 export type SmsTab = 'home' | 'campaigns' | 'analysis' | 'templates' | 'settings';
 
@@ -58,7 +58,8 @@ export function SmsNav({ current, drafts }: { current: SmsTab; drafts: number })
 /** « L'envoi des SMS ouvre bientôt » : ce qu'on peut déjà faire. */
 export function SmsSoonBanner({ compact = false }: { compact?: boolean }) {
   const { t } = useCrmT();
-  if (CRM_SMS_SEND_OPEN) return null;
+  const open = useSmsAccess().open;
+  if (open) return null;
   return (
     <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: compact ? '10px 14px' : '14px 18px', borderRadius: 16, background: 'var(--amber-50)', border: '1px solid var(--sand-200)' }}>
       <span style={{ flex: 'none', height: 24, padding: '0 10px', borderRadius: 99, background: '#fff', color: 'var(--amber-700)', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>

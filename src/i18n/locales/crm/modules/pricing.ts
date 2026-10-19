@@ -54,7 +54,6 @@ const dict: CrmDict = {
   'yc.pr.f.reports.d': ['what worked, night by night', 'ce qui a marché, soirée par soirée', 'qué funcionó, noche a noche'],
   'yc.pr.f.campaigns.t': ['Email campaigns', 'Campagnes e-mail', 'Campañas de email'],
   'yc.pr.f.campaigns.d': ['and SMS, in the same place', 'et SMS, au même endroit', 'y SMS, en el mismo lugar'],
-  'yc.pr.f.campaigns.dSoon': ['SMS coming soon, in the same place', 'et bientôt SMS, au même endroit', 'y pronto SMS, en el mismo lugar'],
   'yc.pr.f.auto.t': ['Automations', 'Automatisations', 'Automatizaciones'],
   'yc.pr.f.auto.d': ['welcome, last call, win-back', 'bienvenue, dernier appel, relances', 'bienvenida, última llamada, recuperación'],
   'yc.pr.f.meta.t': ['Meta ads', 'Publicités Meta', 'Anuncios Meta'],
@@ -205,6 +204,8 @@ const dict: CrmDict = {
   'yc.pr.end.sIn': ['Top up your Yunits or manage your subscription in a click.', 'Rechargez vos Yunits ou gérez votre abonnement en un clic.', 'Recargue sus Yunits o gestione su suscripción en un clic.'],
   // SMS : tarif étranger (08/10).
   'yc.pr.ch.sms_intl': ['SMS abroad', 'SMS à l’étranger', 'SMS al extranjero'],
+  'yc.pr.beta': ['Beta', 'Bêta', 'Beta'],
+  'yc.pr.f.campaigns.dBeta': ['and SMS in private beta, in the same place', 'et SMS en bêta privée, au même endroit', 'y SMS en beta privada, en el mismo lugar'],
 };
 
 export default dict;

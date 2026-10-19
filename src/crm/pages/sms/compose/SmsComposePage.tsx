@@ -23,11 +23,12 @@ import { useCrmShell } from '@/crm/data/shell';
 import { useNights } from '@/crm/data/nights';
 import { smsErrorKey, useSmsActions, useSmsCampaigns, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_SEND_OPEN, defaultSender, hasLink, isSmsTemplate, SAMPLE_LINK, simplifySms, SMS_TEMPLATES, smsFinalText, type SmsVar,
+  countSms, defaultSender, hasLink, isSmsTemplate, SAMPLE_LINK, simplifySms, SMS_TEMPLATES, smsFinalText, type SmsVar,
 } from '@/crm/lib/sms';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SmsPhone } from '../SmsPhone';
 import { SmsSoonBanner } from '../SmsShell';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 import { SmsFlowHeader, SmsStepTitle, type SmsStep } from '../flow/SmsFlowHeader';
 
 const VARS: { k: SmsVar | 'lien'; token: string }[] = [
@@ -42,6 +43,8 @@ export default function SmsComposePage() {
   const { t, tp, n, dLong, lang } = T;
   const toast = useCrmToast();
   const caps = useCrmCaps();
+  // Bêta privée : l'écran n'est atteint qu'avec l'accès ouvert (SmsAccessGate) ; le test suit la même règle.
+  const sendOpen = useSmsAccess().open;
   const narrow = useNarrow(980);
   const { space } = useCrmScope();
   const shell = useCrmShell();
@@ -182,15 +185,15 @@ export default function SmsComposePage() {
       setTesting(false);
     }
   };
-  const testOff = !CRM_SMS_SEND_OPEN || !caps.write || testing || !body.trim();
+  const testOff = !sendOpen || !caps.write || testing || !body.trim();
   const testBtn = (
     <Hv
-      as="button" type="button" disabled={testOff} title={CRM_SMS_SEND_OPEN ? t('yc.sm.co.testHint') : t('yc.sm.soon.badge')} onClick={() => void sendTest()}
+      as="button" type="button" disabled={testOff} title={sendOpen ? t('yc.sm.co.testHint') : t('yc.sm.soon.badge')} onClick={() => void sendTest()}
       style={{ height: 42, padding: '0 16px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: testOff ? 'var(--sand-400)' : 'var(--ink)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: testOff ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', font: 'inherit' }}
       hover={{ background: testOff ? '#fff' : 'var(--paper)' }}
     >
       <Icon name="phone" size={16} stroke={2.2} />{testing ? '…' : t('yc.sm.co.test')}
-      {!CRM_SMS_SEND_OPEN && <span style={{ height: 20, padding: '0 7px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center' }}>{t('yc.sm.soon.badge')}</span>}
+      {!sendOpen && <span style={{ height: 20, padding: '0 7px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center' }}>{t('yc.sm.soon.badge')}</span>}
     </Hv>
   );
 

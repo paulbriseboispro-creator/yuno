@@ -7,8 +7,11 @@
  *
  * Le moteur est prêt depuis le 2026-10-08 (Octopush, 35 Yunits par SMS,
  * docs/designs/SMS_PROVIDER_PLAN.md) : send-sms-campaign débite les Yunits,
- * remplit les variables et lit les réglages d'envoi du compte. Les écrans
- * restent « Bientôt » tant que le fournisseur n'est pas branché en prod.
+ * remplit les variables et lit les réglages d'envoi du compte. Depuis le
+ * 2026-10-19, le SMS est une BÊTA PRIVÉE ouverte compte par compte par
+ * l'équipe Yuno : les écrans s'ouvrent selon `useSmsAccess()`
+ * (src/crm/data/smsAccess.ts), le serveur refuse tout envoi d'un compte non
+ * ouvert (migration 20261029100000).
  */
 import {
   composeSmsBody, LEGAL_NIGHT_FROM, LEGAL_NIGHT_TO, isFrenchPublicHoliday, nonGsmChars, resolveSmsVars, senderIdError,
@@ -18,20 +21,14 @@ import {
 export { resolveSmsVars, senderIdError };
 export type { SmsValues };
 
-/**
- * Les écrans SMS de la Console sont montrés. FAUX tant qu'Octopush n'est pas
- * branché en prod (audit du 18/10, SMS-01 : aucun secret OCTOPUSH_* posé, le
- * test répondait « SMS non configuré » alors que la Console présentait le SMS
- * comme ouvert). Faux = page « Bientôt » sur /crm/sms/*, SMS grisé dans
- * « Écrire à… », pas d'étape SMS dans « 1re soirée » ni dans un scénario
- * publié. Remettre à true dans le MÊME déploiement que les secrets Octopush
- * (docs/designs/SMS_PROVIDER_PLAN.md, scripts/sms/octopush-setup.mjs).
- */
-export const CRM_SMS_DISPLAY_LIVE = false;
 /** Le moteur SMS est branché pour les comptes CRM (Yunits, variables, réglages, Octopush). */
 export const CRM_SMS_ENGINE_READY = true;
-/** Les écrans SMS se comportent comme ouverts (programmer, tester, envoyer). */
-export const CRM_SMS_SEND_OPEN = CRM_SMS_DISPLAY_LIVE;
+/**
+ * Discours PUBLIC (page Tarifs, visiteurs compris) : le SMS est en bêta
+ * privée, sur demande. L'ouverture réelle d'un compte se lit par
+ * `useSmsAccess()`, jamais par cette constante.
+ */
+export const CRM_SMS_PRIVATE_BETA = true;
 /**
  * Pages d'inscription : relances SMS et recueil du numéro pour le SMS. PAS
  * encore : `crm_signup_sends` note un SMS sans l'envoyer, et un numéro recueilli

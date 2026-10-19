@@ -14,7 +14,7 @@ import { setPendingAudience, useAudienceCount } from '@/crm/data/clients';
 import type { ClientFilterDef } from '@/crm/data/clients';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { useCrmCaps } from '@/crm/scope';
-import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 import { useHoldoutSettings } from '@/crm/data/holdout';
 import { holdoutEstimate, keepsHoldout } from '@/crm/lib/holdout';
 
@@ -57,7 +57,9 @@ export function WriteModal({
   const short = left < 0;
   const none = !counts.isLoading && reach === 0;
   const caps = useCrmCaps();
-  const blocked = none || short || counts.isLoading || !caps.write || (ch === 'sms' && !CRM_SMS_DISPLAY_LIVE);
+  const smsAccess = useSmsAccess();
+  const smsClosed = !smsAccess.open;
+  const blocked = none || short || counts.isLoading || !caps.write || (ch === 'sms' && smsClosed);
   const chLabel = t(ch === 'email' ? 'yc.cli.msg.ch.email' : 'yc.cli.msg.ch.sms');
 
   const go = () => {
@@ -132,9 +134,10 @@ export function WriteModal({
             {t('yc.common.readOnly')}
           </div>
         )}
-        {ch === 'sms' && !CRM_SMS_DISPLAY_LIVE && !none && (
-          <div style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>
-            {t('yc.cli.msg.smsSoon')}
+        {ch === 'sms' && smsClosed && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 14px', borderRadius: 14, background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 14, lineHeight: 1.45 }}>
+            <span style={{ flex: '1 1 240px' }}>{t(smsAccess.status === 'requested' ? 'yc.cli.msg.smsRequested' : 'yc.cli.msg.smsBeta')}</span>
+            {smsAccess.status !== 'requested' && <PillButton size="sm" tone="dark" to={CRM_ROUTES.sms} onClick={onClose}>{t('yc.smsBeta.ask')}</PillButton>}
           </div>
         )}
       </div>

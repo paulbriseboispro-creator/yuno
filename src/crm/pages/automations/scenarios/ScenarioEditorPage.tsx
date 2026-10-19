@@ -35,7 +35,7 @@ import { defaultSender } from '@/crm/lib/sms';
 import { EVENT_TRIGGERS, graphErrors, type ScenarioGraph } from '@/crm/lib/scenarioGraph';
 import { blankNode, flowLayout, insertAt, nodesInFlowOrder, removalPlan, type Inlet } from '@/crm/lib/scenarioEdit';
 import { newNodeId } from '@/crm/lib/scenarioTemplates';
-import { CRM_SMS_DISPLAY_LIVE } from '@/crm/lib/sms';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 import type { CrmTemplateKind } from '@/crm/lib/emailTemplates';
 import { FlowView } from './FlowView';
 import { Inspector, type InspectorRefs, type Selection } from './Inspector';
@@ -98,6 +98,7 @@ function Editor() {
   const d = q.data!;
   const list = useScenarios();
   const act = useScenarioActions();
+  const smsOpen = useSmsAccess().open;
   const shell = useCrmShell();
   const nights = useNights();
   const segs = useSegmentsOverview('30d');
@@ -299,9 +300,9 @@ function Editor() {
     if (nid) void sendTest(nid);
   };
   const publish = async () => {
-    // SMS « Bientôt » (fournisseur pas encore branché) : un scénario avec une
-    // étape SMS ne se publie pas, l'étape est nommée (audit du 18/10, SMS-01).
-    if (!CRM_SMS_DISPLAY_LIVE) {
+    // SMS en bêta privée : tant que l'accès du compte n'est pas ouvert, un
+    // scénario avec une étape SMS ne se publie pas, l'étape est nommée.
+    if (!smsOpen) {
       const smsNodes = order.filter((x) => graph.nodes[x]?.type === 'sms');
       if (smsNodes.length) return { ok: false, errors: smsNodes.map((node) => ({ code: 'sms_soon', node, field: null })) };
     }

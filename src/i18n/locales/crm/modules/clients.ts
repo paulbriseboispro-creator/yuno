@@ -286,6 +286,8 @@ const dict: CrmDict = {
   'yc.cli.msg.ch.email': ['email', 'e-mail', 'e-mail'],
   'yc.cli.msg.ch.sms': ['SMS', 'SMS', 'SMS'],
   'yc.cli.msg.prepError': ['The draft could not be created. Try again.', 'Le brouillon n’a pas pu être créé. Réessayez.', 'No se pudo crear el borrador. Inténtelo de nuevo.'],
+  'yc.cli.msg.smsBeta': ['SMS is in private beta: request access and we’ll open it with you. Meanwhile, reach them by email.', 'Le SMS est en bêta privée : demandez l’accès, nous l’ouvrons avec vous. En attendant, écrivez-leur par e-mail.', 'El SMS está en beta privada: solicite el acceso y lo abrimos con usted. Mientras tanto, escríbales por e-mail.'],
+  'yc.cli.msg.smsRequested': ['Your SMS access request is being set up. Meanwhile, reach them by email.', 'Votre demande d’accès au SMS est en cours de mise en route. En attendant, écrivez-leur par e-mail.', 'Su solicitud de acceso al SMS está en marcha. Mientras tanto, escríbales por e-mail.'],
 };
 
 export default dict;

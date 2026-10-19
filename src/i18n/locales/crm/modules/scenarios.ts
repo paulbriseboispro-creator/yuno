@@ -889,11 +889,12 @@ const dict: CrmDict = {
   'yc.notif.scenario_notify.action': ['See the scenario', 'Voir le scénario', 'Ver el escenario'],
 
   // ── Commun ────────────────────────────────────────────────────────────────
-  'yc.scn.err.sms_soon': ['SMS is coming soon: remove this SMS step to publish.', 'Le SMS arrive bientôt : retirez cette étape SMS pour publier.', 'El SMS llega pronto: quite este paso SMS para publicar.'],
+  'yc.scn.err.sms_soon': ['SMS isn’t open on your account yet (private beta): request access in Campaigns › SMS, or remove this step to publish.', 'Le SMS de votre compte n’est pas encore ouvert (bêta privée) : demandez l’accès dans Campagnes › SMS, ou retirez cette étape pour publier.', 'El SMS aún no está abierto en su cuenta (beta privada): solicite el acceso en Campañas › SMS, o quite este paso para publicar.'],
   'yc.scn.soon': ['Coming soon', 'Bientôt', 'Próximamente'],
   'yc.scn.soonShotgun': ['Coming with the Shotgun partner integration', 'Bientôt, avec l’intégration partenaire Shotgun', 'Pronto, con la integración de socio de Shotgun'],
   'yc.scn.close': ['Close', 'Fermer', 'Cerrar'],
   'yc.scn.cancel': ['Cancel', 'Annuler', 'Cancelar'],
+  'yc.scn.betaAsk': ['Beta · on request', 'Bêta · sur demande', 'Beta · bajo solicitud'],
 };
 
 export default dict;

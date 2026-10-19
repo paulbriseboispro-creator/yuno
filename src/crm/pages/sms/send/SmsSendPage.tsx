@@ -26,13 +26,14 @@ import { useNights } from '@/crm/data/nights';
 import type { CrmAudience } from '@/crm/data/emails';
 import { smsErrorKey, useSmsActions, useSmsAnalysis, useSmsAudiencePreview, useSmsCampaigns, useSmsReadiness, useSmsSendOptions, useSmsSettings } from '@/crm/data/sms';
 import {
-  countSms, CRM_SMS_SEND_OPEN, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCostSplit, smsEffectiveAt, smsFinalText,
+  countSms, defaultSender, SAMPLE_LINK, smsBestSlots, smsChecks, smsCheckLevel, smsCostSplit, smsEffectiveAt, smsFinalText,
 } from '@/crm/lib/sms';
 import { SmsFlowHeader, type SmsStep } from '../flow/SmsFlowHeader';
 import { SmsAudienceStep } from './SmsAudienceStep';
 import { SmsPlanStep, type SmsPlan } from './SmsPlanStep';
 import { SmsCheckStep } from './SmsCheckStep';
 import { SmsSendAside } from './SmsSendAside';
+import { useSmsAccess } from '@/crm/data/smsAccess';
 
 type Step = 'aud' | 'plan' | 'check';
 const STEPS: Step[] = ['aud', 'plan', 'check'];
@@ -47,6 +48,8 @@ export default function SmsSendPage() {
   const nav = useNavigate();
   const toast = useCrmToast();
   const readOnly = !useCrmCaps().write;
+  // Bêta privée : l'écran n'est atteint qu'avec l'accès ouvert (SmsAccessGate).
+  const sendOpen = useSmsAccess().open;
   const { space } = useCrmScope();
   const [params, setParams] = useSearchParams();
   const step: Step = STEPS.includes(params.get('step') as Step) ? (params.get('step') as Step) : 'aud';
@@ -193,7 +196,7 @@ export default function SmsSendPage() {
   // Sans compte lu (en échec, ou pas encore là), « Suivant » attend : l'erreur et
   // « Réessayer » sont dans l'étape. Pendant un recalcul, le chiffre affiché est
   // celui d'avant : on attend le bon plutôt que d'avancer sur un compte périmé.
-  const nextOff = scheduled || (step === 'aud' && (net === 0 || !preview.data)) || (step === 'check' && (!canSend || !CRM_SMS_SEND_OPEN));
+  const nextOff = scheduled || (step === 'aud' && (net === 0 || !preview.data)) || (step === 'check' && (!canSend || !sendOpen));
   const countFailed = preview.isError && !preview.data;
   const retryPreview = () => { void preview.refetch(); };
   const whenShort = mode === 'now' ? t('yc.em.sd.r.onConfirm') : `${dShort(eff.at)} · ${time(eff.at)}`;
@@ -207,7 +210,7 @@ export default function SmsSendPage() {
       go('plan'); return;
     }
     if (step === 'plan') { if (past) { toast(t('yc.em.sd.plan.past')); return; } go('check'); return; }
-    if (!CRM_SMS_SEND_OPEN) { toast(t('yc.sm.sd.soonToast')); return; }
+    if (!sendOpen) { toast(t('yc.sm.sd.soonToast')); return; }
     if (!canSend) { toast(t('yc.em.sd.nav.fixFirst')); return; }
     setConfirm(true);
   };
@@ -298,7 +301,7 @@ export default function SmsSendPage() {
                 active={nextOff ? undefined : { transform: 'scale(.97)' }}
               >
                 {step === 'aud' ? t('yc.sm.sd.nav.toPlan') : step === 'plan' ? t('yc.sm.sd.nav.toCheck') : t(mode === 'now' ? 'yc.sm.sd.nav.now' : 'yc.sm.sd.nav.later')}
-                {step === 'check' && !CRM_SMS_SEND_OPEN && <span style={{ height: 22, padding: '0 8px', borderRadius: 99, background: '#fff', color: 'var(--sand-600)', fontSize: 11.5, fontWeight: 600, display: 'flex', alignItems: 'center' }}>{t('yc.sm.soon.badge')}</span>}
+                {step === 'check' && !sendOpen && <span style={{ height: 22, padding: '0 8px', borderRadius: 99, background: '#fff', color: 'var(--sand-600)', fontSize: 11.5, fontWeight: 600, display: 'flex', alignItems: 'center' }}>{t('yc.sm.soon.badge')}</span>}
                 <span style={{ width: 38, height: 38, borderRadius: 99, background: '#fff', color: nextOff ? 'var(--sand-400)' : 'var(--red-500)', display: 'grid', placeItems: 'center' }}>
                   <Icon name={step === 'check' ? 'send' : 'arrowRight'} size={17} stroke={2.4} />
                 </span>

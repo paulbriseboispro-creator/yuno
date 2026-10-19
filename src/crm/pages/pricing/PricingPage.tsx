@@ -29,7 +29,7 @@ import { useNarrow } from '@/crm/ui/useNarrow';
 import { useCrmT } from '@/crm/i18n';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { CrmPublicShell } from '@/crm/shell/CrmLayout';
-import { CRM_SMS_SEND_OPEN } from '@/crm/lib/sms';
+import { CRM_SMS_PRIVATE_BETA } from '@/crm/lib/sms';
 import { usePricingConfig } from '@/crm/data/pricing';
 import {
   EMAILS_MAX, estimateMonth, fromSlider, PRICING_PROFILES, rechargeExamples, SMS_MAX, snapEmails, snapSms, toSlider,
@@ -234,13 +234,13 @@ type Cta = (label: string, style: CSSProperties, hover: CSSProperties, decorate?
 function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolean; cta: Cta }) {
   const { t, n } = usePrT();
   const price = useTween(annual ? cfg.price_year : cfg.price_month, 800);
-  const feats: { k: string; soon: boolean; dSoon?: boolean }[] = [
+  const feats: { k: string; soon: boolean; dBeta?: boolean }[] = [
     // Le connecteur Shotgun est ouvert à tout compte Yuno CRM (CRM_CONNECTORS_LIVE ne garde que la carte de la Billetterie).
     { k: 'shotgun', soon: false },
     { k: 'base', soon: false },
     { k: 'segments', soon: false },
     { k: 'reports', soon: false },
-    { k: 'campaigns', soon: false, dSoon: !CRM_SMS_SEND_OPEN },
+    { k: 'campaigns', soon: false, dBeta: CRM_SMS_PRIVATE_BETA },
     { k: 'auto', soon: false },
     { k: 'meta', soon: !META_INTEGRATION_LIVE },
     { k: 'ai', soon: false },
@@ -291,7 +291,7 @@ function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolea
           <div key={f.k} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 0', borderTop: '1px solid var(--sand-200)' }}>
             <span style={{ flex: 'none', width: 22, height: 22, borderRadius: 99, background: f.soon ? 'var(--sand-300)' : 'var(--green-500)', color: '#fff', display: 'grid', placeItems: 'center', marginTop: 1 }}><Icon name="check" size={13} stroke={3} /></span>
             <span style={{ fontSize: 15.5, lineHeight: 1.4, color: 'var(--sand-700)' }}>
-              <b style={{ fontWeight: 600, color: f.soon ? 'var(--sand-600)' : 'var(--ink)' }}>{t(`yc.pr.f.${f.k}.t`)}</b> · {t(f.dSoon ? `yc.pr.f.${f.k}.dSoon` : `yc.pr.f.${f.k}.d`)}
+              <b style={{ fontWeight: 600, color: f.soon ? 'var(--sand-600)' : 'var(--ink)' }}>{t(`yc.pr.f.${f.k}.t`)}</b> · {t(f.dBeta ? `yc.pr.f.${f.k}.dBeta` : `yc.pr.f.${f.k}.d`)}
               {f.soon && <SoonTag />}
             </span>
           </div>
@@ -315,7 +315,8 @@ function YunitsSection({ cfg }: { cfg: CrmPricingConfig }) {
     .filter((k) => k !== 'sms_intl' || cfg.rates.sms_intl != null)
     .map((k) => {
       const ch = k === 'sms_intl' ? 'sms' : k;
-      return { k, cost: rate(k), soon: !cfg.channels_live[ch] || (ch === 'sms' && !CRM_SMS_SEND_OPEN) };
+      // SMS : bêta privée (accès sur demande), affiché comme tel, pas comme « Bientôt ».
+      return { k, cost: rate(k), soon: !cfg.channels_live[ch], beta: ch === 'sms' && CRM_SMS_PRIVATE_BETA };
     });
   return (
     <section style={{ ...wrap, padding: 'clamp(72px,10vw,140px) clamp(16px,4vw,40px)' }}>
@@ -330,6 +331,7 @@ function YunitsSection({ cfg }: { cfg: CrmPricingConfig }) {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(24px,2.6vw,30px)', letterSpacing: '-.03em', whiteSpace: 'nowrap' }}>{t(`yc.pr.ch.${r.k}`)}</b>
                   {r.soon && <span style={{ height: 22, padding: '0 9px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>{t('yc.pr.soon')}</span>}
+                  {!r.soon && r.beta && <span style={{ height: 22, padding: '0 9px', borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>{t('yc.pr.beta')}</span>}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,38px)', letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums' }}>{n(r.cost)}</b>
