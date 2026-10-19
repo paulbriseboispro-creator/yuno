@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -204,7 +205,7 @@ export default function OrgAppTeam() {
     if (!organizerId) return;
     setSubmittingStaff(true);
     try {
-      const { data, error } = await supabase.functions.invoke('invite-staff', {
+      const { data, error } = await invokeEdgeFunction('invite-staff', {
         body: { email: staffEmail, display_name: staffName, role: staffRole, organizer_user_id: organizerId },
       });
       if (error) throw error;
@@ -227,7 +228,7 @@ export default function OrgAppTeam() {
     if (!s.user_id || pinLinkSending) return;
     setPinLinkSending(s.id);
     try {
-      const { data, error } = await supabase.functions.invoke('request-pin-reset', {
+      const { data, error } = await invokeEdgeFunction('request-pin-reset', {
         body: { targetUserId: s.user_id },
       });
       if (error) throw error;
@@ -247,7 +248,7 @@ export default function OrgAppTeam() {
   const resendStaffInvite = async (email: string, role: StaffRole) => {
     if (!organizerId) return;
     try {
-      const { data, error } = await supabase.functions.invoke('invite-staff', {
+      const { data, error } = await invokeEdgeFunction('invite-staff', {
         body: { email, role, organizer_user_id: organizerId, resend: true },
       });
       if (error) throw error;
