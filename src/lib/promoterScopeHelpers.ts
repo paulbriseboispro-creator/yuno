@@ -1,4 +1,5 @@
 import type { PromoterScope } from '@/hooks/usePromoterScope';
+import { orgOwnEventsOr, venueOwnEventsOr } from '@/lib/coorg';
 
 /**
  * Returns the active scope id (venue_id or organizer_user_id) and the column
@@ -36,14 +37,16 @@ export function scopeId(scope: PromoterScope): string | null {
 
 /**
  * For querying events: returns the OR clause needed to fetch events linked to
- * this scope (lead, partner venue, partner organizer, etc).
+ * this scope (lead, partner venue, partner organizer, etc). Les soirées MIROIR
+ * d'une billetterie externe (Yuno CRM) n'en font pas partie : un promoteur ne
+ * s'y assigne pas, elles ne vendent rien chez Yuno.
  */
 export function scopeEventsOr(scope: PromoterScope): string | null {
   if (scope.kind === 'organizer' && scope.organizerId) {
-    return `organizer_user_id.eq.${scope.organizerId},partner_organizer_id.eq.${scope.organizerId}`;
+    return orgOwnEventsOr(scope.organizerId);
   }
   if (scope.kind === 'venue' && scope.venueId) {
-    return `venue_id.eq.${scope.venueId},partner_venue_id.eq.${scope.venueId}`;
+    return venueOwnEventsOr(scope.venueId);
   }
   return null;
 }

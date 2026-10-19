@@ -54,6 +54,7 @@ export function NewCollabDialog({ open, onOpenChange, scope, basePath, canCreate
       .is('cancelled_at', null).gte('end_at', new Date().toISOString())
       .order('start_at', { ascending: true }).limit(40);
     (scope.venueId ? q.eq('venue_id', scope.venueId) : q.eq('organizer_user_id', scope.organizerUserId!))
+      .is('external_source', null)
       .then(({ data }) => { if (active) setEvents((data ?? []) as { id: string; title: string; start_at: string }[]); });
     return () => { active = false; };
   }, [pickEvent, events, scope]);

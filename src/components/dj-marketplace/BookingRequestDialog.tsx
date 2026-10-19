@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr, venueOwnEventsOr } from '@/lib/coorg';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
@@ -95,9 +96,9 @@ export function BookingRequestDialog({
         .gte('start_at', fromISO)
         .lte('start_at', toISO);
       if (scope === 'venue' && venueId) {
-        q = q.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
+        q = q.or(venueOwnEventsOr(venueId));
       } else if (scope === 'organizer' && organizerUserId) {
-        q = q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+        q = q.or(orgOwnEventsOr(organizerUserId));
       } else {
         return;
       }
