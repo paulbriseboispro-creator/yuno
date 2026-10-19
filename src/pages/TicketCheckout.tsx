@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock, Users } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Tag, ChevronRight, LogIn, Wine, Lock, Users } from 'lucide-react';
 import { getEventSalesStatus } from '@/types/ticketing';
 import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
 import { Button } from '@/components/ui/button';
@@ -21,9 +20,13 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
-import { TicketAttendeeForm, AttendeeInfo } from '@/components/TicketAttendeeForm';
+import { BuyerFields, FriendNames } from '@/components/checkout/BuyerDetails';
+import { buyerFormErrors, firstErrorField, type AttendeeInfo, type BuyerField, type BuyerErrorCode } from '@/lib/buyerForm';
+import { suggestEmail } from '@/lib/emailTypo';
+import type { BirthDateState } from '@/lib/birthDate';
 import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/TicketUpsellSelector';
-import { TermsAcceptance } from '@/components/TermsAcceptance';
+import { TermsNotice } from '@/components/TermsAcceptance';
+import { recordTermsAcceptance } from '@/lib/termsAcceptance';
 import { MinorAuthGate } from '@/components/MinorAuthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
@@ -34,7 +37,7 @@ import {
   useMarketingConsent, usePlatformMarketingConsent,
   recordConsentGrant, recordPlatformConsentGrant, marketingConsentWording,
 } from '@/hooks/useMarketingConsent';
-import { CheckoutSteps } from '@/components/CheckoutSteps';
+import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
@@ -47,6 +50,9 @@ import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+
+/** « Obligatoire » ne s'affiche qu'au tap sur le bouton, jamais en quittant un champ vide. */
+const REQUIRED_CODES = new Set<BuyerErrorCode>(['name_required', 'email_required', 'phone_required', 'birth_required']);
 
 interface PromoterDiscount {
   promoterId: string;
@@ -103,7 +109,22 @@ export default function TicketCheckout() {
   const [attendees, setAttendees] = useState<AttendeeInfo[]>([
     { fullName: '', email: '', phone: '' }
   ]);
-  const [confirmEmail, setConfirmEmail] = useState('');
+  // Formulaire « Vos infos » : un champ dit son erreur quand on le quitte (sauf
+  // « obligatoire », réservé au tap sur le bouton), et le tap mène au premier oubli.
+  const [touched, setTouched] = useState<Partial<Record<BuyerField, boolean>>>({});
+  const [submitted, setSubmitted] = useState(false);
+  // Ce qui est tapé dans la date de naissance ; null = déjà connue par le profil.
+  const [birthState, setBirthState] = useState<BirthDateState | null>({ status: 'empty' });
+  // Client connecté dont le profil porte déjà nom et téléphone : ses infos tiennent
+  // dans une carte « Tout est prêt » ; « Modifier » rouvre les champs.
+  const [profileComplete, setProfileComplete] = useState(false);
+  const [editingIdentity, setEditingIdentity] = useState(false);
+  const fieldRefs = {
+    name: useRef<HTMLDivElement>(null),
+    email: useRef<HTMLDivElement>(null),
+    phone: useRef<HTMLDivElement>(null),
+  };
+  const birthRef = useRef<HTMLFieldSetElement>(null);
 
   // Retour depuis Stripe par « Retour » / annulation (`?payment_cancelled=true`) :
   // on le dit, et on rend à l'acheteur ce qu'il avait tapé (quantité, nom, email,
@@ -114,10 +135,9 @@ export default function TicketCheckout() {
     if (params.get('payment_cancelled') !== 'true') return;
     try {
       const raw = sessionStorage.getItem(`yuno_ticket_draft_${roundId}`);
-      const draft = raw ? JSON.parse(raw) as { quantity?: number; buyer?: AttendeeInfo; confirmEmail?: string } : null;
+      const draft = raw ? JSON.parse(raw) as { quantity?: number; buyer?: AttendeeInfo } : null;
       if (draft?.quantity && Number.isInteger(draft.quantity) && draft.quantity >= 1 && draft.quantity <= 10) setQuantity(draft.quantity);
       if (draft?.buyer) setAttendees(prev => [{ ...prev[0], ...draft.buyer }, ...prev.slice(1)]);
-      if (draft?.confirmEmail) setConfirmEmail(draft.confirmEmail);
     } catch {
       // Stockage indisponible : formulaire vide, rien de plus.
     }
@@ -159,7 +179,6 @@ export default function TicketCheckout() {
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
   const platformConsent = usePlatformMarketingConsent(true);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
-  const [acceptCgv, setAcceptCgv] = useState(false);
   // Single age/minor gate for ticket sales (decision tree in MinorAuthGate). A
   // birth date is required; once entered it's saved on the profile and never asked
   // again on future events:
@@ -184,7 +203,6 @@ export default function TicketCheckout() {
   const [minorDocUrl, setMinorDocUrl] = useState<string | null>(null);
   // Full minor classification from the gate — used to record a minor-ticket row at checkout.
   const [minorInfo, setMinorInfo] = useState<{ isMinor: boolean; birthDate: string; docUrl: string | null; docName: string | null } | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   // Sale controls (per-person limit + password gate)
   const [salePasswordEnabled, setSalePasswordEnabled] = useState(false);
   const [perPersonLimit, setPerPersonLimit] = useState<number | null>(null);
@@ -239,7 +257,8 @@ export default function TicketCheckout() {
           };
           return updated;
         });
-        setConfirmEmail(user.email || '');
+        const known = buyerFormErrors({ fullName, email: user.email || '', phone: profile.phone || '', birth: null });
+        setProfileComplete(Object.keys(known).length === 0);
       }
       // Le consentement marketing n'est PLUS déduit ici. Il était lu depuis
       // `profiles.phone_sms_opt_in` (drapeau plateforme) et depuis un `tickets`
@@ -259,7 +278,6 @@ export default function TicketCheckout() {
         updated[0] = { ...updated[0], email: user.email || '' };
         return updated;
       });
-      setConfirmEmail(user.email);
     }
   }, [user]);
 
@@ -664,40 +682,50 @@ export default function TicketCheckout() {
     });
   };
 
+  // Le formulaire lu d'un coup : codes d'erreur dans l'ordre de la page
+  // (lib/buyerForm.ts). Le bouton n'est jamais grisé pour un oubli : au tap, la
+  // page descend au premier champ à revoir et chaque champ dit quoi faire.
+  const buyer = attendees[0];
+  const buyerEmail = user?.email ?? buyer.email;
+  const formErrors = buyerFormErrors({ fullName: buyer.fullName, email: buyerEmail, phone: buyer.phone, birth: birthState });
+  // La date est lisible mais la soirée la refuse, ou le document signé manque :
+  // c'est toujours la date qu'il faut revoir, avec le message de MinorAuthGate.
+  const gateProblem = !formErrors.birth && minorGateBlocked;
+  const missingCount = Object.keys(formErrors).length + (gateProblem ? 1 : 0);
+  const shownError = (f: BuyerField): string | null => {
+    const code = formErrors[f];
+    if (!code) return null;
+    if (!submitted && (!touched[f] || REQUIRED_CODES.has(code))) return null;
+    return t(`buyer.err.${code}`);
+  };
+  const fieldValid = (f: 'name' | 'email' | 'phone', value: string) => !!touched[f] && !formErrors[f] && !!value.trim();
+  const emailSuggestion = !user && touched.email && !formErrors.email ? suggestEmail(buyer.email) : null;
+  const markTouched = (f: BuyerField) => setTouched(prev => (prev[f] ? prev : { ...prev, [f]: true }));
+  const birthCode = formErrors.birth;
+  const birthInvalidField = birthCode === 'birth_day' ? 'day' as const
+    : birthCode === 'birth_month' ? 'month' as const
+    : birthCode === 'birth_year' ? 'year' as const
+    : 'all' as const;
+
+  const scrollToField = (f: BuyerField) => {
+    // Un champ caché dans la carte « Tout est prêt » : on la rouvre d'abord.
+    if (f !== 'birth' && user && profileComplete && !editingIdentity) setEditingIdentity(true);
+    window.setTimeout(() => {
+      const el = f === 'birth' ? birthRef.current : fieldRefs[f].current;
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = el.querySelector<HTMLInputElement>('input[aria-invalid="true"]') ?? el.querySelector<HTMLInputElement>('input:not([readonly])');
+      window.setTimeout(() => input?.focus({ preventScroll: true }), 350);
+    }, 0);
+  };
+
   const validateForm = (): boolean => {
-    // Validate primary buyer (first attendee)
-    if (!attendees[0].fullName.trim()) {
-      toast.error(t('ticketCheckout.nameRequired'));
-      return false;
-    }
-    if (!attendees[0].email.trim()) {
-      toast.error(t('ticketCheckout.emailRequired'));
-      return false;
-    }
-    if (attendees[0].email !== confirmEmail) {
-      toast.error(t('ticketCheckout.emailMismatch'));
-      return false;
-    }
-    if (!attendees[0].phone.trim()) {
-      toast.error(t('ticketCheckout.phoneRequired'));
-      return false;
-    }
-
-    // Les autres participants restent facultatifs : chaque place a son QR
-    // (create-ticket-checkout, _shared/ticket-places.ts), au nom saisi ou, à
-    // défaut, « <acheteur> +k ». Exiger nom, email et téléphone de chaque ami
-    // bloquait l'achat pour rien : le QR du billet entier fait entrer tout le monde.
-
-    if (!acceptCgv) {
-      toast.error(t('cgv.required'));
-      return false;
-    }
-    if (minorGateBlocked) {
-      toast.error(t('minorAuth.incomplete'));
-      return false;
-    }
-
-    return true;
+    const first = firstErrorField(formErrors) ?? (gateProblem ? 'birth' : null);
+    if (!first) return true;
+    setSubmitted(true);
+    haptics.error();
+    scrollToField(first);
+    return false;
   };
 
   const handleCheckout = async () => {
@@ -710,6 +738,9 @@ export default function TicketCheckout() {
     capturePosthog('checkout_step_completed', { pillar: 'tickets', step: 'details', quantity, ...ticketMarket });
 
     setCheckoutLoading(true);
+    // CGV : le bouton porte « En continuant, vous acceptez les conditions de
+    // vente » ; le tap vaut acceptation et laisse sa trace, comme la case d'avant.
+    const termsRecorded = recordTermsAcceptance({ userId: user?.id, guestEmail: !user ? buyer.email.trim() : null, context: 'ticket' });
     // checkout_failed : une fois par échec, raison courte (jamais le message).
     let failureTracked = false;
     const trackFailure = (err: unknown, code?: unknown) => {
@@ -758,7 +789,6 @@ export default function TicketCheckout() {
         }
       }
 
-      // CGV acceptance is handled by TermsAcceptance component
       // Prepare guest checkout data if user is not logged in
       const isGuest = !user;
       const guestCheckout = isGuest ? {
@@ -784,8 +814,8 @@ export default function TicketCheckout() {
       // achat gonflerait la preuve sans rien prouver de plus (EDPB §106).
       const consentEmail = (user?.email ?? attendees[0].email).trim();
       const consentPhone = attendees[0].phone.trim();
-      const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName);
-      const { sms: smsConsentWording } = marketingConsentWording(t, consentScope?.scopeName);
+      const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName, language);
+      const { sms: smsConsentWording } = marketingConsentWording(t, consentScope?.scopeName, language);
       if (newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({
           channel: 'email',
@@ -939,6 +969,7 @@ export default function TicketCheckout() {
         // Pas de Stripe (billet gratuit, ou achat simulé d'un compte démo) :
         // la vente est confirmée ici, pas par une page Verify*.
         capturePosthog('purchase_completed', { pillar: 'tickets', payment: 'free', value: 0, currency: 'EUR', quantity, ...ticketMarket });
+        await termsRecorded;
         toast.success(t('tickets.purchaseSuccess'));
         // Navigation SPA (jamais window.location.href : rechargement complet du
         // bundle → replay du splash dans l'app native, état perdu).
@@ -953,10 +984,11 @@ export default function TicketCheckout() {
         capturePosthog('checkout_step_completed', { pillar: 'tickets', step: 'payment', quantity, ...ticketMarket });
         haptics.medium();
         try {
-          sessionStorage.setItem(`yuno_ticket_draft_${roundId}`, JSON.stringify({ quantity, buyer: attendees[0], confirmEmail }));
+          sessionStorage.setItem(`yuno_ticket_draft_${roundId}`, JSON.stringify({ quantity, buyer: attendees[0] }));
         } catch {
           // Stockage indisponible : le retour depuis Stripe repartira d'un formulaire vide.
         }
+        await termsRecorded;
         launchCheckout(data.url);
       }
     } catch (error) {
@@ -996,119 +1028,173 @@ export default function TicketCheckout() {
     return formatInTimeZone(deadlineTime, PARIS_TIMEZONE, 'HH:mm');
   };
 
+  const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
+  const money = (v: number) => `${v.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const dateLine = [
+    formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM · HH:mm', { locale: getLocale() }),
+    venue.city,
+  ].filter(Boolean).join(' · ');
+  const showIdentityCard = !!user && profileComplete && !editingIdentity;
+  const initials = buyer.fullName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
+  const payOnline = total > 0;
+  const loginHref = `/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+  // Ligne rouge de la barre : seulement après un tap, et seulement pour dire
+  // combien d'infos restent à revoir (le détail est sous chaque champ).
+  const barAlert = perPersonLimitReached
+    ? t('tickets.maxPerPersonReached').replace('{count}', String(perPersonLimit))
+    : submitted && missingCount > 0
+      ? (missingCount === 1 ? t('ticketCheckout.missingOne') : t('ticketCheckout.missingMany').replace('{n}', String(missingCount)))
+      : null;
+
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
-      {/* Header */}
+      {/* En-tête : retour, l'étape en mots, et la progression en un trait rouge. */}
       <header
         className="sticky top-0 z-40"
-        style={{ background: 'rgba(10,10,10,0.90)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
       >
-        <div className="flex items-center justify-between px-4 h-12">
+        <div className="mx-auto flex h-14 max-w-lg items-center gap-3 px-4">
           <button
+            type="button"
+            aria-label={t('common.back')}
             onClick={() => navigate(`${basePath}/billets`, {
               replace: true,
               state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round?.name || '' }, eventId }
             })}
-            className="h-8 w-8 flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
-            style={{ borderRadius: 2 }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/[0.08]"
+            style={{ borderRadius: 4, background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.12)' }}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <p className="font-mono uppercase truncate mx-3 flex-1 text-center" style={{ fontSize: '11px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{event.title}</p>
-          <span className="font-mono text-[10px] font-bold text-[#5A5A5E] bg-white/[0.06] px-2 py-1" style={{ borderRadius: 2 }}>+18</span>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.10em] text-white">{t('ticketCheckout.stepTitle')}</p>
+            <p className="mt-[3px] font-mono text-[10px] uppercase tracking-[0.06em] text-[#9A9A9A]">
+              {t('ticketCheckout.stepOf').replace('{n}', '2').replace('{total}', '3')}
+            </p>
+          </div>
+          <span className="w-10 shrink-0" aria-hidden />
         </div>
+        <div aria-hidden className="absolute bottom-[-1px] left-0 h-[2px] w-2/3 bg-primary" />
       </header>
 
       <PublicPage variant="flow">
-      <div className="max-w-lg mx-auto px-4 pt-4 pb-36">
-        <CheckoutSteps currentStep={2} />
+      <div className="mx-auto max-w-lg px-4 pb-6 pt-5">
+        {/* Votre commande : la soirée, le billet, la quantité, le code promo. */}
+        <section aria-label={t('ticketCheckout.summary')} className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
+          <div className="flex items-center gap-3 p-3.5">
+            {event.posterUrl ? (
+              <img
+                src={getOptimizedImageUrl(event.posterUrl, { width: 112, height: 112 })}
+                alt=""
+                className="h-[52px] w-[52px] shrink-0 object-cover"
+                style={{ borderRadius: 6 }}
+              />
+            ) : (
+              <div aria-hidden className="h-[52px] w-[52px] shrink-0" style={{ borderRadius: 6, background: 'linear-gradient(160deg, #1a0a0d, #7a1428)' }} />
+            )}
+            <div className="min-w-0">
+              <p className="truncate font-mono text-[10px] uppercase tracking-[0.06em] text-[#9A9A9A]">{dateLine}</p>
+              <p className="mt-1 font-display text-base font-bold uppercase leading-[1.1] tracking-[-0.005em] text-white [overflow-wrap:anywhere]">{event.title}</p>
+            </div>
+          </div>
 
-        {/* Ticket type card */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative border border-white/[0.08] bg-[#141414] overflow-hidden mt-4"
-          style={{ borderRadius: 4 }}
-        >
-          <div className="absolute left-0 inset-y-0 w-[3px] bg-primary" />
-          <div className="pl-5 pr-4 py-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-display font-bold uppercase text-white" style={{ fontSize: '17px', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{round.name}</h2>
+          <div className="h-px bg-white/[0.07]" />
+
+          <div className="flex items-center gap-3 p-3.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-[1.3] text-white [overflow-wrap:anywhere]">{round.name}</p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
+                {discount > 0 ? (
+                  <>
+                    <span className="line-through">{money(round.price)}</span>
+                    <span className="font-semibold text-white">{money(unitPriceAfterDiscount)}</span>
+                    {discountBadge && (
+                      <span className="rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-[0.06em] text-emerald-400">
+                        {discountBadge}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span>{money(round.price)}</span>
+                )}
+              </p>
+              {roundWithDrink.includesDrink && (
+                <p className="mt-1 flex items-center gap-1.5 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
+                  <Wine className="h-3 w-3 shrink-0" aria-hidden />
+                  1 {t('tickets.drinkBefore').toLowerCase()} {formatDrinkDeadline()}
+                </p>
+              )}
               {communityAudience !== 'everyone' && (
-                <p className="font-mono uppercase text-primary mt-1.5 flex items-center gap-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
-                  <Users className="h-3 w-3" />
+                <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-[#E5E5E5]">
+                  <Users className="h-3 w-3 shrink-0" aria-hidden />
                   {t('community.checkoutNotice').replace('{name}', community.access?.hostName ?? '')}
                 </p>
               )}
-              {roundWithDrink.includesDrink && (
-                <p className="font-mono uppercase text-primary mt-1.5 flex items-center gap-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
-                  <Wine className="h-3 w-3" />
-                  1 {t('tickets.drinkBefore')} {formatDrinkDeadline()}
+              {remainingTickets > 0 && remainingTickets <= 20 && (
+                <p className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-amber-400">
+                  {t('tickets.onlyLeft').replace('{count}', remainingTickets.toString())}
+                </p>
+              )}
+              {perPersonLimit != null && !perPersonLimitReached && (
+                <p className="mt-1 text-[11.5px] text-[#9A9A9A]">
+                  {t('tickets.maxPerPersonNotice').replace('{count}', String(perPersonLimit))}
                 </p>
               )}
             </div>
-            {discount > 0 ? (
-              <div className="shrink-0 flex flex-col items-end">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono tabular-nums line-through" style={{ fontSize: '12px', color: '#5A5A5E', letterSpacing: '0.02em' }}>{round.price.toFixed(2)} €</span>
-                  {discountBadge && (
-                    <span className="font-mono font-bold uppercase text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5" style={{ fontSize: '9px', letterSpacing: '0.06em', backgroundColor: 'rgba(16,185,129,0.10)', borderRadius: 2 }}>
-                      {discountBadge}
-                    </span>
-                  )}
-                </div>
-                <p className="font-display font-bold tabular-nums text-white" style={{ fontSize: '22px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{unitPriceAfterDiscount.toFixed(2)} €</p>
-              </div>
-            ) : (
-              <p className="font-display font-bold tabular-nums shrink-0 text-white" style={{ fontSize: '22px', letterSpacing: '-0.02em' }}>{round.price.toFixed(2)} €</p>
-            )}
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleQuantityChange(-1)}
+                disabled={quantity <= 1}
+                aria-label={t('ticketCheckout.qtyMinus')}
+                className="flex h-10 w-10 items-center justify-center bg-white/[0.07] text-[#E5E5E5] transition-all hover:bg-white/[0.12] active:scale-90 disabled:opacity-30 disabled:active:scale-100"
+                style={{ borderRadius: 4 }}
+              >
+                <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </button>
+              <span aria-live="polite" className="w-6 text-center text-base font-bold tabular-nums text-white">{quantity}</span>
+              <button
+                type="button"
+                onClick={() => handleQuantityChange(1)}
+                disabled={quantity >= maxQuantity}
+                aria-label={t('ticketCheckout.qtyPlus')}
+                className="flex h-10 w-10 items-center justify-center text-white transition-all active:scale-90 disabled:bg-white/[0.07] disabled:opacity-30 disabled:active:scale-100"
+                style={{ borderRadius: 4, backgroundColor: quantity < maxQuantity ? '#E8192C' : undefined }}
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
-        </motion.div>
 
-        {/* Quantity */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mt-6"
-        >
-          <p className="font-mono uppercase text-center mb-4" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.14em', color: '#5A5A5E' }}>
-            {t('tickets.selectQuantity')}
-          </p>
-          <div className="flex items-center justify-center gap-8">
-            <button
-              onClick={() => handleQuantityChange(-1)}
-              disabled={quantity <= 1}
-              className="h-11 w-11 rounded-full bg-white/[0.07] flex items-center justify-center transition-all disabled:opacity-25 hover:bg-white/[0.12] active:scale-90"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-            <span className="font-display font-bold w-16 text-center tabular-nums text-white" style={{ fontSize: '52px', letterSpacing: '-0.04em', lineHeight: 1 }}>{quantity}</span>
-            <button
-              onClick={() => handleQuantityChange(1)}
-              disabled={quantity >= maxQuantity}
-              className="h-11 w-11 rounded-full flex items-center justify-center transition-all disabled:opacity-25 active:scale-90"
-              style={{ backgroundColor: quantity < maxQuantity ? 'rgba(232,25,44,0.80)' : 'rgba(255,255,255,0.07)' }}
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+          {promoterDiscount && best.source === 'promoter' && (
+            <div className="flex items-center gap-2.5 border-t border-white/[0.07] px-3.5 py-3" style={{ backgroundColor: 'rgba(16,185,129,0.06)' }}>
+              <Tag className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
+              <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-emerald-400">
+                Code <span className="font-bold">{promoterDiscount.promoCode}</span>
+                {promoterDiscount.discountType === 'percentage'
+                  ? ` (-${promoterDiscount.discountValue}%)`
+                  : ` (-${money(discount)})`}
+              </span>
+            </div>
+          )}
+
+          <div className="border-t border-white/[0.07]">
+            <PromoCodeField
+              variant="row"
+              eventId={event.id}
+              pillar="tickets"
+              ticketRoundId={round.id}
+              applied={appliedPromo}
+              onChange={(promo) => {
+                setAppliedPromo(promo);
+                if (promo) rememberPromoForEvent(event.id, promo.code);
+                else forgetPromoForEvent(event.id);
+              }}
+              discount={promoAmount}
+              outranked={!!appliedPromo && best.source === 'promoter'}
+            />
           </div>
-          {remainingTickets <= 20 && (
-            <p className="font-mono uppercase text-amber-400 text-center mt-3" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.06em' }}>
-              {t('tickets.onlyLeft').replace('{count}', remainingTickets.toString())}
-            </p>
-          )}
-          {perPersonLimit != null && !perPersonLimitReached && (
-            <p className="text-center mt-2" style={{ fontSize: '10.5px', color: '#9A9A9A' }}>
-              {t('tickets.maxPerPersonNotice').replace('{count}', String(perPersonLimit))}
-            </p>
-          )}
-          {perPersonLimitReached && (
-            <p className="font-mono uppercase text-amber-400 text-center mt-3" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.06em' }}>
-              {t('tickets.maxPerPersonReached').replace('{count}', String(perPersonLimit))}
-            </p>
-          )}
-        </motion.div>
+        </section>
 
         {/* Upsells boissons — dorment avec le pilier (src/lib/drinksPillar.ts) */}
         {DRINKS_PILLAR_LIVE && venue && (
@@ -1125,58 +1211,15 @@ export default function TicketCheckout() {
           />
         )}
 
-        {/* Promo code */}
-        {promoterDiscount && best.source === 'promoter' && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="mt-3 flex items-center gap-2.5 p-3 border border-emerald-500/20"
-            style={{ backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: 4 }}
-          >
-            <Tag className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-            <span className="font-mono uppercase text-emerald-400" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
-              Code <span className="font-bold">{promoterDiscount.promoCode}</span>
-              {promoterDiscount.discountType === 'percentage'
-                ? ` (-${promoterDiscount.discountValue}%)`
-                : ` (-${discount.toFixed(2)}€)`}
-            </span>
-          </motion.div>
-        )}
-        {event && round && (
-          <PromoCodeField
-            eventId={event.id}
-            pillar="tickets"
-            ticketRoundId={round.id}
-            applied={appliedPromo}
-            onChange={(promo) => {
-              setAppliedPromo(promo);
-              if (promo) rememberPromoForEvent(event.id, promo.code);
-              else forgetPromoForEvent(event.id);
-            }}
-            discount={promoAmount}
-            outranked={!!appliedPromo && best.source === 'promoter'}
-          />
-        )}
-
-        <div className="my-6 h-px bg-white/[0.06]" />
-
-        {/* Presale: force login */}
+        {/* Prévente : connexion obligatoire (la liste d'attente est liée au compte). */}
         {!user && !authLoading && blockGuestMode && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="space-y-3"
-          >
+          <div className="mt-7 space-y-3">
             <SectionLabel label={t('guest.authChoiceTitle')} />
             <div className="p-3 border border-amber-500/20" style={{ backgroundColor: 'rgba(245,158,11,0.06)', borderRadius: 4 }}>
-              <p className="text-[11px] text-amber-400">
-                {t('tickets.presaleLoginRequired')}
-              </p>
+              <p className="text-[12px] text-amber-400">{t('tickets.presaleLoginRequired')}</p>
             </div>
             <button
-              onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+              onClick={() => navigate(loginHref)}
               className="w-full flex items-center gap-3 p-4 border text-left transition-all active:scale-[0.99]"
               style={{ backgroundColor: 'rgba(232,25,44,0.05)', borderColor: 'rgba(232,25,44,0.25)', borderRadius: 10 }}
             >
@@ -1185,60 +1228,81 @@ export default function TicketCheckout() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold text-white">{t('guest.loginOption')}</p>
-                <p className="text-[11px] text-[#9A9A9A] mt-0.5">{t('guest.loginOptionDesc')}</p>
+                <p className="text-[12px] text-[#9A9A9A] mt-0.5">{t('guest.loginOptionDesc')}</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-[#5A5A5E]" />
+              <ChevronRight className="h-4 w-4 text-[#9A9A9A]" />
             </button>
-          </motion.div>
+          </div>
         )}
 
-        {/* Attendee forms */}
+        {/* Vos infos : une colonne, aucune carte autour des champs. */}
         {(user || (!authLoading && !blockGuestMode)) && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="space-y-4"
-          >
-            <SectionLabel label={quantity > 1 ? t('ticketCheckout.attendeesInfo') : t('ticketCheckout.buyerInfo')} />
+          <section className="mt-7 flex flex-col gap-[18px]">
+            <div>
+              <h1 className="font-display text-2xl font-bold leading-[1.1] tracking-[-0.015em] text-white">
+                {showIdentityCard ? t('ticketCheckout.readyTitle') : t('ticketCheckout.formTitle')}
+              </h1>
+              {showIdentityCard ? (
+                <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">{t('ticketCheckout.readySub')}</p>
+              ) : !user ? (
+                <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">
+                  {t('guest.haveAccountQuestion')}{' '}
+                  <button
+                    type="button"
+                    onClick={() => navigate(loginHref)}
+                    className="font-semibold text-white underline underline-offset-[3px] transition-colors hover:text-[#E5E5E5]"
+                  >
+                    {t('guest.logIn')}
+                  </button>
+                </p>
+              ) : null}
+            </div>
 
-            {/* Guest checkout is the default — no decision blocks the form. Returning
-                users get an optional, non-blocking link to log in and auto-fill. */}
-            {!user && (
-              <button
-                onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-                className="flex items-center gap-1.5 text-[12px] text-[#9A9A9A] hover:text-white transition-colors"
-              >
-                <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span>{t('guest.haveAccountQuestion')}{' '}
-                  <span className="text-primary font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
+            {showIdentityCard ? (
+              <div className="flex items-start gap-3 rounded-[10px] border border-white/[0.08] bg-[#141414] p-3.5">
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold"
+                  style={{ background: 'rgba(232,25,44,0.14)', color: '#FF5A68' }}
+                >
+                  {initials}
                 </span>
-              </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-semibold leading-[1.3] text-white">{buyer.fullName}</p>
+                  <p className="mt-0.5 text-[13.5px] leading-[1.4] text-[#E5E5E5] [overflow-wrap:anywhere]">{buyerEmail}</p>
+                  <p className="mt-0.5 text-[13.5px] leading-[1.4] text-[#9A9A9A]">{buyer.phone}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingIdentity(true)}
+                  className="h-8 shrink-0 px-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-white/[0.06]"
+                  style={{ borderRadius: 4, border: '1px solid rgba(255,255,255,0.14)' }}
+                >
+                  {t('ticketCheckout.edit')}
+                </button>
+              </div>
+            ) : (
+              <BuyerFields
+                buyer={user ? { ...buyer, email: buyerEmail } : buyer}
+                onChange={(field, value) => handleAttendeeChange(0, field, value)}
+                onBlur={markTouched}
+                errors={{ name: shownError('name') ?? undefined, email: shownError('email') ?? undefined, phone: shownError('phone') ?? undefined }}
+                valid={{
+                  name: fieldValid('name', buyer.fullName),
+                  email: !user && fieldValid('email', buyer.email),
+                  phone: fieldValid('phone', buyer.phone),
+                }}
+                emailReadOnly={!!user}
+                emailSuggestion={emailSuggestion}
+                onAcceptSuggestion={() => emailSuggestion && handleAttendeeChange(0, 'email', emailSuggestion)}
+                emailNotice={!user && buyerEmailHasAccount ? <ExistingAccountNotice email={buyer.email.trim()} /> : undefined}
+                defaultCountry={phoneCountry}
+                fieldRefs={fieldRefs}
+              />
             )}
 
-            {attendees.map((attendee, idx) => (
-              <TicketAttendeeForm
-                key={idx}
-                index={idx}
-                attendee={attendee}
-                onChange={handleAttendeeChange}
-                defaultCountry={phoneCountry}
-                isPrimary={idx === 0}
-                showConfirmEmail={idx === 0}
-                confirmEmail={confirmEmail}
-                onConfirmEmailChange={setConfirmEmail}
-                emailNotice={
-                  idx === 0 && !user && buyerEmailHasAccount
-                    ? <ExistingAccountNotice email={attendee.email.trim()} />
-                    : undefined
-                }
-              />
-            ))}
-
-            {/* Single age/minor gate: collect the date of birth, then branch —
-                adult → normal ticket; minor on an adults-only event → blocked;
-                minor on a minors-allowed event → minor ticket, plus a download +
-                upload step when the venue/organizer requires a signed authorization. */}
+            {/* Date de naissance : demandée une fois, puis lue sur le profil. La
+                même porte classe ensuite (majeur, mineur accepté, refusé, document). */}
             <MinorAuthGate
               userId={user?.id}
               eventId={event.id}
@@ -1248,6 +1312,18 @@ export default function TicketCheckout() {
               onDocUploaded={setMinorDocUrl}
               onMinorInfo={setMinorInfo}
               onDocPending={setMinorDocPending}
+              onBirthState={setBirthState}
+              error={shownError('birth')}
+              invalidField={birthInvalidField}
+              onBlur={() => markTouched('birth')}
+              highlightDoc={submitted && minorDocPending}
+              anchorRef={birthRef}
+            />
+
+            <FriendNames
+              friends={attendees.slice(1)}
+              buyerName={buyer.fullName}
+              onChange={(index, value) => handleAttendeeChange(index, 'fullName', value)}
             />
 
             {/* Billet communauté : verrou + action qui débloque (suivre / s'abonner),
@@ -1261,225 +1337,65 @@ export default function TicketCheckout() {
               />
             )}
             {communityAudience !== 'everyone' && !user && !communityBlocked && (
-              <p className="text-xs text-white/55 leading-snug flex items-start gap-2">
+              <p className="text-xs text-[#9A9A9A] leading-snug flex items-start gap-2">
                 <Users className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                 {t('community.checkoutGuestHint').replace('{name}', community.access?.hostName ?? '')}
               </p>
             )}
 
-            <MarketingOptIns
-              // Pas de nom de destinataire résolu = pas de case à son nom : une
-              // case qui ne nomme pas qui écrit ne couvre personne (EDPB
-              // 05/2020 §65). La ligne Yuno, elle, se nomme toujours.
-              showEmail={!!consentScope}
-              showSms={!!consentScope}
-              newsletterOptIn={newsletterOptIn}
-              onNewsletterChange={setNewsletterOptIn}
-              smsOptIn={smsOptIn}
-              onSmsChange={handleSmsOptInChange}
-              scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
-              smsScopeName={consentScope?.scopeName}
-              // Déjà abonné à l'hôte principal ne vaut pas accord pour les
-              // co-hôtes : la case revient, en ne nommant que ceux à qui il reste à
-              // demander (useEventMarketingHosts filtre les accords déjà donnés).
-              emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
-              smsAlreadyGranted={marketingConsent.smsGranted}
-              pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
-              showYuno
-              yunoOptIn={yunoOptIn}
-              onYunoChange={setYunoOptIn}
-              yunoAlreadyGranted={platformConsent.granted}
-            />
-
-            {/* Terms consent lives in the scroll flow, right below the marketing
-                opt-ins — not glued to the sticky footer. */}
-            <TermsAcceptance userId={user?.id} guestEmail={!user ? attendees[0]?.email : null} context="ticket" onAcceptedChange={setAcceptCgv} />
-          </motion.div>
+            <div className="pt-2.5">
+              <MarketingOptIns
+                variant="flat"
+                // Pas de nom de destinataire résolu = pas de case à son nom : une
+                // case qui ne nomme pas qui écrit ne couvre personne (EDPB
+                // 05/2020 §65). La ligne Yuno, elle, se nomme toujours.
+                showEmail={!!consentScope}
+                showSms={!!consentScope}
+                newsletterOptIn={newsletterOptIn}
+                onNewsletterChange={setNewsletterOptIn}
+                smsOptIn={smsOptIn}
+                onSmsChange={handleSmsOptInChange}
+                scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
+                smsScopeName={consentScope?.scopeName}
+                // Déjà abonné à l'hôte principal ne vaut pas accord pour les
+                // co-hôtes : la case revient, en ne nommant que ceux à qui il reste à
+                // demander (useEventMarketingHosts filtre les accords déjà donnés).
+                emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
+                smsAlreadyGranted={marketingConsent.smsGranted}
+                pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
+                showYuno
+                yunoOptIn={yunoOptIn}
+                onYunoChange={setYunoOptIn}
+                yunoAlreadyGranted={platformConsent.granted}
+              />
+            </div>
+          </section>
         )}
       </div>
       </PublicPage>
 
-      {/* Sticky Footer with expandable details */}
-      <div className="fixed bottom-0 left-0 right-0 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <AnimatePresence>
-          {showDetails && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/60 z-40"
-              onClick={() => setShowDetails(false)}
-            />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showDetails && (
-            <motion.div
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0A] rounded-t-3xl border-t border-white/[0.08] shadow-[0_-16px_48px_rgba(0,0,0,0.6)]"
-              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-            >
-              <div className="flex justify-center pt-3 pb-2">
-                <div className="w-10 h-1 rounded-full bg-white/15" />
-              </div>
-              <div className="max-w-lg mx-auto px-5 pb-28 max-h-[68vh] overflow-y-auto space-y-3">
-                {/* Event info — poster 1:1 de la soirée (icône calendrier en fallback) */}
-                <div className="border border-white/[0.08] bg-[#141414] p-3 flex items-center gap-3" style={{ borderRadius: 10 }}>
-                  {event.posterUrl ? (
-                    <img
-                      src={getOptimizedImageUrl(event.posterUrl, { width: 96, height: 96 })}
-                      alt={event.title}
-                      className="w-11 h-11 shrink-0 object-cover"
-                      style={{ borderRadius: 8 }}
-                    />
-                  ) : (
-                    <div className="w-11 h-11 shrink-0 flex items-center justify-center bg-primary/10" style={{ borderRadius: 8 }}>
-                      <Calendar className="h-5 w-5 text-primary" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-display font-bold uppercase text-white leading-tight" style={{ fontSize: '15px', letterSpacing: '-0.005em' }}>{event.title}</p>
-                    <p className="font-mono uppercase text-[#9A9A9A] flex items-center gap-1.5 mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
-                      {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM · HH:mm', { locale: getLocale() })}
-                      {' – '}
-                      {formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm', { locale: getLocale() })}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Order breakdown */}
-                <div className="border border-white/[0.08] bg-[#141414] p-4" style={{ borderRadius: 10 }}>
-                  <p className="font-mono uppercase mb-3" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.14em', color: '#5A5A5E' }}>
-                    {t('tickets.orderDetails')}
-                  </p>
-                  <div className="space-y-2.5 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[#9A9A9A]">{quantity}× {round.name}</span>
-                      <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{subtotal.toFixed(2)} €</span>
-                    </div>
-                    {discount > 0 && (
-                      <div className="flex items-center justify-between gap-3 text-emerald-400">
-                        <span className="flex items-center gap-1.5">
-                          <Tag className="h-3 w-3" aria-hidden />
-                          {t('tickets.discount')}{appliedCodeLabel ? <span className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em' }}> · {appliedCodeLabel}</span> : null}
-                        </span>
-                        <span className="font-mono font-medium tabular-nums">-{discount.toFixed(2)} €</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[#9A9A9A]">{t('tickets.serviceFee')}</span>
-                      <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{serviceFee.toFixed(2)} €</span>
-                    </div>
-                    {selectedUpsells.map((u) => (
-                      <div key={u.offerId} className="flex items-center justify-between gap-3">
-                        <span className="text-[#9A9A9A]">{u.name}</span>
-                        <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{u.price.toFixed(2)} €</span>
-                      </div>
-                    ))}
-                    <div className="border-t border-white/[0.08] pt-3 mt-1 flex items-center justify-between">
-                      <span className="font-display font-bold text-white" style={{ fontSize: '15px' }}>{t('tickets.total')}</span>
-                      <span className="font-display font-bold tabular-nums text-white" style={{ fontSize: '17px', letterSpacing: '-0.01em' }}>{total.toFixed(2)} €</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="relative z-50">
-          {/* The pay button greys out until the age gate is satisfied. Without this
-              line the disabled state is silent — the buyer can't tell a date of
-              birth (collected higher up) is what's blocking them. Only shown while
-              no valid date is known yet (`minorInfo` is null): a minor on an
-              adults-only event HAS given their date, and the gate above already
-              tells them what's wrong — asking again for what they just typed is
-              how a blocked checkout turns into a dead end. */}
-          {!checkoutLoading && minorGateBlocked && !minorDocPending && !minorInfo && (
-            <div className="max-w-lg mx-auto px-4 pt-2 pb-1 bg-[#0A0A0A]">
-              <p className="text-center text-amber-400" style={{ fontSize: '11px' }}>
-                {t('tickets.dobRequiredHint')}
-              </p>
-            </div>
-          )}
-          <div className="flex justify-center px-4 pb-4 bg-[#0A0A0A]">
-            <div
-              className="inline-flex items-center w-full max-w-md gap-4 rounded-xl px-5 py-3 justify-between"
-              style={{
-                background: 'rgba(14, 14, 16, 0.92)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.10)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,25,44,0.08)',
-              }}
-            >
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="text-left flex flex-col min-w-0"
-              >
-                <div className="flex items-center gap-1.5">
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5A5A5E' }}>
-                    {t('tickets.total')}
-                  </span>
-                  <ChevronUp className={`h-3 w-3 text-[#5A5A5E] transition-transform ${showDetails ? 'rotate-180' : ''}`} />
-                </div>
-                <span className="flex items-baseline gap-2">
-                  <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1 }}>
-                    {total.toFixed(2)} €
-                  </span>
-                  {discount > 0 && (
-                    <span className="font-mono tabular-nums line-through" style={{ fontSize: '12px', color: '#5A5A5E' }}>
-                      {undiscountedTotal.toFixed(2)} €
-                    </span>
-                  )}
-                </span>
-                <span style={{ fontSize: '10px', color: discount > 0 ? '#34D399' : '#5A5A5E', marginTop: '1px' }}>
-                  {discount > 0 ? `-${discount.toFixed(2)} € · ${t('tickets.feesIncluded')}` : t('tickets.feesIncluded')}
-                </span>
-              </button>
-              {minorGateBlocked && minorDocPending ? (
-                /* Minor-needs-doc flow only: visibly incomplete, non-functional CTA
-                   that nudges the buyer to download + upload the signed form. Every
-                   other blocked state (e.g. no birth date yet) keeps the normal
-                   pay button below, just disabled. */
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled
-                  className="px-5 h-11 rounded-lg font-semibold shrink-0 text-sm flex items-center gap-1.5 cursor-not-allowed"
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px dashed rgba(232,25,44,0.55)',
-                    color: '#C9C9CE',
-                    fontFamily: "'Inter', sans-serif",
-                    letterSpacing: '0.01em',
-                  }}
-                >
-                  <Lock className="h-4 w-4 text-primary" />
-                  {t('minorAuth.incomplete')}
-                </button>
-              ) : (
-                <button
-                  onClick={handleCheckout}
-                  disabled={checkoutLoading || perPersonLimitReached || minorGateBlocked || communityBlocked}
-                  className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-snow transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center"
-                  style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
-                >
-                  {checkoutLoading ? (
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <>
-                      {t('tickets.continue')}
-                      <ChevronRight className="h-5 w-5 ml-1" />
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* La même barre qu'au choix du billet : total frais compris, un seul bouton
+          toujours actif (un oubli mène au champ, il ne grise rien), et ce que le
+          tap engage dit en clair dessous. */}
+      <CheckoutSummaryBar
+        reserveSpace
+        total={total}
+        fee={serviceFee}
+        feeLabel={t('ticketCheckout.feeIncluded')}
+        compareTotal={discount > 0 ? undiscountedTotal : undefined}
+        buttonText={payOnline ? t('ticketSel.goToPayment') : t('tickets.continue')}
+        icon={payOnline ? <Lock className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden /> : undefined}
+        onClick={() => void handleCheckout()}
+        loading={checkoutLoading}
+        disabled={perPersonLimitReached || communityBlocked}
+        alert={barAlert}
+        footnote={(
+          <>
+            {payOnline && <>{t('ticketCheckout.payOnStripe')}<br /></>}
+            <TermsNotice />
+          </>
+        )}
+      />
     </div>
   );
 }
