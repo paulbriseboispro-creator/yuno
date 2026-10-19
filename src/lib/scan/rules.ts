@@ -127,6 +127,24 @@ export function entryHeadcount(
   return Math.max(1, places);
 }
 
+/**
+ * QR du BILLET ENTIER (e-mail, Wallet) d'un billet à places nominatives : il
+ * fait entrer les places encore libres — ni entrées avec leur propre QR, ni
+ * remboursées une à une. Il n'est « déjà scanné » que quand il n'en reste
+ * aucune. Avant, le billet parent étant marqué dès qu'un premier ami entrait
+ * avec SON QR, l'acheteur et les autres amis se voyaient répondre « Déjà
+ * scanné ». `places` = null : billet sans places (son QR est la seule entrée).
+ */
+export function wholeTicketDoorState(
+  ticketScanned: boolean | null | undefined,
+  quantity: number | null | undefined,
+  places: { remaining: number } | null,
+): { scanned: boolean; headcount: number } {
+  if (!places) return { scanned: !!ticketScanned, headcount: entryHeadcount('ticket', quantity) };
+  const remaining = Math.max(0, Math.floor(places.remaining));
+  return { scanned: remaining === 0, headcount: Math.max(1, remaining) };
+}
+
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {
   if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
 

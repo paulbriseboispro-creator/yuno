@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLateness, drinkCutoffOf, entryHeadcount } from '@/lib/scan/rules';
+import { computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState } from '@/lib/scan/rules';
 
 /** Heure murale de la soirée, comme la rend `nowInParis()` / `toZonedTime`. */
 const at = (h: number, m: number) => new Date(2026, 9, 29, h, m, 0, 0);
@@ -59,5 +59,21 @@ describe('entryHeadcount — personnes qu\'un QR fait entrer', () => {
     expect(entryHeadcount('ticket', 4, 1)).toBe(3);
     expect(entryHeadcount('ticket', 4, 0)).toBe(4);
     expect(entryHeadcount('ticket_attendee', 4, 3)).toBe(1);
+  });
+});
+
+describe('wholeTicketDoorState — QR du billet entier d\'un billet à places', () => {
+  it('sans places : le billet seul décide, toute la commande entre', () => {
+    expect(wholeTicketDoorState(false, 3, null)).toEqual({ scanned: false, headcount: 3 });
+    expect(wholeTicketDoorState(true, 3, null)).toEqual({ scanned: true, headcount: 3 });
+  });
+
+  it('un ami déjà entré avec SON QR : le QR entier fait entrer les places restantes', () => {
+    // Billet parent marqué par le scan de l'ami, 3 places encore libres sur 4.
+    expect(wholeTicketDoorState(true, 4, { remaining: 3 })).toEqual({ scanned: false, headcount: 3 });
+  });
+
+  it('plus aucune place libre : déjà scanné', () => {
+    expect(wholeTicketDoorState(true, 4, { remaining: 0 }).scanned).toBe(true);
   });
 });
