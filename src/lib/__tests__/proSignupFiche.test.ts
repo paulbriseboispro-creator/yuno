@@ -94,6 +94,8 @@ describe('enrichFiche', () => {
     expect(f.notes.join(' ')).toContain('supprimé un premier compte');
     expect(f.labels.duration_min).toBe(2);
     expect(f.labels.size).toBe('< 200 personnes');
+    expect(f.search_links.map((l) => l.label)).toEqual(['Google', 'Instagram', 'Shotgun']);
+    expect(f.search_links[1].url).toContain(encodeURIComponent('site:instagram.com "Lillo Bacio" Lille'));
   });
 });
 

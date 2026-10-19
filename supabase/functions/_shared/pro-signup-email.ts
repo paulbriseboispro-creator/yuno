@@ -84,6 +84,9 @@ export function buildProSignupEmail(
     parts.push(section(ruleLabel('Sa structure (recherche web)') + `<div style="height:10px"></div>` + body(lines.join('<br><br>'))));
   }
 
+  if (f.search_links.length) {
+    parts.push(section(body(`Chercher soi-même : ${f.search_links.map((l) => link(l.label, l.url)).join(' · ')}`)));
+  }
   parts.push(section(ctaPill('Ouvrir sa fiche dans le Cockpit', prospectId ? `${COCKPIT}/prospects/${prospectId}` : `${COCKPIT}/inscriptions`)
     + (f.admin_url ? `<div style="height:14px"></div>${body(link('Ouvrir dans l’admin Yuno', f.admin_url))}` : '')));
   parts.push(section(body(esc("Tu reçois cet e-mail parce qu'aucun téléphone n'est abonné aux notifications du Cockpit. Cockpit → Réglages → « Activer les rappels » sur ton iPhone (app ajoutée à l'écran d'accueil) : les alertes arriveront en notification et ces e-mails s'arrêteront."), '#8a8a8a'), { border: false }));

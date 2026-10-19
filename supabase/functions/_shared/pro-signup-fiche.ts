@@ -282,6 +282,21 @@ const PUSH_TITLE: Record<AlertKind, (p: RawFiche) => string> = {
   deleted: () => '🗑️ Compte pro supprimé',
 };
 
+/** Liens de recherche tout faits : quand le web ne dit rien de net, Paul
+ *  vérifie lui-même en un tap (Instagram et Shotgun passent par Google, qui
+ *  n'exige pas de connexion). */
+export function searchLinks(p: RawFiche): Array<{ label: string; url: string }> {
+  const name = String(p.org?.name ?? '').trim();
+  if (!name || p.kind === 'deleted') return [];
+  const q = `"${name}"${p.org?.city ? ` ${p.org.city}` : ''}`;
+  const g = (query: string) => `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  return [
+    { label: 'Google', url: g(q) },
+    { label: 'Instagram', url: g(`site:instagram.com ${q}`) },
+    { label: 'Shotgun', url: g(`site:shotgun.live ${q}`) },
+  ];
+}
+
 export type Fiche = RawFiche & {
   labels: {
     kind: string; source: string; size: string | null; frequency: string | null; next_night: string | null;
@@ -289,6 +304,7 @@ export type Fiche = RawFiche & {
   };
   phones: Array<{ e164: string; pretty: string }>;
   notes: string[];
+  search_links: Array<{ label: string; url: string }>;
   push: { title: string; body: string };
 };
 
@@ -336,6 +352,7 @@ export function enrichFiche(p: RawFiche): Fiche {
     },
     phones,
     notes: callNotes(p),
+    search_links: searchLinks(p),
     push: { title: PUSH_TITLE[p.kind]?.(p) ?? 'Nouvelle inscription', body: body.slice(0, 180) },
   };
 }
