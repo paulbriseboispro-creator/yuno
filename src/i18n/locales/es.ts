@@ -5104,7 +5104,7 @@ const es: Record<string, string> = {
   'bouncer.wrongVenue': 'Lugar incorrecto',
   'bouncer.otherNight': 'QR de otra noche — no válido esta noche',
   'tableGuest.label': 'Invitado {n}',
-  'tableGuest.shareHint': 'Un QR por persona de tu mesa: envía a cada invitado el suyo. El QR principal deja pasar a quienes aún no han entrado.',
+  'tableGuest.shareHint': 'Un QR por persona de tu mesa: envía a cada invitado el suyo. Cada uno entra con el suyo, aunque llegue después de ti.',
   'bouncer.cancelTicketsOnly': 'Pestaña Cancelar: solo entradas. Cambia a Entrada para dejar pasar a esta persona.',
   'bouncer.entryDeadlineGeneric': 'Hora límite de entrada superada',
   'bouncer.guestListLabel': 'Lista de invitados',
