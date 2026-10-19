@@ -13,7 +13,7 @@ import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList } from 'lucide-react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
-import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
+import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount } from '@/lib/scan/rules';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import type { DoorScope } from '@/lib/scan/types';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
@@ -76,6 +76,8 @@ interface ScannedTicket {
   userEmail: string;
   fullName?: string;
   quantity: number;
+  /** Personnes que CE QR fait entrer (1 pour un QR nominatif) : le nombre de boissons offertes à remettre. */
+  headcount?: number;
   eventTitle: string;
   roundName: string;
   status: string;
@@ -162,39 +164,6 @@ const mainCard: React.CSSProperties = {
   overflow: 'hidden',
   position: 'relative',
 };
-
-/**
- * Retard par rapport à l'heure limite d'entrée (format 'HH:MM').
- * Gère les limites après minuit (ex. 02:00 = le lendemain quand la soirée
- * démarre le soir) : avant 6 h du matin, on n'est « hors créneau » qu'entre
- * la limite et 6 h. Utilisée par la carte classique ET le feedback du mode
- * scan rapide — une seule arithmétique, deux surfaces.
- */
-function computeLateness(entryDeadline: string, now: Date): { isPast: boolean; lateLabel: string } {
-  const [dH, dM] = entryDeadline.split(':').map(Number);
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const deadlineMinutes = dH * 60 + dM;
-  const isPast = deadlineMinutes < 6 * 60
-    ? (currentMinutes >= 6 * 60 ? false : currentMinutes > deadlineMinutes)
-    : currentMinutes > deadlineMinutes;
-
-  let diff = currentMinutes - deadlineMinutes;
-  if (diff < 0) diff += 24 * 60; // minuit franchi
-  const lateH = Math.floor(diff / 60);
-  const lateM = diff % 60;
-  const lateLabel = lateH > 0 ? `${lateH}h${lateM.toString().padStart(2, '0')}` : `${lateM} min`;
-  return { isPast, lateLabel };
-}
-
-/**
- * Heure limite de la boisson offerte d'un tarif (HH:MM). Seul le mode « heure
- * fixe » se lit à la porte : un délai après l'entrée n'a pas d'heure à afficher.
- */
-function drinkCutoffOf(round: { drink_cutoff_time?: string | null; drink_deadline_type?: string | null }): string | undefined {
-  return round.drink_deadline_type === 'fixed_time' && round.drink_cutoff_time
-    ? round.drink_cutoff_time.substring(0, 5)
-    : undefined;
-}
 
 const REFUND_REASONS = {
   intoxication: { fr: 'Ivresse', en: 'Intoxication', es: 'Intoxicación' },
@@ -815,6 +784,8 @@ export default function Bouncer() {
         userEmail: '',
         fullName: entry.name || undefined,
         quantity: entry.qty || 1,
+        // Une entrée du manifeste avec `ticket_id` est un QR nominatif (un ami).
+        headcount: entryHeadcount(entry.ticket_id ? 'ticket_attendee' : 'ticket', entry.qty),
         eventTitle: offline.manifestEvent?.title || '',
         roundName: entry.round || '',
         status: entry.status,
@@ -976,6 +947,7 @@ export default function Bouncer() {
             userEmail: ticket.user_email,
             fullName: attendee.full_name || ticket.full_name,
             quantity: ticket.quantity,
+            headcount: entryHeadcount('ticket_attendee', ticket.quantity),
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1007,6 +979,7 @@ export default function Bouncer() {
             userEmail: ticket.user_email,
             fullName: attendee.full_name || ticket.full_name,
             quantity: ticket.quantity,
+            headcount: entryHeadcount('ticket_attendee', ticket.quantity),
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1078,6 +1051,7 @@ export default function Bouncer() {
           userEmail: ticket.user_email,
           fullName: attendee.full_name || ticket.full_name,
           quantity: ticket.quantity,
+          headcount: entryHeadcount('ticket_attendee', ticket.quantity),
           eventTitle: ticket.events.title,
           roundName: ticket.ticket_rounds.name,
           status: ticket.status,
@@ -2457,7 +2431,7 @@ export default function Bouncer() {
 
                         <div className="flex items-center justify-between gap-3">
                           <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.quantity')}</span>
-                          <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>{scannedTicket.quantity}x</span>
+                          <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>{scannedTicket.headcount ?? scannedTicket.quantity}x</span>
                         </div>
 
                         {scannedTicket.entryScannedAt && scanResult === 'already' && (
@@ -2487,7 +2461,7 @@ export default function Bouncer() {
                                   <div className="min-w-0 flex-1">
                                     <p className="font-bold text-green-500 text-base">{t('bouncer.giveDrink')}</p>
                                     <p className="text-xs text-green-400 mt-0.5">
-                                      {scannedTicket.quantity}x — {t('bouncer.giveDrinkDesc')}
+                                      {scannedTicket.headcount ?? scannedTicket.quantity}x — {t('bouncer.giveDrinkDesc')}
                                       {scannedTicket.drinkCutoff ? ` · ${t('bouncer.drinkUntil').replace('{time}', scannedTicket.drinkCutoff)}` : ''}
                                     </p>
                                   </div>
@@ -2853,7 +2827,7 @@ export default function Bouncer() {
                           >
                             {scannedTicket.roundName}
                           </span>
-                          <span className="flex-none tabular-nums text-base font-bold" style={{ color: fg }}>{scannedTicket.quantity}x</span>
+                          <span className="flex-none tabular-nums text-base font-bold" style={{ color: fg }}>{scannedTicket.headcount ?? scannedTicket.quantity}x</span>
                         </div>
                         {/* Heure limite : seulement quand elle est respectée — le
                             cas hors créneau a déjà son bloc orange dédié. */}

@@ -73,6 +73,54 @@ export function resolveGuestListDeadline(
   return { time: entryLevel || entity.freeBeforeTime, source: 'guest_list' };
 }
 
+/**
+ * Retard par rapport à l'heure limite d'entrée d'un tarif (format 'HH:MM').
+ * `now` est une heure MURALE (ses getHours() / getMinutes() sont celles de la
+ * soirée : `nowInParis()`, ou `toZonedTime(new Date(), fuseau de la soirée)`).
+ * Gère les limites après minuit (ex. 01:00 = le lendemain quand la soirée
+ * démarre le soir) : avant 6 h du matin, on n'est « hors créneau » qu'entre la
+ * limite et 6 h. Sert aussi à l'heure limite de la boisson offerte. Une seule
+ * arithmétique pour le videur (app Yuno Pro) et le scan web de l'organisateur :
+ * deux portes de la même soirée ne doivent jamais trancher différemment.
+ */
+export function computeLateness(entryDeadline: string, now: Date): { isPast: boolean; lateLabel: string } {
+  const [dH, dM] = entryDeadline.split(':').map(Number);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const deadlineMinutes = dH * 60 + dM;
+  const isPast = deadlineMinutes < 6 * 60
+    ? (currentMinutes >= 6 * 60 ? false : currentMinutes > deadlineMinutes)
+    : currentMinutes > deadlineMinutes;
+
+  let diff = currentMinutes - deadlineMinutes;
+  if (diff < 0) diff += 24 * 60; // minuit franchi
+  const lateH = Math.floor(diff / 60);
+  const lateM = diff % 60;
+  const lateLabel = lateH > 0 ? `${lateH}h${lateM.toString().padStart(2, '0')}` : `${lateM} min`;
+  return { isPast, lateLabel };
+}
+
+/**
+ * Heure limite de la boisson offerte d'un tarif (HH:MM). Seul le mode « heure
+ * fixe » se lit à la porte : un délai après l'entrée n'a pas d'heure à afficher.
+ */
+export function drinkCutoffOf(round: { drink_cutoff_time?: string | null; drink_deadline_type?: string | null }): string | undefined {
+  return round.drink_deadline_type === 'fixed_time' && round.drink_cutoff_time
+    ? round.drink_cutoff_time.substring(0, 5)
+    : undefined;
+}
+
+/**
+ * Nombre de personnes qu'un QR fait entrer, donc de boissons offertes à
+ * remettre. Le QR du billet entier fait entrer toute la commande ; un QR
+ * nominatif (`ticket_attendee`, un ami nommé à l'achat) ne fait entrer que
+ * SA personne — lui afficher la quantité de la commande faisait servir une
+ * boisson par place à chaque ami scanné.
+ */
+export function entryHeadcount(type: TicketScanEntity['type'], quantity: number | null | undefined): number {
+  if (type === 'ticket_attendee') return 1;
+  return Math.max(1, Math.floor(Number(quantity) || 1));
+}
+
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {
   if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
 
