@@ -42,6 +42,12 @@ jobs:
   edge:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Le package.json de la racine est celui de l'app Vite. Deno 2 le détecte et
+    # passe en mode node_modules « manuel », qui exige un node_modules installé
+    # (« Could not find "@types/node" »). Les fonctions edge n'en dépendent pas :
+    # on coupe la détection plutôt que d'installer toute l'app dans ce job.
+    env:
+      DENO_NO_PACKAGE_JSON: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
