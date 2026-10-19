@@ -82,8 +82,10 @@ export function shell(opts: { preheader: string; body: string; title?: string })
 // l'app. Même règle que les pastilles réseaux : jamais d'image tierce dans un
 // email, et une taille en dur (width/height) parce qu'Outlook n'infère rien.
 // Ces emails sont tous sur fond #0A0A0A : le wordmark blanc, toujours.
+// Lu par globalThis : le module se charge aussi hors Deno (tests vitest).
+const denoEnv = (globalThis as { Deno?: { env: { get(key: string): string | undefined } } }).Deno?.env;
 const BRAND_ORIGIN =
-  Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu';
+  denoEnv?.get('PUBLIC_URL') || denoEnv?.get('APP_BASE_URL') || 'https://yunoapp.eu';
 
 /** Ratio natif du fichier (856 × 290) — jamais étiré. */
 export function wordmarkImg(height: number, alt = 'Yuno'): string {
@@ -192,12 +194,22 @@ export function codeBlock(code: string, label?: string): string {
 }
 
 // ── Lignes info clé/valeur (label mono gris, valeur claire) ──
-export function infoRows(rows: Array<{ k: string; v: string }>): string {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows.map((r, i) => `
+// `note` : une précision en gris SOUS la valeur (description d'un billet,
+// écrite par le pro), sur toute la largeur, alignée comme la valeur. Échappée,
+// retours à la ligne gardés (`<br>` : Outlook ignore white-space).
+export function infoRows(rows: Array<{ k: string; v: string; note?: string | null }>): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows.map((r, i) => {
+    const note = r.note?.trim();
+    const padBottom = note ? '4px' : '12px';
+    return `
     <tr>
-      <td style="padding:${i ? '12px' : '0'} 0 12px;border-top:${i ? `1px solid ${C.border}` : '0'};font-family:${F.mono};font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:${C.gray3};">${esc(r.k)}</td>
-      <td style="padding:${i ? '12px' : '0'} 0 12px;border-top:${i ? `1px solid ${C.border}` : '0'};text-align:right;font-family:${F.body};font-size:14px;font-weight:500;color:${C.gray1};">${esc(r.v)}</td>
-    </tr>`).join('')}</table>`;
+      <td style="padding:${i ? '12px' : '0'} 0 ${padBottom};border-top:${i ? `1px solid ${C.border}` : '0'};font-family:${F.mono};font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:${C.gray3};">${esc(r.k)}</td>
+      <td style="padding:${i ? '12px' : '0'} 0 ${padBottom};border-top:${i ? `1px solid ${C.border}` : '0'};text-align:right;font-family:${F.body};font-size:14px;font-weight:500;color:${C.gray1};">${esc(r.v)}</td>
+    </tr>${note ? `
+    <tr>
+      <td colspan="2" style="padding:0 0 12px;text-align:right;font-family:${F.body};font-size:12px;line-height:1.55;color:${C.gray2};">${esc(note).replace(/\r\n?|\n/g, '<br />')}</td>
+    </tr>` : ''}`;
+  }).join('')}</table>`;
 }
 
 // ── Carte event mini (poster + titre + meta) pour reco / win-back ──

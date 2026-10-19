@@ -125,7 +125,7 @@ serve(async (req) => {
       .select(`
         id, qr_code, reference_code, quantity, unit_price, total_price, service_fee, insurance_fee, full_name, phone, user_email, user_id, status,
         ticket_round_id, event_id, collab_split,
-        ticket_rounds(name, group_label),
+        ticket_rounds(name, group_label, description),
         events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, city, legal_name, legal_address, siret, vat_number, logo_url))
       `)
       .eq("id", ticketId)
@@ -145,7 +145,10 @@ serve(async (req) => {
     // `events!inner` : un billet sans soirée n'est jamais rendu.
     const event = ticket.events as unknown as ConfirmationEvent;
     const venue = event?.venues;
-    const round = ticket.ticket_rounds as unknown as { name: string | null; group_label: string | null } | null;
+    const round = ticket.ticket_rounds as unknown as { name: string | null; group_label: string | null; description: string | null } | null;
+    // Description du tarif écrite par le pro (200 caractères au plus, CHECK SQL) :
+    // affichée telle quelle, jamais traduite ; l'échappement est celui du builder.
+    const roundDescription = round?.description?.replace(/\r\n?/g, "\n").trim() || null;
     const venueName = venue?.name || event?.location_name || "";
     const eventTitle = event?.title || "";
 
@@ -405,6 +408,7 @@ serve(async (req) => {
       openTime: dp.time,
       city: event?.location_city || venue?.city || undefined,
       ticketType: round?.name || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
+      ticketDescription: roundDescription,
       price: `€${(ticket.total_price ?? 0).toFixed(2)}`,
       reference: ticketRef,
       ticketUrl: isGuest
