@@ -4479,7 +4479,6 @@ const en: Record<string, string> = {
   'tickets.errorLoading': 'Error loading event',
   'tickets.presaleOnly': 'This event is in presale. Join the Private List to get access.',
   'tickets.comingSoon': 'Coming soon',
-  'tickets.details': 'Details',
   // Sales status
   'salesStatus.ticketsAvailableIn': 'Tickets available in',
   'salesStatus.presaleInProgress': 'Presale in progress',
@@ -9760,7 +9759,6 @@ const en: Record<string, string> = {
   'ticketSel.vipExperience': 'VIP Experience',
   'ticketSel.drink': 'Drink',
   'ticketSel.before': 'before',
-  'ticketSel.hide': 'Hide',
   'ticketSel.upToGuests': 'up to {n} guests',
   'ticketSel.includedUpToGuests': '{base} guests included \u00b7 up to {n}',
   'ticketSel.tablesLeft': 'tables left',

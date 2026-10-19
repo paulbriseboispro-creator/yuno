@@ -1366,6 +1366,12 @@ export default function EventDetails() {
                           </span>
                           <span className="font-mono font-bold" style={{ fontSize: '12px', color: 'rgb(var(--ink))' }}>{r.price.toFixed(2)}€</span>
                         </div>
+                        {/* Ce que le billet donne, en une ou deux lignes (200 caractères au plus). */}
+                        {r.description && (
+                          <p className="whitespace-pre-line [overflow-wrap:anywhere]" style={{ fontSize: '11.5px', lineHeight: 1.45, color: 'var(--tx-7a7a7e)', margin: '-2px 0 8px' }}>
+                            {r.description}
+                          </p>
+                        )}
                         <div className="w-full overflow-hidden" style={{ height: 2, background: 'rgb(var(--ink)/0.06)', borderRadius: 1 }}>
                           <div style={{ height: '100%', width: `${pctSold}%`, background: pctSold > 80 ? '#E8192C' : 'var(--sf-3a3a3e)', transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: 1 }} />
                         </div>

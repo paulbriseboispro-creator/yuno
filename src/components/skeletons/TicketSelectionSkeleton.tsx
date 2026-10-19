@@ -1,9 +1,9 @@
 import { Shimmer, SkeletonLine } from './Shimmer';
 
 /* Silhouette fidèle de src/pages/TicketSelection.tsx :
-   bandeau flouté 11rem (+ safe-area) → label d'étape → cartes de tarif
-   (#141414, r16, nom + sous-titre + prix). La page garde sa structure,
-   rien ne saute quand les tarifs arrivent. */
+   bandeau flouté 11rem (+ safe-area) → label d'étape → cartes d'offre
+   (OfferCard : nom sur une ligne, description, puis prix + quantité). La page
+   garde sa structure, rien ne saute quand les tarifs arrivent. */
 export function TicketSelectionSkeleton() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--sf-0a0a0a)' }} aria-hidden>
@@ -13,14 +13,15 @@ export function TicketSelectionSkeleton() {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="rounded-2xl p-4 flex items-center gap-4"
+            className="rounded-md p-4 space-y-2.5"
             style={{ background: 'var(--sf-141414)', border: '1px solid rgb(var(--ink)/0.08)' }}
           >
-            <div className="flex-1 min-w-0 space-y-2.5">
-              <SkeletonLine width="55%" height={16} />
-              <SkeletonLine width="35%" height={12} />
+            <SkeletonLine width="62%" height={15} />
+            <SkeletonLine width="90%" height={11} />
+            <div className="flex items-center justify-between pt-2">
+              <SkeletonLine width={64} height={18} />
+              <SkeletonLine width={104} height={32} />
             </div>
-            <SkeletonLine width={64} height={22} />
           </div>
         ))}
       </div>
