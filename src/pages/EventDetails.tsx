@@ -49,6 +49,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { shortAddress } from '@/lib/addressDisplay';
 
 // Trait gris plein qui sépare les offres du bloc billets.
 const OFFER_RULE = '1px solid rgb(var(--ink)/0.14)';
@@ -1001,6 +1002,12 @@ export default function EventDetails() {
   const HERO_GUTTER = '20px';
   const tz = getEventTimezone(event);
   const startDate = new Date(event.startAt);
+  // Ligne « Quand » de la fiche : « mer. 28 oct. », l'année seulement si la
+  // soirée n'est pas de l'année en cours.
+  const infoDatePattern = formatInTimeZone(startDate, tz, 'yyyy') === formatInTimeZone(new Date(), tz, 'yyyy')
+    ? 'EEE d MMM'
+    : 'EEE d MMM yyyy';
+  const addressLine = event.locationIsSecret ? t('event.secretValue') : shortAddress(venue.address, venue.city);
 
   const heroChip: React.CSSProperties = {
     width: 40, height: 40, borderRadius: '4px', background: 'rgb(var(--ink)/0.045)', color: 'var(--tx-e5e5e5)', border: '1px solid rgb(var(--ink)/0.12)', cursor: 'pointer',
@@ -1524,20 +1531,22 @@ export default function EventDetails() {
           {/* Compact details */}
           <div style={{ border: '1px solid rgb(var(--ink)/0.08)', borderRadius: '4px', padding: '0 16px' }}>
             {([
-              // La date et les horaires sont en grand dans le héros ; ici, la
-              // ligne complète, pour qui lit la fiche d'un bout à l'autre.
-              [t('event.whenLabel'), `${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() })} · ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')} → ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`],
-              // Secret events show a sober "Secret location" value instead of the exact
-              // address; the city always shows so the attendee knows where to travel and
-              // the event stays city-filtered.
+              // La date et les horaires sont en grand dans le héros ; ici, une
+              // ligne courte pour qui lit la fiche d'un bout à l'autre. L'année
+              // n'y figure que si la soirée n'est pas de l'année en cours.
+              [t('event.whenLabel'), `${formatInTimeZone(startDate, tz, infoDatePattern, { locale: getLocale() })} · ${formatInTimeZone(startDate, tz, 'HH:mm')} → ${formatInTimeZone(new Date(event.endAt), tz, 'HH:mm')}`],
               // Lieu hors Yuno (soirée d'organisateur sans club) : son nom d'abord.
               !event.locationIsSecret && event.locationName && venue.id === primaryOrganizer?.user_id
                 ? [t('event.venueName'), event.locationName]
                 : null,
-              event.locationIsSecret
-                ? [t('event.address'), t('event.secretValue')]
-                : (venue.address ? [t('event.address'), venue.address] : null),
-              venue.city ? [t('event.city'), venue.city] : null,
+              // Une ligne d'adresse courte (rue, numéro, ville) : code postal et
+              // pays restent dans l'itinéraire du bouton Maps. Une soirée secrète
+              // montre une valeur sobre à la place de l'adresse.
+              addressLine ? [t('event.address'), addressLine] : null,
+              // La ville ne se répète pas quand l'adresse la porte déjà ; elle
+              // reste seule pour un lieu secret ou sans adresse, afin que
+              // l'invité sache où se rendre et que la soirée reste filtrable.
+              venue.city && (event.locationIsSecret || !addressLine) ? [t('event.city'), venue.city] : null,
             ].filter(Boolean) as [string, string][]).map(([k, v], i, arr) => (
               <div
                 key={k}
@@ -1545,19 +1554,7 @@ export default function EventDetails() {
                 style={{ padding: '11px 0', borderBottom: i < arr.length - 1 ? '1px solid rgb(var(--ink)/0.07)' : 'none' }}
               >
                 <span className="font-mono flex-shrink-0" style={{ fontSize: '12px', color: 'var(--tx-5a5a5e)' }}>{k}</span>
-                {k === t('event.address') && !event.locationIsSecret ? (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-right transition-colors hover:text-[#E8192C]"
-                    style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em', maxWidth: '60%' }}
-                  >
-                    {v}
-                  </a>
-                ) : (
-                  <span className="font-mono text-right" style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em' }}>{v}</span>
-                )}
+                <span className="font-mono text-right" style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em' }}>{v}</span>
               </div>
             ))}
             {!event.locationIsSecret && venue.address && (
@@ -1568,7 +1565,7 @@ export default function EventDetails() {
                 className="flex items-center justify-center gap-1 w-full my-4 font-mono text-[var(--tx-5a5a5e)] hover:text-white transition-colors"
                 style={{ height: '38px', borderRadius: '4px', fontSize: '11px', letterSpacing: '0.08em', border: '1px solid rgb(var(--ink)/0.08)', background: 'transparent' }}
               >
-                Open in Maps →
+                {t('affiliate.openInMaps')} →
               </a>
             )}
           </div>
