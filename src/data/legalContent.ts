@@ -1619,6 +1619,7 @@ Un menu "Cookies" est accessible à tout moment depuis : Profil → Réglages �
 **Cookies strictement nécessaires** (pas de consentement requis) :
 • Session d'authentification : permet de maintenir votre connexion
 • Préférences de langue : mémorise votre choix de langue (FR/EN/ES)
+• Produit Yuno utilisé (yuno_product, 1 an, sur yunoapp.eu et crm.yunoapp.eu) : retient que vous utilisez Yuno CRM, pour ouvrir dans votre espace CRM, déjà connecté, l'écran où vous autorisez un assistant IA ; il ne contient que la valeur « crm »
 • Sécurité : protection contre la fraude et les abus
 
 **Cookies tiers** :
@@ -1646,6 +1647,7 @@ A "Cookies" menu is accessible at any time from: Profile → Settings → Legal 
 **Strictly Necessary Cookies** (no consent required):
 • Authentication session: maintains your login
 • Language preferences: remembers your language choice (FR/EN/ES)
+• Yuno product in use (yuno_product, 1 year, on yunoapp.eu and crm.yunoapp.eu): remembers that you use Yuno CRM, so the screen where you allow an AI assistant opens in your CRM space, already signed in; its only value is “crm”
 • Security: protection against fraud and abuse
 
 **Third-Party Cookies**:
@@ -1673,6 +1675,7 @@ Un menú "Cookies" es accesible en cualquier momento desde: Perfil → Ajustes �
 **Cookies estrictamente necesarias** (sin necesidad de consentimiento):
 • Sesión de autenticación: mantiene tu conexión
 • Preferencias de idioma: recuerda tu elección de idioma (FR/EN/ES)
+• Producto Yuno que usas (yuno_product, 1 año, en yunoapp.eu y crm.yunoapp.eu): recuerda que usas Yuno CRM, para abrir en tu espacio CRM, ya conectado, la pantalla donde autorizas a un asistente de IA; su único valor es «crm»
 • Seguridad: protección contra fraude y abusos
 
 **Cookies de terceros**:

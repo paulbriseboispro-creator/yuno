@@ -32,7 +32,8 @@ export const CRM_PATH_PREFIXES = ['/crm', '/crm-admin', '/admin/crm', '/login', 
 /**
  * Chemins communs aux deux produits : connexion et passage de session
  * (`/auth/handoff`), suite d'inscription, invitation d'équipe, 2FA, compte
- * suspendu. Ils restent sur le domaine où on les ouvre.
+ * suspendu, autorisation d'une IA (`/connect-ai` : sur crm.yunoapp.eu pour un
+ * client CRM, src/lib/productHint.ts). Ils restent sur le domaine où on les ouvre.
  */
 export const SHARED_PATH_PREFIXES = [
   '/auth',
@@ -41,6 +42,7 @@ export const SHARED_PATH_PREFIXES = [
   '/mfa-setup',
   '/mfa-disable-confirm',
   '/account-suspended',
+  '/connect-ai',
 ] as const;
 
 function cleanPath(pathname: string): string {

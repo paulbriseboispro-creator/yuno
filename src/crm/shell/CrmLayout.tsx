@@ -34,6 +34,7 @@ import { CrmLegalGate } from './CrmLegalGate';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { screenFor } from './nav';
+import { rememberCrmProduct } from '@/lib/productHint';
 
 const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
 
@@ -176,6 +177,8 @@ export function CrmLayout() {
   const badges = shell.data?.badges ?? { campaigns: 0, clients: 0 };
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+  // Repère « client CRM » sur yunoapp.eu : l'autorisation d'une IA s'ouvrira ici, connecté.
+  useEffect(() => { rememberCrmProduct(); }, []);
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
 
   const sidebar = (

@@ -8,6 +8,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Seo } from '@/components/Seo';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { buildMcpRedirect, isLoopbackRedirectHost } from '@/lib/mcp';
+import { CRM_ORIGIN, loginPathHere, onCrmHost } from '@/lib/productHost';
+import { crmProductHinted } from '@/lib/productHint';
 
 /**
  * Consentement d'une IA (Claude, ChatGPT, Gemini, Le Chat…) qui veut lire les
@@ -135,11 +137,16 @@ export default function ConnectAi() {
 
   const selfPath = `/connect-ai?request=${encodeURIComponent(requestId)}`;
 
-  // Pas de session Yuno : se connecter d'abord, puis revenir ici.
+  // Pas de session Yuno ici. Un client Yuno CRM (repère posé par sa Console)
+  // passe sur crm.yunoapp.eu, où il est déjà connecté et où la page garde la DA
+  // du CRM ; sinon on se connecte sur place, puis on revient ici.
   useEffect(() => {
-    if (!authLoading && !user && requestId) {
-      navigate(`/auth?redirect=${encodeURIComponent(selfPath)}`, { replace: true });
+    if (authLoading || user || !requestId) return;
+    if (!onCrmHost() && crmProductHinted()) {
+      window.location.replace(`${CRM_ORIGIN}${selfPath}`);
+      return;
     }
+    navigate(loginPathHere(selfPath), { replace: true });
   }, [authLoading, user, requestId, navigate, selfPath]);
 
   useEffect(() => {
@@ -187,7 +194,7 @@ export default function ConnectAi() {
 
   const switchAccount = async () => {
     try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* session déjà morte */ }
-    window.location.assign(`/auth?redirect=${encodeURIComponent(selfPath)}`);
+    window.location.assign(loginPathHere(selfPath));
   };
 
   if (authLoading || loading || (!user && requestId)) {

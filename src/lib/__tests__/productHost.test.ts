@@ -32,7 +32,7 @@ describe('isCrmPath / isSharedProductPath', () => {
   });
 
   it('shares sign-in, session handoff, signup follow-up, team invites and 2FA', () => {
-    for (const p of ['/auth', '/auth/handoff', '/get-started', '/accept-org-member', '/mfa-setup', '/mfa-disable-confirm', '/account-suspended']) {
+    for (const p of ['/auth', '/auth/handoff', '/get-started', '/accept-org-member', '/mfa-setup', '/mfa-disable-confirm', '/account-suspended', '/connect-ai']) {
       expect(isSharedProductPath(p)).toBe(true);
     }
     expect(isSharedProductPath('/owner')).toBe(false);
