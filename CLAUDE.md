@@ -3839,6 +3839,62 @@ commande, liens promoteurs & affiliés (`/l/*`, `/promoteur/*`, `/p/*`, `/promo/
 staff/pro. Le web mobile doit rester un chemin d'achat complet — DICE gate, Yuno non :
 on vend du sans-friction dans une file d'attente.
 
+## Mesure des visites, paniers, paiements et achats (2026-10-19)
+
+Constaté au lancement des ventes de House Of Masquerade : 308 visites, 0 panier,
+0 paiement, 0 achat partout, alors que 40 billets étaient payés. Migrations
+`20261104120000` (écritures + rattrapage) et `20261104121000` (lectures). Règles :
+
+- **Aucune étape d'une visite ne s'écrit depuis le navigateur.** Un visiteur n'a
+  pas le droit de LIRE `visitor_sessions` / `live_visitor_pings` : tout UPDATE ou
+  upsert direct y touche 0 ligne en silence. La garde
+  `validate_visitor_session_update` refuse aux rôles client (`current_user`,
+  jamais `auth.uid()`) de changer une étape. Portes : `_visit_mark_stage` (une
+  seule, jamais à reculons, drapeaux + étape du direct), appelée par
+  `track_event_funnel(…, p_visit_sid)`, `track_visit_stage` (bar), le relevé des
+  ventes et `link_sale_session` ; `touch_visitor_session` (durée, défilement).
+- **Définitions, partout** (rangs de `get_event_traffic`) : panier = la visite a
+  choisi un billet / une formule / s'est inscrite (`selected`) ; paiement = elle
+  a ouvert la page de paiement (`checkout`, `details`, `payment`) ; achat = une
+  vente payée est née d'elle. Une étape implique les précédentes.
+- **L'achat se relève sur la VENTE, par la base** : `tickets`,
+  `table_reservations`, `guest_list_entries` portent `tracking_visit_sid` /
+  `tracking_funnel_sid` (ids aléatoires d'onglet, posés par les `create-*` depuis
+  le contexte `analytics` du corps, `saleTrackingColumns`), et le trigger
+  `trg_record_sale_visit` écrit l'achat du tunnel (`ref_id = '<kind>:<id>'`,
+  idempotent), l'étape de la visite et celle du direct au passage en payé —
+  webhook, navigateur, gratuit, sur place. Jamais plus un achat qui dépend du
+  navigateur qui a validé le paiement (le webhook passe presque toujours avant).
+  `trg_stamp_*_session_source` complète une attribution « direct » avec la
+  source de la visite. **`visitor_sessions.order_id` est une clé vers `orders`**
+  (bar) : jamais un billet ni une table.
+- **Le parcours d'achat CONTINUE la visite** (`useVisitorTracking(…, { keepSession:
+  true })` sur le choix du billet, le paiement et le retour de paiement) : le
+  direct la garde vivante, jamais une nouvelle visite à chaque page. Le
+  battement dit « en visite », le serveur garde l'étape la plus avancée.
+- **Le tunnel part en `fetch` keepalive** (`mirrorFunnelEvent`) : l'étape
+  « paiement » précède la redirection Stripe, une requête ordinaire meurt avec la
+  page.
+- **Source d'une visite** (`categorizeReferrer` ⇄ SQL `_visit_link_category`) :
+  la page `/l/` garde le VRAI référent (`rememberEntryReferrer`, lu par
+  `entryReferrer()`) et ajoute les UTM du lien à l'URL de la soirée
+  (`record_tracked_link_click` les rend) — sans ça 2 visites sur 3 étaient
+  « Depuis Yuno ». Liens partenaires / DJ / co-organisateurs =
+  `affiliate`. `fbclid` seul n'est pas de la publicité (Instagram l'ajoute à tout
+  lien) : `paid_social` = `utm_source=meta` ou `utm_medium=paid_social`.
+- **Un chiffre de visites se compte en base, jamais ligne à ligne au front**
+  (PostgREST plafonne à 1 000 lignes) : `get_visit_analytics` (tunnel, sources,
+  durée, UTM ; portée club = club + ses soirées, organisateur = profil + ses
+  soirées, jamais les pages des clubs qui l'accueillent), `get_visitors_now`
+  (« en ligne » = battement < 75 s, comme la Vue en direct). Trafic › Ma page :
+  la page a « vendu » quand le même visiteur achète une soirée de la portée dans
+  les 24 h (l'achat ouvre une autre visite).
+- Rattrapage du 19/10 (hors démo, depuis le 30/09) : achats du tunnel reliés à
+  la session dont l'étape « coordonnées » précède la vente de 0 à 5 s (candidat
+  unique, `reason = 'backfill'`) ; visites ↔ sessions du tunnel appariées 1 pour
+  1 (même soirée, appareil, source, < 3 s) ; visites `/l/` reclassées par leur
+  lien. Durées entre août et le 19/10 : perdues, jamais estimées.
+
 ## Liens partenaires — un lien et une page de stats par personne, pour UNE soirée (2026-10-16)
 
 Brancher un promoteur, un DJ, un ami… sur une seule soirée SANS compte.
