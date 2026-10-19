@@ -1450,7 +1450,14 @@ un client vient : on TESTE des hypothèses sur les soirées du compte. Règles :
   facteurs que la personne POSSÈDE, sous un libellé existant
   (`_crm_score_reason_key`), jamais « de passage » ni « découverte », jamais
   une famille `not_supported` sur le compte — décision de Paul).
-  Cron `crm-score-nightly` (`27,57 5-6`, un compte par passage). Écrans :
+  Cron `crm-score-nightly` (`27,57 5-6`, un compte par passage). **Un calcul
+  qui ne tient pas dans le temps garde les chances d'hier** (PERF-02,
+  décision de Paul du 19/10, migration `20261028100000`) : délai de 120 s
+  (`query_canceled`, attrapé PAR SON NOM, jamais par `others`, seulement s'il
+  a vraiment sonné) ou budget facultatif `score.budget_s` (absent en prod),
+  tout est annulé, `crm_analysis_state.score_overrun_at` fait passer la portée
+  derrière les autres (file `GREATEST(trained_at, score_overrun_at)`), une
+  alerte `admin_crm_analysis_failed` par compte et par nuit. Écrans :
   « Qui cibler » (acheteurs attendus, audience `likely` = porte
   `_crm_night_target_set`), fiche client (étiquette + raisons, JAMAIS un
   pourcentage, décision de Paul), Admin CRM (santé + projection de
