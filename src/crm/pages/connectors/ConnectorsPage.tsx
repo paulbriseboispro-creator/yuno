@@ -32,6 +32,8 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import { SegmentsNextStep } from '@/crm/components/SegmentCatalog';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import shotgunLogo from '@/crm/assets/shotgun-logo.webp';
+import { BackLink, GradientCta } from './connectorsUi';
+import { CARD, ENTER, LOGO } from './connectorsStyle';
 
 const SMARTBOARD = 'https://smartboard.shotgun.live';
 const P = {
@@ -58,12 +60,6 @@ const PILL: Record<ConnState | 'kept', [string, string, string]> = {
   kept: ['var(--sand-100)', 'var(--sand-600)', 'yc.co.pill.kept'],
 };
 
-const CARD: CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: 24, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28,
-  background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)',
-};
-const LOGO = (size: number, r: number): CSSProperties => ({ flex: 'none', width: size, height: size, borderRadius: r, display: 'block', boxShadow: '0 0 0 1px rgba(28,21,23,.08),var(--shadow-xs)' });
-const ENTER = { animation: `yc-rise 700ms ${EASE} both` };
 
 export default function ConnectorsPage() {
   const T = useCrmT();
@@ -128,41 +124,7 @@ function useWhen() {
   };
 }
 
-function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <Hv
-      as="button"
-      type="button"
-      onClick={onClick}
-      style={{ height: 36, padding: '0 14px 0 8px', border: 0, borderRadius: 99, background: 'none', color: 'var(--sand-600)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', alignSelf: 'flex-start' }}
-      hover={{ background: 'var(--sand-100)', color: 'var(--ink)' }}
-    >
-      <Icon d={P.back} size={16} stroke={2.4} />{label}
-    </Hv>
-  );
-}
 
-function GradientCta({ children, onClick, to, disabled, busy }: { children: ReactNode; onClick?: () => void; to?: string; disabled?: boolean; busy?: boolean }) {
-  const ok = !disabled && !busy;
-  const style: CSSProperties = {
-    height: 46, padding: `0 ${ok ? 5 : 22}px 0 22px`, border: 0, borderRadius: 99, background: ok ? 'var(--gradient-brand)' : 'var(--sand-100)',
-    color: ok ? '#fff' : 'var(--sand-500)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12,
-    boxShadow: ok ? 'var(--shadow-cta)' : 'none', cursor: ok ? 'pointer' : busy ? 'progress' : 'not-allowed', whiteSpace: 'nowrap', textDecoration: 'none',
-    transition: `transform 200ms ${SPRING},filter 160ms,background 200ms`,
-  };
-  const inner = (
-    <>
-      {children}
-      {ok && <span style={{ width: 36, height: 36, borderRadius: 99, background: '#fff', color: 'var(--red-500)', display: 'grid', placeItems: 'center' }}><Icon d={P.arrow} size={16} stroke={2.4} /></span>}
-      {busy && <span style={{ width: 18, height: 18, borderRadius: 99, border: '2.5px solid var(--sand-300)', borderTopColor: 'var(--ink)', animation: 'yc-spin 700ms linear infinite' }} />}
-    </>
-  );
-  const hover = ok ? { filter: 'brightness(1.05)', transform: 'translateY(-1px)', color: '#fff', textDecoration: 'none' } : undefined;
-  const active = ok ? { transform: 'scale(.97)' } : undefined;
-  return to
-    ? <Hv as={Link} to={to} style={style} hover={hover} active={active}>{inner}</Hv>
-    : <Hv as="button" type="button" onClick={onClick} aria-disabled={!ok} style={style} hover={hover} active={active}>{inner}</Hv>;
-}
 
 function Toggle({ on }: { on: boolean }) {
   return (
