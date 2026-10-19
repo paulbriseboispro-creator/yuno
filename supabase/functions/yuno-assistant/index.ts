@@ -236,6 +236,7 @@ const CLIENT_KNOWLEDGE_BASE = `
    30% d'acompte, tu paies 4% de 600€, soit 24€. Tu ne paieras jamais plus de 25€ de frais sur
    une table, quel que soit son prix.
 ${DRINKS_PILLAR_LIVE ? "3. Choisis tes bouteilles ; pour certaines, l'app te demande de choisir les diluants/softs (étape obligatoire).\n4." : "3."} Le soir J : présente-toi à l'hôte VIP avec ta réservation (code VP-XXXXXX dans Mes commandes). Il t'installe et s'occupe de toi.
+   Table de plusieurs personnes : chaque personne a son propre QR (toi, puis « Invité 1 », « Invité 2 »…), sur la confirmation et dans Mes commandes (fais glisser). Envoie à chaque invité le sien : il entre seul à la porte, même s'il arrive après toi. Ton QR principal fait entrer d'un coup ceux qui ne sont pas encore passés.
 ${DRINKS_PILLAR_LIVE ? "5. Depuis ta table, tu peux recommander des bouteilles directement dans l'app.\n" : ""}
 ${DRINKS_PILLAR_LIVE ? CLIENT_KNOWLEDGE_DRINKS : CLIENT_KNOWLEDGE_DRINKS_PAUSED}
 🤝 ACCORD DE COLLABORATION

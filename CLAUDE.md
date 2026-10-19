@@ -4141,6 +4141,23 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   rembourse une commande nominative place par place. Jamais créées ailleurs
   (ni verify, ni webhook) : un seul jeu de QR par billet. Toute porte refuse
   une place dont le billet n'est pas payé.
+- **Tickets d'une table de N personnes** (2026-10-19, migration `20261103100000`,
+  demande de Paul) : `table_reservation_guests`, une ligne par personne d'une
+  réservation de 2 à 50 personnes (n° 0 = le titulaire sous son nom, n° k =
+  « Invité k », QR = QR de la réservation + `-<n°+1>`). Écrites par la BASE
+  seule (`_table_guests_sync`, trigger sur `table_reservations` : tous les
+  chemins, paiement, démo, sur place), jamais par une edge ni le front ; une
+  réservation sans QR (ajout manuel, walk-in) n'en a pas. Porte : un QR
+  d'invité = une personne si la réservation est `paid` (garde
+  `guard_table_reservation_guest`) ; le QR de la réservation fait entrer les
+  personnes encore dehors (`wholeTableDoorState`, `enterRemainingTableGuests`) ;
+  le premier entré marque la réservation (arrivée, « Arrivée VIP » une fois) ;
+  un ancien scan du QR de la réservation fait entrer toute la table. Manifeste
+  `table_guests`, synchro hors ligne `table_guest`, `_door_headcount` compte
+  les invités un par un. Écriture de la porte : `can_scan_table_reservation`
+  (même règle que le manifeste). Client : carrousel de QR sur la confirmation
+  (`TicketQRCarousel source="table"`) et dans Mes commandes
+  (`useTableGuestSlides`) ; aucun invité ne reçoit d'e-mail.
 - **Vestiaire d'organisateur** : la portée du vestiaire est la SOIRÉE
   (`cloakroom_transactions.venue_id` facultatif, `can_run_event_cloakroom`),
   la recherche de QR passe par `cloakroom_lookup` (le préposé n'a pas le droit
