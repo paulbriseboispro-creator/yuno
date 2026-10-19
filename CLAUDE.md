@@ -3830,6 +3830,46 @@ onglet « Partenaires » des liens d'une soirée (`TrackedLinksManager` →
 - Un lien partenaire ne verse AUCUNE commission : il compte. Le promoteur
   régulier avec commissions reste l'espace Promoteurs.
 
+## Liens suivis — une adresse qui se lit (2026-10-19)
+
+Décision de Paul : `yunoapp.eu/l/y1etp142` dans une bio Instagram ressemblait
+à un lien douteux. Migrations `20261103100000` + `101000`, miroir TS
+`src/lib/trackedLinkCode.ts` (cas partagés
+`src/lib/__tests__/fixtures/tracked-link-codes.json`, la base rend les mêmes).
+Règles :
+
+- **La base écrit l'adresse, soirée + réseau** : `house-of-masquerade-insta`,
+  `-tiktok`, `-whatsapp`, `-newsletter` ; un partenaire `…-telos` ; le nom de
+  qui partage quand ce n'est pas l'hôte (co-hôte, promoteur, 2e hôte d'une
+  co-soirée : `…-woh-insta`) ; la date quand la soirée est récurrente ou qu'une
+  autre du même nom tient l'adresse (`goya-thursday-23-10-insta`, jamais deux
+  fois si le titre la porte déjà) ; un numéro pour un 2e lien du même
+  partageur sur la même soirée (`…-insta-story-2`) ; un profil `amoris-insta`.
+  Le titre tient en 28 caractères, coupé au MOT ; trop long, il perd d'abord
+  les « x » des collabs (`club-sonore-exclusive-woh-insta-bio`).
+  Fabrique unique `tracked_link_readable_code`, posée par le déclencheur
+  d'insertion quand le code arrive vide ou au format aléatoire (8 caractères,
+  hors lien partenaire réécrit à la main) : une fonction qui crée un lien
+  envoie `gen_tracked_link_code()` ou `''` puis RELIT le code par RETURNING,
+  jamais une variable calculée avant l'insertion. Le front envoie `code: ''`.
+- **Un code qui change ne meurt jamais** : l'ancien entre dans
+  `tracked_link_code_aliases` (RLS sans policy) et continue de rediriger, de
+  compter et de servir l'aperçu ; aucun nouveau code ne le reprend. Toute
+  lecture par code passe par `tracked_link_id_for_code`
+  (`record_tracked_link_click`, `get_tracked_link_preview_path`,
+  `crm_link_hit`) : une lecture nouvelle aussi. `attribution_ref` des ventes
+  d'avant le 19/10 porte l'ancien code (aucun lecteur) : il se résout par l'alias.
+- **Le SMS garde un code court au hasard** : chaque caractère compte dans son
+  prix et la Console l'estime avec `SAMPLE_LINK` (22 caractères). Un lien
+  d'une soirée Shotgun qui a déjà un clic ou une vente garde son code :
+  Shotgun rapporte `yuno-<code>` sur chaque billet, et `crm_link_hit` envoie
+  le code ACTUEL (renommer couperait les ventes passées des nouvelles). Les
+  liens des publicités Meta gardent aussi le leur (l'annonce porte l'ancienne
+  adresse). Tous leurs nouveaux liens sont lisibles.
+- Format : lettres, chiffres, tirets, 60 caractères au plus, jamais `m-`,
+  `s-`, `d-` en tête (familles de source du CRM). Le Worker
+  (`LINK_CODE_SOURCE`, `worker/goLink.ts`) et `crm_link_hit` acceptent le tiret.
+
 ## Yuno Links — la page de la bio Instagram / TikTok (2026-09-05)
 
 `/links` (`src/pages/YunoLinks.tsx`, design claude.design « Yuno Links », DA
