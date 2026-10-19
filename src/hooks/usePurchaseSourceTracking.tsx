@@ -12,7 +12,7 @@
  *  - direct             : direct link / unknown
  */
 import { useEffect } from 'react';
-import { categorizeReferrer } from '@/lib/referrerCategory';
+import { categorizeReferrer, entryReferrer } from '@/lib/referrerCategory';
 
 export type PurchaseSource =
   | 'venue_profile'
@@ -128,7 +128,7 @@ export function useResolvePurchaseSource(eventId: string | undefined, fallback: 
     }
 
     // Best-effort referrer-based detection
-    const ref = document.referrer || '';
+    const ref = entryReferrer();
     if (ref.includes('/explore') || ref.includes('/map')) {
       setPurchaseSource(eventId, 'explore');
       return;

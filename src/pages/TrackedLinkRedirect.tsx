@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { setTrackedLinkForEvent, setActiveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
+import { rememberEntryReferrer } from '@/lib/referrerCategory';
 
 const VISITOR_ID_KEY = 'yuno_aff_visitor_id';
 
@@ -42,6 +43,22 @@ function getVisitorId(): string | null {
   }
 }
 
+type LinkUtm = { utm_source?: string | null; utm_medium?: string | null; utm_campaign?: string | null };
+
+/** Ajoute les UTM du lien à l'URL d'arrivée (sans écraser celles déjà là). */
+function withLinkUtm(target: string, utm: LinkUtm): string {
+  try {
+    const url = new URL(target, window.location.origin);
+    for (const key of ['utm_source', 'utm_medium', 'utm_campaign'] as const) {
+      const v = utm[key];
+      if (v && !url.searchParams.has(key)) url.searchParams.set(key, v);
+    }
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return target;
+  }
+}
+
 export default function TrackedLinkRedirect() {
   const { code } = useParams<{ code: string }>();
   const [failed, setFailed] = useState(false);
@@ -60,6 +77,7 @@ export default function TrackedLinkRedirect() {
       }
 
       let target: string | null = null;
+      let linkUtm: LinkUtm = {};
       try {
         const { data, error } = await supabase.rpc('record_tracked_link_click', {
           p_code: code,
@@ -83,10 +101,14 @@ export default function TrackedLinkRedirect() {
           guest_list_event_id?: string;
           event_host?: string;
           event_slug?: string;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
         };
 
         if (!error && res.found && res.tracked_link_id) {
           const linkId = res.tracked_link_id;
+          linkUtm = { utm_source: res.utm_source, utm_medium: res.utm_medium, utm_campaign: res.utm_campaign };
           // Promoter links carry a promo code so the existing commission flow
           // (record_promoter_conversion) still fires via the ?ref= param.
           const refParam = res.promo_code ? `&ref=${encodeURIComponent(res.promo_code)}` : '';
@@ -141,6 +163,11 @@ export default function TrackedLinkRedirect() {
       if (cancelled) return;
 
       if (target) {
+        // La page d'arrivée mesure la visite : elle garde le VRAI référent
+        // (Instagram…) et lit le canal du lien dans ses UTM, sinon la visite
+        // serait classée « interne » (référent = cette page /l/).
+        rememberEntryReferrer(document.referrer || '');
+        target = withLinkUtm(target, linkUtm);
         // Hard navigation so the destination page boots cleanly with the param.
         window.location.replace(target);
       } else {
