@@ -29,6 +29,7 @@ import { GroupedDrinksView } from '@/components/orders/GroupedDrinksView';
 import { BarSelectionDialog } from '@/components/orders/BarSelectionDialog';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { TicketQROverlay } from '@/components/orders/TicketQROverlay';
+import { normalizeTicketDescription } from '@/lib/freeTicketing';
 import { useTableGuestSlides } from '@/hooks/useTableGuestSlides';
 import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
@@ -457,7 +458,7 @@ export default function MyOrders() {
         venueLat: v?.latitude ?? null,
         venueLng: v?.longitude ?? null,
         roundName: t.ticket_rounds.name,
-        roundDescription: t.ticket_rounds.description,
+        roundDescription: normalizeTicketDescription(t.ticket_rounds.description),
         quantity: t.quantity,
         totalPrice: Number(t.total_price),
         serviceFee: Number(t.service_fee),

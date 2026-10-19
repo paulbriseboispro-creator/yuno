@@ -4,6 +4,7 @@ import QRCode from "https://esm.sh/qrcode@1.5.3";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import type { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildTicketConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
+import { normalizeTicketDescription } from "../_shared/free-ticketing.ts";
 import {
   drawReceipt, drawBillet, receiptLineLabels, resolveVatRegime, sellerVat,
   type PdfDoc, type DocLang, type ReceiptLine, type VatRegime,
@@ -146,9 +147,9 @@ serve(async (req) => {
     const event = ticket.events as unknown as ConfirmationEvent;
     const venue = event?.venues;
     const round = ticket.ticket_rounds as unknown as { name: string | null; group_label: string | null; description: string | null } | null;
-    // Description du tarif écrite par le pro (200 caractères au plus, CHECK SQL) :
-    // affichée telle quelle, jamais traduite ; l'échappement est celui du builder.
-    const roundDescription = round?.description?.replace(/\r\n?/g, "\n").trim() || null;
+    // Description du tarif écrite par le pro : affichée telle quelle, jamais
+    // traduite ; l'échappement est celui du builder.
+    const roundDescription = normalizeTicketDescription(round?.description);
     const venueName = venue?.name || event?.location_name || "";
     const eventTitle = event?.title || "";
 
