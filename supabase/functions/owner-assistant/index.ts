@@ -926,7 +926,7 @@ async function executeTool(
         const since = getPeriodFilter(args.period || "30d");
         const periodEnd = getPeriodEnd(args.period || "30d");
 
-        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
+        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null);
         const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
@@ -978,7 +978,7 @@ async function executeTool(
         const since = getPeriodFilter(args.period || "30d");
         const periodEnd = getPeriodEnd(args.period || "30d");
 
-        const { data: venueEvts } = await supabase.from("events").select("id").eq("venue_id", venueId);
+        const { data: venueEvts } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null);
         const evtIds = (venueEvts || []).map((e: IdRow) => e.id);
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const znIds = (venueZns || []).map((z: IdRow) => z.id);
@@ -1137,7 +1137,7 @@ async function executeTool(
         const since = new Date(tonightStartParis.getTime() - parisOffset).toISOString();
         const until = new Date(tonightEndParis.getTime() - parisOffset).toISOString();
 
-        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
+        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null);
         const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
