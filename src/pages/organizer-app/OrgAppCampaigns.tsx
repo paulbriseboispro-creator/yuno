@@ -63,8 +63,9 @@ export default function OrgAppCampaigns() {
   useEffect(() => {
     if (!organizerId) return;
     supabase.from('email_campaigns').select('id,name,type,subject,status,recipients_count,opens_count,clicks_count')
-      // Les enfants des recettes automatiques vivent sur la page Automatisations.
-      .eq('organizer_user_id', organizerId).is('automation_id' as never, null).order('created_at', { ascending: false })
+      // Les enfants des recettes automatiques vivent sur la page Automatisations ;
+      // les campagnes de Yuno CRM (`product = 'crm'`) vivent dans la Console CRM.
+      .eq('organizer_user_id', organizerId).is('automation_id' as never, null).or('product.is.null,product.neq.crm').order('created_at', { ascending: false })
       .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
   }, [organizerId]);
 
