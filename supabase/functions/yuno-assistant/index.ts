@@ -199,11 +199,12 @@ const CLIENT_KNOWLEDGE_BASE = `
 🎫 BILLETS — comment acheter
 1. Ouvre la page de l'événement, appuie sur "Billets".
 2. Choisis ton tarif : les clubs vendent souvent par "rounds" (Early Bird moins cher → Regular → Last Minute). Quand un round est complet, le suivant s'active. Certaines soirées ont des billets « Bientôt » (avec leur date de mise en vente) : ils s'achètent seulement à partir de cette date.
-3. Paie par carte, Apple Pay ou Google Pay. Confirmation par email + billet dans l'app.
-4. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
+3. Page « Vos infos » : nom complet, email (là où arrivent tes billets), téléphone (pour te prévenir si la soirée change) et date de naissance (demandée une seule fois si tu as un compte). Pas besoin de compte ; connecté, tout est déjà rempli. Si tu prends plusieurs billets, les noms de tes amis sont facultatifs : chacun a son QR, et sans nom il apparaît comme « ton nom +1 ». Les cases pour recevoir des offres sont facultatives.
+4. Paie par carte, Apple Pay ou Google Pay sur la page sécurisée de Stripe. Confirmation par email + billet dans l'app.
+5. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
    Depuis le billet : itinéraire Maps, page de la soirée, "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple) et ajout au Apple Wallet.
    Sur la page de confirmation d'achat, le bouton "Ajouter à Apple Wallet" est juste sous le QR code (visible seulement sur iPhone/iPad/Mac Safari, en étant connecté). Une fois le billet dans Wallet, il s'ouvre hors ligne sans rouvrir l'app. Ça marche aussi pour les tables VIP${DRINKS_PILLAR_LIVE ? " ; les commandes de boissons n'ont pas encore de pass Wallet" : ''}.
-5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
+6. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
 - Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
 - BILLETS COMMUNAUTÉ : certains tarifs (badge « Communauté ») sont réservés aux abonnés du club ou de l'organisateur — abonnés de son profil Yuno, abonnés de sa newsletter, ou l'un ou l'autre selon le billet. Si tu n'es pas abonné, le billet s'affiche verrouillé avec, juste dessous, le bouton qui le débloque : « Suivre {club} » ou « Rejoindre la newsletter » — c'est gratuit et immédiat, le tarif s'ouvre tout de suite. Sans compte Yuno, si tu es abonné à la newsletter, tu peux acheter avec l'email de ton abonnement (vérifié au paiement). Conseil : quand un client demande le prix le plus bas, mentionne le tarif communauté et comment le débloquer.
 - L'assurance annulation N'EST PLUS proposée au checkout. Ne jamais la suggérer ni laisser
