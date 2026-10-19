@@ -1,0 +1,210 @@
+{
+  "_doc": "Cas partagés : linkSlug / linkChannelTag / composeLinkCode (src/lib/trackedLinkCode.ts) ⇄ tracked_link_slug / tracked_link_channel_tag / tracked_link_compose (migrations 20261103100000 et 20261103101000). La base doit rendre exactement ces valeurs.",
+  "slug": [
+    {
+      "in": "House Of Masquerade",
+      "max": 28,
+      "out": "house-of-masquerade"
+    },
+    {
+      "in": "Nuit Amoris : Édition #3",
+      "max": 28,
+      "out": "nuit-amoris-edition-3"
+    },
+    {
+      "in": "Cœur de Pirate",
+      "max": 28,
+      "out": "coeur-de-pirate"
+    },
+    {
+      "in": "Reggaeton Party Halloween Special Edition 2026",
+      "max": 28,
+      "out": "reggaeton-party-halloween"
+    },
+    {
+      "in": "Supercalifragilisticexpialidocious Night",
+      "max": 28,
+      "out": "supercalifragilisticexpialid"
+    },
+    {
+      "in": "!!!",
+      "max": 28,
+      "out": ""
+    },
+    {
+      "in": "Straße 54",
+      "max": 28,
+      "out": "strasse-54"
+    },
+    {
+      "in": "  DJ  Snake  ",
+      "max": 28,
+      "out": "dj-snake"
+    },
+    {
+      "in": "Æon Flux",
+      "max": 28,
+      "out": "aeon-flux"
+    },
+    {
+      "in": "Ñight Club",
+      "max": 28,
+      "out": "night-club"
+    },
+    {
+      "in": "Gotham Amzallag",
+      "max": 20,
+      "out": "gotham-amzallag"
+    },
+    {
+      "in": "Groupe WhatsApp Habitués",
+      "max": 20,
+      "out": "groupe-whatsapp"
+    },
+    {
+      "in": "CLUB SONORE X EXCLUSIVE X WOH & FRIENDS X NONSENSE PARIS",
+      "max": 28,
+      "out": "club-sonore-exclusive-woh"
+    },
+    {
+      "in": "Osmoz x Revival Face 2 Face",
+      "max": 28,
+      "out": "osmoz-x-revival-face-2-face"
+    },
+    {
+      "in": "X X X X X X X X X X X X X X X X",
+      "max": 28,
+      "out": ""
+    }
+  ],
+  "tag": [
+    {
+      "in": "instagram",
+      "out": "insta"
+    },
+    {
+      "in": "Instagram",
+      "out": "insta"
+    },
+    {
+      "in": "tiktok",
+      "out": "tiktok"
+    },
+    {
+      "in": "whatsapp",
+      "out": "whatsapp"
+    },
+    {
+      "in": "newsletter",
+      "out": "newsletter"
+    },
+    {
+      "in": "meta",
+      "out": "ads"
+    },
+    {
+      "in": "meta_ads",
+      "out": "ads"
+    },
+    {
+      "in": "Affiche Fac",
+      "out": "affiche-fac"
+    }
+  ],
+  "compose": [
+    {
+      "prefix": null,
+      "base": "House Of Masquerade",
+      "tail": [
+        "insta"
+      ],
+      "out": "house-of-masquerade-insta"
+    },
+    {
+      "prefix": null,
+      "base": "Goya Thursday",
+      "tail": [
+        "23-10",
+        "insta"
+      ],
+      "out": "goya-thursday-23-10-insta"
+    },
+    {
+      "prefix": "amoris",
+      "base": "House Of Masquerade",
+      "tail": [
+        "insta"
+      ],
+      "out": "amoris-house-of-masquerade-insta"
+    },
+    {
+      "prefix": null,
+      "base": "House Of Masquerade",
+      "tail": [
+        "telos",
+        "insta"
+      ],
+      "out": "house-of-masquerade-telos-insta"
+    },
+    {
+      "prefix": null,
+      "base": "House Of Masquerade",
+      "tail": [
+        "insta",
+        "2"
+      ],
+      "out": "house-of-masquerade-insta-2"
+    },
+    {
+      "prefix": null,
+      "base": "M Party",
+      "tail": [
+        "insta"
+      ],
+      "out": "mparty-insta"
+    },
+    {
+      "prefix": null,
+      "base": "Reggaeton Party Halloween Special Edition 2026",
+      "tail": [
+        "gotham-amzallag",
+        "whatsapp-group"
+      ],
+      "out": "reggaeton-party-halloween-gotham-amzallag-whatsapp-group"
+    },
+    {
+      "prefix": "les-nuits-du-grand-palais",
+      "base": "Reggaeton Party Halloween Special Edition 2026",
+      "tail": [
+        "23-10",
+        "whatsapp-group"
+      ],
+      "out": "les-nuits-du-grand-palais-reggaeton-23-10-whatsapp-group"
+    },
+    {
+      "prefix": null,
+      "base": "CLUB SONORE X EXCLUSIVE X WOH & FRIENDS X NONSENSE PARIS",
+      "tail": [
+        "insta-bio"
+      ],
+      "out": "club-sonore-exclusive-woh-insta-bio"
+    }
+  ],
+  "partner": [
+    {
+      "name": "Telos",
+      "event": "House Of Masquerade",
+      "out": "house-of-masquerade-telos"
+    },
+    {
+      "name": "Léa Müller",
+      "event": "Nuit Amoris : Édition #3",
+      "out": "nuit-amoris-edition-3-lea-muller"
+    },
+    {
+      "name": "!!!",
+      "event": "",
+      "out": "yuno-partner"
+    }
+  ]
+}
