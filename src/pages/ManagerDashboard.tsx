@@ -83,7 +83,7 @@ export default function ManagerDashboard() {
           .select('id', { count: 'exact', head: true })
           .eq('status', 'paid')
           .in('event_id', 
-            (await supabase.from('events').select('id').eq('venue_id', venue.id)).data?.map(e => e.id) || []
+            (await supabase.from('events').select('id').eq('venue_id', venue.id).is('external_source', null)).data?.map(e => e.id) || []
           )
           .gte('created_at', today.toISOString()),
       ]);
