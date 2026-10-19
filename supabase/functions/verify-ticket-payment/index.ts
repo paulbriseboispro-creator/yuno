@@ -3,7 +3,10 @@ import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
-import { sendAutoPush, localizedDate } from '../_shared/auto-push.ts';
+import { sendAutoPush, localizedDate, resolveUserLang } from '../_shared/auto-push.ts';
+import {
+  ticketSaleNotif, promoterSaleNotif, roundSoldOutNotif, roundWarningNotif, type SaleNotifLang,
+} from '../_shared/sale-notification-text.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
@@ -561,34 +564,59 @@ serve(async (req) => {
         }
       }
 
+      // ── Ce que disent les notifications de vente aux pros ─────────────────
+      // Le tarif se relit en base (le checkout ne pose pas `roundName` dans la
+      // session), le montant est le CA club (hors frais Yuno, comme partout dans
+      // la Console), et le texte part dans la langue de chaque destinataire.
+      const qty = ticket.quantity ?? 1;
+      const saleClubRevenue = clubRevenue.ticket(ticket);
+      let saleRoundName: string | null = session.metadata?.roundName ?? null;
+      if (!saleRoundName && ticket.ticket_round_id) {
+        try {
+          const { data: saleRound } = await supabaseAdmin
+            .from('ticket_rounds').select('name').eq('id', ticket.ticket_round_id).maybeSingle();
+          saleRoundName = saleRound?.name ?? null;
+        } catch {
+          // Sans le nom, la notification dit « Billet » : jamais bloquant.
+        }
+      }
+
       // ── Owner notifications ──────────────────────────────────────────────
       if (resolvedVenueId) {
         try {
+          let ownerLang: SaleNotifLang = 'fr';
+          const { data: saleVenue } = await supabaseAdmin
+            .from('venues').select('owner_id').eq('id', resolvedVenueId).maybeSingle();
+          if (saleVenue?.owner_id) ownerLang = await resolveUserLang(supabaseAdmin, saleVenue.owner_id);
+
           // 1. ticket_sale — every paid ticket
-          const roundName = session.metadata?.roundName ?? 'Billet';
-          const qty = ticket.quantity ?? 1;
-          const totalPriceFormatted = Number(ticket.total_price ?? 0).toFixed(2);
+          const saleText = ticketSaleNotif(ownerLang, {
+            quantity: qty, roundName: saleRoundName, clubRevenue: saleClubRevenue, buyerName: ticket.full_name,
+          });
           await supabaseAdmin.from('staff_notifications').insert({
             venue_id: resolvedVenueId,
             target_role: 'owner',
             notification_type: 'ticket_sale',
-            title: 'Nouveau billet vendu',
-            message: `${qty}x ${roundName} — ${totalPriceFormatted} €${ticket.full_name ? ` · ${ticket.full_name}` : ''}`,
+            title: saleText.title,
+            message: saleText.message,
             priority: 'normal',
             reference_type: 'ticket',
             reference_id: ticketId,
             event_id: ticket.event_id ?? null,
-            metadata: { quantity: qty, total_price: ticket.total_price, round_name: roundName },
+            metadata: { quantity: qty, total_price: ticket.total_price, club_revenue: saleClubRevenue, round_name: saleRoundName },
           });
 
           // 2. promoter_sale — if attributed to a promoter
           if (session.metadata?.promoterId || session.metadata?.promoCode) {
+            const promoText = promoterSaleNotif(ownerLang, {
+              quantity: qty, roundName: saleRoundName, clubRevenue: saleClubRevenue, promoCode: session.metadata?.promoCode,
+            });
             await supabaseAdmin.from('staff_notifications').insert({
               venue_id: resolvedVenueId,
               target_role: 'owner',
               notification_type: 'promoter_sale',
-              title: 'Vente via promoteur',
-              message: `${qty}x ${roundName} — ${totalPriceFormatted} € · code "${session.metadata?.promoCode ?? ''}"`,
+              title: promoText.title,
+              message: promoText.message,
               priority: 'low',
               reference_type: 'ticket',
               reference_id: ticketId,
@@ -598,6 +626,7 @@ serve(async (req) => {
                 promo_code: session.metadata?.promoCode ?? null,
                 quantity: qty,
                 total_price: ticket.total_price,
+                club_revenue: saleClubRevenue,
               },
             });
           }
@@ -625,12 +654,13 @@ serve(async (req) => {
                   .eq('reference_id', ticket.ticket_round_id)
                   .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
                 if ((soCount ?? 0) === 0) {
+                  const soText = roundSoldOutNotif(ownerLang, { roundName: roundAfter.name, max });
                   await supabaseAdmin.from('staff_notifications').insert({
                     venue_id: resolvedVenueId,
                     target_role: 'owner',
                     notification_type: 'ticket_round_sold_out',
-                    title: 'Round de billets épuisé 🎟️',
-                    message: `"${roundAfter.name}" — complet (${max}/${max} billets vendus)`,
+                    title: soText.title,
+                    message: soText.message,
                     priority: 'high',
                     reference_type: 'ticket_round',
                     reference_id: ticket.ticket_round_id,
@@ -648,12 +678,13 @@ serve(async (req) => {
                   .eq('reference_id', ticket.ticket_round_id)
                   .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
                 if ((warnCount ?? 0) === 0) {
+                  const warnText = roundWarningNotif(ownerLang, { roundName: roundAfter.name, sold, max, pct: Math.round(pct * 100) });
                   await supabaseAdmin.from('staff_notifications').insert({
                     venue_id: resolvedVenueId,
                     target_role: 'owner',
                     notification_type: 'ticket_round_warning',
-                    title: 'Billets presque épuisés',
-                    message: `"${roundAfter.name}" — ${sold}/${max} vendus (${Math.round(pct * 100)}%)`,
+                    title: warnText.title,
+                    message: warnText.message,
                     priority: 'high',
                     reference_type: 'ticket_round',
                     reference_id: ticket.ticket_round_id,
@@ -676,19 +707,20 @@ serve(async (req) => {
       // events that have an organizer (standalone org events and co-events).
       if (resolvedOrganizerId) {
         try {
-          const roundName = session.metadata?.roundName ?? 'Billet';
-          const qty = ticket.quantity ?? 1;
-          const totalPriceFormatted = Number(ticket.total_price ?? 0).toFixed(2);
+          const orgLang = await resolveUserLang(supabaseAdmin, resolvedOrganizerId);
+          const saleText = ticketSaleNotif(orgLang, {
+            quantity: qty, roundName: saleRoundName, clubRevenue: saleClubRevenue, buyerName: ticket.full_name,
+          });
           await supabaseAdmin.from('organizer_notifications').insert({
             organizer_user_id: resolvedOrganizerId,
             notification_type: 'ticket_sale',
-            title: 'Nouveau billet vendu',
-            message: `${qty}x ${roundName} — ${totalPriceFormatted} €${ticket.full_name ? ` · ${ticket.full_name}` : ''}`,
+            title: saleText.title,
+            message: saleText.message,
             priority: 'normal',
             reference_type: 'ticket',
             reference_id: ticketId,
             event_id: ticket.event_id ?? null,
-            metadata: { quantity: qty, total_price: ticket.total_price, round_name: roundName },
+            metadata: { quantity: qty, total_price: ticket.total_price, club_revenue: saleClubRevenue, round_name: saleRoundName },
           });
 
           // Ticket-round threshold checks (dedup once per round / 24h)
@@ -714,11 +746,12 @@ serve(async (req) => {
                   .eq('reference_id', ticket.ticket_round_id)
                   .gte('created_at', sinceIso);
                 if ((soCount ?? 0) === 0) {
+                  const soText = roundSoldOutNotif(orgLang, { roundName: roundAfter.name, max });
                   await supabaseAdmin.from('organizer_notifications').insert({
                     organizer_user_id: resolvedOrganizerId,
                     notification_type: 'ticket_round_sold_out',
-                    title: 'Round de billets épuisé 🎟️',
-                    message: `"${roundAfter.name}" — complet (${max}/${max} billets vendus)`,
+                    title: soText.title,
+                    message: soText.message,
                     priority: 'high',
                     reference_type: 'ticket_round',
                     reference_id: ticket.ticket_round_id,
@@ -735,11 +768,12 @@ serve(async (req) => {
                   .eq('reference_id', ticket.ticket_round_id)
                   .gte('created_at', sinceIso);
                 if ((warnCount ?? 0) === 0) {
+                  const warnText = roundWarningNotif(orgLang, { roundName: roundAfter.name, sold, max, pct: Math.round(pct * 100) });
                   await supabaseAdmin.from('organizer_notifications').insert({
                     organizer_user_id: resolvedOrganizerId,
                     notification_type: 'ticket_round_warning',
-                    title: 'Billets presque épuisés',
-                    message: `"${roundAfter.name}" — ${sold}/${max} vendus (${Math.round(pct * 100)}%)`,
+                    title: warnText.title,
+                    message: warnText.message,
                     priority: 'high',
                     reference_type: 'ticket_round',
                     reference_id: ticket.ticket_round_id,
