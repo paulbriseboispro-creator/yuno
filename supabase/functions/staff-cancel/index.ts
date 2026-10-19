@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { buildRefund } from "../_shared/email-templates.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
-import { alreadyRefundedCents, fromCents, refundCapCents, toCents } from "../_shared/sale-refund.ts";
+import {
+  alreadyRefundedCents, doorPlaceRefundCents, doorStripeFeeCents, fromCents, refundCapCents, toCents,
+} from "../_shared/sale-refund.ts";
 import {
   applyFullRefundEffects, customerEmailLanguage, decrementCustomerSpent, loadSaleRefundContext,
   refundSaleOnStripe, type SaleRefundContext,
@@ -16,12 +18,105 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Stripe fee calculation: 1.5% + 0.25€
-const STRIPE_PERCENT = 0.015;
-const STRIPE_FIXED_CENTS = 25;
-
+// Frais Stripe estimés (1,5 % + 0,25 €), gardés par le remboursement net de la
+// porte. Une seule formule : `doorStripeFeeCents` (_shared/sale-refund.ts).
 function calcStripeFee(totalPriceCents: number): number {
-  return (Math.round(totalPriceCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS) / 100;
+  return fromCents(doorStripeFeeCents(totalPriceCents));
+}
+
+/** Billet parent d'une place nominative, tel que la porte le lit. */
+interface PlaceTicketRow {
+  id: string;
+  status: string | null;
+  full_name: string | null;
+  user_email: string | null;
+  user_id: string | null;
+  phone: string | null;
+  total_price: number | string | null;
+  service_fee: number | string | null;
+  insurance_fee: number | string | null;
+  fee_absorbed: boolean | null;
+  refund_amount: number | string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_connected_account_id: string | null;
+  event_id: string | null;
+  events: {
+    id: string;
+    title: string | null;
+    venue_id: string | null;
+    partner_venue_id: string | null;
+    venues: { name: string | null } | null;
+  } | null;
+}
+
+interface PlaceAttendeeRow {
+  id: string;
+  ticket_id: string;
+  full_name: string | null;
+  entry_scanned: boolean | null;
+  refunded_at: string | null;
+  tickets: PlaceTicketRow;
+}
+
+/** Refus métier : le message (anglais, journal) et un code stable que la porte traduit. */
+class DoorRefusal extends Error {
+  constructor(public code: string, message: string) { super(message); }
+}
+
+const PLACE_REFUSALS: Record<string, string> = {
+  attendee_not_found: 'Ticket not found',
+  not_paid: 'Only paid tickets can be cancelled',
+  already_scanned: 'Cannot cancel: this person already entered',
+  already_refunded: 'This place was already refunded',
+  stale: 'This ticket was just updated on another device: scan it again',
+  invalid_amount: 'Refund amount could not be computed',
+  amount_exceeds_paid: 'Refund amount exceeds what is left on this ticket',
+};
+
+/** Email + push « remboursement » au client — seulement pour de l'argent réellement rendu. */
+async function notifyCustomerRefund(
+  adminClient: SupabaseClient,
+  p: { email: string; userId: string; firstName: string; eventTitle: string; venueName: string; amount: number; reason: string | null },
+): Promise<void> {
+  if (p.amount <= 0) return;
+  if (p.email) {
+    try {
+      const mail = buildRefund({
+        lang: await customerEmailLanguage(adminClient, p.userId),
+        firstName: p.firstName || undefined,
+        eventTitle: p.eventTitle || undefined,
+        venueName: p.venueName,
+        amount: `${p.amount.toFixed(2)} €`,
+        reason: p.reason || undefined,
+      });
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+      if (resendApiKey) {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+          body: JSON.stringify({ from: `Yuno <${fromEmail}>`, to: [p.email], subject: mail.subject, html: mail.html }),
+        });
+        logStep("Refund email sent", { to: p.email });
+      }
+    } catch (emailError) {
+      console.error("Email error:", emailError);
+    }
+  }
+  // Push remboursement — registre auto (clé 'refund_confirmed') :
+  // gate super admin + langue du client + tracking ?an=.
+  if (p.userId) {
+    try {
+      await sendAutoPush(adminClient, {
+        key: 'refund_confirmed',
+        userId: p.userId,
+        url: '/my-orders',
+        vars: { amount: p.amount.toFixed(2) },
+      });
+    } catch (pushError) {
+      console.error('Push notification error:', pushError);
+    }
+  }
 }
 
 const logStep = (step: string, details?: unknown) => {
@@ -46,7 +141,16 @@ serve(async (req) => {
     );
 
     const body = await req.json();
-    const { type, id, qrCode, reason, banCustomer, staffId } = body;
+    const { id, qrCode, reason, banCustomer } = body;
+    // Aperçu : le montant exact que la porte rendrait, sans rien écrire. Il passe
+    // par un TYPE à part, que les versions antérieures de cette fonction
+    // refusent : un aperçu ne déclenche jamais un remboursement, même face à une
+    // fonction pas encore redéployée.
+    const isPreview = body.type === 'refund_preview';
+    const type = isPreview ? body.target : body.type;
+    if (isPreview && !['ticket', 'ticket_attendee'].includes(type)) {
+      throw new Error('refund_preview target must be "ticket" or "ticket_attendee"');
+    }
 
     let authenticatedUserId: string | null = null;
 
@@ -103,7 +207,9 @@ serve(async (req) => {
     }
 
     const user = { id: authenticatedUserId };
-    if (!type || !['ticket', 'order'].includes(type)) throw new Error('type must be "ticket" or "order"');
+    if (!type || !['ticket', 'order', 'ticket_attendee'].includes(type)) {
+      throw new Error('type must be "ticket", "ticket_attendee" or "order"');
+    }
     if (!id && !qrCode) throw new Error('Either id or qrCode is required');
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
@@ -190,6 +296,161 @@ serve(async (req) => {
       throw new Error('Unauthorized: not assigned to this venue');
     };
 
+    // === Une PLACE d'un billet nominatif (un ami nommé à l'achat) ===
+    // Refuser cet ami ne rembourse que SA place : sa part du remboursement net
+    // du billet entier (`doorPlaceRefundCents`). Les autres places restent
+    // valables, qu'un ami soit déjà entré ou non ; ni les consos de l'acheteur
+    // ni ses autres billets ne bougent.
+    if (type === 'ticket_attendee') {
+      let attQuery = adminClient
+        .from('ticket_attendees')
+        .select('id, ticket_id, full_name, entry_scanned, refunded_at, tickets!inner(*, events!inner(id, title, venue_id, partner_venue_id, venues:venue_id(name)))');
+      attQuery = id ? attQuery.eq('id', id) : attQuery.eq('qr_code', qrCode);
+      const { data: attData, error: attError } = await attQuery.maybeSingle();
+      // Jointure imbriquée : PostgREST la rend en objet (clé étrangère vers une ligne).
+      const att = attData as unknown as PlaceAttendeeRow | null;
+      if (attError || !att) throw new DoorRefusal('attendee_not_found', PLACE_REFUSALS.attendee_not_found);
+      const ticket = att.tickets;
+      if (ticket.status !== 'paid') throw new DoorRefusal('not_paid', PLACE_REFUSALS.not_paid);
+      if (att.entry_scanned) throw new DoorRefusal('already_scanned', PLACE_REFUSALS.already_scanned);
+      if (att.refunded_at) throw new DoorRefusal('already_refunded', PLACE_REFUSALS.already_refunded);
+      await assertInScope(ticket.events?.id ?? null, [ticket.events?.venue_id, ticket.events?.partner_venue_id]);
+
+      const { data: siblings, error: siblingsError } = await adminClient
+        .from('ticket_attendees').select('id, refunded_at').eq('ticket_id', ticket.id);
+      if (siblingsError) throw siblingsError;
+      const places = Math.max(1, siblings?.length ?? 1);
+      const placesRefunded = (siblings ?? []).filter((s) => !!s.refunded_at).length;
+      const placeStripeFeeCents = doorStripeFeeCents(toCents(ticket.total_price));
+      const placePrevCents = alreadyRefundedCents(ticket);
+      const placeCents = doorPlaceRefundCents({
+        capCents: refundCapCents('ticket', ticket),
+        stripeFeeCents: placeStripeFeeCents,
+        places,
+        placesRefunded,
+        alreadyRefundedCents: placePrevCents,
+      });
+      const placeName: string = att.full_name || ticket.full_name || '';
+      logStep("Place refund calculation", { attendeeId: att.id, ticketId: ticket.id, places, placesRefunded, placePrevCents, placeCents });
+
+      if (isPreview) {
+        return new Response(JSON.stringify({
+          success: true, preview: true, placeRefund: true, refundAmount: fromCents(placeCents),
+          places, placesRefunded, placeName,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const placeReason = [reason, placeName].filter(Boolean).join(' — ') || null;
+      // Verrou + montant posés AVANT Stripe, sous le verrou du billet : le
+      // webhook `charge.refunded` trouvera le cumul déjà enregistré.
+      const { data: claimData, error: claimRpcError } = await adminClient.rpc('door_refund_ticket_place', {
+        p_attendee_id: att.id,
+        p_amount: fromCents(placeCents),
+        p_expected_refund_amount: ticket.refund_amount ?? null,
+        p_expected_places_refunded: placesRefunded,
+        p_reason: placeReason,
+        p_by: user.id,
+      });
+      if (claimRpcError) throw claimRpcError;
+      const claimed = claimData as { ok: boolean; error?: string; cumulative?: number; fully_refunded?: boolean } | null;
+      if (!claimed?.ok) {
+        const code = claimed?.error ?? 'stale';
+        throw new DoorRefusal(code, PLACE_REFUSALS[code] ?? PLACE_REFUSALS.stale);
+      }
+
+      let placeRefundOk = true;
+      let placeRefundError = '';
+      const placeIntent = ticket.stripe_payment_intent_id || '';
+      if (placeIntent && placeCents > 0) {
+        const cumulativeCents = toCents(claimed.cumulative);
+        const placeStripe = await refundSaleOnStripe(stripe, adminClient, {
+          paymentIntentId: placeIntent,
+          amountCents: placeCents,
+          connectedAccountId: ticket.stripe_connected_account_id || null,
+          idempotencyKey: `staff-cancel:ticket_attendee:${att.id}:${cumulativeCents}`,
+          expectedCumulativeCents: cumulativeCents,
+        });
+        if (!placeStripe.ok) {
+          placeRefundOk = false;
+          placeRefundError = placeStripe.error;
+          logStep("Place Stripe refund error", { attendeeId: att.id, error: placeStripe.error });
+          // La place reste refusée ; le montant enregistré revient à ce qui a été rendu.
+          await adminClient.rpc('door_place_refund_not_sent', { p_attendee_id: att.id, p_amount: fromCents(placeCents) });
+        } else {
+          logStep("Place Stripe refund processed", { attendeeId: att.id, amountCents: placeCents });
+        }
+      }
+      const placeRefundedCents = placeRefundOk ? placeCents : 0;
+
+      const placeCtx = await loadSaleRefundContext(adminClient, 'ticket', ticket);
+      await decrementCustomerSpent(adminClient, placeCtx, placeRefundedCents);
+      if (claimed.fully_refunded) await applyFullRefundEffects(adminClient, placeCtx);
+
+      await notifyCustomerRefund(adminClient, {
+        email: ticket.user_email || '',
+        userId: ticket.user_id || '',
+        firstName: ticket.full_name?.split(' ')[0] || '',
+        eventTitle: ticket.events?.title || '',
+        venueName: ticket.events?.venues?.name || '',
+        amount: fromCents(placeRefundedCents),
+        reason: placeReason,
+      });
+
+      const placeVenueId: string = ticket.events?.venue_id || '';
+      if (placeVenueId && ticket.user_id && reason) {
+        try {
+          const { data: customerId } = await adminClient.rpc('get_or_create_venue_customer', {
+            p_venue_id: placeVenueId, p_user_id: ticket.user_id, p_email: ticket.user_email,
+            p_first_name: ticket.full_name?.split(' ')[0] || null,
+            p_last_name: ticket.full_name?.split(' ').slice(1).join(' ') || null,
+            p_phone: ticket.phone || null,
+          });
+          if (customerId) {
+            await adminClient.from('customer_incidents').insert({
+              venue_customer_id: customerId, venue_id: placeVenueId, reported_by: user.id,
+              incident_type: banCustomer ? 'ban' : 'refund', reason: placeReason,
+              ticket_id: ticket.id, order_id: null,
+              details: `Place refund (${placeName || att.id}): ${fromCents(placeRefundedCents).toFixed(2)}€ of a ${places}-place ticket`,
+            });
+            if (banCustomer) {
+              await adminClient.from('venue_customers').update({
+                is_banned: true, banned_at: new Date().toISOString(), banned_by: user.id, ban_reason: reason,
+              }).eq('id', customerId);
+            }
+          }
+        } catch (incidentError) {
+          logStep("Error creating incident", { error: incidentError });
+        }
+      }
+
+      if (!placeRefundOk) {
+        await adminClient.rpc('emit_admin_notification', {
+          p_type: 'admin_refund_failed',
+          p_title: 'Remboursement Stripe refusé',
+          p_message: `${fromCents(placeCents).toFixed(2)} € n'ont pas pu être remboursés par Stripe pour une place refusée à la porte (billet ${ticket.id}, ${placeName || att.id}) : ${placeRefundError}. À rembourser à la main.`.slice(0, 480),
+          p_priority: 'high',
+          p_reference_type: 'ticket',
+          p_reference_id: ticket.id,
+          p_metadata: { attendee_id: att.id, amount: fromCents(placeCents), error: placeRefundError, cancelled_by: user.id },
+          p_dedup_key: `refund_failed:ticket_attendee:${att.id}`,
+          p_event_id: null,
+        }).then(() => undefined, () => undefined);
+      }
+
+      logStep("Place cancellation complete", { attendeeId: att.id, ticketId: ticket.id, placeCents, refunded: placeRefundOk, fullyRefunded: !!claimed.fully_refunded });
+      return new Response(JSON.stringify({
+        success: true,
+        placeRefund: true,
+        refundAmount: fromCents(placeCents),
+        refundFailed: !placeRefundOk,
+        ticketFullyRefunded: !!claimed.fully_refunded,
+        places,
+        placesRefunded: placesRefunded + 1,
+        placeName,
+        customerBanned: banCustomer || false,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     if (type === 'ticket') {
       let ticketQuery = adminClient
         .from('tickets')
@@ -228,6 +489,12 @@ serve(async (req) => {
       refundAmount = fromCents(Math.max(0, refundCapCents('ticket', ticket) - toCents(stripeFee) - prevRefundCents));
 
       logStep("Ticket refund calculation", { originalAmount, serviceFee, stripeFee, prevRefundCents, refundAmount });
+      if (isPreview) {
+        return new Response(JSON.stringify({
+          success: true, preview: true, placeRefund: false, refundAmount, stripeFee, originalAmount,
+          places: Number(ticket.quantity) || 1,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
 
       // Verrou « premier arrivé » : un videur qui annule pendant qu'un autre
       // scanne, ou deux annulations simultanées → une seule gagne, les autres
@@ -497,58 +764,15 @@ serve(async (req) => {
     const linkedRefundAmt = type === 'ticket' ? (linkedOrdersRefundTotal || 0) : 0;
     const totalEmailRefund = refundedNow + linkedRefundAmt;
 
-    // Send refund email — seulement pour de l'argent réellement rendu.
-    if (customerEmail && totalEmailRefund > 0) {
-      try {
-        const lang = await customerEmailLanguage(adminClient, customerUserId);
-
-        const mail = buildRefund({
-          lang,
-          firstName: customerFirstName || undefined,
-          eventTitle: eventTitle || undefined,
-          venueName,
-          amount: `${totalEmailRefund.toFixed(2)} €`,
-          reason: reason || undefined,
-        });
-
-        const resendApiKey = Deno.env.get("RESEND_API_KEY");
-        const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
-
-        if (resendApiKey) {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${resendApiKey}`,
-            },
-            body: JSON.stringify({
-              from: `Yuno <${fromEmail}>`,
-              to: [customerEmail],
-              subject: mail.subject,
-              html: mail.html,
-            }),
-          });
-          logStep("Refund email sent", { to: customerEmail });
-        }
-      } catch (emailError) {
-        console.error("Email error:", emailError);
-      }
-    }
-
-    // Push remboursement — registre auto (clé 'refund_confirmed') :
-    // gate super admin + langue du client + tracking ?an=.
-    if (customerUserId && totalEmailRefund > 0) {
-      try {
-        await sendAutoPush(adminClient, {
-          key: 'refund_confirmed',
-          userId: customerUserId,
-          url: '/my-orders',
-          vars: { amount: totalEmailRefund.toFixed(2) },
-        });
-      } catch (pushError) {
-        console.error('Push notification error:', pushError);
-      }
-    }
+    await notifyCustomerRefund(adminClient, {
+      email: customerEmail,
+      userId: customerUserId,
+      firstName: customerFirstName,
+      eventTitle,
+      venueName,
+      amount: totalEmailRefund,
+      reason: reason || null,
+    });
 
     // Create incident record
     if (venueId && customerUserId && reason) {
@@ -683,7 +907,7 @@ serve(async (req) => {
     console.error('[STAFF-CANCEL] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: errorMessage, ...(error instanceof DoorRefusal ? { code: error.code } : {}) }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     );
   }
