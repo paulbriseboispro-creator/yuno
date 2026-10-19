@@ -119,6 +119,9 @@ describe('research parsing', () => {
     expect(r.call_angles).toHaveLength(3);
     expect(r.confidence).toBe('medium');
     expect(r.org_name).toBe('Poupée');
+    const withModelSources = normalizeResearch({ found: true, sources: ['https://shotgun.live/fr/venues/x', 'pas un lien'] },
+      { name: 'X', city: null, country: null, kind: 'club', person: null, domain: null }, [], 'gpt-4.1-mini');
+    expect(withModelSources.sources).toEqual([{ title: null, url: 'https://shotgun.live/fr/venues/x' }]);
   });
   it('returns null on prose', () => {
     expect(parseResearchText('Je n’ai rien trouvé.')).toBeNull();

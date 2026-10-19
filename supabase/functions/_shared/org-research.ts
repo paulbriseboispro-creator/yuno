@@ -63,7 +63,7 @@ const SYSTEM = [
   'festival | association | autre", "instagram": {"handle": "@…", "url": "…", "followers": "12,4 k"} | null,',
   '"website": "…" | null, "ticketing": {"platform": "…", "url": "…"} | null, "recent_events": ["…"],',
   '"audience": "…" | null, "people": ["…"], "call_angles": ["2 ou 3 angles concrets pour l\'appel"],',
-  '"red_flags": ["…"], "confidence": "high" | "medium" | "low"}',
+  '"red_flags": ["…"], "confidence": "high" | "medium" | "low", "sources": ["URL de chaque page lue"]}',
 ].join(' ');
 
 function userPrompt(i: ResearchInput): string {
@@ -154,7 +154,13 @@ export function normalizeResearch(
     call_angles: strList(raw.call_angles, 3),
     red_flags: strList(raw.red_flags, 3),
     confidence: conf,
-    sources: sources.slice(0, 8),
+    // Les citations de l'API d'abord, puis les adresses que le modèle dit avoir lues
+    // (une réponse en JSON pur n'emporte pas toujours ses citations).
+    sources: [
+      ...sources,
+      ...strList(raw.sources, 8).filter((u) => /^https?:\/\//i.test(u) && !sources.some((x) => x.url === u))
+        .map((u) => ({ title: null, url: u })),
+    ].slice(0, 8),
     model,
     searched_at: new Date().toISOString(),
   };
