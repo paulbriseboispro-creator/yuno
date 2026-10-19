@@ -20,7 +20,7 @@ import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CO
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from "../_shared/meta-capi.ts";
-import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPaid } from "../_shared/posthog.ts";
+import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPaid, saleTrackingColumns } from "../_shared/posthog.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
@@ -129,6 +129,9 @@ serve(async (req) => {
     const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
     const metaCtx = parseMetaClientContext(meta, req);
     const analyticsCtx = parseAnalyticsContext(analytics);
+    // Visite + tunnel de l'onglet : la base relève l'achat sur la résa payée
+    // (posés juste après reserve_table_slot, qui crée la ligne).
+    const saleTracking = saleTrackingColumns(analytics);
 
     // ── Déclaration sur l'honneur de majorité (bouteilles / bottle service) ───
     // Obligatoire et enregistrée côté serveur, comme pour la commande de boissons.
@@ -727,6 +730,7 @@ serve(async (req) => {
       await supabaseAdmin.from("table_reservations").update({
         payment_mode: "on_site",
         tracked_link_id: safeTrackedLinkId || null,
+        ...saleTracking,
         age_declared_at: ageRecord.declaredAt,
         age_declaration_birth_date: ageRecord.birthDate,
         age_declaration_ip: ageRecord.ip,
@@ -902,6 +906,7 @@ serve(async (req) => {
       }
       await supabaseAdmin.from("table_reservations").update({
         collab_split: collabSplit,
+        ...saleTracking,
         age_declared_at: ageRecord.declaredAt,
         age_declaration_birth_date: ageRecord.birthDate,
         age_declaration_ip: ageRecord.ip,
@@ -1176,6 +1181,7 @@ serve(async (req) => {
       await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
     }
     await supabaseAdmin.from("table_reservations").update({
+      ...saleTracking,
       age_declared_at: ageRecord.declaredAt,
       age_declaration_birth_date: ageRecord.birthDate,
       age_declaration_ip: ageRecord.ip,

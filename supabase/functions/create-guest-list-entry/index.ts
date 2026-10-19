@@ -12,7 +12,7 @@ import {
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { isCompleteName } from "../_shared/guest-name.ts";
 import { parseMetaClientContext, enqueueMetaEvent, drainMetaOutboxInBackground } from "../_shared/meta-capi.ts";
-import { parseAnalyticsContext, captureOrderPaid } from "../_shared/posthog.ts";
+import { parseAnalyticsContext, captureOrderPaid, saleTrackingColumns } from "../_shared/posthog.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
@@ -551,6 +551,8 @@ serve(async (req) => {
         newsletter_opt_in: wantsNewsletter,
         sms_opt_in: wantsSms,
         platform_opt_in: wantsPlatform,
+        // Visite + tunnel de l'onglet : la base relève l'inscription.
+        ...saleTrackingColumns(analytics),
       })
       .select()
       .single();

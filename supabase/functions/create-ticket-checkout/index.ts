@@ -20,7 +20,7 @@ import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
-import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
+import { parseAnalyticsContext, analyticsContextToStripeMetadata, saleTrackingColumns } from "../_shared/posthog.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { isWaitingForPrevious, normalizeChainVisibility, rowPhase } from "../_shared/free-ticketing.ts";
@@ -114,6 +114,8 @@ serve(async (req) => {
     const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
     const metaCtx = parseMetaClientContext(meta, req);
     const analyticsCtx = parseAnalyticsContext(analytics);
+    // Visite + tunnel de l'onglet : la base relève l'achat sur le billet payé.
+    const saleTracking = saleTrackingColumns(analytics);
 
     if (!eventId || !ticketRoundId || !quantity) {
       throw new Error("Missing required fields");
@@ -939,6 +941,7 @@ serve(async (req) => {
           minor_auth_doc_url: minorAuthDocUrl || null,
           promo_code_id: promoCodeId,
           promo_discount: promoCodeId ? promoCodeDiscount : null,
+          ...saleTracking,
         })
         .select()
         .single();
@@ -1228,6 +1231,7 @@ serve(async (req) => {
         minor_auth_doc_url: minorAuthDocUrl || null,
         promo_code_id: promoCodeId,
         promo_discount: promoCodeId ? promoCodeDiscount : null,
+        ...saleTracking,
       })
       .select()
       .single();

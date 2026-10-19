@@ -43,6 +43,22 @@ export function parseAnalyticsContext(raw: unknown): AnalyticsContext {
   return { consent, surface, distinctId: consent ? did : null };
 }
 
+const TRACKING_SID_RE = /^[A-Za-z0-9-]{8,80}$/;
+
+/**
+ * Ids de la visite et du tunnel de l'onglet (aléatoires, sans donnée
+ * personnelle) joints à la vente, lus dans le contexte `analytics` du corps
+ * d'un `create-*` (src/lib/eventFunnel.ts, `saleTrackingIds`). La BASE relève
+ * l'achat sur la vente au moment où elle devient payée — webhook, navigateur,
+ * gratuit ou sur place (migration 20261104120000) : ces colonnes ne servent
+ * qu'à ça, jamais à décider d'une vente.
+ */
+export function saleTrackingColumns(raw: unknown): { tracking_visit_sid: string | null; tracking_funnel_sid: string | null } {
+  const m = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const pick = (v: unknown) => (typeof v === "string" && TRACKING_SID_RE.test(v) ? v : null);
+  return { tracking_visit_sid: pick(m.visitSid), tracking_funnel_sid: pick(m.funnelSid) };
+}
+
 /** Sérialise le contexte dans les métadonnées Stripe (`ph_*`). */
 export function analyticsContextToStripeMetadata(ctx: AnalyticsContext): Record<string, string> {
   return {
