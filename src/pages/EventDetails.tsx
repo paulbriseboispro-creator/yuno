@@ -1,7 +1,7 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
-import { getEventPresenters, followEventHosts, followsAllEventHosts, type EventPresenter } from '@/lib/coorg';
+import { getEventPresenters, followEventHosts, followsAllEventHosts, orgEventsOr, venueEventsOr, type EventPresenter } from '@/lib/coorg';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
@@ -285,7 +285,10 @@ export default function EventDetails() {
       venueId
         ? Promise.all([
             rpcCount(supabase.rpc('get_public_favorite_count', { _favorite_type: 'club', _venue_id: venueId })),
-            headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('venue_id', venueId)),
+            // « N soirées » = celles que la page publique du club liste : actives,
+            // publiques, et jamais une soirée miroir de la billetterie externe
+            // (Yuno CRM) — le CRM et la Billetterie ne se comptent pas entre eux.
+            headCount(supabase.from('events').select('*', { count: 'exact', head: true }).or(venueEventsOr(venueId)).eq('is_active', true).eq('visibility', 'public')),
           ])
         : Promise.resolve([0, 0] as [number, number]),
       Promise.all(organizerIds.map(async (orgUserId) => {
@@ -295,7 +298,10 @@ export default function EventDetails() {
           // renverrait 0. RPC pas encore dans types.ts (regen en follow-up).
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rpcCount((supabase.rpc as any)('get_organizer_follower_count', { p_organizer_user_id: orgUserId })),
-          headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('organizer_user_id', orgUserId)),
+          // Même liste que le profil public /o/… : soirées actives et publiques de
+          // l'organisateur, soirées miroirs Shotgun du CRM exclues (Amoris en
+          // portait 282 sur 285).
+          headCount(supabase.from('events').select('*', { count: 'exact', head: true }).or(orgEventsOr(orgUserId)).eq('is_active', true).eq('visibility', 'public')),
           user
             ? supabase.from('organizer_profile_followers').select('id').eq('organizer_user_id', orgUserId).eq('user_id', user.id).maybeSingle().then(r => !!r.data)
             : Promise.resolve(false),
