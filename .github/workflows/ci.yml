@@ -15,6 +15,12 @@ jobs:
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Valeurs factices pour tout le job : des tests importent (indirectement)
+    # src/integrations/supabase/client.ts, qui lève « supabaseUrl is required »
+    # sans elles. Aucun appel réseau n'est fait vers cette adresse.
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,9 +38,6 @@ jobs:
         run: TZ=Europe/Paris npx vitest run src/lib/__tests__/ticketingShotgunAudit.test.ts src/lib/__tests__/ticketingShotgun.test.ts
       - name: Build
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder
 
   edge:
     runs-on: ubuntu-latest
