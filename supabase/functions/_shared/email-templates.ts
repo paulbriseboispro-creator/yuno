@@ -88,9 +88,9 @@ export function buildTicketConfirmation(d: {
       section(ruleLabel(p(lang, { en: 'Ticket confirmed', fr: 'Billet confirmé', es: 'Entrada confirmada' })) + `<div style="height:14px"></div>` +
         title(`${hi}${p(lang, { en: "you're in", fr: "c'est confirmé", es: 'estás dentro' })}`, 32) + `<div style="height:14px"></div>` +
         body(p(lang, {
-          en: `Your ticket for <strong style="color:${C.white}">${d.eventTitle}</strong> is valid. Show the QR at the door, that's it.`,
-          fr: `Ton billet pour <strong style="color:${C.white}">${d.eventTitle}</strong> est validé. Montre le QR à l'entrée, c'est tout.`,
-          es: `Tu entrada para <strong style="color:${C.white}">${d.eventTitle}</strong> está validada. Muestra el QR en la entrada, eso es todo.`,
+          en: `Your ticket for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> is valid. Show the QR at the door, that's it.`,
+          fr: `Ton billet pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> est validé. Montre le QR à l'entrée, c'est tout.`,
+          es: `Tu entrada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> está validada. Muestra el QR en la entrada, eso es todo.`,
         }))),
       section(bigDate({ day: d.day, month: `${d.month}${d.city ? ' · ' + d.city : ''}`, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'doors'), timeValue: d.openTime || '—' })),
       section(infoRows([
@@ -270,9 +270,9 @@ export function buildVipConfirmation(d: {
       section(ruleLabel(p(lang, { en: 'VIP table confirmed', fr: 'Table VIP confirmée', es: 'Mesa VIP confirmada' })) + `<div style="height:14px"></div>` +
         title(`${hi}${p(lang, { en: 'your table awaits', fr: "ta table t'attend", es: 'tu mesa te espera' })}`, 30) + `<div style="height:14px"></div>` +
         body(p(lang, {
-          en: `<strong style="color:${C.white}">${d.tableName}</strong> is reserved for <strong style="color:${C.white}">${d.eventTitle}</strong>. Head to VIP reception under your name.`,
-          fr: `<strong style="color:${C.white}">${d.tableName}</strong> est réservée pour <strong style="color:${C.white}">${d.eventTitle}</strong>. Présente-toi à l'accueil VIP à ton nom.`,
-          es: `<strong style="color:${C.white}">${d.tableName}</strong> está reservada para <strong style="color:${C.white}">${d.eventTitle}</strong>. Preséntate en recepción VIP a tu nombre.`,
+          en: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> is reserved for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Head to VIP reception under your name.`,
+          fr: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> est réservée pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Présente-toi à l'accueil VIP à ton nom.`,
+          es: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> está reservada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Preséntate en recepción VIP a tu nombre.`,
         }))),
       section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' })),
       section(infoRows([

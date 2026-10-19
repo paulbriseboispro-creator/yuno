@@ -2,10 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import QRCode from "https://esm.sh/qrcode@1.5.3";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
-import {
-  EmailLanguage,
-  escapeHtml,
-} from "../_shared/email-branding.ts";
+import type { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildTicketConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 import {
   drawReceipt, drawBillet, receiptLineLabels, resolveVatRegime, sellerVat,
@@ -175,7 +172,9 @@ serve(async (req) => {
     const isSecret = !!event?.location_is_secret;
     const revealInEmail = event?.reveal_address_in_email !== false;
     const rawAddress = venue?.address || event?.location_address || "";
-    const venueAddress = rawAddress && (!isSecret || revealInEmail) ? escapeHtml(rawAddress) : "";
+    // Texte brut : infoRows (email-kit) échappe la valeur. L'échapper ici aussi
+    // affichait « l&#039;Église » dans l'email.
+    const venueAddress = rawAddress && (!isSecret || revealInEmail) ? rawAddress : "";
     const addressDeferred = isSecret && !revealInEmail;
     const addressDeferredText = lang === "fr"
       ? "L'adresse exacte vous sera communiquée par email par l'organisateur avant l'événement."
