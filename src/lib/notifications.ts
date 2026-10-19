@@ -11,7 +11,7 @@ import {
   AlertCircle, Info, Radio, TrendingUp,
   UserCheck, AlertTriangle, Receipt, Music, Handshake, MessageSquare,
   Martini, DoorOpen, Gauge, Target, ShieldAlert, Clock,
-  KeyRound, CalendarClock, Hourglass, ListChecks, Building2, UserPlus,
+  KeyRound, CalendarClock, Hourglass, ListChecks, Building2, UserPlus, UserMinus,
   Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren, UserX, Bell,
 } from 'lucide-react';
 
@@ -152,6 +152,12 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Inscription pro en libre-service depuis la landing (compte créé / lead).
   admin_pro_signup:          { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_pro_signup' },
   admin_pro_signup_lead:     { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_pro_signup_lead' },
+  // Inscription arrêtée en route, ou pro déjà inscrit qui retente (balayage
+  // toutes les 15 min) ; formulaire de contact de la landing ; compte pro
+  // supprimé (migration 20261103410000). Relayés au Cockpit de Paul.
+  admin_pro_signup_stalled:  { icon: Hourglass,     category: 'growth',    label: 'notif.type.admin_pro_signup_stalled' },
+  admin_landing_contact:     { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_landing_contact' },
+  admin_pro_account_deleted: { icon: UserMinus,     category: 'growth',    label: 'notif.type.admin_pro_account_deleted' },
   admin_account_product_added: { icon: UserPlus,    category: 'growth',    label: 'notif.type.admin_account_product_added' },
   // Sécurité : lien d'onboarding émis sans droit et déjà utilisé (migration 20260924130000).
   admin_security_onboarding_link: { icon: ShieldAlert, category: 'system', label: 'notif.type.admin_security_onboarding_link' },
@@ -680,7 +686,13 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
+    case 'admin_pro_signup_stalled':
+    case 'admin_pro_account_deleted':
       return '/admin/signups';
+
+    // Le message vit dans le corps de l'alerte elle-même.
+    case 'admin_landing_contact':
+      return '/admin/alerts';
 
     // Un compte a ouvert l'autre produit (Billetterie ⇄ CRM) : sa fiche.
     case 'admin_account_product_added': {

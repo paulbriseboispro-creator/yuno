@@ -36,6 +36,7 @@ interface Row {
   size_band: string | null; frequency: string | null; pillars: string[] | null;
   current_tool: string | null; next_night: string | null;
   source: string | null; utm_source: string | null; utm_campaign: string | null; last_step: string | null;
+  furthest_step?: string | null; account_deleted?: boolean;
   user_id: string | null; venue_id: string | null;
   account_created_at: string | null; console_opened_at: string | null;
   contacted_at: string | null; admin_notes: string | null;
@@ -307,9 +308,12 @@ export default function AdminProSignups() {
                       </span>
                     ))}
                   </div>
+                ) : r.account_deleted ? (
+                  <div style={{ color: T3, fontSize: 11.5, marginTop: 10 }}>{t('adm.signups.accountDeleted')}</div>
                 ) : (
                   <div style={{ color: WARN, fontSize: 11.5, marginTop: 10 }}>
-                    {t('adm.signups.stoppedAt').replace('{s}', t(`adm.signups.step.${r.last_step ?? 'opened'}`))}
+                    {/* L'étape la plus avancée : last_step dit la dernière APPELÉE (une page rechargée la ramenait à « ouverture »). */}
+                    {t('adm.signups.stoppedAt').replace('{s}', t(`adm.signups.step.${r.furthest_step ?? r.last_step ?? 'opened'}`))}
                   </div>
                 )}
 
