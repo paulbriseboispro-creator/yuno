@@ -63,7 +63,7 @@ export function DoorSearchPanel({ eventId, onPick, enteredQr }: Props) {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [picking, setPicking] = useState<string | null>(null);
-  const roster = useDoorRoster(eventId);
+  const roster = useDoorRoster(eventId, (k) => t('tableGuest.label').replace('{n}', String(k)));
   const { markScannedLocally } = roster;
 
   // Hors créneau accepté depuis la carte : la ligne passe au vert tout de

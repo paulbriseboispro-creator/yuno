@@ -3,8 +3,8 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { TicketSelectionSkeleton } from '@/components/skeletons/TicketSelectionSkeleton';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Users, Crown, Wine, Clock, ChevronDown, Lock, Ticket, Check, Music } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Users, Crown, Wine, Clock, Lock, Ticket, Check, Music } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { tableCapacityLabel } from '@/lib/tableCapacity';
 import { toast } from 'sonner';
 import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
+import { OfferCard, OfferPrice, OfferStatus, OfferText, QuantitySelector } from '@/components/ticketing/OfferCard';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { getStoredPromoCodeForVenue, usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
@@ -250,10 +251,10 @@ export default function TicketSelection() {
           lastTablesThreshold: z.last_tables_threshold ?? 20, createdAt: z.created_at, updatedAt: z.updated_at,
         })));
 
-        const { data: eventSettingsData } = await supabase.from('event_table_settings').select('*').eq('event_id', eventId).single();
+        const { data: eventSettingsData } = await supabase.from('event_table_settings').select('*').eq('event_id', eventId).maybeSingle();
         const priceOverrides: Record<string, number> = {};
         if (eventSettingsData?.preset_id) {
-          const { data: presetData } = await supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).single();
+          const { data: presetData } = await supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).maybeSingle();
           if (presetData?.packs) {
             (presetData.packs as { packId: string; customPrice: number | null }[]).forEach(pp => {
               if (pp.customPrice !== null) priceOverrides[pp.packId] = pp.customPrice;
@@ -1081,7 +1082,6 @@ function TicketCard({
   community?: CommunityCardProps;
 }) {
   const isSoldOut = round.manuallySoldOut || round.ticketsSold >= round.maxTickets;
-  const [showDesc, setShowDesc] = useState(false);
   // Tarif communauté verrouillé : pas sélectionnable, mais PAS grisé — l'action
   // qui débloque s'affiche dessous, c'est elle qu'on veut voir.
   const communityLocked = community?.status === 'locked' && !previewOnly && !isSoldOut;
@@ -1110,150 +1110,72 @@ function TicketCard({
   };
 
   const isDisabled = previewOnly || isSoldOut || communityLocked || !!ended;
+  const descId = round.description ? `ticket-desc-${round.id}` : undefined;
+  // La description est écrite par le pro et dit ce que le billet donne ; sans
+  // elle, la boisson offerte et l'heure limite d'entrée se lisent en mentions.
+  const showFacts = !round.description && (round.includesDrink || !!round.entryDeadline);
 
   return (
-    <div
-      className={cn(
-        'relative rounded border overflow-hidden transition-all duration-150',
-        communityLocked
-          ? 'border-primary/20 bg-[var(--sf-141414)] cursor-default'
-          : isSoldOut
-          // Épuisé : la carte reste lisible et la pastille rouge garde toute sa
-          // couleur — grisée à 45 %, elle disparaissait dans la liste alors que
-          // c'est elle qui dit « ça part vite ».
-          ? 'border-primary/[0.14] bg-[var(--sf-141414)] cursor-default'
-          : isDisabled
-          ? 'opacity-45 border-white/[0.06] bg-[var(--sf-141414)] cursor-default'
-          : isSelected
-            ? 'border-primary/30 cursor-pointer'
-            : 'border-white/[0.08] bg-[var(--sf-141414)] cursor-pointer active:scale-[0.99] hover:border-white/[0.14]'
-      )}
-      style={isSelected ? { backgroundColor: 'rgba(232,25,44,0.05)' } : undefined}
-      onClick={() => { if (!isDisabled && !isSelected) onSelect(); }}
-      role={!isDisabled ? 'button' : undefined}
-      tabIndex={!isDisabled ? 0 : undefined}
-      aria-label={`${round.name} ${round.price.toFixed(2)} €`}
-      onKeyDown={(e) => {
-        if (isDisabled || isSelected || e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
-    >
-      {/* Left accent stripe */}
-      {isSelected && (
-        <motion.div
-          initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
-          className="absolute left-0 inset-y-0 w-[3px] bg-primary origin-top"
-        />
-      )}
-
-      <div className={cn('flex items-center gap-3 py-3.5 pr-4', isSelected ? 'pl-5' : 'pl-4')}>
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className={cn('font-bold text-sm uppercase tracking-wide leading-tight', isSoldOut && 'text-white/45')}>{round.name}</h3>
-            {isSoldOut && !previewOnly && (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/[0.12] border border-primary/30 px-1.5 py-0.5 rounded-sm">
-                {t('tickets.soldOut') || 'Épuisé'}
-              </span>
-            )}
-            {isVip && !previewOnly && !isSoldOut && (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-sm">VIP</span>
-            )}
-            {community && !previewOnly && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
-                <Users className="h-2.5 w-2.5" />{t('community.badge')}
-                {community.status === 'open' && <Check className="h-2.5 w-2.5" />}
-              </span>
-            )}
-            {previewOnly && (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-sm">
-                {previewLabel || t('tickets.comingSoon') || 'Bientôt'}
-              </span>
-            )}
-            {!previewOnly && showUrgencyBadge && hasRealLimit && (
-              <span className="text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm animate-pulse">
-                {getScarcityLabel()}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <p className={cn('text-base font-bold tabular-nums', isSoldOut && 'text-white/40')}>{round.price.toFixed(2)} €</p>
-            {round.includesDrink && (
-              <span className={cn('text-[10px] flex items-center gap-1 font-medium', isSoldOut ? 'text-white/40' : 'text-primary')}>
-                <Wine className="h-2.5 w-2.5" />{t('ticketSel.drink')}
-              </span>
-            )}
-            {round.entryDeadline && (
-              <span className="text-[10px] text-white/55 flex items-center gap-1">
-                <Clock className="h-2.5 w-2.5" />{t('ticketSel.before')} {round.entryDeadline}
-              </span>
-            )}
-          </div>
-
-          {community?.status === 'open' && !previewOnly && !isSoldOut && (
-            <p className="text-[10px] mt-1 text-primary font-medium">{t('community.yourRate')}</p>
-          )}
-          {communityGuest && (
-            <p className="text-[10px] mt-1 text-white/55 leading-snug">
-              {(community.audience === 'newsletter' ? t('community.lockedNewsletter') : t('community.lockedCommunity')).replace('{name}', community.access?.hostName ?? '')}
-              {' '}{t('community.guestEmailHint')}
-            </p>
-          )}
-          {!previewOnly && showRemainingCount && hasRealLimit && (
-            <span className="mt-1.5 inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
-              {emojiEnabled ? '🎟️ ' : ''}{displayRemaining} {t('scarcity.ticketsLeft')}
-            </span>
-          )}
-
-          {round.description && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowDesc(!showDesc); }}
-              className="flex items-center gap-1 text-[10px] text-white/55 mt-1.5 hover:text-white/50 transition-colors"
-            >
-              {showDesc ? t('ticketSel.hide') : t('tickets.details')}
-              <ChevronDown className={cn('h-2.5 w-2.5 transition-transform', showDesc && 'rotate-180')} />
-            </button>
-          )}
-        </div>
-
-        {/* Right: qty or status */}
-        <div className="shrink-0">
-          {previewOnly ? (
-            <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
-              {t('tickets.comingSoon') || 'Bientôt'}
-            </span>
-          ) : ended ? (
-            <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
-              {t('tickets.free.phase.ended')}
-            </span>
-          ) : isSoldOut ? (
-            <span className="text-[10px] font-semibold text-primary border border-primary/30 px-2.5 py-1 rounded-sm">
+    <OfferCard
+      title={round.name}
+      ariaLabel={`${round.name} ${round.price.toFixed(2)} €`}
+      describedBy={descId}
+      selected={isSelected}
+      tone={isSoldOut ? 'soldOut' : isDisabled ? 'disabled' : 'default'}
+      onSelect={communityLocked ? undefined : onSelect}
+      badges={(
+        <>
+          {isSoldOut && !previewOnly && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/[0.12] border border-primary/30 px-1.5 py-0.5 rounded-sm">
               {t('tickets.soldOut') || 'Épuisé'}
             </span>
-          ) : communityLocked ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary border border-primary/30 px-2.5 py-1 rounded-sm">
-              <Lock className="h-2.5 w-2.5" />{t('community.reserved')}
-            </span>
-          ) : (
-            <QuantitySelector
-              quantity={quantity}
-              max={Math.max(1, Math.min(maxQuantity, remaining > 0 ? remaining : maxQuantity))}
-              onQuantityChange={(delta) => {
-                if (delta > 0 && !isSelected) { onSelect(); }
-                else { onQuantityChange(delta); }
-              }}
-            />
           )}
-        </div>
-      </div>
-
-      {/* Billet communauté verrouillé : l'action qui débloque, sous le tarif */}
-      {communityLocked && community && (
-        <div className="px-3 pb-3">
+          {isVip && !previewOnly && !isSoldOut && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-sm">VIP</span>
+          )}
+          {community && !previewOnly && (
+            <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
+              <Users className="h-2.5 w-2.5" />{t('community.badge')}
+              {community.status === 'open' && <Check className="h-2.5 w-2.5" />}
+            </span>
+          )}
+          {/* « Bientôt » se lit déjà à droite : la pastille ne sert qu'à dire QUAND. */}
+          {previewOnly && previewLabel && (
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-sm">
+              {previewLabel}
+            </span>
+          )}
+          {!previewOnly && showUrgencyBadge && hasRealLimit && (
+            <span className="shrink-0 text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm animate-pulse">
+              {getScarcityLabel()}
+            </span>
+          )}
+        </>
+      )}
+      price={<OfferPrice muted={isSoldOut}>{round.price.toFixed(2)} €</OfferPrice>}
+      action={
+        previewOnly ? (
+          <OfferStatus>{t('tickets.comingSoon') || 'Bientôt'}</OfferStatus>
+        ) : ended ? (
+          <OfferStatus>{t('tickets.free.phase.ended')}</OfferStatus>
+        ) : isSoldOut ? (
+          <OfferStatus tone="red">{t('tickets.soldOut') || 'Épuisé'}</OfferStatus>
+        ) : communityLocked ? (
+          <OfferStatus tone="red"><Lock className="h-2.5 w-2.5" />{t('community.reserved')}</OfferStatus>
+        ) : (
+          <QuantitySelector
+            quantity={quantity}
+            max={Math.max(1, Math.min(maxQuantity, remaining > 0 ? remaining : maxQuantity))}
+            onQuantityChange={(delta) => {
+              if (delta > 0 && !isSelected) { onSelect(); }
+              else { onQuantityChange(delta); }
+            }}
+          />
+        )
+      }
+      footer={communityLocked && community ? (
+        // Billet communauté verrouillé : l'action qui débloque, sous le tarif.
+        <div className="px-3 pb-3 -mt-1">
           <CommunityCta
             compact
             audience={community.audience}
@@ -1262,23 +1184,44 @@ function TicketCard({
             onChanged={community.refresh}
           />
         </div>
-      )}
-
-      {/* Description expand */}
-      <AnimatePresence>
-        {showDesc && round.description && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }}
-            className="overflow-hidden"
-          >
-            <p className="text-[11px] text-white/60 px-4 pb-3.5 border-t border-white/[0.06] pt-2.5 leading-relaxed">
-              {round.description}
+      ) : undefined}
+    >
+      {(round.description || showFacts || (community?.status === 'open' && !previewOnly && !isSoldOut) || communityGuest || (!previewOnly && showRemainingCount && hasRealLimit)) && (
+        <>
+          {/* Description du billet (200 caractères au plus) : lue avant de
+              choisir, jamais cachée derrière un « Détails ». */}
+          {round.description && <OfferText id={descId} muted={isSoldOut}>{round.description}</OfferText>}
+          {showFacts && (
+            <div className="flex items-center gap-3 flex-wrap">
+              {round.includesDrink && (
+                <span className={cn('text-[11.5px] flex items-center gap-1 font-medium', isSoldOut ? 'text-white/40' : 'text-primary')}>
+                  <Wine className="h-3 w-3" />{t('ticketSel.drink')}
+                </span>
+              )}
+              {round.entryDeadline && (
+                <span className="text-[11.5px] text-white/55 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />{t('ticketSel.before')} {round.entryDeadline}
+                </span>
+              )}
+            </div>
+          )}
+          {community?.status === 'open' && !previewOnly && !isSoldOut && (
+            <p className="text-[11px] text-primary font-medium">{t('community.yourRate')}</p>
+          )}
+          {communityGuest && (
+            <p className="text-[11px] text-white/55 leading-snug">
+              {(community.audience === 'newsletter' ? t('community.lockedNewsletter') : t('community.lockedCommunity')).replace('{name}', community.access?.hostName ?? '')}
+              {' '}{t('community.guestEmailHint')}
             </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          )}
+          {!previewOnly && showRemainingCount && hasRealLimit && (
+            <span className="inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
+              {emojiEnabled ? '🎟️ ' : ''}{displayRemaining} {t('scarcity.ticketsLeft')}
+            </span>
+          )}
+        </>
+      )}
+    </OfferCard>
   );
 }
 
@@ -1305,157 +1248,73 @@ function PackCard({
     : 0;
   const remainingAtVenue = depositAmount > 0 ? Math.max(0, pack.basePrice - depositAmount) : 0;
   const onSite = pack.paymentMode === 'on_site';
+  const descId = pack.description ? `pack-desc-${pack.id}` : undefined;
 
   return (
-    <div
-      className={cn(
-        'rounded border overflow-hidden transition-all duration-150',
-        isSoldOut
-          ? 'opacity-40 border-white/[0.06] bg-[var(--sf-141414)] cursor-default'
-          : isSelected
-            ? 'border-primary/30'
-            : 'border-white/[0.08] bg-[var(--sf-141414)] cursor-pointer active:scale-[0.99] hover:border-white/[0.14]'
-      )}
-      style={isSelected ? { backgroundColor: 'rgba(232,25,44,0.05)' } : undefined}
-      onClick={() => { if (!isSoldOut && !isSelected) onSelectPack(); }}
-      role={!isSoldOut ? 'button' : undefined}
-      tabIndex={!isSoldOut ? 0 : undefined}
-      aria-label={`${pack.name} ${pack.basePrice} €`}
-      onKeyDown={(e) => {
-        if (isSoldOut || isSelected || e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelectPack();
-        }
-      }}
+    <OfferCard
+      title={pack.name}
+      ariaLabel={`${pack.name} ${pack.basePrice} €`}
+      describedBy={descId}
+      selected={isSelected}
+      tone={isSoldOut ? 'soldOut' : 'default'}
+      onSelect={onSelectPack}
+      badges={showUrgency ? (
+        <span className="shrink-0 text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm animate-pulse">
+          {emojiEnabled ? '🔥 ' : ''}{t('scarcity.labelFewLeft')}
+        </span>
+      ) : undefined}
+      price={<OfferPrice muted={isSoldOut}>{pack.basePrice} €</OfferPrice>}
+      action={
+        isSoldOut ? (
+          <OfferStatus>{t('tables.soldOut') || 'Complet'}</OfferStatus>
+        ) : isSelected ? (
+          <>
+            <button
+              type="button"
+              onClick={onDeselectPack}
+              className="text-[10px] text-white/55 hover:text-white/75 transition-colors font-semibold uppercase tracking-wide"
+            >
+              {t('common.cancel')}
+            </button>
+            <QuantitySelector quantity={quantity} onQuantityChange={onQuantityChange} min={1} max={Math.min(10, remaining > 0 ? remaining : 10)} />
+          </>
+        ) : (
+          <Button size="sm" onClick={onSelectPack} className="h-8 px-4 rounded-sm text-xs font-bold">
+            {t('ticketSel.reserve') || 'Réserver'}
+          </Button>
+        )
+      }
     >
-      {isSelected && (
-        <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="h-[3px] w-full bg-primary origin-left" />
-      )}
-
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="font-bold text-sm">{pack.name}</h4>
-              {showUrgency && (
-                <span className="text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm animate-pulse">
-                  {emojiEnabled ? '🔥 ' : ''}{t('scarcity.labelFewLeft')}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-white/60 flex-wrap">
-              {/* La capacite d'une formule est un PLAFOND, jamais un minimum : le
-                  compteur du checkout descend jusqu'a 1 personne. Ecrire
-                  « 8 pers. min » faisait croire qu'il fallait etre huit pour
-                  reserver, et renvoyait un groupe de quatre vers la billetterie. */}
-              <span>{tableCapacityLabel(pack, t)}</span>
-              {pack.includedBottlesQuota > 0 && <span>· {pack.includedBottlesQuota} {pack.includedBottlesQuota > 1 ? t('ticketSel.bottles') : t('ticketSel.bottle')}</span>}
-            </div>
-            {pack.description && (
-              <p className="text-[11px] text-white/60">{pack.description}</p>
-            )}
-            {pack.minimumSpend > 0 && (
-              <p className="text-[11px] text-amber-400/60 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>
-            )}
-            {pack.arrivalDeadline && (
-              <p className="text-[11px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
-            )}
-            {pack.limitTables && !isSoldOut && remaining > 0 && remaining <= 3 && (
-              <span className="inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
-                {remaining} {t('ticketSel.tablesLeft')}
-              </span>
-            )}
-            {onSite ? (
-              <p className="text-[11px] text-emerald-400 font-semibold">{t('ticketSel.onSitePayment')}</p>
-            ) : depositAmount > 0 && remainingAtVenue > 0 && (
-              <p className="text-[11px] text-white/60">
-                <span className="text-white/70 font-medium">{t('ticketSel.depositNow')} {depositAmount} €</span>
-                {' · '}{remainingAtVenue} € {t('ticketSel.atVenue')}
-              </p>
-            )}
-          </div>
-
-          <div className="shrink-0 text-right space-y-2">
-            <p className="text-lg font-bold tabular-nums">{pack.basePrice} €</p>
-            {!isSoldOut && (
-              isSelected ? (
-                <div className="flex flex-col items-end gap-1.5">
-                  <QuantitySelector quantity={quantity} onQuantityChange={onQuantityChange} min={1} max={Math.min(10, remaining > 0 ? remaining : 10)} />
-                  <button onClick={(e) => { e.stopPropagation(); onDeselectPack(); }} className="text-[9px] text-white/55 hover:text-white/50 transition-colors font-medium uppercase tracking-wide">
-                    {t('common.cancel')}
-                  </button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={(e) => { e.stopPropagation(); onSelectPack(); }}
-                  className="h-8 px-4 rounded-sm text-xs font-bold"
-                >
-                  {t('ticketSel.reserve') || 'Réserver'}
-                </Button>
-              )
-            )}
-            {isSoldOut && (
-              <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2 py-0.5 rounded-sm">
-                {t('tables.soldOut') || 'Complet'}
-              </span>
-            )}
-          </div>
-        </div>
+      {pack.description && <OfferText id={descId} muted={isSoldOut}>{pack.description}</OfferText>}
+      <div className="space-y-1">
+        {/* La capacité d'une formule est un PLAFOND, jamais un minimum : le
+            compteur du checkout descend jusqu'à 1 personne. Écrire
+            « 8 pers. min » faisait croire qu'il fallait être huit pour
+            réserver, et renvoyait un groupe de quatre vers la billetterie. */}
+        <p className="text-[12px] text-white/60">
+          {tableCapacityLabel(pack, t)}
+          {pack.includedBottlesQuota > 0 && <> · {pack.includedBottlesQuota} {pack.includedBottlesQuota > 1 ? t('ticketSel.bottles') : t('ticketSel.bottle')}</>}
+        </p>
+        {pack.minimumSpend > 0 && (
+          <p className="text-[12px] text-amber-400/70 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>
+        )}
+        {pack.arrivalDeadline && (
+          <p className="text-[12px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
+        )}
+        {onSite ? (
+          <p className="text-[12px] text-emerald-400 font-semibold">{t('ticketSel.onSitePayment')}</p>
+        ) : depositAmount > 0 && remainingAtVenue > 0 && (
+          <p className="text-[12px] text-white/60">
+            <span className="text-white/75 font-medium">{t('ticketSel.depositNow')} {depositAmount} €</span>
+            {' · '}{remainingAtVenue} € {t('ticketSel.atVenue')}
+          </p>
+        )}
       </div>
-    </div>
-  );
-}
-
-function QuantitySelector({
-  quantity, onQuantityChange, min = 0, max = 10,
-}: {
-  quantity: number; onQuantityChange: (delta: number) => void; min?: number; max?: number;
-}) {
-  return (
-    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-      <button
-        className={cn(
-          'h-8 w-8 rounded-sm flex items-center justify-center transition-all duration-150',
-          quantity > min
-            ? 'bg-white/[0.09] text-white/70 hover:bg-white/[0.14] active:scale-90'
-            : 'bg-white/[0.04] text-white/15 cursor-default'
-        )}
-        onClick={() => quantity > min && onQuantityChange(-1)}
-        disabled={quantity <= min}
-        aria-label="Decrease quantity"
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </button>
-
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={quantity}
-          initial={{ scale: 1.25, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.75, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 22, duration: 0.12 }}
-          className={cn('text-base font-bold w-5 text-center tabular-nums select-none', quantity === 0 ? 'text-white/55' : 'text-white')}
-        >
-          {quantity}
-        </motion.span>
-      </AnimatePresence>
-
-      <button
-        className={cn(
-          'h-8 w-8 rounded-sm flex items-center justify-center transition-all duration-150',
-          quantity < max
-            ? 'text-snow active:scale-90'
-            : 'text-white/15 cursor-default'
-        )}
-        style={quantity < max ? { backgroundColor: 'rgba(232,25,44,0.80)' } : { backgroundColor: 'rgb(var(--ink)/0.04)' }}
-        onClick={() => quantity < max && onQuantityChange(1)}
-        disabled={quantity >= max}
-        aria-label="Increase quantity"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </div>
+      {pack.limitTables && !isSoldOut && remaining > 0 && remaining <= 3 && (
+        <span className="inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
+          {remaining} {t('ticketSel.tablesLeft')}
+        </span>
+      )}
+    </OfferCard>
   );
 }

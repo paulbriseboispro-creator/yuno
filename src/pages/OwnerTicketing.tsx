@@ -45,7 +45,7 @@ import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCap
 import { FreeTicketDialog, type FreeTicketPatch } from '@/components/owner/ticketing/FreeTicketDialog';
 import { FreeTicketRow } from '@/components/owner/ticketing/FreeTicketRow';
 import { FreePresetDialog, type FreePresetDraft } from '@/components/owner/ticketing/FreePresetDialog';
-import { UNLIMITED_TICKETS, normalizeChainVisibility, normalizeEntryDeadline, normalizeFreePreset, roundsToFreePreset, type ChainVisibility } from '@/lib/freeTicketing';
+import { UNLIMITED_TICKETS, normalizeChainVisibility, normalizeEntryDeadline, normalizeFreePreset, normalizeTicketDescription, roundsToFreePreset, type ChainVisibility } from '@/lib/freeTicketing';
 import { FreeChainVisibility } from '@/components/owner/ticketing/FreeChainVisibility';
 import { applyFreePreset } from '@/lib/applyFreePreset';
 import { useTabParam } from '@/hooks/useTabParam';
@@ -105,6 +105,7 @@ export default function OwnerTicketing() {
   
   const [roundFormData, setRoundFormData] = useState<RoundFormData>({
     name: '',
+    description: '',
     price: '',
     maxTickets: '',
     isActive: false,
@@ -794,6 +795,7 @@ export default function OwnerTicketing() {
     setEditingRound(null);
     setRoundFormData({
       name: '',
+      description: '',
       price: '',
       maxTickets: '',
       isActive: isSimpleMode ? true : false,
@@ -816,6 +818,7 @@ export default function OwnerTicketing() {
     setEditingRound(round);
     setRoundFormData({
       name: round.name,
+      description: round.description ?? '',
       price: round.price.toString(),
       maxTickets: round.maxTickets.toString(),
       isActive: round.isActive,
@@ -894,6 +897,7 @@ export default function OwnerTicketing() {
       const roundData: TablesInsert<'ticket_rounds'> = {
         event_id: selectedEvent.id,
         name: roundFormData.name,
+        description: normalizeTicketDescription(roundFormData.description),
         price: parseFloat(roundFormData.price),
         max_tickets: isSimpleMode ? 999999 : parseInt(roundFormData.maxTickets),
         // Invariant : un round épuisé manuellement n'est jamais actif (cohérent avec le trigger SQL).
@@ -916,12 +920,16 @@ export default function OwnerTicketing() {
       };
 
       if (editingRound) {
-        const { error } = await supabase
+        // `.select` : la RLS refuse une mise à jour SANS erreur (0 ligne), par
+        // exemple sur une co-soirée dont le club tient la billetterie.
+        const { data: updated, error } = await supabase
           .from('ticket_rounds')
           .update(roundData)
-          .eq('id', editingRound.id);
+          .eq('id', editingRound.id)
+          .select('id');
 
         if (error) throw error;
+        if (!updated?.length) { toast.error(t('tickets.notAllowed')); return; }
         toast.success(t('tickets.roundUpdated'));
       } else {
         const { error } = await supabase
@@ -948,8 +956,10 @@ export default function OwnerTicketing() {
     const { eventId, ticket } = freeTicketDialog;
     try {
       if (ticket) {
-        const { error } = await supabase.from('ticket_rounds').update(patch).eq('id', ticket.id);
+        // 0 ligne sans erreur = la RLS a refusé (billetterie tenue par l'autre partie).
+        const { data: updated, error } = await supabase.from('ticket_rounds').update(patch).eq('id', ticket.id).select('id');
         if (error) throw error;
+        if (!updated?.length) { toast.error(t('tickets.notAllowed')); return; }
       } else {
         const existing = ticketRounds[eventId] || [];
         const position = existing.length > 0 ? Math.max(...existing.map(r => r.position)) + 1 : 0;
@@ -1007,6 +1017,7 @@ export default function OwnerTicketing() {
       includes_drink: r.includesDrink, drink_deadline_type: r.drinkDeadlineType ?? null,
       drink_deadline_hours: r.drinkDeadlineHours ?? null, drink_cutoff_time: r.drinkCutoffTime ?? null,
       entry_deadline: r.entryDeadline ?? null,
+      description: r.description ?? null,
       id: r.id, opens_after_round_id: r.opensAfterRoundId ?? null,
     }));
     setFreePresetDialog({

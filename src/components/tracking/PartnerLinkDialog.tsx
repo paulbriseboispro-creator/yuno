@@ -72,13 +72,6 @@ interface Props {
   onSaved: () => void;
 }
 
-function randomSuffix(): string {
-  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
-  const bytes = new Uint8Array(4);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
-}
-
 export function PartnerLinkDialog({
   open, onOpenChange, editing, ownerKind, venueId, organizerUserId, eventId, eventTitle,
   canSeeMoney, onSaved,
@@ -100,11 +93,9 @@ export function PartnerLinkDialog({
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<PartnerLinkRow | null>(null);
   const [copied, setCopied] = useState<'link' | 'page' | null>(null);
-  const [suffix, setSuffix] = useState(randomSuffix);
 
   useEffect(() => {
     if (!open) return;
-    setSuffix(randomSuffix());
     setCreated(null);
     setCopied(null);
     setSaving(false);
@@ -135,8 +126,8 @@ export function PartnerLinkDialog({
   // Le code suit le nom tant que le pro ne l'a pas réécrit.
   useEffect(() => {
     if (editing || codeTouched) return;
-    setCode(name.trim() ? suggestPartnerCode(name, eventTitle ?? '', suffix) : '');
-  }, [name, eventTitle, suffix, codeTouched, editing]);
+    setCode(name.trim() ? suggestPartnerCode(name, eventTitle ?? '') : '');
+  }, [name, eventTitle, codeTouched, editing]);
 
   const contact = contactMode === 'phone' ? phone : email.trim();
   const cleanName = cleanPartnerName(name);
@@ -155,7 +146,7 @@ export function PartnerLinkDialog({
   const save = async () => {
     if (!cleanName) { toast.error(t('plink.nameRequired')); return; }
     if (isReservedPartnerName(cleanName)) { toast.error(t('plink.nameReserved')); return; }
-    if (!editing && !isValidPartnerCode(code)) { toast.error(t('plink.codeInvalid')); return; }
+    if (!editing && codeTouched && !isValidPartnerCode(code)) { toast.error(t('plink.codeInvalid')); return; }
     if (!isValidPartnerContact(contact)) { toast.error(t('plink.contactInvalid')); return; }
     setSaving(true);
 
@@ -180,7 +171,9 @@ export function PartnerLinkDialog({
     const { data, error } = await supabase
       .from('tracked_links')
       .insert({
-        code,
+        // Code proposé, pas encore réécrit : vide, la base l'écrit et en prend
+        // la variante libre si un autre partenaire porte déjà ce nom.
+        code: codeTouched ? code : '',
         label: cleanName,
         owner_kind: ownerKind,
         venue_id: ownerKind === 'venue' ? venueId ?? null : null,

@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, Wine, ChevronUp, ChevronDown, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { presetSaleChoice, wouldCreateChainCycle, type DisplayChoice, type FreePresetTicket, type RelativeTime, type SaleChoice } from '@/lib/freeTicketing';
+import { normalizeTicketDescription, presetSaleChoice, wouldCreateChainCycle, type DisplayChoice, type FreePresetTicket, type RelativeTime, type SaleChoice } from '@/lib/freeTicketing';
 import { RED, POS, T1, T3, C_FAINT, BORDER, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import { Choice } from './FreeChoice';
+import { TicketDescriptionField } from './TicketDescriptionField';
 
 export interface FreePresetDraft {
   name: string;
@@ -100,6 +101,7 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
         tickets: tickets.map((tk) => ({
           ...tk,
           name: tk.name.trim(),
+          description: normalizeTicketDescription(tk.description),
           visibleAt: tk.display === 'at' ? tk.visibleAt ?? DEFAULT_REL : null,
           saleStartAt: tk.sale === 'at' ? tk.saleStartAt ?? DEFAULT_REL : null,
           // Un billet attendu qui n'est plus dans le modèle : rien n'est lié (reste « plus tard »).
@@ -155,6 +157,13 @@ export function FreePresetDialog({ open, onOpenChange, title, initial, onSave }:
                     </Button>
                   )}
                 </div>
+
+                <TicketDescriptionField
+                  id={`freePresetDescription-${i}`}
+                  compact
+                  value={tk.description ?? ''}
+                  onChange={(description) => setTicket(i, { description })}
+                />
 
                 <div className="space-y-1.5">
                   <p style={{ ...LABEL, fontSize: 10.5 }}>{t('tickets.free.displayQ')}</p>

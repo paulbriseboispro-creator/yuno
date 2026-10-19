@@ -12,6 +12,7 @@ import { TicketRound, TicketSellingMode, type TicketAudience } from '@/types/tic
 import { RED, T1, C_FAINT, BORDER, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import type { RoundFormData } from './ticketing-types';
 import { DrinkOptionsFields } from './DrinkOptionsFields';
+import { TicketDescriptionField } from './TicketDescriptionField';
 
 interface RoundDialogProps {
   isRoundDialogOpen: boolean;
@@ -43,7 +44,7 @@ export function RoundDialog({
   const { t } = useLanguage();
   return (
         <Dialog open={isRoundDialogOpen} onOpenChange={setIsRoundDialogOpen}>
-          <DialogContent className="max-w-md" style={DIALOG_SURFACE}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" style={DIALOG_SURFACE}>
             <DialogHeader>
               <DialogTitle style={DIALOG_TITLE}>
                 {editingRound ? t('tickets.editRound') : t('tickets.createRound')}
@@ -62,6 +63,12 @@ export function RoundDialog({
                   placeholder="Early Birds, First Release..."
                 />
               </div>
+
+              <TicketDescriptionField
+                id="roundDescription"
+                value={roundFormData.description}
+                onChange={(description) => setRoundFormData({ ...roundFormData, description })}
+              />
 
               <div className={`grid gap-4 ${selectedEvent && events.find(e => e.id === selectedEvent.id)?.ticketSellingMode === 'simple' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <div>

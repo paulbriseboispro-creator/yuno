@@ -35,6 +35,8 @@ export interface UnifiedOrderEntry {
   time?: string;
   /** secondary line e.g. "2× billet" / "Carré VIP · 4 pers." */
   subtitle?: string;
+  /** précision écrite par l'organisateur sous le tarif (description du billet) */
+  note?: string | null;
   price: number;
   free: boolean;
   scanned?: boolean;
@@ -187,6 +189,22 @@ function KindChip({ kind, label }: { kind: OrderKind; label?: string }) {
   );
 }
 
+/* ---- précision sous le tarif (description d'un billet, écrite par le pro) ----
+   Même lecture que la page d'achat : 11.5 px, blanc à 60 %, retours à la ligne
+   gardés. Jamais tronquée : c'est ce que le billet donne. */
+function OrderNote({ text, align = 'left', style }: { text?: string | null; align?: 'left' | 'center'; style?: React.CSSProperties }) {
+  const note = text?.trim();
+  if (!note) return null;
+  return (
+    <p
+      className="whitespace-pre-line [overflow-wrap:anywhere]"
+      style={{ margin: '6px 0 0', fontSize: 11.5, lineHeight: 1.55, color: 'rgba(255,255,255,0.6)', textAlign: align, ...style }}
+    >
+      {note}
+    </p>
+  );
+}
+
 /* ================================================================
    CARD — EN ATTENTE (ce soir, urgent)
    ================================================================ */
@@ -236,6 +254,7 @@ export function PendingCard({ o, tonightLabel, index = 0, kindLabels }: { o: Uni
               )}
             </div>
           )}
+          <OrderNote text={o.note} />
         </div>
         <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, flexShrink: 0, color: o.free ? G1 : RED }}>
           {o.free ? FREE_LABEL : `${o.price}€`}
@@ -299,6 +318,7 @@ export function UpcomingCard({ o, index = 0, kindLabels }: { o: UnifiedOrderEntr
           {o.time && <span className="font-mono" style={{ fontSize: 10.5, color: G2 }}>{o.time}</span>}
           {o.subtitle && <span className="font-mono truncate" style={{ fontSize: 10.5, color: G3 }}>{o.time ? '· ' : ''}{o.subtitle}</span>}
         </div>
+        <OrderNote text={o.note} />
       </div>
 
       {/* Prix + bouton */}
@@ -397,13 +417,15 @@ export interface QRAction {
 }
 
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, slides, actions, whenLabel, instant, posterUrl, posterThumb, kindLabel,
+  kind, title, venueName, qrImage, idLabel, note, scanned, footer, labels, onClose, slides, actions, whenLabel, instant, posterUrl, posterThumb, kindLabel,
 }: {
   kind: OrderKind;
   title: string;
   venueName: string;
   qrImage?: string;
   idLabel?: string;
+  /** précision sous le tarif (description du billet, écrite par l'organisateur) */
+  note?: string | null;
   scanned?: boolean;
   /** extra info rows shown above the action bar */
   footer?: React.ReactNode;
@@ -611,10 +633,11 @@ export function OrderQROverlay({
       {/* Infos bas — remonté au-dessus de la safe-area (home indicator) */}
       <div className="w-full max-w-md mx-auto" style={{ padding: '16px 24px calc(env(safe-area-inset-bottom, 0px) + 24px)', position: 'relative', zIndex: 1 }}>
         {idLabel && (
-          <div className="font-mono text-center uppercase" style={{ fontSize: 10.5, letterSpacing: '.14em', color: G2, marginBottom: 12 }}>
+          <div className="font-mono text-center uppercase" style={{ fontSize: 10.5, letterSpacing: '.14em', color: G2, marginBottom: note?.trim() ? 0 : 12 }}>
             {idLabel}
           </div>
         )}
+        <OrderNote text={note} align="center" style={{ margin: idLabel ? '6px 0 12px' : '0 0 12px' }} />
         <div
           className="flex items-center gap-3"
           style={{ background: CARD, border: `1px solid ${BORDER_STRONG}`, borderRadius: 8, padding: '10px 12px', marginBottom: footer ? 10 : 12 }}

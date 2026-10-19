@@ -1,7 +1,7 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
-import { getEventPresenters, followEventHosts, followsAllEventHosts, type EventPresenter } from '@/lib/coorg';
+import { getEventPresenters, followEventHosts, followsAllEventHosts, orgEventsOr, venueEventsOr, type EventPresenter } from '@/lib/coorg';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
@@ -11,7 +11,7 @@ import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, M
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
-import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { guestListScarcity, scarcityBadgeText, ticketScarcityBadge } from '@/lib/guestListScarcity';
 import { areAllPacksSoldOut, isPackSoldOut, isGuestListSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -49,6 +49,10 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { shortAddress } from '@/lib/addressDisplay';
+
+// Trait gris plein qui sépare les offres du bloc billets.
+const OFFER_RULE = '1px solid rgb(var(--ink)/0.14)';
 
 type EventDJ = {
   id: string;
@@ -285,7 +289,10 @@ export default function EventDetails() {
       venueId
         ? Promise.all([
             rpcCount(supabase.rpc('get_public_favorite_count', { _favorite_type: 'club', _venue_id: venueId })),
-            headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('venue_id', venueId)),
+            // « N soirées » = celles que la page publique du club liste : actives,
+            // publiques, et jamais une soirée miroir de la billetterie externe
+            // (Yuno CRM) — le CRM et la Billetterie ne se comptent pas entre eux.
+            headCount(supabase.from('events').select('*', { count: 'exact', head: true }).or(venueEventsOr(venueId)).eq('is_active', true).eq('visibility', 'public')),
           ])
         : Promise.resolve([0, 0] as [number, number]),
       Promise.all(organizerIds.map(async (orgUserId) => {
@@ -295,7 +302,10 @@ export default function EventDetails() {
           // renverrait 0. RPC pas encore dans types.ts (regen en follow-up).
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rpcCount((supabase.rpc as any)('get_organizer_follower_count', { p_organizer_user_id: orgUserId })),
-          headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('organizer_user_id', orgUserId)),
+          // Même liste que le profil public /o/… : soirées actives et publiques de
+          // l'organisateur, soirées miroirs Shotgun du CRM exclues (Amoris en
+          // portait 282 sur 285).
+          headCount(supabase.from('events').select('*', { count: 'exact', head: true }).or(orgEventsOr(orgUserId)).eq('is_active', true).eq('visibility', 'public')),
           user
             ? supabase.from('organizer_profile_followers').select('id').eq('organizer_user_id', orgUserId).eq('user_id', user.id).maybeSingle().then(r => !!r.data)
             : Promise.resolve(false),
@@ -863,9 +873,12 @@ export default function EventDetails() {
   const hasTables = !!event?.tablesEnabled && activePacks.length > 0;
   const hasTicketsOrTables = hasTickets || hasTables;
 
-  // Low stock detection
-  const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
-  const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
+  // Rareté d'un billet sur la fiche : la mention choisie par le pro dans
+  // Rareté & FOMO (« 🔥 Dernières places »), jamais un nombre de places.
+  const roundScarcityText = (r: TicketRound): string | null => {
+    const badge = ticketScarcityBadge(eventScarcity, { ticketsSold: r.ticketsSold, maxTickets: r.maxTickets, soldOut: r.manuallySoldOut });
+    return badge ? scarcityBadgeText(badge, t) : null;
+  };
   const isSoldOut = !!event?.ticketingEnabled && (soldOut.ticketsSoldOut || (allBuyableRounds.length === 0 && !freeStillComing && (isFreeMode ? freeListed.length > 0 : ticketRounds.length > 0)));
   const rawSalesStatus = getEventSalesStatus(
     {
@@ -943,10 +956,6 @@ export default function EventDetails() {
     if ((isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets)) {
       return { text: t('event.soldOut'), color: 'text-destructive', urgent: true };
     }
-    if (lowStockRounds.length > 0 && totalTicketsRemaining <= 30) {
-      const remaining = totalTicketsRemaining;
-      return { text: t('event.spotsLeft').replace('{{count}}', String(remaining)), color: 'text-orange-400', urgent: true };
-    }
     if (hasTickets && hasTables) {
       return { text: t('event.ticketsAndTables'), color: 'text-primary', urgent: false };
     }
@@ -993,6 +1002,12 @@ export default function EventDetails() {
   const HERO_GUTTER = '20px';
   const tz = getEventTimezone(event);
   const startDate = new Date(event.startAt);
+  // Ligne « Quand » de la fiche : « mer. 28 oct. », l'année seulement si la
+  // soirée n'est pas de l'année en cours.
+  const infoDatePattern = formatInTimeZone(startDate, tz, 'yyyy') === formatInTimeZone(new Date(), tz, 'yyyy')
+    ? 'EEE d MMM'
+    : 'EEE d MMM yyyy';
+  const addressLine = event.locationIsSecret ? t('event.secretValue') : shortAddress(venue.address, venue.city);
 
   const heroChip: React.CSSProperties = {
     width: 40, height: 40, borderRadius: '4px', background: 'rgb(var(--ink)/0.045)', color: 'var(--tx-e5e5e5)', border: '1px solid rgb(var(--ink)/0.12)', cursor: 'pointer',
@@ -1338,6 +1353,13 @@ export default function EventDetails() {
                       {availability.text}
                     </p>
                   )}
+                  {/* Un seul billet affiché : pas de liste, la mention de rareté
+                      se pose sous le prix d'appel. */}
+                  {breakdownRounds.length === 1 && roundScarcityText(breakdownRounds[0]) && (
+                    <p className="font-mono uppercase mt-2" style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: 'var(--acc-f87171)' }}>
+                      {roundScarcityText(breakdownRounds[0])}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
@@ -1352,23 +1374,34 @@ export default function EventDetails() {
                   {tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
                 </button>
               </div>
-              {/* Active rounds breakdown when multiple rounds are visible */}
+              {/* Les offres en vente, l'une sous l'autre, séparées par un simple
+                  trait gris. Jamais de jauge de ventes ni de nombre de places :
+                  la fiche ne dit la rareté que par la mention choisie dans
+                  Rareté & FOMO (`ticketScarcityBadge`). */}
               {breakdownRounds.length > 1 && (
-                <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: '1px solid rgb(var(--ink)/0.06)' }}>
-                  {breakdownRounds.map((r) => {
-                    const pctSold = Math.min((r.ticketsSold / r.maxTickets) * 100, 100);
+                <div className="mt-4" style={{ borderTop: OFFER_RULE }}>
+                  {breakdownRounds.map((r, i) => {
+                    const scarcity = roundScarcityText(r);
                     return (
-                      <div key={r.id}>
-                        <div className="flex items-center justify-between mb-1.5">
+                      <div key={r.id} style={{ padding: `12px 0 ${i === breakdownRounds.length - 1 ? 0 : 12}px`, borderTop: i > 0 ? OFFER_RULE : 'none' }}>
+                        <div className="flex items-center justify-between gap-3">
                           <span className="font-mono" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
                             {r.name}
                             {isCommunityAudience(r.audience) && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-primary">{t('community.badge')}</span>}
                           </span>
-                          <span className="font-mono font-bold" style={{ fontSize: '12px', color: 'rgb(var(--ink))' }}>{r.price.toFixed(2)}€</span>
+                          <span className="font-mono font-bold shrink-0" style={{ fontSize: '12px', color: 'rgb(var(--ink))' }}>{r.price.toFixed(2)}€</span>
                         </div>
-                        <div className="w-full overflow-hidden" style={{ height: 2, background: 'rgb(var(--ink)/0.06)', borderRadius: 1 }}>
-                          <div style={{ height: '100%', width: `${pctSold}%`, background: pctSold > 80 ? '#E8192C' : 'var(--sf-3a3a3e)', transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: 1 }} />
-                        </div>
+                        {/* Ce que le billet donne, en une ou deux lignes (200 caractères au plus). */}
+                        {r.description && (
+                          <p className="whitespace-pre-line [overflow-wrap:anywhere]" style={{ fontSize: '11.5px', lineHeight: 1.45, color: 'var(--tx-7a7a7e)', margin: '6px 0 0' }}>
+                            {r.description}
+                          </p>
+                        )}
+                        {scarcity && (
+                          <p className="font-mono uppercase" style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: 'var(--acc-f87171)', marginTop: 8 }}>
+                            {scarcity}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
@@ -1498,20 +1531,22 @@ export default function EventDetails() {
           {/* Compact details */}
           <div style={{ border: '1px solid rgb(var(--ink)/0.08)', borderRadius: '4px', padding: '0 16px' }}>
             {([
-              // La date et les horaires sont en grand dans le héros ; ici, la
-              // ligne complète, pour qui lit la fiche d'un bout à l'autre.
-              [t('event.whenLabel'), `${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() })} · ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')} → ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`],
-              // Secret events show a sober "Secret location" value instead of the exact
-              // address; the city always shows so the attendee knows where to travel and
-              // the event stays city-filtered.
+              // La date et les horaires sont en grand dans le héros ; ici, une
+              // ligne courte pour qui lit la fiche d'un bout à l'autre. L'année
+              // n'y figure que si la soirée n'est pas de l'année en cours.
+              [t('event.whenLabel'), `${formatInTimeZone(startDate, tz, infoDatePattern, { locale: getLocale() })} · ${formatInTimeZone(startDate, tz, 'HH:mm')} → ${formatInTimeZone(new Date(event.endAt), tz, 'HH:mm')}`],
               // Lieu hors Yuno (soirée d'organisateur sans club) : son nom d'abord.
               !event.locationIsSecret && event.locationName && venue.id === primaryOrganizer?.user_id
                 ? [t('event.venueName'), event.locationName]
                 : null,
-              event.locationIsSecret
-                ? [t('event.address'), t('event.secretValue')]
-                : (venue.address ? [t('event.address'), venue.address] : null),
-              venue.city ? [t('event.city'), venue.city] : null,
+              // Une ligne d'adresse courte (rue, numéro, ville) : code postal et
+              // pays restent dans l'itinéraire du bouton Maps. Une soirée secrète
+              // montre une valeur sobre à la place de l'adresse.
+              addressLine ? [t('event.address'), addressLine] : null,
+              // La ville ne se répète pas quand l'adresse la porte déjà ; elle
+              // reste seule pour un lieu secret ou sans adresse, afin que
+              // l'invité sache où se rendre et que la soirée reste filtrable.
+              venue.city && (event.locationIsSecret || !addressLine) ? [t('event.city'), venue.city] : null,
             ].filter(Boolean) as [string, string][]).map(([k, v], i, arr) => (
               <div
                 key={k}
@@ -1519,19 +1554,7 @@ export default function EventDetails() {
                 style={{ padding: '11px 0', borderBottom: i < arr.length - 1 ? '1px solid rgb(var(--ink)/0.07)' : 'none' }}
               >
                 <span className="font-mono flex-shrink-0" style={{ fontSize: '12px', color: 'var(--tx-5a5a5e)' }}>{k}</span>
-                {k === t('event.address') && !event.locationIsSecret ? (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-right transition-colors hover:text-[#E8192C]"
-                    style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em', maxWidth: '60%' }}
-                  >
-                    {v}
-                  </a>
-                ) : (
-                  <span className="font-mono text-right" style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em' }}>{v}</span>
-                )}
+                <span className="font-mono text-right" style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em' }}>{v}</span>
               </div>
             ))}
             {!event.locationIsSecret && venue.address && (
@@ -1542,7 +1565,7 @@ export default function EventDetails() {
                 className="flex items-center justify-center gap-1 w-full my-4 font-mono text-[var(--tx-5a5a5e)] hover:text-white transition-colors"
                 style={{ height: '38px', borderRadius: '4px', fontSize: '11px', letterSpacing: '0.08em', border: '1px solid rgb(var(--ink)/0.08)', background: 'transparent' }}
               >
-                Open in Maps →
+                {t('affiliate.openInMaps')} →
               </a>
             )}
           </div>

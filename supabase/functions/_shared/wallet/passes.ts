@@ -51,6 +51,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { normalizeWalletLang, wl, type WalletLang } from './i18n.ts';
 import { passArtwork } from './artwork.ts';
+import { normalizeTicketDescription } from '../free-ticketing.ts';
 
 /** Ligne event embarquée (`events!inner(...)`) des selects ci-dessous. */
 interface WalletEventRow {
@@ -88,7 +89,7 @@ interface WalletTicketRow {
   status: string | null;
   user_id: string | null;
   full_name: string | null;
-  ticket_rounds: { name: string | null } | null;
+  ticket_rounds: { name: string | null; description: string | null } | null;
   events: WalletEventRow;
 }
 
@@ -454,7 +455,7 @@ function backFields(opts: {
   address: string | null;
   lineup: string[];
   genre: string | null;
-  /** Champs propres au pilier : places d'un billet groupé, pack et convives. */
+  /** Champs propres au pilier : description et places d'un billet, pack et convives. */
   extra?: Array<{ key: string; label: string; value: string }>;
 }) {
   const { lang } = opts;
@@ -523,7 +524,7 @@ export async function buildTicketPass(
     .from('tickets')
     .select(`
       id, qr_code, reference_code, quantity, status, user_id, full_name,
-      ticket_rounds(name),
+      ticket_rounds(name, description),
       events!inner(${EVENT_COLUMNS})
     `)
     .eq('id', ticketId)
@@ -541,6 +542,9 @@ export async function buildTicketPass(
   const lineup = await resolveLineup(admin, event.id);
   const tz = event.timezone || null;
   const round = ticket.ticket_rounds?.name || wl(lang, 'entryNormal');
+  // Description du tarif écrite par le pro : au DOS seulement, la face est
+  // comptée au pixel. Jamais traduite.
+  const roundDescription = normalizeTicketDescription(ticket.ticket_rounds?.description);
   const reference = ticket.reference_code || ticket.qr_code;
   const quantity = String(ticket.quantity || 1);
 
@@ -614,9 +618,14 @@ export async function buildTicketPass(
         genre: genreOf(event),
         // « PLACES 1 » sur un billet individuel est du bruit ; un billet
         // groupé, lui, doit rester lisible — il se lit au dos.
-        extra: Number(quantity) > 1
-          ? [{ key: 'qty', label: wl(lang, 'persons'), value: quantity }]
-          : [],
+        extra: [
+          ...(roundDescription
+            ? [{ key: 'includes', label: wl(lang, 'ticketIncludes'), value: roundDescription }]
+            : []),
+          ...(Number(quantity) > 1
+            ? [{ key: 'qty', label: wl(lang, 'persons'), value: quantity }]
+            : []),
+        ],
       }),
     },
   };

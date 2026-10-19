@@ -75,6 +75,8 @@ export interface TicketWithDetails extends EventVenueRef {
   eventPosterUrl?: string;
   venueName: string;
   roundName: string;
+  /** description du tarif écrite par l'organisateur (ticket_rounds.description) */
+  roundDescription?: string | null;
   quantity: number;
   totalPrice: number;
   serviceFee: number;

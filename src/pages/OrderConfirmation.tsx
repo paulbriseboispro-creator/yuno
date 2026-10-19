@@ -25,6 +25,7 @@ import { WalletButtons } from '@/components/WalletButtons';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
+import { tableGuestTicketCount } from '@/lib/tableGuests';
 import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
@@ -1148,6 +1149,26 @@ export default function OrderConfirmation() {
                 onClose={() => {}}
                 embedded
               />
+            ) : data.type === 'table' && tableGuestTicketCount(data.guestCount) > 0 && data.qrCode ? (
+              // Une table de plusieurs personnes : un QR par personne (le titulaire,
+              // puis Invité 1, 2…) à envoyer à chacun.
+              <>
+                <TicketQRCarousel
+                  source="table"
+                  ticketId={data.id}
+                  ticketQrCode={data.qrCode}
+                  quantity={data.guestCount || 1}
+                  roundName={data.details || ''}
+                  eventTitle={data.eventTitle || ''}
+                  venueName={data.venueName || ''}
+                  holderName={data.customerName}
+                  onClose={() => {}}
+                  embedded
+                />
+                <p className="text-center mb-3" style={{ fontSize: '12px', color: '#9A9A9A', maxWidth: 360 }}>
+                  {t('tableGuest.shareHint')}
+                </p>
+              </>
             ) : (
               qrCodeImage && (
                 <div className="bg-white p-4 mb-4" style={{ borderRadius: 8 }}>

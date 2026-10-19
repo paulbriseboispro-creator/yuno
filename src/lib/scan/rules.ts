@@ -127,6 +127,39 @@ export function entryHeadcount(
   return Math.max(1, places);
 }
 
+/**
+ * QR du BILLET ENTIER (e-mail, Wallet) d'un billet à places nominatives : il
+ * fait entrer les places encore libres — ni entrées avec leur propre QR, ni
+ * remboursées une à une. Il n'est « déjà scanné » que quand il n'en reste
+ * aucune. Avant, le billet parent étant marqué dès qu'un premier ami entrait
+ * avec SON QR, l'acheteur et les autres amis se voyaient répondre « Déjà
+ * scanné ». `places` = null : billet sans places (son QR est la seule entrée).
+ */
+export function wholeTicketDoorState(
+  ticketScanned: boolean | null | undefined,
+  quantity: number | null | undefined,
+  places: { remaining: number } | null,
+): { scanned: boolean; headcount: number } {
+  if (!places) return { scanned: !!ticketScanned, headcount: entryHeadcount('ticket', quantity) };
+  const remaining = Math.max(0, Math.floor(places.remaining));
+  return { scanned: remaining === 0, headcount: Math.max(1, remaining) };
+}
+
+/**
+ * QR de la RÉSERVATION d'une table à tickets d'invités (table_reservation_guests) :
+ * même règle que le QR d'un billet entier. Il fait entrer les personnes encore
+ * dehors, et n'est « déjà scanné » que quand elles sont toutes entrées. Sans
+ * tickets d'invités (table d'une personne, réservation d'avant), la réservation
+ * entière entre d'un coup, comme avant.
+ */
+export function wholeTableDoorState(
+  reservationScanned: boolean | null | undefined,
+  guestCount: number | null | undefined,
+  guests: { remaining: number } | null,
+): { scanned: boolean; headcount: number } {
+  return wholeTicketDoorState(reservationScanned, guestCount, guests);
+}
+
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {
   if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
 

@@ -53,6 +53,14 @@ export interface ManifestEntry {
   arrival?: string | null;
   deposit?: number | null;
   total?: number | null;
+  /** Nombre de personnes de la table (les `guests` d'une table à tickets = celles encore dehors). */
+  party?: number | null;
+  // tickets d'une table (table_guests)
+  reservation_id?: string;
+  /** 0 = titulaire, k = Invité k. */
+  number?: number;
+  /** Nom du titulaire de la table. */
+  holder?: string | null;
 }
 
 export interface ScanManifest {
@@ -62,6 +70,8 @@ export interface ScanManifest {
   tickets: ManifestEntry[];
   guest_list: ManifestEntry[];
   tables: ManifestEntry[];
+  /** Un ticket par personne d'une table (absent d'un manifeste d'avant le 19/10). */
+  table_guests?: ManifestEntry[];
 }
 
 export interface StoredManifest {

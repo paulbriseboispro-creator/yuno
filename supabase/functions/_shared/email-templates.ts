@@ -72,6 +72,8 @@ export function buildTicketConfirmation(d: {
   lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
   day: string; month: string; openTime?: string; city?: string;
   ticketType: string; price: string; reference: string; ticketUrl: string; recipientEmail?: string;
+  /** Description du tarif (ticket_rounds.description), écrite par le pro : jamais traduite. */
+  ticketDescription?: string | null;
   qrDataUrl?: string; address?: string; attached?: boolean; walletUrl?: string;
   /** Éducation boissons (upsell post-achat) : lien /order/upsell + presale actif ? */
   drinksUpsell?: { url: string; presale: boolean };
@@ -88,16 +90,16 @@ export function buildTicketConfirmation(d: {
       section(ruleLabel(p(lang, { en: 'Ticket confirmed', fr: 'Billet confirmé', es: 'Entrada confirmada' })) + `<div style="height:14px"></div>` +
         title(`${hi}${p(lang, { en: "you're in", fr: "c'est confirmé", es: 'estás dentro' })}`, 32) + `<div style="height:14px"></div>` +
         body(p(lang, {
-          en: `Your ticket for <strong style="color:${C.white}">${d.eventTitle}</strong> is valid. Show the QR at the door, that's it.`,
-          fr: `Ton billet pour <strong style="color:${C.white}">${d.eventTitle}</strong> est validé. Montre le QR à l'entrée, c'est tout.`,
-          es: `Tu entrada para <strong style="color:${C.white}">${d.eventTitle}</strong> está validada. Muestra el QR en la entrada, eso es todo.`,
+          en: `Your ticket for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> is valid. Show the QR at the door, that's it.`,
+          fr: `Ton billet pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> est validé. Montre le QR à l'entrée, c'est tout.`,
+          es: `Tu entrada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> está validada. Muestra el QR en la entrada, eso es todo.`,
         }))),
       section(bigDate({ day: d.day, month: `${d.month}${d.city ? ' · ' + d.city : ''}`, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'doors'), timeValue: d.openTime || '—' })),
       section(infoRows([
         { k: lbl(lang, 'event'), v: d.eventTitle },
         { k: lbl(lang, 'venue'), v: d.venueName },
         ...(d.address ? [{ k: p(lang, { en: 'Address', fr: 'Adresse', es: 'Dirección' }), v: d.address }] : []),
-        { k: lbl(lang, 'ticket'), v: d.ticketType },
+        { k: lbl(lang, 'ticket'), v: d.ticketType, note: d.ticketDescription },
         { k: lbl(lang, 'price'), v: d.price },
         { k: lbl(lang, 'reference'), v: d.reference },
       ])),
@@ -270,9 +272,9 @@ export function buildVipConfirmation(d: {
       section(ruleLabel(p(lang, { en: 'VIP table confirmed', fr: 'Table VIP confirmée', es: 'Mesa VIP confirmada' })) + `<div style="height:14px"></div>` +
         title(`${hi}${p(lang, { en: 'your table awaits', fr: "ta table t'attend", es: 'tu mesa te espera' })}`, 30) + `<div style="height:14px"></div>` +
         body(p(lang, {
-          en: `<strong style="color:${C.white}">${d.tableName}</strong> is reserved for <strong style="color:${C.white}">${d.eventTitle}</strong>. Head to VIP reception under your name.`,
-          fr: `<strong style="color:${C.white}">${d.tableName}</strong> est réservée pour <strong style="color:${C.white}">${d.eventTitle}</strong>. Présente-toi à l'accueil VIP à ton nom.`,
-          es: `<strong style="color:${C.white}">${d.tableName}</strong> está reservada para <strong style="color:${C.white}">${d.eventTitle}</strong>. Preséntate en recepción VIP a tu nombre.`,
+          en: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> is reserved for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Head to VIP reception under your name.`,
+          fr: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> est réservée pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Présente-toi à l'accueil VIP à ton nom.`,
+          es: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> está reservada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Preséntate en recepción VIP a tu nombre.`,
         }))),
       section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' })),
       section(infoRows([
@@ -1184,7 +1186,7 @@ export function buildRefund(d: {
 // ── Données mock pour les previews (rendu FR) ─────────────────────────────────
 const POSTER = 'https://fulawxvdlwtdlpkycixe.supabase.co/storage/v1/object/public/event-images/events/1781542670364-poster.jpg';
 export const PREVIEW_SAMPLES: Record<string, () => BuiltEmail> = {
-  ticket: () => buildTicketConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', openTime: '18:00', city: 'Paris', ticketType: 'Early Bird', price: '18,00 €', reference: 'TK-7F3K9P', ticketUrl: `${APP}/tickets`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-TK-7F3K9P' }),
+  ticket: () => buildTicketConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', openTime: '18:00', city: 'Paris', ticketType: 'Early Round — All Night Long', ticketDescription: 'Entry at any time during the event. Includes one free drink, redeemable before 2:00 AM.', price: '18,00 €', reference: 'TK-7F3K9P', ticketUrl: `${APP}/tickets`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-TK-7F3K9P' }),
   guestList: () => buildGuestListConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Woh Face To Face Edition', venueName: 'WOH', posterUrl: POSTER, day: '11', month: 'Septembre 2026', openTime: '23:30', city: 'Paris', address: '8 Boulevard de la Madeleine, 75009 Paris', entryLabel: 'Entrée standard', invitedBy: 'WOH', reference: 'YN-KUTAYB', freeBefore: '01:00', ctaUrl: `${APP}/my-orders`, hasAccount: false, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=YUNO-DEMO-GL' }),
   guestListInvite: () => buildGuestListInvite({ lang: 'fr', eventTitle: 'Woh Face To Face Edition', venueName: 'WOH', posterUrl: POSTER, day: '11', month: 'Septembre 2026', openTime: '23:30', city: 'Paris', entryLabel: 'Entrée standard', invitedBy: 'WOH', maxUses: 2, inviteUrl: `${APP}/guestlist?invite=demo` }),
   vip: () => buildVipConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6 personnes', bottles: '2 × Grey Goose', total: '890,00 €', reference: 'VP-2M8X4Q', manageUrl: `${APP}/reservations`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-VP-2M8X4Q' }),

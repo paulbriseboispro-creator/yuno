@@ -237,6 +237,7 @@ const CLIENT_KNOWLEDGE_BASE = `
    30% d'acompte, tu paies 4% de 600€, soit 24€. Tu ne paieras jamais plus de 25€ de frais sur
    une table, quel que soit son prix.
 ${DRINKS_PILLAR_LIVE ? "3. Choisis tes bouteilles ; pour certaines, l'app te demande de choisir les diluants/softs (étape obligatoire).\n4." : "3."} Le soir J : présente-toi à l'hôte VIP avec ta réservation (code VP-XXXXXX dans Mes commandes). Il t'installe et s'occupe de toi.
+   Table de plusieurs personnes : chaque personne a son propre QR (toi, puis « Invité 1 », « Invité 2 »…), sur la confirmation et dans Mes commandes (fais glisser). Envoie à chaque invité le sien : il entre seul à la porte, même s'il arrive après toi. Le QR de ta réservation (celui d'Apple Wallet) fait entrer d'un coup ceux qui ne sont pas encore passés.
 ${DRINKS_PILLAR_LIVE ? "5. Depuis ta table, tu peux recommander des bouteilles directement dans l'app.\n" : ""}
 ${DRINKS_PILLAR_LIVE ? CLIENT_KNOWLEDGE_DRINKS : CLIENT_KNOWLEDGE_DRINKS_PAUSED}
 🤝 ACCORD DE COLLABORATION
@@ -324,6 +325,8 @@ interface TicketRoundRow {
   price: number;
   max_tickets: number;
   tickets_sold: number;
+  /** Ce que le billet comprend, écrit par le pro (200 caractères au plus). */
+  description?: string | null;
 }
 interface DrinkRow {
   venue_id: string;
@@ -524,6 +527,7 @@ function buildRealDataContext(
           if (remaining <= 0) txt += ' (COMPLET)';
           else if (remaining <= Math.ceil(r.max_tickets * 0.2)) txt += ` (🔥 dernières places, reste ${remaining})`;
           else txt += ` (${remaining} places)`;
+          if (r.description) txt += ` — « ${r.description.replace(/\s+/g, ' ').trim()} »`;
           return txt;
         });
         ctx += `\nbillets= ${roundTexts.join(' | ')}`;
@@ -841,7 +845,7 @@ serve(async (req) => {
     const [ticketRoundsRes, guestListsRes, djSetsRes, eventPacksRes, venuePacksRes, organizersRes] = await Promise.all([
       eventIds.length
         ? supabase.from("ticket_rounds")
-            .select("id, event_id, name, price, max_tickets, tickets_sold, is_active, position, hidden, visible_from, sale_starts_at, sale_ends_at")
+            .select("id, event_id, name, description, price, max_tickets, tickets_sold, is_active, position, hidden, visible_from, sale_starts_at, sale_ends_at")
             .in("event_id", eventIds).eq("is_active", true).order("position")
         : empty,
       eventIds.length

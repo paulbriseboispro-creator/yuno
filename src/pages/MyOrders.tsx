@@ -29,6 +29,8 @@ import { GroupedDrinksView } from '@/components/orders/GroupedDrinksView';
 import { BarSelectionDialog } from '@/components/orders/BarSelectionDialog';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { TicketQROverlay } from '@/components/orders/TicketQROverlay';
+import { normalizeTicketDescription } from '@/lib/freeTicketing';
+import { useTableGuestSlides } from '@/hooks/useTableGuestSlides';
 import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
   type UnifiedOrderEntry, type OrderBucket, type QRAction,
@@ -113,6 +115,11 @@ export default function MyOrders() {
   const [showArchivedDrinks, setShowArchivedDrinks] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketWithDetails | null>(null);
   const [selectedVipReservation, setSelectedVipReservation] = useState<VipReservationWithDetails | null>(null);
+  const vipGuestSlides = useTableGuestSlides(
+    selectedVipReservation?.id,
+    selectedVipReservation?.guestCount,
+    selectedVipReservation?.fullName,
+  );
   const [selectedDrinkOrder, setSelectedDrinkOrder] = useState<Order | null>(null);
   const [collectMode, setCollectMode] = useState(false);
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
@@ -417,7 +424,7 @@ export default function MyOrders() {
           entry_scanned_at,
           refund_amount,
           refund_reason,
-          ticket_rounds!inner (name, includes_drink, drink_deadline_type, drink_deadline_hours, drink_cutoff_time),
+          ticket_rounds!inner (name, description, includes_drink, drink_deadline_type, drink_deadline_hours, drink_cutoff_time),
           events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
         `)
         .eq('user_id', user?.id)
@@ -451,6 +458,7 @@ export default function MyOrders() {
         venueLat: v?.latitude ?? null,
         venueLng: v?.longitude ?? null,
         roundName: t.ticket_rounds.name,
+        roundDescription: normalizeTicketDescription(t.ticket_rounds.description),
         quantity: t.quantity,
         totalPrice: Number(t.total_price),
         serviceFee: Number(t.service_fee),
@@ -1509,6 +1517,7 @@ export default function MyOrders() {
       title: tk.eventTitle, venueName: tk.venueName, sortAt: new Date(tk.eventStartAt).getTime(),
       dateLabel: fmtDate(tk.eventStartAt), time: fmtTime(tk.eventStartAt),
       subtitle: `${tk.quantity}× ${tk.roundName}`,
+      note: tk.roundDescription,
       price: Math.round(tk.totalPrice), free: tk.totalPrice === 0, scanned: tk.entryScanned,
       ctaLabel: t('orders.openMyQR'), ctaIcon: 'qr',
       onAction: () => setSelectedTicket(tk),
@@ -1845,6 +1854,7 @@ export default function MyOrders() {
           ticketQrCode={selectedTicket.qrCode}
           quantity={selectedTicket.quantity}
           roundName={selectedTicket.roundName}
+          roundDescription={selectedTicket.roundDescription}
           eventTitle={selectedTicket.eventTitle}
           venueName={selectedTicket.venueName}
           entryScanned={selectedTicket.entryScanned}
@@ -1881,6 +1891,8 @@ export default function MyOrders() {
           title={selectedVipReservation.eventTitle}
           venueName={`${selectedVipReservation.venueName} · ${selectedVipReservation.zoneName || selectedVipReservation.packName}`}
           qrImage={qrImages[selectedVipReservation.id]}
+          // Table de plusieurs personnes : un QR par personne à envoyer à chacun.
+          slides={vipGuestSlides ?? undefined}
           idLabel={selectedVipReservation.id.slice(0, 8).toUpperCase()}
           scanned={selectedVipReservation.entryScanned}
           labels={qrOverlayLabels}

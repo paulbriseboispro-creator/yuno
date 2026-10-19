@@ -13,10 +13,15 @@ import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList } from 'lucide-react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
-import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount } from '@/lib/scan/rules';
+import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState, wholeTableDoorState } from '@/lib/scan/rules';
+import {
+  enterRemainingTableGuests, enterTableGuest, findTableGuestByQr, tableGuestsEnteredByMeJustNow, tableGuestsOf,
+} from '@/lib/scan/tableDoor';
+import { tableGuestDoorName } from '@/lib/tableGuests';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import {
-  doorRefusalKey, fetchDoorRefundPreview, isPlaceRefunded, refundAtDoor, refundedPlacesCount, type DoorRefundPreview,
+  doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, isPlaceRefunded, placesEnteredByMeJustNow,
+  refundAtDoor, ticketPlacesOf, type DoorRefundPreview,
 } from '@/lib/scan/doorRefund';
 import type { DoorScope } from '@/lib/scan/types';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
@@ -337,7 +342,8 @@ export default function Bouncer() {
    * Avant, le billet était consommé dès le scan, et « Refuser + rembourser »
    * échouait toujours (staff-cancel refuse un billet déjà scanné).
    */
-  const pendingLateRef = useRef<{ kind: 'ticket_attendee' | 'ticket'; id: string; qr: string } | null>(null);
+  /** `places` : QR du billet entier d'un billet à places nominatives — accepter fait entrer les places libres. */
+  const pendingLateRef = useRef<{ kind: 'ticket_attendee' | 'ticket'; id: string; qr: string; places?: boolean } | null>(null);
   const [lateDecisionBusy, setLateDecisionBusy] = useState(false);
   /**
    * Hors créneau, en DEUX temps (décision de Paul, 19/10) : d'abord « laisser
@@ -596,8 +602,18 @@ export default function Bouncer() {
   const commitLateEntry = async (): Promise<'ok' | 'already' | 'none'> => {
     const pending = pendingLateRef.current;
     if (!pending) return 'none';
-    const table = pending.kind === 'ticket_attendee' ? 'ticket_attendees' : 'tickets';
     const me = await myUserId();
+    // Billet à places : le QR entier fait entrer les places encore libres.
+    if (pending.places) {
+      const entered = await retrySupabaseAction(() => enterRemainingPlaces(pending.id, me));
+      pendingLateRef.current = null;
+      if (entered === 0 && (await placesEnteredByMeJustNow(pending.id, me)) === 0) return 'already';
+      setDoorEnteredQr({ qr: pending.qr, at: Date.now() });
+      void offline.markScannedOnline(pending.qr, pending.kind, pending.id);
+      fetchStats();
+      return 'ok';
+    }
+    const table = pending.kind === 'ticket_attendee' ? 'ticket_attendees' : 'tickets';
     const { data: rows } = await retrySupabaseAction(async () => {
       const res = await supabase
         .from(table)
@@ -837,7 +853,16 @@ export default function Bouncer() {
     }
 
     const result = await offline.scanOffline(qrCode);
-    const { verdict, kind, name, entry } = result;
+    const { verdict, kind, entry } = result;
+    // Ticket d'une personne d'une table : « Invité k · <titulaire> », comme en ligne.
+    const isTableGuest = kind === 'table' && entry?.reservation_id != null;
+    const name = isTableGuest && entry
+      ? tableGuestDoorName(
+          { guest_number: entry.number ?? 0, full_name: entry.name },
+          entry.holder ?? null,
+          (k) => t('tableGuest.label').replace('{n}', String(k)),
+        )
+      : result.name;
 
     // VIP hors-ligne : reconstruire la même carte de détail qu'en online depuis
     // le manifeste local — le videur voit zone, pack, personnes, reste à payer et
@@ -845,10 +870,10 @@ export default function Bouncer() {
     // ne sont pas mis en cache offline (PII / redondant) → leurs lignes sont masquées.
     if (kind === 'table' && entry && (verdict.status === 'success' || verdict.status === 'already')) {
       setScannedVipReservation({
-        id: entry.id,
+        id: entry.reservation_id || entry.id,
         userEmail: '',
-        fullName: entry.name || '',
-        guestCount: entry.guests || 1,
+        fullName: name || '',
+        guestCount: isTableGuest ? 1 : entry.guests || 1,
         eventTitle: '',
         zoneName: entry.zone || '',
         packName: entry.pack || '',
@@ -1183,8 +1208,11 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (ticket && !ticketError) {
-        // Places remboursées une à une : le QR du billet entier ne les fait plus entrer.
-        const refundedPlaces = activeTab === 'cancel' ? 0 : await refundedPlacesCount(ticket.id, ticket.quantity);
+        // Billet à places nominatives : le QR entier fait entrer les places encore
+        // libres (ni entrées avec leur QR, ni remboursées) ; « déjà scanné » quand
+        // il n'en reste aucune — un ami entré avant ne bloque plus les autres.
+        const places = await ticketPlacesOf(ticket.id, ticket.quantity);
+        const wholeDoor = wholeTicketDoorState(ticket.entry_scanned, ticket.quantity, places);
         const ticketVerdict = validateTicketEntry(
           {
             type: 'ticket',
@@ -1192,7 +1220,7 @@ export default function Bouncer() {
             ticketId: ticket.id,
             name: ticket.full_name,
             status: ticket.status,
-            scanned: ticket.entry_scanned,
+            scanned: wholeDoor.scanned,
             scannedAt: ticket.entry_scanned_at,
             // Co-soirée org-led : le club physique est partner_venue_id.
             venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id ?? null,
@@ -1237,6 +1265,7 @@ export default function Bouncer() {
             userEmail: ticket.user_email,
             fullName: ticket.full_name,
             quantity: ticket.quantity,
+            headcount: wholeDoor.headcount,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1285,7 +1314,7 @@ export default function Bouncer() {
         }
 
         if (isLateNow(ticket.ticket_rounds.entry_deadline)) {
-          pendingLateRef.current = { kind: 'ticket', id: ticket.id, qr: qrCode };
+          pendingLateRef.current = { kind: 'ticket', id: ticket.id, qr: qrCode, places: !!places };
           setScanResult('success');
           setOverlayResult(null);
           setOverlayName(ticket.full_name || undefined);
@@ -1294,7 +1323,7 @@ export default function Bouncer() {
             userEmail: ticket.user_email,
             fullName: ticket.full_name,
             quantity: ticket.quantity,
-            headcount: entryHeadcount('ticket', ticket.quantity, refundedPlaces),
+            headcount: wholeDoor.headcount,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1314,31 +1343,44 @@ export default function Bouncer() {
         }
 
         const user = { id: await myUserId() };
+        let admitted = wholeDoor.headcount;
 
-        const { data: updatedData, error: updateError } = await retrySupabaseAction(async () => {
-          const res = await supabase
-            .from('tickets')
-            .update({
-              entry_scanned: true,
-              entry_scanned_at: new Date().toISOString(),
-              entry_scanned_by: user?.id,
-            })
-            .eq('id', ticket.id)
-            .eq('entry_scanned', false)
-            .select();
-          if (res.error) throw res.error;
-          return res;
-        });
+        if (places) {
+          // Les places libres entrent une à une (premier scan gagne, place par place).
+          const entered = await retrySupabaseAction(() => enterRemainingPlaces(ticket.id, user.id));
+          admitted = entered || await placesEnteredByMeJustNow(ticket.id, user.id);
+          if (admitted === 0) {
+            setScanResult('already');
+            setOverlayResult('already');
+            setOverlayName(ticket.full_name || undefined);
+            return;
+          }
+        } else {
+          const { data: updatedData, error: updateError } = await retrySupabaseAction(async () => {
+            const res = await supabase
+              .from('tickets')
+              .update({
+                entry_scanned: true,
+                entry_scanned_at: new Date().toISOString(),
+                entry_scanned_by: user?.id,
+              })
+              .eq('id', ticket.id)
+              .eq('entry_scanned', false)
+              .select();
+            if (res.error) throw res.error;
+            return res;
+          });
 
-        if (updateError) {
-          console.error('Failed to update ticket:', updateError);
-          throw updateError;
-        }
-        if ((!updatedData || updatedData.length === 0) && !(await scannedByMeJustNow('tickets', ticket.id))) {
-          setScanResult('already');
-          setOverlayResult('already');
-          setOverlayName(ticket.full_name || undefined);
-          return;
+          if (updateError) {
+            console.error('Failed to update ticket:', updateError);
+            throw updateError;
+          }
+          if ((!updatedData || updatedData.length === 0) && !(await scannedByMeJustNow('tickets', ticket.id))) {
+            setScanResult('already');
+            setOverlayResult('already');
+            setOverlayName(ticket.full_name || undefined);
+            return;
+          }
         }
 
         void offline.markScannedOnline(qrCode, 'ticket', ticket.id);
@@ -1350,7 +1392,7 @@ export default function Bouncer() {
           userEmail: ticket.user_email,
           fullName: ticket.full_name,
           quantity: ticket.quantity,
-          headcount: entryHeadcount('ticket', ticket.quantity, refundedPlaces),
+          headcount: admitted,
           eventTitle: ticket.events.title,
           roundName: ticket.ticket_rounds.name,
           status: ticket.status,
@@ -1378,7 +1420,9 @@ export default function Bouncer() {
         return;
       }
 
-      // If no ticket, check for VIP reservation
+      // Table VIP : le ticket d'UNE personne (titulaire ou Invité k), sinon le QR
+      // de la réservation entière.
+      const tableGuest = await findTableGuestByQr(qrCode);
       const { data: reservation, error: reservationError } = await supabase
         .from('table_reservations')
         .select(`
@@ -1387,18 +1431,26 @@ export default function Bouncer() {
           table_zones(name),
           table_packs(name, arrival_deadline)
         `)
-        .eq('qr_code', qrCode)
+        .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode)
         .maybeSingle();
 
       if (reservation && !reservationError) {
+        const guestWord = (k: number) => t('tableGuest.label').replace('{n}', String(k));
+        // Table à tickets d'invités : le QR de la réservation fait entrer les
+        // personnes encore dehors, « déjà scanné » quand il n'en reste aucune.
+        const tableGuests = tableGuest ? null : await tableGuestsOf(reservation.id);
+        const wholeTable = wholeTableDoorState(reservation.entry_scanned, reservation.guest_count, tableGuests);
+        const doorName = tableGuest
+          ? tableGuestDoorName(tableGuest, reservation.full_name, guestWord)
+          : reservation.full_name;
         const tableVerdict = validateTableReservation(
           {
-            type: 'table_reservation',
-            id: reservation.id,
-            name: reservation.full_name,
+            type: tableGuest ? 'table_guest' : 'table_reservation',
+            id: tableGuest?.id ?? reservation.id,
+            name: doorName,
             status: reservation.status,
-            scanned: reservation.entry_scanned,
-            scannedAt: reservation.entry_scanned_at,
+            scanned: tableGuest ? tableGuest.entry_scanned : wholeTable.scanned,
+            scannedAt: tableGuest ? tableGuest.entry_scanned_at : reservation.entry_scanned_at,
             // Co-soirée org-led : le club physique est partner_venue_id.
             venueId: reservation.events.venue_id ?? reservation.events.partner_venue_id ?? null,
             // Soirée sans club : l'organisateur porte le périmètre.
@@ -1409,9 +1461,24 @@ export default function Bouncer() {
 
         // Contexte de refus : porteur + soirée, de quoi expliquer au client.
         const tableContext: DeniedContext = {
-          name: reservation.full_name,
+          name: doorName,
           eventTitle: reservation.events.title,
         };
+        const vipCard = (guestCount: number, scannedAt: string | null) => ({
+          id: reservation.id,
+          userEmail: reservation.user_email,
+          fullName: doorName || '',
+          guestCount,
+          eventTitle: reservation.events.title,
+          zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
+          packName: (reservation.table_packs as PackJoin)?.name || '',
+          arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
+          status: reservation.status,
+          deposit: Number(reservation.deposit || 0),
+          totalPrice: Number(reservation.total_price),
+          entryScanned: true,
+          entryScannedAt: scannedAt,
+        });
 
         if (tableVerdict.status === 'wrong_venue') {
           denyScan(t('bouncer.wrongVenue'), tableContext);
@@ -1435,73 +1502,68 @@ export default function Bouncer() {
 
         if (tableVerdict.status === 'already') {
           setScanResult('already');
-          setScannedVipReservation({
-            id: reservation.id,
-            userEmail: reservation.user_email,
-            fullName: reservation.full_name || '',
-            guestCount: reservation.guest_count || 1,
-            eventTitle: reservation.events.title,
-            zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
-            packName: (reservation.table_packs as PackJoin)?.name || '',
-            arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
-            status: reservation.status,
-            deposit: Number(reservation.deposit || 0),
-            totalPrice: Number(reservation.total_price),
-            entryScanned: true,
-            entryScannedAt: reservation.entry_scanned_at,
-          });
+          setScannedVipReservation(vipCard(
+            tableGuest ? 1 : reservation.guest_count || 1,
+            tableGuest ? tableGuest.entry_scanned_at : reservation.entry_scanned_at,
+          ));
           return;
         }
 
         const currentUser = { id: await myUserId() };
+        let admitted = tableGuest ? 1 : wholeTable.headcount;
 
-        const checkInTime = new Date().toISOString();
-        const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
-          const res = await supabase
-            .from('table_reservations')
-            .update({
-              entry_scanned: true,
-              entry_scanned_at: checkInTime,
-              entry_scanned_by: currentUser?.id,
-              checked_in_at: checkInTime,
-            })
-            .eq('id', reservation.id)
-            .eq('entry_scanned', false)
-            .select();
-          if (res.error) throw res.error;
-          return res;
-        });
+        if (tableGuest) {
+          // Une personne entre ; la base marque la table arrivée (et prévient
+          // l'hôte VIP) au premier ticket entré.
+          const entered = await retrySupabaseAction(() => enterTableGuest(tableGuest.id));
+          if (entered === 0
+            && (await tableGuestsEnteredByMeJustNow(reservation.id, currentUser.id, tableGuest.id)) === 0) {
+            setScanResult('already');
+            return;
+          }
+        } else if (tableGuests) {
+          // Les personnes encore dehors entrent d'un coup (premier scan gagne).
+          const entered = await retrySupabaseAction(() => enterRemainingTableGuests(reservation.id));
+          admitted = entered || await tableGuestsEnteredByMeJustNow(reservation.id, currentUser.id);
+          if (admitted === 0) {
+            setScanResult('already');
+            return;
+          }
+        } else {
+          const checkInTime = new Date().toISOString();
+          const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
+            const res = await supabase
+              .from('table_reservations')
+              .update({
+                entry_scanned: true,
+                entry_scanned_at: checkInTime,
+                entry_scanned_by: currentUser?.id,
+                checked_in_at: checkInTime,
+              })
+              .eq('id', reservation.id)
+              .eq('entry_scanned', false)
+              .select();
+            if (res.error) throw res.error;
+            return res;
+          });
 
-        if (updateError) {
-          console.error('Failed to update VIP reservation:', updateError);
-          throw updateError;
-        }
-        if ((!updatedRes || updatedRes.length === 0) && !(await scannedByMeJustNow('table_reservations', reservation.id))) {
-          setScanResult('already');
-          return;
+          if (updateError) {
+            console.error('Failed to update VIP reservation:', updateError);
+            throw updateError;
+          }
+          if ((!updatedRes || updatedRes.length === 0) && !(await scannedByMeJustNow('table_reservations', reservation.id))) {
+            setScanResult('already');
+            return;
+          }
         }
         // L'hôte VIP est prévenu par la base (trigger notify_vip_host_on_arrival,
         // club de la ZONE, une seule fois — hors ligne compris).
-        void offline.markScannedOnline(qrCode, 'table_reservation', reservation.id);
+        void offline.markScannedOnline(qrCode, tableGuest ? 'table_guest' : 'table_reservation', tableGuest?.id ?? reservation.id);
 
-        setScannedVipReservation({
-          id: reservation.id,
-          userEmail: reservation.user_email,
-          fullName: reservation.full_name || '',
-          guestCount: reservation.guest_count || 1,
-          eventTitle: reservation.events.title,
-          zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
-          packName: (reservation.table_packs as PackJoin)?.name || '',
-          arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
-          status: reservation.status,
-          deposit: Number(reservation.deposit || 0),
-          totalPrice: Number(reservation.total_price),
-          entryScanned: true,
-          entryScannedAt: new Date().toISOString(),
-        });
+        setScannedVipReservation(vipCard(admitted, new Date().toISOString()));
         setScanResult('vip_success');
         setOverlayResult('vip_success');
-        setOverlayName(reservation.full_name || undefined);
+        setOverlayName(doorName || undefined);
         
         // Check if this is a top 100 client for VIP reservations too
         const topClient = await checkTopClient(reservation.user_id);
@@ -2503,6 +2565,8 @@ export default function Bouncer() {
                                       <p className="mt-1 text-xs" style={{ color: T2 }}>
                                         {isPlace
                                           ? t('bouncer.refundScopePlace')
+                                          : refundPreview?.scope === 'remaining'
+                                            ? t('bouncer.refundScopeRemaining').replace('{n}', String(orderQty))
                                           : orderQty > 1
                                             ? t('bouncer.refundScopeOrder').replace('{n}', String(orderQty))
                                             : t('bouncer.refundScopeTicket')}
@@ -2775,12 +2839,17 @@ export default function Bouncer() {
                         const stripeFee = calcStripeFee(total);
                         // Le montant rendu est celui de staff-cancel (aperçu) ; l'estimation
                         // locale ne sert qu'en attendant, et jamais pour une place seule.
+                        const someEntered = refundPreview?.scope === 'remaining';
                         const netRefund = refundPreview?.amount
                           ?? (scannedTicket.attendeeId ? null : Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100));
                         return (
                           <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
-                            {scannedTicket.attendeeId ? (
-                              <p className="mb-2" style={{ color: T2, fontSize: 13 }}>{t('bouncer.refundScopePlace')}</p>
+                            {scannedTicket.attendeeId || someEntered ? (
+                              <p className="mb-2" style={{ color: T2, fontSize: 13 }}>
+                                {scannedTicket.attendeeId
+                                  ? t('bouncer.refundScopePlace')
+                                  : t('bouncer.refundScopeRemaining').replace('{n}', String(scannedTicket.headcount ?? scannedTicket.quantity))}
+                              </p>
                             ) : (<>
                             <div className="flex items-center justify-between gap-3 mb-2">
                               <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.originalPrice')}</span>

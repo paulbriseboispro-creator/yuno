@@ -78,13 +78,6 @@ const CHANNEL_NAMES: Record<string, string> = {
  */
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
-function genCode(): string {
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
-}
-
 export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
   const { ownerKind, venueId, organizerUserId, promoterId, djId, targetKind, eventId, targetVenueId, guestListId, eventTitle } = props;
   const { t, language } = useLanguage();
@@ -272,7 +265,9 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
       toast.success(t('tlink.saved'));
     } else {
       const insert = {
-        code: genCode(),
+        // Vide : la base écrit l'adresse lisible (« house-of-masquerade-insta »,
+        // migration 20261103100000), elle seule voit les codes déjà pris.
+        code: '',
         label,
         owner_kind: ownerKind,
         venue_id: ownerKind === 'venue' ? venueId ?? null : null,
@@ -291,15 +286,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
           : 'profile_link',
       };
       const { error } = await supabase.from('tracked_links').insert(insert);
-      if (error) {
-        // Extremely rare code collision → retry once.
-        if (error.code === '23505') {
-          const { error: retryErr } = await supabase.from('tracked_links').insert({ ...insert, code: genCode() });
-          if (retryErr) { toast.error(t('tlink.saveError')); setSaving(false); return; }
-        } else {
-          toast.error(t('tlink.saveError')); setSaving(false); return;
-        }
-      }
+      if (error) { toast.error(t('tlink.saveError')); setSaving(false); return; }
       toast.success(t('tlink.created'));
     }
     setSaving(false);
@@ -394,7 +381,8 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
-                  <code className="hidden sm:block max-w-[220px] truncate rounded-md bg-white/[0.04] px-2 py-1 text-xs text-white/45">
+                  {/* L'adresse se lit (« house-of-masquerade-insta ») : la fin dit le réseau, elle ne se coupe pas avant 360 px. */}
+                  <code title={linkUrl(row.code)} className="hidden sm:block max-w-[360px] truncate rounded-md bg-white/[0.04] px-2 py-1 text-xs text-white/45">
                     /l/{row.code}
                   </code>
                   <button onClick={() => copyLink(row)} title={t('tlink.copy')} className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white">

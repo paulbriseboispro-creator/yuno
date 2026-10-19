@@ -16086,6 +16086,50 @@ export type Database = {
           },
         ]
       }
+      table_reservation_guests: {
+        Row: {
+          created_at: string
+          entry_scanned: boolean
+          entry_scanned_at: string | null
+          entry_scanned_by: string | null
+          full_name: string | null
+          guest_number: number
+          id: string
+          qr_code: string
+          reservation_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_scanned?: boolean
+          entry_scanned_at?: string | null
+          entry_scanned_by?: string | null
+          full_name?: string | null
+          guest_number: number
+          id?: string
+          qr_code: string
+          reservation_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_scanned?: boolean
+          entry_scanned_at?: string | null
+          entry_scanned_by?: string | null
+          full_name?: string | null
+          guest_number?: number
+          id?: string
+          qr_code?: string
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_reservation_guests_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "table_reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_reservations: {
         Row: {
           age_declaration_birth_date: string | null

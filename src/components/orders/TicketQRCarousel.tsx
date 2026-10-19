@@ -6,6 +6,7 @@ import { Ticket, CheckCircle2, ChevronLeft, ChevronRight, User } from 'lucide-re
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import QRCode from 'qrcode';
+import { tableGuestName } from '@/lib/tableGuests';
 
 interface Attendee {
   id: string;
@@ -25,6 +26,14 @@ interface TicketQRCarouselProps {
   onClose: () => void;
   /** When true, renders inline without fullscreen overlay */
   embedded?: boolean;
+  /**
+   * `table` : `ticketId` est une réservation de table et les QR sont ses tickets
+   * par personne (titulaire, puis Invité 1, 2…). Par défaut, les places
+   * nominatives d'un billet.
+   */
+  source?: 'ticket' | 'table';
+  /** Titulaire de la table (repli du nom du ticket n° 0). */
+  holderName?: string | null;
 }
 
 export function TicketQRCarousel({
@@ -37,6 +46,8 @@ export function TicketQRCarousel({
   entryScanned,
   onClose,
   embedded = false,
+  source = 'ticket',
+  holderName = null,
 }: TicketQRCarouselProps) {
   const { t } = useLanguage();
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -48,7 +59,7 @@ export function TicketQRCarousel({
 
   useEffect(() => {
     fetchAttendees();
-  }, [ticketId]);
+  }, [ticketId, source]);
 
   // Fermeture au clavier (Escape) — uniquement en mode overlay plein écran.
   useEffect(() => {
@@ -62,13 +73,30 @@ export function TicketQRCarousel({
 
   const fetchAttendees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('ticket_attendees')
-        .select('id, full_name, qr_code, entry_scanned')
-        .eq('ticket_id', ticketId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
+      let data: Attendee[] | null;
+      if (source === 'table') {
+        const res = await supabase
+          .from('table_reservation_guests')
+          .select('id, guest_number, full_name, qr_code, entry_scanned')
+          .eq('reservation_id', ticketId)
+          .order('guest_number', { ascending: true });
+        if (res.error) throw res.error;
+        const guestWord = (k: number) => t('tableGuest.label').replace('{n}', String(k));
+        data = (res.data ?? []).map((g) => ({
+          id: g.id,
+          full_name: tableGuestName(g, holderName, guestWord),
+          qr_code: g.qr_code,
+          entry_scanned: g.entry_scanned,
+        }));
+      } else {
+        const res = await supabase
+          .from('ticket_attendees')
+          .select('id, full_name, qr_code, entry_scanned')
+          .eq('ticket_id', ticketId)
+          .order('created_at', { ascending: true });
+        if (res.error) throw res.error;
+        data = (res.data ?? []).map((a) => ({ ...a, entry_scanned: !!a.entry_scanned }));
+      }
 
       if (data && data.length > 0) {
         setAttendees(data);

@@ -10,7 +10,8 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import type { Tables } from '@/integrations/supabase/types';
-import { isPlaceRefunded } from '@/lib/scan/doorRefund';
+import { enterRemainingPlaces, isPlaceRefunded, ticketPlacesOf } from '@/lib/scan/doorRefund';
+import { wholeTicketDoorState } from '@/lib/scan/rules';
 
 /** A ticket reached through one of its named attendees' QR codes. */
 type AttendeeTicketHit = Pick<Tables<'tickets'>, 'id' | 'event_id' | 'entry_scanned' | 'status'> & {
@@ -91,7 +92,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
     try {
       // Look up ticket by QR code
       const { data: ticket } = await supabase.from('tickets')
-        .select('id, event_id, entry_scanned, status, qr_code')
+        .select('id, event_id, entry_scanned, status, qr_code, quantity')
         .eq('qr_code', code)
         .eq('event_id', eventId)
         .maybeSingle();
@@ -199,9 +200,11 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
       // Check if already scanned
       // QR nominatif : seule SA place compte — le billet parent est marqué dès
       // qu'un premier ami entre, ce qui refusait à tort les suivants.
+      // QR du billet entier d'un billet à places : il fait entrer les places encore libres.
+      const wholePlaces = !attendeeTicket && ticket ? await ticketPlacesOf(ticket.id, ticket.quantity) : null;
       const isScanned = attendeeTicket?.attendee
         ? !!attendeeTicket.attendee.entry_scanned
-        : resolvedTicket.entry_scanned;
+        : wholeTicketDoorState(resolvedTicket.entry_scanned, ticket?.quantity, wholePlaces).scanned;
       if (isScanned) {
         setLastResult({ status: 'already_scanned' });
         toast.warning(t('promoterScan.alreadyScanned'));
@@ -226,10 +229,30 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
           return;
         }
       }
-      const { error: tkErr } = await supabase.from('tickets')
-        .update({ entry_scanned: true, entry_scanned_at: ticketScanAt, entry_scanned_by: scanUser?.id })
-        .eq('id', resolvedTicket.id);
-      if (tkErr) throw tkErr;
+      if (wholePlaces) {
+        if ((await enterRemainingPlaces(resolvedTicket.id, scanUser?.id ?? null)) === 0) {
+          setLastResult({ status: 'already_scanned' });
+          toast.warning(t('promoterScan.alreadyScanned'));
+          return;
+        }
+      } else if (attendeeTicket?.attendee) {
+        // Le billet parent est marqué par ricochet ; l'écriture reste pour les anciens chemins.
+        const { error: tkErr } = await supabase.from('tickets')
+          .update({ entry_scanned: true, entry_scanned_at: ticketScanAt, entry_scanned_by: scanUser?.id })
+          .eq('id', resolvedTicket.id);
+        if (tkErr) throw tkErr;
+      } else {
+        // Billet entier : premier scan gagne, un double scan concurrent ne passe pas.
+        const { data: updatedTk, error: tkErr } = await supabase.from('tickets')
+          .update({ entry_scanned: true, entry_scanned_at: ticketScanAt, entry_scanned_by: scanUser?.id })
+          .eq('id', resolvedTicket.id).eq('entry_scanned', false).select('id');
+        if (tkErr) throw tkErr;
+        if (!updatedTk || updatedTk.length === 0) {
+          setLastResult({ status: 'already_scanned' });
+          toast.warning(t('promoterScan.alreadyScanned'));
+          return;
+        }
+      }
 
       setLastResult({
         status: 'success',

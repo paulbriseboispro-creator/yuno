@@ -47,6 +47,8 @@ export function presetTypeTagKey(mode: PresetSellingMode): string {
 // Shape of the round-creation form state (verbatim from OwnerTicketing useState).
 export interface RoundFormData {
   name: string;
+  /** Description facultative affichée sous le billet (TicketDescriptionField). */
+  description: string;
   price: string;
   maxTickets: string;
   isActive: boolean;

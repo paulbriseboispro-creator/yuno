@@ -296,11 +296,174 @@ serve(async (req) => {
       throw new Error('Unauthorized: not assigned to this venue');
     };
 
-    // === Une PLACE d'un billet nominatif (un ami nommé à l'achat) ===
-    // Refuser cet ami ne rembourse que SA place : sa part du remboursement net
-    // du billet entier (`doorPlaceRefundCents`). Les autres places restent
-    // valables, qu'un ami soit déjà entré ou non ; ni les consos de l'acheteur
-    // ni ses autres billets ne bougent.
+    // === Places d'un billet nominatif (des amis nommés à l'achat) ===
+    // Refuser un ami ne rembourse que SA place ; le QR du billet entier d'un
+    // billet dont un ami est déjà entré ne rembourse que les places encore
+    // libres. Chaque place vaut sa part du remboursement net du billet entier
+    // (`doorPlaceRefundCents`) : les places entrées restent payées, et ni les
+    // consos de l'acheteur ni ses autres billets ne bougent.
+    type PlaceTarget = { id: string; name: string };
+    const refundPlaces = async (
+      ticket: PlaceTicketRow,
+      targets: PlaceTarget[],
+      places: number,
+      placesRefundedBefore: number,
+      scope: 'place' | 'remaining',
+    ): Promise<Response> => {
+      const capCents = refundCapCents('ticket', ticket);
+      const stripeFeeCents = doorStripeFeeCents(toCents(ticket.total_price));
+      const prevCents = alreadyRefundedCents(ticket);
+      const amounts: number[] = [];
+      let runningCents = prevCents;
+      targets.forEach((_, i) => {
+        const cents = doorPlaceRefundCents({
+          capCents, stripeFeeCents, places, placesRefunded: placesRefundedBefore + i, alreadyRefundedCents: runningCents,
+        });
+        amounts.push(cents);
+        runningCents += cents;
+      });
+      const plannedCents = runningCents - prevCents;
+      const placeName = scope === 'place' ? targets[0]?.name ?? '' : '';
+      logStep("Place refund calculation", { ticketId: ticket.id, scope, places, placesRefundedBefore, count: targets.length, prevCents, plannedCents });
+
+      if (isPreview) {
+        return new Response(JSON.stringify({
+          success: true, preview: true, placeRefund: scope === 'place', scope, refundAmount: fromCents(plannedCents),
+          places, count: targets.length, placesRefunded: placesRefundedBefore, placeName,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const reasonFor = (name: string) => [reason, name].filter(Boolean).join(' — ') || null;
+      // Verrou + montant de chaque place posés AVANT Stripe, sous le verrou du
+      // billet : le webhook `charge.refunded` trouvera le cumul déjà enregistré.
+      const claimed: { id: string; cents: number }[] = [];
+      let expectedRefund: number | string | null = ticket.refund_amount ?? null;
+      let cumulativeCents = prevCents;
+      let fullyRefunded = false;
+      for (let i = 0; i < targets.length; i++) {
+        const { data: claimData, error: claimRpcError } = await adminClient.rpc('door_refund_ticket_place', {
+          p_attendee_id: targets[i].id,
+          p_amount: fromCents(amounts[i]),
+          p_expected_refund_amount: expectedRefund,
+          p_expected_places_refunded: placesRefundedBefore + i,
+          p_reason: reasonFor(targets[i].name),
+          p_by: user.id,
+        });
+        const claim = claimData as { ok: boolean; error?: string; cumulative?: number; fully_refunded?: boolean } | null;
+        if (claimRpcError || !claim?.ok) {
+          // La première place refusée arrête tout ; une suivante (un collègue est
+          // passé entre-temps) arrête la série : on rend ce qui a été posé.
+          if (claimed.length > 0) break;
+          if (claimRpcError) throw claimRpcError;
+          const code = claim?.error ?? 'stale';
+          throw new DoorRefusal(code, PLACE_REFUSALS[code] ?? PLACE_REFUSALS.stale);
+        }
+        claimed.push({ id: targets[i].id, cents: amounts[i] });
+        expectedRefund = claim.cumulative ?? null;
+        cumulativeCents = toCents(claim.cumulative);
+        fullyRefunded = !!claim.fully_refunded;
+      }
+      const claimedCents = claimed.reduce((sum, c) => sum + c.cents, 0);
+
+      let refundOk = true;
+      let refundError = '';
+      const intent = ticket.stripe_payment_intent_id || '';
+      if (intent && claimedCents > 0) {
+        const keyTarget = scope === 'place' ? `ticket_attendee:${claimed[0].id}` : `ticket_places:${ticket.id}`;
+        const refunded = await refundSaleOnStripe(stripe, adminClient, {
+          paymentIntentId: intent,
+          amountCents: claimedCents,
+          connectedAccountId: ticket.stripe_connected_account_id || null,
+          idempotencyKey: `staff-cancel:${keyTarget}:${cumulativeCents}`,
+          expectedCumulativeCents: cumulativeCents,
+        });
+        if (!refunded.ok) {
+          refundOk = false;
+          refundError = refunded.error;
+          logStep("Place Stripe refund error", { ticketId: ticket.id, error: refunded.error });
+          // Les places restent refusées ; le montant enregistré revient à ce qui a été rendu.
+          for (const c of claimed) {
+            await adminClient.rpc('door_place_refund_not_sent', { p_attendee_id: c.id, p_amount: fromCents(c.cents) });
+          }
+        } else {
+          logStep("Place Stripe refund processed", { ticketId: ticket.id, count: claimed.length, amountCents: claimedCents });
+        }
+      }
+      const refundedCents = refundOk ? claimedCents : 0;
+
+      const placeCtx = await loadSaleRefundContext(adminClient, 'ticket', ticket);
+      await decrementCustomerSpent(adminClient, placeCtx, refundedCents);
+      if (fullyRefunded) await applyFullRefundEffects(adminClient, placeCtx);
+
+      const customerReason = scope === 'place' ? reasonFor(placeName) : reason || null;
+      await notifyCustomerRefund(adminClient, {
+        email: ticket.user_email || '',
+        userId: ticket.user_id || '',
+        firstName: ticket.full_name?.split(' ')[0] || '',
+        eventTitle: ticket.events?.title || '',
+        venueName: ticket.events?.venues?.name || '',
+        amount: fromCents(refundedCents),
+        reason: customerReason,
+      });
+
+      const placeVenueId: string = ticket.events?.venue_id || '';
+      if (placeVenueId && ticket.user_id && reason) {
+        try {
+          const { data: customerId } = await adminClient.rpc('get_or_create_venue_customer', {
+            p_venue_id: placeVenueId, p_user_id: ticket.user_id, p_email: ticket.user_email,
+            p_first_name: ticket.full_name?.split(' ')[0] || null,
+            p_last_name: ticket.full_name?.split(' ').slice(1).join(' ') || null,
+            p_phone: ticket.phone || null,
+          });
+          if (customerId) {
+            await adminClient.from('customer_incidents').insert({
+              venue_customer_id: customerId, venue_id: placeVenueId, reported_by: user.id,
+              incident_type: banCustomer ? 'ban' : 'refund', reason: customerReason,
+              ticket_id: ticket.id, order_id: null,
+              details: `Place refund (${claimed.length} of ${places} places${placeName ? `, ${placeName}` : ''}): ${fromCents(refundedCents).toFixed(2)}€`,
+            });
+            if (banCustomer) {
+              await adminClient.from('venue_customers').update({
+                is_banned: true, banned_at: new Date().toISOString(), banned_by: user.id, ban_reason: reason,
+              }).eq('id', customerId);
+            }
+          }
+        } catch (incidentError) {
+          logStep("Error creating incident", { error: incidentError });
+        }
+      }
+
+      if (!refundOk) {
+        await adminClient.rpc('emit_admin_notification', {
+          p_type: 'admin_refund_failed',
+          p_title: 'Remboursement Stripe refusé',
+          p_message: `${fromCents(claimedCents).toFixed(2)} € n'ont pas pu être remboursés par Stripe pour ${claimed.length} place(s) refusée(s) à la porte (billet ${ticket.id}${placeName ? `, ${placeName}` : ''}) : ${refundError}. À rembourser à la main.`.slice(0, 480),
+          p_priority: 'high',
+          p_reference_type: 'ticket',
+          p_reference_id: ticket.id,
+          p_metadata: { attendee_ids: claimed.map((c) => c.id), amount: fromCents(claimedCents), error: refundError, cancelled_by: user.id },
+          p_dedup_key: `refund_failed:ticket_places:${claimed.map((c) => c.id).join(',')}`.slice(0, 200),
+          p_event_id: null,
+        }).then(() => undefined, () => undefined);
+      }
+
+      logStep("Place cancellation complete", { ticketId: ticket.id, scope, count: claimed.length, claimedCents, refunded: refundOk, fullyRefunded });
+      return new Response(JSON.stringify({
+        success: true,
+        placeRefund: scope === 'place',
+        scope,
+        refundAmount: fromCents(claimedCents),
+        refundFailed: !refundOk,
+        ticketFullyRefunded: fullyRefunded,
+        places,
+        count: claimed.length,
+        placesRefunded: placesRefundedBefore + claimed.length,
+        partial: claimed.length < targets.length,
+        placeName,
+        customerBanned: banCustomer || false,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    };
+
     if (type === 'ticket_attendee') {
       let attQuery = adminClient
         .from('ticket_attendees')
@@ -319,136 +482,13 @@ serve(async (req) => {
       const { data: siblings, error: siblingsError } = await adminClient
         .from('ticket_attendees').select('id, refunded_at').eq('ticket_id', ticket.id);
       if (siblingsError) throw siblingsError;
-      const places = Math.max(1, siblings?.length ?? 1);
-      const placesRefunded = (siblings ?? []).filter((s) => !!s.refunded_at).length;
-      const placeStripeFeeCents = doorStripeFeeCents(toCents(ticket.total_price));
-      const placePrevCents = alreadyRefundedCents(ticket);
-      const placeCents = doorPlaceRefundCents({
-        capCents: refundCapCents('ticket', ticket),
-        stripeFeeCents: placeStripeFeeCents,
-        places,
-        placesRefunded,
-        alreadyRefundedCents: placePrevCents,
-      });
-      const placeName: string = att.full_name || ticket.full_name || '';
-      logStep("Place refund calculation", { attendeeId: att.id, ticketId: ticket.id, places, placesRefunded, placePrevCents, placeCents });
-
-      if (isPreview) {
-        return new Response(JSON.stringify({
-          success: true, preview: true, placeRefund: true, refundAmount: fromCents(placeCents),
-          places, placesRefunded, placeName,
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-
-      const placeReason = [reason, placeName].filter(Boolean).join(' — ') || null;
-      // Verrou + montant posés AVANT Stripe, sous le verrou du billet : le
-      // webhook `charge.refunded` trouvera le cumul déjà enregistré.
-      const { data: claimData, error: claimRpcError } = await adminClient.rpc('door_refund_ticket_place', {
-        p_attendee_id: att.id,
-        p_amount: fromCents(placeCents),
-        p_expected_refund_amount: ticket.refund_amount ?? null,
-        p_expected_places_refunded: placesRefunded,
-        p_reason: placeReason,
-        p_by: user.id,
-      });
-      if (claimRpcError) throw claimRpcError;
-      const claimed = claimData as { ok: boolean; error?: string; cumulative?: number; fully_refunded?: boolean } | null;
-      if (!claimed?.ok) {
-        const code = claimed?.error ?? 'stale';
-        throw new DoorRefusal(code, PLACE_REFUSALS[code] ?? PLACE_REFUSALS.stale);
-      }
-
-      let placeRefundOk = true;
-      let placeRefundError = '';
-      const placeIntent = ticket.stripe_payment_intent_id || '';
-      if (placeIntent && placeCents > 0) {
-        const cumulativeCents = toCents(claimed.cumulative);
-        const placeStripe = await refundSaleOnStripe(stripe, adminClient, {
-          paymentIntentId: placeIntent,
-          amountCents: placeCents,
-          connectedAccountId: ticket.stripe_connected_account_id || null,
-          idempotencyKey: `staff-cancel:ticket_attendee:${att.id}:${cumulativeCents}`,
-          expectedCumulativeCents: cumulativeCents,
-        });
-        if (!placeStripe.ok) {
-          placeRefundOk = false;
-          placeRefundError = placeStripe.error;
-          logStep("Place Stripe refund error", { attendeeId: att.id, error: placeStripe.error });
-          // La place reste refusée ; le montant enregistré revient à ce qui a été rendu.
-          await adminClient.rpc('door_place_refund_not_sent', { p_attendee_id: att.id, p_amount: fromCents(placeCents) });
-        } else {
-          logStep("Place Stripe refund processed", { attendeeId: att.id, amountCents: placeCents });
-        }
-      }
-      const placeRefundedCents = placeRefundOk ? placeCents : 0;
-
-      const placeCtx = await loadSaleRefundContext(adminClient, 'ticket', ticket);
-      await decrementCustomerSpent(adminClient, placeCtx, placeRefundedCents);
-      if (claimed.fully_refunded) await applyFullRefundEffects(adminClient, placeCtx);
-
-      await notifyCustomerRefund(adminClient, {
-        email: ticket.user_email || '',
-        userId: ticket.user_id || '',
-        firstName: ticket.full_name?.split(' ')[0] || '',
-        eventTitle: ticket.events?.title || '',
-        venueName: ticket.events?.venues?.name || '',
-        amount: fromCents(placeRefundedCents),
-        reason: placeReason,
-      });
-
-      const placeVenueId: string = ticket.events?.venue_id || '';
-      if (placeVenueId && ticket.user_id && reason) {
-        try {
-          const { data: customerId } = await adminClient.rpc('get_or_create_venue_customer', {
-            p_venue_id: placeVenueId, p_user_id: ticket.user_id, p_email: ticket.user_email,
-            p_first_name: ticket.full_name?.split(' ')[0] || null,
-            p_last_name: ticket.full_name?.split(' ').slice(1).join(' ') || null,
-            p_phone: ticket.phone || null,
-          });
-          if (customerId) {
-            await adminClient.from('customer_incidents').insert({
-              venue_customer_id: customerId, venue_id: placeVenueId, reported_by: user.id,
-              incident_type: banCustomer ? 'ban' : 'refund', reason: placeReason,
-              ticket_id: ticket.id, order_id: null,
-              details: `Place refund (${placeName || att.id}): ${fromCents(placeRefundedCents).toFixed(2)}€ of a ${places}-place ticket`,
-            });
-            if (banCustomer) {
-              await adminClient.from('venue_customers').update({
-                is_banned: true, banned_at: new Date().toISOString(), banned_by: user.id, ban_reason: reason,
-              }).eq('id', customerId);
-            }
-          }
-        } catch (incidentError) {
-          logStep("Error creating incident", { error: incidentError });
-        }
-      }
-
-      if (!placeRefundOk) {
-        await adminClient.rpc('emit_admin_notification', {
-          p_type: 'admin_refund_failed',
-          p_title: 'Remboursement Stripe refusé',
-          p_message: `${fromCents(placeCents).toFixed(2)} € n'ont pas pu être remboursés par Stripe pour une place refusée à la porte (billet ${ticket.id}, ${placeName || att.id}) : ${placeRefundError}. À rembourser à la main.`.slice(0, 480),
-          p_priority: 'high',
-          p_reference_type: 'ticket',
-          p_reference_id: ticket.id,
-          p_metadata: { attendee_id: att.id, amount: fromCents(placeCents), error: placeRefundError, cancelled_by: user.id },
-          p_dedup_key: `refund_failed:ticket_attendee:${att.id}`,
-          p_event_id: null,
-        }).then(() => undefined, () => undefined);
-      }
-
-      logStep("Place cancellation complete", { attendeeId: att.id, ticketId: ticket.id, placeCents, refunded: placeRefundOk, fullyRefunded: !!claimed.fully_refunded });
-      return new Response(JSON.stringify({
-        success: true,
-        placeRefund: true,
-        refundAmount: fromCents(placeCents),
-        refundFailed: !placeRefundOk,
-        ticketFullyRefunded: !!claimed.fully_refunded,
-        places,
-        placesRefunded: placesRefunded + 1,
-        placeName,
-        customerBanned: banCustomer || false,
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return await refundPlaces(
+        ticket,
+        [{ id: att.id, name: att.full_name || ticket.full_name || '' }],
+        Math.max(1, siblings?.length ?? 1),
+        (siblings ?? []).filter((s) => !!s.refunded_at).length,
+        'place',
+      );
     }
 
     if (type === 'ticket') {
@@ -462,6 +502,27 @@ serve(async (req) => {
       cancelledTicketId = ticket?.id ?? null;
       if (ticketError || !ticket) throw new Error('Ticket not found');
       if (ticket.status !== 'paid') throw new Error('Only paid tickets can be cancelled');
+      // Billet à places dont un ami est déjà entré avec SON QR : le QR du billet
+      // entier ne rend que les places encore libres (les places entrées restent payées).
+      const { data: ticketPlaces, error: ticketPlacesError } = await adminClient
+        .from('ticket_attendees')
+        .select('id, full_name, entry_scanned, refunded_at, created_at')
+        .eq('ticket_id', ticket.id)
+        .order('created_at', { ascending: true });
+      if (ticketPlacesError) throw ticketPlacesError;
+      const placeRows = ticketPlaces ?? [];
+      if (placeRows.some((p) => p.entry_scanned && !p.refunded_at)) {
+        const free = placeRows.filter((p) => !p.entry_scanned && !p.refunded_at);
+        if (free.length === 0) throw new DoorRefusal('already_scanned', 'Cannot cancel: every place on this ticket already entered');
+        await assertInScope(ticket.events?.id ?? null, [ticket.events?.venue_id, ticket.events?.partner_venue_id]);
+        return await refundPlaces(
+          ticket as unknown as PlaceTicketRow,
+          free.map((p) => ({ id: p.id as string, name: (p.full_name as string | null) || '' })),
+          placeRows.length,
+          placeRows.filter((p) => !!p.refunded_at).length,
+          'remaining',
+        );
+      }
       if (ticket.entry_scanned) throw new Error('Cannot cancel: ticket already scanned for entry');
       await assertInScope(ticket.events?.id ?? null, [ticket.events?.venue_id, ticket.events?.partner_venue_id]);
 
@@ -491,8 +552,8 @@ serve(async (req) => {
       logStep("Ticket refund calculation", { originalAmount, serviceFee, stripeFee, prevRefundCents, refundAmount });
       if (isPreview) {
         return new Response(JSON.stringify({
-          success: true, preview: true, placeRefund: false, refundAmount, stripeFee, originalAmount,
-          places: Number(ticket.quantity) || 1,
+          success: true, preview: true, placeRefund: false, scope: 'order', refundAmount, stripeFee, originalAmount,
+          places: Number(ticket.quantity) || 1, count: Number(ticket.quantity) || 1,
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
