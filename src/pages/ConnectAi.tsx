@@ -31,6 +31,22 @@ import { crmProductHinted } from '@/lib/productHint';
  * mcp_approve_authorization) : cette page ne fait qu'afficher et transmettre.
  */
 
+/**
+ * Un compte Yuno CRM se vouvoie, et son accès se coupe dans Yuno CRM ›
+ * Connecteurs (pas dans les Réglages de la Console Billetterie) : la même
+ * phrase existe en version CRM sous `aiConsent.crm.*`. Les autres textes
+ * sont communs aux deux produits.
+ */
+const CRM_TEXT_KEYS = [
+  'wants', 'localhostWarn', 'autoAllowTip', 'accessTitle', 'accessDesc', 'accessDescNoCustomers',
+  'privacyNote', 'manageLater', 'expiredBody', 'noSpaceBody', 'error',
+] as const;
+const CRM_CAN_KEYS = ['can2', 'can4', 'can5', 'can6', 'cant1', 'cant2'] as const;
+const CRM_TEXT: Record<string, string> = Object.fromEntries([
+  ...CRM_TEXT_KEYS.map((k) => [`aiConsent.${k}`, `aiConsent.crm.${k}`]),
+  ...CRM_CAN_KEYS.map((k) => [`aiMcp.${k}`, `aiConsent.crm.${k}`]),
+]);
+
 const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
 
 const T1 = 'var(--text-primary)';
@@ -166,6 +182,9 @@ export default function ConnectAi() {
   // les ouvre sur CHAQUE espace (le serveur applique ce niveau à toute la connexion).
   const selected = useMemo(() => spaces.map((s) => s.key), [spaces]);
   const level: 'analytics' | 'customers' = spaces.length > 0 && spaces.every((s) => s.customers) ? 'customers' : 'analytics';
+  // Fenêtre ouverte sur crm.yunoapp.eu, ou compte dont tous les espaces sont des comptes CRM.
+  const crm = onCrmHost() || (spaces.length > 0 && spaces.every((s) => s.product === 'crm'));
+  const tx = (key: string) => t(crm ? CRM_TEXT[key] ?? key : key);
 
   const clientName = view?.client?.name ?? 'AI';
   const redirectHost = view?.client?.redirect_host ?? '';
@@ -182,9 +201,9 @@ export default function ConnectAi() {
     const r = data as DecisionResult | null;
     if (rpcError || !r?.ok || !r.redirect_uri || !r.params) {
       setBusy(null);
-      setError(r?.error === 'expired' ? t('aiConsent.expiredBody')
+      setError(r?.error === 'expired' ? tx('aiConsent.expiredBody')
         : r?.error === 'support_session' ? t('aiConsent.supportBody')
-        : t('aiConsent.error'));
+        : tx('aiConsent.error'));
       return;
     }
     setDone(choice === 'allow' ? 'allowed' : 'denied');
@@ -223,7 +242,7 @@ export default function ConnectAi() {
   if (!requestId || !view?.ok) {
     return (
       <Shell>
-        <Outcome tone="ko" title={t('aiConsent.expiredTitle')} body={t('aiConsent.expiredBody')}>
+        <Outcome tone="ko" title={t('aiConsent.expiredTitle')} body={tx('aiConsent.expiredBody')}>
           <button className="w-full mt-6 cursor-pointer" style={BTN_GHOST} onClick={() => navigate('/')}>{t('aiConsent.home')}</button>
         </Outcome>
       </Shell>
@@ -241,7 +260,7 @@ export default function ConnectAi() {
   if (!spaces.length) {
     return (
       <Shell>
-        <Outcome tone="ko" title={t('aiConsent.noSpaceTitle')} body={t('aiConsent.noSpaceBody')}>
+        <Outcome tone="ko" title={t('aiConsent.noSpaceTitle')} body={tx('aiConsent.noSpaceBody')}>
           <p className="mt-4" style={{ fontSize: 13, color: T2, wordBreak: 'break-all' }}>{user?.email}</p>
           <button className="w-full mt-5 cursor-pointer" style={BTN_GHOST} onClick={switchAccount}>{t('aiConsent.switchAccount')}</button>
         </Outcome>
@@ -259,7 +278,7 @@ export default function ConnectAi() {
         <h1 style={{ color: T1, fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 8vw, 40px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.02, wordBreak: 'break-word' }}>
           {clientName}
         </h1>
-        <p style={{ color: T2, fontSize: 16, lineHeight: 1.5, marginTop: 10 }}>{t('aiConsent.wants')}</p>
+        <p style={{ color: T2, fontSize: 16, lineHeight: 1.5, marginTop: 10 }}>{tx('aiConsent.wants')}</p>
         <p className="mt-3" style={{ fontSize: 12.5, color: T3, lineHeight: 1.6 }}>
           {t('aiConsent.returnTo')} <span style={{ color: T2 }}>{redirectHost}</span>
           {' · '}{t('aiConsent.signedInAs')} <span style={{ color: T2, wordBreak: 'break-all' }}>{user?.email}</span>
@@ -267,17 +286,17 @@ export default function ConnectAi() {
         {isLoopbackRedirectHost(redirectHost) && (
           <p className="flex items-start gap-2 mt-3" style={{ fontSize: 13, color: 'var(--amber-700)', lineHeight: 1.5 }}>
             <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-            {t('aiConsent.localhostWarn')}
+            {tx('aiConsent.localhostWarn')}
           </p>
         )}
       </header>
 
       <Panel className="mb-5">
         <h2 style={{ color: T1, fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 650, letterSpacing: '-0.015em' }}>
-          {t('aiConsent.accessTitle')}
+          {tx('aiConsent.accessTitle')}
         </h2>
         <p style={{ color: T2, fontSize: 14.5, lineHeight: 1.55, marginTop: 6 }}>
-          {level === 'customers' ? t('aiConsent.accessDesc') : t('aiConsent.accessDescNoCustomers')}
+          {level === 'customers' ? tx('aiConsent.accessDesc') : tx('aiConsent.accessDescNoCustomers')}
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {spaces.map((s) => (
@@ -292,23 +311,23 @@ export default function ConnectAi() {
         <div className="space-y-2.5 mt-5 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
           {['aiMcp.can2', 'aiMcp.can4', 'aiMcp.can5', 'aiMcp.can6'].map((k) => (
             <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13.5, color: T1, lineHeight: 1.5 }}>
-              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--green-500)' }} aria-hidden="true" />{t(k)}
+              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--green-500)' }} aria-hidden="true" />{tx(k)}
             </p>
           ))}
           {['aiMcp.cant1', 'aiMcp.cant2'].map((k) => (
             <p key={k} className="flex items-start gap-2.5" style={{ fontSize: 13.5, color: T1, lineHeight: 1.5 }}>
-              <Lock className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--red-500)' }} aria-hidden="true" />{t(k)}
+              <Lock className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--red-500)' }} aria-hidden="true" />{tx(k)}
             </p>
           ))}
         </div>
         <p style={{ fontSize: 12.5, color: T3, lineHeight: 1.55, marginTop: 16 }}>
-          {t('aiConsent.privacyNote').replace('{client}', clientName)} {t('aiConsent.manageLater')}
+          {tx('aiConsent.privacyNote').replace('{client}', clientName)} {tx('aiConsent.manageLater')}
         </p>
       </Panel>
 
       {/claude/i.test(clientName) && (
         <p className="mb-5" style={{ fontSize: 13, color: T2, lineHeight: 1.55, background: 'var(--bg-subtle)', border: `1px solid ${BORDER}`, borderRadius: 16, padding: '12px 16px' }}>
-          {t('aiConsent.autoAllowTip')}
+          {tx('aiConsent.autoAllowTip')}
         </p>
       )}
 
