@@ -17,9 +17,15 @@ import {
 import OrgQRScanner from '@/components/organizer-app/OrgQRScanner';
 import { toast } from 'sonner';
 import { retrySupabaseAction } from '@/utils/retryAction';
-import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
+import {
+  validateTicketEntry, validateTableReservation, validateGuestListEntry,
+  computeLateness, drinkCutoffOf, entryHeadcount,
+} from '@/lib/scan/rules';
 import type { DoorScope, ScanVerdict } from '@/lib/scan/types';
 import { calcStripeFee } from '@/utils/fees';
+import { toZonedTime } from 'date-fns-tz';
+import { getEventTimezone } from '@/lib/timezone';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton, OrgTabs, OrgEmptyState,
   FieldLabel, DarkSelect, DarkTextarea,
@@ -85,12 +91,78 @@ interface CheckinEvent {
   partner_venue_id: string | null;
   organizer_user_id: string | null;
   partner_organizer_id: string | null;
+  timezone: string | null;
+  alcohol_free: boolean | null;
+}
+
+/** Tarif d'un billet tel que la porte le lit : heure limite d'entrée, boisson offerte. */
+interface DoorRound {
+  name: string | null;
+  includes_drink: boolean | null;
+  entry_deadline: string | null;
+  drink_cutoff_time: string | null;
+  drink_deadline_type: string | null;
+}
+
+const DOOR_ROUND_SELECT = 'ticket_rounds(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)';
+
+/** PostgREST rend la jointure many-to-one en objet (ou null) ; on la lit une fois. */
+function doorRoundOf(row: { ticket_rounds?: unknown }): DoorRound | null {
+  const r = row.ticket_rounds as DoorRound | DoorRound[] | null | undefined;
+  return (Array.isArray(r) ? r[0] : r) ?? null;
+}
+
+/**
+ * Ce que la porte montre d'un billet scanné, comme la carte du videur dans
+ * Yuno Pro : le tarif, l'heure limite d'entrée, la boisson offerte à remettre.
+ */
+interface DoorTicket {
+  name: string | null;
+  roundName: string | null;
+  /** Personnes que CE QR fait entrer (1 pour un QR nominatif). */
+  headcount: number;
+  /** Heure limite d'entrée du tarif (HH:MM), quand il en a une. */
+  entryDeadline: string | null;
+  includesDrink: boolean;
+  /** Heure limite de la boisson offerte (HH:MM), en mode « heure fixe ». */
+  drinkCutoff: string | null;
+  /**
+   * Billet HORS CRÉNEAU scanné mais PAS consommé : la porte tranche (Accepter =
+   * l'entrée est validée maintenant ; Refuser + remboursement). Même décision
+   * que dans l'app Yuno Pro : jamais un « Entrée validée » avant ce choix.
+   */
+  pendingLate: {
+    kind: 'ticket_attendee' | 'ticket';
+    id: string;
+    ticketId: string;
+    /** Billets de la commande : le remboursement porte sur la commande entière. */
+    orderQuantity: number;
+  } | null;
+}
+
+function doorTicketFor(
+  kind: 'ticket_attendee' | 'ticket',
+  name: string | null,
+  round: DoorRound | null,
+  quantity: number | null,
+): DoorTicket {
+  return {
+    name,
+    roundName: round?.name ?? null,
+    headcount: entryHeadcount(kind, quantity),
+    entryDeadline: round?.entry_deadline ? round.entry_deadline.substring(0, 5) : null,
+    includesDrink: !!round?.includes_drink,
+    drinkCutoff: round ? drinkCutoffOf(round) ?? null : null,
+    pendingLate: null,
+  };
 }
 
 export default function OrgAppCheckin() {
   const { user } = useAuth();
   const { organizerId } = useActingOrganizer();
-  const { language } = useLanguage();
+  // `tk` lit le dictionnaire : les libellés de porte du videur (bouncer.*) sont
+  // repris tels quels, pour que les deux portes disent la même chose.
+  const { language, t: tk } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [events, setEvents] = useState<CheckinEvent[]>([]);
@@ -112,6 +184,12 @@ export default function OrgAppCheckin() {
     setLastScanState(v);
   }, []);
   const [recent, setRecent] = useState<{ name: string | null; at: Date }[]>([]);
+  const [doorTicket, setDoorTicket] = useState<DoorTicket | null>(null);
+  const [lateBusy, setLateBusy] = useState(false);
+  const [confirmLateRefund, setConfirmLateRefund] = useState(false);
+  // Pilier boissons en pause : la boisson offerte se remet toujours à la porte.
+  // Relancé, un club en mode « crédits » la fait retirer au bar.
+  const [venueDrinkMode, setVenueDrinkMode] = useState<'credits' | 'bouncer_notify'>('bouncer_notify');
   const [scannedTicket, setScannedTicket] = useState<ScannedTicket | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [refundReason, setRefundReason] = useState('');
@@ -144,6 +222,25 @@ export default function OrgAppCheckin() {
   }, [selectedEvent]);
 
   /**
+   * Heure MURALE de la soirée (fuseau de l'événement) : c'est elle que lisent
+   * l'heure limite d'entrée et celle de la boisson, comme le videur.
+   */
+  const nowAtDoor = useCallback(
+    () => toZonedTime(new Date(), getEventTimezone(selectedEvent)),
+    [selectedEvent],
+  );
+
+  useEffect(() => {
+    const venueId = doorScope.venueId;
+    if (!DRINKS_PILLAR_LIVE || !venueId) { setVenueDrinkMode('bouncer_notify'); return; }
+    let alive = true;
+    supabase.from('venues').select('free_drink_mode').eq('id', venueId).maybeSingle().then(({ data }) => {
+      if (alive) setVenueDrinkMode(data?.free_drink_mode === 'credits' ? 'credits' : 'bouncer_notify');
+    });
+    return () => { alive = false; };
+  }, [doorScope.venueId]);
+
+  /**
    * Un verdict de règle partagée devient un message de porte. Les libellés
    * restent ceux de cette page ; c'est la DÉCISION qui est désormais commune
    * avec l'app Pro — un invité refusé par le videur ne peut plus être accepté
@@ -168,7 +265,7 @@ export default function OrgAppCheckin() {
     (async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
+        .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, timezone, alcohol_free')
         // Soirées menées, en partenariat OU co-hébergées : un co-hôte ÉDITEUR tient
         // aussi la porte (is_event_door_staff, migration 20260929190000).
         .or(orgEventsOr(organizerId))
@@ -200,13 +297,22 @@ export default function OrgAppCheckin() {
 
   const resetTicketScan = () => {
     setLastScan(null); setScannedTicket(null); setRefundReason(''); setCustomReason(''); setShowCancelConfirm(false);
+    setDoorTicket(null); setConfirmLateRefund(false);
   };
+
+  /** Le billet dépasse-t-il l'heure limite d'entrée de son tarif ? Règle partagée avec le videur. */
+  const isLateNow = (deadline: string | null): boolean =>
+    !!deadline && computeLateness(deadline, nowAtDoor()).isPast;
 
   const handleEntryScan = async (qrText: string) => {
     const qrCode = qrText.trim();
     if (!eventId || !qrCode || processing) return;
     setProcessing(true);
     setLastScan(null);
+    // Un nouveau scan remplace la carte précédente ; un hors créneau resté sans
+    // décision n'a rien consommé, il repassera par la même question.
+    setDoorTicket(null);
+    setConfirmLateRefund(false);
     try {
       // Toutes les branches valident via `@/lib/scan/rules` — les MÊMES règles que
       // l'app Pro et que le rejeu hors-ligne. Après le contrôle `event_id ===
@@ -224,7 +330,7 @@ export default function OrgAppCheckin() {
       if (att) {
         const { data: parent } = await supabase
           .from('tickets')
-          .select('id, status, event_id, full_name')
+          .select(`id, status, event_id, full_name, quantity, ${DOOR_ROUND_SELECT}`)
           .eq('id', att.ticket_id)
           .maybeSingle();
         if (!parent || parent.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
@@ -236,6 +342,13 @@ export default function OrgAppCheckin() {
           scanCtx,
         );
         if (verdict.status !== 'success') { denyFromVerdict(verdict, att.full_name); return; }
+
+        const attCard = doorTicketFor('ticket_attendee', att.full_name ?? parent.full_name ?? null, doorRoundOf(parent), parent.quantity);
+        // Hors créneau : on montre le billet SANS le consommer, la porte tranche.
+        if (isLateNow(attCard.entryDeadline)) {
+          setDoorTicket({ ...attCard, pendingLate: { kind: 'ticket_attendee', id: att.id, ticketId: parent.id, orderQuantity: parent.quantity ?? 1 } });
+          return;
+        }
 
         const { data: updated } = await retrySupabaseAction(async () => {
           const r = await supabase.from('ticket_attendees')
@@ -256,6 +369,7 @@ export default function OrgAppCheckin() {
         });
 
         setLastScan({ ok: true, name: att.full_name ?? undefined });
+        setDoorTicket(attCard);
         setRecent(r => [{ name: att.full_name, at: new Date() }, ...r].slice(0, 5));
         toast.success(`✓ ${att.full_name ?? t('Entrée validée', 'Entry validated')}`);
         return;
@@ -263,7 +377,7 @@ export default function OrgAppCheckin() {
 
       const { data: ticket } = await supabase
         .from('tickets')
-        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id')
+        .select(`id, full_name, entry_scanned, entry_scanned_at, status, event_id, quantity, ${DOOR_ROUND_SELECT}`)
         .eq('qr_code', qrCode).maybeSingle();
       if (ticket) {
         if (ticket.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
@@ -276,6 +390,12 @@ export default function OrgAppCheckin() {
         );
         if (verdict.status !== 'success') { denyFromVerdict(verdict, ticket.full_name); return; }
 
+        const ticketCard = doorTicketFor('ticket', ticket.full_name ?? null, doorRoundOf(ticket), ticket.quantity);
+        if (isLateNow(ticketCard.entryDeadline)) {
+          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, orderQuantity: ticket.quantity ?? 1 } });
+          return;
+        }
+
         const { data: updated } = await retrySupabaseAction(async () => {
           const r = await supabase.from('tickets')
             .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: user!.id })
@@ -285,6 +405,7 @@ export default function OrgAppCheckin() {
         if (!updated || updated.length === 0) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
 
         setLastScan({ ok: true, name: ticket.full_name ?? undefined });
+        setDoorTicket(ticketCard);
         setRecent(r => [{ name: ticket.full_name, at: new Date() }, ...r].slice(0, 5));
         toast.success(`✓ ${ticket.full_name ?? t('Entrée validée', 'Entry validated')}`);
         return;
@@ -376,6 +497,86 @@ export default function OrgAppCheckin() {
       toast.error((e as { message?: string }).message ?? t('Erreur de scan', 'Scan error'));
     } finally {
       setProcessing(false);
+    }
+  };
+
+  /** Hors créneau accepté : l'entrée est validée MAINTENANT (même verrou « premier scan gagne »). */
+  const acceptLateEntry = async () => {
+    const card = doorTicket;
+    const pending = card?.pendingLate;
+    if (!card || !pending || lateBusy) return;
+    setLateBusy(true);
+    try {
+      const table = pending.kind === 'ticket_attendee' ? 'ticket_attendees' : 'tickets';
+      const scanAt = new Date().toISOString();
+      const { data: updated } = await retrySupabaseAction(async () => {
+        const r = await supabase.from(table)
+          .update({ entry_scanned: true, entry_scanned_at: scanAt, entry_scanned_by: user!.id })
+          .eq('id', pending.id).eq('entry_scanned', false).select('id');
+        if (r.error) throw r.error; return r;
+      });
+      if (!updated || updated.length === 0) {
+        setDoorTicket(null);
+        setLastScan({ ok: false, name: card.name ?? undefined, reason: t('Déjà scanné', 'Already scanned') });
+        return;
+      }
+      if (pending.kind === 'ticket_attendee') {
+        await retrySupabaseAction(async () => {
+          const r = await supabase.from('tickets')
+            .update({ entry_scanned: true, entry_scanned_at: scanAt, entry_scanned_by: user!.id })
+            .eq('id', pending.ticketId).eq('entry_scanned', false);
+          if (r.error) throw r.error; return r;
+        });
+      }
+      const late = card.entryDeadline ? computeLateness(card.entryDeadline, nowAtDoor()).lateLabel : '';
+      setDoorTicket({ ...card, pendingLate: null });
+      setConfirmLateRefund(false);
+      setLastScan({ ok: true, name: card.name ?? undefined });
+      setRecent(r => [{ name: card.name, at: new Date() }, ...r].slice(0, 5));
+      toast.success(`✓ ${card.name ?? t('Entrée validée', 'Entry validated')}${late ? ` — ${tk('bouncer.despiteLate')} ${late}` : ''}`);
+    } catch (e: unknown) {
+      toast.error((e as { message?: string }).message ?? t('Erreur de scan', 'Scan error'));
+    } finally {
+      setLateBusy(false);
+    }
+  };
+
+  /**
+   * Hors créneau refusé : le billet n'a pas été consommé, le remboursement net
+   * peut donc passer (staff-cancel refuse un billet déjà scanné). Il porte sur
+   * la COMMANDE entière : deux temps, le second dit combien de billets partent.
+   */
+  const refuseLateEntry = async () => {
+    const card = doorTicket;
+    const pending = card?.pendingLate;
+    if (!card || !pending || lateBusy) return;
+    if (!confirmLateRefund) { setConfirmLateRefund(true); return; }
+    setLateBusy(true);
+    try {
+      const late = card.entryDeadline ? computeLateness(card.entryDeadline, nowAtDoor()).lateLabel : '';
+      const { data, error } = await invokeEdgeFunction<{ success?: boolean; error?: string; refundAmount?: number }>('staff-cancel', {
+        body: {
+          type: 'ticket',
+          id: pending.ticketId,
+          reason: tk('bouncer.lateRefundReason').replace('{late}', late),
+          banCustomer: false,
+          staffId: user?.id,
+        },
+      });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || tk('bouncer.cancelError'));
+      setDoorTicket(null);
+      setConfirmLateRefund(false);
+      setLastScan({
+        ok: false,
+        name: card.name ?? undefined,
+        reason: t('Hors créneau : entrée refusée, billet remboursé', 'Out of slot: entry denied, ticket refunded', 'Fuera de franja: entrada denegada, entrada reembolsada'),
+      });
+      toast.success(`${tk('bouncer.refundAmount')} ${Number(data?.refundAmount ?? 0).toFixed(2)}€`);
+    } catch (e: unknown) {
+      toast.error(`${tk('bouncer.cancelError')} — ${(e as { message?: string }).message ?? ''}`);
+    } finally {
+      setLateBusy(false);
     }
   };
 
@@ -642,8 +843,38 @@ export default function OrgAppCheckin() {
                 </div>
                 {/* Right — result + recent */}
                 <div className="space-y-4">
-                  {lastScan
-                    ? <ScanResult ok={lastScan.ok} title={lastScan.ok ? t('Entrée validée', 'Entry validated') : (lastScan.reason ?? t('Refusé', 'Denied'))} sub={lastScan.name} />
+                  {doorTicket?.pendingLate
+                    ? (
+                      <LateDecisionCard
+                        ticket={doorTicket}
+                        lateLabel={doorTicket.entryDeadline ? computeLateness(doorTicket.entryDeadline, nowAtDoor()).lateLabel : ''}
+                        busy={lateBusy}
+                        confirmRefund={confirmLateRefund}
+                        onAccept={acceptLateEntry}
+                        onRefuse={refuseLateEntry}
+                        onCancelRefund={() => setConfirmLateRefund(false)}
+                        tk={tk}
+                        t={t}
+                      />
+                    )
+                    : lastScan
+                    ? (
+                      <>
+                        <ScanResult ok={lastScan.ok} title={lastScan.ok ? t('Entrée validée', 'Entry validated') : (lastScan.reason ?? t('Refusé', 'Denied'))} sub={lastScan.name} />
+                        {/* Le tarif et la boisson offerte ne se lisent que sur une entrée
+                            ACCORDÉE : jamais sur un refus ni sur un « déjà scanné ». */}
+                        {lastScan.ok && doorTicket && (
+                          <DoorTicketDetails
+                            ticket={doorTicket}
+                            drinkTooLate={!!doorTicket.drinkCutoff && computeLateness(doorTicket.drinkCutoff, nowAtDoor()).isPast}
+                            drinkMode={venueDrinkMode}
+                            alcoholFree={!!selectedEvent?.alcohol_free}
+                            tk={tk}
+                            t={t}
+                          />
+                        )}
+                      </>
+                    )
                     : <WaitingPanel text={t('Scannez un billet pour valider l\'entrée.', 'Scan a ticket to validate entry.')} />}
                   {recent.length > 0 && (
                     <OrgCard>
@@ -788,6 +1019,131 @@ export default function OrgAppCheckin() {
         </AlertDialogContent>
       </AlertDialog>
     </OrgPage>
+  );
+}
+
+type DictT = (key: string) => string;
+type InlineT = (fr: string, en: string, es?: string) => string;
+
+const AMBER = 'var(--acc-f59e0b)';
+
+/**
+ * Billet hors créneau en attente : la même question que l'app Yuno Pro, avec
+ * ses mots. Rien n'est validé tant que la porte n'a pas tranché.
+ */
+function LateDecisionCard({
+  ticket, lateLabel, busy, confirmRefund, onAccept, onRefuse, onCancelRefund, tk, t,
+}: {
+  ticket: DoorTicket;
+  lateLabel: string;
+  busy: boolean;
+  confirmRefund: boolean;
+  onAccept: () => void;
+  onRefuse: () => void;
+  onCancelRefund: () => void;
+  tk: DictT;
+  t: InlineT;
+}) {
+  const orderQty = ticket.pendingLate?.orderQuantity ?? 1;
+  return (
+    <OrgCard style={{ border: '1px solid rgba(245,158,11,0.45)', background: 'rgba(245,158,11,0.07)' }}>
+      <div className="space-y-4 p-5">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-8 w-8 shrink-0" style={{ color: AMBER }} />
+          <div className="min-w-0">
+            <div style={{ color: AMBER, fontSize: 14, fontWeight: 700 }}>{tk('bouncer.outOfSlot')}</div>
+            {ticket.name && <div className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{ticket.name}</div>}
+            <div style={{ color: T3, fontSize: 12.5 }}>
+              {ticket.roundName ? `${ticket.roundName} · ` : ''}{tk('tickets.entryBefore')} {ticket.entryDeadline}
+            </div>
+            {lateLabel && (
+              <div className="mt-1" style={{ color: AMBER, fontSize: 13, fontWeight: 600 }}>+{lateLabel} {tk('bouncer.late')}</div>
+            )}
+          </div>
+        </div>
+        <p style={{ color: T3, fontSize: 12 }}>
+          {t("Rien n'est validé tant que vous n'avez pas choisi.", 'Nothing is validated until you decide.', 'No se valida nada hasta que decidas.')}
+        </p>
+        {confirmRefund ? (
+          <div className="space-y-2">
+            <p style={{ color: T2, fontSize: 12.5 }}>
+              {orderQty > 1
+                ? t(`Le remboursement porte sur toute la commande (${orderQty} billets).`, `The refund covers the whole order (${orderQty} tickets).`, `El reembolso cubre todo el pedido (${orderQty} entradas).`)
+                : t('Le billet sera annulé et le client remboursé.', 'The ticket will be cancelled and the guest refunded.', 'La entrada se anulará y se reembolsará al cliente.')}
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <OrgButton variant="secondary" onClick={onCancelRefund} disabled={busy}>{t('Retour', 'Back', 'Volver')}</OrgButton>
+              <OrgButton variant="danger" onClick={onRefuse} disabled={busy}>
+                <Ban className="h-4 w-4" />{busy ? '…' : t('Confirmer et rembourser', 'Confirm and refund', 'Confirmar y reembolsar')}
+              </OrgButton>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <OrgButton variant="danger" onClick={onRefuse} disabled={busy}>
+              <XCircle className="h-4 w-4" />{`${tk('bouncer.deny')} + ${tk('bouncer.refund90')}`}
+            </OrgButton>
+            <OrgButton variant="primary" onClick={onAccept} disabled={busy}>
+              <CheckCircle2 className="h-4 w-4" />{busy ? '…' : tk('bouncer.accept')}
+            </OrgButton>
+          </div>
+        )}
+      </div>
+    </OrgCard>
+  );
+}
+
+/** Carte d'une entrée accordée : tarif, heure limite, boisson offerte à remettre (ou plus). */
+function DoorTicketDetails({
+  ticket, drinkTooLate, drinkMode, alcoholFree, tk, t,
+}: {
+  ticket: DoorTicket;
+  drinkTooLate: boolean;
+  drinkMode: 'credits' | 'bouncer_notify';
+  alcoholFree: boolean;
+  tk: DictT;
+  t: InlineT;
+}) {
+  return (
+    <OrgCard>
+      <div className="space-y-3 p-4" style={{ fontSize: 13 }}>
+        {ticket.roundName && <Row label={t('Tarif', 'Ticket type', 'Tarifa')} value={ticket.roundName} />}
+        {ticket.entryDeadline && <Row label={tk('tickets.entryDeadline')} value={ticket.entryDeadline} />}
+        <Row label={t('Personnes', 'People', 'Personas')} value={`${ticket.headcount}x`} />
+        {alcoholFree && (
+          <div className="flex items-start gap-2 rounded-xl p-3" style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.4)' }}>
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: AMBER }} />
+            <div>
+              <div style={{ color: AMBER, fontWeight: 700 }}>{tk('bouncer.minorNoAlcohol')}</div>
+              <div style={{ color: T2, fontSize: 12 }}>{tk('bouncer.minorNoAlcoholDesc')}</div>
+            </div>
+          </div>
+        )}
+        {ticket.includesDrink && (
+          drinkMode === 'credits' ? (
+            <div className="flex items-center gap-2" style={{ color: T1, fontWeight: 500 }}>
+              <Wine className="h-4 w-4 shrink-0" style={{ color: RED }} />{tk('bouncer.freeDrinkIncluded')}
+            </div>
+          ) : drinkTooLate ? (
+            <div className="flex items-center gap-2 rounded-xl p-3" style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.4)' }}>
+              <Wine className="h-5 w-5 shrink-0" style={{ color: AMBER }} />
+              <span style={{ color: AMBER, fontWeight: 600 }}>{tk('bouncer.drinkCutoffPassed').replace('{time}', ticket.drinkCutoff ?? '')}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.4)' }}>
+              <Wine className="h-6 w-6 shrink-0" style={{ color: POS }} />
+              <div className="min-w-0">
+                <div style={{ color: POS, fontWeight: 700 }}>{tk('bouncer.giveDrink')}</div>
+                <div style={{ color: T2, fontSize: 12 }}>
+                  {ticket.headcount}x — {tk('bouncer.giveDrinkDesc')}
+                  {ticket.drinkCutoff ? ` · ${tk('bouncer.drinkUntil').replace('{time}', ticket.drinkCutoff)}` : ''}
+                </div>
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </OrgCard>
   );
 }
 
