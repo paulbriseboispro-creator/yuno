@@ -5,7 +5,13 @@
  */
 import { MCP_SERVER_URL } from '@/lib/mcp';
 
-/** Où l'on ajoute un connecteur personnalisé dans Claude (offres individuelles, support.claude.com 11175166). */
+/**
+ * La fiche de Yuno dans l'annuaire public de Claude (« Yuno MCP », slug
+ * `yuno-mcp` ; `claude.ai/directory/yuno` est un AUTRE Yuno, de paiement) :
+ * « Connecter » y ouvre l'autorisation Yuno, sans adresse à coller.
+ */
+export const CLAUDE_DIRECTORY_URL = 'https://claude.ai/directory/yuno-mcp';
+/** Ajout manuel (secours) : connecteur personnalisé, support.claude.com 11175166. */
 export const CLAUDE_CONNECTORS_URL = 'https://claude.ai/customize/connectors';
 /** Claude Code : le serveur distant de Yuno, en HTTP, nommé « yuno ». */
 export const CLAUDE_CODE_COMMAND = `claude mcp add --transport http yuno ${MCP_SERVER_URL}`;

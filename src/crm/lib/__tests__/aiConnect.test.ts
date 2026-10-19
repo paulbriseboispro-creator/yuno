@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AI_GUIDE_PATH, CLAUDE_CODE_COMMAND, CLAUDE_CONNECTORS_URL } from '@/crm/lib/aiConnect';
+import { AI_GUIDE_PATH, CLAUDE_CODE_COMMAND, CLAUDE_CONNECTORS_URL, CLAUDE_DIRECTORY_URL } from '@/crm/lib/aiConnect';
 import { MCP_SERVER_URL } from '@/lib/mcp';
 import { CRM_DICT } from '@/i18n/locales/crm/modules';
 
@@ -13,6 +13,8 @@ describe('Connecteurs › Assistants IA', () => {
   it('le guide et Claude ont des adresses stables', () => {
     expect(AI_GUIDE_PATH).toBe('/crm/connectors?v=claude');
     expect(CLAUDE_CONNECTORS_URL).toBe('https://claude.ai/customize/connectors');
+    // « yuno » tout court est un AUTRE Yuno (paiement) dans l'annuaire de Claude.
+    expect(CLAUDE_DIRECTORY_URL).toBe('https://claude.ai/directory/yuno-mcp');
   });
   it('chaque texte du guide existe en trois langues', () => {
     const src = readFileSync(join(process.cwd(), 'src/crm/pages/connectors/AiConnectors.tsx'), 'utf8');

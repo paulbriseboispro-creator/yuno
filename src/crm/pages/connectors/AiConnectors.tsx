@@ -5,11 +5,14 @@
  *
  *   section    trois cartes : Claude (disponible, ou « Connecté » avec ses
  *              lectures), ChatGPT et Gemini (« Bientôt disponible »)
- *   ?v=claude  le guide : Claude sur le web, l'ordinateur et le mobile
- *              (`&c=code` : Claude Code), l'adresse à copier, le chemin dans
- *              Claude, l'autorisation côté Yuno, des premières questions, et
- *              « C'est branché » dès que la connexion arrive (relue toutes les
- *              4 s tant que le guide est ouvert).
+ *   ?v=claude  le guide, comme Stripe dans Claude : « Ouvrir Yuno dans
+ *              Claude » (fiche de l'annuaire, `claude.ai/directory/yuno-mcp`)
+ *              → « Connecter » → la fenêtre Yuno, déjà connectée (elle passe
+ *              sur crm.yunoapp.eu pour un client CRM, src/lib/productHint.ts)
+ *              → « Autoriser Claude ». Puis des premières questions, et « C'est
+ *              branché » dès que la connexion arrive (relue toutes les 4 s).
+ *              L'ajout manuel (adresse à coller) n'est plus qu'un secours replié.
+ *              `&c=code` : Claude Code.
  *
  * Rien ne se branche depuis Yuno : c'est Claude qui ajoute le connecteur et la
  * personne qui autorise (/connect-ai). Couper une connexion =
@@ -29,7 +32,7 @@ import { rpc } from '@/crm/lib/rpc';
 import { useAiConnections } from '@/crm/data/plan';
 import { MCP_SERVER_URL, type McpConnection } from '@/lib/mcp';
 import { AI_BRAND_PATHS, type AiBrand } from '@/crm/assets/aiBrands';
-import { CLAUDE_CODE_COMMAND, CLAUDE_CONNECTORS_URL } from '@/crm/lib/aiConnect';
+import { CLAUDE_CODE_COMMAND, CLAUDE_CONNECTORS_URL, CLAUDE_DIRECTORY_URL } from '@/crm/lib/aiConnect';
 import { BackLink, GradientCta } from './connectorsUi';
 import { CARD, ENTER } from './connectorsStyle';
 
@@ -105,7 +108,11 @@ export function AiConnectorsSection({ onGuide }: { onGuide: () => void }) {
                 {t('yc.ai.manage')}
               </Hv>
             ) : (
-              <GradientCta onClick={onGuide}>{t('yc.ai.connectClaude')}</GradientCta>
+              <GradientCta onClick={() => {
+                // Dans le geste du clic (Safari bloque une fenêtre ouverte après un await).
+                window.open(CLAUDE_DIRECTORY_URL, '_blank', 'noopener');
+                onGuide();
+              }}>{t('yc.ai.addToClaude')}</GradientCta>
             )}
           </div>
         </div>
@@ -179,24 +186,22 @@ function OutLink({ href, children, tone = 'light' }: { href: string; children: R
   );
 }
 
-/** Aperçu de la fenêtre de Claude : ce qu'il faut y écrire, champ par champ. */
-function ClaudeDialogMock() {
+/** Aperçu de la fiche Yuno dans l'annuaire de Claude : le bouton à cliquer. */
+function ListingMock() {
   const { t } = useCrmT();
-  const row = (k: string, v: string, mono = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--sand-500)' }}>{k}</span>
-      <span style={{ height: 36, padding: '0 12px', borderRadius: 10, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'flex', alignItems: 'center', fontSize: 14, fontFamily: mono ? 'var(--font-mono)' : undefined, color: 'var(--ink)', overflow: 'hidden', whiteSpace: 'nowrap' }}>{v}</span>
-    </div>
-  );
   return (
-    <figure aria-label={t('yc.ai.mock.label')} style={{ margin: 0, maxWidth: 420, padding: 16, borderRadius: 18, background: '#F7F5F0', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-xs)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <BrandTile brand="claude" size={24} />
-        <b style={{ fontSize: 14.5, fontWeight: 600 }}>{t('yc.ai.mock.title')}</b>
-      </span>
-      {row(t('yc.ai.mock.name'), 'Yuno')}
-      {row(t('yc.ai.mock.url'), MCP_SERVER_URL, true)}
-      <span style={{ alignSelf: 'flex-end', height: 32, padding: '0 14px', borderRadius: 10, background: 'var(--ink)', color: '#fff', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>{t('yc.ai.mock.add')}</span>
+    <figure aria-label={t('yc.ai.mock.label')} style={{ margin: 0, maxWidth: 440, padding: 16, borderRadius: 18, background: '#F7F5F0', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-xs)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <img src="/icon-512.png" alt="" width={40} height={40} style={{ flex: 'none', borderRadius: 10, boxShadow: '0 0 0 1px rgba(28,21,23,.08)' }} />
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <b style={{ fontSize: 15.5, fontWeight: 600 }}>Yuno MCP</b>
+            <span style={{ height: 20, padding: '0 7px', borderRadius: 6, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', fontSize: 11, fontWeight: 600, color: 'var(--sand-600)', display: 'inline-flex', alignItems: 'center' }}>{t('yc.ai.mock.community')}</span>
+          </span>
+          <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.ai.mock.by')}</span>
+        </div>
+        <span style={{ flex: 'none', height: 34, padding: '0 14px', borderRadius: 10, background: 'var(--ink)', color: '#fff', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', boxShadow: '0 0 0 3px rgba(217,119,87,.35)' }}>{t('yc.ai.mock.connect')}</span>
+      </div>
       <figcaption style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--sand-500)' }}>{t('yc.ai.mock.caption')}</figcaption>
     </figure>
   );
@@ -331,41 +336,45 @@ export function ClaudeGuide({ code, go }: { code: boolean; go: (p: Record<string
             options={[{ value: 'web', label: t('yc.ai.g.tabWeb') }, { value: 'code', label: t('yc.ai.g.tabCode') }]}
           />
           {!code ? (
-            <ol key="web" style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', animation: `yc-rise 500ms ${EASE} both` }}>
-              <Step n={1} title={t('yc.ai.w1.t')}>
-                <p style={body}>{t('yc.ai.w1.s')}</p>
-                <CopyBox value={MCP_SERVER_URL} label={t('yc.ai.url')} done={t('yc.ai.urlCopied')} />
-              </Step>
-              <Step n={2} title={t('yc.ai.w2.t')}>
-                <p style={body}>{t('yc.ai.w2.s1')} <span style={kbd}>{t('yc.ai.w2.add')}</span> {t('yc.ai.w2.s2')} <span style={kbd}>{t('yc.ai.w2.custom')}</span>.</p>
-                <OutLink href={CLAUDE_CONNECTORS_URL} tone="claude">{t('yc.ai.w2.open')}</OutLink>
-              </Step>
-              <Step n={3} title={t('yc.ai.w3.t')}>
-                <p style={body}>{t('yc.ai.w3.s1')} <span style={kbd}>Yuno</span>{t('yc.ai.w3.s2')} <span style={kbd}>{t('yc.ai.w3.signin')}</span>{t('yc.ai.w3.s3')}</p>
-                <ClaudeDialogMock />
-              </Step>
-              <Step n={4} title={t('yc.ai.w4.t', { space: space.name })}>
-                <p style={body}>{t('yc.ai.w4.s', { space: space.name })}</p>
-              </Step>
-              <Step n={5} last title={t('yc.ai.w5.t')}>
-                <p style={body}>{t('yc.ai.w5.s1')} <span style={kbd}>+</span>{t('yc.ai.w5.s2')} <span style={kbd}>{t('yc.ai.w5.connectors')}</span>{t('yc.ai.w5.s3')}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {prompts.map((p) => (
-                    <div key={p} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '10px 10px 10px 14px', borderRadius: 14, background: 'var(--sand-50)' }}>
-                      <span style={{ flex: '1 1 240px', minWidth: 0, fontSize: 14.5, lineHeight: 1.45 }}>« {p} »</span>
-                      <span style={{ flex: 'none', display: 'flex', gap: 6 }}>
-                        <Hv as="button" type="button" aria-label={t('yc.ai.copy')} onClick={() => { void copy(p, t('yc.ai.qCopied')); }} style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'grid', placeItems: 'center', cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>
-                          <Icon name="copy" size={14} stroke={2.2} />
-                        </Hv>
-                        <Hv as="a" href={`https://claude.ai/new?q=${encodeURIComponent(p)}`} target="_blank" rel="noopener noreferrer" style={{ height: 34, padding: '0 12px', borderRadius: 10, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--ink)', textDecoration: 'none' }} hover={{ background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}>
-                          {t('yc.ai.ask')}<Icon d={EXT} size={12} stroke={2.4} />
-                        </Hv>
-                      </span>
-                    </div>
-                  ))}
+            <div key="web" style={{ display: 'flex', flexDirection: 'column', gap: 18, animation: `yc-rise 500ms ${EASE} both` }}>
+              <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                <Step n={1} title={t('yc.ai.w1.t')}>
+                  <p style={body}>{t('yc.ai.w1.s1')} <span style={kbd}>{t('yc.ai.mock.connect')}</span>{t('yc.ai.w1.s2')}</p>
+                  <OutLink href={CLAUDE_DIRECTORY_URL} tone="claude">{t('yc.ai.w1.open')}</OutLink>
+                  <ListingMock />
+                </Step>
+                <Step n={2} title={t('yc.ai.w2.t', { space: space.name })}>
+                  <p style={body}>{t('yc.ai.w2.s1', { space: space.name })} <span style={kbd}>{t('yc.ai.w2.allow')}</span>{t('yc.ai.w2.s2')}</p>
+                </Step>
+                <Step n={3} last title={t('yc.ai.w3.t')}>
+                  <p style={body}>{t('yc.ai.w3.s1')} <span style={kbd}>+</span>{t('yc.ai.w3.s2')} <span style={kbd}>{t('yc.ai.w3.connectors')}</span>{t('yc.ai.w3.s3')}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {prompts.map((p) => (
+                      <div key={p} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '10px 10px 10px 14px', borderRadius: 14, background: 'var(--sand-50)' }}>
+                        <span style={{ flex: '1 1 240px', minWidth: 0, fontSize: 14.5, lineHeight: 1.45 }}>« {p} »</span>
+                        <span style={{ flex: 'none', display: 'flex', gap: 6 }}>
+                          <Hv as="button" type="button" aria-label={t('yc.ai.copy')} onClick={() => { void copy(p, t('yc.ai.qCopied')); }} style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'grid', placeItems: 'center', cursor: 'pointer', color: 'var(--ink)' }} hover={{ background: 'var(--paper)' }}>
+                            <Icon name="copy" size={14} stroke={2.2} />
+                          </Hv>
+                          <Hv as="a" href={`https://claude.ai/new?q=${encodeURIComponent(p)}`} target="_blank" rel="noopener noreferrer" style={{ height: 34, padding: '0 12px', borderRadius: 10, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--ink)', textDecoration: 'none' }} hover={{ background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}>
+                            {t('yc.ai.ask')}<Icon d={EXT} size={12} stroke={2.4} />
+                          </Hv>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </Step>
+              </ol>
+              <details style={{ borderRadius: 16, background: 'var(--sand-50)', padding: '0 16px' }}>
+                <summary style={{ cursor: 'pointer', padding: '14px 0', fontSize: 14.5, fontWeight: 600, listStyle: 'revert' }}>{t('yc.ai.fb.t')}</summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 16 }}>
+                  <p style={body}><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{t('yc.ai.fb.teamT')}</b> {t('yc.ai.fb.team')}</p>
+                  <p style={body}><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{t('yc.ai.fb.manualT')}</b> {t('yc.ai.fb.manual1')} <span style={kbd}>{t('yc.ai.fb.add')}</span> {t('yc.ai.fb.manual2')} <span style={kbd}>{t('yc.ai.fb.custom')}</span>{t('yc.ai.fb.manual3')}</p>
+                  <CopyBox value={MCP_SERVER_URL} label={t('yc.ai.url')} done={t('yc.ai.urlCopied')} />
+                  <OutLink href={CLAUDE_CONNECTORS_URL}>{t('yc.ai.fb.open')}</OutLink>
                 </div>
-              </Step>
-            </ol>
+              </details>
+            </div>
           ) : (
             <ol key="code" style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', animation: `yc-rise 500ms ${EASE} both` }}>
               <Step n={1} title={t('yc.ai.c1.t')}>
@@ -381,10 +390,12 @@ export function ClaudeGuide({ code, go }: { code: boolean; go: (p: Record<string
               </Step>
             </ol>
           )}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 16, background: 'var(--sand-50)' }}>
-            <span style={{ flex: 'none', width: 30, height: 30, borderRadius: 10, background: '#fff', color: 'var(--sand-700)', display: 'grid', placeItems: 'center', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}><Icon name="help" size={15} stroke={2} /></span>
-            <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{t('yc.ai.plans.t')}</b> {t(code ? 'yc.ai.plans.code' : 'yc.ai.plans.web')}</span>
-          </div>
+          {code && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 16, background: 'var(--sand-50)' }}>
+              <span style={{ flex: 'none', width: 30, height: 30, borderRadius: 10, background: '#fff', color: 'var(--sand-700)', display: 'grid', placeItems: 'center', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}><Icon name="help" size={15} stroke={2} /></span>
+              <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{t('yc.ai.plans.t')}</b> {t('yc.ai.plans.code')}</span>
+            </div>
+          )}
           <Connections list={list} />
         </div>
         <WhatClaudeDoes />
