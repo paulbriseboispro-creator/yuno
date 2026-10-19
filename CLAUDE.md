@@ -699,6 +699,21 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   libre : miroir SQL de `freePresetToRoundRows` (`_free_rel_to_ts` ⇄
   `fromRelative`), vérifié ligne à ligne contre le TS. Un billet épuisé se lit
   « Épuisé » côté public, jamais « Bientôt » (il est aussi `is_active = false`).
+  **Description d'un billet** (2026-10-19, tous modes, migration
+  `20261102100000`) : `ticket_rounds.description`, facultative, 200 caractères
+  au plus (CHECK SQL ⇄ `TICKET_DESCRIPTION_MAX`, nettoyée par
+  `normalizeTicketDescription`). Un seul champ dans tous les éditeurs
+  (`TicketDescriptionField`) ; affichée SANS clic sous le billet, page d'achat et
+  page de la soirée. Page d'achat = `OfferCard`
+  (`src/components/ticketing/OfferCard.tsx`, billets standard, VIP ET
+  formules de table) : nom sur UNE ligne, puis description et conditions,
+  puis prix à gauche et quantité / Réserver / statut à droite. Avec une
+  description, les mentions automatiques « Conso » / « avant 01:00 » ne
+  s'affichent plus (le pro les écrit dedans, l'éditeur le dit). Elle suit le billet dans un modèle libre (`FreePresetTicket`,
+  recopiée par `_insert_recurring_rounds`). Une mise à jour de billet lit le
+  nombre de lignes (`.select('id')`) : sur une co-soirée dont l'autre partie
+  tient la billetterie, la RLS refuse SANS erreur, l'écran dit
+  `tickets.notAllowed` au lieu d'un faux « mis à jour ».
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
