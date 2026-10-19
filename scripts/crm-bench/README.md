@@ -194,7 +194,26 @@ journal prévu / réel. `--open` abaisse les portes du score dans la base du
 banc pour que la note et le journal tournent (le compte synthétique est
 « weak »). `diff.mjs`, qui compare deux bases calculées à des moments
 différents, ne convient pas ici : la part restante des achats dépend de
-`now()`.
+`now()`. `--nightly` fait passer les deux calculs par `crm_score_nightly` (la
+passe du cron, qui choisit la portée et attrape les dépassements) au lieu de
+`crm_score_compute`.
+
+Une portée qui ne tient pas dans le temps (PERF-02) :
+
+```bash
+node score-nightly.mjs overrun amoris-warm ../../supabase/migrations/20261027100000_crm_score_fit_once_per_row.sql \
+  ../../supabase/migrations/20261028100000_crm_score_nightly_overrun.sql
+```
+
+rejoue des passes de nuit, chacune dans sa transaction comme en prod, avec le
+compte en tête de file et une petite portée vide derrière : budget abaissé
+(`score.budget_s` = 3 s), puis délai de l'instruction simulé (PGlite n'a pas
+de minuteur : le journal lève `query_canceled` à la place du minuteur, à
+l'étape où la prod a coupé le 18/10), puis annulation à la main (même erreur,
+bien avant le délai), puis le temps rendu. Chaque passe vérifie que la portée
+lente garde ses chances d'hier (six tables, ligne à ligne), que la suivante
+est notée, que l'alerte ne part qu'une fois par nuit et que, la nuit suivante,
+la portée lente ne passe plus en premier.
 
 ## Scénarios (automatisations sur mesure)
 
