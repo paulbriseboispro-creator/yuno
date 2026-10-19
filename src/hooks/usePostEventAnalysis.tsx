@@ -154,7 +154,7 @@ export function usePostEventAnalysis(
       .limit(50);
     q = isOrg
       ? q.or(orgEventsOr(organizerUserId))
-      : q.eq('venue_id', venueId!);
+      : q.eq('venue_id', venueId!).is('external_source', null);
     const { data } = await q;
     if (data) {
       setEvents(data.map((e) => ({ id: e.id, title: e.title, date: new Date(e.start_at) })));
