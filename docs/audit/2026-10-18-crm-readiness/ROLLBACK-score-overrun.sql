@@ -1,4 +1,5 @@
 -- Retour arrière de 20261028100000_crm_score_nightly_overrun.sql (PERF-02).
+-- Appliquée en prod le 19/10 vers 09:25 UTC, après PERF-01 (JOURNAL).
 -- crm_score_nightly : définition lue en prod le 19/10 AVANT la correction
 -- (pg_get_functiondef). crm_score_compute : les points de contrôle du budget
 -- sont retirés EN PLACE (le reste de la fonction n'est pas touché).

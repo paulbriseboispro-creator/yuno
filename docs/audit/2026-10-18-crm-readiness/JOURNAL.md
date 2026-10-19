@@ -281,3 +281,22 @@ attendent sa décision.
 | Répétition (23:03) | Compte démo CRM : lien de story créé AVEC sa capture (gardée), URL http écartée sans erreur : SMOKE_OK. Sans la migration : « crm_link_create contient encore {1,480} ». |
 | Migration (23:03) | `20261024100100` (fichier repris de `crm/audit-sec06-link01`, identique à celui répété). `crm_link_create` sans `{1,480}`, definer, fermée à `anon`. `db lint` : 87 avant comme après. |
 | Reste | SEC-06 (`20261024100000`) attend la décision de Paul sur SEC-08 : branche `crm/audit-sec06-link01`. |
+
+## PERF-01 et PERF-02 : le calcul de nuit du score (19/10 au matin, heures UTC)
+
+Pourquoi maintenant : Kevin (WOH) va brancher dans son propre espace le même
+Shotgun qu'Amoris. Sa portée n'a jamais été notée (`trained_at` NULL), donc la
+file de `crm-score-nightly` la prendra en tête ; sans PERF-01 son premier
+calcul dure 243-250 s au banc (délai : 120 s), sans PERF-02 ce 57014 annule
+toute la passe et plus aucun compte n'est recalculé. Le 19/10, les 4 passes
+avaient tenu (démo 7 s, Amoris 63 s).
+
+| Étape | Résultat |
+|---|---|
+| Fusion `claude/blissful-chatelet-7cef75` (avance rapide sur `09321494`) | 6 commits, rien d'autre : banc `score-nightly.mjs`, les deux migrations, leurs retours arrière, la doc. |
+| Définitions prod | `_crm_logit_fit` identique à `ROLLBACK-score.sql`, `crm_score_nightly` identique à `ROLLBACK-score-overrun.sql` ; l'ancienne jointure du journal présente une fois ; ni `score_overrun_*` ni `_crm_score_budget` en prod. `statement_timeout` = 120 s (fichier de configuration). |
+| Répétition PERF-01 | Nouveau smoke `smoke/perf01.sql` (compte démo seulement) : calcul complet du compte démo, `_crm_logit_fit` sur 20 000 lignes synthétiques à froid et à chaud, journal sur la prochaine soirée démo avec 1 974 chances fictives (le modèle démo est « weak », il ne note personne : c'est ce qui fait passer la jointure corrigée). Sans la migration : SMOKE_FAIL (structure) en 5,0 s ; avec : SMOKE_OK en 3,0 s, **empreintes identiques au caractère près** (coefficients du modèle démo et md5 des mesures hors durée, ajustements à froid et à chaud, journal : 7 audiences, 2 153 lignes par personne). |
+| Répétition PERF-02 | `smoke/perf02.sql` (structure) : sans les migrations « points de contrôle : {} » ; avec : les six points dans l'ordre (load, pairs, fit, model, note, journal), file inchangée. Nouveau smoke `smoke/perf02-timeout.sql` : un VRAI délai (2 s) sur le compte démo, seul en tête de file (modèle reculé d'un jour dans la transaction). Sans les migrations : la passe tombe (57014, pendant l'ajustement). Avec : délai attrapé à 2,0 s, modèle d'hier gardé (statut, coefficients, date), `score_overrun_at` posé (`timeout`), une alerte `admin_crm_analysis_failed`. |
+| Migrations (≈ 09:25) | `20261027100000` puis `20261028100000`, chacune avec sa ligne `schema_migrations`. |
+| Contrôles | `_crm_logit_fit` et `crm_score_nightly` identiques au dépôt ; `_crm_score_journal` : seule la jointure a changé ; `crm_score_compute` : seuls les six points de contrôle ajoutés. Aucune des cinq fonctions exécutable par `anon` ni `authenticated`. `crm-score-nightly` (job 178, `27,57 5-6`) intact. `score.budget_s` absent. Les trois smokes rejoués sur l'état en ligne : SMOKE_OK. `db lint` : 87 avant comme après (les erreurs du score sont les tables temporaires, déjà là). |
+| À vérifier | La passe de 05:27 UTC le 20/10 : durée et statut de chaque portée (`cron.job_run_details` du job 178, `crm_score_model.metrics.ms`, `crm_analysis_state.score_overrun_at` vide). |

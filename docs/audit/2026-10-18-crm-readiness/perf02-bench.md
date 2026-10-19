@@ -1,6 +1,7 @@
 # PERF-02 — un compte trop lent ne prive plus les autres de leur calcul de nuit
 
-Migration `20261028100000_crm_score_nightly_overrun.sql` (non appliquée),
+Migration `20261028100000_crm_score_nightly_overrun.sql` (appliquée en prod le
+19/10 vers 09:25 UTC, après PERF-01 ; voir JOURNAL),
 retour arrière `ROLLBACK-score-overrun.sql`. Banc
 `scripts/crm-bench/score-nightly.mjs` sur un instantané des définitions de la
 prod relu le 19/10 (`crm_score_compute` identique à la prod au caractère près,

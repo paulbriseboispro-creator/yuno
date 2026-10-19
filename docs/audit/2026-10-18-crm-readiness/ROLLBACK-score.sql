@@ -1,4 +1,5 @@
 -- Retour arrière de 20261027100000_crm_score_fit_once_per_row.sql (PERF-01).
+-- Appliquée en prod le 19/10 vers 09:25 UTC (JOURNAL, « PERF-01 et PERF-02 »).
 -- _crm_logit_fit : définition lue en prod le 19/10 AVANT la correction
 -- (pg_get_functiondef, = 20261014100000_crm_score_timing.sql).
 -- _crm_score_journal : la jointure des audiences est remise comme avant, en
