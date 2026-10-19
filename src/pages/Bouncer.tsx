@@ -13,7 +13,11 @@ import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList } from 'lucide-react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
-import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState } from '@/lib/scan/rules';
+import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState, wholeTableDoorState } from '@/lib/scan/rules';
+import {
+  enterRemainingTableGuests, enterTableGuest, findTableGuestByQr, tableGuestsEnteredByMeJustNow, tableGuestsOf,
+} from '@/lib/scan/tableDoor';
+import { tableGuestDoorName } from '@/lib/tableGuests';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import {
   doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, isPlaceRefunded, placesEnteredByMeJustNow,
@@ -849,7 +853,16 @@ export default function Bouncer() {
     }
 
     const result = await offline.scanOffline(qrCode);
-    const { verdict, kind, name, entry } = result;
+    const { verdict, kind, entry } = result;
+    // Ticket d'une personne d'une table : « Invité k · <titulaire> », comme en ligne.
+    const isTableGuest = kind === 'table' && entry?.reservation_id != null;
+    const name = isTableGuest && entry
+      ? tableGuestDoorName(
+          { guest_number: entry.number ?? 0, full_name: entry.name },
+          entry.holder ?? null,
+          (k) => t('tableGuest.label').replace('{n}', String(k)),
+        )
+      : result.name;
 
     // VIP hors-ligne : reconstruire la même carte de détail qu'en online depuis
     // le manifeste local — le videur voit zone, pack, personnes, reste à payer et
@@ -857,10 +870,10 @@ export default function Bouncer() {
     // ne sont pas mis en cache offline (PII / redondant) → leurs lignes sont masquées.
     if (kind === 'table' && entry && (verdict.status === 'success' || verdict.status === 'already')) {
       setScannedVipReservation({
-        id: entry.id,
+        id: entry.reservation_id || entry.id,
         userEmail: '',
-        fullName: entry.name || '',
-        guestCount: entry.guests || 1,
+        fullName: name || '',
+        guestCount: isTableGuest ? 1 : entry.guests || 1,
         eventTitle: '',
         zoneName: entry.zone || '',
         packName: entry.pack || '',
@@ -1407,7 +1420,9 @@ export default function Bouncer() {
         return;
       }
 
-      // If no ticket, check for VIP reservation
+      // Table VIP : le ticket d'UNE personne (titulaire ou Invité k), sinon le QR
+      // de la réservation entière.
+      const tableGuest = await findTableGuestByQr(qrCode);
       const { data: reservation, error: reservationError } = await supabase
         .from('table_reservations')
         .select(`
@@ -1416,18 +1431,26 @@ export default function Bouncer() {
           table_zones(name),
           table_packs(name, arrival_deadline)
         `)
-        .eq('qr_code', qrCode)
+        .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode)
         .maybeSingle();
 
       if (reservation && !reservationError) {
+        const guestWord = (k: number) => t('tableGuest.label').replace('{n}', String(k));
+        // Table à tickets d'invités : le QR de la réservation fait entrer les
+        // personnes encore dehors, « déjà scanné » quand il n'en reste aucune.
+        const tableGuests = tableGuest ? null : await tableGuestsOf(reservation.id);
+        const wholeTable = wholeTableDoorState(reservation.entry_scanned, reservation.guest_count, tableGuests);
+        const doorName = tableGuest
+          ? tableGuestDoorName(tableGuest, reservation.full_name, guestWord)
+          : reservation.full_name;
         const tableVerdict = validateTableReservation(
           {
-            type: 'table_reservation',
-            id: reservation.id,
-            name: reservation.full_name,
+            type: tableGuest ? 'table_guest' : 'table_reservation',
+            id: tableGuest?.id ?? reservation.id,
+            name: doorName,
             status: reservation.status,
-            scanned: reservation.entry_scanned,
-            scannedAt: reservation.entry_scanned_at,
+            scanned: tableGuest ? tableGuest.entry_scanned : wholeTable.scanned,
+            scannedAt: tableGuest ? tableGuest.entry_scanned_at : reservation.entry_scanned_at,
             // Co-soirée org-led : le club physique est partner_venue_id.
             venueId: reservation.events.venue_id ?? reservation.events.partner_venue_id ?? null,
             // Soirée sans club : l'organisateur porte le périmètre.
@@ -1438,9 +1461,24 @@ export default function Bouncer() {
 
         // Contexte de refus : porteur + soirée, de quoi expliquer au client.
         const tableContext: DeniedContext = {
-          name: reservation.full_name,
+          name: doorName,
           eventTitle: reservation.events.title,
         };
+        const vipCard = (guestCount: number, scannedAt: string | null) => ({
+          id: reservation.id,
+          userEmail: reservation.user_email,
+          fullName: doorName || '',
+          guestCount,
+          eventTitle: reservation.events.title,
+          zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
+          packName: (reservation.table_packs as PackJoin)?.name || '',
+          arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
+          status: reservation.status,
+          deposit: Number(reservation.deposit || 0),
+          totalPrice: Number(reservation.total_price),
+          entryScanned: true,
+          entryScannedAt: scannedAt,
+        });
 
         if (tableVerdict.status === 'wrong_venue') {
           denyScan(t('bouncer.wrongVenue'), tableContext);
@@ -1464,73 +1502,68 @@ export default function Bouncer() {
 
         if (tableVerdict.status === 'already') {
           setScanResult('already');
-          setScannedVipReservation({
-            id: reservation.id,
-            userEmail: reservation.user_email,
-            fullName: reservation.full_name || '',
-            guestCount: reservation.guest_count || 1,
-            eventTitle: reservation.events.title,
-            zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
-            packName: (reservation.table_packs as PackJoin)?.name || '',
-            arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
-            status: reservation.status,
-            deposit: Number(reservation.deposit || 0),
-            totalPrice: Number(reservation.total_price),
-            entryScanned: true,
-            entryScannedAt: reservation.entry_scanned_at,
-          });
+          setScannedVipReservation(vipCard(
+            tableGuest ? 1 : reservation.guest_count || 1,
+            tableGuest ? tableGuest.entry_scanned_at : reservation.entry_scanned_at,
+          ));
           return;
         }
 
         const currentUser = { id: await myUserId() };
+        let admitted = tableGuest ? 1 : wholeTable.headcount;
 
-        const checkInTime = new Date().toISOString();
-        const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
-          const res = await supabase
-            .from('table_reservations')
-            .update({
-              entry_scanned: true,
-              entry_scanned_at: checkInTime,
-              entry_scanned_by: currentUser?.id,
-              checked_in_at: checkInTime,
-            })
-            .eq('id', reservation.id)
-            .eq('entry_scanned', false)
-            .select();
-          if (res.error) throw res.error;
-          return res;
-        });
+        if (tableGuest) {
+          // Une personne entre ; la base marque la table arrivée (et prévient
+          // l'hôte VIP) au premier ticket entré.
+          const entered = await retrySupabaseAction(() => enterTableGuest(tableGuest.id));
+          if (entered === 0
+            && (await tableGuestsEnteredByMeJustNow(reservation.id, currentUser.id, tableGuest.id)) === 0) {
+            setScanResult('already');
+            return;
+          }
+        } else if (tableGuests) {
+          // Les personnes encore dehors entrent d'un coup (premier scan gagne).
+          const entered = await retrySupabaseAction(() => enterRemainingTableGuests(reservation.id));
+          admitted = entered || await tableGuestsEnteredByMeJustNow(reservation.id, currentUser.id);
+          if (admitted === 0) {
+            setScanResult('already');
+            return;
+          }
+        } else {
+          const checkInTime = new Date().toISOString();
+          const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
+            const res = await supabase
+              .from('table_reservations')
+              .update({
+                entry_scanned: true,
+                entry_scanned_at: checkInTime,
+                entry_scanned_by: currentUser?.id,
+                checked_in_at: checkInTime,
+              })
+              .eq('id', reservation.id)
+              .eq('entry_scanned', false)
+              .select();
+            if (res.error) throw res.error;
+            return res;
+          });
 
-        if (updateError) {
-          console.error('Failed to update VIP reservation:', updateError);
-          throw updateError;
-        }
-        if ((!updatedRes || updatedRes.length === 0) && !(await scannedByMeJustNow('table_reservations', reservation.id))) {
-          setScanResult('already');
-          return;
+          if (updateError) {
+            console.error('Failed to update VIP reservation:', updateError);
+            throw updateError;
+          }
+          if ((!updatedRes || updatedRes.length === 0) && !(await scannedByMeJustNow('table_reservations', reservation.id))) {
+            setScanResult('already');
+            return;
+          }
         }
         // L'hôte VIP est prévenu par la base (trigger notify_vip_host_on_arrival,
         // club de la ZONE, une seule fois — hors ligne compris).
-        void offline.markScannedOnline(qrCode, 'table_reservation', reservation.id);
+        void offline.markScannedOnline(qrCode, tableGuest ? 'table_guest' : 'table_reservation', tableGuest?.id ?? reservation.id);
 
-        setScannedVipReservation({
-          id: reservation.id,
-          userEmail: reservation.user_email,
-          fullName: reservation.full_name || '',
-          guestCount: reservation.guest_count || 1,
-          eventTitle: reservation.events.title,
-          zoneName: (reservation.table_zones as ZoneJoin)?.name || '',
-          packName: (reservation.table_packs as PackJoin)?.name || '',
-          arrivalDeadline: (reservation.table_packs as PackJoin)?.arrival_deadline || null,
-          status: reservation.status,
-          deposit: Number(reservation.deposit || 0),
-          totalPrice: Number(reservation.total_price),
-          entryScanned: true,
-          entryScannedAt: new Date().toISOString(),
-        });
+        setScannedVipReservation(vipCard(admitted, new Date().toISOString()));
         setScanResult('vip_success');
         setOverlayResult('vip_success');
-        setOverlayName(reservation.full_name || undefined);
+        setOverlayName(doorName || undefined);
         
         // Check if this is a top 100 client for VIP reservations too
         const topClient = await checkTopClient(reservation.user_id);

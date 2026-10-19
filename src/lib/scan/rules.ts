@@ -145,6 +145,21 @@ export function wholeTicketDoorState(
   return { scanned: remaining === 0, headcount: Math.max(1, remaining) };
 }
 
+/**
+ * QR de la RÉSERVATION d'une table à tickets d'invités (table_reservation_guests) :
+ * même règle que le QR d'un billet entier. Il fait entrer les personnes encore
+ * dehors, et n'est « déjà scanné » que quand elles sont toutes entrées. Sans
+ * tickets d'invités (table d'une personne, réservation d'avant), la réservation
+ * entière entre d'un coup, comme avant.
+ */
+export function wholeTableDoorState(
+  reservationScanned: boolean | null | undefined,
+  guestCount: number | null | undefined,
+  guests: { remaining: number } | null,
+): { scanned: boolean; headcount: number } {
+  return wholeTicketDoorState(reservationScanned, guestCount, guests);
+}
+
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {
   if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
 

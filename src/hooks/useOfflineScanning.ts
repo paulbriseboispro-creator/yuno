@@ -68,7 +68,19 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
       deadlineAt: ticketDeadlineAt(e, manifest.event.start_at),
     });
   }
+  for (const e of manifest.table_guests ?? []) {
+    map.set(e.qr, {
+      entry: e,
+      kind: 'table',
+      entity: {
+        type: 'table_guest', id: e.id,
+        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
+        venueId, organizerUserId,
+      },
+    });
+  }
   for (const e of manifest.tables) {
+    if (map.has(e.qr)) continue; // les tickets d'invités priment (même ordre qu'online)
     map.set(e.qr, {
       entry: e,
       kind: 'table',
@@ -224,10 +236,15 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
       now: new Date(),
       mode: 'entry' as const,
     };
-    let verdict =
-      entity.type === 'guest_list_entry' ? validateGuestListEntry(entity, ctx)
-      : entity.type === 'table_reservation' ? validateTableReservation(entity, ctx)
-      : validateTicketEntry(entity, ctx);
+    const verdictOf = (e: ScanEntity): ScanVerdict => {
+      switch (e.type) {
+        case 'guest_list_entry': return validateGuestListEntry(e, ctx);
+        case 'ticket':
+        case 'ticket_attendee': return validateTicketEntry(e, ctx);
+        default: return validateTableReservation(e, ctx);
+      }
+    };
+    let verdict = verdictOf(entity);
 
     // Billet « avant HH:MM » présenté après l'heure : en ligne, le videur tranche
     // (accepter, ou refuser et rembourser). Hors ligne, ni l'un ni l'autre ne

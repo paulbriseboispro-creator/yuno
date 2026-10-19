@@ -8,7 +8,8 @@ export type ScanEntityType =
   | 'ticket_attendee'
   | 'ticket'
   | 'guest_list_entry'
-  | 'table_reservation';
+  | 'table_reservation'
+  | 'table_guest';
 
 /**
  * Périmètre d'une porte. Une soirée se tient soit dans un CLUB, soit sous la
@@ -57,7 +58,12 @@ export interface GuestListScanEntity extends BaseScanEntity {
 }
 
 export interface TableScanEntity extends BaseScanEntity {
-  type: 'table_reservation';
+  /**
+   * `table_reservation` = le QR de la réservation entière ; `table_guest` = le
+   * ticket d'UNE personne de la table (titulaire n° 0, puis Invité 1, 2…).
+   * `status` est toujours celui de la réservation.
+   */
+  type: 'table_reservation' | 'table_guest';
 }
 
 export type ScanEntity = TicketScanEntity | GuestListScanEntity | TableScanEntity;

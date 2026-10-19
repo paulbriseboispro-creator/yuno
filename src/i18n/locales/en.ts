@@ -4910,6 +4910,8 @@ const en: Record<string, string> = {
   'bouncer.ticketNotFound': 'Ticket not found',
   'bouncer.wrongVenue': 'Wrong venue',
   'bouncer.otherNight': 'QR for another night — not valid tonight',
+  'tableGuest.label': 'Guest {n}',
+  'tableGuest.shareHint': 'One QR per person at your table: send each guest theirs. The main QR lets in anyone who hasn\'t come through the door yet.',
   'bouncer.cancelTicketsOnly': 'Cancel tab: tickets only. Switch to Entry to check this guest in.',
   'bouncer.entryDeadlineGeneric': 'Entry cut-off time has passed',
   'bouncer.guestListLabel': 'Guest list',

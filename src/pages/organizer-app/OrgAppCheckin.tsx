@@ -19,8 +19,12 @@ import { toast } from 'sonner';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import {
   validateTicketEntry, validateTableReservation, validateGuestListEntry,
-  computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState,
+  computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState, wholeTableDoorState,
 } from '@/lib/scan/rules';
+import {
+  enterRemainingTableGuests, enterTableGuest, findTableGuestByQr, tableGuestsEnteredByMeJustNow, tableGuestsOf,
+} from '@/lib/scan/tableDoor';
+import { tableGuestDoorName } from '@/lib/tableGuests';
 import type { DoorScope, ScanVerdict } from '@/lib/scan/types';
 import { calcStripeFee } from '@/utils/fees';
 import { toZonedTime } from 'date-fns-tz';
@@ -441,32 +445,58 @@ export default function OrgAppCheckin() {
         return;
       }
 
+      // Table VIP : le ticket d'UNE personne (titulaire ou Invité k), sinon le QR
+      // de la réservation entière (qui fait entrer les personnes encore dehors).
+      const tableGuest = await findTableGuestByQr(qrCode);
       const { data: reservation } = await supabase
         .from('table_reservations')
-        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id')
-        .eq('qr_code', qrCode).maybeSingle();
+        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id, guest_count')
+        .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode).maybeSingle();
       if (reservation) {
         if (reservation.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
 
+        const guestWord = (k: number) => t('Invité {n}', 'Guest {n}', 'Invitado {n}').replace('{n}', String(k));
+        const tableGuests = tableGuest ? null : await tableGuestsOf(reservation.id);
+        const wholeTable = wholeTableDoorState(reservation.entry_scanned, reservation.guest_count, tableGuests);
+        const doorName = tableGuest
+          ? tableGuestDoorName(tableGuest, reservation.full_name, guestWord)
+          : reservation.full_name;
         const verdict = validateTableReservation(
-          { type: 'table_reservation', id: reservation.id, name: reservation.full_name,
-            status: reservation.status, scanned: reservation.entry_scanned,
-            scannedAt: reservation.entry_scanned_at ?? null, ...doorAttrs },
+          { type: tableGuest ? 'table_guest' : 'table_reservation', id: tableGuest?.id ?? reservation.id,
+            name: doorName, status: reservation.status,
+            scanned: tableGuest ? tableGuest.entry_scanned : wholeTable.scanned,
+            scannedAt: (tableGuest ? tableGuest.entry_scanned_at : reservation.entry_scanned_at) ?? null,
+            ...doorAttrs },
           scanCtx,
         );
-        if (verdict.status !== 'success') { denyFromVerdict(verdict, reservation.full_name); return; }
+        if (verdict.status !== 'success') { denyFromVerdict(verdict, doorName); return; }
 
-        const { data: updated } = await retrySupabaseAction(async () => {
-          const r = await supabase.from('table_reservations')
-            .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: user!.id })
-            .eq('id', reservation.id).eq('entry_scanned', false).select();
-          if (r.error) throw r.error; return r;
-        });
-        if (!updated || updated.length === 0) { setLastScan({ ok: false, name: reservation.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+        const alreadyScanned = () => setLastScan({ ok: false, name: doorName ?? undefined, reason: t('Déjà scanné', 'Already scanned') });
+        let admitted = tableGuest ? 1 : wholeTable.headcount;
+        if (tableGuest) {
+          const entered = await retrySupabaseAction(() => enterTableGuest(tableGuest.id));
+          if (entered === 0 && (await tableGuestsEnteredByMeJustNow(reservation.id, user!.id, tableGuest.id)) === 0) {
+            alreadyScanned(); return;
+          }
+        } else if (tableGuests) {
+          const entered = await retrySupabaseAction(() => enterRemainingTableGuests(reservation.id));
+          admitted = entered || await tableGuestsEnteredByMeJustNow(reservation.id, user!.id);
+          if (admitted === 0) { alreadyScanned(); return; }
+        } else {
+          const checkInTime = new Date().toISOString();
+          const { data: updated } = await retrySupabaseAction(async () => {
+            const r = await supabase.from('table_reservations')
+              .update({ entry_scanned: true, entry_scanned_at: checkInTime, entry_scanned_by: user!.id, checked_in_at: checkInTime })
+              .eq('id', reservation.id).eq('entry_scanned', false).select();
+            if (r.error) throw r.error; return r;
+          });
+          if (!updated || updated.length === 0) { alreadyScanned(); return; }
+        }
 
-        setLastScan({ ok: true, name: reservation.full_name ?? undefined });
-        setRecent(r => [{ name: reservation.full_name, at: new Date() }, ...r].slice(0, 5));
-        toast.success(`✓ ${reservation.full_name ?? t('Entrée validée', 'Entry validated')}`);
+        const label = admitted > 1 ? `${doorName ?? ''} · ${admitted} ${t('pers.', 'ppl', 'pers.')}`.trim() : doorName;
+        setLastScan({ ok: true, name: label ?? undefined });
+        setRecent(r => [{ name: label, at: new Date() }, ...r].slice(0, 5));
+        toast.success(`✓ ${label ?? t('Entrée validée', 'Entry validated')}`);
         return;
       }
 

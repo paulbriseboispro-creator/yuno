@@ -16,9 +16,10 @@
 // staff de porte et les owners des deux clubs d'une co-soirée). Hors ligne, on
 // retombe sur le manifeste déjà stocké en IndexedDB par le scan offline.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getStoredManifest } from '@/lib/offline/manifest';
+import { tableGuestName } from '@/lib/tableGuests';
 
 export type DoorRosterKind = 'guest_list' | 'ticket' | 'table';
 
@@ -39,6 +40,8 @@ interface ManifestShape {
   tickets?: RawEntry[];
   guest_list?: RawEntry[];
   tables?: RawEntry[];
+  /** Un ticket par personne d'une table (titulaire n° 0, puis Invité 1, 2…). */
+  table_guests?: RawEntry[];
 }
 
 interface RawEntry {
@@ -55,7 +58,14 @@ interface RawEntry {
   guests?: number | null;
   /** Présent sur les porteurs nominatifs : le billet parent qui les couvre. */
   ticket_id?: string | null;
+  /** Tickets d'une table : la réservation qui les couvre, le numéro, le titulaire. */
+  reservation_id?: string | null;
+  number?: number | null;
+  holder?: string | null;
 }
+
+/** « Invité k » dans la langue de l'écran (titulaire = n° 0, sous son nom). */
+export type GuestWord = (k: number) => string;
 
 /**
  * Statuts qui ne doivent PAS apparaître à la porte. Le scan les refuserait de
@@ -68,7 +78,7 @@ function normalize(v: string): string {
   return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function flatten(m: ManifestShape): DoorRosterPerson[] {
+function flatten(m: ManifestShape, guestWord: GuestWord): DoorRosterPerson[] {
   const out: DoorRosterPerson[] = [];
   const seen = new Set<string>();
 
@@ -103,17 +113,37 @@ function flatten(m: ManifestShape): DoorRosterPerson[] {
     push(e, 'ticket', e.round ?? null);
   });
   (m.guest_list ?? []).forEach((e) => push(e, 'guest_list', e.entry_type ?? null));
-  (m.tables ?? []).forEach((e) => push(e, 'table',
-    [e.zone, e.pack, e.guests ? `${e.guests} pers.` : null].filter(Boolean).join(' · ') || null));
+  // Même règle pour une table : chaque personne a son ticket, la réservation
+  // entière disparaît de la liste. Le nom commence par le titulaire, pour que
+  // « Marie » trouve toute sa table et que l'ordre A→Z la garde groupée.
+  const coveredTables = new Set(
+    (m.table_guests ?? []).map((e) => e.reservation_id).filter(Boolean) as string[],
+  );
+  (m.table_guests ?? []).forEach((e) => {
+    const holder = (e.holder || '').trim();
+    const ticket = { guest_number: e.number ?? 0, full_name: e.name };
+    const name = ticket.guest_number > 0 && holder
+      ? `${holder} · ${tableGuestName(ticket, holder, guestWord)}`
+      : tableGuestName(ticket, holder, guestWord);
+    push({ ...e, name }, 'table', [e.zone, e.pack].filter(Boolean).join(' · ') || null);
+  });
+  (m.tables ?? []).forEach((e) => {
+    if (coveredTables.has(e.id)) return;
+    push(e, 'table',
+      [e.zone, e.pack, e.guests ? `${e.guests} pers.` : null].filter(Boolean).join(' · ') || null);
+  });
 
   return out;
 }
 
-export function useDoorRoster(eventId: string | null) {
+export function useDoorRoster(eventId: string | null, guestWord: GuestWord = (k) => `Guest ${k}`) {
   const [people, setPeople] = useState<DoorRosterPerson[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
+  // Lu par la ref : changer de langue ne relance pas une lecture du manifeste.
+  const guestWordRef = useRef(guestWord);
+  guestWordRef.current = guestWord;
 
   const load = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!eventId) { setPeople([]); return; }
@@ -122,13 +152,13 @@ export function useDoorRoster(eventId: string | null) {
     try {
       const { data, error: rpcErr } = await supabase.rpc('get_event_scan_manifest', { p_event_id: eventId });
       if (rpcErr) throw rpcErr;
-      setPeople(flatten((data ?? {}) as ManifestShape));
+      setPeople(flatten((data ?? {}) as ManifestShape, guestWordRef.current));
       setFromCache(false);
     } catch {
       // Hors ligne (ou RPC refusée) : le manifeste déjà téléchargé fait le job.
       const local = await getStoredManifest(eventId).catch(() => null);
       if (local?.manifest) {
-        setPeople(flatten(local.manifest as ManifestShape));
+        setPeople(flatten(local.manifest as ManifestShape, guestWordRef.current));
         setFromCache(true);
       } else {
         setPeople([]);
