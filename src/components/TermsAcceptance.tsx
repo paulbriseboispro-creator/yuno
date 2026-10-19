@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { DEFAULT_TERMS_URL, SESSION_KEY_PREFIX, recordTermsAcceptance, useTermsSettings } from '@/lib/termsAcceptance';
 import { Check, ScrollText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -10,33 +11,14 @@ interface TermsAcceptanceProps {
   onAcceptedChange: (accepted: boolean) => void;
 }
 
-const SESSION_KEY_PREFIX = 'yuno_terms_accepted_';
-
 export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange }: TermsAcceptanceProps) {
   const { t } = useLanguage();
-  const [termsVersion, setTermsVersion] = useState<string | null>(null);
-  const [termsUrl, setTermsUrl] = useState('/legal/cgv-utilisateurs');
+  const settings = useTermsSettings();
+  const termsVersion = settings?.version ?? null;
+  const termsUrl = settings?.url ?? DEFAULT_TERMS_URL;
   const [alreadyAccepted, setAlreadyAccepted] = useState(false);
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // Fetch current terms version
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('terms_version, terms_url')
-        .eq('id', 'global')
-        .maybeSingle();
-      if (data) {
-        setTermsVersion(data.terms_version || 'v1.0.0');
-        setTermsUrl(data.terms_url || '/legal/cgv-utilisateurs');
-      } else {
-        setTermsVersion('v1.0.0');
-      }
-    };
-    fetch();
-  }, []);
 
   // Check if already accepted
   useEffect(() => {
@@ -79,27 +61,8 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
   const handleCheck = useCallback(async (value: boolean) => {
     setChecked(value);
     onAcceptedChange(value);
-
-    if (value && termsVersion) {
-      // Record acceptance
-      try {
-        await supabase.functions.invoke('record-terms-acceptance', {
-          body: {
-            terms_version: termsVersion,
-            context,
-            guest_email: !userId ? guestEmail : undefined,
-          },
-        });
-
-        // For guests, also store in sessionStorage
-        if (!userId) {
-          sessionStorage.setItem(`${SESSION_KEY_PREFIX}${termsVersion}`, 'true');
-        }
-      } catch (err) {
-        console.error('Terms acceptance recording error:', err);
-      }
-    }
-  }, [termsVersion, context, userId, guestEmail, onAcceptedChange]);
+    if (value) await recordTermsAcceptance({ userId, guestEmail, context });
+  }, [context, userId, guestEmail, onAcceptedChange]);
 
   if (loading || !termsVersion) return null;
 
@@ -138,5 +101,30 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
         </span>
       </button>
     </div>
+  );
+}
+
+/**
+ * La phrase posée sous le bouton de paiement : « En continuant, vous acceptez les
+ * conditions de vente. » Le clic sur le bouton vaut acceptation et la page la
+ * trace par `recordTermsAcceptance` (décision de Paul du 19/10/2026 : plus de
+ * case CGV sur la page de paiement billet).
+ */
+export function TermsNotice({ className }: { className?: string }) {
+  const { t } = useLanguage();
+  const settings = useTermsSettings();
+  return (
+    <span className={className}>
+      {t('ticketCheckout.termsBefore')}
+      <a
+        href={settings?.url ?? DEFAULT_TERMS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[#E5E5E5] underline underline-offset-2 hover:text-white"
+      >
+        {t('ticketCheckout.termsLink')}
+      </a>
+      {t('ticketCheckout.termsAfter')}
+    </span>
   );
 }

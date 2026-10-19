@@ -55,6 +55,12 @@ interface MarketingOptInsProps {
    * disparaisse. On montre un placeholder discret à la place.
    */
   pending?: boolean;
+  /**
+   * `card` (défaut) : carte grise posée dans le formulaire.
+   * `flat` : rangées sans carte, texte lisible, cases de 22 px — la page
+   * « Vos infos » du paiement billet, où chaque carte en plus allongeait la page.
+   */
+  variant?: 'card' | 'flat';
 }
 
 /**
@@ -94,6 +100,7 @@ export function MarketingOptIns({
   onYunoChange,
   yunoAlreadyGranted = false,
   pending = false,
+  variant = 'card',
 }: MarketingOptInsProps) {
   const { t, language } = useLanguage();
 
@@ -109,6 +116,41 @@ export function MarketingOptIns({
   // Tout est déjà accepté (ou rien à demander sur cette surface) : la carte
   // disparaît, elle ne redemande ni ne résume.
   if (!pending && !askEmail && !askSms && !askYuno) return null;
+
+  if (variant === 'flat') {
+    return (
+      <section aria-label={t('consent.stayInformed')}>
+        <div className="flex items-baseline justify-between pb-0.5">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9A9A9A]">
+            {t('consent.stayInformed')}
+          </p>
+          {!pending && (
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#8A8A8F]">{t('consent.optional')}</p>
+          )}
+        </div>
+        {pending ? (
+          <PendingRows showEmail={askEmail} showSms={askSms} showYuno={askYuno} label={t('consent.checkingPreferences')} />
+        ) : (
+          <>
+            {askEmail && (
+              <FlatConsentRow label={emailLabel} checked={newsletterOptIn} onToggle={() => onNewsletterChange(!newsletterOptIn)} divider={askSms} />
+            )}
+            {askSms && (
+              <FlatConsentRow label={smsLabel} checked={smsOptIn} onToggle={() => onSmsChange(!smsOptIn)} />
+            )}
+            {askYuno && (
+              <>
+                <p className={`font-mono text-[10px] uppercase tracking-[0.12em] text-[#8A8A8F] ${askEmail || askSms ? 'mt-3' : 'mt-1'}`}>
+                  {t('consent.fromYuno')}
+                </p>
+                <FlatConsentRow label={yunoLabel} checked={yunoOptIn} onToggle={() => onYunoChange?.(!yunoOptIn)} />
+              </>
+            )}
+          </>
+        )}
+      </section>
+    );
+  }
 
   return (
     <div className="rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)] p-4">
@@ -199,6 +241,31 @@ function PendingRows({ showEmail = true, showSms, showYuno, label }: { showEmail
       )}
       <span className="sr-only">{label}</span>
     </div>
+  );
+}
+
+/** Rangée de la variante `flat` : une vraie case à cocher, sa phrase, 44 px de haut. */
+function FlatConsentRow({ label, checked, onToggle, divider }: { label: string; checked: boolean; onToggle: () => void; divider?: boolean }) {
+  return (
+    <label className={`flex min-h-[44px] cursor-pointer items-center gap-3 py-2 ${divider ? 'border-b border-white/[0.06]' : ''}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className={[
+          'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-colors',
+          'peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white',
+          checked ? 'border-primary bg-primary' : 'border-white/[0.34] bg-transparent',
+        ].join(' ')}
+      >
+        {checked && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+      </span>
+      <span className="text-sm leading-snug text-[#E5E5E5]">{label}</span>
+    </label>
   );
 }
 

@@ -7,7 +7,7 @@
  * grammaire que le reste du tunnel (mono en capitales, vert pour la remise).
  */
 import { useState } from 'react';
-import { Loader2, Tag, X } from 'lucide-react';
+import { Loader2, Plus, Tag, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizePromoCode, promoReasonKey, type AppliedPromo, type PromoPillar } from '@/lib/promoCode';
@@ -24,10 +24,19 @@ interface Props {
   discount: number;
   /** Une remise promoteur plus forte l'emporte : on le dit plutôt que de laisser croire au cumul. */
   outranked?: boolean;
+  /**
+   * `inline` (défaut) : lien discret sous la carte du tarif.
+   * `row` : rangée pleine largeur au pied de la carte « Votre commande » du
+   * paiement billet (la carte porte le cadre, la rangée n'a pas de marge).
+   */
+  variant?: 'inline' | 'row';
 }
 
-export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChange, discount, outranked }: Props) {
-  const { t } = useLanguage();
+export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChange, discount, outranked, variant = 'inline' }: Props) {
+  const row = variant === 'row';
+  const { t, language } = useLanguage();
+  const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
+  const money = (v: number) => `${v.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
   const [checking, setChecking] = useState(false);
@@ -68,18 +77,18 @@ export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChan
   if (applied) {
     return (
       <div
-        className="mt-3 flex items-center gap-2.5 p-3 border border-emerald-500/20"
-        style={{ backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: 4 }}
+        className={row ? 'flex items-center gap-2.5 px-3.5 py-3' : 'mt-3 flex items-center gap-2.5 p-3 border border-emerald-500/20'}
+        style={{ backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: row ? 0 : 4 }}
       >
         <Tag className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
         <span className="min-w-0 flex-1 font-mono uppercase text-emerald-400" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
           {t('promo.applied')} <span className="font-bold">{applied.code}</span>
-          {applied.discountType === 'percentage' ? ` (-${applied.discountValue}%)` : discount > 0 ? ` (-${discount.toFixed(2)}€)` : ''}
+          {applied.discountType === 'percentage' ? ` (-${applied.discountValue}%)` : discount > 0 ? ` (-${money(discount)})` : ''}
           {outranked && <span className="mt-1 block normal-case text-[#9A9A9A]" style={{ letterSpacing: 0 }}>{t('promo.outranked')}</span>}
         </span>
         {discount > 0 && !outranked && (
           <span className="shrink-0 font-mono font-bold tabular-nums text-emerald-400" style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>
-            -{discount.toFixed(2)} €
+            -{money(discount)}
           </span>
         )}
         <button
@@ -91,6 +100,20 @@ export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChan
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
       </div>
+    );
+  }
+
+  if (!open && row) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-11 w-full items-center gap-2.5 px-3.5 text-left text-[13.5px] font-medium text-[#9A9A9A] transition-colors hover:text-white"
+      >
+        <Tag className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="flex-1">{t('promo.have')}</span>
+        <Plus className="h-4 w-4 shrink-0" aria-hidden />
+      </button>
     );
   }
 
@@ -109,7 +132,7 @@ export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChan
   }
 
   return (
-    <div className="mt-3">
+    <div className={row ? 'px-3.5 py-2.5' : 'mt-3'}>
       <div className="flex gap-2">
         <input
           value={value}
