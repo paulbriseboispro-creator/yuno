@@ -270,6 +270,8 @@ describe('mcp endpoint', () => {
     const html = await handleMcpRoute(new Request(`${BASE}/mcp`, { headers: { Accept: 'text/html' } }), ENV, ctx);
     expect(html.status).toBe(302);
     expect(html.headers.get('Location')).toBe(`${BASE}/ai`);
+    const crm = await handleMcpRoute(new Request(`${BASE}/mcp`, { headers: { Accept: 'text/html', Cookie: 'a=1; yuno_product=crm' } }), ENV, ctx);
+    expect(crm.headers.get('Location')).toBe('https://crm.yunoapp.eu/crm/connectors?v=claude');
     const sse = await handleMcpRoute(new Request(`${BASE}/mcp`, { headers: { Accept: 'text/event-stream' } }), ENV, ctx);
     expect(sse.status).toBe(405);
   });

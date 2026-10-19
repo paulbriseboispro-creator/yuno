@@ -177,8 +177,12 @@ export async function handleMcp(request: Request, env: McpEnv, ctx: McpCtx): Pro
   if (request.method === 'GET') {
     const accept = request.headers.get('Accept') ?? '';
     // Une personne qui ouvre l'adresse dans un navigateur : la page qui explique.
+    // Un client Yuno CRM (repère `yuno_product=crm`, src/lib/productHint.ts) :
+    // le guide de sa Console, dans la DA du CRM.
     if (accept.includes('text/html') && !accept.includes('text/event-stream')) {
-      return new Response(null, { status: 302, headers: { Location: `${origin}/ai` } });
+      const crm = (request.headers.get('Cookie') ?? '').split(';').some((c) => c.trim() === 'yuno_product=crm');
+      const to = crm ? 'https://crm.yunoapp.eu/crm/connectors?v=claude' : `${origin}/ai`;
+      return new Response(null, { status: 302, headers: { Location: to, 'Cache-Control': 'no-store' } });
     }
     return new Response(null, { status: 405, headers: { ...CORS_HEADERS, Allow: 'POST, OPTIONS' } });
   }
