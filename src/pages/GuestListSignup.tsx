@@ -660,8 +660,8 @@ export default function GuestListSignup() {
       const effectiveNewsletter = askedConsent && (newsletterOptIn || marketingConsent.emailGranted);
       const effectiveSms = askedConsent && (smsOptIn || marketingConsent.smsGranted);
       const effectiveYuno = askedConsent && (yunoOptIn || platformConsent.granted);
-      const { email: emailWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName);
-      const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
+      const { email: emailWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName, language);
+      const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName, language);
       // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD) : rejouer un
       // accord déjà actif gonflerait le journal sans rien prouver de plus.
       if (askedConsent && newsletterOptIn && !marketingConsent.emailGranted) {

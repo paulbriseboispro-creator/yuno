@@ -34,17 +34,22 @@ import { useAuth } from '@/hooks/useAuth';
 export function marketingConsentWording(
   t: (key: string) => string,
   scopeName?: string | null,
+  language?: string,
 ): { email: string; sms: string } {
   // Sans nom de destinataire, on retombe sur la formulation générique plutôt
   // que d'afficher un « offres de  » bancal.
   const named = (scopeName ?? '').trim();
+  // Français : « d'Amoris », jamais « de Amoris ». L'écran et la preuve passent
+  // tous deux par ici avec la même langue : le libellé archivé reste celui montré.
+  const fill = (template: string) => {
+    const elided = language === 'fr' && /^[aeiouyàâäéèêëîïôöùûüœæ]/i.test(named)
+      ? template.replace(/\bde \{\{name\}\}/, "d'{{name}}")
+      : template;
+    return elided.replace('{{name}}', named);
+  };
   return {
-    email: named
-      ? t('consent.emailOffersFrom').replace('{{name}}', named)
-      : t('consent.emailOffers'),
-    sms: named
-      ? t('consent.smsOffersFrom').replace('{{name}}', named)
-      : t('consent.smsOffers'),
+    email: named ? fill(t('consent.emailOffersFrom')) : t('consent.emailOffers'),
+    sms: named ? fill(t('consent.smsOffersFrom')) : t('consent.smsOffers'),
   };
 }
 

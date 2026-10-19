@@ -429,8 +429,8 @@ export default function GuestListCheckout() {
       const effectiveNewsletter = newsletterOptIn || marketingConsent.emailGranted;
       const effectiveSms = smsOptIn || marketingConsent.smsGranted;
       const effectiveYuno = yunoOptIn || platformConsent.granted;
-      const { email: emailWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName);
-      const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
+      const { email: emailWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName, language);
+      const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName, language);
       // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD).
       if (newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({

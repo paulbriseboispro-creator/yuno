@@ -764,8 +764,8 @@ export default function TableCheckout() {
       // Preuve d'un consentement nouveau seulement (art. 7(1) RGPD ; EDPB
       // 05/2020 §108 pour le libellé exact, §106 pour ne pas journaliser plus
       // que nécessaire).
-      const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName || scopeName);
-      const { sms: smsConsentWording } = marketingConsentWording(t, scopeName);
+      const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName || scopeName, language);
+      const { sms: smsConsentWording } = marketingConsentWording(t, scopeName, language);
       const consentOrganizerId = venue?.id ? null : (organizer?.user_id ?? null);
       if (newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({

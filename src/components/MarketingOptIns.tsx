@@ -95,10 +95,10 @@ export function MarketingOptIns({
   yunoAlreadyGranted = false,
   pending = false,
 }: MarketingOptInsProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
-  const { email: emailLabel } = marketingConsentWording(t, scopeName);
-  const { sms: smsLabel } = marketingConsentWording(t, smsScopeName ?? scopeName);
+  const { email: emailLabel } = marketingConsentWording(t, scopeName, language);
+  const { sms: smsLabel } = marketingConsentWording(t, smsScopeName ?? scopeName, language);
   const yunoLabel = t('consent.yunoOffers');
 
   // Ce qu'il reste à demander : une ligne déjà acquise n'est plus posée.
