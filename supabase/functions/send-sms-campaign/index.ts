@@ -35,6 +35,9 @@
 //      jamais retirables.
 //   6. Rien ne part de 21 h 30 à 8 h (Paris) ; heures calmes, dimanche et jours
 //      fériés selon les réglages. Le cron reprend au créneau suivant.
+//   7. Console CRM : le SMS est en bêta privée. Test, envoi et reprise d'un
+//      compte dont l'accès n'est pas ouvert (`crm_sms_access_open`) sont
+//      refusés (`crm_sms_access_required`), cron compris.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -142,6 +145,23 @@ async function isCrmCampaign(admin: Admin, campaignId: string): Promise<boolean>
   if (error) throw new Error(`sms_campaign_is_crm: ${error.message}`);
   return data === true;
 }
+
+/**
+ * Console CRM : le SMS est en bêta privée, ouvert compte par compte par
+ * l'équipe Yuno (20261029100000). Fermé sur panne : un doute ne fait rien partir.
+ * La Suite et la plateforme ne sont pas concernées.
+ */
+async function crmSmsAccessOpen(admin: Admin, scope: Scope): Promise<boolean> {
+  if (!scope.crm) return true;
+  if (!scope.scopeKey) return false;
+  const { data, error } = await admin.rpc("crm_sms_access_open", { p_scope_key: scope.scopeKey });
+  if (error) {
+    console.error("crm_sms_access_open:", error.message);
+    return false;
+  }
+  return data === true;
+}
+const ACCESS_REQUIRED = { error: "crm_sms_access_required", code: "crm_sms_access_required" };
 
 interface Wallet {
   /** Suite : id du solde de crédits SMS. Null = plateforme ou CRM. */
@@ -595,6 +615,7 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Octop
 
   const crm = campaign.id ? await isCrmCampaign(admin, campaign.id as string) : scenarioCrm;
   const scope = await loadScope(admin, venueId, organizerId, crm);
+  if (!(await crmSmsAccessOpen(admin, scope))) return json(ACCESS_REQUIRED, 403);
   if (!(await identityOk(admin, scope))) return json({ error: "SMS_IDENTITY_REQUIRED", code: "SMS_IDENTITY_REQUIRED" }, 409);
   const settings = await crmSettings(admin, scope);
   const sender = senderFor(campaign, scope, settings);
@@ -682,6 +703,15 @@ Deno.serve(async (req) => {
 
     const cfg = octopushConfig((k) => Deno.env.get(k));
 
+    // ── État du fournisseur (Admin CRM, avant d'ouvrir l'accès SMS d'un compte) ──
+    if (mode === "provider_status") {
+      if (!actingUserId || !token) return json({ error: "Unauthorized" }, 401);
+      const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
+      const { data: superAdmin } = await userClient.rpc("is_super_admin");
+      if (superAdmin !== true) return json({ error: "Forbidden" }, 403);
+      return json({ configured: !!cfg, simulation: cfg?.simulation === true });
+    }
+
     // ── Test ────────────────────────────────────────────────────────────────
     if (mode === "test") {
       if (!actingUserId) return json({ error: "Unauthorized" }, 401);
@@ -716,6 +746,11 @@ Deno.serve(async (req) => {
     // ── Reprise après pause ─────────────────────────────────────────────────
     if (mode === "resume") {
       if (campaign.status !== "paused") return json({ error: `Campagne ${campaign.status}, pas en pause` }, 409);
+      {
+        const crm = await isCrmCampaign(admin, campaignId);
+        const scope = await loadScope(admin, campaign.venue_id, campaign.organizer_id, crm);
+        if (!(await crmSmsAccessOpen(admin, scope))) return json(ACCESS_REQUIRED, 403);
+      }
       if (campaign.paused_reason === "credits") {
         // Ne pas repartir pour se re-bloquer trois numéros plus loin.
         const crm = await isCrmCampaign(admin, campaignId);
@@ -751,6 +786,10 @@ Deno.serve(async (req) => {
       const backToDraft = (message: string) =>
         admin.from("sms_campaigns").update({ status: "draft", error_message: message }).eq("id", campaignId).in("status", ["draft", "scheduled", "failed"]);
 
+      if (!(await crmSmsAccessOpen(admin, scope))) {
+        await backToDraft("crm_sms_access_required");
+        return json(ACCESS_REQUIRED, 403);
+      }
       if (!(await identityOk(admin, scope))) {
         await backToDraft("sms_identity_required");
         return json({ error: "SMS_IDENTITY_REQUIRED", code: "SMS_IDENTITY_REQUIRED" }, 400);
