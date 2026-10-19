@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { buildInvitation } from '../_shared/email-templates.ts';
+import { buildInvitation, staffRoleLabel, type Lang } from '../_shared/email-templates.ts';
 import { SUBSCRIPTIONS_ENABLED } from '../_shared/venue-plan.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
@@ -11,13 +11,8 @@ const corsHeaders = {
 const ROLES = ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'] as const;
 type StaffRole = (typeof ROLES)[number];
 
-const ROLE_LABELS: Record<StaffRole, string> = {
-  barman: 'Barman',
-  bouncer: 'Videur',
-  cloakroom: 'Vestiaire',
-  vip_host: 'VIP Host',
-  manager: 'Manager',
-};
+/** Langue de l'e-mail (fr / en / es), ou null si la valeur n'en est pas une. */
+const asLang = (v: unknown): Lang | null => (v === 'fr' || v === 'en' || v === 'es' ? v : null);
 
 interface InviteRequest {
   email: string;
@@ -29,6 +24,8 @@ interface InviteRequest {
   display_name?: string;
   manager_permissions?: Record<string, boolean>;
   resend?: boolean;
+  /** Langue de l'e-mail choisie dans la Console (fr / en / es). */
+  language?: string;
 }
 
 Deno.serve(async (req) => {
@@ -237,27 +234,41 @@ Deno.serve(async (req) => {
       invitationToken = invitation.token;
     }
 
+    // Langue de l'e-mail : celle choisie dans la Console, sinon celle du compte
+    // Yuno de la personne invitée, sinon celle de qui invite, sinon le français.
+    // (Un videur de Ségovie invité depuis une Console en français doit pouvoir
+    // recevoir son invitation en espagnol.)
+    let mailLang: Lang | null = asLang(body.language);
+    for (const id of [userId, user.id]) {
+      if (mailLang || !id) continue;
+      const { data: pref } = await supabase.from('profiles').select('preferred_language').eq('id', id).maybeSingle();
+      mailLang = asLang(pref?.preferred_language);
+    }
+    const lang: Lang = mailLang ?? 'fr';
+
     // Resolve the inviter display name.
     let inviterDisplayName = venue_name || 'Yuno';
     if (isOrganizerScope) {
       const { data: orgProfile } = await supabase
         .from('organizer_profiles').select('display_name').eq('user_id', organizer_user_id!).maybeSingle();
-      inviterDisplayName = orgProfile?.display_name || 'Une organisation';
+      inviterDisplayName = orgProfile?.display_name
+        || { fr: 'Une organisation', en: 'An organization', es: 'Una organización' }[lang];
     } else if (!venue_name) {
       const { data: venue } = await supabase.from('venues').select('name').eq('id', venue_id!).maybeSingle();
-      inviterDisplayName = venue?.name || 'Votre club';
+      inviterDisplayName = venue?.name || { fr: 'Votre club', en: 'Your club', es: 'Tu club' }[lang];
     }
 
-    const roleLabel = ROLE_LABELS[role];
+    const roleLabel = staffRoleLabel(role, lang);
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const appUrl = 'https://yunoapp.eu';
 
     if (resendApiKey) {
       const acceptUrl = `${appUrl}/accept-staff-invitation?token=${invitationToken}`;
       const mail = buildInvitation({
-        lang: 'fr',
+        lang,
         orgName: inviterDisplayName,
         roleLabel,
+        staffRole: role,
         acceptUrl,
       });
 

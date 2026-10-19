@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { buildPasswordSetup } from '../_shared/email-templates.ts';
+import { buildPasswordSetup, staffRoleLabel, type Lang } from '../_shared/email-templates.ts';
 import { SUBSCRIPTIONS_ENABLED } from '../_shared/venue-plan.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { jwtSessionId } from "../_shared/support-session.ts";
@@ -801,10 +801,22 @@ Deno.serve(async (req) => {
             options: { redirectTo: `${appUrl}/auth` },
           });
           if (resetData?.properties?.action_link) {
+            // Langue de la page d'acceptation (celle du téléphone de la
+            // personne invitée), sinon celle de qui l'a invitée, sinon le
+            // français. Le poste est traduit, jamais la clé brute « bouncer ».
+            const asLang = (v: unknown): Lang | null => (v === 'fr' || v === 'en' || v === 'es' ? v : null);
+            let lang: Lang | null = asLang(body.language);
+            if (!lang && invitation.invited_by) {
+              const { data: inviterPref } = await supabase
+                .from('profiles').select('preferred_language').eq('id', invitation.invited_by).maybeSingle();
+              lang = asLang(inviterPref?.preferred_language);
+            }
+            const mailLang: Lang = lang ?? 'fr';
             const mail = buildPasswordSetup({
-              lang: 'fr',
+              lang: mailLang,
               orgName: invitation.venues?.name ?? organizerDisplayName ?? undefined,
-              roleLabel: invitation.role ?? undefined,
+              roleLabel: invitation.role ? staffRoleLabel(invitation.role, mailLang) : undefined,
+              staffRole: invitation.role ?? undefined,
               setupUrl: resetData.properties.action_link,
             });
             const res = await fetch('https://api.resend.com/emails', {

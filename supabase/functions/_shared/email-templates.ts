@@ -658,12 +658,72 @@ export function buildEventUpdate(d: {
   return { subject, preheader: '', html };
 }
 
+// ── 11b. Staff de nuit : le poste traduit, et l'app Yuno Pro ──────────────────
+// Un videur, un vestiaire, un hôte VIP (ou un barman) travaille la nuit dans
+// l'app native Yuno Pro, pas dans un dashboard : son e-mail d'invitation et
+// celui de son mot de passe le lui disent, avec le lien de l'App Store. Le
+// manager, lui, travaille dans la Console web.
+
+/** Yuno Pro sur l'App Store (eu.yunoapp.pro, App Store Connect 6800022179). */
+export const YUNO_PRO_APP_STORE_URL = 'https://apps.apple.com/app/id6800022179';
+
+const STAFF_ROLE_LABELS: Record<string, { en: string; fr: string; es: string }> = {
+  barman: { en: 'Bartender', fr: 'Barman', es: 'Barman' },
+  bouncer: { en: 'Door staff', fr: 'Videur', es: 'Portero' },
+  cloakroom: { en: 'Cloakroom', fr: 'Vestiaire', es: 'Guardarropa' },
+  vip_host: { en: 'VIP host', fr: 'Hôte VIP', es: 'Host VIP' },
+  manager: { en: 'Manager', fr: 'Manager', es: 'Manager' },
+};
+
+/** Libellé d'un poste de staff dans la langue de l'e-mail (jamais la clé brute « bouncer »). */
+export function staffRoleLabel(role: string | null | undefined, lang: Lang): string {
+  const m = role ? STAFF_ROLE_LABELS[role] : undefined;
+  return m ? p(lang, m) : String(role ?? '');
+}
+
+/** Ce que le poste fait dans Yuno Pro. Le barman reste générique : le pilier boissons est en pause. */
+const PRO_APP_TASK: Record<string, { en: string; fr: string; es: string }> = {
+  bouncer: { en: 'scan tickets at the door', fr: 'scanner les billets à la porte', es: 'escanear las entradas en la puerta' },
+  cloakroom: { en: 'run the cloakroom', fr: 'gérer le vestiaire', es: 'gestionar el guardarropa' },
+  vip_host: { en: 'welcome the VIP tables', fr: 'accueillir les tables VIP', es: 'recibir las mesas VIP' },
+  barman: { en: 'work your shift', fr: 'assurer ton service', es: 'hacer tu turno' },
+};
+
+/** Le poste travaille-t-il la nuit dans l'app Yuno Pro ? */
+export function staffWorksInProApp(role: string | null | undefined): boolean {
+  return !!role && role in PRO_APP_TASK;
+}
+
+/** Bloc « installe Yuno Pro » : une phrase et un lien texte (l'e-mail garde UN seul bouton). */
+function proAppSection(lang: Lang, role: string): string {
+  const task = PRO_APP_TASK[role];
+  const link = `<a href="${YUNO_PRO_APP_STORE_URL}" style="color:${C.white};font-weight:600;text-decoration:underline;">${p(lang, {
+    en: 'Get Yuno Pro on the App Store', fr: "Télécharger Yuno Pro sur l'App Store", es: 'Descargar Yuno Pro en el App Store',
+  })}</a>`;
+  return section(
+    ruleLabel(p(lang, { en: 'On the night', fr: 'Pour la soirée', es: 'Para la noche' })) + `<div style="height:14px"></div>` +
+    body(p(lang, {
+      en: `To ${task.en}, install the <strong style="color:${C.white}">Yuno Pro</strong> app on your iPhone and log in with this email address.`,
+      fr: `Pour ${task.fr}, installe l'app <strong style="color:${C.white}">Yuno Pro</strong> sur ton iPhone et connecte-toi avec cette adresse e-mail.`,
+      es: `Para ${task.es}, instala la app <strong style="color:${C.white}">Yuno Pro</strong> en tu iPhone e inicia sesión con este correo.`,
+    })) + `<div style="height:12px"></div>` + body(link),
+    { border: false, padTop: 6 },
+  );
+}
+
 // ── 12. Invitation équipe (tous les invite-*) ─────────────────────────────────
 export function buildInvitation(d: {
   lang?: Lang; inviterName?: string; orgName: string; roleLabel: string; acceptUrl: string; expiresLabel?: string;
+  /** Poste de staff de nuit (`bouncer`, `cloakroom`…) : l'e-mail mène à l'app Yuno Pro, pas au dashboard. */
+  staffRole?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const inviter = d.inviterName ? `${d.inviterName} ` : '';
+  const proApp = staffWorksInProApp(d.staffRole);
+  // Sans invitant nommé, la phrase garde un sujet (« te invita… » commençait sinon en minuscule, sans sujet).
+  const lead = d.inviterName
+    ? { en: `${d.inviterName} invites you`, fr: `${d.inviterName} t'invite`, es: `${d.inviterName} te invita` }
+    : { en: "You're invited", fr: 'Tu es invité', es: 'Te invitan' };
   const subject = p(lang, { en: `Join ${d.orgName} on Yuno`, fr: `Rejoins ${d.orgName} sur Yuno`, es: `Únete a ${d.orgName} en Yuno` });
   const html = shell({
     title: subject,
@@ -672,10 +732,14 @@ export function buildInvitation(d: {
       brandBar(),
       section(ruleLabel(p(lang, { en: 'Invitation', fr: 'Invitation', es: 'Invitación' })) + `<div style="height:16px"></div>` +
         title(p(lang, { en: `Join ${d.orgName}`, fr: `Rejoins ${d.orgName}`, es: `Únete a ${d.orgName}` }), 30) + `<div style="height:16px"></div>` +
-        body(p(lang, {
-          en: `${inviter}invites you to join <strong style="color:${C.white}">${d.orgName}</strong> on Yuno as <strong style="color:${C.white}">${d.roleLabel}</strong>. Activate your access and step into the dashboard.`,
-          fr: `${inviter}t'invite à rejoindre <strong style="color:${C.white}">${d.orgName}</strong> sur Yuno en tant que <strong style="color:${C.white}">${d.roleLabel}</strong>. Active ton accès et entre dans le dashboard.`,
-          es: `${inviter}te invita a unirte a <strong style="color:${C.white}">${d.orgName}</strong> en Yuno como <strong style="color:${C.white}">${d.roleLabel}</strong>. Activa tu acceso y entra al panel.`,
+        body(p(lang, proApp ? {
+          en: `${lead.en} to join <strong style="color:${C.white}">${d.orgName}</strong> on Yuno as <strong style="color:${C.white}">${d.roleLabel}</strong>. Activate your access: on the night, everything happens in the Yuno Pro app.`,
+          fr: `${lead.fr} à rejoindre <strong style="color:${C.white}">${d.orgName}</strong> sur Yuno en tant que <strong style="color:${C.white}">${d.roleLabel}</strong>. Active ton accès : le soir venu, tout se passe dans l'app Yuno Pro.`,
+          es: `${lead.es} a unirte a <strong style="color:${C.white}">${d.orgName}</strong> en Yuno como <strong style="color:${C.white}">${d.roleLabel}</strong>. Activa tu acceso: la noche del evento, todo pasa en la app Yuno Pro.`,
+        } : {
+          en: `${lead.en} to join <strong style="color:${C.white}">${d.orgName}</strong> on Yuno as <strong style="color:${C.white}">${d.roleLabel}</strong>. Activate your access and step into the dashboard.`,
+          fr: `${lead.fr} à rejoindre <strong style="color:${C.white}">${d.orgName}</strong> sur Yuno en tant que <strong style="color:${C.white}">${d.roleLabel}</strong>. Active ton accès et entre dans le dashboard.`,
+          es: `${lead.es} a unirte a <strong style="color:${C.white}">${d.orgName}</strong> en Yuno como <strong style="color:${C.white}">${d.roleLabel}</strong>. Activa tu acceso y entra al panel.`,
         })), { border: false }),
       section(infoRows([
         { k: lbl(lang, 'org'), v: d.orgName },
@@ -683,6 +747,7 @@ export function buildInvitation(d: {
         ...(d.expiresLabel ? [{ k: lbl(lang, 'validUntil'), v: d.expiresLabel }] : []),
       ])),
       section(ctaPill(p(lang, { en: 'Activate my access', fr: 'Activer mon accès', es: 'Activar mi acceso' }), d.acceptUrl), { border: false }),
+      ...(proApp && d.staffRole ? [proAppSection(lang, d.staffRole)] : []),
       footer({ lang, reason: p(lang, { en: `${inviter || 'a team '}invited you on Yuno`, fr: `${inviter || 'une équipe '}t'a invité sur Yuno`, es: `${inviter || 'un equipo '}te invitó en Yuno` }) }),
     ].join(''),
   });
@@ -967,6 +1032,8 @@ export function buildAgencyPromoterRecap(d: {
 // ── 13. Création de mot de passe (accept-*) ───────────────────────────────────
 export function buildPasswordSetup(d: {
   lang?: Lang; orgName?: string; roleLabel?: string; setupUrl: string;
+  /** Poste de staff de nuit : rappelle d'installer Yuno Pro après le mot de passe. */
+  staffRole?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const subject = p(lang, { en: 'Set your Yuno password', fr: 'Crée ton mot de passe Yuno', es: 'Crea tu contraseña Yuno' });
@@ -983,6 +1050,7 @@ export function buildPasswordSetup(d: {
           es: `Tu acceso${d.orgName ? ` a <strong style="color:${C.white}">${d.orgName}</strong>` : ''} está listo. Crea una contraseña para entrar${d.roleLabel ? ` como ${d.roleLabel}` : ''}.`,
         })), { border: false }),
       section(ctaPill(p(lang, { en: 'Set my password', fr: 'Créer mon mot de passe', es: 'Crear mi contraseña' }), d.setupUrl), { border: false }),
+      ...(d.staffRole && staffWorksInProApp(d.staffRole) ? [proAppSection(lang, d.staffRole)] : []),
       footer({ lang }),
     ].join(''),
   });
@@ -1135,7 +1203,8 @@ export const PREVIEW_SAMPLES: Record<string, () => BuiltEmail> = {
   postVisit: () => buildPostVisitLoyalty({ lang: 'fr', firstName: 'Paul', venueName: 'Night Square', pointsEarned: '120', totalPoints: '1 240', tier: 'Gold', rewardHint: 'Plus que 260 points avant ta prochaine récompense.', loyaltyUrl: `${APP}/loyalty` }),
   eventUpdate: () => buildEventUpdate({ lang: 'fr', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', updateMessage: "l'heure d'ouverture passe à 19:00.", changes: [{ k: 'Nouvelle ouverture', v: '19:00' }, { k: 'Lieu', v: 'inchangé' }], eventUrl: `${APP}/event/demo` }),
   invitation: () => buildInvitation({ lang: 'fr', inviterName: 'Night Square', orgName: 'Night Square', roleLabel: 'Manager', acceptUrl: `${APP}/accept`, expiresLabel: '29 Juin 2026' }),
-  passwordSetup: () => buildPasswordSetup({ lang: 'fr', orgName: 'Night Square', roleLabel: 'Barman', setupUrl: `${APP}/set-password` }),
+  invitationStaff: () => buildInvitation({ lang: 'es', orgName: 'Amoris', roleLabel: staffRoleLabel('bouncer', 'es'), staffRole: 'bouncer', acceptUrl: `${APP}/accept-staff-invitation` }),
+  passwordSetup: () => buildPasswordSetup({ lang: 'fr', orgName: 'Night Square', roleLabel: staffRoleLabel('bouncer', 'fr'), staffRole: 'bouncer', setupUrl: `${APP}/set-password` }),
   otp: () => buildOtp({ lang: 'fr', code: '482190', purposeLabel: 'Réinitialise ton PIN', expiresMin: 10, context: 'Tu as demandé à réinitialiser ton code PIN staff.' }),
   waitlistOpen: () => buildWaitlistOpen({ lang: 'fr', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, meta: '22 Juin · 18:00 · Paris', url: `${APP}/event/demo` }),
   splitProposal: () => buildSplitProposal({ lang: 'fr', fromOrg: 'Collectif Aurora', eventTitle: 'Yuno Boat Party Seine', terms: [{ k: 'Part Aurora', v: '40%' }, { k: 'Ta part', v: '60%' }], reviewUrl: `${APP}/owner/partnerships` }),

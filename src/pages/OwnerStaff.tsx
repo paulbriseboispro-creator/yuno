@@ -98,7 +98,7 @@ function DarkInput({ id, value, onChange, placeholder, type = 'text', maxLength 
 }
 
 export default function OwnerStaff() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -214,6 +214,8 @@ export default function OwnerStaff() {
             venue_id: venueId,
             role,
             manager_permissions: role === 'manager' ? formData.managerPermissions : undefined,
+            // L'e-mail d'invitation part dans la langue de la Console.
+            language,
           },
         });
         if (error) throw error;

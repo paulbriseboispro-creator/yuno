@@ -60,7 +60,7 @@ function ProHandoff({ path }: { path: string }) {
 export default function AcceptStaffInvitation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(false);
@@ -160,7 +160,9 @@ export default function AcceptStaffInvitation() {
         account_created?: boolean;
         password_reset_sent?: boolean;
       }>('accept-staff-invitation', {
-        body: { token, first_name: firstName || undefined, last_name: lastName || undefined },
+        // La langue de cette page (celle du téléphone de la personne invitée)
+        // est celle de l'e-mail « crée ton mot de passe » qui suit.
+        body: { token, first_name: firstName || undefined, last_name: lastName || undefined, language },
         headers: Object.keys(headers).length > 0 ? headers : undefined,
       });
 

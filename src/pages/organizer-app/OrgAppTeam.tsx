@@ -102,6 +102,9 @@ export default function OrgAppTeam() {
   const [staffName, setStaffName] = useState('');
   // Pilier boissons en pause : le barman n'est plus proposé (voir src/lib/drinksPillar.ts).
   const [staffRole, setStaffRole] = useState<StaffRole>(DRINKS_PILLAR_LIVE ? 'barman' : 'bouncer');
+  // Langue de l'e-mail d'invitation : celle de la Console par défaut, mais un
+  // videur de Ségovie se recrute depuis une Console en français.
+  const [staffLang, setStaffLang] = useState<'fr' | 'en' | 'es'>(language === 'en' || language === 'es' ? language : 'fr');
 
   const loadMembers = async () => {
     if (!organizerId) return;
@@ -206,7 +209,7 @@ export default function OrgAppTeam() {
     setSubmittingStaff(true);
     try {
       const { data, error } = await invokeEdgeFunction('invite-staff', {
-        body: { email: staffEmail, display_name: staffName, role: staffRole, organizer_user_id: organizerId },
+        body: { email: staffEmail, display_name: staffName, role: staffRole, organizer_user_id: organizerId, language: staffLang },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -513,8 +516,20 @@ export default function OrgAppTeam() {
                   <option value="cloakroom" style={{ background: 'var(--sf-0a0a0c)' }}>🧥 {t('Vestiaire · gestion des dépôts', 'Cloakroom · deposit management')}</option>
                 </DarkSelect>
               </div>
+              <div>
+                <FieldLabel>{t("Langue de l'e-mail", 'Email language', 'Idioma del correo')}</FieldLabel>
+                <DarkSelect value={staffLang} onChange={(v) => setStaffLang(v as 'fr' | 'en' | 'es')}>
+                  <option value="fr" style={{ background: 'var(--sf-0a0a0c)' }}>Français</option>
+                  <option value="en" style={{ background: 'var(--sf-0a0a0c)' }}>English</option>
+                  <option value="es" style={{ background: 'var(--sf-0a0a0c)' }}>Español</option>
+                </DarkSelect>
+              </div>
               <p style={{ color: T3, fontSize: 11.5 }}>
-                {t("L'employé recevra un email d'invitation, créera son mot de passe puis définira son propre code PIN.", 'The employee will receive an invitation email, set their password, then choose their own PIN.')}
+                {t(
+                  "L'employé recevra un email d'invitation, créera son mot de passe puis définira son propre code PIN. Le soir, il travaille dans l'app Yuno Pro : l'e-mail lui donne le lien de l'App Store.",
+                  'The employee will receive an invitation email, set their password, then choose their own PIN. On the night they work in the Yuno Pro app: the email gives them the App Store link.',
+                  'El empleado recibirá un correo de invitación, creará su contraseña y luego elegirá su propio PIN. La noche del evento trabaja en la app Yuno Pro: el correo le da el enlace del App Store.',
+                )}
               </p>
               <OrgButton variant="primary" className="w-full" onClick={inviteStaff} disabled={submittingStaff || !staffEmail || !staffName}>
                 {submittingStaff && <Loader2 className="h-4 w-4 animate-spin" />}
