@@ -17,6 +17,7 @@ import { dispatchEmailAutomations, dispatchCampaignResends } from "../_shared/em
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
 import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhookSubscription } from "../_shared/meta-ads.ts";
+import { dispatchProSignupAlerts } from "../_shared/pro-signup-alerts.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -33,6 +34,21 @@ Deno.serve(async (req) => {
     }
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  // Tâche ciblée : une alerte d'inscription pro vient d'être posée (déclencheur
+  // de la migration 20261103410000). On répond tout de suite et on travaille
+  // en arrière-plan : la fiche part au Cockpit de Paul, puis la recherche web.
+  const task = await req.clone().json().then((b) => (typeof b?.task === 'string' ? b.task : null)).catch(() => null);
+  if (task === 'pro_signup_alerts') {
+    const job = dispatchProSignupAlerts(createClient(SUPABASE_URL, SERVICE_KEY), { budgetMs: 140_000 })
+      .then((r) => console.log('[pro-signup-alerts]', JSON.stringify(r)))
+      .catch((e) => console.error('[pro-signup-alerts]', e));
+    const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (rt?.waitUntil) rt.waitUntil(job);
+    else await job;
+    return new Response(JSON.stringify({ ok: true, task }), { status: 202, headers: { 'Content-Type': 'application/json' } });
+  }
+
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     // Campagnes programmées échues : prise conditionnelle, puis send-campaign.
@@ -252,6 +268,15 @@ Deno.serve(async (req) => {
       console.error('[CRM-SIGNUP] dispatch failed:', String(e));
     }
 
+    // Alertes d'inscription pro : filet sous l'appel immédiat du déclencheur
+    // (Cockpit injoignable, fonction coupée). Ne fait rien quand la file est vide.
+    let proSignups: unknown = null;
+    try {
+      proSignups = await dispatchProSignupAlerts(admin, { budgetMs: 60_000 });
+    } catch (e) {
+      console.error('[PRO-SIGNUP-ALERTS] dispatch failed:', String(e));
+    }
+
     // Meta Conversions API : filet sous le fire-and-forget des fonctions de
     // vente (retries, worker tué) + entretien (codes de test périmés, purge 90 j).
     let metaCapi: unknown = null;
@@ -279,7 +304,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap,
-        weeklyDigest, nightRecap, crmLifecycle, crmSignup, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        weeklyDigest, nightRecap, crmLifecycle, crmSignup, proSignups, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

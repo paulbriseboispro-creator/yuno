@@ -34,6 +34,8 @@ const dict: AdminDict = {
   'adm.ai.a.agency': ['Agency assistant', 'Assistant agence', 'Asistente agencia'],
   'adm.ai.a.translate': ['Translation', 'Traduction', 'Traducción'],
   'adm.ai.a.embeddings': ['Embeddings (recommendation)', 'Embeddings (recommandation)', 'Embeddings (recomendación)'],
+  'adm.ai.a.help': ['Help centre (pros)', "Centre d'aide (pros)", 'Centro de ayuda (pros)'],
+  'adm.ai.a.signup_research': ['Signup research (web)', 'Recherche sur les inscrits (web)', 'Búsqueda sobre los registros (web)'],
   'adm.ai.col.assistant': ['Assistant', 'Assistant', 'Asistente'],
   'adm.ai.col.calls': ['Calls', 'Appels', 'Llamadas'],
   'adm.ai.col.users': ['Users', 'Utilisateurs', 'Usuarios'],

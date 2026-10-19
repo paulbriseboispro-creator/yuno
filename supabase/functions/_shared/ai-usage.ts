@@ -24,7 +24,8 @@ export type AiAssistant =
   | 'agency'        // agency-assistant
   | 'help'          // owner-assistant action help_chat (mode d'emploi, tous les pros)
   | 'translate'     // translate-text
-  | 'embeddings';   // event / dj / taste embeddings (batch)
+  | 'embeddings'    // event / dj / taste embeddings (batch)
+  | 'signup_research'; // recherche web sur une structure qui s'inscrit (pro-signup-alerts)
 
 export interface AiUsageEvent {
   assistant: AiAssistant;
