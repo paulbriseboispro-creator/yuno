@@ -50,8 +50,6 @@ export function findUnfilteredEventReads(source: string): EventRead[] {
 
 /** Exceptions : le fichier lit `events` par portée SANS filtre, et c'est voulu. */
 const ALLOWED: Record<string, string> = {
-  'src/pages/EventDetails.tsx':
-    'Les compteurs « Organisé par » (fetchStats) sont corrigés par la branche fix/event-page-simplify.',
   'src/hooks/useLiveNightData.ts':
     "Identifiants des soirées récentes du club pour filtrer le temps réel : un miroir n'a ni vente ni commande.",
   'src/hooks/useOwnerVipData.ts':
