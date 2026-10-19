@@ -180,7 +180,7 @@ export default function OwnerScarcity() {
     // de /organizer-app/tables. Club : les soirées de son lieu.
     const scoped = isOrganizerScope
       ? base.or(orgEventsOr(organizerUserId))
-      : base.eq('venue_id', venueId as string);
+      : base.eq('venue_id', venueId as string).is('external_source', null);
     scoped
       .order('start_at', { ascending: true })
       .then(({ data }) => {

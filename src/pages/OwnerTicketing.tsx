@@ -235,7 +235,7 @@ export default function OwnerTicketing() {
       // up in the organizer's ticketing tab.
       // Venue scope: include co-events where the venue is partner_venue_id.
       const { data, error } = isOrganizerScope
-        ? await baseQuery.or(`organizer_user_id.eq.${organizerUserId},and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted),cohost_org_ids.cs.{${organizerUserId}}`)
+        ? await baseQuery.or(`and(organizer_user_id.eq.${organizerUserId},external_source.is.null),and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted),cohost_org_ids.cs.{${organizerUserId}}`)
         : await baseQuery.or(venueEventsOr(venueId));
 
       if (error) throw error;

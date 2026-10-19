@@ -12,6 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr } from '@/lib/coorg';
 import { format, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
@@ -471,7 +472,7 @@ export default function OrgAppAnalytics() {
         let eventQuery = supabase
           .from('events')
           .select('id, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
-          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
+          .or(orgOwnEventsOr(organizerId));
         if (mode === 'event' && selectedEventId) eventQuery = eventQuery.eq('id', selectedEventId);
         const { data: scopedEvents } = await eventQuery;
         const ids = (scopedEvents ?? []).map(e => e.id);
