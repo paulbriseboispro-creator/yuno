@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
@@ -84,6 +84,11 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
+
+    // 0. Un PRO qui supprime son compte : Paul est prévenu (alerte plateforme,
+    // relayée sur son téléphone par le Cockpit). Lu AVANT l'anonymisation ;
+    // ne bloque jamais la suppression (migration 20261103410000).
+    await notifyProAccountDeleted(supabaseAdmin, user.id, user.email ?? null, user.created_at ?? null);
 
     // 1. Delete Vault MFA secret if present (best-effort : le builder supabase-js
     // ne rejette jamais — l'erreur revient dans { error }, ignorée ici).
@@ -175,8 +180,10 @@ serve(async (req) => {
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
     if (deleteAuthError) throw deleteAuthError;
 
+    // user_id NULL : la ligne pointe vers auth.users (ON DELETE CASCADE) et le
+    // compte vient d'être effacé — avec son id, l'insertion échouait toujours.
     await supabaseAdmin.from("security_logs").insert({
-      user_id: user.id,
+      user_id: null,
       action: "account_deleted",
       ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
       user_agent: req.headers.get("user-agent"),
@@ -195,3 +202,42 @@ serve(async (req) => {
     );
   }
 });
+
+async function notifyProAccountDeleted(admin: SupabaseClient, userId: string, email: string | null, createdAt: string | null) {
+  try {
+    const [{ data: roles }, { data: profile }, { data: org }, { data: signup }] = await Promise.all([
+      admin.from("user_roles").select("role").eq("user_id", userId).returns<Array<{ role: string }>>(),
+      admin.from("profiles").select("first_name, last_name, phone, profile_type, organization_name")
+        .eq("id", userId).maybeSingle<{ first_name: string | null; last_name: string | null; phone: string | null; profile_type: string | null; organization_name: string | null }>(),
+      admin.from("organizer_profiles").select("display_name, city").eq("user_id", userId)
+        .maybeSingle<{ display_name: string | null; city: string | null }>(),
+      admin.from("pro_signups").select("id, org_name, city, kind, phone").eq("user_id", userId)
+        .order("created_at", { ascending: false }).limit(1)
+        .maybeSingle<{ id: string; org_name: string | null; city: string | null; kind: string | null; phone: string | null }>(),
+    ]);
+    const proRoles = (roles ?? []).map((r) => r.role).filter((r) => r !== "client");
+    if (!proRoles.length && profile?.profile_type !== "organizer" && !signup) return;
+    if (email && /@womber\.fr$/i.test(email)) return;
+    const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || email || "?";
+    const orgName = org?.display_name ?? signup?.org_name ?? profile?.organization_name ?? null;
+    const city = org?.city ?? signup?.city ?? null;
+    const phone = profile?.phone ?? signup?.phone ?? null;
+    await admin.rpc("emit_admin_notification", {
+      p_type: "admin_pro_account_deleted",
+      p_title: "Un pro a supprimé son compte",
+      p_message: `${orgName ?? name}${city ? ` (${city})` : ""} · ${name}${phone ? ` · ${phone}` : ""}`
+        + `${createdAt ? ` · compte ouvert le ${createdAt.slice(0, 10)}` : ""}.`,
+      p_priority: "high",
+      p_reference_type: signup ? "pro_signup" : "user",
+      p_reference_id: signup?.id ?? userId,
+      p_metadata: {
+        email, name, phone, org_name: orgName, city, roles: proRoles,
+        signup_kind: signup?.kind ?? (profile?.profile_type === "organizer" ? "organizer" : null),
+        account_created_at: createdAt, user_id: userId,
+      },
+      p_dedup_key: `pro_account_deleted:${userId}`,
+    });
+  } catch (e) {
+    console.warn("[delete-account] admin alert", e instanceof Error ? e.message : e);
+  }
+}
