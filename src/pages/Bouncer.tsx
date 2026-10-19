@@ -15,6 +15,9 @@ import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount } from '@/lib/scan/rules';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
+import {
+  doorRefusalKey, fetchDoorRefundPreview, isPlaceRefunded, refundAtDoor, refundedPlacesCount, type DoorRefundPreview,
+} from '@/lib/scan/doorRefund';
 import type { DoorScope } from '@/lib/scan/types';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
 import { IncidentQuickReport } from '@/components/bouncer/IncidentQuickReport';
@@ -73,6 +76,8 @@ interface TopClientInfo {
 
 interface ScannedTicket {
   id: string;
+  /** QR nominatif (un ami nommé à l'achat) : l'annuler ne rembourse que SA place. */
+  attendeeId?: string;
   userEmail: string;
   fullName?: string;
   quantity: number;
@@ -334,6 +339,14 @@ export default function Bouncer() {
    */
   const pendingLateRef = useRef<{ kind: 'ticket_attendee' | 'ticket'; id: string; qr: string } | null>(null);
   const [lateDecisionBusy, setLateDecisionBusy] = useState(false);
+  /**
+   * Hors créneau, en DEUX temps (décision de Paul, 19/10) : d'abord « laisser
+   * entrer » ou « refuser » ; refusé, ensuite « rembourser » ou « ne pas
+   * rembourser ». Le montant affiché vient de staff-cancel (aperçu).
+   */
+  const [lateStep, setLateStep] = useState<'decide' | 'refund'>('decide');
+  const [refundPreview, setRefundPreview] = useState<DoorRefundPreview | null>(null);
+  const [refundPreviewLoading, setRefundPreviewLoading] = useState(false);
   const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
   const offline = useOfflineScanning(offlineEventId, doorScope);
   
@@ -463,7 +476,7 @@ export default function Bouncer() {
   // occupé ne doit jamais retrouver un écran figé qui bloque la file). Un tap
   // n'importe où avance immédiatement (cleanup = timer coupé). Seule
   // exception : le hors créneau — « Gérer le retard » est une décision
-  // d'argent (refus + remboursement 90 %), elle attend un humain.
+  // (laisser entrer, ou refuser puis rembourser ou non), elle attend un humain.
   useEffect(() => {
     if (!rapidMode || !scanResult) return;
     const isLateCase = scanResult === 'success' &&
@@ -473,6 +486,25 @@ export default function Bouncer() {
     const timer = setTimeout(advanceRapid, 10000);
     return () => clearTimeout(timer);
   }, [rapidMode, scanResult, scannedTicket, advanceRapid]);
+
+  // Onglet Annuler : le montant EXACT rendu (place seule ou commande), lu chez
+  // staff-cancel avant le clic — jamais recalculé ici.
+  const cancelTargetKey = scanResult === 'cancel_ready' && scannedTicket
+    ? (scannedTicket.attendeeId ? `ticket_attendee:${scannedTicket.attendeeId}` : `ticket:${scannedTicket.id}`)
+    : null;
+  useEffect(() => {
+    if (!cancelTargetKey) return;
+    const [kind, id] = cancelTargetKey.split(':') as ['ticket_attendee' | 'ticket', string];
+    let alive = true;
+    setRefundPreview(null);
+    setRefundPreviewLoading(true);
+    void fetchDoorRefundPreview({ kind, id }).then(preview => {
+      if (!alive) return;
+      setRefundPreview(preview);
+      setRefundPreviewLoading(false);
+    });
+    return () => { alive = false; };
+  }, [cancelTargetKey]);
 
   useEffect(() => {
     if (hasDoorScope) {
@@ -953,6 +985,11 @@ export default function Bouncer() {
           denyScan(t('bouncer.otherNight'), attendeeContext);
           return;
         }
+        // Place remboursée seule à la porte : elle ne passe plus, ni ne se rembourse deux fois.
+        if (await isPlaceRefunded(attendee.id)) {
+          denyScan(t('bouncer.placeRefunded'), attendeeContext);
+          return;
+        }
 
         // Cancel mode
         if (activeTab === 'cancel') {
@@ -970,9 +1007,11 @@ export default function Bouncer() {
 
           setScannedTicket({
             id: ticket.id,
+            attendeeId: attendee.id,
             userEmail: ticket.user_email,
             fullName: attendee.full_name || ticket.full_name,
             quantity: ticket.quantity,
+            headcount: entryHeadcount('ticket_attendee', ticket.quantity),
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1144,6 +1183,8 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (ticket && !ticketError) {
+        // Places remboursées une à une : le QR du billet entier ne les fait plus entrer.
+        const refundedPlaces = activeTab === 'cancel' ? 0 : await refundedPlacesCount(ticket.id, ticket.quantity);
         const ticketVerdict = validateTicketEntry(
           {
             type: 'ticket',
@@ -1253,6 +1294,7 @@ export default function Bouncer() {
             userEmail: ticket.user_email,
             fullName: ticket.full_name,
             quantity: ticket.quantity,
+            headcount: entryHeadcount('ticket', ticket.quantity, refundedPlaces),
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1308,6 +1350,7 @@ export default function Bouncer() {
           userEmail: ticket.user_email,
           fullName: ticket.full_name,
           quantity: ticket.quantity,
+          headcount: entryHeadcount('ticket', ticket.quantity, refundedPlaces),
           eventTitle: ticket.events.title,
           roundName: ticket.ticket_rounds.name,
           status: ticket.status,
@@ -1661,6 +1704,9 @@ export default function Bouncer() {
   const resetScan = () => {
     // Retard non tranché : rien n'a été consommé, le billet reste valable.
     pendingLateRef.current = null;
+    setLateStep('decide');
+    setRefundPreview(null);
+    setRefundPreviewLoading(false);
     setScannedTicket(null);
     setScannedVipReservation(null);
     setScanResult(null);
@@ -1703,38 +1749,35 @@ export default function Bouncer() {
     
     setIsCancelling(true);
     try {
-      // Get current user ID to pass as staffId fallback
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { data, error } = await supabase.functions.invoke('staff-cancel', {
-        body: { 
-          type: 'ticket', 
-          id: scannedTicket.id,
-          reason: finalReason,
-          banCustomer: banCustomer,
-          staffId: user?.id, // Fallback for PIN-based auth
-        }
-      });
+      // QR nominatif : seule la place de cet ami est annulée et remboursée.
+      const res = await refundAtDoor(
+        scannedTicket.attendeeId
+          ? { kind: 'ticket_attendee', id: scannedTicket.attendeeId }
+          : { kind: 'ticket', id: scannedTicket.id },
+        { reason: finalReason, banCustomer },
+      );
 
-      if (error) throw error;
-
-      let message = `${t('bouncer.refundAmount')} ${data.refundAmount.toFixed(2)}€ (${t('bouncer.fees')}: ${data.cancellationFee.toFixed(2)}€)`;
-      if (data.customerBanned) {
+      let message = res.refundFailed
+        ? t('bouncer.refundFailedDesc')
+        : `${t('bouncer.refundAmount')} ${res.refundAmount.toFixed(2)}€`;
+      if (banCustomer) {
         message += ` - ${t('bouncer.customerBanned')}`;
       }
 
       toast({
-        title: t('bouncer.cancelledToast'),
+        title: res.placeRefund ? t('bouncer.placeCancelledToast') : t('bouncer.cancelledToast'),
         description: message,
+        variant: res.refundFailed ? 'destructive' : undefined,
       });
       
       setShowCancelConfirm(false);
       resetScan();
     } catch (error: unknown) {
       console.error('Error cancelling ticket:', error);
+      const key = doorRefusalKey(error);
       toast({
         title: t('bouncer.cancelError'),
-        description: (error as { message?: string }).message || t('bouncer.cancelError'),
+        description: key ? t(key) : (error as { message?: string }).message || t('bouncer.cancelError'),
         variant: 'destructive',
       });
     } finally {
@@ -2391,54 +2434,40 @@ export default function Bouncer() {
                                   </div>
                                 </div>
                                   </div>
-                              {scanResult === 'success' && !scannedTicket.entryScanned && (
-                                <div className="space-y-3">
-                                  {/* Empilé sur mobile : « Refuser + Remboursement net » déborde d'une demi-colonne à 390px */}
+                              {scanResult === 'success' && !scannedTicket.entryScanned && (() => {
+                                // Deux temps : laisser entrer ou refuser ; refusé,
+                                // rembourser ou non. Rien n'est écrit avant un choix.
+                                const pending = pendingLateRef.current;
+                                const who = scannedTicket.fullName || scannedTicket.userEmail;
+                                const isPlace = pending?.kind === 'ticket_attendee';
+                                const orderQty = scannedTicket.headcount ?? scannedTicket.quantity;
+
+                                if (lateStep === 'decide') return (
+                                  /* Empilé sur mobile : deux libellés longs ne tiennent pas en demi-colonne à 390px */
                                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <Button
                                       variant="destructive"
                                       className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
-                                      disabled={isCancelling}
+                                      disabled={lateDecisionBusy || isCancelling}
                                       onClick={async () => {
-                                        // Refus : le billet n'a pas été consommé au scan, le
-                                        // remboursement net peut donc passer.
-                                        setIsCancelling(true);
-                                        try {
-                                          const staffId = await myUserId();
-                                          const { data, error } = await supabase.functions.invoke('staff-cancel', {
-                                            body: {
-                                              type: 'ticket',
-                                              id: scannedTicket.id,
-                                              reason: t('bouncer.lateRefundReason').replace('{late}', lateLabel),
-                                              banCustomer: false,
-                                              staffId,
-                                            }
-                                          });
-                                          if (error) throw error;
-                                          if (data && data.success === false) throw new Error(data.error || t('bouncer.cancelError'));
-                                          pendingLateRef.current = null;
-                                          toast({
-                                            title: t('bouncer.entryDenied'),
-                                            description: `${scannedTicket.fullName || scannedTicket.userEmail} — ${t('bouncer.refundAmount')} ${data.refundAmount?.toFixed(2)}€`,
-                                            variant: 'destructive',
-                                          });
-                                          resetScan();
-                                          setScanning(false);
-                                        } catch (err: unknown) {
-                                          toast({ title: t('bouncer.cancelError'), description: (err as { message?: string }).message, variant: 'destructive' });
-                                        } finally {
-                                          setIsCancelling(false);
-                                        }
+                                        // Refuser n'écrit rien : la question suivante décide de l'argent.
+                                        setLateStep('refund');
+                                        setRefundPreview(null);
+                                        if (!pending) return;
+                                        setRefundPreviewLoading(true);
+                                        const preview = await fetchDoorRefundPreview({ kind: pending.kind, id: pending.id });
+                                        setRefundPreview(preview);
+                                        setRefundPreviewLoading(false);
                                       }}
                                     >
                                       <XCircle className="h-4 w-4 mr-2 flex-none" />
-                                      {isCancelling ? '...' : `${t('bouncer.deny')} + ${t('bouncer.refund90')}`}
+                                      {t('bouncer.denyEntry')}
                                     </Button>
                                     <Button
                                       className="h-auto min-h-[48px] whitespace-normal bg-green-600 py-3 leading-tight text-snow hover:bg-green-700"
                                       disabled={lateDecisionBusy || isCancelling || scannedTicket.entryScanned}
                                       onClick={async () => {
-                                        // Accepter = l'entrée est validée MAINTENANT (même
+                                        // Laisser entrer = l'entrée est validée MAINTENANT (même
                                         // verrou « premier scan gagne » que le scan normal).
                                         setLateDecisionBusy(true);
                                         try {
@@ -2451,7 +2480,7 @@ export default function Bouncer() {
                                           setScannedTicket(prev => prev ? { ...prev, entryScanned: true, entryScannedAt: new Date().toISOString() } : prev);
                                           toast({
                                             title: t('bouncer.entryApproved'),
-                                            description: `${scannedTicket.fullName || scannedTicket.userEmail} — ${t('bouncer.despiteLate')} ${lateLabel}`,
+                                            description: `${who} — ${t('bouncer.despiteLate')} ${lateLabel}`,
                                           });
                                         } catch (err: unknown) {
                                           toast({ title: t('bouncer.cancelError'), description: (err as { message?: string }).message, variant: 'destructive' });
@@ -2461,11 +2490,94 @@ export default function Bouncer() {
                                       }}
                                     >
                                       <CheckCircle className="h-4 w-4 mr-2 flex-none" />
-                                      {t('bouncer.accept')}
+                                      {t('bouncer.letIn')}
                                     </Button>
                                   </div>
-                                </div>
-                              )}
+                                );
+
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="rounded-lg p-3" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)' }}>
+                                      <p className="text-sm font-bold" style={{ color: RED }}>{t('bouncer.entryDenied')}</p>
+                                      <p className="mt-1 text-sm" style={{ color: T1 }}>{t('bouncer.refundQuestion').replace('{name}', who)}</p>
+                                      <p className="mt-1 text-xs" style={{ color: T2 }}>
+                                        {isPlace
+                                          ? t('bouncer.refundScopePlace')
+                                          : orderQty > 1
+                                            ? t('bouncer.refundScopeOrder').replace('{n}', String(orderQty))
+                                            : t('bouncer.refundScopeTicket')}
+                                      </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                      <Button
+                                        variant="destructive"
+                                        className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
+                                        disabled={isCancelling || refundPreviewLoading || !pending}
+                                        onClick={async () => {
+                                          if (!pending) return;
+                                          setIsCancelling(true);
+                                          try {
+                                            // QR nominatif : seule la place de cet ami ; sinon la commande.
+                                            const res = await refundAtDoor(
+                                              { kind: pending.kind, id: pending.id },
+                                              { reason: t('bouncer.lateRefundReason').replace('{late}', lateLabel) },
+                                            );
+                                            pendingLateRef.current = null;
+                                            toast({
+                                              title: t('bouncer.entryDenied'),
+                                              description: res.refundFailed
+                                                ? `${who} — ${t('bouncer.refundFailedDesc')}`
+                                                : `${who} — ${t('bouncer.refundAmount')} ${res.refundAmount.toFixed(2)}€`,
+                                              variant: 'destructive',
+                                            });
+                                            resetScan();
+                                            setScanning(false);
+                                          } catch (err: unknown) {
+                                            const key = doorRefusalKey(err);
+                                            toast({ title: t('bouncer.cancelError'), description: key ? t(key) : (err as { message?: string }).message, variant: 'destructive' });
+                                          } finally {
+                                            setIsCancelling(false);
+                                          }
+                                        }}
+                                      >
+                                        {isCancelling
+                                          ? '...'
+                                          : refundPreview
+                                            ? `${t('bouncer.refundYes')} · ${refundPreview.amount.toFixed(2)}€`
+                                            : t('bouncer.refundYes')}
+                                      </Button>
+                                      <Button
+                                        variant="secondary"
+                                        className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
+                                        disabled={isCancelling}
+                                        onClick={() => {
+                                          // Refusé sans remboursement : rien n'est écrit, le billet
+                                          // reste valable (un nouveau scan reposera la question).
+                                          pendingLateRef.current = null;
+                                          toast({
+                                            title: t('bouncer.entryDenied'),
+                                            description: `${who} — ${t('bouncer.notRefunded')}`,
+                                            variant: 'destructive',
+                                          });
+                                          resetScan();
+                                          setScanning(false);
+                                        }}
+                                      >
+                                        {t('bouncer.refundNo')}
+                                      </Button>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="w-full text-center text-xs underline underline-offset-2"
+                                      style={{ color: T3 }}
+                                      disabled={isCancelling}
+                                      onClick={() => setLateStep('decide')}
+                                    >
+                                      {t('bouncer.backToDecision')}
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           ) : (
                             <div className="p-3 rounded-lg flex items-center gap-3" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
@@ -2661,9 +2773,15 @@ export default function Bouncer() {
                         const total = scannedTicket.totalPrice || 0;
                         const yunoFee = scannedTicket.serviceFee || 0;
                         const stripeFee = calcStripeFee(total);
-                        const netRefund = Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100);
+                        // Le montant rendu est celui de staff-cancel (aperçu) ; l'estimation
+                        // locale ne sert qu'en attendant, et jamais pour une place seule.
+                        const netRefund = refundPreview?.amount
+                          ?? (scannedTicket.attendeeId ? null : Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100));
                         return (
                           <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
+                            {scannedTicket.attendeeId ? (
+                              <p className="mb-2" style={{ color: T2, fontSize: 13 }}>{t('bouncer.refundScopePlace')}</p>
+                            ) : (<>
                             <div className="flex items-center justify-between gap-3 mb-2">
                               <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.originalPrice')}</span>
                               <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{total.toFixed(2)}€</span>
@@ -2676,9 +2794,12 @@ export default function Bouncer() {
                               <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.feeStripe')}</span>
                               <span className="flex-none tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{stripeFee.toFixed(2)}€</span>
                             </div>
+                            </>)}
                             <div className="flex items-center justify-between gap-3 pt-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
                               <span className="min-w-0 truncate" style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('bouncer.customerRefund')}</span>
-                              <span className="flex-none tabular-nums" style={{ color: POS, fontSize: 14, fontWeight: 700 }}>{netRefund.toFixed(2)}€</span>
+                              <span className="flex-none tabular-nums" style={{ color: POS, fontSize: 14, fontWeight: 700 }}>
+                                {netRefund == null ? (refundPreviewLoading ? '…' : '—') : `${netRefund.toFixed(2)}€`}
+                              </span>
                             </div>
                           </div>
                         );
@@ -2975,8 +3096,8 @@ export default function Bouncer() {
                           onClick={(e) => {
                             e.stopPropagation();
                             // Bascule vers le flux classique EN GARDANT le
-                            // résultat : la carte complète (refuser +
-                            // rembourser 90 % / accepter) s'y affiche et le
+                            // résultat : la carte complète (laisser entrer /
+                            // refuser, puis rembourser ou non) s'y affiche et le
                             // scrollIntoView l'amène en vue. Ne surtout pas
                             // effacer scanResult ni scannedTicket ici.
                             rapidModeRef.current = false;
@@ -3132,6 +3253,9 @@ export default function Bouncer() {
               <span className="block break-words">
                 {t('bouncer.confirmCancelDesc')}
               </span>
+              {scannedTicket?.attendeeId && (
+                <span className="block break-words">{t('bouncer.refundScopePlace')}</span>
+              )}
               <span className="block break-words font-medium">
                 {t('bouncer.reason')}: {getFinalReason()}
               </span>

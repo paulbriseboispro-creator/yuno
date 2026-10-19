@@ -16454,6 +16454,11 @@ export type Database = {
           id: string
           phone: string | null
           qr_code: string
+          refund_amount: number | null
+          refund_reason: string | null
+          refunded_at: string | null
+          refunded_by: string | null
+          seats_released: number
           ticket_id: string
         }
         Insert: {
@@ -16468,6 +16473,11 @@ export type Database = {
           id?: string
           phone?: string | null
           qr_code: string
+          refund_amount?: number | null
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
+          seats_released?: number
           ticket_id: string
         }
         Update: {
@@ -16482,6 +16492,11 @@ export type Database = {
           id?: string
           phone?: string | null
           qr_code?: string
+          refund_amount?: number | null
+          refund_reason?: string | null
+          refunded_at?: string | null
+          refunded_by?: string | null
+          seats_released?: number
           ticket_id?: string
         }
         Relationships: [

@@ -25,7 +25,9 @@ import type { DoorScope, ScanVerdict } from '@/lib/scan/types';
 import { calcStripeFee } from '@/utils/fees';
 import { toZonedTime } from 'date-fns-tz';
 import { getEventTimezone } from '@/lib/timezone';
-import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import {
+  doorRefusalKey, fetchDoorRefundPreview, isPlaceRefunded, refundAtDoor, refundedPlacesCount, type DoorRefundPreview,
+} from '@/lib/scan/doorRefund';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton, OrgTabs, OrgEmptyState,
   FieldLabel, DarkSelect, DarkTextarea,
@@ -127,18 +129,17 @@ interface DoorTicket {
   /** Heure limite de la boisson offerte (HH:MM), en mode « heure fixe ». */
   drinkCutoff: string | null;
   /**
-   * Billet HORS CRÉNEAU scanné mais PAS consommé : la porte tranche (Accepter =
-   * l'entrée est validée maintenant ; Refuser + remboursement). Même décision
-   * que dans l'app Yuno Pro : jamais un « Entrée validée » avant ce choix.
+   * Billet HORS CRÉNEAU scanné mais PAS consommé : la porte tranche, en deux
+   * temps (laisser entrer / refuser ; refusé, rembourser ou non). Même
+   * décision que dans l'app Yuno Pro : jamais un « Entrée validée » avant ce choix.
    */
   pendingLate: {
     kind: 'ticket_attendee' | 'ticket';
+    /** Place (`ticket_attendees.id`) pour un QR nominatif, sinon le billet. */
     id: string;
     ticketId: string;
-    /** QR scanné : la ligne de la liste passe au vert après « Accepter ». */
+    /** QR scanné : la ligne de la liste passe au vert après « Laisser entrer ». */
     qr: string;
-    /** Billets de la commande : le remboursement porte sur la commande entière. */
-    orderQuantity: number;
   } | null;
 }
 
@@ -147,11 +148,12 @@ function doorTicketFor(
   name: string | null,
   round: DoorRound | null,
   quantity: number | null,
+  refundedPlaces = 0,
 ): DoorTicket {
   return {
     name,
     roundName: round?.name ?? null,
-    headcount: entryHeadcount(kind, quantity),
+    headcount: entryHeadcount(kind, quantity, refundedPlaces),
     entryDeadline: round?.entry_deadline ? round.entry_deadline.substring(0, 5) : null,
     includesDrink: !!round?.includes_drink,
     drinkCutoff: round ? drinkCutoffOf(round) ?? null : null,
@@ -188,9 +190,14 @@ export default function OrgAppCheckin() {
   const [recent, setRecent] = useState<{ name: string | null; at: Date }[]>([]);
   const [doorTicket, setDoorTicket] = useState<DoorTicket | null>(null);
   const [lateBusy, setLateBusy] = useState(false);
-  const [confirmLateRefund, setConfirmLateRefund] = useState(false);
   /** QR entré APRÈS coup (hors créneau accepté) : la ligne de la liste passe au vert. */
   const [doorEnteredQr, setDoorEnteredQr] = useState<{ qr: string; at: number } | null>(null);
+  /** Hors créneau, deuxième temps : l'entrée est refusée, rembourser ou non (montant lu chez staff-cancel). */
+  const [lateStep, setLateStep] = useState<'decide' | 'refund'>('decide');
+  const [latePreview, setLatePreview] = useState<DoorRefundPreview | null>(null);
+  const [latePreviewLoading, setLatePreviewLoading] = useState(false);
+  /** Onglet Annuler : le montant exact que staff-cancel rendra (place seule ou commande). */
+  const [cancelPreview, setCancelPreview] = useState<DoorRefundPreview | null>(null);
   // Pilier boissons en pause : la boisson offerte se remet toujours à la porte.
   // Relancé, un club en mode « crédits » la fait retirer au bar.
   const [venueDrinkMode, setVenueDrinkMode] = useState<'credits' | 'bouncer_notify'>('bouncer_notify');
@@ -301,7 +308,7 @@ export default function OrgAppCheckin() {
 
   const resetTicketScan = () => {
     setLastScan(null); setScannedTicket(null); setRefundReason(''); setCustomReason(''); setShowCancelConfirm(false);
-    setDoorTicket(null); setConfirmLateRefund(false);
+    setDoorTicket(null); setLateStep('decide'); setLatePreview(null); setCancelPreview(null);
   };
 
   /** Le billet dépasse-t-il l'heure limite d'entrée de son tarif ? Règle partagée avec le videur. */
@@ -316,7 +323,8 @@ export default function OrgAppCheckin() {
     // Un nouveau scan remplace la carte précédente ; un hors créneau resté sans
     // décision n'a rien consommé, il repassera par la même question.
     setDoorTicket(null);
-    setConfirmLateRefund(false);
+    setLateStep('decide');
+    setLatePreview(null);
     try {
       // Toutes les branches valident via `@/lib/scan/rules` — les MÊMES règles que
       // l'app Pro et que le rejeu hors-ligne. Après le contrôle `event_id ===
@@ -338,6 +346,8 @@ export default function OrgAppCheckin() {
           .eq('id', att.ticket_id)
           .maybeSingle();
         if (!parent || parent.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
+        // Place remboursée seule à la porte : elle ne passe plus.
+        if (await isPlaceRefunded(att.id)) { setLastScan({ ok: false, name: att.full_name ?? undefined, reason: tk('bouncer.placeRefunded') }); return; }
 
         const verdict = validateTicketEntry(
           { type: 'ticket_attendee', id: att.id, ticketId: parent.id, name: att.full_name,
@@ -350,7 +360,7 @@ export default function OrgAppCheckin() {
         const attCard = doorTicketFor('ticket_attendee', att.full_name ?? parent.full_name ?? null, doorRoundOf(parent), parent.quantity);
         // Hors créneau : on montre le billet SANS le consommer, la porte tranche.
         if (isLateNow(attCard.entryDeadline)) {
-          setDoorTicket({ ...attCard, pendingLate: { kind: 'ticket_attendee', id: att.id, ticketId: parent.id, qr: qrCode, orderQuantity: parent.quantity ?? 1 } });
+          setDoorTicket({ ...attCard, pendingLate: { kind: 'ticket_attendee', id: att.id, ticketId: parent.id, qr: qrCode } });
           return;
         }
 
@@ -394,9 +404,11 @@ export default function OrgAppCheckin() {
         );
         if (verdict.status !== 'success') { denyFromVerdict(verdict, ticket.full_name); return; }
 
-        const ticketCard = doorTicketFor('ticket', ticket.full_name ?? null, doorRoundOf(ticket), ticket.quantity);
+        // Places remboursées une à une : le QR du billet entier ne les fait plus entrer.
+        const refundedPlaces = await refundedPlacesCount(ticket.id, ticket.quantity);
+        const ticketCard = doorTicketFor('ticket', ticket.full_name ?? null, doorRoundOf(ticket), ticket.quantity, refundedPlaces);
         if (isLateNow(ticketCard.entryDeadline)) {
-          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, qr: qrCode, orderQuantity: ticket.quantity ?? 1 } });
+          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, qr: qrCode } });
           return;
         }
 
@@ -534,7 +546,7 @@ export default function OrgAppCheckin() {
       }
       const late = card.entryDeadline ? computeLateness(card.entryDeadline, nowAtDoor()).lateLabel : '';
       setDoorTicket({ ...card, pendingLate: null });
-      setConfirmLateRefund(false);
+      setLateStep('decide');
       setDoorEnteredQr({ qr: pending.qr, at: Date.now() });
       setLastScan({ ok: true, name: card.name ?? undefined });
       setRecent(r => [{ name: card.name, at: new Date() }, ...r].slice(0, 5));
@@ -547,42 +559,68 @@ export default function OrgAppCheckin() {
   };
 
   /**
-   * Hors créneau refusé : le billet n'a pas été consommé, le remboursement net
-   * peut donc passer (staff-cancel refuse un billet déjà scanné). Il porte sur
-   * la COMMANDE entière : deux temps, le second dit combien de billets partent.
+   * Hors créneau, premier temps : « Refuser l'entrée » n'écrit RIEN. Il ouvre le
+   * second temps (rembourser ou non), avec le montant exact lu chez staff-cancel.
    */
-  const refuseLateEntry = async () => {
+  const denyLateEntry = async () => {
+    const pending = doorTicket?.pendingLate;
+    if (!pending || lateBusy) return;
+    setLateStep('refund');
+    setLatePreview(null);
+    setLatePreviewLoading(true);
+    const preview = await fetchDoorRefundPreview({ kind: pending.kind, id: pending.id });
+    setLatePreview(preview);
+    setLatePreviewLoading(false);
+  };
+
+  /**
+   * Refusé + remboursé : le billet n'a pas été consommé au scan, le
+   * remboursement net peut donc passer. Un QR nominatif ne rembourse que SA
+   * place (les autres restent valables) ; le QR du billet entier, la commande.
+   */
+  const refundLateEntry = async () => {
     const card = doorTicket;
     const pending = card?.pendingLate;
     if (!card || !pending || lateBusy) return;
-    if (!confirmLateRefund) { setConfirmLateRefund(true); return; }
     setLateBusy(true);
     try {
       const late = card.entryDeadline ? computeLateness(card.entryDeadline, nowAtDoor()).lateLabel : '';
-      const { data, error } = await invokeEdgeFunction<{ success?: boolean; error?: string; refundAmount?: number }>('staff-cancel', {
-        body: {
-          type: 'ticket',
-          id: pending.ticketId,
-          reason: tk('bouncer.lateRefundReason').replace('{late}', late),
-          banCustomer: false,
-          staffId: user?.id,
-        },
-      });
-      if (error) throw error;
-      if (data && data.success === false) throw new Error(data.error || tk('bouncer.cancelError'));
+      const res = await refundAtDoor(
+        { kind: pending.kind, id: pending.id },
+        { reason: tk('bouncer.lateRefundReason').replace('{late}', late) },
+      );
       setDoorTicket(null);
-      setConfirmLateRefund(false);
+      setLateStep('decide');
+      setLatePreview(null);
       setLastScan({
         ok: false,
         name: card.name ?? undefined,
-        reason: t('Hors créneau : entrée refusée, billet remboursé', 'Out of slot: entry denied, ticket refunded', 'Fuera de franja: entrada denegada, entrada reembolsada'),
+        reason: res.placeRefund
+          ? t('Hors créneau : entrée refusée, place remboursée', 'Out of slot: entry denied, place refunded', 'Fuera de franja: entrada denegada, plaza reembolsada')
+          : t('Hors créneau : entrée refusée, billet remboursé', 'Out of slot: entry denied, ticket refunded', 'Fuera de franja: entrada denegada, entrada reembolsada'),
       });
-      toast.success(`${tk('bouncer.refundAmount')} ${Number(data?.refundAmount ?? 0).toFixed(2)}€`);
+      if (res.refundFailed) toast.error(tk('bouncer.refundFailedDesc'));
+      else toast.success(`${tk('bouncer.refundAmount')} ${res.refundAmount.toFixed(2)}€`);
     } catch (e: unknown) {
-      toast.error(`${tk('bouncer.cancelError')} — ${(e as { message?: string }).message ?? ''}`);
+      const key = doorRefusalKey(e);
+      toast.error(`${tk('bouncer.cancelError')} — ${key ? tk(key) : (e as { message?: string }).message ?? ''}`);
     } finally {
       setLateBusy(false);
     }
+  };
+
+  /** Refusé sans remboursement : rien n'est écrit, le billet reste valable (un nouveau scan reposera la question). */
+  const declineLateRefund = () => {
+    const card = doorTicket;
+    if (!card || lateBusy) return;
+    setDoorTicket(null);
+    setLateStep('decide');
+    setLatePreview(null);
+    setLastScan({
+      ok: false,
+      name: card.name ?? undefined,
+      reason: t('Hors créneau : entrée refusée, billet non remboursé', 'Out of slot: entry denied, ticket not refunded', 'Fuera de franja: entrada denegada, entrada no reembolsada'),
+    });
   };
 
   const handleCancelScan = async (qrText: string) => {
@@ -594,7 +632,7 @@ export default function OrgAppCheckin() {
     try {
       const { data: att } = await supabase
         .from('ticket_attendees')
-        .select('id, ticket_id, full_name')
+        .select('id, ticket_id, full_name, entry_scanned')
         .eq('qr_code', qrCode).maybeSingle();
 
       let parentTicketId: string | null = null;
@@ -614,7 +652,9 @@ export default function OrgAppCheckin() {
       if (!full) { setLastScan({ ok: false, reason: t('Billet introuvable', 'Ticket not found') }); return; }
       if (full.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
       if (full.status !== 'paid') { setLastScan({ ok: false, reason: t('Non remboursable (statut)', 'Not refundable (status)') }); return; }
-      if (full.entry_scanned) { setLastScan({ ok: false, reason: t('Déjà entré : annulation impossible', 'Already entered: cannot cancel') }); return; }
+      // QR nominatif : c'est la PLACE qu'on annule — un autre ami déjà entré n'y change rien.
+      if (att && await isPlaceRefunded(att.id)) { setLastScan({ ok: false, reason: tk('bouncer.refusal.already_refunded') }); return; }
+      if (att ? att.entry_scanned : full.entry_scanned) { setLastScan({ ok: false, reason: t('Déjà entré : annulation impossible', 'Already entered: cannot cancel') }); return; }
 
       setScannedTicket({
         id: full.id,
@@ -629,6 +669,9 @@ export default function OrgAppCheckin() {
         entryScanned: full.entry_scanned,
         paymentIntentId: full.stripe_payment_intent_id ?? null,
       });
+      setCancelPreview(null);
+      void fetchDoorRefundPreview(attendeeId ? { kind: 'ticket_attendee', id: attendeeId } : { kind: 'ticket', id: full.id })
+        .then(setCancelPreview);
     } catch (e: unknown) {
       setLastScan({ ok: false, reason: (e as { message?: string }).message ?? t('Erreur de scan', 'Scan error') });
     } finally {
@@ -647,16 +690,20 @@ export default function OrgAppCheckin() {
     if (!finalReason) { toast.error(t('Sélectionnez un motif', 'Select a reason')); return; }
     setIsCancelling(true);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const { data, error } = await supabase.functions.invoke('staff-cancel', {
-        body: { type: 'ticket', id: scannedTicket.id, reason: finalReason, banCustomer: false, staffId: authUser?.id },
-      });
-      if (error) throw error;
-      toast.success(`${t('Billet annulé', 'Ticket cancelled')} — ${Number(data.refundAmount).toFixed(2)}€ ${t('remboursés', 'refunded')}`);
+      // QR nominatif : seule la place de cet ami est annulée et remboursée.
+      const res = await refundAtDoor(
+        scannedTicket.attendeeId
+          ? { kind: 'ticket_attendee', id: scannedTicket.attendeeId }
+          : { kind: 'ticket', id: scannedTicket.id },
+        { reason: finalReason },
+      );
+      if (res.refundFailed) toast.error(tk('bouncer.refundFailedDesc'));
+      else toast.success(`${res.placeRefund ? t('Place annulée', 'Place cancelled', 'Plaza anulada') : t('Billet annulé', 'Ticket cancelled', 'Entrada anulada')} — ${res.refundAmount.toFixed(2)}€ ${t('remboursés', 'refunded', 'reembolsados')}`);
       setShowCancelConfirm(false);
       resetTicketScan();
     } catch (e: unknown) {
-      toast.error((e as { message?: string }).message ?? t("Erreur lors de l'annulation", 'Cancel error'));
+      const key = doorRefusalKey(e);
+      toast.error(key ? tk(key) : (e as { message?: string }).message ?? t("Erreur lors de l'annulation", 'Cancel error'));
     } finally {
       setIsCancelling(false);
     }
@@ -667,9 +714,12 @@ export default function OrgAppCheckin() {
     const total = scannedTicket.totalPrice;
     const yunoFee = scannedTicket.serviceFee;
     const stripeFee = calcStripeFee(Math.round(total * 100));
-    const net = Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100);
-    return { total, yunoFee, stripeFee, net };
-  }, [scannedTicket]);
+    // Le montant rendu est celui de staff-cancel (aperçu) ; l'estimation locale
+    // ne sert qu'en attendant, et jamais pour une place seule.
+    const net = cancelPreview?.amount
+      ?? (scannedTicket.attendeeId ? null : Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100));
+    return { total, yunoFee, stripeFee, net, place: !!scannedTicket.attendeeId };
+  }, [scannedTicket, cancelPreview]);
 
   const handleDrinkScan = async (qrText: string) => {
     const code = qrText.trim();
@@ -854,10 +904,14 @@ export default function OrgAppCheckin() {
                         ticket={doorTicket}
                         lateLabel={doorTicket.entryDeadline ? computeLateness(doorTicket.entryDeadline, nowAtDoor()).lateLabel : ''}
                         busy={lateBusy}
-                        confirmRefund={confirmLateRefund}
+                        step={lateStep}
+                        preview={latePreview}
+                        previewLoading={latePreviewLoading}
                         onAccept={acceptLateEntry}
-                        onRefuse={refuseLateEntry}
-                        onCancelRefund={() => setConfirmLateRefund(false)}
+                        onDeny={denyLateEntry}
+                        onRefund={refundLateEntry}
+                        onNoRefund={declineLateRefund}
+                        onBack={() => setLateStep('decide')}
                         tk={tk}
                         t={t}
                       />
@@ -923,12 +977,16 @@ export default function OrgAppCheckin() {
                         </div>
 
                         <div className="space-y-1 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, fontSize: 13 }}>
-                          <Row label={t('Total payé', 'Total paid')} value={`${refundPreview.total.toFixed(2)}€`} />
-                          <Row label={t('Frais Yuno', 'Yuno fee')} value={`−${refundPreview.yunoFee.toFixed(2)}€`} />
-                          <Row label={t('Frais Stripe', 'Stripe fee')} value={`−${refundPreview.stripeFee.toFixed(2)}€`} />
+                          {refundPreview.place ? (
+                            <p style={{ color: T2, fontSize: 12.5 }}>{tk('bouncer.refundScopePlace')}</p>
+                          ) : (<>
+                            <Row label={t('Total payé', 'Total paid')} value={`${refundPreview.total.toFixed(2)}€`} />
+                            <Row label={t('Frais Yuno', 'Yuno fee')} value={`−${refundPreview.yunoFee.toFixed(2)}€`} />
+                            <Row label={t('Frais Stripe', 'Stripe fee')} value={`−${refundPreview.stripeFee.toFixed(2)}€`} />
+                          </>)}
                           <div className="mt-1 flex justify-between border-t pt-2" style={{ borderColor: BORDER }}>
                             <span style={{ color: T1, fontWeight: 600 }}>{t('Remboursement client', 'Customer refund')}</span>
-                            <span style={{ color: POS, fontWeight: 700 }}>{refundPreview.net.toFixed(2)}€</span>
+                            <span style={{ color: POS, fontWeight: 700 }}>{refundPreview.net == null ? '…' : `${refundPreview.net.toFixed(2)}€`}</span>
                           </div>
                         </div>
 
@@ -1008,7 +1066,10 @@ export default function OrgAppCheckin() {
             <AlertDialogDescription>
               {t('Le billet sera annulé et un remboursement sera initié selon la politique Yuno. Le client recevra un e-mail.',
                  'The ticket will be cancelled and a refund initiated per Yuno policy. The customer will receive an email.')}
-              {refundPreview && (
+              {refundPreview?.place && (
+                <span className="mt-2 block">{tk('bouncer.refundScopePlace')}</span>
+              )}
+              {refundPreview && refundPreview.net != null && (
                 <span className="mt-2 block font-semibold text-foreground">
                   {t('Remboursement', 'Refund')} : {refundPreview.net.toFixed(2)}€
                 </span>
@@ -1033,23 +1094,29 @@ type InlineT = (fr: string, en: string, es?: string) => string;
 const AMBER = 'var(--acc-f59e0b)';
 
 /**
- * Billet hors créneau en attente : la même question que l'app Yuno Pro, avec
- * ses mots. Rien n'est validé tant que la porte n'a pas tranché.
+ * Billet hors créneau en attente : les mêmes deux temps que l'app Yuno Pro,
+ * avec ses mots. 1) Laisser entrer ou refuser l'entrée. 2) Refusé : rembourser
+ * (montant exact lu chez staff-cancel) ou non. Rien n'est écrit avant un choix.
  */
 function LateDecisionCard({
-  ticket, lateLabel, busy, confirmRefund, onAccept, onRefuse, onCancelRefund, tk, t,
+  ticket, lateLabel, busy, step, preview, previewLoading, onAccept, onDeny, onRefund, onNoRefund, onBack, tk, t,
 }: {
   ticket: DoorTicket;
   lateLabel: string;
   busy: boolean;
-  confirmRefund: boolean;
+  step: 'decide' | 'refund';
+  preview: DoorRefundPreview | null;
+  previewLoading: boolean;
   onAccept: () => void;
-  onRefuse: () => void;
-  onCancelRefund: () => void;
+  onDeny: () => void;
+  onRefund: () => void;
+  onNoRefund: () => void;
+  onBack: () => void;
   tk: DictT;
   t: InlineT;
 }) {
-  const orderQty = ticket.pendingLate?.orderQuantity ?? 1;
+  const isPlace = ticket.pendingLate?.kind === 'ticket_attendee';
+  const who = ticket.name ?? t('ce client', 'this guest', 'este cliente');
   return (
     <OrgCard style={{ border: '1px solid rgba(245,158,11,0.45)', background: 'rgba(245,158,11,0.07)' }}>
       <div className="space-y-4 p-5">
@@ -1066,32 +1133,52 @@ function LateDecisionCard({
             )}
           </div>
         </div>
-        <p style={{ color: T3, fontSize: 12 }}>
-          {t("Rien n'est validé tant que vous n'avez pas choisi.", 'Nothing is validated until you decide.', 'No se valida nada hasta que decidas.')}
-        </p>
-        {confirmRefund ? (
-          <div className="space-y-2">
-            <p style={{ color: T2, fontSize: 12.5 }}>
-              {orderQty > 1
-                ? t(`Le remboursement porte sur toute la commande (${orderQty} billets).`, `The refund covers the whole order (${orderQty} tickets).`, `El reembolso cubre todo el pedido (${orderQty} entradas).`)
-                : t('Le billet sera annulé et le client remboursé.', 'The ticket will be cancelled and the guest refunded.', 'La entrada se anulará y se reembolsará al cliente.')}
-            </p>
+        {step === 'refund' ? (
+          <div className="space-y-3">
+            <div className="rounded-xl p-3" style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.3)' }}>
+              <div style={{ color: RED, fontSize: 13, fontWeight: 700 }}>{tk('bouncer.entryDenied')}</div>
+              <div className="mt-1" style={{ color: T1, fontSize: 13.5 }}>{tk('bouncer.refundQuestion').replace('{name}', who)}</div>
+              <div className="mt-1" style={{ color: T2, fontSize: 12 }}>
+                {isPlace
+                  ? tk('bouncer.refundScopePlace')
+                  : ticket.headcount > 1
+                    ? tk('bouncer.refundScopeOrder').replace('{n}', String(ticket.headcount))
+                    : tk('bouncer.refundScopeTicket')}
+              </div>
+            </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <OrgButton variant="secondary" onClick={onCancelRefund} disabled={busy}>{t('Retour', 'Back', 'Volver')}</OrgButton>
-              <OrgButton variant="danger" onClick={onRefuse} disabled={busy}>
-                <Ban className="h-4 w-4" />{busy ? '…' : t('Confirmer et rembourser', 'Confirm and refund', 'Confirmar y reembolsar')}
+              <OrgButton variant="danger" onClick={onRefund} disabled={busy || previewLoading}>
+                <Ban className="h-4 w-4" />
+                {busy ? '…' : preview ? `${tk('bouncer.refundYes')} · ${preview.amount.toFixed(2)}€` : tk('bouncer.refundYes')}
+              </OrgButton>
+              <OrgButton variant="secondary" onClick={onNoRefund} disabled={busy}>
+                {tk('bouncer.refundNo')}
               </OrgButton>
             </div>
+            <button
+              type="button"
+              className="w-full text-center underline underline-offset-2"
+              style={{ color: T3, fontSize: 12 }}
+              onClick={onBack}
+              disabled={busy}
+            >
+              {tk('bouncer.backToDecision')}
+            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <OrgButton variant="danger" onClick={onRefuse} disabled={busy}>
-              <XCircle className="h-4 w-4" />{`${tk('bouncer.deny')} + ${tk('bouncer.refund90')}`}
-            </OrgButton>
-            <OrgButton variant="primary" onClick={onAccept} disabled={busy}>
-              <CheckCircle2 className="h-4 w-4" />{busy ? '…' : tk('bouncer.accept')}
-            </OrgButton>
-          </div>
+          <>
+            <p style={{ color: T3, fontSize: 12 }}>
+              {t("Rien n'est validé tant que vous n'avez pas choisi.", 'Nothing is validated until you decide.', 'No se valida nada hasta que decidas.')}
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <OrgButton variant="danger" onClick={onDeny} disabled={busy}>
+                <XCircle className="h-4 w-4" />{tk('bouncer.denyEntry')}
+              </OrgButton>
+              <OrgButton variant="primary" onClick={onAccept} disabled={busy}>
+                <CheckCircle2 className="h-4 w-4" />{busy ? '…' : tk('bouncer.letIn')}
+              </OrgButton>
+            </div>
+          </>
         )}
       </div>
     </OrgCard>

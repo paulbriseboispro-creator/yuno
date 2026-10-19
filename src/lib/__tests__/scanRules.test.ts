@@ -54,4 +54,10 @@ describe('entryHeadcount — personnes qu\'un QR fait entrer', () => {
     expect(entryHeadcount('ticket', 0)).toBe(1);
     expect(entryHeadcount('ticket', undefined)).toBe(1);
   });
+
+  it('les places remboursées une à une ne passent plus par le QR du billet entier', () => {
+    expect(entryHeadcount('ticket', 4, 1)).toBe(3);
+    expect(entryHeadcount('ticket', 4, 0)).toBe(4);
+    expect(entryHeadcount('ticket_attendee', 4, 3)).toBe(1);
+  });
 });

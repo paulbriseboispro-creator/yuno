@@ -111,14 +111,20 @@ export function drinkCutoffOf(round: { drink_cutoff_time?: string | null; drink_
 
 /**
  * Nombre de personnes qu'un QR fait entrer, donc de boissons offertes à
- * remettre. Le QR du billet entier fait entrer toute la commande ; un QR
+ * remettre. Le QR du billet entier fait entrer toute la commande, moins les
+ * places déjà remboursées une à une à la porte (`refundedPlaces`) ; un QR
  * nominatif (`ticket_attendee`, un ami nommé à l'achat) ne fait entrer que
  * SA personne — lui afficher la quantité de la commande faisait servir une
  * boisson par place à chaque ami scanné.
  */
-export function entryHeadcount(type: TicketScanEntity['type'], quantity: number | null | undefined): number {
+export function entryHeadcount(
+  type: TicketScanEntity['type'],
+  quantity: number | null | undefined,
+  refundedPlaces = 0,
+): number {
   if (type === 'ticket_attendee') return 1;
-  return Math.max(1, Math.floor(Number(quantity) || 1));
+  const places = Math.floor(Number(quantity) || 1) - Math.max(0, Math.floor(Number(refundedPlaces) || 0));
+  return Math.max(1, places);
 }
 
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {
