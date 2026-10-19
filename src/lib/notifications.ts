@@ -208,6 +208,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Yuno CRM : un compte choisi a ouvert son espace avec l'offre fondateurs (5 places).
   admin_crm_offer_claimed:       { icon: UserPlus,   category: 'growth', label: 'notif.type.admin_crm_offer_claimed' },
   admin_crm_invite_claimed:      { icon: UserPlus,   category: 'growth', label: 'notif.type.admin_crm_invite_claimed' },
+  // Yuno CRM : un compte demande l'accès au SMS (bêta privée, 20261029100000).
+  admin_crm_sms_access_request:  { icon: MessageSquare, category: 'growth', label: 'notif.type.admin_crm_sms_access_request' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
@@ -770,10 +772,12 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_crm_invite_claimed':
       return '/admin/crm/invite';
 
-    // Analyse client d'un espace Yuno CRM : son tiroir dans l'Admin CRM
-    // (référence = clé de portée, qui est l'identifiant du compte).
+    // Analyse client d'un espace Yuno CRM et demande d'accès SMS (carte « SMS ·
+    // bêta privée ») : le tiroir du compte dans l'Admin CRM (référence = clé de
+    // portée, qui est l'identifiant du compte).
     case 'admin_crm_analysis_failed':
     case 'admin_crm_score_drift':
+    case 'admin_crm_sms_access_request':
       return n.reference_id ? `/admin/crm/clients?open=${encodeURIComponent(n.reference_id)}` : '/admin/crm/clients';
 
     // Réglages d'un espace Yuno CRM (référence = clé de portée).

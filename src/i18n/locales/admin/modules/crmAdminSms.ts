@@ -1,0 +1,42 @@
+import type { AdminDict } from './types';
+
+// Admin CRM › tiroir d'un compte › SMS en bêta privée (migration 20261029100000) — [EN, FR, ES].
+const dict: AdminDict = {
+  'adm.crm.sms.title': ['SMS · private beta', 'SMS · bêta privée', 'SMS · beta privada'],
+  'adm.crm.sms.st.none': ['No request', 'Aucune demande', 'Sin solicitud'],
+  'adm.crm.sms.st.requested': ['Requested', 'Demandé', 'Solicitado'],
+  'adm.crm.sms.st.granted': ['Open', 'Ouvert', 'Abierto'],
+  'adm.crm.sms.st.declined': ['Not open', 'Non ouvert', 'No abierto'],
+  'adm.crm.sms.none': ['The account hasn’t requested access. You can open it directly.', 'Le compte n’a pas demandé l’accès. Tu peux l’ouvrir directement.', 'La cuenta no ha solicitado el acceso. Puedes abrirlo directamente.'],
+  'adm.crm.sms.f.when': ['Request', 'Demande', 'Solicitud'],
+  'adm.crm.sms.f.uses': ['Uses', 'Usages', 'Usos'],
+  'adm.crm.sms.f.volume': ['Volume', 'Volume', 'Volumen'],
+  'adm.crm.sms.f.sender': ['Sender wanted', 'Expéditeur souhaité', 'Remitente deseado'],
+  'adm.crm.sms.f.note': ['Their note', 'Son mot', 'Su nota'],
+  'adm.crm.sms.use.announce': ['Announce a night', 'Annoncer une soirée', 'Anunciar una fiesta'],
+  'adm.crm.sms.use.last_call': ['Last call', 'Dernier appel', 'Última llamada'],
+  'adm.crm.sms.use.practical': ['Practical info', 'Infos pratiques', 'Información práctica'],
+  'adm.crm.sms.use.comeback': ['Bring them back', 'Faire revenir', 'Hacerles volver'],
+  'adm.crm.sms.use.other': ['Other', 'Autre', 'Otro'],
+  'adm.crm.sms.vol.lt500': ['Under 500', 'Moins de 500', 'Menos de 500'],
+  'adm.crm.sms.vol.lt2k': ['500 to 2,000', '500 à 2 000', 'De 500 a 2.000'],
+  'adm.crm.sms.vol.lt10k': ['2,000 to 10,000', '2 000 à 10 000', 'De 2.000 a 10.000'],
+  'adm.crm.sms.vol.gt10k': ['Over 10,000', 'Plus de 10 000', 'Más de 10.000'],
+  'adm.crm.sms.vol.unknown': ['Not sure', 'Ne sait pas', 'No lo sabe'],
+  'adm.crm.sms.grantedOn': ['Opened on {date}', 'Ouvert le {date}', 'Abierto el {date}'],
+  'adm.crm.sms.declinedOn': ['Not opened on {date}', 'Non ouvert le {date}', 'No abierto el {date}'],
+  'adm.crm.sms.provOk': ['Octopush connected', 'Octopush branché', 'Octopush conectado'],
+  'adm.crm.sms.provSim': ['Octopush in simulation mode: nothing really goes out', 'Octopush en simulation : rien ne part vraiment', 'Octopush en simulación: no se envía nada de verdad'],
+  'adm.crm.sms.provOff': ['Octopush not connected yet: open after subscribing', 'Octopush pas encore branché : ouvre après l’abonnement', 'Octopush aún no conectado: abre tras la suscripción'],
+  'adm.crm.sms.provUnknown': ['Octopush status unknown', 'État d’Octopush inconnu', 'Estado de Octopush desconocido'],
+  'adm.crm.sms.grant': ['Open SMS access', 'Ouvrir l’accès SMS', 'Abrir el acceso SMS'],
+  'adm.crm.sms.decline': ['Decline', 'Refuser', 'Rechazar'],
+  'adm.crm.sms.close': ['Close SMS access', 'Couper l’accès SMS', 'Cortar el acceso SMS'],
+  'adm.crm.sms.grantBody': ['The SMS screens open in their Console and they get a notification. Their sends use their Yunits (35 per text in France, 70 abroad).', 'Les écrans SMS s’ouvrent dans sa Console et il reçoit une notification. Ses envois débitent ses Yunits (35 par SMS en France, 70 à l’étranger).', 'Las pantallas SMS se abren en su Consola y recibe una notificación. Sus envíos gastan sus Yunits (35 por SMS en Francia, 70 en el extranjero).'],
+  'adm.crm.sms.declineBody': ['SMS stays closed for this account; they can request again. The reason stays internal.', 'Le SMS reste fermé pour ce compte ; il peut refaire une demande. Le motif reste interne.', 'El SMS sigue cerrado para esta cuenta; puede volver a solicitarlo. El motivo queda interno.'],
+  'adm.crm.sms.provWarn': ['Octopush isn’t connected: their tests and sends will answer “sending service being activated” until the OCTOPUSH_* secrets are set.', 'Octopush n’est pas branché : ses tests et envois répondront « service d’envoi en cours d’activation » tant que les secrets OCTOPUSH_* ne sont pas posés.', 'Octopush no está conectado: sus pruebas y envíos responderán «servicio de envío en activación» mientras no se configuren los secretos OCTOPUSH_*.'],
+  'adm.crm.sms.doneGrant': ['SMS opened for {name}', 'SMS ouvert pour {name}', 'SMS abierto para {name}'],
+  'adm.crm.sms.doneDecline': ['Done for {name}', 'C’est fait pour {name}', 'Hecho para {name}'],
+};
+
+export default dict;

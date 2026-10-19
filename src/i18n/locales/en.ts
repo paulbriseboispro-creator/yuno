@@ -14371,6 +14371,7 @@ const en: Record<string, string> = {
   "notif.type.admin_crm_daily": "Yuno CRM: the daily review",
   "notif.type.admin_crm_offer_claimed": "Yuno CRM: a founder offer account just opened",
   "notif.type.admin_crm_invite_claimed": "Yuno CRM: an invited account just opened",
+  "notif.type.admin_crm_sms_access_request": "Yuno CRM: an account requests SMS access (beta)",
   "notif.type.admin_crm_analysis_failed": "CRM customer analysis failed",
   "notif.type.admin_crm_score_drift": "Yuno CRM: “Chance of coming” is drifting",
   "notif.type.admin_crm_deletion_request": "CRM space deletion requested",
