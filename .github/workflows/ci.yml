@@ -15,6 +15,12 @@ jobs:
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Valeurs factices pour tout le job : des tests importent (indirectement)
+    # src/integrations/supabase/client.ts, qui lève « supabaseUrl is required »
+    # sans elles. Aucun appel réseau n'est fait vers cette adresse.
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,13 +38,16 @@ jobs:
         run: TZ=Europe/Paris npx vitest run src/lib/__tests__/ticketingShotgunAudit.test.ts src/lib/__tests__/ticketingShotgun.test.ts
       - name: Build
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder
 
   edge:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Le package.json de la racine est celui de l'app Vite. Deno 2 le détecte et
+    # passe en mode node_modules « manuel », qui exige un node_modules installé
+    # (« Could not find "@types/node" »). Les fonctions edge n'en dépendent pas :
+    # on coupe la détection plutôt que d'installer toute l'app dans ce job.
+    env:
+      DENO_NO_PACKAGE_JSON: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
