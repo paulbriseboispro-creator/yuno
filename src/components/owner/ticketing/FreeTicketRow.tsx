@@ -82,6 +82,12 @@ export function FreeTicketRow({ ticket, awaitedName, isFirst, isLast, onEdit, on
           {ticket.entryDeadline && <span className="inline-flex items-center gap-1" style={{ color: T2 }}><Clock className="h-3 w-3" />{t('tickets.entryBefore')} {ticket.entryDeadline}</span>}
           {next && <span>{next}</span>}
         </div>
+        {/* Ce que le client lit sous le billet (page de la soirée, page d'achat). */}
+        {ticket.description && (
+          <p className="mt-1 line-clamp-2 whitespace-pre-line" title={ticket.description} style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>
+            {ticket.description}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-1 flex-none">
         {canOpenNow && (

@@ -10,17 +10,19 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TicketRound } from '@/types/ticketing';
 import {
-  UNLIMITED_TICKETS, displayChoiceOf, normalizeEntryDeadline, saleChoiceOf, scheduleColumns, wouldCreateChainCycle,
-  type DisplayChoice, type SaleChoice,
+  UNLIMITED_TICKETS, displayChoiceOf, normalizeEntryDeadline, normalizeTicketDescription, saleChoiceOf, scheduleColumns,
+  wouldCreateChainCycle, type DisplayChoice, type SaleChoice,
 } from '@/lib/freeTicketing';
 import { RED, T1, C_FAINT, BORDER, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import { toDateTimeLocalInput, toUtcIsoOrNull } from './ticketing-utils';
 import { DrinkOptionsFields, type DrinkOptionsValue } from './DrinkOptionsFields';
 import { Choice } from './FreeChoice';
+import { TicketDescriptionField } from './TicketDescriptionField';
 
 /** Colonnes ticket_rounds écrites par le formulaire (hors event_id / position). */
 export interface FreeTicketPatch {
   name: string;
+  description: string | null;
   price: number;
   max_tickets: number;
   manually_sold_out: boolean;
@@ -52,6 +54,7 @@ interface FreeTicketDialogProps {
 
 interface FormState extends DrinkOptionsValue {
   name: string;
+  description: string;
   price: string;
   maxTickets: string;
   entryDeadline: string;
@@ -74,6 +77,7 @@ function initialState(ticket: TicketRound | null): FormState {
   };
   return {
     name: ticket?.name ?? '',
+    description: ticket?.description ?? '',
     price: ticket ? String(ticket.price) : '',
     maxTickets: ticket && ticket.maxTickets < UNLIMITED_TICKETS ? String(ticket.maxTickets) : '',
     entryDeadline: normalizeEntryDeadline(ticket?.entryDeadline) ?? '',
@@ -154,6 +158,7 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave,
     try {
       await onSave({
         name: form.name.trim(),
+        description: normalizeTicketDescription(form.description),
         price,
         max_tickets: Number.isFinite(qty) && qty > 0 ? qty : UNLIMITED_TICKETS,
         manually_sold_out: form.manuallySoldOut,
@@ -183,6 +188,7 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave,
             <Label htmlFor="freeName">{t('tickets.free.name')}</Label>
             <Input id="freeName" value={form.name} onChange={(e) => patch({ name: e.target.value })} placeholder={t('tickets.free.namePlaceholder')} />
           </div>
+          <TicketDescriptionField id="freeDescription" value={form.description} onChange={(description) => patch({ description })} />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="freePrice">{t('tickets.priceEuro')}</Label>

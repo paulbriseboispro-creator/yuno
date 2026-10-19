@@ -60,6 +60,12 @@ export function EventRoundRow({ round, event, isSimpleMode, isVip, onEdit, onDel
             </span>
           )}
         </div>
+        {/* Ce que le client lit sous le billet (page de la soirée, page d'achat). */}
+        {round.description && (
+          <p className="mt-1 line-clamp-2 whitespace-pre-line" title={round.description} style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>
+            {round.description}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-1 flex-none">
         {onToggleSoldOut && (

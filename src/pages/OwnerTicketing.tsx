@@ -45,7 +45,7 @@ import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCap
 import { FreeTicketDialog, type FreeTicketPatch } from '@/components/owner/ticketing/FreeTicketDialog';
 import { FreeTicketRow } from '@/components/owner/ticketing/FreeTicketRow';
 import { FreePresetDialog, type FreePresetDraft } from '@/components/owner/ticketing/FreePresetDialog';
-import { UNLIMITED_TICKETS, normalizeChainVisibility, normalizeEntryDeadline, normalizeFreePreset, roundsToFreePreset, type ChainVisibility } from '@/lib/freeTicketing';
+import { UNLIMITED_TICKETS, normalizeChainVisibility, normalizeEntryDeadline, normalizeFreePreset, normalizeTicketDescription, roundsToFreePreset, type ChainVisibility } from '@/lib/freeTicketing';
 import { FreeChainVisibility } from '@/components/owner/ticketing/FreeChainVisibility';
 import { applyFreePreset } from '@/lib/applyFreePreset';
 import { useTabParam } from '@/hooks/useTabParam';
@@ -105,6 +105,7 @@ export default function OwnerTicketing() {
   
   const [roundFormData, setRoundFormData] = useState<RoundFormData>({
     name: '',
+    description: '',
     price: '',
     maxTickets: '',
     isActive: false,
@@ -794,6 +795,7 @@ export default function OwnerTicketing() {
     setEditingRound(null);
     setRoundFormData({
       name: '',
+      description: '',
       price: '',
       maxTickets: '',
       isActive: isSimpleMode ? true : false,
@@ -816,6 +818,7 @@ export default function OwnerTicketing() {
     setEditingRound(round);
     setRoundFormData({
       name: round.name,
+      description: round.description ?? '',
       price: round.price.toString(),
       maxTickets: round.maxTickets.toString(),
       isActive: round.isActive,
@@ -894,6 +897,7 @@ export default function OwnerTicketing() {
       const roundData: TablesInsert<'ticket_rounds'> = {
         event_id: selectedEvent.id,
         name: roundFormData.name,
+        description: normalizeTicketDescription(roundFormData.description),
         price: parseFloat(roundFormData.price),
         max_tickets: isSimpleMode ? 999999 : parseInt(roundFormData.maxTickets),
         // Invariant : un round épuisé manuellement n'est jamais actif (cohérent avec le trigger SQL).
@@ -1007,6 +1011,7 @@ export default function OwnerTicketing() {
       includes_drink: r.includesDrink, drink_deadline_type: r.drinkDeadlineType ?? null,
       drink_deadline_hours: r.drinkDeadlineHours ?? null, drink_cutoff_time: r.drinkCutoffTime ?? null,
       entry_deadline: r.entryDeadline ?? null,
+      description: r.description ?? null,
       id: r.id, opens_after_round_id: r.opensAfterRoundId ?? null,
     }));
     setFreePresetDialog({
