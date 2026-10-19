@@ -251,10 +251,10 @@ export default function TicketSelection() {
           lastTablesThreshold: z.last_tables_threshold ?? 20, createdAt: z.created_at, updatedAt: z.updated_at,
         })));
 
-        const { data: eventSettingsData } = await supabase.from('event_table_settings').select('*').eq('event_id', eventId).single();
+        const { data: eventSettingsData } = await supabase.from('event_table_settings').select('*').eq('event_id', eventId).maybeSingle();
         const priceOverrides: Record<string, number> = {};
         if (eventSettingsData?.preset_id) {
-          const { data: presetData } = await supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).single();
+          const { data: presetData } = await supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).maybeSingle();
           if (presetData?.packs) {
             (presetData.packs as { packId: string; customPrice: number | null }[]).forEach(pp => {
               if (pp.customPrice !== null) priceOverrides[pp.packId] = pp.customPrice;
