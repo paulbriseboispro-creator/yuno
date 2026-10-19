@@ -791,6 +791,40 @@ Règles :
   (`space.role = 'owner'`) ; un aperçu démo ou une session d'assistance voient
   la page sans boutons.
 
+## Yuno CRM — Premiers pas : le guide des premiers pas d'un compte (2026-10-19)
+
+Demande de Paul avant d'ouvrir le compte de Jules (3AM) : guider les premiers
+pas une fois le compte créé, sans jamais l'imposer. Plan et recherche :
+`docs/designs/CRM_FIRST_STEPS_PLAN.md`. Migration `20261101100000`, modèle
+`src/crm/lib/firstSteps.ts` (testé), écrans `src/crm/guide/*`, textes `yc.fs.*`
+(module `firstSteps`). Règles :
+
+- **Cinq étapes, chacune une action, cochées par la BASE** (`crm_first_steps`,
+  relue à chaque appel) : Shotgun (connexion active ; l'import en cours compte),
+  identité de l'expéditeur (`_crm_email_identity`), premier e-mail CRM parti ou
+  programmé, une recette allumée ou un scénario en ligne, une connexion MCP sur
+  l'espace. « Pour aller plus loin » : segments, équipe. « Votre espace est
+  ouvert » est offerte (1 sur 6 au premier jour). Jamais une case cochée sur un
+  clic, jamais une serrure : une étape faite par un membre de l'équipe est cochée
+  pour tout l'espace. Une étape ajoutée = la RPC, `CORE_STEPS` / `EXTRA_STEPS`,
+  ses textes ×3, son repère.
+- **Une carte intégrée à l'Accueil, jamais une fenêtre au chargement** (la
+  fenêtre des Conditions s'y ouvre déjà). D'office : le TITULAIRE seul, compte
+  CRM de moins de 60 jours, ni masqué, ni reporté (demain 6 h), ni terminé
+  (`crm_first_steps`, préférence par personne × espace). Elle remplace la liste
+  « Pour bien démarrer » de l'Accueil tant qu'elle est là. Aperçu démo, accès
+  assisté, compte démo : jamais d'office, rien d'enregistré. Lecteur : jamais.
+- **Pas de visite guidée** : le bouton d'une étape ouvre sa page
+  (`?v=wizard`, `?v=claude`, `?event=` de la prochaine soirée, `?new=rec`,
+  `?invite=1`) et une carte d'aide en bas à droite (clé de session
+  `yuno.crm.fs.coach`), réduite en pastille sur une page qui guide déjà
+  (assistant Shotgun, guide Claude). « Montrer où » entoure l'élément
+  `data-yc-guide="<repère>"` : un repère supprimé fait disparaître le bouton, il
+  ne casse rien. Quand la base voit l'étape faite, la carte propose la suivante.
+- Rouvrir : entrée « Premiers pas » du menu latéral (tant qu'il s'affiche
+  d'office), menu du profil, Compte › Aide. FAQ `yc.faq.firstSteps`, article
+  assistant `crm-first-steps` (redéployer `owner-assistant` après modification).
+
 ## Yuno CRM — la Console `/crm` (design Claude Design) et l'Admin CRM (2026-10-05)
 
 La Console CRM est reconstruite écran par écran depuis le projet Claude Design
