@@ -54,9 +54,9 @@ export function DJMatchRail() {
         .gte('start_at', new Date().toISOString())
         .order('start_at', { ascending: true })
         .limit(12);
-      q = isOrg
+      q = (isOrg
         ? q.eq('organizer_user_id', organizerUserId!)
-        : q.eq('venue_id', venueId!);
+        : q.eq('venue_id', venueId!)).is('external_source', null);
       const { data } = await q;
       if (cancelled) return;
       const rows = (data || []) as BookerEvent[];

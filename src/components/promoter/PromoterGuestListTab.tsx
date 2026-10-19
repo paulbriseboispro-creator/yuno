@@ -125,11 +125,11 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       // and organizer events (own or partner).
       const orParts: string[] = [];
       if (venueIds.length) {
-        orParts.push(`venue_id.in.(${venueIds.join(',')})`);
+        orParts.push(`and(venue_id.in.(${venueIds.join(',')}),external_source.is.null)`);
         orParts.push(`partner_venue_id.in.(${venueIds.join(',')})`);
       }
       if (orgIds.length) {
-        orParts.push(`organizer_user_id.in.(${orgIds.join(',')})`);
+        orParts.push(`and(organizer_user_id.in.(${orgIds.join(',')}),external_source.is.null)`);
         orParts.push(`partner_organizer_id.in.(${orgIds.join(',')})`);
       }
 
