@@ -36,7 +36,7 @@ export default function AdminEvents() {
     // filtre / pagine côté client. La porte démo vient de demo_event_ids(),
     // jamais d'un `not.in` de 100 uuids dans l'URL PostgREST.
     const [ev, vs, de] = await Promise.all([
-      supabase.from('events').select('id, title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, discovery_status, visibility, is_discoverable, is_active, status, is_bde, slug, organizer_user_id').order('start_at', { ascending: false }).limit(2000),
+      supabase.from('events').select('id, title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, discovery_status, visibility, is_discoverable, is_active, status, is_bde, slug, organizer_user_id').is('external_source', null).order('start_at', { ascending: false }).limit(2000),
       supabase.from('venues').select('id, name'),
       supabase.rpc('demo_event_ids' as never),
     ]);

@@ -95,7 +95,7 @@ export default function AdminSearchBar({ pages = [] }: { pages?: AdminSearchPage
             .or(`email.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`).limit(5),
           supabase.from('venues').select('id, name, city')
             .or(`name.ilike.%${q}%,city.ilike.%${q}%`).limit(5),
-          supabase.from('events').select('id, title, start_at')
+          supabase.from('events').select('id, title, start_at').is('external_source', null)
             .ilike('title', `%${q}%`).order('start_at', { ascending: false }).limit(5),
         ]);
         if (seq !== seqRef.current) return; // une frappe plus récente a repris la main
