@@ -807,7 +807,12 @@ export default function OwnerEvents() {
       if (error) throw error;
       toast.success(t('owner.toastEventDeleted'));
       fetchEvents();
-    } catch (error) { toast.error(t('owner.toastDeleteError')); }
+    } catch (error) {
+      // Une soirée qui a des ventes ne se supprime pas (billets payés et QR
+      // emportés en cascade) : la base refuse, on explique l'annulation.
+      const message = (error as { message?: string })?.message ?? '';
+      toast.error(message.includes('event_has_sales') ? t('owner.eventHasSales') : t('owner.toastDeleteError'));
+    }
   };
 
   const handleToggleActive = async (event: Event) => {
