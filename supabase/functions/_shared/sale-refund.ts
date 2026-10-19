@@ -82,6 +82,56 @@ export function remainingRefundableCents(kind: SaleKind, s: SaleAmounts): number
   return Math.max(0, refundCapCents(kind, s) - alreadyRefundedCents(s));
 }
 
+/**
+ * Frais Stripe estimés d'un paiement (1,5 % + 0,25 €), en centimes. Le vendeur
+ * les a payés à l'encaissement et Stripe ne les rend pas : le remboursement de
+ * la PORTE (staff-cancel, « remboursement net ») les garde.
+ */
+export function doorStripeFeeCents(totalCents: number): number {
+  return Math.round(Math.max(0, totalCents) * 0.015) + 25;
+}
+
+/**
+ * Part de la `k`-ième unité (0 = la première) quand `totalCents` se partage en
+ * `units` parts : floor(total·(k+1)/n) − floor(total·k/n). Les parts diffèrent
+ * d'un centime au plus et leur somme vaut EXACTEMENT le total — rendre les
+ * places une à une ne laisse jamais un centime de trop ni de moins. Même calcul
+ * en SQL pour les places de la jauge (`door_refund_ticket_place`).
+ */
+export function unitShareCents(totalCents: number, units: number, k: number): number {
+  const n = Math.max(1, Math.floor(units));
+  const i = Math.floor(k);
+  if (i < 0 || i >= n) return 0;
+  const t = Math.max(0, Math.round(totalCents));
+  return Math.floor((t * (i + 1)) / n) - Math.floor((t * i) / n);
+}
+
+export interface DoorPlaceRefundInput {
+  /** `refundCapCents('ticket', billet)` : frais Yuno et assurance jamais rendus. */
+  capCents: number;
+  /** `doorStripeFeeCents(total du billet)` : frais Stripe du paiement entier. */
+  stripeFeeCents: number;
+  /** Places nominatives du billet (lignes `ticket_attendees`). */
+  places: number;
+  /** Places déjà remboursées une à une, avant celle-ci. */
+  placesRefunded: number;
+  /** `tickets.refund_amount` : tout ce qui a déjà été rendu sur le billet. */
+  alreadyRefundedCents: number;
+}
+
+/**
+ * Remboursement à la porte d'UNE place d'un billet nominatif (un ami nommé à
+ * l'achat, refusé à l'entrée) : sa part du remboursement net du billet entier
+ * (plafond côté club − frais Stripe), plafonnée par ce qui reste à rendre.
+ * Rembourser toutes les places une à une rend exactement ce que rendrait le
+ * remboursement du billet entier, au centime près.
+ */
+export function doorPlaceRefundCents(i: DoorPlaceRefundInput): number {
+  const net = Math.max(0, Math.round(i.capCents) - Math.round(i.stripeFeeCents));
+  const share = unitShareCents(net, i.places, i.placesRefunded);
+  return Math.max(0, Math.min(share, net - Math.max(0, Math.round(i.alreadyRefundedCents))));
+}
+
 export interface RefundPlan {
   /** Montant de CE remboursement. */
   amountCents: number;

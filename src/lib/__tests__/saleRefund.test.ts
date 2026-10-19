@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alreadyRefundedCents, fullRefundPatch, planChargeRefund, planRefund, refundAllowed,
-  refundCapCents, remainingRefundableCents, saleCollector, saleParties, type CollectorRights,
+  alreadyRefundedCents, doorPlaceRefundCents, doorStripeFeeCents, fullRefundPatch, planChargeRefund,
+  planRefund, refundAllowed, refundCapCents, remainingRefundableCents, saleCollector, saleParties,
+  unitShareCents, type CollectorRights,
 } from '../../../supabase/functions/_shared/sale-refund.ts';
 
 describe('refundCapCents — plafond côté club', () => {
@@ -159,5 +160,57 @@ describe('refundAllowed — seul l\'encaisseur rembourse', () => {
   it('super admin : toujours ; encaisseur inconnu : personne d\'autre', () => {
     expect(refundAllowed(null, { ...none, isAdmin: true })).toBe(true);
     expect(refundAllowed(null, { isAdmin: false, clubRefunder: true, orgRefunder: true })).toBe(false);
+  });
+});
+
+describe('remboursement à la porte d\'UNE place nominative', () => {
+  it('frais Stripe estimés : 1,5 % + 0,25 €, comme staff-cancel', () => {
+    expect(doorStripeFeeCents(6000)).toBe(115);
+    expect(doorStripeFeeCents(0)).toBe(25);
+  });
+
+  it('parts égales à un centime près, dont la somme vaut exactement le total', () => {
+    const parts = [0, 1, 2].map((k) => unitShareCents(1000, 3, k));
+    expect(parts).toEqual([333, 333, 334]);
+    expect(parts.reduce((a, b) => a + b, 0)).toBe(1000);
+    for (const n of [1, 2, 3, 4, 7]) {
+      for (const total of [0, 1, 99, 5885, 12345]) {
+        const sum = Array.from({ length: n }, (_, k) => unitShareCents(total, n, k)).reduce((a, b) => a + b, 0);
+        expect(sum).toBe(total);
+      }
+    }
+    expect(unitShareCents(1000, 3, 3)).toBe(0);
+    expect(unitShareCents(1000, 3, -1)).toBe(0);
+  });
+
+  // Billet de 3 places : 63,60 € payés dont 3,60 € de frais Yuno → plafond 60 € ;
+  // frais Stripe sur 63,60 € = 1,20 € → net du billet entier 58,80 €.
+  const ticket = { total_price: 63.6, service_fee: 3.6, insurance_fee: 0 };
+  const cap = refundCapCents('ticket', ticket);
+  const fee = doorStripeFeeCents(6360);
+
+  it('une place = sa part du net du billet entier, jamais la commande entière', () => {
+    expect(cap).toBe(6000);
+    expect(fee).toBe(120);
+    expect(doorPlaceRefundCents({ capCents: cap, stripeFeeCents: fee, places: 3, placesRefunded: 0, alreadyRefundedCents: 0 })).toBe(1960);
+  });
+
+  it('toutes les places rendues une à une = le billet entier rendu (net), au centime', () => {
+    let already = 0;
+    for (let k = 0; k < 3; k++) {
+      already += doorPlaceRefundCents({ capCents: cap, stripeFeeCents: fee, places: 3, placesRefunded: k, alreadyRefundedCents: already });
+    }
+    expect(already).toBe(cap - fee);
+  });
+
+  it('un remboursement partiel antérieur (Console) plafonne la dernière place', () => {
+    // 50 € déjà rendus depuis la Console : il ne reste que 8,80 € du net.
+    expect(doorPlaceRefundCents({ capCents: cap, stripeFeeCents: fee, places: 3, placesRefunded: 0, alreadyRefundedCents: 5000 })).toBe(880);
+    expect(doorPlaceRefundCents({ capCents: cap, stripeFeeCents: fee, places: 3, placesRefunded: 0, alreadyRefundedCents: 6000 })).toBe(0);
+  });
+
+  it('billet gratuit ou plus aucune place : rien à rendre, jamais négatif', () => {
+    expect(doorPlaceRefundCents({ capCents: 0, stripeFeeCents: doorStripeFeeCents(0), places: 2, placesRefunded: 0, alreadyRefundedCents: 0 })).toBe(0);
+    expect(doorPlaceRefundCents({ capCents: cap, stripeFeeCents: fee, places: 3, placesRefunded: 3, alreadyRefundedCents: 0 })).toBe(0);
   });
 });
