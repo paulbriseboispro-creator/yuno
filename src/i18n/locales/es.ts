@@ -4862,6 +4862,7 @@ const es: Record<string, string> = {
   'tickets.roundDeleted': 'Ronda eliminada',
   'tickets.confirmDeleteRound': '¿Eliminar esta ronda?',
   'tickets.errorSaving': 'Error al guardar',
+  'tickets.notAllowed': 'Estas entradas las gestiona la otra parte del evento: no se ha cambiado nada.',
   'tickets.errorDeleting': 'Error al eliminar',
   'tickets.roundHasSales': 'Esta entrada ya tiene ventas: márcala como «Agotado» en lugar de eliminarla.',
   'tickets.fillRequired': 'Rellena todos los campos',

@@ -4636,6 +4636,7 @@ const fr: Record<string, string> = {
   'tickets.roundDeleted': 'Phase supprimée',
   'tickets.confirmDeleteRound': 'Supprimer cette phase ?',
   'tickets.errorSaving': 'Erreur lors de la sauvegarde',
+  'tickets.notAllowed': 'Ces billets sont gérés par l\'autre partie de la soirée : rien n\'a été modifié.',
   'tickets.errorDeleting': 'Erreur lors de la suppression',
   'tickets.roundHasSales': 'Ce billet a déjà des ventes : marque-le « Complet » au lieu de le supprimer.',
   'tickets.fillRequired': 'Veuillez remplir tous les champs',

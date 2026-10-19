@@ -920,12 +920,16 @@ export default function OwnerTicketing() {
       };
 
       if (editingRound) {
-        const { error } = await supabase
+        // `.select` : la RLS refuse une mise à jour SANS erreur (0 ligne), par
+        // exemple sur une co-soirée dont le club tient la billetterie.
+        const { data: updated, error } = await supabase
           .from('ticket_rounds')
           .update(roundData)
-          .eq('id', editingRound.id);
+          .eq('id', editingRound.id)
+          .select('id');
 
         if (error) throw error;
+        if (!updated?.length) { toast.error(t('tickets.notAllowed')); return; }
         toast.success(t('tickets.roundUpdated'));
       } else {
         const { error } = await supabase
@@ -952,8 +956,10 @@ export default function OwnerTicketing() {
     const { eventId, ticket } = freeTicketDialog;
     try {
       if (ticket) {
-        const { error } = await supabase.from('ticket_rounds').update(patch).eq('id', ticket.id);
+        // 0 ligne sans erreur = la RLS a refusé (billetterie tenue par l'autre partie).
+        const { data: updated, error } = await supabase.from('ticket_rounds').update(patch).eq('id', ticket.id).select('id');
         if (error) throw error;
+        if (!updated?.length) { toast.error(t('tickets.notAllowed')); return; }
       } else {
         const existing = ticketRounds[eventId] || [];
         const position = existing.length > 0 ? Math.max(...existing.map(r => r.position)) + 1 : 0;

@@ -4669,6 +4669,7 @@ const en: Record<string, string> = {
   'tickets.roundDeleted': 'Round deleted',
   'tickets.confirmDeleteRound': 'Delete this ticket round?',
   'tickets.errorSaving': 'Error saving',
+  'tickets.notAllowed': 'These tickets are managed by the other party of the event: nothing was changed.',
   'tickets.errorDeleting': 'Error deleting',
   'tickets.roundHasSales': 'This ticket already has sales: mark it "Sold out" instead of deleting it.',
   'tickets.fillRequired': 'Please fill all required fields',
