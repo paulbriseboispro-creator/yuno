@@ -683,9 +683,10 @@ export default function TicketCheckout() {
       return false;
     }
 
-    // Les autres participants ne sont plus exigés : un paiement réel émet UN
-    // billet (un QR pour toute la quantité) et ne garde pas leurs identités —
-    // exiger nom, email et téléphone de chaque ami bloquait l'achat pour rien.
+    // Les autres participants restent facultatifs : chaque place a son QR
+    // (create-ticket-checkout, _shared/ticket-places.ts), au nom saisi ou, à
+    // défaut, « <acheteur> +k ». Exiger nom, email et téléphone de chaque ami
+    // bloquait l'achat pour rien : le QR du billet entier fait entrer tout le monde.
 
     if (!acceptCgv) {
       toast.error(t('cgv.required'));

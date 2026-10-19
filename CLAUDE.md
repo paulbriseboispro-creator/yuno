@@ -4097,6 +4097,16 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   comptent en PERSONNES par une seule fonction, `_door_headcount` (migration
   `20260929237000`), lue par le videur (`get_door_counters`) ET par
   `get_staff_night_pulse` : ne jamais recompter côté front.
+- **Places nominatives d'un billet de N personnes** (2026-10-19) : N lignes
+  `ticket_attendees` (un QR `<QR du billet>-k` par personne, l'acheteur en 1,
+  un ami sans nom = « <acheteur> +k »), créées par `create-ticket-checkout`
+  avec le billet, sur ses DEUX chemins (Stripe réel : avec le billet
+  « pending », parties avec lui au nettoyage ; démo simulée), par la seule
+  règle `buildTicketPlaces` (`_shared/ticket-places.ts`, testée). Exactement N
+  ou aucune (billet d'une personne, pack de groupe) : la porte compte et
+  rembourse une commande nominative place par place. Jamais créées ailleurs
+  (ni verify, ni webhook) : un seul jeu de QR par billet. Toute porte refuse
+  une place dont le billet n'est pas payé.
 - **Vestiaire d'organisateur** : la portée du vestiaire est la SOIRÉE
   (`cloakroom_transactions.venue_id` facultatif, `can_run_event_cloakroom`),
   la recherche de QR passe par `cloakroom_lookup` (le préposé n'a pas le droit

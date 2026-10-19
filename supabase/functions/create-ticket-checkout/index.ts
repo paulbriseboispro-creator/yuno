@@ -25,6 +25,7 @@ import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCo
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { isWaitingForPrevious, normalizeChainVisibility, rowPhase } from "../_shared/free-ticketing.ts";
 import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
+import { buildTicketPlaces } from "../_shared/ticket-places.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -865,6 +866,37 @@ serve(async (req) => {
       ? { ...readiness.split.transferSplit, venue_direct: Math.round(upsellTotal * 100) / 100 }
       : null;
 
+    // Places nominatives : un QR par personne d'un billet de plusieurs places
+    // (_shared/ticket-places.ts). Créées avec le billet, sur les DEUX chemins :
+    // en paiement réel elles naissent avec le billet « pending » et partent avec
+    // lui s'il n'est jamais payé (clé étrangère en cascade, nettoyage à 45 min) ;
+    // la porte n'accepte une place que si son billet est payé. Ni verify ni le
+    // webhook n'y touchent : un seul jeu de QR par billet. Un échec n'arrête
+    // jamais la vente : le QR du billet entier fait entrer tout le monde.
+    const createTicketPlaces = async (ticketId: string, ticketQr: string) => {
+      const places = buildTicketPlaces({
+        ticketQr,
+        quantity: Number(quantity),
+        isGroup: isGroupRound,
+        buyer: {
+          fullName: fullName || guestFullName,
+          email: user?.email || guestEmail,
+          phone: phone || guestPhone,
+        },
+        attendees,
+      });
+      if (places.length === 0) return;
+      const { error: placesError } = await supabaseAdmin
+        .from("ticket_attendees")
+        .insert(places.map((place) => ({ ...place, ticket_id: ticketId })));
+      if (placesError) {
+        console.error("[CREATE-TICKET-CHECKOUT] Ticket places not created (group QR still valid)", placesError.message);
+        logStep("Ticket places not created", { ticketId, error: placesError.message });
+      } else {
+        logStep("Ticket places created", { ticketId, count: places.length });
+      }
+    };
+
     if (simulate) {
       logStep("SIMULATE: Creating paid ticket directly (demo or test mode)");
 
@@ -950,26 +982,7 @@ serve(async (req) => {
         .update({ tickets_sold: ticketRound.tickets_sold + soldIncrement })
         .eq("id", ticketRoundId);
 
-      // Create individual attendee entries for nominative tickets
-      if (attendees && attendees.length > 0) {
-        const attendeeRecords = attendees.map((attendee: { fullName: string; email?: string; phone?: string }, index: number) => ({
-          ticket_id: ticket.id,
-          full_name: attendee.fullName,
-          email: attendee.email || null,
-          phone: attendee.phone || null,
-          qr_code: `${qrCode}-${index + 1}`,
-        }));
-
-        const { error: attendeesError } = await supabaseAdmin
-          .from("ticket_attendees")
-          .insert(attendeeRecords);
-
-        if (attendeesError) {
-          logStep("Error creating attendees", { error: attendeesError.message });
-        } else {
-          logStep("Attendees created", { count: attendeeRecords.length });
-        }
-      }
+      await createTicketPlaces(ticket.id, qrCode);
 
       // Create promoter conversion if applicable (even if discount is 0, we track
       // the conversion). Same RPC as the live Stripe path (verify-ticket-payment):
@@ -1227,6 +1240,7 @@ serve(async (req) => {
 
     logStep("Pending ticket created", { ticketId: ticket.id });
     if (promoRedemptionId) await attachPromoRedemption(supabaseAdmin, promoRedemptionId, { ticketId: ticket.id });
+    await createTicketPlaces(ticket.id, qrCode);
 
     // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct
     // du club : sa case est distincte, son abonnement l'est aussi. Best-effort
