@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr } from '@/lib/coorg';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 
 export type StepStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
@@ -66,11 +67,10 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
     orgProfile?.website_url
   );
 
-  // Step 3 — First event created.
+  // Step 3 — First event created. Une soirée miroir d'une billetterie externe
+  // (Yuno CRM) n'est pas une soirée créée dans Yuno.
   const eventsQuery = supabase.from('events').select('id', { count: 'exact', head: true });
-  const { count: eventCount } = await eventsQuery.or(
-    `organizer_user_id.eq.${userId},partner_organizer_id.eq.${userId}`,
-  );
+  const { count: eventCount } = await eventsQuery.or(orgOwnEventsOr(userId));
   result['3'] = (eventCount ?? 0) > 0;
 
   // Step 4 — Team (optional): at least one accepted member.
