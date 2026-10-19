@@ -517,11 +517,13 @@ export default function EventDetails() {
 
       // Canonicalisation : les vieilles URLs UUID (/event/:id, /club/:slug/event/:id)
       // redirigent vers l'URL propre /events/:host/:slug (hors preview owner).
+      // Les paramètres suivent (UTM, `tl`, `promo`, `ref`) : sans eux, la source
+      // de la visite et l'attribution du lien se perdaient à la redirection.
       if (!eventSlug && !isPreview) {
         const hostSlug = isOrganizerLed ? (loadedOrganizer?.slug ?? null) : eventData.venue_id;
         const cleanSlug = (eventData as { slug?: string | null }).slug;
         if (hostSlug && cleanSlug) {
-          navigate(`/events/${hostSlug}/${cleanSlug}`, { replace: true });
+          navigate(`/events/${hostSlug}/${cleanSlug}${window.location.search}${window.location.hash}`, { replace: true });
         }
       }
 
