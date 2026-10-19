@@ -3677,6 +3677,63 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
 - **Tout lien « créer un compte pro » de l'app passe par `proSignupUrl()`**
   (page de connexion, Explore faible densité). `/auth` crée un compte CLIENT.
 
+## Inscription pro sans invitation → téléphone de Paul (Cockpit) (2026-10-19)
+
+Demande de Paul après Poupée (Bastia) et Lillo Bacio (Lille), inscrits seuls
+depuis la landing sans qu'il le sache. Migration `20261103410000`, modules
+`_shared/pro-signup-{alerts,fiche,email}.ts` + `_shared/org-research.ts`,
+tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
+(`~/Desktop/yuno-cockpit.nosync`, `/inscriptions`, `lib/yunoSignups.ts`). Règles :
+
+- **Une seule source : les alertes plateforme déjà émises.** Le déclencheur
+  `trg_enqueue_pro_signup_alert` (sur `admin_notifications`) met en file
+  `pro_signup_alerts` (RLS sans policy) les types `admin_pro_signup`,
+  `admin_pro_signup_lead`, `admin_pro_lead`, `admin_links_pro_lead`,
+  `admin_landing_contact` (nouveau : le formulaire de contact de la landing
+  n'alertait personne), `admin_pro_signup_stalled` (nouveau) et
+  `admin_pro_account_deleted` (nouveau, émis par `delete-account`), puis
+  réveille aussitôt la fonction (pg_net, `x-cron-secret`). Le cron régulier
+  rattrape. Une nouvelle alerte d'arrivée de pro = un type ajouté au CASE du
+  déclencheur, jamais un envoi direct.
+- **Ce que Paul a provoqué ne lui est pas annoncé** (`_pro_signup_invited` :
+  invitation Yuno CRM, lien démo « compte à créer », compte démo), sauf un
+  compte supprimé.
+- **Inscription bloquée** : `pro_signup_stalled_sweep()` (cron SQL
+  `pro-signup-stalled-sweep`, toutes les 15 min) : un parcours club /
+  organisateur avec e-mail, sans compte, figé depuis 20 min. `retry` quand
+  l'adresse a DÉJÀ un compte (la personne retente au lieu de se connecter :
+  Pascal de Poupée, quatre parcours après son compte), `stalled` sinon. Une
+  alerte par adresse et par jour.
+- **La fiche** (`pro_signup_alert_payload`, relue à l'envoi) : personne,
+  structure, provenance (`sourceLabel` : « ChatGPT → la landing »), étapes,
+  TOUS ses parcours sur 60 jours (même e-mail ou même numéro), formulaires
+  « Ouvrir un club » de l'app, état du compte. `enrichFiche` met les numéros au
+  format international (« 756388760 » devient +33 7 56 38 87 60) et écrit les
+  constats pour l'appel. Elle part au Cockpit (`POST /api/yuno/signup`,
+  bearer = secret `COCKPIT_SIGNUP_TOKEN` ⇄ variable Vercel
+  `YUNO_SIGNUP_TOKEN`, `COCKPIT_URL`), qui crée ou retrouve le prospect
+  (inbound, P1, à appeler maintenant) et pousse UNE notification par alerte.
+- **Recherche web sur la structure** (`researchOrg`, OpenAI Responses +
+  `web_search`, `gpt-4.1-mini`, journal `ai_usage_events` assistant
+  `signup_research`) : nom, ville, type, nom de la personne et domaine
+  d'adresse s'il n'est pas un webmail ; JAMAIS le téléphone ni l'e-mail.
+  Interdit d'inventer : rien de trouvé = `found: false`, plus des liens de
+  recherche directs (Google, Instagram, Shotgun). Une fois par alerte, réutilisée
+  pour la même structure. Aucune IA dans le Cockpit (règle de Paul) : elle
+  tourne ici.
+- **Filet e-mail** : quand le Cockpit répond qu'aucun téléphone n'est abonné
+  (`cockpit.push.sent = 0`), la fiche + la recherche partent par e-mail à
+  `SIGNUP_ALERT_EMAIL` (secret). Ils s'arrêtent seuls dès que l'iPhone de Paul
+  est abonné (Cockpit → Réglages → Activer les rappels).
+- **Le mobile est obligatoire à l'inscription** côté landing (repo
+  Yuno-landing, `PhoneInput`, valeur internationale) : Billetterie,
+  associations, fenêtre CRM, demande promoteur / autre et parcours Yuno CRM
+  (Google et Apple compris). Le serveur ne le refuse pas (un refus après
+  `auth.signUp` laisserait un compte sans espace).
+- `delete-account` écrit enfin `security_logs.account_deleted` (user_id NULL :
+  avec l'id du compte effacé, la clé étrangère refusait la ligne, d'où aucune
+  trace de la suppression du premier compte de Lillo).
+
 ## PostHog — analytics produit, web + apps natives (2026-09-25)
 
 `src/lib/posthog.ts` (porte unique) + `src/components/PosthogTracker.tsx`
