@@ -29,7 +29,8 @@ export default function VerifyPayment() {
   const clearCart = useStore((state) => state.clearCart);
   const { showFallbackToast } = usePushListener();
   const venueId = sessionStorage.getItem('yuno_venue_id') || undefined;
-  const { trackOrderComplete } = useVisitorTracking(venueId);
+  // Retour de paiement : la visite de l'onglet continue (jamais une nouvelle).
+  const { trackOrderComplete } = useVisitorTracking(venueId, undefined, undefined, { keepSession: true });
   const { firePurchase } = useMetaPurchasePixel();
   
   const sessionId = searchParams.get('session_id');

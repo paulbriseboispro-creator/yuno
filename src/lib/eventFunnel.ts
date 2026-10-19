@@ -17,11 +17,10 @@
  *    onglet, l'appareil, la source d'arrivée et les ids de ligne choisie.
  * Fire-and-forget : une mesure ne bloque ni n'échoue jamais une page.
  */
-import { supabase } from '@/integrations/supabase/client';
 import { hasAudienceMeasurement } from '@/lib/consent';
 import { isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
-import { categorizeReferrer } from '@/lib/referrerCategory';
+import { categorizeReferrer, entryReferrer } from '@/lib/referrerCategory';
 
 export type FunnelStep =
   | 'viewed' | 'selected' | 'checkout' | 'details' | 'payment' | 'purchased'
@@ -105,6 +104,32 @@ export function funnelRowFor(event: string, props: Record<string, unknown> | und
 const SID_KEY = 'yuno_funnel_sid';
 const SRC_KEY = 'yuno_funnel_src';
 
+/** La VISITE de l'onglet (`visitor_sessions.session_id`, posée par useVisitorTracking). */
+export const VISIT_SESSION_KEY = 'yuno_session_id';
+
+function readSession(key: string): string | null {
+  try {
+    const v = sessionStorage.getItem(key);
+    return v && /^[A-Za-z0-9-]{8,80}$/.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Les ids (aléatoires, par onglet, sans donnée personnelle) de la visite et du
+ * tunnel, joints à la création d'une vente : la base relève l'ACHAT sur la
+ * vente au moment où elle devient payée (webhook, navigateur, gratuit, sur
+ * place), et le relie à la visite et au tunnel. Mêmes garde-fous que la
+ * mesure : rien sans mesure d'audience, rien sur une surface pro ni en accès
+ * assisté.
+ */
+export function saleTrackingIds(): { visitSid: string | null; funnelSid: string | null } {
+  if (typeof window === 'undefined') return { visitSid: null, funnelSid: null };
+  if (!hasAudienceMeasurement() || onProSurface() || isSupportSessionActive()) return { visitSid: null, funnelSid: null };
+  return { visitSid: readSession(VISIT_SESSION_KEY), funnelSid: readSession(SID_KEY) };
+}
+
 function randomId(): string {
   try {
     return crypto.randomUUID();
@@ -125,7 +150,7 @@ function sessionInfo(): { sid: string; source: string } | null {
     let source = sessionStorage.getItem(SRC_KEY);
     if (!source) {
       const params = new URLSearchParams(window.location.search);
-      source = categorizeReferrer(document.referrer, params.get('utm_medium'), params);
+      source = categorizeReferrer(entryReferrer(), params.get('utm_medium'), params);
       sessionStorage.setItem(SRC_KEY, source);
     }
     return { sid, source };
@@ -158,18 +183,35 @@ export function mirrorFunnelEvent(event: string, props: Record<string, unknown> 
   if (!hasAudienceMeasurement() || onProSurface() || isSupportSessionActive()) return;
   const info = sessionInfo();
   if (!info) return;
-  void Promise.resolve(
-    supabase.rpc('track_event_funnel' as never, {
-      p_session_id: info.sid,
-      p_event_id: row.eventId,
-      p_step: row.step,
-      p_pillar: row.pillar,
-      p_ref: row.ref,
-      p_quantity: row.quantity,
-      p_amount_cents: row.amountCents,
-      p_reason: row.reason,
-      p_device: deviceType(),
-      p_source: info.source,
-    } as never),
-  ).catch(() => { /* mesure best-effort : ne bloque jamais la navigation */ });
+  // fetch keepalive, pas le SDK : l'étape « paiement » part juste avant la
+  // redirection vers Stripe, et une requête ordinaire meurt avec la page
+  // (10 passages au paiement sur 40 perdus le 19/10). La visite de l'onglet
+  // suit : le serveur pose son étape (panier, paiement) et celle du direct.
+  try {
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/track_event_funnel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        p_session_id: info.sid,
+        p_event_id: row.eventId,
+        p_step: row.step,
+        p_pillar: row.pillar,
+        p_ref: row.ref,
+        p_quantity: row.quantity,
+        p_amount_cents: row.amountCents,
+        p_reason: row.reason,
+        p_device: deviceType(),
+        p_source: info.source,
+        p_visit_sid: readSession(VISIT_SESSION_KEY),
+      }),
+      keepalive: true,
+    }).catch(() => { /* mesure best-effort : ne bloque jamais la navigation */ });
+  } catch {
+    /* idem */
+  }
 }

@@ -9,6 +9,7 @@ import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { capturePosthog, getAnalyticsCheckoutContext } from '@/lib/posthog';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
 import type { Tables } from '@/integrations/supabase/types';
@@ -165,6 +166,9 @@ export default function GuestListSignup() {
   // Entrée dans le tunnel d'inscription : l'étape « paiement » de la guest list
   // (Analytics › Trafic › Par soirée).
   usePosthogEvent('checkout_started', guestList?.eventId ?? null, { pillar: 'guest_list', ...(guestList?.market ?? {}) });
+  // Le parcours d'achat CONTINUE la visite de l'onglet : la Vue en direct la
+  // garde vivante, et son étape (panier, paiement) vient du tunnel.
+  useVisitorTracking(undefined, guestList?.eventId || undefined, undefined, { keepSession: true });
   const [inviteMeta, setInviteMeta] = useState<InviteMeta | null>(null);
   const [entriesCount, setEntriesCount] = useState(0);
   const [femaleCount, setFemaleCount] = useState(0);

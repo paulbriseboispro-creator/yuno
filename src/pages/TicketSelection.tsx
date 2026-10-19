@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
 import { tint } from '@/lib/proTheme';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { formatTicketDate, normalizeChainVisibility, publicFreeTickets, type ChainVisibility } from '@/lib/freeTicketing';
@@ -535,6 +536,9 @@ export default function TicketSelection() {
     organizerUserId: eventData?.organizerUserId,
   });
   usePosthogEvent('table_zone_viewed', selectedZoneId, { zone_id: selectedZoneId, placement: 'selection', ...selectionMarket });
+  // Le parcours d'achat CONTINUE la visite de l'onglet : la Vue en direct la
+  // garde vivante, et son étape (panier, paiement) vient du tunnel.
+  useVisitorTracking(eventData?.venueId || undefined, eventId || undefined, undefined, { keepSession: true });
 
   const handleContinue = () => {
     if (!selection) return;

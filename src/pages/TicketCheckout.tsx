@@ -44,6 +44,7 @@ import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotic
 import { TicketCheckoutSkeleton } from '@/components/skeletons/TicketCheckoutSkeleton';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
@@ -172,6 +173,9 @@ export default function TicketCheckout() {
     organizerUserId: consentScope?.organizerUserId,
   });
   usePosthogEvent('checkout_started', event?.id, { pillar: 'tickets', ...ticketMarket });
+  // Le parcours d'achat CONTINUE la visite de l'onglet : la Vue en direct la
+  // garde vivante, et son étape (panier, paiement) vient du tunnel.
+  useVisitorTracking(undefined, event?.id || undefined, undefined, { keepSession: true });
   // « A-t-elle déjà dit oui à CE club ? » — la seule question qui vaille.
   const marketingConsent = useMarketingConsent(consentScope);
   // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.

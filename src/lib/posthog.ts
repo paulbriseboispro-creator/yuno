@@ -27,7 +27,7 @@ import { CONSENT_CHANGE_EVENT, hasAnalyticsConsent } from '@/lib/consent';
 import { isNative, isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
 import { currentSurface, purchaseSurface } from '@/lib/posthogSurface';
-import { mirrorFunnelEvent } from '@/lib/eventFunnel';
+import { mirrorFunnelEvent, saleTrackingIds } from '@/lib/eventFunnel';
 
 // Clé PROJET (publique, `phc_`) du projet PostHog EUROPÉEN (eu.posthog.com,
 // projet 284316). Elle vit dans le code pour qu'un build de production ne
@@ -389,6 +389,12 @@ export type AnalyticsCheckoutContext = {
   surface: string;
   /** Identifiant PostHog du navigateur — seulement avec consentement. */
   distinctId: string | null;
+  /**
+   * Visite et tunnel de l'onglet (ids aléatoires, sans donnée personnelle,
+   * sous la mesure d'audience) : la base relève l'achat sur la vente payée.
+   */
+  visitSid: string | null;
+  funnelSid: string | null;
 };
 
 /**
@@ -407,5 +413,6 @@ export function getAnalyticsCheckoutContext(): AnalyticsCheckoutContext {
       distinctId = null;
     }
   }
-  return { consent, surface: purchaseSurface(), distinctId };
+  const { visitSid, funnelSid } = saleTrackingIds();
+  return { consent, surface: purchaseSurface(), distinctId, visitSid, funnelSid };
 }

@@ -3,9 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { v4 as uuidv4 } from 'uuid';
 import { hasAudienceMeasurement, useConsent } from '@/lib/consent';
-import { categorizeReferrer, extractDomain } from '@/lib/referrerCategory';
+import { categorizeReferrer, entryReferrer, extractDomain } from '@/lib/referrerCategory';
+import { VISIT_SESSION_KEY } from '@/lib/eventFunnel';
 
-const SESSION_STORAGE_KEY = 'yuno_session_id';
+// Clé partagée avec le tunnel de la soirée (src/lib/eventFunnel.ts), qui la
+// transmet au serveur pour poser l'étape de la visite.
+const SESSION_STORAGE_KEY = VISIT_SESSION_KEY;
 const VENUE_STORAGE_KEY = 'yuno_venue_id';
 const EVENT_STORAGE_KEY = 'yuno_event_id';
 const ORG_STORAGE_KEY = 'yuno_org_id';
@@ -59,7 +62,37 @@ function getConnectionType(): string | null {
   return conn?.effectiveType || null;
 }
 
-export const useVisitorTracking = (venueId?: string, eventId?: string, organizerUserId?: string) => {
+/** Appel RPC en keepalive : survit à une navigation (paiement Stripe, fermeture). */
+function rpcKeepalive(fn: string, args: Record<string, unknown>): void {
+  try {
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(args),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // une mesure ne bloque jamais une navigation
+  }
+}
+
+interface VisitorTrackingOptions {
+  /**
+   * Pages du parcours d'achat (choix du billet, paiement, retour de paiement) :
+   * elles CONTINUENT la visite de l'onglet au lieu d'en ouvrir une autre quand
+   * leur portée diffère, et gardent la visite vivante dans la Vue en direct.
+   * Une visite n'est créée que si l'onglet n'en a aucune (arrivée directe).
+   */
+  keepSession?: boolean;
+}
+
+export const useVisitorTracking = (venueId?: string, eventId?: string, organizerUserId?: string, options: VisitorTrackingOptions = {}) => {
+  const keepSession = !!options.keepSession;
   const startTimeRef = useRef<number>(Date.now());
   const heartbeatRef = useRef<number | null>(null);
   const maxScrollRef = useRef<number>(0);
@@ -79,10 +112,10 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     const storedEventId = sessionStorage.getItem(EVENT_STORAGE_KEY);
     const storedOrgId = sessionStorage.getItem(ORG_STORAGE_KEY);
 
-    const scopeChanged =
+    const scopeChanged = !(keepSession && sessionId) && (
       (venueId && storedVenueId !== venueId) ||
       (eventId && storedEventId !== eventId) ||
-      (organizerUserId && storedOrgId !== organizerUserId);
+      (organizerUserId && storedOrgId !== organizerUserId));
 
     if (!sessionId || scopeChanged) {
       sessionId = scopeChanged ? uuidv4() : (sessionId || uuidv4());
@@ -110,12 +143,14 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
 
-    const sendHeartbeat = async (stage: 'browsing' | 'cart' | 'checkout' | 'paid' = 'browsing') => {
+    const sendHeartbeat = async () => {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (!sid) return;
       // Écriture via RPC SECURITY DEFINER (plus d'UPDATE anonyme direct sur la
       // table : cf. migration 20260809200000). Le serveur borne les entrées et
-      // impose user_id = auth.uid() — inutile de récupérer la session côté client.
+      // impose user_id = auth.uid(). Le battement dit « en visite » : le serveur
+      // garde l'étape la plus avancée de la visite (panier, paiement, achat),
+      // posée par le tunnel et par la vente, jamais par cette page.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await supabase.rpc('ping_live_visitor' as any, {
         p_session_id: sid,
@@ -123,7 +158,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
         p_event_id: eventId || null,
         p_organizer_user_id: organizerUserId || null,
         p_page_path: window.location.pathname,
-        p_stage: stage,
+        p_stage: 'browsing',
       });
     };
 
@@ -143,31 +178,19 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     };
     if (document.visibilityState !== 'hidden') startHeartbeat();
 
+    // Durée, défilement, dernière activité : RPC en keepalive. L'ancien PATCH
+    // direct sur la table ne touchait aucune ligne (un visiteur n'a pas le
+    // droit de LIRE visitor_sessions) : plus aucune durée depuis août.
     const updateDuration = () => {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (!sid) return;
       const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
       if (durationSeconds < 1) return;
-      const scopeParam = venueId
-        ? `&venue_id=eq.${encodeURIComponent(venueId)}`
-        : organizerUserId
-          ? `&organizer_user_id=eq.${encodeURIComponent(organizerUserId)}`
-          : eventId
-            ? `&event_id=eq.${encodeURIComponent(eventId)}`
-            : '';
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/visitor_sessions?session_id=eq.${sid}${scopeParam}`;
-      const body = JSON.stringify({
-        duration_seconds: durationSeconds,
-        last_activity_at: new Date().toISOString(),
-        scroll_depth_max: maxScrollRef.current,
+      rpcKeepalive('touch_visitor_session', {
+        p_session_id: sid,
+        p_duration_seconds: durationSeconds,
+        p_scroll_depth: maxScrollRef.current,
       });
-      const headers = {
-        'Content-Type': 'application/json',
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'Prefer': 'return=minimal',
-      };
-      fetch(url, { method: 'PATCH', headers, body, keepalive: true }).catch(() => {});
     };
 
     const handleVisibilityChange = () => {
@@ -189,12 +212,13 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
       stopHeartbeat();
       updateDuration();
     };
-  }, [venueId, eventId, organizerUserId, analyticsConsent]);
+  }, [venueId, eventId, organizerUserId, analyticsConsent, keepSession]);
 
   const trackVisitor = async (sessionId: string) => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const referrer = document.referrer;
+      // Le vrai référent, même quand la visite arrive par un lien suivi (/l/).
+      const referrer = entryReferrer();
       const entryPage = window.location.pathname;
       const entryPageType = detectEntryPageType(entryPage);
       const deviceType = detectDeviceType();
@@ -264,21 +288,6 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     }
   };
 
-  const updatePingStage = async (stage: 'browsing' | 'cart' | 'checkout' | 'paid', cartValueCents = 0) => {
-    const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (!sid) return;
-    await supabase.from('live_visitor_pings').upsert({
-      session_id: sid,
-      venue_id: venueId || null,
-      event_id: eventId || null,
-      organizer_user_id: organizerUserId || null,
-      page_path: window.location.pathname,
-      stage,
-      cart_value_cents: cartValueCents,
-      last_seen: new Date().toISOString(),
-    }, { onConflict: 'session_id' });
-  };
-
   const trackEvent = async (eventType: string, target?: string, payload: Record<string, Json> = {}) => {
     const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!sid) return;
@@ -298,19 +307,15 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     } catch { /* tracking best-effort : ne bloque jamais la navigation */ }
   };
 
+  // Étapes d'une visite hors soirée (panier / paiement au bar). Le serveur
+  // pose les drapeaux de la visite et l'étape du direct, jamais à reculons.
+  // Un billet, une table ou une inscription passent par le tunnel de la soirée
+  // (`capturePosthog` → `track_event_funnel`), qui fait de même.
   const trackAddToCart = async (cartValueCents = 0) => {
     const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!sessionId) return;
     try {
-      let query = supabase
-        .from('visitor_sessions')
-        .update({ added_to_cart: true, cart_value_cents: cartValueCents })
-        .eq('session_id', sessionId);
-      if (venueId) query = query.eq('venue_id', venueId);
-      else if (organizerUserId) query = query.eq('organizer_user_id', organizerUserId);
-      else if (eventId) query = query.eq('event_id', eventId);
-      await query;
-      await updatePingStage('cart', cartValueCents);
+      await supabase.rpc('track_visit_stage' as never, { p_session_id: sessionId, p_stage: 'cart', p_cart_value_cents: cartValueCents } as never);
       await trackEvent('add_to_cart', null, { value_cents: cartValueCents });
     } catch (error) {
       console.error('Error tracking add to cart:', error);
@@ -320,31 +325,20 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
   const trackCheckout = async (cartValueCents = 0) => {
     const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!sessionId) return;
-    try {
-      let query = supabase
-        .from('visitor_sessions')
-        .update({ proceeded_to_checkout: true })
-        .eq('session_id', sessionId);
-      if (venueId) query = query.eq('venue_id', venueId);
-      else if (organizerUserId) query = query.eq('organizer_user_id', organizerUserId);
-      else if (eventId) query = query.eq('event_id', eventId);
-      await query;
-      await updatePingStage('checkout', cartValueCents);
-      await trackEvent('checkout_started', null, { value_cents: cartValueCents });
-    } catch (error) {
-      console.error('Error tracking checkout:', error);
-    }
+    rpcKeepalive('track_visit_stage', { p_session_id: sessionId, p_stage: 'checkout', p_cart_value_cents: cartValueCents });
+    await trackEvent('checkout_started', null, { value_cents: cartValueCents });
   };
 
   const trackOrderComplete = async (orderId: string, kind: 'ticket' | 'table' | 'order' = 'ticket') => {
     const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!sessionId) return;
     try {
-      // Une seule porte, côté serveur (Analytics v3) : relie la session à la
-      // vente et complète l'attribution « direct » avec la source d'arrivée.
-      // L'UPDATE direct d'avant ne passait jamais (0 session reliée en prod).
+      // Filet du navigateur : l'achat d'un billet, d'une table ou d'une
+      // inscription est relevé par la BASE au passage en payé (la vente porte
+      // l'id de la visite). Ici, la même porte relie la vente à la visite et
+      // complète une attribution « direct » — c'est le seul chemin d'une
+      // commande du bar. Idempotent.
       await supabase.rpc('link_sale_session' as never, { p_session_id: sessionId, p_kind: kind, p_sale_id: orderId } as never);
-      await updatePingStage('paid');
       await trackEvent('order_completed', orderId);
     } catch (error) {
       console.error('Error tracking order complete:', error);

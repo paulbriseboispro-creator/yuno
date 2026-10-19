@@ -50,6 +50,7 @@ import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotic
 import { TableCheckoutSkeleton } from '@/components/skeletons/TableCheckoutSkeleton';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
@@ -110,6 +111,9 @@ export default function TableCheckout() {
     organizerUserId: event?.organizer_user_id ?? event?.partner_organizer_id,
   });
   usePosthogEvent('checkout_started', event?.id, { pillar: 'tables', ...tableMarket });
+  // Le parcours d'achat CONTINUE la visite de l'onglet : la Vue en direct la
+  // garde vivante, et son étape (panier, paiement) vient du tunnel.
+  useVisitorTracking(undefined, event?.id || undefined, undefined, { keepSession: true });
   // Indicatif par défaut du champ téléphone = pays de la soirée (fuseau figé à
   // la publication, ville en repli) — pas le pays du siège de Yuno.
   const phoneCountry = countryOfPlace({ timezone: event?.timezone, city: venue?.city ?? event?.location_city })?.code ?? null;
