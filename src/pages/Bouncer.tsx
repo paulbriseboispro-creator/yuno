@@ -250,6 +250,8 @@ export default function Bouncer() {
     drinkTooLate: boolean;
     alcoholFree: boolean;
   } | null>(null);
+  /** QR entré APRÈS coup (hors créneau accepté) : la ligne de la liste passe au vert. */
+  const [doorEnteredQr, setDoorEnteredQr] = useState<{ qr: string; at: number } | null>(null);
   // Le rappel ne survit pas à un changement d'onglet : revenir sur la liste
   // plus tard ne doit pas montrer la boisson d'une personne déjà loin.
   useEffect(() => {
@@ -576,6 +578,8 @@ export default function Bouncer() {
     });
     pendingLateRef.current = null;
     if ((!rows || rows.length === 0) && !(await scannedByMeJustNow(table, pending.id))) return 'already';
+    // Entré depuis la liste ? Sa ligne passe au vert sans attendre « Actualiser ».
+    setDoorEnteredQr({ qr: pending.qr, at: Date.now() });
     void offline.markScannedOnline(pending.qr, pending.kind, pending.id);
     fetchStats();
     return 'ok';
@@ -2121,7 +2125,7 @@ export default function Bouncer() {
               </div>
             )}
             {activeTab === 'search' && (
-              <DoorSearchPanel eventId={offlineEventId} onPick={handleDoorPick} />
+              <DoorSearchPanel eventId={offlineEventId} onPick={handleDoorPick} enteredQr={doorEnteredQr} />
             )}
 
             {activeTab === 'client' && (

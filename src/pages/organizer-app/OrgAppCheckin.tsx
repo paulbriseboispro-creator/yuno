@@ -135,6 +135,8 @@ interface DoorTicket {
     kind: 'ticket_attendee' | 'ticket';
     id: string;
     ticketId: string;
+    /** QR scanné : la ligne de la liste passe au vert après « Accepter ». */
+    qr: string;
     /** Billets de la commande : le remboursement porte sur la commande entière. */
     orderQuantity: number;
   } | null;
@@ -187,6 +189,8 @@ export default function OrgAppCheckin() {
   const [doorTicket, setDoorTicket] = useState<DoorTicket | null>(null);
   const [lateBusy, setLateBusy] = useState(false);
   const [confirmLateRefund, setConfirmLateRefund] = useState(false);
+  /** QR entré APRÈS coup (hors créneau accepté) : la ligne de la liste passe au vert. */
+  const [doorEnteredQr, setDoorEnteredQr] = useState<{ qr: string; at: number } | null>(null);
   // Pilier boissons en pause : la boisson offerte se remet toujours à la porte.
   // Relancé, un club en mode « crédits » la fait retirer au bar.
   const [venueDrinkMode, setVenueDrinkMode] = useState<'credits' | 'bouncer_notify'>('bouncer_notify');
@@ -346,7 +350,7 @@ export default function OrgAppCheckin() {
         const attCard = doorTicketFor('ticket_attendee', att.full_name ?? parent.full_name ?? null, doorRoundOf(parent), parent.quantity);
         // Hors créneau : on montre le billet SANS le consommer, la porte tranche.
         if (isLateNow(attCard.entryDeadline)) {
-          setDoorTicket({ ...attCard, pendingLate: { kind: 'ticket_attendee', id: att.id, ticketId: parent.id, orderQuantity: parent.quantity ?? 1 } });
+          setDoorTicket({ ...attCard, pendingLate: { kind: 'ticket_attendee', id: att.id, ticketId: parent.id, qr: qrCode, orderQuantity: parent.quantity ?? 1 } });
           return;
         }
 
@@ -392,7 +396,7 @@ export default function OrgAppCheckin() {
 
         const ticketCard = doorTicketFor('ticket', ticket.full_name ?? null, doorRoundOf(ticket), ticket.quantity);
         if (isLateNow(ticketCard.entryDeadline)) {
-          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, orderQuantity: ticket.quantity ?? 1 } });
+          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, qr: qrCode, orderQuantity: ticket.quantity ?? 1 } });
           return;
         }
 
@@ -531,6 +535,7 @@ export default function OrgAppCheckin() {
       const late = card.entryDeadline ? computeLateness(card.entryDeadline, nowAtDoor()).lateLabel : '';
       setDoorTicket({ ...card, pendingLate: null });
       setConfirmLateRefund(false);
+      setDoorEnteredQr({ qr: pending.qr, at: Date.now() });
       setLastScan({ ok: true, name: card.name ?? undefined });
       setRecent(r => [{ name: card.name, at: new Date() }, ...r].slice(0, 5));
       toast.success(`✓ ${card.name ?? t('Entrée validée', 'Entry validated')}${late ? ` — ${tk('bouncer.despiteLate')} ${late}` : ''}`);
@@ -837,7 +842,7 @@ export default function OrgAppCheckin() {
                         <ClipboardList className="h-4 w-4" style={{ color: T3 }} />
                         {t('Chercher un nom', 'Search a name')}
                       </h3>
-                      <DoorSearchPanel eventId={eventId || null} onPick={handleDoorPick} />
+                      <DoorSearchPanel eventId={eventId || null} onPick={handleDoorPick} enteredQr={doorEnteredQr} />
                     </div>
                   </OrgCard>
                 </div>

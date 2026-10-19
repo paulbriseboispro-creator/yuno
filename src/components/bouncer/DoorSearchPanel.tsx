@@ -15,7 +15,7 @@
 // conversion promoteur, même file offline. Une entrée manuelle et un scan
 // laissent exactement la même trace.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Loader2, Check, Ticket, Crown, ClipboardList, WifiOff, RotateCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDoorRoster, type DoorRosterPerson } from '@/hooks/useDoorRoster';
@@ -51,13 +51,26 @@ interface Props {
    * en « entré » sous le doigt sans attendre un rechargement.
    */
   onPick: (qr: string, person: DoorRosterPerson) => Promise<boolean> | boolean;
+  /**
+   * QR entré APRÈS le choix dans la liste : un billet hors créneau n'entre
+   * qu'au tap « Accepter » sur la carte, après que `onPick` a rendu `false`.
+   * `at` change à chaque entrée, pour qu'un même QR re-signalé soit relu.
+   */
+  enteredQr?: { qr: string; at: number } | null;
 }
 
-export function DoorSearchPanel({ eventId, onPick }: Props) {
+export function DoorSearchPanel({ eventId, onPick, enteredQr }: Props) {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [picking, setPicking] = useState<string | null>(null);
   const roster = useDoorRoster(eventId);
+  const { markScannedLocally } = roster;
+
+  // Hors créneau accepté depuis la carte : la ligne passe au vert tout de
+  // suite, au lieu d'afficher « Faire entrer » jusqu'à « Actualiser ».
+  useEffect(() => {
+    if (enteredQr?.qr) markScannedLocally(enteredQr.qr);
+  }, [enteredQr, markScannedLocally]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
