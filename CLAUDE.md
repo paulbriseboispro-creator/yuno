@@ -4141,7 +4141,7 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   rembourse une commande nominative place par place. Jamais créées ailleurs
   (ni verify, ni webhook) : un seul jeu de QR par billet. Toute porte refuse
   une place dont le billet n'est pas payé.
-- **Tickets d'une table de N personnes** (2026-10-19, migration `20261103100000`,
+- **Tickets d'une table de N personnes** (2026-10-19, migration `20261103300000`,
   demande de Paul) : `table_reservation_guests`, une ligne par personne d'une
   réservation de 2 à 50 personnes (n° 0 = le titulaire sous son nom, n° k =
   « Invité k », QR = QR de la réservation + `-<n°+1>`). Écrites par la BASE
