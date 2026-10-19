@@ -29,6 +29,7 @@ import { GroupedDrinksView } from '@/components/orders/GroupedDrinksView';
 import { BarSelectionDialog } from '@/components/orders/BarSelectionDialog';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { TicketQROverlay } from '@/components/orders/TicketQROverlay';
+import { useTableGuestSlides } from '@/hooks/useTableGuestSlides';
 import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
   type UnifiedOrderEntry, type OrderBucket, type QRAction,
@@ -113,6 +114,11 @@ export default function MyOrders() {
   const [showArchivedDrinks, setShowArchivedDrinks] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketWithDetails | null>(null);
   const [selectedVipReservation, setSelectedVipReservation] = useState<VipReservationWithDetails | null>(null);
+  const vipGuestSlides = useTableGuestSlides(
+    selectedVipReservation?.id,
+    selectedVipReservation?.guestCount,
+    selectedVipReservation?.fullName,
+  );
   const [selectedDrinkOrder, setSelectedDrinkOrder] = useState<Order | null>(null);
   const [collectMode, setCollectMode] = useState(false);
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
@@ -1881,6 +1887,8 @@ export default function MyOrders() {
           title={selectedVipReservation.eventTitle}
           venueName={`${selectedVipReservation.venueName} · ${selectedVipReservation.zoneName || selectedVipReservation.packName}`}
           qrImage={qrImages[selectedVipReservation.id]}
+          // Table de plusieurs personnes : un QR par personne à envoyer à chacun.
+          slides={vipGuestSlides ?? undefined}
           idLabel={selectedVipReservation.id.slice(0, 8).toUpperCase()}
           scanned={selectedVipReservation.entryScanned}
           labels={qrOverlayLabels}
