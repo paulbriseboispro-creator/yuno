@@ -151,7 +151,10 @@ serve(async (req) => {
       }
 
       // Build purchase URL
-      const purchaseUrl = `${appUrl}/club/${venue?.id || venueId}/event/${round.event_id}/tickets/${roundId}?waitlist=true`;
+      // Soirée sans club : pas de chemin /club/<id>, on ouvre la soirée elle-même.
+      const purchaseUrl = (venue?.id || venueId)
+        ? `${appUrl}/club/${venue?.id || venueId}/event/${round.event_id}/tickets/${roundId}?waitlist=true`
+        : `${appUrl}/event/${round.event_id}`;
 
       // Build meta (date · time) from event start
       const lang = 'fr';

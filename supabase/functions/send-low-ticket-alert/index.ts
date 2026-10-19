@@ -194,7 +194,7 @@ serve(async (req) => {
           eventTitle: event.title,
           venueName,
           meta: `${dp.day} ${dp.month} · ${dp.time}`,
-          url: `https://yunoapp.eu/club/${event.venue_id}`,
+          url: event.venue_id ? `https://yunoapp.eu/club/${event.venue_id}` : `https://yunoapp.eu/event/${event.id}`,
         });
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',

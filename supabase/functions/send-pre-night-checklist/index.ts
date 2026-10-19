@@ -81,7 +81,7 @@ serve(async (req) => {
     }
     const { data: allUpcoming } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address)')
+      .select('id, title, start_at, venue_id, poster_url, location_name, location_address, location_is_secret, timezone, venues!events_venue_id_fkey(name, address)')
       .eq('is_active', true)
       .gte('start_at', twoHoursFromNow)
       .lte('start_at', fourHoursFromNow);
@@ -98,8 +98,11 @@ serve(async (req) => {
     let sentCount = 0;
 
     for (const event of upcomingEvents) {
-      const venueName = (event.venues as unknown as { name?: string } | null)?.name || '';
-      const venueAddress = (event.venues as unknown as { address?: string } | null)?.address || '';
+      // Soirée sans club : le lieu et l'adresse sont ceux de la soirée (sauf
+      // adresse tenue secrète) — sinon l'email partait sans lieu ni adresse.
+      const venueName = (event.venues as unknown as { name?: string } | null)?.name || event.location_name || '';
+      const venueAddress = (event.venues as unknown as { address?: string } | null)?.address
+        || (event.location_is_secret ? '' : event.location_address || '');
       const eventImageUrl = event.poster_url || undefined;
 
       const { data: tickets } = await supabaseAdmin
@@ -131,7 +134,7 @@ serve(async (req) => {
           const alreadySent = await wasAlreadySent(supabaseAdmin, recipientId, 'checklist', event.id);
           if (alreadySent) continue;
 
-          let lang: EmailLanguage = 'fr';
+          let lang: EmailLanguage = event.timezone === 'Europe/Madrid' ? 'es' : 'fr';
           let firstName = '';
           if (userId) {
             const { data: profile } = await supabaseAdmin
@@ -156,7 +159,7 @@ serve(async (req) => {
             doorsTime: dp.time || undefined,
             address: venueAddress || undefined,
             reference: qrCode || '',
-            ticketUrl: `https://yunoapp.eu/club/${event.venue_id}`,
+            ticketUrl: event.venue_id ? `https://yunoapp.eu/club/${event.venue_id}` : `https://yunoapp.eu/event/${event.id}`,
           });
 
           const res = await fetch('https://api.resend.com/emails', {
