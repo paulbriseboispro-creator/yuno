@@ -88,7 +88,12 @@ export default function TicketCheckout() {
   const communityBlocked = communityStatusNow === 'locked' || (communityDenied && communityStatusNow !== 'open');
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  // Quantité choisie sur /billets (`?qty=`) : la page de sélection la portait
+  // déjà, elle retombait à 1 ici. Bornée ensuite par maxQuantity (effet plus bas).
+  const [quantity, setQuantity] = useState(() => {
+    const q = Number(new URLSearchParams(window.location.search).get('qty'));
+    return Number.isInteger(q) && q >= 1 && q <= 10 ? q : 1;
+  });
   const [promoterDiscount, setPromoterDiscount] = useState<PromoterDiscount | null>(null);
   // Code promo saisi (lot F) : aperçu ici, décision serveur au paiement.
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
@@ -99,6 +104,28 @@ export default function TicketCheckout() {
     { fullName: '', email: '', phone: '' }
   ]);
   const [confirmEmail, setConfirmEmail] = useState('');
+
+  // Retour depuis Stripe par « Retour » / annulation (`?payment_cancelled=true`) :
+  // on le dit, et on rend à l'acheteur ce qu'il avait tapé (quantité, nom, email,
+  // téléphone) au lieu d'un formulaire vide. Le brouillon est posé juste avant le
+  // départ vers Stripe et ne vit que dans cet onglet.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_cancelled') !== 'true') return;
+    try {
+      const raw = sessionStorage.getItem(`yuno_ticket_draft_${roundId}`);
+      const draft = raw ? JSON.parse(raw) as { quantity?: number; buyer?: AttendeeInfo; confirmEmail?: string } : null;
+      if (draft?.quantity && Number.isInteger(draft.quantity) && draft.quantity >= 1 && draft.quantity <= 10) setQuantity(draft.quantity);
+      if (draft?.buyer) setAttendees(prev => [{ ...prev[0], ...draft.buyer }, ...prev.slice(1)]);
+      if (draft?.confirmEmail) setConfirmEmail(draft.confirmEmail);
+    } catch {
+      // Stockage indisponible : formulaire vide, rien de plus.
+    }
+    toast(t('cart.paymentCancelled'), { description: t('cart.paymentCancelledDesc') });
+    params.delete('payment_cancelled');
+    const rest = params.toString();
+    window.history.replaceState(window.history.state, '', window.location.pathname + (rest ? `?${rest}` : ''));
+  }, []); // une fois, au retour de Stripe
   // Compte déjà existant sur l'email de l'acheteur : dit à la saisie, pas au
   // bout du parcours. L'achat en invité reste possible — aucun mur ici.
   const { exists: buyerEmailHasAccount } = useExistingAccountCheck(attendees[0]?.email || '', !user);
@@ -655,23 +682,11 @@ export default function TicketCheckout() {
       toast.error(t('ticketCheckout.phoneRequired'));
       return false;
     }
-    
-    // Validate other attendees (all fields required)
-    for (let i = 1; i < attendees.length; i++) {
-      if (!attendees[i].fullName.trim()) {
-        toast.error(t('ticketCheckout.attendeeNameRequired').replace('{number}', String(i)));
-        return false;
-      }
-      if (!attendees[i].email.trim()) {
-        toast.error(t('ticketCheckout.attendeeEmailRequired').replace('{number}', String(i)));
-        return false;
-      }
-      if (!attendees[i].phone.trim()) {
-        toast.error(t('ticketCheckout.attendeePhoneRequired').replace('{number}', String(i)));
-        return false;
-      }
-    }
-    
+
+    // Les autres participants ne sont plus exigés : un paiement réel émet UN
+    // billet (un QR pour toute la quantité) et ne garde pas leurs identités —
+    // exiger nom, email et téléphone de chaque ami bloquait l'achat pour rien.
+
     if (!acceptCgv) {
       toast.error(t('cgv.required'));
       return false;
@@ -936,6 +951,11 @@ export default function TicketCheckout() {
       if (data?.url) {
         capturePosthog('checkout_step_completed', { pillar: 'tickets', step: 'payment', quantity, ...ticketMarket });
         haptics.medium();
+        try {
+          sessionStorage.setItem(`yuno_ticket_draft_${roundId}`, JSON.stringify({ quantity, buyer: attendees[0], confirmEmail }));
+        } catch {
+          // Stockage indisponible : le retour depuis Stripe repartira d'un formulaire vide.
+        }
         launchCheckout(data.url);
       }
     } catch (error) {
