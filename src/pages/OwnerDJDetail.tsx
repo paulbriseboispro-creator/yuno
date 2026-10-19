@@ -237,6 +237,7 @@ export default function OwnerDJDetail() {
         .from('events')
         .select('id, title, start_at')
         .eq('venue_id', venueId)
+        .is('external_source', null)
         .gte('start_at', new Date().toISOString())
         .order('start_at', { ascending: true });
 

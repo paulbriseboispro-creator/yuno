@@ -12,6 +12,7 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { Check, Copy, Link2, Loader2, Plus, Tag, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr, venueOwnEventsOr } from '@/lib/coorg';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
@@ -98,8 +99,8 @@ export default function PromoCodes() {
     const since = new Date(Date.now() - 24 * 3600e3).toISOString();
     let q = supabase.from('events').select('id, title, start_at').is('cancelled_at', null).gte('start_at', since);
     q = isOrg
-      ? q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
-      : q.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
+      ? q.or(orgOwnEventsOr(organizerUserId as string))
+      : q.or(venueOwnEventsOr(venueId as string));
     q.order('start_at', { ascending: true }).limit(60).then(({ data }) => setEvents((data ?? []) as ScopeEvent[]));
   }, [ready, isOrg, organizerUserId, venueId]);
 

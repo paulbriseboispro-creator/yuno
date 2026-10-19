@@ -332,7 +332,7 @@ export default function OwnerEvents() {
         const includePartnerLed = !planLoading && !isCollabPlan(plan);
         query = includePartnerLed
           ? supabase.from('events').select('*').or(venueEventsOr(venueId)).order('start_at', { ascending: false })
-          : supabase.from('events').select('*').eq('venue_id', venueId).order('start_at', { ascending: false });
+          : supabase.from('events').select('*').eq('venue_id', venueId).is('external_source', null).order('start_at', { ascending: false });
       }
       const { data, error } = await query;
       if (error) throw error;

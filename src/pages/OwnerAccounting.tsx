@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr, venueOwnEventsOr } from '@/lib/coorg';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
@@ -158,8 +159,6 @@ export default function OwnerAccounting() {
     setLoading(true);
     try {
       const scopeId = isOrganizerScope ? organizerUserId! : venueId!;
-      const ownCol = isOrganizerScope ? 'organizer_user_id' : 'venue_id';
-      const partnerCol = isOrganizerScope ? 'partner_organizer_id' : 'partner_venue_id';
 
       if (isOrganizerScope) {
         supabase.from('organizer_profiles').select('display_name').eq('user_id', scopeId).maybeSingle()
@@ -172,7 +171,7 @@ export default function OwnerAccounting() {
       const { data: evData, error: evErr } = await supabase
         .from('events')
         .select('id, title, start_at, event_mode, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, is_bde')
-        .or(`${ownCol}.eq.${scopeId},${partnerCol}.eq.${scopeId}`)
+        .or(isOrganizerScope ? orgOwnEventsOr(scopeId) : venueOwnEventsOr(scopeId))
         .order('start_at', { ascending: false });
       if (evErr) throw evErr;
 

@@ -44,7 +44,7 @@ export function DistributeSheet({ tpl, holderType, mode, ctx, eventId, existingI
         // who's been on the venue's / organizer's events), so you can really pick anyone.
         let eventIds = [eventId];
         if (mode === 'select') {
-          const evQ = supabase.from('events').select('id');
+          const evQ = supabase.from('events').select('id').is('external_source', null);
           const { data: evs } = ctx.isOrganizerScope ? await evQ.eq('organizer_user_id', ctx.organizerUserId as string) : await evQ.eq('venue_id', ctx.venueId as string);
           eventIds = (evs || []).map(e => e.id);
         }
