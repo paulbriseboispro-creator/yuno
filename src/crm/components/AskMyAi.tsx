@@ -14,9 +14,9 @@ import { useCrmScope } from '@/crm/scope';
 import { useAiConnections } from '@/crm/data/plan';
 import { aiAppFor, askAiUrl, pickConnection, type AiApp, type AiNeed } from '@/crm/lib/askAi';
 import { MCP_SERVER_URL } from '@/lib/mcp';
+import { AI_GUIDE_PATH } from '@/crm/lib/aiConnect';
 
 const APP_NAME: Record<AiApp, string> = { claude: 'Claude', chatgpt: 'ChatGPT' };
-const GUIDE_URL = 'https://yunoapp.eu/ai';
 
 type Panel = null | { kind: 'none' } | { kind: 'right'; client: string; app: AiApp | null } | { kind: 'copy'; client: string };
 
@@ -69,7 +69,8 @@ export function AskMyAiButton({ text, need, tone = 'light', size = 'md' }: {
               <p style={pStyle}>{t('yc.ag.ai.none.after')}</p>
               <div style={rowStyle}>
                 <PillButton tone="ghost" onClick={() => setPanel(null)}>{t('yc.ag.ai.close')}</PillButton>
-                <PillButton tone="dark" onClick={() => { window.open(GUIDE_URL, '_blank', 'noopener'); }}>{t('yc.ag.ai.none.guide')}</PillButton>
+                {/* Le pas à pas vit dans la Console (Connecteurs › Claude), avec « C'est branché » en direct. */}
+                <PillButton tone="dark" to={AI_GUIDE_PATH} onClick={() => setPanel(null)}>{t('yc.ag.ai.none.guide')}</PillButton>
               </div>
             </>
           )}

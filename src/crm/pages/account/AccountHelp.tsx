@@ -41,6 +41,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'cancel', c: 'account', to: CRM_ROUTES.accountSection('billing') },
   { id: 'journey', c: 'clients', to: CRM_ROUTES.journey },
   { id: 'signup', c: 'clients', to: CRM_ROUTES.signupPages },
+  // Brancher Claude sur Yuno (Connecteurs › Assistants IA, guide pas à pas).
+  { id: 'ai', c: 'start', to: '/crm/connectors?v=claude' },
   // Le connecteur IA (MCP) dessine les pages : brouillon, ou proposition sur une page en ligne.
   { id: 'aipage', c: 'clients', to: CRM_ROUTES.signupPages },
   { id: 'auto', c: 'start', to: CRM_ROUTES.automations },
