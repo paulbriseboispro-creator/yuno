@@ -571,7 +571,11 @@ serve(async (req) => {
             { kind: "ticket", id: metadata.ticketId }, session);
         }
 
-        if (metadata.reservationId) {
+        // Une session de BILLET porte aussi `reservationId` (sa réservation de
+        // places, pas une table) : sans ce garde, chaque billet payé partait aussi
+        // vers verify-table-payment, qui répond « Reservation not found », et
+        // levait l'alerte « Paiement encaissé sans vente enregistrée ».
+        if (metadata.reservationId && !metadata.ticketId) {
           // RELIABILITY FALLBACK — même logique que les billets ci-dessus. Si
           // l'acheteur ferme l'onglet avant d'être redirigé vers
           // /verify-table-payment (typique Apple Pay / mobile), cette fonction
