@@ -1052,7 +1052,8 @@ async function executeTool(
         let query = supabase
           .from("events")
           .select("id, title, start_at, end_at, is_active, ticketing_enabled, tables_enabled, music_genres, event_type, ticket_selling_mode")
-          .eq("venue_id", venueId);
+          .eq("venue_id", venueId)
+          .is("external_source", null); // jamais les soirées miroir du CRM (Shotgun)
 
         if (filter === "upcoming") {
           query = query.gte("end_at", now).order("start_at", { ascending: true });
@@ -1089,6 +1090,7 @@ async function executeTool(
           .from("events")
           .select(eventSelect)
           .eq("venue_id", venueId)
+          .is("external_source", null)
           .lte("start_at", now)
           .gte("end_at", now)
           .limit(1)
@@ -1103,6 +1105,7 @@ async function executeTool(
           .from("events")
           .select(eventSelect)
           .eq("venue_id", venueId)
+          .is("external_source", null)
           .gt("start_at", now)
           .order("start_at", { ascending: true })
           .limit(1)
@@ -1360,7 +1363,7 @@ async function executeTool(
       case "list_reservations": {
         let eventId = args.event_id;
         if (!eventId) {
-          const { data: nextEvt } = await supabase.from("events").select("id").eq("venue_id", venueId).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle();
+          const { data: nextEvt } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle();
           eventId = nextEvt?.id;
         }
         if (!eventId) return JSON.stringify({ message: "No upcoming event found" });
@@ -1727,7 +1730,7 @@ async function executeTool(
       // ─── CHECKLIST ───
       case "get_checklist": {
         const [eventsRes, drinksRes, staffRes, venueRes] = await Promise.all([
-          supabase.from("events").select("id, title, start_at, ticketing_enabled, tables_enabled, ticket_selling_mode").eq("venue_id", venueId).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle(),
+          supabase.from("events").select("id, title, start_at, ticketing_enabled, tables_enabled, ticket_selling_mode").eq("venue_id", venueId).is("external_source", null).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle(),
           supabase.from("drinks").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("active", true),
           supabase.from("profiles").select("id", { count: "exact", head: true }).eq("venue_id", venueId),
           supabase.from("venues").select("stripe_account_id").eq("id", venueId).maybeSingle(),
