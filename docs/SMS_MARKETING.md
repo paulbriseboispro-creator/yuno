@@ -4,7 +4,11 @@ Dernière revue : 2026-10-08.
 
 - **Fournisseur : Octopush.** Il remplace Twilio, jamais branché. Le choix et
   les règles françaises sont dans `docs/designs/SMS_PROVIDER_PLAN.md`.
-- **Console CRM : SMS ouvert** (`CRM_SMS_DISPLAY_LIVE`, `src/crm/lib/sms.ts`).
+- **Console CRM : SMS en bêta privée, ouvert compte par compte** (2026-10-19,
+  migration `20261029100000`, table `crm_sms_access`). Le pro demande l'accès
+  (Campagnes › SMS), le super admin l'ouvre dans Admin CRM › Clients › le
+  compte › « SMS · bêta privée ». Écrans : `useSmsAccess()` ; serveur :
+  `crm_sms_access_open` lu par send-sms-campaign (`crm_sms_access_required`).
 - **Suite (Billetterie) : SMS encore verrouillé** (`SMS_MARKETING_LIVE = false`,
   `src/lib/smsMarketing.ts`). Le moteur est le même ; ouvrir la Suite est une
   décision de Paul.
