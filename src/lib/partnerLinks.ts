@@ -10,6 +10,7 @@
  * (`partner_language`), pas celle de l'écran.
  */
 
+import { LINK_CODE_MAX, suggestPartnerLinkCode } from './trackedLinkCode';
 import { partnerWords, toPartnerLanguage, type PartnerLanguage } from './partnerLinkWords';
 
 export const PARTNER_ROLES = ['promoter', 'dj', 'artist', 'ambassador', 'other'] as const;
@@ -22,7 +23,7 @@ export const RESERVED_PARTNER_NAMES = [
 
 export const PARTNER_NAME_MAX = 60;
 export const PARTNER_CODE_MIN = 3;
-export const PARTNER_CODE_MAX = 40;
+export const PARTNER_CODE_MAX = LINK_CODE_MAX;
 
 export function isPartnerRole(value: unknown): value is PartnerRole {
   return typeof value === 'string' && (PARTNER_ROLES as readonly string[]).includes(value);
@@ -47,15 +48,14 @@ export function slugifyPart(raw: string): string {
 }
 
 /**
- * Code proposé pour /l/<code> : le prénom, la soirée, et un suffixe court qui
- * évite la collision avec un autre partenaire du même nom. Le pro peut le
- * réécrire ; `isValidPartnerCode` dit ce que la Console accepte.
+ * Code proposé pour /l/<code> : la soirée puis le partenaire
+ * (`house-of-masquerade-telos`). C'est un APERÇU : tant que le pro ne le
+ * réécrit pas, la Console envoie un code vide et la base écrit ce même code,
+ * ou sa variante libre (`…-telos-2`) si un autre partenaire porte le nom.
+ * `isValidPartnerCode` dit ce que la Console accepte d'un code réécrit.
  */
-export function suggestPartnerCode(name: string, eventTitle: string, suffix: string): string {
-  const who = slugifyPart(name).slice(0, 18).replace(/-+$/, '');
-  const night = slugifyPart(eventTitle).slice(0, 16).replace(/-+$/, '');
-  const tail = slugifyPart(suffix).slice(0, 4);
-  return [who || 'partenaire', night, tail].filter(Boolean).join('-').slice(0, PARTNER_CODE_MAX);
+export function suggestPartnerCode(name: string, eventTitle: string): string {
+  return suggestPartnerLinkCode(name, eventTitle);
 }
 
 export function isValidPartnerCode(code: string): boolean {

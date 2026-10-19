@@ -30,7 +30,7 @@ import { currentNightDate } from '../src/lib/affiliateEventTime';
 // Serveur MCP (Claude, ChatGPT, Gemini, Le Chat) + son serveur OAuth : docs/MCP.md.
 import { handleMcpRoute, isMcpRoute } from './mcp';
 // Liens de soirée Yuno CRM (story, bio…) : /go/<code> → page Shotgun.
-import { GO_PATH_RE, handleGoLink } from './goLink';
+import { GO_PATH_RE, TRACKED_PATH_RE, handleGoLink } from './goLink';
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -1706,7 +1706,7 @@ export default {
     // Un lien suivi /l/ posé sur une soirée Shotgun (campagne SMS ou e-mail
     // d'un compte CRM) n'a pas de page Yuno à ouvrir : même redirection. Tout
     // autre /l/ (soirée Yuno) suit son chemin habituel dans l'app.
-    const tl = url.pathname.match(/^\/l\/([A-Za-z0-9]{4,16})\/?$/);
+    const tl = url.pathname.match(TRACKED_PATH_RE);
     if (tl && request.method === 'GET' && !CRAWLER_RE.test(request.headers.get('User-Agent') || '')) {
       const redirect = await handleGoLink(request, env, tl[1], url);
       if (redirect) return redirect;

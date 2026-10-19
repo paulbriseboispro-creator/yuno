@@ -17,10 +17,11 @@ describe('partnerLinks', () => {
   });
 
   it('propose un code lisible et valide', () => {
-    const code = suggestPartnerCode('Léa Müller', 'Nuit Amoris : Édition #3', 'k3f9');
-    expect(code).toBe('lea-muller-nuit-amoris-edit-k3f9');
+    // La soirée d'abord, puis le partenaire : la même adresse que la base écrit.
+    const code = suggestPartnerCode('Léa Müller', 'Nuit Amoris : Édition #3');
+    expect(code).toBe('nuit-amoris-edition-3-lea-muller');
     expect(isValidPartnerCode(code)).toBe(true);
-    expect(suggestPartnerCode('!!!', '', 'ab12')).toBe('partenaire-ab12');
+    expect(suggestPartnerCode('Telos', 'House Of Masquerade')).toBe('house-of-masquerade-telos');
   });
 
   it('valide le code /l/', () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GO_PATH_RE, buildGoDestination, handleGoLink, isBotUserAgent } from '../goLink';
+import { GO_PATH_RE, TRACKED_PATH_RE, buildGoDestination, handleGoLink, isBotUserAgent } from '../goLink';
 
 const ENV = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon' };
 const IPHONE_IG = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0';
@@ -12,6 +12,15 @@ describe('liens /go/', () => {
     expect('/go/k5s54beg/'.match(GO_PATH_RE)?.[1]).toBe('k5s54beg');
     expect('/go/../admin'.match(GO_PATH_RE)).toBeNull();
     expect('/go/a'.match(GO_PATH_RE)).toBeNull();
+  });
+
+  it('reconnaît une adresse lisible, /go/ comme /l/', () => {
+    expect('/go/club-sonore-insta-story-2'.match(GO_PATH_RE)?.[1]).toBe('club-sonore-insta-story-2');
+    expect('/l/house-of-masquerade-insta/'.match(TRACKED_PATH_RE)?.[1]).toBe('house-of-masquerade-insta');
+    expect('/l/y1etp142'.match(TRACKED_PATH_RE)?.[1]).toBe('y1etp142');
+    expect('/go/-tiret'.match(GO_PATH_RE)).toBeNull();
+    expect('/go/tiret-'.match(GO_PATH_RE)).toBeNull();
+    expect('/l/a/b'.match(TRACKED_PATH_RE)).toBeNull();
   });
 
   it('pose la source du lien dans utm_source, en https seulement', () => {

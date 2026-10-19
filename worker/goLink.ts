@@ -15,7 +15,14 @@ import { buildGoDestination, type GoHit } from '../src/crm/lib/links';
 
 export { buildGoDestination };
 
-export const GO_PATH_RE = /^\/go\/([A-Za-z0-9]{4,16})\/?$/;
+/**
+ * Un code lisible (`club-sonore-insta-story-2`, migration 20261103100000) ou
+ * un ancien code au hasard (`k5s54beg`) : lettres, chiffres et tirets, ni en
+ * tête ni en fin. Même règle que `crm_link_hit`.
+ */
+export const LINK_CODE_SOURCE = '[A-Za-z0-9][A-Za-z0-9-]{2,62}[A-Za-z0-9]';
+export const GO_PATH_RE = new RegExp(`^/go/(${LINK_CODE_SOURCE})/?$`);
+export const TRACKED_PATH_RE = new RegExp(`^/l/(${LINK_CODE_SOURCE})/?$`);
 
 // Aperçus de liens et robots : ils suivent la redirection pour dessiner la
 // carte, ce n'est pas une personne qui clique.
