@@ -11,7 +11,7 @@ import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, M
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
-import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { guestListScarcity, scarcityBadgeText, ticketScarcityBadge } from '@/lib/guestListScarcity';
 import { areAllPacksSoldOut, isPackSoldOut, isGuestListSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -49,6 +49,9 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+
+// Trait gris plein qui sépare les offres du bloc billets.
+const OFFER_RULE = '1px solid rgb(var(--ink)/0.14)';
 
 type EventDJ = {
   id: string;
@@ -869,9 +872,12 @@ export default function EventDetails() {
   const hasTables = !!event?.tablesEnabled && activePacks.length > 0;
   const hasTicketsOrTables = hasTickets || hasTables;
 
-  // Low stock detection
-  const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
-  const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
+  // Rareté d'un billet sur la fiche : la mention choisie par le pro dans
+  // Rareté & FOMO (« 🔥 Dernières places »), jamais un nombre de places.
+  const roundScarcityText = (r: TicketRound): string | null => {
+    const badge = ticketScarcityBadge(eventScarcity, { ticketsSold: r.ticketsSold, maxTickets: r.maxTickets, soldOut: r.manuallySoldOut });
+    return badge ? scarcityBadgeText(badge, t) : null;
+  };
   const isSoldOut = !!event?.ticketingEnabled && (soldOut.ticketsSoldOut || (allBuyableRounds.length === 0 && !freeStillComing && (isFreeMode ? freeListed.length > 0 : ticketRounds.length > 0)));
   const rawSalesStatus = getEventSalesStatus(
     {
@@ -948,10 +954,6 @@ export default function EventDetails() {
     // soit c'est le pilier tables qui est marqué complet et il n'y a pas de billet.
     if ((isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets)) {
       return { text: t('event.soldOut'), color: 'text-destructive', urgent: true };
-    }
-    if (lowStockRounds.length > 0 && totalTicketsRemaining <= 30) {
-      const remaining = totalTicketsRemaining;
-      return { text: t('event.spotsLeft').replace('{{count}}', String(remaining)), color: 'text-orange-400', urgent: true };
     }
     if (hasTickets && hasTables) {
       return { text: t('event.ticketsAndTables'), color: 'text-primary', urgent: false };
@@ -1344,6 +1346,13 @@ export default function EventDetails() {
                       {availability.text}
                     </p>
                   )}
+                  {/* Un seul billet affiché : pas de liste, la mention de rareté
+                      se pose sous le prix d'appel. */}
+                  {breakdownRounds.length === 1 && roundScarcityText(breakdownRounds[0]) && (
+                    <p className="font-mono uppercase mt-2" style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: 'var(--acc-f87171)' }}>
+                      {roundScarcityText(breakdownRounds[0])}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
@@ -1358,29 +1367,34 @@ export default function EventDetails() {
                   {tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
                 </button>
               </div>
-              {/* Active rounds breakdown when multiple rounds are visible */}
+              {/* Les offres en vente, l'une sous l'autre, séparées par un simple
+                  trait gris. Jamais de jauge de ventes ni de nombre de places :
+                  la fiche ne dit la rareté que par la mention choisie dans
+                  Rareté & FOMO (`ticketScarcityBadge`). */}
               {breakdownRounds.length > 1 && (
-                <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: '1px solid rgb(var(--ink)/0.06)' }}>
-                  {breakdownRounds.map((r) => {
-                    const pctSold = Math.min((r.ticketsSold / r.maxTickets) * 100, 100);
+                <div className="mt-4" style={{ borderTop: OFFER_RULE }}>
+                  {breakdownRounds.map((r, i) => {
+                    const scarcity = roundScarcityText(r);
                     return (
-                      <div key={r.id}>
-                        <div className="flex items-center justify-between mb-1.5">
+                      <div key={r.id} style={{ padding: `12px 0 ${i === breakdownRounds.length - 1 ? 0 : 12}px`, borderTop: i > 0 ? OFFER_RULE : 'none' }}>
+                        <div className="flex items-center justify-between gap-3">
                           <span className="font-mono" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
                             {r.name}
                             {isCommunityAudience(r.audience) && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-primary">{t('community.badge')}</span>}
                           </span>
-                          <span className="font-mono font-bold" style={{ fontSize: '12px', color: 'rgb(var(--ink))' }}>{r.price.toFixed(2)}€</span>
+                          <span className="font-mono font-bold shrink-0" style={{ fontSize: '12px', color: 'rgb(var(--ink))' }}>{r.price.toFixed(2)}€</span>
                         </div>
                         {/* Ce que le billet donne, en une ou deux lignes (200 caractères au plus). */}
                         {r.description && (
-                          <p className="whitespace-pre-line [overflow-wrap:anywhere]" style={{ fontSize: '11.5px', lineHeight: 1.45, color: 'var(--tx-7a7a7e)', margin: '-2px 0 8px' }}>
+                          <p className="whitespace-pre-line [overflow-wrap:anywhere]" style={{ fontSize: '11.5px', lineHeight: 1.45, color: 'var(--tx-7a7a7e)', margin: '6px 0 0' }}>
                             {r.description}
                           </p>
                         )}
-                        <div className="w-full overflow-hidden" style={{ height: 2, background: 'rgb(var(--ink)/0.06)', borderRadius: 1 }}>
-                          <div style={{ height: '100%', width: `${pctSold}%`, background: pctSold > 80 ? '#E8192C' : 'var(--sf-3a3a3e)', transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: 1 }} />
-                        </div>
+                        {scarcity && (
+                          <p className="font-mono uppercase" style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: 'var(--acc-f87171)', marginTop: 8 }}>
+                            {scarcity}
+                          </p>
+                        )}
                       </div>
                     );
                   })}

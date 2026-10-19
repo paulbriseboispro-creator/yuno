@@ -31,6 +31,26 @@ export function scarcityBadgeText(badge: ScarcityBadge, t: (key: string) => stri
   return badge.emoji ? `${def.emoji} ${t(def.key)}` : t(def.key);
 }
 
+/**
+ * Mention de rareté d'un palier de billets, pour la FICHE de la soirée.
+ * Seul le mode Badge parle ici (« 🔥 Dernières places » dès que le palier
+ * atteint le seuil choisi par le pro) : la fiche n'affiche jamais de chiffre,
+ * même en mode Compteur — le nombre de places restantes se lit au choix du
+ * billet, là où le pro a décidé de le montrer. Un palier sans plafond réel
+ * (≥ 999 999) ou épuisé ne dit rien.
+ */
+export function ticketScarcityBadge(
+  settings: ScarcitySettings | null | undefined,
+  round: { ticketsSold: number; maxTickets: number; soldOut?: boolean },
+): ScarcityBadge | null {
+  if (!settings || round.soldOut) return null;
+  if (!settings.low_stock_enabled || settings.show_remaining_count) return null;
+  if (round.maxTickets <= 0 || round.maxTickets >= 999999) return null;
+  const pct = (round.ticketsSold / round.maxTickets) * 100;
+  if (pct < (settings.low_stock_percent ?? 80)) return null;
+  return { label: settings.low_stock_label, emoji: settings.emoji_enabled };
+}
+
 export interface GuestListScarcityInput {
   /** Clé du plafond : id de la part, ou `<id>:female` / `<id>:male`. */
   capKey: string;
