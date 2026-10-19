@@ -216,9 +216,10 @@ function ListView({ conn, state, kept, forbidden, lastOk, go, t }: {
           {!forbidden && (
             <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               {off && <span style={{ fontSize: 13.5, color: 'var(--sand-500)' }}>{t('yc.co.duration')}</span>}
-              {off && <GradientCta onClick={() => go({ v: 'wizard', s: '1' })}>{t('yc.co.connect')}</GradientCta>}
+              {/* data-yc-guide : repère « Montrer où » des Premiers pas. */}
+              {off && <span data-yc-guide="shotgun-connect" style={{ display: 'inline-flex' }}><GradientCta onClick={() => go({ v: 'wizard', s: '1' })}>{t('yc.co.connect')}</GradientCta></span>}
               {broken && (
-                <Hv as="button" type="button" onClick={() => go({ v: 'wizard', s: '2', r: '1' })} style={{ height: 46, padding: '0 22px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ background: 'var(--sand-700)' }}>
+                <Hv as="button" type="button" data-yc-guide="shotgun-connect" onClick={() => go({ v: 'wizard', s: '2', r: '1' })} style={{ height: 46, padding: '0 22px', border: 0, borderRadius: 99, background: 'var(--ink)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ background: 'var(--sand-700)' }}>
                   {t('yc.co.reconnect')}
                 </Hv>
               )}

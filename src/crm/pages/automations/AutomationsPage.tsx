@@ -175,6 +175,7 @@ export default function AutomationsPage() {
               as="button"
               type="button"
               onClick={() => { if (tab === 'scenarios') setGallery(true); else if (d) setModal(startModal(d, 'new', firstFree, 1, smsDefault)); }}
+              data-yc-guide={tab === 'recipes' && !recos.length ? 'automation-recos' : undefined}
               style={{ height: 46, padding: '0 6px 0 20px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform 200ms cubic-bezier(.34,1.56,.64,1),filter 160ms' }}
               hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
               active={{ transform: 'scale(.97)' }}
@@ -234,11 +235,13 @@ export default function AutomationsPage() {
           )}
           {hasAny && <HoldoutResults recipes />}
           {hasData && <AutoLive d={d} T={T} c={c} balance={balance} rates={rates} canBilling={caps.billing} />}
-          <AutoRecos
-            T={T} recos={recos} empty={!hasAny && !hasData} canWrite={caps.write} rate={rates.email}
-            onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3, smsDefault)); }}
-            onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1, smsDefault))}
-          />
+          <div data-yc-guide={recos.length ? 'automation-recos' : undefined}>
+            <AutoRecos
+              T={T} recos={recos} empty={!hasAny && !hasData} canWrite={caps.write} rate={rates.email}
+              onPick={(k) => { if (caps.write) setModal(startModal(d, 'reco', k, 3, smsDefault)); }}
+              onBlank={() => setModal(startModal(d, 'new', recos[0]?.kind ?? firstFree, 1, smsDefault))}
+            />
+          </div>
           <AutoSoon T={T} />
         </>
       )}

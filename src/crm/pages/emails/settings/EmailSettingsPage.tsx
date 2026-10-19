@@ -225,7 +225,7 @@ function Ready({ missing, dirty, termsAt, demo }: { missing: IdentityMissing[]; 
     { k: 'terms', l: termsAt ? t('yc.em.rg.ready.termsOn', { d: dShort(new Date(termsAt)) }) : demo ? t('yc.em.rg.ready.termsDemo') : t('yc.em.rg.ready.terms') },
   ];
   return (
-    <section aria-live="polite" style={{ ...card, gap: 16, background: ok ? 'var(--green-50)' : '#fff', boxShadow: `inset 0 0 0 1px ${ok ? 'var(--green-200, var(--sand-200))' : 'var(--sand-200)'}`, ...rise(320) }}>
+    <section aria-live="polite" data-yc-guide="sender-identity" style={{ ...card, gap: 16, background: ok ? 'var(--green-50)' : '#fff', boxShadow: `inset 0 0 0 1px ${ok ? 'var(--green-200, var(--sand-200))' : 'var(--sand-200)'}`, ...rise(320) }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
         <span style={{ flex: 'none', width: 40, height: 40, borderRadius: 99, background: ok ? 'var(--green-500)' : 'var(--amber-50)', color: ok ? '#fff' : 'var(--amber-700)', display: 'grid', placeItems: 'center' }}>
           <Icon name={ok ? 'check' : 'shield'} size={19} stroke={2.4} />

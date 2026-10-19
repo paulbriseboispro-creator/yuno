@@ -196,7 +196,7 @@ export default function EmailTemplatesPage() {
         })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,270px),1fr))', gap: 18 }}>
+      <div data-yc-guide="email-templates" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,270px),1fr))', gap: 18 }}>
         {shown.map((m, i) => (
           <TemplateCard
             key={m.kind}

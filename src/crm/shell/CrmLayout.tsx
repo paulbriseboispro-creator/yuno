@@ -31,6 +31,9 @@ import { classifyLoadError, retryDelaySeconds } from '@/crm/lib/errors';
 import { openCrmOffer, type ProductAccountRow } from '@/crm/lib/openCrmOffer';
 import { rpc } from '@/crm/lib/rpc';
 import { CrmLegalGate } from './CrmLegalGate';
+import { GuideProvider } from '@/crm/guide/GuideProvider';
+import { GuidePanel } from '@/crm/guide/GuidePanel';
+import { GuideCoach } from '@/crm/guide/GuideCoach';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { screenFor } from './nav';
@@ -193,7 +196,9 @@ export function CrmLayout() {
     />
   );
 
+  // Premiers pas : le volet et la carte d'aide d'une étape vivent au-dessus de toute la Console.
   return (
+    <GuideProvider chrome={<><GuidePanel /><GuideCoach /></>}>
     <div className="yc yc-page-bg" style={{ display: 'flex', minHeight: '100vh' }}>
       {/* La colonne blanche descend jusqu'au bas de la page ; la barre, elle, reste collée en haut. */}
       {!narrow && (
@@ -216,6 +221,7 @@ export function CrmLayout() {
       </div>
       <div id="yc-portal" className="yc" />
     </div>
+    </GuideProvider>
   );
 }
 

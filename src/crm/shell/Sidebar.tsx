@@ -16,6 +16,7 @@ import type { YunitMood } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES, NAV_GROUP_CHILDREN } from './nav';
+import { GuideNavEntry } from '@/crm/guide/GuideNavEntry';
 import type { CrmScreen, NavGroupKey } from './nav';
 import yunoIcon from '@/crm/assets/yuno-app-icon.webp';
 
@@ -233,6 +234,7 @@ export function Sidebar({
 
       <div style={{ flex: 1, minHeight: 12 }} />
       <div style={{ borderTop: '1px solid var(--sand-100)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <GuideNavEntry expanded={exp} onNavigate={onNavigate} />
         <Hv
           as={Link}
           to={CRM_ROUTES.yunits}

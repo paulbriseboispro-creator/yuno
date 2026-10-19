@@ -20,6 +20,7 @@ import { SearchBox } from './SearchBox';
 import { NotifBell } from './NotifBell';
 import { CRM_ROUTES } from './nav';
 import { syncChip } from '@/crm/lib/syncChip';
+import { useGuide } from '@/crm/guide/GuideProvider';
 
 export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell | undefined; onOpenMenu: () => void; showMenuButton: boolean }) {
   const { t, n, time, dShort } = useCrmT();
@@ -233,7 +234,10 @@ function ProfileMenu({ shell, open, onToggle, onClose }: { shell: CrmShell | und
   const name = [first, last].filter(Boolean).join(' ') || (user?.email ?? '');
   const ini = ((first[0] ?? '') + (last[0] ?? '')).toUpperCase() || (user?.email?.[0] ?? '?').toUpperCase();
   const photo = p?.avatar_url ?? null;
-  const items: { label: string; icon: IconName; to: string }[] = [
+  const guide = useGuide();
+  const items: { label: string; icon: IconName; to: string; onClick?: () => void }[] = [
+    // Premiers pas : rouvrables d'ici même masqués ou terminés.
+    ...(guide ? [{ label: t('yc.fs.name'), icon: 'sparkles' as IconName, to: '#first-steps', onClick: guide.openPanel }] : []),
     { label: t('yc.top.pr.profile'), icon: 'user', to: CRM_ROUTES.accountSection('profile') },
     { label: t('yc.top.pr.team'), icon: 'users', to: CRM_ROUTES.accountSection('team') },
     { label: t('yc.top.pr.billing'), icon: 'card', to: CRM_ROUTES.accountSection('billing') },
@@ -280,7 +284,7 @@ function ProfileMenu({ shell, open, onToggle, onClose }: { shell: CrmShell | und
                 key={it.to}
                 type="button"
                 role="menuitem"
-                onClick={() => { onClose(); nav(it.to); }}
+                onClick={() => { onClose(); if (it.onClick) it.onClick(); else nav(it.to); }}
                 style={{ height: 42, padding: '0 10px', border: 0, borderRadius: 12, background: 'none', display: 'flex', alignItems: 'center', gap: 12, fontSize: 14.5, fontWeight: 500, color: 'var(--ink)', cursor: 'pointer', textAlign: 'left' }}
                 hover={{ background: 'var(--sand-50)' }}
               >

@@ -108,11 +108,13 @@ export function AiConnectorsSection({ onGuide }: { onGuide: () => void }) {
                 {t('yc.ai.manage')}
               </Hv>
             ) : (
-              <GradientCta onClick={() => {
-                // Dans le geste du clic (Safari bloque une fenêtre ouverte après un await).
-                window.open(CLAUDE_DIRECTORY_URL, '_blank', 'noopener');
-                onGuide();
-              }}>{t('yc.ai.addToClaude')}</GradientCta>
+              <span data-yc-guide="claude-add" style={{ display: 'inline-flex' }}>
+                <GradientCta onClick={() => {
+                  // Dans le geste du clic (Safari bloque une fenêtre ouverte après un await).
+                  window.open(CLAUDE_DIRECTORY_URL, '_blank', 'noopener');
+                  onGuide();
+                }}>{t('yc.ai.addToClaude')}</GradientCta>
+              </span>
             )}
           </div>
         </div>
@@ -340,7 +342,7 @@ export function ClaudeGuide({ code, go }: { code: boolean; go: (p: Record<string
               <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
                 <Step n={1} title={t('yc.ai.w1.t')}>
                   <p style={body}>{t('yc.ai.w1.s1')} <span style={kbd}>{t('yc.ai.mock.connect')}</span>{t('yc.ai.w1.s2')}</p>
-                  <OutLink href={CLAUDE_DIRECTORY_URL} tone="claude">{t('yc.ai.w1.open')}</OutLink>
+                  <span data-yc-guide="claude-add" style={{ display: 'inline-flex', alignSelf: 'flex-start' }}><OutLink href={CLAUDE_DIRECTORY_URL} tone="claude">{t('yc.ai.w1.open')}</OutLink></span>
                   <ListingMock />
                 </Step>
                 <Step n={2} title={t('yc.ai.w2.t', { space: space.name })}>

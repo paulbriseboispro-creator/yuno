@@ -18,10 +18,13 @@ import { useCrmScope } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { Card } from './accountUi';
 import { FeatureRequestCard, NpsCard } from './HelpFeedback';
+import { GuideHelpCard } from '@/crm/guide/GuideHelpCard';
 
 type Cat = 'all' | 'start' | 'yunits' | 'clients' | 'account';
 const CATS: Cat[] = ['all', 'start', 'yunits', 'clients', 'account'];
 const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
+  // Premiers pas : le guide des premiers pas (20261101100000), rouvrable d'ici.
+  { id: 'firstSteps', c: 'start' },
   { id: 'shotgun', c: 'start', to: CRM_ROUTES.connectors },
   { id: 'sync', c: 'start' },
   { id: 'import', c: 'clients', to: CRM_ROUTES.imports },
@@ -131,6 +134,7 @@ export function AccountHelp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <GuideHelpCard />
       <NpsCard />
       <Card gap={20} style={{ animation: `yc-rise 700ms ${EASE} 40ms both` }}>
         <label style={{ height: 58, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, padding: '0 10px 0 20px', borderRadius: 99, background: 'var(--paper)', border: `1px solid ${focus ? 'var(--red-400)' : 'var(--sand-200)'}`, boxShadow: focus ? '0 0 0 3px var(--red-100)' : 'none', cursor: 'text', transition: 'border-color 160ms,box-shadow 160ms' }}>

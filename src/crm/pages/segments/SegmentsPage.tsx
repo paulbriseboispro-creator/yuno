@@ -183,7 +183,7 @@ export default function SegmentsPage() {
           </h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 660, ...reveal(intro, 260) }}>{t('yc.seg.sub')}</p>
         </div>
-        {caps.write && <div style={reveal(intro, 320)}>
+        {caps.write && <div data-yc-guide="segments-new" style={reveal(intro, 320)}>
           <Hv
             as="button"
             type="button"

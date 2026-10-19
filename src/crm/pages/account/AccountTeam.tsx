@@ -17,6 +17,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
 import { useTeam, useTeamActions, type CrmRole, type TeamInvite, type TeamMember } from '@/crm/data/account';
 import { Card, HeadCta } from './accountUi';
+import { useSearchParams } from 'react-router-dom';
 
 type InvRole = Exclude<CrmRole, 'owner'>;
 const ORDER: CrmRole[] = ['owner', 'admin', 'editor', 'viewer'];
@@ -64,9 +65,16 @@ export function AccountTeam({ setHeadAction }: { setHeadAction: (n: ReactNode) =
   const q = useTeam();
   const [inviteOpen, setInviteOpen] = useState(false);
   const canManage = !!q.data?.can_manage;
+  // `?invite=1` (Premiers pas › Invitez votre équipe) ouvre l'invitation d'office.
+  const [sp, setSp] = useSearchParams();
+  useEffect(() => {
+    if (!canManage || sp.get('invite') !== '1') return;
+    setInviteOpen(true);
+    setSp((prev) => { const next = new URLSearchParams(prev); next.delete('invite'); return next; }, { replace: true });
+  }, [canManage, sp, setSp]);
 
   useEffect(() => {
-    setHeadAction(canManage ? <HeadCta label={t('yc.acc.t.invite')} onClick={() => setInviteOpen(true)} /> : null);
+    setHeadAction(canManage ? <span data-yc-guide="team-invite" style={{ display: 'inline-flex' }}><HeadCta label={t('yc.acc.t.invite')} onClick={() => setInviteOpen(true)} /></span> : null);
     return () => setHeadAction(null);
   }, [canManage, setHeadAction, t]);
 

@@ -8,6 +8,9 @@
  *   Prochaine soirée (bloc nuit) + Qui achète ?
  *   Que faut-il faire aujourd'hui ?
  *
+ * Premiers pas (titulaire d'un compte récent) : la carte du guide passe en tête
+ * et remplace la liste « Pour bien démarrer » (mêmes étapes, dites une fois).
+ *
  * Tout vient de crm_home (un appel par période) ; aucun chiffre n'est calculé
  * ici, seulement mis en forme.
  */
@@ -29,6 +32,8 @@ import { KpiCards } from './KpiCards';
 import { NextNightCard, WhoBuysCard } from './NextNight';
 import { TodoList } from './TodoList';
 import { useLater } from './useLater';
+import { useGuide } from '@/crm/guide/GuideProvider';
+import { GuideCard } from '@/crm/guide/GuideCard';
 
 export default function HomePage() {
   const T = useCrmT();
@@ -41,11 +46,14 @@ export default function HomePage() {
   const intro = useIntro(!!data);
   const cc = useProgress(1500, 450, data ? 'ready' : 'wait', !!data);
   const [later, addLater, resetLater] = useLater(space.key);
+  const guide = useGuide();
+  const guideOn = !!guide?.auto;
 
   const first = shell.data?.profile?.first_name?.trim() || '';
   const alerte = !!data?.connection?.broken;
   const starting = !!data && !data.connection && data.kpi.clients.total === 0;
-  const items = data?.todo ?? [];
+  // Les tâches de démarrage (brancher, choisir ses segments) sont des étapes du guide quand il est là.
+  const items = (data?.todo ?? []).filter((x) => !guideOn || !['connect', 'check', 'first_send', 'segments'].includes(x.kind));
   const left = items.filter((x) => !later.includes(x.id));
   const urgent = left.filter((x) => x.tone === 'todo').length;
 
@@ -95,6 +103,8 @@ export default function HomePage() {
         </div>
       )}
 
+      {guide && guideOn && <GuideCard g={guide} intro={intro} />}
+
       {m && (
         <Hv
           as="section"
@@ -142,7 +152,7 @@ export default function HomePage() {
               <span style={{ fontSize: 15, lineHeight: 1.5, color: 'var(--sand-600)', maxWidth: 560 }}>{t(data.connection ? 'yc.home.next.noneBody' : 'yc.home.next.emptyBody')}</span>
             </section>
           )}
-          {data && (
+          {data && !(guideOn && starting) && (
             <TodoList
               items={items}
               later={later}
