@@ -57,10 +57,12 @@ export function useNightPlan(eventId: string | null) {
 }
 
 /** Les connexions IA (MCP) de la personne : les siennes et celles de son équipe sur ses espaces. */
-export function useAiConnections() {
+export function useAiConnections(opts?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: ['crm', 'ai-connections'],
     staleTime: 60_000,
+    // Le guide Claude relit toutes les 4 s pour dire « C'est branché » sans recharger.
+    refetchInterval: opts?.refetchInterval,
     queryFn: async () => {
       const r = await rpc<{ ok: boolean; connections?: McpConnection[] }>('mcp_my_connections');
       return r?.connections ?? [];

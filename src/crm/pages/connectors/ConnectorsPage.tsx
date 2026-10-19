@@ -6,6 +6,8 @@
  *              `&r=1` = remplacer le jeton d'une connexion existante
  *   ?v=manage  la gestion : relire, remplacer le jeton, soirées co-organisées,
  *              déconnecter, tout supprimer
+ *   ?v=claude  brancher Claude sur Yuno (`&c=code` : Claude Code) ; la liste
+ *              porte aussi les cartes ChatGPT et Gemini « Bientôt » (AiConnectors.tsx)
  *
  * Lecture : get_my_ticketing_connections (titulaire du compte seulement ; les
  * autres rôles voient l'état depuis la coquille, sans bouton). Actions : edge
@@ -34,6 +36,7 @@ import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import shotgunLogo from '@/crm/assets/shotgun-logo.webp';
 import { BackLink, GradientCta } from './connectorsUi';
 import { CARD, ENTER, LOGO } from './connectorsStyle';
+import { AiConnectorsSection, ClaudeGuide } from './AiConnectors';
 
 const SMARTBOARD = 'https://smartboard.shotgun.live';
 const P = {
@@ -67,7 +70,7 @@ export default function ConnectorsPage() {
   const [sp, setSp] = useSearchParams();
   const q = useTicketingConnection();
   const shell = useCrmShell();
-  const view = sp.get('v') === 'wizard' ? 'wizard' : sp.get('v') === 'manage' ? 'manage' : 'list';
+  const view = sp.get('v') === 'wizard' ? 'wizard' : sp.get('v') === 'manage' ? 'manage' : sp.get('v') === 'claude' ? 'claude' : 'list';
   const go = (p: Record<string, string> | null) => setSp(p ? new URLSearchParams(p) : new URLSearchParams(), { replace: false });
 
   const forbidden = !!q.data?.forbidden;
@@ -81,7 +84,10 @@ export default function ConnectorsPage() {
 
   return (
     <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 96px', display: 'flex', flexDirection: 'column', gap: 28, boxSizing: 'border-box' }}>
-      {q.isLoading ? (
+      {view === 'claude' ? (
+        // Le guide IA ne dépend pas de la connexion Shotgun : il s'ouvre même si sa lecture échoue.
+        <ClaudeGuide code={sp.get('c') === 'code'} go={go} />
+      ) : q.isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <Skel w={160} h={14} /><Skel w="50%" h={38} /><Skel h={300} r={28} />
         </div>
@@ -249,6 +255,7 @@ function ListView({ conn, state, kept, forbidden, lastOk, go, t }: {
           </div>
         )}
       </section>
+      <AiConnectorsSection onGuide={() => go({ v: 'claude' })} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--sand-500)' }}>
         <Icon d={P.plus} size={16} stroke={2} />{t('yc.co.more')}
       </div>
