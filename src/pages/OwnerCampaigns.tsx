@@ -78,8 +78,9 @@ export default function OwnerCampaigns() {
     if (!venueId) return;
     supabase.from('email_campaigns')
       .select('id,name,type,subject,status,recipients_count,opens_count,clicks_count,created_at,sent_at,scheduled_at')
-      // Les enfants des recettes automatiques vivent sur la page Automatisations.
-      .eq('venue_id', venueId).is('automation_id' as never, null).order('created_at', { ascending: false })
+      // Les enfants des recettes automatiques vivent sur la page Automatisations ;
+      // les campagnes de Yuno CRM (`product = 'crm'`) vivent dans la Console CRM.
+      .eq('venue_id', venueId).is('automation_id' as never, null).or('product.is.null,product.neq.crm').order('created_at', { ascending: false })
       .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
 
     // Revenu attribué (clic → achat 72 h) : un appel pour toute la liste.
