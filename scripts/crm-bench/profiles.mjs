@@ -41,6 +41,12 @@ export const PROFILES = {
   demo: { ...base, seed: 11, nights: 29, months: 12, newPerNight: 42, loyalBase: -0.9, casualBase: -3.1 },
   // Un gros organisateur : 12 000 contacts, 30 000 billets, 60 soirées.
   grand: { ...base, seed: 23, nights: 60, months: 14, series: 8, guestPool: 70, newPerNight: 95, loyalBase: -2.2, casualBase: -4.6 },
+  // Ordre de grandeur du premier vrai compte Shotgun (Amoris, 18/10 : quatre
+  // ans d'historique, 280 soirées dont ~90 sur les 12 derniers mois, 48 000
+  // billets, 18 000 acheteurs, une soirée à venir). Au banc : 18 800
+  // contacts, 60 000 billets. Cible du calcul de nuit (score-nightly.mjs).
+  amoris: { ...base, seed: 53, nights: 280, months: 42, nightsUpcoming: 1, series: 10, guestPool: 120,
+            newPerNight: 33, churnMonths: 5, loyalBase: -2.6, casualBase: -5.0 },
   // Un petit compte : 300 contacts, 10 soirées (doit rester « à tester »).
   petit: { ...base, seed: 37, nights: 10, months: 6, series: 2, guestPool: 10, newPerNight: 13, loyalBase: -1.2, casualBase: -3.4 },
   // Contrôle : aucun effet planté, le moteur ne doit rien confirmer.

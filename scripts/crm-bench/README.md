@@ -68,6 +68,7 @@ même compte.
 | `grand` | ~11 900 | ~30 800 | 60 + 4 | gros organisateur, cible de temps |
 | `petit` | ~300 | ~570 | 10 + 4 | doit rester « à tester » |
 | `hasard` | ~2 900 | ~6 000 | 40 + 4 | aucun effet planté : rien ne doit être confirmé |
+| `amoris` | ~18 800 | ~60 000 | 280 + 1 | taille du premier vrai compte (4 ans d'historique) : calcul de nuit |
 
 Les achats FUTURS des soirées à venir (ce que la billetterie ne sait pas
 encore) sont dans `bench_future` : c'est la réalité contre laquelle on mesure
@@ -167,6 +168,33 @@ La commande `journal` ABAISSE les portes du score dans la base du banc pour
 qu'il note (le compte synthétique est `weak`) ; jamais ailleurs. Au banc, un
 envoi ne change aucun achat : le gain mesuré par `holdout` doit être nul
 (|z| < 2), c'est la preuve que la mesure n'invente pas d'effet.
+
+## Le calcul de nuit du score, sur les définitions de la prod
+
+Le cron `crm-score-nightly` tourne sous le délai de 120 s de la prod
+(`statement_timeout` du fichier de configuration). `score-nightly.mjs` le
+rejoue sur un instantané des définitions de la PROD (pas des migrations du
+dépôt, qui ont pris du retard sur quatre fonctions du score), à la taille d'un
+vrai compte :
+
+```bash
+node prod.mjs --activity
+node score-nightly.mjs dump                 # instantané (lecture seule) + seuils actifs
+node score-nightly.mjs gen amoris           # compte + analyse complète (~1 min)
+node score-nightly.mjs run amoris --open ../../supabase/migrations/<m>.sql
+node score-nightly.mjs warm amoris --open   # le lendemain : modèle d'hier, journal entamé
+node score-nightly.mjs run amoris-warm ../../supabase/migrations/<m>.sql
+```
+
+`run` joue le calcul AVANT puis APRÈS les migrations dans une seule
+transaction (même `now()`, état de départ rétabli entre les deux, puis
+annulée), donne les instructions les plus lentes de chacun et compare ligne à
+ligne les six tables que le score écrit : modèle, chances, étiquettes,
+journal prévu / réel. `--open` abaisse les portes du score dans la base du
+banc pour que la note et le journal tournent (le compte synthétique est
+« weak »). `diff.mjs`, qui compare deux bases calculées à des moments
+différents, ne convient pas ici : la part restante des achats dépend de
+`now()`.
 
 ## Scénarios (automatisations sur mesure)
 
