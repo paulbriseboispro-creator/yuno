@@ -9,6 +9,8 @@ interface TicketQROverlayProps {
   ticketQrCode: string;
   quantity: number;
   roundName: string;
+  /** description du tarif écrite par l'organisateur, affichée sous son nom */
+  roundDescription?: string | null;
   eventTitle: string;
   venueName: string;
   entryScanned?: boolean;
@@ -36,7 +38,7 @@ const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffff
  * falling back to the ticket-level QR when no attendees exist.
  */
 export function TicketQROverlay({
-  ticketId, ticketQrCode, quantity, roundName, eventTitle, venueName,
+  ticketId, ticketQrCode, quantity, roundName, roundDescription, eventTitle, venueName,
   entryScanned, labels, onClose, actions, whenLabel, instant, posterUrl, posterThumb, kindLabel,
 }: TicketQROverlayProps) {
   const [slides, setSlides] = useState<QRSlide[]>([]);
@@ -135,6 +137,7 @@ export function TicketQROverlay({
       title={eventTitle}
       venueName={venueName}
       idLabel={`${quantity}× ${roundName}`}
+      note={roundDescription}
       slides={slides}
       scanned={entryScanned}
       labels={labels}
