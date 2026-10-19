@@ -3769,6 +3769,37 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
   ajoutée se range dans sa section, jamais dans une section à part ; on
   modifie le script puis on le rejoue, jamais le dashboard à la main.
 
+## Paiement billet — la page « Vos infos » (2026-10-19)
+
+Refaite sur maquettes validées par Paul (recherche Baymard, GOV.UK, NN/g, Stripe,
+CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetails`,
+`BirthDateFields`, `checkoutFieldUi`, `checkoutFieldStyle`), règles pures testées
+`src/lib/buyerForm.ts`, `birthDate.ts`, `emailTypo.ts`. Règles :
+
+- **Quatre champs, pas un de plus** : nom complet (un seul champ), e-mail,
+  téléphone (obligatoire, avec SA raison écrite dessous), date de naissance en
+  TROIS cases Jour / Mois / Année (`bday-*`), jamais un calendrier natif. **Pas
+  de « Confirmer l'e-mail »** : une faute de domaine (gmial.com) se corrige d'un
+  tap (`suggestEmail`). Connecté = e-mail du compte en lecture seule (le serveur
+  n'en lit pas d'autre) ; profil complet = carte « Tout est prêt » + « Modifier ».
+- **Le bouton n'est jamais grisé pour un oubli** : au tap, `buyerFormErrors` (codes
+  dans l'ordre de la page), descente au premier champ, message sous chaque champ,
+  « N informations à compléter » dans la barre. Un champ dit son erreur en le
+  quittant, sauf « obligatoire » (réservé au tap). Seuls les vrais blocages
+  (limite par personne, billet communauté) grisent le bouton.
+- **CGV = la phrase sous le bouton** (« En continuant, vous acceptez les conditions
+  de vente », `TermsNotice`) ; le tap vaut acceptation et la trace par
+  `recordTermsAcceptance` (`src/lib/termsAcceptance.ts`, même preuve que la case).
+  Aucune case CGV sur cette page. Les autres paiements gardent `TermsAcceptance`.
+- Noms des amis REPLIÉS et facultatifs (`FriendNames`) : la page ne grandit plus
+  avec la quantité. Cases marketing en `MarketingOptIns variant="flat"`, toujours
+  décochées et une par destinataire. « d'Amoris » : `marketingConsentWording(t,
+  nom, language)` élide en français, à l'écran ET dans la preuve.
+- **Barre du bas = `CheckoutSummaryBar`**, la MÊME qu'à l'étape 1 (plate, total
+  frais compris, bouton mono 48 px, `alert`, `footnote`, `reserveSpace`).
+  L'étape 1 dit « Continuer » (le paiement n'arrive qu'à l'étape 3).
+- Reste à faire avec la même grammaire : `TableCheckout`, `GuestListCheckout`.
+
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
 La racine `/` du web montre une **landing vitrine** (`src/pages/Landing.tsx`) au seul
