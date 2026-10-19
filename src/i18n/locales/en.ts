@@ -16862,7 +16862,7 @@ const en: Record<string, string> = {
   'aiMcp.serverUrl': "Server address",
   'aiMcp.copy': "Copy",
   'aiMcp.copied': "Copied",
-  'aiMcp.claude.s1': "In Claude (web, desktop or mobile): Settings → Connectors → Add custom connector.",
+  'aiMcp.claude.s1': "In Claude (web or desktop app): Customize → Connectors (claude.ai/customize/connectors) → + Add → Add custom connector.",
   'aiMcp.claude.s2': "Name it \"Yuno\", paste the server address and click Add.",
   'aiMcp.claude.s3': "Click Connect, sign in to Yuno and choose what Claude can see.",
   'aiMcp.claude.s4': "In a chat, turn Yuno on in the tools menu, then ask your question.",

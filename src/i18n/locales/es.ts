@@ -17204,7 +17204,7 @@ const es: Record<string, string> = {
   'aiMcp.serverUrl': "Dirección del servidor",
   'aiMcp.copy': "Copiar",
   'aiMcp.copied': "Copiado",
-  'aiMcp.claude.s1': "En Claude (web, escritorio o móvil): Ajustes → Conectores → Añadir conector personalizado.",
+  'aiMcp.claude.s1': "En Claude (web o aplicación de escritorio): Personalizar → Conectores (claude.ai/customize/connectors) → + Añadir → Añadir conector personalizado.",
   'aiMcp.claude.s2': "Llámalo «Yuno», pega la dirección del servidor y haz clic en Añadir.",
   'aiMcp.claude.s3': "Haz clic en Conectar, inicia sesión en Yuno y elige qué podrá ver Claude.",
   'aiMcp.claude.s4': "En una conversación, activa Yuno en el menú de herramientas y haz tu pregunta.",

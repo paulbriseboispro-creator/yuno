@@ -1859,6 +1859,18 @@ des clients ou touche à l'argent reste un clic du pro dans la Console. Worker `
   reporte au glossaire. Base de connaissances partagée avec l'Assistant Console :
   `supabase/functions/_shared/console-help-articles.ts` (redéployer
   `owner-assistant` après une modification).
+- **Console CRM › Connecteurs › Assistants IA (2026-10-19)** : sous la carte
+  Shotgun, Claude « Disponible » (ou « Connecté » avec ses lectures), ChatGPT et
+  Gemini « Bientôt disponible » (décision de Paul, même si le serveur sait déjà
+  parler à ChatGPT). « Connecter Claude » ouvre le guide `?v=claude`
+  (`AiConnectors.tsx`) : adresse à copier, « Ouvrir les connecteurs de Claude »
+  (`claude.ai/customize/connectors`, chemin officiel « + Ajouter » → « Ajouter un
+  connecteur personnalisé »), aperçu de la fenêtre, autorisation `/connect-ai`,
+  questions prêtes, bandeau « C'est branché » (relecture de `mcp_my_connections`
+  toutes les 4 s) ; onglet `&c=code` = Claude Code (`CLAUDE_CODE_COMMAND`, puis
+  `/mcp` → Authenticate). Couper = `mcp_revoke_connection`. « Préparer avec mon
+  IA » renvoie à ce guide (`AI_GUIDE_PATH`). Un chemin de menu Claude change
+  souvent : le bouton mène directement à la page, le texte reste secondaire.
 - **Billetterie par l'IA (2026-10-15, `docs/MCP.md` § 11)** : `get_ticketing` /
   `set_ticketing` posent la billetterie LIBRE d'une soirée Yuno (billets,
   rounds, heures d'entrée), sous la permission des brouillons et les droits de
