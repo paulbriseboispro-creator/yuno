@@ -58,6 +58,9 @@ export function SuggestedEvents({ userId, tasteProfile, favoriteClubId }: Sugges
             logo_url
           )
         `)
+        // Public : une soirée inactive (brouillon, miroir d'une billetterie
+        // externe) n'est jamais suggérée, même à son propre organisateur.
+        .eq('is_active', true)
         .gt('start_at', new Date().toISOString())
         .order('start_at')
         .limit(10);
