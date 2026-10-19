@@ -1035,7 +1035,7 @@ export default function TicketSelection() {
           <CheckoutSummaryBar
             total={selection.type === 'guestlist' ? 0 : totalWithFees}
             fee={selection.type === 'guestlist' ? 0 : Math.max(0, totalWithFees - total)}
-            buttonText={t('ticketSel.goToPayment')}
+            buttonText={t('ticketSel.continue')}
             onClick={handleContinue}
           />
         )}
