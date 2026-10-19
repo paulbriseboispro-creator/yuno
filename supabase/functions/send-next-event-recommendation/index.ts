@@ -207,7 +207,7 @@ serve(async (req) => {
               <tr><td style="padding: 16px 20px;">
                 <p style="color: #fff; font-weight: 700; font-size: 16px; margin: 0 0 4px;">${escapeHtml(e.title)}</p>
                 <p style="color: #999; font-size: 13px; margin: 0 0 12px;">${date} · ${escapeHtml(vName)}</p>
-                <a href="https://yunoapp.eu/club/${e.venue_id}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 13px;">
+                <a href="${e.venue_id ? `https://yunoapp.eu/club/${e.venue_id}` : `https://yunoapp.eu/event/${e.id}`}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 13px;">
                   ${t('nextEvent.getTickets', lang)}
                 </a>
               </td></tr>

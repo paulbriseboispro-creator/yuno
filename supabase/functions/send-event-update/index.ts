@@ -133,7 +133,7 @@ serve(async (req) => {
           venueName,
           updateMessage,
           changes: changeRows,
-          eventUrl: `https://yunoapp.eu/club/${event.venue_id}`,
+          eventUrl: event.venue_id ? `https://yunoapp.eu/club/${event.venue_id}` : `https://yunoapp.eu/event/${event.id}`,
         });
 
         const res = await fetch('https://api.resend.com/emails', {

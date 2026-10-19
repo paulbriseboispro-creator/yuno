@@ -205,8 +205,30 @@ Deno.serve(async (req) => {
       else insertPayload.venue_id = venue_id;
       if (role === 'manager' && manager_permissions) insertPayload.manager_permissions = manager_permissions;
 
-      const { data: invitation, error: inviteError } = await supabase
-        .from('staff_invitations').insert(insertPayload).select('token').single();
+      // Une invitation déjà close (révoquée, expirée, acceptée par une personne
+      // retirée depuis) pour le même (email, portée, rôle) occupe l'index unique :
+      // on la REMET en attente avec un jeton neuf au lieu d'insérer — sinon
+      // « annuler puis réinviter » échouait sur l'index.
+      const { data: closedInvitation } = await supabase
+        .from('staff_invitations').select('id')
+        .eq('email', email).eq('role', role).neq('status', 'pending')
+        .eq(scope.col, scope.val)
+        .limit(1);
+      const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 7);
+      const { data: invitation, error: inviteError } = closedInvitation && closedInvitation.length > 0
+        ? await supabase
+          .from('staff_invitations')
+          .update({
+            ...insertPayload,
+            status: 'pending',
+            token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, ''),
+            expires_at: expiresAt.toISOString(),
+            accepted_at: null,
+          })
+          .eq('id', closedInvitation[0].id)
+          .select('token').single()
+        : await supabase
+          .from('staff_invitations').insert(insertPayload).select('token').single();
       if (inviteError) {
         return new Response(JSON.stringify({ error: inviteError.message }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

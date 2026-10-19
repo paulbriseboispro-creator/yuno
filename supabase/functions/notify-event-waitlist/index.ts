@@ -24,7 +24,15 @@ interface WaitlistEventRow {
   organizer_user_id: string | null;
   poster_url: string | null;
   description: string | null;
+  timezone: string | null;
   venues: { name: string | null } | null;
+}
+
+/** Langue d'un email sans profil : celle du pays de la soirée, sinon l'anglais. */
+function langForTimezone(tz: string | null): EmailLanguage {
+  if (tz === 'Europe/Madrid' || tz === 'Atlantic/Canary') return 'es';
+  if (tz === 'Europe/Paris') return 'fr';
+  return 'en';
 }
 
 function buildWaitlistConfirmationEmail(
@@ -101,7 +109,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('title, start_at, venue_id, poster_url, description, organizer_user_id, venues!events_venue_id_fkey(name)')
+      .select('title, start_at, venue_id, poster_url, description, organizer_user_id, timezone, venues!events_venue_id_fkey(name)')
       .eq('id', eventId)
       .returns<WaitlistEventRow[]>()
       .single();
@@ -149,7 +157,7 @@ serve(async (req) => {
 
     let entriesQuery = supabaseClient
       .from('event_waitlist')
-      .select('id, email, full_name')
+      .select('id, email, full_name, user_id')
       .eq('event_id', eventId);
     
     if (type === 'confirmation' && targetEmail) {
@@ -180,12 +188,36 @@ serve(async (req) => {
 
     let notifiedCount = 0;
     if (resendApiKey) {
-      const venueName = event.venues?.name || 'Yuno';
-      const eventUrl = `https://yunoapp.eu/club/${event.venue_id}`;
+      // Soirée sans club : c'est l'organisateur qui signe, et le lien mène à la
+      // soirée elle-même (/event/<id> se résout toujours). Avant : « Yuno » et
+      // https://yunoapp.eu/club/null — le bouton « Acheter » de l'email ouvrait
+      // une page introuvable.
+      let hostName = event.venues?.name || null;
+      if (!hostName && event.organizer_user_id) {
+        const { data: org } = await supabaseClient
+          .from('organizer_profiles').select('display_name')
+          .eq('user_id', event.organizer_user_id).maybeSingle();
+        hostName = org?.display_name || null;
+      }
+      const venueName = hostName || 'Yuno';
+      const eventUrl = `https://yunoapp.eu/event/${eventId}`;
       const eventImageUrl = event.poster_url || null;
-      const lang: EmailLanguage = 'fr';
+      // Langue : celle du compte quand la personne en a un, sinon celle du pays
+      // de la soirée (jamais le français d'office pour une soirée à Ségovie).
+      const fallbackLang = langForTimezone(event.timezone);
+      const userIds = [...new Set(entries.map((e) => e.user_id).filter((id): id is string => !!id))];
+      const langByUser = new Map<string, EmailLanguage>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabaseClient
+          .from('profiles').select('id, preferred_language').in('id', userIds);
+        for (const p of profiles ?? []) {
+          const l = p.preferred_language;
+          if (l === 'en' || l === 'fr' || l === 'es') langByUser.set(p.id, l);
+        }
+      }
 
       for (const entry of entries) {
+        const lang: EmailLanguage = (entry.user_id && langByUser.get(entry.user_id)) || fallbackLang;
         try {
           const emailData = type === 'confirmation'
             ? buildWaitlistConfirmationEmail(entry, event.title, venueName, eventImageUrl, event.start_at, lang)
@@ -237,7 +269,7 @@ serve(async (req) => {
             const res = await sendAutoPush(supabaseClient, {
               key: 'waitlist_presale',
               userId,
-              url: `/club/${event.venue_id}`,
+              url: `/event/${eventId}`,
               vars: { event: event.title || '' },
             });
             if (res.sent > 0) pushSent++;

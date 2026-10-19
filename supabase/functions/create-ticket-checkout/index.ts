@@ -1242,6 +1242,14 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
+    // Libellés de la page de paiement Stripe, dans la langue de l'acheteur (ils
+    // partaient en français à tout le monde, y compris à Madrid).
+    const stripeWords = {
+      fr: { fee: "Frais de service", feeDesc: "Frais de gestion et de traitement", tickets: "billet(s) à", discount: "remise" },
+      en: { fee: "Service fee", feeDesc: "Booking and processing fee", tickets: "ticket(s) at", discount: "discount" },
+      es: { fee: "Gastos de servicio", feeDesc: "Gastos de gestión y tramitación", tickets: "entrada(s) a", discount: "descuento" },
+    }[lang];
+
     // Build line items
     // Avec une remise (promoteur ou code promo), la ligne des billets porte le
     // sous-total REMISÉ : sans ça Stripe facturait le prix plein alors que le
@@ -1252,7 +1260,7 @@ serve(async (req) => {
             currency: "eur",
             product_data: {
               name: `${ticketRound.name} - ${event.title}`,
-              description: `${quantity} billet(s) à ${unitPrice}€ − remise ${validatedDiscount.toFixed(2)}€${promoCodeId && cleanDiscountCode ? ` (code ${cleanDiscountCode})` : ""}`,
+              description: `${quantity} ${stripeWords.tickets} ${unitPrice}€ − ${stripeWords.discount} ${validatedDiscount.toFixed(2)}€${promoCodeId && cleanDiscountCode ? ` (code ${cleanDiscountCode})` : ""}`,
             },
             unit_amount: Math.round(discountedSubtotal * 100),
           },
@@ -1263,7 +1271,7 @@ serve(async (req) => {
             currency: "eur",
             product_data: {
               name: `${ticketRound.name} - ${event.title}`,
-              description: `${quantity} billet(s) à ${unitPrice}€`,
+              description: `${quantity} ${stripeWords.tickets} ${unitPrice}€`,
             },
             unit_amount: Math.round(unitPrice * 100),
           },
@@ -1275,8 +1283,8 @@ serve(async (req) => {
         price_data: {
           currency: "eur",
           product_data: {
-            name: "Frais de service",
-            description: "Frais de gestion et de traitement",
+            name: stripeWords.fee,
+            description: stripeWords.feeDesc,
           },
           // The fan-facing fee line MUST mirror `transactionFee`, not the raw Yuno
           // commission. In absorb mode (`feeAbsorbed`) `transactionFee` is the Stripe

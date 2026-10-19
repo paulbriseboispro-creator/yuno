@@ -568,6 +568,7 @@ export default function TicketSelection() {
     }
     if (selection.type === 'ticket') {
       const params = new URLSearchParams();
+      if (selection.quantity > 1) params.set('qty', String(selection.quantity));
       if (ref) params.set('ref', ref);
       if (src) params.set('src', src);
       const suffix = params.toString() ? `?${params.toString()}` : '';

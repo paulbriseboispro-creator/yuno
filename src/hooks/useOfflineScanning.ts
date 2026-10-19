@@ -3,6 +3,7 @@ import { fetchManifest, getStoredManifest, purgeExpiredManifests } from '@/lib/o
 import { getOfflineDb, getDeviceId, type ManifestEntry, type StoredManifest } from '@/lib/offline/db';
 import { enqueueScan, pendingCount, replayQueue, type ReplaySummary } from '@/lib/offline/queue';
 import {
+  computeGuestListDeadline,
   validateTicketEntry,
   validateGuestListEntry,
   validateTableReservation,
@@ -23,6 +24,13 @@ interface IndexedEntry {
   entry: ManifestEntry;
   entity: ScanEntity;
   kind: 'ticket' | 'guest_list' | 'table';
+  /** Heure limite d'entrée d'un billet « avant HH:MM », ancrée sur la nuit de la soirée. */
+  deadlineAt?: Date | null;
+}
+
+/** Heure limite d'un billet, même ancrage que la guest list (lendemain si avant le début). */
+function ticketDeadlineAt(e: ManifestEntry, eventStartAt: string): Date | null {
+  return e.deadline ? computeGuestListDeadline(e.deadline, eventStartAt) : null;
 }
 
 function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
@@ -44,6 +52,7 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
         name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
         venueId, organizerUserId,
       },
+      deadlineAt: ticketDeadlineAt(e, manifest.event.start_at),
     });
   }
   for (const e of manifest.tickets) {
@@ -56,6 +65,7 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
         name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
         venueId, organizerUserId,
       },
+      deadlineAt: ticketDeadlineAt(e, manifest.event.start_at),
     });
   }
   for (const e of manifest.tables) {
@@ -214,10 +224,18 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
       now: new Date(),
       mode: 'entry' as const,
     };
-    const verdict =
+    let verdict =
       entity.type === 'guest_list_entry' ? validateGuestListEntry(entity, ctx)
       : entity.type === 'table_reservation' ? validateTableReservation(entity, ctx)
       : validateTicketEntry(entity, ctx);
+
+    // Billet « avant HH:MM » présenté après l'heure : en ligne, le videur tranche
+    // (accepter, ou refuser et rembourser). Hors ligne, ni l'un ni l'autre ne
+    // peut s'enregistrer : on ne consomme RIEN et on le dit, au lieu d'un vert
+    // qui laisserait entrer un tarif d'avant 01:00 à 03:00.
+    if (verdict.status === 'success' && hit.kind === 'ticket' && hit.deadlineAt && ctx.now > hit.deadlineAt) {
+      verdict = { status: 'deadline_passed', deadlineSource: 'entry' };
+    }
 
     if (verdict.status === 'success') {
       const scannedAt = new Date().toISOString();
@@ -262,6 +280,7 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
 
   return {
     markScannedOnline,
+    manifestEvent: stored?.manifest.event ?? null,
     enabled,
     online,
     manifestReady: !!index,

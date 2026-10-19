@@ -870,7 +870,10 @@ export default function OwnerTicketing() {
       await fetchTicketRounds(eventId);
     } catch (error) {
       console.error('Error deleting round:', error);
-      toast.error(t('tickets.errorDeleting'));
+      // La base refuse de supprimer un billet qui a des ventes (la suppression
+      // emporterait les billets payés et leurs QR) : on dit quoi faire à la place.
+      const message = (error as { message?: string })?.message ?? '';
+      toast.error(message.includes('ticket_round_has_sales') ? t('tickets.roundHasSales') : t('tickets.errorDeleting'));
     }
   };
 
