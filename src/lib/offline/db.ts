@@ -35,6 +35,10 @@ export interface ManifestEntry {
   qty?: number;
   round?: string | null;
   drink?: boolean | null;
+  /** Heure limite d'entrée du tarif (HH:MM:SS), ex. « Before 1 AM ». NULL = toute la nuit. */
+  deadline?: string | null;
+  /** Heure limite de la boisson offerte (HH:MM:SS), en mode « heure fixe » seulement. */
+  drink_cutoff?: string | null;
   // guest list
   entry_deadline?: string | null;
   entry_type?: string | null;

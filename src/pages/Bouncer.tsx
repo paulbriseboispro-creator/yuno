@@ -89,6 +89,8 @@ interface ScannedTicket {
   serviceFee?: number;
   userId?: string;
   entryDeadline?: string;
+  /** Heure limite de la boisson offerte (HH:MM), quand le tarif en fixe une. */
+  drinkCutoff?: string;
 }
 
 /**
@@ -182,6 +184,16 @@ function computeLateness(entryDeadline: string, now: Date): { isPast: boolean; l
   const lateM = diff % 60;
   const lateLabel = lateH > 0 ? `${lateH}h${lateM.toString().padStart(2, '0')}` : `${lateM} min`;
   return { isPast, lateLabel };
+}
+
+/**
+ * Heure limite de la boisson offerte d'un tarif (HH:MM). Seul le mode « heure
+ * fixe » se lit à la porte : un délai après l'entrée n'a pas d'heure à afficher.
+ */
+function drinkCutoffOf(round: { drink_cutoff_time?: string | null; drink_deadline_type?: string | null }): string | undefined {
+  return round.drink_deadline_type === 'fixed_time' && round.drink_cutoff_time
+    ? round.drink_cutoff_time.substring(0, 5)
+    : undefined;
 }
 
 const REFUND_REASONS = {
@@ -795,6 +807,28 @@ export default function Bouncer() {
       });
     }
 
+    // Billet hors ligne : même carte qu'en ligne depuis le manifeste — tarif,
+    // nombre de personnes et surtout la boisson offerte à donner (ou pas).
+    if (kind === 'ticket' && entry && (verdict.status === 'success' || verdict.status === 'already')) {
+      setScannedTicket({
+        id: entry.ticket_id || entry.id,
+        userEmail: '',
+        fullName: entry.name || undefined,
+        quantity: entry.qty || 1,
+        eventTitle: offline.manifestEvent?.title || '',
+        roundName: entry.round || '',
+        status: entry.status,
+        entryScanned: true,
+        entryScannedAt: verdict.status === 'already' ? (verdict.scannedAt ?? entry.scanned_at) : new Date().toISOString(),
+        includesDrink: !!entry.drink,
+        drinkCutoff: entry.drink_cutoff ? entry.drink_cutoff.substring(0, 5) : undefined,
+        alcoholFree: !!offline.manifestEvent?.alcohol_free,
+        drinkRedeemed: false,
+        drinkName: null,
+        entryDeadline: entry.deadline ? entry.deadline.substring(0, 5) : undefined,
+      });
+    }
+
     switch (verdict.status) {
       case 'success': {
         const isTable = kind === 'table';
@@ -816,7 +850,9 @@ export default function Bouncer() {
         break;
       case 'deadline_passed':
         denyScan(
-          verdict.deadlineSource === 'entry' ? t('bouncer.entryDeadlineGeneric') : t('guestList.timeExpired'),
+          kind === 'ticket' && entry?.deadline
+            ? t('offline.ticketLateNeedsNetwork').replace('{time}', entry.deadline.substring(0, 5))
+            : verdict.deadlineSource === 'entry' ? t('bouncer.entryDeadlineGeneric') : t('guestList.timeExpired'),
           { name },
         );
         break;
@@ -852,7 +888,7 @@ export default function Bouncer() {
             id, event_id, user_email, full_name, quantity, status, user_id, total_price, service_fee,
             drink_redeemed, drink_name, entry_scanned,
             events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
-            ticket_rounds!inner(name, includes_drink, entry_deadline)
+            ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
           )
         `)
         .eq('qr_code', qrCode)
@@ -919,6 +955,7 @@ export default function Bouncer() {
             entryScanned: false,
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
+            drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
             alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
@@ -945,6 +982,7 @@ export default function Bouncer() {
             entryScanned: true,
             entryScannedAt: attendee.entry_scanned_at,
             includesDrink: ticket.ticket_rounds.includes_drink,
+            drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
             alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
@@ -975,6 +1013,7 @@ export default function Bouncer() {
             entryScanned: false,
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
+            drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
             alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
@@ -1045,6 +1084,7 @@ export default function Bouncer() {
           entryScanned: true,
           entryScannedAt: new Date().toISOString(),
           includesDrink: ticket.ticket_rounds.includes_drink,
+          drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
           alcoholFree: ticket.events.alcohol_free ?? false,
           drinkRedeemed: ticket.drink_redeemed,
           drinkName: ticket.drink_name,
@@ -1071,7 +1111,7 @@ export default function Bouncer() {
         .select(`
           *,
           events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
-          ticket_rounds!inner(name, includes_drink, entry_deadline)
+          ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
         `)
         .eq('qr_code', qrCode)
         .maybeSingle();
@@ -1135,6 +1175,7 @@ export default function Bouncer() {
             entryScanned: false,
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
+            drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
             alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
@@ -1161,6 +1202,7 @@ export default function Bouncer() {
             entryScanned: true,
             entryScannedAt: ticket.entry_scanned_at,
             includesDrink: ticket.ticket_rounds.includes_drink,
+            drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
             alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
@@ -1190,6 +1232,7 @@ export default function Bouncer() {
             entryScanned: false,
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
+            drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
             alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
@@ -1244,6 +1287,7 @@ export default function Bouncer() {
           entryScanned: true,
           entryScannedAt: new Date().toISOString(),
           includesDrink: ticket.ticket_rounds.includes_drink,
+          drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
           alcoholFree: ticket.events.alcohol_free ?? false,
           drinkRedeemed: ticket.drink_redeemed,
           drinkName: ticket.drink_name,
@@ -1847,6 +1891,17 @@ export default function Bouncer() {
     );
   }
 
+  // Un billet hors créneau n'est validé qu'au tap « Accepter » : tant qu'il
+  // attend, rien n'est accordé — ni l'entrée affichée en vert, ni la boisson.
+  const latePending = scanResult === 'success' && !!scannedTicket?.entryDeadline
+    && !scannedTicket.entryScanned
+    && computeLateness(scannedTicket.entryDeadline, nowInParis()).isPast;
+  // La boisson offerte se donne sur une entrée accordée, jamais sur un
+  // « déjà scanné » (deuxième verre) ni sur une carte d'annulation.
+  const drinkGrantable = (scanResult === 'success' || scanResult === 'vip_success') && !latePending;
+  const drinkTooLate = !!scannedTicket?.drinkCutoff
+    && computeLateness(scannedTicket.drinkCutoff, nowInParis()).isPast;
+
   return (
     // pb : marge basse + indicateur d'accueil iPhone (app Yuno Pro)
     <div className="min-h-screen" style={{ background: '#000', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}>
@@ -2177,7 +2232,9 @@ export default function Bouncer() {
                 >
                   {/* Result Banner */}
                   <div className={`p-5 md:p-6 rounded-lg text-center ${
-                    scanResult === 'success' || scanResult === 'vip_success'
+                    latePending
+                      ? 'bg-orange-500/20 border border-orange-500'
+                      : scanResult === 'success' || scanResult === 'vip_success'
                       ? 'bg-green-500/20 border border-green-500' 
                       : scanResult === 'already'
                       ? 'bg-yellow-500/20 border border-yellow-500'
@@ -2185,7 +2242,15 @@ export default function Bouncer() {
                       ? 'bg-orange-500/20 border border-orange-500'
                       : 'bg-red-500/20 border border-red-500'
                   }`}>
-                    {scanResult === 'success' && (
+                    {/* Hors créneau pas encore tranché : rien n'est validé tant que le
+                        videur n'a pas tapé « Accepter » — jamais un vert trompeur. */}
+                    {scanResult === 'success' && latePending && (
+                      <>
+                        <AlertTriangle className="h-16 w-16 text-orange-500 mx-auto mb-3" />
+                        <h3 className="text-xl font-bold text-orange-500">{t('bouncer.outOfSlot')}</h3>
+                      </>
+                    )}
+                    {scanResult === 'success' && !latePending && (
                       <>
                         <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-3" />
                         <h3 className="text-xl font-bold text-green-500">{t('bouncer.entryApproved')}</h3>
@@ -2258,7 +2323,7 @@ export default function Bouncer() {
                                   </div>
                                 </div>
                                   </div>
-                              {scanResult === 'success' && (
+                              {scanResult === 'success' && !scannedTicket.entryScanned && (
                                 <div className="space-y-3">
                                   {/* Empilé sur mobile : « Refuser + Remboursement net » déborde d'une demi-colonne à 390px */}
                                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2404,9 +2469,16 @@ export default function Bouncer() {
                           </div>
                         )}
 
-                        {scannedTicket.includesDrink && (
+                        {scannedTicket.includesDrink && drinkGrantable && (
                           <div className="pt-3" style={{ borderTop: `1px solid ${F_BORDER}` }}>
-                            {freeDrinkMode === 'bouncer_notify' ? (
+                            {freeDrinkMode === 'bouncer_notify' && drinkTooLate ? (
+                              <div className="p-3 rounded-lg flex items-center gap-3 bg-orange-500/10 border border-orange-500/40">
+                                <Wine className="h-5 w-5 flex-none text-orange-500" />
+                                <p className="text-sm font-semibold text-orange-500">
+                                  {t('bouncer.drinkCutoffPassed').replace('{time}', scannedTicket.drinkCutoff ?? '')}
+                                </p>
+                              </div>
+                            ) : freeDrinkMode === 'bouncer_notify' ? (
                               <div className="p-4 rounded-lg bg-green-500/15 border-2 border-green-500/50">
                                 <div className="flex items-center gap-3">
                                   <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-green-500/20">
@@ -2416,6 +2488,7 @@ export default function Bouncer() {
                                     <p className="font-bold text-green-500 text-base">{t('bouncer.giveDrink')}</p>
                                     <p className="text-xs text-green-400 mt-0.5">
                                       {scannedTicket.quantity}x — {t('bouncer.giveDrinkDesc')}
+                                      {scannedTicket.drinkCutoff ? ` · ${t('bouncer.drinkUntil').replace('{time}', scannedTicket.drinkCutoff)}` : ''}
                                     </p>
                                   </div>
                                 </div>
@@ -2684,7 +2757,7 @@ export default function Bouncer() {
               propagation. */}
           <AnimatePresence>
             {scanResult && scanResult !== 'cancel_ready' && (() => {
-              const late = scanResult === 'success' && scannedTicket?.entryDeadline
+              const late = scanResult === 'success' && scannedTicket?.entryDeadline && !scannedTicket.entryScanned
                 ? computeLateness(scannedTicket.entryDeadline, nowInParis())
                 : null;
               const isLate = !!late?.isPast;
@@ -2790,11 +2863,15 @@ export default function Bouncer() {
                             <span className="flex-none tabular-nums text-sm font-semibold" style={{ color: fg }}>{scannedTicket.entryDeadline}</span>
                           </div>
                         )}
-                        {scannedTicket.includesDrink && (
+                        {scannedTicket.includesDrink && drinkGrantable && (
                           freeDrinkMode === 'bouncer_notify' ? (
                             <div className="flex items-center gap-2">
                               <Wine className="h-5 w-5 flex-none" style={{ color: fg }} />
-                              <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>{t('bouncer.giveDrink')}</p>
+                              <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>
+                                {drinkTooLate
+                                  ? t('bouncer.drinkCutoffPassed').replace('{time}', scannedTicket.drinkCutoff ?? '')
+                                  : t('bouncer.giveDrink')}
+                              </p>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
