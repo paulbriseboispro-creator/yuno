@@ -8186,6 +8186,7 @@ const en: Record<string, string> = {
   'bouncer.refundQuestion': 'Refund {name}?',
   'bouncer.refundScopePlace': 'Only this person\'s place is refunded. The other places on the ticket stay valid.',
   'bouncer.refundScopeOrder': 'The refund covers the whole order ({n} tickets).',
+  'bouncer.refundScopeRemaining': 'Only the {n} places not yet in are refunded: the friends already inside keep theirs.',
   'bouncer.refundScopeTicket': 'The ticket will be cancelled and the guest refunded, Yuno and Stripe fees deducted.',
   'bouncer.refundYes': 'Refund',
   'bouncer.refundNo': 'Don\'t refund',

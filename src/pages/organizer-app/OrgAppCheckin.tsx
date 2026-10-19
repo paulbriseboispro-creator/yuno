@@ -19,14 +19,15 @@ import { toast } from 'sonner';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import {
   validateTicketEntry, validateTableReservation, validateGuestListEntry,
-  computeLateness, drinkCutoffOf, entryHeadcount,
+  computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState,
 } from '@/lib/scan/rules';
 import type { DoorScope, ScanVerdict } from '@/lib/scan/types';
 import { calcStripeFee } from '@/utils/fees';
 import { toZonedTime } from 'date-fns-tz';
 import { getEventTimezone } from '@/lib/timezone';
 import {
-  doorRefusalKey, fetchDoorRefundPreview, isPlaceRefunded, refundAtDoor, refundedPlacesCount, type DoorRefundPreview,
+  doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, isPlaceRefunded, placesEnteredByMeJustNow,
+  refundAtDoor, ticketPlacesOf, type DoorRefundPreview,
 } from '@/lib/scan/doorRefund';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton, OrgTabs, OrgEmptyState,
@@ -138,6 +139,8 @@ interface DoorTicket {
     /** Place (`ticket_attendees.id`) pour un QR nominatif, sinon le billet. */
     id: string;
     ticketId: string;
+    /** QR du billet entier d'un billet à places : accepter fait entrer les places libres. */
+    places?: boolean;
     /** QR scanné : la ligne de la liste passe au vert après « Laisser entrer ». */
     qr: string;
   } | null;
@@ -148,12 +151,13 @@ function doorTicketFor(
   name: string | null,
   round: DoorRound | null,
   quantity: number | null,
-  refundedPlaces = 0,
+  /** Personnes que fait entrer le QR du billet entier d'un billet à places (ses places libres). */
+  headcountOverride?: number,
 ): DoorTicket {
   return {
     name,
     roundName: round?.name ?? null,
-    headcount: entryHeadcount(kind, quantity, refundedPlaces),
+    headcount: headcountOverride ?? entryHeadcount(kind, quantity),
     entryDeadline: round?.entry_deadline ? round.entry_deadline.substring(0, 5) : null,
     includesDrink: !!round?.includes_drink,
     drinkCutoff: round ? drinkCutoffOf(round) ?? null : null,
@@ -396,32 +400,42 @@ export default function OrgAppCheckin() {
       if (ticket) {
         if (ticket.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
 
+        // Billet à places nominatives : le QR entier fait entrer les places encore
+        // libres ; « déjà scanné » quand il n'en reste aucune — un ami entré avant
+        // avec SON QR ne bloque plus l'acheteur ni les autres.
+        const places = await ticketPlacesOf(ticket.id, ticket.quantity);
+        const wholeDoor = wholeTicketDoorState(ticket.entry_scanned, ticket.quantity, places);
         const verdict = validateTicketEntry(
           { type: 'ticket', id: ticket.id, ticketId: ticket.id, name: ticket.full_name,
-            status: ticket.status, scanned: ticket.entry_scanned, scannedAt: ticket.entry_scanned_at ?? null,
+            status: ticket.status, scanned: wholeDoor.scanned, scannedAt: ticket.entry_scanned_at ?? null,
             ...doorAttrs },
           scanCtx,
         );
         if (verdict.status !== 'success') { denyFromVerdict(verdict, ticket.full_name); return; }
 
-        // Places remboursées une à une : le QR du billet entier ne les fait plus entrer.
-        const refundedPlaces = await refundedPlacesCount(ticket.id, ticket.quantity);
-        const ticketCard = doorTicketFor('ticket', ticket.full_name ?? null, doorRoundOf(ticket), ticket.quantity, refundedPlaces);
+        const ticketCard = doorTicketFor('ticket', ticket.full_name ?? null, doorRoundOf(ticket), ticket.quantity, places ? wholeDoor.headcount : undefined);
         if (isLateNow(ticketCard.entryDeadline)) {
-          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, qr: qrCode } });
+          setDoorTicket({ ...ticketCard, pendingLate: { kind: 'ticket', id: ticket.id, ticketId: ticket.id, qr: qrCode, places: !!places } });
           return;
         }
 
-        const { data: updated } = await retrySupabaseAction(async () => {
-          const r = await supabase.from('tickets')
-            .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: user!.id })
-            .eq('id', ticket.id).eq('entry_scanned', false).select();
-          if (r.error) throw r.error; return r;
-        });
-        if (!updated || updated.length === 0) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+        let admitted = ticketCard.headcount;
+        if (places) {
+          const entered = await retrySupabaseAction(() => enterRemainingPlaces(ticket.id, user!.id));
+          admitted = entered || await placesEnteredByMeJustNow(ticket.id, user!.id);
+          if (admitted === 0) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+        } else {
+          const { data: updated } = await retrySupabaseAction(async () => {
+            const r = await supabase.from('tickets')
+              .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: user!.id })
+              .eq('id', ticket.id).eq('entry_scanned', false).select();
+            if (r.error) throw r.error; return r;
+          });
+          if (!updated || updated.length === 0) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+        }
 
         setLastScan({ ok: true, name: ticket.full_name ?? undefined });
-        setDoorTicket(ticketCard);
+        setDoorTicket({ ...ticketCard, headcount: admitted });
         setRecent(r => [{ name: ticket.full_name, at: new Date() }, ...r].slice(0, 5));
         toast.success(`✓ ${ticket.full_name ?? t('Entrée validée', 'Entry validated')}`);
         return;
@@ -525,16 +539,28 @@ export default function OrgAppCheckin() {
     try {
       const table = pending.kind === 'ticket_attendee' ? 'ticket_attendees' : 'tickets';
       const scanAt = new Date().toISOString();
-      const { data: updated } = await retrySupabaseAction(async () => {
-        const r = await supabase.from(table)
-          .update({ entry_scanned: true, entry_scanned_at: scanAt, entry_scanned_by: user!.id })
-          .eq('id', pending.id).eq('entry_scanned', false).select('id');
-        if (r.error) throw r.error; return r;
-      });
-      if (!updated || updated.length === 0) {
-        setDoorTicket(null);
-        setLastScan({ ok: false, name: card.name ?? undefined, reason: t('Déjà scanné', 'Already scanned') });
-        return;
+      let admittedCount = card.headcount;
+      if (pending.places) {
+        // QR entier d'un billet à places : les places encore libres entrent.
+        const entered = await retrySupabaseAction(() => enterRemainingPlaces(pending.id, user!.id));
+        admittedCount = entered || await placesEnteredByMeJustNow(pending.id, user!.id);
+        if (admittedCount === 0) {
+          setDoorTicket(null);
+          setLastScan({ ok: false, name: card.name ?? undefined, reason: t('Déjà scanné', 'Already scanned') });
+          return;
+        }
+      } else {
+        const { data: updated } = await retrySupabaseAction(async () => {
+          const r = await supabase.from(table)
+            .update({ entry_scanned: true, entry_scanned_at: scanAt, entry_scanned_by: user!.id })
+            .eq('id', pending.id).eq('entry_scanned', false).select('id');
+          if (r.error) throw r.error; return r;
+        });
+        if (!updated || updated.length === 0) {
+          setDoorTicket(null);
+          setLastScan({ ok: false, name: card.name ?? undefined, reason: t('Déjà scanné', 'Already scanned') });
+          return;
+        }
       }
       if (pending.kind === 'ticket_attendee') {
         await retrySupabaseAction(async () => {
@@ -545,7 +571,7 @@ export default function OrgAppCheckin() {
         });
       }
       const late = card.entryDeadline ? computeLateness(card.entryDeadline, nowAtDoor()).lateLabel : '';
-      setDoorTicket({ ...card, pendingLate: null });
+      setDoorTicket({ ...card, headcount: admittedCount, pendingLate: null });
       setLateStep('decide');
       setDoorEnteredQr({ qr: pending.qr, at: Date.now() });
       setLastScan({ ok: true, name: card.name ?? undefined });
@@ -647,14 +673,18 @@ export default function OrgAppCheckin() {
 
       const { data: full } = await supabase
         .from('tickets')
-        .select('id, full_name, user_email, total_price, service_fee, event_id, status, entry_scanned, stripe_payment_intent_id, events!inner(id, title)')
+        .select('id, full_name, user_email, total_price, service_fee, event_id, status, entry_scanned, quantity, stripe_payment_intent_id, events!inner(id, title)')
         .eq('id', parentTicketId).maybeSingle();
       if (!full) { setLastScan({ ok: false, reason: t('Billet introuvable', 'Ticket not found') }); return; }
       if (full.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
       if (full.status !== 'paid') { setLastScan({ ok: false, reason: t('Non remboursable (statut)', 'Not refundable (status)') }); return; }
       // QR nominatif : c'est la PLACE qu'on annule — un autre ami déjà entré n'y change rien.
       if (att && await isPlaceRefunded(att.id)) { setLastScan({ ok: false, reason: tk('bouncer.refusal.already_refunded') }); return; }
-      if (att ? att.entry_scanned : full.entry_scanned) { setLastScan({ ok: false, reason: t('Déjà entré : annulation impossible', 'Already entered: cannot cancel') }); return; }
+      // QR du billet entier d'un billet à places : annulable tant qu'une place est libre
+      // (staff-cancel ne rend alors que les places pas encore entrées).
+      const wholePlaces = att ? null : await ticketPlacesOf(full.id, full.quantity);
+      const alreadyIn = att ? !!att.entry_scanned : wholePlaces ? wholePlaces.remaining === 0 : full.entry_scanned;
+      if (alreadyIn) { setLastScan({ ok: false, reason: t('Déjà entré : annulation impossible', 'Already entered: cannot cancel') }); return; }
 
       setScannedTicket({
         id: full.id,
@@ -718,7 +748,7 @@ export default function OrgAppCheckin() {
     // ne sert qu'en attendant, et jamais pour une place seule.
     const net = cancelPreview?.amount
       ?? (scannedTicket.attendeeId ? null : Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100));
-    return { total, yunoFee, stripeFee, net, place: !!scannedTicket.attendeeId };
+    return { total, yunoFee, stripeFee, net, place: !!scannedTicket.attendeeId, remaining: cancelPreview?.scope === 'remaining' };
   }, [scannedTicket, cancelPreview]);
 
   const handleDrinkScan = async (qrText: string) => {
@@ -977,8 +1007,12 @@ export default function OrgAppCheckin() {
                         </div>
 
                         <div className="space-y-1 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, fontSize: 13 }}>
-                          {refundPreview.place ? (
-                            <p style={{ color: T2, fontSize: 12.5 }}>{tk('bouncer.refundScopePlace')}</p>
+                          {refundPreview.place || refundPreview.remaining ? (
+                            <p style={{ color: T2, fontSize: 12.5 }}>
+                              {refundPreview.place
+                                ? tk('bouncer.refundScopePlace')
+                                : tk('bouncer.refundScopeRemaining').replace('{n}', String(cancelPreview?.count ?? ''))}
+                            </p>
                           ) : (<>
                             <Row label={t('Total payé', 'Total paid')} value={`${refundPreview.total.toFixed(2)}€`} />
                             <Row label={t('Frais Yuno', 'Yuno fee')} value={`−${refundPreview.yunoFee.toFixed(2)}€`} />
@@ -1141,6 +1175,8 @@ function LateDecisionCard({
               <div className="mt-1" style={{ color: T2, fontSize: 12 }}>
                 {isPlace
                   ? tk('bouncer.refundScopePlace')
+                  : preview?.scope === 'remaining'
+                    ? tk('bouncer.refundScopeRemaining').replace('{n}', String(ticket.headcount))
                   : ticket.headcount > 1
                     ? tk('bouncer.refundScopeOrder').replace('{n}', String(ticket.headcount))
                     : tk('bouncer.refundScopeTicket')}

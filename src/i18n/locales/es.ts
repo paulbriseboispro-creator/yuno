@@ -8355,6 +8355,7 @@ const es: Record<string, string> = {
   'bouncer.refundQuestion': '¿Reembolsar a {name}?',
   'bouncer.refundScopePlace': 'Solo se reembolsa la plaza de esta persona. Las demás plazas de la entrada siguen siendo válidas.',
   'bouncer.refundScopeOrder': 'El reembolso cubre todo el pedido ({n} entradas).',
+  'bouncer.refundScopeRemaining': 'Solo se reembolsan las {n} plazas que aún no han entrado: los amigos que ya entraron conservan la suya.',
   'bouncer.refundScopeTicket': 'La entrada se anulará y se reembolsará al cliente, con las comisiones de Yuno y Stripe descontadas.',
   'bouncer.refundYes': 'Reembolsar',
   'bouncer.refundNo': 'No reembolsar',

@@ -22,8 +22,15 @@ export interface DoorRefundPreview {
   amount: number;
   /** Une seule place d'un billet nominatif. */
   placeRefund: boolean;
+  /**
+   * Ce que couvre le remboursement : une place, les places encore libres d'un
+   * billet dont un ami est déjà entré, ou la commande entière.
+   */
+  scope: 'place' | 'remaining' | 'order';
   /** Places du billet (nominatives), ou billets de la commande. */
   places: number;
+  /** Personnes que couvre CE remboursement (1 pour une place, les places libres, ou la commande). */
+  count: number;
 }
 
 export interface DoorRefundResult {
@@ -49,6 +56,8 @@ interface StaffCancelBody {
   refundAmount?: number;
   placeRefund?: boolean;
   places?: number;
+  count?: number;
+  scope?: 'place' | 'remaining' | 'order';
   refundFailed?: boolean;
   ticketFullyRefunded?: boolean;
 }
@@ -69,7 +78,9 @@ export async function fetchDoorRefundPreview(target: DoorRefundTarget): Promise<
     return {
       amount: Number(data.refundAmount ?? 0),
       placeRefund: data.placeRefund === true,
+      scope: data.scope ?? (data.placeRefund ? 'place' : 'order'),
       places: Math.max(1, Number(data.places ?? 1)),
+      count: Math.max(1, Number(data.count ?? data.places ?? 1)),
     };
   } catch {
     return null;
@@ -115,18 +126,61 @@ export async function isPlaceRefunded(attendeeId: string): Promise<boolean> {
   return !error && !!data?.refunded_at;
 }
 
+/** Places nominatives d'un billet, telles que la porte les voit. */
+export interface TicketPlaces {
+  total: number;
+  /** Ni entrées avec leur QR, ni remboursées : ce que le QR du billet entier fait encore entrer. */
+  remaining: number;
+  entered: number;
+  refunded: number;
+}
+
 /**
- * Places d'un billet déjà remboursées une à une : le QR du billet entier ne les
- * fait plus entrer. Lecture tolérante (0 si elle échoue), et seulement pour un
- * billet de plusieurs places — un billet d'une place n'a rien à retirer, la
- * porte ne paie pas un aller-retour de plus à chaque scan.
+ * Les places d'un billet de plusieurs personnes. Lecture TOLÉRANTE : `null` si
+ * le billet est d'une personne (son QR suffit, aucun aller-retour de plus à
+ * chaque scan), s'il n'a pas de places, ou si la lecture échoue — la porte
+ * retombe alors sur le billet seul, comme avant.
  */
-export async function refundedPlacesCount(ticketId: string, quantity: number | null | undefined): Promise<number> {
-  if (!(Number(quantity) > 1)) return 0;
+export async function ticketPlacesOf(ticketId: string, quantity: number | null | undefined): Promise<TicketPlaces | null> {
+  if (!(Number(quantity) > 1)) return null;
+  const { data, error } = await supabase
+    .from('ticket_attendees').select('entry_scanned, refunded_at').eq('ticket_id', ticketId);
+  if (error || !data || data.length === 0) return null;
+  const refunded = data.filter(p => !!p.refunded_at).length;
+  const entered = data.filter(p => !p.refunded_at && !!p.entry_scanned).length;
+  return { total: data.length, remaining: data.length - refunded - entered, entered, refunded };
+}
+
+/**
+ * Le QR du billet entier fait entrer les places encore libres : chaque place
+ * passe « entrée » (premier scan gagne, place par place), le billet parent est
+ * marqué par ricochet. Rend le nombre de personnes admises (0 = un collègue
+ * vient de les faire entrer). La base refuse de toute façon une place remboursée.
+ */
+export async function enterRemainingPlaces(ticketId: string, by: string | null): Promise<number> {
+  const { data, error } = await supabase
+    .from('ticket_attendees')
+    .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: by })
+    .eq('ticket_id', ticketId)
+    .eq('entry_scanned', false)
+    .is('refunded_at', null)
+    .select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/**
+ * Réponse perdue sur le wifi du club : les places de ce billet que J'AI fait
+ * entrer il y a moins d'une minute (le renvoi tombe sinon sur « déjà scanné »).
+ */
+export async function placesEnteredByMeJustNow(ticketId: string, me: string | null): Promise<number> {
+  if (!me) return 0;
+  const since = new Date(Date.now() - 60_000).toISOString();
   const { count, error } = await supabase
     .from('ticket_attendees')
     .select('id', { count: 'exact', head: true })
     .eq('ticket_id', ticketId)
-    .not('refunded_at', 'is', null);
+    .eq('entry_scanned_by', me)
+    .gte('entry_scanned_at', since);
   return error ? 0 : count ?? 0;
 }

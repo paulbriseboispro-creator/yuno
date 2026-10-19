@@ -8072,6 +8072,7 @@ const fr: Record<string, string> = {
   'bouncer.refundQuestion': 'Rembourser {name} ?',
   'bouncer.refundScopePlace': 'Seule la place de cette personne est remboursée. Les autres places du billet restent valables.',
   'bouncer.refundScopeOrder': 'Le remboursement porte sur toute la commande ({n} billets).',
+  'bouncer.refundScopeRemaining': 'Seules les {n} places pas encore entrées sont remboursées : les amis déjà entrés gardent la leur.',
   'bouncer.refundScopeTicket': 'Le billet sera annulé et le client remboursé, frais Yuno et Stripe déduits.',
   'bouncer.refundYes': 'Rembourser',
   'bouncer.refundNo': 'Ne pas rembourser',
