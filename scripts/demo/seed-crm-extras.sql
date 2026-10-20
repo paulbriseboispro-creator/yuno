@@ -201,9 +201,9 @@ BEGIN
         VALUES (p.cli, v_uid, v_email, v_fn, v_ln, v_cities[1 + (v_i % array_length(v_cities, 1))], true,
                 v_at + make_interval(mins => 2 + (v_i % 40)), jsonb_build_object('seed', 'crm-extras', 'signup_page', p.id))
         ON CONFLICT DO NOTHING;
-        INSERT INTO public.newsletter_subscriptions (organizer_user_id, email, opted_in, source, import_id, consent_source, consent_recorded_at, first_name)
-        VALUES (v_uid, v_email, true, 'signup_page_seed', p.eli, 'website_form', v_at, v_fn)
-        ON CONFLICT (lower(email), organizer_user_id) WHERE organizer_user_id IS NOT NULL DO NOTHING;
+        INSERT INTO public.newsletter_subscriptions (organizer_user_id, email, opted_in, source, import_id, consent_source, consent_recorded_at, first_name, product)
+        VALUES (v_uid, v_email, true, 'signup_page_seed', p.eli, 'website_form', v_at, v_fn, 'crm')
+        ON CONFLICT (lower(email), organizer_user_id, product) WHERE organizer_user_id IS NOT NULL DO NOTHING;
       END IF;
     END LOOP;
   END LOOP;
@@ -240,9 +240,9 @@ BEGIN
       VALUES (v_cli, v_uid, v_email, v_fn, v_ln, v_cities[1 + (v_i % array_length(v_cities, 1))], true, v_at, jsonb_build_object('seed', 'crm-extras'))
       ON CONFLICT DO NOTHING;
       IF v_i % 10 < 8 THEN
-        INSERT INTO public.newsletter_subscriptions (organizer_user_id, email, opted_in, source, import_id, consent_source, consent_recorded_at, first_name)
-        VALUES (v_uid, v_email, true, 'import_seed', v_eli, 'website_form', v_at, v_fn)
-        ON CONFLICT (lower(email), organizer_user_id) WHERE organizer_user_id IS NOT NULL DO NOTHING;
+        INSERT INTO public.newsletter_subscriptions (organizer_user_id, email, opted_in, source, import_id, consent_source, consent_recorded_at, first_name, product)
+        VALUES (v_uid, v_email, true, 'import_seed', v_eli, 'website_form', v_at, v_fn, 'crm')
+        ON CONFLICT (lower(email), organizer_user_id, product) WHERE organizer_user_id IS NOT NULL DO NOTHING;
       END IF;
     END LOOP;
   END LOOP;
