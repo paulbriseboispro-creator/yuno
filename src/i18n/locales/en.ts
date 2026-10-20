@@ -16022,6 +16022,7 @@ const en: Record<string, string> = {
   'so.h.glPerNight': 'Sign-ups divided by the number of nights.',
   'so.export': 'Export',
   'vipOwner.revenueWithConso': 'Tables + drinks revenue',
+  'vipOwner.revenueTables': 'Tables revenue',
   'vipOwner.analysisDetail': 'Table analysis: split, categories, hours, zones, nights',
   'anf.tr.orderedSub': '{n} visits ended in a purchase',
   'anf.trafficDetail': 'Detail: campaigns, sites sending visits, countries (last 30 days)',

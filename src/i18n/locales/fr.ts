@@ -15995,6 +15995,7 @@ const fr: Record<string, string> = {
   'so.h.glPerNight': 'Inscrits divisés par le nombre de soirées.',
   'so.export': 'Exporter',
   'vipOwner.revenueWithConso': 'CA tables + consos',
+  'vipOwner.revenueTables': 'CA tables',
   'vipOwner.analysisDetail': 'Analyse des tables : répartition, catégories, heures, zones, soirées',
   'anf.tr.orderedSub': '{n} visites terminées par un achat',
   'anf.trafficDetail': 'Détail : campagnes, sites qui t\'envoient des visites, pays (30 derniers jours)',

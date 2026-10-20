@@ -16364,6 +16364,7 @@ const es: Record<string, string> = {
   'so.h.glPerNight': 'Inscritos divididos entre el número de noches.',
   'so.export': 'Exportar',
   'vipOwner.revenueWithConso': 'Facturación mesas + consumos',
+  'vipOwner.revenueTables': 'Facturación mesas',
   'vipOwner.analysisDetail': 'Análisis de mesas: reparto, categorías, horas, zonas, noches',
   'anf.tr.orderedSub': '{n} visitas acabaron en compra',
   'anf.trafficDetail': 'Detalle: campañas, sitios que envían visitas, países (últimos 30 días)',
