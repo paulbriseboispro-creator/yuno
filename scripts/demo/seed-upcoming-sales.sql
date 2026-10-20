@@ -9,22 +9,53 @@
 --
 -- Ce que fait le script, sur les soirées de `demo_event_ids()` qui commencent
 -- dans les 40 prochains jours (et SEULEMENT celles-là) :
---   1. efface les lignes qu'il a lui-même semées (email `seed.…@demo.womber.fr`,
---      QR `demo-gl-seed-…`, session `seed-…`) ;
---   2. sème des billets payés (palier actif), des tables (club : formules du
---      club, pack et zone renseignés), des inscrits guest list et des visites
---      de la page de la soirée, étalés sur les 14 derniers jours avec une
---      courbe qui accélère vers la date, et une part achetée AUJOURD'HUI.
+--   1. efface les lignes qu'il a lui-même semées (email
+--      `prenom.nom.v<n>@demo.womber.fr`, ou `seed.<n>@…` avant le 20/10, QR
+--      `demo-gl-seed-…`, session `seed-…`, factures `YUNO-…`) — jamais celles
+--      de `seed-triple-collab.sql` (`seed.triple.…`, `seed-triple-…`), que
+--      l'ancien motif `seed.%` emportait aussi ;
+--   2. sème, pour un vivier de 400 acheteurs (nom fixe par identité, ils
+--      reviennent d'une soirée à l'autre), des billets payés (palier actif), des tables
+--      (club : formules du club, pack et zone renseignés), des inscrits guest
+--      list et des visites de la page de la soirée, étalés sur les 14 derniers
+--      jours avec une courbe qui accélère vers la date, et une part achetée
+--      AUJOURD'HUI ;
+--   3. émet une facture par vente (`/owner/accounting` lit `invoices`), au
+--      numéro `YUNO-…` propre à la démo — jamais par `invoice_numbers`, dont
+--      la numérotation est partagée par tous les vendeurs (cf. l'en-tête de
+--      `seed-past-nights.sql`).
+--
+-- Aucune commande au bar : le pilier boissons est en pause depuis le
+-- 01/10/2026 (`docs/DRINKS_PILLAR_PAUSED.md`). Une fois la soirée passée,
+-- `seed-past-nights.sql` reprend ses lignes et la reconstruit en entier.
 --
 -- Sans risque d'envoi : les triggers qui appellent l'extérieur sur ces tables
 -- (push d'entrée, pass Wallet) ne se déclenchent qu'en UPDATE ; les adresses
 -- sont fictives (`demo.womber.fr`) et aucune automatisation n'est allumée sur
 -- la démo (le moteur exclut de toute façon `is_demo_email`).
 --
--- Relancer quand les dates passent (la démo se dégrade seule) :
---   scripts: q.sh scripts/demo/seed-upcoming-sales.sql   (API Management)
---   ou     : supabase db query --linked -f scripts/demo/seed-upcoming-sales.sql
+-- Relancer quand les dates passent (la démo se dégrade seule), APRÈS
+-- `seed-past-nights.sql`, seul sur la prod (pg_stat_activity d'abord, cf.
+-- docs/SUPABASE_PROD_HEALTH.md) :
+--   POST /v1/projects/<ref>/database/query avec le contenu du fichier
+--   (SUPABASE_ACCESS_TOKEN de .env.local), ou
+--   supabase db query --linked -f scripts/demo/seed-upcoming-sales.sql
 -- =============================================================================
+
+-- Les adresses semées par ce script, une seule définition (même règle que
+-- `seed-past-nights.sql`) : `prenom.nom.v<n>@demo.womber.fr`, sans accent, et
+-- la forme d'avant le 20/10 `seed.<n>@`. Jamais `seed.triple.…`.
+create or replace function pg_temp.seed_upcoming_email(p text) returns boolean
+language sql immutable as $$
+  select p ~ '^[a-z]+\.[a-z]+\.v[0-9]+@demo\.womber\.fr$' or p ~ '^seed\.[0-9]+@demo\.womber\.fr$';
+$$;
+create or replace function pg_temp.seed_email(p_first text, p_last text, p_tag text, p_seq int) returns text
+language sql immutable as $$
+  select format('%s.%s.%s%s@demo.womber.fr',
+                lower(translate(p_first, 'àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ', 'aaaeeeeiioouuucAAAEEEEIIOOUUUC')),
+                lower(translate(p_last, 'àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ', 'aaaeeeeiioouuucAAAEEEEIIOOUUUC')),
+                p_tag, p_seq);
+$$;
 
 -- Heure d'achat plausible : le jour tiré, à une heure de Paris surtout
 -- l'après-midi et le soir (12 h → 23 h, quelques achats de nuit), jamais dans
@@ -55,6 +86,11 @@ declare
   v_first text[] := array['Léa','Hugo','Chloé','Lucas','Inès','Nathan','Camille','Enzo','Manon','Louis','Sarah','Jules','Emma','Adam','Zoé','Théo','Jade','Noah','Lina','Tom'];
   v_last  text[] := array['Martin','Bernard','Dubois','Thomas','Robert','Petit','Durand','Leroy','Moreau','Simon','Laurent','Lefebvre','Michel','Garcia','David','Bertrand','Roux','Vincent','Fournier','Morel'];
   v_seq  int := 0;
+  -- L'acheteur : une identité d'un vivier de 400 (`prenom.nom.v<1..400>@`).
+  v_idx  int;
+  v_k    int;
+  v_fn   text;
+  v_ln   text;
   -- Instant d'une vente : t = maintenant − 14 j × u², u uniforme ⇒ la densité
   -- croît vers aujourd'hui ; une part explicite tombe AUJOURD'HUI (Paris).
   v_today timestamptz := (date_trunc('day', v_now at time zone 'Europe/Paris') at time zone 'Europe/Paris');
@@ -67,17 +103,23 @@ begin
     from public.events e
     where e.id = any (public.demo_event_ids())
       and e.start_at > v_now and e.start_at < v_now + interval '40 days'
-      and e.status = 'active' and e.is_active and e.cancelled_at is null;
+      and e.status = 'active' and e.is_active and e.cancelled_at is null
+      -- Une soirée tenue par un semis de scénario garde ses propres chiffres.
+      and not exists (select 1 from public.tickets t
+                       where t.event_id = e.id and t.user_email like 'seed.triple.%@demo.womber.fr');
 
-  -- 1. Ce que ce script a déjà semé
+  -- 1. Ce que ce script a déjà semé (jamais `seed.triple.`).
+  -- Les factures d'abord : elles n'ont pas de clé vers la vente.
+  delete from public.invoices i using seed_target s
+   where i.event_id = s.id and i.invoice_number like 'YUNO-%';
   delete from public.tickets t using seed_target s
-   where t.event_id = s.id and t.user_email like 'seed.%@demo.womber.fr';
+   where t.event_id = s.id and pg_temp.seed_upcoming_email(t.user_email);
   delete from public.table_reservations r using seed_target s
-   where r.event_id = s.id and r.user_email like 'seed.%@demo.womber.fr';
+   where r.event_id = s.id and pg_temp.seed_upcoming_email(r.user_email);
   delete from public.guest_list_entries g using public.guest_lists l, seed_target s
    where g.guest_list_id = l.id and l.event_id = s.id and g.qr_code like 'demo-gl-seed-%';
   delete from public.visitor_sessions v using seed_target s
-   where v.event_id = s.id and v.session_id like 'seed-%';
+   where v.event_id = s.id and v.session_id like 'seed-%' and v.session_id not like 'seed-triple-%';
 
   for v_ev in select * from seed_target order by start_at loop
     v_days := greatest(extract(epoch from (v_ev.start_at - v_now)) / 86400.0, 0.2);
@@ -100,10 +142,14 @@ begin
                        else pg_temp.seed_time(v_now - interval '14 days' * power(random(), 2)) end;
           v_sub := v_round.price * v_q;
           v_fee := round(v_sub * 0.04, 2);
-          insert into public.tickets (event_id, ticket_round_id, user_email, quantity, unit_price, total_price,
+          v_idx := 1 + ((v_seq * 7919) % 400);
+          v_k := (v_idx * 263) % 400;
+          v_fn := v_first[1 + v_k % 20];
+          v_ln := v_last[1 + v_k / 20];
+          insert into public.tickets (event_id, ticket_round_id, user_email, full_name, quantity, unit_price, total_price,
                                       service_fee, insurance_fee, status, paid_at, created_at)
-          values (v_ev.id, v_round.id, format('seed.%s@demo.womber.fr', v_seq), v_q, v_round.price, v_sub + v_fee,
-                  v_fee, 0, 'paid', v_at, v_at);
+          values (v_ev.id, v_round.id, pg_temp.seed_email(v_fn, v_ln, 'v', v_idx), v_fn || ' ' || v_ln,
+                  v_q, v_round.price, v_sub + v_fee, v_fee, 0, 'paid', v_at, v_at);
         end loop;
       end if;
     end if;
@@ -124,11 +170,14 @@ begin
         v_i := v_i + 1; v_seq := v_seq + 1;
         v_at := case when v_i = 1 and v_days <= 3 then v_today + (v_now - v_today) * random()
                      else pg_temp.seed_time(v_now - interval '10 days' * power(random(), 2)) end;
+        v_idx := 1 + ((v_seq * 7919) % 400);
+        v_k := (v_idx * 263) % 400;
+        v_fn := v_first[1 + v_k % 20];
+        v_ln := v_last[1 + v_k / 20];
         insert into public.table_reservations (event_id, pack_id, zone_id, user_email, full_name, guest_count,
                                                total_price, deposit, service_fee, management_fee, payment_mode,
                                                status, paid_at, created_at)
-        values (v_ev.id, v_pack.id, v_pack.zone_id, format('seed.%s@demo.womber.fr', v_seq),
-                v_first[1 + floor(random() * 20)::int] || ' ' || v_last[1 + floor(random() * 20)::int],
+        values (v_ev.id, v_pack.id, v_pack.zone_id, pg_temp.seed_email(v_fn, v_ln, 'v', v_idx), v_fn || ' ' || v_ln,
                 6 + floor(random() * 5)::int,
                 -- Comme un vrai checkout : total_price = le prix de la table, SANS les
                 -- frais de gestion Yuno (payés EN PLUS par le client, 4 %).
@@ -149,10 +198,12 @@ begin
         v_at := case when v_i <= greatest(1, v_n / 6)
                      then v_today + (v_now - v_today) * random()
                      else pg_temp.seed_time(v_now - interval '14 days' * power(random(), 2)) end;
+        v_idx := 1 + ((v_seq * 7919) % 400);
+        v_k := (v_idx * 263) % 400;
+        v_fn := v_first[1 + v_k % 20];
+        v_ln := v_last[1 + v_k / 20];
         insert into public.guest_list_entries (guest_list_id, full_name, email, phone, qr_code, status, entry_type, gender, created_at)
-        values (v_gl.id,
-                v_first[1 + floor(random() * 20)::int] || ' ' || v_last[1 + floor(random() * 20)::int],
-                format('seed.%s@demo.womber.fr', v_seq),
+        values (v_gl.id, v_fn || ' ' || v_ln, pg_temp.seed_email(v_fn, v_ln, 'v', v_idx),
                 '+336' || lpad(floor(random() * 100000000)::text, 8, '0'),
                 'demo-gl-seed-' || gen_random_uuid(), 'pending', 'normal',
                 case when random() < 0.55 then 'F' else 'M' end, v_at);
@@ -161,7 +212,7 @@ begin
 
     -- 2d. Visites de la page de la soirée (≈ 6 par commande, 1 sur 6 achète)
     v_n := greatest(10, (select count(*) from public.tickets t where t.event_id = v_ev.id
-                                                            and t.user_email like 'seed.%@demo.womber.fr')::int * 6);
+                                                            and pg_temp.seed_upcoming_email(t.user_email))::int * 6);
     for v_i in 1..v_n loop
       v_at := case when v_i <= v_n / 7 then v_today + (v_now - v_today) * random()
                    else pg_temp.seed_time(v_now - interval '14 days' * power(random(), 2)) end;
@@ -210,16 +261,65 @@ begin
      set tickets_sold = coalesce((select sum(t.quantity) from public.tickets t
                                   where t.ticket_round_id = r.id and t.status = 'paid'), 0)
    where r.event_id in (select id from seed_target);
+
+  -- 4. Factures, comme `save_invoice_on_creation` les écrit (même montant,
+  -- même calcul de TVA, mêmes lignes), au numéro `YUNO-<aammjj>-<6 hex>`.
+  with s as (
+    select t.id as ticket_id, null::uuid as table_id, 'ticket'::text as type, t.total_price as amount,
+           coalesce(t.service_fee, 0) as service_fee, 0::numeric as management_fee, coalesce(t.insurance_fee, 0) as insurance_fee,
+           t.user_email, t.full_name, t.event_id, coalesce(t.paid_at, t.created_at) as at,
+           jsonb_build_array(jsonb_build_object('description', 'Billet', 'quantity', coalesce(t.quantity, 1),
+             'unitPrice', coalesce(t.unit_price, 0), 'total', coalesce(t.quantity, 1) * coalesce(t.unit_price, 0))) as items
+      from public.tickets t join seed_target st on st.id = t.event_id
+     where pg_temp.seed_upcoming_email(t.user_email) and t.status in ('paid', 'used')
+    union all
+    select null, r.id, 'table', r.total_price,
+           coalesce(r.service_fee, 0), coalesce(r.management_fee, 0), 0,
+           r.user_email, r.full_name, r.event_id, coalesce(r.paid_at, r.created_at),
+           jsonb_build_array(jsonb_build_object('description', 'Table VIP', 'quantity', 1,
+             'unitPrice', coalesce(r.deposit, 0), 'total', coalesce(r.deposit, 0)))
+      from public.table_reservations r join seed_target st on st.id = r.event_id
+     where pg_temp.seed_upcoming_email(r.user_email) and r.status in ('paid', 'confirmed')
+  ), x as (
+    select s.*, e.title, e.start_at, e.poster_url,
+           coalesce(e.venue_id, e.partner_venue_id) as v_id,
+           coalesce(e.organizer_user_id, e.partner_organizer_id) as o_id
+      from s join public.events e on e.id = s.event_id
+  ), y as (
+    select x.*,
+           case when x.o_id is not null and x.v_id is null then public.organizer_vat_rate(x.o_id) else 20 end as rate
+      from x
+  ), z as (
+    select y.*,
+           case when y.rate = 20 then y.amount / 1.2
+                else greatest(0, y.amount - (y.service_fee + y.management_fee + y.insurance_fee)) / (1 + y.rate / 100)
+                     + (y.service_fee + y.management_fee + y.insurance_fee) / 1.2 end as ht
+      from y
+  )
+  insert into public.invoices (venue_id, organizer_user_id, invoice_number, type, amount, total_ht, tva,
+                               service_fee, management_fee, insurance_fee, customer_email, customer_name,
+                               event_id, event_name, event_date, event_poster, ticket_id, table_reservation_id,
+                               items, created_at)
+  select z.v_id, z.o_id,
+         'YUNO-' || to_char(z.at at time zone 'Europe/Paris', 'YYMMDD') || '-'
+           || upper(left(md5(coalesce(z.ticket_id, z.table_id)::text), 6)),
+         z.type, z.amount, z.ht, z.amount - z.ht,
+         z.service_fee, z.management_fee, z.insurance_fee, z.user_email, z.full_name,
+         z.event_id, z.title, z.start_at, z.poster_url, z.ticket_id, z.table_id,
+         z.items, z.at
+    from z;
 end
 $seed$;
 
 -- Ce qui a été semé, soirée par soirée.
 select e.title, to_char(e.start_at at time zone 'Europe/Paris', 'DD/MM HH24:MI') as quand,
-       (select coalesce(sum(t.quantity), 0) from public.tickets t where t.event_id = e.id and t.user_email like 'seed.%') as billets,
-       (select count(*) from public.table_reservations r where r.event_id = e.id and r.user_email like 'seed.%') as tables,
+       (select coalesce(sum(t.quantity), 0) from public.tickets t where t.event_id = e.id and pg_temp.seed_upcoming_email(t.user_email)) as billets,
+       (select count(*) from public.table_reservations r where r.event_id = e.id and pg_temp.seed_upcoming_email(r.user_email)) as tables,
        (select count(*) from public.guest_list_entries g join public.guest_lists l on l.id = g.guest_list_id
          where l.event_id = e.id and g.qr_code like 'demo-gl-seed-%') as guest_list,
-       (select count(*) from public.visitor_sessions v where v.event_id = e.id and v.session_id like 'seed-%') as visites
+       (select count(*) from public.visitor_sessions v where v.event_id = e.id and v.session_id like 'seed-%'
+         and v.session_id not like 'seed-triple-%') as visites,
+       (select count(*) from public.invoices i where i.event_id = e.id and i.invoice_number like 'YUNO-%') as factures
 from public.events e
 where e.id = any (public.demo_event_ids()) and e.start_at > now() and e.start_at < now() + interval '40 days'
   and e.status = 'active' and e.is_active and e.cancelled_at is null
