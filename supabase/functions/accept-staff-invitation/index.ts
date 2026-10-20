@@ -3,6 +3,7 @@ import { buildPasswordSetup, staffRoleLabel, type Lang } from '../_shared/email-
 import { SUBSCRIPTIONS_ENABLED } from '../_shared/venue-plan.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { jwtSessionId } from "../_shared/support-session.ts";
+import { handleAcceptEventDoor } from "../_shared/event-door-staff.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -687,6 +688,9 @@ Deno.serve(async (req) => {
 
     // Lecture seule d'une invitation par son token (la page d'acceptation).
     if (body?.action === 'describe_invitation') return await handleDescribeInvitation(supabase, body);
+
+    // Staff de porte d'UNE soirée (staff du club invité, event_door_staff).
+    if (body?.action === 'accept_event_door') return await handleAcceptEventDoor(req, supabase, body, corsHeaders);
 
     // ─── Default behavior: accept an email-based staff invitation ────────────
     const { token, first_name, last_name } = body;

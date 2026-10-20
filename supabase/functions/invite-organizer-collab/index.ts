@@ -6,6 +6,7 @@ import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { summarizeTerms, needsStripe } from "../_shared/collab-invite-text.ts";
 import { handleCoorgInvite } from "../_shared/coorg-invite.ts";
 import { handleHostPassInvite } from "../_shared/host-pass-invite.ts";
+import { handleEventDoorInviteEmail } from "../_shared/event-door-staff.ts";
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
 // The accept link goes into an email holding a live token — never build it from
@@ -51,6 +52,11 @@ const handler = async (req: Request): Promise<Response> => {
   });
 
   try {
+    const body = await req.json();
+    // Staff de porte d'une soirée : l'invité l'invite SANS compte (son jeton
+    // d'espace suffit), l'organisateur avec son JWT. Règles dans la RPC.
+    if (body?.kind === "door_staff") return await handleEventDoorInviteEmail(req, body, corsHeaders);
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Not authenticated" }, 401, corsHeaders);
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -60,7 +66,6 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Not authenticated" }, 401, corsHeaders);
 
-    const body = await req.json();
     // Co-organisation : inviter par email une structure sans compte (club ou
     // organisateur). Règles dans la RPC create_cohost_email_invite.
     if (body?.kind === "coorg") return await handleCoorgInvite(req, body, corsHeaders);

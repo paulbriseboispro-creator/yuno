@@ -2,7 +2,7 @@
 // de l'edge `invite-organizer-collab` : le quota de fonctions du projet
 // interdit d'en créer une nouvelle).
 //
-// Toutes les règles vivent dans la RPC `prepare_event_host_pass_email`, appelée
+// Toutes les règles vivent dans la RPC `prepare_event_guest_pass_email`, appelée
 // AVEC LE JWT du pro (partie principale niveau ≥ 2, accès vivant, 5 envois au
 // plus, 10 min entre deux, jamais en accès assisté). Ici on n'envoie que l'email,
 // et jamais vers une adresse démo.
@@ -23,7 +23,8 @@ interface PreparedHostPassEmail {
   token: string;
   email: string;
   language: string;
-  venue_name: string;
+  guest_name: string;
+  guest_kind: string;
   inviter_name: string;
   event_title: string;
   event_start_at: string | null;
@@ -45,7 +46,7 @@ export async function handleHostPassInvite(req: Request, b: HostPassInviteBody, 
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
     });
-    const { data, error } = await userClient.rpc("prepare_event_host_pass_email", { p_pass_id: b?.pass_id ?? null });
+    const { data, error } = await userClient.rpc("prepare_event_guest_pass_email", { p_pass_id: b?.pass_id ?? null });
     if (error) {
       const code = /([a-z_]+)$/.exec(String(error.message ?? "").trim())?.[1] ?? "error";
       return json({ error: code }, 400, corsHeaders);
@@ -59,7 +60,7 @@ export async function handleHostPassInvite(req: Request, b: HostPassInviteBody, 
     if (RESEND_API_KEY && inv.is_demo !== true) {
       const mail = buildHostPassEmail({
         lang: inv.language,
-        venueName: inv.venue_name,
+        venueName: inv.guest_name,
         inviterName: inv.inviter_name,
         eventTitle: inv.event_title,
         eventStartAt: inv.event_start_at,
