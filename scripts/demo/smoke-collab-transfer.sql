@@ -120,12 +120,16 @@ insert into _r3 select 5, 'reçu : club encaisseur', coalesce((select name from 
 -- 6-7. facture stockée : TVA de l'encaisseur (orga en franchise = TVA sur les frais Yuno seulement)
 update organizer_profiles set vat_regime='franchise' where user_id='ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9';
 update tickets set collab_split='{"mode":"transfer","collector":"organizer"}' where qr_code='SMOKE-SELLER-QR';
+-- Le numéro est attribué par la base (assign_invoice_number) : on lit la
+-- facture par la vente, une facture par vente (index unique).
 delete from invoices where ticket_id=(select id from tickets where qr_code='SMOKE-SELLER-QR');
 delete from invoice_numbers where ticket_id=(select id from tickets where qr_code='SMOKE-SELLER-QR');
-insert into invoice_numbers(ticket_id, invoice_number) select id, 'SMOKE-INV-1' from tickets where qr_code='SMOKE-SELLER-QR';
-insert into _r3 select 6, 'facture orga franchise (TVA)', tva::text from invoices where invoice_number='SMOKE-INV-1';
+insert into invoice_numbers(ticket_id, invoice_number) select id, '' from tickets where qr_code='SMOKE-SELLER-QR';
+insert into _r3 select 6, 'facture orga franchise (TVA)', i.seller_kind||' '||i.invoice_number||' tva='||i.tva from invoices i where i.ticket_id=(select id from tickets where qr_code='SMOKE-SELLER-QR');
 update tickets set collab_split=null where qr_code='SMOKE-SELLER-QR';
-insert into invoice_numbers(ticket_id, invoice_number) select id, 'SMOKE-INV-2' from tickets where qr_code='SMOKE-SELLER-QR';
-insert into _r3 select 7, 'facture club (TVA 20 %)', tva::text from invoices where invoice_number='SMOKE-INV-2';
+delete from invoices where ticket_id=(select id from tickets where qr_code='SMOKE-SELLER-QR');
+delete from invoice_numbers where ticket_id=(select id from tickets where qr_code='SMOKE-SELLER-QR');
+insert into invoice_numbers(ticket_id, invoice_number) select id, '' from tickets where qr_code='SMOKE-SELLER-QR';
+insert into _r3 select 7, 'facture club (TVA 20 %)', i.seller_kind||' '||i.invoice_number||' tva='||i.tva from invoices i where i.ticket_id=(select id from tickets where qr_code='SMOKE-SELLER-QR');
 select * from _r3 order by step;
 ROLLBACK;

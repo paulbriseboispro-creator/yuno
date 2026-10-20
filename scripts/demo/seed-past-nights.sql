@@ -51,10 +51,10 @@
 --     file pour le promoteur (`promoter_push_on_conversion`), et la file des
 --     push promoteur ne filtre pas la démo ;
 --   - les factures s'écrivent dans `invoices` directement, au préfixe `YUNO-`
---     propre à la démo, jamais par `invoice_numbers` : cette numérotation est
---     unique sur TOUTE la base mais comptée par vendeur avec un préfixe commun
---     (`FAC` / `ORG`), des milliers de numéros `FAC-2026-…` y bloqueraient la
---     facture des vrais clubs.
+--     propre à la démo, jamais par `invoice_numbers` : la base y attribue le
+--     numéro de la suite légale du vendeur (une par club / organisateur,
+--     migration 20261106410000), et des milliers de factures semées y
+--     prendraient des rangs.
 --
 -- Relancer quand les semaines passent, SEUL sur la prod (pg_stat_activity
 -- d'abord, cf. docs/SUPABASE_PROD_HEALTH.md), avant `seed-upcoming-sales.sql` :
