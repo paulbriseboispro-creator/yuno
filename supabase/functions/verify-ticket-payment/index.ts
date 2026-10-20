@@ -10,6 +10,7 @@ import {
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { issueSaleInvoice } from "../_shared/sale-invoice.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -391,27 +392,16 @@ serve(async (req) => {
       const resolvedVenueId = event?.venue_id ?? event?.partner_venue_id ?? null;
       const resolvedOrganizerId = event?.organizer_user_id ?? event?.partner_organizer_id ?? null;
 
+      // Facture : numéro attribué par la base, une suite par vendeur. Un échec
+      // n'arrête pas la vente mais lève une alerte super admin (sale-invoice.ts).
       if (resolvedVenueId || resolvedOrganizerId) {
-        try {
-          const { data: invoiceNumber } = await supabaseAdmin.rpc('generate_invoice_number', {
-            p_venue_id: resolvedVenueId,
-            p_organizer_user_id: resolvedOrganizerId,
-          });
-
-          if (invoiceNumber) {
-            await supabaseAdmin
-              .from('invoice_numbers')
-              .insert({
-                venue_id: resolvedVenueId,
-                organizer_user_id: resolvedOrganizerId,
-                ticket_id: ticketId,
-                invoice_number: invoiceNumber,
-              });
-
-            logStep("Invoice created for ticket", { invoiceNumber, ticketId, resolvedVenueId, resolvedOrganizerId });
-          }
-        } catch (invoiceError) {
-          console.error('Error creating invoice:', invoiceError);
+        const invoiceNumber = await issueSaleInvoice(
+          supabaseAdmin,
+          { kind: 'ticket', id: ticketId, eventId: ticket.event_id },
+          'verify-ticket-payment',
+        );
+        if (invoiceNumber) {
+          logStep("Invoice created for ticket", { invoiceNumber, ticketId, resolvedVenueId, resolvedOrganizerId });
         }
       }
 
