@@ -221,6 +221,49 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   `crm_apply_stripe_subscription` AVANT la logique club. Sans prix créés,
   `crm_checkout` répond `billing_not_configured`. Démo : socle accordé un an.
 
+## Yuno Tickets et Yuno CRM : deux produits SÉPARÉS (2026-10-20)
+
+Décision de Paul : « sépare vraiment les deux outils, pas de rapport de l'un à l'autre, sauf si une personne a les
+deux : un bouton pour passer de l'un à l'autre ». Un compte à deux produits (`extra_products`, ex. WOH, Amoris) n'a
+donc que le login, l'infrastructure d'envoi / de quotas et le bouton de bascule (`goToProduct`) en commun. Plan, état
+des lots et rapports : `docs/designs/CRM_TICKETS_SEPARATION.md`. Règles intouchables :
+
+- **Une colonne `product` par donnée partagée : NULL = Yuno Tickets, `'crm'` = Yuno CRM** (CHECK `IS NULL OR = 'crm'`,
+  jamais sur la portée plateforme) : `newsletter_subscriptions`, `email_opt_outs`, `contact_list_imports`,
+  `email_list_imports`, `sms_list_imports`, `imported_contacts` (dérivé de sa liste), `venue_sms_contacts`,
+  `email_campaign_templates`, `email_automations` (un slot par portée, recette ET produit), `contact_engagement`
+  (clé `…|crm`), `email_campaigns`, `sms_campaigns`. Une adresse a UNE ligne par produit chez un même pro : deux
+  accords, deux jetons de désinscription. Un client ne change jamais le produit d'une ligne (triggers de garde).
+- **`_separation_default_product()`** (trigger BEFORE INSERT) : compte CRM pur ⇒ `'crm'`, compte sans CRM ⇒ NULL,
+  compte à deux produits ⇒ la valeur de l'écrivain. Les écrivains d'un compte à deux produits passent TOUJOURS le
+  produit ; les fonctions d'import prennent `p_product DEFAULT NULL`, que la Console CRM passe à `'crm'`.
+- **Tout `ON CONFLICT` d'une table partagée cite le produit** (index uniques `NULLS NOT DISTINCT` : `(lower(email),
+  venue_id|organizer_user_id, product)`, `(venue_id, phone_e164, organizer_user_id, product)`). Une cible sans
+  produit lève 42P10 et casse un achat ou un import : le test `crmIsolationMigrations.test.ts` lit l'état final des
+  fonctions du dépôt et le refuse.
+- **Lecteurs** : la Billetterie lit `product IS NULL`, le CRM `product = 'crm'` ; le moteur d'envoi lit le produit de la
+  CAMPAGNE (`crm_campaign_is_crm`, `sms_campaign_is_crm`) ou de la RECETTE (`_email_recipe_is_crm`), jamais celui de la
+  portée. La base de contacts a deux vues : `contact_scope_customers(venue, orga, p_product)` — `'crm'` = billets
+  Shotgun + registre / imports du CRM, sans vente, client ni profil Yuno ; `'suite'` (défaut) = ventes Yuno + registre /
+  imports de la Billetterie, sans Shotgun ; cache sous deux clés (`o:<uuid>` / `o:<uuid>|crm`). Les soirées miroir
+  (`external_source`) restent celles du CRM (règle du 19/10).
+- **Compte à deux produits à la bascule** : lignes d'origine CRM (connecteur, pages d'inscription, imports faits depuis
+  la Console CRM) changent de produit SUR PLACE ; fichiers importés COPIÉS vers le CRM (`_sep3_copy_id(ancien id)`,
+  nouveaux jetons) ; un accord né d'une surface Yuno (achat, guest list, waitlist, case du checkout…) n'entre JAMAIS
+  dans le CRM. Compte CRM pur : tout est `'crm'`. Compte sans CRM : rien.
+- **Deux exceptions légales restent transverses** : la liste de suppression (`email_suppressions`, `sms_stop_list` :
+  rebond, plainte, STOP) et la désinscription (`unsubscribe_by_token`, `sms_stop_unsubscribe` : un « stop » vaut pour
+  les deux outils d'un même pro ; les écrivains automatiques respectent un stop posé dans l'autre outil). La politique
+  d'envoi (pression 24 h / 7 j, fatigue) protège l'ADRESSE : elle reste commune.
+- **Réglages par produit** : le gel d'envoi (`crm_settings.sending_frozen_at`) ne vise que les campagnes du CRM ;
+  l'identité légale d'annonceur SMS du CRM vit dans `crm_sms_settings` (`set_sms_sender_identity` n'écrit plus la fiche
+  légale, vendeur des reçus de la Billetterie) ; un plafond de Yunits, le témoin de 10 % et la pause du forfait valent
+  pour toute recette CRM, d'un compte à deux produits aussi.
+- Ce qui n'est PAS tranché : nom / ville / logo du compte (`save_crm_identity` les écrit pour les deux outils), anciennes
+  pages CRM encore montées dans `/owner` et `/organizer-app`, MCP d'un compte à deux produits (un seul produit par espace).
+- Banc : `node scripts/crm-bench/audit-separation.mjs roots|dump|` (PGlite, définitions de la prod, trois comptes
+  synthétiques : deux produits, CRM pur, Billetterie pure).
+
 ## Stack
 
 - **Frontend** : Vite 8 (rolldown) + React 18 + TypeScript + shadcn/ui + Tailwind. SPA statique.
