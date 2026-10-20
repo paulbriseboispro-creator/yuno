@@ -137,6 +137,7 @@ BEGIN
     LEFT JOIN LATERAL (
       SELECT lower(vc.email) AS email FROM public.venue_sms_contacts vc
        WHERE vc.phone_e164 = r.phone_e164 AND vc.email IS NOT NULL
+         AND vc.product = 'crm'
          AND vc.venue_id IS NOT DISTINCT FROM p_venue_id AND vc.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
        LIMIT 1) m ON true
    WHERE r.status IN ('sent', 'delivered', 'undelivered', 'failed') AND r.sent_at IS NOT NULL;
@@ -160,6 +161,7 @@ BEGIN
     JOIN _csr r ON r.phone = vc.phone_e164
      AND vc.unsubscribed_at > r.sent_at AND vc.unsubscribed_at <= r.sent_at + interval '7 days'
    WHERE vc.unsubscribed AND vc.unsubscribed_at IS NOT NULL
+     AND vc.product = 'crm'
      AND vc.venue_id IS NOT DISTINCT FROM p_venue_id AND vc.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
    ORDER BY vc.phone_e164, r.sent_at DESC;
 
@@ -445,7 +447,7 @@ BEGIN
 
   IF p_patch ? 'event_id' AND NULLIF(p_patch->>'event_id', '') IS NOT NULL THEN
     SELECT e.id INTO v_event FROM public.events e
-     WHERE e.id = (p_patch->>'event_id')::uuid
+     WHERE e.id = (p_patch->>'event_id')::uuid AND e.external_source IS NOT NULL
        AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
          OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id));
     IF v_event IS NULL THEN RAISE EXCEPTION 'bad_event' USING ERRCODE = '22023'; END IF;
@@ -590,6 +592,7 @@ AS $function$
      WHERE c.sent_at IS NOT NULL AND c.status IN ('sent', 'sending')
        AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
        AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+       AND public.crm_campaign_is_crm(c.id)
        AND c.sent_at > now() - interval '13 months'
        AND public._crm_ana_bucket(p_meta, c.sent_at) IS NOT NULL
        AND (p_meta->>'mode' <> 'event' OR c.event_id IS NULL OR c.event_id = (p_meta->'event'->>'id')::uuid)
@@ -619,7 +622,7 @@ BEGIN
   SELECT array_agg(DISTINCT lower(substring(e.external_ticket_url FROM '^https?://([^/:?#]+)')))
     INTO v_hosts
     FROM public.events e
-   WHERE e.external_ticket_url IS NOT NULL
+   WHERE e.external_ticket_url IS NOT NULL AND e.external_source IS NOT NULL
      AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
        OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id));
 
@@ -628,6 +631,7 @@ BEGIN
     SELECT c.id, c.name, c.sent_at, c.audiences_json
       FROM public.email_campaigns c
      WHERE c.status IN ('sent', 'sending') AND c.sent_at IS NOT NULL
+       AND public.crm_campaign_is_crm(c.id)
        AND c.venue_id IS NOT DISTINCT FROM p_venue_id
        AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id;
 
@@ -701,6 +705,7 @@ AS $function$
      AND c.venue_id IS NOT DISTINCT FROM p_venue_id
      AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
      AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
+     AND public.crm_campaign_is_crm(c.id)
      AND c.status IN ('draft', 'scheduled', 'sending', 'sent', 'paused')
   UNION ALL
   SELECT s.event_id, s.id, 'sms', s.name,
@@ -840,6 +845,7 @@ BEGIN
      WHERE c.sent_at >= v_start AND c.sent_at < v_end AND c.status IN ('sent', 'sending')
        AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
        AND c.automation_id IS NULL
+       AND public.crm_campaign_is_crm(c.id)
     UNION ALL
     SELECT jsonb_build_object('at', s.sent_at, 'name', s.name, 'channel', 'sms', 'id', s.id)
       FROM public.sms_campaigns s
@@ -900,6 +906,7 @@ BEGIN
       FROM public.email_campaigns c
      WHERE c.status = 'sent' AND c.sent_at IS NOT NULL AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
        AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+       AND public.crm_campaign_is_crm(c.id)
      ORDER BY c.sent_at DESC LIMIT 2
   ), conv AS (
     SELECT l.id, l.name, l.sent_at,
@@ -934,6 +941,7 @@ BEGIN
     FROM public.email_campaigns c
    WHERE c.status = 'sent' AND c.sent_at > v_now - interval '14 days' AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
      AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+     AND public.crm_campaign_is_crm(c.id)
    ORDER BY c.sent_at DESC LIMIT 1;
 
   -- ── Prochaine soirée ─────────────────────────────────────────────────────
@@ -1036,7 +1044,8 @@ BEGIN
     INTO v_reserved
     FROM public.email_campaigns c
    WHERE c.status = 'scheduled' AND c.scheduled_at > v_now
-     AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id;
+     AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+     AND public.crm_campaign_is_crm(c.id);
 
   IF NOT v_has_conn AND (SELECT count(*) FROM _cr) = 0 THEN
     v_todo := jsonb_build_array(
@@ -1056,6 +1065,7 @@ BEGIN
                FROM public.email_campaigns c
               WHERE c.status = 'scheduled' AND c.scheduled_at > v_now AND c.scheduled_at < v_now + interval '24 hours'
                 AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+                AND public.crm_campaign_is_crm(c.id)
               ORDER BY c.scheduled_at LIMIT 2 LOOP
       v_todo := v_todo || jsonb_build_object('id', 'validate:' || v_row.id, 'kind', 'validate', 'tone', 'todo',
         'params', jsonb_build_object('campaign_id', v_row.id, 'name', v_row.name, 'at', v_row.scheduled_at, 'recipients', v_row.n));
@@ -1066,6 +1076,7 @@ BEGIN
               WHERE c.status = 'draft' AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
                 AND c.updated_at > v_now - interval '14 days'
                 AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+                AND public.crm_campaign_is_crm(c.id)
               ORDER BY c.updated_at DESC LIMIT 1 LOOP
       v_todo := v_todo || jsonb_build_object('id', 'draft:' || v_row.id, 'kind', 'draft', 'tone', 'wait',
         'params', jsonb_build_object('campaign_id', v_row.id, 'name', v_row.name, 'updated_at', v_row.updated_at));
@@ -1176,7 +1187,8 @@ BEGIN
     FROM public.email_automation_sends l
    WHERE l.venue_id IS NOT DISTINCT FROM p_venue_id
      AND (p_venue_id IS NOT NULL OR l.organizer_user_id = p_organizer_user_id)
-     AND l.status = 'queued' AND l.created_at >= v_from AND l.created_at < v_to;
+     AND l.status = 'queued' AND l.created_at >= v_from AND l.created_at < v_to
+     AND EXISTS (SELECT 1 FROM public.email_automations a WHERE a.id = l.automation_id AND a.product = 'crm');
 
   -- ── Mesuré par le témoin ──────────────────────────────────────────────────
   -- Les envois dont la soirée a eu lieu cette semaine, avec une mesure (10
@@ -1251,7 +1263,7 @@ BEGIN
   -- ── 1 à 3 actions, chacune avec l'écran qui la prépare ───────────────────
   SELECT count(*) FILTER (WHERE s.status = 'active')::int INTO v_active FROM public.crm_scenarios s WHERE s.scope_key = v_key;
   SELECT count(*)::int INTO v_recipes_on FROM public.email_automations a
-   WHERE a.enabled AND a.venue_id IS NOT DISTINCT FROM p_venue_id AND (p_venue_id IS NOT NULL OR a.organizer_user_id = p_organizer_user_id);
+   WHERE a.enabled AND a.product = 'crm' AND a.venue_id IS NOT DISTINCT FROM p_venue_id AND (p_venue_id IS NOT NULL OR a.organizer_user_id = p_organizer_user_id);
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_drift) d WHERE d->>'kind' = 'pace') THEN
     v_actions := v_actions || jsonb_build_object('kind', 'targets', 'event_id', v_next.id, 'title', v_next.title, 'start_at', v_next.start_at);
   END IF;
@@ -1353,7 +1365,8 @@ BEGIN
            WHERE c.status = 'draft' AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
              AND c.updated_at > now() - interval '30 days'
              AND c.venue_id IS NOT DISTINCT FROM p_venue_id
-             AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id)
+             AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+             AND public.crm_campaign_is_crm(c.id))
        + (SELECT count(*) FROM public.sms_campaigns s
            WHERE s.status = 'draft' AND s.updated_at > now() - interval '30 days'
              AND s.venue_id IS NOT DISTINCT FROM p_venue_id
@@ -1364,7 +1377,7 @@ BEGIN
   -- Contacts à corriger : adresse qui rebondit ou injoignable.
   SELECT count(*) INTO v_unreachable
     FROM public.contact_engagement e
-   WHERE e.scope_key = public.contact_base_scope_key(p_venue_id, p_organizer_user_id) AND e.status = 'unreachable';
+   WHERE e.scope_key = public.contact_base_scope_key(p_venue_id, p_organizer_user_id) || '|crm' AND e.status = 'unreachable';
 
   -- Notifications CRM de la personne : à faire non reportées + non lues.
   SELECT count(*) INTO v_unread
@@ -1376,7 +1389,7 @@ BEGIN
   SELECT COALESCE(sum(public._crm_campaign_estimate(c.id)), 0)::int * (cfg->'rates'->>'email')::int
     INTO v_reserved
     FROM public.email_campaigns c
-   WHERE c.status = 'scheduled' AND c.scheduled_at > now()
+   WHERE c.status = 'scheduled' AND c.scheduled_at > now() AND public.crm_campaign_is_crm(c.id)
      AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id;
 
   RETURN jsonb_build_object(
@@ -1447,6 +1460,7 @@ BEGIN
       FROM public.email_campaigns c
      WHERE c.status = 'scheduled' AND c.scheduled_at > now()
        AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+       AND public.crm_campaign_is_crm(c.id)
     UNION ALL
     SELECT s.id::text, s.name, 'sms', s.scheduled_at,
            GREATEST(COALESCE(s.estimated_recipients, 0), 0) * GREATEST(COALESCE(s.segments_per_message, 1), 1) * (cfg->'rates'->>'sms')::int
@@ -1595,6 +1609,7 @@ BEGIN
                           FROM public.email_campaigns c
                          WHERE c.event_id = v_ev AND c.automation_id IS NULL AND c.child_kind IS NULL AND c.parent_campaign_id IS NULL
                            AND c.status IN ('draft', 'scheduled', 'sending', 'paused', 'sent')
+                           AND public.crm_campaign_is_crm(c.id)
                            AND c.venue_id IS NOT DISTINCT FROM p_venue_id
                            AND (p_venue_id IS NOT NULL OR c.organizer_user_id = p_organizer_user_id)), '[]'::jsonb),
     'sms', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'status', c.status,
@@ -1688,13 +1703,15 @@ BEGIN
         SELECT (SELECT count(*) FROM public.email_campaigns c
                  WHERE c.automation_id IS NULL AND c.status IN ('sent', 'sending')
                    AND COALESCE(c.sent_at, c.send_started_at) >= now() - interval '30 days'
-                   AND ((b.venue_id IS NOT NULL AND c.venue_id = b.venue_id) OR (b.org_id IS NOT NULL AND c.organizer_user_id = b.org_id)))::int
+                   AND ((b.venue_id IS NOT NULL AND c.venue_id = b.venue_id) OR (b.org_id IS NOT NULL AND c.organizer_user_id = b.org_id))
+                   AND public.crm_campaign_is_crm(c.id))::int
              + (SELECT count(*) FROM public.sms_campaigns c
                  WHERE c.status IN ('sent', 'sending') AND COALESCE(c.sent_at, c.send_started_at) >= now() - interval '30 days'
                    AND ((b.venue_id IS NOT NULL AND c.venue_id = b.venue_id) OR (b.org_id IS NOT NULL AND c.organizer_id = b.org_id)) AND c.product = 'crm')::int AS sends30,
                (SELECT max(COALESCE(c.sent_at, c.send_started_at)) FROM public.email_campaigns c
                  WHERE c.automation_id IS NULL AND c.status IN ('sent', 'sending')
-                   AND ((b.venue_id IS NOT NULL AND c.venue_id = b.venue_id) OR (b.org_id IS NOT NULL AND c.organizer_user_id = b.org_id))) AS last_send_at) se ON true
+                   AND ((b.venue_id IS NOT NULL AND c.venue_id = b.venue_id) OR (b.org_id IS NOT NULL AND c.organizer_user_id = b.org_id))
+                   AND public.crm_campaign_is_crm(c.id)) AS last_send_at) se ON true
       LEFT JOIN LATERAL (
         SELECT count(*)::int AS n,
                COALESCE(sum(CASE WHEN (m.meta->>'amount_total') ~ '^[0-9]+$'
@@ -1708,7 +1725,7 @@ BEGIN
         SELECT EXISTS (SELECT 1 FROM public.crm_imports i WHERE i.scope_key = b.scope_key AND i.status <> 'undone' AND i.undone_at IS NULL) AS imports,
                EXISTS (SELECT 1 FROM public.crm_email_settings e WHERE e.scope_key = b.scope_key
                           AND COALESCE(e.sender_name, '') <> '' AND COALESCE(e.postal_address, '') <> '') AS send_settings,
-               (SELECT count(*) FROM public.email_automations a WHERE a.enabled
+               (SELECT count(*) FROM public.email_automations a WHERE a.enabled AND a.product = 'crm'
                    AND ((b.venue_id IS NOT NULL AND a.venue_id = b.venue_id) OR (b.org_id IS NOT NULL AND a.organizer_user_id = b.org_id)))::int AS recipes,
                CASE WHEN b.org_id IS NOT NULL
                     THEN (SELECT count(*) FROM public.org_members m WHERE m.organizer_user_id = b.org_id AND m.invitation_status = 'accepted')::int
@@ -1837,7 +1854,8 @@ BEGIN
     CROSS JOIN LATERAL (
       SELECT GREATEST(
         (SELECT max(c.sent_at) FROM public.email_campaigns c
-          WHERE c.venue_id IS NOT DISTINCT FROM a.venue_id AND (a.venue_id IS NOT NULL OR c.organizer_user_id = a.org) AND c.sent_at IS NOT NULL),
+          WHERE c.venue_id IS NOT DISTINCT FROM a.venue_id AND (a.venue_id IS NOT NULL OR c.organizer_user_id = a.org) AND c.sent_at IS NOT NULL
+            AND public.crm_campaign_is_crm(c.id)),
         (SELECT max(c.sent_at) FROM public.sms_campaigns c
           WHERE c.venue_id IS NOT DISTINCT FROM a.venue_id AND (a.venue_id IS NOT NULL OR c.organizer_id = a.org) AND c.sent_at IS NOT NULL AND c.product = 'crm'),
         (SELECT max(st.done_at) FROM public.crm_scenario_steps st JOIN public.crm_scenarios s ON s.id = st.scenario_id
@@ -2256,6 +2274,7 @@ BEGIN
         FROM (SELECT * FROM public.email_campaigns c
                WHERE ((v_venue IS NOT NULL AND c.venue_id = v_venue) OR (v_org IS NOT NULL AND c.organizer_user_id = v_org AND c.venue_id IS NULL))
                  AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
+                 AND public.crm_campaign_is_crm(c.id) = v_crm
                  AND c.sent_at >= w.w_from AND c.sent_at < w.w_to
                ORDER BY c.sent_at DESC LIMIT 20) c;
       v_out := v_out || jsonb_build_object('email_campaigns', v);
@@ -2267,9 +2286,9 @@ BEGIN
       EXCEPTION WHEN others THEN v_out := v_out || jsonb_build_object('best_send_time', public._mcp_unavailable(SQLSTATE, SQLERRM)); END;
     END IF;
     IF v_topic IN ('all', 'automations') THEN
-      BEGIN v_out := v_out || jsonb_build_object('email_automations', public.get_email_automation_stats(v_venue, v_org, least(w.w_days, 365)));
+      BEGIN v_out := v_out || jsonb_build_object('email_automations', public.get_email_automation_stats(v_venue, v_org, least(w.w_days, 365), CASE WHEN v_crm THEN 'crm' END));
       EXCEPTION WHEN others THEN v_out := v_out || jsonb_build_object('email_automations', public._mcp_unavailable(SQLSTATE, SQLERRM)); END;
-      BEGIN v_out := v_out || jsonb_build_object('automation_suggestions', public.get_email_automation_suggestions(v_venue, v_org));
+      BEGIN v_out := v_out || jsonb_build_object('automation_suggestions', CASE WHEN v_crm THEN '[]'::jsonb ELSE public.get_email_automation_suggestions(v_venue, v_org) END);
       EXCEPTION WHEN others THEN v_out := v_out || jsonb_build_object('automation_suggestions', public._mcp_unavailable(SQLSTATE, SQLERRM)); END;
     END IF;
     IF v_topic IN ('all', 'push') AND NOT v_crm THEN
@@ -2296,6 +2315,7 @@ BEGIN
   WHEN 'get_campaign_report' THEN
     SELECT * INTO r FROM public.email_campaigns c
      WHERE c.id::text = coalesce(p_args->>'campaign_id', '')
+       AND public.crm_campaign_is_crm(c.id) = v_crm
        AND ((v_venue IS NOT NULL AND c.venue_id = v_venue) OR (v_org IS NOT NULL AND c.organizer_user_id = v_org AND c.venue_id IS NULL));
     IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'error', 'campaign_not_found'); END IF;
     BEGIN
@@ -2362,12 +2382,12 @@ BEGIN
       BEGIN v_out := v_out || jsonb_build_object('rfm', public.get_analytics_rfm(v_venue, v_org));
       EXCEPTION WHEN others THEN v_out := v_out || jsonb_build_object('rfm', public._mcp_unavailable(SQLSTATE, SQLERRM)); END;
     END IF;
-    BEGIN v_out := v_out || jsonb_build_object('automation_suggestions', public.get_email_automation_suggestions(v_venue, v_org));
+    BEGIN v_out := v_out || jsonb_build_object('automation_suggestions', CASE WHEN v_crm THEN '[]'::jsonb ELSE public.get_email_automation_suggestions(v_venue, v_org) END);
     EXCEPTION WHEN others THEN v_out := v_out || jsonb_build_object('automation_suggestions', public._mcp_unavailable(SQLSTATE, SQLERRM)); END;
     BEGIN
       v_out := v_out || jsonb_build_object('automations',
         (SELECT coalesce(jsonb_agg(jsonb_build_object('kind', a->>'kind', 'enabled', a->'enabled', 'sent', a->'sent')), '[]'::jsonb)
-           FROM jsonb_array_elements(coalesce(public.get_email_automation_stats(v_venue, v_org, 30), '[]'::jsonb)) a));
+           FROM jsonb_array_elements(coalesce(public.get_email_automation_stats(v_venue, v_org, 30, CASE WHEN v_crm THEN 'crm' END), '[]'::jsonb)) a));
     EXCEPTION WHEN others THEN v_out := v_out || jsonb_build_object('automations', public._mcp_unavailable(SQLSTATE, SQLERRM)); END;
     RETURN v_out;
 
@@ -2648,6 +2668,7 @@ BEGIN
     SELECT c.*
       FROM public.venue_sms_contacts c
      WHERE public.marketing_scope_match(c.venue_id, c.organizer_user_id, p_venue_id, p_organizer_user_id)
+       AND c.product IS NULL
   ),
   live AS (
     SELECT * FROM base
@@ -2665,6 +2686,7 @@ BEGIN
            (SELECT count(DISTINCT l.phone_e164) FROM live l WHERE l.import_id = li.id) AS n
       FROM public.sms_list_imports li
      WHERE public.marketing_scope_match(li.venue_id, li.organizer_user_id, p_venue_id, p_organizer_user_id)
+       AND li.product IS NULL
        AND li.superseded_by IS NULL
      ORDER BY li.created_at DESC
      LIMIT 24
@@ -2688,7 +2710,8 @@ $function$;
 REVOKE ALL ON FUNCTION public.get_sms_contacts_overview(p_venue_id text, p_organizer_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_sms_contacts_overview(p_venue_id text, p_organizer_user_id uuid) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.get_sms_sender_readiness(p_venue_id text, p_organizer_user_id uuid)
+DROP FUNCTION IF EXISTS public.get_sms_sender_readiness(text, uuid);
+CREATE OR REPLACE FUNCTION public.get_sms_sender_readiness(p_venue_id text, p_organizer_user_id uuid, p_product text DEFAULT 'crm'::text)
  RETURNS jsonb
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
@@ -2702,11 +2725,14 @@ DECLARE
   v_has_id  boolean;
   v_missing text[] := ARRAY[]::text[];
   v_last    text;
+  -- 'crm' (défaut : tous les appelants SQL sont des fonctions CRM) = identité d'annonceur du CRM ;
+  -- tout autre produit ('suite') = fiche légale de la Billetterie (appelant : send-sms-campaign).
+  v_crm     boolean := COALESCE(p_product = 'crm', false);
+  v_sug     jsonb := NULL;
 BEGIN
-  -- Lecture : qui gère le SMS de la portée, ou un membre de la Console CRM.
-  IF NOT (public.sms_scope_allowed(p_venue_id, p_organizer_user_id)
-          OR (COALESCE(p_venue_id, p_organizer_user_id::text) IS NOT NULL
-              AND public.crm_scope_allowed(p_venue_id, p_organizer_user_id))) THEN
+  -- Lecture : la porte du produit demandé (Console CRM ou SMS de la Billetterie).
+  IF NOT COALESCE(CASE WHEN v_crm THEN public.crm_scope_allowed(p_venue_id, p_organizer_user_id)
+                       ELSE public.sms_scope_allowed(p_venue_id, p_organizer_user_id) END, false) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
   END IF;
 
@@ -2714,7 +2740,22 @@ BEGIN
     RETURN jsonb_build_object('identity_ok', true, 'missing', '[]'::jsonb, 'last_sender_id', 'YUNO');
   END IF;
 
-  IF p_venue_id IS NOT NULL THEN
+  IF v_crm THEN
+    -- Yuno CRM : SA propre identité d'annonceur (crm_sms_settings). La fiche légale du compte
+    -- (vendeur des reçus de la Billetterie) n'est qu'une suggestion, jamais lue comme identité du CRM.
+    SELECT s.legal_name, s.siret, s.rna_number, s.vat_number
+      INTO v_legal, v_siret, v_rna, v_vat
+      FROM public.crm_sms_settings s WHERE s.scope_key = public.crm_scope_key(p_venue_id, p_organizer_user_id);
+    IF p_venue_id IS NOT NULL THEN
+      SELECT jsonb_strip_nulls(jsonb_build_object('legal_name', NULLIF(btrim(v.legal_name), ''),
+               'registration', COALESCE(NULLIF(btrim(v.siret), ''), NULLIF(btrim(v.vat_number), ''))))
+        INTO v_sug FROM public.venues v WHERE v.id = p_venue_id;
+    ELSE
+      SELECT jsonb_strip_nulls(jsonb_build_object('legal_name', NULLIF(btrim(o.legal_name), ''),
+               'registration', COALESCE(NULLIF(btrim(o.siret), ''), NULLIF(btrim(o.rna_number), ''), NULLIF(btrim(o.vat_number), ''))))
+        INTO v_sug FROM public.organizer_profiles o WHERE o.user_id = p_organizer_user_id;
+    END IF;
+  ELSIF p_venue_id IS NOT NULL THEN
     SELECT v.legal_name, v.siret, NULL::text, v.vat_number
       INTO v_legal, v_siret, v_rna, v_vat
       FROM public.venues v WHERE v.id = p_venue_id;
@@ -2735,12 +2776,13 @@ BEGIN
   -- le dernier utilisé par la portée (colonne , ou 
   -- quand il suit déjà les règles, comme dans la Console CRM).
   SELECT s.sender_name INTO v_last FROM public.crm_sms_settings s
-   WHERE s.scope_key = public.crm_scope_key(p_venue_id, p_organizer_user_id)
+   WHERE v_crm AND s.scope_key = public.crm_scope_key(p_venue_id, p_organizer_user_id)
      AND s.sender_name ~ '^[A-Za-z0-9]{3,11}$';
   IF v_last IS NULL THEN
     SELECT COALESCE(c.sender_id, c.sender_name) INTO v_last
       FROM public.sms_campaigns c
-     WHERE c.product = 'crm' AND (c.sender_id IS NOT NULL OR c.sender_name ~ '^[A-Za-z0-9]{3,11}$')
+     WHERE c.product IS NOT DISTINCT FROM (CASE WHEN v_crm THEN 'crm' END)
+       AND (c.sender_id IS NOT NULL OR c.sender_name ~ '^[A-Za-z0-9]{3,11}$')
        AND ((p_venue_id IS NOT NULL AND c.venue_id = p_venue_id)
          OR (p_venue_id IS NULL AND c.organizer_id = p_organizer_user_id))
      ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC
@@ -2750,9 +2792,11 @@ BEGIN
   RETURN jsonb_build_object(
     'identity_ok', cardinality(v_missing) = 0,
     'missing', to_jsonb(v_missing),
-    'last_sender_id', v_last
+    'last_sender_id', v_last,
+    -- Proposition « Utiliser … » (fiche légale du compte) quand l'identité CRM est incomplète ; jamais recopiée d'office.
+    'suggest', CASE WHEN cardinality(v_missing) > 0 THEN v_sug END
   );
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.get_sms_sender_readiness(p_venue_id text, p_organizer_user_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_sms_sender_readiness(p_venue_id text, p_organizer_user_id uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_sms_sender_readiness(text, uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_sms_sender_readiness(text, uuid, text) TO authenticated, service_role;

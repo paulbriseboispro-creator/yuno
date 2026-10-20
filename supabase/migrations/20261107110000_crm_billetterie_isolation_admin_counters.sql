@@ -1013,8 +1013,8 @@ BEGIN
     'zones', (SELECT count(*) FROM public.table_zones z WHERE z.venue_id = p_venue_id),
     'drinks', (SELECT count(*) FROM public.drinks dr WHERE dr.venue_id = p_venue_id),
     'ai_chats_30d', (SELECT count(*) FROM public.ai_usage_events a WHERE a.venue_id = p_venue_id AND a.created_at >= now() - interval '30 days'),
-    'email_campaigns', (SELECT count(*) FROM public.email_campaigns c WHERE c.venue_id = p_venue_id),
-    'newsletter', (SELECT count(*) FROM public.newsletter_subscriptions ns WHERE ns.venue_id = p_venue_id AND ns.opted_in),
+    'email_campaigns', (SELECT count(*) FROM public.email_campaigns c WHERE c.venue_id = p_venue_id AND NOT COALESCE(public.crm_campaign_is_crm(c.id), false)),
+    'newsletter', (SELECT count(*) FROM public.newsletter_subscriptions ns WHERE ns.venue_id = p_venue_id AND ns.opted_in AND ns.product IS NULL),
     'support_grant', (SELECT jsonb_build_object('status', g.status, 'created_at', g.created_at) FROM public.admin_support_grants g JOIN public.venues vn ON vn.owner_id = g.target_user_id
       WHERE vn.id = p_venue_id AND g.status IN ('pending', 'active', 'approved') ORDER BY g.created_at DESC LIMIT 1)
   ) INTO v;
