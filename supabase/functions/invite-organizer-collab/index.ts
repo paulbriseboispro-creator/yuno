@@ -5,7 +5,7 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { summarizeTerms, needsStripe } from "../_shared/collab-invite-text.ts";
 import { handleCoorgInvite } from "../_shared/coorg-invite.ts";
-import { handleGuestSpaceInvite } from "../_shared/guest-space-invite.ts";
+import { handleGuestCode, handleGuestSpaceInvite } from "../_shared/guest-space-invite.ts";
 import { handleEventDoorInviteEmail } from "../_shared/event-door-staff.ts";
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
@@ -56,6 +56,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Staff de porte d'une soirée : l'invité l'invite SANS compte (son jeton
     // d'espace suffit), l'organisateur avec son JWT. Règles dans la RPC.
     if (body?.kind === "door_staff") return await handleEventDoorInviteEmail(req, body, corsHeaders);
+    // Code de l'invité (signature du contrat, IBAN) : jeton d'espace, sans compte.
+    if (body?.kind === "guest_code") return await handleGuestCode(body, corsHeaders);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Not authenticated" }, 401, corsHeaders);
