@@ -67,6 +67,27 @@ interface VenueCustomer {
   emailOnly?: boolean;
 }
 
+/** Chiffres de la base, comptés en SQL par get_venue_customer_base. */
+interface CustomerBaseStats {
+  total: number; active_30d: number; churn: number;
+  total_spent: number | string; revenue_30d: number | string; avg_spent: number | string;
+  segments?: Partial<Record<SegmentKey, number>>;
+  categories?: Partial<Record<'tickets' | 'drinks' | 'tables' | 'mixed', number>>;
+}
+/** Une ligne de la base (clés nulles retirées par le serveur). */
+interface CustomerBaseRow {
+  id: string;
+  user_id?: string | null; email?: string | null; first_name?: string | null; last_name?: string | null;
+  phone?: string | null; first_visit_at?: string | null; last_visit_at?: string | null;
+  total_spent?: number | string | null; ticket_count?: number | null; order_count?: number | null; table_count?: number | null;
+  is_banned?: boolean | null; banned_at?: string | null; ban_reason?: string | null; notes?: string | null;
+  revenue_30d?: number | string | null; revenue_90d?: number | string | null; revenue_prev_90d?: number | string | null;
+  avg_basket?: number | string | null; visit_nights?: number | null; visits_per_month?: number | string | null;
+  last_activity_at?: string | null; preferred_dow?: number | null; preferred_event_title?: string | null;
+  recency_days?: number | null; rfm_r?: number | null; rfm_f?: number | null; rfm_m?: number | null;
+  rfm_segment?: string | null; rfm_tier?: string | null; churn_risk?: boolean | null; is_guest?: boolean | null;
+}
+
 // Scoring attached to each customer — RFM comes from the server RPC (single
 // source of truth shared with rfm: push targeting); trend + preferred category
 // stay client-side (display-only derivations).
@@ -91,6 +112,8 @@ interface SegmentFilters {
 const emptyFilters: SegmentFilters = { segment: '', recency: '', value: '', category: '', churn: false, origin: '' };
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
+const num = (v: unknown) => Number(v || 0);
+
 // RFM quintile scoring (segments, tiers, churn) lives in SQL now:
 // _venue_customer_rfm (migration 20260827100000), served by
 // get_venue_customer_segments and shared with send-push-campaign's rfm: scopes.
@@ -130,6 +153,9 @@ export default function OwnerCustomers() {
   const hasExportCsv = hasFeature('exports_csv');
 
   const [allCustomers, setAllCustomers] = useState<VenueCustomer[]>([]);
+  // Chiffres de la base calculés en SQL (get_venue_customer_base) : jamais
+  // recomptés sur une liste, qui plafonnait à 1 000 lignes (PostgREST).
+  const [baseStats, setBaseStats] = useState<CustomerBaseStats | null>(null);
   const [warnedCustomers, setWarnedCustomers] = useState<VenueCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,7 +202,6 @@ export default function OwnerCustomers() {
     if (venue?.id) { fetchAllCustomers(); fetchWarnedCustomers(); fetchMinorEmails(); }
   }, [venue?.id]);
 
-  const num = (v: unknown) => Number(v || 0);
 
   // Which customers bought a minor ticket on this venue's events (+ their doc).
   const fetchMinorEmails = async () => {
@@ -193,18 +218,22 @@ export default function OwnerCustomers() {
     if (!venue?.id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: venue.id });
+      // UNE lecture : la base complète (une valeur jsonb, sans le plafond de
+      // 1 000 lignes de PostgREST) et ses chiffres comptés en SQL.
+      const { data, error } = await supabase.rpc('get_venue_customer_base', { p_venue_id: venue.id });
       if (error) throw error;
-      const mapped: VenueCustomer[] = (data || []).map((r) => ({
-        id: r.id, user_id: r.user_id, email: r.email, first_name: r.first_name, last_name: r.last_name,
-        phone: r.phone, first_visit_at: r.first_visit_at, last_visit_at: r.last_visit_at,
+      const base = (data ?? {}) as { stats?: CustomerBaseStats; customers?: CustomerBaseRow[] };
+      setBaseStats(base.stats ?? null);
+      const mapped: VenueCustomer[] = (base.customers || []).map((r) => ({
+        id: r.id, user_id: r.user_id ?? null, email: r.email ?? '', first_name: r.first_name ?? null, last_name: r.last_name ?? null,
+        phone: r.phone ?? null, first_visit_at: r.first_visit_at ?? '', last_visit_at: r.last_visit_at ?? '',
         total_spent: num(r.total_spent), ticket_count: r.ticket_count || 0, order_count: r.order_count || 0,
-        table_count: r.table_count || 0, is_banned: !!r.is_banned, banned_at: r.banned_at,
-        ban_reason: r.ban_reason, notes: r.notes,
+        table_count: r.table_count || 0, is_banned: !!r.is_banned, banned_at: r.banned_at ?? null,
+        ban_reason: r.ban_reason ?? null, notes: r.notes ?? null,
         revenue_30d: num(r.revenue_30d), revenue_90d: num(r.revenue_90d), revenue_prev_90d: num(r.revenue_prev_90d),
         avg_basket: num(r.avg_basket), visit_nights: r.visit_nights || 0, visits_per_month: num(r.visits_per_month),
-        last_activity_at: r.last_activity_at, preferred_dow: r.preferred_dow,
-        preferred_event_title: r.preferred_event_title,
+        last_activity_at: r.last_activity_at ?? null, preferred_dow: r.preferred_dow ?? null,
+        preferred_event_title: r.preferred_event_title ?? null,
         recency_days: r.recency_days ?? 9999, rfm_r: r.rfm_r ?? 1, rfm_f: r.rfm_f ?? 1, rfm_m: r.rfm_m ?? 1,
         rfm_segment: (r.rfm_segment || 'lost') as SegmentKey, rfm_tier: (r.rfm_tier || 'bronze') as Tier,
         churn_risk: !!r.churn_risk, is_guest: !!r.is_guest,
@@ -327,23 +356,26 @@ export default function OwnerCustomers() {
   }, [scored]);
 
   const analytics = useMemo(() => {
-    const segments: Record<SegmentKey, number> = { champions: 0, loyal: 0, promising: 0, new: 0, at_risk: 0, dormant: 0, lost: 0 };
-    const categories = { tickets: 0, drinks: 0, tables: 0, mixed: 0 };
-    let churn = 0, revenue30 = 0;
-    scored.forEach(c => {
-      segments[c._s.segment]++;
-      categories[c._s.preferredCategory]++;
-      if (c._s.churnRisk) churn++;
-      revenue30 += c.revenue_30d;
-    });
-    const totalSpent = allCustomers.reduce((s, c) => s + c.total_spent, 0);
-    return {
-      segments, categories, totalSpent, churn, revenue30,
-      avgSpentPerCustomer: allCustomers.length ? totalSpent / allCustomers.length : 0,
-      activeCustomers: scored.filter(c => c._s.recencyDays <= 30).length,
-      totalCustomers: allCustomers.length,
+    const st = baseStats;
+    const segments: Record<SegmentKey, number> = {
+      champions: st?.segments?.champions ?? 0, loyal: st?.segments?.loyal ?? 0,
+      promising: st?.segments?.promising ?? 0, new: st?.segments?.new ?? 0,
+      at_risk: st?.segments?.at_risk ?? 0, dormant: st?.segments?.dormant ?? 0, lost: st?.segments?.lost ?? 0,
     };
-  }, [scored, allCustomers]);
+    const categories = {
+      tickets: st?.categories?.tickets ?? 0, drinks: st?.categories?.drinks ?? 0,
+      tables: st?.categories?.tables ?? 0, mixed: st?.categories?.mixed ?? 0,
+    };
+    return {
+      segments, categories,
+      totalSpent: num(st?.total_spent),
+      churn: st?.churn ?? 0,
+      revenue30: num(st?.revenue_30d),
+      avgSpentPerCustomer: num(st?.avg_spent),
+      activeCustomers: st?.active_30d ?? 0,
+      totalCustomers: st?.total ?? 0,
+    };
+  }, [baseStats]);
 
   const topCustomers = useMemo(() => [...allCustomers].sort((a, b) => b.total_spent - a.total_spent).slice(0, topLimit), [allCustomers, topLimit]);
 

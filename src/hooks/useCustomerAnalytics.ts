@@ -22,6 +22,20 @@ export interface CustomerAnalytics {
 
 const DAY = 86_400_000;
 
+/** Une ligne de la base clients (clés nulles retirées par le serveur). */
+interface CustomerRow {
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  total_spent?: number | string | null;
+  revenue_90d?: number | string | null;
+  revenue_prev_90d?: number | string | null;
+  visit_nights?: number | null;
+  first_visit_at?: string | null;
+  last_visit_at?: string | null;
+  last_activity_at?: string | null;
+}
+
 export function useCustomerAnalytics({ venueId, organizerUserId, enabled = true }: {
   venueId?: string | null;
   organizerUserId?: string | null;
@@ -38,12 +52,15 @@ export function useCustomerAnalytics({ venueId, organizerUserId, enabled = true 
       // Same RFM contract on both sides (visit_nights, total_spent, revenue_90d,
       // revenue_prev_90d, first/last activity) — the organizer RPC mirrors the
       // venue one, so the loyalty zone reads identically in both dashboards.
-      const { data: rows, error } = venueId
-        ? await supabase.rpc('get_venue_customer_segments', { p_venue_id: venueId })
-        : await supabase.rpc('get_organizer_customer_segments', { p_organizer_user_id: organizerUserId! });
+      // La base COMPLÈTE en une valeur jsonb (get_*_customer_base) : la lire
+      // en lignes plafonnait à 1 000 clients (PostgREST), et toute la zone
+      // fidélité ne parlait que des 1 000 plus récents.
+      const { data: base, error } = venueId
+        ? await supabase.rpc('get_venue_customer_base', { p_venue_id: venueId })
+        : await supabase.rpc('get_organizer_customer_base', { p_organizer_user_id: organizerUserId! });
       if (error) throw error;
 
-      const customers = rows || [];
+      const customers = ((base as { customers?: CustomerRow[] } | null)?.customers) || [];
       const total = customers.length;
       if (total === 0) {
         setData({ totalCustomers: 0, repeatRate: 0, avgClv: 0, revenue90: 0, revenuePrev90: 0, growth90: null, segments: [], topCustomers: [] });

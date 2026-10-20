@@ -25,6 +25,7 @@ import { useTabParam } from '@/hooks/useTabParam';
 import { exportContactBase } from '@/lib/contactBaseExport';
 import { orgEventsOr } from '@/lib/coorg';
 import { formatMoneyAuto } from '@/lib/money';
+import type { Database } from '@/integrations/supabase/types';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -39,6 +40,8 @@ const INNER_BG = 'rgb(var(--ink)/0.032)';
 const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+/** Une ligne de get_organizer_customer_segments, rendue en liste par get_organizer_customer_base. */
+type OrgSegmentRow = Database['public']['Functions']['get_organizer_customer_segments']['Returns'][number];
 type SegmentKey = 'champions' | 'loyal' | 'promising' | 'new' | 'at_risk' | 'dormant' | 'lost';
 type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
 type TabKey = 'all' | 'top' | 'minors' | 'warned' | 'origins';
@@ -158,9 +161,12 @@ export default function OrgAppCustomers() {
     if (!organizerId) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_organizer_customer_segments', { p_organizer_user_id: organizerId });
+      // La base COMPLÈTE en une valeur jsonb : lue en lignes, elle plafonnait à
+      // 1 000 clients (PostgREST) et tous les chiffres de la page avec.
+      const { data, error } = await supabase.rpc('get_organizer_customer_base', { p_organizer_user_id: organizerId });
       if (error) throw error;
-      const mapped: OrgCustomer[] = (data || []).map((r) => ({
+      const rows = ((data as { customers?: OrgSegmentRow[] } | null)?.customers) || [];
+      const mapped: OrgCustomer[] = rows.map((r) => ({
         id: r.id, user_id: r.user_id, email: r.email, first_name: r.first_name, last_name: r.last_name,
         phone: r.phone, first_visit_at: r.first_visit_at, last_visit_at: r.last_visit_at,
         total_spent: num(r.total_spent), ticket_count: r.ticket_count || 0, order_count: 0,
