@@ -3761,6 +3761,19 @@ tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
 - `delete-account` écrit enfin `security_logs.account_deleted` (user_id NULL :
   avec l'id du compte effacé, la clé étrangère refusait la ligne, d'où aucune
   trace de la suppression du premier compte de Lillo).
+- **`/admin/signups` = une carte par PERSONNE, jamais par parcours** (20/10,
+  migration `20261104220000`). `admin_pro_signups` relie les parcours en base,
+  de proche en proche : même adresse (celle du compte si le parcours n'en a
+  pas), sinon mêmes 9 derniers chiffres du numéro, sinon même `visitor_hash`
+  (même appareil le même jour). Toute l'histoire d'une personne compte ; la
+  période choisit les personnes passées pendant la période. Funnel, courbe et
+  sources comptent des personnes, et l'écran le dit. La carte dit d'abord ce
+  qui s'est passé (compte ouvert / supprimé / demande / invitation / bloqué à),
+  puis numéro international (`personPhones`, `src/lib/proSignupPeople.ts`),
+  provenance (`sourceParts` ⇄ `sourceLabel`, même module que le Cockpit),
+  invitation, dernière alerte (`pro_signup_alerts`) ; les parcours sont
+  repliés. « Contacté » et la note s'écrivent sur tous les parcours
+  (`admin_update_pro_signups`).
 
 ## PostHog — analytics produit, web + apps natives (2026-09-25)
 
