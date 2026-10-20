@@ -65,7 +65,12 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const load = useCallback(async () => {
     const f = scopeFilter(scope);
     const [{ data: rows }, evs, bal, { data: ov }, { data: ci }] = await Promise.all([
-      supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).eq(f.column, f.value).order('created_at', { ascending: false }).limit(100),
+      (f
+        ? supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).eq(f.column, f.value)
+        : supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).is('venue_id', null).is('organizer_id', null))
+        // Les SMS de Yuno CRM (`product = 'crm'`) vivent dans la Console CRM.
+        .or('product.is.null,product.neq.crm')
+        .order('created_at', { ascending: false }).limit(100),
       fetchScopeEvents(scope),
       fetchSmsBalance(scope),
       supabase.rpc('get_sms_contacts_overview', scopeRpcArgs(scope)),
