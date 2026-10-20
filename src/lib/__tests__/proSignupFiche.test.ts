@@ -146,3 +146,20 @@ describe('fallback email', () => {
     expect(html).toContain('Numéros différents');
   });
 });
+
+describe('telegram messages', () => {
+  it('puts the fiche in one HTML message with https buttons only', async () => {
+    const { telegramFicheMessage, telegramResearchMessage, phoneIntl } = await import('../../../supabase/functions/_shared/pro-signup-telegram.ts');
+    expect(phoneIntl('+33756388760')).toBe('+33 7 56 38 87 60');
+    const f = enrichFiche({ ...POUPEE, org: { ...POUPEE.org, name: 'Poupée <club>' } });
+    const m = telegramFicheMessage(f, 'abc');
+    expect(m.text).toContain('<b>Poupée &lt;club&gt;</b>');
+    expect(m.text).toContain('📞 +33 7 56 38 87 60');
+    expect(m.text).toContain('📞 +33 7 56 38 87 68');
+    expect(m.buttons.flat().every((b) => b.url.startsWith('https://'))).toBe(true);
+    expect(m.buttons[0][0].url).toBe('https://yuno-cockpit.vercel.app/prospects/abc');
+    const none = telegramResearchMessage(null, f.search_links);
+    expect(none.text).toContain('rien de net trouvé');
+    expect(none.text).toContain('Chercher');
+  });
+});

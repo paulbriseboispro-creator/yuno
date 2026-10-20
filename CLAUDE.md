@@ -3730,6 +3730,17 @@ tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
   associations, fenêtre CRM, demande promoteur / autre et parcours Yuno CRM
   (Google et Apple compris). Le serveur ne le refuse pas (un refus après
   `auth.signUp` laisserait un compte sans espace).
+- **Telegram en plus du Cockpit** (migration `20261104200000`, 20/10) :
+  `_shared/telegram-ops.ts` + messages purs `_shared/pro-signup-telegram.ts`.
+  Jeton = secret `TELEGRAM_BOT_TOKEN` posé par Paul ; le chat se lie SEUL au
+  premier chat privé qui envoie /start au bot (`ops_telegram_chat`, une ligne,
+  jamais réécrite : changer de chat = vider la table). Fiche tout de suite
+  (boutons https seulement : Cockpit, WhatsApp, admin), recherche en réponse ;
+  au branchement, les alertes des 2 derniers jours partent aussi. L'e-mail de
+  secours se tait quand Telegram a reçu l'alerte.
+- **Inscription bloquée : une alerte par PARCOURS** et 20 h entre deux alertes
+  pour la même adresse (la première version ré-alertait le même parcours après
+  minuit, Poupée le 19/10).
 - `delete-account` écrit enfin `security_logs.account_deleted` (user_id NULL :
   avec l'id du compte effacé, la clé étrangère refusait la ligne, d'où aucune
   trace de la suppression du premier compte de Lillo).
