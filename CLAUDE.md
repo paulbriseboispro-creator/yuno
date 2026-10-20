@@ -3782,6 +3782,20 @@ tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
   invitation, dernière alerte (`pro_signup_alerts`) ; les parcours sont
   repliés. « Contacté » et la note s'écrivent sur tous les parcours
   (`admin_update_pro_signups`).
+- **Les robots ne comptent pas dans ce funnel** (20/10, migration
+  `20261104230000`). Une flotte de navigateurs automatisés derrière des proxys
+  (Chrome 130 figé sur Mac + profil « iPhone 13 » de Playwright, score de
+  confiance Cloudflare 1 à 29) parcourt yunoapp.eu, suit le lien « Créer un
+  compte pro » de `/auth` et ouvre `/start` : 26 des 47 « Formulaire ouvert »
+  sur 30 jours. `track_pro_signup` note ce que l'user-agent annonce
+  (`pro_signups.robot` : `declared` | `automation` | `internal`, règle
+  `_pro_signup_robot_ua`, jamais un refus) ; `admin_pro_signups` traite aussi
+  comme robot une ouverture anonyme à moins de 3 minutes d'une autre venue
+  d'un autre appareil. Une personne n'est écartée que si tous ses parcours
+  sont des robots et qu'elle n'a laissé aucun contact, compte ni invitation ;
+  le funnel rend `robots`. Une flotte nouvelle se lit dans les journaux de
+  l'API (`logs`, `source = 'edge_logs'`, `log_attributes['request.headers.user_agent']`,
+  `request.cf.clientTrustScore`, `request.cf.asOrganization`), gardés 3 jours.
 
 ## PostHog — analytics produit, web + apps natives (2026-09-25)
 
