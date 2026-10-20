@@ -87,6 +87,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Co-organisation (N parties) : invitations, accord, décompte, virements suivis.
   cohost_invited:               { icon: Handshake,     category: 'people',  label: 'notif.type.cohost_invited' },
   cohost_accepted:              { icon: UserCheck,     category: 'people',  label: 'notif.type.cohost_accepted' },
+  host_pass_claimed:            { icon: UserCheck,     category: 'people',  label: 'notif.type.host_pass_claimed' },
   cohost_declined:              { icon: AlertCircle,   category: 'people',  label: 'notif.type.cohost_declined' },
   cohost_removed:               { icon: UserX,         category: 'people',  label: 'notif.type.cohost_removed' },
   coorg_deal_to_sign:           { icon: Handshake,     category: 'people',  label: 'notif.type.coorg_deal_to_sign' },
@@ -152,6 +153,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Inscription pro en libre-service depuis la landing (compte créé / lead).
   admin_pro_signup:          { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_pro_signup' },
   admin_pro_signup_lead:     { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_pro_signup_lead' },
+  admin_host_pass_lead:      { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_host_pass_lead' },
+  admin_host_pass_claimed:   { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_host_pass_claimed' },
   // Inscription arrêtée en route, ou pro déjà inscrit qui retente (balayage
   // toutes les 15 min) ; formulaire de contact de la landing ; compte pro
   // supprimé (migration 20261103410000). Relayés au Cockpit de Paul.
@@ -432,6 +435,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 
     // Co-organisation : tout mène à la page co-organisation de la soirée.
     case 'cohost_invited':
+    case 'host_pass_claimed':
     case 'cohost_accepted':
     case 'cohost_declined':
     case 'cohost_removed':
@@ -691,6 +695,8 @@ function adminNotifLink(n: AppNotif): string | null {
       return '/admin/signups';
 
     // Le message vit dans le corps de l'alerte elle-même.
+    case 'admin_host_pass_lead':
+    case 'admin_host_pass_claimed':
     case 'admin_landing_contact':
       return '/admin/alerts';
 
