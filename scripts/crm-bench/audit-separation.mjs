@@ -226,6 +226,15 @@ await db.query(`INSERT INTO public.sms_campaigns (id, organizer_id, created_by, 
 const smsProd = async (id) => (await q(`SELECT product FROM public.sms_campaigns WHERE id = $1`, [id]))[0]?.product ?? null;
 check('SMS : une campagne du CRM est du produit CRM, celle de la Billetterie NULL (compte à deux produits)', (await smsProd(U(901))) === 'crm' && (await smsProd(U(902))) === null);
 
+
+// ── Coût : crm_campaign_is_crm est appelée par ligne de campagne dans les lecteurs du CRM ────────────
+await db.query(`INSERT INTO public.email_campaigns (id, organizer_user_id, name, subject, status, product) VALUES ($2, $1, 'c1', 's', 'sent', 'crm'), ($3, $1, 'c2', 's', 'sent', NULL), ($4, $5, 'c3', 's', 'sent', NULL)`, [O1, U(911), U(912), U(913), O2]);
+for (const [label, id] of [['deux produits, campagne CRM', U(911)], ['deux produits, campagne Billetterie', U(912)], ['CRM pur', U(913)]]) {
+  const t0 = Date.now();
+  await db.query(`SELECT count(*) FROM generate_series(1, 5000) g WHERE public.crm_campaign_is_crm(CASE WHEN g > 0 THEN $1::uuid END)`, [id]);
+  console.log(`INFO crm_campaign_is_crm · ${label} : ${((Date.now() - t0) / 5).toFixed(2)} ms pour 1 000 appels (PGlite)`);
+}
+
 // Droits
 const acl = (await q(`SELECT has_function_privilege('anon', 'public.contact_rows(text, uuid, text)', 'EXECUTE') AS a,
                              has_function_privilege('authenticated', 'public.contact_build_rows(text, uuid, text)', 'EXECUTE') AS b,
