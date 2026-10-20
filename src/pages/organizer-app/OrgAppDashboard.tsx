@@ -62,7 +62,7 @@ export default function OrgAppDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="relative -mx-4 overflow-hidden"
-        style={{ ...homeBannerHeroSize, borderRadius: '0 0 22px 22px' }}
+        style={{ ...homeBannerHeroSize, width: 'calc(100% + 2rem)', borderRadius: '0 0 22px 22px' }}
         // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
         data-theme-island="dark"
       >

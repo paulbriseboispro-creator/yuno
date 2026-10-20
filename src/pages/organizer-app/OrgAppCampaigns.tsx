@@ -93,12 +93,12 @@ export default function OrgAppCampaigns() {
         <button onClick={() => navigate('/organizer-app')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: T3 }}>
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <OrgPageHeader
             title={t('Campagnes Email', 'Email campaigns', 'Campañas de email')}
             subtitle={t('Newsletter & emails de service à votre audience', 'Newsletter & service emails to your audience', 'Newsletter y emails de servicio para tu audiencia')}
             actions={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 whitespace-nowrap">
                 <OrgButton variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('Importer ma liste', 'Import my list', 'Importar mi lista')}</span>
                 </OrgButton>
