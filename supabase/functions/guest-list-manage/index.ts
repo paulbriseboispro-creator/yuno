@@ -24,6 +24,7 @@ import {
   fmtDateParts,
 } from "../_shared/email-templates.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { recordSaleEmailSent, resendEmailId, saleEmailTags } from "../_shared/sale-email.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[GUEST-LIST-MANAGE] ${step}`, details ? JSON.stringify(details) : "");
@@ -130,12 +131,17 @@ async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Pro
   return { part: part as PartRow, event: event as EventRow, venueName };
 }
 
-async function sendResendEmail(to: string, subject: string, html: string): Promise<boolean> {
+async function sendResendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  tags?: Array<{ name: string; value: string }>,
+): Promise<{ sent: boolean; id: string | null }> {
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   const RESEND_FROM = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
   if (!RESEND_API_KEY) {
     logStep("RESEND_API_KEY not set, skipping email");
-    return false;
+    return { sent: false, id: null };
   }
   // Timeout : un tiers (Resend) qui ne répond pas ne doit pas suspendre la fonction.
   const res = await fetch("https://api.resend.com/emails", {
@@ -144,7 +150,7 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
       "Authorization": `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html }),
+    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html, ...(tags ? { tags } : {}) }),
     signal: AbortSignal.timeout(10000),
   });
   // Ne plus avaler un échec Resend en silence : on trace et on retourne false
@@ -152,9 +158,9 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     logStep("Resend send failed", { to, status: res.status, body });
-    return false;
+    return { sent: false, id: null };
   }
-  return true;
+  return { sent: true, id: await resendEmailId(res) };
 }
 
 serve(async (req) => {
@@ -391,8 +397,11 @@ serve(async (req) => {
             ctaUrl: linkedUserId ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`,
             hasAccount: !!linkedUserId,
           });
-          await sendResendEmail(normalizedEmail, built.subject, built.html);
-          logStep("Invitation email sent", { to: normalizedEmail, hasAccount: !!linkedUserId });
+          // Tags relus par resend-webhook : un rebond (adresse mal saisie) se
+          // rattache à CETTE inscription et prévient le club / l'organisateur.
+          const sent = await sendResendEmail(normalizedEmail, built.subject, built.html, saleEmailTags("guest_list", entryId));
+          if (sent.sent) await recordSaleEmailSent(admin, "guest_list", entryId, normalizedEmail, sent.id);
+          logStep("Invitation email sent", { to: normalizedEmail, hasAccount: !!linkedUserId, sent: sent.sent });
         } catch (emailErr) {
           console.error("Email sending failed (non-blocking):", emailErr);
         }
@@ -480,7 +489,7 @@ serve(async (req) => {
         maxUses: invite.max_uses,
         inviteUrl,
       });
-      const sent = await sendResendEmail(invite.guest_email, built.subject, built.html);
+      const { sent } = await sendResendEmail(invite.guest_email, built.subject, built.html);
       if (sent) {
         await admin.from("guest_list_invites").update({ email_sent_at: new Date().toISOString() }).eq("id", invite.id);
       }
