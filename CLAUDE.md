@@ -3180,20 +3180,40 @@ billet » quand le tableau en montrait 84). Règles :
     appelaient des edge disparues (404 horaires) sont retirés ; l'ancien
     travail supprimait des commandes payées et des factures, il ne revient pas.
 
-## Stripe Connect — comptes connectés en Accounts v2 (2026-09-29)
+## Stripe Connect — comptes connectés : v1 par `controller`, tableau de bord complet (2026-10-20)
 
-Le premier organisateur réel (Amoris) n'a pas pu relier Stripe : la plateforme
-refuse désormais tout compte créé avec le champ hérité `type: "express"`
+Le premier organisateur réel (Amoris) n'a pas pu relier Stripe le 29/09 : la
+plateforme refuse tout compte créé avec le champ hérité `type: "express"`
 (« Use Accounts v2, remove `type`, and set `losses_collector` to `stripe` »).
-Porte unique : `supabase/functions/_shared/stripe-connect-accounts.ts` (sans SDK,
+Puis le 19/10, Poupée (Bastia) n'a pu ouvrir AUCUN compte : toutes les formes v2
+refusées (« Connect platforms based in FR can only update certain identity
+information on a v2 account with a merchant configuration via account tokens »)
+et toutes les formes Express refusées (« When `stripe_dashboard[type]=express`,
+your platform must collect fees and be liable for negative balances »). Porte
+unique : `supabase/functions/_shared/stripe-connect-accounts.ts` (sans SDK,
 testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
 
-- **Création = `POST /v2/core/accounts`** avec `losses_collector: stripe`,
-  `fees_collector: stripe` (le VENDEUR paie ses frais Stripe : c'est le modèle
-  de `payment-split.ts` et de `fees.ts` en vente directe — avec `application`,
-  Yuno les paierait sur sa commission) et `dashboard: full`. Club et organisateur
-  = `merchant` + `recipient` (vente directe + jambes de co-soirée), DJ =
-  `recipient`. Ne JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Création = `POST /v1/accounts` par `controller`** : `fees.payer = account`
+  (le VENDEUR paie ses frais Stripe : c'est le modèle de `payment-split.ts` et de
+  `fees.ts` en vente directe — avec `application`, Yuno les paierait sur sa
+  commission), `losses.payments = stripe`, `requirement_collection = stripe`,
+  `stripe_dashboard.type = full`. C'est EXACTEMENT la forme du seul compte live
+  qui ait jamais été ouvert (Amoris, `acct_1ULHs92V9f9LSJsj`, 30/09 — vérifié
+  par le MCP Stripe : compte v1, contrôleur, tableau de bord complet). Club et
+  organisateur = `card_payments` + `transfers`, DJ = `transfers` seul. Ne
+  JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Yuno est une plateforme FRANÇAISE : en v2, aucune identité sans jeton de
+  compte.** E-mail de contact, nom affiché, type d'entité, raison sociale, nom
+  commercial ne passent sur un compte v2 vendeur que par un jeton
+  (`POST /v2/core/account_tokens`, clé PUBLIABLE, depuis le navigateur du pro :
+  docs.stripe.com/connect/account-tokens). Le module n'utilise pas les jetons ;
+  son seul filet v2 (`v2-identity-free`) n'envoie que le pays. Brancher les
+  jetons = le navigateur crée un jeton par tentative (usage unique, 10 min) et
+  l'edge le passe en `account_token` avec `identity.country` à côté.
+- **Jamais d'Express Dashboard** tant que Stripe porte les pertes et collecte les
+  frais : refusé en v2 (`account_controller_express_dash_without_application_losses_or_fees`)
+  comme en v1. L'Express exigerait pertes ET frais portés par Yuno (engagement
+  de pertes signé, modèle de frais refait) : décision de Paul, pas un réglage.
 - **Pays du compte = choisi par le pro AVANT la création, et définitif** (Stripe
   ne change jamais le pays d'un compte ; tout naissait en France, un club de
   Madrid se voyait demander un IBAN français). `NewConnectedAccount.country`
@@ -3213,26 +3233,23 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   Stripe »). Un compte ouvert dans le mauvais pays ne se corrige pas : le fermer
   chez Stripe et vider la colonne, aucun outil Yuno ne le fait.
 - **Filets** : une forme REFUSÉE (400/403/404, rien créé) passe à la suivante —
-  v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller` (mêmes
-  responsabilités). Réseau, 429 ou 5xx n'enchaînent jamais (doublon possible).
+  `v1-controller` (pré-rempli : e-mail, type d'entité, raison sociale, capacités)
+  → `v1-controller-bare` (le pays et le profil public seulement) →
+  `v2-identity-free` → `v2-identity-free-merchant-only` (vendeurs). Réseau, 429
+  ou 5xx n'enchaînent jamais (doublon possible).
   Tout échec final = code `stripe_account_create_failed` (traduit côté front par
   `stripeConnectErrorMessage`) + alerte super admin `admin_stripe_connect_failed`.
 - **Onboarding** = lien v2 (`/v2/core/account_links`, configurations lues sur le
-  compte), repli v1. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
+  compte), repli v1 — un compte v1 (« v1 Accounts cannot be used in v2 Account
+  APIs ») part donc sur `/v1/account_links`, comme pour Amoris. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
   `account.updated`), repli v2. Colonnes écrites par `venueConnectColumns` /
   `organizerConnectColumns` — webhook, Console et checkouts écrivent pareil.
-- **Tableau de bord = Express Dashboard** (2026-09-30, décision de Paul) : les
-  comptes naissent en `dashboard: express` (v2) / `stripe_dashboard.type: express`
-  (v1 de secours). Compatible avec charges directes + pertes et frais portés par
-  Stripe (docs.stripe.com/connect/integration-recommendations). Le bouton
-  « Tableau de bord Stripe » génère un lien à usage unique (`login_links`,
-  `dashboardUrlFor`) à chaque clic ; il n'est jamais envoyé hors de l'app. Le
-  pro s'y authentifie par code SMS / e-mail, sans second compte. Le tableau de
-  bord `full` (dashboard.stripe.com) n'est plus que le DERNIER filet de création
-  (`v2-full-dashboard`) et le repli si Stripe refuse un lien. Fonctions,
-  marque et messages de l'Express Dashboard se règlent dans le Dashboard Stripe
-  de Yuno (Connect → Express Dashboard : Branding, Features), pas par l'API.
-  Les comptes déjà créés en `full` le restent (la propriété ne se change pas).
+- **Tableau de bord = complet** (`full`, dashboard.stripe.com) : le pro s'y
+  connecte avec l'e-mail et le mot de passe Stripe qu'il crée dans le formulaire
+  Stripe ; le bouton « Tableau de bord Stripe » ouvre cette adresse
+  (`dashboardUrlFor`). L'Express Dashboard décidé le 30/09 n'a jamais pu
+  exister (voir plus haut) : aucun compte Express n'a été créé. Un lien de
+  connexion (`login_links`) ne sert qu'à un éventuel ancien compte Express.
 - **Le drapeau `charges_enabled` en base n'est qu'un miroir.** Les checkouts
   (billets, tables, boissons) revérifient chez Stripe un compte « inactif »
   (`checkPayoutReadinessHealing`, `healChargesEnabled`) avant de refuser un
@@ -3703,7 +3720,15 @@ tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
   organisateur avec e-mail, sans compte, figé depuis 20 min. `retry` quand
   l'adresse a DÉJÀ un compte (la personne retente au lieu de se connecter :
   Pascal de Poupée, quatre parcours après son compte), `stalled` sinon. Une
-  alerte par adresse et par jour.
+  alerte par adresse et par jour. Depuis le 20/10 (migration
+  `20261104210000`), la landing reconnaît l'adresse PENDANT la saisie (RPC
+  `email_has_account`) et propose « Me connecter » ou un lien de connexion
+  sans mot de passe ; l'alerte `retry` le dit, donne la dernière connexion, et
+  se TAIT si le pro s'est connecté après son parcours (il est rentré). Un
+  parcours Yuno CRM arrêté à l'étape e-mail (sans type) n'alerte qu'en `retry`.
+  Sur `/auth`, la vue connexion dit d'abord « Club ou organisateur déjà
+  inscrit ? Connectez-vous ici » (`auth.proLoginHint`), avant « Créer un
+  compte pro ».
 - **La fiche** (`pro_signup_alert_payload`, relue à l'envoi) : personne,
   structure, provenance (`sourceLabel` : « ChatGPT → la landing »), étapes,
   TOUS ses parcours sur 60 jours (même e-mail ou même numéro), formulaires
@@ -3730,9 +3755,47 @@ tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
   associations, fenêtre CRM, demande promoteur / autre et parcours Yuno CRM
   (Google et Apple compris). Le serveur ne le refuse pas (un refus après
   `auth.signUp` laisserait un compte sans espace).
+- **Telegram en plus du Cockpit** (migration `20261104200000`, 20/10) :
+  `_shared/telegram-ops.ts` + messages purs `_shared/pro-signup-telegram.ts`.
+  Jeton = secret `TELEGRAM_BOT_TOKEN` posé par Paul ; le chat se lie SEUL au
+  premier chat privé qui envoie /start au bot (`ops_telegram_chat`, une ligne,
+  jamais réécrite : changer de chat = vider la table). Fiche tout de suite
+  (boutons https seulement : Cockpit, WhatsApp, admin), recherche en réponse ;
+  au branchement, les alertes des 2 derniers jours partent aussi. L'e-mail de
+  secours se tait quand Telegram a reçu l'alerte.
+- **Inscription bloquée : une alerte par PARCOURS** et 20 h entre deux alertes
+  pour la même adresse (la première version ré-alertait le même parcours après
+  minuit, Poupée le 19/10).
 - `delete-account` écrit enfin `security_logs.account_deleted` (user_id NULL :
   avec l'id du compte effacé, la clé étrangère refusait la ligne, d'où aucune
   trace de la suppression du premier compte de Lillo).
+- **`/admin/signups` = une carte par PERSONNE, jamais par parcours** (20/10,
+  migration `20261104220000`). `admin_pro_signups` relie les parcours en base,
+  de proche en proche : même adresse (celle du compte si le parcours n'en a
+  pas), sinon mêmes 9 derniers chiffres du numéro, sinon même `visitor_hash`
+  (même appareil le même jour). Toute l'histoire d'une personne compte ; la
+  période choisit les personnes passées pendant la période. Funnel, courbe et
+  sources comptent des personnes, et l'écran le dit. La carte dit d'abord ce
+  qui s'est passé (compte ouvert / supprimé / demande / invitation / bloqué à),
+  puis numéro international (`personPhones`, `src/lib/proSignupPeople.ts`),
+  provenance (`sourceParts` ⇄ `sourceLabel`, même module que le Cockpit),
+  invitation, dernière alerte (`pro_signup_alerts`) ; les parcours sont
+  repliés. « Contacté » et la note s'écrivent sur tous les parcours
+  (`admin_update_pro_signups`).
+- **Les robots ne comptent pas dans ce funnel** (20/10, migration
+  `20261104230000`). Une flotte de navigateurs automatisés derrière des proxys
+  (Chrome 130 figé sur Mac + profil « iPhone 13 » de Playwright, score de
+  confiance Cloudflare 1 à 29) parcourt yunoapp.eu, suit le lien « Créer un
+  compte pro » de `/auth` et ouvre `/start` : 26 des 47 « Formulaire ouvert »
+  sur 30 jours. `track_pro_signup` note ce que l'user-agent annonce
+  (`pro_signups.robot` : `declared` | `automation` | `internal`, règle
+  `_pro_signup_robot_ua`, jamais un refus) ; `admin_pro_signups` traite aussi
+  comme robot une ouverture anonyme à moins de 3 minutes d'une autre venue
+  d'un autre appareil. Une personne n'est écartée que si tous ses parcours
+  sont des robots et qu'elle n'a laissé aucun contact, compte ni invitation ;
+  le funnel rend `robots`. Une flotte nouvelle se lit dans les journaux de
+  l'API (`logs`, `source = 'edge_logs'`, `log_attributes['request.headers.user_agent']`,
+  `request.cf.clientTrustScore`, `request.cf.asOrganization`), gardés 3 jours.
 
 ## PostHog — analytics produit, web + apps natives (2026-09-25)
 
@@ -3892,6 +3955,36 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
   correction y est écrite avant l'appel, nom et téléphone SEULEMENT s'ils ont
   changé) ; genre en deux boutons (`GenderChoice`). Aucune phrase CGV sur la
   guest list (il n'y avait pas de case : rien de nouveau à accepter).
+- **Compte connecté = la page attend son profil** (2026-10-20) : squelette tant que
+  `profiles` (nom, téléphone, date de naissance) n'est pas lu, et `MinorAuthGate`
+  ne rend rien avant sa propre lecture. Sinon les cases apparaissaient puis
+  disparaissaient, et le client croyait qu'on lui redemandait sa date.
+
+## E-mail de billet non livré — une faute d'adresse se voit et se corrige (2026-10-20)
+
+Le 20/10 une invitée a payé avec une faute AVANT le @ (gmail.com juste) : rebond
+dur 27 s après l'envoi, noté seulement dans la liste de suppression. Migration
+`20261105100000`, `useTicketEmailDelivery`, `TicketEmailDelivery` (confirmation),
+`TicketEmailBouncePanel` (Console › Commandes › Billets). Règles :
+
+- **Tout e-mail de billet porte les tags `sale_kind` / `sale_id`**
+  (`send-ticket-confirmation`) ; `resend-webhook` les relit et appelle
+  `record_sale_email_event` (livré, ou rebond DUR seulement). État dans
+  `sale_email_deliveries` (RLS sans policy, `kind` ticket | table | guest_list).
+  Un événement pour une AUTRE adresse que la dernière envoyée ne touche rien.
+- **Un rebond prévient les parties principales** (club : `emit_staff_notification`
+  owner, organisateur : `emit_organizer_notification`, langue du profil) avec nom
+  et téléphone, plus `admin_ticket_email_bounced`, une fois par (billet, adresse),
+  jamais pour la démo.
+- **Corriger = `send-ticket-confirmation` action `fix_email`**, preuve = le QR du
+  billet, règle unique `fix_ticket_email` (rebond, ou < 2 h après le paiement,
+  3 corrections au plus), puis le billet repart. La page de confirmation relit
+  l'état toutes les 5 s pendant 3 min (`get_ticket_email_delivery`).
+- **L'envoi direct de `send-ticket-confirmation` exige la clé service**
+  (`isServiceCaller`) : avant, quiconque connaissait l'id d'un billet pouvait se
+  faire envoyer son QR. Seule l'action `fix_email` est ouverte, sous sa preuve.
+- Tables et guest list : même table, mêmes RPC, à brancher sur
+  `send-vip-confirmation` et l'e-mail de guest list.
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 

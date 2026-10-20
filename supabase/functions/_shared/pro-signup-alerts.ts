@@ -12,8 +12,14 @@
 //      notification). Une recherche déjà faite pour la même structure et la
 //      même ville est réutilisée.
 //
+//   + TELEGRAM (migration 20261104200000) : la fiche part aussi sur le Telegram
+//     de Paul juste après le Cockpit, puis la recherche en réponse ; le chat se
+//     lie seul au premier /start (telegram-ops.ts).
+//   + E-MAIL de secours quand ni le Cockpit ni Telegram n'ont joint de téléphone.
+//
 // Secrets : COCKPIT_URL, COCKPIT_SIGNUP_TOKEN (sinon rien ne part, les alertes
-// restent dans /admin/alerts) ; OPENAI_API_KEY pour la recherche.
+// restent dans /admin/alerts) ; OPENAI_API_KEY pour la recherche ;
+// TELEGRAM_BOT_TOKEN ; SIGNUP_ALERT_EMAIL.
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { enrichFiche, researchInput, type RawFiche } from './pro-signup-fiche.ts';
@@ -21,8 +27,62 @@ import { researchOrg, type OrgResearch } from './org-research.ts';
 import { logAiUsage } from './ai-usage.ts';
 import { buildProSignupEmail } from './pro-signup-email.ts';
 import { sendProEmail } from './analytics-digest-emails.ts';
+import { telegramFicheMessage, telegramResearchMessage } from './pro-signup-telegram.ts';
+import { telegramChat, telegramSend, telegramToken } from './telegram-ops.ts';
 
-type AlertRow = { id: string; kind: string; attempts: number; research: unknown; cockpit: { prospect_id?: string } | null };
+type AlertRow = {
+  id: string;
+  kind: string;
+  attempts: number;
+  research: unknown;
+  research_status: string;
+  cockpit: { prospect_id?: string } | null;
+  telegram: { message_id?: number | null } | null;
+};
+
+function asResearch(v: unknown): OrgResearch | null {
+  return v && typeof v === 'object' && 'org_name' in (v as object) ? v as OrgResearch : null;
+}
+
+/** Dernier état du branchement Telegram (rendu dans la réponse du passage). */
+let telegramStatus = 'not_tried';
+
+/** Telegram : les fiches parties au Cockpit, puis les recherches en réponse. */
+async function dispatchTelegram(admin: SupabaseClient, phase: 'fiches' | 'research'): Promise<number> {
+  const token = telegramToken();
+  if (!token) {
+    telegramStatus = 'no_token';
+    return 0;
+  }
+  const { chatId, status } = await telegramChat(admin, token);
+  telegramStatus = status;
+  if (!chatId) return 0;
+  let n = 0;
+  const rpc = phase === 'fiches' ? 'claim_pro_signup_telegram' : 'claim_pro_signup_telegram_research';
+  const { data: rows } = await admin.rpc(rpc, { p_limit: 10 });
+  for (const a of (rows ?? []) as AlertRow[]) {
+    const { data: raw } = await admin.rpc('pro_signup_alert_payload', { p_alert_id: a.id });
+    if (!raw) continue;
+    const fiche = enrichFiche(raw as RawFiche);
+    if (phase === 'fiches') {
+      const r = await telegramSend(token, chatId, telegramFicheMessage(fiche, a.cockpit?.prospect_id ?? null));
+      await admin.rpc('save_pro_signup_telegram', {
+        p_id: a.id, p_ok: r.ok, p_patch: r.ok ? { ok: true, message_id: r.messageId, chat_id: chatId } : { last_error: r.error },
+      });
+      if (r.ok) n++;
+    } else if (a.kind === 'deleted') {
+      // Un compte supprimé n'a pas de recherche à suivre.
+      await admin.rpc('save_pro_signup_telegram', { p_id: a.id, p_ok: true, p_patch: { research_message_id: null } });
+    } else {
+      const r = await telegramSend(token, chatId, telegramResearchMessage(asResearch(a.research), fiche.search_links), a.telegram?.message_id ?? null);
+      await admin.rpc('save_pro_signup_telegram', {
+        p_id: a.id, p_ok: true, p_patch: r.ok ? { research_message_id: r.messageId } : { research_error: r.error },
+      });
+      if (r.ok) n++;
+    }
+  }
+  return n;
+}
 
 async function postCockpit(body: Record<string, unknown>): Promise<{ ok: boolean; status: number; json: unknown }> {
   const base = (Deno.env.get('COCKPIT_URL') ?? '').replace(/\/+$/, '');
@@ -72,6 +132,14 @@ export async function dispatchProSignupAlerts(
     }
   }
 
+  // 1 bis. Telegram, tout de suite (la recherche suivra en réponse).
+  let telegram = 0;
+  try {
+    telegram += await dispatchTelegram(admin, 'fiches');
+  } catch (e) {
+    console.warn('[pro-signup-alerts] telegram', e instanceof Error ? e.message : e);
+  }
+
   // 2. Recherche sur la structure (une IA coûte : une fois par alerte, jamais
   //    sur un compte supprimé, réutilisée pour la même structure).
   const apiKey = Deno.env.get('OPENAI_API_KEY') ?? '';
@@ -118,7 +186,14 @@ export async function dispatchProSignupAlerts(
     }
   }
 
-  // 3. Filet : le Cockpit n'a joint aucun téléphone (aucun appareil abonné) →
+  // 2 bis. La recherche part sur Telegram, en réponse à la fiche.
+  try {
+    telegram += await dispatchTelegram(admin, 'research');
+  } catch (e) {
+    console.warn('[pro-signup-alerts] telegram research', e instanceof Error ? e.message : e);
+  }
+
+  // 3. Filet : ni le Cockpit ni Telegram n'ont joint de téléphone →
   //    la fiche part par e-mail à Paul, recherche comprise.
   let emailed = 0;
   const to = Deno.env.get('SIGNUP_ALERT_EMAIL') ?? '';
@@ -130,7 +205,7 @@ export async function dispatchProSignupAlerts(
         if (!raw) throw new Error('no_payload');
         const { subject, html } = buildProSignupEmail(
           enrichFiche(raw as RawFiche),
-          (a.research && typeof a.research === 'object' && 'org_name' in (a.research as object)) ? a.research as OrgResearch : null,
+          asResearch(a.research),
           a.cockpit?.prospect_id ?? null,
         );
         if (!(await sendProEmail(to, subject, html, 'pro_signup_alert'))) throw new Error('email_failed');
@@ -142,5 +217,5 @@ export async function dispatchProSignupAlerts(
     }
   }
 
-  return { sent, failed, researched, emailed };
+  return { sent, failed, researched, telegram, telegram_status: telegramStatus, emailed };
 }

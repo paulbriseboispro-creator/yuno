@@ -10,32 +10,46 @@
 //   « You tried to create an Accounts v1 connected account using the legacy
 //     `type` field with your platform as the losses collector. Use Accounts v2,
 //     remove `type`, and set `losses_collector` to `stripe` ».
-// D'où Accounts v2 (POST /v2/core/accounts) avec :
-//   • losses_collector = stripe — ce que Stripe exige ;
-//   • fees_collector   = stripe — le VENDEUR paie ses frais Stripe. C'est le
-//     modèle de Yuno en vente directe (payment-split.ts : « Stripe debits its fee
-//     straight from the connected account » ; fees.ts : frais Stripe déduits du
-//     net du pro). Avec `application`, Yuno les paierait sur sa commission ;
-//   • dashboard = express (2026-09-30) — l'Express Dashboard de Stripe : solde,
-//     virements, paiements, remboursements, litiges, rapports, aux couleurs de
-//     Yuno. Le pro n'a PAS de compte Stripe à part : il y entre par un lien de
-//     connexion à usage unique que Yuno génère (login_links, voir
-//     dashboardUrlFor). Stripe confirme la combinaison charges directes +
-//     express + pertes portées par Stripe (docs.stripe.com/connect/
-//     integration-recommendations). Le tableau de bord `full` (dashboard.stripe.com,
-//     identifiants propres) reste le DERNIER filet : une forme express refusée ne
-//     doit jamais bloquer l'ouverture d'un compte.
-// Le reste de Yuno parle v1 (Checkout, transferts, remboursements, webhook) : un
-// compte v2 garde un id `acct_…`, accepté partout où v1 attend un compte connecté.
+// Responsabilités, sur toutes les formes :
+//   • pertes portées par Stripe (losses_collector / controller.losses = stripe)
+//     — ce que Stripe exige d'une plateforme qui n'a pas signé l'engagement de
+//     pertes (« Managed Risk ») ;
+//   • frais Stripe payés par le VENDEUR (fees_collector = stripe / fees.payer =
+//     account). C'est le modèle de Yuno en vente directe (payment-split.ts :
+//     « Stripe debits its fee straight from the connected account » ; fees.ts :
+//     frais Stripe déduits du net du pro). Avec `application`, Yuno les paierait
+//     sur sa commission ;
+//   • tableau de bord COMPLET (`full`, dashboard.stripe.com) : le pro y entre
+//     avec les identifiants Stripe qu'il crée dans le formulaire.
 //
-// FILETS : Stripe n'était pas joignable depuis le poste qui a écrit ce module ;
-// les formes ci-dessous suivent le SDK officiel (stripe-node 22.6, API
-// 2026-08-26.dahlia) mais n'ont pas pu être rejouées contre le compte live.
-// Chaque forme REFUSÉE (400/403/404 : Stripe n'a rien créé) passe donc à la
-// suivante — v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller`
-// (le remplaçant documenté de `type`, mêmes responsabilités). Une panne réseau,
+// PAS D'EXPRESS (2026-10-20) : Stripe refuse l'Express Dashboard dès que les
+// pertes et les frais sont portés par Stripe — code v2
+// `account_controller_express_dash_without_application_losses_or_fees`, et en
+// v1 : « When `stripe_dashboard[type]=express`, your platform must collect fees
+// and be liable for negative balances ». L'Express ne revient qu'avec des
+// pertes ET des frais portés par Yuno (engagement de pertes signé chez Stripe,
+// modèle de frais à refaire) : une décision, pas un réglage de ce module.
+//
+// v1 D'ABORD, PAR `controller` (2026-10-20) : Yuno est une plateforme FRANÇAISE.
+// Stripe y refuse toute information d'identité (e-mail de contact, nom affiché,
+// identité) posée directement sur un compte v2 vendeur : « Connect platforms
+// based in FR can only update certain identity information on a v2 account
+// with a merchant configuration via account tokens » (constaté le 19/10 sur
+// Poupée, Bastia : toutes les formes v2 refusées). Le seul compte live de Yuno
+// (Amoris, 30/09) est un compte v1 par `controller` au tableau de bord complet,
+// ouvert par la forme `v1-controller` ci-dessous : c'est la forme PROUVÉE en
+// production, elle passe en premier. `controller` est le remplaçant documenté du
+// champ `type`, que Stripe refuse désormais à Yuno.
+// Le reste de Yuno parle v1 (Checkout, transferts, remboursements, webhook) ; un
+// compte v2 éventuel garde un id `acct_…`, accepté partout où v1 en attend un.
+//
+// FILETS : chaque forme REFUSÉE (400/403/404 : Stripe n'a rien créé) passe à la
+// suivante — v1 sans pré-remplissage, puis v2 sans AUCUNE identité (le pays
+// seul, tout le reste se saisit dans le formulaire Stripe). Une panne réseau,
 // un 429 ou un 5xx n'enchaîne JAMAIS : le compte a pu naître, en créer un second
-// laisserait un doublon.
+// laisserait un doublon. Les jetons de compte v2 (POST /v2/core/account_tokens,
+// clé publiable, depuis le navigateur du pro) sont la voie v2 de Stripe pour une
+// plateforme française ; ils ne sont pas branchés tant que la forme v1 suffit.
 //
 // PAYS (2026-09-29) : le pays d'un compte Stripe ne change JAMAIS après sa
 // création, et c'est lui qui décide de ce que le formulaire réclame (identité,
@@ -49,7 +63,7 @@
 
 export const STRIPE_V1_API_VERSION = "2025-08-27.basil";
 export const STRIPE_V2_API_VERSION = "2026-08-26.dahlia";
-/** Comptes « tableau de bord complet » (filet) : le pro se connecte chez Stripe, pas par un lien Yuno. */
+/** Comptes au tableau de bord complet (tous les comptes de Yuno) : le pro se connecte chez Stripe avec ses identifiants. */
 export const STRIPE_FULL_DASHBOARD_URL = "https://dashboard.stripe.com/";
 
 const API_BASE = "https://api.stripe.com";
@@ -152,7 +166,7 @@ export interface NewConnectedAccount {
 export interface CreatedConnectedAccount {
   id: string;
   api: ConnectApi;
-  /** Forme retenue (journal) : v2, v2-no-prefill, v2-merchant-only, v1-controller, v1-controller-bare, v2-full-dashboard. */
+  /** Forme retenue (journal) : v1-controller, v1-controller-bare, v2-identity-free, v2-identity-free-merchant-only. */
   shape: string;
 }
 
@@ -306,18 +320,25 @@ async function stripeRequest<T>(
 
 type V2Configuration = "merchant" | "recipient";
 
-/** Corps POST /v2/core/accounts. Exporté pour les tests. */
+/**
+ * Corps POST /v2/core/accounts. `identity: "none"` n'envoie QUE le pays : ni
+ * e-mail de contact, ni nom affiché, ni type d'entité, ni raison sociale, ni
+ * nom commercial — ce qu'une plateforme française n'a le droit de poser que par
+ * un jeton de compte. Exporté pour les tests.
+ */
 export function v2AccountBody(
   spec: NewConnectedAccount,
   configurations: V2Configuration[],
-  prefill: boolean,
-  dashboard: Exclude<DashboardType, "none"> = "express",
+  identity: "prefill" | "contact" | "none",
+  dashboard: Exclude<DashboardType, "none"> = "full",
 ): Record<string, unknown> {
   const mcc = spec.mcc ?? "7929";
   const country = spec.country.trim().toUpperCase();
+  const prefill = identity === "prefill";
+  const contact = identity !== "none";
   return compact({
-    contact_email: spec.email ?? undefined,
-    display_name: spec.displayName ?? undefined,
+    contact_email: contact ? spec.email ?? undefined : undefined,
+    display_name: contact ? spec.displayName ?? undefined : undefined,
     dashboard,
     identity: {
       country: country.toLowerCase(),
@@ -340,14 +361,20 @@ export function v2AccountBody(
       responsibilities: { fees_collector: "stripe", losses_collector: "stripe" },
       profile: {
         product_description: spec.productDescription,
-        doing_business_as: spec.displayName ?? undefined,
+        doing_business_as: contact ? spec.displayName ?? undefined : undefined,
       },
     },
     metadata: spec.metadata,
   });
 }
 
-/** Corps POST /v1/accounts par `controller` (sans le champ `type` déprécié). Exporté pour les tests. */
+/**
+ * Corps POST /v1/accounts par `controller` (sans le champ `type` déprécié) :
+ * exactement la forme du compte live d'Amoris (frais payés par le compte,
+ * pertes par Stripe, formulaire tenu par Stripe, tableau de bord complet).
+ * Sans `prefill`, rien que le pays et le profil public : pas même l'e-mail.
+ * Exporté pour les tests.
+ */
 export function v1ControllerAccountBody(
   spec: NewConnectedAccount,
   opts: { capabilities: boolean; prefill: boolean; dashboard?: Exclude<DashboardType, "none"> },
@@ -355,16 +382,19 @@ export function v1ControllerAccountBody(
   const prefill = opts.prefill && !!spec.entityType;
   return {
     country: spec.country.trim().toUpperCase(),
-    email: spec.email ?? undefined,
+    email: opts.prefill ? spec.email ?? undefined : undefined,
     controller: {
       fees: { payer: "account" },
       losses: { payments: "stripe" },
       requirement_collection: "stripe",
-      stripe_dashboard: { type: opts.dashboard ?? "express" },
+      stripe_dashboard: { type: opts.dashboard ?? "full" },
     },
-    capabilities: opts.capabilities
-      ? { card_payments: { requested: true }, transfers: { requested: true } }
-      : undefined,
+    // Un DJ ne vend rien : il ne reçoit que des cachets (transferts).
+    capabilities: !opts.capabilities
+      ? undefined
+      : spec.purpose === "payee"
+      ? { transfers: { requested: true } }
+      : { card_payments: { requested: true }, transfers: { requested: true } },
     business_type: prefill ? spec.entityType : undefined,
     company: prefill && spec.registeredName && spec.entityType !== "individual"
       ? { name: spec.registeredName }
@@ -392,24 +422,20 @@ export async function createConnectedAccount(
   if (!country) throw new UnsupportedConnectCountryError(String(spec.country ?? ""));
   spec = { ...spec, country };
   const configs: V2Configuration[] = spec.purpose === "seller" ? ["merchant", "recipient"] : ["recipient"];
-  const hasPrefill = !!spec.entityType || !!spec.registeredName;
 
   const attempts: { shape: string; api: ConnectApi; run: () => Promise<{ id?: string }> }[] = [
-    { shape: "v2", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, configs, true)) },
-  ];
-  if (hasPrefill) {
-    attempts.push({ shape: "v2-no-prefill", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, configs, false)) });
-  }
-  if (spec.purpose === "seller") {
-    attempts.push({ shape: "v2-merchant-only", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, ["merchant"], false)) });
-  }
-  attempts.push(
+    // La forme du compte live d'Amoris (30/09) : prouvée en production.
     { shape: "v1-controller", api: "v1", run: () => stripeRequest(ctx, "v1", "POST", "/v1/accounts", v1ControllerAccountBody(spec, { capabilities: true, prefill: true })) },
+    // Sans pré-remplissage ni capacités : si Stripe venait à refuser l'identité
+    // posée en v1 aussi, le pro saisit tout dans le formulaire Stripe.
     { shape: "v1-controller-bare", api: "v1", run: () => stripeRequest(ctx, "v1", "POST", "/v1/accounts", v1ControllerAccountBody(spec, { capabilities: false, prefill: false })) },
-    // Dernier filet : si Stripe refuse toute forme Express, on ouvre le compte
-    // au tableau de bord complet plutôt que de bloquer le pro.
-    { shape: "v2-full-dashboard", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, configs, false, "full")) },
-  );
+    // v2 sans AUCUNE identité : la seule forme v2 qu'une plateforme française
+    // peut envoyer sans jeton de compte.
+    { shape: "v2-identity-free", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, configs, "none")) },
+  ];
+  if (spec.purpose === "seller") {
+    attempts.push({ shape: "v2-identity-free-merchant-only", api: "v2", run: () => stripeRequest(ctx, "v2", "POST", "/v2/core/accounts", v2AccountBody(spec, ["merchant"], "none")) });
+  }
 
   const failures: { shape: string; message: string }[] = [];
   for (const attempt of attempts) {

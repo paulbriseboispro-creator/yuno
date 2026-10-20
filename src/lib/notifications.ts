@@ -39,6 +39,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 💰 Revenue
   new_order:      { icon: ShoppingCart, category: 'revenue',    label: 'notif.type.new_order' },
   ticket_sale:    { icon: Ticket,       category: 'revenue',    label: 'notif.type.ticket_sale' },
+  // Un acheteur a saisi une adresse qui n'existe pas : son billet n'est pas arrivé.
+  ticket_email_bounced: { icon: AlertTriangle, category: 'revenue', label: 'notif.type.ticket_email_bounced' },
   table_booked:   { icon: Crown,        category: 'revenue',    label: 'notif.type.table_booked' },
   promoter_sale:  { icon: TrendingUp,   category: 'revenue',    label: 'notif.type.promoter_sale' },
   refund_issued:  { icon: Receipt,      category: 'revenue',    label: 'notif.type.refund_issued' },
@@ -181,6 +183,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_collab_late_sale:        { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_collab_late_sale' },
   // Argent encaissé que Yuno doit traiter à la main (webhook, porte, litiges).
   admin_paid_sale_unfulfilled:   { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_paid_sale_unfulfilled' },
+  admin_ticket_email_bounced:    { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_ticket_email_bounced' },
   admin_refund_failed:           { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_refund_failed' },
   admin_payment_disputed:        { icon: ShieldAlert, category: 'billing',  label: 'notif.type.admin_payment_disputed' },
   admin_indirect_charge_refused: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_indirect_charge_refused' },
@@ -477,6 +480,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 
     // Ticket sale → the orders page, tickets tab, opened on the sale just made.
     case 'ticket_sale':
+    case 'ticket_email_bounced':
       return `${basePath}/orders?tab=tickets${orderFocus}`;
     // Ticketing capacity alerts stay on the ticketing management page.
     case 'ticket_round_warning':
@@ -680,6 +684,7 @@ function adminNotifLink(n: AppNotif): string | null {
 
     // Une vente payée à traiter à la main : la liste des commandes.
     case 'admin_paid_sale_unfulfilled':
+    case 'admin_ticket_email_bounced':
     case 'admin_refund_failed':
     case 'admin_payment_disputed':
       return '/admin/orders';

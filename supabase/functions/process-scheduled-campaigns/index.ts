@@ -38,7 +38,13 @@ Deno.serve(async (req) => {
   // Tâche ciblée : une alerte d'inscription pro vient d'être posée (déclencheur
   // de la migration 20261103410000). On répond tout de suite et on travaille
   // en arrière-plan : la fiche part au Cockpit de Paul, puis la recherche web.
-  const task = await req.clone().json().then((b) => (typeof b?.task === 'string' ? b.task : null)).catch(() => null);
+  const reqBody = await req.clone().json().catch(() => null) as { task?: unknown; wait?: unknown } | null;
+  const task = typeof reqBody?.task === 'string' ? reqBody.task : null;
+  if (task === 'pro_signup_alerts' && reqBody?.wait === true) {
+    // Diagnostic (cron ou super admin seulement) : le passage, et son résultat.
+    const result = await dispatchProSignupAlerts(createClient(SUPABASE_URL, SERVICE_KEY), { budgetMs: 140_000 });
+    return new Response(JSON.stringify({ ok: true, task, result }), { headers: { 'Content-Type': 'application/json' } });
+  }
   if (task === 'pro_signup_alerts') {
     const job = dispatchProSignupAlerts(createClient(SUPABASE_URL, SERVICE_KEY), { budgetMs: 140_000 })
       .then((r) => console.log('[pro-signup-alerts]', JSON.stringify(r)))

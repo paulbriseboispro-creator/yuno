@@ -53,7 +53,7 @@ const POUPEE: RawFiche = {
   person: { full_name: 'Pascal Delatour', email: 'delatourpascal20@outlook.fr', phone: '756388760', profile_phone: '0756388760' },
   org: { kind: 'club', name: 'Poupée', city: 'Bastia', country: 'FR', size_band: '800_1500' },
   origin: { source: 'start', utm_source: 'yuno_app', step: 'account' },
-  account: { exists: true, events: 1, payments: false, console_opened_at: '2026-10-19T09:29:09Z' },
+  account: { exists: true, events: 1, payments: false, console_opened_at: '2026-10-19T09:29:09Z', last_sign_in_at: '2026-10-19T10:15:30Z' },
   attempts: [
     { at: '2026-10-19T09:26:49Z', phone: '0756388760', account_created_at: '2026-10-19T09:29:09Z' },
     { at: '2026-10-19T09:46:21Z', phone: '756388760', account_created_at: null },
@@ -70,6 +70,10 @@ describe('enrichFiche', () => {
     expect(f.push.body).toContain('Poupée');
     expect(f.push.body).toContain('07 56 38 87 60');
     expect(f.notes.join(' ')).toContain("déjà un compte");
+    // What the funnel offered, and since when he hasn't been back (Paris time).
+    expect(f.notes.join(' ')).toContain('« Me connecter » et un lien de connexion');
+    expect(f.notes.join(' ')).toContain('dernière connexion le 19/10 à 12h15');
+    expect(callNotes({ ...POUPEE, account: { exists: true } }).join(' ')).toContain('jamais connecté');
     expect(f.notes.join(' ')).toContain('3 parcours');
     expect(f.notes.join(' ')).toContain('pas relié ses paiements');
   });
@@ -144,5 +148,22 @@ describe('fallback email', () => {
     expect(html).toContain('Club de Bastia.');
     expect(html).toContain('https://yuno-cockpit.vercel.app/prospects/abc');
     expect(html).toContain('Numéros différents');
+  });
+});
+
+describe('telegram messages', () => {
+  it('puts the fiche in one HTML message with https buttons only', async () => {
+    const { telegramFicheMessage, telegramResearchMessage, phoneIntl } = await import('../../../supabase/functions/_shared/pro-signup-telegram.ts');
+    expect(phoneIntl('+33756388760')).toBe('+33 7 56 38 87 60');
+    const f = enrichFiche({ ...POUPEE, org: { ...POUPEE.org, name: 'Poupée <club>' } });
+    const m = telegramFicheMessage(f, 'abc');
+    expect(m.text).toContain('<b>Poupée &lt;club&gt;</b>');
+    expect(m.text).toContain('📞 +33 7 56 38 87 60');
+    expect(m.text).toContain('📞 +33 7 56 38 87 68');
+    expect(m.buttons.flat().every((b) => b.url.startsWith('https://'))).toBe(true);
+    expect(m.buttons[0][0].url).toBe('https://yuno-cockpit.vercel.app/prospects/abc');
+    const none = telegramResearchMessage(null, f.search_links);
+    expect(none.text).toContain('rien de net trouvé');
+    expect(none.text).toContain('Chercher');
   });
 });

@@ -692,14 +692,25 @@ export default function Auth() {
                     {isSignUp ? t('auth.alreadyAccount') : t('auth.noAccount')}
                   </button>
                   {/* Un pro ne crée pas son compte ici (ce formulaire ouvre un compte
-                      CLIENT) : il passe par le funnel de la landing. */}
+                      CLIENT) : il passe par le funnel de la landing. En vue connexion, on
+                      dit D'ABORD qu'un pro déjà inscrit se connecte ici (Poupée, 19/10/2026 :
+                      il recliquait « Créer un compte pro » et retombait dans l'inscription). */}
+                  {!isInviteFlow && !isSignUp && (
+                    <p
+                      className="font-mono w-full"
+                      style={{ fontSize: '12px', color: '#8A8A8E', letterSpacing: '0.04em', lineHeight: 1.5, margin: '10px 0 0' }}
+                    >
+                      {t('auth.proLoginHint')}
+                    </p>
+                  )}
                   {!isInviteFlow && (
                     <a
                       href={proSignupUrl(language, { source: 'auth' })}
                       className="font-mono block w-full transition-colors"
                       style={{ fontSize: '12px', color: '#8A8A8E', letterSpacing: '0.04em' }}
                     >
-                      {t('auth.proSignupPrompt')} <span style={{ color: '#FFFFFF' }}>{t('auth.proSignupCta')} →</span>
+                      {isSignUp ? t('auth.proSignupPrompt') : t('auth.proSignupPromptNew')}{' '}
+                      <span style={{ color: '#FFFFFF' }}>{t('auth.proSignupCta')} →</span>
                     </a>
                   )}
                   {!isSignUp && (

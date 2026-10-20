@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import QRCode from "https://esm.sh/qrcode@1.5.3";
+// Espace de noms : le paquet est CommonJS et ses types n'ont pas d'export par défaut.
+import * as QRCode from "https://esm.sh/qrcode@1.5.3";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import type { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildTicketConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
@@ -86,6 +87,25 @@ interface TicketConfirmationRequest {
   email: string;
   firstName?: string;
   isGuest?: boolean;
+  /** `fix_email` : l'acheteur corrige son adresse depuis la confirmation (preuve = QR). */
+  action?: "fix_email";
+  qrCode?: string;
+}
+
+interface FixTicketEmailResult {
+  ok: boolean;
+  reason?: string;
+  email?: string;
+  first_name?: string;
+  is_guest?: boolean;
+}
+
+// L'envoi direct n'est ouvert qu'au serveur (verify-ticket-payment appelle avec
+// la clé service) : sans cette porte, quiconque connaissait l'id d'un billet
+// pouvait se faire envoyer son QR à l'adresse de son choix.
+function isServiceCaller(req: Request): boolean {
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  return !!key && req.headers.get("Authorization") === `Bearer ${key}`;
 }
 
 serve(async (req) => {
@@ -113,8 +133,38 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
-    const { ticketId, email, firstName, isGuest } =
-      (await req.json()) as TicketConfirmationRequest;
+    const body = (await req.json()) as TicketConfirmationRequest;
+    const { ticketId } = body;
+    let { email, firstName, isGuest } = body;
+
+    if (body.action === "fix_email") {
+      // Correction par l'acheteur : la base tranche (QR, rebond ou < 2 h,
+      // 3 corrections au plus), puis le billet repart à la bonne adresse.
+      if (!ticketId || !body.qrCode || !email) {
+        return new Response(JSON.stringify({ ok: false, reason: "missing" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      const { data: fixData, error: fixError } = await supabaseAdmin
+        .rpc("fix_ticket_email", { p_ticket_id: ticketId, p_qr: body.qrCode, p_email: email });
+      if (fixError) throw new Error(`fix_ticket_email: ${fixError.message}`);
+      const fix = fixData as FixTicketEmailResult | null;
+      if (!fix?.ok || !fix.email) {
+        return new Response(JSON.stringify({ ok: false, reason: fix?.reason ?? "refused" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      email = fix.email;
+      firstName = fix.first_name || firstName;
+      isGuest = fix.is_guest ?? isGuest;
+      logStep("Email fixed by buyer", { ticketId });
+    } else if (!isServiceCaller(req)) {
+      return new Response(JSON.stringify({ error: "forbidden" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
 
     if (!ticketId || !email) {
       throw new Error("ticketId and email are required");
@@ -438,7 +488,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${resendApiKey}`,
       },
-      body: JSON.stringify({ from, to: [email], subject, html, ...(attachments.length ? { attachments } : {}) }),
+      // Tags relus par resend-webhook : un rebond se rattache à CE billet.
+      body: JSON.stringify({
+        from, to: [email], subject, html,
+        tags: [{ name: "sale_kind", value: "ticket" }, { name: "sale_id", value: ticketId }],
+        ...(attachments.length ? { attachments } : {}),
+      }),
       signal: AbortSignal.timeout(10000),
     });
 
@@ -449,6 +504,11 @@ serve(async (req) => {
 
     const data = await res.json();
     logStep("Email sent", { ticketId, to: email, isGuest });
+    // Suivi de livraison : best-effort, l'e-mail est déjà parti.
+    const { error: trackError } = await supabaseAdmin.rpc("record_sale_email_sent", {
+      p_kind: "ticket", p_sale_id: ticketId, p_email: email, p_resend_email_id: data?.id ?? null,
+    });
+    if (trackError) console.error("[SEND-TICKET-CONFIRMATION] record_sale_email_sent:", trackError.message);
 
     return new Response(JSON.stringify({ success: true, ...data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

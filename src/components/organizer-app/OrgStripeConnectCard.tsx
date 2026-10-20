@@ -169,9 +169,9 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
           </div>
           <p style={{ color: T3, fontSize: 11.5 }}>
             {t(
-              'Le tableau de bord Stripe (solde, virements, remboursements, litiges) s\'ouvre depuis Yuno : Stripe vous envoie un code par SMS ou e-mail pour confirmer que c\'est bien vous.',
-              'The Stripe dashboard (balance, payouts, refunds, disputes) opens from Yuno: Stripe sends you a code by SMS or email to confirm it\'s you.',
-              'El panel de Stripe (saldo, transferencias, reembolsos, disputas) se abre desde Yuno: Stripe te envía un código por SMS o correo para confirmar que eres tú.',
+              'Le tableau de bord Stripe (solde, virements, remboursements, litiges) est sur dashboard.stripe.com : connectez-vous avec l\'e-mail et le mot de passe Stripe créés dans le formulaire Stripe.',
+              'The Stripe dashboard (balance, payouts, refunds, disputes) is on dashboard.stripe.com: sign in with the Stripe email and password you created in the Stripe form.',
+              'El panel de Stripe (saldo, transferencias, reembolsos, disputas) está en dashboard.stripe.com: entra con el correo y la contraseña de Stripe que creaste en el formulario de Stripe.',
             )}
           </p>
         </div>

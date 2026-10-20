@@ -168,8 +168,10 @@ const CHANNELS: Array<[RegExp, string]> = [
   [/linkedin|lnkd/i, 'LinkedIn'],
   [/whatsapp|wa\.me/i, 'WhatsApp'],
   [/shotgun/i, 'Shotgun'],
-  [/yuno_app|yunoapp\.eu/i, "l'app Yuno"],
+  [/yuno_app|yunoapp\.eu/i, 'yuno_app'],
 ];
+// Les canaux sont des noms propres, sauf l'app Yuno (traduite par l'admin).
+const CHANNEL_FR: Record<string, string> = { yuno_app: "l'app Yuno" };
 
 const PAGES: Record<string, string> = {
   landing: 'la landing',
@@ -182,14 +184,24 @@ const PAGES: Record<string, string> = {
   landing_contact: 'le formulaire de contact de la landing',
 };
 
-/** « ChatGPT → la landing », « Google → la landing », « l'app Yuno → la page d'inscription ». */
-export function sourceLabel(origin: SignupOrigin | null | undefined): string {
+/** La provenance en deux morceaux, sans texte : le canal (« ChatGPT »,
+ *  « Google », `yuno_app`, sinon le site référent) et la page d'arrivée (clé de
+ *  PAGES, sinon la source brute). L'admin les traduit, sourceLabel les écrit. */
+export function sourceParts(origin: SignupOrigin | null | undefined): { channel: string | null; page: string | null } {
   const o: SignupOrigin = origin ?? {};
   const raw = [o.utm_source, o.referrer_host].filter(Boolean).join(' ');
   const channel = CHANNELS.find(([re]) => re.test(raw))?.[1]
     ?? (o.referrer_host && !/yunoapp\.eu$/i.test(o.referrer_host) ? o.referrer_host : null);
   const src = String(o.source ?? '');
-  const page = PAGES[src] ?? (src.startsWith('landing-') ? 'la landing' : src || null);
+  const page = PAGES[src] ? src : src.startsWith('landing-') ? 'landing' : src || null;
+  return { channel, page };
+}
+
+/** « ChatGPT → la landing », « Google → la landing », « l'app Yuno → la page d'inscription ». */
+export function sourceLabel(origin: SignupOrigin | null | undefined): string {
+  const parts = sourceParts(origin);
+  const channel = parts.channel ? CHANNEL_FR[parts.channel] ?? parts.channel : null;
+  const page = parts.page ? PAGES[parts.page] ?? parts.page : null;
   if (channel && page) return `${channel} → ${page}`;
   return channel ?? page ?? 'inconnue';
 }
@@ -200,6 +212,19 @@ function minutesBetween(a?: string | null, b?: string | null): number | null {
   if (!a || !b) return null;
   const d = (Date.parse(b) - Date.parse(a)) / 60000;
   return Number.isFinite(d) && d >= 0 ? Math.round(d) : null;
+}
+
+/** « 19/10 à 12h15 », heure de Paris. */
+export function parisDateTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(d).map((x) => [x.type, x.value]),
+  );
+  return `${parts.day}/${parts.month} à ${parts.hour}h${parts.minute}`;
 }
 
 function plural(n: number, one: string, many: string) {
@@ -214,7 +239,14 @@ export function callNotes(p: RawFiche): string[] {
   const kind = p.kind;
 
   if (kind === 'retry') {
-    notes.push("A déjà un compte et retente de s'inscrire : il n'arrive sans doute pas à se connecter. Lui proposer de l'aider à entrer dans sa Console.");
+    // Depuis le 20/10, la landing reconnaît l'adresse pendant la saisie et propose « Me connecter »
+    // ou un lien de connexion par e-mail ; l'alerte ne part que s'il ne s'est pas reconnecté depuis.
+    const last = parisDateTime(acc.last_sign_in_at);
+    notes.push(
+      "A déjà un compte et retente de s'inscrire. Le formulaire lui a proposé « Me connecter » et un lien de connexion par e-mail, "
+        + `sans qu'il se reconnecte depuis (${last ? `dernière connexion le ${last}` : 'jamais connecté'}). `
+        + "L'aider à entrer dans sa Console : mot de passe oublié, autre adresse, lien pas reçu ?",
+    );
   }
   if (kind === 'stalled') {
     const step = p.stalled?.step ?? p.origin?.step;
@@ -324,7 +356,7 @@ export function enrichFiche(p: RawFiche): Fiche {
   const stalledStep = p.stalled?.step ?? origin.step;
   switch (p.kind) {
     case 'retry':
-      body = `${who} (${orgName}) a déjà un compte et retente de s'inscrire${phone ? ` · ${phone}` : ''}`;
+      body = `${who} (${orgName}) a déjà un compte, ne s'est pas reconnecté malgré « Me connecter » et le lien proposés${phone ? ` · ${phone}` : ''}`;
       break;
     case 'stalled':
       body = `${orgName}${where} · ${who} · arrêté à « ${(stalledStep && STEP_LABEL[stalledStep]) || '?'} »${phone ? ` · ${phone}` : ''}`;

@@ -33,6 +33,8 @@ import { PublicPage } from '@/components/PublicPage';
 import { OrderConfirmationSkeleton } from '@/components/skeletons/OrderConfirmationSkeleton';
 import { publicUrl } from '@/lib/native';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { useTicketEmailDelivery } from '@/hooks/useTicketEmailDelivery';
+import { TicketEmailDelivery } from '@/components/confirmation/TicketEmailDelivery';
 
 interface UpsellSelection {
   name: string;
@@ -221,6 +223,13 @@ export default function OrderConfirmation() {
   // État vivant du toggle (optimiste), pour le libellé du bouton après le tap.
   const [orgFollowing, setOrgFollowing] = useState<Record<string, boolean>>({});
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  // E-mail du billet : envoyé, livré ou rebondi (faute dans l'adresse) — la
+  // page le dit et fait corriger l'adresse tant que l'acheteur est là.
+  const isTicket = data?.type === 'ticket';
+  const { delivery: emailDelivery, fix: fixTicketEmail } = useTicketEmailDelivery(
+    isTicket ? data?.id : null,
+    isTicket ? data?.qrCode : null,
+  );
 
   const type = searchParams.get('type') as 'ticket' | 'table' | 'order';
   const id = searchParams.get('id');
@@ -1024,7 +1033,9 @@ export default function OrderConfirmation() {
 
   // Timeline « Et maintenant ? » — the three things that happen next.
   const steps = [
-    { icon: Mail, title: t('confirmation.step1Title'), desc: t('confirmation.step1Desc'), extra: data.customerEmail, done: true },
+    emailDelivery?.status === 'bounced'
+      ? { icon: Mail, title: t('confirmation.mail.step1Bounced'), desc: t('confirmation.mail.stillValid'), extra: emailDelivery.email, done: false }
+      : { icon: Mail, title: t('confirmation.step1Title'), desc: t('confirmation.step1Desc'), extra: emailDelivery?.email ?? data.customerEmail, done: true },
     { icon: QrCode, title: t('confirmation.step2Title'), desc: t('confirmation.step2Desc'), extra: null, done: false },
     {
       icon: Clock,
@@ -1132,6 +1143,9 @@ export default function OrderConfirmation() {
       <PublicPage variant="flow">
       {/* ── Reading column ── */}
       <div className="mx-auto px-5 w-full box-border" style={{ maxWidth: 600 }}>
+
+        {/* Où part le billet ; une adresse fausse se corrige ici (rebond Resend). */}
+        {isTicket && <TicketEmailDelivery delivery={emailDelivery} fix={fixTicketEmail} />}
 
         {/* TON PASS — the QR / utility centerpiece */}
         <motion.section {...rise(0.1)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

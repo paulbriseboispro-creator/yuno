@@ -35,11 +35,16 @@ Deno.serve(async (req) => {
     // campagne (delivered/opened/clicked/bounced) étaient perdus, et avec eux
     // la suppression des bounces et le disjoncteur.
     const rawTags: unknown = data.tags;
-    const campaignId: string | undefined = Array.isArray(rawTags)
-      ? rawTags.find((t) => t?.name === 'campaign_id')?.value
+    const tagValue = (name: string): string | undefined => Array.isArray(rawTags)
+      ? rawTags.find((t) => t?.name === name)?.value
       : rawTags && typeof rawTags === 'object'
-        ? (rawTags as Record<string, string>).campaign_id
+        ? (rawTags as Record<string, string>)[name]
         : undefined;
+    const campaignId = tagValue('campaign_id');
+    // E-mail de vente (billet…) : son état est suivi pour que la confirmation
+    // et l'organisateur voient un rebond (send-ticket-confirmation pose ces tags).
+    const saleKind = tagValue('sale_kind');
+    const saleId = tagValue('sale_id');
     const recipient = Array.isArray(data.to) ? data.to[0] : data.to;
     const resendEmailId = data.email_id || data.id;
 
@@ -79,6 +84,19 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error('suppress_email failed:', e);
       }
+    }
+
+    // Un rebond SOFT n'est pas un échec : l'e-mail repartira, rien à signaler.
+    if (saleKind && saleId && recipient && (evt === 'delivered' || isHardBounce)) {
+      const { error: saleErr } = await admin.rpc('record_sale_email_event', {
+        p_kind: saleKind,
+        p_sale_id: saleId,
+        p_email: recipient,
+        p_event: evt,
+        p_resend_email_id: resendEmailId ?? null,
+        p_detail: bounceType || null,
+      });
+      if (saleErr) console.error('record_sale_email_event failed:', saleErr.message);
     }
 
     if (!campaignId) {
