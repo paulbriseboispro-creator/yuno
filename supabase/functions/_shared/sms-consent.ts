@@ -104,6 +104,9 @@ export async function recordSmsConsent(
       consent_source: input.source,
       source_event_id: input.eventId ?? null,
       is_vip: input.isVip === true,
+      // Opt-in du checkout / de la guest list = Yuno Tickets (Billetterie) : jamais le CRM.
+      // NULL est une valeur de l'index unique (NULLS NOT DISTINCT).
+      product: null,
       // Un ré-opt-in doit lever un désabonnement antérieur : sans ça, la
       // personne re-cochait la case et restait exclue des campagnes.
       // Sûr ici parce que cette fonction n'est appelée QUE sur opt-in, et
@@ -114,7 +117,9 @@ export async function recordSmsConsent(
     };
 
     await supabaseAdmin.from("venue_sms_contacts").upsert(row, {
-      onConflict: input.venueId ? "venue_id,phone_e164" : "organizer_user_id,phone_e164",
+      // Index unique (venue_id, organizer_user_id, phone_e164, product) NULLS NOT DISTINCT : les deux anciennes
+      // contraintes (venue_id, phone_e164) et (organizer_user_id, phone_e164) n'existent plus.
+      onConflict: "venue_id,organizer_user_id,phone_e164,product",
       ignoreDuplicates: false,
     });
   } catch (err) {

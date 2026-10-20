@@ -248,7 +248,8 @@ async function userOwnsScope(admin: Admin, userId: string, venueId: string | nul
 /** Identité de l'annonceur (charte AF2M) : raison sociale + SIRET / RNA / TVA. */
 async function identityOk(admin: Admin, scope: Scope): Promise<boolean> {
   if (scope.platform) return true;
-  const { data, error } = await admin.rpc("get_sms_sender_readiness", { p_venue_id: scope.venueId, p_organizer_user_id: scope.organizerId });
+  // Identité d'annonceur PAR produit : le CRM a la sienne (crm_sms_settings), la Billetterie lit sa fiche légale.
+  const { data, error } = await admin.rpc("get_sms_sender_readiness", { p_venue_id: scope.venueId, p_organizer_user_id: scope.organizerId, p_product: scope.crm ? "crm" : "suite" });
   if (error) throw new Error(`readiness: ${error.message}`);
   return (data as { identity_ok?: boolean } | null)?.identity_ok === true;
 }
