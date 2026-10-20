@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { inviteCohostByEmail, inviteEventCohost, coorgErrorCode, type PrincipalTerms } from '@/lib/coorg';
 import { clubEmailInviteRules, type PartnerDraft } from '@/lib/collabInvite';
 import { capturePosthog } from '@/lib/posthog';
-import { createHostPass, hostPassErrorCode, sendHostPassEmail } from '@/lib/hostPass';
+import { createGuestPass, guestErrorCode, sendGuestPassEmail } from '@/lib/guestSpace';
 
 /**
  * Envoie les invitations choisies dans « Avec qui ? », une fois la soirée
@@ -13,8 +13,8 @@ import { createHostPass, hostPassErrorCode, sendHostPassEmail } from '@/lib/host
  *  • Organisation par email → `create_cohost_email_invite` via l'edge.
  *  • Club par email comme LIEU → `invite-club-collab`, qui crée son club à
  *    l'acceptation et applique le même accord.
- *  • Club par email comme CLUB HÔTE → `create_event_host_pass` (sa page de la
- *    soirée, sans compte) puis l'email (`invite-organizer-collab`, `host_pass`).
+ *  • Club ou organisation par email en ESPACE INVITÉ → `create_event_guest_pass`
+ *    (son espace de la soirée, sans compte) puis l'email (`invite-organizer-collab`, `guest_pass`).
  */
 export async function sendPartnerInvites(p: {
   eventId: string;
@@ -33,17 +33,17 @@ export async function sendPartnerInvites(p: {
   for (const d of ordered) {
     const principal = d.role === 'principal';
     const access = d.role === 'editor' ? 'editor' : 'viewer';
-    if (d.role === 'host' && d.source === 'email') {
+    if (d.role === 'guest' && d.source === 'email') {
       try {
-        const pass = await createHostPass({
-          eventId: p.eventId, venueName: d.name || d.email, email: d.email,
-          language: d.hostLang ?? p.lang, showRevenue: d.hostRevenue !== false,
+        const pass = await createGuestPass({
+          eventId: p.eventId, kind: d.kind, name: d.name || d.email, email: d.email,
+          language: d.guestLang ?? p.lang, showRevenue: d.guestRevenue !== false, places: d.guestPlaces || null,
         });
         sent += 1;
-        capturePosthog('host_pass_created', { event_id: p.eventId, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email' });
-        try { await sendHostPassEmail(pass.id); } catch (err) { errors.push({ name: d.name || d.email, code: hostPassErrorCode(err) }); }
+        capturePosthog('guest_space_created', { event_id: p.eventId, guest_kind: d.kind, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email' });
+        try { await sendGuestPassEmail(pass.id); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
       } catch (err) {
-        errors.push({ name: d.name || d.email, code: hostPassErrorCode(err) });
+        errors.push({ name: d.name || d.email, code: guestErrorCode(err) });
       }
       continue;
     }

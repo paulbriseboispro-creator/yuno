@@ -37,7 +37,7 @@ describe('collabInvite', () => {
     expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx)).toEqual(['principal']);
     expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx, [club('x', 'principal')])).toEqual([]);
     expect(defaultRole({ source: 'email', kind: 'venue' }, { lead: 'venue', principalOpen: true }, [])).toBeNull();
-    expect(allowedRoles({ source: 'email', kind: 'org' }, ctx)).toEqual(['editor', 'viewer']);
+    expect(allowedRoles({ source: 'email', kind: 'org' }, ctx)).toEqual(['guest', 'editor', 'viewer']);
   });
 
   it('clés stables, email insensible à la casse', () => {
@@ -75,21 +75,25 @@ describe('collabInvite', () => {
   });
 });
 
-describe('club hôte (host_pass)', () => {
-  it('un club par email, sur une soirée d’organisateur sans lieu Yuno : club hôte par défaut', () => {
+describe('espace invité (guest)', () => {
+  it('un club par email, sur une soirée d’organisateur sans lieu Yuno : espace invité par défaut', () => {
     const ctx = { lead: 'organizer' as const, principalOpen: true, hostOpen: true };
-    expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx)).toEqual(['principal', 'host']);
-    expect(defaultRole({ source: 'email', kind: 'venue' }, ctx, [])).toBe('host');
+    expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx)).toEqual(['principal', 'guest']);
+    expect(defaultRole({ source: 'email', kind: 'venue' }, ctx, [])).toBe('guest');
   });
 
-  it('le lieu déjà invité : il reste le club hôte', () => {
+  it('le lieu déjà invité : le club garde l’espace invité', () => {
     const ctx = { lead: 'organizer' as const, principalOpen: true, hostOpen: true };
-    expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx, [club('x', 'principal')])).toEqual(['host']);
+    expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx, [club('x', 'principal')])).toEqual(['guest']);
   });
 
-  it('jamais pour une organisation, ni quand un club mène', () => {
-    expect(allowedRoles({ source: 'email', kind: 'org' }, { lead: 'organizer', principalOpen: true, hostOpen: true })).toEqual(['editor', 'viewer']);
+  it('une organisation par email : espace invité par défaut, quel que soit qui mène', () => {
+    expect(defaultRole({ source: 'email', kind: 'org' }, { lead: 'organizer', principalOpen: true }, [])).toBe('guest');
+    expect(allowedRoles({ source: 'email', kind: 'org' }, { lead: 'venue', principalOpen: true })).toEqual(['guest', 'principal', 'editor', 'viewer']);
+  });
+
+  it('jamais pour un club quand un club mène, ni pour une partie déjà sur Yuno', () => {
     expect(allowedRoles({ source: 'email', kind: 'venue' }, { lead: 'venue', principalOpen: true, hostOpen: true })).toEqual([]);
-    expect(allowedRoles({ source: 'yuno', kind: 'venue' }, { lead: 'organizer', principalOpen: true, hostOpen: true })).not.toContain('host');
+    expect(allowedRoles({ source: 'yuno', kind: 'venue' }, { lead: 'organizer', principalOpen: true, hostOpen: true })).not.toContain('guest');
   });
 });

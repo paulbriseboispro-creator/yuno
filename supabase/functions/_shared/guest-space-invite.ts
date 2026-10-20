@@ -1,4 +1,4 @@
-// Accès « club hôte » — envoi de l'email d'invitation (action `kind: "host_pass"`
+// Espace invité d'une soirée — envoi de l'email d'accès (action `kind: "guest_pass"`
 // de l'edge `invite-organizer-collab` : le quota de fonctions du projet
 // interdit d'en créer une nouvelle).
 //
@@ -7,19 +7,19 @@
 // plus, 10 min entre deux, jamais en accès assisté). Ici on n'envoie que l'email,
 // et jamais vers une adresse démo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { buildHostPassEmail } from "./host-pass-email.ts";
+import { buildGuestSpaceEmail } from "./guest-space-email.ts";
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
 // Le lien de la page porte un jeton vivant : jamais une origine choisie par l'appelant.
 const isAllowedOrigin = (o: string) => o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
-export interface HostPassInviteBody {
+export interface GuestSpaceInviteBody {
   kind?: string;
   pass_id?: string | null;
   origin?: string;
 }
 
-interface PreparedHostPassEmail {
+interface PreparedGuestSpaceEmail {
   token: string;
   email: string;
   language: string;
@@ -38,7 +38,7 @@ interface PreparedHostPassEmail {
 const json = (body: unknown, status: number, headers: Record<string, string>) =>
   new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
 
-export async function handleHostPassInvite(req: Request, b: HostPassInviteBody, corsHeaders: Record<string, string>): Promise<Response> {
+export async function handleGuestSpaceInvite(req: Request, b: GuestSpaceInviteBody, corsHeaders: Record<string, string>): Promise<Response> {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "not_authenticated" }, 401, corsHeaders);
@@ -51,16 +51,16 @@ export async function handleHostPassInvite(req: Request, b: HostPassInviteBody, 
       const code = /([a-z_]+)$/.exec(String(error.message ?? "").trim())?.[1] ?? "error";
       return json({ error: code }, 400, corsHeaders);
     }
-    const inv = data as PreparedHostPassEmail;
+    const inv = data as PreparedGuestSpaceEmail;
     const baseOrigin = b?.origin && isAllowedOrigin(b.origin) ? b.origin : DEFAULT_APP_ORIGIN;
     const pageUrl = `${baseOrigin}/h/${inv.token}`;
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     let emailSent = false;
     if (RESEND_API_KEY && inv.is_demo !== true) {
-      const mail = buildHostPassEmail({
+      const mail = buildGuestSpaceEmail({
         lang: inv.language,
-        venueName: inv.guest_name,
+        guestName: inv.guest_name,
         inviterName: inv.inviter_name,
         eventTitle: inv.event_title,
         eventStartAt: inv.event_start_at,
@@ -83,7 +83,7 @@ export async function handleHostPassInvite(req: Request, b: HostPassInviteBody, 
     }
     return json({ success: true, email_sent: emailSent, demo: inv.is_demo === true }, 200, corsHeaders);
   } catch (err: unknown) {
-    console.error("host pass invite error:", err);
+    console.error("guest space invite error:", err);
     return json({ error: "error" }, 500, corsHeaders);
   }
 }

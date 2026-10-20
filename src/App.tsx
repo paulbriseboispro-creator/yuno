@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { UnsavedChangesProvider } from "./contexts/UnsavedChangesContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
@@ -189,7 +189,7 @@ const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
 const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
 const PartnerStatsPage = lazyWithRetry(() => import("./pages/PartnerStatsPage"));
-const HostPassPage = lazyWithRetry(() => import("./pages/HostPassPage"));
+const GuestSpacePage = lazyWithRetry(() => import("./pages/GuestSpacePage"));
 const CrmLinkRedirect = lazyWithRetry(() => import("./pages/CrmLinkRedirect"));
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
 const AcceptPlatformInvitation = lazyWithRetry(() => import("./pages/AcceptPlatformInvitation"));
@@ -275,6 +275,12 @@ const GuestFinalizeAccount = lazyWithRetry(() => import("./pages/GuestFinalizeAc
 const GuestDrinkCheckout = lazyWithRetry(() => import("./pages/GuestDrinkCheckout"));
 const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"));
 const AcceptStaffInvitation = lazyWithRetry(() => import("./pages/AcceptStaffInvitation"));
+const AcceptEventDoorInvite = lazyWithRetry(() => import("./pages/AcceptEventDoorInvite"));
+/** `?door=` : une invitation à tenir la porte d'UNE soirée (staff du club invité), pas une embauche. */
+function StaffInvitationRoute() {
+  const [params] = useSearchParams();
+  return params.get("door") ? <AcceptEventDoorInvite /> : <AcceptStaffInvitation />;
+}
 const AcceptOrgMember = lazyWithRetry(() => import("./pages/AcceptOrgMember"));
 const AcceptCohostInvitation = lazyWithRetry(() => import("./pages/AcceptCohostInvitation"));
 const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
@@ -711,8 +717,8 @@ const App = () => (
                 <Route path="/promoteur/:promoCode/agenda" element={<PromoterAgenda />} />
                 <Route path="/l/:code" element={<TrackedLinkRedirect />} />
                 <Route path="/stats/:token" element={<PartnerStatsPage />} />
-                {/* Club hôte d'une soirée : page privée sans compte (chemin provisoire, à confirmer). */}
-                <Route path="/h/:token" element={<HostPassPage />} />
+                {/* Espace invité d'une soirée (club ou organisation) : sans compte (chemin provisoire, à confirmer). */}
+                <Route path="/h/:token" element={<GuestSpacePage />} />
                 <Route path="/go/:code" element={<CrmLinkRedirect />} />
                 
                 {/* Legacy /club/:slug/promo route — also renders PromoterHub */}
@@ -760,7 +766,7 @@ const App = () => (
                 {/* Invitation acceptance routes */}
                 <Route path="/accept-dj-invitation" element={<AcceptInvitation />} />
                 <Route path="/accept-promoter-invitation" element={<AcceptInvitation />} />
-                <Route path="/accept-staff-invitation" element={<AcceptStaffInvitation />} />
+                <Route path="/accept-staff-invitation" element={<StaffInvitationRoute />} />
                 {/* Équipe d'un organisateur (admin / éditeur / scanner). C'est
                     l'adresse que porte le lien de `invite-org-member` : sans cette
                     route, l'email menait droit sur la page 404. */}

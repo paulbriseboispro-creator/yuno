@@ -17,7 +17,7 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import {
   KNOWN_TOOLS, PENDING_SIGNUP_KEY, isValidSignupKey, proSignupUrl, type MyProSignup,
 } from '@/lib/proSignup';
-import { claimHostPass, forgetHostPassClaim, hostPassUiWords, readHostPassClaim } from '@/lib/hostPass';
+import { claimGuestSpace, forgetGuestClaim, guestUiWords, readGuestClaim } from '@/lib/guestSpace';
 import { capturePosthog } from '@/lib/posthog';
 
 /**
@@ -54,7 +54,7 @@ export default function GetStarted() {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [founderWa, setFounderWa] = useState<string | null>(null);
   const ran = useRef(false);
-  // Club venu de la page « club hôte » d'une soirée (/h/) : la soirée le suit.
+  // Invité venu de l'espace d'une soirée (/h/) : la soirée le suit.
   const [hostClaim, setHostClaim] = useState<'accepted' | 'pending' | null>(null);
 
   const urlKey = search.get('key');
@@ -111,18 +111,18 @@ export default function GetStarted() {
 
   const isClub = signup?.kind === 'club';
   useEffect(() => {
-    if (phase !== 'ready' || !isClub) return;
-    const token = readHostPassClaim();
+    if (phase !== 'ready' || !signup?.kind || !['club', 'organizer'].includes(signup.kind)) return;
+    const token = readGuestClaim();
     if (!token) return;
-    claimHostPass(token)
+    claimGuestSpace(token)
       .then((r) => {
-        forgetHostPassClaim();
+        forgetGuestClaim();
         if (r.status === 'accepted' || r.status === 'pending') setHostClaim(r.status);
-        capturePosthog('host_pass_claimed', { status: r.status, via: 'get_started' });
+        capturePosthog('guest_space_claimed', { status: r.status, via: 'get_started' });
       })
-      .catch(() => { /* accès coupé ou fermé : rien à rattacher */ forgetHostPassClaim(); });
-  }, [phase, isClub]);
-  const hw = hostPassUiWords(language);
+      .catch(() => { /* accès coupé ou fermé : rien à rattacher */ forgetGuestClaim(); });
+  }, [phase, signup?.kind]);
+  const hw = guestUiWords(language);
   // Yuno CRM : la billetterie reste ailleurs, le plan commence par la brancher.
   const isCrm = signup?.product === 'crm';
   const orgName = signup?.org_name || (isClub ? t('gs.fallbackClub') : t('gs.fallbackOrg'));
@@ -272,7 +272,7 @@ export default function GetStarted() {
 
       {hostClaim && (
         <div style={{ marginTop: 20, padding: '12px 14px', borderRadius: 14, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.22)', color: T1, fontSize: 13.5, lineHeight: 1.5 }}>
-          {hostClaim === 'accepted' ? hw('hostPass.convert.claimAccepted') : hw('hostPass.convert.claimPending')}
+          {hostClaim === 'accepted' ? hw('guestSpace.claim.accepted') : hw('guestSpace.claim.pending')}
         </div>
       )}
 

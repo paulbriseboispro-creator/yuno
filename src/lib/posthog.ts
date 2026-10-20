@@ -130,12 +130,12 @@ export type YunoEvent =
   | 'coorg_partner_visibility_set' // { event_id, mode: 'full' | 'volumes' }
   | 'coorg_deal_signed' //         { event_id, formal }
   | 'coorg_settlement_approved' // { event_id, parties }
-  // ── Club hôte d'une soirée (host_pass, nom à nommer) ─────────────────────
-  | 'host_pass_created' //         { event_id, source: 'event_form' | 'coorg_page', show_revenue, channel: 'email' | 'whatsapp' }
-  | 'host_pass_shared' //          { event_id, channel: 'whatsapp' }
-  | 'host_pass_opened' //          { phase, is_demo } — page /h/ ouverte par le club (jamais l'équipe)
-  | 'host_pass_cta_clicked' //     { cta: 'signup' | 'whatsapp' | 'claim' | 'link_copy' | 'link_share' | 'contact_org' }
-  | 'host_pass_claimed' //         { status: 'accepted' | 'pending' | 'recorded', via: 'page' | 'get_started' }
+  // ── Espace invité d'une soirée (event_guest_passes, nom à nommer) ─────
+  | 'guest_space_created' //       { event_id, guest_kind: 'venue' | 'org', source: 'event_form' | 'coorg_page', show_revenue, channel: 'email' | 'whatsapp' }
+  | 'guest_space_shared' //        { event_id, channel: 'whatsapp' }
+  | 'guest_space_opened' //        { phase, guest_kind, is_demo } — espace /h/ ouvert par l'invité (jamais l'équipe)
+  | 'guest_space_cta_clicked' //   { cta: 'signup' }
+  | 'guest_space_claimed' //       { status: 'accepted' | 'pending' | 'recorded', via: 'get_started' }
   | 'coorg_transfer_nudged' //     { event_id, days_late }
   | 'collab_transfer_statement_frozen' // { event_id, manual } — contrat collab réglé sans Stripe
   | 'event_hosts_followed'; //     { event_id, hosts }

@@ -11,7 +11,7 @@ import { OrgButton, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { EventPartnersField, YunoSplitFields } from '@/components/collab/EventPartnersField';
 import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
 import { sendPartnerInvites } from '@/components/collab/sendPartnerInvites';
-import { hostPassLanguageForEvent } from '@/lib/hostPass';
+import { guestLanguageForEvent } from '@/lib/guestSpace';
 import { useCoorgErrorText } from '@/components/coorg/coorgUi';
 import { DEFAULT_YUNO_SPLIT, principalTerms, type CollabModeDb, type InviteContext, type PartnerDraft, type YunoSplit } from '@/lib/collabInvite';
 import { defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
@@ -118,7 +118,7 @@ export function InviteToEventStep({ eventId, scope, settingsHref, onBack, onDone
         ctx={ctx}
         mode={mode}
         onModeChange={setMode}
-        hostLanguage={hostPassLanguageForEvent(ev.timezone, ev.location_city)}
+        guestLanguage={guestLanguageForEvent(ev.timezone, ev.location_city)}
         excludeKeys={[
           scope.venueId ? `venue:${scope.venueId}` : `org:${scope.organizerUserId}`,
           ...(linked ? [lead === 'organizer' ? `venue:${linked}` : `org:${linked}`] : []),
