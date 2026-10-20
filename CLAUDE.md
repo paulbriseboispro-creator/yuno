@@ -3934,6 +3934,36 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
   frais compris, bouton mono 48 px, `alert`, `footnote`, `reserveSpace`).
   L'étape 1 dit « Continuer » (le paiement n'arrive qu'à l'étape 3).
 - Reste à faire avec la même grammaire : `TableCheckout`, `GuestListCheckout`.
+- **Compte connecté = la page attend son profil** (2026-10-20) : squelette tant que
+  `profiles` (nom, téléphone, date de naissance) n'est pas lu, et `MinorAuthGate`
+  ne rend rien avant sa propre lecture. Sinon les cases apparaissaient puis
+  disparaissaient, et le client croyait qu'on lui redemandait sa date.
+
+## E-mail de billet non livré — une faute d'adresse se voit et se corrige (2026-10-20)
+
+Le 20/10 une invitée a payé avec une faute AVANT le @ (gmail.com juste) : rebond
+dur 27 s après l'envoi, noté seulement dans la liste de suppression. Migration
+`20261105100000`, `useTicketEmailDelivery`, `TicketEmailDelivery` (confirmation),
+`TicketEmailBouncePanel` (Console › Commandes › Billets). Règles :
+
+- **Tout e-mail de billet porte les tags `sale_kind` / `sale_id`**
+  (`send-ticket-confirmation`) ; `resend-webhook` les relit et appelle
+  `record_sale_email_event` (livré, ou rebond DUR seulement). État dans
+  `sale_email_deliveries` (RLS sans policy, `kind` ticket | table | guest_list).
+  Un événement pour une AUTRE adresse que la dernière envoyée ne touche rien.
+- **Un rebond prévient les parties principales** (club : `emit_staff_notification`
+  owner, organisateur : `emit_organizer_notification`, langue du profil) avec nom
+  et téléphone, plus `admin_ticket_email_bounced`, une fois par (billet, adresse),
+  jamais pour la démo.
+- **Corriger = `send-ticket-confirmation` action `fix_email`**, preuve = le QR du
+  billet, règle unique `fix_ticket_email` (rebond, ou < 2 h après le paiement,
+  3 corrections au plus), puis le billet repart. La page de confirmation relit
+  l'état toutes les 5 s pendant 3 min (`get_ticket_email_delivery`).
+- **L'envoi direct de `send-ticket-confirmation` exige la clé service**
+  (`isServiceCaller`) : avant, quiconque connaissait l'id d'un billet pouvait se
+  faire envoyer son QR. Seule l'action `fix_email` est ouverte, sous sa preuve.
+- Tables et guest list : même table, mêmes RPC, à brancher sur
+  `send-vip-confirmation` et l'e-mail de guest list.
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
