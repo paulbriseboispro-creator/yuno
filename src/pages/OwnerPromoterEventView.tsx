@@ -102,27 +102,25 @@ export default function OwnerPromoterEventView() {
       const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name, email').in('id', userIds);
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
-      const [clicksRes, convsRes] = await Promise.all([
-        supabase.from('promoter_clicks').select('promoter_id').eq('event_id', eventId).in('promoter_id', promoterIds),
-        supabase.from('promoter_conversions').select('promoter_id, amount, commission, conversion_type, status').eq('event_id', eventId).in('promoter_id', promoterIds),
-      ]);
-
+      // Comptés en SQL pour CETTE soirée (get_promoter_overview_stats) : lire
+      // clics et conversions en lignes plafonnait à 1 000 (PostgREST). Ventes
+      // remboursées ('cancelled') exclues, comme partout.
+      const { data: stats } = await supabase.rpc('get_promoter_overview_stats', {
+        p_promoter_ids: promoterIds,
+        p_event_id: eventId,
+      });
       const clickMap: Record<string, number> = {};
-      (clicksRes.data || []).forEach(c => { clickMap[c.promoter_id] = (clickMap[c.promoter_id] || 0) + 1; });
-
       const convMap: Record<string, { tickets: number; tables: number; revenue: number; commission: number; pending: number; paid: number }> = {};
-      (convsRes.data || []).forEach(c => {
-        // Ignorer les conversions annulées (remboursées) : le trigger de refund
-        // met le statut à 'cancelled' sans remettre amount/commission à zéro, donc
-        // sans ce garde une vente remboursée gonflait encore revenu + commission.
-        if (c.status === 'cancelled') return;
-        if (!convMap[c.promoter_id]) convMap[c.promoter_id] = { tickets: 0, tables: 0, revenue: 0, commission: 0, pending: 0, paid: 0 };
-        if (c.conversion_type === 'ticket' && Number(c.amount || 0) > 0) convMap[c.promoter_id].tickets++;
-        if (c.conversion_type === 'table' && Number(c.amount || 0) > 0) convMap[c.promoter_id].tables++;
-        convMap[c.promoter_id].revenue += Number(c.amount || 0);
-        convMap[c.promoter_id].commission += Number(c.commission || 0);
-        if (c.status === 'pending') convMap[c.promoter_id].pending += Number(c.commission || 0);
-        if (c.status === 'paid') convMap[c.promoter_id].paid += Number(c.commission || 0);
+      (stats || []).forEach(s => {
+        clickMap[s.promoter_id] = Number(s.clicks) || 0;
+        convMap[s.promoter_id] = {
+          tickets: Number(s.tickets) || 0,
+          tables: Number(s.tables) || 0,
+          revenue: Number(s.revenue) || 0,
+          commission: Number(s.commission) || 0,
+          pending: Number(s.pending_commission) || 0,
+          paid: Number(s.paid_commission) || 0,
+        };
       });
 
       const mapped: PromoterEventPerf[] = promoterIds.map(pid => {

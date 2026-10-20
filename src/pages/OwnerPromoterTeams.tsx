@@ -114,20 +114,19 @@ export default function OwnerPromoterTeams() {
 
     const promoterIds = (membersData || []).map(m => m.id);
     const convMap: Record<string, { revenue: number; count: number; commission: number }> = {};
-    if (promoterIds.length > 0) {
-      const { data: convs } = await supabase.from('promoter_conversions').select('promoter_id, amount, commission').in('promoter_id', promoterIds).neq('status', 'cancelled');
-      (convs || []).forEach(c => {
-        if (!convMap[c.promoter_id]) convMap[c.promoter_id] = { revenue: 0, count: 0, commission: 0 };
-        convMap[c.promoter_id].revenue += Number(c.amount || 0);
-        convMap[c.promoter_id].count++;
-        convMap[c.promoter_id].commission += Number(c.commission || 0);
-      });
-    }
-
     const clickMap: Record<string, number> = {};
     if (promoterIds.length > 0) {
-      const { data: clicks } = await supabase.from('promoter_clicks').select('promoter_id').in('promoter_id', promoterIds);
-      (clicks || []).forEach(c => { clickMap[c.promoter_id] = (clickMap[c.promoter_id] || 0) + 1; });
+      // Comptés en SQL (get_promoter_overview_stats) : lire clics et
+      // conversions en lignes plafonnait à 1 000 (PostgREST).
+      const { data: stats } = await supabase.rpc('get_promoter_overview_stats', { p_promoter_ids: promoterIds });
+      (stats || []).forEach(s => {
+        convMap[s.promoter_id] = {
+          revenue: Number(s.revenue) || 0,
+          count: Number(s.conversions) || 0,
+          commission: Number(s.commission) || 0,
+        };
+        clickMap[s.promoter_id] = Number(s.clicks) || 0;
+      });
     }
 
     const membersByTeam: Record<string, Array<{ id: string; label: string }>> = {};
