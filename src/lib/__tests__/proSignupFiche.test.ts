@@ -53,7 +53,7 @@ const POUPEE: RawFiche = {
   person: { full_name: 'Pascal Delatour', email: 'delatourpascal20@outlook.fr', phone: '756388760', profile_phone: '0756388760' },
   org: { kind: 'club', name: 'Poupée', city: 'Bastia', country: 'FR', size_band: '800_1500' },
   origin: { source: 'start', utm_source: 'yuno_app', step: 'account' },
-  account: { exists: true, events: 1, payments: false, console_opened_at: '2026-10-19T09:29:09Z' },
+  account: { exists: true, events: 1, payments: false, console_opened_at: '2026-10-19T09:29:09Z', last_sign_in_at: '2026-10-19T10:15:30Z' },
   attempts: [
     { at: '2026-10-19T09:26:49Z', phone: '0756388760', account_created_at: '2026-10-19T09:29:09Z' },
     { at: '2026-10-19T09:46:21Z', phone: '756388760', account_created_at: null },
@@ -70,6 +70,10 @@ describe('enrichFiche', () => {
     expect(f.push.body).toContain('Poupée');
     expect(f.push.body).toContain('07 56 38 87 60');
     expect(f.notes.join(' ')).toContain("déjà un compte");
+    // What the funnel offered, and since when he hasn't been back (Paris time).
+    expect(f.notes.join(' ')).toContain('« Me connecter » et un lien de connexion');
+    expect(f.notes.join(' ')).toContain('dernière connexion le 19/10 à 12h15');
+    expect(callNotes({ ...POUPEE, account: { exists: true } }).join(' ')).toContain('jamais connecté');
     expect(f.notes.join(' ')).toContain('3 parcours');
     expect(f.notes.join(' ')).toContain('pas relié ses paiements');
   });
