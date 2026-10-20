@@ -83,3 +83,77 @@ describe('SMS : un produit par campagne', () => {
     expect(panel).toContain("product.is.null,product.neq.crm");
   });
 });
+
+// ── Séparation stricte (20/10) : un produit par ligne ───────────────────────────────────────────
+// NULL = Yuno Tickets, 'crm' = Yuno CRM. Les index d'unicité des tables partagées citent le produit :
+// un écrivain qui garde l'ancienne cible `ON CONFLICT` lève « no unique constraint matching » (42P10),
+// donc un achat ou un import cassé. Ce test lit l'ÉTAT FINAL des fonctions du dépôt.
+describe('séparation stricte : un produit par ligne', () => {
+  const all = readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();
+  const latest = new Map<string, { file: string; text: string }>();
+  for (const f of all) {
+    const sql = readFileSync(join(DIR, f), 'utf8');
+    const re = /CREATE OR REPLACE (?:FUNCTION|PROCEDURE) public\.(\w+)\(([\s\S]*?)\$(\w*)\$([\s\S]*?)\$\3\$/g;
+    for (let m = re.exec(sql); m; m = re.exec(sql)) latest.set(m[1], { file: f, text: m[0] });
+  }
+  const columns = readFileSync(join(DIR, files.length ? '20261107115000_crm_billetterie_separation_columns.sql' : ''), 'utf8');
+  const cutover = readFileSync(join(DIR, '20261107140000_crm_billetterie_separation_cutover.sql'), 'utf8');
+
+  it('les deux migrations de séparation existent, dans l\'ordre : socle, isolation contacts / SMS, bascule', () => {
+    const order = all.filter((f) => /20261107\d+_crm_billetterie_(isolation|separation)/.test(f));
+    expect(order.indexOf('20261107115000_crm_billetterie_separation_columns.sql')).toBeLessThan(order.findIndex((f) => /isolation_contacts/.test(f)));
+    expect(order.findIndex((f) => /isolation_sms/.test(f))).toBeLessThan(order.indexOf('20261107140000_crm_billetterie_separation_cutover.sql'));
+  });
+
+  it('chaque table partagée reçoit sa colonne product (NULL ou \'crm\') et un index d\'unicité par produit', () => {
+    for (const t of ['newsletter_subscriptions', 'email_opt_outs', 'contact_list_imports', 'email_list_imports', 'sms_list_imports',
+      'imported_contacts', 'venue_sms_contacts', 'email_campaign_templates', 'contact_engagement']) {
+      expect(columns, t).toMatch(new RegExp(`ALTER TABLE public\\.${t}\\s+ADD COLUMN IF NOT EXISTS product text`));
+    }
+    expect(columns).toMatch(/uniq_newsletter_subs_email_venue_product[\s\S]*?NULLS NOT DISTINCT/);
+    expect(columns).toMatch(/uniq_newsletter_subs_email_organizer_product[\s\S]*?NULLS NOT DISTINCT/);
+    expect(columns).toMatch(/venue_sms_contacts_unique_scope_phone_product[\s\S]*?NULLS NOT DISTINCT/);
+    expect(columns).toMatch(/CREATE OR REPLACE FUNCTION public\._separation_default_product\(\)/);
+  });
+
+  it('la bascule retire les anciens index ET remplace les écrivains dans la même migration', () => {
+    expect(cutover).toMatch(/DROP INDEX IF EXISTS public\.uniq_newsletter_subs_email_venue;/);
+    expect(cutover).toMatch(/DROP INDEX IF EXISTS public\.uniq_newsletter_subs_email_organizer;/);
+    expect(cutover).toMatch(/CREATE OR REPLACE FUNCTION public\.auto_subscribe_newsletter_on_purchase\(/);
+    expect(cutover).toMatch(/CREATE OR REPLACE FUNCTION public\.import_email_contacts\(/);
+    expect(cutover).toMatch(/NOTIFY pgrst, 'reload schema';/);
+    expect(cutover).toMatch(/FROM \(VALUES[\s\S]*?\) AS v\(sig, md5\)/);   // garde md5 de chaque fonction remplacée
+  });
+
+  it('aucune fonction (état final) ne vise encore l\'ancien index du registre ou des contacts SMS', () => {
+    const stale: string[] = [];
+    for (const [name, { file, text }] of latest) {
+      if (/ON CONFLICT \(lower\(email\), (venue_id|organizer_user_id)\)/.test(text)) stale.push(`${name} (${file}) : registre sans produit`);
+      if (/ON CONFLICT \((venue_id|organizer_user_id), phone_e164\)/.test(text)) stale.push(`${name} (${file}) : contacts SMS sans produit`);
+      if (/ON CONFLICT \(lower\(email\), (venue_id|organizer_user_id)\)[^;]*email_opt_outs|email_opt_outs[\s\S]{0,400}ON CONFLICT \(lower\(email\), (venue_id|organizer_user_id)\)/.test(text)) stale.push(`${name} (${file}) : repoussoir sans produit`);
+    }
+    expect(stale).toEqual([]);
+  });
+
+  it('aucun upsert du front ni de l\'edge ne vise une cible d\'unicité disparue', () => {
+    const offenders: string[] = [];
+    const walkDir = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      const p = join(dir, d.name);
+      if (d.isDirectory()) return ['node_modules', '__tests__', 'dist'].includes(d.name) ? [] : walkDir(p);
+      return /\.(ts|tsx)$/.test(d.name) ? [p] : [];
+    });
+    for (const root of ['src', join('supabase', 'functions')]) {
+      for (const f of walkDir(join(process.cwd(), root))) {
+        const text = readFileSync(f, 'utf8');
+        if (/onConflict:\s*["'](venue_id|organizer_user_id),phone_e164["']/.test(text)) offenders.push(f);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('chaque nouvelle signature de la bascule supprime l\'ancienne (jamais de surcharge ambiguë)', () => {
+    const drops = [...cutover.matchAll(/DROP (?:FUNCTION|PROCEDURE) IF EXISTS public\.(\w+)\(/g)].map((m) => m[1]);
+    expect(drops.length).toBeGreaterThan(10);
+    for (const name of drops) expect(cutover, name).toMatch(new RegExp(`CREATE OR REPLACE (FUNCTION|PROCEDURE) public\\.${name}\\(`));
+  });
+});
