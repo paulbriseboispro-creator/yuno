@@ -27,7 +27,9 @@ import {
 // regroupés en base. La carte dit d'abord ce qui s'est passé (compte ouvert,
 // bloqué, supprimé, demande), puis comment la joindre, d'où elle vient, si
 // Paul l'a invitée et s'il a été alerté ; les parcours sont repliés dessous.
-// Le funnel, la courbe et les sources comptent des personnes.
+// Le funnel, la courbe et les sources comptent des personnes, robots écartés
+// (migration 20261104230000 : navigateur robot / piloté / de test, ou
+// ouverture anonyme en rafale ; un contact laissé compte toujours).
 
 type Period = '7' | '30' | '90' | '365';
 type Tab = 'all' | 'accounts' | 'none';
@@ -36,6 +38,8 @@ interface Funnel {
   opened: number; role: number; structure: number; email: number; created: number; console: number;
   first_event: number; payments: number; live: number; accounts: number; clubs: number; organizers: number;
   invited_accounts: number; deleted: number; leads: number; to_contact: number;
+  /** Personnes écartées comme robots sur la période (absent avant 20261104230000). */
+  robots?: number;
 }
 interface Payload {
   funnel: Funnel;
@@ -200,6 +204,11 @@ export default function AdminProSignups() {
                 />
               );
             })}
+            {(f?.robots ?? 0) > 0 && (
+              <p style={{ color: T3, fontSize: 11.5, margin: '12px 0 0' }}>
+                {fmtPlural(f?.robots ?? 0, language, t('adm.signups.funnelRobotsOne'), t('adm.signups.funnelRobots'))}
+              </p>
+            )}
           </Card>
           <Card title={t('adm.signups.chart')} subtitle={t('adm.signups.chartHint')} icon={Users} className="xl:col-span-2">
             <div style={{ height: 230 }}>
