@@ -1873,7 +1873,7 @@ const help: Record<string, string> = {
   "ohelp.pg.orders.s4h": "Print or export a tab",
   "ohelp.pg.orders.s5b": "When a guest says \"I never got my ticket\", search their email here. The status tells you instantly whether it was Paid (so resend it) or never completed (so there is nothing to refund).",
   "ohelp.pg.orders.s5h": "Tip",
-  "ohelp.pg.orders.s6b": "• **Search finds nothing**: it only matches the customer's email or the order token, never the name — try Print & export for a full name list instead.\n• **A guest list sign-up is missing**: check you are on the \"Guest list\" tab, which pools every list for the event (club, DJ, promoter, agency) in one search.",
+  "ohelp.pg.orders.s6b": "• **Search finds nothing**: it only matches the customer's email or the order token, never the name — try Print & export for a full name list instead.\n• **A guest list sign-up is missing**: check you are on the \"Guest list\" tab, which pools every list for the event (club, DJ, promoter, agency) in one search.\n• **\"Email not delivered\" on a ticket**: the buyer made a typo in their address, and the bell told you with their name and phone number. The ticket is still valid and the door finds it by name. Open the order, type the right address and click \"Send the ticket again\".",
   "ohelp.pg.orders.s6h": "Common issues",
   "ohelp.pg.orders.title": "Orders",
   "ohelp.pg.printExport.desc": "Turn a guest list, VIP table sheet or ticket roster into a door list, a full table or an Excel file.",
