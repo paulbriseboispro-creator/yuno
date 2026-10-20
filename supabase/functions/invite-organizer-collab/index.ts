@@ -5,6 +5,7 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { summarizeTerms, needsStripe } from "../_shared/collab-invite-text.ts";
 import { handleCoorgInvite } from "../_shared/coorg-invite.ts";
+import { handleHostPassInvite } from "../_shared/host-pass-invite.ts";
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
 // The accept link goes into an email holding a live token — never build it from
@@ -31,7 +32,8 @@ const isAllowedOrigin = (o: string) =>
  *
  * With `kind: "coorg"` the same function sends a CO-ORGANIZATION invitation
  * by email (`_shared/coorg-invite.ts`) — the project's function quota forbids
- * a dedicated function.
+ * a dedicated function. With `kind: "host_pass"` it emails the club hosting a
+ * night its private page (/h/<token>, `_shared/host-pass-invite.ts`).
  */
 const json = (body: unknown, status: number, headers: Record<string, string>) =>
   new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
@@ -62,6 +64,8 @@ const handler = async (req: Request): Promise<Response> => {
     // Co-organisation : inviter par email une structure sans compte (club ou
     // organisateur). Règles dans la RPC create_cohost_email_invite.
     if (body?.kind === "coorg") return await handleCoorgInvite(req, body, corsHeaders);
+    // Club hôte : l'email de la page privée de la soirée (règles dans la RPC).
+    if (body?.kind === "host_pass") return await handleHostPassInvite(req, body, corsHeaders);
     const {
       organizer_email,
       organizer_name,
