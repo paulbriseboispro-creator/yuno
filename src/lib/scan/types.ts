@@ -24,6 +24,12 @@ export type ScanEntityType =
 export interface DoorScope {
   venueId: string | null;
   organizerUserId: string | null;
+  /**
+   * Soirées tenues NOMMÉMENT (`event_door_staff` : le staff du club invité sur
+   * UNE soirée d'un organisateur). Elles s'ajoutent aux deux faces ci-dessus ;
+   * la base coupe l'accès 6 h après la fin (`get_my_event_door_events`).
+   */
+  eventIds?: string[];
 }
 
 interface BaseScanEntity {
@@ -37,6 +43,8 @@ interface BaseScanEntity {
   venueId: string | null;
   /** Organisateur de la soirée. NULL sur une soirée de club pure. */
   organizerUserId: string | null;
+  /** Soirée de l'entité (porte limitée à une soirée : `DoorScope.eventIds`). */
+  eventId?: string | null;
 }
 
 export interface TicketScanEntity extends BaseScanEntity {

@@ -28,7 +28,7 @@ const MIN_INTERVAL_MS = 60 * 60 * 1000;
 
 export function useDoorManifestPreload(scope: DoorScope, isDoorStaff: boolean) {
   const lastRunRef = useRef(0);
-  const enabled = isProApp() && isDoorStaff && (!!scope.venueId || !!scope.organizerUserId);
+  const enabled = isProApp() && isDoorStaff && (!!scope.venueId || !!scope.organizerUserId || (scope.eventIds?.length ?? 0) > 0);
 
   const preload = useCallback(async (force = false) => {
     if (!enabled || !navigator.onLine) return;

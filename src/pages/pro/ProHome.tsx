@@ -97,8 +97,8 @@ export default function ProHome() {
    * tôt possible.
    */
   const doorScope = useMemo(
-    () => ({ venueId: identity?.venueId ?? null, organizerUserId: identity?.organizerUserId ?? null }),
-    [identity?.venueId, identity?.organizerUserId],
+    () => ({ venueId: identity?.venueId ?? null, organizerUserId: identity?.organizerUserId ?? null, eventIds: identity?.doorEventIds ?? [] }),
+    [identity?.venueId, identity?.organizerUserId, identity?.doorEventIds],
   );
   useDoorManifestPreload(
     doorScope,

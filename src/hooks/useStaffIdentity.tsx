@@ -48,6 +48,8 @@ export interface StaffIdentity {
    * d'aucun organisateur.
    */
   organizerUserId: string | null;
+  /** Soirées dont la personne tient la porte NOMMÉMENT (`event_door_staff`), encore ouvertes. */
+  doorEventIds: string[];
   roles: StaffRole[];
   /** Rôle principal quand la personne cumule plusieurs postes. */
   role: StaffRole | null;
@@ -59,6 +61,7 @@ export interface StaffIdentity {
  * changement de compte doit repartir d'une identité vierge. Une clé constante
  * aurait resservi le club de la personne précédente pendant tout le staleTime.
  */
+const NO_EVENTS: string[] = [];
 const staffIdentityKey = (userId: string | undefined) => ['staff-identity', userId ?? 'anon'] as const;
 
 async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
@@ -98,6 +101,10 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
     .limit(1)
     .maybeSingle();
   const organizerUserId = orgStaff?.organizer_user_id ?? null;
+  // Porte d'UNE soirée (staff du club invité sur la soirée d'un organisateur) :
+  // la base ne rend que les soirées encore ouvertes (jusqu'à 6 h après la fin).
+  const { data: doorEvents } = await supabase.rpc('get_my_event_door_events' as never) as unknown as { data: { event_id: string }[] | null };
+  const doorEventIds = (doorEvents ?? []).map((e) => e.event_id);
   const staffRoles = allRoles.filter((r): r is StaffRole =>
     ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'].includes(r)
   );
@@ -134,6 +141,7 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
     venueId: profile?.venue_id ?? null,
     venueName,
     organizerUserId,
+    doorEventIds,
     roles: staffRoles,
     role: primaryStaffRole(staffRoles),
     isOwner: allRoles.includes('owner'),
@@ -171,5 +179,6 @@ export function useStaffIdentity() {
     venueId: data?.venueId ?? null,
     venueName: data?.venueName ?? null,
     organizerUserId: data?.organizerUserId ?? null,
+    doorEventIds: data?.doorEventIds ?? NO_EVENTS,
   };
 }

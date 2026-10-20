@@ -188,7 +188,7 @@ const REFUND_REASONS = {
 export default function Bouncer() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
-  const { venueId, organizerUserId, loading: venueLoading } = useStaffIdentity();
+  const { venueId, organizerUserId, doorEventIds, loading: venueLoading } = useStaffIdentity();
   /**
    * Périmètre de cette porte, ses DEUX faces à la fois : le club qui l'emploie
    * et l'organisateur qui l'a recrutée. Écraser la seconde dès qu'un club
@@ -197,10 +197,10 @@ export default function Bouncer() {
    * les droits de porte (`is_event_door_staff`).
    */
   const doorScope = useMemo<DoorScope>(
-    () => ({ venueId: venueId ?? null, organizerUserId: organizerUserId ?? null }),
-    [venueId, organizerUserId],
+    () => ({ venueId: venueId ?? null, organizerUserId: organizerUserId ?? null, eventIds: doorEventIds }),
+    [venueId, organizerUserId, doorEventIds],
   );
-  const hasDoorScope = !!doorScope.venueId || !!doorScope.organizerUserId;
+  const hasDoorScope = !!doorScope.venueId || !!doorScope.organizerUserId || doorEventIds.length > 0;
   
   const [activeTab, setActiveTab] = useState<'entry' | 'search' | 'cancel' | 'client'>('entry');
   const activeTabRef = useRef(activeTab);
@@ -992,6 +992,7 @@ export default function Bouncer() {
             venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id ?? null,
             // Soirée sans club : l'organisateur porte le périmètre.
             organizerUserId: ticket.events.organizer_user_id ?? ticket.events.partner_organizer_id ?? null,
+            eventId: ticket.event_id ?? null,
           },
           { scope: doorScope, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
@@ -1226,6 +1227,7 @@ export default function Bouncer() {
             venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id ?? null,
             // Soirée sans club : l'organisateur porte le périmètre.
             organizerUserId: ticket.events.organizer_user_id ?? ticket.events.partner_organizer_id ?? null,
+            eventId: ticket.event_id ?? null,
           },
           { scope: doorScope, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
@@ -1455,6 +1457,7 @@ export default function Bouncer() {
             venueId: reservation.events.venue_id ?? reservation.events.partner_venue_id ?? null,
             // Soirée sans club : l'organisateur porte le périmètre.
             organizerUserId: reservation.events.organizer_user_id ?? reservation.events.partner_organizer_id ?? null,
+            eventId: reservation.event_id ?? null,
           },
           { scope: doorScope, now: new Date(), mode: 'entry' },
         );
@@ -1608,6 +1611,7 @@ export default function Bouncer() {
               venueId: glList.venue_id ?? glEvent.venue_id ?? glEvent.partner_venue_id ?? null,
               // Soirée sans club : l'organisateur porte le périmètre.
               organizerUserId: glEvent.organizer_user_id ?? glEvent.partner_organizer_id ?? null,
+              eventId: glList.event_id ?? null,
               entryDeadline: glEntry.entry_deadline || null,
               glDeadline: glList.entry_deadline || null,
               freeBeforeTime: glList.free_before_time || null,

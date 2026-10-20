@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState } from '@/lib/scan/rules';
+import { computeLateness, drinkCutoffOf, entryHeadcount, isInDoorScope, wholeTicketDoorState } from '@/lib/scan/rules';
+import { doorEventFilter } from '@/lib/scan/doorEvents';
 
 /** Heure murale de la soirée, comme la rend `nowInParis()` / `toZonedTime`. */
 const at = (h: number, m: number) => new Date(2026, 9, 29, h, m, 0, 0);
@@ -75,5 +76,21 @@ describe('wholeTicketDoorState — QR du billet entier d\'un billet à places', 
 
   it('plus aucune place libre : déjà scanné', () => {
     expect(wholeTicketDoorState(true, 4, { remaining: 0 }).scanned).toBe(true);
+  });
+});
+
+describe('porte d’UNE soirée — staff du club invité', () => {
+  const ev = '1046af1c-e36f-4544-b0d7-d62c7ab5328f';
+  const other = '2046af1c-e36f-4544-b0d7-d62c7ab5328f';
+  const scope = { venueId: null, organizerUserId: null, eventIds: [ev] };
+  it('scanne la soirée nommée, et elle seule', () => {
+    expect(isInDoorScope({ venueId: null, organizerUserId: 'org', eventId: ev }, scope)).toBe(true);
+    expect(isInDoorScope({ venueId: null, organizerUserId: 'org', eventId: other }, scope)).toBe(false);
+    expect(isInDoorScope({ venueId: null, organizerUserId: 'org' }, scope)).toBe(false);
+  });
+  it('liste ses soirées par leur id, sans autre périmètre', () => {
+    expect(doorEventFilter(scope)).toBe(`id.in.(${ev})`);
+    expect(doorEventFilter({ venueId: null, organizerUserId: null, eventIds: ['pas-un-id'] })).toBeNull();
+    expect(doorEventFilter({ venueId: 'v1', organizerUserId: null, eventIds: [ev] })).toBe(`venue_id.eq.v1,partner_venue_id.eq.v1,id.in.(${ev})`);
   });
 });

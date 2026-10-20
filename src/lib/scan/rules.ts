@@ -36,11 +36,12 @@ import type {
  * jamais une égalité de deux absences.
  */
 export function isInDoorScope(
-  entity: { venueId: string | null; organizerUserId: string | null },
+  entity: { venueId: string | null; organizerUserId: string | null; eventId?: string | null },
   scope: DoorScope,
 ): boolean {
   if (scope.venueId && entity.venueId === scope.venueId) return true;
   if (scope.organizerUserId && entity.organizerUserId === scope.organizerUserId) return true;
+  if (entity.eventId && scope.eventIds?.includes(entity.eventId)) return true;
   return false;
 }
 

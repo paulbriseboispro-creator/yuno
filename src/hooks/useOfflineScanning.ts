@@ -119,6 +119,8 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
   // jamais de l'identité de l'objet. Un appelant qui passerait un littéral
   // inline ne ferait pas retomber le cache à chaque rendu.
   const { venueId: scopeVenueId, organizerUserId: scopeOrganizerUserId } = scope;
+  // Porte d'UNE soirée : clé stable pour les dépendances (le tableau change d'identité).
+  const scopeEventKey = (scope.eventIds ?? []).join(',');
   const online = useNetworkStatus();
   const enabled = isProApp() && !!eventId;
 
@@ -220,7 +222,8 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     const map = indexRef.current;
     const hit = map?.get(qr.trim());
     // Une porte sans périmètre (ni club ni organisateur) ne valide rien.
-    if (!hit || !eventId || (!scopeVenueId && !scopeOrganizerUserId)) {
+    const scopeEventIds = scopeEventKey ? scopeEventKey.split(',') : [];
+    if (!hit || !eventId || (!scopeVenueId && !scopeOrganizerUserId && scopeEventIds.length === 0)) {
       return { verdict: { status: 'not_found' }, kind: 'not_found', name: null, entry: null, offline: true };
     }
 
@@ -228,11 +231,11 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     const db = await getOfflineDb();
     const local = await db.get('local_scans', qr.trim());
     const entity: ScanEntity = local
-      ? ({ ...hit.entity, scanned: true, scannedAt: local.scannedAt } as ScanEntity)
-      : hit.entity;
+      ? ({ ...hit.entity, eventId, scanned: true, scannedAt: local.scannedAt } as ScanEntity)
+      : ({ ...hit.entity, eventId } as ScanEntity);
 
     const ctx = {
-      scope: { venueId: scopeVenueId, organizerUserId: scopeOrganizerUserId },
+      scope: { venueId: scopeVenueId, organizerUserId: scopeOrganizerUserId, eventIds: scopeEventIds },
       now: new Date(),
       mode: 'entry' as const,
     };
@@ -274,7 +277,7 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     }
 
     return { verdict, kind: hit.kind, name: hit.entry.name, entry: hit.entry, offline: true };
-  }, [eventId, scopeVenueId, scopeOrganizerUserId, refreshPending, replay]);
+  }, [eventId, scopeVenueId, scopeOrganizerUserId, scopeEventKey, refreshPending, replay]);
 
   /**
    * Un scan validé EN LIGNE est aussi noté dans le set local : si le réseau

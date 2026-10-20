@@ -27,6 +27,9 @@ export function doorEventFilter(scope: DoorScope): string | null {
       `partner_organizer_id.eq.${scope.organizerUserId}`,
     );
   }
+  // Une soirée tenue nommément (staff du club invité) : son id, rien de plus.
+  const ids = (scope.eventIds ?? []).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length) parts.push(`id.in.(${ids.join(',')})`);
   return parts.length ? parts.join(',') : null;
 }
 
