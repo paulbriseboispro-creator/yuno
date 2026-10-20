@@ -185,3 +185,59 @@ ouverts depuis un accès. Pas d'objectif chiffré avant les 10 premiers accès.
   partenaires ?
 - Le CA est-il montré par défaut ? (proposé : oui, comme les partenaires)
 - L'adresse email ou le WhatsApp de Tia Felisa, pour l'invitation réelle.
+
+---
+
+## 9. V2 du 20/10 : un ESPACE INVITÉ à onglets (structure validée par Paul)
+
+Remplace la page unique /h/ (§4.2) et le bloc de conversion (§5). Maquette :
+`docs/designs/mockups/espace-invite-soiree.html`. Un seul espace, mêmes
+onglets, pour un CLUB invité ou une ORGANISATION invitée sur UNE soirée en
+collab (Yuno Tickets ; jamais la DA du CRM). Look de la Console (sombre, barre
+latérale, cartes, rouge). Pas de liste « À faire », pas de fil d'activité, pas
+d'estimation d'heures d'arrivée, pas de lien / QR pour vendre sur le lieu.
+
+Onglets : Vue d'ensemble (graphique billets / jour + cumul + tables, « Où en
+est la soirée », sa part, « Qui fait vendre ») · Ventes (graphique, puis
+Billets / Tables VIP / Guest list / Qui fait vendre) · Marketing (ses liens
+suivis, visuels de l'affiche, texte prêt) · Argent (contrat → ventes →
+décompte → virement, décompte ligne à ligne, sa part SEULEMENT) · Porte
+(avant : à scanner + règles ; le soir : entrées en direct par type ; son
+équipe à la porte, club seulement) · Infos & contrat. Conversion : une ligne
+en bas de la barre latérale, « Ouvrir le compte de <club> ».
+
+### Décisions d'architecture (prises ici, à relire par Paul)
+
+1. **Une table, deux sortes d'invités** : `event_guest_passes` (renommée
+   depuis `event_host_passes`, vide en prod), `guest_kind` = `venue` | `org`,
+   `guest_party` = la partie Yuno de l'invité s'il en a une (`venue:<id>` /
+   `org:<uuid>`), posée à la création pour un invité déjà sur Yuno ou au
+   rattachement (`claim`). Le jeton reste la clé pour REGARDER.
+2. **Écritures par le lien** (sans compte), parce qu'elles n'engagent que
+   l'invité : ajouter ses invités dans SA part de guest list, demander des
+   places, créer ses liens de vente, inviter son staff de porte (club),
+   valider / contester le décompte (un avis, aucun argent ne bouge).
+   **Écritures qui exigent la connexion** de la partie invitée (rôle argent) :
+   IBAN de réception et confirmation d'un virement — un IBAN saisi par
+   quiconque tient le lien détournerait l'argent. Elles passent par les RPC
+   existantes (`set_coorg_transfer_iban`, `confirm_coorg_transfer`).
+3. **Argent** : soirée à contrat Yuno réglé par virement dont l'invité est la
+   partie club ou orga → `_collab_transfer_compute` / `collab_transfer_statements`
+   (figé), réduit à SA part et au virement qui le concerne. « Réglé entre
+   vous » → les mêmes chiffres (billets, tables, remboursements, CA, Stripe
+   estimé, net de l'encaisseur), sans virement ; l'organisateur peut écrire
+   la part convenue (`share_tickets_pct`, `share_tables_pct`, facultatif) pour
+   que l'espace affiche « ce que <orga> te doit » (indicatif, dit comme tel).
+4. **Guest list** : l'organisateur donne une part (`guest_lists.guest_pass_id`,
+   quota = places) ; l'invité la remplit et demande plus (notification orga).
+5. **Qui fait vendre** : lien suivi d'une partie (ou d'un de ses promoteurs) →
+   la partie ; lien suivi de l'invité (`tracked_links.guest_pass_id`) →
+   l'invité ; sinon `attribution_source = 'marketplace'` ou achat depuis
+   l'app / Explore → « Yuno » ; le reste → « Direct ». Même règle dans
+   `get_collab_party_breakdown` (clés `yuno` / `direct` ajoutées à côté de
+   `unattributed`, rien retiré).
+6. **Staff de porte limité à UNE soirée** (club) : `event_door_staff`
+   (soirée, personne, invité par pass / partie, fin = fin de soirée + 6 h),
+   lu par `is_event_door_staff` ; aucun rôle sur l'organisation qui mène.
+   Circuit d'invitation existant (`invite-staff` / `accept-staff-invitation`)
+   prolongé d'un `event_id`.

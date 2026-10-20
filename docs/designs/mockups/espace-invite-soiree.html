@@ -1,0 +1,542 @@
+<title>Espace invité House Of Masquerade</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout : la coquille de la Console Yuno Tickets (barre latérale à groupes, en-tête de page, cartes sombres), réduite à UNE soirée. Thème sombre assumé, comme la Console par défaut. */
+:root{
+  --bg:#000; --card:#0a0a0c; --elev:#141417; --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+  --t1:#fff; --t2:rgba(255,255,255,.66); --t3:rgba(255,255,255,.42);
+  --red:#E8192C; --red-soft:rgba(232,25,44,.13); --pos:#22c55e; --pos-soft:rgba(34,197,94,.12);
+  --amber:#F2B23C; --amber-soft:rgba(242,178,60,.12); --snow:#fff;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+/* Bandeau maquette */
+.mock{border-bottom:1px solid var(--line);background:#0b0b0d;padding-block:9px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mock-in{max-width:1360px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.mock b{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--amber);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:10px;padding:2px;gap:2px}
+.seg button{border:0;background:none;padding:5px 10px;border-radius:8px;font-size:12.5px;color:var(--t2);font-weight:550}
+.seg button[aria-pressed="true"]{background:var(--elev);color:var(--t1)}
+.mock .note{margin-left:auto;font-size:12px;color:var(--t3)}
+/* Coquille */
+.app{max-width:1360px;margin:0 auto;display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;padding-block:18px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 14px);align-self:start;display:flex;flex-direction:column;gap:16px;border:1px solid var(--line);border-radius:18px;background:var(--card);padding:14px 10px}
+.brand{display:flex;gap:10px;align-items:center;padding:4px 6px 10px;border-bottom:1px solid var(--line)}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--elev);border:1px solid var(--line2);display:grid;place-items:center;font-weight:700;font-size:12px;color:var(--t2)}
+.brand .n{font-weight:650;font-size:14px;color:var(--t1)}
+.brand .s{font-size:11px;color:var(--t3)}
+.grp{font-size:11px;color:var(--t3);padding:0 10px;margin-bottom:4px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:9px 10px;border-radius:10px;color:var(--t2);font-size:13.5px;font-weight:550}
+.nav button:hover{background:var(--elev);color:var(--t1)}
+.nav button[aria-current="page"]{background:var(--elev);color:var(--t1)}
+.nav button[aria-current="page"] svg{color:var(--red)}
+.nav svg{width:17px;height:17px;flex:none}
+.nav .tag{margin-left:auto;font-size:10.5px;font-weight:650;border-radius:99px;padding:2px 7px}
+.tag.amb{background:var(--amber-soft);color:var(--amber)}
+.tag.pos{background:var(--pos-soft);color:var(--pos)}
+.foot{border-top:1px solid var(--line);padding:12px 8px 2px;font-size:12px;color:var(--t3);line-height:1.5}
+.foot a{color:var(--t1);font-weight:600;text-decoration:none;display:inline-block;margin-top:6px}
+.foot a:hover{color:var(--red)}
+/* En-tête */
+.crumb{font-size:12.5px;color:var(--t3);margin-bottom:10px}
+.head{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.poster{width:58px;height:72px;border-radius:9px;flex:none;background:radial-gradient(120% 90% at 30% 20%,#b3122a 0%,#3a0610 55%,#0a0a0c 100%);border:1px solid var(--line);position:relative;overflow:hidden}
+.poster::after{content:"HOM";position:absolute;inset:auto 0 7px 0;text-align:center;font:700 10px/1 var(--mono);letter-spacing:.2em;color:#fff}
+.head h1{margin:0;font-size:22px;letter-spacing:-.02em;font-weight:700}
+.head .meta{font-size:13px;color:var(--t2);margin-top:2px}
+.head .right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:600;border:1px solid var(--line2);color:var(--t2);white-space:nowrap}
+.pill.pos{color:var(--pos);background:var(--pos-soft);border-color:transparent}
+.pill.red{color:var(--red);background:var(--red-soft);border-color:transparent}
+.pill.amb{color:var(--amber);background:var(--amber-soft);border-color:transparent}
+.mtabs{display:none;overflow-x:auto;gap:6px;margin-top:14px;scrollbar-width:none}
+.mtabs button{flex:none;border:1px solid var(--line2);background:var(--card);border-radius:999px;padding:7px 12px;font-size:13px;color:var(--t2);font-weight:550}
+.mtabs button[aria-current="page"]{background:var(--t1);color:#000;border-color:var(--t1)}
+/* Contenu */
+main{min-width:0}
+.view{margin-top:20px;display:flex;flex-direction:column;gap:16px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.005)),var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+.card h2{margin:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em}
+.sub{margin:3px 0 0;font-size:12px;color:var(--t3)}
+.ch{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);font-weight:600}
+.hero-n{font-size:clamp(30px,3.4vw,40px);font-weight:680;letter-spacing:-.03em;line-height:1}
+.hero-row{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap}
+.delta{font-size:12.5px;font-weight:600;color:var(--pos)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi{background:var(--elev);border:1px solid var(--line);border-radius:12px;padding:13px 14px;min-width:0}
+.kpi .v{font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px}
+.kpi .d{font-size:12px;color:var(--t3);margin-top:3px}
+.kpi .d b{color:var(--pos);font-weight:600}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li .t{font-size:13.5px;font-weight:550}
+.li .m{font-size:12px;color:var(--t3)}
+.li .r{margin-left:auto;text-align:right;flex:none}
+.bar{height:7px;border-radius:99px;background:var(--elev);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--red)}
+.bar i.m{background:rgba(255,255,255,.3)}
+.bar i.g{background:var(--pos)}
+.w120{width:120px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--t3);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid var(--line)}
+tr.total td{border-bottom:0;font-weight:650}
+tr.sub td{color:var(--t2)}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+.chart{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-4px 0 16px;overflow-x:auto}
+.subtabs button{border:0;background:none;padding:9px 12px;font-size:13.5px;font-weight:560;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.subtabs button[aria-pressed="true"]{color:var(--t1);border-color:var(--red)}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:var(--elev);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:560;color:var(--t1);text-decoration:none}
+.btn:hover{border-color:rgba(255,255,255,.28)}
+.btn.primary{background:var(--red);border-color:var(--red);color:var(--snow)}
+.btn.sm{padding:6px 10px;font-size:12.5px}
+.btn svg{width:15px;height:15px}
+.note{border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;background:var(--elev);border:1px solid var(--line);color:var(--t2)}
+.note b{color:var(--t1)}
+.note.amb{background:var(--amber-soft);border-color:transparent}
+.note.amb b{color:var(--amber)}
+.note.pos{background:var(--pos-soft);border-color:transparent}
+.note.pos b{color:var(--pos)}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.step{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--elev)}
+.step .k{font-size:11px;color:var(--t3)}
+.step .v{font-size:13px;font-weight:600;margin-top:3px}
+.step.done{border-color:rgba(34,197,94,.35)}
+.step.done .v{color:var(--pos)}
+.step.now{border-color:rgba(232,25,44,.5)}
+.step.now .v{color:var(--red)}
+.formrow{display:flex;gap:8px;flex-wrap:wrap}
+.formrow input{flex:1 1 180px;min-width:0;background:var(--elev);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;color:var(--t1);font:inherit}
+.big{font-size:52px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.pulse{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:650;color:var(--pos)}
+.pulse::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pos);animation:p 1.8s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+@media (prefers-reduced-motion:reduce){.pulse::before{animation:none}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#000;padding:9px 14px;border-radius:10px;font-size:13px;font-weight:600}
+@media (max-width:1000px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .mtabs{display:flex}
+  .grid2{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .kpis,.steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .head h1{font-size:19px}
+  .head .right{margin-left:0}
+  .w120{width:70px}
+  .mock .note{margin-left:0}
+  .card{padding:16px}
+}
+</style>
+
+<div class="mock"><div class="mock-in">
+  <b>Maquette</b>
+  <span class="seg" role="group" aria-label="Moment">
+    <button type="button" data-phase="before" aria-pressed="true">J-4</button>
+    <button type="button" data-phase="live" aria-pressed="false">Le soir · 01:20</button>
+    <button type="button" data-phase="after" aria-pressed="false">J+2</button>
+  </span>
+  <span class="seg" role="group" aria-label="Accord">
+    <button type="button" data-deal="contract" aria-pressed="true">Contrat Yuno · virement</button>
+    <button type="button" data-deal="external" aria-pressed="false">Réglé entre vous</button>
+  </span>
+  <span class="note">Vue du club Tia Felisa. Chiffres d'exemple, page en espagnol pour le club.</span>
+</div></div>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo">TF</div><div><div class="n">Tia Felisa</div><div class="s">Invité sur 1 soirée</div></div></div>
+    <div><div class="grp">House Of Masquerade</div><nav class="nav" id="nav" aria-label="Onglets"></nav></div>
+    <div class="foot" id="foot"></div>
+  </aside>
+
+  <main>
+    <div class="crumb">Soirée d'Amoris chez Tia Felisa</div>
+    <div class="head">
+      <div class="poster" aria-hidden="true"></div>
+      <div>
+        <h1>House Of Masquerade</h1>
+        <div class="meta">Mer. 28 oct. · 23:59 → 06:00 · Tia Felisa, Segovia · menée par <b style="color:var(--t1)">Amoris</b></div>
+      </div>
+      <div class="right"><span class="pill" id="dealPill"></span><span class="pill" id="phasePill"></span></div>
+    </div>
+    <div class="mtabs" id="mtabs" role="tablist" aria-label="Onglets"></div>
+    <div class="view" id="view"></div>
+  </main>
+</div>
+
+<script>
+(function(){
+const I = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  sales:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9a3 3 0 0 0 0 6v3h18v-3a3 3 0 0 0 0-6V6H3z"/><path d="M13 6v12" stroke-dasharray="2 2"/></svg>',
+  money:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="3"/><path d="M6 10v.01M18 15v.01"/></svg>',
+  door:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5a2 2 0 0 1 2-2h2M16 3h2a2 2 0 0 1 2 2v2M20 17v2a2 2 0 0 1-2 2h-2M8 21H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+  file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+  mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg>',
+  qr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'
+};
+
+/* ---------- données d'exemple (une seule source) ---------- */
+// ventes par jour, de J-21 à J-0 : billets payants, tables
+const DAILY_T = [2,3,4,5,4,3,4,5,3,5,6,7,9,9,9,11,0,7,12,13,18,23];
+const DAILY_TB= [0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,1,0];
+const TIERS=[ // nom, prix, vendus J-4, vendus fin, stock
+  ['Early Bird · Before 1 AM',6,40,40,40],
+  ['First Release · Before 1 AM',9,30,30,30],
+  ['Second Release · Before 1 AM',12,18,40,40],
+  ['Third Release · Before 1 AM',15,0,32,40],
+  ['All Night Long',19,8,20,20]];
+const PACKS=[['Table Silver · 6 pers.',150,2,3,4],['Table Gold · 8 pers.',250,1,2,2]];
+const GL=[['Amoris',40,24,36,29],['Tia Felisa',20,7,14,11]]; // part, places, inscrits J-4, inscrits fin, entrés
+const CLUB_GL=[['María G.','+1'],['Javier R.',''],['Lucía P.','+2'],['Sergio M.',''],['Andrea C.','+1'],['Pablo D.',''],['Irene F.','']];
+
+let S={phase:'before',deal:'contract',tab:'home',salesTab:'tickets'};
+try{Object.assign(S,JSON.parse(localStorage.getItem('yuno-guest-mock2')||'{}'))}catch(e){}
+const hh=location.hash.replace('#',''); if(['home','sales','mkt','money','door','info'].includes(hh)) S.tab=hh;
+const save=()=>{try{localStorage.setItem('yuno-guest-mock2',JSON.stringify(S))}catch(e){}};
+const eur=n=>n.toLocaleString('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});
+const sum=a=>a.reduce((x,y)=>x+y,0);
+
+function data(){
+  const end = S.phase!=='before';
+  const days = end?22:18;
+  const tickets = TIERS.map(t=>({name:t[0],price:t[1],sold:end?t[3]:t[2],stock:t[4]}));
+  const packs = PACKS.map(p=>({name:p[0],price:p[1],sold:end?p[3]:p[2],stock:p[4]}));
+  const nT = sum(tickets.map(t=>t.sold)), nTb=sum(packs.map(p=>p.sold));
+  const caT = sum(tickets.map(t=>t.sold*t.price)), caTb=sum(packs.map(p=>p.sold*p.price));
+  const refunds = end?24:0, refundsN = end?2:0;
+  const gl = GL.map(g=>({party:g[0],cap:g[1],in:end?g[3]:g[2],came:S.phase==='after'?g[4]:S.phase==='live'?Math.round(g[4]*.7):0}));
+  const glIn = sum(gl.map(g=>g.in));
+  const yunoFees = Math.round((nT*0.04*11.5 + nTb*0.04*180)*100)/100; // payés par les clients, hors CA
+  const stripe = Math.round(((caT+caTb+yunoFees)*0.015 + (nT/2.1+nTb)*0.25)*100)/100;
+  const ca = caT+caTb-refunds;
+  const net = Math.round((ca-stripe)*100)/100;
+  // accord : billets 80 % Amoris / 20 % club, tables 100 % club, bar hors Yuno (club)
+  const shareT = (caT-refunds)/(ca||1);
+  const club = Math.round((net*shareT*0.20 + net*(1-shareT))*100)/100;
+  const amoris = Math.round((net-club)*100)/100;
+  const entries = S.phase==='after'?171:S.phase==='live'?121:0;
+  const expected = nT + glIn + sum(packs.map(p=>p.sold*(p.name.includes('8')?8:6)));
+  return {days,tickets,packs,nT,nTb,caT,caTb,refunds,refundsN,gl,glIn,yunoFees,stripe,ca,net,club,amoris,entries,expected,
+          today: S.phase==='before'?7:S.phase==='live'?4:0};
+}
+
+function tabs(){
+  return [
+    {id:'home',label:'Vue d\'ensemble',icon:I.home},
+    {id:'sales',label:'Ventes',icon:I.sales},
+    {id:'mkt',label:'Marketing',icon:I.mkt},
+    {id:'money',label:'Argent',icon:I.money,tag: S.deal==='contract'&&S.phase==='after'?['À valider','amb']:null},
+    {id:'door',label:'Porte',icon:I.door,tag: S.phase==='live'?['En direct','pos']:null},
+    {id:'info',label:'Infos & contrat',icon:I.info}
+  ];
+}
+function renderNav(){
+  const t=tabs();
+  document.getElementById('nav').innerHTML=t.map(x=>`<button type="button" data-tab="${x.id}" ${S.tab===x.id?'aria-current="page"':''}>${x.icon}<span>${x.label}</span>${x.tag?`<span class="tag ${x.tag[1]}">${x.tag[0]}</span>`:''}</button>`).join('');
+  document.getElementById('mtabs').innerHTML=t.map(x=>`<button type="button" data-tab="${x.id}" ${S.tab===x.id?'aria-current="page"':''}>${x.label}</button>`).join('');
+}
+
+/* ---------- graphique des ventes ---------- */
+function salesChart(d,tall){
+  const n=d.days, T=DAILY_T.slice(0,n), TB=DAILY_TB.slice(0,n);
+  let cum=0; const C=T.map(v=>cum+=v);
+  const W=760,H=tall?250:230,L=34,R=40,Tp=16,B=28;
+  const maxBar=25, maxCum=Math.ceil(Math.max(...C,1)/40)*40;
+  const bw=(W-L-R)/22;
+  const x=i=>L+i*bw+bw/2, yb=v=>Tp+(H-Tp-B)*(1-v/maxBar), yc=v=>Tp+(H-Tp-B)*(1-v/maxCum);
+  let g='';
+  [0,.25,.5,.75,1].forEach(f=>{const y=Tp+(H-Tp-B)*(1-f);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)"/>`;
+    g+=`<text x="${L-6}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--t3)" font-family="var(--mono)">${Math.round(maxBar*f)}</text>`;
+    g+=`<text x="${W-R+6}" y="${y+4}" font-size="10" fill="var(--t3)" font-family="var(--mono)">${Math.round(maxCum*f)}</text>`});
+  T.forEach((v,i)=>{const w=bw*.56;g+=`<rect x="${x(i)-w/2}" y="${yb(v)}" width="${w}" height="${yb(0)-yb(v)}" rx="2.5" fill="${i===n-1?'var(--red)':'rgba(232,25,44,.45)'}"/>`;
+    if(TB[i]) g+=`<circle cx="${x(i)}" cy="${yb(v)-8}" r="3.5" fill="var(--amber)"/>`;});
+  g+=`<polyline points="${C.map((v,i)=>`${x(i).toFixed(1)},${yc(v).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--t1)" stroke-width="2" stroke-linejoin="round"/>`;
+  g+=`<circle cx="${x(n-1)}" cy="${yc(C[n-1])}" r="4.5" fill="var(--t1)" stroke="var(--card)" stroke-width="2"/>`;
+  [0,7,14,21].forEach(i=>{g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--t3)" font-family="var(--mono)">${i===21?'Jour J':'J-'+(21-i)}</text>`});
+  if(S.phase==='before'){const xs=x(n-1)+bw/2;g+=`<rect x="${xs}" y="${Tp}" width="${W-R-xs}" height="${H-Tp-B}" fill="rgba(255,255,255,.025)"/><text x="${(xs+W-R)/2}" y="${Tp+14}" text-anchor="middle" font-size="10.5" fill="var(--t3)" font-family="var(--sans)">à venir</text>`;}
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Billets vendus par jour et cumul">${g}</svg>`;
+}
+
+/* ---------- vues ---------- */
+function vHome(d){
+  const after=S.phase==='after';
+  return `
+  <section class="card">
+    <div class="ch">
+      <div><div class="label">Ventes de la soirée</div>
+        <div class="hero-row" style="margin-top:8px">
+          <div><div class="hero-n num">${d.nT}</div><div class="sub">billets vendus</div></div>
+          <div><div class="hero-n num" style="font-size:clamp(22px,2.4vw,28px)">${eur(d.ca)}</div><div class="sub">CA de la soirée, hors frais Yuno</div></div>
+          ${d.today?`<div class="delta">▲ ${d.today} aujourd'hui</div>`:''}
+        </div></div>
+      <div class="legend"><span><i style="background:rgba(232,25,44,.6)"></i>billets / jour</span><span><i style="background:var(--t1);height:3px"></i>cumul</span><span><i style="background:var(--amber);border-radius:50%"></i>table réservée</span></div>
+    </div>
+    ${salesChart(d)}
+  </section>
+  <section class="card">
+    <div class="ch"><div><h2>Où en est la soirée</h2><p class="sub">${after?'Soirée terminée.':'Mis à jour à 14:05.'}</p></div><button type="button" class="btn sm" data-go="sales">Détail des ventes</button></div>
+    <div class="kpis">
+      ${kpi('Billets',d.nT,`sur ${sum(d.tickets.map(t=>t.stock))} · ${d.tickets.filter(t=>t.sold<t.stock&&t.sold>0).length} tarif en vente`)}
+      ${kpi('Tables VIP',`${d.nTb}<span style="font-size:15px;color:var(--t3)"> / ${sum(d.packs.map(p=>p.stock))}</span>`,eur(d.caTb)+' de réservations')}
+      ${kpi('Guest list',d.glIn,`dont ${d.gl[1].in} sur ta part`)}
+      ${after||S.phase==='live'?kpi('Entrées',d.entries,`sur ${d.expected} attendus`):kpi('Attendus',d.expected,'billets + tables + guest list')}
+    </div>
+  </section>
+  <div class="grid2">
+    <section class="card">
+      <div class="ch"><div><h2>${S.deal==='contract'?'Ta part':'Les chiffres de la soirée'}</h2><p class="sub">${S.deal==='contract'?(after?'Décompte figé, à vérifier.':'Si la soirée s\'arrêtait maintenant.'):'Réglé entre vous : Yuno affiche, ne verse rien.'}</p></div><button type="button" class="btn sm" data-go="money">Argent</button></div>
+      ${S.deal==='contract'?`
+      <div class="hero-n num" style="font-size:30px">${eur(d.club)}</div>
+      <p class="sub" style="margin-top:6px">20 % du net des billets + 100 % des tables, versés par Amoris par virement.</p>
+      ${after?'<div class="note amb" style="margin-top:12px"><b>Décompte à vérifier avant le 01/11.</b> Sans réponse, il est validé tel quel.</div>':''}`:`
+      <div class="list">${line('Encaissé par Amoris (billets)',eur(d.caT-d.refunds))}${line('Tables VIP',eur(d.caTb))}${line('Remboursements',eur(-d.refunds))}</div>`}
+    </section>
+    <section class="card">
+      <div class="ch"><div><h2>Qui fait vendre</h2><p class="sub">Billets par lien de vente de chaque partie.</p></div></div>
+      ${whoSells(d,true)}
+    </section>
+  </div>`;
+}
+const kpi=(l,v,dd)=>`<div class="kpi"><div class="label">${l}</div><div class="v num">${v}</div><div class="d">${dd}</div></div>`;
+const line=(k,v,cls='')=>`<div class="li ${cls}"><div class="t" style="font-weight:500">${k}</div><div class="r num">${v}</div></div>`;
+
+function whoSells(d,compact){
+  const club=Math.round(d.nT*.14), amo=Math.round(d.nT*.58), yuno=Math.round(d.nT*.11), direct=d.nT-club-amo-yuno;
+  const rows=[['Amoris','ses liens suivis et ceux de ses promoteurs',amo,''],['Tia Felisa · toi','tes liens suivis',club,'g'],['Yuno','Explore, app et recherche Yuno',yuno,'m'],['Direct','lien sans suivi, adresse tapée',direct,'m']];
+  return `<div class="list">${rows.map(([n,m,v,c])=>`<div class="li"><div style="min-width:0;flex:1"><div class="t">${n}</div><div class="m">${m}</div></div><div class="bar w120" aria-hidden="true"><i class="${c}" style="width:${Math.round(v/d.nT*100)}%"></i></div><div class="r num" style="width:44px">${v}</div></div>`).join('')}</div>`;
+}
+
+function vSales(d){
+  const st=S.salesTab;
+  let body='';
+  if(st==='tickets') body=`
+    <div class="scroll"><table><thead><tr><th>Tarif</th><th class="r">Prix</th><th>Vendus</th><th class="r">CA</th><th class="r">État</th></tr></thead><tbody>
+    ${d.tickets.map(t=>{const s=t.sold>=t.stock?['Épuisé','']:t.sold>0?['En vente','pos']:['Bientôt','amb'];return `<tr><td>${t.name}</td><td class="r">${eur(t.price)}</td><td><div style="display:flex;gap:10px;align-items:center"><div class="bar w120"><i class="${s[1]===''?'m':''}" style="width:${Math.round(t.sold/t.stock*100)}%"></i></div><span class="num">${t.sold}/${t.stock}</span></div></td><td class="r">${eur(t.sold*t.price)}</td><td class="r"><span class="pill ${s[1]}">${s[0]}</span></td></tr>`}).join('')}
+    <tr class="total"><td>Total</td><td></td><td class="num">${d.nT}</td><td class="r">${eur(d.caT)}</td><td></td></tr></tbody></table></div>`;
+  if(st==='tables') body=`
+    <div class="scroll"><table><thead><tr><th>Formule</th><th class="r">Prix</th><th>Réservées</th><th class="r">CA</th></tr></thead><tbody>
+    ${d.packs.map(p=>`<tr><td>${p.name}</td><td class="r">${eur(p.price)}</td><td><div style="display:flex;gap:10px;align-items:center"><div class="bar w120"><i style="width:${Math.round(p.sold/p.stock*100)}%"></i></div><span class="num">${p.sold}/${p.stock}</span></div></td><td class="r">${eur(p.sold*p.price)}</td></tr>`).join('')}
+    </tbody></table></div><p class="sub" style="margin-top:10px">Le nom du client et le placement restent chez Amoris. Ta salle voit le nombre de tables et de convives.</p>`;
+  if(st==='gl') body=`
+    <div class="note" style="margin-bottom:12px">Amoris t'a donné une part de <b>${d.gl[1].cap} places</b>. Tu y ajoutes tes invités ; pour plus de places, demande-les à Amoris.</div>
+    <div class="list">${d.gl.map(g=>`<div class="li"><div style="min-width:0;flex:1"><div class="t">Part ${g.party}${g.party==='Tia Felisa'?' · toi':''}</div><div class="m num">${g.in} inscrits sur ${g.cap} places${S.phase!=='before'?' · '+g.came+' entrés':''}</div></div><div class="bar w120"><i class="g" style="width:${Math.round(g.in/g.cap*100)}%"></i></div></div>`).join('')}</div>
+    <div style="margin-top:16px"><div class="label" style="margin-bottom:8px">Tes invités</div>
+      <form class="formrow" id="glForm" autocomplete="off"><input id="glName" placeholder="Prénom et nom" aria-label="Prénom et nom"><input id="glPlus" placeholder="+ accompagnants" aria-label="Accompagnants" style="flex:0 1 150px"><button class="btn primary" type="submit">Ajouter</button></form>
+      <div class="list" style="margin-top:8px">${CLUB_GL.map(([n,p])=>`<div class="li"><div class="t" style="font-weight:500">${n}</div><div class="r m">${p||'—'}</div></div>`).join('')}</div></div>`;
+  if(st==='who') body=`
+    ${whoSells(d)}
+    <div class="note" style="margin-top:14px"><b>Comment Yuno attribue une vente.</b> Un lien suivi d'Amoris ou d'un de ses promoteurs : Amoris. Un de tes liens suivis : toi. Arrivé depuis Yuno (Explore, l'app, la recherche) : Yuno. Le lien de la soirée sans suivi, ou l'adresse tapée : Direct. C'est une attribution : l'argent suit le contrat.</div>
+    <div style="margin-top:12px"><button type="button" class="btn sm" data-go="mkt">${I.mkt} Mes liens de vente</button></div>`;
+  return `
+  <section class="card"><div class="ch"><div><h2>Évolution</h2><p class="sub">Billets par jour et cumul depuis l'ouverture.</p></div></div>${salesChart(d,true)}</section>
+  <section class="card">
+    <div class="subtabs" role="group" aria-label="Type de vente">
+      ${[['tickets','Billets'],['tables','Tables VIP'],['gl','Guest list'],['who','Qui fait vendre']].map(([k,l])=>`<button type="button" data-st="${k}" aria-pressed="${st===k}">${l}</button>`).join('')}
+    </div>${body}
+  </section>`;
+}
+
+function vMoney(d){
+  const after=S.phase==='after', contract=S.deal==='contract';
+  const steps = contract?[
+    ['Contrat','Signé le 14/10','done'],
+    ['Ventes',S.phase==='before'?'En cours':'Terminées',S.phase==='before'?'now':'done'],
+    ['Décompte',after?'À vérifier':'Figé le 30/10',after?'now':''],
+    ['Virement',after?'Avant le 15/11':'Après validation','']]:null;
+  const statement = `
+    <div class="scroll"><table><tbody>
+      <tr><td>Billets (${d.nT})</td><td class="r">${eur(d.caT)}</td></tr>
+      <tr><td>Tables VIP (${d.nTb})</td><td class="r">${eur(d.caTb)}</td></tr>
+      <tr class="sub"><td>Remboursements${d.refundsN?` (${d.refundsN} billets)`:''}</td><td class="r">${eur(-d.refunds)}</td></tr>
+      <tr><td><b>CA de la soirée</b></td><td class="r"><b>${eur(d.ca)}</b></td></tr>
+      <tr class="sub"><td>Frais Stripe (estimés, 1,5 % + 0,25 € par paiement)</td><td class="r">${eur(-d.stripe)}</td></tr>
+      <tr class="total"><td>Net encaissé par Amoris</td><td class="r">${eur(d.net)}</td></tr>
+    </tbody></table></div>
+    <p class="sub" style="margin-top:8px">Les frais de service Yuno (${eur(d.yunoFees)}) sont payés par les acheteurs en plus du prix : ils ne sont pas dans le CA et ne se partagent pas.</p>`;
+  if(!contract) return `
+  <section class="card">
+    <div class="ch"><div><h2>Réglé entre vous</h2><p class="sub">Amoris encaisse les billets et les tables en ligne. Le bar reste à toi. Vous réglez le reste comme convenu, Yuno ne verse rien.</p></div><span class="pill">Sans contrat Yuno</span></div>
+    ${statement}
+  </section>
+  <section class="card"><div class="ch"><div><h2>Passer par un contrat Yuno</h2><p class="sub">Parts écrites, décompte figé après la soirée, virement suivi avec référence. Possible tant que rien n'est vendu.</p></div></div><div class="note">Ici, des billets sont déjà vendus : la soirée reste réglée entre vous.</div></section>`;
+  return `
+  <section class="card">
+    <div class="steps">${steps.map(([k,v,c])=>`<div class="step ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}</div>
+  </section>
+  <div class="grid2">
+    <section class="card">
+      <div class="ch"><div><h2>${after?'Décompte de la soirée':'Décompte en cours'}</h2><p class="sub">${after?'Figé le 30/10 à 06:00, 48 h après la fin.':'Bouge avec les ventes jusqu\'à 48 h après la fin.'}</p></div>${after?'<span class="pill amb">À vérifier</span>':'<span class="pill">Estimation</span>'}</div>
+      ${statement}
+    </section>
+    <section class="card">
+      <div class="ch"><div><h2>Ta part selon le contrat</h2><p class="sub">Contrat signé avec Amoris le 14/10.</p></div></div>
+      <div class="scroll"><table><thead><tr><th></th><th class="r">Ta part</th></tr></thead><tbody>
+        <tr><td>Billets</td><td class="r">20 % du net</td></tr>
+        <tr><td>Tables VIP</td><td class="r">100 % du net</td></tr>
+        <tr><td>Bar</td><td class="r">hors Yuno, à toi</td></tr>
+        <tr class="total"><td>Ce qu'Amoris te doit</td><td class="r" style="color:var(--pos)">${eur(d.club)}</td></tr>
+      </tbody></table></div>
+      <div class="note" style="margin-top:12px"><b>Amoris encaisse, puis te vire ta part</b> sous 15 jours après validation. Référence du virement : <span style="font-family:var(--mono)">YCO-7F3K2Q</span>.</div>
+    </section>
+  </div>
+  <section class="card">
+    <div class="ch"><div><h2>${after?'Ta réponse':'Après la soirée'}</h2><p class="sub">${after?'Vérifie les lignes. Une contestation gèle le virement jusqu\'à accord.':'Le décompte s\'ouvre ici le 30/10. Tu le valides ou tu le contestes.'}</p></div></div>
+    ${after?`<div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn primary" data-toast="Décompte validé · Amoris est prévenu">Valider le décompte · ${eur(d.club)}</button><button type="button" class="btn" data-toast="Contestation envoyée à Amoris">Contester une ligne</button></div>
+    <div class="list" style="margin-top:14px">${line('IBAN de réception','ES91 •••• •••• •••• 4402')}${line('Échéance du virement','15 novembre')}</div>`:
+    `<div class="list">${line('IBAN de réception','À renseigner avant le 30/10')}${line('Délai de paiement','15 jours après validation')}</div><div style="margin-top:12px"><button type="button" class="btn sm">Ajouter mon IBAN</button></div>`}
+  </section>`;
+}
+
+const DOOR_STAFF=[['Carlos M.','Videur','Actif · app Yuno Pro','pos','Invité par toi'],['Lucía R.','Videuse','Invitation envoyée','amb','Invitée par Amoris']];
+function doorStaff(){
+  return `
+  <section class="card">
+    <div class="ch"><div><h2>Ton équipe à la porte</h2><p class="sub">Ils scannent les billets et la guest list de cette soirée avec l'app Yuno Pro, aux côtés de l'équipe d'Amoris.</p></div></div>
+    <div class="list">${DOOR_STAFF.map(([n,r,st,c,by])=>`<div class="li"><div class="logo" style="width:32px;height:32px;font-size:11px">${n.split(' ').map(x=>x[0]).join('')}</div><div style="min-width:0;flex:1"><div class="t">${n} · <span style="color:var(--t3);font-weight:500">${r}</span></div><div class="m">${by}</div></div><span class="pill ${c} r">${st}</span></div>`).join('')}</div>
+    <form class="formrow" id="staffForm" autocomplete="off" style="margin-top:14px">
+      <input id="staffName" placeholder="Prénom et nom" aria-label="Prénom et nom du membre">
+      <input id="staffContact" placeholder="E-mail ou WhatsApp" aria-label="E-mail ou WhatsApp">
+      <button class="btn primary" type="submit">Inviter</button>
+    </form>
+    <p class="sub" style="margin-top:10px">Accès à cette soirée seulement : scan à la porte, rien d'autre. Il se coupe à la fin de la soirée. Amoris peut aussi inviter ton staff depuis sa Console.</p>
+  </section>`;
+}
+function vDoor(d){
+  if(S.phase==='before') return doorStaff() + `
+  <section class="card">
+    <div class="ch"><div><h2>La porte</h2><p class="sub">Tenue par l'équipe d'Amoris et la tienne, avec l'app Yuno Pro. Cet onglet passe en direct le 28/10 à 23:00.</p></div><span class="pill">Ouvre dans 4 jours</span></div>
+    <div class="kpis">${kpi('Billets',d.nT,'à scanner')}${kpi('Guest list',d.glIn,'à pointer')}${kpi('Tables VIP',d.nTb,sum(d.packs.map(p=>p.sold*(p.name.includes('8')?8:6)))+' convives')}${kpi('Attendus',d.expected,'au total')}</div>
+  </section>
+  <section class="card"><div class="ch"><div><h2>Règles d'entrée</h2><p class="sub">Appliquées par le scan.</p></div></div>
+    <div class="list">${line('Billets « Before 1 AM »','entrée avant 01:00')}${line('Boisson offerte','à la porte, avant 02:00')}${line('Âge minimum','18 ans')}</div></section>`;
+  const live=S.phase==='live';
+  const rows=[['Billets',live?96:138,d.nT],['Guest list',live?27:40,d.glIn],['Tables VIP (convives)',live?16:22,sum(d.packs.map(p=>p.sold*(p.name.includes('8')?8:6)))]];
+  return `
+  <section class="card">
+    <div class="ch">${live?'<span class="pulse">En direct · 01:20</span>':'<span class="pill">Porte fermée à 05:42</span>'}<span class="sub">${live?'+12 ces 10 dernières minutes':''}</span></div>
+    <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end">
+      <div><div class="label">Entrées</div><div class="big num">${d.entries}</div><div class="sub">sur ${d.expected} attendus</div></div>
+      <div style="flex:1 1 280px;min-width:0"><div class="bar" style="height:12px"><i style="width:${Math.round(d.entries/d.expected*100)}%"></i></div><div class="sub" style="margin-top:6px">${Math.round(d.entries/d.expected*100)} % des personnes attendues</div></div>
+    </div>
+  </section>
+  <section class="card"><div class="ch"><div><h2>Par type d'entrée</h2><p class="sub">Scans de l'équipe d'Amoris.</p></div></div>
+    <div class="list">${rows.map(([n,a,b])=>`<div class="li"><div style="min-width:0;flex:1"><div class="t">${n}</div><div class="m num">${a} entrés sur ${b}</div></div><div class="bar w120"><i style="width:${Math.round(a/b*100)}%"></i></div></div>`).join('')}</div></section>` + doorStaff();
+}
+
+function vInfo(){
+  return `
+  <div class="grid2">
+    <section class="card">
+      <div class="ch"><div><h2>La soirée</h2><p class="sub">Ce que les acheteurs reçoivent avec leur billet.</p></div></div>
+      <div class="list">${line('Date','Mer. 28 octobre 2026')}${line('Horaires','23:59 → 06:00')}${line('Adresse','C. Escuderos 5, Segovia')}${line('Billetterie','Libre, 5 tarifs')}${line('Tables VIP','2 formules, 6 tables')}${line('Guest list','2 parts · 60 places')}</div>
+      <p class="sub" style="margin-top:10px">Une erreur ? Amoris la corrige pour tout le monde.</p>
+    </section>
+    <section class="card">
+      <div class="ch"><div><h2>${S.deal==='contract'?'Contrat':'Accord'}</h2><p class="sub">${S.deal==='contract'?'Version du 14/10, signée par les deux parties.':'Réglé entre vous, sans contrat Yuno.'}</p></div></div>
+      <div class="list">
+        ${line('Qui mène','Amoris')}${line('Qui encaisse','Amoris (billets, tables)')}${line('Bar','Tia Felisa, hors Yuno')}${line('Porte','Équipe d\'Amoris')}
+      </div>
+      ${S.deal==='contract'?`<div style="margin-top:12px"><button type="button" class="btn sm">${I.file} Contrat signé (PDF)</button></div>`:''}
+    </section>
+  </div>
+  <section class="card">
+    <div class="ch"><div><h2>Contacts de la soirée</h2></div></div>
+    <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+      ${contact('Paul · Amoris','Organisateur','+33 6 12 •• •• 48')}${contact('Hugo · Amoris','Porte','+33 7 55 •• •• 02')}${contact('Yuno','Une question sur cet espace','support@yunoapp.eu')}
+    </div>
+  </section>`;
+}
+const contact=(n,r,c)=>`<div class="kpi"><div class="t" style="font-weight:600">${n}</div><div class="d">${r}</div><div style="font-family:var(--mono);font-size:12.5px;margin-top:8px;user-select:all">${c}</div></div>`;
+
+function vMarketing(d){
+  const end=S.phase!=='before';
+  const base='yunoapp.eu/l/house-of-masquerade-tia-felisa';
+  const L=[ // canal, suffixe, clics, billets, CA
+    ['Lien direct','',end?64:38,end?6:4,end?62:41],
+    ['Story Instagram','-insta',end?182:96,end?11:6,end?119:62],
+    ['Bio Instagram','-bio',end?41:22,end?3:2,end?33:21],
+    ['WhatsApp','-whatsapp',end?37:19,end?2:1,end?24:12]];
+  const tc=sum(L.map(l=>l[2])), tb=sum(L.map(l=>l[3])), tca=sum(L.map(l=>l[4]));
+  return `
+  <section class="card">
+    <div class="ch"><div><h2>Tes liens de vente</h2><p class="sub">Liens à ton nom pour cette soirée. Chaque billet vendu par l'un d'eux est compté pour Tia Felisa.</p></div><button type="button" class="btn sm primary" data-toast="Nouveau lien créé">${I.plus} Créer un lien</button></div>
+    <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px">
+      ${kpi('Clics',tc,'sur tous tes liens')}${kpi('Billets vendus',tb,Math.round(tb/tc*1000)/10+' % des clics')}${kpi('CA amené',eur(tca),'hors frais Yuno')}
+    </div>
+    <div class="scroll"><table><thead><tr><th>Canal</th><th>Lien</th><th class="r">Clics</th><th class="r">Billets</th><th class="r">CA</th><th></th></tr></thead><tbody>
+      ${L.map(([n,suf,c,b,ca])=>`<tr><td style="font-weight:600;white-space:nowrap">${n}</td><td style="font-family:var(--mono);font-size:12px;color:var(--t2)">/l/house-of-masquerade-tia-felisa${suf}</td><td class="r">${c}</td><td class="r">${b}</td><td class="r">${eur(ca)}</td><td class="r"><button type="button" class="btn sm" data-copy="https://${base}${suf}" aria-label="Copier le lien ${n}">${I.copy}</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="sub" style="margin-top:10px">Les clics et les ventes sont comptés sans cookie. Tu ne vois jamais qui a acheté.</p>
+  </section>
+  <div>
+    <section class="card">
+      <div class="ch"><div><h2>Visuels de la soirée</h2><p class="sub">L'affiche d'Amoris aux formats des réseaux.</p></div></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div><div class="poster" style="width:86px;height:153px" aria-hidden="true"></div><div class="sub" style="margin-top:6px">Story 9:16</div></div>
+        <div><div class="poster" style="width:122px;height:153px" aria-hidden="true"></div><div class="sub" style="margin-top:6px">Post 4:5</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><button type="button" class="btn sm" data-toast="Visuels prêts">Télécharger les visuels</button></div>
+      </div>
+      <div class="label" style="margin:16px 0 8px">Texte prêt à poster</div>
+      <div class="note" id="mktTxt" style="font-size:13px">Miércoles 28 · House Of Masquerade en Tia Felisa. Entradas desde 12 €, consumición incluida antes de la 1:00 → ${base}-insta</div>
+      <div style="margin-top:8px"><button type="button" class="btn sm" data-copy="Miércoles 28 · House Of Masquerade en Tia Felisa. Entradas desde 12 €, consumición incluida antes de la 1:00 → https://${base}-insta">${I.copy} Copier le texte</button></div>
+    </section>
+  </div>`;
+}
+
+const VIEWS={home:vHome,sales:vSales,mkt:vMarketing,money:vMoney,door:vDoor,info:vInfo};
+function render(){
+  const d=data();
+  document.querySelectorAll('[data-phase]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.phase===S.phase));
+  document.querySelectorAll('[data-deal]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.deal===S.deal));
+  const pp=document.getElementById('phasePill');
+  pp.textContent=S.phase==='before'?'J-4':S.phase==='live'?'En cours':'Terminée';
+  pp.className='pill '+(S.phase==='before'?'red':S.phase==='live'?'pos':'');
+  document.getElementById('dealPill').textContent=S.deal==='contract'?'Contrat signé · virement':'Réglé entre vous';
+  document.getElementById('foot').innerHTML=`Tes propres soirées sur Yuno : billets, tables VIP, guest list.<br><a href="https://landing.yunoapp.eu/es/start?role=club" target="_blank" rel="noopener">Ouvrir le compte de Tia Felisa →</a>`;
+  renderNav();
+  document.getElementById('view').innerHTML=VIEWS[S.tab](d);
+  save();
+}
+function toast(t){const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),1800);}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.phase){S.phase=b.dataset.phase;render();return;}
+  if(b.dataset.deal){S.deal=b.dataset.deal;render();return;}
+  if(b.dataset.st){S.salesTab=b.dataset.st;render();return;}
+  const t=b.dataset.tab||b.dataset.go;
+  if(t){S.tab=t;try{history.replaceState(null,'','#'+t)}catch(_){}render();window.scrollTo({top:0});return;}
+  if(b.dataset.toast){toast(b.dataset.toast);return;}
+  if(b.dataset.copy){try{navigator.clipboard.writeText(b.dataset.copy).then(()=>toast('Lien copié'),()=>toast('Copie refusée'))}catch(_){toast('Copie refusée')}}
+});
+document.addEventListener('submit',e=>{
+  if(e.target.id==='staffForm'){e.preventDefault();const n=document.getElementById('staffName').value.trim();if(!n)return;
+    DOOR_STAFF.push([n,'Porte','Invitation envoyée','amb','Invité par toi']);render();toast('Invitation envoyée');return;}
+  if(e.target.id!=='glForm')return; e.preventDefault();
+  const n=document.getElementById('glName').value.trim(); if(!n)return;
+  const p=document.getElementById('glPlus').value.trim();
+  CLUB_GL.unshift([n,p?('+'+p.replace('+','')):'']); render(); toast('Invité ajouté à ta part');
+});
+render();
+})();
+</script>
