@@ -146,6 +146,8 @@ export async function createAutomationTemplate(p: {
     name: p.t(`yc.au.r.${p.kind}.name`).slice(0, 80),
     description: p.t(`yc.au.r.${p.kind}.desc`).slice(0, 240),
     created_by: auth.user?.id ?? null,
+    // Le modèle d'une recette CRM est un modèle du CRM (bibliothèque séparée de la Billetterie).
+    product: 'crm',
   };
   if (p.venueId) row.venue_id = p.venueId; else row.organizer_user_id = p.organizerUserId;
   const { data, error } = await supabase.from('email_campaign_templates').insert(row as never).select('id').single();
