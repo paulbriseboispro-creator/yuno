@@ -46,6 +46,10 @@ export async function loadOptIns(
         .from('newsletter_subscriptions')
         .select('email, venue_id, organizer_user_id, unsubscribe_token')
         .eq('opted_in', true)
+        // Isolation CRM ⇄ Billetterie : un accord rapporté par la billetterie connectée
+        // (source connector:%) ne vaut pas pour les e-mails de Yuno (« on t'a manqué »,
+        // prochaine soirée). `source` peut être NULL : NOT LIKE seul écarterait ces lignes.
+        .or('source.is.null,source.not.like.connector:*')
         .in('email', chunk)
         .returns<NewsletterSubscriptionRow[]>();
       if (error) throw error;
