@@ -9,7 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuth } from '@/hooks/useAuth';
 import { downloadICS } from '@/lib/calendar';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import type { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -804,27 +804,37 @@ export default function OrderConfirmation() {
     return `${t('confirmation.inPrefix')} ${days} ${t('confirmation.daysWord')}`;
   };
 
-  // Resolve (and persist) the canonical order/invoice number for the receipt.
+  // Numéro du reçu : celui que la base a attribué à la vente (le paiement l'a
+  // émis, une suite par vendeur). Le navigateur n'en fabrique jamais : faute de
+  // facture, le reçu porte la référence de la commande (TK-/VP-…), pas un faux
+  // numéro de facture qui pourrait être celui d'un autre client.
   const ensureInvoiceNumber = async (): Promise<string> => {
     if (invoiceNumber) return invoiceNumber;
-    if (data?.venueId) {
+    const saleColumn = type === 'table' ? 'table_reservation_id' : type === 'order' ? 'order_id' : 'ticket_id';
+    try {
+      const { data: issued } = await supabase
+        .from('invoice_numbers')
+        .select('invoice_number')
+        .eq(saleColumn, id)
+        .maybeSingle();
+      if (issued?.invoice_number) {
+        setInvoiceNumber(issued.invoice_number);
+        return issued.invoice_number;
+      }
+    } catch { /* la référence de la commande prend le relais */ }
+    let reference = data?.qrCode || id || '';
+    if (type !== 'order') {
       try {
-        const { data: newNum, error } = await supabase
-          .rpc('generate_invoice_number', { p_venue_id: data.venueId });
-        if (!error && newNum) {
-          const insertData: TablesInsert<'invoice_numbers'> = { venue_id: data.venueId, invoice_number: newNum };
-          if (type === 'ticket') insertData.ticket_id = id;
-          else if (type === 'table') insertData.table_reservation_id = id;
-          else if (type === 'order') insertData.order_id = id;
-          await supabase.from('invoice_numbers').insert(insertData);
-          setInvoiceNumber(newNum);
-          return newNum;
-        }
-      } catch { /* fall through to a local fallback */ }
+        const { data: row } = await supabase
+          .from(type === 'table' ? 'table_reservations' : 'tickets')
+          .select('reference_code')
+          .eq('id', id)
+          .maybeSingle();
+        const ref = (row as { reference_code?: string } | null)?.reference_code;
+        if (ref) reference = ref;
+      } catch { /* garde le QR comme référence */ }
     }
-    const fallback = `FAC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-    setInvoiceNumber(fallback);
-    return fallback;
+    return reference;
   };
 
   // Build the fiscal receipt lines (ticket/table/drinks + Yuno fees), each at its

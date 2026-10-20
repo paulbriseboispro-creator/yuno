@@ -1492,6 +1492,7 @@ const es: Record<string, string> = {
   'notif.type.admin_table_email_bounced': "Email de reserva de mesa no entregado",
   'notif.type.admin_guest_list_email_bounced': "Email de lista de invitados no entregado",
   'notif.type.admin_refund_failed': 'Reembolso de Stripe rechazado',
+  'notif.type.admin_invoice_failed': 'Venta pagada sin factura',
   'notif.type.admin_payment_disputed': 'Disputa bancaria en una venta',
   'notif.type.admin_indirect_charge_refused': 'Venta rechazada: acuerdo con reparto de Stripe',
   'notif.type.admin_collab_late_sale': 'Venta de coevento pagada tras el cierre',
