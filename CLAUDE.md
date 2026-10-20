@@ -3955,9 +3955,10 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
   correction y est écrite avant l'appel, nom et téléphone SEULEMENT s'ils ont
   changé) ; genre en deux boutons (`GenderChoice`). Aucune phrase CGV sur la
   guest list (il n'y avait pas de case : rien de nouveau à accepter).
-- **Compte connecté = la page attend son profil** (2026-10-20) : squelette tant que
-  `profiles` (nom, téléphone, date de naissance) n'est pas lu, et `MinorAuthGate`
-  ne rend rien avant sa propre lecture. Sinon les cases apparaissaient puis
+- **Compte connecté = la page attend son profil** (2026-10-20, billet, table et
+  guest list) : squelette tant que `profiles` (nom, téléphone, date de naissance)
+  n'est pas lu, et `MinorAuthGate` ne rend rien avant sa propre lecture ; « Tout
+  est prêt » attend aussi la date quand la page en demande une. Sinon les cases apparaissaient puis
   disparaissaient, et le client croyait qu'on lui redemandait sa date.
 
 ## E-mail de billet non livré — une faute d'adresse se voit et se corrige (2026-10-20)

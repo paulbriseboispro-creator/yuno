@@ -222,6 +222,9 @@ export default function GuestListSignup() {
   const [mePhone, setMePhone] = useState('');
   // Profil complet : carte « Tout est prêt », « Modifier » rouvre les champs.
   const [profileComplete, setProfileComplete] = useState(false);
+  // Profil d'un inscrit connecté lu : la page attend cette lecture pour ne pas
+  // montrer des champs vides qui disparaissent derrière « Tout est prêt ».
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [editingIdentity, setEditingIdentity] = useState(false);
   const fieldRefs = {
     name: useRef<HTMLDivElement>(null),
@@ -229,23 +232,31 @@ export default function GuestListSignup() {
     phone: useRef<HTMLDivElement>(null),
   };
   const genderRef = useRef<HTMLDivElement>(null);
+  // Le compte, pas l'objet session : un rafraîchissement du jeton ne relit pas
+  // le profil et n'écrase pas ce que la personne vient de corriger.
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     let cancelled = false;
-    supabase.from('profiles').select('first_name, last_name, phone').eq('id', user.id).maybeSingle()
+    supabase.from('profiles').select('first_name, last_name, phone').eq('id', userId).maybeSingle()
       .then(({ data }) => {
-        if (cancelled || !data) return;
-        const name = composeFullName(data.first_name || '', data.last_name || '');
-        const tel = data.phone || '';
-        setProfileName(name);
-        setMeName(name);
-        setProfilePhone(tel);
-        setMePhone(tel);
-        const known = buyerFormErrors({ fullName: name, email: user.email || '', phone: tel, birth: null, requireTwoWords: true });
-        setProfileComplete(Object.keys(known).length === 0);
+        if (cancelled) return;
+        if (data) {
+          const name = composeFullName(data.first_name || '', data.last_name || '');
+          const tel = data.phone || '';
+          setProfileName(name);
+          setMeName(name);
+          setProfilePhone(tel);
+          setMePhone(tel);
+          const known = buyerFormErrors({ fullName: name, email: userEmail || '', phone: tel, birth: null, requireTwoWords: true });
+          setProfileComplete(Object.keys(known).length === 0);
+        }
+        // Lecture en échec : la page s'ouvre quand même, champs vides.
+        setProfileLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [userId, userEmail]);
 
   // ── Accords marketing ────────────────────────────────────────────────────
   // Une inscription guest list est gratuite, mais c'est une VENUE : sans la
@@ -846,7 +857,7 @@ export default function GuestListSignup() {
     }
   };
 
-  if (loading || authLoading || resolving) {
+  if (loading || authLoading || resolving || (!!user && !profileLoaded)) {
     return <GuestListSignupSkeleton />;
   }
 
