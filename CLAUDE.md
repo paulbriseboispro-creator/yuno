@@ -3720,7 +3720,15 @@ tâche `pro_signup_alerts` de `process-scheduled-campaigns`, Cockpit
   organisateur avec e-mail, sans compte, figé depuis 20 min. `retry` quand
   l'adresse a DÉJÀ un compte (la personne retente au lieu de se connecter :
   Pascal de Poupée, quatre parcours après son compte), `stalled` sinon. Une
-  alerte par adresse et par jour.
+  alerte par adresse et par jour. Depuis le 20/10 (migration
+  `20261104210000`), la landing reconnaît l'adresse PENDANT la saisie (RPC
+  `email_has_account`) et propose « Me connecter » ou un lien de connexion
+  sans mot de passe ; l'alerte `retry` le dit, donne la dernière connexion, et
+  se TAIT si le pro s'est connecté après son parcours (il est rentré). Un
+  parcours Yuno CRM arrêté à l'étape e-mail (sans type) n'alerte qu'en `retry`.
+  Sur `/auth`, la vue connexion dit d'abord « Club ou organisateur déjà
+  inscrit ? Connectez-vous ici » (`auth.proLoginHint`), avant « Créer un
+  compte pro ».
 - **La fiche** (`pro_signup_alert_payload`, relue à l'envoi) : personne,
   structure, provenance (`sourceLabel` : « ChatGPT → la landing »), étapes,
   TOUS ses parcours sur 60 jours (même e-mail ou même numéro), formulaires
