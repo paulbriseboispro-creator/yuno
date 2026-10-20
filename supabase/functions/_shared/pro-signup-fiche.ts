@@ -168,8 +168,10 @@ const CHANNELS: Array<[RegExp, string]> = [
   [/linkedin|lnkd/i, 'LinkedIn'],
   [/whatsapp|wa\.me/i, 'WhatsApp'],
   [/shotgun/i, 'Shotgun'],
-  [/yuno_app|yunoapp\.eu/i, "l'app Yuno"],
+  [/yuno_app|yunoapp\.eu/i, 'yuno_app'],
 ];
+// Les canaux sont des noms propres, sauf l'app Yuno (traduite par l'admin).
+const CHANNEL_FR: Record<string, string> = { yuno_app: "l'app Yuno" };
 
 const PAGES: Record<string, string> = {
   landing: 'la landing',
@@ -182,14 +184,24 @@ const PAGES: Record<string, string> = {
   landing_contact: 'le formulaire de contact de la landing',
 };
 
-/** « ChatGPT → la landing », « Google → la landing », « l'app Yuno → la page d'inscription ». */
-export function sourceLabel(origin: SignupOrigin | null | undefined): string {
+/** La provenance en deux morceaux, sans texte : le canal (« ChatGPT »,
+ *  « Google », `yuno_app`, sinon le site référent) et la page d'arrivée (clé de
+ *  PAGES, sinon la source brute). L'admin les traduit, sourceLabel les écrit. */
+export function sourceParts(origin: SignupOrigin | null | undefined): { channel: string | null; page: string | null } {
   const o: SignupOrigin = origin ?? {};
   const raw = [o.utm_source, o.referrer_host].filter(Boolean).join(' ');
   const channel = CHANNELS.find(([re]) => re.test(raw))?.[1]
     ?? (o.referrer_host && !/yunoapp\.eu$/i.test(o.referrer_host) ? o.referrer_host : null);
   const src = String(o.source ?? '');
-  const page = PAGES[src] ?? (src.startsWith('landing-') ? 'la landing' : src || null);
+  const page = PAGES[src] ? src : src.startsWith('landing-') ? 'landing' : src || null;
+  return { channel, page };
+}
+
+/** « ChatGPT → la landing », « Google → la landing », « l'app Yuno → la page d'inscription ». */
+export function sourceLabel(origin: SignupOrigin | null | undefined): string {
+  const parts = sourceParts(origin);
+  const channel = parts.channel ? CHANNEL_FR[parts.channel] ?? parts.channel : null;
+  const page = parts.page ? PAGES[parts.page] ?? parts.page : null;
   if (channel && page) return `${channel} → ${page}`;
   return channel ?? page ?? 'inconnue';
 }
