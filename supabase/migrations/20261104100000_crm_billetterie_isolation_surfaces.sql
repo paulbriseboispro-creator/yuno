@@ -37,7 +37,7 @@ BEGIN
     ('get_push_center', 'a1d54e21cd4016514a9d07abb8abd890'),
     ('get_my_meta_ads', '34965928d21d8858dcc875d27948035d'),
     ('get_staff_night_pulse', '679914bcdf9d6b9d07fa82c98ba5e047'),
-    ('get_live_view', 'e619da040840c8f4beaadb60157f390b'),
+    ('get_live_view', 'aa8e7691f101920b949ac0408642b128'),
     ('weekly_digest_email_targets', 'aa4e7bc088a524cff2e0f3377bf33606'),
     ('weekly_digest_email_data', '1686bb494e283c92a0c931f3fd7ff615'),
     ('night_recap_data', 'e4703f80c0c02e07751a084f5e9999be'),
@@ -1741,7 +1741,7 @@ begin
         left join lateral (
           select s.city, s.country, s.country_code, s.latitude, s.longitude, s.device_type, s.referrer_category
           from public.visitor_sessions s
-          where s.order_id is not null and s.order_id::text = t.id::text
+          where t.tracking_visit_sid is not null and s.session_id = t.tracking_visit_sid
           order by s.visited_at desc limit 1
         ) vs on true
         where t.event_id = any(v_event_ids)
@@ -1763,7 +1763,7 @@ begin
         left join lateral (
           select s.city, s.country, s.country_code, s.latitude, s.longitude, s.device_type, s.referrer_category
           from public.visitor_sessions s
-          where s.order_id is not null and s.order_id::text = r.id::text
+          where r.tracking_visit_sid is not null and s.session_id = r.tracking_visit_sid
           order by s.visited_at desc limit 1
         ) vs on true
         where r.event_id = any(v_event_ids)
@@ -1775,12 +1775,18 @@ begin
       union all
       (
         select 'guestlist', 'gl:' || gle.id::text, gle.created_at,
-               null::text, null::text, null::text, null::double precision, null::double precision,
-               case when gle.promoter_id is not null then 'promoter' else null end, null::text, 'guestlist',
+               vs.city, vs.country, vs.country_code, vs.latitude, vs.longitude,
+               case when gle.promoter_id is not null then 'promoter' else vs.referrer_category end, vs.device_type, 'guestlist',
                e.title, null::numeric, 1, false
         from public.guest_list_entries gle
         join public.guest_lists gl on gl.id = gle.guest_list_id
         join public.events e on e.id = gl.event_id
+        left join lateral (
+          select s.city, s.country, s.country_code, s.latitude, s.longitude, s.device_type, s.referrer_category
+          from public.visitor_sessions s
+          where gle.tracking_visit_sid is not null and s.session_id = gle.tracking_visit_sid
+          order by s.visited_at desc limit 1
+        ) vs on true
         where gl.event_id = any(v_event_ids)
           and gle.status <> 'cancelled'
           and gle.created_at > v_now - interval '24 hours'
