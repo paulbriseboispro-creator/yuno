@@ -2617,6 +2617,55 @@ veut sur une soirée, l'acceptation vaut accord. Règles intouchables :
 - Reste hors périmètre : `RecurringEventsManager` choisit encore l'organisateur
   d'une série parmi les anciens partenariats.
 
+## Espace invité d'une soirée — un club ou une organisation SANS compte (2026-10-20)
+
+Nom visible **« à nommer »** par Paul (libellés provisoires « Espace invité », une
+seule famille de clés `guestSpace.*` : `_shared/guest-space-words.ts`, triplets
+[EN, FR, ES], lu par le front ET les edge). Plan : `docs/designs/EVENT_HOST_PASS_PLAN.md`
+(§9 = v2). Cas d'origine : Amoris × Tia Felisa (House Of Masquerade). Migrations
+`20261105200000` → `260000`. Règles :
+
+- **Un accès = une ligne `event_guest_passes`** (jeton 32 hex, page `/h/<jeton>`,
+  `GuestSpacePage`, six onglets `?tab=`), créée par une partie PRINCIPALE niveau ≥ 2
+  (`create_event_guest_pass`, carte `GuestPassCard` de la page Co-organisation, ou
+  le rôle `guest` du formulaire de soirée → `sendPartnerInvites`). L'invité n'est
+  JAMAIS une partie (`event_parties`) : ni contrat collab, ni split, ni CRM.
+  Lecture unique `get_event_guest_space(token)` → `_guest_space_payload(pass, p_full)` ;
+  tout geste de l'invité passe par une RPC `guest_pass_*` au jeton (anti-flood
+  `_guest_pass_note`). « Ouvrir le compte de … » = `claim_event_guest_pass`.
+- **Deux choix INDÉPENDANTS (Paul, 20/10)** : « Contrat » (sans / à signer) et
+  « Montants » (`show_revenue`). Sans montants, `figures` et le CA sont `null` ;
+  avec un contrat, la part due et le virement restent visibles. Sans contrat
+  choisi, AUCUN réglage de contrat ne s'affiche (formulaire et fiche).
+- **Contrat de l'invité** (`contract_*` sur l'accès, `20261105250000`) : proposé
+  par l'organisateur niveau argent (`set_event_guest_pass_contract`, il signe en
+  proposant, nouvelle version à chaque changement), signé par l'invité avec un
+  code à 6 chiffres envoyé à l'email de l'invitation (`issue_guest_pass_code`
+  service_role seul, edge `invite-organizer-collab` action `guest_code`, code
+  jamais renvoyé au navigateur sauf compte démo ; `guest_pass_sign_contract`
+  exige la version lue). IBAN par code (`guest_pass_set_iban`). Décompte figé
+  48 h après la fin par `_guest_pass_freeze_if_due` (lu à l'ouverture de l'espace
+  et de la liste), puis « J'ai viré » (`mark_guest_pass_transfer_sent`) et
+  réception confirmée / contestée par l'invité (`guest_pass_confirm_transfer`).
+  Yuno n'est pas partie et ne verse rien. Textes du contrat : `guestSpace.contract.*`
+  (formulation juridique à faire relire).
+- **Porte d'UNE soirée** (`event_door_staff`, `20261105230000`) : le staff du club
+  invité (invité par l'invité depuis son onglet Porte, ou par l'organisateur) ;
+  `is_event_door_staff` l'accepte jusqu'à 6 h après la fin. Front : `DoorScope.eventIds`
+  (`get_my_event_door_events` dans `useStaffIdentity`), `isInDoorScope` accepte
+  `entity.eventId`, `doorEventFilter` ajoute `id.in.(…)`. Acceptation :
+  `/accept-staff-invitation?door=<jeton>` (edge `accept-staff-invitation`,
+  action `accept_event_door`).
+- **« Qui fait vendre » sépare l'invité, « Yuno » et « Direct »** (`20261105240000`,
+  clés `guest:<id>`, `yuno`, `direct` de `get_collab_party_breakdown`).
+- **Marketing de l'invité** : l'affiche telle qu'elle est sur Yuno, jamais
+  recadrée (pas de 9:16 / 3:4 : Yuno n'héberge que 1:1 et 16:9).
+- **En haut de l'espace** : langue (choisie par l'organisateur, changeable par
+  l'invité, `localStorage` par jeton) et cloche (`guestNotifications`, déduite
+  de dates que l'espace lit déjà, aucune table ; « lu » par appareil).
+- Aide : `ohelp.org.collab.s11*` / `s12*` ; assistant : article `guest-space`
+  (redéployer `owner-assistant`).
+
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
 Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
