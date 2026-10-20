@@ -44,11 +44,18 @@ function asResearch(v: unknown): OrgResearch | null {
   return v && typeof v === 'object' && 'org_name' in (v as object) ? v as OrgResearch : null;
 }
 
+/** Dernier état du branchement Telegram (rendu dans la réponse du passage). */
+let telegramStatus = 'not_tried';
+
 /** Telegram : les fiches parties au Cockpit, puis les recherches en réponse. */
 async function dispatchTelegram(admin: SupabaseClient, phase: 'fiches' | 'research'): Promise<number> {
   const token = telegramToken();
-  if (!token) return 0;
-  const { chatId } = await telegramChat(admin, token);
+  if (!token) {
+    telegramStatus = 'no_token';
+    return 0;
+  }
+  const { chatId, status } = await telegramChat(admin, token);
+  telegramStatus = status;
   if (!chatId) return 0;
   let n = 0;
   const rpc = phase === 'fiches' ? 'claim_pro_signup_telegram' : 'claim_pro_signup_telegram_research';
@@ -210,5 +217,5 @@ export async function dispatchProSignupAlerts(
     }
   }
 
-  return { sent, failed, researched, telegram, emailed };
+  return { sent, failed, researched, telegram, telegram_status: telegramStatus, emailed };
 }
