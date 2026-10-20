@@ -188,7 +188,7 @@ const REFUND_REASONS = {
 export default function Bouncer() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
-  const { venueId, organizerUserId, doorEventIds, loading: venueLoading } = useStaffIdentity();
+  const { venueId, organizerUserId, doorEventIds: namedDoorEventIds, loading: venueLoading } = useStaffIdentity();
   /**
    * Périmètre de cette porte, ses DEUX faces à la fois : le club qui l'emploie
    * et l'organisateur qui l'a recrutée. Écraser la seconde dès qu'un club
@@ -197,10 +197,10 @@ export default function Bouncer() {
    * les droits de porte (`is_event_door_staff`).
    */
   const doorScope = useMemo<DoorScope>(
-    () => ({ venueId: venueId ?? null, organizerUserId: organizerUserId ?? null, eventIds: doorEventIds }),
-    [venueId, organizerUserId, doorEventIds],
+    () => ({ venueId: venueId ?? null, organizerUserId: organizerUserId ?? null, eventIds: namedDoorEventIds }),
+    [venueId, organizerUserId, namedDoorEventIds],
   );
-  const hasDoorScope = !!doorScope.venueId || !!doorScope.organizerUserId || doorEventIds.length > 0;
+  const hasDoorScope = !!doorScope.venueId || !!doorScope.organizerUserId || namedDoorEventIds.length > 0;
   
   const [activeTab, setActiveTab] = useState<'entry' | 'search' | 'cancel' | 'client'>('entry');
   const activeTabRef = useRef(activeTab);
