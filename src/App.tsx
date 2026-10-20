@@ -189,6 +189,7 @@ const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
 const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
 const PartnerStatsPage = lazyWithRetry(() => import("./pages/PartnerStatsPage"));
+const HostPassPage = lazyWithRetry(() => import("./pages/HostPassPage"));
 const CrmLinkRedirect = lazyWithRetry(() => import("./pages/CrmLinkRedirect"));
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
 const AcceptPlatformInvitation = lazyWithRetry(() => import("./pages/AcceptPlatformInvitation"));
@@ -710,6 +711,8 @@ const App = () => (
                 <Route path="/promoteur/:promoCode/agenda" element={<PromoterAgenda />} />
                 <Route path="/l/:code" element={<TrackedLinkRedirect />} />
                 <Route path="/stats/:token" element={<PartnerStatsPage />} />
+                {/* Club hôte d'une soirée : page privée sans compte (chemin provisoire, à confirmer). */}
+                <Route path="/h/:token" element={<HostPassPage />} />
                 <Route path="/go/:code" element={<CrmLinkRedirect />} />
                 
                 {/* Legacy /club/:slug/promo route — also renders PromoterHub */}
