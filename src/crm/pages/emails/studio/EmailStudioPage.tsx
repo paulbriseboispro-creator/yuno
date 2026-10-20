@@ -193,8 +193,8 @@ function TemplateLoader({ id }: { id: string }) {
       const { data, error } = await supabase.from('email_campaign_templates').select('*').eq('id', id).maybeSingle();
       if (off) return;
       if (error) { setLoadError(error); return; }
-      const tpl = data as (Record<string, unknown> & { id: string; name: string; venue_id: string | null; organizer_user_id: string | null }) | null;
-      const mine = !!tpl && (tpl.venue_id ?? null) === sp.venueId && (tpl.organizer_user_id ?? null) === sp.organizerUserId;
+      const tpl = data as (Record<string, unknown> & { id: string; name: string; venue_id: string | null; organizer_user_id: string | null; product?: string | null }) | null;
+      const mine = !!tpl && (tpl.venue_id ?? null) === sp.venueId && (tpl.organizer_user_id ?? null) === sp.organizerUserId && tpl.product === 'crm';
       if (!tpl || !mine) { setMissing(true); return; }
       const row = {
         id: tpl.id, name: tpl.name, type: (tpl.type as string) || 'promotional', status: 'draft',

@@ -60,8 +60,11 @@ export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | nul
     // Portée plateforme : Yuno peut mettre N'IMPORTE QUELLE soirée à venir dans
     // sa newsletter — c'est tout l'intérêt d'un « à l'affiche cette semaine ».
     // Les soirées Shotgun (miroirs) s'annoncent aussi par e-mail (Yuno CRM).
-    if (scope.kind === 'venue') q = q.or(venueEventsOr(scopeId, { includeExternal: true }));
-    else if (scope.kind === 'organizer') q = q.or(orgEventsOr(scopeId, { includeExternal: true }));
+    // Deux outils séparés : le Studio de la Billetterie n'annonce que des soirées Yuno (jamais les soirées
+    // miroir de Yuno CRM, qui ont leur propre éditeur dans la Console CRM).
+    if (scope.kind === 'venue') q = q.or(venueEventsOr(scopeId));
+    else if (scope.kind === 'organizer') q = q.or(orgEventsOr(scopeId));
+    else q = q.is('external_source', null);
     q.then(({ data }) => setEvents((data || []) as StudioEvent[]));
   }, [scope.kind, scopeId]);
 
@@ -635,7 +638,9 @@ export function useEmailTemplates(scope: StudioScope) {
     const q = supabase.from('email_campaign_templates')
       .select('id,name,description,type,subject,preheader,blocks_json,theme_json,social_links_json,logo_url,use_count,last_used_at,updated_at')
       .order('updated_at', { ascending: false })
-      .limit(60);
+      .limit(60)
+      // Bibliothèque de la Billetterie : les modèles de Yuno CRM (product = 'crm') n'y figurent pas.
+      .is('product' as never, null);
     const { data } = scopeKind === 'venue'
       ? await q.eq('venue_id', scopeId)
       : scopeKind === 'organizer'

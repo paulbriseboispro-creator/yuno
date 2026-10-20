@@ -193,6 +193,7 @@ export async function createScenarioEmail(p: {
     ...templateContentToRow({ ...content, blocks: stripEventBindings(content.blocks) }),
     name: p.name.slice(0, 80),
     created_by: auth.user?.id ?? null,
+    product: 'crm',
   };
   if (p.venueId) row.venue_id = p.venueId; else row.organizer_user_id = p.organizerUserId;
   const { data, error } = await supabase.from('email_campaign_templates').insert(row as never).select('id').single();
@@ -207,7 +208,7 @@ export function useScenarioEmailTemplates() {
     queryKey: ['crm', qk, 'scenario-email-templates'],
     staleTime: 60_000,
     queryFn: async () => {
-      let q = supabase.from('email_campaign_templates').select('id, name, subject, updated_at').order('updated_at', { ascending: false }).limit(200);
+      let q = supabase.from('email_campaign_templates').select('id, name, subject, updated_at').eq('product' as never, 'crm' as never).order('updated_at', { ascending: false }).limit(200);
       q = space.venueId ? q.eq('venue_id', space.venueId) : q.is('venue_id', null).eq('organizer_user_id', space.organizerUserId as string);
       const { data, error } = await q;
       if (error) throw error;

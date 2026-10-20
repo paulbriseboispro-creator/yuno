@@ -112,8 +112,11 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const kinds = isPlatform ? PLATFORM_AUTOMATION_KINDS : isCrm ? CRM_AUTOMATION_KINDS : AUTOMATION_KINDS;
 
   const load = useCallback(async () => {
+    // Un slot par (portée, recette, produit) : la page de la Billetterie ne lit que ses recettes (product NULL),
+    // jamais celles de Yuno CRM d'un compte à deux produits.
     const autoQ = supabase.from('email_automations' as never)
-      .select('id,kind,enabled,enabled_at,delay_hours,threshold_pct,template_id,subject');
+      .select('id,kind,enabled,enabled_at,delay_hours,threshold_pct,template_id,subject')
+      .is('product' as never, null);
     const [{ data: autoRows }, { data: statRows }, { data: weekRows }, { data: attribution }] = await Promise.all([
       isPlatform ? autoQ.is('venue_id', null).is('organizer_user_id', null) : autoQ.eq(scopeCol, scopeId as string),
       supabase.rpc('get_email_automation_stats' as never, {

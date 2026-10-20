@@ -27,7 +27,7 @@ export async function turnOnAutomation({ scope, kind, t, createTemplate }: TurnO
   const scopeCol = scope.kind === 'venue' ? 'venue_id' : 'organizer_user_id';
   const scopeId = scope.kind === 'venue' ? scope.venueId : scope.kind === 'organizer' ? scope.organizerId : null;
 
-  let q = supabase.from('email_automations' as never).select('id,template_id,enabled').eq('kind', kind);
+  let q = supabase.from('email_automations' as never).select('id,template_id,enabled').eq('kind', kind).is('product' as never, null);
   q = isPlatform ? q.is('venue_id', null).is('organizer_user_id', null) : q.eq(scopeCol, scopeId as string);
   const { data: existing, error: readError } = await q.maybeSingle();
   if (readError) return { ok: false, error: readError.message };
