@@ -3116,7 +3116,15 @@ billet » quand le tableau en montrait 84). Règles :
 - **Démo, soirées PASSÉES** : `scripts/demo/seed-past-nights.sql` (rejouable,
   45 derniers jours, borné à `demo_event_ids()`) sème ventes et entrées des
   soirées passées — sans lui Ventes et « Tes 4 dernières soirées » sont vides.
-  Le relancer quand les dates passent, comme `seed-upcoming-sales.sql`.
+  Le relancer quand les dates passent, comme `seed-upcoming-sales.sql`, dans
+  l'ordre passées → à venir → `seed-event-funnel.sql`, un à la fois
+  (`scripts/demo/README.md`). Depuis le 20/10 : aucune commande au bar
+  (pilier en pause, semis éteint par `v_with_bar`), factures écrites dans
+  `invoices` au préfixe `YUNO-` (JAMAIS par `invoice_numbers` : sa
+  numérotation est unique sur toute la base mais comptée par vendeur avec un
+  préfixe commun), conversions promoteur nées à commission nulle (une
+  commission à l'insertion met un push en file, que la file ne filtre pas
+  pour la démo).
 - **Migration sans CLI** : `POST https://api.supabase.com/v1/projects/<ref>/database/query`
   avec `SUPABASE_ACCESS_TOKEN`, puis la ligne dans
   `supabase_migrations.schema_migrations` et `notify pgrst, 'reload schema'`

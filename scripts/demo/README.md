@@ -77,6 +77,27 @@ Ce qui ne se fait jamais, garde ou pas :
 - **Ni Playwright ni Puppeteer sur cette machine**, et le binaire `browse` de
   gstack sort en 137. CDP en direct avec le `WebSocket` natif de Node 22.
 
+## Club démo (`womber`) : rafraîchir les ventes
+
+Les soirées récurrentes se régénèrent sans vente : sans semis, accueil, Analytics,
+Compta, Promoteurs et Service VIP retombent à 0 €. Trois scripts, **dans cet ordre,
+un à la fois** (API Management `POST /v1/projects/<ref>/database/query` avec le
+contenu du fichier, `SUPABASE_ACCESS_TOKEN` de `.env.local`, ~1 min en tout) :
+
+1. `seed-past-nights.sql` : les soirées des 45 derniers jours en entier (billets,
+   tables, guest list, porte, visites, ventes promoteur, factures), et reprend la
+   prévente semée quand elles étaient à venir ;
+2. `seed-upcoming-sales.sql` : la prévente des 40 prochains jours ;
+3. `seed-event-funnel.sql` : le tunnel d'achat sur les visites semées, et ~55 % des
+   acheteurs abonnés à l'email du club.
+
+Acheteurs = un vivier fixe (`prenom.nom.p<n>@demo.womber.fr` passées,
+`…v<n>@…` à venir) : les mêmes reviennent, d'où fidélité et segments. Aucune
+commande au bar (pilier en pause). « Triple Collab Night » garde son propre semis
+(`seed-triple-collab.sql`). La carte « À faire aujourd'hui » de l'accueil est un
+cache du jour (`venue_ai_actions`) : effacer la ligne du jour du club pour qu'elle
+se recalcule sur les nouveaux chiffres.
+
 ## Compte démo Yuno CRM (`crm@womber.fr`) : à rafraîchir avant un call
 
 ```bash
