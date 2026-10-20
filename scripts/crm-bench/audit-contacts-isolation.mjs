@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Isolation Yuno CRM ⇄ Billetterie, base de contacts (migration 20261104120000) :
+// Isolation Yuno CRM ⇄ Billetterie, base de contacts (migration 20261107120000) :
 // avant / après sur les définitions de la PROD, rejouées dans PGlite.
 //
 //   node audit-contacts-isolation.mjs dump   # instantané de la prod (lecture seule, définitions seulement)
@@ -21,7 +21,7 @@ import { openFresh, execFile, HERE, DATA, ROOT } from './lib.mjs';
 
 const SNAP = join(DATA, 'snapshot-audit-contacts.sql');
 const ROOTS = join(DATA, 'audit-contacts-roots.txt');
-const MIG = join(ROOT, 'supabase', 'migrations', '20261104120000_crm_billetterie_isolation_contacts.sql');
+const MIG = join(ROOT, 'supabase', 'migrations', '20261107120000_crm_billetterie_isolation_contacts.sql');
 
 if (process.argv[2] === 'dump') {
   writeFileSync(ROOTS, [
