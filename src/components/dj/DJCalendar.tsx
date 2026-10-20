@@ -610,13 +610,13 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
     <div className="space-y-4">
       {/* Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => navigate('prev')}
             className="flex h-9 w-9 items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-white/[0.06]"
             style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <h2 className="text-base font-semibold min-w-[180px] text-center capitalize" style={{ color: T1, letterSpacing: '-0.01em' }}>{getTitle()}</h2>
+          <h2 className="text-base font-semibold min-w-[140px] sm:min-w-[180px] text-center capitalize" style={{ color: T1, letterSpacing: '-0.01em' }}>{getTitle()}</h2>
           <button onClick={() => navigate('next')}
             className="flex h-9 w-9 items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-white/[0.06]"
             style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
@@ -629,7 +629,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canAddSets && events.length > 0 && (
             <button onClick={handleOpenEventSelectDialog}
               className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-all duration-150"

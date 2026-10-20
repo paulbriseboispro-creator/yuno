@@ -24,7 +24,7 @@ export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28p
 
 // ─── Page scaffolding ─────────────────────────────────────────────────────────
 export function OrgPage({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`px-4 pb-12 ${className}`}>{children}</div>;
+  return <div className={`w-full px-4 pb-12 ${className}`}>{children}</div>;
 }
 
 export function OrgPageHeader({
@@ -37,12 +37,12 @@ export function OrgPageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <h1 style={{ color: T1, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{title}</h1>
         {subtitle && <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }

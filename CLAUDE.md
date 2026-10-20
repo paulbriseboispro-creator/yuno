@@ -399,6 +399,28 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `OLD.instagram_clicks` et fige le compteur à zéro. Et la persistance du
   line-up invité se fait par DIFF, jamais par delete+insert comme `event_djs` :
   chaque ligne porte son compteur.
+- **Le `main` de la Console ne défile jamais** (2026-10-20). `SidebarInset`
+  (`src/components/ui/sidebar.tsx`) porte `min-w-0 overflow-x-clip`, et aucun
+  layout ne lui remet un `overflow-*` : un `overflow-y-auto` / `hidden` en fait
+  un conteneur de défilement qui ne défile pas (c'est la page qui défile), et
+  il captait tous les `sticky` — les en-têtes partaient avec la page depuis le
+  premier commit (avec `body` en `overflow-x: hidden`, PR #18). Conséquences :
+  un contenu large (tableau, calendrier, grille horaire, barre d'onglets) porte
+  SON `overflow-x-auto` ; une racine de page centrée (`mx-auto max-w-*`) porte
+  `w-full` (`OrgPage` le fait) — dans le `main` en flex, sans elle, elle se
+  dimensionne à son contenu et s'élargit ; une rangée d'en-tête de page passe à
+  la ligne (`flex-wrap`) ou envoie ses actions dans le corps sous `lg`
+  (Clients, Comptabilité) plutôt que de pousser le menu du compte hors écran.
+  **Un seul en-tête collant par Console** : Organisateur, Agence et Affilié
+  ont celui du layout (47 px, 51 px dès sm) et posent `data-console-header`
+  sur le main ; un en-tête de page partagé avec la Console Club (`OwnerHeader`,
+  `PromoHeader`, bandeaux des réglages) porte `console-page-sticky` et y
+  redevient statique, une barre d'ancres porte `console-subnav-sticky`
+  (règles dans `index.css`) — sinon les deux se collent au même endroit et
+  celui de la page recouvre le menu de la Console. Un élément collant sous
+  l'en-tête se pose sous sa hauteur (OwnerHeader 57 / 65 px : `top-[84px]`
+  pour une colonne latérale), et une cible d'ancre d'Analytics garde
+  `ANCHOR_SCROLL_MARGIN` (`kitFormat.ts`).
 - **Dashboards pro = thème sombre ET clair** (2026-09-24, `docs/DESIGN_SYSTEM.md`
   §17). Réglage « Apparence » (Clair / Sombre — pas de « Système », retiré le
   24/09 : le sombre est le défaut) au pied de chaque barre latérale pro + icône

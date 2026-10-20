@@ -440,18 +440,20 @@ export function TabBar<T extends string>({
   tabs, active, onChange,
 }: { tabs: { id: T; label: string; icon?: IconComponent }[]; active: T; onChange: (id: T) => void }) {
   return (
-    <div className="flex gap-0.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+    // Défile à l'horizontale quand les onglets dépassent (téléphone) ; le trait
+    // actif est posé à bottom: 0, un défilement couperait tout ce qui sort du bloc.
+    <div className="flex gap-0.5 overflow-x-auto no-scrollbar" style={{ borderBottom: `1px solid ${BORDER}` }}>
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         const Icon = tab.icon;
         return (
           <button key={tab.id} onClick={() => onChange(tab.id)}
-            className="relative inline-flex items-center gap-2 px-4 py-3 text-[13.5px] font-[560] transition-colors duration-150 cursor-pointer"
+            className="relative inline-flex flex-none items-center gap-2 whitespace-nowrap px-4 py-3 text-[13.5px] font-[560] transition-colors duration-150 cursor-pointer"
             style={{ color: isActive ? T1 : T3 }}>
             {Icon && <Icon className="w-4 h-4" />}
             <span>{tab.label}</span>
             {isActive && (
-              <span className="absolute left-3 right-3 rounded-full" style={{ bottom: -1, height: 2, background: RED, boxShadow: '0 0 10px rgba(232,25,44,0.6)' }} />
+              <span className="absolute left-3 right-3 rounded-full" style={{ bottom: 0, height: 2, background: RED, boxShadow: '0 0 10px rgba(232,25,44,0.6)' }} />
             )}
           </button>
         );

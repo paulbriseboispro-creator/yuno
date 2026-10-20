@@ -600,6 +600,22 @@ export default function OwnerCustomers() {
 
   const selScore = selectedCustomer ? scoredById.get(selectedCustomer.id)?._s : null;
 
+  const exportButtons = (
+    <>
+      <button onClick={exportAdAudienceCsv}
+        title={t('customers.exportAdAudienceNote')}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
+        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+        <Target className="w-3.5 h-3.5" />{t('customers.exportAdAudience')}
+      </button>
+      <button onClick={exportCustomersCsv}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
+        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+        <Download className="w-3.5 h-3.5" />{t('cbase.exportShort')}
+      </button>
+    </>
+  );
+
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
@@ -608,24 +624,12 @@ export default function OwnerCustomers() {
       <OwnerHeader
         title={t('customers.title')}
         showBackButton backTo="/owner"
-        rightContent={hasExportCsv ? (
-          <div className="flex items-center gap-2">
-            <button onClick={exportAdAudienceCsv}
-              title={t('customers.exportAdAudienceNote')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
-              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-              <Target className="w-3.5 h-3.5" />{t('customers.exportAdAudience')}
-            </button>
-            <button onClick={exportCustomersCsv}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
-              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-              <Download className="w-3.5 h-3.5" />{t('cbase.exportShort')}
-            </button>
-          </div>
-        ) : undefined}
+        // Sous lg, l'en-tête n'a pas la place des exports : ils passent dans le corps.
+        rightContent={hasExportCsv ? <div className="hidden lg:flex items-center gap-2">{exportButtons}</div> : undefined}
       />
 
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
+        {hasExportCsv && <div className="flex flex-wrap items-center gap-2 lg:hidden">{exportButtons}</div>}
 
         {/* Stats strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

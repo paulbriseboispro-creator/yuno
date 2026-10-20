@@ -97,7 +97,7 @@ export default function OwnerSupportRequest() {
   return (
     <div className="min-h-[100dvh] bg-background" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
+      <div className="console-page-sticky sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
         <button onClick={() => navigate(`${basePath}/help`)} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-5 h-5" />
         </button>

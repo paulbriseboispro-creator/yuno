@@ -26,7 +26,7 @@ function OwnerLayoutInner() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="overflow-y-auto">
+      <SidebarInset>
         {/* Outil ouvert depuis la page d'une collaboration : chemin de retour. */}
         <CollabTrailBar />
         <Outlet />
