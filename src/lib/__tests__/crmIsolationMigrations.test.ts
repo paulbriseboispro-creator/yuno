@@ -23,17 +23,20 @@ function functionsOf(sql: string): Fn[] {
 }
 
 describe('migrations d\'isolation CRM ⇄ Billetterie', () => {
-  it('les deux migrations existent', () => {
-    expect(files).toHaveLength(2);
+  it('les migrations existent', () => {
+    expect(files.length).toBeGreaterThanOrEqual(3);
   });
 
   for (const file of files) {
     const sql = readFileSync(join(DIR, file), 'utf8');
     const fns = functionsOf(sql);
 
-    it(`${file} : réécrit des fonctions, chacune écarte les miroirs`, () => {
+    // La migration des contacts ne filtre pas `external_source` : elle donne à la base de
+    // contacts un produit (`p_product`, clé « …|crm ») que les appelants du CRM demandent.
+    const isContacts = /isolation_contacts/.test(file);
+    it(`${file} : réécrit des fonctions, chacune ${isContacts ? 'parle du produit' : 'écarte les miroirs'}`, () => {
       expect(fns.length).toBeGreaterThan(4);
-      for (const f of fns) expect(f.body, f.name).toMatch(/external_source/i);
+      for (const f of fns) expect(f.body, f.name).toMatch(isContacts ? /p_product|'crm'|\|crm/ : /external_source/i);
     });
 
     it(`${file} : garde md5 de chaque fonction réécrite`, () => {
@@ -44,7 +47,8 @@ describe('migrations d\'isolation CRM ⇄ Billetterie', () => {
     });
 
     it(`${file} : REVOKE ... FROM PUBLIC, anon puis GRANT explicite, jamais anon`, () => {
-      for (const f of fns.filter((x) => x.secdef)) {
+      // Une fonction de trigger garde ses droits (rien ne l'appelle directement).
+      for (const f of fns.filter((x) => x.secdef && x.name !== 'contact_base_cache_invalidate')) {
         expect(sql, f.name).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${f.name}\\([^)]*\\) FROM PUBLIC, anon`));
         expect(sql, f.name).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${f.name}\\([^)]*\\) TO (authenticated, )?service_role;`));
       }
