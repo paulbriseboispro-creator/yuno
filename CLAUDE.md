@@ -3955,10 +3955,14 @@ dur 27 s après l'envoi, noté seulement dans la liste de suppression. Migration
   owner, organisateur : `emit_organizer_notification`, langue du profil) avec nom
   et téléphone, plus `admin_ticket_email_bounced`, une fois par (billet, adresse),
   jamais pour la démo.
+- **Rien ne s'affiche tant que l'e-mail n'a pas rebondi** (décision de Paul,
+  20/10, migration `20261105110000`) : pas de « Ton billet part à … » pour tout
+  le monde, un acheteur à la bonne adresse ne voit rien. La confirmation relit
+  l'état toutes les 5 s pendant 3 min (`get_ticket_email_delivery`) ; sur un
+  rebond : carte d'alerte + message flottant une fois.
 - **Corriger = `send-ticket-confirmation` action `fix_email`**, preuve = le QR du
-  billet, règle unique `fix_ticket_email` (rebond, ou < 2 h après le paiement,
-  3 corrections au plus), puis le billet repart. La page de confirmation relit
-  l'état toutes les 5 s pendant 3 min (`get_ticket_email_delivery`).
+  billet, règle unique `fix_ticket_email` (rebond seulement, 3 corrections au
+  plus), puis le billet repart.
 - **L'envoi direct de `send-ticket-confirmation` exige la clé service**
   (`isServiceCaller`) : avant, quiconque connaissait l'id d'un billet pouvait se
   faire envoyer son QR. Seule l'action `fix_email` est ouverte, sous sa preuve.
