@@ -234,6 +234,8 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
   const [sName, setSName] = useState('');
   const [sEmail, setSEmail] = useState('');
   const [sPhone, setSPhone] = useState('');
+  const [proposing, setProposing] = useState(false);
+  const contractActive = r.contract_status === 'proposed' || r.contract_status === 'signed';
   const Icon = r.guest_kind === 'venue' ? Building2 : Users;
 
   const inviteStaff = () => run(`staff:${r.id}`, async () => {
@@ -284,7 +286,9 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
           {r.statement_response === 'approved' ? w('guestSpace.org.approved') : w('guestSpace.org.contested', { reason: r.statement_reason ?? '' })}
         </p>
       )}
-      {canMoney && !r.revoked && <ContractSection r={r} w={w} busy={busy} run={run} />}
+      {canMoney && !r.revoked && (contractActive || proposing) && (
+        <ContractSection r={r} w={w} busy={busy} run={run} startEditing={proposing} onClose={() => setProposing(false)} />
+      )}
       {r.guest_party && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2" style={{ border: `1px solid ${BORDER}` }}>
           <p className="min-w-0 flex-1" style={{ color: T2, fontSize: 12, lineHeight: 1.45 }}>
@@ -314,6 +318,9 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
             <ExternalLink className="h-3.5 w-3.5" /> {w('guestSpace.org.preview')}
           </a>
           <OrgButton size="sm" variant="ghost" onClick={onEdit}><Settings2 className="h-3.5 w-3.5" /> {w('guestSpace.org.edit')}</OrgButton>
+          {canMoney && !contractActive && !proposing && r.contact_email && (
+            <OrgButton size="sm" variant="ghost" onClick={() => setProposing(true)}><FileSignature className="h-3.5 w-3.5" /> {w('guestSpace.org.contractPropose')}</OrgButton>
+          )}
           {r.guest_kind === 'venue' && (
             <OrgButton size="sm" variant="ghost" onClick={onStaff}><ScanLine className="h-3.5 w-3.5" /> {w('guestSpace.org.staffInvite')}</OrgButton>
           )}
@@ -444,12 +451,14 @@ function ContractTermsFields({ w, value, onChange, isVenue }: {
 }
 
 /** Le contrat d'UN invité : proposer, suivre la signature, puis le virement. */
-function ContractSection({ r, w, busy, run }: {
+function ContractSection({ r, w, busy, run, startEditing = false, onClose }: {
   r: GuestPassRow; w: ReturnType<typeof guestUiWords>; busy: string | null;
   run: (key: string, fn: () => Promise<unknown>, ok?: string) => Promise<void>;
+  startEditing?: boolean; onClose: () => void;
 }) {
   const active = r.contract_status === 'proposed' || r.contract_status === 'signed';
-  const [edit, setEdit] = useState(false);
+  const [edit, setEditState] = useState(startEditing);
+  const setEdit = (v: boolean) => { setEditState(v); if (!v) onClose(); };
   const [terms, setTerms] = useState<GuestContractTerms>(r.contract_terms ?? DEFAULT_TERMS);
   const [ref, setRef] = useState('');
   const [lang] = useState(() => (typeof document !== 'undefined' ? document.documentElement.lang : 'fr') || 'fr');
@@ -479,7 +488,6 @@ function ContractSection({ r, w, busy, run }: {
           </OrgButton>
         )}
       </div>
-      {!active && !r.contact_email && <p style={{ color: T3, fontSize: 11 }}>{w('guestSpace.org.contractNeedsEmail')}</p>}
 
       {edit && (
         <>
