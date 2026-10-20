@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { inviteCohostByEmail, inviteEventCohost, coorgErrorCode, type PrincipalTerms } from '@/lib/coorg';
 import { clubEmailInviteRules, type PartnerDraft } from '@/lib/collabInvite';
 import { capturePosthog } from '@/lib/posthog';
+import { createHostPass, hostPassErrorCode, sendHostPassEmail } from '@/lib/hostPass';
 
 /**
  * Envoie les invitations choisies dans « Avec qui ? », une fois la soirée
@@ -10,8 +11,10 @@ import { capturePosthog } from '@/lib/posthog';
  *
  *  • Sur Yuno → `invite_event_cohost` (rôle + termes du principal).
  *  • Organisation par email → `create_cohost_email_invite` via l'edge.
- *  • Club par email (forcément le LIEU) → `invite-club-collab`, qui crée son
- *    club à l'acceptation et applique le même accord.
+ *  • Club par email comme LIEU → `invite-club-collab`, qui crée son club à
+ *    l'acceptation et applique le même accord.
+ *  • Club par email comme CLUB HÔTE → `create_event_host_pass` (sa page de la
+ *    soirée, sans compte) puis l'email (`invite-organizer-collab`, `host_pass`).
  */
 export async function sendPartnerInvites(p: {
   eventId: string;
@@ -30,6 +33,20 @@ export async function sendPartnerInvites(p: {
   for (const d of ordered) {
     const principal = d.role === 'principal';
     const access = d.role === 'editor' ? 'editor' : 'viewer';
+    if (d.role === 'host' && d.source === 'email') {
+      try {
+        const pass = await createHostPass({
+          eventId: p.eventId, venueName: d.name || d.email, email: d.email,
+          language: d.hostLang ?? p.lang, showRevenue: d.hostRevenue !== false,
+        });
+        sent += 1;
+        capturePosthog('host_pass_created', { event_id: p.eventId, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email' });
+        try { await sendHostPassEmail(pass.id); } catch (err) { errors.push({ name: d.name || d.email, code: hostPassErrorCode(err) }); }
+      } catch (err) {
+        errors.push({ name: d.name || d.email, code: hostPassErrorCode(err) });
+      }
+      continue;
+    }
     try {
       if (d.source === 'yuno') {
         await inviteEventCohost({

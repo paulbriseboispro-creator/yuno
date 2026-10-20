@@ -13,8 +13,13 @@
 import { LINK_CODE_MAX, suggestPartnerLinkCode } from './trackedLinkCode';
 import { partnerWords, toPartnerLanguage, type PartnerLanguage } from './partnerLinkWords';
 
-export const PARTNER_ROLES = ['promoter', 'dj', 'artist', 'ambassador', 'other'] as const;
+export const PARTNER_ROLES = ['promoter', 'dj', 'artist', 'ambassador', 'other', 'venue'] as const;
 export type PartnerRole = (typeof PARTNER_ROLES)[number];
+/**
+ * Les rôles proposés à la création d'un lien partenaire. `venue` = le lien du
+ * CLUB HÔTE d'une soirée, créé seulement avec son accès (`event_host_passes`).
+ */
+export const CREATABLE_PARTNER_ROLES = PARTNER_ROLES.filter((r) => r !== 'venue');
 
 /** Noms de canaux réservés (miroir du trigger tracked_links_partner_normalize). */
 export const RESERVED_PARTNER_NAMES = [

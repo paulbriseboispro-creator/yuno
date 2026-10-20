@@ -7,6 +7,8 @@ import {
   type CollabModeDb, type InviteContext, type InviteRole, type PartnerDraft, type PartnerDraftInput, type YunoSplit,
 } from '@/lib/collabInvite';
 import { PartyAvatar, useCoorgT } from '@/components/coorg/coorgUi';
+import { Switch } from '@/components/ui/switch';
+import { hostPassUiWords, type HostPassLanguage } from '@/lib/hostPass';
 
 const MAX_INVITES = 8;
 
@@ -22,7 +24,7 @@ const MAX_INVITES = 8;
  * l'enregistrement de la soirée, et personne ne rejoint sans accepter.
  */
 export function EventPartnersField({
-  drafts, onChange, ctx, excludeKeys = [], existing, mode, onModeChange,
+  drafts, onChange, ctx, excludeKeys = [], existing, mode, onModeChange, hostLanguage = 'en',
 }: {
   drafts: PartnerDraft[];
   onChange: (d: PartnerDraft[]) => void;
@@ -33,8 +35,11 @@ export function EventPartnersField({
   existing?: ReactNode;
   mode: CollabModeDb;
   onModeChange: (m: CollabModeDb) => void;
+  /** Langue proposée pour la page d'un club hôte (pays de la soirée). */
+  hostLanguage?: HostPassLanguage;
 }) {
-  const { t } = useCoorgT();
+  const { t, language } = useCoorgT();
+  const hw = hostPassUiWords(language);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CoorgPartnerCandidate[]>([]);
   const [searching, setSearching] = useState(false);
@@ -70,11 +75,14 @@ export function EventPartnersField({
   const add = (d: PartnerDraftInput) => {
     const role = defaultRole(d, ctx, drafts);
     if (!role || taken.has(partnerDraftKey(d))) return;
-    onChange([...drafts, { ...d, role } as PartnerDraft]);
+    const extra = d.source === 'email' && d.kind === 'venue' ? { hostLang: hostLanguage, hostRevenue: true } : {};
+    onChange([...drafts, { ...d, ...extra, role } as PartnerDraft]);
     setQuery(''); setResults([]); setEmail(''); setEmailName(''); setEmailOpen(false);
   };
   const setRole = (key: string, role: InviteRole) =>
     onChange(drafts.map((d) => (partnerDraftKey(d) === key ? { ...d, role } : d)));
+  const patchHost = (key: string, patch: { hostLang?: HostPassLanguage; hostRevenue?: boolean }) =>
+    onChange(drafts.map((d) => (partnerDraftKey(d) === key && d.source === 'email' ? { ...d, ...patch } : d)));
   const remove = (key: string) => onChange(drafts.filter((d) => partnerDraftKey(d) !== key));
 
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
@@ -84,10 +92,13 @@ export function EventPartnersField({
 
   const roleTabs = (d: PartnerDraft) => allowedRoles(d, ctx, drafts.filter((o) => o !== d)).map((r) => ({
     value: r,
-    label: r === 'principal' ? principalWord(d.kind) : r === 'editor' ? t('Co-gestion', 'Co-manager', 'Cogestión') : t('Partenaire', 'Partner', 'Socio'),
+    label: r === 'principal' ? principalWord(d.kind)
+      : r === 'host' ? hw('hostPass.name')
+        : r === 'editor' ? t('Co-gestion', 'Co-manager', 'Cogestión') : t('Partenaire', 'Partner', 'Socio'),
   }));
 
   const roleHint = (d: PartnerDraft): string => {
+    if (d.role === 'host') return hw('hostPass.org.roleHint');
     if (d.role === 'principal') {
       if (d.kind === 'venue') {
         return d.source === 'email'
@@ -155,6 +166,19 @@ export function EventPartnersField({
               </button>
             </div>
             <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{roleHint(d)}</p>
+            {d.role === 'host' && d.source === 'email' && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-0.5">
+                <div className="flex items-center gap-2">
+                  <span style={{ color: T3, fontSize: 11.5 }}>{hw('hostPass.org.language')}</span>
+                  <OrgTabs size="sm" value={d.hostLang ?? hostLanguage} onChange={(v) => patchHost(key, { hostLang: v as HostPassLanguage })}
+                    tabs={[{ value: 'es', label: 'ES' }, { value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }]} />
+                </div>
+                <label className="flex items-center gap-2" style={{ color: T2, fontSize: 12 }}>
+                  <Switch checked={d.hostRevenue !== false} onCheckedChange={(v) => patchHost(key, { hostRevenue: v })} />
+                  {hw('hostPass.org.showRevenue')}
+                </label>
+              </div>
+            )}
             {d.role === 'principal' && (
               <div className="space-y-1.5 pt-0.5">
                 <OrgTabs size="sm" value={mode} onChange={onModeChange} tabs={MODES.map((m) => ({ value: m.value, label: m.label }))} />
@@ -215,9 +239,11 @@ export function EventPartnersField({
                     placeholder={emailKind === 'venue' ? t('Nom du club', 'Club name', 'Nombre del club') : t('Nom de la structure', 'Organization name', 'Nombre de la estructura')} />
                   <p className="flex items-start gap-1.5" style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>
                     <Mail className="mt-0.5 h-3 w-3 flex-none" />
-                    {t('Un email part à l’enregistrement : il crée son compte avec cette adresse en acceptant. Aucun compte Stripe exigé.',
-                      'An email goes out on save: they create their account with this address when accepting. No Stripe account required.',
-                      'Se envía un email al guardar: crea su cuenta con esta dirección al aceptar. Sin cuenta de Stripe.')}
+                    {emailKind === 'venue' && emailClubRoles.includes('host')
+                      ? hw('hostPass.org.roleHint')
+                      : t('Un email part à l’enregistrement : il crée son compte avec cette adresse en acceptant. Aucun compte Stripe exigé.',
+                        'An email goes out on save: they create their account with this address when accepting. No Stripe account required.',
+                        'Se envía un email al guardar: crea su cuenta con esta dirección al aceptar. Sin cuenta de Stripe.')}
                   </p>
                   <div className="flex gap-2">
                     <OrgButton size="sm" variant="secondary" disabled={!emailOk || (emailKind === 'venue' && !emailName.trim())}

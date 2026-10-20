@@ -13,6 +13,10 @@
  *    l'accord d'argent choisis ici (`_collab_promote_principal`, SQL).
  *  • `editor` — « Co-gestion » : gère aussi la vente et l'habillage.
  *  • `viewer` — « Partenaire » (défaut) : suit la soirée, ses ventes, ses liens.
+ *  • `host` — le CLUB HÔTE d'une soirée d'organisateur qui a déjà son lieu de
+ *    fait (adresse saisie à la main) : un club sans compte reçoit une page
+ *    privée de la soirée (`event_host_passes`, /h/<jeton>), jamais un espace
+ *    pro ni un droit sur la soirée. Nom visible à nommer (`hostPass.*`).
  *
  * Pur et testé (`__tests__/collabInvite.test.ts`) : le composant ne fait que
  * dessiner ce que ces fonctions décident.
@@ -21,12 +25,16 @@ import type { PrincipalTerms } from '@/lib/coorg';
 import type { ExternalCollector } from '@/lib/splitRules';
 
 export type PartyKindLite = 'org' | 'venue';
-export type InviteRole = 'principal' | 'editor' | 'viewer';
+export type InviteRole = 'principal' | 'editor' | 'viewer' | 'host';
 export type CollabModeDb = PrincipalTerms['mode'];
 
 export type PartnerDraft =
   | { source: 'yuno'; kind: PartyKindLite; id: string; name: string; avatar_url: string | null; city: string | null; role: InviteRole }
-  | { source: 'email'; kind: PartyKindLite; email: string; name: string; role: InviteRole };
+  | {
+    source: 'email'; kind: PartyKindLite; email: string; name: string; role: InviteRole;
+    /** Club hôte : langue de sa page et CA montré (défaut oui). */
+    hostLang?: 'en' | 'fr' | 'es'; hostRevenue?: boolean;
+  };
 
 /** Un invité avant qu'on lui donne un rôle (l'Omit distribué sur l'union). */
 export type PartnerDraftInput = PartnerDraft extends infer D ? (D extends PartnerDraft ? Omit<D, 'role'> : never) : never;
@@ -42,6 +50,12 @@ export interface InviteContext {
   lead: 'organizer' | 'venue';
   /** Faux sur une soirée privée ou quand le lieu / l'organisateur est déjà là. */
   principalOpen: boolean;
+  /**
+   * Vrai quand une organisation mène et qu'aucun club Yuno n'est le lieu :
+   * un club invité par email peut alors n'être que CLUB HÔTE (sa page de la
+   * soirée, sans compte), au lieu de devenir le lieu.
+   */
+  hostOpen?: boolean;
 }
 
 /**
@@ -52,7 +66,10 @@ export interface InviteContext {
 export function allowedRoles(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: InviteContext, others: PartnerDraft[] = []): InviteRole[] {
   const principalTaken = others.some((o) => o.role === 'principal');
   const canBePrincipal = ctx.principalOpen && !principalTaken && d.kind === principalKindFor(ctx.lead);
-  if (d.source === 'email' && d.kind === 'venue') return canBePrincipal ? ['principal'] : [];
+  if (d.source === 'email' && d.kind === 'venue') {
+    const host = ctx.lead === 'organizer' && !!ctx.hostOpen ? (['host'] as InviteRole[]) : [];
+    return canBePrincipal ? ['principal', ...host] : host;
+  }
   return canBePrincipal ? ['principal', 'editor', 'viewer'] : ['editor', 'viewer'];
 }
 
@@ -63,7 +80,9 @@ export function allowedRoles(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: Invi
 export function defaultRole(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: InviteContext, others: PartnerDraft[]): InviteRole | null {
   const roles = allowedRoles(d, ctx, others);
   if (roles.length === 0) return null;
-  return roles.includes('viewer') ? 'viewer' : roles[0];
+  if (roles.includes('viewer')) return 'viewer';
+  // Un club par email : suivre la soirée d'abord, devenir le lieu se choisit.
+  return roles.includes('host') ? 'host' : roles[0];
 }
 
 export interface YunoSplit {

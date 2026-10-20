@@ -24,6 +24,7 @@ import { CoorgInviteDialog } from './CoorgInviteDialog';
 import { CoorgTransferList } from './CoorgTransferList';
 import { CoorgSalesLinksCard } from './CoorgSalesLinksCard';
 import { CoorgPartnerSpace } from './CoorgPartnerSpace';
+import { HostPassCard } from './HostPassCard';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -247,6 +248,11 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
           </div>
         )}
       </OrgCard>
+
+      {/* Club hôte : la page privée du club qui accueille la soirée (sans compte). */}
+      {isPrincipal && (state.me?.level ?? 0) >= 2 && !state.event.ended && (
+        <HostPassCard eventId={eventId} eventTitle={state.event.title} />
+      )}
 
       {/* Qui fait vendre : un lien de vente suivi par partie */}
       {state.me && <CoorgSalesLinksCard eventId={eventId} canCreate={(state.me.level ?? 0) >= 1} />}

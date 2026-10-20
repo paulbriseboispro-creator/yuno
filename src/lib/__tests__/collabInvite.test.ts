@@ -74,3 +74,22 @@ describe('collabInvite', () => {
     expect(y).toMatchObject({ event_mode: 'co_event', tickets: { organizer_pct: 70, venue_pct: 30 } });
   });
 });
+
+describe('club hôte (host_pass)', () => {
+  it('un club par email, sur une soirée d’organisateur sans lieu Yuno : club hôte par défaut', () => {
+    const ctx = { lead: 'organizer' as const, principalOpen: true, hostOpen: true };
+    expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx)).toEqual(['principal', 'host']);
+    expect(defaultRole({ source: 'email', kind: 'venue' }, ctx, [])).toBe('host');
+  });
+
+  it('le lieu déjà invité : il reste le club hôte', () => {
+    const ctx = { lead: 'organizer' as const, principalOpen: true, hostOpen: true };
+    expect(allowedRoles({ source: 'email', kind: 'venue' }, ctx, [club('x', 'principal')])).toEqual(['host']);
+  });
+
+  it('jamais pour une organisation, ni quand un club mène', () => {
+    expect(allowedRoles({ source: 'email', kind: 'org' }, { lead: 'organizer', principalOpen: true, hostOpen: true })).toEqual(['editor', 'viewer']);
+    expect(allowedRoles({ source: 'email', kind: 'venue' }, { lead: 'venue', principalOpen: true, hostOpen: true })).toEqual([]);
+    expect(allowedRoles({ source: 'yuno', kind: 'venue' }, { lead: 'organizer', principalOpen: true, hostOpen: true })).not.toContain('host');
+  });
+});

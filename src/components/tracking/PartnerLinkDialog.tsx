@@ -22,7 +22,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import {
-  PARTNER_ROLES, PARTNER_NAME_MAX, type PartnerRole, cleanPartnerName, contactKindOf,
+  CREATABLE_PARTNER_ROLES, PARTNER_NAME_MAX, type PartnerRole, cleanPartnerName, contactKindOf,
   isReservedPartnerName, isValidPartnerCode, isValidPartnerContact, buildPartnerShare,
   sanitizePartnerCodeInput, slugifyPart, suggestPartnerCode,
 } from '@/lib/partnerLinks';
@@ -272,7 +272,7 @@ export function PartnerLinkDialog({
               <div className="space-y-2">
                 <span className="text-[13px] font-medium text-white/85">{t('plink.role')}</span>
                 <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('plink.role')}>
-                  {PARTNER_ROLES.map((r) => (
+                  {(role === 'venue' ? [...CREATABLE_PARTNER_ROLES, 'venue' as const] : CREATABLE_PARTNER_ROLES).map((r) => (
                     <button
                       key={r}
                       type="button"

@@ -30,6 +30,7 @@ import { fetchLiveEventAgreement, type LiveEventAgreement } from '@/hooks/usePro
 import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
 import { EventPartnersField, YunoSplitFields } from '@/components/collab/EventPartnersField';
 import { sendPartnerInvites } from '@/components/collab/sendPartnerInvites';
+import { hostPassLanguageForEvent } from '@/lib/hostPass';
 import { DEFAULT_YUNO_SPLIT, principalTerms, type CollabModeDb, type InviteContext, type PartnerDraft, type YunoSplit } from '@/lib/collabInvite';
 import { PartyAvatar, useCoorgErrorText } from '@/components/coorg/coorgUi';
 import { OrgPill, OrgTabs } from '@/components/org-ui';
@@ -242,13 +243,18 @@ export default function OwnerEvents() {
   const lead = isOrganizerScope ? 'organizer' as const : 'venue' as const;
   const linkedPartnerId = isOrganizerScope ? partnerVenueId : partnerOrganizerId;
   // Un lieu / un organisateur ne s'invite que sur une soirée publique qui n'en a pas encore.
-  const inviteCtx: InviteContext = { lead, principalOpen: eventKind === 'public_event' && !linkedPartnerId && !liveContract };
+  const inviteCtx: InviteContext = {
+    lead, principalOpen: eventKind === 'public_event' && !linkedPartnerId && !liveContract,
+    // Club hôte : une soirée d'organisation sans club Yuno pour lieu (adresse saisie à la main).
+    hostOpen: isOrganizerScope && !partnerVenueId,
+  };
   const principalDraft = partnerDrafts.find((d) => d.role === 'principal') ?? null;
   const principalName = principalDraft
     ? (principalDraft.name || (principalDraft.source === 'email' ? principalDraft.email : ''))
     : '';
   // Le choix d'argent se pose dès qu'on invite quelqu'un.
-  const showMoneyChoice = partnerDrafts.length > 0;
+  // Un club hôte ne touche pas à l'argent : il ne suffit pas à poser la question.
+  const showMoneyChoice = partnerDrafts.some((d) => d.role !== 'host');
   // La soirée a (ou aura) un club qui l'accueille : pas de lieu secret, son adresse.
   const venueChosen = isOrganizerScope && (!!partnerVenueId || principalDraft?.kind === 'venue');
   useEffect(() => {
@@ -257,9 +263,12 @@ export default function OwnerEvents() {
   // Passée en privé, la soirée perd son lieu / organisateur invité : il redevient partenaire.
   useEffect(() => {
     if (inviteCtx.principalOpen || !principalDraft) return;
+    // Un club par email ne peut plus devenir le lieu : il reste club hôte (s'il le peut).
     setPartnerDrafts((ds) => ds
-      .filter((d) => !(d.source === 'email' && d.kind === 'venue'))
-      .map((d) => (d.role === 'principal' ? { ...d, role: 'viewer' as const } : d)));
+      .filter((d) => !(d.source === 'email' && d.kind === 'venue' && d.role === 'principal' && !inviteCtx.hostOpen))
+      .map((d) => (d.role !== 'principal' ? d
+        : d.source === 'email' && d.kind === 'venue' ? { ...d, role: 'host' as const }
+          : { ...d, role: 'viewer' as const })));
   }, [inviteCtx.principalOpen, principalDraft]);
   // Choisir un club comme lieu remplit l'adresse de la soirée avec la sienne.
   const onPartnersChange = (next: PartnerDraft[]) => {
@@ -1671,6 +1680,7 @@ export default function OwnerEvents() {
                   ctx={inviteCtx}
                   mode={principalMode}
                   onModeChange={setPrincipalMode}
+                  hostLanguage={hostPassLanguageForEvent(formData.timezone, locationCity)}
                   excludeKeys={[
                     isOrganizerScope ? `org:${organizerUserId}` : `venue:${venueId}`,
                     ...(linkedPartnerId ? [isOrganizerScope ? `venue:${linkedPartnerId}` : `org:${linkedPartnerId}`] : []),

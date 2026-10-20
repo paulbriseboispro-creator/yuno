@@ -62,6 +62,7 @@ const en: Record<string, string> = {
   'plink.role.dj': 'DJ',
   'plink.role.artist': 'Artist',
   'plink.role.ambassador': 'Ambassador',
+  'plink.role.venue': 'Host club',
   'plink.role.other': 'Other',
   'plink.nameRequired': 'Enter a name',
   'plink.nameReserved': 'This name is used by a channel. Pick another one.',

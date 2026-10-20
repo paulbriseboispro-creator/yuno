@@ -11,6 +11,7 @@ import { OrgButton, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { EventPartnersField, YunoSplitFields } from '@/components/collab/EventPartnersField';
 import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
 import { sendPartnerInvites } from '@/components/collab/sendPartnerInvites';
+import { hostPassLanguageForEvent } from '@/lib/hostPass';
 import { useCoorgErrorText } from '@/components/coorg/coorgUi';
 import { DEFAULT_YUNO_SPLIT, principalTerms, type CollabModeDb, type InviteContext, type PartnerDraft, type YunoSplit } from '@/lib/collabInvite';
 import { defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
@@ -19,6 +20,7 @@ import type { CoorgScope } from '@/lib/coorg';
 interface EventRow {
   id: string; title: string; start_at: string; event_kind: string | null;
   partner_venue_id: string | null; partner_organizer_id: string | null; timezone: string | null;
+  location_city: string | null;
 }
 
 /**
@@ -49,7 +51,7 @@ export function InviteToEventStep({ eventId, scope, settingsHref, onBack, onDone
   useEffect(() => {
     let active = true;
     supabase.from('events')
-      .select('id, title, start_at, event_kind, partner_venue_id, partner_organizer_id, timezone')
+      .select('id, title, start_at, event_kind, partner_venue_id, partner_organizer_id, timezone, location_city')
       .eq('id', eventId).maybeSingle()
       .then(({ data }) => { if (active) setEv(data as EventRow | null); });
     return () => { active = false; };
@@ -60,7 +62,10 @@ export function InviteToEventStep({ eventId, scope, settingsHref, onBack, onDone
   if (!ev) return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" style={{ color: T3 }} /></div>;
 
   const linked = lead === 'organizer' ? ev.partner_venue_id : ev.partner_organizer_id;
-  const ctx: InviteContext = { lead, principalOpen: ev.event_kind !== 'private_event' && !linked };
+  const ctx: InviteContext = {
+    lead, principalOpen: ev.event_kind !== 'private_event' && !linked,
+    hostOpen: lead === 'organizer' && !ev.partner_venue_id,
+  };
   const principal = drafts.find((d) => d.role === 'principal') ?? null;
   const principalName = principal ? (principal.name || (principal.source === 'email' ? principal.email : '')) : '';
   const dfLocale = language === 'en' ? enUS : language === 'es' ? es : fr;
@@ -113,6 +118,7 @@ export function InviteToEventStep({ eventId, scope, settingsHref, onBack, onDone
         ctx={ctx}
         mode={mode}
         onModeChange={setMode}
+        hostLanguage={hostPassLanguageForEvent(ev.timezone, ev.location_city)}
         excludeKeys={[
           scope.venueId ? `venue:${scope.venueId}` : `org:${scope.organizerUserId}`,
           ...(linked ? [lead === 'organizer' ? `venue:${linked}` : `org:${linked}`] : []),
