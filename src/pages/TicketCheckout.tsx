@@ -119,6 +119,10 @@ export default function TicketCheckout() {
   // Client connecté dont le profil porte déjà nom et téléphone : ses infos tiennent
   // dans une carte « Tout est prêt » ; « Modifier » rouvre les champs.
   const [profileComplete, setProfileComplete] = useState(false);
+  // Profil d'un client connecté lu : la page attend cette lecture pour ne pas
+  // montrer des champs vides (date de naissance comprise) qui disparaissent.
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [birthKnown, setBirthKnown] = useState(false);
   const [editingIdentity, setEditingIdentity] = useState(false);
   const fieldRefs = {
     name: useRef<HTMLDivElement>(null),
@@ -238,32 +242,40 @@ export default function TicketCheckout() {
     });
   }, [quantity]);
 
-  // Pre-fill user profile data (for logged-in users) + check newsletter opt-in
+  // Pre-fill user profile data (for logged-in users). Le compte, pas l'objet
+  // session : un rafraîchissement du jeton ne relit pas le profil et n'écrase
+  // pas ce que la personne vient de corriger.
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
     const fetchUserProfile = async () => {
-      if (!user) return;
-      
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone')
-        .eq('id', user.id)
-        .single();
+        .select('first_name, last_name, phone, birth_date')
+        .eq('id', userId)
+        .maybeSingle();
+      if (cancelled) return;
 
       if (profile) {
+        setBirthKnown(!!profile.birth_date);
         const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         setAttendees(prev => {
           const updated = [...prev];
           updated[0] = {
             ...updated[0],
             fullName: fullName || updated[0].fullName,
-            email: user.email || updated[0].email,
+            email: userEmail || updated[0].email,
             phone: profile.phone || updated[0].phone,
           };
           return updated;
         });
-        const known = buyerFormErrors({ fullName, email: user.email || '', phone: profile.phone || '', birth: null });
+        const known = buyerFormErrors({ fullName, email: userEmail || '', phone: profile.phone || '', birth: null });
         setProfileComplete(Object.keys(known).length === 0);
       }
+      // Lecture en échec : la page s'ouvre quand même, champs vides.
+      setProfileLoaded(true);
       // Le consentement marketing n'est PLUS déduit ici. Il était lu depuis
       // `profiles.phone_sms_opt_in` (drapeau plateforme) et depuis un `tickets`
       // sans filtre de club : un opt-in donné au Club A cochait la case pour le
@@ -271,9 +283,10 @@ export default function TicketCheckout() {
       // marketing sans avoir jamais été nommé. La lecture correcte, portée par
       // club, vit maintenant dans useMarketingConsent.
     };
-    
+
     fetchUserProfile();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [userId, userEmail]);
 
   useEffect(() => {
     if (user?.email && !attendees[0].email) {
@@ -1005,7 +1018,7 @@ export default function TicketCheckout() {
     }
   };
 
-  if (loading || authLoading || resolving) {
+  if (loading || authLoading || resolving || (!!user && !profileLoaded)) {
     return <TicketCheckoutSkeleton />;
   }
 
@@ -1244,9 +1257,9 @@ export default function TicketCheckout() {
           <section className="mt-7 flex flex-col gap-[18px]">
             <div>
               <h1 className="font-display text-2xl font-bold leading-[1.1] tracking-[-0.015em] text-white">
-                {showIdentityCard ? t('ticketCheckout.readyTitle') : t('ticketCheckout.formTitle')}
+                {showIdentityCard && birthKnown ? t('ticketCheckout.readyTitle') : t('ticketCheckout.formTitle')}
               </h1>
-              {showIdentityCard ? (
+              {showIdentityCard && birthKnown ? (
                 <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">{t('ticketCheckout.readySub')}</p>
               ) : !user ? (
                 <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">
