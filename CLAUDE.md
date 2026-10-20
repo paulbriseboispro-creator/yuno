@@ -3180,20 +3180,40 @@ billet » quand le tableau en montrait 84). Règles :
     appelaient des edge disparues (404 horaires) sont retirés ; l'ancien
     travail supprimait des commandes payées et des factures, il ne revient pas.
 
-## Stripe Connect — comptes connectés en Accounts v2 (2026-09-29)
+## Stripe Connect — comptes connectés : v1 par `controller`, tableau de bord complet (2026-10-20)
 
-Le premier organisateur réel (Amoris) n'a pas pu relier Stripe : la plateforme
-refuse désormais tout compte créé avec le champ hérité `type: "express"`
+Le premier organisateur réel (Amoris) n'a pas pu relier Stripe le 29/09 : la
+plateforme refuse tout compte créé avec le champ hérité `type: "express"`
 (« Use Accounts v2, remove `type`, and set `losses_collector` to `stripe` »).
-Porte unique : `supabase/functions/_shared/stripe-connect-accounts.ts` (sans SDK,
+Puis le 19/10, Poupée (Bastia) n'a pu ouvrir AUCUN compte : toutes les formes v2
+refusées (« Connect platforms based in FR can only update certain identity
+information on a v2 account with a merchant configuration via account tokens »)
+et toutes les formes Express refusées (« When `stripe_dashboard[type]=express`,
+your platform must collect fees and be liable for negative balances »). Porte
+unique : `supabase/functions/_shared/stripe-connect-accounts.ts` (sans SDK,
 testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
 
-- **Création = `POST /v2/core/accounts`** avec `losses_collector: stripe`,
-  `fees_collector: stripe` (le VENDEUR paie ses frais Stripe : c'est le modèle
-  de `payment-split.ts` et de `fees.ts` en vente directe — avec `application`,
-  Yuno les paierait sur sa commission) et `dashboard: full`. Club et organisateur
-  = `merchant` + `recipient` (vente directe + jambes de co-soirée), DJ =
-  `recipient`. Ne JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Création = `POST /v1/accounts` par `controller`** : `fees.payer = account`
+  (le VENDEUR paie ses frais Stripe : c'est le modèle de `payment-split.ts` et de
+  `fees.ts` en vente directe — avec `application`, Yuno les paierait sur sa
+  commission), `losses.payments = stripe`, `requirement_collection = stripe`,
+  `stripe_dashboard.type = full`. C'est EXACTEMENT la forme du seul compte live
+  qui ait jamais été ouvert (Amoris, `acct_1ULHs92V9f9LSJsj`, 30/09 — vérifié
+  par le MCP Stripe : compte v1, contrôleur, tableau de bord complet). Club et
+  organisateur = `card_payments` + `transfers`, DJ = `transfers` seul. Ne
+  JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Yuno est une plateforme FRANÇAISE : en v2, aucune identité sans jeton de
+  compte.** E-mail de contact, nom affiché, type d'entité, raison sociale, nom
+  commercial ne passent sur un compte v2 vendeur que par un jeton
+  (`POST /v2/core/account_tokens`, clé PUBLIABLE, depuis le navigateur du pro :
+  docs.stripe.com/connect/account-tokens). Le module n'utilise pas les jetons ;
+  son seul filet v2 (`v2-identity-free`) n'envoie que le pays. Brancher les
+  jetons = le navigateur crée un jeton par tentative (usage unique, 10 min) et
+  l'edge le passe en `account_token` avec `identity.country` à côté.
+- **Jamais d'Express Dashboard** tant que Stripe porte les pertes et collecte les
+  frais : refusé en v2 (`account_controller_express_dash_without_application_losses_or_fees`)
+  comme en v1. L'Express exigerait pertes ET frais portés par Yuno (engagement
+  de pertes signé, modèle de frais refait) : décision de Paul, pas un réglage.
 - **Pays du compte = choisi par le pro AVANT la création, et définitif** (Stripe
   ne change jamais le pays d'un compte ; tout naissait en France, un club de
   Madrid se voyait demander un IBAN français). `NewConnectedAccount.country`
@@ -3213,26 +3233,23 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   Stripe »). Un compte ouvert dans le mauvais pays ne se corrige pas : le fermer
   chez Stripe et vider la colonne, aucun outil Yuno ne le fait.
 - **Filets** : une forme REFUSÉE (400/403/404, rien créé) passe à la suivante —
-  v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller` (mêmes
-  responsabilités). Réseau, 429 ou 5xx n'enchaînent jamais (doublon possible).
+  `v1-controller` (pré-rempli : e-mail, type d'entité, raison sociale, capacités)
+  → `v1-controller-bare` (le pays et le profil public seulement) →
+  `v2-identity-free` → `v2-identity-free-merchant-only` (vendeurs). Réseau, 429
+  ou 5xx n'enchaînent jamais (doublon possible).
   Tout échec final = code `stripe_account_create_failed` (traduit côté front par
   `stripeConnectErrorMessage`) + alerte super admin `admin_stripe_connect_failed`.
 - **Onboarding** = lien v2 (`/v2/core/account_links`, configurations lues sur le
-  compte), repli v1. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
+  compte), repli v1 — un compte v1 (« v1 Accounts cannot be used in v2 Account
+  APIs ») part donc sur `/v1/account_links`, comme pour Amoris. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
   `account.updated`), repli v2. Colonnes écrites par `venueConnectColumns` /
   `organizerConnectColumns` — webhook, Console et checkouts écrivent pareil.
-- **Tableau de bord = Express Dashboard** (2026-09-30, décision de Paul) : les
-  comptes naissent en `dashboard: express` (v2) / `stripe_dashboard.type: express`
-  (v1 de secours). Compatible avec charges directes + pertes et frais portés par
-  Stripe (docs.stripe.com/connect/integration-recommendations). Le bouton
-  « Tableau de bord Stripe » génère un lien à usage unique (`login_links`,
-  `dashboardUrlFor`) à chaque clic ; il n'est jamais envoyé hors de l'app. Le
-  pro s'y authentifie par code SMS / e-mail, sans second compte. Le tableau de
-  bord `full` (dashboard.stripe.com) n'est plus que le DERNIER filet de création
-  (`v2-full-dashboard`) et le repli si Stripe refuse un lien. Fonctions,
-  marque et messages de l'Express Dashboard se règlent dans le Dashboard Stripe
-  de Yuno (Connect → Express Dashboard : Branding, Features), pas par l'API.
-  Les comptes déjà créés en `full` le restent (la propriété ne se change pas).
+- **Tableau de bord = complet** (`full`, dashboard.stripe.com) : le pro s'y
+  connecte avec l'e-mail et le mot de passe Stripe qu'il crée dans le formulaire
+  Stripe ; le bouton « Tableau de bord Stripe » ouvre cette adresse
+  (`dashboardUrlFor`). L'Express Dashboard décidé le 30/09 n'a jamais pu
+  exister (voir plus haut) : aucun compte Express n'a été créé. Un lien de
+  connexion (`login_links`) ne sert qu'à un éventuel ancien compte Express.
 - **Le drapeau `charges_enabled` en base n'est qu'un miroir.** Les checkouts
   (billets, tables, boissons) revérifient chez Stripe un compte « inactif »
   (`checkPayoutReadinessHealing`, `healChargesEnabled`) avant de refuser un
