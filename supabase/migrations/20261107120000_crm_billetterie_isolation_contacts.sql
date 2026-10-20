@@ -1,28 +1,26 @@
--- Yuno CRM ⇄ Billetterie : la base de contacts a DEUX vues, une par produit.
+-- Yuno CRM ⇄ Billetterie : la base de contacts a DEUX vues, une par produit, SANS RIEN en commun.
 --
 -- Constaté le 19/10 : la base de contacts de la Billetterie (Clients, Audience, segments,
 -- audiences e-mail, analyse) lisait aussi les billets Shotgun du CRM (`external_tickets`) et
 -- les accords venus du connecteur (`newsletter_subscriptions.source = 'connector:shotgun'`).
 -- Chez Amoris, 17 410 des 17 413 contacts de la « base Billetterie » sont des acheteurs
 -- Shotgun, et 1 461 d'entre eux portent un accord e-mail que la Billetterie aurait ciblé.
+-- Décision de Paul (20/10) : les deux outils sont séparés pour de vrai ; l'inverse vaut aussi
+-- (le CRM ne lit plus aucune vente, aucun client ni aucun profil de la Billetterie).
 --
 -- Une seule fonction décide : contact_scope_customers(venue, organisateur, p_product).
---   • 'suite' (défaut, sûr) : ventes Yuno + registre, SANS billets Shotgun ni accords
---     `connector:%` — c'est ce que voit et cible la Billetterie ;
---   • 'crm'  : exactement la définition d'avant (billets Shotgun compris) — ce que lit la
---     Console CRM. Tous les appelants du CRM la demandent EXPLICITEMENT.
+--   • 'suite' (défaut, sûr) : ventes Yuno + registre / imports de la Billetterie (product NULL),
+--     SANS billets Shotgun — c'est ce que voit et cible la Billetterie ;
+--   • 'crm'  : billets Shotgun (external_tickets) + registre / imports du CRM (product 'crm'),
+--     SANS billet, table, guest list, commande ni profil client de la Billetterie. Tous les
+--     appelants du CRM la demandent EXPLICITEMENT.
 -- Le cache de contacts a une clé par produit : « v:club » / « o:uuid » pour la Billetterie,
 -- « …|crm » pour le CRM (même plomberie : fraîcheur, cron, effacement, invalidation).
+-- Prérequis : la colonne `product` du registre et des imports (migration précédente).
 --
--- Données : la clé « |crm » est pré-semée avec le cache actuel (= la vue CRM d'aujourd'hui,
--- aucune reconstruction pour les clients CRM), puis le cache de la Billetterie des portées qui
--- ont une connexion billetterie est purgé (il contenait les acheteurs Shotgun) ; il se
--- reconstruit à la première lecture. Un cache est dérivé : rien d'une vente, d'un contact ni
--- d'un consentement n'est modifié.
---
--- Ce que le CRM lit toujours (décision à prendre ensuite) : les clients issus de ventes Yuno
--- d'un compte à deux produits restent dans sa base (WOH : 3 706 contacts « Yuno » sans
--- connexion Shotgun). Les en retirer changerait des audiences de vrais clients CRM.
+-- Données : le cache des portées qui ont le CRM ou une connexion billetterie est purgé sous
+-- ses DEUX clés ; il se reconstruit à la première lecture. Un cache est dérivé : rien d'une
+-- vente, d'un contact ni d'un consentement n'est modifié ici.
 --
 -- Garde md5 : la migration s'arrête si l'une des fonctions a changé depuis l'audit.
 
@@ -67,8 +65,9 @@ AS $function$
   WITH ev AS (
     SELECT e.id
       FROM public.events e
-     WHERE (p_venue_id IS NOT NULL AND (e.venue_id = p_venue_id OR e.partner_venue_id = p_venue_id))
-        OR (p_organizer_user_id IS NOT NULL AND (e.organizer_user_id = p_organizer_user_id OR e.partner_organizer_id = p_organizer_user_id))
+     WHERE p_product IS DISTINCT FROM 'crm'   -- la vue du CRM ne lit AUCUNE vente Yuno
+       AND ((p_venue_id IS NOT NULL AND (e.venue_id = p_venue_id OR e.partner_venue_id = p_venue_id))
+         OR (p_organizer_user_id IS NOT NULL AND (e.organizer_user_id = p_organizer_user_id OR e.partner_organizer_id = p_organizer_user_id)))
   ), act AS (
     SELECT lower(btrim(t.user_email)) AS em,
            (t.total_price - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0))::numeric AS amount,
@@ -95,7 +94,7 @@ AS $function$
            o.guest_first_name, o.guest_last_name,
            NULLIF(btrim(COALESCE(o.guest_phone, '')), '')
       FROM public.orders o
-     WHERE p_venue_id IS NOT NULL AND o.venue_id = p_venue_id
+     WHERE p_product IS DISTINCT FROM 'crm' AND p_venue_id IS NOT NULL AND o.venue_id = p_venue_id
        AND o.user_email IS NOT NULL AND btrim(o.user_email) <> '' AND o.status = 'paid'
     UNION ALL
     SELECT lower(btrim(gle.email)),
@@ -121,7 +120,7 @@ AS $function$
            COALESCE(xt.purchased_at, xt.first_seen_at), xt.event_id, 'ticket', NULL::uuid,
            xt.buyer_first_name, xt.buyer_last_name, xt.buyer_phone
       FROM public.external_tickets xt
-     WHERE p_product = 'crm'
+     WHERE p_product = 'crm'   -- la vue de la Billetterie ne lit AUCUN billet Shotgun
        AND ((p_venue_id IS NOT NULL AND xt.venue_id = p_venue_id)
          OR (p_organizer_user_id IS NOT NULL AND xt.organizer_user_id = p_organizer_user_id))
        AND xt.buyer_email IS NOT NULL
@@ -155,9 +154,8 @@ AS $function$
      WHERE public.marketing_scope_match(ns.venue_id, ns.organizer_user_id, p_venue_id, p_organizer_user_id)
        AND ns.import_id IS NULL
        AND COALESCE(ns.source, '') NOT LIKE '%import%'
-       -- Un accord donné chez Shotgun n'est pas un accord donné chez Yuno : la vue
-       -- Billetterie ne le compte pas (p_product = 'suite', le défaut).
-       AND (p_product = 'crm' OR COALESCE(ns.source, '') NOT LIKE 'connector:%')
+       -- Un accord se lit dans le registre de SON produit (NULL = Billetterie, 'crm' = CRM).
+       AND ns.product IS NOT DISTINCT FROM (CASE WHEN p_product = 'crm' THEN 'crm' END)
      GROUP BY lower(ns.email)
   ), merged AS (
     SELECT COALESCE(a.em, s.em) AS em,
@@ -170,7 +168,7 @@ AS $function$
       FULL OUTER JOIN subs s ON s.em = a.em
   )
   SELECT m.em::text AS email,
-         COALESCE(m.uid, p.id) AS user_id,
+         CASE WHEN p_product = 'crm' THEN NULL ELSE COALESCE(m.uid, p.id) END AS user_id,
          COALESCE(p.first_name, m.fn)::text AS first_name,
          COALESCE(p.last_name, m.ln)::text AS last_name,
          COALESCE(m.ph, p.phone)::text AS phone,
@@ -185,7 +183,7 @@ AS $function$
          END::text AS gender,
          m.subscribed, m.src::text AS sub_source
     FROM merged m
-    LEFT JOIN public.profiles p ON p.id = m.uid AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = m.uid AND u.deleted_at IS NULL)
+    LEFT JOIN public.profiles p ON p_product IS DISTINCT FROM 'crm' AND p.id = m.uid AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = m.uid AND u.deleted_at IS NULL)
    WHERE m.em IS NOT NULL AND position('@' in m.em) > 1;
 $function$;
 REVOKE ALL ON FUNCTION public.contact_scope_customers(text, uuid, text) FROM PUBLIC, anon, authenticated;
@@ -371,7 +369,7 @@ BEGIN
       FROM public.newsletter_subscriptions ns
      WHERE ns.opted_in
        AND (public.marketing_scope_match(ns.venue_id, ns.organizer_user_id, p_venue_id, p_organizer_user_id))
-       AND (p_product = 'crm' OR COALESCE(ns.source, '') NOT LIKE 'connector:%')
+       AND ns.product IS NOT DISTINCT FROM (CASE WHEN p_product = 'crm' THEN 'crm' END)
   ), sup AS (
     SELECT DISTINCT lower(s.email) AS e FROM public.email_suppressions s
   ), ok_p AS (
@@ -3110,27 +3108,17 @@ $function$;
 REVOKE ALL ON FUNCTION public._mcp_tool(text, text, text, text, text, jsonb, text) FROM PUBLIC, anon, authenticated, service_role;
 
 -- ── Données dérivées du cache (rien d'autre n'est touché) ─────────────────────
--- 1. La vue CRM démarre à l'identique : on recopie l'état et les lignes du cache actuel
---    (clé « …|crm ») pour tout compte qui a le CRM. Aucune reconstruction, aucune attente.
-INSERT INTO public.contact_base_cache_state (scope_key, built_at, dirty_at, last_read_at, venue_id, organizer_user_id, row_count)
-SELECT s.scope_key || '|crm', s.built_at, s.dirty_at, s.last_read_at, s.venue_id, s.organizer_user_id, s.row_count
-  FROM public.contact_base_cache_state s
- WHERE s.scope_key NOT LIKE '%|crm'
-   AND public.crm_scope_has_crm(public.crm_scope_key(s.venue_id, s.organizer_user_id))
-ON CONFLICT (scope_key) DO NOTHING;
-
-INSERT INTO public.contact_base_cache
-SELECT (jsonb_populate_record(c, jsonb_build_object('scope_key', c.scope_key || '|crm'))).*
-  FROM public.contact_base_cache c
- WHERE c.scope_key NOT LIKE '%|crm'
-   AND EXISTS (SELECT 1 FROM public.contact_base_cache_state s WHERE s.scope_key = c.scope_key || '|crm')
-   AND NOT EXISTS (SELECT 1 FROM public.contact_base_cache x WHERE x.scope_key = c.scope_key || '|crm' AND x.id = c.id);
-
--- 2. Le cache de la Billetterie d'une portée qui a (ou a eu) une connexion billetterie contenait
---    les acheteurs Shotgun : purge, reconstruction à la première lecture (sans Shotgun).
+-- Les deux vues changent de contenu : le cache des portées qui ont le CRM, ou une connexion
+-- billetterie, est purgé sous ses deux clés (plain et « |crm ») et se reconstruit à la 1re lecture
+-- (une portée sans cache se reconstruit tout de suite, quelle que soit sa taille).
 CREATE TEMP TABLE _ct_connected_keys ON COMMIT DROP AS
   SELECT public.contact_base_scope_key(tc.venue_id, tc.organizer_user_id) AS k FROM public.ticketing_connections tc
   UNION
   SELECT public.contact_base_scope_key(x.venue_id, x.organizer_user_id) FROM (SELECT DISTINCT venue_id, organizer_user_id FROM public.external_tickets) x;
-DELETE FROM public.contact_base_cache c WHERE c.scope_key IN (SELECT k FROM _ct_connected_keys);
-DELETE FROM public.contact_base_cache_state s WHERE s.scope_key IN (SELECT k FROM _ct_connected_keys);
+CREATE TEMP TABLE _ct_purge_keys ON COMMIT DROP AS
+  SELECT s.scope_key FROM public.contact_base_cache_state s
+   WHERE public.crm_scope_has_crm(public.crm_scope_key(s.venue_id, s.organizer_user_id))
+  UNION SELECT k FROM _ct_connected_keys
+  UNION SELECT k || '|crm' FROM _ct_connected_keys;
+DELETE FROM public.contact_base_cache c WHERE c.scope_key IN (SELECT scope_key FROM _ct_purge_keys);
+DELETE FROM public.contact_base_cache_state s WHERE s.scope_key IN (SELECT scope_key FROM _ct_purge_keys);
