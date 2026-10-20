@@ -3,15 +3,22 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, MapPin, Calendar, Clock, Check, Tag, ArrowRight, Repeat, ChevronRight, LogIn } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Clock, Check, Tag, Repeat, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { VipGuestCounter } from '@/components/vip/VipGuestCounter';
 import { ZoneUpsellSheet } from '@/components/vip/ZoneUpsellSheet';
-import { TermsAcceptance } from '@/components/TermsAcceptance';
-import { AgeGate } from '@/components/AgeGate';
+import { TermsNotice } from '@/components/TermsAcceptance';
+import { recordTermsAcceptance } from '@/lib/termsAcceptance';
+import { MinorAuthGate } from '@/components/MinorAuthGate';
+import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
+import { CheckoutStepHeader } from '@/components/checkout/CheckoutStepHeader';
+import { OrderEventRow } from '@/components/checkout/OrderEventRow';
+import { OptionalNote } from '@/components/checkout/OptionalNote';
+import { BuyerFields, BuyerReadyCard } from '@/components/checkout/BuyerDetails';
+import { birthInvalidFieldFor, focusCheckoutField, useBuyerFormUi } from '@/components/checkout/useBuyerForm';
+import { buyerFormErrors, firstErrorField, type BuyerField } from '@/lib/buyerForm';
+import { suggestEmail } from '@/lib/emailTypo';
+import type { BirthDateState } from '@/lib/birthDate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
 import { shareCheckoutConsent } from '@/lib/coorg';
@@ -19,9 +26,6 @@ import {
   useMarketingConsent, usePlatformMarketingConsent,
   recordConsentGrant, recordPlatformConsentGrant, marketingConsentWording,
 } from '@/hooks/useMarketingConsent';
-import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
-import { Separator } from '@/components/ui/separator';
-import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { VipMenuPreview, type PreorderSelection } from '@/components/vip/VipMenuPreview';
 import { VipTableWaitlistDialog } from '@/components/vip/VipTableWaitlistDialog';
@@ -73,9 +77,6 @@ const MANAGEMENT_FEE_MAX = 25;
 // Sous-ensemble des colonnes PUBLIC_VENUE_COLUMNS réellement utilisées par cette page.
 type PublicVenueRow = Pick<Tables<'venues'>,
   'id' | 'name' | 'address' | 'city' | 'absorb_yuno_fees' | 'vip_menu_visibility' | 'vip_menu_display_mode' | 'vip_preorder_enabled' | 'vip_placement_enabled'>;
-
-const tableInputClass =
-  'h-11 rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
 
 export default function TableCheckout() {
   const { packId } = useParams();
@@ -142,10 +143,11 @@ export default function TableCheckout() {
   const [focusZone, setFocusZone] = useState<{ zoneId: string; nonce: number } | null>(null);
   const planSectionRef = useRef<HTMLDivElement | null>(null);
   
-  // Form state
+  // Form state — même grammaire que le paiement billet (src/lib/buyerForm.ts) :
+  // nom complet, e-mail (pas de « Confirmer l'e-mail »), téléphone, date de
+  // naissance en trois cases. Le bouton n'est jamais grisé pour un oubli.
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [confirmEmail, setConfirmEmail] = useState('');
   // Compte déjà existant sur cet email : dit à la saisie. La réservation de
   // table reste ouverte en invité — c'est une information, pas une porte.
   const { exists: guestEmailHasAccount } = useExistingAccountCheck(email, !user);
@@ -179,10 +181,21 @@ export default function TableCheckout() {
     language,
     marketingConsent.emailGranted,
   );
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [ageVerified, setAgeVerified] = useState(false);
-  // Self-declared birth date (honor system) — recorded server-side at checkout.
-  const [ageBirthDate, setAgeBirthDate] = useState<string | undefined>(undefined);
+  // Date de naissance : demandée une fois, puis lue sur le profil. Une table est
+  // réservée aux majeurs (MinorAuthGate sans mineurs) ; la date déclarée part au
+  // serveur comme déclaration sur l'honneur (age-declaration.ts).
+  const [birthState, setBirthState] = useState<BirthDateState | null>({ status: 'empty' });
+  const [ageGateReady, setAgeGateReady] = useState(false);
+  const [declaredBirthDate, setDeclaredBirthDate] = useState<string | null>(null);
+  // Client connecté au profil complet : carte « Tout est prêt », « Modifier » rouvre les champs.
+  const [profileComplete, setProfileComplete] = useState(false);
+  const [editingIdentity, setEditingIdentity] = useState(false);
+  const fieldRefs = {
+    name: useRef<HTMLDivElement>(null),
+    email: useRef<HTMLDivElement>(null),
+    phone: useRef<HTMLDivElement>(null),
+  };
+  const birthRef = useRef<HTMLFieldSetElement>(null);
   
   const [guestCount, setGuestCount] = useState(1);
   const [preOrderBottles, setPreOrderBottles] = useState<PreorderSelection[]>([]);
@@ -267,11 +280,10 @@ export default function TableCheckout() {
         const profileFullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         if (profileFullName) setFullName(profileFullName);
         if (profile.phone) setPhone(profile.phone);
+        const known = buyerFormErrors({ fullName: profileFullName, email: user.email || '', phone: profile.phone || '', birth: null });
+        setProfileComplete(Object.keys(known).length === 0);
       }
-      if (user.email) {
-        setEmail(user.email);
-        setConfirmEmail(user.email);
-      }
+      if (user.email) setEmail(user.email);
     };
     fetchUserProfile();
   }, [user]);
@@ -710,17 +722,39 @@ export default function TableCheckout() {
 
   const payAtClubGuests = 0;
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Changement d'étape : on repart du haut (l'étape 1 se termine souvent sous le plan).
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [currentStep]);
+
+  // Le formulaire lu d'un coup (lib/buyerForm.ts). Connecté : l'adresse est celle
+  // du compte, le serveur n'en lit pas d'autre (create-table-checkout).
+  const buyerEmail = user?.email ?? email;
+  const formErrors = buyerFormErrors({ fullName, email: buyerEmail, phone, birth: birthState });
+  // Date lisible mais refusée (mineur) : c'est la date qu'il faut revoir.
+  const gateProblem = !formErrors.birth && !ageGateReady;
+  const missingCount = Object.keys(formErrors).length + (gateProblem ? 1 : 0);
+  const { touched, submitted, setSubmitted, shownError, fieldValid, markTouched } = useBuyerFormUi(formErrors);
+  const emailSuggestion = !user && touched.email && !formErrors.email ? suggestEmail(email) : null;
+
+  const scrollToField = (f: BuyerField) => {
+    // Un champ caché dans la carte « Tout est prêt » : on la rouvre d'abord.
+    if (f !== 'birth' && user && profileComplete && !editingIdentity) setEditingIdentity(true);
+    window.setTimeout(() => focusCheckoutField(f === 'birth' ? birthRef.current : fieldRefs[f].current), 0);
+  };
+
+  const validateForm = (): boolean => {
+    const first = firstErrorField(formErrors) ?? (gateProblem ? 'birth' : null);
+    if (!first) return true;
+    setSubmitted(true);
+    haptics.error();
+    scrollToField(first);
+    return false;
+  };
+
+  const handleSubmit = async () => {
     // Re-entrancy guard: ignore a second submit while one is already in flight.
     if (submitting) return;
-    if (!fullName.trim()) { toast.error(t('tableCheckout.nameRequired')); return; }
-    if (!email.trim()) { toast.error(t('tableCheckout.emailRequired')); return; }
-    if (email !== confirmEmail) { toast.error(t('tableCheckout.emailMismatch')); return; }
-    if (!phone.trim()) { toast.error(t('tableCheckout.phoneRequired')); return; }
-    if (!acceptTerms) { toast.error(t('cgv.required')); return; }
-    if (!ageVerified) { toast.error(t('ageGate.required')); return; }
-    
     if (packSoldOut) {
       toast.error(t('tables.soldOutNotice'));
       setSubmitting(false);
@@ -740,9 +774,15 @@ export default function TableCheckout() {
       setSubmitting(false);
       return;
     }
+    // Un oubli ne grise rien : le tap mène au premier champ à revoir.
+    if (!validateForm()) return;
     capturePosthog('checkout_step_completed', { pillar: 'tables', step: 'details', guests: guestCount, ...tableMarket });
     
     setSubmitting(true);
+    // CGV et âge : la phrase sous le bouton (« En continuant, vous certifiez avoir
+    // 18 ans ou plus et acceptez les conditions de vente ») ; le tap vaut
+    // acceptation et laisse sa trace, comme la case d'avant.
+    const termsRecorded = recordTermsAcceptance({ userId: user?.id, guestEmail: !user ? email.trim() : null, context: 'table' });
     // checkout_failed : une fois par échec, raison courte (jamais le message).
     let failureTracked = false;
     const trackFailure = (err: unknown, code?: unknown) => {
@@ -753,6 +793,7 @@ export default function TableCheckout() {
     try {
       const isGuest = !user;
       const guestCheckout = isGuest ? { guestEmail: email.trim(), guestFullName: fullName.trim(), guestPhone: phone.trim() } : null;
+      const consentEmail = buyerEmail.trim();
 
       const { getPurchaseSource, getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const purchaseSource = getPurchaseSource(eventId);
@@ -778,7 +819,7 @@ export default function TableCheckout() {
           wordingKey: 'consent.emailOffersFrom',
           venueId: venue?.id ?? null,
           organizerUserId: consentOrganizerId,
-          email: email.trim(),
+          email: consentEmail,
           locale: language,
           source: 'table_checkout',
         });
@@ -790,7 +831,7 @@ export default function TableCheckout() {
           wordingKey: 'consent.smsOffersFrom',
           venueId: venue?.id ?? null,
           organizerUserId: consentOrganizerId,
-          email: email.trim(),
+          email: consentEmail,
           phoneE164: phone.trim(),
           locale: language,
           source: 'table_checkout',
@@ -800,7 +841,7 @@ export default function TableCheckout() {
         void recordPlatformConsentGrant({
           wordingText: t('consent.yunoOffers'),
           wordingKey: 'consent.yunoOffers',
-          email: email.trim(),
+          email: consentEmail,
           locale: language,
           source: 'table_checkout',
         });
@@ -816,7 +857,7 @@ export default function TableCheckout() {
           extraGuestsAtClub: payAtClubGuests,
           totalPrice: pricing.totalPrice, deposit: pricing.deposit,
           managementFee: pricing.managementFee,
-          fullName: fullName.trim(), email: email.trim(), phone: phone.trim(),
+          fullName: fullName.trim(), email: consentEmail, phone: phone.trim(),
           remarks: payAtClubGuests > 0
             ? `${remarks.trim()}\n[+${payAtClubGuests} personne(s) supplémentaire(s) — à régler sur place]`.trim()
             : remarks.trim(),
@@ -841,7 +882,7 @@ export default function TableCheckout() {
           // Placement data
           requestedTableId: selectedTableId,
           placementStatus: placementStatus,
-          ageDeclaration: { confirmed: true, birthDate: ageBirthDate },
+          ageDeclaration: { confirmed: true, birthDate: declaredBirthDate ?? undefined },
           // Pré-commande bouteilles (préparées pour l'arrivée, réglées à la table)
           preOrderBottles: preOrderBottles.map(b => ({
             menuItemId: b.menuItemId, quantity: b.quantity, unitPrice: b.unitPrice, itemName: b.itemName,
@@ -879,7 +920,7 @@ export default function TableCheckout() {
       // Soirée co-organisée : la case cochée nommait chaque hôte.
       if (newsletterOptIn && coorgHosts.hasCohosts && eventId) {
         await shareCheckoutConsent({
-          eventId, email: email.trim(), wording: emailConsentWording,
+          eventId, email: consentEmail, wording: emailConsentWording,
           locale: language, source: 'table_checkout', hostKeys: coorgHosts.cohostKeys,
           proof: data?.sessionId ?? data?.reservationId ?? null,
         });
@@ -920,7 +961,7 @@ export default function TableCheckout() {
         managementFee: pricing.managementFee,
         unitPrice: pricing.deposit,
         customerName: fullName.trim(),
-        customerEmail: email.trim(),
+        customerEmail: consentEmail,
         customerPhone: phone.trim(),
         paidAt: new Date().toISOString(),
         onSitePayment: pack.paymentMode === 'on_site',
@@ -937,6 +978,7 @@ export default function TableCheckout() {
           ...tableMarket,
         });
       }
+      await termsRecorded;
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
         // Navigation SPA — window.location.href recharge le bundle (splash natif).
@@ -980,49 +1022,75 @@ export default function TableCheckout() {
     );
   }
 
+
   const showPlacement = placementEnabled && !!floorPlan;
+  const onSite = pack.paymentMode === 'on_site';
+  const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
+  const money = (v: number) => `${v.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const venueLabel = venue?.name ?? event.location_name ?? organizer?.display_name ?? null;
+  const dateLine = [
+    formatInTimeZone(new Date(event.start_at), getEventTimezone(event), 'EEE d MMM · HH:mm', { locale: getLocale() }),
+    venueLabel,
+  ].filter(Boolean).join(' · ');
+  const effectiveGuests = Math.min(Math.max(guestCount, 1), packGuestLimit);
+  const guestsLabel = effectiveGuests === 1
+    ? t('tableCheckout.guestOne')
+    : t('tableCheckout.guestsN').replace('{n}', String(effectiveGuests));
+  const chosenTableName = selectedTableId
+    ? (floorPlan?.layout?.tables || []).find((tb) => tb.id === selectedTableId)?.name ?? null
+    : null;
+  // Les tables du plan portent déjà leur nom complet (« Table 4 »).
+  const tableLabel = chosenTableName ?? (showPlacement ? t('tableCheckout.tableByClub') : null);
+  const remaining = !onSite && pricing.remainingBalance > 0.004 ? pricing.remainingBalance : 0;
+  // Ce que dit la barre : le montant prélevé maintenant (acompte + frais) ; une
+  // formule réglée sur place n'a rien à payer en ligne, la barre ne porte que le bouton.
+  const barTotal = onSite ? 0 : pricing.toPay;
+  const barTotalLabel = !onSite && remaining > 0 ? t('tableCheckout.depositToday') : undefined;
+  const capacityAlert = packSoldOut
+    ? t('tables.soldOutNotice')
+    : zoneFull
+      ? t('tableCheckout.zoneFull')
+      : packFull ? t('tableCheckout.packFull') : null;
+  const showIdentityCard = !!user && profileComplete && !editingIdentity;
+  const loginHref = `/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+  // Ligne rouge de la barre, à l'étape 2 : un vrai blocage (complet), ou — après
+  // un tap seulement — combien d'infos restent à revoir (le détail est sous chaque champ).
+  const detailsAlert = capacityAlert
+    ?? (submitted && missingCount > 0
+      ? (missingCount === 1 ? t('ticketCheckout.missingOne') : t('ticketCheckout.missingMany').replace('{n}', String(missingCount)))
+      : null);
+  // Sous le bouton : une formule réglée sur place n'a pas de montant dans la
+  // barre, la phrase le dit. Le reste à régler au club, lui, vit dans la carte.
+  const balanceNote = onSite
+    ? t('tableCheckout.onSiteFootnote').replace('{amount}', money(pricing.totalPrice))
+    : null;
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-0a0a0a)' }}>
-      {/* Header — `sticky top-0` et non `fixed` : c'est le sélecteur que la règle
-          @supports d'index.css cible pour poser env(safe-area-inset-top).
-          En `fixed` la barre passait SOUS l'encoche et la flèche de retour
-          devenait intouchable sur iPhone. */}
-      <header
-        className="sticky top-0 z-40 w-full"
-        style={{ background: 'rgb(var(--glass-10-10-10)/0.90)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
-      >
-        <div className="mx-auto flex h-12 max-w-lg items-center px-4">
-          <button
-            onClick={currentStep === 1 ? () => navigate(`${basePath}/billets`, { replace: true, state: { eventId } }) : handlePrevStep}
-            className="flex items-center gap-2 h-8 px-3 -ml-2 font-mono uppercase text-[10px] font-semibold tracking-[0.10em] text-[var(--tx-9a9a9a)] hover:text-white transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {currentStep === 1 ? t('common.back') : t('common.previous')}
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
+      <CheckoutStepHeader
+        title={currentStep === 1 ? t('tableCheckout.stepTable') : t('ticketCheckout.stepTitle')}
+        step={currentStep}
+        total={3}
+        onBack={currentStep === 1 ? () => navigate(`${basePath}/billets`, { replace: true, state: { eventId } }) : handlePrevStep}
+      />
 
       <PublicPage variant="flow">
-      <div>
-        <div className="mx-auto max-w-lg px-4 py-5">
-          {/* Step indicator */}
-          <VipCheckoutSteps currentStep={currentStep} />
-
+      <div className="mx-auto max-w-lg px-4 pb-6 pt-5">
           <AnimatePresence mode="wait">
-            {/* STEP 1: Package Summary */}
+            {/* ÉTAPE 1 : la formule, le nombre de personnes, la table. */}
             {currentStep === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 {/* Pack header */}
-                <div className="flex items-start justify-between gap-3 mt-4 mb-5">
+                <div className="flex items-start justify-between gap-3 mb-5">
                   <div className="min-w-0">
                     <h1 className="font-display font-bold uppercase text-white" style={{ fontSize: 'clamp(24px, 6vw, 32px)', letterSpacing: '-0.02em', lineHeight: 0.95 }}>{zone?.name || pack.name}</h1>
-                    <p className="font-mono uppercase mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>{pack.name}</p>
+                    <p className="font-mono uppercase mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{pack.name}</p>
                   </div>
                   {allZones.length > 1 && (
                     <button
                       onClick={() => setZoneSheetOpen(true)}
-                      className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[9px] font-bold tracking-[0.10em] text-[var(--tx-e5e5e5)] transition-colors"
+                      className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[10px] font-bold tracking-[0.08em] text-[#E5E5E5] transition-colors"
+                      style={{ borderRadius: 4, border: '1px solid rgba(255,255,255,0.12)' }}
                     >
                       <Repeat className="h-3 w-3" />
                       {t('vipCheckout.changeZone') || 'Changer de zone'}
@@ -1041,18 +1109,18 @@ export default function TableCheckout() {
                 />
 
                 {/* Event meta */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-5 font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-5 font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
+                    <Calendar className="h-3.5 w-3.5" aria-hidden />
                     {formatInTimeZone(new Date(event.start_at), getEventTimezone(event), 'EEE d MMM', { locale: getLocale() })}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
+                    <Clock className="h-3.5 w-3.5" aria-hidden />
                     {formatInTimeZone(new Date(event.start_at), getEventTimezone(event), 'HH:mm')}
                   </div>
                   {(venue?.address || event.location_name) && (
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
+                      <MapPin className="h-3.5 w-3.5" aria-hidden />
                       {venue?.name ?? event.location_name}
                     </div>
                   )}
@@ -1063,92 +1131,85 @@ export default function TableCheckout() {
                   <div className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'rgba(232,25,44,0.25)', background: 'rgba(232,25,44,0.06)' }}>
                     <Clock className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
                     <div className="min-w-0">
-                      <p className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em', color: 'var(--tx-f5f5f5)' }}>
+                      <p className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em', color: '#F5F5F5' }}>
                         {(t('tableCheckout.arrivalBefore') || 'Arrivée avant {time}').replace('{time}', pack.arrivalDeadline)}
                       </p>
-                      <p style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', marginTop: 2 }}>{t('tableCheckout.arrivalBeforeNote')}</p>
+                      <p style={{ fontSize: '12px', color: '#9A9A9A', marginTop: 2 }}>{t('tableCheckout.arrivalBeforeNote')}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Code promo (lot F) — rien à remiser sur une formule réglée sur place */}
-                {event && pack.paymentMode !== 'on_site' && (
-                  <PromoCodeField
-                    eventId={event.id}
-                    pillar="tables"
-                    applied={appliedPromo}
-                    onChange={(promo) => {
-                      setAppliedPromo(promo);
-                      if (promo) rememberPromoForEvent(event.id, promo.code);
-                      else forgetPromoForEvent(event.id);
-                    }}
-                    discount={pricing.promoAmount}
-                    outranked={!!appliedPromo && pricing.discountSource === 'promoter'}
-                  />
-                )}
-
-                {/* Price breakdown */}
-                <div className="mt-5 border border-white/[0.08] bg-[var(--sf-141414)] p-4 space-y-2.5" style={{ borderRadius: 10 }}>
-                  {appliedPromo && pricing.discountSource === 'promo' && (
-                    <div className="flex justify-between items-center gap-3 text-emerald-400 text-sm">
-                      <span className="font-mono uppercase flex items-center gap-1.5" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
-                        <Tag className="h-3 w-3" />
-                        Code {appliedPromo.code}
-                        {appliedPromo.discountType === 'percentage' ? ` (-${appliedPromo.discountValue}%)` : ''}
-                      </span>
-                      <span className="font-mono font-medium tabular-nums">-{pricing.discount.toFixed(2)} €</span>
-                    </div>
-                  )}
-                  {promoterDiscount && pricing.discountSource === 'promoter' && (
-                    <div className="flex justify-between items-center gap-3 text-emerald-400 text-sm">
-                      <span className="font-mono uppercase flex items-center gap-1.5" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
-                        <Tag className="h-3 w-3" />
-                        Code {promoterDiscount.promoCode}
-                        {promoterDiscount.discountType === 'percentage' ? ` (-${promoterDiscount.discountValue}%)` : ''}
-                      </span>
-                      <span className="font-mono font-medium tabular-nums">-{pricing.discount.toFixed(2)} €</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center gap-3 text-sm">
-                    <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.totalPrice')}</span>
-                    <span className="flex items-baseline gap-2">
-                      {pricing.discount > 0 && <span className="font-mono tabular-nums line-through text-[var(--tx-5a5a5e)]" style={{ fontSize: '12px' }}>{pricing.fullPrice.toFixed(2)} €</span>}
-                      <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.totalPrice.toFixed(2)} €</span>
-                    </span>
+                {/* Le prix : ce qui se paie maintenant, ce qui reste au club, le code promo. */}
+                <section aria-label={t('ticketCheckout.summary')} className="mt-5 overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
+                  <div className="space-y-2.5 p-3.5">
+                    {appliedPromo && pricing.discountSource === 'promo' && (
+                      <PriceRow
+                        tone="discount"
+                        label={<><Tag className="h-3 w-3" aria-hidden />Code {appliedPromo.code}{appliedPromo.discountType === 'percentage' ? ` (-${appliedPromo.discountValue}%)` : ''}</>}
+                        value={`-${money(pricing.discount)}`}
+                      />
+                    )}
+                    {promoterDiscount && pricing.discountSource === 'promoter' && (
+                      <PriceRow
+                        tone="discount"
+                        label={<><Tag className="h-3 w-3" aria-hidden />Code {promoterDiscount.promoCode}{promoterDiscount.discountType === 'percentage' ? ` (-${promoterDiscount.discountValue}%)` : ''}</>}
+                        value={`-${money(pricing.discount)}`}
+                      />
+                    )}
+                    <PriceRow
+                      label={t('tableCheckout.totalPrice')}
+                      value={money(pricing.totalPrice)}
+                      was={pricing.discount > 0 ? money(pricing.fullPrice) : undefined}
+                    />
+                    {onSite ? (
+                      <div className="rounded-lg px-3 py-2.5" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                        <p className="font-display font-bold text-emerald-400" style={{ fontSize: '14px' }}>{t('tableCheckout.onSiteTitle')}</p>
+                        <p className="mt-0.5 text-[12px] text-[#9A9A9A]">{t('tableCheckout.onSiteDesc')}</p>
+                      </div>
+                    ) : (
+                      <>
+                        {remaining > 0 && (
+                          <PriceRow
+                            label={t('tableCheckout.deposit')}
+                            value={money(pricing.deposit)}
+                            was={pricing.discount > 0 ? money(pricing.fullDeposit) : undefined}
+                          />
+                        )}
+                        <PriceRow label={t('tableCheckout.managementFee')} value={money(pricing.managementFee)} />
+                        <div className="flex items-center justify-between gap-3 border-t border-white/[0.08] pt-3">
+                          <span className="font-display text-[15px] font-bold text-white">{t('tableCheckout.toPay')}</span>
+                          <span className="flex items-baseline gap-2 whitespace-nowrap">
+                            {pricing.discount > 0 && <span className="font-mono text-[12px] tabular-nums text-[#9A9A9A] line-through">{money(pricing.fullToPay)}</span>}
+                            <span className="font-display text-xl font-bold tabular-nums text-white" style={{ letterSpacing: '-0.02em' }}>{money(pricing.toPay)}</span>
+                          </span>
+                        </div>
+                        {remaining > 0 && (
+                          <p className="text-[12px] leading-[1.45] text-[#9A9A9A]">
+                            {t('tableCheckout.remainingAtClub').replace('{amount}', money(remaining))}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
-                  {pack.paymentMode === 'on_site' ? (
-                    <div className="border-t border-white/[0.08] pt-3 mt-1 rounded-lg px-3 py-2.5" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                      <p className="font-display font-bold text-emerald-400" style={{ fontSize: '14px' }}>{t('tableCheckout.onSiteTitle')}</p>
-                      <p className="text-[11.5px] text-[var(--tx-9a9a9a)] mt-0.5">{t('tableCheckout.onSiteDesc')}</p>
+                  {/* Code promo (lot F) — rien à remiser sur une formule réglée sur place */}
+                  {!onSite && (
+                    <div className="border-t border-white/[0.07]">
+                      <PromoCodeField
+                        variant="row"
+                        eventId={event.id}
+                        pillar="tables"
+                        applied={appliedPromo}
+                        onChange={(promo) => {
+                          setAppliedPromo(promo);
+                          if (promo) rememberPromoForEvent(event.id, promo.code);
+                          else forgetPromoForEvent(event.id);
+                        }}
+                        discount={pricing.promoAmount}
+                        outranked={!!appliedPromo && pricing.discountSource === 'promoter'}
+                      />
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex justify-between items-center gap-3 text-sm">
-                        <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.deposit')}</span>
-                        <span className="flex items-baseline gap-2">
-                          {pricing.discount > 0 && <span className="font-mono tabular-nums line-through text-[var(--tx-5a5a5e)]" style={{ fontSize: '12px' }}>{pricing.fullDeposit.toFixed(2)} €</span>}
-                          <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.deposit.toFixed(2)} €</span>
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-3 text-sm">
-                        <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.managementFee')}</span>
-                        <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.managementFee.toFixed(2)} €</span>
-                      </div>
-
-                      <div className="border-t border-white/[0.08] pt-3 mt-1 flex justify-between items-center gap-3">
-                        <span className="font-display font-bold text-white" style={{ fontSize: '15px' }}>{t('tableCheckout.toPay')}</span>
-                        <span className="flex items-baseline gap-2">
-                          {pricing.discount > 0 && <span className="font-mono tabular-nums line-through text-[var(--tx-5a5a5e)]" style={{ fontSize: '12px' }}>{pricing.fullToPay.toFixed(2)} €</span>}
-                          <span className="font-display font-bold tabular-nums text-primary" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{pricing.toPay.toFixed(2)} €</span>
-                        </span>
-                      </div>
-
-                      <p className="text-center pt-1 text-[11px] text-[var(--tx-5a5a5e)]">
-                        {t('tableCheckout.remainingNote').replace('{amount}', pricing.remainingBalance.toFixed(2))}
-                      </p>
-                    </>
                   )}
-                </div>
+                </section>
 
                 {/* Vitrine carte bouteilles (idée #2) — pilotée par le réglage club.
                     Pilier boissons en pause (src/lib/drinksPillar.ts) : la précommande de
@@ -1166,40 +1227,26 @@ export default function TableCheckout() {
                   />
                 )}
 
-                {venue?.id && (
-                  <VipTableWaitlistDialog
-                    open={waitlistOpen}
-                    onOpenChange={setWaitlistOpen}
-                    venueId={venue.id}
-                    eventId={eventId}
-                    zoneId={activeZoneId}
-                    packId={pack?.id}
-                    defaultName={fullName}
-                    defaultEmail={email}
-                    defaultPhone={phone}
-                    guestCount={guestCount}
-                  />
-                )}
-
                 {/* Interactive floor plan for table selection */}
                 {showPlacement && floorPlan && (
                   <div className="mt-7" ref={planSectionRef} style={{ scrollMarginTop: 'calc(env(safe-area-inset-top, 0px) + 5rem)' }}>
                     <p className="section-label-ruled mb-1.5">{t('vipCheckout.selectTable')}</p>
-                    <p className="text-[11px] text-[var(--tx-9a9a9a)] mb-4">{t('vipCheckout.selectTableDescription')}</p>
+                    <p className="text-[12px] text-[#9A9A9A] mb-4">{t('vipCheckout.selectTableDescription')}</p>
                     {placementStatus === 'assign_on_arrival' && !selectedTableId ? (
-                      <div className="text-center py-7 space-y-3 border border-white/[0.08] bg-[var(--sf-141414)]" style={{ borderRadius: 10 }}>
+                      <div className="text-center py-7 space-y-3 border border-white/[0.08] bg-[#141414]" style={{ borderRadius: 10 }}>
                         <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                           <Check className="h-6 w-6 text-primary" />
                         </div>
                         <div className="px-4">
                           <p className="font-display font-bold uppercase text-white" style={{ fontSize: '14px' }}>{t('vipCheckout.clubWillAssign') || 'Le club choisira votre table'}</p>
-                          <p className="text-xs text-[var(--tx-9a9a9a)] mt-1.5 leading-relaxed">
+                          <p className="text-xs text-[#9A9A9A] mt-1.5 leading-relaxed">
                             {t('vipCheckout.clubWillAssignDesc') || 'L\'équipe VIP vous assignera la meilleure table disponible à votre arrivée'}
                           </p>
                         </div>
                         <button
                           onClick={() => setPlacementStatus('none')}
-                          className="inline-flex items-center h-9 px-4 rounded-full font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[var(--tx-e5e5e5)] bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
+                          className="inline-flex items-center h-9 px-4 font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[#E5E5E5] bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
+                          style={{ borderRadius: 4 }}
                         >
                           {t('vipCheckout.chooseMyself') || 'Je préfère choisir moi-même'}
                         </button>
@@ -1222,15 +1269,6 @@ export default function TableCheckout() {
                   </div>
                 )}
 
-                <button
-                  onClick={handleNextStep}
-                  className="w-full h-12 mt-7 rounded-full flex items-center justify-center font-semibold text-sm text-snow transition-all active:scale-[0.98]"
-                  style={{ background: '#E8192C', boxShadow: '0 10px 28px rgba(232,25,44,0.32)', letterSpacing: '0.01em' }}
-                >
-                  {t('common.next')}
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </button>
-
                 {/* Zone Upsell Sheet */}
                 <ZoneUpsellSheet
                   open={zoneSheetOpen || !!upsellTable}
@@ -1249,137 +1287,243 @@ export default function TableCheckout() {
               </motion.div>
             )}
 
-            {/* STEP 2: Customer Details */}
+            {/* ÉTAPE 2 : vos infos — même grammaire que le paiement billet. */}
             {currentStep === 2 && (
-              <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="mt-4">
-                <p className="section-label-ruled mb-4">{t('tableCheckout.yourInfo')}</p>
-                {/* No account required: tell the guest so plainly, and give returning
-                    users an optional link to log in (auto-fills + avoids the
-                    ACCOUNT_EXISTS bounce after they've filled everything). */}
-                {!user && (
-                  <div className="mb-4 space-y-2">
-                    <p className="text-[12px] text-[var(--tx-9a9a9a)]">{t('guest.noAccountNeeded')}</p>
+              <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                {/* Votre commande : la soirée, la table, ce qui se paie maintenant. */}
+                <section aria-label={t('ticketCheckout.summary')} className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
+                  <OrderEventRow posterUrl={event.poster_url} dateLine={dateLine} title={event.title} />
+                  <div className="h-px bg-white/[0.07]" />
+                  <div className="flex items-start gap-3 p-3.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold leading-[1.3] text-white [overflow-wrap:anywhere]">
+                        {zone?.name && zone.name !== pack.name ? `${zone.name} · ${pack.name}` : pack.name}
+                      </p>
+                      <p className="mt-1 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
+                        {[guestsLabel, tableLabel].filter(Boolean).join(' · ')}
+                      </p>
+                      {pack.arrivalDeadline && (
+                        <p className="mt-1 flex items-center gap-1.5 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
+                          <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                          {(t('tableCheckout.arrivalBefore') || 'Arrivée avant {time}').replace('{time}', pack.arrivalDeadline)}
+                        </p>
+                      )}
+                    </div>
                     <button
                       type="button"
-                      onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-                      className="flex items-center gap-1.5 text-[12px] text-[var(--tx-9a9a9a)] hover:text-white transition-colors"
+                      onClick={handlePrevStep}
+                      className="h-8 shrink-0 px-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-white/[0.06]"
+                      style={{ borderRadius: 4, border: '1px solid rgba(255,255,255,0.14)' }}
                     >
-                      <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span>{t('guest.haveAccountQuestion')}{' '}
-                        <span className="text-primary font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
-                      </span>
+                      {t('ticketCheckout.edit')}
                     </button>
                   </div>
-                )}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fullName" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.fullName')} *</Label>
-                    <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('tableCheckout.fullNamePlaceholder')} required className={tableInputClass} />
+                  <div className="space-y-2 border-t border-white/[0.07] p-3.5">
+                    <PriceRow
+                      label={t('tableCheckout.totalPrice')}
+                      value={money(pricing.totalPrice)}
+                      was={pricing.discount > 0 ? money(pricing.fullPrice) : undefined}
+                    />
+                    {onSite ? (
+                      <p className="text-[12.5px] font-medium leading-[1.4] text-emerald-400">{t('tableCheckout.onSiteDesc')}</p>
+                    ) : remaining > 0 ? (
+                      <PriceRow label={t('tableCheckout.remainingLabel')} value={money(remaining)} />
+                    ) : null}
+                    {pricing.discount > 0 && (
+                      <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.04em] text-emerald-400">
+                        <Tag className="h-3 w-3 shrink-0" aria-hidden />
+                        {t('tableCheckout.discountApplied').replace('{amount}', money(pricing.discount))}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.email')} *</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('tableCheckout.emailPlaceholder')} required className={tableInputClass} />
+                </section>
+
+                {/* Vos infos : une colonne, aucune carte autour des champs. */}
+                <section className="mt-7 flex flex-col gap-[18px]">
+                  <div>
+                    <h1 className="font-display text-2xl font-bold leading-[1.1] tracking-[-0.015em] text-white">
+                      {showIdentityCard ? t('ticketCheckout.readyTitle') : t('tableCheckout.formTitle')}
+                    </h1>
+                    {showIdentityCard ? (
+                      <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">
+                        {onSite ? t('tableCheckout.readySubOnSite') : t('ticketCheckout.readySub')}
+                      </p>
+                    ) : !user ? (
+                      <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">
+                        {t('guest.haveAccountQuestion')}{' '}
+                        <button
+                          type="button"
+                          onClick={() => navigate(loginHref)}
+                          className="font-semibold text-white underline underline-offset-[3px] transition-colors hover:text-[#E5E5E5]"
+                        >
+                          {t('guest.logIn')}
+                        </button>
+                      </p>
+                    ) : null}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="confirmEmail" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.confirmEmail')} *</Label>
-                    <Input id="confirmEmail" type="email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} placeholder={t('tableCheckout.confirmEmailPlaceholder')} required className={tableInputClass} />
-                  </div>
-                  {!user && guestEmailHasAccount && <ExistingAccountNotice email={email.trim()} />}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.phone')} *</Label>
-                    <PhoneInputWithCountry id="phone" value={phone} onChange={setPhone} defaultCountry={phoneCountry} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="remarks" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.remarks')}</Label>
-                    <Textarea id="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t('tableCheckout.remarksPlaceholder')} rows={3} className="rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white placeholder:text-[var(--tx-5a5a5e)] focus-visible:ring-0 focus-visible:border-primary/50" />
-                  </div>
-                  <AgeGate userId={user?.id} onVerified={(v, bd) => { setAgeVerified(v); if (bd) setAgeBirthDate(bd); }} />
-                  <MarketingOptIns
-                    // Pas de nom de destinataire résolu = pas de case à son nom :
-                    // une case qui ne nomme pas qui écrit ne couvre personne
-                    // (EDPB 05/2020 §65). La ligne Yuno, elle, se nomme toujours.
-                    showEmail={!!scopeName}
-                    showSms={!!scopeName}
-                    newsletterOptIn={newsletterOptIn}
-                    onNewsletterChange={setNewsletterOptIn}
-                    smsOptIn={smsOptIn}
-                    onSmsChange={handleSmsOptInChange}
-                    scopeName={coorgHosts.emailScopeName || scopeName}
-                    smsScopeName={scopeName}
-                    emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
-                    smsAlreadyGranted={marketingConsent.smsGranted}
-                    pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
-                    showYuno
-                    yunoOptIn={yunoOptIn}
-                    onYunoChange={setYunoOptIn}
-                    yunoAlreadyGranted={platformConsent.granted}
+
+                  {showIdentityCard ? (
+                    <BuyerReadyCard fullName={fullName} email={buyerEmail} phone={phone} onEdit={() => setEditingIdentity(true)} />
+                  ) : (
+                    <BuyerFields
+                      buyer={{ fullName, email: buyerEmail, phone }}
+                      onChange={(field, value) => {
+                        if (field === 'fullName') setFullName(value);
+                        else if (field === 'email') setEmail(value);
+                        else setPhone(value);
+                      }}
+                      onBlur={markTouched}
+                      errors={{ name: shownError('name') ?? undefined, email: shownError('email') ?? undefined, phone: shownError('phone') ?? undefined }}
+                      valid={{
+                        name: fieldValid('name', fullName),
+                        email: !user && fieldValid('email', email),
+                        phone: fieldValid('phone', phone),
+                      }}
+                      emailReadOnly={!!user}
+                      emailSuggestion={emailSuggestion}
+                      onAcceptSuggestion={() => emailSuggestion && setEmail(emailSuggestion)}
+                      emailNotice={!user && guestEmailHasAccount ? <ExistingAccountNotice email={email.trim()} /> : undefined}
+                      emailHint={t('tableCheckout.emailHint')}
+                      emailAccountHint={t('tableCheckout.emailAccountHint')}
+                      defaultCountry={phoneCountry}
+                      fieldRefs={fieldRefs}
+                    />
+                  )}
+
+                  {/* Date de naissance : une table est réservée aux majeurs. Demandée
+                      une fois, puis lue sur le profil ; la porte contrôle la pièce d'identité. */}
+                  <MinorAuthGate
+                    userId={user?.id}
+                    eventId={event.id}
+                    acceptsMinors={false}
+                    template={null}
+                    hint={t('tableCheckout.birthHint')}
+                    onReady={setAgeGateReady}
+                    onDocUploaded={() => {}}
+                    onMinorInfo={(info) => setDeclaredBirthDate(info?.birthDate || null)}
+                    onBirthState={setBirthState}
+                    error={shownError('birth')}
+                    invalidField={birthInvalidFieldFor(formErrors.birth)}
+                    onBlur={() => markTouched('birth')}
+                    anchorRef={birthRef}
                   />
-                  <TermsAcceptance userId={user?.id} guestEmail={!user ? email : null} context="table" onAcceptedChange={setAcceptTerms} />
-                </form>
+
+                  <OptionalNote
+                    id="tc-remarks"
+                    title={t('tableCheckout.remarksAdd')}
+                    hint={t('tableCheckout.remarksHint')}
+                    label={t('tableCheckout.remarksLabel')}
+                    placeholder={t('tableCheckout.remarksPlaceholder')}
+                    value={remarks}
+                    onChange={setRemarks}
+                  />
+
+                  <div className="pt-2.5">
+                    <MarketingOptIns
+                      variant="flat"
+                      // Pas de nom de destinataire résolu = pas de case à son nom :
+                      // une case qui ne nomme pas qui écrit ne couvre personne
+                      // (EDPB 05/2020 §65). La ligne Yuno, elle, se nomme toujours.
+                      showEmail={!!scopeName}
+                      showSms={!!scopeName}
+                      newsletterOptIn={newsletterOptIn}
+                      onNewsletterChange={setNewsletterOptIn}
+                      smsOptIn={smsOptIn}
+                      onSmsChange={handleSmsOptInChange}
+                      scopeName={coorgHosts.emailScopeName || scopeName}
+                      smsScopeName={scopeName}
+                      emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
+                      smsAlreadyGranted={marketingConsent.smsGranted}
+                      pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
+                      showYuno
+                      yunoOptIn={yunoOptIn}
+                      onYunoChange={setYunoOptIn}
+                      yunoAlreadyGranted={platformConsent.granted}
+                    />
+                  </div>
+                </section>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
       </div>
       </PublicPage>
 
-      {/* Fixed bottom capsule bar for step 2 */}
-      {currentStep === 2 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-4 pb-5 pt-2 pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)' }}>
-          <div
-            className="inline-flex items-center w-full max-w-md gap-4 rounded-xl px-5 py-3 justify-between pointer-events-auto"
-            style={{
-              background: 'rgb(var(--glass-14-14-16)/0.92)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgb(var(--ink)/0.10)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,25,44,0.08)',
-            }}
-          >
-            <div className="flex flex-col min-w-0">
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--tx-5a5a5e)' }}>
-                {pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteShort') : t('tableCheckout.deposit')}
-              </span>
-              <span className="flex items-baseline gap-2">
-                <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'rgb(var(--ink))', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                  {pack.paymentMode === 'on_site' ? `${pricing.totalPrice.toFixed(0)}\u00a0€` : <>{pricing.toPay.toFixed(2)}&nbsp;€</>}
-                </span>
-                {pack.paymentMode !== 'on_site' && pricing.discount > 0 && (
-                  <span className="font-mono tabular-nums line-through" style={{ fontSize: '12px', color: 'var(--tx-5a5a5e)', whiteSpace: 'nowrap' }}>
-                    {pricing.fullToPay.toFixed(2)}&nbsp;€
-                  </span>
-                )}
-              </span>
-              <span className="truncate" style={{ fontSize: '10px', color: pack.paymentMode !== 'on_site' && pricing.discount > 0 ? '#34D399' : 'var(--tx-5a5a5e)', marginTop: '1px' }}>
-                {pack.paymentMode === 'on_site'
-                  ? t('tableCheckout.onSiteDesc')
-                  : pricing.discount > 0
-                    ? `-${pricing.discount.toFixed(2)} € · ${t('tickets.feesIncluded') || 'Frais inclus'}`
-                    : (t('tickets.feesIncluded') || 'Frais inclus')}
-              </span>
-            </div>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || zoneFull || packSoldOut}
-              className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-snow transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 flex items-center"
-              style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
-            >
-              {submitting ? (
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : packSoldOut ? (
-                <>{t('tables.soldOut')}</>
-              ) : zoneFull ? (
-                <>{t('tableCheckout.zoneFullShort') || 'Zone complète'}</>
-              ) : (
-                <>
-                  {pack.paymentMode === 'on_site' ? t('tableCheckout.confirmReservation') : t('tickets.continue')}
-                  <ChevronRight className="h-5 w-5 ml-1" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+      {/* Liste d'attente : proposée après un refus (zone complète). Hors des étapes,
+          pour s'ouvrir aussi depuis l'étape 2, là où la réservation échoue. */}
+      {venue?.id && (
+        <VipTableWaitlistDialog
+          open={waitlistOpen}
+          onOpenChange={setWaitlistOpen}
+          venueId={venue.id}
+          eventId={eventId}
+          zoneId={activeZoneId}
+          packId={pack?.id}
+          defaultName={fullName}
+          defaultEmail={buyerEmail}
+          defaultPhone={phone}
+          guestCount={guestCount}
+        />
       )}
+
+      {/* La même barre que les billets : le montant prélevé maintenant, un seul
+          bouton. Étape 1 : « Continuer ». Étape 2 : le paiement (ou la
+          confirmation d'une formule réglée sur place), et ce que le tap engage. */}
+      {currentStep === 1 ? (
+        <CheckoutSummaryBar
+          reserveSpace
+          total={barTotal}
+          totalLabel={barTotalLabel}
+          fee={onSite ? 0 : pricing.managementFee}
+          feeLabel={t('tableCheckout.feeIncluded')}
+          compareTotal={!onSite && pricing.discount > 0 ? pricing.fullToPay : undefined}
+          buttonText={t('ticketSel.continue')}
+          onClick={handleNextStep}
+          disabled={zoneFull || packSoldOut}
+          alert={capacityAlert}
+          footnote={balanceNote ?? undefined}
+        />
+      ) : (
+        <CheckoutSummaryBar
+          reserveSpace
+          total={barTotal}
+          totalLabel={barTotalLabel}
+          fee={onSite ? 0 : pricing.managementFee}
+          feeLabel={t('tableCheckout.feeIncluded')}
+          compareTotal={!onSite && pricing.discount > 0 ? pricing.fullToPay : undefined}
+          buttonText={onSite ? t('tableCheckout.confirmReservation') : t('ticketSel.goToPayment')}
+          icon={onSite ? undefined : <Lock className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />}
+          onClick={() => void handleSubmit()}
+          loading={submitting}
+          disabled={zoneFull || packSoldOut}
+          alert={detailsAlert}
+          footnote={(
+            <>
+              {balanceNote && <>{balanceNote}<br /></>}
+              {!onSite && <>{t('ticketCheckout.payOnStripe')}<br /></>}
+              <TermsNotice lead={t('tableCheckout.termsAgeBefore')} />
+            </>
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Une ligne de la carte de prix : libellé à gauche, montant (et l'ancien, barré) à droite. */
+function PriceRow({ label, value, was, tone }: { label: React.ReactNode; value: string; was?: string; tone?: 'discount' }) {
+  const discount = tone === 'discount';
+  return (
+    <div className={`flex items-center justify-between gap-3 text-sm ${discount ? 'text-emerald-400' : ''}`}>
+      <span
+        className={discount ? 'flex items-center gap-1.5 font-mono uppercase' : 'text-[#9A9A9A]'}
+        style={discount ? { fontSize: '11px', letterSpacing: '0.04em' } : undefined}
+      >
+        {label}
+      </span>
+      <span className="flex items-baseline gap-2 whitespace-nowrap">
+        {was && <span className="font-mono text-[12px] tabular-nums text-[#9A9A9A] line-through">{was}</span>}
+        <span className={`font-mono font-medium tabular-nums ${discount ? '' : 'text-[#E5E5E5]'}`}>{value}</span>
+      </span>
     </div>
   );
 }

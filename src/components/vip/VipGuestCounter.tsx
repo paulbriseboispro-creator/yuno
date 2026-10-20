@@ -80,7 +80,7 @@ export function VipGuestCounter({
             className="font-mono uppercase mt-1.5"
             style={{ fontSize: '9px', letterSpacing: '0.10em', color: 'var(--tx-5a5a5e)' }}
           >
-            {count === 1 ? 'personne' : 'personnes'}
+            {count === 1 ? t('tableCheckout.personOne') : t('tableCheckout.guests')}
           </motion.p>
         </div>
 
@@ -190,7 +190,7 @@ export function VipGuestCounter({
               <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-amber-400">
-                  +{payAtClubGuests} {payAtClubGuests === 1 ? 'personne' : 'personnes'} supplémentaire{payAtClubGuests > 1 ? 's' : ''}
+                  {(payAtClubGuests === 1 ? t('tableCheckout.extraPersonOne') : t('tableCheckout.extraPersonsN')).replace('{n}', String(payAtClubGuests))}
                 </p>
                 <p className="text-[11px] text-[var(--tx-9a9a9a)] mt-0.5">
                   {t('vipCheckout.extraGuestsAtClub') || 'Supplément à régler directement sur place'}
