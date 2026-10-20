@@ -3991,22 +3991,32 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
   est prêt » attend aussi la date quand la page en demande une. Sinon les cases apparaissaient puis
   disparaissaient, et le client croyait qu'on lui redemandait sa date.
 
-## E-mail de billet non livré — une faute d'adresse se voit et se corrige (2026-10-20)
+## E-mail de vente non livré — une faute d'adresse se voit (billet, table, guest list, 2026-10-20)
 
 Le 20/10 une invitée a payé avec une faute AVANT le @ (gmail.com juste) : rebond
 dur 27 s après l'envoi, noté seulement dans la liste de suppression. Migration
 `20261105100000`, `useTicketEmailDelivery`, `TicketEmailDelivery` (confirmation),
 `TicketEmailBouncePanel` (Console › Commandes › Billets). Règles :
 
-- **Tout e-mail de billet porte les tags `sale_kind` / `sale_id`**
-  (`send-ticket-confirmation`) ; `resend-webhook` les relit et appelle
+- **Tout e-mail qui porte une place a les tags `sale_kind` / `sale_id`** :
+  billet (`send-ticket-confirmation`), table VIP (`send-vip-confirmation` :
+  demande reçue, confirmée, modifiée, refusée ; pas le récap walk-in), guest
+  list (`create-guest-list-entry`, `guest-list-manage`, `promoter-add-guest`),
+  posés par `_shared/sale-email.ts` (`saleEmailTags`, puis `recordSaleEmailSent`
+  après la réponse de Resend). Un nouvel e-mail de place passe par ce module.
+  `resend-webhook` les relit et appelle
   `record_sale_email_event` (livré, ou rebond DUR seulement). État dans
   `sale_email_deliveries` (RLS sans policy, `kind` ticket | table | guest_list).
   Un événement pour une AUTRE adresse que la dernière envoyée ne touche rien.
 - **Un rebond prévient les parties principales** (club : `emit_staff_notification`
   owner, organisateur : `emit_organizer_notification`, langue du profil) avec nom
-  et téléphone, plus `admin_ticket_email_bounced`, une fois par (billet, adresse),
-  jamais pour la démo.
+  et téléphone, plus l'alerte super admin, une fois par (vente, adresse), jamais
+  pour la démo. Types `<kind>_email_bounced` et `admin_<kind>_email_bounced`
+  (migration `20261105400000`) ; liens : billet → Commandes › Billets, table →
+  Commandes › Tables VIP, guest list → la liste de la soirée. « Reste valable »
+  n'est dit que d'une table payée / confirmée ou d'une inscription acceptée.
+  Notification in-app seulement (aucun push : liste blanche de
+  `trg_staff_notification_push`).
 - **Rien ne s'affiche tant que l'e-mail n'a pas rebondi** (décision de Paul,
   20/10, migration `20261105110000`) : pas de « Ton billet part à … » pour tout
   le monde, un acheteur à la bonne adresse ne voit rien. La confirmation relit
@@ -4018,8 +4028,9 @@ dur 27 s après l'envoi, noté seulement dans la liste de suppression. Migration
 - **L'envoi direct de `send-ticket-confirmation` exige la clé service**
   (`isServiceCaller`) : avant, quiconque connaissait l'id d'un billet pouvait se
   faire envoyer son QR. Seule l'action `fix_email` est ouverte, sous sa preuve.
-- Tables et guest list : même table, mêmes RPC, à brancher sur
-  `send-vip-confirmation` et l'e-mail de guest list.
+- **Corriger l'adresse n'existe que pour le billet.** Table et guest list :
+  rien sur la page de confirmation ni dans la Console, le pro appelle la
+  personne avec le numéro de la notification (limite assumée au 20/10).
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 

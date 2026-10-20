@@ -9,6 +9,7 @@ import {
 } from "../_shared/guest-list-email.ts";
 import { buildGuestListConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { recordSaleEmailSent, resendEmailId, saleEmailTags } from "../_shared/sale-email.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[PROMOTER-ADD-GUEST] ${step}`, details ? JSON.stringify(details) : "");
@@ -392,7 +393,9 @@ serve(async (req) => {
             hasAccount: !!linkedUserId,
           });
 
-          await fetch("https://api.resend.com/emails", {
+          // Tags relus par resend-webhook : un rebond (adresse mal saisie) se
+          // rattache à CETTE inscription et prévient le club / l'organisateur.
+          const res = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${RESEND_API_KEY}`,
@@ -403,10 +406,18 @@ serve(async (req) => {
               to: [normalizedEmail],
               subject: built.subject,
               html: built.html,
+              tags: saleEmailTags("guest_list", entryId),
             }),
+            signal: AbortSignal.timeout(10000),
           });
 
-          logStep("Invitation email sent", { to: normalizedEmail, hasAccount: !!linkedUserId });
+          if (res.ok) {
+            await recordSaleEmailSent(supabaseAdmin, "guest_list", entryId, normalizedEmail, await resendEmailId(res));
+            logStep("Invitation email sent", { to: normalizedEmail, hasAccount: !!linkedUserId });
+          } else {
+            const body = await res.text().catch(() => "");
+            logStep("Resend send failed", { to: normalizedEmail, status: res.status, body });
+          }
         } else {
           logStep("RESEND_API_KEY not set, skipping email");
         }
