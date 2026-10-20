@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { usePurchaseBehavior } from '@/hooks/usePurchaseBehavior';
 import { dateRangeToWindow, type DateRange } from '@/hooks/useAnalyticsData';
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
+import { ANCHOR_SCROLL_MARGIN } from '@/components/analytics/kitFormat';
 import { Heatmap } from '@/components/analytics/behaviorPrimitives';
 import {
   BASKET_BANDS, LEAD_BUCKETS, buildInsights, fmtEur, fmtLeadHours, fmtNum, fmtPctLocale,
@@ -63,7 +64,7 @@ function Card({ title, sub, icon, right, children, className = '' }: {
 
 function Zone({ id, icon, label, hint }: { id: string; icon: React.ReactNode; label: string; hint?: string }) {
   return (
-    <div id={id} className="px-1 pt-3" style={{ scrollMarginTop: 84 }}>
+    <div id={id} className="px-1 pt-3" style={{ scrollMarginTop: ANCHOR_SCROLL_MARGIN }}>
       <div className="flex items-center gap-2">
         <span style={{ color: T2 }}>{icon}</span>
         <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{label}</h3>

@@ -28,7 +28,8 @@ export default function OrgAppLayout() {
   return (
     <SidebarProvider>
       <OrgAppSidebar />
-      <SidebarInset style={{ background: 'var(--sf-000000)' }}>
+      {/* data-console-header : l'en-tête du layout est le seul collant (index.css). */}
+      <SidebarInset data-console-header="" style={{ background: 'var(--sf-000000)' }}>
         <OrgAppHeader />
         {/* Outil ouvert depuis la page d'une collaboration : chemin de retour. */}
         <CollabTrailBar />

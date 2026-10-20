@@ -25,6 +25,7 @@ import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
 import { AnalyticsEssentialView } from '@/components/analytics/AnalyticsEssentialView';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
+import { ANCHOR_SCROLL_MARGIN } from '@/components/analytics/kitFormat';
 import { DrinkAnalyticsSection } from '@/components/analytics/DrinkAnalyticsSection';
 import { DrinkOpsInsights } from '@/components/analytics/DrinkOpsInsights';
 import { VipTablesPillar } from '@/components/analytics/VipTablesPillar';
@@ -143,7 +144,7 @@ function Delta({ delta, vs }: { delta: number | null; vs?: string }) {
 // ─── Zone heading (IA section separator) ──────────────────────────────────────
 function ZoneHeading({ icon, label, id }: { icon: React.ReactNode; label: string; id?: string }) {
   return (
-    <div id={id} className="flex items-center gap-2 px-1" style={id ? { scrollMarginTop: 84 } : undefined}>
+    <div id={id} className="flex items-center gap-2 px-1" style={id ? { scrollMarginTop: ANCHOR_SCROLL_MARGIN } : undefined}>
       <span style={{ color: T2 }}>{icon}</span>
       <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{label}</h3>
     </div>

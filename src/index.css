@@ -225,6 +225,16 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Console dont le layout porte déjà un en-tête collant (Organisateur, Agence,
+   Affilié : `data-console-header` sur le main). Un seul en-tête colle : celui
+   d'une page partagée avec la Console Club redevient statique, et une barre
+   d'ancres se pose sous l'en-tête du layout (47 px, 51 px dès sm, + 3 px). */
+[data-console-header] .console-page-sticky { position: static; }
+[data-console-header] .console-subnav-sticky { top: 50px; }
+@media (min-width: 640px) {
+  [data-console-header] .console-subnav-sticky { top: 54px; }
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

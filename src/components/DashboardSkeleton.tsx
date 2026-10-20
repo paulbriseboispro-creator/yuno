@@ -103,7 +103,7 @@ export function OwnerPageSkeleton() {
   return (
     <div className="min-h-screen dashboard-gradient-bg pb-24">
       {/* OwnerHeader silhouette */}
-      <div className="sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
+      <div className="console-page-sticky sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
         <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-4">
           <div className="flex items-center gap-3">
             <Bone className="h-9 w-9 rounded-lg" />

@@ -933,7 +933,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   signé (replié), le fil avec le partenaire, l'objectif commun. */}
               {/* Sur mobile la colonne latérale passe DEVANT : le contrat signé et le fil
                   partenaire se lisent avant les chiffres, pas après vingt écrans. */}
-              <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-4">
+              <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-[84px]">
                 {isCollab && contractAccepted && !externalAgreement && (
                   <div id="collab-contract"><SplitContractBanner eventId={event.id} side={collabCanAct ? viewerRole : undefined} compact /></div>
                 )}

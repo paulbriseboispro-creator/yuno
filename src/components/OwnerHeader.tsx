@@ -35,7 +35,7 @@ export function OwnerHeader({
   const isOwnerMode = mode === 'owner';
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
+    <header className="console-page-sticky sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
       <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-4">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {showBackButton && (
