@@ -200,6 +200,7 @@ AS $function$
     SELECT DISTINCT ON (COALESCE(c.email, c.phone_e164)) c.*
       FROM public.imported_contacts c
      WHERE public.marketing_scope_match(c.venue_id, c.organizer_user_id, p_venue_id, p_organizer_user_id)
+       AND c.product IS NOT DISTINCT FROM (CASE WHEN p_product = 'crm' THEN 'crm' END)
      ORDER BY COALESCE(c.email, c.phone_e164),
               c.created_at DESC,
               ((c.phone_e164 IS NOT NULL)::int + (c.total_spent IS NOT NULL)::int + (c.event_count IS NOT NULL)::int
@@ -211,6 +212,7 @@ AS $function$
   ), eng AS (
     SELECT ce.* FROM public.contact_engagement ce
      WHERE public.marketing_scope_match(ce.venue_id, ce.organizer_user_id, p_venue_id, p_organizer_user_id)
+       AND ce.product IS NOT DISTINCT FROM (CASE WHEN p_product = 'crm' THEN 'crm' END)
   )
   SELECT
     COALESCE(i.id, md5('yuno:' || y.email)::uuid) AS id,
@@ -378,6 +380,7 @@ BEGIN
      WHERE NOT vc.unsubscribed
        AND vc.sms_consent_at > now() - interval '36 months'
        AND (public.marketing_scope_match(vc.venue_id, vc.organizer_user_id, p_venue_id, p_organizer_user_id))
+       AND vc.product IS NOT DISTINCT FROM (CASE WHEN p_product = 'crm' THEN 'crm' END)
   )
   SELECT b.*,
          (b.email IS NOT NULL AND oe.e IS NOT NULL AND s.e IS NULL) AS email_ok,
@@ -496,6 +499,7 @@ BEGIN
   DELETE FROM public.imported_contacts c
    WHERE ((p_venue_id IS NOT NULL AND c.venue_id = p_venue_id)
        OR (p_organizer_user_id IS NOT NULL AND c.organizer_user_id = p_organizer_user_id))
+     AND c.list_import_id IN (SELECT l.id FROM public.contact_list_imports l WHERE l.product = 'crm')
      AND lower(c.email) = ANY (v_emails);
 
   -- Un désabonnement reste : c'est la mémoire du refus.
@@ -503,12 +507,14 @@ BEGIN
    WHERE ((p_venue_id IS NOT NULL AND ns.venue_id = p_venue_id)
        OR (p_organizer_user_id IS NOT NULL AND ns.organizer_user_id = p_organizer_user_id))
      AND lower(ns.email) = ANY (v_emails)
+     AND ns.product = 'crm'
      AND ns.opted_in;
 
   DELETE FROM public.venue_sms_contacts vc
    WHERE ((p_venue_id IS NOT NULL AND vc.venue_id = p_venue_id)
        OR (p_organizer_user_id IS NOT NULL AND vc.organizer_user_id = p_organizer_user_id))
      AND lower(vc.email) = ANY (v_emails)
+     AND vc.product = 'crm'
      AND NOT vc.unsubscribed;
 
   -- Les ventes de la billetterie connectée gardent leur montant, sans identité.
@@ -550,6 +556,7 @@ BEGIN
    WHERE c.id = r.campaign_id
      AND c.venue_id IS NOT DISTINCT FROM p_venue_id
      AND c.organizer_id IS NOT DISTINCT FROM CASE WHEN p_venue_id IS NULL THEN p_organizer_user_id END
+     AND public.sms_campaign_is_crm(c.id)
      AND lower(r.email) = ANY (v_emails);
 
   -- Les envois passés restent comptés, sous une adresse qui ne désigne plus personne.
@@ -560,6 +567,7 @@ BEGIN
    WHERE c.id = r.campaign_id
      AND c.venue_id IS NOT DISTINCT FROM p_venue_id
      AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+     AND public.crm_campaign_is_crm(c.id)
      AND r.status NOT IN ('pending', 'sending')
      AND lower(r.email) = ANY (v_emails);
 
@@ -572,6 +580,7 @@ BEGIN
    WHERE c.id = ev.campaign_id
      AND c.venue_id IS NOT DISTINCT FROM p_venue_id
      AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
+     AND public.crm_campaign_is_crm(c.id)
      AND lower(ev.recipient_email) = ANY (v_emails);
 
   DELETE FROM public.contact_base_cache cb
@@ -640,6 +649,7 @@ BEGIN
          AND lower(s.email) = ANY (v_gone)
          AND s.opted_in
          AND COALESCE(s.source, '') LIKE 'connector:%'
+         AND s.product = 'crm'
       RETURNING s.email, s.user_id
     )
     INSERT INTO public.marketing_consent_events
@@ -656,11 +666,12 @@ BEGIN
          OR (c.venue_id IS NULL AND s.organizer_user_id = c.organizer_user_id))
        AND lower(s.email) = ANY (v_gone)
        AND COALESCE(s.source, '') LIKE 'connector:%'
+       AND s.product = 'crm'
        AND (s.first_name IS NOT NULL OR s.last_name IS NOT NULL);
 
     -- Repoussoir : jamais réinscrite par un import, la synchro ou une page.
-    INSERT INTO public.email_opt_outs (venue_id, organizer_user_id, email, reason, opted_out_at)
-    SELECT c.venue_id, v_org, g.em, 'erased', now() FROM unnest(v_gone) g(em)
+    INSERT INTO public.email_opt_outs (venue_id, organizer_user_id, product, email, reason, opted_out_at)
+    SELECT c.venue_id, v_org, 'crm', g.em, 'erased', now() FROM unnest(v_gone) g(em)
     ON CONFLICT DO NOTHING;
 
     DELETE FROM public.contact_base_cache cb
@@ -745,6 +756,7 @@ BEGIN
          AND lower(s.email) = ANY (v_emails)
          AND s.opted_in
          AND COALESCE(s.source, '') = 'connector:' || c.provider
+         AND s.product = 'crm'
          AND NOT EXISTS (SELECT 1 FROM public.external_tickets t
                           WHERE t.connection_id = p_connection_id AND t.buyer_email = lower(s.email))
       RETURNING s.email, s.user_id
@@ -983,14 +995,17 @@ BEGIN
        ORDER BY lower(t.buyer_email), t.purchased_at DESC NULLS LAST
     )
     INSERT INTO public.newsletter_subscriptions
-      (venue_id, email, opted_in, source, consent_source, consent_recorded_at, first_name, last_name)
-    SELECT c.venue_id, cd.em, true, 'connector:' || c.provider, 'ticketing', cd.at, cd.fn, cd.ln
+      (venue_id, email, opted_in, source, consent_source, consent_recorded_at, first_name, last_name, product)
+    SELECT c.venue_id, cd.em, true, 'connector:' || c.provider, 'ticketing', cd.at, cd.fn, cd.ln, 'crm'
       FROM cand cd
       JOIN last_sig l ON l.em = cd.em AND l.opt IS TRUE
      WHERE NOT EXISTS (SELECT 1 FROM public.email_suppressions s WHERE lower(s.email) = cd.em)
        AND NOT EXISTS (SELECT 1 FROM public.email_opt_outs o
-                        WHERE o.venue_id = c.venue_id AND lower(o.email) = cd.em)
-    ON CONFLICT (lower(email), venue_id) WHERE venue_id IS NOT NULL DO NOTHING;
+                        WHERE o.venue_id = c.venue_id AND o.product = 'crm' AND lower(o.email) = cd.em)
+       -- Un « stop » explicite donné dans l'autre outil du pro (Yuno Tickets) vaut pour le CRM : jamais d'accord neuf par-dessus.
+       AND NOT EXISTS (SELECT 1 FROM public.newsletter_subscriptions st
+                        WHERE st.venue_id = c.venue_id AND lower(st.email) = cd.em AND st.opted_out_at IS NOT NULL)
+    ON CONFLICT (lower(email), venue_id, product) WHERE venue_id IS NOT NULL DO NOTHING;
     GET DIAGNOSTICS v_consent = ROW_COUNT;
   ELSIF c.organizer_user_id IS NOT NULL THEN
     WITH last_sig AS (
@@ -1017,14 +1032,16 @@ BEGIN
        ORDER BY lower(t.buyer_email), t.purchased_at DESC NULLS LAST
     )
     INSERT INTO public.newsletter_subscriptions
-      (organizer_user_id, email, opted_in, source, consent_source, consent_recorded_at, first_name, last_name)
-    SELECT c.organizer_user_id, cd.em, true, 'connector:' || c.provider, 'ticketing', cd.at, cd.fn, cd.ln
+      (organizer_user_id, email, opted_in, source, consent_source, consent_recorded_at, first_name, last_name, product)
+    SELECT c.organizer_user_id, cd.em, true, 'connector:' || c.provider, 'ticketing', cd.at, cd.fn, cd.ln, 'crm'
       FROM cand cd
       JOIN last_sig l ON l.em = cd.em AND l.opt IS TRUE
      WHERE NOT EXISTS (SELECT 1 FROM public.email_suppressions s WHERE lower(s.email) = cd.em)
        AND NOT EXISTS (SELECT 1 FROM public.email_opt_outs o
-                        WHERE o.organizer_user_id = c.organizer_user_id AND lower(o.email) = cd.em)
-    ON CONFLICT (lower(email), organizer_user_id) WHERE organizer_user_id IS NOT NULL DO NOTHING;
+                        WHERE o.organizer_user_id = c.organizer_user_id AND o.product = 'crm' AND lower(o.email) = cd.em)
+       AND NOT EXISTS (SELECT 1 FROM public.newsletter_subscriptions st
+                        WHERE st.organizer_user_id = c.organizer_user_id AND lower(st.email) = cd.em AND st.opted_out_at IS NOT NULL)
+    ON CONFLICT (lower(email), organizer_user_id, product) WHERE organizer_user_id IS NOT NULL DO NOTHING;
     GET DIAGNOSTICS v_consent = ROW_COUNT;
   END IF;
 
@@ -1053,6 +1070,7 @@ BEGIN
          OR (c.venue_id IS NULL AND c.organizer_user_id IS NOT NULL AND s.organizer_user_id = c.organizer_user_id))
        AND s.opted_in AND s.opted_out_at IS NULL
        AND COALESCE(s.source, '') LIKE 'connector:%'
+       AND s.product = 'crm'
        AND (s.consent_recorded_at IS NULL OR g.at IS NULL OR g.at > s.consent_recorded_at)
     RETURNING s.email, s.user_id
   ),
@@ -1448,6 +1466,7 @@ BEGIN
     SELECT ec.id FROM public.email_campaigns ec
      WHERE ec.status IN ('sent', 'sending') AND ec.sent_at IS NOT NULL
        AND ec.sent_at <= v_at AND ec.sent_at > v_at - interval '12 months'
+       AND public.crm_campaign_is_crm(ec.id)
        AND ec.venue_id IS NOT DISTINCT FROM p_venue_id
        AND ec.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
   ), r AS (
@@ -2200,7 +2219,8 @@ $function$;
 REVOKE ALL ON FUNCTION public._crm_admin_rows(boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._crm_admin_rows(boolean) TO service_role;
 
-CREATE OR REPLACE FUNCTION public.refresh_contact_engagement(p_venue_id text, p_organizer_user_id uuid)
+DROP FUNCTION IF EXISTS public.refresh_contact_engagement(text, uuid);
+CREATE OR REPLACE FUNCTION public.refresh_contact_engagement(p_venue_id text, p_organizer_user_id uuid, p_product text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -2208,7 +2228,10 @@ CREATE OR REPLACE FUNCTION public.refresh_contact_engagement(p_venue_id text, p_
 AS $function$
 DECLARE
   v_t0 timestamptz := clock_timestamp();
-  v_key text := COALESCE('v:' || p_venue_id, 'o:' || p_organizer_user_id::text, 'p');
+  -- Produit mesuré : explicite ('crm' ou NULL = Billetterie) ; sur un compte CRM PUR, NULL se lit 'crm'
+  -- (le compte n'a qu'un produit, comme _separation_default_product).
+  v_crm boolean := COALESCE(COALESCE(p_product, CASE WHEN public.crm_scope_is_crm(public.crm_scope_key(p_venue_id, p_organizer_user_id)) THEN 'crm' END) = 'crm', false);
+  v_key text := COALESCE('v:' || p_venue_id, 'o:' || p_organizer_user_id::text, 'p') || CASE WHEN v_crm THEN '|crm' ELSE '' END;
   v_n integer := 0;
   v_changed integer := 0;
   v_linked integer := 0;
@@ -2221,11 +2244,20 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
   END IF;
 
+  -- Un produit absent du compte n'a pas d'engagement : rien à mesurer, rien à garder.
+  IF (v_crm AND NOT COALESCE(public.crm_scope_has_crm(public.crm_scope_key(p_venue_id, p_organizer_user_id)), false))
+     OR (NOT v_crm AND COALESCE(public.crm_scope_is_crm(public.crm_scope_key(p_venue_id, p_organizer_user_id)), false)) THEN
+    DELETE FROM public.contact_engagement ce WHERE ce.scope_key = v_key;
+    DELETE FROM public.contact_engagement_state s WHERE s.scope_key = v_key;
+    RETURN jsonb_build_object('contacts', 0, 'product_absent', true, 'refreshed_at', now());
+  END IF;
+
   UPDATE public.newsletter_subscriptions ns
      SET user_id = u.id
     FROM auth.users u
     JOIN public.profiles p ON p.id = u.id
    WHERE public.marketing_scope_match(ns.venue_id, ns.organizer_user_id, p_venue_id, p_organizer_user_id)
+     AND ns.product IS NOT DISTINCT FROM (CASE WHEN v_crm THEN 'crm' END)
      AND ns.user_id IS NULL
      AND u.deleted_at IS NULL
      AND u.email IS NOT NULL
@@ -2237,6 +2269,7 @@ BEGIN
   WITH camp AS (
     SELECT ec.id FROM public.email_campaigns ec
      WHERE public.marketing_scope_match(ec.venue_id, ec.organizer_user_id, p_venue_id, p_organizer_user_id)
+       AND public.crm_campaign_is_crm(ec.id) = v_crm
   ), rec AS (
     SELECT lower(r.email) AS em,
            count(*) FILTER (WHERE r.status IN ('sent', 'bounced', 'complained')) AS sent_n,
@@ -2276,15 +2309,19 @@ BEGIN
            bool_or(ns.import_id IS NULL AND COALESCE(ns.source, '') NOT LIKE '%import%') AS from_yuno
       FROM public.newsletter_subscriptions ns
      WHERE public.marketing_scope_match(ns.venue_id, ns.organizer_user_id, p_venue_id, p_organizer_user_id)
+       AND ns.product IS NOT DISTINCT FROM (CASE WHEN v_crm THEN 'crm' END)
      GROUP BY lower(ns.email)
   ), imp AS (
     SELECT DISTINCT ic.email AS em
       FROM public.imported_contacts ic
      WHERE public.marketing_scope_match(ic.venue_id, ic.organizer_user_id, p_venue_id, p_organizer_user_id)
        AND ic.email IS NOT NULL
+       -- Fichiers importés : ceux du produit mesuré (le produit d'un contact = celui de sa liste, agent C).
+       AND EXISTS (SELECT 1 FROM public.contact_list_imports li
+                    WHERE li.id = ic.list_import_id AND li.product IS NOT DISTINCT FROM (CASE WHEN v_crm THEN 'crm' END))
   ), yc AS (
     SELECT y.email AS em, y.user_id AS uid
-      FROM public.contact_scope_customers(p_venue_id, p_organizer_user_id, 'crm') y
+      FROM public.contact_scope_customers(p_venue_id, p_organizer_user_id, CASE WHEN v_crm THEN 'crm' ELSE 'suite' END) y
   ), sup AS (
     SELECT DISTINCT lower(s.email) AS em FROM public.email_suppressions s
   ), universe AS (
@@ -2345,10 +2382,10 @@ BEGIN
    WHERE o.status <> n.status;
 
   INSERT INTO public.contact_engagement AS ce
-    (venue_id, organizer_user_id, email, user_id, origin, emails_sent, emails_delivered, opens, clicks, click_events,
+    (venue_id, organizer_user_id, product, email, user_id, origin, emails_sent, emails_delivered, opens, clicks, click_events,
      opens_90d, clicks_90d, first_sent_at, last_sent_at, last_opened_at, last_clicked_at, bounced_at, complained_at,
      unsubscribed_at, suppressed, subscribed, status, status_changed_at, updated_at)
-  SELECT p_venue_id, p_organizer_user_id, n.em, n.uid, n.origin, n.emails_sent, n.emails_delivered, n.opens, n.clicks, n.click_events,
+  SELECT p_venue_id, p_organizer_user_id, CASE WHEN v_crm THEN 'crm' END, n.em, n.uid, n.origin, n.emails_sent, n.emails_delivered, n.opens, n.clicks, n.click_events,
          n.opens_90d, n.clicks_90d, n.first_sent_at, n.last_sent_at, n.last_opened_at, n.last_clicked_at, n.bounced_at, n.complained_at,
          n.unsubscribed_at, n.suppressed, n.subscribed, n.status, now(), now()
     FROM _eng n
@@ -2412,8 +2449,8 @@ BEGIN
   RETURN COALESCE(v_summary, '{}'::jsonb) || jsonb_build_object('refreshed_at', now());
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.refresh_contact_engagement(text, uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.refresh_contact_engagement(text, uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.refresh_contact_engagement(text, uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.refresh_contact_engagement(text, uuid, text) TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.count_contact_segment_def(p_venue_id text, p_organizer_user_id uuid, p_definition jsonb, p_product text DEFAULT 'suite')
  RETURNS jsonb
