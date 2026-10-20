@@ -15776,6 +15776,9 @@ const fr: Record<string, string> = {
   'notif.type.admin_security_self_organizer': "Sécurité : comptes organisateur à vérifier",
   'auth.proSignupPrompt': "Vous gérez un club ou des soirées ?",
   'auth.proSignupCta': "Créer un compte pro",
+  // Vue connexion (Poupée, 19/10/2026) : un pro qui a déjà un compte se connecte ICI.
+  'auth.proLoginHint': "Club ou organisateur déjà inscrit ? Connectez-vous ici, avec l'e-mail de votre compte pro.",
+  'auth.proSignupPromptNew': "Pas encore de compte pro ?",
 
   // ── Chiffres de vente des soirées + kit d'analyse (2026-09-24) ──
   'ak.takeaways': "À retenir",

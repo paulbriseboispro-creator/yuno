@@ -16145,6 +16145,9 @@ const es: Record<string, string> = {
   'notif.type.admin_security_self_organizer': "Seguridad: cuentas de organizador por revisar",
   'auth.proSignupPrompt': "¿Gestionas un club o eventos?",
   'auth.proSignupCta': "Crear una cuenta pro",
+  // Vista de inicio de sesión (Poupée, 19/10/2026): un pro con cuenta entra AQUÍ.
+  'auth.proLoginHint': "¿Club u organizador ya registrado? Inicia sesión aquí, con el email de tu cuenta pro.",
+  'auth.proSignupPromptNew': "¿Aún no tienes cuenta pro?",
 
   // ── Chiffres de vente des soirées + kit d'analyse (2026-09-24) ──
   'ak.takeaways': "Lo esencial",

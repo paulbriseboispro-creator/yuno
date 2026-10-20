@@ -15803,6 +15803,9 @@ const en: Record<string, string> = {
   'notif.type.admin_security_self_organizer': "Security: organizer accounts to check",
   'auth.proSignupPrompt': "Run a club or events?",
   'auth.proSignupCta': "Create a pro account",
+  // Login view (Poupée, 19/10/2026): a pro who already has an account logs in HERE.
+  'auth.proLoginHint': "Club or organizer already on Yuno? Log in here, with the email of your pro account.",
+  'auth.proSignupPromptNew': "No pro account yet?",
 
   // ── Chiffres de vente des soirées + kit d'analyse (2026-09-24) ──
   'ak.takeaways': "Key takeaways",
