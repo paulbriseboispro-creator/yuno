@@ -1260,6 +1260,7 @@ const fr: Record<string, string> = {
   'notif.type.admin_table_email_bounced': "E-mail de table VIP non livré",
   'notif.type.admin_guest_list_email_bounced': "E-mail de guest list non livré",
   'notif.type.admin_refund_failed': 'Remboursement Stripe refusé',
+  'notif.type.admin_invoice_failed': 'Vente payée sans facture',
   'notif.type.admin_payment_disputed': 'Litige bancaire sur une vente',
   'notif.type.admin_indirect_charge_refused': 'Vente refusée : contrat en partage Stripe',
   'notif.type.admin_collab_late_sale': "Vente payée après le décompte d'une co-soirée",

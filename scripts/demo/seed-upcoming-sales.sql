@@ -21,8 +21,8 @@
 --      jours avec une courbe qui accélère vers la date, et une part achetée
 --      AUJOURD'HUI ;
 --   3. émet une facture par vente (`/owner/accounting` lit `invoices`), au
---      numéro `YUNO-…` propre à la démo — jamais par `invoice_numbers`, dont
---      la numérotation est partagée par tous les vendeurs (cf. l'en-tête de
+--      numéro `YUNO-…` propre à la démo — jamais par `invoice_numbers`, qui
+--      tient la suite légale de chaque vendeur (cf. l'en-tête de
 --      `seed-past-nights.sql`).
 --
 -- Aucune commande au bar : le pilier boissons est en pause depuis le

@@ -190,6 +190,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_table_email_bounced:     { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_table_email_bounced' },
   admin_guest_list_email_bounced: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_guest_list_email_bounced' },
   admin_refund_failed:           { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_refund_failed' },
+  admin_invoice_failed:          { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_invoice_failed' },
   admin_payment_disputed:        { icon: ShieldAlert, category: 'billing',  label: 'notif.type.admin_payment_disputed' },
   admin_indirect_charge_refused: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_indirect_charge_refused' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
@@ -696,6 +697,7 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_table_email_bounced':
     case 'admin_guest_list_email_bounced':
     case 'admin_refund_failed':
+    case 'admin_invoice_failed':
     case 'admin_payment_disputed':
       return '/admin/orders';
 

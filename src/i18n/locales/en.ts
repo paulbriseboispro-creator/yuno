@@ -1225,6 +1225,7 @@ const en: Record<string, string> = {
   'notif.type.admin_table_email_bounced': "Table booking email not delivered",
   'notif.type.admin_guest_list_email_bounced': "Guest list email not delivered",
   'notif.type.admin_refund_failed': 'Stripe refund refused',
+  'notif.type.admin_invoice_failed': 'Paid sale without an invoice',
   'notif.type.admin_payment_disputed': 'Bank dispute on a sale',
   'notif.type.admin_indirect_charge_refused': 'Sale refused: agreement uses a Stripe split',
   'notif.type.admin_collab_late_sale': 'Co-event sale paid after the closing',

@@ -8,6 +8,7 @@ import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { issueSaleInvoice } from "../_shared/sale-invoice.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -245,26 +246,16 @@ serve(async (req) => {
         logStep("SMS consent recorded", { reservationId });
       }
 
-      // Create invoice (works for solo + co-events of all kinds)
+      // Facture (soirée seule ou co-soirée) : numéro attribué par la base, une
+      // suite par vendeur. Un échec n'arrête pas la vente mais lève une alerte.
       if (resolvedVenueId || resolvedOrganizerId) {
-        try {
-          const { data: invoiceNumber } = await supabaseAdmin.rpc('generate_invoice_number', {
-            p_venue_id: resolvedVenueId,
-            p_organizer_user_id: resolvedOrganizerId,
-          });
-          if (invoiceNumber) {
-            await supabaseAdmin
-              .from('invoice_numbers')
-              .insert({
-                venue_id: resolvedVenueId,
-                organizer_user_id: resolvedOrganizerId,
-                table_reservation_id: reservationId,
-                invoice_number: invoiceNumber,
-              });
-            logStep("Invoice created for table reservation", { invoiceNumber, reservationId, resolvedVenueId, resolvedOrganizerId });
-          }
-        } catch (invoiceError) {
-          console.error('Error creating invoice:', invoiceError);
+        const invoiceNumber = await issueSaleInvoice(
+          supabaseAdmin,
+          { kind: 'table', id: reservationId, eventId: reservation.event_id },
+          'verify-table-payment',
+        );
+        if (invoiceNumber) {
+          logStep("Invoice created for table reservation", { invoiceNumber, reservationId, resolvedVenueId, resolvedOrganizerId });
         }
       }
 

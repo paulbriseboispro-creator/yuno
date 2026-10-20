@@ -5,6 +5,7 @@ import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { issueSaleInvoice } from "../_shared/sale-invoice.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -201,44 +202,17 @@ serve(async (req) => {
         ctx: analyticsContextFromStripeMetadata(session.metadata as Record<string, string> | null),
       });
 
-      // Create invoice — resolve ownership for co-events (venue OR organizer)
-      try {
-        let resolvedVenueId: string | null = order.venue_id ?? null;
-        let resolvedOrganizerId: string | null = null;
-
-        if (order.event_id) {
-          const { data: ev } = await supabaseAdmin
-            .from('events')
-            .select('venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
-            .eq('id', order.event_id)
-            .maybeSingle();
-          if (ev) {
-            resolvedVenueId = resolvedVenueId ?? ev.venue_id ?? ev.partner_venue_id ?? null;
-            resolvedOrganizerId = ev.organizer_user_id ?? ev.partner_organizer_id ?? null;
-          }
+      // Facture : la base résout le vendeur (le club du bar) et attribue le
+      // numéro de sa suite. Un échec n'arrête pas la vente mais lève une alerte.
+      {
+        const invoiceNumber = await issueSaleInvoice(
+          supabaseAdmin,
+          { kind: 'order', id: orderId, eventId: order.event_id ?? null },
+          'verify-payment',
+        );
+        if (invoiceNumber) {
+          logStep("Invoice created", { invoiceNumber, orderId });
         }
-
-        if (resolvedVenueId || resolvedOrganizerId) {
-          const { data: invoiceNumber } = await supabaseAdmin.rpc('generate_invoice_number', {
-            p_venue_id: resolvedVenueId,
-            p_organizer_user_id: resolvedOrganizerId,
-          });
-
-          if (invoiceNumber) {
-            await supabaseAdmin
-              .from('invoice_numbers')
-              .insert({
-                venue_id: resolvedVenueId,
-                organizer_user_id: resolvedOrganizerId,
-                order_id: orderId,
-                invoice_number: invoiceNumber,
-              });
-
-            logStep("Invoice created", { invoiceNumber, resolvedVenueId, resolvedOrganizerId });
-          }
-        }
-      } catch (invoiceError) {
-        console.error('Error creating invoice:', invoiceError);
       }
 
       // Create or update venue customer + award loyalty points

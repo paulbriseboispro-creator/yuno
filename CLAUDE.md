@@ -3142,9 +3142,8 @@ billet » quand le tableau en montrait 84). Règles :
   l'ordre passées → à venir → `seed-event-funnel.sql`, un à la fois
   (`scripts/demo/README.md`). Depuis le 20/10 : aucune commande au bar
   (pilier en pause, semis éteint par `v_with_bar`), factures écrites dans
-  `invoices` au préfixe `YUNO-` (JAMAIS par `invoice_numbers` : sa
-  numérotation est unique sur toute la base mais comptée par vendeur avec un
-  préfixe commun), conversions promoteur nées à commission nulle (une
+  `invoices` au préfixe `YUNO-` (JAMAIS par `invoice_numbers` : une facture
+  semée y prendrait un rang dans la suite légale du vendeur), conversions promoteur nées à commission nulle (une
   commission à l'insertion met un push en file, que la file ne filtre pas
   pour la démo).
 - **Migration sans CLI** : `POST https://api.supabase.com/v1/projects/<ref>/database/query`
@@ -3340,6 +3339,47 @@ Stripe accepte d'une plateforme qui n'a pas signé l'engagement de pertes. Contr
   commissions (charges directes). État live au 29/09 : 0 compte connecté,
   endpoints « Yuno live » (`@self`) et « Connected accounts » (`@accounts`,
   5 événements, snapshot, clover) actifs.
+
+## Factures — une suite continue PAR VENDEUR, attribuée par la base (2026-10-20)
+
+Migration `20261106410000`, edge `_shared/sale-invoice.ts` (testé). Avant, le
+numéro (`<préfixe>-<année>-<compte du vendeur>`) était unique sur TOUTE la base
+alors que les préfixes par défaut sont partagés (`FAC` club, `ORG` organisateur) :
+le 2e vendeur d'un préfixe tombait après dix collisions, le try/catch des
+`verify-*` avalait l'erreur, la vente restait sans facture. Aucune vente réelle
+perdue (Amoris seul vendeur réel au 20/10). Règles :
+
+- **Le numéro est attribué par le trigger `assign_invoice_number`** (BEFORE
+  INSERT sur `invoice_numbers`) : vendeur résolu sur la vente, verrou par
+  (vendeur, année de Paris), `max(invoice_seq) + 1`, dans la transaction de la
+  ligne : continu, sans trou ni doublon. Le numéro fourni par l'appelant est
+  IGNORÉ. Ne jamais fabriquer un numéro ailleurs (edge, front, script) ; la page
+  de confirmation lit le numéro émis, sinon la référence TK-/VP-, jamais un
+  faux `FAC-…`. `generate_invoice_number` n'est plus qu'un aperçu
+  (service_role seul).
+- **Le vendeur (`seller_kind` = `venue` | `organizer`) = la règle du reçu et de
+  la TVA** (`_invoice_seller_kind`, miroir de `get_event_seller` et de
+  `save_invoice_on_creation`) : l'organisateur s'il vend seul ou encaisse un
+  collab réglé par virement (`collab_split`), sinon le club ; une commande du bar
+  est au club. Unicité (vendeur, numéro) et (vendeur, année, rang), une facture
+  par vente ; le préfixe n'est qu'une étiquette (un changement de préfixe en
+  cours d'année garde le rang). Même clé côté `invoices` (les lignes `YUNO-` de
+  la démo, sans vendeur, gardent l'ancienne unicité).
+- **Un numéro émis ne change jamais** (`guard_invoice_number_immutable` ; seul
+  `SET LOCAL yuno.invoice_renumber_unlock = 'on'` le lève). Le transfert d'un
+  organisateur vitrine (`handoff_showcase_organizer`) déplace sa suite avec lui ;
+  si le nouveau compte a déjà des factures la même année, il échoue (bruyant,
+  jamais deux numéros identiques chez un vendeur).
+- **Émettre = `issue_sale_invoice(ticket | table | order)`** (service_role,
+  idempotente, refuse une vente impayée ou une table réglée sur place), appelée
+  par `issueSaleInvoice` dans les trois `verify-*`. Un échec n'arrête pas la
+  vente mais ne se tait plus : alerte `admin_invoice_failed`
+  (`invoice_failed:<vente>`), et le cron horaire `issue-missing-invoices`
+  (`issue_missing_invoices()`, ventes Stripe réelles des 90 derniers jours, démo
+  exclue) rattrape, avec la même clé d'alerte s'il échoue encore.
+- `save_invoice_on_creation` n'a plus d'`ON CONFLICT DO NOTHING` : une facture
+  qui ne peut pas s'écrire fait échouer l'émission (donc l'alerte), jamais un
+  numéro sans ligne `invoices` que la Compta ne verrait pas.
 
 ## Remboursement d'une vente — une règle, un verrou, des effets uniques (2026-09-30)
 
