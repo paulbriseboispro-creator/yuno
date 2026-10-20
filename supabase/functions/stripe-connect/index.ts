@@ -149,7 +149,7 @@ serve(async (req) => {
     // Any venueId coming from the request body MUST belong to the caller. Every
     // owner branch below runs via service_role (RLS bypassed), so without this an
     // attacker could pass another club's id and either mint a Stripe login link to
-    // that club's Express dashboard (balance / payouts / bank account) or
+    // that club's Stripe dashboard (balance / payouts / bank account) or
     // create/overwrite its connected account and hijack all future payouts.
     // Self-resolved paths (owner_id / profiles.venue_id lookups) are already
     // caller-scoped, so we only gate the body-supplied id.
@@ -524,9 +524,10 @@ serve(async (req) => {
 
     // ─────────────────────────────────────────────────────────────────────────
     // action: "dashboard"  (← stripe-connect-dashboard)
-    // Formulaire pas fini → on renvoie au formulaire. Sinon : lien de connexion
-    // Express, ou dashboard.stripe.com pour un compte au tableau de bord complet
-    // (tous les comptes v2 de Yuno : le pro s'y connecte avec SES identifiants).
+    // Formulaire pas fini → on renvoie au formulaire. Sinon : dashboard.stripe.com
+    // (tous les comptes de Yuno ont le tableau de bord complet : le pro s'y
+    // connecte avec SES identifiants Stripe), ou un lien de connexion pour un
+    // ancien compte Express s'il en existe un.
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "dashboard") {
       const actorType: string = body.actor_type || "owner";
