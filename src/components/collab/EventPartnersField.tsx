@@ -81,7 +81,10 @@ export function EventPartnersField({
   };
   const setRole = (key: string, role: InviteRole) =>
     onChange(drafts.map((d) => (partnerDraftKey(d) === key ? { ...d, role } : d)));
-  const patchGuest = (key: string, patch: { guestLang?: GuestSpaceLanguage; guestRevenue?: boolean; guestPlaces?: number }) =>
+  const patchGuest = (key: string, patch: {
+    guestLang?: GuestSpaceLanguage; guestRevenue?: boolean; guestPlaces?: number;
+    guestContract?: { tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30 } | null;
+  }) =>
     onChange(drafts.map((d) => (partnerDraftKey(d) === key && d.source === 'email' ? { ...d, ...patch } : d)));
   const remove = (key: string) => onChange(drafts.filter((d) => partnerDraftKey(d) !== key));
 
@@ -183,6 +186,31 @@ export function EventPartnersField({
                   <Switch checked={d.guestRevenue !== false} onCheckedChange={(v) => patchGuest(key, { guestRevenue: v })} />
                   {gw('guestSpace.org.showRevenue')}
                 </label>
+                <div className="flex items-center gap-2">
+                  <span style={{ color: T3, fontSize: 11.5 }}>{gw('guestSpace.org.contract')}</span>
+                  <OrgTabs size="sm" value={d.guestContract ? 'on' : 'off'}
+                    onChange={(v) => patchGuest(key, { guestContract: v === 'on' ? { tickets_pct: 20, tables_pct: 10, payment_terms_days: 15 } : null })}
+                    tabs={[{ value: 'off', label: gw('guestSpace.org.contractOff') }, { value: 'on', label: gw('guestSpace.org.modeContract') }]} />
+                </div>
+                {d.guestContract && (
+                  <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2">
+                    {(['tickets_pct', 'tables_pct'] as const).map((k) => (
+                      <label key={k} className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
+                        {gw(k === 'tickets_pct' ? 'guestSpace.org.ticketsPct' : 'guestSpace.org.tablesPct')}
+                        <input type="number" min={0} max={100} inputMode="numeric" value={d.guestContract![k]}
+                          onChange={(e) => patchGuest(key, { guestContract: { ...d.guestContract!, [k]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) } })}
+                          className="w-16 rounded-lg px-2 py-1 tabular-nums" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }} />
+                      </label>
+                    ))}
+                    <div className="flex items-center gap-2">
+                      <span style={{ color: T3, fontSize: 11.5 }}>{gw('guestSpace.org.payTerms')}</span>
+                      <OrgTabs size="sm" value={String(d.guestContract.payment_terms_days)}
+                        onChange={(v) => patchGuest(key, { guestContract: { ...d.guestContract!, payment_terms_days: Number(v) as 7 | 15 | 30 } })}
+                        tabs={[7, 15, 30].map((n) => ({ value: String(n), label: gw('guestSpace.org.days', { n }) }))} />
+                    </div>
+                    <p className="w-full" style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>{gw('guestSpace.org.contractOnHint')}</p>
+                  </div>
+                )}
               </div>
             )}
             {d.role === 'principal' && (

@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { inviteCohostByEmail, inviteEventCohost, coorgErrorCode, type PrincipalTerms } from '@/lib/coorg';
 import { clubEmailInviteRules, type PartnerDraft } from '@/lib/collabInvite';
 import { capturePosthog } from '@/lib/posthog';
-import { createGuestPass, guestErrorCode, sendGuestPassEmail } from '@/lib/guestSpace';
+import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEmail } from '@/lib/guestSpace';
 
 /**
  * Envoie les invitations choisies dans « Avec qui ? », une fois la soirée
@@ -40,7 +40,13 @@ export async function sendPartnerInvites(p: {
           language: d.guestLang ?? p.lang, showRevenue: d.guestRevenue !== false, places: d.guestPlaces || null,
         });
         sent += 1;
-        capturePosthog('guest_space_created', { event_id: p.eventId, guest_kind: d.kind, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email' });
+        // Le contrat avant l'email : l'email dit alors qu'un contrat attend sa signature.
+        if (d.guestContract) {
+          try {
+            await proposeGuestContract(pass.id, { ...d.guestContract, bar_to_guest: d.kind === 'venue', note: null });
+          } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
+        }
+        capturePosthog('guest_space_created', { event_id: p.eventId, guest_kind: d.kind, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email', contract: !!d.guestContract });
         try { await sendGuestPassEmail(pass.id); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
       } catch (err) {
         errors.push({ name: d.name || d.email, code: guestErrorCode(err) });

@@ -34,8 +34,10 @@ export type PartnerDraft =
   | { source: 'yuno'; kind: PartyKindLite; id: string; name: string; avatar_url: string | null; city: string | null; role: InviteRole }
   | {
     source: 'email'; kind: PartyKindLite; email: string; name: string; role: InviteRole;
-    /** Espace invité : langue, montants montrés (défaut oui), places de guest list données. */
+    /** Espace invité : langue, montants montrés (défaut oui), places de guest list données,
+     *  et un contrat à signer (facultatif, indépendant des montants). */
     guestLang?: 'en' | 'fr' | 'es'; guestRevenue?: boolean; guestPlaces?: number;
+    guestContract?: { tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30 } | null;
   };
 
 /** Un invité avant qu'on lui donne un rôle (l'Omit distribué sur l'union). */
