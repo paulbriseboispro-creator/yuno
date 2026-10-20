@@ -46,7 +46,7 @@ function PromoterLayoutInner() {
   return (
     <SidebarProvider>
       <PromoterAppSidebar />
-      <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
+      <SidebarInset style={{ background: 'var(--sf-000000)' }}>
         <RoleIntroGate role="promoter" />
         <Outlet />
       </SidebarInset>

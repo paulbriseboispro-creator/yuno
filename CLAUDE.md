@@ -399,6 +399,28 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `OLD.instagram_clicks` et fige le compteur à zéro. Et la persistance du
   line-up invité se fait par DIFF, jamais par delete+insert comme `event_djs` :
   chaque ligne porte son compteur.
+- **Le `main` de la Console ne défile jamais** (2026-10-20). `SidebarInset`
+  (`src/components/ui/sidebar.tsx`) porte `min-w-0 overflow-x-clip`, et aucun
+  layout ne lui remet un `overflow-*` : un `overflow-y-auto` / `hidden` en fait
+  un conteneur de défilement qui ne défile pas (c'est la page qui défile), et
+  il captait tous les `sticky` — les en-têtes partaient avec la page depuis le
+  premier commit (avec `body` en `overflow-x: hidden`, PR #18). Conséquences :
+  un contenu large (tableau, calendrier, grille horaire, barre d'onglets) porte
+  SON `overflow-x-auto` ; une racine de page centrée (`mx-auto max-w-*`) porte
+  `w-full` (`OrgPage` le fait) — dans le `main` en flex, sans elle, elle se
+  dimensionne à son contenu et s'élargit ; une rangée d'en-tête de page passe à
+  la ligne (`flex-wrap`) ou envoie ses actions dans le corps sous `lg`
+  (Clients, Comptabilité) plutôt que de pousser le menu du compte hors écran.
+  **Un seul en-tête collant par Console** : Organisateur, Agence et Affilié
+  ont celui du layout (47 px, 51 px dès sm) et posent `data-console-header`
+  sur le main ; un en-tête de page partagé avec la Console Club (`OwnerHeader`,
+  `PromoHeader`, bandeaux des réglages) porte `console-page-sticky` et y
+  redevient statique, une barre d'ancres porte `console-subnav-sticky`
+  (règles dans `index.css`) — sinon les deux se collent au même endroit et
+  celui de la page recouvre le menu de la Console. Un élément collant sous
+  l'en-tête se pose sous sa hauteur (OwnerHeader 57 / 65 px : `top-[84px]`
+  pour une colonne latérale), et une cible d'ancre d'Analytics garde
+  `ANCHOR_SCROLL_MARGIN` (`kitFormat.ts`).
 - **Dashboards pro = thème sombre ET clair** (2026-09-24, `docs/DESIGN_SYSTEM.md`
   §17). Réglage « Apparence » (Clair / Sombre — pas de « Système », retiré le
   24/09 : le sombre est le défaut) au pied de chaque barre latérale pro + icône
@@ -3165,7 +3187,14 @@ billet » quand le tableau en montrait 84). Règles :
 - **Démo, soirées PASSÉES** : `scripts/demo/seed-past-nights.sql` (rejouable,
   45 derniers jours, borné à `demo_event_ids()`) sème ventes et entrées des
   soirées passées — sans lui Ventes et « Tes 4 dernières soirées » sont vides.
-  Le relancer quand les dates passent, comme `seed-upcoming-sales.sql`.
+  Le relancer quand les dates passent, comme `seed-upcoming-sales.sql`, dans
+  l'ordre passées → à venir → `seed-event-funnel.sql`, un à la fois
+  (`scripts/demo/README.md`). Depuis le 20/10 : aucune commande au bar
+  (pilier en pause, semis éteint par `v_with_bar`), factures écrites dans
+  `invoices` au préfixe `YUNO-` (JAMAIS par `invoice_numbers` : une facture
+  semée y prendrait un rang dans la suite légale du vendeur), conversions promoteur nées à commission nulle (une
+  commission à l'insertion met un push en file, que la file ne filtre pas
+  pour la démo).
 - **Migration sans CLI** : `POST https://api.supabase.com/v1/projects/<ref>/database/query`
   avec `SUPABASE_ACCESS_TOKEN`, puis la ligne dans
   `supabase_migrations.schema_migrations` et `notify pgrst, 'reload schema'`
@@ -3359,6 +3388,47 @@ Stripe accepte d'une plateforme qui n'a pas signé l'engagement de pertes. Contr
   commissions (charges directes). État live au 29/09 : 0 compte connecté,
   endpoints « Yuno live » (`@self`) et « Connected accounts » (`@accounts`,
   5 événements, snapshot, clover) actifs.
+
+## Factures — une suite continue PAR VENDEUR, attribuée par la base (2026-10-20)
+
+Migration `20261106410000`, edge `_shared/sale-invoice.ts` (testé). Avant, le
+numéro (`<préfixe>-<année>-<compte du vendeur>`) était unique sur TOUTE la base
+alors que les préfixes par défaut sont partagés (`FAC` club, `ORG` organisateur) :
+le 2e vendeur d'un préfixe tombait après dix collisions, le try/catch des
+`verify-*` avalait l'erreur, la vente restait sans facture. Aucune vente réelle
+perdue (Amoris seul vendeur réel au 20/10). Règles :
+
+- **Le numéro est attribué par le trigger `assign_invoice_number`** (BEFORE
+  INSERT sur `invoice_numbers`) : vendeur résolu sur la vente, verrou par
+  (vendeur, année de Paris), `max(invoice_seq) + 1`, dans la transaction de la
+  ligne : continu, sans trou ni doublon. Le numéro fourni par l'appelant est
+  IGNORÉ. Ne jamais fabriquer un numéro ailleurs (edge, front, script) ; la page
+  de confirmation lit le numéro émis, sinon la référence TK-/VP-, jamais un
+  faux `FAC-…`. `generate_invoice_number` n'est plus qu'un aperçu
+  (service_role seul).
+- **Le vendeur (`seller_kind` = `venue` | `organizer`) = la règle du reçu et de
+  la TVA** (`_invoice_seller_kind`, miroir de `get_event_seller` et de
+  `save_invoice_on_creation`) : l'organisateur s'il vend seul ou encaisse un
+  collab réglé par virement (`collab_split`), sinon le club ; une commande du bar
+  est au club. Unicité (vendeur, numéro) et (vendeur, année, rang), une facture
+  par vente ; le préfixe n'est qu'une étiquette (un changement de préfixe en
+  cours d'année garde le rang). Même clé côté `invoices` (les lignes `YUNO-` de
+  la démo, sans vendeur, gardent l'ancienne unicité).
+- **Un numéro émis ne change jamais** (`guard_invoice_number_immutable` ; seul
+  `SET LOCAL yuno.invoice_renumber_unlock = 'on'` le lève). Le transfert d'un
+  organisateur vitrine (`handoff_showcase_organizer`) déplace sa suite avec lui ;
+  si le nouveau compte a déjà des factures la même année, il échoue (bruyant,
+  jamais deux numéros identiques chez un vendeur).
+- **Émettre = `issue_sale_invoice(ticket | table | order)`** (service_role,
+  idempotente, refuse une vente impayée ou une table réglée sur place), appelée
+  par `issueSaleInvoice` dans les trois `verify-*`. Un échec n'arrête pas la
+  vente mais ne se tait plus : alerte `admin_invoice_failed`
+  (`invoice_failed:<vente>`), et le cron horaire `issue-missing-invoices`
+  (`issue_missing_invoices()`, ventes Stripe réelles des 90 derniers jours, démo
+  exclue) rattrape, avec la même clé d'alerte s'il échoue encore.
+- `save_invoice_on_creation` n'a plus d'`ON CONFLICT DO NOTHING` : une facture
+  qui ne peut pas s'écrire fait échouer l'émission (donc l'alerte), jamais un
+  numéro sans ligne `invoices` que la Compta ne verrait pas.
 
 ## Remboursement d'une vente — une règle, un verrou, des effets uniques (2026-09-30)
 
@@ -3982,7 +4052,74 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
 - **Barre du bas = `CheckoutSummaryBar`**, la MÊME qu'à l'étape 1 (plate, total
   frais compris, bouton mono 48 px, `alert`, `footnote`, `reserveSpace`).
   L'étape 1 dit « Continuer » (le paiement n'arrive qu'à l'étape 3).
-- Reste à faire avec la même grammaire : `TableCheckout`, `GuestListCheckout`.
+- **Tables VIP et guest list suivent la même grammaire** (2026-10-20). Pièces
+  communes : `CheckoutStepHeader` (« Vos infos · Étape 2 sur 3 », trait de
+  progression), `OrderEventRow` (première rangée de « Votre commande »),
+  `BuyerReadyCard`, `OptionalNote` (champ facultatif replié), `GenderChoice`,
+  `useBuyerFormUi` + `focusCheckoutField` (`src/components/checkout/`), squelettes
+  `CheckoutChromeSkeleton`. **Table** (`TableCheckout`) : étape 1 « Votre table »
+  (formule, convives, plan, prix + code promo en rangée) puis « Vos infos » ; barre
+  `CheckoutSummaryBar` aux deux étapes, `totalLabel` « Acompte aujourd'hui » quand
+  il reste à régler au club, rien en barre pour une formule réglée sur place (la
+  phrase le dit). Date de naissance = `MinorAuthGate acceptsMinors={false}`, sa
+  date part en `ageDeclaration` ; la case d'attestation d'âge ET la case CGV
+  deviennent la phrase `TermsNotice lead` (« vous certifiez avoir 18 ans ou plus
+  et acceptez les conditions de vente »), tracée par `recordTermsAcceptance`
+  (`context: 'table'`). Remarque pour le club repliée. Plus de « Confirmer
+  l'e-mail ». **Guest list** (`GuestListCheckout`, et les deux formulaires du
+  lien privé `GuestListSignup`) : un seul « Nom et prénom » avec
+  `buyerFormErrors({ requireTwoWords: true })` (code `name_incomplete`, même garde
+  que le serveur, `isCompleteName`) — la liste de porte n'imprime que ce nom ;
+  téléphone obligatoire aussi connecté (le serveur le lit dans `profiles` : une
+  correction y est écrite avant l'appel, nom et téléphone SEULEMENT s'ils ont
+  changé) ; genre en deux boutons (`GenderChoice`). Aucune phrase CGV sur la
+  guest list (il n'y avait pas de case : rien de nouveau à accepter).
+- **Compte connecté = la page attend son profil** (2026-10-20, billet, table et
+  guest list) : squelette tant que `profiles` (nom, téléphone, date de naissance)
+  n'est pas lu, et `MinorAuthGate` ne rend rien avant sa propre lecture ; « Tout
+  est prêt » attend aussi la date quand la page en demande une. Sinon les cases apparaissaient puis
+  disparaissaient, et le client croyait qu'on lui redemandait sa date.
+
+## E-mail de vente non livré — une faute d'adresse se voit (billet, table, guest list, 2026-10-20)
+
+Le 20/10 une invitée a payé avec une faute AVANT le @ (gmail.com juste) : rebond
+dur 27 s après l'envoi, noté seulement dans la liste de suppression. Migration
+`20261105100000`, `useTicketEmailDelivery`, `TicketEmailDelivery` (confirmation),
+`TicketEmailBouncePanel` (Console › Commandes › Billets). Règles :
+
+- **Tout e-mail qui porte une place a les tags `sale_kind` / `sale_id`** :
+  billet (`send-ticket-confirmation`), table VIP (`send-vip-confirmation` :
+  demande reçue, confirmée, modifiée, refusée ; pas le récap walk-in), guest
+  list (`create-guest-list-entry`, `guest-list-manage`, `promoter-add-guest`),
+  posés par `_shared/sale-email.ts` (`saleEmailTags`, puis `recordSaleEmailSent`
+  après la réponse de Resend). Un nouvel e-mail de place passe par ce module.
+  `resend-webhook` les relit et appelle
+  `record_sale_email_event` (livré, ou rebond DUR seulement). État dans
+  `sale_email_deliveries` (RLS sans policy, `kind` ticket | table | guest_list).
+  Un événement pour une AUTRE adresse que la dernière envoyée ne touche rien.
+- **Un rebond prévient les parties principales** (club : `emit_staff_notification`
+  owner, organisateur : `emit_organizer_notification`, langue du profil) avec nom
+  et téléphone, plus l'alerte super admin, une fois par (vente, adresse), jamais
+  pour la démo. Types `<kind>_email_bounced` et `admin_<kind>_email_bounced`
+  (migration `20261105400000`) ; liens : billet → Commandes › Billets, table →
+  Commandes › Tables VIP, guest list → la liste de la soirée. « Reste valable »
+  n'est dit que d'une table payée / confirmée ou d'une inscription acceptée.
+  Notification in-app seulement (aucun push : liste blanche de
+  `trg_staff_notification_push`).
+- **Rien ne s'affiche tant que l'e-mail n'a pas rebondi** (décision de Paul,
+  20/10, migration `20261105110000`) : pas de « Ton billet part à … » pour tout
+  le monde, un acheteur à la bonne adresse ne voit rien. La confirmation relit
+  l'état toutes les 5 s pendant 3 min (`get_ticket_email_delivery`) ; sur un
+  rebond : carte d'alerte + message flottant une fois.
+- **Corriger = `send-ticket-confirmation` action `fix_email`**, preuve = le QR du
+  billet, règle unique `fix_ticket_email` (rebond seulement, 3 corrections au
+  plus), puis le billet repart.
+- **L'envoi direct de `send-ticket-confirmation` exige la clé service**
+  (`isServiceCaller`) : avant, quiconque connaissait l'id d'un billet pouvait se
+  faire envoyer son QR. Seule l'action `fix_email` est ouverte, sous sa preuve.
+- **Corriger l'adresse n'existe que pour le billet.** Table et guest list :
+  rien sur la page de confirmation ni dans la Console, le pro appelle la
+  personne avec le numéro de la notification (limite assumée au 20/10).
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 

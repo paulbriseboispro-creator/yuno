@@ -28,6 +28,11 @@ interface BuyerFieldsProps {
   onAcceptSuggestion?: () => void;
   /** Encart sous l'e-mail (« un compte existe déjà »). */
   emailNotice?: ReactNode;
+  /** Ligne sous le nom (guest list : la porte ne lit que ce nom). */
+  nameHint?: string;
+  /** Ce qui arrive à cette adresse (défaut : les billets). */
+  emailHint?: string;
+  emailAccountHint?: string;
   /** Indicatif pré-choisi : le pays de la soirée. */
   defaultCountry?: string | null;
   fieldRefs: Record<ContactField, Ref<HTMLDivElement>>;
@@ -35,6 +40,7 @@ interface BuyerFieldsProps {
 
 export function BuyerFields({
   buyer, onChange, onBlur, errors, valid, emailReadOnly, emailSuggestion, onAcceptSuggestion, emailNotice, defaultCountry, fieldRefs,
+  nameHint, emailHint, emailAccountHint,
 }: BuyerFieldsProps) {
   const { t } = useLanguage();
   const validLabel = t('buyer.valid');
@@ -55,12 +61,16 @@ export function BuyerFields({
             onChange={(e) => onChange('fullName', e.target.value)}
             onBlur={() => onBlur('name')}
             aria-invalid={!!errors.name || undefined}
-            aria-describedby={errors.name ? 'ck-name-err' : undefined}
+            aria-describedby={errors.name || nameHint ? 'ck-name-err' : undefined}
             className={checkoutInputClass(!!errors.name, valid.name ? 'pr-10' : undefined)}
           />
           {valid.name && !errors.name && <FieldValidMark label={validLabel} />}
         </div>
-        {errors.name && <FieldError id="ck-name-err">{errors.name}</FieldError>}
+        {errors.name ? (
+          <FieldError id="ck-name-err">{errors.name}</FieldError>
+        ) : nameHint ? (
+          <FieldHint id="ck-name-err">{nameHint}</FieldHint>
+        ) : null}
       </div>
 
       <div ref={fieldRefs.email} className="flex scroll-mt-24 flex-col gap-[7px]">
@@ -109,7 +119,9 @@ export function BuyerFields({
             </button>
           </div>
         ) : (
-          <FieldHint id="ck-email-hint">{emailReadOnly ? t('ticketCheckout.emailAccountHint') : t('ticketCheckout.emailHint')}</FieldHint>
+          <FieldHint id="ck-email-hint">
+            {emailReadOnly ? (emailAccountHint ?? t('ticketCheckout.emailAccountHint')) : (emailHint ?? t('ticketCheckout.emailHint'))}
+          </FieldHint>
         )}
         {emailNotice}
       </div>
@@ -201,6 +213,47 @@ export function FriendNames({ friends, buyerName, onChange }: FriendNamesProps) 
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+interface BuyerReadyCardProps {
+  fullName: string;
+  email: string;
+  phone: string;
+  /** Rouvre les champs (le profil reste la source, rien n'est effacé). */
+  onEdit: () => void;
+}
+
+/**
+ * Client connu (connecté, profil complet) : ses infos tiennent dans une carte,
+ * rien à retaper. « Modifier » rouvre les champs.
+ */
+export function BuyerReadyCard({ fullName, email, phone, onEdit }: BuyerReadyCardProps) {
+  const { t } = useLanguage();
+  const initials = fullName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
+  return (
+    <div className="flex items-start gap-3 rounded-[10px] border border-white/[0.08] bg-[#141414] p-3.5">
+      <span
+        aria-hidden
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold"
+        style={{ background: 'rgba(232,25,44,0.14)', color: '#FF5A68' }}
+      >
+        {initials}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold leading-[1.3] text-white">{fullName}</p>
+        <p className="mt-0.5 text-[13.5px] leading-[1.4] text-[#E5E5E5] [overflow-wrap:anywhere]">{email}</p>
+        <p className="mt-0.5 text-[13.5px] leading-[1.4] text-[#9A9A9A]">{phone}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="h-8 shrink-0 px-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-white/[0.06]"
+        style={{ borderRadius: 4, border: '1px solid rgba(255,255,255,0.14)' }}
+      >
+        {t('ticketCheckout.edit')}
+      </button>
     </div>
   );
 }

@@ -172,5 +172,7 @@ que prod ne faisait que suivre main), OTA production client 1.0.82 / Pro 1.0.78.
    remettre la mention boissons dans `index.html`.
 3. Relire cet inventaire : chaque gate est une recherche `DRINKS_PILLAR_LIVE` dans `src/`.
 4. Redéployer les edge functions et le worker ; OTA pour les apps.
-5. Rejouer `scripts/demo/seed-upcoming-sales.sql` pour remettre des commandes de
-   démonstration, puis refaire le discours à trois piliers (CLAUDE.md « Ce qu'est Yuno »).
+5. Passer `v_with_bar` à `true` dans `scripts/demo/seed-past-nights.sql` et le
+   rejouer (puis `seed-upcoming-sales.sql`) pour remettre des commandes de
+   démonstration sur les soirées passées, puis refaire le discours à trois piliers
+   (CLAUDE.md « Ce qu'est Yuno »).

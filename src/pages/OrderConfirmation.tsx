@@ -9,7 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuth } from '@/hooks/useAuth';
 import { downloadICS } from '@/lib/calendar';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import type { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -33,6 +33,8 @@ import { PublicPage } from '@/components/PublicPage';
 import { OrderConfirmationSkeleton } from '@/components/skeletons/OrderConfirmationSkeleton';
 import { publicUrl } from '@/lib/native';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { useTicketEmailDelivery } from '@/hooks/useTicketEmailDelivery';
+import { TicketEmailDelivery } from '@/components/confirmation/TicketEmailDelivery';
 
 interface UpsellSelection {
   name: string;
@@ -221,6 +223,13 @@ export default function OrderConfirmation() {
   // État vivant du toggle (optimiste), pour le libellé du bouton après le tap.
   const [orgFollowing, setOrgFollowing] = useState<Record<string, boolean>>({});
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  // E-mail du billet : envoyé, livré ou rebondi (faute dans l'adresse) — la
+  // page le dit et fait corriger l'adresse tant que l'acheteur est là.
+  const isTicket = data?.type === 'ticket';
+  const { delivery: emailDelivery, fix: fixTicketEmail } = useTicketEmailDelivery(
+    isTicket ? data?.id : null,
+    isTicket ? data?.qrCode : null,
+  );
 
   const type = searchParams.get('type') as 'ticket' | 'table' | 'order';
   const id = searchParams.get('id');
@@ -795,27 +804,37 @@ export default function OrderConfirmation() {
     return `${t('confirmation.inPrefix')} ${days} ${t('confirmation.daysWord')}`;
   };
 
-  // Resolve (and persist) the canonical order/invoice number for the receipt.
+  // Numéro du reçu : celui que la base a attribué à la vente (le paiement l'a
+  // émis, une suite par vendeur). Le navigateur n'en fabrique jamais : faute de
+  // facture, le reçu porte la référence de la commande (TK-/VP-…), pas un faux
+  // numéro de facture qui pourrait être celui d'un autre client.
   const ensureInvoiceNumber = async (): Promise<string> => {
     if (invoiceNumber) return invoiceNumber;
-    if (data?.venueId) {
+    const saleColumn = type === 'table' ? 'table_reservation_id' : type === 'order' ? 'order_id' : 'ticket_id';
+    try {
+      const { data: issued } = await supabase
+        .from('invoice_numbers')
+        .select('invoice_number')
+        .eq(saleColumn, id)
+        .maybeSingle();
+      if (issued?.invoice_number) {
+        setInvoiceNumber(issued.invoice_number);
+        return issued.invoice_number;
+      }
+    } catch { /* la référence de la commande prend le relais */ }
+    let reference = data?.qrCode || id || '';
+    if (type !== 'order') {
       try {
-        const { data: newNum, error } = await supabase
-          .rpc('generate_invoice_number', { p_venue_id: data.venueId });
-        if (!error && newNum) {
-          const insertData: TablesInsert<'invoice_numbers'> = { venue_id: data.venueId, invoice_number: newNum };
-          if (type === 'ticket') insertData.ticket_id = id;
-          else if (type === 'table') insertData.table_reservation_id = id;
-          else if (type === 'order') insertData.order_id = id;
-          await supabase.from('invoice_numbers').insert(insertData);
-          setInvoiceNumber(newNum);
-          return newNum;
-        }
-      } catch { /* fall through to a local fallback */ }
+        const { data: row } = await supabase
+          .from(type === 'table' ? 'table_reservations' : 'tickets')
+          .select('reference_code')
+          .eq('id', id)
+          .maybeSingle();
+        const ref = (row as { reference_code?: string } | null)?.reference_code;
+        if (ref) reference = ref;
+      } catch { /* garde le QR comme référence */ }
     }
-    const fallback = `FAC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-    setInvoiceNumber(fallback);
-    return fallback;
+    return reference;
   };
 
   // Build the fiscal receipt lines (ticket/table/drinks + Yuno fees), each at its
@@ -1024,7 +1043,9 @@ export default function OrderConfirmation() {
 
   // Timeline « Et maintenant ? » — the three things that happen next.
   const steps = [
-    { icon: Mail, title: t('confirmation.step1Title'), desc: t('confirmation.step1Desc'), extra: data.customerEmail, done: true },
+    emailDelivery?.status === 'bounced'
+      ? { icon: Mail, title: t('confirmation.mail.step1Bounced'), desc: t('confirmation.mail.stillValid'), extra: emailDelivery.email, done: false }
+      : { icon: Mail, title: t('confirmation.step1Title'), desc: t('confirmation.step1Desc'), extra: emailDelivery?.email ?? data.customerEmail, done: true },
     { icon: QrCode, title: t('confirmation.step2Title'), desc: t('confirmation.step2Desc'), extra: null, done: false },
     {
       icon: Clock,
@@ -1132,6 +1153,9 @@ export default function OrderConfirmation() {
       <PublicPage variant="flow">
       {/* ── Reading column ── */}
       <div className="mx-auto px-5 w-full box-border" style={{ maxWidth: 600 }}>
+
+        {/* Où part le billet ; une adresse fausse se corrige ici (rebond Resend). */}
+        {isTicket && <TicketEmailDelivery delivery={emailDelivery} fix={fixTicketEmail} />}
 
         {/* TON PASS — the QR / utility centerpiece */}
         <motion.section {...rise(0.1)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

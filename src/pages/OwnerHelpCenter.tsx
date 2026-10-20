@@ -120,11 +120,13 @@ export default function OwnerHelpCenter({ categories: suiteCategories = ownerHel
     <button
       type="button"
       onClick={goContact}
+      aria-label={t('ohelp.tabSupport')}
       className="inline-flex items-center gap-2 flex-none cursor-pointer transition-all duration-150 hover:bg-white/[0.07]"
       style={{ height: 36, padding: '0 12px', borderRadius: 10, border: `1px solid ${BORDER}`, background: C_FAINT, color: T1, fontSize: 13, fontWeight: 600 }}
     >
       <MessageSquare className="w-4 h-4" style={{ color: CONTACT_COLOR }} aria-hidden="true" />
-      <span className="hidden sm:inline">{t('ohelp.tabSupport')}</span>
+      {/* md → lg : la barre latérale prend 256 px, l'en-tête n'a plus la place du libellé. */}
+      <span className="hidden sm:inline md:hidden lg:inline">{t('ohelp.tabSupport')}</span>
     </button>
   );
 

@@ -28,7 +28,7 @@ export default function OrgAppSms() {
         <button onClick={() => navigate(id ? '/organizer-app/sms' : '/organizer-app')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: T3 }}>
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <OrgPageHeader title={t('smsCampaigns.title')} subtitle={t('smsc.orgSubtitle')} />
         </div>
       </div>

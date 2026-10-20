@@ -4,6 +4,7 @@ import { EmailLanguage, escapeHtml } from "../_shared/email-branding.ts";
 import { buildVipConfirmation, buildVipStatus, buildWalkinSummary, fmtDateParts } from "../_shared/email-templates.ts";
 import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { recordSaleEmailSent, resendEmailId, saleEmailTags } from "../_shared/sale-email.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -294,7 +295,13 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${resendApiKey}`,
       },
-      body: JSON.stringify({ from, to: [customerEmail], subject: finalSubject, html }),
+      // Tags relus par resend-webhook : un rebond se rattache à CETTE
+      // réservation et prévient le club / l'organisateur (le récap walk-in, lui,
+      // part après la soirée et n'est pas suivi).
+      body: JSON.stringify({
+        from, to: [customerEmail], subject: finalSubject, html,
+        tags: saleEmailTags('table', reservationId),
+      }),
       signal: AbortSignal.timeout(10000),
     });
 
@@ -304,6 +311,7 @@ serve(async (req) => {
     }
 
     logStep("Email sent", { type, to: customerEmail });
+    await recordSaleEmailSent(supabaseAdmin, 'table', reservationId, customerEmail, await resendEmailId(res));
 
     return new Response(
       JSON.stringify({ success: true, type, email: customerEmail }),

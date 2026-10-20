@@ -39,6 +39,11 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 💰 Revenue
   new_order:      { icon: ShoppingCart, category: 'revenue',    label: 'notif.type.new_order' },
   ticket_sale:    { icon: Ticket,       category: 'revenue',    label: 'notif.type.ticket_sale' },
+  // Un acheteur a saisi une adresse qui n'existe pas : son billet n'est pas arrivé.
+  ticket_email_bounced: { icon: AlertTriangle, category: 'revenue', label: 'notif.type.ticket_email_bounced' },
+  // Même rebond pour l'e-mail d'une réservation de table ou d'une guest list.
+  table_email_bounced: { icon: AlertTriangle, category: 'revenue', label: 'notif.type.table_email_bounced' },
+  guest_list_email_bounced: { icon: AlertTriangle, category: 'people', label: 'notif.type.guest_list_email_bounced' },
   table_booked:   { icon: Crown,        category: 'revenue',    label: 'notif.type.table_booked' },
   promoter_sale:  { icon: TrendingUp,   category: 'revenue',    label: 'notif.type.promoter_sale' },
   refund_issued:  { icon: Receipt,      category: 'revenue',    label: 'notif.type.refund_issued' },
@@ -184,7 +189,11 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_collab_late_sale:        { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_collab_late_sale' },
   // Argent encaissé que Yuno doit traiter à la main (webhook, porte, litiges).
   admin_paid_sale_unfulfilled:   { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_paid_sale_unfulfilled' },
+  admin_ticket_email_bounced:    { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_ticket_email_bounced' },
+  admin_table_email_bounced:     { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_table_email_bounced' },
+  admin_guest_list_email_bounced: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_guest_list_email_bounced' },
   admin_refund_failed:           { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_refund_failed' },
+  admin_invoice_failed:          { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_invoice_failed' },
   admin_payment_disputed:        { icon: ShieldAlert, category: 'billing',  label: 'notif.type.admin_payment_disputed' },
   admin_indirect_charge_refused: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_indirect_charge_refused' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
@@ -424,10 +433,12 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 
     // Allocation guest list : on ouvre la page Guest list SUR la bonne soirée
     // (sans ?event= elle retombe sur la 1re de la liste). Le manager gère aussi
-    // la guest list, il a donc droit au même lien.
+    // la guest list, il a donc droit au même lien. Même page pour une
+    // inscription dont l'e-mail a rebondi : le pro y retrouve la personne.
     case 'guest_list_allocation_request':
     case 'guest_list_allocation_granted':
     case 'guest_list_allocation_denied':
+    case 'guest_list_email_bounced':
       if (isOwner || isManager || isOrganizer) {
         return eventId ? `${basePath}/guest-list?event=${eventId}` : `${basePath}/guest-list`;
       }
@@ -481,6 +492,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 
     // Ticket sale → the orders page, tickets tab, opened on the sale just made.
     case 'ticket_sale':
+    case 'ticket_email_bounced':
       return `${basePath}/orders?tab=tickets${orderFocus}`;
     // Ticketing capacity alerts stay on the ticketing management page.
     case 'ticket_round_warning':
@@ -489,6 +501,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 
     // VIP table booked → the orders page, VIP tab, opened on the new reservation.
     case 'table_booked':
+    case 'table_email_bounced':
       return `${basePath}/orders?tab=vip${orderFocus}`;
     // VIP capacity alerts (owner has a tables page; organizer has no such surface).
     case 'tables_warning':
@@ -684,7 +697,11 @@ function adminNotifLink(n: AppNotif): string | null {
 
     // Une vente payée à traiter à la main : la liste des commandes.
     case 'admin_paid_sale_unfulfilled':
+    case 'admin_ticket_email_bounced':
+    case 'admin_table_email_bounced':
+    case 'admin_guest_list_email_bounced':
     case 'admin_refund_failed':
+    case 'admin_invoice_failed':
     case 'admin_payment_disputed':
       return '/admin/orders';
 

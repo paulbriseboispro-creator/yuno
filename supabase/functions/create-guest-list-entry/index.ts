@@ -14,6 +14,7 @@ import { isCompleteName } from "../_shared/guest-name.ts";
 import { parseMetaClientContext, enqueueMetaEvent, drainMetaOutboxInBackground } from "../_shared/meta-capi.ts";
 import { parseAnalyticsContext, captureOrderPaid, saleTrackingColumns } from "../_shared/posthog.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { recordSaleEmailSent, resendEmailId, saleEmailTags } from "../_shared/sale-email.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -64,12 +65,17 @@ function normalizeLang(value: unknown): EmailLanguage | null {
  * arrive ici : un échec d'email ne doit jamais faire échouer la réservation ni
  * faire croire à l'invité qu'il n'est pas sur la liste.
  */
-async function sendResendEmail(to: string, subject: string, html: string): Promise<boolean> {
+async function sendResendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  tags?: Array<{ name: string; value: string }>,
+): Promise<{ sent: boolean; id: string | null }> {
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   const RESEND_FROM = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
   if (!RESEND_API_KEY) {
     logStep("RESEND_API_KEY not set, skipping email");
-    return false;
+    return { sent: false, id: null };
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -77,16 +83,16 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
       "Authorization": `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html }),
+    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html, ...(tags ? { tags } : {}) }),
     // Un tiers qui ne répond pas ne doit pas suspendre la fonction.
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     logStep("Resend send failed", { to, status: res.status, body });
-    return false;
+    return { sent: false, id: null };
   }
-  return true;
+  return { sent: true, id: await resendEmailId(res) };
 }
 
 serve(async (req) => {
@@ -722,8 +728,13 @@ serve(async (req) => {
         ctaUrl: registrantUser ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`,
         hasAccount: !!registrantUser,
       });
-      emailSent = await sendResendEmail(email.toLowerCase().trim(), built.subject, built.html);
-      logStep("Confirmation email", { to: email.toLowerCase().trim(), sent: emailSent, lang: recipientLang });
+      // Tags relus par resend-webhook : un rebond (adresse qui n'existe pas) se
+      // rattache à CETTE inscription et prévient le club / l'organisateur.
+      const recipient = email.toLowerCase().trim();
+      const sent = await sendResendEmail(recipient, built.subject, built.html, saleEmailTags("guest_list", entry.id));
+      emailSent = sent.sent;
+      if (sent.sent) await recordSaleEmailSent(supabaseAdmin, "guest_list", entry.id, recipient, sent.id);
+      logStep("Confirmation email", { to: recipient, sent: emailSent, lang: recipientLang });
     } catch (emailErr) {
       console.error("Confirmation email failed (non-blocking):", emailErr);
     }

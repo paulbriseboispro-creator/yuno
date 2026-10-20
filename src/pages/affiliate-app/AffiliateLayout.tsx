@@ -103,7 +103,8 @@ export default function AffiliateLayout() {
         {shell.role === 'admin'
           ? <AgencyAppSidebar agency={agency} />
           : <AffiliateAppSidebar role={shell.role} />}
-        <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
+        {/* data-console-header : l'en-tête du layout est le seul collant (index.css). */}
+        <SidebarInset data-console-header="" style={{ background: 'var(--sf-000000)' }}>
           <AffiliateAppHeader />
           <Outlet />
         </SidebarInset>

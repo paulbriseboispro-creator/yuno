@@ -34,7 +34,7 @@ export function PromoHeader({
   const navigate = useNavigate();
   return (
     <header
-      className="sticky top-0 z-40"
+      className="console-page-sticky sticky top-0 z-40"
       style={{
         background: 'rgb(var(--glass-0-0-0)/0.72)', backdropFilter: 'blur(14px)',
         borderBottom: `1px solid ${F_BORDER}`,

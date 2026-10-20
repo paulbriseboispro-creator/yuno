@@ -9,8 +9,11 @@
  * d'attribut `autocomplete` : le 11/09/2026 une invitée est arrivée sur la
  * liste sous le nom « Inactif », son pseudo Instagram.
  *
- * D'où deux champs distincts côté formulaire, et ce garde des deux côtés :
- * un nom d'un seul mot n'entre plus sur une liste de porte.
+ * D'où ce garde des deux côtés : un nom d'un seul mot n'entre plus sur une
+ * liste de porte. Côté formulaire, un seul champ « Nom et prénom » avec
+ * `autocomplete="name"` (le pseudo venait d'un champ qui n'en avait pas) et
+ * `buyerFormErrors({ requireTwoWords: true })`, code `name_incomplete`
+ * (src/lib/buyerForm.ts, paiement billet / table / guest list, 2026-10-20).
  */
 
 /** Espaces normalisés — la valeur telle qu'elle sera écrite en base. */

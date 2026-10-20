@@ -47,7 +47,7 @@ export function AnalyticsAnchorNav({ sections }: { sections: AnchorSection[] }) 
 
   return (
     <div
-      className="sticky top-[60px] sm:top-[68px] z-20 flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-2 rounded-2xl"
+      className="console-subnav-sticky sticky top-[60px] sm:top-[68px] z-20 flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-2 rounded-2xl"
       style={{ background: 'rgb(var(--glass-10-10-12)/0.72)', backdropFilter: 'blur(10px)' }}
     >
       {sections.map(({ id, label, icon: Icon }) => {

@@ -453,9 +453,11 @@ export default function OwnerAccounting() {
       {/* Organizer scope renders inside the org shell (which already has its own
           header + OwnerVenueProvider-free context), so we surface the title and
           controls in-body instead of via OwnerHeader to avoid the provider crash. */}
-      {!isOrganizerScope && <OwnerHeader title={t('acct.title')} rightContent={periodVatControls} />}
+      {/* Sous lg, l'en-tête n'a pas la place des deux sélecteurs : ils passent dans le corps. */}
+      {!isOrganizerScope && <OwnerHeader title={t('acct.title')} rightContent={<div className="hidden lg:block">{periodVatControls}</div>} />}
 
       <div className="mx-auto max-w-5xl px-4 pb-16">
+        {!isOrganizerScope && <div className="mb-4 lg:hidden">{periodVatControls}</div>}
         {isOrganizerScope && (
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h1 style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>{t('acct.title')}</h1>

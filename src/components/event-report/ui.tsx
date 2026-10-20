@@ -5,7 +5,7 @@
  */
 import type { ReactNode } from 'react';
 import { FillBar, MetricHint, TodayDelta } from '@/components/analytics/kit';
-import { KIT } from '@/components/analytics/kitFormat';
+import { ANCHOR_SCROLL_MARGIN, KIT } from '@/components/analytics/kitFormat';
 import { CARD_BG, CARD_SHADOW, FAINT, INNER_BG } from './tokens';
 
 
@@ -20,7 +20,7 @@ export function ReportCard({ children, className = '', padding = 20 }: { childre
 /** Titre de section = la question, sous-titre = comment la lire. */
 export function Question({ id, title, sub, right }: { id?: string; title: string; sub?: string; right?: ReactNode }) {
   return (
-    <div id={id} className="flex flex-wrap items-end justify-between gap-3 px-1 pt-4" style={{ scrollMarginTop: 84 }}>
+    <div id={id} className="flex flex-wrap items-end justify-between gap-3 px-1 pt-4" style={{ scrollMarginTop: ANCHOR_SCROLL_MARGIN }}>
       <div className="min-w-0">
         <h2 style={{ color: KIT.T1, fontSize: 18, fontWeight: 650, letterSpacing: '-0.015em', textWrap: 'balance' }}>{title}</h2>
         {sub && <p style={{ color: KIT.T3, fontSize: 12.5, marginTop: 3, maxWidth: '68ch' }}>{sub}</p>}

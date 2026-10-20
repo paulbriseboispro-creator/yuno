@@ -45,4 +45,9 @@ export function useKpiFormat() {
   };
 }
 
-
+/**
+ * Marge de défilement d'une cible d'ancre (`AnalyticsAnchorNav`) : en-tête collant (57 px téléphone,
+ * 65 px ensuite) + barre d'ancres collée à 60 / 68 px et haute de 52 px, plus
+ * un peu d'air. En dessous, le titre visé atterrit sous la barre.
+ */
+export const ANCHOR_SCROLL_MARGIN = 128;

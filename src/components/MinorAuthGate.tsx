@@ -36,6 +36,8 @@ interface MinorAuthGateProps {
   highlightDoc?: boolean;
   /** Ancre : la page y descend quand la date est le premier oubli. */
   anchorRef?: Ref<HTMLFieldSetElement>;
+  /** Ligne sous la date (défaut : celle du billet, selon que la soirée accepte les mineurs). */
+  hint?: string;
 }
 
 // Single age gate of the ticket checkout. A birth date is required to buy; once
@@ -47,13 +49,18 @@ interface MinorAuthGateProps {
 //   minor + event allows minors + no doc    → minor ticket OK
 export function MinorAuthGate({
   userId, eventId, acceptsMinors, template, onReady, onDocUploaded, onMinorInfo, onDocPending,
-  onBirthState, error, invalidField, onBlur, highlightDoc, anchorRef,
+  onBirthState, error, invalidField, onBlur, highlightDoc, anchorRef, hint,
 }: MinorAuthGateProps) {
   const { t } = useLanguage();
   const [parts, setParts] = useState<BirthDateParts>({ day: '', month: '', year: '' });
   // True once we've loaded a birth date already saved on the user's profile.
   // We then never ask again — the field stays hidden on every future event.
   const [prefilled, setPrefilled] = useState(false);
+  // Compte dont le profil a été lu. Tant qu'il ne l'est pas, rien ne s'affiche :
+  // sinon les cases apparaissent le temps de la lecture, puis disparaissent, et
+  // la personne croit qu'on lui redemande une date qu'elle a déjà donnée.
+  const [checkedFor, setCheckedFor] = useState<string | null>(null);
+  const profileChecked = !userId || checkedFor === userId;
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -73,17 +80,22 @@ export function MinorAuthGate({
   // Reuse a birth date already on the profile — never ask twice for the same person.
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
     supabase
       .from('profiles')
       .select('birth_date')
       .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
+        if (cancelled) return;
         if (data?.birth_date) {
           setParts(splitIsoBirthDate(data.birth_date));
           setPrefilled(true);
         }
+        // Lecture en échec : les cases s'affichent, on ne bloque pas l'achat.
+        setCheckedFor(userId);
       });
+    return () => { cancelled = true; };
   }, [userId]);
 
   // La page lit la saisie pour son contrôle au tap ; une date du profil n'en a
@@ -136,8 +148,8 @@ export function MinorAuthGate({
     }
   };
 
-  // Returning adult, already verified from their profile → ask nothing, show nothing.
-  if (prefilled && isAdult) return null;
+  // Profil pas encore lu, ou adulte déjà connu → rien à demander, rien à montrer.
+  if (!profileChecked || (prefilled && isAdult)) return null;
 
   const hintId = 'ck-birth-hint';
   const shownError = error && !prefilled ? error : null;
@@ -173,7 +185,7 @@ export function MinorAuthGate({
         ) : shownError ? (
           <FieldError>{shownError}</FieldError>
         ) : !prefilled ? (
-          <FieldHint>{acceptsMinors ? t('ticketCheckout.birthHint') : t('ticketCheckout.birthHintAdults')}</FieldHint>
+          <FieldHint>{hint ?? (acceptsMinors ? t('ticketCheckout.birthHint') : t('ticketCheckout.birthHintAdults'))}</FieldHint>
         ) : null}
 
         {/* A minor on a minors-allowed event is the ONLY case where the event's

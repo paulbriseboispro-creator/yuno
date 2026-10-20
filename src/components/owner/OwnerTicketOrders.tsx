@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMinorDocsByEvents, minorDocKey, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { formatMoneyAuto } from '@/lib/money';
+import { TicketEmailBouncePanel } from '@/components/owner/TicketEmailBouncePanel';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -367,6 +368,17 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                 <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.userEmail}</p>
                 {selectedTicket.phone && <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.phone}</p>}
               </div>
+
+              {/* E-mail du billet rebondi (adresse qui n'existe pas) : corriger et renvoyer. */}
+              <TicketEmailBouncePanel
+                key={selectedTicket.id}
+                ticketId={selectedTicket.id}
+                qrCode={selectedTicket.qrCode}
+                onFixed={(email) => {
+                  setSelectedTicket((cur) => (cur ? { ...cur, userEmail: email } : cur));
+                  setTickets((list) => list.map((tk) => (tk.id === selectedTicket.id ? { ...tk, userEmail: email } : tk)));
+                }}
+              />
 
               {/* Minor ticket → birth date + signed authorization */}
               {(() => {

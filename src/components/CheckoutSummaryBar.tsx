@@ -12,6 +12,8 @@ interface CheckoutSummaryBarProps {
   onClick: () => void;
   /** Libellé de la ligne des frais (défaut : « Frais de service »). */
   feeLabel?: string;
+  /** Libellé du montant (défaut : « Total ») — tables : « Acompte aujourd'hui ». */
+  totalLabel?: string;
   /** Total sans la remise, barré à côté du total. */
   compareTotal?: number;
   /** Ligne rouge au-dessus du bouton (ce qui manque, après un tap). */
@@ -36,7 +38,7 @@ const DISPLAY = "'Space Grotesk', sans-serif";
  * carte flottante) pour rester fine : la liste des tarifs porte déjà le détail.
  */
 export function CheckoutSummaryBar({
-  total, fee, buttonText, onClick, feeLabel, compareTotal, alert, footnote, icon, loading, disabled, reserveSpace,
+  total, fee, buttonText, onClick, feeLabel, totalLabel, compareTotal, alert, footnote, icon, loading, disabled, reserveSpace,
 }: CheckoutSummaryBarProps) {
   const { t, language } = useLanguage();
   const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
@@ -84,7 +86,7 @@ export function CheckoutSummaryBar({
                       textTransform: 'uppercase', color: 'var(--tx-9a9a9a)',
                     }}
                   >
-                    {t('ticketSel.total')}
+                    {totalLabel ?? t('ticketSel.total')}
                   </span>
                   <span className="flex items-baseline gap-2 whitespace-nowrap">
                     {compareTotal != null && compareTotal > total && (

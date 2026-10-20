@@ -1973,7 +1973,7 @@ const help: Record<string, string> = {
   "ohelp.pg.orders.s4h": "Imprimer ou exporter un onglet",
   "ohelp.pg.orders.s5b": "Quand un invité dit « je n'ai jamais reçu mon billet », cherchez son email ici. Le statut vous dit tout de suite s'il était Payé (renvoyez-le) ou jamais finalisé (il n'y a alors rien à rembourser).",
   "ohelp.pg.orders.s5h": "Conseil",
-  "ohelp.pg.orders.s6b": "• **La recherche ne trouve rien** : elle ne porte que sur l'email du client ou le token de commande, jamais le nom — passez par Imprimer et exporter pour une liste de noms.\n• **Une inscription guest list est introuvable** : vérifiez que vous êtes sur l'onglet \"Guest list\", qui regroupe dans une seule recherche toutes les listes de la soirée (club, DJ, promoteur, agence).",
+  "ohelp.pg.orders.s6b": "• **La recherche ne trouve rien** : elle ne porte que sur l'email du client ou le token de commande, jamais le nom — passez par Imprimer et exporter pour une liste de noms.\n• **Une inscription guest list est introuvable** : vérifiez que vous êtes sur l'onglet \"Guest list\", qui regroupe dans une seule recherche toutes les listes de la soirée (club, DJ, promoteur, agence).\n• **« E-mail non livré » sur un billet** : l'acheteur a fait une faute dans son adresse, la cloche vous l'a signalé avec son nom et son téléphone. Son billet reste valable et la porte le trouve par son nom. Ouvrez la commande, saisissez la bonne adresse et cliquez sur \"Renvoyer le billet\".",
   "ohelp.pg.orders.s6h": "Problèmes fréquents",
   "ohelp.pg.orders.title": "Commandes",
   "ohelp.pg.printExport.desc": "Transformez une guest list, une feuille de tables VIP ou une liste de billets en liste de porte, tableau ou Excel.",

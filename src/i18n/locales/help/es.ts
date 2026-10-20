@@ -1877,7 +1877,7 @@ const help: Record<string, string> = {
   "ohelp.pg.orders.s4h": "Imprimir o exportar una pestaña",
   "ohelp.pg.orders.s5b": "Cuando un invitado dice \"nunca recibí mi entrada\", busca su email aquí. El estado te dice al instante si fue Pagado (entonces reenvíala) o si nunca se completó (entonces no hay nada que reembolsar).",
   "ohelp.pg.orders.s5h": "Consejo",
-  "ohelp.pg.orders.s6b": "• **La búsqueda no encuentra nada**: solo compara el email del cliente o el token del pedido, nunca el nombre — usa Imprimir y exportar para una lista de nombres.\n• **No aparece una inscripción de guest list**: comprueba que estás en la pestaña \"Guest list\", que agrupa en una sola búsqueda todas las listas del evento (club, DJ, promotor, agencia).",
+  "ohelp.pg.orders.s6b": "• **La búsqueda no encuentra nada**: solo compara el email del cliente o el token del pedido, nunca el nombre — usa Imprimir y exportar para una lista de nombres.\n• **No aparece una inscripción de guest list**: comprueba que estás en la pestaña \"Guest list\", que agrupa en una sola búsqueda todas las listas del evento (club, DJ, promotor, agencia).\n• **«Email no entregado» en una entrada**: el comprador se equivocó al escribir su dirección y la campana te avisó con su nombre y su teléfono. La entrada sigue siendo válida y en la puerta la encuentran por su nombre. Abre el pedido, escribe la dirección correcta y haz clic en \"Reenviar la entrada\".",
   "ohelp.pg.orders.s6h": "Problemas frecuentes",
   "ohelp.pg.orders.title": "Pedidos",
   "ohelp.pg.printExport.desc": "Convierte una guest list, una hoja de mesas VIP o una lista de entradas en lista de puerta, tabla u Excel.",

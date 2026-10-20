@@ -148,7 +148,7 @@ export default function OwnerCampaigns() {
       <div className="max-w-[1340px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 16 }}>
           <button
             onClick={() => navigate('/owner/dashboard')}
             aria-label={t('studio.top.back')}
@@ -161,7 +161,7 @@ export default function OwnerCampaigns() {
           >
             <ArrowLeft className="w-4 h-4" style={{ color: T2 }} />
           </button>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               {venue?.name || ''}{(venue as { city?: string | null } | null)?.city ? ` — ${(venue as { city?: string | null }).city}` : ''}
             </div>
@@ -169,7 +169,7 @@ export default function OwnerCampaigns() {
               {t('em.title')}
             </h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 9 }}>
             <button
               onClick={() => setImportOpen(true)}
               className="cursor-pointer"

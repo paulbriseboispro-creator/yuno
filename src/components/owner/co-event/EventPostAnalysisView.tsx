@@ -3,6 +3,7 @@ import { Trophy, BarChart3, Users, Lightbulb, ChevronDown, LucideIcon } from 'lu
 import { PostEventAIInsights } from '@/components/hype/PostEventAIInsights';
 import { usePostEventAnalysis } from '@/hooks/usePostEventAnalysis';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ANCHOR_SCROLL_MARGIN } from '@/components/analytics/kitFormat';
 import { PostEventOverview } from '@/components/hype/PostEventOverview';
 import { PostEventExtendedStats } from '@/components/hype/PostEventExtendedStats';
 import { PostEventTimeline } from '@/components/hype/PostEventTimeline';
@@ -192,7 +193,7 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId, layou
     <div className="space-y-6">
       {/* Anchor nav — sticky spine, parks just under the page header */}
       <div
-        className="sticky top-[60px] sm:top-[68px] z-20 flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-2 rounded-2xl"
+        className="console-subnav-sticky sticky top-[60px] sm:top-[68px] z-20 flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-2 rounded-2xl"
         style={{ background: 'rgb(var(--glass-10-10-12)/0.72)', backdropFilter: 'blur(10px)' }}
       >
         {nav.map(({ id, label, icon: Icon }) => {
@@ -220,25 +221,25 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId, layou
       </div>
 
       {/* Chapter 1 — Verdict */}
-      <div ref={refs.verdict} data-sec="verdict" style={{ scrollMarginTop: 64 }}>
+      <div ref={refs.verdict} data-sec="verdict" style={{ scrollMarginTop: ANCHOR_SCROLL_MARGIN }}>
         <PostEventOverview data={postEventData} />
       </div>
 
       {/* Chapter 2 — Performance */}
-      <div ref={refs.performance} data-sec="performance" className="space-y-4" style={{ scrollMarginTop: 64 }}>
+      <div ref={refs.performance} data-sec="performance" className="space-y-4" style={{ scrollMarginTop: ANCHOR_SCROLL_MARGIN }}>
         <ChapterHeader icon={BarChart3} title={t('postEvent.secPerformance')} sub={t('postEvent.secPerformanceSub')} />
         <PostEventExtendedStats stats={postEventData.extendedStats} />
         <PostEventTimeline timeline={postEventData.timeline} insights={postEventData.timelineInsights} />
       </div>
 
       {/* Chapter 3 — Audience */}
-      <div ref={refs.audience} data-sec="audience" className="space-y-4" style={{ scrollMarginTop: 64 }}>
+      <div ref={refs.audience} data-sec="audience" className="space-y-4" style={{ scrollMarginTop: ANCHOR_SCROLL_MARGIN }}>
         <ChapterHeader icon={Users} title={t('postEvent.secAudience')} sub={t('postEvent.secAudienceSub')} />
         <PostEventCustomerInsights insights={postEventData.customerInsights} />
       </div>
 
       {/* Chapter 4 — Takeaways */}
-      <div ref={refs.advice} data-sec="advice" className="space-y-4" style={{ scrollMarginTop: 64 }}>
+      <div ref={refs.advice} data-sec="advice" className="space-y-4" style={{ scrollMarginTop: ANCHOR_SCROLL_MARGIN }}>
         <ChapterHeader icon={Lightbulb} title={t('postEvent.secAdvice')} sub={t('postEvent.secAdviceSub')} />
         <PostEventWhatWorked items={postEventData.whatWorked} />
         <PostEventSuggestions suggestions={postEventData.suggestions} />
