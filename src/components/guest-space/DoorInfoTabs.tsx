@@ -177,6 +177,7 @@ export function InfoTab(p: GuestTabProps) {
   const ev = d.event!;
   const org = ev.organizer_name;
   const contract = d.money?.mode === 'contract';
+  const guestContract = d.money?.mode === 'guest_contract' ? d.money.contract ?? null : null;
   const collector = d.money?.collector_name ?? org;
   const tickets = d.tickets ?? [];
   const packs = d.tables ?? [];
@@ -214,12 +215,17 @@ export function InfoTab(p: GuestTabProps) {
           <p className="mt-3" style={{ color: T3, fontSize: 12 }}>{w('guestSpace.info.fix', { org })}</p>
         </Card>
         <Card>
-          <CardHead title={contract ? w('guestSpace.info.contract') : w('guestSpace.info.agreement')}
-            sub={contract ? w('guestSpace.info.contractSub') : w('guestSpace.info.agreementSub')} />
+          <CardHead title={contract || guestContract ? w('guestSpace.info.contract') : w('guestSpace.info.agreement')}
+            sub={guestContract
+              ? (guestContract.status === 'signed' ? w('guestSpace.info.contractSub') : w('guestSpace.contract.infoProposed'))
+              : contract ? w('guestSpace.info.contractSub') : w('guestSpace.info.agreementSub')} />
           <Row title={w('guestSpace.info.leads')} right={org} />
           <Row title={w('guestSpace.info.collects')} right={w('guestSpace.info.collectsValue', { name: collector })} />
-          {isVenue && <Row title={w('guestSpace.info.bar')} right={w('guestSpace.info.barValue', { name: d.guest?.name ?? '' })} />}
+          {isVenue && (!guestContract || guestContract.terms.bar_to_guest) && <Row title={w('guestSpace.info.bar')} right={w('guestSpace.info.barValue', { name: d.guest?.name ?? '' })} />}
           <Row title={w('guestSpace.info.door')} right={w('guestSpace.info.doorValue', { name: org })} />
+          {guestContract && (
+            <div className="mt-3"><OrgButton size="sm" onClick={() => p.go('money')}>{w('guestSpace.contract.read')}</OrgButton></div>
+          )}
           {contract && (d.viewer?.member_level ?? 0) >= 1 && (
             <div className="mt-3"><OrgButton size="sm" to={isVenue ? '/owner/collaborations' : '/organizer-app/collaborations'}>{w('guestSpace.info.pdf')}</OrgButton></div>
           )}

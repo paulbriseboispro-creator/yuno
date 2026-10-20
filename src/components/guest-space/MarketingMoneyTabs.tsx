@@ -6,6 +6,7 @@ import {
 } from '@/lib/guestSpace';
 import type { GuestTabProps } from './context';
 import { Card, CardHead, Kpi, KpiGrid, Label, MONO, Note, Row, Steps, Table } from './ui';
+import { GuestContractMoney } from './GuestContractMoney';
 
 const CHANNELS = ['direct', 'story', 'bio', 'whatsapp', 'other'] as const;
 
@@ -102,14 +103,8 @@ export function MarketingTab(p: GuestTabProps) {
         <CardHead title={w('guestSpace.mkt.visuals')} sub={w('guestSpace.mkt.visualsSub', { org })} />
         {ev.poster_url ? (
           <div className="flex flex-wrap items-end gap-4">
-            <figure>
-              <img src={ev.poster_url} alt="" className="rounded-lg object-cover" style={{ width: 86, height: 153, border: `1px solid ${BORDER}` }} />
-              <figcaption className="mt-1.5" style={{ color: T3, fontSize: 11.5 }}>{w('guestSpace.mkt.story')}</figcaption>
-            </figure>
-            <figure>
-              <img src={ev.poster_url} alt="" className="rounded-lg object-cover" style={{ width: 122, height: 153, border: `1px solid ${BORDER}` }} />
-              <figcaption className="mt-1.5" style={{ color: T3, fontSize: 11.5 }}>{w('guestSpace.mkt.post')}</figcaption>
-            </figure>
+            {/* L'affiche telle qu'elle vit sur Yuno, jamais recadrée dans un format qu'elle n'a pas. */}
+            <img src={ev.poster_url} alt="" className="rounded-lg object-contain" style={{ maxWidth: 160, maxHeight: 160, border: `1px solid ${BORDER}` }} />
             <OrgButton size="sm" href={ev.poster_url}><Download className="h-3.5 w-3.5" /> {w('guestSpace.mkt.download')}</OrgButton>
           </div>
         ) : (
@@ -139,6 +134,8 @@ export function MoneyTab(p: GuestTabProps) {
   const collector = m.collector_name ?? org;
   const after = d.phase === 'after';
   const contract = m.mode === 'contract';
+  // Contrat signé par l'invité dans son espace : même lecture de la part qu'un contrat Yuno.
+  const bound = contract || m.mode === 'guest_contract';
   const [busy, setBusy] = useState<string | null>(null);
   const [contest, setContest] = useState(false);
   const [reason, setReason] = useState('');
@@ -175,28 +172,33 @@ export function MoneyTab(p: GuestTabProps) {
 
   const shareCard = share && (
     <Card>
-      <CardHead title={contract ? w('guestSpace.money.shareTitle') : w('guestSpace.money.shareDeclaredTitle')}
-        sub={contract ? undefined : w('guestSpace.money.shareDeclaredSub', { org })} />
+      <CardHead title={bound ? w('guestSpace.money.shareTitle') : w('guestSpace.money.shareDeclaredTitle')}
+        sub={bound ? undefined : w('guestSpace.money.shareDeclaredSub', { org })} />
       <div>
         <Row title={w('guestSpace.money.share.tickets')} right={share.tickets_pct != null ? w('guestSpace.money.share.pctNet', { n: num(share.tickets_pct) }) : '—'} />
         <Row title={w('guestSpace.money.share.tables')} right={share.tables_pct != null ? w('guestSpace.money.share.pctNet', { n: num(share.tables_pct) }) : '—'} />
         {d.guest?.kind === 'venue' && <Row title={w('guestSpace.money.share.bar')} right={w('guestSpace.money.share.barValue')} />}
         {share.amount != null && (
           <Row
-            title={<b>{contract && m.transfer?.direction === 'out' ? w('guestSpace.money.share.youOwe', { org: collector }) : contract ? w('guestSpace.money.share.owed', { org: collector }) : w('guestSpace.money.share.yours')}</b>}
-            right={<b style={{ color: POS }}>{eur(contract && m.transfer ? m.transfer.amount : share.amount)}</b>} />
+            title={<b>{bound && m.transfer?.direction === 'out' ? w('guestSpace.money.share.youOwe', { org: collector }) : bound ? w('guestSpace.money.share.owed', { org: collector }) : w('guestSpace.money.share.yours')}</b>}
+            right={<b style={{ color: POS }}>{eur(bound && m.transfer ? m.transfer.amount : share.amount)}</b>} />
         )}
       </div>
-      {contract && (
+      {bound && (
         <div className="mt-3">
           <Note>
             {w('guestSpace.money.transferNote', { collector, n: num(m.payment_terms_days ?? 15) })}
-            {m.transfer?.reference ? <> {w('guestSpace.money.reference')} : <span style={{ fontFamily: MONO }}>{m.transfer.reference}</span></> : null}
+            {m.transfer?.reference ? <> {w('guestSpace.money.referenceColon')} <span style={{ fontFamily: MONO }}>{m.transfer.reference}</span></> : null}
           </Note>
         </div>
       )}
     </Card>
   );
+
+  const answer = share && <AnswerCard {...p} busy={busy} contest={contest} setContest={setContest} reason={reason} setReason={setReason} respond={respond} />;
+  if (m.mode === 'guest_contract' && m.contract) {
+    return <GuestContractMoney {...p} statement={statement} shareCard={shareCard} answer={answer} />;
+  }
 
   if (!contract) {
     return (

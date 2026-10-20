@@ -23,13 +23,15 @@ import { Seo } from '@/components/Seo';
 import { OrgButton, OrgPill, RED, POS, T1, T2, T3, BORDER, CARD_BG } from '@/components/org-ui';
 import { capturePosthog } from '@/lib/posthog';
 import {
-  GUEST_TABS, daysToNight, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestToken, loadGuestSpace,
-  rememberGuestClaim, toGuestSpaceLanguage, trackGuestSpace, type GuestSpaceData, type GuestTab,
+  GUEST_TABS, daysToNight, guestNotifications, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestToken, loadGuestSpace,
+  readGuestLang, readGuestSeen, rememberGuestClaim, toGuestSpaceLanguage, trackGuestSpace, writeGuestLang, writeGuestSeen,
+  type GuestSpaceData, type GuestSpaceLanguage, type GuestTab,
 } from '@/lib/guestSpace';
 import type { GuestTabProps } from '@/components/guest-space/context';
 import { HomeTab, SalesTab } from '@/components/guest-space/HomeSalesTabs';
 import { MarketingTab, MoneyTab } from '@/components/guest-space/MarketingMoneyTabs';
 import { DoorTab, InfoTab } from '@/components/guest-space/DoorInfoTabs';
+import { GuestTopBar } from '@/components/guest-space/TopBar';
 
 const ICONS: Record<GuestTab, typeof LayoutGrid> = {
   home: LayoutGrid, sales: Ticket, mkt: Megaphone, money: Banknote, door: ScanLine, info: Info,
@@ -83,7 +85,10 @@ export default function GuestSpacePage() {
     return () => window.clearTimeout(id);
   }, [toastMsg]);
 
-  const lang = toGuestSpaceLanguage(data?.language, toGuestSpaceLanguage(visitorLanguage));
+  // La langue part de celle choisie par l'organisateur ; l'invité la change pour lui (son appareil).
+  const [langPick, setLangPick] = useState<GuestSpaceLanguage | null>(() => (token ? readGuestLang(token) : null));
+  const [seenAt, setSeenAt] = useState<string | null>(() => (token ? readGuestSeen(token) : null));
+  const lang = langPick ?? toGuestSpaceLanguage(data?.language, toGuestSpaceLanguage(visitorLanguage));
   const w = useMemo(() => guestSpaceWords(lang), [lang]);
   const loc = guestSpaceLocale(lang);
   const tz = data?.event?.timezone || 'Europe/Paris';
@@ -121,6 +126,7 @@ export default function GuestSpacePage() {
   const ev = data.event!;
   const guest = data.guest!;
   const date = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(loc, { ...opts, timeZone: tz }).format(new Date(iso));
+  const notifications = guestNotifications(data);
   const props: GuestTabProps = {
     d: data, w, lang, token: token!, num: (n) => fmt.format(n), eur: (n) => eurFmt.format(n), date,
     reload: load, go, toast: (text, tone = 'ok') => setToastMsg({ text, tone }),
@@ -129,9 +135,13 @@ export default function GuestSpacePage() {
   const phasePill = data.phase === 'before'
     ? (toNight > 0 ? w('guestSpace.shell.phase.before', { n: toNight }) : w('guestSpace.shell.phase.today'))
     : w(`guestSpace.shell.phase.${data.phase ?? 'before'}` as Parameters<typeof w>[0]);
-  const deal = data.money?.mode === 'contract' ? w('guestSpace.shell.deal.contract') : w('guestSpace.shell.deal.external');
+  const gc = data.money?.mode === 'guest_contract' ? data.money.contract ?? null : null;
+  const deal = data.money?.mode === 'contract' || gc?.status === 'signed' ? w('guestSpace.shell.deal.contract')
+    : gc ? w('guestSpace.shell.deal.toSign') : w('guestSpace.shell.deal.external');
   const tabs = GUEST_TABS;
   const tag = (t: GuestTab): { label: string; tone: 'warn' | 'success' } | null => {
+    if (t === 'money' && gc?.status === 'proposed') return { label: w('guestSpace.contract.toSign'), tone: 'warn' };
+    if (t === 'money' && gc && data.money?.transfer?.status === 'sent') return { label: w('guestSpace.tag.toCheck'), tone: 'warn' };
     if (t === 'money' && data.phase === 'after' && !data.money?.response && (data.money?.mode === 'contract' || data.money?.my_share)) {
       return { label: w('guestSpace.tag.toCheck'), tone: 'warn' };
     }
@@ -206,12 +216,11 @@ export default function GuestSpacePage() {
         </aside>
 
         <main className="min-w-0">
-          <div className="mb-4 flex items-center justify-between lg:hidden">
-            <Wordmark height={18} tone="white" alt="Yuno" />
-            <span className="inline-flex items-center gap-1.5" style={{ color: T3, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              <Lock className="h-3 w-3" /> {w('guestSpace.shell.private')}
-            </span>
-          </div>
+          <GuestTopBar w={w} lang={lang} go={go} eur={props.eur} date={date}
+            onLang={(l) => { setLangPick(l); if (token) writeGuestLang(token, l); }}
+            notifications={notifications}
+            unread={(n) => !data.is_team && (!seenAt || n.at > seenAt)}
+            onOpenBell={() => { const at = new Date().toISOString(); setSeenAt(at); if (token) writeGuestSeen(token, at); }} />
           <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3.5">
               {ev.poster_url && <img src={ev.poster_url} alt="" className="h-14 w-14 flex-none rounded-xl object-cover" style={{ border: `1px solid ${BORDER}` }} />}

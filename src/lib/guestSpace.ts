@@ -102,18 +102,32 @@ export interface GuestSpaceData {
     net_tickets: number; net_tables: number; yuno_fees: number;
   } | null;
   money?: {
-    mode: 'contract' | 'external';
+    mode: 'contract' | 'external' | 'guest_contract';
     collector: string | null;
     collector_name: string | null;
     payment_terms_days?: number | null;
     my_share?: { tickets_pct: number | null; tables_pct: number | null; amount: number | null; declared?: boolean } | null;
-    transfer?: { direction: 'in' | 'out'; amount: number; status: string; due_at?: string | null; reference?: string | null; iban_set?: boolean; id?: string | null } | null;
+    transfer?: {
+      direction: 'in' | 'out'; amount: number; status: string; due_at?: string | null; reference?: string | null; iban_set?: boolean; id?: string | null;
+      iban_masked?: string | null; sent_at?: string | null; sent_reference?: string | null; received_at?: string | null; dispute_reason?: string | null;
+    } | null;
+    /** Contrat de soirée de l'invité (mode `guest_contract`). */
+    contract?: GuestContract | null;
     statement?: { frozen: boolean; frozen_at: string | null; status: string | null } | null;
     response: 'approved' | 'contested' | null;
     response_reason: string | null;
     responded_at: string | null;
     statement_ready: boolean;
   };
+}
+
+export interface GuestContractTerms {
+  tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30; bar_to_guest: boolean; note: string | null;
+}
+export interface GuestContract {
+  status: 'proposed' | 'signed'; version: number; terms: GuestContractTerms; proposed_at: string | null;
+  org_signer: string | null; signed_at: string | null; signer_name: string | null; signer_email: string | null;
+  reference: string | null; hash: string | null;
 }
 
 export interface DoorStaffRow {
@@ -237,6 +251,73 @@ export function whatsappHref(phone: string | null | undefined, text: string): st
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
+// ─── Cloche de l'espace (sans compte, sans table : déduite de ce que l'espace lit) ──
+
+export interface GuestNotification {
+  id: string;
+  at: string;
+  tab: GuestTab;
+  key: 'contract' | 'contractChanged' | 'contractSigned' | 'frozen' | 'transferSent' | 'transferReceived' | 'statementReady' | 'staffAccepted' | 'staffAdded';
+  vars: Record<string, string | number>;
+  /** Attend un geste de l'invité (signer, confirmer, valider). */
+  action: boolean;
+}
+
+/**
+ * Ce qui concerne l'invité, du plus récent au plus ancien. Rien n'est stocké
+ * côté serveur : chaque ligne vient d'une date que l'espace lit déjà (contrat,
+ * décompte, virement, staff de porte). « Non lu » = plus récent que la
+ * dernière ouverture de la cloche sur CET appareil.
+ */
+export function guestNotifications(d: GuestSpaceData): GuestNotification[] {
+  const out: GuestNotification[] = [];
+  const m = d.money;
+  const org = d.event?.organizer_name ?? '';
+  const collector = m?.collector_name ?? org;
+  const c = m?.mode === 'guest_contract' ? m.contract ?? null : null;
+  if (c?.status === 'signed' && c.signed_at) {
+    out.push({ id: `signed:${c.version}`, at: c.signed_at, tab: 'money', key: 'contractSigned', vars: { name: c.signer_name ?? '' }, action: false });
+  } else if (c?.proposed_at) {
+    out.push({
+      id: `contract:${c.version}`, at: c.proposed_at, tab: 'money', key: c.version > 1 ? 'contractChanged' : 'contract',
+      vars: { org, n: c.version }, action: c.status === 'proposed',
+    });
+  }
+  if (m?.statement?.frozen && m.statement.frozen_at) {
+    out.push({ id: 'frozen', at: m.statement.frozen_at, tab: 'money', key: 'frozen', vars: { amount: m.transfer?.amount ?? m.my_share?.amount ?? 0 }, action: false });
+  }
+  if (m?.transfer?.sent_at) {
+    out.push({ id: 'sent', at: m.transfer.sent_at, tab: 'money', key: 'transferSent', vars: { org: collector }, action: m.transfer.status === 'sent' });
+  }
+  if (m?.transfer?.received_at) {
+    out.push({ id: 'received', at: m.transfer.received_at, tab: 'money', key: 'transferReceived', vars: {}, action: false });
+  }
+  if (m?.mode === 'contract' && m.statement_ready && d.event) {
+    out.push({ id: 'statement', at: d.event.end_at ?? d.event.start_at, tab: 'money', key: 'statementReady', vars: {}, action: !m.response });
+  }
+  for (const s of d.door_staff ?? []) {
+    if (s.status === 'accepted' && s.accepted_at) out.push({ id: `staff:${s.id}`, at: s.accepted_at, tab: 'door', key: 'staffAccepted', vars: { name: s.name }, action: false });
+    else if (s.invited_by_kind === 'organizer' && s.status !== 'revoked') out.push({ id: `staffadd:${s.id}`, at: s.created_at, tab: 'door', key: 'staffAdded', vars: { name: s.name, org }, action: false });
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+const seenKey = (token: string) => `yuno:guest-space-seen:${token}`;
+export function readGuestSeen(token: string): string | null {
+  try { return localStorage.getItem(seenKey(token)); } catch { return null; }
+}
+export function writeGuestSeen(token: string, at: string): void {
+  try { localStorage.setItem(seenKey(token), at); } catch { /* navigation privée : la pastille revient, rien de grave */ }
+}
+/** La langue choisie par l'invité sur son appareil (sinon celle de l'organisateur). */
+const langKey = (token: string) => `yuno:guest-space-lang:${token}`;
+export function readGuestLang(token: string): GuestSpaceLanguage | null {
+  try { const v = localStorage.getItem(langKey(token)); return v === 'en' || v === 'fr' || v === 'es' ? v : null; } catch { return null; }
+}
+export function writeGuestLang(token: string, lang: GuestSpaceLanguage): void {
+  try { localStorage.setItem(langKey(token), lang); } catch { /* sans stockage, la langue tient le temps de la page */ }
+}
+
 // ─── Erreurs ────────────────────────────────────────────────────────────────
 
 export function guestErrorCode(err: unknown): string {
@@ -300,6 +381,12 @@ export interface GuestPassRow {
   links: number; link_clicks: number; link_sales: number;
   guest_party: string | null; claim_status: 'pending' | 'accepted' | 'recorded' | null; claimed_at: string | null;
   guest_party_name: string | null; guest_is_party: boolean; guest_invited: boolean;
+  contract_status: 'proposed' | 'signed' | 'cancelled' | null; contract_terms: GuestContractTerms | null; contract_version: number;
+  contract_signed_at: string | null; contract_signer_name: string | null; contract_signer_email: string | null;
+  statement_frozen_at: string | null; guest_iban: string | null; guest_iban_holder: string | null;
+  transfer_reference: string | null; transfer_status: 'pending' | 'sent' | 'received' | 'disputed' | null;
+  transfer_amount: number | null; transfer_due_at: string | null; transfer_sent_at: string | null;
+  transfer_received_at: string | null; transfer_dispute_reason: string | null;
 }
 
 export async function listGuestPasses(eventId: string): Promise<{ canShowRevenue: boolean; passes: GuestPassRow[] }> {
@@ -330,6 +417,53 @@ export const listEventDoorStaff = (eventId: string) => rpc('list_event_door_staf
 export const inviteEventDoorStaff = (p: { eventId: string; name: string; email?: string | null; phone?: string | null; passId?: string | null }) =>
   rpc('invite_event_door_staff', { p_event_id: p.eventId, p_name: p.name, p_email: p.email || null, p_phone: p.phone || null, p_pass_id: p.passId ?? null }) as Promise<{ id: string; invite_token: string; email: string | null; phone: string | null }>;
 export const revokeEventDoorStaff = (id: string) => rpc('revoke_event_door_staff', { p_staff_id: id });
+
+// ─── Contrat de soirée de l'invité ──────────────────────────────────────────
+
+/** L'organisateur propose (ou change) les termes : il signe en proposant. */
+export const proposeGuestContract = (passId: string, t: GuestContractTerms) => rpc('set_event_guest_pass_contract', {
+  p_pass_id: passId, p_tickets_pct: t.tickets_pct, p_tables_pct: t.tables_pct, p_payment_terms_days: t.payment_terms_days,
+  p_bar_to_guest: t.bar_to_guest, p_note: t.note, p_cancel: false,
+}) as Promise<{ ok: boolean; status: string; version: number }>;
+export const cancelGuestContract = (passId: string) => rpc('set_event_guest_pass_contract', { p_pass_id: passId, p_cancel: true });
+export const markGuestTransferSent = (passId: string, reference: string | null) =>
+  rpc('mark_guest_pass_transfer_sent', { p_pass_id: passId, p_reference: reference });
+export const signGuestContract = (token: string, name: string, code: string, version: number) =>
+  rpc('guest_pass_sign_contract', { p_token: token, p_signer_name: name, p_code: code, p_version: version });
+export const setGuestIban = (token: string, iban: string, holder: string, code: string) =>
+  rpc('guest_pass_set_iban', { p_token: token, p_iban: iban, p_holder: holder, p_code: code });
+export const confirmGuestTransfer = (token: string, received: boolean, reason?: string) =>
+  rpc('guest_pass_confirm_transfer', { p_token: token, p_received: received, p_reason: reason ?? null });
+
+/** Le code à 6 chiffres part par email (jamais dans la réponse, sauf démo). */
+export async function requestGuestCode(token: string, purpose: 'sign' | 'iban'): Promise<{ email: string; demoCode: string | null }> {
+  const { data, error } = await supabase.functions.invoke('invite-organizer-collab', { body: { kind: 'guest_code', token, purpose } });
+  if (error) {
+    let code = 'generic';
+    try { code = (await (error as { context?: Response }).context?.json())?.error ?? code; } catch { /* corps illisible */ }
+    throw new Error(code);
+  }
+  const r = data as { error?: string; email?: string; demo_code?: string } | null;
+  if (r?.error) throw new Error(r.error);
+  return { email: r?.email ?? '', demoCode: r?.demo_code ?? null };
+}
+
+/** IBAN : espaces tous les 4 caractères, majuscules (affichage seulement). */
+export function formatIban(v: string): string {
+  return v.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(.{4})/g, '$1 ').trim();
+}
+/** Contrôle de clé IBAN (mod 97) avant l'envoi : le serveur, lui, ne vérifie que la forme. */
+export function isValidIban(v: string): boolean {
+  const s = v.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(s)) return false;
+  const moved = s.slice(4) + s.slice(0, 4);
+  let r = 0;
+  for (const ch of moved) {
+    const n = ch >= 'A' ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const dgt of n) r = (r * 10 + Number(dgt)) % 97;
+  }
+  return r === 1;
+}
 
 /** Envoie l'email d'accès (edge `invite-organizer-collab`, action `guest_pass`). */
 export async function sendGuestPassEmail(passId: string): Promise<void> {

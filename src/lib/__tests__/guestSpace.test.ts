@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   GUEST_SPACE_WORDS_RAW, daysToNight, guestErrorText, guestLanguageForEvent, guestSignupUrl, guestSpaceUrl,
-  guestSpaceWords, isGuestToken, readyPostText, salesSeries, whoSellsRows, type GuestSpaceData,
+  formatIban, guestNotifications, guestSpaceWords, isGuestToken, isValidIban, readyPostText, salesSeries, whoSellsRows, type GuestSpaceData,
 } from '@/lib/guestSpace';
 
 describe('mots de l’espace invité', () => {
@@ -80,5 +80,35 @@ describe('liens et textes', () => {
   it('le texte prêt à poster porte le lien et la boisson', () => {
     const t = readyPostText(guestSpaceWords('es'), { date: 'Miércoles 28', event: 'House Of Masquerade', place: 'Tia Felisa', price: '6 €', drinkBefore: '02:00', link: 'yunoapp.eu/l/x' });
     expect(t).toBe('Miércoles 28 · House Of Masquerade en Tia Felisa. Entradas desde 6 €, consumición incluida antes de la 02:00 → yunoapp.eu/l/x');
+  });
+});
+
+describe('IBAN de l’invité', () => {
+  it('reconnaît un IBAN valide et refuse une clé fausse', () => {
+    expect(isValidIban('FR76 3000 6000 0112 3456 7890 189')).toBe(true);
+    expect(isValidIban('FR76 3000 6000 0112 3456 7890 188')).toBe(false);
+    expect(isValidIban('ES91 2100 0418 4502 0005 1332')).toBe(true);
+    expect(isValidIban('pas un iban')).toBe(false);
+  });
+  it('met en forme par groupes de quatre', () => {
+    expect(formatIban('fr7630006000011234567890189')).toBe('FR76 3000 6000 0112 3456 7890 189');
+  });
+});
+
+describe('cloche de l’espace', () => {
+  const base = { found: true, event: { organizer_name: 'Amoris', end_at: '2026-10-29T04:00:00Z', start_at: '2026-10-28T22:00:00Z' } } as unknown as GuestSpaceData;
+  it('contrat à signer = à faire, puis signé = un fait', () => {
+    const proposed = { ...base, money: { mode: 'guest_contract', contract: { status: 'proposed', version: 2, proposed_at: '2026-10-20T10:00:00Z' } } } as unknown as GuestSpaceData;
+    const n = guestNotifications(proposed);
+    expect(n[0]).toMatchObject({ key: 'contractChanged', action: true, tab: 'money' });
+    const signed = { ...base, money: { mode: 'guest_contract', contract: { status: 'signed', version: 2, proposed_at: '2026-10-20T10:00:00Z', signed_at: '2026-10-20T11:00:00Z', signer_name: 'Lucía' } } } as unknown as GuestSpaceData;
+    expect(guestNotifications(signed)[0]).toMatchObject({ key: 'contractSigned', action: false });
+  });
+  it('rangée du plus récent au plus ancien', () => {
+    const d = { ...base, door_staff: [
+      { id: 'a', name: 'A', status: 'accepted', accepted_at: '2026-10-19T10:00:00Z', invited_by_kind: 'guest', created_at: '2026-10-18T10:00:00Z' },
+      { id: 'b', name: 'B', status: 'pending', accepted_at: null, invited_by_kind: 'organizer', created_at: '2026-10-20T10:00:00Z' },
+    ] } as unknown as GuestSpaceData;
+    expect(guestNotifications(d).map((x) => x.key)).toEqual(['staffAdded', 'staffAccepted']);
   });
 });
