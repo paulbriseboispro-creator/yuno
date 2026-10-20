@@ -46,10 +46,10 @@ export async function loadOptIns(
         .from('newsletter_subscriptions')
         .select('email, venue_id, organizer_user_id, unsubscribe_token')
         .eq('opted_in', true)
-        // Isolation CRM ⇄ Billetterie : un accord rapporté par la billetterie connectée
-        // (source connector:%) ne vaut pas pour les e-mails de Yuno (« on t'a manqué »,
-        // prochaine soirée). `source` peut être NULL : NOT LIKE seul écarterait ces lignes.
-        .or('source.is.null,source.not.like.connector:*')
+        // Séparation CRM ⇄ Billetterie : les e-mails de Yuno (« on t'a manqué », prochaine
+        // soirée) sont des e-mails de la BILLETTERIE : seuls comptent les accords du registre
+        // Billetterie (product IS NULL), jamais ceux du CRM (product = 'crm').
+        .is('product', null)
         .in('email', chunk)
         .returns<NewsletterSubscriptionRow[]>();
       if (error) throw error;

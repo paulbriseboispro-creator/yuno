@@ -1562,7 +1562,7 @@ async function executeTool(
         const kind = String(args.kind || "");
         const KINDS = ["new_event", "abandoned_checkout", "tier_closing", "last_call", "table_upsell", "post_event_thanks", "post_event_missed", "regular_lapse", "welcome", "win_back"];
         if (!KINDS.includes(kind)) return JSON.stringify({ error: "Unknown recipe kind" });
-        const { data: existing } = await supabase.from("email_automations").select("id, enabled, template_id, delay_hours").eq("venue_id", venueId).eq("kind", kind).maybeSingle();
+        const { data: existing } = await supabase.from("email_automations").select("id, enabled, template_id, delay_hours").eq("venue_id", venueId).eq("kind", kind).is("product", null).maybeSingle();
         const patch: Record<string, unknown> = {};
         if (typeof args.enabled === "boolean") patch.enabled = args.enabled;
         if (kind !== "tier_closing" && Number.isFinite(Number(args.delay_hours)) && Number(args.delay_hours) > 0) patch.delay_hours = Math.min(8760, Math.max(1, Math.round(Number(args.delay_hours))));

@@ -440,9 +440,8 @@ export async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigg
       await finishRun("ok", null, after);
       if (firstImport) {
         const s = (stats ?? {}) as Json;
-        await notifyPro(admin, conn, "ticketing_import_done", "Historique Shotgun importé",
-          `${Number(s.tickets ?? 0)} billets et ${Number(s.buyers ?? 0)} acheteurs sont maintenant dans votre base Yuno.`,
-          "normal", { tickets: s.tickets ?? 0, buyers: s.buyers ?? 0, events: s.events ?? 0 }, `ticketing_import_done:${conn.id}`);
+        // Isolation CRM ⇄ Billetterie : plus de notification dans la cloche de la Billetterie
+        // (le CRM lit initial_import_done_at dans _crm_notif_list).
       }
       return { more: false, status: "ok", events: eventsUpserted, tickets: ticketsUpserted };
     }
@@ -469,9 +468,8 @@ export async function syncConnection(admin: SupabaseClient, conn: ConnRow, trigg
       await finishRun("error", err.message, null);
       await notifyAdmin(admin, conn, "admin_ticketing_token_invalid", "Jeton Shotgun refusé",
         `Shotgun refuse le jeton d'une connexion (${err.message})`, `ticketing_token_invalid:${conn.id}`);
-      await notifyPro(admin, conn, "ticketing_token_invalid", "Connexion Shotgun coupée",
-        "Shotgun refuse votre jeton API. Générez un nouveau jeton dans Smartboard → Paramètres → Intégrations → Shotgun APIs, puis collez-le dans Réglages → Intégrations.",
-        "high", { provider: conn.provider }, `ticketing_token_invalid:${conn.id}`);
+      // Isolation CRM ⇄ Billetterie : plus de notification dans la cloche de la Billetterie
+      // (admin_ticketing_token_invalid ci-dessus + sync_broken dans _crm_notif_list).
       return { more: false, status: "error", events: eventsUpserted, tickets: ticketsUpserted, error: err.message };
     }
     if (err.kind === "rate") {
