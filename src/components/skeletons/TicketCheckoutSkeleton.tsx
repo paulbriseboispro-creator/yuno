@@ -1,4 +1,5 @@
 import { Shimmer, SkeletonLine } from './Shimmer';
+import { CheckoutBarSkeleton, CheckoutStepHeaderSkeleton } from './CheckoutChromeSkeleton';
 
 /* Silhouette fidèle de src/pages/TicketCheckout.tsx (page « Vos infos ») :
    en-tête sticky h-14 (retour carré + étape centrée sur deux lignes) → carte
@@ -8,19 +9,7 @@ import { Shimmer, SkeletonLine } from './Shimmer';
 export function TicketCheckoutSkeleton() {
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }} aria-hidden>
-      <div
-        className="sticky top-0 z-40"
-        style={{ background: 'rgba(10,10,10,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <div className="mx-auto flex h-14 max-w-lg items-center gap-3 px-4">
-          <Shimmer width={40} height={40} style={{ borderRadius: 4 }} />
-          <div className="flex flex-1 flex-col items-center gap-1.5">
-            <SkeletonLine width={84} height={11} />
-            <SkeletonLine width={70} height={9} />
-          </div>
-          <span className="w-10" />
-        </div>
-      </div>
+      <CheckoutStepHeaderSkeleton progress={2 / 3} />
 
       <div className="mx-auto max-w-lg px-4 pt-5">
         <div className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
@@ -68,21 +57,7 @@ export function TicketCheckoutSkeleton() {
         </div>
       </div>
 
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50"
-        style={{ background: 'rgba(14,14,16,0.94)', borderTop: '1px solid rgba(255,255,255,0.10)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      >
-        <div className="mx-auto w-full max-w-md px-4 pb-3 pt-3">
-          <div className="mb-3 flex items-baseline justify-between">
-            <SkeletonLine width={40} height={10} />
-            <SkeletonLine width={84} height={22} />
-          </div>
-          <Shimmer width="100%" height={48} style={{ borderRadius: 4 }} />
-          <div className="mt-2.5 flex justify-center">
-            <SkeletonLine width={220} height={11} />
-          </div>
-        </div>
-      </div>
+      <CheckoutBarSkeleton />
     </div>
   );
 }

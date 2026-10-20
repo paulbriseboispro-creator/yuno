@@ -36,6 +36,8 @@ interface MinorAuthGateProps {
   highlightDoc?: boolean;
   /** Ancre : la page y descend quand la date est le premier oubli. */
   anchorRef?: Ref<HTMLFieldSetElement>;
+  /** Ligne sous la date (défaut : celle du billet, selon que la soirée accepte les mineurs). */
+  hint?: string;
 }
 
 // Single age gate of the ticket checkout. A birth date is required to buy; once
@@ -47,7 +49,7 @@ interface MinorAuthGateProps {
 //   minor + event allows minors + no doc    → minor ticket OK
 export function MinorAuthGate({
   userId, eventId, acceptsMinors, template, onReady, onDocUploaded, onMinorInfo, onDocPending,
-  onBirthState, error, invalidField, onBlur, highlightDoc, anchorRef,
+  onBirthState, error, invalidField, onBlur, highlightDoc, anchorRef, hint,
 }: MinorAuthGateProps) {
   const { t } = useLanguage();
   const [parts, setParts] = useState<BirthDateParts>({ day: '', month: '', year: '' });
@@ -173,7 +175,7 @@ export function MinorAuthGate({
         ) : shownError ? (
           <FieldError>{shownError}</FieldError>
         ) : !prefilled ? (
-          <FieldHint>{acceptsMinors ? t('ticketCheckout.birthHint') : t('ticketCheckout.birthHintAdults')}</FieldHint>
+          <FieldHint>{hint ?? (acceptsMinors ? t('ticketCheckout.birthHint') : t('ticketCheckout.birthHintAdults'))}</FieldHint>
         ) : null}
 
         {/* A minor on a minors-allowed event is the ONLY case where the event's

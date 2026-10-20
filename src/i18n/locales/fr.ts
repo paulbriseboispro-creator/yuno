@@ -5548,6 +5548,7 @@ const fr: Record<string, string> = {
   'buyer.emailSuggestFix': 'Corriger',
   'buyer.err.name_required': 'Entrez vos prénom et nom.',
   'buyer.err.name_short': 'Entrez votre nom complet.',
+  'buyer.err.name_incomplete': 'Entrez votre prénom et votre nom : la porte ne lit que ce nom.',
   'buyer.err.email_required': 'Entrez votre adresse e-mail.',
   'buyer.err.email_invalid': 'Cette adresse semble incomplète, par exemple nom@gmail.com.',
   'buyer.err.phone_required': 'Entrez votre numéro de téléphone.',
