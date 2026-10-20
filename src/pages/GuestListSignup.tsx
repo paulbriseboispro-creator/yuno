@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useBackConfirm } from '@/hooks/useBackConfirm';
 import {
@@ -18,16 +18,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
-import { hasPhoneNumber } from '@/lib/countries';
 import { soldOutFlags, isGuestListSoldOut } from '@/lib/soldOut';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
+import { BuyerFields, BuyerReadyCard } from '@/components/checkout/BuyerDetails';
+import { GenderChoice, type GuestGender } from '@/components/checkout/GenderChoice';
+import { focusCheckoutField, useBuyerFormUi } from '@/components/checkout/useBuyerForm';
+import { buyerFormErrors, firstErrorField } from '@/lib/buyerForm';
+import { suggestEmail } from '@/lib/emailTypo';
 import { toast } from 'sonner';
-import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Crown, UserPlus, Ban } from 'lucide-react';
+import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, PartyPopper, Crown, UserPlus, Ban } from 'lucide-react';
 import { GL_ENTRY_TYPES, effectivePublicTypes, entryTypeLabelKey, type GLEntryType } from '@/lib/guestListTypes';
-import { composeFullName, isCompleteName } from '@/lib/guestName';
+import { cleanNamePart, composeFullName } from '@/lib/guestName';
 import { WalletButtons } from '@/components/WalletButtons';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, fromParisTime, countryOfPlace } from '@/lib/timezone';
@@ -199,14 +200,12 @@ export default function GuestListSignup() {
   // Form (gender only - rest comes from profile)
   // Pre-fill from URL param when coming from a gender-specific share link
   const [gender, setGender] = useState(genderFromUrl || '');
-  // Guest registration (no account) — same unified pattern as ticket/table checkout.
-  // Prénom ET nom, séparément : la liste de porte ne montre que le nom, et un
-  // champ unique laissait passer un seul mot — voire le pseudo recopié par le
-  // navigateur in-app d'Instagram (cf. src/lib/guestName.ts).
-  const [guestFirstName, setGuestFirstName] = useState('');
-  const [guestLastName, setGuestLastName] = useState('');
-  const guestName = composeFullName(guestFirstName, guestLastName);
-  const guestNameReady = isCompleteName(guestName);
+  // Guest registration (no account) — mêmes champs que le paiement billet
+  // (lib/buyerForm.ts) : un seul « Nom et prénom ». La liste de porte ne montre
+  // que le nom : `requireTwoWords` refuse un seul mot (même garde que le
+  // serveur, src/lib/guestName.ts) et `autocomplete="name"` évite le pseudo
+  // qu'un navigateur in-app recopiait dans un champ qui n'en avait pas.
+  const [guestFullName, setGuestFullName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   // Compte déjà existant sur cet email : on le dit pendant la saisie, pas au
@@ -214,24 +213,50 @@ export default function GuestListSignup() {
   const { exists: typedEmailHasAccount } = useExistingAccountCheck(guestEmail, !user);
 
   // ── Identité d'un inscrit CONNECTÉ ───────────────────────────────────────
-  // Le serveur compose son nom depuis `profiles` (prénom + nom). Un profil
-  // sans nom de famille produisait une ligne de porte inutilisable, et la page
-  // ne montrait nulle part sous quel nom on s'inscrivait : on l'affiche, on le
-  // laisse corriger, et on l'écrit dans le profil avant d'appeler la fonction.
-  const [profileFirstName, setProfileFirstName] = useState('');
-  const [profileLastName, setProfileLastName] = useState('');
-  const profileNameReady = isCompleteName(composeFullName(profileFirstName, profileLastName));
+  // Le serveur compose son nom et lit son téléphone depuis `profiles`. Un profil
+  // sans nom de famille produisait une ligne de porte inutilisable : on montre
+  // le profil, on le laisse corriger, et on écrit la correction avant l'appel.
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [meName, setMeName] = useState('');
+  const [mePhone, setMePhone] = useState('');
+  // Profil complet : carte « Tout est prêt », « Modifier » rouvre les champs.
+  const [profileComplete, setProfileComplete] = useState(false);
+  // Profil d'un inscrit connecté lu : la page attend cette lecture pour ne pas
+  // montrer des champs vides qui disparaissent derrière « Tout est prêt ».
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [editingIdentity, setEditingIdentity] = useState(false);
+  const fieldRefs = {
+    name: useRef<HTMLDivElement>(null),
+    email: useRef<HTMLDivElement>(null),
+    phone: useRef<HTMLDivElement>(null),
+  };
+  const genderRef = useRef<HTMLDivElement>(null);
+  // Le compte, pas l'objet session : un rafraîchissement du jeton ne relit pas
+  // le profil et n'écrase pas ce que la personne vient de corriger.
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     let cancelled = false;
-    supabase.from('profiles').select('first_name, last_name').eq('id', user.id).maybeSingle()
+    supabase.from('profiles').select('first_name, last_name, phone').eq('id', userId).maybeSingle()
       .then(({ data }) => {
-        if (cancelled || !data) return;
-        setProfileFirstName(data.first_name || '');
-        setProfileLastName(data.last_name || '');
+        if (cancelled) return;
+        if (data) {
+          const name = composeFullName(data.first_name || '', data.last_name || '');
+          const tel = data.phone || '';
+          setProfileName(name);
+          setMeName(name);
+          setProfilePhone(tel);
+          setMePhone(tel);
+          const known = buyerFormErrors({ fullName: name, email: userEmail || '', phone: tel, birth: null, requireTwoWords: true });
+          setProfileComplete(Object.keys(known).length === 0);
+        }
+        // Lecture en échec : la page s'ouvre quand même, champs vides.
+        setProfileLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [userId, userEmail]);
 
   // ── Accords marketing ────────────────────────────────────────────────────
   // Une inscription guest list est gratuite, mais c'est une VENUE : sans la
@@ -592,6 +617,7 @@ export default function GuestListSignup() {
    */
   const marketingOptIns = !addAnother ? (
     <MarketingOptIns
+      variant="flat"
       // Destinataire du club/organisateur introuvable = pas de case à son nom,
       // mais la ligne Yuno reste : elle nomme bien qui reçoit.
       showEmail={!!consentScope}
@@ -612,33 +638,35 @@ export default function GuestListSignup() {
     />
   ) : null;
 
-  const handleConfirm = async () => {
-    if (!guestList) return;
+  // Le formulaire lu d'un coup (lib/buyerForm.ts). Invité — ou « inscrire une
+  // autre personne » (lien unique), même connecté : les coordonnées tapées.
+  // Connecté : le profil, e-mail du compte en lecture seule.
+  const useGuestFields = !user || addAnother;
+  const formName = useGuestFields ? guestFullName : meName;
+  const formEmail = useGuestFields ? guestEmail : (user?.email ?? '');
+  const formPhone = useGuestFields ? guestPhone : mePhone;
+  const formErrors = buyerFormErrors({ fullName: formName, email: formEmail, phone: formPhone, birth: null, requireTwoWords: true });
+  const genderMissing = !!guestList && hasGenderSplit(guestList) && !gender;
+  const missingCount = Object.keys(formErrors).length + (genderMissing ? 1 : 0);
+  const { touched, submitted, setSubmitted, shownError, fieldValid, markTouched, reset: resetFormUi } = useBuyerFormUi(formErrors);
+  const emailSuggestion = useGuestFields && touched.email && !formErrors.email ? suggestEmail(guestEmail) : null;
 
-    // Validate gender required if quotas are set
-    if (hasGenderSplit(guestList) && !gender) {
-      toast.error(t('guestList.genderRequired'));
-      return;
-    }
-    // Guests register without an account — validate their contact info. Le mode
-    // « inscrire une autre personne » (lien unique) exige aussi des coordonnées
-    // explicites, même connecté.
-    const useGuestFields = !user || addAnother;
-    if (useGuestFields && (!guestEmail.trim() || !hasPhoneNumber(guestPhone))) {
-      toast.error(t('tickets.fillRequired'));
-      return;
-    }
-    // Le nom part sur la liste de porte : un seul mot n'y identifie personne.
-    if (useGuestFields && !guestNameReady) {
-      toast.error(t('guestList.nameIncomplete'));
-      return;
-    }
-    // Même exigence pour un inscrit connecté : le serveur lira son profil,
-    // il doit donc y avoir un prénom ET un nom dedans avant l'appel.
-    if (!useGuestFields && !profileNameReady) {
-      toast.error(t('guestList.nameIncomplete'));
-      return;
-    }
+  // Le bouton n'est jamais grisé pour un oubli : le tap mène au premier champ à revoir.
+  const validateForm = (): boolean => {
+    const first = firstErrorField(formErrors) ?? (genderMissing ? 'gender' as const : null);
+    if (!first) return true;
+    setSubmitted(true);
+    // Un champ caché dans la carte « Tout est prêt » : on la rouvre d'abord.
+    if (first !== 'gender' && !useGuestFields && profileComplete && !editingIdentity) setEditingIdentity(true);
+    window.setTimeout(() => focusCheckoutField(
+      first === 'gender' ? genderRef.current : first === 'birth' ? null : fieldRefs[first].current,
+    ), 0);
+    return false;
+  };
+
+  const handleConfirm = async () => {
+    if (!guestList || submitting) return;
+    if (!validateForm()) return;
 
     setSubmitting(true);
     // Code court d'un refus serveur, pour `checkout_failed` (jamais le message).
@@ -681,7 +709,7 @@ export default function GuestListSignup() {
           channel: 'sms', wordingText: smsWording, wordingKey: 'consent.smsOffersFrom',
           venueId: consentScope?.venueId ?? null,
           organizerUserId: consentScope?.organizerUserId ?? null,
-          email: consentEmail, phoneE164: guestPhone.trim() || undefined,
+          email: consentEmail, phoneE164: formPhone.trim() || undefined,
           locale: language, source: 'guestlist_signup',
         });
       }
@@ -691,13 +719,22 @@ export default function GuestListSignup() {
           email: consentEmail, locale: language, source: 'guestlist_signup',
         });
       }
-      // Le nom corrigé sur cet écran doit être en base AVANT l'appel : la
-      // fonction lit `profiles` pour composer `full_name` de l'entrée.
+      // Le nom et le téléphone corrigés sur cet écran doivent être en base
+      // AVANT l'appel : la fonction lit `profiles` pour composer l'entrée.
+      // Seulement ce qui a changé — un « Marie Anne Dupont » n'est pas redécoupé.
       if (!useGuestFields && user) {
-        const { error: profileError } = await supabase.from('profiles')
-          .update({ first_name: profileFirstName.trim(), last_name: profileLastName.trim() })
-          .eq('id', user.id);
-        if (profileError) throw profileError;
+        const patch: { first_name?: string; last_name?: string | null; phone?: string } = {};
+        const typedName = cleanNamePart(meName);
+        if (typedName !== profileName) {
+          const [first, ...rest] = typedName.split(' ');
+          patch.first_name = first;
+          patch.last_name = rest.join(' ') || null;
+        }
+        if (mePhone.trim() && mePhone.trim() !== profilePhone) patch.phone = mePhone.trim();
+        if (Object.keys(patch).length > 0) {
+          const { error: profileError } = await supabase.from('profiles').update(patch).eq('id', user.id);
+          if (profileError) throw profileError;
+        }
       }
 
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
@@ -725,7 +762,7 @@ export default function GuestListSignup() {
           // Guest contact info — used by the function when no JWT is present or
           // when a logged-in user registers someone else via a unique link.
           ...(useGuestFields ? {
-            guestFullName: guestName.trim(),
+            guestFullName: cleanNamePart(guestFullName),
             guestEmail: guestEmail.trim(),
             guestPhone: guestPhone.trim(),
           } : {}),
@@ -820,7 +857,7 @@ export default function GuestListSignup() {
     }
   };
 
-  if (loading || authLoading || resolving) {
+  if (loading || authLoading || resolving || (!!user && !profileLoaded)) {
     return <GuestListSignupSkeleton />;
   }
 
@@ -1095,7 +1132,8 @@ export default function GuestListSignup() {
                     setSuccess(false);
                     setAddAnother(true);
                     setQrImage('');
-                    setGuestFirstName(''); setGuestLastName(''); setGuestEmail(''); setGuestPhone('');
+                    setGuestFullName(''); setGuestEmail(''); setGuestPhone('');
+                    resetFormUi();
                     setGender(genderFromUrl || '');
                   }}>
                     <UserPlus className="h-4 w-4 mr-2" />
@@ -1122,7 +1160,7 @@ export default function GuestListSignup() {
         {qrLocked && (
           <GuestAccountUnlock
             email={guestEmail.trim()}
-            fullName={guestName.trim()}
+            fullName={cleanNamePart(guestFullName)}
             entryId={successEntryId!}
             qrImage={qrImage}
             relinkBackUrl={relinkBackUrl}
@@ -1137,6 +1175,18 @@ export default function GuestListSignup() {
       </div>
     );
   }
+
+  // Genres encore ouverts (un quota à 0 retire le sien) et message au tap.
+  const genderOptions = ([
+    (guestList.quotaFemale === null || guestList.quotaFemale > 0) ? 'female' : null,
+    (guestList.quotaMale === null || guestList.quotaMale > 0) ? 'male' : null,
+  ] as const).filter((g): g is GuestGender => g !== null);
+  const genderError = submitted && genderMissing ? t('guestList.genderRequired') : null;
+  const showIdentityCard = !useGuestFields && profileComplete && !editingIdentity;
+  // Ligne rouge de la barre : seulement après un tap, combien d'infos restent à revoir.
+  const barAlert = submitted && missingCount > 0
+    ? (missingCount === 1 ? t('ticketCheckout.missingOne') : t('ticketCheckout.missingMany').replace('{n}', String(missingCount)))
+    : null;
 
   // ── Auth gate: not logged in — ou « inscrire une autre personne » (lien
   // unique) : même connecté, on saisit les coordonnées du proche. ──
@@ -1213,86 +1263,66 @@ export default function GuestListSignup() {
           )}
 
           {/* Guest registration — no account required (account creation is offered
-              after success via /guest/finalize, not as a wall before it). */}
+              after success via /guest/finalize, not as a wall before it). Mêmes
+              champs que le paiement billet ; le bouton vit dans la barre du bas. */}
           {!isFull && (
             <Card className="border border-border/50">
-              <CardContent className="p-4 space-y-4">
+              <CardContent className="p-4 space-y-[18px]">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{t('guestList.yourDetails')}</p>
                   <p className="text-xs text-muted-foreground">{t('guestList.guestSubtitle')}</p>
+                  {!user && (
+                    <p className="pt-1 text-[13px] leading-[1.45] text-[#9A9A9A]">
+                      {t('guest.haveAccountQuestion')}{' '}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+                        className="font-semibold text-white underline underline-offset-[3px] transition-colors hover:text-[#E5E5E5]"
+                      >
+                        {t('guest.logIn')}
+                      </button>
+                    </p>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-                  className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span>{t('guest.haveAccountQuestion')}{' '}
-                    <span className="text-primary font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
-                  </span>
-                </button>
-
-                {/* `autoComplete` explicite : sans lui, un navigateur in-app
-                    (Instagram, TikTok) remplit le champ avec le pseudo du
-                    profil au lieu du nom civil. */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="gls-first-name" className="text-xs text-muted-foreground">{t('guest.firstName')} *</Label>
-                    <Input id="gls-first-name" name="given-name" autoComplete="given-name" value={guestFirstName}
-                      onChange={(e) => setGuestFirstName(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="gls-last-name" className="text-xs text-muted-foreground">{t('guest.lastName')} *</Label>
-                    <Input id="gls-last-name" name="family-name" autoComplete="family-name" value={guestLastName}
-                      onChange={(e) => setGuestLastName(e.target.value)} />
-                  </div>
-                </div>
-                <p className="-mt-2 text-[11px] text-muted-foreground">{t('guestList.nameDoorHint')}</p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="gls-email" className="text-xs text-muted-foreground">{t('guestList.email')} *</Label>
-                  <Input id="gls-email" type="email" name="email" autoComplete="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
-                  {typedEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="gls-phone" className="text-xs text-muted-foreground">{t('guestList.phone')} *</Label>
-                  <PhoneInputWithCountry
-                    id="gls-phone"
-                    value={guestPhone}
-                    onChange={setGuestPhone}
-                    defaultCountry={guestList?.phoneCountry}
-                  />
-                </div>
+                <BuyerFields
+                  buyer={{ fullName: formName, email: formEmail, phone: formPhone }}
+                  onChange={(field, value) => {
+                    if (field === 'fullName') (useGuestFields ? setGuestFullName : setMeName)(value);
+                    else if (field === 'email') setGuestEmail(value);
+                    else (useGuestFields ? setGuestPhone : setMePhone)(value);
+                  }}
+                  onBlur={markTouched}
+                  errors={{ name: shownError('name') ?? undefined, email: shownError('email') ?? undefined, phone: shownError('phone') ?? undefined }}
+                  valid={{
+                    name: fieldValid('name', formName),
+                    email: useGuestFields && fieldValid('email', guestEmail),
+                    phone: fieldValid('phone', formPhone),
+                  }}
+                  emailReadOnly={!useGuestFields}
+                  emailSuggestion={emailSuggestion}
+                  onAcceptSuggestion={() => emailSuggestion && setGuestEmail(emailSuggestion)}
+                  emailNotice={!user && typedEmailHasAccount ? <ExistingAccountNotice email={guestEmail.trim()} /> : undefined}
+                  nameHint={t('guestList.nameHint')}
+                  emailHint={t('guestList.emailHint')}
+                  emailAccountHint={t('guestList.emailAccountHint')}
+                  defaultCountry={guestList?.phoneCountry}
+                  fieldRefs={fieldRefs}
+                />
 
                 {/* Choix du type d'entrée (offre publique multi-types) */}
                 {typeSelector}
 
-                {/* Gender selection if quotas */}
+                {/* Liste à quotas Femme / Homme : deux choix, ou celui du lien. */}
                 {hasGenderSplit(guestList) && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
-                    {genderFromUrl ? (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/50 bg-muted/40">
-                        <span className="text-sm font-medium">
-                          {genderFromUrl === 'female' ? `♀ ${t('guestList.female')}` : `♂ ${t('guestList.male')}`}
-                        </span>
-                      </div>
-                    ) : (
-                      <Select value={gender} onValueChange={setGender}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('guestList.selectGender')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(guestList.quotaFemale === null || guestList.quotaFemale > 0) && (
-                            <SelectItem value="female">{t('guestList.female')}</SelectItem>
-                          )}
-                          {(guestList.quotaMale === null || guestList.quotaMale > 0) && (
-                            <SelectItem value="male">{t('guestList.male')}</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                  <GenderChoice
+                    value={gender}
+                    onChange={setGender}
+                    options={genderFromUrl ? [genderFromUrl] : genderOptions}
+                    locked={!!genderFromUrl}
+                    error={genderError}
+                    anchorRef={genderRef}
+                  />
                 )}
 
                 {marketingOptIns}
@@ -1310,19 +1340,25 @@ export default function GuestListSignup() {
                     </div>
                   )}
                 </div>
-
-                <Button
-                  className="w-full h-12 font-semibold"
-                  onClick={handleConfirm}
-                  disabled={submitting || !guestNameReady || !guestEmail.trim() || !hasPhoneNumber(guestPhone)}
-                >
-                  {submitting ? '...' : t('guestList.confirmRegistration')}
-                </Button>
               </CardContent>
             </Card>
           )}
         </div>
         </PublicPage>
+        {/* La même barre que le paiement : rien à payer, un seul bouton toujours
+            actif (un oubli mène au champ, il ne grise rien). */}
+        {!isFull && (
+          <CheckoutSummaryBar
+            reserveSpace
+            total={0}
+            fee={0}
+            buttonText={t('guestList.confirmRegistration')}
+            onClick={() => void handleConfirm()}
+            loading={submitting}
+            alert={barAlert}
+            footnote={t('guestList.footnote')}
+          />
+        )}
         {leaveDialog}
       </div>
     );
@@ -1409,61 +1445,53 @@ export default function GuestListSignup() {
           ) : null}
         </div>
 
-        {/* Confirmation card (logged in) */}
+        {/* Confirmation card (logged in) : le profil, en carte « Tout est prêt »
+            quand il est complet. Le bouton vit dans la barre du bas. */}
         {!isFull && !alreadyRegistered && (
           <Card className="border border-border/50">
-            <CardContent className="p-4 space-y-4">
-              <div className="rounded-lg bg-muted/50 p-3 space-y-1">
-                <p className="text-sm font-medium">{t('guestList.registeredAs')}</p>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
-              </div>
-
-              {/* Le nom lu à la porte — montré, et corrigeable ici. */}
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="gls-me-first" className="text-xs text-muted-foreground">{t('guest.firstName')} *</Label>
-                    <Input id="gls-me-first" name="given-name" autoComplete="given-name" value={profileFirstName}
-                      onChange={(e) => setProfileFirstName(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="gls-me-last" className="text-xs text-muted-foreground">{t('guest.lastName')} *</Label>
-                    <Input id="gls-me-last" name="family-name" autoComplete="family-name" value={profileLastName}
-                      onChange={(e) => setProfileLastName(e.target.value)} />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">{t('guestList.nameDoorHint')}</p>
-              </div>
+            <CardContent className="p-4 space-y-[18px]">
+              {showIdentityCard ? (
+                <BuyerReadyCard fullName={meName} email={formEmail} phone={mePhone} onEdit={() => setEditingIdentity(true)} />
+              ) : (
+                  <BuyerFields
+                    buyer={{ fullName: formName, email: formEmail, phone: formPhone }}
+                    onChange={(field, value) => {
+                      if (field === 'fullName') (useGuestFields ? setGuestFullName : setMeName)(value);
+                      else if (field === 'email') setGuestEmail(value);
+                      else (useGuestFields ? setGuestPhone : setMePhone)(value);
+                    }}
+                    onBlur={markTouched}
+                    errors={{ name: shownError('name') ?? undefined, email: shownError('email') ?? undefined, phone: shownError('phone') ?? undefined }}
+                    valid={{
+                      name: fieldValid('name', formName),
+                      email: useGuestFields && fieldValid('email', guestEmail),
+                      phone: fieldValid('phone', formPhone),
+                    }}
+                    emailReadOnly={!useGuestFields}
+                    emailSuggestion={emailSuggestion}
+                    onAcceptSuggestion={() => emailSuggestion && setGuestEmail(emailSuggestion)}
+                    emailNotice={!user && typedEmailHasAccount ? <ExistingAccountNotice email={guestEmail.trim()} /> : undefined}
+                    nameHint={t('guestList.nameHint')}
+                    emailHint={t('guestList.emailHint')}
+                    emailAccountHint={t('guestList.emailAccountHint')}
+                    defaultCountry={guestList?.phoneCountry}
+                    fieldRefs={fieldRefs}
+                  />
+              )}
 
               {/* Choix du type d'entrée (offre publique multi-types) */}
               {typeSelector}
 
-              {/* Gender selection if quotas */}
+              {/* Liste à quotas Femme / Homme : deux choix, ou celui du lien. */}
               {hasGenderSplit(guestList) && (
-                <div>
-                  <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
-                  {genderFromUrl ? (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/50 bg-muted/40">
-                      <span className="text-sm font-medium">
-                        {genderFromUrl === 'female' ? `♀ ${t('guestList.female')}` : `♂ ${t('guestList.male')}`}
-                      </span>
-                    </div>
-                  ) : (
-                    <Select value={gender} onValueChange={setGender}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('guestList.selectGender')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(guestList.quotaFemale === null || guestList.quotaFemale > 0) && (
-                          <SelectItem value="female">{t('guestList.female')}</SelectItem>
-                        )}
-                        {(guestList.quotaMale === null || guestList.quotaMale > 0) && (
-                          <SelectItem value="male">{t('guestList.male')}</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
+                <GenderChoice
+                  value={gender}
+                  onChange={setGender}
+                  options={genderFromUrl ? [genderFromUrl] : genderOptions}
+                  locked={!!genderFromUrl}
+                  error={genderError}
+                  anchorRef={genderRef}
+                />
               )}
 
               {marketingOptIns}
@@ -1481,14 +1509,6 @@ export default function GuestListSignup() {
                   </div>
                 )}
               </div>
-
-              <Button
-                className="w-full h-12 font-semibold"
-                onClick={handleConfirm}
-                disabled={submitting || !profileNameReady}
-              >
-                {submitting ? '...' : t('guestList.confirmRegistration')}
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -1511,6 +1531,18 @@ export default function GuestListSignup() {
         )}
       </div>
       </PublicPage>
+      {!isFull && !alreadyRegistered && (
+        <CheckoutSummaryBar
+          reserveSpace
+          total={0}
+          fee={0}
+          buttonText={t('guestList.confirmRegistration')}
+          onClick={() => void handleConfirm()}
+          loading={submitting}
+          alert={barAlert}
+          footnote={t('guestList.footnote')}
+        />
+      )}
       {leaveDialog}
     </div>
   );

@@ -12,19 +12,20 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckoutSteps } from '@/components/CheckoutSteps';
-import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
-import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
+import { CheckoutStepHeader } from '@/components/checkout/CheckoutStepHeader';
+import { OrderEventRow } from '@/components/checkout/OrderEventRow';
+import { BuyerFields, BuyerReadyCard } from '@/components/checkout/BuyerDetails';
+import { GenderChoice, type GuestGender } from '@/components/checkout/GenderChoice';
+import { focusCheckoutField, useBuyerFormUi } from '@/components/checkout/useBuyerForm';
+import { buyerFormErrors, firstErrorField } from '@/lib/buyerForm';
+import { suggestEmail } from '@/lib/emailTypo';
 import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { formatInTimeZone } from 'date-fns-tz';
-import { PARIS_TIMEZONE, countryOfPlace } from '@/lib/timezone';
+import { countryOfPlace, getEventTimezone } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar } from 'lucide-react';
+import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, PartyPopper } from 'lucide-react';
 import QRCode from 'qrcode';
 import { haptics } from '@/lib/haptics';
 import { PublicPage } from '@/components/PublicPage';
@@ -35,7 +36,7 @@ import { GuestAccountUnlock } from '@/components/account/GuestAccountUnlock';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
 import { shareCheckoutConsent } from '@/lib/coorg';
-import { composeFullName, isCompleteName } from '@/lib/guestName';
+import { cleanNamePart, composeFullName } from '@/lib/guestName';
 import {
   useMarketingConsent, usePlatformMarketingConsent, recordConsentGrant,
   recordPlatformConsentGrant, marketingConsentWording,
@@ -60,6 +61,8 @@ interface GuestListInfo {
   eventTitle: string;
   eventStartAt: string;
   eventEndAt: string;
+  /** Fuseau de la soirée (date affichée dans la carte « Votre commande »). */
+  eventTimezone: string | null;
   eventImageUrl: string | null;
   venueId: string | null;
   venueName: string;
@@ -122,20 +125,30 @@ export default function GuestListCheckout() {
   // Ne promettre l'email que si le serveur confirme qu'il est parti.
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [timeLeft, setTimeLeft] = useState('');
-  // Guest registration (no account) — mirrors the ticket/table guest flow.
-  // Prénom ET nom, séparément — cf. src/lib/guestName.ts : la liste de porte
-  // ne montre que le nom, un seul mot n'y identifie personne.
-  const [guestFirstName, setGuestFirstName] = useState('');
-  const [guestLastName, setGuestLastName] = useState('');
-  const guestName = composeFullName(guestFirstName, guestLastName);
-  const guestNameReady = isCompleteName(guestName);
+  // Mêmes champs que le paiement billet (lib/buyerForm.ts) : un seul « Nom et
+  // prénom », l'e-mail, le téléphone. La liste de porte n'imprime que le nom :
+  // un seul mot n'y identifie personne, d'où `requireTwoWords` (même garde que
+  // le serveur, src/lib/guestName.ts) et `autocomplete="name"` contre le pseudo
+  // qu'un navigateur in-app recopiait dans un champ qui n'en avait pas.
+  const [fullName, setFullName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  // Inscrit CONNECTÉ : le serveur compose son nom depuis `profiles`. On montre
-  // ce nom, on le laisse corriger, et on l'écrit avant d'appeler la fonction.
-  const [profileFirstName, setProfileFirstName] = useState('');
-  const [profileLastName, setProfileLastName] = useState('');
-  const profileNameReady = isCompleteName(composeFullName(profileFirstName, profileLastName));
+  const [phone, setPhone] = useState('');
+  // Inscrit CONNECTÉ : le serveur compose son nom et lit son téléphone depuis
+  // `profiles`. L'écran part du profil ; une correction y est écrite avant l'appel.
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  // Profil complet : carte « Tout est prêt », « Modifier » rouvre les champs.
+  const [profileComplete, setProfileComplete] = useState(false);
+  // Profil d'un inscrit connecté lu : la page attend cette lecture pour ne pas
+  // montrer des champs vides qui disparaissent derrière « Tout est prêt ».
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [editingIdentity, setEditingIdentity] = useState(false);
+  const fieldRefs = {
+    name: useRef<HTMLDivElement>(null),
+    email: useRef<HTMLDivElement>(null),
+    phone: useRef<HTMLDivElement>(null),
+  };
+  const genderRef = useRef<HTMLDivElement>(null);
   // Identifiants de l'inscription qui vient d'être créée — c'est ce couple
   // (id + email) qui permet de rattacher l'inscription au compte créé juste
   // après. Sans lui, l'invité repart avec un QR que personne ne peut relier.
@@ -188,17 +201,31 @@ export default function GuestListCheckout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, user]);
 
+  // Le compte, pas l'objet session : un rafraîchissement du jeton ne relit pas
+  // le profil et n'écrase pas ce que la personne vient de corriger.
+  const userId = user?.id;
+  const userEmail = user?.email;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     let cancelled = false;
-    supabase.from('profiles').select('first_name, last_name').eq('id', user.id).maybeSingle()
+    supabase.from('profiles').select('first_name, last_name, phone').eq('id', userId).maybeSingle()
       .then(({ data }) => {
-        if (cancelled || !data) return;
-        setProfileFirstName(data.first_name || '');
-        setProfileLastName(data.last_name || '');
+        if (cancelled) return;
+        if (data) {
+          const name = composeFullName(data.first_name || '', data.last_name || '');
+          const tel = data.phone || '';
+          setProfileName(name);
+          setFullName(name);
+          setProfilePhone(tel);
+          setPhone(tel);
+          const known = buyerFormErrors({ fullName: name, email: userEmail || '', phone: tel, birth: null, requireTwoWords: true });
+          setProfileComplete(Object.keys(known).length === 0);
+        }
+        // Lecture en échec : la page s'ouvre quand même, champs vides.
+        setProfileLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [userId, userEmail]);
 
   // Retour de connexion pour un email qui avait deja un compte : on rattache
   // l'inscription maintenant que la session existe. La preuve est la meme que
@@ -313,6 +340,7 @@ export default function GuestListCheckout() {
         eventTitle: ev.title,
         eventStartAt: ev.start_at,
         eventEndAt: ev.end_at,
+        eventTimezone: ev.timezone ?? null,
         eventImageUrl: ev.poster_url || null,
         venueId: eventVenueId,
         venueName,
@@ -369,49 +397,34 @@ export default function GuestListCheckout() {
 
 
 
-  /** Les cases d'accord, identiques sur les deux formulaires (invité et connecté). */
-  const marketingOptIns = (
-    <MarketingOptIns
-      // Destinataire introuvable = pas de case à son nom, mais la ligne Yuno
-      // reste : elle, elle nomme bien qui reçoit.
-      showEmail={!!consentScope}
-      showSms={!!consentScope}
-      newsletterOptIn={newsletterOptIn}
-      onNewsletterChange={setNewsletterOptIn}
-      smsOptIn={smsOptIn}
-      onSmsChange={setSmsOptIn}
-      scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
-      smsScopeName={consentScope?.scopeName}
-      emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
-      smsAlreadyGranted={marketingConsent.smsGranted}
-      pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
-      showYuno
-      yunoOptIn={yunoOptIn}
-      onYunoChange={setYunoOptIn}
-      yunoAlreadyGranted={platformConsent.granted}
-    />
-  );
+
+  // Le formulaire lu d'un coup. Connecté : l'adresse est celle du compte, le
+  // serveur n'en lit pas d'autre (create-guest-list-entry).
+  const buyerEmail = user?.email ?? guestEmail;
+  const formErrors = buyerFormErrors({ fullName, email: buyerEmail, phone, birth: null, requireTwoWords: true });
+  // Liste genrée ouverte sans `?gender=` : le genre se choisit ici (quotas).
+  const genderMissing = !!guestList && (guestList.quotaFemale !== null || guestList.quotaMale !== null) && !gender;
+  const missingCount = Object.keys(formErrors).length + (genderMissing ? 1 : 0);
+  const { touched, submitted, setSubmitted, shownError, fieldValid, markTouched } = useBuyerFormUi(formErrors);
+  const emailSuggestion = !user && touched.email && !formErrors.email ? suggestEmail(guestEmail) : null;
+
+  // Le bouton n'est jamais grisé pour un oubli : le tap mène au premier champ à revoir.
+  const validateForm = (): boolean => {
+    const first = firstErrorField(formErrors) ?? (genderMissing ? 'gender' as const : null);
+    if (!first) return true;
+    setSubmitted(true);
+    haptics.error();
+    // Un champ caché dans la carte « Tout est prêt » : on la rouvre d'abord.
+    if (first !== 'gender' && user && profileComplete && !editingIdentity) setEditingIdentity(true);
+    window.setTimeout(() => focusCheckoutField(
+      first === 'gender' ? genderRef.current : first === 'birth' ? null : fieldRefs[first].current,
+    ), 0);
+    return false;
+  };
 
   const handleConfirm = async () => {
     if (!guestList || submitting) return;
-    if ((guestList.quotaFemale !== null || guestList.quotaMale !== null) && !gender) {
-      toast.error(t('guestList.genderRequired'));
-      return;
-    }
-    // Guests register without an account — validate their contact info up front.
-    if (!user && (!guestEmail.trim() || !guestPhone.trim())) {
-      toast.error(t('tickets.fillRequired'));
-      return;
-    }
-    // Le nom part sur la liste de porte : un seul mot n'y identifie personne.
-    if (!user && !guestNameReady) {
-      toast.error(t('guestList.nameIncomplete'));
-      return;
-    }
-    if (user && !profileNameReady) {
-      toast.error(t('guestList.nameIncomplete'));
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
     // Code court d'un refus serveur, pour `checkout_failed` (jamais le message).
@@ -429,7 +442,7 @@ export default function GuestListCheckout() {
       // On transmet la case cochée maintenant OU l'accord déjà actif pour ce
       // destinataire (aucune case n'a alors été affichée) : le renvoyer remet à
       // zéro le compteur des 36 mois, un habitué ne périme jamais.
-      const consentEmail = (user?.email ?? guestEmail).trim();
+      const consentEmail = buyerEmail.trim();
       const effectiveNewsletter = newsletterOptIn || marketingConsent.emailGranted;
       const effectiveSms = smsOptIn || marketingConsent.smsGranted;
       const effectiveYuno = yunoOptIn || platformConsent.granted;
@@ -449,7 +462,7 @@ export default function GuestListCheckout() {
           channel: 'sms', wordingText: smsWording, wordingKey: 'consent.smsOffersFrom',
           venueId: consentScope?.venueId ?? null,
           organizerUserId: consentScope?.organizerUserId ?? null,
-          email: consentEmail, phoneE164: guestPhone.trim() || undefined,
+          email: consentEmail, phoneE164: phone.trim() || undefined,
           locale: language, source: 'guestlist_checkout',
         });
       }
@@ -460,13 +473,22 @@ export default function GuestListCheckout() {
         });
       }
 
-      // Le nom corrigé sur cet écran doit être en base AVANT l'appel : la
-      // fonction lit `profiles` pour composer `full_name` de l'entrée.
+      // Le nom et le téléphone corrigés sur cet écran doivent être en base AVANT
+      // l'appel : la fonction lit `profiles` pour composer l'entrée. Seulement ce
+      // qui a changé — un « Marie Anne Dupont » du profil n'est pas redécoupé.
       if (user) {
-        const { error: profileError } = await supabase.from('profiles')
-          .update({ first_name: profileFirstName.trim(), last_name: profileLastName.trim() })
-          .eq('id', user.id);
-        if (profileError) throw profileError;
+        const patch: { first_name?: string; last_name?: string | null; phone?: string } = {};
+        const typedName = cleanNamePart(fullName);
+        if (typedName !== profileName) {
+          const [first, ...rest] = typedName.split(' ');
+          patch.first_name = first;
+          patch.last_name = rest.join(' ') || null;
+        }
+        if (phone.trim() && phone.trim() !== profilePhone) patch.phone = phone.trim();
+        if (Object.keys(patch).length > 0) {
+          const { error: profileError } = await supabase.from('profiles').update(patch).eq('id', user.id);
+          if (profileError) throw profileError;
+        }
       }
 
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
@@ -487,9 +509,9 @@ export default function GuestListCheckout() {
           // Guest contact info — the function uses these only when no valid JWT
           // is present, creating an entry with user_id = null.
           ...(user ? {} : {
-            guestFullName: guestName.trim(),
+            guestFullName: cleanNamePart(fullName),
             guestEmail: guestEmail.trim(),
-            guestPhone: guestPhone.trim(),
+            guestPhone: phone.trim(),
           }),
         },
       });
@@ -517,7 +539,7 @@ export default function GuestListCheckout() {
       // fonction de rattachement acceptera comme preuve.
       if (data?.entry?.id) setEntryId(data.entry.id);
       setEmailSent(typeof data?.emailSent === 'boolean' ? data.emailSent : null);
-      setEntryEmail((data?.entry?.email || guestEmail).trim());
+      setEntryEmail((data?.entry?.email || buyerEmail).trim());
 
       if (data?.entry?.qrCode) {
         const qrUrl = await QRCode.toDataURL(data.entry.qrCode, {
@@ -572,7 +594,7 @@ export default function GuestListCheckout() {
   };
 
   // ── Loading ──
-  if (loading || authLoading || resolving) {
+  if (loading || authLoading || resolving || (!!user && !profileLoaded)) {
     return <GuestListCheckoutSkeleton />;
   }
 
@@ -622,33 +644,55 @@ export default function GuestListCheckout() {
     capKey: genderParam && genderQuota !== null ? `${guestList.id}:${genderParam}` : guestList.id,
     quota: effectiveQuota, count: effectiveCount, remaining, showRemaining: guestList.showRemaining,
   });
-  const showCounter = glSignal.counter !== null;
-  const scarcityBadge = glSignal.badge ? (
-    <span className="inline-block rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 animate-pulse">
-      {scarcityBadgeText(glSignal.badge, t)}
-    </span>
-  ) : null;
+  // Une ligne, comme « Plus que N entrées » au billet : le badge de rareté s'il y
+  // en a un, sinon le compteur (masqué si le club a coupé show_remaining).
+  const scarcityLine = glSignal.badge
+    ? scarcityBadgeText(glSignal.badge, t)
+    : glSignal.counter !== null ? `${glSignal.counter} ${t('guestList.spotsLeft')}` : null;
+  const freeExpired = timeLeft === t('guestList.expired');
   // A gender picker is only needed as a fallback for a gendered list reached without ?gender.
   const genderRequired = (guestList.quotaFemale !== null || guestList.quotaMale !== null) && !genderParam;
+  const genderOptions = ([
+    (guestList.quotaFemale === null || guestList.quotaFemale > 0) ? 'female' : null,
+    (guestList.quotaMale === null || guestList.quotaMale > 0) ? 'male' : null,
+  ] as const).filter((g): g is GuestGender => g !== null);
+  const genderError = submitted && genderMissing ? t('guestList.genderRequired') : null;
   const displayTitle = genderParam === 'female'
     ? `${t('guestList.title')} ${t('guestList.female')}`
     : genderParam === 'male'
       ? `${t('guestList.title')} ${t('guestList.male')}`
       : t('guestList.title');
+  const dateLine = [
+    formatInTimeZone(new Date(guestList.eventStartAt), getEventTimezone({ timezone: guestList.eventTimezone }), 'EEE d MMM · HH:mm', { locale: dateLocale }),
+    guestList.venueName,
+  ].filter(Boolean).join(' · ');
+  const showIdentityCard = !!user && profileComplete && !editingIdentity;
+  const loginHref = `/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+  // Ligne rouge de la barre : seulement après un tap, pour dire combien d'infos
+  // restent à revoir (le détail est sous chaque champ).
+  const barAlert = submitted && missingCount > 0
+    ? (missingCount === 1 ? t('ticketCheckout.missingOne') : t('ticketCheckout.missingMany').replace('{n}', String(missingCount)))
+    : null;
+  const poweredBy = (venuePlan === 'core' || venuePlan === 'collab') ? (
+    <div className="flex items-center justify-center gap-2 pb-2 pt-8" style={{ opacity: 0.45 }}>
+      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Powered by</span>
+      <Wordmark height={10} tone="red" />
+    </div>
+  ) : null;
 
   // ── Event ended ──
   if (eventEnded) {
     return (
-      <CheckoutShell title={displayTitle} onBack={backToSelection}>
+      <GuestListShell title={t('ticketCheckout.stepTitle')} step={2} onBack={backToSelection}>
         <div className="max-w-lg mx-auto px-4 pt-10 text-center space-y-4">
           <div className="w-16 h-16 rounded-full bg-white/[0.06] flex items-center justify-center mx-auto">
             <PartyPopper className="h-9 w-9 text-white/40" />
           </div>
           <h2 className="text-xl font-bold">{t('guestList.eventOver')}</h2>
-          <p className="text-sm text-white/45">{guestList.eventTitle}</p>
-          <Button className="w-full" onClick={() => navigate('/')}>🎉 {t('guestList.discoverNextParty')}</Button>
+          <p className="text-sm text-[#9A9A9A]">{guestList.eventTitle}</p>
+          <Button className="w-full" onClick={() => navigate('/')}>{t('guestList.discoverNextParty')}</Button>
         </div>
-      </CheckoutShell>
+      </GuestListShell>
     );
   }
 
@@ -660,21 +704,20 @@ export default function GuestListCheckout() {
     // n'enferme personne dehors. Un compte déjà connecté n'est pas concerné.
     const qrLocked = !user && !accountCreated && !!entryId;
     return (
-      <CheckoutShell title={displayTitle} onBack={() => navigate(qrLocked ? '/' : '/my-orders')}>
-        <div className="max-w-lg mx-auto px-4 pt-6 pb-10">
-          <CheckoutSteps currentStep={3} />
+      <GuestListShell title={t('guestList.stepDone')} step={3} onBack={() => navigate(qrLocked ? '/' : '/my-orders')}>
+        <div className="max-w-lg mx-auto px-4 pt-5 pb-10">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-6 border border-orange-500/25 bg-[#141414] p-6 text-center space-y-4"
+            className="border border-orange-500/25 bg-[#141414] p-6 text-center space-y-4"
             style={{ borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.04)' }}
           >
             <div className="w-16 h-16 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto">
               <CheckCircle className="h-9 w-9 text-orange-400" />
             </div>
             <h2 className="text-xl font-bold">{t('guestList.confirmed')}</h2>
-            <p className="text-sm text-white/45">{guestList.eventTitle}</p>
-            <div className="text-sm space-y-1 text-white/55">
+            <p className="text-sm text-[#9A9A9A]">{guestList.eventTitle}</p>
+            <div className="text-sm space-y-1 text-[#9A9A9A]">
               <p><Clock className="h-3.5 w-3.5 inline mr-1" />{t('guestList.freeBefore')} {guestList.freeBeforeTime}</p>
               {guestList.includesDrink && (
                 <p className="text-orange-400"><Wine className="h-3.5 w-3.5 inline mr-1" />{t('guestList.drinkIncluded')}</p>
@@ -686,9 +729,9 @@ export default function GuestListCheckout() {
             {!qrLocked && (
               <>
                 {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />}
-                <p className="text-xs text-white/40">{t('guestList.showQR')}</p>
+                <p className="text-xs text-[#9A9A9A]">{t('guestList.showQR')}</p>
                 {emailSent !== null && (
-                  <p className={`text-xs ${emailSent ? 'text-white/40' : 'text-amber-500'}`}>
+                  <p className={`text-xs ${emailSent ? 'text-[#9A9A9A]' : 'text-amber-500'}`}>
                     {t(emailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
                   </p>
                 )}
@@ -711,7 +754,7 @@ export default function GuestListCheckout() {
             <div className="mt-6">
               <GuestAccountUnlock
                 email={entryEmail}
-                fullName={guestName.trim()}
+                fullName={cleanNamePart(fullName)}
                 entryId={entryId}
                 qrImage={qrImage}
                 relinkBackUrl={relinkBackUrl}
@@ -725,280 +768,171 @@ export default function GuestListCheckout() {
             </div>
           )}
         </div>
-      </CheckoutShell>
+      </GuestListShell>
     );
   }
 
   return (
-    <CheckoutShell title={displayTitle} onBack={backToSelection}>
+    <GuestListShell title={t('ticketCheckout.stepTitle')} step={2} onBack={backToSelection}>
       <PublicPage variant="flow">
-      <div className="max-w-lg mx-auto px-4 pt-4 pb-36">
-        <CheckoutSteps currentStep={2} />
-
-        {/* Event card */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 border border-white/[0.08] bg-[#141414] p-3 flex items-center gap-3"
-          style={{ borderRadius: 10 }}
-        >
-          {guestList.eventImageUrl && (
-            <div className="w-16 h-16 shrink-0 overflow-hidden bg-white/[0.04]" style={{ borderRadius: 6 }}>
-              <img
-                src={getOptimizedImageUrl(guestList.eventImageUrl, { width: 128, height: 128, quality: 82 })}
-                alt={guestList.eventTitle}
-                className="w-full h-full object-cover object-center"
-              />
+      <div className="mx-auto max-w-lg px-4 pb-6 pt-5">
+        {/* Votre commande : la soirée, la liste, ce qu'elle donne. */}
+        <section aria-label={t('ticketCheckout.summary')} className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
+          <OrderEventRow posterUrl={guestList.eventImageUrl} dateLine={dateLine} title={guestList.eventTitle} />
+          <div className="h-px bg-white/[0.07]" />
+          <div className="flex items-start gap-3 p-3.5">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-[1.3] text-white [overflow-wrap:anywhere]">{displayTitle}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
+                <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                {t('guestList.freeBefore')} {guestList.freeBeforeTime}
+                {timeLeft && !freeExpired && !isFull && <> · {t('guestList.freeFor').replace('{time}', timeLeft)}</>}
+              </p>
+              {guestList.includesDrink && (
+                <p className="mt-1 flex items-center gap-1.5 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
+                  <Wine className="h-3 w-3 shrink-0" aria-hidden />
+                  {t('guestList.drinkIncluded')}
+                </p>
+              )}
+              {!isFull && scarcityLine && (
+                <p className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-amber-400">{scarcityLine}</p>
+              )}
             </div>
-          )}
-          <div className="min-w-0">
-            <p className="font-display font-bold uppercase text-white leading-tight" style={{ fontSize: '15px', letterSpacing: '-0.005em' }}>{guestList.eventTitle}</p>
-            {guestList.venueName && <p className="text-[11px] text-white/45 mt-0.5">{guestList.venueName}</p>}
-            <p className="font-mono uppercase text-[#9A9A9A] flex items-center gap-1.5 mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
-              <Calendar className="h-3 w-3 shrink-0" />
-              {formatInTimeZone(new Date(guestList.eventStartAt), PARIS_TIMEZONE, 'EEE d MMM · HH:mm', { locale: dateLocale })}
-            </p>
+            <span className="shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-white">{t('guestList.free')}</span>
           </div>
-        </motion.div>
+        </section>
 
-        {/* Perks */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-sm">
-            {t('guestList.free')} — 0 €
-          </span>
-          <span className="text-[11px] font-medium text-white/55 bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 rounded-sm flex items-center gap-1.5">
-            <Clock className="h-3 w-3" />{t('guestList.freeBefore')} {guestList.freeBeforeTime}
-          </span>
-          {guestList.includesDrink && (
-            <span className="text-[11px] font-medium text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-sm flex items-center gap-1.5">
-              <Wine className="h-3 w-3" />{t('guestList.drinkIncluded')}
-            </span>
-          )}
-        </div>
-
-        {/* Spots — chiffre masqué si le club a coupé show_remaining (ou part illimitée). */}
-        {!isFull && (showCounter || timeLeft || scarcityBadge) && (
-          <div className="mt-3 border border-orange-500/15 p-4 text-center" style={{ backgroundColor: 'rgba(249,115,22,0.06)', borderRadius: 10 }}>
-            {scarcityBadge && <div className="mb-2">{scarcityBadge}</div>}
-            {showCounter ? (
-              <>
-                <p className="text-3xl font-bold text-orange-400">{glSignal.counter}</p>
-                <p className="text-sm text-white/45">{t('guestList.spotsLeft')}</p>
-              </>
-            ) : (
-              <p className="text-sm font-semibold text-orange-400">{t('guestList.listOpen')}</p>
-            )}
-            {timeLeft && <p className="text-xs text-white/40 mt-1">⏱ {timeLeft}</p>}
-          </div>
-        )}
-
-        {/* States */}
         {isFull ? (
-          <div className="mt-4 border border-red-500/20 p-5 text-center" style={{ backgroundColor: 'rgba(239,68,68,0.06)', borderRadius: 10 }}>
-            <p className="text-lg font-bold text-red-400">{t('guestList.full')}</p>
+          <div className="mt-7 rounded-[10px] border border-red-500/25 p-5 text-center" style={{ backgroundColor: 'rgba(239,68,68,0.06)' }}>
+            <p className="font-display text-lg font-bold text-red-400">{t('guestList.full')}</p>
             <Button className="mt-3" onClick={backToSelection}>
               <Ticket className="h-4 w-4 mr-2" />{t('guestList.buyTicket')}
             </Button>
           </div>
         ) : alreadyRegistered ? (
-          <div className="mt-4 border border-orange-500/25 p-6 text-center space-y-3" style={{ backgroundColor: 'rgba(249,115,22,0.05)', borderRadius: 10 }}>
-            <div className="w-14 h-14 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto">
+          <div className="mt-7 space-y-3 rounded-[10px] border border-orange-500/25 p-6 text-center" style={{ backgroundColor: 'rgba(249,115,22,0.05)' }}>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/15">
               <CheckCircle className="h-8 w-8 text-orange-400" />
             </div>
             <h3 className="text-base font-bold">{t('guestList.alreadyOnList')}</h3>
-            <p className="text-sm text-white/45">{t('guestList.alreadyOnListDesc')}</p>
+            <p className="text-sm text-[#9A9A9A]">{t('guestList.alreadyOnListDesc')}</p>
             <Button className="w-full" onClick={() => navigate('/my-orders')}>
               <Ticket className="h-4 w-4 mr-2" />{t('guestList.viewInOrders')}
             </Button>
           </div>
-        ) : !user ? (
-          /* Guest registration — no account required (mirrors the ticket/table guest flow).
-             Account creation becomes an optional upsell after success, not a wall before it. */
-          <div className="mt-5 border border-white/[0.08] bg-[#141414] p-4 space-y-4" style={{ borderRadius: 10 }}>
-            <div className="space-y-1">
-              <p className="text-sm font-medium">{t('guestList.yourDetails')}</p>
-              <p className="text-xs text-white/45">{t('guestList.guestSubtitle')}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-              className="flex items-center gap-1.5 text-[12px] text-white/55 hover:text-white transition-colors"
-            >
-              <LogIn className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-              <span>{t('guest.haveAccountQuestion')}{' '}
-                <span className="text-orange-400 font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
-              </span>
-            </button>
-
-            <div className="space-y-3">
-              {/* `autoComplete` explicite : sans lui, un navigateur in-app
-                  (Instagram, TikTok) remplit le champ avec le pseudo du profil
-                  au lieu du nom civil. */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="gl-first-name" className="text-xs text-white/55">{t('guest.firstName')} *</Label>
-                  <Input id="gl-first-name" name="given-name" autoComplete="given-name" value={guestFirstName}
-                    onChange={(e) => setGuestFirstName(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="gl-last-name" className="text-xs text-white/55">{t('guest.lastName')} *</Label>
-                  <Input id="gl-last-name" name="family-name" autoComplete="family-name" value={guestLastName}
-                    onChange={(e) => setGuestLastName(e.target.value)} />
-                </div>
-              </div>
-              <p className="text-[11px] text-white/45">{t('guestList.nameDoorHint')}</p>
-              <div className="space-y-1.5">
-                <Label htmlFor="gl-email" className="text-xs text-white/55">{t('guestList.email')} *</Label>
-                <Input id="gl-email" type="email" name="email" autoComplete="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
-                {/* Dit tout de suite ce qu'on ne disait qu'après le mot de passe.
-                    Simple information : la place reste accessible sans compte. */}
-                {typedEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="gl-phone" className="text-xs text-white/55">{t('guestList.phone')} *</Label>
-                <PhoneInputWithCountry id="gl-phone" value={guestPhone} onChange={setGuestPhone} defaultCountry={guestList?.phoneCountry} />
-              </div>
-            </div>
-
-            {genderRequired && (
-              <div>
-                <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
-                <Select value={gender} onValueChange={setGender}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('guestList.selectGender')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(guestList.quotaFemale === null || guestList.quotaFemale > 0) && (
-                      <SelectItem value="female">{t('guestList.female')}</SelectItem>
-                    )}
-                    {(guestList.quotaMale === null || guestList.quotaMale > 0) && (
-                      <SelectItem value="male">{t('guestList.male')}</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {marketingOptIns}
-
-            <div className="border-t border-white/[0.08] pt-3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/70">{displayTitle} — {guestList.eventTitle}</span>
-                <span className="font-bold text-orange-400">0 €</span>
-              </div>
-              {guestList.includesDrink && (
-                <div className="flex justify-between text-sm text-white/45">
-                  <span>🍸 {t('guestList.drinkIncluded')}</span>
-                  <span>{t('guestList.included')}</span>
-                </div>
-              )}
-            </div>
-          </div>
         ) : (
-          /* Logged-in confirmation form */
-          <div className="mt-5 border border-white/[0.08] bg-[#141414] p-4 space-y-4" style={{ borderRadius: 10 }}>
-            <div className="rounded-lg bg-white/[0.04] p-3 space-y-1">
-              <p className="text-sm font-medium">{t('guestList.registeredAs')}</p>
-              <p className="text-sm text-white/45">{user.email}</p>
+          /* Vos infos : une colonne, aucune carte autour des champs. Pas de compte
+             exigé ; la création d'un compte est proposée APRÈS l'inscription. */
+          <section className="mt-7 flex flex-col gap-[18px]">
+            <div>
+              <h1 className="font-display text-2xl font-bold leading-[1.1] tracking-[-0.015em] text-white">
+                {showIdentityCard ? t('ticketCheckout.readyTitle') : t('guestList.formTitle')}
+              </h1>
+              {showIdentityCard ? (
+                <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">{t('guestList.readySub')}</p>
+              ) : !user ? (
+                <p className="mt-2 text-[13.5px] leading-[1.45] text-[#9A9A9A]">
+                  {t('guest.haveAccountQuestion')}{' '}
+                  <button
+                    type="button"
+                    onClick={() => navigate(loginHref)}
+                    className="font-semibold text-white underline underline-offset-[3px] transition-colors hover:text-[#E5E5E5]"
+                  >
+                    {t('guest.logIn')}
+                  </button>
+                </p>
+              ) : null}
             </div>
 
-            {/* Le nom lu à la porte — montré, et corrigeable ici. */}
-            <div className="space-y-1.5">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="gl-me-first" className="text-xs text-white/55">{t('guest.firstName')} *</Label>
-                  <Input id="gl-me-first" name="given-name" autoComplete="given-name" value={profileFirstName}
-                    onChange={(e) => setProfileFirstName(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="gl-me-last" className="text-xs text-white/55">{t('guest.lastName')} *</Label>
-                  <Input id="gl-me-last" name="family-name" autoComplete="family-name" value={profileLastName}
-                    onChange={(e) => setProfileLastName(e.target.value)} />
-                </div>
-              </div>
-              <p className="text-[11px] text-white/45">{t('guestList.nameDoorHint')}</p>
-            </div>
-
-            {genderRequired && (
-              <div>
-                <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
-                <Select value={gender} onValueChange={setGender}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('guestList.selectGender')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(guestList.quotaFemale === null || guestList.quotaFemale > 0) && (
-                      <SelectItem value="female">{t('guestList.female')}</SelectItem>
-                    )}
-                    {(guestList.quotaMale === null || guestList.quotaMale > 0) && (
-                      <SelectItem value="male">{t('guestList.male')}</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+            {showIdentityCard ? (
+              <BuyerReadyCard fullName={fullName} email={buyerEmail} phone={phone} onEdit={() => setEditingIdentity(true)} />
+            ) : (
+              <BuyerFields
+                buyer={{ fullName, email: buyerEmail, phone }}
+                onChange={(field, value) => {
+                  if (field === 'fullName') setFullName(value);
+                  else if (field === 'email') setGuestEmail(value);
+                  else setPhone(value);
+                }}
+                onBlur={markTouched}
+                errors={{ name: shownError('name') ?? undefined, email: shownError('email') ?? undefined, phone: shownError('phone') ?? undefined }}
+                valid={{
+                  name: fieldValid('name', fullName),
+                  email: !user && fieldValid('email', guestEmail),
+                  phone: fieldValid('phone', phone),
+                }}
+                emailReadOnly={!!user}
+                emailSuggestion={emailSuggestion}
+                onAcceptSuggestion={() => emailSuggestion && setGuestEmail(emailSuggestion)}
+                // Dit tout de suite ce qu'on ne disait qu'après le mot de passe.
+                // Simple information : la place reste accessible sans compte.
+                emailNotice={!user && typedEmailHasAccount ? <ExistingAccountNotice email={guestEmail.trim()} /> : undefined}
+                nameHint={t('guestList.nameHint')}
+                emailHint={t('guestList.emailHint')}
+                emailAccountHint={t('guestList.emailAccountHint')}
+                defaultCountry={guestList.phoneCountry}
+                fieldRefs={fieldRefs}
+              />
             )}
 
-            {marketingOptIns}
+            {/* Liste genrée ouverte sans `?gender=` : deux choix, jamais un menu. */}
+            {genderRequired && (
+              <GenderChoice value={gender} onChange={setGender} options={genderOptions} error={genderError} anchorRef={genderRef} />
+            )}
 
-            <div className="border-t border-white/[0.08] pt-3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/70">{displayTitle} — {guestList.eventTitle}</span>
-                <span className="font-bold text-orange-400">0 €</span>
-              </div>
-              {guestList.includesDrink && (
-                <div className="flex justify-between text-sm text-white/45">
-                  <span>🍸 {t('guestList.drinkIncluded')}</span>
-                  <span>{t('guestList.included')}</span>
-                </div>
-              )}
+            <div className="pt-2.5">
+              <MarketingOptIns
+                variant="flat"
+                // Destinataire introuvable = pas de case à son nom, mais la ligne
+                // Yuno reste : elle, elle nomme bien qui reçoit.
+                showEmail={!!consentScope}
+                showSms={!!consentScope}
+                newsletterOptIn={newsletterOptIn}
+                onNewsletterChange={setNewsletterOptIn}
+                smsOptIn={smsOptIn}
+                onSmsChange={setSmsOptIn}
+                scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
+                smsScopeName={consentScope?.scopeName}
+                emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
+                smsAlreadyGranted={marketingConsent.smsGranted}
+                pending={marketingConsent.pending || platformConsent.pending || coorgHosts.pending}
+                showYuno
+                yunoOptIn={yunoOptIn}
+                onYunoChange={setYunoOptIn}
+                yunoAlreadyGranted={platformConsent.granted}
+              />
             </div>
-          </div>
+          </section>
         )}
+
+        {/* Powered by Yuno — Core plan only */}
+        {poweredBy}
       </div>
       </PublicPage>
 
-      {/* Sticky confirm — shown on the registration form (logged-in or guest) */}
+      {/* La même barre que les billets : rien à payer, un seul bouton toujours
+          actif (un oubli mène au champ, il ne grise rien). */}
       {!isFull && !alreadyRegistered && (
-        <StickyCheckoutFooter
-          amount={0}
-          label={`${displayTitle} · ${t('guestList.free')}`}
+        <CheckoutSummaryBar
+          reserveSpace
+          total={0}
+          fee={0}
           buttonText={t('guestList.confirmRegistration')}
-          isLoading={submitting}
-          disabled={(genderRequired && !gender) || (user ? !profileNameReady : (!guestNameReady || !guestEmail.trim() || !guestPhone.trim()))}
-          onClick={handleConfirm}
+          onClick={() => void handleConfirm()}
+          loading={submitting}
+          alert={barAlert}
+          footnote={t('guestList.footnote')}
         />
       )}
-
-      {/* Powered by Yuno — Core plan only */}
-      {(venuePlan === 'core' || venuePlan === 'collab') && (
-        <div className="pb-6 pt-2 flex items-center justify-center gap-2" style={{ opacity: 0.45 }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Powered by</span>
-          <Wordmark height={10} tone="red" />
-        </div>
-      )}
-    </CheckoutShell>
+    </GuestListShell>
   );
 }
 
-function CheckoutShell({ title, onBack, children }: { title: string; onBack: () => void; children: React.ReactNode }) {
+/** Coquille du tunnel : l'en-tête d'étape commun (billets, tables, guest list). */
+function GuestListShell({ title, step, onBack, children }: { title: string; step: number; onBack: () => void; children: React.ReactNode }) {
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
-      <header
-        className="sticky top-0 z-40"
-        style={{ background: 'rgba(10,10,10,0.90)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <div className="flex items-center gap-3 px-4 h-12">
-          <button
-            onClick={onBack}
-            className="h-8 w-8 flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
-            style={{ borderRadius: 2 }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <p className="font-mono uppercase truncate flex-1" style={{ fontSize: '11px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{title}</p>
-        </div>
-      </header>
+      <CheckoutStepHeader title={title} step={step} total={3} onBack={onBack} />
       {children}
     </div>
   );

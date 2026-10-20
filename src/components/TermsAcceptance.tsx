@@ -108,14 +108,16 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
  * La phrase posée sous le bouton de paiement : « En continuant, vous acceptez les
  * conditions de vente. » Le clic sur le bouton vaut acceptation et la page la
  * trace par `recordTermsAcceptance` (décision de Paul du 19/10/2026 : plus de
- * case CGV sur la page de paiement billet).
+ * case CGV sur la page de paiement billet, puis table). `lead` remplace le début
+ * de la phrase : la table y ajoute la déclaration d'âge (« vous certifiez avoir
+ * 18 ans ou plus et acceptez les… »), qui remplaçait elle aussi une case.
  */
-export function TermsNotice({ className }: { className?: string }) {
+export function TermsNotice({ className, lead }: { className?: string; lead?: string }) {
   const { t } = useLanguage();
   const settings = useTermsSettings();
   return (
     <span className={className}>
-      {t('ticketCheckout.termsBefore')}
+      {lead ?? t('ticketCheckout.termsBefore')}
       <a
         href={settings?.url ?? DEFAULT_TERMS_URL}
         target="_blank"

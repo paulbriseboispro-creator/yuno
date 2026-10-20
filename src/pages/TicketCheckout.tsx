@@ -16,12 +16,14 @@ import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone, countryOfPlace } from '@/lib/timezone';
 import { TicketRound, EventWithTicketing, customerTransactionFee } from '@/types/ticketing';
 import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
-import { BuyerFields, FriendNames } from '@/components/checkout/BuyerDetails';
-import { buyerFormErrors, firstErrorField, type AttendeeInfo, type BuyerField, type BuyerErrorCode } from '@/lib/buyerForm';
+import { BuyerFields, BuyerReadyCard, FriendNames } from '@/components/checkout/BuyerDetails';
+import { CheckoutStepHeader } from '@/components/checkout/CheckoutStepHeader';
+import { OrderEventRow } from '@/components/checkout/OrderEventRow';
+import { birthInvalidFieldFor, focusCheckoutField, useBuyerFormUi } from '@/components/checkout/useBuyerForm';
+import { buyerFormErrors, firstErrorField, type AttendeeInfo, type BuyerField } from '@/lib/buyerForm';
 import { suggestEmail } from '@/lib/emailTypo';
 import type { BirthDateState } from '@/lib/birthDate';
 import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/TicketUpsellSelector';
@@ -51,9 +53,6 @@ import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
-
-/** « Obligatoire » ne s'affiche qu'au tap sur le bouton, jamais en quittant un champ vide. */
-const REQUIRED_CODES = new Set<BuyerErrorCode>(['name_required', 'email_required', 'phone_required', 'birth_required']);
 
 interface PromoterDiscount {
   promoterId: string;
@@ -110,10 +109,6 @@ export default function TicketCheckout() {
   const [attendees, setAttendees] = useState<AttendeeInfo[]>([
     { fullName: '', email: '', phone: '' }
   ]);
-  // Formulaire « Vos infos » : un champ dit son erreur quand on le quitte (sauf
-  // « obligatoire », réservé au tap sur le bouton), et le tap mène au premier oubli.
-  const [touched, setTouched] = useState<Partial<Record<BuyerField, boolean>>>({});
-  const [submitted, setSubmitted] = useState(false);
   // Ce qui est tapé dans la date de naissance ; null = déjà connue par le profil.
   const [birthState, setBirthState] = useState<BirthDateState | null>({ status: 'empty' });
   // Client connecté dont le profil porte déjà nom et téléphone : ses infos tiennent
@@ -709,31 +704,16 @@ export default function TicketCheckout() {
   // c'est toujours la date qu'il faut revoir, avec le message de MinorAuthGate.
   const gateProblem = !formErrors.birth && minorGateBlocked;
   const missingCount = Object.keys(formErrors).length + (gateProblem ? 1 : 0);
-  const shownError = (f: BuyerField): string | null => {
-    const code = formErrors[f];
-    if (!code) return null;
-    if (!submitted && (!touched[f] || REQUIRED_CODES.has(code))) return null;
-    return t(`buyer.err.${code}`);
-  };
-  const fieldValid = (f: 'name' | 'email' | 'phone', value: string) => !!touched[f] && !formErrors[f] && !!value.trim();
+  // Un champ dit son erreur quand on le quitte (sauf « obligatoire », réservé au
+  // tap sur le bouton), et le tap mène au premier oubli.
+  const { touched, submitted, setSubmitted, shownError, fieldValid, markTouched } = useBuyerFormUi(formErrors);
   const emailSuggestion = !user && touched.email && !formErrors.email ? suggestEmail(buyer.email) : null;
-  const markTouched = (f: BuyerField) => setTouched(prev => (prev[f] ? prev : { ...prev, [f]: true }));
-  const birthCode = formErrors.birth;
-  const birthInvalidField = birthCode === 'birth_day' ? 'day' as const
-    : birthCode === 'birth_month' ? 'month' as const
-    : birthCode === 'birth_year' ? 'year' as const
-    : 'all' as const;
+  const birthInvalidField = birthInvalidFieldFor(formErrors.birth);
 
   const scrollToField = (f: BuyerField) => {
     // Un champ caché dans la carte « Tout est prêt » : on la rouvre d'abord.
     if (f !== 'birth' && user && profileComplete && !editingIdentity) setEditingIdentity(true);
-    window.setTimeout(() => {
-      const el = f === 'birth' ? birthRef.current : fieldRefs[f].current;
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const input = el.querySelector<HTMLInputElement>('input[aria-invalid="true"]') ?? el.querySelector<HTMLInputElement>('input:not([readonly])');
-      window.setTimeout(() => input?.focus({ preventScroll: true }), 350);
-    }, 0);
+    window.setTimeout(() => focusCheckoutField(f === 'birth' ? birthRef.current : fieldRefs[f].current), 0);
   };
 
   const validateForm = (): boolean => {
@@ -1052,7 +1032,6 @@ export default function TicketCheckout() {
     venue.city,
   ].filter(Boolean).join(' · ');
   const showIdentityCard = !!user && profileComplete && !editingIdentity;
-  const initials = buyer.fullName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
   const payOnline = total > 0;
   const loginHref = `/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
   // Ligne rouge de la barre : seulement après un tap, et seulement pour dire
@@ -1065,55 +1044,21 @@ export default function TicketCheckout() {
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
-      {/* En-tête : retour, l'étape en mots, et la progression en un trait rouge. */}
-      <header
-        className="sticky top-0 z-40"
-        style={{ background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <div className="mx-auto flex h-14 max-w-lg items-center gap-3 px-4">
-          <button
-            type="button"
-            aria-label={t('common.back')}
-            onClick={() => navigate(`${basePath}/billets`, {
-              replace: true,
-              state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round?.name || '' }, eventId }
-            })}
-            className="flex h-10 w-10 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/[0.08]"
-            style={{ borderRadius: 4, background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.12)' }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.10em] text-white">{t('ticketCheckout.stepTitle')}</p>
-            <p className="mt-[3px] font-mono text-[10px] uppercase tracking-[0.06em] text-[#9A9A9A]">
-              {t('ticketCheckout.stepOf').replace('{n}', '2').replace('{total}', '3')}
-            </p>
-          </div>
-          <span className="w-10 shrink-0" aria-hidden />
-        </div>
-        <div aria-hidden className="absolute bottom-[-1px] left-0 h-[2px] w-2/3 bg-primary" />
-      </header>
+      <CheckoutStepHeader
+        title={t('ticketCheckout.stepTitle')}
+        step={2}
+        total={3}
+        onBack={() => navigate(`${basePath}/billets`, {
+          replace: true,
+          state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round?.name || '' }, eventId }
+        })}
+      />
 
       <PublicPage variant="flow">
       <div className="mx-auto max-w-lg px-4 pb-6 pt-5">
         {/* Votre commande : la soirée, le billet, la quantité, le code promo. */}
         <section aria-label={t('ticketCheckout.summary')} className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
-          <div className="flex items-center gap-3 p-3.5">
-            {event.posterUrl ? (
-              <img
-                src={getOptimizedImageUrl(event.posterUrl, { width: 112, height: 112 })}
-                alt=""
-                className="h-[52px] w-[52px] shrink-0 object-cover"
-                style={{ borderRadius: 6 }}
-              />
-            ) : (
-              <div aria-hidden className="h-[52px] w-[52px] shrink-0" style={{ borderRadius: 6, background: 'linear-gradient(160deg, #1a0a0d, #7a1428)' }} />
-            )}
-            <div className="min-w-0">
-              <p className="truncate font-mono text-[10px] uppercase tracking-[0.06em] text-[#9A9A9A]">{dateLine}</p>
-              <p className="mt-1 font-display text-base font-bold uppercase leading-[1.1] tracking-[-0.005em] text-white [overflow-wrap:anywhere]">{event.title}</p>
-            </div>
-          </div>
+          <OrderEventRow posterUrl={event.posterUrl} dateLine={dateLine} title={event.title} />
 
           <div className="h-px bg-white/[0.07]" />
 
@@ -1276,28 +1221,7 @@ export default function TicketCheckout() {
             </div>
 
             {showIdentityCard ? (
-              <div className="flex items-start gap-3 rounded-[10px] border border-white/[0.08] bg-[#141414] p-3.5">
-                <span
-                  aria-hidden
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold"
-                  style={{ background: 'rgba(232,25,44,0.14)', color: '#FF5A68' }}
-                >
-                  {initials}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold leading-[1.3] text-white">{buyer.fullName}</p>
-                  <p className="mt-0.5 text-[13.5px] leading-[1.4] text-[#E5E5E5] [overflow-wrap:anywhere]">{buyerEmail}</p>
-                  <p className="mt-0.5 text-[13.5px] leading-[1.4] text-[#9A9A9A]">{buyer.phone}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingIdentity(true)}
-                  className="h-8 shrink-0 px-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-white/[0.06]"
-                  style={{ borderRadius: 4, border: '1px solid rgba(255,255,255,0.14)' }}
-                >
-                  {t('ticketCheckout.edit')}
-                </button>
-              </div>
+              <BuyerReadyCard fullName={buyer.fullName} email={buyerEmail} phone={buyer.phone} onEdit={() => setEditingIdentity(true)} />
             ) : (
               <BuyerFields
                 buyer={user ? { ...buyer, email: buyerEmail } : buyer}

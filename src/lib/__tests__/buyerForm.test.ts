@@ -99,6 +99,13 @@ describe('buyerFormErrors', () => {
     expect(buyerFormErrors({ ...ok, birth: { status: 'invalid' } }).birth).toBe('birth_invalid');
   });
 
+  it('exige prénom et nom pour une liste de porte (guest list)', () => {
+    expect(buyerFormErrors({ ...ok, fullName: 'Margot', requireTwoWords: true }).name).toBe('name_incomplete');
+    expect(buyerFormErrors({ ...ok, fullName: 'Margot', requireTwoWords: false }).name).toBeUndefined();
+    expect(buyerFormErrors({ ...ok, fullName: 'Kevin LS', requireTwoWords: true }).name).toBeUndefined();
+    expect(buyerFormErrors({ ...ok, fullName: '', requireTwoWords: true }).name).toBe('name_required');
+  });
+
   it('pointe le premier champ en défaut dans l’ordre de la page', () => {
     expect(firstErrorField({ phone: 'phone_required', birth: 'birth_required' })).toBe('phone');
     expect(firstErrorField({})).toBeNull();

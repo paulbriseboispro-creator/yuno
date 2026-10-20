@@ -6,6 +6,7 @@
 // donc des CODES d'erreur, dans l'ordre de la page ; l'écran les traduit.
 
 import { isPlausibleEmail } from '@/lib/emailTypo';
+import { isCompleteName } from '@/lib/guestName';
 import type { BirthDateState } from '@/lib/birthDate';
 
 /** Une personne du billet : l'acheteur (index 0) puis un ami par place. */
@@ -20,6 +21,8 @@ export type BuyerField = 'name' | 'email' | 'phone' | 'birth';
 export type BuyerErrorCode =
   | 'name_required'
   | 'name_short'
+  /** Guest list : un seul mot. La porte ne lit que ce nom (src/lib/guestName.ts). */
+  | 'name_incomplete'
   | 'email_required'
   | 'email_invalid'
   | 'phone_required'
@@ -42,6 +45,11 @@ export interface BuyerFormInput {
   phone: string;
   /** null = la date est déjà connue (profil) : rien à demander. */
   birth: BirthDateState | null;
+  /**
+   * Prénom ET nom exigés (guest list) : la liste de porte n'imprime que le nom,
+   * un seul mot n'y identifie personne. Même garde que le serveur (isCompleteName).
+   */
+  requireTwoWords?: boolean;
 }
 
 /** Chiffres du numéro hors indicatif (« +34 612 34 56 78 » → 9). */
@@ -61,6 +69,7 @@ export function buyerFormErrors(input: BuyerFormInput): BuyerErrors {
   const name = input.fullName.trim();
   if (!name) errors.name = 'name_required';
   else if (nameIsShort(name)) errors.name = 'name_short';
+  else if (input.requireTwoWords && !isCompleteName(name)) errors.name = 'name_incomplete';
 
   const email = input.email.trim();
   if (!email) errors.email = 'email_required';

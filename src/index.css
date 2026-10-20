@@ -152,6 +152,16 @@
     @apply bg-background text-foreground;
   }
 
+  /* `hidden` sur html ET body faisait du body un conteneur de défilement (son
+     overflow-y passe à auto) qui ne défile jamais : tous les `position: sticky`
+     du site s'y rattachaient et partaient avec la page. html garde `hidden`
+     (c'est lui qui règle la fenêtre) ; body passe à `clip`, qui coupe le
+     débordement horizontal SANS créer de conteneur de défilement. Un navigateur
+     qui ignore `clip` (Safari < 16) garde `hidden`, comme avant. */
+  body {
+    overflow-x: clip;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
     font-weight: 700;

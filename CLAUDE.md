@@ -3941,10 +3941,32 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
 - **Barre du bas = `CheckoutSummaryBar`**, la MÊME qu'à l'étape 1 (plate, total
   frais compris, bouton mono 48 px, `alert`, `footnote`, `reserveSpace`).
   L'étape 1 dit « Continuer » (le paiement n'arrive qu'à l'étape 3).
-- Reste à faire avec la même grammaire : `TableCheckout`, `GuestListCheckout`.
-- **Compte connecté = la page attend son profil** (2026-10-20) : squelette tant que
-  `profiles` (nom, téléphone, date de naissance) n'est pas lu, et `MinorAuthGate`
-  ne rend rien avant sa propre lecture. Sinon les cases apparaissaient puis
+- **Tables VIP et guest list suivent la même grammaire** (2026-10-20). Pièces
+  communes : `CheckoutStepHeader` (« Vos infos · Étape 2 sur 3 », trait de
+  progression), `OrderEventRow` (première rangée de « Votre commande »),
+  `BuyerReadyCard`, `OptionalNote` (champ facultatif replié), `GenderChoice`,
+  `useBuyerFormUi` + `focusCheckoutField` (`src/components/checkout/`), squelettes
+  `CheckoutChromeSkeleton`. **Table** (`TableCheckout`) : étape 1 « Votre table »
+  (formule, convives, plan, prix + code promo en rangée) puis « Vos infos » ; barre
+  `CheckoutSummaryBar` aux deux étapes, `totalLabel` « Acompte aujourd'hui » quand
+  il reste à régler au club, rien en barre pour une formule réglée sur place (la
+  phrase le dit). Date de naissance = `MinorAuthGate acceptsMinors={false}`, sa
+  date part en `ageDeclaration` ; la case d'attestation d'âge ET la case CGV
+  deviennent la phrase `TermsNotice lead` (« vous certifiez avoir 18 ans ou plus
+  et acceptez les conditions de vente »), tracée par `recordTermsAcceptance`
+  (`context: 'table'`). Remarque pour le club repliée. Plus de « Confirmer
+  l'e-mail ». **Guest list** (`GuestListCheckout`, et les deux formulaires du
+  lien privé `GuestListSignup`) : un seul « Nom et prénom » avec
+  `buyerFormErrors({ requireTwoWords: true })` (code `name_incomplete`, même garde
+  que le serveur, `isCompleteName`) — la liste de porte n'imprime que ce nom ;
+  téléphone obligatoire aussi connecté (le serveur le lit dans `profiles` : une
+  correction y est écrite avant l'appel, nom et téléphone SEULEMENT s'ils ont
+  changé) ; genre en deux boutons (`GenderChoice`). Aucune phrase CGV sur la
+  guest list (il n'y avait pas de case : rien de nouveau à accepter).
+- **Compte connecté = la page attend son profil** (2026-10-20, billet, table et
+  guest list) : squelette tant que `profiles` (nom, téléphone, date de naissance)
+  n'est pas lu, et `MinorAuthGate` ne rend rien avant sa propre lecture ; « Tout
+  est prêt » attend aussi la date quand la page en demande une. Sinon les cases apparaissaient puis
   disparaissaient, et le client croyait qu'on lui redemandait sa date.
 
 ## E-mail de billet non livré — une faute d'adresse se voit et se corrige (2026-10-20)
