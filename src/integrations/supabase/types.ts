@@ -23941,6 +23941,42 @@ export type Database = {
         }[]
       }
       get_user_venue_id: { Args: { _user_id: string }; Returns: string }
+      get_accounting_invoices: {
+        Args: {
+          p_venue_id?: string | null
+          p_organizer_user_id?: string | null
+          p_from?: string | null
+          p_to?: string | null
+        }
+        Returns: Json
+      }
+      get_promoter_overview_stats: {
+        Args: {
+          p_promoter_ids: string[]
+          p_from?: string | null
+          p_event_id?: string | null
+        }
+        Returns: {
+          promoter_id: string
+          clicks: number
+          conversions: number
+          revenue: number
+          commission: number
+          tickets: number
+          tables: number
+          pending_commission: number
+          approved_commission: number
+          paid_commission: number
+        }[]
+      }
+      get_venue_customer_base: {
+        Args: { p_venue_id: string }
+        Returns: Json
+      }
+      get_organizer_customer_base: {
+        Args: { p_organizer_user_id: string }
+        Returns: Json
+      }
       get_venue_customer_segments: {
         Args: { p_venue_id: string }
         Returns: {
