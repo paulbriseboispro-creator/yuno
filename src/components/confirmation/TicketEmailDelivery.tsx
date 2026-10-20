@@ -1,15 +1,12 @@
-// Où part le billet, et ce qui se passe quand l'adresse est fausse.
+// L'e-mail du billet n'a pas pu être livré : l'acheteur corrige son adresse.
 //
 // Une faute dans l'adresse (« gmail.com » juste, une lettre fausse avant le @)
 // ne se voit à aucun contrôle de format : seule la boîte de réception le dit,
 // par un rebond qui arrive en quelques secondes, quand l'acheteur est encore
-// sur cette page. On la lui montre donc ici, avec de quoi corriger :
-//   * rebond      → alerte, champ prérempli avec l'adresse fausse, « Renvoyer » ;
-//   * juste acheté → « Ton billet part à … · Pas la bonne adresse ? » (une
-//     faute peut aussi tomber sur la boîte de quelqu'un d'autre, sans rebond) ;
-//   * plus tard    → rien.
-import { useState, type FormEvent } from 'react';
-import { AlertTriangle, Check, Loader2, Mail } from 'lucide-react';
+// sur cette page. La carte n'apparaît QUE dans ce cas (décision de Paul du
+// 20/10) : un acheteur dont l'e-mail est parti normalement ne voit rien.
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isPlausibleEmail, suggestEmail } from '@/lib/emailTypo';
@@ -24,72 +21,42 @@ interface Props {
 
 export function TicketEmailDelivery({ delivery, fix }: Props) {
   const { t } = useLanguage();
-  const [editing, setEditing] = useState(false);
+  const bounced = delivery?.status === 'bounced';
+  // Le rebond arrive pendant que la personne regarde son QR, plus bas : un
+  // message qui se voit où qu'elle soit dans la page, une fois.
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!bounced || announced.current) return;
+    announced.current = true;
+    toast.error(t('confirmation.mail.bouncedToast'), { duration: 10_000 });
+  }, [bounced, t]);
 
-  if (!delivery) return null;
-  const bounced = delivery.status === 'bounced';
-  if (!bounced && !delivery.canFix) return null;
+  if (!delivery || !bounced) return null;
 
-  if (bounced) {
-    return (
-      <section
-        role="alert"
-        className="mt-6 rounded-[10px] p-4"
-        style={{ background: 'rgba(232,25,44,0.07)', border: '1px solid rgba(255,90,104,0.45)' }}
-      >
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle className="mt-0.5 h-[18px] w-[18px] shrink-0" style={{ color: CHECKOUT_ERROR }} aria-hidden />
-          <div className="min-w-0">
-            <h2 className="font-display text-[17px] font-bold leading-[1.2] text-white">{t('confirmation.mail.bouncedTitle')}</h2>
-            <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#E5E5E5] [overflow-wrap:anywhere]">
-              {t('confirmation.mail.bouncedBefore')}
-              <strong className="font-semibold text-white">{delivery.email}</strong>
-              {delivery.canFix ? t('confirmation.mail.bouncedAfter') : t('confirmation.mail.bouncedAfterNoFix')}
-            </p>
-          </div>
-        </div>
-        {delivery.canFix ? (
-          <EmailFixForm initial={delivery.email} fix={fix} autoFocus />
-        ) : null}
-        <p className="mt-3 text-[12.5px] leading-[1.45] text-[#9A9A9A]">{t('confirmation.mail.stillValid')}</p>
-      </section>
-    );
-  }
-
-  const delivered = delivery.status === 'delivered';
   return (
-    <section className="mt-6 rounded-[10px] border border-white/[0.08] bg-[#141414] px-4 py-3.5">
+    <section
+      role="alert"
+      className="mt-6 rounded-[10px] p-4"
+      style={{ background: 'rgba(232,25,44,0.07)', border: '1px solid rgba(255,90,104,0.45)' }}
+    >
       <div className="flex items-start gap-2.5">
-        {delivered
-          ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2.6} aria-hidden />
-          : <Mail className="mt-0.5 h-4 w-4 shrink-0 text-[#9A9A9A]" aria-hidden />}
-        <p className="min-w-0 flex-1 text-[13.5px] leading-[1.45] text-[#9A9A9A] [overflow-wrap:anywhere]">
-          {delivered ? t('confirmation.mail.deliveredTo') : t('confirmation.mail.sendingTo')}{' '}
-          <strong className="font-semibold text-white">{delivery.email}</strong>
-        </p>
+        <AlertTriangle className="mt-0.5 h-[18px] w-[18px] shrink-0" style={{ color: CHECKOUT_ERROR }} aria-hidden />
+        <div className="min-w-0">
+          <h2 className="font-display text-[17px] font-bold leading-[1.2] text-white">{t('confirmation.mail.bouncedTitle')}</h2>
+          <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#E5E5E5] [overflow-wrap:anywhere]">
+            {t('confirmation.mail.bouncedBefore')}
+            <strong className="font-semibold text-white">{delivery.email}</strong>
+            {delivery.canFix ? t('confirmation.mail.bouncedAfter') : t('confirmation.mail.bouncedAfterNoFix')}
+          </p>
+        </div>
       </div>
-      {editing ? (
-        <EmailFixForm initial={delivery.email} fix={fix} autoFocus onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="ml-[26px] mt-1.5 text-[13px] font-semibold text-white underline underline-offset-[3px] transition-colors hover:text-[#E5E5E5]"
-        >
-          {t('confirmation.mail.wrongAddress')}
-        </button>
-      )}
+      {delivery.canFix ? <EmailFixForm initial={delivery.email} fix={fix} /> : null}
+      <p className="mt-3 text-[12.5px] leading-[1.45] text-[#9A9A9A]">{t('confirmation.mail.stillValid')}</p>
     </section>
   );
 }
 
-function EmailFixForm({ initial, fix, autoFocus, onDone, onCancel }: {
-  initial: string;
-  fix: Props['fix'];
-  autoFocus?: boolean;
-  onDone?: () => void;
-  onCancel?: () => void;
-}) {
+function EmailFixForm({ initial, fix }: { initial: string; fix: Props['fix'] }) {
   const { t } = useLanguage();
   const [value, setValue] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -105,8 +72,8 @@ function EmailFixForm({ initial, fix, autoFocus, onDone, onCancel }: {
     const res = await fix(email);
     setSending(false);
     if (res.ok) {
+      // La carte disparaît : l'e-mail repart, la page relit son état.
       toast.success(t('confirmation.mail.resent').replace('{email}', email.toLowerCase()));
-      onDone?.();
       return;
     }
     const known: TicketEmailFixFailure[] = ['invalid_email', 'same_email', 'too_late', 'too_many'];
@@ -123,7 +90,6 @@ function EmailFixForm({ initial, fix, autoFocus, onDone, onCancel }: {
         autoComplete="email"
         autoCapitalize="none"
         spellCheck={false}
-        autoFocus={autoFocus}
         value={value}
         onChange={(e) => { setValue(e.target.value); if (error) setError(null); }}
         aria-invalid={!!error || undefined}
@@ -161,15 +127,6 @@ function EmailFixForm({ initial, fix, autoFocus, onDone, onCancel }: {
           {sending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
           {t('confirmation.mail.resend')}
         </button>
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="h-12 px-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#9A9A9A] transition-colors hover:text-white"
-          >
-            {t('confirmation.mail.cancel')}
-          </button>
-        )}
       </div>
     </form>
   );

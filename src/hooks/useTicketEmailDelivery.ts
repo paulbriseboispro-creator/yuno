@@ -15,7 +15,7 @@ export type TicketEmailStatus = 'sent' | 'delivered' | 'bounced';
 export interface TicketEmailDelivery {
   status: TicketEmailStatus;
   email: string;
-  /** L'adresse peut encore être corrigée (rebond, ou < 2 h après le paiement). */
+  /** L'adresse peut être corrigée : l'e-mail a rebondi, moins de 3 corrections. */
   canFix: boolean;
 }
 
