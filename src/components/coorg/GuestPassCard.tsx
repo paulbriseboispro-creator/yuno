@@ -181,7 +181,7 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
           {contractOn && (
             <>
               <ContractTermsFields w={w} value={terms} onChange={setTerms} isVenue={kind === 'venue'} />
-              {!email.trim() && <p style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>{w('guestSpace.err.no_email')}</p>}
+              {!email.trim() && <p style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>{w('guestSpace.org.contractNeedsEmail')}</p>}
             </>
           )}
           <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>
@@ -479,7 +479,7 @@ function ContractSection({ r, w, busy, run }: {
           </OrgButton>
         )}
       </div>
-      {!active && !r.contact_email && <p style={{ color: T3, fontSize: 11 }}>{w('guestSpace.err.no_email')}</p>}
+      {!active && !r.contact_email && <p style={{ color: T3, fontSize: 11 }}>{w('guestSpace.org.contractNeedsEmail')}</p>}
 
       {edit && (
         <>

@@ -748,6 +748,7 @@ const WORDS = {
   'guestSpace.org.tr.sent': ['Sent on {date} · waiting for confirmation', 'Viré le {date} · en attente de confirmation', 'Transferida el {date} · esperando confirmación'],
   'guestSpace.org.tr.received': ['Received on {date}', 'Reçu le {date}', 'Recibida el {date}'],
   'guestSpace.org.tr.disputed': ['Not received: “{reason}”', 'Pas reçu : « {reason} »', 'No recibida: «{reason}»'],
+  'guestSpace.org.contractNeedsEmail': ['Add an email: the signature code is sent there.', 'Ajoute un email : le code de signature y est envoyé.', 'Añade un email: el código de firma se envía ahí.'],
   'guestSpace.org.contractOff': ['No contract', 'Sans contrat', 'Sin contrato'],
   'guestSpace.org.contractOffHint': ['You settle between you, outside Yuno.', 'Vous réglez entre vous, hors Yuno.', 'Lo arregláis entre vosotros, fuera de Yuno.'],
   'guestSpace.org.contractOnHint': ['A share of the net, signed in its space with a code. Yuno tracks the statement and the transfer.', 'Une part du net, signée dans son espace avec un code. Yuno suit le décompte et le virement.', 'Una parte del neto, firmada en su espacio con un código. Yuno sigue la liquidación y la transferencia.'],
