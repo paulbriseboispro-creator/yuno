@@ -28,7 +28,7 @@ export default function OrgAppLayout() {
   return (
     <SidebarProvider>
       <OrgAppSidebar />
-      <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
+      <SidebarInset style={{ background: 'var(--sf-000000)' }}>
         <OrgAppHeader />
         {/* Outil ouvert depuis la page d'une collaboration : chemin de retour. */}
         <CollabTrailBar />

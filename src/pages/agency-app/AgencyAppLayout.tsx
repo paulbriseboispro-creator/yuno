@@ -107,7 +107,7 @@ export default function AgencyAppLayout() {
     <AffiliateShellProvider value={shell}>
       <SidebarProvider>
         <AgencyAppSidebar agency={{ name: agency.name, logo_url: agency.logo_url, city: agency.city }} />
-        <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
+        <SidebarInset style={{ background: 'var(--sf-000000)' }}>
           <AffiliateAppHeader />
           <main className="mx-auto w-full px-4 pb-8" style={{ maxWidth: 1040 }}>
             <Outlet />
