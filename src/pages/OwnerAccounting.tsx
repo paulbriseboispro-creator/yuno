@@ -44,11 +44,33 @@ interface InvoiceItem {
   quantity?: number | string | null;
   total?: number | string | null;
 }
-type IdRow = { id: string; name?: string | null; refund_amount?: number | null };
-type TicketAcctRow = IdRow & { ticket_round_id: string | null; ticket_type: string | null; quantity: number | null };
-type TableAcctRow = IdRow & { pack_id: string | null; management_fee: number | null };
-/** Les lectures optionnelles rendent `{ data }` ou un résultat Supabase. */
-const rowsOf = <T,>(res: { data: unknown }): T[] => (Array.isArray(res.data) ? (res.data as T[]) : []);
+/** Une facture rendue par `get_accounting_invoices` (clés nulles retirées). */
+interface AcctInvoiceJson {
+  id: string;
+  type: string;
+  amount: number | string | null;
+  event_id?: string | null;
+  event_name?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  invoice_number: string;
+  created_at: string;
+  items?: unknown;
+  ticket_id?: string | null;
+  table_reservation_id?: string | null;
+  order_id?: string | null;
+  /** La vente facturée (billet, table ou commande), absente si la RLS la cache. */
+  sale?: {
+    refund_amount?: number | null;
+    service_fee?: number | null;
+    insurance_fee?: number | null;
+    management_fee?: number | null;
+    fee_absorbed?: boolean | null;
+    /** Nom du tarif (billet) ou de la formule (table). */
+    label?: string | null;
+    qty?: number | null;
+  } | null;
+}
 
 interface EventRow {
   id: string;
@@ -158,8 +180,6 @@ export default function OwnerAccounting() {
     setLoading(true);
     try {
       const scopeId = isOrganizerScope ? organizerUserId! : venueId!;
-      const ownCol = isOrganizerScope ? 'organizer_user_id' : 'venue_id';
-      const partnerCol = isOrganizerScope ? 'partner_organizer_id' : 'partner_venue_id';
 
       if (isOrganizerScope) {
         supabase.from('organizer_profiles').select('display_name').eq('user_id', scopeId).maybeSingle()
@@ -169,87 +189,73 @@ export default function OwnerAccounting() {
           .then(({ data }) => setScopeName((data as { name?: string } | null)?.name ?? ''));
       }
 
-      const { data: evData, error: evErr } = await supabase
-        .from('events')
-        .select('id, title, start_at, event_mode, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, is_bde')
-        .or(`${ownCol}.eq.${scopeId},${partnerCol}.eq.${scopeId}`)
-        .order('start_at', { ascending: false });
-      if (evErr) throw evErr;
-
-      const events = (evData || []) as EventRow[];
-      const eventMap = new Map(events.map(e => [e.id, e]));
-      const eventIds = events.map(e => e.id);
-      if (eventIds.length === 0) { setReports([]); setLoading(false); return; }
-
-      let invQuery = supabase.from('invoices').select('*').in('event_id', eventIds).order('created_at', { ascending: false });
+      // UNE lecture serveur : toutes les factures de la portée et de la période,
+      // chacune avec la vente qu'elle facture (frais Yuno stockés, remboursement,
+      // nom du tarif ou de la formule). Lire `invoices` directement plafonnait à
+      // 1 000 lignes (PostgREST) et la lecture des billets par `.in('id', …)`
+      // dépassait la taille d'URL de l'API dès quelques centaines de ventes.
+      // La RLS de l'appelant s'applique comme avant (fonction SECURITY INVOKER).
+      let from: string | null = null;
+      let to: string | null = null;
       if (period !== 'all') {
         const [yy, mm] = period.split('-').map(Number);
-        invQuery = invQuery
-          .gte('created_at', startOfMonth(new Date(yy, mm - 1)).toISOString())
-          .lte('created_at', endOfMonth(new Date(yy, mm - 1)).toISOString());
+        from = startOfMonth(new Date(yy, mm - 1)).toISOString();
+        to = endOfMonth(new Date(yy, mm - 1)).toISOString();
       }
-      const { data: invData, error: invErr } = await invQuery;
-      if (invErr) throw invErr;
-      const invoices = ((invData || []) as Array<Omit<InvoiceRow, 'amount'> & { amount: number | string | null }>).map(i => ({
+      const { data: acctData, error: acctErr } = await supabase.rpc('get_accounting_invoices', {
+        p_venue_id: isOrganizerScope ? null : scopeId,
+        p_organizer_user_id: isOrganizerScope ? scopeId : null,
+        p_from: from,
+        p_to: to,
+      });
+      if (acctErr) throw acctErr;
+      const acct = (acctData ?? {}) as { events?: EventRow[]; invoices?: AcctInvoiceJson[] };
+
+      const events = acct.events ?? [];
+      const eventMap = new Map(events.map(e => [e.id, e]));
+      if (events.length === 0) { setReports([]); setLoading(false); return; }
+
+      const rawInvoices = acct.invoices ?? [];
+      const invoices: InvoiceRow[] = rawInvoices.map(i => ({
         id: i.id, type: i.type as InvoiceType, amount: Number(i.amount) || 0,
-        event_id: i.event_id, event_name: i.event_name,
-        customer_name: i.customer_name, customer_email: i.customer_email || '',
-        invoice_number: i.invoice_number, created_at: i.created_at, items: i.items,
-        ticket_id: i.ticket_id, table_reservation_id: i.table_reservation_id, order_id: i.order_id,
-      })) as InvoiceRow[];
+        event_id: i.event_id ?? null, event_name: i.event_name ?? null,
+        customer_name: i.customer_name ?? null, customer_email: i.customer_email || '',
+        invoice_number: i.invoice_number, created_at: i.created_at, items: i.items ?? null,
+        ticket_id: i.ticket_id ?? null, table_reservation_id: i.table_reservation_id ?? null, order_id: i.order_id ?? null,
+      }));
 
-      // Refund amounts live on the raw sales tables, not on invoices. We pull the
-      // same rows to also enrich each ticket/table line with its real rate /
-      // package name — the invoice `items` jsonb only stores a generic "Billet" /
-      // "Table VIP", so without this every ticket sale collapses into one line.
-      const ticketIds = invoices.map(i => i.ticket_id).filter(Boolean) as string[];
-      const tableIds = invoices.map(i => i.table_reservation_id).filter(Boolean) as string[];
-      const orderIds = invoices.map(i => i.order_id).filter(Boolean) as string[];
+      // Refund amounts live on the raw sales tables, not on invoices; the RPC
+      // joins them in. It also carries each ticket/table's real rate / package
+      // name — the invoice `items` jsonb only stores a generic "Billet" /
+      // "Table VIP", so without it every ticket sale collapses into one line.
       const refundMap = new Map<string, number>();
-      const [tk, tb, od] = await Promise.all([
-        ticketIds.length ? supabase.from('tickets').select('id, refund_amount, ticket_round_id, ticket_type, quantity, service_fee, insurance_fee').in('id', ticketIds) : Promise.resolve({ data: [] }),
-        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id, service_fee, management_fee, fee_absorbed').in('id', tableIds) : Promise.resolve({ data: [] }),
-        orderIds.length ? supabase.from('orders').select('id, refund_amount, service_fee').in('id', orderIds) : Promise.resolve({ data: [] }),
-      ]);
-      const tkRows = rowsOf<TicketAcctRow>(tk);
-      const tbRows = rowsOf<TableAcctRow>(tb);
-      [...tkRows, ...tbRows, ...rowsOf<IdRow>(od)]
-        .forEach((r) => { if (Number(r.refund_amount)) refundMap.set(r.id, Number(r.refund_amount)); });
-
-      // Commission ACTUALLY charged, per table reservation. Accounting must report
-      // what was billed, not re-price history against the current rate card — a
+      // Commission ACTUALLY charged, per sale. Accounting must report what was
+      // billed, not re-price history against the current rate card — a
       // reservation billed before the 25€ cap shipped must still show its real fee.
       // Frais Yuno lus sur chaque vente (service, assurance, frais de gestion
       // absorbés) : un revenu affiché n'inclut jamais l'argent de Yuno.
       const feeMap = new Map<string, number>();
-      const odRows = ((od as { data?: unknown[] }).data || []) as Array<{ id: string; service_fee?: number | null }>;
-      ([['ticket', tkRows], ['table', tbRows], ['order', odRows]] as const).forEach(([type, rows]) => {
-        (rows as Array<{ id: string; service_fee?: number | null }>).forEach((r) => {
-          const fee = storedYunoFee(type, r);
-          if (fee !== null) feeMap.set(r.id, fee);
-        });
-      });
-
-      // Resolve human rate / package names for the per-line breakdown. Best-effort:
-      // any read failure just falls back to the generic type label (no crash).
-      const roundIds = [...new Set(tkRows.map(r => r.ticket_round_id).filter(Boolean))] as string[];
-      const packIds = [...new Set(tbRows.map(r => r.pack_id).filter(Boolean))] as string[];
-      const [rd, tp] = await Promise.all([
-        roundIds.length ? supabase.from('ticket_rounds').select('id, name').in('id', roundIds) : Promise.resolve({ data: [] }),
-        packIds.length ? supabase.from('table_packs').select('id, name').in('id', packIds) : Promise.resolve({ data: [] }),
-      ]);
-      const roundName = new Map<string, string>(rowsOf<IdRow>(rd).map((r) => [r.id, r.name ?? '']));
-      const packName = new Map<string, string>(rowsOf<IdRow>(tp).map((r) => [r.id, r.name ?? '']));
       // txn id → { label, qty } for tickets and tables.
       const txnMeta = new Map<string, { label: string; qty: number }>();
-      tkRows.forEach(r => txnMeta.set(r.id, {
-        label: (r.ticket_round_id && roundName.get(r.ticket_round_id)) || r.ticket_type || t('acct.typeTicket'),
-        qty: Number(r.quantity) || 1,
-      }));
-      tbRows.forEach(r => txnMeta.set(r.id, {
-        label: (r.pack_id && packName.get(r.pack_id)) || t('acct.typeTable'),
-        qty: 1,
-      }));
+      rawInvoices.forEach((i) => {
+        const tid = i.ticket_id || i.table_reservation_id || i.order_id;
+        const sale = i.sale;
+        if (!tid || !sale) return;
+        if (Number(sale.refund_amount)) refundMap.set(tid, Number(sale.refund_amount));
+        const saleType: InvoiceType = i.ticket_id ? 'ticket' : i.table_reservation_id ? 'table' : 'order';
+        const fee = storedYunoFee(saleType, {
+          service_fee: sale.service_fee ?? null,
+          insurance_fee: sale.insurance_fee ?? null,
+          management_fee: sale.management_fee ?? null,
+          fee_absorbed: sale.fee_absorbed ?? null,
+        });
+        if (fee !== null) feeMap.set(tid, fee);
+        if (saleType === 'ticket') {
+          txnMeta.set(tid, { label: sale.label || t('acct.typeTicket'), qty: Number(sale.qty) || 1 });
+        } else if (saleType === 'table') {
+          txnMeta.set(tid, { label: sale.label || t('acct.typeTable'), qty: 1 });
+        }
+      });
 
       // Stamp a human "detail" on each invoice for the CSV export + line grouping.
       invoices.forEach(inv => {
