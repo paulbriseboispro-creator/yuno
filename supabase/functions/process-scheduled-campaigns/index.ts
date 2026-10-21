@@ -8,6 +8,7 @@ import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchNightRecaps } from "../_shared/night-recap.ts";
+import { dispatchGuestPassNotificationEmails } from "../_shared/guest-pass-notify.ts";
 import { dispatchCrmLifecycleEmails, dispatchCrmSignupConfirmations } from "../_shared/crm-lifecycle-emails.ts";
 import { dispatchWeeklyDigestEmails } from "../_shared/analytics-digest-emails.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
@@ -257,6 +258,14 @@ Deno.serve(async (req) => {
       console.error('[NIGHT-RECAP] dispatch failed:', String(e));
     }
 
+    // Espace invité : e-mails des notifications de l'invité (la base décide, démo écartée).
+    let guestNotif = { sent: 0, failed: 0 };
+    try {
+      guestNotif = await dispatchGuestPassNotificationEmails(admin);
+    } catch (e) {
+      console.error('[GUEST-NOTIF] dispatch failed:', String(e));
+    }
+
     // Yuno CRM : e-mails du cycle de vie (Yuno → pro). Éteints par défaut ;
     // la base décide de tout (interrupteurs, déclencheurs, anti-doublon, démo).
     let crmLifecycle = { queued: 0, sent: 0, failed: 0 };
@@ -310,7 +319,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap,
-        weeklyDigest, nightRecap, crmLifecycle, crmSignup, proSignups, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        weeklyDigest, nightRecap, guestNotif, crmLifecycle, crmSignup, proSignups, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

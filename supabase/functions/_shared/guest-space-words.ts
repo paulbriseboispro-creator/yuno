@@ -55,9 +55,21 @@ const WORDS = {
   'guestSpace.bell.markRead': ['Mark all as read', 'Tout marquer comme lu', 'Marcar todo como leído'],
   'guestSpace.bell.contract': ['{org} proposes you a contract for the night', '{org} te propose un contrat pour la soirée', '{org} te propone un contrato para la noche'],
   'guestSpace.bell.contractChanged': ['{org} changed the terms of the contract (version {n})', '{org} a changé les termes du contrat (version {n})', '{org} ha cambiado las condiciones del contrato (versión {n})'],
-  'guestSpace.bell.contractSigned': ['Contract signed by {name}', 'Contrat signé par {name}', 'Contrato firmado por {name}'],
-  'guestSpace.bell.frozen': ['The statement is frozen: your share is {amount}', 'Le décompte est figé : ta part est de {amount}', 'La liquidación está cerrada: tu parte es de {amount}'],
-  'guestSpace.bell.transferSent': ['{org} says it sent your transfer', '{org} dit avoir viré ta part', '{org} dice haber transferido tu parte'],
+  'guestSpace.bell.contractSigned': [
+    "Contract signed by both sides",
+    "Contrat signé par les deux parties",
+    "Contrato firmado por ambas partes",
+  ],
+  'guestSpace.bell.frozen': [
+    "The statement is ready to check: your share is {amount}",
+    "Le décompte est prêt à vérifier : ta part est de {amount}",
+    "La liquidación está lista para revisar: tu parte es de {amount}",
+  ],
+  'guestSpace.bell.transferSent': [
+    "{org} sent your transfer: confirm it when you receive it",
+    "{org} a viré ta part : confirme-le à réception",
+    "{org} ha transferido tu parte: confírmalo al recibirla",
+  ],
   'guestSpace.bell.transferReceived': ['You confirmed the transfer', 'Tu as confirmé le virement', 'Has confirmado la transferencia'],
   'guestSpace.bell.statementReady': ['The statement is ready: approve or dispute it', 'Le décompte est prêt : valide-le ou conteste-le', 'La liquidación está lista: valídala o impúgnala'],
   'guestSpace.bell.staffAccepted': ['{name} accepted the door invitation', '{name} a accepté l’invitation à la porte', '{name} ha aceptado la invitación a la puerta'],
@@ -630,6 +642,16 @@ const WORDS = {
   'guestSpace.org.linkStats': ['Their links: {clicks} clicks · {sales} sales', 'Ses liens : {clicks} clics · {sales} ventes', 'Sus enlaces: {clicks} clics · {sales} ventas'],
   'guestSpace.org.placesRequested': ['Asks for {n} more places', 'Demande {n} places de plus', 'Pide {n} plazas más'],
   'guestSpace.org.grant': ['Give {n} places', 'Donner {n} places', 'Dar {n} plazas'],
+  'guestSpace.org.decline': [
+    "Decline",
+    "Refuser",
+    "Rechazar",
+  ],
+  'guestSpace.org.declined': [
+    "Request declined: the guest is told",
+    "Demande refusée : l’invité en est prévenu",
+    "Solicitud rechazada: el invitado queda avisado",
+  ],
   'guestSpace.org.approved': ['Statement approved', 'Décompte validé', 'Liquidación validada'],
   'guestSpace.org.contested': ['Statement disputed: “{reason}”', 'Décompte contesté : « {reason} »', 'Liquidación impugnada: «{reason}»'],
   'guestSpace.org.claimedAccepted': ['{name} opened its Yuno account: it follows the night as a Partner.', '{name} a ouvert son compte Yuno : il suit la soirée en Partenaire.', '{name} ha abierto su cuenta Yuno: sigue la noche como Socio.'],
@@ -1135,6 +1157,111 @@ const WORDS = {
     "L’invité a choisi sa photo : elle reste.",
     "El invitado eligió su foto: se queda.",
   ],
+  'guestSpace.bell.dueReminder': [
+    "Transfer due {date}: check the statement",
+    "Virement attendu le {date} : vérifie le décompte",
+    "Transferencia prevista el {date}: revisa la liquidación",
+  ],
+  'guestSpace.bell.nightTime': [
+    "New time for the night: {when}",
+    "Nouvel horaire pour la soirée : {when}",
+    "Nuevo horario para la noche: {when}",
+  ],
+  'guestSpace.bell.nightPlace': [
+    "New address for the night: {place}",
+    "Nouvelle adresse pour la soirée : {place}",
+    "Nueva dirección para la noche: {place}",
+  ],
+  'guestSpace.bell.lineup': [
+    "The line-up has changed",
+    "Le line-up a changé",
+    "El line-up ha cambiado",
+  ],
+  'guestSpace.bell.nightCancelled': [
+    "The night is cancelled",
+    "La soirée est annulée",
+    "La noche está cancelada",
+  ],
+  'guestSpace.bell.nightPostponed': [
+    "The night is postponed",
+    "La soirée est reportée",
+    "La noche se aplaza",
+  ],
+  'guestSpace.bell.doorsTonight': [
+    "Doors open tonight at {time}",
+    "Les portes ouvrent ce soir à {time}",
+    "Las puertas abren esta noche a las {time}",
+  ],
+  'guestSpace.bell.recapReady': [
+    "The night’s recap is ready",
+    "Le bilan de la soirée est prêt",
+    "El balance de la noche está listo",
+  ],
+  'guestSpace.bell.glPlaces': [
+    "Your guest list share: {n} places",
+    "Ta part de guest list : {n} places",
+    "Tu parte de guest list: {n} plazas",
+  ],
+  'guestSpace.bell.glFull': [
+    "Your guest list share is full ({n} places)",
+    "Ta part de guest list est pleine ({n} places)",
+    "Tu parte de guest list está llena ({n} plazas)",
+  ],
+  'guestSpace.bell.placesAccepted': [
+    "{org} gave you the {n} extra places",
+    "{org} t’a donné les {n} places demandées",
+    "{org} te ha dado las {n} plazas pedidas",
+  ],
+  'guestSpace.bell.placesDeclined': [
+    "{org} declined your request for {n} places",
+    "{org} a refusé ta demande de {n} places",
+    "{org} ha rechazado tu solicitud de {n} plazas",
+  ],
+  'guestSpace.bell.doorMode': [
+    "Door: {door}",
+    "Porte : {door}",
+    "Puerta: {door}",
+  ],
+  'guestSpace.bell.salesDay': [
+    "+{n} tickets today",
+    "+{n} billets aujourd’hui",
+    "+{n} entradas hoy",
+  ],
+  'guestSpace.bell.salesDayMine': [
+    "+{n} tickets today, {mine} through your link",
+    "+{n} billets aujourd’hui, dont {mine} par ton lien",
+    "+{n} entradas hoy, {mine} por tu enlace",
+  ],
+  'guestSpace.bell.fill50': [
+    "Half the tickets are sold",
+    "La moitié des billets est vendue",
+    "La mitad de las entradas está vendida",
+  ],
+  'guestSpace.bell.fill75': [
+    "75% of the tickets are sold",
+    "75 % des billets sont vendus",
+    "El 75 % de las entradas está vendido",
+  ],
+  'guestSpace.bell.soldOut': [
+    "Sold out!",
+    "Complet !",
+    "¡Completo!",
+  ],
+  'guestSpace.notifMail.subject': [
+    "{event}: {text}",
+    "{event} : {text}",
+    "{event}: {text}",
+  ],
+  'guestSpace.notifMail.kicker': [
+    "Your space for the night",
+    "Ton espace de la soirée",
+    "Tu espacio de la noche",
+  ],
+  'guestSpace.notifMail.next': [
+    "Sign in to your Yuno account to see the details.",
+    "Connecte-toi à ton compte Yuno pour voir le détail.",
+    "Inicia sesión en tu cuenta Yuno para ver el detalle.",
+  ],
 } as const satisfies Record<string, readonly [string, string, string]>;
 
 export type GuestSpaceWordKey = keyof typeof WORDS;
@@ -1156,4 +1283,68 @@ export const GUEST_SPACE_WORDS_RAW: Readonly<Record<string, readonly [string, st
 
 export function guestSpaceShareText(lang: GuestSpaceLanguage, p: { guest: string; event: string; page: string }): string {
   return guestSpaceWords(lang)('guestSpace.share.whatsapp', p);
+}
+
+// ─── Notifications de l'invité : une ligne de la base → un texte ────────────
+export type GuestNotifTab = 'home' | 'sales' | 'mkt' | 'money' | 'door' | 'info';
+export interface GuestNotifText { key: GuestSpaceWordKey; vars: Record<string, string | number>; tab: GuestNotifTab }
+
+/**
+ * Le texte d'une notification (`guest_pass_notifications.type` + `data`),
+ * le même dans la cloche et dans l'e-mail. Dates à l'heure du lieu.
+ * `eur` met en forme un montant (le front et l'e-mail ont le leur).
+ */
+export function describeGuestNotification(
+  type: string, data: Record<string, unknown>, lang: GuestSpaceLanguage, eur: (n: number) => string = (n) => `${n} €`,
+): GuestNotifText | null {
+  const w = guestSpaceWords(lang);
+  const loc = guestSpaceLocale(lang);
+  const tz = typeof data.tz === 'string' && data.tz ? data.tz : 'Europe/Paris';
+  const fmt = (iso: unknown, o: Intl.DateTimeFormatOptions) => {
+    if (typeof iso !== 'string' || !iso) return '';
+    try { return new Intl.DateTimeFormat(loc, { ...o, timeZone: tz }).format(new Date(iso)); } catch { return ''; }
+  };
+  const str = (k: string) => (data[k] == null ? '' : String(data[k]));
+  const num = (k: string) => Number(data[k]) || 0;
+  switch (type) {
+    case 'contract': case 'contractChanged':
+      return { key: `guestSpace.bell.${type}` as GuestSpaceWordKey, vars: { org: str('org'), n: num('n') }, tab: 'money' };
+    case 'contractSigned':
+      return { key: 'guestSpace.bell.contractSigned', vars: {}, tab: 'money' };
+    case 'frozen':
+      return { key: 'guestSpace.bell.frozen', vars: { amount: eur(num('amount')) }, tab: 'money' };
+    case 'transferSent':
+      return { key: 'guestSpace.bell.transferSent', vars: { org: str('org') }, tab: 'money' };
+    case 'dueReminder':
+      return { key: 'guestSpace.bell.dueReminder', vars: { date: fmt(data.due, { day: 'numeric', month: 'long' }) }, tab: 'money' };
+    case 'nightTime':
+      return { key: 'guestSpace.bell.nightTime', vars: { when: fmt(data.start, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) }, tab: 'info' };
+    case 'nightPlace':
+      return { key: 'guestSpace.bell.nightPlace', vars: { place: str('place') }, tab: 'info' };
+    case 'lineup': case 'nightCancelled': case 'nightPostponed':
+      return { key: `guestSpace.bell.${type}` as GuestSpaceWordKey, vars: {}, tab: 'info' };
+    case 'doorsTonight':
+      return { key: 'guestSpace.bell.doorsTonight', vars: { time: fmt(data.start, { hour: '2-digit', minute: '2-digit' }) }, tab: 'door' };
+    case 'recapReady':
+      return { key: 'guestSpace.bell.recapReady', vars: {}, tab: 'sales' };
+    case 'glPlaces': case 'glFull': case 'placesAccepted': case 'placesDeclined':
+      return { key: `guestSpace.bell.${type}` as GuestSpaceWordKey, vars: { n: num('n'), org: str('org') }, tab: 'door' };
+    case 'doorMode': {
+      const m = str('mode');
+      const door = m === 'guest' ? w('guestSpace.door.byGuest') : m === 'both' ? w('guestSpace.door.byBoth', { org: str('org') }) : w('guestSpace.door.byOrganizer', { org: str('org') });
+      return { key: 'guestSpace.bell.doorMode', vars: { door }, tab: 'door' };
+    }
+    case 'staffAdded': case 'staffAccepted':
+      return { key: `guestSpace.bell.${type}` as GuestSpaceWordKey, vars: { name: str('name'), org: str('org') }, tab: 'door' };
+    case 'salesDay':
+      return num('mine') > 0
+        ? { key: 'guestSpace.bell.salesDayMine', vars: { n: num('n'), mine: num('mine') }, tab: 'sales' }
+        : { key: 'guestSpace.bell.salesDay', vars: { n: num('n') }, tab: 'sales' };
+    case 'fill': {
+      const p = num('pct');
+      return { key: p >= 100 ? 'guestSpace.bell.soldOut' : p >= 75 ? 'guestSpace.bell.fill75' : 'guestSpace.bell.fill50', vars: {}, tab: 'sales' };
+    }
+    default:
+      return null;
+  }
 }
