@@ -9,6 +9,7 @@ import type { CoorgScope } from '@/lib/coorg';
 import { useCollabNights } from './useCollabNights';
 import { CollabNightCard } from './CollabNightCard';
 import { CollabDirectory } from './CollabDirectory';
+import { GuestInvitations } from './GuestInvitations';
 import { NewCollabDialog, type CollabPreselect } from './NewCollabDialog';
 
 type Side = 'venue' | 'organizer';
@@ -130,6 +131,9 @@ export function CollabHub({
           {/* Ce qui attend une réponse : propositions, avenants, invitations de
               co-organisation. Chaque boîte se tait quand elle est vide. */}
           {todo(() => { void reload(); })}
+
+          {/* Invitations « Invité » (club / organisation sans compte) : envoyée → ouverte → compte. */}
+          <GuestInvitations side={side} scope={scope} />
 
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
