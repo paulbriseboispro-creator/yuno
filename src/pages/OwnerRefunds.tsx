@@ -4,6 +4,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr, venueOwnEventsOr } from '@/lib/coorg';
 import { toast } from 'sonner';
 import { type RefundableItem } from '@/components/owner/RefundItemCard';
 import { RefundCustomerCard, type CustomerGroup } from '@/components/owner/RefundCustomerCard';
@@ -148,10 +149,10 @@ export default function OwnerRefunds() {
         .order('start_at', { ascending: false })
         .limit(50);
       const { data } = isOrganizerScope
-        ? await base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+        ? await base.or(orgOwnEventsOr(organizerUserId as string))
         // Un club peut aussi avoir encaissé la soirée d'un organisateur qu'il
         // accueille (club partenaire) : le serveur dit ensuite ce qui est à lui.
-        : await base.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
+        : await base.or(venueOwnEventsOr(venueId as string));
       setEvents(data || []);
     };
     fetchEvents();
@@ -162,7 +163,7 @@ export default function OwnerRefunds() {
     const { data } = await supabase
       .from('events')
       .select('id')
-      .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+      .or(orgOwnEventsOr(organizerUserId as string));
     return (data ?? []).map((e) => e.id);
   }, [organizerUserId]);
 

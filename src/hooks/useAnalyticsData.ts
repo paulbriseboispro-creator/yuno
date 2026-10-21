@@ -292,7 +292,7 @@ export function useAnalyticsData({
       query = query.or(orgEventsOr(organizerUserId));
     } else {
       if (!venueId) return;
-      query = query.eq('venue_id', venueId);
+      query = query.eq('venue_id', venueId).is('external_source', null);
     }
 
     const { data } = await query;

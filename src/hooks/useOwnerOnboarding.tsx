@@ -85,7 +85,7 @@ async function detectCompletedSteps(
   // Step 3 — Offer: each chosen pillar has its minimal content.
   const [{ count: drinkCount }, { count: eventCount }] = await Promise.all([
     supabase.from('drinks').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
-    supabase.from('events').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
+    supabase.from('events').select('id', { count: 'exact', head: true }).eq('venue_id', venueId).is('external_source', null),
   ]);
   const drinksOk = !pillars.includes('drinks') || (drinkCount ?? 0) > 0;
   const eventOk = !(pillars.includes('tickets') || pillars.includes('tables')) || (eventCount ?? 0) > 0;

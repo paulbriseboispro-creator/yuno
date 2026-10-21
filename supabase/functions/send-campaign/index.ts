@@ -801,10 +801,14 @@ async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign:
   // segments (baseline du bilan), puis rafraîchissement de l'engagement.
   // Best-effort : une panne d'observabilité ne coûte jamais une campagne.
   try {
-    await admin.rpc('record_campaign_list_baseline', { p_campaign_id: campaignId });
+    // Deux outils séparés : la photo « avant / après » (carte de bilan) est une fonction de la Billetterie ;
+    // l'engagement se mesure par produit (clé `…|crm` pour Yuno CRM).
+    const { data: sentFromCrm } = await admin.rpc('crm_campaign_is_crm', { p_campaign_id: campaignId });
+    if (sentFromCrm !== true) await admin.rpc('record_campaign_list_baseline', { p_campaign_id: campaignId });
     await admin.rpc('refresh_contact_engagement', {
       p_venue_id: (campaign.venue_id as string | null) ?? null,
       p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+      p_product: sentFromCrm === true ? 'crm' : null,
     });
   } catch (e) {
     console.error('contact base refresh after send:', e);
@@ -838,6 +842,14 @@ async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign:
     return;
   }
   if (!campaign.venue_id) return;
+  // Isolation CRM ⇄ Billetterie : l'accusé d'une campagne du CRM vit dans la cloche du CRM
+  // (_crm_notif_list : send_done), jamais dans celle de la Billetterie (staff_notifications).
+  try {
+    const { data: isCrm } = await admin.rpc('crm_campaign_is_crm', { p_campaign_id: campaignId });
+    if (isCrm === true) return;
+  } catch (e) {
+    console.error('crm_campaign_is_crm (campaign_sent):', e);
+  }
   try {
     const { data: c } = await admin
       .from('email_campaigns')

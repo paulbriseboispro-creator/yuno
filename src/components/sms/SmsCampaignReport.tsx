@@ -71,6 +71,9 @@ export default function SmsCampaignReport({ campaignId, scope, eventTitle, onBac
 
   useEffect(() => { void load(); }, [load]);
 
+  // Rapport introuvable (SMS d'un autre produit, supprimé) : retour à la liste, pas un spinner sans fin.
+  useEffect(() => { if (!loading && !report) onBack(); }, [loading, report, onBack]);
+
   const inFlight = report?.status === 'sending';
   useEffect(() => {
     if (!inFlight) return;

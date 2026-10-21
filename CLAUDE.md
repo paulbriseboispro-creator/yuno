@@ -221,6 +221,49 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   `crm_apply_stripe_subscription` AVANT la logique club. Sans prix créés,
   `crm_checkout` répond `billing_not_configured`. Démo : socle accordé un an.
 
+## Yuno Tickets et Yuno CRM : deux produits SÉPARÉS (2026-10-20)
+
+Décision de Paul : « sépare vraiment les deux outils, pas de rapport de l'un à l'autre, sauf si une personne a les
+deux : un bouton pour passer de l'un à l'autre ». Un compte à deux produits (`extra_products`, ex. WOH, Amoris) n'a
+donc que le login, l'infrastructure d'envoi / de quotas et le bouton de bascule (`goToProduct`) en commun. Plan, état
+des lots et rapports : `docs/designs/CRM_TICKETS_SEPARATION.md`. Règles intouchables :
+
+- **Une colonne `product` par donnée partagée : NULL = Yuno Tickets, `'crm'` = Yuno CRM** (CHECK `IS NULL OR = 'crm'`,
+  jamais sur la portée plateforme) : `newsletter_subscriptions`, `email_opt_outs`, `contact_list_imports`,
+  `email_list_imports`, `sms_list_imports`, `imported_contacts` (dérivé de sa liste), `venue_sms_contacts`,
+  `email_campaign_templates`, `email_automations` (un slot par portée, recette ET produit), `contact_engagement`
+  (clé `…|crm`), `email_campaigns`, `sms_campaigns`. Une adresse a UNE ligne par produit chez un même pro : deux
+  accords, deux jetons de désinscription. Un client ne change jamais le produit d'une ligne (triggers de garde).
+- **`_separation_default_product()`** (trigger BEFORE INSERT) : compte CRM pur ⇒ `'crm'`, compte sans CRM ⇒ NULL,
+  compte à deux produits ⇒ la valeur de l'écrivain. Les écrivains d'un compte à deux produits passent TOUJOURS le
+  produit ; les fonctions d'import prennent `p_product DEFAULT NULL`, que la Console CRM passe à `'crm'`.
+- **Tout `ON CONFLICT` d'une table partagée cite le produit** (index uniques `NULLS NOT DISTINCT` : `(lower(email),
+  venue_id|organizer_user_id, product)`, `(venue_id, phone_e164, organizer_user_id, product)`). Une cible sans
+  produit lève 42P10 et casse un achat ou un import : le test `crmIsolationMigrations.test.ts` lit l'état final des
+  fonctions du dépôt et le refuse.
+- **Lecteurs** : la Billetterie lit `product IS NULL`, le CRM `product = 'crm'` ; le moteur d'envoi lit le produit de la
+  CAMPAGNE (`crm_campaign_is_crm`, `sms_campaign_is_crm`) ou de la RECETTE (`_email_recipe_is_crm`), jamais celui de la
+  portée. La base de contacts a deux vues : `contact_scope_customers(venue, orga, p_product)` — `'crm'` = billets
+  Shotgun + registre / imports du CRM, sans vente, client ni profil Yuno ; `'suite'` (défaut) = ventes Yuno + registre /
+  imports de la Billetterie, sans Shotgun ; cache sous deux clés (`o:<uuid>` / `o:<uuid>|crm`). Les soirées miroir
+  (`external_source`) restent celles du CRM (règle du 19/10).
+- **Compte à deux produits à la bascule** : lignes d'origine CRM (connecteur, pages d'inscription, imports faits depuis
+  la Console CRM) changent de produit SUR PLACE ; fichiers importés COPIÉS vers le CRM (`_sep3_copy_id(ancien id)`,
+  nouveaux jetons) ; un accord né d'une surface Yuno (achat, guest list, waitlist, case du checkout…) n'entre JAMAIS
+  dans le CRM. Compte CRM pur : tout est `'crm'`. Compte sans CRM : rien.
+- **Deux exceptions légales restent transverses** : la liste de suppression (`email_suppressions`, `sms_stop_list` :
+  rebond, plainte, STOP) et la désinscription (`unsubscribe_by_token`, `sms_stop_unsubscribe` : un « stop » vaut pour
+  les deux outils d'un même pro ; les écrivains automatiques respectent un stop posé dans l'autre outil). La politique
+  d'envoi (pression 24 h / 7 j, fatigue) protège l'ADRESSE : elle reste commune.
+- **Réglages par produit** : le gel d'envoi (`crm_settings.sending_frozen_at`) ne vise que les campagnes du CRM ;
+  l'identité légale d'annonceur SMS du CRM vit dans `crm_sms_settings` (`set_sms_sender_identity` n'écrit plus la fiche
+  légale, vendeur des reçus de la Billetterie) ; un plafond de Yunits, le témoin de 10 % et la pause du forfait valent
+  pour toute recette CRM, d'un compte à deux produits aussi.
+- Ce qui n'est PAS tranché : nom / ville / logo du compte (`save_crm_identity` les écrit pour les deux outils), anciennes
+  pages CRM encore montées dans `/owner` et `/organizer-app`, MCP d'un compte à deux produits (un seul produit par espace).
+- Banc : `node scripts/crm-bench/audit-separation.mjs roots|dump|` (PGlite, définitions de la prod, trois comptes
+  synthétiques : deux produits, CRM pur, Billetterie pure).
+
 ## Stack
 
 - **Frontend** : Vite 8 (rolldown) + React 18 + TypeScript + shadcn/ui + Tailwind. SPA statique.
@@ -4589,6 +4632,40 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   rembourse une commande nominative place par place. Jamais créées ailleurs
   (ni verify, ni webhook) : un seul jeu de QR par billet. Toute porte refuse
   une place dont le billet n'est pas payé.
+  **Ce que l'acheteur reçoit et voit** (2026-10-21, migration `20261106500000`,
+  première commande à 2 billets payée par un invité) : un invité n'a aucun droit
+  de lecture sur `ticket_attendees` (RLS = `tickets.user_id = auth.uid()`), donc sa
+  page de confirmation ne montrait que le QR du billet entier. `get_ticket_places(billet,
+  QR du billet)` (SECURITY DEFINER, preuve = le QR, même modèle que `fix_ticket_email`)
+  rend ses places ; `TicketQRCarousel` s'en sert quand la lecture directe est vide.
+  L'e-mail de confirmation, le PDF et Wallet suivent : un QR par place (cid
+  `ticket-qr-<k>`, nom de la personne), un PDF d'une page par personne (prix
+  unitaire), un pass Wallet par personne (`wallet_passes.pass_type = 'ticket_place'`,
+  serial `p-<id de la place>`, QR de la place, « BILLET i/N », bouton sous chaque QR)
+  et `?all=1` sur le lien du billet = lot `.pkpasses` (« tout ajouter »). Le pass
+  `t-<billet>` (QR du billet entier, entre toutes les places libres d'un scan) reste.
+  Révocation : `private.void_ticket_place_passes` (billet remboursé, ou place
+  remboursée seule). Un renvoi à la main = POST `send-ticket-confirmation` à la clé
+  service, avec `lang` pour un invité (défaut anglais). Un billet à une personne ou un
+  pack de groupe n'a pas de places : rien ne change.
+  **Les autres personnes d'un billet sont OBLIGATOIRES, et chacune reçoit son billet**
+  (2026-10-21, décision de Paul ; tables VIP : toujours facultatif, guest list : une
+  seule personne par inscription, rien à ajouter). Page billet : `FriendNames`
+  (`BuyerDetails.tsx`), une carte par personne (Prénom | Nom sur une ligne,
+  `NameFields.tsx`, puis E-mail), règle `friendErrors` / `friendsProblems`
+  (`src/lib/buyerForm.ts`, testée) : nom complet (`isCompleteName`) + e-mail plausible ;
+  le paiement est refusé tant qu'une personne est incomplète, l'acheteur aussi saisit
+  Prénom | Nom (`splitName`, `requireTwoWords`). Le nom reste UN `full_name` partout
+  (`composeFullName` / `splitFullName`, `src/lib/guestName.ts`). Le serveur reste
+  tolérant (ancienne version de l'app : « <acheteur> +k ») : la règle vit dans le front.
+  L'adresse d'un ami s'écrit sur SA place (`ticket_attendees.email`) et n'entre JAMAIS au
+  registre marketing. `send-ticket-confirmation` envoie à chaque ami (≠ acheteur, hors démo)
+  son billet INDIVIDUEL après l'e-mail de l'acheteur : son QR seul, son pass Wallet, un lien
+  vers la soirée, jamais le prix ni la référence de la commande (qui ouvrirait la commande
+  de l'acheteur) ; une fois par personne (`ticket_attendees.friend_emailed_at`, migration
+  `20261106510000`) ; renvoi à la main = POST à la clé service avec `friendsOnly: true`
+  (`force: true` pour réenvoyer). L'e-mail de l'acheteur dit alors que chaque invité a
+  reçu le sien.
 - **Tickets d'une table de N personnes** (2026-10-19, migration `20261103300000`,
   demande de Paul) : `table_reservation_guests`, une ligne par personne d'une
   réservation de 2 à 50 personnes (n° 0 = le titulaire sous son nom, n° k =

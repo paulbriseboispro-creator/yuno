@@ -54,6 +54,7 @@ async function loadSignals(owner: ConnectCountryOwner): Promise<ConnectCountrySi
       .from('events')
       .select('timezone, location_city')
       .eq('organizer_user_id', owner.userId)
+      .is('external_source', null)
       .order('start_at', { ascending: false })
       .limit(1)
       .maybeSingle(),

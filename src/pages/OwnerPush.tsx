@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { Bell, Send, Loader2, Users, Sparkles, CalendarClock, Coins } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr } from '@/lib/coorg';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -132,8 +133,8 @@ export default function OwnerPush() {
       .from('events')
       .select('id, title, start_at, slug');
     q = isOrg
-      ? q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
-      : q.eq('venue_id', venueId as string);
+      ? q.or(orgOwnEventsOr(organizerUserId as string))
+      : q.eq('venue_id', venueId as string).is('external_source', null);
     q
       .gte('start_at', twelveHoursAgo)
       .order('start_at', { ascending: true })

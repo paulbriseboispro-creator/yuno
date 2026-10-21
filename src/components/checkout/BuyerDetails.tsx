@@ -5,12 +5,13 @@
 // (GOV.UK) mais une correction proposée d'un tap, et le téléphone dit pourquoi
 // on le demande (14 % refusent de le donner sans raison).
 import { useState, type ReactNode, type Ref } from 'react';
-import { ChevronDown, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
-import type { AttendeeInfo } from '@/lib/buyerForm';
+import { friendErrors, type AttendeeInfo } from '@/lib/buyerForm';
 import { FieldError, FieldHint, FieldLabel, FieldValidMark } from './checkoutFieldUi';
 import { checkoutInputClass } from './checkoutFieldStyle';
+import { NameFields } from './NameFields';
 
 type ContactField = 'name' | 'email' | 'phone';
 
@@ -35,12 +36,14 @@ interface BuyerFieldsProps {
   emailAccountHint?: string;
   /** Indicatif pré-choisi : le pays de la soirée. */
   defaultCountry?: string | null;
+  /** Deux cases Prénom / Nom sur la même ligne au lieu d'un « nom complet » (page billet). */
+  splitName?: boolean;
   fieldRefs: Record<ContactField, Ref<HTMLDivElement>>;
 }
 
 export function BuyerFields({
   buyer, onChange, onBlur, errors, valid, emailReadOnly, emailSuggestion, onAcceptSuggestion, emailNotice, defaultCountry, fieldRefs,
-  nameHint, emailHint, emailAccountHint,
+  nameHint, emailHint, emailAccountHint, splitName = false,
 }: BuyerFieldsProps) {
   const { t } = useLanguage();
   const validLabel = t('buyer.valid');
@@ -48,7 +51,18 @@ export function BuyerFields({
   return (
     <>
       <div ref={fieldRefs.name} className="flex scroll-mt-24 flex-col gap-[7px]">
-        <FieldLabel htmlFor="ck-name" invalid={!!errors.name}>{t('ticketCheckout.fullName')}</FieldLabel>
+        <FieldLabel htmlFor={splitName ? 'ck-name-first' : 'ck-name'} invalid={!!errors.name}>{t(splitName ? 'ticketCheckout.nameLabel' : 'ticketCheckout.fullName')}</FieldLabel>
+        {splitName ? (
+          <NameFields
+            id="ck-name"
+            value={buyer.fullName}
+            onChange={(v) => onChange('fullName', v)}
+            onBlur={() => onBlur('name')}
+            invalid={!!errors.name}
+            valid={!!valid.name}
+            describedBy={errors.name || nameHint ? 'ck-name-err' : undefined}
+          />
+        ) : (
         <div className="relative">
           <input
             id="ck-name"
@@ -66,6 +80,7 @@ export function BuyerFields({
           />
           {valid.name && !errors.name && <FieldValidMark label={validLabel} />}
         </div>
+        )}
         {errors.name ? (
           <FieldError id="ck-name-err">{errors.name}</FieldError>
         ) : nameHint ? (
@@ -149,71 +164,98 @@ export function BuyerFields({
 interface FriendNamesProps {
   /** Les places des amis : attendees[1…]. */
   friends: AttendeeInfo[];
-  /** Nom de l'acheteur, pour dire comment s'affiche un ami sans nom. */
-  buyerName: string;
   /** index = position dans `attendees` (1 = premier ami). */
-  onChange: (index: number, value: string) => void;
+  onChange: (index: number, field: 'fullName' | 'email', value: string) => void;
+  /** Le tap sur le bouton de paiement a eu lieu : ce qui manque se signale d'office. */
+  submitted?: boolean;
 }
 
 /**
- * Les noms des amis, REPLIÉS et facultatifs : chaque place a déjà son QR, et un
- * ami sans nom apparaît comme « <acheteur> +k » (règle serveur, ticket-places.ts).
- * La page ne grandit donc plus avec la quantité.
+ * Les autres personnes du billet : nom complet ET e-mail OBLIGATOIRES (billet de
+ * plusieurs personnes). Chacune reçoit son propre billet par e-mail ; l'adresse reste
+ * sur sa place (`ticket_attendees.email`) et n'entre jamais au registre marketing.
  */
-export function FriendNames({ friends, buyerName, onChange }: FriendNamesProps) {
+export function FriendNames({ friends, onChange, submitted = false }: FriendNamesProps) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState(() => friends.some((f) => f.fullName.trim()));
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   if (friends.length === 0) return null;
+  const mark = (key: string) => setTouched((m) => ({ ...m, [key]: true }));
 
-  const shown = buyerName.trim() || t('ticketCheckout.you');
   const title = friends.length === 1
     ? t('ticketCheckout.friendsAddOne')
     : t('ticketCheckout.friendsAdd').replace('{n}', String(friends.length));
 
   return (
-    <div className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#141414]">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls="ck-friends"
-        className="flex w-full items-center gap-3 p-3.5 text-left"
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06]" aria-hidden>
-          <Users className="h-[18px] w-[18px] text-[#E5E5E5]" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-white">{title}</span>
-          <span className="mt-0.5 block text-[12.5px] leading-[1.4] text-[#9A9A9A]">
-            {t('ticketCheckout.friendsHint').replace('{name}', shown)}
-          </span>
-        </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-[#9A9A9A] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
-      </button>
-      {open && (
-        <div id="ck-friends" className="flex flex-col gap-3.5 border-t border-white/[0.07] p-3.5">
-          {friends.map((friend, i) => {
-            const index = i + 1;
-            const id = `ck-friend-${index}`;
-            return (
-              <div key={index} className="flex flex-col gap-[7px]">
-                <FieldLabel htmlFor={id}>{t('ticketCheckout.friendLabel').replace('{n}', String(index + 1))}</FieldLabel>
-                <input
-                  id={id}
-                  type="text"
-                  autoComplete="off"
-                  autoCapitalize="words"
-                  placeholder={t('ticketCheckout.friendPlaceholder')}
-                  value={friend.fullName}
-                  onChange={(e) => onChange(index, e.target.value)}
-                  className={checkoutInputClass(false)}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    <section id="ck-friends" aria-labelledby="ck-friends-title" className="flex flex-col gap-3">
+      <div>
+        <h2 id="ck-friends-title" className="text-[17px] font-bold leading-[1.25] text-white">{title}</h2>
+        <p className="mt-1 text-[13.5px] leading-[1.45] text-[#9A9A9A]">{t('ticketCheckout.friendsHint')}</p>
+      </div>
+      {friends.map((friend, i) => {
+        const index = i + 1;
+        const id = `ck-friend-${index}`;
+        const emailId = `ck-friend-email-${index}`;
+        const errs = friendErrors(friend);
+        const nameShown = (submitted || touched[`n${index}`]) && !!errs.name;
+        const emailShown = (submitted || touched[`e${index}`]) && !!errs.email;
+        const done = !errs.name && !errs.email;
+        return (
+          <div
+            key={index}
+            className="flex flex-col gap-3.5 rounded-[12px] border bg-[#141414] p-4 transition-colors"
+            style={{ borderColor: nameShown || emailShown ? '#FF5A68' : done ? 'rgba(52,211,153,0.35)' : 'rgba(255,255,255,0.09)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[12px] font-bold"
+                style={{ background: done ? 'rgba(52,211,153,0.16)' : 'rgba(255,255,255,0.08)', color: done ? '#34D399' : '#E5E5E5' }}
+              >
+                {index + 1}
+              </span>
+              <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#E5E5E5]">
+                {t('ticketCheckout.friendLabel').replace('{n}', String(index + 1))}
+              </span>
+            </div>
+            <NameFields
+              id={id}
+              showLabels
+              value={friend.fullName}
+              onChange={(v) => onChange(index, 'fullName', v)}
+              onBlur={() => mark(`n${index}`)}
+              invalid={nameShown}
+              describedBy={nameShown ? `${id}-err` : undefined}
+            />
+            {nameShown && <FieldError id={`${id}-err`}>{t('ticketCheckout.friendNameRequired')}</FieldError>}
+            <div className="flex flex-col gap-[7px]">
+              <FieldLabel htmlFor={emailId} invalid={emailShown}>{t('ticketCheckout.friendEmailLabel')}</FieldLabel>
+              <input
+                id={emailId}
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder={t('ticketCheckout.friendEmailPlaceholder')}
+                aria-invalid={emailShown || undefined}
+                aria-describedby={emailShown ? `${emailId}-err` : undefined}
+                value={friend.email}
+                onChange={(e) => onChange(index, 'email', e.target.value)}
+                onBlur={() => mark(`e${index}`)}
+                className={checkoutInputClass(emailShown)}
+              />
+              {emailShown ? (
+                <FieldError id={`${emailId}-err`}>
+                  {t(errs.email === 'friend_email_required' ? 'ticketCheckout.friendEmailRequired' : 'ticketCheckout.friendEmailInvalid')}
+                </FieldError>
+              ) : (
+                <FieldHint>{t('ticketCheckout.friendEmailHint')}</FieldHint>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

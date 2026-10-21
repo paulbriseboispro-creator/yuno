@@ -12,6 +12,7 @@ import {
 } from "../_shared/pdf-documents.ts";
 import { handleWalletRequest, ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { isDemoEmail } from "../_shared/demo-scope.ts";
 
 // Fetch a remote image into a base64 data URL (jsPDF addImage needs bytes, not a URL).
 async function fetchImageDataUrl(url?: string | null): Promise<string | undefined> {
@@ -90,6 +91,15 @@ interface TicketConfirmationRequest {
   /** `fix_email` : l'acheteur corrige son adresse depuis la confirmation (preuve = QR). */
   action?: "fix_email";
   qrCode?: string;
+  /** Appel serveur seulement (renvoi à la main) : langue d'un invité, sinon anglais. */
+  lang?: EmailLanguage;
+  /**
+   * Appel serveur seulement. `send_friend_tickets` n'écrit QU'AUX personnes invitées par
+   * l'acheteur (leur billet individuel), jamais à l'acheteur ; `force` renvoie même à
+   * celles qui l'ont déjà reçu.
+   */
+  friendsOnly?: boolean;
+  force?: boolean;
 }
 
 interface FixTicketEmailResult {
@@ -206,6 +216,9 @@ serve(async (req) => {
     // Get user's preferred language (défaut anglais : l'app est anglaise par
     // défaut — on ne force plus le français pour un invité sans compte).
     let lang: EmailLanguage = "en";
+    if (body.lang && ["en", "es", "fr"].includes(body.lang) && isServiceCaller(req)) {
+      lang = body.lang;
+    }
     if (ticket.user_id) {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
@@ -245,6 +258,34 @@ serve(async (req) => {
     const qrPngDataUrl: string = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
     const QR_CID = "ticket-qr";
     const qrCodeDataUrl = `cid:${QR_CID}`;
+
+    // Billet de N personnes : une place nominative (et un QR) par personne,
+    // créées à l'achat (`ticket_attendees`). L'e-mail et le PDF les portent toutes,
+    // pour que chacun puisse entrer à son heure ; sans places (billet d'une
+    // personne, pack de groupe), rien ne change.
+    const { data: placeRows } = await supabaseAdmin
+      .from("ticket_attendees")
+      .select("id, full_name, email, qr_code, friend_emailed_at")
+      .eq("ticket_id", ticketId)
+      .is("refunded_at", null)
+      .order("created_at", { ascending: true })
+      .order("qr_code", { ascending: true });
+    const places = (placeRows ?? [])
+      .filter((r): r is { id: string; full_name: string | null; email: string | null; qr_code: string; friend_emailed_at: string | null } => !!r.qr_code)
+      .map((r, i) => ({
+        id: r.id,
+        name: (r.full_name || "").trim() || `${ticket.full_name || ""}${i > 0 ? ` +${i}` : ""}`.trim(),
+        qrCode: r.qr_code,
+        email: (r.email || "").trim().toLowerCase(),
+        friendEmailedAt: r.friend_emailed_at,
+      }));
+    // Une place d'invité (pas la 1re, celle de l'acheteur) dont l'adresse n'est pas celle de l'acheteur
+    // reçoit son billet individuel par e-mail.
+    const friendTargets = places.filter((pl, i) => i > 0 && !!pl.email && pl.email !== email.trim().toLowerCase() && !isDemoEmail(pl.email));
+    const multiPlaces = places.length > 1;
+    const placePngs: string[] = multiPlaces
+      ? await Promise.all(places.map((pl) => QRCode.toDataURL(pl.qrCode, { width: 300, margin: 2 })))
+      : [];
 
     // Short human reference (TK-XXXXXX) shown in the email and typed into the
     // "Find my order" claim flow. The QR itself still encodes the full qr_code
@@ -364,9 +405,14 @@ serve(async (req) => {
         fetchImageDataUrl(`${appBaseUrl}/yuno-wordmark-dark.png`),
         QRCode.toDataURL(qrData, { width: 260, margin: 1 }),
       ]);
+      const placeQrPngs = multiPlaces
+        ? await Promise.all(places.map((pl) => QRCode.toDataURL(pl.qrCode, { width: 260, margin: 1 })))
+        : [];
 
       const start = event?.start_at ? new Date(event.start_at) : undefined;
       const priceStr = `${(Number(ticket.total_price) || 0).toFixed(2).replace(".", ",")} €`;
+      // Une page par personne : le prix lu est celui de SA place, pas de la commande.
+      const placePriceStr = `${(Number(ticket.unit_price) || 0).toFixed(2).replace(".", ",")} €`;
 
       const recuB64 = renderPdfBase64((doc) => drawReceipt(doc, {
         lang: docLang, orderNumber, receiptDate: new Date(), paymentDate: new Date(),
@@ -376,15 +422,24 @@ serve(async (req) => {
         customerPhone: ticket.phone || undefined,
         eventTitle, eventDate: start, eventTimezone: event?.timezone || undefined, eventCity: event?.location_city || venue?.city || undefined, lines,
       }));
-      const billetB64 = renderPdfBase64((doc) => drawBillet(doc, {
-        lang: docLang, eventTitle, organizerName, eventStart: start, eventTimezone: event?.timezone || undefined,
-        address: (rawAddress && (!isSecret || revealInEmail)) ? rawAddress : undefined,
-        addressDeferred,
-        entranceGroup: round?.group_label || undefined, entranceName: round?.name || undefined,
-        reference: ticketRef, price: priceStr, orderNumber,
-        customerName: ticket.full_name || undefined,
-        poster: posterData, organizerLogo: logoData, yunoLogo, qr: qrPng, index: 1, total: 1,
-      }));
+      // Une page par personne ("Billet 2/2", son nom, son QR) ; une seule sans places.
+      const billetPages = multiPlaces
+        ? places.map((pl, i) => ({ name: pl.name, qr: placeQrPngs[i], index: i + 1, total: places.length, price: placePriceStr }))
+        : [{ name: ticket.full_name || "", qr: qrPng, index: 1, total: 1, price: priceStr }];
+      const billetB64 = renderPdfBase64((doc) => {
+        billetPages.forEach((pg, i) => {
+          if (i > 0) doc.addPage();
+          drawBillet(doc, {
+            lang: docLang, eventTitle, organizerName, eventStart: start, eventTimezone: event?.timezone || undefined,
+            address: (rawAddress && (!isSecret || revealInEmail)) ? rawAddress : undefined,
+            addressDeferred,
+            entranceGroup: round?.group_label || undefined, entranceName: round?.name || undefined,
+            reference: ticketRef, price: pg.price, orderNumber,
+            customerName: pg.name || undefined,
+            poster: posterData, organizerLogo: logoData, yunoLogo, qr: pg.qr, index: pg.index, total: pg.total,
+          });
+        });
+      });
 
       attachments = [
         { filename: `Yuno-billet-${ticketRef}.pdf`, content: billetB64 },
@@ -396,21 +451,47 @@ serve(async (req) => {
       attachments = [];
     }
     // Inline QR (cid) — outside the PDF try so it survives a PDF failure.
-    attachments.push({
-      filename: "qr.png",
-      content: qrPngDataUrl.replace(/^data:image\/png;base64,/, ""),
-      content_id: QR_CID,
-    });
+    // Une image par personne quand le billet a plusieurs places.
+    if (multiPlaces) {
+      placePngs.forEach((png, i) => attachments.push({
+        filename: `qr-${i + 1}.png`,
+        content: png.replace(/^data:image\/png;base64,/, ""),
+        content_id: `${QR_CID}-${i + 1}`,
+      }));
+    } else {
+      attachments.push({
+        filename: "qr.png",
+        content: qrPngDataUrl.replace(/^data:image\/png;base64,/, ""),
+        content_id: QR_CID,
+      });
+    }
 
     // Apple Wallet : émettre (idempotent) la ligne du pass et joindre le lien
     // de téléchargement direct — seul canal pass pour les achats invités.
     // Best-effort : jamais bloquant pour l'email (table absente, etc.).
     let walletUrl: string | undefined;
+    // Billet de N personnes : un pass par personne (son QR, son nom) + un lien qui
+    // les ajoute tous d'un coup. Chaque lien est indépendant : si l'un échoue,
+    // l'e-mail part avec les autres.
+    let walletAllUrl: string | undefined;
+    const placeWalletUrls: Array<string | undefined> = [];
     try {
       const wp = await ensureWalletPass(supabaseAdmin, "ticket", ticketId, ticket.user_id ?? null);
       walletUrl = walletPassUrl(wp.serial, wp.authToken);
+      if (multiPlaces) walletAllUrl = `${walletUrl}&all=1`;
     } catch (walletErr) {
       console.error("[SEND-TICKET-CONFIRMATION] wallet link skipped:", walletErr);
+    }
+    if (multiPlaces) {
+      for (const pl of places) {
+        try {
+          const wp = await ensureWalletPass(supabaseAdmin, "ticket_place", pl.id, ticket.user_id ?? null);
+          placeWalletUrls.push(walletPassUrl(wp.serial, wp.authToken));
+        } catch (walletErr) {
+          console.error("[SEND-TICKET-CONFIRMATION] place wallet link skipped:", walletErr);
+          placeWalletUrls.push(undefined);
+        }
+      }
     }
 
     // Éducation boissons (upsell post-achat) : uniquement pour les comptes
@@ -466,6 +547,10 @@ serve(async (req) => {
         ? `${appBaseUrl}/claim?type=ticket&ref=${encodeURIComponent(ticketRef)}`
         : `${appBaseUrl}/order-confirmation?type=ticket&id=${ticketId}`,
       qrDataUrl: qrCodeDataUrl,
+      places: multiPlaces
+        ? places.map((pl, i) => ({ name: pl.name, qrDataUrl: `cid:${QR_CID}-${i + 1}`, walletUrl: placeWalletUrls[i], emailed: friendTargets.includes(pl) }))
+        : undefined,
+      walletAllUrl,
       recipientEmail: email,
       address: venueAddress || (addressDeferred ? addressDeferredText : undefined),
       walletUrl,
@@ -481,6 +566,70 @@ serve(async (req) => {
       : "Yuno <noreply@yunoapp.eu>";
 
     const subject = mail.subject;
+
+    // Billet INDIVIDUEL de chaque personne invitée par l'acheteur : son QR seul, son pass
+    // Wallet, un lien vers la soirée (jamais le prix ni la référence de la commande). Une fois
+    // par personne (`friend_emailed_at`), jamais bloquant pour l'e-mail de l'acheteur.
+    const sendFriendTickets = async (force: boolean) => {
+      const result = { sent: 0, skipped: 0, failed: 0 };
+      const buyerFirst = firstName || ticket.full_name?.split(" ")[0] || undefined;
+      for (const pl of friendTargets) {
+        if (pl.friendEmailedAt && !force) { result.skipped++; continue; }
+        const idx = places.indexOf(pl);
+        try {
+          const friendMail = buildTicketConfirmation({
+            lang,
+            firstName: pl.name.split(" ")[0] || undefined,
+            friend: { holderName: pl.name, buyerName: buyerFirst },
+            eventTitle,
+            venueName,
+            posterUrl: event?.poster_url || undefined,
+            day: dp.day,
+            month: dp.month,
+            openTime: dp.time,
+            city: event?.location_city || venue?.city || undefined,
+            ticketType: round?.name || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
+            ticketDescription: roundDescription,
+            price: "",
+            reference: "",
+            ticketUrl: `${appBaseUrl}/event/${event.id}`,
+            qrDataUrl: "cid:ticket-qr",
+            walletUrl: placeWalletUrls[idx],
+            recipientEmail: pl.email,
+            address: venueAddress || (addressDeferred ? addressDeferredText : undefined),
+          });
+          const friendRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+            body: JSON.stringify({
+              from, to: [pl.email], subject: friendMail.subject, html: friendMail.html,
+              attachments: [{
+                filename: "qr.png",
+                content: placePngs[idx].replace(/^data:image\/png;base64,/, ""),
+                content_id: "ticket-qr",
+              }],
+            }),
+            signal: AbortSignal.timeout(10000),
+          });
+          if (!friendRes.ok) throw new Error(`Resend error: ${await friendRes.text()}`);
+          await supabaseAdmin.from("ticket_attendees").update({ friend_emailed_at: new Date().toISOString() }).eq("id", pl.id);
+          result.sent++;
+          logStep("Friend ticket sent", { ticketId, place: pl.id });
+        } catch (friendErr) {
+          result.failed++;
+          console.error("[SEND-TICKET-CONFIRMATION] friend ticket failed:", friendErr);
+        }
+      }
+      return result;
+    };
+
+    // Renvoi à la main aux seules personnes invitées (appel serveur).
+    if (body.friendsOnly) {
+      const friends = await sendFriendTickets(!!body.force);
+      return new Response(JSON.stringify({ success: true, friends }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -510,7 +659,9 @@ serve(async (req) => {
     });
     if (trackError) console.error("[SEND-TICKET-CONFIRMATION] record_sale_email_sent:", trackError.message);
 
-    return new Response(JSON.stringify({ success: true, ...data }), {
+    const friends = friendTargets.length ? await sendFriendTickets(false) : undefined;
+
+    return new Response(JSON.stringify({ success: true, ...data, ...(friends ? { friends } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

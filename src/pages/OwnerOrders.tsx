@@ -70,7 +70,7 @@ export default function OwnerOrders() {
       const { data } = await supabase
         .from('events')
         .select('id')
-        .or(`organizer_user_id.eq.${organizerUserId},and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted)`);
+        .or(`and(organizer_user_id.eq.${organizerUserId},external_source.is.null),and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted)`);
       if (active) setOrgEventIds((data ?? []).map((e) => e.id));
     })();
     return () => { active = false; };

@@ -272,6 +272,8 @@ export default function AudienceStep({ scope, events, segments }: {
       let query = supabase.from('email_campaigns')
         .select('id, recipients_count, opens_count, clicks_count')
         .eq('status', 'sent').gt('recipients_count', 0)
+        // Projection : moyennes des campagnes de la Billetterie (jamais celles de Yuno CRM).
+        .or('product.is.null,product.neq.crm')
         .order('sent_at', { ascending: false }).limit(5);
       query = scope.kind === 'venue'
         ? query.eq('venue_id', scope.venueId)

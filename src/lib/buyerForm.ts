@@ -88,6 +88,36 @@ export function buyerFormErrors(input: BuyerFormInput): BuyerErrors {
   return errors;
 }
 
+/** Ce qui manque à une personne supplémentaire du billet (position ≥ 1 dans `attendees`). */
+export type FriendErrorCode = 'friend_name' | 'friend_email_required' | 'friend_email_invalid';
+export interface FriendErrors { name?: FriendErrorCode; email?: FriendErrorCode }
+
+/**
+ * Chaque personne d'un billet de N places est OBLIGATOIRE : son nom complet et son
+ * e-mail (elle reçoit son billet individuel). Le serveur reste tolérant (une ancienne
+ * version de l'app qui n'envoie rien obtient « <acheteur> +k ») : la règle est ici.
+ * Tables VIP : pas de règle, les convives restent facultatifs.
+ */
+export function friendErrors(friend: AttendeeInfo): FriendErrors {
+  const errors: FriendErrors = {};
+  if (!isCompleteName(friend.fullName)) errors.name = 'friend_name';
+  const email = friend.email.trim();
+  if (!email) errors.email = 'friend_email_required';
+  else if (!isPlausibleEmail(email)) errors.email = 'friend_email_invalid';
+  return errors;
+}
+
+/** Les personnes supplémentaires à revoir : position dans `attendees` → ce qui manque. */
+export function friendsProblems(attendees: AttendeeInfo[]): Record<number, FriendErrors> {
+  const out: Record<number, FriendErrors> = {};
+  attendees.forEach((a, i) => {
+    if (i === 0) return;
+    const e = friendErrors(a);
+    if (e.name || e.email) out[i] = e;
+  });
+  return out;
+}
+
 export function firstErrorField(errors: BuyerErrors): BuyerField | null {
   return BUYER_FIELD_ORDER.find((f) => errors[f]) ?? null;
 }

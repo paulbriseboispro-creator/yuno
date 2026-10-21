@@ -58,7 +58,7 @@ export default function AdminOrganizers() {
     const crmKeys = ids.filter((id) => products[id].product === 'crm' || products[id].extra.includes('crm')).map((id) => `org:${id}`);
     const [profiles, events, partners, crmStates] = await Promise.all([
       ids.length ? supabase.from('profiles').select('id, email').in('id', ids) : Promise.resolve({ data: [] as { id: string; email: string | null }[] }),
-      ids.length ? supabase.from('events').select('organizer_user_id').in('organizer_user_id', ids) : Promise.resolve({ data: [] as { organizer_user_id: string | null }[] }),
+      ids.length ? supabase.from('events').select('organizer_user_id').in('organizer_user_id', ids).is('external_source', null) : Promise.resolve({ data: [] as { organizer_user_id: string | null }[] }),
       ids.length ? supabase.from('venue_organizer_partnerships').select('organizer_user_id, venue_id').in('organizer_user_id', ids).eq('status', 'active') : Promise.resolve({ data: [] as { organizer_user_id: string; venue_id: string }[] }),
       fetchCrmStates(crmKeys),
     ]);

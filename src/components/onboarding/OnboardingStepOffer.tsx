@@ -36,7 +36,7 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
   const refetch = useCallback(async () => {
     const [{ count: dc }, { count: ec }] = await Promise.all([
       supabase.from('drinks').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
-      supabase.from('events').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
+      supabase.from('events').select('id', { count: 'exact', head: true }).eq('venue_id', venueId).is('external_source', null),
     ]);
     setDrinkCount(dc ?? 0);
     setEventCount(ec ?? 0);

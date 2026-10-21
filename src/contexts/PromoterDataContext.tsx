@@ -3,6 +3,7 @@ import {
   type ReactNode, type Dispatch, type SetStateAction,
 } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr, venueOwnEventsOr } from '@/lib/coorg';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -310,8 +311,8 @@ export function PromoterDataProvider({ children }: { children: ReactNode }) {
         .order('start_at', { ascending: true })
         .limit(50);
       const { data } = isOrg
-        ? await base.or(`organizer_user_id.eq.${promoter.organizer_user_id},partner_organizer_id.eq.${promoter.organizer_user_id}`)
-        : await base.or(`venue_id.eq.${promoter.venue!.id},partner_venue_id.eq.${promoter.venue!.id}`);
+        ? await base.or(orgOwnEventsOr(promoter.organizer_user_id!))
+        : await base.or(venueOwnEventsOr(promoter.venue!.id));
       setEvents(data || []);
       setEventsLoading(false);
     })();

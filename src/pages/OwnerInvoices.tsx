@@ -6,6 +6,7 @@ import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { supabase } from '@/integrations/supabase/client';
+import { orgOwnEventsOr } from '@/lib/coorg';
 import type { Tables } from '@/integrations/supabase/types';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -164,7 +165,7 @@ export default function OwnerInvoices() {
         const { data: events } = await supabase
           .from('events')
           .select('id')
-          .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+          .or(orgOwnEventsOr(organizerUserId as string));
         const ids = (events ?? []).map((e) => e.id);
         const orFilter = ids.length > 0
           ? `organizer_user_id.eq.${organizerUserId},event_id.in.(${ids.join(',')})`

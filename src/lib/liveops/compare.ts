@@ -74,6 +74,7 @@ export async function fetchComparableNight(
     .from('events')
     .select('id, title, start_at, end_at')
     .eq('venue_id', venueId)
+    .is('external_source', null)
     .neq('id', currentEvent.id)
     .lt('end_at', nowIso)
     .gte('end_at', sixtyDaysAgo)

@@ -394,6 +394,7 @@ async function fetchComparable(
     .from('events')
     .select('id, start_at, end_at')
     .eq('venue_id', venueId)
+    .is('external_source', null)
     .neq('id', currentEventId)
     .lt('end_at', nowIso)
     .gte('end_at', sixtyDaysAgo)

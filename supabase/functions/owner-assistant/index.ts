@@ -926,7 +926,7 @@ async function executeTool(
         const since = getPeriodFilter(args.period || "30d");
         const periodEnd = getPeriodEnd(args.period || "30d");
 
-        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
+        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null);
         const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
@@ -978,7 +978,7 @@ async function executeTool(
         const since = getPeriodFilter(args.period || "30d");
         const periodEnd = getPeriodEnd(args.period || "30d");
 
-        const { data: venueEvts } = await supabase.from("events").select("id").eq("venue_id", venueId);
+        const { data: venueEvts } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null);
         const evtIds = (venueEvts || []).map((e: IdRow) => e.id);
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const znIds = (venueZns || []).map((z: IdRow) => z.id);
@@ -1052,7 +1052,8 @@ async function executeTool(
         let query = supabase
           .from("events")
           .select("id, title, start_at, end_at, is_active, ticketing_enabled, tables_enabled, music_genres, event_type, ticket_selling_mode")
-          .eq("venue_id", venueId);
+          .eq("venue_id", venueId)
+          .is("external_source", null); // jamais les soirées miroir du CRM (Shotgun)
 
         if (filter === "upcoming") {
           query = query.gte("end_at", now).order("start_at", { ascending: true });
@@ -1089,6 +1090,7 @@ async function executeTool(
           .from("events")
           .select(eventSelect)
           .eq("venue_id", venueId)
+          .is("external_source", null)
           .lte("start_at", now)
           .gte("end_at", now)
           .limit(1)
@@ -1103,6 +1105,7 @@ async function executeTool(
           .from("events")
           .select(eventSelect)
           .eq("venue_id", venueId)
+          .is("external_source", null)
           .gt("start_at", now)
           .order("start_at", { ascending: true })
           .limit(1)
@@ -1134,7 +1137,7 @@ async function executeTool(
         const since = new Date(tonightStartParis.getTime() - parisOffset).toISOString();
         const until = new Date(tonightEndParis.getTime() - parisOffset).toISOString();
 
-        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
+        const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null);
         const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
@@ -1360,7 +1363,7 @@ async function executeTool(
       case "list_reservations": {
         let eventId = args.event_id;
         if (!eventId) {
-          const { data: nextEvt } = await supabase.from("events").select("id").eq("venue_id", venueId).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle();
+          const { data: nextEvt } = await supabase.from("events").select("id").eq("venue_id", venueId).is("external_source", null).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle();
           eventId = nextEvt?.id;
         }
         if (!eventId) return JSON.stringify({ message: "No upcoming event found" });
@@ -1559,7 +1562,7 @@ async function executeTool(
         const kind = String(args.kind || "");
         const KINDS = ["new_event", "abandoned_checkout", "tier_closing", "last_call", "table_upsell", "post_event_thanks", "post_event_missed", "regular_lapse", "welcome", "win_back"];
         if (!KINDS.includes(kind)) return JSON.stringify({ error: "Unknown recipe kind" });
-        const { data: existing } = await supabase.from("email_automations").select("id, enabled, template_id, delay_hours").eq("venue_id", venueId).eq("kind", kind).maybeSingle();
+        const { data: existing } = await supabase.from("email_automations").select("id, enabled, template_id, delay_hours").eq("venue_id", venueId).eq("kind", kind).is("product", null).maybeSingle();
         const patch: Record<string, unknown> = {};
         if (typeof args.enabled === "boolean") patch.enabled = args.enabled;
         if (kind !== "tier_closing" && Number.isFinite(Number(args.delay_hours)) && Number(args.delay_hours) > 0) patch.delay_hours = Math.min(8760, Math.max(1, Math.round(Number(args.delay_hours))));
@@ -1727,7 +1730,7 @@ async function executeTool(
       // ─── CHECKLIST ───
       case "get_checklist": {
         const [eventsRes, drinksRes, staffRes, venueRes] = await Promise.all([
-          supabase.from("events").select("id, title, start_at, ticketing_enabled, tables_enabled, ticket_selling_mode").eq("venue_id", venueId).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle(),
+          supabase.from("events").select("id, title, start_at, ticketing_enabled, tables_enabled, ticket_selling_mode").eq("venue_id", venueId).is("external_source", null).gte("start_at", new Date().toISOString()).order("start_at").limit(1).maybeSingle(),
           supabase.from("drinks").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("active", true),
           supabase.from("profiles").select("id", { count: "exact", head: true }).eq("venue_id", venueId),
           supabase.from("venues").select("stripe_account_id").eq("id", venueId).maybeSingle(),

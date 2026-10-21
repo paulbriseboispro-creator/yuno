@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Ticket, CheckCircle2, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import QRCode from 'qrcode';
@@ -96,6 +97,17 @@ export function TicketQRCarousel({
           .order('created_at', { ascending: true });
         if (res.error) throw res.error;
         data = (res.data ?? []).map((a) => ({ ...a, entry_scanned: !!a.entry_scanned }));
+        if (data.length === 0 && ticketQrCode) {
+          // Acheteur SANS compte : la RLS ne lui rend aucune place. Le QR du billet
+          // (qu'il détient) prouve que ce billet est le sien : la base rend alors ses places.
+          const proof = await (supabase as unknown as SupabaseClient).rpc('get_ticket_places', {
+            p_ticket_id: ticketId,
+            p_qr: ticketQrCode,
+          });
+          if (!proof.error && Array.isArray(proof.data)) {
+            data = (proof.data as Attendee[]).map((a) => ({ ...a, entry_scanned: !!a.entry_scanned }));
+          }
+        }
       }
 
       if (data && data.length > 0) {
@@ -261,6 +273,14 @@ export function TicketQRCarousel({
           {totalSlides > 1 && (
             <p className="text-xs text-muted-foreground mb-2">
               {t('tickets.ticketOf')} {currentIndex + 1}/{totalSlides}
+            </p>
+          )}
+
+          {/* Un QR par personne (billets) : l'acheteur envoie le sien à chaque ami.
+              Les tables ont leur propre phrase, posée par la page de confirmation. */}
+          {source === 'ticket' && attendees.length > 1 && (
+            <p className="text-xs text-muted-foreground mt-1 mb-1 mx-auto" style={{ maxWidth: 320 }}>
+              {t('ticketPlaces.shareHint')}
             </p>
           )}
         </div>

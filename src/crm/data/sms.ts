@@ -303,7 +303,7 @@ export function useSmsReadiness() {
   const { rpc: args, qk } = useCrmScope();
   return useQuery({
     queryKey: ['crm', qk, 'sms', 'readiness'],
-    queryFn: () => rpc<SmsReadiness>('get_sms_sender_readiness', args),
+    queryFn: () => rpc<SmsReadiness>('get_sms_sender_readiness', { ...args, p_product: 'crm' }),
     staleTime: 60_000,
   });
 }
@@ -314,7 +314,7 @@ export function useSaveSmsIdentity() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { legalName: string; registration: string }) =>
-      rpc<SmsReadiness>('set_sms_sender_identity', { ...args, p_legal_name: v.legalName, p_registration: v.registration }),
+      rpc<SmsReadiness>('set_sms_sender_identity', { ...args, p_legal_name: v.legalName, p_registration: v.registration, p_product: 'crm' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crm', qk, 'sms'] }),
   });
 }
