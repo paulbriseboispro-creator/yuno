@@ -4605,6 +4605,24 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   remboursée seule). Un renvoi à la main = POST `send-ticket-confirmation` à la clé
   service, avec `lang` pour un invité (défaut anglais). Un billet à une personne ou un
   pack de groupe n'a pas de places : rien ne change.
+  **Les autres personnes d'un billet sont OBLIGATOIRES, et chacune reçoit son billet**
+  (2026-10-21, décision de Paul ; tables VIP : toujours facultatif, guest list : une
+  seule personne par inscription, rien à ajouter). Page billet : `FriendNames`
+  (`BuyerDetails.tsx`), une carte par personne (Prénom | Nom sur une ligne,
+  `NameFields.tsx`, puis E-mail), règle `friendErrors` / `friendsProblems`
+  (`src/lib/buyerForm.ts`, testée) : nom complet (`isCompleteName`) + e-mail plausible ;
+  le paiement est refusé tant qu'une personne est incomplète, l'acheteur aussi saisit
+  Prénom | Nom (`splitName`, `requireTwoWords`). Le nom reste UN `full_name` partout
+  (`composeFullName` / `splitFullName`, `src/lib/guestName.ts`). Le serveur reste
+  tolérant (ancienne version de l'app : « <acheteur> +k ») : la règle vit dans le front.
+  L'adresse d'un ami s'écrit sur SA place (`ticket_attendees.email`) et n'entre JAMAIS au
+  registre marketing. `send-ticket-confirmation` envoie à chaque ami (≠ acheteur, hors démo)
+  son billet INDIVIDUEL après l'e-mail de l'acheteur : son QR seul, son pass Wallet, un lien
+  vers la soirée, jamais le prix ni la référence de la commande (qui ouvrirait la commande
+  de l'acheteur) ; une fois par personne (`ticket_attendees.friend_emailed_at`, migration
+  `20261106510000`) ; renvoi à la main = POST à la clé service avec `friendsOnly: true`
+  (`force: true` pour réenvoyer). L'e-mail de l'acheteur dit alors que chaque invité a
+  reçu le sien.
 - **Tickets d'une table de N personnes** (2026-10-19, migration `20261103300000`,
   demande de Paul) : `table_reservation_guests`, une ligne par personne d'une
   réservation de 2 à 50 personnes (n° 0 = le titulaire sous son nom, n° k =
