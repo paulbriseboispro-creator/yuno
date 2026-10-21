@@ -4589,6 +4589,22 @@ club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « dé
   rembourse une commande nominative place par place. Jamais créées ailleurs
   (ni verify, ni webhook) : un seul jeu de QR par billet. Toute porte refuse
   une place dont le billet n'est pas payé.
+  **Ce que l'acheteur reçoit et voit** (2026-10-21, migration `20261106500000`,
+  première commande à 2 billets payée par un invité) : un invité n'a aucun droit
+  de lecture sur `ticket_attendees` (RLS = `tickets.user_id = auth.uid()`), donc sa
+  page de confirmation ne montrait que le QR du billet entier. `get_ticket_places(billet,
+  QR du billet)` (SECURITY DEFINER, preuve = le QR, même modèle que `fix_ticket_email`)
+  rend ses places ; `TicketQRCarousel` s'en sert quand la lecture directe est vide.
+  L'e-mail de confirmation, le PDF et Wallet suivent : un QR par place (cid
+  `ticket-qr-<k>`, nom de la personne), un PDF d'une page par personne (prix
+  unitaire), un pass Wallet par personne (`wallet_passes.pass_type = 'ticket_place'`,
+  serial `p-<id de la place>`, QR de la place, « BILLET i/N », bouton sous chaque QR)
+  et `?all=1` sur le lien du billet = lot `.pkpasses` (« tout ajouter »). Le pass
+  `t-<billet>` (QR du billet entier, entre toutes les places libres d'un scan) reste.
+  Révocation : `private.void_ticket_place_passes` (billet remboursé, ou place
+  remboursée seule). Un renvoi à la main = POST `send-ticket-confirmation` à la clé
+  service, avec `lang` pour un invité (défaut anglais). Un billet à une personne ou un
+  pack de groupe n'a pas de places : rien ne change.
 - **Tickets d'une table de N personnes** (2026-10-19, migration `20261103300000`,
   demande de Paul) : `table_reservation_guests`, une ligne par personne d'une
   réservation de 2 à 50 personnes (n° 0 = le titulaire sous son nom, n° k =
