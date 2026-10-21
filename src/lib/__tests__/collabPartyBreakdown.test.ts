@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
 
-import { peopleOf, shareOf, attributionCoverage } from '@/lib/collabPartyBreakdown';
+import { peopleOf, shareOf, attributionCoverage, fullFigures, remainingUnattributed } from '@/lib/collabPartyBreakdown';
 
 const z = { tickets: 0, tables: 0, table_guests: 0, guests: 0, entered: 0, revenue: null };
 
@@ -20,5 +20,13 @@ describe('qui fait vendre — mise en forme', () => {
     expect(attributionCoverage({ totals: { ...z, tickets: 46, table_guests: 13, guests: 27 }, unattributed: { ...z, tickets: 46, table_guests: 13 } }))
       .toEqual({ known: 27, total: 86 });
     expect(attributionCoverage({ totals: z, unattributed: z })).toEqual({ known: 0, total: 0 });
+  });
+  it('un invité compte comme partenaire ; Yuno et Direct sortent du « sans partenaire »', () => {
+    const unattributed = { ...z, tickets: 30, guests: 10, revenue: 600 };
+    const guests = [{ ...z, id: 'g', name: 'Tia', kind: 'venue' as const, clicks: 4, tickets: 12, revenue: 240 }];
+    const b = { money: true, unattributed, guests, yuno: { tickets: 5, tables: 0, revenue: 100 }, direct: { tickets: 3, tables: 0, guests: 10, revenue: 60 } };
+    expect(attributionCoverage({ totals: { ...z, tickets: 50, guests: 10 }, ...b })).toEqual({ known: 32, total: 60 });
+    expect(remainingUnattributed(b)).toEqual({ ...z, tickets: 10, guests: 0, revenue: 200 });
+    expect(fullFigures(undefined)).toEqual(z);
   });
 });

@@ -10,9 +10,11 @@ import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { collabToolHref, type CollabSide } from '@/lib/collabTrail';
 import {
-  attributionCoverage, fetchPartyBreakdown, shareOf,
+  attributionCoverage, fetchPartyBreakdown, fullFigures, peopleOf, remainingUnattributed, shareOf,
   type PartyBreakdown, type PartyFigures,
 } from '@/lib/collabPartyBreakdown';
+import { GuestAvatar } from '@/components/guest-space/GuestPhoto';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /**
  * « Qui fait vendre ? » — `/owner/collab/event/:id/partners` et
@@ -112,7 +114,12 @@ function PartnersBody({ eventId, eventTitle, side }: { eventId: string; eventTit
         {kind === 'venue' ? <Building2 className="h-3.5 w-3.5" style={{ color: T3 }} /> : <Megaphone className="h-3.5 w-3.5" style={{ color: T3 }} />}
       </span>;
 
-  const hasUnattributed = coverage.total > coverage.known;
+  // Le serveur range invités, Yuno et Direct dans « sans partenaire » : on les en sort.
+  const guests = data.guests ?? [];
+  const yuno = fullFigures(data.yuno);
+  const direct = fullFigures(data.direct);
+  const rest = remainingUnattributed(data);
+  const hasUnattributed = peopleOf(rest) > 0;
 
   return (
     <div className="space-y-5">
@@ -140,10 +147,24 @@ function PartnersBody({ eventId, eventTitle, side }: { eventId: string; eventTit
             {data.parties.map((p) => (
               <Row key={p.party} label={p.name} icon={avatar(p.avatar_url, p.kind)} f={p} clicks={p.clicks} mine={p.mine} />
             ))}
+            {guests.map((g) => (
+              <Row key={g.id} label={`${g.name} · ${t('invité', 'guest', 'invitado')}`}
+                icon={<GuestAvatar url={g.photo_url} name={g.name} kind={g.kind} size={28} />} f={g} clicks={g.clicks} />
+            ))}
+            {peopleOf(yuno) > 0 && (
+              <Row label={t('Yuno (découverte)', 'Yuno (discovery)', 'Yuno (descubrimiento)')}
+                icon={<span className="flex h-7 w-7 flex-none items-center justify-center rounded-full" style={{ background: INNER_BG }}><Wordmark height={8} tone="red" alt="Yuno" /></span>}
+                f={yuno} clicks={null} muted />
+            )}
+            {peopleOf(direct) > 0 && (
+              <Row label={t('Direct', 'Direct', 'Directo')}
+                icon={<span className="flex h-7 w-7 flex-none items-center justify-center rounded-full" style={{ background: INNER_BG }}><Link2 className="h-3.5 w-3.5" style={{ color: T3 }} /></span>}
+                f={direct} clicks={null} muted />
+            )}
             {hasUnattributed && (
               <Row label={t('Sans partenaire identifié', 'No partner identified', 'Sin socio identificado')}
                 icon={<span className="flex h-7 w-7 flex-none items-center justify-center rounded-full" style={{ background: INNER_BG }}><Users className="h-3.5 w-3.5" style={{ color: T3 }} /></span>}
-                f={data.unattributed} clicks={null} muted />
+                f={rest} clicks={null} muted />
             )}
             <Row label={t('Total de la soirée', 'Event total', 'Total del evento')} icon={<span className="h-7 w-7 flex-none" />}
               f={data.totals} clicks={data.parties.reduce((s, p) => s + p.clicks, 0)} strong />

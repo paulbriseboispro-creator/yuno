@@ -28,13 +28,49 @@ export interface PartyRow extends PartyFigures {
   clicks: number;
 }
 
+/** Un invité de la soirée (espace invité) : ce que ses liens et sa part de guest list ont amené. */
+export interface GuestRow extends PartyFigures {
+  id: string;
+  name: string;
+  kind: 'venue' | 'org';
+  photo_url?: string | null;
+  clicks: number;
+}
+
 export interface PartyBreakdown {
   ok: boolean;
   reason?: string;
   money: boolean;
   parties: PartyRow[];
+  /** Compris dans `unattributed` côté serveur : invités, ventes venues de Yuno, ventes directes. */
+  guests?: GuestRow[];
+  yuno?: Partial<PartyFigures>;
+  direct?: Partial<PartyFigures>;
   unattributed: PartyFigures;
   totals: PartyFigures;
+}
+
+const FIELDS = ['tickets', 'tables', 'table_guests', 'guests', 'entered'] as const;
+
+/** Une ligne partielle (Yuno, Direct) complétée de zéros. */
+export function fullFigures(f: Partial<PartyFigures> | undefined): PartyFigures {
+  const out = { revenue: f?.revenue ?? null } as PartyFigures;
+  for (const k of FIELDS) out[k] = f?.[k] ?? 0;
+  return out;
+}
+
+/**
+ * Ce qui reste « sans partenaire identifié » une fois les invités, Yuno et
+ * Direct sortis du reste (le serveur les range tous dans `unattributed`).
+ */
+export function remainingUnattributed(b: Pick<PartyBreakdown, 'unattributed' | 'guests' | 'yuno' | 'direct' | 'money'>): PartyFigures {
+  const parts = [...(b.guests ?? []), fullFigures(b.yuno), fullFigures(b.direct)];
+  const out = { ...b.unattributed };
+  for (const k of FIELDS) out[k] = Math.max(0, (b.unattributed[k] ?? 0) - parts.reduce((a, p) => a + (p[k] ?? 0), 0));
+  out.revenue = b.money && b.unattributed.revenue != null
+    ? Math.max(0, Math.round((b.unattributed.revenue - parts.reduce((a, p) => a + (p.revenue ?? 0), 0)) * 100) / 100)
+    : b.unattributed.revenue;
+  return out;
 }
 
 export async function fetchPartyBreakdown(eventId: string): Promise<PartyBreakdown> {
@@ -56,7 +92,9 @@ export function shareOf(row: Pick<PartyFigures, 'tickets' | 'table_guests' | 'gu
 }
 
 /** Combien de personnes sont rattachées à une partie, sur combien. */
-export function attributionCoverage(b: Pick<PartyBreakdown, 'totals' | 'unattributed'>): { known: number; total: number } {
+export function attributionCoverage(b: Pick<PartyBreakdown, 'totals' | 'unattributed' | 'guests'>): { known: number; total: number } {
   const total = peopleOf(b.totals);
-  return { known: Math.max(0, total - peopleOf(b.unattributed)), total };
+  // Un invité de la soirée est un partenaire : son public compte comme rattaché.
+  const guests = (b.guests ?? []).reduce((a, g) => a + peopleOf(g), 0);
+  return { known: Math.min(total, Math.max(0, total - peopleOf(b.unattributed) + guests)), total };
 }
