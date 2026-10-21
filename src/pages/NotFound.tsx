@@ -1,14 +1,26 @@
 import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { recoverFromStaleBuild404 } from "@/lib/swRecovery";
 
 const NotFound = () => {
   const location = useLocation();
   const { t } = useLanguage();
+  // Un ancien build servi par le service worker ne connaît pas les routes
+  // récentes : on vérifie avant de dire « introuvable » (swRecovery).
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    let alive = true;
+    recoverFromStaleBuild404().then((reloading) => {
+      if (!alive || reloading) return;
+      setChecking(false);
+      console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    });
+    return () => { alive = false; };
   }, [location.pathname]);
+
+  if (checking) return <div className="min-h-screen bg-background" />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">

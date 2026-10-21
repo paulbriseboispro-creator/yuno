@@ -67,3 +67,42 @@ export function recoverFromMissingLocaleOnce(): boolean {
 export function clearLocaleRecoveryFlag(): void {
   try { sessionStorage.removeItem(LOCALE_RELOAD_KEY); } catch { /* stockage indisponible */ }
 }
+
+const STALE_404_KEY = 'yuno-stale-404-checked';
+
+/** Le script d'entrée d'un index.html (`/assets/index-<hash>.js`), ou null. */
+export function entryScriptOf(html: string): string | null {
+  return /<script[^>]+type="module"[^>]+src="(\/assets\/[^"]+\.js)"/.exec(html)?.[1]
+    ?? /<script[^>]+src="(\/assets\/[^"]+\.js)"[^>]+type="module"/.exec(html)?.[1]
+    ?? null;
+}
+
+/**
+ * Une route inconnue ALORS qu'un service worker sert la page : c'est souvent un
+ * ancien build (index.html précaché d'avant le déploiement qui a ajouté la
+ * route, ex. /h/<jeton> de l'espace invité), le temps que le nouveau SW prenne
+ * la main. On relit l'index du réseau (une URL à paramètre échappe au précache)
+ * et, seulement si son script d'entrée diffère de celui qui tourne, on purge et
+ * on recharge — une fois par onglet. Une vraie 404 d'un build à jour ne bouge
+ * pas. Rend true si un rechargement est parti.
+ */
+export async function recoverFromStaleBuild404(): Promise<boolean> {
+  try {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return false;
+    if (navigator.onLine === false) return false;
+    if (sessionStorage.getItem(STALE_404_KEY) === 'true') return false;
+    const running = [...document.querySelectorAll<HTMLScriptElement>('script[type="module"][src]')]
+      .map((s) => new URL(s.src, location.origin).pathname)
+      .find((p) => p.startsWith('/assets/'));
+    if (!running) return false;
+    const res = await fetch(`/?build-check=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return false;
+    const fresh = entryScriptOf(await res.text());
+    if (!fresh || fresh === running) return false;
+    sessionStorage.setItem(STALE_404_KEY, 'true');
+    void purgeServiceWorkersAndReload();
+    return true;
+  } catch {
+    return false;
+  }
+}
