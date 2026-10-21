@@ -17,16 +17,21 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2
 import { errorMessage } from '../error-message.ts';
 import { buildPkpass, walletCertsFromEnv } from './signer.ts';
 import { walletAssets } from './assets.ts';
-import { buildTicketPass, buildVipPass, buildGuestListPass, type PassBuild } from './passes.ts';
+import { buildTicketPass, buildTicketPlacePass, buildVipPass, buildGuestListPass, type PassBuild } from './passes.ts';
+import { zipSync } from 'npm:fflate@0.8.2';
 
 /** Types de pass émis par Yuno. Le préfixe du serial en découle. */
-type PassType = 'ticket' | 'vip' | 'guestlist';
+type PassType = 'ticket' | 'ticket_place' | 'vip' | 'guestlist';
 
 /** Préfixe de serial par type — jamais de collision entre entités. */
-const SERIAL_PREFIX: Record<PassType, string> = { ticket: 't', vip: 'v', guestlist: 'g' };
+const SERIAL_PREFIX: Record<PassType, string> = { ticket: 't', ticket_place: 'p', vip: 'v', guestlist: 'g' };
 
-/** Table portant la propriété de l'entité référencée par le pass. */
-const OWNER_TABLE: Record<PassType, 'tickets' | 'table_reservations' | 'guest_list_entries'> = {
+/**
+ * Table portant la propriété de l'entité référencée par le pass. Un pass de place
+ * (`ticket_place`) n'est jamais émis par /issue (app authentifiée) : il l'est par
+ * l'e-mail de confirmation, et le contrôle de propriété passe par son billet.
+ */
+const OWNER_TABLE: Record<Exclude<PassType, 'ticket_place'>, 'tickets' | 'table_reservations' | 'guest_list_entries'> = {
   ticket: 'tickets',
   vip: 'table_reservations',
   guestlist: 'guest_list_entries',
@@ -144,6 +149,8 @@ async function renderPass(admin: SupabaseClient, row: { serial: string; pass_typ
       ? await buildVipPass(admin, row.reference_id, row.auth_token)
       : row.pass_type === 'guestlist'
       ? await buildGuestListPass(admin, row.reference_id, row.auth_token)
+      : row.pass_type === 'ticket_place'
+      ? await buildTicketPlacePass(admin, row.reference_id, row.auth_token)
       : await buildTicketPass(admin, row.reference_id, row.auth_token);
   // Images fixes (icône, wordmark) + affiche de la soirée, propre au pass.
   return await buildPkpass(
@@ -164,6 +171,56 @@ function pkpassResponse(bytes: Uint8Array, serial: string): Response {
       'Last-Modified': new Date().toUTCString(),
     },
   });
+}
+
+const PKPASSES_MIME = 'application/vnd.apple.pkpasses';
+
+/** Lot de passes (.pkpasses) : Safari propose « tout ajouter » en une validation. */
+function pkpassesResponse(files: Record<string, Uint8Array>, name: string): Response {
+  const bytes = zipSync(files, { level: 0 });
+  return new Response(bytes as unknown as BodyInit, {
+    status: 200,
+    headers: {
+      ...CORS,
+      'Content-Type': PKPASSES_MIME,
+      'Content-Disposition': `attachment; filename="yuno-${name}.pkpasses"`,
+      'Cache-Control': 'no-store',
+      'Last-Modified': new Date().toUTCString(),
+    },
+  });
+}
+
+/**
+ * Passes de TOUTES les places non remboursées d'un billet de N personnes, ou null
+ * si le billet n'en a pas plusieurs (le lien « tout ajouter » retombe alors sur
+ * le pass du billet). Les lignes wallet_passes de chaque place sont émises ici
+ * si besoin (idempotent : le token d'un pass déjà ajouté ne change pas).
+ */
+async function ticketPlacePasses(admin: SupabaseClient, ticketId: string): Promise<Record<string, Uint8Array> | null> {
+  const { data: places } = await admin
+    .from('ticket_attendees')
+    .select('id')
+    .eq('ticket_id', ticketId)
+    .is('refunded_at', null)
+    .order('created_at', { ascending: true })
+    .order('qr_code', { ascending: true })
+    .returns<Array<{ id: string }>>();
+  if (!places || places.length < 2) return null;
+  const { data: ticket } = await admin
+    .from('tickets')
+    .select('user_id, status')
+    .eq('id', ticketId)
+    .returns<Array<{ user_id: string | null; status: string | null }>>()
+    .maybeSingle();
+  if (!ticket || ticket.status !== 'paid') return null;
+  const files: Record<string, Uint8Array> = {};
+  for (const [i, pl] of places.entries()) {
+    const { serial, authToken } = await ensureWalletPass(admin, 'ticket_place', pl.id, ticket.user_id);
+    const row = await passRow(admin, serial);
+    if (!row) throw new Error('Wallet pass row missing');
+    files[`${i + 1}-${serial}.pkpass`] = await renderPass(admin, { ...row, auth_token: authToken });
+  }
+  return files;
 }
 
 function b64FromBytes(bytes: Uint8Array): string {
@@ -249,6 +306,15 @@ export async function handleWalletRequest(req: Request, admin: SupabaseClient): 
       const token = url.searchParams.get('t') || '';
       if (!row || !token || !safeEqual(token, row.auth_token)) {
         return json({ error: 'Not found' }, 404);
+      }
+      // `?all=1` sur le lien d'un billet de plusieurs personnes : un pass par
+      // personne, ajoutés d'un coup. Sans plusieurs places, c'est le pass habituel.
+      if (row.pass_type === 'ticket' && url.searchParams.get('all') === '1' && !row.voided) {
+        const files = await ticketPlacePasses(admin, row.reference_id);
+        if (files) {
+          log('downloaded-bundle', { serial: row.serial, passes: Object.keys(files).length });
+          return pkpassesResponse(files, row.serial);
+        }
       }
       const bytes = await renderPass(admin, row);
       log('downloaded', { serial: row.serial });

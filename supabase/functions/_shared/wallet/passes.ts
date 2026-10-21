@@ -81,6 +81,15 @@ interface WalletVenueRow {
   longitude: number | string | null;
 }
 
+/** Place nominative d'un billet de N personnes (ticket_attendees). */
+interface WalletPlaceRow {
+  id: string;
+  ticket_id: string;
+  full_name: string | null;
+  qr_code: string | null;
+  refunded_at: string | null;
+}
+
 interface WalletTicketRow {
   id: string;
   qr_code: string | null;
@@ -514,11 +523,42 @@ const EVENT_COLUMNS =
   'id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, location_name, ' +
   'location_city, location_address, location_is_secret, poster_url, image_url, music_genres, timezone';
 
+/**
+ * Pass d'UNE place d'un billet de N personnes : retrouve le billet et le rang de
+ * la place (ordre de création, comme l'e-mail et le carrousel), puis construit le
+ * pass billet avec le QR et le nom de cette personne.
+ */
+export async function buildTicketPlacePass(
+  admin: SupabaseClient,
+  placeId: string,
+  authToken: string,
+): Promise<PassBuild> {
+  const { data: pr } = await admin
+    .from('ticket_attendees')
+    .select('id, ticket_id, full_name, qr_code, refunded_at')
+    .eq('id', placeId)
+    .returns<WalletPlaceRow[]>()
+    .maybeSingle();
+  if (!pr) throw new Error('Ticket place not found');
+  const { data: siblings } = await admin
+    .from('ticket_attendees')
+    .select('id, qr_code, created_at')
+    .eq('ticket_id', pr.ticket_id)
+    .order('created_at', { ascending: true })
+    .order('qr_code', { ascending: true })
+    .returns<Array<{ id: string; qr_code: string | null; created_at: string }>>();
+  const list = siblings ?? [];
+  const index = Math.max(1, list.findIndex((r) => r.id === placeId) + 1);
+  return buildTicketPass(admin, pr.ticket_id, authToken, { id: placeId, index, total: Math.max(list.length, index) });
+}
+
 /** Billet d'événement — pass eventTicket, QR = tickets.qr_code (scan porte). */
 export async function buildTicketPass(
   admin: SupabaseClient,
   ticketId: string,
   authToken: string,
+  /** Pass d'UNE personne d'un billet de N places : son QR, son nom, « i/N ». */
+  place?: { id: string; index: number; total: number },
 ): Promise<PassBuild> {
   const { data: ticket, error } = await admin
     .from('tickets')
@@ -532,6 +572,24 @@ export async function buildTicketPass(
     .single();
   if (error || !ticket) throw new Error('Ticket not found');
   if (!ticket.qr_code) throw new Error('Ticket has no QR');
+
+  // Pass d'une place : le QR, le nom et l'état (remboursée) sont ceux de la
+  // personne ; tout le reste (soirée, lieu, tarif) est celui du billet.
+  let placeRow: WalletPlaceRow | null = null;
+  if (place) {
+    const { data: pr } = await admin
+      .from('ticket_attendees')
+      .select('id, ticket_id, full_name, qr_code, refunded_at')
+      .eq('id', place.id)
+      .eq('ticket_id', ticketId)
+      .returns<WalletPlaceRow[]>()
+      .maybeSingle();
+    if (!pr || !pr.qr_code) throw new Error('Ticket place not found');
+    placeRow = pr;
+  }
+  const passSerial = place ? `p-${place.id}` : `t-${ticket.id}`;
+  const passQr = placeRow?.qr_code ?? ticket.qr_code;
+  const holderName = placeRow ? (placeRow.full_name || '').trim() || ticket.full_name : ticket.full_name;
 
   const event = ticket.events;
   const venue = await loadVenue(admin, event);
@@ -550,17 +608,17 @@ export async function buildTicketPass(
 
   const passJson = {
     ...passShell({
-      serial: `t-${ticket.id}`,
+      serial: passSerial,
       description: `${wl(lang, 'ticketDescription')} — ${event.title}`,
       authToken,
-      qr: ticket.qr_code,
-      qrAlt: ticket.reference_code || null,
+      qr: passQr,
+      qrAlt: place ? `${reference} · ${place.index}/${place.total}` : ticket.reference_code || null,
       eventId: event.id ?? null,
       relevantDate: event.start_at || null,
       eventEnd: event.end_at || null,
       expirationDate: expiration(event.end_at),
       location,
-      voided: ticket.status === 'refunded',
+      voided: ticket.status === 'refunded' || !!placeRow?.refunded_at,
       labelColor: RED,
     }),
     ...eventSemantics({
@@ -599,11 +657,11 @@ export async function buildTicketPass(
         ...(event.start_at
           ? [{ key: 'date', label: wl(lang, 'date'), value: shortDate(lang, event.start_at, tz) ?? '' }]
           : []),
-        ...(ticket.full_name
+        ...(holderName
           ? [{
               key: 'holder',
               label: wl(lang, 'holderField'),
-              value: ticket.full_name,
+              value: holderName,
               textAlignment: 'PKTextAlignmentRight',
             }]
           : []),
@@ -622,7 +680,10 @@ export async function buildTicketPass(
           ...(roundDescription
             ? [{ key: 'includes', label: wl(lang, 'ticketIncludes'), value: roundDescription }]
             : []),
-          ...(Number(quantity) > 1
+          // Pass d'une place : « 2/2 » ; pass du billet entier : le nombre de places.
+          ...(place
+            ? [{ key: 'qty', label: wl(lang, 'ticket'), value: `${place.index}/${place.total}` }]
+            : Number(quantity) > 1
             ? [{ key: 'qty', label: wl(lang, 'persons'), value: quantity }]
             : []),
         ],
@@ -633,7 +694,7 @@ export async function buildTicketPass(
   return {
     passJson,
     assets: await passArtwork(event.poster_url || event.image_url, { poster: posterEnabled() }),
-    serial: `t-${ticket.id}`,
+    serial: passSerial,
     userId: ticket.user_id,
     lang,
   };
