@@ -32,14 +32,15 @@ const iconBtn: React.CSSProperties = {
  * cloche. La langue part de celle choisie par l'organisateur ; l'invité la
  * change pour lui, sur son appareil.
  */
-export function GuestTopBar({ w, lang, onLang, notifications, unread, onOpenBell, go, eur, date }: {
+export function GuestTopBar({ w, lang, onLang, notifications, onOpenBell, go, date }: {
   w: GuestSpaceWords; lang: GuestSpaceLanguage; onLang: (l: GuestSpaceLanguage) => void;
-  notifications: GuestNotification[]; unread: (n: GuestNotification) => boolean; onOpenBell: () => void;
-  go: (t: GuestTab) => void; eur: (n: number) => string; date: (iso: string, o: Intl.DateTimeFormatOptions) => string;
+  /** Les notifications du compte rattaché, « lu » par compte (marquées à la fermeture). */
+  notifications: GuestNotification[]; onOpenBell: () => void;
+  go: (t: GuestTab) => void; date: (iso: string, o: Intl.DateTimeFormatOptions) => string;
 }) {
   const langPop = usePopover();
   const bell = usePopover();
-  const count = notifications.filter(unread).length;
+  const count = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="mb-4 flex items-center gap-2">
@@ -91,8 +92,7 @@ export function GuestTopBar({ w, lang, onLang, notifications, unread, onOpenBell
               ) : (
                 <div className="max-h-[60vh] overflow-y-auto">
                   {notifications.map((n) => {
-                    const fresh = unread(n);
-                    const vars = n.key === 'frozen' ? { ...n.vars, amount: eur(Number(n.vars.amount) || 0) } : n.vars;
+                    const fresh = !n.read;
                     return (
                       <button key={n.id} type="button" onClick={() => { go(n.tab); bell.setOpen(false); onOpenBell(); }}
                         className="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-colors"
@@ -100,7 +100,7 @@ export function GuestTopBar({ w, lang, onLang, notifications, unread, onOpenBell
                         <span className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full" style={{ background: fresh ? RED : 'transparent' }} />
                         <span className="min-w-0 flex-1">
                           <span className="block" style={{ color: fresh ? T1 : T2, fontSize: 13, fontWeight: fresh ? 600 : 520, lineHeight: 1.4 }}>
-                            {w(`guestSpace.bell.${n.key}` as Parameters<GuestSpaceWords>[0], vars)}
+                            {n.text}
                           </span>
                           <span className="mt-0.5 flex items-center gap-2" style={{ color: T3, fontSize: 11.5 }}>
                             {date(n.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}

@@ -16,7 +16,7 @@ import { marketCountry } from '@/lib/geo';
 import { PRO_SIGNUP_ORIGIN } from '@/lib/proSignup';
 import { PUBLIC_BASE_URL, partnerLinkUrl } from '@/lib/partnerLinks';
 import {
-  guestSpaceWords, toGuestSpaceLanguage, type GuestSpaceLanguage, type GuestSpaceWords,
+  describeGuestNotification, guestSpaceWords, toGuestSpaceLanguage, type GuestSpaceLanguage, type GuestSpaceWords,
 } from '../../supabase/functions/_shared/guest-space-words';
 
 export {
@@ -270,62 +270,39 @@ export function whatsappHref(phone: string | null | undefined, text: string): st
 
 // ─── Cloche de l'espace (sans compte, sans table : déduite de ce que l'espace lit) ──
 
+/** Une notification de la cloche, déjà mise en mots (langue de l'espace). */
 export interface GuestNotification {
   id: string;
   at: string;
   tab: GuestTab;
-  key: 'contract' | 'contractChanged' | 'contractSigned' | 'frozen' | 'transferSent' | 'transferReceived' | 'statementReady' | 'staffAccepted' | 'staffAdded';
-  vars: Record<string, string | number>;
-  /** Attend un geste de l'invité (signer, confirmer, valider). */
+  text: string;
+  read: boolean;
+  /** Attend un geste de l'invité (signer, confirmer, vérifier). */
   action: boolean;
 }
 
-/**
- * Ce qui concerne l'invité, du plus récent au plus ancien. Rien n'est stocké
- * côté serveur : chaque ligne vient d'une date que l'espace lit déjà (contrat,
- * décompte, virement, staff de porte). « Non lu » = plus récent que la
- * dernière ouverture de la cloche sur CET appareil.
- */
-export function guestNotifications(d: GuestSpaceData): GuestNotification[] {
+/** Ce que rend `guest_pass_notifications` : type + données, rendus ici. */
+export interface GuestNotificationRow { id: string; type: string; data: Record<string, unknown>; at: string; read: boolean; action: boolean }
+
+/** Les lignes de la base → la cloche (texte partagé avec l'e-mail, `describeGuestNotification`). */
+export function toGuestNotifications(rows: GuestNotificationRow[], lang: GuestSpaceLanguage, eur: (n: number) => string, tz?: string): GuestNotification[] {
+  const w = guestSpaceWords(lang);
   const out: GuestNotification[] = [];
-  const m = d.money;
-  const org = d.event?.organizer_name ?? '';
-  const collector = m?.collector_name ?? org;
-  const c = m?.mode === 'guest_contract' ? m.contract ?? null : null;
-  if (c?.status === 'signed' && c.signed_at) {
-    out.push({ id: `signed:${c.version}`, at: c.signed_at, tab: 'money', key: 'contractSigned', vars: { name: c.signer_name ?? '' }, action: false });
-  } else if (c?.proposed_at) {
-    out.push({
-      id: `contract:${c.version}`, at: c.proposed_at, tab: 'money', key: c.version > 1 ? 'contractChanged' : 'contract',
-      vars: { org, n: c.version }, action: c.status === 'proposed',
-    });
-  }
-  if (m?.statement?.frozen && m.statement.frozen_at) {
-    out.push({ id: 'frozen', at: m.statement.frozen_at, tab: 'money', key: 'frozen', vars: { amount: m.transfer?.amount ?? m.my_share?.amount ?? 0 }, action: false });
-  }
-  if (m?.transfer?.sent_at) {
-    out.push({ id: 'sent', at: m.transfer.sent_at, tab: 'money', key: 'transferSent', vars: { org: collector }, action: m.transfer.status === 'sent' });
-  }
-  if (m?.transfer?.received_at) {
-    out.push({ id: 'received', at: m.transfer.received_at, tab: 'money', key: 'transferReceived', vars: {}, action: false });
-  }
-  if (m?.mode === 'contract' && m.statement_ready && d.event) {
-    out.push({ id: 'statement', at: d.event.end_at ?? d.event.start_at, tab: 'money', key: 'statementReady', vars: {}, action: !m.response });
-  }
-  for (const s of d.door_staff ?? []) {
-    if (s.status === 'accepted' && s.accepted_at) out.push({ id: `staff:${s.id}`, at: s.accepted_at, tab: 'door', key: 'staffAccepted', vars: { name: s.name }, action: false });
-    else if (s.invited_by_kind === 'organizer' && s.status !== 'revoked') out.push({ id: `staffadd:${s.id}`, at: s.created_at, tab: 'door', key: 'staffAdded', vars: { name: s.name, org }, action: false });
+  for (const r of rows) {
+    const d = describeGuestNotification(r.type, { tz, ...(r.data ?? {}) }, lang, eur);
+    if (!d) continue;
+    out.push({ id: r.id, at: r.at, tab: d.tab, text: w(d.key, d.vars), read: r.read, action: r.action });
   }
   return out.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-const seenKey = (token: string) => `yuno:guest-space-seen:${token}`;
-export function readGuestSeen(token: string): string | null {
-  try { return localStorage.getItem(seenKey(token)); } catch { return null; }
-}
-export function writeGuestSeen(token: string, at: string): void {
-  try { localStorage.setItem(seenKey(token), at); } catch { /* navigation privée : la pastille revient, rien de grave */ }
-}
+/** Les notifications du compte rattaché (l'équipe de l'organisateur n'en a pas). */
+export const loadGuestNotifications = (passId: string) => rpc('guest_pass_notifications', { p_token: passId }) as Promise<GuestNotificationRow[]>;
+/** Tout marquer comme lu, pour le compte (pas pour l'appareil). */
+export const markGuestNotificationsRead = (passId: string) => rpc('guest_pass_notifications_read', { p_token: passId });
+/** L'organisateur refuse une demande de places (l'invité en est prévenu). */
+export const declineGuestPlaces = (passId: string) => rpc('decline_event_guest_pass_places', { p_pass_id: passId });
+
 /** La langue choisie par l'invité sur son appareil (sinon celle de l'organisateur). */
 const langKey = (token: string) => `yuno:guest-space-lang:${token}`;
 export function readGuestLang(token: string): GuestSpaceLanguage | null {

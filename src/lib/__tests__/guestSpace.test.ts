@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   GUEST_SPACE_WORDS_RAW, daysToNight, guestErrorText, guestInviteUrl, guestLanguageForEvent, guestShareUrl, guestSignupUrl, guestSpaceUrl, isGuestPassId,
-  formatIban, guestNotifications, guestSpaceWords, isGuestToken, isValidIban, readyPostText, salesSeries, whoSellsRows, type GuestSpaceData,
+  formatIban, toGuestNotifications, guestSpaceWords, isGuestToken, isValidIban, readyPostText, salesSeries, whoSellsRows, type GuestSpaceData,
 } from '@/lib/guestSpace';
 
 describe('mots de l’espace invité', () => {
@@ -106,19 +106,34 @@ describe('IBAN de l’invité', () => {
 });
 
 describe('cloche de l’espace', () => {
-  const base = { found: true, event: { organizer_name: 'Amoris', end_at: '2026-10-29T04:00:00Z', start_at: '2026-10-28T22:00:00Z' } } as unknown as GuestSpaceData;
-  it('contrat à signer = à faire, puis signé = un fait', () => {
-    const proposed = { ...base, money: { mode: 'guest_contract', contract: { status: 'proposed', version: 2, proposed_at: '2026-10-20T10:00:00Z' } } } as unknown as GuestSpaceData;
-    const n = guestNotifications(proposed);
-    expect(n[0]).toMatchObject({ key: 'contractChanged', action: true, tab: 'money' });
-    const signed = { ...base, money: { mode: 'guest_contract', contract: { status: 'signed', version: 2, proposed_at: '2026-10-20T10:00:00Z', signed_at: '2026-10-20T11:00:00Z', signer_name: 'Lucía' } } } as unknown as GuestSpaceData;
-    expect(guestNotifications(signed)[0]).toMatchObject({ key: 'contractSigned', action: false });
+  const eur = (n: number) => `${n} €`;
+  const row = (type: string, data: Record<string, unknown>, at: string, extra: Partial<{ read: boolean; action: boolean }> = {}) =>
+    ({ id: `${type}:${at}`, type, data, at, read: false, action: false, ...extra });
+  it('chaque notification de la base devient une phrase et un onglet', () => {
+    const n = toGuestNotifications([
+      row('contractChanged', { org: 'Amoris', n: 2 }, '2026-10-20T10:00:00Z', { action: true }),
+      row('salesDay', { n: 6, mine: 2 }, '2026-10-20T21:00:00Z'),
+      row('fill', { pct: 100 }, '2026-10-21T21:00:00Z'),
+      row('doorMode', { mode: 'guest', org: 'Amoris' }, '2026-10-19T09:00:00Z'),
+      row('frozen', { amount: 120 }, '2026-10-18T09:00:00Z'),
+    ], 'fr', eur);
+    expect(n.map((x) => x.text)).toEqual([
+      'Complet !',
+      '+6 billets aujourd’hui, dont 2 par ton lien',
+      'Amoris a changé les termes du contrat (version 2)',
+      'Porte : Tenue par ton équipe',
+      'Le décompte est prêt à vérifier : ta part est de 120 €',
+    ]);
+    expect(n[2]).toMatchObject({ tab: 'money', action: true });
+    expect(n.map((x) => x.tab)).toEqual(['sales', 'sales', 'money', 'door', 'money']);
   });
-  it('rangée du plus récent au plus ancien', () => {
-    const d = { ...base, door_staff: [
-      { id: 'a', name: 'A', status: 'accepted', accepted_at: '2026-10-19T10:00:00Z', invited_by_kind: 'guest', created_at: '2026-10-18T10:00:00Z' },
-      { id: 'b', name: 'B', status: 'pending', accepted_at: null, invited_by_kind: 'organizer', created_at: '2026-10-20T10:00:00Z' },
-    ] } as unknown as GuestSpaceData;
-    expect(guestNotifications(d).map((x) => x.key)).toEqual(['staffAdded', 'staffAccepted']);
+  it('un nouvel horaire se lit à l’heure du lieu ; un type inconnu est ignoré', () => {
+    const n = toGuestNotifications([
+      row('nightTime', { start: '2026-10-28T22:30:00Z', tz: 'Europe/Madrid' }, '2026-10-20T10:00:00Z'),
+      row('pasUnType', {}, '2026-10-20T11:00:00Z'),
+    ], 'fr', eur);
+    expect(n).toHaveLength(1);
+    expect(n[0].text).toContain('23:30');
+    expect(n[0].tab).toBe('info');
   });
 });

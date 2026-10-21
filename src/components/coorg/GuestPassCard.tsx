@@ -11,7 +11,7 @@ import { inviteEventCohost, coorgErrorCode } from '@/lib/coorg';
 import { marketCountry } from '@/lib/geo';
 import { capturePosthog } from '@/lib/posthog';
 import {
-  cancelGuestContract, createGuestPass, doorInviteUrl, formatIban, markGuestTransferSent, proposeGuestContract, guestErrorCode, guestErrorText, guestLanguageForEvent, guestSpaceLocale, guestSpaceShareText,
+  cancelGuestContract, createGuestPass, declineGuestPlaces, doorInviteUrl, formatIban, markGuestTransferSent, proposeGuestContract, guestErrorCode, guestErrorText, guestLanguageForEvent, guestSpaceLocale, guestSpaceShareText,
   getGuestPassLink, guestInviteUrl, guestShareUrl, guestSpacePath, guestUiWords, resetGuestPassAccess, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
   sendDoorInviteEmail, sendGuestPassEmail, toGuestSpaceLanguage, updateGuestPass, whatsappHref,
   type DoorStaffRow, type GuestContractTerms, type GuestDoorMode, type GuestKind, type GuestPassRow, type GuestSpaceLanguage,
@@ -334,6 +334,10 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
           <OrgButton size="sm" variant="primary" disabled={!!busy}
             onClick={() => run(`grant:${r.id}`, () => updateGuestPass(r.id, { places: (r.guest_list?.places ?? 0) + (r.places_requested ?? 0) }), w('guestSpace.org.saved'))}>
             {w('guestSpace.org.grant', { n: r.places_requested })}
+          </OrgButton>
+          <OrgButton size="sm" variant="ghost" disabled={!!busy}
+            onClick={() => run(`decline:${r.id}`, () => declineGuestPlaces(r.id), w('guestSpace.org.declined'))}>
+            {w('guestSpace.org.decline')}
           </OrgButton>
         </div>
       ) : null}

@@ -27,9 +27,9 @@ import { Seo } from '@/components/Seo';
 import { OrgButton, OrgPill, RED, POS, T1, T2, T3, BORDER, CARD_BG } from '@/components/org-ui';
 import { capturePosthog } from '@/lib/posthog';
 import {
-  GUEST_TABS, daysToNight, guestErrorCode, guestErrorText, guestNotifications, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestPassId, loadGuestSpace,
-  readGuestLang, readGuestSeen, rememberGuestClaim, toGuestSpaceLanguage, trackGuestSpace, writeGuestLang, writeGuestSeen,
-  type GuestSpaceData, type GuestSpaceLanguage, type GuestTab,
+  GUEST_TABS, daysToNight, guestErrorCode, guestErrorText, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestPassId, loadGuestSpace,
+  loadGuestNotifications, markGuestNotificationsRead, readGuestLang, rememberGuestClaim, toGuestNotifications, toGuestSpaceLanguage,
+  trackGuestSpace, writeGuestLang, type GuestNotificationRow, type GuestSpaceData, type GuestSpaceLanguage, type GuestTab,
 } from '@/lib/guestSpace';
 import { GuestAvatar, GuestAvatarButton } from '@/components/guest-space/GuestPhoto';
 import { saveGuestPhoto } from '@/components/guest-space/guestPhotoActions';
@@ -65,6 +65,7 @@ export default function GuestSpacePage() {
     window.scrollTo({ top: 0 });
   }, [setSearch]);
 
+  const [notifRows, setNotifRows] = useState<GuestNotificationRow[]>([]);
   const load = useCallback(async () => {
     if (!isGuestPassId(token)) { setData({ found: false }); setLoading(false); return; }
     if (!user) return;
@@ -72,6 +73,10 @@ export default function GuestSpacePage() {
       const d = await loadGuestSpace(token);
       setFailed(false);
       setData(d ?? { found: false });
+      // La cloche du compte rattaché (l'équipe de l'organisateur n'en a pas).
+      if (d?.found && !d.is_team) {
+        loadGuestNotifications(token).then((rows) => setNotifRows(rows ?? [])).catch(() => { /* la cloche attend le passage suivant */ });
+      }
       if (!opened.current && d?.found && !d.closed && !d.is_team) {
         opened.current = true;
         capturePosthog('guest_space_opened', { phase: d.phase ?? null, guest_kind: d.guest?.kind ?? null, is_demo: !!d.is_demo });
@@ -104,7 +109,6 @@ export default function GuestSpacePage() {
 
   // La langue part de celle choisie par l'organisateur ; l'invité la change pour lui (son appareil).
   const [langPick, setLangPick] = useState<GuestSpaceLanguage | null>(() => (token ? readGuestLang(token) : null));
-  const [seenAt, setSeenAt] = useState<string | null>(() => (token ? readGuestSeen(token) : null));
   const lang = langPick ?? toGuestSpaceLanguage(data?.language, toGuestSpaceLanguage(visitorLanguage));
   const w = useMemo(() => guestSpaceWords(lang), [lang]);
   const loc = guestSpaceLocale(lang);
@@ -151,7 +155,7 @@ export default function GuestSpacePage() {
   const ev = data.event!;
   const guest = data.guest!;
   const date = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(loc, { ...opts, timeZone: tz }).format(new Date(iso));
-  const notifications = guestNotifications(data);
+  const notifications = toGuestNotifications(notifRows, lang, (n) => eurFmt.format(n), tz);
   const props: GuestTabProps = {
     d: data, w, lang, token: token!, num: (n) => fmt.format(n), eur: (n) => eurFmt.format(n), date,
     reload: load, go, toast: (text, tone = 'ok') => setToastMsg({ text, tone }),
@@ -244,11 +248,14 @@ export default function GuestSpacePage() {
         </aside>
 
         <main className="min-w-0">
-          <GuestTopBar w={w} lang={lang} go={go} eur={props.eur} date={date}
+          <GuestTopBar w={w} lang={lang} go={go} date={date}
             onLang={(l) => { setLangPick(l); if (token) writeGuestLang(token, l); }}
             notifications={notifications}
-            unread={(n) => !data.is_team && (!seenAt || n.at > seenAt)}
-            onOpenBell={() => { const at = new Date().toISOString(); setSeenAt(at); if (token) writeGuestSeen(token, at); }} />
+            onOpenBell={() => {
+              if (!token || !notifRows.some((r) => !r.read)) return;
+              setNotifRows((rows) => rows.map((r) => ({ ...r, read: true })));
+              void markGuestNotificationsRead(token).catch(() => { /* reste non lu au prochain passage */ });
+            }} />
           <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3.5">
               {ev.poster_url && <img src={ev.poster_url} alt="" className="h-14 w-14 flex-none rounded-xl object-cover" style={{ border: `1px solid ${BORDER}` }} />}
