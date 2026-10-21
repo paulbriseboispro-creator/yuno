@@ -481,7 +481,9 @@ BEGIN
                'transfer_reference', h.transfer_reference, 'transfer_status', h.transfer_status,
                'transfer_amount', CASE WHEN v_me.level >= 3 THEN h.transfer_amount END,
                'transfer_due_at', h.transfer_due_at, 'transfer_sent_at', h.transfer_sent_at,
-               'transfer_received_at', h.transfer_received_at, 'transfer_dispute_reason', h.transfer_dispute_reason,
+               'transfer_received_at', h.transfer_received_at, 'transfer_dispute_reason', h.transfer_dispute_reason
+             ) || jsonb_build_object(
+               -- (deux objets : jsonb_build_object s'arrête à 100 arguments)
                'door_mode', h.door_mode,
                'account_email', h.account_email, 'account_linked_at', h.account_linked_at,
                'invite_pending', h.account_user_id IS NULL AND EXISTS (
