@@ -130,7 +130,7 @@ export type YunoEvent =
   | 'coorg_partner_visibility_set' // { event_id, mode: 'full' | 'volumes' }
   | 'coorg_deal_signed' //         { event_id, formal }
   | 'coorg_settlement_approved' // { event_id, parties }
-  // ── Espace invité d'une soirée (event_guest_passes, nom à nommer) ─────
+  // ── Espace invité d'une soirée (event_guest_passes, rôle « Invité ») ─────
   | 'guest_space_created' //       { event_id, guest_kind: 'venue' | 'org', source: 'event_form' | 'coorg_page', show_revenue, channel: 'email' | 'whatsapp', contract }
   | 'guest_space_shared' //        { event_id, channel: 'whatsapp' }
   | 'guest_space_opened' //        { phase, guest_kind, is_demo } — espace /h/ ouvert par l'invité (jamais l'équipe)

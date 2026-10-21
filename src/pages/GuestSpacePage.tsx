@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  ArrowRight, Banknote, CircleUser, Info, LayoutGrid, Loader2, Lock, Megaphone, ScanLine, Ticket,
+  ArrowRight, Banknote, Info, LayoutGrid, Loader2, Lock, Megaphone, ScanLine, Ticket,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,10 +27,12 @@ import { Seo } from '@/components/Seo';
 import { OrgButton, OrgPill, RED, POS, T1, T2, T3, BORDER, CARD_BG } from '@/components/org-ui';
 import { capturePosthog } from '@/lib/posthog';
 import {
-  GUEST_TABS, daysToNight, guestNotifications, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestPassId, loadGuestSpace,
+  GUEST_TABS, daysToNight, guestErrorCode, guestErrorText, guestNotifications, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestPassId, loadGuestSpace,
   readGuestLang, readGuestSeen, rememberGuestClaim, toGuestSpaceLanguage, trackGuestSpace, writeGuestLang, writeGuestSeen,
   type GuestSpaceData, type GuestSpaceLanguage, type GuestTab,
 } from '@/lib/guestSpace';
+import { GuestAvatar, GuestAvatarButton } from '@/components/guest-space/GuestPhoto';
+import { saveGuestPhoto } from '@/components/guest-space/guestPhotoActions';
 import type { GuestTabProps } from '@/components/guest-space/context';
 import { HomeTab, SalesTab } from '@/components/guest-space/HomeSalesTabs';
 import { MarketingTab, MoneyTab } from '@/components/guest-space/MarketingMoneyTabs';
@@ -207,9 +209,12 @@ export default function GuestSpacePage() {
         {/* Barre latérale (ordinateur) */}
         <aside className="hidden flex-col gap-4 self-start rounded-[18px] p-2.5 pt-3.5 lg:sticky lg:top-4 lg:flex" style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}>
           <div className="flex items-center gap-2.5 px-1.5 pb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
-            <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px]" style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, color: T2, fontSize: 12, fontWeight: 700 }}>
-              {guest.name.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || <CircleUser className="h-4 w-4" />}
-            </span>
+            {/* Le compte rattaché change sa photo ; l'équipe de l'organisateur la voit seulement. */}
+            {guest.account_email
+              ? <GuestAvatarButton url={guest.photo_url} name={guest.name} kind={guest.kind} size={34} radius={9}
+                  label={guest.photo_url ? w('guestSpace.photo.change') : w('guestSpace.photo.add')}
+                  onFile={(f) => void saveGuestPhoto(props, f, (err) => guestErrorText(guestErrorCode(err), w))} />
+              : <GuestAvatar url={guest.photo_url} name={guest.name} kind={guest.kind} size={34} radius={9} />}
             <div className="min-w-0">
               <div className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 650 }}>{guest.name}</div>
               <div style={{ color: T3, fontSize: 11 }}>{w('guestSpace.shell.invitedOn')}</div>

@@ -12,11 +12,12 @@ import { marketCountry } from '@/lib/geo';
 import { capturePosthog } from '@/lib/posthog';
 import {
   cancelGuestContract, createGuestPass, doorInviteUrl, formatIban, markGuestTransferSent, proposeGuestContract, guestErrorCode, guestErrorText, guestLanguageForEvent, guestSpaceLocale, guestSpaceShareText,
-  getGuestPassLink, guestInviteUrl, guestShareUrl, guestSpacePath, guestUiWords, resetGuestPassAccess, setGuestPassDoor, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
+  getGuestPassLink, guestInviteUrl, guestShareUrl, guestSpacePath, guestUiWords, resetGuestPassAccess, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
   sendDoorInviteEmail, sendGuestPassEmail, toGuestSpaceLanguage, updateGuestPass, whatsappHref,
   type DoorStaffRow, type GuestContractTerms, type GuestDoorMode, type GuestKind, type GuestPassRow, type GuestSpaceLanguage,
 } from '@/lib/guestSpace';
 import { openPendingTab } from '@/lib/stripeConnectClient';
+import { GuestAvatar, GuestAvatarButton } from '@/components/guest-space/GuestPhoto';
 import { useCoorgErrorText, useCoorgT } from './coorgUi';
 
 const LANG_TABS = [{ value: 'es', label: 'ES' }, { value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }] as const;
@@ -32,7 +33,7 @@ const DEFAULT_TERMS: GuestContractTerms = { tickets_pct: 20, tables_pct: 10, pay
 const eurFmt = (lang: string) => new Intl.NumberFormat(lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: 'EUR' });
 
 /**
- * « Espaces invités » (nom à nommer) sur la page Co-organisation : chaque club
+ * « Invités » sur la page Co-organisation : chaque club
  * ou organisation qui fait la soirée avec l'organisateur, sans compte Yuno,
  * reçoit son espace /h/<jeton> (six onglets). Ici l'organisateur l'ouvre,
  * l'envoie (email ou WhatsApp), règle ce que l'invité voit (montants, part
@@ -62,6 +63,10 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
   const [money, setMoney] = useState(true);
   const [terms, setTerms] = useState<GuestContractTerms>(DEFAULT_TERMS);
   const [places, setPlaces] = useState(0);
+  // Photo préchargée (logo du club…) : envoyée une fois l'accès créé (le dossier porte son id).
+  const [photo, setPhoto] = useState<File | null>(null);
+  const photoPreview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
   const [door, setDoor] = useState<GuestDoorMode>('both');
 
   const load = useCallback(async () => {
@@ -119,6 +124,10 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
     });
     if (contractOn) await proposeGuestContract(pass.id, { ...terms, bar_to_guest: kind === 'venue' && terms.bar_to_guest });
     if (kind === 'venue' && door !== 'both') await setGuestPassDoor(pass.id, door);
+    if (photo) {
+      try { await setGuestPassPhoto(pass.id, await uploadGuestPhoto(pass.id, photo)); }
+      catch (err) { toast.error(guestErrorText(guestErrorCode(err), w)); }
+    }
     capturePosthog('guest_space_created', { event_id: eventId, guest_kind: kind, source: 'coorg_page', show_revenue: pass.show_revenue, channel: email.trim() ? 'email' : 'whatsapp', contract: contractOn });
     if (email.trim()) {
       try { await sendGuestPassEmail(pass.id); toast.success(w('guestSpace.org.sent')); }
@@ -128,7 +137,7 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
       const href = whatsappHref(phone, guestSpaceShareText(lang, { guest: name.trim(), event: eventTitle, page: guestInviteUrl(pass.token) }));
       if (href && tab) tab.go(href); else tab?.close();
     }
-    setOpen(false); setEmail(''); setPhone(''); setPlaces(0);
+    setOpen(false); setEmail(''); setPhone(''); setPlaces(0); setPhoto(null);
   });
 
   // Un lien à partager = l'espace s'il est déjà rattaché, sinon une invitation NEUVE (jeton à usage unique).
@@ -209,6 +218,11 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
               </div>
             )}
           </div>
+          <div className="flex items-center gap-2.5">
+            <GuestAvatarButton url={photoPreview} name={name || '?'} kind={kind} size={36}
+              label={w('guestSpace.org.photo')} onFile={(f) => setPhoto(f)} />
+            <span style={{ color: T3, fontSize: 11.5, lineHeight: 1.4 }}>{w('guestSpace.org.photoHint')}</span>
+          </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <Choice w={w} label={w('guestSpace.org.contract')} value={contractOn} onChange={setWithContract} disabled={!canMoney}
               off={w('guestSpace.org.contractOff')} on={w('guestSpace.org.modeContract')}
@@ -271,7 +285,6 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
   const [sPhone, setSPhone] = useState('');
   const [proposing, setProposing] = useState(false);
   const contractActive = r.contract_status === 'proposed' || r.contract_status === 'signed';
-  const Icon = r.guest_kind === 'venue' ? Building2 : Users;
 
   const inviteStaff = () => run(`staff:${r.id}`, async () => {
     const res = await inviteEventDoorStaff({ eventId, name: sName.trim(), email: sEmail.trim() || null, phone: sPhone.trim() || null, passId: r.id });
@@ -286,9 +299,12 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
   return (
     <div className="space-y-2 rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${r.revoked ? BORDER : 'rgba(232,25,44,0.25)'}`, opacity: r.revoked ? 0.7 : 1 }}>
       <div className="flex flex-wrap items-center gap-2.5">
-        <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full" style={{ background: 'rgba(232,25,44,0.12)', color: RED }}>
-          <Icon className="h-4 w-4" />
-        </span>
+        {/* Photo : l'organisateur la précharge ou la change tant que l'invité n'a pas choisi la sienne. */}
+        {r.revoked || r.photo_set_by === 'guest'
+          ? <span title={r.photo_set_by === 'guest' ? w('guestSpace.org.photoByGuest') : undefined}><GuestAvatar url={r.photo_url} name={r.guest_name} kind={r.guest_kind} size={30} /></span>
+          : <GuestAvatarButton url={r.photo_url} name={r.guest_name} kind={r.guest_kind} size={30} label={w('guestSpace.org.photo')}
+              disabled={!!busy}
+              onFile={(f) => void run(`photo:${r.id}`, async () => setGuestPassPhoto(r.id, await uploadGuestPhoto(r.id, f)), w('guestSpace.photo.saved'))} />}
         <div className="min-w-0 flex-1">
           <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{r.guest_name}</p>
           <p className="truncate" style={{ color: T3, fontSize: 11.5 }}>

@@ -3,8 +3,9 @@
  * collab) — UNE famille de clés, `guestSpace.*` : l'espace /h/<jeton>, l'email
  * d'accès, le message WhatsApp, et l'écran de l'organisateur qui l'ouvre.
  *
- * ⚠️ Le nom visible n'est PAS choisi (« à nommer » par Paul) : les libellés
- * sont descriptifs et provisoires. Renommer = une passe sur ce fichier.
+ * Nom choisi par Paul (21/10) : le rôle / l'accès s'appelle « Invité » (EN
+ * Guest, ES Invitado), la page reste « Espace invité » (Guest space, Espacio
+ * de invitado).
  *
  * Module pur, sans import : lu tel quel par les edge functions et par le front
  * (`src/lib/guestSpace.ts`). L'espace parle la langue CHOISIE PAR
@@ -26,8 +27,12 @@ export function guestSpaceLocale(lang: GuestSpaceLanguage): string {
 const INDEX: Record<GuestSpaceLanguage, 0 | 1 | 2> = { en: 0, fr: 1, es: 2 };
 
 const WORDS = {
-  // ── Nom provisoire (à nommer) ──────────────────────────────────────────────
-  'guestSpace.name': ['Night access', 'Accès à la soirée', 'Acceso a la noche'],
+  // ── Nom : « Invité » (décision de Paul, 21/10) ─────────────────────────────
+  'guestSpace.name': [
+    "Guest",
+    "Invité",
+    "Invitado",
+  ],
   'guestSpace.nameHint': [
     "follows the night with a Yuno account",
     "suit la soirée avec un compte Yuno",
@@ -558,13 +563,21 @@ const WORDS = {
     "Reçoit son espace de la soirée avec un compte Yuno simple : ventes, sa part de guest list, ses liens, la porte et sa part de l’argent. Aucun accès à ta Console.",
     "Recibe su espacio de la noche con una cuenta Yuno simple: ventas, su parte de la guest list, sus enlaces, la puerta y su parte del dinero. Sin acceso a tu Consola.",
   ],
-  'guestSpace.org.cardTitle': ['Guest spaces', 'Espaces invités', 'Espacios de invitados'],
-  'guestSpace.org.cardSub': [
-    "A space for the night for each club or organization working it with you. It opens with their Yuno account.",
-    "Un espace de la soirée pour chaque club ou organisation qui la fait avec toi. Il s’ouvre avec son compte Yuno.",
-    "Un espacio de la noche para cada club u organización que la hace contigo. Se abre con su cuenta Yuno.",
+  'guestSpace.org.cardTitle': [
+    "Guests",
+    "Invités",
+    "Invitados",
   ],
-  'guestSpace.org.add': ['Open a space', 'Ouvrir un espace', 'Abrir un espacio'],
+  'guestSpace.org.cardSub': [
+    "Each club or organization working the night with you, as a guest: its own guest space, opened with its Yuno account.",
+    "Chaque club ou organisation qui fait la soirée avec toi, en invité : son espace invité, ouvert avec son compte Yuno.",
+    "Cada club u organización que hace la noche contigo, como invitado: su espacio de invitado, abierto con su cuenta Yuno.",
+  ],
+  'guestSpace.org.add': [
+    "Add a guest",
+    "Ajouter un invité",
+    "Añadir un invitado",
+  ],
   'guestSpace.org.kindVenue': ['Club', 'Club', 'Club'],
   'guestSpace.org.kindOrg': ['Organization', 'Organisation', 'Organización'],
   'guestSpace.org.name': ['Name', 'Nom', 'Nombre'],
@@ -588,7 +601,11 @@ const WORDS = {
   ],
   'guestSpace.org.shareTickets': ['Tickets %', 'Billets %', 'Entradas %'],
   'guestSpace.org.shareTables': ['Tables %', 'Tables %', 'Mesas %'],
-  'guestSpace.org.create': ['Open the space', 'Ouvrir l’espace', 'Abrir el espacio'],
+  'guestSpace.org.create': [
+    "Invite",
+    "Inviter",
+    "Invitar",
+  ],
   'guestSpace.org.sendEmail': ['Send by email', 'Envoyer par email', 'Enviar por email'],
   'guestSpace.org.resend': ['Send again', 'Renvoyer', 'Reenviar'],
   'guestSpace.org.whatsapp': ['WhatsApp', 'WhatsApp', 'WhatsApp'],
@@ -617,7 +634,11 @@ const WORDS = {
   'guestSpace.org.staffTitle': ['Club staff at the door', 'Staff du club à la porte', 'Staff del club en la puerta'],
   'guestSpace.org.staffInvite': ['Invite the club’s staff', 'Inviter le staff du club', 'Invitar al staff del club'],
   'guestSpace.org.staffRule': ['Scans this night only, until 6 h after the end.', 'Scanne cette soirée seulement, jusqu’à 6 h après la fin.', 'Escanea solo esta noche, hasta 6 h tras el final.'],
-  'guestSpace.org.created': ['Space opened', 'Espace ouvert', 'Espacio abierto'],
+  'guestSpace.org.created': [
+    "Guest invited",
+    "Invité ajouté",
+    "Invitado añadido",
+  ],
   'guestSpace.org.sent': ['Email sent', 'Email envoyé', 'Email enviado'],
   'guestSpace.org.copied': ['Link copied', 'Lien copié', 'Enlace copiado'],
   'guestSpace.org.saved': ['Saved', 'Enregistré', 'Guardado'],
@@ -1033,6 +1054,81 @@ const WORDS = {
     "This invitation link does not exist. Ask the organizer for yours.",
     "Ce lien d’invitation n’existe pas. Demande le tien à l’organisateur.",
     "Este enlace de invitación no existe. Pide el tuyo al organizador.",
+  ],
+  'guestSpace.photo.title': [
+    "Profile photo",
+    "Photo de profil",
+    "Foto de perfil",
+  ],
+  'guestSpace.photo.sub': [
+    "Your logo or a photo of your place. Shown to {org} and on the night’s figures.",
+    "Ton logo ou une photo de ton lieu. Visible par {org} et dans les chiffres de la soirée.",
+    "Tu logo o una foto de tu local. Visible para {org} y en las cifras de la noche.",
+  ],
+  'guestSpace.photo.add': [
+    "Add a photo",
+    "Ajouter une photo",
+    "Añadir una foto",
+  ],
+  'guestSpace.photo.change': [
+    "Change",
+    "Changer",
+    "Cambiar",
+  ],
+  'guestSpace.photo.remove': [
+    "Remove",
+    "Retirer",
+    "Quitar",
+  ],
+  'guestSpace.photo.saved': [
+    "Photo saved",
+    "Photo enregistrée",
+    "Foto guardada",
+  ],
+  'guestSpace.photo.removed': [
+    "Photo removed",
+    "Photo retirée",
+    "Foto quitada",
+  ],
+  'guestSpace.photo.hint': [
+    "Square works best. WebP, JPEG or PNG.",
+    "Un carré rend le mieux. WebP, JPEG ou PNG.",
+    "Un cuadrado queda mejor. WebP, JPEG o PNG.",
+  ],
+  'guestSpace.org.photo': [
+    "Photo",
+    "Photo",
+    "Foto",
+  ],
+  'guestSpace.org.photoHint': [
+    "Their logo or a photo of the place, until they choose their own.",
+    "Son logo ou une photo du lieu, jusqu’à ce que l’invité choisisse la sienne.",
+    "Su logo o una foto del local, hasta que el invitado elija la suya.",
+  ],
+  'guestSpace.org.photoByGuest': [
+    "Photo chosen by the guest",
+    "Photo choisie par l’invité",
+    "Foto elegida por el invitado",
+  ],
+  'guestSpace.err.invalid_photo': [
+    "This file is not a usable image.",
+    "Ce fichier n’est pas une image utilisable.",
+    "Este archivo no es una imagen utilizable.",
+  ],
+  'guestSpace.err.photo_too_big': [
+    "This image is too heavy, even compressed (1 MB max).",
+    "Cette image est trop lourde, même compressée (1 Mo au plus).",
+    "Esta imagen pesa demasiado, incluso comprimida (1 MB máx.).",
+  ],
+  'guestSpace.err.photo_upload_failed': [
+    "The photo could not be sent. Try again.",
+    "La photo n’a pas pu être envoyée. Réessaie.",
+    "No se pudo enviar la foto. Inténtalo de nuevo.",
+  ],
+  'guestSpace.err.guest_photo_locked': [
+    "The guest chose their own photo: it stays.",
+    "L’invité a choisi sa photo : elle reste.",
+    "El invitado eligió su foto: se queda.",
   ],
 } as const satisfies Record<string, readonly [string, string, string]>;
 

@@ -69,6 +69,8 @@ export interface GuestSpaceData {
     kind: GuestKind; name: string; contact_email: string | null; party: string | null;
     claim_status: 'pending' | 'accepted' | 'recorded' | null; party_name: string | null; places_requested: number | null;
     door_mode?: GuestDoorMode | null; account_email?: string | null;
+    /** Photo de profil (logo du club…) ; `guest` = choisie par l'invité, l'organisateur n'y touche plus. */
+    photo_url?: string | null; photo_set_by?: 'organizer' | 'guest' | null;
   };
   pass_id?: string;
   /** Pas de session : l'espace s'ouvre après connexion. */
@@ -368,7 +370,7 @@ export interface GuestInvite {
 }
 export interface MyGuestPass {
   pass_id: string; guest_name: string; guest_kind: GuestKind; event_title: string; event_start_at: string;
-  poster_url: string | null; inviter_name: string | null;
+  poster_url: string | null; inviter_name: string | null; photo_url?: string | null;
 }
 export const loadGuestInvite = (token: string) => rpc('get_event_guest_pass_invite', { p_token: token }) as Promise<GuestInvite>;
 export const redeemGuestInvite = (token: string) => rpc('redeem_event_guest_pass', { p_token: token }) as Promise<{ ok: boolean; pass_id: string }>;
@@ -378,6 +380,47 @@ export const getGuestPassLink = (passId: string) =>
   rpc('get_event_guest_pass_link', { p_pass_id: passId }) as Promise<{ linked: boolean; pass_id: string; token?: string; account_email?: string }>;
 export const resetGuestPassAccess = (passId: string) =>
   rpc('reset_event_guest_pass_access', { p_pass_id: passId }) as Promise<{ ok: boolean; pass_id: string; token: string }>;
+// ─── Photo de profil de l'invité ───────────────────────────────────────────
+export const GUEST_PHOTO_BUCKET = 'guest-pass-photos';
+export const GUEST_PHOTO_MAX_BYTES = 1024 * 1024;
+
+/** Carré de 512 px au plus, en WebP (JPEG si le navigateur n'encode pas le WebP). */
+export async function toGuestPhoto(file: File, max = 512): Promise<Blob> {
+  if (!file.type.startsWith('image/')) throw new Error('invalid_photo');
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const size = Math.min(max, side);
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('invalid_photo');
+  // Recadré au centre : la photo s'affiche dans un rond.
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  bitmap.close?.();
+  const encode = (type: string, q: number) => new Promise<Blob | null>((res) => canvas.toBlob(res, type, q));
+  const webp = await encode('image/webp', 0.82);
+  const blob = webp && webp.type === 'image/webp' ? webp : await encode('image/jpeg', 0.85);
+  if (!blob) throw new Error('invalid_photo');
+  if (blob.size > GUEST_PHOTO_MAX_BYTES) throw new Error('photo_too_big');
+  return blob;
+}
+
+/** Envoie la photo dans le dossier de l'accès ; rend son adresse publique. */
+export async function uploadGuestPhoto(passId: string, file: File): Promise<string> {
+  const blob = await toGuestPhoto(file);
+  const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${passId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(GUEST_PHOTO_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false });
+  if (error) throw new Error('photo_upload_failed');
+  return supabase.storage.from(GUEST_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+/** L'organisateur : précharger / changer (tant que l'invité ne l'a pas fait), ou retirer (null). */
+export const setGuestPassPhoto = (passId: string, url: string | null) => rpc('set_event_guest_pass_photo', { p_pass_id: passId, p_url: url });
+/** L'invité, connecté au compte rattaché : sa photo, ou aucune. */
+export const guestSetPhoto = (passId: string, url: string | null) => rpc('guest_pass_set_photo', { p_token: passId, p_url: url });
+/** Initiales affichées sans photo. */
+export const guestInitials = (name: string) => name.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase();
+
 export const setGuestPassDoor = (passId: string, mode: GuestDoorMode) => rpc('set_event_guest_pass_door', { p_pass_id: passId, p_mode: mode });
 /** L'adresse à donner pour un accès : l'espace s'il est rattaché, sinon l'invitation. */
 export function guestShareUrl(r: { linked: boolean; pass_id: string; token?: string }): string {
@@ -418,6 +461,7 @@ export interface GuestPassRow {
   /** Compte rattaché (réclamé) : son adresse, quand. Sinon l'invitation attend. */
   account_email: string | null; account_linked_at: string | null; invite_pending: boolean;
   door_mode: GuestDoorMode | null;
+  photo_url?: string | null; photo_set_by?: 'organizer' | 'guest' | null;
   first_opened_at: string | null; last_opened_at: string | null; email_sent_count: number; email_sent_at: string | null;
   signup_clicks: number; revoked: boolean; created_at: string;
   share_tickets_pct: number | null; share_tables_pct: number | null;

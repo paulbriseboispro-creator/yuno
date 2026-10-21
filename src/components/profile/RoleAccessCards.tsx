@@ -35,6 +35,8 @@ interface RoleCard {
   sublabel?: string;
   /** Carte d'équipe : l'organisation à ouvrir. */
   organizerUserId?: string;
+  /** Carte d'invité : sa photo de profil (logo du club…), à la place de l'icône. */
+  imageUrl?: string | null;
 }
 
 interface RoleAccessCardsProps {
@@ -247,6 +249,7 @@ export function RoleAccessCards({
       label: gw('guestSpace.card.title', { event: g.event_title }),
       path: guestSpacePath(g.pass_id),
       role: 'guest_pass',
+      imageUrl: g.photo_url ?? null,
       color: ACCENT,
       bg: ACCENT_BG,
       sublabel: gw('guestSpace.card.sub', {
@@ -278,9 +281,13 @@ export function RoleAccessCards({
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4 }}
               onClick={() => handleRoleClick(role.path, role.role, role.organizerUserId)}
             >
-              <div className="flex items-center justify-center h-9 w-9 shrink-0" style={{ background: role.bg, borderRadius: 3 }}>
-                <Icon className="h-[18px] w-[18px]" style={{ color: role.color }} />
-              </div>
+              {role.imageUrl
+                ? <img src={role.imageUrl} alt="" className="h-9 w-9 shrink-0 object-cover" style={{ borderRadius: 3 }} />
+                : (
+                  <div className="flex items-center justify-center h-9 w-9 shrink-0" style={{ background: role.bg, borderRadius: 3 }}>
+                    <Icon className="h-[18px] w-[18px]" style={{ color: role.color }} />
+                  </div>
+                )}
               <span className="flex-1 text-left">
                 <span className="block font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.06em', color: '#E5E5E5' }}>{role.label}</span>
                 {(role.sublabel || role.security) && (

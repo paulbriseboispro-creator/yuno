@@ -17,7 +17,7 @@
  *    l'espace invité de la soirée (`event_guest_passes`, invitation /h/<jeton>
  *    rattachée à un compte Yuno simple, puis /invite/<id>) — ventes,
  *    sa part de guest list, ses liens, la porte, sa part de l'argent — jamais
- *    un espace pro ni un droit de gestion. Nom visible à nommer (`guestSpace.*`).
+ *    un espace pro ni un droit de gestion. Rôle « Invité », page « Espace invité » (`guestSpace.*`).
  *    Un club ne le prend que sur une soirée d'organisation sans club Yuno pour
  *    lieu (`hostOpen`).
  *
@@ -41,6 +41,8 @@ export type PartnerDraft =
     guestContract?: { tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30 } | null;
     /** Club invité : qui tient la porte (organisateur, club, les deux — défaut). */
     guestDoor?: 'organizer' | 'guest' | 'both';
+    /** Photo préchargée (logo du club…), envoyée une fois l'accès créé. */
+    guestPhoto?: File | null;
   };
 
 /** Un invité avant qu'on lui donne un rôle (l'Omit distribué sur l'union). */

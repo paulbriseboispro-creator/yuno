@@ -9,6 +9,8 @@ import {
   whatsappHref, daysToNight,
 } from '@/lib/guestSpace';
 import type { GuestTabProps } from './context';
+import { GuestAvatar } from './GuestPhoto';
+import { saveGuestPhoto, usePhotoPicker } from './guestPhotoActions';
 import { Bar, Card, CardHead, Kpi, KpiGrid, Label, MONO, Note, Row } from './ui';
 
 // ─── Porte ─────────────────────────────────────────────────────────────────
@@ -185,6 +187,38 @@ export function DoorTab(p: GuestTabProps) {
 
 // ─── Infos & contrat ───────────────────────────────────────────────────────
 
+/** Sa photo de profil : la changer ou la retirer (compte rattaché seulement). */
+function PhotoCard(p: GuestTabProps) {
+  const { d, w } = p;
+  const g = d.guest!;
+  const [busy, setBusy] = useState(false);
+  const save = async (file: File | null) => {
+    setBusy(true);
+    await saveGuestPhoto(p, file, (err) => guestErrorText(guestErrorCode(err), w));
+    setBusy(false);
+  };
+  const { input, pick } = usePhotoPicker((f) => void save(f));
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center gap-4">
+        <GuestAvatar url={g.photo_url} name={g.name} kind={g.kind} size={56} />
+        <div className="min-w-0 flex-1">
+          <div style={{ color: T1, fontSize: 14, fontWeight: 650 }}>{w('guestSpace.photo.title')}</div>
+          <div style={{ color: T3, fontSize: 12.5, lineHeight: 1.45 }}>{w('guestSpace.photo.sub', { org: d.event?.organizer_name ?? '' })}</div>
+          <div style={{ color: T3, fontSize: 11.5 }}>{w('guestSpace.photo.hint')}</div>
+        </div>
+        <div className="flex gap-1.5">
+          <OrgButton size="sm" disabled={busy} onClick={pick}>
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}{g.photo_url ? w('guestSpace.photo.change') : w('guestSpace.photo.add')}
+          </OrgButton>
+          {g.photo_url && <OrgButton size="sm" variant="ghost" disabled={busy} onClick={() => void save(null)}>{w('guestSpace.photo.remove')}</OrgButton>}
+        </div>
+        {input}
+      </div>
+    </Card>
+  );
+}
+
 export function InfoTab(p: GuestTabProps) {
   const { d, w, num, date } = p;
   const ev = d.event!;
@@ -210,6 +244,7 @@ export function InfoTab(p: GuestTabProps) {
   );
   return (
     <div className="space-y-4">
+      {d.guest?.account_email && <PhotoCard {...p} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHead title={w('guestSpace.info.night')} sub={w('guestSpace.info.nightSub')} />

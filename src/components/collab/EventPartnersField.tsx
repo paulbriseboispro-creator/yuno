@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader2, Mail, Plus, Search, UserRound, X } from 'lucide-react';
 import { OrgButton, OrgPill, OrgTabs, DarkInput, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { searchCoorgPartners, type CoorgPartnerCandidate } from '@/lib/coorg';
@@ -9,6 +9,16 @@ import {
 import { PartyAvatar, useCoorgT } from '@/components/coorg/coorgUi';
 import { Switch } from '@/components/ui/switch';
 import { guestUiWords, type GuestSpaceLanguage } from '@/lib/guestSpace';
+import { GuestAvatarButton } from '@/components/guest-space/GuestPhoto';
+
+/** La photo choisie pour un invité pas encore créé : aperçu local, envoyée à l'enregistrement. */
+function GuestDraftPhoto({ file, name, kind, label, onFile }: {
+  file: File | null; name: string; kind: 'org' | 'venue'; label: string; onFile: (f: File) => void;
+}) {
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  return <GuestAvatarButton url={url} name={name} kind={kind} size={28} label={label} onFile={onFile} />;
+}
 
 const MAX_INVITES = 8;
 
@@ -85,6 +95,7 @@ export function EventPartnersField({
     guestLang?: GuestSpaceLanguage; guestRevenue?: boolean; guestPlaces?: number;
     guestContract?: { tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30 } | null;
     guestDoor?: 'organizer' | 'guest' | 'both';
+    guestPhoto?: File | null;
   }) =>
     onChange(drafts.map((d) => (partnerDraftKey(d) === key && d.source === 'email' ? { ...d, ...patch } : d)));
   const remove = (key: string) => onChange(drafts.filter((d) => partnerDraftKey(d) !== key));
@@ -172,6 +183,8 @@ export function EventPartnersField({
             <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{roleHint(d)}</p>
             {d.role === 'guest' && d.source === 'email' && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-0.5">
+                <GuestDraftPhoto file={d.guestPhoto ?? null} name={d.name || d.email} kind={d.kind} label={gw('guestSpace.org.photo')}
+                  onFile={(f) => patchGuest(key, { guestPhoto: f })} />
                 <div className="flex items-center gap-2">
                   <span style={{ color: T3, fontSize: 11.5 }}>{gw('guestSpace.org.language')}</span>
                   <OrgTabs size="sm" value={d.guestLang ?? guestLanguage} onChange={(v) => patchGuest(key, { guestLang: v as GuestSpaceLanguage })}

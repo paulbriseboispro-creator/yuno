@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { inviteCohostByEmail, inviteEventCohost, coorgErrorCode, type PrincipalTerms } from '@/lib/coorg';
 import { clubEmailInviteRules, type PartnerDraft } from '@/lib/collabInvite';
 import { capturePosthog } from '@/lib/posthog';
-import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEmail, setGuestPassDoor } from '@/lib/guestSpace';
+import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEmail, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto } from '@/lib/guestSpace';
 
 /**
  * Envoie les invitations choisies dans « Avec qui ? », une fois la soirée
@@ -42,6 +42,9 @@ export async function sendPartnerInvites(p: {
         sent += 1;
         if (d.kind === 'venue' && d.guestDoor && d.guestDoor !== 'both') {
           try { await setGuestPassDoor(pass.id, d.guestDoor); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
+        }
+        if (d.guestPhoto instanceof File) {
+          try { await setGuestPassPhoto(pass.id, await uploadGuestPhoto(pass.id, d.guestPhoto)); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
         }
         // Le contrat avant l'email : l'email dit alors qu'un contrat attend sa signature.
         if (d.guestContract) {
