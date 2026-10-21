@@ -2,15 +2,15 @@ import { useState, type ReactNode } from 'react';
 import { Check, Loader2, PenLine } from 'lucide-react';
 import { OrgButton, OrgPill, DarkInput, DarkTextarea, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import {
-  confirmGuestTransfer, formatIban, guestErrorCode, guestErrorText, isValidIban, requestGuestCode, setGuestIban, signGuestContract,
+  confirmGuestTransfer, formatIban, guestErrorCode, guestErrorText, isValidIban, setGuestIban, signGuestContract,
 } from '@/lib/guestSpace';
 import type { GuestTabProps } from './context';
 import { Card, CardHead, Label, MONO, Note, Row, Steps } from './ui';
 
 /**
  * L'onglet Argent quand l'organisateur a proposé un CONTRAT à l'invité
- * (mode `guest_contract`) : l'invité le lit, le signe avec un code reçu par
- * email, donne son IBAN (code aussi), puis suit le décompte et le virement.
+ * (mode `guest_contract`) : l'invité le lit et le signe depuis son compte Yuno
+ * rattaché à l'accès, donne son IBAN, puis suit le décompte et le virement.
  * Yuno n'est pas partie au contrat et ne verse rien : c'est écrit dedans.
  */
 export function GuestContractMoney(p: GuestTabProps & { statement: ReactNode; shareCard: ReactNode; answer: ReactNode }) {
@@ -42,7 +42,7 @@ export function GuestContractMoney(p: GuestTabProps & { statement: ReactNode; sh
               date: c.signed_at ? date(c.signed_at, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '',
               name: c.signer_name ?? '', guest: d.guest?.name ?? '', orgSigner: c.org_signer ?? '', org: d.event?.organizer_name ?? '',
             })
-            : w('guestSpace.contract.proposedSub', { org: d.event?.organizer_name ?? '', email: d.guest?.contact_email ?? '' })}
+            : w('guestSpace.contract.proposedSub', { org: d.event?.organizer_name ?? '' })}
           right={<OrgPill tone={signed ? 'success' : 'warn'}>{signed ? w('guestSpace.contract.signed') : w('guestSpace.contract.toSign')} · {w('guestSpace.contract.version', { n: c.version })}</OrgPill>}
         />
         {showText ? <ContractText {...p} /> : (
@@ -106,43 +106,15 @@ function ContractText({ d, w, date, num }: GuestTabProps) {
   );
 }
 
-/** Demander un code par email, puis le saisir. */
-function useCode(p: GuestTabProps, purpose: 'sign' | 'iban') {
-  const [sent, setSent] = useState<{ email: string; demo: string | null } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const ask = async () => {
-    setBusy(true);
-    try {
-      const r = await requestGuestCode(p.token, purpose);
-      setSent({ email: r.email, demo: r.demoCode });
-    } catch (err) {
-      p.toast(guestErrorText(guestErrorCode(err), p.w), 'err');
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { sent, busy, ask };
-}
-
-function CodeHint({ w, sent }: Pick<GuestTabProps, 'w'> & { sent: { email: string; demo: string | null } }) {
-  return (
-    <p style={{ color: T3, fontSize: 12 }}>
-      {sent.demo ? w('guestSpace.contract.codeDemo', { code: sent.demo }) : w('guestSpace.contract.codeSent', { email: sent.email })}
-    </p>
-  );
-}
-
 function SignBox(p: GuestTabProps) {
   const { d, w, token, reload, toast } = p;
   const c = d.money!.contract!;
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const { sent, busy: asking, ask } = useCode(p, 'sign');
   const sign = async () => {
     setBusy(true);
     try {
-      await signGuestContract(token, name.trim(), code.trim(), c.version);
+      await signGuestContract(token, name.trim(), c.version);
       toast(w('guestSpace.contract.signedToast', { org: d.event?.organizer_name ?? '' }));
       await reload();
     } catch (err) {
@@ -159,24 +131,10 @@ function SignBox(p: GuestTabProps) {
       {name.trim().length >= 3 && (
         <p style={{ color: T3, fontSize: 12 }}>{w('guestSpace.contract.agree', { name: name.trim(), guest: d.guest?.name ?? '' })}</p>
       )}
-      {!sent ? (
-        <OrgButton variant="primary" disabled={asking || name.trim().length < 3} onClick={() => void ask()}>
-          {asking ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
-          {w('guestSpace.contract.sendCode')}
-        </OrgButton>
-      ) : (
-        <>
-          <CodeHint w={w} sent={sent} />
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="w-40"><DarkInput value={code} onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} placeholder={w('guestSpace.contract.codePh')} inputMode="numeric" maxLength={6} /></div>
-            <OrgButton variant="primary" disabled={busy || code.length !== 6 || name.trim().length < 3} onClick={() => void sign()}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {w('guestSpace.contract.sign')}
-            </OrgButton>
-            <OrgButton size="sm" variant="ghost" disabled={asking} onClick={() => void ask()}>{w('guestSpace.contract.resendCode')}</OrgButton>
-          </div>
-        </>
-      )}
+      <OrgButton variant="primary" disabled={busy || name.trim().length < 3} onClick={() => void sign()}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
+        {w('guestSpace.contract.sign')}
+      </OrgButton>
     </div>
   );
 }
@@ -189,14 +147,12 @@ function IbanBox(p: GuestTabProps) {
   const [edit, setEdit] = useState(!tr?.iban_set);
   const [iban, setIban] = useState('');
   const [holder, setHolder] = useState(d.guest?.name ?? '');
-  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const { sent, busy: asking, ask } = useCode(p, 'iban');
   const ok = isValidIban(iban) && holder.trim().length >= 2;
   const save = async () => {
     setBusy(true);
     try {
-      await setGuestIban(token, iban, holder.trim(), code.trim());
+      await setGuestIban(token, iban, holder.trim());
       toast(w('guestSpace.contract.ibanSaved'));
       setEdit(false);
       await reload();
@@ -210,7 +166,7 @@ function IbanBox(p: GuestTabProps) {
     <Card>
       <CardHead
         title={w('guestSpace.contract.ibanTitle')}
-        sub={w('guestSpace.contract.ibanSub', { collector: m.collector_name ?? d.event?.organizer_name ?? '', email: m.contract?.signer_email ?? d.guest?.contact_email ?? '' })}
+        sub={w('guestSpace.contract.ibanSub', { collector: m.collector_name ?? d.event?.organizer_name ?? '' })}
         right={<OrgPill tone={tr?.iban_set ? 'success' : 'warn'}>{tr?.iban_set ? w('guestSpace.money.ibanSet') : w('guestSpace.money.ibanMissing')}</OrgPill>}
       />
       {!edit && tr?.iban_set ? (
@@ -223,21 +179,9 @@ function IbanBox(p: GuestTabProps) {
           <DarkInput value={formatIban(iban)} onChange={setIban} placeholder={w('guestSpace.contract.ibanPh')} maxLength={42} />
           <DarkInput value={holder} onChange={setHolder} placeholder={w('guestSpace.contract.holderPh')} maxLength={120} />
           {iban.replace(/\s/g, '').length >= 15 && !isValidIban(iban) && <Note tone="amber">{w('guestSpace.err.invalid_iban')}</Note>}
-          {!sent ? (
-            <OrgButton variant="primary" disabled={asking || !ok} onClick={() => void ask()}>
-              {asking && <Loader2 className="h-4 w-4 animate-spin" />}{w('guestSpace.contract.ibanSave')}
-            </OrgButton>
-          ) : (
-            <>
-              <CodeHint w={w} sent={sent} />
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-40"><DarkInput value={code} onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} placeholder={w('guestSpace.contract.codePh')} inputMode="numeric" maxLength={6} /></div>
-                <OrgButton variant="primary" disabled={busy || code.length !== 6 || !ok} onClick={() => void save()}>
-                  {busy && <Loader2 className="h-4 w-4 animate-spin" />}{w('guestSpace.contract.ibanSave')}
-                </OrgButton>
-              </div>
-            </>
-          )}
+          <OrgButton variant="primary" disabled={busy || !ok} onClick={() => void save()}>
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}{w('guestSpace.contract.ibanSave')}
+          </OrgButton>
         </div>
       )}
     </Card>

@@ -1,10 +1,12 @@
 /**
  * L'ESPACE INVITÉ d'une soirée (`event_guest_passes`, plan
  * `docs/designs/EVENT_HOST_PASS_PLAN.md` §9, migrations 20261105200000 →
- * 240000). Un club ou une organisation invités sur UNE soirée en collab y
- * suivent ventes, guest list, liens, argent et porte, sans compte. Le nom
- * visible est À NOMMER par Paul : les mots vivent dans `guest-space-words.ts`
- * (famille `guestSpace.*`).
+ * 20261108200000). Un club ou une organisation invités sur UNE soirée en collab
+ * y suivent ventes, guest list, liens, argent et porte, avec un compte Yuno
+ * SIMPLE rattaché à l'accès (décision de Paul, 21/10) : l'invitation `/h/<jeton>`
+ * ne sert qu'à rattacher l'accès au compte, l'espace vit ensuite à
+ * `/invite/<id de l'accès>`, gardé par la session. Les mots vivent dans
+ * `guest-space-words.ts` (famille `guestSpace.*`).
  *
  * Règles pures partagées par l'espace et la Console, testées dans
  * `__tests__/guestSpace.test.ts`.
@@ -22,14 +24,21 @@ export {
 } from '../../supabase/functions/_shared/guest-space-words';
 export type { GuestSpaceLanguage, GuestSpaceWordKey, GuestSpaceWords } from '../../supabase/functions/_shared/guest-space-words';
 
-/** Chemin provisoire de l'espace (à confirmer par Paul). */
-export const GUEST_SPACE_PATH = '/h/';
+/** L'invitation (jeton à usage unique) et l'espace (id de l'accès, session). */
+export const GUEST_INVITE_PATH = '/h/';
+export const GUEST_SPACE_PATH = '/invite/';
 export type GuestKind = 'venue' | 'org';
 export type GuestTab = 'home' | 'sales' | 'mkt' | 'money' | 'door' | 'info';
 export const GUEST_TABS: GuestTab[] = ['home', 'sales', 'mkt', 'money', 'door', 'info'];
 
 export const isGuestToken = (t: string | undefined | null): t is string => !!t && /^[0-9a-f]{32}$/.test(t);
-export const guestSpaceUrl = (token: string, base: string = PUBLIC_BASE_URL) => `${base.replace(/\/+$/, '')}${GUEST_SPACE_PATH}${token}`;
+export const isGuestPassId = (t: string | undefined | null): t is string =>
+  !!t && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t);
+/** Le lien d'INVITATION (réclamation par un compte). */
+export const guestInviteUrl = (token: string, base: string = PUBLIC_BASE_URL) => `${base.replace(/\/+$/, '')}${GUEST_INVITE_PATH}${token}`;
+/** L'adresse stable de l'espace (ouverte par le compte rattaché). */
+export const guestSpacePath = (passId: string) => `${GUEST_SPACE_PATH}${passId}`;
+export const guestSpaceUrl = (passId: string, base: string = PUBLIC_BASE_URL) => `${base.replace(/\/+$/, '')}${guestSpacePath(passId)}`;
 export const guestLinkUrl = (code: string, base: string = PUBLIC_BASE_URL) => partnerLinkUrl(base, code);
 export const doorInviteUrl = (token: string, base: string = PUBLIC_BASE_URL) => `${base.replace(/\/+$/, '')}/accept-staff-invitation?door=${token}`;
 
@@ -59,7 +68,11 @@ export interface GuestSpaceData {
   guest?: {
     kind: GuestKind; name: string; contact_email: string | null; party: string | null;
     claim_status: 'pending' | 'accepted' | 'recorded' | null; party_name: string | null; places_requested: number | null;
+    door_mode?: GuestDoorMode | null; account_email?: string | null;
   };
+  pass_id?: string;
+  /** Pas de session : l'espace s'ouvre après connexion. */
+  sign_in?: boolean;
   show_revenue?: boolean;
   money_visible?: boolean;
   closes_at?: string;
@@ -72,6 +85,8 @@ export interface GuestSpaceData {
   door_staff?: DoorStaffRow[] | null;
   event?: {
     title: string; start_at: string; end_at: string | null; timezone: string; poster_url: string | null;
+    /** Visuels de la page soirée, tels quels (16:9, vidéo). */
+    wide_url?: string | null; video_url?: string | null;
     location_name: string | null; location_city: string | null; location_address: string | null;
     organizer_name: string; organizer_avatar: string | null; event_mode: string | null;
     ticket_selling_mode: string | null; tables_enabled: boolean;
@@ -216,17 +231,17 @@ export function readyPostText(w: GuestSpaceWords, p: {
 
 const CLAIM_KEY = 'yuno:guest-space-claim';
 
-export function rememberGuestClaim(token: string): void {
-  try { localStorage.setItem(CLAIM_KEY, JSON.stringify({ token, at: Date.now() })); } catch { /* stockage indisponible */ }
+export function rememberGuestClaim(passId: string): void {
+  try { localStorage.setItem(CLAIM_KEY, JSON.stringify({ passId, at: Date.now() })); } catch { /* stockage indisponible */ }
 }
 
 export function readGuestClaim(maxAgeMs = 14 * 86400_000): string | null {
   try {
     const raw = localStorage.getItem(CLAIM_KEY);
     if (!raw) return null;
-    const v = JSON.parse(raw) as { token?: string; at?: number };
-    if (!isGuestToken(v.token) || !v.at || Date.now() - v.at > maxAgeMs) return null;
-    return v.token;
+    const v = JSON.parse(raw) as { passId?: string; at?: number };
+    if (!isGuestPassId(v.passId) || !v.at || Date.now() - v.at > maxAgeMs) return null;
+    return v.passId;
   } catch {
     return null;
   }
@@ -339,7 +354,35 @@ const rpc = async (name: string, args: Record<string, unknown>) => {
   return data;
 };
 
-export const loadGuestSpace = (token: string) => rpc('get_event_guest_space', { p_token: token }) as Promise<GuestSpaceData>;
+/** L'espace, par l'id de l'accès ; exige la session du compte rattaché (ou l'équipe de l'organisateur). */
+export const loadGuestSpace = (passId: string) => rpc('get_event_guest_space', { p_token: passId }) as Promise<GuestSpaceData>;
+
+// ─── Invitation (jeton à usage unique) et compte rattaché ───────────────────
+
+export type GuestDoorMode = 'organizer' | 'guest' | 'both';
+export interface GuestInvite {
+  state: 'valid' | 'mine' | 'taken' | 'expired' | 'revoked' | 'closed' | 'not_found';
+  pass_id?: string | null; language?: string; guest_name?: string; guest_kind?: GuestKind;
+  invite_email?: string | null; inviter_name?: string; event_title?: string; event_start_at?: string;
+  timezone?: string; poster_url?: string | null; location_name?: string | null; location_city?: string | null;
+}
+export interface MyGuestPass {
+  pass_id: string; guest_name: string; guest_kind: GuestKind; event_title: string; event_start_at: string;
+  poster_url: string | null; inviter_name: string | null;
+}
+export const loadGuestInvite = (token: string) => rpc('get_event_guest_pass_invite', { p_token: token }) as Promise<GuestInvite>;
+export const redeemGuestInvite = (token: string) => rpc('redeem_event_guest_pass', { p_token: token }) as Promise<{ ok: boolean; pass_id: string }>;
+export const loadMyGuestPasses = () => rpc('get_my_guest_passes', {}) as Promise<MyGuestPass[]>;
+/** Le lien à partager : l'espace s'il est rattaché, sinon une invitation neuve (chaque appel en crée une). */
+export const getGuestPassLink = (passId: string) =>
+  rpc('get_event_guest_pass_link', { p_pass_id: passId }) as Promise<{ linked: boolean; pass_id: string; token?: string; account_email?: string }>;
+export const resetGuestPassAccess = (passId: string) =>
+  rpc('reset_event_guest_pass_access', { p_pass_id: passId }) as Promise<{ ok: boolean; pass_id: string; token: string }>;
+export const setGuestPassDoor = (passId: string, mode: GuestDoorMode) => rpc('set_event_guest_pass_door', { p_pass_id: passId, p_mode: mode });
+/** L'adresse à donner pour un accès : l'espace s'il est rattaché, sinon l'invitation. */
+export function guestShareUrl(r: { linked: boolean; pass_id: string; token?: string }): string {
+  return r.linked || !r.token ? guestSpaceUrl(r.pass_id) : guestInviteUrl(r.token);
+}
 export const addGuest = (token: string, name: string, plus: number) => rpc('guest_pass_add_guest', { p_token: token, p_name: name, p_plus: plus });
 export const removeGuest = (token: string, entryId: string) => rpc('guest_pass_remove_guest', { p_token: token, p_entry_id: entryId });
 export const requestPlaces = (token: string, places: number) => rpc('guest_pass_request_places', { p_token: token, p_places: places });
@@ -354,7 +397,7 @@ export function trackGuestSpace(token: string, action: 'signup' | 'whatsapp' | '
   void rpc('track_event_guest_pass', { p_token: token, p_action: action }).catch(() => { /* mesure, jamais bloquant */ });
 }
 
-/** Email d'une invitation de porte (sans compte : le jeton de l'espace suffit). */
+/** Email d'une invitation de porte (par l'organisateur, ou par l'invité connecté : `passId` = son accès). */
 export async function sendDoorInviteEmail(staffId: string, passToken: string | null): Promise<void> {
   const { data, error } = await supabase.functions.invoke('invite-organizer-collab', {
     body: { kind: 'door_staff', staff_id: staffId, pass_token: passToken },
@@ -371,7 +414,10 @@ export async function sendDoorInviteEmail(staffId: string, passToken: string | n
 
 export interface GuestPassRow {
   id: string; guest_kind: GuestKind; guest_name: string; contact_email: string | null; contact_phone: string | null;
-  language: GuestSpaceLanguage; token: string; show_revenue: boolean; opened_count: number;
+  language: GuestSpaceLanguage; show_revenue: boolean; opened_count: number;
+  /** Compte rattaché (réclamé) : son adresse, quand. Sinon l'invitation attend. */
+  account_email: string | null; account_linked_at: string | null; invite_pending: boolean;
+  door_mode: GuestDoorMode | null;
   first_opened_at: string | null; last_opened_at: string | null; email_sent_count: number; email_sent_at: string | null;
   signup_clicks: number; revoked: boolean; created_at: string;
   share_tickets_pct: number | null; share_tables_pct: number | null;
@@ -428,25 +474,12 @@ export const proposeGuestContract = (passId: string, t: GuestContractTerms) => r
 export const cancelGuestContract = (passId: string) => rpc('set_event_guest_pass_contract', { p_pass_id: passId, p_cancel: true });
 export const markGuestTransferSent = (passId: string, reference: string | null) =>
   rpc('mark_guest_pass_transfer_sent', { p_pass_id: passId, p_reference: reference });
-export const signGuestContract = (token: string, name: string, code: string, version: number) =>
-  rpc('guest_pass_sign_contract', { p_token: token, p_signer_name: name, p_code: code, p_version: version });
-export const setGuestIban = (token: string, iban: string, holder: string, code: string) =>
-  rpc('guest_pass_set_iban', { p_token: token, p_iban: iban, p_holder: holder, p_code: code });
+export const signGuestContract = (passId: string, name: string, version: number) =>
+  rpc('guest_pass_sign_contract', { p_token: passId, p_signer_name: name, p_version: version });
+export const setGuestIban = (passId: string, iban: string, holder: string) =>
+  rpc('guest_pass_set_iban', { p_token: passId, p_iban: iban, p_holder: holder });
 export const confirmGuestTransfer = (token: string, received: boolean, reason?: string) =>
   rpc('guest_pass_confirm_transfer', { p_token: token, p_received: received, p_reason: reason ?? null });
-
-/** Le code à 6 chiffres part par email (jamais dans la réponse, sauf démo). */
-export async function requestGuestCode(token: string, purpose: 'sign' | 'iban'): Promise<{ email: string; demoCode: string | null }> {
-  const { data, error } = await supabase.functions.invoke('invite-organizer-collab', { body: { kind: 'guest_code', token, purpose } });
-  if (error) {
-    let code = 'generic';
-    try { code = (await (error as { context?: Response }).context?.json())?.error ?? code; } catch { /* corps illisible */ }
-    throw new Error(code);
-  }
-  const r = data as { error?: string; email?: string; demo_code?: string } | null;
-  if (r?.error) throw new Error(r.error);
-  return { email: r?.email ?? '', demoCode: r?.demo_code ?? null };
-}
 
 /** IBAN : espaces tous les 4 caractères, majuscules (affichage seulement). */
 export function formatIban(v: string): string {

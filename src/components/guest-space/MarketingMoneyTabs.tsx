@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Download, Loader2, Plus } from 'lucide-react';
+import { Copy, Download, ExternalLink, Loader2, Plus } from 'lucide-react';
 import { OrgButton, OrgPill, DarkTextarea, POS, T1, T2, T3, BORDER } from '@/components/org-ui';
 import {
   answerStatement, createGuestLink, guestErrorCode, guestErrorText, guestLinkUrl, readyPostText, trackGuestSpace,
@@ -9,6 +9,13 @@ import { Card, CardHead, Kpi, KpiGrid, Label, MONO, Note, Row, Steps, Table } fr
 import { GuestContractMoney } from './GuestContractMoney';
 
 const CHANNELS = ['direct', 'story', 'bio', 'whatsapp', 'other'] as const;
+
+/** Nom de fichier d'un visuel : la soirée + le format, extension de l'URL. */
+function visualName(title: string, kind: string, url: string) {
+  const ext = (url.split('?')[0].match(/\.([a-z0-9]{2,4})$/i)?.[1] ?? 'jpg').toLowerCase();
+  const base = title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'yuno';
+  return `${base}-${kind}.${ext}`;
+}
 
 // ─── Marketing ─────────────────────────────────────────────────────────────
 
@@ -35,6 +42,26 @@ export function MarketingTab(p: GuestTabProps) {
   };
 
   const ev = d.event!;
+  const visuals = [
+    ev.poster_url && { kind: 'square', url: ev.poster_url, label: w('guestSpace.mkt.poster') },
+    ev.wide_url && { kind: 'wide', url: ev.wide_url, label: w('guestSpace.mkt.wide') },
+    ev.video_url && { kind: 'video', url: ev.video_url, label: w('guestSpace.mkt.video') },
+  ].filter(Boolean) as { kind: string; url: string; label: string }[];
+  // Le fichier lui-même (un lien vers une autre origine ne se télécharge pas : il s'ouvrirait).
+  const download = async (url: string, filename: string, kind: string) => {
+    setBusy(`dl:${kind}`);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const { deliverDocument } = await import('@/lib/generateDocuments');
+      await deliverDocument(await res.blob(), filename, ev.title);
+      trackGuestSpace(token, 'share');
+    } catch {
+      window.open(url, '_blank', 'noopener');
+    } finally {
+      setBusy(null);
+    }
+  };
   // Le prix d'appel : le moins cher des billets PAYANTS en vente (un billet gratuit n'en est pas un).
   const prices = (d.tickets ?? []).filter((t) => t.status === 'on_sale' && Number(t.price) > 0).map((t) => Number(t.price));
   const dayLabel = date(ev.start_at, { weekday: 'long', day: 'numeric' });
@@ -101,14 +128,26 @@ export function MarketingTab(p: GuestTabProps) {
 
       <Card>
         <CardHead title={w('guestSpace.mkt.visuals')} sub={w('guestSpace.mkt.visualsSub', { org })} />
-        {ev.poster_url ? (
-          <div className="flex flex-wrap items-end gap-4">
-            {/* L'affiche telle qu'elle vit sur Yuno, jamais recadrée dans un format qu'elle n'a pas. */}
-            <img src={ev.poster_url} alt="" className="rounded-lg object-contain" style={{ maxWidth: 160, maxHeight: 160, border: `1px solid ${BORDER}` }} />
-            <OrgButton size="sm" href={ev.poster_url}><Download className="h-3.5 w-3.5" /> {w('guestSpace.mkt.download')}</OrgButton>
+        {visuals.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* Les visuels tels qu'ils vivent sur Yuno (1:1, 16:9, vidéo), jamais recadrés dans un format qu'ils n'ont pas. */}
+            {visuals.map((v) => (
+              <div key={v.kind} className="flex flex-col gap-2">
+                <Label>{v.label}</Label>
+                {v.kind === 'video'
+                  ? <video src={v.url} controls playsInline preload="metadata" className="w-full rounded-lg bg-black" style={{ maxHeight: 220, border: `1px solid ${BORDER}` }} />
+                  : <img src={v.url} alt="" className="w-full rounded-lg object-contain" style={{ maxHeight: 220, border: `1px solid ${BORDER}` }} />}
+                <div className="flex flex-wrap gap-1.5">
+                  <OrgButton size="sm" disabled={busy === `dl:${v.kind}`} onClick={() => void download(v.url, visualName(ev.title, v.kind, v.url), v.kind)}>
+                    {busy === `dl:${v.kind}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} {w('guestSpace.mkt.download')}
+                  </OrgButton>
+                  <OrgButton size="sm" variant="ghost" href={v.url}><ExternalLink className="h-3.5 w-3.5" /> {w('guestSpace.mkt.open')}</OrgButton>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
-          <p style={{ color: T3, fontSize: 13 }}>{w('guestSpace.mkt.noPoster', { org })}</p>
+          <p style={{ color: T3, fontSize: 13 }}>{w('guestSpace.mkt.noVisuals', { org })}</p>
         )}
         {text && (
           <>

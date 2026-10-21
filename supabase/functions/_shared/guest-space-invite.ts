@@ -7,10 +7,10 @@
 // plus, 10 min entre deux, jamais en accès assisté). Ici on n'envoie que l'email,
 // et jamais vers une adresse démo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { buildGuestCodeEmail, buildGuestSpaceEmail } from "./guest-space-email.ts";
+import { buildGuestSpaceEmail } from "./guest-space-email.ts";
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
-// Le lien de la page porte un jeton vivant : jamais une origine choisie par l'appelant.
+// Le lien porte une invitation vivante : jamais une origine choisie par l'appelant.
 const isAllowedOrigin = (o: string) => o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
 export interface GuestSpaceInviteBody {
@@ -20,7 +20,9 @@ export interface GuestSpaceInviteBody {
 }
 
 interface PreparedGuestSpaceEmail {
-  token: string;
+  /** Invitation à usage unique tant que l'accès n'a pas de compte ; null une fois rattaché. */
+  token: string | null;
+  pass_id: string;
   email: string;
   language: string;
   guest_name: string;
@@ -54,7 +56,9 @@ export async function handleGuestSpaceInvite(req: Request, b: GuestSpaceInviteBo
     }
     const inv = data as PreparedGuestSpaceEmail;
     const baseOrigin = b?.origin && isAllowedOrigin(b.origin) ? b.origin : DEFAULT_APP_ORIGIN;
-    const pageUrl = `${baseOrigin}/h/${inv.token}`;
+    // Rattaché : l'e-mail mène à l'espace (connexion avec le compte, puis retour).
+    // Sinon : l'invitation, qui fait créer le compte ou s'y connecter.
+    const pageUrl = inv.token ? `${baseOrigin}/h/${inv.token}` : `${baseOrigin}/invite/${inv.pass_id}`;
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     let emailSent = false;
@@ -90,62 +94,3 @@ export async function handleGuestSpaceInvite(req: Request, b: GuestSpaceInviteBo
   }
 }
 
-const sender = () => {
-  const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
-  return rawFrom ? (rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`) : "Yuno <noreply@yunoapp.eu>";
-};
-const maskEmail = (e: string) => `${e.slice(0, 2)}•••@${e.split("@")[1] ?? ""}`;
-
-interface IssuedGuestCode {
-  code: string;
-  email: string;
-  language: string;
-  guest_name: string;
-  event_title: string | null;
-  purpose: "sign" | "iban";
-  is_demo: boolean;
-}
-
-/**
- * Action `kind: "guest_code"` : le code à 6 chiffres de l'invité (signature du
- * contrat, IBAN). SANS compte : le jeton de l'espace suffit, la RPC
- * `issue_guest_pass_code` (service_role) tient les règles et les limites. Le
- * code ne part que par email, jamais dans la réponse — sauf sur un compte démo,
- * qui n'envoie jamais rien.
- */
-export async function handleGuestCode(b: { token?: string; purpose?: string }, corsHeaders: Record<string, string>): Promise<Response> {
-  try {
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-      auth: { persistSession: false },
-    });
-    const { data, error } = await admin.rpc("issue_guest_pass_code", {
-      p_token: String(b?.token ?? ""),
-      p_purpose: b?.purpose === "iban" ? "iban" : "sign",
-    });
-    if (error) {
-      const code = /([a-z_]+)$/.exec(String(error.message ?? "").trim())?.[1] ?? "error";
-      return json({ error: code }, 400, corsHeaders);
-    }
-    const c = data as IssuedGuestCode;
-    if (c.is_demo === true) return json({ success: true, demo: true, demo_code: c.code, email: maskEmail(c.email) }, 200, corsHeaders);
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    if (!RESEND_API_KEY) return json({ error: "email_unavailable" }, 503, corsHeaders);
-    const mail = buildGuestCodeEmail({
-      lang: c.language, purpose: c.purpose, code: c.code, guestName: c.guest_name,
-      eventTitle: c.event_title ?? "", recipientEmail: c.email,
-    });
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-      body: JSON.stringify({ from: sender(), to: [c.email], subject: mail.subject, html: mail.html }),
-    });
-    if (!resp.ok) {
-      console.error("guest code email failed:", resp.status, await resp.text().catch(() => ""));
-      return json({ error: "email_failed" }, 502, corsHeaders);
-    }
-    return json({ success: true, email: maskEmail(c.email) }, 200, corsHeaders);
-  } catch (err: unknown) {
-    console.error("guest code error:", err);
-    return json({ error: "error" }, 500, corsHeaders);
-  }
-}

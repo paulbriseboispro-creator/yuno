@@ -363,7 +363,10 @@ export default function Auth() {
             email,
             password,
             options: {
-              emailRedirectTo: publicUrl('/auth'),
+              // Le lien de confirmation ramène là où l'inscription a commencé
+              // (ex. l'invitation à l'espace d'une soirée, /h/<jeton>).
+              emailRedirectTo: publicUrl(redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\')
+                ? `/auth?redirect=${encodeURIComponent(redirect)}` : '/auth'),
               data: {
                 first_name: firstNamePart || undefined,
                 last_name: lastNamePart || undefined,

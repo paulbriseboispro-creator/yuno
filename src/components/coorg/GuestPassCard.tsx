@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Building2, Copy, ExternalLink, FileSignature, Loader2, Mail, MessageCircle, Plus, Power, ScanLine, Settings2, UserPlus, Users,
+  Building2, Copy, ExternalLink, FileSignature, Loader2, Mail, MessageCircle, Plus, Power, RotateCcw, ScanLine, Settings2, UserPlus, Users,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { OrgCard, OrgButton, OrgPill, OrgSectionLabel, OrgTabs, DarkInput, DarkTextarea, POS, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
@@ -12,15 +12,22 @@ import { marketCountry } from '@/lib/geo';
 import { capturePosthog } from '@/lib/posthog';
 import {
   cancelGuestContract, createGuestPass, doorInviteUrl, formatIban, markGuestTransferSent, proposeGuestContract, guestErrorCode, guestErrorText, guestLanguageForEvent, guestSpaceLocale, guestSpaceShareText,
-  guestSpaceUrl, guestUiWords, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
+  getGuestPassLink, guestInviteUrl, guestShareUrl, guestSpacePath, guestUiWords, resetGuestPassAccess, setGuestPassDoor, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
   sendDoorInviteEmail, sendGuestPassEmail, toGuestSpaceLanguage, updateGuestPass, whatsappHref,
-  type DoorStaffRow, type GuestContractTerms, type GuestKind, type GuestPassRow, type GuestSpaceLanguage,
+  type DoorStaffRow, type GuestContractTerms, type GuestDoorMode, type GuestKind, type GuestPassRow, type GuestSpaceLanguage,
 } from '@/lib/guestSpace';
+import { openPendingTab } from '@/lib/stripeConnectClient';
 import { useCoorgErrorText, useCoorgT } from './coorgUi';
 
 const LANG_TABS = [{ value: 'es', label: 'ES' }, { value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }] as const;
 
 /** Deux choix indépendants à l'invitation (Paul, 20/10) : avec ou sans contrat, avec ou sans montants. */
+/** Qui tient la porte d'une soirée pour un club invité (organisateur seul, club seul, les deux). */
+const doorTabs = (w: ReturnType<typeof guestUiWords>) => [
+  { value: 'organizer', label: w('guestSpace.org.doorOrganizer') },
+  { value: 'guest', label: w('guestSpace.org.doorGuest') },
+  { value: 'both', label: w('guestSpace.org.doorBoth') },
+];
 const DEFAULT_TERMS: GuestContractTerms = { tickets_pct: 20, tables_pct: 10, payment_terms_days: 15, bar_to_guest: true, note: null };
 const eurFmt = (lang: string) => new Intl.NumberFormat(lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: 'EUR' });
 
@@ -55,6 +62,7 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
   const [money, setMoney] = useState(true);
   const [terms, setTerms] = useState<GuestContractTerms>(DEFAULT_TERMS);
   const [places, setPlaces] = useState(0);
+  const [door, setDoor] = useState<GuestDoorMode>('both');
 
   const load = useCallback(async () => {
     try {
@@ -99,36 +107,61 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
 
   const country = marketCountry(ev?.timezone, ev?.location_city) ?? undefined;
   const emailOk = !email.trim() || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
-  // Un contrat se signe avec un code envoyé par email : l'email devient obligatoire.
   const contractOn = canMoney && withContract;
-  const canCreate = name.trim().length > 0 && (email.trim() || phone.trim()) && emailOk && (!contractOn || !!email.trim());
+  const canCreate = name.trim().length > 0 && (email.trim() || phone.trim()) && emailOk;
 
   const create = () => run('create', async () => {
+    // Onglet WhatsApp ouvert dans le geste du clic (Safari bloque un window.open après un await).
+    const tab = !email.trim() && phone.trim() ? openPendingTab() : null;
     const pass = await createGuestPass({
       eventId, kind, name: name.trim(), email: email.trim() || null, phone: phone.trim() || null,
       language: lang, showRevenue: canMoney && money, places: places || null,
     });
     if (contractOn) await proposeGuestContract(pass.id, { ...terms, bar_to_guest: kind === 'venue' && terms.bar_to_guest });
+    if (kind === 'venue' && door !== 'both') await setGuestPassDoor(pass.id, door);
     capturePosthog('guest_space_created', { event_id: eventId, guest_kind: kind, source: 'coorg_page', show_revenue: pass.show_revenue, channel: email.trim() ? 'email' : 'whatsapp', contract: contractOn });
     if (email.trim()) {
       try { await sendGuestPassEmail(pass.id); toast.success(w('guestSpace.org.sent')); }
       catch (err) { toast.error(guestErrorText(guestErrorCode(err), w)); }
     } else {
       toast.success(w('guestSpace.org.created'));
-      const href = whatsappHref(phone, guestSpaceShareText(lang, { guest: name.trim(), event: eventTitle, page: guestSpaceUrl(pass.token) }));
-      if (href) window.open(href, '_blank', 'noopener');
+      const href = whatsappHref(phone, guestSpaceShareText(lang, { guest: name.trim(), event: eventTitle, page: guestInviteUrl(pass.token) }));
+      if (href && tab) tab.go(href); else tab?.close();
     }
     setOpen(false); setEmail(''); setPhone(''); setPlaces(0);
   });
 
-  const share = (r: GuestPassRow) => {
-    const text = guestSpaceShareText(toGuestSpaceLanguage(r.language), { guest: r.guest_name, event: eventTitle, page: guestSpaceUrl(r.token) });
-    window.open(whatsappHref(r.contact_phone, text) ?? `https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
-    capturePosthog('guest_space_shared', { event_id: eventId, channel: 'whatsapp' });
+  // Un lien à partager = l'espace s'il est déjà rattaché, sinon une invitation NEUVE (jeton à usage unique).
+  const share = async (r: GuestPassRow) => {
+    const tab = openPendingTab();
+    try {
+      const link = guestShareUrl(await getGuestPassLink(r.id));
+      const text = guestSpaceShareText(toGuestSpaceLanguage(r.language), { guest: r.guest_name, event: eventTitle, page: link });
+      tab.go(whatsappHref(r.contact_phone, text) ?? `https://wa.me/?text=${encodeURIComponent(text)}`);
+      capturePosthog('guest_space_shared', { event_id: eventId, channel: 'whatsapp' });
+    } catch (err) {
+      tab.close();
+      toast.error(guestErrorText(guestErrorCode(err), w));
+    }
   };
 
   const copy = async (r: GuestPassRow) => {
-    try { await navigator.clipboard.writeText(guestSpaceUrl(r.token)); toast.success(w('guestSpace.org.copied')); } catch { /* « Ouvrir l'espace » reste là */ }
+    try {
+      const link = guestShareUrl(await getGuestPassLink(r.id));
+      await navigator.clipboard.writeText(link);
+      toast.success(w('guestSpace.org.copied'));
+    } catch (err) {
+      toast.error(guestErrorText(guestErrorCode(err), w));
+    }
+  };
+
+  const resend = (r: GuestPassRow) => {
+    if (!window.confirm(w('guestSpace.org.resendConfirm'))) return;
+    void run(`reset:${r.id}`, async () => {
+      const res = await resetGuestPassAccess(r.id);
+      if (r.contact_email) await sendGuestPassEmail(r.id).catch(() => { /* le lien copié suffit */ });
+      try { await navigator.clipboard.writeText(guestInviteUrl(res.token)); } catch { /* presse-papier refusé */ }
+    }, w('guestSpace.org.resent'));
   };
 
   const when = (iso: string) => new Intl.DateTimeFormat(guestSpaceLocale(toGuestSpaceLanguage(language, 'fr')), {
@@ -169,6 +202,12 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
               <input type="number" min={0} max={500} value={places} onChange={(e) => setPlaces(Math.max(0, Math.min(500, Number(e.target.value) || 0)))}
                 className="w-16 rounded-lg px-2 py-1 tabular-nums" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }} />
             </label>
+            {kind === 'venue' && (
+              <div className="flex items-center gap-2">
+                <span style={{ color: T3, fontSize: 11.5 }}>{w('guestSpace.org.door')}</span>
+                <OrgTabs size="sm" value={door} onChange={(v) => setDoor(v as GuestDoorMode)} tabs={doorTabs(w)} />
+              </div>
+            )}
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <Choice w={w} label={w('guestSpace.org.contract')} value={contractOn} onChange={setWithContract} disabled={!canMoney}
@@ -178,12 +217,8 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
               off={w('guestSpace.org.amountsOff')} on={w('guestSpace.org.amountsOn')}
               hint={canMoney && money ? w('guestSpace.org.modeAmountsHint') : contractOn ? w('guestSpace.org.amountsOffContractHint') : w('guestSpace.org.modeStatsHint')} />
           </div>
-          {contractOn && (
-            <>
-              <ContractTermsFields w={w} value={terms} onChange={setTerms} isVenue={kind === 'venue'} />
-              {!email.trim() && <p style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>{w('guestSpace.org.contractNeedsEmail')}</p>}
-            </>
-          )}
+          {contractOn && <ContractTermsFields w={w} value={terms} onChange={setTerms} isVenue={kind === 'venue'} />}
+          {kind === 'venue' && <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>{w('guestSpace.org.doorHint')}</p>}
           <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>
             {canMoney ? '' : `${w('guestSpace.org.revenueLocked')} `}{w('guestSpace.org.roleHint')}
           </p>
@@ -204,7 +239,7 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
             editing={editing === r.id} onEdit={() => setEditing(editing === r.id ? null : r.id)}
             staffOpen={staffFor === r.id} onStaff={() => setStaffFor(staffFor === r.id ? null : r.id)}
             country={country} eventId={eventId} eventTitle={eventTitle}
-            run={run} share={share} copy={copy}
+            run={run} share={share} copy={copy} resend={resend}
             onInviteParty={() => {
               if (!r.guest_party) return;
               const id = r.guest_party.slice(r.guest_party.indexOf(':') + 1);
@@ -221,12 +256,12 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
   );
 }
 
-function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen, onStaff, country, eventId, eventTitle, run, share, copy, onInviteParty }: {
+function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen, onStaff, country, eventId, eventTitle, run, share, copy, resend, onInviteParty }: {
   r: GuestPassRow; w: ReturnType<typeof guestUiWords>; busy: string | null; canMoney: boolean; when: (iso: string) => string;
   staff: DoorStaffRow[]; editing: boolean; onEdit: () => void; staffOpen: boolean; onStaff: () => void;
   country: string | undefined; eventId: string; eventTitle: string;
   run: (key: string, fn: () => Promise<unknown>, ok?: string) => Promise<void>;
-  share: (r: GuestPassRow) => void; copy: (r: GuestPassRow) => Promise<void>; onInviteParty: () => void;
+  share: (r: GuestPassRow) => Promise<void>; copy: (r: GuestPassRow) => Promise<void>; resend: (r: GuestPassRow) => void; onInviteParty: () => void;
 }) {
   const [places, setPlaces] = useState(r.guest_list?.places ?? 0);
   const [st, setSt] = useState(r.share_tickets_pct ?? '');
@@ -266,6 +301,11 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
         </div>
         {r.email_sent_count > 0 && <OrgPill tone="default">{w('guestSpace.org.emailSent')}</OrgPill>}
       </div>
+      {!r.revoked && (
+        <p className="truncate" style={{ color: r.account_email ? T2 : T3, fontSize: 11.5 }}>
+          {r.account_email ? w('guestSpace.org.linkedTo', { email: r.account_email }) : w('guestSpace.org.notLinked')}
+        </p>
+      )}
 
       <p style={{ color: T3, fontSize: 11.5 }}>
         {r.guest_list ? `${w('guestSpace.org.glLine', { n: r.guest_list.registered, cap: r.guest_list.places })} · ` : ''}
@@ -312,13 +352,18 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
               {r.email_sent_count > 0 ? w('guestSpace.org.resend') : w('guestSpace.org.sendEmail')}
             </OrgButton>
           )}
-          <OrgButton size="sm" variant="secondary" onClick={() => share(r)}><MessageCircle className="h-3.5 w-3.5" /> {w('guestSpace.org.whatsapp')}</OrgButton>
+          <OrgButton size="sm" variant="secondary" onClick={() => void share(r)}><MessageCircle className="h-3.5 w-3.5" /> {w('guestSpace.org.whatsapp')}</OrgButton>
           <OrgButton size="sm" variant="ghost" onClick={() => void copy(r)}><Copy className="h-3.5 w-3.5" /> {w('guestSpace.org.copy')}</OrgButton>
-          <a href={guestSpaceUrl(r.token)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1" style={{ color: T2, fontSize: 12, fontWeight: 560 }}>
+          <a href={guestSpacePath(r.id)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1" style={{ color: T2, fontSize: 12, fontWeight: 560 }}>
             <ExternalLink className="h-3.5 w-3.5" /> {w('guestSpace.org.preview')}
           </a>
+          {r.account_email && (
+            <OrgButton size="sm" variant="ghost" disabled={!!busy} onClick={() => resend(r)}>
+              {busy === `reset:${r.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} {w('guestSpace.org.resendInvite')}
+            </OrgButton>
+          )}
           <OrgButton size="sm" variant="ghost" onClick={onEdit}><Settings2 className="h-3.5 w-3.5" /> {w('guestSpace.org.edit')}</OrgButton>
-          {canMoney && !contractActive && !proposing && r.contact_email && (
+          {canMoney && !contractActive && !proposing && (
             <OrgButton size="sm" variant="ghost" onClick={() => setProposing(true)}><FileSignature className="h-3.5 w-3.5" /> {w('guestSpace.org.contractPropose')}</OrgButton>
           )}
           {r.guest_kind === 'venue' && (
@@ -340,6 +385,13 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
                 onCheckedChange={(v) => run(`rev:${r.id}`, () => updateGuestPass(r.id, { showRevenue: v }))} />
               {w('guestSpace.org.showRevenue')}
             </label>
+            {r.guest_kind === 'venue' && (
+              <div className="flex items-center gap-2">
+                <span style={{ color: T3, fontSize: 12 }}>{w('guestSpace.org.door')}</span>
+                <OrgTabs size="sm" value={r.door_mode ?? 'both'} tabs={doorTabs(w)}
+                  onChange={(v) => { if (!busy && v !== r.door_mode) void run(`door:${r.id}`, () => setGuestPassDoor(r.id, v as GuestDoorMode), w('guestSpace.org.saved')); }} />
+              </div>
+            )}
           </div>
           {canMoney && (r.contract_status !== 'proposed' && r.contract_status !== 'signed') && (
             <div className="space-y-1.5">

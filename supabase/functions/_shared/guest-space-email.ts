@@ -60,33 +60,3 @@ export function buildGuestSpaceEmail(d: GuestSpaceEmailInput): { subject: string
   });
   return { subject, preheader, html };
 }
-
-export interface GuestCodeEmailInput {
-  lang: string;
-  purpose: 'sign' | 'iban';
-  code: string;
-  guestName: string;
-  eventTitle: string;
-  recipientEmail?: string | null;
-}
-
-/** Le code à 6 chiffres qui signe le contrat de l'invité, ou protège son IBAN. */
-export function buildGuestCodeEmail(d: GuestCodeEmailInput): { subject: string; html: string } {
-  const lang = toGuestSpaceLanguage(d.lang);
-  const w = guestSpaceWords(lang);
-  const vars = { code: d.code, event: d.eventTitle, guest: d.guestName };
-  const subject = w(d.purpose === 'sign' ? 'guestSpace.code.subjectSign' : 'guestSpace.code.subjectIban', vars);
-  const codeBox = `<div style="font-family:'Space Mono',ui-monospace,monospace;font-size:34px;letter-spacing:10px;font-weight:700;color:${C.white};padding:18px 0">${esc(d.code)}</div>`;
-  const html = shell({
-    title: subject,
-    preheader: w('guestSpace.code.valid'),
-    body: [
-      brandBar(),
-      section(title(d.eventTitle, 26) + `<div style="height:14px"></div>` +
-        body(esc(w(d.purpose === 'sign' ? 'guestSpace.code.introSign' : 'guestSpace.code.introIban', vars))) +
-        codeBox + body(esc(w('guestSpace.code.valid')), C.gray2), { border: false }),
-      footer({ lang, recipientEmail: d.recipientEmail ?? undefined, reason: w('guestSpace.code.reason', vars) }),
-    ].join(''),
-  });
-  return { subject, html };
-}

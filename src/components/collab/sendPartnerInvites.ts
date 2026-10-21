@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { inviteCohostByEmail, inviteEventCohost, coorgErrorCode, type PrincipalTerms } from '@/lib/coorg';
 import { clubEmailInviteRules, type PartnerDraft } from '@/lib/collabInvite';
 import { capturePosthog } from '@/lib/posthog';
-import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEmail } from '@/lib/guestSpace';
+import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEmail, setGuestPassDoor } from '@/lib/guestSpace';
 
 /**
  * Envoie les invitations choisies dans « Avec qui ? », une fois la soirée
@@ -14,7 +14,7 @@ import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEma
  *  • Club par email comme LIEU → `invite-club-collab`, qui crée son club à
  *    l'acceptation et applique le même accord.
  *  • Club ou organisation par email en ESPACE INVITÉ → `create_event_guest_pass`
- *    (son espace de la soirée, sans compte) puis l'email (`invite-organizer-collab`, `guest_pass`).
+ *    (son espace de la soirée, sur un compte Yuno simple) puis l'email (`invite-organizer-collab`, `guest_pass`).
  */
 export async function sendPartnerInvites(p: {
   eventId: string;
@@ -40,6 +40,9 @@ export async function sendPartnerInvites(p: {
           language: d.guestLang ?? p.lang, showRevenue: d.guestRevenue !== false, places: d.guestPlaces || null,
         });
         sent += 1;
+        if (d.kind === 'venue' && d.guestDoor && d.guestDoor !== 'both') {
+          try { await setGuestPassDoor(pass.id, d.guestDoor); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
+        }
         // Le contrat avant l'email : l'email dit alors qu'un contrat attend sa signature.
         if (d.guestContract) {
           try {

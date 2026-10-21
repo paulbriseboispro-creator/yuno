@@ -3,6 +3,7 @@ import { Loader2, MessageCircle, X } from 'lucide-react';
 import { OrgButton, OrgPill, DarkInput, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { marketCountry } from '@/lib/geo';
+import { openPendingTab } from '@/lib/stripeConnectClient';
 import {
   doorInviteUrl, guestErrorCode, guestErrorText, guestInviteDoorStaff, guestRevokeDoorStaff, sendDoorInviteEmail,
   whatsappHref, daysToNight,
@@ -24,18 +25,21 @@ function DoorStaffCard(p: GuestTabProps) {
 
   const invite = async () => {
     setBusy('inv');
+    // Onglet WhatsApp ouvert dans le geste du clic (Safari bloque un window.open après un await).
+    const tab = !email.trim() && phone.trim() ? openPendingTab() : null;
     try {
       const r = await guestInviteDoorStaff(token, name.trim(), email.trim() || null, phone.trim() || null);
       if (r.email) {
         try { await sendDoorInviteEmail(r.id, token); } catch (err) { toast(guestErrorText(guestErrorCode(err), w), 'err'); }
       } else if (r.phone) {
         const href = whatsappHref(r.phone, w('guestSpace.door.staffWhatsapp', { name: name.trim().split(' ')[0], event: d.event?.title ?? '', link: doorInviteUrl(r.invite_token) }));
-        if (href) window.open(href, '_blank', 'noopener');
-      }
+        if (href && tab) tab.go(href); else tab?.close();
+      } else tab?.close();
       toast(w('guestSpace.door.staffInvited'));
       setName(''); setEmail(''); setPhone('');
       await reload();
     } catch (err) {
+      tab?.close();
       toast(guestErrorText(guestErrorCode(err), w), 'err');
     } finally {
       setBusy(null);
@@ -85,11 +89,20 @@ function DoorStaffCard(p: GuestTabProps) {
   );
 }
 
+/** Qui tient la porte : l'organisateur seul, le club invité seul, ou les deux (défaut d'un club). */
+function doorModeOf(d: GuestTabProps['d']): 'organizer' | 'guest' | 'both' {
+  if (d.guest?.kind !== 'venue') return 'organizer';
+  return d.guest.door_mode ?? 'both';
+}
+
 export function DoorTab(p: GuestTabProps) {
   const { d, w, num, date } = p;
   const t = d.totals!;
   const org = d.event?.organizer_name ?? '';
-  const isVenue = d.guest?.kind === 'venue';
+  const mode = doorModeOf(d);
+  // Le club n'a son équipe à la porte que si la porte est à lui (ou partagée).
+  const staffOn = mode !== 'organizer';
+  const heldBy = mode === 'guest' ? w('guestSpace.door.byGuest') : mode === 'both' ? w('guestSpace.door.byBoth', { org }) : w('guestSpace.door.byOrganizer', { org });
   const door = d.door ?? { deadlines: [], drink_heads: 0, drink_cutoff: null };
   const expTables = t.tables.guests;
   const entered = t.entered.tickets + t.entered.tables + t.entered.guest_list;
@@ -99,10 +112,10 @@ export function DoorTab(p: GuestTabProps) {
     const toNight = daysToNight(d.event!.start_at, d.event!.timezone);
     return (
       <div className="space-y-4">
-        {isVenue && <DoorStaffCard {...p} />}
+        {staffOn && <DoorStaffCard {...p} />}
         <Card>
           <CardHead title={w('guestSpace.door.title')}
-            sub={w('guestSpace.door.sub', { org, withYou: isVenue ? w('guestSpace.door.withYou') : '', date: date(d.event!.start_at, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) })}
+            sub={w('guestSpace.door.sub', { heldBy, date: date(d.event!.start_at, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) })}
             right={<OrgPill tone="muted">{toNight > 0 ? w('guestSpace.door.opensIn', { n: num(toNight) }) : w('guestSpace.door.opensTonight')}</OrgPill>} />
           <KpiGrid>
             <Kpi label={w('guestSpace.kpi.tickets')} value={num(t.tickets.sold)} hint={w('guestSpace.door.toScan')} />
@@ -165,7 +178,7 @@ export function DoorTab(p: GuestTabProps) {
           </Row>
         ))}
       </Card>
-      {isVenue && <DoorStaffCard {...p} />}
+      {staffOn && <DoorStaffCard {...p} />}
     </div>
   );
 }
@@ -222,7 +235,8 @@ export function InfoTab(p: GuestTabProps) {
           <Row title={w('guestSpace.info.leads')} right={org} />
           <Row title={w('guestSpace.info.collects')} right={w('guestSpace.info.collectsValue', { name: collector })} />
           {isVenue && (!guestContract || guestContract.terms.bar_to_guest) && <Row title={w('guestSpace.info.bar')} right={w('guestSpace.info.barValue', { name: d.guest?.name ?? '' })} />}
-          <Row title={w('guestSpace.info.door')} right={w('guestSpace.info.doorValue', { name: org })} />
+          <Row title={w('guestSpace.info.door')} right={doorModeOf(d) === 'guest' ? w('guestSpace.info.doorYours')
+            : doorModeOf(d) === 'both' ? w('guestSpace.info.doorBoth', { name: org }) : w('guestSpace.info.doorValue', { name: org })} />
           {guestContract && (
             <div className="mt-3"><OrgButton size="sm" onClick={() => p.go('money')}>{w('guestSpace.contract.read')}</OrgButton></div>
           )}

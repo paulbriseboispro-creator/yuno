@@ -1,29 +1,33 @@
 /**
- * GuestSpacePage — /h/:token (chemin provisoire)
+ * GuestSpacePage — /invite/:passId
  *
  * L'ESPACE INVITÉ d'une soirée : un club ou une organisation invités sur UNE
  * soirée en collab (maquette validée par Paul,
  * `docs/designs/mockups/espace-invite-soiree.html`). La coquille de la Console
  * Yuno Tickets (barre latérale, en-tête, cartes sombres) réduite à cette
  * soirée, six onglets : Vue d'ensemble, Ventes, Marketing, Argent, Porte,
- * Infos & contrat. Sans compte pour regarder : le jeton est la clé
- * (get_event_guest_space). Agrégats seulement ; l'invité ne voit que SA part.
+ * Infos & contrat. L'espace s'ouvre avec le compte Yuno RATTACHÉ à l'accès
+ * (get_event_guest_space par l'id, session obligatoire ; l'équipe de
+ * l'organisateur peut le regarder). L'invitation /h/<jeton> ne fait que
+ * rattacher (GuestInvitePage). Agrégats seulement ; l'invité ne voit que SA part.
  *
  * Langue : celle choisie par l'organisateur, jamais celle du téléphone.
  * Conversion : une ligne au pied de la barre latérale, rien d'autre.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight, Banknote, CircleUser, Info, LayoutGrid, Loader2, Lock, Megaphone, ScanLine, Ticket,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Seo } from '@/components/Seo';
 import { OrgButton, OrgPill, RED, POS, T1, T2, T3, BORDER, CARD_BG } from '@/components/org-ui';
 import { capturePosthog } from '@/lib/posthog';
 import {
-  GUEST_TABS, daysToNight, guestNotifications, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestToken, loadGuestSpace,
+  GUEST_TABS, daysToNight, guestNotifications, guestSignupUrl, guestSpaceLocale, guestSpaceWords, isGuestPassId, loadGuestSpace,
   readGuestLang, readGuestSeen, rememberGuestClaim, toGuestSpaceLanguage, trackGuestSpace, writeGuestLang, writeGuestSeen,
   type GuestSpaceData, type GuestSpaceLanguage, type GuestTab,
 } from '@/lib/guestSpace';
@@ -40,7 +44,10 @@ const REFRESH_MS = 60_000;
 const LIVE_REFRESH_MS = 20_000;
 
 export default function GuestSpacePage() {
-  const { token } = useParams<{ token: string }>();
+  // `token` = l'id de l'accès (adresse /invite/<id>) : les gestes de l'espace le passent tel quel.
+  const { passId: token } = useParams<{ passId: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   const { language: visitorLanguage } = useLanguage();
   const [data, setData] = useState<GuestSpaceData | null>(null);
@@ -57,7 +64,8 @@ export default function GuestSpacePage() {
   }, [setSearch]);
 
   const load = useCallback(async () => {
-    if (!isGuestToken(token)) { setData({ found: false }); setLoading(false); return; }
+    if (!isGuestPassId(token)) { setData({ found: false }); setLoading(false); return; }
+    if (!user) return;
     try {
       const d = await loadGuestSpace(token);
       setFailed(false);
@@ -71,7 +79,14 @@ export default function GuestSpacePage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user]);
+
+  // Sans session, l'espace ne s'ouvre pas : connexion puis retour ici.
+  useEffect(() => {
+    if (!authLoading && !user && isGuestPassId(token)) {
+      navigate(`/auth?redirect=${encodeURIComponent(`/invite/${token}`)}`, { replace: true });
+    }
+  }, [authLoading, user, token, navigate]);
 
   useEffect(() => { void load(); }, [load]);
   const live = data?.phase === 'live';
@@ -118,6 +133,14 @@ export default function GuestSpacePage() {
           <h1 className="mt-10" style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h1>
           <p className="mt-2" style={{ color: T2, fontSize: 14, lineHeight: 1.55 }}>{body}</p>
           {failed && <div className="mt-5"><OrgButton onClick={() => { setLoading(true); void load(); }}>{w('guestSpace.state.retry')}</OrgButton></div>}
+          {!failed && !data?.closed && (
+            <div className="mt-5">
+              <OrgButton onClick={() => {
+                void supabase.auth.signOut({ scope: 'local' }).then(() =>
+                  navigate(`/auth?redirect=${encodeURIComponent(`/invite/${token ?? ''}`)}`, { replace: true }));
+              }}>{w('guestSpace.state.otherAccount')}</OrgButton>
+            </div>
+          )}
         </div>
       </div>
     );

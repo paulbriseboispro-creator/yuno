@@ -5,7 +5,7 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { summarizeTerms, needsStripe } from "../_shared/collab-invite-text.ts";
 import { handleCoorgInvite } from "../_shared/coorg-invite.ts";
-import { handleGuestCode, handleGuestSpaceInvite } from "../_shared/guest-space-invite.ts";
+import { handleGuestSpaceInvite } from "../_shared/guest-space-invite.ts";
 import { handleEventDoorInviteEmail } from "../_shared/event-door-staff.ts";
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
@@ -34,7 +34,8 @@ const isAllowedOrigin = (o: string) =>
  * With `kind: "coorg"` the same function sends a CO-ORGANIZATION invitation
  * by email (`_shared/coorg-invite.ts`) — the project's function quota forbids
  * a dedicated function. With `kind: "guest_pass"` it emails a club or an
- * organization invited on a night its own space (/h/<token>, `_shared/guest-space-invite.ts`).
+ * organization invited on a night its own space (invitation /h/<token> tied to a Yuno
+ * account, then /invite/<id>; `_shared/guest-space-invite.ts`).
  */
 const json = (body: unknown, status: number, headers: Record<string, string>) =>
   new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
@@ -57,7 +58,6 @@ const handler = async (req: Request): Promise<Response> => {
     // d'espace suffit), l'organisateur avec son JWT. Règles dans la RPC.
     if (body?.kind === "door_staff") return await handleEventDoorInviteEmail(req, body, corsHeaders);
     // Code de l'invité (signature du contrat, IBAN) : jeton d'espace, sans compte.
-    if (body?.kind === "guest_code") return await handleGuestCode(body, corsHeaders);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Not authenticated" }, 401, corsHeaders);

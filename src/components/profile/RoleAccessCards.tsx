@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Crown, Briefcase, Megaphone, Music, Wine, UserCheck, Loader2, Shirt, Building2, ChevronRight, Link2, Users } from 'lucide-react';
+import { Shield, Crown, Briefcase, Megaphone, Music, Wine, UserCheck, Loader2, Shirt, Building2, ChevronRight, Link2, Users, Ticket } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -9,6 +9,7 @@ import { hasValidStaffSession, storeStaffSession } from '@/components/RequireSta
 import { clearPinSession } from '@/components/RequirePinSession';
 import { supabase } from '@/integrations/supabase/client';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { guestSpaceLocale, guestSpacePath, guestUiWords, loadMyGuestPasses, toGuestSpaceLanguage, type MyGuestPass } from '@/lib/guestSpace';
 
 /**
  * Une organisation servie comme membre d'équipe (admin / éditeur / scanner).
@@ -76,8 +77,17 @@ export function RoleAccessCards({
   orgMemberships = [],
   onPickOrganization,
 }: RoleAccessCardsProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
+  // Espaces invités d'une soirée rattachés à ce compte (club ou organisation
+  // invité sur UNE soirée) : une carte par soirée, comme une équipe.
+  const [guestPasses, setGuestPasses] = useState<MyGuestPass[]>([]);
+  useEffect(() => {
+    let alive = true;
+    loadMyGuestPasses().then((r) => { if (alive) setGuestPasses(r ?? []); }).catch(() => { /* aucune carte */ });
+    return () => { alive = false; };
+  }, []);
+  const gw = guestUiWords(language);
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showMFASetupPrompt, setShowMFASetupPrompt] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<{ path: string; role: StaffRole } | null>(null);
@@ -90,6 +100,10 @@ export function RoleAccessCards({
   const handleRoleClick = async (path: string, role: string, organizerUserId?: string) => {
     // Membre d'équipe : on retient l'organisation visée AVANT d'entrer, sinon
     // une personne qui en sert deux atterrit sur la première de la liste.
+    if (role === 'guest_pass') {
+      navigate(path);
+      return;
+    }
     if (role === 'org_member') {
       if (organizerUserId) onPickOrganization?.(organizerUserId);
       navigate(path);
@@ -226,6 +240,19 @@ export function RoleAccessCards({
       bg: NEUTRAL_BG,
       sublabel: t(`acceptOrg.role.${m.role}`),
       organizerUserId: m.organizerUserId,
+    })),
+    ...guestPasses.map((g): RoleCard => ({
+      show: true,
+      icon: Ticket,
+      label: gw('guestSpace.card.title', { event: g.event_title }),
+      path: guestSpacePath(g.pass_id),
+      role: 'guest_pass',
+      color: ACCENT,
+      bg: ACCENT_BG,
+      sublabel: gw('guestSpace.card.sub', {
+        date: new Intl.DateTimeFormat(guestSpaceLocale(toGuestSpaceLanguage(language, 'fr')), { day: 'numeric', month: 'short' }).format(new Date(g.event_start_at)),
+        org: g.inviter_name ?? '',
+      }),
     })),
     // Fusion agence↔affilié : le chef d'agence a UNE Console unifiée (/agency-app,
     // sa sidebar couvre déjà les clubs externes/soirées). On expose l'entrée

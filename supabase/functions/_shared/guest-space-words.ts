@@ -28,7 +28,11 @@ const INDEX: Record<GuestSpaceLanguage, 0 | 1 | 2> = { en: 0, fr: 1, es: 2 };
 const WORDS = {
   // ── Nom provisoire (à nommer) ──────────────────────────────────────────────
   'guestSpace.name': ['Night access', 'Accès à la soirée', 'Acceso a la noche'],
-  'guestSpace.nameHint': ['follows the night, no account', 'suit la soirée, sans compte', 'sigue la noche, sin cuenta'],
+  'guestSpace.nameHint': [
+    "follows the night with a Yuno account",
+    "suit la soirée avec un compte Yuno",
+    "sigue la noche con una cuenta Yuno",
+  ],
 
   // ── Coquille de l'espace ───────────────────────────────────────────────────
   'guestSpace.shell.invitedOn': ['Invited on 1 night', 'Invité sur 1 soirée', 'Invitado a 1 noche'],
@@ -233,9 +237,21 @@ const WORDS = {
   'guestSpace.mkt.copy': ['Copy', 'Copier', 'Copiar'],
   'guestSpace.mkt.copied': ['Link copied', 'Lien copié', 'Enlace copiado'],
   'guestSpace.mkt.visuals': ['Visuals of the night', 'Visuels de la soirée', 'Visuales de la noche'],
-  'guestSpace.mkt.visualsSub': ['The poster of the night, as {org} put it on Yuno.', 'L’affiche de la soirée, telle que {org} l’a mise sur Yuno.', 'El cartel de la noche, tal como {org} lo subió a Yuno.'],
-  'guestSpace.mkt.download': ['Download the poster', 'Télécharger l’affiche', 'Descargar el cartel'],
-  'guestSpace.mkt.noPoster': ['No poster yet: {org} hasn’t added one.', 'Pas encore d’affiche : {org} n’en a pas ajouté.', 'Aún no hay cartel: {org} no ha añadido ninguno.'],
+  'guestSpace.mkt.visualsSub': [
+    "The visuals of the night, as {org} put them on Yuno.",
+    "Les visuels de la soirée, tels que {org} les a mis sur Yuno.",
+    "Los visuales de la noche, tal como {org} los subió a Yuno.",
+  ],
+  'guestSpace.mkt.download': [
+    "Download",
+    "Télécharger",
+    "Descargar",
+  ],
+  'guestSpace.mkt.open': [
+    "Open",
+    "Ouvrir",
+    "Abrir",
+  ],
   'guestSpace.mkt.text': ['Text ready to post', 'Texte prêt à poster', 'Texto listo para publicar'],
   'guestSpace.mkt.textBody': [
     '{date} · {event} at {place}. Tickets from {price}{drink} → {link}',
@@ -348,11 +364,10 @@ const WORDS = {
   // ── Porte ──────────────────────────────────────────────────────────────────
   'guestSpace.door.title': ['The door', 'La porte', 'La puerta'],
   'guestSpace.door.sub': [
-    'Held by {org}’s team{withYou}, with the Yuno Pro app. This tab goes live on {date}.',
-    'Tenue par l’équipe de {org}{withYou}, avec l’app Yuno Pro. Cet onglet passe en direct le {date}.',
-    'Llevada por el equipo de {org}{withYou}, con la app Yuno Pro. Esta pestaña pasa a directo el {date}.',
+    "{heldBy}, with the Yuno Pro app. This tab goes live on {date}.",
+    "{heldBy}, avec l’app Yuno Pro. Cet onglet passe en direct le {date}.",
+    "{heldBy}, con la app Yuno Pro. Esta pestaña pasa a directo el {date}.",
   ],
-  'guestSpace.door.withYou': [' and yours', ' et la tienne', ' y el tuyo'],
   'guestSpace.door.opensIn': ['Opens in {n} days', 'Ouvre dans {n} jours', 'Abre en {n} días'],
   'guestSpace.door.opensTonight': ['Opens tonight', 'Ouvre ce soir', 'Abre esta noche'],
   'guestSpace.door.toScan': ['to scan', 'à scanner', 'por escanear'],
@@ -437,7 +452,21 @@ const WORDS = {
   'guestSpace.info.bar': ['Bar', 'Bar', 'Barra'],
   'guestSpace.info.barValue': ['{name}, outside Yuno', '{name}, hors Yuno', '{name}, fuera de Yuno'],
   'guestSpace.info.door': ['Door', 'Porte', 'Puerta'],
-  'guestSpace.info.doorValue': ['{name}’s team', 'Équipe de {name}', 'Equipo de {name}'],
+  'guestSpace.info.doorValue': [
+    "{name}’s team",
+    "Équipe de {name}",
+    "Equipo de {name}",
+  ],
+  'guestSpace.info.doorYours': [
+    "Your team",
+    "Ton équipe",
+    "Tu equipo",
+  ],
+  'guestSpace.info.doorBoth': [
+    "{name}’s team and yours",
+    "Équipe de {name} et la tienne",
+    "Equipo de {name} y el tuyo",
+  ],
   'guestSpace.info.pdf': ['Signed contract (PDF) in my Console', 'Contrat signé (PDF) dans ma Console', 'Contrato firmado (PDF) en mi Consola'],
   'guestSpace.info.contacts': ['Contacts of the night', 'Contacts de la soirée', 'Contactos de la noche'],
   'guestSpace.info.contactOrg': ['Organizer', 'Organisateur', 'Organizador'],
@@ -452,7 +481,11 @@ const WORDS = {
 
   // ── États ──────────────────────────────────────────────────────────────────
   'guestSpace.state.notFoundTitle': ['Space not found', 'Espace introuvable', 'Espacio no encontrado'],
-  'guestSpace.state.notFoundBody': ['This link doesn’t exist. Ask the organizer for yours.', 'Ce lien n’existe pas. Demande le tien à l’organisateur.', 'Este enlace no existe. Pide el tuyo al organizador.'],
+  'guestSpace.state.notFoundBody': [
+    "This space is not linked to this account. Sign in with the account that opened the invitation, or ask the organizer for a new invitation.",
+    "Cet espace n’est pas rattaché à ce compte. Connecte-toi avec le compte qui a ouvert l’invitation, ou demande une nouvelle invitation à l’organisateur.",
+    "Este espacio no está vinculado a esta cuenta. Inicia sesión con la cuenta que abrió la invitación, o pide una nueva invitación al organizador.",
+  ],
   'guestSpace.state.closedTitle': ['This space is closed', 'Cet espace est fermé', 'Este espacio está cerrado'],
   'guestSpace.state.closedBody': ['The space of {event} is closed. Ask the organizer if you need the final numbers.', 'L’espace de {event} est fermé. Demande les chiffres finaux à l’organisateur si besoin.', 'El espacio de {event} está cerrado. Pide las cifras finales al organizador si las necesitas.'],
   'guestSpace.state.errorTitle': ['Something went wrong', 'Un souci de connexion', 'Algo ha fallado'],
@@ -477,10 +510,6 @@ const WORDS = {
     'Una noche demo solo escribe a una dirección demo, y una real nunca.',
   ],
   'guestSpace.err.too_many_staff': ['Twenty people at most at the door.', 'Vingt personnes au plus à la porte.', 'Veinte personas como máximo en la puerta.'],
-  'guestSpace.err.invalid_code': ['Wrong or expired code. Ask for a new one.', 'Code faux ou expiré. Demandes-en un nouveau.', 'Código incorrecto o caducado. Pide uno nuevo.'],
-  'guestSpace.err.code_too_soon': ['A code just left. Wait a minute.', 'Un code vient de partir. Attends une minute.', 'Acaba de salir un código. Espera un minuto.'],
-  'guestSpace.err.too_many_codes': ['Too many codes this hour. Try again later.', 'Trop de codes cette heure-ci. Réessaie plus tard.', 'Demasiados códigos esta hora. Inténtalo más tarde.'],
-  'guestSpace.err.no_email': ['No email on this invitation: ask the organizer to add one.', 'Pas d’email sur cette invitation : demande à l’organisateur d’en ajouter un.', 'No hay email en esta invitación: pide al organizador que añada uno.'],
   'guestSpace.err.contract_changed': ['The terms just changed: read them again.', 'Les termes viennent de changer : relis-les.', 'Las condiciones acaban de cambiar: vuelve a leerlas.'],
   'guestSpace.err.nothing_to_sign': ['Nothing to sign.', 'Rien à signer.', 'Nada que firmar.'],
   'guestSpace.err.contract_not_signed': ['Sign the contract first.', 'Signe d’abord le contrat.', 'Firma primero el contrato.'],
@@ -496,12 +525,16 @@ const WORDS = {
 
   // ── Email et WhatsApp (accès) ──────────────────────────────────────────────
   'guestSpace.share.whatsapp': [
-    'Hi {guest}! Here is your space for {event}: sales, guest list, your links, the door and the money, live. No account needed: {page}',
-    'Salut {guest} ! Voici ton espace pour {event} : ventes, guest list, tes liens, la porte et l’argent, en direct. Pas besoin de compte : {page}',
-    '¡Hola {guest}! Aquí tienes tu espacio para {event}: ventas, guest list, tus enlaces, la puerta y el dinero, en directo. Sin cuenta: {page}',
+    "Hi {guest}! Here is your invitation to {event}: sales, guest list, your links, the door and the money, live. Create your Yuno account (or sign in) to open it: {page}",
+    "Salut {guest} ! Voici ton invitation pour {event} : ventes, guest list, tes liens, la porte et l’argent, en direct. Crée ton compte Yuno (ou connecte-toi) pour l’ouvrir : {page}",
+    "¡Hola {guest}! Aquí tienes tu invitación para {event}: ventas, guest list, tus enlaces, la puerta y el dinero, en directo. Crea tu cuenta Yuno (o inicia sesión) para abrirla: {page}",
   ],
   'guestSpace.mail.subject': ['{event}: your space for the night', '{event} : ton espace de la soirée', '{event}: tu espacio de la noche'],
-  'guestSpace.mail.preheader': ['Sales, guest list, your links, the door. No account needed.', 'Ventes, guest list, tes liens, la porte. Sans compte.', 'Ventas, guest list, tus enlaces, la puerta. Sin cuenta.'],
+  'guestSpace.mail.preheader': [
+    "Sales, guest list, your links, the door. Opens with your Yuno account.",
+    "Ventes, guest list, tes liens, la porte. S’ouvre avec ton compte Yuno.",
+    "Ventas, guest list, tus enlaces, la puerta. Se abre con tu cuenta Yuno.",
+  ],
   'guestSpace.mail.kicker': ['Your night', 'Ta soirée', 'Tu noche'],
   'guestSpace.mail.intro': [
     '{inviter} organizes {event} and gives {guest} its own space for the night: where sales stand, your guest list share, your sales links, the door and the money.',
@@ -509,9 +542,9 @@ const WORDS = {
     '{inviter} organiza {event} y da a {guest} su espacio de la noche: cómo van las ventas, tu parte de la guest list, tus enlaces de venta, la puerta y el dinero.',
   ],
   'guestSpace.mail.next': [
-    'No account, no password: the button opens your space. Keep the link to yourself.',
-    'Pas de compte, pas de mot de passe : le bouton ouvre ton espace. Garde le lien pour toi.',
-    'Sin cuenta ni contraseña: el botón abre tu espacio. Guarda el enlace para ti.',
+    "The button takes you to your invitation: create your Yuno account (or sign in) with this address and your space opens. Then it is on your Yuno profile.",
+    "Le bouton t’amène à ton invitation : crée ton compte Yuno (ou connecte-toi) avec cette adresse, et ton espace s’ouvre. Ensuite, il est sur ton profil Yuno.",
+    "El botón te lleva a tu invitación: crea tu cuenta Yuno (o inicia sesión) con esta dirección y tu espacio se abre. Después, está en tu perfil Yuno.",
   ],
   'guestSpace.mail.cta': ['Open my space', 'Ouvrir mon espace', 'Abrir mi espacio'],
   'guestSpace.mail.reason': ['{inviter} gave you access to {event} on Yuno', '{inviter} t’a donné accès à {event} sur Yuno', '{inviter} te ha dado acceso a {event} en Yuno'],
@@ -521,15 +554,15 @@ const WORDS = {
 
   // ── Console de l'organisateur ──────────────────────────────────────────────
   'guestSpace.org.roleHint': [
-    'Gets its own space for this night, without an account: sales, its guest list share, its links, the door and its share of the money. No access to your Console.',
-    'Reçoit son espace de la soirée, sans compte : ventes, sa part de guest list, ses liens, la porte et sa part de l’argent. Aucun accès à ta Console.',
-    'Recibe su espacio de la noche, sin cuenta: ventas, su parte de la guest list, sus enlaces, la puerta y su parte del dinero. Sin acceso a tu Consola.',
+    "Gets its own space for this night with a simple Yuno account: sales, its guest list share, its links, the door and its share of the money. No access to your Console.",
+    "Reçoit son espace de la soirée avec un compte Yuno simple : ventes, sa part de guest list, ses liens, la porte et sa part de l’argent. Aucun accès à ta Console.",
+    "Recibe su espacio de la noche con una cuenta Yuno simple: ventas, su parte de la guest list, sus enlaces, la puerta y su parte del dinero. Sin acceso a tu Consola.",
   ],
   'guestSpace.org.cardTitle': ['Guest spaces', 'Espaces invités', 'Espacios de invitados'],
   'guestSpace.org.cardSub': [
-    'A space of the night for each club or organization that works it with you, without an account.',
-    'Un espace de la soirée pour chaque club ou organisation qui la fait avec toi, sans compte.',
-    'Un espacio de la noche para cada club u organización que la hace contigo, sin cuenta.',
+    "A space for the night for each club or organization working it with you. It opens with their Yuno account.",
+    "Un espace de la soirée pour chaque club ou organisation qui la fait avec toi. Il s’ouvre avec son compte Yuno.",
+    "Un espacio de la noche para cada club u organización que la hace contigo. Se abre con su cuenta Yuno.",
   ],
   'guestSpace.org.add': ['Open a space', 'Ouvrir un espace', 'Abrir un espacio'],
   'guestSpace.org.kindVenue': ['Club', 'Club', 'Club'],
@@ -626,9 +659,9 @@ const WORDS = {
   'guestSpace.contract.signed': ['Signed', 'Signé', 'Firmado'],
   'guestSpace.contract.version': ['Version {n}', 'Version {n}', 'Versión {n}'],
   'guestSpace.contract.proposedSub': [
-    '{org} proposes this contract. Read it, then sign with the code sent to {email}.',
-    '{org} te propose ce contrat. Lis-le, puis signe avec le code envoyé à {email}.',
-    '{org} te propone este contrato. Léelo y fírmalo con el código enviado a {email}.',
+    "{org} proposes this contract. Read it, then sign it with your name.",
+    "{org} te propose ce contrat. Lis-le, puis signe-le avec ton nom.",
+    "{org} te propone este contrato. Léelo y fírmalo con tu nombre.",
   ],
   'guestSpace.contract.signedSub': [
     'Signed on {date} by {name} for {guest}, and by {orgSigner} for {org}.',
@@ -664,16 +697,11 @@ const WORDS = {
   'guestSpace.contract.art5T': ['5. Special terms', '5. Conditions particulières', '5. Condiciones particulares'],
   'guestSpace.contract.art6T': ['Yuno', 'Yuno', 'Yuno'],
   'guestSpace.contract.art6': [
-    'Yuno provides the tool and keeps the proof of signature. Yuno is not a party to this contract and pays nothing. Electronic signature by a code sent to the invitation email, dated and recorded.',
-    'Yuno fournit l’outil et garde la preuve de signature. Yuno n’est pas partie à ce contrat et ne verse rien. Signature électronique par un code envoyé à l’email de l’invitation, datée et enregistrée.',
-    'Yuno proporciona la herramienta y guarda la prueba de firma. Yuno no es parte de este contrato y no paga nada. Firma electrónica mediante un código enviado al email de la invitación, fechada y registrada.',
+    "Yuno provides the tool and keeps the proof of signature. Yuno is not a party to this contract and pays nothing. Electronic signature from the Yuno account linked to the invitation, dated and recorded.",
+    "Yuno fournit l’outil et garde la preuve de signature. Yuno n’est pas partie à ce contrat et ne verse rien. Signature électronique depuis le compte Yuno rattaché à l’invitation, datée et enregistrée.",
+    "Yuno proporciona la herramienta y guarda la prueba de firma. Yuno no es parte de este contrato y no paga nada. Firma electrónica desde la cuenta Yuno vinculada a la invitación, fechada y registrada.",
   ],
   'guestSpace.contract.signerName': ['Your full name', 'Ton nom complet', 'Tu nombre completo'],
-  'guestSpace.contract.sendCode': ['Receive my signature code', 'Recevoir mon code de signature', 'Recibir mi código de firma'],
-  'guestSpace.contract.resendCode': ['Send a new code', 'Renvoyer un code', 'Enviar un nuevo código'],
-  'guestSpace.contract.codeSent': ['Code sent to {email}. It works for 15 minutes.', 'Code envoyé à {email}. Il marche 15 minutes.', 'Código enviado a {email}. Funciona 15 minutos.'],
-  'guestSpace.contract.codeDemo': ['Demo: the code is {code} (no email is sent on a demo account).', 'Démo : le code est {code} (aucun email ne part d’un compte démo).', 'Demo: el código es {code} (no se envía ningún email desde una cuenta demo).'],
-  'guestSpace.contract.codePh': ['6-digit code', 'Code à 6 chiffres', 'Código de 6 cifras'],
   'guestSpace.contract.sign': ['Sign the contract', 'Signer le contrat', 'Firmar el contrato'],
   'guestSpace.contract.signedToast': ['Contract signed · {org} is notified', 'Contrat signé · {org} est prévenu', 'Contrato firmado · {org} está avisado'],
   'guestSpace.contract.agree': [
@@ -683,9 +711,9 @@ const WORDS = {
   ],
   'guestSpace.contract.ibanTitle': ['Where to send your share', 'Où virer ta part', 'Dónde transferir tu parte'],
   'guestSpace.contract.ibanSub': [
-    'Your IBAN only goes to {collector}. A code sent to {email} protects it.',
-    'Ton IBAN ne va qu’à {collector}. Un code envoyé à {email} le protège.',
-    'Tu IBAN solo va a {collector}. Un código enviado a {email} lo protege.',
+    "Your IBAN only goes to {collector}.",
+    "Ton IBAN ne va qu’à {collector}.",
+    "Tu IBAN solo va a {collector}.",
   ],
   'guestSpace.contract.ibanPh': ['IBAN', 'IBAN', 'IBAN'],
   'guestSpace.contract.holderPh': ['Account holder', 'Titulaire du compte', 'Titular de la cuenta'],
@@ -705,12 +733,6 @@ const WORDS = {
   'guestSpace.contract.receivedToast': ['Thanks · {org} is notified', 'Merci · {org} est prévenu', 'Gracias · {org} está avisado'],
   'guestSpace.contract.read': ['Read the contract', 'Lire le contrat', 'Leer el contrato'],
   'guestSpace.contract.infoProposed': ['To sign in the Money tab.', 'À signer dans l’onglet Argent.', 'Por firmar en la pestaña Dinero.'],
-  'guestSpace.code.subjectSign': ['{code} · your signature code for {event}', '{code} · ton code de signature pour {event}', '{code} · tu código de firma para {event}'],
-  'guestSpace.code.subjectIban': ['{code} · your code to save your IBAN', '{code} · ton code pour enregistrer ton IBAN', '{code} · tu código para guardar tu IBAN'],
-  'guestSpace.code.introSign': ['Here is the code to sign the contract of {event} for {guest}.', 'Voici le code pour signer le contrat de {event} pour {guest}.', 'Aquí tienes el código para firmar el contrato de {event} para {guest}.'],
-  'guestSpace.code.introIban': ['Here is the code to save the IBAN of {guest} for {event}.', 'Voici le code pour enregistrer l’IBAN de {guest} pour {event}.', 'Aquí tienes el código para guardar el IBAN de {guest} para {event}.'],
-  'guestSpace.code.valid': ['It works for 15 minutes. If you did not ask for it, ignore this email.', 'Il marche 15 minutes. Si tu ne l’as pas demandé, ignore cet email.', 'Funciona 15 minutos. Si no lo has pedido, ignora este email.'],
-  'guestSpace.code.reason': ['You asked for a code in your space for {event}', 'Tu as demandé un code dans ton espace de {event}', 'Has pedido un código en tu espacio de {event}'],
   'guestSpace.mail.contract': [
     '{inviter} also proposes a contract for the night: you can read and sign it in your space.',
     '{inviter} te propose aussi un contrat pour la soirée : tu le lis et le signes dans ton espace.',
@@ -725,9 +747,9 @@ const WORDS = {
   'guestSpace.org.contractWaiting': ['Sent · waiting for signature (version {n})', 'Envoyé · en attente de signature (version {n})', 'Enviado · esperando la firma (versión {n})'],
   'guestSpace.org.contractSigned': ['Signed on {date} by {name}', 'Signé le {date} par {name}', 'Firmado el {date} por {name}'],
   'guestSpace.org.contractHint': [
-    'The guest signs in its space with a code sent to its email. Changing the terms after signature asks for a new signature.',
-    'L’invité signe dans son espace avec un code envoyé à son email. Changer les termes après signature demande une nouvelle signature.',
-    'El invitado firma en su espacio con un código enviado a su email. Cambiar las condiciones tras la firma pide una nueva firma.',
+    "The guest signs in its space, signed in to its Yuno account. Changing the terms after signature asks for a new signature.",
+    "L’invité signe dans son espace, connecté à son compte Yuno. Changer les termes après signature demande une nouvelle signature.",
+    "El invitado firma en su espacio, con su cuenta Yuno. Cambiar las condiciones tras la firma pide una nueva firma.",
   ],
   'guestSpace.org.ticketsPct': ['Tickets share (%)', 'Part des billets (%)', 'Parte de las entradas (%)'],
   'guestSpace.org.tablesPct': ['Tables share (%)', 'Part des tables (%)', 'Parte de las mesas (%)'],
@@ -748,10 +770,13 @@ const WORDS = {
   'guestSpace.org.tr.sent': ['Sent on {date} · waiting for confirmation', 'Viré le {date} · en attente de confirmation', 'Transferida el {date} · esperando confirmación'],
   'guestSpace.org.tr.received': ['Received on {date}', 'Reçu le {date}', 'Recibida el {date}'],
   'guestSpace.org.tr.disputed': ['Not received: “{reason}”', 'Pas reçu : « {reason} »', 'No recibida: «{reason}»'],
-  'guestSpace.org.contractNeedsEmail': ['Add an email: the signature code is sent there.', 'Ajoute un email : le code de signature y est envoyé.', 'Añade un email: el código de firma se envía ahí.'],
   'guestSpace.org.contractOff': ['No contract', 'Sans contrat', 'Sin contrato'],
   'guestSpace.org.contractOffHint': ['You settle between you, outside Yuno.', 'Vous réglez entre vous, hors Yuno.', 'Lo arregláis entre vosotros, fuera de Yuno.'],
-  'guestSpace.org.contractOnHint': ['A share of the net, signed in its space with a code. Yuno tracks the statement and the transfer.', 'Une part du net, signée dans son espace avec un code. Yuno suit le décompte et le virement.', 'Una parte del neto, firmada en su espacio con un código. Yuno sigue la liquidación y la transferencia.'],
+  'guestSpace.org.contractOnHint': [
+    "A share of the net, signed in its space. Yuno tracks the statement and the transfer.",
+    "Une part du net, signée dans son espace. Yuno suit le décompte et le virement.",
+    "Una parte del neto, firmada en su espacio. Yuno sigue la liquidación y la transferencia.",
+  ],
   'guestSpace.org.amounts': ['Amounts', 'Montants', 'Importes'],
   'guestSpace.org.amountsOff': ['Hidden', 'Sans montants', 'Sin importes'],
   'guestSpace.org.amountsOn': ['Shown', 'Avec montants', 'Con importes'],
@@ -759,6 +784,256 @@ const WORDS = {
   'guestSpace.org.modeAmountsHint': ['Sees sales and revenue. You settle between you.', 'Voit les ventes et le CA. Vous réglez entre vous.', 'Ve las ventas y la facturación. Lo arregláis entre vosotros.'],
   'guestSpace.org.modeStatsHint': ['Sees sales in numbers, never in euros.', 'Voit les ventes en nombre, jamais en euros.', 'Ve las ventas en número, nunca en euros.'],
   'guestSpace.org.modeContract': ['Contract to sign', 'Contrat à signer', 'Contrato por firmar'],
+  'guestSpace.invite.kicker': [
+    "Invitation",
+    "Invitation",
+    "Invitación",
+  ],
+  'guestSpace.invite.title': [
+    "{inviter} invites {guest} to {event}",
+    "{inviter} invite {guest} sur {event}",
+    "{inviter} invita a {guest} a {event}",
+  ],
+  'guestSpace.invite.body': [
+    "Your space for the night: where sales stand, your guest list share, your sales links, the door and the money. It opens with your Yuno account.",
+    "Ton espace de la soirée : où en sont les ventes, ta part de guest list, tes liens de vente, la porte et l’argent. Il s’ouvre avec ton compte Yuno.",
+    "Tu espacio de la noche: cómo van las ventas, tu parte de la guest list, tus enlaces de venta, la puerta y el dinero. Se abre con tu cuenta Yuno.",
+  ],
+  'guestSpace.invite.create': [
+    "Create my account",
+    "Créer mon compte",
+    "Crear mi cuenta",
+  ],
+  'guestSpace.invite.signIn': [
+    "I already have an account",
+    "J’ai déjà un compte",
+    "Ya tengo una cuenta",
+  ],
+  'guestSpace.invite.emailNote': [
+    "Use {email}: the invitation is reserved for this address.",
+    "Utilise {email} : l’invitation est réservée à cette adresse.",
+    "Usa {email}: la invitación está reservada a esta dirección.",
+  ],
+  'guestSpace.invite.simple': [
+    "A simple account: no subscription, no Console. Your space then stays on your Yuno profile.",
+    "Un compte simple : pas d’abonnement, pas de Console. Ton espace reste ensuite sur ton profil Yuno.",
+    "Una cuenta simple: sin suscripción ni Consola. Tu espacio queda después en tu perfil Yuno.",
+  ],
+  'guestSpace.invite.opening': [
+    "Opening your space…",
+    "Ouverture de ton espace…",
+    "Abriendo tu espacio…",
+  ],
+  'guestSpace.invite.mismatchTitle': [
+    "Not the right account",
+    "Ce n’est pas le bon compte",
+    "No es la cuenta correcta",
+  ],
+  'guestSpace.invite.mismatchBody': [
+    "This invitation was sent to {email}. You are signed in as {current}.",
+    "Cette invitation a été envoyée à {email}. Tu es connecté avec {current}.",
+    "Esta invitación se envió a {email}. Has iniciado sesión con {current}.",
+  ],
+  'guestSpace.invite.switch': [
+    "Use another account",
+    "Changer de compte",
+    "Cambiar de cuenta",
+  ],
+  'guestSpace.invite.takenTitle': [
+    "Invitation already used",
+    "Invitation déjà utilisée",
+    "Invitación ya usada",
+  ],
+  'guestSpace.invite.takenBody': [
+    "This invitation was opened with another account. Sign in with that account, or ask {org} to send you a new one.",
+    "Cette invitation a été ouverte avec un autre compte. Connecte-toi avec ce compte, ou demande à {org} de t’en renvoyer une.",
+    "Esta invitación se abrió con otra cuenta. Inicia sesión con esa cuenta, o pide a {org} que te envíe otra.",
+  ],
+  'guestSpace.invite.expiredTitle': [
+    "Link expired",
+    "Lien expiré",
+    "Enlace caducado",
+  ],
+  'guestSpace.invite.expiredBody': [
+    "This invitation link no longer works. Ask {org} to send you a new one.",
+    "Ce lien d’invitation ne marche plus. Demande à {org} de t’en renvoyer un.",
+    "Este enlace de invitación ya no funciona. Pide a {org} que te envíe otro.",
+  ],
+  'guestSpace.invite.revokedTitle': [
+    "Access closed",
+    "Accès coupé",
+    "Acceso cerrado",
+  ],
+  'guestSpace.invite.revokedBody': [
+    "{org} closed this access.",
+    "{org} a coupé cet accès.",
+    "{org} ha cerrado este acceso.",
+  ],
+  'guestSpace.invite.openSpace': [
+    "Open my space",
+    "Ouvrir mon espace",
+    "Abrir mi espacio",
+  ],
+  'guestSpace.state.signInTitle': [
+    "Sign in to open your space",
+    "Connecte-toi pour ouvrir ton espace",
+    "Inicia sesión para abrir tu espacio",
+  ],
+  'guestSpace.state.signInBody': [
+    "Your space for the night opens with the Yuno account that accepted the invitation.",
+    "Ton espace de la soirée s’ouvre avec le compte Yuno qui a accepté l’invitation.",
+    "Tu espacio de la noche se abre con la cuenta Yuno que aceptó la invitación.",
+  ],
+  'guestSpace.state.signIn': [
+    "Sign in",
+    "Me connecter",
+    "Iniciar sesión",
+  ],
+  'guestSpace.state.otherAccount': [
+    "Sign in with another account",
+    "Me connecter avec un autre compte",
+    "Iniciar sesión con otra cuenta",
+  ],
+  'guestSpace.shell.account': [
+    "Signed in: {email}",
+    "Connecté : {email}",
+    "Sesión: {email}",
+  ],
+  'guestSpace.card.title': [
+    "Guest · {event}",
+    "Invité · {event}",
+    "Invitado · {event}",
+  ],
+  'guestSpace.card.sub': [
+    "{date} · invited by {org}",
+    "{date} · invité par {org}",
+    "{date} · invitado por {org}",
+  ],
+  'guestSpace.org.linkedTo': [
+    "Opened with {email}",
+    "Ouvert avec {email}",
+    "Abierto con {email}",
+  ],
+  'guestSpace.org.notLinked': [
+    "Invitation not opened yet",
+    "Invitation pas encore ouverte",
+    "Invitación aún no abierta",
+  ],
+  'guestSpace.org.resendInvite': [
+    "Send a new invitation",
+    "Renvoyer une invitation",
+    "Enviar una nueva invitación",
+  ],
+  'guestSpace.org.resendConfirm': [
+    "The account that opened this access is detached and the old links stop working. A new invitation link is created.",
+    "Le compte qui a ouvert cet accès est détaché et les anciens liens ne marchent plus. Un nouveau lien d’invitation est créé.",
+    "La cuenta que abrió este acceso se desvincula y los enlaces antiguos dejan de funcionar. Se crea un nuevo enlace de invitación.",
+  ],
+  'guestSpace.org.resent': [
+    "New invitation ready",
+    "Nouvelle invitation prête",
+    "Nueva invitación lista",
+  ],
+  'guestSpace.org.newLinkNote': [
+    "Each copy creates a fresh invitation link; earlier links still work until opened.",
+    "Chaque copie crée un lien d’invitation neuf ; les liens d’avant marchent jusqu’à l’ouverture.",
+    "Cada copia crea un enlace de invitación nuevo; los anteriores funcionan hasta la apertura.",
+  ],
+  'guestSpace.org.door': [
+    "Who runs the door",
+    "Qui tient la porte",
+    "Quién lleva la puerta",
+  ],
+  'guestSpace.org.doorOrganizer': [
+    "My team",
+    "Mon équipe",
+    "Mi equipo",
+  ],
+  'guestSpace.org.doorGuest': [
+    "The club",
+    "Le club",
+    "El club",
+  ],
+  'guestSpace.org.doorBoth': [
+    "Both",
+    "Les deux",
+    "Ambos",
+  ],
+  'guestSpace.org.doorHint': [
+    "The club invites its own door staff for this night only when the door is its own (or shared). You can always invite.",
+    "Le club n’invite son staff de porte pour cette soirée que si la porte est à lui (ou partagée). Toi, tu peux toujours inviter.",
+    "El club solo invita a su staff de puerta para esta noche si la puerta es suya (o compartida). Tú siempre puedes invitar.",
+  ],
+  'guestSpace.door.byOrganizer': [
+    "Run by {org}’s team",
+    "Tenue par l’équipe de {org}",
+    "Llevada por el equipo de {org}",
+  ],
+  'guestSpace.door.byGuest': [
+    "Run by your team",
+    "Tenue par ton équipe",
+    "Llevada por tu equipo",
+  ],
+  'guestSpace.door.byBoth': [
+    "Run by {org}’s team and yours",
+    "Tenue par l’équipe de {org} et la tienne",
+    "Llevada por el equipo de {org} y el tuyo",
+  ],
+  'guestSpace.mkt.poster': [
+    "Poster",
+    "Affiche",
+    "Cartel",
+  ],
+  'guestSpace.mkt.wide': [
+    "16:9 image",
+    "Image 16:9",
+    "Imagen 16:9",
+  ],
+  'guestSpace.mkt.video': [
+    "Video of the night",
+    "Vidéo de la soirée",
+    "Vídeo de la noche",
+  ],
+  'guestSpace.mkt.noVisuals': [
+    "{org} has not added visuals to the night yet.",
+    "{org} n’a pas encore mis de visuels sur la soirée.",
+    "{org} aún no ha subido visuales a la noche.",
+  ],
+  'guestSpace.err.sign_in_required': [
+    "Sign in to continue.",
+    "Connecte-toi pour continuer.",
+    "Inicia sesión para continuar.",
+  ],
+  'guestSpace.err.email_mismatch': [
+    "This invitation is reserved for another address.",
+    "Cette invitation est réservée à une autre adresse.",
+    "Esta invitación está reservada a otra dirección.",
+  ],
+  'guestSpace.err.already_linked': [
+    "This invitation was opened with another account.",
+    "Cette invitation a été ouverte avec un autre compte.",
+    "Esta invitación se abrió con otra cuenta.",
+  ],
+  'guestSpace.err.invite_expired': [
+    "This invitation link no longer works.",
+    "Ce lien d’invitation ne marche plus.",
+    "Este enlace de invitación ya no funciona.",
+  ],
+  'guestSpace.err.door_not_yours': [
+    "The door of this night is run by the organizer.",
+    "La porte de cette soirée est tenue par l’organisateur.",
+    "La puerta de esta noche la lleva el organizador.",
+  ],
+  'guestSpace.err.revoked': [
+    "This access is closed.",
+    "Cet accès est coupé.",
+    "Este acceso está cerrado.",
+  ],
+  'guestSpace.invite.notFoundBody': [
+    "This invitation link does not exist. Ask the organizer for yours.",
+    "Ce lien d’invitation n’existe pas. Demande le tien à l’organisateur.",
+    "Este enlace de invitación no existe. Pide el tuyo al organizador.",
+  ],
 } as const satisfies Record<string, readonly [string, string, string]>;
 
 export type GuestSpaceWordKey = keyof typeof WORDS;

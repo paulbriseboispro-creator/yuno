@@ -84,6 +84,7 @@ export function EventPartnersField({
   const patchGuest = (key: string, patch: {
     guestLang?: GuestSpaceLanguage; guestRevenue?: boolean; guestPlaces?: number;
     guestContract?: { tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30 } | null;
+    guestDoor?: 'organizer' | 'guest' | 'both';
   }) =>
     onChange(drafts.map((d) => (partnerDraftKey(d) === key && d.source === 'email' ? { ...d, ...patch } : d)));
   const remove = (key: string) => onChange(drafts.filter((d) => partnerDraftKey(d) !== key));
@@ -182,6 +183,13 @@ export function EventPartnersField({
                     onChange={(e) => patchGuest(key, { guestPlaces: Math.max(0, Math.min(500, Number(e.target.value) || 0)) })}
                     className="w-16 rounded-lg px-2 py-1 tabular-nums" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }} />
                 </label>
+                {d.kind === 'venue' && (
+                  <div className="flex items-center gap-2">
+                    <span style={{ color: T3, fontSize: 11.5 }}>{gw('guestSpace.org.door')}</span>
+                    <OrgTabs size="sm" value={d.guestDoor ?? 'both'} onChange={(v) => patchGuest(key, { guestDoor: v as 'organizer' | 'guest' | 'both' })}
+                      tabs={[{ value: 'organizer', label: gw('guestSpace.org.doorOrganizer') }, { value: 'guest', label: gw('guestSpace.org.doorGuest') }, { value: 'both', label: gw('guestSpace.org.doorBoth') }]} />
+                  </div>
+                )}
                 <label className="flex items-center gap-2" style={{ color: T2, fontSize: 12 }}>
                   <Switch checked={d.guestRevenue !== false} onCheckedChange={(v) => patchGuest(key, { guestRevenue: v })} />
                   {gw('guestSpace.org.showRevenue')}

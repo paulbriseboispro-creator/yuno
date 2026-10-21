@@ -13,8 +13,9 @@
  *    l'accord d'argent choisis ici (`_collab_promote_principal`, SQL).
  *  • `editor` — « Co-gestion » : gère aussi la vente et l'habillage.
  *  • `viewer` — « Partenaire » (défaut) : suit la soirée, ses ventes, ses liens.
- *  • `guest` — invité PAR EMAIL (club ou organisation sans compte) : reçoit
- *    l'espace invité de la soirée (`event_guest_passes`, /h/<jeton>) — ventes,
+ *  • `guest` — invité PAR EMAIL (club ou organisation sans compte pro) : reçoit
+ *    l'espace invité de la soirée (`event_guest_passes`, invitation /h/<jeton>
+ *    rattachée à un compte Yuno simple, puis /invite/<id>) — ventes,
  *    sa part de guest list, ses liens, la porte, sa part de l'argent — jamais
  *    un espace pro ni un droit de gestion. Nom visible à nommer (`guestSpace.*`).
  *    Un club ne le prend que sur une soirée d'organisation sans club Yuno pour
@@ -38,6 +39,8 @@ export type PartnerDraft =
      *  et un contrat à signer (facultatif, indépendant des montants). */
     guestLang?: 'en' | 'fr' | 'es'; guestRevenue?: boolean; guestPlaces?: number;
     guestContract?: { tickets_pct: number; tables_pct: number; payment_terms_days: 7 | 15 | 30 } | null;
+    /** Club invité : qui tient la porte (organisateur, club, les deux — défaut). */
+    guestDoor?: 'organizer' | 'guest' | 'both';
   };
 
 /** Un invité avant qu'on lui donne un rôle (l'Omit distribué sur l'union). */
@@ -57,7 +60,7 @@ export interface InviteContext {
   /**
    * Vrai quand une organisation mène et qu'aucun club Yuno n'est le lieu :
    * un club invité par email peut alors recevoir l'ESPACE INVITÉ de la soirée
-   * (sans compte), au lieu de devenir le lieu.
+   * (compte Yuno simple, sans espace pro), au lieu de devenir le lieu.
    */
   hostOpen?: boolean;
 }
@@ -74,7 +77,7 @@ export function allowedRoles(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: Invi
     const guest = ctx.lead === 'organizer' && !!ctx.hostOpen ? (['guest'] as InviteRole[]) : [];
     return canBePrincipal ? ['principal', ...guest] : guest;
   }
-  // Une organisation par email : son espace invité (sans compte) d'abord.
+  // Une organisation par email : son espace invité (compte simple, sans espace pro) d'abord.
   if (d.source === 'email') return canBePrincipal ? ['guest', 'principal', 'editor', 'viewer'] : ['guest', 'editor', 'viewer'];
   return canBePrincipal ? ['principal', 'editor', 'viewer'] : ['editor', 'viewer'];
 }

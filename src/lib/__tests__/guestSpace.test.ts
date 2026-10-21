@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  GUEST_SPACE_WORDS_RAW, daysToNight, guestErrorText, guestLanguageForEvent, guestSignupUrl, guestSpaceUrl,
+  GUEST_SPACE_WORDS_RAW, daysToNight, guestErrorText, guestInviteUrl, guestLanguageForEvent, guestShareUrl, guestSignupUrl, guestSpaceUrl, isGuestPassId,
   formatIban, guestNotifications, guestSpaceWords, isGuestToken, isValidIban, readyPostText, salesSeries, whoSellsRows, type GuestSpaceData,
 } from '@/lib/guestSpace';
 
@@ -59,10 +59,20 @@ describe('qui fait vendre', () => {
 });
 
 describe('liens et textes', () => {
-  it('jeton à 32 hexadécimaux seulement', () => {
-    expect(isGuestToken('0123456789abcdef0123456789abcdef')).toBe(true);
+  it('invitation = jeton à 32 hexadécimaux, espace = id de l’accès, jamais le jeton', () => {
+    const tok = '0123456789abcdef0123456789abcdef';
+    const id = '02f4bbef-e584-4889-a6ba-e58b19452513';
+    expect(isGuestToken(tok)).toBe(true);
     expect(isGuestToken('../admin')).toBe(false);
-    expect(guestSpaceUrl('0123456789abcdef0123456789abcdef', 'https://yunoapp.eu/')).toBe('https://yunoapp.eu/h/0123456789abcdef0123456789abcdef');
+    expect(isGuestPassId(id)).toBe(true);
+    expect(isGuestPassId(tok)).toBe(false);
+    expect(guestInviteUrl(tok, 'https://yunoapp.eu/')).toBe(`https://yunoapp.eu/h/${tok}`);
+    expect(guestSpaceUrl(id, 'https://yunoapp.eu/')).toBe(`https://yunoapp.eu/invite/${id}`);
+  });
+  it('le lien à partager : l’invitation tant que personne n’a rattaché l’accès, l’espace ensuite', () => {
+    const id = '02f4bbef-e584-4889-a6ba-e58b19452513';
+    expect(guestShareUrl({ linked: false, pass_id: id, token: 'abcdefabcdefabcdefabcdefabcdefab' })).toMatch(/\/h\/abcdefabcdefabcdefabcdefabcdefab$/);
+    expect(guestShareUrl({ linked: true, pass_id: id })).toMatch(new RegExp(`/invite/${id}$`));
   });
   it('l’inscription pro est pré-remplie, club ou organisation, marquée host_pass', () => {
     const club = new URL(guestSignupUrl('es', { kind: 'venue', name: 'Tia Felisa', email: 'tia@club.es' }));
