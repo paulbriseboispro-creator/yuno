@@ -374,6 +374,11 @@ const WORDS = {
     "{heldBy}, con la app Yuno Pro. Esta pestaña pasa a directo el {date}.",
   ],
   'guestSpace.door.opensIn': ['Opens in {n} days', 'Ouvre dans {n} jours', 'Abre en {n} días'],
+  'guestSpace.door.opensTomorrow': [
+    "Opens tomorrow",
+    "Ouvre demain",
+    "Abre mañana",
+  ],
   'guestSpace.door.opensTonight': ['Opens tonight', 'Ouvre ce soir', 'Abre esta noche'],
   'guestSpace.door.toScan': ['to scan', 'à scanner', 'por escanear'],
   'guestSpace.door.toCheck': ['to check', 'à pointer', 'por marcar'],

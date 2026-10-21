@@ -118,7 +118,7 @@ export function DoorTab(p: GuestTabProps) {
         <Card>
           <CardHead title={w('guestSpace.door.title')}
             sub={w('guestSpace.door.sub', { heldBy, date: date(d.event!.start_at, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) })}
-            right={<OrgPill tone="muted">{toNight > 0 ? w('guestSpace.door.opensIn', { n: num(toNight) }) : w('guestSpace.door.opensTonight')}</OrgPill>} />
+            right={<OrgPill tone="muted">{toNight > 1 ? w('guestSpace.door.opensIn', { n: num(toNight) }) : toNight === 1 ? w('guestSpace.door.opensTomorrow') : w('guestSpace.door.opensTonight')}</OrgPill>} />
           <KpiGrid>
             <Kpi label={w('guestSpace.kpi.tickets')} value={num(t.tickets.sold)} hint={w('guestSpace.door.toScan')} />
             <Kpi label={w('guestSpace.kpi.guestList')} value={num(t.guest_list.registered)} hint={w('guestSpace.door.toCheck')} />
@@ -202,12 +202,12 @@ function PhotoCard(p: GuestTabProps) {
     <Card>
       <div className="flex flex-wrap items-center gap-4">
         <GuestAvatar url={g.photo_url} name={g.name} kind={g.kind} size={56} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-[200px]">
           <div style={{ color: T1, fontSize: 14, fontWeight: 650 }}>{w('guestSpace.photo.title')}</div>
           <div style={{ color: T3, fontSize: 12.5, lineHeight: 1.45 }}>{w('guestSpace.photo.sub', { org: d.event?.organizer_name ?? '' })}</div>
           <div style={{ color: T3, fontSize: 11.5 }}>{w('guestSpace.photo.hint')}</div>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex w-full gap-1.5 sm:w-auto">
           <OrgButton size="sm" disabled={busy} onClick={pick}>
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}{g.photo_url ? w('guestSpace.photo.change') : w('guestSpace.photo.add')}
           </OrgButton>
