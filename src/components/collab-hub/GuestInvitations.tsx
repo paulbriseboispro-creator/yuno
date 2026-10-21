@@ -73,7 +73,7 @@ export function GuestInvitations({ side, scope }: { side: Side; scope: CoorgScop
           const steps = [
             { done: p.email_sent_count > 0 || p.contact_phone != null, label: t('Envoyée', 'Sent', 'Enviada'), at: p.email_sent_at },
             { done: p.opened_count > 0, label: t('Ouverte', 'Opened', 'Abierta'), at: p.first_opened_at },
-            { done: p.claim_status != null, label: t('Compte rattaché', 'Account linked', 'Cuenta vinculada'), at: p.claimed_at },
+            { done: p.account_email != null, label: t('Compte rattaché', 'Account linked', 'Cuenta vinculada'), at: p.account_linked_at },
           ];
           return (
             <div key={p.id} className="space-y-2.5 rounded-xl px-3.5 py-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
