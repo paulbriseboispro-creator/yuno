@@ -27,6 +27,17 @@ export function composeFullName(first: string, last: string): string {
 }
 
 /**
+ * Un nom complet rangé dans deux cases : le premier mot est le prénom, le reste le nom
+ * (« Jean Pierre Dupont » → « Jean » / « Pierre Dupont »). Sert à préremplir ; ce que la
+ * personne tape ensuite est recomposé par `composeFullName`.
+ */
+export function splitFullName(value: string): { first: string; last: string } {
+  const cleaned = cleanNamePart(value);
+  const space = cleaned.indexOf(' ');
+  return space === -1 ? { first: cleaned, last: '' } : { first: cleaned.slice(0, space), last: cleaned.slice(space + 1) };
+}
+
+/**
  * Au moins deux mots, chacun porteur d'au moins une lettre, deux lettres en
  * tout. Assez souple pour « Kevin LS », « Jean-Pierre O'Hara » ou un nom de
  * deux idéogrammes, assez strict pour refuser « Inactif », « ... » ou « 123 ».

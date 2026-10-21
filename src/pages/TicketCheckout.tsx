@@ -23,7 +23,7 @@ import { BuyerFields, BuyerReadyCard, FriendNames } from '@/components/checkout/
 import { CheckoutStepHeader } from '@/components/checkout/CheckoutStepHeader';
 import { OrderEventRow } from '@/components/checkout/OrderEventRow';
 import { birthInvalidFieldFor, focusCheckoutField, useBuyerFormUi } from '@/components/checkout/useBuyerForm';
-import { buyerFormErrors, firstErrorField, type AttendeeInfo, type BuyerField } from '@/lib/buyerForm';
+import { buyerFormErrors, firstErrorField, friendsProblems, type AttendeeInfo, type BuyerField } from '@/lib/buyerForm';
 import { suggestEmail } from '@/lib/emailTypo';
 import type { BirthDateState } from '@/lib/birthDate';
 import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/TicketUpsellSelector';
@@ -699,11 +699,11 @@ export default function TicketCheckout() {
   // page descend au premier champ à revoir et chaque champ dit quoi faire.
   const buyer = attendees[0];
   const buyerEmail = user?.email ?? buyer.email;
-  const formErrors = buyerFormErrors({ fullName: buyer.fullName, email: buyerEmail, phone: buyer.phone, birth: birthState });
+  const formErrors = buyerFormErrors({ fullName: buyer.fullName, email: buyerEmail, phone: buyer.phone, birth: birthState, requireTwoWords: true });
   // La date est lisible mais la soirée la refuse, ou le document signé manque :
   // c'est toujours la date qu'il faut revoir, avec le message de MinorAuthGate.
   const gateProblem = !formErrors.birth && minorGateBlocked;
-  const missingCount = Object.keys(formErrors).length + (gateProblem ? 1 : 0);
+  const missingCount = Object.keys(formErrors).length + (gateProblem ? 1 : 0) + Object.keys(friendsProblems(attendees)).length;
   // Un champ dit son erreur quand on le quitte (sauf « obligatoire », réservé au
   // tap sur le bouton), et le tap mène au premier oubli.
   const { touched, submitted, setSubmitted, shownError, fieldValid, markTouched } = useBuyerFormUi(formErrors);
@@ -716,8 +716,21 @@ export default function TicketCheckout() {
     window.setTimeout(() => focusCheckoutField(f === 'birth' ? birthRef.current : fieldRefs[f].current), 0);
   };
 
+  // Billet de plusieurs personnes : le nom complet et l'e-mail de CHAQUE autre personne
+  // sont obligatoires (elle reçoit son billet). Les tables VIP n'ont pas cette règle.
+  const friendProblems = friendsProblems(attendees);
+  const firstFriendProblem = Object.keys(friendProblems).map(Number).sort((x, y) => x - y)[0];
+
   const validateForm = (): boolean => {
     const first = firstErrorField(formErrors) ?? (gateProblem ? 'birth' : null);
+    if (!first && firstFriendProblem !== undefined) {
+      setSubmitted(true);
+      haptics.error();
+      const errs = friendProblems[firstFriendProblem];
+      const target = errs.name ? `ck-friend-${firstFriendProblem}-first` : `ck-friend-email-${firstFriendProblem}`;
+      window.setTimeout(() => focusCheckoutField(document.getElementById(target)?.closest('.flex-col') as HTMLElement | null), 50);
+      return false;
+    }
     if (!first) return true;
     setSubmitted(true);
     haptics.error();
@@ -1238,6 +1251,7 @@ export default function TicketCheckout() {
                 onAcceptSuggestion={() => emailSuggestion && handleAttendeeChange(0, 'email', emailSuggestion)}
                 emailNotice={!user && buyerEmailHasAccount ? <ExistingAccountNotice email={buyer.email.trim()} /> : undefined}
                 defaultCountry={phoneCountry}
+                splitName
                 fieldRefs={fieldRefs}
               />
             )}
@@ -1263,8 +1277,8 @@ export default function TicketCheckout() {
 
             <FriendNames
               friends={attendees.slice(1)}
-              buyerName={buyer.fullName}
-              onChange={(index, value) => handleAttendeeChange(index, 'fullName', value)}
+              onChange={(index, field, value) => handleAttendeeChange(index, field, value)}
+              submitted={submitted}
             />
 
             {/* Billet communauté : verrou + action qui débloque (suivre / s'abonner),
