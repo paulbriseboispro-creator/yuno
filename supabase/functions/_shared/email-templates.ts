@@ -76,7 +76,12 @@ export function buildTicketConfirmation(d: {
   ticketDescription?: string | null;
   qrDataUrl?: string; address?: string; attached?: boolean; walletUrl?: string;
   /** Billet de N personnes : un QR par place (nom + image cid), l'acheteur envoie le sien à chaque ami. */
-  places?: Array<{ name: string; qrDataUrl: string; walletUrl?: string }>;
+  places?: Array<{ name: string; qrDataUrl: string; walletUrl?: string; emailed?: boolean }>;
+  /**
+   * Billet individuel d'une personne invitée par l'acheteur : son QR seul (jamais le prix ni la
+   * référence de la commande, qui ouvrirait la commande de l'acheteur), un lien vers la soirée.
+   */
+  friend?: { holderName: string; buyerName?: string };
   /** Billet de N personnes : lien « ajouter les N passes d'un coup » (lot .pkpasses). */
   walletAllUrl?: string;
   /** Éducation boissons (upsell post-achat) : lien /order/upsell + presale actif ? */
@@ -84,17 +89,32 @@ export function buildTicketConfirmation(d: {
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
-  const subject = `${p(lang, { en: 'Ticket confirmed', fr: 'Billet confirmé', es: 'Entrada confirmada' })} — ${d.eventTitle}`;
-  const multi = !!d.places && d.places.length > 1;
+  const friend = d.friend;
+  const subject = friend
+    ? `${p(lang, { en: 'Your ticket', fr: 'Ton billet', es: 'Tu entrada' })} — ${d.eventTitle}`
+    : `${p(lang, { en: 'Ticket confirmed', fr: 'Billet confirmé', es: 'Entrada confirmada' })} — ${d.eventTitle}`;
+  const multi = !friend && !!d.places && d.places.length > 1;
   const html = shell({
     title: subject,
-    preheader: `${d.day} ${d.month}${d.openTime ? ` · ${d.openTime}` : ''} · ${d.venueName} · ${lbl(lang, 'reference')} ${d.reference}`,
+    preheader: `${d.day} ${d.month}${d.openTime ? ` · ${d.openTime}` : ''} · ${d.venueName}${friend ? '' : ` · ${lbl(lang, 'reference')} ${d.reference}`}`,
     body: [
       brandBar(),
       poster(d.posterUrl || '', d.eventTitle),
       section(ruleLabel(p(lang, { en: 'Ticket confirmed', fr: 'Billet confirmé', es: 'Entrada confirmada' })) + `<div style="height:14px"></div>` +
         title(`${hi}${p(lang, { en: "you're in", fr: "c'est confirmé", es: 'estás dentro' })}`, 32) + `<div style="height:14px"></div>` +
-        body(multi
+        body(friend
+          ? (friend.buyerName
+            ? p(lang, {
+              en: `${esc(friend.buyerName)} got you a ticket for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Show this QR at the door, that's it.`,
+              fr: `${esc(friend.buyerName)} t'a pris une place pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Montre ce QR à l'entrée, c'est tout.`,
+              es: `${esc(friend.buyerName)} te ha cogido una entrada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Muestra este QR en la entrada, eso es todo.`,
+            })
+            : p(lang, {
+              en: `Your ticket for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> is valid. Show this QR at the door, that's it.`,
+              fr: `Ton billet pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> est validé. Montre ce QR à l'entrée, c'est tout.`,
+              es: `Tu entrada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> está validada. Muestra este QR en la entrada, eso es todo.`,
+            }))
+          : multi
           ? p(lang, {
             en: `Your tickets for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> are valid. There is one QR per person: each one shows theirs at the door.`,
             fr: `Tes billets pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> sont validés. Il y a un QR par personne : chacun montre le sien à l'entrée.`,
@@ -112,8 +132,7 @@ export function buildTicketConfirmation(d: {
         ...(d.address ? [{ k: p(lang, { en: 'Address', fr: 'Adresse', es: 'Dirección' }), v: d.address }] : []),
         { k: lbl(lang, 'ticket'), v: d.ticketType, note: d.ticketDescription },
         ...(multi ? [{ k: p(lang, { en: 'People', fr: 'Personnes', es: 'Personas' }), v: String(d.places!.length) }] : []),
-        { k: lbl(lang, 'price'), v: d.price },
-        { k: lbl(lang, 'reference'), v: d.reference },
+        ...(friend ? [] : [{ k: lbl(lang, 'price'), v: d.price }, { k: lbl(lang, 'reference'), v: d.reference }]),
       ])),
       section(`${multi
         ? d.places!.map((pl, i) => qrCard(
@@ -126,12 +145,18 @@ export function buildTicketConfirmation(d: {
           pl.name,
         ) + (pl.walletUrl ? `<div style="height:12px"></div>${walletPill(p(lang, WALLET_LABEL), pl.walletUrl)}` : ''))
           .join('<div style="height:22px"></div>') + `<div style="height:14px"></div>${mono(p(lang, {
-          en: 'Forward each friend their own QR: everyone gets in with theirs, even if they arrive after you.',
-          fr: 'Envoie à chaque ami son QR : chacun entre avec le sien, même s\'il arrive après toi.',
-          es: 'Envía a cada amigo su QR: cada uno entra con el suyo, aunque llegue después de ti.',
+          en: d.places!.some((pl) => pl.emailed)
+            ? 'Each guest has also received their own ticket by email. Everyone gets in with theirs, even if they arrive after you.'
+            : 'Forward each friend their own QR: everyone gets in with theirs, even if they arrive after you.',
+          fr: d.places!.some((pl) => pl.emailed)
+            ? 'Chaque invité a aussi reçu son billet par e-mail. Chacun entre avec le sien, même s\'il arrive après toi.'
+            : 'Envoie à chaque ami son QR : chacun entre avec le sien, même s\'il arrive après toi.',
+          es: d.places!.some((pl) => pl.emailed)
+            ? 'Cada invitado también ha recibido su entrada por correo. Cada uno entra con la suya, aunque llegue después de ti.'
+            : 'Envía a cada amigo su QR: cada uno entra con el suyo, aunque llegue después de ti.',
         }), C.gray3, 11)}`
         : d.qrDataUrl
-        ? qrCard(d.qrDataUrl, p(lang, { en: 'Scan at the door', fr: "À scanner à l'entrée", es: 'Escanear en la entrada' }), d.reference)
+        ? qrCard(d.qrDataUrl, p(lang, { en: 'Scan at the door', fr: "À scanner à l'entrée", es: 'Escanear en la entrada' }), friend ? friend.holderName : d.reference)
         : calloutPrice(p(lang, { en: 'Show at the door', fr: "À présenter à l'entrée", es: 'Mostrar en la entrada' }), d.reference)
         }${d.attached ? `<div style="height:14px"></div>${mono(p(lang, {
           en: 'Your ticket + receipt are attached as PDF',
@@ -143,7 +168,9 @@ export function buildTicketConfirmation(d: {
             fr: `Ajouter les ${d.places!.length} billets à Apple Wallet`,
             es: `Añadir las ${d.places!.length} entradas a Apple Wallet`,
           }), d.walletAllUrl)}` : '')
-          : (d.walletUrl ? `<div style="height:20px"></div>${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}` : '')}<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
+          : (d.walletUrl ? `<div style="height:20px"></div>${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}` : '')}<div style="height:20px"></div>${ctaPill(friend
+          ? p(lang, { en: 'View the event', fr: 'Voir la soirée', es: 'Ver la fiesta' })
+          : p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
       // Éducation boissons : le moment de plus forte intention (billet en main).
       ...(d.drinksUpsell ? [section(
         ruleLabel(p(lang, { en: '🍸 Skip the bar queue', fr: '🍸 Zéro file au bar', es: '🍸 Sin cola en la barra' })) +
