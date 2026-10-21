@@ -4934,6 +4934,7 @@ const en: Record<string, string> = {
   'bouncer.otherNight': 'QR for another night — not valid tonight',
   'tableGuest.label': 'Guest {n}',
   'tableGuest.shareHint': 'One QR per person at your table: send each guest theirs. Everyone gets in with their own, even if they arrive after you.',
+  'ticketPlaces.shareHint': 'One QR per person: send each friend theirs. Everyone gets in with their own, even if they arrive after you.',
   'bouncer.cancelTicketsOnly': 'Cancel tab: tickets only. Switch to Entry to check this guest in.',
   'bouncer.entryDeadlineGeneric': 'Entry cut-off time has passed',
   'bouncer.guestListLabel': 'Guest list',
