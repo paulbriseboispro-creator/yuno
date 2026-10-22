@@ -972,15 +972,23 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
 - **Pages d'inscription** (v2 du 05/10, plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`,
   migrations `20261007193500` + `194500`) : reproduites À L'IDENTIQUE du design
   Claude Design (`Pages inscription`, `FanPage`, `InscriptionPhone`,
-  `yuno-pages.js`). Quatre types (`prevente`, `venue`, `attente`, `communaute`,
-  règles dans `KIND_META`), dix gabarits + palettes + polices (`tokens()` de
+  `yuno-pages.js`). Cinq types (`prevente`, `venue`, `attente`, `communaute`,
+  `guestlist`, règles dans `KIND_META`), dix gabarits + palettes + polices (`tokens()` de
   `src/crm/signup/model.ts`, port pur testé), assistant en 4 étapes, page
   publiée avec vrai QR, fiche à quatre onglets (Résultats, Partager, Inscrits,
   Relances). La page publique **`/j/<slug>`** (`?src=`), confirmation
   `/j/<slug>/ok?t=` — jamais `/p/` (linktree des agences) ; `/j` est un chemin
   CRM (`productHost.ts`) relayé par le Worker de la landing. Le MÊME `FanPage`
   rend la page réelle, les aperçus et les vignettes : un écart entre aperçu et
-  page publique est un bug. Inscription par e-mail = double confirmation (file
+  page publique est un bug. **Type « Guest list »** (`guestlist`, migration
+  `20261109600000`, décision de Paul du 22/10) : le fan laisse prénom, e-mail et
+  accord, puis la page l'envoie sur `crm_signup_pages.after_url` (https, le tarif
+  guest list privé de Shotgun) ; PAS de double confirmation, l'inscription vaut
+  accord sur-le-champ (`_crm_signup_grant`, la même preuve et le même registre
+  que la confirmation). Le lien n'est rendu que par `submit_crm_signup`
+  (`'go:<lien>'`), jamais par `get_crm_signup_page` (`redirects` seulement) ;
+  publier sans lien est refusé (`no_after_url`). Le MCP le connaît
+  (`after_url`). Les autres types : inscription par e-mail = double confirmation (file
   `crm_signup_confirm_queue`, jeton neuf HACHÉ) puis preuve
   `marketing_consent_events` (texte exact, `signup_page:<id>`), groupe de la page
   (`imported_contacts`), registre sans jamais réveiller un désabonné ;
