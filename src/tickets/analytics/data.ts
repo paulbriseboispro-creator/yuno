@@ -22,7 +22,8 @@ export interface TixNights {
 
 export type AnaPeriod = '24h' | '48h' | '7d' | '30d' | '90d' | '12m';
 export type AnaSeg = 'all' | 'hab' | 'occ' | 'nou' | 'end';
-export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist';
+/** `live` = En direct (Live View de Yuno Tickets, src/components/live-view) : pas d'équivalent dans le CRM. */
+export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist' | 'live';
 /**
  * Famille de la source d'une vente Yuno, miroir de `_tix_source` (SQL,
  * migration 20261109300000) : l'attribution figée sur la vente (lien suivi,

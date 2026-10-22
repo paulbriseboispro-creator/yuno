@@ -27,6 +27,13 @@ const dict: Record<string, Triple> = {
     'Una noche termina a las {h}: una compra hecha después cuenta para el día siguiente. Actualizado el {date}.',
   ],
   'ya.ana.push': ['Push', 'Push', 'Push'],
+  'ya.ana.tab.live': ['Live', 'En direct', 'En directo'],
+  'ya.ana.title.live': ['What is happening right now?', 'Que se passe-t-il en ce moment ?', '¿Qué está pasando ahora mismo?'],
+  'ya.ana.sub.live': [
+    'Who is on your pages right now, where they are, and every sale as it happens.',
+    'Qui est sur vos pages en ce moment, d’où, et chaque vente au moment où elle tombe.',
+    'Quién está en sus páginas ahora mismo, desde dónde, y cada venta en el momento en que llega.',
+  ],
   'ya.ana.t.bigSub': ['sales (tickets and VIP tables), split by source', 'ventes (billets et tables VIP), réparties par source', 'ventas (entradas y mesas VIP), repartidas por fuente'],
 
   // Ventes : tables VIP, message Yuno

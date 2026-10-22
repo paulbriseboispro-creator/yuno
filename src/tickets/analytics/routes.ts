@@ -16,6 +16,7 @@ export function tixRoutes(base: string) {
     traffic: `${a}/traffic`,
     community: `${a}/community`,
     guestlist: `${a}/guestlist`,
+    live: `${a}/live`,
     journey: `${a}/journey`,
     /** Analyses › Guest list d'une soirée. */
     nightGuestList: (id: string) => `${a}/guestlist?e=${id}`,

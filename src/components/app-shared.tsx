@@ -78,6 +78,7 @@ export function tixAnalysesItem(t: (key: string) => string, base: string): Sideb
 			{ title: t('anf.family.traffic'), path: `${a}/traffic`, icon: <GlobeIcon /> },
 			{ title: t('anf.family.community'), path: `${a}/community`, icon: <UsersIcon /> },
 			{ title: t('nav.analysesFree'), path: `${a}/guestlist`, icon: <UsersIcon /> },
+			{ title: t('anf.family.live'), path: `${a}/live`, icon: <RadioIcon /> },
 			{ title: t('nav.analysesJourney'), path: `${a}/journey`, icon: <GlobeIcon /> },
 		],
 	};

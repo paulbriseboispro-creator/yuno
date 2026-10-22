@@ -27,12 +27,16 @@ import { SalesTab, salesCsv } from './SalesTab';
 import { TrafficTab, trafficCsv } from './TrafficTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
 import { GuestListTab, guestlistCsv } from './GuestListTab';
+import { LiveView } from '@/components/live-view/LiveView';
+import { useTixScope } from '@/tickets/analytics/scope';
 
 const TABS: { k: AnaTab; route: keyof TixRoutes; d: string }[] = [
   { k: 'sales', route: 'sales', d: 'M4 10h12M4 14h9M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2' },
   { k: 'traffic', route: 'traffic', d: 'm3 17 6-6 4 4 8-8M14 7h7v7' },
   { k: 'community', route: 'community', d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
   { k: 'guestlist', route: 'guestlist', d: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
+  // En direct : la Live View de Yuno Tickets (globe, ventes de l'instant), gardée telle quelle.
+  { k: 'live', route: 'live', d: 'M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z' },
 ];
 const PERIODS: AnaPeriod[] = ['24h', '48h', '7d', '30d', '90d', '12m'];
 const SEGS: AnaSeg[] = ['all', 'hab', 'occ', 'nou', 'end'];
@@ -49,7 +53,7 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   const s = sp.get('s') as AnaSeg | null;
   let seg: AnaSeg = s && SEGS.includes(s) ? s : 'all';
   if (seg === 'end' && tab !== 'community') seg = 'all';
-  if (tab === 'traffic' || tab === 'guestlist') seg = 'all';
+  if (tab === 'traffic' || tab === 'guestlist' || tab === 'live') seg = 'all';
   return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0' };
 }
 
@@ -65,6 +69,8 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const toast = (msg: string) => { sonner(msg); };
   const caps = useTixCaps();
   const R = useTixRoutes();
+  const scopeArgs = useTixScope().rpc;
+  const live = tab === 'live';
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const f = readFilters(sp, tab);
@@ -141,7 +147,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em' }}>{t(`ya.ana.title.${tab}`)}</h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--ya-sand-600)', textWrap: 'pretty', maxWidth: 680 }}>{t(`ya.ana.sub.${tab}`)}</p>
         </div>
-        <Hv
+        {!live && <Hv
           as="button"
           type="button"
           onClick={exportCsv}
@@ -150,7 +156,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           active={{ transform: 'scale(.97)' }}
         >
           <Icon name="download" size={17} stroke={2.2} />{t('ya.ana.export')}
-        </Hv>
+        </Hv>}
       </div>
 
       <div role="tablist" aria-label={t('ya.ana.tabs')} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -183,7 +189,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       </div>
 
       {/* Filtres */}
-      <div className="ya-filters" style={{ position: 'sticky', zIndex: 21, margin: '0 calc(-1 * clamp(16px,3vw,40px))', padding: '10px clamp(16px,3vw,40px)', background: 'var(--ya-glass)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--ya-sand-100)' }}>
+      {!live && <div className="ya-filters" style={{ position: 'sticky', zIndex: 21, margin: '0 calc(-1 * clamp(16px,3vw,40px))', padding: '10px clamp(16px,3vw,40px)', background: 'var(--ya-glass)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--ya-sand-100)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 14px' }}>
           <div style={{ opacity: f.event ? 0.4 : 1, pointerEvents: f.event ? 'none' : 'auto', transition: 'opacity 200ms', maxWidth: '100%', overflowX: 'auto' }} className="ya-noscroll">
             <Segmented
@@ -274,13 +280,14 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--ya-sand-500)' }}>{scope}</span>
         </div>
         {ev && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--ya-sand-500)' }}>{t('ya.ana.f.perNote')}</div>}
-      </div>
+      </div>}
 
       {/* Un onglet dont la lecture échoue (délai de 30 s compris) dit l'échec : ses squelettes attendraient sans fin. */}
       {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />)}
       {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} />)}
       {tab === 'community' && (failed(community) ?? <CommunityTab q={community} f={f} setF={setF} />)}
       {tab === 'guestlist' && ((f.event ? null : failed(guestlist)) ?? <GuestListTab q={guestlist} f={f} />)}
+      {live && <LiveView venueId={scopeArgs.p_venue_id} organizerUserId={scopeArgs.p_organizer_user_id} />}
     </div>
   );
 }
