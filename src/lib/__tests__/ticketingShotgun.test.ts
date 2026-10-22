@@ -456,6 +456,22 @@ describe('soirée Shotgun (exemple de la doc)', () => {
   it('refuse une URL non https', () => {
     expect(mapShotgunEvent({ ...DOC_EVENT, url: 'javascript:alert(1)' })!.url).toBeNull();
   });
+
+  it('lit la visibilité d\'un tarif dans `visibilities`, la forme que rend l\'API', () => {
+    const e = mapShotgunEvent({
+      ...DOC_EVENT,
+      deals: [
+        { product_id: 1, name: 'GL STAFF', price: 0, visibilities: ['private'] },
+        { product_id: 2, name: 'FIRST RELEASE', price: 10.9, organizer_fees: 1.09, visibilities: ['promoters', 'public', 'xpress_door'] },
+        { product_id: 3, name: 'PROMO', price: 8, visibilities: ['promoters'] },
+        { product_id: 4, name: 'Ancien', price: 5, visiblity: 'public' },
+        { product_id: 5, name: 'Rien', price: 5 },
+      ],
+    })!;
+    expect(e.deals.map((d) => d.visibility)).toEqual(['private', 'public', 'promoters', 'public', null]);
+    // Le prix reste celui du tarif, hors frais organisateur Shotgun.
+    expect(e.deals[1]).toMatchObject({ price: 10.9, organizer_fees: 1.09 });
+  });
 });
 
 describe('URL', () => {
