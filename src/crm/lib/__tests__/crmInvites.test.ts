@@ -56,6 +56,31 @@ describe('invitation Yuno CRM : e-mail', () => {
     const en = crmInviteWhatsAppText({ ...base, lang: 'en', offer: 'standard', contactName: null });
     expect(en.startsWith('Hi,')).toBe(true);
   });
+
+  it('tutoiement : même promesse, adressée en « tu », sans reste de vouvoiement', () => {
+    const w = crmInviteWhatsAppText({ ...base, lang: 'fr', offer: 'founder', freeMonths: 6, yunits: 15000, supportOffer: true, demo: { url: 'https://crm.yunoapp.eu/crm/preview?token=t0k', password: 'k7p2qm' }, tone: 'casual' });
+    expect(w.startsWith('Salut Kevin,')).toBe(true);
+    expect(w).toContain(base.url);
+    expect(w).toContain('Mot de passe : k7p2qm');
+    expect(nb(w)).toContain('6 mois d’abonnement offerts');
+    expect(nb(w)).toContain('15 000 Yunits offerts');
+    expect(w).toContain('Avant de te lancer');
+    expect(w).toContain('l’équipe Yuno met ton compte en place avec toi');
+    expect(w).not.toMatch(/\b(vous|votre|vos|Bonjour)\b/);
+    const standard = crmInviteWhatsAppText({ ...base, lang: 'fr', offer: 'standard', tone: 'casual' });
+    expect(standard).toContain('tes premiers envois');
+    expect(standard).not.toMatch(/\b(vous|votre|vos)\b/);
+    const es = crmInviteWhatsAppText({ ...base, lang: 'es', offer: 'founder', freeMonths: 6, yunits: 15000, tone: 'casual' });
+    expect(es).toContain('aquí tienes tu acceso');
+    expect(es).not.toMatch(/\b(usted|su|sus)\b/i);
+  });
+
+  it('le vouvoiement reste le défaut, et l’anglais n’a qu’une forme', () => {
+    const formal = crmInviteWhatsAppText({ ...base, lang: 'fr', offer: 'standard' });
+    expect(formal).toBe(crmInviteWhatsAppText({ ...base, lang: 'fr', offer: 'standard', tone: 'formal' }));
+    expect(formal).toContain('Bonjour Kevin,');
+    expect(crmInviteWhatsAppText({ ...base, lang: 'en', offer: 'standard', tone: 'casual' })).toBe(crmInviteWhatsAppText({ ...base, lang: 'en', offer: 'standard' }));
+  });
 });
 
 describe('accès démo : e-mail et WhatsApp', () => {

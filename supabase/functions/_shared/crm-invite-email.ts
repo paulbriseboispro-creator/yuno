@@ -244,6 +244,74 @@ const EXTRA: Record<CrmLang, { demoT: string; demoL: string; demoPw: string; dem
   },
 };
 
+// ── Tutoiement : la version « à l'aise » du message d'invitation ───────────
+// Le vouvoiement reste le texte de référence (e-mail, message sérieux). Le
+// tutoiement ne réécrit que ce qui change (formules d'adresse, pronoms) ; tout
+// le reste, chiffres compris, vient du même texte : une promesse ne peut pas
+// diverger d'un ton à l'autre. L'anglais n'a qu'une forme.
+export type CrmTone = "formal" | "casual";
+type Extra = (typeof EXTRA)["fr"];
+type CasualLang = "fr" | "es";
+
+const FOUNDER_CASUAL: Record<CasualLang, Partial<InviteCopy>> = {
+  fr: {
+    hello: "Salut,", helloNamed: "Salut {first},",
+    body: "Comme on en a parlé, voici ton accès. Tu fais partie des 5 premiers comptes qu’on accompagne nous-mêmes : crée ton compte avec ce lien, l’offre s’applique toute seule.",
+    note: "Ce lien t’est réservé et ne marche qu’une fois, jusqu’au {expires}.",
+  },
+  es: {
+    hello: "Hola:", helloNamed: "Hola, {first}:",
+    body: "Como hablamos, aquí tienes tu acceso. Eres una de las 5 primeras cuentas que acompañamos nosotros mismos: crea tu cuenta con este enlace y la oferta se aplica sola.",
+    facts: [
+      "{months} meses de suscripción gratis, desde que abras la cuenta",
+      "{yunits} Yunits de regalo al abrir la cuenta",
+      "Después {price} € sin IVA / mes, precio de lanzamiento garantizado",
+      "Sin tarjeta para empezar",
+    ],
+    note: "Este enlace es solo para ti y funciona una vez, hasta el {expires}.",
+  },
+};
+
+const STANDARD_CASUAL: Record<CasualLang, Partial<InviteCopy>> = {
+  fr: {
+    hello: "Salut,", helloNamed: "Salut {first},",
+    body: "Comme on en a parlé, voici ton accès. Ton compte est déjà prêt : crée-le avec ce lien, tes informations sont pré-remplies.",
+    facts: [
+      "{trialDays} jours d’essai, sans carte bancaire",
+      "{trialYunits} Yunits offerts pendant l’essai pour tes premiers envois",
+      "Tes acheteurs, tes soirées et tes envois réunis au même endroit",
+      "Ensuite {price} € HT / mois, sans engagement",
+    ],
+    note: "Ce lien t’est réservé, jusqu’au {expires}.",
+  },
+  es: {
+    hello: "Hola:", helloNamed: "Hola, {first}:",
+    body: "Como hablamos, aquí tienes tu acceso. Tu cuenta ya está preparada: créala con este enlace, tus datos ya están rellenados.",
+    facts: [
+      "{trialDays} días de prueba, sin tarjeta",
+      "{trialYunits} Yunits de regalo durante la prueba para tus primeros envíos",
+      "Tus compradores, tus noches y tus envíos en un solo lugar",
+      "Después {price} € sin IVA / mes, sin permanencia",
+    ],
+    note: "Este enlace es solo para ti, hasta el {expires}.",
+  },
+};
+
+const EXTRA_CASUAL: Record<CasualLang, Partial<Extra>> = {
+  fr: {
+    demoT: "Avant de te lancer : la démo",
+    demoL: "Explore un compte Yuno CRM déjà rempli (soirées, clients et campagnes fictifs), en lecture seule.",
+    supportT: "On configure avec toi",
+    supportB: "Si tu veux, l’équipe Yuno met ton compte en place avec toi. Tu acceptes (ou non) son accès depuis ta Console, et tu le coupes quand tu veux.",
+  },
+  es: {
+    demoT: "Antes de empezar: la demo",
+    demoL: "Explora una cuenta de Yuno CRM ya rellenada (noches, clientes y campañas ficticios), en solo lectura.",
+    supportT: "Lo configuramos contigo",
+    supportB: "Si quieres, el equipo de Yuno pone tu cuenta en marcha contigo. Tú apruebas (o no) su acceso desde tu Consola y lo cortas cuando quieras.",
+  },
+};
+
 export interface CrmInviteEmailInput {
   lang: CrmLang;
   offer: CrmInviteOffer;
@@ -302,9 +370,11 @@ export function buildCrmInviteEmail(o: CrmInviteEmailInput): { subject: string; 
 }
 
 /** Le message WhatsApp de l'invitation (même promesse que l'e-mail, en texte). */
-export function crmInviteWhatsAppText(o: Omit<CrmInviteEmailInput, "origin">): string {
-  const c = (o.offer === "founder" ? FOUNDER : STANDARD)[o.lang];
-  const x = EXTRA[o.lang];
+export function crmInviteWhatsAppText(o: Omit<CrmInviteEmailInput, "origin"> & { tone?: CrmTone }): string {
+  const casual = o.tone === "casual" && o.lang !== "en" ? (o.lang as CasualLang) : null;
+  const base = (o.offer === "founder" ? FOUNDER : STANDARD)[o.lang];
+  const c: InviteCopy = casual ? { ...base, ...(o.offer === "founder" ? FOUNDER_CASUAL : STANDARD_CASUAL)[casual] } : base;
+  const x: Extra = casual ? { ...EXTRA[o.lang], ...EXTRA_CASUAL[casual] } : EXTRA[o.lang];
   const vars = inviteVars(o);
   const f = (s: string) => rawFill(s, vars);
   return [

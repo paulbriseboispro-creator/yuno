@@ -8,7 +8,7 @@ export {
   buildCrmInviteEmail, buildCrmDemoEmail, buildCrmSupportEmail, crmInviteWhatsAppText, crmDemoWhatsAppText,
   crmLang, crmDate, firstNameOf,
 } from '../../../supabase/functions/_shared/crm-invite-email.ts';
-export type { CrmLang as InviteLang, CrmInviteOffer } from '../../../supabase/functions/_shared/crm-invite-email.ts';
+export type { CrmLang as InviteLang, CrmInviteOffer, CrmTone as InviteTone } from '../../../supabase/functions/_shared/crm-invite-email.ts';
 export { waDigits, whatsAppUrl } from './founderOffer';
 
 export type InviteStatus = 'pending' | 'claimed' | 'expired' | 'revoked';

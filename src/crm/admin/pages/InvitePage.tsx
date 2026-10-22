@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useCrmT } from '@/crm/i18n';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
-import { crmInviteWhatsAppText, crmLang, initialsOf, inviteStage, whatsAppUrl, type InviteLang, type InviteStage } from '@/crm/lib/crmInvites';
+import { crmInviteWhatsAppText, crmLang, initialsOf, inviteStage, whatsAppUrl, type InviteLang, type InviteStage, type InviteTone } from '@/crm/lib/crmInvites';
 import { Modal, Segmented, Skel } from '@/crm/ui/kit';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -257,6 +257,12 @@ function InviteRow({ x, first, onShare, onRevoke }: { x: CrmInvite; first: boole
   );
 }
 
+const TONE_KEY = 'yuno.crm.admin.inviteTone';
+/** Dernier ton choisi sur cet appareil ; le vouvoiement, plus sérieux, par défaut. */
+function readTone(): InviteTone {
+  try { return localStorage.getItem(TONE_KEY) === 'casual' ? 'casual' : 'formal'; } catch { return 'formal'; }
+}
+
 // ── Envoyer ─────────────────────────────────────────────────────────────────
 function ShareDialog({ x, d, onClose }: { x: CrmInvite; d: InvitesData; onClose: () => void }) {
   const { t } = useCrmT();
@@ -269,10 +275,12 @@ function ShareDialog({ x, d, onClose }: { x: CrmInvite; d: InvitesData; onClose:
   const [email, setEmail] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const lang = crmLang(x.lang);
+  const [tone, setToneState] = useState<InviteTone>(readTone);
+  const setTone = (v: InviteTone) => { setToneState(v); try { localStorage.setItem(TONE_KEY, v); } catch { /* stockage refusé : le choix ne sera pas gardé */ } };
   const demoLive = x.demo && x.demo.password && (x.demo.status === 'ready' || x.demo.status === 'opened') ? { url: x.demo.url, password: x.demo.password } : null;
   const text = crmInviteWhatsAppText({
     lang, offer: x.offer, orgName: x.org_name, contactName: x.contact_name, url: x.url, freeMonths: x.free_months, yunits: x.yunits,
-    priceMonth: d.price_month, trialDays: d.trial.days, trialYunits: d.trial.yunits, expiresAt: x.expires_at, supportOffer: x.support_offer, demo: demoLive,
+    priceMonth: d.price_month, trialDays: d.trial.days, trialYunits: d.trial.yunits, expiresAt: x.expires_at, supportOffer: x.support_offer, demo: demoLive, tone,
   });
   const copy = async (value: string) => {
     try { await navigator.clipboard.writeText(value); toast(t('adm.crm.fo.copied')); mark.mutate({ p_id: x.id, p_channel: 'copy' }); } catch { /* le presse-papier peut être refusé */ }
@@ -323,6 +331,15 @@ function ShareDialog({ x, d, onClose }: { x: CrmInvite; d: InvitesData; onClose:
             style={{ ...btnInk, height: 44, padding: '0 18px', fontSize: 14.5, alignSelf: 'flex-start', background: '#1f8f4e' }} hover={{ filter: 'brightness(1.08)', textDecoration: 'none', color: '#fff' }}>
             <Icon name="whatsapp" size={16} stroke={2.2} />{x.phone ? t('adm.crm.fo.openWaTo', { phone: x.phone }) : t('adm.crm.fo.openWa')}
           </Hv>
+          {lang !== 'en' && (
+            <span role="radiogroup" aria-label={t('adm.crm.iv.tone')} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {(['formal', 'casual'] as const).map((v) => (
+                <Hv key={v} as="button" type="button" role="radio" aria-checked={tone === v} onClick={() => setTone(v)}
+                  style={{ height: 34, padding: '0 14px', borderRadius: 99, border: 0, cursor: 'pointer', fontWeight: 600, fontSize: 13.5, background: tone === v ? 'var(--ink)' : 'var(--sand-100)', color: tone === v ? '#fff' : 'var(--sand-700)' }}
+                  hover={{ background: tone === v ? 'var(--ink)' : 'var(--sand-200)' }}>{t(v === 'formal' ? 'adm.crm.iv.tone.formal' : 'adm.crm.iv.tone.casual')}</Hv>
+              ))}
+            </span>
+          )}
           <span style={{ ...mono, marginTop: 4 }}>{t('adm.crm.fo.message')}</span>
           <pre style={{ margin: 0, padding: 14, borderRadius: 14, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', fontFamily: 'inherit', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--sand-700)', maxHeight: 220, overflowY: 'auto' }}>{text}</pre>
           <Hv as="button" type="button" onClick={() => void copy(text)} style={{ ...btn, alignSelf: 'flex-start' }} hover={{ background: 'var(--sand-50)' }}>
