@@ -399,7 +399,7 @@ function Tester({ sampleEmail, onAdded }: { sampleEmail: string | null; onAdded:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 22, borderRadius: 22, background: 'rgba(255,255,255,.06)', boxShadow: 'inset 0 0 0 1px var(--ya-border-night)', alignSelf: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ya-card)' }}>{t('ya.imp.test')}</span>
+        <span style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>{t('ya.imp.test')}</span>
         <span style={{ fontSize: 14, lineHeight: 1.4, color: 'var(--ya-text-on-night-2)' }}>{t('ya.imp.testSub')}</span>
       </div>
       <label style={{ position: 'relative', display: 'block' }}>

@@ -66,7 +66,7 @@ export function SendsView({
             const act = seg === c.k;
             return (
               <Hv key={c.k} as="button" type="button" onClick={() => pick(c.k)} aria-pressed={act} style={{ height: 36, padding: '0 14px', borderRadius: 99, border: `1px solid ${act ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-ink)' : 'var(--ya-card)', color: act ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }} hover={{ borderColor: 'var(--ya-sand-400)' }}>
-                {c.l}<span style={{ fontSize: 13, fontWeight: 500, color: act ? 'rgba(255,255,255,.7)' : 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(c.c)}</span>
+                {c.l}<span style={{ fontSize: 13, fontWeight: 500, color: act ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: act ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(c.c)}</span>
               </Hv>
             );
           })}

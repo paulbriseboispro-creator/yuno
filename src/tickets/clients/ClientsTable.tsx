@@ -204,7 +204,7 @@ export function ClientsTable({
                 style={{ height: 38, padding: '0 14px', borderRadius: 99, border: `1px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }}
                 hover={{ borderColor: 'var(--ya-sand-400)' }}
               >
-                {c.l}{list && <span style={{ fontSize: 13, fontWeight: 500, color: on ? 'rgba(255,255,255,.7)' : 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(c.n)}</span>}
+                {c.l}{list && <span style={{ fontSize: 13, fontWeight: 500, color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(c.n)}</span>}
               </Hv>
             );
           })}
@@ -214,9 +214,9 @@ export function ClientsTable({
             return (
               <span key={v.id} style={{ height: 38, padding: '0 6px 0 14px', borderRadius: 99, border: `1px dashed ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <button type="button" onClick={() => onPickSaved(v)} style={{ border: 0, background: 'none', padding: 0, color: 'inherit', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, font: 'inherit' }}>
-                  {v.name}<span style={{ fontSize: 13, fontWeight: 500, color: on ? 'rgba(255,255,255,.7)' : 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(v.n)}</span>
+                  {v.name}<span style={{ fontSize: 13, fontWeight: 500, color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(v.n)}</span>
                 </button>
-                {caps.write && (<Hv as="button" type="button" onClick={() => onDeleteSaved(v)} aria-label={t('ya.cli.list.segDelete')} title={t('ya.cli.list.segDelete')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: on ? 'rgba(255,255,255,.7)' : 'var(--ya-sand-500)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(0,0,0,.08)' }}>
+                {caps.write && (<Hv as="button" type="button" onClick={() => onDeleteSaved(v)} aria-label={t('ya.cli.list.segDelete')} title={t('ya.cli.list.segDelete')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(0,0,0,.08)' }}>
                   <Icon name="x" size={12} stroke={2.6} />
                 </Hv>)}
               </span>

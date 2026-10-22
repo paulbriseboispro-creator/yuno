@@ -73,6 +73,22 @@ const dict: Record<string, Triple> = {
     'Habituales, ocasionales, nuevos, dormidos: se actualizan solos. El seguimiento de mensajes empieza con el primer envío.',
   ],
   'ya.seg.empty.cta': ['Import a file', 'Importer un fichier', 'Importar un archivo'],
+  // Pas de calcul de nuit dans Yuno Tickets : un segment se recalcule à chaque lecture.
+  'ya.seg.head.autoSub': [
+    'Always up to date, they cover your whole list without overlap.',
+    'Toujours à jour, ils couvrent toute votre base sans chevauchement.',
+    'Siempre al día, cubren toda su base sin solaparse.',
+  ],
+  'ya.seg.head.mineSub': [
+    'Your rules, always up to date. A client can be in one as well as in an automatic one.',
+    'Vos règles, toujours à jour. Un client peut y figurer en plus d’un automatique.',
+    'Sus reglas, siempre al día. Un cliente puede estar en uno además de en uno automático.',
+  ],
+  'ya.seg.dr.trendThin': [
+    'The trend appears once the first reference dates are calculated, in a few moments.',
+    'L’évolution s’affiche dès que les premiers repères sont calculés, dans quelques instants.',
+    'La evolución aparece en cuanto se calculan las primeras referencias, en unos instantes.',
+  ],
   'ya.seg.dr.s.yuno': ['Came through Yuno', 'Venus par Yuno', 'Llegaron por Yuno'],
   'ya.seg.dr.srcSub': ['Where each person comes from: a Yuno sale, an imported file or other', 'D’où vient chaque personne : vente Yuno, fichier importé ou autre', 'De dónde viene cada persona: venta en Yuno, archivo importado u otro'],
   'ya.seg.f.boughtPct': ['{pct} of visits to the sales page', '{pct} des passages sur la page de vente', '{pct} de las visitas a la página de venta'],

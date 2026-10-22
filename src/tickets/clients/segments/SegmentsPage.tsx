@@ -64,6 +64,9 @@ export default function SegmentsPage() {
   const [envSeg, setEnvSeg] = useState('*');
   const [nw, setNw] = useState(() => caps.write && !!sp.get('new'));
   const nwRec = sp.get('new') === 'rec';
+  // Le rôle d'un membre d'équipe arrive après le premier rendu : ?new= ouvre le catalogue dès qu'il est connu.
+  const askNew = !!sp.get('new');
+  useEffect(() => { if (caps.write && askNew) setNw(true); }, [caps.write, askNew]);
   const [write, setWrite] = useState<SegVM | null>(null);
   const saveSeg = useSaveSegment();
   const delSeg = useDeleteSegment();
@@ -243,7 +246,7 @@ export default function SegmentsPage() {
               const act = view === x.k;
               return (
                 <Hv key={x.k} as="button" type="button" role="tab" aria-selected={act} onClick={() => setView(x.k)} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: `1px solid ${act ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-ink)' : 'var(--ya-card)', color: act ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }} hover={{ borderColor: 'var(--ya-sand-400)' }}>
-                  {x.l}{x.c !== null && <span style={{ fontSize: 13, fontWeight: 500, color: act ? 'rgba(255,255,255,.7)' : 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(x.c)}</span>}
+                  {x.l}{x.c !== null && <span style={{ fontSize: 13, fontWeight: 500, color: act ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: act ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(x.c)}</span>}
                 </Hv>
               );
             })}
