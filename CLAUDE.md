@@ -3190,6 +3190,23 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   « Analyses · Nouveau » ne s'affiche qu'au super admin et aux comptes démo tant qu'il
   est à false ; les adresses répondent pour tous. Mode d'emploi et assistant à écrire
   au passage à true.
+- **Plan combiné** (`docs/designs/TICKETS_ANALYTICS_COMBINED_PLAN.md`, décisions de Paul
+  du 22/10 : squelette et définitions du CRM, blocs de la Billetterie rangés dedans,
+  ancienne Analytics retirée à parité). **Lot 1, Ventes** (migration `20261109310000`) :
+  `tix_ana_sales(…, p_pillar)` = `all | tickets | tables | guestlist | refunds` (`?pl=`),
+  sélecteur en tête du héros. Un pilier restreint `_atk` (une table VIP ou une
+  inscription = UNE vente, `_atk_all` reste entier pour la jauge et la courbe) ;
+  `refunds` lit `_tix_refund_rows` à la DATE du remboursement (`_tix_bucket`, mêmes
+  cases que `_tix_ana_setup`). Blocs `tables_block` (remplissage en tables
+  `_tix_event_tables_total`, panier, minimum, acomptes), `gl_block` (venus sur une
+  porte mesurée), `refunds_block` (motifs, soirées), `payout` (« Ce que vous touchez »,
+  pilier Tout : volume brut − remboursements = le CA du héros ; − Stripe 1,5 % + 0,25 €
+  sur le payé en ligne, rien sur une table réglée au club ; « Votre part » d'après le
+  contrat `_tix_party_pct`, une soirée à barème ou en co-organisation = « se lit dans son
+  décompte », jamais estimée). Chaque soirée porte `door` (`_door_headcount` +
+  `_crm_door_measured`) et `balance` (CA de toute la soirée − cachets DJ, remplace le
+  « Bilan par soirée »). Tout montant sort sous `revenue` / `prev_revenue` / `amount`
+  (l'enveloppe `_crm_null_money` ne connaît que ces clés).
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 
