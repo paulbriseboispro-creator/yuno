@@ -3191,6 +3191,40 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   est à false ; les adresses répondent pour tous. Mode d'emploi et assistant à écrire
   au passage à true.
 
+## Yuno Tickets › Clients, Segments, Imports — les écrans Clients du CRM (2026-10-22)
+
+Deuxième étape de la transposition, même méthode que les Analyses. Adresses
+`…/clients`, `…/clients/segments`, `…/clients/imports` (Club, Manager, Organisateur) ;
+l'ancienne page `…/customers` et la base de contacts restent en place jusqu'à la
+validation de Paul. Migration `20261109400000`. Décisions de Paul (22/10) :
+
+- **Les segments vivent dans `tix_segments`** (grammaire de filtre du CRM), jamais dans
+  `crm_segments` ni `contact_segments`. Tables sœurs `tix_contact_notes` (étiquettes,
+  note), `tix_segment_counts` (évolution), `tix_imports` + `tix_import_journal` : une clé
+  de portée sans produit ferait voir à un compte Billetterie + CRM les données de l'autre
+  outil. Filtre = `_tix_filter_sql` (celui du CRM, sources `yuno` / `import` / `other`,
+  « Qui cibler » refusé).
+- **Une campagne vise la base Clients par l'audience `{kind: 'tix', segmentId | def}`** :
+  e-mail = branche de `resolve_campaign_audience` → `_tix_campaign_audience` (registre
+  `product IS NULL`, exclusive des autres audiences, l'étape Audience du Studio les
+  sépare) ; SMS = type `tix_segment` (`resolve_sms_campaign_recipients` →
+  `_tix_sms_recipients`, effectif `tix_sms_audience_count`) ; push = scope `tix:<id>`
+  (`send-push-campaign` → `tix_segment_push_users`, service_role). Les anciens segments ne
+  changent pas.
+- **« Écrire à… » crée un brouillon déjà ciblé** : e-mail = audience gardée en session,
+  reprise par la galerie « Nouvelle campagne » (`?aud=tix`) ; SMS = un segment enregistré
+  seulement (`?tixseg=`). Pas de Yunits. La Console Manager n'a pas de campagnes : pas
+  d'« Écrire à… » (`useTixCaps().send`).
+- **L'import écrit par `import_contact_list(…, produit NULL)`** (`tix_import_commit`),
+  avec l'attestation de Yuno Tickets (origine, date, engagement) exigée pour « oui » :
+  repoussoir, doublons, absorption inchangés. Annulation = `tix_import_undo`.
+- **Pas transposé** : « Ce qui fait venir », hypothèses, score, pages d'inscription,
+  carte Shotgun (remplacée par « Vos ventes Yuno »). En plus du CRM : la porte du club
+  (bannissement, incidents) dans la fiche, Console Club seulement.
+- Un acheteur d'une soirée À VENIR est « venu par Yuno » (le CRM attend la soirée passée).
+- Interrupteur `TIX_CLIENTS_LIVE` (`src/lib/ticketsAnalyses.ts`, entrée « Clients ·
+  Nouveau ») ; textes `fromCrmClients.ts` (recopié) + `ticketsClients.ts` (l'emporte).
+
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 
 Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
