@@ -1,0 +1,357 @@
+/**
+ * Données des Analyses de Yuno Tickets — les mêmes formes que les Analyses de
+ * Yuno CRM (src/crm/data/analytics.ts, guestlist.ts, journey.ts), lues par les
+ * RPC `tix_*` (migration 20261109300000) sur les ventes Yuno de la portée :
+ * billets, tables VIP, guest list. Les montants arrivent à null pour un rôle
+ * sans accès au chiffre d'affaires.
+ */
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { rpc } from '@/crm/lib/rpc';
+import type { Lifecycle } from '@/crm/data/clients';
+import { useTixScope } from './scope';
+
+export interface TixNights {
+  now: string;
+  money?: boolean;
+  /** Règles d'habitué de la portée (crm_scope_rules) : textes des segments. */
+  rules?: { regular_min_nights: number; regular_window_months: number; lapse_months: number };
+  nights: { id: string; title: string; start_at: string; upcoming: boolean; sold: number; cap: number | null }[];
+}
+
+// ── Ventes, Trafic, Communauté ──
+
+export type AnaPeriod = '24h' | '48h' | '7d' | '30d' | '90d' | '12m';
+export type AnaSeg = 'all' | 'hab' | 'occ' | 'nou' | 'end';
+export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist';
+/**
+ * Famille de la source d'une vente Yuno, miroir de `_tix_source` (SQL,
+ * migration 20261109300000) : l'attribution figée sur la vente (lien suivi,
+ * promoteur, partenaire, e-mail, code promo, pages Yuno, réseaux…).
+ */
+export type SourceKey = 'ys' | 'yb' | 'yt' | 'wa' | 'yl' | 'pr' | 'pa' | 'em' | 'sm' | 'ad' | 'pc' | 'mk' | 'so' | 'se' | 'au' | 'di' | 'of';
+export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'wa', 'yl', 'pr', 'pa', 'em', 'sm', 'ad', 'pc', 'mk', 'so', 'se', 'au', 'di', 'of'];
+
+export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
+
+export interface AnaEventRef { id: string; title: string; start_at: string; night: string; upcoming?: boolean; days_left?: number }
+
+export interface AnaMeta {
+  mode: 'hour' | 'day' | 'month' | 'event';
+  n: number;
+  period: AnaPeriod;
+  seg: AnaSeg;
+  tz: string;
+  night_end_hour: number;
+  today: string;
+  now: string;
+  /** Début de chaque case : instant (heures) ou date (jours, mois, soirée). */
+  labels: string[];
+  start: string;
+  /** Accès aux montants (Yuno Tickets : porte de la Console). */
+  money?: boolean;
+  event: AnaEventRef | null;
+  prev_event: AnaEventRef | null;
+}
+
+export interface AnaSend { i: number; at: string; name: string; channel: 'email' | 'sms' | 'push'; id: string }
+
+export interface AnaCurve {
+  id: string; title: string; start_at: string; night: string; upcoming: boolean;
+  sold: number; cap: number | null; days_left: number;
+  /** Billets cumulés de J-21 au jour J ; null après aujourd'hui. */
+  curve: (number | null)[];
+}
+
+export interface AnaSales {
+  meta: AnaMeta;
+  series: { revenue: number | null; tickets: number; prev_revenue: number | null; prev_tickets: number; paid_tickets?: number; prev_paid_tickets?: number }[];
+  totals: {
+    revenue: number | null; tickets: number; buyers: number; prev_revenue: number | null; prev_tickets: number;
+    /** Billets payants / entrées gratuites (tickets = les deux), 20261020200000. */
+    paid_tickets?: number; free_tickets?: number; prev_paid_tickets?: number; prev_free_tickets?: number;
+    has_prev: boolean | null; refund_pct: number | null; prev_refund_pct: number | null;
+    /** Soirée encore en vente : la précédente est comptée jusqu'au même J-k. */
+    prev_same_day?: boolean;
+    refunds: { amount: number | null; revenue: number | null };
+    /** Tables VIP vendues (Yuno Tickets) : une vente sans place de billetterie. */
+    tables?: number; prev_tables?: number; table_money?: { revenue: number | null; prev_revenue: number | null };
+  };
+  msg: { share: number | null; revenue: number | null; tickets: number; by: { em: number; sm: number; dm: number } } | null;
+  tariffs: { deal: string; price: number | null; tickets: number; revenue: number | null; units?: number; pillar?: 'tickets' | 'tables' | 'guestlist' }[];
+  /** Remplissage des soirées tenues dans la fenêtre (ou de la soirée choisie). */
+  fill: { sold: number | null; cap: number | null; nights: number; prev_sold: number | null; prev_cap: number | null };
+  seg_share: number | null;
+  goal: { target: AnaCurve; refs: AnaCurve[]; week_sold: number } | null;
+  heat: { cells: { n: number; amount: number | null }[][]; outside: number; days30: boolean };
+  events: {
+    id: string; title: string; start_at: string; night: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past';
+    tickets: number; paid?: number; free?: number; tables?: number; revenue: number | null; sold: number; cap: number | null; prev_sold: number | null;
+  }[];
+  events_other: { count: number; tickets: number; revenue: number | null } | null;
+  sends: AnaSend[];
+  has_any: boolean;
+}
+
+export interface AnaTraffic {
+  meta: AnaMeta;
+  series: { revenue: Record<SourceKey, number> | null; tickets: Record<SourceKey, number>; clicks: number; new_buyers: number }[];
+  sources: { k: SourceKey; orders: number; tickets: number; buyers: number; new_buyers: number; revenue: number | null; prev_tickets: number }[];
+  clicks: { total: number; prev: number };
+  buyers: { buyers: number; new: number; prev_buyers: number; prev_new: number };
+  gained: { total: number; series: number[] };
+  events: { id: string; title: string; start_at: string; night: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past'; buyers: number; new_buyers: number; clicks: number; visits?: number }[];
+  /** Visites de la page de vente et passage vers l'achat (ce que Yuno mesure). */
+  visits?: TixVisits;
+  sends: AnaSend[];
+  has_any: boolean;
+}
+
+export interface TixVisits {
+  visits: number; carts: number; checkouts: number; orders: number;
+  prev_visits: number | null; prev_orders: number | null;
+  series: number[];
+}
+
+export type Life = 'hab' | 'occ' | 'nou' | 'end' | 'none';
+
+export interface AnaCommunity {
+  meta: AnaMeta;
+  rules: { min_nights: number; window_months: number; lapse_months: number };
+  series: { total: number; new: number; prev_new: number; prev_total?: number }[];
+  base: number;
+  lifecycle: Record<Life, number>;
+  reach: { total: number; email_sms: number; email: number; sms: number; none: number };
+  stats: { came: number; returning: number; avg_nights: number | null; spent: number | null };
+  spark: { returning_pct: number | null; avg_nights: number | null; spent: number | null }[];
+  cohort: { id: string; title: string; night: string; buyers: number; back: (number | null)[] }[];
+  hist: { n1: number; n2: number; n3: number; n5: number; n10: number };
+  audience: { buyers: number; groups: Record<'nou' | 'occ' | 'hab' | 'end', { buyers: number; revenue: number | null }> };
+  age: { known: number; total: number; b: number[] };
+  city: { known: number; total: number; top: { city: string; n: number }[] };
+  top: { email: string; first_name: string | null; last_name: string | null; nights: number; spent: number | null; last_night: string | null }[];
+  wake: {
+    end: { n: number; reachable: number };
+    once: { n: number; reachable: number };
+    hab_no_ticket: { event_id: string; title: string; n: number; reachable: number } | null;
+  };
+  has_any: boolean;
+}
+
+function args(f: AnaFilters) {
+  return { p_period: f.period, p_event: f.event };
+}
+
+export function useAnaSales(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'sales', f.period, f.event, f.seg],
+    queryFn: () => rpc<AnaSales>('tix_ana_sales', { ...a, ...args(f), p_seg: f.seg === 'end' ? 'all' : f.seg }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
+export function useAnaTraffic(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'traffic', f.period, f.event],
+    queryFn: () => rpc<AnaTraffic>('tix_ana_traffic', { ...a, ...args(f) }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
+export function useAnaCommunity(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'community', f.period, f.event, f.seg],
+    queryFn: () => rpc<AnaCommunity>('tix_ana_community', { ...a, ...args(f), p_seg: f.seg }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
+// ── Guest list ──
+
+export type GlKind = 'inv' | 'free' | 'mix';
+export type GlPhase = 'upcoming' | 'live' | 'past';
+/** Qui est l'invité, d'après ce qu'il a fait chez vous AVANT la soirée. */
+export type GlTag = 'first' | 'gl' | 'buyer';
+
+export interface GlSlot { h: number; gl: number; paid: number }
+/** Heures médianes d'arrivée, en minutes depuis midi (690 = 23 h 30). */
+export interface GlArrivals { slots: GlSlot[]; gl_med: number | null; paid_med: number | null }
+export interface GlProfileSide { known: number; female_pct: number | null; age_known: number; age_med: number | null }
+
+export interface NightGlList {
+  name: string | null; kind: GlKind; entries: number; came: number;
+  showup: number | null; first: number; conv: number | null;
+}
+
+export interface NightGlPerson {
+  email: string; name: string | null; list: string | null; kind: 'inv' | 'free'; n: number;
+  came: boolean; scanned_at: string | null; at: string; tag: GlTag; conv: boolean;
+}
+
+export interface NightGuestList {
+  error?: 'not_found';
+  event: { id: string; title: string; start_at: string; end_at: string; tz: string; phase: GlPhase; url: string | null };
+  /** Soirée passée dont la porte a scanné au moins la moitié des billets. */
+  scan_known: boolean;
+  totals: {
+    entries: number; inv: number; free: number; people: number; came: number;
+    paid: number; paid_came: number; today: number; pending: number; rejected: number;
+    showup: number | null; paid_showup: number | null; free_share: number | null;
+  };
+  prev: { id: string; title: string; start_at: string; same_series: boolean; entries: number; came: number; same_day: number; showup: number | null } | null;
+  /** Inscriptions cumulées, du plus loin au plus près ; d = jours avant la soirée. */
+  curve: { d: number; v: number; pv: number | null }[];
+  lists: NightGlList[];
+  who: { first: number; gl: number; buyers: number };
+  /** Soirée passée : invités sans billet payant avant, qui en ont acheté un depuis. */
+  after: { eligible: number; converted: number; revenue: number | null; back: number } | null;
+  arrivals: GlArrivals;
+  profile: Partial<Record<'gl' | 'paid', GlProfileSide>>;
+  people: NightGlPerson[];
+  synced_at: string | null;
+}
+
+export function useNightGuestList(id: string | null, enabled = true) {
+  const { rpc: args, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'night-gl', id],
+    queryFn: () => rpc<NightGuestList>('tix_night_guestlist', { ...args, p_event_id: id }),
+    enabled: !!id && enabled && ready,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export interface AnaGlNight {
+  id: string; title: string; start_at: string; tz: string; live: boolean;
+  entries: number; inv: number; came: number; paid_came: number; scan_known: boolean; showup: number | null;
+}
+
+export interface AnaGlList {
+  name: string | null; kind: GlKind; nights: number; entries: number; showup: number | null;
+  eligible: number; conv: number; conv_pct: number | null;
+}
+
+export interface AnaGuestList {
+  meta: { period: AnaPeriod; days: number; from: string; to: string; today: string };
+  has_any: boolean;
+  totals: {
+    nights: number; gl_nights: number; entries: number; inv: number; came: number; people: number; scan_nights: number;
+    showup: number | null; free_share: number | null;
+    prev_nights: number; prev_entries: number; prev_people: number; prev_showup: number | null; prev_free_share: number | null;
+  };
+  conv: { eligible: number; converted: number; revenue: number | null; median_days: number | null };
+  nights: AnaGlNight[];
+  lists: AnaGlList[];
+  arrivals: GlArrivals;
+  profile: Partial<Record<'gl' | 'paid', GlProfileSide>>;
+  /** Habitués de la guest list (3 soirées ou plus, jamais un billet payant) — filtre Clients `loyal`. */
+  loyal: number;
+  /** Inscrits non venus 2 fois ou plus (porte scannée) — filtre Clients `noshow`. */
+  noshow: number;
+  /** Devenus clients sur tout l'historique — filtre Clients `conv`. */
+  conv_all: number;
+  next: { id: string; title: string; start_at: string; tz: string; entries: number; inv: number; today: number } | null;
+}
+
+export function useAnaGuestList(period: AnaPeriod, enabled = true) {
+  const { rpc: args, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'guestlist', period],
+    queryFn: () => rpc<AnaGuestList>('tix_ana_guestlist', { ...args, p_period: period }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
+// ── Parcours client ──
+
+export type JrPeriod = '7d' | '30d' | '90d' | '12m';
+export type JrChannel = 'all' | 'email' | 'sms' | 'ig';
+export type JrSeg = 'all' | Lifecycle;
+
+export const JR_PERIODS: JrPeriod[] = ['7d', '30d', '90d', '12m'];
+export const JR_CHANNELS: JrChannel[] = ['all', 'email', 'sms', 'ig'];
+export const JR_SEGS: JrSeg[] = ['all', 'nou', 'occ', 'hab', 'end', 'none'];
+
+export interface JrFilters {
+  period: JrPeriod;
+  event: string | null;
+  campaign: string | null;
+  channel: JrChannel;
+  seg: JrSeg;
+  cmp: boolean;
+}
+
+export type SegCounts = Record<Lifecycle, number>;
+
+export interface JrStep {
+  k: 0 | 1 | 2 | 3;
+  lost: number;
+  reach: number;
+  by_campaign: { id: string; name: string; n: number }[];
+  by_seg: SegCounts;
+  /** Audience exacte de « Relancer » (rôle qui écrit, 2 000 au plus). */
+  emails: string[] | null;
+}
+
+export type JrPathKey = 'm_click' | 'mm_click' | 'm_noclick' | `src_${SourceKey}`;
+
+export interface JrCampaign {
+  id: string; name: string; sent_at: string; event_id: string | null; event_title: string | null;
+  received: number; opened: number; clicked: number; ticket_clicks: number; buyers: number; back: number;
+  revenue: number | null; within2d: number; buyers_seg: SegCounts;
+}
+
+export type JrEventKind = 'mail' | 'auto' | 'open' | 'click' | 'buy';
+
+export interface JrPerson {
+  kind: 'bought' | 'clicked' | 'opened' | 'direct';
+  email: string; first_name: string | null; last_name: string | null;
+  lifecycle: Lifecycle; nights: number; email_ok: boolean; phone_ok: boolean;
+  events: { at: string; t: JrEventKind; s: string | null; amount: number | null; qty: number | null; ev_at: string | null }[];
+}
+
+export interface Journey {
+  period: JrPeriod; from: string; to: string; days: number; seg: JrSeg; channel: JrChannel;
+  campaign: { id: string; sent_at: string } | null;
+  /** Reçu, ouvert, clic, achat, retour — par personne. */
+  funnel: [number, number, number, number, number];
+  prev: [number, number, number, number, number] | null;
+  /** Personnes touchées sur 14 cases ; null quand une campagne est choisie. */
+  spark: number[] | null;
+  /** Acheteurs sur 6 cases ; null quand une campagne est choisie. */
+  bars: number[] | null;
+  steps: JrStep[];
+  delays: { n: number; b: [number, number, number, number]; median_h: number | null; prev_median_h: number | null; touches: number | null };
+  paths: { total: number; with_msg: number; without_msg: number; list: { key: JrPathKey; n: number }[] } | null;
+  cover: { buyers: number; attributed: number } | null;
+  campaigns: JrCampaign[];
+  examples: JrPerson[];
+  options: { campaigns: { id: string; name: string; sent_at: string; event_id: string | null }[] };
+  thanks_auto: boolean;
+  has_campaigns: boolean;
+  has_connection: boolean;
+}
+
+export function useJourney(f: JrFilters) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'journey', f.period, f.event, f.campaign, f.channel, f.seg],
+    queryFn: () => rpc<Journey>('tix_journey', {
+      ...a, p_period: f.period, p_event: f.event, p_campaign: f.campaign, p_channel: f.channel, p_seg: f.seg,
+    }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: ready,
+  });
+}

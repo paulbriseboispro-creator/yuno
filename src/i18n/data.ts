@@ -43,7 +43,7 @@ export async function loadLocale(lang: Language): Promise<Record<string, string>
 // 2 000 clés `ohelp.*`) vivent dans des chunks séparés, fusionnés dans le
 // dictionnaire de la langue UNIQUEMENT quand la surface se monte.
 
-export type LocaleSection = 'help' | 'admin' | 'crm';
+export type LocaleSection = 'help' | 'admin' | 'crm' | 'tixana';
 
 const sectionCache: Partial<Record<Language, Partial<Record<LocaleSection, Record<string, string>>>>> = {};
 
@@ -88,6 +88,20 @@ export async function loadLocaleSection(lang: Language, section: LocaleSection):
         break;
       default:
         mod = await import('./locales/crm/en');
+        break;
+    }
+  } else if (section === 'tixana') {
+    // `tixana` = les Analyses de Yuno Tickets (src/i18n/locales/tixana/modules/*),
+    // chargées seulement à l'ouverture de `…/analyses` dans la Console.
+    switch (lang) {
+      case 'fr':
+        mod = await import('./locales/tixana/fr');
+        break;
+      case 'es':
+        mod = await import('./locales/tixana/es');
+        break;
+      default:
+        mod = await import('./locales/tixana/en');
         break;
     }
   } else {
