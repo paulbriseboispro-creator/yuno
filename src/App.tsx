@@ -207,6 +207,9 @@ const OrgAppEventDetail = lazyWithRetry(() => import("./pages/organizer-app/OrgA
 const OrgAppEventLive = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventLive"));
 const OrgAppCheckin = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCheckin"));
 const OrgAppAnalytics = lazyWithRetry(() => import("./pages/AnalyticsRouter").then((m) => ({ default: m.OrgAnalyticsRoute })));
+// Yuno Tickets › Analyses (copie des Analyses de Yuno CRM, src/tickets/analytics).
+const TicketsAnalyses = lazyWithRetry(() => import("./pages/TicketsAnalyses"));
+const TicketsJourney = lazyWithRetry(() => import("./pages/TicketsAnalyses").then((m) => ({ default: m.TicketsJourney })));
 const OrgAppOrganization = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOrganization"));
 const OrgAppPayments = lazyWithRetry(() => import("./pages/organizer-app/OrgAppPayments"));
 const OrgAppOnboarding = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOnboarding"));
@@ -840,6 +843,9 @@ const App = () => (
                   <Route path="book-dj" element={<OrgAppRoute requires="editEvents"><BookDJPage /></OrgAppRoute>} />
                   <Route path="checkin" element={<OrgAppRoute requires="scanDoor"><OrgAppCheckin /></OrgAppRoute>} />
                   <Route path="analytics" element={<OrgAppRoute requires="viewInsights"><OrgAppAnalytics /></OrgAppRoute>} />
+                  <Route path="analyses" element={<Navigate to="/organizer-app/analyses/sales" replace />} />
+                  <Route path="analyses/journey" element={<OrgAppRoute requires="viewInsights"><TicketsJourney /></OrgAppRoute>} />
+                  <Route path="analyses/:tab" element={<OrgAppRoute requires="viewInsights"><TicketsAnalyses /></OrgAppRoute>} />
                   {/* Legacy split partner-clubs page → unified Collaborations hub (Partner clubs tab) */}
                   <Route path="partners" element={<Navigate to="/organizer-app/collaborations?tab=partners" replace />} />
                   <Route path="collaborations" element={<OrgAppRoute requires="editEvents"><OrgAppCollabHub /></OrgAppRoute>} />
@@ -1024,6 +1030,9 @@ const App = () => (
                   <Route path="crm/audience" element={<CrmAudience />} />
                   <Route path="crm/billing" element={<Navigate to="/crm/account/billing" replace />} />
                   <Route path="analytics" element={<PlanGuard feature="analytics_basic"><OwnerAnalytics /></PlanGuard>} />
+                  <Route path="analyses" element={<Navigate to="/owner/analyses/sales" replace />} />
+                  <Route path="analyses/journey" element={<PlanGuard feature="analytics_basic"><TicketsJourney /></PlanGuard>} />
+                  <Route path="analyses/:tab" element={<PlanGuard feature="analytics_basic"><TicketsAnalyses /></PlanGuard>} />
                   <Route path="live" element={<PlanGuard feature="live_night"><OwnerLiveNight /></PlanGuard>} />
                   {/* Hype Score et Audience ont rejoint Analytics (lot E) : les anciennes adresses redirigent. */}
                   <Route path="hype" element={<Navigate to="/owner/analytics?tab=sales&view=event" replace />} />
@@ -1240,6 +1249,17 @@ const App = () => (
                 <Route path="/manager/analytics" element={
                   <ManagerRoute>
                     <OwnerAnalytics />
+                  </ManagerRoute>
+                } />
+                <Route path="/manager/analyses" element={<Navigate to="/manager/analyses/sales" replace />} />
+                <Route path="/manager/analyses/journey" element={
+                  <ManagerRoute>
+                    <TicketsJourney />
+                  </ManagerRoute>
+                } />
+                <Route path="/manager/analyses/:tab" element={
+                  <ManagerRoute>
+                    <TicketsAnalyses />
                   </ManagerRoute>
                 } />
                 <Route path="/manager/customers" element={

@@ -2404,6 +2404,10 @@ const fr: Record<string, string> = {
   'nav.ticketing': 'Billetterie',
   'nav.staff': 'Personnel',
   'nav.analytics': 'Statistiques',
+  'nav.analyses': 'Analyses',
+  'nav.analysesBadge': 'Nouveau',
+  'nav.analysesFree': 'Gratuits',
+  'nav.analysesJourney': 'Parcours client',
   'nav.backHome': 'Retour à l\'accueil',
 
   // Explore

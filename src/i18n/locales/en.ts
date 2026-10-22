@@ -2369,6 +2369,10 @@ const en: Record<string, string> = {
   'nav.ticketing': 'Ticketing',
   'nav.staff': 'Staff',
   'nav.analytics': 'Analytics',
+  'nav.analyses': 'Analytics',
+  'nav.analysesBadge': 'New',
+  'nav.analysesFree': 'Free',
+  'nav.analysesJourney': 'Customer journey',
   'nav.backHome': 'Back to home',
 
   // Explore

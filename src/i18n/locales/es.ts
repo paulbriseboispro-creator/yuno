@@ -2868,6 +2868,10 @@ const es: Record<string, string> = {
   'subscribe.emptyDJs': 'Sin DJs seguidos',
   'subscribe.emptyDJsDesc': 'Suscríbete a DJs para seguir sus sesiones aquí',
   'nav.analytics': 'Análisis',
+  'nav.analyses': 'Análisis',
+  'nav.analysesBadge': 'Nuevo',
+  'nav.analysesFree': 'Gratis',
+  'nav.analysesJourney': 'Recorrido del cliente',
   'nav.backHome': 'Volver al inicio',
   
   // Profile Hub

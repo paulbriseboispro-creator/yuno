@@ -65,6 +65,24 @@ export type SidebarNavItem = {
 	subItems?: SidebarNavItem[];
 };
 
+/** L'entrée « Analyses » (nouvelle) : Ventes, Trafic, Communauté, Gratuits, Parcours client. */
+export function tixAnalysesItem(t: (key: string) => string, base: string): SidebarNavItem {
+	const a = `${base}/analyses`;
+	return {
+		title: t('nav.analyses'),
+		path: `${a}/sales`,
+		icon: <BarChart3Icon />,
+		badge: t('nav.analysesBadge'),
+		subItems: [
+			{ title: t('anf.family.sales'), path: `${a}/sales`, icon: <BarChart3Icon />, isDefault: true },
+			{ title: t('anf.family.traffic'), path: `${a}/traffic`, icon: <GlobeIcon /> },
+			{ title: t('anf.family.community'), path: `${a}/community`, icon: <UsersIcon /> },
+			{ title: t('nav.analysesFree'), path: `${a}/guestlist`, icon: <UsersIcon /> },
+			{ title: t('nav.analysesJourney'), path: `${a}/journey`, icon: <GlobeIcon /> },
+		],
+	};
+}
+
 export type SidebarNavGroup = {
 	label: string;
 	items: SidebarNavItem[];
@@ -72,7 +90,7 @@ export type SidebarNavGroup = {
 
 // `metaLive` vient de useMetaIntegrationLive() (AppSidebar) : la pastille
 // « Bientôt » suit ce que le compte voit vraiment, pas la constante seule.
-export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE): SidebarNavGroup[] {
+export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE, tixAnalyses = false): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
@@ -94,6 +112,9 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 						{ title: t('anf.family.live'), path: "/owner/analytics?tab=live", icon: <RadioIcon /> },
 					],
 				},
+				// Les Analyses de Yuno CRM transposées (src/tickets/analytics), derrière
+				// l'interrupteur TIX_ANALYSES_LIVE (src/lib/ticketsAnalyses.ts).
+				...(tixAnalyses ? [tixAnalysesItem(t, "/owner")] : []),
 				{
 					title: t('sidebar.liveNight'),
 					path: "/owner/live",
