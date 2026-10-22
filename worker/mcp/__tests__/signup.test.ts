@@ -85,6 +85,17 @@ describe('signupDesign', () => {
     expect(bad.errors.map((e) => e.code)).toEqual(expect.arrayContaining(['invalid_dates', 'poster_not_on_yuno']));
   });
 
+  it('a guestlist page takes an https after_url, and only a guestlist page', () => {
+    const ok = settingsPatch({ kind: 'guestlist', after_url: ' https://shotgun.live/fr/events/3am?ref=gl ', closes_mode: 'never' }, 'guestlist');
+    expect(ok.errors).toEqual([]);
+    expect(ok.patch).toMatchObject({ kind: 'guestlist', after_url: 'https://shotgun.live/fr/events/3am?ref=gl', closes_mode: 'never' });
+    expect(settingsPatch({ after_url: 'none' }, 'guestlist').patch.after_url).toBeNull();
+    expect(settingsPatch({ after_url: 'http://shotgun.live/x' }, 'guestlist').errors.map((e) => e.code)).toEqual(['invalid_args']);
+    expect(settingsPatch({ after_url: 'javascript:alert(1)' }, 'guestlist').errors.map((e) => e.code)).toEqual(['invalid_args']);
+    expect(settingsPatch({ after_url: 'https://shotgun.live/x' }, 'venue').errors.map((e) => e.code)).toEqual(['invalid_args']);
+    expect(settingsPatch({ closes_mode: 'eve' }, 'guestlist').errors.map((e) => e.code)).toEqual(['invalid_dates']);
+  });
+
   it('the page design guide resource carries types, templates, rules and the example', () => {
     const md = signupPageGuideMarkdown();
     expect(md).toMatch(/prevente/);
@@ -163,7 +174,7 @@ describe('get_signup_page_kit over MCP', () => {
     const out = JSON.parse(r.text);
     expect(out.brand.logo_url).toBe(STORAGE);
     expect(out.templates).toHaveLength(10);
-    expect(Object.keys(out.page_kinds)).toEqual(['prevente', 'venue', 'attente', 'communaute']);
+    expect(Object.keys(out.page_kinds)).toEqual(['prevente', 'venue', 'attente', 'communaute', 'guestlist']);
     expect(out.custom_design.yuno_blocks.form).toMatch(/REQUIRED/);
     expect(out.page_tags.tags.length).toBeGreaterThan(30);
     expect(out.tag_preview.event.title).toBe('HALLOWEEN');

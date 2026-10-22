@@ -159,7 +159,7 @@ de le recommander.
 | `list_email_images` | images ajoutées par l'IA (30 j) et liens de dépôt en attente — pour les e-mails comme pour les pages | `mcp_email_images` |
 | `create_email_draft` · `update_email_draft` | **écriture** : un brouillon d'e-mail (§ 8) | `mcp_write` → `_mcp_email_write` |
 | `add_email_image` | **écriture** : un emplacement d'image (fichier joint, lien, ou page de dépôt), pour un e-mail ou une page | `mcp_write` → `_mcp_email_image_add`, Worker `emailImages.ts` |
-| `get_signup_page_kit` | marque, soirées, pages existantes, les quatre types et leurs règles, gabarits et polices, modèle du design sur mesure, balises de page + aperçu, règles web, méthode, exemple | `_mcp_signup_tool` + Worker (`signupGuide.ts`) |
+| `get_signup_page_kit` | marque, soirées, pages existantes, les cinq types et leurs règles (`guestlist` : lien `after_url`), gabarits et polices, modèle du design sur mesure, balises de page + aperçu, règles web, méthode, exemple | `_mcp_signup_tool` + Worker (`signupGuide.ts`) |
 | `get_signup_page` | une page : réglages, sections du design (id, texte visible, contenu), proposition en attente, `version`, liens Console et public | `crm_signup_pages` (`_mcp_signup_page_view`) |
 | `create_signup_page` · `update_signup_page` | **écriture** : une page d'inscription en brouillon, ou une proposition sur une page en ligne (§ 9) | `mcp_write` → `_mcp_signup_write` |
 | `list_scenarios` · `get_scenario_report` | scénarios d'un espace Yuno CRM : état, entrés, objectif, témoin ; un scénario en détail (graphe, contrôles, résultats par étape) | `_mcp_scenario_tool` (`crm_scenarios`, `crm_scenario`, `crm_scenario_report`) |
