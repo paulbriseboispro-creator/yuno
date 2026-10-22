@@ -3152,6 +3152,45 @@ page. Vérification visuelle : `node scripts/demo/drive.mjs --as owner --go
 "http://localhost:8080/owner/analytics?tab=sales&view=overview" --shot …` (URL
 absolue obligatoire : `APP_ORIGIN` vient de `.env.local` et pointe la prod).
 
+## Yuno Tickets › Analyses — les Analyses de Yuno CRM sur les ventes Yuno (2026-10-22)
+
+Demande de Paul : « duplique de Yuno CRM toute la partie analytics (Ventes, Trafic,
+Communauté, Guest list, Parcours client) sur Yuno Tickets, tout pareil, couleurs et
+polices de Yuno Tickets ». Remplace la règle du 01/10 « ne pas proposer un écran qui
+remplacerait les familles » (plan `BILLETTERIE_CRM_TRANSPOSITION_PLAN.md`, D8).
+Adresses `…/analyses/:tab` et `…/analyses/journey` (Club, Manager, Organisateur) ;
+l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
+
+- **Les calculs sont ceux du CRM, recopiés depuis la prod** (migration
+  `20261109300000`) : les cœurs `crm_ana_*__core` / `crm_journey__core` /
+  `crm_night_guestlist__core` lisent des tables temporaires (`_aev`, `_atk_all`,
+  `_cp`, `_cr`) ; leurs copies `tix_*` remplissent ces tables depuis les ventes
+  Yuno par la source unique `_tix_sales` (billet = commande, quantité = places,
+  montant = CA club de `fees.ts` ; table VIP = vente SANS place, quantité 0, comptée
+  dans le CA / les acheteurs / les soirées, jamais dans « Billets » ; guest list =
+  canal `invitation`, jamais une vente). Une règle changée dans un cœur du CRM se
+  reporte dans sa copie `tix_` (et inversement), sinon les deux produits divergent.
+- **Séparation** : soirées `external_source IS NULL` seulement (`_tix_scope_events` :
+  menées ou partenaire d'un contrat collab, jamais seulement co-hébergées) ; contacts
+  et fichiers `product IS NULL` (`contact_build_rows(…, 'suite')`, `_tix_file_history`) ;
+  campagnes `NOT crm_campaign_is_crm`. Aucune fonction du CRM n'est modifiée.
+- **Sources** = attribution figée sur la vente (`_tix_source`, clés `SOURCE_KEYS` de
+  `src/tickets/analytics/data.ts`) ; là où le CRM dit « Bientôt, avec Shotgun », la
+  Billetterie montre les visites de la page de vente (`visits` de `tix_ana_traffic`).
+- **Argent** : `_tix_money_gate` (porte `analytics_scope_gate`) ; un club ne voit pas
+  le CA d'une soirée qu'il ne fait qu'accueillir (montant 0 dans `_tix_sales`).
+- **Front** = copie des écrans du CRM dans `src/tickets/analytics/` : variables
+  `--ya-*` (theme.css, sombre par défaut, clair sous `data-pro-theme`, Space Grotesk /
+  Inter / JetBrains Mono, rouge #E8192C), jamais `--ink` / `--paper` (triplets du thème
+  pro) ni `#fff` en surface ; textes `ya.*` de la section `tixana`
+  (`src/i18n/locales/tixana/modules` : `fromCrm.ts` recopié, `tickets.ts` l'emporte).
+  « Écrire à… » ouvre une campagne de la Console (pas d'audience pré-remplie),
+  « Ce qui fait venir » (moteur d'analyse du CRM) n'est pas transposé.
+- **Interrupteur** `TIX_ANALYSES_LIVE` (`src/lib/ticketsAnalyses.ts`) : l'entrée de menu
+  « Analyses · Nouveau » ne s'affiche qu'au super admin et aux comptes démo tant qu'il
+  est à false ; les adresses répondent pour tous. Mode d'emploi et assistant à écrire
+  au passage à true.
+
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 
 Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
