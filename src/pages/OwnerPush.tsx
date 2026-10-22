@@ -113,6 +113,8 @@ export default function OwnerPush() {
   const [historyPage, setHistoryPage] = useState(0);
   const [orgProfile, setOrgProfile] = useState<{ name: string; slug: string | null } | null>(null);
   const [savedSegments, setSavedSegments] = useState<Array<{ id: string; name: string }>>([]);
+  // Segments de l'écran Clients de Yuno Tickets (tix_segments) : club ET organisateur.
+  const [tixSegments, setTixSegments] = useState<Array<{ id: string; name: string }>>([]);
   const [scheduledAt, setScheduledAt] = useState<string>(''); // datetime-local ; vide = envoi immédiat
   const [bestSlot, setBestSlot] = useState<{ dow: number; hour: number } | null>(null);
   // Ce que l'envoi coûtera (réponse du dry_run) : 1 crédit pour une campagne
@@ -235,10 +237,19 @@ export default function OwnerPush() {
       .then(({ data }) => setSavedSegments(((data as unknown) as Array<{ id: string; name: string }>) || []));
   }, [venueId]);
 
-  // Pré-sélection d'un segment via ?segment=<uuid> (bouton « Push » de la page Clients).
+  useEffect(() => {
+    if (isOrg ? !organizerUserId : !venueId) return;
+    supabase.rpc('tix_segments_list' as never, { p_venue_id: isOrg ? null : venueId, p_organizer_user_id: isOrg ? organizerUserId : null } as never)
+      .then(({ data }) => setTixSegments(Array.isArray(data) ? (data as Array<{ id: string; name: string }>) : []));
+  }, [isOrg, venueId, organizerUserId]);
+
+  // Pré-sélection d'un segment via ?segment=<uuid> (bouton « Push » de la page Clients),
+  // ou ?tixseg=<uuid> (segment de l'écran Clients de Yuno Tickets).
   useEffect(() => {
     const seg = searchParams.get('segment');
     if (seg) setAudience(`segment:${seg}`);
+    const tix = searchParams.get('tixseg');
+    if (tix) setAudience(`tix:${tix}`);
   }, [searchParams]);
 
   // URL par défaut : la soirée sélectionnée, sinon la page du club.
@@ -634,6 +645,14 @@ export default function OwnerPush() {
                       {audienceOptions.map((a) => (
                         <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                       ))}
+                      {tixSegments.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>{t('ownerPush.audTixSegments')}</SelectLabel>
+                          {tixSegments.map((sg) => (
+                            <SelectItem key={sg.id} value={`tix:${sg.id}`}>{sg.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
                       {savedSegments.length > 0 && (
                         <SelectGroup>
                           <SelectLabel>{t('ownerPush.audSavedSegments')}</SelectLabel>

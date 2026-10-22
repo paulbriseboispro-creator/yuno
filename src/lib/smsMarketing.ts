@@ -19,6 +19,8 @@ export const SMS_MARKETING_LIVE = false;
 
 export type SmsLang = 'fr' | 'en' | 'es';
 export type SmsSegmentType = 'all' | 'event' | 'not_event' | 'vip' | 'import' | 'contact_segment'
+  // Yuno Tickets › Clients : un ou plusieurs segments de l'écran Clients (tix_segments).
+  | 'tix_segment'
   // Portee plateforme uniquement : l'origine se lit dans le registre email
   // plateforme (resolve_sms_campaign_recipients).
   | 'pros' | 'clients';

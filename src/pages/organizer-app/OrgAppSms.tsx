@@ -32,7 +32,7 @@ export default function OrgAppSms() {
           <OrgPageHeader title={t('smsCampaigns.title')} subtitle={t('smsc.orgSubtitle')} />
         </div>
       </div>
-      <SmsCampaignsPanel scope={scope} basePath="/organizer-app/sms" selectedId={id ?? null} presetEventId={searchParams.get('event')} />
+      <SmsCampaignsPanel scope={scope} basePath="/organizer-app/sms" selectedId={id ?? null} presetEventId={searchParams.get('event')} presetTixSegmentId={searchParams.get('tixseg')} />
     </OrgPage>
   );
 }

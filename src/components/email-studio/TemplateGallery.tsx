@@ -6,6 +6,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { rfmParamToAudiences } from '@/lib/email/rfmAudience';
+import { takePendingAudience } from '@/tickets/clients/data/clients';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DEFAULT_STUDIO_THEME, buildStarter, eventBoundBlocks, makeBlock, normalizeTheme,
@@ -56,7 +57,18 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
   // Analytics v3 : « Créer une campagne » depuis un segment RFM (`?rfm=at_risk`,
   // `?rfm=champions,loyal`) pré-remplit l'audience avec le segment intégré
   // correspondant — jamais une liste de personnes, toujours un segment résolu à l'envoi.
-  const presetAudiences = useMemo(() => rfmParamToAudiences(searchParams.get('rfm')), [searchParams]);
+  // Yuno Tickets › Clients, « Écrire à… » (`?aud=tix`) : l'audience préparée
+  // dans la fenêtre (un segment ou le filtre de l'écran Clients) part avec le
+  // brouillon — lue une fois, jamais devinée depuis l'adresse.
+  const [tixPreset] = useState(() => {
+    if (searchParams.get('aud') !== 'tix') return null;
+    const p = takePendingAudience();
+    if (!p || p.channel !== 'email') return null;
+    return p.segmentId
+      ? [{ kind: 'tix' as const, segmentId: p.segmentId, label: p.label }]
+      : [{ kind: 'tix' as const, def: (p.def ?? { seg: 'all', f: {} }) as Record<string, unknown>, label: p.label }];
+  });
+  const presetAudiences = useMemo(() => tixPreset ?? rfmParamToAudiences(searchParams.get('rfm')), [tixPreset, searchParams]);
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<EmailTemplate | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EmailTemplate | null>(null);
@@ -110,6 +122,7 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
       logo_url: content.logoUrl,
       event_id: eventId || null,
       audiences_json: presetAudiences,
+      ...(tixPreset ? { audience_type: 'imported_list' } : {}),
       exclusions_json: {},
       status: 'draft',
     };
