@@ -32,7 +32,15 @@ export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist' | 'live';
 export type SourceKey = 'ys' | 'yb' | 'yt' | 'wa' | 'yl' | 'pr' | 'pa' | 'em' | 'sm' | 'ad' | 'pc' | 'mk' | 'so' | 'se' | 'au' | 'di' | 'of';
 export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'wa', 'yl', 'pr', 'pa', 'em', 'sm', 'ad', 'pc', 'mk', 'so', 'se', 'au', 'di', 'of'];
 
-export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
+/**
+ * Pilier de l'onglet Ventes (lot 1 du plan combiné, 20261109310000) : `all` =
+ * tout, `tickets` / `tables` / `guestlist` restreignent l'écran au pilier,
+ * `refunds` lit les remboursements à leur date.
+ */
+export type AnaPillar = 'all' | 'tickets' | 'tables' | 'guestlist' | 'refunds';
+export const PILLARS: AnaPillar[] = ['all', 'tickets', 'tables', 'guestlist', 'refunds'];
+
+export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean; pillar: AnaPillar }
 
 export interface AnaEventRef { id: string; title: string; start_at: string; night: string; upcoming?: boolean; days_left?: number }
 
@@ -52,6 +60,8 @@ export interface AnaMeta {
   money?: boolean;
   event: AnaEventRef | null;
   prev_event: AnaEventRef | null;
+  /** Ventes : le pilier lu. */
+  pillar?: AnaPillar;
 }
 
 export interface AnaSend { i: number; at: string; name: string; channel: 'email' | 'sms' | 'push'; id: string }
@@ -77,7 +87,8 @@ export interface AnaSales {
     /** Tables VIP vendues (Yuno Tickets) : une vente sans place de billetterie. */
     tables?: number; prev_tables?: number; table_money?: { revenue: number | null; prev_revenue: number | null };
   };
-  msg: { share: number | null; revenue: number | null; tickets: number; by: { em: number; sm: number; dm: number } } | null;
+  /** `basis` : la part se lit en euros, ou en ventes (guest list, portée sans l'argent). */
+  msg: { share: number | null; basis?: 'amount' | 'count'; revenue: number | null; tickets: number; by: { em: number; sm: number; dm: number } } | null;
   tariffs: { deal: string; price: number | null; tickets: number; revenue: number | null; units?: number; pillar?: 'tickets' | 'tables' | 'guestlist' }[];
   /** Remplissage des soirées tenues dans la fenêtre (ou de la soirée choisie). */
   fill: { sold: number | null; cap: number | null; nights: number; prev_sold: number | null; prev_cap: number | null };
@@ -87,10 +98,57 @@ export interface AnaSales {
   events: {
     id: string; title: string; start_at: string; night: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past';
     tickets: number; paid?: number; free?: number; tables?: number; revenue: number | null; sold: number; cap: number | null; prev_sold: number | null;
+    /** Pilier Tables VIP : tables réservées et tables en vente de la soirée. */
+    tables_fill?: { sold: number; cap: number | null } | null;
+    /** Porte d'une soirée passée, en personnes ; `measured` = _crm_door_measured. */
+    door?: { entered: number; expected: number; measured: boolean } | null;
+    /** Bilan de toute la soirée (tous piliers) : CA − cachets DJ. */
+    balance?: { revenue: number | null; fees: { amount: number | null }; rest: { amount: number | null } };
   }[];
   events_other: { count: number; tickets: number; revenue: number | null } | null;
+  /** « Ce que vous touchez » (pilier Tout) : volume brut − remboursements − Stripe = net. */
+  payout?: TixPayout | null;
+  tables_block?: TixTablesBlock | null;
+  gl_block?: TixGlBlock | null;
+  refunds_block?: TixRefundsBlock | null;
   sends: AnaSend[];
   has_any: boolean;
+}
+
+export interface TixPayout {
+  gross: { amount: number | null; n: number };
+  refunds: { amount: number | null; n: number };
+  stripe: { amount: number | null; n: number };
+  net: { amount: number | null };
+  /** Reste des tables VIP à régler au club le soir même. */
+  on_site: { amount: number | null };
+  /** Co-soirées : la part de la portée d'après le contrat ; `unknown` = soirées au décompte (barème, co-organisation). */
+  share: { amount: number | null; nights: number; unknown: number } | null;
+}
+
+export interface TixTablesBlock {
+  n: number; prev_n: number;
+  guests: number | null;
+  min_spend: { amount: number | null };
+  engaged: { amount: number | null };
+  deposits: { amount: number | null };
+  online_n: number; on_site_n: number;
+  fill: { sold: number | null; cap: number | null; nights: number };
+  prev_fill: { sold: number | null; cap: number | null };
+}
+
+export interface TixGlBlock {
+  nights: number; nights_measured: number; signups_measured: number; came: number; per_night: number | null;
+}
+
+export interface TixRefundsBlock {
+  series: { revenue: number | null; tickets: number; prev_revenue: number | null; prev_tickets: number }[];
+  totals: {
+    revenue: number | null; n: number; full: number; prev_revenue: number | null; prev_n: number;
+    tickets_n: number; tables_n: number; has_prev: boolean | null;
+  };
+  reasons: { reason: string | null; n: number; revenue: number | null }[];
+  events: { id: string; title: string; start_at: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past'; n: number; revenue: number | null; sales: number }[];
 }
 
 export interface AnaTraffic {
@@ -145,8 +203,8 @@ function args(f: AnaFilters) {
 export function useAnaSales(f: AnaFilters, enabled = true) {
   const { rpc: a, qk, ready } = useTixScope();
   return useQuery({
-    queryKey: ['tix-ana', qk, 'ana', 'sales', f.period, f.event, f.seg],
-    queryFn: () => rpc<AnaSales>('tix_ana_sales', { ...a, ...args(f), p_seg: f.seg === 'end' ? 'all' : f.seg }),
+    queryKey: ['tix-ana', qk, 'ana', 'sales', f.period, f.event, f.seg, f.pillar],
+    queryFn: () => rpc<AnaSales>('tix_ana_sales', { ...a, ...args(f), p_seg: f.seg === 'end' ? 'all' : f.seg, p_pillar: f.pillar }),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     enabled: enabled && ready,

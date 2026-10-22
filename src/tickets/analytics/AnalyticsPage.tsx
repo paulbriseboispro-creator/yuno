@@ -20,7 +20,7 @@ import { useTixT } from '@/tickets/analytics/i18n';
 import { useTixCaps, useTixNights } from '@/tickets/analytics/scope';
 import { useTixRoutes, type TixRoutes } from '@/tickets/analytics/routes';
 import { downloadCsv } from '@/crm/lib/csv';
-import { useAnaCommunity, useAnaGuestList, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaSeg, type AnaTab } from '@/tickets/analytics/data';
+import { useAnaCommunity, useAnaGuestList, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaPillar, type AnaSeg, type AnaTab, PILLARS } from '@/tickets/analytics/data';
 import { StatePill, type NightState } from './anaUi';
 import { LoadError } from '@/tickets/analytics/LoadError';
 import { SalesTab, salesCsv } from './SalesTab';
@@ -54,7 +54,9 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   let seg: AnaSeg = s && SEGS.includes(s) ? s : 'all';
   if (seg === 'end' && tab !== 'community') seg = 'all';
   if (tab === 'traffic' || tab === 'guestlist' || tab === 'live') seg = 'all';
-  return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0' };
+  const pl = sp.get('pl') as AnaPillar | null;
+  const pillar: AnaPillar = tab === 'sales' && pl && PILLARS.includes(pl) ? pl : 'all';
+  return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0', pillar };
 }
 
 /** Lecture en échec et rien en mémoire : LoadError avec « Réessayer » ; sinon rien (l'onglet s'affiche). */
@@ -91,6 +93,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       if (nf.event) p.set('e', nf.event); else p.delete('e');
       if (nf.seg !== 'all') p.set('s', nf.seg); else p.delete('s');
       if (!nf.cmp) p.set('cmp', '0'); else p.delete('cmp');
+      if (nf.pillar !== 'all') p.set('pl', nf.pillar); else p.delete('pl');
       return p;
     }, { replace: true });
     setEvOpen(false);
@@ -99,6 +102,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
     if (k === tab) return;
     const p = new URLSearchParams(sp);
     if (k !== 'community' && p.get('s') === 'end') p.delete('s');
+    p.delete('pl');
     const qs = p.toString();
     navigate(`${R[TABS.find((x) => x.k === k)!.route] as string}${qs ? `?${qs}` : ''}`);
   };
@@ -270,7 +274,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
             <Hv
               as="button"
               type="button"
-              onClick={() => setF({ period: '30d', event: null, seg: 'all', cmp: true })}
+              onClick={() => setF({ period: '30d', event: null, seg: 'all', cmp: true, pillar: 'all' })}
               style={{ height: 34, padding: '0 12px', border: 0, borderRadius: 99, background: 'none', color: 'var(--ya-red-600)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', animation: `ya-pop 260ms ${EASE} both` }}
               hover={{ background: 'var(--ya-red-50)' }}
             >

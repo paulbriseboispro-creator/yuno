@@ -16,7 +16,7 @@ import { useTixT, type TixFormatters } from '@/tickets/analytics/i18n';
 import { useTixCaps } from '@/tickets/analytics/scope';
 import { TicketSplit } from '@/tickets/analytics/TicketSplit';
 import { useTixRoutes } from '@/tickets/analytics/routes';
-import type { AnaFilters, AnaSales, AnaTab } from '@/tickets/analytics/data';
+import { PILLARS, type AnaFilters, type AnaPillar, type AnaSales, type AnaTab, type TixPayout, type TixRefundsBlock } from '@/tickets/analytics/data';
 import {
   BrandArrowButton, CardHead, ChartSkeleton, Fill, Gauge, MultiLine, Sk, StatePill, Takeaway, Tile, TileSkeleton, TrendChart,
   bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type CurveLine, type TileSpec,
@@ -54,11 +54,17 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const navigate = useNavigate();
   const d = q.data;
   const loading = !d || (q.isFetching && q.isPlaceholderData);
-  const money = caps.money && !!d && d.totals.revenue !== null;
+  // Le pilier lu (lot 1 du plan combiné) : celui de la réponse, sinon celui demandé.
+  const pl: AnaPillar = d?.meta.pillar ?? f.pillar;
+  const isTb = pl === 'tables';
+  const isGl = pl === 'guestlist';
+  const isRf = pl === 'refunds';
+  // Une inscription guest list ne rapporte rien : ce pilier se lit en nombres.
+  const money = caps.money && !!d && d.totals.revenue !== null && !isGl;
   const [metricRaw, setMetric] = useState<'eur' | 'bil'>('eur');
   const metric = money ? metricRaw : 'bil';
   const [mode, setMode] = useState<'bucket' | 'cumul'>('bucket');
-  const dataKey = `${f.period}:${f.event}:${f.seg}:${q.dataUpdatedAt}`;
+  const dataKey = `${f.period}:${f.event}:${f.seg}:${pl}:${q.dataUpdatedAt}`;
   const rv = useGo(dataKey, !loading);
   const go = useGo(`${dataKey}:${metric}:${mode}:${f.cmp}`, !loading);
   const prog = useProgress(1000, 0, `${dataKey}:${metric}`, !loading);
@@ -68,21 +74,26 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const [rowH, setRowH] = useState<string | null>(null);
 
   // Billets payants à part des entrées gratuites (D4, 20261020200000).
-  const split = !!d && d.totals.paid_tickets !== undefined && d.totals.free_tickets !== undefined;
+  // Une table VIP, une inscription ou un remboursement se comptent un par un.
+  const split = !!d && (pl === 'all' || pl === 'tickets') && d.totals.paid_tickets !== undefined && d.totals.free_tickets !== undefined;
   const v = useMemo(() => {
     if (!d) return null;
     const m = d.meta;
     const unit = m.mode === 'hour' ? 'hour' : m.mode === 'month' ? 'month' : 'day';
+    const rf = isRf ? d.refunds_block ?? null : null;
+    const rows: AnaSales['series'] = rf ? rf.series : d.series;
     const pick = (s: AnaSales['series'][number], prev: boolean) => (metric === 'eur' ? Number((prev ? s.prev_revenue : s.revenue) ?? 0)
       : split ? Number((prev ? s.prev_paid_tickets : s.paid_tickets) ?? 0) : Number(prev ? s.prev_tickets : s.tickets));
-    let cur = d.series.map((s) => pick(s, false));
-    let prev = d.series.map((s) => pick(s, true));
+    let cur = rows.map((s) => pick(s, false));
+    let prev = rows.map((s) => pick(s, true));
     if (mode === 'cumul') {
       let a = 0; let b = 0;
       cur = cur.map((x) => (a += x)); prev = prev.map((x) => (b += x));
     }
-    const total = metric === 'eur' ? Number(d.totals.revenue ?? 0) : Number(split ? d.totals.paid_tickets : d.totals.tickets);
-    const ptotal = metric === 'eur' ? Number(d.totals.prev_revenue ?? 0) : Number(split ? d.totals.prev_paid_tickets : d.totals.prev_tickets);
+    const total = rf ? Number(metric === 'eur' ? rf.totals.revenue ?? 0 : rf.totals.n)
+      : metric === 'eur' ? Number(d.totals.revenue ?? 0) : Number(split ? d.totals.paid_tickets : d.totals.tickets);
+    const ptotal = rf ? Number(metric === 'eur' ? rf.totals.prev_revenue ?? 0 : rf.totals.prev_n)
+      : metric === 'eur' ? Number(d.totals.prev_revenue ?? 0) : Number(split ? d.totals.prev_paid_tickets : d.totals.prev_tickets);
     const marks = d.sends.map((s) => ({ i: s.i, title: `${s.channel === 'sms' ? 'SMS' : t('ya.ana.email')} · ${s.name}` }));
     // Effet des envois : ventes moyennes dans les 2 cases qui suivent un envoi, contre le reste.
     const raw = d.series.map((s) => Number(s.tickets));
@@ -90,25 +101,46 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
     d.sends.forEach((s) => { for (let k = 0; k < 2; k++) if (s.i + k < raw.length) win.add(s.i + k); });
     let a = 0; let an = 0; let b = 0; let bn = 0;
     raw.forEach((x, i) => { if (win.has(i)) { a += x; an++; } else { b += x; bn++; } });
-    const ratio = m.mode !== 'month' && an && bn && b > 0 ? (a / an) / (b / bn) : null;
+    const ratio = !rf && m.mode !== 'month' && an && bn && b > 0 ? (a / an) / (b / bn) : null;
     return { m, unit, cur, prev, total, ptotal, marks, ratio };
-  }, [d, metric, mode, t, split]);
+  }, [d, metric, mode, t, split, isRf]);
 
   if (!d || !v) return <SalesSkeleton />;
   const m = v.m;
   const ev = m.mode === 'event';
-  const showPrev = f.cmp && !!d.totals.has_prev;
-  const fmtVal = (x: number) => (metric === 'eur' ? eur(x) : t(split ? 'ya.ana.nPaidTickets' : 'ya.ana.nTickets', { n: n(x) }));
+  const rf = isRf ? d.refunds_block ?? null : null;
+  const showPrev = f.cmp && !!(rf ? rf.totals.has_prev : d.totals.has_prev);
+  const fmtVal = (x: number) => (metric === 'eur' ? eur(x)
+    : isTb ? tp('ya.ana.s.nTables', x, { n: n(x) })
+      : isGl ? tp('ya.ana.nSignups', x, { n: n(x) })
+        : isRf ? tp('ya.ana.nRefunds', x, { n: n(x) })
+          : t(split ? 'ya.ana.nPaidTickets' : 'ya.ana.nTickets', { n: n(x) }));
   const fmtAxis = (x: number) => (metric === 'eur' ? eur(x) : n(x));
   const vs = ev ? t(d.totals.prev_same_day ? 'ya.ana.vsPrevNightSame' : 'ya.ana.vsPrevNight') : t(`ya.ana.per.vs.${m.period}`);
   const dl = deltaPct(v.total, v.ptotal, T);
   const diff = v.total - v.ptotal;
-  const heroTitle = ev ? t('ya.ana.s.titleEv') : t(`ya.ana.s.title.${v.unit}`);
-  const heroSub = `${t(metric === 'eur' ? 'ya.ana.s.subEur' : 'ya.ana.s.subBil', { unit: t(`ya.ana.unit.${v.unit}`) })}${mode === 'cumul' ? ` · ${t('ya.ana.s.cumulated')}` : ''}`;
+  const heroTitle = isRf ? t('ya.ana.rf.title') : isGl ? t(ev ? 'ya.ana.gl.titleEv' : `ya.ana.gl.title.${v.unit}`) : ev ? t('ya.ana.s.titleEv') : t(`ya.ana.s.title.${v.unit}`);
+  const unitVars = { unit: t(`ya.ana.unit.${v.unit}`) };
+  const subKey = isRf ? (metric === 'eur' ? 'ya.ana.rf.sub' : 'ya.ana.rf.subN')
+    : metric === 'eur' ? (pl === 'tickets' ? 'ya.ana.s.subEur.tickets' : isTb ? 'ya.ana.s.subEur.tables' : 'ya.ana.s.subEur')
+      : isTb ? 'ya.ana.s.subBil.tables' : isGl ? 'ya.ana.s.subBil.guestlist' : 'ya.ana.s.subBil';
+  const heroSub = `${t(subKey, unitVars)}${mode === 'cumul' ? ` · ${t('ya.ana.s.cumulated')}` : ''}`;
+  const bigUnit = isTb ? t('ya.ana.big.tables') : isGl ? t('ya.ana.big.guestlist') : isRf ? t('ya.ana.rf.big') : t(split ? 'ya.ana.paidTickets' : 'ya.ana.tickets');
+  const legend = mode === 'cumul' ? t('ya.ana.s.legCumul')
+    : isRf ? t('ya.ana.rf.leg', { unit: t(`ya.ana.unitOf.${v.unit}`) })
+      : t(metric === 'eur' ? 'ya.ana.s.legEur' : isTb ? 'ya.ana.s.legBil.tables' : isGl ? 'ya.ana.s.legBil.guestlist' : 'ya.ana.s.legBil', { unit: t(`ya.ana.unitOf.${v.unit}`) });
   const share = d.msg?.share ?? null;
-  const insight = !d.sends.length
-    ? t('ya.ana.s.insNone')
-    : `${share !== null ? (money ? t('ya.ana.s.insShare', { pct: pct(share), v: eur(d.msg?.revenue ?? 0) }) : t('ya.ana.s.insShareTk', { pct: pct(share), n: n(d.msg?.tickets ?? 0) })) : ''}${v.ratio && v.ratio > 1.05 ? ` ${t(m.mode === 'hour' ? 'ya.ana.s.insRatioH' : 'ya.ana.s.insRatioD', { x: n1(v.ratio) })}` : ''}`.trim();
+  const ratioTxt = v.ratio && v.ratio > 1.05 ? ` ${t(m.mode === 'hour' ? 'ya.ana.s.insRatioH' : 'ya.ana.s.insRatioD', { x: n1(v.ratio) })}` : '';
+  const topReason = rf?.reasons[0];
+  const insight = rf
+    ? (rf.totals.n === 0 ? t('ya.ana.rf.insNone')
+      : topReason?.reason ? t('ya.ana.rf.ins', { n: tp('ya.ana.nRefunds', rf.totals.n, { n: n(rf.totals.n) }), r: topReason.reason })
+        : t('ya.ana.rf.insNoReason', { n: tp('ya.ana.nRefunds', rf.totals.n, { n: n(rf.totals.n) }) }))
+    : isTb ? `${t('ya.ana.s.insTables', { n: n(Number(d.totals.tables ?? 0)) })}${ratioTxt}`
+      : isGl ? `${t('ya.ana.s.insGl', { n: n(Number(d.totals.tickets)), p: d.gl_block?.per_night != null ? n1(Number(d.gl_block.per_night)) : '—' })}${ratioTxt}`
+        : !d.sends.length
+          ? t('ya.ana.s.insNone')
+          : `${share !== null ? (money ? t('ya.ana.s.insShare', { pct: pct(share), v: eur(d.msg?.revenue ?? 0) }) : t('ya.ana.s.insShareTk', { pct: pct(share), n: n(d.msg?.tickets ?? 0) })) : ''}${ratioTxt}`.trim();
 
   // ── Tuiles ──
   const tk = Number(d.totals.tickets);
@@ -131,7 +163,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const pfillPct = d.fill.prev_cap ? (Number(d.fill.prev_sold) / Number(d.fill.prev_cap)) * 100 : null;
   const pts = (a: number, b: number | null) => (b === null ? undefined : `${a - b >= 0 ? '▲' : '▼'} ${t('ya.ana.pts', { n: n1(Math.abs(a - b)) })} ${t('ya.ana.vsBefore')}`);
   const refund = d.totals.refund_pct;
-  const tiles: TileSpec[] = [
+  const ticketTiles: TileSpec[] = [
     split
       ? { kind: 'spark', label: t('ya.ana.s.t.paid'), value: n(paidTk * prog), delta: tkD ? `${tkD.text} ${t('ya.ana.vsBefore')}` : undefined, dc: tkD && !tkD.up ? 'var(--ya-red-600)' : undefined, cap: freeTk > 0 ? tp('ya.ana.s.t.freeCap', freeTk, { n: n(freeTk) }) : t('ya.ana.s.t.ticketsCap'), values: d.series.map((s) => Number(s.paid_tickets ?? 0)) }
       : { kind: 'spark', label: t('ya.ana.s.t.tickets'), value: n(tk * prog), delta: tkD ? `${tkD.text} ${t('ya.ana.vsBefore')}` : undefined, dc: tkD && !tkD.up ? 'var(--ya-red-600)' : undefined, cap: t('ya.ana.s.t.ticketsCap'), values: d.series.map((s) => Number(s.tickets)) },
@@ -144,16 +176,92 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
     { kind: 'hb', label: t('ya.ana.s.t.refunds'), value: refund !== null ? pct(Number(refund) * prog, 1) : '—', delta: f.cmp && refund !== null && d.totals.prev_refund_pct !== null ? `${Number(refund) - Number(d.totals.prev_refund_pct) >= 0 ? '▲' : '▼'} ${t('ya.ana.pts', { n: n1(Math.abs(Number(refund) - Number(d.totals.prev_refund_pct))) })} ${t('ya.ana.vsBefore')}` : undefined, dc: refund !== null && d.totals.prev_refund_pct !== null && Number(refund) > Number(d.totals.prev_refund_pct) ? 'var(--ya-red-600)' : undefined, cap: money && d.totals.refunds.amount !== null ? t('ya.ana.s.t.refundsCap', { a: eur(Number(d.totals.refunds.amount)), b: eur(Number(d.totals.refunds.revenue)) }) : t('ya.ana.s.t.refundsCapTk'), hb: Math.min(100, Number(refund ?? 0) * 10), hbL: t('ya.ana.s.t.refundsBar') },
   ];
 
+  // ── Tuiles d'un pilier (lot 1 du plan combiné) ──
+  const stackOf = (rows: { label: string; v: number }[], tot: number) => {
+    const a = rows[0]; const b = rows[1];
+    // Une légende tient sur une ligne dans une tuile : un nom long est coupé.
+    const cut = (x: string) => (x.length > 13 ? `${x.slice(0, 12).trimEnd()}…` : x);
+    const pa = a && tot > 0 ? (a.v / tot) * 100 : 0;
+    const pb = b && tot > 0 ? (b.v / tot) * 100 : 0;
+    return {
+      parts: [{ w: pa, c: 'var(--ya-red-500)' }, { w: pb, c: 'var(--ya-red-200)' }, { w: Math.max(0, 100 - pa - pb), c: 'var(--ya-sand-300)' }],
+      legL: a ? `${cut(a.label)} ${pct(pa)}` : '', legR: b ? `${cut(b.label)} ${pct(pb)}` : '',
+    };
+  };
+  const dealName = (x: string) => (x === '—' ? t(isGl ? 'ya.ana.gl.house' : 'ya.ana.s.tarNone') : x);
+  let tiles: TileSpec[] = ticketTiles;
+  if (isTb && d.tables_block) {
+    const b = d.tables_block;
+    const tb = Number(b.n); const ptb = Number(b.prev_n);
+    const tbD = f.cmp ? deltaPct(tb, ptb, T) : null;
+    const basket = money && tb > 0 ? Number(d.totals.revenue ?? 0) / tb : null;
+    const tfill = b.fill.cap ? (Number(b.fill.sold) / Number(b.fill.cap)) * 100 : null;
+    const ptfill = b.prev_fill.cap ? (Number(b.prev_fill.sold) / Number(b.prev_fill.cap)) * 100 : null;
+    const engaged = Number(b.engaged.amount ?? 0);
+    const deposits = Number(b.deposits.amount ?? 0);
+    const depPct = money ? (engaged > 0 ? (deposits / engaged) * 100 : null) : (tb > 0 ? (Number(b.online_n) / tb) * 100 : null);
+    const packs = stackOf(d.tariffs.map((x) => ({ label: dealName(x.deal).replace(/^Table · /, ''), v: Number(x.units ?? x.tickets) })), d.tariffs.reduce((a, x) => a + Number(x.units ?? x.tickets), 0));
+    const g = b.guests !== null ? n1(Number(b.guests)) : '—';
+    tiles = [
+      { kind: 'spark', label: t('ya.ana.tb.t.n'), value: n(tb * prog), delta: tbD ? `${tbD.text} ${t('ya.ana.vsBefore')}` : undefined, dc: tbD && !tbD.up ? 'var(--ya-red-600)' : undefined, cap: t('ya.ana.tb.t.nCap'), values: d.series.map((x) => Number(x.tickets)) },
+      money
+        ? { kind: 'stack', label: t('ya.ana.tb.t.basket'), value: basket !== null ? eur(basket * prog) : '—', cap: b.min_spend.amount !== null ? t('ya.ana.tb.t.basketCap', { min: eur(Number(b.min_spend.amount)), g }) : t('ya.ana.tb.t.basketCapNoMin', { g }), ...packs }
+        : { kind: 'stack', label: t('ya.ana.tb.t.perGuests'), value: g, cap: t('ya.ana.tb.t.nCap'), ...packs },
+      { kind: 'ring', label: t('ya.ana.tb.t.fill'), value: tfill !== null ? pct(tfill * prog) : '—', delta: f.cmp && tfill !== null ? pts(tfill, ptfill) : undefined, dc: tfill !== null && ptfill !== null && tfill < ptfill ? 'var(--ya-red-600)' : undefined, cap: tfill !== null ? (ev ? t('ya.ana.tb.t.fillCapEv', { sold: n(Number(b.fill.sold)), cap: n(Number(b.fill.cap)) }) : tp('ya.ana.tb.t.fillCap', Number(b.fill.nights), { n: n(Number(b.fill.nights)), sold: n(Number(b.fill.sold)), cap: n(Number(b.fill.cap)) })) : t('ya.ana.tb.t.fillNone'), ring: tfill ?? 0 },
+      { kind: 'hb', label: t('ya.ana.tb.t.deposit'), value: depPct !== null ? pct(depPct * prog) : '—', cap: money ? t('ya.ana.tb.t.depositCap', { a: eur(deposits), b: eur(Math.max(0, engaged - deposits)) }) : t('ya.ana.tb.t.depositCapTk', { a: n(Number(b.online_n)), b: n(Number(b.on_site_n)) }), hb: depPct ?? 0, hbL: t(money ? 'ya.ana.tb.t.depositBar' : 'ya.ana.tb.t.depositBarTk') },
+    ];
+  } else if (isGl) {
+    const b = d.gl_block;
+    const gl = Number(d.totals.tickets); const pgl = Number(d.totals.prev_tickets);
+    const glD = f.cmp ? deltaPct(gl, pgl, T) : null;
+    // Venus : seulement sur une porte mesurée, et jamais un pourcentage sous 10 inscrits.
+    const came = b && b.signups_measured >= 10 ? (Number(b.came) / Number(b.signups_measured)) * 100 : null;
+    const lists = stackOf(d.tariffs.map((x) => ({ label: dealName(x.deal), v: Number(x.tickets) })), d.tariffs.reduce((a, x) => a + Number(x.tickets), 0));
+    tiles = [
+      { kind: 'spark', label: t('ya.ana.gl.t.n'), value: n(gl * prog), delta: glD ? `${glD.text} ${t('ya.ana.vsBefore')}` : undefined, dc: glD && !glD.up ? 'var(--ya-red-600)' : undefined, cap: t('ya.ana.gl.t.nCap'), values: d.series.map((x) => Number(x.tickets)) },
+      { kind: 'ring', label: t('ya.ana.gl.t.came'), value: came !== null ? pct(came * prog) : '—', cap: came !== null && b ? tp('ya.ana.gl.t.cameCap', Number(b.nights_measured), { n: n(Number(b.nights_measured)), came: n(Number(b.came)), s: n(Number(b.signups_measured)) }) : t('ya.ana.gl.t.cameNone'), ring: came ?? 0 },
+      { kind: 'stack', label: t('ya.ana.gl.t.lists'), value: n(d.tariffs.length), cap: t('ya.ana.gl.t.listsCap'), ...lists },
+      { kind: 'txt', label: t('ya.ana.gl.t.perNight'), value: b?.per_night != null ? n1(Number(b.per_night)) : '—', cap: b ? tp('ya.ana.gl.t.perNightCap', Number(b.nights), { n: n(Number(b.nights)) }) : '', color: 'var(--ya-ink)' },
+    ];
+  } else if (rf) {
+    const amt = Number(rf.totals.revenue ?? 0); const pamt = Number(rf.totals.prev_revenue ?? 0);
+    const cnt = Number(rf.totals.n); const pcnt = Number(rf.totals.prev_n);
+    // Plus de remboursements, c'est un écart dans le mauvais sens.
+    const down = (a: number, b: number) => { const x = deltaPct(a, b, T); return x ? { text: `${x.text} ${t('ya.ana.vsBefore')}`, bad: x.up } : null; };
+    const aD = f.cmp ? down(amt, pamt) : null;
+    const nD = f.cmp ? down(cnt, pcnt) : null;
+    const rTot = rf.reasons.reduce((a, x) => a + Number(x.n), 0);
+    const reasons = stackOf(rf.reasons.map((x) => ({ label: x.reason ?? t('ya.ana.rf.noReason'), v: Number(x.n) })), rTot);
+    const nCap = t('ya.ana.rf.t.nCap', { t: n(rf.totals.tickets_n), b: n(rf.totals.tables_n), f: n(rf.totals.full) });
+    const rate = { ...(ticketTiles[3] as Extract<TileSpec, { kind: 'hb' }>), label: t('ya.ana.rf.t.rate'), hbL: t('ya.ana.rf.t.rateCap') };
+    const why: TileSpec = { kind: 'stack', label: t('ya.ana.rf.t.reasons'), value: n(rf.reasons.length), cap: t('ya.ana.rf.t.reasonsCap'), ...reasons };
+    // Sans l'accès à l'argent, le nombre de remboursements mène.
+    tiles = money
+      ? [
+        { kind: 'spark', label: t('ya.ana.rf.t.amount'), value: eur(amt * prog), delta: aD?.text, dc: aD?.bad ? 'var(--ya-red-600)' : undefined, cap: t('ya.ana.rf.t.amountCap'), values: rf.series.map((x) => Number(x.revenue ?? 0)) },
+        { kind: 'txt', label: t('ya.ana.rf.t.n'), value: n(cnt * prog), delta: nD?.text, dc: nD?.bad ? 'var(--ya-red-600)' : undefined, cap: nCap, color: 'var(--ya-ink)' },
+        rate, why,
+      ]
+      : [
+        { kind: 'spark', label: t('ya.ana.rf.t.n'), value: n(cnt * prog), delta: nD?.text, dc: nD?.bad ? 'var(--ya-red-600)' : undefined, cap: nCap, values: rf.series.map((x) => Number(x.tickets)) },
+        rate, why,
+      ];
+  }
+
   return (
     <>
       {/* Héros */}
       <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+        {/* Le pilier : tout, ou un pilier (billets, tables VIP, guest list, remboursements). */}
+        <div className="ya-thin-scroll" style={{ overflowX: 'auto', margin: '-4px', padding: 4 }}>
+          <Segmented value={f.pillar} onChange={(x) => setF({ pillar: x })} ariaLabel={t('ya.ana.pl.label')} options={PILLARS.map((k) => ({ value: k, label: t(`ya.ana.pl.${k}`) }))} />
+        </div>
         <CardHead
           title={heroTitle}
           sub={heroSub}
           right={(
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {money && <Segmented value={metric} onChange={(x) => setMetric(x)} ariaLabel={heroTitle} options={[{ value: 'eur', label: t('ya.ana.s.eur') }, { value: 'bil', label: t('ya.ana.s.bil') }]} />}
+              {money && <Segmented value={metric} onChange={(x) => setMetric(x)} ariaLabel={heroTitle} options={[{ value: 'eur', label: t('ya.ana.s.eur') }, { value: 'bil', label: t(isTb ? 'ya.ana.s.bil.tables' : isRf ? 'ya.ana.rf.seg.n' : 'ya.ana.s.bil') }]} />}
               <Segmented value={mode} onChange={(x) => setMode(x)} ariaLabel={heroTitle} options={[{ value: 'bucket', label: t('ya.ana.s.per', { unit: t(`ya.ana.unit.${ev ? 'day' : v.unit}`) }) }, { value: 'cumul', label: t('ya.ana.s.cumul') }]} />
             </div>
           )}
@@ -163,18 +271,18 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
               <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>
                 {metric === 'eur' ? eur(v.total * prog) : n(v.total * prog)}
-                {metric === 'bil' && <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--ya-sand-500)' }}>{t(split ? 'ya.ana.paidTickets' : 'ya.ana.tickets')}</span>}
+                {metric === 'bil' && <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--ya-sand-500)' }}>{bigUnit}</span>}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
                 {f.cmp && (dl
-                  ? <span style={{ fontSize: 17, fontWeight: 600, color: dl.up ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>{dl.text} {vs}</span>
+                  ? <span style={{ fontSize: 17, fontWeight: 600, color: dl.up !== isRf ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>{dl.text} {vs}</span>
                   : <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--ya-sand-500)' }}>{t('ya.ana.noPrev')}</span>)}
                 {f.cmp && dl && <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{diff >= 0 ? t('ya.ana.more', { v: fmtVal(Math.abs(diff)) }) : t('ya.ana.less', { v: fmtVal(Math.abs(diff)) })}</span>}
                 {split && <TicketSplit paid={d.totals.paid_tickets} free={d.totals.free_tickets} tables={d.totals.tables} mult={prog} style={{ fontSize: 14 }} />}
               </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--ya-sand-600)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 10, height: 14, borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg,var(--ya-tangerine-500),var(--ya-red-500))', display: 'inline-block' }} />{mode === 'cumul' ? t('ya.ana.s.legCumul') : t(metric === 'eur' ? 'ya.ana.s.legEur' : 'ya.ana.s.legBil', { unit: t(`ya.ana.unitOf.${v.unit}`) })}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 10, height: 14, borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg,var(--ya-tangerine-500),var(--ya-red-500))', display: 'inline-block' }} />{legend}</span>
               {showPrev && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 18, height: 0, borderTop: '2px solid var(--ya-ink)', display: 'inline-block' }} />{ev ? t('ya.ana.prevNight') : t('ya.ana.prevPeriod')}</span>}
               {v.marks.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i style={{ width: 9, height: 9, borderRadius: 99, background: 'var(--ya-ink)', display: 'inline-block' }} />{t('ya.ana.sendMark')}</span>}
             </div>
@@ -191,7 +299,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
               tipPrev={(x) => `${ev ? t('ya.ana.prevNight') : t('ya.ana.prevPeriod')} : ${fmtVal(x)}`}
               xl={xLabels(m, T, jl)}
             />
-            <Takeaway cta={t('ya.ana.s.insCta')} onCta={() => goTab('traffic')}>{insight}</Takeaway>
+            {isRf ? <Takeaway>{insight}</Takeaway> : <Takeaway cta={t('ya.ana.s.insCta')} onCta={() => goTab('traffic')}>{insight}</Takeaway>}
           </div>
         )}
       </section>
@@ -201,16 +309,21 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         {loading ? [0, 1, 2, 3].map((i) => <TileSkeleton key={i} />) : tiles.map((x, i) => <Tile key={i} t={x} i={i} go={go} rv={rv} />)}
       </div>
 
-      {/* Objectif + courbe */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
-        <GoalCard d={d} loading={loading} rv={rv} go={go} prog={prog} />
-        <CurveCard d={d} loading={loading} rv={rv} go={go} />
-      </div>
+      {/* Objectif + courbe : la jauge des billets, pour « Tout » et « Billets ». */}
+      {(pl === 'all' || pl === 'tickets') && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+          <GoalCard d={d} loading={loading} rv={rv} go={go} prog={prog} />
+          <CurveCard d={d} loading={loading} rv={rv} go={go} />
+        </div>
+      )}
+
+      {/* Remboursements : les motifs et les soirées qui remboursent. */}
+      {rf && <RefundCards rf={rf} money={money} loading={loading} rv={rv} go={go} />}
 
       {/* Heure des achats + tarifs */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+      {!rf && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
         <section style={{ ...card, flex: '1 1 440px' }}>
-          <CardHead title={t('ya.ana.s.heatT')} sub={d.heat.days30 ? t('ya.ana.s.heatSub30') : t('ya.ana.s.heatSub')} />
+          <CardHead title={t(isGl ? 'ya.ana.gl.heatT' : 'ya.ana.s.heatT')} sub={isGl ? t('ya.ana.gl.heatSub') : d.heat.days30 ? t('ya.ana.s.heatSub30') : t('ya.ana.s.heatSub')} />
           {loading ? <Sk h={280} r={16} /> : (() => {
             const cells = d.heat.cells;
             const max = Math.max(1, ...cells.flat().map((c) => c.n));
@@ -243,7 +356,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                   ])}
                 </div>
                 <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--ya-sand-50)', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                  {cell ? `${day(sel[0], 'long')}, ${slot(sel[1])} : ${tp('ya.ana.s.buys', cell.n, { n: n(cell.n) })}${money && cell.amount !== null ? ` · ${eur(Number(cell.amount))}` : ''}` : ''}
+                  {cell ? `${day(sel[0], 'long')}, ${slot(sel[1])} : ${isGl ? tp('ya.ana.nSignups', cell.n, { n: n(cell.n) }) : tp('ya.ana.s.buys', cell.n, { n: n(cell.n) })}${money && cell.amount !== null ? ` · ${eur(Number(cell.amount))}` : ''}` : ''}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ya-sand-700)', flex: '1 1 220px', textWrap: 'pretty' }}>
@@ -261,7 +374,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
           })()}
         </section>
         <section style={{ ...card, flex: '1.2 1 460px', gap: 16 }}>
-          <CardHead title={t('ya.ana.s.tarT')} sub={t('ya.ana.s.tarSub')} />
+          <CardHead title={t(isTb ? 'ya.ana.s.tarT.tables' : isGl ? 'ya.ana.s.tarT.guestlist' : 'ya.ana.s.tarT')} sub={t(isTb ? 'ya.ana.s.tarSub.tables' : isGl ? 'ya.ana.s.tarSub.guestlist' : 'ya.ana.s.tarSub')} />
           {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[0, 1, 2, 3, 4].map((i) => <Sk key={i} h={36} />)}</div> : d.tariffs.length === 0 ? (
             <p style={{ margin: 0, fontSize: 14.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.s.tarEmpty')}</p>
           ) : (() => {
@@ -275,27 +388,27 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                 {d.tariffs.map((x, i) => (
                   <div key={i} onMouseEnter={() => setTh(i)} onMouseLeave={() => setTh(null)} style={{ display: 'grid', gridTemplateColumns: 'minmax(110px,150px) minmax(0,1fr) 92px', gap: 14, alignItems: 'center', padding: '9px 10px', margin: '0 -10px', borderRadius: 12, background: th === i ? 'var(--ya-sand-50)' : 'transparent', transition: 'background 140ms' }}>
                     <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <span style={{ fontSize: 14.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.deal === '—' ? t('ya.ana.s.tarNone') : x.deal}</span>
+                      <span style={{ fontSize: 14.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dealName(x.deal)}</span>
                       <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{x.price === null ? '—' : Number(x.price) === 0 ? t('ya.ana.free') : eur2(Number(x.price))}</span>
                     </span>
                     <Fill pct={isTable(x) ? ((money ? Number(x.revenue ?? 0) : Number(x.units ?? 0)) / tabMx) * 100 : (Number(x.tickets) / mx) * 100} go={go} delay={i * 80} h={12} bg={th === i ? 'var(--ya-gradient-brand)' : isTable(x) ? 'var(--ya-amber-500)' : 'var(--ya-red-200)'} dur={800} />
                     <span style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
                       <b style={{ fontVariantNumeric: 'tabular-nums' }}>{isTable(x) ? tp('ya.ana.s.nTables', Number(x.units ?? 0), { n: n(Number(x.units ?? 0)) }) : pct((Number(x.tickets) / tarTot) * 100)}</b>
-                      <span style={{ fontSize: 12, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{money && x.revenue !== null ? eur(Number(x.revenue)) : t('ya.ana.nTickets', { n: n(Number(x.tickets)) })}</span>
+                      <span style={{ fontSize: 12, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{money && x.revenue !== null ? eur(Number(x.revenue)) : isGl ? tp('ya.ana.nSignups', Number(x.tickets), { n: n(Number(x.tickets)) }) : t('ya.ana.nTickets', { n: n(Number(x.tickets)) })}</span>
                     </span>
                   </div>
                 ))}
                 <p style={{ margin: '10px 0 0', fontSize: 14.5, lineHeight: 1.45, color: 'var(--ya-sand-700)', textWrap: 'pretty' }}>
-                  {t('ya.ana.s.tarTxt', { deal: d.tariffs[0].deal === '—' ? t('ya.ana.s.tarNone') : d.tariffs[0].deal, pct: pct(p0) })}
+                  {t(isTb ? 'ya.ana.s.tarTxt.tables' : isGl ? 'ya.ana.s.tarTxt.guestlist' : 'ya.ana.s.tarTxt', { deal: dealName(d.tariffs[0].deal), pct: pct(p0) })}
                 </p>
               </div>
             );
           })()}
         </section>
-      </div>
+      </div>}
 
       {/* Soirées */}
-      <section style={{ ...card, gap: 16 }}>
+      {!rf && <section style={{ ...card, gap: 16 }}>
         <CardHead
           title={t('ya.ana.s.evT')}
           sub={t('ya.ana.s.evSub')}
@@ -308,17 +421,27 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[0, 1, 2, 3, 4].map((i) => <Sk key={i} h={56} r={14} />)}</div> : d.events.length === 0 ? (
           <p style={{ margin: 0, fontSize: 14.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.s.evEmpty')}</p>
         ) : (() => {
-          const tkOf = (e: AnaSales['events'][number]) => Number(e.paid ?? e.tickets);
+          // Une table ou une inscription se compte une par une ; un billet payant, en places.
+          const tkOf = (e: AnaSales['events'][number]) => Number(isTb ? e.tables ?? e.tickets : isGl ? e.tickets : e.paid ?? e.tickets);
+          const cntLabel = (e: AnaSales['events'][number], x: number) => (isTb ? tp('ya.ana.s.nTables', x, { n: n(x) }) : isGl ? tp('ya.ana.nSignups', x, { n: n(x) }) : t(e.paid !== undefined ? 'ya.ana.nPaidTickets' : 'ya.ana.nTickets', { n: n(x) }));
           const amtMax = Math.max(1, ...d.events.map((e) => (money ? Number(e.revenue ?? 0) : tkOf(e))));
-          const grid = 'minmax(200px,1.5fr) minmax(180px,1.2fr) minmax(160px,1fr) 110px';
+          // La porte de chaque soirée ; le bilan de toute la soirée, sous « Tout » et pour qui voit l'argent.
+          const showBal = money && pl === 'all';
+          const grid = `minmax(190px,1.4fr) minmax(170px,1.1fr) minmax(140px,.9fr) minmax(120px,.8fr)${showBal ? ' minmax(150px,.9fr)' : ''} 96px`;
           return (
             <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="ya-thin-scroll">
-              <div style={{ minWidth: 720, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ minWidth: showBal ? 940 : 800, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: '0 12px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
-                  <span>{t('ya.ana.col.night')}</span><span>{t('ya.ana.col.fill')}</span><span>{t('ya.ana.col.periodSales')}</span><span style={{ textAlign: 'right' }}>{t('ya.ana.col.vsPrev')}</span>
+                  <span>{t('ya.ana.col.night')}</span><span>{t(isTb ? 'ya.ana.col.tablesFill' : 'ya.ana.col.fill')}</span><span>{t(isGl ? 'ya.ana.col.periodSignups' : 'ya.ana.col.periodSales')}</span><span>{t('ya.ana.col.entries')}</span>
+                  {showBal && <span>{t('ya.ana.col.balance')}</span>}
+                  <span style={{ textAlign: 'right' }}>{t('ya.ana.col.vsPrev')}</span>
                 </div>
                 {d.events.map((e, i) => {
-                  const fillP = e.cap ? (Number(e.sold) / Number(e.cap)) * 100 : null;
+                  // Tables VIP : la soirée se remplit en tables (réservées / en vente).
+                  const tf = isTb ? e.tables_fill ?? null : null;
+                  const fSold = tf ? Number(tf.sold) : Number(e.sold);
+                  const fCap = tf ? (tf.cap ? Number(tf.cap) : null) : (e.cap ? Number(e.cap) : null);
+                  const fillP = fCap ? (fSold / fCap) * 100 : null;
                   const on = f.event === e.id;
                   const amt = money ? Number(e.revenue ?? 0) : tkOf(e);
                   const dlt = e.upcoming ? null : (e.prev_sold && Number(e.prev_sold) > 0 ? (Number(e.sold) - Number(e.prev_sold)) / Number(e.prev_sold) : null);
@@ -342,16 +465,18 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                       </span>
                       <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--ya-sand-600)', fontVariantNumeric: 'tabular-nums' }}>
-                          <span>{e.cap ? `${n(Number(e.sold))} / ${n(Number(e.cap))}` : t('ya.ana.nTickets', { n: n(Number(e.sold)) })}</span>
+                          <span>{fCap ? `${n(fSold)} / ${n(fCap)}` : tf ? tp('ya.ana.s.nTables', fSold, { n: n(fSold) }) : t('ya.ana.nTickets', { n: n(fSold) })}</span>
                           <b style={{ color: 'var(--ya-ink)' }}>{fillP !== null ? pct(fillP) : '—'}</b>
                         </span>
                         <Fill pct={fillP ?? 0} go={go} delay={i * 90} />
-                        <TicketSplit paid={e.paid} free={e.free} tables={e.tables} style={{ fontSize: 12.5 }} />
+                        {(pl === 'all' || pl === 'tickets') && <TicketSplit paid={e.paid} free={e.free} tables={e.tables} style={{ fontSize: 12.5 }} />}
                       </span>
                       <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : t(e.paid !== undefined ? 'ya.ana.nPaidTickets' : 'ya.ana.nTickets', { n: n(amt) })}</b>
+                        <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : cntLabel(e, amt)}</b>
                         <Fill pct={(amt / amtMax) * 100} go={go} delay={i * 90} h={4} bg="var(--ya-ink)" />
                       </span>
+                      <DoorCell door={e.door ?? null} upcoming={e.upcoming} go={go} delay={i * 90} />
+                      {showBal && <BalanceCell night={e.balance ?? null} upcoming={e.upcoming} />}
                       <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 600, color: e.upcoming ? 'var(--ya-sand-500)' : dlt === null ? 'var(--ya-sand-400)' : dlt >= 0 ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>
                         {e.upcoming ? t('ya.ana.s.ongoing') : dlt === null ? '—' : `${dlt >= 0 ? '▲' : '▼'} ${pct(Math.abs(dlt) * 100)}`}
                       </span>
@@ -361,28 +486,28 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                 {d.events_other && (
                   <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: 12, fontSize: 14.5, color: 'var(--ya-sand-600)' }}>
                     <span>{tp('ya.ana.s.others', d.events_other.count, { n: n(d.events_other.count) })}</span><span />
-                    <b style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--ya-ink)' }}>{money && d.events_other.revenue !== null ? eur(Number(d.events_other.revenue)) : t('ya.ana.nTickets', { n: n(Number(d.events_other.tickets)) })}</b><span />
+                    <b style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--ya-ink)' }}>{money && d.events_other.revenue !== null ? eur(Number(d.events_other.revenue)) : isTb ? tp('ya.ana.s.nTables', Number(d.events_other.tickets), { n: n(Number(d.events_other.tickets)) }) : isGl ? tp('ya.ana.nSignups', Number(d.events_other.tickets), { n: n(Number(d.events_other.tickets)) }) : t('ya.ana.nTickets', { n: n(Number(d.events_other.tickets)) })}</b><span />{showBal && <span />}<span />
                   </div>
                 )}
               </div>
             </div>
           );
         })()}
-      </section>
+      </section>}
 
-      {/* Ce qui a fait vendre */}
-      <section style={{ ...nightCard, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '20px 32px', padding: '28px 32px', ...fadeIn(rv, 120) }}>
+      {/* « Tout » : ce que vous touchez. Un pilier : ce qui a fait vendre. */}
+      {pl === 'all' && money && d.payout ? <PayoutCard p={d.payout} rv={rv} prog={prog} /> : !rf && <section style={{ ...nightCard, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '20px 32px', padding: '28px 32px', ...fadeIn(rv, 120) }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)' }}>{t('ya.ana.s.madeT')}</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
             <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,7vw,88px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{share !== null ? pct(Number(share) * prog) : '—'}</span>
             <span style={{ fontSize: 16, lineHeight: 1.4, color: 'var(--ya-text-on-night-2)', maxWidth: 440, paddingBottom: 8 }}>
-              {money ? t('ya.ana.s.madeS', { v: eur(Number(d.msg?.revenue ?? 0)) }) : t('ya.ana.s.madeSTk', { n: n(Number(d.msg?.tickets ?? 0)) })}
+              {money ? t('ya.ana.s.madeS', { v: eur(Number(d.msg?.revenue ?? 0)) }) : isGl ? t('ya.ana.s.madeSGl', { n: n(Number(d.msg?.tickets ?? 0)) }) : t('ya.ana.s.madeSTk', { n: n(Number(d.msg?.tickets ?? 0)) })}
             </span>
           </div>
         </div>
         <BrandArrowButton label={t('ya.ana.s.madeCta')} onClick={() => navigate(R.campaigns)} />
-      </section>
+      </section>}
       <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)', marginTop: -8 }}>{t('ya.ana.s.foot', { h: hourShort(m.night_end_hour, lang), date: dLong(m.now) })}</span>
     </>
   );
@@ -414,6 +539,158 @@ function SalesSkeleton() {
       <section style={{ ...card, padding: 'clamp(20px,2.4vw,32px)' }}><Sk h={26} w={280} /><HeroSkeleton /></section>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,250px),1fr))', gap: 16 }}>{[0, 1, 2, 3].map((i) => <TileSkeleton key={i} />)}</div>
     </>
+  );
+}
+
+// ── Soirées : la porte et le bilan ───────────────────────────────────────
+
+/** Entrées d'une soirée passée (en personnes), seulement sur une porte mesurée. */
+function DoorCell({ door, upcoming, go, delay }: { door: AnaSales['events'][number]['door'] | null; upcoming: boolean; go: boolean; delay: number }) {
+  const { t, n, pct } = useTixT();
+  if (upcoming || !door) return <span style={{ fontSize: 14, color: 'var(--ya-sand-400)' }}>—</span>;
+  if (!door.measured) return <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{t('ya.ana.s.doorNone')}</span>;
+  const p = door.expected > 0 ? (door.entered / door.expected) * 100 : null;
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 13, color: 'var(--ya-sand-600)', fontVariantNumeric: 'tabular-nums' }}>
+        <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', color: 'var(--ya-ink)' }}>{n(door.entered)}</b>
+        {/* Jamais un pourcentage sous 10 personnes attendues. */}
+        <span>{p !== null && door.expected >= 10 ? pct(p) : ''}</span>
+      </span>
+      <Fill pct={p ?? 0} go={go} delay={delay} h={4} bg="var(--ya-green-500)" />
+      <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.s.doorOf', { n: n(door.expected) })}</span>
+    </span>
+  );
+}
+
+/** Bilan de toute la soirée : CA (tous piliers) − cachets DJ = ce qui reste. */
+function BalanceCell({ night, upcoming }: { night: AnaSales['events'][number]['balance'] | null; upcoming: boolean }) {
+  const { t, eur } = useTixT();
+  if (!night || night.revenue === null) return <span style={{ fontSize: 14, color: 'var(--ya-sand-400)' }}>—</span>;
+  const fees = Number(night.fees.amount ?? 0);
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+      <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{eur(Number(night.rest.amount ?? 0))}</b>
+      <span style={{ fontSize: 12.5, lineHeight: 1.35, color: 'var(--ya-sand-500)' }}>
+        {upcoming ? t('ya.ana.s.balSoFar') : fees > 0 ? t('ya.ana.s.balCap', { a: eur(Number(night.revenue)), b: eur(fees) }) : t('ya.ana.s.balCapNo')}
+      </span>
+    </span>
+  );
+}
+
+// ── « Ce que vous touchez » (pilier Tout) ────────────────────────────────
+
+function PayoutCard({ p, rv, prog }: { p: TixPayout; rv: boolean; prog: number }) {
+  const { t, tp, n, eur } = useTixT();
+  const gross = Number(p.gross.amount ?? 0);
+  const refunds = Number(p.refunds.amount ?? 0);
+  const stripe = Number(p.stripe.amount ?? 0);
+  const net = Number(p.net.amount ?? 0);
+  const onSite = Number(p.on_site.amount ?? 0);
+  // Votre part : seulement s'il y a au moins une co-soirée dont le contrat se lit vente par vente.
+  const share = p.share && p.share.nights > 0 ? p.share : null;
+  const unknown = p.share?.unknown ?? 0;
+  const big = share ? Number(share.amount ?? 0) : net;
+  const cells: { l: string; v: string; c: string; strong?: boolean }[] = [
+    { l: t('ya.ana.po.gross'), v: eur(gross), c: tp('ya.ana.po.grossCap', p.gross.n, { n: n(p.gross.n) }) },
+    { l: t('ya.ana.po.refunds'), v: refunds > 0 ? `− ${eur(refunds)}` : eur(0), c: tp('ya.ana.po.refundsCap', p.refunds.n, { n: n(p.refunds.n) }) },
+    { l: t('ya.ana.po.stripe'), v: stripe > 0 ? `− ${eur(stripe)}` : eur(0), c: t('ya.ana.po.stripeCap') },
+    { l: t('ya.ana.po.net'), v: eur(net), c: t('ya.ana.po.netCap'), strong: true },
+  ];
+  if (share) cells.push({ l: t('ya.ana.po.share'), v: eur(Number(share.amount ?? 0)), c: tp('ya.ana.po.shareCap', share.nights, { n: n(share.nights) }), strong: true });
+  const muted = 'var(--ya-text-on-night-2)';
+  return (
+    <section style={{ ...nightCard, display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(22px,2.6vw,32px)', ...fadeIn(rv, 120) }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: muted }}>{t('ya.ana.po.t')}</span>
+        {p.gross.n === 0 ? (
+          <span style={{ fontSize: 16, color: muted }}>{t('ya.ana.po.empty')}</span>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
+            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(48px,6.4vw,84px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{eur(big * prog)}</span>
+            <span style={{ fontSize: 16, lineHeight: 1.4, color: muted, maxWidth: 440, paddingBottom: 8 }}>{t(share ? 'ya.ana.po.shareBig' : 'ya.ana.po.netBig')}</span>
+          </div>
+        )}
+      </div>
+      {p.gross.n > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,170px),1fr))', gap: 0, borderTop: '1px solid rgba(255,255,255,.1)' }}>
+          {cells.map((c, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '16px 18px 4px 0', borderRight: i < cells.length - 1 ? '1px solid rgba(255,255,255,.08)' : 'none', paddingLeft: i > 0 ? 18 : 0, minWidth: 0 }}>
+              <span style={{ fontSize: 13, color: muted }}>{c.l}</span>
+              <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: c.strong ? 26 : 22, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: c.strong ? '#fff' : 'var(--ya-text-on-night)' }}>{c.v}</b>
+              <span style={{ fontSize: 12.5, lineHeight: 1.35, color: muted }}>{c.c}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {(onSite > 0 || unknown > 0) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13.5, lineHeight: 1.45, color: muted }}>
+          {onSite > 0 && <span>{t('ya.ana.po.onSite', { v: eur(onSite) })}</span>}
+          {unknown > 0 && <span>{tp('ya.ana.po.unknown', unknown, { n: n(unknown) })}</span>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── Remboursements : les motifs, les soirées qui remboursent ─────────────
+
+function RefundCards({ rf, money, loading, rv, go }: { rf: TixRefundsBlock; money: boolean; loading: boolean; rv: boolean; go: boolean }) {
+  const { t, tp, n, eur, pct, dShort } = useTixT();
+  const maxR = Math.max(1, ...rf.reasons.map((r) => Number(r.n)));
+  const empty = <p style={{ margin: 0, fontSize: 14.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.rf.empty')}</p>;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+      <section style={{ ...card, flex: '1 1 400px', gap: 16 }}>
+        <CardHead title={t('ya.ana.rf.whyT')} sub={t('ya.ana.rf.whySub')} />
+        {loading ? <Sk h={220} r={16} /> : rf.reasons.length === 0 ? empty : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, ...fadeIn(rv, 100) }}>
+            {rf.reasons.map((r, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(110px,170px) minmax(0,1fr) auto', gap: 14, alignItems: 'center', padding: '9px 0' }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: r.reason ? 'var(--ya-ink)' : 'var(--ya-sand-500)' }}>{r.reason ?? t('ya.ana.rf.noReason')}</span>
+                <Fill pct={(Number(r.n) / maxR) * 100} go={go} delay={i * 80} h={12} bg="var(--ya-red-200)" dur={800} />
+                <span style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
+                  <b style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{tp('ya.ana.nRefunds', Number(r.n), { n: n(Number(r.n)) })}</b>
+                  {money && r.revenue !== null && <span style={{ fontSize: 12, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{eur(Number(r.revenue))}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      <section style={{ ...card, flex: '1.3 1 480px', gap: 16 }}>
+        <CardHead title={t('ya.ana.rf.evT')} sub={t('ya.ana.rf.evSub')} />
+        {loading ? <Sk h={220} r={16} /> : rf.events.length === 0 ? empty : (
+          <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="ya-thin-scroll">
+            <div style={{ minWidth: 520, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1.4fr) minmax(200px,1fr) 100px', gap: 16, padding: '0 0 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+                <span>{t('ya.ana.col.night')}</span><span>{t('ya.ana.rf.col.refunds')}</span><span style={{ textAlign: 'right' }}>{money ? t('ya.ana.rf.col.amount') : ''}</span>
+              </div>
+              {rf.events.map((e) => {
+                // Jamais un pourcentage sous 10 ventes.
+                const rate = e.sales >= 10 ? (Number(e.n) / Number(e.sales)) * 100 : null;
+                return (
+                  <div key={e.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1.4fr) minmax(200px,1fr) 100px', gap: 16, alignItems: 'center', padding: '11px 0', borderTop: '1px solid var(--ya-sand-100)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</span>
+                        <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{dShort(e.start_at)}</span>
+                      </span>
+                      <StatePill state={e.state} label={t(`ya.ana.state.${e.state}`)} />
+                    </span>
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 2, fontVariantNumeric: 'tabular-nums' }}>
+                      <b style={{ fontSize: 15, whiteSpace: 'nowrap' }}>{tp('ya.ana.nRefunds', Number(e.n), { n: n(Number(e.n)) })}{rate !== null ? ` · ${pct(rate)}` : ''}</b>
+                      <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.rf.ofSales', { n: n(Number(e.sales)) })}</span>
+                    </span>
+                    <b style={{ textAlign: 'right', fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money && e.revenue !== null ? eur(Number(e.revenue)) : ''}</b>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
