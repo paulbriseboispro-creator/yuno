@@ -36,9 +36,9 @@ export const SP_ICON = {
 
 export type SpIcon = keyof typeof SP_ICON;
 
-// ── Les quatre types de page ────────────────────────────────────────────────
+// ── Les cinq types de page ────────────────────────────────────────────────
 
-export const SIGNUP_KINDS = ['prevente', 'venue', 'attente', 'communaute'] as const;
+export const SIGNUP_KINDS = ['prevente', 'venue', 'attente', 'communaute', 'guestlist'] as const;
 export type SignupKind = (typeof SIGNUP_KINDS)[number];
 
 export type CloseMode = 'sale' | 'eve' | 'manual' | 'never' | 'date';
@@ -60,7 +60,16 @@ export const KIND_META: Record<SignupKind, KindMeta> = {
   venue: { icon: 'check', night: true, sale: false, closes: ['eve', 'date'], relance: ['open'] },
   attente: { icon: 'clock', night: true, sale: true, closes: ['manual', 'date'], relance: ['open', 'nudge', 'last'] },
   communaute: { icon: 'users', night: false, sale: true, closes: ['never', 'date'], relance: ['open'] },
+  // Guest list : le fan s'inscrit, puis la page l'envoie vers le lien du pro (`after_url`, la guest list Shotgun).
+  guestlist: { icon: 'link', night: true, sale: true, closes: ['never', 'date'], relance: ['open'] },
 };
+
+/** Le lien rendu par submit_crm_signup sur une page Guest list (« go:https://… »), sinon null. */
+export function guestListTarget(r: string): string | null {
+  if (!r.startsWith('go:')) return null;
+  const url = r.slice(3);
+  return /^https:\/\/[^\s]+$/.test(url) ? url : null;
+}
 
 // ── Gabarits ───────────────────────────────────────────────────────────────
 

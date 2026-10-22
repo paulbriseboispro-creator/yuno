@@ -14,7 +14,7 @@ import { useLocaleSection } from '@/contexts/LanguageContext';
 import { useCrmT } from '@/crm/i18n';
 import FanPage from './FanPage';
 import type { FanCfg, FanScene, FanSubmit, SubmitResult } from './FanPage';
-import { SIGNUP_FONTS_HREF, defaultReward, dt, normalizeDesign, normalizeFields } from './model';
+import { SIGNUP_FONTS_HREF, defaultReward, dt, guestListTarget, normalizeDesign, normalizeFields } from './model';
 import type { SignupDesign, SignupFields, SignupKind, SignupReward } from './model';
 import { pageTokens } from './custom';
 import type { CustomDesign } from './custom';
@@ -24,6 +24,8 @@ interface PublicPage {
   poster_url: string | null; design: SignupDesign; fields: SignupFields; reward: SignupReward | null;
   opens_at: string | null; sale_opens_at: string | null; countdown: boolean; close_at: string | null;
   state: 'open' | 'soon' | 'closed'; count: number | null; demo: boolean; host: string;
+  /** Guest list : la page envoie le fan vers un lien après l'inscription (rendu par submit_crm_signup). */
+  redirects?: boolean;
   /** Design sur mesure (MCP) : remplace le gabarit quand il existe. */
   custom_design?: CustomDesign | null;
   brand?: { logo?: string | null; city?: string | null; instagram?: string | null } | null;
@@ -109,6 +111,7 @@ function Inner() {
     count: page.count ?? 0,
     full: page.kind === 'attente' && !!ev?.sold_out,
     ticketUrl: ev?.ticket_url ?? null,
+    redirects: !!page.redirects,
     opensAt: page.opens_at,
     pageUrl: `${window.location.origin}/j/${page.slug}`,
     eventStart: ev?.start_at ?? null,
@@ -119,11 +122,17 @@ function Inner() {
     eventFacts: ev ? { title: ev.title, start_at: ev.start_at, tz: ev.tz, venue: ev.venue, city: ev.city, poster: ev.cover_url, ticket_url: ev.ticket_url, sold_out: ev.sold_out } : null,
   };
   const scene: FanScene = page.state === 'soon' ? 'soon' : page.state === 'closed' ? 'closed' : 'form';
-  const submit = (v: FanSubmit): Promise<SubmitResult> => rpc<SubmitResult>('submit_crm_signup', {
-    p_slug: slug, p_first_name: v.first_name, p_email: v.email || null, p_phone: v.phone || null, p_answers: v.answers,
-    p_consent: true, p_consent_text: v.consent_text, p_lang: lang, p_src: src,
-    p_last_name: v.last_name || null, p_birthdate: v.birthdate || null, p_instagram: v.instagram || null, p_city: v.city || null,
-  }).catch(() => 'error' as SubmitResult);
+  const submit = async (v: FanSubmit): Promise<SubmitResult> => {
+    const r = await rpc<string>('submit_crm_signup', {
+      p_slug: slug, p_first_name: v.first_name, p_email: v.email || null, p_phone: v.phone || null, p_answers: v.answers,
+      p_consent: true, p_consent_text: v.consent_text, p_lang: lang, p_src: src,
+      p_last_name: v.last_name || null, p_birthdate: v.birthdate || null, p_instagram: v.instagram || null, p_city: v.city || null,
+    }).catch(() => 'error');
+    // Guest list : « go:<lien> » = inscrit, on l'envoie prendre sa place (le temps de lire « C'est noté »).
+    const go = guestListTarget(r);
+    if (go) { window.setTimeout(() => window.location.assign(go), 900); return 'ok'; }
+    return r as SubmitResult;
+  };
 
   return (
     <Shell bg={K.bg}>

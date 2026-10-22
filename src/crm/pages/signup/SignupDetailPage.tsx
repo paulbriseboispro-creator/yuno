@@ -152,7 +152,10 @@ function ResultsTab({ d, x, g }: { d: SignupPageRow; x: SignupDetail; g: number 
   const ratio = (a: number, b: number) => (b ? pct((a / b) * 100) : '—');
   const t4 = venue
     ? { l: t('yc.sp.k.persons'), n: none ? '—' : n((d.persons ?? 0) * g), def: t('yc.sp.k.personsDef', { n: n(d.n) }), sub: none ? '' : t('yc.sp.k.personsSub', { x: n1((d.persons ?? 0) / Math.max(1, d.n)) }) }
-    : { l: t('yc.sp.k.buyers'), n: d.buyers != null ? n(d.buyers * g) : '—', def: d.buyers != null ? t('yc.sp.k.buyersDef') : t('yc.sp.k.buyersNotOpen'), sub: d.buyers ? t('yc.sp.k.ofSignups', { pct: ratio(d.buyers, d.n) }) : '' };
+    : d.kind === 'guestlist'
+      // Guest list : une place prise sur la billetterie après l'inscription (un tarif à 0 € compte).
+      ? { l: t('yc.sp.k.tookSpot'), n: d.buyers != null ? n(d.buyers * g) : '—', def: t('yc.sp.k.tookSpotDef'), sub: d.buyers ? t('yc.sp.k.ofSignups', { pct: ratio(d.buyers, d.n) }) : '' }
+      : { l: t('yc.sp.k.buyers'), n: d.buyers != null ? n(d.buyers * g) : '—', def: d.buyers != null ? t('yc.sp.k.buyersDef') : t('yc.sp.k.buyersNotOpen'), sub: d.buyers ? t('yc.sp.k.ofSignups', { pct: ratio(d.buyers, d.n) }) : '' };
   const tiles = [
     { l: t('yc.sp.k.visits'), n: none ? '—' : n(d.visits * g), def: t('yc.sp.k.visitsDefOne'), sub: '', today: d.today_v ? t('yc.sp.k.today', { n: n(d.today_v) }) : '', bg: 'var(--sand-50)' },
     { l: venue ? t('yc.sp.k.confirmations') : t('yc.sp.k.signups'), n: none ? '—' : n(d.n * g), def: t('yc.sp.k.signupsDef'), sub: none ? '' : t('yc.sp.k.ofVisitors', { pct: ratio(d.n, d.visits) }), today: d.today_n ? t('yc.sp.k.today', { n: n(d.today_n) }) : '', bg: 'var(--sand-50)' },
