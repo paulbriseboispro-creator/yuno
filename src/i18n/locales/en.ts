@@ -2373,6 +2373,10 @@ const en: Record<string, string> = {
   'nav.analysesBadge': 'New',
   'nav.analysesFree': 'Free',
   'nav.analysesJourney': 'Customer journey',
+  'nav.tixClients': 'Clients',
+  'nav.tixClientsAll': 'All clients',
+  'nav.tixSegments': 'Segments',
+  'nav.tixImports': 'Imports',
   'nav.backHome': 'Back to home',
 
   // Explore

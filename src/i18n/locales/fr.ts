@@ -2408,6 +2408,10 @@ const fr: Record<string, string> = {
   'nav.analysesBadge': 'Nouveau',
   'nav.analysesFree': 'Gratuits',
   'nav.analysesJourney': 'Parcours client',
+  'nav.tixClients': 'Clients',
+  'nav.tixClientsAll': 'Tous les clients',
+  'nav.tixSegments': 'Segments',
+  'nav.tixImports': 'Imports',
   'nav.backHome': 'Retour à l\'accueil',
 
   // Explore

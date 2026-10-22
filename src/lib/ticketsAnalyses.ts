@@ -14,19 +14,36 @@ export const TIX_ANALYSES_LIVE = false;
 
 let superAdminCache: boolean | null = null;
 
+/**
+ * Les écrans Clients, Segments, Imports de Yuno Tickets (`…/clients`, copie
+ * de ceux de Yuno CRM, migration 20261109400000) : même règle, interrupteur
+ * à part (TIX_CLIENTS_LIVE). L'ancienne page Clients (`…/customers`) reste
+ * en place jusqu'à la validation de Paul.
+ */
+export const TIX_CLIENTS_LIVE = false;
+
 export function useTixAnalysesLive(): boolean {
+  return useTixPreview(TIX_ANALYSES_LIVE);
+}
+
+export function useTixClientsLive(): boolean {
+  return useTixPreview(TIX_CLIENTS_LIVE);
+}
+
+/** Ouvert à tous quand `live`, sinon au super admin et aux comptes démo. */
+function useTixPreview(live: boolean): boolean {
   const { user } = useAuth();
   const [superAdmin, setSuperAdmin] = useState<boolean>(superAdminCache === true);
   useEffect(() => {
-    if (TIX_ANALYSES_LIVE || !user || superAdminCache !== null) return;
+    if (live || !user || superAdminCache !== null) return;
     let cancelled = false;
     supabase.rpc('is_super_admin').then(({ data }) => {
       superAdminCache = data === true;
       if (!cancelled) setSuperAdmin(superAdminCache);
     });
     return () => { cancelled = true; };
-  }, [user]);
-  if (TIX_ANALYSES_LIVE) return true;
+  }, [user, live]);
+  if (live) return true;
   if (!user) return false;
   return superAdmin || isDemoEmail(user.email);
 }

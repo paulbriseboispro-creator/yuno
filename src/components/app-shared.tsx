@@ -83,6 +83,22 @@ export function tixAnalysesItem(t: (key: string) => string, base: string): Sideb
 	};
 }
 
+/** L'entrée « Clients » (nouvelle, copie du CRM) : Clients, Segments, Imports. */
+export function tixClientsItem(t: (key: string) => string, base: string): SidebarNavItem {
+	const c = `${base}/clients`;
+	return {
+		title: t('nav.tixClients'),
+		path: c,
+		icon: <UsersIcon />,
+		badge: t('nav.analysesBadge'),
+		subItems: [
+			{ title: t('nav.tixClientsAll'), path: c, icon: <UsersIcon />, isDefault: true, exact: true },
+			{ title: t('nav.tixSegments'), path: `${c}/segments`, icon: <SparklesIcon /> },
+			{ title: t('nav.tixImports'), path: `${c}/imports`, icon: <FolderOpenIcon /> },
+		],
+	};
+}
+
 export type SidebarNavGroup = {
 	label: string;
 	items: SidebarNavItem[];
@@ -90,7 +106,7 @@ export type SidebarNavGroup = {
 
 // `metaLive` vient de useMetaIntegrationLive() (AppSidebar) : la pastille
 // « Bientôt » suit ce que le compte voit vraiment, pas la constante seule.
-export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE, tixAnalyses = false): SidebarNavGroup[] {
+export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE, tixAnalyses = false, tixClients = false): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
@@ -234,6 +250,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 			// Les gens, puis chaque canal pour leur parler.
 			label: t('sidebar.group.marketingCRM'),
 			items: [
+				...(tixClients ? [tixClientsItem(t, "/owner")] : []),
 				{
 					title: t('sidebar.customers'),
 					path: "/owner/customers",

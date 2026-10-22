@@ -15,7 +15,7 @@ import { buildFooterNavLinks, buildNavGroups } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useOwnerVenueContext } from "@/contexts/OwnerVenueContext";
 import { useMetaIntegrationLive } from "@/lib/metaIntegration";
-import { useTixAnalysesLive } from "@/lib/ticketsAnalyses";
+import { useTixAnalysesLive, useTixClientsLive } from "@/lib/ticketsAnalyses";
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 import { buildCrmNavGroups } from "@/components/crm/crmNav";
 import { useAccountProductFor } from "@/lib/crmProduct";
@@ -26,9 +26,10 @@ export function AppSidebar() {
 	const { venue, venueId } = useOwnerVenueContext();
 	const metaLive = useMetaIntegrationLive();
 	const tixAnalyses = useTixAnalysesLive();
+	const tixClients = useTixClientsLive();
 	// Yuno CRM : un club qui garde sa billetterie a sa propre barre.
 	const { isCrm, hasCrm } = useAccountProductFor({ venueId });
-	const navGroups = isCrm ? buildCrmNavGroups(t, "/owner", metaLive) : buildNavGroups(t, metaLive, tixAnalyses);
+	const navGroups = isCrm ? buildCrmNavGroups(t, "/owner", metaLive) : buildNavGroups(t, metaLive, tixAnalyses, tixClients);
 	const footerNavLinks = buildFooterNavLinks(t);
 
 	return (

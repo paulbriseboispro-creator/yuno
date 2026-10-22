@@ -2872,6 +2872,10 @@ const es: Record<string, string> = {
   'nav.analysesBadge': 'Nuevo',
   'nav.analysesFree': 'Gratis',
   'nav.analysesJourney': 'Recorrido del cliente',
+  'nav.tixClients': 'Clientes',
+  'nav.tixClientsAll': 'Todos los clientes',
+  'nav.tixSegments': 'Segmentos',
+  'nav.tixImports': 'Importaciones',
   'nav.backHome': 'Volver al inicio',
   
   // Profile Hub
