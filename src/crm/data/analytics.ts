@@ -16,8 +16,8 @@ export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist';
  * dans `utm_source`, le seul champ de suivi que l'API Tickets de Shotgun rend
  * tel quel.
  */
-export type SourceKey = 'ys' | 'yb' | 'yt' | 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
-export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'ex', 'se', 'au', 'di', 'of'];
+export type SourceKey = 'ys' | 'yb' | 'yt' | 'yl' | 'em' | 'sm' | 'dm' | 'pa' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
+export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'pa', 'so', 'sg', 'ex', 'se', 'au', 'di', 'of'];
 
 export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
 
@@ -76,10 +76,34 @@ export interface AnaSales {
   has_any: boolean;
 }
 
+export interface AnaPartner {
+  via: 'shotgun' | 'yuno';
+  name: string;
+  code: string | null;
+  event_id: string | null;
+  tickets: number;
+  paid: number;
+  free: number;
+  orders: number;
+  buyers: number;
+  new_buyers: number;
+  revenue: number | null;
+  nights: number;
+  prev_tickets: number;
+  clicks: number | null;
+  visitors: number | null;
+}
+
 export interface AnaTraffic {
   meta: AnaMeta;
   series: { revenue: Record<SourceKey, number> | null; tickets: Record<SourceKey, number>; clicks: number; new_buyers: number }[];
   sources: { k: SourceKey; orders: number; tickets: number; buyers: number; new_buyers: number; revenue: number | null; prev_tickets: number }[];
+  /**
+   * Partenaires, un par un : un lien de suivi Shotgun nommé (`via: 'shotgun'`,
+   * ventes seulement : l'API ne rend aucun clic, `clicks` / `visitors` à null)
+   * ou un lien Yuno « partenaire » (`via: 'yuno'`, clics mesurés par Yuno).
+   */
+  partners?: AnaPartner[];
   clicks: { total: number; prev: number };
   buyers: { buyers: number; new: number; prev_buyers: number; prev_new: number };
   gained: { total: number; series: number[] };

@@ -122,7 +122,7 @@ export interface ClientsOverview {
 /** Source d'une vente telle que Shotgun la rend, avec son nom côté Yuno (`_crm_source_label`). */
 export interface SaleSourceLabel {
   src: string | null;
-  kind: 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
+  kind: 'yl' | 'em' | 'sm' | 'dm' | 'pa' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
   label?: string | null;
   platform?: string | null;
   placement?: string | null;

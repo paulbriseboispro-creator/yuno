@@ -56,6 +56,7 @@ describe('liens de soirée', () => {
     expect(sourceKind('direct')).toBe('direct');
     expect(sourceKind('Instagram')).toBe('social');
     expect(sourceKind('linktr.ee')).toBe('site');
+    expect(sourceKind('dj-masza')).toBe('partner');
     expect(sourceKind(null)).toBe('offline');
     expect(sourceKind('')).toBe('offline');
   });
@@ -81,7 +82,7 @@ describe('liens de soirée', () => {
     ["shotgun-email", 'ex'],
     ["snapchat", 'so'],
     ["ezapv.r.a.d.sendibm1.com", 'ex'],
-    ["lumea-community", 'au'],
+    ["lumea-community", 'pa'],
     ["chatgpt.com", 'se'],
     ["gifhi.r.ag.d.sendibm3.com", 'ex'],
     ["m.facebook.com", 'so'],
@@ -103,7 +104,7 @@ describe('liens de soirée', () => {
     ["post-feed-ig", 'so'],
     ["www.google.co.uk", 'se'],
     ["appleid.apple.com", 'au'],
-    ["maitrey", 'au'],
+    ["maitrey", 'pa'],
     ["localhost", 'au'],
     ["arc.net", 'au'],
     ["mail02.orange.fr", 'ex'],
@@ -115,10 +116,10 @@ describe('liens de soirée', () => {
     ["google.fr", 'se'],
     ["preview.mailerlite.io", 'ex'],
     ["https://www.google.com/", 'se'],
-    ["itainparis", 'au'],
-    ["tickets-ens-paris", 'au'],
+    ["itainparis", 'pa'],
+    ["tickets-ens-paris", 'pa'],
     ["fb", 'so'],
-    ["sponso", 'au'],
+    ["sponso", 'pa'],
     ["smartboard.shotgun.live", 'sg'],
     ["l.messenger.com", 'so'],
     ["internal", 'au'],
@@ -146,13 +147,29 @@ describe('liens de soirée', () => {
     ["bing.com", 'se'],
     ["claude.ai", 'se'],
     ["perplexity.ai", 'se'],
-    ["claude-promo", 'au'],
-    ["big-event", 'au'],
+    ["claude-promo", 'pa'],
+    ["big-event", 'pa'],
     ["googleusercontent.com", 'au'],
     ["https://", 'au'],
     ["Instagram.com/stories", 'so'],
     ["whatsapp", 'so'],
     ["wa.me", 'so'],
+    // Liens de suivi Shotgun de 3AM (22/10/2026) : un nom sans point = un partenaire.
+    ["dj-masza", 'pa'],
+    ["assas", 'pa'],
+    ["3-am", 'pa'],
+    ["affinity-pro", 'pa'],
+    ["mosko-julyus", 'pa'],
+    ["luka", 'pa'],
+    ["Ladagnous", 'pa'],
+    ["gatsby", 'pa'],
+    ["augustin", 'pa'],
+    ["qr", 'au'],
+    ["flyer", 'au'],
+    ["linktree", 'au'],
+    ["test", 'au'],
+    ["a", 'au'],
+    ["dj masza", 'au'],
     ];
     for (const [src, fam] of cases) expect([src, sourceFamily(src)]).toEqual([src, fam]);
   });

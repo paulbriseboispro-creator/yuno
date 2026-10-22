@@ -58,6 +58,7 @@ export const SOURCE_COLOR: Record<SourceKind, string> = {
   email: 'var(--tangerine-500)',
   sms: 'var(--amber-500)',
   dm: '#D62976',
+  partner: '#3B5BDB',
   social: '#962FBF',
   shotgun: 'var(--ink)',
   extmail: 'var(--green-600)',

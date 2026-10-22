@@ -137,7 +137,7 @@ export function buildGoDestination(hit: GoHit): string | null {
 
 // ── Sources que Shotgun rapporte pour une vente ─────────────────────────────
 
-export type SourceKind = 'link' | 'email' | 'sms' | 'dm' | 'shotgun' | 'direct' | 'social' | 'extmail' | 'search' | 'site' | 'offline';
+export type SourceKind = 'link' | 'email' | 'sms' | 'dm' | 'partner' | 'shotgun' | 'direct' | 'social' | 'extmail' | 'search' | 'site' | 'offline';
 
 /**
  * Famille d'une source, MIROIR EXACT de `_crm_ticket_source` (SQL, migration
@@ -150,12 +150,20 @@ export type SourceKind = 'link' | 'email' | 'sms' | 'dm' | 'shotgun' | 'direct' 
  * `ezapv.r.ag.d.sendibm3.com`) : le domaine est ramené à sa forme nue (schéma,
  * chemin, `www.`, `l.`, `m.`, `lm.` retirés) puis lu mot par mot.
  */
-export type SourceFamily = 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
+export type SourceFamily = 'yl' | 'em' | 'sm' | 'dm' | 'so' | 'sg' | 'ex' | 'se' | 'pa' | 'au' | 'di' | 'of';
 
 const RE_SOCIAL_WORD = /(^|[^a-z0-9])(instagram|insta|ig|facebook|fb|messenger|tiktok|snapchat|threads|twitter|linkedin|youtube|pinterest|reddit|whatsapp|telegram|discord)([^a-z0-9]|$)/;
 const RE_SOCIAL_HOST = /^(x\.com|t\.co|youtu\.be|lnkd\.in|pin\.it|wa\.me|t\.me)$/;
 const RE_SHOTGUN_HOST = /(^|\.)shotgun\.(live|app|io|fr)$/;
 const RE_EXT_MAIL = /(^|[^a-z0-9])(brevo|sendinblue|sendibm[0-9]*|mailchimp|list-manage|mcusercontent|mailerlite|mlsend|mailjet|klaviyo|sendgrid|substack|beehiiv|convertkit|hubspotemail|newsletters?|mailing|emailing|e?mail[0-9]*|webmail|zimbra|outlook|gmail|hotmail|roundcube)([^a-z0-9]|$)|android\.gm$/;
+/**
+ * Partenaire = un NOM sans point (« assas », « dj-masza », « lumea-community ») :
+ * c'est le nom d'un lien de suivi Shotgun que l'organisateur a donné à un
+ * promoteur, un DJ, une asso. Sauf les plateformes et les mots génériques qui
+ * arrivent aussi sans domaine.
+ */
+const RE_PARTNER_NAME = /^[a-z0-9][a-z0-9_-]{1,59}$/;
+const RE_NOT_PARTNER = /^(localhost|internal|test|null|undefined|none|unknown|other|organic|referral|website|web|site|app|ads?|paid|bandsintown|songkick|spotify|deezer|soundcloud|applemusic|apple-music|residentadvisor|ra|dice|eventbrite|fever|feverup|partiful|linktree|linktr|beacons|linkinbio|bio|qr|qrcode|qr-code|flyer|affiche|poster)$/;
 const RE_SEARCH = /(^|[^a-z0-9])(google|bing|duckduckgo|qwant|ecosia|yahoo|yandex|baidu|startpage|chatgpt|openai|perplexity)([^a-z0-9]|$)|(^|\.)(claude|mistral)\.ai$|(^|\.)copilot\.microsoft\.com$/;
 
 /** Forme nue d'une source : `https://www.google.com/search?q=…` → `google.com`. */
@@ -181,12 +189,13 @@ export function sourceFamily(src: string | null | undefined): SourceFamily {
   if (h === 'x' || RE_SOCIAL_HOST.test(h) || RE_SOCIAL_WORD.test(h)) return 'so';
   if (RE_EXT_MAIL.test(h)) return 'ex';
   if (RE_SEARCH.test(h)) return 'se';
+  if (RE_PARTNER_NAME.test(h) && !RE_NOT_PARTNER.test(h)) return 'pa';
   return 'au';
 }
 
 const KIND_OF: Record<SourceFamily, SourceKind> = {
   yl: 'link', em: 'email', sm: 'sms', dm: 'dm', so: 'social', sg: 'shotgun',
-  ex: 'extmail', se: 'search', au: 'site', di: 'direct', of: 'offline',
+  ex: 'extmail', se: 'search', pa: 'partner', au: 'site', di: 'direct', of: 'offline',
 };
 
 /**
@@ -226,7 +235,7 @@ export function sourceName(src: string | null | undefined): string {
   return h || (src ?? '').trim();
 }
 
-export const SOURCE_ORDER: readonly SourceKind[] = ['link', 'email', 'sms', 'dm', 'social', 'shotgun', 'extmail', 'search', 'site', 'direct', 'offline'];
+export const SOURCE_ORDER: readonly SourceKind[] = ['link', 'email', 'sms', 'dm', 'partner', 'social', 'shotgun', 'extmail', 'search', 'site', 'direct', 'offline'];
 
 export interface SourceRow { source: string | null; tickets: number; orders: number; revenue: number | null }
 
@@ -259,7 +268,7 @@ export function groupSources(rows: readonly SourceRow[], links: readonly Pick<Ni
     g.tickets += r.tickets;
     if (g.revenue !== null && r.revenue !== null) g.revenue += r.revenue;
     else g.revenue = null;
-    if (k === 'social' || k === 'extmail' || k === 'search' || k === 'site') {
+    if (k === 'partner' || k === 'social' || k === 'extmail' || k === 'search' || k === 'site') {
       const name = r.source ? sourceName(r.source) : '';
       if (name && !g.names.includes(name)) g.names.push(name);
     }
@@ -312,6 +321,7 @@ export function saleSourceText(
   if (src.kind === 'yl' || src.kind === 'ys' || src.kind === 'yb' || src.kind === 'yt') return src.label ? t('yc.cli.card.src.link', { name: src.label }) : t('yc.ana.src.yl');
   if (src.kind === 'em') return src.label ? t('yc.cli.card.src.email', { name: src.label }) : t('yc.ana.src.em');
   if (src.kind === 'so' && src.src) return t('yc.cli.card.src.social', { name: sourceName(src.src) });
+  if (src.kind === 'pa' && src.src) return t('yc.cli.card.src.partner', { name: sourceName(src.src) });
   if ((src.kind === 'ex' || src.kind === 'se' || src.kind === 'au') && src.src) return sourceName(src.src);
   return t(`yc.ana.src.${src.kind}`);
 }

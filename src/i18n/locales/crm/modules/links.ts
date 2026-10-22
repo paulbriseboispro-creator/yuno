@@ -198,6 +198,8 @@ const dict: CrmDict = {
   'yc.lk.src.extmail.d': ['A link in an e-mail sent with another tool (Brevo, Mailchimp, Shotgun…)', 'Un lien dans un e-mail envoyé avec un autre outil (Brevo, Mailchimp, Shotgun…)', 'Un enlace en un e-mail enviado con otra herramienta (Brevo, Mailchimp, Shotgun…)'],
   'yc.lk.src.search': ['Search and AI', 'Recherche et IA', 'Búsqueda e IA'],
   'yc.lk.src.search.d': ['Buyers who found the night through Google, Bing, ChatGPT…', 'Des acheteurs qui ont trouvé la soirée par Google, Bing, ChatGPT…', 'Compradores que encontraron la fiesta en Google, Bing, ChatGPT…'],
+  'yc.lk.src.partner': ['Partners', 'Partenaires', 'Socios'],
+  'yc.lk.src.partner.d': ['Shotgun tracking links you gave to promoters, DJs, societies', 'Liens de suivi Shotgun donnés à des promoteurs, DJ, assos', 'Enlaces de seguimiento de Shotgun dados a promotores, DJ, asociaciones'],
   'yc.lk.src.site': ['Other websites', 'Autres sites', 'Otras webs'],
   'yc.lk.src.site.d': ['Another site that linked to your page', 'Un autre site qui menait à votre page', 'Otra web que enlazaba a su página'],
   'yc.lk.src.direct': ['Direct', 'Accès direct', 'Acceso directo'],
