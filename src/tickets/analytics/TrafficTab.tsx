@@ -5,6 +5,8 @@
  * les clics sur vos messages, les nouveaux clients et ce qui les amène, les
  * soirées qui recrutent — et, là où le CRM dit « Bientôt, avec Shotgun », les
  * visites de la page de vente et leur passage vers l'achat, que Yuno mesure.
+ * Lot 4 du plan combiné (`TrafficDetail.tsx`) : la page du club / de
+ * l'organisateur, les liens suivis sous leur source, les e-mails et push.
  */
 import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -15,7 +17,8 @@ import { useProgress } from '@/crm/ui/motion';
 import { useTixT } from '@/tickets/analytics/i18n';
 import { useTixCaps } from '@/tickets/analytics/scope';
 import { useTixRoutes } from '@/tickets/analytics/routes';
-import { SOURCE_KEYS, type AnaFilters, type AnaTraffic, type SourceKey, type TixVisits } from '@/tickets/analytics/data';
+import { SOURCE_KEYS, useAnaTrafficDetail, type AnaFilters, type AnaTraffic, type SourceKey, type TixTrafficLink, type TixVisits } from '@/tickets/analytics/data';
+import { MessagesCard, PageCard, SourceLinks } from './TrafficDetail';
 import {
   CardHead, ChartSkeleton, Fill, Sk, StackChart, StatePill, Tile, TileSkeleton, bucketTitle, card, fadeIn, useGo, xLabels, type TileSpec,
 } from './anaUi';
@@ -46,6 +49,14 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
   const dataKey = `${f.period}:${f.event}:${q.dataUpdatedAt}`;
   const [hidden, setHidden] = useState<SourceKey[]>([]);
   const [focus, setFocus] = useState<SourceKey | null>(null);
+  const [open, setOpen] = useState<SourceKey | null>(null);
+  const detail = useAnaTrafficDetail(f);
+  const linksBy = useMemo(() => {
+    const out = new Map<SourceKey, TixTrafficLink[]>();
+    for (const l of detail.data?.links ?? []) out.set(l.src, [...(out.get(l.src) ?? []), l]);
+    return out;
+  }, [detail.data]);
+  const detailLoading = !detail.data || (detail.isFetching && detail.isPlaceholderData);
   const rv = useGo(dataKey, !loading);
   const go = useGo(`${dataKey}:${hidden.join(',')}`, !loading);
   const prog = useProgress(1000, 0, dataKey, !loading);
@@ -172,9 +183,19 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
                   const val = v.val(s);
                   const ns = Number(s.buyers) > 0 ? (Number(s.new_buyers) / Number(s.buyers)) * 100 : null;
                   const off = hidden.includes(s.k);
+                  const sl = linksBy.get(s.k) ?? [];
                   return (
-                    <div key={s.k} onMouseEnter={() => setFocus(s.k)} onMouseLeave={() => setFocus(null)} style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, alignItems: 'center', padding: '12px 10px', borderRadius: 14, background: focus === s.k ? 'var(--ya-sand-50)' : 'transparent', opacity: off ? 0.4 : 1, transition: 'background 140ms,opacity 160ms', fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, minWidth: 0 }}><i style={{ flex: 'none', width: 10, height: 10, borderRadius: 3, background: SOURCE_COLOR[s.k], boxShadow: 'inset 0 0 0 1px rgb(var(--ink) / .12)' }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`ya.ana.src.${s.k}.s`)}</span></span>
+                    <div key={s.k}>
+                    <div
+                      onMouseEnter={() => setFocus(s.k)}
+                      onMouseLeave={() => setFocus(null)}
+                      onClick={sl.length ? () => setOpen((o) => (o === s.k ? null : s.k)) : undefined}
+                      role={sl.length ? 'button' : undefined}
+                      aria-expanded={sl.length ? open === s.k : undefined}
+                      title={sl.length ? t('ya.tr.link.toggle') : undefined}
+                      style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, alignItems: 'center', padding: '12px 10px', borderRadius: 14, background: focus === s.k || open === s.k ? 'var(--ya-sand-50)' : 'transparent', opacity: off ? 0.4 : 1, transition: 'background 140ms,opacity 160ms', fontSize: 14.5, fontVariantNumeric: 'tabular-nums', cursor: sl.length ? 'pointer' : 'default' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, minWidth: 0 }}><i style={{ flex: 'none', width: 10, height: 10, borderRadius: 3, background: SOURCE_COLOR[s.k], boxShadow: 'inset 0 0 0 1px rgb(var(--ink) / .12)' }} /><span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`ya.ana.src.${s.k}.s`)}</span>{sl.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: 'var(--ya-sand-500)' }}>{tp('ya.tr.link.n', sl.length, { n: n(sl.length) })}<Icon name="chevronDown" size={13} stroke={2.4} style={{ transform: `rotate(${open === s.k ? 180 : 0}deg)`, transition: 'transform 200ms' }} /></span>}</span></span>
                       <span style={{ textAlign: 'right', color: 'var(--ya-sand-700)' }}>{n(Number(s.orders) * prog)}</span>
                       <span style={{ textAlign: 'right', color: 'var(--ya-sand-700)' }}>{ns !== null ? pct(ns) : '—'}</span>
                       <b style={{ textAlign: 'right' }}>{n(Number(s.new_buyers) * prog)}</b>
@@ -183,12 +204,14 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
                         <Fill pct={(val / rowMax) * 100} go={go} delay={i * 80} h={5} bg="var(--ya-ink)" dur={800} />
                       </span>
                     </div>
+                    {open === s.k && sl.length > 0 && <SourceLinks links={sl} money={money} />}
+                    </div>
                   );
                 })}
               </div>
             </div>
           )}
-          <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.t.srcFoot')}</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.t.srcFoot')}{linksBy.size > 0 ? ` ${t('ya.tr.link.foot')}` : ''}</span>
         </section>
 
         <section style={{ ...card, flex: '1 1 340px' }}>
@@ -223,6 +246,8 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
         </section>
       </div>
 
+      <MessagesCard d={detail.data} money={money} loading={detailLoading} rv={rv} go={go} />
+
       <section style={{ ...card, gap: 20 }}>
         <CardHead title={t('ya.ana.t.evT')} sub={t('ya.ana.t.evSub')} />
         {loading ? <Sk h={220} r={16} /> : d.events.length === 0 ? (
@@ -250,6 +275,8 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
       </section>
 
       {d.visits && <VisitsCard v={d.visits} cmp={f.cmp} ev={m.mode === 'event'} rv={rv} go={go} prog={prog} />}
+
+      {m.mode !== 'event' && detail.data?.page && <PageCard p={detail.data.page} meta={detail.data.meta} cmp={f.cmp} rv={rv} go={go} prog={prog} />}
 
       <section style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '14px 24px', padding: '22px 26px', borderRadius: 24, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...fadeIn(rv, 240) }}>
         <div style={{ flex: '1 1 360px', display: 'flex', flexDirection: 'column', gap: 3 }}>

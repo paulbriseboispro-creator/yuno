@@ -3234,6 +3234,20 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   par la soirée, attribution jamais partage d'argent). Les liens des AUTRES parties
   n'y sont jamais lus : leurs chiffres passent par le breakdown. Ajoutée à
   `demo_preview_writable_rpc` (tables temporaires) en relisant la définition vivante.
+- **Lot 4, le détail du Trafic** (migration `20261109340000`, `TrafficDetail.tsx`) :
+  une lecture À PART, `tix_ana_traffic_detail` (tix_ana_traffic ne change pas).
+  La page du club / de l'organisateur (visites entrées sur `venue_page` /
+  `organizer_profile`, règle de get_page_traffic, « finie par un achat » = le même
+  appareil achète une soirée de la portée dans les 24 h ; jamais dans la vue d'une
+  soirée) ; les liens suivis de la portée rangés sous la famille de leur lien
+  (`_tix_source`, lien d'un promoteur = `pr`), ouverts d'un clic sous leur source,
+  ventes lues sur la vente ; les e-mails et push : ce qui s'est acheté dans les
+  7 JOURS après un clic (D7, dernier clic d'un même canal ; push = ouverture,
+  `push_campaign_events` → `user_id` de la vente), renvois rattachés à leur
+  campagne, e-mails d'automatisation par recette, CRM exclu (`crm_campaign_is_crm`).
+  Un message qui n'a atteint personne ne prend pas de ligne ; 8 lignes puis « Voir
+  les N messages ». Une vente peut figurer sous une source ET après un e-mail :
+  l'écran le dit.
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 

@@ -234,6 +234,52 @@ export function useAnaCommunity(f: AnaFilters, enabled = true) {
   });
 }
 
+// ── Trafic : le détail (lot 4, migration 20261109340000) ──
+
+/** La page publique du club / de l'organisateur (pas dans la vue d'une soirée). */
+export interface TixPageTraffic {
+  kind: 'venue' | 'organizer';
+  visits: number; prev_visits: number; visitors: number; returning: number; ordered: number;
+  series: number[];
+  /** `k` = referrer_category (direct, social, paid_social, search, paid_search, email, affiliate, internal, referral, qr). */
+  sources: { k: string; visits: number; ordered: number }[];
+}
+
+export interface TixTrafficLink {
+  id: string; src: SourceKey; label: string | null; code: string; archived: boolean;
+  network: string | null; placement: string | null; target: string | null;
+  event_id: string | null; event_title: string | null; event_start: string | null;
+  clicks: number; prev_clicks: number; orders: number; prev_orders: number;
+  tickets: number; tables: number; guests: number; revenue: number | null;
+}
+
+/** Un e-mail (campagne ou recette d'automatisation) ou un push, et ce qui s'est vendu dans les 7 jours après un clic. */
+export interface TixTrafficMessage {
+  channel: 'email' | 'push'; id: string; name: string | null; at: string | null;
+  /** Recette d'automatisation (e-mail) ou `auto` (push automatique de Yuno). */
+  recipe: string | null;
+  sent: number; opened: number; clicked: number; buyers: number; orders: number; revenue: number | null;
+}
+
+export interface AnaTrafficDetail {
+  meta: AnaMeta;
+  page: TixPageTraffic | null;
+  links: TixTrafficLink[];
+  messages: TixTrafficMessage[];
+  messages_total: Record<'email' | 'push', { orders: number; buyers: number; revenue: number | null }>;
+}
+
+export function useAnaTrafficDetail(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'traffic-detail', f.period, f.event],
+    queryFn: () => rpc<AnaTrafficDetail>('tix_ana_traffic_detail', { ...a, ...args(f) }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
 // ── Partenaires (lot 3, migration 20261109330000) ──
 
 /** Montants : `null` pour qui ne voit pas l'argent (enveloppe de la portée). */
