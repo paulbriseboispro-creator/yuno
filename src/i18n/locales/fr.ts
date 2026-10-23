@@ -2408,6 +2408,7 @@ const fr: Record<string, string> = {
   'nav.analysesBadge': 'Nouveau',
   'nav.analysesFree': 'Gratuits',
   'nav.analysesJourney': 'Parcours client',
+  'nav.analysesPartners': 'Partenaires',
   'nav.backHome': 'Retour à l\'accueil',
 
   // Explore

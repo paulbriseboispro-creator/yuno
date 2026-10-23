@@ -3220,6 +3220,20 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   demi-heure dans le fuseau de la soirée, CA par personne sous `revenue`). La
   prévision Hype et le Night Report IA de la Billetterie ne sont pas repris (le rythme
   et la projection de la courbe en tiennent lieu).
+- **Lot 3, Partenaires** (migration `20261109330000`, `PartnersTab.tsx`, onglet
+  `analyses/partners`, sans filtre de segment) : `tix_ana_partners` = promoteurs DE
+  LA PORTÉE sur ses soirées (conversions non annulées, overrides exclus, valeur
+  faciale hors frais Yuno, libellées « Ventes attribuées », jamais « CA »),
+  commissions sous `commission.amount`, clic → vente = règle de
+  `promoterConversionRate` (ventes payantes billets + tables / clics, plafonné à
+  100 %, affiché dès 10 clics), rendement = ventes attribuées / commission (sous
+  `yield.revenue`) ; liens de la portée qui portent un partenaire (`partner_name`),
+  un invité (`guest_pass_id`) ou une partie (`utm_medium = 'party_link'`), ventes
+  lues sur la vente (`tracked_link_id`) ; soirées partagées de la période, dont la
+  soirée choisie ouvre « Qui fait vendre ? » (`get_collab_party_breakdown`, gardée
+  par la soirée, attribution jamais partage d'argent). Les liens des AUTRES parties
+  n'y sont jamais lus : leurs chiffres passent par le breakdown. Ajoutée à
+  `demo_preview_writable_rpc` (tables temporaires) en relisant la définition vivante.
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 

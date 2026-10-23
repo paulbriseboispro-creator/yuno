@@ -2872,6 +2872,7 @@ const es: Record<string, string> = {
   'nav.analysesBadge': 'Nuevo',
   'nav.analysesFree': 'Gratis',
   'nav.analysesJourney': 'Recorrido del cliente',
+  'nav.analysesPartners': 'Socios',
   'nav.backHome': 'Volver al inicio',
   
   // Profile Hub

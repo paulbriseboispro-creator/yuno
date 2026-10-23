@@ -14,6 +14,7 @@ export function tixRoutes(base: string) {
   return {
     sales: `${a}/sales`,
     traffic: `${a}/traffic`,
+    partners: `${a}/partners`,
     community: `${a}/community`,
     guestlist: `${a}/guestlist`,
     live: `${a}/live`,
@@ -21,6 +22,9 @@ export function tixRoutes(base: string) {
     /** Analyses › Guest list d'une soirée. */
     nightGuestList: (id: string) => `${a}/guestlist?e=${id}`,
     clients: `${base}/customers`,
+    promoters: `${base}/promoters`,
+    promoter: (id: string) => `${base}/promoters/${id}`,
+    promoterEvent: (eventId: string) => `${base}/promoters/event/${eventId}`,
     campaigns: `${base}/campaigns`,
     campaignNew: `${base}/campaigns/new`,
     campaignNewForEvent: (eventId: string) => `${base}/campaigns/new?event=${eventId}`,

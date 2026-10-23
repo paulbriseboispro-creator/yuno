@@ -23,7 +23,7 @@ export interface TixNights {
 export type AnaPeriod = '24h' | '48h' | '7d' | '30d' | '90d' | '12m';
 export type AnaSeg = 'all' | 'hab' | 'occ' | 'nou' | 'end';
 /** `live` = En direct (Live View de Yuno Tickets, src/components/live-view) : pas d'équivalent dans le CRM. */
-export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist' | 'live';
+export type AnaTab = 'sales' | 'traffic' | 'partners' | 'community' | 'guestlist' | 'live';
 /**
  * Famille de la source d'une vente Yuno, miroir de `_tix_source` (SQL,
  * migration 20261109300000) : l'attribution figée sur la vente (lien suivi,
@@ -231,6 +231,83 @@ export function useAnaCommunity(f: AnaFilters, enabled = true) {
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     enabled: enabled && ready,
+  });
+}
+
+// ── Partenaires (lot 3, migration 20261109330000) ──
+
+/** Montants : `null` pour qui ne voit pas l'argent (enveloppe de la portée). */
+export interface AnaPartnerTotals {
+  sales: number; prev_sales: number; tickets: number; tables: number; guests: number;
+  sellers: number; promoters: number;
+  revenue: number | null; prev_revenue: number | null;
+  commission: { amount: number | null; prev: { amount: number | null } };
+  clicks: number; prev_clicks: number; paid: number; prev_paid: number;
+  rate: number | null; prev_rate: number | null;
+  /** Ventes attribuées par euro de commission. */
+  yield: { revenue: number | null; prev_revenue: number | null };
+}
+
+export interface AnaPartnerPromoter {
+  id: string; name: string | null; code: string | null; avatar_url: string | null; active: boolean;
+  sales: number; prev_sales: number; tickets: number; tables: number; guests: number;
+  revenue: number | null; prev_revenue: number | null;
+  commission: { amount: number | null };
+  clicks: number; rate: number | null;
+  yield: { revenue: number | null };
+}
+
+/** `partner` = lien d'une personne (page /stats/), `guest` = invité d'une soirée, `party` = lien de co-soirée. */
+export type PartnerLinkKind = 'partner' | 'guest' | 'party';
+
+export interface AnaPartnerLink {
+  id: string; kind: PartnerLinkKind; name: string | null; role: string | null; code: string; archived: boolean;
+  event_id: string; event_title: string; event_start: string;
+  clicks: number; sales: number; prev_sales: number; tickets: number; tables: number; guests: number;
+  revenue: number | null;
+}
+
+export interface AnaSharedNight {
+  id: string; title: string; start_at: string; upcoming: boolean; parties: number; guests: number; sales: number;
+}
+
+export interface AnaPartners {
+  meta: AnaMeta & { has_promoters: boolean };
+  series: { sales: number; revenue: number | null; commission: { amount: number | null }; clicks: number; prev_sales: number; prev_revenue: number | null; prev_clicks: number }[];
+  totals: AnaPartnerTotals;
+  promoters: AnaPartnerPromoter[];
+  links: AnaPartnerLink[];
+  shared: AnaSharedNight[];
+}
+
+export function useAnaPartners(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'partners', f.period, f.event],
+    queryFn: () => rpc<AnaPartners>('tix_ana_partners', { ...a, ...args(f) }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
+/** « Qui fait vendre ? » d'une soirée partagée : get_collab_party_breakdown, gardée par la soirée. */
+export interface CollabPartyRow {
+  clicks: number; tickets: number; tables: number; table_guests: number; guests: number; entered: number; revenue: number | null;
+}
+export interface CollabBreakdown {
+  ok: boolean; reason?: string; money?: boolean;
+  parties?: (CollabPartyRow & { party: string; name: string; kind: string; role: string; avatar_url: string | null; mine: boolean })[];
+  guests?: (CollabPartyRow & { id: string; name: string; kind: string; photo_url: string | null })[];
+  unattributed?: CollabPartyRow; totals?: CollabPartyRow; yuno?: CollabPartyRow; direct?: CollabPartyRow;
+}
+
+export function useCollabBreakdown(eventId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['tix-ana', 'collab-breakdown', eventId],
+    queryFn: () => rpc<CollabBreakdown>('get_collab_party_breakdown', { p_event_id: eventId }),
+    staleTime: 60_000,
+    enabled: enabled && !!eventId,
   });
 }
 

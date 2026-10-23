@@ -1,8 +1,9 @@
 /**
  * Yuno Tickets › Analyses (`/owner/analyses/:tab`, `/organizer-app/analyses/:tab`,
  * `/manager/analyses/:tab`) — la copie des Analyses de Yuno CRM
- * (src/crm/pages/analytics/AnalyticsPage.tsx), sur les ventes Yuno. Quatre familles : Ventes (« Combien
- * ai-je vendu ? »), Trafic (« D'où vient mon public ? »), Communauté (« Qui
+ * (src/crm/pages/analytics/AnalyticsPage.tsx), sur les ventes Yuno. Ventes (« Combien
+ * ai-je vendu ? »), Trafic (« D'où vient mon public ? »), Partenaires (« Qui vend
+ * pour moi ? »), Communauté (« Qui
  * sont mes clients ? »), Guest list (« Qui entre gratuitement, et qui finit
  * par payer ? », migration 20261008100000). Une barre de filtres collante, commune aux trois :
  * période OU une soirée (de J-21 au jour J), segment de clients, comparaison
@@ -20,11 +21,12 @@ import { useTixT } from '@/tickets/analytics/i18n';
 import { useTixCaps, useTixNights } from '@/tickets/analytics/scope';
 import { useTixRoutes, type TixRoutes } from '@/tickets/analytics/routes';
 import { downloadCsv } from '@/crm/lib/csv';
-import { useAnaCommunity, useAnaGuestList, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaPillar, type AnaSeg, type AnaTab, PILLARS } from '@/tickets/analytics/data';
+import { useAnaCommunity, useAnaGuestList, useAnaPartners, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaPillar, type AnaSeg, type AnaTab, PILLARS } from '@/tickets/analytics/data';
 import { StatePill, type NightState } from './anaUi';
 import { LoadError } from '@/tickets/analytics/LoadError';
 import { SalesTab, salesCsv } from './SalesTab';
 import { TrafficTab, trafficCsv } from './TrafficTab';
+import { PartnersTab, partnersCsv } from './PartnersTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
 import { GuestListTab, guestlistCsv } from './GuestListTab';
 import { LiveView } from '@/components/live-view/LiveView';
@@ -33,6 +35,8 @@ import { useTixScope } from '@/tickets/analytics/scope';
 const TABS: { k: AnaTab; route: keyof TixRoutes; d: string }[] = [
   { k: 'sales', route: 'sales', d: 'M4 10h12M4 14h9M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2' },
   { k: 'traffic', route: 'traffic', d: 'm3 17 6-6 4 4 8-8M14 7h7v7' },
+  // Partenaires (lot 3) : promoteurs, liens partenaires, « Qui fait vendre ? » d'une soirée partagée.
+  { k: 'partners', route: 'partners', d: 'M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M15 15h3a4 4 0 0 1 4 4v1' },
   { k: 'community', route: 'community', d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
   { k: 'guestlist', route: 'guestlist', d: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
   // En direct : la Live View de Yuno Tickets (globe, ventes de l'instant), gardée telle quelle.
@@ -53,7 +57,7 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   const s = sp.get('s') as AnaSeg | null;
   let seg: AnaSeg = s && SEGS.includes(s) ? s : 'all';
   if (seg === 'end' && tab !== 'community') seg = 'all';
-  if (tab === 'traffic' || tab === 'guestlist' || tab === 'live') seg = 'all';
+  if (tab === 'traffic' || tab === 'partners' || tab === 'guestlist' || tab === 'live') seg = 'all';
   const pl = sp.get('pl') as AnaPillar | null;
   const pillar: AnaPillar = tab === 'sales' && pl && PILLARS.includes(pl) ? pl : 'all';
   const event = sp.get('e') || null;
@@ -85,6 +89,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
 
   const sales = useAnaSales(f, tab === 'sales');
   const traffic = useAnaTraffic(f, tab === 'traffic');
+  const partners = useAnaPartners(f, tab === 'partners');
   const community = useAnaCommunity(f, tab === 'community');
   const guestlist = useAnaGuestList(f.period, tab === 'guestlist' && !f.event);
 
@@ -142,6 +147,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
     const stamp = `${tab}-${f.event ? 'soiree' : f.period}`;
     const out = tab === 'sales' ? (sales.data ? salesCsv(sales.data, T, caps.money) : null)
       : tab === 'traffic' ? (traffic.data ? trafficCsv(traffic.data, T, caps.money) : null)
+      : tab === 'partners' ? (partners.data ? partnersCsv(partners.data, T, caps.money) : null)
         : tab === 'guestlist' ? (guestlist.data && !f.event ? guestlistCsv(guestlist.data, T) : null)
           : (community.data ? communityCsv(community.data, T) : null);
     if (!out) return;
@@ -250,7 +256,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
               </div>
             )}
           </div>
-          {tab !== 'traffic' && tab !== 'guestlist' && (
+          {tab !== 'traffic' && tab !== 'partners' && tab !== 'guestlist' && (
             <div role="group" aria-label={t('ya.ana.f.seg')} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {SEGS.filter((s) => s !== 'end' || tab === 'community').map((s) => {
                 const on = f.seg === s;
@@ -295,6 +301,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       {/* Un onglet dont la lecture échoue (délai de 30 s compris) dit l'échec : ses squelettes attendraient sans fin. */}
       {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />)}
       {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} />)}
+      {tab === 'partners' && (failed(partners) ?? <PartnersTab q={partners} f={f} setF={setF} />)}
       {tab === 'community' && (failed(community) ?? <CommunityTab q={community} f={f} setF={setF} />)}
       {tab === 'guestlist' && ((f.event ? null : failed(guestlist)) ?? <GuestListTab q={guestlist} f={f} />)}
       {live && <LiveView venueId={scopeArgs.p_venue_id} organizerUserId={scopeArgs.p_organizer_user_id} />}

@@ -65,7 +65,7 @@ export type SidebarNavItem = {
 	subItems?: SidebarNavItem[];
 };
 
-/** L'entrée « Analyses » (nouvelle) : Ventes, Trafic, Communauté, Gratuits, Parcours client. */
+/** L'entrée « Analyses » (nouvelle) : Ventes, Trafic, Partenaires, Communauté, Gratuits, Parcours client. */
 export function tixAnalysesItem(t: (key: string) => string, base: string): SidebarNavItem {
 	const a = `${base}/analyses`;
 	return {
@@ -76,6 +76,7 @@ export function tixAnalysesItem(t: (key: string) => string, base: string): Sideb
 		subItems: [
 			{ title: t('anf.family.sales'), path: `${a}/sales`, icon: <BarChart3Icon />, isDefault: true },
 			{ title: t('anf.family.traffic'), path: `${a}/traffic`, icon: <GlobeIcon /> },
+			{ title: t('nav.analysesPartners'), path: `${a}/partners`, icon: <UsersIcon /> },
 			{ title: t('anf.family.community'), path: `${a}/community`, icon: <UsersIcon /> },
 			{ title: t('nav.analysesFree'), path: `${a}/guestlist`, icon: <UsersIcon /> },
 			{ title: t('anf.family.live'), path: `${a}/live`, icon: <RadioIcon /> },
