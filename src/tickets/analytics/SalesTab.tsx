@@ -13,10 +13,12 @@ import { Icon } from '@/crm/ui/Icon';
 import { Segmented } from '@/tickets/analytics/kit';
 import { useProgress } from '@/crm/ui/motion';
 import { useTixT, type TixFormatters } from '@/tickets/analytics/i18n';
-import { useTixCaps } from '@/tickets/analytics/scope';
+import { useTixCaps, useTixNights } from '@/tickets/analytics/scope';
 import { TicketSplit } from '@/tickets/analytics/TicketSplit';
 import { useTixRoutes } from '@/tickets/analytics/routes';
-import { PILLARS, type AnaFilters, type AnaPillar, type AnaSales, type AnaTab, type TixPayout, type TixRefundsBlock } from '@/tickets/analytics/data';
+import { PILLARS, useNightDoor, type AnaFilters, type AnaPillar, type AnaSales, type AnaTab, type TixPayout, type TixRefundsBlock } from '@/tickets/analytics/data';
+import { useEventReport } from '@/hooks/useEventReport';
+import { DoorCard, LinesCard, NightHeader, TargetCard, reportMarks } from './NightReport';
 import {
   BrandArrowButton, CardHead, ChartSkeleton, Fill, Gauge, MultiLine, Sk, StatePill, Takeaway, Tile, TileSkeleton, TrendChart,
   bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type CurveLine, type TileSpec,
@@ -72,6 +74,14 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const [th, setTh] = useState<number | null>(null);
   const [hh, setHh] = useState<string | null>(null);
   const [rowH, setRowH] = useState<string | null>(null);
+  // Une soirée choisie (lot 2) : le rapport de soirée de la Billetterie, la
+  // soirée comparée (choisie, sinon la précédente de la série) et la porte.
+  const nightId = f.event;
+  const night = useEventReport(nightId);
+  const compareNightId = nightId ? f.compare ?? d?.meta.prev_event?.id ?? null : null;
+  const compareNight = useEventReport(compareNightId);
+  const door = useNightDoor(nightId);
+  const scopeNights = useTixNights();
 
   // Billets payants à part des entrées gratuites (D4, 20261020200000).
   // Une table VIP, une inscription ou un remboursement se comptent un par un.
@@ -156,7 +166,9 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const pavg = money && prevPaidTk > 0 ? (Number(d.totals.prev_revenue) - Number(d.totals.table_money?.prev_revenue ?? 0)) / prevPaidTk : null;
   const perBuyer = d.totals.buyers > 0 ? tk / d.totals.buyers : null;
   const tarTot = d.tariffs.reduce((s, x) => s + Number(x.tickets), 0) || 1;
-  const t0 = d.tariffs[0]; const t1 = d.tariffs[1];
+  // Le prix moyen d'un BILLET : sa répartition ne montre que des tarifs de billets (une table n'y entre pas).
+  const tkTariffs = d.tariffs.filter((x) => x.pillar !== 'tables');
+  const t0 = tkTariffs[0]; const t1 = tkTariffs[1];
   const p0 = t0 ? (Number(t0.tickets) / tarTot) * 100 : 0;
   const p1 = t1 ? (Number(t1.tickets) / tarTot) * 100 : 0;
   const fillPct = d.fill.cap ? (Number(d.fill.sold) / Number(d.fill.cap)) * 100 : null;
@@ -248,8 +260,22 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
       ];
   }
 
+  const heroMarks = ev ? [...v.marks, ...reportMarks(night.data, t)] : v.marks;
+
   return (
     <>
+      {ev && (
+        <NightHeader
+          report={night.data}
+          compare={compareNight.data}
+          door={door.data ?? null}
+          compareId={f.compare}
+          onCompare={(id) => setF({ compare: id })}
+          nights={scopeNights.data?.nights ?? []}
+          rv={rv}
+        />
+      )}
+
       {/* Héros */}
       <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
         {/* Le pilier : tout, ou un pilier (billets, tables VIP, guest list, remboursements). */}
@@ -291,7 +317,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
               cur={v.cur}
               prev={v.prev}
               showPrev={showPrev}
-              marks={v.marks}
+              marks={heroMarks}
               go={go}
               fy={fmtAxis}
               tipTitle={(i) => bucketTitle(m, i, T, jl)}
@@ -308,6 +334,14 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,250px),1fr))', gap: 16 }}>
         {loading ? [0, 1, 2, 3].map((i) => <TileSkeleton key={i} />) : tiles.map((x, i) => <Tile key={i} t={x} i={i} go={go} rv={rv} />)}
       </div>
+
+      {/* Une soirée choisie : son objectif d'entrées et sa porte. */}
+      {ev && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+          <TargetCard report={night.data} compare={compareNight.data} rv={rv} go={go} />
+          <DoorCard door={door.data ?? null} loading={door.isLoading} rv={rv} go={go} />
+        </div>
+      )}
 
       {/* Objectif + courbe : la jauge des billets, pour « Tout » et « Billets ». */}
       {(pl === 'all' || pl === 'tickets') && (
@@ -373,6 +407,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
             );
           })()}
         </section>
+        {ev ? <LinesCard report={night.data} pillar={pl} money={money} rv={rv} go={go} /> : (
         <section style={{ ...card, flex: '1.2 1 460px', gap: 16 }}>
           <CardHead title={t(isTb ? 'ya.ana.s.tarT.tables' : isGl ? 'ya.ana.s.tarT.guestlist' : 'ya.ana.s.tarT')} sub={t(isTb ? 'ya.ana.s.tarSub.tables' : isGl ? 'ya.ana.s.tarSub.guestlist' : 'ya.ana.s.tarSub')} />
           {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[0, 1, 2, 3, 4].map((i) => <Sk key={i} h={36} />)}</div> : d.tariffs.length === 0 ? (
@@ -399,12 +434,13 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                   </div>
                 ))}
                 <p style={{ margin: '10px 0 0', fontSize: 14.5, lineHeight: 1.45, color: 'var(--ya-sand-700)', textWrap: 'pretty' }}>
-                  {t(isTb ? 'ya.ana.s.tarTxt.tables' : isGl ? 'ya.ana.s.tarTxt.guestlist' : 'ya.ana.s.tarTxt', { deal: dealName(d.tariffs[0].deal), pct: pct(p0) })}
+                  {t(isTb ? 'ya.ana.s.tarTxt.tables' : isGl ? 'ya.ana.s.tarTxt.guestlist' : 'ya.ana.s.tarTxt', { deal: dealName(d.tariffs[0].deal), pct: pct((Number(d.tariffs[0].tickets) / tarTot) * 100) })}
                 </p>
               </div>
             );
           })()}
         </section>
+        )}
       </div>}
 
       {/* Soirées */}

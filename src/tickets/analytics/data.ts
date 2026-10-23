@@ -40,7 +40,8 @@ export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'wa', 'yl', 'pr', 'pa
 export type AnaPillar = 'all' | 'tickets' | 'tables' | 'guestlist' | 'refunds';
 export const PILLARS: AnaPillar[] = ['all', 'tickets', 'tables', 'guestlist', 'refunds'];
 
-export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean; pillar: AnaPillar }
+/** `compare` : la soirée comparée à la soirée choisie (« Comparer avec », lot 2), sinon la précédente de la série. */
+export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean; pillar: AnaPillar; compare: string | null }
 
 export interface AnaEventRef { id: string; title: string; start_at: string; night: string; upcoming?: boolean; days_left?: number }
 
@@ -203,8 +204,8 @@ function args(f: AnaFilters) {
 export function useAnaSales(f: AnaFilters, enabled = true) {
   const { rpc: a, qk, ready } = useTixScope();
   return useQuery({
-    queryKey: ['tix-ana', qk, 'ana', 'sales', f.period, f.event, f.seg, f.pillar],
-    queryFn: () => rpc<AnaSales>('tix_ana_sales', { ...a, ...args(f), p_seg: f.seg === 'end' ? 'all' : f.seg, p_pillar: f.pillar }),
+    queryKey: ['tix-ana', qk, 'ana', 'sales', f.period, f.event, f.seg, f.pillar, f.event ? f.compare : null],
+    queryFn: () => rpc<AnaSales>('tix_ana_sales', { ...a, ...args(f), p_seg: f.seg === 'end' ? 'all' : f.seg, p_pillar: f.pillar, p_compare: f.event ? f.compare : null }),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     enabled: enabled && ready,
@@ -414,3 +415,31 @@ export function useJourney(f: JrFilters) {
     enabled: ready,
   });
 }
+
+// ── La porte d'une soirée (lot 2, migration 20261109320000) ──
+
+/** Entrées et attendus en personnes (règle de _door_headcount), arrivées par demi-heure. */
+export interface TixNightDoor {
+  event_id: string; tz: string; start_at: string; end_at: string;
+  upcoming: boolean; started: boolean;
+  entered: number; expected: number;
+  /** Porte mesurée (_crm_door_measured) : sinon « porte non mesurée », jamais 0 %. */
+  measured: boolean;
+  pillars: Record<'tickets' | 'tables' | 'guestlist', { entered: number; expected: number }>;
+  /** Entrées scannées sans heure (hors des demi-heures). */
+  undated: number;
+  arrivals: { at: string; n: number }[];
+  /** CA de la soirée et par personne entrée : null sans l'accès à l'argent. */
+  money: { revenue: number | null; per_head: { revenue: number | null } };
+}
+
+export function useNightDoor(eventId: string | null) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'night-door', eventId],
+    queryFn: () => rpc<TixNightDoor>('tix_night_door', { ...a, p_event: eventId }),
+    staleTime: 60_000,
+    enabled: ready && !!eventId,
+  });
+}
+

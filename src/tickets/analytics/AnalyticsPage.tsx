@@ -56,7 +56,10 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   if (tab === 'traffic' || tab === 'guestlist' || tab === 'live') seg = 'all';
   const pl = sp.get('pl') as AnaPillar | null;
   const pillar: AnaPillar = tab === 'sales' && pl && PILLARS.includes(pl) ? pl : 'all';
-  return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0', pillar };
+  const event = sp.get('e') || null;
+  // La soirée comparée n'a de sens que pour une soirée choisie, dans Ventes.
+  const compare = tab === 'sales' && event ? sp.get('ce') || null : null;
+  return { period: p && PERIODS.includes(p) ? p : '30d', event, seg, cmp: sp.get('cmp') !== '0', pillar, compare };
 }
 
 /** Lecture en échec et rien en mémoire : LoadError avec « Réessayer » ; sinon rien (l'onglet s'affiche). */
@@ -94,6 +97,8 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       if (nf.seg !== 'all') p.set('s', nf.seg); else p.delete('s');
       if (!nf.cmp) p.set('cmp', '0'); else p.delete('cmp');
       if (nf.pillar !== 'all') p.set('pl', nf.pillar); else p.delete('pl');
+      // Changer de soirée oublie la soirée comparée.
+      if (nf.event && nf.compare && nf.event === f.event && nf.compare !== nf.event) p.set('ce', nf.compare); else p.delete('ce');
       return p;
     }, { replace: true });
     setEvOpen(false);
@@ -103,6 +108,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
     const p = new URLSearchParams(sp);
     if (k !== 'community' && p.get('s') === 'end') p.delete('s');
     p.delete('pl');
+    p.delete('ce');
     const qs = p.toString();
     navigate(`${R[TABS.find((x) => x.k === k)!.route] as string}${qs ? `?${qs}` : ''}`);
   };
@@ -274,7 +280,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
             <Hv
               as="button"
               type="button"
-              onClick={() => setF({ period: '30d', event: null, seg: 'all', cmp: true, pillar: 'all' })}
+              onClick={() => setF({ period: '30d', event: null, seg: 'all', cmp: true, pillar: 'all', compare: null })}
               style={{ height: 34, padding: '0 12px', border: 0, borderRadius: 99, background: 'none', color: 'var(--ya-red-600)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', animation: `ya-pop 260ms ${EASE} both` }}
               hover={{ background: 'var(--ya-red-50)' }}
             >
