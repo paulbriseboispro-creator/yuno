@@ -3207,6 +3207,19 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   `_crm_door_measured`) et `balance` (CA de toute la soirée − cachets DJ, remplace le
   « Bilan par soirée »). Tout montant sort sous `revenue` / `prev_revenue` / `amount`
   (l'enveloppe `_crm_null_money` ne connaît que ces clés).
+- **Lot 2, une soirée choisie** (migration `20261109320000`, `NightReport.tsx`) : en
+  tête de Ventes (`?e=`), le rapport de soirée de la Billetterie dessiné comme le CRM
+  — phrase (`reportHeadline`), « À retenir » (`get_event_report.takeaways`, textes
+  `ya.nr.tk.*`), objectif d'entrées et rythme (`targetStatus`, écrit par
+  `set_event_entry_target`), repères publication / nouveau tarif sur la courbe, tarifs
+  de la soirée avec stock et état (`report.lines`), et « Comparer avec » (`?ce=`,
+  `tix_ana_sales(…, p_compare)` ET le rapport comparé : les deux disent la même
+  soirée ; sans choix, la précédente de la SÉRIE). Les règles restent celles de
+  `src/lib/eventReport.ts`, jamais recopiées. La porte = `tix_night_door` (règle de
+  `_door_headcount` en personnes, porte mesurée sinon « non mesurée », arrivées par
+  demi-heure dans le fuseau de la soirée, CA par personne sous `revenue`). La
+  prévision Hype et le Night Report IA de la Billetterie ne sont pas repris (le rythme
+  et la projection de la courbe en tiennent lieu).
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 
