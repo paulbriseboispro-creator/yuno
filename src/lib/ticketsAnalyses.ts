@@ -18,10 +18,11 @@ let superAdminCache: boolean | null = null;
 /**
  * Les écrans Clients, Segments, Imports de Yuno Tickets (`…/clients`, copie
  * de ceux de Yuno CRM, migration 20261109400000) : même règle, interrupteur
- * à part (TIX_CLIENTS_LIVE). L'ancienne page Clients (`…/customers`) reste
- * en place jusqu'à la validation de Paul.
+ * à part (TIX_CLIENTS_LIVE, ouvert à tous le 24/10 à la demande de Paul).
+ * L'ancienne page Clients (`…/customers`) reste en place à côté, jusqu'à ce
+ * que Paul décide de la retirer.
  */
-export const TIX_CLIENTS_LIVE = false;
+export const TIX_CLIENTS_LIVE = true;
 
 export function useTixAnalysesLive(): boolean {
   return useTixPreview(TIX_ANALYSES_LIVE);
