@@ -20,7 +20,7 @@ export interface McpClientGuide {
 }
 
 export const MCP_CLIENT_GUIDES: McpClientGuide[] = [
-  { id: 'claude', name: 'Claude', steps: ['aiMcp.claude.s1', 'aiMcp.claude.s2', 'aiMcp.claude.s3', 'aiMcp.claude.s4'] },
+  { id: 'claude', name: 'Claude', steps: ['aiMcp.claude.s1', 'aiMcp.claude.s2', 'aiMcp.claude.s3'] },
   { id: 'chatgpt', name: 'ChatGPT', steps: ['aiMcp.chatgpt.s1', 'aiMcp.chatgpt.s2', 'aiMcp.chatgpt.s3', 'aiMcp.chatgpt.s4'], note: 'aiMcp.chatgpt.note' },
   { id: 'gemini', name: 'Gemini', steps: ['aiMcp.gemini.s1', 'aiMcp.gemini.s2', 'aiMcp.gemini.s3'], note: 'aiMcp.gemini.note' },
   { id: 'lechat', name: 'Le Chat', steps: ['aiMcp.lechat.s1', 'aiMcp.lechat.s2', 'aiMcp.lechat.s3'] },

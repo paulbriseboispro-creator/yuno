@@ -28,6 +28,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { CLAUDE_DIRECTORY_URL } from '@/crm/lib/aiConnect';
 import {
   MCP_CLIENT_GUIDES, MCP_EXAMPLE_QUESTIONS, MCP_SERVER_URL, MCP_TOOL_LABEL_KEYS,
   type McpActivityRow, type McpClientId, type McpConnection,
@@ -123,10 +124,12 @@ export default function AiAssistantsSettings() {
             <h2 className="text-base font-semibold">{t('aiSettings.heroTitle')}</h2>
             <p className="text-sm text-muted-foreground mt-1.5">{t('aiSettings.heroBody')}</p>
           </div>
-          <div className="space-y-1.5">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('aiMcp.serverUrl')}</p>
-            <CopyField value={MCP_SERVER_URL} label={t('aiMcp.serverUrl')} />
-          </div>
+          {client !== 'claude' && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('aiMcp.serverUrl')}</p>
+              <CopyField value={MCP_SERVER_URL} label={t('aiMcp.serverUrl')} />
+            </div>
+          )}
 
           <div>
             <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('aiSettings.howTitle')}>
@@ -153,6 +156,20 @@ export default function AiAssistantsSettings() {
                 </li>
               ))}
             </ol>
+            {client === 'claude' && (
+              <>
+                <Button asChild className="mt-4">
+                  <a href={CLAUDE_DIRECTORY_URL} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-1.5" />{t('aiMcp.claude.add')}
+                  </a>
+                </Button>
+                <details className="mt-4 rounded-lg border border-border p-3">
+                  <summary className="text-xs font-medium cursor-pointer">{t('aiMcp.claude.manual')}</summary>
+                  <p className="text-xs text-muted-foreground my-2">{t('aiMcp.claude.manualD')}</p>
+                  <CopyField value={MCP_SERVER_URL} label={t('aiMcp.serverUrl')} />
+                </details>
+              </>
+            )}
             {guide.command && <div className="mt-3"><CopyField value={guide.command} label="command" /></div>}
             {guide.note && <p className="text-xs text-muted-foreground mt-3">{t(guide.note)}</p>}
             {client === 'claude' && <p className="text-xs text-muted-foreground mt-3">{t('aiConsent.autoAllowTip')}</p>}
