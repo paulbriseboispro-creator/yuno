@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SIGNUP_KINDS } from '@/crm/signup/model';
-import { checkWz, defaultEventFor, fillWz, newWz } from '../signupLogic';
+import { SIGNUP_KINDS, guestListTarget } from '@/crm/signup/model';
+import { checkWz, defaultEventFor, fillWz, isAfterUrl, newWz } from '../signupLogic';
 
 const t = (key: string) => key;
 
@@ -31,5 +31,45 @@ describe('page d’inscription sans soirée connectée', () => {
     expect(wz.closes).toBe('date');
     const forced = fillWz({ ...wz, closes: 'eve' }, [], 'Amoris', t, 'fr');
     expect(forced.closes).toBe('date');
+  });
+});
+
+describe('page Guest list', () => {
+  it('part sans question, ouverte jusqu’à ce que le pro la ferme', () => {
+    const wz = newWz('guestlist', [], t);
+    expect(wz.qs).toEqual([]);
+    expect(wz.closes).toBe('never');
+    expect(wz.afterUrl).toBe('');
+  });
+
+  it('ne se publie pas sans un lien https vers la guest list', () => {
+    const base = newWz('guestlist', [], t, { title: '3AM Act III', btn: 'Je prends ma place' });
+    const miss = checkWz(base, t);
+    expect(miss.oks[3]).toBe(false);
+    expect(miss.miss).toContain('yc.sp.w.m.afterUrl');
+    expect(checkWz({ ...base, afterUrl: 'http://shotgun.live/x' }, t).oks[3]).toBe(false);
+    expect(checkWz({ ...base, afterUrl: 'https://shotgun.live/fr/events/3am?ref=gl' }, t).oks[3]).toBe(true);
+  });
+
+  it('le lien n’est exigé que d’une page Guest list', () => {
+    const wz = newWz('venue', [], t, { title: 'Soirée', btn: 'Je viens' });
+    expect(checkWz(wz, t).miss).not.toContain('yc.sp.w.m.afterUrl');
+  });
+
+  it('isAfterUrl suit la règle de la base', () => {
+    expect(isAfterUrl('https://shotgun.live/e/3am')).toBe(true);
+    expect(isAfterUrl('  https://shotgun.live/e/3am  ')).toBe(true);
+    expect(isAfterUrl('https://')).toBe(false);
+    expect(isAfterUrl('javascript:alert(1)')).toBe(false);
+    expect(isAfterUrl('https://shotgun.live/a b')).toBe(false);
+    expect(isAfterUrl(`https://x.io/${'a'.repeat(600)}`)).toBe(false);
+  });
+
+  it('guestListTarget ne suit qu’un lien https rendu par la base', () => {
+    expect(guestListTarget('go:https://shotgun.live/e/3am?ref=gl')).toBe('https://shotgun.live/e/3am?ref=gl');
+    expect(guestListTarget('ok')).toBeNull();
+    expect(guestListTarget('already')).toBeNull();
+    expect(guestListTarget('go:javascript:alert(1)')).toBeNull();
+    expect(guestListTarget('go:http://shotgun.live')).toBeNull();
   });
 });

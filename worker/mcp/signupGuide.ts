@@ -32,6 +32,11 @@ export const PAGE_KIND_RULES: Record<string, { use_for: string; night: string; c
     night: 'none', closes: 'closes_mode "never" or "date"',
     follow_up: 'Welcome message at sign-up.',
   },
+  guestlist: {
+    use_for: 'Guest list for a night: the fan leaves name, email and consent, then the page sends them straight to after_url (the private guest-list ticket on the ticketing) to take their spot. No confirmation email: the sign-up counts at once.',
+    night: 'recommended', closes: 'closes_mode "never" (stays open until closed in the Console) or "date"',
+    follow_up: 'Optional reminder the day before at 18:00.',
+  },
 };
 
 const LAYOUT_WORDS: Record<string, string> = {

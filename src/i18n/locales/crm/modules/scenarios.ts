@@ -683,6 +683,7 @@ const dict: CrmDict = {
   'yc.scn.v.arr.sg': ['Shotgun app and website', 'App et site Shotgun', 'App y web de Shotgun'],
   'yc.scn.v.arr.ex': ['E-mails from another tool', 'E-mails d’un autre outil', 'E-mails de otra herramienta'],
   'yc.scn.v.arr.se': ['Search and AI', 'Recherche et IA', 'Búsqueda e IA'],
+  'yc.scn.v.arr.pa': ['Partners (Shotgun tracking links)', 'Partenaires (liens de suivi Shotgun)', 'Socios (enlaces de seguimiento de Shotgun)'],
   'yc.scn.v.arr.au': ['Other websites', 'Autres sites', 'Otras webs'],
   'yc.scn.v.arr.di': ['Direct', 'Accès direct', 'Acceso directo'],
   'yc.scn.v.arr.of': ['Offline or imported', 'Hors ligne ou importés', 'Fuera de línea o importadas'],

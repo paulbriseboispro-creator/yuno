@@ -13,7 +13,7 @@ import {
   type CustomDesign, type CustomTheme, type PageIssue, type PageSection,
 } from '../../src/crm/signup/custom';
 
-export const PAGE_KINDS = ['prevente', 'venue', 'attente', 'communaute'] as const;
+export const PAGE_KINDS = ['prevente', 'venue', 'attente', 'communaute', 'guestlist'] as const;
 export const TEMPLATES = ['soiree', 'affiche', 'brutal', 'edito', 'ticket', 'affichage', 'verre', 'epure', 'flyer', 'terminal'] as const;
 export const TEMPLATE_FONTS = ['brico', 'anton', 'serif', 'space', 'black', 'mono'] as const;
 export const CLOSES = ['sale', 'eve', 'manual', 'never', 'date'] as const;
@@ -23,7 +23,7 @@ export const REWARD_ICONS = ['gift', 'ticket', 'bolt', 'users', 'clock'] as cons
 
 /** Fermetures permises par type de page (KIND_META de la Console). */
 const KIND_CLOSES: Record<string, readonly string[]> = {
-  prevente: ['sale', 'date'], venue: ['eve', 'date'], attente: ['manual', 'date'], communaute: ['never', 'date'],
+  prevente: ['sale', 'date'], venue: ['eve', 'date'], attente: ['manual', 'date'], communaute: ['never', 'date'], guestlist: ['never', 'date'],
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -89,6 +89,8 @@ export interface PageArgs {
   sale_opens_at?: string;
   closes_mode?: string;
   closes_at?: string;
+  /** Guest list : le lien vers lequel la page envoie le fan une fois inscrit. */
+  after_url?: string;
   template?: TemplateInput;
   design_mode?: 'custom' | 'template';
   theme?: Partial<CustomTheme>;
@@ -288,6 +290,13 @@ export function settingsPatch(a: PageArgs, kind: string): SettingsResult {
     if (!(KIND_CLOSES[kind] ?? CLOSES).includes(a.closes_mode)) err('invalid_dates', `closes_mode "${a.closes_mode}" does not fit a ${kind} page: use ${(KIND_CLOSES[kind] ?? CLOSES).join(' or ')}.`);
     else patch.closes_mode = a.closes_mode;
     if (a.closes_mode === 'date' && !a.closes_at) err('invalid_dates', 'closes_mode "date" needs closes_at.');
+  }
+  if (a.after_url !== undefined) {
+    const u = a.after_url.trim();
+    if (u === '' || /^none$/i.test(u)) patch.after_url = null;
+    else if (kind !== 'guestlist') err('invalid_args', 'after_url only exists on a guestlist page.');
+    else if (u.length > 600 || !/^https:\/\/[^\s/]+\.[^\s]+$/.test(u)) err('invalid_args', 'after_url must be a full https:// link (600 characters at most).');
+    else patch.after_url = u;
   }
   if (a.kind === 'prevente' && a.sale_opens_at === undefined && a.countdown) {
     // Rien : la Console accepte une prévente sans date (le compte à rebours se tait).

@@ -53,6 +53,8 @@ export interface FanCfg {
   /** Liste d'attente : la soirée est complète. */
   full: boolean;
   ticketUrl?: string | null;
+  /** Guest list : après l'inscription, la page envoie le fan vers le lien du pro (pas d'e-mail de confirmation). */
+  redirects?: boolean;
   opensAt?: string | null;
   /** Lien de la page (partage, calendrier). */
   pageUrl?: string | null;
@@ -479,7 +481,9 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
             <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, color: K.k, textWrap: 'pretty' as never }}>
               {result === 'demo' ? t('yc.sp.fan.demoS') : result === 'already' ? t('yc.sp.fan.already') : cfg.noted}
             </p>
-            {result === 'ok' && (all || cmode === 'email') && contact.trim() && (
+            {kind === 'guestlist' && cfg.redirects && result !== 'demo' ? (
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, fontWeight: 600, color: K.k }}>{t('yc.sp.fan.redirecting')}</p>
+            ) : result === 'ok' && (all || cmode === 'email') && contact.trim() && (
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, fontWeight: 600, color: K.k }}>{t('yc.sp.fan.checkMail', { email: contact.trim() })}</p>
             )}
           </div>

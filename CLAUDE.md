@@ -972,15 +972,23 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
 - **Pages d'inscription** (v2 du 05/10, plan `docs/designs/CRM_SIGNUP_PAGES_PLAN.md`,
   migrations `20261007193500` + `194500`) : reproduites À L'IDENTIQUE du design
   Claude Design (`Pages inscription`, `FanPage`, `InscriptionPhone`,
-  `yuno-pages.js`). Quatre types (`prevente`, `venue`, `attente`, `communaute`,
-  règles dans `KIND_META`), dix gabarits + palettes + polices (`tokens()` de
+  `yuno-pages.js`). Cinq types (`prevente`, `venue`, `attente`, `communaute`,
+  `guestlist`, règles dans `KIND_META`), dix gabarits + palettes + polices (`tokens()` de
   `src/crm/signup/model.ts`, port pur testé), assistant en 4 étapes, page
   publiée avec vrai QR, fiche à quatre onglets (Résultats, Partager, Inscrits,
   Relances). La page publique **`/j/<slug>`** (`?src=`), confirmation
   `/j/<slug>/ok?t=` — jamais `/p/` (linktree des agences) ; `/j` est un chemin
   CRM (`productHost.ts`) relayé par le Worker de la landing. Le MÊME `FanPage`
   rend la page réelle, les aperçus et les vignettes : un écart entre aperçu et
-  page publique est un bug. Inscription par e-mail = double confirmation (file
+  page publique est un bug. **Type « Guest list »** (`guestlist`, migration
+  `20261109600000`, décision de Paul du 22/10) : le fan laisse prénom, e-mail et
+  accord, puis la page l'envoie sur `crm_signup_pages.after_url` (https, le tarif
+  guest list privé de Shotgun) ; PAS de double confirmation, l'inscription vaut
+  accord sur-le-champ (`_crm_signup_grant`, la même preuve et le même registre
+  que la confirmation). Le lien n'est rendu que par `submit_crm_signup`
+  (`'go:<lien>'`), jamais par `get_crm_signup_page` (`redirects` seulement) ;
+  publier sans lien est refusé (`no_after_url`). Le MCP le connaît
+  (`after_url`). Les autres types : inscription par e-mail = double confirmation (file
   `crm_signup_confirm_queue`, jeton neuf HACHÉ) puis preuve
   `marketing_consent_events` (texte exact, `signup_page:<id>`), groupe de la page
   (`imported_contacts`), registre sans jamais réveiller un désabonné ;
@@ -1165,13 +1173,15 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
 - **La source d'une vente = `utm_source` seulement** (Shotgun écrase
   `utm_medium` par la plateforme, ne rend pas `utm_campaign`). Familles
   (`_crm_ticket_source` ⇄ `sourceFamily` / `sourceKind`, `src/crm/lib/links.ts`,
-  miroir EXACT testé sur le même jeu de 87 valeurs) : `yl` lien de
+  miroir EXACT testé sur le même jeu de 102 valeurs) : `yl` lien de
   partage `yuno-<code>` · `em` e-mail `yuno-m-<8 hex campagne>` (et `yuno`
   d'avant) · `sm` `yuno-s-…` · `dm` `yuno-d-…` · `so` réseaux sociaux hors
   lien Yuno · `sg` app/site Shotgun · `ex` e-mail d'un AUTRE outil (Brevo
   `*.sendibm*.com`, Mailchimp, `shotgun-email`, webmails) · `se` recherche et
-  IA (Google, ChatGPT…) · `au` autre site · `di` direct · `of` hors ligne /
-  importé. **Shotgun écrit souvent le DOMAINE référent** (`instagram.com`,
+  IA (Google, ChatGPT…) · `pa` partenaire (un NOM sans point, « assas »,
+  « dj-masza » : un lien de suivi Shotgun que l'organisateur a nommé ; hors
+  plateformes et mots génériques, `RE_NOT_PARTNER`) · `au` autre site · `di`
+  direct · `of` hors ligne / importé. **Shotgun écrit souvent le DOMAINE référent** (`instagram.com`,
   `l.instagram.com`, `m.facebook.com`, `ezapv.r.ag.d.sendibm3.com`) : il est
   ramené à sa forme nue (`sourceHost` : schéma, chemin, `www.` `l.` `m.` `lm.`
   retirés) puis lu mot par mot, dans CET ordre (une adresse `mail.google.com`
@@ -1181,7 +1191,13 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
   `_crm_cond_leaf_check`, `_crm_filter_sql` et `crm_ana_traffic__core`, et
   les libellés `yc.ana.src.*`, `yc.scn.v.arr.*`, `yc.lk.src.*`. Le nom affiché
   d'une source vient de `sourceName` (« Brevo », « Instagram »), jamais du
-  domaine brut. « Partenaires » n'existe plus (rien dans l'API). Tout lien Yuno
+  domaine brut. « Partenaires » (`pa`, 22/10, migration `20261108600000`,
+  demande de Paul sur 3AM) se lit dans `utm_source`, que l'API rend (l'ancienne
+  famille, retirée le 06/10, lisait `utm_medium`, que Shotgun écrase) ;
+  `crm_ana_traffic` rend `partners`, une ligne par partenaire (Analyses ›
+  Trafic, « Quels partenaires font vendre ? ») : un lien Shotgun n'a que ses
+  ventes, ses clics sont « Bientôt » ; un lien Yuno « partenaire » a clics,
+  visiteurs et conversion (`linkConversion`, dès 10 visiteurs). Tout lien Yuno
   vers Shotgun porte TOUT son identifiant dans `utm_source`.
 - **Un client = une personne avec au moins un billet valide ou transféré**
   (règle de `contact_scope_customers`), partout : Accueil, Clients et la carte

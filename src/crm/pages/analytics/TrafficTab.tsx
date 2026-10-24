@@ -15,7 +15,8 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
-import { SOURCE_KEYS, type AnaFilters, type AnaTraffic, type SourceKey } from '@/crm/data/analytics';
+import { SOURCE_KEYS, type AnaFilters, type AnaPartner, type AnaTraffic, type SourceKey } from '@/crm/data/analytics';
+import { linkConversion } from '@/crm/lib/links';
 import {
   CardHead, ChartSkeleton, Fill, Sk, StackChart, StatePill, Tile, TileSkeleton, bucketTitle, card, fadeIn, useGo, xLabels, type TileSpec,
 } from './anaUi';
@@ -24,7 +25,7 @@ import { deltaPct, jLabelFor } from './SalesTab';
 type T = ReturnType<typeof useCrmT>;
 
 export const SOURCE_COLOR: Record<SourceKey, string> = {
-  ys: 'var(--red-600)', yb: 'var(--red-400)', yt: 'var(--red-900)', yl: 'var(--red-200)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: '#D62976',
+  ys: 'var(--red-600)', yb: 'var(--red-400)', yt: 'var(--red-900)', yl: 'var(--red-200)', em: 'var(--tangerine-500)', sm: 'var(--amber-500)', dm: '#D62976', pa: '#3B5BDB',
   so: '#962FBF', sg: 'var(--ink)', ex: 'var(--green-600)', se: 'var(--amber-700)', au: 'var(--sand-400)', di: 'var(--sand-300)', of: 'var(--sand-200)',
 };
 
@@ -219,6 +220,8 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
         </section>
       </div>
 
+      <PartnersCard d={d} loading={loading} money={money} prog={prog} go={go} rv={rv} T={T} />
+
       <section style={{ ...card, gap: 20 }}>
         <CardHead title={t('yc.ana.t.evT')} sub={t('yc.ana.t.evSub')} />
         {loading ? <Sk h={220} r={16} /> : d.events.length === 0 ? (
@@ -257,5 +260,82 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
         </Hv>
       </section>
     </>
+  );
+}
+
+/**
+ * « Quels partenaires font vendre ? » : un lien de suivi Shotgun nommé
+ * (« assas », « dj-masza ») ou un lien Yuno « partenaire », un par ligne.
+ * Shotgun ne rapporte pas les clics de ses liens : la case dit « Bientôt »,
+ * jamais un chiffre. Un lien Yuno mesure clics, visiteurs et conversion.
+ */
+function PartnersCard({ d, loading, money, prog, go, rv, T }: {
+  d: AnaTraffic; loading: boolean; money: boolean; prog: number; go: boolean; rv: boolean; T: T;
+}) {
+  const { t, tp, n, eur, pct } = T;
+  const rows: AnaPartner[] = d.partners ?? [];
+  const val = (p: AnaPartner) => (money ? Number(p.revenue ?? 0) : Number(p.tickets));
+  const max = Math.max(1, ...rows.map(val));
+  const next = d.events.find((e) => e.state !== 'past') ?? null;
+  const cta = next ? `${CRM_ROUTES.nights}?e=${next.id}&v=links` : CRM_ROUTES.nights;
+  const grid = 'minmax(170px,1.4fr) 76px 92px 128px 128px minmax(150px,1.3fr)';
+  const muted = { textAlign: 'right' as const, color: 'var(--sand-700)' };
+  return (
+    <section style={{ ...card, gap: 16 }}>
+      <CardHead
+        title={t('yc.ana.pt.t')}
+        sub={t('yc.ana.pt.s')}
+        right={(
+          <Hv as={Link} to={cta} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 99, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }} hover={{ boxShadow: 'inset 0 0 0 1px var(--sand-400)', textDecoration: 'none' }}>
+            <Icon name="link" size={15} stroke={2.4} />{t('yc.ana.pt.cta')}
+          </Hv>
+        )}
+      />
+      {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[0, 1, 2].map((i) => <Sk key={i} h={52} r={14} />)}</div> : rows.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-500)' }}>{t('yc.ana.pt.empty')}</p>
+      ) : (
+        <div className="yc-thin-scroll" style={{ overflowX: 'auto', ...fadeIn(rv, 180) }}>
+          <div style={{ minWidth: 760, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>
+              <span>{t('yc.ana.pt.col.partner')}</span>
+              <span style={{ textAlign: 'right' }}>{t('yc.ana.pt.col.clicks')}</span>
+              <span style={{ textAlign: 'right' }} title={t('yc.ana.pt.convTip')}>{t('yc.ana.pt.col.conv')}</span>
+              <span style={{ textAlign: 'right' }}>{t('yc.ana.pt.col.tickets')}</span>
+              <span style={{ textAlign: 'right' }}>{t('yc.ana.col.newClients')}</span>
+              <span>{t('yc.ana.col.sales')}</span>
+            </div>
+            {rows.map((p, i) => {
+              const v = val(p);
+              const conv = p.via === 'yuno' && p.visitors !== null ? linkConversion({ visitors: Number(p.visitors), orders: Number(p.orders) }) : null;
+              const soon = (
+                <span title={t('yc.ana.pt.soonTip')} style={{ justifySelf: 'end', height: 22, padding: '0 9px', borderRadius: 99, background: 'var(--sand-100)', color: 'var(--sand-600)', fontSize: 11.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <Icon name="lock" size={10} stroke={2.6} />{t('yc.lk.soon.badge')}
+                </span>
+              );
+              return (
+                <div key={`${p.via}:${p.code ?? p.name}`} style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, alignItems: 'center', padding: '12px 10px', borderRadius: 14, fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</b>
+                    <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t(`yc.ana.pt.via.${p.via}`)} · {tp('yc.ana.pt.nights', Number(p.nights), { n: n(Number(p.nights)) })}</span>
+                  </span>
+                  {p.via === 'yuno' ? <span style={muted}>{n(Number(p.clicks ?? 0) * prog)}</span> : soon}
+                  {p.via === 'yuno' ? <span style={muted} title={t('yc.ana.pt.convTip')}>{conv !== null ? pct(conv * 100) : '—'}</span> : soon}
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                    <b>{n(Number(p.tickets) * prog)}</b>
+                    <span style={{ fontSize: 12, color: 'var(--sand-500)', whiteSpace: 'nowrap' }}>{t('yc.ana.pt.split', { paid: n(Number(p.paid)), free: n(Number(p.free)) })}</span>
+                  </span>
+                  <b style={{ textAlign: 'right' }}>{n(Number(p.new_buyers) * prog)}</b>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <b>{money ? eur(v) : t('yc.ana.nTickets', { n: n(v) })}</b>
+                    <Fill pct={(v / max) * 100} go={go} delay={i * 80} h={5} bg="#3B5BDB" dur={800} />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--sand-500)' }}>{t('yc.ana.pt.foot')}</span>
+    </section>
   );
 }

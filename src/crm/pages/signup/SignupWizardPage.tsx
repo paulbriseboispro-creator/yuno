@@ -36,12 +36,12 @@ import {
   BackLink, D_ARROW, D_PLUS, D_TICK, D_X, Knob, Seg, SpSvg, SwitchRow, anim, cap1, eventDate, focusOff, focusOn, inputBase, monoLabel,
 } from './signupUi';
 import {
-  checkWz, defaultRelance, fillWz, newWz, pageAccent, partyQuestion, relanceCta, relanceForSave, rewardFanText, styleQuestion, wzFields, wzFromPage,
+  checkWz, defaultRelance, fillWz, isAfterUrl, newWz, pageAccent, partyQuestion, relanceCta, relanceForSave, rewardFanText, styleQuestion, wzFields, wzFromPage,
 } from './signupLogic';
 import type { Wz } from './signupLogic';
 import { useSignupHost } from './useSignupHost';
 
-const KNOWN_ERRORS = ['owner_only', 'incomplete', 'closes_in_past', 'support_session', 'bad_fields', 'bad_event', 'ai_changed'];
+const KNOWN_ERRORS = ['owner_only', 'incomplete', 'no_after_url', 'bad_after_url', 'closes_in_past', 'support_session', 'bad_fields', 'bad_event', 'ai_changed'];
 
 /** Image ramenée à 1600 px au plus (JPEG), pour une affiche légère. */
 async function fitImage(file: File, max = 1600): Promise<Blob> {
@@ -161,7 +161,7 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
     fields: wzFields(wz), reward: wz.reward,
     saleAt: wz.kind === 'prevente' ? fromLocalInput(wz.saleAt) : null, countdown: wz.countdown,
     showCount: wz.showCount, count: page?.n ?? 0, full: wz.kind === 'attente' && !!night?.sold_out,
-    ticketUrl: night?.url ?? null, opensAt: fromLocalInput(wz.opensAt), pageUrl: page ? signupUrl(page.slug) : null,
+    ticketUrl: night?.url ?? null, redirects: wz.kind === 'guestlist' && isAfterUrl(wz.afterUrl), opensAt: fromLocalInput(wz.opensAt), pageUrl: page ? signupUrl(page.slug) : null,
     eventStart: night?.start_at ?? null, eventEnd: night?.end_at ?? null,
     custom, brand: { logo: space.logoUrl },
     eventFacts: night ? { title: night.title, start_at: night.start_at, tz: night.tz, venue: host, city: night.city, poster: night.cover_url, ticket_url: night.url, sold_out: night.sold_out } : null,
@@ -195,6 +195,7 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
         sale_opens_at: wz.kind === 'prevente' ? fromLocalInput(wz.saleAt) : null,
         closes_mode: wz.closes, closes_at: wz.closes === 'date' ? fromLocalInput(wz.closesAt) : null,
         countdown: wz.countdown, relance, lang,
+        after_url: wz.kind === 'guestlist' ? wz.afterUrl.trim() || null : null,
       };
       if (page) {
         patch._seen_ai_at = seenAi.current;
@@ -567,6 +568,15 @@ function StepFields({ wz, upd, t }: { wz: Wz; upd: (p: Partial<Wz>, touched?: 't
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}><h2 style={h2}>{t('yc.sp.w.s4T')}</h2><span style={{ fontSize: 14.5, color: 'var(--sand-600)' }}>{t('yc.sp.w.s4S')}</span></div>
+      {wz.kind === 'guestlist' && (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={monoLabel}>{t('yc.sp.w.glLink')}</span>
+          <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)' }}>{t('yc.sp.w.glLinkS')}</span>
+          <input value={wz.afterUrl} onChange={(e) => upd({ afterUrl: e.target.value })} type="url" inputMode="url" maxLength={600} placeholder="https://shotgun.live/…"
+            aria-invalid={!!wz.afterUrl.trim() && !isAfterUrl(wz.afterUrl)} style={{ ...inputBase, height: 48, padding: '0 14px', fontSize: 15 }} onFocus={focusOn} onBlur={focusOff} />
+          {!!wz.afterUrl.trim() && !isAfterUrl(wz.afterUrl) && <span style={{ fontSize: 13, color: 'var(--red-600)' }}>{t('yc.sp.w.glLinkBad')}</span>}
+        </label>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span style={monoLabel}>{t('yc.sp.w.fields')}</span>
         {locked(t('yc.sp.w.first'))}

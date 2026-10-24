@@ -206,8 +206,10 @@ Définitions appliquées par le code (CLAUDE.md, sections Shotgun et guest list)
 - **Dépense d'un contact** : la somme des ventes, hors invitations, duplicatas et
   billets revendus (DATA-03).
 - **Chiffre d'affaires (Console CRM)** : somme des prix faciaux (`deal_price` ÷ 100)
-  des ventes payantes, frais client exclus, frais organisateur Shotgun **non**
-  déduits, remboursements partiels **inconnus** (Shotgun ne les rapporte pas).
+  des ventes payantes. `deal_price` est déjà **hors** frais organisateur Shotgun
+  et hors frais client (relevé du 22/10 : prix public = `deal_price` +
+  `deal_service_fee`) ; remboursements partiels **inconnus** (Shotgun ne les
+  rapporte pas).
 - **Joignable** : accord newsletter actif dans le registre de l'espace, adresse
   hors suppression et hors repoussoir.
 

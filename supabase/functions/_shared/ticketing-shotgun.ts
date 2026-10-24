@@ -617,6 +617,22 @@ export interface MappedEvent {
   raw: Json;
 }
 
+/**
+ * Visibilité d'un tarif. L'API rend `visibilities` (tableau : `["private"]`,
+ * `["promoters", "public", "xpress_door"]`), la doc écrit `visiblity` : un tarif
+ * est « public » dès que le tableau le contient, sinon il prend sa première
+ * valeur (`private`, `promoters`…). Sans aucune information, null.
+ */
+function dealVisibility(d: unknown): string | null {
+  const list = at(d, "visibilities");
+  if (Array.isArray(list)) {
+    const vals = list.map((v) => (typeof v === "string" ? v.trim().toLowerCase() : "")).filter(Boolean);
+    if (vals.includes("public")) return "public";
+    if (vals.length) return vals[0].slice(0, 30);
+  }
+  return str(pick(d, ["visibility", "visiblity"]), 30);
+}
+
 export function mapShotgunEvent(raw: Json, divisor = 1): MappedEvent | null {
   const id = str(pick(raw, ["id", "event_id", "eventId"]), 120);
   if (!id) return null;
@@ -662,7 +678,7 @@ export function mapShotgunEvent(raw: Json, divisor = 1): MappedEvent | null {
           quantity: num(pick(d, ["quantity"])),
           organizer_fees: money(pick(d, ["organizer_fees", "organizerFees"]), divisor),
           user_fees: money(pick(d, ["user_fees", "userFees"]), divisor),
-          visibility: str(pick(d, ["visibility", "visiblity"]), 30),
+          visibility: dealVisibility(d),
           sales_channel: str(pick(d, ["sales_channel", "salesChannel"]), 30),
           category: str(pick(d, ["subcategory.name"]), 120),
           category_id: str(pick(d, ["subcategory_id", "subcategory.id"]), 60),

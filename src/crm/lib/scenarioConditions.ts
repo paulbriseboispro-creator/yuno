@@ -61,7 +61,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const UUID_CI = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NODE_ID = /^[a-z0-9_-]{1,32}$/i;
 
-export const CHANNEL_CODES = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'ex', 'se', 'au', 'di', 'of', 'gl'] as const;
+export const CHANNEL_CODES = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'pa', 'so', 'sg', 'ex', 'se', 'au', 'di', 'of', 'gl'] as const;
 export const TARGET_AUDIENCES = ['concept', 'lineup', 'genre', 'early', 'last_minute', 'once_local', 'likely'] as const;
 export const CHANCE_LABELS = ['high', 'medium', 'low'] as const;
 

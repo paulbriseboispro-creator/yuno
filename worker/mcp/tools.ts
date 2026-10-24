@@ -206,8 +206,8 @@ const PAGE_THEME: JsonSchema = {
 const PAGE_DATE: JsonSchema = { type: 'string', maxLength: 40, description: 'ISO 8601 with a timezone offset ("2026-10-24T18:00:00+02:00"), or "none" to clear it.' };
 const PAGE_FIELDS: Record<string, JsonSchema> = {
   kind: {
-    type: 'string', enum: ['prevente', 'venue', 'attente', 'communaute'],
-    description: 'Page type: prevente (presale list: fans are told first when ticket sales open), venue ("I am coming" RSVP for a night), attente (waiting list: sold-out night or next date not announced), communaute (community list, no particular night). Default prevente.',
+    type: 'string', enum: ['prevente', 'venue', 'attente', 'communaute', 'guestlist'],
+    description: 'Page type: prevente (presale list: fans are told first when ticket sales open), venue ("I am coming" RSVP for a night), attente (waiting list: sold-out night or next date not announced), communaute (community list, no particular night), guestlist (the fan signs up, then the page sends them to after_url, the private guest-list link of the ticketing, to take their spot). Default prevente.',
   },
   event: { ...EVENT, description: 'The night of the page: event id from get_signup_page_kit, "next", part of the title, or "none" to unlink. Not used by community pages.' },
   language: { type: 'string', enum: ['fr', 'en', 'es'], description: 'Language the page is written in (follow-up emails use it). Default: the language of the person.' },
@@ -264,7 +264,8 @@ const PAGE_FIELDS: Record<string, JsonSchema> = {
   countdown: { type: 'boolean', description: 'Presale: countdown to sale_opens_at.' },
   opens_at: { ...PAGE_DATE, description: 'When the page opens (empty = as soon as it is published).' },
   sale_opens_at: { ...PAGE_DATE, description: 'Presale: when ticket sales open (countdown, then "it is open").' },
-  closes_mode: { type: 'string', enum: ['sale', 'eve', 'manual', 'never', 'date'], description: 'When the page closes; must fit the type (prevente: sale or date; venue: eve or date; attente: manual or date; communaute: never or date).' },
+  closes_mode: { type: 'string', enum: ['sale', 'eve', 'manual', 'never', 'date'], description: 'When the page closes; must fit the type (prevente: sale or date; venue: eve or date; attente: manual or date; communaute: never or date; guestlist: never or date).' },
+  after_url: { type: 'string', maxLength: 600, description: 'Guest list page: the https link the fan is sent to right after signing up (the private guest-list ticket link on the ticketing). Never shown on the page before sign-up. Required to publish a guestlist page; "none" clears it.' },
   closes_at: { ...PAGE_DATE, description: 'Closing date when closes_mode is "date".' },
   template: {
     type: 'object',

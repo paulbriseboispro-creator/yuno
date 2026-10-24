@@ -48,6 +48,8 @@ export interface Wz {
   ch: { email: boolean; sms: boolean };
   /** Étapes de relance déjà réglées (gardées à la modification). */
   relance: SignupRelance;
+  /** Guest list : le lien vers lequel la page envoie le fan une fois inscrit (la guest list Shotgun). */
+  afterUrl: string;
   status: SignupPageRow['status'] | null;
 }
 
@@ -82,11 +84,11 @@ export function newWz(kind: SignupKind, nights: NightRow[], t: T, base?: Partial
     id: null, kind, eventId, title: '', sub: '', btn: '', noted: '', touched: {},
     design: { ...DEFAULT_DESIGN }, poster: '',
     contact: 'both', extra: {},
-    qs: kind === 'venue' ? [partyQuestion(t)] : [styleQuestion(t)],
+    qs: kind === 'venue' ? [partyQuestion(t)] : kind === 'guestlist' ? [] : [styleQuestion(t)],
     reward: defaultReward(kind), showCount: false,
     opens: 'now', opensAt: '', saleAt: sale, countdown: true,
     closes: KIND_META[kind].closes[0] === 'eve' && (!eventId || eventId === 'none') ? 'date' : KIND_META[kind].closes[0], closesAt: '',
-    notify: true, ch: { email: true, sms: false }, relance: {}, status: null,
+    notify: true, ch: { email: true, sms: false }, relance: {}, status: null, afterUrl: '',
     ...base,
   };
   return wz;
@@ -156,7 +158,14 @@ export function wzFromPage(p: SignupPageRow, nights: NightRow[], t: T): Wz {
     notify: open ? !!open.on : true,
     ch: { email: open ? !!open.email : true, sms: open ? !!open.sms : false },
     relance: p.relance ?? {},
+    afterUrl: p.after_url ?? '',
   });
+}
+
+/** Le lien d'une page Guest list : https, un domaine, 600 caractères au plus (miroir de crm_signup_page_save). */
+export function isAfterUrl(v: string): boolean {
+  const u = v.trim();
+  return u.length <= 600 && /^https:\/\/[^\s/]+\.[^\s]+$/.test(u);
 }
 
 export interface WzCheck { oks: [boolean, boolean, boolean, boolean]; miss: string[]; qsOk: boolean; okDates: boolean; rewardOk: boolean }
@@ -173,11 +182,13 @@ export function checkWz(wz: Wz, t: T): WzCheck {
   const ok1 = true;
   const ok2 = wz.title.trim().length > 0 && wz.btn.trim().length > 0;
   const rewardOk = !wz.reward.on || wz.reward.preset !== 'custom' || !!wz.reward.label.trim();
-  const ok3 = qsOk && okDates && rewardOk && (!wz.notify || wz.ch.email || wz.ch.sms);
+  const afterOk = wz.kind !== 'guestlist' || isAfterUrl(wz.afterUrl);
+  const ok3 = qsOk && okDates && rewardOk && afterOk && (!wz.notify || wz.ch.email || wz.ch.sms);
   const miss: string[] = [];
   if (!wz.title.trim()) miss.push(t('yc.sp.w.m.title'));
   if (!wz.btn.trim()) miss.push(t('yc.sp.w.m.btn'));
   if (!rewardOk) miss.push(t('yc.sp.w.m.reward'));
+  if (!afterOk) miss.push(t('yc.sp.w.m.afterUrl'));
   if (!qsOk) miss.push(t('yc.sp.w.m.qs'));
   if (!okDates) miss.push(t('yc.sp.w.m.dates'));
   if (wz.notify && !wz.ch.email && !wz.ch.sms) miss.push(t('yc.sp.w.m.channel'));
@@ -254,9 +265,9 @@ export function relanceForSave(rel: SignupRelance, c: RelanceCtx): Record<string
   return out;
 }
 
-/** Le lien du bouton : billets (prévente, attente), adresse (venue), prochaine soirée (communauté). */
+/** Le lien du bouton : billets (prévente, attente), adresse (venue, guest list), prochaine soirée (communauté). */
 export function relanceCta(kind: SignupKind, ev: { ticket_url: string | null; venue?: string | null; street?: string | null; city?: string | null } | null, nextNightUrl: string | null, pageUrl: string): string | null {
-  if (kind === 'venue') {
+  if (kind === 'venue' || kind === 'guestlist') {
     const q = [ev?.venue, ev?.street, ev?.city].filter(Boolean).join(', ');
     return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : pageUrl;
   }
@@ -323,7 +334,7 @@ export function pageLife(p: SignupPageRow, t: T, tp: (k: string, n: number, v?: 
   else if (p.kind === 'prevente') next = p.sale_open ? t('yc.sp.lf.nClosedSale', { n: f.n(noBuy) })
     : !msgOn ? t('yc.sp.lf.nPreventeNoMsg', { d: dtAt(p.sale_opens_at, locale, lang) })
     : p.n ? tp('yc.sp.lf.nPrevente', p.n, { d: dtAt(p.sale_opens_at, locale, lang), n: f.n(p.n) }) : t('yc.sp.lf.nPreventeZero', { d: dtAt(p.sale_opens_at, locale, lang) });
-  else if (p.kind === 'venue') next = !msgOn ? t('yc.sp.lf.nVenueNoMsg')
+  else if (p.kind === 'venue' || p.kind === 'guestlist') next = !msgOn ? t('yc.sp.lf.nVenueNoMsg')
     : p.n ? tp('yc.sp.lf.nVenue', p.n, { d: eveLabel(p.event?.night_date, locale, lang), n: f.n(p.n) }) : t('yc.sp.lf.nVenueZero', { d: eveLabel(p.event?.night_date, locale, lang) });
   else if (p.kind === 'attente') next = p.notified_at ? t('yc.sp.lf.nAttenteSent', { d: dtAt(p.notified_at, locale, lang) }) : t('yc.sp.lf.nAttente', { n: f.n(noBuy) });
   else next = t('yc.sp.lf.nCommunity');

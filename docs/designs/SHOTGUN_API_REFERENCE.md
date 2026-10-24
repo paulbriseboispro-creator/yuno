@@ -122,6 +122,22 @@ typeOfPlace`.
 contrairement aux billets (centimes). `deals[].quantity` = stock du tarif ;
 `leftTicketsCount` = places restantes de la soirée.
 
+**Ce que l'API rend vraiment** (relevé sur 3AM et Club Sonore, 22/10/2026) :
+- La visibilité d'un tarif est dans **`visibilities`, un tableau**
+  (`["private"]`, `["promoters", "public", "xpress_door"]`), pas dans
+  `visiblity` comme l'écrit la doc. Un tarif `private` est une guest list
+  nominative ou une invitation : il n'entre jamais dans un e-mail
+  (`get_external_event_live`, migration `20261108500000`).
+- `price` (tarif) et `deal_price` (billet) sont **hors frais organisateur
+  Shotgun** : le prix public d'un tarif est `price + organizer_fees`
+  (9,01 + 0,99 = 10 € ; 272,73 + 27,27 = 300 €), et le client paie encore
+  `user_fees` au paiement. Yuno montre et additionne `price` : dans un e-mail ou
+  un SMS, jamais les frais Shotgun (décision de Paul du 22/10, le fan les voit
+  au paiement). Ce 0,99 € est celui de Shotgun, sans rapport avec la grille de
+  Yuno Tickets.
+- `leftTicketsCount` ne compte que les tarifs encore ouverts : stock des tarifs
+  moins places restantes ne redonne PAS le nombre de billets vendus.
+
 ## Liens suivis vers Shotgun (centre d'aide, « Tracking Links »)
 
 Un lien de suivi Shotgun est l'URL de la page de soirée avec un paramètre de

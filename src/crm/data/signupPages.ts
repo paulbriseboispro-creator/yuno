@@ -35,13 +35,14 @@ export interface SignupPageRow {
   ai_author: string | null;
   ai_updated_at: string | null;
   /** Proposition de l'IA sur une page publiée : rien ne change pour les fans tant qu'elle n'est pas appliquée. */
-  ai_proposal: SignupAiProposal | null;
+  ai_proposal: SignupAiProposal | null;  /** Guest list : le lien vers lequel la page envoie le fan une fois inscrit (migration 20261109600000). */
+  after_url: string | null;
 }
 
 export interface SignupAiProposal {
   /** Réglages proposés, dans la forme de crm_signup_page_save. */
   patch: Partial<Pick<SignupPageRow, 'kind' | 'title' | 'tagline' | 'button_label' | 'thanks_message' | 'poster_url' | 'design' | 'fields' | 'show_count'
-    | 'reward' | 'opens_at' | 'sale_opens_at' | 'closes_mode' | 'closes_at' | 'countdown' | 'lang' | 'event_id'>>;
+    | 'reward' | 'opens_at' | 'sale_opens_at' | 'closes_mode' | 'closes_at' | 'countdown' | 'lang' | 'event_id' | 'after_url'>>;
   /** Présent = le design change (objet = nouveau design sur mesure, null = retour au gabarit). */
   custom_design?: CustomDesign | null;
   author: string; at: string; changes?: string[];
