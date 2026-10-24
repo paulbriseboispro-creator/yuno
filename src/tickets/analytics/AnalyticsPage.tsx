@@ -28,6 +28,8 @@ import { SalesTab, salesCsv } from './SalesTab';
 import { TrafficTab, trafficCsv } from './TrafficTab';
 import { PartnersTab, partnersCsv } from './PartnersTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
+import { CommunityMore } from './CommunityMore';
+import { COMMUNITY_MORE, type CommunityMoreView } from './communityMoreViews';
 import { GuestListTab, guestlistCsv } from './GuestListTab';
 import { LiveView } from '@/components/live-view/LiveView';
 import { useTixScope } from '@/tickets/analytics/scope';
@@ -83,6 +85,9 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const f = readFilters(sp, tab);
+  // Communauté : Abonnés, Achats et Public gardent l'ancien dessin jusqu'au lot 5 (`?cv=`).
+  const cvRaw = sp.get('cv') as CommunityMoreView | null;
+  const cv: CommunityMoreView | null = tab === 'community' && cvRaw && COMMUNITY_MORE.includes(cvRaw) ? cvRaw : null;
   const nights = useTixNights();
   const [evOpen, setEvOpen] = useState(false);
   const popRef = useRef<HTMLDivElement>(null);
@@ -90,7 +95,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const sales = useAnaSales(f, tab === 'sales');
   const traffic = useAnaTraffic(f, tab === 'traffic');
   const partners = useAnaPartners(f, tab === 'partners');
-  const community = useAnaCommunity(f, tab === 'community');
+  const community = useAnaCommunity(f, tab === 'community' && !cv);
   const guestlist = useAnaGuestList(f.period, tab === 'guestlist' && !f.event);
 
   const setF = (patch: Partial<AnaFilters>) => {
@@ -114,6 +119,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
     if (k !== 'community' && p.get('s') === 'end') p.delete('s');
     p.delete('pl');
     p.delete('ce');
+    p.delete('cv');
     const qs = p.toString();
     navigate(`${R[TABS.find((x) => x.k === k)!.route] as string}${qs ? `?${qs}` : ''}`);
   };
@@ -163,7 +169,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em' }}>{t(`ya.ana.title.${tab}`)}</h1>
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--ya-sand-600)', textWrap: 'pretty', maxWidth: 680 }}>{t(`ya.ana.sub.${tab}`)}</p>
         </div>
-        {!live && <Hv
+        {!live && !cv && <Hv
           as="button"
           type="button"
           onClick={exportCsv}
@@ -256,7 +262,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
               </div>
             )}
           </div>
-          {tab !== 'traffic' && tab !== 'partners' && tab !== 'guestlist' && (
+          {tab !== 'traffic' && tab !== 'partners' && tab !== 'guestlist' && !cv && (
             <div role="group" aria-label={t('ya.ana.f.seg')} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {SEGS.filter((s) => s !== 'end' || tab === 'community').map((s) => {
                 const on = f.seg === s;
@@ -302,7 +308,18 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />)}
       {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} />)}
       {tab === 'partners' && (failed(partners) ?? <PartnersTab q={partners} f={f} setF={setF} />)}
-      {tab === 'community' && (failed(community) ?? <CommunityTab q={community} f={f} setF={setF} />)}
+      {tab === 'community' && (
+        <div style={{ display: 'flex', overflowX: 'auto', maxWidth: '100%' }} className="ya-noscroll">
+          <Segmented
+            value={cv ?? 'overview'}
+            onChange={(v) => setSp((prev) => { const p = new URLSearchParams(prev); if (v === 'overview') p.delete('cv'); else p.set('cv', v); return p; }, { replace: true })}
+            ariaLabel={t('ya.cm.more.aria')}
+            options={(['overview', ...COMMUNITY_MORE] as const).map((v) => ({ value: v, label: t(`ya.cm.more.${v}`) }))}
+          />
+        </div>
+      )}
+      {tab === 'community' && cv && <CommunityMore view={cv} period={f.period} />}
+      {tab === 'community' && !cv && (failed(community) ?? <CommunityTab q={community} f={f} setF={setF} />)}
       {tab === 'guestlist' && ((f.event ? null : failed(guestlist)) ?? <GuestListTab q={guestlist} f={f} />)}
       {live && <LiveView venueId={scopeArgs.p_venue_id} organizerUserId={scopeArgs.p_organizer_user_id} />}
     </div>

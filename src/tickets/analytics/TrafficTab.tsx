@@ -19,6 +19,7 @@ import { useTixCaps } from '@/tickets/analytics/scope';
 import { useTixRoutes } from '@/tickets/analytics/routes';
 import { SOURCE_KEYS, useAnaTrafficDetail, type AnaFilters, type AnaTraffic, type SourceKey, type TixTrafficLink, type TixVisits } from '@/tickets/analytics/data';
 import { MessagesCard, PageCard, SourceLinks } from './TrafficDetail';
+import { TrafficKept } from './KeptBlocks';
 import {
   CardHead, ChartSkeleton, Fill, Sk, StackChart, StatePill, Tile, TileSkeleton, bucketTitle, card, fadeIn, useGo, xLabels, type TileSpec,
 } from './anaUi';
@@ -277,6 +278,8 @@ export function TrafficTab({ q, f }: { q: UseQueryResult<AnaTraffic>; f: AnaFilt
       {d.visits && <VisitsCard v={d.visits} cmp={f.cmp} ev={m.mode === 'event'} rv={rv} go={go} prog={prog} />}
 
       {m.mode !== 'event' && detail.data?.page && <PageCard p={detail.data.page} meta={detail.data.meta} cmp={f.cmp} rv={rv} go={go} prog={prog} />}
+
+      {m.mode !== 'event' && <TrafficKept period={f.period} />}
 
       <section style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '14px 24px', padding: '22px 26px', borderRadius: 24, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...fadeIn(rv, 240) }}>
         <div style={{ flex: '1 1 360px', display: 'flex', flexDirection: 'column', gap: 3 }}>

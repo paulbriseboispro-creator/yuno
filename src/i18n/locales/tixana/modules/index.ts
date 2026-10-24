@@ -7,12 +7,13 @@ import partners from './partners';
 import traffic from './traffic';
 import free from './free';
 import journey from './journey';
+import switchover from './switchover';
 
 /**
  * Toutes les clés des Analyses de Yuno Tickets (`ya.*`) : les textes des
  * Analyses de Yuno CRM, puis ce qui diffère pour Yuno Tickets (qui l'emporte).
  */
-export const TIXANA_DICT: Record<string, Triple> = { ...fromCrm, ...tickets, ...salesPillars, ...night, ...partners, ...traffic, ...free, ...journey };
+export const TIXANA_DICT: Record<string, Triple> = { ...fromCrm, ...tickets, ...salesPillars, ...night, ...partners, ...traffic, ...free, ...journey, ...switchover };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
   const out: Record<string, string> = {};

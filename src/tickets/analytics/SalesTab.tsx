@@ -23,6 +23,7 @@ import {
   BrandArrowButton, CardHead, ChartSkeleton, Fill, Gauge, MultiLine, Sk, StatePill, Takeaway, Tile, TileSkeleton, TrendChart,
   bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type CurveLine, type TileSpec,
 } from './anaUi';
+import { TablesKept } from './KeptBlocks';
 
 type T = ReturnType<typeof useTixT>;
 
@@ -545,6 +546,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         <BrandArrowButton label={t('ya.ana.s.madeCta')} onClick={() => navigate(R.campaigns)} />
       </section>}
       <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)', marginTop: -8 }}>{t('ya.ana.s.foot', { h: hourShort(m.night_end_hour, lang), date: dLong(m.now) })}</span>
+      {isTb && <TablesKept period={f.period} eventId={f.event} />}
     </>
   );
 }

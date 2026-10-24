@@ -180,13 +180,15 @@ function Empty({ text }: { text: string }) {
 }
 
 // ─── Vue ──────────────────────────────────────────────────────────────────────
-export function PurchaseBehaviorView({ venueId = null, organizerUserId = null, dateRange }: {
+export function PurchaseBehaviorView({ venueId = null, organizerUserId = null, dateRange, windowRange }: {
   venueId?: string | null;
   organizerUserId?: string | null;
   dateRange: DateRange;
+  /** Fenêtre explicite (Analyses › Communauté › Achats, périodes 90 j / 12 mois) : prime sur `dateRange`. */
+  windowRange?: { from: string; to: string };
 }) {
   const { t, language } = useLanguage();
-  const range = useMemo(() => dateRangeToWindow(dateRange), [dateRange]);
+  const range = useMemo(() => windowRange ?? dateRangeToWindow(dateRange), [windowRange, dateRange]);
   const { data, loading, error } = usePurchaseBehavior({ venueId, organizerUserId }, range);
 
   if (loading && !data) {
