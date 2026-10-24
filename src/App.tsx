@@ -210,6 +210,9 @@ const OrgAppAnalytics = lazyWithRetry(() => import("./pages/AnalyticsRouter").th
 // Yuno Tickets › Analyses (copie des Analyses de Yuno CRM, src/tickets/analytics).
 const TicketsAnalyses = lazyWithRetry(() => import("./pages/TicketsAnalyses"));
 const TicketsJourney = lazyWithRetry(() => import("./pages/TicketsAnalyses").then((m) => ({ default: m.TicketsJourney })));
+const TicketsClients = lazyWithRetry(() => import("./pages/TicketsClients"));
+const TicketsSegments = lazyWithRetry(() => import("./pages/TicketsClients").then((m) => ({ default: m.TicketsSegments })));
+const TicketsImports = lazyWithRetry(() => import("./pages/TicketsClients").then((m) => ({ default: m.TicketsImports })));
 const OrgAppOrganization = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOrganization"));
 const OrgAppPayments = lazyWithRetry(() => import("./pages/organizer-app/OrgAppPayments"));
 const OrgAppOnboarding = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOnboarding"));
@@ -853,6 +856,9 @@ const App = () => (
                   <Route path="profile" element={<OrgAppRoute requires="manageOrganization"><OrgAppProfile /></OrgAppRoute>} />
                   <Route path="team" element={<OrgAppRoute requires="manageStaff"><OrgAppTeam /></OrgAppRoute>} />
                   <Route path="customers" element={<OrgAppRoute requires="viewInsights"><OrgAppCustomers /></OrgAppRoute>} />
+                  <Route path="clients" element={<OrgAppRoute requires="viewInsights"><TicketsClients /></OrgAppRoute>} />
+                  <Route path="clients/segments" element={<OrgAppRoute requires="viewInsights"><TicketsSegments /></OrgAppRoute>} />
+                  <Route path="clients/imports" element={<OrgAppRoute requires="viewInsights"><TicketsImports /></OrgAppRoute>} />
                   <Route path="audience" element={<Navigate to="/organizer-app/analyses/community?cv=subscribers" replace />} />
                   <Route path="invoices" element={<OrgAppRoute requires="viewFinance"><OwnerInvoices /></OrgAppRoute>} />
                   <Route path="accounting" element={<OrgAppRoute requires="viewFinance"><OwnerAccounting /></OrgAppRoute>} />
@@ -1051,6 +1057,9 @@ const App = () => (
                   <Route path="coorg/:eventId" element={<CoorgEventPage />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
                   <Route path="customers" element={<PlanGuard feature="clients_basic"><OwnerCustomers /></PlanGuard>} />
+                  <Route path="clients" element={<PlanGuard feature="clients_basic"><TicketsClients /></PlanGuard>} />
+                  <Route path="clients/segments" element={<PlanGuard feature="clients_basic"><TicketsSegments /></PlanGuard>} />
+                  <Route path="clients/imports" element={<PlanGuard feature="clients_basic"><TicketsImports /></PlanGuard>} />
                   <Route path="audience" element={<Navigate to="/owner/analyses/community?cv=subscribers" replace />} />
                   <Route path="loyalty" element={<PlanGuard feature="loyalty_crm"><OwnerLoyalty /></PlanGuard>} />
                   <Route path="campaigns" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaigns /></PlanGuard>} />
@@ -1267,6 +1276,9 @@ const App = () => (
                     <OwnerCustomers />
                   </ManagerRoute>
                 } />
+                <Route path="/manager/clients" element={<ManagerRoute><TicketsClients /></ManagerRoute>} />
+                <Route path="/manager/clients/segments" element={<ManagerRoute><TicketsSegments /></ManagerRoute>} />
+                <Route path="/manager/clients/imports" element={<ManagerRoute><TicketsImports /></ManagerRoute>} />
                 <Route path="/manager/invoices" element={
                   <ManagerRoute>
                     <OwnerInvoices />

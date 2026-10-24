@@ -688,6 +688,10 @@ export type AudienceKind =
   | 'all_subscribers' | 'event_subscribers'
   | 'vip' | 'big_spenders' | 'regulars' | 'new_customers' | 'dormant'
   | 'segment' | 'import' | 'contact_segment'
+  // Yuno Tickets › Clients (migration 20261109400000) : un segment de
+  // l'écran Clients (`segmentId` = tix_segments.id) ou un filtre de cet écran
+  // (`def`), résolu par _tix_campaign_audience. Exclusive des autres audiences.
+  | 'tix'
   | 'event_buyers' | 'event_table_buyers' | 'event_all_buyers'
   // Portée plateforme (marketing Yuno) — résolus sur le registre plateforme,
   // voir resolve_campaign_audience §« Portée plateforme ».
@@ -699,6 +703,10 @@ export interface AudienceSel {
   segmentId?: string;
   /** kind 'import' : le lot d'import (email_list_imports.id) — un fichier = un segment. */
   importId?: string;
+  /** kind 'tix' sans segmentId : la définition de filtre de l'écran Clients (grammaire _tix_filter_sql). */
+  def?: Record<string, unknown>;
+  /** kind 'tix' : le nom montré dans l'étape Audience (« 1 284 clients »). */
+  label?: string;
 }
 
 export interface AudienceExclusions {

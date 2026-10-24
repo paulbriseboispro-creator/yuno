@@ -58,6 +58,10 @@ interface Props {
   onBuyCredits: (missing: number) => void;
   /** Soirée pré-sélectionnée (depuis la page événement). */
   presetEventId?: string | null;
+  /** Segments de l'écran Clients de Yuno Tickets (segment 'tix_segment'). */
+  tixSegments?: { id: string; name: string }[];
+  /** Segment Clients pré-sélectionné (« Écrire à… » de l'écran Clients). */
+  presetTixSegmentId?: string | null;
 }
 
 function toLocalInputValue(iso: string | null): string {
@@ -67,7 +71,7 @@ function toLocalInputValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export default function SmsCampaignEditor({ open, onClose, scope, campaign, events, imports = [], contactSegments = [], balance, onChanged, onBuyCredits, presetEventId }: Props) {
+export default function SmsCampaignEditor({ open, onClose, scope, campaign, events, imports = [], contactSegments = [], balance, onChanged, onBuyCredits, presetEventId, tixSegments = [], presetTixSegmentId }: Props) {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const dateLocale = DATE_LOCALES[language] ?? enUS;
@@ -118,7 +122,8 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
       setBody('');
       setBodyI18n(null);
       setEventId(presetEventId || '');
-      setSegmentType(presetEventId ? 'not_event' : 'all');
+      setSegmentType(presetTixSegmentId ? 'tix_segment' : presetEventId ? 'not_event' : 'all');
+      setSegmentIds(presetTixSegmentId ? [presetTixSegmentId] : []);
       setImportId('');
       setScheduleMode('now');
       setScheduledAt('');
@@ -127,7 +132,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     setShowPastEvents(false);
     setShowTestPhone(false);
     setBusy(null);
-  }, [open, campaign, scope.name, presetEventId]);
+  }, [open, campaign, scope.name, presetEventId, presetTixSegmentId]);
 
   const nowIso = useMemo(() => new Date().toISOString(), []);
   const upcomingEvents = useMemo(() => events.filter((e) => e.start_at >= nowIso).sort((a, b) => a.start_at.localeCompare(b.start_at)), [events, nowIso]);
@@ -137,7 +142,8 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
 
   const segmentNeedsEvent = segmentType === 'event' || segmentType === 'not_event';
   const segmentNeedsImport = segmentType === 'import';
-  const segmentNeedsSegment = segmentType === 'contact_segment';
+  const segmentNeedsSegment = segmentType === 'contact_segment' || segmentType === 'tix_segment';
+  const isTix = segmentType === 'tix_segment';
   const hasLinkToken = LINK_TOKEN_RE.test(body) || (!!bodyI18n && Object.values(bodyI18n).some((v) => LINK_TOKEN_RE.test(v)));
   const hasLink = !!eventId && hasLinkToken;
 
@@ -156,7 +162,10 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     let cancelled = false;
     setCountLoading(true);
     (async () => {
-      const { data, error } = await supabase.rpc('count_sms_campaign_recipients', {
+      // Segments Clients : comptés sur la base clients de Yuno Tickets (même résolution que l'envoi).
+      const { data, error } = isTix ? await supabase.rpc('tix_sms_audience_count' as never, {
+        ...scopeRpcArgs(scope), p_segment_ids: segmentIds, p_match: segmentMatch,
+      } as never) : await supabase.rpc('count_sms_campaign_recipients', {
         ...scopeRpcArgs(scope),
         p_segment_type: segmentType,
         p_event_id: segmentNeedsEvent ? eventId : null,
@@ -170,7 +179,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
       setCountLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [open, scope, segmentType, eventId, importId, segmentIds, segmentMatch, segmentNeedsEvent, segmentNeedsImport, segmentNeedsSegment]);
+  }, [open, scope, segmentType, eventId, importId, segmentIds, segmentMatch, segmentNeedsEvent, segmentNeedsImport, segmentNeedsSegment, isTix]);
 
   const insertLinkToken = () => {
     if (!eventId) { toast.info(t('smsc.editor.pickEventForLink')); return; }
@@ -422,6 +431,9 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
                   )}
                   <SelectItem value="import" disabled={imports.length === 0}><span className="flex items-center gap-2">{segmentIcon('import')}{t('smsc.segment.import')}</span></SelectItem>
                   <SelectItem value="contact_segment" disabled={contactSegments.length === 0}><span className="flex items-center gap-2">{segmentIcon('contact_segment')}{t('smsc.segment.contactSegment')}</span></SelectItem>
+                  {scope.kind !== 'platform' && tixSegments.length > 0 && (
+                    <SelectItem value="tix_segment"><span className="flex items-center gap-2">{segmentIcon('contact_segment')}{t('smsc.segment.tixSegment')}</span></SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
@@ -431,13 +443,14 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
                   : segmentType === 'event' ? t('smsc.segment.eventHint')
                   : segmentType === 'vip' ? t('sms.vipClientsDesc')
                   : segmentType === 'import' ? t('smsc.segment.importHint')
-                  : segmentType === 'contact_segment' ? t('smsc.segment.contactSegmentHint') : t('smsc.segment.allHint')}
+                  : segmentType === 'contact_segment' ? t('smsc.segment.contactSegmentHint')
+                  : segmentType === 'tix_segment' ? t('smsc.segment.tixSegmentHint') : t('smsc.segment.allHint')}
               </p>
               {segmentNeedsSegment && (
                 <div className="space-y-2 rounded-lg border border-white/[0.08] bg-surface/40 p-2.5">
                   <p className="text-[11px] text-muted-foreground">{t('smsc.editor.pickSegments')}</p>
                   <div className="max-h-44 space-y-1 overflow-y-auto">
-                    {contactSegments.map((sg) => {
+                    {(isTix ? tixSegments.map((sg) => ({ id: sg.id, name: sg.name, counts: null as { phones: number } | null })) : contactSegments).map((sg) => {
                       const on = segmentIds.includes(sg.id);
                       return (
                         <label key={sg.id} className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-white/[0.04]">
@@ -445,7 +458,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
                             <Checkbox checked={on} onCheckedChange={(v) => setSegmentIds((prev) => (v === true ? [...prev, sg.id] : prev.filter((x) => x !== sg.id)))} />
                             <span className="truncate">{sg.name}</span>
                           </span>
-                          <span className="shrink-0 tabular-nums text-muted-foreground">{sg.counts.phones}</span>
+                          {sg.counts && <span className="shrink-0 tabular-nums text-muted-foreground">{sg.counts.phones}</span>}
                         </label>
                       );
                     })}

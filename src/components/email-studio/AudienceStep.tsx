@@ -118,6 +118,19 @@ export default function AudienceStep({ scope, events, segments }: {
   // était annulée, et la section disparaissait en silence (un segment déjà
   // ciblé par la campagne affichait alors 0 destinataire).
   const [contactSegments, setContactSegments] = useState<ContactSegmentLite[]>([]);
+  // Yuno Tickets › Clients (migration 20261109400000) : les segments de l'écran
+  // Clients (tix_segments). Une audience {kind:'tix'} est résolue seule par
+  // _tix_campaign_audience : elle ne se combine pas avec les autres.
+  const [tixSegments, setTixSegments] = useState<{ id: string; name: string; description: string | null }[]>([]);
+  useEffect(() => {
+    if (scope.kind === 'platform') return;
+    let cancelled = false;
+    supabase.rpc('tix_segments_list' as never, studioScopeArgs(scope) as never).then(({ data }) => {
+      if (!cancelled && Array.isArray(data)) setTixSegments(data as { id: string; name: string; description: string | null }[]);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope.kind, scopeId]);
   const [yunoPresets, setYunoPresets] = useState<SegmentSuggestion[]>([]);
   // Le seuil du panier : la valeur Yuno de la portée (historique, sinon
   // offre), remplaçable par le pro. Le préréglage se recompte à chaque
@@ -311,7 +324,7 @@ export default function AudienceStep({ scope, events, segments }: {
 
   // Une sélection = son kind + la référence qui la distingue (segment
   // sauvegardé ou lot d'import). Deux listes importées sont deux cases.
-  const selKey = (a: AudienceSel) => `${a.kind}:${a.segmentId || a.importId || ''}`;
+  const selKey = (a: AudienceSel) => `${a.kind}:${a.segmentId || a.importId || (a.def ? 'def' : '')}`;
 
   const isSelected = (kind: AudienceKind, refId?: string) =>
     campaign.audiences.some((a) => selKey(a) === `${kind}:${refId || ''}`);
@@ -327,13 +340,16 @@ export default function AudienceStep({ scope, events, segments }: {
       return;
     }
     const added: AudienceSel = kind === 'import' ? { kind, importId: refId }
-      : kind === 'segment' || kind === 'contact_segment' ? { kind, segmentId: refId }
+      : kind === 'segment' || kind === 'contact_segment' || kind === 'tix' ? { kind, segmentId: refId }
       : { kind };
-    setAudiences([...campaign.audiences, added]);
+    // Les segments Clients ne se combinent qu'entre eux (résolus à part, côté serveur).
+    const keep = campaign.audiences.filter((a) => (kind === 'tix') === (a.kind === 'tix'));
+    setAudiences([...keep, added]);
   };
 
   const nf = (n: number) => n.toLocaleString('fr-FR');
-  const grossSum = campaign.type === 'promotional'
+  const hasTix = campaign.audiences.some((a) => a.kind === 'tix');
+  const grossSum = campaign.type === 'promotional' && !hasTix
     ? campaign.audiences.reduce((acc, a) => {
       if (a.kind === 'import') return acc + (imports.find((l) => l.id === a.importId)?.count || 0);
       if (a.kind === 'contact_segment') return acc + (contactSegments.find((s) => s.id === a.segmentId)?.emails || 0);
@@ -436,6 +452,35 @@ export default function AudienceStep({ scope, events, segments }: {
               );
             })}
           </div>
+
+          {/* Yuno Tickets › Clients : les segments de l'écran Clients, et le
+              filtre préparé depuis « Écrire à… ». */}
+          {campaign.type === 'promotional' && scope.kind !== 'platform' && (tixSegments.length > 0 || hasTix) && (
+            <>
+              <MicroLabel style={{ margin: '14px 0 7px' }}>{t('studio.aud.tixSegments')}</MicroLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {campaign.audiences.filter((a) => a.kind === 'tix' && !a.segmentId).map((a, i) => (
+                  <SegmentRow
+                    key={`tixdef-${i}`}
+                    on
+                    onClick={() => setAudiences(campaign.audiences.filter((x) => x !== a))}
+                    name={a.label || t('studio.aud.tixSelection')}
+                    desc={t('studio.aud.desc.tixSelection')}
+                    count={count?.net}
+                  />
+                ))}
+                {tixSegments.map((sg) => (
+                  <SegmentRow
+                    key={sg.id}
+                    on={isSelected('tix', sg.id)}
+                    onClick={() => toggleAudience('tix', sg.id)}
+                    name={sg.name}
+                    desc={sg.description || t('studio.aud.desc.tixSegment')}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Segments intelligents sur la base importée (club ET organisateur). */}
           {campaign.type === 'promotional' && contactSegments.length > 0 && (
@@ -616,6 +661,7 @@ export default function AudienceStep({ scope, events, segments }: {
                 if (a.kind === 'contact_segment') return contactSegments.find((s) => s.id === a.segmentId)?.name || '';
                 if (a.kind === 'segment') return segments.find((s) => s.id === a.segmentId)?.name || '';
                 if (a.kind === 'import') return imports.find((l) => l.id === a.importId)?.name || '';
+                if (a.kind === 'tix') return tixSegments.find((s) => s.id === a.segmentId)?.name || a.label || t('studio.aud.tixSelection');
                 const k = PROMO_KINDS.find((p) => p.kind === a.kind);
                 return k ? t(k.labelKey) : a.kind;
               }).filter(Boolean)}
