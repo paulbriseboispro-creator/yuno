@@ -3248,6 +3248,21 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   Un message qui n'a atteint personne ne prend pas de ligne ; 8 lignes puis « Voir
   les N messages ». Une vente peut figurer sous une source ET après un e-mail :
   l'écran le dit.
+- **Lot 6, le détail des Gratuits** (migration `20261109350000`, `FreeDetail.tsx`,
+  sous la période ET sous une soirée choisie) : `tix_ana_free_detail`, règles de
+  l'onglet (venu = scanné sur une porte mesurée, aucun % sous 10). Quotas et
+  remplissage des listes (`guest_lists.quota`, « complète » = quota atteint ou
+  `manually_sold_out`, soirées de la période ET en vente) ; détenteurs de liste
+  (club « Liste maison », organisateur, promoteur, DJ, invité de la soirée) avec
+  venus et devenus payants (même règle que la tuile Gratuit → payant ; la colonne
+  disparaît sur une soirée choisie, dont la carte dit « trop tôt ») ; « Un invité
+  vaut-il un client payant ? » (tables VIP de la soirée par invité venu, achats des
+  90 jours suivants, billet + tables par client payant entré, sous `amount`) ; les
+  absents (porte mesurée), dont ceux qui tenaient une place d'une liste complète,
+  et leur valeur au prix d'un invité venu. Le bar (pilier en pause) n'entre ni
+  dans le calcul ni dans les mots. La fonction `get_guest_list_analytics` de
+  l'ancienne Analytics n'est pas reprise : elle comptait le no-show sur toute
+  soirée finie, porte mesurée ou non.
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 

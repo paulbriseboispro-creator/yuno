@@ -7,7 +7,8 @@
  * profil, puis ce qu'il y a à faire (habitués qui ne paient jamais, inscrits
  * qui ne viennent pas). Une soirée choisie dans les filtres : le même écran
  * que l'onglet Guest list de son tiroir (NightGuestList).
- * Lecture : tix_ana_guestlist (migration 20261109300000).
+ * Lecture : tix_ana_guestlist (migration 20261109300000) ; le détail (quotas,
+ * détenteurs, valeur d'un invité, absents) : tix_ana_free_detail (`FreeDetail.tsx`).
  */
 import { useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -21,6 +22,7 @@ import type { AnaFilters } from '@/tickets/analytics/data';
 import type { AnaGuestList } from '@/tickets/analytics/data';
 import { periodVerdict, ptsDelta, rate, DOOR_MIN_SCANS, DOOR_MIN_SHARE } from '@/crm/lib/guestlist';
 import { ArrivalsCard, GL_COLORS, KindPill, NightGuestList, WhoCard } from './NightGuestList';
+import { FreeDetail } from './FreeDetail';
 import { tzShort, tzWeek } from '@/crm/pages/nights/nightsFormat';
 import {
   BrandArrowButton, CardHead, ChartSkeleton, Sk, Takeaway, Tile, TileSkeleton, card, fadeIn, nightCard, useGo, type TileSpec,
@@ -42,6 +44,7 @@ export function GuestListTab({ q, f }: { q: UseQueryResult<AnaGuestList>; f: Ana
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%' }}>
         <NightGuestList eventId={f.event} inDrawer={false} />
+        <FreeDetail period={f.period} event={f.event} />
       </div>
     );
   }
@@ -180,6 +183,9 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
       {(d.profile.gl?.age_med != null || d.profile.gl?.female_pct != null) && (
         <WhoCard who={null} profile={d.profile} T={T} p={prog} delay={0} title={t('ya.gl.a.profileT')} style={{ borderRadius: 28, padding: 24, animation: 'none' }} />
       )}
+
+      {/* Lot 6 : quotas, absents, détenteurs de liste, ce que vaut un invité */}
+      <FreeDetail period={f.period} event={null} />
 
       {/* À faire */}
       {(todo.length > 0 || d.next) && (

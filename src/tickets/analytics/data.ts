@@ -357,6 +357,38 @@ export function useCollabBreakdown(eventId: string | null, enabled = true) {
   });
 }
 
+// ── Gratuits : le détail (lot 6, migration 20261109350000) ──
+
+export interface FreeQuotaNight {
+  id: string; title: string; start_at: string; upcoming: boolean;
+  lists: number; quota: number; entries: number; full_lists: number; fill: number | null;
+}
+/** `type` : club, organizer, promoter, dj, guest (invité d'une soirée), custom. */
+export interface FreeHolder {
+  key: string; type: string; label: string | null; lists: number; nights: number; quota: number;
+  entries: number; upcoming: number; k_entries: number; came: number; noshow: number; showup: number | null;
+  eligible: number; converted: number; conv_pct: number | null;
+}
+export interface AnaFreeDetail {
+  meta: { period: AnaPeriod; days: number; from: string; to: string; event: string | null; money: boolean };
+  quotas: { lists: number; capped: number; quota: number; filled: number; full_lists: number; fill: number | null; nights: FreeQuotaNight[] };
+  holders: FreeHolder[];
+  /** Montants sous `amount` / `revenue` : null pour qui ne voit pas l'argent, ou sous 10 personnes. */
+  worth: { guests: number; payers: number; guest_night: { amount: number | null }; paid_night: { amount: number | null }; guest_later: { amount: number | null }; revenue: number | null };
+  noshow: { noshow: number; k_entries: number; held_full: number; unmeasured: number; rate: number | null; lost: { amount: number | null } };
+}
+
+export function useAnaFreeDetail(period: AnaPeriod, event: string | null, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'free-detail', period, event],
+    queryFn: () => rpc<AnaFreeDetail>('tix_ana_free_detail', { ...a, p_period: period, p_event: event }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
 // ── Guest list ──
 
 export type GlKind = 'inv' | 'free' | 'mix';
