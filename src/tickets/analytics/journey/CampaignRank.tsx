@@ -30,12 +30,18 @@ export const CampaignRank = forwardRef<HTMLElement, {
   const [all, setAll] = useState(false);
   const [swap, setSwap] = useState(0);
 
-  const emailLive = f.channel === 'all' || f.channel === 'email';
-  const eConv = emailLive && d.funnel[0] ? d.funnel[3] / d.funnel[0] : null;
+  // Un canal se lit sur ses campagnes de la période : acheteurs / reçus.
+  const chStat = (ch: 'email' | 'push') => {
+    const live = f.channel === 'all' || f.channel === ch;
+    const cs = d.campaigns.filter((c) => (c.channel ?? 'email') === ch);
+    const rc = cs.reduce((a, c) => a + c.received, 0);
+    const by = cs.reduce((a, c) => a + c.buyers, 0);
+    return { live, rc, by, conv: live && rc > 0 ? by / rc : null };
+  };
   const tiles = [
     { k: 'email' as const, n: t('ya.jr.ch.email'), d: JR_IC.mail, soon: false },
+    { k: 'push' as const, n: t('ya.jr.ch.push'), d: JR_IC.bell, soon: false },
     { k: 'sms' as const, n: t('ya.jr.ch.sms'), d: JR_IC.sms, soon: true },
-    { k: 'ig' as const, n: t('ya.jr.ch.ig'), d: JR_IC.send, soon: true },
   ];
 
   const list = d.campaigns;
@@ -67,7 +73,8 @@ export const CampaignRank = forwardRef<HTMLElement, {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,220px),1fr))', gap: 12 }}>
         {tiles.map((x, i) => {
-          const on = !x.soon && f.channel === 'email';
+          const on = !x.soon && f.channel === x.k;
+          const st = x.soon ? null : chStat(x.k as 'email' | 'push');
           const head = (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
@@ -83,7 +90,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
                 {head}
                 <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 36, lineHeight: 1, letterSpacing: '-.035em', color: 'var(--ya-sand-300)' }}>—</span>
                 <div style={{ height: 6, borderRadius: 99, background: 'var(--ya-sand-100)' }} />
-                <span style={{ fontSize: 12.5, lineHeight: '17px' }}>{t(x.k === 'sms' ? 'ya.jr.s3.soonSms' : 'ya.jr.s3.soonIg')}</span>
+                <span style={{ fontSize: 12.5, lineHeight: '17px' }}>{t('ya.jr.s3.soonSms')}</span>
               </div>
             );
           }
@@ -92,20 +99,20 @@ export const CampaignRank = forwardRef<HTMLElement, {
               key={x.k}
               as="button"
               type="button"
-              onClick={() => setF({ channel: f.channel === 'email' ? 'all' : 'email' })}
+              onClick={() => setF({ channel: f.channel === x.k ? 'all' : x.k })}
               aria-pressed={on}
               style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 18px', borderRadius: 18, border: `1.5px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-sand-50)' : 'var(--ya-card)', textAlign: 'left', cursor: 'pointer', color: 'var(--ya-ink)', transition: `border-color 160ms,background 160ms,transform 200ms ${EASE}` }}
               hover={{ transform: 'translateY(-3px)', borderColor: 'var(--ya-sand-400)' }}
             >
               {head}
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 36, lineHeight: 1, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{eConv !== null ? pc(T, eConv) : '—'}</span>
+              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 36, lineHeight: 1, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{st && st.conv !== null ? pc(T, st.conv) : '—'}</span>
               <div style={{ height: 6, borderRadius: 99, background: 'var(--ya-sand-100)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${(eConv !== null ? Math.min(100, eConv * 100) * clamp01(a3 * 1.3 - i * 0.1) : 0).toFixed(1)}%`, borderRadius: 99, background: 'var(--ya-gradient-brand)' }} />
+                <div style={{ height: '100%', width: `${(st && st.conv !== null ? Math.min(100, st.conv * 100) * clamp01(a3 * 1.3 - i * 0.1) : 0).toFixed(1)}%`, borderRadius: 99, background: 'var(--ya-gradient-brand)' }} />
               </div>
               <span style={{ fontSize: 12.5, lineHeight: '17px', color: 'var(--ya-sand-500)' }}>
-                {eConv !== null
-                  ? `${tp('ya.jr.s2.buyers', d.funnel[3], { n: n(d.funnel[3]) })} · ${tp('ya.jr.s3.rec', d.funnel[0], { n: n(d.funnel[0]) })}`
-                  : t('ya.jr.s3.emailNone')}
+                {st && st.conv !== null
+                  ? `${tp('ya.jr.s2.buyers', st.by, { n: n(st.by) })} · ${tp('ya.jr.s3.rec', st.rc, { n: n(st.rc) })}`
+                  : st && !st.live ? t('ya.jr.s3.chOff') : t('ya.jr.s3.chNone')}
               </span>
             </Hv>
           );
@@ -168,12 +175,12 @@ export const CampaignRank = forwardRef<HTMLElement, {
                         {tag && <span style={{ flex: 'none', height: 20, padding: '0 8px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, background: tag.bg, color: tag.fg }}>{tag.l}</span>}
                       </span>
                       <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {[t('ya.jr.ch.email'), dShort(c.sent_at), c.event_title].filter(Boolean).join(' · ')}
+                        {[t(`ya.jr.ch.${c.channel ?? 'email'}`), dShort(c.sent_at), c.event_title].filter(Boolean).join(' · ')}
                       </span>
                     </span>
                     <span style={{ display: 'flex', flexDirection: 'column' }}>
                       <b style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>{n(c.received)}</b>
-                      <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.jr.s3.clicked', { p: pc(T, c.received ? c.clicked / c.received : 0) })}</span>
+                      <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t(c.channel === 'push' ? 'ya.jr.s3.opened' : 'ya.jr.s3.clicked', { p: pc(T, c.received ? c.clicked / c.received : 0) })}</span>
                     </span>
                     <span style={{ display: 'flex', flexDirection: 'column' }}>
                       <b style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums' }}>{n(c.buyers)}</b>
@@ -208,7 +215,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
         </div>
       ) : (
         <div style={{ padding: '22px 20px', borderRadius: 16, background: 'var(--ya-sand-50)', fontSize: 14.5, lineHeight: 1.5, color: 'var(--ya-sand-600)' }}>
-          {emailLive ? t('ya.jr.s3.noRank') : t('ya.jr.empty.soon')}
+          {f.channel === 'sms' ? t('ya.jr.empty.soon') : t('ya.jr.s3.noRank')}
         </div>
       )}
     </section>

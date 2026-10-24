@@ -111,6 +111,7 @@ export function FunnelCard({
         <Note>{t('ya.jr.s1.insight', { a: steps[big], b: steps[big + 1], p: T.pct(Math.round(loss[big] * 100)) })}</Note>
       )}
       {thin && <Note tone="amber" size={14.5}>{t('ya.jr.s1.thin')}</Note>}
+      {d.campaigns.some((c) => c.channel === 'push') && <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.jr.pushNote')}</span>}
 
       <div ref={scroller} className="ya-noscroll" style={{ overflowX: 'auto', margin: '0 -8px', padding: '0 8px' }}>
         <div style={{ position: 'relative', minWidth: 680 }}>

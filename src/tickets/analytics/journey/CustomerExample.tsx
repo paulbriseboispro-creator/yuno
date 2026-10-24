@@ -35,7 +35,7 @@ interface Row { d: string; tone: Tone; t: string; when: string; s: string; gap: 
 function analyse(p: JrPerson) {
   const evs = [...p.events].sort((a, b) => a.at.localeCompare(b.at));
   const ms = (x: string) => new Date(x).getTime();
-  const clicks = evs.filter((e) => e.t === 'click');
+  const clicks = evs.filter((e) => e.t === 'click' || e.t === 'tap');
   const buys = evs.filter((e) => e.t === 'buy');
   // L'achat rattaché : le premier achat qui suit un clic de moins de 7 jours.
   const attributed = buys.find((b) => clicks.some((c) => ms(c.at) <= ms(b.at) && ms(b.at) - ms(c.at) <= 7 * DAY)) ?? null;
@@ -58,7 +58,7 @@ export const CustomerExample = forwardRef<HTMLElement, {
     if (!cu) return null;
     const now = Date.now();
     const { evs, clicks, buys, attributed, ms } = analyse(cu);
-    const mails = evs.filter((e) => e.t === 'mail' || e.t === 'auto');
+    const mails = evs.filter((e) => e.t === 'mail' || e.t === 'auto' || e.t === 'push');
     const name = fullName(cu.first_name, cu.last_name, cu.email);
     const first = (cu.first_name ?? '').trim() || name;
 
@@ -113,6 +113,8 @@ export const CustomerExample = forwardRef<HTMLElement, {
       }
       if (e.t === 'open') return { d: JR_IC.eye, tone: 1, t: t('ya.jr.ev.open'), when, s: quote, gap };
       if (e.t === 'click') return { d: JR_IC.click, tone: 1, t: t('ya.jr.ev.click'), when, s: quote, gap };
+      if (e.t === 'tap') return { d: JR_IC.click, tone: 1, t: t('ya.jr.ev.tap'), when, s: quote, gap };
+      if (e.t === 'push') return { d: JR_IC.bell, tone: 0, t: t('ya.jr.ev.push'), when, s: quote, gap };
       return { d: e.t === 'auto' ? JR_IC.zap : JR_IC.mail, tone: 0, t: t(e.t === 'auto' ? 'ya.jr.ev.auto' : 'ya.jr.ev.mail'), when, s: quote, gap };
     });
     const lastAt = evs.length ? ms(evs[evs.length - 1].at) : now;

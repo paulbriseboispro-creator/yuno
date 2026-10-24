@@ -491,11 +491,12 @@ export function useAnaGuestList(period: AnaPeriod, enabled = true) {
 // ── Parcours client ──
 
 export type JrPeriod = '7d' | '30d' | '90d' | '12m';
-export type JrChannel = 'all' | 'email' | 'sms' | 'ig';
+/** Yuno Tickets : e-mail et push (lot 7, 20261109360000) ; le SMS marketing n'est pas encore ouvert. */
+export type JrChannel = 'all' | 'email' | 'push' | 'sms';
 export type JrSeg = 'all' | Lifecycle;
 
 export const JR_PERIODS: JrPeriod[] = ['7d', '30d', '90d', '12m'];
-export const JR_CHANNELS: JrChannel[] = ['all', 'email', 'sms', 'ig'];
+export const JR_CHANNELS: JrChannel[] = ['all', 'email', 'push', 'sms'];
 export const JR_SEGS: JrSeg[] = ['all', 'nou', 'occ', 'hab', 'end', 'none'];
 
 export interface JrFilters {
@@ -523,11 +524,13 @@ export type JrPathKey = 'm_click' | 'mm_click' | 'm_noclick' | `src_${SourceKey}
 
 export interface JrCampaign {
   id: string; name: string; sent_at: string; event_id: string | null; event_title: string | null;
+  channel: 'email' | 'push';
   received: number; opened: number; clicked: number; ticket_clicks: number; buyers: number; back: number;
   revenue: number | null; within2d: number; buyers_seg: SegCounts;
 }
 
-export type JrEventKind = 'mail' | 'auto' | 'open' | 'click' | 'buy';
+/** `push` = push reçu, `tap` = push touché (il ouvre la page de la soirée). */
+export type JrEventKind = 'mail' | 'auto' | 'push' | 'open' | 'click' | 'tap' | 'buy';
 
 export interface JrPerson {
   kind: 'bought' | 'clicked' | 'opened' | 'direct';
@@ -552,7 +555,7 @@ export interface Journey {
   cover: { buyers: number; attributed: number } | null;
   campaigns: JrCampaign[];
   examples: JrPerson[];
-  options: { campaigns: { id: string; name: string; sent_at: string; event_id: string | null }[] };
+  options: { campaigns: { id: string; name: string; sent_at: string; event_id: string | null; channel: 'email' | 'push' }[] };
   thanks_auto: boolean;
   has_campaigns: boolean;
   has_connection: boolean;

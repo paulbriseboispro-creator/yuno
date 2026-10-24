@@ -3263,6 +3263,19 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   dans le calcul ni dans les mots. La fonction `get_guest_list_analytics` de
   l'ancienne Analytics n'est pas reprise : elle comptait le no-show sur toute
   soirée finie, porte mesurée ou non.
+- **Lot 7, le push dans le Parcours client** (migration `20261109360000`) :
+  `tix_journey__core` lit e-mail ET push (canaux `all | email | push | sms`). Un
+  push entre dans les tables des e-mails rattaché à `profiles.email` : reçu =
+  `push_campaign_events 'sent'`, ouvert = cliqué = touché (il ouvre la page de la
+  soirée), achat = dernier clic tous canaux lus dans les 7 jours (attribution
+  refaite sur `_cpx`, sans relire les billets, seulement quand un push compte).
+  Push à la main = campagnes (classement, filtre, tiroir sans « dupliquer ») ;
+  push automatiques = messages reçus (chemins, fil d'un client, via
+  `_tix_journey_person`, copie de `_crm_journey_person` qui reste au CRM). Les
+  textes qui couvrent les deux canaux disent « message » ; une relance reste un
+  e-mail. Le SMS marketing de Yuno Tickets n'est pas ouvert : le canal dit
+  « Bientôt » avec cette raison ; la réponse Instagram (outil du CRM) n'est plus
+  proposée.
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
 

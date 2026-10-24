@@ -45,7 +45,15 @@ export function CampaignDrawer({
   const vs = avg > 0 ? (vsA >= 1.05 || vsA <= 0.95 ? t('ya.jr.dr.vsUp', { x: T.n1(Math.round(vsA * 10) / 10) }) : t('ya.jr.dr.vsAvg')) : '';
   const vsFg = vsA >= 1.05 ? 'var(--ya-green-700)' : vsA <= 0.95 ? 'var(--ya-amber-700)' : 'var(--ya-sand-600)';
   const mx = c.received || 1;
-  const rows: { l: string; v: number; p: string; bg: string }[] = [
+  const push = c.channel === 'push';
+  // Un push touché ouvre la page de la soirée : ouvert, cliqué et clic vers la
+  // billetterie sont un seul geste, montré une fois.
+  const rows: { l: string; v: number; p: string; bg: string }[] = push ? [
+    { l: t('ya.jr.dr.r.rc'), v: c.received, p: T.pct(100), bg: 'var(--ya-sand-400)' },
+    { l: t('ya.jr.dr.r.tap'), v: c.clicked, p: t('ya.jr.dr.p.tap', { p: pc(T, c.received ? c.clicked / c.received : 0) }), bg: 'var(--ya-sand-400)' },
+    { l: t('ya.jr.dr.r.b'), v: c.buyers, p: t('ya.jr.dr.p.b', { p: pc(T, c.clicked ? c.buyers / c.clicked : 0) }), bg: 'var(--ya-gradient-brand)' },
+    { l: t('ya.jr.dr.r.bk'), v: c.back, p: t('ya.jr.dr.p.bk', { p: pc(T, c.buyers ? c.back / c.buyers : 0) }), bg: 'var(--ya-red-200)' },
+  ] : [
     { l: t('ya.jr.dr.r.rc'), v: c.received, p: T.pct(100), bg: 'var(--ya-sand-400)' },
     { l: t('ya.jr.dr.r.op'), v: c.opened, p: t('ya.jr.dr.p.op', { p: pc(T, c.received ? c.opened / c.received : 0) }), bg: 'var(--ya-sand-400)' },
     { l: t('ya.jr.dr.r.ck'), v: c.clicked, p: t('ya.jr.dr.p.ck', { p: pc(T, c.opened ? c.clicked / c.opened : 0) }), bg: 'var(--ya-sand-400)' },
@@ -66,7 +74,7 @@ export function CampaignDrawer({
         <div style={{ flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '22px 24px 16px' }}>
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-              <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 600, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)' }}>{t('ya.jr.ch.email')}</span>
+              <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 600, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)' }}>{t(`ya.jr.ch.${c.channel ?? 'email'}`)}</span>
               <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{[dShort(c.sent_at), c.event_title].filter(Boolean).join(' · ')}</span>
             </div>
             <h3 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1.1, letterSpacing: '-.03em', textWrap: 'balance' }}>{c.name}</h3>
@@ -129,8 +137,8 @@ export function CampaignDrawer({
           <ArrowLink to={R.campaignReport(c.id)} size={14}>{t('ya.jr.dr.results')}</ArrowLink>
         </div>
 
-        <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: canWrite ? 'space-between' : 'flex-end', padding: '16px 20px', borderTop: '1px solid var(--ya-sand-100)', background: 'var(--ya-sand-50)' }}>
-          {canWrite && (
+        <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: canWrite && !push ? 'space-between' : 'flex-end', padding: '16px 20px', borderTop: '1px solid var(--ya-sand-100)', background: 'var(--ya-sand-50)' }}>
+          {canWrite && !push && (
             <Hv
               as="button"
               type="button"

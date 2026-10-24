@@ -1,8 +1,8 @@
 /**
  * Yuno Tickets › Analyses › Parcours client (`…/analyses/journey`, copie du
  * Parcours client de Yuno CRM) — « Où mes clients s'arrêtent-ils avant
- * d'acheter ? ». Le parcours se lit message par message dans les e-mails de
- * Yuno Tickets envoyés à la main (reçu, ouvert,
+ * d'acheter ? ». Le parcours se lit message par message dans les e-mails et
+ * les push de Yuno Tickets envoyés à la main (lot 7 ; reçu, ouvert,
  * clic, achat sous 7 jours, retour sous 90 jours). Quatre chiffres, puis
  * l'entonnoir (une étape cliquée dit qui s'arrête, après quel message, et
  * ouvre une relance), les chemins et délais des acheteurs, le classement des
@@ -149,13 +149,14 @@ export function JourneyPage() {
   const campDrop: DropOption[] = [
     opt('all', t('ya.jr.f.allCampaigns'), !f.campaign, () => setF({ campaign: null })),
     ...campOpts.map((c) => opt(c.id, c.name, f.campaign === c.id, () => setF({ campaign: c.id, event: null, channel: 'all' }), {
-      sub: t('ya.jr.f.campSub', { ch: t('ya.jr.ch.email'), date: dShort(c.sent_at) }),
+      sub: t('ya.jr.f.campSub', { ch: t(`ya.jr.ch.${c.channel ?? 'email'}`), date: dShort(c.sent_at) }),
     })),
   ];
   const chDrop: DropOption[] = [
     opt('all', t('ya.jr.f.allChannels'), f.channel === 'all', () => setF({ channel: 'all' })),
     opt('email', t('ya.jr.ch.email'), f.channel === 'email', () => setF({ channel: 'email' })),
-    ...(['sms', 'ig'] as const).map((c) => opt(c, t(`ya.jr.ch.${c}`), f.channel === c, () => setF({ channel: c }), {
+    opt('push', t('ya.jr.ch.push'), f.channel === 'push', () => setF({ channel: 'push' })),
+    ...(['sms'] as const).map((c) => opt(c, t(`ya.jr.ch.${c}`), f.channel === c, () => setF({ channel: c }), {
       disabled: f.channel !== c, tag: { label: t('ya.jr.soon'), bg: 'var(--ya-sand-100)', fg: 'var(--ya-sand-600)' },
     })),
   ];
@@ -307,7 +308,7 @@ export function JourneyPage() {
             <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 14, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', animation: `ya-swap-a 400ms ${EASE}` }}>
               <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(22px,2.6vw,28px)', letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 560 }}>{t('ya.jr.empty.title')}</span>
               <span style={{ fontSize: 15, lineHeight: 1.5, color: 'var(--ya-sand-600)', maxWidth: 560, textWrap: 'pretty' }}>
-                {f.channel === 'sms' || f.channel === 'ig' ? t('ya.jr.empty.soon') : f.campaign ? t('ya.jr.empty.camp') : t('ya.jr.empty.any')}
+                {f.channel === 'sms' ? t('ya.jr.empty.soon') : f.campaign ? t('ya.jr.empty.camp') : t('ya.jr.empty.any')}
               </span>
               <Hv as="button" type="button" onClick={() => setF(DEFAULT)} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>
                 {t('ya.jr.empty.reset')}
