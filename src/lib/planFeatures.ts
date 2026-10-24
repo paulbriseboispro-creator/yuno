@@ -223,7 +223,7 @@ export const FEATURE_ROUTES: Partial<Record<FeatureKey, string[]>> = {
   // organizations_orchestrate: reserved for symmetry — no /owner/organizations page yet.
   promoters: ['/owner/promoters'],
   analytics_advanced: ['/owner/analytics'],
-  clients_basic: ['/owner/customers'],
+  clients_basic: ['/owner/clients', '/owner/customers'],
   live_night: ['/owner/live'],
   vip_tables: ['/owner/tables'],
   vip_service: ['/owner/vip-service'],

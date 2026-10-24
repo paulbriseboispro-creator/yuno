@@ -183,18 +183,6 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 			items: [
 				...(tixClients ? [tixClientsItem(t, "/organizer-app")] : []),
 				{
-					title: tt("Clients", "Customers"),
-					path: "/organizer-app/customers",
-					icon: <UsersIcon />,
-					subItems: [
-						{ title: t('sidebar.customersAll'), path: "/organizer-app/customers?tab=all", icon: <UsersIcon />, isDefault: true },
-						{ title: t('sidebar.customersTop'), path: "/organizer-app/customers?tab=top", icon: <CrownIcon /> },
-						{ title: t('minorClients.filter'), path: "/organizer-app/customers?tab=minors", icon: <ShieldAlertIcon /> },
-						{ title: t('sidebar.customersWarned'), path: "/organizer-app/customers?tab=warned", icon: <AlertTriangleIcon /> },
-						{ title: t('customers.originsTab'), path: "/organizer-app/customers?tab=origins", icon: <GlobeIcon /> },
-					],
-				},
-				{
 					title: t('sidebar.emailMarketing'),
 					path: "/organizer-app/campaigns",
 					icon: <MailIcon />,

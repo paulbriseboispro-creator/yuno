@@ -85,9 +85,15 @@ export function tixAnalysesItem(t: (key: string) => string, base: string): Sideb
 	};
 }
 
-/** L'entrée « Clients » (nouvelle, copie du CRM) : Clients, Segments, Imports. */
-export function tixClientsItem(t: (key: string) => string, base: string): SidebarNavItem {
+/**
+ * L'entrée « Clients » (copie du CRM) : Clients, Segments, Imports, puis les
+ * trois listes que seule l'ancienne page Clients (`…/customers`) sait encore
+ * montrer (mineurs, clients avertis, origines) et, au club, la fidélité. Les
+ * autres adresses de l'ancienne page renvoient sur `…/clients`.
+ */
+export function tixClientsItem(t: (key: string) => string, base: string, opts: { loyalty?: boolean } = {}): SidebarNavItem {
 	const c = `${base}/clients`;
+	const legacy = `${base}/customers`;
 	return {
 		title: t('nav.tixClients'),
 		path: c,
@@ -97,6 +103,10 @@ export function tixClientsItem(t: (key: string) => string, base: string): Sideba
 			{ title: t('nav.tixClientsAll'), path: c, icon: <UsersIcon />, isDefault: true, exact: true },
 			{ title: t('nav.tixSegments'), path: `${c}/segments`, icon: <SparklesIcon /> },
 			{ title: t('nav.tixImports'), path: `${c}/imports`, icon: <FolderOpenIcon /> },
+			{ title: t('minorClients.filter'), path: `${legacy}?tab=minors`, icon: <ShieldAlertIcon /> },
+			{ title: t('sidebar.customersWarned'), path: `${legacy}?tab=warned`, icon: <AlertTriangleIcon /> },
+			{ title: t('customers.originsTab'), path: `${legacy}?tab=origins`, icon: <GlobeIcon /> },
+			...(opts.loyalty ? [{ title: t('sidebar.loyalty'), path: `${base}/loyalty`, icon: <HeartIcon /> }] : []),
 		],
 	};
 }
@@ -242,20 +252,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 			// Les gens, puis chaque canal pour leur parler.
 			label: t('sidebar.group.marketingCRM'),
 			items: [
-				...(tixClients ? [tixClientsItem(t, "/owner")] : []),
-				{
-					title: t('sidebar.customers'),
-					path: "/owner/customers",
-					icon: <UsersIcon />,
-					subItems: [
-						{ title: t('sidebar.customersAll'), path: "/owner/customers?tab=all", icon: <UsersIcon />, isDefault: true },
-						{ title: t('sidebar.customersTop'), path: "/owner/customers?tab=top", icon: <CrownIcon /> },
-						{ title: t('minorClients.filter'), path: "/owner/customers?tab=minors", icon: <ShieldAlertIcon /> },
-						{ title: t('sidebar.customersWarned'), path: "/owner/customers?tab=warned", icon: <AlertTriangleIcon /> },
-						{ title: t('customers.originsTab'), path: "/owner/customers?tab=origins", icon: <GlobeIcon /> },
-						{ title: t('sidebar.loyalty'), path: "/owner/loyalty", icon: <HeartIcon /> },
-					],
-				},
+				...(tixClients ? [tixClientsItem(t, "/owner", { loyalty: true })] : []),
 				{
 					title: t('sidebar.emailMarketing'),
 					path: "/owner/campaigns",

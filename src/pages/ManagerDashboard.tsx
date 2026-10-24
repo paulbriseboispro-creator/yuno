@@ -235,7 +235,7 @@ export default function ManagerDashboard() {
       title: t('owner.customers'),
       description: t('manager.customerBase'),
       icon: <Users className="h-6 w-6" />,
-      path: '/manager/customers',
+      path: '/manager/clients',
       permission: permissions.canViewCustomers,
       color: 'from-sky-500/20 to-sky-600/10',
     },

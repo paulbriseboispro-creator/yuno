@@ -307,7 +307,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.org.customers.title',
         descKey: 'ohelp.org.customers.desc',
         icon: 'Users',
-        actionLink: { labelKey: OPEN, path: '/customers' },
+        actionLink: { labelKey: OPEN, path: '/clients' },
         relatedArticleIds: ['org-campaigns', 'org-analytics'],
         keywords: ['customers', 'clients', 'crm', 'segments', 'export', 'clientes', 'rfm', 'champions', 'at risk', 'churn', 'banned', 'banni', 'mineurs', 'minors', 'menores'],
         sections: [

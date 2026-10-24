@@ -98,6 +98,7 @@ import { SupportSessionBanner } from "@/components/SupportSessionBanner";
 import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
 import { pruneExpiredDrafts } from "@/lib/formDraft";
 import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
+import LegacyCustomersRoute from "./pages/LegacyCustomersRoute";
 
 // Lazy load all pages including VenuePage
 const VenuePage = lazyWithRetry(() => import("./pages/VenuePage"));
@@ -855,7 +856,7 @@ const App = () => (
                   <Route path="coorg/:eventId" element={<OrgAppRoute requires="editEvents"><CoorgEventPage /></OrgAppRoute>} />
                   <Route path="profile" element={<OrgAppRoute requires="manageOrganization"><OrgAppProfile /></OrgAppRoute>} />
                   <Route path="team" element={<OrgAppRoute requires="manageStaff"><OrgAppTeam /></OrgAppRoute>} />
-                  <Route path="customers" element={<OrgAppRoute requires="viewInsights"><OrgAppCustomers /></OrgAppRoute>} />
+                  <Route path="customers" element={<OrgAppRoute requires="viewInsights"><LegacyCustomersRoute><OrgAppCustomers /></LegacyCustomersRoute></OrgAppRoute>} />
                   <Route path="clients" element={<OrgAppRoute requires="viewInsights"><TicketsClients /></OrgAppRoute>} />
                   <Route path="clients/segments" element={<OrgAppRoute requires="viewInsights"><TicketsSegments /></OrgAppRoute>} />
                   <Route path="clients/imports" element={<OrgAppRoute requires="viewInsights"><TicketsImports /></OrgAppRoute>} />
@@ -1056,7 +1057,7 @@ const App = () => (
                   <Route path="collab/event/:eventId/partners" element={<CollabEventPartners />} />
                   <Route path="coorg/:eventId" element={<CoorgEventPage />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
-                  <Route path="customers" element={<PlanGuard feature="clients_basic"><OwnerCustomers /></PlanGuard>} />
+                  <Route path="customers" element={<PlanGuard feature="clients_basic"><LegacyCustomersRoute><OwnerCustomers /></LegacyCustomersRoute></PlanGuard>} />
                   <Route path="clients" element={<PlanGuard feature="clients_basic"><TicketsClients /></PlanGuard>} />
                   <Route path="clients/segments" element={<PlanGuard feature="clients_basic"><TicketsSegments /></PlanGuard>} />
                   <Route path="clients/imports" element={<PlanGuard feature="clients_basic"><TicketsImports /></PlanGuard>} />
@@ -1273,7 +1274,7 @@ const App = () => (
                 } />
                 <Route path="/manager/customers" element={
                   <ManagerRoute>
-                    <OwnerCustomers />
+                    <LegacyCustomersRoute><OwnerCustomers /></LegacyCustomersRoute>
                   </ManagerRoute>
                 } />
                 <Route path="/manager/clients" element={<ManagerRoute><TicketsClients /></ManagerRoute>} />

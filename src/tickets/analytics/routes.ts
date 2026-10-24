@@ -21,7 +21,7 @@ export function tixRoutes(base: string) {
     journey: `${a}/journey`,
     /** Analyses › Guest list d'une soirée. */
     nightGuestList: (id: string) => `${a}/guestlist?e=${id}`,
-    clients: `${base}/customers`,
+    clients: `${base}/clients`,
     promoters: `${base}/promoters`,
     promoter: (id: string) => `${base}/promoters/${id}`,
     promoterEvent: (eventId: string) => `${base}/promoters/event/${eventId}`,

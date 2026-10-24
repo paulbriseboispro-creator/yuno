@@ -542,7 +542,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 
     // CRM.
     case 'favorite_added':
-      return `${basePath}/customers`;
+      return `${basePath}/clients`;
 
     // Staff (owner/manager only).
     case 'staff_login':
