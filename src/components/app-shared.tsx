@@ -65,6 +65,42 @@ export type SidebarNavItem = {
 	subItems?: SidebarNavItem[];
 };
 
+/** L'entrée « Analyses » (nouvelle) : Ventes, Trafic, Partenaires, Communauté, Gratuits, Parcours client. */
+export function tixAnalysesItem(t: (key: string) => string, base: string): SidebarNavItem {
+	const a = `${base}/analyses`;
+	return {
+		title: t('nav.analyses'),
+		path: `${a}/sales`,
+		icon: <BarChart3Icon />,
+		badge: t('nav.analysesBadge'),
+		subItems: [
+			{ title: t('anf.family.sales'), path: `${a}/sales`, icon: <BarChart3Icon />, isDefault: true },
+			{ title: t('anf.family.traffic'), path: `${a}/traffic`, icon: <GlobeIcon /> },
+			{ title: t('nav.analysesPartners'), path: `${a}/partners`, icon: <UsersIcon /> },
+			{ title: t('anf.family.community'), path: `${a}/community`, icon: <UsersIcon /> },
+			{ title: t('nav.analysesFree'), path: `${a}/guestlist`, icon: <UsersIcon /> },
+			{ title: t('anf.family.live'), path: `${a}/live`, icon: <RadioIcon /> },
+			{ title: t('nav.analysesJourney'), path: `${a}/journey`, icon: <GlobeIcon /> },
+		],
+	};
+}
+
+/** L'entrée « Clients » (nouvelle, copie du CRM) : Clients, Segments, Imports. */
+export function tixClientsItem(t: (key: string) => string, base: string): SidebarNavItem {
+	const c = `${base}/clients`;
+	return {
+		title: t('nav.tixClients'),
+		path: c,
+		icon: <UsersIcon />,
+		badge: t('nav.analysesBadge'),
+		subItems: [
+			{ title: t('nav.tixClientsAll'), path: c, icon: <UsersIcon />, isDefault: true, exact: true },
+			{ title: t('nav.tixSegments'), path: `${c}/segments`, icon: <SparklesIcon /> },
+			{ title: t('nav.tixImports'), path: `${c}/imports`, icon: <FolderOpenIcon /> },
+		],
+	};
+}
+
 export type SidebarNavGroup = {
 	label: string;
 	items: SidebarNavItem[];
@@ -72,7 +108,7 @@ export type SidebarNavGroup = {
 
 // `metaLive` vient de useMetaIntegrationLive() (AppSidebar) : la pastille
 // « Bientôt » suit ce que le compte voit vraiment, pas la constante seule.
-export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE): SidebarNavGroup[] {
+export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE, tixAnalyses = false, tixClients = false): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
@@ -83,17 +119,10 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					path: "/owner/dashboard",
 					icon: <LayoutGridIcon />,
 				},
-				{
-					title: t('sidebar.analytics'),
-					path: "/owner/analytics",
-					icon: <BarChart3Icon />,
-					subItems: [
-						{ title: t('anf.family.sales'), path: "/owner/analytics?tab=sales", icon: <BarChart3Icon />, isDefault: true },
-						{ title: t('anf.family.traffic'), path: "/owner/analytics?tab=traffic", icon: <GlobeIcon /> },
-						{ title: t('anf.family.community'), path: "/owner/analytics?tab=community", icon: <UsersIcon /> },
-						{ title: t('anf.family.live'), path: "/owner/analytics?tab=live", icon: <RadioIcon /> },
-					],
-				},
+				// Les Analyses (src/tickets/analytics) ont remplacé l'ancienne Analytics le
+				// 24/10 (lot 8) : `/owner/analytics` renvoie vers elles. L'interrupteur
+				// TIX_ANALYSES_LIVE (src/lib/ticketsAnalyses.ts) est à true.
+				...(tixAnalyses ? [tixAnalysesItem(t, "/owner")] : []),
 				{
 					title: t('sidebar.liveNight'),
 					path: "/owner/live",
@@ -213,6 +242,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 			// Les gens, puis chaque canal pour leur parler.
 			label: t('sidebar.group.marketingCRM'),
 			items: [
+				...(tixClients ? [tixClientsItem(t, "/owner")] : []),
 				{
 					title: t('sidebar.customers'),
 					path: "/owner/customers",

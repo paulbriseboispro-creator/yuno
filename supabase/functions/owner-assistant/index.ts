@@ -77,7 +77,7 @@ Si l'owner demande le prix d'un abonnement : explique que c'est gratuit actuelle
 Ne bloque JAMAIS une fonctionnalité pour une question de plan.
 
 `}═══ NAVIGATION ═══
-Utilise des liens Markdown : [Événements](/owner/events), ${DRINKS_PILLAR_LIVE ? "[Menu](/owner/menu), " : ""}[Staff](/owner/staff), [Billetterie](/owner/ticketing), [Tables VIP](/owner/tables), [Analytics](/owner/analytics), [Paramètres](/owner/venue), [Clients](/owner/customers), [Fidélité](/owner/loyalty), [DJs](/owner/djs), [Promoteurs](/owner/promoters), [Mode d'emploi](/owner/help)
+Utilise des liens Markdown : [Événements](/owner/events), ${DRINKS_PILLAR_LIVE ? "[Menu](/owner/menu), " : ""}[Staff](/owner/staff), [Billetterie](/owner/ticketing), [Tables VIP](/owner/tables), [Analyses](/owner/analyses/sales), [Paramètres](/owner/venue), [Clients](/owner/customers), [Fidélité](/owner/loyalty), [DJs](/owner/djs), [Promoteurs](/owner/promoters), [Mode d'emploi](/owner/help)
 
 ═══ NE MÉLANGE JAMAIS ═══
 - Ne mélange PAS documentation et réponses data
@@ -169,7 +169,7 @@ const TOOLS_ALL = [
     type: "function",
     function: {
       name: "get_event_report",
-      description: "Full report of ONE event, the same numbers as Analytics → Sales → By event: tickets/tables/guest list/drinks with today's delta, club revenue, page visits and their sources, who buys (new vs returning), sales channels, tracked links, and the emails/pushes sent for this event with the sales they brought. Also the last 14 days of the sales curve (d = days before the event). Use for « how is Saturday selling », « what made this event sell », « compare with last time » (call it for both events).",
+      description: "Full report of ONE event, the same numbers as Analyses → Sales with one night chosen: tickets/tables/guest list/drinks with today's delta, club revenue, page visits and their sources, who buys (new vs returning), sales channels, tracked links, and the emails/pushes sent for this event with the sales they brought. Also the last 14 days of the sales curve (d = days before the event). Use for « how is Saturday selling », « what made this event sell », « compare with last time » (call it for both events).",
       parameters: {
         type: "object",
         properties: {
@@ -183,7 +183,7 @@ const TOOLS_ALL = [
     type: "function",
     function: {
       name: "get_community_overview",
-      description: "The club's community (Analytics → Community): contacts (imported files + Yuno customers), email-reachable, followers, push-reachable, 30-day growth, how many events people come to (0-4+), when they last bought, new contacts brought by each of the last 10 events, and the community's music tastes (aggregated, only genres with ≥ 10 people). Use for « who are my customers », « is my base growing », « what music do my customers like ».",
+      description: "The club's community (Analyses → Community): contacts (imported files + Yuno customers), email-reachable, followers, push-reachable, 30-day growth, how many events people come to (0-4+), when they last bought, new contacts brought by each of the last 10 events, and the community's music tastes (aggregated, only genres with ≥ 10 people). Use for « who are my customers », « is my base growing », « what music do my customers like ».",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -881,7 +881,7 @@ async function executeTool(
           ...rest,
           lines: (lines || []).slice(0, 20),
           series_last_14_days: (series || []).slice(-14),
-          page: `/owner/analytics?tab=sales&view=overview&event=${args.event_id}`,
+          page: `/owner/analyses/sales?e=${args.event_id}`,
           note: "Amounts = club revenue (Yuno fees, insurance and refunds deducted); revenue is null when the caller can't see money. d = calendar days before the event (event timezone). Every count is PAID: tickets.orders = number of paid ticket orders (never call them pending), sold = tickets, today = since midnight in the event timezone.",
         }).slice(0, 14000);
       }
@@ -898,7 +898,7 @@ async function executeTool(
           ...rest,
           growth_last_6_months: (growth?.series || []).slice(-6),
           tastes: tastes?.ok ? { people: tastes.people, known: tastes.known, genres: tastes.genres, hidden_genres: tastes.hidden, threshold: tastes.threshold } : null,
-          page: "/owner/analytics?tab=community",
+          page: "/owner/analyses/community",
           note: "Music tastes are aggregated: a genre only appears with at least 10 people (quiz answers + genres of events they attended anywhere on Yuno in 18 months). Never describe an individual's tastes.",
         }).slice(0, 12000);
       }
@@ -2145,8 +2145,8 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
 const ACTION_PATHS = [
   "/owner/push", "/owner/campaigns", "/owner/campaigns/automations", "/owner/sms-campaigns", "/owner/ticketing",
   "/owner/scarcity", "/owner/tables", "/owner/customers", "/owner/events",
-  "/owner/hype", "/owner/menu", "/owner/loyalty", "/owner/promoters",
-  "/owner/analytics", "/owner/upsell",
+  "/owner/menu", "/owner/loyalty", "/owner/promoters",
+  "/owner/analyses/sales", "/owner/upsell",
 ] as const;
 
 const NBA_SCHEMA = {

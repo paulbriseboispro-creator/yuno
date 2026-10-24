@@ -12,11 +12,12 @@ import {
 } from "@/components/ui/sidebar";
 import { NavGroup } from "@/components/nav-group";
 import { SidebarIdentity } from "@/components/sidebar-identity";
-import type { SidebarNavGroup, SidebarNavItem } from "@/components/app-shared";
+import { tixAnalysesItem, tixClientsItem, type SidebarNavGroup, type SidebarNavItem } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translate } from '@/i18n/orgTranslate';
 import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
+import { useTixAnalysesLive, useTixClientsLive } from '@/lib/ticketsAnalyses';
 import { useActingOrganizer, type OrgCapabilities } from '@/hooks/useActingOrganizer';
 import {
 	LayoutGridIcon,
@@ -72,24 +73,14 @@ type TT = (fr: string, en: string, es?: string) => string;
 
 // `metaLive` vient de useMetaIntegrationLive() : la pastille « Bientôt » suit ce
 // que le compte voit vraiment (super admin, démo, bêta), pas la constante seule.
-function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean): SidebarNavGroup[] {
+function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean, tixAnalyses = false, tixClients = false): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
 			label: tt("Aperçu", "Overview"),
 			items: [
 				{ title: tt("Dashboard", "Dashboard"), path: "/organizer-app", icon: <LayoutGridIcon />, exact: true },
-				{
-					title: tt("Analytique", "Analytics"),
-					path: "/organizer-app/analytics",
-					icon: <BarChart3Icon />,
-					subItems: [
-						{ title: t('anf.family.sales'), path: "/organizer-app/analytics?tab=sales", icon: <BarChart3Icon />, isDefault: true },
-						{ title: t('anf.family.traffic'), path: "/organizer-app/analytics?tab=traffic", icon: <GlobeIcon /> },
-						{ title: t('anf.family.community'), path: "/organizer-app/analytics?tab=community", icon: <UsersIcon /> },
-						{ title: t('anf.family.live'), path: "/organizer-app/analytics?tab=live", icon: <RadioIcon /> },
-					],
-				},
+				...(tixAnalyses ? [tixAnalysesItem(t, "/organizer-app")] : []),
 			],
 		},
 		{
@@ -190,6 +181,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 			// Les gens, puis chaque canal pour leur parler.
 			label: tt("Marketing & CRM", "Marketing & CRM"),
 			items: [
+				...(tixClients ? [tixClientsItem(t, "/organizer-app")] : []),
 				{
 					title: tt("Clients", "Customers"),
 					path: "/organizer-app/customers",
@@ -274,7 +266,9 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
  */
 const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/analytics", needs: "viewInsights" },
+	{ prefix: "/organizer-app/analyses", needs: "viewInsights" },
 	{ prefix: "/organizer-app/customers", needs: "viewInsights" },
+	{ prefix: "/organizer-app/clients", needs: "viewInsights" },
 	{ prefix: "/organizer-app/orders", needs: "viewFinance" },
 	{ prefix: "/organizer-app/refunds", needs: "refund" },
 	{ prefix: "/organizer-app/invoices", needs: "viewFinance" },
@@ -356,10 +350,12 @@ export function OrgAppSidebar() {
 	const { language, t } = useLanguage();
 	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
 	const metaLive = useMetaIntegrationLive();
+	const tixAnalyses = useTixAnalysesLive();
+	const tixClients = useTixClientsLive();
 	const { can, organizationName, organizationLogoUrl, organizerId } = useActingOrganizer();
 	// Yuno CRM : une organisation qui garde sa billetterie a sa propre barre.
 	const { isCrm, hasCrm } = useAccountProductFor({ organizerUserId: organizerId });
-	const navGroups = filterNavGroups(isCrm ? buildCrmNavGroups(t, "/organizer-app", metaLive) : buildOrgNavGroups(tt, t, metaLive), can);
+	const navGroups = filterNavGroups(isCrm ? buildCrmNavGroups(t, "/organizer-app", metaLive) : buildOrgNavGroups(tt, t, metaLive, tixAnalyses, tixClients), can);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (

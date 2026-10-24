@@ -2852,6 +2852,11 @@ jamais Space Grotesk, mono ni filet rouge ici. Règles :
 
 ## Comportement d'achat — Analytics → Achats (2026-09-24)
 
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
+
 `/owner/analytics?tab=community&view=purchase` (et côté orga ; l'ancien `?tab=purchase`
 est réécrit) (`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
 `src/lib/purchaseBehavior.ts`, testés). Le reste de la page dit « combien ai-je
@@ -2875,6 +2880,11 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
   `ohelp.org.analytics.s6*`, assistant : article `purchase-behavior`.
 
 ## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
+
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
 
 Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
 (lots A-G livrés le 24/09, repris et joués sur la démo contre la vraie base le
@@ -3114,6 +3124,11 @@ vente (`20261001200000`) et les digests par email, qui sont des emails, pas un �
 
 ## Analytics = la version du 24/09 au soir (plan Shotgun, lots A-G) + la colonne « Soirées » (2026-10-01)
 
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
+
 Décision de Paul le 01/10, capture à l'appui (il a choisi entre le 24/09 midi, le
 24/09 soir et le 30/09) : l'écran Analytics est celui du commit `1932dec1` (24/09
 20:32, fin du plan Shotgun — section « Grammaire de l'analyse » ci-dessus) : quatre
@@ -3168,7 +3183,192 @@ page. Vérification visuelle : `node scripts/demo/drive.mjs --as owner --go
 "http://localhost:8080/owner/analytics?tab=sales&view=overview" --shot …` (URL
 absolue obligatoire : `APP_ORIGIN` vient de `.env.local` et pointe la prod).
 
+## Yuno Tickets › Analyses — les Analyses de Yuno CRM sur les ventes Yuno (2026-10-22)
+
+Demande de Paul : « duplique de Yuno CRM toute la partie analytics (Ventes, Trafic,
+Communauté, Guest list, Parcours client) sur Yuno Tickets, tout pareil, couleurs et
+polices de Yuno Tickets ». Remplace la règle du 01/10 « ne pas proposer un écran qui
+remplacerait les familles » (plan `BILLETTERIE_CRM_TRANSPOSITION_PLAN.md`, D8).
+Adresses `…/analyses/:tab` et `…/analyses/journey` (Club, Manager, Organisateur).
+**Depuis la bascule du 24/10 (lot 8), c'est LA page d'analyse de Yuno Tickets** :
+l'ancienne Analytics est supprimée et ses adresses y renvoient (voir le lot 8 plus
+bas). Règles :
+
+- **Les calculs sont ceux du CRM, recopiés depuis la prod** (migration
+  `20261109300000`) : les cœurs `crm_ana_*__core` / `crm_journey__core` /
+  `crm_night_guestlist__core` lisent des tables temporaires (`_aev`, `_atk_all`,
+  `_cp`, `_cr`) ; leurs copies `tix_*` remplissent ces tables depuis les ventes
+  Yuno par la source unique `_tix_sales` (billet = commande, quantité = places,
+  montant = CA club de `fees.ts` ; table VIP = vente SANS place, quantité 0, comptée
+  dans le CA / les acheteurs / les soirées, jamais dans « Billets » ; guest list =
+  canal `invitation`, jamais une vente). Une règle changée dans un cœur du CRM se
+  reporte dans sa copie `tix_` (et inversement), sinon les deux produits divergent.
+- **Séparation** : soirées `external_source IS NULL` seulement (`_tix_scope_events` :
+  menées ou partenaire d'un contrat collab, jamais seulement co-hébergées) ; contacts
+  et fichiers `product IS NULL` (`contact_build_rows(…, 'suite')`, `_tix_file_history`) ;
+  campagnes `NOT crm_campaign_is_crm`. Aucune fonction du CRM n'est modifiée.
+- **Sources** = attribution figée sur la vente (`_tix_source`, clés `SOURCE_KEYS` de
+  `src/tickets/analytics/data.ts`) ; là où le CRM dit « Bientôt, avec Shotgun », la
+  Billetterie montre les visites de la page de vente (`visits` de `tix_ana_traffic`).
+- **Argent** : `_tix_money_gate` (porte `analytics_scope_gate`) ; un club ne voit pas
+  le CA d'une soirée qu'il ne fait qu'accueillir (montant 0 dans `_tix_sales`).
+- **Front** = copie des écrans du CRM dans `src/tickets/analytics/` : variables
+  `--ya-*` (theme.css, sombre par défaut, clair sous `data-pro-theme`, Space Grotesk /
+  Inter / JetBrains Mono, rouge #E8192C), jamais `--ink` / `--paper` (triplets du thème
+  pro) ni `#fff` en surface ; textes `ya.*` de la section `tixana`
+  (`src/i18n/locales/tixana/modules` : `fromCrm.ts` recopié, `tickets.ts` l'emporte).
+  « Écrire à… » ouvre une campagne de la Console (pas d'audience pré-remplie),
+  « Ce qui fait venir » (moteur d'analyse du CRM) n'est pas transposé.
+- **Interrupteur** `TIX_ANALYSES_LIVE` (`src/lib/ticketsAnalyses.ts`) : l'entrée de menu
+  « Analyses · Nouveau » ne s'affiche qu'au super admin et aux comptes démo tant qu'il
+  est à false ; les adresses répondent pour tous. Mode d'emploi et assistant à écrire
+  au passage à true.
+- **Plan combiné** (`docs/designs/TICKETS_ANALYTICS_COMBINED_PLAN.md`, décisions de Paul
+  du 22/10 : squelette et définitions du CRM, blocs de la Billetterie rangés dedans,
+  ancienne Analytics retirée à parité). **Lot 1, Ventes** (migration `20261109310000`) :
+  `tix_ana_sales(…, p_pillar)` = `all | tickets | tables | guestlist | refunds` (`?pl=`),
+  sélecteur en tête du héros. Un pilier restreint `_atk` (une table VIP ou une
+  inscription = UNE vente, `_atk_all` reste entier pour la jauge et la courbe) ;
+  `refunds` lit `_tix_refund_rows` à la DATE du remboursement (`_tix_bucket`, mêmes
+  cases que `_tix_ana_setup`). Blocs `tables_block` (remplissage en tables
+  `_tix_event_tables_total`, panier, minimum, acomptes), `gl_block` (venus sur une
+  porte mesurée), `refunds_block` (motifs, soirées), `payout` (« Ce que vous touchez »,
+  pilier Tout : volume brut − remboursements = le CA du héros ; − Stripe 1,5 % + 0,25 €
+  sur le payé en ligne, rien sur une table réglée au club ; « Votre part » d'après le
+  contrat `_tix_party_pct`, une soirée à barème ou en co-organisation = « se lit dans son
+  décompte », jamais estimée). Chaque soirée porte `door` (`_door_headcount` +
+  `_crm_door_measured`) et `balance` (CA de toute la soirée − cachets DJ, remplace le
+  « Bilan par soirée »). Tout montant sort sous `revenue` / `prev_revenue` / `amount`
+  (l'enveloppe `_crm_null_money` ne connaît que ces clés).
+- **Lot 2, une soirée choisie** (migration `20261109320000`, `NightReport.tsx`) : en
+  tête de Ventes (`?e=`), le rapport de soirée de la Billetterie dessiné comme le CRM
+  — phrase (`reportHeadline`), « À retenir » (`get_event_report.takeaways`, textes
+  `ya.nr.tk.*`), objectif d'entrées et rythme (`targetStatus`, écrit par
+  `set_event_entry_target`), repères publication / nouveau tarif sur la courbe, tarifs
+  de la soirée avec stock et état (`report.lines`), et « Comparer avec » (`?ce=`,
+  `tix_ana_sales(…, p_compare)` ET le rapport comparé : les deux disent la même
+  soirée ; sans choix, la précédente de la SÉRIE). Les règles restent celles de
+  `src/lib/eventReport.ts`, jamais recopiées. La porte = `tix_night_door` (règle de
+  `_door_headcount` en personnes, porte mesurée sinon « non mesurée », arrivées par
+  demi-heure dans le fuseau de la soirée, CA par personne sous `revenue`). La
+  prévision Hype et le Night Report IA de la Billetterie ne sont pas repris (le rythme
+  et la projection de la courbe en tiennent lieu).
+- **Lot 3, Partenaires** (migration `20261109330000`, `PartnersTab.tsx`, onglet
+  `analyses/partners`, sans filtre de segment) : `tix_ana_partners` = promoteurs DE
+  LA PORTÉE sur ses soirées (conversions non annulées, overrides exclus, valeur
+  faciale hors frais Yuno, libellées « Ventes attribuées », jamais « CA »),
+  commissions sous `commission.amount`, clic → vente = règle de
+  `promoterConversionRate` (ventes payantes billets + tables / clics, plafonné à
+  100 %, affiché dès 10 clics), rendement = ventes attribuées / commission (sous
+  `yield.revenue`) ; liens de la portée qui portent un partenaire (`partner_name`),
+  un invité (`guest_pass_id`) ou une partie (`utm_medium = 'party_link'`), ventes
+  lues sur la vente (`tracked_link_id`) ; soirées partagées de la période, dont la
+  soirée choisie ouvre « Qui fait vendre ? » (`get_collab_party_breakdown`, gardée
+  par la soirée, attribution jamais partage d'argent). Les liens des AUTRES parties
+  n'y sont jamais lus : leurs chiffres passent par le breakdown. Ajoutée à
+  `demo_preview_writable_rpc` (tables temporaires) en relisant la définition vivante.
+- **Lot 4, le détail du Trafic** (migration `20261109340000`, `TrafficDetail.tsx`) :
+  une lecture À PART, `tix_ana_traffic_detail` (tix_ana_traffic ne change pas).
+  La page du club / de l'organisateur (visites entrées sur `venue_page` /
+  `organizer_profile`, règle de get_page_traffic, « finie par un achat » = le même
+  appareil achète une soirée de la portée dans les 24 h ; jamais dans la vue d'une
+  soirée) ; les liens suivis de la portée rangés sous la famille de leur lien
+  (`_tix_source`, lien d'un promoteur = `pr`), ouverts d'un clic sous leur source,
+  ventes lues sur la vente ; les e-mails et push : ce qui s'est acheté dans les
+  7 JOURS après un clic (D7, dernier clic d'un même canal ; push = ouverture,
+  `push_campaign_events` → `user_id` de la vente), renvois rattachés à leur
+  campagne, e-mails d'automatisation par recette, CRM exclu (`crm_campaign_is_crm`).
+  Un message qui n'a atteint personne ne prend pas de ligne ; 8 lignes puis « Voir
+  les N messages ». Une vente peut figurer sous une source ET après un e-mail :
+  l'écran le dit.
+- **Lot 6, le détail des Gratuits** (migration `20261109350000`, `FreeDetail.tsx`,
+  sous la période ET sous une soirée choisie) : `tix_ana_free_detail`, règles de
+  l'onglet (venu = scanné sur une porte mesurée, aucun % sous 10). Quotas et
+  remplissage des listes (`guest_lists.quota`, « complète » = quota atteint ou
+  `manually_sold_out`, soirées de la période ET en vente) ; détenteurs de liste
+  (club « Liste maison », organisateur, promoteur, DJ, invité de la soirée) avec
+  venus et devenus payants (même règle que la tuile Gratuit → payant ; la colonne
+  disparaît sur une soirée choisie, dont la carte dit « trop tôt ») ; « Un invité
+  vaut-il un client payant ? » (tables VIP de la soirée par invité venu, achats des
+  90 jours suivants, billet + tables par client payant entré, sous `amount`) ; les
+  absents (porte mesurée), dont ceux qui tenaient une place d'une liste complète,
+  et leur valeur au prix d'un invité venu. Le bar (pilier en pause) n'entre ni
+  dans le calcul ni dans les mots. La fonction `get_guest_list_analytics` de
+  l'ancienne Analytics n'est pas reprise : elle comptait le no-show sur toute
+  soirée finie, porte mesurée ou non.
+- **Lot 7, le push dans le Parcours client** (migration `20261109360000`) :
+  `tix_journey__core` lit e-mail ET push (canaux `all | email | push | sms`). Un
+  push entre dans les tables des e-mails rattaché à `profiles.email` : reçu =
+  `push_campaign_events 'sent'`, ouvert = cliqué = touché (il ouvre la page de la
+  soirée), achat = dernier clic tous canaux lus dans les 7 jours (attribution
+  refaite sur `_cpx`, sans relire les billets, seulement quand un push compte).
+  Push à la main = campagnes (classement, filtre, tiroir sans « dupliquer ») ;
+  push automatiques = messages reçus (chemins, fil d'un client, via
+  `_tix_journey_person`, copie de `_crm_journey_person` qui reste au CRM). Les
+  textes qui couvrent les deux canaux disent « message » ; une relance reste un
+  e-mail. Le SMS marketing de Yuno Tickets n'est pas ouvert : le canal dit
+  « Bientôt » avec cette raison ; la réponse Instagram (outil du CRM) n'est plus
+  proposée.
+- **Lot 8, la bascule** (24/10, décisions de Paul : bascule avant le lot 5, et
+  « garder joignable » tout ce que les Analyses ne redessinent pas encore) :
+  `TIX_ANALYSES_LIVE = true`, l'entrée « Analytics » des barres latérales club et
+  orga est retirée (« Analyses » la remplace). `/owner|organizer-app|manager/analytics`
+  rend `LegacyAnalyticsRedirect` (`src/pages/AnalyticsRouter.tsx`), qui traduit
+  l'adresse par `analysesHrefFromLegacy` (`src/lib/analyticsNav.ts`, testé : Ventes et
+  Trafic gardent la soirée `?e=`, Partenaires devient l'onglet, Abonnés / Achats /
+  Public deviennent `?cv=`) ; `eventReportHref` produit l'adresse des Analyses (tous
+  les « Voir les stats »). **Gardés à l'ancien dessin jusqu'à leur lot** : Communauté
+  › Abonnés / Achats / Public (`CommunityMore.tsx`, `?cv=subscribers|purchase|audience`,
+  lot 5), Ventes › Tables VIP › consommation servie et classement des hôtes VIP, Trafic
+  › toutes les visites et l'engagement (`KeptBlocks.tsx`). **Supprimés** : les deux
+  pages (`OwnerAnalytics`, `OrgAppAnalytics`) et tout ce qu'elles seules utilisaient
+  (49 fichiers, dont le Hype Score : composants, hooks, `hypeForecast.ts`, l'article
+  d'aide et la tuile « Analyse Hype » du manager ; l'analyse IA de soirée ne vit plus
+  que sur la page d'une co-soirée). Le mode d'emploi (« Analyses », club + orga, 3
+  langues) et l'Assistant Console (`console-help-articles.ts`, `owner-assistant` :
+  redéployer à la fusion) décrivent les Analyses. Ne pas recréer de page Analytics :
+  une vue manquante se dessine dans `src/tickets/analytics`.
+
+## Yuno Tickets › Clients, Segments, Imports — les écrans Clients du CRM (2026-10-22)
+
+Deuxième étape de la transposition, même méthode que les Analyses. Adresses
+`…/clients`, `…/clients/segments`, `…/clients/imports` (Club, Manager, Organisateur) ;
+l'ancienne page `…/customers` et la base de contacts restent en place jusqu'à la
+validation de Paul. Migration `20261109400000`. Décisions de Paul (22/10) :
+
+- **Les segments vivent dans `tix_segments`** (grammaire de filtre du CRM), jamais dans
+  `crm_segments` ni `contact_segments`. Tables sœurs `tix_contact_notes` (étiquettes,
+  note), `tix_segment_counts` (évolution), `tix_imports` + `tix_import_journal` : une clé
+  de portée sans produit ferait voir à un compte Billetterie + CRM les données de l'autre
+  outil. Filtre = `_tix_filter_sql` (celui du CRM, sources `yuno` / `import` / `other`,
+  « Qui cibler » refusé).
+- **Une campagne vise la base Clients par l'audience `{kind: 'tix', segmentId | def}`** :
+  e-mail = branche de `resolve_campaign_audience` → `_tix_campaign_audience` (registre
+  `product IS NULL`, exclusive des autres audiences, l'étape Audience du Studio les
+  sépare) ; SMS = type `tix_segment` (`resolve_sms_campaign_recipients` →
+  `_tix_sms_recipients`, effectif `tix_sms_audience_count`) ; push = scope `tix:<id>`
+  (`send-push-campaign` → `tix_segment_push_users`, service_role). Les anciens segments ne
+  changent pas.
+- **« Écrire à… » crée un brouillon déjà ciblé** : e-mail = audience gardée en session,
+  reprise par la galerie « Nouvelle campagne » (`?aud=tix`) ; SMS = un segment enregistré
+  seulement (`?tixseg=`). Pas de Yunits. La Console Manager n'a pas de campagnes : pas
+  d'« Écrire à… » (`useTixCaps().send`).
+- **L'import écrit par `import_contact_list(…, produit NULL)`** (`tix_import_commit`),
+  avec l'attestation de Yuno Tickets (origine, date, engagement) exigée pour « oui » :
+  repoussoir, doublons, absorption inchangés. Annulation = `tix_import_undo`.
+- **Pas transposé** : « Ce qui fait venir », hypothèses, score, pages d'inscription,
+  carte Shotgun (remplacée par « Vos ventes Yuno »). En plus du CRM : la porte du club
+  (bannissement, incidents) dans la fiche, Console Club seulement.
+- Un acheteur d'une soirée À VENIR est « venu par Yuno » (le CRM attend la soirée passée).
+- Interrupteur `TIX_CLIENTS_LIVE` (`src/lib/ticketsAnalyses.ts`, entrée « Clients ·
+  Nouveau ») ; textes `fromCrmClients.ts` (recopié) + `ticketsClients.ts` (l'emporte).
+
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
+
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
 
 Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
 1-6 livrés, lot 7 « nouveautés » à faire). Né d'un constat : treize endroits

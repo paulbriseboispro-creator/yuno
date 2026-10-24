@@ -41,9 +41,11 @@ interface Props {
   selectedId?: string | null;
   /** Soirée pré-sélectionnée à l'ouverture de l'éditeur (`?event=`). */
   presetEventId?: string | null;
+  /** Segment Clients de Yuno Tickets à viser d'emblée (`?tixseg=`, « Écrire à… »). */
+  presetTixSegmentId?: string | null;
 }
 
-export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetEventId }: Props) {
+export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetEventId, presetTixSegmentId }: Props) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const dateLocale = DATE_LOCALES[language] ?? enUS;
@@ -60,11 +62,13 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const [importOpen, setImportOpen] = useState(false);
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [contactSegments, setContactSegments] = useState<ContactSegment[]>([]);
+  // Segments de l'écran Clients de Yuno Tickets (tix_segments).
+  const [tixSegments, setTixSegments] = useState<{ id: string; name: string }[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const f = scopeFilter(scope);
-    const [{ data: rows }, evs, bal, { data: ov }, { data: ci }] = await Promise.all([
+    const [{ data: rows }, evs, bal, { data: ov }, { data: ci }, { data: tx }] = await Promise.all([
       (f
         ? supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).eq(f.column, f.value)
         : supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).is('venue_id', null).is('organizer_id', null))
@@ -76,7 +80,9 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
       supabase.rpc('get_sms_contacts_overview', scopeRpcArgs(scope)),
       // Segments sur la base importée (email + SMS) : seuls ceux avec des numéros joignables servent ici.
       supabase.rpc('get_contact_intelligence_overview' as never, scopeRpcArgs(scope) as never),
+      scope.kind === 'platform' ? Promise.resolve({ data: [] }) : supabase.rpc('tix_segments_list' as never, scopeRpcArgs(scope) as never),
     ]);
+    setTixSegments(Array.isArray(tx) ? (tx as { id: string; name: string }[]) : []);
     setContactSegments((((ci as unknown) as ContactIntelligenceOverview | null)?.segments ?? []).filter((s) => s.counts.phones > 0));
     setCampaigns((rows ?? []) as unknown as SmsCampaignRow[]);
     setEvents(evs);
@@ -98,9 +104,8 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
 
   // Ouverture directe de l'éditeur depuis une page soirée.
   useEffect(() => {
-    if (presetEventId && !loading) { setEditing(null); setEditorOpen(true); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presetEventId, loading]);
+    if ((presetEventId || presetTixSegmentId) && !loading) { setEditing(null); setEditorOpen(true); }
+  }, [presetEventId, presetTixSegmentId, loading]);
 
   const eventTitle = useMemo(() => new Map(events.map((e) => [e.id, e.title])), [events]);
 
@@ -330,6 +335,8 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         onChanged={() => void load()}
         onBuyCredits={(m) => openBuy(m)}
         presetEventId={editing ? null : presetEventId}
+        tixSegments={tixSegments}
+        presetTixSegmentId={editing ? null : presetTixSegmentId}
       />
       <SmsCreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} scope={scope} missing={creditsMissing} onCredited={() => void load()} />
       <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />

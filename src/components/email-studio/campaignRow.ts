@@ -124,6 +124,8 @@ export function legacyAudienceType(c: StudioCampaign): { audience_type: string |
   // Le miroir hérité n'a aucun chemin pour elles : 'imported_list' garantit
   // qu'une liste vidée ne parte jamais à toute la base.
   if (c.audiences.some((a) => (a.kind as string) === 'crm')) return { audience_type: 'imported_list', segment_id: null };
+  // Yuno Tickets › Clients : audiences {kind:'tix'}, résolues par _tix_campaign_audience. Même garde.
+  if (c.audiences.some((a) => a.kind === 'tix')) return { audience_type: 'imported_list', segment_id: null };
   if (c.audiences.length === 1) {
     const a = c.audiences[0];
     if (a.kind === 'segment') return { audience_type: 'custom_segment', segment_id: a.segmentId || null };

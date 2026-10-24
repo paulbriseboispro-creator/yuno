@@ -1,0 +1,91 @@
+import type { Triple } from '../../crm/modules/types';
+
+// Analyses de Yuno Tickets › Trafic, le détail (lot 4 du plan combiné,
+// migration 20261109340000) — [EN, FR, ES], vouvoiement : la page du club /
+// de l'organisateur, les liens sous leur source, les e-mails et push. Les
+// phrases décrivent, elles ne conseillent pas.
+const dict: Record<string, Triple> = {
+  // La page
+  'ya.tr.page.tVenue': ['Your club page', 'La page de votre club', 'La página de su club'],
+  'ya.tr.page.tOrg': ['Your organizer page', 'Votre page organisateur', 'Su página de organizador'],
+  'ya.tr.page.sub': ['Visits that start on your public page on Yuno, and where they come from.', 'Les visites qui commencent sur votre page publique Yuno, et d’où elles viennent.', 'Las visitas que empiezan en su página pública de Yuno, y de dónde vienen.'],
+  'ya.tr.page.visitsN.one': ['page visit', 'visite de la page', 'visita de la página'],
+  'ya.tr.page.visitsN.other': ['page visits', 'visites de la page', 'visitas de la página'],
+  'ya.tr.page.visitsNn.one': ['{n} visit', '{n} visite', '{n} visita'],
+  'ya.tr.page.visitsNn.other': ['{n} visits', '{n} visites', '{n} visitas'],
+  'ya.tr.page.visitors': ['Visitors', 'Visiteurs', 'Visitantes'],
+  'ya.tr.page.returning': ['Returning visits', 'Visites de retour', 'Visitas de vuelta'],
+  'ya.tr.page.ordered': ['Ended with a purchase', 'Finies par un achat', 'Terminadas en compra'],
+  'ya.tr.page.orderedPct': ['{pct} of visits', '{pct} des visites', '{pct} de las visitas'],
+  'ya.tr.page.from': ['Where visits come from', 'D’où viennent les visites', 'De dónde vienen las visitas'],
+  'ya.tr.page.none': ['No visit over this period.', 'Aucune visite sur cette période.', 'Ninguna visita en este periodo.'],
+  'ya.tr.page.foot': [
+    'A page visit “ends with a purchase” when the same device buys one of your nights within 24 hours. Visits are counted only for visitors who accepted measurement.',
+    'Une visite de la page « finit par un achat » quand le même appareil achète une de vos soirées dans les 24 h. Seules les visites des personnes qui acceptent la mesure sont comptées.',
+    'Una visita de la página «termina en compra» cuando el mismo dispositivo compra una de sus fiestas en 24 h. Solo se cuentan las visitas de quienes aceptan la medición.',
+  ],
+  'ya.tr.ref.direct': ['Direct', 'Direct', 'Directo'],
+  'ya.tr.ref.social': ['Social networks', 'Réseaux sociaux', 'Redes sociales'],
+  'ya.tr.ref.paid_social': ['Social ads', 'Publicité réseaux', 'Publicidad en redes'],
+  'ya.tr.ref.search': ['Search engines', 'Moteurs de recherche', 'Buscadores'],
+  'ya.tr.ref.paid_search': ['Search ads', 'Publicité moteurs', 'Publicidad en buscadores'],
+  'ya.tr.ref.email': ['E-mail', 'E-mail', 'E-mail'],
+  'ya.tr.ref.affiliate': ['Partners', 'Partenaires', 'Socios'],
+  'ya.tr.ref.internal': ['Yuno', 'Yuno', 'Yuno'],
+  'ya.tr.ref.referral': ['Other sites', 'Autres sites', 'Otros sitios'],
+  'ya.tr.ref.qr': ['QR code', 'QR code', 'Código QR'],
+  'ya.tr.ref.other': ['Other', 'Autre', 'Otro'],
+
+  // Les liens sous leur source
+  'ya.tr.link.n.one': ['{n} link', '{n} lien', '{n} enlace'],
+  'ya.tr.link.n.other': ['{n} links', '{n} liens', '{n} enlaces'],
+  'ya.tr.link.toggle': ['Show the links of this source', 'Voir les liens de cette source', 'Ver los enlaces de esta fuente'],
+  'ya.tr.link.party': ['Your shared-night link', 'Votre lien de co-soirée', 'Su enlace de fiesta compartida'],
+  'ya.tr.link.link': ['Link', 'Lien', 'Enlace'],
+  'ya.tr.link.toVenue': ['To your club page', 'Vers la page du club', 'Hacia la página del club'],
+  'ya.tr.link.toPage': ['To your page', 'Vers votre page', 'Hacia su página'],
+  'ya.tr.link.foot': [
+    'Open a source to see its tracked links: clicks of the period, and sales read on each sale.',
+    'Ouvrez une source pour voir ses liens suivis : clics de la période, et ventes lues sur chaque vente.',
+    'Abra una fuente para ver sus enlaces: clics del periodo y ventas leídas en cada venta.',
+  ],
+  'ya.tr.net.instagram': ['Instagram', 'Instagram', 'Instagram'],
+  'ya.tr.net.tiktok': ['TikTok', 'TikTok', 'TikTok'],
+  'ya.tr.net.whatsapp': ['WhatsApp', 'WhatsApp', 'WhatsApp'],
+  'ya.tr.net.newsletter': ['Newsletter', 'Newsletter', 'Newsletter'],
+  'ya.tr.net.facebook': ['Facebook', 'Facebook', 'Facebook'],
+  'ya.tr.net.sms': ['SMS', 'SMS', 'SMS'],
+  'ya.tr.net.email': ['E-mail', 'E-mail', 'E-mail'],
+  'ya.tr.net.other': ['Link', 'Lien', 'Enlace'],
+  'ya.tr.ordersN.one': ['{n} order', '{n} commande', '{n} pedido'],
+  'ya.tr.ordersN.other': ['{n} orders', '{n} commandes', '{n} pedidos'],
+  'ya.tr.buyersN.one': ['{n} buyer', '{n} acheteur', '{n} comprador'],
+  'ya.tr.buyersN.other': ['{n} buyers', '{n} acheteurs', '{n} compradores'],
+
+  // E-mails et push
+  'ya.tr.msg.t': ['Your e-mails and push', 'Vos e-mails et push', 'Sus e-mails y push'],
+  'ya.tr.msg.sub': ['What was bought in the 7 days after a click.', 'Ce qui a été acheté dans les 7 jours après un clic.', 'Lo que se compró en los 7 días después de un clic.'],
+  'ya.tr.msg.tot.email': ['After an e-mail', 'Après un e-mail', 'Después de un e-mail'],
+  'ya.tr.msg.tot.push': ['After a push', 'Après un push', 'Después de un push'],
+  'ya.tr.msg.recipe': ['Automation · {name}', 'Automatisation · {name}', 'Automatización · {name}'],
+  'ya.tr.msg.email': ['E-mail', 'E-mail', 'E-mail'],
+  'ya.tr.msg.auto': ['Automatic e-mail', 'E-mail automatique', 'E-mail automático'],
+  'ya.tr.msg.push': ['Push', 'Push', 'Push'],
+  'ya.tr.msg.pushAuto': ['Push sent by Yuno', 'Push envoyé par Yuno', 'Push enviado por Yuno'],
+  'ya.tr.msg.empty': ['No e-mail or push sent over this period, and no sale after one.', 'Aucun e-mail ni push envoyé sur cette période, et aucune vente après l’un d’eux.', 'Ningún e-mail ni push enviado en este periodo, y ninguna venta después de uno.'],
+  'ya.tr.msg.more': ['Show all {n} messages', 'Voir les {n} messages', 'Ver los {n} mensajes'],
+  'ya.tr.msg.less': ['Show fewer', 'En voir moins', 'Ver menos'],
+  'ya.tr.msg.col.msg': ['Message', 'Message', 'Mensaje'],
+  'ya.tr.msg.col.sent': ['Sent', 'Envoyés', 'Enviados'],
+  'ya.tr.msg.col.opened': ['Opened', 'Ouverts', 'Abiertos'],
+  'ya.tr.msg.col.clicked': ['Clicked', 'Cliqués', 'Clics'],
+  'ya.tr.msg.col.buyers': ['Buyers', 'Acheteurs', 'Compradores'],
+  'ya.tr.msg.col.orders': ['Orders', 'Commandes', 'Pedidos'],
+  'ya.tr.msg.foot': [
+    'A sale counts for the last message of a channel clicked in the 7 days before it (a push counts when it is opened). The same sale can also appear under another source above.',
+    'Une vente compte pour le dernier message d’un canal cliqué dans les 7 jours qui la précèdent (un push compte quand il est ouvert). La même vente peut aussi figurer sous une autre source plus haut.',
+    'Una venta cuenta para el último mensaje de un canal en el que se hizo clic en los 7 días anteriores (un push cuenta cuando se abre). La misma venta puede figurar también bajo otra fuente más arriba.',
+  ],
+};
+
+export default dict;

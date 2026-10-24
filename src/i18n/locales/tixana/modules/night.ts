@@ -1,0 +1,108 @@
+import type { Triple } from '../../crm/modules/types';
+
+// Analyses de Yuno Tickets › Ventes, une soirée choisie (lot 2 du plan combiné,
+// migration 20261109320000) : la phrase, « À retenir », « Comparer avec »,
+// l'objectif d'entrées, la porte, les tarifs de la soirée — [EN, FR, ES],
+// vouvoiement. Les règles sont celles du rapport de soirée de la Billetterie
+// (src/lib/eventReport.ts) ; seuls les mots sont réécrits.
+const dict: Record<string, Triple> = {
+  'ya.nr.phase.before': ['On sale', 'En vente', 'A la venta'],
+  'ya.nr.phase.live': ['Tonight', 'Ce soir', 'Esta noche'],
+  'ya.nr.phase.after': ['Past', 'Passée', 'Pasada'],
+  'ya.nr.compareWith': ['Compare with', 'Comparer avec', 'Comparar con'],
+  'ya.nr.refNight': ['“{t}” of {d}', '« {t} » du {d}', '«{t}» del {d}'],
+  'ya.nr.compareNone': ['Previous in the series', 'Précédente de la série', 'Anterior de la serie'],
+
+  // La phrase
+  'ya.nr.unit.tickets': ['places', 'places', 'plazas'],
+  'ya.nr.unit.guestList': ['sign-ups', 'inscrits', 'inscritos'],
+  'ya.nr.unit.tables': ['tables', 'tables', 'mesas'],
+  'ya.nr.ans.sellCap': ['{n} of {cap} {unit} taken at {j}.', '{n} {unit} prises sur {cap} à {j}.', '{n} de {cap} {unit} vendidas a {j}.'],
+  'ya.nr.ans.sell': ['{n} {unit} taken at {j}.', '{n} {unit} prises à {j}.', '{n} {unit} vendidas a {j}.'],
+  'ya.nr.ans.more': ['{x} more than {ref} at the same point.', '{x} de plus que {ref} au même moment.', '{x} más que {ref} en el mismo momento.'],
+  'ya.nr.ans.less': ['{x} fewer than {ref} at the same point.', '{x} de moins que {ref} au même moment.', '{x} menos que {ref} en el mismo momento.'],
+  'ya.nr.ans.same': ['As many as {ref} at the same point.', 'Autant que {ref} au même moment.', 'Tantas como {ref} en el mismo momento.'],
+  'ya.nr.ans.after': ['{n} entries out of {e} expected', '{n} entrées sur {e} attendus', '{n} entradas de {e} esperados'],
+  'ya.nr.ans.afterNoDoor': ['{e} expected; the door was not measured', '{e} attendus ; la porte n’a pas été mesurée', '{e} esperados; la puerta no se midió'],
+  'ya.nr.ans.rev': [', {v} in sales', ', {v} de chiffre d’affaires', ', {v} de facturación'],
+  'ya.nr.ans.head': [', {v} per person', ', {v} par personne', ', {v} por persona'],
+  'ya.nr.ans.afterMore': ['{x} more entries than {ref}.', '{x} entrées de plus que {ref}.', '{x} entradas más que {ref}.'],
+  'ya.nr.ans.afterLess': ['{x} fewer entries than {ref}.', '{x} entrées de moins que {ref}.', '{x} entradas menos que {ref}.'],
+  'ya.nr.ans.afterSame': ['As many entries as {ref}.', 'Autant d’entrées que {ref}.', 'Tantas entradas como {ref}.'],
+  'ya.nr.ans.emptyBefore': ['Nothing sold yet for this night.', 'Rien de vendu pour l’instant sur cette soirée.', 'Nada vendido todavía para esta fiesta.'],
+  'ya.nr.ans.emptyAfter': ['This night had no sale and no entry.', 'Cette soirée n’a eu ni vente ni entrée.', 'Esta fiesta no tuvo ni ventas ni entradas.'],
+
+  // À retenir
+  'ya.nr.takeaways': ['Key points', 'À retenir', 'A retener'],
+  'ya.nr.tk.no_show': ['{missing} expected guests did not come: {pct} turnout.', '{missing} attendus ne sont pas venus : {pct} de présence.', '{missing} esperados no vinieron: {pct} de asistencia.'],
+  'ya.nr.tk.msg_drove.email': ['The email “{title}” brought {n} sales and sign-ups ({pct} of the total).', 'L’e-mail « {title} » a amené {n} ventes et inscriptions ({pct} du total).', 'El e-mail «{title}» trajo {n} ventas e inscripciones ({pct} del total).'],
+  'ya.nr.tk.msg_drove.push': ['The push “{title}” brought {n} sales and sign-ups ({pct} of the total).', 'La notification « {title} » a amené {n} ventes et inscriptions ({pct} du total).', 'La notificación «{title}» trajo {n} ventas e inscripciones ({pct} del total).'],
+  'ya.nr.tk.low_conversion': ['{visits} visits, but only {pct} end with a purchase: the page or the prices hold people back.', '{visits} visites, mais {pct} seulement finissent par un achat : la page ou les prix freinent.', '{visits} visitas, pero solo el {pct} termina en compra: la página o los precios frenan.'],
+  'ya.nr.tk.day_of': ['{pct} of expected guests bought on the day: last-minute sales matter.', '{pct} des attendus ont acheté le jour J : la vente de dernière minute compte.', 'El {pct} de los esperados compró el mismo día: la venta de última hora cuenta.'],
+  'ya.nr.tk.visit_source': ['First source of visits: {source} ({pct}).', 'Première source de visites : {source} ({pct}).', 'Primera fuente de visitas: {source} ({pct}).'],
+  'ya.nr.tk.mostly_new': ['{pct} of the crowd is here for the first time.', '{pct} du public vient pour la première fois.', 'El {pct} del público viene por primera vez.'],
+  'ya.nr.tk.mostly_returning': ['{pct} of the crowd had been before: your regulars carry the night.', '{pct} du public était déjà venu : vos habitués portent la soirée.', 'El {pct} del público ya había venido: sus habituales sostienen la fiesta.'],
+
+  // Repères de la courbe
+  'ya.nr.mk.published': ['Night published', 'Soirée publiée', 'Fiesta publicada'],
+  'ya.nr.mk.round': ['Price “{label}” opened', 'Tarif « {label} » ouvert', 'Tarifa «{label}» abierta'],
+  'ya.nr.mk.roundBare': ['New price opened', 'Nouveau tarif ouvert', 'Nueva tarifa abierta'],
+
+  // Objectif d'entrées
+  'ya.nr.tg.title': ['Entry target', 'Objectif d’entrées', 'Objetivo de entradas'],
+  'ya.nr.tg.sub': ['Expected guests to date: tickets, table guests and guest list', 'Attendus à ce jour : billets, personnes des tables et guest list', 'Esperados hasta hoy: entradas, personas de mesa y guest list'],
+  'ya.nr.tg.subAfter': ['People scanned at the door', 'Personnes scannées à la porte', 'Personas escaneadas en la puerta'],
+  'ya.nr.tg.none': ['No target for this night. Set one to follow the pace day after day.', 'Pas d’objectif pour cette soirée. Fixez-en un pour suivre le rythme jour après jour.', 'Sin objetivo para esta fiesta. Fije uno para seguir el ritmo día a día.'],
+  'ya.nr.tg.noneAfter': ['No target was set for this night.', 'Aucun objectif n’avait été fixé pour cette soirée.', 'No se fijó ningún objetivo para esta fiesta.'],
+  'ya.nr.tg.paceOnly': ['At the pace of “{ref}”, the night would end around {n} expected guests.', 'Au rythme de « {ref} », la soirée finirait vers {n} attendus.', 'Al ritmo de «{ref}», la fiesta terminaría en torno a {n} esperados.'],
+  'ya.nr.tg.paceAhead': ['At the pace of “{ref}”: about {n} expected guests, {x} above the target.', 'Au rythme de « {ref} » : environ {n} attendus, {x} au-dessus de l’objectif.', 'Al ritmo de «{ref}»: unos {n} esperados, {x} por encima del objetivo.'],
+  'ya.nr.tg.paceBehind': ['At the pace of “{ref}”: about {n} expected guests, {x} short of the target.', 'Au rythme de « {ref} » : environ {n} attendus, {x} sous l’objectif.', 'Al ritmo de «{ref}»: unos {n} esperados, {x} por debajo del objetivo.'],
+  'ya.nr.tg.left': ['{n} more to reach the target.', 'Encore {n} pour atteindre l’objectif.', 'Faltan {n} para alcanzar el objetivo.'],
+  'ya.nr.tg.reached': ['Target reached before the night.', 'Objectif atteint avant la soirée.', 'Objetivo alcanzado antes de la fiesta.'],
+  'ya.nr.tg.reachedAfter': ['Target reached at the door.', 'Objectif atteint à la porte.', 'Objetivo alcanzado en la puerta.'],
+  'ya.nr.tg.missedAfter': ['{n} entries short of the target.', 'Il a manqué {n} entrées pour atteindre l’objectif.', 'Faltaron {n} entradas para alcanzar el objetivo.'],
+  'ya.nr.tg.expected': ['expected', 'attendus', 'esperados'],
+  'ya.nr.tg.entered': ['entries', 'entrées', 'entradas'],
+  'ya.nr.tg.label': ['Entry target', 'Objectif d’entrées', 'Objetivo de entradas'],
+  'ya.nr.tg.unit': ['people', 'personnes', 'personas'],
+  'ya.nr.tg.set': ['Set a target', 'Fixer un objectif', 'Fijar un objetivo'],
+  'ya.nr.tg.edit': ['Change the target', 'Modifier l’objectif', 'Cambiar el objetivo'],
+  'ya.nr.tg.save': ['Save', 'Enregistrer', 'Guardar'],
+  'ya.nr.tg.cancel': ['Cancel', 'Annuler', 'Cancelar'],
+  'ya.nr.tg.remove': ['Remove the target', 'Retirer l’objectif', 'Quitar el objetivo'],
+  'ya.nr.tg.invalid': ['Enter a number between 1 and 100,000.', 'Saisissez un nombre entre 1 et 100 000.', 'Introduzca un número entre 1 y 100 000.'],
+  'ya.nr.tg.saveError': ['The target could not be saved.', 'L’objectif n’a pas pu être enregistré.', 'No se pudo guardar el objetivo.'],
+
+  // La porte
+  'ya.nr.door.title': ['The door', 'La porte', 'La puerta'],
+  'ya.nr.door.sub': ['People scanned at the entrance, against those expected', 'Personnes scannées à l’entrée, contre les attendus', 'Personas escaneadas en la entrada, frente a los esperados'],
+  'ya.nr.door.subBefore': ['Who is expected at the entrance', 'Qui est attendu à l’entrée', 'Quién se espera en la entrada'],
+  'ya.nr.door.tickets': ['Tickets', 'Billets', 'Entradas'],
+  'ya.nr.door.tables': ['VIP tables', 'Tables VIP', 'Mesas VIP'],
+  'ya.nr.door.guestlist': ['Guest list', 'Guest list', 'Guest list'],
+  'ya.nr.door.expectedN': ['{n} expected', '{n} attendus', '{n} esperados'],
+  'ya.nr.door.notYet': ['The door opens on {date}. {n} people expected to date.', 'La porte ouvre le {date}. {n} personnes attendues à ce jour.', 'La puerta abre el {date}. {n} personas esperadas hasta hoy.'],
+  'ya.nr.door.noScan': ['No entry was scanned: the door was not measured ({e} expected).', 'Aucune entrée n’a été scannée : la porte n’a pas été mesurée ({e} attendus).', 'No se escaneó ninguna entrada: la puerta no se midió ({e} esperados).'],
+  'ya.nr.door.notMeasured': ['{n} entries scanned out of {e} expected: too few to measure the door.', '{n} entrées scannées sur {e} attendus : trop peu pour mesurer la porte.', '{n} entradas escaneadas de {e} esperados: demasiado pocas para medir la puerta.'],
+  'ya.nr.door.present': ['Present', 'Présents', 'Presentes'],
+  'ya.nr.door.presentCap': ['{p} of the {e} expected', '{p} des {e} attendus', 'El {p} de los {e} esperados'],
+  'ya.nr.door.absent': ['No-shows', 'Absents', 'Ausentes'],
+  'ya.nr.door.absentCap': ['Expected, never scanned', 'Attendus, jamais scannés', 'Esperados, nunca escaneados'],
+  'ya.nr.door.perHead': ['Per person', 'Par personne', 'Por persona'],
+  'ya.nr.door.perHeadCap': ['Night sales ÷ people entered', 'CA de la soirée ÷ personnes entrées', 'Facturación de la fiesta ÷ personas entradas'],
+  'ya.nr.door.arrivals': ['Arrivals, every half hour', 'Arrivées, par demi-heure', 'Llegadas, cada media hora'],
+  'ya.nr.door.peak': ['Busiest half hour: {s}, {n} entries.', 'Demi-heure la plus chargée : {s}, {n} entrées.', 'Media hora con más llegadas: {s}, {n} entradas.'],
+  'ya.nr.door.slot': ['{s}: {n} entries.', '{s} : {n} entrées.', '{s}: {n} entradas.'],
+  'ya.nr.door.undated': ['{n} entries scanned without a time are counted but not shown on the chart.', '{n} entrées scannées sans heure sont comptées mais absentes du graphique.', '{n} entradas escaneadas sin hora se cuentan pero no aparecen en el gráfico.'],
+
+  // Tarifs de la soirée
+  'ya.nr.line.title': ['Prices of the night', 'Les tarifs de la soirée', 'Las tarifas de la fiesta'],
+  'ya.nr.line.sub': ['Every price, pack and list, with its stock and its state', 'Chaque tarif, formule et liste, avec son stock et son état', 'Cada tarifa, fórmula y lista, con su stock y su estado'],
+  'ya.nr.line.empty': ['No price for this pillar on this night.', 'Aucun tarif de ce pilier sur cette soirée.', 'Ninguna tarifa de este pilar en esta fiesta.'],
+  'ya.nr.line.on_sale': ['On sale', 'En vente', 'A la venta'],
+  'ya.nr.line.sold_out': ['Sold out', 'Complet', 'Agotado'],
+  'ya.nr.line.upcoming': ['Soon', 'Bientôt', 'Pronto'],
+  'ya.nr.line.closed': ['Closed', 'Fermé', 'Cerrado'],
+};
+
+export default dict;

@@ -45,7 +45,7 @@ type CampaignRequest = {
   body?: string;
   url?: string;
   segment?: string;          // segments admin : all | active_30d | inactive_30d | ticket_holders | vip | loyal
-  scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | segment:<uuid> (segment sauvegardé) | all_customers
+  scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | segment:<uuid> (segment sauvegardé) | all_customers | tix:<uuid> (segment Clients de Yuno Tickets, club ou organisateur)
   venue_id?: string;         // présent => campagne club (auth is_venue_owner)
   agency_id?: string;        // présent => campagne RP/agence (auth is_agency_owner) — scope 'followers'
   organizer_user_id?: string; // présent => campagne organisateur (fondateur ou admin d'équipe) — followers | event_tickets | checked_in | all_customers
@@ -117,6 +117,19 @@ async function collectUserIds(
 }
 
 /**
+ * Segment de l'écran Clients de Yuno Tickets (tix_segments, migration
+ * 20261109400000) : les comptes Yuno de ses membres, résolus À L'ENVOI par
+ * `tix_segment_push_users` (service_role seul, portée vérifiée en base).
+ */
+async function tixSegmentUsers(supabase: SupabaseClient, venueId: string | null, organizerUserId: string | null, segId: string): Promise<{ ids: Set<string>; error?: string }> {
+  const { data, error } = await supabase.rpc('tix_segment_push_users', {
+    p_venue_id: venueId, p_organizer_user_id: organizerUserId, p_segment_id: segId,
+  });
+  if (error) return { ids: new Set(), error: `segment resolution failed: ${error.message}` };
+  return { ids: new Set(((data || []) as Array<{ user_id: string | null }>).map((r) => r.user_id).filter((x): x is string => !!x)) };
+}
+
+/**
  * Résout l'audience en user_ids abonnés au push.
  * Scopes club (venue_id) : toujours bornés aux données DU club.
  */
@@ -183,6 +196,10 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
         for (const id of await collectUserIds((f, t) => supabase
           .from('table_reservations').select('user_id').in('event_id', chunk).in('status', ['paid', 'confirmed']).not('user_id', 'is', null).range(f, t))) ids.add(id);
       }
+    } else if (scope.startsWith('tix:')) {
+      const r = await tixSegmentUsers(supabase, null, orgId, scope.slice(4));
+      if (r.error) return { userIds: [], error: r.error };
+      ids = r.ids;
     } else { // followers
       ids = new Set(await collectUserIds((f, t) => supabase
         .from('organizer_profile_followers').select('user_id').eq('organizer_user_id', orgId).not('user_id', 'is', null).range(f, t)));
@@ -220,6 +237,10 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
     } else if (scope === 'followers') {
       ids = new Set(await collectUserIds((f, t) => supabase
         .from('favorites').select('user_id').eq('venue_id', req.venue_id!).not('user_id', 'is', null).range(f, t)));
+    } else if (scope.startsWith('tix:')) {
+      const r = await tixSegmentUsers(supabase, req.venue_id!, null, scope.slice(4));
+      if (r.error) return { userIds: [], error: r.error };
+      ids = r.ids;
     } else if (scope.startsWith('segment:')) {
       // Segment sauvegardé : la définition est rechargée et résolue À L'ENVOI
       // (membership dynamique) — un push programmé cible donc l'état du

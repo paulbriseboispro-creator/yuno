@@ -25,7 +25,7 @@ export default function OwnerSmsCampaigns() {
     <div className="min-h-screen bg-background pb-20">
       <OwnerHeader title={t('smsCampaigns.title')} backTo={id ? '/owner/sms-campaigns' : undefined} />
       <div className="mx-auto max-w-5xl px-4 py-6">
-        <SmsCampaignsPanel scope={scope} basePath="/owner/sms-campaigns" selectedId={id ?? null} presetEventId={searchParams.get('event')} />
+        <SmsCampaignsPanel scope={scope} basePath="/owner/sms-campaigns" selectedId={id ?? null} presetEventId={searchParams.get('event')} presetTixSegmentId={searchParams.get('tixseg')} />
       </div>
     </div>
   );

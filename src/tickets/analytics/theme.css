@@ -1,0 +1,150 @@
+/*
+ * Yuno Tickets › Analyses, Clients, Segments, Imports — le design de ces écrans
+ * de Yuno CRM, aux couleurs et aux polices de la Console Yuno Tickets.
+ *
+ * Les écrans (src/tickets/analytics) sont la copie de ceux du CRM : mêmes
+ * pièces, mêmes animations, styles en ligne. Leurs variables portent le
+ * préfixe `--ya-` (jamais `--ink` / `--paper`, qui sont les triplets RGB du
+ * thème pro) et sont posées ici, sous `.ya` :
+ *   - sombre par défaut (la Console), clair sous html[data-pro-theme="light"] ;
+ *   - polices de la Console : Space Grotesk (titres, chiffres), Inter (texte),
+ *     JetBrains Mono (étiquettes) ;
+ *   - rouge Yuno #E8192C.
+ * Les gris (« sand » du CRM) suivent l'encre du thème pro, `rgb(var(--ink) / a)`,
+ * donc basculent seuls avec le thème.
+ */
+
+.ya {
+  --ya-red-500: #E8192C;
+  --ya-red-400: #F04452;
+  --ya-red-300: #FF8A95;
+  --ya-red-200: rgba(232, 25, 44, .38);
+  --ya-red-100: rgba(232, 25, 44, .22);
+  --ya-red-50: rgba(232, 25, 44, .12);
+  --ya-red-600: #FF4D5E;
+  --ya-red-700: #FF6B78;
+  --ya-red-800: #FFA3AB;
+  --ya-red-900: #8A1420;
+  --ya-tangerine-500: #FF6B35;
+  --ya-green-50: rgba(34, 197, 94, .14);
+  --ya-green-500: #22C55E;
+  --ya-green-600: #16A34A;
+  --ya-green-700: #4ADE80;
+  --ya-amber-50: rgba(245, 158, 11, .14);
+  --ya-amber-500: #F59E0B;
+  --ya-amber-700: #FBBF24;
+
+  --ya-ink: rgb(var(--ink) / .96);
+  --ya-on-ink: rgb(var(--paper));
+  --ya-card: var(--pro-card);
+  --ya-paper: rgb(var(--ink) / .04);
+  --ya-glass: rgb(var(--page) / .86);
+  --ya-seg-on: rgb(var(--ink) / .16);
+  --ya-sand-50: rgb(var(--ink) / .04);
+  --ya-sand-100: rgb(var(--ink) / .07);
+  --ya-sand-200: rgb(var(--ink) / .1);
+  --ya-sand-300: rgb(var(--ink) / .18);
+  --ya-sand-400: rgb(var(--ink) / .36);
+  --ya-sand-500: rgb(var(--ink) / .5);
+  --ya-sand-600: rgb(var(--ink) / .62);
+  --ya-sand-700: rgb(var(--ink) / .78);
+
+  --ya-gradient-brand: linear-gradient(110deg, #E8192C 0%, #F2392A 45%, #FF6B35 100%);
+  --ya-night: #120C0E;
+  --ya-noise-night: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ya-text-on-night: #F7F2F1;
+  --ya-text-on-night-2: #B9AEB0;
+  --ya-border-night: rgba(255, 255, 255, .10);
+  --ya-tip-bg: #26262B;
+  --ya-tip-fg: #FFFFFF;
+
+  --ya-shadow-xs: 0 1px 2px rgba(0, 0, 0, .35);
+  --ya-shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px rgba(0, 0, 0, .3);
+  --ya-shadow-md: 0 2px 4px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .45);
+  --ya-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 -3px 0 rgba(0, 0, 0, .12), 0 8px 16px rgba(232, 25, 44, .28);
+
+  --ya-font-display: "Space Grotesk", "Helvetica Neue", Helvetica, sans-serif;
+  --ya-font-body: "Inter", "Helvetica Neue", Helvetica, sans-serif;
+  --ya-font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  font-family: var(--ya-font-body);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--ya-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+html[data-pro-theme="light"] .ya {
+  --ya-red-200: #FFC4C9;
+  --ya-red-100: #FFE1E4;
+  --ya-red-50: #FFF1F2;
+  --ya-red-600: #C8102E;
+  --ya-red-700: #9D0B12;
+  --ya-red-800: #740A10;
+  --ya-red-900: #4B070B;
+  --ya-green-50: #EAF8EF;
+  --ya-green-500: #17A34A;
+  --ya-green-700: #0F7A37;
+  --ya-amber-50: #FFF6E5;
+  --ya-amber-500: #E59A0B;
+  --ya-amber-700: #9A6300;
+  --ya-seg-on: #FFFFFF;
+  --ya-tip-bg: #18181B;
+  --ya-shadow-xs: 0 1px 2px rgba(9, 9, 11, .06);
+  --ya-shadow-sm: 0 1px 2px rgba(9, 9, 11, .05), 0 4px 12px rgba(9, 9, 11, .06);
+  --ya-shadow-md: 0 2px 4px rgba(9, 9, 11, .05), 0 12px 32px rgba(9, 9, 11, .10);
+  --ya-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -3px 0 rgba(0, 0, 0, .10), 0 8px 16px rgba(232, 25, 44, .32);
+}
+
+.ya *, .ya *::before, .ya *::after { box-sizing: border-box; }
+.ya a { text-decoration: none; }
+.ya button { font: inherit; }
+.ya h1, .ya h2, .ya h3, .ya h4 { margin: 0; text-wrap: balance; }
+.ya p { margin: 0; text-wrap: pretty; }
+.ya :focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ya-red-200); }
+
+.ya-noscroll { scrollbar-width: none; }
+.ya-noscroll::-webkit-scrollbar { display: none; }
+.ya .ya-thin-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.ya .ya-thin-scroll::-webkit-scrollbar-thumb { background: var(--ya-sand-200); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+.ya-accent-word { background: var(--ya-gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+.ya-skel {
+  background: linear-gradient(90deg, var(--ya-sand-100) 0%, var(--ya-sand-50) 50%, var(--ya-sand-100) 100%);
+  background-size: 200% 100%;
+  animation: ya-skel 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes ya-skel { to { background-position: -200% 0; } }
+@keyframes ya-pop { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes ya-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ya-in-blur { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes ya-row { from { opacity: 0; transform: translateY(18px); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes ya-swap-a { from { opacity: .25; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ya-swap-b { from { opacity: .25; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ya-row-a { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ya-row-b { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ya-pulse-red { 0% { box-shadow: 0 0 0 0 rgba(232, 25, 44, .4); } 100% { box-shadow: 0 0 0 12px rgba(232, 25, 44, 0); } }
+@keyframes ya-drawer-in { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Clients, Segments, Imports (copie du CRM) : lignes qui montent, point qui bat,
+   rouage, ruban d'import, flottement, barre de sélection qui entre. */
+@keyframes ya-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes ya-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes ya-spin { to { transform: rotate(360deg); } }
+@keyframes ya-flow { 0% { left: 0; opacity: 0; } 14% { opacity: 1; } 86% { opacity: 1; } 100% { left: calc(100% - 30px); opacity: 0; } }
+@keyframes ya-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
+@keyframes ya-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ya *, .ya *::before, .ya *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* Barre de filtres collante, sous l'en-tête de la Console : OwnerHeader
+   (56 / 64 px) côté club et manager, en-tête du layout (47 / 51 px) côté
+   organisateur, où OwnerHeader redevient statique. */
+.ya .ya-filters { top: 57px; }
+[data-console-header] .ya .ya-filters { top: 47px; }
+@media (min-width: 640px) {
+  .ya .ya-filters { top: 65px; }
+  [data-console-header] .ya .ya-filters { top: 51px; }
+}
