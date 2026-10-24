@@ -2836,6 +2836,11 @@ jamais Space Grotesk, mono ni filet rouge ici. Règles :
 
 ## Comportement d'achat — Analytics → Achats (2026-09-24)
 
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
+
 `/owner/analytics?tab=community&view=purchase` (et côté orga ; l'ancien `?tab=purchase`
 est réécrit) (`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
 `src/lib/purchaseBehavior.ts`, testés). Le reste de la page dit « combien ai-je
@@ -2859,6 +2864,11 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
   `ohelp.org.analytics.s6*`, assistant : article `purchase-behavior`.
 
 ## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
+
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
 
 Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
 (lots A-G livrés le 24/09, repris et joués sur la démo contre la vraie base le
@@ -3098,6 +3108,11 @@ vente (`20261001200000`) et les digests par email, qui sont des emails, pas un �
 
 ## Analytics = la version du 24/09 au soir (plan Shotgun, lots A-G) + la colonne « Soirées » (2026-10-01)
 
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
+
 Décision de Paul le 01/10, capture à l'appui (il a choisi entre le 24/09 midi, le
 24/09 soir et le 30/09) : l'écran Analytics est celui du commit `1932dec1` (24/09
 20:32, fin du plan Shotgun — section « Grammaire de l'analyse » ci-dessus) : quatre
@@ -3158,8 +3173,10 @@ Demande de Paul : « duplique de Yuno CRM toute la partie analytics (Ventes, Tra
 Communauté, Guest list, Parcours client) sur Yuno Tickets, tout pareil, couleurs et
 polices de Yuno Tickets ». Remplace la règle du 01/10 « ne pas proposer un écran qui
 remplacerait les familles » (plan `BILLETTERIE_CRM_TRANSPOSITION_PLAN.md`, D8).
-Adresses `…/analyses/:tab` et `…/analyses/journey` (Club, Manager, Organisateur) ;
-l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
+Adresses `…/analyses/:tab` et `…/analyses/journey` (Club, Manager, Organisateur).
+**Depuis la bascule du 24/10 (lot 8), c'est LA page d'analyse de Yuno Tickets** :
+l'ancienne Analytics est supprimée et ses adresses y renvoient (voir le lot 8 plus
+bas). Règles :
 
 - **Les calculs sont ceux du CRM, recopiés depuis la prod** (migration
   `20261109300000`) : les cœurs `crm_ana_*__core` / `crm_journey__core` /
@@ -3276,8 +3293,32 @@ l'ancienne Analytics reste en place tant que Paul n'a pas validé. Règles :
   e-mail. Le SMS marketing de Yuno Tickets n'est pas ouvert : le canal dit
   « Bientôt » avec cette raison ; la réponse Instagram (outil du CRM) n'est plus
   proposée.
+- **Lot 8, la bascule** (24/10, décisions de Paul : bascule avant le lot 5, et
+  « garder joignable » tout ce que les Analyses ne redessinent pas encore) :
+  `TIX_ANALYSES_LIVE = true`, l'entrée « Analytics » des barres latérales club et
+  orga est retirée (« Analyses » la remplace). `/owner|organizer-app|manager/analytics`
+  rend `LegacyAnalyticsRedirect` (`src/pages/AnalyticsRouter.tsx`), qui traduit
+  l'adresse par `analysesHrefFromLegacy` (`src/lib/analyticsNav.ts`, testé : Ventes et
+  Trafic gardent la soirée `?e=`, Partenaires devient l'onglet, Abonnés / Achats /
+  Public deviennent `?cv=`) ; `eventReportHref` produit l'adresse des Analyses (tous
+  les « Voir les stats »). **Gardés à l'ancien dessin jusqu'à leur lot** : Communauté
+  › Abonnés / Achats / Public (`CommunityMore.tsx`, `?cv=subscribers|purchase|audience`,
+  lot 5), Ventes › Tables VIP › consommation servie et classement des hôtes VIP, Trafic
+  › toutes les visites et l'engagement (`KeptBlocks.tsx`). **Supprimés** : les deux
+  pages (`OwnerAnalytics`, `OrgAppAnalytics`) et tout ce qu'elles seules utilisaient
+  (49 fichiers, dont le Hype Score : composants, hooks, `hypeForecast.ts`, l'article
+  d'aide et la tuile « Analyse Hype » du manager ; l'analyse IA de soirée ne vit plus
+  que sur la page d'une co-soirée). Le mode d'emploi (« Analyses », club + orga, 3
+  langues) et l'Assistant Console (`console-help-articles.ts`, `owner-assistant` :
+  redéployer à la fusion) décrivent les Analyses. Ne pas recréer de page Analytics :
+  une vue manquante se dessine dans `src/tickets/analytics`.
 
 ## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
+
+> **Remplacé le 24/10 (lot 8 du plan combiné).** Cet écran n'existe plus : son
+> adresse renvoie vers Yuno Tickets › Analyses (section « Yuno Tickets › Analyses »
+> plus bas). Ce qui suit reste comme l'histoire des règles de calcul, qui valent
+> toujours là où un composant a été gardé.
 
 Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
 1-6 livrés, lot 7 « nouveautés » à faire). Né d'un constat : treize endroits
