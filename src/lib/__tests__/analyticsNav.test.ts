@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyticsHref, eventReportHref, needsCanonicalUrl, resolveAnalyticsRoute } from '../analyticsNav';
+import { analysesHrefFromLegacy, analyticsHref, eventReportHref, needsCanonicalUrl, resolveAnalyticsRoute } from '../analyticsNav';
 
 describe('resolveAnalyticsRoute', () => {
   it('ouvre Ventes par défaut', () => {
@@ -37,6 +37,28 @@ describe('adresses', () => {
   it('construit les liens', () => {
     expect(analyticsHref('/owner/analytics', 'traffic')).toBe('/owner/analytics?tab=traffic&view=page');
     expect(analyticsHref('/owner/analytics', 'live')).toBe('/owner/analytics?tab=live');
-    expect(eventReportHref('/organizer-app/analytics', 'e1')).toBe('/organizer-app/analytics?tab=sales&view=overview&event=e1');
+    expect(eventReportHref('/organizer-app/analytics', 'e1')).toBe('/organizer-app/analyses/sales?e=e1');
+    expect(eventReportHref('/owner/analytics', 'e2')).toBe('/owner/analyses/sales?e=e2');
+  });
+});
+
+describe('analysesHrefFromLegacy (lot 8)', () => {
+  it('traduit chaque famille et vue vers les Analyses', () => {
+    expect(analysesHrefFromLegacy('/owner', '')).toBe('/owner/analyses/sales');
+    expect(analysesHrefFromLegacy('/owner', '?tab=sales&view=overview&event=e1')).toBe('/owner/analyses/sales?e=e1');
+    expect(analysesHrefFromLegacy('/owner', '?tab=sales&view=partners')).toBe('/owner/analyses/partners');
+    expect(analysesHrefFromLegacy('/organizer-app', '?tab=traffic&view=events&event=e1')).toBe('/organizer-app/analyses/traffic?e=e1');
+    expect(analysesHrefFromLegacy('/owner', '?tab=community&view=overview')).toBe('/owner/analyses/community');
+    expect(analysesHrefFromLegacy('/owner', '?tab=community&view=subscribers')).toBe('/owner/analyses/community?cv=subscribers');
+    expect(analysesHrefFromLegacy('/manager', '?tab=community&view=purchase')).toBe('/manager/analyses/community?cv=purchase');
+    expect(analysesHrefFromLegacy('/owner', '?tab=community&view=demographics')).toBe('/owner/analyses/community?cv=audience');
+    expect(analysesHrefFromLegacy('/owner', '?tab=community&view=tastes')).toBe('/owner/analyses/community?cv=audience');
+    expect(analysesHrefFromLegacy('/owner', '?tab=live')).toBe('/owner/analyses/live');
+  });
+  it('lit les anciens onglets', () => {
+    expect(analysesHrefFromLegacy('/owner', '?tab=global')).toBe('/owner/analyses/sales');
+    expect(analysesHrefFromLegacy('/owner', '?tab=event&event=e9')).toBe('/owner/analyses/sales?e=e9');
+    expect(analysesHrefFromLegacy('/owner', '?tab=purchase')).toBe('/owner/analyses/community?cv=purchase');
+    expect(analysesHrefFromLegacy('/owner', '?tab=nimporte')).toBe('/owner/analyses/sales');
   });
 });

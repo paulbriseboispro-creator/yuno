@@ -103,19 +103,9 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					path: "/owner/dashboard",
 					icon: <LayoutGridIcon />,
 				},
-				{
-					title: t('sidebar.analytics'),
-					path: "/owner/analytics",
-					icon: <BarChart3Icon />,
-					subItems: [
-						{ title: t('anf.family.sales'), path: "/owner/analytics?tab=sales", icon: <BarChart3Icon />, isDefault: true },
-						{ title: t('anf.family.traffic'), path: "/owner/analytics?tab=traffic", icon: <GlobeIcon /> },
-						{ title: t('anf.family.community'), path: "/owner/analytics?tab=community", icon: <UsersIcon /> },
-						{ title: t('anf.family.live'), path: "/owner/analytics?tab=live", icon: <RadioIcon /> },
-					],
-				},
-				// Les Analyses de Yuno CRM transposées (src/tickets/analytics), derrière
-				// l'interrupteur TIX_ANALYSES_LIVE (src/lib/ticketsAnalyses.ts).
+				// Les Analyses (src/tickets/analytics) ont remplacé l'ancienne Analytics le
+				// 24/10 (lot 8) : `/owner/analytics` renvoie vers elles. L'interrupteur
+				// TIX_ANALYSES_LIVE (src/lib/ticketsAnalyses.ts) est à true.
 				...(tixAnalyses ? [tixAnalysesItem(t, "/owner")] : []),
 				{
 					title: t('sidebar.liveNight'),

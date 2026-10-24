@@ -80,17 +80,6 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 			label: tt("Aperçu", "Overview"),
 			items: [
 				{ title: tt("Dashboard", "Dashboard"), path: "/organizer-app", icon: <LayoutGridIcon />, exact: true },
-				{
-					title: tt("Analytique", "Analytics"),
-					path: "/organizer-app/analytics",
-					icon: <BarChart3Icon />,
-					subItems: [
-						{ title: t('anf.family.sales'), path: "/organizer-app/analytics?tab=sales", icon: <BarChart3Icon />, isDefault: true },
-						{ title: t('anf.family.traffic'), path: "/organizer-app/analytics?tab=traffic", icon: <GlobeIcon /> },
-						{ title: t('anf.family.community'), path: "/organizer-app/analytics?tab=community", icon: <UsersIcon /> },
-						{ title: t('anf.family.live'), path: "/organizer-app/analytics?tab=live", icon: <RadioIcon /> },
-					],
-				},
 				...(tixAnalyses ? [tixAnalysesItem(t, "/organizer-app")] : []),
 			],
 		},

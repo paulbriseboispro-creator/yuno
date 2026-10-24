@@ -100,7 +100,40 @@ export function analyticsHref(base: string, family: AnalyticsFamily, view?: stri
   return `${base}?${params.toString()}`;
 }
 
-/** Le lien « Voir les stats » d'une soirée : la Vue d'ensemble de Ventes, restreinte à cette soirée. */
+/**
+ * Le lien « Voir les stats » d'une soirée : Analyses › Ventes, restreintes à
+ * cette soirée (lot 8, la bascule vers les Analyses). `base` reste l'ancienne
+ * adresse (`/owner/analytics`, `/organizer-app/analytics`, `/manager/analytics`) :
+ * les appelants n'ont pas à changer.
+ */
 export function eventReportHref(base: string, eventId: string): string {
-  return analyticsHref(base, 'sales', 'overview', eventId);
+  return `${base.replace(/\/analytics$/, '')}/analyses/sales?e=${encodeURIComponent(eventId)}`;
+}
+
+/** Les vues de Communauté qui restent à l'ancien dessin en attendant le lot 5 (`?cv=`). */
+const LEGACY_COMMUNITY: Record<string, string> = { subscribers: 'subscribers', purchase: 'purchase', demographics: 'audience' };
+
+/**
+ * L'ancienne Analytics (`?tab=&view=&event=`) traduite en adresse des Analyses
+ * (lot 8) : liens déjà partagés, alertes déjà émises, favoris. Ventes et Trafic
+ * gardent la soirée (`?e=`), Partenaires devient un onglet, les vues Abonnés,
+ * Achats et Public de Communauté gardent leur page (`?cv=`).
+ */
+export function analysesHrefFromLegacy(prefix: string, search: string): string {
+  const sp = new URLSearchParams(search);
+  const r = resolveAnalyticsRoute(sp.get('tab'), sp.get('view'));
+  const ev = sp.get('event');
+  const out = new URLSearchParams();
+  let tab: string;
+  if (r.family === 'sales') tab = r.view === 'partners' ? 'partners' : 'sales';
+  else if (r.family === 'traffic') tab = 'traffic';
+  else if (r.family === 'live') tab = 'live';
+  else {
+    tab = 'community';
+    const cv = LEGACY_COMMUNITY[r.view];
+    if (cv) out.set('cv', cv);
+  }
+  if (ev && (tab === 'sales' || tab === 'traffic' || tab === 'partners')) out.set('e', ev);
+  const qs = out.toString();
+  return `${prefix}/analyses/${tab}${qs ? `?${qs}` : ''}`;
 }
