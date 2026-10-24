@@ -253,30 +253,41 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
         .eq('venue_id', req.venue_id!)
         .maybeSingle();
       if (!seg) return { userIds: [], error: 'segment not found for this venue' };
-      const { data, error } = await supabase.rpc('resolve_venue_segment', {
-        p_venue_id: req.venue_id,
-        p_definition: (seg as { definition: unknown }).definition,
-      });
-      if (error) return { userIds: [], error: `segment resolution failed: ${error.message}` };
-      ids = new Set(
-        ((data || []) as Array<{ user_id: string | null }>)
-          .filter((row) => !!row.user_id)
-          .map((row) => row.user_id as string),
-      );
+      // resolve_venue_segment renvoie un ENSEMBLE de lignes : PostgREST le
+      // plafonne à 1 000. On ne garde que les comptes, triés pour paginer.
+      try {
+        ids = new Set(await collectUserIds(async (f, t) => {
+          const { data, error } = await supabase
+            .rpc('resolve_venue_segment', {
+              p_venue_id: req.venue_id,
+              p_definition: (seg as { definition: unknown }).definition,
+            })
+            .select('user_id')
+            .not('user_id', 'is', null)
+            .order('user_id')
+            .range(f, t);
+          return { data: data as Array<{ user_id: string | null }> | null, error };
+        }));
+      } catch (e) {
+        return { userIds: [], error: `segment resolution failed: ${e instanceof Error ? e.message : String(e)}` };
+      }
     } else if (scope.startsWith('rfm:')) {
       const wanted = scope.slice(4);
-      // Le scoring RFM vit désormais côté SQL (_venue_customer_rfm, migration
-      // 20260827100000) : la RPC renvoie rfm_segment calculé par les MÊMES
-      // quintiles que la page Clients — plus aucune réplique TypeScript à
-      // garder synchrone (une dérive passée avait fait cibler 0 personne sur
-      // tous les segments RFM). La garde de la RPC accepte explicitement le
-      // service_role : ce chemin s'exécute avec le client service.
-      const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: req.venue_id });
+      // Le scoring RFM vit côté SQL (_venue_customer_rfm, migration
+      // 20260827100000), avec les MÊMES quintiles que la page Clients.
+      // get_venue_customer_base rend toute la base en une valeur jsonb :
+      // get_venue_customer_segments, ensemble de lignes, était plafonnée à
+      // 1 000 par PostgREST (les plus récents), et « À risque », « Dormants »
+      // ou « Perdus » ne touchaient presque personne. Même porte, qui accepte
+      // le service_role. Clés nulles retirées : un segment absent compte
+      // « Perdu », comme le compteur de la page.
+      const { data, error } = await supabase.rpc('get_venue_customer_base', { p_venue_id: req.venue_id });
       if (error) return { userIds: [], error: `RFM segments unavailable: ${error.message}` };
-      type RfmCustomerRow = { user_id: string | null; rfm_segment: string | null };
+      type RfmCustomerRow = { user_id?: string | null; rfm_segment?: string | null };
+      const customers = ((data as { customers?: RfmCustomerRow[] } | null)?.customers) ?? [];
       ids = new Set(
-        ((data || []) as RfmCustomerRow[])
-          .filter((row) => !!row.user_id && row.rfm_segment === wanted)
+        customers
+          .filter((row) => !!row.user_id && (row.rfm_segment ?? 'lost') === wanted)
           .map((row) => row.user_id as string),
       );
     } else { // all_customers
