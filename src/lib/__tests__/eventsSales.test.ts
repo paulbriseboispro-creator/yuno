@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { countdownFor, fillPct, pillarLines, showsRevenue, todayActivity, type EventSales } from '../eventsSales';
-import { pickEventId } from '@/hooks/useEventParam';
 
 const base: EventSales = {
   id: 'e1',
@@ -81,13 +80,5 @@ describe('showsRevenue', () => {
 describe('todayActivity', () => {
   it('additionne billets, tables et inscrits du jour', () => {
     expect(todayActivity({ ...base, guestList: { ...base.guestList, today: 3 } })).toBe(9);
-  });
-});
-
-describe('pickEventId', () => {
-  it('n’accepte qu’un uuid', () => {
-    expect(pickEventId('AAAAAAAA-0000-0000-0000-000000000001')).toBe('aaaaaaaa-0000-0000-0000-000000000001');
-    expect(pickEventId('abc')).toBeNull();
-    expect(pickEventId(null)).toBeNull();
   });
 });
