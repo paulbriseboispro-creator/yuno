@@ -133,6 +133,8 @@ interface DoorTicket {
   includesDrink: boolean;
   /** Heure limite de la boisson offerte (HH:MM), en mode « heure fixe ». */
   drinkCutoff: string | null;
+  /** Table VIP : ce qu'il reste à régler au club (total − acompte), comme sur l'écran du videur. */
+  toPayOnSite?: number;
   /**
    * Billet HORS CRÉNEAU scanné mais PAS consommé : la porte tranche, en deux
    * temps (laisser entrer / refuser ; refusé, rembourser ou non). Même
@@ -268,7 +270,10 @@ export default function OrgAppCheckin() {
   const denyFromVerdict = (v: ScanVerdict, name?: string | null) => {
     const reason =
       v.status === 'wrong_venue' ? t('Mauvais événement', 'Wrong event')
-      : v.status === 'already' ? t('Déjà scanné', 'Already scanned')
+      : v.status === 'already'
+        ? (v.scannedAt
+            ? `${t('Déjà scanné à', 'Already scanned at', 'Ya escaneado a las')} ${new Date(v.scannedAt).toLocaleTimeString(language === 'en' ? 'en-GB' : language, { hour: '2-digit', minute: '2-digit', timeZone: getEventTimezone(selectedEvent) })}`
+            : t('Déjà scanné', 'Already scanned', 'Ya escaneado'))
       : v.status === 'cancelled' ? t('Réservation annulée', 'Cancelled reservation')
       : v.status === 'not_paid' ? t('Non payé', 'Not paid')
       : v.status === 'deadline_passed'
@@ -319,6 +324,19 @@ export default function OrgAppCheckin() {
     setDoorTicket(null); setLateStep('decide'); setLatePreview(null); setCancelPreview(null);
   };
 
+  /**
+   * L'écriture a rendu 0 ligne : un collègue est passé avant… ou NOTRE premier
+   * essai a abouti et sa réponse s'est perdue sur le réseau (le nouvel essai
+   * tombe alors sur « déjà scanné »). Scan à nous de moins d'une minute = succès.
+   */
+  const scannedByMeJustNow = async (table: 'tickets' | 'ticket_attendees', id: string): Promise<boolean> => {
+    if (!user?.id) return false;
+    const { data } = await supabase.from(table).select('entry_scanned_by, entry_scanned_at').eq('id', id).maybeSingle();
+    const row = data as { entry_scanned_by: string | null; entry_scanned_at: string | null } | null;
+    return !!row && row.entry_scanned_by === user.id && !!row.entry_scanned_at
+      && Date.now() - new Date(row.entry_scanned_at).getTime() < 60_000;
+  };
+
   /** Le billet dépasse-t-il l'heure limite d'entrée de son tarif ? Règle partagée avec le videur. */
   const isLateNow = (deadline: string | null): boolean =>
     !!deadline && computeLateness(deadline, nowAtDoor()).isPast;
@@ -341,18 +359,21 @@ export default function OrgAppCheckin() {
       const scanCtx = { scope: doorScope, now: new Date(), mode: 'entry' as const };
       const doorAttrs = { venueId: doorScope.venueId, organizerUserId: doorScope.organizerUserId };
 
-      const { data: att } = await supabase
+      // Une lecture en échec LÈVE : jamais « Billet introuvable » sur une coupure.
+      const { data: att, error: attErr } = await supabase
         .from('ticket_attendees')
         .select('id, ticket_id, full_name, entry_scanned, entry_scanned_at')
         .eq('qr_code', qrCode)
         .maybeSingle();
+      if (attErr) throw attErr;
 
       if (att) {
-        const { data: parent } = await supabase
+        const { data: parent, error: parentErr } = await supabase
           .from('tickets')
           .select(`id, status, event_id, full_name, quantity, ${DOOR_ROUND_SELECT}`)
           .eq('id', att.ticket_id)
           .maybeSingle();
+        if (parentErr) throw parentErr;
         if (!parent || parent.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
         // Place remboursée seule à la porte : elle ne passe plus.
         if (await isPlaceRefunded(att.id)) { setLastScan({ ok: false, name: att.full_name ?? undefined, reason: tk('bouncer.placeRefunded') }); return; }
@@ -381,7 +402,8 @@ export default function OrgAppCheckin() {
         // 0 ligne = quelqu'un d'autre a scanné entre la lecture et l'écriture.
         // C'est CE garde, et lui seul, qui rend le double scan impossible quand
         // le club, l'organisateur et son videur scannent en même temps.
-        if (!updated || updated.length === 0) { setLastScan({ ok: false, name: att.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+        // (Ou NOTRE premier essai a abouti et sa réponse s'est perdue : succès.)
+        if ((!updated || updated.length === 0) && !(await scannedByMeJustNow('ticket_attendees', att.id))) { setLastScan({ ok: false, name: att.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
 
         await retrySupabaseAction(async () => {
           const r = await supabase.from('tickets')
@@ -397,10 +419,11 @@ export default function OrgAppCheckin() {
         return;
       }
 
-      const { data: ticket } = await supabase
+      const { data: ticket, error: ticketErr } = await supabase
         .from('tickets')
         .select(`id, full_name, entry_scanned, entry_scanned_at, status, event_id, quantity, ${DOOR_ROUND_SELECT}`)
         .eq('qr_code', qrCode).maybeSingle();
+      if (ticketErr) throw ticketErr;
       if (ticket) {
         if (ticket.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
 
@@ -435,7 +458,7 @@ export default function OrgAppCheckin() {
               .eq('id', ticket.id).eq('entry_scanned', false).select();
             if (r.error) throw r.error; return r;
           });
-          if (!updated || updated.length === 0) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+          if ((!updated || updated.length === 0) && !(await scannedByMeJustNow('tickets', ticket.id))) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
         }
 
         setLastScan({ ok: true, name: ticket.full_name ?? undefined });
@@ -448,10 +471,11 @@ export default function OrgAppCheckin() {
       // Table VIP : le ticket d'UNE personne (titulaire ou Invité k), sinon le QR
       // de la réservation entière (qui fait entrer les personnes encore dehors).
       const tableGuest = await findTableGuestByQr(qrCode);
-      const { data: reservation } = await supabase
+      const { data: reservation, error: reservationErr } = await supabase
         .from('table_reservations')
-        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id, guest_count')
+        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id, guest_count, total_price, deposit')
         .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode).maybeSingle();
+      if (reservationErr) throw reservationErr;
       if (reservation) {
         if (reservation.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
 
@@ -495,6 +519,13 @@ export default function OrgAppCheckin() {
 
         const label = admitted > 1 ? `${doorName ?? ''} · ${admitted} ${t('pers.', 'ppl', 'pers.')}`.trim() : doorName;
         setLastScan({ ok: true, name: label ?? undefined });
+        // Reste à régler au club : le videur le lit sur sa carte, la porte web aussi.
+        const toPay = Math.max(0, Number(reservation.total_price ?? 0) - Number(reservation.deposit ?? 0));
+        setDoorTicket({
+          name: doorName ?? null, roundName: t('Table VIP', 'VIP table', 'Mesa VIP'), headcount: admitted,
+          entryDeadline: null, includesDrink: false, drinkCutoff: null, pendingLate: null,
+          ...(toPay > 0 ? { toPayOnSite: toPay } : {}),
+        });
         setRecent(r => [{ name: label, at: new Date() }, ...r].slice(0, 5));
         toast.success(`✓ ${label ?? t('Entrée validée', 'Entry validated')}`);
         return;
@@ -503,13 +534,14 @@ export default function OrgAppCheckin() {
       // Guest list. Le scan de porte fait foi : valider l'entrée déclenche la
       // commission du promoteur, l'horodatage du scan servant les règles à
       // fenêtre de temps.
-      const { data: gle } = await supabase
+      const { data: gle, error: gleErr } = await supabase
         .from('guest_list_entries')
-        .select('id, full_name, status, entry_scanned, entry_scanned_at, entry_deadline, promoter_id, guest_list:guest_lists!inner(event_id, entry_deadline, free_before_time)')
+        .select('id, full_name, status, entry_scanned, entry_scanned_at, entry_deadline, entry_type, promoter_id, guest_list:guest_lists!inner(event_id, entry_deadline, free_before_time, includes_drink)')
         .or(`qr_code.eq.${qrCode},reservation_code.eq.${qrCode}`)
         .maybeSingle();
+      if (gleErr) throw gleErr;
       if (gle) {
-        const glList = gle.guest_list as unknown as { event_id: string; entry_deadline: string | null; free_before_time: string | null };
+        const glList = gle.guest_list as unknown as { event_id: string; entry_deadline: string | null; free_before_time: string | null; includes_drink: boolean | null };
         if (glList?.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
 
         const verdict = validateGuestListEntry(
@@ -546,6 +578,14 @@ export default function OrgAppCheckin() {
         }
 
         setLastScan({ ok: true, name: gle.full_name ?? undefined });
+        // Boisson offerte d'une invitation (entrée « + boisson » ou liste qui l'inclut) : même
+        // carte que pour un billet, comme sur l'écran du videur.
+        const glDrink = gle.entry_type === 'drink' || !!glList.includes_drink;
+        setDoorTicket({
+          name: gle.full_name ?? null,
+          roundName: glDrink ? t('Guest list + boisson', 'Guest list + drink', 'Guest list + bebida') : t('Guest list', 'Guest list', 'Guest list'),
+          headcount: 1, entryDeadline: null, includesDrink: glDrink, drinkCutoff: null, pendingLate: null,
+        });
         setRecent(r => [{ name: gle.full_name, at: new Date() }, ...r].slice(0, 5));
         toast.success(`✓ ${gle.full_name ?? t('Entrée validée', 'Entry validated')}`);
         return;
@@ -1268,6 +1308,9 @@ function DoorTicketDetails({
         {ticket.roundName && <Row label={t('Tarif', 'Ticket type', 'Tarifa')} value={ticket.roundName} />}
         {ticket.entryDeadline && <Row label={tk('tickets.entryDeadline')} value={ticket.entryDeadline} />}
         <Row label={t('Personnes', 'People', 'Personas')} value={`${ticket.headcount}x`} />
+        {ticket.toPayOnSite != null && (
+          <Row label={t('Reste à régler sur place', 'Left to pay on site', 'Por pagar en el local')} value={`${ticket.toPayOnSite.toFixed(2)} €`} />
+        )}
         {alcoholFree && (
           <div className="flex items-start gap-2 rounded-xl p-3" style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.4)' }}>
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: AMBER }} />
