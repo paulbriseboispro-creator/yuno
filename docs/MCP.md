@@ -261,6 +261,41 @@ dans la Console (Billetterie ou Yuno CRM). Le pro relit et envoie.
   `guide.ts` ; prompt `design_event_email`.
 - Tests : `npx vitest run worker/mcp src/lib/email`.
 
+### 8 bis. Le skill de design d'e-mail (2026-10-26)
+
+Né d'un brouillon raté (Paul, 25/10 : « ignoble, sans rapport avec ce que
+j'avais demandé »). Diagnostic : le guide disait de « recolorer l'inspiration
+avec l'affiche », aucune police web n'était chargée (l'IA écrivait `Avenir Next
+Condensed`, qui retombe sur Arial dans Gmail), aucune forme n'était possible et
+rien n'apprenait à MESURER une inspiration. Ce qui existe maintenant :
+
+- **`worker/mcp/emailDesignSkill.ts`** : le skill rendu par
+  `get_email_design_kit.design_skill` et par la ressource
+  `yuno://guide/email-design`. Lecture littérale de la demande (« comme ça » =
+  copie fidèle, seuls les mots et les photos changent), protocole de
+  reproduction en 7 étapes (échelle, inventaire des bandes, palette, typo
+  mesurée par la LARGEUR des lignes, images, construction, contrôle), faits
+  HTML qui décident du rendu, sosies des polices commerciales, sept concepts
+  quand il n'y a pas d'inspiration, bibliothèque de composants, checklist.
+  Mis au point sur un banc : dix e-mails de marque reproduits par le vrai
+  moteur, comparés capture contre capture, puis contre-épreuve à l'aveugle.
+- **Polices web** : `theme.fonts` (3 familles au plus, liste fermée
+  `supabase/functions/_shared/email-fonts.ts`, chaque adresse Google Fonts
+  vérifiée), une balise `<link>` par famille dans le `<head>`, masquée à
+  Outlook Windows. Apple Mail / iOS / Outlook Mac / Samsung les chargent ;
+  Gmail montre la police de secours de la pile.
+- **Formes** : `https://yunoapp.eu/email-shape/<forme>.png?…`
+  (`worker/emailShape.ts`, route `run_worker_first` `/email-shape/*`, cache
+  Cloudflare) : vague, feston, zigzag, arche, cuvette, biais, déchiré (bord
+  entre deux couleurs ou RUBAN avec `fill`), damier (contours `stroke`),
+  rayures, pois. PNG au double de la taille, sans dépendance, 2 à 10 ms.
+- **Thème** : `page_padding`, `footer_social_style` (`plain` = icônes
+  seules), `footer_font`, `footer_divider`, en plus de l'existant. Miroirs dans
+  `render.ts` et le port Deno `email-studio-html.ts`.
+- Contrôle : les avertissements « largeur fixe » et « width 100 % + padding »
+  se lisent par attribut `style` (un `max-width:100%` n'est plus pris pour un
+  `width:100%`).
+
 ## 9. Pages d'inscription dessinées par l'IA (2026-10-06)
 
 Plan : `docs/designs/MCP_SIGNUP_PAGE_DESIGN_PLAN.md`. Migration

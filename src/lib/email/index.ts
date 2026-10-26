@@ -4,6 +4,7 @@ export * from './blocks';
 export * from './variables';
 export * from './live';
 export * from './smart';
+export * from './fonts';
 export * from './words';
 export * from './render';
 export * from './markup';

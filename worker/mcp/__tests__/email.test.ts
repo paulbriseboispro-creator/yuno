@@ -335,3 +335,38 @@ describe('add_email_image over MCP', () => {
     expect(calls.find((c) => c.fn === 'mcp_write')!.args.p_args).toMatchObject({ source: 'chat_file', name: 'dj.png' });
   });
 });
+
+describe('design skill', () => {
+  it('is in the kit guide, lists real fonts and shapes, and never asks for a footer', async () => {
+    const { emailDesignSkill } = await import('../emailDesignSkill');
+    const skill = emailDesignSkill();
+    expect(skill).not.toContain('{{FONTS}}');
+    expect(skill).not.toContain('{{SHAPES}}');
+    expect(skill).toContain('Rubik');
+    expect(skill).toContain('yunoapp.eu/email-shape/');
+    expect(skill).toMatch(/reproduc/i);
+    expect(emailDesignGuideMarkdown()).toContain('# Yuno email design skill');
+    // Le skill ne doit jamais faire écrire le pied de page légal.
+    expect(skill).toMatch(/never write one/i);
+  });
+
+  it('keeps only listed fonts in the theme and the footer font only if loaded', async () => {
+    const { themeFromInput } = await import('../emailDraft');
+    const t = themeFromInput({ card: '#111111', fonts: ['anton', 'Comic Sans', 'Inter', 'Rubik', 'Lato'], footer_font: 'Inter', page_padding: 90, footer_social_style: 'plain', footer_divider: false })!;
+    expect(t.fonts).toEqual(['Anton', 'Inter', 'Rubik']);
+    expect(t.footerFont).toBe('Inter');
+    expect(t.pagePadding).toBe(64);
+    expect(t.footerSocialStyle).toBe('plain');
+    expect(t.footerDivider).toBe(false);
+    expect(themeFromInput({ fonts: ['Inter'], footer_font: 'Rubik' })!.footerFont).toBeUndefined();
+  });
+
+  it('does not flag a fixed width bounded by max-width:100%, nor max-width as width:100%', async () => {
+    const { lintSmartSection } = await import('../../../supabase/functions/_shared/email-smart');
+    const ok = lintSmartSection('<a href="https://x.com" style="display:block;width:358px;max-width:100%;padding:13px 0;">Go</a>', { index: 0, hasEvent: false, data: null });
+    expect(ok.map((i) => i.code)).not.toContain('fixed_width_mobile');
+    expect(ok.map((i) => i.code)).not.toContain('width_100_padding');
+    const bad = lintSmartSection('<table style="width:400px"><tr><td style="width:100%;padding:20px">x</td></tr></table>', { index: 0, hasEvent: false, data: null });
+    expect(bad.map((i) => i.code)).toEqual(expect.arrayContaining(['fixed_width_mobile', 'width_100_padding']));
+  });
+});

@@ -31,6 +31,8 @@ import { currentNightDate } from '../src/lib/affiliateEventTime';
 import { handleMcpRoute, isMcpRoute } from './mcp';
 // Liens de soirée Yuno CRM (story, bio…) : /go/<code> → page Shotgun.
 import { GO_PATH_RE, TRACKED_PATH_RE, handleGoLink } from './goLink';
+// Formes décoratives des e-mails (vagues, festons, damiers…) en PNG.
+import { SHAPE_PATH_RE, handleShapeRequest } from './emailShape';
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -1694,6 +1696,17 @@ export default {
     // les liste dans run_worker_first). Avant tout le reste : aucune de ces
     // routes n'est une page de l'app.
     if (isMcpRoute(url.pathname)) return handleMcpRoute(request, env, ctx);
+
+    // Formes des e-mails : dessinées une fois, puis servies par le cache de
+    // Cloudflare (la même adresse rend toujours la même image).
+    if (SHAPE_PATH_RE.test(url.pathname) && (request.method === 'GET' || request.method === 'HEAD')) {
+      const cache = G.caches?.default;
+      const hit = cache ? await cache.match(request) : undefined;
+      if (hit) return hit;
+      const res = await handleShapeRequest(url);
+      if (cache && res.ok) ctx.waitUntil(cache.put(request, res.clone()));
+      return res;
+    }
 
     // Lien de soirée Yuno CRM : redirection immédiate vers Shotgun, clic compté
     // côté serveur. Inconnu ou base muette : l'app sert sa page /go/ de repli.

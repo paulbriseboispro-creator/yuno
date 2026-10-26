@@ -2085,6 +2085,17 @@ Migrations `20261009150000` → `153000`. Règles intouchables :
   (`ai_author`). Les messages de contrôle sont en anglais pour l'IA, traduits
   par code (`yc.em.st.lint.*`) pour le pro.
 
+- **Le skill de design (2026-10-26, `docs/MCP.md` § 8 bis)** :
+  `worker/mcp/emailDesignSkill.ts`, rendu par le kit (`design_skill`) et la
+  ressource `yuno://guide/email-design`. « Comme ça » = copie FIDÈLE de
+  l'inspiration (seuls les mots et les photos changent), jamais une
+  réinterprétation recolorée. Polices web = liste fermée `email-fonts.ts`
+  (`theme.fonts`, une balise par famille, cachée à Outlook Windows ; une
+  famille ajoutée se vérifie contre Google Fonts). Formes = PNG dessinés par
+  le Worker (`/email-shape/*`, `worker/emailShape.ts`). Toute évolution du
+  skill se rejoue sur un banc (inspiration → brouillon → rendu du vrai moteur
+  → capture comparée), jamais à l'estime.
+
 ## MCP : l'IA du pro dessine ses pages d'inscription (2026-10-06)
 
 Plan : `docs/designs/MCP_SIGNUP_PAGE_DESIGN_PLAN.md` ; doc : `docs/MCP.md` § 9.

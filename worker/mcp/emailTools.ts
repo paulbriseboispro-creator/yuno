@@ -15,6 +15,7 @@ import {
 } from './emailDraft';
 import { fetchRemoteImage, imageFailureText, storeSlotImage } from './emailImages';
 import { EMAIL_DESIGN_METHOD, EMAIL_HTML_RULES, EXAMPLE_SECTION, smartTagReference } from './emailGuide';
+import { emailDesignSkill } from './emailDesignSkill';
 import type { McpEnv } from './config';
 
 interface CallEnvelope {
@@ -84,6 +85,7 @@ export function enrichKit(result: Record<string, unknown>, lang: SmartLang): Rec
       tags: smartTagReference(),
     },
     ...(preview ? { tag_preview: preview } : {}),
+    design_skill: emailDesignSkill(),
     html_rules: EMAIL_HTML_RULES,
     design_method: EMAIL_DESIGN_METHOD,
     example_section: EXAMPLE_SECTION,
