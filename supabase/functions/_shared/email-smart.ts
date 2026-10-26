@@ -918,8 +918,11 @@ export function lintSmartSection(code: string, opt: LintSectionOptions = {}): Sm
   if (wide.length || /width\s*:\s*(6[0-9]{2}|[7-9]\d{2}|\d{4,})px/i.test(src)) add('warning', 'too_wide', 'Elements wider than 600 px overflow on mobile: the email container is 600 px.');
 
   if (/margin(-[a-z]+)?\s*:\s*[^;"']*-\d+(px)?/i.test(src)) add('warning', 'negative_margin', 'Negative margins push content outside its container on mobile: use the container padding instead.');
-  if (/(^|[;"'\s])width\s*:\s*(3[2-9]\d|[4-5]\d{2})px/i.test(src)) add('warning', 'fixed_width_mobile', 'Fixed widths above 320 px overflow on a 375 px phone: use width:100% with max-width, never a fixed pixel width, for cards and boxes (Yuno adds max-width:100% as a safety net, check the preview).');
-  if (/width\s*:\s*100%[^"']*padding\s*:/i.test(src) && !/box-sizing/i.test(src)) add('warning', 'width_100_padding', 'width:100% plus padding overflows its parent (the padding is added on top): put the padding on an inner <td> or add box-sizing:border-box.');
+  // Par attribut style : une largeur fixe bornée par max-width:100% ne déborde pas.
+  const styles = [...src.matchAll(/\sstyle\s*=\s*("([^"]*)"|'([^']*)')/gi)].map((m) => m[2] ?? m[3] ?? '');
+  const hasRule = (st: string, re: RegExp) => re.test(st);
+  if (styles.some((st) => hasRule(st, /(^|;)\s*width\s*:\s*(3[2-9]\d|[4-5]\d{2})px/i) && !hasRule(st, /max-width\s*:\s*100%/i))) add('warning', 'fixed_width_mobile', 'Fixed widths above 320 px overflow on a 375 px phone: use width:100% with max-width, never a fixed pixel width, for cards and boxes (Yuno adds max-width:100% as a safety net, check the preview).');
+  if (styles.some((st) => hasRule(st, /(^|;)\s*width\s*:\s*100%/i) && hasRule(st, /(^|;)\s*padding(-[a-z]+)?\s*:\s*[^;]*[1-9]/i) && !hasRule(st, /box-sizing/i))) add('warning', 'width_100_padding', 'width:100% plus padding overflows its parent (the padding is added on top): put the padding on an inner <td> or add box-sizing:border-box.');
 
   // Liens.
   const hrefs = attrValues(src, 'href');
