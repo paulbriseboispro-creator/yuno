@@ -20,7 +20,7 @@ import {
 import { tableGuestDoorName } from '@/lib/tableGuests';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import {
-  doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, isPlaceRefunded, placesEnteredByMeJustNow,
+  doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, placesEnteredByMeJustNow,
   refundAtDoor, ticketPlacesOf, type DoorRefundPreview,
 } from '@/lib/scan/doorRefund';
 import type { DoorScope } from '@/lib/scan/types';
@@ -37,7 +37,7 @@ import { StaffHeader } from '@/components/staff/StaffHeader';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner } from '@/lib/qrScanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -184,6 +184,31 @@ const REFUND_REASONS = {
   capacity: { fr: 'Capacité maximale atteinte', en: 'Maximum capacity reached', es: 'Capacidad máxima alcanzada' },
   other: { fr: 'Autre', en: 'Other', es: 'Otro' },
 };
+
+/**
+ * Budget du chemin EN LIGNE d'un scan quand le téléphone peut trancher seul
+ * (Yuno Pro, liste de la soirée téléchargée). Un scan normal prend 1 à 2 s ;
+ * au-delà de ce budget, le réseau du club ne répond plus vraiment.
+ */
+const SCAN_ONLINE_BUDGET_MS = 7_000;
+/** Après un scan tombé en panne réseau, les suivants partent hors ligne pendant ce délai. */
+const WEAK_NETWORK_MS = 45_000;
+
+/** Signal annulé après `ms` (AbortSignal.timeout n'existe pas sur les iOS anciens). */
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+/** Erreur de RÉSEAU (coupure, délai dépassé), par opposition à un refus de la base. */
+function isNetworkError(error: unknown): boolean {
+  const e = error as { name?: string; code?: string; message?: string } | null;
+  if (!e) return false;
+  if (e.name === 'AbortError' || e.name === 'TypeError') return true;
+  if (e.code) return false;
+  return /fetch|network|abort|timeout|load failed|connection/i.test(e.message ?? '');
+}
 
 export default function Bouncer() {
   const { toast } = useToast();
@@ -355,6 +380,8 @@ export default function Bouncer() {
   const [refundPreviewLoading, setRefundPreviewLoading] = useState(false);
   const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
   const offline = useOfflineScanning(offlineEventId, doorScope);
+  /** Jusqu'à quand les scans partent directement hors ligne (réseau qui vient de lâcher). */
+  const weakNetworkUntilRef = useRef(0);
   
   // Cached top clients
   const [topClientsCache, setTopClientsCache] = useState<TopClientRow[] | null>(null);
@@ -894,8 +921,9 @@ export default function Bouncer() {
         userEmail: '',
         fullName: entry.name || undefined,
         quantity: entry.qty || 1,
-        // Une entrée du manifeste avec `ticket_id` est un QR nominatif (un ami).
-        headcount: entryHeadcount(entry.ticket_id ? 'ticket_attendee' : 'ticket', entry.qty),
+        // Une entrée du manifeste avec `ticket_id` est un QR nominatif (un ami) ; le
+        // QR entier d'un billet à places fait entrer ses places encore libres ici.
+        headcount: result.headcount ?? entryHeadcount(entry.ticket_id ? 'ticket_attendee' : 'ticket', entry.qty),
         eventTitle: offline.manifestEvent?.title || '',
         roundName: entry.round || '',
         status: entry.status,
@@ -953,18 +981,31 @@ export default function Bouncer() {
     const qrCode = decodedText.trim();
     setOverlayOffline(false);
 
-    // Coupure réseau + manifeste local disponible → validation offline.
-    if (offline.enabled && offline.manifestReady && !navigator.onLine) {
+    // Le téléphone peut-il trancher seul ? (Yuno Pro, liste de la soirée téléchargée)
+    const canDecideOffline = offline.enabled && offline.manifestReady;
+    // Coupure réseau, ou réseau qui vient de lâcher en plein scan → validation offline.
+    if (canDecideOffline && (!navigator.onLine || Date.now() < weakNetworkUntilRef.current)) {
       await handleOfflineScan(qrCode);
       return;
     }
 
+    // Réseau du club (wifi sans internet, 4G saturée au sous-sol) : le téléphone
+    // se croit en ligne et chaque requête attendait jusqu'à 20 s, plusieurs fois
+    // de suite — une minute par client à la porte. Quand le manifeste permet de
+    // trancher seul, le chemin en ligne a un budget court ; au-delà, on bascule
+    // hors ligne (mêmes règles, scan mis en file et rejoué au retour du réseau).
+    const signal = canDecideOffline ? timeoutSignal(SCAN_ONLINE_BUDGET_MS) : undefined;
+    const sig = <Q extends { abortSignal: (s: AbortSignal) => Q }>(q: Q): Q => (signal ? q.abortSignal(signal) : q);
+    // Avec repli possible, un seul nouvel essai : l'attente des quatre essais se
+    // payait devant la porte, alors que le hors ligne sait répondre tout de suite.
+    const retries = canDecideOffline ? 1 : 3;
+
     try {
       // First try to find a ticket_attendee with this qr_code (nominative tickets)
-      const { data: attendee, error: attendeeError } = await supabase
+      const { data: attendee, error: attendeeError } = await sig(supabase
         .from('ticket_attendees')
         .select(`
-          id, full_name, qr_code, entry_scanned, entry_scanned_at, ticket_id,
+          id, full_name, qr_code, entry_scanned, entry_scanned_at, ticket_id, refunded_at,
           tickets!inner(
             id, event_id, user_email, full_name, quantity, status, user_id, total_price, service_fee,
             drink_redeemed, drink_name, entry_scanned,
@@ -972,10 +1013,13 @@ export default function Bouncer() {
             ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
           )
         `)
-        .eq('qr_code', qrCode)
+        .eq('qr_code', qrCode))
         .maybeSingle();
+      // Une lecture en échec n'est JAMAIS « pas un billet » : sans ce throw, une
+      // coupure finissait en « Entrée non trouvée » sur un billet valable.
+      if (attendeeError) throw attendeeError;
 
-      if (attendee && !attendeeError) {
+      if (attendee) {
         const ticket = attendee.tickets;
 
         // Verdict via les règles pures partagées online/offline (src/lib/scan/rules.ts).
@@ -1012,7 +1056,8 @@ export default function Bouncer() {
           return;
         }
         // Place remboursée seule à la porte : elle ne passe plus, ni ne se rembourse deux fois.
-        if (await isPlaceRefunded(attendee.id)) {
+        // Lue dans la même requête que la place (une lecture de moins à chaque scan).
+        if (attendee.refunded_at) {
           denyScan(t('bouncer.placeRefunded'), attendeeContext);
           return;
         }
@@ -1120,7 +1165,7 @@ export default function Bouncer() {
 
         // Mark the attendee as scanned (optimistic lock: only if not already scanned)
         const { data: updatedAttendee, error: updateAttendeeError } = await retrySupabaseAction(async () => {
-          const res = await supabase
+          const res = await sig(supabase
             .from('ticket_attendees')
             .update({
               entry_scanned: true,
@@ -1129,10 +1174,10 @@ export default function Bouncer() {
             })
             .eq('id', attendee.id)
             .eq('entry_scanned', false)
-            .select();
+            .select());
           if (res.error) throw res.error;
           return res;
-        });
+        }, retries);
 
         if (updateAttendeeError) {
           console.error('Failed to update attendee:', updateAttendeeError);
@@ -1145,21 +1190,9 @@ export default function Bouncer() {
           return;
         }
 
-        // Also mark the parent ticket as scanned (for stats/compatibility)
-        await retrySupabaseAction(async () => {
-          const res = await supabase
-            .from('tickets')
-            .update({
-              entry_scanned: true,
-              entry_scanned_at: new Date().toISOString(),
-              entry_scanned_by: user?.id,
-            })
-            .eq('id', ticket.id)
-            .eq('entry_scanned', false);
-          if (res.error) throw res.error;
-          return res;
-        });
-
+        // Le billet parent est marqué par la base (trigger
+        // door_attendee_scan_marks_ticket) : une écriture de moins à la porte, et
+        // plus de second aller-retour qui pouvait échouer après l'entrée validée.
         void offline.markScannedOnline(qrCode, 'ticket_attendee', attendee.id);
         setScanResult('success');
         setOverlayResult('success');
@@ -1198,21 +1231,22 @@ export default function Bouncer() {
       }
 
       // Fallback: try to find a ticket with this qr_code (legacy / single tickets)
-      const { data: ticket, error: ticketError } = await supabase
+      const { data: ticket, error: ticketError } = await sig(supabase
         .from('tickets')
         .select(`
           *,
           events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
           ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
         `)
-        .eq('qr_code', qrCode)
+        .eq('qr_code', qrCode))
         .maybeSingle();
+      if (ticketError) throw ticketError;
 
-      if (ticket && !ticketError) {
+      if (ticket) {
         // Billet à places nominatives : le QR entier fait entrer les places encore
         // libres (ni entrées avec leur QR, ni remboursées) ; « déjà scanné » quand
         // il n'en reste aucune — un ami entré avant ne bloque plus les autres.
-        const places = await ticketPlacesOf(ticket.id, ticket.quantity);
+        const places = await ticketPlacesOf(ticket.id, ticket.quantity, signal);
         const wholeDoor = wholeTicketDoorState(ticket.entry_scanned, ticket.quantity, places);
         const ticketVerdict = validateTicketEntry(
           {
@@ -1349,7 +1383,7 @@ export default function Bouncer() {
 
         if (places) {
           // Les places libres entrent une à une (premier scan gagne, place par place).
-          const entered = await retrySupabaseAction(() => enterRemainingPlaces(ticket.id, user.id));
+          const entered = await retrySupabaseAction(() => enterRemainingPlaces(ticket.id, user.id, signal), retries);
           admitted = entered || await placesEnteredByMeJustNow(ticket.id, user.id);
           if (admitted === 0) {
             setScanResult('already');
@@ -1359,7 +1393,7 @@ export default function Bouncer() {
           }
         } else {
           const { data: updatedData, error: updateError } = await retrySupabaseAction(async () => {
-            const res = await supabase
+            const res = await sig(supabase
               .from('tickets')
               .update({
                 entry_scanned: true,
@@ -1368,10 +1402,10 @@ export default function Bouncer() {
               })
               .eq('id', ticket.id)
               .eq('entry_scanned', false)
-              .select();
+              .select());
             if (res.error) throw res.error;
             return res;
-          });
+          }, retries);
 
           if (updateError) {
             console.error('Failed to update ticket:', updateError);
@@ -1424,8 +1458,8 @@ export default function Bouncer() {
 
       // Table VIP : le ticket d'UNE personne (titulaire ou Invité k), sinon le QR
       // de la réservation entière.
-      const tableGuest = await findTableGuestByQr(qrCode);
-      const { data: reservation, error: reservationError } = await supabase
+      const tableGuest = await findTableGuestByQr(qrCode, signal);
+      const { data: reservation, error: reservationError } = await sig(supabase
         .from('table_reservations')
         .select(`
           *,
@@ -1433,14 +1467,15 @@ export default function Bouncer() {
           table_zones(name),
           table_packs(name, arrival_deadline)
         `)
-        .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode)
+        .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode))
         .maybeSingle();
+      if (reservationError) throw reservationError;
 
-      if (reservation && !reservationError) {
+      if (reservation) {
         const guestWord = (k: number) => t('tableGuest.label').replace('{n}', String(k));
         // Table à tickets d'invités : le QR de la réservation fait entrer les
         // personnes encore dehors, « déjà scanné » quand il n'en reste aucune.
-        const tableGuests = tableGuest ? null : await tableGuestsOf(reservation.id);
+        const tableGuests = tableGuest ? null : await tableGuestsOf(reservation.id, signal);
         const wholeTable = wholeTableDoorState(reservation.entry_scanned, reservation.guest_count, tableGuests);
         const doorName = tableGuest
           ? tableGuestDoorName(tableGuest, reservation.full_name, guestWord)
@@ -1518,7 +1553,7 @@ export default function Bouncer() {
         if (tableGuest) {
           // Une personne entre ; la base marque la table arrivée (et prévient
           // l'hôte VIP) au premier ticket entré.
-          const entered = await retrySupabaseAction(() => enterTableGuest(tableGuest.id));
+          const entered = await retrySupabaseAction(() => enterTableGuest(tableGuest.id, signal), retries);
           if (entered === 0
             && (await tableGuestsEnteredByMeJustNow(reservation.id, currentUser.id, tableGuest.id)) === 0) {
             setScanResult('already');
@@ -1526,7 +1561,7 @@ export default function Bouncer() {
           }
         } else if (tableGuests) {
           // Les personnes encore dehors entrent d'un coup (premier scan gagne).
-          const entered = await retrySupabaseAction(() => enterRemainingTableGuests(reservation.id));
+          const entered = await retrySupabaseAction(() => enterRemainingTableGuests(reservation.id, signal), retries);
           admitted = entered || await tableGuestsEnteredByMeJustNow(reservation.id, currentUser.id);
           if (admitted === 0) {
             setScanResult('already');
@@ -1535,7 +1570,7 @@ export default function Bouncer() {
         } else {
           const checkInTime = new Date().toISOString();
           const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
-            const res = await supabase
+            const res = await sig(supabase
               .from('table_reservations')
               .update({
                 entry_scanned: true,
@@ -1545,10 +1580,10 @@ export default function Bouncer() {
               })
               .eq('id', reservation.id)
               .eq('entry_scanned', false)
-              .select();
+              .select());
             if (res.error) throw res.error;
             return res;
-          });
+          }, retries);
 
           if (updateError) {
             console.error('Failed to update VIP reservation:', updateError);
@@ -1584,16 +1619,17 @@ export default function Bouncer() {
 
       // Check for Guest List entry (GL- prefix)
       if (qrCode.startsWith('GL-')) {
-        const { data: glEntry, error: glError } = await supabase
+        const { data: glEntry, error: glError } = await sig(supabase
           .from('guest_list_entries')
           .select(`
             *,
             guest_lists!inner(event_id, free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, start_at))
           `)
-          .eq('qr_code', qrCode)
+          .eq('qr_code', qrCode))
           .maybeSingle();
+        if (glError) throw glError;
 
-        if (glEntry && !glError) {
+        if (glEntry) {
           // La part et sa soirée, nommées une fois : le reste du bloc les relit
           // une dizaine de fois et PostgREST ne type pas les jointures imbriquées.
           const glList = glEntry.guest_lists as GuestListJoin;
@@ -1680,7 +1716,7 @@ export default function Bouncer() {
           // le chemin offline ont déjà ce garde).
           const glUser = { id: await myUserId() };
           const { data: glUpdated, error: glUpdateError } = await retrySupabaseAction(async () => {
-            const res = await supabase
+            const res = await sig(supabase
               .from('guest_list_entries')
               .update({
                 entry_scanned: true,
@@ -1690,10 +1726,10 @@ export default function Bouncer() {
               })
               .eq('id', glEntry.id)
               .eq('entry_scanned', false)
-              .select('id');
+              .select('id'));
             if (res.error) throw res.error;
             return res;
-          });
+          }, retries);
           // Erreur réseau / serveur : on la lève pour que le repli hors ligne
           // (ou le message d'erreur) s'applique — jamais un faux « déjà scanné ».
           if (glUpdateError) throw glUpdateError;
@@ -1757,9 +1793,12 @@ export default function Bouncer() {
       denyScan(t('bouncer.ticketNotFound'));
     } catch (error) {
       console.error('Error processing scan:', error);
-      // Filet : échec réseau en plein scan (connexion tombée entre deux) →
-      // basculer sur la validation offline si le manifeste est disponible.
-      if (offline.enabled && offline.manifestReady) {
+      // Filet : échec réseau en plein scan (connexion tombée entre deux, budget
+      // dépassé) → validation offline si le manifeste est disponible. Les scans
+      // des WEAK_NETWORK_MS suivants partent directement hors ligne : sans ça,
+      // chaque client de la file repayait l'attente du budget avant le repli.
+      if (canDecideOffline) {
+        if (isNetworkError(error)) weakNetworkUntilRef.current = Date.now() + WEAK_NETWORK_MS;
         await handleOfflineScan(qrCode);
         return;
       }
@@ -2759,8 +2798,9 @@ export default function Bouncer() {
                           </div>
                         )}
 
-                        {/* Warn this customer (no ticket cancel) — entry context only */}
-                        {(scanResult === 'success' || scanResult === 'already') && (
+                        {/* Warn this customer (no ticket cancel) — entry context only.
+                            Registre du CLUB : masqué sur une soirée sans club, où il ne ferait rien. */}
+                        {(scanResult === 'success' || scanResult === 'already') && venueId && (
                           <button
                             onClick={() => openWarn({ userId: scannedTicket.userId, email: scannedTicket.userEmail, name: scannedTicket.fullName })}
                             className="w-full mt-1 min-h-[44px] py-2.5 px-3 rounded-xl text-[13px] font-medium flex items-center justify-center gap-2"
@@ -3058,13 +3098,18 @@ export default function Bouncer() {
                     className="mx-6 w-full max-w-[340px] rounded-[28px] p-6 text-center"
                     style={{ background: cardBg, boxShadow: '0 24px 60px -12px rgba(0,0,0,0.7)', willChange: 'transform, opacity' }}
                   >
-                    {(scanResult === 'success' || scanResult === 'vip_success') ? (
+                    {/* Hors créneau pas encore tranché : RIEN n'est validé (le billet
+                        n'est pas consommé). Une coche et « Entrée validée » faisaient
+                        entrer la personne sans trace, et son QR restait réutilisable. */}
+                    {isLate ? (
+                      <AlertTriangle className="mx-auto h-14 w-14" style={{ color: fg }} strokeWidth={2.5} />
+                    ) : (scanResult === 'success' || scanResult === 'vip_success') ? (
                       <CheckCircle className="mx-auto h-14 w-14" style={{ color: fg }} strokeWidth={2.5} />
                     ) : (
                       <XCircle className="mx-auto h-14 w-14" style={{ color: fg }} strokeWidth={2.5} />
                     )}
                     <p className="mt-2 max-w-full truncate text-2xl font-black uppercase tracking-wider" style={{ color: fg }}>
-                      {scanResult === 'success' && t('bouncer.entryApproved')}
+                      {scanResult === 'success' && (isLate ? t('bouncer.outOfSlot') : t('bouncer.entryApproved'))}
                       {scanResult === 'vip_success' && 'VIP'}
                       {scanResult === 'already' && t('bouncer.alreadyScanned')}
                       {scanResult === 'error' && t('bouncer.entryDenied')}
@@ -3243,7 +3288,8 @@ export default function Bouncer() {
                             </div>
                           </div>
                         )}
-                        {scannedTicket && (
+                        {/* Avertir = registre du CLUB : rien à écrire sur une soirée sans club. */}
+                        {scannedTicket && venueId && (
                           <Button
                             variant="outline"
                             className="mt-2.5 min-h-[44px] w-full"
@@ -3275,7 +3321,8 @@ export default function Bouncer() {
                             )}
                           </div>
                         )}
-                        {scannedTicket && (
+                        {/* Avertir = registre du CLUB : rien à écrire sur une soirée sans club. */}
+                        {scannedTicket && venueId && (
                           <Button
                             variant="outline"
                             className="mt-2.5 min-h-[44px] w-full"

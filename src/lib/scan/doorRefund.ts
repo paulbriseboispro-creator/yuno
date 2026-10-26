@@ -136,16 +136,24 @@ export interface TicketPlaces {
 }
 
 /**
- * Les places d'un billet de plusieurs personnes. Lecture TOLÉRANTE : `null` si
- * le billet est d'une personne (son QR suffit, aucun aller-retour de plus à
- * chaque scan), s'il n'a pas de places, ou si la lecture échoue — la porte
- * retombe alors sur le billet seul, comme avant.
+ * Les places d'un billet de plusieurs personnes. `null` si le billet est d'une
+ * personne (son QR suffit, aucun aller-retour de plus à chaque scan) ou s'il
+ * n'a pas de places. Une lecture en échec LÈVE : retomber sur « le billet seul »
+ * répondait « déjà scanné » à l'acheteur dès qu'un ami était entré avec son QR,
+ * alors qu'il restait des places libres.
  */
-export async function ticketPlacesOf(ticketId: string, quantity: number | null | undefined): Promise<TicketPlaces | null> {
+export async function ticketPlacesOf(
+  ticketId: string,
+  quantity: number | null | undefined,
+  /** Budget réseau du scan (une lecture annulée lève, et le scan bascule hors ligne). */
+  signal?: AbortSignal,
+): Promise<TicketPlaces | null> {
   if (!(Number(quantity) > 1)) return null;
-  const { data, error } = await supabase
+  const query = supabase
     .from('ticket_attendees').select('entry_scanned, refunded_at').eq('ticket_id', ticketId);
-  if (error || !data || data.length === 0) return null;
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
+  if (error) throw error;
+  if (!data || data.length === 0) return null;
   const refunded = data.filter(p => !!p.refunded_at).length;
   const entered = data.filter(p => !p.refunded_at && !!p.entry_scanned).length;
   return { total: data.length, remaining: data.length - refunded - entered, entered, refunded };
@@ -157,14 +165,15 @@ export async function ticketPlacesOf(ticketId: string, quantity: number | null |
  * marqué par ricochet. Rend le nombre de personnes admises (0 = un collègue
  * vient de les faire entrer). La base refuse de toute façon une place remboursée.
  */
-export async function enterRemainingPlaces(ticketId: string, by: string | null): Promise<number> {
-  const { data, error } = await supabase
+export async function enterRemainingPlaces(ticketId: string, by: string | null, signal?: AbortSignal): Promise<number> {
+  const query = supabase
     .from('ticket_attendees')
     .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: by })
     .eq('ticket_id', ticketId)
     .eq('entry_scanned', false)
     .is('refunded_at', null)
     .select('id');
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
   if (error) throw error;
   return data?.length ?? 0;
 }
