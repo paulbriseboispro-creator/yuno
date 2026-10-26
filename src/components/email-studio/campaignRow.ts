@@ -42,6 +42,8 @@ export interface CampaignRow {
   resend_enabled: boolean | null;
   resend_delay_hours: number | null;
   resend_subject: string | null;
+  /** E-mail informatif : billets visés (NULL = tous). Absent avant la migration 20261109700000. */
+  ticket_round_ids?: string[] | null;
   /** Langue de l'e-mail (pied de page, balises Yuno). Absent sur les anciennes lignes. */
   language?: string | null;
   /** IA qui a préparé le brouillon via le MCP Yuno. */
@@ -108,6 +110,7 @@ export function rowToCampaign(row: CampaignRow, venueName: string): StudioCampai
     resendEnabled: !!row.resend_enabled,
     resendDelayHours: Math.min(168, Math.max(12, Math.floor(Number(row.resend_delay_hours) || 48))),
     resendSubject: row.resend_subject || '',
+    ticketRoundIds: Array.isArray(row.ticket_round_ids) ? row.ticket_round_ids : null,
     language: row.language === 'en' || row.language === 'es' || row.language === 'fr' ? row.language : null,
     aiAuthor: row.ai_author || null,
     aiUpdatedAt: row.ai_updated_at || null,
@@ -169,6 +172,10 @@ export function campaignToRow(c: StudioCampaign, scope: StudioScope): Record<str
     resend_enabled: c.resendEnabled && c.type === 'promotional',
     resend_delay_hours: c.resendDelayHours,
     resend_subject: c.resendSubject.trim() || null,
+    // Billets visés : seulement pour un informatif « acheteurs de billets »
+    // relié à une soirée. Partout ailleurs, la colonne revient à NULL (tous).
+    ticket_round_ids: c.type === 'informational' && c.eventId && legacy.audience_type === 'event_buyers'
+      ? (c.ticketRoundIds ?? null) : null,
   };
   // Langue posée par le MCP (ou plus tard par le Studio) : réécrite telle
   // quelle, jamais effacée par une sauvegarde d'un écran qui ne la montre pas.

@@ -797,6 +797,11 @@ export interface StudioCampaign {
   resendDelayHours: number;
   /** Objet du renvoi ; vide = objet de la campagne. */
   resendSubject: string;
+  /**
+   * E-mail informatif « acheteurs de billets » : billets visés
+   * (email_campaigns.ticket_round_ids). null / absent = tous les billets.
+   */
+  ticketRoundIds?: string[] | null;
   /** Langue de l'e-mail (blocs Yuno, dates, pied de page, balises). null = français. */
   language?: EmailLanguage | null;
   /** IA qui a préparé ce brouillon via le MCP Yuno (« Claude »), lecture seule. */
