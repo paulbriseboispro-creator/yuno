@@ -408,7 +408,7 @@ export default function AudienceStep({ scope, events, segments }: {
             </MicroLabel>
             <select
               value={campaign.eventId || ''}
-              onChange={(e) => patchCampaign({ eventId: e.target.value || null })}
+              onChange={(e) => patchCampaign({ eventId: e.target.value || null, ticketRoundIds: null })}
               aria-label={t('studio.aud.event')}
               style={{ ...inputStyle, appearance: 'auto' as const }}
             >
@@ -452,6 +452,18 @@ export default function AudienceStep({ scope, events, segments }: {
               );
             })}
           </div>
+
+          {/* Informatif « acheteurs de billets » : un billet ou une heure
+              d'entrée précise (Before 1 AM ≠ All Night Long). */}
+          {campaign.type === 'informational' && scope.kind !== 'platform' && campaign.eventId
+            && (campaign.audiences[0]?.kind || 'event_buyers') === 'event_buyers' && (
+            <InfoTicketPicker
+              scope={scope}
+              eventId={campaign.eventId}
+              value={campaign.ticketRoundIds ?? null}
+              onChange={(ids) => patchCampaign({ ticketRoundIds: ids })}
+            />
+          )}
 
           {/* Yuno Tickets › Clients : les segments de l'écran Clients, et le
               filtre préparé depuis « Écrire à… ». */}
@@ -758,6 +770,108 @@ function MatchModeCard({ value, onChange, names, t }: {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+interface TicketRoundHolders { id: string; name: string; price: number | null; entry_deadline: string | null; holders: number }
+
+/**
+ * Billets visés d'un e-mail informatif. `value` null = tous les billets ; une
+ * liste = ces billets seulement (vide = personne). Les billets sont rangés par
+ * heure d'entrée : un clic sur l'heure coche tous ses billets, paliers à venir
+ * compris (ceux qui achètent d'ici l'envoi sont pris au moment du départ).
+ * Les effectifs comptent l'acheteur et les personnes nommées sur le billet.
+ */
+function InfoTicketPicker({ scope, eventId, value, onChange }: {
+  scope: StudioScope; eventId: string; value: string[] | null; onChange: (ids: string[] | null) => void;
+}) {
+  const { t } = useLanguage();
+  const [rounds, setRounds] = useState<TicketRoundHolders[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const scopeId = studioScopeId(scope);
+  useEffect(() => {
+    let cancelled = false;
+    setRounds(null);
+    supabase.rpc('email_event_ticket_holders' as never, { p_event_id: eventId, ...studioScopeArgs(scope) } as never)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const d = (data || {}) as { rounds?: TicketRoundHolders[]; total?: number };
+        setRounds(Array.isArray(d.rounds) ? d.rounds : []);
+        setTotal(Number(d.total) || 0);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, scopeId]);
+
+  if (!rounds) return null;
+  if (rounds.length === 0) {
+    return <p style={{ margin: '12px 0 0', color: T3, fontSize: 11.5, fontFamily: FONT_UI }}>{t('studio.aud.ticketsEmpty')}</p>;
+  }
+
+  const allIds = rounds.map((r) => r.id);
+  const picked = new Set(value ?? allIds);
+  const commit = (next: Set<string>) => {
+    onChange(allIds.every((id) => next.has(id)) ? null : allIds.filter((id) => next.has(id)));
+  };
+  const toggle = (ids: string[]) => {
+    // Depuis « Tous les billets », un clic sur un billet ou une heure ne
+    // retient QUE celui-là : c'est ce que le pro veut dire en le cochant.
+    if (value === null) { commit(new Set(ids)); return; }
+    const next = new Set(picked);
+    const allOn = ids.every((id) => next.has(id));
+    ids.forEach((id) => (allOn ? next.delete(id) : next.add(id)));
+    commit(next);
+  };
+  // Une heure d'entrée = un groupe (l'heure limite du billet, sinon « sans heure limite »).
+  const groups = new Map<string, TicketRoundHolders[]>();
+  rounds.forEach((r) => {
+    const k = r.entry_deadline || '';
+    groups.set(k, [...(groups.get(k) || []), r]);
+  });
+  const byEntry = groups.size > 1;
+  const sum = (rs: TicketRoundHolders[]) => rs.reduce((a, r) => a + r.holders, 0);
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <MicroLabel style={{ marginBottom: 7 }}>{t('studio.aud.tickets')}</MicroLabel>
+      <p style={{ margin: '0 0 9px', color: T3, fontSize: 11.5, fontFamily: FONT_UI }}>{t('studio.aud.ticketsHint')}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <SegmentRow
+          on={value === null}
+          onClick={() => onChange(null)}
+          name={t('studio.aud.ticketsAll')}
+          desc={t('studio.aud.ticketsAllDesc')}
+          count={total}
+        />
+        {[...groups.entries()].map(([k, rs]) => (
+          <div key={k || 'free'} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {byEntry && (
+              <SegmentRow
+                on={value !== null && rs.every((r) => picked.has(r.id))}
+                onClick={() => toggle(rs.map((r) => r.id))}
+                name={k ? t('studio.aud.ticketsEntryBefore').replace('{time}', k) : t('studio.aud.ticketsEntryFree')}
+                desc={t('studio.aud.ticketsEntryDesc').replace('{n}', String(rs.length))}
+                count={sum(rs)}
+              />
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: byEntry ? 18 : 0 }}>
+              {rs.map((r) => (
+                <SegmentRow
+                  key={r.id}
+                  on={value !== null && picked.has(r.id)}
+                  onClick={() => toggle([r.id])}
+                  name={r.name}
+                  count={r.holders}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {value !== null && value.length === 0 && (
+        <p style={{ margin: '9px 0 0', color: WARN, fontSize: 11.5, fontFamily: FONT_UI }}>{t('studio.aud.ticketsNone')}</p>
+      )}
     </div>
   );
 }
