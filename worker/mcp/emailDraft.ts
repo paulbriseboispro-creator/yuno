@@ -11,6 +11,7 @@ import {
   type SmartEvent, type SmartIssue, type SmartLang,
 } from '../../supabase/functions/_shared/email-smart';
 import { emailWords } from '../../supabase/functions/_shared/email-words';
+import { cleanEmailFonts } from '../../supabase/functions/_shared/email-fonts';
 
 export const SECTION_SHOW_TO = ['everyone', 'vip_table', 'no_vip_table', 'buyers', 'no_buyers', 'new_subscribers'] as const;
 export const NATIVE_BLOCKS = ['event', 'tickets', 'lineup', 'countdown', 'table', 'guestlist', 'social', 'divider', 'spacer'] as const;
@@ -41,6 +42,16 @@ export interface ThemeInput {
   dark?: boolean;
   radius?: number;
   footer_social?: boolean;
+  /** Polices web (familles de EMAIL_FONTS, 3 au plus). */
+  fonts?: string[];
+  /** Marge de page au-dessus et au-dessous de la colonne (0 à 64, défaut 24). */
+  page_padding?: number;
+  /** Réseaux du pied de page : chip (pastilles) ou plain (icônes seules). */
+  footer_social_style?: 'chip' | 'plain';
+  /** Police du pied de page (une famille de fonts). */
+  footer_font?: string;
+  /** Filet en tête du pied de page (absent = automatique). */
+  footer_divider?: boolean;
 }
 
 // ── Couleurs (miroir de contrastText / mixHex, render.ts) ────────────────────
@@ -95,6 +106,13 @@ export function themeFromInput(t: ThemeInput | undefined): Record<string, unknow
   };
   if (typeof t.radius === 'number' && Number.isFinite(t.radius)) out.radius = Math.max(0, Math.min(40, Math.round(t.radius)));
   if (typeof t.footer_social === 'boolean') out.footerSocial = t.footer_social;
+  const fonts = cleanEmailFonts(t.fonts);
+  if (fonts.length) out.fonts = fonts;
+  if (typeof t.page_padding === 'number' && Number.isFinite(t.page_padding)) out.pagePadding = Math.max(0, Math.min(64, Math.round(t.page_padding)));
+  if (t.footer_social_style === 'plain' || t.footer_social_style === 'chip') out.footerSocialStyle = t.footer_social_style;
+  const footerFont = cleanEmailFonts([t.footer_font])[0];
+  if (footerFont && fonts.includes(footerFont)) out.footerFont = footerFont;
+  if (typeof t.footer_divider === 'boolean') out.footerDivider = t.footer_divider;
   return out;
 }
 

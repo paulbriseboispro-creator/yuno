@@ -10,6 +10,7 @@
 // des annuaires les acceptent.
 
 import { SMART_TAGS } from '../../supabase/functions/_shared/email-smart';
+import { emailDesignSkill } from './emailDesignSkill';
 
 /** Contraintes techniques d'une section : ce que les clients mail rendent vraiment. */
 export const EMAIL_HTML_RULES: readonly string[] = [
@@ -17,7 +18,7 @@ export const EMAIL_HTML_RULES: readonly string[] = [
   'MOBILE OVERFLOW (the usual defect, check it before sending the draft): the email is read on a 375 px phone. Never give a card, box or table a fixed pixel width above 320 (use width="100%" with style="max-width:Npx"). Never put padding on an element that also has width:100% (the padding is added on top and the box pokes out of its parent): put the padding on an inner <td>, or add box-sizing:border-box. No negative margins, no position, no flex or grid. A big date or number block (day, month, time) goes in a table cell with width="100%", centered text and padding on the cell, never in a fixed-width box.',
   'Styles are inline (style="..."). Yuno removes <style>, <link>, <script>, forms, iframes, SVG, video and on* attributes before sending.',
   'Responsive helpers already present in the email head (use them as class names): yn-stack (a column <td> that stacks full width on mobile and keeps its own padding: use it for two-column layouts), yn-hide-sm (hidden on mobile), yn-full-sm (image or block full width on mobile), yn-pad-sm (16 px side padding on mobile), yn-center-sm (centered text on mobile). Avoid yn-col: it also removes the column padding on mobile.',
-  'Fonts: no web font is loaded. Use font stacks: "Helvetica Neue",Helvetica,Arial,sans-serif for strong headlines (weight 800 to 900, tight letter-spacing -0.5 to -1.5px, uppercase for a poster feel); Georgia,"Times New Roman",serif for an editorial feel; "Courier New",Courier,monospace for small labels. Body text 15 to 17 px, line-height 1.5; headlines 32 to 56 px; never below 13 px.',
+  'Fonts: up to 3 web font families from the design skill list go in theme.fonts (Yuno loads them in the email head for Apple Mail, iOS Mail, Outlook for Mac and Samsung Mail; Gmail and Outlook Windows show the fallback). Write the full stack each time, with single quotes inside style="…": font-family:\'Rubik\',\'Trebuchet MS\',Arial,sans-serif. Without web fonts: "Helvetica Neue",Helvetica,Arial for headlines, Georgia for an editorial feel, "Courier New" for labels. Body text 15 to 21 px, line-height in px; never below 13 px.',
   'Images: the event poster {{event.cover}}, line-up photos and {{brand.logo}} are ready to use. Any other image (attached by the person, or from a link) is first stored with add_email_image, which returns its Yuno URL and size. Always set width="…" and style="display:block;width:100%;max-width:…px;height:auto;border:0", keep the image ratio, and write an alt text that says what the image shows. Never put essential text only inside an image.',
   'Buttons are "bulletproof": a table cell with bgcolor and border-radius containing an <a> with display:inline-block, padding 15 to 18 px by 30 to 40 px, font-size 16 to 18 px, bold, text-decoration:none. Minimum 44 px tall. Add a VML <!--[if mso]> roundrect only if you want rounded buttons in Outlook (optional).',
   'Rounded shapes: border-radius works on a cell background, but a rounded OUTLINE drawn on a <td> renders square because email tables use border-collapse:collapse. For an outlined pill or card, put the border on its own <table style="border-collapse:separate;border:2px solid #hex;border-radius:999px;"> instead.',
@@ -36,7 +37,7 @@ export const EMAIL_DESIGN_METHOD: readonly string[] = [
   'ANNOUNCEMENT FLOW: hero → line-up (photos when the kit has them, otherwise names) → why come (2 or 3 short concrete lines from the kit: music, venue, time, what is included) → the offer (tiers with prices; a sold-out tier shown crossed out is social proof) → VIP tables when available → urgency (countdown, last tiers) → final button → social links. Repeat the main button 2 or 3 times in a long email, same color, same words.',
   'VIP VARIATION: lead with exclusivity (best spot, table, bottle service, priority entry), show table packs or zones with their prices and the scarcity line {{tables.left_label}}, button to {{event.tables_url}}. On an external ticketing (event.sales = "external", Yuno CRM) there are no Yuno tables: the VIP angle is early access, the best tiers, a personal tone, and the button goes to {{event.tickets_url}}.',
   'COPY: short sentences, the second person ("tu" is the norm in French nightlife unless the brand says "vous"), active verbs on buttons ("Je prends ma place", "Réserver ma table"). Only facts from the kit: never invent an artist, a price, a time, a perk or a dress code.',
-  'FROM AN INSPIRATION (image, link, description): extract the palette (page background, card, accent, text), the shapes (corner radius, pills, inset cards), the typography mood (weight, case, tracking) and the rhythm (stacked cards, image/text pairs, big headline blocks). Rebuild that structure in tables, then recolor it with the event poster and the brand: the inspiration gives the layout, the night gives the colors and the words.',
+  'FROM AN INSPIRATION (image, link, description): follow the reproduction protocol of design_skill. "Like this" means the same structure, proportions, palette, fonts, shapes and spacing: only the words and the photos change to the night. "In my colors" keeps the layout and swaps the palette.',
   'FROM A DESIGN SYSTEM: use its exact colors, radius and type scale; map them to the theme (background, card, text, accent, footer) and to inline styles.',
   'THEME: set theme.background (page around the email), theme.card (email body), theme.text, theme.accent (buttons of Yuno blocks, links), theme.footer_background and theme.footer_text so the legal footer matches the design, theme.radius for the container corners, theme.dark for dark designs.',
   'ACCESSIBILITY: text contrast at least 4.5:1, body 15 px or more, buttons 16 px or more, meaningful alt texts, a language attribute is set by Yuno from "language".',
@@ -93,5 +94,7 @@ export function emailDesignGuideMarkdown(): string {
     '```html',
     EXAMPLE_SECTION,
     '```',
+    '',
+    emailDesignSkill(),
   ].join('\n');
 }

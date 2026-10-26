@@ -110,13 +110,21 @@ const SECTION: JsonSchema = {
 };
 const THEME: JsonSchema = {
   type: 'object',
-  description: 'Colors of the email frame. background = page around the email, card = email body behind the sections, text, muted, accent (links and native Yuno blocks), button_text, divider, footer_background and footer_text (the legal footer Yuno adds), dark (dark design), radius (corners of the email, 0 to 40 px), footer_social (social icons in the footer, default true).',
+  description: 'The email frame. background = page around the email, card = email body behind the sections, text, muted, accent (links and native Yuno blocks), button_text, divider, '
+    + 'footer_background and footer_text (the legal footer Yuno adds), dark (dark design), radius (corners of the email, 0 to 40 px), page_padding (page space above and below the email, 0 to 64 px, default 24), '
+    + 'fonts (up to 3 web font families from the design skill list, loaded in the email head; write their full stack in each font-family), '
+    + 'footer_social (social icons in the footer, default true), footer_social_style (chip = round chips, plain = bare icons), footer_font (one of fonts, for the legal footer), footer_divider (line above the footer; absent = automatic).',
   properties: {
     background: HEX, card: HEX, text: HEX, muted: HEX, accent: HEX, button_text: HEX, divider: HEX,
     footer_background: HEX, footer_text: HEX,
     dark: { type: 'boolean' },
     radius: { type: 'integer', minimum: 0, maximum: 40 },
+    page_padding: { type: 'integer', minimum: 0, maximum: 64 },
+    fonts: { type: 'array', maxItems: 3, items: { type: 'string', maxLength: 40 } },
     footer_social: { type: 'boolean' },
+    footer_social_style: { type: 'string', enum: ['chip', 'plain'] },
+    footer_font: { type: 'string', maxLength: 40 },
+    footer_divider: { type: 'boolean' },
   },
   additionalProperties: false,
 };
