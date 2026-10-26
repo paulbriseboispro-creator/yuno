@@ -147,7 +147,8 @@ async function buildBypass(role, userId) {
   if (role.session === 'pin') bypass.pinSession = { role: role.role, ...stamp };
   if (role.session === 'staff') {
     const rows = await rest.get(`profiles?select=venue_id&id=eq.${userId}`);
-    bypass.staffSession = { venueId: rows[0]?.venue_id ?? null, role: role.role, ...stamp };
+    // userId : la session PIN est liée au compte (hasValidStaffSession la refuse sinon).
+    bypass.staffSession = { venueId: rows[0]?.venue_id ?? null, role: role.role, userId, ...stamp };
   }
   return bypass;
 }
@@ -163,6 +164,8 @@ export async function open({
   downloadDir = null,
   // noWait:true = rend la page sans attendre le boot (diagnostic d'un écran blanc).
   noWait = false,
+  // Drapeaux Chrome en plus (ex. fausse caméra : --use-file-for-fake-video-capture=qr.y4m).
+  chromeArgs = [],
 } = {}) {
   // `as: 'anon'` = navigateur VIERGE, sans session : c'est ce que voit un club
   // qui clique le lien d'invitation reçu par email, ou un visiteur.
@@ -188,6 +191,7 @@ export async function open({
     ...(process.env.HTTPS_PROXY ? [`--proxy-server=${process.env.HTTPS_PROXY}`, '--proxy-bypass-list=localhost;127.0.0.1'] : []),
     '--hide-scrollbars', '--use-angle=swiftshader',
     `--window-size=${metrics.width},${metrics.height}`,
+    ...chromeArgs,
     'about:blank',
   ], { stdio: 'ignore' });
 
