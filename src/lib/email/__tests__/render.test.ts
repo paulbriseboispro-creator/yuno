@@ -1450,3 +1450,33 @@ describe('soirée externe (billetterie connectée)', () => {
     expect(withEmailUtm('pas une url')).toBe('pas une url');
   });
 });
+
+describe('theme fonts, page and footer (design skill)', () => {
+  it('loads only listed web fonts, hidden from Outlook Windows', () => {
+    const html = renderEmailHtml([], { ...theme, fonts: ['Rubik', 'Nope', 'rubik', 'Anton'] }, ctx);
+    expect(html).toContain('<!--[if !mso]><!-->');
+    expect(html).toContain('family=Rubik:');
+    expect(html).toContain('family=Anton:');
+    expect(html).not.toContain('Nope');
+    expect(html.match(/fonts\.googleapis/g)).toHaveLength(2);
+    expect(html).toContain('&amp;display=swap');
+    expect(renderEmailHtml([], theme, ctx)).not.toContain('fonts.googleapis');
+  });
+
+  it('sets the page padding and the footer font, icons and divider', () => {
+    const t = { ...theme, pagePadding: 0, fonts: ['Inter'], footerFont: 'Inter', footerSocialStyle: 'plain' as const, footerDivider: false };
+    const html = renderEmailHtml([], t, { ...ctx, socialLinks: { instagram: 'https://instagram.com/x' } });
+    expect(html).toContain('style="padding:0px 8px;"');
+    expect(html).toContain("font-family:'Inter','Helvetica Neue'");
+    expect(html).toContain('width="22" height="22"');
+    expect(html).not.toContain('border-radius:50%');
+    // Une police de pied de page hors des polices de l'e-mail est ignorée.
+    expect(renderEmailHtml([], { ...theme, footerFont: 'Inter' }, ctx)).not.toContain("'Inter'");
+  });
+
+  it('never prints a double period after a signer that ends with one', () => {
+    const html = renderEmailHtml([], theme, { ...ctx, venueName: 'Specs Inc.', language: 'en' });
+    expect(html).toContain('Specs Inc. All rights reserved');
+    expect(html).not.toContain('Inc..');
+  });
+});

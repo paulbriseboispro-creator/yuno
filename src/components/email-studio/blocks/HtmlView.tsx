@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EmailTheme, HtmlBlock } from '@/lib/email';
-import { buildSmartData, renderSmartSection, RESPONSIVE_UTILITY_CSS, smartLang, smartNeeds } from '@/lib/email';
+import { buildSmartData, emailFontLinks, renderSmartSection, RESPONSIVE_UTILITY_CSS, smartLang, smartNeeds } from '@/lib/email';
 import { blockBgColor, blockPad, liveFor, type CanvasCtx } from './common';
 
 /** Destinataire fictif de l'aperçu (même prénom que l'aperçu du Studio CRM). */
@@ -45,11 +45,13 @@ export default function HtmlView({ block, theme, ctx, mobile }: { block: HtmlBlo
   // le canevas, pas la largeur de l'iframe : la section fait 600 px de large
   // sur ordinateur, une media query s'y déclencherait et empilerait ses
   // colonnes alors que la boîte de réception d'un ordinateur ne le fait pas.
-  const doc = useMemo(() => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+  // Polices web de l'e-mail (theme.fonts) : la section se dessine avec elles, comme dans Apple Mail.
+  const fontLinks = useMemo(() => emailFontLinks(theme.fonts), [theme.fonts]);
+  const doc = useMemo(() => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${fontLinks}<style>
 html,body{margin:0;padding:0;background:transparent;font-family:${FONT};-webkit-text-size-adjust:100%;}
 table{border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;}a{text-decoration:none;}
 ${mobile ? RESPONSIVE_UTILITY_CSS : ''}
-</style></head><body>${html}</body></html>`, [html, mobile]);
+</style></head><body>${html}</body></html>`, [html, mobile, fontLinks]);
 
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(60);

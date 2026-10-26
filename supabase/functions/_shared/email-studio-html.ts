@@ -19,6 +19,7 @@ import { isRowListed } from './free-ticketing.ts';
 // Sections sur mesure (balises Yuno) : module pur PARTAGÉ avec le front et le
 // Worker MCP — importé tel quel, jamais recopié.
 import { buildSmartData, renderSmartSection, smartLang, smartNeeds, type SmartLang } from './email-smart.ts';
+import { emailFontLinks, footerFontStack } from './email-fonts.ts';
 import { emailWords, eventDateLabel, formatEuroIn, localizeDefaultLabel, wordsLang, type EmailWordsLang } from './email-words.ts';
 export interface StudioTheme {
   name: string; bg: string; card: string; headerBg: string; headerText: string;
@@ -28,6 +29,22 @@ export interface StudioTheme {
   footerSocial?: boolean;
   /** Coins du conteneur (px, 0 à 40). Absent = 12 (miroir de themeRadius). */
   radius?: number;
+  /** Polices web (miroir de types.ts). */
+  fonts?: string[];
+  /** Marge de page autour de la colonne (miroir de themePagePadding). */
+  pagePadding?: number;
+  /** Réseaux du pied de page : pastilles ou icônes seules (miroir de render.ts). */
+  footerSocialStyle?: 'chip' | 'plain';
+  /** Police du pied de page (une famille de `fonts`). */
+  footerFont?: string;
+  /** Filet en tête du pied de page (absent = automatique). */
+  footerDivider?: boolean;
+}
+
+/** Miroir de themePagePadding (types.ts). */
+function themePagePadding(theme: Pick<StudioTheme, 'pagePadding'>): number {
+  const p = Number(theme.pagePadding);
+  return Number.isFinite(p) ? Math.max(0, Math.min(64, Math.round(p))) : 24;
 }
 
 /** Miroir de themeRadius (types.ts). */
@@ -687,9 +704,13 @@ function renderSocial(
     .filter(([, url]) => typeof url === 'string' && url.trim().length > 0) as [string, string][];
   if (entries.length === 0) return '';
   const { chip, glyph } = socialChip(opts.iconColor, theme);
+  // Pied de page en icônes seules (miroir de render.ts).
+  const plain = !standalone && theme.footerSocialStyle === 'plain';
+  const plainGlyph = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#111111' ? 'd' : 'w';
   const cells = entries.map(([key, url]) => {
     const href = url.startsWith('http') ? url : `https://${url}`;
     const label = esc(socialLabel(key, url));
+    if (plain) return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 9px;text-decoration:none;"><img src="${ctx.baseUrl}/email-social/${key}-${plainGlyph}.png" width="22" height="22" alt="${label}" style="display:inline-block;border:0;vertical-align:middle;" /></a>`;
     return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 5px;text-decoration:none;"><table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;"><tr><td width="34" height="34" style="width:34px;height:34px;border-radius:50%;background:${chip};text-align:center;vertical-align:middle;font-size:0;line-height:0;"><img src="${ctx.baseUrl}/email-social/${key}-${glyph}.png" width="16" height="16" alt="${label}" style="display:inline-block;border:0;vertical-align:middle;" /></td></tr></table></a>`;
   }).join('');
   const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
@@ -705,6 +726,8 @@ function renderSocial(
 
 /** Trait du pied de page : seulement sur footer CLAIR (miroir de render.ts). */
 function footerBorder(theme: StudioTheme): string {
+  if (theme.footerDivider === false) return '';
+  if (theme.footerDivider === true) return `border-top:1px solid ${theme.divider};`;
   return isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
     ? '' : `border-top:1px solid ${theme.divider};`;
 }
@@ -1201,10 +1224,10 @@ function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boo
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(footerSigner(ctx))}${footerPlace(ctx) ? ' — ' + esc(footerPlace(ctx)) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.sent(esc(ctx.recipient.email), reason)}</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, esc(footerSigner(ctx)))}</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, esc(footerSigner(ctx).replace(/\.+$/, '')))}</p>
      ${unsub}
      ${poweredBy(theme, ctx)}`,
-    `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
+    `padding:22px 24px;background:${theme.footerBg};${border}font-family:${footerFontStack(theme, FONT)};text-align:center;`,
   );
 }
 
@@ -1233,6 +1256,7 @@ export function renderStudioEmailHtml(
 <meta name="supported-color-schemes" content="${theme.dark ? 'dark' : 'light dark'}">
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 <title>${esc(ctx.subject)}</title>
+${emailFontLinks(theme.fonts)}
 <style>
   html,body{margin:0!important;padding:0!important;}
   table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;}
@@ -1255,8 +1279,8 @@ export function renderStudioEmailHtml(
 <body class="yn-bg" style="margin:0;padding:0;background:${theme.bg};font-family:${FONT};-webkit-text-size-adjust:100%;">
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
-  <tr><td align="center" style="padding:24px 8px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
+  <tr><td align="center" style="padding:${themePagePadding(theme)}px 8px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark && theme.card.toLowerCase() !== theme.bg.toLowerCase() ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}
     </table>

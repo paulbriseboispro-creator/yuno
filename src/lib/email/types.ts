@@ -515,6 +515,25 @@ export interface EmailTheme {
   footerSocial?: boolean;
   /** Coins du conteneur de l'e-mail (px, 0 à 40). Absent = 12. */
   radius?: number;
+  /**
+   * Polices web de l'e-mail (familles de la liste fermée EMAIL_FONTS, 3 au
+   * plus) : une balise <link> par famille dans le <head>. Absent = aucune.
+   */
+  fonts?: string[];
+  /** Marge de page au-dessus et au-dessous de la colonne (px, 0 à 64). Absent = 24. */
+  pagePadding?: number;
+  /** Réseaux du pied de page : pastilles rondes (défaut) ou icônes seules (`plain`). */
+  footerSocialStyle?: 'chip' | 'plain';
+  /** Police du pied de page : une famille de `fonts`. Absent = Arial. */
+  footerFont?: string;
+  /** Filet en tête du pied de page. Absent = automatique (pied de page clair). */
+  footerDivider?: boolean;
+}
+
+/** Marge de page autour de la colonne : le réglage du thème, bornée, 24 par défaut. */
+export function themePagePadding(theme: Pick<EmailTheme, 'pagePadding'>): number {
+  const p = Number(theme.pagePadding);
+  return Number.isFinite(p) ? Math.max(0, Math.min(64, Math.round(p))) : 24;
 }
 
 /** Coins du conteneur : le réglage du thème, borné, 12 par défaut. */

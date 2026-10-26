@@ -21,7 +21,7 @@ import type {
   HtmlBlock, DividerBlock,
   GuestListBlock, LineupBlock, LineupArtist,
 } from './types';
-import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES, themeRadius } from './types';
+import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES, themePagePadding, themeRadius } from './types';
 import { buildSmartData, renderSmartSection, smartLang } from './smart';
 import {
   isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
@@ -29,9 +29,12 @@ import {
   LINEUP_KICKER, artistInitials, lineupArtists, lineupRows, lineupUsesPhotos,
 } from './live';
 import { interpolateVariables } from './variables';
+import { emailFontLinks, footerFontStack } from './fonts';
 import { emailWords, localizeDefaultLabel } from '../../../supabase/functions/_shared/email-words';
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
+
+
 /** Métadonnées (kicker, jauge, badges) — signal nightlife du design public. */
 const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
 
@@ -1078,9 +1081,13 @@ function renderSocial(
     .filter(([, url]) => url && url.trim().length > 0);
   if (entries.length === 0) return '';
   const { chip, glyph } = socialChip(opts.iconColor, theme);
+  // Pied de page en icônes seules : le glyphe se lit sur le fond du pied de page.
+  const plain = !standalone && theme.footerSocialStyle === 'plain';
+  const plainGlyph = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#111111' ? 'd' : 'w';
   const cells = entries.map(([key, url]) => {
     const href = url!.startsWith('http') ? url! : `https://${url}`;
     const label = escapeHtml(socialLabel(key, url!));
+    if (plain) return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 9px;text-decoration:none;"><img src="${ctx.baseUrl}/email-social/${key}-${plainGlyph}.png" width="22" height="22" alt="${label}" style="display:inline-block;border:0;vertical-align:middle;" /></a>`;
     return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 5px;text-decoration:none;"><table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;"><tr><td width="34" height="34" style="width:34px;height:34px;border-radius:50%;background:${chip};text-align:center;vertical-align:middle;font-size:0;line-height:0;"><img src="${ctx.baseUrl}/email-social/${key}-${glyph}.png" width="16" height="16" alt="${label}" style="display:inline-block;border:0;vertical-align:middle;" /></td></tr></table></a>`;
   }).join('');
   const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
@@ -1159,6 +1166,8 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
  * criarde entre le contenu et le footer.
  */
 function footerBorder(theme: EmailTheme): string {
+  if (theme.footerDivider === false) return '';
+  if (theme.footerDivider === true) return `border-top:1px solid ${theme.divider};`;
   return isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
     ? '' : `border-top:1px solid ${theme.divider};`;
 }
@@ -1207,10 +1216,10 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): 
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(footerSigner(ctx))}${footerPlace(ctx) ? ' — ' + escapeHtml(footerPlace(ctx)) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.sent(escapeHtml(ctx.recipient.email), reason)}</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, escapeHtml(footerSigner(ctx)))}</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">${w.rights(year, escapeHtml(footerSigner(ctx).replace(/\.+$/, '')))}</p>
      ${unsub}
      ${poweredBy(theme, ctx)}`,
-    `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
+    `padding:22px 24px;background:${theme.footerBg};${border}font-family:${footerFontStack(theme, FONT)};text-align:center;`,
   );
 }
 
@@ -1264,6 +1273,7 @@ export function renderEmailHtml(
 <meta name="supported-color-schemes" content="${theme.dark ? 'dark' : 'light dark'}">
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 <title>${escapeHtml(ctx.subject)}</title>
+${emailFontLinks(theme.fonts)}
 <style>
   html,body{margin:0!important;padding:0!important;}
   table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;}
@@ -1281,8 +1291,8 @@ export function renderEmailHtml(
 <body class="yn-bg" style="margin:0;padding:0;background:${theme.bg};font-family:${FONT};-webkit-text-size-adjust:100%;">
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
-  <tr><td align="center" style="padding:24px 8px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
+  <tr><td align="center" style="padding:${themePagePadding(theme)}px 8px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark && theme.card.toLowerCase() !== theme.bg.toLowerCase() ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}
     </table>
