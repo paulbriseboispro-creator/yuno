@@ -12,7 +12,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { useStaffNightPulse } from '@/hooks/useStaffNightPulse';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import { toast } from 'sonner';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner } from '@/lib/qrScanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import { LanguageSelector } from '@/components/LanguageSelector';

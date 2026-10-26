@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScanLine, CheckCircle2, XCircle, AlertTriangle, Camera, X } from 'lucide-react';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner } from '@/lib/qrScanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import type { Tables } from '@/integrations/supabase/types';

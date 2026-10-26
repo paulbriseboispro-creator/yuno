@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { EventFilter } from '@/components/EventFilter';
 import { ChefHat, Camera, Search, CheckCircle, XCircle, Ban, AlertTriangle, Clock, Bell } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner } from '@/lib/qrScanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import type { SupabaseClient } from '@supabase/supabase-js';

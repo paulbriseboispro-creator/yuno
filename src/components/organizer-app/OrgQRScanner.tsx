@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner } from '@/lib/qrScanner';
 import { Camera, CameraOff, Keyboard } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
