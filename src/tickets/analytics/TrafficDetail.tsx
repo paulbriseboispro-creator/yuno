@@ -1,15 +1,13 @@
 /**
  * Yuno Tickets › Analyses › Trafic, le détail (lot 4 du plan combiné,
  * migration 20261109340000, `tix_ana_traffic_detail`) : la page du club / de
- * l'organisateur, les liens suivis rangés sous leur source, et les e-mails /
- * push avec ce qui s'est vendu dans les 7 jours après un clic.
+ * l'organisateur (onglet Trafic) et les liens suivis rangés sous leur source
+ * (Ventes › Ce qui a fait vendre).
  */
-import { useState, type CSSProperties } from 'react';
-import { Hv } from '@/crm/ui/Hv';
-import { Icon } from '@/crm/ui/Icon';
+import type { CSSProperties } from 'react';
 import { useTixT } from '@/tickets/analytics/i18n';
-import type { AnaMeta, TixPageTraffic, TixTrafficLink, TixTrafficMessage, AnaTrafficDetail } from '@/tickets/analytics/data';
-import { CardHead, Fill, Sk, TrendChart, bucketTitle, card, fadeIn, xLabels } from './anaUi';
+import type { AnaMeta, TixPageTraffic, TixTrafficLink } from '@/tickets/analytics/data';
+import { CardHead, Fill, TrendChart, bucketTitle, card, fadeIn, xLabels } from './anaUi';
 import { deltaPct, jLabelFor } from './SalesTab';
 
 /** Sous 10, un pourcentage ne veut rien dire : l'écran montre les nombres. */
@@ -114,105 +112,5 @@ export function SourceLinks({ links, money }: { links: TixTrafficLink[]; money: 
         </div>
       ))}
     </div>
-  );
-}
-
-// ── E-mails et push ───────────────────────────────────────────────────────
-
-export function MessagesCard({ d, money, loading, rv, go }: { d: AnaTrafficDetail | undefined; money: boolean; loading: boolean; rv: boolean; go: boolean }) {
-  const T = useTixT();
-  const { t, tp, n, eur, pct, dShort } = T;
-  const all = d?.messages ?? [];
-  const [more, setMore] = useState(false);
-  const rows = more ? all : all.slice(0, 8);
-  const val = (x: TixTrafficMessage) => (money ? Number(x.revenue ?? 0) : x.orders);
-  const top = Math.max(1, ...rows.map(val));
-  const tot = d?.messages_total;
-  const grid = 'minmax(210px,1.8fr) 84px 92px 92px 84px minmax(130px,1.1fr)';
-  const name = (x: TixTrafficMessage) => (x.channel === 'email' && x.recipe
-    ? t('ya.tr.msg.recipe', { name: t(`em.auto.kind.${x.recipe}.title`) })
-    : x.name ?? '—');
-  const rate = (k: number, of: number) => (of >= MIN_SAMPLE ? pct((k / of) * 100) : null);
-  return (
-    <section style={{ ...card, gap: 16 }}>
-      <CardHead title={t('ya.tr.msg.t')} sub={t('ya.tr.msg.sub')} />
-      {loading || !tot ? <Sk h={200} r={16} /> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, ...fadeIn(rv, 180) }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,220px),1fr))', gap: 12 }}>
-            {(['email', 'push'] as const).map((c) => (
-              <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 18, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-100)' }}>
-                <span style={{ flex: 'none', width: 36, height: 36, borderRadius: 12, display: 'grid', placeItems: 'center', background: c === 'email' ? 'var(--ya-tangerine-50, var(--ya-red-50))' : 'var(--ya-red-50)', color: 'var(--ya-red-600)' }}>
-                  <Icon name={c === 'email' ? 'mail' : 'bell'} size={17} stroke={2.2} />
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 13.5, color: 'var(--ya-sand-600)' }}>{t(`ya.tr.msg.tot.${c}`)}</span>
-                  <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>
-                    {money ? eur(Number(tot[c].revenue ?? 0)) : tp('ya.tr.ordersN', tot[c].orders, { n: n(tot[c].orders) })}
-                  </b>
-                  <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{tp('ya.tr.buyersN', tot[c].buyers, { n: n(tot[c].buyers) })}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-          {rows.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.tr.msg.empty')}</p>
-          ) : (
-            <div className="ya-thin-scroll" style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: 760, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '0 10px 10px', ...mono }}>
-                  <span>{t('ya.tr.msg.col.msg')}</span>
-                  <span style={{ textAlign: 'right' }}>{t('ya.tr.msg.col.sent')}</span>
-                  <span style={{ textAlign: 'right' }}>{t('ya.tr.msg.col.opened')}</span>
-                  <span style={{ textAlign: 'right' }}>{t('ya.tr.msg.col.clicked')}</span>
-                  <span style={{ textAlign: 'right' }}>{t('ya.tr.msg.col.buyers')}</span>
-                  <span>{t(money ? 'ya.pa.col.salesValue' : 'ya.tr.msg.col.orders')}</span>
-                </div>
-                {rows.map((x, i) => {
-                  const v = val(x);
-                  const op = rate(x.opened, x.sent);
-                  const cl = rate(x.clicked, x.sent);
-                  return (
-                    <div key={`${x.channel}:${x.id}`} style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, alignItems: 'center', padding: '11px 10px', borderRadius: 14, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <span style={{ flex: 'none', width: 28, height: 28, borderRadius: 9, display: 'grid', placeItems: 'center', background: 'var(--ya-sand-100)', color: 'var(--ya-sand-600)' }}>
-                          <Icon name={x.channel === 'email' ? 'mail' : 'bell'} size={14} stroke={2.2} />
-                        </span>
-                        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <b style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name(x)}</b>
-                          <span style={{ fontSize: 12, color: 'var(--ya-sand-500)', whiteSpace: 'nowrap' }}>
-                            {[x.channel === 'push' ? (x.recipe === 'auto' ? t('ya.tr.msg.pushAuto') : t('ya.tr.msg.push')) : x.recipe ? t('ya.tr.msg.auto') : t('ya.tr.msg.email'), x.at ? dShort(x.at) : null].filter(Boolean).join(' · ')}
-                          </span>
-                        </span>
-                      </span>
-                      <span style={{ textAlign: 'right', color: 'var(--ya-sand-700)' }}>{x.sent > 0 ? n(x.sent) : '—'}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--ya-sand-700)' }}>{x.channel === 'push' ? '—' : op ?? n(x.opened)}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--ya-sand-700)' }}>{cl ?? n(x.clicked)}</span>
-                      <b style={{ textAlign: 'right' }}>{n(x.buyers)}</b>
-                      <span style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                        <b>{money ? eur(v) : n(v)}</b>
-                        <Fill pct={(v / top) * 100} go={go} delay={i * 50} h={5} bg="var(--ya-ink)" dur={800} />
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {all.length > 8 && (
-                <Hv
-                  as="button"
-                  type="button"
-                  onClick={() => setMore((o) => !o)}
-                  style={{ marginTop: 6, height: 36, padding: '0 14px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                  hover={{ borderColor: 'var(--ya-sand-400)' }}
-                >
-                  {more ? t('ya.tr.msg.less') : t('ya.tr.msg.more', { n: n(all.length) })}
-                  <Icon name="chevronDown" size={14} stroke={2.4} style={{ transform: `rotate(${more ? 180 : 0}deg)`, transition: 'transform 200ms' }} />
-                </Hv>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-      <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.tr.msg.foot')}</span>
-    </section>
   );
 }

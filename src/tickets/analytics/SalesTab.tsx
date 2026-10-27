@@ -5,7 +5,7 @@
  * aux deux dernières, l'heure des achats, les tarifs, les soirées, et la part
  * des ventes venue d'un message Yuno.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
@@ -16,7 +16,7 @@ import { useTixT, type TixFormatters } from '@/tickets/analytics/i18n';
 import { useTixCaps, useTixNights } from '@/tickets/analytics/scope';
 import { TicketSplit } from '@/tickets/analytics/TicketSplit';
 import { useTixRoutes } from '@/tickets/analytics/routes';
-import { PILLARS, useNightDoor, type AnaFilters, type AnaPillar, type AnaSales, type AnaTab, type TixPayout, type TixRefundsBlock } from '@/tickets/analytics/data';
+import { PILLARS, useAnaTraffic, useAnaTrafficDetail, useNightDoor, type AnaFilters, type AnaPillar, type AnaSales, type AnaTab, type TixPayout, type TixRefundsBlock } from '@/tickets/analytics/data';
 import { useEventReport } from '@/hooks/useEventReport';
 import { DoorCard, LinesCard, NightHeader, TargetCard, reportMarks } from './NightReport';
 import {
@@ -24,6 +24,7 @@ import {
   bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type CurveLine, type TileSpec,
 } from './anaUi';
 import { TablesKept } from './KeptBlocks';
+import { SalesMade, newShareByNight } from './SalesMade';
 
 type T = ReturnType<typeof useTixT>;
 
@@ -83,6 +84,16 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
   const compareNight = useEventReport(compareNightId);
   const door = useNightDoor(nightId);
   const scopeNights = useTixNights();
+  // « Ce qui a fait vendre » (lot T4 du plan Trafic) : l'attribution de chaque vente, sous « Tout ».
+  const made = useAnaTraffic(f, pl === 'all');
+  const madeDetail = useAnaTrafficDetail(f, pl === 'all');
+  const newBy = useMemo(() => newShareByNight(made.data), [made.data]);
+  // Arrivé depuis Trafic (« Voir ce qui a fait vendre ») : la partie s'ouvre à l'écran.
+  useEffect(() => {
+    if (pl !== 'all' || !made.data || window.location.hash !== '#ya-made') return;
+    const el = document.getElementById('ya-made');
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [pl, made.data]);
 
   // Billets payants à part des entrées gratuites (D4, 20261020200000).
   // Une table VIP, une inscription ou un remboursement se comptent un par un.
@@ -444,6 +455,9 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         )}
       </div>}
 
+      {/* Ce qui a fait vendre : les sources, les messages, qui vous découvre. */}
+      {pl === 'all' && <SalesMade q={made} detail={madeDetail} f={f} money={money} goTab={goTab} onWrite={() => navigate(R.campaigns)} />}
+
       {/* Soirées */}
       {!rf && <section style={{ ...card, gap: 16 }}>
         <CardHead
@@ -464,13 +478,16 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
           const amtMax = Math.max(1, ...d.events.map((e) => (money ? Number(e.revenue ?? 0) : tkOf(e))));
           // La porte de chaque soirée ; le bilan de toute la soirée, sous « Tout » et pour qui voit l'argent.
           const showBal = money && pl === 'all';
-          const grid = `minmax(190px,1.4fr) minmax(170px,1.1fr) minmax(140px,.9fr) minmax(120px,.8fr)${showBal ? ' minmax(150px,.9fr)' : ''} 96px`;
+          // Sous « Tout » : la part de nouveaux clients de chaque soirée (déplacée depuis Trafic).
+          const showNew = pl === 'all' && newBy.size > 0;
+          const grid = `minmax(190px,1.4fr) minmax(170px,1.1fr) minmax(140px,.9fr) minmax(120px,.8fr)${showBal ? ' minmax(150px,.9fr)' : ''}${showNew ? ' 84px' : ''} 96px`;
           return (
             <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="ya-thin-scroll">
-              <div style={{ minWidth: showBal ? 940 : 800, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ minWidth: (showBal ? 940 : 800) + (showNew ? 90 : 0), display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: '0 12px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
                   <span>{t('ya.ana.col.night')}</span><span>{t(isTb ? 'ya.ana.col.tablesFill' : 'ya.ana.col.fill')}</span><span>{t(isGl ? 'ya.ana.col.periodSignups' : 'ya.ana.col.periodSales')}</span><span>{t('ya.ana.col.entries')}</span>
                   {showBal && <span>{t('ya.ana.col.balance')}</span>}
+                  {showNew && <span style={{ textAlign: 'right' }} title={t('ya.ana.col.newClients')}>{t('ya.ana.col.newShare')}</span>}
                   <span style={{ textAlign: 'right' }}>{t('ya.ana.col.vsPrev')}</span>
                 </div>
                 {d.events.map((e, i) => {
@@ -514,6 +531,10 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                       </span>
                       <DoorCell door={e.door ?? null} upcoming={e.upcoming} go={go} delay={i * 90} />
                       {showBal && <BalanceCell night={e.balance ?? null} upcoming={e.upcoming} />}
+                      {showNew && (() => {
+                        const nb = newBy.get(e.id);
+                        return <span style={{ textAlign: 'right', fontSize: 14, color: 'var(--ya-sand-700)', fontVariantNumeric: 'tabular-nums' }}>{!nb || nb.of === 0 ? '—' : nb.of >= 10 ? pct((nb.n / nb.of) * 100) : n(nb.n)}</span>;
+                      })()}
                       <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 600, color: e.upcoming ? 'var(--ya-sand-500)' : dlt === null ? 'var(--ya-sand-400)' : dlt >= 0 ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>
                         {e.upcoming ? t('ya.ana.s.ongoing') : dlt === null ? '—' : `${dlt >= 0 ? '▲' : '▼'} ${pct(Math.abs(dlt) * 100)}`}
                       </span>
@@ -523,7 +544,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                 {d.events_other && (
                   <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: 12, fontSize: 14.5, color: 'var(--ya-sand-600)' }}>
                     <span>{tp('ya.ana.s.others', d.events_other.count, { n: n(d.events_other.count) })}</span><span />
-                    <b style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--ya-ink)' }}>{money && d.events_other.revenue !== null ? eur(Number(d.events_other.revenue)) : isTb ? tp('ya.ana.s.nTables', Number(d.events_other.tickets), { n: n(Number(d.events_other.tickets)) }) : isGl ? tp('ya.ana.nSignups', Number(d.events_other.tickets), { n: n(Number(d.events_other.tickets)) }) : t('ya.ana.nTickets', { n: n(Number(d.events_other.tickets)) })}</b><span />{showBal && <span />}<span />
+                    <b style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--ya-ink)' }}>{money && d.events_other.revenue !== null ? eur(Number(d.events_other.revenue)) : isTb ? tp('ya.ana.s.nTables', Number(d.events_other.tickets), { n: n(Number(d.events_other.tickets)) }) : isGl ? tp('ya.ana.nSignups', Number(d.events_other.tickets), { n: n(Number(d.events_other.tickets)) }) : t('ya.ana.nTickets', { n: n(Number(d.events_other.tickets)) })}</b><span />{showBal && <span />}{showNew && <span />}<span />
                   </div>
                 )}
               </div>
