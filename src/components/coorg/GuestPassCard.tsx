@@ -455,7 +455,7 @@ function PassRow({ r, w, busy, canMoney, when, staff, editing, onEdit, staffOpen
           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
             <DarkInput value={sName} onChange={setSName} placeholder={w('guestSpace.door.staffNamePh')} />
             <DarkInput type="email" value={sEmail} onChange={setSEmail} placeholder="email@club.com" />
-            <PhoneInputWithCountry value={sPhone} onChange={setSPhone} defaultCountry={country} size="sm" tone="dark" placeholder="WhatsApp" />
+            <PhoneInputWithCountry value={sPhone} onChange={setSPhone} defaultCountry={country} size="sm" tone="dark" placeholder={w('guestSpace.door.staffPhonePh')} />
             <OrgButton size="sm" variant="primary" disabled={!!busy || sName.trim().length < 2 || (!sEmail.trim() && !sPhone.trim())} onClick={() => void inviteStaff()}>
               {w('guestSpace.door.staffInvite')}
             </OrgButton>

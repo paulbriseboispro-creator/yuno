@@ -428,6 +428,7 @@ const WORDS = {
     'Escanean las entradas y la guest list de esta noche con la app Yuno Pro, junto al equipo de {org}.',
   ],
   'guestSpace.door.staffNamePh': ['First and last name', 'Prénom et nom', 'Nombre y apellido'],
+  'guestSpace.door.staffPhonePh': ['WhatsApp (optional)', 'WhatsApp (facultatif)', 'WhatsApp (opcional)'],
   'guestSpace.door.staffContactPh': ['Email or WhatsApp', 'E-mail ou WhatsApp', 'Email o WhatsApp'],
   'guestSpace.door.staffInvite': ['Invite', 'Inviter', 'Invitar'],
   'guestSpace.door.staffInvited': ['Invitation sent', 'Invitation envoyée', 'Invitación enviada'],
@@ -660,7 +661,7 @@ const WORDS = {
   'guestSpace.org.claimInvited': ['Invitation sent, waiting for them', 'Invitation envoyée, en attente', 'Invitación enviada, en espera'],
   'guestSpace.org.staffTitle': ['Club staff at the door', 'Staff du club à la porte', 'Staff del club en la puerta'],
   'guestSpace.org.staffInvite': ['Invite the club’s staff', 'Inviter le staff du club', 'Invitar al staff del club'],
-  'guestSpace.org.staffRule': ['Scans this night only, until 6 h after the end.', 'Scanne cette soirée seulement, jusqu’à 6 h après la fin.', 'Escanea solo esta noche, hasta 6 h tras el final.'],
+  'guestSpace.org.staffRule': ['An email is enough: the invitation leaves by email. Scans this night only, until 6 h after the end.', 'Un e-mail suffit : l’invitation part par e-mail. Scanne cette soirée seulement, jusqu’à 6 h après la fin.', 'Basta con un correo: la invitación sale por correo. Escanea solo esta noche, hasta 6 h tras el final.'],
   'guestSpace.org.created': [
     "Guest invited",
     "Invité ajouté",
