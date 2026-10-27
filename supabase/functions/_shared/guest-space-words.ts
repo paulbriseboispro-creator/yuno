@@ -686,20 +686,37 @@ const WORDS = {
     '{inviter} t’invite à scanner à la porte de cette soirée avec l’app Yuno Pro. Accès à cette soirée seulement.',
     '{inviter} te invita a escanear en la puerta de esta noche con la app Yuno Pro. Acceso solo a esta noche.',
   ],
-  'guestSpace.doorInvite.emailPh': ['Your email (to create your access)', 'Ton email (pour créer ton accès)', 'Tu email (para crear tu acceso)'],
-  'guestSpace.doorInvite.accept': ['Accept', 'Accepter', 'Aceptar'],
-  'guestSpace.doorInvite.done': [
-    'Done. Check your email to set your password, then open Yuno Pro and set your PIN.',
-    'C’est fait. Regarde tes emails pour choisir ton mot de passe, puis ouvre Yuno Pro et choisis ton code PIN.',
-    'Hecho. Revisa tu email para elegir tu contraseña, luego abre Yuno Pro y elige tu PIN.',
+  'guestSpace.doorInvite.emailPh': ['Your email', 'Ton e-mail', 'Tu correo'],
+  'guestSpace.doorInvite.accept': ['Join the door', 'Rejoindre la porte', 'Unirme a la puerta'],
+  'guestSpace.doorInvite.signIn': [
+    'Sign in with your email: we send you a code, no password.',
+    'Connecte-toi avec ton e-mail : on t’envoie un code, pas de mot de passe.',
+    'Entra con tu correo: te enviamos un código, sin contraseña.',
   ],
-  'guestSpace.doorInvite.doneExisting': [
-    'Done. Sign in to Yuno Pro with this email: the door of this night is waiting for you.',
-    'C’est fait. Connecte-toi à Yuno Pro avec cet email : la porte de cette soirée t’attend.',
-    'Hecho. Inicia sesión en Yuno Pro con este email: la puerta de esta noche te espera.',
+  'guestSpace.doorInvite.signedAs': ['Signed in as {email}', 'Connecté avec {email}', 'Conectado con {email}'],
+  'guestSpace.doorInvite.switchAccount': ['Use another account', 'Changer de compte', 'Usar otra cuenta'],
+  'guestSpace.doorInvite.needApp': [
+    'At the door, you scan with the Yuno Pro app on your iPhone.',
+    'À la porte, tu scannes avec l’app Yuno Pro sur ton iPhone.',
+    'En la puerta, escaneas con la app Yuno Pro en tu iPhone.',
+  ],
+  'guestSpace.doorInvite.getApp': ['1. Get Yuno Pro', '1. Télécharger Yuno Pro', '1. Descargar Yuno Pro'],
+  'guestSpace.doorInvite.openInApp': ['2. Open this invitation in Yuno Pro', '2. Ouvrir cette invitation dans Yuno Pro', '2. Abrir esta invitación en Yuno Pro'],
+  'guestSpace.doorInvite.continueWeb': ['No iPhone? Continue in the browser', 'Pas d’iPhone ? Continuer dans le navigateur', '¿Sin iPhone? Seguir en el navegador'],
+  'guestSpace.doorInvite.ready': [
+    'You are on the door team. Open the scanner when the doors open.',
+    'Tu es dans l’équipe de porte. Ouvre le scanner à l’ouverture des portes.',
+    'Estás en el equipo de puerta. Abre el escáner cuando abran las puertas.',
+  ],
+  'guestSpace.doorInvite.openScanner': ['Open the scanner', 'Ouvrir le scanner', 'Abrir el escáner'],
+  'guestSpace.doorInvite.later': [
+    'To sign in again later: open Yuno Pro, type your email, a code arrives.',
+    'Pour te reconnecter plus tard : ouvre Yuno Pro, tape ton e-mail, un code arrive.',
+    'Para volver a entrar: abre Yuno Pro, escribe tu correo y te llega un código.',
   ],
   'guestSpace.doorInvite.closed': ['This night is over: the invitation no longer works.', 'Cette soirée est terminée : l’invitation ne marche plus.', 'Esta noche ha terminado: la invitación ya no funciona.'],
-  'guestSpace.doorInvite.mismatch': ['This invitation was sent to {email}. Sign out and try again.', 'Cette invitation a été envoyée à {email}. Déconnecte-toi et réessaie.', 'Esta invitación se envió a {email}. Cierra sesión y vuelve a intentarlo.'],
+  'guestSpace.doorInvite.mismatch': ['This invitation was sent to {email}: sign in with that address.', 'Cette invitation a été envoyée à {email} : connecte-toi avec cette adresse.', 'Esta invitación se envió a {email}: entra con ese correo.'],
+  'guestSpace.doorInvite.taken': ['This invitation was already used by another account.', 'Cette invitation a déjà servi à un autre compte.', 'Esta invitación ya la usó otra cuenta.'],
 
   // ── Contrat de soirée de l'invité (signé dans son espace, sans compte) ─────
   'guestSpace.contract.title': ['Contract of the night', 'Contrat de la soirée', 'Contrato de la noche'],

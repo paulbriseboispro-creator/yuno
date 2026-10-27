@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Users, Trash2, KeyRound, Settings2, Beer, ShieldAlert, Shirt, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Users, Trash2, Settings2, Beer, ShieldAlert, Shirt, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
@@ -85,15 +85,10 @@ export default function OrgAppTeam() {
   const [submittingTeam, setSubmittingTeam] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState<TeamRole>('editor');
-  const [scannerPinTarget, setScannerPinTarget] = useState<Member | null>(null);
-  const [scannerPinValue, setScannerPinValue] = useState('');
-  const [settingScannerPin, setSettingScannerPin] = useState(false);
   const [permsTarget, setPermsTarget] = useState<Member | null>(null);
 
   // -------- STAFF (barman/bouncer/cloakroom) --------
   const [staff, setStaff] = useState<Staff[]>([]);
-  const [staffPinSet, setStaffPinSet] = useState<Set<string>>(new Set());
-  const [pinLinkSending, setPinLinkSending] = useState<string | null>(null);
   const [pendingStaffInvites, setPendingStaffInvites] = useState<{ id: string; email: string; role: StaffRole; created_at: string }[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [staffOpen, setStaffOpen] = useState(false);
@@ -126,17 +121,6 @@ export default function OrgAppTeam() {
       .order('created_at', { ascending: false });
     const staffRows = (data ?? []) as Staff[];
     setStaff(staffRows);
-
-    // Le PIN vit sur le profil de l'employé (il le pose lui-même), pas sur
-    // org_staff.pin_hash. Il se lit par RPC et JAMAIS en direct : aucune policy
-    // de `profiles` n'ouvre la ligne d'un tiers à un organisateur, donc la
-    // lecture directe rendait zéro ligne sans erreur — « PIN à configurer »
-    // s'affichait pour tout le monde, y compris un videur qui avait son code
-    // depuis des mois.
-    const { data: pinRows } = await supabase.rpc('get_org_staff_pin_status', {
-      p_organizer_user_id: organizerId,
-    });
-    setStaffPinSet(new Set((pinRows ?? []).filter((r) => r.has_pin).map((r) => r.user_id)));
 
     // Pending email invitations (not accepted yet — not in org_staff).
     const { data: invs } = await supabase
@@ -181,24 +165,6 @@ export default function OrgAppTeam() {
     else { toast.success(t('Mis à jour', 'Updated')); loadMembers(); }
   };
 
-  const setScannerPin = async () => {
-    if (!scannerPinTarget || !/^\d{6}$/.test(scannerPinValue)) {
-      toast.error(t('PIN à 6 chiffres requis', '6-digit PIN required'));
-      return;
-    }
-    setSettingScannerPin(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('set-org-scanner-pin', {
-        body: { memberId: scannerPinTarget.id, pin: scannerPinValue },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success(t('PIN configuré', 'PIN set'));
-      setScannerPinTarget(null); setScannerPinValue(''); loadMembers();
-    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
-    finally { setSettingScannerPin(false); }
-  };
-
   // -------- STAFF ACTIONS --------
   const inviteStaff = async () => {
     if (!staffEmail || !staffName) {
@@ -214,31 +180,11 @@ export default function OrgAppTeam() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       capturePosthog('team_member_invited', { scope: 'organizer', role: staffRole, kind: 'staff', organizer_user_id: organizerId });
-      toast.success(t("Invitation envoyée · l'employé définira son propre PIN", 'Invitation sent · the employee will set their own PIN'));
+      toast.success(t('Invitation envoyée', 'Invitation sent'));
       setStaffEmail(''); setStaffName(''); setStaffRole(DRINKS_PILLAR_LIVE ? 'barman' : 'bouncer'); setStaffOpen(false);
       loadStaff();
     } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSubmittingStaff(false); }
-  };
-
-  /**
-   * Envoie à l'employé le lien qui lui fait poser son code PIN. L'organisateur
-   * déclenche, l'employé choisit : le code ne transite jamais par l'écran de
-   * l'employeur. C'est la sortie du blocage « PIN à configurer » quand la
-   * personne ne trouve pas l'écran toute seule.
-   */
-  const sendPinLink = async (s: Staff) => {
-    if (!s.user_id || pinLinkSending) return;
-    setPinLinkSending(s.id);
-    try {
-      const { data, error } = await invokeEdgeFunction('request-pin-reset', {
-        body: { targetUserId: s.user_id },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success(t('Lien envoyé à ' + s.email, 'Link sent to ' + s.email));
-    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
-    finally { setPinLinkSending(null); }
   };
 
   const removeStaff = async (id: string) => {
@@ -325,19 +271,9 @@ export default function OrgAppTeam() {
                       <div className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{m.member_email}</div>
                       <div className="mt-0.5 flex items-center gap-2" style={{ color: T3, fontSize: 11.5 }}>
                         <span>{m.invitation_status === 'accepted' ? t('Actif', 'Active') : t('Invitation en attente', 'Pending')}</span>
-                        {m.role === 'scanner' && m.scanner_pin_hash && (
-                          <span className="inline-flex items-center gap-1" style={{ color: 'var(--acc-34d399)' }}>
-                            <KeyRound className="h-3 w-3" /> PIN ✓
-                          </span>
-                        )}
                       </div>
                     </div>
                     <OrgPill tone={teamRoleTone(m.role)}>{teamRoleLabel(m.role)}</OrgPill>
-                    {m.role === 'scanner' && (
-                      <OrgButton size="sm" variant="secondary" onClick={() => { setScannerPinTarget(m); setScannerPinValue(''); }}>
-                        <KeyRound className="h-3.5 w-3.5" />{m.scanner_pin_hash ? t('Changer PIN', 'Change PIN') : t('Définir PIN', 'Set PIN')}
-                      </OrgButton>
-                    )}
                     {(m.role === 'editor' || m.role === 'admin') && (
                       <OrgButton size="sm" variant="secondary" onClick={() => setPermsTarget(m)}>
                         <Settings2 className="h-3.5 w-3.5" />{t('Permissions', 'Permissions')}
@@ -392,7 +328,6 @@ export default function OrgAppTeam() {
           ) : (
             <div className="space-y-2">
               {staff.map((s) => {
-                const hasPin = !!s.user_id && staffPinSet.has(s.user_id);
                 return (
                   <OrgCard key={s.id}>
                     <div className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -400,28 +335,11 @@ export default function OrgAppTeam() {
                         <div className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{s.display_name ?? s.email}</div>
                         <div className="mt-0.5 flex items-center gap-2" style={{ color: T3, fontSize: 11.5 }}>
                           <span className="truncate">{s.email}</span>
-                          {hasPin ? (
-                            <span className="inline-flex items-center gap-1 flex-shrink-0" style={{ color: 'var(--acc-34d399)' }}>
-                              <KeyRound className="h-3 w-3" /> {t('PIN configuré', 'PIN set')}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }}>
-                              <KeyRound className="h-3 w-3" /> {t('PIN à configurer', 'PIN pending')}
-                            </span>
-                          )}
                         </div>
                       </div>
                       <OrgPill tone={staffRoleTone(s.role)}>
                         {staffRoleIcon(s.role)} {staffRoleLabel(s.role)}
                       </OrgPill>
-                      {!hasPin && s.user_id && (
-                        <OrgButton size="sm" variant="secondary" disabled={pinLinkSending === s.id} onClick={() => sendPinLink(s)}>
-                          {pinLinkSending === s.id
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <KeyRound className="h-3.5 w-3.5" />}
-                          {t('Envoyer le lien PIN', 'Send PIN link')}
-                        </OrgButton>
-                      )}
                       <OrgButton size="sm" variant="danger" onClick={() => removeStaff(s.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </OrgButton>
@@ -534,34 +452,6 @@ export default function OrgAppTeam() {
               <OrgButton variant="primary" className="w-full" onClick={inviteStaff} disabled={submittingStaff || !staffEmail || !staffName}>
                 {submittingStaff && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("Envoyer l'invitation", 'Send invitation')}
-              </OrgButton>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Scanner PIN */}
-      <Dialog open={!!scannerPinTarget} onOpenChange={(o) => !o && setScannerPinTarget(null)}>
-        <DialogContent className="border-0 p-0" style={dialogStyle}>
-          <div className="p-6">
-            <DialogHeader>
-              <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{t('Configurer le PIN scanner', 'Configure scanner PIN')}</DialogTitle>
-              <DialogDescription className="sr-only">PIN</DialogDescription>
-            </DialogHeader>
-            <div className="mt-4 space-y-4">
-              <p style={{ color: T3, fontSize: 12.5 }}>
-                {t('Ce PIN à 6 chiffres permettra à', 'This 6-digit PIN will let')} <strong style={{ color: T2 }}>{scannerPinTarget?.member_email}</strong>{' '}
-                {t('de scanner les billets sur un mobile partagé.', 'scan tickets on a shared mobile.')}
-              </p>
-              <div>
-                <FieldLabel>PIN (6 {t('chiffres', 'digits')})</FieldLabel>
-                <DarkInput inputMode="numeric" maxLength={6} value={scannerPinValue}
-                  onChange={(v) => setScannerPinValue(v.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="••••••" className="text-center text-2xl font-mono tracking-[0.5em]" />
-              </div>
-              <OrgButton variant="primary" className="w-full" onClick={setScannerPin} disabled={settingScannerPin || scannerPinValue.length !== 6}>
-                {settingScannerPin && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('Enregistrer le PIN', 'Save PIN')}
               </OrgButton>
             </div>
           </div>

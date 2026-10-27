@@ -3,7 +3,7 @@ import { buildPasswordSetup, staffRoleLabel, type Lang } from '../_shared/email-
 import { SUBSCRIPTIONS_ENABLED } from '../_shared/venue-plan.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { jwtSessionId } from "../_shared/support-session.ts";
-import { handleAcceptEventDoor } from "../_shared/event-door-staff.ts";
+import { handleAcceptEventDoor, handleStaffLoginCode } from "../_shared/event-door-staff.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +26,8 @@ const ORG_STAFF_ROLES = new Set(['barman', 'bouncer', 'cloakroom']);
 const SUPERADMIN_ROLES = new Set(['owner', 'organizer']);
 const REDIRECTS: Record<string, string> = {
   owner: '/owner', organizer: '/organizer-app', dj: '/dj', promoter: '/promoter',
-  barman: '/setup-pin', bouncer: '/setup-pin', cloakroom: '/setup-pin', vip_host: '/setup-pin', manager: '/setup-pin',
+  // Staff de nuit : droit sur son écran (plus de code PIN depuis le 27/10).
+  barman: '/barman', bouncer: '/bouncer', cloakroom: '/cloakroom', vip_host: '/vip-host', manager: '/manager',
 };
 
 // ─── Demo preview links (folded in — see header note on the edge-fn cap) ─────
@@ -691,6 +692,8 @@ Deno.serve(async (req) => {
 
     // Staff de porte d'UNE soirée (staff du club invité, event_door_staff).
     if (body?.action === 'accept_event_door') return await handleAcceptEventDoor(req, supabase, body, corsHeaders);
+    // Code de connexion à Yuno Pro pour le staff de nuit (sans mot de passe).
+    if (body?.action === 'staff_login_code') return await handleStaffLoginCode(supabase, body, corsHeaders);
 
     // ─── Default behavior: accept an email-based staff invitation ────────────
     const { token, first_name, last_name } = body;

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Trash2, Key, Shield, Wine, Pencil, UserCog, RefreshCw, CheckCircle, Crown, Shirt, Lock, Users, Megaphone, Activity, Tag, Check, X, type LucideIcon } from 'lucide-react';
+import { UserPlus, Trash2, Shield, Wine, Pencil, UserCog, RefreshCw, Crown, Shirt, Lock, Users, Megaphone, Activity, Tag, Check, X, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamBriefingTab } from '@/components/owner/staff/TeamBriefingTab';
 import { TeamActivityTab } from '@/components/owner/staff/TeamActivityTab';
@@ -602,21 +602,6 @@ export default function OwnerStaff() {
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* PIN status — the employee sets their own PIN; the owner only sees whether it's done. */}
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                    {employee.employee_pin ? (
-                      <>
-                        <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: POS }} />
-                        <span className="text-[12px]" style={{ color: POS }}>{t('owner.pinConfigured')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Key className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
-                        <span className="text-[12px]" style={{ color: 'var(--acc-fcd34d)' }}>{t('owner.pinPending')}</span>
                       </>
                     )}
                   </div>

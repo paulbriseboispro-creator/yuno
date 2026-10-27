@@ -366,7 +366,13 @@ export default function ProHome() {
                     {t('proapp.enter')}
                   </span>
                   <span className="block" style={{ color: T1, fontSize: 18, fontWeight: 680, letterSpacing: '-0.01em', marginTop: 2 }}>{t(cfg.labelKey)}</span>
-                  <span className="block truncate" style={{ color: T3, fontSize: 12.5, marginTop: 2 }}>{t(cfg.descKey)}</span>
+                  <span className="block truncate" style={{ color: T3, fontSize: 12.5, marginTop: 2 }}>
+                    {/* Porte d'UNE soirée : on nomme la soirée (et sa date), sinon la
+                        personne ne sait pas quelle porte elle ouvre. */}
+                    {staffRoles[0] === 'bouncer' && !identity?.venueId && identity?.doorEvents?.length
+                      ? identity.doorEvents.map((e) => `${e.title} · ${new Date(e.startAt).toLocaleDateString(language, { weekday: 'short', day: 'numeric', month: 'short' })}`).join(' — ')
+                      : t(cfg.descKey)}
+                  </span>
                 </span>
                 <ArrowRight className="h-5 w-5 flex-none" style={{ color: RED }} />
               </motion.button>

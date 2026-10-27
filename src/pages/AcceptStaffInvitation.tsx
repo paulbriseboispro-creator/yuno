@@ -261,7 +261,7 @@ export default function AcceptStaffInvitation() {
   }
 
   // Invitation déjà acceptée ou expirée : on le dit, et on pousse vers la suite
-  // utile (se connecter, poser son code PIN) au lieu d'un refus sec du serveur.
+  // utile (son espace staff) au lieu d'un refus sec du serveur.
   if (invitationData && invitationData.status !== 'pending' && !result) {
     const isExpired = invitationData.status === 'expired';
     return (
@@ -278,11 +278,11 @@ export default function AcceptStaffInvitation() {
           <p className="text-muted-foreground break-words">
             {isExpired ? t('acceptInv.expiredDesc') : t('acceptInv.alreadyAcceptedDesc')}
           </p>
-          {!isExpired && <ProHandoff path="/setup-pin" />}
+          {!isExpired && <ProHandoff path="/pro" />}
           <Button
             variant={isExpired ? 'default' : 'outline'}
             className="mt-3 h-11 w-full"
-            onClick={() => navigate(isExpired ? '/' : '/setup-pin')}
+            onClick={() => navigate(isExpired ? '/' : '/pro')}
           >
             {isExpired ? t('acceptInv.backHome') : t('acceptStaff.setPin')}
           </Button>
@@ -349,12 +349,12 @@ export default function AcceptStaffInvitation() {
                   <p className="text-sm text-muted-foreground break-words">{t('acceptInv.passwordEmailSent')}</p>
                 </div>
               )}
-              {/* La suite du métier (PIN puis scan) vit dans l'app Pro. */}
-              <ProHandoff path={result.account_created ? '/auth' : '/setup-pin'} />
+              {/* La suite du métier (le scan, le service) vit dans l'app Pro. */}
+              <ProHandoff path={result.account_created ? '/auth' : '/pro'} />
               <Button
                 variant={canHandOffToProApp() ? 'outline' : 'default'}
                 className="mt-3 h-11 w-full"
-                onClick={() => navigate(result.account_created ? '/auth' : '/setup-pin')}
+                onClick={() => navigate(result.account_created ? '/auth' : '/pro')}
               >
                 {result.account_created ? t('acceptInv.login') : t('acceptStaff.setPin')}
               </Button>

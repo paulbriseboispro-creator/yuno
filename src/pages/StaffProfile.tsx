@@ -490,20 +490,7 @@ export default function StaffProfile() {
           {/* ── Compte ───────────────────────────────────────────────────── */}
           <Card>
             <SectionTitle icon={KeyRound}>{t('staffme.section.account')}</SectionTitle>
-            {/* Le PIN n'existe que pour le staff club (tablettes partagées) :
-                un promoteur ou un DJ n'en a pas, le bouton l'enverrait poser un
-                PIN qui ne garde rien. */}
-            {roles.length > 0 && (
-              <button
-                type="button"
-                onClick={() => navigate('/setup-pin')}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.03]"
-                style={{ border: `1px solid ${BORDER}` }}
-              >
-                <KeyRound className="h-4 w-4 flex-none" style={{ color: T2 }} />
-                <span className="flex-1 text-left" style={{ color: T1, fontSize: 13.5 }}>{t('staffme.changePin')}</span>
-              </button>
-            )}
+            {/* Plus de code PIN pour le staff depuis le 27/10 : rien à changer ici. */}
             <button
               type="button"
               onClick={handleLogout}

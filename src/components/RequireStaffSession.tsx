@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { StaffPinDialog } from './StaffPinDialog';
 
 interface RequireStaffSessionProps {
   children: React.ReactNode;
@@ -13,123 +12,47 @@ interface RequireStaffSessionProps {
 const STAFF_SESSION_KEY = 'staffSession';
 const STAFF_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
+/**
+ * Porte des écrans du staff de nuit : le compte connecté a-t-il le poste ?
+ *
+ * Plus de code PIN depuis le 27/10 (décision de Paul : « trop de sécurité pour
+ * rien ») : chaque personne a SON compte Yuno, connecté dans SON app Yuno Pro,
+ * et la base trace qui a scanné. Le PIN ne servait qu'à reverrouiller l'écran
+ * toutes les 24 h, au prix d'une étape de plus à chaque prise de poste. Les
+ * espaces DJ / promoteur / affilié gardent le leur (`RequirePinSession`).
+ */
 export function RequireStaffSession({ children, allowedRoles, loginPath }: RequireStaffSessionProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [showPinDialog, setShowPinDialog] = useState(false);
-  const [needsPinSetup, setNeedsPinSetup] = useState(false);
-  const [staffVenueId, setStaffVenueId] = useState<string | null>(null);
+  const [state, setState] = useState<'loading' | 'ok' | 'denied'>('loading');
+  const rolesKey = allowedRoles.join(',');
 
   useEffect(() => {
-    checkStaffSession();
-  }, []);
-
-  const checkStaffSession = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setIsAuthorized(false);
-        setIsLoading(false);
-        return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { if (!cancelled) setState('denied'); return; }
+        const { data: roles, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .in('role', [...rolesKey.split(','), 'owner'] as ('barman' | 'bouncer' | 'manager' | 'vip_host' | 'cloakroom' | 'owner')[]);
+        if (!cancelled) setState(!error && roles && roles.length > 0 ? 'ok' : 'denied');
+      } catch (error) {
+        console.error('Error checking staff access:', error);
+        if (!cancelled) setState('denied');
       }
+    })();
+    return () => { cancelled = true; };
+  }, [rolesKey]);
 
-      // Check if user has one of the allowed roles in database
-      const { data: roles, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', [...allowedRoles, 'owner']);
-
-      if (error || !roles || roles.length === 0) {
-        setIsAuthorized(false);
-        setIsLoading(false);
-        return;
-      }
-
-      // Owner has full access without PIN
-      const isOwner = roles.some(r => r.role === 'owner');
-      if (isOwner) {
-        setIsAuthorized(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // Get staff venue ID + PIN status for PIN verification
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('venue_id, employee_pin')
-        .eq('id', user.id)
-        .single();
-
-      if (profile?.venue_id) {
-        setStaffVenueId(profile.venue_id);
-      }
-
-      // Staff member: check for valid session in localStorage
-      if (hasValidStaffSession(allowedRoles, user.id)) {
-        setIsAuthorized(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // No PIN configured yet → the employee must set their own PIN first.
-      if (!profile?.employee_pin) {
-        setNeedsPinSetup(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // No valid session, show PIN dialog
-      setShowPinDialog(true);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error checking staff session:', error);
-      setIsAuthorized(false);
-      setIsLoading(false);
-    }
-  };
-
-  const handlePinVerified = async (venueId: string, role: string) => {
-    const { data } = await supabase.auth.getSession();
-    storeStaffSession(venueId, role, data.session?.user?.id ?? null);
-    setShowPinDialog(false);
-    setIsAuthorized(true);
-  };
-
-  const handlePinCancel = () => {
-    setShowPinDialog(false);
-    window.location.href = loginPath;
-  };
-
-  if (isLoading) {
+  if (state === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
-
-  if (needsPinSetup) {
-    return <Navigate to="/setup-pin" replace />;
-  }
-
-  if (showPinDialog) {
-    return (
-      <StaffPinDialog
-        open={showPinDialog}
-        onVerified={handlePinVerified}
-        onCancel={handlePinCancel}
-        venueId={staffVenueId}
-        allowedRoles={allowedRoles}
-      />
-    );
-  }
-
-  if (!isAuthorized) {
-    return <Navigate to={loginPath} replace />;
-  }
-
+  if (state === 'denied') return <Navigate to={loginPath} replace />;
   return <>{children}</>;
 }
 

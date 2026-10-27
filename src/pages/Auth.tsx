@@ -14,7 +14,9 @@ import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
-import { isNative, publicUrl } from '@/lib/native';
+import { isNative, isProApp, publicUrl } from '@/lib/native';
+import { StaffCodeSignIn, type CodeLang } from '@/components/staff/StaffCodeSignIn';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { isNativeSocialAvailable } from '@/lib/nativeAuth';
 import { Check } from 'lucide-react';
 import { checkEmailAccount } from '@/hooks/useExistingAccountCheck';
@@ -56,6 +58,8 @@ export default function Auth() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [email, setEmail] = useState(inviteEmailParam ?? '');
+  // Yuno Pro : le staff de nuit se connecte par un code reçu par e-mail (27/10).
+  const [codeMode, setCodeMode] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   // Prénom et nom sont DEUX champs, côte à côte : un unique « nom complet »
   // laissait des gens taper leur pseudo, leur prénom seul, ou l'email.
@@ -613,7 +617,29 @@ export default function Auth() {
               : t('auth.login')}
           </h2>
 
+          {codeMode && (
+            <div className="space-y-3">
+              <StaffCodeSignIn
+                lang={(['en', 'fr', 'es'].includes(language) ? language : 'en') as CodeLang}
+                initialEmail={email}
+                requestCode={async (address) => {
+                  const { data, error } = await invokeEdgeFunction<{ success?: boolean; error?: string }>(
+                    'accept-staff-invitation', { body: { action: 'staff_login_code', email: address, language } },
+                  );
+                  if (error || data?.error) return { error: data?.error ?? 'generic' };
+                  return { email: address };
+                }}
+                onSignedIn={() => navigate(redirect ?? '/pro', { replace: true })}
+              />
+              <button type="button" onClick={() => setCodeMode(false)} className="font-mono block w-full pt-2 transition-colors"
+                style={{ fontSize: '12px', color: '#8A8A8E', letterSpacing: '0.04em' }}>
+                {t('auth.codeLoginBack')}
+              </button>
+            </div>
+          )}
+
           {/* Form */}
+          {!codeMode && (
           <form onSubmit={handleAuth} className="space-y-3">
             {isSignUp && !isReset && !isForgotPassword && (
               <div className="flex gap-2.5">
@@ -680,8 +706,18 @@ export default function Auth() {
               ) : isForgotPassword ? t('auth.send') : isReset ? t('auth.change') : isSignUp ? t('auth.signupButton') : t('auth.loginButton')}
             </button>
           </form>
+          )}
 
-          {!isReset && (
+          {/* Staff de nuit dans Yuno Pro : un code par e-mail, sans mot de passe. */}
+          {isProApp() && !codeMode && !isSignUp && !isReset && !isForgotPassword && (
+            <button type="button" onClick={() => setCodeMode(true)} disabled={isLoading}
+              className="w-full mt-3 transition-colors"
+              style={{ height: '46px', fontSize: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.16)', color: '#FFFFFF', background: 'transparent' }}>
+              {t('auth.codeLogin')}
+            </button>
+          )}
+
+          {!isReset && !codeMode && (
             <div className="mt-5 space-y-2 text-center">
               {!isForgotPassword && (
                 <>

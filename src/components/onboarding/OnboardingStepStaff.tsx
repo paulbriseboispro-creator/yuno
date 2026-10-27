@@ -19,10 +19,10 @@ export function OnboardingStepStaff({ venueId, onComplete, onSkip }: Props) {
   useEffect(() => {
     const check = async () => {
       const { count } = await supabase
-        .from('profiles')
+        .from('staff_invitations')
         .select('id', { count: 'exact', head: true })
         .eq('venue_id', venueId)
-        .not('employee_pin', 'is', null);
+        .eq('status', 'accepted');
       setStaffCount(count || 0);
       setLoading(false);
     };

@@ -199,14 +199,18 @@ export default function StaffOnboarding() {
               </div>
 
               <div className="flex-1" />
+              {/* Un seul écran (27/10) : le poste expliqué, puis l'écran de travail.
+                  La photo et le nom se règlent plus tard dans « Mon profil » ; la
+                  nuit, trois écrans avant le scanner, c'était deux de trop. */}
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={finish}
+                disabled={finishing}
                 className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-semibold transition-transform active:scale-[0.99]"
                 style={{ background: tokens.solid, color: '#000', fontSize: 15 }}
               >
-                {t('staffwelcome.next')}
-                <ArrowRight className="h-4.5 w-4.5" />
+                {finishing ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Check className="h-4.5 w-4.5" />}
+                {t('staffwelcome.finish')}
               </button>
             </motion.div>
           )}

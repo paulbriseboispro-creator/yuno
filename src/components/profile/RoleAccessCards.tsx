@@ -4,8 +4,6 @@ import { Shield, Crown, Briefcase, Megaphone, Music, Wine, UserCheck, Loader2, S
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { StaffPinDialog } from '@/components/StaffPinDialog';
-import { hasValidStaffSession, storeStaffSession } from '@/components/RequireStaffSession';
 import { clearPinSession } from '@/components/RequirePinSession';
 import { supabase } from '@/integrations/supabase/client';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
@@ -59,7 +57,6 @@ interface RoleAccessCardsProps {
   onPickOrganization?: (organizerUserId: string) => void;
 }
 
-type StaffRole = 'barman' | 'bouncer' | 'manager' | 'vip_host' | 'cloakroom';
 type PinRole = 'dj' | 'promoter' | 'organizer';
 
 export function RoleAccessCards({
@@ -90,13 +87,9 @@ export function RoleAccessCards({
     return () => { alive = false; };
   }, []);
   const gw = guestUiWords(language);
-  const [showPinDialog, setShowPinDialog] = useState(false);
   const [showMFASetupPrompt, setShowMFASetupPrompt] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<{ path: string; role: StaffRole } | null>(null);
-  const [staffVenueId, setStaffVenueId] = useState<string | null>(null);
   const [checkingMFA, setCheckingMFA] = useState(false);
 
-  const staffRoles: StaffRole[] = ['barman', 'bouncer', 'manager', 'vip_host', 'cloakroom'];
   const pinRoles: PinRole[] = ['dj', 'promoter', 'organizer'];
 
   const handleRoleClick = async (path: string, role: string, organizerUserId?: string) => {
@@ -149,55 +142,11 @@ export function RoleAccessCards({
       return;
     }
 
-    if (!staffRoles.includes(role as StaffRole)) {
-      navigate(path);
-      return;
-    }
-
-    const staffRole = role as StaffRole;
-    
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (hasValidStaffSession([staffRole], sessionData.session?.user?.id ?? null)) {
-      navigate(path);
-      return;
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('venue_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile?.venue_id) {
-          setStaffVenueId(profile.venue_id);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching venue:', error);
-    }
-
-    setPendingNavigation({ path, role: staffRole });
-    setShowPinDialog(true);
+    // Staff de nuit : plus de code PIN (27/10), la route vérifie le poste.
+    navigate(path);
   };
 
-  const handlePinVerified = async (venueId: string, role: string) => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    storeStaffSession(venueId, role, sessionData.session?.user?.id ?? null);
-    setShowPinDialog(false);
-    
-    if (pendingNavigation) {
-      navigate(pendingNavigation.path);
-      setPendingNavigation(null);
-    }
-  };
 
-  const handlePinCancel = () => {
-    setShowPinDialog(false);
-    setPendingNavigation(null);
-  };
 
   const handleMFASetupConfirm = () => {
     setShowMFASetupPrompt(false);
@@ -217,14 +166,14 @@ export function RoleAccessCards({
   const roles: RoleCard[] = [
     { show: isAdmin, icon: Shield, label: t('profile.adminDashboard'), path: '/admin', role: 'admin', color: ACCENT, bg: ACCENT_BG, security: 'mfa' as const },
     { show: isOwner, icon: Crown, label: t('profile.ownerDashboard'), path: '/owner', role: 'owner', color: RARE, bg: RARE_BG, security: 'mfa' as const },
-    { show: isManager, icon: Briefcase, label: t('profile.managerDashboard'), path: '/manager', role: 'manager', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isManager, icon: Briefcase, label: t('profile.managerDashboard'), path: '/manager', role: 'manager', color: NEUTRAL, bg: NEUTRAL_BG },
     { show: isPromoter, icon: Megaphone, label: t('profile.promoterDashboard'), path: '/promoter', role: 'promoter', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isDJ, icon: Music, label: t('profile.djDashboard'), path: '/dj', role: 'dj', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     // Pilier boissons en pause : carte barman masquée (voir src/lib/drinksPillar.ts).
-    { show: DRINKS_PILLAR_LIVE && isBarman, icon: Wine, label: t('profile.barmanDashboard'), path: '/barman', role: 'barman', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
-    { show: isBouncer, icon: UserCheck, label: t('profile.bouncerDashboard'), path: '/bouncer', role: 'bouncer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
-    { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG, security: 'pin' as const },
-    { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: DRINKS_PILLAR_LIVE && isBarman, icon: Wine, label: t('profile.barmanDashboard'), path: '/barman', role: 'barman', color: NEUTRAL, bg: NEUTRAL_BG },
+    { show: isBouncer, icon: UserCheck, label: t('profile.bouncerDashboard'), path: '/bouncer', role: 'bouncer', color: NEUTRAL, bg: NEUTRAL_BG },
+    { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG },
+    { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG },
     { show: isOrganizer, icon: Building2, label: t('profile.organizerDashboard'), path: '/organizer-app', role: 'organizer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     // Équipe d'un organisateur : une carte PAR organisation servie, nommée, avec
     // le rôle tenu. C'est ce qui manquait au profil d'une personne invitée —
@@ -302,15 +251,6 @@ export function RoleAccessCards({
         })}
       </div>
 
-      {showPinDialog && pendingNavigation && (
-        <StaffPinDialog
-          open={showPinDialog}
-          onVerified={handlePinVerified}
-          onCancel={handlePinCancel}
-          venueId={staffVenueId}
-          allowedRoles={[pendingNavigation.role]}
-        />
-      )}
 
       <Dialog open={showMFASetupPrompt} onOpenChange={setShowMFASetupPrompt}>
         <DialogContent className="sm:max-w-md">

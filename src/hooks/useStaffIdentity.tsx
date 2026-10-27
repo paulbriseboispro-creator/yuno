@@ -50,6 +50,8 @@ export interface StaffIdentity {
   organizerUserId: string | null;
   /** Soirées dont la personne tient la porte NOMMÉMENT (`event_door_staff`), encore ouvertes. */
   doorEventIds: string[];
+  /** Les mêmes soirées, nommées : Yuno Pro dit à la personne QUELLE porte elle tient. */
+  doorEvents: { id: string; title: string; startAt: string }[];
   roles: StaffRole[];
   /** Rôle principal quand la personne cumule plusieurs postes. */
   role: StaffRole | null;
@@ -103,8 +105,11 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
   const organizerUserId = orgStaff?.organizer_user_id ?? null;
   // Porte d'UNE soirée (staff du club invité sur la soirée d'un organisateur) :
   // la base ne rend que les soirées encore ouvertes (jusqu'à 6 h après la fin).
-  const { data: doorEvents } = await supabase.rpc('get_my_event_door_events' as never) as unknown as { data: { event_id: string }[] | null };
-  const doorEventIds = (doorEvents ?? []).map((e) => e.event_id);
+  const { data: doorRows } = await supabase.rpc('get_my_event_door_events' as never) as unknown as {
+    data: { event_id: string; title: string | null; start_at: string }[] | null;
+  };
+  const doorEvents = (doorRows ?? []).map((e) => ({ id: e.event_id, title: e.title ?? '', startAt: e.start_at }));
+  const doorEventIds = doorEvents.map((e) => e.id);
   const staffRoles = allRoles.filter((r): r is StaffRole =>
     ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'].includes(r)
   );
@@ -142,6 +147,7 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
     venueName,
     organizerUserId,
     doorEventIds,
+    doorEvents,
     roles: staffRoles,
     role: primaryStaffRole(staffRoles),
     isOwner: allRoles.includes('owner'),

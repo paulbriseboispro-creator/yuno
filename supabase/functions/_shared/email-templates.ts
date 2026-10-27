@@ -816,6 +816,69 @@ export function buildInvitation(d: {
   return { subject, preheader: `${lbl(lang, 'role')}: ${d.roleLabel}`, html };
 }
 
+// ── 12-bis. Porte d'UNE soirée (event_door_staff) ────────────────────────────
+// Écrit pour quelqu'un qui n'a jamais vu Yuno et qui travaille ce soir : qui
+// l'invite, quelle soirée, quand, puis trois étapes numérotées. Deux boutons
+// (l'app, puis l'invitation) : c'est l'ordre dans lequel il doit les toucher.
+export function buildDoorInvitation(d: {
+  lang?: Lang; inviterName: string; eventTitle: string; eventStartAt?: string | null; timezone?: string | null; acceptUrl: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const inviter = esc(d.inviterName);
+  const ev = esc(d.eventTitle);
+  const when = d.eventStartAt ? fmtDateParts(d.eventStartAt, lang, d.timezone || 'Europe/Paris') : null;
+  const subject = p(lang, {
+    en: `${d.inviterName} adds you to the door of ${d.eventTitle}`,
+    fr: `${d.inviterName} t'ajoute à la porte de ${d.eventTitle}`,
+    es: `${d.inviterName} te añade a la puerta de ${d.eventTitle}`,
+  });
+  const step = (n: number, text: string) =>
+    `<p style="margin:0 0 6px;font-family:${F.body};font-size:15px;line-height:1.5;color:${C.white};"><strong>${n}.</strong> ${text}</p>`;
+  const html = shell({
+    title: subject,
+    preheader: p(lang, { en: 'Install Yuno Pro, open your invitation, scan.', fr: 'Installe Yuno Pro, ouvre ton invitation, scanne.', es: 'Instala Yuno Pro, abre tu invitación, escanea.' }),
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Door staff', fr: 'Porte', es: 'Puerta' })) + `<div style="height:16px"></div>` +
+        title(p(lang, { en: 'you run the door', fr: 'tu tiens la porte', es: 'llevas la puerta' }), 30) + `<div style="height:16px"></div>` +
+        body(p(lang, {
+          en: `<strong style="color:${C.white}">${inviter}</strong> adds you to the door team of <strong style="color:${C.white}">${ev}</strong>. You will scan the tickets with the Yuno Pro app on your iPhone.`,
+          fr: `<strong style="color:${C.white}">${inviter}</strong> t'ajoute à l'équipe de porte de <strong style="color:${C.white}">${ev}</strong>. Tu scanneras les billets avec l'app Yuno Pro sur ton iPhone.`,
+          es: `<strong style="color:${C.white}">${inviter}</strong> te añade al equipo de puerta de <strong style="color:${C.white}">${ev}</strong>. Escanearás las entradas con la app Yuno Pro en tu iPhone.`,
+        })), { border: false }),
+      section(infoRows([
+        { k: lbl(lang, 'party'), v: d.eventTitle },
+        ...(when ? [{ k: lbl(lang, 'date'), v: `${when.day} ${when.month} · ${when.time}` }] : []),
+        { k: lbl(lang, 'role'), v: staffRoleLabel('bouncer', lang) },
+      ])),
+      section(
+        step(1, p(lang, { en: 'Install Yuno Pro on your iPhone.', fr: 'Installe Yuno Pro sur ton iPhone.', es: 'Instala Yuno Pro en tu iPhone.' })) +
+        `<div style="height:10px"></div>` + ctaPill(p(lang, { en: 'Get Yuno Pro', fr: 'Télécharger Yuno Pro', es: 'Descargar Yuno Pro' }), YUNO_PRO_APP_STORE_URL),
+        { border: false },
+      ),
+      section(
+        step(2, p(lang, { en: 'On the same iPhone, open your invitation.', fr: 'Sur le même iPhone, ouvre ton invitation.', es: 'En el mismo iPhone, abre tu invitación.' })) +
+        `<div style="height:10px"></div>` + ctaPill(p(lang, { en: 'Open my invitation', fr: 'Ouvrir mon invitation', es: 'Abrir mi invitación' }), d.acceptUrl),
+        { border: false, padTop: 4 },
+      ),
+      section(
+        step(3, p(lang, {
+          en: 'We email you a code: type it in the app and you land on the scanner. No password.',
+          fr: 'On t\'envoie un code par e-mail : tape-le dans l\'app et tu arrives sur le scanner. Pas de mot de passe.',
+          es: 'Te enviamos un código por correo: escríbelo en la app y llegas al escáner. Sin contraseña.',
+        })) + `<div style="height:8px"></div>` + body(p(lang, {
+          en: 'Need to sign in again later? Open Yuno Pro, type this email address, and a new code arrives.',
+          fr: 'Besoin de te reconnecter plus tard ? Ouvre Yuno Pro, tape cette adresse e-mail, un nouveau code arrive.',
+          es: '¿Tienes que volver a entrar más tarde? Abre Yuno Pro, escribe este correo y te llega un código nuevo.',
+        }), C.gray2),
+        { border: false, padTop: 4 },
+      ),
+      footer({ lang, reason: p(lang, { en: `${inviter} invited you on Yuno`, fr: `${inviter} t'a invité sur Yuno`, es: `${inviter} te invitó en Yuno` }) }),
+    ].join(''),
+  });
+  return { subject, preheader: '', html };
+}
+
 // ── 12a. Invitation d'un CLUB par un organisateur (collab) ────────────────────
 // Le club n'a jamais entendu parler de Yuno : l'email dit QUI invite, POUR
 // QUELLE soirée, ce que Yuno fait en une phrase, les conditions proposées, et

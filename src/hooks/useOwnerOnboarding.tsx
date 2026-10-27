@@ -104,12 +104,12 @@ async function detectCompletedSteps(
     venue.siret
   );
 
-  // Step 5 — Team (optional): at least one staff member with a PIN.
+  // Step 5 — Team (optional): at least one staff member who accepted (no staff PIN since 27/10).
   const { count: staffCount } = await supabase
-    .from('profiles')
+    .from('staff_invitations')
     .select('id', { count: 'exact', head: true })
     .eq('venue_id', venueId)
-    .not('employee_pin', 'is', null);
+    .eq('status', 'accepted');
   result['5'] = (staffCount ?? 0) > 0;
 
   // Step 6 — Payments: Stripe account connected (RPC privée ; repli : étape
