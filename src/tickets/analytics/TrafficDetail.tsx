@@ -76,6 +76,18 @@ export function PageCard({ p, meta, cmp, rv, go, prog }: { p: TixPageTraffic; me
               <b style={{ textAlign: 'right' }}>{n(s.visits)}</b>
             </div>
           ))}
+          {p.next && p.next.length > 0 && (
+            <>
+              <span style={{ ...mono, marginTop: 10 }}>{t('ya.tr.page.next')}</span>
+              {p.next.map((x) => (
+                <div key={x.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ color: 'var(--ya-sand-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.title} · {T.dShort(x.start_at)}</span>
+                  <b>{n(x.n)}</b>
+                </div>
+              ))}
+              <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.tr.page.nextFoot')}</span>
+            </>
+          )}
         </div>
       </div>
       <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.tr.page.foot')}</span>

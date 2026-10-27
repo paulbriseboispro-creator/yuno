@@ -24,7 +24,9 @@ import { categorizeReferrer, entryReferrer } from '@/lib/referrerCategory';
 
 export type FunnelStep =
   | 'viewed' | 'selected' | 'checkout' | 'details' | 'payment' | 'purchased'
-  | 'failed' | 'waitlist' | 'shared' | 'followed';
+  | 'failed' | 'waitlist' | 'shared' | 'followed'
+  // Ce que la page voit (Analyses › Trafic) : line-up / plan / vidéo ouverts, billet épuisé vu.
+  | 'opened' | 'soldout_seen';
 export type FunnelPillar = 'tickets' | 'tables' | 'guest_list';
 
 export interface FunnelRow {
@@ -93,6 +95,14 @@ export function funnelRowFor(event: string, props: Record<string, unknown> | und
       return { ...base, step: 'shared' };
     case 'event_hosts_followed':
       return { ...base, step: 'followed', quantity: asInt(p.hosts) };
+    case 'event_lineup_opened':
+      return { ...base, step: 'opened', ref: 'lineup' };
+    case 'event_video_played':
+      return { ...base, step: 'opened', ref: 'video' };
+    case 'floor_plan_opened':
+      return { ...base, step: 'opened', pillar: 'tables', ref: 'plan' };
+    case 'ticket_sold_out_seen':
+      return { ...base, step: 'soldout_seen', pillar: 'tickets', ref: asStr(p.tier_id) };
     default:
       return null;
   }

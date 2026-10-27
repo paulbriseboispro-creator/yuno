@@ -243,6 +243,9 @@ export interface TixPageTraffic {
   series: number[];
   /** `k` = referrer_category (direct, social, paid_social, search, paid_search, email, affiliate, internal, referral, qr). */
   sources: { k: string; visits: number; ordered: number }[];
+  /** Trafic (tix_ana_visits) : la soirée ouverte ensuite depuis la page, dans les 30 minutes. */
+  next?: { id: string; title: string; start_at: string; n: number }[];
+  next_total?: number;
 }
 
 export interface TixTrafficLink {

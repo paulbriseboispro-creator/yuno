@@ -463,6 +463,21 @@ export default function TicketSelection() {
 
   // Tickets ⇄ Tables VIP quick-nav: only worth showing when the event sells both.
   const ticketsExist = salesIsOpen && !saleLocked && !paidBlocked && (standardRounds.length > 0 || vipRounds.length > 0);
+  // Un billet « Épuisé » montré à l'acheteur (Analyses › Trafic › La demande qui
+  // reste) : une fois par billet et par onglet ; le serveur dédoublonne aussi.
+  const soldOutSeen = useRef<Set<string>>(new Set());
+  const soldOutShown = ticketsExist
+    ? [...getVisibleRounds(standardRounds), ...getVisibleRounds(vipRounds)].filter((r) => !r._previewOnly && isRoundSoldOut(r)).map((r) => r.id)
+    : [];
+  const soldOutKey = soldOutShown.join(',');
+  useEffect(() => {
+    if (!eventId || !soldOutKey) return;
+    for (const id of soldOutKey.split(',')) {
+      if (soldOutSeen.current.has(id)) continue;
+      soldOutSeen.current.add(id);
+      capturePosthog('ticket_sold_out_seen', { event_id: eventId, tier_id: id });
+    }
+  }, [eventId, soldOutKey]);
   // Sans Stripe, seuls les packs « règlement sur place » restent proposés.
   const sellablePacks = (paidBlocked ? packs.filter(p => p.paymentMode === 'on_site') : packs);
   const tablesBlocked = paidBlocked && sellablePacks.length === 0;

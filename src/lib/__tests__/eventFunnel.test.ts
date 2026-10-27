@@ -62,4 +62,12 @@ describe('funnelRowFor : les événements du plan de marquage → étapes du tun
     expect(funnelRowFor('event_shared', { event_id: EV })).toMatchObject({ step: 'shared' });
     expect(funnelRowFor('event_hosts_followed', { event_id: EV, hosts: 2 })).toMatchObject({ step: 'followed', quantity: 2 });
   });
+
+  it('ce que la page voit : line-up, vidéo et plan ouverts, billet épuisé vu', () => {
+    expect(funnelRowFor('event_lineup_opened', { event_id: EV, target: 'dj' })).toMatchObject({ step: 'opened', ref: 'lineup', pillar: null });
+    expect(funnelRowFor('event_video_played', { event_id: EV })).toMatchObject({ step: 'opened', ref: 'video' });
+    expect(funnelRowFor('floor_plan_opened', { event_id: EV, pillar: 'tables' })).toMatchObject({ step: 'opened', ref: 'plan', pillar: 'tables' });
+    expect(funnelRowFor('ticket_sold_out_seen', { event_id: EV, tier_id: 'r-1' })).toMatchObject({ step: 'soldout_seen', ref: 'r-1', pillar: 'tickets' });
+    expect(funnelRowFor('event_video_played', {})).toBeNull();
+  });
 });

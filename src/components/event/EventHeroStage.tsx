@@ -22,12 +22,15 @@ export function EventHeroStage({
   wideUrl,
   videoUrl,
   title,
+  onVideoPlay,
 }: {
   posterUrl?: string | null;
   /** Flyer 16:9 dédié à la page soirée ; prioritaire sur l'affiche dans le cadre. */
   wideUrl?: string | null;
   videoUrl?: string;
   title: string;
+  /** La vidéo du héros a vraiment joué (mesure du Trafic, une fois). */
+  onVideoPlay?: () => void;
 }) {
   // Le visuel du cadre : le flyer large s'il existe, sinon l'affiche.
   const frameUrl = wideUrl || posterUrl;
@@ -110,7 +113,7 @@ export function EventHeroStage({
         ) : (
           <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
         )}
-        {videoUrl && <EventHeroVideo src={videoUrl} className="absolute inset-0 w-full h-full object-cover object-center" />}
+        {videoUrl && <EventHeroVideo src={videoUrl} onPlay={onVideoPlay} className="absolute inset-0 w-full h-full object-cover object-center" />}
         {/* Liseré intérieur au-dessus de l'image : le bord reste net sur une
             affiche noire comme sur une affiche claire. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ borderRadius: 14, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)' }} />
