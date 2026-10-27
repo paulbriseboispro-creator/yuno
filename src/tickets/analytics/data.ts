@@ -243,6 +243,9 @@ export interface TixPageTraffic {
   series: number[];
   /** `k` = referrer_category (direct, social, paid_social, search, paid_search, email, affiliate, internal, referral, qr). */
   sources: { k: string; visits: number; ordered: number }[];
+  /** Trafic (tix_ana_visits) : la soirée ouverte ensuite depuis la page, dans les 30 minutes. */
+  next?: { id: string; title: string; start_at: string; n: number }[];
+  next_total?: number;
 }
 
 export interface TixTrafficLink {
@@ -274,6 +277,106 @@ export function useAnaTrafficDetail(f: AnaFilters, enabled = true) {
   return useQuery({
     queryKey: ['tix-ana', qk, 'ana', 'traffic-detail', f.period, f.event],
     queryFn: () => rpc<AnaTrafficDetail>('tix_ana_traffic_detail', { ...a, ...args(f) }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled: enabled && ready,
+  });
+}
+
+// ── Trafic : les visites, en personnes (plan Trafic, migration 20261110100000) ──
+
+/**
+ * Famille d'une visite, miroir de `_tix_visit_family` (SQL) : vos liens suivis,
+ * e-mails et push, Instagram et réseaux, Yuno, recherche, autres sites, direct.
+ */
+export type VisitFam = 'lk' | 'ms' | 'so' | 'yu' | 'se' | 'ot' | 'di';
+export const VISIT_FAMS: VisitFam[] = ['so', 'lk', 'di', 'yu', 'se', 'ms', 'ot'];
+
+export interface VisitStats {
+  visits: number; visitors: number; measured: number;
+  /** Médianes (secondes, % de la page) des visites mesurées ; null sans mesure. */
+  median_s: number | null; median_scroll?: number | null;
+  /** Visites qui ont fini par une commande payée. */
+  orders: number;
+}
+
+export interface VisitKid extends VisitStats {
+  /** `l:<lien>`, `d:<domaine>`, `u:<utm_source>`, `c:<campagne>`. */
+  key: string; label: string | null; link: boolean; net: string | null; med: string | null;
+}
+
+export interface VisitSource extends VisitStats {
+  k: VisitFam; short: number; prev_visits: number; prev_orders: number; kids: VisitKid[];
+}
+
+export interface VisitLink {
+  id: string; label: string | null; net: string | null; med: string | null; target: string | null;
+  event_id: string | null; event_title: string | null; event_start: string | null; created_at: string;
+  clicks: number; people: number; mobile: number; dev_known: number; orders: number;
+  visits: number; measured: number; median_s: number | null;
+}
+
+export interface VisitNight extends VisitStats {
+  id: string; title: string; start_at: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past';
+  /** Visites arrivées une fois la billetterie fermée (« Complet »), null tant que la soirée n'est pas complète. */
+  after_full?: number | null;
+}
+
+export interface TixVisitsKeep { k: 'top' | 'best_conv' | 'short' | 'after_full'; fam?: VisitFam; top?: VisitFam; pct?: number; conv?: number; top_conv?: number; ratio?: number; fams?: VisitFam[]; n?: number; title?: string }
+
+export interface AnaVisits {
+  meta: AnaMeta;
+  totals: {
+    visits: number; visitors: number; new_visitors: number; measured: number; median_s: number | null; pages: number | null; orders: number;
+    prev_visits: number; prev_visitors: number; prev_new: number; prev_measured: number; prev_median_s: number | null; prev_orders: number;
+  };
+  /** Période : visites (`v`) et visiteurs (`u`) par case et par famille. */
+  series: { v: Partial<Record<VisitFam, number>>; u: Partial<Record<VisitFam, number>>; visitors: number }[] | null;
+  /** Une soirée : visites cumulées de J-n à J (null après aujourd'hui), et la soirée comparée. */
+  curve: { cur: (number | null)[]; prev: number[] | null } | null;
+  sources: VisitSource[];
+  engagement: {
+    measured: number;
+    /** < 10 s, 10 s à 1 min, 1 à 3 min, 3 à 10 min, plus de 10 min. */
+    dur: [number, number, number, number, number];
+    /** Visites mesurées, puis ≥ 25 %, 50 %, 75 %, 90 % de la page. */
+    scroll: [number, number, number, number, number];
+    artist_clicks: number; shares: number;
+    /** Ouvertures mesurées sur la page d'une soirée (line-up, plan, vidéo) : null tant que rien n'est mesuré. */
+    opened?: { lineup: number; plan: number; video: number; measured: number } | null;
+  };
+  funnel: {
+    viewed: number; selected: number; checkout: number; details: number; purchased: number;
+    failed: number; failed_open: number; shared: number; waitlist: number;
+    reasons: { reason: string; n: number }[];
+    unpaid: { pillar: 'tickets' | 'tables'; n: number; name: string | null } | null;
+  };
+  heat: number[][];
+  devices: { mobile: number; desktop: number; tablet: number; unknown: number };
+  in_app: { instagram: number; facebook: number; tiktok: number; visits: number; orders: number; other_visits: number; other_orders: number };
+  langs: { known: number; top: { l: string; n: number }[] };
+  cities: { known: number; france: number; top: { city: string; n: number }[]; abroad: { cc: string; n: number }[] };
+  nights: VisitNight[] | null;
+  page: TixPageTraffic | null;
+  links: VisitLink[];
+  hours: number[] | null;
+  distance: { known: number; near: number; mid: number; far: number } | null;
+  artists: { id: string; name: string; photo: string | null; clicks: number }[];
+  known_before: { connected: number; came: number } | null;
+  /** Le seul pont vers l'argent : les ventes nées de ces visites ; `revenue` à null sans l'accès. */
+  bridge: { orders: number; revenue: number | null };
+  sends: AnaSend[];
+  /** Mesures neuves (lot T6) : demande non servie d'une soirée. */
+  demand?: { sold_out_at: string | null; after_full: number | null; soldout_seen: number | null } | null;
+  keep: TixVisitsKeep[];
+  has_any: boolean;
+}
+
+export function useAnaVisits(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk, ready } = useTixScope();
+  return useQuery({
+    queryKey: ['tix-ana', qk, 'ana', 'visits', f.period, f.event, f.event ? f.compare : null],
+    queryFn: () => rpc<AnaVisits>('tix_ana_visits', { ...a, ...args(f), p_compare: f.event ? f.compare : null }),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     enabled: enabled && ready,

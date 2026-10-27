@@ -1199,7 +1199,7 @@ export default function EventDetails() {
             {heroControls}
           </div>
 
-          <EventHeroStage key={event.flyerWideUrl || heroImage || event.id} posterUrl={heroImage} wideUrl={event.flyerWideUrl} videoUrl={heroVideo} title={event.title} />
+          <EventHeroStage key={event.flyerWideUrl || heroImage || event.id} posterUrl={heroImage} wideUrl={event.flyerWideUrl} videoUrl={heroVideo} title={event.title} onVideoPlay={() => capturePosthog('event_video_played', { event_id: event.id })} />
 
           <div style={{ paddingTop: 'clamp(24px, 6vw, 34px)' }}>
             {heroBadges}
@@ -1591,7 +1591,11 @@ export default function EventDetails() {
                 return (
                   <button
                     key={dj.id}
-                    onClick={() => (dj.handle || dj.slug) && navigate(`/dj/${dj.handle || dj.slug}`)}
+                    onClick={() => {
+                      if (!(dj.handle || dj.slug)) return;
+                      capturePosthog('event_lineup_opened', { event_id: event.id, target: 'dj' });
+                      navigate(`/dj/${dj.handle || dj.slug}`);
+                    }}
                     className="flex flex-col items-center gap-2 flex-shrink-0 active:opacity-70 transition-opacity"
                     style={{ width: 116 }}
                   >
@@ -1657,7 +1661,7 @@ export default function EventDetails() {
                     href={artist.instagramUrl}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
-                    onClick={() => trackGuestArtistClick(artist.id)}
+                    onClick={() => { trackGuestArtistClick(artist.id); capturePosthog('event_lineup_opened', { event_id: event.id, target: 'artist' }); }}
                     className={`${box} active:opacity-70 transition-opacity`}
                     style={{ width: 116 }}
                   >

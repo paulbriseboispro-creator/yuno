@@ -10,7 +10,6 @@ const dict: Record<string, Triple> = {
   'ya.cm.more.purchase': ['Purchases', 'Achats', 'Compras'],
   'ya.cm.more.audience': ['Audience', 'Public', 'Público'],
   'ya.kept.tables': ['VIP consumption and hosts', 'Consommation VIP et hôtes', 'Consumo VIP y anfitriones'],
-  'ya.kept.web': ['All visits and engagement', 'Toutes les visites et l’engagement', 'Todas las visitas y la interacción'],
 };
 
 export default dict;

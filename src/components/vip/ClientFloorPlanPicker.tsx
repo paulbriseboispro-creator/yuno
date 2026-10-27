@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { capturePosthog } from '@/lib/posthog';
 import { FloorPlanTable, VenueFloorPlan, FloorPlanTableShape } from '@/types';
 import { MapPin, ZoomIn, ZoomOut, SkipForward, Check, X, Maximize2, Minimize2, RotateCcw, Move } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,6 +27,8 @@ interface ZoneArea {
 
 interface ClientFloorPlanPickerProps {
   floorPlan: VenueFloorPlan;
+  /** La soirée du plan : son ouverture se compte dans Analyses › Trafic (lecture seule exclue). */
+  eventId?: string | null;
   unavailableTableIds: Set<string>;
   selectedTableId: string | null;
   onSelectTable: (tableId: string | null) => void;
@@ -69,8 +72,12 @@ export function ClientFloorPlanPicker({
   packId,
   packNames,
   focusZone,
+  eventId,
 }: ClientFloorPlanPickerProps) {
   const { t } = useLanguage();
+  useEffect(() => {
+    if (eventId && !readOnly) capturePosthog('floor_plan_opened', { event_id: eventId, pillar: 'tables' });
+  }, [eventId, readOnly]);
   const [zoom, setZoom] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);

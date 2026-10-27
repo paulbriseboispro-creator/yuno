@@ -18,6 +18,8 @@ const dict: Record<string, Triple> = {
   'ya.tr.page.ordered': ['Ended with a purchase', 'Finies par un achat', 'Terminadas en compra'],
   'ya.tr.page.orderedPct': ['{pct} of visits', '{pct} des visites', '{pct} de las visitas'],
   'ya.tr.page.from': ['Where visits come from', 'D’où viennent les visites', 'De dónde vienen las visitas'],
+  'ya.tr.page.next': ['Night opened next', 'Soirée ouverte ensuite', 'Fiesta abierta después'],
+  'ya.tr.page.nextFoot': ['The night page the same visitor opened within 30 minutes of the page.', 'La page soirée ouverte par le même visiteur dans les 30 minutes qui suivent la page.', 'La página de fiesta abierta por el mismo visitante en los 30 minutos siguientes.'],
   'ya.tr.page.none': ['No visit over this period.', 'Aucune visite sur cette période.', 'Ninguna visita en este periodo.'],
   'ya.tr.page.foot': [
     'A page visit “ends with a purchase” when the same device buys one of your nights within 24 hours. Visits are counted only for visitors who accepted measurement.',

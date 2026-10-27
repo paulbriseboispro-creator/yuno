@@ -1267,6 +1267,7 @@ export default function TableCheckout() {
                       </div>
                     ) : (
                       <ClientFloorPlanPicker
+                        eventId={eventId}
                         floorPlan={floorPlan}
                         unavailableTableIds={unavailableTableIds}
                         selectedTableId={selectedTableId}

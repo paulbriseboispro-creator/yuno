@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
  * pas un lecteur. L'appelant a déjà filtré reduced-motion / économie de
  * données via `shouldAutoplayHeroVideo()`.
  */
-export function EventHeroVideo({ src, className }: { src: string; className?: string }) {
+export function EventHeroVideo({ src, className, onPlay }: { src: string; className?: string; onPlay?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [mounted, setMounted] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -99,7 +99,7 @@ export function EventHeroVideo({ src, className }: { src: string; className?: st
       disableRemotePlayback
       aria-hidden="true"
       tabIndex={-1}
-      onPlaying={() => setPlaying(true)}
+      onPlaying={() => { if (!playing) onPlay?.(); setPlaying(true); }}
       onError={() => setFailed(true)}
       className={className}
       style={{ opacity: playing ? 1 : 0, transition: 'opacity 480ms ease-out', pointerEvents: 'none' }}

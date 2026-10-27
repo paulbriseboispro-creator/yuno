@@ -80,6 +80,11 @@ export type YunoEvent =
   | 'favorite_toggled' //          { favorited, + géo }
   | 'event_shared' //              { channel, + géo }
   | 'waitlist_joined' //           { pillar, + géo }
+  // Ce que la page d'une soirée voit (Analyses › Trafic, tunnel `opened` / `soldout_seen`) :
+  | 'event_lineup_opened' //       { event_id, target: 'dj' | 'artist' }
+  | 'event_video_played' //        { event_id }
+  | 'floor_plan_opened' //         { event_id, pillar: 'tables' }
+  | 'ticket_sold_out_seen' //      { event_id, tier_id }
   // ── Client : achat ───────────────────────────────────────────────────────
   | 'checkout_started' //          { pillar, + géo }
   | 'checkout_step_completed' //   { pillar, step: 'quantity' | 'tier' | 'details' | 'payment' }
