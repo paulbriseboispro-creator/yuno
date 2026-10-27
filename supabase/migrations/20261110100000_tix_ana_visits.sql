@@ -384,29 +384,27 @@ BEGIN
      WHERE COALESCE(k.clicks, 0) > 0 OR COALESCE(s.orders, 0) > 0
      ORDER BY COALESCE(k.clicks, 0) DESC, COALESCE(s.orders, 0) DESC LIMIT 12
   ),
-  -- ── Les ventes nées de ces visites (le pont vers Ventes) ───────────────
-  vsales AS (
-    SELECT x.id FROM (
-      SELECT t.id, t.tracking_visit_sid AS sid FROM public.tickets t WHERE t.event_id = ANY (v_ids) AND t.tracking_visit_sid IS NOT NULL
-      UNION ALL
-      SELECT r.id, r.tracking_visit_sid FROM public.table_reservations r WHERE r.event_id = ANY (v_ids) AND r.tracking_visit_sid IS NOT NULL
-    ) x WHERE x.sid IN (SELECT session_id FROM c)
-  ),
-  -- CA club de ces ventes (règle de fees.ts / _tix_sales, remboursement déduit ;
-  -- rien pour une soirée qu'un club ne fait qu'accueillir).
+  -- ── Le pont vers Ventes : les commandes nées de ces visites, et le CA club
+  -- des ventes Yuno de la période (ou de la soirée), le chiffre du héros de
+  -- Ventes (règle de fees.ts / _tix_sales, remboursement déduit ; rien pour une
+  -- soirée qu'un club ne fait qu'accueillir).
   bridge AS (
-    SELECT count(*) AS orders, COALESCE(sum(CASE WHEN se.money THEN x.gross - LEAST(GREATEST(x.refund, 0), x.gross) ELSE 0 END), 0) AS revenue
+    SELECT (SELECT count(*) FROM c WHERE c.done) AS orders,
+           COALESCE(sum(CASE WHEN se.money THEN x.gross - LEAST(GREATEST(x.refund, 0), x.gross) ELSE 0 END), 0) AS revenue
       FROM (
-        SELECT t.event_id, GREATEST(COALESCE(t.total_price, 0) - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0), 0) AS gross,
+        SELECT t.event_id, COALESCE(t.paid_at, t.created_at) AS at,
+               GREATEST(COALESCE(t.total_price, 0) - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0), 0) AS gross,
                COALESCE(t.refund_amount, 0) AS refund
-          FROM public.tickets t WHERE t.id IN (SELECT id FROM vsales) AND t.status IN ('paid', 'used')
+          FROM public.tickets t WHERE t.event_id = ANY (v_ids) AND t.status IN ('paid', 'used')
         UNION ALL
-        SELECT r.event_id, GREATEST(COALESCE(r.total_price, 0) - COALESCE(r.service_fee, 0)
+        SELECT r.event_id, COALESCE(r.paid_at, r.created_at),
+               GREATEST(COALESCE(r.total_price, 0) - COALESCE(r.service_fee, 0)
                  - CASE WHEN COALESCE(r.fee_absorbed, false) THEN COALESCE(r.management_fee, 0) ELSE 0 END, 0),
                COALESCE(r.refund_amount, 0)
-          FROM public.table_reservations r WHERE r.id IN (SELECT id FROM vsales) AND r.status IN ('paid', 'confirmed')
+          FROM public.table_reservations r WHERE r.event_id = ANY (v_ids) AND r.status IN ('paid', 'confirmed')
       ) x
       JOIN public._tix_scope_events(p_venue_id, p_organizer_user_id) se ON se.id = x.event_id
+     WHERE CASE WHEN v_mode = 'event' THEN x.event_id = v_ev_id ELSE x.at >= v_from AND x.at < v_to END
   ),
   -- ── Une soirée : distance au club, artistes, déjà venus ────────────────
   dist AS (
@@ -544,7 +542,9 @@ BEGIN
     'distance', CASE WHEN v_mode = 'event' AND v_lat IS NOT NULL THEN (SELECT to_jsonb(dist) FROM dist) END,
     'artists', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', a.id, 'name', a.name, 'photo', a.photo_url, 'clicks', a.clicks) ORDER BY a.clicks DESC) FROM artists a), '[]'::jsonb),
     'known_before', CASE WHEN v_mode = 'event' THEN (SELECT to_jsonb(known_before) FROM known_before) END,
-    'bridge', (SELECT jsonb_build_object('orders', orders, 'revenue', round(revenue, 2)) FROM bridge)
+    'bridge', (SELECT jsonb_build_object('orders', orders, 'revenue', round(revenue, 2)) FROM bridge),
+    -- Repères du graphique : e-mails, SMS et push envoyés (règle de l'onglet Ventes).
+    'sends', CASE WHEN v_mode <> 'event' THEN public._tix_ana_sends(p_venue_id, p_organizer_user_id, m) ELSE '[]'::jsonb END
   ) INTO r;
 
   -- ── À retenir : des constats, chacun avec son seuil (textes ya.tr.tk.*) ──
@@ -556,8 +556,8 @@ BEGIN
     ), t AS (SELECT (r->'totals'->>'visits')::numeric AS visits), top AS (
       SELECT s.* FROM s ORDER BY visits DESC LIMIT 1
     ), best AS (
-      SELECT s.* FROM s, top
-       WHERE s.k <> top.k AND s.visits >= 30 AND top.visits >= 30 AND top.orders > 0
+      SELECT s.* FROM s, top, t
+       WHERE s.k <> top.k AND s.visits >= 30 AND s.visits >= 0.05 * t.visits AND top.visits >= 30 AND top.orders > 0
          AND s.orders::numeric / s.visits >= 1.3 * top.orders::numeric / top.visits
        ORDER BY s.orders::numeric / s.visits DESC LIMIT 1
     )
