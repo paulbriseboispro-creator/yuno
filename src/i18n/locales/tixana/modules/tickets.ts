@@ -6,10 +6,11 @@ import type { Triple } from '../../crm/modules/types';
 // vente sont mesurées. Vouvoiement, comme le CRM (décision D2 du 17/10).
 const dict: Record<string, Triple> = {
   // En-tête
+  'ya.ana.title.traffic': ['Who looks at your nights?', 'Qui regarde vos soirées ?', '¿Quién mira sus fiestas?'],
   'ya.ana.sub.traffic': [
-    'The links and channels that sell, and what they add to your list. Read from the source recorded on every sale.',
-    'Les liens et canaux qui font vendre, et ce qu’ils ajoutent à votre base. Lu dans la source retenue pour chaque vente.',
-    'Los enlaces y canales que venden y lo que suman a su base. Leído en la fuente registrada en cada venta.',
+    'Who looks at your nights, where they come from, what they do on your pages and how many move to purchase.',
+    'Qui regarde vos soirées, d’où ils arrivent, ce qu’ils font sur vos pages et combien passent à l’achat.',
+    'Quién mira sus fiestas, de dónde llegan, qué hacen en sus páginas y cuántos pasan a la compra.',
   ],
   'ya.ana.sub.community': [
     'Unique contacts, duplicates merged: buyers, guest list and the files imported into Yuno Tickets.',

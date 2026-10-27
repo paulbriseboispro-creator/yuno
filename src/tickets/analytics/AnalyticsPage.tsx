@@ -21,11 +21,11 @@ import { useTixT } from '@/tickets/analytics/i18n';
 import { useTixCaps, useTixNights } from '@/tickets/analytics/scope';
 import { useTixRoutes, type TixRoutes } from '@/tickets/analytics/routes';
 import { downloadCsv } from '@/crm/lib/csv';
-import { useAnaCommunity, useAnaGuestList, useAnaPartners, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaPillar, type AnaSeg, type AnaTab, PILLARS } from '@/tickets/analytics/data';
+import { useAnaCommunity, useAnaGuestList, useAnaPartners, useAnaSales, useAnaVisits, type AnaFilters, type AnaPeriod, type AnaPillar, type AnaSeg, type AnaTab, PILLARS } from '@/tickets/analytics/data';
 import { StatePill, type NightState } from './anaUi';
 import { LoadError } from '@/tickets/analytics/LoadError';
 import { SalesTab, salesCsv } from './SalesTab';
-import { TrafficTab, trafficCsv } from './TrafficTab';
+import { TrafficTab, visitsCsv } from './TrafficTab';
 import { PartnersTab, partnersCsv } from './PartnersTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
 import { CommunityMore } from './CommunityMore';
@@ -63,8 +63,8 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   const pl = sp.get('pl') as AnaPillar | null;
   const pillar: AnaPillar = tab === 'sales' && pl && PILLARS.includes(pl) ? pl : 'all';
   const event = sp.get('e') || null;
-  // La soirée comparée n'a de sens que pour une soirée choisie, dans Ventes.
-  const compare = tab === 'sales' && event ? sp.get('ce') || null : null;
+  // La soirée comparée n'a de sens que pour une soirée choisie, dans Ventes et Trafic.
+  const compare = (tab === 'sales' || tab === 'traffic') && event ? sp.get('ce') || null : null;
   return { period: p && PERIODS.includes(p) ? p : '30d', event, seg, cmp: sp.get('cmp') !== '0', pillar, compare };
 }
 
@@ -93,7 +93,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const popRef = useRef<HTMLDivElement>(null);
 
   const sales = useAnaSales(f, tab === 'sales');
-  const traffic = useAnaTraffic(f, tab === 'traffic');
+  const traffic = useAnaVisits(f, tab === 'traffic');
   const partners = useAnaPartners(f, tab === 'partners');
   const community = useAnaCommunity(f, tab === 'community' && !cv);
   const guestlist = useAnaGuestList(f.period, tab === 'guestlist' && !f.event);
@@ -113,15 +113,17 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
     }, { replace: true });
     setEvOpen(false);
   };
-  const goTab = (k: AnaTab) => {
+  /** `hash` : la partie de l'onglet à ouvrir (ex. « Ce qui a fait vendre » depuis Trafic). */
+  const goTab = (k: AnaTab, hash?: string) => {
     if (k === tab) return;
     const p = new URLSearchParams(sp);
     if (k !== 'community' && p.get('s') === 'end') p.delete('s');
     p.delete('pl');
-    p.delete('ce');
+    // La soirée comparée suit entre Ventes et Trafic, qui la lisent tous les deux.
+    if (!(k === 'sales' || k === 'traffic')) p.delete('ce');
     p.delete('cv');
     const qs = p.toString();
-    navigate(`${R[TABS.find((x) => x.k === k)!.route] as string}${qs ? `?${qs}` : ''}`);
+    navigate(`${R[TABS.find((x) => x.k === k)!.route] as string}${qs ? `?${qs}` : ''}${hash ? `#${hash}` : ''}`);
   };
 
   useEffect(() => {
@@ -152,7 +154,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const exportCsv = () => {
     const stamp = `${tab}-${f.event ? 'soiree' : f.period}`;
     const out = tab === 'sales' ? (sales.data ? salesCsv(sales.data, T, caps.money) : null)
-      : tab === 'traffic' ? (traffic.data ? trafficCsv(traffic.data, T, caps.money) : null)
+      : tab === 'traffic' ? (traffic.data ? visitsCsv(traffic.data, T) : null)
       : tab === 'partners' ? (partners.data ? partnersCsv(partners.data, T, caps.money) : null)
         : tab === 'guestlist' ? (guestlist.data && !f.event ? guestlistCsv(guestlist.data, T) : null)
           : (community.data ? communityCsv(community.data, T) : null);
@@ -301,12 +303,12 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           )}
           <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--ya-sand-500)' }}>{scope}</span>
         </div>
-        {ev && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--ya-sand-500)' }}>{t('ya.ana.f.perNote')}</div>}
+        {ev && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--ya-sand-500)' }}>{t(tab === 'traffic' ? 'ya.tv.perNote' : 'ya.ana.f.perNote')}</div>}
       </div>}
 
       {/* Un onglet dont la lecture échoue (délai de 30 s compris) dit l'échec : ses squelettes attendraient sans fin. */}
       {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />)}
-      {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} />)}
+      {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} goTab={goTab} />)}
       {tab === 'partners' && (failed(partners) ?? <PartnersTab q={partners} f={f} setF={setF} />)}
       {tab === 'community' && (
         <div style={{ display: 'flex', overflowX: 'auto', maxWidth: '100%' }} className="ya-noscroll">
