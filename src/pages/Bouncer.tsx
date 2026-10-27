@@ -13,7 +13,7 @@ import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList, Loader2 } from 'lucide-react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
-import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState, wholeTableDoorState } from '@/lib/scan/rules';
+import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount, ticketPlaceFromQr, wholeTicketDoorState, wholeTableDoorState } from '@/lib/scan/rules';
 import {
   enterRemainingTableGuests, enterTableGuest, findTableGuestByQr, tableGuestsEnteredByMeJustNow, tableGuestsOf,
 } from '@/lib/scan/tableDoor';
@@ -88,6 +88,10 @@ interface ScannedTicket {
   quantity: number;
   /** Personnes que CE QR fait entrer (1 pour un QR nominatif) : le nombre de boissons offertes à remettre. */
   headcount?: number;
+  /** QR nominatif d'une commande de plusieurs personnes : « Billet k sur N ». */
+  placeOf?: { index: number; total: number };
+  /** Acheteur de la commande (nommé sous la place ou le QR de groupe). */
+  buyerName?: string;
   eventTitle: string;
   roundName: string;
   status: string;
@@ -936,6 +940,7 @@ export default function Bouncer() {
         // Une entrée du manifeste avec `ticket_id` est un QR nominatif (un ami) ; le
         // QR entier d'un billet à places fait entrer ses places encore libres ici.
         headcount: result.headcount ?? entryHeadcount(entry.ticket_id ? 'ticket_attendee' : 'ticket', entry.qty),
+        placeOf: entry.ticket_id ? ticketPlaceFromQr(qrCode, entry.qty) ?? undefined : undefined,
         eventTitle: offline.manifestEvent?.title || '',
         roundName: entry.round || '',
         status: entry.status,
@@ -1132,6 +1137,8 @@ export default function Bouncer() {
             fullName: attendee.full_name || ticket.full_name,
             quantity: ticket.quantity,
             headcount: entryHeadcount('ticket_attendee', ticket.quantity),
+            placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
+            buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1160,6 +1167,8 @@ export default function Bouncer() {
             fullName: attendee.full_name || ticket.full_name,
             quantity: ticket.quantity,
             headcount: entryHeadcount('ticket_attendee', ticket.quantity),
+            placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
+            buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1192,6 +1201,8 @@ export default function Bouncer() {
             fullName: attendee.full_name || ticket.full_name,
             quantity: ticket.quantity,
             headcount: entryHeadcount('ticket_attendee', ticket.quantity),
+            placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
+            buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1252,6 +1263,8 @@ export default function Bouncer() {
           fullName: attendee.full_name || ticket.full_name,
           quantity: ticket.quantity,
           headcount: entryHeadcount('ticket_attendee', ticket.quantity),
+            placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
+            buyerName: ticket.full_name || undefined,
           eventTitle: ticket.events.title,
           roundName: ticket.ticket_rounds.name,
           status: ticket.status,
@@ -1343,6 +1356,7 @@ export default function Bouncer() {
             fullName: ticket.full_name,
             quantity: ticket.quantity,
             headcount: wholeDoor.headcount,
+            buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1401,6 +1415,7 @@ export default function Bouncer() {
             fullName: ticket.full_name,
             quantity: ticket.quantity,
             headcount: wholeDoor.headcount,
+            buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
             roundName: ticket.ticket_rounds.name,
             status: ticket.status,
@@ -1470,6 +1485,7 @@ export default function Bouncer() {
           fullName: ticket.full_name,
           quantity: ticket.quantity,
           headcount: admitted,
+            buyerName: ticket.full_name || undefined,
           eventTitle: ticket.events.title,
           roundName: ticket.ticket_rounds.name,
           status: ticket.status,
@@ -2793,6 +2809,14 @@ export default function Bouncer() {
                           <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.quantity')}</span>
                           <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>{scannedTicket.headcount ?? scannedTicket.quantity}x</span>
                         </div>
+                        {scannedTicket.placeOf && (
+                          <p className="truncate" style={{ color: T2, fontSize: 13 }}>
+                            {t('bouncer.placeOf')
+                              .replace('{k}', String(scannedTicket.placeOf.index))
+                              .replace('{n}', String(scannedTicket.placeOf.total))
+                              .replace('{name}', scannedTicket.buyerName || scannedTicket.fullName || '')}
+                          </p>
+                        )}
 
                         {scannedTicket.entryScannedAt && scanResult === 'already' && (
                           <div className="flex items-center justify-between gap-3" style={{ color: '#FCD34D' }}>
@@ -3141,6 +3165,27 @@ export default function Bouncer() {
                 ? (scannedTicket.fullName || scannedTicket.userEmail)
                 : (scannedVipReservation?.fullName || overlayName);
               const scannedAtRaw = scannedTicket?.entryScannedAt || scannedVipReservation?.entryScannedAt;
+              /* Combien de personnes CE QR fait entrer, en très gros : la carte
+                 d'un billet seul et celle d'un QR de groupe se ressemblaient
+                 (« 1x » / « 2x » en petit), le videur ne voyait pas qu'il
+                 devait laisser passer tout le groupe (test du 27/10). */
+              const people = scannedTicket ? (scannedTicket.headcount ?? scannedTicket.quantity ?? 1) : 1;
+              const orderSize = scannedTicket?.quantity ?? 1;
+              const isGroupQr = !!scannedTicket && !scannedTicket.placeOf && orderSize >= 2;
+              const buyer = scannedTicket?.buyerName || scannedTicket?.fullName || '';
+              const peopleSub = !scannedTicket ? null
+                : scannedTicket.placeOf
+                  ? t('bouncer.placeOf')
+                      .replace('{k}', String(scannedTicket.placeOf.index))
+                      .replace('{n}', String(scannedTicket.placeOf.total))
+                      .replace('{name}', buyer)
+                  : isGroupQr
+                    ? (people < orderSize
+                        ? t('bouncer.groupQrPartial')
+                            .replace('{n}', String(orderSize - people))
+                            .replace('{total}', String(orderSize))
+                        : t('bouncer.groupQr').replace('{total}', String(orderSize)))
+                    : null;
               return (
                 <motion.div
                   key={scanResult}
@@ -3190,6 +3235,23 @@ export default function Bouncer() {
                     {/* Bandeau TOP CLIENT : aplat sombre + or, volontairement
                         distinct des deux cartes — le videur doit voir en un
                         coup d'œil qu'il tient un gros client du club. */}
+                    {scanResult === 'success' && scannedTicket && (
+                      <div
+                        className="mt-4 rounded-2xl px-4 py-3"
+                        style={people >= 2 ? { background: '#ffffff', color: cardBg } : { background: innerBg, color: fg }}
+                      >
+                        <div className="flex items-baseline justify-center gap-2">
+                          <span className="text-5xl font-black leading-none tabular-nums">{people}</span>
+                          <span className="text-xl font-black uppercase tracking-wide">
+                            {people >= 2 ? t('bouncer.peopleMany') : t('bouncer.peopleOne')}
+                          </span>
+                        </div>
+                        {peopleSub && (
+                          <p className="mt-1.5 line-clamp-2 text-sm font-semibold" style={{ opacity: 0.85 }}>{peopleSub}</p>
+                        )}
+                      </div>
+                    )}
+
                     {(scanResult === 'success' || scanResult === 'vip_success') && topClientInfo && (
                       <div className="mt-4 rounded-xl px-3 py-2.5 text-left" style={{ background: '#141416', border: '1px solid rgba(212,160,23,0.55)' }}>
                         <div className="flex items-center gap-2.5">
@@ -3221,7 +3283,6 @@ export default function Bouncer() {
                           >
                             {scannedTicket.roundName}
                           </span>
-                          <span className="flex-none tabular-nums text-base font-bold" style={{ color: fg }}>{scannedTicket.headcount ?? scannedTicket.quantity}x</span>
                         </div>
                         {/* Heure limite : seulement quand elle est respectée — le
                             cas hors créneau a déjà son bloc orange dédié. */}
@@ -3238,7 +3299,7 @@ export default function Bouncer() {
                               <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>
                                 {drinkTooLate
                                   ? t('bouncer.drinkCutoffPassed').replace('{time}', scannedTicket.drinkCutoff ?? '')
-                                  : t('bouncer.giveDrink')}
+                                  : people >= 2 ? `${people} × ${t('bouncer.giveDrink')}` : t('bouncer.giveDrink')}
                               </p>
                             </div>
                           ) : (

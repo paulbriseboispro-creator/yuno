@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import {
   validateTicketEntry, validateTableReservation, validateGuestListEntry,
-  computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState, wholeTableDoorState,
+  computeLateness, drinkCutoffOf, entryHeadcount, ticketPlaceFromQr, wholeTicketDoorState, wholeTableDoorState,
 } from '@/lib/scan/rules';
 import {
   enterRemainingTableGuests, enterTableGuest, findTableGuestByQr, tableGuestsEnteredByMeJustNow, tableGuestsOf,
@@ -128,6 +128,12 @@ interface DoorTicket {
   roundName: string | null;
   /** Personnes que CE QR fait entrer (1 pour un QR nominatif). */
   headcount: number;
+  /** Taille de la commande : distingue un QR de groupe d'un billet seul. */
+  orderSize: number;
+  /** QR nominatif d'une commande de plusieurs personnes : « Billet k sur N ». */
+  placeOf: { index: number; total: number } | null;
+  /** Acheteur de la commande, nommé sous la place. */
+  buyer: string | null;
   /** Heure limite d'entrée du tarif (HH:MM), quand il en a une. */
   entryDeadline: string | null;
   includesDrink: boolean;
@@ -159,11 +165,16 @@ function doorTicketFor(
   quantity: number | null,
   /** Personnes que fait entrer le QR du billet entier d'un billet à places (ses places libres). */
   headcountOverride?: number,
+  /** QR scanné et acheteur : « Billet k sur N · commande de … » pour une place. */
+  place?: { qr: string; buyer: string | null },
 ): DoorTicket {
   return {
     name,
     roundName: round?.name ?? null,
     headcount: headcountOverride ?? entryHeadcount(kind, quantity),
+    orderSize: Math.max(1, Math.floor(Number(quantity) || 1)),
+    placeOf: kind === 'ticket_attendee' && place ? ticketPlaceFromQr(place.qr, quantity) : null,
+    buyer: place?.buyer ?? null,
     entryDeadline: round?.entry_deadline ? round.entry_deadline.substring(0, 5) : null,
     includesDrink: !!round?.includes_drink,
     drinkCutoff: round ? drinkCutoffOf(round) ?? null : null,
@@ -386,7 +397,7 @@ export default function OrgAppCheckin() {
         );
         if (verdict.status !== 'success') { denyFromVerdict(verdict, att.full_name); return; }
 
-        const attCard = doorTicketFor('ticket_attendee', att.full_name ?? parent.full_name ?? null, doorRoundOf(parent), parent.quantity);
+        const attCard = doorTicketFor('ticket_attendee', att.full_name ?? parent.full_name ?? null, doorRoundOf(parent), parent.quantity, undefined, { qr: qrCode, buyer: parent.full_name ?? null });
         // Hors créneau : on montre le billet SANS le consommer, la porte tranche.
         if (isLateNow(attCard.entryDeadline)) {
           setDoorTicket({ ...attCard, pendingLate: { kind: 'ticket_attendee', id: att.id, ticketId: parent.id, qr: qrCode } });
@@ -523,6 +534,7 @@ export default function OrgAppCheckin() {
         const toPay = Math.max(0, Number(reservation.total_price ?? 0) - Number(reservation.deposit ?? 0));
         setDoorTicket({
           name: doorName ?? null, roundName: t('Table VIP', 'VIP table', 'Mesa VIP'), headcount: admitted,
+          orderSize: 1, placeOf: null, buyer: null,
           entryDeadline: null, includesDrink: false, drinkCutoff: null, pendingLate: null,
           ...(toPay > 0 ? { toPayOnSite: toPay } : {}),
         });
@@ -584,7 +596,8 @@ export default function OrgAppCheckin() {
         setDoorTicket({
           name: gle.full_name ?? null,
           roundName: glDrink ? t('Guest list + boisson', 'Guest list + drink', 'Guest list + bebida') : t('Guest list', 'Guest list', 'Guest list'),
-          headcount: 1, entryDeadline: null, includesDrink: glDrink, drinkCutoff: null, pendingLate: null,
+          headcount: 1, orderSize: 1, placeOf: null, buyer: null,
+          entryDeadline: null, includesDrink: glDrink, drinkCutoff: null, pendingLate: null,
         });
         setRecent(r => [{ name: gle.full_name, at: new Date() }, ...r].slice(0, 5));
         toast.success(`✓ ${gle.full_name ?? t('Entrée validée', 'Entry validated')}`);
@@ -1307,7 +1320,35 @@ function DoorTicketDetails({
       <div className="space-y-3 p-4" style={{ fontSize: 13 }}>
         {ticket.roundName && <Row label={t('Tarif', 'Ticket type', 'Tarifa')} value={ticket.roundName} />}
         {ticket.entryDeadline && <Row label={tk('tickets.entryDeadline')} value={ticket.entryDeadline} />}
-        <Row label={t('Personnes', 'People', 'Personas')} value={`${ticket.headcount}x`} />
+        {/* Combien de personnes CE QR fait entrer, en gros : un QR de groupe
+            ne doit jamais se lire comme un billet seul (test du 27/10). */}
+        <div
+          className="rounded-xl px-4 py-3 text-center"
+          style={ticket.headcount >= 2
+            ? { background: 'rgba(52,211,153,0.14)', border: '1px solid rgba(52,211,153,0.5)', color: POS }
+            : { background: 'rgb(var(--ink) / 0.05)', border: '1px solid rgb(var(--ink) / 0.10)', color: T1 }}
+        >
+          <div className="flex items-baseline justify-center gap-2">
+            <span className="tabular-nums" style={{ fontSize: 40, fontWeight: 800, lineHeight: 1 }}>{ticket.headcount}</span>
+            <span style={{ fontSize: 16, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {ticket.headcount >= 2 ? tk('bouncer.peopleMany') : tk('bouncer.peopleOne')}
+            </span>
+          </div>
+          {ticket.placeOf ? (
+            <div className="mt-1 truncate" style={{ color: T2, fontSize: 12, fontWeight: 600 }}>
+              {tk('bouncer.placeOf')
+                .replace('{k}', String(ticket.placeOf.index))
+                .replace('{n}', String(ticket.placeOf.total))
+                .replace('{name}', ticket.buyer || ticket.name || '')}
+            </div>
+          ) : ticket.orderSize >= 2 && (
+            <div className="mt-1 truncate" style={{ color: T2, fontSize: 12, fontWeight: 600 }}>
+              {ticket.headcount < ticket.orderSize
+                ? tk('bouncer.groupQrPartial').replace('{n}', String(ticket.orderSize - ticket.headcount)).replace('{total}', String(ticket.orderSize))
+                : tk('bouncer.groupQr').replace('{total}', String(ticket.orderSize))}
+            </div>
+          )}
+        </div>
         {ticket.toPayOnSite != null && (
           <Row label={t('Reste à régler sur place', 'Left to pay on site', 'Por pagar en el local')} value={`${ticket.toPayOnSite.toFixed(2)} €`} />
         )}

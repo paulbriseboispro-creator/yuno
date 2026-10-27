@@ -129,6 +129,25 @@ export function entryHeadcount(
 }
 
 /**
+ * Place nominative d'une commande de plusieurs personnes, lue sur son QR
+ * (`<QR du billet>-k`, k de 1 à la quantité) : la porte dit « Billet k sur N »
+ * pour que le videur sache qu'il fait entrer UNE personne d'un groupe. `null`
+ * pour un QR qui n'est pas une place (billet seul, QR de groupe) ou une
+ * commande d'une personne.
+ */
+export function ticketPlaceFromQr(
+  qrCode: string | null | undefined,
+  quantity: number | null | undefined,
+): { index: number; total: number } | null {
+  const total = Math.floor(Number(quantity) || 0);
+  if (total < 2 || !qrCode) return null;
+  const m = /-(\d{1,3})$/.exec(qrCode.trim());
+  if (!m) return null;
+  const index = Number(m[1]);
+  return index >= 1 && index <= total ? { index, total } : null;
+}
+
+/**
  * QR du BILLET ENTIER (e-mail, Wallet) d'un billet à places nominatives : il
  * fait entrer les places encore libres — ni entrées avec leur propre QR, ni
  * remboursées une à une. Il n'est « déjà scanné » que quand il n'en reste
