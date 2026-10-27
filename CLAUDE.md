@@ -6432,3 +6432,40 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Yuno Tickets › Analyses › Trafic — les visites en personnes (2026-10-27)
+
+Plan : `docs/designs/TRAFFIC_TAB_PLAN.md` (décisions D1 et D3 de Paul du 27/10).
+Migrations `20261110100000` (lecture), `20261110110000` (MCP), `20261110120000`
+(mesures neuves). Règles :
+
+- **Trafic se compte en PERSONNES, Ventes en euros.** Trafic n'a qu'un pont vers
+  l'argent : le passage à l'achat (un %, un nombre de commandes) dans les tableaux
+  et la phrase du bas (« Ces N visites ont donné X commandes, soit Y € »), dont les
+  euros sont le CA club de la période, le chiffre du héros de Ventes. Jamais une
+  colonne d'euros dans un tableau du Trafic.
+- **Lecture unique : `tix_ana_visits(venue, orga, period, event, compare)`**, qui ne
+  lit que `visitor_sessions`, `event_funnel_events`, les clics des liens suivis et
+  des artistes. Aucune table temporaire (aperçu démo). Durées = MÉDIANES plafonnées
+  à 2 h, jamais des moyennes ; aucun pourcentage sous 10 (`MIN_SAMPLE`). Familles de
+  visite = `_tix_visit_family` (lk liens suivis, ms e-mails / push, so réseaux, yu
+  Yuno, se recherche, ot QR / autres sites, di direct) : un lien suivi est reconnu
+  par (soirée, utm_source, utm_medium), avant la catégorie du référent. Une soirée
+  (`?e=`) se compare à `?ce=` (sinon la précédente de la série) AU MÊME JOUR avant la
+  soirée.
+- **L'attribution d'une vente ne bouge pas** : `tix_ana_traffic` /
+  `tix_ana_traffic_detail` restent la vérité ; leurs blocs sont dans Ventes ›
+  « Ce qui a fait vendre » (`SalesMade.tsx`, sous le pilier Tout, ancre
+  `#ya-made`) : qui fait vendre, quelle source fait vendre (avec ses liens), la
+  carte noire des messages, qui vous découvre, nouveaux clients par soirée.
+- **Le « Complet » daté vit dans `event_sold_out_marks`**, pas dans `events` : il naît
+  d'un achat, et une mise à jour d'`events` depuis le chemin d'achat réveillerait ses
+  ~25 déclencheurs. Déclencheurs `trg_zz_*_sold_out_mark` (jamais bloquants).
+  Appliquer avec `SET lock_timeout = '3s'`.
+- **Ce que la page voit = étapes du tunnel** : `opened` (ref lineup / plan / video)
+  et `soldout_seen` (ref : le billet), tirées par `event_lineup_opened`,
+  `event_video_played`, `floor_plan_opened`, `ticket_sold_out_seen` (plan de
+  marquage, `funnelRowFor`). Une mesure nouvelle de la page passe par là.
+- **`_mcp_tool` ne se recopie pas** : la branche Billetterie de `get_web_traffic`
+  est remplacée dans la définition vivante entre deux repères (la branche CRM est
+  à la session CRM). Toute réécriture d'une branche de `_mcp_tool` suit ce modèle.
