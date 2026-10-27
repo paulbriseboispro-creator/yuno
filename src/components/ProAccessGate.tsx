@@ -97,6 +97,18 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
       // annulée) laisserait sinon `status` sur 'checking' — soit un spinner
       // définitif, exactement le symptôme qu'on cherche à éliminer.
       try {
+        // Invitation de porte en attente pour l'adresse de ce compte : elle
+        // s'accepte ici, même connecté par Apple, Google ou « Recevoir un
+        // code » sans passer par le lien (le 1er vrai videur était refusé puis
+        // déconnecté, 27/10). Rechargement complet : les rôles de la session
+        // sont relus avec le poste de videur. Une panne ne bloque rien.
+        const { data: claim } = await supabase.rpc('claim_my_event_door_invites' as never);
+        if (!active) return;
+        if (((claim as { claimed?: number } | null)?.claimed ?? 0) > 0) {
+          window.location.assign('/pro');
+          return;
+        }
+
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
