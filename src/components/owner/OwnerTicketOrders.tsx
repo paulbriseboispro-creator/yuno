@@ -39,6 +39,15 @@ const STATUS_KEY: Record<string, string> = {
   pending: 'orders.status.pending',
 };
 
+/** Une personne nommée par l'acheteur sur un billet de plusieurs personnes (place k > 1). */
+interface TicketGuest {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  entered: boolean;
+}
+
 interface TicketOrder {
   id: string;
   eventId: string;
@@ -102,6 +111,8 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<TicketOrder | null>(null);
+  // Invités du billet ouvert : les places 2..N, nommées par l'acheteur au paiement.
+  const [guests, setGuests] = useState<TicketGuest[]>([]);
   const [sortBy, setSortBy] = useState<'date' | 'price'>('date');
   const [exportOpen, setExportOpen] = useState(false);
   // Minor-ticket records keyed by event+email, to flag minor buyers + their signed doc.
@@ -125,6 +136,37 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
     const match = tickets.find((tk) => tk.id === focusOrderId);
     if (match) { setSelectedTicket(match); lastFocusRef.current = focusOrderId; }
   }, [focusOrderId, tickets]);
+
+  // Un billet de plusieurs personnes porte une place nominative par personne
+  // (ticket_attendees) : la place 1 est l'acheteur, les autres sont ses invités.
+  const openTicketId = selectedTicket?.id;
+  const openTicketQty = selectedTicket?.quantity ?? 0;
+  const openTicketBuyer = selectedTicket?.userEmail ?? '';
+  useEffect(() => {
+    setGuests([]);
+    if (!openTicketId || openTicketQty < 2) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('ticket_attendees')
+        .select('id, full_name, email, phone, entry_scanned, created_at')
+        .eq('ticket_id', openTicketId)
+        .order('created_at', { ascending: true });
+      if (cancelled || error || !data) return;
+      const buyerEmail = openTicketBuyer.trim().toLowerCase();
+      let others = data.filter((a) => (a.email ?? '').trim().toLowerCase() !== buyerEmail);
+      // Place de l'acheteur sans e-mail identique (adresse corrigée depuis) : c'est la 1re.
+      if (others.length >= openTicketQty) others = others.slice(1);
+      setGuests(others.map((a) => ({
+        id: a.id,
+        fullName: a.full_name,
+        email: a.email,
+        phone: a.phone,
+        entered: !!a.entry_scanned,
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [openTicketId, openTicketQty, openTicketBuyer]);
 
   const fetchTickets = async () => {
     try {
@@ -368,6 +410,28 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                 <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.userEmail}</p>
                 {selectedTicket.phone && <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.phone}</p>}
               </div>
+
+              {/* Les autres personnes du billet : nom + e-mail saisis par l'acheteur. */}
+              {guests.length > 0 && (
+                <div className="p-4 rounded-xl space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                  <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('owner.ticketGuests')}</p>
+                  {guests.map((g) => (
+                    <div key={g.id} className="space-y-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p style={{ color: T1, fontSize: 13 }}>{g.fullName || '—'}</p>
+                        {g.entered && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0"
+                            style={{ background: STATUS_STYLE.paid.bg, color: STATUS_STYLE.paid.color }}>
+                            {t('owner.ticketGuestEntered')}
+                          </span>
+                        )}
+                      </div>
+                      {g.email && <p style={{ color: T2, fontSize: 13 }}>{g.email}</p>}
+                      {g.phone && <p style={{ color: T2, fontSize: 13 }}>{g.phone}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* E-mail du billet rebondi (adresse qui n'existe pas) : corriger et renvoyer. */}
               <TicketEmailBouncePanel

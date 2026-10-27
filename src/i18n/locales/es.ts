@@ -4086,6 +4086,8 @@ const es: Record<string, string> = {
   'owner.vipOrderDetails': 'Detalles de la Reserva VIP',
   'owner.eventDate': 'Fecha del evento',
   'owner.customerInfo': 'Cliente',
+  'owner.ticketGuests': 'Invitados de este pedido',
+  'owner.ticketGuestEntered': 'Ha entrado',
   'owner.serviceFee': 'Tarifa de servicio',
   'owner.insuranceFee': 'Seguro',
   'owner.managementFee': 'Comisión de gestión',
