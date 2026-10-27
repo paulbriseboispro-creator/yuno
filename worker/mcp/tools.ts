@@ -514,7 +514,9 @@ export const TOOLS: ToolDef[] = [
     description:
       'Visits to the public page and the event pages: daily visits, sources (Instagram, direct, Google, email, links...), devices, '
       + 'purchases and conversion by source, funnel visit to cart to purchase. On a Yuno CRM account: where ticket buyers came from '
-      + '(sources reported by the ticketing, Yuno share links, signup pages); visits to the ticketing site itself are not reported. '
+      + '(sources reported by the ticketing, Yuno share links, signup pages) and, under clicks, what goes through Yuno in people '
+      + '(clicks on Yuno links and e-mails, signup page visits, hours, devices, countries, purchase platform, click to order); '
+      + 'visits to the ticketing site itself are not reported. '
       + 'Examples: "where do my visitors come from?", "does Instagram convert?".',
     inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(30), from: FROM, to: TO }, additionalProperties: false },
   },

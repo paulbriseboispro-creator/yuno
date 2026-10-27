@@ -53,7 +53,9 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
   // Familles de `_crm_ticket_source` (migration 20261018100000) et le compte des clients.
-  { id: 'sources', c: 'clients', to: CRM_ROUTES.traffic },
+  { id: 'sources', c: 'clients', to: CRM_ROUTES.sales },
+  // Trafic : ce qui passe par Yuno, en personnes (crm_ana_clicks, 27/10).
+  { id: 'traffic', c: 'clients', to: CRM_ROUTES.traffic },
   { id: 'customers', c: 'clients', to: CRM_ROUTES.clients },
   { id: 'guestlist', c: 'clients', to: CRM_ROUTES.guestlist },
   // Analyse client : le test au hasard, les statuts, ce qui sort du compte.

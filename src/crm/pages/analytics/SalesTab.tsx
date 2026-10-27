@@ -2,12 +2,12 @@
  * Analyses › Ventes — « Combien ai-je vendu ? ». Le héros (ventes ou billets,
  * par case ou cumulées, la période d'avant, les envois de messages), quatre
  * tuiles, l'objectif de la prochaine soirée et sa courbe de vente comparée
- * aux deux dernières, l'heure des achats, les tarifs, les soirées, et la part
- * des ventes venue d'un message Yuno.
+ * aux deux dernières, l'heure des achats, les tarifs, puis « Ce qui a fait
+ * vendre » (MadeSell : sources, liens Yuno, messages, partenaires, nouveaux
+ * clients, venus de Trafic le 27/10) et les soirées.
  */
 import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Segmented } from '@/crm/ui/kit';
@@ -15,11 +15,11 @@ import { useProgress } from '@/crm/ui/motion';
 import { useCrmT, type CrmFormatters } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { TicketSplit } from '@/crm/components/TicketSplit';
-import { CRM_ROUTES } from '@/crm/shell/nav';
-import type { AnaFilters, AnaSales, AnaTab } from '@/crm/data/analytics';
+import type { AnaFilters, AnaSales, AnaTab, AnaTraffic } from '@/crm/data/analytics';
+import { MadeSell } from './MadeSell';
 import {
-  BrandArrowButton, CardHead, ChartSkeleton, Fill, Gauge, MultiLine, Sk, StatePill, Takeaway, Tile, TileSkeleton, TrendChart,
-  bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type CurveLine, type TileSpec,
+  CardHead, ChartSkeleton, Fill, Gauge, MultiLine, Sk, StatePill, Takeaway, Tile, TileSkeleton, TrendChart,
+  bucketTitle, card, fadeIn, useGo, xLabels, type CurveLine, type TileSpec,
 } from './anaUi';
 
 type T = ReturnType<typeof useCrmT>;
@@ -46,11 +46,10 @@ export function salesCsv(d: AnaSales, T: T, money: boolean): { columns: string[]
   return { columns: cols, rows };
 }
 
-export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f: AnaFilters; setF: (p: Partial<AnaFilters>) => void; goTab: (k: AnaTab) => void }) {
+export function SalesTab({ q, tq, f, setF, goTab }: { q: UseQueryResult<AnaSales>; tq: UseQueryResult<AnaTraffic>; f: AnaFilters; setF: (p: Partial<AnaFilters>) => void; goTab: (k: AnaTab) => void }) {
   const T = useCrmT();
   const { t, tp, n, n1, eur, eur2, pct, dShort, dLong, lang } = T;
   const caps = useCrmCaps();
-  const navigate = useNavigate();
   const d = q.data;
   const loading = !d || (q.isFetching && q.isPlaceholderData);
   const money = caps.money && !!d && d.totals.revenue !== null;
@@ -288,6 +287,9 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         </section>
       </div>
 
+      {/* Ce qui a fait vendre */}
+      <MadeSell q={tq} f={f} msg={d.msg} />
+
       {/* Soirées */}
       <section style={{ ...card, gap: 16 }}>
         <CardHead
@@ -304,12 +306,14 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         ) : (() => {
           const tkOf = (e: AnaSales['events'][number]) => Number(e.paid ?? e.tickets);
           const amtMax = Math.max(1, ...d.events.map((e) => (money ? Number(e.revenue ?? 0) : tkOf(e))));
-          const grid = 'minmax(200px,1.5fr) minmax(180px,1.2fr) minmax(160px,1fr) 110px';
+          const grid = 'minmax(200px,1.5fr) minmax(180px,1.2fr) minmax(160px,1fr) 84px 84px 110px';
+          const mix = new Map((tq.data?.night_mix ?? []).map((x) => [x.id, x]));
+          const share = (a: number | null | undefined, b: number | null | undefined) => (b && Number(b) >= 10 && a !== null && a !== undefined ? pct((Number(a) / Number(b)) * 100) : '—');
           return (
             <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="yc-thin-scroll">
-              <div style={{ minWidth: 720, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ minWidth: 880, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: '0 12px 10px', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>
-                  <span>{t('yc.ana.col.night')}</span><span>{t('yc.ana.col.fill')}</span><span>{t('yc.ana.col.periodSales')}</span><span style={{ textAlign: 'right' }}>{t('yc.ana.col.vsPrev')}</span>
+                  <span>{t('yc.ana.col.night')}</span><span>{t('yc.ana.col.fill')}</span><span>{t('yc.ana.col.periodSales')}</span><span style={{ textAlign: 'right' }}>{t('yc.ana.ms.col.new')}</span><span style={{ textAlign: 'right' }} title={t('yc.ana.ms.viaTip')}>{t('yc.ana.ms.col.viaYuno')}</span><span style={{ textAlign: 'right' }}>{t('yc.ana.col.vsPrev')}</span>
                 </div>
                 {d.events.map((e, i) => {
                   const fillP = e.cap ? (Number(e.sold) / Number(e.cap)) * 100 : null;
@@ -346,6 +350,8 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                         <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : t(e.paid !== undefined ? 'yc.ana.nPaidTickets' : 'yc.ana.nTickets', { n: n(amt) })}</b>
                         <Fill pct={(amt / amtMax) * 100} go={go} delay={i * 90} h={4} bg="var(--ink)" />
                       </span>
+                      <span style={{ textAlign: 'right', fontSize: 14, color: 'var(--sand-700)', fontVariantNumeric: 'tabular-nums' }}>{share(mix.get(e.id)?.new_buyers, mix.get(e.id)?.buyers)}</span>
+                      <span style={{ textAlign: 'right', fontSize: 14, color: 'var(--sand-700)', fontVariantNumeric: 'tabular-nums' }}>{share(mix.get(e.id)?.yuno_tickets ?? 0, mix.get(e.id)?.tickets)}</span>
                       <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 600, color: e.upcoming ? 'var(--sand-500)' : dlt === null ? 'var(--sand-400)' : dlt >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>
                         {e.upcoming ? t('yc.ana.s.ongoing') : dlt === null ? '—' : `${dlt >= 0 ? '▲' : '▼'} ${pct(Math.abs(dlt) * 100)}`}
                       </span>
@@ -355,7 +361,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                 {d.events_other && (
                   <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: 12, fontSize: 14.5, color: 'var(--sand-600)' }}>
                     <span>{tp('yc.ana.s.others', d.events_other.count, { n: n(d.events_other.count) })}</span><span />
-                    <b style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{money && d.events_other.revenue !== null ? eur(Number(d.events_other.revenue)) : t('yc.ana.nTickets', { n: n(Number(d.events_other.tickets)) })}</b><span />
+                    <b style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{money && d.events_other.revenue !== null ? eur(Number(d.events_other.revenue)) : t('yc.ana.nTickets', { n: n(Number(d.events_other.tickets)) })}</b><span /><span /><span />
                   </div>
                 )}
               </div>
@@ -364,20 +370,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         })()}
       </section>
 
-      {/* Ce qui a fait vendre */}
-      <section style={{ ...nightCard, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '20px 32px', padding: '28px 32px', ...fadeIn(rv, 120) }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--text-on-night-2)' }}>{t('yc.ana.s.madeT')}</span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,7vw,88px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{share !== null ? pct(Number(share) * prog) : '—'}</span>
-            <span style={{ fontSize: 16, lineHeight: 1.4, color: 'var(--text-on-night-2)', maxWidth: 440, paddingBottom: 8 }}>
-              {money ? t('yc.ana.s.madeS', { v: eur(Number(d.msg?.revenue ?? 0)) }) : t('yc.ana.s.madeSTk', { n: n(Number(d.msg?.tickets ?? 0)) })}
-            </span>
-          </div>
-        </div>
-        <BrandArrowButton label={t('yc.ana.s.madeCta')} onClick={() => navigate(CRM_ROUTES.emailAnalysis)} />
-      </section>
-      <span style={{ fontSize: 12.5, color: 'var(--sand-500)', marginTop: -8 }}>{t('yc.ana.s.foot', { h: hourShort(m.night_end_hour, lang), date: dLong(m.now) })}</span>
+      <span style={{ fontSize: 12.5, color: 'var(--sand-500)', marginTop: -4 }}>{t('yc.ana.s.foot', { h: hourShort(m.night_end_hour, lang), date: dLong(m.now) })}</span>
     </>
   );
 }

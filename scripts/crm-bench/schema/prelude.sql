@@ -58,3 +58,8 @@ LANGUAGE sql AS $$
   UPDATE cron.job SET schedule = COALESCE($2, schedule), command = COALESCE($3, command),
          active = COALESCE($6, active) WHERE jobid = $1
 $$;
+
+-- Défaut de colonne (email_send_quota.day) : appelé avant base.sql.
+CREATE OR REPLACE FUNCTION public.paris_today() RETURNS date LANGUAGE sql STABLE AS $$
+  SELECT (now() AT TIME ZONE 'Europe/Paris')::date
+$$;
