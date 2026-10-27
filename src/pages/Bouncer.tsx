@@ -2410,10 +2410,6 @@ export default function Bouncer() {
                 )}
               </div>
             )}
-            {activeTab === 'search' && (
-              <DoorSearchPanel eventId={offlineEventId} onPick={handleDoorPick} enteredQr={doorEnteredQr} />
-            )}
-
             {activeTab === 'client' && (
               <div className="space-y-4">
                 <div className="flex items-start gap-2" style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 12, padding: 12 }}>
@@ -3063,6 +3059,14 @@ export default function Bouncer() {
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* La liste vient APRÈS la carte de verdict : un hors créneau ou un
+                refus choisi dans la liste s'affiche au-dessus d'elle, là où le
+                videur regarde. Sous 27 noms, il ne le voyait jamais (27/10). */}
+            {activeTab === 'search' && (
+              <div className={scanResult && !rapidMode ? 'mt-4' : undefined}>
+                <DoorSearchPanel eventId={offlineEventId} onPick={handleDoorPick} enteredQr={doorEnteredQr} />
+              </div>
+            )}
             </>)}
         </div>
       </div>
