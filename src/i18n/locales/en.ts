@@ -4969,6 +4969,7 @@ const en: Record<string, string> = {
   'bouncer.groupQrPartial': 'Group QR · {n} of {total} already in',
   'bouncer.tapToContinue': 'Tap to continue',
   'bouncer.tapToSkip': 'Tap to skip',
+  'bouncer.rapidNext': 'Next guest',
   'bouncer.exitScan': 'Exit scan',
   'bouncer.handleLate': 'Handle late arrival',
   'bouncer.freeDrinkIncluded': 'Free Drink Included',

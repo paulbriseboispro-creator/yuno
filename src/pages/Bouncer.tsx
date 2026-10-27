@@ -29,7 +29,7 @@ import { IncidentQuickReport } from '@/components/bouncer/IncidentQuickReport';
 import { OfflinePill } from '@/components/pro/OfflinePill';
 import { SyncQueueDrawer } from '@/components/pro/SyncQueueDrawer';
 import { isProApp } from '@/lib/native';
-import { CloudOff, Download } from 'lucide-react';
+import { ArrowRight, CloudOff, Download } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
 
@@ -525,8 +525,8 @@ export default function Bouncer() {
   }, [rapidMode, scanResult]);
 
   // Auto-avance 10 s : TOUT verdict non touché finit par s'effacer (un videur
-  // occupé ne doit jamais retrouver un écran figé qui bloque la file). Un tap
-  // n'importe où avance immédiatement (cleanup = timer coupé). Seule
+  // occupé ne doit jamais retrouver un écran figé qui bloque la file). Le
+  // bouton « Client suivant » avance immédiatement (cleanup = timer coupé). Seule
   // exception : le hors créneau — « Gérer le retard » est une décision
   // (laisser entrer, ou refuser puis rembourser ou non), elle attend un humain.
   useEffect(() => {
@@ -3198,7 +3198,6 @@ export default function Bouncer() {
                   transition={{ duration: 0.12 }}
                   className="absolute inset-0 flex items-center justify-center bg-black/60"
                   style={{ willChange: 'opacity', touchAction: 'manipulation' }}
-                  onClick={advanceRapid}
                 >
                   <motion.div
                     initial={reducedMotion ? { opacity: 0 } : { scale: 0.92, opacity: 0 }}
@@ -3527,9 +3526,21 @@ export default function Bouncer() {
                       </span>
                     )}
 
-                    <p className="mt-4 text-xs" style={{ color: dark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)' }}>
-                      {t('bouncer.tapToSkip')}
-                    </p>
+                    {/* La carte se ferme par CE bouton, jamais par un tap n'importe où
+                        (Paul, 27/10) : un videur qui touche l'écran sans le vouloir ne
+                        saute plus un client. Un hors créneau pas encore tranché n'en a
+                        pas : seuls ses deux choix le ferment. */}
+                    {!(scanResult === 'success' && isLate) && (
+                      <button
+                        type="button"
+                        onClick={advanceRapid}
+                        className="mt-4 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl text-base font-bold"
+                        style={{ background: dark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.28)', color: '#fff' }}
+                      >
+                        {t('bouncer.rapidNext')}
+                        <ArrowRight className="h-5 w-5" />
+                      </button>
+                    )}
                   </motion.div>
                 </motion.div>
               );
