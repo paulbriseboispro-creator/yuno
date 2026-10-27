@@ -826,7 +826,17 @@ export function buildDoorInvitation(d: {
   const lang = L(d.lang || 'en');
   const inviter = esc(d.inviterName);
   const ev = esc(d.eventTitle);
-  const when = d.eventStartAt ? fmtDateParts(d.eventStartAt, lang, d.timezone || 'Europe/Paris') : null;
+  // Date en toutes lettres dans la langue (« 28 de octubre de 2026 · 23:59 ») :
+  // fmtDateParts sert le gros bloc date des billets, mois capitalisé sans « de ».
+  const when = (() => {
+    const dt = d.eventStartAt ? new Date(d.eventStartAt) : null;
+    if (!dt || isNaN(dt.getTime())) return null;
+    const loc = ({ en: 'en-GB', fr: 'fr-FR', es: 'es-ES' } as const)[lang];
+    const tz = d.timezone || 'Europe/Paris';
+    const date = new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'long', year: 'numeric', timeZone: tz }).format(dt);
+    const time = new Intl.DateTimeFormat(loc, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(dt);
+    return `${date} · ${time}`;
+  })();
   const subject = p(lang, {
     en: `${d.inviterName} adds you to the door of ${d.eventTitle}`,
     fr: `${d.inviterName} t'ajoute à la porte de ${d.eventTitle}`,
@@ -848,7 +858,7 @@ export function buildDoorInvitation(d: {
         })), { border: false }),
       section(infoRows([
         { k: lbl(lang, 'party'), v: d.eventTitle },
-        ...(when ? [{ k: lbl(lang, 'date'), v: `${when.day} ${when.month} · ${when.time}` }] : []),
+        ...(when ? [{ k: lbl(lang, 'date'), v: when }] : []),
         { k: lbl(lang, 'role'), v: staffRoleLabel('bouncer', lang) },
       ])),
       section(
