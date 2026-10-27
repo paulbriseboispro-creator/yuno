@@ -4973,6 +4973,8 @@ const en: Record<string, string> = {
   'bouncer.handleLate': 'Handle late arrival',
   'bouncer.freeDrinkIncluded': 'Free Drink Included',
   'bouncer.giveDrink': '🍸 GIVE FREE DRINK(S)',
+  'bouncer.giveDrinkOne': 'Give 1 free drink',
+  'bouncer.giveDrinkMany': 'Give {n} free drinks',
   'bouncer.giveDrinkDesc': 'Hand out the drink(s) manually to this guest',
   'bouncer.drinkRedeemed': 'Drink redeemed',
   'bouncer.drinkAvailable': 'Drink Available',

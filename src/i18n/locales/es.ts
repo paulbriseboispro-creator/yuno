@@ -5166,6 +5166,8 @@ const es: Record<string, string> = {
   'bouncer.handleLate': 'Gestionar el retraso',
   'bouncer.freeDrinkIncluded': 'Bebida Gratis Incluida',
   'bouncer.giveDrink': '🍸 ENTREGAR BEBIDA(S) GRATIS',
+  'bouncer.giveDrinkOne': 'Dar 1 bebida gratis',
+  'bouncer.giveDrinkMany': 'Dar {n} bebidas gratis',
   'bouncer.giveDrinkDesc': 'Entrega la(s) bebida(s) manualmente a este invitado',
   'bouncer.drinkRedeemed': 'Bebida canjeada',
   'bouncer.drinkAvailable': 'Bebida Disponible',

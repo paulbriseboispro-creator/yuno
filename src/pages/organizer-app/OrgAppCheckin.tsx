@@ -1334,14 +1334,7 @@ function DoorTicketDetails({
               {ticket.headcount >= 2 ? tk('bouncer.peopleMany') : tk('bouncer.peopleOne')}
             </span>
           </div>
-          {ticket.placeOf ? (
-            <div className="mt-1 truncate" style={{ color: T2, fontSize: 12, fontWeight: 600 }}>
-              {tk('bouncer.placeOf')
-                .replace('{k}', String(ticket.placeOf.index))
-                .replace('{n}', String(ticket.placeOf.total))
-                .replace('{name}', ticket.buyer || ticket.name || '')}
-            </div>
-          ) : ticket.orderSize >= 2 && (
+          {ticket.orderSize >= 2 && !ticket.placeOf && (
             <div className="mt-1 truncate" style={{ color: T2, fontSize: 12, fontWeight: 600 }}>
               {ticket.headcount < ticket.orderSize
                 ? tk('bouncer.groupQrPartial').replace('{n}', String(ticket.orderSize - ticket.headcount)).replace('{total}', String(ticket.orderSize))

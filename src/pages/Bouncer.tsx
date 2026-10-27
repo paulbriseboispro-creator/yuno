@@ -466,6 +466,9 @@ export default function Bouncer() {
     // scans sinon le bandeau or s'affiche pour le client suivant.
     setTopClientInfo(null);
     setPendingTicketHolderName(undefined);
+    // Hors créneau non tranché : passer au client suivant n'écrit rien.
+    pendingLateRef.current = null;
+    setLateStep('decide');
     processingRef.current = false;
   }, [setScannedTicket, setScanResult]);
 
@@ -674,6 +677,78 @@ export default function Bouncer() {
     void offline.markScannedOnline(pending.qr, pending.kind, pending.id);
     fetchStats();
     return 'ok';
+  };
+
+  /**
+   * Les trois gestes d'un billet hors créneau, communs à la carte du scan
+   * rapide et au flux classique : laisser entrer, refuser (puis rembourser ou
+   * non). Chaque écran décide ensuite où il va (client suivant, viseur…).
+   */
+  const letLateIn = async (who: string, lateLabel: string): Promise<boolean> => {
+    setLateDecisionBusy(true);
+    try {
+      const res = await commitLateEntry();
+      if (res === 'already') {
+        setScanResult('already');
+        setOverlayResult('already');
+        toast({ title: t('bouncer.alreadyScanned'), variant: 'destructive' });
+        return false;
+      }
+      setScannedTicket(prev => prev ? { ...prev, entryScanned: true, entryScannedAt: new Date().toISOString() } : prev);
+      toast({ title: t('bouncer.entryApproved'), description: `${who} — ${t('bouncer.despiteLate')} ${lateLabel}` });
+      return true;
+    } catch (err: unknown) {
+      toast({ title: t('bouncer.cancelError'), description: (err as { message?: string }).message, variant: 'destructive' });
+      return false;
+    } finally {
+      setLateDecisionBusy(false);
+    }
+  };
+
+  /** Refuser n'écrit rien : la question suivante décide de l'argent. */
+  const startLateRefusal = async () => {
+    setLateStep('refund');
+    setRefundPreview(null);
+    const pending = pendingLateRef.current;
+    if (!pending) return;
+    setRefundPreviewLoading(true);
+    const preview = await fetchDoorRefundPreview({ kind: pending.kind, id: pending.id });
+    setRefundPreview(preview);
+    setRefundPreviewLoading(false);
+  };
+
+  /** Refusé ET remboursé (QR nominatif : seule la place de cet ami ; sinon la commande). */
+  const refundLate = async (who: string, lateLabel: string): Promise<boolean> => {
+    const pending = pendingLateRef.current;
+    if (!pending) return false;
+    setIsCancelling(true);
+    try {
+      const res = await refundAtDoor(
+        { kind: pending.kind, id: pending.id },
+        { reason: t('bouncer.lateRefundReason').replace('{late}', lateLabel) },
+      );
+      pendingLateRef.current = null;
+      toast({
+        title: t('bouncer.entryDenied'),
+        description: res.refundFailed
+          ? `${who} — ${t('bouncer.refundFailedDesc')}`
+          : `${who} — ${t('bouncer.refundAmount')} ${res.refundAmount.toFixed(2)}€`,
+        variant: 'destructive',
+      });
+      return true;
+    } catch (err: unknown) {
+      const key = doorRefusalKey(err);
+      toast({ title: t('bouncer.cancelError'), description: key ? t(key) : (err as { message?: string }).message, variant: 'destructive' });
+      return false;
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  /** Refusé sans remboursement : rien n'est écrit, le billet reste valable (un nouveau scan reposera la question). */
+  const refuseLateNoRefund = (who: string) => {
+    pendingLateRef.current = null;
+    toast({ title: t('bouncer.entryDenied'), description: `${who} — ${t('bouncer.notRefunded')}`, variant: 'destructive' });
   };
 
   /** Le billet dépasse-t-il l'heure limite d'entrée de son tarif ? */
@@ -2617,16 +2692,7 @@ export default function Bouncer() {
                                       variant="destructive"
                                       className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
                                       disabled={lateDecisionBusy || isCancelling}
-                                      onClick={async () => {
-                                        // Refuser n'écrit rien : la question suivante décide de l'argent.
-                                        setLateStep('refund');
-                                        setRefundPreview(null);
-                                        if (!pending) return;
-                                        setRefundPreviewLoading(true);
-                                        const preview = await fetchDoorRefundPreview({ kind: pending.kind, id: pending.id });
-                                        setRefundPreview(preview);
-                                        setRefundPreviewLoading(false);
-                                      }}
+                                      onClick={() => void startLateRefusal()}
                                     >
                                       <XCircle className="h-4 w-4 mr-2 flex-none" />
                                       {t('bouncer.denyEntry')}
@@ -2634,28 +2700,9 @@ export default function Bouncer() {
                                     <Button
                                       className="h-auto min-h-[48px] whitespace-normal bg-green-600 py-3 leading-tight text-snow hover:bg-green-700"
                                       disabled={lateDecisionBusy || isCancelling || scannedTicket.entryScanned}
-                                      onClick={async () => {
-                                        // Laisser entrer = l'entrée est validée MAINTENANT (même
-                                        // verrou « premier scan gagne » que le scan normal).
-                                        setLateDecisionBusy(true);
-                                        try {
-                                          const res = await commitLateEntry();
-                                          if (res === 'already') {
-                                            setScanResult('already');
-                                            toast({ title: t('bouncer.alreadyScanned'), variant: 'destructive' });
-                                            return;
-                                          }
-                                          setScannedTicket(prev => prev ? { ...prev, entryScanned: true, entryScannedAt: new Date().toISOString() } : prev);
-                                          toast({
-                                            title: t('bouncer.entryApproved'),
-                                            description: `${who} — ${t('bouncer.despiteLate')} ${lateLabel}`,
-                                          });
-                                        } catch (err: unknown) {
-                                          toast({ title: t('bouncer.cancelError'), description: (err as { message?: string }).message, variant: 'destructive' });
-                                        } finally {
-                                          setLateDecisionBusy(false);
-                                        }
-                                      }}
+                                      // Laisser entrer = l'entrée est validée MAINTENANT (même
+                                      // verrou « premier scan gagne » que le scan normal).
+                                      onClick={() => void letLateIn(who, lateLabel)}
                                     >
                                       <CheckCircle className="h-4 w-4 mr-2 flex-none" />
                                       {t('bouncer.letIn')}
@@ -2684,30 +2731,7 @@ export default function Bouncer() {
                                         className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
                                         disabled={isCancelling || refundPreviewLoading || !pending}
                                         onClick={async () => {
-                                          if (!pending) return;
-                                          setIsCancelling(true);
-                                          try {
-                                            // QR nominatif : seule la place de cet ami ; sinon la commande.
-                                            const res = await refundAtDoor(
-                                              { kind: pending.kind, id: pending.id },
-                                              { reason: t('bouncer.lateRefundReason').replace('{late}', lateLabel) },
-                                            );
-                                            pendingLateRef.current = null;
-                                            toast({
-                                              title: t('bouncer.entryDenied'),
-                                              description: res.refundFailed
-                                                ? `${who} — ${t('bouncer.refundFailedDesc')}`
-                                                : `${who} — ${t('bouncer.refundAmount')} ${res.refundAmount.toFixed(2)}€`,
-                                              variant: 'destructive',
-                                            });
-                                            resetScan();
-                                            setScanning(false);
-                                          } catch (err: unknown) {
-                                            const key = doorRefusalKey(err);
-                                            toast({ title: t('bouncer.cancelError'), description: key ? t(key) : (err as { message?: string }).message, variant: 'destructive' });
-                                          } finally {
-                                            setIsCancelling(false);
-                                          }
+                                          if (await refundLate(who, lateLabel)) { resetScan(); setScanning(false); }
                                         }}
                                       >
                                         {isCancelling
@@ -2720,18 +2744,7 @@ export default function Bouncer() {
                                         variant="secondary"
                                         className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
                                         disabled={isCancelling}
-                                        onClick={() => {
-                                          // Refusé sans remboursement : rien n'est écrit, le billet
-                                          // reste valable (un nouveau scan reposera la question).
-                                          pendingLateRef.current = null;
-                                          toast({
-                                            title: t('bouncer.entryDenied'),
-                                            description: `${who} — ${t('bouncer.notRefunded')}`,
-                                            variant: 'destructive',
-                                          });
-                                          resetScan();
-                                          setScanning(false);
-                                        }}
+                                        onClick={() => { refuseLateNoRefund(who); resetScan(); setScanning(false); }}
                                       >
                                         {t('bouncer.refundNo')}
                                       </Button>
@@ -2809,14 +2822,6 @@ export default function Bouncer() {
                           <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.quantity')}</span>
                           <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>{scannedTicket.headcount ?? scannedTicket.quantity}x</span>
                         </div>
-                        {scannedTicket.placeOf && (
-                          <p className="truncate" style={{ color: T2, fontSize: 13 }}>
-                            {t('bouncer.placeOf')
-                              .replace('{k}', String(scannedTicket.placeOf.index))
-                              .replace('{n}', String(scannedTicket.placeOf.total))
-                              .replace('{name}', scannedTicket.buyerName || scannedTicket.fullName || '')}
-                          </p>
-                        )}
 
                         {scannedTicket.entryScannedAt && scanResult === 'already' && (
                           <div className="flex items-center justify-between gap-3" style={{ color: '#FCD34D' }}>
@@ -3147,7 +3152,8 @@ export default function Bouncer() {
               const late = scanResult === 'success' && scannedTicket?.entryDeadline && !scannedTicket.entryScanned
                 ? computeLateness(scannedTicket.entryDeadline, nowInParis())
                 : null;
-              const isLate = !!late?.isPast;
+              // Une fois « Laisser entrer » touché, la carte redevient une entrée validée.
+              const isLate = !!late?.isPast && !scannedTicket?.entryScanned;
               /* Ambre/jaune : texte sombre, sinon le verdict est illisible */
               const dark = scanResult === 'vip_success' || scanResult === 'already';
               const cardBg = scanResult === 'success' ? (isLate ? '#C2410C' : '#16A34A')
@@ -3172,14 +3178,11 @@ export default function Bouncer() {
               const people = scannedTicket ? (scannedTicket.headcount ?? scannedTicket.quantity ?? 1) : 1;
               const orderSize = scannedTicket?.quantity ?? 1;
               const isGroupQr = !!scannedTicket && !scannedTicket.placeOf && orderSize >= 2;
-              const buyer = scannedTicket?.buyerName || scannedTicket?.fullName || '';
+              // Une personne = un billet : le rang dans la commande (« Billet 2
+              // sur 3 ») n'aidait pas le videur (Paul, 27/10). Seul l'ancien QR de
+              // groupe (commandes d'avant le 21/10) garde sa ligne.
               const peopleSub = !scannedTicket ? null
-                : scannedTicket.placeOf
-                  ? t('bouncer.placeOf')
-                      .replace('{k}', String(scannedTicket.placeOf.index))
-                      .replace('{n}', String(scannedTicket.placeOf.total))
-                      .replace('{name}', buyer)
-                  : isGroupQr
+                : isGroupQr
                     ? (people < orderSize
                         ? t('bouncer.groupQrPartial')
                             .replace('{n}', String(orderSize - people))
@@ -3252,6 +3255,17 @@ export default function Bouncer() {
                       </div>
                     )}
 
+                    {/* Boisson offerte à remettre : en gros, impossible à rater. */}
+                    {scanResult === 'success' && scannedTicket?.includesDrink && drinkGrantable
+                      && freeDrinkMode === 'bouncer_notify' && !drinkTooLate && (
+                      <div className="mt-2.5 flex items-center justify-center gap-3 rounded-2xl px-4 py-3" style={{ background: '#FCD34D', color: '#1a1a1a' }}>
+                        <Wine className="h-7 w-7 flex-none" strokeWidth={2.5} />
+                        <span className="text-xl font-black uppercase leading-tight tracking-wide">
+                          {people >= 2 ? t('bouncer.giveDrinkMany').replace('{n}', String(people)) : t('bouncer.giveDrinkOne')}
+                        </span>
+                      </div>
+                    )}
+
                     {(scanResult === 'success' || scanResult === 'vip_success') && topClientInfo && (
                       <div className="mt-4 rounded-xl px-3 py-2.5 text-left" style={{ background: '#141416', border: '1px solid rgba(212,160,23,0.55)' }}>
                         <div className="flex items-center gap-2.5">
@@ -3294,14 +3308,16 @@ export default function Bouncer() {
                         )}
                         {scannedTicket.includesDrink && drinkGrantable && (
                           freeDrinkMode === 'bouncer_notify' ? (
-                            <div className="flex items-center gap-2">
-                              <Wine className="h-5 w-5 flex-none" style={{ color: fg }} />
-                              <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>
-                                {drinkTooLate
-                                  ? t('bouncer.drinkCutoffPassed').replace('{time}', scannedTicket.drinkCutoff ?? '')
-                                  : people >= 2 ? `${people} × ${t('bouncer.giveDrink')}` : t('bouncer.giveDrink')}
-                              </p>
-                            </div>
+                            // La boisson à remettre a son propre bandeau, en gros, sous
+                            // le nombre de personnes ; ici ne reste que l'heure passée.
+                            drinkTooLate ? (
+                              <div className="flex items-center gap-2">
+                                <Wine className="h-5 w-5 flex-none" style={{ color: fg }} />
+                                <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>
+                                  {t('bouncer.drinkCutoffPassed').replace('{time}', scannedTicket.drinkCutoff ?? '')}
+                                </p>
+                              </div>
+                            ) : null
                           ) : (
                             <div className="flex items-center gap-2">
                               <Wine className="h-4 w-4 flex-none" style={{ color: fgSoft }} />
@@ -3318,39 +3334,80 @@ export default function Bouncer() {
                       </div>
                     )}
 
-                    {scanResult === 'success' && isLate && late && (
-                      <div className="mt-2.5 space-y-2.5">
-                        {/* Aplat orange solide : doit rester lisible sur la carte verte */}
-                        <div className="rounded-xl px-3 py-2.5 text-left" style={{ background: '#C2410C' }}>
-                          <div className="flex items-center gap-2.5">
-                            <AlertTriangle className="h-5 w-5 flex-none text-snow" />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-bold text-snow">{t('bouncer.outOfSlot')}</p>
-                              <p className="tabular-nums text-xs text-orange-100">+{late.lateLabel} {t('bouncer.late')}</p>
+                    {scanResult === 'success' && isLate && late && scannedTicket && (() => {
+                      // Hors créneau : le videur tranche SUR la carte (Paul, 27/10),
+                      // en deux temps comme le flux classique : laisser entrer ou
+                      // refuser ; refusé, rembourser ou non. Rien n'est écrit avant.
+                      const pending = pendingLateRef.current;
+                      const who = scannedTicket.fullName || scannedTicket.userEmail;
+                      const stop = (e: React.MouseEvent) => e.stopPropagation();
+                      return (
+                        <div className="mt-2.5 space-y-2.5" onClick={stop}>
+                          <div className="rounded-xl px-3 py-2.5 text-left" style={{ background: 'rgba(0,0,0,0.18)' }}>
+                            <div className="flex items-center gap-2.5">
+                              <AlertTriangle className="h-5 w-5 flex-none text-snow" />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-bold text-snow">
+                                  {t('tickets.entryBefore')} {scannedTicket.entryDeadline}
+                                </p>
+                                <p className="tabular-nums text-xs text-orange-100">+{late.lateLabel} {t('bouncer.late')}</p>
+                              </div>
                             </div>
                           </div>
+                          {lateStep === 'decide' ? (
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <button
+                                type="button"
+                                className="flex min-h-[56px] items-center justify-center gap-2 rounded-2xl px-2 text-base font-bold text-snow disabled:opacity-60"
+                                style={{ background: '#1a1a1a' }}
+                                disabled={lateDecisionBusy || isCancelling}
+                                onClick={() => void startLateRefusal()}
+                              >
+                                <XCircle className="h-5 w-5 flex-none" />{t('bouncer.denyEntry')}
+                              </button>
+                              <button
+                                type="button"
+                                className="flex min-h-[56px] items-center justify-center gap-2 rounded-2xl px-2 text-base font-bold text-snow disabled:opacity-60"
+                                style={{ background: '#16A34A' }}
+                                disabled={lateDecisionBusy || isCancelling}
+                                onClick={() => void letLateIn(who, late.lateLabel)}
+                              >
+                                {lateDecisionBusy ? <Loader2 className="h-5 w-5 flex-none animate-spin" /> : <CheckCircle className="h-5 w-5 flex-none" />}
+                                {t('bouncer.letIn')}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2.5">
+                              <p className="text-left text-sm font-semibold text-snow">{t('bouncer.refundQuestion').replace('{name}', who)}</p>
+                              <div className="grid grid-cols-2 gap-2.5">
+                                <button
+                                  type="button"
+                                  className="flex min-h-[56px] items-center justify-center rounded-2xl px-2 text-sm font-bold text-snow disabled:opacity-60"
+                                  style={{ background: '#DC2626' }}
+                                  disabled={isCancelling || refundPreviewLoading || !pending}
+                                  onClick={async () => { if (await refundLate(who, late.lateLabel)) advanceRapid(); }}
+                                >
+                                  {isCancelling ? '…' : refundPreview ? `${t('bouncer.refundYes')} · ${refundPreview.amount.toFixed(2)}€` : t('bouncer.refundYes')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex min-h-[56px] items-center justify-center rounded-2xl px-2 text-sm font-bold text-snow disabled:opacity-60"
+                                  style={{ background: '#1a1a1a' }}
+                                  disabled={isCancelling}
+                                  onClick={() => { refuseLateNoRefund(who); advanceRapid(); }}
+                                >
+                                  {t('bouncer.refundNo')}
+                                </button>
+                              </div>
+                              <button type="button" className="w-full text-center text-xs text-snow underline underline-offset-2 opacity-80"
+                                disabled={isCancelling} onClick={() => setLateStep('decide')}>
+                                {t('bouncer.backToDecision')}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <Button
-                          variant="secondary"
-                          className="min-h-[48px] w-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Bascule vers le flux classique EN GARDANT le
-                            // résultat : la carte complète (laisser entrer /
-                            // refuser, puis rembourser ou non) s'y affiche et le
-                            // scrollIntoView l'amène en vue. Ne surtout pas
-                            // effacer scanResult ni scannedTicket ici.
-                            rapidModeRef.current = false;
-                            setRapidMode(false);
-                            setScanning(false);
-                            // Sinon le ScanOverlay classique rejouerait le flash vert
-                            setOverlayResult(null);
-                          }}
-                        >
-                          {t('bouncer.handleLate')}
-                        </Button>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {scanResult === 'vip_success' && scannedVipReservation && (
                       <div className="mt-4 space-y-2 rounded-xl p-3 text-left" style={{ background: innerBg }}>

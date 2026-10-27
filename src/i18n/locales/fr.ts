@@ -4940,6 +4940,8 @@ const fr: Record<string, string> = {
   'bouncer.handleLate': 'Gérer le retard',
   'bouncer.freeDrinkIncluded': 'Boisson Offerte Incluse',
   'bouncer.giveDrink': '🍸 DONNER LA BOISSON OFFERTE',
+  'bouncer.giveDrinkOne': 'Donner 1 boisson offerte',
+  'bouncer.giveDrinkMany': 'Donner {n} boissons offertes',
   'bouncer.giveDrinkDesc': 'Remettez la/les boisson(s) manuellement à ce client',
   'bouncer.drinkRedeemed': 'Boisson récupérée',
   'bouncer.drinkAvailable': 'Boisson Disponible',
