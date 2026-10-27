@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLateness, drinkCutoffOf, entryHeadcount, isInDoorScope, wholeTicketDoorState } from '@/lib/scan/rules';
+import { computeLateness, drinkCutoffOf, entryHeadcount, isInDoorScope, ticketPlaceFromQr, wholeTicketDoorState } from '@/lib/scan/rules';
 import { doorEventFilter } from '@/lib/scan/doorEvents';
 
 /** Heure murale de la soirée, comme la rend `nowInParis()` / `toZonedTime`. */
@@ -92,5 +92,19 @@ describe('porte d’UNE soirée — staff du club invité', () => {
     expect(doorEventFilter(scope)).toBe(`id.in.(${ev})`);
     expect(doorEventFilter({ venueId: null, organizerUserId: null, eventIds: ['pas-un-id'] })).toBeNull();
     expect(doorEventFilter({ venueId: 'v1', organizerUserId: null, eventIds: [ev] })).toBe(`venue_id.eq.v1,partner_venue_id.eq.v1,id.in.(${ev})`);
+  });
+});
+
+describe('ticketPlaceFromQr', () => {
+  const base = 'TK-931460af-f60a-4671-852b-ccbeebf3f529';
+  it('lit la place k sur N d\'une commande de plusieurs personnes', () => {
+    expect(ticketPlaceFromQr(`${base}-2`, 2)).toEqual({ index: 2, total: 2 });
+    expect(ticketPlaceFromQr(`${base}-1`, 3)).toEqual({ index: 1, total: 3 });
+  });
+  it('rien pour le QR du billet entier, une commande d\'une personne ou un rang hors commande', () => {
+    expect(ticketPlaceFromQr(base, 2)).toBeNull();
+    expect(ticketPlaceFromQr(`${base}-1`, 1)).toBeNull();
+    expect(ticketPlaceFromQr(`${base}-3`, 2)).toBeNull();
+    expect(ticketPlaceFromQr(null, 2)).toBeNull();
   });
 });

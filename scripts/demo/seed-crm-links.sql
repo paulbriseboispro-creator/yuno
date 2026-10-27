@@ -78,16 +78,26 @@ BEGIN
 
     -- Clics : plus nombreux les premières heures (une story vit 24 h), puis
     -- une traîne ; ~15 % de visiteurs reviennent.
-    INSERT INTO public.tracked_link_clicks (tracked_link_id, clicked_at, visitor_id, device_type, referrer, country)
+    -- L'heure suit la vie d'un soir (pic 21 h - minuit, Paris) et `in_app` le
+    -- navigateur intégré (Trafic, 27/10) : ~63 % des clics de liens Instagram
+    -- s'ouvrent dans l'app Instagram, ~70 % des clics TikTok dans TikTok.
+    INSERT INTO public.tracked_link_clicks (tracked_link_id, clicked_at, visitor_id, device_type, referrer, country, in_app)
     SELECT tl.id,
            LEAST(now() - interval '3 minutes',
-                 v_at + make_interval(secs => (power(random(), CASE WHEN v_link.placement = 'story' THEN 3 ELSE 1.4 END)
-                                                * extract(epoch FROM now() - v_at))::int)),
+                 ((date_trunc('day', (q.base AT TIME ZONE 'Europe/Paris'))
+                   + make_interval(hours => (ARRAY[0,0,1,9,11,12,12,13,14,16,17,18,18,19,19,20,20,21,21,21,22,22,22,23,23])[1 + floor(random() * 25)::int],
+                                   mins => floor(random() * 60)::int)) AT TIME ZONE 'Europe/Paris')),
            'demo:' || v_link.code || ':' || (g % GREATEST(1, (v_link.clicks * 0.86)::int)),
-           CASE WHEN random() < 0.9 THEN 'mobile' ELSE 'desktop' END,
+           CASE WHEN random() < 0.9 THEN 'mobile' WHEN random() < 0.85 THEN 'desktop' ELSE 'tablet' END,
            CASE v_link.platform WHEN 'instagram' THEN 'l.instagram.com' WHEN 'tiktok' THEN 'www.tiktok.com' WHEN 'whatsapp' THEN NULL ELSE 'collectifnuit.fr' END,
-           (ARRAY['FR','FR','FR','FR','BE','CH','ES'])[1 + floor(random() * 7)::int]
-      FROM public.tracked_links tl, generate_series(1, v_link.clicks) g
+           (ARRAY['FR','FR','FR','FR','FR','FR','FR','FR','BE','CH','ES'])[1 + floor(random() * 11)::int],
+           CASE v_link.platform
+             WHEN 'instagram' THEN CASE WHEN random() < 0.63 THEN 'instagram' ELSE 'none' END
+             WHEN 'tiktok' THEN CASE WHEN random() < 0.7 THEN 'tiktok' ELSE 'none' END
+             ELSE 'none' END
+      FROM public.tracked_links tl, generate_series(1, v_link.clicks) g,
+           LATERAL (SELECT v_at + make_interval(secs => (power(random(), CASE WHEN v_link.placement = 'story' THEN 3 ELSE 1.4 END)
+                                                         * extract(epoch FROM now() - v_at))::int) AS base) q
      WHERE tl.code = v_link.code;
 
     -- Ventes : billets valides de la soirée achetés APRÈS la création du lien,
@@ -104,4 +114,22 @@ BEGIN
        );
     END IF;
   END LOOP;
+
+  -- Le bouton « Billets » des pages /j/ passe par leur lien /go/ (20261112105000) :
+  -- environ une visite sur quatre clique vers Shotgun.
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'crm_signup_pages' AND column_name = 'go_link_id') THEN
+    EXECUTE $q$
+      DELETE FROM public.tracked_link_clicks c USING public.crm_signup_pages p
+       WHERE c.tracked_link_id = p.go_link_id AND p.organizer_user_id = $1$q$ USING v_uid;
+    EXECUTE $q$
+      INSERT INTO public.tracked_link_clicks (tracked_link_id, clicked_at, visitor_id, device_type, referrer, country, in_app)
+      SELECT p.go_link_id, LEAST(now() - interval '3 minutes', v.at + interval '40 seconds'), v.visitor_hash,
+             CASE WHEN random() < 0.92 THEN 'mobile' ELSE 'desktop' END, 'crm.yunoapp.eu', 'FR',
+             CASE WHEN v.src LIKE 'instagram%' AND random() < 0.6 THEN 'instagram' ELSE 'none' END
+        FROM public.crm_signup_pages p
+        JOIN public.crm_signup_visits v ON v.page_id = p.id
+       WHERE p.organizer_user_id = $1 AND p.go_link_id IS NOT NULL
+         AND abs(hashtext(v.visitor_hash)) % 4 = 0$q$ USING v_uid;
+  END IF;
 END $$;

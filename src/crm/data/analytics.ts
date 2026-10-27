@@ -19,7 +19,8 @@ export type AnaTab = 'sales' | 'traffic' | 'community' | 'guestlist';
 export type SourceKey = 'ys' | 'yb' | 'yt' | 'yl' | 'em' | 'sm' | 'dm' | 'pa' | 'so' | 'sg' | 'ex' | 'se' | 'au' | 'di' | 'of';
 export const SOURCE_KEYS: SourceKey[] = ['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'pa', 'so', 'sg', 'ex', 'se', 'au', 'di', 'of'];
 
-export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean }
+/** `compare` : soirée comparée (`?ce=`), sinon la précédente de la même série. */
+export interface AnaFilters { period: AnaPeriod; event: string | null; seg: AnaSeg; cmp: boolean; compare?: string | null }
 
 export interface AnaEventRef { id: string; title: string; start_at: string; night: string; upcoming?: boolean; days_left?: number }
 
@@ -110,6 +111,72 @@ export interface AnaTraffic {
   events: { id: string; title: string; start_at: string; night: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past'; buyers: number; new_buyers: number; clicks: number }[];
   sends: AnaSend[];
   has_any: boolean;
+  /** Ventes par lien Yuno de partage (27/10, Ventes › « Ce qui a fait vendre »). */
+  links?: AnaSaleLink[];
+  /** Ventes par e-mail, recette ou SMS (_crm_email_attrib : clic dans les 7 jours, dernier clic). */
+  messages?: AnaSaleMessage[];
+  /** Nouveaux clients et part venue d'une source Yuno, par soirée. */
+  night_mix?: { id: string; buyers: number; new_buyers: number; tickets: number; yuno_tickets: number | null }[];
+}
+
+export interface AnaSaleLink {
+  id: string; code: string; name: string; platform: string; placement: string; event_id: string; event_title: string | null;
+  src: SourceKey; orders: number; tickets: number; new_buyers: number; revenue: number | null;
+}
+
+export interface AnaSaleMessage {
+  kind: 'campaign' | 'recipe' | 'sms'; name: string; id: string | null; at: string | null; nights: number;
+  buyers: number; tickets: number; sent: number; revenue: number | null;
+}
+
+/**
+ * Trafic (crm_ana_clicks, migration 20261112110000) : ce qui passe PAR Yuno —
+ * clics des liens /go/ et des e-mails, pages d'inscription /j/ — compté en
+ * personnes (un visiteur, un jour, un lien). Familles : emplacement du lien.
+ */
+export type ClickFam = 'ys' | 'yb' | 'yt' | 'pa' | 'em' | 'sm' | 'yl';
+export const CLICK_FAMS: ClickFam[] = ['ys', 'yb', 'yt', 'pa', 'em', 'sm', 'yl'];
+
+export interface AnaClickLink {
+  kind: 'l' | 'e'; id: string; fam: ClickFam; label: string; platform: string | null; placement: string | null; code: string | null;
+  recipe: string | null; child: boolean; event_id: string | null; event_title: string | null; created_at: string | null;
+  clicks: number; people: number; ua_known: number; in_app: number; ig: number; peak_dow: number | null; peak_hour: number | null; orders: number;
+}
+
+export interface AnaClicks {
+  meta: AnaMeta;
+  totals: {
+    clicks: number; people: number; prev_clicks: number; prev_people: number;
+    ig_known: number; ig_in: number; prev_ig_known: number; prev_ig_in: number;
+    orders: number; prev_orders: number; revenue: number | null;
+    visits: number; prev_visits: number; signups: number; prev_signups: number; click_no_buy: number;
+  };
+  families: { k: ClickFam; clicks: number; people: number; prev_clicks: number; orders: number }[];
+  /** Période : clics (`c`) et personnes (`p`) par case et par famille. */
+  series: { c: Record<ClickFam, number>; p: Record<ClickFam, number> }[] | null;
+  /** Soirée : clics cumulés de J-span (index 0) à J-0 ; `cur` à null après aujourd'hui. */
+  curve: { span: number; today_d: number | null; cur: (number | null)[]; prev: number[] | null; prev_people_total: number } | null;
+  marks: { at: string; name: string; channel: 'email' | 'sms' | 'link' | 'page'; i: number | null; d: number | null; fam?: ClickFam }[];
+  links: AnaClickLink[];
+  links_total: number;
+  pages: { id: string; title: string; kind: string; status: string; event_id: string | null; visits: number; signups: number; confirmed: number; took: number }[];
+  page_srcs: { src: string; visits: number; signups: number }[];
+  messages: {
+    email: { sent: number; clickers: number };
+    sms: { sent: number; clickers: number };
+    rows: { kind: 'campaign' | 'recipe' | 'sms'; id: string | null; name: string; at: string | null; sent: number; clickers: number; nights?: number }[];
+  };
+  click_no_buy: number;
+  heat: number[][];
+  hours: number[];
+  devices: { mobile: number; desktop: number; tablet: number; known: number };
+  countries: { cc: string; n: number }[];
+  platform: { all: { app: number; website: number; other: number }; yuno: { app: number; website: number; other: number } };
+  nights: { id: string; title: string; start_at: string; night: string; upcoming: boolean; state: 'tonight' | 'presale' | 'past'; clicks: number; people: number; links: number; signups: number; orders: number }[];
+  confirmed: boolean;
+  has_any: boolean;
+  keep: ({ k: 'top'; fam: ClickFam; pct: number } | { k: 'emailConv'; em: number; links: number }
+    | { k: 'partner'; name: string; people: number; orders: number } | { k: 'inApp'; pct: number } | { k: 'peak'; dow: number; hour: number })[];
 }
 
 export type Life = 'hab' | 'occ' | 'nou' | 'end' | 'none';
@@ -168,6 +235,18 @@ export function useAnaCommunity(f: AnaFilters, enabled = true) {
   return useQuery({
     queryKey: ['crm', qk, 'ana', 'community', f.period, f.event, f.seg],
     queryFn: () => rpc<AnaCommunity>('crm_ana_community', { ...a, ...args(f), p_seg: f.seg }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+export function useAnaClicks(f: AnaFilters, enabled = true) {
+  const { rpc: a, qk } = useCrmScope();
+  const compare = f.event ? f.compare ?? null : null;
+  return useQuery({
+    queryKey: ['crm', qk, 'ana', 'clicks', f.period, f.event, compare],
+    queryFn: () => rpc<AnaClicks>('crm_ana_clicks', { ...a, ...args(f), p_compare: compare }),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     enabled,

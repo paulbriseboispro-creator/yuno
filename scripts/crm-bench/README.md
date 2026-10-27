@@ -28,6 +28,21 @@ node run.mjs bench grand       # temps des calculs de nuit et des lectures d'éc
 Les bases sont gardées dans `.data/` (ignoré par git) : `schema`, puis un
 fichier par compte généré, puis `<compte>-computed` après `compute`.
 
+## Trafic (crm_ana_clicks, 27/10)
+
+```bash
+node run.mjs build && node run.mjs gen demo
+node traffic.mjs demo            # sème liens, clics, e-mails, pages /j/, puis lit le Trafic
+node rehearse.mjs smoke/traffic.sql 20261112100000_crm_link_clicks_in_app.sql \
+  20261112105000_crm_signup_go_link.sql 20261112110000_crm_ana_clicks.sql \
+  20261112120000_crm_ana_traffic_links_messages.sql   # la prod, annulée
+```
+
+Le schéma du banc s'arrête avant les Scénarios : `traffic.mjs` recopie de la prod
+(lecture seule) les fonctions plus récentes que lit `crm_ana_clicks`, puis rejoue
+les migrations du Trafic. `smoke/traffic-capture.sql` rend (annulé) les réponses
+réelles du compte démo, pour un banc d'écran.
+
 ## Ce que contient le schéma
 
 1. `schema/prelude.sql` : ce que Supabase fournit autour de `public` (rôles,

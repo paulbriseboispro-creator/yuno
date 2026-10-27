@@ -1,10 +1,11 @@
 /**
  * Analyses (`/crm/analytics/:tab`) — quatre familles : Ventes (« Combien
- * ai-je vendu ? »), Trafic (« D'où vient mon public ? »), Communauté (« Qui
+ * ai-je vendu ? »), Trafic (« Qui passe par vos liens ? », en personnes), Communauté (« Qui
  * sont mes clients ? »), Guest list (« Qui entre gratuitement, et qui finit
  * par payer ? », migration 20261008100000). Une barre de filtres collante, commune aux trois :
  * période OU une soirée (de J-21 au jour J), segment de clients, comparaison
- * à avant. Les filtres vivent dans l'adresse (?p=&e=&s=&cmp=) : un lien
+ * à avant, soirée comparée (Trafic). Les filtres vivent dans l'adresse
+ * (?p=&e=&s=&cmp=&ce=) : un lien
  * partagé rouvre la même analyse.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,11 +20,11 @@ import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { downloadCsv } from '@/crm/lib/csv';
 import { useNights } from '@/crm/data/nights';
-import { useAnaCommunity, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaSeg, type AnaTab } from '@/crm/data/analytics';
+import { useAnaClicks, useAnaCommunity, useAnaSales, useAnaTraffic, type AnaFilters, type AnaPeriod, type AnaSeg, type AnaTab } from '@/crm/data/analytics';
 import { StatePill, type NightState } from './anaUi';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { SalesTab, salesCsv } from './SalesTab';
-import { TrafficTab, trafficCsv } from './TrafficTab';
+import { TrafficTab, clicksCsv } from './TrafficTab';
 import { CommunityTab, communityCsv } from './CommunityTab';
 import { WhyView } from './WhyView';
 import { GuestListTab, guestlistCsv } from './GuestListTab';
@@ -50,7 +51,8 @@ function readFilters(sp: URLSearchParams, tab: AnaTab): AnaFilters {
   let seg: AnaSeg = s && SEGS.includes(s) ? s : 'all';
   if (seg === 'end' && tab !== 'community') seg = 'all';
   if (tab === 'traffic' || tab === 'guestlist') seg = 'all';
-  return { period: p && PERIODS.includes(p) ? p : '30d', event: sp.get('e') || null, seg, cmp: sp.get('cmp') !== '0' };
+  const event = sp.get('e') || null;
+  return { period: p && PERIODS.includes(p) ? p : '30d', event, seg, cmp: sp.get('cmp') !== '0', compare: event ? sp.get('ce') || null : null };
 }
 
 /** Lecture en échec et rien en mémoire : CrmLoadError avec « Réessayer » ; sinon rien (l'onglet s'affiche). */
@@ -79,7 +81,10 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const popRef = useRef<HTMLDivElement>(null);
 
   const sales = useAnaSales(f, tab === 'sales');
-  const traffic = useAnaTraffic(f, tab === 'traffic');
+  // Ventes › « Ce qui a fait vendre » lit l'attribution (crm_ana_traffic) ;
+  // Trafic lit les clics (crm_ana_clicks).
+  const salesTraffic = useAnaTraffic(f, tab === 'sales');
+  const traffic = useAnaClicks(f, tab === 'traffic');
   const community = useAnaCommunity(f, tab === 'community' && !why);
   const guestlist = useAnaGuestList(f.period, tab === 'guestlist' && !f.event);
 
@@ -89,6 +94,9 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       const p = new URLSearchParams(prev);
       if (nf.period !== '30d') p.set('p', nf.period); else p.delete('p');
       if (nf.event) p.set('e', nf.event); else p.delete('e');
+      // Une autre soirée remet la comparaison à « la précédente de la série ».
+      const cmpId = nf.event && nf.event === f.event ? nf.compare : null;
+      if (cmpId) p.set('ce', cmpId); else p.delete('ce');
       if (nf.seg !== 'all') p.set('s', nf.seg); else p.delete('s');
       if (!nf.cmp) p.set('cmp', '0'); else p.delete('cmp');
       return p;
@@ -131,7 +139,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const exportCsv = () => {
     const stamp = `${tab}-${f.event ? 'soiree' : f.period}`;
     const out = tab === 'sales' ? (sales.data ? salesCsv(sales.data, T, caps.money) : null)
-      : tab === 'traffic' ? (traffic.data ? trafficCsv(traffic.data, T, caps.money) : null)
+      : tab === 'traffic' ? (traffic.data ? clicksCsv(traffic.data, T) : null)
         : tab === 'guestlist' ? (guestlist.data && !f.event ? guestlistCsv(guestlist.data, T) : null)
           : (community.data ? communityCsv(community.data, T) : null);
     if (!out) return;
@@ -290,12 +298,12 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
           )}
           <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--sand-500)' }}>{scope}</span>
         </div>
-        {ev && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.ana.f.perNote')}</div>}
+        {ev && tab !== 'traffic' && <div style={{ marginTop: 6, fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.ana.f.perNote')}</div>}
       </div>}
 
       {/* Un onglet dont la lecture échoue (délai de 30 s compris) dit l'échec : ses squelettes attendraient sans fin. */}
-      {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} f={f} setF={setF} goTab={goTab} />)}
-      {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} />)}
+      {tab === 'sales' && (failed(sales) ?? <SalesTab q={sales} tq={salesTraffic} f={f} setF={setF} goTab={goTab} />)}
+      {tab === 'traffic' && (failed(traffic) ?? <TrafficTab q={traffic} f={f} setF={setF} goTab={goTab} nights={evList} />)}
       {tab === 'community' && (why ? <WhyView /> : failed(community) ?? <CommunityTab q={community} f={f} setF={setF} />)}
       {tab === 'guestlist' && ((f.event ? null : failed(guestlist)) ?? <GuestListTab q={guestlist} f={f} />)}
     </main>

@@ -25,6 +25,7 @@ import accountHelp from './accountHelp';
 import yunits from './yunits';
 import settings from './settings';
 import analytics from './analytics';
+import traffic from './traffic';
 import journey from './journey';
 import automations from './automations';
 import sms from './sms';
@@ -72,6 +73,7 @@ export const CRM_DICT: CrmDict = {
   ...yunits,
   ...settings,
   ...analytics,
+  ...traffic,
   ...journey,
   ...automations,
   ...sms,

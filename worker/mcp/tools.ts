@@ -517,7 +517,9 @@ export const TOOLS: ToolDef[] = [
       + 'the funnel from a glance to a purchase (with failed payments), hours, devices, cities, the nights that draw the most visits, '
       + 'tracked link clicks, and the share of visits that end with an order. Revenue by source is in get_sales_overview. '
       + 'On a Yuno CRM account: where ticket buyers came from '
-      + '(sources reported by the ticketing, Yuno share links, signup pages); visits to the ticketing site itself are not reported. '
+      + '(sources reported by the ticketing, Yuno share links, signup pages) and, under clicks, what goes through Yuno in people '
+      + '(clicks on Yuno links and e-mails, signup page visits, hours, devices, countries, purchase platform, click to order); '
+      + 'visits to the ticketing site itself are not reported. '
       + 'Examples: "where do my visitors come from?", "does Instagram convert?".',
     inputSchema: { type: 'object', properties: { space: SPACE, days: DAYS(30), from: FROM, to: TO }, additionalProperties: false },
   },

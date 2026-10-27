@@ -1,5 +1,5 @@
 -- GÉNÉRÉ par scripts/crm-bench/dump-base.mjs — ne pas éditer à la main.
--- Prod lue le 2026-10-08T00:39:41.312Z ; 93 tables, 202 fonctions.
+-- Prod lue le 2026-10-27T13:48:22.646Z ; 192 tables, 238 fonctions.
 
 DO $$ BEGIN CREATE TYPE public.app_role AS ENUM ('client', 'barman', 'owner', 'bouncer', 'promoter', 'dj', 'manager', 'admin', 'vip_host', 'cloakroom', 'organizer', 'affiliate', 'affiliate_member', 'agency'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.discovery_status AS ENUM ('pending', 'approved', 'rejected'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -17,6 +17,33 @@ DO $$ BEGIN CREATE TYPE public.sms_purpose AS ENUM ('ticket_confirm', 'reminder_
 DO $$ BEGIN CREATE TYPE public.sms_status AS ENUM ('queued', 'sent', 'delivered', 'failed', 'undelivered'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.subscription_plan_source AS ENUM ('paid', 'collab_auto'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+CREATE TABLE IF NOT EXISTS public.account_product_events (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "scope_key" text NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "product" text NOT NULL,
+  "action" text NOT NULL,
+  "via" text NOT NULL,
+  "actor" uuid,
+  "email" text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.account_product_invites (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "token_hash" text NOT NULL,
+  "scope_key" text NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "product" text NOT NULL,
+  "email" text NOT NULL,
+  "invited_by" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "expires_at" timestamp with time zone DEFAULT (now() + '14 days'::interval),
+  "accepted_at" timestamp with time zone,
+  "accepted_by" uuid,
+  "canceled_at" timestamp with time zone
+);
 CREATE TABLE IF NOT EXISTS public.admin_audit_log (
   "id" uuid DEFAULT gen_random_uuid(),
   "admin_id" uuid DEFAULT auth.uid(),
@@ -25,6 +52,23 @@ CREATE TABLE IF NOT EXISTS public.admin_audit_log (
   "entity_id" text,
   "metadata" jsonb DEFAULT '{}'::jsonb,
   "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.admin_credential_deadlines (
+  "key" text NOT NULL,
+  "label" text NOT NULL,
+  "provider" text NOT NULL,
+  "description" text,
+  "console_url" text,
+  "interval_months" integer DEFAULT 12,
+  "due_at" date,
+  "last_rotated_at" date,
+  "remind_days" integer[] DEFAULT ARRAY[30, 14, 7, 2, 1],
+  "severity" text DEFAULT 'high'::text,
+  "is_active" boolean DEFAULT true,
+  "is_builtin" boolean DEFAULT false,
+  "notes" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.admin_notifications (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -41,6 +85,32 @@ CREATE TABLE IF NOT EXISTS public.admin_notifications (
   "read_at" timestamp with time zone,
   "read_by" uuid,
   "metadata" jsonb DEFAULT '{}'::jsonb
+);
+CREATE TABLE IF NOT EXISTS public.admin_support_audit (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "grant_id" uuid,
+  "session_id" uuid,
+  "target_user_id" uuid NOT NULL,
+  "actor_id" uuid,
+  "action" text NOT NULL,
+  "table_name" text,
+  "row_pk" text,
+  "detail" jsonb,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.admin_support_grants (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "target_user_id" uuid NOT NULL,
+  "requested_by" uuid NOT NULL,
+  "status" text DEFAULT 'pending'::text,
+  "scope" text DEFAULT 'config'::text,
+  "reason" text,
+  "approved_at" timestamp with time zone,
+  "revoked_at" timestamp with time zone,
+  "revoked_by" uuid,
+  "expires_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "initiated_by" text DEFAULT 'admin'::text
 );
 CREATE TABLE IF NOT EXISTS public.admin_support_sessions (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -71,6 +141,168 @@ CREATE TABLE IF NOT EXISTS public.agencies (
   "updated_at" timestamp with time zone DEFAULT now(),
   "tiktok_url" text,
   "name_changed_at" timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.agency_venue_contracts (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "agency_id" uuid NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "status" text DEFAULT 'pending_signatures'::text,
+  "override_type" text,
+  "override_value" numeric DEFAULT 0,
+  "currency" text DEFAULT 'eur'::text,
+  "created_by" uuid DEFAULT auth.uid(),
+  "agency_signed_at" timestamp with time zone,
+  "agency_signed_by" uuid,
+  "club_signed_at" timestamp with time zone,
+  "club_signed_by" uuid,
+  "notes" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "gl_default_quota" integer,
+  "gl_default_normal" integer DEFAULT 0,
+  "gl_default_drink" integer DEFAULT 0,
+  "gl_default_table" integer DEFAULT 0,
+  "gl_default_female" integer,
+  "gl_default_male" integer,
+  "gl_default_free_before" time without time zone,
+  "gl_default_mode" text DEFAULT 'partition'::text
+);
+CREATE TABLE IF NOT EXISTS public.ai_usage_events (
+  "id" bigint GENERATED BY DEFAULT AS IDENTITY,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "assistant" text NOT NULL,
+  "model" text NOT NULL,
+  "user_id" uuid,
+  "user_email" text,
+  "venue_id" text,
+  "agency_id" uuid,
+  "language" text,
+  "status" text DEFAULT 'ok'::text,
+  "error" text,
+  "prompt_tokens" integer,
+  "completion_tokens" integer,
+  "total_tokens" integer,
+  "cost_usd" numeric(12,6) DEFAULT 0,
+  "latency_ms" integer,
+  "rounds" integer,
+  "tool_calls" text[],
+  "turn_count" integer,
+  "prompt_chars" integer,
+  "completion_chars" integer,
+  "prompt_preview" text
+);
+CREATE TABLE IF NOT EXISTS public.analytics_daily_rollup (
+  "day" timestamp with time zone,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "visits" bigint,
+  "unique_visitors" bigint,
+  "carts" bigint,
+  "checkouts" bigint,
+  "conversions" bigint,
+  "cart_value_cents_sum" bigint,
+  "avg_duration_s" integer,
+  "returning_count" bigint,
+  "source_diversity" bigint
+);
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  "id" text DEFAULT 'global'::text,
+  "maintenance_mode" boolean DEFAULT false,
+  "maintenance_message" text,
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "updated_by" uuid,
+  "maintenance_password" text,
+  "maintenance_password_hash" text,
+  "terms_version" text DEFAULT 'v1.0.0'::text,
+  "terms_url" text DEFAULT '/legal/cgv-utilisateurs'::text,
+  "payments_disabled" boolean DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS public.audience_daily_snapshots (
+  "subject_type" text NOT NULL,
+  "subject_id" text NOT NULL,
+  "snapshot_date" date NOT NULL,
+  "followers_total" integer DEFAULT 0,
+  "follows_gained" integer DEFAULT 0,
+  "follows_lost" integer DEFAULT 0,
+  "net_change" integer DEFAULT 0,
+  "reachable_count" integer DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS public.audience_follow_events (
+  "id" bigint NOT NULL,
+  "subject_type" text NOT NULL,
+  "subject_id" text NOT NULL,
+  "follower_user_id" uuid NOT NULL,
+  "action" text NOT NULL,
+  "source" text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.audience_recap_log (
+  "subject_type" text NOT NULL,
+  "subject_id" text NOT NULL,
+  "week_start" date NOT NULL,
+  "sent_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.auto_push_events (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "notification_key" text NOT NULL,
+  "user_id" uuid NOT NULL,
+  "event_type" text NOT NULL,
+  "platform" text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.cart_snapshots (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL,
+  "cart_data" jsonb DEFAULT '[]'::jsonb,
+  "venue_id" uuid,
+  "event_id" uuid,
+  "snapshot_type" text DEFAULT 'drink'::text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "notified_at" timestamp with time zone,
+  "converted" boolean DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS public.cloakroom_transactions (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "event_id" uuid NOT NULL,
+  "ticket_id" uuid,
+  "attendee_qr" text,
+  "customer_name" text,
+  "cloakroom_number" text NOT NULL,
+  "items_count" integer DEFAULT 1,
+  "price" numeric DEFAULT 0,
+  "paid_on_site" boolean DEFAULT false,
+  "payment_confirmed" boolean DEFAULT false,
+  "deposited_at" timestamp with time zone DEFAULT now(),
+  "retrieved" boolean DEFAULT false,
+  "retrieved_at" timestamp with time zone,
+  "staff_id" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "processed_by" uuid,
+  "retrieved_by" uuid
+);
+CREATE TABLE IF NOT EXISTS public.collab_transfer_statements (
+  "event_id" uuid NOT NULL,
+  "contract_id" uuid,
+  "collector" text NOT NULL,
+  "status" text DEFAULT 'frozen'::text,
+  "snapshot" jsonb NOT NULL,
+  "frozen_at" timestamp with time zone DEFAULT now(),
+  "frozen_by" uuid,
+  "settled_at" timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.commission_templates (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "name" text NOT NULL,
+  "rules" jsonb DEFAULT '{}'::jsonb,
+  "is_default" boolean DEFAULT false,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "organizer_user_id" uuid,
+  "agency_id" uuid
 );
 CREATE TABLE IF NOT EXISTS public.contact_base_cache (
   "scope_key" text,
@@ -157,7 +389,45 @@ CREATE TABLE IF NOT EXISTS public.contact_engagement (
   "status" text DEFAULT 'new'::text,
   "status_changed_at" timestamp with time zone DEFAULT now(),
   "created_at" timestamp with time zone DEFAULT now(),
-  "updated_at" timestamp with time zone DEFAULT now()
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "product" text
+);
+CREATE TABLE IF NOT EXISTS public.contact_engagement_state (
+  "scope_key" text NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "refreshed_at" timestamp with time zone DEFAULT now(),
+  "duration_ms" integer,
+  "summary" jsonb DEFAULT '{}'::jsonb
+);
+CREATE TABLE IF NOT EXISTS public.contact_list_imports (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "email_import_id" uuid,
+  "sms_import_id" uuid,
+  "list_name" text,
+  "filename" text,
+  "consent_source" text NOT NULL,
+  "consent_details" text,
+  "collected_since" date,
+  "default_country" text,
+  "detected_columns" jsonb DEFAULT '{}'::jsonb,
+  "channels" jsonb DEFAULT '{"sms": true, "email": true}'::jsonb,
+  "row_count" integer DEFAULT 0,
+  "email_count" integer DEFAULT 0,
+  "phone_count" integer DEFAULT 0,
+  "both_count" integer DEFAULT 0,
+  "analysis" jsonb,
+  "analyzed_at" timestamp with time zone,
+  "attested_by" uuid,
+  "attested_at" timestamp with time zone DEFAULT now(),
+  "created_at" timestamp with time zone DEFAULT now(),
+  "attested_via_support" boolean DEFAULT false,
+  "fingerprint" text,
+  "superseded_by" uuid,
+  "superseded_at" timestamp with time zone,
+  "product" text
 );
 CREATE TABLE IF NOT EXISTS public.contact_segments (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -173,6 +443,11 @@ CREATE TABLE IF NOT EXISTS public.contact_segments (
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.crm_campaign_estimates (
+  "campaign_id" uuid NOT NULL,
+  "recipients" integer NOT NULL,
+  "computed_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.crm_contact_notes (
   "scope_key" text NOT NULL,
   "email" text NOT NULL,
@@ -182,6 +457,9 @@ CREATE TABLE IF NOT EXISTS public.crm_contact_notes (
   "note" text,
   "updated_by" uuid,
   "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.crm_disposable_domains (
+  "domain" text NOT NULL
 );
 CREATE TABLE IF NOT EXISTS public.crm_email_settings (
   "scope_key" text NOT NULL,
@@ -195,7 +473,17 @@ CREATE TABLE IF NOT EXISTS public.crm_email_settings (
   "notify_done" boolean DEFAULT true,
   "test_emails" text[] DEFAULT '{}'::text[],
   "updated_by" uuid,
-  "updated_at" timestamp with time zone DEFAULT now()
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "legal_name" text
+);
+CREATE TABLE IF NOT EXISTS public.crm_feature_waitlist (
+  "scope_key" text NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "feature" text NOT NULL,
+  "user_id" uuid NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "notified_at" timestamp with time zone
 );
 CREATE TABLE IF NOT EXISTS public.crm_import_journal (
   "list_import_id" uuid NOT NULL,
@@ -224,6 +512,35 @@ CREATE TABLE IF NOT EXISTS public.crm_imports (
   "finished_at" timestamp with time zone,
   "undone_at" timestamp with time zone,
   "undone_by" uuid
+);
+CREATE TABLE IF NOT EXISTS public.crm_notif_report_cache (
+  "campaign_id" uuid NOT NULL,
+  "buyers" integer NOT NULL,
+  "computed_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.crm_notification_prefs (
+  "scope_key" text NOT NULL,
+  "user_id" uuid NOT NULL,
+  "prefs" jsonb DEFAULT '{}'::jsonb,
+  "quiet_on" boolean DEFAULT true,
+  "quiet_from" smallint DEFAULT 2,
+  "quiet_to" smallint DEFAULT 11,
+  "low_balance" integer DEFAULT 2000,
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.crm_notification_states (
+  "scope_key" text NOT NULL,
+  "user_id" uuid NOT NULL,
+  "item_id" text NOT NULL,
+  "read_at" timestamp with time zone,
+  "archived_at" timestamp with time zone,
+  "snoozed_until" timestamp with time zone,
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.crm_price_state (
+  "id" boolean DEFAULT true,
+  "public_active" boolean DEFAULT false,
+  "checked_at" timestamp with time zone
 );
 CREATE TABLE IF NOT EXISTS public.crm_pricing (
   "id" boolean DEFAULT true,
@@ -333,7 +650,22 @@ CREATE TABLE IF NOT EXISTS public.crm_signup_pages (
   "ai_author" text,
   "mcp_grant_id" uuid,
   "ai_updated_at" timestamp with time zone,
-  "ai_proposal" jsonb
+  "ai_proposal" jsonb,
+  "after_url" text
+);
+CREATE TABLE IF NOT EXISTS public.crm_signup_relance_campaigns (
+  "page_id" uuid NOT NULL,
+  "step" text NOT NULL,
+  "campaign_id" uuid NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.crm_signup_sends (
+  "id" bigint GENERATED BY DEFAULT AS IDENTITY,
+  "page_id" uuid NOT NULL,
+  "entry_id" uuid NOT NULL,
+  "step" text NOT NULL,
+  "channel" text NOT NULL,
+  "campaign_id" uuid,
+  "at" timestamp with time zone DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.crm_signup_visits (
   "id" bigint GENERATED BY DEFAULT AS IDENTITY,
@@ -352,7 +684,11 @@ CREATE TABLE IF NOT EXISTS public.crm_sms_settings (
   "weekly_cap" smallint DEFAULT 1,
   "test_phone" text,
   "updated_by" uuid,
-  "updated_at" timestamp with time zone DEFAULT now()
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "legal_name" text,
+  "siret" text,
+  "rna_number" text,
+  "vat_number" text
 );
 CREATE TABLE IF NOT EXISTS public.crm_subscriptions (
   "scope_key" text NOT NULL,
@@ -372,7 +708,10 @@ CREATE TABLE IF NOT EXISTS public.crm_subscriptions (
   "last_event_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now(),
-  "trial_extensions_used" integer DEFAULT 0
+  "trial_extensions_used" integer DEFAULT 0,
+  "offer" text,
+  "offer_invite_id" uuid,
+  "offer_until" timestamp with time zone
 );
 CREATE TABLE IF NOT EXISTS public.crm_yunit_lots (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -403,6 +742,32 @@ CREATE TABLE IF NOT EXISTS public.crm_yunit_moves (
   "label" text,
   "meta" jsonb DEFAULT '{}'::jsonb
 );
+CREATE TABLE IF NOT EXISTS public.customer_activity_log (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "event_id" uuid,
+  "activity_type" text NOT NULL,
+  "ref_type" text,
+  "ref_id" uuid,
+  "amount_cents" integer DEFAULT 0,
+  "metadata" jsonb DEFAULT '{}'::jsonb,
+  "ts" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.customer_incidents (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_customer_id" uuid NOT NULL,
+  "venue_id" text NOT NULL,
+  "reported_by" uuid NOT NULL,
+  "incident_type" text NOT NULL,
+  "reason" text NOT NULL,
+  "ticket_id" uuid,
+  "order_id" uuid,
+  "table_reservation_id" uuid,
+  "details" text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.customer_loyalty (
   "id" uuid DEFAULT gen_random_uuid(),
   "venue_customer_id" uuid NOT NULL,
@@ -416,6 +781,35 @@ CREATE TABLE IF NOT EXISTS public.customer_loyalty (
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.demo_preview_links (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "token" text DEFAULT encode(gen_random_bytes(32), 'hex'::text),
+  "label" text NOT NULL,
+  "target_account" text,
+  "password_hash" text NOT NULL,
+  "is_active" boolean DEFAULT true,
+  "expires_at" timestamp with time zone,
+  "created_by" uuid NOT NULL,
+  "used_count" integer DEFAULT 0,
+  "failed_attempts" integer DEFAULT 0,
+  "last_used_at" timestamp with time zone,
+  "revoked_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "target_accounts" text[] DEFAULT '{}'::text[],
+  "language" text DEFAULT 'en'::text,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "signup_id" uuid,
+  "signup_offer_support" boolean DEFAULT true,
+  "signup_association" boolean DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS public.demo_preview_sessions (
+  "auth_session_id" uuid NOT NULL,
+  "user_id" uuid NOT NULL,
+  "link_id" uuid,
+  "origin" text DEFAULT 'redeem'::text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.discovery_selections (
   "id" uuid DEFAULT gen_random_uuid(),
   "user_id" uuid NOT NULL,
@@ -427,6 +821,36 @@ CREATE TABLE IF NOT EXISTS public.discovery_selections (
   "created_at" timestamp with time zone DEFAULT now(),
   "opened_at" timestamp with time zone
 );
+CREATE TABLE IF NOT EXISTS public.dj_lineup_notifications (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL,
+  "event_id" uuid NOT NULL,
+  "dj_id" uuid NOT NULL,
+  "sent_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.dj_sets (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "dj_id" uuid,
+  "event_id" uuid,
+  "venue_id" text,
+  "title" text,
+  "start_time" timestamp with time zone NOT NULL,
+  "end_time" timestamp with time zone NOT NULL,
+  "music_genre" text,
+  "notes" text,
+  "fee" numeric DEFAULT 0,
+  "fee_paid" boolean DEFAULT false,
+  "fee_paid_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "organizer_user_id" uuid,
+  "show_on_profile" boolean DEFAULT true,
+  "guest_artist_id" uuid,
+  "artist_name" text,
+  "payee_name" text,
+  "payee_iban" text,
+  "payment_method" text
+);
 CREATE TABLE IF NOT EXISTS public.dj_team_members (
   "id" uuid DEFAULT gen_random_uuid(),
   "dj_user_id" uuid NOT NULL,
@@ -434,6 +858,43 @@ CREATE TABLE IF NOT EXISTS public.dj_team_members (
   "role" text DEFAULT 'manager'::text,
   "status" text DEFAULT 'active'::text,
   "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.djs (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL,
+  "venue_id" text,
+  "first_name" text NOT NULL,
+  "last_name" text NOT NULL,
+  "stage_name" text,
+  "whatsapp_number" text,
+  "instagram_url" text,
+  "tiktok_url" text,
+  "music_genres" text[] DEFAULT '{}'::text[],
+  "bio" text,
+  "profile_image_url" text,
+  "is_active" boolean DEFAULT true,
+  "pending_amount" numeric DEFAULT 0,
+  "total_paid" numeric DEFAULT 0,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "cover_image_url" text,
+  "soundcloud_url" text,
+  "spotify_url" text,
+  "youtube_url" text,
+  "country" text,
+  "city" text,
+  "is_verified" boolean DEFAULT false,
+  "slug" text,
+  "description" text,
+  "organizer_user_id" uuid,
+  "featured_track_url" text,
+  "featured_track_title" text,
+  "latitude" double precision,
+  "longitude" double precision,
+  "search_stage_name" text,
+  "search_first_name" text,
+  "search_last_name" text,
+  "name_changed_at" timestamp with time zone
 );
 CREATE TABLE IF NOT EXISTS public.djs_public (
   "id" uuid,
@@ -460,6 +921,25 @@ CREATE TABLE IF NOT EXISTS public.djs_public (
   "search_stage_name" text,
   "search_first_name" text,
   "search_last_name" text
+);
+CREATE TABLE IF NOT EXISTS public.drinks (
+  "id" text NOT NULL,
+  "venue_id" text NOT NULL,
+  "name" text NOT NULL,
+  "price" numeric(10,2) NOT NULL,
+  "img_url" text NOT NULL,
+  "description" text,
+  "alc_pct" numeric(4,2),
+  "active" boolean DEFAULT true,
+  "position" integer,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "promo_price" numeric,
+  "collection" text DEFAULT 'drink'::text,
+  "presale_price" numeric,
+  "presale_active" boolean DEFAULT false,
+  "out_of_stock" boolean DEFAULT false,
+  "out_of_stock_at" timestamp with time zone,
+  "out_of_stock_by" uuid
 );
 CREATE TABLE IF NOT EXISTS public.email_automation_sends (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -493,7 +973,8 @@ CREATE TABLE IF NOT EXISTS public.email_automations (
   "threshold_pct" integer DEFAULT 85,
   "sms_enabled" boolean DEFAULT false,
   "sms_body" text,
-  "sms_delay_days" integer DEFAULT 5
+  "sms_delay_days" integer DEFAULT 5,
+  "product" text
 );
 CREATE TABLE IF NOT EXISTS public.email_campaign_events (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -517,6 +998,16 @@ CREATE TABLE IF NOT EXISTS public.email_campaign_followups (
   "skip_reason" text,
   "created_at" timestamp with time zone DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.email_campaign_list_impact (
+  "campaign_id" uuid NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "baseline" jsonb,
+  "baseline_at" timestamp with time zone,
+  "current" jsonb,
+  "computed_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.email_campaign_recipients (
   "id" uuid DEFAULT gen_random_uuid(),
   "campaign_id" uuid NOT NULL,
@@ -533,7 +1024,8 @@ CREATE TABLE IF NOT EXISTS public.email_campaign_recipients (
   "attempts" integer DEFAULT 0,
   "claimed_at" timestamp with time zone,
   "next_attempt_at" timestamp with time zone,
-  "ab_variant" text
+  "ab_variant" text,
+  "batch_key" text
 );
 CREATE TABLE IF NOT EXISTS public.email_campaign_templates (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -553,7 +1045,8 @@ CREATE TABLE IF NOT EXISTS public.email_campaign_templates (
   "last_used_at" timestamp with time zone,
   "created_by" uuid,
   "created_at" timestamp with time zone DEFAULT now(),
-  "updated_at" timestamp with time zone DEFAULT now()
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "product" text
 );
 CREATE TABLE IF NOT EXISTS public.email_campaigns (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -625,7 +1118,9 @@ CREATE TABLE IF NOT EXISTS public.email_campaigns (
   "ai_author" text,
   "mcp_grant_id" uuid,
   "ai_updated_at" timestamp with time zone,
-  "holdout_count" integer DEFAULT 0
+  "holdout_count" integer DEFAULT 0,
+  "practical" boolean DEFAULT false,
+  "ticket_round_ids" uuid[]
 );
 CREATE TABLE IF NOT EXISTS public.email_list_imports (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -649,7 +1144,8 @@ CREATE TABLE IF NOT EXISTS public.email_list_imports (
   "attested_via_support" boolean DEFAULT false,
   "fingerprint" text,
   "superseded_by" uuid,
-  "superseded_at" timestamp with time zone
+  "superseded_at" timestamp with time zone,
+  "product" text
 );
 CREATE TABLE IF NOT EXISTS public.email_opt_outs (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -660,7 +1156,34 @@ CREATE TABLE IF NOT EXISTS public.email_opt_outs (
   "import_id" uuid,
   "opted_out_at" timestamp with time zone,
   "purged_at" timestamp with time zone DEFAULT now(),
-  "purged_by" uuid
+  "purged_by" uuid,
+  "product" text
+);
+CREATE TABLE IF NOT EXISTS public.email_send_quota (
+  "scope_key" text NOT NULL,
+  "day" date DEFAULT paris_today(),
+  "sent" integer DEFAULT 0,
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.email_send_quota_month (
+  "scope_key" text NOT NULL,
+  "month" date DEFAULT (date_trunc('month'::text, (paris_today())::timestamp without time zone))::date,
+  "sent" integer DEFAULT 0,
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "paid_sent" integer DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS public.email_sender_state (
+  "scope_key" text NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "first_send_at" timestamp with time zone,
+  "lifetime_sent" bigint DEFAULT 0,
+  "daily_cap_override" integer,
+  "trust_level" text DEFAULT 'warming'::text,
+  "restricted_reason" text,
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "credit_balance" integer DEFAULT 0,
+  "monthly_cap_override" integer
 );
 CREATE TABLE IF NOT EXISTS public.email_suppressions (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -693,6 +1216,60 @@ CREATE TABLE IF NOT EXISTS public.event_cohosts (
   "role" text DEFAULT 'cohost'::text,
   "principal_terms" jsonb
 );
+CREATE TABLE IF NOT EXISTS public.event_collab_contracts (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "event_id" uuid NOT NULL,
+  "partnership_id" uuid,
+  "venue_id" text NOT NULL,
+  "organizer_user_id" uuid NOT NULL,
+  "created_by" uuid DEFAULT auth.uid(),
+  "status" text DEFAULT 'pending_signatures'::text,
+  "currency" text DEFAULT 'eur'::text,
+  "split_rules" jsonb NOT NULL,
+  "cancellation_policy" text DEFAULT 'pro_rata_refund'::text,
+  "terms_snapshot" jsonb,
+  "contract_pdf_url" text,
+  "venue_signed_at" timestamp with time zone,
+  "venue_signed_by" uuid,
+  "venue_signed_ip" text,
+  "venue_signed_user_agent" text,
+  "org_signed_at" timestamp with time zone,
+  "org_signed_by" uuid,
+  "org_signed_ip" text,
+  "org_signed_user_agent" text,
+  "auto_release_at" timestamp with time zone,
+  "closed_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "responsibilities" jsonb
+);
+CREATE TABLE IF NOT EXISTS public.event_collab_series_contracts (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "template_id" uuid NOT NULL,
+  "partnership_id" uuid,
+  "venue_id" text NOT NULL,
+  "organizer_user_id" uuid NOT NULL,
+  "created_by" uuid DEFAULT auth.uid(),
+  "status" text DEFAULT 'pending_signatures'::text,
+  "currency" text DEFAULT 'eur'::text,
+  "split_rules" jsonb NOT NULL,
+  "cancellation_policy" text DEFAULT 'pro_rata_refund'::text,
+  "terms_snapshot" jsonb,
+  "contract_pdf_url" text,
+  "venue_signed_at" timestamp with time zone,
+  "venue_signed_by" uuid,
+  "venue_signed_ip" text,
+  "venue_signed_user_agent" text,
+  "org_signed_at" timestamp with time zone,
+  "org_signed_by" uuid,
+  "org_signed_ip" text,
+  "org_signed_user_agent" text,
+  "terminated_at" timestamp with time zone,
+  "terminated_by" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "responsibilities" jsonb
+);
 CREATE TABLE IF NOT EXISTS public.event_coorg_deals (
   "event_id" uuid NOT NULL,
   "shares" jsonb DEFAULT '{}'::jsonb,
@@ -708,6 +1285,35 @@ CREATE TABLE IF NOT EXISTS public.event_coorg_deals (
   "updated_at" timestamp with time zone DEFAULT now(),
   "payment_terms_days" integer DEFAULT 15,
   "stripe_split" boolean DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS public.event_coorg_transfers (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "event_id" uuid NOT NULL,
+  "from_party" text NOT NULL,
+  "to_party" text NOT NULL,
+  "amount" numeric(12,2) NOT NULL,
+  "reference" text NOT NULL,
+  "payee_iban" text,
+  "status" text DEFAULT 'pending'::text,
+  "sent_at" timestamp with time zone,
+  "sent_by" uuid,
+  "sent_reference" text,
+  "received_at" timestamp with time zone,
+  "received_by" uuid,
+  "disputed_at" timestamp with time zone,
+  "dispute_reason" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "due_at" timestamp with time zone,
+  "confirm_due_at" timestamp with time zone,
+  "reminder_count" integer DEFAULT 0,
+  "last_reminded_at" timestamp with time zone,
+  "escalated_at" timestamp with time zone,
+  "admin_alerted_at" timestamp with time zone,
+  "last_nudged_at" timestamp with time zone,
+  "resolved_by_admin" boolean DEFAULT false,
+  "admin_note" text,
+  "source" text DEFAULT 'coorg'::text
 );
 CREATE TABLE IF NOT EXISTS public.event_djs (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -742,6 +1348,88 @@ CREATE TABLE IF NOT EXISTS public.event_guest_artists (
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.event_guest_pass_opens (
+  "id" bigint NOT NULL,
+  "pass_id" uuid NOT NULL,
+  "visitor_hash" text,
+  "action" text DEFAULT 'open'::text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.event_guest_passes (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "event_id" uuid NOT NULL,
+  "guest_name" text NOT NULL,
+  "contact_email" text,
+  "contact_phone" text,
+  "language" text DEFAULT 'en'::text,
+  "token" text NOT NULL,
+  "show_revenue" boolean DEFAULT true,
+  "tracked_link_id" uuid,
+  "organizer_contact_email" text,
+  "organizer_contact_phone" text,
+  "created_by" uuid,
+  "created_by_party" text NOT NULL,
+  "opened_count" integer DEFAULT 0,
+  "first_opened_at" timestamp with time zone,
+  "last_opened_at" timestamp with time zone,
+  "email_sent_count" integer DEFAULT 0,
+  "email_sent_at" timestamp with time zone,
+  "signup_clicks" integer DEFAULT 0,
+  "whatsapp_clicks" integer DEFAULT 0,
+  "link_copies" integer DEFAULT 0,
+  "revoked_at" timestamp with time zone,
+  "claimed_by" uuid,
+  "claimed_at" timestamp with time zone,
+  "claim_status" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "guest_kind" text DEFAULT 'venue'::text,
+  "guest_party" text,
+  "share_tickets_pct" numeric,
+  "share_tables_pct" numeric,
+  "statement_response" text,
+  "statement_reason" text,
+  "statement_responded_at" timestamp with time zone,
+  "places_requested" integer,
+  "places_requested_at" timestamp with time zone,
+  "contract_status" text,
+  "contract_terms" jsonb,
+  "contract_version" integer DEFAULT 0,
+  "contract_proposed_at" timestamp with time zone,
+  "contract_proposed_by" uuid,
+  "contract_org_signer" text,
+  "contract_signed_at" timestamp with time zone,
+  "contract_signer_name" text,
+  "contract_signer_email" text,
+  "contract_sign_evidence" jsonb,
+  "contract_hash" text,
+  "contract_history" jsonb DEFAULT '[]'::jsonb,
+  "guest_iban" text,
+  "guest_iban_holder" text,
+  "guest_iban_set_at" timestamp with time zone,
+  "statement_snapshot" jsonb,
+  "statement_frozen_at" timestamp with time zone,
+  "transfer_reference" text,
+  "transfer_status" text,
+  "transfer_amount" numeric,
+  "transfer_due_at" timestamp with time zone,
+  "transfer_sent_at" timestamp with time zone,
+  "transfer_sent_reference" text,
+  "transfer_received_at" timestamp with time zone,
+  "transfer_dispute_reason" text,
+  "door_mode" text,
+  "account_user_id" uuid,
+  "account_email" text,
+  "account_linked_at" timestamp with time zone,
+  "photo_url" text,
+  "photo_set_by" text
+);
+CREATE TABLE IF NOT EXISTS public.event_slug_aliases (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "event_id" uuid NOT NULL,
+  "slug" text NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.event_waitlist (
   "id" uuid DEFAULT gen_random_uuid(),
   "event_id" uuid NOT NULL,
@@ -750,7 +1438,10 @@ CREATE TABLE IF NOT EXISTS public.event_waitlist (
   "user_id" uuid,
   "presale_access" boolean DEFAULT false,
   "created_at" timestamp with time zone DEFAULT now(),
-  "show_in_orders" boolean DEFAULT true
+  "show_in_orders" boolean DEFAULT true,
+  "first_name" text,
+  "last_name" text,
+  "newsletter_opt_in" boolean DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS public.events (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -831,7 +1522,9 @@ CREATE TABLE IF NOT EXISTS public.events (
   "partner_visibility" text DEFAULT 'full'::text,
   "vip_room_id" uuid,
   "external_source" text,
-  "external_ticket_url" text
+  "external_ticket_url" text,
+  "flyer_wide_url" text,
+  "free_chain_visibility" text DEFAULT 'preview'::text
 );
 CREATE TABLE IF NOT EXISTS public.external_events (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -908,7 +1601,16 @@ CREATE TABLE IF NOT EXISTS public.external_tickets (
   "raw" jsonb,
   "first_seen_at" timestamp with time zone DEFAULT now(),
   "synced_at" timestamp with time zone DEFAULT now(),
-  "event_id" uuid
+  "event_id" uuid,
+  "deal_channel" text,
+  "deal_visibilities" text[],
+  "seating_type" text,
+  "payment_method" text,
+  "org_fee" numeric,
+  "provider_contact_id" text,
+  "provider_user_id" text,
+  "erased_at" timestamp with time zone,
+  "buyer_email_unreadable" boolean DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS public.favorites (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -922,6 +1624,20 @@ CREATE TABLE IF NOT EXISTS public.favorites (
   "affiliate_event_id" uuid,
   "affiliate_venue_id" uuid,
   "notify_all_locations" boolean DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS public.feedback_issues (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "title" text NOT NULL,
+  "description" text,
+  "category" text DEFAULT 'bug'::text,
+  "priority" text DEFAULT 'medium'::text,
+  "status" text DEFAULT 'open'::text,
+  "reported_by" uuid,
+  "assigned_to" uuid,
+  "resolved_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.guest_list_entries (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -947,7 +1663,9 @@ CREATE TABLE IF NOT EXISTS public.guest_list_entries (
   "sms_opt_in" boolean DEFAULT false,
   "platform_opt_in" boolean DEFAULT false,
   "attribution_source" text,
-  "attribution_ref" text
+  "attribution_ref" text,
+  "tracking_visit_sid" text,
+  "tracking_funnel_sid" text
 );
 CREATE TABLE IF NOT EXISTS public.guest_lists (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -977,7 +1695,8 @@ CREATE TABLE IF NOT EXISTS public.guest_lists (
   "public_entry_types" text[],
   "agency_id" uuid,
   "agency_distribution_mode" text,
-  "manually_sold_out" boolean DEFAULT false
+  "manually_sold_out" boolean DEFAULT false,
+  "guest_pass_id" uuid
 );
 CREATE TABLE IF NOT EXISTS public.imported_contacts (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1002,7 +1721,112 @@ CREATE TABLE IF NOT EXISTS public.imported_contacts (
   "total_spent" numeric(12,2),
   "event_count" integer,
   "extra" jsonb,
-  "created_at" timestamp with time zone DEFAULT now()
+  "created_at" timestamp with time zone DEFAULT now(),
+  "product" text
+);
+CREATE TABLE IF NOT EXISTS public.invoice_numbers (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "ticket_id" uuid,
+  "table_reservation_id" uuid,
+  "order_id" uuid,
+  "invoice_number" text NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "organizer_user_id" uuid,
+  "seller_kind" text NOT NULL,
+  "invoice_year" integer NOT NULL,
+  "invoice_seq" integer NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.invoices (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "invoice_number" text NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "type" text NOT NULL,
+  "amount" numeric DEFAULT 0,
+  "total_ht" numeric DEFAULT 0,
+  "tva" numeric DEFAULT 0,
+  "service_fee" numeric DEFAULT 0,
+  "management_fee" numeric DEFAULT 0,
+  "insurance_fee" numeric DEFAULT 0,
+  "customer_email" text NOT NULL,
+  "customer_name" text,
+  "customer_phone" text,
+  "event_id" uuid,
+  "event_name" text,
+  "event_date" timestamp with time zone,
+  "event_poster" text,
+  "ticket_id" uuid,
+  "table_reservation_id" uuid,
+  "order_id" uuid,
+  "items" jsonb,
+  "qr_code" text,
+  "expires_at" timestamp with time zone DEFAULT (now() + '2 years'::interval),
+  "organizer_user_id" uuid,
+  "seller_kind" text
+);
+CREATE TABLE IF NOT EXISTS public.launch_waitlist (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "email" text NOT NULL,
+  "first_name" text,
+  "city" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "notified_at" timestamp with time zone,
+  "last_name" text,
+  "phone" text,
+  "source" text,
+  "lang" text
+);
+CREATE TABLE IF NOT EXISTS public.legal_acceptances (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid,
+  "email" text,
+  "doc_type" text NOT NULL,
+  "doc_version" text NOT NULL,
+  "doc_hash" text,
+  "context" jsonb DEFAULT '{}'::jsonb,
+  "ip" text,
+  "user_agent" text,
+  "accepted_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.links_events (
+  "id" bigint NOT NULL,
+  "occurred_at" timestamp with time zone DEFAULT now(),
+  "visitor_hash" text NOT NULL,
+  "kind" text NOT NULL,
+  "target" text,
+  "lang" text,
+  "referrer_host" text,
+  "utm_source" text,
+  "utm_medium" text,
+  "utm_campaign" text,
+  "device" text,
+  "browser" text,
+  "os" text,
+  "country" text,
+  "meta" jsonb DEFAULT '{}'::jsonb
+);
+CREATE TABLE IF NOT EXISTS public.links_page_config (
+  "id" text DEFAULT 'default'::text,
+  "config" jsonb DEFAULT '{}'::jsonb,
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "updated_by" uuid
+);
+CREATE TABLE IF NOT EXISTS public.links_pro_leads (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "created_at" timestamp with time zone DEFAULT now(),
+  "name" text NOT NULL,
+  "org_name" text,
+  "org_type" text DEFAULT 'other'::text,
+  "city" text,
+  "phone" text,
+  "email" text,
+  "message" text,
+  "lang" text,
+  "visitor_hash" text,
+  "whatsapp_opened" boolean DEFAULT false,
+  "contacted_at" timestamp with time zone,
+  "notes" text
 );
 CREATE TABLE IF NOT EXISTS public.live_visitor_pings (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1070,6 +1894,47 @@ CREATE TABLE IF NOT EXISTS public.marketing_email_log (
   "organizer_user_id" uuid,
   "sent_at" timestamp with time zone DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.mcp_authorization_requests (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "client_id" text NOT NULL,
+  "redirect_uri" text NOT NULL,
+  "state" text,
+  "code_challenge" text NOT NULL,
+  "scope" text,
+  "resource" text,
+  "status" text DEFAULT 'pending'::text,
+  "user_id" uuid,
+  "grant_id" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "expires_at" timestamp with time zone DEFAULT (now() + '00:30:00'::interval),
+  "decided_at" timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.mcp_clients (
+  "id" text NOT NULL,
+  "kind" text NOT NULL,
+  "client_name" text NOT NULL,
+  "client_uri" text,
+  "logo_uri" text,
+  "redirect_uris" text[] NOT NULL,
+  "token_endpoint_auth_method" text DEFAULT 'none'::text,
+  "client_secret_hash" text,
+  "software_id" text,
+  "software_version" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "last_used_at" timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.mcp_codes (
+  "code_hash" text NOT NULL,
+  "grant_id" uuid NOT NULL,
+  "client_id" text NOT NULL,
+  "redirect_uri" text NOT NULL,
+  "code_challenge" text NOT NULL,
+  "resource" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "expires_at" timestamp with time zone DEFAULT (now() + '00:10:00'::interval),
+  "used_at" timestamp with time zone
+);
 CREATE TABLE IF NOT EXISTS public.mcp_email_images (
   "id" uuid DEFAULT gen_random_uuid(),
   "code" text NOT NULL,
@@ -1104,7 +1969,8 @@ CREATE TABLE IF NOT EXISTS public.mcp_grants (
   "revoked_by" uuid,
   "revoked_reason" text,
   "can_draft" boolean DEFAULT false,
-  "can_pages" boolean DEFAULT false
+  "can_pages" boolean DEFAULT false,
+  "can_scenarios" boolean DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS public.mcp_tokens (
   "token_hash" text NOT NULL,
@@ -1129,6 +1995,123 @@ CREATE TABLE IF NOT EXISTS public.mcp_tool_calls (
   "result_bytes" integer,
   "created_at" timestamp with time zone DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.meta_audiences (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "connection_id" uuid NOT NULL,
+  "kind" text NOT NULL,
+  "ref" text NOT NULL,
+  "name" text NOT NULL,
+  "meta_audience_id" text,
+  "lookalike_ratio" numeric,
+  "lookalike_country" text,
+  "size_uploaded" integer,
+  "status" text DEFAULT 'pending'::text,
+  "last_sync_at" timestamp with time zone,
+  "last_error" text,
+  "created_by" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.meta_campaigns (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "connection_id" uuid NOT NULL,
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "event_id" uuid,
+  "tracked_link_id" uuid,
+  "name" text NOT NULL,
+  "objective" text DEFAULT 'OUTCOME_SALES'::text,
+  "status" text DEFAULT 'draft'::text,
+  "meta_campaign_id" text,
+  "meta_adset_id" text,
+  "meta_ad_id" text,
+  "meta_creative_id" text,
+  "meta_image_hash" text,
+  "budget_type" text DEFAULT 'lifetime'::text,
+  "budget_cents" integer NOT NULL,
+  "currency" text DEFAULT 'EUR'::text,
+  "start_at" timestamp with time zone NOT NULL,
+  "end_at" timestamp with time zone,
+  "targeting" jsonb DEFAULT '{}'::jsonb,
+  "creative" jsonb DEFAULT '{}'::jsonb,
+  "placements" jsonb DEFAULT '{"facebook": true, "instagram": true}'::jsonb,
+  "effective_status" text,
+  "review_feedback" text,
+  "last_error" text,
+  "last_synced_at" timestamp with time zone,
+  "created_by" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "creatives" jsonb DEFAULT '[]'::jsonb,
+  "meta_ads" jsonb DEFAULT '[]'::jsonb,
+  "ad_insights" jsonb DEFAULT '[]'::jsonb,
+  "delivery" jsonb DEFAULT '{}'::jsonb,
+  "insight_breakdowns" jsonb DEFAULT '{}'::jsonb
+);
+CREATE TABLE IF NOT EXISTS public.meta_connections (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "mode" text DEFAULT 'manual'::text,
+  "pixel_id" text NOT NULL,
+  "vault_secret_id" uuid,
+  "token_hint" text,
+  "test_event_code" text,
+  "test_event_code_expires_at" timestamp with time zone,
+  "business_id" text,
+  "ad_account_id" text,
+  "page_id" text,
+  "ig_user_id" text,
+  "granted_scopes" text[],
+  "status" text DEFAULT 'active'::text,
+  "events_enabled" jsonb DEFAULT '{"lead": true, "pixel": true, "purchase": true, "view_content": true, "initiate_checkout": true}'::jsonb,
+  "send_native" boolean DEFAULT false,
+  "verified_at" timestamp with time zone,
+  "last_ok_at" timestamp with time zone,
+  "last_error_at" timestamp with time zone,
+  "last_error" text,
+  "created_by" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "meta_user_id" text,
+  "token_kind" text DEFAULT 'capi'::text,
+  "token_expires_at" timestamp with time zone,
+  "assets" jsonb,
+  "last_health" jsonb,
+  "last_health_at" timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.meta_insights_daily (
+  "campaign_id" uuid NOT NULL,
+  "day" date NOT NULL,
+  "spend_cents" integer DEFAULT 0,
+  "impressions" integer DEFAULT 0,
+  "reach" integer DEFAULT 0,
+  "clicks" integer DEFAULT 0,
+  "link_clicks" integer DEFAULT 0,
+  "purchases" integer DEFAULT 0,
+  "purchase_value_cents" integer DEFAULT 0,
+  "leads" integer DEFAULT 0,
+  "raw" jsonb,
+  "synced_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.meta_leads (
+  "leadgen_id" text NOT NULL,
+  "connection_id" uuid,
+  "page_id" text,
+  "form_id" text,
+  "ad_id" text,
+  "meta_campaign_id" text,
+  "campaign_id" uuid,
+  "raw" jsonb,
+  "field_data" jsonb,
+  "contact_email" text,
+  "contact_phone" text,
+  "contact_name" text,
+  "received_at" timestamp with time zone DEFAULT now(),
+  "processed_at" timestamp with time zone,
+  "attempts" integer DEFAULT 0,
+  "error" text
+);
 CREATE TABLE IF NOT EXISTS public.newsletter_subscriptions (
   "id" uuid DEFAULT gen_random_uuid(),
   "user_id" uuid,
@@ -1145,7 +2128,33 @@ CREATE TABLE IF NOT EXISTS public.newsletter_subscriptions (
   "consent_source" text,
   "consent_recorded_at" timestamp with time zone,
   "first_name" text,
-  "last_name" text
+  "last_name" text,
+  "product" text
+);
+CREATE TABLE IF NOT EXISTS public.night_ops_events (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "event_id" uuid,
+  "reported_by" uuid NOT NULL,
+  "kind" text NOT NULL,
+  "note" text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.night_recap_log (
+  "event_id" uuid NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.order_pack_credits (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL,
+  "venue_id" text NOT NULL,
+  "event_id" uuid,
+  "ticket_order_id" uuid,
+  "pack_id" uuid NOT NULL,
+  "total_credits" integer NOT NULL,
+  "used_credits" integer DEFAULT 0,
+  "expires_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.orders (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1216,6 +2225,55 @@ CREATE TABLE IF NOT EXISTS public.org_members (
   "scanner_pin_hash" text,
   "scanner_pin_set_at" timestamp with time zone
 );
+CREATE TABLE IF NOT EXISTS public.org_staff (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "organizer_user_id" uuid NOT NULL,
+  "user_id" uuid,
+  "email" text NOT NULL,
+  "display_name" text,
+  "role" text NOT NULL,
+  "pin_hash" text,
+  "pin_set_at" timestamp with time zone,
+  "invitation_status" text DEFAULT 'pending'::text,
+  "invitation_token" text,
+  "invitation_expires_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.organizer_banned_emails (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "organizer_user_id" uuid NOT NULL,
+  "email" text NOT NULL,
+  "banned_by" uuid,
+  "ban_reason" text,
+  "banned_at" timestamp with time zone DEFAULT now(),
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.organizer_notifications (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "organizer_user_id" uuid NOT NULL,
+  "event_id" uuid,
+  "notification_type" text NOT NULL,
+  "title" text NOT NULL,
+  "message" text NOT NULL,
+  "reference_type" text,
+  "reference_id" uuid,
+  "priority" text DEFAULT 'normal'::text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "read_at" timestamp with time zone,
+  "read_by" uuid,
+  "metadata" jsonb DEFAULT '{}'::jsonb,
+  "dedup_key" text
+);
+CREATE TABLE IF NOT EXISTS public.organizer_onboarding (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid NOT NULL,
+  "current_step" integer DEFAULT 1,
+  "steps" jsonb DEFAULT '{}'::jsonb,
+  "completed_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.organizer_profile_followers (
   "id" uuid DEFAULT gen_random_uuid(),
   "organizer_user_id" uuid NOT NULL,
@@ -1258,6 +2316,87 @@ CREATE TABLE IF NOT EXISTS public.organizer_profiles (
   "product" text DEFAULT 'suite'::text,
   "extra_products" text[] DEFAULT '{}'::text[]
 );
+CREATE TABLE IF NOT EXISTS public.organizer_slug_aliases (
+  "slug" text NOT NULL,
+  "user_id" uuid NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.ota_bundles (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "app_id" text NOT NULL,
+  "channel" text DEFAULT 'production'::text,
+  "version" text NOT NULL,
+  "native_version" text NOT NULL,
+  "url" text NOT NULL,
+  "checksum" text NOT NULL,
+  "size_bytes" bigint,
+  "active" boolean DEFAULT false,
+  "notes" text,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.ota_channels (
+  "app_id" text NOT NULL,
+  "name" text NOT NULL,
+  "allow_self_set" boolean DEFAULT false,
+  "is_default" boolean DEFAULT false,
+  "created_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.ota_devices (
+  "device_id" text NOT NULL,
+  "app_id" text NOT NULL,
+  "channel" text,
+  "version_name" text,
+  "native_version" text,
+  "platform" text,
+  "plugin_version" text,
+  "custom_id" text,
+  "first_seen" timestamp with time zone DEFAULT now(),
+  "last_seen" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.ota_stats (
+  "id" bigint NOT NULL,
+  "device_id" text,
+  "app_id" text,
+  "action" text,
+  "version_name" text,
+  "old_version_name" text,
+  "platform" text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "payload" jsonb
+);
+CREATE TABLE IF NOT EXISTS public.owner_recurring_templates (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "name" text NOT NULL,
+  "description" text,
+  "poster_url" text,
+  "poster_position" jsonb,
+  "music_genres" text[] DEFAULT ARRAY['Open Format'::text],
+  "event_type" text DEFAULT 'club'::text,
+  "day_of_week" integer NOT NULL,
+  "start_time" time without time zone NOT NULL,
+  "end_time" time without time zone NOT NULL,
+  "advance_days" integer DEFAULT 7,
+  "ticket_preset_id" uuid,
+  "vip_preset_id" uuid,
+  "auto_enable_tables" boolean DEFAULT false,
+  "is_active" boolean DEFAULT true,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "organizer_user_id" uuid,
+  "partner_organizer_id" uuid,
+  "revenue_split_rules" jsonb,
+  "table_preset_id" uuid,
+  "guest_list_template_id" uuid,
+  "collab_mode" event_mode,
+  "collab_responsibilities" jsonb,
+  "video_url" text,
+  "flyer_wide_url" text
+);
+CREATE TABLE IF NOT EXISTS public.platform_daily_salts (
+  "day" date NOT NULL,
+  "salt" uuid DEFAULT gen_random_uuid()
+);
 CREATE TABLE IF NOT EXISTS public.platform_notification_settings (
   "notification_key" text NOT NULL,
   "enabled" boolean DEFAULT true,
@@ -1265,6 +2404,86 @@ CREATE TABLE IF NOT EXISTS public.platform_notification_settings (
   "updated_at" timestamp with time zone DEFAULT now(),
   "updated_by" uuid,
   "params" jsonb DEFAULT '{}'::jsonb
+);
+CREATE TABLE IF NOT EXISTS public.platform_page_views (
+  "id" bigint NOT NULL,
+  "session_id" uuid NOT NULL,
+  "occurred_at" timestamp with time zone DEFAULT now(),
+  "path" text NOT NULL,
+  "page_group" text DEFAULT 'other'::text,
+  "duration_seconds" integer
+);
+CREATE TABLE IF NOT EXISTS public.platform_sessions (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "visitor_hash" text NOT NULL,
+  "started_at" timestamp with time zone DEFAULT now(),
+  "last_seen_at" timestamp with time zone DEFAULT now(),
+  "entry_path" text,
+  "exit_path" text,
+  "referrer_host" text,
+  "channel" text DEFAULT 'direct'::text,
+  "utm_source" text,
+  "utm_medium" text,
+  "utm_campaign" text,
+  "device" text,
+  "browser" text,
+  "os" text,
+  "language" text,
+  "country" text,
+  "is_native" boolean DEFAULT false,
+  "is_authenticated" boolean DEFAULT false,
+  "pageview_count" integer DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS public.pro_contact_leads (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "created_at" timestamp with time zone DEFAULT now(),
+  "name" text NOT NULL,
+  "email" text NOT NULL,
+  "phone" text,
+  "club_name" text,
+  "city" text,
+  "message" text,
+  "source" text DEFAULT 'explore'::text,
+  "status" text DEFAULT 'new'::text
+);
+CREATE TABLE IF NOT EXISTS public.pro_signups (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "client_key" text NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "kind" text,
+  "lang" text,
+  "first_name" text,
+  "last_name" text,
+  "email" text,
+  "phone" text,
+  "org_name" text,
+  "city" text,
+  "country" text,
+  "size_band" text,
+  "frequency" text,
+  "pillars" text[] DEFAULT '{}'::text[],
+  "current_tool" text,
+  "next_night" text,
+  "source" text,
+  "utm_source" text,
+  "utm_medium" text,
+  "utm_campaign" text,
+  "referrer_host" text,
+  "visitor_hash" text,
+  "device" text,
+  "geo_country" text,
+  "steps" jsonb DEFAULT '{}'::jsonb,
+  "last_step" text,
+  "user_id" uuid,
+  "venue_id" text,
+  "account_created_at" timestamp with time zone,
+  "console_opened_at" timestamp with time zone,
+  "contacted_at" timestamp with time zone,
+  "admin_notes" text,
+  "product" text DEFAULT 'suite'::text,
+  "offer_invite_id" uuid,
+  "robot" text
 );
 CREATE TABLE IF NOT EXISTS public.profiles (
   "id" uuid NOT NULL,
@@ -1318,6 +2537,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   "notification_prefs" jsonb DEFAULT '{}'::jsonb,
   "mfa_deferred_until" timestamp with time zone
 );
+CREATE TABLE IF NOT EXISTS public.promoter_clicks (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "promoter_id" uuid NOT NULL,
+  "ip_hash" text,
+  "user_agent" text,
+  "referrer" text,
+  "clicked_at" timestamp with time zone DEFAULT now(),
+  "event_id" uuid,
+  "source" text
+);
 CREATE TABLE IF NOT EXISTS public.promoter_conversions (
   "id" uuid DEFAULT gen_random_uuid(),
   "promoter_id" uuid NOT NULL,
@@ -1335,6 +2564,19 @@ CREATE TABLE IF NOT EXISTS public.promoter_conversions (
   "parent_conversion_id" uuid,
   "override_amount" numeric DEFAULT 0,
   "discount_amount" numeric DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS public.promoter_event_assignments (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "promoter_id" uuid NOT NULL,
+  "event_id" uuid NOT NULL,
+  "commission_template_id" uuid,
+  "goal_target" integer,
+  "status" text DEFAULT 'active'::text,
+  "assigned_at" timestamp with time zone DEFAULT now(),
+  "max_tickets" integer,
+  "can_access_guestlist" boolean DEFAULT false,
+  "can_access_tables" boolean DEFAULT true,
+  "featured_on_linktree" boolean DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS public.promoters (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1456,6 +2698,74 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
   "created_at" timestamp with time zone DEFAULT now(),
   "platform" text DEFAULT 'web'::text
 );
+CREATE TABLE IF NOT EXISTS public.revenue_distributions (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "payment_intent_id" text NOT NULL,
+  "checkout_session_id" text,
+  "event_id" uuid,
+  "item_type" text NOT NULL,
+  "ticket_id" uuid,
+  "table_reservation_id" uuid,
+  "order_id" uuid,
+  "gross_amount_cents" integer NOT NULL,
+  "yuno_fee_cents" integer DEFAULT 0,
+  "primary_account_id" text,
+  "primary_amount_cents" integer DEFAULT 0,
+  "primary_recipient_kind" text,
+  "primary_recipient_venue_id" text,
+  "primary_recipient_organizer_id" uuid,
+  "secondary_account_id" text,
+  "secondary_amount_cents" integer DEFAULT 0,
+  "secondary_recipient_kind" text,
+  "secondary_recipient_venue_id" text,
+  "secondary_recipient_organizer_id" uuid,
+  "secondary_transfer_id" text,
+  "secondary_transfer_status" text DEFAULT 'not_required'::text,
+  "secondary_transfer_error" text,
+  "secondary_transfer_attempts" integer DEFAULT 0,
+  "metadata" jsonb DEFAULT '{}'::jsonb,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "split_rules_applied" jsonb,
+  "venue_pct_applied" numeric,
+  "organizer_pct_applied" numeric,
+  "partnership_id" uuid,
+  "primary_transfer_id" text,
+  "primary_transfer_status" text DEFAULT 'not_required'::text,
+  "primary_transfer_error" text,
+  "primary_transfer_attempts" integer DEFAULT 0,
+  "transfer_group_id" text,
+  "split_mode" text DEFAULT 'destination'::text,
+  "stripe_fee_estimated_cents" integer DEFAULT 0,
+  "stripe_fee_real_cents" integer,
+  "stripe_fee_charge_id" text,
+  "collab_contract_id" uuid,
+  "transfers_release_at" timestamp with time zone,
+  "refunded_cents" integer DEFAULT 0,
+  "primary_fail_count" integer DEFAULT 0,
+  "secondary_fail_count" integer DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS public.security_logs (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "user_id" uuid,
+  "action" text NOT NULL,
+  "ip_address" text,
+  "user_agent" text,
+  "success" boolean DEFAULT false,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "ip_hash" text
+);
+CREATE TABLE IF NOT EXISTS public.showcase_claim_requests (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "shadow_user_id" uuid NOT NULL,
+  "requested_email" text NOT NULL,
+  "status" text DEFAULT 'pending'::text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "completed_at" timestamp with time zone,
+  "organizer_user_id" uuid
+);
 CREATE TABLE IF NOT EXISTS public.sms_campaign_recipients (
   "id" uuid DEFAULT gen_random_uuid(),
   "campaign_id" uuid NOT NULL,
@@ -1514,7 +2824,45 @@ CREATE TABLE IF NOT EXISTS public.sms_campaigns (
   "last_slice_at" timestamp with time zone,
   "test_sent_at" timestamp with time zone,
   "sender_id" text,
-  "holdout_count" integer DEFAULT 0
+  "holdout_count" integer DEFAULT 0,
+  "product" text
+);
+CREATE TABLE IF NOT EXISTS public.sms_credit_balances (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "organizer_id" uuid,
+  "balance" integer DEFAULT 0,
+  "total_purchased" integer DEFAULT 0,
+  "total_consumed" integer DEFAULT 0,
+  "total_refunded" integer DEFAULT 0,
+  "low_balance_alert_sent_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.sms_list_imports (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "organizer_user_id" uuid,
+  "filename" text,
+  "list_name" text,
+  "consent_source" text NOT NULL,
+  "consent_details" text,
+  "collected_since" date,
+  "default_country" text,
+  "attested_by" uuid,
+  "attested_at" timestamp with time zone DEFAULT now(),
+  "submitted_count" integer DEFAULT 0,
+  "inserted_count" integer DEFAULT 0,
+  "duplicate_count" integer DEFAULT 0,
+  "invalid_count" integer DEFAULT 0,
+  "suppressed_count" integer DEFAULT 0,
+  "unchanged_count" integer DEFAULT 0,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "attested_via_support" boolean DEFAULT false,
+  "fingerprint" text,
+  "superseded_by" uuid,
+  "superseded_at" timestamp with time zone,
+  "product" text
 );
 CREATE TABLE IF NOT EXISTS public.sms_stop_list (
   "phone_e164" text NOT NULL,
@@ -1523,6 +2871,37 @@ CREATE TABLE IF NOT EXISTS public.sms_stop_list (
   "scope_key" text,
   "campaign_id" uuid,
   "provider_message_id" text
+);
+CREATE TABLE IF NOT EXISTS public.staff_brief_reads (
+  "brief_id" uuid NOT NULL,
+  "user_id" uuid NOT NULL,
+  "read_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.staff_briefs (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "night_date" date NOT NULL,
+  "body" text NOT NULL,
+  "updated_by" uuid NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.staff_notifications (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "event_id" uuid,
+  "target_role" text NOT NULL,
+  "notification_type" text NOT NULL,
+  "title" text NOT NULL,
+  "message" text NOT NULL,
+  "reference_type" text,
+  "reference_id" uuid,
+  "priority" text DEFAULT 'normal'::text,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "read_at" timestamp with time zone,
+  "read_by" uuid,
+  "metadata" jsonb DEFAULT '{}'::jsonb,
+  "dedup_key" text
 );
 CREATE TABLE IF NOT EXISTS public.table_packs (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1612,7 +2991,9 @@ CREATE TABLE IF NOT EXISTS public.table_reservations (
   "promo_discount" numeric(10,2),
   "collab_split" jsonb,
   "attribution_source" text,
-  "attribution_ref" text
+  "attribution_ref" text,
+  "tracking_visit_sid" text,
+  "tracking_funnel_sid" text
 );
 CREATE TABLE IF NOT EXISTS public.table_zones (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1640,7 +3021,43 @@ CREATE TABLE IF NOT EXISTS public.ticket_attendees (
   "entry_scanned_by" uuid,
   "drink_redeemed" boolean DEFAULT false,
   "drink_redeemed_at" timestamp with time zone,
-  "created_at" timestamp with time zone DEFAULT now()
+  "created_at" timestamp with time zone DEFAULT now(),
+  "refunded_at" timestamp with time zone,
+  "refund_amount" numeric(10,2),
+  "refunded_by" uuid,
+  "refund_reason" text,
+  "seats_released" integer DEFAULT 0,
+  "friend_emailed_at" timestamp with time zone
+);
+CREATE TABLE IF NOT EXISTS public.ticket_presets (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text,
+  "name" text NOT NULL,
+  "total_capacity" integer DEFAULT 200,
+  "rounds" jsonb DEFAULT '[]'::jsonb,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "ticket_type" text DEFAULT 'standard'::text,
+  "includes_drink" boolean DEFAULT false,
+  "drink_deadline_type" text DEFAULT 'fixed_time'::text,
+  "drink_deadline_hours" integer DEFAULT 2,
+  "drink_cutoff_time" text DEFAULT '02:00'::text,
+  "selling_mode" text DEFAULT 'rounds'::text,
+  "organizer_user_id" uuid
+);
+CREATE TABLE IF NOT EXISTS public.ticket_reservations (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "ticket_round_id" uuid NOT NULL,
+  "event_id" uuid NOT NULL,
+  "user_id" uuid,
+  "guest_email" text,
+  "quantity" integer NOT NULL,
+  "capacity_held" integer NOT NULL,
+  "stripe_session_id" text,
+  "status" text DEFAULT 'pending'::text,
+  "expires_at" timestamp with time zone DEFAULT (now() + '00:10:00'::interval),
+  "created_at" timestamp with time zone DEFAULT now(),
+  "confirmed_at" timestamp with time zone
 );
 CREATE TABLE IF NOT EXISTS public.ticket_rounds (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1671,7 +3088,8 @@ CREATE TABLE IF NOT EXISTS public.ticket_rounds (
   "hidden" boolean DEFAULT false,
   "visible_from" timestamp with time zone,
   "sale_starts_at" timestamp with time zone,
-  "sale_ends_at" timestamp with time zone
+  "sale_ends_at" timestamp with time zone,
+  "opens_after_round_id" uuid
 );
 CREATE TABLE IF NOT EXISTS public.ticketing_connections (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1700,7 +3118,10 @@ CREATE TABLE IF NOT EXISTS public.ticketing_connections (
   "stats" jsonb DEFAULT '{}'::jsonb,
   "created_by" uuid,
   "created_at" timestamp with time zone DEFAULT now(),
-  "updated_at" timestamp with time zone DEFAULT now()
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "post_synced_at" timestamp with time zone,
+  "post_full_at" timestamp with time zone,
+  "stats_at" timestamp with time zone
 );
 CREATE TABLE IF NOT EXISTS public.tickets (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1759,7 +3180,9 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   "promo_discount" numeric(10,2),
   "collab_split" jsonb,
   "attribution_source" text,
-  "attribution_ref" text
+  "attribution_ref" text,
+  "tracking_visit_sid" text,
+  "tracking_funnel_sid" text
 );
 CREATE TABLE IF NOT EXISTS public.tracked_link_clicks (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1793,7 +3216,14 @@ CREATE TABLE IF NOT EXISTS public.tracked_links (
   "dj_id" uuid,
   "guest_list_id" uuid,
   "archived_at" timestamp with time zone,
-  "image_url" text
+  "image_url" text,
+  "partner_name" text,
+  "partner_role" text,
+  "partner_contact" text,
+  "partner_token" text,
+  "partner_shows_revenue" boolean DEFAULT true,
+  "partner_language" text,
+  "guest_pass_id" uuid
 );
 CREATE TABLE IF NOT EXISTS public.user_roles (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1820,6 +3250,15 @@ CREATE TABLE IF NOT EXISTS public.user_taste_profiles (
   "budget" text,
   "booking_pref" text
 );
+CREATE TABLE IF NOT EXISTS public.venue_banned_emails (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "email" text NOT NULL,
+  "banned_by" uuid,
+  "ban_reason" text,
+  "banned_at" timestamp with time zone DEFAULT now(),
+  "created_at" timestamp with time zone DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS public.venue_customers (
   "id" uuid DEFAULT gen_random_uuid(),
   "venue_id" text NOT NULL,
@@ -1845,6 +3284,48 @@ CREATE TABLE IF NOT EXISTS public.venue_customers (
   "average_spend" numeric DEFAULT 0,
   "customer_segment" text DEFAULT 'new'::text
 );
+CREATE TABLE IF NOT EXISTS public.venue_hype_baseline (
+  "venue_id" text NOT NULL,
+  "capacity" integer,
+  "typical_attendance" integer,
+  "slow_attendance" integer,
+  "sales_timing" text,
+  "sellout_frequency" text,
+  "avg_ticket_price" numeric,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.venue_onboarding (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "owner_id" uuid NOT NULL,
+  "current_step" integer DEFAULT 1,
+  "steps" jsonb DEFAULT '{"1": {"status": "not_started", "completed_at": null}, "2": {"status": "not_started", "completed_at": null}, "3": {"status": "not_started", "completed_at": null}, "4": {"status": "not_started", "completed_at": null}, "5": {"status": "not_started", "completed_at": null}, "6": {"status": "not_started", "completed_at": null}, "7": {"status": "not_started", "completed_at": null}}'::jsonb,
+  "completed_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.venue_organizer_partnerships (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "organizer_user_id" uuid NOT NULL,
+  "status" partnership_status DEFAULT 'pending'::partnership_status,
+  "initiated_by" partnership_initiator NOT NULL,
+  "invitation_message" text,
+  "default_split_rules" jsonb DEFAULT jsonb_build_object('tickets', jsonb_build_object('organizer_pct', 100, 'venue_pct', 0), 'tables', jsonb_build_object('organizer_pct', 0, 'venue_pct', 100), 'drinks', jsonb_build_object('organizer_pct', 0, 'venue_pct', 100)),
+  "requested_at" timestamp with time zone DEFAULT now(),
+  "accepted_at" timestamp with time zone,
+  "revoked_at" timestamp with time zone,
+  "revoked_by" uuid,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "split_proposal" jsonb,
+  "split_proposed_by" uuid,
+  "split_proposed_at" timestamp with time zone,
+  "split_approved_by_venue" boolean DEFAULT false,
+  "split_approved_by_organizer" boolean DEFAULT false,
+  "default_responsibilities" jsonb
+);
 CREATE TABLE IF NOT EXISTS public.venue_segments (
   "id" uuid DEFAULT gen_random_uuid(),
   "venue_id" text NOT NULL,
@@ -1853,6 +3334,11 @@ CREATE TABLE IF NOT EXISTS public.venue_segments (
   "created_by" uuid,
   "created_at" timestamp with time zone DEFAULT now(),
   "updated_at" timestamp with time zone DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.venue_slug_aliases (
+  "slug" text NOT NULL,
+  "venue_id" text NOT NULL,
+  "created_at" timestamp with time zone DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.venue_sms_contacts (
   "id" uuid DEFAULT gen_random_uuid(),
@@ -1869,7 +3355,24 @@ CREATE TABLE IF NOT EXISTS public.venue_sms_contacts (
   "unsubscribed_at" timestamp with time zone,
   "created_at" timestamp with time zone DEFAULT now(),
   "organizer_user_id" uuid,
-  "import_id" uuid
+  "import_id" uuid,
+  "product" text
+);
+CREATE TABLE IF NOT EXISTS public.venue_subscriptions (
+  "id" uuid DEFAULT gen_random_uuid(),
+  "venue_id" text NOT NULL,
+  "stripe_subscription_id" text,
+  "stripe_customer_id" text,
+  "status" text DEFAULT 'inactive'::text,
+  "current_period_start" timestamp with time zone,
+  "current_period_end" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now(),
+  "trial_end" timestamp with time zone,
+  "subscription_plan" text DEFAULT 'essential'::text,
+  "plan_source" subscription_plan_source DEFAULT 'paid'::subscription_plan_source,
+  "is_early_adopter" boolean DEFAULT false,
+  "price_locked" boolean DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS public.venues (
   "id" text NOT NULL,
@@ -2020,14 +3523,35 @@ CREATE TABLE IF NOT EXISTS public.visitor_sessions (
   "latitude" double precision,
   "longitude" double precision
 );
+CREATE TABLE IF NOT EXISTS public.wallet_passes (
+  "serial" text NOT NULL,
+  "pass_type" text NOT NULL,
+  "reference_id" uuid NOT NULL,
+  "user_id" uuid,
+  "auth_token" text NOT NULL,
+  "lang" text DEFAULT 'fr'::text,
+  "voided" boolean DEFAULT false,
+  "created_at" timestamp with time zone DEFAULT now(),
+  "updated_at" timestamp with time zone DEFAULT now()
+);
 
+CREATE UNIQUE INDEX IF NOT EXISTS account_product_events_pkey ON public.account_product_events USING btree (id);
+CREATE INDEX IF NOT EXISTS account_product_events_scope_idx ON public.account_product_events USING btree (scope_key, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS account_product_invites_pkey ON public.account_product_invites USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS account_product_invites_token_hash_key ON public.account_product_invites USING btree (token_hash);
+CREATE INDEX IF NOT EXISTS account_product_invites_scope_idx ON public.account_product_invites USING btree (scope_key, product);
 CREATE UNIQUE INDEX IF NOT EXISTS admin_audit_log_pkey ON public.admin_audit_log USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_log_created_at ON public.admin_audit_log USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_log_entity ON public.admin_audit_log USING btree (entity_type, entity_id);
+CREATE UNIQUE INDEX IF NOT EXISTS admin_credential_deadlines_pkey ON public.admin_credential_deadlines USING btree (key);
 CREATE UNIQUE INDEX IF NOT EXISTS admin_notifications_pkey ON public.admin_notifications USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_admin_notifications_feed ON public.admin_notifications USING btree (scope, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_notifications_unread ON public.admin_notifications USING btree (scope) WHERE (read_at IS NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_notifications_dedup ON public.admin_notifications USING btree (dedup_key) WHERE (dedup_key IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS admin_support_audit_pkey ON public.admin_support_audit USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_support_audit_target ON public.admin_support_audit USING btree (target_user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS admin_support_grants_pkey ON public.admin_support_grants USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_support_grants_target ON public.admin_support_grants USING btree (target_user_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS admin_support_sessions_pkey ON public.admin_support_sessions USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_support_sessions_grant ON public.admin_support_sessions USING btree (grant_id);
 CREATE INDEX IF NOT EXISTS idx_support_sessions_auth ON public.admin_support_sessions USING btree (auth_session_id);
@@ -2035,22 +3559,69 @@ CREATE UNIQUE INDEX IF NOT EXISTS agencies_pkey ON public.agencies USING btree (
 CREATE UNIQUE INDEX IF NOT EXISTS agencies_slug_key ON public.agencies USING btree (slug);
 CREATE INDEX IF NOT EXISTS idx_agencies_owner ON public.agencies USING btree (owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_agencies_slug ON public.agencies USING btree (slug) WHERE (slug IS NOT NULL);
-CREATE INDEX IF NOT EXISTS contact_base_cache_scope_idx ON public.contact_base_cache USING btree (scope_key);
+CREATE UNIQUE INDEX IF NOT EXISTS agency_venue_contracts_pkey ON public.agency_venue_contracts USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_agency_contract_venue ON public.agency_venue_contracts USING btree (agency_id, venue_id) WHERE (venue_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_agency_contract_org ON public.agency_venue_contracts USING btree (agency_id, organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_agency_contracts_agency ON public.agency_venue_contracts USING btree (agency_id, status);
+CREATE INDEX IF NOT EXISTS idx_agency_contracts_venue ON public.agency_venue_contracts USING btree (venue_id) WHERE (venue_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_agency_contracts_org ON public.agency_venue_contracts USING btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS ai_usage_events_pkey ON public.ai_usage_events USING btree (id);
+CREATE INDEX IF NOT EXISTS ai_usage_events_created_idx ON public.ai_usage_events USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS ai_usage_events_assistant_created_idx ON public.ai_usage_events USING btree (assistant, created_at DESC);
+CREATE INDEX IF NOT EXISTS ai_usage_events_user_idx ON public.ai_usage_events USING btree (user_id) WHERE (user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_rollup_unique ON public.analytics_daily_rollup USING btree (day, COALESCE(venue_id, ''::text), COALESCE((organizer_user_id)::text, ''::text));
+CREATE INDEX IF NOT EXISTS idx_analytics_rollup_venue ON public.analytics_daily_rollup USING btree (venue_id, day DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_rollup_organizer ON public.analytics_daily_rollup USING btree (organizer_user_id, day DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS app_settings_pkey ON public.app_settings USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS audience_daily_snapshots_pkey ON public.audience_daily_snapshots USING btree (subject_type, subject_id, snapshot_date);
+CREATE UNIQUE INDEX IF NOT EXISTS audience_follow_events_pkey ON public.audience_follow_events USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_afe_subject ON public.audience_follow_events USING btree (subject_type, subject_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_afe_created ON public.audience_follow_events USING btree (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS audience_recap_log_pkey ON public.audience_recap_log USING btree (subject_type, subject_id, week_start);
+CREATE UNIQUE INDEX IF NOT EXISTS auto_push_events_pkey ON public.auto_push_events USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_auto_push_events_key ON public.auto_push_events USING btree (notification_key, event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auto_push_events_user ON public.auto_push_events USING btree (user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS cart_snapshots_pkey ON public.cart_snapshots USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_cart_snapshots_user ON public.cart_snapshots USING btree (user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cart_snapshots_abandonment ON public.cart_snapshots USING btree (notified_at, converted, updated_at);
+CREATE UNIQUE INDEX IF NOT EXISTS cloakroom_transactions_pkey ON public.cloakroom_transactions USING btree (id);
+CREATE INDEX IF NOT EXISTS cloakroom_transactions_staff_id_idx ON public.cloakroom_transactions USING btree (staff_id) WHERE (staff_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cloakroom_open_number ON public.cloakroom_transactions USING btree (event_id, upper(btrim(cloakroom_number))) WHERE (NOT retrieved);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cloakroom_open_qr ON public.cloakroom_transactions USING btree (event_id, attendee_qr) WHERE ((NOT retrieved) AND (attendee_qr IS NOT NULL));
+CREATE INDEX IF NOT EXISTS idx_cloakroom_event_open ON public.cloakroom_transactions USING btree (event_id, retrieved);
+CREATE UNIQUE INDEX IF NOT EXISTS collab_transfer_statements_pkey ON public.collab_transfer_statements USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS commission_templates_pkey ON public.commission_templates USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_commission_templates_venue ON public.commission_templates USING btree (venue_id);
+CREATE INDEX IF NOT EXISTS idx_commission_templates_organizer ON public.commission_templates USING btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_commission_templates_agency ON public.commission_templates USING btree (agency_id) WHERE (agency_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS contact_base_cache_scope_id_idx ON public.contact_base_cache USING btree (scope_key, id);
 CREATE UNIQUE INDEX IF NOT EXISTS contact_base_cache_state_pkey ON public.contact_base_cache_state USING btree (scope_key);
 CREATE UNIQUE INDEX IF NOT EXISTS contact_engagement_pkey ON public.contact_engagement USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_contact_engagement_scope_email ON public.contact_engagement USING btree (scope_key, email);
 CREATE INDEX IF NOT EXISTS idx_contact_engagement_scope_status ON public.contact_engagement USING btree (scope_key, status);
+CREATE UNIQUE INDEX IF NOT EXISTS contact_engagement_state_pkey ON public.contact_engagement_state USING btree (scope_key);
+CREATE UNIQUE INDEX IF NOT EXISTS contact_list_imports_pkey ON public.contact_list_imports USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_contact_list_imports_venue ON public.contact_list_imports USING btree (venue_id, created_at DESC) WHERE (venue_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_contact_list_imports_org ON public.contact_list_imports USING btree (organizer_user_id, created_at DESC) WHERE (organizer_user_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_contact_list_imports_scope_product ON public.contact_list_imports USING btree (venue_id, organizer_user_id, product);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_contact_segments_platform_name ON public.contact_segments USING btree (lower(name)) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
 CREATE UNIQUE INDEX IF NOT EXISTS contact_segments_pkey ON public.contact_segments USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_contact_segments_venue_name ON public.contact_segments USING btree (venue_id, lower(name)) WHERE (venue_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_contact_segments_org_name ON public.contact_segments USING btree (organizer_user_id, lower(name)) WHERE (organizer_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_contact_segments_venue ON public.contact_segments USING btree (venue_id, created_at DESC) WHERE (venue_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_contact_segments_org ON public.contact_segments USING btree (organizer_user_id, created_at DESC) WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_campaign_estimates_pkey ON public.crm_campaign_estimates USING btree (campaign_id);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_contact_notes_pkey ON public.crm_contact_notes USING btree (scope_key, email);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_disposable_domains_pkey ON public.crm_disposable_domains USING btree (domain);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_email_settings_pkey ON public.crm_email_settings USING btree (scope_key);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_feature_waitlist_pkey ON public.crm_feature_waitlist USING btree (scope_key, feature, user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_import_journal_pkey ON public.crm_import_journal USING btree (list_import_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_imports_pkey ON public.crm_imports USING btree (list_import_id);
 CREATE INDEX IF NOT EXISTS crm_imports_scope_idx ON public.crm_imports USING btree (scope_key, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_notif_report_cache_pkey ON public.crm_notif_report_cache USING btree (campaign_id);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_notification_prefs_pkey ON public.crm_notification_prefs USING btree (scope_key, user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_notification_states_pkey ON public.crm_notification_states USING btree (scope_key, user_id, item_id);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_price_state_pkey ON public.crm_price_state USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_pricing_pkey ON public.crm_pricing USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_segment_counts_pkey ON public.crm_segment_counts USING btree (scope_key, seg_key, day);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_segments_pkey ON public.crm_segments USING btree (id);
@@ -2065,6 +3636,10 @@ CREATE INDEX IF NOT EXISTS crm_signup_pages_mcp_grant_idx ON public.crm_signup_p
 CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_pages_pkey ON public.crm_signup_pages USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_pages_slug_key ON public.crm_signup_pages USING btree (slug);
 CREATE INDEX IF NOT EXISTS crm_signup_pages_scope_idx ON public.crm_signup_pages USING btree (venue_id, organizer_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_relance_campaigns_pkey ON public.crm_signup_relance_campaigns USING btree (page_id, step);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_sends_pkey ON public.crm_signup_sends USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_sends_entry_id_step_channel_key ON public.crm_signup_sends USING btree (entry_id, step, channel);
+CREATE INDEX IF NOT EXISTS crm_signup_sends_page_idx ON public.crm_signup_sends USING btree (page_id, step);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_visits_pkey ON public.crm_signup_visits USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_signup_visits_page_id_day_visitor_hash_key ON public.crm_signup_visits USING btree (page_id, day, visitor_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS crm_sms_settings_pkey ON public.crm_sms_settings USING btree (scope_key);
@@ -2077,16 +3652,46 @@ CREATE INDEX IF NOT EXISTS ix_crm_yunit_lots_scope ON public.crm_yunit_lots USIN
 CREATE UNIQUE INDEX IF NOT EXISTS crm_yunit_moves_pkey ON public.crm_yunit_moves USING btree (id);
 CREATE INDEX IF NOT EXISTS ix_crm_yunit_moves_scope ON public.crm_yunit_moves USING btree (scope_key, at DESC);
 CREATE INDEX IF NOT EXISTS ix_crm_yunit_moves_ref ON public.crm_yunit_moves USING btree (ref_type, ref_id) WHERE (ref_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS customer_activity_log_pkey ON public.customer_activity_log USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_cal_user ON public.customer_activity_log USING btree (user_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_cal_venue ON public.customer_activity_log USING btree (venue_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_cal_organizer ON public.customer_activity_log USING btree (organizer_user_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_cal_event ON public.customer_activity_log USING btree (event_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_cal_type ON public.customer_activity_log USING btree (activity_type);
+CREATE UNIQUE INDEX IF NOT EXISTS customer_incidents_pkey ON public.customer_incidents USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_customer_incidents_customer ON public.customer_incidents USING btree (venue_customer_id);
+CREATE INDEX IF NOT EXISTS idx_customer_incidents_venue ON public.customer_incidents USING btree (venue_id);
 CREATE UNIQUE INDEX IF NOT EXISTS customer_loyalty_pkey ON public.customer_loyalty USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS customer_loyalty_venue_id_user_id_key ON public.customer_loyalty USING btree (venue_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_customer_loyalty_venue ON public.customer_loyalty USING btree (venue_id);
 CREATE INDEX IF NOT EXISTS idx_customer_loyalty_user ON public.customer_loyalty USING btree (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS demo_preview_links_pkey ON public.demo_preview_links USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS demo_preview_links_token_key ON public.demo_preview_links USING btree (token);
+CREATE INDEX IF NOT EXISTS idx_demo_preview_links_token ON public.demo_preview_links USING btree (token);
+CREATE INDEX IF NOT EXISTS idx_demo_preview_links_created_by ON public.demo_preview_links USING btree (created_by);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_demo_preview_links_signup ON public.demo_preview_links USING btree (signup_id) WHERE (signup_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_demo_preview_links_venue ON public.demo_preview_links USING btree (venue_id) WHERE (venue_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_demo_preview_links_org ON public.demo_preview_links USING btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS demo_preview_sessions_pkey ON public.demo_preview_sessions USING btree (auth_session_id);
 CREATE UNIQUE INDEX IF NOT EXISTS discovery_selections_pkey ON public.discovery_selections USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_discovery_selections_user ON public.discovery_selections USING btree (user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS dj_lineup_notifications_pkey ON public.dj_lineup_notifications USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS dj_lineup_notifications_user_id_event_id_dj_id_key ON public.dj_lineup_notifications USING btree (user_id, event_id, dj_id);
+CREATE INDEX IF NOT EXISTS idx_dj_lineup_notif_lookup ON public.dj_lineup_notifications USING btree (user_id, event_id, dj_id);
+CREATE UNIQUE INDEX IF NOT EXISTS dj_sets_pkey ON public.dj_sets USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_dj_sets_organizer_user_id ON public.dj_sets USING btree (organizer_user_id);
+CREATE INDEX IF NOT EXISTS idx_dj_sets_event_id ON public.dj_sets USING btree (event_id);
+CREATE INDEX IF NOT EXISTS idx_dj_sets_guest_artist_id ON public.dj_sets USING btree (guest_artist_id) WHERE (guest_artist_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS dj_team_members_pkey ON public.dj_team_members USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS dj_team_members_dj_user_id_member_user_id_key ON public.dj_team_members USING btree (dj_user_id, member_user_id);
 CREATE INDEX IF NOT EXISTS idx_dj_team_members_member ON public.dj_team_members USING btree (member_user_id) WHERE (status = 'active'::text);
 CREATE INDEX IF NOT EXISTS idx_dj_team_members_dj ON public.dj_team_members USING btree (dj_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS djs_pkey ON public.djs USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS djs_user_id_venue_id_key ON public.djs USING btree (user_id, venue_id);
+CREATE UNIQUE INDEX IF NOT EXISTS djs_slug_key ON public.djs USING btree (slug);
+CREATE INDEX IF NOT EXISTS idx_djs_organizer_user_id ON public.djs USING btree (organizer_user_id);
+CREATE INDEX IF NOT EXISTS idx_djs_user_id ON public.djs USING btree (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS drinks_pkey ON public.drinks USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automation_sends_event_kind_email ON public.email_automation_sends USING btree (kind, trigger_event_id, lower(email)) WHERE ((status = 'queued'::text) AND (trigger_event_id IS NOT NULL));
 CREATE UNIQUE INDEX IF NOT EXISTS email_automation_sends_pkey ON public.email_automation_sends USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automation_sends_key ON public.email_automation_sends USING btree (automation_id, trigger_key, lower(email));
@@ -2095,8 +3700,8 @@ CREATE INDEX IF NOT EXISTS idx_email_automation_sends_venue_recent ON public.ema
 CREATE INDEX IF NOT EXISTS idx_email_automation_sends_org_recent ON public.email_automation_sends USING btree (organizer_user_id, lower(email), created_at) WHERE (organizer_user_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automations_platform_kind ON public.email_automations USING btree (kind) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
 CREATE UNIQUE INDEX IF NOT EXISTS email_automations_pkey ON public.email_automations USING btree (id);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automations_venue_kind ON public.email_automations USING btree (venue_id, kind) WHERE (venue_id IS NOT NULL);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automations_org_kind ON public.email_automations USING btree (organizer_user_id, kind) WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automations_org_kind ON public.email_automations USING btree (organizer_user_id, kind, product) NULLS NOT DISTINCT WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_automations_venue_kind ON public.email_automations USING btree (venue_id, kind, product) NULLS NOT DISTINCT WHERE (venue_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_email_campaign_events_click_by_email ON public.email_campaign_events USING btree (lower(recipient_email), created_at) WHERE (event_type = 'clicked'::text);
 CREATE UNIQUE INDEX IF NOT EXISTS email_campaign_events_pkey ON public.email_campaign_events USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_campaign_events_campaign ON public.email_campaign_events USING btree (campaign_id, event_type);
@@ -2107,6 +3712,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS email_campaign_followups_pkey ON public.email_
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_campaign_followups_parent_email ON public.email_campaign_followups USING btree (parent_campaign_id, lower(email));
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_campaign_followups_event_email ON public.email_campaign_followups USING btree (event_id, lower(email)) WHERE (status = 'queued'::text);
 CREATE INDEX IF NOT EXISTS idx_email_campaign_followups_pending ON public.email_campaign_followups USING btree (parent_campaign_id) WHERE ((status = 'queued'::text) AND (followup_campaign_id IS NULL));
+CREATE UNIQUE INDEX IF NOT EXISTS email_campaign_list_impact_pkey ON public.email_campaign_list_impact USING btree (campaign_id);
+CREATE INDEX IF NOT EXISTS idx_email_campaign_list_impact_scope ON public.email_campaign_list_impact USING btree (COALESCE(('v:'::text || venue_id), ('o:'::text || (organizer_user_id)::text), 'p'::text), baseline_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS email_campaign_recipients_pkey ON public.email_campaign_recipients USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_campaign_recipient_email ON public.email_campaign_recipients USING btree (campaign_id, lower(email));
 CREATE INDEX IF NOT EXISTS idx_campaign_recipients_status ON public.email_campaign_recipients USING btree (campaign_id, status);
@@ -2114,6 +3721,7 @@ CREATE INDEX IF NOT EXISTS idx_campaign_recipients_pending ON public.email_campa
 CREATE INDEX IF NOT EXISTS idx_campaign_recipients_claimed ON public.email_campaign_recipients USING btree (claimed_at) WHERE (status = 'sending'::text);
 CREATE INDEX IF NOT EXISTS idx_email_campaign_recipients_email_sent ON public.email_campaign_recipients USING btree (lower(email), sent_at DESC) WHERE (status = 'sent'::text);
 CREATE INDEX IF NOT EXISTS idx_campaign_recipients_sent_at ON public.email_campaign_recipients USING btree (campaign_id, sent_at) WHERE (status = 'sent'::text);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_open_batch ON public.email_campaign_recipients USING btree (campaign_id, batch_key) WHERE ((batch_key IS NOT NULL) AND (status = ANY (ARRAY['pending'::text, 'sending'::text])));
 CREATE UNIQUE INDEX IF NOT EXISTS email_campaign_templates_pkey ON public.email_campaign_templates USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_email_templates_venue ON public.email_campaign_templates USING btree (venue_id, updated_at DESC) WHERE (venue_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_email_templates_organizer ON public.email_campaign_templates USING btree (organizer_user_id, updated_at DESC) WHERE (organizer_user_id IS NOT NULL);
@@ -2126,15 +3734,19 @@ CREATE INDEX IF NOT EXISTS idx_email_campaigns_parent ON public.email_campaigns 
 CREATE INDEX IF NOT EXISTS idx_email_campaigns_sending ON public.email_campaigns USING btree (last_slice_at) WHERE (status = 'sending'::text);
 CREATE INDEX IF NOT EXISTS idx_email_campaigns_event ON public.email_campaigns USING btree (event_id) WHERE (event_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_email_campaigns_automation ON public.email_campaigns USING btree (automation_id) WHERE (automation_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS email_campaigns_practical_event_idx ON public.email_campaigns USING btree (event_id) WHERE practical;
 CREATE INDEX IF NOT EXISTS idx_email_list_imports_fingerprint ON public.email_list_imports USING btree (fingerprint) WHERE ((fingerprint IS NOT NULL) AND (superseded_by IS NULL));
 CREATE UNIQUE INDEX IF NOT EXISTS email_list_imports_pkey ON public.email_list_imports USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_email_list_imports_venue ON public.email_list_imports USING btree (venue_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_email_list_imports_org ON public.email_list_imports USING btree (organizer_user_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS email_opt_outs_pkey ON public.email_opt_outs USING btree (id);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_opt_outs_venue ON public.email_opt_outs USING btree (lower(email), venue_id) WHERE (venue_id IS NOT NULL);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_opt_outs_organizer ON public.email_opt_outs USING btree (lower(email), organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_opt_outs_platform ON public.email_opt_outs USING btree (lower(email)) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
 CREATE INDEX IF NOT EXISTS idx_email_opt_outs_import ON public.email_opt_outs USING btree (import_id) WHERE (import_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_opt_outs_organizer_product ON public.email_opt_outs USING btree (lower(email), organizer_user_id, product) NULLS NOT DISTINCT WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_opt_outs_venue_product ON public.email_opt_outs USING btree (lower(email), venue_id, product) NULLS NOT DISTINCT WHERE (venue_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS email_send_quota_pkey ON public.email_send_quota USING btree (scope_key, day);
+CREATE UNIQUE INDEX IF NOT EXISTS email_send_quota_month_pkey ON public.email_send_quota_month USING btree (scope_key, month);
+CREATE UNIQUE INDEX IF NOT EXISTS email_sender_state_pkey ON public.email_sender_state USING btree (scope_key);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_email_suppressions_email ON public.email_suppressions USING btree (lower(email));
 CREATE INDEX IF NOT EXISTS idx_email_suppressions_created ON public.email_suppressions USING btree (created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS email_suppressions_pkey ON public.email_suppressions USING btree (id);
@@ -2144,7 +3756,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS event_cohosts_live_venue_idx ON public.event_c
 CREATE INDEX IF NOT EXISTS event_cohosts_org_accepted_idx ON public.event_cohosts USING btree (organizer_user_id) WHERE (status = 'accepted'::text);
 CREATE INDEX IF NOT EXISTS event_cohosts_venue_accepted_idx ON public.event_cohosts USING btree (venue_id) WHERE (status = 'accepted'::text);
 CREATE INDEX IF NOT EXISTS event_cohosts_event_idx ON public.event_cohosts USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS event_collab_contracts_pkey ON public.event_collab_contracts USING btree (id);
+CREATE INDEX IF NOT EXISTS event_collab_contracts_venue_idx ON public.event_collab_contracts USING btree (venue_id, status);
+CREATE INDEX IF NOT EXISTS event_collab_contracts_org_idx ON public.event_collab_contracts USING btree (organizer_user_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS event_collab_contracts_live_event_idx ON public.event_collab_contracts USING btree (event_id) WHERE (status <> 'cancelled'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS event_collab_series_contracts_pkey ON public.event_collab_series_contracts USING btree (id);
+CREATE INDEX IF NOT EXISTS event_collab_series_contracts_venue_idx ON public.event_collab_series_contracts USING btree (venue_id, status);
+CREATE INDEX IF NOT EXISTS event_collab_series_contracts_org_idx ON public.event_collab_series_contracts USING btree (organizer_user_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS event_collab_series_contracts_live_template_idx ON public.event_collab_series_contracts USING btree (template_id) WHERE (status <> ALL (ARRAY['cancelled'::text, 'terminated'::text]));
 CREATE UNIQUE INDEX IF NOT EXISTS event_coorg_deals_pkey ON public.event_coorg_deals USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS event_coorg_transfers_pkey ON public.event_coorg_transfers USING btree (id);
+CREATE INDEX IF NOT EXISTS event_coorg_transfers_event_idx ON public.event_coorg_transfers USING btree (event_id);
+CREATE INDEX IF NOT EXISTS event_coorg_transfers_open_idx ON public.event_coorg_transfers USING btree (status, due_at) WHERE (status = ANY (ARRAY['pending'::text, 'sent'::text, 'disputed'::text]));
 CREATE UNIQUE INDEX IF NOT EXISTS event_djs_pkey ON public.event_djs USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS event_djs_event_id_dj_id_key ON public.event_djs USING btree (event_id, dj_id);
 CREATE UNIQUE INDEX IF NOT EXISTS event_funnel_events_pkey ON public.event_funnel_events USING btree (id);
@@ -2154,6 +3777,18 @@ CREATE INDEX IF NOT EXISTS idx_event_funnel_event_step_session ON public.event_f
 CREATE UNIQUE INDEX IF NOT EXISTS event_guest_artists_pkey ON public.event_guest_artists USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_event_guest_artists_event ON public.event_guest_artists USING btree (event_id, "position", created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_event_guest_artists_event_name ON public.event_guest_artists USING btree (event_id, lower(btrim(name)));
+CREATE UNIQUE INDEX IF NOT EXISTS event_host_pass_opens_pkey ON public.event_guest_pass_opens USING btree (id);
+CREATE INDEX IF NOT EXISTS event_guest_pass_opens_pass_idx ON public.event_guest_pass_opens USING btree (pass_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS event_guest_pass_opens_visitor_idx ON public.event_guest_pass_opens USING btree (visitor_hash, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS event_host_passes_pkey ON public.event_guest_passes USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS event_host_passes_token_key ON public.event_guest_passes USING btree (token);
+CREATE INDEX IF NOT EXISTS event_guest_passes_event_idx ON public.event_guest_passes USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS event_guest_passes_live_name_key ON public.event_guest_passes USING btree (event_id, lower(guest_name)) WHERE (revoked_at IS NULL);
+CREATE INDEX IF NOT EXISTS event_guest_passes_account_idx ON public.event_guest_passes USING btree (account_user_id) WHERE (account_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS event_slug_aliases_pkey ON public.event_slug_aliases USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS event_slug_aliases_event_id_slug_key ON public.event_slug_aliases USING btree (event_id, slug);
+CREATE INDEX IF NOT EXISTS event_slug_aliases_slug_idx ON public.event_slug_aliases USING btree (slug);
+CREATE INDEX IF NOT EXISTS event_slug_aliases_event_idx ON public.event_slug_aliases USING btree (event_id);
 CREATE UNIQUE INDEX IF NOT EXISTS event_waitlist_pkey ON public.event_waitlist USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS event_waitlist_event_id_email_key ON public.event_waitlist USING btree (event_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_waitlist_event_user ON public.event_waitlist USING btree (event_id, user_id) WHERE (user_id IS NOT NULL);
@@ -2178,7 +3813,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS external_events_uq ON public.external_events U
 CREATE INDEX IF NOT EXISTS external_events_venue_idx ON public.external_events USING btree (venue_id, start_at) WHERE (venue_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS external_events_org_idx ON public.external_events USING btree (organizer_user_id, start_at) WHERE (organizer_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS external_events_event_idx ON public.external_events USING btree (event_id) WHERE (event_id IS NOT NULL);
-CREATE UNIQUE INDEX IF NOT EXISTS external_tickets_pkey ON public.external_tickets USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS external_tickets_uq ON public.external_tickets USING btree (connection_id, external_id);
 CREATE INDEX IF NOT EXISTS external_tickets_venue_email_idx ON public.external_tickets USING btree (venue_id, buyer_email) WHERE (venue_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS external_tickets_org_email_idx ON public.external_tickets USING btree (organizer_user_id, buyer_email) WHERE (organizer_user_id IS NOT NULL);
@@ -2187,6 +3821,9 @@ CREATE INDEX IF NOT EXISTS external_tickets_purchased_idx ON public.external_tic
 CREATE INDEX IF NOT EXISTS external_tickets_utm_source_idx ON public.external_tickets USING btree (lower((utm ->> 'utm_source'::text))) WHERE (utm IS NOT NULL);
 CREATE INDEX IF NOT EXISTS external_tickets_event_id_idx ON public.external_tickets USING btree (event_id) WHERE (event_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS external_tickets_buyer_idx ON public.external_tickets USING btree (lower(buyer_email)) WHERE (buyer_email IS NOT NULL);
+CREATE INDEX IF NOT EXISTS external_tickets_conn_synced_idx ON public.external_tickets USING btree (connection_id, synced_at);
+CREATE INDEX IF NOT EXISTS external_tickets_conn_unlinked_idx ON public.external_tickets USING btree (connection_id) WHERE (event_id IS NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS external_tickets_pkey ON public.external_tickets USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS favorites_pkey ON public.favorites USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_id_favorite_type_venue_id_key ON public.favorites USING btree (user_id, favorite_type, venue_id);
 CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_id_favorite_type_event_id_key ON public.favorites USING btree (user_id, favorite_type, event_id);
@@ -2196,6 +3833,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_id_favorite_type_affiliate_even
 CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_id_favorite_type_affiliate_venue_id_key ON public.favorites USING btree (user_id, favorite_type, affiliate_venue_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_club_person ON public.favorites USING btree (venue_id, user_id) WHERE (favorite_type = 'club'::text);
 CREATE INDEX IF NOT EXISTS idx_favorites_dj_person ON public.favorites USING btree (dj_id, user_id) WHERE (favorite_type = 'dj'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS feedback_issues_pkey ON public.feedback_issues USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS guest_list_entries_pkey ON public.guest_list_entries USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS guest_list_entries_qr_code_key ON public.guest_list_entries USING btree (qr_code);
 CREATE INDEX IF NOT EXISTS idx_guest_list_entries_guest_list_id ON public.guest_list_entries USING btree (guest_list_id);
@@ -2224,12 +3862,49 @@ CREATE INDEX IF NOT EXISTS idx_guest_lists_event_holder ON public.guest_lists US
 CREATE UNIQUE INDEX IF NOT EXISTS guest_lists_event_organizer_uniq ON public.guest_lists USING btree (event_id, organizer_user_id) WHERE (holder_type = 'organizer'::text);
 CREATE INDEX IF NOT EXISTS idx_guest_lists_agency ON public.guest_lists USING btree (agency_id) WHERE (agency_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS guest_lists_event_agency_uniq ON public.guest_lists USING btree (event_id, agency_id) WHERE (holder_type = 'agency'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS guest_lists_guest_pass_key ON public.guest_lists USING btree (guest_pass_id) WHERE (guest_pass_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS imported_contacts_pkey ON public.imported_contacts USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_imported_contacts_identity ON public.imported_contacts USING btree (list_import_id, COALESCE(email, ''::text), COALESCE(phone_e164, ''::text));
 CREATE INDEX IF NOT EXISTS idx_imported_contacts_venue ON public.imported_contacts USING btree (venue_id) WHERE (venue_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_imported_contacts_org ON public.imported_contacts USING btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_imported_contacts_email ON public.imported_contacts USING btree (email) WHERE (email IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_imported_contacts_phone ON public.imported_contacts USING btree (phone_e164) WHERE (phone_e164 IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_pkey ON public.invoice_numbers USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_invoice_numbers_ticket ON public.invoice_numbers USING btree (ticket_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_numbers_table ON public.invoice_numbers USING btree (table_reservation_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_numbers_order ON public.invoice_numbers USING btree (order_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_numbers_organizer ON public.invoice_numbers USING btree (organizer_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_venue_seq_uidx ON public.invoice_numbers USING btree (venue_id, invoice_year, invoice_seq) WHERE (seller_kind = 'venue'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_org_seq_uidx ON public.invoice_numbers USING btree (organizer_user_id, invoice_year, invoice_seq) WHERE (seller_kind = 'organizer'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_venue_number_uidx ON public.invoice_numbers USING btree (venue_id, invoice_number) WHERE (seller_kind = 'venue'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_org_number_uidx ON public.invoice_numbers USING btree (organizer_user_id, invoice_number) WHERE (seller_kind = 'organizer'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_ticket_uidx ON public.invoice_numbers USING btree (ticket_id) WHERE (ticket_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_table_uidx ON public.invoice_numbers USING btree (table_reservation_id) WHERE (table_reservation_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_numbers_order_uidx ON public.invoice_numbers USING btree (order_id) WHERE (order_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_invoice_numbers_number ON public.invoice_numbers USING btree (invoice_number);
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_pkey ON public.invoices USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_invoices_venue_id ON public.invoices USING btree (venue_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON public.invoices USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_expires_at ON public.invoices USING btree (expires_at);
+CREATE INDEX IF NOT EXISTS idx_invoices_type ON public.invoices USING btree (type);
+CREATE INDEX IF NOT EXISTS idx_invoices_organizer ON public.invoices USING btree (organizer_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_seller_org_number_uidx ON public.invoices USING btree (organizer_user_id, invoice_number) WHERE (seller_kind = 'organizer'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_legacy_venue_number_uidx ON public.invoices USING btree (venue_id, invoice_number) WHERE ((seller_kind IS NULL) AND (venue_id IS NOT NULL));
+CREATE INDEX IF NOT EXISTS idx_invoices_event_id ON public.invoices USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_legacy_org_number_uidx ON public.invoices USING btree (organizer_user_id, invoice_number) WHERE ((seller_kind IS NULL) AND (organizer_user_id IS NOT NULL) AND (venue_id IS NULL));
+CREATE UNIQUE INDEX IF NOT EXISTS invoices_seller_venue_number_uidx ON public.invoices USING btree (venue_id, invoice_number) WHERE (seller_kind = 'venue'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS launch_waitlist_pkey ON public.launch_waitlist USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS launch_waitlist_email_key ON public.launch_waitlist USING btree (email);
+CREATE UNIQUE INDEX IF NOT EXISTS legal_acceptances_pkey ON public.legal_acceptances USING btree (id);
+CREATE INDEX IF NOT EXISTS legal_acceptances_user_idx ON public.legal_acceptances USING btree (user_id, doc_type, accepted_at DESC);
+CREATE INDEX IF NOT EXISTS legal_acceptances_type_idx ON public.legal_acceptances USING btree (doc_type, accepted_at DESC);
+CREATE INDEX IF NOT EXISTS legal_acceptances_ip_recent_idx ON public.legal_acceptances USING btree (ip, accepted_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS links_events_pkey ON public.links_events USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_links_events_time ON public.links_events USING btree (occurred_at);
+CREATE INDEX IF NOT EXISTS idx_links_events_visitor ON public.links_events USING btree (visitor_hash, occurred_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS links_page_config_pkey ON public.links_page_config USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS links_pro_leads_pkey ON public.links_pro_leads USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_links_pro_leads_created ON public.links_pro_leads USING btree (created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS live_visitor_pings_pkey ON public.live_visitor_pings USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS live_visitor_pings_session_id_key ON public.live_visitor_pings USING btree (session_id);
 CREATE INDEX IF NOT EXISTS idx_live_pings_venue ON public.live_visitor_pings USING btree (venue_id, last_seen DESC);
@@ -2246,6 +3921,11 @@ CREATE INDEX IF NOT EXISTS idx_mkt_consent_events_user ON public.marketing_conse
 CREATE INDEX IF NOT EXISTS idx_mkt_consent_events_venue ON public.marketing_consent_events USING btree (venue_id, occurred_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS marketing_email_log_pkey ON public.marketing_email_log USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_marketing_email_log_email_sent ON public.marketing_email_log USING btree (lower(email), sent_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS mcp_authorization_requests_pkey ON public.mcp_authorization_requests USING btree (id);
+CREATE INDEX IF NOT EXISTS mcp_auth_requests_created_idx ON public.mcp_authorization_requests USING btree (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS mcp_clients_pkey ON public.mcp_clients USING btree (id);
+CREATE INDEX IF NOT EXISTS mcp_clients_created_idx ON public.mcp_clients USING btree (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS mcp_codes_pkey ON public.mcp_codes USING btree (code_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS mcp_email_images_pkey ON public.mcp_email_images USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS mcp_email_images_code_key ON public.mcp_email_images USING btree (code);
 CREATE INDEX IF NOT EXISTS mcp_email_images_scope_idx ON public.mcp_email_images USING btree (venue_id, organizer_user_id, created_at DESC);
@@ -2258,6 +3938,21 @@ CREATE INDEX IF NOT EXISTS mcp_tokens_expires_idx ON public.mcp_tokens USING btr
 CREATE UNIQUE INDEX IF NOT EXISTS mcp_tool_calls_pkey ON public.mcp_tool_calls USING btree (id);
 CREATE INDEX IF NOT EXISTS mcp_tool_calls_grant_idx ON public.mcp_tool_calls USING btree (grant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS mcp_tool_calls_created_idx ON public.mcp_tool_calls USING btree (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_audiences_pkey ON public.meta_audiences USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_audiences_source_uq ON public.meta_audiences USING btree (connection_id, kind, ref) WHERE (kind <> 'lookalike'::text);
+CREATE INDEX IF NOT EXISTS meta_audiences_conn_idx ON public.meta_audiences USING btree (connection_id);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_campaigns_pkey ON public.meta_campaigns USING btree (id);
+CREATE INDEX IF NOT EXISTS meta_campaigns_conn_idx ON public.meta_campaigns USING btree (connection_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS meta_campaigns_event_idx ON public.meta_campaigns USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_connections_pkey ON public.meta_connections USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_connections_venue_uq ON public.meta_connections USING btree (venue_id) WHERE (venue_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_connections_org_uq ON public.meta_connections USING btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_connections_platform_uq ON public.meta_connections USING btree ((1)) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
+CREATE INDEX IF NOT EXISTS meta_connections_meta_user_idx ON public.meta_connections USING btree (meta_user_id) WHERE (meta_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_insights_daily_pkey ON public.meta_insights_daily USING btree (campaign_id, day);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_leads_pkey ON public.meta_leads USING btree (leadgen_id);
+CREATE INDEX IF NOT EXISTS meta_leads_pending_idx ON public.meta_leads USING btree (received_at) WHERE (processed_at IS NULL);
+CREATE INDEX IF NOT EXISTS meta_leads_conn_idx ON public.meta_leads USING btree (connection_id, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_newsletter_subscriptions_import ON public.newsletter_subscriptions USING btree (import_id) WHERE (import_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS newsletter_subscriptions_pkey ON public.newsletter_subscriptions USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS newsletter_subscriptions_unsubscribe_token_key ON public.newsletter_subscriptions USING btree (unsubscribe_token);
@@ -2265,10 +3960,18 @@ CREATE INDEX IF NOT EXISTS idx_newsletter_subs_venue_optin ON public.newsletter_
 CREATE INDEX IF NOT EXISTS idx_newsletter_subs_organizer_optin ON public.newsletter_subscriptions USING btree (organizer_user_id, opted_in) WHERE (organizer_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_newsletter_subs_email ON public.newsletter_subscriptions USING btree (lower(email));
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_newsletter_subs_email_platform ON public.newsletter_subscriptions USING btree (lower(email)) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_newsletter_subs_email_venue ON public.newsletter_subscriptions USING btree (lower(email), venue_id) WHERE (venue_id IS NOT NULL);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_newsletter_subs_email_organizer ON public.newsletter_subscriptions USING btree (lower(email), organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_newsletter_subs_platform ON public.newsletter_subscriptions USING btree (opted_in, source) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
 CREATE INDEX IF NOT EXISTS idx_newsletter_subscriptions_optout_recent ON public.newsletter_subscriptions USING btree (lower(email), opted_out_at) WHERE (opted_out_at IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_newsletter_subs_crm_organizer ON public.newsletter_subscriptions USING btree (organizer_user_id, opted_in) WHERE (product = 'crm'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_newsletter_subs_email_organizer_product ON public.newsletter_subscriptions USING btree (lower(email), organizer_user_id, product) NULLS NOT DISTINCT WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_newsletter_subs_email_venue_product ON public.newsletter_subscriptions USING btree (lower(email), venue_id, product) NULLS NOT DISTINCT WHERE (venue_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_newsletter_subs_crm_venue ON public.newsletter_subscriptions USING btree (venue_id, opted_in) WHERE (product = 'crm'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS night_ops_events_pkey ON public.night_ops_events USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_night_ops_events_venue_created ON public.night_ops_events USING btree (venue_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS night_recap_log_pkey ON public.night_recap_log USING btree (event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS order_pack_credits_pkey ON public.order_pack_credits USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_order_pack_credits_user_venue ON public.order_pack_credits USING btree (user_id, venue_id);
+CREATE INDEX IF NOT EXISTS idx_order_pack_credits_ticket_order ON public.order_pack_credits USING btree (ticket_order_id);
 CREATE UNIQUE INDEX IF NOT EXISTS orders_pkey ON public.orders USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS orders_token_key ON public.orders USING btree (token);
 CREATE INDEX IF NOT EXISTS idx_orders_event_id ON public.orders USING btree (event_id);
@@ -2289,6 +3992,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS org_members_invitation_token_key ON public.org
 CREATE UNIQUE INDEX IF NOT EXISTS uq_org_members_orga_member ON public.org_members USING btree (organizer_user_id, member_user_id) WHERE (member_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_org_members_orga ON public.org_members USING btree (organizer_user_id);
 CREATE INDEX IF NOT EXISTS idx_org_members_member ON public.org_members USING btree (member_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS org_staff_pkey ON public.org_staff USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS org_staff_organizer_user_id_email_role_key ON public.org_staff USING btree (organizer_user_id, email, role);
+CREATE INDEX IF NOT EXISTS idx_org_staff_organizer ON public.org_staff USING btree (organizer_user_id);
+CREATE INDEX IF NOT EXISTS idx_org_staff_user ON public.org_staff USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_org_staff_token ON public.org_staff USING btree (invitation_token) WHERE (invitation_token IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS organizer_banned_emails_pkey ON public.organizer_banned_emails USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS organizer_banned_emails_organizer_user_id_email_key ON public.organizer_banned_emails USING btree (organizer_user_id, email);
+CREATE INDEX IF NOT EXISTS idx_organizer_banned_emails_lookup ON public.organizer_banned_emails USING btree (organizer_user_id, email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_organizer_notifications_dedup ON public.organizer_notifications USING btree (dedup_key) WHERE (dedup_key IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS organizer_notifications_pkey ON public.organizer_notifications USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_organizer_notifications_user ON public.organizer_notifications USING btree (organizer_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_organizer_notifications_unread ON public.organizer_notifications USING btree (organizer_user_id) WHERE (read_at IS NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS organizer_onboarding_pkey ON public.organizer_onboarding USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS organizer_onboarding_user_id_key ON public.organizer_onboarding USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_organizer_onboarding_user_id ON public.organizer_onboarding USING btree (user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS organizer_profile_followers_pkey ON public.organizer_profile_followers USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS organizer_profile_followers_organizer_user_id_user_id_key ON public.organizer_profile_followers USING btree (organizer_user_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_org_profile_followers_org ON public.organizer_profile_followers USING btree (organizer_user_id);
@@ -2296,12 +4014,45 @@ CREATE INDEX IF NOT EXISTS idx_org_profile_followers_user ON public.organizer_pr
 CREATE UNIQUE INDEX IF NOT EXISTS organizer_profiles_pkey ON public.organizer_profiles USING btree (user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS organizer_profiles_slug_key ON public.organizer_profiles USING btree (slug);
 CREATE INDEX IF NOT EXISTS idx_organizer_profiles_slug ON public.organizer_profiles USING btree (slug);
+CREATE UNIQUE INDEX IF NOT EXISTS organizer_slug_aliases_pkey ON public.organizer_slug_aliases USING btree (slug);
+CREATE INDEX IF NOT EXISTS organizer_slug_aliases_user_idx ON public.organizer_slug_aliases USING btree (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ota_bundles_pkey ON public.ota_bundles USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS ota_bundles_app_id_channel_version_key ON public.ota_bundles USING btree (app_id, channel, version);
+CREATE INDEX IF NOT EXISTS ota_bundles_lookup_idx ON public.ota_bundles USING btree (app_id, channel, native_version, active, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS ota_channels_pkey ON public.ota_channels USING btree (app_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS ota_devices_pkey ON public.ota_devices USING btree (device_id, app_id);
+CREATE INDEX IF NOT EXISTS ota_devices_last_seen_idx ON public.ota_devices USING btree (app_id, last_seen DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS ota_stats_pkey ON public.ota_stats USING btree (id);
+CREATE INDEX IF NOT EXISTS ota_stats_app_time_idx ON public.ota_stats USING btree (app_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS owner_recurring_templates_pkey ON public.owner_recurring_templates USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_owner_recurring_templates_venue ON public.owner_recurring_templates USING btree (venue_id);
+CREATE INDEX IF NOT EXISTS idx_owner_recurring_templates_active ON public.owner_recurring_templates USING btree (is_active) WHERE is_active;
+CREATE INDEX IF NOT EXISTS idx_owner_recurring_templates_organizer ON public.owner_recurring_templates USING btree (organizer_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS platform_daily_salts_pkey ON public.platform_daily_salts USING btree (day);
 CREATE UNIQUE INDEX IF NOT EXISTS platform_notification_settings_pkey ON public.platform_notification_settings USING btree (notification_key);
+CREATE UNIQUE INDEX IF NOT EXISTS platform_page_views_pkey ON public.platform_page_views USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_platform_pv_time ON public.platform_page_views USING btree (occurred_at);
+CREATE INDEX IF NOT EXISTS idx_platform_pv_session ON public.platform_page_views USING btree (session_id, occurred_at);
+CREATE UNIQUE INDEX IF NOT EXISTS platform_sessions_pkey ON public.platform_sessions USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_platform_sessions_hash_seen ON public.platform_sessions USING btree (visitor_hash, last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_platform_sessions_started ON public.platform_sessions USING btree (started_at);
+CREATE INDEX IF NOT EXISTS idx_platform_sessions_seen ON public.platform_sessions USING btree (last_seen_at);
+CREATE UNIQUE INDEX IF NOT EXISTS pro_contact_leads_pkey ON public.pro_contact_leads USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS pro_signups_pkey ON public.pro_signups USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS pro_signups_client_key_key ON public.pro_signups USING btree (client_key);
+CREATE INDEX IF NOT EXISTS idx_pro_signups_created ON public.pro_signups USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pro_signups_visitor ON public.pro_signups USING btree (visitor_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pro_signups_user ON public.pro_signups USING btree (user_id) WHERE (user_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS pro_signups_offer_invite_idx ON public.pro_signups USING btree (offer_invite_id) WHERE (offer_invite_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_pkey ON public.profiles USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_profiles_employee_pin ON public.profiles USING btree (employee_pin) WHERE (employee_pin IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_profiles_push_token ON public.profiles USING btree (push_token) WHERE (push_token IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_profiles_stripe_connect_account ON public.profiles USING btree (stripe_connect_account_id) WHERE (stripe_connect_account_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_profiles_lower_email ON public.profiles USING btree (lower(email));
+CREATE UNIQUE INDEX IF NOT EXISTS promoter_clicks_pkey ON public.promoter_clicks USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_promoter_clicks_promoter_id ON public.promoter_clicks USING btree (promoter_id);
+CREATE INDEX IF NOT EXISTS idx_promoter_clicks_clicked_at ON public.promoter_clicks USING btree (clicked_at);
+CREATE INDEX IF NOT EXISTS idx_promoter_clicks_event ON public.promoter_clicks USING btree (event_id);
 CREATE UNIQUE INDEX IF NOT EXISTS promoter_conversions_pkey ON public.promoter_conversions USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_promoter_conversions_promoter_id ON public.promoter_conversions USING btree (promoter_id);
 CREATE INDEX IF NOT EXISTS idx_promoter_conversions_status ON public.promoter_conversions USING btree (status);
@@ -2310,6 +4061,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_promoter_conversions_ticket_unique ON publ
 CREATE UNIQUE INDEX IF NOT EXISTS idx_promoter_conversions_table_unique ON public.promoter_conversions USING btree (table_reservation_id) WHERE (table_reservation_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_promoter_conversions_order_unique ON public.promoter_conversions USING btree (order_id) WHERE (order_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_promoter_conversions_guestlist_unique ON public.promoter_conversions USING btree (guest_list_entry_id) WHERE (guest_list_entry_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS promoter_event_assignments_pkey ON public.promoter_event_assignments USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS promoter_event_assignments_promoter_id_event_id_key ON public.promoter_event_assignments USING btree (promoter_id, event_id);
+CREATE INDEX IF NOT EXISTS idx_pea_promoter ON public.promoter_event_assignments USING btree (promoter_id);
+CREATE INDEX IF NOT EXISTS idx_pea_event ON public.promoter_event_assignments USING btree (event_id);
 CREATE INDEX IF NOT EXISTS idx_promoters_agency_group ON public.promoters USING btree (agency_group_id) WHERE (agency_group_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS promoters_pkey ON public.promoters USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS promoters_venue_id_promo_code_key ON public.promoters USING btree (venue_id, promo_code);
@@ -2344,6 +4099,24 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_platform ON public.push_s
 CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_pkey ON public.push_subscriptions USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_user_id_endpoint_key ON public.push_subscriptions USING btree (user_id, endpoint);
 CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_native_endpoint_key ON public.push_subscriptions USING btree (endpoint, platform) WHERE (platform = ANY (ARRAY['ios'::text, 'ios_pro'::text]));
+CREATE UNIQUE INDEX IF NOT EXISTS revenue_distributions_pkey ON public.revenue_distributions USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS revenue_distributions_payment_intent_id_key ON public.revenue_distributions USING btree (payment_intent_id);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_event ON public.revenue_distributions USING btree (event_id);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_secondary_status ON public.revenue_distributions USING btree (secondary_transfer_status) WHERE (secondary_transfer_status = ANY (ARRAY['pending'::text, 'failed'::text]));
+CREATE INDEX IF NOT EXISTS idx_rev_dist_primary_venue ON public.revenue_distributions USING btree (primary_recipient_venue_id);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_primary_organizer ON public.revenue_distributions USING btree (primary_recipient_organizer_id);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_secondary_venue ON public.revenue_distributions USING btree (secondary_recipient_venue_id);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_secondary_organizer ON public.revenue_distributions USING btree (secondary_recipient_organizer_id);
+CREATE INDEX IF NOT EXISTS idx_revenue_distributions_partnership ON public.revenue_distributions USING btree (partnership_id) WHERE (partnership_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_transfer_group ON public.revenue_distributions USING btree (transfer_group_id);
+CREATE INDEX IF NOT EXISTS revenue_distributions_collab_idx ON public.revenue_distributions USING btree (collab_contract_id);
+CREATE INDEX IF NOT EXISTS idx_rev_dist_release ON public.revenue_distributions USING btree (transfers_release_at) WHERE (transfers_release_at IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS security_logs_pkey ON public.security_logs USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_security_logs_user_id ON public.security_logs USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_security_logs_created_at ON public.security_logs USING btree (created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS showcase_claim_requests_pkey ON public.showcase_claim_requests USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_showcase_claim_pending ON public.showcase_claim_requests USING btree (venue_id) WHERE (status = 'pending'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_showcase_claim_pending_org ON public.showcase_claim_requests USING btree (organizer_user_id) WHERE (status = 'pending'::text);
 CREATE UNIQUE INDEX IF NOT EXISTS sms_campaign_recipients_pkey ON public.sms_campaign_recipients USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS sms_campaign_recipients_unique ON public.sms_campaign_recipients USING btree (campaign_id, phone_e164);
 CREATE INDEX IF NOT EXISTS idx_sms_recipients_pending ON public.sms_campaign_recipients USING btree (campaign_id, id) WHERE (status = 'pending'::text);
@@ -2356,7 +4129,22 @@ CREATE INDEX IF NOT EXISTS idx_sms_camp_organizer ON public.sms_campaigns USING 
 CREATE INDEX IF NOT EXISTS idx_sms_camp_scheduled ON public.sms_campaigns USING btree (scheduled_at) WHERE (status = 'scheduled'::sms_campaign_status);
 CREATE INDEX IF NOT EXISTS idx_sms_campaigns_sending ON public.sms_campaigns USING btree (last_slice_at) WHERE (status = 'sending'::sms_campaign_status);
 CREATE INDEX IF NOT EXISTS idx_sms_campaigns_event ON public.sms_campaigns USING btree (event_id) WHERE (event_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS sms_credit_balances_pkey ON public.sms_credit_balances USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_balance_venue ON public.sms_credit_balances USING btree (venue_id) WHERE (venue_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_balance_organizer ON public.sms_credit_balances USING btree (organizer_id) WHERE (organizer_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_sms_list_imports_fingerprint ON public.sms_list_imports USING btree (fingerprint) WHERE ((fingerprint IS NOT NULL) AND (superseded_by IS NULL));
+CREATE UNIQUE INDEX IF NOT EXISTS sms_list_imports_pkey ON public.sms_list_imports USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_sms_list_imports_venue ON public.sms_list_imports USING btree (venue_id) WHERE (venue_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_sms_list_imports_org ON public.sms_list_imports USING btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS sms_stop_list_pkey ON public.sms_stop_list USING btree (phone_e164);
+CREATE UNIQUE INDEX IF NOT EXISTS staff_brief_reads_pkey ON public.staff_brief_reads USING btree (brief_id, user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS staff_briefs_pkey ON public.staff_briefs USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS staff_briefs_venue_id_night_date_key ON public.staff_briefs USING btree (venue_id, night_date);
+CREATE UNIQUE INDEX IF NOT EXISTS staff_notifications_pkey ON public.staff_notifications USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_staff_notifications_venue_role ON public.staff_notifications USING btree (venue_id, target_role, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_staff_notifications_unread ON public.staff_notifications USING btree (venue_id, target_role) WHERE (read_at IS NULL);
+CREATE INDEX IF NOT EXISTS idx_staff_notifications_liveops_dedup ON public.staff_notifications USING btree (venue_id, notification_type, reference_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_notifications_dedup ON public.staff_notifications USING btree (dedup_key) WHERE (dedup_key IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS table_packs_pkey ON public.table_packs USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_table_packs_event ON public.table_packs USING btree (event_id) WHERE (event_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS table_reservations_pkey ON public.table_reservations USING btree (id);
@@ -2379,8 +4167,17 @@ CREATE INDEX IF NOT EXISTS idx_table_zones_event ON public.table_zones USING btr
 CREATE UNIQUE INDEX IF NOT EXISTS ticket_attendees_pkey ON public.ticket_attendees USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_ticket_attendees_ticket_id ON public.ticket_attendees USING btree (ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_attendees_qr_code ON public.ticket_attendees USING btree (qr_code);
+CREATE UNIQUE INDEX IF NOT EXISTS ticket_presets_pkey ON public.ticket_presets USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_ticket_presets_type ON public.ticket_presets USING btree (ticket_type);
+CREATE INDEX IF NOT EXISTS idx_ticket_presets_organizer_user_id ON public.ticket_presets USING btree (organizer_user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ticket_reservations_pkey ON public.ticket_reservations USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS ticket_reservations_stripe_session_id_key ON public.ticket_reservations USING btree (stripe_session_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_reservations_round_status_expires ON public.ticket_reservations USING btree (ticket_round_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_ticket_reservations_session ON public.ticket_reservations USING btree (stripe_session_id) WHERE (stripe_session_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_ticket_reservations_status_expires ON public.ticket_reservations USING btree (status, expires_at);
 CREATE UNIQUE INDEX IF NOT EXISTS ticket_rounds_pkey ON public.ticket_rounds USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_ticket_rounds_type ON public.ticket_rounds USING btree (ticket_type);
+CREATE INDEX IF NOT EXISTS idx_ticket_rounds_opens_after ON public.ticket_rounds USING btree (opens_after_round_id) WHERE (opens_after_round_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS ticketing_connections_org_uq ON public.ticketing_connections USING btree (provider, organizer_user_id) WHERE (organizer_user_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS ticketing_connections_due_idx ON public.ticketing_connections USING btree (next_sync_at) WHERE (status = 'active'::text);
 CREATE UNIQUE INDEX IF NOT EXISTS ticketing_connections_pkey ON public.ticketing_connections USING btree (id);
@@ -2409,28 +4206,47 @@ CREATE INDEX IF NOT EXISTS idx_tracked_links_promoter ON public.tracked_links US
 CREATE INDEX IF NOT EXISTS idx_tracked_links_event ON public.tracked_links USING btree (event_id) WHERE (event_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_tracked_links_dj ON public.tracked_links USING btree (dj_id) WHERE (dj_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_tracked_links_guest_list ON public.tracked_links USING btree (guest_list_id) WHERE (guest_list_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS tracked_links_partner_token_key ON public.tracked_links USING btree (partner_token) WHERE (partner_token IS NOT NULL);
+CREATE INDEX IF NOT EXISTS tracked_links_guest_pass_idx ON public.tracked_links USING btree (guest_pass_id) WHERE (guest_pass_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS tracked_links_lower_code_idx ON public.tracked_links USING btree (lower(code));
 CREATE UNIQUE INDEX IF NOT EXISTS user_roles_pkey ON public.user_roles USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS user_roles_user_id_role_key ON public.user_roles USING btree (user_id, role);
 CREATE UNIQUE INDEX IF NOT EXISTS user_taste_profiles_pkey ON public.user_taste_profiles USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS user_taste_profiles_user_id_key ON public.user_taste_profiles USING btree (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_banned_emails_pkey ON public.venue_banned_emails USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_banned_emails_venue_id_email_key ON public.venue_banned_emails USING btree (venue_id, email);
+CREATE INDEX IF NOT EXISTS idx_venue_banned_emails_lookup ON public.venue_banned_emails USING btree (venue_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS venue_customers_pkey ON public.venue_customers USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS venue_customers_venue_id_user_id_key ON public.venue_customers USING btree (venue_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_venue_customers_venue ON public.venue_customers USING btree (venue_id);
 CREATE INDEX IF NOT EXISTS idx_venue_customers_email ON public.venue_customers USING btree (email);
 CREATE INDEX IF NOT EXISTS idx_venue_customers_user ON public.venue_customers USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_venue_customers_banned ON public.venue_customers USING btree (venue_id, is_banned) WHERE (is_banned = true);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_hype_baseline_pkey ON public.venue_hype_baseline USING btree (venue_id);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_onboarding_pkey ON public.venue_onboarding USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_onboarding_venue_id_key ON public.venue_onboarding USING btree (venue_id);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_organizer_partnerships_pkey ON public.venue_organizer_partnerships USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venue_org_partnership_unique_active ON public.venue_organizer_partnerships USING btree (venue_id, organizer_user_id) WHERE (status = ANY (ARRAY['pending'::partnership_status, 'active'::partnership_status]));
+CREATE INDEX IF NOT EXISTS idx_venue_org_partnership_venue ON public.venue_organizer_partnerships USING btree (venue_id);
+CREATE INDEX IF NOT EXISTS idx_venue_org_partnership_organizer ON public.venue_organizer_partnerships USING btree (organizer_user_id);
+CREATE INDEX IF NOT EXISTS idx_venue_org_partnership_status ON public.venue_organizer_partnerships USING btree (status);
 CREATE UNIQUE INDEX IF NOT EXISTS venue_segments_pkey ON public.venue_segments USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_venue_segments_name ON public.venue_segments USING btree (venue_id, lower(name));
 CREATE INDEX IF NOT EXISTS idx_venue_segments_venue ON public.venue_segments USING btree (venue_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_slug_aliases_pkey ON public.venue_slug_aliases USING btree (slug);
+CREATE INDEX IF NOT EXISTS venue_slug_aliases_venue_idx ON public.venue_slug_aliases USING btree (venue_id);
 CREATE UNIQUE INDEX IF NOT EXISTS venue_sms_contacts_pkey ON public.venue_sms_contacts USING btree (id);
-CREATE UNIQUE INDEX IF NOT EXISTS venue_sms_contacts_unique_phone ON public.venue_sms_contacts USING btree (venue_id, phone_e164);
 CREATE INDEX IF NOT EXISTS idx_sms_contacts_venue ON public.venue_sms_contacts USING btree (venue_id) WHERE (NOT unsubscribed);
 CREATE INDEX IF NOT EXISTS idx_sms_contacts_event ON public.venue_sms_contacts USING btree (source_event_id) WHERE (source_event_id IS NOT NULL);
-CREATE UNIQUE INDEX IF NOT EXISTS venue_sms_contacts_unique_org_phone ON public.venue_sms_contacts USING btree (organizer_user_id, phone_e164);
 CREATE INDEX IF NOT EXISTS idx_sms_contacts_organizer ON public.venue_sms_contacts USING btree (organizer_user_id) WHERE ((organizer_user_id IS NOT NULL) AND (NOT unsubscribed));
 CREATE INDEX IF NOT EXISTS idx_sms_contacts_import ON public.venue_sms_contacts USING btree (import_id) WHERE (import_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_sms_contacts_platform_phone ON public.venue_sms_contacts USING btree (phone_e164) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL));
 CREATE INDEX IF NOT EXISTS idx_sms_contacts_platform ON public.venue_sms_contacts USING btree (phone_e164) WHERE ((venue_id IS NULL) AND (organizer_user_id IS NULL) AND (NOT unsubscribed));
+CREATE UNIQUE INDEX IF NOT EXISTS venue_sms_contacts_unique_scope_phone_product ON public.venue_sms_contacts USING btree (venue_id, phone_e164, organizer_user_id, product) NULLS NOT DISTINCT;
+CREATE INDEX IF NOT EXISTS idx_sms_contacts_org_phone ON public.venue_sms_contacts USING btree (organizer_user_id, phone_e164) WHERE (organizer_user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_subscriptions_pkey ON public.venue_subscriptions USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS venue_subscriptions_venue_id_key ON public.venue_subscriptions USING btree (venue_id);
+CREATE INDEX IF NOT EXISTS idx_venue_subscriptions_early_adopter ON public.venue_subscriptions USING btree (is_early_adopter) WHERE (is_early_adopter = true);
 CREATE UNIQUE INDEX IF NOT EXISTS venues_pkey ON public.venues USING btree (id);
 CREATE UNIQUE INDEX IF NOT EXISTS venues_slug_key ON public.venues USING btree (slug);
 CREATE INDEX IF NOT EXISTS idx_venues_purge_due ON public.venues USING btree (purge_at) WHERE (purge_at IS NOT NULL);
@@ -2462,6 +4278,308 @@ CREATE INDEX IF NOT EXISTS idx_visitor_sessions_order_id ON public.visitor_sessi
 CREATE INDEX IF NOT EXISTS idx_visitor_sessions_event_visited ON public.visitor_sessions USING btree (event_id, visited_at);
 CREATE INDEX IF NOT EXISTS idx_visitor_sessions_event_session ON public.visitor_sessions USING btree (event_id, session_id) WHERE (event_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_visitor_sessions_event_user ON public.visitor_sessions USING btree (event_id) WHERE (user_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS wallet_passes_pkey ON public.wallet_passes USING btree (serial);
+CREATE INDEX IF NOT EXISTS wallet_passes_reference_idx ON public.wallet_passes USING btree (reference_id);
+CREATE INDEX IF NOT EXISTS wallet_passes_user_idx ON public.wallet_passes USING btree (user_id);
+
+CREATE OR REPLACE FUNCTION public._account_add_product(p_venue_id text, p_organizer_user_id uuid, p_product text, p_via text, p_actor uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_scope text := public.crm_scope_key(p_venue_id, p_organizer_user_id);
+  v_primary text;
+  v_extra text[];
+  v_name text;
+  v_label text;
+BEGIN
+  IF p_product NOT IN ('suite', 'crm') OR v_scope IS NULL
+     OR ((p_venue_id IS NULL) = (p_organizer_user_id IS NULL)) THEN
+    RAISE EXCEPTION 'bad_input' USING ERRCODE = '22023';
+  END IF;
+
+  IF p_venue_id IS NOT NULL THEN
+    SELECT product, extra_products, name INTO v_primary, v_extra, v_name
+      FROM public.venues WHERE id = p_venue_id FOR UPDATE;
+  ELSE
+    SELECT o.product, o.extra_products, COALESCE(NULLIF(o.display_name, ''), 'Organisation')
+      INTO v_primary, v_extra, v_name
+      FROM public.organizer_profiles o WHERE o.user_id = p_organizer_user_id FOR UPDATE;
+  END IF;
+  IF v_primary IS NULL THEN RAISE EXCEPTION 'account_not_found' USING ERRCODE = 'P0002'; END IF;
+
+  IF v_primary = p_product OR p_product = ANY (v_extra) THEN
+    RETURN jsonb_build_object('ok', true, 'added', false, 'scope_key', v_scope, 'product', p_product);
+  END IF;
+
+  IF p_venue_id IS NOT NULL THEN
+    UPDATE public.venues SET extra_products = array_append(extra_products, p_product) WHERE id = p_venue_id;
+  ELSE
+    UPDATE public.organizer_profiles SET extra_products = array_append(extra_products, p_product)
+     WHERE user_id = p_organizer_user_id;
+  END IF;
+
+  INSERT INTO public.account_product_events (scope_key, venue_id, organizer_user_id, product, action, via, actor)
+  VALUES (v_scope, p_venue_id, p_organizer_user_id, p_product, 'added', p_via, p_actor);
+
+  v_label := CASE p_product WHEN 'crm' THEN 'Yuno CRM' ELSE 'Yuno Billetterie' END;
+  BEGIN
+    PERFORM public.emit_admin_notification(
+      'admin_account_product_added',
+      v_name || ' a ouvert ' || v_label,
+      v_name || ' (' || CASE v_primary WHEN 'crm' THEN 'Yuno CRM' ELSE 'Yuno Billetterie' END || ') a ajouté '
+        || v_label || CASE p_via WHEN 'admin' THEN ' (ouvert par un admin).' WHEN 'invite' THEN ' sur invitation.' ELSE '.' END,
+      'normal', 'account', v_scope,
+      jsonb_build_object('venue_id', p_venue_id, 'organizer_user_id', p_organizer_user_id,
+                         'product', p_product, 'primary', v_primary, 'via', p_via),
+      'account_product_added:' || v_scope || ':' || p_product, NULL);
+  EXCEPTION WHEN others THEN NULL;  -- une alerte ne fait jamais échouer l'ouverture
+  END;
+
+  RETURN jsonb_build_object('ok', true, 'added', true, 'scope_key', v_scope, 'product', p_product);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public._admin_customer_activity()
+ RETURNS TABLE(em text, amount numeric, created_at timestamp with time zone, kind text, venue_id text, event_id uuid, is_paid boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH d AS MATERIALIZED (
+    SELECT public.demo_venue_ids() AS dv, public.demo_event_ids() AS de
+  )
+  SELECT lower(t.user_email), t.total_price::numeric, t.created_at, 'tickets'::text,
+         COALESCE(e.venue_id, e.partner_venue_id), t.event_id, true
+  FROM tickets t
+  CROSS JOIN d
+  LEFT JOIN events e ON e.id = t.event_id
+  WHERE t.user_email IS NOT NULL AND t.paid_at IS NOT NULL
+    AND NOT public.is_demo_email(t.user_email)
+    -- COALESCE : sans lui, un event_id ou un venue_id NULL rend la comparaison
+    -- NULL et la ligne disparaît en silence au lieu d'être gardée.
+    AND NOT COALESCE(t.event_id = ANY (d.de), false)
+    AND NOT COALESCE(COALESCE(e.venue_id, e.partner_venue_id) = ANY (d.dv), false)
+  UNION ALL
+  SELECT lower(o.user_email), o.total::numeric, o.created_at, 'drinks'::text,
+         o.venue_id, o.event_id, true
+  FROM orders o
+  CROSS JOIN d
+  WHERE o.user_email IS NOT NULL AND o.status IN ('paid', 'served')
+    AND NOT public.is_demo_email(o.user_email)
+    AND NOT COALESCE(o.venue_id = ANY (d.dv), false)
+  UNION ALL
+  SELECT lower(tr.user_email), tr.total_price::numeric, tr.created_at, 'tables'::text,
+         COALESCE(e.venue_id, e.partner_venue_id), tr.event_id, true
+  FROM table_reservations tr
+  CROSS JOIN d
+  LEFT JOIN events e ON e.id = tr.event_id
+  WHERE tr.user_email IS NOT NULL AND tr.paid_at IS NOT NULL
+    AND NOT public.is_demo_email(tr.user_email)
+    AND NOT COALESCE(tr.event_id = ANY (d.de), false)
+    AND NOT COALESCE(COALESCE(e.venue_id, e.partner_venue_id) = ANY (d.dv), false)
+  UNION ALL
+  -- Guest list : la personne est venue, elle n'a rien payé à Yuno. C'est la
+  -- moitié manquante de la base client — sur une soirée sans billetterie, elle
+  -- en est la TOTALITÉ.
+  SELECT lower(gle.email), 0::numeric, gle.created_at, 'guestlist'::text,
+         COALESCE(e.venue_id, e.partner_venue_id), e.id, false
+  FROM guest_list_entries gle
+  CROSS JOIN d
+  JOIN guest_lists g ON g.id = gle.guest_list_id
+  LEFT JOIN events e ON e.id = g.event_id
+  WHERE gle.email IS NOT NULL AND gle.status <> 'cancelled'
+    AND NOT public.is_demo_email(gle.email)
+    AND NOT COALESCE(e.id = ANY (d.de), false)
+    AND NOT COALESCE(COALESCE(e.venue_id, e.partner_venue_id) = ANY (d.dv), false);
+$function$;
+
+CREATE OR REPLACE FUNCTION public._admin_customer_rfm()
+ RETURNS TABLE(em text, total_spent numeric, rev_30d numeric, rev_90d numeric, rev_prev_90d numeric, avg_basket numeric, tx_count bigint, ticket_count bigint, order_count bigint, table_count bigint, visit_nights bigint, venues_count bigint, venue_ids text[], first_at timestamp with time zone, last_at timestamp with time zone, r_score integer, f_score integer, m_score integer, segment text, tier text, category text, guestlist_count bigint, has_paid boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH cust AS (
+    -- Récence, fréquence et nombre de nuits comptent TOUTE l'activité (guest
+    -- list incluse). Les montants ne comptent que ce qui a été payé : une
+    -- entrée gratuite ne doit jamais diluer le panier moyen ni la LTV.
+    SELECT a.em,
+      COALESCE(sum(a.amount) FILTER (WHERE a.is_paid), 0) AS total_spent,
+      COALESCE(sum(a.amount) FILTER (WHERE a.is_paid AND a.created_at >= now() - interval '30 days'), 0) AS rev_30d,
+      COALESCE(sum(a.amount) FILTER (WHERE a.is_paid AND a.created_at >= now() - interval '90 days'), 0) AS rev_90d,
+      COALESCE(sum(a.amount) FILTER (WHERE a.is_paid
+                                       AND a.created_at >= now() - interval '180 days'
+                                       AND a.created_at < now() - interval '90 days'), 0) AS rev_prev_90d,
+      avg(a.amount) FILTER (WHERE a.is_paid) AS avg_basket,
+      count(*) FILTER (WHERE a.is_paid) AS tx_count,
+      count(*) FILTER (WHERE a.kind = 'tickets') AS ticket_count,
+      count(*) FILTER (WHERE a.kind = 'drinks') AS order_count,
+      count(*) FILTER (WHERE a.kind = 'tables') AS table_count,
+      count(*) FILTER (WHERE a.kind = 'guestlist') AS guestlist_count,
+      bool_or(a.is_paid) AS has_paid,
+      count(DISTINCT date(a.created_at)) AS visit_nights,
+      count(DISTINCT a.venue_id) FILTER (WHERE a.venue_id IS NOT NULL) AS venues_count,
+      array_remove(array_agg(DISTINCT a.venue_id), NULL) AS venue_ids,
+      min(a.created_at) AS first_at,
+      max(a.created_at) AS last_at
+    FROM public._admin_customer_activity() a
+    GROUP BY a.em
+  ),
+  scored AS (
+    SELECT c.*,
+      CASE
+        WHEN c.last_at >= now() - interval '14 days' THEN 5
+        WHEN c.last_at >= now() - interval '30 days' THEN 4
+        WHEN c.last_at >= now() - interval '60 days' THEN 3
+        WHEN c.last_at >= now() - interval '90 days' THEN 2
+        ELSE 1
+      END AS r_score,
+      CASE
+        WHEN c.visit_nights >= 10 THEN 5
+        WHEN c.visit_nights >= 6 THEN 4
+        WHEN c.visit_nights >= 3 THEN 3
+        WHEN c.visit_nights = 2 THEN 2
+        ELSE 1
+      END AS f_score,
+      least(5, 1 + floor(percent_rank() OVER (ORDER BY c.total_spent) * 5))::int AS m_score
+    FROM cust c
+  )
+  SELECT s.em, s.total_spent, s.rev_30d, s.rev_90d, s.rev_prev_90d,
+    s.avg_basket, s.tx_count, s.ticket_count, s.order_count, s.table_count,
+    s.visit_nights, s.venues_count, s.venue_ids, s.first_at, s.last_at,
+    s.r_score, s.f_score, s.m_score,
+    CASE
+      WHEN s.r_score >= 4 AND s.f_score >= 4 THEN 'champions'
+      WHEN s.f_score >= 4 THEN 'loyal'
+      WHEN s.r_score <= 2 AND s.f_score >= 3 THEN 'at_risk'
+      WHEN s.r_score >= 4 AND s.f_score <= 2 AND s.m_score >= 3 THEN 'promising'
+      WHEN s.r_score >= 4 AND s.f_score <= 2 THEN 'new'
+      WHEN s.r_score >= 3 THEN 'loyal'
+      WHEN s.r_score = 2 THEN 'dormant'
+      ELSE 'lost'
+    END AS segment,
+    CASE
+      WHEN s.m_score >= 5 THEN 'platinum'
+      WHEN s.m_score = 4 THEN 'gold'
+      WHEN s.m_score >= 2 THEN 'silver'
+      ELSE 'bronze'
+    END AS tier,
+    -- Une personne jamais passée à la caisse est rangée sous 'guestlist' : la
+    -- classer 'mixed' la rendait indistinguable d'un vrai acheteur multi-pilier.
+    CASE
+      WHEN NOT s.has_paid THEN 'guestlist'
+      WHEN s.ticket_count > s.order_count AND s.ticket_count > s.table_count THEN 'tickets'
+      WHEN s.order_count > s.ticket_count AND s.order_count > s.table_count THEN 'drinks'
+      WHEN s.table_count > s.ticket_count AND s.table_count > s.order_count THEN 'tables'
+      ELSE 'mixed'
+    END AS category,
+    s.guestlist_count, s.has_paid
+  FROM scored s
+$function$;
+
+CREATE OR REPLACE FUNCTION public._an3_aggregate(p_ids uuid[], p_venue_id text, p_money boolean, p_scope_ids uuid[])
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH n AS (
+    SELECT * FROM public._an3_nights(coalesce(p_ids, '{}'), p_venue_id, p_money)
+  ),
+  vis AS (
+    SELECT s.event_id, count(DISTINCT coalesce(nullif(s.visitor_id, ''), s.session_id))::int AS visitors
+      FROM public.visitor_sessions s WHERE s.event_id = ANY(coalesce(p_ids, '{}')) GROUP BY s.event_id
+  ),
+  -- Qui est venu, lu sur TOUTE la portée (c'est ce qui dit « nouveau »), puis
+  -- réduit au lot ; calculé une fois pour les deux lectures ci-dessous.
+  pp AS MATERIALIZED (
+    SELECT p.event_id, p.email, p.pillar, p.first_event
+      FROM public._an3_people(coalesce(p_scope_ids, '{}'), p_venue_id) p
+     WHERE p.event_id = ANY(coalesce(p_ids, '{}'))
+  ),
+  ppl AS (
+    SELECT p.event_id,
+           count(DISTINCT p.email)::int AS customers,
+           count(DISTINCT p.email) FILTER (WHERE p.pillar <> 'guest_list')::int AS buyers,
+           count(DISTINCT p.email) FILTER (WHERE p.first_event = p.event_id)::int AS new_customers
+      FROM pp p
+     GROUP BY p.event_id
+  ),
+  per AS (
+    SELECT n.event_id, n.revenue, n.tickets, n.cap, n.show_money, n.end_ts,
+           (n.ticket_orders + n.tables + n.bar_orders) AS orders,
+           n.entries, n.expected,
+           coalesce(vis.visitors, 0) AS visitors,
+           coalesce(ppl.customers, 0) AS customers, coalesce(ppl.buyers, 0) AS buyers, coalesce(ppl.new_customers, 0) AS new_customers,
+           CASE WHEN n.show_money AND (n.ticket_orders + n.tables + n.bar_orders) > 0 THEN n.revenue / (n.ticket_orders + n.tables + n.bar_orders) END AS aov_n,
+           CASE WHEN coalesce(vis.visitors, 0) >= 10 THEN 100.0 * coalesce(ppl.buyers, 0) / vis.visitors END AS conv_n,
+           CASE WHEN n.end_ts <= now() AND n.entries > 0 AND n.expected > 0 THEN least(100.0, 100.0 * n.entries / n.expected) END AS att_n,
+           CASE WHEN coalesce(ppl.customers, 0) >= 10 THEN 100.0 * coalesce(ppl.new_customers, 0) / ppl.customers END AS new_n,
+           CASE WHEN n.cap > 0 THEN 100.0 * n.tickets / n.cap END AS fill_n
+      FROM n LEFT JOIN vis ON vis.event_id = n.event_id LEFT JOIN ppl ON ppl.event_id = n.event_id
+  ),
+  uniq AS (
+    -- Clients et nouveaux UNIQUES sur tout le lot (une personne venue deux fois compte une fois).
+    SELECT count(DISTINCT p.email)::int AS customers,
+           count(DISTINCT p.email) FILTER (WHERE p.pillar <> 'guest_list')::int AS buyers,
+           count(DISTINCT p.email) FILTER (WHERE p.first_event = ANY(coalesce(p_ids, '{}')))::int AS new_customers
+      FROM pp p
+  ),
+  uvis AS (
+    SELECT count(DISTINCT coalesce(nullif(s.visitor_id, ''), s.session_id))::int AS visitors
+      FROM public.visitor_sessions s WHERE s.event_id = ANY(coalesce(p_ids, '{}'))
+  )
+  SELECT jsonb_build_object(
+    'nights', (SELECT count(*) FROM per),
+    'money_nights', (SELECT count(*) FROM per WHERE show_money),
+    'revenue', (SELECT round(coalesce(sum(revenue), 0), 2) FROM per),
+    'rev_tickets', (SELECT round(coalesce(sum(n.rev_tickets), 0), 2) FROM n),
+    'rev_tables', (SELECT round(coalesce(sum(n.rev_tables), 0), 2) FROM n),
+    'rev_bar', (SELECT round(coalesce(sum(n.rev_bar), 0), 2) FROM n),
+    'refunds', (SELECT round(coalesce(sum(n.refunds), 0), 2) FROM n),
+    'tickets', (SELECT coalesce(sum(tickets), 0) FROM per),
+    'tables', (SELECT coalesce(sum(n.tables), 0) FROM n),
+    'gl_registered', (SELECT coalesce(sum(n.gl_registered), 0) FROM n),
+    'cap', (SELECT nullif(coalesce(sum(cap) FILTER (WHERE cap > 0), 0), 0) FROM per),
+    'tickets_with_cap', (SELECT coalesce(sum(tickets) FILTER (WHERE cap > 0), 0) FROM per),
+    'orders', (SELECT coalesce(sum(orders) FILTER (WHERE show_money), 0) FROM per),
+    'money_revenue', (SELECT round(coalesce(sum(revenue) FILTER (WHERE show_money), 0), 2) FROM per),
+    'entries', (SELECT coalesce(sum(entries) FILTER (WHERE end_ts <= now() AND entries > 0), 0) FROM per),
+    'expected', (SELECT coalesce(sum(expected) FILTER (WHERE end_ts <= now() AND entries > 0), 0) FROM per),
+    'entries_all', (SELECT coalesce(sum(entries), 0) FROM per),
+    'expected_all', (SELECT coalesce(sum(expected), 0) FROM per),
+    'scanned_nights', (SELECT count(*) FROM per WHERE end_ts <= now() AND entries > 0),
+    'visitors', (SELECT visitors FROM uvis),
+    'buyers', (SELECT buyers FROM uniq),
+    'customers', (SELECT customers FROM uniq),
+    'new_customers', (SELECT new_customers FROM uniq),
+    'median', jsonb_build_object(
+      'revenue', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY revenue) FROM per WHERE show_money),
+      'tickets', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY tickets) FROM per),
+      'aov', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY aov_n) FROM per WHERE aov_n IS NOT NULL),
+      'conversion', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY conv_n) FROM per WHERE conv_n IS NOT NULL),
+      'attendance', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY att_n) FROM per WHERE att_n IS NOT NULL),
+      'new_share', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY new_n) FROM per WHERE new_n IS NOT NULL),
+      'fill', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY fill_n) FROM per WHERE fill_n IS NOT NULL),
+      'entries', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY entries) FROM per WHERE end_ts <= now() AND entries > 0)
+    ),
+    'per_night', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', per.event_id, 'title', n.title, 'start_at', n.start_at, 'end_at', n.end_ts, 'night', n.night, 'poster', n.poster,
+        'money', per.show_money, 'revenue', round(per.revenue, 2), 'tickets', per.tickets, 'tables', n.tables, 'gl', n.gl_registered,
+        'cap', per.cap, 'orders', per.orders,
+        'entries', per.entries, 'expected', per.expected, 'scanned', (per.end_ts <= now() AND per.entries > 0),
+        'visitors', per.visitors, 'buyers', per.buyers, 'customers', per.customers, 'new_customers', per.new_customers,
+        'aov', round(per.aov_n::numeric, 2), 'conversion', round(per.conv_n::numeric, 1),
+        'attendance', round(per.att_n::numeric, 1), 'new_share', round(per.new_n::numeric, 1), 'fill', round(per.fill_n::numeric, 1)
+      ) ORDER BY n.start_at)
+      FROM per JOIN n ON n.event_id = per.event_id
+    ), '[]'::jsonb)
+  )
+$function$;
 
 CREATE OR REPLACE FUNCTION public._an3_comparables(p_event_id uuid, p_scope_ids uuid[], p_limit integer DEFAULT 5)
  RETURNS TABLE(event_id uuid, rank integer, comparable boolean)
@@ -2721,33 +4839,267 @@ AS $function$
   END
 $function$;
 
-CREATE OR REPLACE FUNCTION public._contact_base_cache_build(p_key text, p_venue_id text, p_organizer_user_id uuid, p_read boolean)
- RETURNS integer
+CREATE OR REPLACE FUNCTION public._collab_principal_terms(p jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'mode', CASE WHEN p->>'mode' IN ('co_event', 'venue_rental', 'org_hosted') THEN p->>'mode' ELSE 'co_event' END,
+    'agreement', CASE WHEN p->>'agreement' = 'yuno' THEN 'yuno' ELSE 'external' END,
+    'tickets', CASE WHEN p->>'tickets' IN ('organizer', 'venue') THEN p->>'tickets' END,
+    'tables', CASE WHEN p->>'tables' IN ('organizer', 'venue') THEN p->>'tables' END,
+    'rules', CASE WHEN jsonb_typeof(p->'rules') = 'object' THEN p->'rules' END
+  ));
+$function$;
+
+CREATE OR REPLACE FUNCTION public._collab_promote_principal(p_cohost_id uuid)
+ RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
 DECLARE
-  v_started timestamptz := clock_timestamp();
-  v_n integer;
+  c        public.event_cohosts%ROWTYPE;
+  e        record;
+  v_terms  jsonb;
+  v_mode   public.event_mode;
+  v_venue  text;
+  v_org    uuid;
+  v_lead   text;
+  v_tickets text;
+  v_tables  text;
+  v_rules  jsonb;
+  v_part   uuid;
 BEGIN
-  DELETE FROM public.contact_base_cache WHERE scope_key = p_key;
-  INSERT INTO public.contact_base_cache
-    SELECT p_key, r.* FROM public.contact_rows(p_venue_id, p_organizer_user_id) r;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
-  INSERT INTO public.contact_base_cache_state AS s
-         (scope_key, built_at, dirty_at, last_read_at, venue_id, organizer_user_id, row_count)
-  VALUES (p_key, v_started, NULL, CASE WHEN p_read THEN now() END, p_venue_id, p_organizer_user_id, v_n)
-  ON CONFLICT (scope_key) DO UPDATE SET
-    built_at = EXCLUDED.built_at,
-    -- Une écriture arrivée PENDANT la reconstruction reste à rattraper.
-    dirty_at = CASE WHEN s.dirty_at > EXCLUDED.built_at THEN s.dirty_at END,
-    last_read_at = COALESCE(EXCLUDED.last_read_at, s.last_read_at),
-    venue_id = EXCLUDED.venue_id,
-    organizer_user_id = EXCLUDED.organizer_user_id,
-    row_count = EXCLUDED.row_count;
-  RETURN v_n;
+  SELECT * INTO c FROM public.event_cohosts WHERE id = p_cohost_id FOR UPDATE;
+  IF NOT FOUND OR c.role <> 'principal' THEN RETURN; END IF;
+
+  SELECT * INTO e FROM public.events WHERE id = c.event_id FOR UPDATE;
+  -- La place a pu être prise entre l'invitation et la réponse.
+  IF e.venue_id IS NULL THEN
+    IF c.venue_id IS NULL OR e.partner_venue_id IS NOT NULL THEN RAISE EXCEPTION 'principal_slot_taken'; END IF;
+  ELSE
+    IF c.organizer_user_id IS NULL OR e.organizer_user_id IS NOT NULL OR e.partner_organizer_id IS NOT NULL THEN
+      RAISE EXCEPTION 'principal_slot_taken';
+    END IF;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.event_collab_contracts x WHERE x.event_id = e.id AND x.status <> 'cancelled') THEN
+    RAISE EXCEPTION 'principal_slot_taken';
+  END IF;
+
+  v_terms := public._collab_principal_terms(c.principal_terms);
+  v_mode := (v_terms->>'mode')::public.event_mode;
+  v_lead := CASE WHEN e.venue_id IS NOT NULL THEN 'venue' ELSE 'organizer' END;
+
+  IF v_lead = 'organizer' THEN
+    UPDATE public.events
+       SET partner_venue_id = c.venue_id, event_mode = v_mode,
+           collab_responsibilities = public.default_collab_responsibilities(v_mode)
+     WHERE id = e.id;
+    v_venue := c.venue_id; v_org := e.organizer_user_id;
+  ELSE
+    UPDATE public.events
+       SET partner_organizer_id = c.organizer_user_id, event_mode = v_mode,
+           collab_responsibilities = public.default_collab_responsibilities(v_mode)
+     WHERE id = e.id;
+    v_venue := e.venue_id; v_org := c.organizer_user_id;
+  END IF;
+
+  IF v_terms->>'agreement' = 'external' THEN
+    -- Même partage que set_event_collab_external_agreement.
+    v_tickets := COALESCE(v_terms->>'tickets', 'organizer');
+    v_tables  := COALESCE(v_terms->>'tables', CASE WHEN v_mode = 'org_hosted' THEN 'organizer' ELSE 'venue' END);
+    v_rules := jsonb_build_object(
+      'agreement', 'external',
+      'tickets', jsonb_build_object(
+        'organizer_pct', CASE WHEN v_tickets = 'organizer' THEN 100 ELSE 0 END,
+        'venue_pct',     CASE WHEN v_tickets = 'organizer' THEN 0 ELSE 100 END),
+      'tables', jsonb_build_object(
+        'organizer_pct', CASE WHEN v_tables = 'organizer' THEN 100 ELSE 0 END,
+        'venue_pct',     CASE WHEN v_tables = 'organizer' THEN 0 ELSE 100 END),
+      'drinks', jsonb_build_object('organizer_pct', 0, 'venue_pct', 100));
+    UPDATE public.events
+       SET revenue_split_rules = v_rules, revenue_split_proposal = NULL,
+           split_proposed_by = NULL, split_proposed_at = NULL,
+           split_approved_by_venue = false, split_approved_by_organizer = false
+     WHERE id = e.id;
+  ELSE
+    -- Contrat Yuno : les conditions choisies par le lead (sinon le partage par
+    -- défaut), réglées par VIREMENT — l'encaisseur est le lead. Pré-signé par
+    -- le lead ; l'invité signe depuis la page de la soirée.
+    v_rules := COALESCE(v_terms->'rules', jsonb_build_object(
+      'tickets', jsonb_build_object('organizer_pct', 50, 'venue_pct', 50),
+      'tables',  jsonb_build_object('organizer_pct', 0,  'venue_pct', 100),
+      'drinks',  jsonb_build_object('organizer_pct', 0,  'venue_pct', 100)));
+    IF v_rules->'settlement' IS NULL THEN
+      v_rules := v_rules || jsonb_build_object('settlement', jsonb_build_object(
+        'mode', 'transfer', 'collector', v_lead, 'payment_terms_days', 15));
+    END IF;
+    v_rules := public.enforce_drinks_alcohol_gate(v_rules, v_org);
+    SELECT id INTO v_part FROM public.venue_organizer_partnerships
+     WHERE venue_id = v_venue AND organizer_user_id = v_org AND status = 'active' LIMIT 1;
+
+    INSERT INTO public.event_collab_contracts (
+      event_id, partnership_id, venue_id, organizer_user_id, created_by,
+      status, split_rules, cancellation_policy, auto_release_at,
+      venue_signed_at, venue_signed_by, org_signed_at, org_signed_by
+    ) VALUES (
+      e.id, v_part, v_venue, v_org, c.invited_by,
+      'pending_signatures', v_rules, 'pro_rata_refund', COALESCE(e.end_at, e.start_at) + interval '2 days',
+      CASE WHEN v_lead = 'venue' THEN now() END, CASE WHEN v_lead = 'venue' THEN c.invited_by END,
+      CASE WHEN v_lead = 'organizer' THEN now() END, CASE WHEN v_lead = 'organizer' THEN c.invited_by END
+    );
+    UPDATE public.events
+       SET revenue_split_proposal = v_rules, split_proposed_by = c.invited_by, split_proposed_at = now(),
+           split_approved_by_venue = (v_lead = 'venue'), split_approved_by_organizer = (v_lead = 'organizer')
+     WHERE id = e.id;
+  END IF;
+
+  UPDATE public.event_cohosts SET status = 'promoted', updated_at = now() WHERE id = c.id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public._collab_transfer_compute(p_event_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  e record; v_rules jsonb; v_venue text; v_org uuid; v_collector text;
+  v_tbl_basis text; v_pillars jsonb := '{}'::jsonb;
+  v_venue_key text; v_org_key text; v_collector_key text;
+  r record;
+  v_org_owed_by_collector numeric := 0;   -- part orga de ce qu'a encaissé l'encaisseur
+  v_venue_owed_by_collector numeric := 0; -- part club de ce qu'a encaissé l'encaisseur
+  v_org_owed_by_venue_drinks numeric := 0;
+  v_t_n int := 0; v_t_net numeric := 0; v_t_org numeric := 0;
+  v_b_n int := 0; v_b_net numeric := 0; v_b_org numeric := 0;
+  v_d_n int := 0; v_d_net numeric := 0; v_d_org numeric := 0;
+  v_pct numeric; v_net numeric; v_direct numeric; v_org_part numeric;
+  v_from text; v_to text; v_amount numeric;
+BEGIN
+  SELECT * INTO e FROM public.events WHERE id = p_event_id;
+  IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_found'); END IF;
+  -- Normalisé à la lecture : un avenant écrit ses règles brutes sur la soirée.
+  v_rules := public.normalize_collab_settlement(e.revenue_split_rules);
+  IF v_rules IS NULL OR public.collab_settlement_mode(v_rules) <> 'transfer' THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'not_transfer_mode');
+  END IF;
+  v_venue := COALESCE(e.venue_id, e.partner_venue_id);
+  v_org := COALESCE(e.organizer_user_id, e.partner_organizer_id);
+  IF v_venue IS NULL OR v_org IS NULL THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_a_collab'); END IF;
+  v_collector := public.collab_settlement_collector(v_rules);
+  v_venue_key := 'venue:' || v_venue; v_org_key := 'org:' || v_org::text;
+  v_collector_key := CASE v_collector WHEN 'organizer' THEN v_org_key ELSE v_venue_key END;
+  v_tbl_basis := COALESCE(v_rules->'tables'->>'basis', 'deposit');
+
+  -- Billets
+  FOR r IN
+    SELECT t.total_price, t.service_fee, t.insurance_fee, t.refund_amount, t.collab_split
+      FROM public.tickets t
+     WHERE t.event_id = p_event_id AND t.status IN ('paid', 'used')
+  LOOP
+    v_net := GREATEST(COALESCE(r.total_price, 0) - COALESCE(r.service_fee, 0) - COALESCE(r.insurance_fee, 0), 0);
+    v_net := v_net - LEAST(GREATEST(COALESCE(r.refund_amount, 0), 0), v_net)
+             - CASE WHEN COALESCE(r.total_price, 0) > 0 THEN round(r.total_price * 0.015 + 0.25, 2) ELSE 0 END;
+    v_net := GREATEST(v_net, 0);
+    v_direct := LEAST(GREATEST(COALESCE((r.collab_split->>'venue_direct')::numeric, 0), 0), v_net);
+    v_pct := COALESCE((r.collab_split->>'organizer_pct')::numeric,
+                      public.collab_rules_org_pct(v_rules, 'tickets', e.event_mode::text));
+    v_org_part := round((v_net - v_direct) * v_pct / 100, 2);
+    v_t_n := v_t_n + 1; v_t_net := v_t_net + v_net; v_t_org := v_t_org + v_org_part;
+  END LOOP;
+
+  -- Tables (acompte en ligne)
+  IF v_tbl_basis <> 'total_spend' THEN
+    FOR r IN
+      SELECT tr.deposit, tr.service_fee, tr.management_fee, tr.fee_absorbed, tr.refund_amount, tr.collab_split
+        FROM public.table_reservations tr
+       WHERE tr.event_id = p_event_id AND tr.status IN ('paid', 'confirmed')
+         AND COALESCE(tr.payment_mode, 'online') = 'online'
+    LOOP
+      v_net := GREATEST(COALESCE(r.deposit, 0) - COALESCE(r.service_fee, 0)
+                        - CASE WHEN COALESCE(r.fee_absorbed, false) THEN COALESCE(r.management_fee, 0) ELSE 0 END, 0);
+      v_net := v_net - LEAST(GREATEST(COALESCE(r.refund_amount, 0), 0), v_net)
+               - CASE WHEN COALESCE(r.deposit, 0) > 0
+                      THEN round((r.deposit + CASE WHEN COALESCE(r.fee_absorbed, false) THEN 0 ELSE COALESCE(r.management_fee, 0) END) * 0.015 + 0.25, 2)
+                      ELSE 0 END;
+      v_net := GREATEST(v_net, 0);
+      v_pct := COALESCE((r.collab_split->>'organizer_pct')::numeric,
+                        public.collab_rules_org_pct(v_rules, 'tables', e.event_mode::text));
+      v_org_part := round(v_net * v_pct / 100, 2);
+      v_b_n := v_b_n + 1; v_b_net := v_b_net + v_net; v_b_org := v_b_org + v_org_part;
+    END LOOP;
+  END IF;
+
+  -- Boissons via Yuno : toujours encaissées par le club ; part orga seulement si
+  -- le contrat lui en donne une (licence alcool attestée).
+  v_pct := public.collab_rules_org_pct(v_rules, 'drinks', e.event_mode::text);
+  IF v_pct > 0 THEN
+    FOR r IN
+      SELECT o.total, o.service_fee, o.refund_amount FROM public.orders o
+       WHERE o.event_id = p_event_id AND o.status IN ('paid', 'served')
+    LOOP
+      v_net := GREATEST(COALESCE(r.total, 0) - COALESCE(r.service_fee, 0), 0);
+      v_net := GREATEST(v_net - LEAST(GREATEST(COALESCE(r.refund_amount, 0), 0), v_net)
+               - CASE WHEN COALESCE(r.total, 0) > 0 THEN round(r.total * 0.015 + 0.25, 2) ELSE 0 END, 0);
+      v_d_n := v_d_n + 1; v_d_net := v_d_net + v_net; v_d_org := v_d_org + round(v_net * v_pct / 100, 2);
+    END LOOP;
+  END IF;
+
+  IF v_collector = 'venue' THEN
+    v_org_owed_by_collector := v_t_org + v_b_org;
+  ELSE
+    v_venue_owed_by_collector := (v_t_net - v_t_org) + (v_b_net - v_b_org);
+  END IF;
+  v_org_owed_by_venue_drinks := v_d_org;
+
+  -- Solde net : qui doit combien à qui.
+  v_amount := (v_org_owed_by_collector + v_org_owed_by_venue_drinks) - v_venue_owed_by_collector;
+  IF v_amount >= 0 THEN v_from := v_venue_key; v_to := v_org_key;
+  ELSE v_from := v_org_key; v_to := v_venue_key; v_amount := -v_amount; END IF;
+  v_amount := round(v_amount, 2);
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'collector', v_collector, 'collector_key', v_collector_key,
+    'venue_key', v_venue_key, 'org_key', v_org_key,
+    'payment_terms_days', COALESCE((v_rules->'settlement'->>'payment_terms_days')::int, 15),
+    'tables_basis', v_tbl_basis,
+    'pillars', jsonb_build_object(
+      'tickets', jsonb_build_object('count', v_t_n, 'net', round(v_t_net, 2), 'organizer', round(v_t_org, 2), 'venue', round(v_t_net - v_t_org, 2)),
+      'tables',  jsonb_build_object('count', v_b_n, 'net', round(v_b_net, 2), 'organizer', round(v_b_org, 2), 'venue', round(v_b_net - v_b_org, 2)),
+      'drinks',  jsonb_build_object('count', v_d_n, 'net', round(v_d_net, 2), 'organizer', round(v_d_org, 2), 'venue', round(v_d_net - v_d_org, 2))),
+    'organizer_total', round(v_t_org + v_b_org + v_d_org, 2),
+    'venue_total', round((v_t_net - v_t_org) + (v_b_net - v_b_org) + (v_d_net - v_d_org), 2),
+    'transfer', CASE WHEN v_amount >= 0.01 THEN jsonb_build_object('from', v_from, 'to', v_to, 'amount', v_amount) END
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_admin_audit(p_action text, p_scope text, p_meta jsonb)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  INSERT INTO public.admin_audit_log (admin_id, action, entity_type, entity_id, metadata)
+  VALUES (auth.uid(), p_action, 'crm_account', p_scope, COALESCE(p_meta, '{}'::jsonb));
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_admin_gate()
+ RETURNS void
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF COALESCE(auth.role(), '') = 'service_role' THEN RETURN; END IF;
+  IF auth.uid() IS NULL OR NOT COALESCE(public.is_super_admin(), false) THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
 END;
 $function$;
 
@@ -2798,162 +5150,6 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_ana_sends(p_venue_id text, p_organizer_user_id uuid, p_meta jsonb)
- RETURNS jsonb
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  SELECT COALESCE(jsonb_agg(x ORDER BY x->>'at'), '[]'::jsonb) FROM (
-    SELECT jsonb_build_object('i', public._crm_ana_bucket(p_meta, c.sent_at), 'at', c.sent_at, 'name', c.name, 'channel', 'email', 'id', c.id) AS x
-      FROM public.email_campaigns c
-     WHERE c.sent_at IS NOT NULL AND c.status IN ('sent', 'sending')
-       AND c.automation_id IS NULL AND c.parent_campaign_id IS NULL
-       AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
-       AND c.sent_at > now() - interval '13 months'
-       AND public._crm_ana_bucket(p_meta, c.sent_at) IS NOT NULL
-       AND (p_meta->>'mode' <> 'event' OR c.event_id IS NULL OR c.event_id = (p_meta->'event'->>'id')::uuid)
-    UNION ALL
-    SELECT jsonb_build_object('i', public._crm_ana_bucket(p_meta, s.sent_at), 'at', s.sent_at, 'name', s.name, 'channel', 'sms', 'id', s.id)
-      FROM public.sms_campaigns s
-     WHERE s.sent_at IS NOT NULL AND s.status IN ('sent', 'sending')
-       AND s.venue_id IS NOT DISTINCT FROM p_venue_id AND s.organizer_id IS NOT DISTINCT FROM p_organizer_user_id
-       AND s.sent_at > now() - interval '13 months'
-       AND public._crm_ana_bucket(p_meta, s.sent_at) IS NOT NULL
-  ) q;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._crm_ana_setup(p_venue_id text, p_organizer_user_id uuid, p_period text, p_event uuid, p_seg text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
-AS $function$
-DECLARE
-  v_tz text := 'Europe/Paris';
-  v_rules record;
-  v_eh integer;
-  v_now timestamptz := now();
-  v_today date;
-  v_mode text;
-  v_n integer;
-  v_start timestamptz; v_end timestamptz;
-  v_d0 date; v_m0 date;
-  v_ev_id uuid; v_ev_title text; v_ev_start timestamptz; v_ev_night date; v_ev_upcoming boolean; v_ev_series text;
-  v_pev_id uuid; v_pev_title text; v_pev_start timestamptz; v_pev_night date;
-  v_seg text := CASE WHEN p_seg IN ('hab', 'occ', 'nou', 'end', 'none') THEN p_seg ELSE 'all' END;
-  v_labels jsonb;
-BEGIN
-  SELECT * INTO v_rules FROM public.crm_scope_rules(p_venue_id, p_organizer_user_id);
-  v_eh := v_rules.night_end_hour;
-  v_today := public._crm_night_date(v_now, v_tz, v_eh);
-
-  PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id);
-
-  DROP TABLE IF EXISTS _aev;
-  CREATE TEMP TABLE _aev ON COMMIT DROP AS
-  SELECT e.id, e.title, COALESCE(public._crm_night_series(e.title), e.title) AS series, e.start_at,
-         COALESCE(e.end_at, e.start_at + interval '6 hours') > v_now AS upcoming,
-         public._crm_night_date(e.start_at, COALESCE(NULLIF(e.timezone, ''), v_tz), v_eh) AS night,
-         x.left_tickets, x.deals
-    FROM public.events e
-    LEFT JOIN public.external_events x ON x.event_id = e.id
-   WHERE e.external_source IS NOT NULL AND e.cancelled_at IS NULL
-     AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id));
-
-  IF p_event IS NOT NULL THEN
-    SELECT id, title, start_at, night, upcoming, series
-      INTO v_ev_id, v_ev_title, v_ev_start, v_ev_night, v_ev_upcoming, v_ev_series
-      FROM _aev WHERE id = p_event;
-    IF v_ev_id IS NULL THEN RAISE EXCEPTION 'event_not_found' USING ERRCODE = '22023'; END IF;
-    SELECT id, title, start_at, night INTO v_pev_id, v_pev_title, v_pev_start, v_pev_night
-      FROM _aev
-     WHERE start_at < v_ev_start AND id <> v_ev_id
-     ORDER BY (series = v_ev_series) DESC, start_at DESC LIMIT 1;
-    v_mode := 'event'; v_n := 22;
-  ELSIF p_period IN ('24h', '48h') THEN
-    v_mode := 'hour'; v_n := CASE p_period WHEN '24h' THEN 24 ELSE 48 END;
-    v_end := date_trunc('hour', v_now) + interval '1 hour';
-    v_start := v_end - make_interval(hours => v_n);
-  ELSIF p_period = '12m' THEN
-    v_mode := 'month'; v_n := 12;
-    v_m0 := (date_trunc('month', v_today) - interval '11 months')::date;
-  ELSE
-    v_mode := 'day'; v_n := CASE p_period WHEN '7d' THEN 7 WHEN '90d' THEN 90 ELSE 30 END;
-    v_d0 := v_today - (v_n - 1);
-  END IF;
-
-  DROP TABLE IF EXISTS _atk_all;
-  CREATE TEMP TABLE _atk_all ON COMMIT DROP AS
-  SELECT q.*,
-         CASE v_mode
-           WHEN 'hour' THEN CASE WHEN q.bought_at >= v_start AND q.bought_at < v_end
-                                 THEN floor(extract(epoch FROM q.bought_at - v_start) / 3600)::int END
-           WHEN 'day' THEN CASE WHEN q.nd BETWEEN v_d0 AND v_today THEN q.nd - v_d0 END
-           WHEN 'month' THEN CASE WHEN q.nd >= v_m0 AND q.nd <= v_today
-                                  THEN ((extract(year FROM q.nd) - extract(year FROM v_m0)) * 12
-                                        + extract(month FROM q.nd) - extract(month FROM v_m0))::int END
-           ELSE CASE WHEN q.event_id = v_ev_id THEN 21 - LEAST(21, GREATEST(0, v_ev_night - q.nd)) END
-         END AS ci,
-         CASE v_mode
-           WHEN 'hour' THEN CASE WHEN q.bought_at >= v_start - make_interval(hours => v_n) AND q.bought_at < v_start
-                                 THEN floor(extract(epoch FROM q.bought_at - (v_start - make_interval(hours => v_n))) / 3600)::int END
-           WHEN 'day' THEN CASE WHEN q.nd BETWEEN v_d0 - v_n AND v_d0 - 1 THEN q.nd - (v_d0 - v_n) END
-           WHEN 'month' THEN CASE WHEN q.nd >= (v_m0 - interval '12 months')::date AND q.nd < v_m0
-                                  THEN ((extract(year FROM q.nd) - extract(year FROM v_m0 - interval '12 months')) * 12
-                                        + extract(month FROM q.nd) - extract(month FROM v_m0 - interval '12 months'))::int END
-           ELSE CASE WHEN q.event_id = v_pev_id THEN 21 - LEAST(21, GREATEST(0, v_pev_night - q.nd)) END
-         END AS pi
-    FROM (
-      SELECT t.id, lower(t.buyer_email) AS email, GREATEST(t.quantity, 1) AS qty,
-             COALESCE(t.price, 0) * GREATEST(t.quantity, 1) AS amount,
-             public._crm_ticket_is_sale(t.status, t.raw) AS ok, t.status = 'refunded' AS refunded,
-             COALESCE(t.purchased_at, t.first_seen_at) AS bought_at, t.event_id,
-             NULLIF(btrim(t.deal_name), '') AS deal, COALESCE(t.external_order_id, t.id::text) AS ord, t.price, public._crm_ticket_source(t.utm) AS src,
-             t.scanned_at, t.age, NULLIF(btrim(t.city), '') AS city,
-             public._crm_night_date(COALESCE(t.purchased_at, t.first_seen_at), v_tz, v_eh) AS nd,
-             extract(hour FROM COALESCE(t.purchased_at, t.first_seen_at) AT TIME ZONE v_tz)::int AS hr
-        FROM public.external_tickets t
-       WHERE t.status IN ('valid', 'transferred', 'refunded')
-         AND ((p_venue_id IS NOT NULL AND t.venue_id = p_venue_id)
-           OR (p_organizer_user_id IS NOT NULL AND t.organizer_user_id = p_organizer_user_id))
-    ) q;
-  CREATE INDEX ON _atk_all (event_id);
-  CREATE INDEX ON _atk_all (email);
-
-  DROP TABLE IF EXISTS _atk;
-  IF v_seg = 'all' THEN
-    CREATE TEMP TABLE _atk ON COMMIT DROP AS SELECT * FROM _atk_all;
-  ELSE
-    CREATE TEMP TABLE _atk ON COMMIT DROP AS
-    SELECT a.* FROM _atk_all a JOIN _cp p ON p.email = a.email AND p.lifecycle = v_seg;
-  END IF;
-
-  -- Libellés des cases : l'instant de début (heures), la date (jours, mois),
-  -- J-k et la date de la nuit (soirée).
-  SELECT jsonb_agg(CASE v_mode
-           WHEN 'hour' THEN to_jsonb(v_start + make_interval(hours => g))
-           WHEN 'day' THEN to_jsonb(v_d0 + g)
-           WHEN 'month' THEN to_jsonb((v_m0 + make_interval(months => g))::date)
-           ELSE to_jsonb(v_ev_night - (21 - g)) END ORDER BY g)
-    INTO v_labels FROM generate_series(0, v_n - 1) g;
-
-  RETURN jsonb_build_object(
-    'mode', v_mode, 'n', v_n, 'period', p_period, 'seg', v_seg, 'tz', v_tz, 'night_end_hour', v_eh,
-    'today', v_today, 'now', v_now, 'labels', v_labels,
-    'start', CASE v_mode WHEN 'hour' THEN to_jsonb(v_start) WHEN 'day' THEN to_jsonb(v_d0)
-                         WHEN 'month' THEN to_jsonb(v_m0) ELSE to_jsonb(v_ev_night - 21) END,
-    'event', CASE WHEN v_mode = 'event' THEN jsonb_build_object(
-        'id', v_ev_id, 'title', v_ev_title, 'start_at', v_ev_start, 'night', v_ev_night, 'upcoming', v_ev_upcoming,
-        'days_left', GREATEST(0, v_ev_night - v_today)) END,
-    'prev_event', CASE WHEN v_pev_id IS NOT NULL THEN jsonb_build_object(
-        'id', v_pev_id, 'title', v_pev_title, 'start_at', v_pev_start, 'night', v_pev_night) END
-  );
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public._crm_area_key(p text)
  RETURNS text
  LANGUAGE sql
@@ -2999,141 +5195,80 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_campaign_audience(p_campaign_id uuid)
- RETURNS TABLE(email text, first_name text, last_name text, user_id uuid, unsubscribe_token uuid)
+CREATE OR REPLACE FUNCTION public._crm_campaign_estimate(p_campaign_id uuid)
+ RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE
   c public.email_campaigns%ROWTYPE;
-  a jsonb;
-  v_def jsonb;
-  v_preds text[] := '{}';
-  v_recent integer;
-  v_excl_buyers boolean;
+  v_n integer;
 BEGIN
   SELECT * INTO c FROM public.email_campaigns WHERE id = p_campaign_id;
-  IF NOT FOUND OR (c.venue_id IS NULL AND c.organizer_user_id IS NULL) THEN RETURN; END IF;
+  IF NOT FOUND THEN RETURN 0; END IF;
+  v_n := COALESCE(NULLIF(c.total_recipients, 0), NULLIF(c.recipients_count, 0));
+  IF v_n IS NOT NULL THEN RETURN v_n; END IF;
 
-  FOR a IN SELECT x FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c.audiences_json) = 'array' THEN c.audiences_json ELSE '[]'::jsonb END) x LOOP
-    CONTINUE WHEN a->>'kind' IS DISTINCT FROM 'crm';
-    v_def := NULL;
-    IF COALESCE(a->>'segmentId', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
-      SELECT s.definition INTO v_def FROM public.crm_segments s
-       WHERE s.id = (a->>'segmentId')::uuid
-         AND ((c.venue_id IS NOT NULL AND s.venue_id = c.venue_id)
-           OR (c.organizer_user_id IS NOT NULL AND s.organizer_user_id = c.organizer_user_id));
-      CONTINUE WHEN v_def IS NULL;           -- segment supprimé : il ne vise plus personne
-    ELSE
-      v_def := COALESCE(a->'def', '{}'::jsonb);
-    END IF;
-    v_preds := array_append(v_preds, '(' || public._crm_filter_sql(v_def, 'p') || ')');
-  END LOOP;
-  IF cardinality(v_preds) = 0 THEN RETURN; END IF;   -- audience vide ⇒ personne
+  SELECT recipients INTO v_n FROM public.crm_campaign_estimates
+   WHERE campaign_id = p_campaign_id AND computed_at > now() - interval '30 minutes';
+  IF v_n IS NOT NULL THEN RETURN v_n; END IF;
 
-  v_recent := CASE WHEN COALESCE(c.exclusions_json->>'recentDays', '') ~ '^[0-9]{1,3}$'
-                   THEN (c.exclusions_json->>'recentDays')::integer END;
-  v_excl_buyers := COALESCE(c.exclusions_json->>'excludeEventBuyers', 'false') IN ('true', 't', '1') AND c.event_id IS NOT NULL;
-
-  PERFORM public._crm_people_build(c.venue_id, c.organizer_user_id, NULL);
-
-  RETURN QUERY EXECUTE format($q$
-    SELECT DISTINCT ON (p.email) p.email::text, COALESCE(p.first_name, ns.first_name)::text,
-           COALESCE(p.last_name, ns.last_name)::text, ns.user_id, ns.unsubscribe_token
-      FROM _cp p
-      JOIN public.newsletter_subscriptions ns
-        ON lower(ns.email) = p.email AND ns.opted_in
-       AND ((%1$L::text IS NOT NULL AND ns.venue_id = %1$L::text)
-         OR (%2$L::uuid IS NOT NULL AND ns.organizer_user_id = %2$L::uuid))
-     WHERE p.email_ok AND (%3$s)
-       AND (%4$L::integer IS NULL OR NOT EXISTS (
-             SELECT 1 FROM public.email_campaign_recipients r
-               JOIN public.email_campaigns c2 ON c2.id = r.campaign_id
-              WHERE c2.id <> %5$L::uuid
-                AND c2.venue_id IS NOT DISTINCT FROM %1$L::text
-                AND c2.organizer_user_id IS NOT DISTINCT FROM %2$L::uuid
-                AND r.status = 'sent' AND r.sent_at > now() - make_interval(days => %4$L::integer)
-                AND lower(r.email) = p.email))
-       AND (NOT %6$L::boolean OR NOT (%7$L::uuid = ANY (p.events)))
-     ORDER BY p.email, ns.created_at DESC
-  $q$, c.venue_id, c.organizer_user_id, array_to_string(v_preds, ' OR '), v_recent, c.id, v_excl_buyers, c.event_id);
+  BEGIN
+    SELECT count(DISTINCT lower(a.email))::int INTO v_n
+      FROM public._crm_campaign_audience(p_campaign_id) a
+     WHERE a.email IS NOT NULL AND NOT public.is_email_suppressed(lower(a.email));
+  EXCEPTION WHEN others THEN
+    RETURN 0;
+  END;
+  BEGIN
+    INSERT INTO public.crm_campaign_estimates (campaign_id, recipients, computed_at)
+    VALUES (p_campaign_id, COALESCE(v_n, 0), now())
+    ON CONFLICT (campaign_id) DO UPDATE SET recipients = EXCLUDED.recipients, computed_at = now();
+  EXCEPTION WHEN others THEN NULL;   -- aperçu en lecture seule : on garde le calcul
+  END;
+  RETURN COALESCE(v_n, 0);
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_email_attrib(p_venue_id text, p_organizer_user_id uuid)
- RETURNS integer
+CREATE OR REPLACE FUNCTION public._crm_email_recipients_build(p_venue_id text, p_organizer_user_id uuid, p_campaign_id uuid)
+ RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
-DECLARE
-  v_hosts text[];
-  v_n integer;
 BEGIN
-  SELECT array_agg(DISTINCT lower(substring(e.external_ticket_url FROM '^https?://([^/:?#]+)')))
-    INTO v_hosts
-    FROM public.events e
-   WHERE e.external_ticket_url IS NOT NULL
-     AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id));
+  PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id, NULL);
+  PERFORM public._crm_email_attrib(p_venue_id, p_organizer_user_id);
 
-  DROP TABLE IF EXISTS _cmc;
-  CREATE TEMP TABLE _cmc ON COMMIT DROP AS
-    SELECT c.id, c.name, c.sent_at, c.audiences_json
-      FROM public.email_campaigns c
-     WHERE c.status IN ('sent', 'sending') AND c.sent_at IS NOT NULL
-       AND c.venue_id IS NOT DISTINCT FROM p_venue_id
-       AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id;
-
-  DROP TABLE IF EXISTS _cmk;
-  CREATE TEMP TABLE _cmk ON COMMIT DROP AS
-    SELECT ev.campaign_id, lower(ev.recipient_email) AS email, ev.created_at AS at,
-           public._crm_is_ticketing_link(ev.metadata->'click'->>'link', v_hosts) AS ticketing
-      FROM public.email_campaign_events ev
-      JOIN _cmc c ON c.id = ev.campaign_id
-     WHERE ev.event_type = 'clicked' AND ev.recipient_email IS NOT NULL;
-  CREATE INDEX ON _cmk (campaign_id, email);
-  CREATE INDEX ON _cmk (email, at);
-
-  DROP TABLE IF EXISTS _cma;
-  CREATE TEMP TABLE _cma ON COMMIT DROP AS
-    SELECT DISTINCT ON (t.id) t.id, t.email, t.amount, t.bought_at, k.campaign_id
-      FROM public._crm_tickets(p_venue_id, p_organizer_user_id) t
-      JOIN _cmk k ON k.email = t.email AND k.at <= t.bought_at AND k.at > t.bought_at - interval '7 days'
-     ORDER BY t.id, k.at DESC;
-  CREATE INDEX ON _cma (campaign_id, email);
-  SELECT count(*) INTO v_n FROM _cma;
-  RETURN v_n;
+  DROP TABLE IF EXISTS _crr;
+  CREATE TEMP TABLE _crr ON COMMIT DROP AS
+  SELECT lower(r.email) AS email, COALESCE(r.first_name, p.first_name) AS first_name, COALESCE(r.last_name, p.last_name) AS last_name,
+         r.status, p.lifecycle,
+         EXISTS (SELECT 1 FROM public.email_campaign_events e WHERE e.campaign_id = r.campaign_id AND e.event_type = 'opened' AND lower(e.recipient_email) = lower(r.email)) AS opened,
+         EXISTS (SELECT 1 FROM _cmk k WHERE k.campaign_id = r.campaign_id AND k.email = lower(r.email)) AS clicked,
+         COALESCE((SELECT sum(a.amount) FROM _cma a WHERE a.campaign_id = r.campaign_id AND a.email = lower(r.email)), 0) AS revenue
+    FROM public.email_campaign_recipients r
+    LEFT JOIN _cp p ON p.email = lower(r.email)
+   WHERE r.campaign_id = p_campaign_id AND r.status IN ('sent', 'complained', 'bounced');
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_file_history(p_venue_id text, p_organizer_user_id uuid, p_at timestamp with time zone DEFAULT NULL::timestamp with time zone)
- RETURNS TABLE(email text, f_nights integer, f_spent numeric, f_paid integer, f_first timestamp with time zone, f_last timestamp with time zone, f_asof timestamp with time zone, f_list uuid)
+CREATE OR REPLACE FUNCTION public._crm_email_row(ec email_campaigns)
+ RETURNS jsonb
  LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
+ STABLE
 AS $function$
-  SELECT DISTINCT ON (lower(c.email))
-         lower(c.email),
-         GREATEST(COALESCE(c.event_count, 0),
-                  CASE WHEN COALESCE(c.total_spent, 0) > 0 OR c.last_purchase_at IS NOT NULL THEN 1 ELSE 0 END),
-         COALESCE(c.total_spent, 0),
-         CASE WHEN COALESCE(c.total_spent, 0) > 0 THEN GREATEST(COALESCE(c.event_count, 0), 1) ELSE 0 END,
-         LEAST(c.added_at, c.last_purchase_at),
-         c.last_purchase_at,
-         COALESCE(c.last_purchase_at, c.created_at),
-         c.list_import_id
-    FROM public.imported_contacts c
-   WHERE public.marketing_scope_match(c.venue_id, c.organizer_user_id, p_venue_id, p_organizer_user_id)
-     AND c.email IS NOT NULL
-     AND (COALESCE(c.event_count, 0) > 0 OR COALESCE(c.total_spent, 0) > 0 OR c.last_purchase_at IS NOT NULL)
-     AND c.created_at <= COALESCE(p_at, now())
-     AND (c.last_purchase_at IS NULL OR c.last_purchase_at <= COALESCE(p_at, now()))
-   ORDER BY lower(c.email), c.created_at DESC,
-            ((c.event_count IS NOT NULL)::int + (c.total_spent IS NOT NULL)::int + (c.last_purchase_at IS NOT NULL)::int) DESC,
-            c.id;
+  SELECT jsonb_build_object(
+    'id', ec.id, 'name', ec.name, 'subject', ec.subject, 'status', ec.status,
+    'scheduled_at', ec.scheduled_at, 'sent_at', ec.sent_at, 'updated_at', ec.updated_at, 'created_at', ec.created_at,
+    'audiences', COALESCE(ec.audiences_json, '[]'::jsonb), 'event_id', ec.event_id, 'template_kind', ec.template_kind,
+    'total_recipients', ec.total_recipients,
+    'has_content', jsonb_typeof(ec.blocks_json) = 'array' AND jsonb_array_length(ec.blocks_json) > 0,
+    'paused_reason', ec.paused_reason,
+    'theme', CASE WHEN jsonb_typeof(ec.theme_json) = 'object' THEN jsonb_build_object(
+               'bg', ec.theme_json->>'bg', 'headerBg', ec.theme_json->>'headerBg', 'accent', ec.theme_json->>'accent',
+               'divider', ec.theme_json->>'divider', 'tile', ec.theme_json->>'tile') END);
 $function$;
 
 CREATE OR REPLACE FUNCTION public._crm_is_ticketing_link(p_link text, p_hosts text[])
@@ -3148,6 +5283,79 @@ AS $function$
        OR lower(substring(p_link FROM '^https?://([^/:?#]+)')) = ANY (COALESCE(p_hosts, '{}')));
 $function$;
 
+CREATE OR REPLACE FUNCTION public._crm_journey_person(p_kind text, p_email text, p_from timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_first text; v_last text; v_life text; v_nights int; v_mail boolean; v_phone boolean;
+  v_events jsonb;
+BEGIN
+  SELECT p.first_name, p.last_name, p.lifecycle, p.nights, p.email_ok, p.phone_ok
+    INTO v_first, v_last, v_life, v_nights, v_mail, v_phone
+    FROM _cp p WHERE p.email = p_email;
+  WITH evs AS (
+    SELECT r.sent_at AS at, CASE WHEN r.auto THEN 'auto' ELSE 'mail' END AS t,
+           c.name AS s, NULL::numeric AS amount, NULL::int AS qty, NULL::timestamptz AS ev_at
+      FROM _jrc r JOIN _cmc c ON c.id = r.campaign_id
+     WHERE r.email = p_email AND r.sent_at >= p_from - interval '30 days'
+    UNION ALL
+    SELECT min(e.created_at), 'open', c.name, NULL, NULL, NULL
+      FROM public.email_campaign_events e JOIN _cmc c ON c.id = e.campaign_id
+     WHERE lower(e.recipient_email) = p_email AND e.event_type = 'opened' AND e.created_at >= p_from - interval '30 days'
+     GROUP BY c.id, c.name
+    UNION ALL
+    SELECT min(k.at), 'click', c.name, NULL, NULL, NULL
+      FROM _cmk k JOIN _cmc c ON c.id = k.campaign_id
+     WHERE k.email = p_email AND k.at >= p_from - interval '30 days'
+     GROUP BY c.id, c.name
+    UNION ALL
+    SELECT min(t.bought_at), 'buy', COALESCE((SELECT e.title FROM public.events e WHERE e.id = t.event_id), ''),
+           sum(t.amount), sum(t.qty)::int, min(t.event_start)
+      FROM _cpt t
+     WHERE t.email = p_email AND t.bought_at >= p_from - interval '30 days'
+     GROUP BY t.event_id
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('at', q.at, 't', q.t, 's', q.s, 'amount', q.amount, 'qty', q.qty, 'ev_at', q.ev_at) ORDER BY q.at), '[]'::jsonb)
+    INTO v_events FROM (SELECT * FROM evs WHERE evs.at IS NOT NULL ORDER BY evs.at DESC LIMIT 12) q;
+  RETURN jsonb_build_object(
+    'kind', p_kind, 'email', p_email, 'first_name', v_first, 'last_name', v_last,
+    'lifecycle', COALESCE(v_life, 'none'), 'nights', COALESCE(v_nights, 0),
+    'email_ok', COALESCE(v_mail, false), 'phone_ok', COALESCE(v_phone, false),
+    'events', v_events);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_link_creatable(p_platform text, p_placement text)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT (p_platform, p_placement) IN (
+    ('instagram', 'story'), ('instagram', 'bio'),
+    ('tiktok', 'bio'),
+    ('whatsapp', 'group'), ('whatsapp', 'message'),
+    ('facebook', 'post'), ('facebook', 'event'),
+    ('snapchat', 'story'),
+    ('other', 'flyer'), ('other', 'partner'), ('other', 'link')
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_link_event_ok(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.events e
+     WHERE e.id = p_event_id AND e.external_source IS NOT NULL AND e.external_ticket_url IS NOT NULL
+       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
+         OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id)));
+$function$;
+
 CREATE OR REPLACE FUNCTION public._crm_money_gate(p jsonb, p_venue_id text, p_organizer_user_id uuid)
  RETURNS jsonb
  LANGUAGE sql
@@ -3157,82 +5365,16 @@ AS $function$
   SELECT CASE WHEN public.crm_scope_sees_money(p_venue_id, p_organizer_user_id) THEN p ELSE public._crm_null_money(p) END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_msg_build(p_venue_id text, p_organizer_user_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
+CREATE OR REPLACE FUNCTION public._crm_nice_amount(p numeric)
+ RETURNS numeric
+ LANGUAGE sql
+ IMMUTABLE
 AS $function$
-DECLARE
-  v_hosts text[];
-  v_n integer;
-BEGIN
-  SELECT array_agg(DISTINCT lower(substring(e.external_ticket_url FROM '^https?://([^/:?#]+)')))
-    INTO v_hosts
-    FROM public.events e
-   WHERE e.external_ticket_url IS NOT NULL
-     AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id));
-
-  DROP TABLE IF EXISTS _cmc;
-  CREATE TEMP TABLE _cmc ON COMMIT DROP AS
-    SELECT c.id, c.name, c.sent_at, c.audiences_json
-      FROM public.email_campaigns c
-     WHERE c.status IN ('sent', 'sending') AND c.sent_at IS NOT NULL
-       AND c.venue_id IS NOT DISTINCT FROM p_venue_id
-       AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id;
-
-  -- Clics e-mail de la portée (toutes dates : un clic d'avant la période
-  -- peut porter un achat de la période, il reste rattaché à SON envoi).
-  DROP TABLE IF EXISTS _cmk;
-  CREATE TEMP TABLE _cmk ON COMMIT DROP AS
-    SELECT ev.campaign_id, lower(ev.recipient_email) AS email, ev.created_at AS at,
-           public._crm_is_ticketing_link(ev.metadata->'click'->>'link', v_hosts) AS ticketing
-      FROM public.email_campaign_events ev
-      JOIN _cmc c ON c.id = ev.campaign_id
-     WHERE ev.event_type = 'clicked' AND ev.recipient_email IS NOT NULL;
-  CREATE INDEX ON _cmk (campaign_id, email);
-  CREATE INDEX ON _cmk (email, at);
-
-  -- Billets attribués : dernier clic dans les 7 jours avant l'achat.
-  DROP TABLE IF EXISTS _cma;
-  CREATE TEMP TABLE _cma ON COMMIT DROP AS
-    SELECT DISTINCT ON (t.id) t.id, t.email, t.amount, t.bought_at, k.campaign_id
-      FROM public._crm_tickets(p_venue_id, p_organizer_user_id) t
-      JOIN _cmk k ON k.email = t.email AND k.at <= t.bought_at AND k.at > t.bought_at - interval '7 days'
-     ORDER BY t.id, k.at DESC;
-  CREATE INDEX ON _cma (campaign_id, email);
-
-  DROP TABLE IF EXISTS _cm0;
-  CREATE TEMP TABLE _cm0 ON COMMIT DROP AS
-    SELECT r.campaign_id, 'email'::text AS channel, lower(r.email) AS email, c.sent_at,
-           EXISTS (SELECT 1 FROM _cmk k WHERE k.campaign_id = r.campaign_id AND k.email = lower(r.email)) AS clicked,
-           EXISTS (SELECT 1 FROM _cmk k WHERE k.campaign_id = r.campaign_id AND k.email = lower(r.email) AND k.ticketing) AS ticketing,
-           COALESCE((SELECT sum(a.amount) FROM _cma a WHERE a.campaign_id = r.campaign_id AND a.email = lower(r.email)), 0) AS revenue
-      FROM public.email_campaign_recipients r
-      JOIN _cmc c ON c.id = r.campaign_id
-     WHERE r.status IN ('sent', 'complained')
-       AND c.sent_at >= p_from AND c.sent_at < p_to;
-
-  -- SMS reçus, rattachés à la personne par son numéro.
-  INSERT INTO _cm0 (campaign_id, channel, email, sent_at, clicked, ticketing, revenue)
-  SELECT r.campaign_id, 'sms', p.email, COALESCE(s.sent_at, r.sent_at), false, false, 0
-    FROM public.sms_campaign_recipients r
-    JOIN public.sms_campaigns s ON s.id = r.campaign_id
-    JOIN _cp p ON p.phone IS NOT NULL
-             AND regexp_replace(p.phone, '\D', '', 'g') = regexp_replace(r.phone_e164, '\D', '', 'g')
-   WHERE r.status::text IN ('sent', 'delivered')
-     AND s.venue_id IS NOT DISTINCT FROM p_venue_id
-     AND s.organizer_id IS NOT DISTINCT FROM p_organizer_user_id
-     AND COALESCE(s.sent_at, r.sent_at) >= p_from AND COALESCE(s.sent_at, r.sent_at) < p_to;
-
-  DROP TABLE IF EXISTS _cm;
-  CREATE TEMP TABLE _cm ON COMMIT DROP AS SELECT m.*, m.revenue > 0 AS bought FROM _cm0 m;
-  CREATE INDEX ON _cm (email);
-  SELECT count(*) INTO v_n FROM _cm;
-  RETURN v_n;
-END;
+  SELECT CASE WHEN p IS NULL OR p <= 0 THEN NULL
+              WHEN p < 20 THEN GREATEST(1, round(p))
+              WHEN p < 100 THEN round(p / 5) * 5
+              WHEN p < 500 THEN round(p / 10) * 10
+              ELSE round(p / 50) * 50 END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._crm_night_capacity(p_left integer, p_deals jsonb, p_sold bigint)
@@ -3256,17 +5398,37 @@ AS $function$
   SELECT ((p_ts AT TIME ZONE COALESCE(NULLIF(p_tz, ''), 'Europe/Paris')) - make_interval(hours => COALESCE(p_end_hour, 6)))::date;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_night_series(p_name text)
- RETURNS text
+CREATE OR REPLACE FUNCTION public._crm_night_tiers(p_event_id uuid, p_deals jsonb)
+ RETURNS jsonb
  LANGUAGE sql
- IMMUTABLE
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
-  SELECT NULLIF(btrim(regexp_replace(
-           regexp_replace(
-             regexp_replace(COALESCE(p_name, ''),
-               '\s*[-–—:|·,]?\s*\(?\d{1,2}[./]\d{1,2}([./]\d{2,4})?\)?\s*$', ''),
-             '\s*[-–—:|·,]?\s*([#№]\s*\d+|(vol|n°|no|ep|episode|chapitre|chapter|part|partie|edition|édition)\.?\s*\d+)\s*$', '', 'i'),
-           '\s+', ' ', 'g')), '');
+  WITH d AS (
+    SELECT ord, NULLIF(btrim(x->>'name'), '') AS name, NULLIF(x->>'id', '') AS did,
+           CASE WHEN x->>'price' ~ '^[0-9]+(\.[0-9]+)?$' THEN (x->>'price')::numeric END AS price,
+           CASE WHEN x->>'quantity' ~ '^[0-9]+$' THEN (x->>'quantity')::integer END AS q
+      FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p_deals) = 'array' THEN p_deals ELSE '[]'::jsonb END)
+           WITH ORDINALITY AS t(x, ord)
+  ), tk AS (
+    SELECT t.deal_id, lower(btrim(t.deal_name)) AS dn, max(t.price) AS price, sum(GREATEST(t.quantity, 1)) AS sold
+      FROM public.external_tickets t
+     WHERE t.event_id = p_event_id AND public._crm_ticket_is_sale(t.status, t.deal_channel)
+     GROUP BY 1, 2
+  ), matched AS (
+    SELECT d.ord, d.name, d.price, d.q,
+           COALESCE((SELECT sum(tk.sold) FROM tk
+                      WHERE (d.did IS NOT NULL AND tk.deal_id = d.did)
+                         OR (tk.dn = lower(d.name) AND (d.did IS NULL OR tk.deal_id IS DISTINCT FROM d.did))), 0) AS sold
+      FROM d WHERE d.name IS NOT NULL
+  ), orphans AS (
+    SELECT 1000 + row_number() OVER (ORDER BY tk.price) AS ord, initcap(tk.dn) AS name, tk.price, NULL::integer AS q, tk.sold
+      FROM tk
+     WHERE tk.dn IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM d WHERE (d.did IS NOT NULL AND d.did = tk.deal_id) OR lower(d.name) = tk.dn)
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('name', u.name, 'price', u.price, 'cap', u.q, 'sold', u.sold) ORDER BY u.ord), '[]'::jsonb)
+    FROM (SELECT * FROM matched UNION ALL SELECT * FROM orphans) u;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._crm_null_money(j jsonb)
@@ -3302,6 +5464,24 @@ BEGIN
   END IF;
   RETURN j;
 END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_recipient_match(p_filter text, p_opened boolean, p_clicked boolean, p_revenue numeric, p_status text)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE COALESCE(p_filter, 'all')
+    WHEN 'all' THEN true
+    WHEN 'opened' THEN p_opened
+    WHEN 'clicked' THEN p_clicked
+    WHEN 'bought' THEN p_revenue > 0
+    WHEN 'hot' THEN p_clicked AND p_revenue <= 0
+    WHEN 'unopened' THEN NOT p_opened AND p_status = 'sent'
+    WHEN 'bounced' THEN p_status = 'bounced'
+    ELSE false
+  END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._crm_segment_counts_write(p_venue_id text, p_organizer_user_id uuid, p_day date)
@@ -3363,6 +5543,24 @@ AS $function$
     ELSE 'custom' END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public._crm_signup_buyer_ids(p_page_id uuid)
+ RETURNS TABLE(entry_id uuid)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT DISTINCT e.id
+    FROM public.crm_signup_pages p
+    JOIN public.crm_signup_entries e ON e.page_id = p.id AND e.email IS NOT NULL
+    JOIN public.external_tickets t
+      ON t.buyer_email = lower(e.email)
+     AND ((p.venue_id IS NOT NULL AND t.venue_id = p.venue_id) OR (p.organizer_user_id IS NOT NULL AND t.organizer_user_id = p.organizer_user_id))
+     AND public._crm_ticket_is_sale(t.status, t.deal_channel)
+     AND COALESCE(t.purchased_at, t.first_seen_at) >= e.created_at
+     AND (p.event_id IS NULL OR t.event_id = p.event_id)
+   WHERE p.id = p_page_id;
+$function$;
+
 CREATE OR REPLACE FUNCTION public._crm_signup_close_at(p crm_signup_pages)
  RETURNS timestamp with time zone
  LANGUAGE sql
@@ -3400,6 +5598,15 @@ AS $function$
    WHERE e.id = p_event_id;
 $function$;
 
+CREATE OR REPLACE FUNCTION public._crm_signup_is_demo(p_page crm_signup_pages)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT public.is_demo_marketing_scope(p_page.venue_id, p_page.organizer_user_id);
+$function$;
+
 CREATE OR REPLACE FUNCTION public._crm_signup_night_at(p_event_id uuid, p_days_before integer, p_time time without time zone)
  RETURNS timestamp with time zone
  LANGUAGE sql
@@ -3410,6 +5617,16 @@ AS $function$
     FROM public.events e
    CROSS JOIN LATERAL (SELECT COALESCE(NULLIF(e.timezone, ''), 'Europe/Paris') AS tz) z
    WHERE e.id = p_event_id;
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_signup_open(p crm_signup_pages)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT p.status = 'live' AND (p.opens_at IS NULL OR p.opens_at <= now())
+     AND (public._crm_signup_close_at(p) IS NULL OR public._crm_signup_close_at(p) > now());
 $function$;
 
 CREATE OR REPLACE FUNCTION public._crm_signup_owner(p_venue_id text, p_organizer_user_id uuid)
@@ -3437,384 +5654,62 @@ AS $function$
     ELSE 'open' END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._crm_ticket_gl_kind(p_status text, p_price numeric, p_raw jsonb)
- RETURNS text
- LANGUAGE sql
- IMMUTABLE
-AS $function$
-  SELECT CASE
-    WHEN p_status IS DISTINCT FROM 'valid' THEN NULL
-    -- Un duplicata est la copie d'un billet existant : ni vente, ni guest list.
-    WHEN jsonb_typeof(p_raw) = 'object' AND p_raw->>'deal_channel' = 'duplicata' THEN NULL
-    WHEN jsonb_typeof(p_raw) = 'object' AND p_raw->>'deal_channel' = 'invitation' THEN 'inv'
-    WHEN p_price = 0 THEN 'free'
-  END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._crm_ticket_is_sale(p_status text, p_raw jsonb)
- RETURNS boolean
- LANGUAGE sql
- IMMUTABLE
-AS $function$
-  -- Ni une invitation, ni un duplicata (copie d'un billet déjà vendu).
-  SELECT p_status = 'valid' AND COALESCE(p_raw->>'deal_channel', '') NOT IN ('invitation', 'duplicata');
-$function$;
-
-CREATE OR REPLACE FUNCTION public._crm_ticket_source(p_utm jsonb)
- RETURNS text
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  SELECT CASE
-    WHEN s = '' THEN 'of'
-    WHEN s = 'yuno' OR s LIKE 'yuno-m-%' THEN 'em'
-    WHEN s LIKE 'yuno-s-%' THEN 'sm'
-    WHEN s LIKE 'yuno-d-%' THEN 'dm'
-    WHEN s LIKE 'yuno-%' THEN COALESCE((
-      SELECT CASE
-               WHEN tl.utm_source = 'instagram' AND tl.utm_medium = 'story' THEN 'ys'
-               WHEN tl.utm_source = 'instagram' AND tl.utm_medium = 'bio' THEN 'yb'
-               WHEN tl.utm_source = 'tiktok' AND tl.utm_medium = 'bio' THEN 'yt'
-             END
-        FROM public.tracked_links tl WHERE lower(tl.code) = substr(s, 6) LIMIT 1), 'yl')
-    WHEN s = 'shotgun' THEN 'sg'
-    WHEN s = 'direct' THEN 'di'
-    WHEN s IN ('instagram', 'ig', 'facebook', 'fb', 'tiktok', 'snapchat', 'twitter', 'x', 'threads', 'linkedin', 'youtube', 'pinterest', 'messenger') THEN 'so'
-    ELSE 'au' END
-  FROM (SELECT lower(btrim(COALESCE(CASE WHEN jsonb_typeof(p_utm) = 'object' THEN p_utm->>'utm_source' END, ''))) AS s) x;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._crm_tickets(p_venue_id text, p_organizer_user_id uuid)
- RETURNS TABLE(id uuid, email text, qty integer, amount numeric, bought_at timestamp with time zone, event_id uuid, event_start timestamp with time zone, scanned_at timestamp with time zone, deal_name text, price numeric)
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  SELECT t.id, lower(t.buyer_email), GREATEST(t.quantity, 1),
-         COALESCE(t.price, 0) * GREATEST(t.quantity, 1),
-         COALESCE(t.purchased_at, t.first_seen_at),
-         t.event_id, e.start_at, t.scanned_at, t.deal_name, t.price
-    FROM public.external_tickets t
-    LEFT JOIN public.events e ON e.id = t.event_id
-   WHERE public._crm_ticket_is_sale(t.status, t.raw)
-     AND ((p_venue_id IS NOT NULL AND t.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND t.organizer_user_id = p_organizer_user_id));
-$function$;
-
-CREATE OR REPLACE FUNCTION public._door_headcount(p_event_ids uuid[], p_since timestamp with time zone DEFAULT NULL::timestamp with time zone)
+CREATE OR REPLACE FUNCTION public._crm_sms_row(c sms_campaigns)
  RETURNS jsonb
  LANGUAGE sql
- STABLE SECURITY DEFINER
+ STABLE
  SET search_path TO 'public'
 AS $function$
-  WITH t AS (
-    SELECT tk.id, tk.quantity, tk.entry_scanned, tk.entry_scanned_at,
-           EXISTS (SELECT 1 FROM public.ticket_attendees a WHERE a.ticket_id = tk.id) AS nominative
-      FROM public.tickets tk
-     WHERE tk.event_id = ANY(p_event_ids) AND tk.status = 'paid'
-  ), gle AS (
-    SELECT g.entry_scanned, g.entry_scanned_at
-      FROM public.guest_list_entries g
-      JOIN public.guest_lists gl ON gl.id = g.guest_list_id
-     WHERE gl.event_id = ANY(p_event_ids) AND g.status IS DISTINCT FROM 'cancelled'
-  ), tr AS (
-    SELECT GREATEST(COALESCE(r.guest_count, 1), 1) AS guests, r.entry_scanned, r.entry_scanned_at
-      FROM public.table_reservations r
-     WHERE r.event_id = ANY(p_event_ids) AND r.status = 'paid'
-  )
   SELECT jsonb_build_object(
-    'entered',
-      (SELECT count(*) FROM public.ticket_attendees a JOIN t ON t.id = a.ticket_id
-        WHERE a.entry_scanned AND (p_since IS NULL OR a.entry_scanned_at >= p_since))
-    + (SELECT COALESCE(sum(t.quantity), 0) FROM t
-        WHERE NOT t.nominative AND t.entry_scanned AND (p_since IS NULL OR t.entry_scanned_at >= p_since))
-    + (SELECT COALESCE(sum(tr.guests), 0) FROM tr
-        WHERE tr.entry_scanned AND (p_since IS NULL OR tr.entry_scanned_at >= p_since))
-    + (SELECT count(*) FROM gle
-        WHERE gle.entry_scanned AND (p_since IS NULL OR gle.entry_scanned_at >= p_since)),
-    'expected',
-      (SELECT COALESCE(sum(t.quantity), 0) FROM t)
-    + (SELECT COALESCE(sum(tr.guests), 0) FROM tr)
-    + (SELECT count(*) FROM gle)
-  )
+    'id', c.id, 'name', c.name, 'body', c.body_template, 'sender_name', c.sender_name,
+    'status', c.status, 'scheduled_at', c.scheduled_at, 'sent_at', c.sent_at,
+    'updated_at', c.updated_at, 'created_at', c.created_at, 'event_id', c.event_id,
+    'event_title', (SELECT e.title FROM public.events e WHERE e.id = c.event_id),
+    'audiences', COALESCE(c.segment_filters->'audiences', '[]'::jsonb),
+    'tpl', NULLIF(c.segment_filters->>'tpl', ''),
+    'exclude_buyers', COALESCE((c.segment_filters->>'exclude_buyers')::boolean, false),
+    'recent_days', NULLIF(c.segment_filters->>'recent_days', '')::integer,
+    'waves', COALESCE((c.segment_filters->>'waves')::boolean, false),
+    'quiet_hours', c.quiet_hours,
+    'estimated', c.estimated_recipients, 'parts', GREATEST(COALESCE(c.segments_per_message, 1), 1),
+    'paused_reason', c.paused_reason,
+    'sent_count', c.sent_count, 'total_recipients', c.total_recipients, 'error_message', c.error_message);
 $function$;
 
-CREATE OR REPLACE FUNCTION public._email_automation_enabled(p_venue_id text, p_organizer_user_id uuid, p_kind text)
- RETURNS boolean
+CREATE OR REPLACE FUNCTION public._email_automation_kind_label(p_kind text)
+ RETURNS text
  LANGUAGE sql
- STABLE
- SET search_path TO 'public'
+ IMMUTABLE
 AS $function$
-  SELECT EXISTS (
-    SELECT 1 FROM public.email_automations a
-     WHERE a.kind = p_kind AND a.enabled
-       AND ((p_venue_id IS NOT NULL AND a.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND a.organizer_user_id = p_organizer_user_id))
-  );
+  SELECT CASE p_kind
+    WHEN 'abandoned_checkout' THEN 'Panier abandonné'
+    WHEN 'last_call'          THEN 'Dernier appel'
+    WHEN 'table_upsell'       THEN 'Passe en table'
+    WHEN 'new_event'          THEN 'Nouvelle soirée'
+    WHEN 'post_event_thanks'  THEN 'Merci d''être venu'
+    WHEN 'post_event_missed'  THEN 'On t''a manqué'
+    WHEN 'win_back'           THEN 'Reconquête'
+    WHEN 'welcome'            THEN 'Bienvenue'
+    WHEN 'tier_closing'       THEN 'Le tarif monte'
+    ELSE p_kind END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._email_automation_next_event(p_venue_id text, p_organizer_user_id uuid)
- RETURNS uuid
+CREATE OR REPLACE FUNCTION public._email_automation_suggestion_text(p_item jsonb)
+ RETURNS text
  LANGUAGE sql
- STABLE
- SET search_path TO 'public'
+ IMMUTABLE
 AS $function$
-  SELECT e.id
-    FROM public.events e
-   WHERE e.status = 'active'
-     AND (e.is_active OR e.external_source IS NOT NULL)
-     AND e.cancelled_at IS NULL
-     AND e.start_at > now()
-     AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-   ORDER BY e.start_at ASC
-   LIMIT 1
-$function$;
-
-CREATE OR REPLACE FUNCTION public._email_automation_suggestions(p_venue_id text, p_organizer_user_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  out jsonb := '[]'::jsonb;
-  v_base integer := 0;
-  n integer;
-  v_event_id uuid;
-  v_title text;
-  v_start timestamptz;
-  v_pct integer;
-BEGIN
-  IF p_venue_id IS NULL AND p_organizer_user_id IS NULL THEN RETURN out; END IF;
-  -- La démo n'est pas un chiffre.
-  IF p_venue_id IS NOT NULL AND p_venue_id = ANY (public.demo_venue_ids()) THEN RETURN out; END IF;
-  IF p_organizer_user_id IS NOT NULL AND EXISTS (
-    SELECT 1 FROM public.profiles p WHERE p.id = p_organizer_user_id AND public.is_demo_email(p.email)
-  ) THEN RETURN out; END IF;
-
-  SELECT count(*) INTO v_base
-    FROM public.newsletter_subscriptions s
-   WHERE public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-     AND s.opted_in AND s.opted_out_at IS NULL;
-
-  -- Panier abandonné : ≥ 3 paiements commencés et jamais finis sur 30 j.
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'abandoned_checkout') THEN
-    SELECT count(*) INTO n FROM (
-      SELECT DISTINCT lower(x.em), x.event_id FROM (
-        SELECT t.user_email AS em, t.event_id FROM public.tickets t JOIN public.events e ON e.id = t.event_id
-         WHERE t.status = 'pending' AND t.user_email IS NOT NULL AND t.created_at >= now() - interval '30 days'
-           AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-        UNION ALL
-        SELECT r.user_email, r.event_id FROM public.table_reservations r JOIN public.events e ON e.id = r.event_id
-         WHERE r.status = 'pending' AND r.user_email IS NOT NULL AND r.created_at >= now() - interval '30 days'
-           AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-      ) x
-      WHERE NOT public._email_event_holder(x.event_id, x.em)
-    ) y;
-    IF n >= 3 THEN
-      out := out || jsonb_build_object('kind', 'abandoned_checkout', 'reason_key', 'em.auto.sug.abandoned',
-               'reason_vars', jsonb_build_object('n', n), 'reach', n);
-    END IF;
-  END IF;
-
-  -- Dernier appel : prochaine soirée sous 10 j qui vend encore, base ≥ 50.
-  IF v_base >= 50 AND NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'last_call') THEN
-    SELECT e.id, e.title, e.start_at INTO v_event_id, v_title, v_start
-      FROM public.events e
-     WHERE e.status = 'active' AND (e.is_active OR e.external_source IS NOT NULL) AND e.cancelled_at IS NULL
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND e.start_at > now() + interval '2 hours' AND e.start_at <= now() + interval '10 days'
-       AND (((e.ticketing_enabled OR e.external_ticket_url IS NOT NULL) AND NOT e.tickets_sold_out) OR (e.tables_enabled AND NOT e.tables_sold_out)
-            OR (NOT e.guest_list_sold_out AND EXISTS (SELECT 1 FROM public.guest_lists gl WHERE gl.event_id = e.id AND gl.is_active AND gl.visible_on_club_page AND NOT gl.manually_sold_out)))
-     ORDER BY e.start_at LIMIT 1;
-    IF v_event_id IS NOT NULL THEN
-      SELECT count(*) INTO n FROM public.newsletter_subscriptions s
-       WHERE public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-         AND s.opted_in AND s.opted_out_at IS NULL AND NOT public._email_event_holder(v_event_id, s.email);
-      out := out || jsonb_build_object('kind', 'last_call', 'reason_key', 'em.auto.sug.lastCall',
-               'reason_vars', jsonb_build_object('event', v_title, 'd', GREATEST(0, floor(extract(epoch FROM (v_start - now())) / 86400))::integer, 'n', n),
-               'reach', n, 'event_id', v_event_id);
-    END IF;
-  END IF;
-
-  -- Passe en table : prochaine soirée avec tables libres et ≥ 20 billets vendus.
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'table_upsell') THEN
-    v_event_id := NULL;
-    SELECT e.id, e.title INTO v_event_id, v_title
-      FROM public.events e
-      JOIN LATERAL (SELECT public._event_tables_left(e.id) AS n) tl ON true
-     WHERE e.status = 'active' AND (e.is_active OR e.external_source IS NOT NULL) AND e.cancelled_at IS NULL
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND e.tables_enabled AND NOT e.tables_sold_out AND COALESCE(tl.n, 0) > 0
-       AND e.start_at > now() + interval '2 hours'
-       AND (SELECT count(DISTINCT lower(t.user_email)) FROM public.tickets t WHERE t.event_id = e.id AND t.status IN ('paid', 'used')) >= 20
-     ORDER BY e.start_at LIMIT 1;
-    IF v_event_id IS NOT NULL THEN
-      SELECT count(DISTINCT lower(t.user_email)) INTO n FROM public.tickets t
-       WHERE t.event_id = v_event_id AND t.status IN ('paid', 'used') AND t.user_email IS NOT NULL
-         AND NOT EXISTS (SELECT 1 FROM public.table_reservations r WHERE r.event_id = v_event_id AND lower(r.user_email) = lower(t.user_email) AND r.status IN ('paid', 'used', 'confirmed', 'pending'));
-      out := out || jsonb_build_object('kind', 'table_upsell', 'reason_key', 'em.auto.sug.tableUpsell',
-               'reason_vars', jsonb_build_object('event', v_title, 'n', n), 'reach', n, 'event_id', v_event_id);
-    END IF;
-  END IF;
-
-  -- Nouvelle soirée : ≥ 1 soirée publiée sur 30 j sans aucune campagne reliée.
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'new_event') THEN
-    SELECT count(*) INTO n FROM public.events e
-     WHERE e.status = 'active' AND e.cancelled_at IS NULL
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND e.published_at >= now() - interval '30 days'
-       AND NOT EXISTS (SELECT 1 FROM public.email_campaigns c WHERE c.event_id = e.id
-                         AND public.marketing_scope_match(c.venue_id, c.organizer_user_id, p_venue_id, p_organizer_user_id));
-    IF n >= 1 THEN
-      out := out || jsonb_build_object('kind', 'new_event', 'reason_key', 'em.auto.sug.newEvent',
-               'reason_vars', jsonb_build_object('n', n), 'reach', v_base);
-    END IF;
-  END IF;
-
-  -- Merci / On t'a manqué : ≥ 1 soirée passée avec scans sur 30 j.
-  SELECT count(*) INTO n FROM public.events e
-   WHERE e.status = 'active' AND e.cancelled_at IS NULL
-     AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-     AND e.end_at <= now() AND e.end_at >= now() - interval '30 days'
-     AND (EXISTS (SELECT 1 FROM public.tickets t WHERE t.event_id = e.id AND (t.status = 'used' OR t.used OR COALESCE(t.entry_scanned, false)))
-       OR EXISTS (SELECT 1 FROM public.guest_list_entries ge JOIN public.guest_lists gl ON gl.id = ge.guest_list_id WHERE gl.event_id = e.id AND ge.entry_scanned)
-       OR EXISTS (SELECT 1 FROM public.table_reservations r WHERE r.event_id = e.id AND (COALESCE(r.entry_scanned, false) OR r.checked_in_at IS NOT NULL))
-         OR EXISTS (SELECT 1 FROM public.external_tickets xt WHERE xt.event_id = e.id AND xt.scanned_at IS NOT NULL AND xt.status IN ('valid', 'transferred')));
-  IF n >= 1 THEN
-    IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'post_event_thanks') THEN
-      out := out || jsonb_build_object('kind', 'post_event_thanks', 'reason_key', 'em.auto.sug.thanks',
-               'reason_vars', jsonb_build_object('n', n), 'reach', (
-                 SELECT count(DISTINCT em) FROM (
-                   SELECT lower(t.user_email) AS em FROM public.tickets t JOIN public.events e ON e.id = t.event_id
-                    WHERE (t.status = 'used' OR t.used OR COALESCE(t.entry_scanned, false)) AND t.user_email IS NOT NULL
-                      AND e.end_at <= now() AND e.end_at >= now() - interval '30 days'
-                      AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-                   UNION
-                   SELECT lower(ge.email) FROM public.guest_list_entries ge JOIN public.guest_lists gl ON gl.id = ge.guest_list_id JOIN public.events e ON e.id = gl.event_id
-                    WHERE ge.entry_scanned AND ge.email IS NOT NULL
-                      AND e.end_at <= now() AND e.end_at >= now() - interval '30 days'
-                      AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-                   UNION
-                   SELECT lower(xt.buyer_email) FROM public.external_tickets xt JOIN public.events e ON e.id = xt.event_id
-                    WHERE xt.scanned_at IS NOT NULL AND xt.buyer_email IS NOT NULL AND xt.status IN ('valid', 'transferred')
-                      AND e.end_at <= now() AND e.end_at >= now() - interval '30 days'
-                      AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-                 ) c));
-    END IF;
-    IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'post_event_missed') THEN
-      out := out || jsonb_build_object('kind', 'post_event_missed', 'reason_key', 'em.auto.sug.missed',
-               'reason_vars', jsonb_build_object('n', n), 'reach', (
-                 SELECT count(DISTINCT lower(t.user_email)) FROM public.tickets t JOIN public.events e ON e.id = t.event_id
-                  WHERE t.status = 'paid' AND NOT t.used AND NOT COALESCE(t.entry_scanned, false) AND t.user_email IS NOT NULL
-                    AND e.end_at <= now() AND e.end_at >= now() - interval '30 days'
-                    AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))));
-    END IF;
-  END IF;
-
-  -- L'habitué décroche : ≥ 3 habitués (deux sorties par mois) silencieux
-  -- depuis six semaines, que personne n'a encore relancés.
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'regular_lapse') THEN
-    SELECT count(*) INTO n
-      FROM public._regular_lapse_candidates(p_venue_id, p_organizer_user_id, interval '42 days') r
-     WHERE EXISTS (SELECT 1 FROM public.newsletter_subscriptions s
-                    WHERE lower(s.email) = r.em AND s.opted_in AND s.opted_out_at IS NULL
-                      AND public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id));
-    IF n >= 3 THEN
-      out := out || jsonb_build_object('kind', 'regular_lapse', 'reason_key', 'em.auto.sug.regularLapse',
-               'reason_vars', jsonb_build_object('n', n), 'reach', n);
-    END IF;
-  END IF;
-
-  -- Reconquête : ≥ 30 clients silencieux depuis 60 j (dernière venue entre 60 et 240 j).
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'win_back') THEN
-    SELECT count(*) INTO n
-      FROM public.newsletter_subscriptions s
-      JOIN LATERAL (
-        SELECT max(x.at) AS last_at FROM (
-          SELECT t.created_at AS at FROM public.tickets t JOIN public.events e ON e.id = t.event_id
-           WHERE lower(t.user_email) = lower(s.email) AND t.status IN ('paid', 'used')
-             AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-          UNION ALL
-          SELECT r.created_at FROM public.table_reservations r JOIN public.events e ON e.id = r.event_id
-           WHERE lower(r.user_email) = lower(s.email) AND r.status IN ('paid', 'used')
-             AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-          UNION ALL
-          SELECT ge.entry_scanned_at FROM public.guest_list_entries ge JOIN public.guest_lists gl ON gl.id = ge.guest_list_id JOIN public.events e ON e.id = gl.event_id
-           WHERE lower(ge.email) = lower(s.email) AND ge.entry_scanned AND ge.entry_scanned_at IS NOT NULL
-             AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-          UNION ALL
-          SELECT COALESCE(xt.purchased_at, xt.first_seen_at) FROM public.external_tickets xt
-           WHERE lower(xt.buyer_email) = lower(s.email) AND xt.status IN ('valid', 'transferred')
-             AND ((p_venue_id IS NOT NULL AND xt.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND xt.organizer_user_id = p_organizer_user_id))
-        ) x
-      ) act ON true
-     WHERE public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-       AND s.opted_in AND s.opted_out_at IS NULL
-       AND act.last_at IS NOT NULL
-       AND act.last_at <= now() - interval '60 days'
-       AND act.last_at > now() - interval '240 days';
-    IF n >= 30 THEN
-      out := out || jsonb_build_object('kind', 'win_back', 'reason_key', 'em.auto.sug.winBack',
-               'reason_vars', jsonb_build_object('n', n), 'reach', n);
-    END IF;
-  END IF;
-
-  -- Bienvenue : ≥ 10 nouvelles inscriptions sur 30 j (hors imports, checkout, plateforme).
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'welcome') THEN
-    SELECT count(*) INTO n FROM public.newsletter_subscriptions s
-     WHERE public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-       AND s.opted_in AND s.opted_out_at IS NULL AND s.import_id IS NULL
-       AND COALESCE(s.source, '') NOT LIKE 'import%' AND COALESCE(s.source, '') NOT LIKE 'platform%' AND COALESCE(s.source, '') NOT LIKE 'checkout%' AND COALESCE(s.source, '') NOT LIKE 'connector%'
-       AND s.created_at >= now() - interval '30 days';
-    IF n >= 10 THEN
-      out := out || jsonb_build_object('kind', 'welcome', 'reason_key', 'em.auto.sug.welcome',
-               'reason_vars', jsonb_build_object('n', n), 'reach', n);
-    END IF;
-  END IF;
-
-  -- Le tarif monte : une soirée en paliers dont le palier ouvert dépasse 70 %, avec un palier plus cher ensuite.
-  IF NOT public._email_automation_enabled(p_venue_id, p_organizer_user_id, 'tier_closing') THEN
-    v_event_id := NULL;
-    SELECT e.id, e.title, cur.pct INTO v_event_id, v_title, v_pct
-      FROM public.events e
-      JOIN LATERAL (
-        SELECT r.position, r.price, (r.tickets_sold * 100 / r.max_tickets)::integer AS pct
-          FROM public.ticket_rounds r
-         WHERE r.event_id = e.id AND r.is_active AND NOT r.manually_sold_out
-           AND r.max_tickets > 0 AND r.tickets_sold < r.max_tickets
-           AND r.tickets_sold * 100 >= r.max_tickets * 70
-         ORDER BY r.position LIMIT 1
-      ) cur ON true
-     WHERE e.status = 'active' AND (e.is_active OR e.external_source IS NOT NULL) AND e.cancelled_at IS NULL
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND COALESCE(e.ticket_selling_mode, 'rounds') = 'rounds'
-       AND e.ticketing_enabled AND NOT e.tickets_sold_out
-       AND e.start_at > now() + interval '2 hours'
-       AND EXISTS (SELECT 1 FROM public.ticket_rounds nx WHERE nx.event_id = e.id AND nx.position > cur.position AND nx.price > cur.price AND NOT nx.manually_sold_out AND nx.tickets_sold < nx.max_tickets)
-     ORDER BY e.start_at LIMIT 1;
-    IF v_event_id IS NOT NULL THEN
-      SELECT count(*) INTO n FROM (
-        SELECT lower(x.recipient_email) AS em
-          FROM public.email_campaigns c JOIN public.email_campaign_events x ON x.campaign_id = c.id AND x.event_type = 'clicked'
-         WHERE public.marketing_scope_match(c.venue_id, c.organizer_user_id, p_venue_id, p_organizer_user_id)
-           AND x.created_at > now() - interval '60 days' AND x.recipient_email IS NOT NULL
-           AND (c.event_id = v_event_id OR COALESCE(x.metadata->'click'->>'link', x.metadata->>'link', '') LIKE '%/event/' || v_event_id::text || '%')
-        UNION
-        SELECT lower(w.email) FROM public.event_waitlist w WHERE w.event_id = v_event_id AND w.email IS NOT NULL
-      ) i WHERE NOT public._email_event_holder(v_event_id, i.em);
-      out := out || jsonb_build_object('kind', 'tier_closing', 'reason_key', 'em.auto.sug.tier',
-               'reason_vars', jsonb_build_object('event', v_title, 'p', v_pct), 'reach', n, 'event_id', v_event_id);
-    END IF;
-  END IF;
-
-  -- Les plus larges d'abord.
-  SELECT COALESCE(jsonb_agg(x ORDER BY (x->>'reach')::integer DESC), '[]'::jsonb) INTO out
-    FROM jsonb_array_elements(out) x;
-  RETURN out;
-END;
+  SELECT CASE p_item->>'reason_key'
+    WHEN 'em.auto.sug.abandoned'   THEN format('%s paniers abandonnés ce mois, personne ne les a relancés.', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.lastCall'    THEN format('%s dans %s jours, %s contacts sans billet.', p_item->'reason_vars'->>'event', p_item->'reason_vars'->>'d', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.tableUpsell' THEN format('%s : %s billets vendus et des tables encore libres.', p_item->'reason_vars'->>'event', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.newEvent'    THEN format('%s soirée(s) publiée(s) ce mois sans aucun email d''annonce.', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.thanks'      THEN format('%s soirée(s) scannée(s) ce mois : un merci peut partir tout seul.', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.missed'      THEN format('%s soirée(s) scannée(s) ce mois : les absents peuvent être relancés.', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.winBack'     THEN format('%s clients silencieux depuis 60 jours.', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.welcome'     THEN format('%s nouvelles inscriptions ce mois, sans mot de bienvenue.', p_item->'reason_vars'->>'n')
+    WHEN 'em.auto.sug.tier'        THEN format('%s : le palier ouvert est à %s %%.', p_item->'reason_vars'->>'event', p_item->'reason_vars'->>'p')
+    ELSE '' END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._email_blocks_without_live(p_blocks jsonb)
@@ -3827,124 +5722,6 @@ AS $function$
       WHERE COALESCE(b->>'type', '') NOT IN ('event', 'tickets', 'guestlist', 'table', 'countdown', 'lineup')),
     '[]'::jsonb
   )
-$function$;
-
-CREATE OR REPLACE FUNCTION public._email_engagement_rank(p_email text, p_venue_id text, p_organizer_user_id uuid)
- RETURNS integer
- LANGUAGE sql
- STABLE
- SET search_path TO 'public'
-AS $function$
-  SELECT CASE
-    -- (a) a ouvert ou cliqué un email marketing sous 90 j (tous expéditeurs).
-    WHEN EXISTS (
-      SELECT 1 FROM public.email_campaign_events ev
-       WHERE lower(ev.recipient_email) = lower(p_email)
-         AND ev.event_type IN ('opened', 'clicked')
-         AND ev.created_at > now() - interval '90 days'
-    ) THEN 0
-    -- (b) est venu sous 180 j : billet payé, table payée ou scan de liste invités, dans la portée.
-    WHEN EXISTS (
-      SELECT 1 FROM public.tickets t JOIN public.events e ON e.id = t.event_id
-       WHERE lower(t.user_email) = lower(p_email) AND t.status IN ('paid', 'used')
-         AND t.created_at > now() - interval '180 days'
-         AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-           OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-    ) OR EXISTS (
-      SELECT 1 FROM public.table_reservations r JOIN public.events e ON e.id = r.event_id
-       WHERE lower(r.user_email) = lower(p_email) AND r.status IN ('paid', 'used')
-         AND r.created_at > now() - interval '180 days'
-         AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-           OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-    ) OR EXISTS (
-      SELECT 1 FROM public.guest_list_entries ge
-        JOIN public.guest_lists gl ON gl.id = ge.guest_list_id
-        JOIN public.events e ON e.id = gl.event_id
-       WHERE lower(ge.email) = lower(p_email) AND ge.entry_scanned
-         AND ge.entry_scanned_at > now() - interval '180 days'
-         AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-           OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-    ) OR EXISTS (
-      SELECT 1 FROM public.external_tickets xt
-       WHERE lower(xt.buyer_email) = lower(p_email) AND xt.status IN ('valid', 'transferred')
-         AND COALESCE(xt.purchased_at, xt.first_seen_at) > now() - interval '180 days'
-         AND ((p_venue_id IS NOT NULL AND xt.venue_id = p_venue_id)
-           OR (p_organizer_user_id IS NOT NULL AND xt.organizer_user_id = p_organizer_user_id))
-    ) THEN 1
-    -- (c) inscrit au registre de la portée sous 30 j.
-    WHEN EXISTS (
-      SELECT 1 FROM public.newsletter_subscriptions s
-       WHERE lower(s.email) = lower(p_email)
-         AND public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-         AND s.created_at > now() - interval '30 days'
-    ) THEN 2
-    ELSE 3
-  END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._email_engagement_ranks(p_emails text[], p_venue_id text, p_organizer_user_id uuid)
- RETURNS TABLE(email text, rnk integer)
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  WITH e AS (
-    SELECT DISTINCT lower(x) AS em FROM unnest(p_emails) AS x WHERE x IS NOT NULL
-  ),
-  r0 AS (
-    SELECT DISTINCT lower(ev.recipient_email) AS em
-      FROM public.email_campaign_events ev
-     WHERE ev.event_type IN ('opened', 'clicked') AND ev.created_at > now() - interval '90 days'
-       AND lower(ev.recipient_email) IN (SELECT em FROM e)
-  ),
-  r1 AS (
-    SELECT lower(t.user_email) AS em
-      FROM public.tickets t JOIN public.events ev ON ev.id = t.event_id
-     WHERE t.status IN ('paid', 'used') AND t.created_at > now() - interval '180 days'
-       AND ((p_venue_id IS NOT NULL AND ev.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND ev.organizer_user_id = p_organizer_user_id))
-       AND lower(t.user_email) IN (SELECT em FROM e)
-    UNION
-    SELECT lower(r.user_email)
-      FROM public.table_reservations r JOIN public.events ev ON ev.id = r.event_id
-     WHERE r.status IN ('paid', 'used') AND r.created_at > now() - interval '180 days'
-       AND ((p_venue_id IS NOT NULL AND ev.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND ev.organizer_user_id = p_organizer_user_id))
-       AND lower(r.user_email) IN (SELECT em FROM e)
-    UNION
-    SELECT lower(ge.email)
-      FROM public.guest_list_entries ge
-      JOIN public.guest_lists gl ON gl.id = ge.guest_list_id
-      JOIN public.events ev ON ev.id = gl.event_id
-     WHERE ge.entry_scanned AND ge.entry_scanned_at > now() - interval '180 days'
-       AND ((p_venue_id IS NOT NULL AND ev.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND ev.organizer_user_id = p_organizer_user_id))
-       AND lower(ge.email) IN (SELECT em FROM e)
-    UNION
-    SELECT lower(xt.buyer_email)
-      FROM public.external_tickets xt
-     WHERE xt.status IN ('valid', 'transferred')
-       AND COALESCE(xt.purchased_at, xt.first_seen_at) > now() - interval '180 days'
-       AND ((p_venue_id IS NOT NULL AND xt.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND xt.organizer_user_id = p_organizer_user_id))
-       AND lower(xt.buyer_email) IN (SELECT em FROM e)
-  ),
-  r2 AS (
-    SELECT DISTINCT lower(s.email) AS em
-      FROM public.newsletter_subscriptions s
-     WHERE public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-       AND s.created_at > now() - interval '30 days'
-       AND lower(s.email) IN (SELECT em FROM e)
-  )
-  SELECT e.em,
-         CASE WHEN r0.em IS NOT NULL THEN 0
-              WHEN r1.em IS NOT NULL THEN 1
-              WHEN r2.em IS NOT NULL THEN 2
-              ELSE 3 END
-    FROM e
-    LEFT JOIN r0 ON r0.em = e.em
-    LEFT JOIN (SELECT DISTINCT em FROM r1) r1 ON r1.em = e.em
-    LEFT JOIN r2 ON r2.em = e.em;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._email_event_holder(p_event_id uuid, p_email text)
@@ -3963,6 +5740,32 @@ AS $function$
                     AND COALESCE(ge.status, '') NOT IN ('cancelled', 'refused', 'rejected'))
       OR EXISTS (SELECT 1 FROM public.external_tickets xt
                   WHERE xt.event_id = p_event_id AND xt.status IN ('valid', 'transferred') AND lower(xt.buyer_email) = lower(p_email));
+$function$;
+
+CREATE OR REPLACE FUNCTION public._email_list_import_for_actor(p_import_id uuid)
+ RETURNS email_list_imports
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  imp public.email_list_imports;
+BEGIN
+  SELECT * INTO imp FROM public.email_list_imports WHERE id = p_import_id;
+  IF imp.id IS NULL THEN RAISE EXCEPTION 'Import inconnu'; END IF;
+  IF imp.venue_id IS NOT NULL THEN
+    IF NOT (public.is_venue_owner(auth.uid(), imp.venue_id) OR public.is_super_admin()) THEN
+      RAISE EXCEPTION 'Unauthorized';
+    END IF;
+  ELSIF imp.organizer_user_id IS NOT NULL THEN
+    IF NOT COALESCE(imp.organizer_user_id = auth.uid() OR public.is_super_admin(), false) THEN
+      RAISE EXCEPTION 'Unauthorized';
+    END IF;
+  ELSIF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+  RETURN imp;
+END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._email_scope_guard(p_venue_id text, p_organizer_user_id uuid)
@@ -3986,190 +5789,6 @@ BEGIN
   ELSIF NOT COALESCE(public.is_super_admin(), false) THEN
     RAISE EXCEPTION 'Unauthorized';
   END IF;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._email_send_policy_many(p_emails text[], p_kind text)
- RETURNS TABLE(email text, reason text)
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  WITH e AS (
-    SELECT DISTINCT lower(x) AS em FROM unnest(p_emails) AS x WHERE x IS NOT NULL
-  ),
-  cfg AS (
-    SELECT k.tier,
-           CASE k.tier WHEN 'campaign' THEN 3 WHEN 'urgent' THEN 2 ELSE 1 END AS cap24,
-           CASE k.tier WHEN 'campaign' THEN 8 WHEN 'urgent' THEN 5 ELSE 3 END AS cap7
-      FROM (SELECT CASE
-              WHEN p_kind IN ('campaign', 'resend') THEN 'campaign'
-              WHEN p_kind IN ('abandoned_checkout', 'upsell', 'tier_closing', 'click_no_buy') THEN 'urgent'
-              ELSE 'automation' END AS tier) k
-  ),
-  sends AS (
-    SELECT lower(r.email) AS em, r.sent_at
-      FROM public.email_campaign_recipients r
-      JOIN public.email_campaigns c ON c.id = r.campaign_id
-     WHERE r.status = 'sent' AND r.sent_at > now() - interval '90 days'
-       AND COALESCE(c.type, 'promotional') = 'promotional'
-       AND lower(r.email) IN (SELECT em FROM e)
-    UNION ALL
-    SELECT lower(l.email), l.sent_at
-      FROM public.marketing_email_log l
-     WHERE l.sent_at > now() - interval '90 days'
-       AND lower(l.email) IN (SELECT em FROM e)
-  ),
-  agg AS (
-    SELECT s.em,
-           count(*) FILTER (WHERE s.sent_at > now() - interval '24 hours') AS n24,
-           count(*) FILTER (WHERE s.sent_at > now() - interval '7 days') AS n7d,
-           count(*) AS sent90
-      FROM sends s
-     GROUP BY s.em
-  ),
-  eng AS (
-    SELECT DISTINCT lower(ev.recipient_email) AS em
-      FROM public.email_campaign_events ev
-     WHERE ev.event_type IN ('opened', 'clicked') AND ev.created_at > now() - interval '90 days'
-       AND lower(ev.recipient_email) IN (SELECT em FROM e)
-  ),
-  oo AS (
-    SELECT lower(s.email) AS em, count(*) AS n
-      FROM public.newsletter_subscriptions s
-     WHERE s.opted_out_at > now() - interval '30 days'
-       AND lower(s.email) IN (SELECT em FROM e)
-     GROUP BY lower(s.email)
-  ),
-  sup AS (
-    SELECT DISTINCT lower(s.email) AS em
-      FROM public.email_suppressions s
-     WHERE lower(s.email) IN (SELECT em FROM e)
-  )
-  SELECT e.em,
-         CASE
-           WHEN position('@' in e.em) <= 1 THEN 'suppressed'
-           WHEN sup.em IS NOT NULL THEN 'suppressed'
-           WHEN COALESCE(a.sent90, 0) >= 8 AND eng.em IS NULL THEN 'fatigue'
-           WHEN cfg.tier <> 'campaign' AND COALESCE(oo.n, 0) >= 2 THEN 'averse'
-           WHEN COALESCE(a.n24, 0) >= cfg.cap24 THEN 'pressure_24h'
-           WHEN COALESCE(a.n7d, 0) >= cfg.cap7 THEN 'pressure_7d'
-         END
-    FROM e
-    CROSS JOIN cfg
-    LEFT JOIN agg a ON a.em = e.em
-    LEFT JOIN eng ON eng.em = e.em
-    LEFT JOIN oo ON oo.em = e.em
-    LEFT JOIN sup ON sup.em = e.em;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._enqueue_campaign_recipients_core(p_campaign_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_queued integer := 0;
-  v_suppressed integer := 0;
-  v_policy integer := 0;
-  v_total integer := 0;
-  v_sent integer := 0;
-  v_kind text;
-BEGIN
-  IF COALESCE(auth.role(), '') <> 'service_role' THEN
-    RAISE EXCEPTION 'enqueue_campaign_recipients: service_role only';
-  END IF;
-
-  -- Un email de service (informational) n'est pas du marketing : pas de règle
-  -- de pression, seule la liste de suppression s'applique.
-  SELECT CASE WHEN COALESCE(c.type, 'promotional') = 'promotional' THEN 'campaign' ELSE NULL END
-    INTO v_kind FROM public.email_campaigns c WHERE c.id = p_campaign_id;
-
-  WITH aud AS (
-    SELECT DISTINCT ON (lower(a.email))
-           lower(a.email) AS addr, a.first_name AS fname, a.last_name AS lname,
-           a.unsubscribe_token AS tok
-      FROM public.resolve_campaign_audience(p_campaign_id) a
-     WHERE a.email IS NOT NULL AND position('@' in a.email) > 1
-     ORDER BY lower(a.email)
-  ), rules AS (
-    -- Les règles Yuno en UNE passe sur toute l'audience : ligne à ligne,
-    -- elles coûtaient ~1 ms par adresse (17 s pour 12 000, au-delà du
-    -- plafond de 8 s de l'API : la campagne ne partait pas).
-    SELECT p.email, p.reason
-      FROM public._email_send_policy_many(ARRAY(SELECT addr FROM aud), COALESCE(v_kind, 'campaign')) p
-     WHERE v_kind IS NOT NULL
-  ), flagged AS (
-    SELECT a.addr, a.fname, a.lname, a.tok,
-           (sx.em IS NOT NULL) AS supp,
-           CASE WHEN v_kind IS NULL THEN NULL ELSE p.reason END AS pol
-      FROM aud a
-      LEFT JOIN rules p ON p.email = a.addr
-      -- Liste de suppression lue en une jointure (= is_email_suppressed).
-      LEFT JOIN (SELECT DISTINCT lower(s.email) AS em FROM public.email_suppressions s
-                  WHERE lower(s.email) IN (SELECT addr FROM aud)) sx ON sx.em = a.addr
-  ), ins AS (
-    INSERT INTO public.email_campaign_recipients
-      (campaign_id, email, first_name, last_name, unsubscribe_token, status)
-    SELECT p_campaign_id, f.addr, f.fname, f.lname, f.tok, 'pending'
-      FROM flagged f WHERE NOT f.supp AND (f.pol IS NULL OR f.pol = 'suppressed')
-    ON CONFLICT (campaign_id, lower(email)) DO NOTHING
-    RETURNING 1
-  ), sup AS (
-    INSERT INTO public.email_campaign_recipients
-      (campaign_id, email, first_name, last_name, status, error_message)
-    SELECT p_campaign_id, f.addr, f.fname, f.lname, 'suppressed',
-           'Adresse sur la liste de suppression (bounce ou plainte)'
-      FROM flagged f WHERE f.supp
-    ON CONFLICT (campaign_id, lower(email)) DO NOTHING
-    RETURNING 1
-  ), pol AS (
-    INSERT INTO public.email_campaign_recipients
-      (campaign_id, email, first_name, last_name, status, error_message)
-    SELECT p_campaign_id, f.addr, f.fname, f.lname, 'skipped', 'policy:' || f.pol
-      FROM flagged f WHERE NOT f.supp AND f.pol IS NOT NULL AND f.pol <> 'suppressed'
-    ON CONFLICT (campaign_id, lower(email)) DO NOTHING
-    RETURNING 1
-  )
-  SELECT (SELECT count(*) FROM ins),
-         (SELECT count(*) FROM flagged WHERE supp),
-         (SELECT count(*) FROM flagged WHERE NOT supp AND pol IS NOT NULL AND pol <> 'suppressed')
-    INTO v_queued, v_suppressed, v_policy;
-
-  UPDATE public.email_campaign_recipients r
-     SET first_name = COALESCE(r.first_name, ns.first_name),
-         last_name  = COALESCE(r.last_name,  ns.last_name)
-    FROM public.email_campaigns c
-    JOIN public.newsletter_subscriptions ns
-      ON public.marketing_scope_match(ns.venue_id, ns.organizer_user_id,
-                                      c.venue_id, c.organizer_user_id)
-   WHERE c.id = p_campaign_id
-     AND r.campaign_id = p_campaign_id
-     AND lower(ns.email) = lower(r.email)
-     AND (r.first_name IS NULL OR r.last_name IS NULL)
-     AND (ns.first_name IS NOT NULL OR ns.last_name IS NOT NULL);
-
-  SELECT count(*), count(*) FILTER (WHERE status = 'sent')
-    INTO v_total, v_sent
-    FROM public.email_campaign_recipients
-   WHERE campaign_id = p_campaign_id AND status NOT IN ('suppressed', 'skipped');
-
-  UPDATE public.email_campaigns
-     SET total_recipients = v_total,
-         suppressed_count = v_suppressed,
-         policy_skipped_count = v_policy,
-         recipients_count = v_sent,
-         send_started_at = COALESCE(send_started_at, now()),
-         status = CASE WHEN v_total > v_sent THEN 'sending' ELSE status END,
-         paused_reason = NULL,
-         error_message = NULL
-   WHERE id = p_campaign_id;
-
-  RETURN jsonb_build_object(
-    'queued', v_queued, 'suppressed', v_suppressed, 'policy_skipped', v_policy,
-    'total', v_total, 'already_sent', v_sent, 'remaining', v_total - v_sent
-  );
 END;
 $function$;
 
@@ -4236,88 +5855,6 @@ CREATE OR REPLACE FUNCTION public._mcp_draft_version(p_at timestamp with time zo
  LANGUAGE sql
  IMMUTABLE
 AS $function$ SELECT (floor(extract(epoch FROM p_at) * 1000000))::bigint::text $function$;
-
-CREATE OR REPLACE FUNCTION public._mcp_email_audience(p_id text, p_product text, p_venue_id text, p_organizer_user_id uuid, p_lang text)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_id   text := lower(btrim(coalesce(p_id, '')));
-  v_i    integer := CASE WHEN p_lang = 'en' THEN 1 WHEN p_lang = 'es' THEN 3 ELSE 2 END;
-  v_uuid uuid;
-  v_name text;
-  v_def  jsonb;
-  v_lbl  text[];
-BEGIN
-  IF p_product = 'crm' THEN
-    IF v_id = 'all' THEN
-      RETURN (SELECT jsonb_agg(jsonb_build_object('kind', 'crm', 'def', jsonb_build_object('seg', k), 'label', lbl[v_i]) ORDER BY o)
-                FROM (VALUES (1, 'hab', ARRAY['Regulars', 'Habitués', 'Habituales']),
-                             (2, 'occ', ARRAY['Occasional', 'Occasionnels', 'Ocasionales']),
-                             (3, 'nou', ARRAY['New', 'Nouveaux', 'Nuevos']),
-                             (4, 'end', ARRAY['Dormant', 'Endormis', 'Dormidos']),
-                             (5, 'none', ARRAY['Never came', 'Jamais venus', 'Nunca vinieron'])) x(o, k, lbl));
-    END IF;
-    IF v_id ~ '^lifecycle:(hab|occ|nou|end|none)$' THEN
-      v_lbl := CASE split_part(v_id, ':', 2)
-        WHEN 'hab' THEN ARRAY['Regulars', 'Habitués', 'Habituales']
-        WHEN 'occ' THEN ARRAY['Occasional', 'Occasionnels', 'Ocasionales']
-        WHEN 'nou' THEN ARRAY['New', 'Nouveaux', 'Nuevos']
-        WHEN 'end' THEN ARRAY['Dormant', 'Endormis', 'Dormidos']
-        ELSE ARRAY['Never came', 'Jamais venus', 'Nunca vinieron'] END;
-      RETURN jsonb_build_array(jsonb_build_object('kind', 'crm', 'def', jsonb_build_object('seg', split_part(v_id, ':', 2)), 'label', v_lbl[v_i]));
-    END IF;
-    IF v_id ~ '^segment:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
-      v_uuid := split_part(v_id, ':', 2)::uuid;
-      SELECT s.name INTO v_name FROM public.crm_segments s
-       WHERE s.id = v_uuid
-         AND ((p_venue_id IS NOT NULL AND s.venue_id = p_venue_id) OR (p_organizer_user_id IS NOT NULL AND s.organizer_user_id = p_organizer_user_id));
-      IF NOT FOUND THEN RETURN NULL; END IF;
-      RETURN jsonb_build_array(jsonb_build_object('kind', 'crm', 'segmentId', v_uuid, 'label', v_name));
-    END IF;
-    IF v_id ~ '^preset:' THEN
-      SELECT d, l INTO v_def, v_lbl FROM (VALUES
-        ('preset:vip', '{"seg":"all","f":{"sp":"200+"}}'::jsonb, ARRAY['Big spenders', 'Gros dépensiers', 'Grandes gastadores']),
-        ('preset:loyal', '{"seg":"all","f":{"nb_min":4}}'::jsonb, ARRAY['Loyal customers (4 nights or more)', 'Fidèles (4 soirées ou plus)', 'Fieles (4 fiestas o más)']),
-        ('preset:buyers', '{"seg":"all","f":{"paid_min":1}}'::jsonb, ARRAY['Ticket buyers', 'Acheteurs de billets', 'Compradores de entradas']),
-        ('preset:recent', '{"seg":"all","f":{"last_lt_days":90}}'::jsonb, ARRAY['Came in the last 3 months', 'Venus ces 3 derniers mois', 'Vinieron en los últimos 3 meses']),
-        ('preset:lapsed', '{"seg":"all","f":{"last_gt_days":90,"last_lt_days":365}}'::jsonb, ARRAY['To reactivate (3 to 12 months)', 'À réactiver (3 à 12 mois)', 'Por reactivar (3 a 12 meses)']),
-        ('preset:has_upcoming', '{"seg":"all","f":{"up":"yes"}}'::jsonb, ARRAY['Already have their place', 'Ont déjà leur place', 'Ya tienen su entrada']),
-        ('preset:no_upcoming', '{"seg":"all","f":{"up":"no"}}'::jsonb, ARRAY['No place yet for what’s next', 'Pas encore de place pour la suite', 'Sin entrada aún para lo próximo']),
-        ('preset:clickers', '{"seg":"all","f":{"click_lt_days":90}}'::jsonb, ARRAY['Clicked in the last 3 months', 'Ont cliqué ces 3 derniers mois', 'Hicieron clic en los últimos 3 meses']),
-        ('preset:gl_loyal', '{"seg":"all","f":{"gl":"loyal"}}'::jsonb, ARRAY['Guest list regulars', 'Habitués de la guest list', 'Habituales de la lista de invitados'])
-      ) x(k, d, l) WHERE x.k = v_id;
-      IF v_def IS NULL THEN RETURN NULL; END IF;
-      RETURN jsonb_build_array(jsonb_build_object('kind', 'crm', 'def', v_def, 'label', v_lbl[v_i]));
-    END IF;
-    RETURN NULL;
-  END IF;
-
-  -- Billetterie (Suite) : audiences v2 du moteur d'envoi (resolve_campaign_audience).
-  IF v_id IN ('all', 'kind:all_subscribers') THEN RETURN jsonb_build_array(jsonb_build_object('kind', 'all_subscribers')); END IF;
-  IF v_id ~ '^kind:(vip|big_spenders|regulars|new_customers|dormant)$' THEN
-    RETURN jsonb_build_array(jsonb_build_object('kind', split_part(v_id, ':', 2)));
-  END IF;
-  IF v_id ~ '^(segment|contact_segment|import):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
-    v_uuid := split_part(v_id, ':', 2)::uuid;
-    IF v_id LIKE 'segment:%' THEN
-      IF p_venue_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.venue_segments s WHERE s.id = v_uuid AND s.venue_id = p_venue_id) THEN RETURN NULL; END IF;
-      RETURN jsonb_build_array(jsonb_build_object('kind', 'segment', 'segmentId', v_uuid));
-    ELSIF v_id LIKE 'contact_segment:%' THEN
-      IF NOT EXISTS (SELECT 1 FROM public.contact_segments s WHERE s.id = v_uuid
-                      AND s.venue_id IS NOT DISTINCT FROM p_venue_id AND s.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id) THEN RETURN NULL; END IF;
-      RETURN jsonb_build_array(jsonb_build_object('kind', 'contact_segment', 'segmentId', v_uuid));
-    ELSE
-      IF NOT EXISTS (SELECT 1 FROM public.email_list_imports i WHERE i.id = v_uuid AND i.superseded_at IS NULL
-                      AND i.venue_id IS NOT DISTINCT FROM p_venue_id AND i.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id) THEN RETURN NULL; END IF;
-      RETURN jsonb_build_array(jsonb_build_object('kind', 'import', 'importId', v_uuid));
-    END IF;
-  END IF;
-  RETURN NULL;
-END;
-$function$;
 
 CREATE OR REPLACE FUNCTION public._mcp_email_event_facts(p_event_id uuid)
  RETURNS jsonb
@@ -4412,6 +5949,32 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public._mcp_email_image_add(p_kind text, p_space_id text, p_space_product text, p_args jsonb, p_uid uuid, p_grant uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_venue text := CASE WHEN p_kind = 'venue' THEN p_space_id END;
+  v_org   uuid := CASE WHEN p_kind = 'organizer' THEN p_space_id::uuid END;
+  v_ok    boolean := false;
+  v_p     text;
+  v_code  text := replace(gen_random_uuid()::text, '-', '');
+  v_id    uuid;
+  v_exp   timestamptz := now() + interval '30 minutes';
+BEGIN
+  FOREACH v_p IN ARRAY public._mcp_email_products(v_venue, v_org, p_space_product) LOOP
+    IF public._mcp_space_can_draft(p_uid, v_venue, v_org, v_p) THEN v_ok := true; END IF;
+  END LOOP;
+  IF NOT v_ok THEN RETURN jsonb_build_object('ok', false, 'error', 'write_forbidden'); END IF;
+  INSERT INTO public.mcp_email_images (code, grant_id, user_id, venue_id, organizer_user_id, name, source, expires_at)
+  VALUES (v_code, p_grant, p_uid, v_venue, v_org, left(nullif(btrim(coalesce(p_args->>'name', '')), ''), 80),
+          CASE WHEN p_args->>'source' IN ('upload', 'url', 'chat_file') THEN p_args->>'source' ELSE 'upload' END, v_exp)
+  RETURNING id INTO v_id;
+  RETURN jsonb_build_object('ok', true, 'image_id', v_id, 'code', v_code, 'expires_at', v_exp);
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public._mcp_email_kind_label(p_kind text, p_lang text)
  RETURNS text
  LANGUAGE sql
@@ -4439,269 +6002,12 @@ AS $function$
     ELSE ARRAY['suite'] END
 $function$;
 
-CREATE OR REPLACE FUNCTION public._mcp_email_scope_events(p_venue_id text, p_organizer_user_id uuid)
- RETURNS uuid[]
+CREATE OR REPLACE FUNCTION public._mcp_random(p_bytes integer DEFAULT 32)
+ RETURNS text
  LANGUAGE sql
- STABLE
- SET search_path TO 'public'
+ SET search_path TO 'public', 'extensions'
 AS $function$
-  SELECT coalesce(array_agg(x.id), '{}') FROM public.events x
-   WHERE x.cancelled_at IS NULL AND (
-     (p_organizer_user_id IS NOT NULL AND (x.organizer_user_id = p_organizer_user_id OR x.partner_organizer_id = p_organizer_user_id
-        OR x.id IN (SELECT public.cohost_event_ids_org(p_organizer_user_id))))
-     OR (p_venue_id IS NOT NULL AND (x.venue_id = p_venue_id OR x.partner_venue_id = p_venue_id
-        OR x.id IN (SELECT public.cohost_event_ids_venue(p_venue_id)))))
-$function$;
-
-CREATE OR REPLACE FUNCTION public._mcp_email_tool(p_tool text, p_kind text, p_space_id text, p_product text, p_tz text, p_args jsonb, p_uid uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_venue    text := CASE WHEN p_kind = 'venue' THEN p_space_id END;
-  v_org      uuid := CASE WHEN p_kind = 'organizer' THEN p_space_id::uuid END;
-  v_products text[] := public._mcp_email_products(v_venue, v_org, p_product);
-  v_product  text;
-  gate       record;
-  v_ids      uuid[];
-  v_event    uuid;
-  v          jsonb;
-  v_aud      jsonb := '[]'::jsonb;
-  v_n        integer;
-  v_all      integer := 0;
-  r          record;
-  v_lang     text;
-BEGIN
-  SELECT * INTO gate FROM public.analytics_scope_gate(v_venue, v_org);
-  IF NOT coalesce(gate.ok, false) THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'forbidden', 'reason', gate.reason);
-  END IF;
-  v_product := coalesce(nullif(p_args->>'product', ''), CASE WHEN p_product = 'crm' THEN 'crm' ELSE 'suite' END);
-  IF NOT (v_product = ANY (v_products)) THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'product_not_available', 'products', to_jsonb(v_products));
-  END IF;
-  SELECT CASE WHEN preferred_language IN ('fr', 'en', 'es') THEN preferred_language ELSE 'fr' END INTO v_lang FROM public.profiles WHERE id = p_uid;
-  v_lang := coalesce(v_lang, 'fr');
-
-  CASE p_tool
-  -- ── Kit de design ─────────────────────────────────────────────────────────
-  WHEN 'get_email_design_kit' THEN
-    v_ids := public._mcp_email_scope_events(v_venue, v_org);
-    IF nullif(btrim(coalesce(p_args->>'event', '')), '') IS NOT NULL THEN
-      v_event := public._mcp_resolve_event(p_args->>'event', v_ids);
-      IF v_event IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'event_not_found'); END IF;
-    END IF;
-    RETURN jsonb_build_object(
-      'ok', true,
-      'product', v_product,
-      'products_available', to_jsonb(v_products),
-      'can_create_drafts', public._mcp_space_can_draft(p_uid, v_venue, v_org, v_product),
-      'language_hint', v_lang,
-      'brand', CASE WHEN v_venue IS NOT NULL THEN (
-          SELECT jsonb_strip_nulls(jsonb_build_object('name', vv.name, 'logo_url', vv.logo_url, 'city', vv.city,
-                   'cover_url', vv.cover_url,
-                   'social', jsonb_strip_nulls(jsonb_build_object('instagram', vv.instagram_url, 'tiktok', vv.tiktok_url,
-                                                'facebook', vv.facebook_url, 'x', vv.twitter_url))))
-            FROM public.venues vv WHERE vv.id = v_venue)
-        ELSE (
-          SELECT jsonb_strip_nulls(jsonb_build_object('name', op.display_name, 'logo_url', op.avatar_url, 'city', op.city,
-                   'cover_url', op.cover_url,
-                   'social', jsonb_strip_nulls(jsonb_build_object('instagram', op.instagram_url, 'website', op.website_url))))
-            FROM public.organizer_profiles op WHERE op.user_id = v_org) END,
-      'sender', (SELECT jsonb_strip_nulls(jsonb_build_object('name', cs.sender_name, 'postal_address', cs.postal_address,
-                          'quiet_hours', cs.quiet_hours))
-                   FROM public.crm_email_settings cs WHERE cs.scope_key = public.crm_scope_key(v_venue, v_org)),
-      'recent_email_themes', coalesce((
-          SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object('campaign', x.name, 'status', x.status,
-                   'background', x.theme_json->>'bg', 'card', x.theme_json->>'card', 'text', x.theme_json->>'text',
-                   'accent', x.theme_json->>'accent', 'dark', x.theme_json->'dark', 'radius', x.theme_json->'radius')))
-            FROM (SELECT ec.name, ec.status, ec.theme_json FROM public.email_campaigns ec
-                   WHERE ec.venue_id IS NOT DISTINCT FROM v_venue AND ec.organizer_user_id IS NOT DISTINCT FROM v_org
-                     AND ec.blocks_version >= 2 AND ec.automation_id IS NULL AND ec.parent_campaign_id IS NULL
-                     AND jsonb_typeof(ec.theme_json) = 'object'
-                   ORDER BY ec.updated_at DESC LIMIT 3) x), '[]'::jsonb),
-      'upcoming_events', coalesce((
-          SELECT jsonb_agg(jsonb_build_object('id', x.id, 'title', x.title, 'start_at', x.start_at,
-                   'sales', CASE WHEN x.external_source IS NOT NULL THEN 'external' ELSE 'yuno' END,
-                   'has_poster', coalesce(x.poster_url, x.image_url) IS NOT NULL) ORDER BY x.start_at)
-            FROM (SELECT e.* FROM public.events e
-                   WHERE e.id = ANY (v_ids)
-                     AND coalesce(e.end_at, e.start_at + interval '8 hours') >= now()
-                     AND (v_product = 'crm' OR e.external_source IS NULL)
-                     AND (e.is_active OR e.external_source IS NOT NULL)
-                   ORDER BY e.start_at LIMIT 12) x), '[]'::jsonb),
-      'event', CASE WHEN v_event IS NOT NULL THEN public._mcp_email_event_facts(v_event) END,
-      'recent_drafts', coalesce((
-          SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object('draft_id', x.id, 'name', x.name, 'subject', nullif(x.subject, '—'),
-                   'product', coalesce(x.product, 'suite'), 'prepared_by', x.ai_author, 'edited', to_char(x.updated_at, 'YYYY-MM-DD HH24:MI'))))
-            FROM (SELECT ec.* FROM public.email_campaigns ec
-                   WHERE ec.venue_id IS NOT DISTINCT FROM v_venue AND ec.organizer_user_id IS NOT DISTINCT FROM v_org
-                     AND ec.status = 'draft' AND ec.automation_id IS NULL AND ec.parent_campaign_id IS NULL
-                   ORDER BY ec.updated_at DESC LIMIT 8) x), '[]'::jsonb));
-
-  -- ── Audiences ─────────────────────────────────────────────────────────────
-  WHEN 'list_email_audiences' THEN
-    IF v_product = 'crm' THEN
-      v := public.crm_email_send_options(v_venue, v_org);   -- construit _cso (joignables)
-      FOR r IN SELECT x FROM jsonb_array_elements(coalesce(v->'auto', '[]'::jsonb)) x LOOP
-        v_all := v_all + coalesce((r.x->>'reach')::integer, 0);
-        v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object(
-          'id', 'lifecycle:' || (r.x->>'key'),
-          'label', (public._mcp_email_audience('lifecycle:' || (r.x->>'key'), 'crm', v_venue, v_org, v_lang)->0->>'label'),
-          'reachable', coalesce((r.x->>'reach')::integer, 0),
-          'open_rate_pct', r.x->'open_pct', 'click_rate_pct', r.x->'click_pct',
-          'rule', CASE r.x->>'key'
-            WHEN 'hab' THEN 'Regulars: came to several nights recently (the account''s regular rule).'
-            WHEN 'occ' THEN 'Occasional: came, but not often enough to be a regular.'
-            WHEN 'nou' THEN 'New: first night recently, or a ticket for an upcoming night and no night yet.'
-            WHEN 'end' THEN 'Dormant: used to come, has not come back for several months.'
-            ELSE 'Known contacts who never came to a night (imports, signups).' END)));
-      END LOOP;
-      v_aud := jsonb_build_array(jsonb_build_object('id', 'all',
-                 'label', CASE v_lang WHEN 'en' THEN 'Whole base' WHEN 'es' THEN 'Toda la base' ELSE 'Toute la base' END,
-                 'reachable', v_all, 'rule', 'Every contact who accepted your emails (all lifecycle groups). Use it for a global announcement.'))
-               || v_aud;
-      FOR r IN SELECT x FROM jsonb_array_elements(coalesce(v->'saved', '[]'::jsonb)) x LOOP
-        v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object(
-          'id', 'segment:' || (r.x->>'id'), 'label', r.x->>'name', 'reachable', coalesce((r.x->>'reach')::integer, 0),
-          'open_rate_pct', r.x->'open_pct', 'click_rate_pct', r.x->'click_pct',
-          'rule', coalesce(nullif(r.x->>'description', ''), 'Saved segment of the account.'))));
-      END LOOP;
-      FOR r IN SELECT * FROM (VALUES
-          ('preset:vip', 'Spent 200 € or more in total.'),
-          ('preset:loyal', 'Came to 4 nights or more.'),
-          ('preset:buyers', 'Bought at least one paid ticket.'),
-          ('preset:recent', 'Came in the last 3 months.'),
-          ('preset:lapsed', 'Last night 3 to 12 months ago.'),
-          ('preset:has_upcoming', 'Already have a ticket or an invitation for an upcoming night.'),
-          ('preset:no_upcoming', 'No ticket yet for an upcoming night.'),
-          ('preset:clickers', 'Clicked an email link in the last 3 months.'),
-          ('preset:gl_loyal', 'Came on the guest list 3 nights or more, never paid.')) p(k, rule)
-      LOOP
-        BEGIN
-          EXECUTE format('SELECT count(*)::integer FROM _cso p WHERE (%s)',
-                         public._crm_filter_sql(public._mcp_email_audience(r.k, 'crm', v_venue, v_org, v_lang)->0->'def', 'p'))
-            INTO v_n;
-        EXCEPTION WHEN others THEN v_n := NULL;
-        END;
-        v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object(
-          'id', r.k, 'label', public._mcp_email_audience(r.k, 'crm', v_venue, v_org, v_lang)->0->>'label',
-          'reachable', v_n, 'rule', r.rule, 'kind', 'yuno_preset')));
-      END LOOP;
-      RETURN jsonb_build_object('ok', true, 'product', 'crm', 'audiences', v_aud,
-        'reachable_means', 'Contacts with an email who accepted your emails (newsletter opt-in) and are not suppressed. Yuno sending rules may still protect some at send time.',
-        'exclusions', jsonb_build_object(
-          'exclude_event_buyers', 'Skip people who already bought a ticket for the linked night (recommended for a last call, not for a first announcement).',
-          'exclude_recent_days', 'Skip people who received an email from this account in the last N days (default 3).'));
-    END IF;
-
-    -- Billetterie
-    IF v_venue IS NOT NULL THEN
-      FOR r IN SELECT * FROM (VALUES
-          ('all_subscribers', 'Every contact who accepted your emails.'),
-          ('vip', 'Customers who spent 500 € or more.'),
-          ('big_spenders', 'Customers who spent 1,000 € or more.'),
-          ('regulars', 'Customers who came 2 to 4 times.'),
-          ('new_customers', 'Customers who came once or never.'),
-          ('dormant', 'Customers with no purchase for 90 days.')) k(kind, rule)
-      LOOP
-        BEGIN
-          v_n := public.count_campaign_recipients(v_venue, 'promotional', r.kind, NULL, NULL);
-        EXCEPTION WHEN others THEN v_n := NULL;
-        END;
-        v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object(
-          'id', CASE WHEN r.kind = 'all_subscribers' THEN 'all' ELSE 'kind:' || r.kind END,
-          'label', public._mcp_email_kind_label(r.kind, v_lang), 'reachable', v_n, 'rule', r.rule)));
-      END LOOP;
-      FOR r IN SELECT s.id, s.name FROM public.venue_segments s WHERE s.venue_id = v_venue ORDER BY s.created_at DESC LIMIT 20 LOOP
-        BEGIN
-          v_n := public.count_campaign_recipients(v_venue, 'promotional', 'custom_segment', NULL, r.id);
-        EXCEPTION WHEN others THEN v_n := NULL;
-        END;
-        v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('id', 'segment:' || r.id, 'label', r.name, 'reachable', v_n, 'rule', 'Saved customer segment.')));
-      END LOOP;
-    ELSE
-      BEGIN
-        v := public.count_organizer_audience_kinds(v_org, NULL);
-      EXCEPTION WHEN others THEN v := '{}'::jsonb;
-      END;
-      FOR r IN SELECT * FROM (VALUES
-          ('all_subscribers', 'Every contact who accepted your emails.'),
-          ('vip', 'Customers who spent 500 € or more.'),
-          ('big_spenders', 'Customers who spent 1,000 € or more.'),
-          ('regulars', 'Customers who came 2 to 4 times.'),
-          ('new_customers', 'Customers who came once or never.'),
-          ('dormant', 'Customers with no purchase for 90 days.')) k(kind, rule)
-      LOOP
-        v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object(
-          'id', CASE WHEN r.kind = 'all_subscribers' THEN 'all' ELSE 'kind:' || r.kind END,
-          'label', public._mcp_email_kind_label(r.kind, v_lang), 'reachable', (v->>r.kind)::integer, 'rule', r.rule)));
-      END LOOP;
-    END IF;
-    FOR r IN SELECT s.id, s.name, s.description FROM public.contact_segments s
-              WHERE s.venue_id IS NOT DISTINCT FROM v_venue AND s.organizer_user_id IS NOT DISTINCT FROM v_org
-              ORDER BY s.created_at DESC LIMIT 20 LOOP
-      v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('id', 'contact_segment:' || r.id, 'label', r.name,
-                 'rule', coalesce(nullif(r.description, ''), 'Segment of the contact base (imports and Yuno customers).'))));
-    END LOOP;
-    FOR r IN SELECT i.id, coalesce(nullif(i.list_name, ''), i.filename) AS name, i.inserted_count FROM public.email_list_imports i
-              WHERE i.venue_id IS NOT DISTINCT FROM v_venue AND i.organizer_user_id IS NOT DISTINCT FROM v_org AND i.superseded_at IS NULL
-              ORDER BY i.created_at DESC LIMIT 20 LOOP
-      v_aud := v_aud || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('id', 'import:' || r.id, 'label', r.name,
-                 'imported', r.inserted_count, 'rule', 'Imported contact list (only its opted-in contacts receive).')));
-    END LOOP;
-    RETURN jsonb_build_object('ok', true, 'product', 'suite', 'audiences', v_aud,
-      'reachable_means', 'Contacts who accepted your emails (newsletter opt-in) and are not suppressed.',
-      'exclusions', jsonb_build_object(
-        'exclude_event_buyers', 'Skip people who already bought a ticket for the linked night.',
-        'exclude_recent_days', 'Skip people who received an email from this account in the last N days (default 3).'));
-
-  -- ── Relire un brouillon ou une campagne ───────────────────────────────────
-  WHEN 'get_email_draft' THEN
-    IF coalesce(p_args->>'draft_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
-      RETURN jsonb_build_object('ok', false, 'error', 'draft_not_found');
-    END IF;
-    SELECT jsonb_build_object(
-        'ok', true, 'draft_id', ec.id, 'name', ec.name, 'status', ec.status,
-        'product', coalesce(ec.product, CASE WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(ec.audiences_json) a WHERE a->>'kind' = 'crm') THEN 'crm' ELSE 'suite' END),
-        'subject', nullif(ec.subject, '—'), 'subject_b', ec.subject_b, 'ab_test', ec.ab_enabled, 'preheader', ec.preheader,
-        'language', coalesce(ec.language, 'fr'), 'prepared_by', ec.ai_author,
-        'event', CASE WHEN ec.event_id IS NOT NULL THEN (SELECT jsonb_build_object('id', e.id, 'title', e.title, 'start_at', e.start_at) FROM public.events e WHERE e.id = ec.event_id) END,
-        'audience', ec.audiences_json, 'exclusions', ec.exclusions_json,
-        'theme', ec.theme_json, 'social_links', ec.social_links_json,
-        'blocks_version', ec.blocks_version, 'sections', ec.blocks_json,
-        'version', public._mcp_draft_version(ec.updated_at), 'edited_at', ec.updated_at, 'ai_edited_at', ec.ai_updated_at,
-        'sent_at', ec.sent_at, 'recipients', CASE WHEN ec.status IN ('sent', 'sending') THEN ec.recipients_count END,
-        'venue_id', ec.venue_id, 'organizer_user_id', ec.organizer_user_id)
-      INTO v
-      FROM public.email_campaigns ec
-     WHERE ec.id = (p_args->>'draft_id')::uuid
-       AND ec.venue_id IS NOT DISTINCT FROM v_venue AND ec.organizer_user_id IS NOT DISTINCT FROM v_org
-       AND ec.automation_id IS NULL;
-    IF v IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'draft_not_found'); END IF;
-    RETURN v;
-
-  -- ── Images ajoutées par l'IA (emplacements d'envoi et images prêtes) ─────
-  WHEN 'list_email_images' THEN
-    RETURN jsonb_build_object('ok', true, 'images', coalesce((
-      SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-               'image_id', i.id, 'name', i.name,
-               'status', CASE WHEN i.status = 'waiting' AND i.expires_at <= now() THEN 'expired' ELSE i.status END,
-               'url', i.url, 'width', i.width, 'height', i.height, 'source', i.source,
-               'upload_page', CASE WHEN i.status = 'waiting' AND i.expires_at > now() THEN 'https://yunoapp.eu/ai/image/' || i.code END,
-               'added', to_char(i.created_at AT TIME ZONE coalesce(p_tz, 'Europe/Paris'), 'YYYY-MM-DD HH24:MI')))
-             ORDER BY i.created_at DESC)
-        FROM (SELECT m.* FROM public.mcp_email_images m
-               WHERE m.venue_id IS NOT DISTINCT FROM v_venue AND m.organizer_user_id IS NOT DISTINCT FROM v_org
-                 AND m.created_at > now() - interval '30 days'
-                 AND (m.status = 'ready' OR (m.status = 'waiting' AND m.expires_at > now() - interval '1 hour'))
-               ORDER BY m.created_at DESC LIMIT 20) i), '[]'::jsonb));
-
-  ELSE
-    RETURN jsonb_build_object('ok', false, 'error', 'unknown_tool');
-  END CASE;
-END;
+  SELECT rtrim(translate(replace(encode(extensions.gen_random_bytes(p_bytes), 'base64'), E'\n', ''), '+/', '-_'), '=')
 $function$;
 
 CREATE OR REPLACE FUNCTION public._mcp_redact(p jsonb, p_people boolean)
@@ -4768,17 +6074,12 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._mcp_signup_events(p_venue_id text, p_organizer_user_id uuid)
- RETURNS uuid[]
+CREATE OR REPLACE FUNCTION public._mcp_sha256(p text)
+ RETURNS text
  LANGUAGE sql
- STABLE
- SET search_path TO 'public'
-AS $function$
-  SELECT coalesce(array_agg(e.id), '{}') FROM public.events e
-   WHERE e.cancelled_at IS NULL
-     AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-$function$;
+ IMMUTABLE
+ SET search_path TO 'public', 'extensions'
+AS $function$ SELECT encode(extensions.digest(convert_to(p, 'UTF8'), 'sha256'), 'hex') $function$;
 
 CREATE OR REPLACE FUNCTION public._mcp_signup_page_view(p crm_signup_pages)
  RETURNS jsonb
@@ -4809,94 +6110,176 @@ AS $function$
     'visits', (SELECT count(*) FROM public.crm_signup_visits x WHERE x.page_id = p.id)))
 $function$;
 
-CREATE OR REPLACE FUNCTION public._mcp_signup_tool(p_tool text, p_kind text, p_space_id text, p_product text, p_tz text, p_args jsonb, p_uid uuid)
+CREATE OR REPLACE FUNCTION public._mcp_signup_save_error(p_state text, p_msg text)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT jsonb_build_object('ok', false, 'error', CASE
+      WHEN p_msg = 'forbidden' THEN 'write_forbidden'
+      WHEN p_msg = 'bad_event' THEN 'event_not_found'
+      WHEN p_msg = 'bad_fields' THEN 'invalid_fields'
+      WHEN p_msg IN ('bad_dates') OR p_state IN ('22007', '22008') THEN 'invalid_dates'
+      WHEN p_msg = 'not_found' THEN 'page_not_found'
+      WHEN p_msg IN ('bad_kind', 'bad_patch', 'unknown_key', 'one scope') OR p_state IN ('22P02', '22023') THEN 'invalid_args'
+      ELSE 'internal' END,
+    'detail', left(p_msg, 120))
+$function$;
+
+CREATE OR REPLACE FUNCTION public._mcp_signup_write(p_tool text, p_kind text, p_space_id text, p_space_product text, p_args jsonb, p_uid uuid, p_grant uuid, p_client text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_venue text := CASE WHEN p_kind = 'venue' THEN p_space_id END;
-  v_org   uuid := CASE WHEN p_kind = 'organizer' THEN p_space_id::uuid END;
-  v_ids   uuid[];
-  v_event uuid;
-  v_lang  text;
-  p       public.crm_signup_pages%ROWTYPE;
+  v_venue   text := CASE WHEN p_kind = 'venue' THEN p_space_id END;
+  v_org     uuid := CASE WHEN p_kind = 'organizer' THEN p_space_id::uuid END;
+  p         public.crm_signup_pages%ROWTYPE;
+  v_patch   jsonb := '{}'::jsonb;
+  v_key     text;
+  v_event   uuid;
+  v_id      uuid;
+  v_has_c   boolean := p_args ? 'custom_design';
+  v_custom  jsonb := p_args->'custom_design';
+  v_author  text := left(coalesce(nullif(btrim(p_client), ''), 'AI'), 60);
+  v_prop    jsonb;
+  v_changes jsonb := CASE WHEN jsonb_typeof(p_args->'changes') = 'array' THEN p_args->'changes' ELSE '[]'::jsonb END;
+  v_mode    text;
 BEGIN
-  IF NOT coalesce(public.crm_scope_allowed(v_venue, v_org), false) THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
-  END IF;
-  IF NOT ('crm' = ANY (public._mcp_email_products(v_venue, v_org, p_product))) THEN
+  IF NOT ('crm' = ANY (public._mcp_email_products(v_venue, v_org, p_space_product))) THEN
     RETURN jsonb_build_object('ok', false, 'error', 'crm_not_active');
   END IF;
-  SELECT CASE WHEN preferred_language IN ('fr', 'en', 'es') THEN preferred_language ELSE 'fr' END INTO v_lang FROM public.profiles WHERE id = p_uid;
+  IF NOT public._mcp_space_can_draft(p_uid, v_venue, v_org, 'crm') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'write_forbidden');
+  END IF;
 
-  IF p_tool = 'get_signup_page_kit' THEN
-    v_ids := public._mcp_signup_events(v_venue, v_org);
-    IF nullif(btrim(coalesce(p_args->>'event', '')), '') IS NOT NULL THEN
-      v_event := public._mcp_resolve_event(p_args->>'event', v_ids);
+  -- Les réglages, dans la forme de la Console (crm_signup_page_save).
+  FOREACH v_key IN ARRAY ARRAY['kind', 'title', 'tagline', 'button_label', 'thanks_message', 'poster_url', 'design', 'fields',
+                                'show_count', 'reward', 'opens_at', 'sale_opens_at', 'closes_mode', 'closes_at', 'countdown', 'lang'] LOOP
+    IF p_args ? v_key THEN v_patch := v_patch || jsonb_build_object(v_key, p_args->v_key); END IF;
+  END LOOP;
+  IF p_args ? 'event' THEN
+    IF nullif(btrim(coalesce(p_args->>'event', '')), '') IS NULL OR lower(p_args->>'event') IN ('none', 'null') THEN
+      v_patch := v_patch || jsonb_build_object('event_id', NULL);
+    ELSE
+      v_event := public._mcp_resolve_event(p_args->>'event', public._mcp_signup_events(v_venue, v_org));
       IF v_event IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'event_not_found'); END IF;
+      v_patch := v_patch || jsonb_build_object('event_id', v_event);
     END IF;
-    RETURN jsonb_build_object(
-      'ok', true,
-      'can_create', public._mcp_space_can_draft(p_uid, v_venue, v_org, 'crm'),
-      'can_publish', public._crm_signup_owner(v_venue, v_org),
-      'language_hint', coalesce(v_lang, 'fr'),
-      'brand', CASE WHEN v_venue IS NOT NULL THEN (
-          SELECT jsonb_strip_nulls(jsonb_build_object('name', vv.name, 'logo_url', vv.logo_url, 'city', vv.city,
-                   'cover_url', vv.cover_url,
-                   'social', jsonb_strip_nulls(jsonb_build_object('instagram', vv.instagram_url, 'tiktok', vv.tiktok_url,
-                                                'facebook', vv.facebook_url, 'x', vv.twitter_url))))
-            FROM public.venues vv WHERE vv.id = v_venue)
-        ELSE (
-          SELECT jsonb_strip_nulls(jsonb_build_object('name', op.display_name, 'logo_url', op.avatar_url, 'city', op.city,
-                   'cover_url', op.cover_url,
-                   'social', jsonb_strip_nulls(jsonb_build_object('instagram', op.instagram_url, 'website', op.website_url))))
-            FROM public.organizer_profiles op WHERE op.user_id = v_org) END,
-      'recent_email_themes', coalesce((
-          SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object('campaign', x.name,
-                   'background', x.theme_json->>'bg', 'card', x.theme_json->>'card', 'text', x.theme_json->>'text',
-                   'accent', x.theme_json->>'accent', 'dark', x.theme_json->'dark')))
-            FROM (SELECT ec.name, ec.theme_json FROM public.email_campaigns ec
-                   WHERE ec.venue_id IS NOT DISTINCT FROM v_venue AND ec.organizer_user_id IS NOT DISTINCT FROM v_org
-                     AND ec.blocks_version >= 2 AND ec.automation_id IS NULL AND ec.parent_campaign_id IS NULL
-                     AND jsonb_typeof(ec.theme_json) = 'object'
-                   ORDER BY ec.updated_at DESC LIMIT 3) x), '[]'::jsonb),
-      'upcoming_events', coalesce((
-          SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', x.id, 'title', x.title, 'start_at', x.start_at,
-                   'sales', CASE WHEN x.external_source IS NOT NULL THEN 'external' ELSE 'yuno' END,
-                   'has_poster', coalesce(x.poster_url, x.image_url) IS NOT NULL OR EXISTS (
-                      SELECT 1 FROM public.external_events xe WHERE xe.event_id = x.id AND xe.cover_url IS NOT NULL),
-                   'sold_out', coalesce(x.tickets_sold_out, false))) ORDER BY x.start_at)
-            FROM (SELECT e.* FROM public.events e
-                   WHERE e.id = ANY (v_ids) AND coalesce(e.end_at, e.start_at + interval '8 hours') >= now()
-                   ORDER BY e.start_at LIMIT 12) x), '[]'::jsonb),
-      'event', CASE WHEN v_event IS NOT NULL THEN public._crm_signup_event(v_event) END,
-      'pages', coalesce((
-          SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-                   'page_id', x.id, 'title', nullif(x.title, ''), 'kind', x.kind, 'state', public._crm_signup_state(x),
-                   'design', CASE WHEN x.custom_design IS NOT NULL THEN 'custom' ELSE x.design->>'tpl' END,
-                   'prepared_by', x.ai_author, 'proposal_pending', CASE WHEN x.ai_proposal IS NOT NULL THEN true END,
-                   'public_url', CASE WHEN x.status <> 'draft' THEN 'https://crm.yunoapp.eu/j/' || x.slug END,
-                   'event', (SELECT e.title FROM public.events e WHERE e.id = x.event_id),
-                   'signups', (SELECT count(*) FROM public.crm_signup_entries y WHERE y.page_id = x.id),
-                   'edited', to_char(x.updated_at AT TIME ZONE coalesce(p_tz, 'Europe/Paris'), 'YYYY-MM-DD HH24:MI'))) ORDER BY x.updated_at DESC)
-            FROM (SELECT * FROM public.crm_signup_pages sp
-                   WHERE sp.venue_id IS NOT DISTINCT FROM v_venue AND sp.organizer_user_id IS NOT DISTINCT FROM v_org
-                   ORDER BY sp.updated_at DESC LIMIT 20) x), '[]'::jsonb));
-  ELSIF p_tool = 'get_signup_page' THEN
+  END IF;
+
+  -- Le design sur mesure : un objet v1 (thème + sections), ou null (retour au gabarit).
+  IF v_has_c THEN
+    IF jsonb_typeof(v_custom) NOT IN ('object', 'null') OR length(v_custom::text) > 200000 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_content');
+    END IF;
+    IF jsonb_typeof(v_custom) = 'object' AND (
+         coalesce(v_custom->>'v', '') <> '1'
+         OR jsonb_typeof(v_custom->'theme') IS DISTINCT FROM 'object'
+         OR jsonb_typeof(v_custom->'sections') IS DISTINCT FROM 'array'
+         OR jsonb_array_length(v_custom->'sections') NOT BETWEEN 1 AND 24
+         OR (SELECT count(*) FROM jsonb_array_elements(v_custom->'sections') s WHERE s->>'type' = 'yuno' AND s->>'block' = 'form') <> 1
+         OR EXISTS (SELECT 1 FROM jsonb_array_elements(v_custom->'sections') s
+                     WHERE jsonb_typeof(s) <> 'object' OR coalesce(s->>'type', '') NOT IN ('html', 'yuno') OR coalesce(s->>'id', '') = '')
+         -- Défense en profondeur : le Worker a déjà nettoyé, la page publique repasse par DOMPurify.
+         OR v_custom::text ~* '<\s*/?\s*(script|iframe|object|embed|form|input|textarea|base|meta|link)\M'
+         OR v_custom::text ~* '<[^>]*\son[a-z]+\s*='
+         OR v_custom::text ~* 'javascript\s*:') THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_content');
+    END IF;
+  END IF;
+
+  IF p_tool = 'create_signup_page' THEN
+    IF NOT (v_patch ? 'kind') THEN v_patch := v_patch || '{"kind": "prevente"}'::jsonb; END IF;
+    BEGIN
+      v_id := public.crm_signup_page_save(v_venue, v_org, NULL, v_patch);
+    EXCEPTION WHEN others THEN
+      RETURN public._mcp_signup_save_error(SQLSTATE, SQLERRM);
+    END;
+    UPDATE public.crm_signup_pages SET
+      custom_design = CASE WHEN v_has_c AND jsonb_typeof(v_custom) = 'object' THEN v_custom END,
+      ai_author = v_author, mcp_grant_id = p_grant, ai_updated_at = now()
+     WHERE id = v_id
+    RETURNING * INTO p;
+    v_mode := 'created';
+
+  ELSIF p_tool = 'update_signup_page' THEN
     IF coalesce(p_args->>'page_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
       RETURN jsonb_build_object('ok', false, 'error', 'page_not_found');
     END IF;
     SELECT * INTO p FROM public.crm_signup_pages sp
      WHERE sp.id = (p_args->>'page_id')::uuid
-       AND sp.venue_id IS NOT DISTINCT FROM v_venue AND sp.organizer_user_id IS NOT DISTINCT FROM v_org;
+       AND sp.venue_id IS NOT DISTINCT FROM v_venue AND sp.organizer_user_id IS NOT DISTINCT FROM v_org
+     FOR UPDATE;
     IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'error', 'page_not_found'); END IF;
-    RETURN jsonb_build_object('ok', true,
-        'can_publish', public._crm_signup_owner(v_venue, v_org),
-        'event_facts', CASE WHEN p.event_id IS NOT NULL THEN public._crm_signup_event(p.event_id) END)
-      || public._mcp_signup_page_view(p);
+    -- L'IA modifie la version qu'elle a lue : si le pro a retouché la page
+    -- entre-temps, rien n'est écrit.
+    IF nullif(p_args->>'expected_version', '') IS NOT NULL
+       AND p_args->>'expected_version' <> public._mcp_draft_version(p.updated_at) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'page_changed', 'version', public._mcp_draft_version(p.updated_at));
+    END IF;
+    IF v_patch = '{}'::jsonb AND NOT v_has_c THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'nothing_to_change');
+    END IF;
+
+    IF p.status = 'draft' THEN
+      IF v_patch <> '{}'::jsonb THEN
+        BEGIN
+          PERFORM public.crm_signup_page_save(v_venue, v_org, p.id, v_patch);
+        EXCEPTION WHEN others THEN
+          RETURN public._mcp_signup_save_error(SQLSTATE, SQLERRM);
+        END;
+      END IF;
+      UPDATE public.crm_signup_pages SET
+        custom_design = CASE WHEN v_has_c THEN CASE WHEN jsonb_typeof(v_custom) = 'object' THEN v_custom END ELSE custom_design END,
+        ai_author = coalesce(ai_author, v_author),
+        mcp_grant_id = coalesce(mcp_grant_id, p_grant),
+        ai_proposal = NULL,
+        ai_updated_at = now(),
+        updated_at = now()
+       WHERE id = p.id
+      RETURNING * INTO p;
+      v_mode := 'updated';
+    ELSE
+      -- Page publiée : la proposition est contrôlée par la fonction de la
+      -- Console (puis l'essai est annulé), et rien ne change pour les fans.
+      IF v_patch <> '{}'::jsonb THEN
+        BEGIN
+          PERFORM public.crm_signup_page_save(v_venue, v_org, p.id, v_patch);
+          RAISE EXCEPTION 'mcp_dry_run_ok';
+        EXCEPTION WHEN others THEN
+          IF SQLERRM <> 'mcp_dry_run_ok' THEN RETURN public._mcp_signup_save_error(SQLSTATE, SQLERRM); END IF;
+        END;
+      END IF;
+      v_prop := coalesce(p.ai_proposal, '{}'::jsonb);
+      v_prop := jsonb_build_object(
+          'patch', coalesce(v_prop->'patch', '{}'::jsonb) || v_patch,
+          'author', v_author, 'grant_id', p_grant, 'at', now(),
+          'base_version', public._mcp_draft_version(p.updated_at),
+          'changes', (SELECT coalesce(jsonb_agg(c ORDER BY n), '[]'::jsonb)
+                        FROM (SELECT c, n FROM jsonb_array_elements(coalesce(v_prop->'changes', '[]'::jsonb) || v_changes) WITH ORDINALITY AS z(c, n)
+                               ORDER BY n DESC LIMIT 20) y))
+        || CASE WHEN v_has_c THEN jsonb_build_object('custom_design', v_custom)
+                WHEN v_prop ? 'custom_design' THEN jsonb_build_object('custom_design', v_prop->'custom_design')
+                ELSE '{}'::jsonb END;
+      UPDATE public.crm_signup_pages SET
+        ai_proposal = v_prop,
+        ai_author = coalesce(ai_author, v_author),
+        mcp_grant_id = coalesce(mcp_grant_id, p_grant)
+       WHERE id = p.id
+      RETURNING * INTO p;
+      v_mode := 'proposed';
+    END IF;
+  ELSE
+    RETURN jsonb_build_object('ok', false, 'error', 'unknown_tool');
   END IF;
-  RETURN jsonb_build_object('ok', false, 'error', 'unknown_tool');
+
+  RETURN jsonb_build_object('ok', true, 'mode', v_mode, 'can_publish', public._crm_signup_owner(v_venue, v_org))
+    || (public._mcp_signup_page_view(p) - 'custom_design' - 'proposal')
+    || jsonb_build_object('sections', CASE
+         WHEN v_mode = 'proposed' AND p.ai_proposal ? 'custom_design' THEN coalesce(jsonb_array_length(p.ai_proposal->'custom_design'->'sections'), 0)
+         WHEN p.custom_design IS NOT NULL THEN jsonb_array_length(p.custom_design->'sections') END,
+       'proposal_changes', CASE WHEN v_mode = 'proposed' THEN p.ai_proposal->'changes' END);
 END;
 $function$;
 
@@ -4991,134 +6374,6 @@ BEGIN
   v_days := greatest(1, ceil(extract(epoch FROM v_to - v_from) / 86400)::integer);
   RETURN QUERY SELECT v_from, v_to, v_days;
 END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._regular_lapse_candidates(p_venue_id text, p_organizer_user_id uuid, p_gap interval)
- RETURNS TABLE(em text, user_id uuid, last_at timestamp with time zone, nights integer, pick_event_id uuid, pick_reason text)
- LANGUAGE sql
- STABLE
- SET search_path TO 'public'
-AS $function$
-  WITH scope_ev AS (
-    SELECT e.id, e.start_at, e.recurring_template_id,
-           ((e.start_at AT TIME ZONE COALESCE(NULLIF(e.timezone, ''), 'Europe/Paris')) - interval '8 hours')::date AS night,
-           ARRAY(
-             SELECT DISTINCT lower(btrim(g))
-               FROM unnest(COALESCE(e.music_genres, '{}'::text[]) || ARRAY[e.music_genre]) g
-              WHERE g IS NOT NULL AND btrim(g) <> ''
-           ) AS genres
-      FROM public.events e
-     WHERE e.cancelled_at IS NULL
-       AND e.start_at < now()
-       AND e.start_at > now() - p_gap - interval '120 days'
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-  ),
-  visits AS (
-    SELECT lower(t.user_email) AS em, t.user_id, t.event_id
-      FROM public.tickets t JOIN scope_ev ev ON ev.id = t.event_id
-     WHERE t.user_email IS NOT NULL AND t.status IN ('paid', 'used')
-    UNION
-    SELECT lower(r.user_email), r.user_id, r.event_id
-      FROM public.table_reservations r JOIN scope_ev ev ON ev.id = r.event_id
-     WHERE r.user_email IS NOT NULL AND r.status IN ('paid', 'used', 'confirmed')
-    UNION
-    SELECT lower(ge.email), ge.user_id, gl.event_id
-      FROM public.guest_list_entries ge
-      JOIN public.guest_lists gl ON gl.id = ge.guest_list_id
-      JOIN scope_ev ev ON ev.id = gl.event_id
-     WHERE ge.email IS NOT NULL AND ge.entry_scanned
-    UNION
-    -- Yuno CRM : billets de la billetterie connectée.
-    SELECT lower(xt.buyer_email), NULL::uuid, xt.event_id
-      FROM public.external_tickets xt JOIN scope_ev ev ON ev.id = xt.event_id
-     WHERE xt.buyer_email IS NOT NULL AND xt.status IN ('valid', 'transferred')
-  ),
-  v AS (
-    SELECT x.em, x.user_id, ev.id AS event_id, ev.start_at, ev.night, ev.recurring_template_id, ev.genres
-      FROM visits x JOIN scope_ev ev ON ev.id = x.event_id
-     WHERE position('@' in x.em) > 1
-  ),
-  last_v AS (
-    SELECT v.em, max(v.start_at) AS last_at,
-           (array_agg(v.user_id) FILTER (WHERE v.user_id IS NOT NULL))[1] AS user_id
-      FROM v GROUP BY v.em
-  ),
-  lapsed AS (
-    SELECT l.em, l.user_id, l.last_at,
-           count(DISTINCT v.night)::integer AS nights,
-           array_agg(DISTINCT v.recurring_template_id) FILTER (WHERE v.recurring_template_id IS NOT NULL) AS series,
-           mode() WITHIN GROUP (ORDER BY extract(isodow FROM v.night)) AS dow
-      FROM last_v l
-      JOIN v ON v.em = l.em AND v.start_at > l.last_at - interval '60 days' AND v.start_at <= l.last_at
-     WHERE l.last_at <= now() - p_gap
-       AND l.last_at > now() - p_gap - interval '30 days'
-     GROUP BY l.em, l.user_id, l.last_at
-    HAVING count(DISTINCT v.night) >= 4
-  ),
-  -- Ses goûts : les genres des soirées où il est venu (toute la fenêtre),
-  -- plus ceux de son quiz Yuno s'il a un compte.
-  tastes AS (
-    SELECT p.em,
-           ARRAY(
-             SELECT DISTINCT g FROM (
-               SELECT unnest(v.genres) AS g FROM v WHERE v.em = p.em
-               UNION ALL
-               SELECT lower(btrim(tg)) FROM public.user_taste_profiles tp, unnest(COALESCE(tp.genres, '{}'::text[])) tg
-                WHERE p.user_id IS NOT NULL AND tp.user_id = p.user_id
-             ) z WHERE g IS NOT NULL AND g <> ''
-           ) AS genres
-      FROM lapsed p
-  ),
-  upcoming AS (
-    SELECT e.id, e.start_at, e.recurring_template_id,
-           extract(isodow FROM ((e.start_at AT TIME ZONE COALESCE(NULLIF(e.timezone, ''), 'Europe/Paris')) - interval '8 hours')) AS dow,
-           ARRAY(
-             SELECT DISTINCT lower(btrim(g))
-               FROM unnest(COALESCE(e.music_genres, '{}'::text[]) || ARRAY[e.music_genre]) g
-              WHERE g IS NOT NULL AND btrim(g) <> ''
-           ) AS genres
-      FROM public.events e
-     WHERE e.status = 'active' AND (e.is_active OR e.external_source IS NOT NULL) AND e.cancelled_at IS NULL
-       AND (e.visibility = 'public' OR e.external_source IS NOT NULL) AND NOT COALESCE(e.requires_access_code, false)
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND e.start_at > now() + interval '24 hours'
-       AND e.start_at <= now() + interval '35 days'
-       AND (
-         ((e.ticketing_enabled OR e.external_ticket_url IS NOT NULL) AND NOT e.tickets_sold_out)
-         OR (e.tables_enabled AND NOT e.tables_sold_out)
-         OR (NOT e.guest_list_sold_out AND EXISTS (
-               SELECT 1 FROM public.guest_lists gl
-                WHERE gl.event_id = e.id AND gl.is_active AND gl.visible_on_club_page AND NOT gl.manually_sold_out))
-       )
-  )
-  SELECT p.em, p.user_id, p.last_at, p.nights, pick.id, pick.reason
-    FROM lapsed p
-    JOIN tastes ts ON ts.em = p.em
-    LEFT JOIN LATERAL (
-      SELECT u.id,
-             CASE WHEN u.series_hit THEN 'series' WHEN u.genre_hits > 0 THEN 'genre'
-                  WHEN u.dow_hit THEN 'weekday' ELSE 'next' END AS reason
-        FROM (
-          SELECT up.id, up.start_at,
-                 (up.recurring_template_id IS NOT NULL AND up.recurring_template_id = ANY (COALESCE(p.series, '{}'::uuid[]))) AS series_hit,
-                 (SELECT count(*) FROM unnest(up.genres) g WHERE g = ANY (ts.genres))::integer AS genre_hits,
-                 (up.dow = p.dow) AS dow_hit
-            FROM upcoming up
-        ) u
-       ORDER BY (CASE WHEN u.series_hit THEN 4 ELSE 0 END) + 2 * LEAST(2, u.genre_hits) + (CASE WHEN u.dow_hit THEN 1 ELSE 0 END) DESC,
-                u.start_at ASC
-       LIMIT 1
-    ) pick ON true
-   -- Il revient déjà : une place pour une soirée à venir de la portée.
-   WHERE NOT EXISTS (
-     SELECT 1 FROM public.events e
-      WHERE e.start_at > now() AND e.cancelled_at IS NULL
-        AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-          OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-        AND public._email_event_holder(e.id, p.em)
-   )
 $function$;
 
 CREATE OR REPLACE FUNCTION public._sales_period_nights(p_scope_ids uuid[], p_scope_venue text, p_money boolean, p_from timestamp with time zone, p_to timestamp with time zone)
@@ -5511,6 +6766,21 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.attribution_from_purchase_source(p_source text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT CASE lower(coalesce(p_source, ''))
+           WHEN 'explore' THEN 'marketplace' WHEN 'venue_profile' THEN 'marketplace' WHEN 'organizer_profile' THEN 'marketplace' WHEN 'dj_profile' THEN 'marketplace'
+           WHEN 'marketplace' THEN 'marketplace' WHEN 'internal' THEN 'marketplace'
+           WHEN 'promoter' THEN 'promoter'
+           WHEN 'instagram' THEN 'instagram' WHEN 'tiktok' THEN 'tiktok' WHEN 'facebook' THEN 'facebook' WHEN 'whatsapp' THEN 'whatsapp'
+           WHEN 'social' THEN 'social' WHEN 'paid_social' THEN 'meta_ads' WHEN 'meta_ads' THEN 'meta_ads'
+           WHEN 'search' THEN 'search' WHEN 'referral' THEN 'referral' WHEN 'email' THEN 'email'
+           ELSE 'direct' END
+$function$;
+
 CREATE OR REPLACE FUNCTION public.attribution_from_session(p_referrer_category text, p_referrer_domain text, p_utm_source text, p_utm_medium text)
  RETURNS text
  LANGUAGE sql
@@ -5532,6 +6802,23 @@ AS $function$
       ELSE 'social' END
     WHEN p_referrer_category IN ('search', 'referral') THEN p_referrer_category
     ELSE 'direct' END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.attribution_from_tracked_link(p_link_id uuid)
+ RETURNS TABLE(source text, ref text)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE
+           WHEN tl.promoter_id IS NOT NULL THEN 'promoter'
+           WHEN lower(coalesce(tl.utm_medium, '')) = 'paid_social' OR lower(coalesce(tl.utm_source, '')) IN ('meta', 'meta_ads', 'facebook_ads') THEN 'meta_ads'
+           WHEN lower(coalesce(tl.utm_medium, '')) IN ('party_link', 'coorg') OR lower(coalesce(tl.utm_source, '')) = 'coorg' THEN 'partner'
+           WHEN lower(coalesce(tl.utm_source, '')) IN ('newsletter', 'email', 'mail') OR lower(coalesce(tl.utm_medium, '')) IN ('email', 'newsletter') THEN 'email'
+           WHEN lower(coalesce(tl.utm_source, '')) IN ('instagram', 'tiktok', 'facebook', 'whatsapp') THEN lower(tl.utm_source)
+           ELSE 'link' END,
+         CASE WHEN tl.promoter_id IS NOT NULL THEN tl.promoter_id::text ELSE tl.code END
+    FROM public.tracked_links tl WHERE tl.id = p_link_id
 $function$;
 
 CREATE OR REPLACE FUNCTION public.campaign_scope_is_event_principal(p_venue_id text, p_organizer_user_id uuid, p_event_id uuid)
@@ -5571,6 +6858,30 @@ AS $function$
         OR is_org_team_member(_user_id, COALESCE(e.organizer_user_id, e.partner_organizer_id), 'editor')
       )
   ) OR public.is_event_cohost(_event_id, _user_id, 'editor');
+$function$;
+
+CREATE OR REPLACE FUNCTION public.can_manage_event_tables(_user_id uuid, _event_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.events e
+    LEFT JOIN public.venues v ON v.id = e.venue_id OR v.id = e.partner_venue_id
+    WHERE e.id = _event_id
+      AND (
+        e.organizer_user_id = _user_id
+        OR (e.partner_organizer_id = _user_id
+            AND public.collab_domain_holder(e.collab_responsibilities, e.event_mode, 'operations')
+                IN ('organizer','both'))
+        OR e.tables_owner_user_id = _user_id
+        OR (v.owner_id = _user_id
+            AND public.collab_domain_holder(e.collab_responsibilities, e.event_mode, 'operations')
+                IN ('venue','both'))
+        OR public.is_super_admin()
+      )
+  ) OR public.is_event_cohost(_event_id, _user_id, 'editor')
 $function$;
 
 CREATE OR REPLACE FUNCTION public.can_manage_organizer(p_organizer_user_id uuid)
@@ -5777,6 +7088,75 @@ AS $function$
    WHERE c.venue_id = p_venue AND c.status = 'accepted';
 $function$;
 
+CREATE OR REPLACE FUNCTION public.collab_domain_holder(p_resp jsonb, p_mode event_mode, p_domain text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT COALESCE(
+    -- a) le nouveau vocabulaire
+    CASE WHEN p_resp ->> p_domain IN ('venue','organizer','both')
+         THEN p_resp ->> p_domain END,
+    -- b) l'ancien, à quatre clés. Deux anciennes clés par nouveau domaine : on
+    --    ne retient la valeur que si les DEUX concordent, sinon la répartition
+    --    héritée était plus fine que ce que deux domaines savent exprimer et on
+    --    retombe sur « les deux » plutôt que d'inventer un arbitrage.
+    CASE
+      WHEN p_domain = 'design' AND p_resp ->> 'creative' IS NOT NULL
+           AND p_resp ->> 'creative' = COALESCE(p_resp ->> 'promotion', p_resp ->> 'creative')
+        THEN p_resp ->> 'creative'
+      WHEN p_domain = 'operations' AND p_resp ->> 'ticketing' IS NOT NULL
+           AND p_resp ->> 'ticketing' = COALESCE(p_resp ->> 'operations', p_resp ->> 'ticketing')
+        THEN p_resp ->> 'ticketing'
+    END,
+    -- c) le préréglage du mode
+    public.default_collab_responsibilities(p_mode) ->> p_domain,
+    'both'
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.collab_rules_org_pct(p_rules jsonb, p_pillar text, p_mode text)
+ RETURNS numeric
+ LANGUAGE plpgsql
+ IMMUTABLE
+AS $function$
+DECLARE b jsonb; o numeric; v numeric;
+BEGIN
+  IF p_rules IS NOT NULL THEN
+    b := p_rules->p_pillar;
+    IF b IS NULL AND p_pillar <> 'drinks' AND jsonb_typeof(p_rules->'organizer') = 'number' THEN
+      RETURN LEAST(GREATEST((p_rules->>'organizer')::numeric, 0), 100);
+    END IF;
+    IF jsonb_typeof(b) = 'object' AND (b ? 'organizer_pct' OR b ? 'venue_pct') THEN
+      o := COALESCE(NULLIF(b->>'organizer_pct', '')::numeric, 0);
+      v := COALESCE(NULLIF(b->>'venue_pct', '')::numeric, 0);
+      IF o + v > 0 THEN RETURN o * 100 / (o + v); END IF;
+    END IF;
+  END IF;
+  IF p_pillar = 'drinks' THEN RETURN 0; END IF;
+  IF p_mode = 'venue_rental' THEN RETURN CASE WHEN p_pillar = 'tickets' THEN 100 ELSE 0 END; END IF;
+  IF p_mode = 'org_hosted' THEN RETURN 100; END IF;
+  RETURN CASE WHEN p_pillar = 'tickets' THEN 50 ELSE 0 END;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.collab_settlement_collector(p_rules jsonb)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT CASE
+    WHEN public.is_tiered_collab(p_rules) OR p_rules->'tables'->>'basis' = 'total_spend' THEN 'venue'
+    WHEN p_rules->'settlement'->>'collector' = 'organizer' THEN 'organizer'
+    ELSE 'venue' END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.collab_settlement_mode(p_rules jsonb)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$ SELECT CASE WHEN p_rules->'settlement'->>'mode' = 'transfer' THEN 'transfer' ELSE 'stripe' END $function$;
+
 CREATE OR REPLACE FUNCTION public.contact_base_cache_fresh(p_built_at timestamp with time zone, p_dirty_at timestamp with time zone)
  RETURNS boolean
  LANGUAGE sql
@@ -5794,8 +7174,8 @@ AS $function$
   SELECT COALESCE('v:' || p_venue_id, 'o:' || p_organizer_user_id::text, 'p');
 $function$;
 
-CREATE OR REPLACE FUNCTION public.contact_build_rows(p_venue_id text, p_organizer_user_id uuid)
- RETURNS integer
+CREATE OR REPLACE FUNCTION public.contact_base_snapshot(p_venue_id text, p_organizer_user_id uuid)
+ RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
@@ -5803,118 +7183,42 @@ CREATE OR REPLACE FUNCTION public.contact_build_rows(p_venue_id text, p_organize
 AS $function$
 DECLARE
   v_n integer;
-  v_key text := public.contact_base_scope_key(p_venue_id, p_organizer_user_id);
-  v_state public.contact_base_cache_state%ROWTYPE;
-  v_have boolean;
-  v_use_cache boolean;
-  v_read_only boolean := COALESCE(current_setting('transaction_read_only', true), 'off') = 'on';
+  v_segs jsonb := '[]'::jsonb;
+  v_status jsonb;
+  v_origin jsonb;
+  v_reach integer;
+  r record;
+  c_n integer; c_e integer; c_p integer;
 BEGIN
+  v_n := public.contact_build_rows(p_venue_id, p_organizer_user_id);
+  FOR r IN
+    SELECT cs.id, cs.name, cs.definition FROM public.contact_segments cs
+     WHERE public.marketing_scope_match(cs.venue_id, cs.organizer_user_id, p_venue_id, p_organizer_user_id)
+     ORDER BY cs.created_at
+  LOOP
+    EXECUTE format('SELECT count(*), count(*) FILTER (WHERE c.email_ok), count(*) FILTER (WHERE c.phone_ok) FROM _cr c WHERE %s',
+                   public.contact_definition_predicate(r.definition, 'c'))
+      INTO c_n, c_e, c_p;
+    v_segs := v_segs || jsonb_build_object('id', r.id, 'name', r.name,
+                'contacts', COALESCE(c_n, 0), 'emails', COALESCE(c_e, 0), 'phones', COALESCE(c_p, 0));
+  END LOOP;
+  SELECT jsonb_build_object(
+           'active', count(*) FILTER (WHERE eng_status = 'active'),
+           'passive', count(*) FILTER (WHERE eng_status = 'passive'),
+           'silent', count(*) FILTER (WHERE eng_status = 'silent'),
+           'new', count(*) FILTER (WHERE eng_status = 'new'),
+           'unreachable', count(*) FILTER (WHERE eng_status = 'unreachable'),
+           'unsubscribed', count(*) FILTER (WHERE eng_status = 'unsubscribed')),
+         jsonb_build_object(
+           'import', count(*) FILTER (WHERE origin = 'import'),
+           'yuno', count(*) FILTER (WHERE origin = 'yuno'),
+           'both', count(*) FILTER (WHERE origin = 'both')),
+         count(*) FILTER (WHERE email_ok)
+    INTO v_status, v_origin, v_reach
+    FROM _cr;
   DROP TABLE IF EXISTS _cr;
-
-  SELECT * INTO v_state FROM public.contact_base_cache_state s WHERE s.scope_key = v_key;
-  v_have := FOUND;
-
-  IF NOT v_read_only
-     AND NOT (v_have AND public.contact_base_cache_fresh(v_state.built_at, v_state.dirty_at))
-     AND (NOT v_have OR COALESCE(v_state.row_count, 0) <= 3000) THEN
-    -- Première lecture, ou petite portée : on reconstruit tout de suite (un
-    -- import de 200 contacts se voit à l'écran suivant). Un seul reconstructeur
-    -- par portée : l'appel parallèle attend ici puis trouve le cache frais.
-    PERFORM pg_advisory_xact_lock(hashtext('contact_base_cache:' || v_key));
-    SELECT * INTO v_state FROM public.contact_base_cache_state s WHERE s.scope_key = v_key;
-    IF NOT (FOUND AND public.contact_base_cache_fresh(v_state.built_at, v_state.dirty_at)) THEN
-      PERFORM public._contact_base_cache_build(v_key, p_venue_id, p_organizer_user_id, true);
-    END IF;
-    v_have := true;
-  ELSIF v_have AND NOT v_read_only
-        AND (v_state.last_read_at IS NULL OR v_state.last_read_at < now() - interval '1 minute') THEN
-    -- Grande portée périmée : on sert le cache tel quel, et on signale la
-    -- lecture — le cron la reconstruit dans la minute. SKIP LOCKED : une
-    -- reconstruction en cours ne fait jamais attendre la page.
-    UPDATE public.contact_base_cache_state s SET last_read_at = now()
-     WHERE s.scope_key IN (SELECT s2.scope_key FROM public.contact_base_cache_state s2
-                            WHERE s2.scope_key = v_key FOR UPDATE SKIP LOCKED);
-  END IF;
-  -- Aperçu démo (transaction en lecture seule) : le cache s'il existe, sinon
-  -- le calcul en direct comme avant.
-  v_use_cache := v_have;
-
-  CREATE TEMP TABLE _cr ON COMMIT DROP AS
-  WITH base AS (
-    SELECT c.id,
-           c.list_import_id,
-           c.venue_id,
-           c.organizer_user_id,
-           c.email,
-           c.phone_e164,
-           c.first_name,
-           c.last_name,
-           c.country_code,
-           c.country,
-           c.region,
-           c.city,
-           c.postal_code,
-           c.zone,
-           c.age,
-           c.gender,
-           c.newsletter_opt_in,
-           c.added_at,
-           c.last_purchase_at,
-           c.total_spent,
-           c.event_count,
-           c.extra,
-           c.created_at,
-           c.origin,
-           c.user_id,
-           c.imported_spent,
-           c.imported_events,
-           c.yuno_spent,
-           c.yuno_events,
-           c.yuno_first_at,
-           c.yuno_last_at,
-           c.ticket_count,
-           c.table_count,
-           c.order_count,
-           c.guest_list_count,
-           c.last_seen_at,
-           c.eng_status,
-           c.emails_sent,
-           c.opens,
-           c.clicks,
-           c.last_opened_at,
-           c.last_clicked_at,
-           c.unsubscribed_at,
-           c.bounced,
-           c.subscribed,
-           c.has_account
-      FROM public.contact_base_cache c
-     WHERE v_use_cache AND c.scope_key = v_key
-    UNION ALL
-    SELECT r.* FROM public.contact_rows(p_venue_id, p_organizer_user_id) r
-     WHERE NOT v_use_cache
-  ), ok_e AS (
-    SELECT DISTINCT lower(ns.email) AS e
-      FROM public.newsletter_subscriptions ns
-     WHERE ns.opted_in
-       AND (public.marketing_scope_match(ns.venue_id, ns.organizer_user_id, p_venue_id, p_organizer_user_id))
-  ), sup AS (
-    SELECT DISTINCT lower(s.email) AS e FROM public.email_suppressions s
-  ), ok_p AS (
-    SELECT DISTINCT vc.phone_e164 AS p
-      FROM public.venue_sms_contacts vc
-     WHERE NOT vc.unsubscribed
-       AND vc.sms_consent_at > now() - interval '36 months'
-       AND (public.marketing_scope_match(vc.venue_id, vc.organizer_user_id, p_venue_id, p_organizer_user_id))
-  )
-  SELECT b.*,
-         (b.email IS NOT NULL AND oe.e IS NOT NULL AND s.e IS NULL) AS email_ok,
-         (b.phone_e164 IS NOT NULL AND op.p IS NOT NULL) AS phone_ok
-    FROM base b
-    LEFT JOIN ok_e oe ON oe.e = b.email
-    LEFT JOIN sup s ON s.e = b.email
-    LEFT JOIN ok_p op ON op.p = b.phone_e164;
-  SELECT count(*) INTO v_n FROM _cr;
-  RETURN v_n;
+  RETURN jsonb_build_object('at', now(), 'contacts', v_n, 'reachable_emails', v_reach,
+                            'status', v_status, 'origin', v_origin, 'segments', v_segs);
 END;
 $function$;
 
@@ -6034,78 +7338,16 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.contact_rows(p_venue_id text, p_organizer_user_id uuid)
- RETURNS TABLE(id uuid, list_import_id uuid, venue_id text, organizer_user_id uuid, email text, phone_e164 text, first_name text, last_name text, country_code text, country text, region text, city text, postal_code text, zone text, age integer, gender text, newsletter_opt_in boolean, added_at timestamp with time zone, last_purchase_at timestamp with time zone, total_spent numeric, event_count integer, extra jsonb, created_at timestamp with time zone, origin text, user_id uuid, imported_spent numeric, imported_events integer, yuno_spent numeric, yuno_events integer, yuno_first_at timestamp with time zone, yuno_last_at timestamp with time zone, ticket_count integer, table_count integer, order_count integer, guest_list_count integer, last_seen_at timestamp with time zone, eng_status text, emails_sent integer, opens integer, clicks integer, last_opened_at timestamp with time zone, last_clicked_at timestamp with time zone, unsubscribed_at timestamp with time zone, bounced boolean, subscribed boolean, has_account boolean)
+CREATE OR REPLACE FUNCTION public.contact_fingerprint(p_values text[])
+ RETURNS text
  LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
+ IMMUTABLE
 AS $function$
-  WITH imp AS (
-    SELECT DISTINCT ON (COALESCE(c.email, c.phone_e164)) c.*
-      FROM public.imported_contacts c
-     WHERE public.marketing_scope_match(c.venue_id, c.organizer_user_id, p_venue_id, p_organizer_user_id)
-     ORDER BY COALESCE(c.email, c.phone_e164),
-              c.created_at DESC,
-              ((c.phone_e164 IS NOT NULL)::int + (c.total_spent IS NOT NULL)::int + (c.event_count IS NOT NULL)::int
-               + (c.last_purchase_at IS NOT NULL)::int + (c.zone IS NOT NULL)::int + (c.city IS NOT NULL)::int
-               + (c.country_code IS NOT NULL)::int + (c.age IS NOT NULL)::int + (c.gender IS NOT NULL)::int) DESC,
-              c.id
-  ), yc AS (
-    SELECT * FROM public.contact_scope_customers(p_venue_id, p_organizer_user_id)
-  ), eng AS (
-    SELECT ce.* FROM public.contact_engagement ce
-     WHERE public.marketing_scope_match(ce.venue_id, ce.organizer_user_id, p_venue_id, p_organizer_user_id)
-  )
-  SELECT
-    COALESCE(i.id, md5('yuno:' || y.email)::uuid) AS id,
-    i.list_import_id,
-    COALESCE(i.venue_id, p_venue_id) AS venue_id,
-    COALESCE(i.organizer_user_id, p_organizer_user_id) AS organizer_user_id,
-    COALESCE(i.email, y.email) AS email,
-    COALESCE(i.phone_e164, CASE WHEN y.phone ~ '^\+[1-9][0-9]{6,14}$' THEN y.phone END) AS phone_e164,
-    COALESCE(y.first_name, i.first_name) AS first_name,
-    COALESCE(y.last_name, i.last_name) AS last_name,
-    i.country_code, i.country, i.region,
-    COALESCE(i.city, y.city) AS city,
-    i.postal_code, i.zone,
-    COALESCE(i.age, y.age) AS age,
-    COALESCE(i.gender, y.gender) AS gender,
-    COALESCE(i.newsletter_opt_in, CASE WHEN y.subscribed THEN true END) AS newsletter_opt_in,
-    LEAST(i.added_at, y.first_at) AS added_at,
-    GREATEST(i.last_purchase_at, y.last_paid_at) AS last_purchase_at,
-    CASE WHEN i.total_spent IS NULL AND y.spent IS NULL THEN NULL
-         ELSE COALESCE(i.total_spent, 0) + COALESCE(y.spent, 0) END AS total_spent,
-    CASE WHEN i.event_count IS NULL AND y.event_count IS NULL THEN NULL
-         ELSE COALESCE(i.event_count, 0) + COALESCE(y.event_count, 0) END AS event_count,
-    i.extra,
-    COALESCE(i.created_at, y.first_at, now()) AS created_at,
-    CASE WHEN i.id IS NOT NULL AND y.email IS NOT NULL THEN 'both'
-         WHEN i.id IS NOT NULL THEN 'import'
-         ELSE 'yuno' END AS origin,
-    COALESCE(y.user_id, e.user_id) AS user_id,
-    i.total_spent AS imported_spent,
-    i.event_count AS imported_events,
-    y.spent AS yuno_spent,
-    y.event_count AS yuno_events,
-    y.first_at AS yuno_first_at,
-    y.last_at AS yuno_last_at,
-    COALESCE(y.ticket_count, 0) AS ticket_count,
-    COALESCE(y.table_count, 0) AS table_count,
-    COALESCE(y.order_count, 0) AS order_count,
-    COALESCE(y.guest_list_count, 0) AS guest_list_count,
-    GREATEST(i.last_purchase_at, y.last_at, e.last_clicked_at, e.last_opened_at) AS last_seen_at,
-    COALESCE(e.status, 'new') AS eng_status,
-    COALESCE(e.emails_sent, 0) AS emails_sent,
-    COALESCE(e.opens, 0) AS opens,
-    COALESCE(e.clicks, 0) AS clicks,
-    e.last_opened_at, e.last_clicked_at, e.unsubscribed_at,
-    (e.bounced_at IS NOT NULL) AS bounced,
-    COALESCE(e.subscribed, y.subscribed, false) AS subscribed,
-    (COALESCE(y.user_id, e.user_id) IS NOT NULL) AS has_account
-  FROM imp i
-  FULL OUTER JOIN yc y ON y.email = i.email
-  LEFT JOIN eng e ON e.email = COALESCE(i.email, y.email);
+  SELECT CASE WHEN count(*) = 0 THEN NULL
+              ELSE count(*)::text || ':' || md5(string_agg(v, ',' ORDER BY v)) END
+    FROM (SELECT DISTINCT lower(btrim(x)) AS v
+            FROM unnest(COALESCE(p_values, '{}'::text[])) x
+           WHERE btrim(COALESCE(x, '')) <> '') s;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.contact_scope_allowed(p_venue_id text, p_organizer_user_id uuid)
@@ -6119,126 +7361,14 @@ AS $function$
           AND public.is_org_team_member(auth.uid(), p_organizer_user_id, 'admin'));
 $function$;
 
-CREATE OR REPLACE FUNCTION public.contact_scope_customers(p_venue_id text, p_organizer_user_id uuid)
- RETURNS TABLE(email text, user_id uuid, first_name text, last_name text, phone text, spent numeric, event_count integer, paid_count integer, ticket_count integer, table_count integer, order_count integer, guest_list_count integer, first_at timestamp with time zone, last_at timestamp with time zone, last_paid_at timestamp with time zone, city text, age integer, gender text, subscribed boolean, sub_source text)
+CREATE OR REPLACE FUNCTION public.contact_scope_allowed_or_internal(p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  WITH ev AS (
-    SELECT e.id
-      FROM public.events e
-     WHERE (p_venue_id IS NOT NULL AND (e.venue_id = p_venue_id OR e.partner_venue_id = p_venue_id))
-        OR (p_organizer_user_id IS NOT NULL AND (e.organizer_user_id = p_organizer_user_id OR e.partner_organizer_id = p_organizer_user_id))
-  ), act AS (
-    SELECT lower(btrim(t.user_email)) AS em,
-           (t.total_price - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0))::numeric AS amount,
-           t.created_at, t.event_id, 'ticket'::text AS kind, t.user_id,
-           COALESCE(t.guest_first_name, NULLIF(split_part(btrim(COALESCE(t.full_name, '')), ' ', 1), '')) AS fn,
-           COALESCE(t.guest_last_name, NULLIF(btrim(regexp_replace(COALESCE(t.full_name, ''), '^\S+\s*', '')), '')) AS ln,
-           NULLIF(btrim(COALESCE(t.phone, t.guest_phone, '')), '') AS ph
-      FROM public.tickets t JOIN ev ON ev.id = t.event_id
-     WHERE t.user_email IS NOT NULL AND btrim(t.user_email) <> '' AND t.paid_at IS NOT NULL
-    UNION ALL
-    SELECT lower(btrim(tr.user_email)),
-           (tr.total_price - COALESCE(tr.service_fee, 0) - (CASE WHEN coalesce(tr.fee_absorbed, false) THEN coalesce(tr.management_fee, 0) ELSE 0 END))::numeric,
-           tr.created_at, tr.event_id, 'table', tr.user_id,
-           COALESCE(tr.guest_first_name, NULLIF(split_part(btrim(COALESCE(tr.full_name, '')), ' ', 1), '')),
-           COALESCE(tr.guest_last_name, NULLIF(btrim(regexp_replace(COALESCE(tr.full_name, ''), '^\S+\s*', '')), '')),
-           NULLIF(btrim(COALESCE(tr.phone, tr.guest_phone, '')), '')
-      FROM public.table_reservations tr JOIN ev ON ev.id = tr.event_id
-     WHERE tr.user_email IS NOT NULL AND btrim(tr.user_email) <> ''
-       AND (tr.paid_at IS NOT NULL OR tr.status IN ('paid', 'confirmed'))
-    UNION ALL
-    SELECT lower(btrim(o.user_email)),
-           (o.total - COALESCE(o.service_fee, 0))::numeric,
-           o.created_at, o.event_id, 'order', o.user_id,
-           o.guest_first_name, o.guest_last_name,
-           NULLIF(btrim(COALESCE(o.guest_phone, '')), '')
-      FROM public.orders o
-     WHERE p_venue_id IS NOT NULL AND o.venue_id = p_venue_id
-       AND o.user_email IS NOT NULL AND btrim(o.user_email) <> '' AND o.status = 'paid'
-    UNION ALL
-    SELECT lower(btrim(gle.email)),
-           0::numeric,
-           gle.created_at, gl.event_id, 'guestlist', gle.user_id,
-           NULLIF(split_part(btrim(COALESCE(gle.full_name, '')), ' ', 1), ''),
-           NULLIF(btrim(regexp_replace(COALESCE(gle.full_name, ''), '^\S+\s*', '')), ''),
-           NULLIF(btrim(COALESCE(gle.phone, '')), '')
-      FROM public.guest_list_entries gle
-      JOIN public.guest_lists gl ON gl.id = gle.guest_list_id
-      JOIN ev ON ev.id = gl.event_id
-     WHERE gle.email IS NOT NULL AND btrim(gle.email) <> '' AND gle.status <> 'cancelled'
-    UNION ALL
-    -- Yuno CRM : billets d'une billetterie connectée (Shotgun), comptés comme
-    -- des billets. Valeur faciale hors frais ; remboursés / annulés exclus.
-    SELECT xt.buyer_email,
-           (COALESCE(xt.price, 0) * GREATEST(xt.quantity, 1))::numeric,
-           COALESCE(xt.purchased_at, xt.first_seen_at), xt.event_id, 'ticket', NULL::uuid,
-           xt.buyer_first_name, xt.buyer_last_name, xt.buyer_phone
-      FROM public.external_tickets xt
-     WHERE ((p_venue_id IS NOT NULL AND xt.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND xt.organizer_user_id = p_organizer_user_id))
-       AND xt.buyer_email IS NOT NULL
-       AND xt.status IN ('valid', 'transferred')
-  ), agg AS (
-    SELECT a.em,
-           COALESCE(sum(a.amount), 0) AS spent,
-           count(DISTINCT a.event_id) AS event_count,
-           count(*) FILTER (WHERE a.kind <> 'guestlist') AS paid_count,
-           count(*) FILTER (WHERE a.kind = 'ticket') AS ticket_count,
-           count(*) FILTER (WHERE a.kind = 'table') AS table_count,
-           count(*) FILTER (WHERE a.kind = 'order') AS order_count,
-           count(*) FILTER (WHERE a.kind = 'guestlist') AS guest_list_count,
-           min(a.created_at) AS first_at,
-           max(a.created_at) AS last_at,
-           max(a.created_at) FILTER (WHERE a.kind <> 'guestlist') AS last_paid_at,
-           (array_agg(a.user_id ORDER BY a.created_at DESC) FILTER (WHERE a.user_id IS NOT NULL))[1] AS uid,
-           (array_agg(a.fn ORDER BY a.created_at DESC) FILTER (WHERE a.fn IS NOT NULL))[1] AS fn,
-           (array_agg(a.ln ORDER BY a.created_at DESC) FILTER (WHERE a.ln IS NOT NULL))[1] AS ln,
-           (array_agg(a.ph ORDER BY a.created_at DESC) FILTER (WHERE a.ph IS NOT NULL))[1] AS ph
-      FROM act a
-     GROUP BY a.em
-  ), subs AS (
-    -- Abonnés entrés par une surface Yuno (jamais par un fichier importé).
-    SELECT lower(ns.email) AS em,
-           bool_or(ns.opted_in AND ns.opted_out_at IS NULL) AS subscribed,
-           max(ns.source) AS src,
-           (array_agg(ns.user_id) FILTER (WHERE ns.user_id IS NOT NULL))[1] AS uid,
-           max(ns.first_name) AS fn, max(ns.last_name) AS ln
-      FROM public.newsletter_subscriptions ns
-     WHERE public.marketing_scope_match(ns.venue_id, ns.organizer_user_id, p_venue_id, p_organizer_user_id)
-       AND ns.import_id IS NULL
-       AND COALESCE(ns.source, '') NOT LIKE '%import%'
-     GROUP BY lower(ns.email)
-  ), merged AS (
-    SELECT COALESCE(a.em, s.em) AS em,
-           COALESCE(a.uid, s.uid) AS uid,
-           a.spent, a.event_count, a.paid_count, a.ticket_count, a.table_count, a.order_count, a.guest_list_count,
-           a.first_at, a.last_at, a.last_paid_at,
-           COALESCE(a.fn, s.fn) AS fn, COALESCE(a.ln, s.ln) AS ln, a.ph,
-           COALESCE(s.subscribed, false) AS subscribed, s.src
-      FROM agg a
-      FULL OUTER JOIN subs s ON s.em = a.em
-  )
-  SELECT m.em::text AS email,
-         COALESCE(m.uid, p.id) AS user_id,
-         COALESCE(p.first_name, m.fn)::text AS first_name,
-         COALESCE(p.last_name, m.ln)::text AS last_name,
-         COALESCE(m.ph, p.phone)::text AS phone,
-         m.spent, m.event_count::int, m.paid_count::int, m.ticket_count::int, m.table_count::int,
-         m.order_count::int, m.guest_list_count::int, m.first_at, m.last_at, m.last_paid_at,
-         NULLIF(btrim(COALESCE(p.city, '')), '')::text AS city,
-         CASE WHEN p.birth_date IS NOT NULL THEN date_part('year', age(p.birth_date))::int END AS age,
-         CASE
-           WHEN lower(COALESCE(p.gender, '')) IN ('female', 'f', 'femme', 'woman', 'mujer') THEN 'female'
-           WHEN lower(COALESCE(p.gender, '')) IN ('male', 'm', 'homme', 'man', 'hombre') THEN 'male'
-           WHEN lower(COALESCE(p.gender, '')) IN ('other', 'autre', 'otro', 'non-binary', 'nb') THEN 'other'
-         END::text AS gender,
-         m.subscribed, m.src::text AS sub_source
-    FROM merged m
-    LEFT JOIN public.profiles p ON p.id = m.uid AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = m.uid AND u.deleted_at IS NULL)
-   WHERE m.em IS NOT NULL AND position('@' in m.em) > 1;
+  SELECT session_user IN ('postgres', 'supabase_admin')
+      OR public.contact_scope_allowed(p_venue_id, p_organizer_user_id);
 $function$;
 
 CREATE OR REPLACE FUNCTION public.coorg_cohost_sees_money(p_event_id uuid, p_party text)
@@ -6270,6 +7400,18 @@ AS $function$
   ) u(id)
   -- Une soirée démo n'est jamais annoncée par la recette d'un vrai compte.
   WHERE NOT (u.id = ANY (public.demo_event_ids()));
+$function$;
+
+CREATE OR REPLACE FUNCTION public.coorg_party_is_demo(p_kind text, p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE WHEN p_kind = 'venue'
+              THEN COALESCE(p_venue_id = ANY (public.demo_venue_ids()), false)
+              ELSE COALESCE((SELECT public.is_demo_email(u.email) FROM auth.users u
+                              WHERE u.id = p_organizer_user_id), false) END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.coorg_party_level(p_uid uuid, p_party text)
@@ -6322,149 +7464,106 @@ AS $function$
       OR public.coorg_cohost_sees_money(p_event_id, p_party);
 $function$;
 
-CREATE OR REPLACE FUNCTION public.count_campaign_recipients(p_venue_id text, p_type text, p_audience_type text, p_event_id uuid DEFAULT NULL::uuid, p_segment_id uuid DEFAULT NULL::uuid)
- RETURNS integer
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE v_count integer := 0;
-BEGIN
-  IF NOT (public.is_venue_owner(auth.uid(), p_venue_id) OR public.is_super_admin()) THEN
-    RAISE EXCEPTION 'Unauthorized';
-  END IF;
-
-  -- Informational: acheteurs ticket d'un événement
-  IF p_type = 'informational' AND p_audience_type = 'event_buyers' AND p_event_id IS NOT NULL THEN
-    SELECT COUNT(DISTINCT LOWER(user_email)) INTO v_count
-    FROM public.tickets
-    WHERE event_id = p_event_id AND status = 'paid' AND user_email IS NOT NULL;
-    RETURN v_count;
-  END IF;
-
-  -- Informational: réservations table d'un événement
-  IF p_type = 'informational' AND p_audience_type = 'event_table_buyers' AND p_event_id IS NOT NULL THEN
-    SELECT COUNT(DISTINCT LOWER(user_email)) INTO v_count
-    FROM public.table_reservations
-    WHERE event_id = p_event_id AND status = 'confirmed' AND user_email IS NOT NULL;
-    RETURN v_count;
-  END IF;
-
-  -- Informational: tous les acheteurs (ticket + table)
-  IF p_type = 'informational' AND p_audience_type = 'event_all_buyers' AND p_event_id IS NOT NULL THEN
-    WITH emails AS (
-      SELECT LOWER(user_email) AS e FROM public.tickets WHERE event_id = p_event_id AND status = 'paid' AND user_email IS NOT NULL
-      UNION
-      SELECT LOWER(user_email) FROM public.table_reservations WHERE event_id = p_event_id AND status = 'confirmed' AND user_email IS NOT NULL
-    )
-    SELECT COUNT(*) INTO v_count FROM emails;
-    RETURN v_count;
-  END IF;
-
-  -- Marketing: filtrage commun = abonnés opt-in venue
-  IF p_type = 'promotional' THEN
-    IF p_audience_type = 'all_subscribers' THEN
-      SELECT COUNT(*) INTO v_count FROM public.newsletter_subscriptions
-      WHERE venue_id = p_venue_id AND opted_in = true;
-    ELSIF p_audience_type = 'event_subscribers' AND p_event_id IS NOT NULL THEN
-      SELECT COUNT(DISTINCT LOWER(t.user_email)) INTO v_count
-      FROM public.tickets t
-      JOIN public.newsletter_subscriptions ns
-        ON LOWER(ns.email) = LOWER(t.user_email) AND ns.venue_id = p_venue_id
-      WHERE t.event_id = p_event_id AND t.status = 'paid' AND ns.opted_in = true;
-    ELSIF p_audience_type = 'custom_segment' AND p_segment_id IS NOT NULL THEN
-      -- Segment sauvegardé ∩ opt-in : même intersection que resolve_campaign_audience.
-      SELECT COUNT(DISTINCT LOWER(ns.email)) INTO v_count
-      FROM public.newsletter_subscriptions ns
-      JOIN public.resolve_venue_segment(
-             p_venue_id,
-             (SELECT vs.definition FROM public.venue_segments vs
-               WHERE vs.id = p_segment_id AND vs.venue_id = p_venue_id)
-           ) seg ON LOWER(seg.email) = LOWER(ns.email)
-      WHERE ns.venue_id = p_venue_id AND ns.opted_in = true;
-    ELSIF p_audience_type IN ('vip','regulars','new_customers','big_spenders','dormant') THEN
-      SELECT COUNT(*) INTO v_count
-      FROM public.newsletter_subscriptions ns
-      JOIN public.venue_customers vc
-        ON LOWER(vc.email) = LOWER(ns.email) AND vc.venue_id = p_venue_id
-      WHERE ns.venue_id = p_venue_id AND ns.opted_in = true
-        AND CASE p_audience_type
-          WHEN 'vip' THEN vc.total_spent >= 500
-          WHEN 'regulars' THEN (COALESCE(vc.ticket_count,0) + COALESCE(vc.order_count,0) + COALESCE(vc.table_count,0)) BETWEEN 2 AND 4
-          WHEN 'new_customers' THEN (COALESCE(vc.ticket_count,0) + COALESCE(vc.order_count,0) + COALESCE(vc.table_count,0)) <= 1
-          WHEN 'big_spenders' THEN vc.total_spent >= 1000
-          WHEN 'dormant' THEN vc.last_visit_at < now() - interval '90 days'
-          ELSE FALSE
-        END;
-    END IF;
-  END IF;
-
-  RETURN v_count;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.count_contact_segment_def(p_venue_id text, p_organizer_user_id uuid, p_definition jsonb)
+CREATE OR REPLACE FUNCTION public.count_campaign_audience(p_campaign_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
-DECLARE v_n integer; v_e integer; v_p integer;
+DECLARE
+  v_gross integer := 0;
+  v_net integer := 0;
 BEGIN
-  IF NOT public.contact_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
-  END IF;
-  PERFORM public.contact_build_rows(p_venue_id, p_organizer_user_id);
-  EXECUTE format('SELECT count(*), count(*) FILTER (WHERE c.email_ok), count(*) FILTER (WHERE c.phone_ok) FROM _cr c WHERE %s',
-                 public.contact_definition_predicate(p_definition, 'c'))
-    INTO v_n, v_e, v_p;
-  DROP TABLE IF EXISTS _cr;
-  RETURN jsonb_build_object('contacts', COALESCE(v_n,0), 'emails', COALESCE(v_e,0), 'phones', COALESCE(v_p,0));
+  -- L'autorisation est portée par resolve_campaign_audience (RAISE si non
+  -- propriétaire de la campagne).
+  SELECT count(*), count(*) FILTER (WHERE NOT public.is_email_suppressed(addr))
+    INTO v_gross, v_net
+    FROM (
+      SELECT DISTINCT LOWER(a.email) AS addr
+        FROM public.resolve_campaign_audience(p_campaign_id) a
+       WHERE a.email IS NOT NULL AND position('@' in a.email) > 1
+    ) d;
+
+  RETURN jsonb_build_object(
+    'gross', v_gross,
+    'net', v_net,
+    'suppressed', v_gross - v_net
+  );
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.count_organizer_audience_kinds(p_organizer_user_id uuid, p_event_id uuid DEFAULT NULL::uuid)
- RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_demo_preview_link(p_label text, p_password text, p_target_accounts text[], p_language text DEFAULT 'en'::text, p_expires_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
+ RETURNS TABLE(id uuid, token text)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE v jsonb;
+DECLARE
+  v_accounts text[] := p_target_accounts;
 BEGIN
-  IF p_organizer_user_id IS NULL THEN RETURN '{}'::jsonb; END IF;
-  IF NOT (COALESCE(auth.role(), '') = 'service_role'
-          OR p_organizer_user_id = auth.uid()
-          OR public.is_super_admin()) THEN
-    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF coalesce(btrim(p_label), '') = '' THEN
+    RAISE EXCEPTION 'label required';
+  END IF;
+  IF length(coalesce(p_password, '')) < 4 THEN
+    RAISE EXCEPTION 'password too short';
+  END IF;
+  IF p_venue_id IS NOT NULL AND p_organizer_user_id IS NOT NULL THEN
+    RAISE EXCEPTION 'one showcase target only';
   END IF;
 
-  -- Mêmes seuils que resolve_campaign_audience (portée organisateur) : ce que
-  -- l'écran affiche est ce que l'envoi résoudra.
-  WITH cust AS (
-    SELECT c.email, COALESCE(c.spent, 0) AS spent, COALESCE(c.event_count, 0) AS visits, c.last_at
-      FROM public.contact_scope_customers(NULL, p_organizer_user_id) c
-  ), subs AS (
-    SELECT DISTINCT ON (LOWER(ns.email)) LOWER(ns.email) AS addr, cu.spent, cu.visits, cu.last_at
-      FROM public.newsletter_subscriptions ns
-      LEFT JOIN cust cu ON cu.email = LOWER(ns.email)
-     WHERE ns.organizer_user_id = p_organizer_user_id AND ns.opted_in = true
-     ORDER BY LOWER(ns.email)
+  IF p_venue_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.venues v
+       WHERE v.id = p_venue_id AND v.showcase_shadow_owner_id IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'venue is not a showcase';
+    END IF;
+    v_accounts := ARRAY['owner'];
+  ELSIF p_organizer_user_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.organizer_profiles op
+       WHERE op.user_id = p_organizer_user_id AND op.is_showcase_shadow
+    ) THEN
+      RAISE EXCEPTION 'organizer is not a showcase';
+    END IF;
+    v_accounts := ARRAY['organizer'];
+  ELSE
+    IF v_accounts IS NULL OR cardinality(v_accounts) = 0 THEN
+      RAISE EXCEPTION 'at least one role required';
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM unnest(v_accounts) a
+      WHERE a NOT IN ('owner','organizer','bde','crm','promoter','agency','dj',
+                      'affiliate','bouncer','barman','cloakroom','vip_host')
+    ) THEN
+      RAISE EXCEPTION 'invalid target_account';
+    END IF;
+  END IF;
+
+  IF coalesce(p_language, 'en') NOT IN ('en','fr','es') THEN
+    RAISE EXCEPTION 'invalid language';
+  END IF;
+
+  INSERT INTO public.demo_preview_links
+    (label, target_accounts, target_account, language, password_hash, created_by,
+     expires_at, venue_id, organizer_user_id)
+  VALUES (
+    btrim(p_label),
+    v_accounts,
+    v_accounts[1],
+    coalesce(p_language, 'en'),
+    extensions.crypt(p_password, extensions.gen_salt('bf', 10)),
+    auth.uid(),
+    p_expires_at,
+    p_venue_id,
+    p_organizer_user_id
   )
-  SELECT jsonb_build_object(
-    'all_subscribers', count(*),
-    'vip',           count(*) FILTER (WHERE COALESCE(s.spent, 0) >= 500),
-    'big_spenders',  count(*) FILTER (WHERE COALESCE(s.spent, 0) >= 1000),
-    'regulars',      count(*) FILTER (WHERE COALESCE(s.visits, 0) BETWEEN 2 AND 4),
-    'new_customers', count(*) FILTER (WHERE COALESCE(s.visits, 0) <= 1),
-    'dormant',       count(*) FILTER (WHERE s.last_at IS NOT NULL AND s.last_at < now() - interval '90 days'),
-    'event_subscribers', CASE WHEN p_event_id IS NULL THEN 0 ELSE
-      count(*) FILTER (WHERE EXISTS (
-         SELECT 1 FROM public.tickets t
-          WHERE t.event_id = p_event_id AND t.status = 'paid' AND LOWER(t.user_email) = s.addr)) END
-  ) INTO v
-  FROM subs s;
-  RETURN COALESCE(v, '{}'::jsonb);
+  RETURNING demo_preview_links.id, demo_preview_links.token INTO id, token;
+
+  RETURN NEXT;
 END;
 $function$;
 
@@ -6477,232 +7576,6 @@ AS $function$
   SELECT public._crm_money_gate(public.crm_ana_community__core(p_venue_id, p_organizer_user_id, p_period, p_event, p_seg), p_venue_id, p_organizer_user_id);
 $function$;
 
-CREATE OR REPLACE FUNCTION public.crm_ana_community__core(p_venue_id text, p_organizer_user_id uuid, p_period text DEFAULT '30d'::text, p_event uuid DEFAULT NULL::uuid, p_seg text DEFAULT 'all'::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
-AS $function$
-DECLARE
-  m jsonb;
-  v_n int;
-  v_seg text;
-  v_today date;
-  v_series jsonb; v_lc jsonb; v_reach jsonb; v_stats jsonb; v_spark jsonb; v_cohort jsonb; v_hist jsonb;
-  v_aud jsonb; v_age jsonb; v_city jsonb; v_top jsonb; v_wake jsonb; v_base_total int; v_base_prev int;
-  v_next uuid;
-  v_rules record;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  m := public._crm_ana_setup(p_venue_id, p_organizer_user_id, p_period, p_event, p_seg);
-  v_n := (m->>'n')::int;
-  v_seg := m->>'seg';
-  v_today := (m->>'today')::date;
-  SELECT * INTO v_rules FROM public.crm_scope_rules(p_venue_id, p_organizer_user_id);
-
-  -- Les personnes regardées : toute la base, ou le segment ; pour une soirée,
-  -- ses acheteurs.
-  DROP TABLE IF EXISTS _apeo;
-  CREATE TEMP TABLE _apeo ON COMMIT DROP AS
-  WITH fb AS (
-    SELECT a.email, min(a.bought_at) AS first_buy FROM _atk_all a WHERE a.ok GROUP BY a.email
-  ), cr AS (
-    -- La fiche (âge, ville) : une ligne par adresse, jointe d'un coup.
-    SELECT DISTINCT ON (lower(x.email)) lower(x.email) AS em, x.age, x.city
-      FROM _cr x WHERE x.email IS NOT NULL
-     ORDER BY lower(x.email), (x.age IS NULL), (x.city IS NULL)
-  )
-  SELECT p.*, LEAST(p.first_night, p.added_at, fb.first_buy) AS joined_at,
-         c.age AS c_age, c.city AS c_city
-    FROM _cp p
-    LEFT JOIN fb ON fb.email = p.email
-    LEFT JOIN cr c ON c.em = p.email
-   WHERE (v_seg = 'all' OR p.lifecycle = v_seg)
-     AND (m->>'mode' <> 'event' OR EXISTS (SELECT 1 FROM _atk_all a WHERE a.email = p.email AND a.ok
-                                            AND a.event_id = (m->'event'->>'id')::uuid));
-
-  -- Courbe : la base au total à la fin de chaque case, et les nouveaux venus.
-  -- Pour une soirée : ses acheteurs, jour après jour.
-  IF m->>'mode' = 'event' THEN
-    SELECT jsonb_agg(jsonb_build_object(
-             'total', (SELECT count(DISTINCT a.email) FROM _atk_all a JOIN _apeo p ON p.email = a.email
-                        WHERE a.ok AND a.ci IS NOT NULL AND a.ci <= g),
-             'new', (SELECT count(DISTINCT a.email) FROM _atk_all a JOIN _apeo p ON p.email = a.email
-                      WHERE a.ok AND a.ci = g
-                        AND NOT EXISTS (SELECT 1 FROM _atk_all b WHERE b.email = a.email AND b.ok AND b.bought_at < a.bought_at)),
-             'prev_total', (SELECT count(DISTINCT a.email) FROM _atk_all a WHERE a.ok AND a.pi IS NOT NULL AND a.pi <= g),
-             'prev_new', (SELECT count(DISTINCT a.email) FROM _atk_all a WHERE a.ok AND a.pi = g
-                           AND NOT EXISTS (SELECT 1 FROM _atk_all b WHERE b.email = a.email AND b.ok AND b.bought_at < a.bought_at))
-           ) ORDER BY g)
-      INTO v_series FROM generate_series(0, v_n - 1) g;
-  ELSE
-    SELECT jsonb_agg(jsonb_build_object(
-             'total', (SELECT count(*) FROM _apeo p WHERE p.joined_at IS NOT NULL
-                        AND public._crm_night_date(p.joined_at, m->>'tz', (m->>'night_end_hour')::int)
-                            <= CASE m->>'mode'
-                                 WHEN 'hour' THEN public._crm_night_date((m->>'start')::timestamptz + make_interval(hours => g + 1), m->>'tz', (m->>'night_end_hour')::int)
-                                 WHEN 'month' THEN ((m->>'start')::date + make_interval(months => g + 1) - interval '1 day')::date
-                                 ELSE (m->>'start')::date + g END),
-             'new', (SELECT count(*) FROM _apeo p WHERE public._crm_ana_bucket(m, p.joined_at) = g),
-             'prev_new', (SELECT count(*) FROM _apeo p WHERE p.joined_at IS NOT NULL AND CASE m->>'mode'
-                             WHEN 'hour' THEN p.joined_at >= (m->>'start')::timestamptz - make_interval(hours => v_n - g)
-                                              AND p.joined_at < (m->>'start')::timestamptz - make_interval(hours => v_n - g - 1)
-                             WHEN 'month' THEN public._crm_night_date(p.joined_at, m->>'tz', (m->>'night_end_hour')::int)
-                                               >= ((m->>'start')::date - interval '12 months' + make_interval(months => g))::date
-                                               AND public._crm_night_date(p.joined_at, m->>'tz', (m->>'night_end_hour')::int)
-                                               < ((m->>'start')::date - interval '12 months' + make_interval(months => g + 1))::date
-                             ELSE public._crm_night_date(p.joined_at, m->>'tz', (m->>'night_end_hour')::int) = (m->>'start')::date - v_n + g END)
-           ) ORDER BY g)
-      INTO v_series FROM generate_series(0, v_n - 1) g;
-  END IF;
-
-  SELECT count(*) INTO v_base_total FROM _apeo;
-
-  -- Cycle de vie (toute la base, ou les acheteurs de la soirée).
-  SELECT jsonb_build_object(
-           'hab', count(*) FILTER (WHERE lifecycle = 'hab'), 'occ', count(*) FILTER (WHERE lifecycle = 'occ'),
-           'nou', count(*) FILTER (WHERE lifecycle = 'nou'), 'end', count(*) FILTER (WHERE lifecycle = 'end'),
-           'none', count(*) FILTER (WHERE lifecycle = 'none'))
-    INTO v_lc
-    FROM _cp p
-   WHERE m->>'mode' <> 'event' OR EXISTS (SELECT 1 FROM _atk_all a WHERE a.email = p.email AND a.ok
-                                           AND a.event_id = (m->'event'->>'id')::uuid);
-
-  SELECT jsonb_build_object(
-           'total', count(*),
-           'email_sms', count(*) FILTER (WHERE email_ok AND phone_ok),
-           'email', count(*) FILTER (WHERE email_ok AND NOT phone_ok),
-           'sms', count(*) FILTER (WHERE phone_ok AND NOT email_ok),
-           'none', count(*) FILTER (WHERE NOT email_ok AND NOT phone_ok))
-    INTO v_reach FROM _apeo;
-
-  SELECT jsonb_build_object(
-           'came', count(*) FILTER (WHERE nights > 0),
-           'returning', count(*) FILTER (WHERE nights >= 2),
-           'avg_nights', round(avg(nights) FILTER (WHERE nights > 0), 2),
-           'spent', round(avg(spent) FILTER (WHERE nights > 0), 2))
-    INTO v_stats FROM _apeo;
-
-  -- Les mêmes mesures à la fin des six derniers mois (étincelles, écart).
-  SELECT jsonb_agg(jsonb_build_object('returning_pct', q.rp, 'avg_nights', q.an, 'spent', q.sp) ORDER BY q.k DESC)
-    INTO v_spark FROM (
-      SELECT k,
-             round(100.0 * count(*) FILTER (WHERE n >= 2) / NULLIF(count(*), 0), 1) AS rp,
-             round(avg(n), 2) AS an, round(avg(s), 2) AS sp
-        FROM generate_series(0, 5) k
-        CROSS JOIN LATERAL (
-          SELECT a.email, count(DISTINCT a.event_id) AS n, sum(a.amount) AS s
-            FROM _atk_all a JOIN _apeo p ON p.email = a.email
-           WHERE a.ok AND a.event_id IS NOT NULL
-             AND a.bought_at < CASE WHEN k = 0 THEN now()
-                                    ELSE (date_trunc('month', now() AT TIME ZONE 'Europe/Paris') - make_interval(months => k - 1)) AT TIME ZONE 'Europe/Paris' END
-           GROUP BY a.email) x
-       GROUP BY k) q;
-
-  -- Qui revient : les cinq dernières soirées passées, et la part de leurs
-  -- acheteurs revenus aux soirées suivantes (+1 à +4).
-  WITH evs AS (
-    SELECT e.id, e.title, e.start_at, e.night, row_number() OVER (ORDER BY e.start_at) AS rn
-      FROM _aev e WHERE EXISTS (SELECT 1 FROM _atk_all a WHERE a.event_id = e.id AND a.ok)
-  ), last5 AS (
-    SELECT * FROM evs WHERE start_at < now() ORDER BY start_at DESC LIMIT 5
-  ), buyers AS (
-    SELECT DISTINCT a.event_id, a.email FROM _atk_all a JOIN _apeo p ON p.email = a.email WHERE a.ok AND a.email IS NOT NULL
-  )
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'id', l.id, 'title', l.title, 'night', l.night,
-           'buyers', (SELECT count(*) FROM buyers b WHERE b.event_id = l.id),
-           'back', (SELECT jsonb_agg(CASE WHEN nx.id IS NULL THEN NULL ELSE
-                       (SELECT round(100.0 * count(*) / NULLIF((SELECT count(*) FROM buyers b0 WHERE b0.event_id = l.id), 0), 0)
-                          FROM buyers b WHERE b.event_id = l.id
-                           AND EXISTS (SELECT 1 FROM buyers b2 WHERE b2.event_id = nx.id AND b2.email = b.email)) END ORDER BY s)
-                     FROM generate_series(1, 4) s LEFT JOIN evs nx ON nx.rn = l.rn + s)
-         ) ORDER BY l.start_at), '[]'::jsonb)
-    INTO v_cohort FROM last5 l;
-
-  SELECT jsonb_build_object(
-           'n1', count(*) FILTER (WHERE nights = 1), 'n2', count(*) FILTER (WHERE nights = 2),
-           'n3', count(*) FILTER (WHERE nights BETWEEN 3 AND 4), 'n5', count(*) FILTER (WHERE nights BETWEEN 5 AND 9),
-           'n10', count(*) FILTER (WHERE nights >= 10))
-    INTO v_hist FROM _apeo;
-
-  -- Qui vient : les acheteurs de la fenêtre, par cycle de vie.
-  SELECT jsonb_build_object(
-           'buyers', count(DISTINCT a.email),
-           'groups', (SELECT jsonb_object_agg(g.k, jsonb_build_object(
-                          'buyers', (SELECT count(DISTINCT x.email) FROM _atk x JOIN _cp p ON p.email = x.email
-                                      WHERE x.ok AND x.ci IS NOT NULL AND p.lifecycle = g.k),
-                          'revenue', (SELECT COALESCE(round(sum(x.amount), 2), 0) FROM _atk x JOIN _cp p ON p.email = x.email
-                                      WHERE x.ok AND x.ci IS NOT NULL AND p.lifecycle = g.k)))
-                        FROM unnest(ARRAY['nou', 'occ', 'hab', 'end']) g(k)))
-    INTO v_aud
-    FROM _atk a WHERE a.ok AND a.ci IS NOT NULL;
-
-  -- Âge et lieu : billets d'abord (déclarés à l'achat), sinon la fiche.
-  WITH pa AS (
-    SELECT p.email,
-           COALESCE((SELECT max(a.age) FROM _atk_all a WHERE a.email = p.email AND a.age BETWEEN 14 AND 99), NULLIF(p.c_age, 0)) AS age,
-           COALESCE((SELECT a.city FROM _atk_all a WHERE a.email = p.email AND a.city IS NOT NULL ORDER BY a.bought_at DESC LIMIT 1),
-                    NULLIF(btrim(p.c_city), '')) AS city
-      FROM _apeo p
-  )
-  SELECT jsonb_build_object(
-           'known', count(*) FILTER (WHERE age IS NOT NULL), 'total', count(*),
-           'b', jsonb_build_array(count(*) FILTER (WHERE age BETWEEN 14 AND 21), count(*) FILTER (WHERE age BETWEEN 22 AND 25),
-                                  count(*) FILTER (WHERE age BETWEEN 26 AND 30), count(*) FILTER (WHERE age BETWEEN 31 AND 35),
-                                  count(*) FILTER (WHERE age >= 36))),
-         jsonb_build_object(
-           'known', count(*) FILTER (WHERE city IS NOT NULL), 'total', count(*),
-           'top', (SELECT COALESCE(jsonb_agg(jsonb_build_object('city', c, 'n', k) ORDER BY k DESC), '[]'::jsonb) FROM (
-                     SELECT initcap(lower(city)) AS c, count(*) AS k FROM pa WHERE city IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 5) t))
-    INTO v_age, v_city FROM pa;
-
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'email', p.email, 'first_name', p.first_name, 'last_name', p.last_name,
-           'nights', p.nights, 'spent', p.spent, 'last_night', p.last_night) ORDER BY p.spent DESC), '[]'::jsonb)
-    INTO v_top FROM (SELECT * FROM _apeo WHERE nights > 0 ORDER BY spent DESC, nights DESC LIMIT 5) p;
-
-  -- À réveiller : endormis, venus une seule fois (il y a plus d'un mois),
-  -- habitués sans place pour la prochaine soirée.
-  SELECT id INTO v_next FROM _aev WHERE upcoming ORDER BY start_at LIMIT 1;
-  SELECT jsonb_build_object(
-           'end', jsonb_build_object('n', count(*) FILTER (WHERE lifecycle = 'end'),
-                                     'reachable', count(*) FILTER (WHERE lifecycle = 'end' AND (email_ok OR phone_ok))),
-           'once', jsonb_build_object('n', count(*) FILTER (WHERE nights = 1 AND last_night < now() - interval '30 days'),
-                                      'reachable', count(*) FILTER (WHERE nights = 1 AND last_night < now() - interval '30 days' AND (email_ok OR phone_ok))),
-           'hab_no_ticket', CASE WHEN v_next IS NOT NULL THEN jsonb_build_object(
-               'event_id', v_next, 'title', (SELECT title FROM _aev WHERE id = v_next),
-               'n', count(*) FILTER (WHERE lifecycle = 'hab' AND NOT EXISTS (
-                      SELECT 1 FROM _atk_all a WHERE a.email = _cp.email AND a.ok AND a.event_id = v_next)),
-               'reachable', count(*) FILTER (WHERE lifecycle = 'hab' AND (email_ok OR phone_ok) AND NOT EXISTS (
-                      SELECT 1 FROM _atk_all a WHERE a.email = _cp.email AND a.ok AND a.event_id = v_next))) END)
-    INTO v_wake FROM _cp;
-
-  RETURN jsonb_build_object(
-    'meta', m,
-    'rules', jsonb_build_object('min_nights', v_rules.regular_min_nights, 'window_months', v_rules.regular_window_months,
-                                'lapse_months', v_rules.lapse_months),
-    'series', COALESCE(v_series, '[]'::jsonb),
-    'base', v_base_total,
-    'lifecycle', v_lc,
-    'reach', v_reach,
-    'stats', v_stats,
-    'spark', COALESCE(v_spark, '[]'::jsonb),
-    'cohort', v_cohort,
-    'hist', v_hist,
-    'audience', v_aud,
-    'age', v_age,
-    'city', v_city,
-    'top', v_top,
-    'wake', v_wake,
-    'has_any', EXISTS (SELECT 1 FROM _cp)
-  );
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.crm_ana_sales(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_period text DEFAULT '30d'::text, p_event uuid DEFAULT NULL::uuid, p_seg text DEFAULT 'all'::text)
  RETURNS jsonb
  LANGUAGE sql
@@ -6712,207 +7585,6 @@ AS $function$
   SELECT public._crm_money_gate(public.crm_ana_sales__core(p_venue_id, p_organizer_user_id, p_period, p_event, p_seg), p_venue_id, p_organizer_user_id);
 $function$;
 
-CREATE OR REPLACE FUNCTION public.crm_ana_sales__core(p_venue_id text, p_organizer_user_id uuid, p_period text DEFAULT '30d'::text, p_event uuid DEFAULT NULL::uuid, p_seg text DEFAULT 'all'::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
-AS $function$
-DECLARE
-  m jsonb;
-  v_n int;
-  v_today date;
-  v_series jsonb; v_tot jsonb; v_msg jsonb; v_deals jsonb; v_fill jsonb; v_ref jsonb; v_seg_share numeric;
-  v_target uuid; v_refs uuid[]; v_goal jsonb;
-  v_heat jsonb; v_tariffs jsonb; v_events jsonb; v_other jsonb;
-  v_heat_from date; v_heat_to date;
-  v_cur_from date; v_prev_from date; v_prev_to date;
-  v_cut int;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  m := public._crm_ana_setup(p_venue_id, p_organizer_user_id, p_period, p_event, p_seg);
-  v_n := (m->>'n')::int;
-  v_today := (m->>'today')::date;
-
-  -- Une soirée encore en vente se compare à la précédente AU MÊME JOUR (J-k) :
-  -- au-delà d'aujourd'hui, la précédente n'est pas dans les totaux.
-  v_cut := CASE WHEN m->>'mode' = 'event' AND COALESCE((m->'event'->>'upcoming')::boolean, false)
-                THEN 21 - COALESCE((m->'event'->>'days_left')::int, 0) ELSE v_n - 1 END;
-
-  SELECT jsonb_agg(jsonb_build_object(
-           'revenue', COALESCE((SELECT round(sum(a.amount), 2) FROM _atk a WHERE a.ok AND a.ci = g), 0),
-           'tickets', COALESCE((SELECT sum(a.qty) FROM _atk a WHERE a.ok AND a.ci = g), 0),
-           'prev_revenue', COALESCE((SELECT round(sum(a.amount), 2) FROM _atk a WHERE a.ok AND a.pi = g), 0),
-           'prev_tickets', COALESCE((SELECT sum(a.qty) FROM _atk a WHERE a.ok AND a.pi = g), 0)
-         ) ORDER BY g)
-    INTO v_series FROM generate_series(0, v_n - 1) g;
-
-  SELECT jsonb_build_object(
-           'revenue', COALESCE(round(sum(amount) FILTER (WHERE ok AND ci IS NOT NULL), 2), 0),
-           'tickets', COALESCE(sum(qty) FILTER (WHERE ok AND ci IS NOT NULL), 0),
-           'buyers', count(DISTINCT email) FILTER (WHERE ok AND ci IS NOT NULL),
-           'prev_revenue', COALESCE(round(sum(amount) FILTER (WHERE ok AND pi <= v_cut), 2), 0),
-           'prev_tickets', COALESCE(sum(qty) FILTER (WHERE ok AND pi <= v_cut), 0),
-           'has_prev', bool_or(pi IS NOT NULL),
-           'prev_same_day', v_cut < v_n - 1,
-           -- Remboursés : part des billets de la fenêtre rendus (montant brut).
-           'refund_pct', CASE WHEN sum(amount) FILTER (WHERE ci IS NOT NULL) > 0
-                              THEN round(100 * sum(amount) FILTER (WHERE refunded AND ci IS NOT NULL)
-                                         / sum(amount) FILTER (WHERE ci IS NOT NULL), 1) END,
-           'prev_refund_pct', CASE WHEN sum(amount) FILTER (WHERE pi <= v_cut) > 0
-                                   THEN round(100 * sum(amount) FILTER (WHERE refunded AND pi <= v_cut)
-                                              / sum(amount) FILTER (WHERE pi <= v_cut), 1) END,
-           'refunds', jsonb_build_object(
-               'amount', COALESCE(round(sum(amount) FILTER (WHERE refunded AND ci IS NOT NULL), 2), 0),
-               'revenue', COALESCE(round(sum(amount) FILTER (WHERE ci IS NOT NULL), 2), 0))
-         )
-    INTO v_tot FROM _atk;
-
-  -- Ce qui a fait vendre : la part venue d'un message Yuno (UTM).
-  SELECT jsonb_build_object(
-           'share', CASE WHEN sum(amount) > 0 THEN round(100 * sum(amount) FILTER (WHERE src IN ('em', 'sm', 'dm')) / sum(amount), 1) END,
-           'revenue', COALESCE(round(sum(amount) FILTER (WHERE src IN ('em', 'sm', 'dm')), 2), 0),
-           'tickets', COALESCE(sum(qty) FILTER (WHERE src IN ('em', 'sm', 'dm')), 0),
-           'by', jsonb_build_object(
-             'em', COALESCE(sum(qty) FILTER (WHERE src = 'em'), 0),
-             'sm', COALESCE(sum(qty) FILTER (WHERE src = 'sm'), 0),
-             'dm', COALESCE(sum(qty) FILTER (WHERE src = 'dm'), 0)))
-    INTO v_msg FROM _atk WHERE ok AND ci IS NOT NULL;
-
-  -- Tarifs de la fenêtre.
-  SELECT COALESCE(jsonb_agg(jsonb_build_object('deal', d.deal, 'price', d.price, 'tickets', d.tickets, 'revenue', d.revenue)
-                            ORDER BY d.tickets DESC), '[]'::jsonb)
-    INTO v_tariffs FROM (
-      SELECT COALESCE(a.deal, '—') AS deal, round(avg(a.price), 2) AS price, sum(a.qty) AS tickets, round(sum(a.amount), 2) AS revenue
-        FROM _atk a WHERE a.ok AND a.ci IS NOT NULL GROUP BY 1 ORDER BY 3 DESC LIMIT 8) d;
-
-  -- Remplissage des soirées TENUES dans la fenêtre (nuit déjà venue), contre
-  -- celles de la fenêtre d'avant ; pour une soirée, elle contre la précédente.
-  -- Une soirée encore en vente ne tire pas le remplissage vers le bas.
-  IF m->>'mode' = 'hour' THEN
-    v_cur_from := public._crm_night_date((m->>'start')::timestamptz, m->>'tz', (m->>'night_end_hour')::int);
-    v_prev_from := public._crm_night_date((m->>'start')::timestamptz - make_interval(hours => v_n), m->>'tz', (m->>'night_end_hour')::int);
-  ELSIF m->>'mode' = 'month' THEN
-    v_cur_from := (m->>'start')::date;
-    v_prev_from := ((m->>'start')::date - interval '12 months')::date;
-  ELSIF m->>'mode' = 'day' THEN
-    v_cur_from := (m->>'start')::date;
-    v_prev_from := v_cur_from - v_n;
-  END IF;
-  v_prev_to := v_cur_from - 1;
-  WITH capx AS (
-    SELECT e.id, e.night, COALESCE(s.sold, 0) AS sold,
-           public._crm_night_capacity(e.left_tickets, e.deals, COALESCE(s.sold, 0)::int) AS cap
-      FROM _aev e
-      LEFT JOIN (SELECT event_id, sum(qty) AS sold FROM _atk_all WHERE ok GROUP BY 1) s ON s.event_id = e.id
-  ), cur AS (
-    SELECT * FROM capx WHERE cap > 0 AND CASE WHEN m->>'mode' = 'event' THEN id = (m->'event'->>'id')::uuid
-                                              ELSE night BETWEEN v_cur_from AND v_today END
-  ), prv AS (
-    SELECT * FROM capx WHERE cap > 0 AND CASE WHEN m->>'mode' = 'event' THEN id = (m->'prev_event'->>'id')::uuid
-                                              ELSE night BETWEEN v_prev_from AND v_prev_to END
-  )
-  SELECT jsonb_build_object(
-           'sold', (SELECT sum(sold) FROM cur), 'cap', (SELECT sum(cap) FROM cur), 'nights', (SELECT count(*) FROM cur),
-           'prev_sold', (SELECT sum(sold) FROM prv), 'prev_cap', (SELECT sum(cap) FROM prv))
-    INTO v_fill;
-
-  IF (m->>'seg') <> 'all' THEN
-    SELECT CASE WHEN (SELECT sum(amount) FROM _atk_all WHERE ok AND ci IS NOT NULL) > 0
-                THEN round(100 * (SELECT sum(amount) FROM _atk WHERE ok AND ci IS NOT NULL)
-                           / (SELECT sum(amount) FROM _atk_all WHERE ok AND ci IS NOT NULL), 1) END
-      INTO v_seg_share;
-  END IF;
-
-  -- Objectif et courbe : la soirée choisie, sinon la prochaine, sinon la dernière.
-  v_target := (m->'event'->>'id')::uuid;
-  IF v_target IS NULL THEN
-    SELECT id INTO v_target FROM _aev WHERE upcoming ORDER BY start_at LIMIT 1;
-  END IF;
-  IF v_target IS NULL THEN
-    SELECT id INTO v_target FROM _aev ORDER BY start_at DESC LIMIT 1;
-  END IF;
-  IF v_target IS NOT NULL THEN
-    SELECT array_agg(id ORDER BY ord) INTO v_refs FROM (
-      SELECT e.id, row_number() OVER (ORDER BY (e.series = t.series) DESC, e.start_at DESC) AS ord
-        FROM _aev e, _aev t
-       WHERE t.id = v_target AND e.id <> t.id AND NOT e.upcoming AND e.start_at < t.start_at
-         AND EXISTS (SELECT 1 FROM _atk_all a WHERE a.event_id = e.id AND a.ok)
-    ) r WHERE ord <= 2;
-    v_goal := jsonb_build_object(
-      'target', public._crm_ana_curve(v_target, v_today),
-      'refs', COALESCE((SELECT jsonb_agg(public._crm_ana_curve(x, v_today) ORDER BY o) FROM unnest(v_refs) WITH ORDINALITY u(x, o)), '[]'::jsonb),
-      'week_sold', COALESCE((SELECT sum(qty) FROM _atk_all WHERE event_id = v_target AND ok AND nd > v_today - 7), 0));
-  END IF;
-
-  -- Quand achètent-ils : jour (règle de nuit) × tranche de 2 h, 10 h → 2 h.
-  IF m->>'mode' = 'hour' THEN
-    v_heat_from := v_today - 29; v_heat_to := v_today;
-  END IF;
-  WITH h AS (
-    SELECT (extract(isodow FROM a.nd)::int - 1) AS r,
-           CASE WHEN a.hr >= 10 THEN (a.hr - 10) / 2 WHEN a.hr < 2 THEN 7 END AS c,
-           a.qty, a.amount
-      FROM _atk a
-     WHERE a.ok
-       AND CASE WHEN v_heat_from IS NOT NULL THEN a.nd BETWEEN v_heat_from AND v_heat_to ELSE a.ci IS NOT NULL END
-  )
-  SELECT jsonb_build_object(
-           'cells', (SELECT jsonb_agg((SELECT jsonb_agg(jsonb_build_object(
-                         'n', COALESCE((SELECT count(*) FROM h WHERE h.r = rr AND h.c = cc), 0),
-                         'amount', COALESCE((SELECT round(sum(h.amount), 2) FROM h WHERE h.r = rr AND h.c = cc), 0)) ORDER BY cc)
-                       FROM generate_series(0, 7) cc) ORDER BY rr)
-                     FROM generate_series(0, 6) rr),
-           'outside', (SELECT count(*) FROM h WHERE h.c IS NULL),
-           'days30', v_heat_from IS NOT NULL)
-    INTO v_heat;
-
-  -- Soirées qui ont vendu dans la fenêtre (les 7 premières, puis le reste).
-  WITH per AS (
-    SELECT a.event_id, sum(a.qty) AS tickets, round(sum(a.amount), 2) AS revenue
-      FROM _atk a WHERE a.ok AND a.ci IS NOT NULL AND a.event_id IS NOT NULL GROUP BY 1
-  ), tot AS (
-    SELECT event_id, sum(qty) AS sold FROM _atk_all WHERE ok AND event_id IS NOT NULL GROUP BY 1
-  ), rows AS (
-    SELECT e.id, e.title, e.start_at, e.night, e.upcoming, p.tickets, p.revenue, COALESCE(t.sold, 0) AS sold,
-           public._crm_night_capacity(e.left_tickets, e.deals, COALESCE(t.sold, 0)::int) AS cap,
-           (SELECT COALESCE(t2.sold, 0) FROM _aev e2 LEFT JOIN tot t2 ON t2.event_id = e2.id
-             WHERE e2.start_at < e.start_at AND e2.id <> e.id AND NOT e2.upcoming
-             ORDER BY (e2.series = e.series) DESC, e2.start_at DESC LIMIT 1) AS prev_sold,
-           row_number() OVER (ORDER BY p.revenue DESC, p.tickets DESC) AS rk
-      FROM per p JOIN _aev e ON e.id = p.event_id LEFT JOIN tot t ON t.event_id = e.id
-  )
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'id', id, 'title', title, 'start_at', start_at, 'night', night, 'upcoming', upcoming,
-           'state', CASE WHEN night = v_today THEN 'tonight' WHEN upcoming THEN 'presale' ELSE 'past' END,
-           'tickets', tickets, 'revenue', revenue, 'sold', sold, 'cap', cap, 'prev_sold', prev_sold
-         ) ORDER BY start_at DESC) FILTER (WHERE rk <= 7), '[]'::jsonb),
-         CASE WHEN count(*) > 7 THEN jsonb_build_object('count', count(*) FILTER (WHERE rk > 7),
-                'tickets', sum(tickets) FILTER (WHERE rk > 7), 'revenue', sum(revenue) FILTER (WHERE rk > 7)) END
-    INTO v_events, v_other
-    FROM rows;
-
-  RETURN jsonb_build_object(
-    'meta', m,
-    'series', COALESCE(v_series, '[]'::jsonb),
-    'totals', v_tot,
-    'msg', v_msg,
-    'tariffs', v_tariffs,
-    'fill', v_fill,
-    'seg_share', v_seg_share,
-    'goal', v_goal,
-    'heat', v_heat,
-    'events', v_events,
-    'events_other', v_other,
-    'sends', public._crm_ana_sends(p_venue_id, p_organizer_user_id, m),
-    'has_any', EXISTS (SELECT 1 FROM _atk_all)
-  );
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.crm_ana_traffic(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_period text DEFAULT '30d'::text, p_event uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE sql
@@ -6920,134 +7592,6 @@ CREATE OR REPLACE FUNCTION public.crm_ana_traffic(p_venue_id text DEFAULT NULL::
  SET search_path TO 'public'
 AS $function$
   SELECT public._crm_money_gate(public.crm_ana_traffic__core(p_venue_id, p_organizer_user_id, p_period, p_event), p_venue_id, p_organizer_user_id);
-$function$;
-
-CREATE OR REPLACE FUNCTION public.crm_ana_traffic__core(p_venue_id text, p_organizer_user_id uuid, p_period text DEFAULT '30d'::text, p_event uuid DEFAULT NULL::uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
-AS $function$
-DECLARE
-  m jsonb;
-  v_n int;
-  v_series jsonb; v_sources jsonb; v_clicks jsonb; v_new jsonb; v_events jsonb; v_first jsonb; v_gained jsonb;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  m := public._crm_ana_setup(p_venue_id, p_organizer_user_id, p_period, p_event, 'all');
-  v_n := (m->>'n')::int;
-
-  -- Premier achat de chaque client dans l'espace (toutes époques).
-  DROP TABLE IF EXISTS _afirst;
-  CREATE TEMP TABLE _afirst ON COMMIT DROP AS
-  SELECT DISTINCT ON (a.email) a.email, a.id, a.bought_at, a.src, a.ci, a.pi
-    FROM _atk_all a WHERE a.ok AND a.email IS NOT NULL
-   ORDER BY a.email, a.bought_at, a.id;
-
-  -- Clics sur les messages Yuno (un clic = une personne et une campagne).
-  DROP TABLE IF EXISTS _aclk;
-  CREATE TEMP TABLE _aclk ON COMMIT DROP AS
-  SELECT k.campaign_id, k.email, k.at, k.event_id,
-         public._crm_ana_bucket(m, k.at) AS ci,
-         CASE m->>'mode'
-           WHEN 'hour' THEN CASE WHEN k.at >= (m->>'start')::timestamptz - make_interval(hours => v_n) AND k.at < (m->>'start')::timestamptz THEN 0 END
-           WHEN 'day' THEN CASE WHEN public._crm_night_date(k.at, m->>'tz', (m->>'night_end_hour')::int)
-                                     BETWEEN (m->>'start')::date - v_n AND (m->>'start')::date - 1 THEN 0 END
-           WHEN 'month' THEN CASE WHEN public._crm_night_date(k.at, m->>'tz', (m->>'night_end_hour')::int)
-                                       >= ((m->>'start')::date - interval '12 months')::date
-                                   AND public._crm_night_date(k.at, m->>'tz', (m->>'night_end_hour')::int) < (m->>'start')::date THEN 0 END
-           ELSE NULL END AS pi
-    FROM (
-      SELECT ev.campaign_id, lower(ev.recipient_email) AS email, min(ev.created_at) AS at, c.event_id
-        FROM public.email_campaign_events ev
-        JOIN public.email_campaigns c ON c.id = ev.campaign_id
-       WHERE ev.event_type = 'clicked'
-         AND c.venue_id IS NOT DISTINCT FROM p_venue_id AND c.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
-         AND ev.created_at > now() - interval '25 months'
-       GROUP BY ev.campaign_id, lower(ev.recipient_email), c.event_id
-    ) k;
-
-  SELECT jsonb_agg(jsonb_build_object(
-           'revenue', (SELECT jsonb_object_agg(s.k, COALESCE((SELECT round(sum(a.amount), 2) FROM _atk_all a WHERE a.ok AND a.ci = g AND a.src = s.k), 0))
-                         FROM unnest(ARRAY['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of']) s(k)),
-           'tickets', (SELECT jsonb_object_agg(s.k, COALESCE((SELECT sum(a.qty) FROM _atk_all a WHERE a.ok AND a.ci = g AND a.src = s.k), 0))
-                         FROM unnest(ARRAY['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of']) s(k)),
-           'clicks', COALESCE((SELECT count(*) FROM _aclk c WHERE c.ci = g), 0),
-           'new_buyers', COALESCE((SELECT count(*) FROM _afirst f WHERE f.ci = g), 0)
-         ) ORDER BY g)
-    INTO v_series FROM generate_series(0, v_n - 1) g;
-
-  -- Par source : achats, acheteurs, nouveaux clients (premier achat ici), ventes.
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'k', s.k,
-           'orders', (SELECT count(DISTINCT a.ord) FROM _atk_all a WHERE a.ok AND a.ci IS NOT NULL AND a.src = s.k),
-           'tickets', COALESCE((SELECT sum(a.qty) FROM _atk_all a WHERE a.ok AND a.ci IS NOT NULL AND a.src = s.k), 0),
-           'buyers', (SELECT count(DISTINCT a.email) FROM _atk_all a WHERE a.ok AND a.ci IS NOT NULL AND a.src = s.k),
-           'new_buyers', (SELECT count(*) FROM _afirst f WHERE f.ci IS NOT NULL AND f.src = s.k),
-           'revenue', COALESCE((SELECT round(sum(a.amount), 2) FROM _atk_all a WHERE a.ok AND a.ci IS NOT NULL AND a.src = s.k), 0),
-           'prev_tickets', COALESCE((SELECT sum(a.qty) FROM _atk_all a WHERE a.ok AND a.pi IS NOT NULL AND a.src = s.k), 0)
-         )), '[]'::jsonb)
-    INTO v_sources FROM unnest(ARRAY['ys', 'yb', 'yt', 'yl', 'em', 'sm', 'dm', 'so', 'sg', 'au', 'di', 'of']) s(k);
-
-  SELECT jsonb_build_object(
-           'total', count(*) FILTER (WHERE ci IS NOT NULL),
-           'prev', count(*) FILTER (WHERE pi IS NOT NULL))
-    INTO v_clicks FROM _aclk;
-
-  SELECT jsonb_build_object(
-           'buyers', (SELECT count(DISTINCT email) FROM _atk_all WHERE ok AND ci IS NOT NULL),
-           'new', (SELECT count(*) FROM _afirst WHERE ci IS NOT NULL),
-           'prev_buyers', (SELECT count(DISTINCT email) FROM _atk_all WHERE ok AND pi IS NOT NULL),
-           'prev_new', (SELECT count(*) FROM _afirst WHERE pi IS NOT NULL))
-    INTO v_new;
-
-  -- Contacts gagnés : entrés dans la base pendant la fenêtre (premier achat,
-  -- import, inscription), quelle que soit la porte.
-  SELECT jsonb_build_object(
-           'total', count(*) FILTER (WHERE public._crm_ana_bucket(m, j.at) IS NOT NULL),
-           'series', (SELECT jsonb_agg((SELECT count(*) FROM (
-                         SELECT LEAST(f.bought_at, COALESCE(c.added_at, c.created_at)) AS at
-                           FROM _cr c LEFT JOIN _afirst f ON f.email = lower(c.email)
-                          WHERE c.email IS NOT NULL) z
-                        WHERE public._crm_ana_bucket(m, z.at) = g) ORDER BY g)
-                       FROM generate_series(0, v_n - 1) g))
-    INTO v_gained
-    FROM (SELECT LEAST(f.bought_at, COALESCE(c.added_at, c.created_at)) AS at
-            FROM _cr c LEFT JOIN _afirst f ON f.email = lower(c.email)
-           WHERE c.email IS NOT NULL) j;
-
-  -- Soirées : acheteurs, part de nouveaux, clics de vos messages vers elles.
-  WITH per AS (
-    SELECT a.event_id, count(DISTINCT a.email) AS buyers,
-           count(DISTINCT a.email) FILTER (WHERE EXISTS (SELECT 1 FROM _afirst f WHERE f.id = a.id)) AS new_buyers
-      FROM _atk_all a WHERE a.ok AND a.event_id IS NOT NULL
-       AND (m->>'mode' = 'event' AND a.event_id = (m->'event'->>'id')::uuid OR m->>'mode' <> 'event' AND a.ci IS NOT NULL)
-     GROUP BY 1
-  )
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'id', e.id, 'title', e.title, 'start_at', e.start_at, 'night', e.night, 'upcoming', e.upcoming,
-           'state', CASE WHEN e.night = (m->>'today')::date THEN 'tonight' WHEN e.upcoming THEN 'presale' ELSE 'past' END,
-           'buyers', p.buyers, 'new_buyers', p.new_buyers,
-           'clicks', (SELECT count(*) FROM _aclk c WHERE c.event_id = e.id)
-         ) ORDER BY p.buyers DESC), '[]'::jsonb)
-    INTO v_events
-    FROM (SELECT * FROM per ORDER BY buyers DESC LIMIT 7) p JOIN _aev e ON e.id = p.event_id;
-
-  RETURN jsonb_build_object(
-    'meta', m,
-    'series', COALESCE(v_series, '[]'::jsonb),
-    'sources', v_sources,
-    'clicks', v_clicks,
-    'buyers', v_new,
-    'gained', v_gained,
-    'events', v_events,
-    'sends', public._crm_ana_sends(p_venue_id, p_organizer_user_id, m),
-    'has_any', EXISTS (SELECT 1 FROM _atk_all)
-  );
-END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.crm_automations(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_period text DEFAULT '30d'::text)
@@ -7148,70 +7692,6 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.crm_clients_overview(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_rules record;
-  v_now timestamptz := now();
-  v_tz text := 'Europe/Paris';
-  v_today timestamptz := date_trunc('day', now() AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'Europe/Paris';
-  v_cur jsonb;
-  v_prev jsonb;
-  v_spark jsonb;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  SELECT * INTO v_rules FROM public.crm_scope_rules(p_venue_id, p_organizer_user_id);
-
-  -- Il y a 30 jours (écarts « vs le mois dernier »).
-  PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id, v_now - interval '30 days');
-  SELECT jsonb_build_object(
-           'total', count(*),
-           'returning_pct', CASE WHEN count(*) FILTER (WHERE nights >= 1) > 0
-             THEN round(count(*) FILTER (WHERE nights >= 2)::numeric * 100 / count(*) FILTER (WHERE nights >= 1), 1) END,
-           'avg_spend', CASE WHEN count(*) FILTER (WHERE spent > 0) > 0
-             THEN round(avg(spent) FILTER (WHERE spent > 0), 2) END)
-    INTO v_prev FROM _cp;
-
-  PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id, v_now);
-  SELECT jsonb_agg(c ORDER BY d) INTO v_spark FROM (
-    SELECT d, (SELECT count(*) FROM _cp x WHERE x.added_at < ((date_trunc('day', v_now AT TIME ZONE v_tz) - (29 - d) * interval '1 day' + interval '1 day') AT TIME ZONE v_tz)) AS c
-      FROM generate_series(0, 29) d) s;
-
-  SELECT jsonb_build_object(
-           'total', count(*),
-           'today', count(*) FILTER (WHERE added_at >= v_today),
-           'month', count(*) FILTER (WHERE added_at >= v_now - interval '30 days'),
-           'lifecycle', jsonb_build_object(
-              'hab', count(*) FILTER (WHERE lifecycle = 'hab'),
-              'occ', count(*) FILTER (WHERE lifecycle = 'occ'),
-              'nou', count(*) FILTER (WHERE lifecycle = 'nou'),
-              'end', count(*) FILTER (WHERE lifecycle = 'end'),
-              'none', count(*) FILTER (WHERE lifecycle = 'none')),
-           'end_reachable', count(*) FILTER (WHERE lifecycle = 'end' AND (email_ok OR phone_ok)),
-           'reachable', count(*) FILTER (WHERE email_ok OR phone_ok),
-           'unreachable', count(*) FILTER (WHERE NOT email_ok AND NOT phone_ok),
-           'returning_pct', CASE WHEN count(*) FILTER (WHERE nights >= 1) > 0
-             THEN round(count(*) FILTER (WHERE nights >= 2)::numeric * 100 / count(*) FILTER (WHERE nights >= 1), 1) END,
-           'once', count(*) FILTER (WHERE nights = 1),
-           'avg_spend', CASE WHEN count(*) FILTER (WHERE spent > 0) > 0
-             THEN round(avg(spent) FILTER (WHERE spent > 0), 2) END)
-    INTO v_cur FROM _cp;
-
-  RETURN v_cur || jsonb_build_object(
-    'spark', COALESCE(v_spark, '[]'::jsonb),
-    'prev', v_prev,
-    'rules', jsonb_build_object('min_nights', v_rules.regular_min_nights, 'window_months', v_rules.regular_window_months,
-                                'lapse_months', v_rules.lapse_months),
-    'updated_at', v_now);
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.crm_effective_plan(p_scope_key text)
  RETURNS text
  LANGUAGE plpgsql
@@ -7237,75 +7717,42 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.crm_email_send_options(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
+CREATE OR REPLACE FUNCTION public.crm_link_source(p_code text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
 AS $function$
-DECLARE
-  v_auto jsonb;
-  v_saved jsonb := '[]'::jsonb;
-  s record;
-  r record;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id, NULL);
+  SELECT 'yuno-' || lower(btrim(p_code));
+$function$;
 
-  -- Joignables : la même porte que l'envoi (opt-in newsletter de la portée).
-  DROP TABLE IF EXISTS _cso;
-  CREATE TEMP TABLE _cso ON COMMIT DROP AS
-  SELECT p.*, 0::integer AS open_n FROM _cp p
-   WHERE p.email_ok AND EXISTS (
-     SELECT 1 FROM public.newsletter_subscriptions ns
-      WHERE lower(ns.email) = p.email AND ns.opted_in
-        AND ns.venue_id IS NOT DISTINCT FROM p_venue_id
-        AND ns.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id);
+CREATE OR REPLACE FUNCTION public.crm_link_source_for(p_channel text, p_code text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT CASE lower(COALESCE(p_channel, ''))
+           WHEN 'sms' THEN 'yuno-s-' || lower(btrim(p_code))
+           WHEN 'newsletter' THEN 'yuno-m-' || lower(btrim(p_code))
+           WHEN 'email' THEN 'yuno-m-' || lower(btrim(p_code))
+           ELSE public.crm_link_source(p_code) END;
+$function$;
 
-  WITH c AS (
-    SELECT ec.id FROM public.email_campaigns ec
-     WHERE ec.status IN ('sent', 'sending') AND ec.sent_at > now() - interval '12 months'
-       AND ec.venue_id IS NOT DISTINCT FROM p_venue_id
-       AND ec.organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
-  ), o AS (
-    SELECT lower(ev.recipient_email) AS em, count(DISTINCT ev.campaign_id)::integer AS n
-      FROM public.email_campaign_events ev JOIN c ON c.id = ev.campaign_id
-     WHERE ev.event_type = 'opened' AND ev.recipient_email IS NOT NULL
-     GROUP BY 1
-  )
-  UPDATE _cso p SET open_n = o.n FROM o WHERE o.em = p.email;
-
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'key', k.key, 'reach', COALESCE(a.reach, 0),
-           'open_pct', CASE WHEN COALESCE(a.rec, 0) >= 20 THEN round(100.0 * a.op / a.rec) END,
-           'click_pct', CASE WHEN COALESCE(a.rec, 0) >= 20 THEN round(100.0 * a.cl / a.rec) END)
-         ORDER BY k.ord), '[]'::jsonb)
-    INTO v_auto
-    FROM (VALUES ('hab', 1), ('occ', 2), ('nou', 3), ('end', 4), ('none', 5)) k(key, ord)
-    LEFT JOIN (
-      SELECT lifecycle, count(*)::integer AS reach, sum(msg_n) AS rec, sum(LEAST(open_n, msg_n)) AS op, sum(LEAST(click_n, msg_n)) AS cl
-        FROM _cso GROUP BY lifecycle
-    ) a ON a.lifecycle = k.key;
-
-  FOR s IN
-    SELECT id, name, description, definition FROM public.crm_segments
-     WHERE venue_id IS NOT DISTINCT FROM p_venue_id AND organizer_user_id IS NOT DISTINCT FROM p_organizer_user_id
-     ORDER BY created_at DESC LIMIT 40
-  LOOP
-    EXECUTE format('SELECT count(*)::integer AS reach, sum(msg_n) AS rec, sum(LEAST(open_n, msg_n)) AS op, sum(LEAST(click_n, msg_n)) AS cl FROM _cso p WHERE (%s)',
-                   public._crm_filter_sql(s.definition, 'p'))
-      INTO r;
-    v_saved := v_saved || jsonb_build_array(jsonb_build_object(
-      'id', s.id, 'name', s.name, 'description', s.description, 'reach', COALESCE(r.reach, 0),
-      'open_pct', CASE WHEN COALESCE(r.rec, 0) >= 20 THEN round(100.0 * r.op / r.rec) END,
-      'click_pct', CASE WHEN COALESCE(r.rec, 0) >= 20 THEN round(100.0 * r.cl / r.rec) END));
-  END LOOP;
-
-  RETURN jsonb_build_object('auto', v_auto, 'saved', v_saved,
-    'rules', (SELECT to_jsonb(sr) FROM public.crm_scope_rules(p_venue_id, p_organizer_user_id) sr));
-END;
+CREATE OR REPLACE FUNCTION public.crm_notif_defaults()
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT jsonb_build_object(
+    'rapport', jsonb_build_object('m', true, 'a', true),
+    'prog', jsonb_build_object('m', false, 'a', true),
+    'bloque', jsonb_build_object('m', true, 'a', true),
+    'solde', jsonb_build_object('m', true, 'a', true),
+    'sync', jsonb_build_object('m', true, 'a', true, 'lock', true),
+    'import', jsonb_build_object('m', false, 'a', true),
+    'facture', jsonb_build_object('m', true, 'a', false, 'app', false),
+    'equipe', jsonb_build_object('m', false, 'a', true),
+    'secu', jsonb_build_object('m', true, 'a', true, 'lock', true),
+    'digest', jsonb_build_object('m', true, 'a', false, 'app', false));
 $function$;
 
 CREATE OR REPLACE FUNCTION public.crm_org_role(p_user_id uuid, p_organizer_user_id uuid)
@@ -7322,6 +7769,16 @@ AS $function$
                      ORDER BY CASE m.role WHEN 'admin' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END LIMIT 1) END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.crm_paying_accounts()
+ RETURNS integer
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT count(DISTINCT s.scope_key)::int FROM public.crm_subscriptions s
+   WHERE s.stripe_subscription_id IS NOT NULL AND s.status IN ('active', 'past_due');
+$function$;
+
 CREATE OR REPLACE FUNCTION public.crm_plan_limits(p_plan text)
  RETURNS jsonb
  LANGUAGE sql
@@ -7336,6 +7793,27 @@ AS $function$
     ELSE jsonb_build_object('send', false, 'sync', false, 'emails_month', 0, 'sync_minutes', NULL,
       'members', NULL, 'automations', NULL, 'ab_resend', true, 'meta', false, 'segment_export', true, 'yuno_badge', false)
   END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.crm_price_tier()
+ RETURNS text
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE WHEN public.crm_paying_accounts() >= COALESCE((public.crm_pricing_config()->>'price_switch_at')::int, 50)
+                   AND COALESCE((SELECT public_active FROM public.crm_price_state WHERE id), false)
+              THEN 'public' ELSE 'launch' END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.crm_price_tier_for(p_scope_key text)
+ RETURNS text
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE WHEN EXISTS (SELECT 1 FROM public.crm_subscriptions s WHERE s.scope_key = p_scope_key AND s.founder)
+              THEN 'launch' ELSE public.crm_price_tier() END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.crm_pricing_config()
@@ -7422,6 +7900,16 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.crm_scope_paused(p_scope_key text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT p_scope_key IS NOT NULL AND public.crm_scope_is_crm(p_scope_key)
+         AND public.crm_effective_plan(p_scope_key) = 'paused';
+$function$;
+
 CREATE OR REPLACE FUNCTION public.crm_scope_rules(p_venue_id text, p_organizer_user_id uuid)
  RETURNS TABLE(regular_min_nights integer, regular_window_months integer, lapse_months integer, night_end_hour integer, retention_months integer)
  LANGUAGE sql
@@ -7483,165 +7971,6 @@ AS $function$
   SELECT public._crm_money_gate(public.crm_segments_overview__core(p_venue_id, p_organizer_user_id, p_period), p_venue_id, p_organizer_user_id);
 $function$;
 
-CREATE OR REPLACE FUNCTION public.crm_segments_overview__core(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_period text DEFAULT '30d'::text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
-AS $function$
-DECLARE
-  v_scope text := public.crm_scope_key(p_venue_id, p_organizer_user_id);
-  v_tz text := 'Europe/Paris';
-  v_days integer := CASE p_period WHEN '90d' THEN 91 WHEN '12m' THEN 360 ELSE 30 END;
-  v_step integer := CASE p_period WHEN '90d' THEN 7 WHEN '12m' THEN 30 ELSE 1 END;
-  v_now timestamptz := now();
-  v_today date := (now() AT TIME ZONE 'Europe/Paris')::date;
-  v_from timestamptz;
-  v_pfrom timestamptz;
-  v_anchor date;
-  v_missing boolean;
-  v_seg record;
-  v_pred text;
-  v_stats jsonb;
-  v_msg jsonb;
-  v_segs jsonb := '[]'::jsonb;
-  v_tot jsonb;
-  v_prev numeric;
-  v_series jsonb;
-  v_sends jsonb;
-  v_builds integer := 0;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  v_from := v_now - make_interval(days => v_days);
-  v_pfrom := v_from - make_interval(days => v_days);
-
-  -- Dates repères manquantes : rejeu de la base à cette date (3 au plus).
-  FOREACH v_anchor IN ARRAY ARRAY[v_today - v_days, v_today - (v_days * 2 / 3), v_today - (v_days / 3)] LOOP
-    SELECT EXISTS (
-      SELECT 1 FROM public._crm_segment_defs(p_venue_id, p_organizer_user_id) d
-       WHERE NOT EXISTS (SELECT 1 FROM public.crm_segment_counts c
-                          WHERE c.scope_key = v_scope AND c.seg_key = d.seg_key AND c.day = v_anchor))
-      INTO v_missing;
-    IF v_missing THEN
-      PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id,
-                                       ((v_anchor + 1)::timestamp AT TIME ZONE v_tz) - interval '1 second');
-      PERFORM public._crm_segment_counts_write(p_venue_id, p_organizer_user_id, v_anchor);
-      v_builds := v_builds + 1;
-    END IF;
-  END LOOP;
-
-  -- La base d'aujourd'hui, puis les messages de la période (et de la précédente).
-  PERFORM public._crm_people_build(p_venue_id, p_organizer_user_id, NULL);
-  PERFORM public._crm_segment_counts_write(p_venue_id, p_organizer_user_id, v_today);
-  PERFORM public._crm_msg_build(p_venue_id, p_organizer_user_id, v_pfrom, v_now);
-
-  -- Une ligne par segment.
-  FOR v_seg IN SELECT * FROM public._crm_segment_defs(p_venue_id, p_organizer_user_id) ORDER BY sort LOOP
-    v_pred := public._crm_filter_sql(v_seg.def, 'p');
-    EXECUTE format($q$
-      SELECT jsonb_build_object(
-        'n', count(*),
-        'reachable', count(*) FILTER (WHERE p.email_ok OR p.phone_ok),
-        'email', count(*) FILTER (WHERE p.email_ok),
-        'sms', count(*) FILTER (WHERE p.phone_ok),
-        'avg_spend', CASE WHEN count(*) > 0 THEN round(sum(p.spent) / count(*), 2) END,
-        'avg_nights', CASE WHEN count(*) > 0 THEN round(avg(p.nights)::numeric, 1) END,
-        'sources', jsonb_build_object(
-          'shotgun', count(*) FILTER (WHERE p.source = 'shotgun'),
-          'utm', count(*) FILTER (WHERE p.source = 'utm'),
-          'import', count(*) FILTER (WHERE p.source = 'import'),
-          'other', count(*) FILTER (WHERE p.source NOT IN ('shotgun', 'utm', 'import'))))
-        FROM _cp p WHERE %s $q$, v_pred) INTO v_stats;
-    EXECUTE format($q$
-      SELECT jsonb_build_object(
-        'received', count(*),
-        'clicked', count(*) FILTER (WHERE m.clicked),
-        'ticketing', count(*) FILTER (WHERE m.ticketing),
-        'bought', count(*) FILTER (WHERE m.bought),
-        'buyers', count(DISTINCT m.email) FILTER (WHERE m.bought),
-        'revenue', COALESCE(round(sum(m.revenue), 2), 0))
-        FROM _cm m JOIN _cp p ON p.email = m.email
-       WHERE m.sent_at >= %L AND %s $q$, v_from, v_pred) INTO v_msg;
-
-    v_segs := v_segs || jsonb_build_array(
-      jsonb_build_object('key', v_seg.seg_key, 'kind', v_seg.kind, 'name', v_seg.name, 'description', v_seg.description,
-                         'template', v_seg.template, 'definition', v_seg.def, 'created_at', v_seg.created_at)
-      || v_stats
-      || jsonb_build_object('msg', v_msg,
-           'n_start', (SELECT c.n FROM public.crm_segment_counts c
-                        WHERE c.scope_key = v_scope AND c.seg_key = v_seg.seg_key AND c.day = v_today - v_days),
-           'spark', (SELECT COALESCE(jsonb_agg(jsonb_build_object('d', c.day, 'n', c.n) ORDER BY c.day), '[]'::jsonb)
-                       FROM public.crm_segment_counts c
-                      WHERE c.scope_key = v_scope AND c.seg_key = v_seg.seg_key
-                        AND c.day >= v_today - v_days AND c.day <= v_today)));
-  END LOOP;
-
-  -- Totaux de la période et ventes de la période précédente.
-  SELECT jsonb_build_object(
-           'received', count(*),
-           'sends', count(DISTINCT m.campaign_id),
-           'clicked', count(*) FILTER (WHERE m.clicked),
-           'ticketing', count(*) FILTER (WHERE m.ticketing),
-           'bought', count(*) FILTER (WHERE m.bought),
-           'buyers', count(DISTINCT m.email) FILTER (WHERE m.bought),
-           'revenue', COALESCE(round(sum(m.revenue), 2), 0))
-    INTO v_tot
-    FROM _cm m WHERE m.sent_at >= v_from;
-  SELECT COALESCE(round(sum(m.revenue), 2), 0) INTO v_prev FROM _cm m WHERE m.sent_at < v_from;
-
-  -- Ventes attribuées par tranche (jour / semaine / mois), date d'achat ;
-  -- les envois de chaque tranche pour les points du graphique.
-  WITH b AS (
-    SELECT g AS i, v_now - make_interval(days => v_days - g * v_step) AS lo,
-           v_now - make_interval(days => v_days - (g + 1) * v_step) AS hi
-      FROM generate_series(0, v_days / v_step - 1) g
-  ), att AS (
-    SELECT a.amount, a.bought_at FROM _cma a
-     WHERE EXISTS (SELECT 1 FROM _cm m WHERE m.campaign_id = a.campaign_id AND m.email = a.email AND m.sent_at >= v_from)
-  )
-  SELECT jsonb_agg(jsonb_build_object(
-           't', b.lo,
-           'v', COALESCE((SELECT round(sum(att.amount), 2) FROM att WHERE att.bought_at >= b.lo AND att.bought_at < b.hi), 0),
-           'sends', COALESCE((SELECT jsonb_agg(c.name ORDER BY c.sent_at) FROM _cmc c WHERE c.sent_at >= b.lo AND c.sent_at < b.hi), '[]'::jsonb))
-           ORDER BY b.i)
-    INTO v_series FROM b;
-
-  -- Les envois de la période (e-mail et SMS), du plus récent au plus ancien.
-  WITH s AS (
-    SELECT m.campaign_id, m.channel, min(m.sent_at) AS sent_at,
-           count(*) AS received, count(*) FILTER (WHERE m.clicked) AS clicked,
-           count(*) FILTER (WHERE m.ticketing) AS ticketing, count(*) FILTER (WHERE m.bought) AS bought,
-           count(DISTINCT m.email) FILTER (WHERE m.bought) AS buyers, COALESCE(round(sum(m.revenue), 2), 0) AS revenue
-      FROM _cm m WHERE m.sent_at >= v_from
-     GROUP BY m.campaign_id, m.channel
-  )
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'id', s.campaign_id, 'channel', s.channel,
-           'name', COALESCE(c.name, sc.name), 'sent_at', s.sent_at,
-           'target', CASE WHEN s.channel = 'email' THEN public._crm_send_target(c.audiences_json) ELSE 'custom' END,
-           'received', s.received, 'clicked', s.clicked, 'ticketing', s.ticketing, 'bought', s.bought,
-           'buyers', s.buyers, 'revenue', s.revenue) ORDER BY s.sent_at DESC), '[]'::jsonb)
-    INTO v_sends
-    FROM s
-    LEFT JOIN _cmc c ON s.channel = 'email' AND c.id = s.campaign_id
-    LEFT JOIN public.sms_campaigns sc ON s.channel = 'sms' AND sc.id = s.campaign_id;
-
-  RETURN jsonb_build_object(
-    'period', p_period, 'from', v_from, 'to', v_now, 'step_days', v_step,
-    'totals', v_tot || jsonb_build_object('prev_revenue', v_prev,
-                         'has_prev', EXISTS (SELECT 1 FROM _cm m WHERE m.sent_at < v_from)),
-    'series', COALESCE(v_series, '[]'::jsonb),
-    'segments', v_segs,
-    'sends', v_sends,
-    'rules', (SELECT to_jsonb(r) FROM public.crm_scope_rules(p_venue_id, p_organizer_user_id) r),
-    'computed_at', v_now,
-    'rebuilt_anchors', v_builds);
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.crm_sms_rates()
  RETURNS jsonb
  LANGUAGE sql
@@ -7653,6 +7982,20 @@ AS $function$
     'intl', GREATEST(1, COALESCE((public.crm_pricing_config()->'rates'->>'sms_intl')::integer, 70)));
 $function$;
 
+CREATE OR REPLACE FUNCTION public.crm_user_manages_team(p_user_id uuid, p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(p_user_id IS NOT NULL AND (
+    public.is_super_admin()
+    OR (p_venue_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.venues v WHERE v.id = p_venue_id AND v.owner_id = p_user_id))
+    OR (p_organizer_user_id IS NOT NULL AND (
+          public.crm_org_role(p_user_id, p_organizer_user_id) IN ('owner', 'admin')
+          OR public.org_member_has_permission(p_user_id, p_organizer_user_id, 'manage_team')))), false);
+$function$;
+
 CREATE OR REPLACE FUNCTION public.crm_yunits_balance(p_scope_key text)
  RETURNS integer
  LANGUAGE sql
@@ -7662,6 +8005,40 @@ AS $function$
   SELECT COALESCE(sum(remaining), 0)::int
     FROM public.crm_yunit_lots
    WHERE scope_key = p_scope_key AND remaining > 0 AND (expires_at IS NULL OR expires_at > now());
+$function$;
+
+CREATE OR REPLACE FUNCTION public.crm_yunits_credit(p_scope_key text, p_kind text, p_amount integer, p_expires_at timestamp with time zone, p_source_ref text DEFAULT NULL::text, p_label text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_parts record;
+  v_id uuid;
+BEGIN
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'bad_amount');
+  END IF;
+  SELECT * INTO v_parts FROM public.crm_scope_parts(p_scope_key);
+  IF v_parts.venue_id IS NULL AND v_parts.organizer_user_id IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'bad_scope');
+  END IF;
+
+  INSERT INTO public.crm_yunit_lots (scope_key, venue_id, organizer_user_id, kind, amount, remaining, expires_at, source_ref, label, created_by)
+  VALUES (p_scope_key, v_parts.venue_id, v_parts.organizer_user_id, p_kind, p_amount, p_amount, p_expires_at, p_source_ref, p_label, auth.uid())
+  ON CONFLICT (scope_key, kind, source_ref) WHERE source_ref IS NOT NULL DO NOTHING
+  RETURNING id INTO v_id;
+
+  IF v_id IS NULL THEN
+    RETURN jsonb_build_object('ok', true, 'duplicate', true);
+  END IF;
+
+  INSERT INTO public.crm_yunit_moves (scope_key, venue_id, organizer_user_id, delta, kind, lot_kind, ref_type, ref_id, label, meta)
+  VALUES (p_scope_key, v_parts.venue_id, v_parts.organizer_user_id, p_amount, 'credit', p_kind, 'lot', v_id::text, p_label,
+          COALESCE(p_meta, '{}'::jsonb) || jsonb_build_object('expires_at', p_expires_at));
+  RETURN jsonb_build_object('ok', true, 'lot_id', v_id, 'balance', public.crm_yunits_balance(p_scope_key));
+END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.crm_yunits_debit(p_scope_key text, p_amount integer, p_channel text, p_ref_type text DEFAULT NULL::text, p_ref_id text DEFAULT NULL::text, p_label text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb)
@@ -7709,6 +8086,37 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.crm_yunits_refund(p_scope_key text, p_amount integer, p_channel text, p_ref_type text DEFAULT NULL::text, p_ref_id text DEFAULT NULL::text, p_label text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_parts record;
+BEGIN
+  IF p_amount IS NULL OR p_amount <= 0 THEN RETURN jsonb_build_object('ok', true, 'refunded', 0); END IF;
+  SELECT * INTO v_parts FROM public.crm_scope_parts(p_scope_key);
+  INSERT INTO public.crm_yunit_lots (scope_key, venue_id, organizer_user_id, kind, amount, remaining, expires_at, label)
+  VALUES (p_scope_key, v_parts.venue_id, v_parts.organizer_user_id, 'refund', p_amount, p_amount, now() + interval '12 months', p_label);
+  INSERT INTO public.crm_yunit_moves (scope_key, venue_id, organizer_user_id, delta, kind, channel, ref_type, ref_id, label)
+  VALUES (p_scope_key, v_parts.venue_id, v_parts.organizer_user_id, p_amount, 'refund', p_channel, p_ref_type, p_ref_id, p_label);
+  RETURN jsonb_build_object('ok', true, 'refunded', p_amount, 'balance', public.crm_yunits_balance(p_scope_key));
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.default_collab_responsibilities(p_mode event_mode)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT CASE
+    WHEN p_mode = 'org_hosted'
+      THEN jsonb_build_object('design', 'venue', 'operations', 'venue')
+    ELSE jsonb_build_object('design', 'both', 'operations', 'both')
+  END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.demo_event_ids()
  RETURNS uuid[]
  LANGUAGE sql
@@ -7740,6 +8148,86 @@ AS $function$
      OR v.showcase_shadow_owner_id IS NOT NULL;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.email_platform_monthly_ceiling()
+ RETURNS integer
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$ SELECT 230000 $function$;
+
+CREATE OR REPLACE FUNCTION public.email_send_policy(p_email text, p_kind text)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  s RECORD;
+  v_tier text;
+  v_cap24 integer;
+  v_cap7 integer;
+BEGIN
+  IF p_email IS NULL OR position('@' in p_email) <= 1 THEN RETURN 'suppressed'; END IF;
+  IF public.is_email_suppressed(p_email) THEN RETURN 'suppressed'; END IF;
+
+  v_tier := CASE
+    WHEN p_kind IN ('campaign', 'resend') THEN 'campaign'
+    WHEN p_kind IN ('abandoned_checkout', 'upsell', 'tier_closing', 'click_no_buy') THEN 'urgent'
+    ELSE 'automation' END;
+  v_cap24 := CASE v_tier WHEN 'campaign' THEN 3 WHEN 'urgent' THEN 2 ELSE 1 END;
+  v_cap7  := CASE v_tier WHEN 'campaign' THEN 8 WHEN 'urgent' THEN 5 ELSE 3 END;
+
+  SELECT * INTO s FROM public.email_marketing_pressure(p_email);
+
+  IF s.sent90 >= 8 AND NOT s.engaged90 THEN RETURN 'fatigue'; END IF;
+  IF v_tier <> 'campaign' AND s.optouts30 >= 2 THEN RETURN 'averse'; END IF;
+  IF s.n24 >= v_cap24 THEN RETURN 'pressure_24h'; END IF;
+  IF s.n7d >= v_cap7 THEN RETURN 'pressure_7d'; END IF;
+  RETURN NULL;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.email_sender_monthly_free(p_scope_key text)
+ RETURNS integer
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_override integer;
+  v_org text;
+BEGIN
+  SELECT monthly_cap_override INTO v_override
+    FROM public.email_sender_state WHERE scope_key = p_scope_key;
+  IF p_scope_key = 'platform' THEN
+    RETURN COALESCE(v_override, 40000);   -- pool marketing (plan 50k − réserve 10k)
+  END IF;
+  IF p_scope_key = 'yuno' THEN
+    -- Le marketing de Yuno n'a pas de forfait « offert » à lui : il puise dans
+    -- le pool plateforme, déjà plafonné à l'étage 1.
+    RETURN COALESCE(v_override, 40000);
+  END IF;
+  -- Yuno CRM : le Yunit est la seule limite (débité à la mise en file). Le
+  -- quota mensuel ne bride plus rien ; en pause, rien ne part de toute façon.
+  IF public.crm_scope_is_crm(p_scope_key) THEN
+    RETURN CASE WHEN public.crm_effective_plan(p_scope_key) = 'base' THEN 1000000000 ELSE 0 END;
+  END IF;
+  IF v_override IS NOT NULL THEN
+    RETURN v_override;
+  END IF;
+  IF p_scope_key ~ '^org:[0-9a-fA-F-]{36}$' THEN
+    v_org := substr(p_scope_key, 5);
+    IF EXISTS (
+      SELECT 1 FROM public.organizer_profiles
+       WHERE user_id = v_org::uuid AND bde_verified = true
+    ) THEN
+      RETURN 2000;                        -- offert par compte association
+    END IF;
+  END IF;
+  RETURN 15000;                           -- offert par compte pro
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.emit_admin_notification(p_type text, p_title text, p_message text, p_priority text DEFAULT 'normal'::text, p_reference_type text DEFAULT NULL::text, p_reference_id text DEFAULT NULL::text, p_metadata jsonb DEFAULT '{}'::jsonb, p_dedup_key text DEFAULT NULL::text, p_event_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -7764,86 +8252,89 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.event_analytics_scope(p_event_id uuid)
- RETURNS TABLE(ok boolean, reason text, scope_venue text, scope_org uuid, money boolean, scope_ids uuid[])
+CREATE OR REPLACE FUNCTION public.emit_organizer_notification(p_organizer_user_id uuid, p_type text, p_title text, p_message text, p_priority text DEFAULT 'normal'::text, p_reference_type text DEFAULT NULL::text, p_reference_id uuid DEFAULT NULL::uuid, p_event_id uuid DEFAULT NULL::uuid, p_metadata jsonb DEFAULT '{}'::jsonb, p_dedup_key text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_id uuid;
+BEGIN
+  INSERT INTO public.organizer_notifications
+    (organizer_user_id, notification_type, title, message, priority, reference_type, reference_id, event_id, metadata, dedup_key)
+  VALUES
+    (p_organizer_user_id, p_type, p_title, p_message, COALESCE(p_priority, 'normal'),
+     p_reference_type, p_reference_id, p_event_id, COALESCE(p_metadata, '{}'::jsonb), p_dedup_key)
+  ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL DO NOTHING
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.emit_staff_notification(p_venue_id text, p_target_role text, p_type text, p_title text, p_message text, p_priority text DEFAULT 'normal'::text, p_reference_type text DEFAULT NULL::text, p_reference_id uuid DEFAULT NULL::uuid, p_event_id uuid DEFAULT NULL::uuid, p_metadata jsonb DEFAULT '{}'::jsonb, p_dedup_key text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_id UUID;
+BEGIN
+  INSERT INTO public.staff_notifications (
+    venue_id, target_role, notification_type, title, message, priority,
+    reference_type, reference_id, event_id, metadata, dedup_key
+  ) VALUES (
+    p_venue_id, COALESCE(p_target_role, 'owner'), p_type, p_title, p_message,
+    COALESCE(p_priority, 'normal'), p_reference_type, p_reference_id, p_event_id,
+    COALESCE(p_metadata, '{}'::jsonb), p_dedup_key
+  )
+  ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL DO NOTHING
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.enforce_drinks_alcohol_gate(p_rules jsonb, p_org_id uuid)
+ RETURNS jsonb
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE
-  v_uid   uuid := auth.uid();
-  e       record;
-  v_venue text := null;
-  v_org   uuid := null;
-  v_money boolean := false;
-  v_ids   uuid[];
+DECLARE v_alcohol boolean;
 BEGIN
-  IF v_uid IS NULL THEN
-    RETURN QUERY SELECT false, 'not_authenticated'::text, null::text, null::uuid, false, '{}'::uuid[]; RETURN;
+  IF p_rules IS NULL THEN RETURN NULL; END IF;
+  SELECT COALESCE(can_sell_alcohol, false) INTO v_alcohol
+  FROM public.organizer_profiles WHERE user_id = p_org_id;
+  IF NOT COALESCE(v_alcohol, false) OR NOT (p_rules ? 'drinks') THEN
+    RETURN jsonb_set(
+      p_rules,
+      '{drinks}',
+      COALESCE(p_rules->'drinks', '{}'::jsonb)
+        || jsonb_build_object('organizer_pct', 0, 'venue_pct', 100)
+    );
   END IF;
-  SELECT ev.* INTO e FROM public.events ev WHERE ev.id = p_event_id;
-  IF NOT FOUND THEN
-    RETURN QUERY SELECT false, 'not_found'::text, null::text, null::uuid, false, '{}'::uuid[]; RETURN;
-  END IF;
+  RETURN p_rules;
+END; $function$;
 
-  IF e.venue_id IS NOT NULL AND (public.can_manage_venue(v_uid, e.venue_id) OR public.is_super_admin()) THEN
-    v_venue := e.venue_id;
-  ELSIF e.partner_venue_id IS NOT NULL AND public.can_manage_venue(v_uid, e.partner_venue_id) THEN
-    v_venue := e.partner_venue_id;
-  ELSIF e.organizer_user_id IS NOT NULL AND (
-          v_uid = e.organizer_user_id
-          OR public.is_super_admin()
-          OR public.is_org_team_member(v_uid, e.organizer_user_id, 'editor')) THEN
-    v_org := e.organizer_user_id;
-  ELSIF e.partner_organizer_id IS NOT NULL AND (
-          v_uid = e.partner_organizer_id
-          OR public.is_org_team_member(v_uid, e.partner_organizer_id, 'editor')) THEN
-    v_org := e.partner_organizer_id;
-  ELSIF EXISTS (SELECT 1 FROM public.event_cohosts c
-                 WHERE c.event_id = p_event_id AND c.status = 'accepted' AND c.organizer_user_id IS NOT NULL
-                   AND (c.organizer_user_id = v_uid OR public.is_org_team_member(v_uid, c.organizer_user_id, 'editor'))) THEN
-    SELECT c.organizer_user_id INTO v_org FROM public.event_cohosts c
-     WHERE c.event_id = p_event_id AND c.status = 'accepted' AND c.organizer_user_id IS NOT NULL
-       AND (c.organizer_user_id = v_uid OR public.is_org_team_member(v_uid, c.organizer_user_id, 'editor'))
-     ORDER BY (c.organizer_user_id = v_uid) DESC LIMIT 1;
-  ELSIF EXISTS (SELECT 1 FROM public.event_cohosts c
-                 WHERE c.event_id = p_event_id AND c.status = 'accepted' AND c.venue_id IS NOT NULL
-                   AND public.can_manage_venue(v_uid, c.venue_id)) THEN
-    SELECT c.venue_id INTO v_venue FROM public.event_cohosts c
-     WHERE c.event_id = p_event_id AND c.status = 'accepted' AND c.venue_id IS NOT NULL
-       AND public.can_manage_venue(v_uid, c.venue_id)
-     LIMIT 1;
-  ELSE
-    RETURN QUERY SELECT false, 'forbidden'::text, null::text, null::uuid, false, '{}'::uuid[]; RETURN;
-  END IF;
-
-  IF v_venue IS NOT NULL THEN
-    v_money := (coalesce(v_venue = e.venue_id, false)
-                OR public.coorg_cohost_sees_money(p_event_id, 'venue:' || v_venue)) AND (
-      public.is_super_admin()
-      OR EXISTS (SELECT 1 FROM public.venues v WHERE v.id = v_venue AND v.owner_id = v_uid)
-      OR EXISTS (
-        SELECT 1 FROM public.manager_permissions mp
-         WHERE mp.user_id = v_uid AND mp.venue_id = v_venue
-           AND (coalesce(mp.can_view_analytics, false) OR coalesce(mp.can_view_finance, false))
-      ));
-    SELECT coalesce(array_agg(x.id), '{}') INTO v_ids
-      FROM public.events x
-     WHERE x.venue_id = v_venue OR x.partner_venue_id = v_venue
-        OR x.id IN (SELECT public.cohost_event_ids_venue(v_venue));
-  ELSE
-    v_money := (v_uid = v_org
-      OR public.is_super_admin()
-      OR public.org_member_has_permission(v_uid, v_org, 'view_finance'))
-      AND (public.is_super_admin() OR public.coorg_sees_event_money(p_event_id, 'org:' || v_org::text));
-    SELECT coalesce(array_agg(x.id), '{}') INTO v_ids
-      FROM public.events x
-     WHERE x.organizer_user_id = v_org OR x.partner_organizer_id = v_org
-        OR x.id IN (SELECT public.cohost_event_ids_org(v_org));
-  END IF;
-
-  RETURN QUERY SELECT true, null::text, v_venue, v_org, v_money, v_ids;
-END;
+CREATE OR REPLACE FUNCTION public.event_community_host(p_event_id uuid)
+ RETURNS TABLE(host_kind text, venue_id text, organizer_user_id uuid, host_name text, host_slug text)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT
+    CASE WHEN e.venue_id IS NOT NULL THEN 'venue' ELSE 'organizer' END,
+    e.venue_id,
+    CASE WHEN e.venue_id IS NULL THEN e.organizer_user_id END,
+    COALESCE(v.name, op.display_name, pr.organization_name, e.location_name),
+    COALESCE(v.slug, op.slug)
+  FROM public.events e
+  LEFT JOIN public.venues v ON v.id = e.venue_id
+  LEFT JOIN public.organizer_profiles op ON e.venue_id IS NULL AND op.user_id = e.organizer_user_id
+  LEFT JOIN public.profiles pr ON e.venue_id IS NULL AND pr.id = e.organizer_user_id
+  WHERE e.id = p_event_id;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.event_host_slug(p_event_id uuid)
@@ -7905,6 +8396,30 @@ AS $function$
     LEFT JOIN public.profiles pr ON pr.id = d.organizer_user_id
    ORDER BY d.ord, d.party_key;
 $function$;
+
+CREATE OR REPLACE FUNCTION public.gen_venue_slug(p_name text, p_exclude text DEFAULT NULL::text)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO 'public'
+AS $function$
+DECLARE base text; cand text; n int := 1;
+BEGIN
+  base := btrim(regexp_replace(public.search_norm(coalesce(p_name, 'club')), '[^a-z0-9]+', '-', 'g'), '-');
+  IF base = '' OR base IS NULL THEN base := 'club'; END IF;
+  cand := base;
+  WHILE EXISTS (SELECT 1 FROM public.venues
+                 WHERE slug = cand AND id IS DISTINCT FROM p_exclude)
+     OR EXISTS (SELECT 1 FROM public.venues
+                 WHERE id = cand AND id IS DISTINCT FROM p_exclude)
+     OR EXISTS (SELECT 1 FROM public.venue_slug_aliases
+                 WHERE slug = cand AND venue_id IS DISTINCT FROM p_exclude)
+  LOOP
+    n := n + 1;
+    cand := base || '-' || n;
+  END LOOP;
+  RETURN cand;
+END; $function$;
 
 CREATE OR REPLACE FUNCTION public.get_analytics_cohorts(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_months integer DEFAULT 12)
  RETURNS jsonb
@@ -9132,132 +9647,6 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_collab_party_breakdown(p_event_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_uid   uuid := auth.uid();
-  v_admin boolean := public.is_super_admin();
-  v_mine  text[];
-  v_money boolean;
-  v_rows  jsonb;
-  v_other jsonb;
-  v_total jsonb;
-BEGIN
-  IF v_uid IS NULL THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_authenticated'); END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.events WHERE id = p_event_id) THEN
-    RETURN jsonb_build_object('ok', false, 'reason', 'not_found');
-  END IF;
-
-  SELECT array_agg(p.party_key) INTO v_mine FROM public.event_parties(p_event_id) p
-   WHERE public.coorg_party_level(v_uid, p.party_key) >= 1;
-  IF v_mine IS NULL AND NOT v_admin THEN RETURN jsonb_build_object('ok', false, 'reason', 'forbidden'); END IF;
-
-  v_money := v_admin OR EXISTS (
-    SELECT 1 FROM unnest(COALESCE(v_mine, '{}'::text[])) k
-     WHERE public.coorg_party_level(v_uid, k) >= 3 AND public.coorg_sees_event_money(p_event_id, k));
-
-  -- Une seule requête (fonction STABLE, et une session d'aperçu démo est en
-  -- lecture seule : pas de table temporaire).
-  WITH promo AS (
-    SELECT pr.id,
-           CASE WHEN pr.organizer_user_id IS NOT NULL THEN 'org:' || pr.organizer_user_id
-                WHEN pr.venue_id IS NOT NULL THEN 'venue:' || pr.venue_id END AS pkey
-      FROM public.promoters pr
-  ),
-  links AS (
-    SELECT tl.id, COALESCE(tl.clicks_count, 0) AS clicks,
-           COALESCE((SELECT pm.pkey FROM promo pm WHERE pm.id = tl.promoter_id),
-                    CASE WHEN tl.organizer_user_id IS NOT NULL THEN 'org:' || tl.organizer_user_id
-                         WHEN tl.venue_id IS NOT NULL THEN 'venue:' || tl.venue_id END) AS pkey
-      FROM public.tracked_links tl
-     WHERE tl.event_id = p_event_id
-  ),
-  sales (pkey, tickets, tables, table_guests, guests, entered, ca) AS (
-    SELECT COALESCE(l.pkey,
-             (SELECT pm.pkey FROM public.promoter_conversions c JOIN promo pm ON pm.id = c.promoter_id
-               WHERE c.ticket_id = t.id AND pm.pkey IS NOT NULL LIMIT 1)),
-           COALESCE(t.quantity, 1), 0, 0, 0,
-           CASE WHEN COALESCE(t.entry_scanned, false) OR COALESCE(t.used, false) THEN COALESCE(t.quantity, 1) ELSE 0 END,
-           greatest(COALESCE(t.total_price, 0) - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0), 0)
-             - least(greatest(COALESCE(t.refund_amount, 0), 0),
-                     greatest(COALESCE(t.total_price, 0) - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0), 0))
-      FROM public.tickets t
-      LEFT JOIN links l ON l.id = t.tracked_link_id
-     WHERE t.event_id = p_event_id AND t.status IN ('paid', 'used', 'served')
-    UNION ALL
-    SELECT COALESCE(l.pkey,
-             (SELECT pm.pkey FROM public.promoter_conversions c JOIN promo pm ON pm.id = c.promoter_id
-               WHERE c.table_reservation_id = r.id AND pm.pkey IS NOT NULL LIMIT 1)),
-           0, 1, COALESCE(r.guest_count, 0), 0,
-           CASE WHEN COALESCE(r.entry_scanned, false) OR r.checked_in_at IS NOT NULL THEN greatest(COALESCE(r.guest_count, 1), 1) ELSE 0 END,
-           greatest(COALESCE(r.total_price, 0) - COALESCE(r.service_fee, 0)
-                    - CASE WHEN COALESCE(r.fee_absorbed, false) THEN COALESCE(r.management_fee, 0) ELSE 0 END, 0)
-             - least(greatest(COALESCE(r.refund_amount, 0), 0),
-                     greatest(COALESCE(r.total_price, 0) - COALESCE(r.service_fee, 0)
-                              - CASE WHEN COALESCE(r.fee_absorbed, false) THEN COALESCE(r.management_fee, 0) ELSE 0 END, 0))
-      FROM public.table_reservations r
-      LEFT JOIN links l ON l.id = r.tracked_link_id
-     WHERE r.event_id = p_event_id AND r.status IN ('paid', 'confirmed', 'served')
-    UNION ALL
-    SELECT COALESCE(l.pkey,
-             (SELECT pm.pkey FROM promo pm WHERE pm.id = g.promoter_id),
-             (SELECT pm.pkey FROM promo pm WHERE pm.id = gl.promoter_id),
-             CASE WHEN gl.organizer_user_id IS NOT NULL THEN 'org:' || gl.organizer_user_id
-                  WHEN gl.venue_id IS NOT NULL THEN 'venue:' || gl.venue_id END),
-           0, 0, 0, 1,
-           CASE WHEN COALESCE(g.entry_scanned, false) OR g.status = 'entered' THEN 1 ELSE 0 END,
-           0
-      FROM public.guest_list_entries g
-      JOIN public.guest_lists gl ON gl.id = g.guest_list_id
-      LEFT JOIN links l ON l.id = g.tracked_link_id
-     WHERE gl.event_id = p_event_id AND g.status <> 'cancelled'
-  ),
-  parties AS (
-    SELECT p.party_key, p.display_name, p.kind, p.role, p.avatar_url, p.ord
-      FROM public.event_parties(p_event_id) p
-  ),
-  clicks AS (SELECT pkey, sum(clicks)::int AS clicks FROM links GROUP BY pkey),
-  agg AS (
-    SELECT pkey, sum(tickets)::int AS tickets, sum(tables)::int AS tables, sum(table_guests)::int AS table_guests,
-           sum(guests)::int AS guests, sum(entered)::int AS entered, round(sum(ca), 2) AS ca
-      FROM sales GROUP BY pkey
-  )
-  SELECT
-    (SELECT COALESCE(jsonb_agg(jsonb_build_object(
-              'party', p.party_key, 'name', p.display_name, 'kind', p.kind, 'role', p.role, 'avatar_url', p.avatar_url,
-              'mine', p.party_key = ANY (COALESCE(v_mine, '{}'::text[])),
-              'clicks', COALESCE(c.clicks, 0),
-              'tickets', COALESCE(a.tickets, 0), 'tables', COALESCE(a.tables, 0),
-              'table_guests', COALESCE(a.table_guests, 0), 'guests', COALESCE(a.guests, 0),
-              'entered', COALESCE(a.entered, 0),
-              'revenue', CASE WHEN v_money THEN COALESCE(a.ca, 0) END
-            ) ORDER BY p.ord, p.party_key), '[]'::jsonb)
-       FROM parties p
-       LEFT JOIN agg a ON a.pkey = p.party_key
-       LEFT JOIN clicks c ON c.pkey = p.party_key),
-    (SELECT jsonb_build_object(
-              'tickets', COALESCE(sum(s.tickets), 0)::int, 'tables', COALESCE(sum(s.tables), 0)::int,
-              'table_guests', COALESCE(sum(s.table_guests), 0)::int, 'guests', COALESCE(sum(s.guests), 0)::int,
-              'entered', COALESCE(sum(s.entered), 0)::int,
-              'revenue', CASE WHEN v_money THEN round(COALESCE(sum(s.ca), 0), 2) END)
-       FROM sales s
-      WHERE s.pkey IS NULL OR NOT EXISTS (SELECT 1 FROM parties p WHERE p.party_key = s.pkey)),
-    (SELECT jsonb_build_object(
-              'tickets', COALESCE(sum(s.tickets), 0)::int, 'tables', COALESCE(sum(s.tables), 0)::int,
-              'table_guests', COALESCE(sum(s.table_guests), 0)::int, 'guests', COALESCE(sum(s.guests), 0)::int,
-              'entered', COALESCE(sum(s.entered), 0)::int,
-              'revenue', CASE WHEN v_money THEN round(COALESCE(sum(s.ca), 0), 2) END)
-       FROM sales s)
-    INTO v_rows, v_other, v_total;
-
-  RETURN jsonb_build_object('ok', true, 'money', v_money, 'parties', v_rows, 'unattributed', v_other, 'totals', v_total);
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.get_community_overview(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -9587,180 +9976,6 @@ AS $function$
   SELECT CASE WHEN EXISTS (SELECT 1 FROM public.events e WHERE e.id = p_event_id AND (public.crm_scope_sees_money(e.venue_id, NULL) OR public.crm_scope_sees_money(NULL, e.organizer_user_id))) THEN public.get_crm_night_report__core(p_event_id) ELSE public._crm_null_money(public.get_crm_night_report__core(p_event_id)) END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_crm_night_report__core(p_event_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  e public.events%ROWTYPE;
-  v_tz text;
-  v_prev uuid;
-  v_totals jsonb;
-  v_curve jsonb;
-  v_prev_curve jsonb;
-  v_prev_info jsonb;
-  v_deals jsonb;
-  v_audience jsonb;
-  v_campaigns jsonb;
-  v_utm jsonb;
-  v_ext jsonb;
-BEGIN
-  SELECT * INTO e FROM public.events WHERE id = p_event_id;
-  IF NOT FOUND OR e.external_source IS NULL THEN
-    RAISE EXCEPTION 'not_found' USING ERRCODE = 'P0002';
-  END IF;
-  IF NOT public.crm_scope_allowed(e.venue_id, e.organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-  v_tz := COALESCE(NULLIF(e.timezone, ''), 'Europe/Paris');
-
-  SELECT jsonb_build_object('left_tickets', ee.left_tickets, 'deals_offered', jsonb_array_length(COALESCE(ee.deals, '[]'::jsonb)),
-                            'launched_at', ee.launched_at, 'published_at', ee.published_at, 'artists', ee.artists, 'genres', ee.genres)
-    INTO v_ext FROM public.external_events ee WHERE ee.event_id = e.id LIMIT 1;
-
-  -- Totaux. Nouveaux = première soirée de la personne dans la portée.
-  WITH mine AS (
-    SELECT t.* FROM public.external_tickets t WHERE t.event_id = e.id
-  ), scope_first AS (
-    SELECT lower(t.buyer_email) AS em, min(COALESCE(t.purchased_at, t.first_seen_at)) AS first_at
-      FROM public.external_tickets t
-     WHERE t.buyer_email IS NOT NULL AND t.status IN ('valid', 'transferred')
-       AND ((e.venue_id IS NOT NULL AND t.venue_id = e.venue_id)
-         OR (e.organizer_user_id IS NOT NULL AND t.organizer_user_id = e.organizer_user_id))
-       AND lower(t.buyer_email) IN (SELECT lower(m.buyer_email) FROM mine m WHERE m.buyer_email IS NOT NULL)
-     GROUP BY lower(t.buyer_email)
-  ), my_buyers AS (
-    SELECT lower(m.buyer_email) AS em, min(COALESCE(m.purchased_at, m.first_seen_at)) AS at
-      FROM mine m WHERE m.buyer_email IS NOT NULL AND m.status IN ('valid', 'transferred')
-     GROUP BY lower(m.buyer_email)
-  )
-  SELECT jsonb_build_object(
-    'tickets', (SELECT COALESCE(sum(GREATEST(quantity, 1)), 0) FROM mine WHERE status IN ('valid', 'transferred')),
-    'revenue', (SELECT COALESCE(round(sum(COALESCE(price, 0) * GREATEST(quantity, 1)), 2), 0) FROM mine WHERE status IN ('valid', 'transferred')),
-    'fees', (SELECT COALESCE(round(sum(COALESCE(fees, 0) * GREATEST(quantity, 1)), 2), 0) FROM mine WHERE status IN ('valid', 'transferred')),
-    'buyers', (SELECT count(*) FROM my_buyers),
-    'new_buyers', (SELECT count(*) FROM my_buyers b JOIN scope_first f ON f.em = b.em WHERE f.first_at >= b.at),
-    'scanned', (SELECT count(*) FROM mine WHERE scanned_at IS NOT NULL),
-    'scan_known', (SELECT bool_or(scanned_at IS NOT NULL) FROM mine),
-    'refunded', (SELECT count(*) FROM mine WHERE status IN ('refunded', 'cancelled')),
-    'with_email', (SELECT count(*) FROM mine WHERE buyer_email IS NOT NULL),
-    'all_tickets', (SELECT count(*) FROM mine),
-    'optin_buyers', (SELECT count(DISTINCT lower(buyer_email)) FROM mine WHERE newsletter_optin IS TRUE AND status IN ('valid', 'transferred'))
-  ) INTO v_totals;
-
-  -- Courbe J-N : billets vendus par jour calendaire avant la soirée (fuseau de la soirée).
-  SELECT COALESCE(jsonb_agg(jsonb_build_object('d', d, 'tickets', n) ORDER BY d DESC), '[]'::jsonb) INTO v_curve FROM (
-    SELECT GREATEST(((e.start_at AT TIME ZONE v_tz)::date - (COALESCE(t.purchased_at, t.first_seen_at) AT TIME ZONE v_tz)::date), 0) AS d,
-           sum(GREATEST(t.quantity, 1)) AS n
-      FROM public.external_tickets t
-     WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred')
-     GROUP BY 1
-  ) c;
-
-  -- Soirée de comparaison : la précédente de la portée (billetterie connectée).
-  SELECT p.id INTO v_prev FROM public.events p
-   WHERE p.external_source IS NOT NULL AND p.id <> e.id AND p.start_at < e.start_at AND p.cancelled_at IS NULL
-     AND ((e.venue_id IS NOT NULL AND p.venue_id = e.venue_id)
-       OR (e.organizer_user_id IS NOT NULL AND p.organizer_user_id = e.organizer_user_id))
-     AND EXISTS (SELECT 1 FROM public.external_tickets t WHERE t.event_id = p.id)
-   ORDER BY p.start_at DESC LIMIT 1;
-  IF v_prev IS NOT NULL THEN
-    SELECT jsonb_build_object('event_id', p.id, 'title', p.title, 'start_at', p.start_at,
-             'tickets', (SELECT COALESCE(sum(GREATEST(t.quantity, 1)), 0) FROM public.external_tickets t WHERE t.event_id = p.id AND t.status IN ('valid', 'transferred')),
-             'revenue', (SELECT COALESCE(round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)), 2), 0) FROM public.external_tickets t WHERE t.event_id = p.id AND t.status IN ('valid', 'transferred')))
-      INTO v_prev_info FROM public.events p WHERE p.id = v_prev;
-    SELECT COALESCE(jsonb_agg(jsonb_build_object('d', d, 'tickets', n) ORDER BY d DESC), '[]'::jsonb) INTO v_prev_curve FROM (
-      SELECT GREATEST(((p.start_at AT TIME ZONE COALESCE(NULLIF(p.timezone, ''), 'Europe/Paris'))::date
-                     - (COALESCE(t.purchased_at, t.first_seen_at) AT TIME ZONE COALESCE(NULLIF(p.timezone, ''), 'Europe/Paris'))::date), 0) AS d,
-             sum(GREATEST(t.quantity, 1)) AS n
-        FROM public.external_tickets t JOIN public.events p ON p.id = t.event_id
-       WHERE t.event_id = v_prev AND t.status IN ('valid', 'transferred')
-       GROUP BY 1
-    ) c;
-  END IF;
-
-  -- Tarifs.
-  SELECT COALESCE(jsonb_agg(x ORDER BY (x->>'tickets')::int DESC), '[]'::jsonb) INTO v_deals FROM (
-    SELECT jsonb_build_object('name', COALESCE(t.deal_name, '—'),
-             'tickets', sum(GREATEST(t.quantity, 1)),
-             'revenue', round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)), 2)) AS x
-      FROM public.external_tickets t
-     WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred')
-     GROUP BY COALESCE(t.deal_name, '—')
-  ) q;
-
-  -- Public (ce que la billetterie a transmis ; la couverture est rendue).
-  SELECT jsonb_build_object(
-    'cities', COALESCE((SELECT jsonb_agg(jsonb_build_object('city', city, 'n', n) ORDER BY n DESC) FROM (
-                SELECT initcap(lower(t.city)) AS city, count(DISTINCT lower(COALESCE(t.buyer_email, t.external_id))) AS n
-                  FROM public.external_tickets t
-                 WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred') AND NULLIF(btrim(t.city), '') IS NOT NULL
-                 GROUP BY 1 ORDER BY 2 DESC LIMIT 6) c), '[]'::jsonb),
-    'ages', COALESCE((SELECT jsonb_agg(jsonb_build_object('band', band, 'n', n) ORDER BY band) FROM (
-                SELECT CASE WHEN t.age < 21 THEN '18-20' WHEN t.age < 25 THEN '21-24' WHEN t.age < 30 THEN '25-29'
-                            WHEN t.age < 35 THEN '30-34' ELSE '35+' END AS band, count(*) AS n
-                  FROM public.external_tickets t
-                 WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred') AND t.age IS NOT NULL
-                 GROUP BY 1) a), '[]'::jsonb),
-    'genders', COALESCE((SELECT jsonb_object_agg(g, n) FROM (
-                SELECT t.gender AS g, count(*) AS n FROM public.external_tickets t
-                 WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred') AND t.gender IS NOT NULL
-                 GROUP BY 1) g), '{}'::jsonb),
-    'with_city', (SELECT count(*) FROM public.external_tickets t WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred') AND NULLIF(btrim(t.city), '') IS NOT NULL),
-    'with_age', (SELECT count(*) FROM public.external_tickets t WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred') AND t.age IS NOT NULL)
-  ) INTO v_audience;
-
-  -- Emails de la soirée et ventes attribuées (1er clic → achat de CETTE soirée < 72 h).
-  SELECT COALESCE(jsonb_agg(x ORDER BY x->>'sent_at' DESC NULLS LAST), '[]'::jsonb) INTO v_campaigns FROM (
-    SELECT jsonb_build_object(
-             'campaign_id', c.id, 'name', c.name, 'subject', c.subject, 'sent_at', c.sent_at, 'status', c.status,
-             'automation', c.automation_id IS NOT NULL,
-             'recipients', COALESCE(c.total_recipients, c.recipients_count, 0),
-             'opens', COALESCE(c.opens_count, 0), 'clicks', COALESCE(c.clicks_count, 0),
-             'attributed_tickets', COALESCE(att.tickets, 0), 'attributed_revenue', COALESCE(att.revenue, 0)
-           ) AS x
-      FROM public.email_campaigns c
-      LEFT JOIN LATERAL (
-        SELECT sum(GREATEST(t.quantity, 1)) AS tickets, round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)), 2) AS revenue
-          FROM (SELECT lower(ce.recipient_email) AS em, min(ce.created_at) AS click_at
-                  FROM public.email_campaign_events ce
-                 WHERE ce.campaign_id = c.id AND ce.event_type = 'clicked' AND ce.recipient_email IS NOT NULL
-                 GROUP BY 1) k
-          JOIN public.external_tickets t ON t.event_id = e.id AND lower(t.buyer_email) = k.em
-               AND t.status IN ('valid', 'transferred')
-               AND COALESCE(t.purchased_at, t.first_seen_at) >= k.click_at
-               AND COALESCE(t.purchased_at, t.first_seen_at) < k.click_at + interval '72 hours'
-      ) att ON true
-     WHERE (c.event_id = e.id OR c.automation_trigger_event_id = e.id)
-       AND c.status IN ('sent', 'sending', 'completed')
-  ) q;
-
-  -- Sources UTM rapportées par la billetterie.
-  SELECT COALESCE(jsonb_agg(x ORDER BY (x->>'tickets')::int DESC), '[]'::jsonb) INTO v_utm FROM (
-    SELECT jsonb_build_object('source', COALESCE(t.utm->>'utm_source', '—'), 'medium', t.utm->>'utm_medium',
-             'tickets', sum(GREATEST(t.quantity, 1)),
-             'revenue', round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)), 2)) AS x
-      FROM public.external_tickets t
-     WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred') AND t.utm IS NOT NULL
-     GROUP BY COALESCE(t.utm->>'utm_source', '—'), t.utm->>'utm_medium'
-     ORDER BY sum(GREATEST(t.quantity, 1)) DESC LIMIT 8
-  ) q;
-
-  RETURN jsonb_build_object(
-    'event', jsonb_build_object('id', e.id, 'title', e.title, 'start_at', e.start_at, 'end_at', e.end_at,
-                                'timezone', v_tz, 'cover_url', COALESCE(e.poster_url, e.image_url),
-                                'url', e.external_ticket_url, 'cancelled', e.cancelled_at IS NOT NULL,
-                                'sold_out', e.tickets_sold_out, 'location_city', e.location_city,
-                                'entry_target', e.entry_target, 'external', v_ext),
-    'totals', v_totals, 'curve', v_curve,
-    'compare', CASE WHEN v_prev IS NULL THEN NULL ELSE jsonb_build_object('event', v_prev_info, 'curve', v_prev_curve) END,
-    'deals', v_deals, 'audience', v_audience, 'campaigns', v_campaigns, 'utm', v_utm
-  );
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.get_crm_nights(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 60, p_offset integer DEFAULT 0)
  RETURNS jsonb
  LANGUAGE sql
@@ -9839,478 +10054,19 @@ AS $function$
   SELECT public._crm_money_gate(public.get_crm_overview__core(p_venue_id, p_organizer_user_id), p_venue_id, p_organizer_user_id);
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_crm_overview__core(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION public.get_customer_timeline(p_user_id uuid, p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_limit integer DEFAULT 50)
+ RETURNS TABLE(ts timestamp with time zone, activity_type text, ref_type text, ref_id uuid, amount_cents integer, event_id uuid, metadata jsonb)
+ LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE
-  v_conn jsonb;
-  v_base jsonb;
-  v_sales jsonb;
-  v_upcoming jsonb;
-  v_recent jsonb;
-BEGIN
-  IF NOT public.crm_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-
-  SELECT jsonb_build_object('provider', c.provider, 'status', c.status, 'external_org_name', c.external_org_name,
-                            'last_ok_at', c.last_ok_at, 'initial_import_done_at', c.initial_import_done_at,
-                            'running', c.locked_until IS NOT NULL AND c.locked_until > now(), 'stats', c.stats)
-    INTO v_conn
-    FROM public.ticketing_connections c
-   WHERE (p_venue_id IS NOT NULL AND c.venue_id = p_venue_id)
-      OR (p_organizer_user_id IS NOT NULL AND c.organizer_user_id = p_organizer_user_id)
-   ORDER BY c.created_at LIMIT 1;
-
-  WITH subs AS (
-    SELECT lower(s.email) AS em, bool_or(s.opted_in AND s.opted_out_at IS NULL) AS ok,
-           bool_or(COALESCE(s.source, '') LIKE 'connector:%') AS from_ticketing
-      FROM public.newsletter_subscriptions s
-     WHERE public.marketing_scope_match(s.venue_id, s.organizer_user_id, p_venue_id, p_organizer_user_id)
-     GROUP BY lower(s.email)
-  ), buyers AS (
-    SELECT DISTINCT lower(t.buyer_email) AS em
-      FROM public.external_tickets t
-     WHERE ((p_venue_id IS NOT NULL AND t.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND t.organizer_user_id = p_organizer_user_id))
-       AND t.buyer_email IS NOT NULL AND t.status IN ('valid', 'transferred')
-  )
-  SELECT jsonb_build_object(
-           'contacts', (SELECT count(*) FROM (SELECT em FROM subs UNION SELECT em FROM buyers) u),
-           'reachable', (SELECT count(*) FROM subs WHERE ok AND NOT public.is_email_suppressed(em)),
-           'reachable_from_ticketing', (SELECT count(*) FROM subs WHERE ok AND from_ticketing),
-           'buyers', (SELECT count(*) FROM buyers)
-         ) INTO v_base;
-
-  SELECT jsonb_build_object(
-           'tickets', COALESCE(sum(GREATEST(t.quantity, 1)), 0),
-           'revenue', COALESCE(round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)), 2), 0),
-           'buyers', count(DISTINCT lower(t.buyer_email)),
-           'nights', count(DISTINCT t.event_id)
-         ) INTO v_sales
-    FROM public.external_tickets t
-   WHERE ((p_venue_id IS NOT NULL AND t.venue_id = p_venue_id)
-       OR (p_organizer_user_id IS NOT NULL AND t.organizer_user_id = p_organizer_user_id))
-     AND t.status IN ('valid', 'transferred')
-     AND COALESCE(t.purchased_at, t.first_seen_at) > now() - interval '90 days';
-
-  SELECT COALESCE(jsonb_agg(x ORDER BY x->>'start_at'), '[]'::jsonb) INTO v_upcoming FROM (
-    SELECT jsonb_build_object(
-             'event_id', e.id, 'title', e.title, 'start_at', e.start_at,
-             'cover_url', COALESCE(e.poster_url, e.image_url), 'url', e.external_ticket_url,
-             'sold_out', e.tickets_sold_out, 'cancelled', e.cancelled_at IS NOT NULL,
-             'tickets', (SELECT COALESCE(sum(GREATEST(t.quantity, 1)), 0) FROM public.external_tickets t
-                          WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred')),
-             'tickets_today', (SELECT COALESCE(sum(GREATEST(t.quantity, 1)), 0) FROM public.external_tickets t
-                          WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred')
-                            AND COALESCE(t.purchased_at, t.first_seen_at) >= date_trunc('day', now() AT TIME ZONE COALESCE(NULLIF(e.timezone, ''), 'Europe/Paris')) AT TIME ZONE COALESCE(NULLIF(e.timezone, ''), 'Europe/Paris')),
-             'revenue', (SELECT COALESCE(round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)), 2), 0) FROM public.external_tickets t
-                          WHERE t.event_id = e.id AND t.status IN ('valid', 'transferred'))
-           ) AS x
-      FROM public.events e
-     WHERE e.external_source IS NOT NULL
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND e.end_at > now()
-     ORDER BY e.start_at ASC
-     LIMIT 5
-  ) q;
-
-  SELECT COALESCE(jsonb_agg(x ORDER BY x->>'start_at' DESC), '[]'::jsonb) INTO v_recent FROM (
-    SELECT jsonb_build_object(
-             'event_id', e.id, 'title', e.title, 'start_at', e.start_at,
-             'cover_url', COALESCE(e.poster_url, e.image_url),
-             'tickets', COALESCE(sum(GREATEST(t.quantity, 1)) FILTER (WHERE t.status IN ('valid', 'transferred')), 0),
-             'buyers', count(DISTINCT lower(t.buyer_email)) FILTER (WHERE t.status IN ('valid', 'transferred')),
-             'scanned', count(*) FILTER (WHERE t.scanned_at IS NOT NULL),
-             'revenue', COALESCE(round(sum(COALESCE(t.price, 0) * GREATEST(t.quantity, 1)) FILTER (WHERE t.status IN ('valid', 'transferred')), 2), 0)
-           ) AS x
-      FROM public.events e
-      LEFT JOIN public.external_tickets t ON t.event_id = e.id
-     WHERE e.external_source IS NOT NULL
-       AND ((p_venue_id IS NOT NULL AND e.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND e.organizer_user_id = p_organizer_user_id))
-       AND e.end_at <= now()
-     GROUP BY e.id
-     ORDER BY e.start_at DESC
-     LIMIT 5
-  ) q;
-
-  RETURN jsonb_build_object('connection', v_conn, 'base', v_base, 'sales_90d', v_sales,
-                            'upcoming', v_upcoming, 'recent', v_recent);
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_customer_automation_emails(p_venue_id text, p_organizer_user_id uuid, p_email text)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  result jsonb;
-BEGIN
-  PERFORM public._email_scope_guard(p_venue_id, p_organizer_user_id);
-  IF p_email IS NULL OR position('@' in p_email) <= 1 THEN RETURN '[]'::jsonb; END IF;
-
-  SELECT COALESCE(jsonb_agg(row_to_json(x)::jsonb ORDER BY x.created_at DESC), '[]'::jsonb) INTO result
-    FROM (
-      SELECT l.kind, l.status, l.skip_reason, l.created_at, l.due_at, l.campaign_id,
-             e.title AS event_title,
-             r.sent_at,
-             (r.sent_at IS NOT NULL AND EXISTS (
-               SELECT 1 FROM public.email_campaign_events ev
-                WHERE ev.campaign_id = l.campaign_id AND lower(ev.recipient_email) = lower(l.email) AND ev.event_type = 'opened')) AS opened,
-             (r.sent_at IS NOT NULL AND EXISTS (
-               SELECT 1 FROM public.email_campaign_events ev
-                WHERE ev.campaign_id = l.campaign_id AND lower(ev.recipient_email) = lower(l.email) AND ev.event_type = 'clicked')) AS clicked
-        FROM public.email_automation_sends l
-        LEFT JOIN public.events e ON e.id = COALESCE(l.trigger_event_id, l.bind_event_id)
-        LEFT JOIN public.email_campaign_recipients r
-          ON r.campaign_id = l.campaign_id AND lower(r.email) = lower(l.email)
-       WHERE lower(l.email) = lower(p_email)
-         AND ((p_venue_id IS NOT NULL AND l.venue_id = p_venue_id)
-           OR (p_organizer_user_id IS NOT NULL AND l.organizer_user_id = p_organizer_user_id))
-       ORDER BY l.created_at DESC
-       LIMIT 50
-    ) x;
-
-  RETURN result;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_email_automation_stats(p_venue_id text, p_organizer_user_id uuid, p_days integer DEFAULT NULL::integer)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  result jsonb;
-  v_from timestamptz := CASE WHEN p_days IS NULL THEN '-infinity'::timestamptz ELSE now() - make_interval(days => p_days) END;
-  v_all boolean := p_days IS NULL;
-BEGIN
-  PERFORM public._email_scope_guard(p_venue_id, p_organizer_user_id);
-
-  SELECT COALESCE(jsonb_agg(row_to_json(s)::jsonb ORDER BY s.kind), '[]'::jsonb) INTO result
-    FROM (
-      SELECT a.id, a.kind, a.enabled, a.enabled_at, a.delay_hours, a.threshold_pct, a.template_id, a.subject,
-             (SELECT count(*) FROM public.email_automation_sends l
-               WHERE l.automation_id = a.id AND l.status = 'queued' AND l.campaign_id IS NULL) AS pending,
-             -- En attente d'envoi dans une campagne enfant (file, quota, nuit).
-             (SELECT count(*) FROM public.email_campaign_recipients r
-               JOIN public.email_campaigns c ON c.id = r.campaign_id
-               WHERE c.automation_id = a.id AND r.status = 'pending') AS in_flight,
-             (SELECT count(*) FROM public.email_automation_sends l
-               WHERE l.automation_id = a.id AND l.status = 'queued' AND l.created_at >= v_from) AS queued,
-             (SELECT COALESCE(jsonb_object_agg(x.skip_reason, x.n), '{}'::jsonb)
-                FROM (SELECT l.skip_reason, count(*) AS n FROM public.email_automation_sends l
-                       WHERE l.automation_id = a.id AND l.status = 'skipped' AND l.created_at >= v_from
-                       GROUP BY l.skip_reason) x) AS skipped,
-             (SELECT max(l.created_at) FROM public.email_automation_sends l
-               WHERE l.automation_id = a.id AND l.status = 'queued') AS last_queued_at,
-             (SELECT count(*) FROM public.email_campaigns c
-               WHERE c.automation_id = a.id
-                 AND (v_all OR EXISTS (SELECT 1 FROM public.email_campaign_recipients r
-                                        WHERE r.campaign_id = c.id AND r.status = 'sent' AND r.sent_at >= v_from))) AS campaigns,
-             CASE WHEN v_all
-                  THEN (SELECT COALESCE(sum(c.recipients_count), 0) FROM public.email_campaigns c WHERE c.automation_id = a.id)
-                  ELSE (SELECT count(*) FROM public.email_campaign_recipients r JOIN public.email_campaigns c ON c.id = r.campaign_id
-                         WHERE c.automation_id = a.id AND r.status = 'sent' AND r.sent_at >= v_from) END AS sent,
-             CASE WHEN v_all
-                  THEN (SELECT COALESCE(sum(c.delivered_count), 0) FROM public.email_campaigns c WHERE c.automation_id = a.id)
-                  ELSE (SELECT count(*) FROM public.email_campaign_events ev JOIN public.email_campaigns c ON c.id = ev.campaign_id
-                         WHERE c.automation_id = a.id AND ev.event_type = 'delivered' AND ev.created_at >= v_from) END AS delivered,
-             CASE WHEN v_all
-                  THEN (SELECT COALESCE(sum(c.opens_count), 0) FROM public.email_campaigns c WHERE c.automation_id = a.id)
-                  ELSE (SELECT count(*) FROM public.email_campaign_events ev JOIN public.email_campaigns c ON c.id = ev.campaign_id
-                         WHERE c.automation_id = a.id AND ev.event_type = 'opened' AND ev.created_at >= v_from) END AS opens,
-             CASE WHEN v_all
-                  THEN (SELECT COALESCE(sum(c.clickers_count), 0) FROM public.email_campaigns c WHERE c.automation_id = a.id)
-                  ELSE (SELECT count(DISTINCT lower(ev.recipient_email)) FROM public.email_campaign_events ev JOIN public.email_campaigns c ON c.id = ev.campaign_id
-                         WHERE c.automation_id = a.id AND ev.event_type = 'clicked' AND ev.created_at >= v_from) END AS clickers,
-             CASE WHEN v_all
-                  THEN (SELECT COALESCE(sum(c.unsubscribes_count), 0) FROM public.email_campaigns c WHERE c.automation_id = a.id)
-                  ELSE (SELECT count(*) FROM public.email_campaign_events ev JOIN public.email_campaigns c ON c.id = ev.campaign_id
-                         WHERE c.automation_id = a.id AND ev.event_type = 'unsubscribed' AND ev.created_at >= v_from) END AS unsubscribes,
-             (SELECT COALESCE(jsonb_agg(c.id), '[]'::jsonb) FROM public.email_campaigns c
-               WHERE c.automation_id = a.id
-                 AND (v_all OR EXISTS (SELECT 1 FROM public.email_campaign_recipients r
-                                        WHERE r.campaign_id = c.id AND r.status = 'sent' AND r.sent_at >= v_from))) AS campaign_ids
-        FROM public.email_automations a
-       WHERE (p_venue_id IS NOT NULL AND a.venue_id = p_venue_id)
-          OR (p_organizer_user_id IS NOT NULL AND a.organizer_user_id = p_organizer_user_id)
-          OR (p_venue_id IS NULL AND p_organizer_user_id IS NULL AND a.venue_id IS NULL AND a.organizer_user_id IS NULL)
-    ) s;
-
-  RETURN result;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_email_automation_suggestions(p_venue_id text, p_organizer_user_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-BEGIN
-  PERFORM public._email_scope_guard(p_venue_id, p_organizer_user_id);
-  RETURN public._email_automation_suggestions(p_venue_id, p_organizer_user_id);
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_email_campaign_attribution(p_subject_type text, p_subject_id text)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  result jsonb;
-BEGIN
-  IF NOT public.can_read_audience(p_subject_type, p_subject_id) THEN
-    RETURN jsonb_build_object('ok', false,
-             'reason', CASE WHEN auth.uid() IS NULL THEN 'not_authenticated' ELSE 'forbidden' END);
-  END IF;
-
-  IF p_subject_type NOT IN ('venue', 'organizer') THEN
-    RETURN jsonb_build_object('ok', true, 'supported', false);
-  END IF;
-
-  WITH scoped_events AS (
-    SELECT e.id FROM public.events e
-     WHERE CASE WHEN p_subject_type = 'venue'
-                THEN (e.venue_id = p_subject_id OR e.partner_venue_id = p_subject_id OR e.id in (select public.cohost_event_ids_venue(p_subject_id)))
-                ELSE (e.organizer_user_id::text = p_subject_id OR e.partner_organizer_id::text = p_subject_id OR e.id in (select public.cohost_event_ids_subject(p_subject_id)))
-           END
-  ),
-  -- 1er clic par (campagne, email) sur les campagnes email du sujet (90 j)
-  clicks AS (
-    SELECT ece.campaign_id, lower(ece.recipient_email) AS em, min(ece.created_at) AS click_at
-      FROM public.email_campaign_events ece
-      JOIN public.email_campaigns ec ON ec.id = ece.campaign_id
-     WHERE ece.event_type = 'clicked'
-       AND ece.recipient_email IS NOT NULL
-       AND ec.created_at >= now() - interval '90 days'
-       AND CASE WHEN p_subject_type = 'venue'
-                THEN ec.venue_id = p_subject_id
-                ELSE ec.organizer_user_id::text = p_subject_id
-           END
-     GROUP BY ece.campaign_id, lower(ece.recipient_email)
-  ),
-  -- Actions du sujet avec NET (fees.ts), matchées par email. `units` = ce que
-  -- le pilier compte vraiment : billets vendus, convives attablés, 1 inscrit.
-  sales AS (
-    SELECT 'ticket:' || t.id::text AS sale_key, 'ticket'::text AS kind,
-           lower(t.user_email) AS em, t.created_at,
-           (greatest(t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0), 0) - least(greatest(coalesce(t.refund_amount, 0), 0), greatest(t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0), 0))) AS net,
-           GREATEST(coalesce(t.quantity, 1), 1)::int AS units
-      FROM public.tickets t
-     WHERE t.event_id IN (SELECT id FROM scoped_events) AND t.status = 'paid' AND t.user_email IS NOT NULL
-       AND t.created_at >= now() - interval '90 days'
-    UNION ALL
-    SELECT 'table:' || r.id::text, 'table', lower(r.user_email), r.created_at,
-           (greatest(r.total_price - coalesce(r.service_fee, 0) - (CASE WHEN coalesce(r.fee_absorbed, false) THEN coalesce(r.management_fee, 0) ELSE 0 END), 0) - least(greatest(coalesce(r.refund_amount, 0), 0), greatest(r.total_price - coalesce(r.service_fee, 0) - (CASE WHEN coalesce(r.fee_absorbed, false) THEN coalesce(r.management_fee, 0) ELSE 0 END), 0))),
-           GREATEST(coalesce(r.guest_count, 0), 0)::int
-      FROM public.table_reservations r
-     WHERE r.event_id IN (SELECT id FROM scoped_events) AND r.status = 'paid' AND r.user_email IS NOT NULL
-       AND r.created_at >= now() - interval '90 days'
-    UNION ALL
-    -- Boissons : périmètre venue = tout le bar du club ; périmètre organizer =
-    -- les commandes rattachées à ses soirées.
-    SELECT 'order:' || o.id::text, 'order', lower(o.user_email), o.created_at,
-           (greatest(o.total - coalesce(o.service_fee, 0), 0) - least(greatest(coalesce(o.refund_amount, 0), 0), greatest(o.total - coalesce(o.service_fee, 0), 0))),
-           0
-      FROM public.orders o
-     WHERE o.status IN ('paid', 'served') AND o.user_email IS NOT NULL
-       AND o.created_at >= now() - interval '90 days'
-       AND CASE WHEN p_subject_type = 'venue'
-                THEN o.venue_id = p_subject_id
-                ELSE o.event_id IN (SELECT id FROM scoped_events)
-           END
-    UNION ALL
-    -- Liste invités : zéro euro, mais c'est une entrée gagnée. Sur une soirée
-    -- sans billetterie c'est la SEULE chose que l'email peut produire — la
-    -- taire revenait à afficher « 0 € » sur une campagne qui a rempli la porte.
-    SELECT 'guestlist:' || gle.id::text, 'guestlist', lower(gle.email), gle.created_at,
-           0::numeric, 1
-      FROM public.guest_list_entries gle
-      JOIN public.guest_lists gl ON gl.id = gle.guest_list_id
-     WHERE gl.event_id IN (SELECT id FROM scoped_events)
-       AND gle.status <> 'cancelled'
-       AND gle.email IS NOT NULL AND btrim(gle.email) <> ''
-       AND gle.created_at >= now() - interval '90 days'
-    UNION ALL
-    -- Yuno CRM : achat sur la billetterie connectée (valeur faciale, hors frais).
-    SELECT 'external:' || xt.id::text, 'ticket', lower(xt.buyer_email), COALESCE(xt.purchased_at, xt.first_seen_at),
-           (COALESCE(xt.price, 0) * GREATEST(xt.quantity, 1))::numeric, GREATEST(xt.quantity, 1)
-      FROM public.external_tickets xt
-     WHERE xt.event_id IN (SELECT id FROM scoped_events) AND xt.status IN ('valid', 'transferred') AND xt.buyer_email IS NOT NULL
-       AND COALESCE(xt.purchased_at, xt.first_seen_at) >= now() - interval '90 days'
-  ),
-  attributed AS (
-    SELECT c.campaign_id, s.sale_key, s.kind, s.em, s.net, s.units
-      FROM clicks c
-      JOIN sales s
-        ON s.em = c.em
-       AND s.created_at >= c.click_at
-       AND s.created_at <  c.click_at + interval '72 hours'
-  ),
-  per_campaign AS (
-    SELECT campaign_id,
-           round(sum(net)::numeric, 2)                                   AS revenue,
-           count(DISTINCT em) FILTER (WHERE kind <> 'guestlist')         AS buyers,
-           count(*)           FILTER (WHERE kind = 'ticket')             AS ticket_orders,
-           coalesce(sum(units) FILTER (WHERE kind = 'ticket'), 0)        AS ticket_units,
-           round(coalesce(sum(net) FILTER (WHERE kind = 'ticket'), 0)::numeric, 2)    AS ticket_revenue,
-           count(*)           FILTER (WHERE kind = 'table')              AS table_orders,
-           coalesce(sum(units) FILTER (WHERE kind = 'table'), 0)         AS table_guests,
-           round(coalesce(sum(net) FILTER (WHERE kind = 'table'), 0)::numeric, 2)     AS table_revenue,
-           count(*)           FILTER (WHERE kind = 'guestlist')          AS gl_entries,
-           count(DISTINCT em) FILTER (WHERE kind = 'guestlist')          AS gl_people,
-           count(*)           FILTER (WHERE kind = 'order')              AS drink_orders,
-           round(coalesce(sum(net) FILTER (WHERE kind = 'order'), 0)::numeric, 2)     AS drink_revenue
-      FROM attributed
-     GROUP BY campaign_id
-  )
-  SELECT jsonb_build_object(
-    'ok', true, 'supported', true,
-    'campaigns', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object(
-        'id', campaign_id,
-        'revenue', revenue,
-        'buyers', buyers,
-        'tickets',   jsonb_build_object('orders', ticket_orders, 'units', ticket_units, 'revenue', ticket_revenue),
-        'tables',    jsonb_build_object('orders', table_orders,  'guests', table_guests, 'revenue', table_revenue),
-        'guestlist', jsonb_build_object('entries', gl_entries,   'people', gl_people),
-        'drinks',    jsonb_build_object('orders', drink_orders,  'revenue', drink_revenue)
-      ))
-      FROM per_campaign
-    ), '[]'::jsonb),
-    'total_90d', COALESCE((
-      SELECT round(sum(net)::numeric, 2)
-      FROM (SELECT DISTINCT sale_key, net FROM attributed) d
-    ), 0)
-  ) INTO result;
-
-  RETURN result;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_email_lists_health(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_out jsonb;
-BEGIN
-  IF p_venue_id IS NOT NULL AND p_organizer_user_id IS NOT NULL THEN
-    RAISE EXCEPTION 'get_email_lists_health: une seule portée à la fois';
-  END IF;
-  IF p_venue_id IS NOT NULL THEN
-    IF NOT (public.is_venue_owner(auth.uid(), p_venue_id) OR public.is_super_admin()) THEN
-      RAISE EXCEPTION 'Unauthorized';
-    END IF;
-  ELSIF p_organizer_user_id IS NOT NULL THEN
-    IF NOT COALESCE(p_organizer_user_id = auth.uid() OR public.is_org_team_member(auth.uid(), p_organizer_user_id, 'admin') OR public.is_super_admin(), false) THEN
-      RAISE EXCEPTION 'Unauthorized';
-    END IF;
-  ELSIF NOT public.is_super_admin() THEN
-    RAISE EXCEPTION 'Unauthorized';
-  END IF;
-
-  WITH imports AS (
-    SELECT i.id, i.filename, i.list_name, i.created_at
-      FROM public.email_list_imports i
-     WHERE public.marketing_scope_match(i.venue_id, i.organizer_user_id, p_venue_id, p_organizer_user_id)
-       AND i.superseded_by IS NULL
-     ORDER BY i.created_at DESC
-     LIMIT 50
-  ),
-  subs AS (
-    SELECT s.import_id,
-           count(*) AS total,
-           count(*) FILTER (WHERE s.opted_in AND s.opted_out_at IS NULL AND NOT public.is_email_suppressed(s.email)) AS active,
-           count(*) FILTER (WHERE public.is_email_suppressed(s.email)) AS dead,
-           count(*) FILTER (WHERE NOT public.is_email_suppressed(s.email) AND (NOT s.opted_in OR s.opted_out_at IS NOT NULL)) AS unsubscribed
-      FROM public.newsletter_subscriptions s
-     WHERE s.import_id IN (SELECT id FROM imports)
-     GROUP BY s.import_id
-  ),
-  purged AS (
-    SELECT o.import_id, count(*) AS n
-      FROM public.email_opt_outs o
-     WHERE o.import_id IN (SELECT id FROM imports)
-     GROUP BY o.import_id
-  )
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-           'import_id', i.id,
-           'filename', i.filename,
-           'list_name', i.list_name,
-           'created_at', i.created_at,
-           'total', COALESCE(s.total, 0),
-           'active', COALESCE(s.active, 0),
-           'unsubscribed', COALESCE(s.unsubscribed, 0),
-           'dead', COALESCE(s.dead, 0),
-           'purged', COALESCE(p.n, 0)
-         ) ORDER BY i.created_at DESC), '[]'::jsonb)
-    INTO v_out
-    FROM imports i
-    LEFT JOIN subs s ON s.import_id = i.id
-    LEFT JOIN purged p ON p.import_id = i.id;
-  RETURN v_out;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_email_send_time_insights(p_venue_id text, p_organizer_user_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  result jsonb;
-BEGIN
-  PERFORM public._email_scope_guard(p_venue_id, p_organizer_user_id);
-
-  WITH opens AS (
-    SELECT extract(hour from (ev.created_at AT TIME ZONE 'Europe/Paris'))::integer AS h,
-           extract(isodow from (ev.created_at AT TIME ZONE 'Europe/Paris'))::integer AS d
-      FROM public.email_campaign_events ev
-      JOIN public.email_campaigns c ON c.id = ev.campaign_id
-     WHERE ev.event_type = 'opened'
-       AND ev.created_at > now() - interval '120 days'
-       AND ((p_venue_id IS NOT NULL AND c.venue_id = p_venue_id)
-         OR (p_organizer_user_id IS NOT NULL AND c.organizer_user_id = p_organizer_user_id))
-  ),
-  by_hour AS (
-    SELECT g.h, count(o.h) AS n FROM generate_series(0, 23) AS g(h) LEFT JOIN opens o ON o.h = g.h GROUP BY g.h
-  ),
-  by_dow AS (
-    SELECT g.d, count(o.d) AS n FROM generate_series(1, 7) AS g(d) LEFT JOIN opens o ON o.d = g.d GROUP BY g.d
-  ),
-  windows AS (
-    -- Fenêtre glissante de 2 h : l'heure h compte ses ouvertures et celles de h+1.
-    SELECT a.h, a.n + b.n AS n
-      FROM by_hour a JOIN by_hour b ON b.h = (a.h + 1) % 24
-  ),
-  totals AS (SELECT count(*) AS sample FROM opens)
-  SELECT jsonb_build_object(
-    'sample', t.sample,
-    'by_hour', (SELECT jsonb_agg(n ORDER BY h) FROM by_hour),
-    'by_dow', (SELECT jsonb_agg(n ORDER BY d) FROM by_dow),
-    'best_hour', CASE WHEN t.sample >= 30 THEN (SELECT h FROM windows ORDER BY n DESC, h ASC LIMIT 1) END,
-    'best_dow', CASE WHEN t.sample >= 30 THEN (SELECT d FROM by_dow ORDER BY n DESC, d ASC LIMIT 1) END
-  ) INTO result
-  FROM totals t;
-
-  RETURN result;
-END;
+  SELECT cal.ts, cal.activity_type, cal.ref_type, cal.ref_id, cal.amount_cents, cal.event_id, cal.metadata
+  FROM public.customer_activity_log cal
+  WHERE cal.user_id = p_user_id
+    AND (p_venue_id IS NULL OR cal.venue_id = p_venue_id)
+    AND (p_organizer_user_id IS NULL OR cal.organizer_user_id = p_organizer_user_id)
+  ORDER BY cal.ts DESC
+  LIMIT p_limit;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.get_event_lineup_live(p_event_ids uuid[])
@@ -10367,664 +10123,6 @@ AS $function$
      AND (COALESCE(auth.role(), '') = 'service_role'
           OR public.is_super_admin()
           OR (auth.uid() IS NOT NULL AND public.can_manage_event_design(auth.uid(), e.id)));
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_event_report(p_event_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-declare
-  v_uid        uuid := auth.uid();
-  v_now        timestamptz := now();
-  e            record;
-  v_tz         text;
-  v_day_start  timestamptz;
-  v_scope_venue text := null;
-  v_scope_org  uuid := null;
-  v_money      boolean := false;
-  v_scope_ids  uuid[];
-  v_result     jsonb;
-  v_take       jsonb := '[]'::jsonb;
-  v_tx_total   integer;
-  v_expected   integer;
-  v_entered    integer;
-  v_heads_d0   integer;
-  v_heads      integer;
-  v_row        record;
-  v_ref        record;
-  v_ref_d      integer;
-  v_ref_final  integer;
-  v_ref_at     integer;
-  v_pace       jsonb := null;
-begin
-  if v_uid is null then
-    return jsonb_build_object('ok', false, 'reason', 'not_authenticated');
-  end if;
-
-  select ev.*, coalesce(ev.timezone, v.timezone, 'Europe/Paris') as tz, v.name as venue_name
-    into e
-  from public.events ev
-  left join public.venues v on v.id = coalesce(ev.venue_id, ev.partner_venue_id)
-  where ev.id = p_event_id;
-
-  if not found then
-    return jsonb_build_object('ok', false, 'reason', 'not_found');
-  end if;
-
-  -- ── Portée + droit de voir l'argent ───────────────────────────────────
-  if e.venue_id is not null and (public.can_manage_venue(v_uid, e.venue_id) or public.is_super_admin()) then
-    v_scope_venue := e.venue_id;
-  elsif e.partner_venue_id is not null and public.can_manage_venue(v_uid, e.partner_venue_id) then
-    v_scope_venue := e.partner_venue_id;
-  elsif e.organizer_user_id is not null and (
-          v_uid = e.organizer_user_id
-          or public.is_super_admin()
-          or public.is_org_team_member(v_uid, e.organizer_user_id, 'editor')) then
-    v_scope_org := e.organizer_user_id;
-  elsif e.partner_organizer_id is not null and (
-          v_uid = e.partner_organizer_id
-          or public.is_org_team_member(v_uid, e.partner_organizer_id, 'editor')) then
-    v_scope_org := e.partner_organizer_id;
-  -- Co-hôte accepté : la soirée se lit dans SA portée (orga d'abord).
-  elsif exists (select 1 from public.event_cohosts c
-                 where c.event_id = p_event_id and c.status = 'accepted' and c.organizer_user_id is not null
-                   and (c.organizer_user_id = v_uid or public.is_org_team_member(v_uid, c.organizer_user_id, 'editor'))) then
-    select c.organizer_user_id into v_scope_org from public.event_cohosts c
-     where c.event_id = p_event_id and c.status = 'accepted' and c.organizer_user_id is not null
-       and (c.organizer_user_id = v_uid or public.is_org_team_member(v_uid, c.organizer_user_id, 'editor'))
-     order by (c.organizer_user_id = v_uid) desc limit 1;
-  elsif exists (select 1 from public.event_cohosts c
-                 where c.event_id = p_event_id and c.status = 'accepted' and c.venue_id is not null
-                   and public.can_manage_venue(v_uid, c.venue_id)) then
-    select c.venue_id into v_scope_venue from public.event_cohosts c
-     where c.event_id = p_event_id and c.status = 'accepted' and c.venue_id is not null
-       and public.can_manage_venue(v_uid, c.venue_id)
-     limit 1;
-  else
-    return jsonb_build_object('ok', false, 'reason', 'forbidden');
-  end if;
-
-  if v_scope_venue is not null then
-    -- Club hôte, ou club CO-HÔTE quand l'organisateur principal partage les
-    -- montants (« Tout », défaut) ; jamais un club qui ne fait qu'accueillir.
-    v_money := (coalesce(v_scope_venue = e.venue_id, false)
-                or public.coorg_cohost_sees_money(p_event_id, 'venue:' || v_scope_venue)) and (
-      public.is_super_admin()
-      or exists (select 1 from public.venues v where v.id = v_scope_venue and v.owner_id = v_uid)
-      or exists (
-        select 1 from public.manager_permissions mp
-        where mp.user_id = v_uid and mp.venue_id = v_scope_venue
-          and (coalesce(mp.can_view_analytics, false) or coalesce(mp.can_view_finance, false))
-      ));
-    select coalesce(array_agg(x.id), '{}') into v_scope_ids
-    from public.events x
-    where x.venue_id = v_scope_venue or x.partner_venue_id = v_scope_venue or x.id in (select public.cohost_event_ids_venue(v_scope_venue));
-  else
-    v_money := (v_uid = v_scope_org
-      or public.is_super_admin()
-      or public.org_member_has_permission(v_uid, v_scope_org, 'view_finance'))
-      -- Un co-hôte voit l'argent si l'organisateur principal le partage (défaut)
-      -- ou s'il a une part dans un accord actif (coorg_sees_event_money).
-      and (public.is_super_admin() or public.coorg_sees_event_money(p_event_id, 'org:' || v_scope_org::text));
-    select coalesce(array_agg(x.id), '{}') into v_scope_ids
-    from public.events x
-    where x.organizer_user_id = v_scope_org or x.partner_organizer_id = v_scope_org or x.id in (select public.cohost_event_ids_org(v_scope_org));
-  end if;
-
-  v_tz := e.tz;
-  v_day_start := date_trunc('day', v_now at time zone v_tz) at time zone v_tz;
-
-  with
-  -- ── Les ventes de la soirée, une ligne par transaction ────────────────
-  tx as materialized (
-    select 'tickets'::text as pillar, t.id, lower(t.user_email) as email, t.user_id,
-           coalesce(t.paid_at, t.created_at) as at_ts,
-           greatest(coalesce(t.quantity, 1), 1) as units,
-           greatest(coalesce(t.quantity, 1), 1) as heads,
-           greatest(t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0), 0)
-             - least(greatest(coalesce(t.refund_amount, 0), 0),
-                     greatest(t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0), 0)) as amount,
-           coalesce(nullif(t.purchase_source, ''), 'direct') as source,
-           t.tracked_link_id, t.ticket_round_id as line_id
-    from public.tickets t
-    where t.event_id = p_event_id and t.status in ('paid', 'used')
-    union all
-    select 'tables', r.id, lower(r.user_email), r.user_id,
-           coalesce(r.paid_at, r.created_at),
-           1,
-           greatest(coalesce(r.guest_count, 0), 1),
-           greatest(r.total_price - coalesce(r.service_fee, 0) - (CASE WHEN coalesce(r.fee_absorbed, false) THEN coalesce(r.management_fee, 0) ELSE 0 END), 0)
-             - least(greatest(coalesce(r.refund_amount, 0), 0),
-                     greatest(r.total_price - coalesce(r.service_fee, 0) - (CASE WHEN coalesce(r.fee_absorbed, false) THEN coalesce(r.management_fee, 0) ELSE 0 END), 0)),
-           coalesce(nullif(r.purchase_source, ''), 'direct'),
-           r.tracked_link_id, r.pack_id
-    from public.table_reservations r
-    where r.event_id = p_event_id and r.status in ('paid', 'confirmed')
-    union all
-    select 'drinks', o.id, lower(o.user_email), o.user_id,
-           coalesce(o.paid_at, o.created_at),
-           1,
-           0,
-           greatest(o.total - coalesce(o.service_fee, 0), 0)
-             - least(greatest(coalesce(o.refund_amount, 0), 0), greatest(o.total - coalesce(o.service_fee, 0), 0)),
-           coalesce(nullif(o.purchase_source, ''), 'direct'),
-           o.tracked_link_id, null::uuid
-    from public.orders o
-    where o.event_id = p_event_id and o.status in ('paid', 'served')
-      and v_scope_venue is not null and o.venue_id = v_scope_venue
-  ),
-  gle as materialized (
-    select g.id, lower(nullif(btrim(g.email), '')) as email, g.user_id, g.created_at as at_ts,
-           g.guest_list_id as line_id, g.tracked_link_id
-    from public.guest_list_entries g
-    join public.guest_lists gl on gl.id = g.guest_list_id
-    where gl.event_id = p_event_id and g.status <> 'cancelled'
-  ),
-  vis as materialized (
-    select s.visited_at, coalesce(nullif(s.referrer_category, ''), 'direct') as source,
-           coalesce(s.completed_order, false) as done
-    from public.visitor_sessions s
-    where s.event_id = p_event_id
-  ),
-
-  -- ── Contacts de la soirée, et ceux déjà vus à une soirée PRÉCÉDENTE ────
-  people as (
-    select distinct email from (
-      select email from tx where pillar in ('tickets', 'tables') and email is not null
-      union all
-      select email from gle where email is not null
-    ) p
-  ),
-  prior_events as materialized (
-    select x.id from public.events x
-    where x.id = any(v_scope_ids) and x.id <> p_event_id and x.start_at < e.start_at
-  ),
-  seen_before as (
-    select distinct p.email
-    from people p
-    where exists (select 1 from public.tickets t
-                  where t.event_id in (select id from prior_events)
-                    and t.status in ('paid', 'used') and lower(t.user_email) = p.email)
-       or exists (select 1 from public.table_reservations r
-                  where r.event_id in (select id from prior_events)
-                    and r.status in ('paid', 'confirmed') and lower(r.user_email) = p.email)
-       or exists (select 1 from public.guest_list_entries g
-                  join public.guest_lists gl on gl.id = g.guest_list_id
-                  where gl.event_id in (select id from prior_events)
-                    and g.status <> 'cancelled' and lower(g.email) = p.email)
-  ),
-
-  -- ── Série jour par jour, clé d = jours calendaires avant la soirée ─────
-  day_rows as (
-    select (e.start_at at time zone v_tz)::date - (at_ts at time zone v_tz)::date as d,
-           case when pillar = 'tickets' then units else 0 end as tickets,
-           case when pillar = 'tables' then 1 else 0 end as tables,
-           0 as guests, amount, 0 as visits,
-           heads as people
-    from tx
-    union all
-    select (e.start_at at time zone v_tz)::date - (at_ts at time zone v_tz)::date, 0, 0, 1, 0, 0, 1 from gle
-    union all
-    select (e.start_at at time zone v_tz)::date - (visited_at at time zone v_tz)::date, 0, 0, 0, 0, 1, 0 from vis
-  ),
-  series as (
-    select d, sum(tickets) as tickets, sum(tables) as tables, sum(guests) as guests,
-           sum(amount) as amount, sum(visits) as visits, sum(people) as people
-    from day_rows group by d
-  ),
-
-  -- ── Messages qui parlaient de CETTE soirée ────────────────────────────
-  emails as (
-    select ec.id, coalesce(nullif(ec.subject, ''), ec.name) as title, ec.sent_at,
-           coalesce(ec.recipients_count, ec.total_recipients, 0) as reach,
-           coalesce(ec.opens_count, 0) as opens, coalesce(ec.clickers_count, ec.clicks_count, 0) as clicks,
-           ec.automation_id is not null as auto
-    from public.email_campaigns ec
-    where (ec.event_id = p_event_id or ec.automation_trigger_event_id = p_event_id)
-      and ec.status in ('sent', 'sending', 'paused')
-      and ((v_scope_venue is not null and ec.venue_id = v_scope_venue)
-        or (v_scope_org is not null and ec.organizer_user_id = v_scope_org))
-    order by ec.sent_at desc nulls last
-    limit 30
-  ),
-  email_clicks as (
-    select ece.campaign_id, lower(ece.recipient_email) as email, min(ece.created_at) as click_at
-    from public.email_campaign_events ece
-    where ece.campaign_id in (select id from emails)
-      and ece.event_type = 'clicked' and ece.recipient_email is not null
-    group by 1, 2
-  ),
-  email_attr as (
-    select c.campaign_id,
-           count(distinct x.id) filter (where x.pillar <> 'guestlist') as orders,
-           coalesce(sum(x.amount), 0) as amount,
-           count(distinct x.id) filter (where x.pillar = 'guestlist') as entries
-    from email_clicks c
-    join (
-      select pillar, id, email, at_ts, amount from tx where pillar in ('tickets', 'tables')
-      union all
-      select 'guestlist', id, email, at_ts, 0 from gle
-    ) x on x.email = c.email and x.at_ts >= c.click_at and x.at_ts < c.click_at + interval '72 hours'
-    group by c.campaign_id
-  ),
-  pushes as (
-    select pc.id, coalesce(pc.title, pc.template_key) as title, pc.created_at as sent_at,
-           coalesce(pc.sent_count, 0) as reach, pc.source = 'auto' as auto, pc.template_key
-    from public.push_campaigns pc
-    where pc.event_id = p_event_id
-      and pc.status in ('sent', 'sending', 'completed')
-      and ((v_scope_venue is not null and pc.venue_id = v_scope_venue)
-        or (v_scope_org is not null and pc.venue_id is null and pc.agency_id is null))
-    order by pc.created_at desc
-    limit 30
-  ),
-  push_clicks as (
-    select pce.campaign_id, pce.user_id, min(pce.created_at) as click_at
-    from public.push_campaign_events pce
-    where pce.campaign_id in (select id from pushes)
-      and pce.event_type = 'clicked' and pce.user_id is not null
-    group by 1, 2
-  ),
-  push_attr as (
-    select c.campaign_id,
-           count(*) as clicks,
-           count(distinct x.id) filter (where x.pillar <> 'guestlist') as orders,
-           coalesce(sum(x.amount), 0) as amount,
-           count(distinct x.id) filter (where x.pillar = 'guestlist') as entries
-    from push_clicks c
-    left join (
-      select pillar, id, user_id, at_ts, amount from tx where pillar in ('tickets', 'tables')
-      union all
-      select 'guestlist', id, user_id, at_ts, 0 from gle
-    ) x on x.user_id = c.user_id and x.at_ts >= c.click_at and x.at_ts < c.click_at + interval '72 hours'
-    group by c.campaign_id
-  )
-
-  select jsonb_build_object(
-    'ok', true,
-    'now', v_now,
-    'tz', v_tz,
-    'dayStart', v_day_start,
-    'money', v_money,
-    'scope', case when v_scope_venue is not null then 'venue' else 'organizer' end,
-    'event', jsonb_build_object(
-      'id', e.id, 'title', e.title, 'startAt', e.start_at, 'endAt', e.end_at,
-      'poster', coalesce(e.poster_url, e.image_url), 'status', e.status,
-      'cancelled', e.cancelled_at is not null,
-      'publishedAt', e.published_at, 'createdAt', e.created_at,
-      'venueName', e.venue_name,
-      'entryTarget', e.entry_target,
-      'phase', case when v_now >= e.end_at then 'after' when v_now >= e.start_at then 'live' else 'before' end
-    ),
-
-    -- 1. Où en sont mes ventes ?
-    'totals', jsonb_build_object(
-      'tickets', jsonb_build_object(
-        'sold', (select coalesce(sum(units), 0) from tx where pillar = 'tickets'),
-        'today', (select coalesce(sum(units), 0) from tx where pillar = 'tickets' and at_ts >= v_day_start),
-        'orders', (select count(*) from tx where pillar = 'tickets'),
-        'capacity', case
-          when coalesce(e.max_tickets, 0) > 0 then e.max_tickets
-          when exists (select 1 from public.ticket_rounds tr where tr.event_id = p_event_id)
-           and not exists (select 1 from public.ticket_rounds tr where tr.event_id = p_event_id and coalesce(tr.max_tickets, 0) <= 0)
-            then (select sum(tr.max_tickets) from public.ticket_rounds tr where tr.event_id = p_event_id)
-          else null end,
-        'enabled', coalesce(e.ticketing_enabled, false),
-        'soldOut', coalesce(e.tickets_sold_out, false)
-      ),
-      'tables', jsonb_build_object(
-        'booked', (select count(*) from tx where pillar = 'tables'),
-        'today', (select count(*) from tx where pillar = 'tables' and at_ts >= v_day_start),
-        'guests', (select coalesce(sum(greatest(coalesce(r.guest_count, 0), 0)), 0)
-                   from public.table_reservations r where r.event_id = p_event_id and r.status in ('paid', 'confirmed')),
-        'capacity', nullif((
-          select coalesce(sum(p.tables_count), 0)
-          from public.table_packs p
-          where p.is_active
-            and (p.event_id = p_event_id
-                 or (p.event_id is null and coalesce(e.venue_id, e.partner_venue_id) is not null
-                     and p.venue_id = coalesce(e.venue_id, e.partner_venue_id)))
-            and not (p.id = any (coalesce(e.sold_out_pack_ids, '{}'::uuid[])))
-        ), 0),
-        'enabled', coalesce(e.tables_enabled, false),
-        'soldOut', coalesce(e.tables_sold_out, false)
-      ),
-      'guestList', jsonb_build_object(
-        'registered', (select count(*) from gle),
-        'today', (select count(*) from gle where at_ts >= v_day_start),
-        'capacity', (
-          select case when count(*) > 0 and count(*) filter (where coalesce(gl.quota, 0) <= 0) = 0
-                      then sum(gl.quota) else null end
-          from public.guest_lists gl where gl.event_id = p_event_id and gl.is_active
-        ),
-        'enabled', exists (select 1 from public.guest_lists gl where gl.event_id = p_event_id and gl.is_active),
-        'soldOut', coalesce(e.guest_list_sold_out, false)
-      ),
-      'drinks', case when v_scope_venue is not null then jsonb_build_object(
-        'orders', (select count(*) from tx where pillar = 'drinks'),
-        'today', (select count(*) from tx where pillar = 'drinks' and at_ts >= v_day_start)
-      ) else null end,
-      'revenue', case when v_money then jsonb_build_object(
-        'total', round((select coalesce(sum(amount), 0) from tx)::numeric, 2),
-        'today', round((select coalesce(sum(amount), 0) from tx where at_ts >= v_day_start)::numeric, 2),
-        'tickets', round((select coalesce(sum(amount), 0) from tx where pillar = 'tickets')::numeric, 2),
-        'tables', round((select coalesce(sum(amount), 0) from tx where pillar = 'tables')::numeric, 2),
-        'drinks', round((select coalesce(sum(amount), 0) from tx where pillar = 'drinks')::numeric, 2)
-      ) else null end,
-      'visits', jsonb_build_object(
-        'total', (select count(*) from vis),
-        'today', (select count(*) from vis where visited_at >= v_day_start),
-        'withOrder', (select count(*) from vis where done)
-      ),
-      -- La porte : personnes scannées (billets en quantité, convives d'une
-      -- table scannée ou arrivée, inscrits guest list) et attendus. Même
-      -- définition que « Entrées » dans get_sales_overview.
-      'door', jsonb_build_object(
-        'entered',
-          (select coalesce(sum(greatest(coalesce(t.quantity, 1), 1)), 0) from public.tickets t
-            where t.event_id = p_event_id and t.status in ('paid', 'used')
-              and (coalesce(t.entry_scanned, false) or coalesce(t.used, false) or t.status = 'used'))
-        + (select coalesce(sum(greatest(coalesce(r.guest_count, 0), 1)), 0) from public.table_reservations r
-            where r.event_id = p_event_id and r.status in ('paid', 'confirmed')
-              and (coalesce(r.entry_scanned, false) or r.checked_in_at is not null))
-        + (select count(*) from public.guest_list_entries g2 join public.guest_lists l2 on l2.id = g2.guest_list_id
-            where l2.event_id = p_event_id and g2.status <> 'cancelled' and coalesce(g2.entry_scanned, false)),
-        'expected',
-          (select coalesce(sum(greatest(coalesce(t.quantity, 1), 1)), 0) from public.tickets t
-            where t.event_id = p_event_id and t.status in ('paid', 'used'))
-        + (select coalesce(sum(greatest(coalesce(r.guest_count, 0), 1)), 0) from public.table_reservations r
-            where r.event_id = p_event_id and r.status in ('paid', 'confirmed'))
-        + (select count(*) from public.guest_list_entries g2 join public.guest_lists l2 on l2.id = g2.guest_list_id
-            where l2.event_id = p_event_id and g2.status <> 'cancelled')
-      )
-    ),
-
-    'lines', coalesce((
-      select jsonb_agg(l.obj order by l.pillar_ord, l.ord)
-      from (
-        -- Paliers de billets
-        select 1 as pillar_ord, coalesce(tr.position, 0) * 1000 + row_number() over (order by tr.position, tr.created_at) as ord,
-               jsonb_build_object(
-                 'pillar', 'tickets', 'id', tr.id, 'name', tr.name, 'price', tr.price,
-                 'sold', coalesce((select sum(units) from tx where pillar = 'tickets' and line_id = tr.id), 0),
-                 'capacity', nullif(tr.max_tickets, 0),
-                 'status', case
-                   when coalesce(e.tickets_sold_out, false) or coalesce(tr.manually_sold_out, false)
-                     or (coalesce(tr.max_tickets, 0) > 0 and coalesce((select sum(units) from tx where pillar = 'tickets' and line_id = tr.id), 0) >= tr.max_tickets)
-                     then 'sold_out'
-                   when tr.is_active then 'on_sale'
-                   when coalesce(tr.auto_activate, false) then 'upcoming'
-                   else 'closed' end,
-                 'amount', case when v_money then round(coalesce((select sum(amount) from tx where pillar = 'tickets' and line_id = tr.id), 0)::numeric, 2) else null end
-               ) as obj
-        from public.ticket_rounds tr where tr.event_id = p_event_id
-        union all
-        -- Formules de table (de la soirée, ou du club quand elles ne sont pas event-scopées)
-        select 2, coalesce(p.position, 0) * 1000 + row_number() over (order by p.position, p.created_at),
-               jsonb_build_object(
-                 'pillar', 'tables', 'id', p.id, 'name', p.name, 'price', p.base_price,
-                 'sold', (select count(*) from tx where pillar = 'tables' and line_id = p.id),
-                 'capacity', nullif(p.tables_count, 0),
-                 'status', case
-                   when coalesce(e.tables_sold_out, false) or p.id = any (coalesce(e.sold_out_pack_ids, '{}'::uuid[])) then 'sold_out'
-                   when coalesce(p.tables_count, 0) > 0 and (select count(*) from tx where pillar = 'tables' and line_id = p.id) >= p.tables_count then 'sold_out'
-                   when coalesce(e.tables_enabled, false) then 'on_sale'
-                   else 'closed' end,
-                 'amount', case when v_money then round(coalesce((select sum(amount) from tx where pillar = 'tables' and line_id = p.id), 0)::numeric, 2) else null end
-               )
-        from public.table_packs p
-        where p.is_active
-          and (p.event_id = p_event_id
-               or (p.event_id is null and coalesce(e.venue_id, e.partner_venue_id) is not null
-                   and p.venue_id = coalesce(e.venue_id, e.partner_venue_id)))
-        union all
-        -- Parts de guest list
-        select 3, row_number() over (order by gl.created_at),
-               jsonb_build_object(
-                 'pillar', 'guestList', 'id', gl.id,
-                 'name', nullif(btrim(coalesce(gl.holder_label, '')), ''),
-                 'holderType', gl.holder_type,
-                 'price', null,
-                 'sold', (select count(*) from gle where line_id = gl.id),
-                 'capacity', nullif(gl.quota, 0),
-                 'status', case
-                   when coalesce(e.guest_list_sold_out, false) or coalesce(gl.manually_sold_out, false) then 'sold_out'
-                   when coalesce(gl.quota, 0) > 0 and (select count(*) from gle where line_id = gl.id) >= gl.quota then 'sold_out'
-                   when gl.is_active then 'on_sale'
-                   else 'closed' end,
-                 'amount', null
-               )
-        from public.guest_lists gl where gl.event_id = p_event_id
-      ) l
-    ), '[]'::jsonb),
-
-    -- 2. Comment évoluent-elles ?
-    'series', coalesce((
-      select jsonb_agg(jsonb_build_object(
-               'd', s.d, 'tickets', s.tickets, 'tables', s.tables, 'guests', s.guests,
-               'amount', case when v_money then round(s.amount::numeric, 2) else null end,
-               'visits', s.visits, 'people', s.people
-             ) order by s.d desc)
-      from series s
-    ), '[]'::jsonb),
-
-    -- 3. Est-ce qu'on voit ma soirée ?
-    'visitSources', coalesce((
-      select jsonb_agg(jsonb_build_object('source', v.source, 'sessions', v.sessions, 'orders', v.orders) order by v.sessions desc)
-      from (select source, count(*) as sessions, count(*) filter (where done) as orders
-            from vis group by source order by 2 desc limit 8) v
-    ), '[]'::jsonb),
-
-    -- 4. Qui achète ?
-    'audience', jsonb_build_object(
-      'people', (select count(*) from people),
-      'returning', (select count(*) from seen_before),
-      'new', (select count(*) from people) - (select count(*) from seen_before),
-      'buyers', (select count(distinct email) from tx where pillar in ('tickets', 'tables') and email is not null),
-      'priorEvents', (select count(*) from prior_events)
-    ),
-
-    -- 5. Qu'est-ce qui a fait vendre ?
-    'channels', coalesce((
-      select jsonb_agg(jsonb_build_object('source', c.source, 'n', c.n,
-               'amount', case when v_money then round(c.amount::numeric, 2) else null end) order by c.n desc)
-      from (
-        select case when source in ('venue_profile', 'organizer_profile', 'dj_profile', 'explore', 'promoter', 'direct') then source
-                    when source in ('manual', 'manual_open') then 'manual'
-                    else 'other' end as source,
-               count(*) as n, sum(amount) as amount
-        from tx where pillar in ('tickets', 'tables')
-        group by 1
-      ) c
-    ), '[]'::jsonb),
-    'links', coalesce((
-      select jsonb_agg(jsonb_build_object(
-               'id', k.id, 'label', coalesce(nullif(btrim(k.label), ''), k.utm_source, k.code), 'code', k.code,
-               'clicks', coalesce(k.clicks_count, 0), 'n', k.n, 'entries', k.entries,
-               'amount', case when v_money then round(k.amount::numeric, 2) else null end
-             ) order by k.n + k.entries desc, k.clicks_count desc nulls last)
-      from (
-        select tl.id, tl.label, tl.utm_source, tl.code, tl.clicks_count,
-               (select count(*) from tx where tx.tracked_link_id = tl.id and pillar in ('tickets', 'tables')) as n,
-               (select count(*) from gle where gle.tracked_link_id = tl.id) as entries,
-               (select coalesce(sum(amount), 0) from tx where tx.tracked_link_id = tl.id and pillar in ('tickets', 'tables')) as amount
-        from public.tracked_links tl
-        where tl.event_id = p_event_id
-           or tl.id in (select tracked_link_id from tx where tracked_link_id is not null)
-           or tl.id in (select tracked_link_id from gle where tracked_link_id is not null)
-      ) k
-      where k.n > 0 or k.entries > 0 or coalesce(k.clicks_count, 0) > 0
-    ), '[]'::jsonb),
-    -- Repères de la courbe J-N : publication, ouverture d'un tarif (première
-    -- vente d'un palier qui n'est pas le premier), emails et push de la soirée.
-    'markers', coalesce((
-      select jsonb_agg(jsonb_build_object('kind', mk.kind, 'd', mk.d, 'at', mk.at_ts, 'label', mk.label)
-                       order by mk.at_ts)
-      from (
-        select 'published'::text as kind, e.published_at as at_ts, null::text as label,
-               (e.start_at at time zone v_tz)::date - (e.published_at at time zone v_tz)::date as d
-        where e.published_at is not null
-        union all
-        select 'round', r.first_at, r.name,
-               (e.start_at at time zone v_tz)::date - (r.first_at at time zone v_tz)::date
-        from (
-          select tr.name, min(tx.at_ts) as first_at,
-                 row_number() over (order by min(tx.at_ts)) as rn
-          from public.ticket_rounds tr
-          join tx on tx.pillar = 'tickets' and tx.line_id = tr.id
-          where tr.event_id = p_event_id
-          group by tr.id, tr.name
-        ) r
-        where r.rn > 1
-        union all
-        select 'email', em.sent_at, em.title,
-               (e.start_at at time zone v_tz)::date - (em.sent_at at time zone v_tz)::date
-        from emails em where em.sent_at is not null
-        union all
-        select 'push', pu.sent_at, pu.title,
-               (e.start_at at time zone v_tz)::date - (pu.sent_at at time zone v_tz)::date
-        from pushes pu where pu.sent_at is not null
-      ) mk
-      where mk.at_ts <= v_now
-    ), '[]'::jsonb),
-    'messages', coalesce((
-      select jsonb_agg(m.obj order by m.sent_at desc nulls last)
-      from (
-        select em.sent_at, jsonb_build_object(
-                 'kind', 'email', 'id', em.id, 'title', em.title, 'sentAt', em.sent_at, 'auto', em.auto,
-                 'reach', em.reach, 'opens', em.opens, 'clicks', em.clicks,
-                 'orders', coalesce(a.orders, 0), 'entries', coalesce(a.entries, 0),
-                 'amount', case when v_money then round(coalesce(a.amount, 0)::numeric, 2) else null end
-               ) as obj
-        from emails em left join email_attr a on a.campaign_id = em.id
-        union all
-        select pu.sent_at, jsonb_build_object(
-                 'kind', 'push', 'id', pu.id, 'title', pu.title, 'sentAt', pu.sent_at, 'auto', pu.auto,
-                 'templateKey', pu.template_key,
-                 'reach', pu.reach, 'opens', null, 'clicks', coalesce(a.clicks, 0),
-                 'orders', coalesce(a.orders, 0), 'entries', coalesce(a.entries, 0),
-                 'amount', case when v_money then round(coalesce(a.amount, 0)::numeric, 2) else null end
-               )
-        from pushes pu left join push_attr a on a.campaign_id = pu.id
-      ) m
-    ), '[]'::jsonb)
-  )
-  into v_result;
-
-  -- ── À retenir : 0 à 3 constats, chacun avec son seuil et sa section ──────
-  -- Clé + paramètres ; le texte est traduit côté front (er.tk.*). Une base
-  -- mince ne dit rien : chaque constat porte un minimum de volume.
-  v_entered  := coalesce((v_result #>> '{totals,door,entered}')::int, 0);
-  v_expected := coalesce((v_result #>> '{totals,door,expected}')::int, 0);
-  v_tx_total := coalesce((v_result #>> '{totals,tickets,orders}')::int, 0)
-              + coalesce((v_result #>> '{totals,tables,booked}')::int, 0)
-              + coalesce((v_result #>> '{totals,guestList,registered}')::int, 0);
-
-  -- 1. Soirée passée : la porte n'a pas vu tout le monde.
-  if v_result #>> '{event,phase}' = 'after' and v_expected >= 30 and v_entered > 0
-     and v_entered::numeric / v_expected < 0.7 then
-    v_take := v_take || jsonb_build_object('key', 'no_show', 'tone', 'bad', 'section', 'sales',
-      'params', jsonb_build_object('pct', round(100.0 * v_entered / v_expected), 'missing', v_expected - v_entered));
-  end if;
-
-  -- 2. Un message a fait une bonne part des ventes.
-  select m.value into v_row from jsonb_array_elements(v_result -> 'messages') m
-   order by (m.value ->> 'orders')::int + (m.value ->> 'entries')::int desc limit 1;
-  if found and v_tx_total >= 10
-     and ((v_row.value ->> 'orders')::int + (v_row.value ->> 'entries')::int) >= 5
-     and ((v_row.value ->> 'orders')::int + (v_row.value ->> 'entries')::int)::numeric / v_tx_total >= 0.2 then
-    v_take := v_take || jsonb_build_object('key', 'msg_drove', 'tone', 'good', 'section', 'reach',
-      'params', jsonb_build_object('kind', v_row.value ->> 'kind', 'title', v_row.value ->> 'title',
-        'n', (v_row.value ->> 'orders')::int + (v_row.value ->> 'entries')::int,
-        'pct', round(100.0 * ((v_row.value ->> 'orders')::int + (v_row.value ->> 'entries')::int) / v_tx_total)));
-  end if;
-
-  -- 3. Beaucoup de visites, peu d'achats.
-  if coalesce((v_result #>> '{totals,visits,total}')::int, 0) >= 100
-     and (v_result #>> '{totals,visits,withOrder}')::numeric / (v_result #>> '{totals,visits,total}')::int < 0.02 then
-    v_take := v_take || jsonb_build_object('key', 'low_conversion', 'tone', 'bad', 'section', 'reach',
-      'params', jsonb_build_object('visits', (v_result #>> '{totals,visits,total}')::int,
-        'pct', round(100.0 * (v_result #>> '{totals,visits,withOrder}')::numeric / (v_result #>> '{totals,visits,total}')::int, 1)));
-  end if;
-
-  -- 4. Soirée passée : une grosse part des attendus a acheté le jour J.
-  select coalesce(sum((x.value ->> 'people')::int) filter (where (x.value ->> 'd')::int <= 0), 0),
-         coalesce(sum((x.value ->> 'people')::int), 0)
-    into v_heads_d0, v_heads
-  from jsonb_array_elements(v_result -> 'series') x;
-  if v_result #>> '{event,phase}' = 'after' and v_heads >= 30 and v_heads_d0::numeric / v_heads >= 0.3 then
-    v_take := v_take || jsonb_build_object('key', 'day_of', 'tone', 'info', 'section', 'curve',
-      'params', jsonb_build_object('pct', round(100.0 * v_heads_d0 / v_heads)));
-  end if;
-
-  -- 5. D'où viennent les visites.
-  select s.value into v_row from jsonb_array_elements(v_result -> 'visitSources') s
-   order by (s.value ->> 'sessions')::int desc limit 1;
-  if found and coalesce((v_result #>> '{totals,visits,total}')::int, 0) >= 30
-     and (v_row.value ->> 'sessions')::numeric / (v_result #>> '{totals,visits,total}')::int >= 0.5 then
-    v_take := v_take || jsonb_build_object('key', 'visit_source', 'tone', 'info', 'section', 'reach',
-      'params', jsonb_build_object('source', v_row.value ->> 'source',
-        'pct', round(100.0 * (v_row.value ->> 'sessions')::int / (v_result #>> '{totals,visits,total}')::int)));
-  end if;
-
-  -- 6. Public neuf ou public d'habitués (seulement s'il y a eu des soirées avant).
-  if coalesce((v_result #>> '{audience,people}')::int, 0) >= 20
-     and coalesce((v_result #>> '{audience,priorEvents}')::int, 0) >= 1 then
-    if (v_result #>> '{audience,new}')::numeric / (v_result #>> '{audience,people}')::int >= 0.6 then
-      v_take := v_take || jsonb_build_object('key', 'mostly_new', 'tone', 'info', 'section', 'who',
-        'params', jsonb_build_object('pct', round(100.0 * (v_result #>> '{audience,new}')::int / (v_result #>> '{audience,people}')::int)));
-    elsif (v_result #>> '{audience,returning}')::numeric / (v_result #>> '{audience,people}')::int >= 0.5 then
-      v_take := v_take || jsonb_build_object('key', 'mostly_returning', 'tone', 'good', 'section', 'who',
-        'params', jsonb_build_object('pct', round(100.0 * (v_result #>> '{audience,returning}')::int / (v_result #>> '{audience,people}')::int)));
-    end if;
-  end if;
-
-  -- ── Rythme : la dernière soirée TERMINÉE de la portée (≥ 20 attendus), et
-  --    la part de ses attendus qu'elle avait au même J-N. Le front applique
-  --    cette part aux attendus d'aujourd'hui pour dire où finira la soirée.
-  if v_result #>> '{event,phase}' = 'before' then
-    v_ref_d := (e.start_at at time zone v_tz)::date - (v_now at time zone v_tz)::date;
-    for v_ref in
-      select x.id, x.title, x.start_at, coalesce(x.timezone, v.timezone, 'Europe/Paris') as tz
-      from public.events x
-      left join public.venues v on v.id = coalesce(x.venue_id, x.partner_venue_id)
-      where x.id = any(v_scope_ids) and x.id <> p_event_id
-        and x.cancelled_at is null and x.end_at < v_now and x.start_at < e.start_at
-      order by x.start_at desc
-      limit 6
-    loop
-      select coalesce(sum(h.n), 0),
-             -- Jours ENTIERS avant ce J-N (strictement) : aujourd'hui n'est pas
-             -- fini ici, on ne le compare pas à une journée complète là-bas.
-             coalesce(sum(h.n) filter (where (v_ref.start_at at time zone v_ref.tz)::date - (h.at_ts at time zone v_ref.tz)::date > v_ref_d), 0)
-        into v_ref_final, v_ref_at
-      from (
-        select greatest(coalesce(t.quantity, 1), 1) as n, coalesce(t.paid_at, t.created_at) as at_ts
-        from public.tickets t where t.event_id = v_ref.id and t.status in ('paid', 'used')
-        union all
-        select greatest(coalesce(r.guest_count, 0), 1), coalesce(r.paid_at, r.created_at)
-        from public.table_reservations r where r.event_id = v_ref.id and r.status in ('paid', 'confirmed')
-        union all
-        select 1, g.created_at
-        from public.guest_list_entries g join public.guest_lists gl on gl.id = g.guest_list_id
-        where gl.event_id = v_ref.id and g.status <> 'cancelled'
-      ) h;
-      if v_ref_final >= 20 then
-        v_pace := jsonb_build_object('refId', v_ref.id, 'refTitle', v_ref.title, 'd', v_ref_d,
-                                     'final', v_ref_final, 'atSameD', v_ref_at);
-        exit;
-      end if;
-    end loop;
-  end if;
-  v_result := v_result || jsonb_build_object('pace', v_pace);
-
-  v_result := v_result || jsonb_build_object('takeaways',
-    coalesce((select jsonb_agg(x.value) from (select value from jsonb_array_elements(v_take) limit 3) x), '[]'::jsonb));
-
-  return v_result;
-end;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.get_event_traffic(p_event_id uuid)
@@ -11578,77 +10676,6 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_external_event_live(p_event_ids uuid[])
- RETURNS TABLE(event_id uuid, ticket_url text, deals jsonb, left_tickets integer, sold_out boolean, venue_label text)
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  WITH ev AS (
-    SELECT e.id, e.external_ticket_url, e.tickets_sold_out, e.location_name, e.location_city,
-           ee.url, ee.deals, ee.left_tickets, ee.city, ee.address_visibility,
-           -- Rue montrée seulement quand Shotgun la dit publique (une valeur
-           -- inconnue la cache : un lieu secret ne fuit jamais par l'email).
-           CASE WHEN COALESCE(lower(btrim(ee.address_visibility)), 'public') IN ('public', 'visible', 'always', 'everyone', 'all')
-                THEN NULLIF(btrim(ee.street), '') END AS street
-      FROM public.events e
-      LEFT JOIN public.external_events ee ON ee.event_id = e.id
-     WHERE e.id = ANY (p_event_ids)
-       AND e.external_source IS NOT NULL
-       AND (COALESCE(auth.role(), '') = 'service_role'
-            OR public.is_super_admin()
-            OR (auth.uid() IS NOT NULL AND public.can_manage_event_design(auth.uid(), e.id)))
-  ), d AS (
-    SELECT ev.id AS event_id, x.ord,
-           NULLIF(btrim(x.j->>'id'), '') AS did,
-           btrim(x.j->>'name') AS name,
-           CASE WHEN x.j->>'price' ~ '^[0-9]+(\.[0-9]+)?$' THEN (x.j->>'price')::numeric END AS price,
-           CASE WHEN x.j->>'quantity' ~ '^[0-9]+$' THEN (x.j->>'quantity')::integer END AS q
-      FROM ev,
-           jsonb_array_elements(CASE WHEN jsonb_typeof(ev.deals) = 'array' THEN ev.deals ELSE '[]'::jsonb END)
-             WITH ORDINALITY AS x(j, ord)
-     WHERE COALESCE(lower(x.j->>'visibility'), 'public') = 'public'
-       AND COALESCE(lower(x.j->>'sales_channel'), 'online') = 'online'
-       AND NULLIF(btrim(x.j->>'name'), '') IS NOT NULL
-  ), sold AS (
-    -- Billets vendus par tarif : même rapprochement que _crm_night_tiers
-    -- (id Shotgun, sinon nom), mêmes ventes (_crm_ticket_is_sale).
-    SELECT d.event_id, d.ord,
-           COALESCE((SELECT sum(GREATEST(t.quantity, 1))
-                       FROM public.external_tickets t
-                      WHERE t.event_id = d.event_id
-                        AND public._crm_ticket_is_sale(t.status, t.raw)
-                        AND ((d.did IS NOT NULL AND t.deal_id = d.did)
-                          OR (lower(btrim(t.deal_name)) = lower(d.name)
-                              AND (d.did IS NULL OR t.deal_id IS DISTINCT FROM d.did)))), 0) AS n
-      FROM d
-  )
-  SELECT ev.id,
-         COALESCE(ev.url, ev.external_ticket_url),
-         COALESCE((
-           SELECT jsonb_agg(jsonb_build_object(
-                    'id', d.did,
-                    'name', d.name,
-                    'price', d.price,
-                    'out', (d.q IS NOT NULL AND d.q > 0 AND s.n >= d.q))
-                  ORDER BY d.price NULLS LAST, d.ord)
-             FROM d JOIN sold s ON s.event_id = d.event_id AND s.ord = d.ord
-            WHERE d.event_id = ev.id
-         ), '[]'::jsonb),
-         ev.left_tickets,
-         COALESCE(ev.tickets_sold_out, false),
-         NULLIF(concat_ws(' — ',
-           NULLIF(btrim(ev.location_name), ''),
-           CASE
-             WHEN ev.street IS NULL THEN NULLIF(btrim(COALESCE(ev.city, ev.location_city)), '')
-             WHEN NULLIF(btrim(COALESCE(ev.city, ev.location_city)), '') IS NOT NULL
-              AND position(lower(btrim(COALESCE(ev.city, ev.location_city))) IN lower(ev.street)) = 0
-               THEN ev.street || ', ' || btrim(COALESCE(ev.city, ev.location_city))
-             ELSE ev.street
-           END), '')
-    FROM ev;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.get_guest_list_analytics(p_venue_id text DEFAULT NULL::text, p_event_id uuid DEFAULT NULL::uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone, p_tz text DEFAULT 'Europe/Paris'::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -12186,488 +11213,6 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_live_view(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-declare
-  v_now        timestamptz := now();
-  v_tz         text := 'Europe/Paris';
-  v_day_start  timestamptz;
-  v_event_ids  uuid[];
-  v_gl_ids     uuid[];
-  v_recent_ids uuid[];
-  v_home       jsonb := null;
-  v_release_id uuid;
-  v_release    jsonb := null;
-  v_visitors_now integer := 0;
-  v_sessions_today integer := 0;
-  v_points     jsonb := '[]'::jsonb;
-  v_behavior   jsonb;
-  v_pages      jsonb := '[]'::jsonb;
-  v_locations  jsonb := '[]'::jsonb;
-  v_sales      jsonb;
-  v_feed       jsonb := '[]'::jsonb;
-  v_lat        double precision;
-  v_lng        double precision;
-  v_home_name  text;
-begin
-  if auth.uid() is null then
-    return jsonb_build_object('ok', false, 'reason', 'not_authenticated');
-  end if;
-
-  if p_organizer_user_id is not null then
-    if not (
-      auth.uid() = p_organizer_user_id
-      or public.is_super_admin()
-      or public.is_org_team_member(auth.uid(), p_organizer_user_id, 'admin')
-      or public.org_member_has_permission(auth.uid(), p_organizer_user_id, 'view_finance')
-    ) then
-      return jsonb_build_object('ok', false, 'reason', 'forbidden');
-    end if;
-  elsif p_venue_id is null
-     or not (public.can_manage_venue(auth.uid(), p_venue_id) or public.is_super_admin()) then
-    return jsonb_build_object('ok', false, 'reason', 'forbidden');
-  end if;
-
-  -- ── Portée : les soirées du club / de l'organisateur ────────────────────
-  select coalesce(array_agg(e.id), '{}')
-    into v_event_ids
-  from public.events e
-  where (p_venue_id is not null and e.venue_id = p_venue_id)
-     or (p_organizer_user_id is not null
-         and (e.organizer_user_id = p_organizer_user_id or e.partner_organizer_id = p_organizer_user_id or e.id in (select public.cohost_event_ids_org(p_organizer_user_id))));
-
-  -- Soirées « vivantes » (pas finies depuis plus d'un jour) : ce sont celles
-  -- que le front écoute en Realtime — une liste courte, jamais tout l'historique.
-  select coalesce(array_agg(x.id order by x.start_at), '{}')
-    into v_recent_ids
-  from (
-    select e.id, e.start_at
-    from public.events e
-    where e.id = any(v_event_ids)
-      and e.end_at > v_now - interval '1 day'
-    order by e.start_at
-    limit 60
-  ) x;
-
-  select coalesce(array_agg(gl.id), '{}')
-    into v_gl_ids
-  from public.guest_lists gl
-  where gl.event_id = any(v_recent_ids);
-
-  -- ── Fuseau + point d'ancrage (le club) ────────────────────────────────
-  if p_venue_id is not null then
-    select coalesce(v.timezone, 'Europe/Paris'), v.latitude, v.longitude, v.name
-      into v_tz, v_lat, v_lng, v_home_name
-    from public.venues v where v.id = p_venue_id;
-  else
-    -- Organisateur : le club de sa prochaine soirée (ou de la dernière), s'il y en a un.
-    select coalesce(e.timezone, v.timezone, 'Europe/Paris'), v.latitude, v.longitude, v.name
-      into v_tz, v_lat, v_lng, v_home_name
-    from public.events e
-    left join public.venues v on v.id = e.venue_id
-    where e.id = any(v_event_ids)
-    order by (e.end_at > v_now) desc, abs(extract(epoch from (e.start_at - v_now)))
-    limit 1;
-    v_tz := coalesce(v_tz, 'Europe/Paris');
-  end if;
-  if v_lat is not null and v_lng is not null then
-    v_home := jsonb_build_object('lat', v_lat, 'lng', v_lng, 'name', v_home_name);
-  end if;
-  v_day_start := date_trunc('day', v_now at time zone v_tz) at time zone v_tz;
-
-  -- ── Visiteurs en ce moment (battement < 75 s) + leurs points ───────────
-  select count(distinct p.session_id)
-    into v_visitors_now
-  from public.live_visitor_pings p
-  where p.last_seen > v_now - interval '75 seconds'
-    and (
-         (p_venue_id is not null and p.venue_id = p_venue_id)
-      or (p_organizer_user_id is not null and p.organizer_user_id = p_organizer_user_id)
-      or p.event_id = any(v_event_ids)
-    );
-
-  select coalesce(jsonb_agg(jsonb_build_object(
-           'session', x.session_id,
-           'stage', x.stage,
-           'path', x.page_path,
-           'seen', x.last_seen,
-           'eventTitle', x.event_title,
-           'city', x.city,
-           'country', x.country,
-           'countryCode', x.country_code,
-           'lat', x.latitude,
-           'lng', x.longitude,
-           'device', x.device_type,
-           'source', x.referrer_category
-         ) order by x.last_seen desc), '[]'::jsonb)
-    into v_points
-  from (
-    select distinct on (p.session_id)
-           p.session_id, p.stage, p.page_path, p.last_seen, e.title as event_title,
-           vs.city, vs.country, vs.country_code, vs.latitude, vs.longitude, vs.device_type, vs.referrer_category
-    from public.live_visitor_pings p
-    left join public.events e on e.id = p.event_id
-    left join lateral (
-      select s.city, s.country, s.country_code, s.latitude, s.longitude, s.device_type, s.referrer_category
-      from public.visitor_sessions s
-      where s.session_id = p.session_id
-      order by s.visited_at desc
-      limit 1
-    ) vs on true
-    where p.last_seen > v_now - interval '75 seconds'
-      and (
-           (p_venue_id is not null and p.venue_id = p_venue_id)
-        or (p_organizer_user_id is not null and p.organizer_user_id = p_organizer_user_id)
-        or p.event_id = any(v_event_ids)
-      )
-    order by p.session_id, p.last_seen desc
-  ) x;
-
-  -- ── Comportement des 10 dernières minutes (une session = son dernier stade) ──
-  select jsonb_build_object(
-           'browsing', count(*) filter (where x.stage = 'browsing'),
-           'cart',     count(*) filter (where x.stage = 'cart'),
-           'checkout', count(*) filter (where x.stage = 'checkout'),
-           'paid',     count(*) filter (where x.stage = 'paid')
-         )
-    into v_behavior
-  from (
-    select distinct on (p.session_id) p.session_id, p.stage
-    from public.live_visitor_pings p
-    where p.last_seen > v_now - interval '10 minutes'
-      and (
-           (p_venue_id is not null and p.venue_id = p_venue_id)
-        or (p_organizer_user_id is not null and p.organizer_user_id = p_organizer_user_id)
-        or p.event_id = any(v_event_ids)
-      )
-    order by p.session_id, p.last_seen desc
-  ) x;
-
-  -- ── Pages regardées en ce moment ───────────────────────────────────────
-  select coalesce(jsonb_agg(jsonb_build_object(
-           'path', x.page_path, 'n', x.n, 'eventTitle', x.event_title
-         ) order by x.n desc, x.page_path), '[]'::jsonb)
-    into v_pages
-  from (
-    select p.page_path, count(distinct p.session_id) as n, max(e.title) as event_title
-    from public.live_visitor_pings p
-    left join public.events e on e.id = p.event_id
-    where p.last_seen > v_now - interval '75 seconds'
-      and p.page_path is not null
-      and (
-           (p_venue_id is not null and p.venue_id = p_venue_id)
-        or (p_organizer_user_id is not null and p.organizer_user_id = p_organizer_user_id)
-        or p.event_id = any(v_event_ids)
-      )
-    group by p.page_path
-    order by n desc
-    limit 6
-  ) x;
-
-  -- ── Sessions du jour + villes ─────────────────────────────────────────
-  select count(*)
-    into v_sessions_today
-  from public.visitor_sessions s
-  where s.visited_at >= v_day_start
-    and (
-         (p_venue_id is not null and s.venue_id = p_venue_id)
-      or (p_organizer_user_id is not null and s.organizer_user_id = p_organizer_user_id)
-      or s.event_id = any(v_event_ids)
-    );
-
-  select coalesce(jsonb_agg(jsonb_build_object(
-           'city', x.city, 'country', x.country, 'countryCode', x.country_code,
-           'n', x.n, 'lat', x.lat, 'lng', x.lng
-         ) order by x.n desc), '[]'::jsonb)
-    into v_locations
-  from (
-    select coalesce(s.city, s.region, s.country) as city,
-           s.country,
-           max(s.country_code) as country_code,
-           count(*) as n,
-           avg(s.latitude) as lat,
-           avg(s.longitude) as lng
-    from public.visitor_sessions s
-    where s.visited_at >= v_day_start
-      and coalesce(s.city, s.region, s.country) is not null
-      and (
-           (p_venue_id is not null and s.venue_id = p_venue_id)
-        or (p_organizer_user_id is not null and s.organizer_user_id = p_organizer_user_id)
-        or s.event_id = any(v_event_ids)
-      )
-    group by coalesce(s.city, s.region, s.country), s.country
-    order by n desc
-    limit 8
-  ) x;
-
-  -- ── Ventes du jour (CA club, formules de fees.ts) ───────────────────────
-  select jsonb_build_object(
-    'tickets', (
-      select jsonb_build_object(
-        'orders', count(*),
-        'qty', coalesce(sum(t.quantity), 0),
-        'amount', coalesce(sum(t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0)), 0)
-      )
-      from public.tickets t
-      where t.event_id = any(v_event_ids)
-        and t.status in ('paid', 'used')
-        and coalesce(t.paid_at, t.created_at) >= v_day_start
-    ),
-    'tables', (
-      select jsonb_build_object(
-        'orders', count(*),
-        'guests', coalesce(sum(coalesce(r.guest_count, 0)), 0),
-        'amount', coalesce(sum(r.total_price - coalesce(r.service_fee, 0) - (CASE WHEN coalesce(r.fee_absorbed, false) THEN coalesce(r.management_fee, 0) ELSE 0 END)), 0)
-      )
-      from public.table_reservations r
-      where r.event_id = any(v_event_ids)
-        and r.status in ('paid', 'confirmed')
-        and coalesce(r.paid_at, r.created_at) >= v_day_start
-    ),
-    'guestlist', (
-      select jsonb_build_object('orders', count(*))
-      from public.guest_list_entries gle
-      join public.guest_lists gl on gl.id = gle.guest_list_id
-      where gl.event_id = any(v_event_ids)
-        and gle.status <> 'cancelled'
-        and gle.created_at >= v_day_start
-    ),
-    'drinks', (
-      select jsonb_build_object(
-        'orders', count(*),
-        'amount', coalesce(sum(o.total - coalesce(o.service_fee, 0)), 0)
-      )
-      from public.orders o
-      where p_venue_id is not null
-        and o.venue_id = p_venue_id
-        and o.status in ('paid', 'served')
-        and coalesce(o.paid_at, o.created_at) >= v_day_start
-    )
-  ) into v_sales;
-
-  -- ── Flux d'activité : les 40 derniers faits des 24 dernières heures ────
-  select coalesce(jsonb_agg(to_jsonb(f) order by f.ts desc), '[]'::jsonb)
-    into v_feed
-  from (
-    select * from (
-      (
-        select 'visit'::text as kind,
-               'visit:' || s.id::text as id,
-               s.visited_at as ts,
-               s.city, s.country, s.country_code as "countryCode",
-               s.latitude as lat, s.longitude as lng,
-               s.referrer_category as source,
-               s.device_type as device,
-               s.entry_page_type as "pageType",
-               e.title as "eventTitle",
-               null::numeric as amount,
-               null::integer as qty,
-               coalesce(s.is_returning, false) as returning
-        from public.visitor_sessions s
-        left join public.events e on e.id = s.event_id
-        where s.visited_at > v_now - interval '24 hours'
-          and (
-               (p_venue_id is not null and s.venue_id = p_venue_id)
-            or (p_organizer_user_id is not null and s.organizer_user_id = p_organizer_user_id)
-            or s.event_id = any(v_event_ids)
-          )
-        order by s.visited_at desc
-        limit 40
-      )
-      union all
-      (
-        select 'ticket', 'ticket:' || t.id::text, coalesce(t.paid_at, t.created_at),
-               vs.city, vs.country, vs.country_code, vs.latitude, vs.longitude,
-               coalesce(t.purchase_source, vs.referrer_category), vs.device_type, 'ticket',
-               e.title,
-               t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0),
-               t.quantity, false
-        from public.tickets t
-        join public.events e on e.id = t.event_id
-        left join lateral (
-          select s.city, s.country, s.country_code, s.latitude, s.longitude, s.device_type, s.referrer_category
-          from public.visitor_sessions s
-          where s.order_id is not null and s.order_id::text = t.id::text
-          order by s.visited_at desc limit 1
-        ) vs on true
-        where t.event_id = any(v_event_ids)
-          and t.status in ('paid', 'used')
-          and coalesce(t.paid_at, t.created_at) > v_now - interval '24 hours'
-        order by coalesce(t.paid_at, t.created_at) desc
-        limit 40
-      )
-      union all
-      (
-        select 'table', 'table:' || r.id::text, coalesce(r.paid_at, r.created_at),
-               vs.city, vs.country, vs.country_code, vs.latitude, vs.longitude,
-               coalesce(r.purchase_source, vs.referrer_category), vs.device_type, 'table',
-               e.title,
-               r.total_price - coalesce(r.service_fee, 0) - (CASE WHEN coalesce(r.fee_absorbed, false) THEN coalesce(r.management_fee, 0) ELSE 0 END),
-               coalesce(r.guest_count, 0), false
-        from public.table_reservations r
-        join public.events e on e.id = r.event_id
-        left join lateral (
-          select s.city, s.country, s.country_code, s.latitude, s.longitude, s.device_type, s.referrer_category
-          from public.visitor_sessions s
-          where s.order_id is not null and s.order_id::text = r.id::text
-          order by s.visited_at desc limit 1
-        ) vs on true
-        where r.event_id = any(v_event_ids)
-          and r.status in ('paid', 'confirmed')
-          and coalesce(r.paid_at, r.created_at) > v_now - interval '24 hours'
-        order by coalesce(r.paid_at, r.created_at) desc
-        limit 40
-      )
-      union all
-      (
-        select 'guestlist', 'gl:' || gle.id::text, gle.created_at,
-               null::text, null::text, null::text, null::double precision, null::double precision,
-               case when gle.promoter_id is not null then 'promoter' else null end, null::text, 'guestlist',
-               e.title, null::numeric, 1, false
-        from public.guest_list_entries gle
-        join public.guest_lists gl on gl.id = gle.guest_list_id
-        join public.events e on e.id = gl.event_id
-        where gl.event_id = any(v_event_ids)
-          and gle.status <> 'cancelled'
-          and gle.created_at > v_now - interval '24 hours'
-        order by gle.created_at desc
-        limit 40
-      )
-      union all
-      (
-        select 'order', 'order:' || o.id::text, coalesce(o.paid_at, o.created_at),
-               null::text, null::text, null::text, null::double precision, null::double precision,
-               o.purchase_source, null::text, 'order',
-               e.title,
-               o.total - coalesce(o.service_fee, 0),
-               coalesce(jsonb_array_length(case when jsonb_typeof(o.items) = 'array' then o.items else '[]'::jsonb end), 0),
-               false
-        from public.orders o
-        left join public.events e on e.id = o.event_id
-        where p_venue_id is not null
-          and o.venue_id = p_venue_id
-          and o.status in ('paid', 'served')
-          and coalesce(o.paid_at, o.created_at) > v_now - interval '24 hours'
-        order by coalesce(o.paid_at, o.created_at) desc
-        limit 40
-      )
-    ) u
-    order by u.ts desc
-    limit 40
-  ) f;
-
-  -- ── Release en cours : la soirée qui vend le plus depuis une heure ──────
-  select t.event_id
-    into v_release_id
-  from public.tickets t
-  join public.events e on e.id = t.event_id
-  where t.event_id = any(v_event_ids)
-    and t.status in ('paid', 'used')
-    and coalesce(t.paid_at, t.created_at) > v_now - interval '60 minutes'
-  group by t.event_id, e.start_at
-  order by sum(t.quantity) desc, e.start_at
-  limit 1;
-
-  if v_release_id is null then
-    -- Rien ne vend à l'instant : on suit la prochaine soirée qui a une billetterie.
-    select e.id into v_release_id
-    from public.events e
-    where e.id = any(v_event_ids)
-      and e.ticketing_enabled
-      and e.status = 'active' and e.is_active and e.cancelled_at is null
-      and e.end_at > v_now
-    order by e.start_at
-    limit 1;
-  end if;
-
-  if v_release_id is not null then
-    select jsonb_build_object(
-      'eventId', e.id,
-      'title', e.title,
-      'startAt', e.start_at,
-      'endAt', e.end_at,
-      'publishedAt', e.published_at,
-      'poster', coalesce(e.poster_url, e.image_url),
-      'ticketsSoldOut', e.tickets_sold_out,
-      'maxTickets', e.max_tickets,
-      'sales10m', (select coalesce(sum(t.quantity), 0) from public.tickets t
-                   where t.event_id = e.id and t.status in ('paid', 'used')
-                     and coalesce(t.paid_at, t.created_at) > v_now - interval '10 minutes'),
-      'sales60m', (select coalesce(sum(t.quantity), 0) from public.tickets t
-                   where t.event_id = e.id and t.status in ('paid', 'used')
-                     and coalesce(t.paid_at, t.created_at) > v_now - interval '60 minutes'),
-      'salesToday', (select coalesce(sum(t.quantity), 0) from public.tickets t
-                     where t.event_id = e.id and t.status in ('paid', 'used')
-                       and coalesce(t.paid_at, t.created_at) >= v_day_start),
-      'salesTotal', (select coalesce(sum(t.quantity), 0) from public.tickets t
-                     where t.event_id = e.id and t.status in ('paid', 'used')),
-      'revenue60m', (select coalesce(sum(t.total_price - coalesce(t.service_fee, 0) - coalesce(t.insurance_fee, 0)), 0)
-                     from public.tickets t
-                     where t.event_id = e.id and t.status in ('paid', 'used')
-                       and coalesce(t.paid_at, t.created_at) > v_now - interval '60 minutes'),
-      'tables60m', (select count(*) from public.table_reservations r
-                    where r.event_id = e.id and r.status in ('paid', 'confirmed')
-                      and coalesce(r.paid_at, r.created_at) > v_now - interval '60 minutes'),
-      'guests60m', (select count(*) from public.guest_list_entries gle
-                    join public.guest_lists gl on gl.id = gle.guest_list_id
-                    where gl.event_id = e.id and gle.status <> 'cancelled'
-                      and gle.created_at > v_now - interval '60 minutes'),
-      'viewersNow', (select count(distinct p.session_id) from public.live_visitor_pings p
-                     where p.event_id = e.id and p.last_seen > v_now - interval '75 seconds'),
-      -- 60 cases : billets par minute, de la plus ancienne (il y a 59 min) à maintenant.
-      'series', (
-        select jsonb_agg(coalesce(c.n, 0) order by g.m desc)
-        from generate_series(59, 0, -1) as g(m)
-        left join (
-          select floor(extract(epoch from (v_now - coalesce(t.paid_at, t.created_at))) / 60)::int as m,
-                 sum(t.quantity) as n
-          from public.tickets t
-          where t.event_id = e.id and t.status in ('paid', 'used')
-            and coalesce(t.paid_at, t.created_at) > v_now - interval '60 minutes'
-          group by 1
-        ) c on c.m = g.m
-      ),
-      'rounds', (
-        select coalesce(jsonb_agg(jsonb_build_object(
-                 'id', tr.id, 'name', tr.name, 'price', tr.price,
-                 'sold', tr.tickets_sold, 'max', tr.max_tickets,
-                 'active', tr.is_active, 'soldOut', tr.manually_sold_out or (tr.max_tickets > 0 and tr.tickets_sold >= tr.max_tickets)
-               ) order by tr.position, tr.created_at), '[]'::jsonb)
-        from public.ticket_rounds tr where tr.event_id = e.id
-      )
-    )
-    into v_release
-    from public.events e
-    where e.id = v_release_id;
-  end if;
-
-  return jsonb_build_object(
-    'ok', true,
-    'now', v_now,
-    'tz', v_tz,
-    'dayStart', v_day_start,
-    'home', v_home,
-    'visitorsNow', v_visitors_now,
-    'sessionsToday', v_sessions_today,
-    'points', v_points,
-    'behavior', v_behavior,
-    'pages', v_pages,
-    'locations', v_locations,
-    'sales', v_sales,
-    'feed', v_feed,
-    'release', v_release,
-    'watch', jsonb_build_object(
-      'eventIds', to_jsonb(v_recent_ids),
-      'guestListIds', to_jsonb(v_gl_ids)
-    )
-  );
-end;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.get_organizer_customer_segments(p_organizer_user_id uuid)
  RETURNS TABLE(id text, user_id uuid, email text, first_name text, last_name text, phone text, first_visit_at timestamp with time zone, last_visit_at timestamp with time zone, total_spent numeric, ticket_count integer, order_count integer, table_count integer, is_banned boolean, banned_at timestamp with time zone, ban_reason text, notes text, revenue_30d numeric, revenue_90d numeric, revenue_prev_90d numeric, avg_basket numeric, visit_nights integer, visits_per_month numeric, last_activity_at timestamp with time zone, preferred_dow integer, preferred_event_title text, recency_days integer, rfm_r integer, rfm_f integer, rfm_m integer, rfm_segment text, rfm_tier text, churn_risk boolean, guest_list_count integer)
  LANGUAGE plpgsql
@@ -12883,138 +11428,6 @@ BEGIN
   FROM blended s
   ORDER BY s.c_last_visit_at DESC NULLS LAST;
 END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.get_page_traffic(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_days integer DEFAULT 90)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-declare
-  v_uid       uuid := auth.uid();
-  v_now       timestamptz := now();
-  v_venue     text;
-  v_org       uuid;
-  v_tz        text := 'Europe/Paris';
-  v_days      integer := least(greatest(coalesce(p_days, 90), 7), 365);
-  v_from      timestamptz;
-  v_day_start timestamptz;
-  v_result    jsonb;
-begin
-  if v_uid is null then
-    return jsonb_build_object('ok', false, 'reason', 'not_authenticated');
-  end if;
-
-  if p_organizer_user_id is not null then
-    if not (
-      v_uid = p_organizer_user_id
-      or public.is_super_admin()
-      or public.is_org_team_member(v_uid, p_organizer_user_id, 'editor')
-    ) then
-      return jsonb_build_object('ok', false, 'reason', 'forbidden');
-    end if;
-    v_org := p_organizer_user_id;
-  elsif p_venue_id is null
-     or not (public.can_manage_venue(v_uid, p_venue_id) or public.is_super_admin()) then
-    return jsonb_build_object('ok', false, 'reason', 'forbidden');
-  else
-    v_venue := p_venue_id;
-    select coalesce(v.timezone, 'Europe/Paris') into v_tz from public.venues v where v.id = p_venue_id;
-    v_tz := coalesce(v_tz, 'Europe/Paris');
-  end if;
-
-  v_day_start := date_trunc('day', v_now at time zone v_tz) at time zone v_tz;
-  v_from := v_day_start - make_interval(days => v_days - 1);
-
-  with
-  page as materialized (
-    select s.session_id, coalesce(s.visitor_id::text, s.session_id) as visitor,
-           s.visited_at, coalesce(nullif(s.referrer_category, ''), 'direct') as source,
-           coalesce(s.is_returning, false) as is_ret,
-           coalesce(s.completed_order, false) as ordered
-    from public.visitor_sessions s
-    where s.visited_at >= v_from
-      and ((v_venue is not null and s.venue_id = v_venue and s.entry_page_type = 'venue_page')
-        or (v_org is not null and s.organizer_user_id = v_org and s.entry_page_type = 'organizer_profile'))
-  ),
-  days as (
-    select generate_series(
-      (v_from at time zone v_tz)::date,
-      (v_now at time zone v_tz)::date,
-      interval '1 day'
-    )::date as d
-  ),
-  ev as materialized (
-    select e.id, e.title, e.start_at
-    from public.events e
-    where e.cancelled_at is null
-      and ((v_venue is not null and (e.venue_id = v_venue or e.partner_venue_id = v_venue or e.id in (select public.cohost_event_ids_venue(v_venue))))
-        or (v_org is not null and (e.organizer_user_id = v_org or e.partner_organizer_id = v_org or e.id in (select public.cohost_event_ids_org(v_org)))))
-  ),
-  evs as materialized (
-    select s.event_id, s.visited_at, coalesce(s.completed_order, false) as ordered
-    from public.visitor_sessions s
-    join ev on ev.id = s.event_id
-    where s.visited_at >= v_from
-  )
-  select jsonb_build_object(
-    'ok', true,
-    'now', v_now,
-    'tz', v_tz,
-    'days', v_days,
-    'from', v_from,
-    'page', jsonb_build_object(
-      'kind', case when v_venue is not null then 'venue' else 'organizer' end,
-      'total', (select count(*) from page),
-      'today', (select count(*) from page where visited_at >= v_day_start),
-      'visitors', (select count(distinct visitor) from page),
-      'returning', (select count(*) from page where is_ret),
-      'ordered', (select count(*) from page where ordered),
-      -- Une seule passe sur les visites, regroupées par jour, puis collées
-      -- aux jours de la période (un count par jour relisait toute la page
-      -- 90 fois : 2,3 s sur 35 000 sessions).
-      'series', (
-        select jsonb_agg(jsonb_build_object(
-                 'date', to_char(d.d, 'YYYY-MM-DD'),
-                 'visits', coalesce(c.n, 0)
-               ) order by d.d)
-        from days d
-        left join (
-          select (p.visited_at at time zone v_tz)::date as d, count(*) as n
-          from page p group by 1
-        ) c on c.d = d.d
-      ),
-      'sources', coalesce((
-        select jsonb_agg(jsonb_build_object('source', x.source, 'visits', x.n, 'ordered', x.o) order by x.n desc)
-        from (select source, count(*) as n, count(*) filter (where ordered) as o from page group by source) x
-      ), '[]'::jsonb)
-    ),
-    'events', jsonb_build_object(
-      'total', (select count(*) from evs),
-      'today', (select count(*) from evs where visited_at >= v_day_start),
-      'rows', coalesce((
-        select jsonb_agg(jsonb_build_object(
-                 'id', x.id, 'title', x.title, 'startAt', x.start_at,
-                 'visits', x.visits, 'today', x.today, 'ordered', x.ordered
-               ) order by x.visits desc, x.start_at desc)
-        from (
-          select ev.id, ev.title, ev.start_at,
-                 count(*) as visits,
-                 count(*) filter (where evs.visited_at >= v_day_start) as today,
-                 count(*) filter (where evs.ordered) as ordered
-          from evs join ev on ev.id = evs.event_id
-          group by ev.id, ev.title, ev.start_at
-          order by count(*) desc, ev.start_at desc
-          limit 30
-        ) x
-      ), '[]'::jsonb)
-    )
-  )
-  into v_result;
-
-  return v_result;
-end;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.get_purchase_behavior(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_from timestamp with time zone DEFAULT NULL::timestamp with time zone, p_to timestamp with time zone DEFAULT NULL::timestamp with time zone)
@@ -13819,249 +12232,6 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_push_center(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_days integer DEFAULT 30)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-#variable_conflict use_column
-DECLARE
-  v_uid       uuid := auth.uid();
-  v_money     boolean := false;
-  v_party     text;
-  v_event_ids uuid[];
-  v_days      integer := LEAST(GREATEST(COALESCE(p_days, 30), 7), 120);
-  v_from      timestamptz;
-  v_result    jsonb;
-BEGIN
-  IF v_uid IS NULL THEN RETURN jsonb_build_object('ok', false, 'reason', 'not_authenticated'); END IF;
-  v_from := now() - make_interval(days => v_days);
-
-  IF p_organizer_user_id IS NOT NULL THEN
-    IF NOT (v_uid = p_organizer_user_id OR public.is_super_admin()
-            OR public.is_org_team_member(v_uid, p_organizer_user_id, 'admin')) THEN
-      RETURN jsonb_build_object('ok', false, 'reason', 'forbidden');
-    END IF;
-    v_money := v_uid = p_organizer_user_id OR public.is_super_admin()
-      OR public.org_member_has_permission(v_uid, p_organizer_user_id, 'view_finance');
-    v_party := 'org:' || p_organizer_user_id::text;
-    SELECT COALESCE(array_agg(e.id), '{}') INTO v_event_ids
-      FROM public.events e
-     WHERE e.organizer_user_id = p_organizer_user_id OR e.partner_organizer_id = p_organizer_user_id
-        OR e.id IN (SELECT public.cohost_event_ids_org(p_organizer_user_id));
-  ELSIF p_venue_id IS NOT NULL THEN
-    IF NOT (public.is_super_admin() OR public.is_venue_owner(v_uid, p_venue_id)
-            OR EXISTS (SELECT 1 FROM public.manager_permissions mp
-                        WHERE mp.user_id = v_uid AND mp.venue_id = p_venue_id
-                          AND (COALESCE(mp.can_manage_crm, false) OR COALESCE(mp.can_view_analytics, false)))) THEN
-      RETURN jsonb_build_object('ok', false, 'reason', 'forbidden');
-    END IF;
-    v_money := public.is_super_admin()
-      OR EXISTS (SELECT 1 FROM public.venues v WHERE v.id = p_venue_id AND v.owner_id = v_uid)
-      OR EXISTS (SELECT 1 FROM public.manager_permissions mp
-                  WHERE mp.user_id = v_uid AND mp.venue_id = p_venue_id
-                    AND (COALESCE(mp.can_view_analytics, false) OR COALESCE(mp.can_view_finance, false)));
-    v_party := 'venue:' || p_venue_id;
-    SELECT COALESCE(array_agg(e.id), '{}') INTO v_event_ids
-      FROM public.events e
-     WHERE e.venue_id = p_venue_id OR e.partner_venue_id = p_venue_id
-        OR e.id IN (SELECT public.cohost_event_ids_venue(p_venue_id));
-  ELSE
-    RETURN jsonb_build_object('ok', false, 'reason', 'forbidden');
-  END IF;
-
-  WITH
-  ev AS MATERIALIZED (
-    SELECT e.id, e.title, e.start_at, COALESCE(e.poster_url, e.image_url) AS image, e.published_at,
-           COALESCE(e.visibility::text, 'public') AS visibility
-      FROM public.events e
-     WHERE e.id = ANY (v_event_ids) AND e.cancelled_at IS NULL
-       AND e.start_at >= v_from AND e.start_at < now() + interval '180 days'
-  ),
-  camp AS MATERIALIZED (
-    SELECT pc.id, pc.event_id, pc.created_at, COALESCE(pc.sent_count, 0) AS sent_count,
-           CASE pc.template_key
-             WHEN 'almost_sold_out' THEN 'last_tickets' WHEN 'thank_you' THEN 'after_thanks'
-             WHEN 'reminder_day_of' THEN 'event_day_reminder' WHEN 'drinks_preorder' THEN 'event_day_reminder'
-             WHEN 'event_live' THEN 'doors_open' ELSE pc.template_key END AS rule
-      FROM public.push_campaigns pc
-     WHERE pc.source = 'auto' AND pc.event_id IN (SELECT ev.id FROM ev)
-  ),
-  recv AS MATERIALIZED (
-    SELECT pce.campaign_id, pce.user_id, min(pce.created_at) AS at
-      FROM public.push_campaign_events pce
-     WHERE pce.event_type = 'sent' AND pce.campaign_id IN (SELECT camp.id FROM camp)
-     GROUP BY 1, 2
-  ),
-  taps AS MATERIALIZED (
-    SELECT pce.campaign_id, pce.user_id, min(pce.created_at) AS at
-      FROM public.push_campaign_events pce
-     WHERE pce.event_type = 'clicked' AND pce.campaign_id IN (SELECT camp.id FROM camp)
-     GROUP BY 1, 2
-  ),
-  sales AS MATERIALIZED (
-    SELECT 'tickets'::text AS pillar, t.id, t.user_id, t.event_id, COALESCE(t.paid_at, t.created_at) AS at,
-           GREATEST(t.total_price - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0), 0)
-             - LEAST(GREATEST(COALESCE(t.refund_amount, 0), 0),
-                     GREATEST(t.total_price - COALESCE(t.service_fee, 0) - COALESCE(t.insurance_fee, 0), 0)) AS amount
-      FROM public.tickets t
-     WHERE t.event_id IN (SELECT ev.id FROM ev) AND t.status IN ('paid', 'used') AND t.user_id IS NOT NULL
-    UNION ALL
-    SELECT 'tables', r.id, r.user_id, r.event_id, COALESCE(r.paid_at, r.created_at),
-           GREATEST(r.total_price - COALESCE(r.service_fee, 0)
-                    - (CASE WHEN COALESCE(r.fee_absorbed, false) THEN COALESCE(r.management_fee, 0) ELSE 0 END), 0)
-             - LEAST(GREATEST(COALESCE(r.refund_amount, 0), 0),
-                     GREATEST(r.total_price - COALESCE(r.service_fee, 0)
-                              - (CASE WHEN COALESCE(r.fee_absorbed, false) THEN COALESCE(r.management_fee, 0) ELSE 0 END), 0))
-      FROM public.table_reservations r
-     WHERE r.event_id IN (SELECT ev.id FROM ev) AND r.status IN ('paid', 'confirmed') AND r.user_id IS NOT NULL
-    UNION ALL
-    SELECT 'guestlist', g.id, g.user_id, gl.event_id, g.created_at, 0
-      FROM public.guest_list_entries g
-      JOIN public.guest_lists gl ON gl.id = g.guest_list_id
-     WHERE gl.event_id IN (SELECT ev.id FROM ev) AND g.status <> 'cancelled' AND g.user_id IS NOT NULL
-  ),
-  touch AS MATERIALIZED (
-    SELECT DISTINCT ON (s.pillar, s.id) s.pillar, s.id AS sale_id, s.user_id, s.event_id, s.amount,
-           c.rule, tp.campaign_id
-      FROM sales s
-      JOIN taps tp ON tp.user_id = s.user_id
-      JOIN camp c ON c.id = tp.campaign_id AND c.event_id = s.event_id
-     WHERE s.at >= tp.at AND s.at < tp.at + interval '72 hours'
-     ORDER BY s.pillar, s.id, tp.at DESC
-  ),
-  infl AS MATERIALIZED (
-    SELECT DISTINCT rv.campaign_id, rv.user_id
-      FROM recv rv
-      JOIN camp c ON c.id = rv.campaign_id
-      JOIN sales s ON s.user_id = rv.user_id AND s.event_id = c.event_id AND s.pillar <> 'guestlist'
-     WHERE s.at >= rv.at AND s.at < rv.at + interval '72 hours'
-  ),
-  cand AS MATERIALIZED (
-    SELECT c.rule_key, c.event_id, c.status, COALESCE(c.hold_reason, '') AS hold, c.reason_party,
-           c.user_id, c.campaign_id, c.not_before
-      FROM public.push_candidates c
-     WHERE c.event_id IN (SELECT ev.id FROM ev)
-  ),
-  per_camp AS MATERIALIZED (
-    SELECT c.id, c.event_id, c.rule, c.created_at, c.sent_count,
-           (SELECT count(*) FROM taps t WHERE t.campaign_id = c.id) AS taps,
-           (SELECT count(DISTINCT t.user_id) FROM touch t WHERE t.campaign_id = c.id AND t.pillar <> 'guestlist') AS buyers,
-           (SELECT count(*) FROM touch t WHERE t.campaign_id = c.id AND t.pillar = 'guestlist') AS entries,
-           (SELECT COALESCE(sum(t.amount), 0) FROM touch t WHERE t.campaign_id = c.id) AS revenue,
-           (SELECT count(*) FROM infl i WHERE i.campaign_id = c.id) AS influenced
-      FROM camp c
-  ),
-  steps AS MATERIALIZED (
-    SELECT k.event_id, k.rule,
-           COALESCE(sum(pc.sent_count), 0) AS sent,
-           COALESCE(sum(pc.taps), 0) AS taps,
-           COALESCE(sum(pc.buyers), 0) AS buyers,
-           COALESCE(sum(pc.entries), 0) AS entries,
-           COALESCE(sum(pc.revenue), 0) AS revenue,
-           COALESCE(sum(pc.influenced), 0) AS influenced,
-           max(pc.created_at) AS last_at,
-           (SELECT count(*) FROM cand x WHERE x.event_id = k.event_id AND x.rule_key = k.rule
-               AND x.status IN ('pending', 'claimed')) AS queued,
-           (SELECT min(x.not_before) FROM cand x WHERE x.event_id = k.event_id AND x.rule_key = k.rule
-               AND x.status = 'pending') AS next_at,
-           (SELECT count(*) FROM cand x WHERE x.event_id = k.event_id AND x.rule_key = k.rule
-               AND x.status IN ('skipped', 'expired')
-               AND x.hold IN ('daily_cap', 'weekly_cap', 'fatigue', 'quiet_hours', 'event_budget',
-                                  'lower_priority', 'awaiting_announcement', 'window_passed')) AS held,
-           (SELECT count(*) FROM cand x WHERE x.event_id = k.event_id AND x.rule_key = k.rule
-               AND x.hold = 'already_bought') AS bought_before
-      FROM (SELECT DISTINCT camp.event_id, camp.rule FROM camp
-            UNION SELECT DISTINCT cand.event_id, cand.rule_key FROM cand) k
-      LEFT JOIN per_camp pc ON pc.event_id = k.event_id AND pc.rule = k.rule
-     GROUP BY k.event_id, k.rule
-  ),
-  mine AS MATERIALIZED (
-    SELECT x.user_id, x.campaign_id FROM cand x WHERE x.status = 'sent' AND x.reason_party = v_party
-  ),
-  disc AS (
-    SELECT count(*) AS selections, count(DISTINCT ds.user_id) AS people,
-           count(*) FILTER (WHERE ds.opened_at IS NOT NULL) AS opened
-      FROM public.discovery_selections ds
-     WHERE ds.created_at >= v_from AND ds.event_ids && v_event_ids
-  ),
-  evj AS (
-    SELECT e.*, ps.announce_at,
-           (SELECT count(*) FROM public.event_parties(e.id)) AS parties,
-           EXISTS (SELECT 1 FROM steps st WHERE st.event_id = e.id AND st.rule = 'new_event' AND st.sent > 0) AS announced,
-           (e.start_at > now() + interval '3 hours'
-            AND e.visibility = 'public'
-            AND NOT EXISTS (SELECT 1 FROM steps st WHERE st.event_id = e.id AND st.rule = 'new_event' AND st.sent > 0)
-            AND (public.is_super_admin() OR EXISTS (
-                  SELECT 1 FROM public.event_parties(e.id) p
-                   WHERE p.role IN ('lead', 'partner') AND public.coorg_party_level(v_uid, p.party_key) >= 2))) AS can_schedule
-      FROM ev e
-      LEFT JOIN public.push_event_settings ps ON ps.event_id = e.id
-  )
-  SELECT jsonb_build_object(
-    'ok', true,
-    'money', v_money,
-    'days', v_days,
-    'party', v_party,
-    'summary', jsonb_build_object(
-      'sent',       (SELECT COALESCE(sum(pc.sent_count), 0) FROM per_camp pc),
-      'people',     (SELECT count(DISTINCT rv.user_id) FROM recv rv),
-      'taps',       (SELECT count(*) FROM taps),
-      'buyers',     (SELECT count(DISTINCT t.user_id) FROM touch t WHERE t.pillar <> 'guestlist'),
-      'entries',    (SELECT count(*) FROM touch t WHERE t.pillar = 'guestlist'),
-      'influenced', (SELECT count(DISTINCT i.user_id) FROM infl i),
-      'revenue',    CASE WHEN v_money THEN round((SELECT COALESCE(sum(t.amount), 0) FROM touch t)::numeric, 2) END,
-      'held',       (SELECT COALESCE(sum(st.held), 0) FROM steps st),
-      'boughtBefore', (SELECT COALESCE(sum(st.bought_before), 0) FROM steps st),
-      'queued',     (SELECT COALESCE(sum(st.queued), 0) FROM steps st)
-    ),
-    'viaMe', jsonb_build_object(
-      'multiParty', EXISTS (SELECT 1 FROM evj WHERE evj.parties > 1),
-      'sent',  (SELECT count(*) FROM mine),
-      'taps',  (SELECT count(*) FROM mine m JOIN taps t ON t.campaign_id = m.campaign_id AND t.user_id = m.user_id),
-      'buyers', (SELECT count(DISTINCT m.user_id) FROM mine m
-                   JOIN touch t ON t.campaign_id = m.campaign_id AND t.user_id = m.user_id AND t.pillar <> 'guestlist')
-    ),
-    'rules', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object(
-               'key', s.notification_key, 'enabled', s.enabled, 'params', s.params,
-               'sent',    (SELECT COALESCE(sum(st.sent), 0) FROM steps st WHERE st.rule = s.notification_key),
-               'taps',    (SELECT COALESCE(sum(st.taps), 0) FROM steps st WHERE st.rule = s.notification_key),
-               'buyers',  (SELECT COALESCE(sum(st.buyers), 0) FROM steps st WHERE st.rule = s.notification_key),
-               'revenue', CASE WHEN v_money THEN round((SELECT COALESCE(sum(st.revenue), 0) FROM steps st WHERE st.rule = s.notification_key)::numeric, 2) END,
-               'held',    (SELECT COALESCE(sum(st.held), 0) FROM steps st WHERE st.rule = s.notification_key),
-               'queued',  (SELECT COALESCE(sum(st.queued), 0) FROM steps st WHERE st.rule = s.notification_key)
-             ) ORDER BY s.notification_key)
-        FROM public.platform_notification_settings s WHERE s.category = 'event_engine'
-    ), '[]'::jsonb),
-    'discovery', (SELECT jsonb_build_object('selections', d.selections, 'people', d.people, 'opened', d.opened) FROM disc d),
-    'events', COALESCE((
-      SELECT jsonb_agg(jsonb_build_object(
-               'id', e.id, 'title', e.title, 'startAt', e.start_at, 'image', e.image,
-               'publishedAt', e.published_at, 'visibility', e.visibility,
-               'upcoming', e.start_at > now(),
-               'announceAt', e.announce_at, 'announced', e.announced,
-               'canSchedule', e.can_schedule, 'parties', e.parties,
-               'steps', COALESCE((
-                 SELECT jsonb_agg(jsonb_build_object(
-                          'rule', st.rule, 'sent', st.sent, 'taps', st.taps, 'buyers', st.buyers,
-                          'entries', st.entries, 'influenced', st.influenced,
-                          'revenue', CASE WHEN v_money THEN round(st.revenue::numeric, 2) END,
-                          'queued', st.queued, 'nextAt', st.next_at, 'held', st.held,
-                          'boughtBefore', st.bought_before, 'lastAt', st.last_at))
-                   FROM steps st WHERE st.event_id = e.id), '[]'::jsonb)
-             ) ORDER BY (e.start_at < now()), CASE WHEN e.start_at >= now() THEN e.start_at END ASC, e.start_at DESC)
-        FROM (SELECT * FROM evj
-               ORDER BY (evj.start_at < now()), CASE WHEN evj.start_at >= now() THEN evj.start_at END ASC, evj.start_at DESC
-               LIMIT 30) e
-    ), '[]'::jsonb)
-  ) INTO v_result;
-
-  RETURN v_result;
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION public.get_sales_overview(p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_period text DEFAULT 'last4'::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -14843,71 +13013,13 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.get_sms_sender_readiness(p_venue_id text, p_organizer_user_id uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION public.get_user_venue_id(_user_id uuid)
+ RETURNS text
+ LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE
-  v_legal   text;
-  v_siret   text;
-  v_rna     text;
-  v_vat     text;
-  v_has_id  boolean;
-  v_missing text[] := ARRAY[]::text[];
-  v_last    text;
-BEGIN
-  -- Lecture : qui gère le SMS de la portée, ou un membre de la Console CRM.
-  IF NOT (public.sms_scope_allowed(p_venue_id, p_organizer_user_id)
-          OR (COALESCE(p_venue_id, p_organizer_user_id::text) IS NOT NULL
-              AND public.crm_scope_allowed(p_venue_id, p_organizer_user_id))) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-
-  IF p_venue_id IS NULL AND p_organizer_user_id IS NULL THEN
-    RETURN jsonb_build_object('identity_ok', true, 'missing', '[]'::jsonb, 'last_sender_id', 'YUNO');
-  END IF;
-
-  IF p_venue_id IS NOT NULL THEN
-    SELECT v.legal_name, v.siret, NULL::text, v.vat_number
-      INTO v_legal, v_siret, v_rna, v_vat
-      FROM public.venues v WHERE v.id = p_venue_id;
-  ELSE
-    SELECT o.legal_name, o.siret, o.rna_number, o.vat_number
-      INTO v_legal, v_siret, v_rna, v_vat
-      FROM public.organizer_profiles o WHERE o.user_id = p_organizer_user_id;
-  END IF;
-
-  v_has_id := length(regexp_replace(COALESCE(v_siret, ''), '[^0-9]', '', 'g')) = 14
-           OR upper(regexp_replace(COALESCE(v_rna, ''), '\s', '', 'g')) ~ '^W[0-9]{9}$'
-           OR length(btrim(COALESCE(v_vat, ''))) >= 6;
-
-  IF length(btrim(COALESCE(v_legal, ''))) < 2 THEN v_missing := array_append(v_missing, 'legal_name'); END IF;
-  IF NOT v_has_id THEN v_missing := array_append(v_missing, 'registration'); END IF;
-
-  -- Nom d'expéditeur à proposer : celui des Réglages SMS de la Console, sinon
-  -- le dernier utilisé par la portée (colonne , ou 
-  -- quand il suit déjà les règles, comme dans la Console CRM).
-  SELECT s.sender_name INTO v_last FROM public.crm_sms_settings s
-   WHERE s.scope_key = public.crm_scope_key(p_venue_id, p_organizer_user_id)
-     AND s.sender_name ~ '^[A-Za-z0-9]{3,11}$';
-  IF v_last IS NULL THEN
-    SELECT COALESCE(c.sender_id, c.sender_name) INTO v_last
-      FROM public.sms_campaigns c
-     WHERE (c.sender_id IS NOT NULL OR c.sender_name ~ '^[A-Za-z0-9]{3,11}$')
-       AND ((p_venue_id IS NOT NULL AND c.venue_id = p_venue_id)
-         OR (p_venue_id IS NULL AND c.organizer_id = p_organizer_user_id))
-     ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC
-     LIMIT 1;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'identity_ok', cardinality(v_missing) = 0,
-    'missing', to_jsonb(v_missing),
-    'last_sender_id', v_last
-  );
-END;
+  SELECT venue_id FROM public.profiles WHERE id = _user_id
 $function$;
 
 CREATE OR REPLACE FUNCTION public.get_venue_customer_segments(p_venue_id text)
@@ -15141,6 +13253,59 @@ AS $function$
   );
 $function$;
 
+CREATE OR REPLACE FUNCTION public.is_event_partner_organizer(_user_id uuid, _event_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.events e
+    WHERE e.id = _event_id
+      AND (
+        e.organizer_user_id = _user_id
+        OR e.partner_organizer_id = _user_id
+        OR public.is_org_team_member(_user_id, COALESCE(e.organizer_user_id, e.partner_organizer_id), 'editor')
+      )
+  )
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_night_staff_of_venue(p_venue_id text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE((
+    is_super_admin()
+    OR is_venue_owner(auth.uid(), p_venue_id)
+    OR manager_has_permission(auth.uid(), p_venue_id, 'staff')
+    OR (
+      get_user_venue_id(auth.uid()) = p_venue_id
+      AND (
+        has_role(auth.uid(), 'bouncer')
+        OR has_role(auth.uid(), 'barman')
+        OR has_role(auth.uid(), 'cloakroom')
+        OR has_role(auth.uid(), 'vip_host')
+      )
+    )
+  ), false);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_org_member(_user_id uuid, _organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT _organizer_user_id IS NOT NULL AND _user_id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.org_members
+    WHERE organizer_user_id = _organizer_user_id
+      AND member_user_id = _user_id
+      AND invitation_status = 'accepted'
+  );
+$function$;
+
 CREATE OR REPLACE FUNCTION public.is_org_team_member(_user_id uuid, _organizer_user_id uuid, _min_role text DEFAULT 'scanner'::text)
  RETURNS boolean
  LANGUAGE sql
@@ -15159,6 +13324,19 @@ AS $function$
         ELSE TRUE
       END
   )
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_organizer_promoter_admin(_user_id uuid, _organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE((
+    _user_id = _organizer_user_id
+      OR public.is_org_team_member(_user_id, _organizer_user_id, 'admin')
+      OR public.is_super_admin()
+  ), false);
 $function$;
 
 CREATE OR REPLACE FUNCTION public.is_super_admin()
@@ -15187,6 +13365,18 @@ AS $function$
   );
 $function$;
 
+CREATE OR REPLACE FUNCTION public.is_tiered_collab(p_rules jsonb)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT p_rules IS NOT NULL
+     AND jsonb_typeof(p_rules->'remuneration') = 'object'
+     AND p_rules->'remuneration'->>'mode' = 'tiered_total'
+     AND jsonb_typeof(p_rules->'remuneration'->'tiers') = 'array'
+     AND jsonb_array_length(p_rules->'remuneration'->'tiers') > 0;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.is_venue_owner(_user_id uuid, _venue_id text)
  RETURNS boolean
  LANGUAGE sql
@@ -15198,6 +13388,93 @@ AS $function$
     WHERE id = _venue_id 
     AND owner_id = _user_id
   )
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_venue_staff(_user_id uuid, _venue_id text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+      FROM public.profiles p
+      JOIN public.user_roles ur ON ur.user_id = p.id
+     WHERE p.id = _user_id
+       AND p.venue_id = _venue_id
+       AND ur.role IN ('vip_host', 'barman', 'bouncer', 'manager', 'cloakroom', 'dj')
+  )
+$function$;
+
+CREATE OR REPLACE FUNCTION public.lens_community_takeaways(p_result jsonb, p_days numeric)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ IMMUTABLE
+AS $function$
+DECLARE
+  v_result    jsonb := p_result;
+  v_take      jsonb := '[]'::jsonb;
+  v_people    integer;
+  v_fresh     integer;
+  v_any       integer;
+  v_noemail   integer;
+  v_gained    integer;
+  v_days      numeric := p_days;
+  v_expected  numeric;
+  v_top       record;
+  v_known     integer;
+BEGIN
+  -- ── « À retenir » : 0 à 3 constats, chacun avec son seuil de volume ────────
+  -- (calculés ici, jamais au front : un constat nouveau se pose en SQL.)
+  v_people  := (v_result #>> '{people,total}')::int;
+  v_fresh   := (v_result #>> '{crm,new}')::int;
+  v_any     := (v_result #>> '{crm,anyReach}')::int;
+  v_noemail := (v_result #>> '{people,noEmail}')::int;
+
+  IF v_people >= 10 AND v_fresh::numeric / v_people >= 0.4 THEN
+    v_take := v_take || jsonb_build_array(jsonb_build_object(
+      'key', 'new_contacts', 'tone', 'good', 'section', 'crm',
+      'params', jsonb_build_object('n', v_fresh, 'pct', round(v_fresh::numeric / v_people * 100),
+                                   'email', (v_result #>> '{crm,newEmailOk}')::int)));
+  END IF;
+  IF v_people >= 20 AND v_any::numeric / v_people < 0.4 THEN
+    v_take := v_take || jsonb_build_array(jsonb_build_object(
+      'key', 'low_reach', 'tone', 'bad', 'section', 'crm',
+      'params', jsonb_build_object('pct', round(v_any::numeric / v_people * 100))));
+  END IF;
+  IF v_noemail >= 10 THEN
+    v_take := v_take || jsonb_build_array(jsonb_build_object(
+      'key', 'no_email', 'tone', 'bad', 'section', 'crm', 'params', jsonb_build_object('n', v_noemail)));
+  END IF;
+  IF v_result -> 'followers' IS NOT NULL AND v_result ->> 'followers' <> 'null' THEN
+    v_gained := (v_result #>> '{followers,gained}')::int;
+    v_expected := (v_result #>> '{followers,baselinePerDay}')::numeric * v_days;
+    IF v_gained >= 5 AND v_expected >= 1 AND v_gained >= 2 * v_expected THEN
+      v_take := v_take || jsonb_build_array(jsonb_build_object(
+        'key', 'follower_lift', 'tone', 'good', 'section', 'followers',
+        'params', jsonb_build_object('n', v_gained, 'lift', round(v_gained / v_expected, 1))));
+    END IF;
+  END IF;
+  IF v_result -> 'retention' IS NOT NULL AND v_result ->> 'retention' <> 'null' AND v_people >= 20 THEN
+    v_take := v_take || jsonb_build_array(jsonb_build_object(
+      'key', 'comes_back', 'tone', 'info', 'section', 'who',
+      'params', jsonb_build_object('pct', round((v_result #>> '{retention,returned}')::numeric / v_people * 100))));
+  END IF;
+  SELECT COALESCE(sum((p ->> 'brought')::int), 0) INTO v_known FROM jsonb_array_elements(v_result -> 'parties') p;
+  IF jsonb_array_length(v_result -> 'parties') > 1 AND v_known >= 20 THEN
+    SELECT p ->> 'name' AS name, round((p ->> 'brought')::numeric / v_known * 100) AS pct
+      INTO v_top
+      FROM jsonb_array_elements(v_result -> 'parties') p
+     ORDER BY (p ->> 'brought')::int DESC LIMIT 1;
+    IF v_top.pct >= 50 THEN
+      v_take := v_take || jsonb_build_array(jsonb_build_object(
+        'key', 'partner_lead', 'tone', 'info', 'section', 'parties',
+        'params', jsonb_build_object('name', v_top.name, 'pct', v_top.pct)));
+    END IF;
+  END IF;
+
+  RETURN (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM (SELECT x FROM jsonb_array_elements(v_take) x LIMIT 3) z);
+END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.lens_traffic_takeaways(p_result jsonb)
@@ -15299,74 +13576,63 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.list_contact_base(p_venue_id text, p_organizer_user_id uuid, p_search text DEFAULT NULL::text, p_segment_id uuid DEFAULT NULL::uuid, p_status text DEFAULT NULL::text, p_origin text DEFAULT NULL::text, p_list_import_id uuid DEFAULT NULL::uuid, p_sort text DEFAULT 'recent'::text, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0)
- RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.links_visitor_context(OUT o_hash text, OUT o_device text, OUT o_browser text, OUT o_os text, OUT o_country text)
+ RETURNS record
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
- SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
 DECLARE
-  v_where text := 'true';
-  v_order text;
-  v_total integer := 0;
-  v_rows jsonb := '[]'::jsonb;
-  v_def jsonb;
-  v_q text;
+  v_headers json;
+  v_ip      text;
+  v_ua      text;
+  v_salt    uuid;
 BEGIN
-  IF p_venue_id IS NOT NULL AND p_organizer_user_id IS NOT NULL THEN
-    RAISE EXCEPTION 'list_contact_base: une seule portée à la fois';
-  END IF;
-  IF NOT public.contact_scope_allowed(p_venue_id, p_organizer_user_id) THEN
-    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
-  END IF;
-
-  PERFORM public.contact_build_rows(p_venue_id, p_organizer_user_id);
-
-  IF p_segment_id IS NOT NULL THEN
-    SELECT cs.definition INTO v_def FROM public.contact_segments cs
-     WHERE cs.id = p_segment_id
-       AND public.marketing_scope_match(cs.venue_id, cs.organizer_user_id, p_venue_id, p_organizer_user_id);
-    v_where := v_where || ' AND ' || COALESCE(public.contact_definition_predicate(v_def, 'c'), 'false');
-  END IF;
-  IF p_status IS NOT NULL AND p_status IN ('active','passive','silent','new','unreachable','unsubscribed') THEN
-    v_where := v_where || format(' AND c.eng_status = %L', p_status);
-  END IF;
-  IF p_origin IS NOT NULL AND p_origin IN ('import','yuno','both') THEN
-    v_where := v_where || format(' AND c.origin = %L', p_origin);
-  END IF;
-  IF p_list_import_id IS NOT NULL THEN
-    v_where := v_where || format(' AND c.list_import_id = %L::uuid', p_list_import_id);
-  END IF;
-  IF NULLIF(btrim(COALESCE(p_search, '')), '') IS NOT NULL THEN
-    v_q := '%' || replace(replace(replace(lower(btrim(p_search)), '\', '\\'), '%', '\%'), '_', '\_') || '%';
-    v_where := v_where || format(' AND (c.email ILIKE %L OR lower(COALESCE(c.first_name, '''') || '' '' || COALESCE(c.last_name, '''')) LIKE %L OR COALESCE(c.phone_e164, '''') LIKE %L OR lower(COALESCE(c.city, '''')) LIKE %L)', v_q, v_q, v_q, v_q);
-  END IF;
-
-  v_order := CASE COALESCE(p_sort, 'recent')
-    WHEN 'spent' THEN 'c.total_spent DESC NULLS LAST, c.email'
-    WHEN 'engaged' THEN 'c.last_clicked_at DESC NULLS LAST, c.last_opened_at DESC NULLS LAST, c.email'
-    WHEN 'name' THEN 'lower(COALESCE(c.last_name, '''')), lower(COALESCE(c.first_name, '''')), c.email'
-    WHEN 'events' THEN 'c.event_count DESC NULLS LAST, c.email'
-    ELSE 'c.last_seen_at DESC NULLS LAST, c.created_at DESC, c.email'
+  BEGIN
+    v_headers := current_setting('request.headers', true)::json;
+    v_ip      := nullif(trim(split_part(coalesce(v_headers->>'x-forwarded-for', ''), ',', 1)), '');
+    v_ua      := nullif(left(coalesce(v_headers->>'user-agent', ''), 400), '');
+    o_country := upper(nullif(left(coalesce(v_headers->>'cf-ipcountry', ''), 2), ''));
+    IF o_country IN ('XX', 'T1') THEN o_country := NULL; END IF;
+  EXCEPTION WHEN OTHERS THEN
+    v_ip := NULL; v_ua := NULL; o_country := NULL;
   END;
 
-  EXECUTE format('SELECT count(*) FROM _cr c WHERE %s', v_where) INTO v_total;
-  EXECUTE format($q$
-    SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
-      SELECT c.id, c.email, c.phone_e164, c.first_name, c.last_name, c.origin, c.eng_status AS status,
-             c.emails_sent, c.opens, c.clicks, c.last_opened_at, c.last_clicked_at, c.unsubscribed_at, c.bounced,
-             c.total_spent, c.event_count, c.last_purchase_at, c.yuno_spent, c.yuno_events, c.imported_spent, c.imported_events,
-             c.ticket_count, c.table_count, c.order_count, c.guest_list_count, c.last_seen_at,
-             c.city, c.zone, c.country_code, c.age, c.gender, c.added_at,
-             c.email_ok, c.phone_ok, c.has_account, c.list_import_id
-        FROM _cr c WHERE %s ORDER BY %s LIMIT %s OFFSET %s) t
-  $q$, v_where, v_order, GREATEST(1, LEAST(COALESCE(p_limit, 50), 200)), GREATEST(0, COALESCE(p_offset, 0)))
-    INTO v_rows;
-  DROP TABLE IF EXISTS _cr;
+  IF auth.uid() IS NOT NULL THEN
+    o_hash := 'u:' || md5(auth.uid()::text);
+  ELSE
+    INSERT INTO platform_daily_salts (day) VALUES (current_date) ON CONFLICT (day) DO NOTHING;
+    SELECT salt INTO v_salt FROM platform_daily_salts WHERE day = current_date;
+    o_hash := 'a:' || encode(sha256(convert_to(v_salt::text || coalesce(v_ip, '0.0.0.0') || coalesce(v_ua, ''), 'UTF8')), 'hex');
+  END IF;
 
-  RETURN jsonb_build_object('total', v_total, 'rows', v_rows);
-END;
+  SELECT t.device, t.browser, t.os INTO o_device, o_browser, o_os
+  FROM public.platform_parse_ua(v_ua, false) t;
+END $function$;
+
+CREATE OR REPLACE FUNCTION public.manager_has_permission(_user_id uuid, _venue_id text, _permission text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.manager_permissions mp
+    WHERE mp.user_id = _user_id
+    AND mp.venue_id = _venue_id
+    AND (
+      (_permission = 'events' AND mp.can_manage_events = true) OR
+      (_permission = 'menu' AND mp.can_manage_menu = true) OR
+      (_permission = 'staff' AND mp.can_manage_staff = true) OR
+      (_permission = 'orders' AND mp.can_view_orders = true) OR
+      (_permission = 'tickets' AND mp.can_manage_tickets = true) OR
+      (_permission = 'tables' AND mp.can_manage_tables = true) OR
+      (_permission = 'djs' AND mp.can_manage_djs = true) OR
+      (_permission = 'promoters' AND mp.can_manage_promoters = true) OR
+      (_permission = 'analytics' AND mp.can_view_analytics = true) OR
+      (_permission = 'finance' AND mp.can_view_finance = true)
+    )
+  )
 $function$;
 
 CREATE OR REPLACE FUNCTION public.marketing_scope_match(p_row_venue_id text, p_row_organizer_user_id uuid, p_venue_id text, p_organizer_user_id uuid)
@@ -15381,6 +13647,20 @@ AS $function$
   END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.meta_scope_allowed(p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(auth.role(), '') = 'service_role'
+    OR (auth.uid() IS NOT NULL AND (
+      public.is_super_admin()
+      OR (p_venue_id IS NOT NULL AND public.is_venue_owner(auth.uid(), p_venue_id))
+      OR (p_organizer_user_id IS NOT NULL AND p_organizer_user_id = auth.uid())
+    ));
+$function$;
+
 CREATE OR REPLACE FUNCTION public.music_genre_key(p_raw text)
  RETURNS text
  LANGUAGE sql
@@ -15393,12 +13673,88 @@ AS $function$
   ));
 $function$;
 
+CREATE OR REPLACE FUNCTION public.my_event_party(p_event_id uuid)
+ RETURNS TABLE(party_key text, role text, access text, level integer)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT p.party_key, p.role, p.access, public.coorg_party_level(auth.uid(), p.party_key)
+    FROM public.event_parties(p_event_id) p
+   WHERE public.coorg_party_level(auth.uid(), p.party_key) > 0
+   ORDER BY public.coorg_party_level(auth.uid(), p.party_key) DESC, p.ord
+   LIMIT 1;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.night_date(p_ts timestamp with time zone, p_tz text DEFAULT 'Europe/Paris'::text)
  RETURNS date
  LANGUAGE sql
  IMMUTABLE PARALLEL SAFE
 AS $function$
   SELECT ((p_ts AT TIME ZONE coalesce(nullif(p_tz, ''), 'Europe/Paris')) - interval '12 hours')::date
+$function$;
+
+CREATE OR REPLACE FUNCTION public.normalize_collab_settlement(p_rules jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ IMMUTABLE
+AS $function$
+DECLARE v_collector text; v_terms int;
+BEGIN
+  IF p_rules IS NULL OR jsonb_typeof(p_rules) <> 'object' OR NOT (p_rules ? 'settlement') THEN RETURN p_rules; END IF;
+  IF public.collab_settlement_mode(p_rules) = 'stripe' THEN
+    RETURN jsonb_set(p_rules, '{settlement}', jsonb_build_object('mode', 'stripe'));
+  END IF;
+  v_collector := public.collab_settlement_collector(p_rules);
+  IF public.is_tiered_collab(p_rules) OR p_rules->'tables'->>'basis' = 'total_spend' THEN
+    v_collector := 'venue';
+  END IF;
+  v_terms := CASE WHEN (p_rules->'settlement'->>'payment_terms_days') IN ('7', '15', '30')
+                  THEN (p_rules->'settlement'->>'payment_terms_days')::int ELSE 15 END;
+  RETURN jsonb_set(p_rules, '{settlement}',
+    jsonb_build_object('mode', 'transfer', 'collector', v_collector, 'payment_terms_days', v_terms));
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.normalize_phone_e164(_phone text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT CASE
+    WHEN _phone IS NULL OR btrim(_phone) = '' THEN NULL
+    WHEN btrim(_phone) LIKE '+%'
+      THEN '+' || regexp_replace(btrim(_phone), '[^0-9]', '', 'g')
+    ELSE regexp_replace(btrim(_phone), '[^0-9]', '', 'g')
+  END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.notify_coorg_party(p_party text, p_event_id uuid, p_type text, p_title text, p_message text, p_ref uuid DEFAULT NULL::uuid, p_dedup text DEFAULT NULL::text, p_meta jsonb DEFAULT '{}'::jsonb)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_kind text := split_part(p_party, ':', 1);
+  v_id   text := substr(p_party, length(split_part(p_party, ':', 1)) + 2);
+  v_meta jsonb := COALESCE(p_meta, '{}'::jsonb);
+  v_src  text;
+BEGIN
+  IF p_ref IS NOT NULL AND NOT (v_meta ? 'source') THEN
+    SELECT t.source INTO v_src FROM public.event_coorg_transfers t WHERE t.id = p_ref;
+    IF v_src IS NOT NULL THEN v_meta := v_meta || jsonb_build_object('source', v_src); END IF;
+  END IF;
+  IF v_kind = 'org' THEN
+    PERFORM public.emit_organizer_notification(v_id::uuid, p_type, p_title, p_message, 'normal',
+      'event_coorg', p_ref, p_event_id, v_meta, p_dedup);
+  ELSIF v_kind = 'venue' THEN
+    PERFORM public.emit_staff_notification(v_id, 'owner', p_type, p_title, p_message, 'normal',
+      'event_coorg', p_ref, p_event_id, v_meta, p_dedup);
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'notify_coorg_party: %', SQLERRM;
+END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.org_member_has_permission(_user_id uuid, _organizer_user_id uuid, _permission text)
@@ -15422,447 +13778,175 @@ AS $function$
   )
 $function$;
 
-CREATE OR REPLACE FUNCTION public.resolve_campaign_audience(p_campaign_id uuid)
- RETURNS TABLE(email text, first_name text, last_name text, user_id uuid, unsubscribe_token uuid)
+CREATE OR REPLACE FUNCTION public.organizer_vat_rate(p_organizer_user_id uuid)
+ RETURNS numeric
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE((
+    SELECT CASE
+      WHEN o.vat_regime = 'subject' THEN 20
+      WHEN o.vat_regime IN ('franchise', 'exempt_association') THEN 0
+      WHEN o.bde_verified THEN 0
+      ELSE 20
+    END
+    FROM public.organizer_profiles o
+    WHERE o.user_id = p_organizer_user_id
+  ), 20)::numeric;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.paris_night_date(p_at timestamp with time zone DEFAULT now())
+ RETURNS date
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT (date_trunc('day', (p_at AT TIME ZONE 'Europe/Paris') - interval '6 hours'))::date
+$function$;
+
+CREATE OR REPLACE FUNCTION public.platform_parse_ua(p_ua text, p_native boolean, OUT device text, OUT browser text, OUT os text)
+ RETURNS record
+ LANGUAGE plpgsql
+ IMMUTABLE
+AS $function$
+DECLARE
+  ua text := coalesce(p_ua, '');
+BEGIN
+  IF ua ~* 'ipad|tablet' OR (ua ~* 'android' AND ua !~* 'mobile') THEN device := 'tablet';
+  ELSIF ua ~* 'mobi|iphone|ipod|android' THEN device := 'mobile';
+  ELSE device := 'desktop';
+  END IF;
+
+  os := CASE
+    WHEN ua ~* 'iphone|ipad|ipod' THEN 'iOS'
+    WHEN ua ~* 'android' THEN 'Android'
+    WHEN ua ~* 'mac os x|macintosh' THEN 'macOS'
+    WHEN ua ~* 'windows' THEN 'Windows'
+    WHEN ua ~* 'linux' THEN 'Linux'
+    WHEN ua = '' THEN 'unknown'
+    ELSE 'other'
+  END;
+
+  browser := CASE
+    WHEN coalesce(p_native, false) THEN 'app'
+    WHEN ua ~* 'instagram' THEN 'Instagram'
+    WHEN ua ~* 'fban|fbav|fb_iab' THEN 'Facebook'
+    WHEN ua ~* 'musical_ly|bytedance|tiktok' THEN 'TikTok'
+    WHEN ua ~* 'snapchat' THEN 'Snapchat'
+    WHEN ua ~* 'edg/' THEN 'Edge'
+    WHEN ua ~* 'opr/|opera' THEN 'Opera'
+    WHEN ua ~* 'samsungbrowser' THEN 'Samsung Internet'
+    WHEN ua ~* 'firefox|fxios' THEN 'Firefox'
+    WHEN ua ~* 'crios|chrome/' THEN 'Chrome'
+    WHEN ua ~* 'safari' THEN 'Safari'
+    WHEN ua = '' THEN 'unknown'
+    ELSE 'other'
+  END;
+END $function$;
+
+CREATE OR REPLACE FUNCTION public.promoter_guestlist_head_commission(v_rules jsonb, p_entry_id uuid)
+ RETURNS numeric
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_type text;
+  v_val numeric;
+  v_venue text;
+  v_org uuid;
+  v_def jsonb;
+BEGIN
+  IF p_entry_id IS NOT NULL THEN
+    SELECT entry_type INTO v_type FROM public.guest_list_entries WHERE id = p_entry_id;
+  END IF;
+  v_type := COALESCE(v_type, 'normal');
+
+  -- 1. Modèle résolu du promoteur (transmis par record_promoter_conversion).
+  v_val := NULLIF(v_rules -> 'guestlist_allocation' -> 'types' -> v_type ->> 'commission', '')::numeric;
+  IF v_val IS NULL THEN
+    v_val := NULLIF(v_rules -> 'guestlist' ->> 'value', '')::numeric;
+  END IF;
+
+  -- 2. Repli : modèle PAR DÉFAUT du club / organisateur hôte de la part.
+  IF v_val IS NULL AND p_entry_id IS NOT NULL THEN
+    SELECT gl.venue_id, gl.organizer_user_id INTO v_venue, v_org
+    FROM public.guest_list_entries gle
+    JOIN public.guest_lists gl ON gl.id = gle.guest_list_id
+    WHERE gle.id = p_entry_id;
+
+    SELECT ct.rules INTO v_def
+    FROM public.commission_templates ct
+    WHERE ct.is_default
+      AND ((v_venue IS NOT NULL AND ct.venue_id = v_venue)
+        OR (v_org IS NOT NULL AND ct.organizer_user_id = v_org))
+    LIMIT 1;
+
+    v_val := NULLIF(v_def -> 'guestlist_allocation' -> 'types' -> v_type ->> 'commission', '')::numeric;
+    IF v_val IS NULL THEN
+      v_val := NULLIF(v_def -> 'guestlist' ->> 'value', '')::numeric;
+    END IF;
+  END IF;
+
+  RETURN COALESCE(v_val, 0);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.record_marketing_consent_grant(p_channel text, p_wording_text text, p_venue_id text DEFAULT NULL::text, p_organizer_user_id uuid DEFAULT NULL::uuid, p_email text DEFAULT NULL::text, p_phone_e164 text DEFAULT NULL::text, p_wording_key text DEFAULT NULL::text, p_locale text DEFAULT NULL::text, p_source text DEFAULT 'checkout'::text)
+ RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_campaign RECORD;
-  v_is_authorized boolean := false;
-  v_audiences jsonb := '[]'::jsonb;
-  v_excl_recent_days integer := NULL;
-  v_excl_buyers boolean := false;
-  -- Mode de combinaison des audiences cochées : 'any' (réunir, défaut) ou
-  -- 'all' (croiser : le contact doit être dans CHAQUE audience cochée).
-  v_match_all boolean := false;
-  v_aud_n integer := 0;
+  v_uid uuid := auth.uid();
+  v_email text := lower(NULLIF(trim(COALESCE(p_email, '')), ''));
 BEGIN
-  SELECT * INTO v_campaign FROM public.email_campaigns WHERE id = p_campaign_id;
-  IF v_campaign IS NULL THEN RETURN; END IF;
-
-  IF v_campaign.venue_id IS NOT NULL THEN
-    v_is_authorized := public.is_venue_owner(auth.uid(), v_campaign.venue_id) OR public.is_super_admin();
-  ELSIF v_campaign.organizer_user_id IS NOT NULL THEN
-    v_is_authorized := COALESCE((v_campaign.organizer_user_id = auth.uid()) OR public.is_super_admin(), false);
-  ELSE
-    -- Portée plateforme : super admin uniquement.
-    v_is_authorized := public.is_super_admin();
+  IF p_channel NOT IN ('email', 'sms') THEN
+    RAISE EXCEPTION 'canal invalide: %', p_channel;
   END IF;
-  IF COALESCE(auth.role(), '') = 'service_role' THEN
-    v_is_authorized := true;
+  IF p_venue_id IS NULL AND p_organizer_user_id IS NULL THEN
+    RAISE EXCEPTION 'portée requise (club ou organisateur)';
   END IF;
-  IF NOT COALESCE(v_is_authorized, false) THEN
-    RAISE EXCEPTION 'Unauthorized';
+  IF COALESCE(trim(p_wording_text), '') = '' THEN
+    RAISE EXCEPTION 'le texte affiché est requis comme preuve (EDPB 05/2020 §108)';
   END IF;
 
-  -- ── Console Yuno CRM ─────────────────────────────────────────────────────
-  -- Audiences {kind:'crm', segmentId?, def} : la base clients du CRM, filtrée
-  -- par la même définition que l'écran Clients (_crm_filter_sql), et toujours
-  -- passée par le registre de consentement de la portée (_crm_campaign_audience).
-  IF jsonb_typeof(v_campaign.audiences_json) = 'array'
-     AND EXISTS (SELECT 1 FROM jsonb_array_elements(v_campaign.audiences_json) x WHERE x->>'kind' = 'crm') THEN
-    RETURN QUERY SELECT * FROM public._crm_campaign_audience(p_campaign_id);
-    RETURN;
+  IF v_uid IS NOT NULL AND v_email IS NULL THEN
+    SELECT lower(u.email) INTO v_email FROM auth.users u WHERE u.id = v_uid;
   END IF;
 
-  -- ── Portée plateforme ────────────────────────────────────────────────────
-  -- Yuno écrit à SA base, jamais à celle d'un club. Une seule source : le
-  -- registre plateforme (`newsletter_subscriptions` avec les deux colonnes de
-  -- portée à NULL), alimenté par `sync_platform_marketing_contacts` et par les
-  -- imports attestés. C'est lui qui porte le jeton de désinscription : aucune
-  -- adresse ne peut entrer dans une campagne sans porte de sortie.
-  IF v_campaign.venue_id IS NULL AND v_campaign.organizer_user_id IS NULL THEN
-    v_audiences := COALESCE(v_campaign.audiences_json, '[]'::jsonb);
-    v_aud_n := CASE WHEN jsonb_typeof(v_audiences) = 'array' THEN jsonb_array_length(v_audiences) ELSE 0 END;
-    v_match_all := COALESCE(v_campaign.exclusions_json->>'audienceMatch', 'any') = 'all';
-    IF jsonb_typeof(v_audiences) <> 'array' OR jsonb_array_length(v_audiences) = 0 THEN
-      RETURN;                       -- audience vide ⇒ personne, jamais « tout le monde »
-    END IF;
+  INSERT INTO public.marketing_consent_events (
+    user_id, email, phone_e164, channel, venue_id, organizer_user_id,
+    action, wording_key, wording_text, locale, source
+  ) VALUES (
+    v_uid, v_email, NULLIF(trim(COALESCE(p_phone_e164, '')), ''), p_channel,
+    p_venue_id, p_organizer_user_id, 'granted', p_wording_key,
+    trim(p_wording_text), p_locale, p_source
+  );
+END;
+$function$;
 
-    v_excl_recent_days := CASE
-      WHEN COALESCE(v_campaign.exclusions_json->>'recentDays', '') ~ '^[0-9]{1,3}$'
-      THEN (v_campaign.exclusions_json->>'recentDays')::integer
-      ELSE NULL
-    END;
-    v_excl_buyers := COALESCE(v_campaign.exclusions_json->>'excludeEventBuyers', 'false') IN ('true', 't', '1')
-                     AND v_campaign.event_id IS NOT NULL;
+CREATE OR REPLACE FUNCTION public.refresh_analytics_daily_rollup()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  REFRESH MATERIALIZED VIEW public.analytics_daily_rollup;
+END;
+$function$;
 
-    RETURN QUERY
-    WITH cseg AS (
-      SELECT DISTINCT LOWER(r.email) AS addr, cs.id AS sid
-        FROM jsonb_array_elements(v_audiences) a
-        JOIN public.contact_segments cs
-          ON a->>'kind' = 'contact_segment'
-         AND (a->>'segmentId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-         AND cs.id = (a->>'segmentId')::uuid
-         AND cs.venue_id IS NULL AND cs.organizer_user_id IS NULL
-        CROSS JOIN LATERAL public.resolve_contact_segment_def(NULL, NULL, cs.definition) r
-       WHERE r.email IS NOT NULL
-    ), cseg_hits AS (
-      SELECT addr, count(DISTINCT sid) AS n FROM cseg GROUP BY addr
-    ), subs AS (
-      SELECT LOWER(ns.email) AS addr,
-             COALESCE(ch.n, 0)::integer AS seg_hits, 0::integer AS vseg_hits,
-             COALESCE(p.first_name, ns.first_name) AS fname,
-             COALESCE(p.last_name,  ns.last_name)  AS lname,
-             ns.user_id AS uid, ns.unsubscribe_token AS tok,
-             ns.import_id AS imp,
-             COALESCE(ns.source, '') AS src,
-             EXISTS (SELECT 1 FROM public.tickets t
-                      WHERE LOWER(t.user_email) = LOWER(ns.email) AND t.status = 'paid') AS bought
-        FROM public.newsletter_subscriptions ns
-        LEFT JOIN cseg_hits ch ON ch.addr = LOWER(ns.email)
-        LEFT JOIN public.profiles p ON p.id = ns.user_id
-       WHERE ns.venue_id IS NULL AND ns.organizer_user_id IS NULL AND ns.opted_in = true
-    ), matched AS (
-      SELECT DISTINCT ON (s.addr) s.*
-        FROM subs s
-       WHERE (
-         SELECT count(*) FROM jsonb_array_elements(v_audiences) a
-          WHERE a->>'kind' NOT IN ('contact_segment','segment') AND CASE a->>'kind'
-            WHEN 'all_subscribers' THEN true
-            WHEN 'clients'    THEN s.src = 'platform:clients'
-            WHEN 'pros'       THEN s.src = 'platform:pros'
-            WHEN 'waitlist'   THEN s.src = 'platform:waitlist'
-            WHEN 'leads'      THEN s.src = 'platform:leads'
-            WHEN 'app_users'  THEN s.uid IS NOT NULL
-            WHEN 'no_account' THEN s.uid IS NULL
-            WHEN 'buyers'     THEN s.bought
-            WHEN 'contact_segment' THEN false  -- compté via seg_hits
-            WHEN 'import'     THEN s.imp IS NOT NULL
-                                   AND s.imp::text = lower(COALESCE(a->>'importId',''))
-            ELSE false
-          END) + s.seg_hits + s.vseg_hits >= CASE WHEN v_match_all THEN v_aud_n ELSE 1 END
-    )
-    SELECT m.addr::text, m.fname::text, m.lname::text, m.uid, m.tok
-      FROM matched m
-     WHERE (v_excl_recent_days IS NULL OR NOT EXISTS (
-             SELECT 1 FROM public.email_campaign_recipients r
-               JOIN public.email_campaigns c2 ON c2.id = r.campaign_id
-              WHERE c2.venue_id IS NULL AND c2.organizer_user_id IS NULL
-                AND c2.id <> p_campaign_id
-                AND r.status = 'sent'
-                AND r.sent_at > now() - make_interval(days => v_excl_recent_days)
-                AND LOWER(r.email) = m.addr))
-       AND (NOT v_excl_buyers OR NOT EXISTS (
-             SELECT 1 FROM public.tickets t
-              WHERE t.event_id = v_campaign.event_id AND t.status = 'paid'
-                AND LOWER(t.user_email) = m.addr));
-    RETURN;
-  END IF;
-
-  IF v_campaign.type = 'informational' AND v_campaign.event_id IS NOT NULL THEN
-    -- Les acheteurs d'une soirée ne sont joignables en informatif QUE par ses
-    -- parties PRINCIPALES : un co-hôte n'a que les contacts qui l'ont nommé
-    -- (case du checkout), jamais toute la liste des acheteurs.
-    IF NOT public.campaign_scope_is_event_principal(v_campaign.venue_id, v_campaign.organizer_user_id, v_campaign.event_id) THEN
-      RETURN;
-    END IF;
-    IF v_campaign.audience_type IN ('event_buyers','event_all_buyers') THEN
-      RETURN QUERY
-      SELECT DISTINCT ON (LOWER(t.user_email))
-        LOWER(t.user_email)::text,
-        SPLIT_PART(COALESCE(t.full_name,''), ' ', 1)::text,
-        NULLIF(REGEXP_REPLACE(COALESCE(t.full_name,''), '^\S+\s*', ''), '')::text,
-        t.user_id,
-        NULL::uuid
-      FROM public.tickets t
-      WHERE t.event_id = v_campaign.event_id AND t.status = 'paid' AND t.user_email IS NOT NULL;
-    END IF;
-    IF v_campaign.audience_type IN ('event_table_buyers','event_all_buyers') THEN
-      RETURN QUERY
-      SELECT DISTINCT ON (LOWER(tr.user_email))
-        LOWER(tr.user_email)::text,
-        SPLIT_PART(COALESCE(tr.full_name,''), ' ', 1)::text,
-        NULLIF(REGEXP_REPLACE(COALESCE(tr.full_name,''), '^\S+\s*', ''), '')::text,
-        tr.user_id,
-        NULL::uuid
-      FROM public.table_reservations tr
-      WHERE tr.event_id = v_campaign.event_id AND tr.status = 'confirmed' AND tr.user_email IS NOT NULL;
-    END IF;
-    RETURN;
-  END IF;
-
-  IF v_campaign.type <> 'promotional' THEN RETURN; END IF;
-
-  IF jsonb_typeof(COALESCE(v_campaign.audiences_json, '[]'::jsonb)) = 'array'
-     AND jsonb_array_length(COALESCE(v_campaign.audiences_json, '[]'::jsonb)) > 0 THEN
-
-    v_audiences := v_campaign.audiences_json;
-    v_aud_n := CASE WHEN jsonb_typeof(v_audiences) = 'array' THEN jsonb_array_length(v_audiences) ELSE 0 END;
-    v_match_all := COALESCE(v_campaign.exclusions_json->>'audienceMatch', 'any') = 'all';
-    v_excl_recent_days := CASE
-      WHEN COALESCE(v_campaign.exclusions_json->>'recentDays', '') ~ '^[0-9]{1,3}$'
-      THEN (v_campaign.exclusions_json->>'recentDays')::integer
-      ELSE NULL
-    END;
-    v_excl_buyers := COALESCE(v_campaign.exclusions_json->>'excludeEventBuyers', 'false') IN ('true', 't', '1')
-                     AND v_campaign.event_id IS NOT NULL;
-
-    IF v_campaign.venue_id IS NOT NULL THEN
-      RETURN QUERY
-      WITH seg_emails AS (
-        SELECT DISTINCT LOWER(seg.email) AS addr, vs.id AS sid
-          FROM jsonb_array_elements(v_audiences) a
-          JOIN public.venue_segments vs
-            ON a->>'kind' = 'segment'
-           AND (a->>'segmentId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-           AND vs.id = (a->>'segmentId')::uuid
-           AND vs.venue_id = v_campaign.venue_id
-          CROSS JOIN LATERAL public.resolve_venue_segment(v_campaign.venue_id, vs.definition) seg
-      ), cseg AS (
-        -- Segments sur la base importée : la définition est résolue à l'envoi.
-        SELECT DISTINCT LOWER(r.email) AS addr, cs.id AS sid
-          FROM jsonb_array_elements(v_audiences) a
-          JOIN public.contact_segments cs
-            ON a->>'kind' = 'contact_segment'
-           AND (a->>'segmentId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-           AND cs.id = (a->>'segmentId')::uuid
-           AND cs.venue_id = v_campaign.venue_id
-          CROSS JOIN LATERAL public.resolve_contact_segment_def(cs.venue_id, cs.organizer_user_id, cs.definition) r
-         WHERE r.email IS NOT NULL
-      ), cseg_hits AS (
-        SELECT addr, count(DISTINCT sid) AS n FROM cseg GROUP BY addr
-      ), vseg_hits AS (
-        SELECT addr, count(DISTINCT sid) AS n FROM seg_emails GROUP BY addr
-      ), subs AS (
-        SELECT LOWER(ns.email) AS addr,
-               COALESCE(ch.n, 0)::integer AS seg_hits, COALESCE(vh.n, 0)::integer AS vseg_hits,
-               COALESCE(p.first_name, vc.first_name, ns.first_name) AS fname,
-               COALESCE(p.last_name,  vc.last_name, ns.last_name)  AS lname,
-               ns.user_id AS uid, ns.unsubscribe_token AS tok,
-               ns.import_id AS imp,
-               COALESCE(vc.total_spent, 0) AS spent,
-               (COALESCE(vc.ticket_count,0) + COALESCE(vc.order_count,0) + COALESCE(vc.table_count,0)) AS visits,
-               vc.last_visit_at AS last_visit
-          FROM public.newsletter_subscriptions ns
-          LEFT JOIN public.venue_customers vc
-            ON vc.venue_id = v_campaign.venue_id AND LOWER(vc.email) = LOWER(ns.email)
-          LEFT JOIN cseg_hits ch ON ch.addr = LOWER(ns.email)
-          LEFT JOIN vseg_hits vh ON vh.addr = LOWER(ns.email)
-          LEFT JOIN public.profiles p ON p.id = ns.user_id
-         WHERE ns.venue_id = v_campaign.venue_id AND ns.opted_in = true
-      ), matched AS (
-        SELECT DISTINCT ON (s.addr) s.*
-          FROM subs s
-         WHERE (
-           SELECT count(*) FROM jsonb_array_elements(v_audiences) a
-            WHERE a->>'kind' NOT IN ('contact_segment','segment') AND CASE a->>'kind'
-              WHEN 'all_subscribers' THEN true
-              WHEN 'vip'           THEN s.spent >= 500
-              WHEN 'big_spenders'  THEN s.spent >= 1000
-              WHEN 'regulars'      THEN s.visits BETWEEN 2 AND 4
-              WHEN 'new_customers' THEN s.visits <= 1
-              WHEN 'dormant'       THEN s.last_visit IS NOT NULL AND s.last_visit < now() - interval '90 days'
-              WHEN 'event_subscribers' THEN v_campaign.event_id IS NOT NULL AND EXISTS (
-                     SELECT 1 FROM public.tickets t
-                      WHERE t.event_id = v_campaign.event_id AND t.status = 'paid'
-                        AND LOWER(t.user_email) = s.addr)
-              WHEN 'segment' THEN false  -- compté via vseg_hits
-              WHEN 'contact_segment' THEN false  -- compté via seg_hits
-              WHEN 'import'  THEN s.imp IS NOT NULL
-                                  AND s.imp::text = lower(COALESCE(a->>'importId',''))
-              ELSE false
-            END) + s.seg_hits + s.vseg_hits >= CASE WHEN v_match_all THEN v_aud_n ELSE 1 END
-      )
-      SELECT m.addr::text, m.fname::text, m.lname::text, m.uid, m.tok
-        FROM matched m
-       WHERE (v_excl_recent_days IS NULL OR NOT EXISTS (
-               SELECT 1 FROM public.email_campaign_recipients r
-                 JOIN public.email_campaigns c2 ON c2.id = r.campaign_id
-                WHERE c2.venue_id = v_campaign.venue_id
-                  AND c2.id <> p_campaign_id
-                  AND r.status = 'sent'
-                  AND r.sent_at > now() - make_interval(days => v_excl_recent_days)
-                  AND LOWER(r.email) = m.addr))
-         AND (NOT v_excl_buyers OR (
-               NOT EXISTS (SELECT 1 FROM public.tickets t
-                            WHERE t.event_id = v_campaign.event_id AND t.status = 'paid'
-                              AND LOWER(t.user_email) = m.addr)
-               AND NOT EXISTS (SELECT 1 FROM public.table_reservations tr
-                            WHERE tr.event_id = v_campaign.event_id AND tr.status IN ('paid','confirmed')
-                              AND LOWER(tr.user_email) = m.addr)));
-      RETURN;
-    END IF;
-
-    RETURN QUERY
-    WITH agg AS (
-      -- Un client est quelqu'un qui est VENU : billets, tables ET guest list
-      -- (contact_scope_customers, la même source que la base de contacts).
-      -- Avant, seuls les billets comptaient : un organisateur qui ne vend que
-      -- des tables n'avait ni VIP, ni habitué, ni dormant.
-      SELECT c.email AS addr,
-             COALESCE(c.spent, 0)::numeric AS spent,
-             COALESCE(c.event_count, 0) AS visits,
-             c.last_at AS last_seen,
-             c.first_name AS fname0,
-             c.last_name AS lname0
-        FROM public.contact_scope_customers(NULL, v_campaign.organizer_user_id) c
-    ), cseg AS (
-      SELECT DISTINCT LOWER(r.email) AS addr, cs.id AS sid
-        FROM jsonb_array_elements(v_audiences) a
-        JOIN public.contact_segments cs
-          ON a->>'kind' = 'contact_segment'
-         AND (a->>'segmentId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-         AND cs.id = (a->>'segmentId')::uuid
-         AND cs.organizer_user_id = v_campaign.organizer_user_id
-        CROSS JOIN LATERAL public.resolve_contact_segment_def(cs.venue_id, cs.organizer_user_id, cs.definition) r
-       WHERE r.email IS NOT NULL
-    ), cseg_hits AS (
-      SELECT addr, count(DISTINCT sid) AS n FROM cseg GROUP BY addr
-    ), subs AS (
-      SELECT LOWER(ns.email) AS addr,
-             COALESCE(ch.n, 0)::integer AS seg_hits, 0::integer AS vseg_hits,
-             COALESCE(p.first_name, ns.first_name, a.fname0) AS fname,
-             COALESCE(p.last_name, ns.last_name, a.lname0) AS lname,
-             ns.user_id AS uid, ns.unsubscribe_token AS tok,
-             ns.import_id AS imp,
-             COALESCE(a.spent, 0) AS spent,
-             COALESCE(a.visits, 0) AS visits,
-             a.last_seen AS last_visit
-        FROM public.newsletter_subscriptions ns
-        LEFT JOIN agg a ON a.addr = LOWER(ns.email)
-        LEFT JOIN cseg_hits ch ON ch.addr = LOWER(ns.email)
-        LEFT JOIN public.profiles p ON p.id = ns.user_id
-       WHERE ns.organizer_user_id = v_campaign.organizer_user_id AND ns.opted_in = true
-    ), matched AS (
-      SELECT DISTINCT ON (s.addr) s.*
-        FROM subs s
-       WHERE (
-         SELECT count(*) FROM jsonb_array_elements(v_audiences) a2
-          WHERE a2->>'kind' NOT IN ('contact_segment','segment') AND CASE a2->>'kind'
-            WHEN 'all_subscribers' THEN true
-            WHEN 'vip'           THEN s.spent >= 500
-            WHEN 'big_spenders'  THEN s.spent >= 1000
-            WHEN 'regulars'      THEN s.visits BETWEEN 2 AND 4
-            WHEN 'new_customers' THEN s.visits <= 1
-            WHEN 'dormant'       THEN s.last_visit IS NOT NULL AND s.last_visit < now() - interval '90 days'
-            WHEN 'event_subscribers' THEN v_campaign.event_id IS NOT NULL AND EXISTS (
-                   SELECT 1 FROM public.tickets t
-                    WHERE t.event_id = v_campaign.event_id AND t.status = 'paid'
-                      AND LOWER(t.user_email) = s.addr)
-            WHEN 'contact_segment' THEN false  -- compté via seg_hits
-            WHEN 'import'  THEN s.imp IS NOT NULL
-                                AND s.imp::text = lower(COALESCE(a2->>'importId',''))
-            ELSE false
-          END) + s.seg_hits + s.vseg_hits >= CASE WHEN v_match_all THEN v_aud_n ELSE 1 END
-    )
-    SELECT m.addr::text, m.fname::text, m.lname::text, m.uid, m.tok
-      FROM matched m
-     WHERE (v_excl_recent_days IS NULL OR NOT EXISTS (
-             SELECT 1 FROM public.email_campaign_recipients r
-               JOIN public.email_campaigns c2 ON c2.id = r.campaign_id
-              WHERE c2.organizer_user_id = v_campaign.organizer_user_id
-                AND c2.id <> p_campaign_id
-                AND r.status = 'sent'
-                AND r.sent_at > now() - make_interval(days => v_excl_recent_days)
-                AND LOWER(r.email) = m.addr))
-       AND (NOT v_excl_buyers OR (
-             NOT EXISTS (SELECT 1 FROM public.tickets t
-                          WHERE t.event_id = v_campaign.event_id AND t.status = 'paid'
-                            AND LOWER(t.user_email) = m.addr)
-             AND NOT EXISTS (SELECT 1 FROM public.table_reservations tr
-                          WHERE tr.event_id = v_campaign.event_id AND tr.status IN ('paid','confirmed')
-                            AND LOWER(tr.user_email) = m.addr)));
-    RETURN;
-  END IF;
-
-  IF v_campaign.audience_type = 'all_subscribers' THEN
-    RETURN QUERY
-    SELECT LOWER(ns.email)::text, p.first_name::text, p.last_name::text, ns.user_id, ns.unsubscribe_token
-    FROM public.newsletter_subscriptions ns
-    LEFT JOIN public.profiles p ON p.id = ns.user_id
-    WHERE ns.opted_in = true
-      AND ((v_campaign.venue_id IS NOT NULL AND ns.venue_id = v_campaign.venue_id)
-           OR (v_campaign.organizer_user_id IS NOT NULL AND ns.organizer_user_id = v_campaign.organizer_user_id));
-    RETURN;
-  END IF;
-
-  IF v_campaign.audience_type = 'event_subscribers' AND v_campaign.event_id IS NOT NULL THEN
-    RETURN QUERY
-    SELECT DISTINCT ON (LOWER(ns.email))
-      LOWER(ns.email)::text, p.first_name::text, p.last_name::text, ns.user_id, ns.unsubscribe_token
-    FROM public.newsletter_subscriptions ns
-    JOIN public.tickets t ON LOWER(t.user_email) = LOWER(ns.email)
-    LEFT JOIN public.profiles p ON p.id = ns.user_id
-    WHERE ns.opted_in = true
-      AND t.event_id = v_campaign.event_id AND t.status = 'paid'
-      AND ((v_campaign.venue_id IS NOT NULL AND ns.venue_id = v_campaign.venue_id)
-           OR (v_campaign.organizer_user_id IS NOT NULL AND ns.organizer_user_id = v_campaign.organizer_user_id));
-    RETURN;
-  END IF;
-
-  IF v_campaign.audience_type = 'custom_segment' THEN
-    IF v_campaign.venue_id IS NULL OR v_campaign.segment_id IS NULL THEN RETURN; END IF;
-    RETURN QUERY
-    SELECT DISTINCT ON (LOWER(ns.email))
-      LOWER(ns.email)::text,
-      COALESCE(p.first_name, vc.first_name)::text,
-      COALESCE(p.last_name, vc.last_name)::text,
-      ns.user_id, ns.unsubscribe_token
-    FROM public.newsletter_subscriptions ns
-    JOIN public.resolve_venue_segment(
-           v_campaign.venue_id,
-           (SELECT vs.definition FROM public.venue_segments vs
-             WHERE vs.id = v_campaign.segment_id AND vs.venue_id = v_campaign.venue_id)
-         ) seg ON LOWER(seg.email) = LOWER(ns.email)
-    LEFT JOIN public.venue_customers vc
-      ON vc.venue_id = v_campaign.venue_id AND LOWER(vc.email) = LOWER(ns.email)
-    LEFT JOIN public.profiles p ON p.id = ns.user_id
-    WHERE ns.venue_id = v_campaign.venue_id AND ns.opted_in = true;
-    RETURN;
-  END IF;
-
-  IF v_campaign.audience_type IN ('vip','regulars','new_customers','big_spenders','dormant') THEN
-    IF v_campaign.venue_id IS NOT NULL THEN
-      RETURN QUERY
-      SELECT LOWER(ns.email)::text,
-             COALESCE(p.first_name, vc.first_name)::text,
-             COALESCE(p.last_name, vc.last_name)::text,
-             ns.user_id, ns.unsubscribe_token
-      FROM public.newsletter_subscriptions ns
-      JOIN public.venue_customers vc ON LOWER(vc.email) = LOWER(ns.email) AND vc.venue_id = v_campaign.venue_id
-      LEFT JOIN public.profiles p ON p.id = ns.user_id
-      WHERE ns.venue_id = v_campaign.venue_id AND ns.opted_in = true
-        AND CASE v_campaign.audience_type
-          WHEN 'vip' THEN vc.total_spent >= 500
-          WHEN 'regulars' THEN (COALESCE(vc.ticket_count,0) + COALESCE(vc.order_count,0) + COALESCE(vc.table_count,0)) BETWEEN 2 AND 4
-          WHEN 'new_customers' THEN (COALESCE(vc.ticket_count,0) + COALESCE(vc.order_count,0) + COALESCE(vc.table_count,0)) <= 1
-          WHEN 'big_spenders' THEN vc.total_spent >= 1000
-          WHEN 'dormant' THEN vc.last_visit_at < now() - interval '90 days'
-          ELSE FALSE
-        END;
-      RETURN;
-    END IF;
-
-    RETURN QUERY
-    WITH agg AS (
-      SELECT c.email,
-             COALESCE(c.spent, 0)::numeric AS spent,
-             COALESCE(c.event_count, 0) AS visits,
-             c.last_at AS last_seen,
-             c.first_name, c.last_name
-        FROM public.contact_scope_customers(NULL, v_campaign.organizer_user_id) c
-    )
-    SELECT a.email::text,
-           a.first_name::text,
-           a.last_name::text,
-           ns.user_id, ns.unsubscribe_token
-    FROM public.newsletter_subscriptions ns
-    JOIN agg a ON a.email = LOWER(ns.email)
-    WHERE ns.organizer_user_id = v_campaign.organizer_user_id AND ns.opted_in = true
-      AND CASE v_campaign.audience_type
-        WHEN 'vip' THEN a.spent >= 500
-        WHEN 'regulars' THEN a.visits BETWEEN 2 AND 4
-        WHEN 'new_customers' THEN a.visits = 1
-        WHEN 'big_spenders' THEN a.spent >= 1000
-        WHEN 'dormant' THEN a.last_seen < now() - interval '90 days'
-        ELSE FALSE
-      END;
-    RETURN;
-  END IF;
+CREATE OR REPLACE FUNCTION public.refresh_analytics_rollup()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.analytics_daily_rollup;
 END;
 $function$;
 
@@ -15979,6 +14063,92 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.respond_event_cohost_invitation(p_cohost_id uuid, p_accept boolean)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  c     record;
+  v_key text;
+  v_title text;
+  v_name text;
+BEGIN
+  SELECT * INTO c FROM public.event_cohosts WHERE id = p_cohost_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
+  v_key := CASE WHEN c.venue_id IS NOT NULL THEN 'venue:' || c.venue_id ELSE 'org:' || c.organizer_user_id END;
+  IF public.coorg_party_level(v_uid, v_key) < 2 THEN RAISE EXCEPTION 'forbidden'; END IF;
+  IF public.is_support_session() THEN RAISE EXCEPTION 'support_session_forbidden'; END IF;
+  IF c.status <> 'pending' THEN RAISE EXCEPTION 'not_pending'; END IF;
+  IF p_accept AND EXISTS (SELECT 1 FROM public.events e WHERE e.id = c.event_id
+                           AND (e.end_at < now() OR e.cancelled_at IS NOT NULL)) THEN
+    RAISE EXCEPTION 'event_closed';
+  END IF;
+  -- Devenir le lieu / l'organisateur engage l'argent : niveau argent requis.
+  IF p_accept AND c.role = 'principal' AND public.coorg_party_level(v_uid, v_key) < 3 THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+
+  UPDATE public.event_cohosts
+     SET status = CASE WHEN p_accept THEN 'accepted' ELSE 'declined' END,
+         responded_at = now(), responded_by = v_uid, updated_at = now()
+   WHERE id = p_cohost_id;
+
+  IF p_accept AND c.role = 'principal' THEN
+    PERFORM public._collab_promote_principal(p_cohost_id);
+  END IF;
+
+  SELECT title INTO v_title FROM public.events WHERE id = c.event_id;
+  SELECT COALESCE(v.name, op.display_name, 'Un partenaire') INTO v_name
+    FROM (SELECT 1) one
+    LEFT JOIN public.venues v ON v.id = c.venue_id
+    LEFT JOIN public.organizer_profiles op ON op.user_id = c.organizer_user_id;
+
+  IF c.invited_by_party IS NOT NULL THEN
+    PERFORM public.notify_coorg_party(c.invited_by_party, c.event_id,
+      CASE WHEN p_accept THEN 'cohost_accepted' ELSE 'cohost_declined' END,
+      CASE WHEN NOT p_accept THEN 'Invitation déclinée'
+           WHEN c.role = 'principal' THEN 'Invitation acceptée'
+           ELSE 'Co-organisation acceptée' END,
+      v_name || CASE WHEN NOT p_accept THEN ' a décliné « '
+                     WHEN c.role = 'principal' AND c.venue_id IS NOT NULL THEN ' accueille « '
+                     WHEN c.role = 'principal' THEN ' organise avec toi « '
+                     ELSE ' co-organise désormais « ' END
+        || COALESCE(v_title, 'la soirée') || ' ».',
+      p_cohost_id, 'cohost_resp:' || p_cohost_id::text);
+  END IF;
+  RETURN CASE WHEN p_accept THEN 'accepted' ELSE 'declined' END;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.revoke_auth_session(_auth_session_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'auth', 'public'
+AS $function$
+BEGIN
+  IF _auth_session_id IS NULL THEN RETURN; END IF;
+  DELETE FROM auth.sessions WHERE id = _auth_session_id;
+EXCEPTION WHEN OTHERS THEN
+  -- Le schéma auth peut évoluer : ne jamais faire échouer une révocation
+  -- métier parce que le nettoyage du jeton a raté. La garde du point 1 tient
+  -- de toute façon (le jeton reste marqué « support »).
+  NULL;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.search_norm(p_text text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE PARALLEL SAFE STRICT
+ SET search_path TO ''
+AS $function$
+  SELECT lower(extensions.unaccent('extensions.unaccent'::regdictionary, p_text))
+$function$;
+
 CREATE OR REPLACE FUNCTION public.sms_scope_allowed(p_venue_id text, p_organizer_user_id uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -16006,6 +14176,31 @@ AS $function$
     WHEN p_phone ~ '^\+1' THEN 'blocked'
     ELSE 'intl'
   END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.stamp_door_entry_scan()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+  IF COALESCE(OLD.entry_scanned, false) AND NOT COALESCE(NEW.entry_scanned, false) THEN
+    RAISE EXCEPTION '%: entry_scanned cannot be reset', TG_TABLE_NAME
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF COALESCE(NEW.entry_scanned, false) AND NOT COALESCE(OLD.entry_scanned, false) THEN
+    NEW.entry_scanned_by := auth.uid();
+    NEW.entry_scanned_at := now();
+  ELSIF COALESCE(OLD.entry_scanned, false) THEN
+    -- Une entrée validée garde qui et quand, pour toujours.
+    NEW.entry_scanned_by := OLD.entry_scanned_by;
+    NEW.entry_scanned_at := OLD.entry_scanned_at;
+  END IF;
+  RETURN NEW;
+END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.suggest_basket_threshold(p_venue_id text, p_organizer_user_id uuid)
@@ -16080,6 +14275,56 @@ BEGIN
     'min_table_pp', round(COALESCE(v_min_table_pp, 0), 2)
   );
 END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.ticketing_scope_allowed(p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(auth.role(), '') = 'service_role'
+    OR (auth.uid() IS NOT NULL AND ((p_venue_id IS NULL) <> (p_organizer_user_id IS NULL)) AND (
+      public.is_super_admin()
+      OR (p_venue_id IS NOT NULL AND public.is_venue_owner(auth.uid(), p_venue_id))
+      OR (p_organizer_user_id IS NOT NULL AND p_organizer_user_id = auth.uid())
+    ));
+$function$;
+
+CREATE OR REPLACE FUNCTION public.tracked_link_team_can_read(p_kind text, p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT auth.uid() IS NOT NULL AND CASE
+    WHEN p_kind = 'organizer' AND p_organizer_user_id IS NOT NULL
+      THEN auth.uid() = p_organizer_user_id
+        OR public.is_org_team_member(auth.uid(), p_organizer_user_id, 'editor')
+    WHEN p_kind = 'venue' AND p_venue_id IS NOT NULL
+      THEN EXISTS (SELECT 1 FROM public.venues v WHERE v.id = p_venue_id AND v.owner_id = auth.uid())
+        OR public.can_manage_venue(auth.uid(), p_venue_id)
+    ELSE false
+  END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.tracked_link_team_sees_money(p_kind text, p_venue_id text, p_organizer_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT auth.uid() IS NOT NULL AND CASE
+    WHEN p_kind = 'organizer' AND p_organizer_user_id IS NOT NULL
+      THEN auth.uid() = p_organizer_user_id
+        OR public.org_member_has_permission(auth.uid(), p_organizer_user_id, 'view_finance')
+    WHEN p_kind = 'venue' AND p_venue_id IS NOT NULL
+      THEN EXISTS (SELECT 1 FROM public.venues v WHERE v.id = p_venue_id AND v.owner_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM public.manager_permissions mp
+                    WHERE mp.user_id = auth.uid() AND mp.venue_id = p_venue_id
+                      AND (COALESCE(mp.can_view_finance, false) OR COALESCE(mp.can_view_analytics, false)))
+    ELSE false
+  END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.unaccent_music_genre(p_raw text)

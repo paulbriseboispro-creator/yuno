@@ -6469,3 +6469,53 @@ Migrations `20261110100000` (lecture), `20261110110000` (MCP), `20261110120000`
 - **`_mcp_tool` ne se recopie pas** : la branche Billetterie de `get_web_traffic`
   est remplacée dans la définition vivante entre deux repères (la branche CRM est
   à la session CRM). Toute réécriture d'une branche de `_mcp_tool` suit ce modèle.
+
+## Yuno CRM › Analyses › Trafic : ce qui passe par Yuno, en personnes (2026-10-27)
+
+Plan : `docs/designs/TRAFFIC_TAB_PLAN.md` (sections 0, 1 CRM, 3), maquette validée par
+Paul. Migrations `20261112100000` → `130000`. Règles :
+
+- **Trafic se compte en personnes, Ventes en euros.** Trafic (`TrafficTab.tsx`,
+  RPC `crm_ana_clicks`) lit les clics des liens /go/ (`tracked_link_clicks` des
+  soirées miroirs de la portée), les clics des e-mails CRM et les visites des pages
+  /j/. UN seul pont vers l'argent (D1) : « Clic → achat » (commandes que Shotgun
+  rapporte avec une source `yuno…` ÷ personnes, dès 10 personnes, « en attente »
+  avant le premier billet rapporté, règle `confirmed` de `crm_night_links`) et la
+  phrase du bas de page (CA sous `_crm_money_gate`). Ce que la page Shotgun voit
+  reste `ShotgunSoonCard`, jamais estimé.
+- **Une personne = un visiteur, un jour, un lien** (D2, empreinte salée du jour) ;
+  pour un e-mail, une adresse, un jour, une campagne. L'écran le dit sous le chiffre.
+- **Familles de clics = emplacement du lien** (`_crm_ana_click_family` ⇄
+  `CLICK_FAMS`) : ys, yb, yt, pa (`utm_medium = 'partner'`), sm (`utm_source = 'sms'`),
+  yl (tout autre lien, bouton /j/ compris), em (e-mails). Ce n'est PAS
+  `_crm_ticket_source` (la source d'un billet), qui reste la vérité de Ventes.
+- `crm_ana_clicks(venue, orga, période, soirée, comparée)` : sans table temporaire
+  (lisible en aperçu démo), cases de `_crm_ana_setup` recalculées sur place. Mode
+  soirée : courbe cumulée J-span → J-0 contre la soirée comparée (`?ce=`, sinon la
+  précédente de la même série), arrêtée au même J-k quand la soirée est à venir.
+  Constats « À retenir » calculés en SQL (`_crm_ana_clicks_keep`, seuils dedans,
+  textes `yc.tr.tk.*`), jamais un conseil.
+- **`tracked_link_clicks.in_app`** (`instagram` | `facebook` | `tiktok` | `none`,
+  NULL = user-agent inconnu) posé par `crm_link_hit` et `record_tracked_link_click`
+  (`_link_in_app`). Le user-agent n'est pas gardé par /go/. « Ouvert dans
+  Instagram » ne se calcule que sur les clics au user-agent connu : jamais un NULL
+  compté « hors Instagram ».
+- **Le bouton « Billets » d'une page /j/ passe par un lien /go/ de la page**
+  (`crm_signup_pages.go_link_id`, lien `utm_source = 'yuno'`, `utm_medium = 'page'`,
+  créé par trigger à la mise en ligne, hors `_crm_link_kind_ok`) ;
+  `get_crm_signup_page` sert ce lien dans `event.ticket_url`.
+- **Ventes › « Ce qui a fait vendre »** (`MadeSell.tsx`, déplacé de l'ancien Trafic) :
+  ventes par source empilées, table des sources avec « Liens Yuno » dépliable,
+  carte noire des messages (le chiffre = source Shotgun d'un message ; le tableau =
+  clic dans les 7 jours, `_crm_email_attrib`), partenaires, nouveaux clients,
+  colonnes « Nouveaux » / « Via Yuno » des soirées. `crm_ana_traffic__core` n'a
+  reçu que des clés en plus (`links`, `messages`, `night_mix`) : le MCP la lit.
+- MCP : `get_web_traffic` d'un compte CRM rend aussi `clicks` (`_mcp_crm_clicks`,
+  sans série). `_mcp_tool` est patchée par REMPLACEMENT CIBLÉ de la branche CRM
+  (DO + `pg_get_functiondef` + replace), jamais recopiée : la Billetterie patche
+  sa branche de la même façon.
+- Banc : `node scripts/crm-bench/traffic.mjs demo` (sème liens, clics, e-mails,
+  pages, puis mesure) ; prod en transaction annulée : `rehearse.mjs
+  smoke/traffic.sql …`. Aide : FAQ `yc.faq.traffic.*`, article `crm-traffic`
+  (redéployer `owner-assistant`). Démo : `scripts/demo/seed-crm-links.sql` (heure,
+  appareil, pays, `in_app`, clics du bouton /j/).
