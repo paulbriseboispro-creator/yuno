@@ -106,6 +106,7 @@ export default defineConfig({
         // /assets/ — donc offline OK après usage, sans surcoût au boot.
         globIgnores: [
           'help/**',
+          'guide/**',
           'icon-1024.png',
           'assets/mapbox-gl-*.js',
           'assets/{fr,es,en}-*.js',
@@ -121,7 +122,8 @@ export default defineConfig({
         // l'IA qui se connecte atterrit sur la 404 de l'app.
         // /go/ = liens de partage Yuno CRM : la redirection vers Shotgun (et le
         // comptage du clic) se fait dans le Worker, jamais dans le cache du SW.
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/oauth\//, /^\/mcp(\/|$)/, /^\/\.well-known\//, /^\/go\//],
+        // /guide/ = modes d'emploi statiques (public/guide/), servis tels quels.
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/oauth\//, /^\/mcp(\/|$)/, /^\/\.well-known\//, /^\/go\//, /^\/guide\//],
         runtimeCaching: [
           {
             // Chunks de build hashés (JS/CSS immuables). CacheFirst : un chunk

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Door staff guide · Yuno Pro</title>
+<meta name="description" content="How to run the door of a night with Yuno Pro: set up your access with a code, scan each guest, read the colours, handle late guests and find a guest by name.">
+<link rel="canonical" href="https://yunoapp.eu/guide/bouncer/">
+<meta name="theme-color" content="#0A0A0A">
+<link rel="icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column. Two moments (once before the night / at the door), each
+   a strip of phone screens read left to right, one short line under each;
+   the colour cheat sheet is the centre of the page. */
+:root {
+  --bg: #0A0A0A;
+  --surface: #141416;
+  --surface-2: #1C1C1F;
+  --line: rgba(255, 255, 255, 0.09);
+  --fg: #F4F4F5;
+  --fg-2: #A1A1AA;
+  --fg-3: #6B6B73;
+  --accent: #E8192C;
+  --ok: #16A34A;
+  --warn: #EAB308;
+  --late: #C2410C;
+  --bad: #DC2626;
+  --display: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --body: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(10,10,10,0.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.topbar .bar { display: flex; align-items: center; gap: 14px; padding-block: 12px; }
+.topbar img { height: 20px; width: auto; display: block; }
+.topbar .sep { width: 1px; height: 16px; background: var(--line); }
+.topbar .label { font: 500 14px var(--display); color: var(--fg-2); }
+.jump { display: flex; gap: 6px; overflow-x: auto; padding-block: 0 12px; scrollbar-width: none; }
+.jump::-webkit-scrollbar { display: none; }
+.jump a { flex: none; text-decoration: none; font: 500 13px var(--body); color: var(--fg-2); padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; }
+.jump a:hover { color: var(--fg); background: var(--surface); }
+
+header.hero { padding-block: 40px 8px; }
+.crumbs { font: 500 12px var(--mono); color: var(--fg-3); letter-spacing: 0.06em; text-transform: uppercase; }
+h1 { font: 700 clamp(30px, 5vw, 46px)/1.05 var(--display); letter-spacing: -0.02em; margin: 12px 0 12px; text-wrap: balance; }
+.lead { font-size: 18px; color: var(--fg-2); margin: 0; max-width: 58ch; }
+
+.moments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 28px 0 0; }
+.moment { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; text-decoration: none; display: flex; flex-direction: column; gap: 4px; }
+.moment:hover { border-color: rgba(255,255,255,0.2); }
+.moment .when { font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.moment .what { font: 700 18px/1.25 var(--display); }
+.moment .how { font-size: 14px; color: var(--fg-2); }
+
+section { padding-block: 56px 0; scroll-margin-top: 110px; }
+.sec-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+.sec-head .when { font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); }
+h2 { font: 700 clamp(24px, 3.4vw, 32px)/1.1 var(--display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.sec-head p { margin: 0; color: var(--fg-2); max-width: 60ch; }
+
+/* Strip of screens: swipe on a phone, a row on a computer. */
+.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 34px 22px; padding: 12px 2px 4px 8px; }
+.frame { scroll-snap-align: start; margin: 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.frame .pic { position: relative; aspect-ratio: 3 / 4; border-radius: 22px; border: 1px solid rgba(255,255,255,0.12); background: #050505; }
+.frame img { position: absolute; inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); object-fit: contain; display: block; border-radius: 14px; }
+.frame .n { z-index: 1; }
+.frame .n { position: absolute; top: -10px; left: -8px; min-width: 32px; height: 32px; padding: 0 8px; border-radius: 999px; background: var(--accent); color: #fff; font: 700 15px var(--display); display: grid; place-items: center; box-shadow: 0 0 0 4px var(--bg); }
+.frame figcaption { font-size: 15px; line-height: 1.45; }
+.frame figcaption b { font-weight: 600; }
+.frame figcaption .sub { display: block; color: var(--fg-2); font-size: 13.5px; margin-top: 4px; }
+.swipe { display: none; font: 500 12px var(--mono); color: var(--fg-3); margin-top: 4px; }
+.btn { display: inline-block; padding: 0 7px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); font-weight: 600; font-size: 0.93em; white-space: nowrap; }
+
+.note { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; color: var(--fg-2); font-size: 14.5px; max-width: 72ch; }
+.note b { color: var(--fg); }
+
+/* Colour cheat sheet */
+.sheet { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.chip-card { border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-width: 0; }
+.chip-card .band { padding: 14px 14px 12px; color: #fff; display: flex; flex-direction: column; gap: 2px; }
+.chip-card .band .c { font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.85; }
+.chip-card .band .do { font: 700 20px/1.1 var(--display); letter-spacing: 0.01em; text-transform: uppercase; }
+.chip-card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.chip-card .shot { position: relative; aspect-ratio: 4 / 5; background: #050505; border-radius: 14px; }
+.chip-card img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; border-radius: 12px; display: block; }
+.chip-card p { margin: 0; font-size: 14px; color: var(--fg-2); }
+.chip-card p b { color: var(--fg); }
+
+.faq { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0 18px; }
+.faq summary { cursor: pointer; font-weight: 600; padding: 14px 0; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--fg-3); font: 500 18px var(--mono); }
+.faq details[open] summary::after { content: "–"; }
+.faq details p { margin: 0 0 16px; color: var(--fg-2); }
+
+footer { margin-top: 72px; padding-block: 24px 64px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 13px; }
+
+@media (max-width: 980px) {
+  .sheet { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .moments { grid-template-columns: minmax(0, 1fr); }
+  .strip { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 76%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 10px; }
+  .swipe { display: block; }
+  .sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 460px) {
+  .sheet { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="wrap bar">
+    <img src="/yuno-wordmark.png" alt="Yuno">
+    <span class="sep" aria-hidden="true"></span>
+    <span class="label">Help Center · Door staff</span>
+  </div>
+  <nav class="wrap jump" aria-label="Sections">
+    <a href="#setup">1. Set up</a>
+    <a href="#scan">2. Scan</a>
+    <a href="#colours">3. The colours</a>
+    <a href="#late">Late guest</a>
+    <a href="#noqr">No QR code</a>
+    <a href="#signin">Sign in again</a>
+    <a href="#help">Problems</a>
+  </nav>
+</div>
+
+<main class="wrap">
+  <header class="hero">
+    <div class="crumbs">Help Center / Door staff</div>
+    <h1>Run the door with Yuno Pro</h1>
+    <p class="lead">You got an email inviting you to scan tickets at a night. Here is everything you need, in three parts.</p>
+    <div class="moments">
+      <a class="moment" href="#setup">
+        <span class="when">Before the night · once</span>
+        <span class="what">1. Set up your access</span>
+        <span class="how">5 minutes on your iPhone. No password.</span>
+      </a>
+      <a class="moment" href="#scan">
+        <span class="when">At the door</span>
+        <span class="what">2. Scan each guest</span>
+        <span class="how">Point the camera at their QR code.</span>
+      </a>
+      <a class="moment" href="#colours">
+        <span class="when">At the door</span>
+        <span class="what">3. Follow the colour</span>
+        <span class="how">Green: in. Yellow or red: stop. Orange: you decide.</span>
+      </a>
+    </div>
+  </header>
+
+  <section id="setup">
+    <div class="sec-head">
+      <span class="when">Before the night · once</span>
+      <h2>1. Set up your access</h2>
+      <p>You need your iPhone and access to the email address the invitation was sent to. Do it before the doors open.</p>
+    </div>
+    <div class="strip">
+      <figure class="frame mail">
+        <div class="pic"><span class="n">1</span><img src="/guide/bouncer/img/01-mail-invite.webp" alt="Invitation email with Get Yuno Pro and Open my invitation buttons" loading="lazy"></div>
+        <figcaption><b>Open the email from Yuno.</b><span class="sub">Tap <span class="btn">Get Yuno Pro</span> and install the app.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">2</span><img src="/guide/bouncer/img/c-03-app-invite.webp" alt="The invitation open in Yuno Pro with Get my code" loading="lazy"></div>
+        <figcaption><b>Back in the email, tap <span class="btn">Open my invitation</span>.</b><span class="sub">Yuno Pro opens. Tap <span class="btn">Get my code</span>.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">3</span><img src="/guide/bouncer/img/c-05-app-code-typing.webp" alt="Typing the 8-digit code" loading="lazy"></div>
+        <figcaption><b>Type the 8-digit code from your email.</b><span class="sub">The email is titled “Your Yuno code”. You are signed in at the 8th digit.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">4</span><img src="/guide/bouncer/img/c-06-welcome.webp" alt="Welcome screen with Let's go" loading="lazy"></div>
+        <figcaption><b>Tap <span class="btn">Let's go</span>.</b><span class="sub">This screen only shows the first time.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">5</span><img src="/guide/bouncer/img/c-07-scanner-home.webp" alt="The scanner screen, Online" loading="lazy"></div>
+        <figcaption><b>You are ready.</b><span class="sub">“Online” in green and the number of guests expected tonight.</span></figcaption>
+      </figure>
+    </div>
+    <div class="swipe">Swipe to see the next step →</div>
+    <div class="note"><b>The link opened in Safari?</b> Install Yuno Pro, then tap <span class="btn">2. Open this invitation in Yuno Pro</span> on that page. <b>No iPhone?</b> Tap <span class="btn">Continue in the browser</span>: you can scan from any phone.</div>
+  </section>
+
+  <section id="scan">
+    <div class="sec-head">
+      <span class="when">At the door</span>
+      <h2>2. Scan each guest</h2>
+      <p>On the night, open Yuno Pro and tap the card with the name of the night. One ticket is one person: each guest shows their own QR code.</p>
+    </div>
+    <div class="strip short">
+      <figure class="frame">
+        <div class="pic"><span class="n">1</span><img src="/guide/bouncer/img/c-16-pro-home.webp" alt="Yuno Pro home with the Enter card for the night" loading="lazy"></div>
+        <figcaption><b>Tap <span class="btn">Enter</span>, then <span class="btn">Start Scanning</span>.</b></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">2</span><img src="/guide/bouncer/img/08-camera.webp" alt="Camera view with the frame" loading="lazy"></div>
+        <figcaption><b>Put the guest's QR code in the frame.</b><span class="sub">One beep, “Checking the ticket…”, then the result.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">3</span><img src="/guide/bouncer/img/c-card-single.webp" alt="Green card with Next guest button" loading="lazy"></div>
+        <figcaption><b>Do what the colour says, then tap <span class="btn">Next guest</span>.</b><span class="sub">Tapping elsewhere does nothing: no guest is skipped by accident.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="colours">
+    <div class="sec-head">
+      <span class="when">At the door</span>
+      <h2>3. Follow the colour</h2>
+      <p>Each colour has one meaning. Read the big words at the top of the card.</p>
+    </div>
+    <div class="sheet">
+      <div class="chip-card">
+        <div class="band" style="background: var(--ok)"><span class="c">Green + yellow banner</span><span class="do">Let in + drink</span></div>
+        <div class="body"><div class="shot"><img src="/guide/bouncer/img/c-card-single.webp" alt="Green card with Give 1 free drink" loading="lazy"></div><p><b>Let the person in</b> and give the free drink (or the token the club uses).</p></div>
+      </div>
+      <div class="chip-card">
+        <div class="band" style="background: var(--ok)"><span class="c">Green</span><span class="do">Let in</span></div>
+        <div class="body"><div class="shot"><img src="/guide/bouncer/img/c-card-nodrink.webp" alt="Green card without drink" loading="lazy"></div><p><b>Let the person in.</b> No drink with this ticket.</p></div>
+      </div>
+      <div class="chip-card">
+        <div class="band" style="background: var(--warn); color: #1a1a1a"><span class="c">Yellow</span><span class="do">Stop</span></div>
+        <div class="body"><div class="shot"><img src="/guide/bouncer/img/c-card-already.webp" alt="Yellow card already scanned" loading="lazy"></div><p><b>Already used</b> at the time shown. Do not let in. Call the manager if they insist.</p></div>
+      </div>
+      <div class="chip-card">
+        <div class="band" style="background: var(--late)"><span class="c">Orange</span><span class="do">You decide</span></div>
+        <div class="body"><div class="shot"><img src="/guide/bouncer/img/c-late-1-choice.webp" alt="Orange card with Deny entry and Let in" loading="lazy"></div><p><b>Late guest.</b> Follow the club's rule: see <a href="#late">Late guest</a>.</p></div>
+      </div>
+      <div class="chip-card">
+        <div class="band" style="background: var(--bad)"><span class="c">Red</span><span class="do">Stop</span></div>
+        <div class="body"><div class="shot"><img src="/guide/bouncer/img/c-card-denied.webp" alt="Red card ticket not found" loading="lazy"></div><p><b>Not valid</b> (the reason is on the card). Try their name in <a href="#noqr">the list</a> first.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="late">
+    <div class="sec-head">
+      <span class="when">Orange card</span>
+      <h2>Late guest</h2>
+      <p>Some tickets are only valid before a time, for example “Before 1 AM”. The card shows the limit and how late the guest is, and waits for your choice.</p>
+    </div>
+    <div class="strip short">
+      <figure class="frame">
+        <div class="pic"><span class="n">1</span><img src="/guide/bouncer/img/c-late-1-choice.webp" alt="Orange card: Deny entry or Let in" loading="lazy"></div>
+        <figcaption><b>Tap <span class="btn">Let in</span> or <span class="btn">Deny entry</span>.</b><span class="sub">Nothing is validated before you choose.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">2a</span><img src="/guide/bouncer/img/c-late-3-letin.webp" alt="Card turns green after Let in" loading="lazy"></div>
+        <figcaption><b>Let in: the card turns green.</b><span class="sub">Give the drink if the banner shows, then <span class="btn">Next guest</span>.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">2b</span><img src="/guide/bouncer/img/c-late-2-refund.webp" alt="Refund or Don't refund" loading="lazy"></div>
+        <figcaption><b>Deny entry: refund or not.</b><span class="sub"><span class="btn">Refund</span> only if the club told you to. <span class="btn">Don't refund</span> keeps the ticket as it is.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="noqr">
+    <div class="sec-head">
+      <span class="when">Phone dead, no QR code</span>
+      <h2>Find the guest by name</h2>
+    </div>
+    <div class="strip short">
+      <figure class="frame">
+        <div class="pic"><span class="n">1</span><img src="/guide/bouncer/img/12-list.webp" alt="The List tab" loading="lazy"></div>
+        <figcaption><b>Tap the <span class="btn">List</span> tab.</b><span class="sub">Every guest of the night, A to Z: tickets, guest list and VIP tables (each person of a table, listed after the name of the booking).</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">2</span><img src="/guide/bouncer/img/13-list-search.webp" alt="Searching Chloe" loading="lazy"></div>
+        <figcaption><b>Type the name, check their ID, tap <span class="btn">Let in</span>.</b><span class="sub">Same card and same checks as a scan, for a ticket, a guest list name or a table guest. A late or refused guest shows at the top, above the list.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="signin">
+    <div class="sec-head">
+      <span class="when">New phone, signed out</span>
+      <h2>Sign in again</h2>
+      <p>As many times as you need, with a new code.</p>
+    </div>
+    <div class="strip short">
+      <figure class="frame">
+        <div class="pic"><span class="n">1</span><img src="/guide/bouncer/img/c-14-signin.webp" alt="Sign-in screen with Get a code by email" loading="lazy"></div>
+        <figcaption><b>Open Yuno Pro, tap <span class="btn">Get a code by email</span>.</b><span class="sub">Type the email the invitation was sent to.</span></figcaption>
+      </figure>
+      <figure class="frame">
+        <div class="pic"><span class="n">2</span><img src="/guide/bouncer/img/c-16-pro-home.webp" alt="Home with the Enter card" loading="lazy"></div>
+        <figcaption><b>Type the new code, then tap <span class="btn">Enter</span>.</b><span class="sub">Your access ends 6 hours after the night.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="help">
+    <div class="sec-head">
+      <span class="when">If something goes wrong</span>
+      <h2>Problems and fixes</h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>The code email does not arrive</summary>
+        <p>Wait one minute, check your spam folder, then tap “Send a new code”. You can ask for 4 codes every 15 minutes. Always use the most recent code.</p>
+      </details>
+      <details>
+        <summary>“This invitation was sent to …”</summary>
+        <p>You are signed in with another email address. Tap “Use another account”, then sign in with the address the invitation was sent to.</p>
+      </details>
+      <details>
+        <summary>The camera does not start</summary>
+        <p>Open the iPhone Settings, then Yuno Pro, and turn on Camera. Come back and tap “Start Scanning”.</p>
+      </details>
+      <details>
+        <summary>The network drops</summary>
+        <p>Keep scanning. The phone checks tickets against its own copy of the list and sends the scans when the network is back. The status shows “Offline” meanwhile.</p>
+      </details>
+      <details>
+        <summary>A guest with a red card insists they paid</summary>
+        <p>Search their name in the List tab. If they are not there, ask for their confirmation email and call the club manager. Never let someone in on a red card without the manager's OK.</p>
+      </details>
+      <details>
+        <summary>“This night is over: the invitation no longer works”</summary>
+        <p>An invitation is for one night and stops 6 hours after it ends. Ask the club for a new one for the next night.</p>
+      </details>
+    </div>
+  </section>
+
+  <footer>Yuno Help Center · Door staff · Screenshots from a demo night in Yuno Pro.</footer>
+</main>
+
+</body>
+</html>
