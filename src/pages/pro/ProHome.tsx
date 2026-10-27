@@ -489,7 +489,7 @@ export default function ProHome() {
         <motion.div {...rise(0.54)} className="mt-9 flex flex-col items-center gap-2">
           <span className="h-px w-8" style={{ background: BORDER }} />
           <p className="font-mono uppercase" style={{ color: T3, fontSize: 10, letterSpacing: '0.14em' }}>
-            {t('proapp.tagline')}
+            {t(DRINKS_PILLAR_LIVE ? 'proapp.tagline' : 'proapp.taglineTwoPillars')}
           </p>
         </motion.div>
       </div>

@@ -10974,6 +10974,7 @@ const en: Record<string, string> = {
   'proapp.noEventTonight': 'No event tonight yet',
   'proapp.noEventHint': 'Tonight’s numbers appear here once the night opens.',
   'proapp.tagline': 'Tickets · Tables · Drinks',
+  'proapp.taglineTwoPillars': 'Tickets · Tables',
   'proapp.logout': 'Log out',
   'proapp.pushPrompt': 'Enable notifications to get alerted about arrivals and orders.',
   'proapp.pushEnabled': 'Notifications enabled',

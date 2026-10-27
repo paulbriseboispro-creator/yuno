@@ -11088,6 +11088,7 @@ const es: Record<string, string> = {
   'proapp.noEventTonight': 'Aún no hay evento esta noche',
   'proapp.noEventHint': 'Los números de la noche aparecerán aquí al abrir la noche.',
   'proapp.tagline': 'Entradas · Mesas · Copas',
+  'proapp.taglineTwoPillars': 'Entradas · Mesas',
   'proapp.logout': 'Cerrar sesión',
   'proapp.pushPrompt': 'Activa las notificaciones para recibir alertas de llegadas y pedidos.',
   'proapp.pushEnabled': 'Notificaciones activadas',
