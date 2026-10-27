@@ -4926,6 +4926,7 @@ const fr: Record<string, string> = {
   'bouncer.quantity': 'Quantité',
   'bouncer.scanNext': 'Scanner Suivant',
   'bouncer.rapidHint': 'Alignez le QR dans le cadre',
+  'bouncer.rapidChecking': 'Vérification du billet…',
   'bouncer.tapToContinue': 'Toucher pour continuer',
   'bouncer.tapToSkip': 'Toucher pour passer',
   'bouncer.exitScan': 'Quitter le scan',

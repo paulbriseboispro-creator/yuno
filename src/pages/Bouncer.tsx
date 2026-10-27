@@ -10,7 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
 import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
-import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList, Loader2 } from 'lucide-react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry, computeLateness, drinkCutoffOf, entryHeadcount, wholeTicketDoorState, wholeTableDoorState } from '@/lib/scan/rules';
@@ -187,10 +187,16 @@ const REFUND_REASONS = {
 
 /**
  * Budget du chemin EN LIGNE d'un scan quand le téléphone peut trancher seul
- * (Yuno Pro, liste de la soirée téléchargée). Un scan normal prend 1 à 2 s ;
- * au-delà de ce budget, le réseau du club ne répond plus vraiment.
+ * (Yuno Pro, liste de la soirée téléchargée). Un scan en ligne prend 0,2 à
+ * 0,6 s depuis le 27/10 (recherches en parallèle, accès aux places en une
+ * passe) ; au-delà de 1,5 s, le réseau du club traîne et la liste du téléphone
+ * répond — c'est ce que font les scanners de porte pro (Shotgun Scan,
+ * CodeREADr) : la porte n'attend jamais le réseau. Mêmes règles, scan mis en
+ * file et rejoué au retour du réseau. Une réponse qui arrive quand même côté
+ * serveur n'entre pas deux fois : la synchro voit l'entrée et la classe en
+ * « déjà scanné » dans la file, jamais une seconde entrée.
  */
-const SCAN_ONLINE_BUDGET_MS = 7_000;
+const SCAN_ONLINE_BUDGET_MS = 1_500;
 /** Après un scan tombé en panne réseau, les suivants partent hors ligne pendant ce délai. */
 const WEAK_NETWORK_MS = 45_000;
 
@@ -335,10 +341,12 @@ export default function Bouncer() {
   const rapidModeRef = useRef(false);
   /** Porte de frame : tant qu'un scan est en cours de traitement, les frames suivantes sont ignorées. */
   const processingRef = useRef(false);
-  /** Dernier code traité + horodatage du réarmement : le même code re-présenté dans les 3 s est ignoré (double lecture du billet encore sous la caméra) ; un code différent scanne immédiatement. */
-  const lastCodeRef = useRef<{ code: string; at: number } | null>(null);
-  /** Code brut de la frame en cours de traitement, mémorisé pour armer le cooldown d'advanceRapid. */
-  const pendingCodeRef = useRef<string | null>(null);
+  /**
+   * QR lu, verdict pas encore arrivé (lecture en base, 0,5 à 2 s sur le réseau
+   * d'un club) : l'écran le DIT tout de suite. Sans ça, le bip partait et le
+   * viseur restait figé jusqu'à la carte — le videur croyait que rien n'était lu.
+   */
+  const [rapidChecking, setRapidChecking] = useState(false);
 
   /**
    * Contexte affiché sous un refus, pour que le videur puisse l'expliquer au
@@ -443,6 +451,7 @@ export default function Bouncer() {
    * n'a jamais cessé de tourner (`scanning` reste true tout du long).
    */
   const advanceRapid = useCallback(() => {
+    setRapidChecking(false);
     setScannedTicket(null);
     setScannedVipReservation(null);
     setScanResult(null);
@@ -453,11 +462,6 @@ export default function Bouncer() {
     // scans sinon le bandeau or s'affiche pour le client suivant.
     setTopClientInfo(null);
     setPendingTicketHolderName(undefined);
-    // Cooldown 3 s sur le code qu'on vient de traiter : le billet encore
-    // sous la caméra ne doit pas se re-scanner tout seul au réarmement.
-    if (pendingCodeRef.current) {
-      lastCodeRef.current = { code: pendingCodeRef.current, at: Date.now() };
-    }
     processingRef.current = false;
   }, [setScannedTicket, setScanResult]);
 
@@ -479,9 +483,17 @@ export default function Bouncer() {
     setScanning(false);
     setCameraIssue(null);
     processingRef.current = false;
-    lastCodeRef.current = null;
-    pendingCodeRef.current = null;
+    setRapidChecking(false);
   };
+
+  // Filet : une vérification ne dure jamais 20 s (le réseau a 7 s, puis la
+  // liste hors ligne répond). Si un chemin oubliait de rendre un verdict, la
+  // porte se réarme seule au lieu de rester bloquée sur « Vérification ».
+  useEffect(() => {
+    if (!rapidMode || !rapidChecking || scanResult) return;
+    const timer = setTimeout(advanceRapid, 20000);
+    return () => clearTimeout(timer);
+  }, [rapidMode, rapidChecking, scanResult, advanceRapid]);
 
   // Verrou du scroll du body tant que la couche plein écran est montée.
   useEffect(() => {
@@ -1000,9 +1012,17 @@ export default function Bouncer() {
     // payait devant la porte, alors que le hors ligne sait répondre tout de suite.
     const retries = canDecideOffline ? 1 : 3;
 
+    // Toutes les recherches partent EN MÊME TEMPS (place nominative, billet,
+    // ticket de table, réservation) : en file, un QR de groupe ou de table
+    // payait 3 à 4 allers-retours avant sa carte, et un QR inconnu 4 échecs de
+    // suite. Un QR de guest list (GL-) ne peut être aucun des autres : il va
+    // droit à sa recherche. On attend ensuite dans l'ordre d'origine : la
+    // première trouvée décide, comme avant.
+    const isGuestListQr = qrCode.startsWith('GL-');
+    const none = Promise.resolve({ data: null, error: null });
+    const startQuery = <T,>(q: PromiseLike<T>): Promise<T> => Promise.resolve(q);
     try {
-      // First try to find a ticket_attendee with this qr_code (nominative tickets)
-      const { data: attendee, error: attendeeError } = await sig(supabase
+      const attendeeP = isGuestListQr ? none : startQuery(sig(supabase
         .from('ticket_attendees')
         .select(`
           id, full_name, qr_code, entry_scanned, entry_scanned_at, ticket_id, refunded_at,
@@ -1014,7 +1034,36 @@ export default function Bouncer() {
           )
         `)
         .eq('qr_code', qrCode))
-        .maybeSingle();
+        .maybeSingle());
+      const ticketP = isGuestListQr ? none : startQuery(sig(supabase
+        .from('tickets')
+        .select(`
+          *,
+          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
+          ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
+        `)
+        .eq('qr_code', qrCode))
+        .maybeSingle());
+      // La recherche du ticket de table LÈVE sur une panne : son erreur est
+      // tenue jusqu'au moment où on l'attend (jamais une promesse rejetée orpheline).
+      const tableGuestP = isGuestListQr
+        ? Promise.resolve({ value: null as Awaited<ReturnType<typeof findTableGuestByQr>>, error: null as unknown })
+        : findTableGuestByQr(qrCode, signal).then(
+          (value) => ({ value, error: null as unknown }),
+          (error: unknown) => ({ value: null, error }),
+        );
+      const reservationByQrP = isGuestListQr ? none : startQuery(sig(supabase
+        .from('table_reservations')
+        .select(`
+          *,
+          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id),
+          table_zones(name),
+          table_packs(name, arrival_deadline)
+        `)
+        .eq('qr_code', qrCode))
+        .maybeSingle());
+
+      const { data: attendee, error: attendeeError } = await attendeeP;
       // Une lecture en échec n'est JAMAIS « pas un billet » : sans ce throw, une
       // coupure finissait en « Entrée non trouvée » sur un billet valable.
       if (attendeeError) throw attendeeError;
@@ -1231,15 +1280,7 @@ export default function Bouncer() {
       }
 
       // Fallback: try to find a ticket with this qr_code (legacy / single tickets)
-      const { data: ticket, error: ticketError } = await sig(supabase
-        .from('tickets')
-        .select(`
-          *,
-          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
-          ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
-        `)
-        .eq('qr_code', qrCode))
-        .maybeSingle();
+      const { data: ticket, error: ticketError } = await ticketP;
       if (ticketError) throw ticketError;
 
       if (ticket) {
@@ -1458,17 +1499,23 @@ export default function Bouncer() {
 
       // Table VIP : le ticket d'UNE personne (titulaire ou Invité k), sinon le QR
       // de la réservation entière.
-      const tableGuest = await findTableGuestByQr(qrCode, signal);
-      const { data: reservation, error: reservationError } = await sig(supabase
-        .from('table_reservations')
-        .select(`
-          *,
-          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id),
-          table_zones(name),
-          table_packs(name, arrival_deadline)
-        `)
-        .eq(tableGuest ? 'id' : 'qr_code', tableGuest ? tableGuest.reservation_id : qrCode))
-        .maybeSingle();
+      const tableGuestRes = await tableGuestP;
+      if (tableGuestRes.error) throw tableGuestRes.error;
+      const tableGuest = tableGuestRes.value;
+      // Ticket d'UN invité : sa réservation se lit par son id (seul cas qui
+      // attend une seconde recherche) ; sinon, celle lancée sur le QR.
+      const { data: reservation, error: reservationError } = tableGuest
+        ? await sig(supabase
+          .from('table_reservations')
+          .select(`
+            *,
+            events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id),
+            table_zones(name),
+            table_packs(name, arrival_deadline)
+          `)
+          .eq('id', tableGuest.reservation_id))
+          .maybeSingle()
+        : await reservationByQrP;
       if (reservationError) throw reservationError;
 
       if (reservation) {
@@ -1995,20 +2042,21 @@ export default function Bouncer() {
 
         if (value) {
           if (rapidModeRef.current) {
-            // Un scan en cours de traitement absorbe les frames suivantes.
-            if (processingRef.current) return;
-            // Même code dans les 3 s après réarmement : double lecture du
-            // billet encore sous la caméra, on ignore. Un code différent
-            // (client suivant) passe immédiatement.
-            if (lastCodeRef.current && value === lastCodeRef.current.code && Date.now() - lastCodeRef.current.at < 3000) return;
+            // Un scan en cours (ou son verdict encore affiché) : le code n'est
+            // pas pris. Le scanner le reproposera sans bip une fois l'écran
+            // réarmé — le client suivant passe dès le tap. Le billet qu'on
+            // vient de traiter, lui, reste « déjà vu » tant qu'il reste sous la
+            // caméra (règle de présence, src/lib/scan/qrPresence.ts) : retiré
+            // puis re-présenté, il est relu et affiche « déjà scanné ».
+            if (processingRef.current) return false;
             processingRef.current = true;
-            pendingCodeRef.current = value;
+            setRapidChecking(true);
             onScanSuccess(value);
           } else {
             // Flux classique : les 2-3 frames qui suivent la lecture arrivent
             // avant que la caméra ne soit démontée. Sans ce verrou, le même QR
             // part deux fois : « succès » puis « déjà scanné » qui écrase la carte.
-            if (classicLockRef.current) return;
+            if (classicLockRef.current) return false;
             classicLockRef.current = true;
             Promise.resolve(onScanSuccess(value)).finally(() => {
               classicLockRef.current = false;
@@ -2029,7 +2077,6 @@ export default function Bouncer() {
         // finder: false — le viseur rouge pointillé de la lib doublonne (et
         // jure) avec notre cadre blanc ; on ne garde que le nôtre.
         finder: false,
-        tracker: undefined,
       }}
       constraints={{
         facingMode: 'environment',
@@ -3042,8 +3089,22 @@ export default function Bouncer() {
             </div>
           </div>
 
+          {/* QR lu, verdict en route : retour immédiat, au centre du viseur. */}
+          {rapidChecking && !scanResult && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <span
+                role="status"
+                className="flex items-center gap-2.5 rounded-full px-5 py-3 text-[15px] font-semibold text-white"
+                style={{ background: 'rgba(0,0,0,0.78)', border: '1px solid rgba(255,255,255,0.18)' }}
+              >
+                <Loader2 className="h-5 w-5 animate-spin" />
+                {t('bouncer.rapidChecking')}
+              </span>
+            </div>
+          )}
+
           {/* Consigne bas d'écran pendant la visée */}
-          {!scanResult && (
+          {!scanResult && !rapidChecking && (
             <div
               className="pointer-events-none absolute inset-x-0 bottom-0 px-6 text-center"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)', color: T2, fontSize: 14 }}

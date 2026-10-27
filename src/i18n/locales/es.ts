@@ -5152,6 +5152,7 @@ const es: Record<string, string> = {
   'bouncer.quantity': 'Cantidad',
   'bouncer.scanNext': 'Escanear Siguiente',
   'bouncer.rapidHint': 'Alinea el código QR en el marco',
+  'bouncer.rapidChecking': 'Comprobando la entrada…',
   'bouncer.tapToContinue': 'Toca para continuar',
   'bouncer.tapToSkip': 'Toca para pasar',
   'bouncer.exitScan': 'Salir del escaneo',

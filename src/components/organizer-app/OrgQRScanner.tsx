@@ -12,9 +12,8 @@ interface Props {
 }
 
 /**
- * QR scanner used inside the organizer Console. Shares the exact same library
- * (@yudiel/react-qr-scanner) as the bouncer / barman / cloakroom scanners
- * so we keep one battle-tested camera pipeline across the platform.
+ * QR scanner used inside the organizer Console. Shares the exact same camera
+ * pipeline (`@/lib/qrScanner`) as the bouncer / barman / cloakroom scanners.
  */
 export default function OrgQRScanner({ onScan }: Props) {
   const { language } = useLanguage();
