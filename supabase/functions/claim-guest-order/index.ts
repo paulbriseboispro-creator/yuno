@@ -506,13 +506,21 @@ serve(async (req) => {
         .delete()
         .eq("order_id", purchase.id);
 
-      await supabaseAdmin
+      const { error: otpInsertError } = await supabaseAdmin
         .from("guest_claim_otps")
         .insert({
           order_id: purchase.id,
           email: purchase.email,
           otp_code: otp,
         });
+      // Un code qui n'est pas en base ne se vérifiera jamais : ne pas l'envoyer.
+      if (otpInsertError) {
+        logStep("OTP insert failed", { purchaseId: purchase.id, type, error: otpInsertError.message });
+        return new Response(
+          JSON.stringify({ error: "Échec de l'envoi du code, réessaie" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
 
       const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
       const from = rawFrom
