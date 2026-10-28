@@ -112,7 +112,7 @@ export default function ClaimOrder() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('claim-guest-order', {
-        body: { action: 'lookup', orderNumber: fullReference(), lastName: lastName.trim(), purchaseType },
+        body: { action: 'lookup', orderNumber: fullReference(), lastName: lastName.trim(), purchaseType, lang: language },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
