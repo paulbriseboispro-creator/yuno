@@ -27,7 +27,7 @@ import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { VenueFloorPlan } from '@/types';
 import { useEventScarcity, type ScarcitySettings } from '@/hooks/useScarcitySettings';
-import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { guestListScarcity, scarcityBadgeText, ticketRemainingCounter } from '@/lib/guestListScarcity';
 import { isPackSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
@@ -1111,9 +1111,12 @@ function TicketCard({
   const remaining = effectiveMax - effectiveSold;
   const percentSold = effectiveMax > 0 ? (effectiveSold / effectiveMax) * 100 : 0;
   const showUrgencyBadge = scarcity?.low_stock_enabled && !scarcity?.show_remaining_count && !isSoldOut && percentSold >= (scarcity?.low_stock_percent ?? 80);
-  const showRemainingCount = scarcity?.show_remaining_count && !scarcity?.low_stock_enabled && !isSoldOut && remaining < effectiveMax;
-  const perRoundCap = scarcity?.display_caps_per_round?.[round.id];
-  const displayRemaining = scarcity?.display_cap_enabled && perRoundCap ? Math.min(remaining, perRoundCap) : remaining;
+  // Compteur (mode Rareté & FOMO) : règle unique, plafond saisi compris. Jamais
+  // de nombre sur un billet épuisé, « Bientôt » ou dont la vente est terminée.
+  const displayRemaining = ticketRemainingCounter(scarcity, {
+    id: round.id, remaining, maxTickets: effectiveMax, soldOut: isSoldOut, previewOnly, ended,
+  });
+  const showRemainingCount = displayRemaining !== null;
   const hasRealLimit = effectiveMax < 999999;
   const emojiEnabled = scarcity?.emoji_enabled ?? true;
 

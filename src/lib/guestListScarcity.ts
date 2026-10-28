@@ -51,6 +51,30 @@ export function ticketScarcityBadge(
   return { label: settings.low_stock_label, emoji: settings.emoji_enabled };
 }
 
+/**
+ * Compteur de places d'un palier de billets, pour la page de CHOIX du billet
+ * (mode Compteur de Rareté & FOMO). Rend le nombre à afficher, ou NULL = rien.
+ *  • Un billet épuisé, « Bientôt » ou en vente terminée n'affiche JAMAIS de
+ *    nombre : l'état se lit sur sa pastille.
+ *  • Un plafond saisi pour ce billet (`display_caps_per_round`, plafonnage
+ *    activé) est une instruction explicite d'afficher ce nombre, même quand
+ *    rien n'est encore vendu — sinon « Plus que 18 places » ne s'affichait
+ *    qu'après la première vente. Le chiffre n'excède jamais le vrai restant.
+ *  • Sans plafond, le vrai restant ne se montre qu'une fois la vente entamée.
+ *  • Un palier sans limite réelle (≥ 999 999) ne montre rien.
+ */
+export function ticketRemainingCounter(
+  settings: ScarcitySettings | null | undefined,
+  round: { id: string; remaining: number; maxTickets: number; soldOut?: boolean; previewOnly?: boolean; ended?: boolean },
+): number | null {
+  if (!settings || round.soldOut || round.previewOnly || round.ended) return null;
+  if (!settings.show_remaining_count || settings.low_stock_enabled) return null;
+  if (round.maxTickets <= 0 || round.maxTickets >= 999999 || round.remaining <= 0) return null;
+  const cap = settings.display_cap_enabled ? settings.display_caps_per_round?.[round.id] : undefined;
+  if (typeof cap === 'number' && cap > 0) return Math.min(round.remaining, cap);
+  return round.remaining < round.maxTickets ? round.remaining : null;
+}
+
 export interface GuestListScarcityInput {
   /** Clé du plafond : id de la part, ou `<id>:female` / `<id>:male`. */
   capKey: string;
