@@ -373,24 +373,35 @@ export async function buildTicketRoster(
     });
     seats = rows.length;
 
-    // Billets sans porteur nommé (achats anciens ou non nominatifs) : on retombe
-    // sur l'acheteur, sinon ces places disparaissent de la liste de porte.
-    const covered = new Set((attendees ?? []).map((a) => a.ticket_id));
-    for (const t of ticketList) {
-      if (covered.has(t.id)) continue;
-      rows.push({
-        attendee: t.full_name ?? '',
-        buyer: t.full_name ?? '',
-        round: roundOf(t),
-        qty: t.quantity ?? 1,
-        status: TK_STATUS[lang][t.status] ?? t.status,
-        email: t.user_email ?? '',
-        phone: t.phone ?? '',
-        code: t.reference_code ?? '',
-        scanned: t.entry_scanned ? (fmtTime(t.entry_scanned_at, ev) || '✓') : '',
-      });
-      seats += t.quantity ?? 1;
+    // Places sans porteur nommé (achats anciens, non nominatifs, ou nominatifs
+    // incomplets) : une ligne PAR place manquante, jamais une seule ligne « ×3 » —
+    // le videur coche une case par personne. Même convention de nom que
+    // buildTicketPlaces : la place 1 est l'acheteur, les suivantes « Nom +k ».
+    const namedCount = new Map<string, number>();
+    for (const a of attendees ?? []) {
+      namedCount.set(a.ticket_id, (namedCount.get(a.ticket_id) ?? 0) + 1);
     }
+    for (const t of ticketList) {
+      const named = namedCount.get(t.id) ?? 0;
+      const total = Math.max(t.quantity ?? 1, 1);
+      for (let slot = named; slot < total; slot++) {
+        const buyerName = t.full_name ?? '';
+        rows.push({
+          attendee: slot === 0 ? buyerName : `${buyerName} +${slot}`,
+          buyer: buyerName,
+          round: roundOf(t),
+          qty: 1,
+          status: TK_STATUS[lang][t.status] ?? t.status,
+          email: t.user_email ?? '',
+          phone: t.phone ?? '',
+          code: t.reference_code ?? '',
+          // Un billet sans porteur nommé se scanne en entier : son scan vaut pour
+          // toutes ses places non nommées.
+          scanned: t.entry_scanned ? (fmtTime(t.entry_scanned_at, ev) || '✓') : '',
+        });
+      }
+    }
+    seats = rows.length;
   } else {
     rows = ticketList.map((t) => ({
       attendee: t.full_name ?? '',
