@@ -31,6 +31,7 @@ import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { BookNowBar } from '@/components/BookNowBar';
+import { SoldOutBar } from '@/components/SoldOutBar';
 import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
 import { FadeInView } from '@/components/motion';
@@ -988,9 +989,10 @@ export default function EventDetails() {
     ? `${t('guestList.freeBefore')} ${publicGuestList.free_before_time.substring(0, 5)}`
     : null;
   const availability = canUserAccessSales ? getAvailabilityInfo() : null;
-  // Bandeau « SOLD OUT » sur l'affiche : il ne se pose que s'il ne reste vraiment
-  // rien à prendre. Une soirée dont les billets sont épuisés mais dont les tables
-  // restent ouvertes n'est pas complète.
+  // « SOLD OUT » : il ne s'affiche que s'il ne reste vraiment rien à prendre, et
+  // il vit dans la barre collante du bas (`SoldOutBar`), visible tout au long du
+  // scroll — plus sur l'affiche ni dans la page. Une soirée dont les billets sont
+  // épuisés mais dont les tables restent ouvertes n'est pas complète.
   const showSoldOutBadge = (isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets);
 
   // ── Héros ─────────────────────────────────────────────────────────────────
@@ -1057,11 +1059,6 @@ export default function EventDetails() {
     // pleins, au-dessus de lui, sinon une pastille translucide disparaît dans
     // l'orange ou le rouge de l'image.
     <div className="relative z-10 flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
-      {showSoldOutBadge && (
-        <span className="font-mono font-bold tracking-[0.18em] text-snow px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
-          SOLD OUT
-        </span>
-      )}
       {event.eventType && (
         <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#141414', border: '1px solid rgba(255,255,255,0.18)', color: '#F2F2F2', boxShadow: '0 2px 10px rgba(0,0,0,0.45)' }}>
           {event.eventType}
@@ -1257,7 +1254,7 @@ export default function EventDetails() {
         {/* ── Sales status (coming soon / presale / sold out) ── */}
         {/* Generic availability lives in the ticket callout kicker below; only special
             states surface here to avoid repeating "tickets and tables available". */}
-        {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || eventSalesStatus === 'sold_out' || eventSalesStatus === 'ended') && (
+        {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || (eventSalesStatus === 'sold_out' && !showSoldOutBadge) || eventSalesStatus === 'ended') && (
           <div style={{ padding: '16px 20px 0' }}>
             <EventSalesStatus
               event={{
@@ -1923,6 +1920,8 @@ export default function EventDetails() {
           );
         }
 
+        // Complet (billets ET tables) : la barre dit « SOLD OUT » au lieu du CTA.
+        if (showSoldOutBadge && eventSalesStatus !== 'ended') return <SoldOutBar />;
         if (eventSalesStatus === 'sold_out') return null;
 
         if (canUserAccessSales && hasTicketsOrTables && minPrice > 0) {
