@@ -24,15 +24,17 @@ export function SoldOutBar({ label = 'SOLD OUT' }: { label?: string }) {
             role="status"
             className="w-full max-w-md h-14 inline-flex items-center justify-center whitespace-nowrap"
             style={{
-              background: bg,
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.85)',
+              // Translucide, texte rouge, sans ombre : un constat, pas un bouton.
+              background: tint(bg, '26'),
+              color: bg,
+              border: `1px solid ${tint(bg, '55')}`,
               borderRadius: 18,
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '16px',
+              fontSize: '15px',
               fontWeight: 700,
               letterSpacing: '0.18em',
-              boxShadow: `0 10px 32px ${tint(bg, '55')}, 0 2px 10px rgba(0,0,0,0.4)`,
             }}
           >
             {label}
