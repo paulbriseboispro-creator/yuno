@@ -134,7 +134,9 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
         refusedRef.current = true;
         decide('refused');
         clearStaffSession();
-        void supabase.auth.signOut();
+        // Ce téléphone seulement : un `signOut()` global révoquait la session du
+        // compte sur TOUS ses appareils (la Console web comprise).
+        void supabase.auth.signOut({ scope: 'local' });
       } catch {
         if (active) setStatus('ok');
       } finally {

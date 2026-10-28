@@ -29,17 +29,24 @@ export function RequireStaffSession({ children, allowedRoles, loginPath }: Requi
     let cancelled = false;
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Session LOCALE (getSession), jamais getUser() : getUser interroge le
+        // serveur, et un réseau de club lent à l'ouverture de l'app renvoyait
+        // le videur sur la connexion, comme s'il avait été déconnecté.
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
         if (!user) { if (!cancelled) setState('denied'); return; }
         const { data: roles, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
           .in('role', [...rolesKey.split(','), 'owner'] as ('barman' | 'bouncer' | 'manager' | 'vip_host' | 'cloakroom' | 'owner')[]);
-        if (!cancelled) setState(!error && roles && roles.length > 0 ? 'ok' : 'denied');
+        // Lecture ratée (hors ligne, réseau du club) : on laisse entrer. La
+        // porte sait scanner hors ligne, et la base refuse de toute façon ce
+        // que le compte n'a pas le droit de faire. Seul un refus LU ferme.
+        if (!cancelled) setState(error || !roles || roles.length > 0 ? 'ok' : 'denied');
       } catch (error) {
         console.error('Error checking staff access:', error);
-        if (!cancelled) setState('denied');
+        if (!cancelled) setState('ok');
       }
     })();
     return () => { cancelled = true; };
