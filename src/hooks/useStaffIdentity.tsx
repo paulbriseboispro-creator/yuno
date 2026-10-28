@@ -102,7 +102,29 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
     .eq('invitation_status', 'accepted')
     .limit(1)
     .maybeSingle();
-  const organizerUserId = orgStaff?.organizer_user_id ?? null;
+  let organizerUserId = orgStaff?.organizer_user_id ?? null;
+  // Sans poste de staff : l'équipe d'une organisation (admin, éditeur,
+  // scanner), puis le fondateur lui-même, tiennent la porte de LEURS soirées
+  // avec le même écran que le videur. La base les y autorise déjà (policies
+  // organisateur, `is_event_door_staff` pour l'équipe).
+  if (!organizerUserId) {
+    const { data: team } = await supabase
+      .from('org_members')
+      .select('organizer_user_id')
+      .eq('member_user_id', user.id)
+      .eq('invitation_status', 'accepted')
+      .limit(1)
+      .maybeSingle();
+    organizerUserId = team?.organizer_user_id ?? null;
+  }
+  if (!organizerUserId) {
+    const { data: ownOrg } = await supabase
+      .from('organizer_profiles')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    organizerUserId = ownOrg?.user_id ?? null;
+  }
   // Porte d'UNE soirée (staff du club invité sur la soirée d'un organisateur) :
   // la base ne rend que les soirées encore ouvertes (jusqu'à 6 h après la fin).
   const { data: doorRows } = await supabase.rpc('get_my_event_door_events' as never) as unknown as {

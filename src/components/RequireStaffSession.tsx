@@ -6,7 +6,14 @@ interface RequireStaffSessionProps {
   children: React.ReactNode;
   allowedRoles: ('barman' | 'bouncer' | 'manager' | 'vip_host' | 'cloakroom')[];
   loginPath: string;
+  /**
+   * La porte s'ouvre aussi sans rôle `bouncer` : l'organisateur, son équipe
+   * et son staff tiennent la porte de leurs soirées (`get_my_pro_access`).
+   */
+  allowOrganizerDoor?: boolean;
 }
+
+const DOOR_ACCESS_REASONS = ['organizer', 'org_team', 'org_staff', 'event_door'];
 
 // Use localStorage for iOS PWA persistence (sessionStorage is cleared on process kill)
 const STAFF_SESSION_KEY = 'staffSession';
@@ -21,7 +28,7 @@ const STAFF_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
  * toutes les 24 h, au prix d'une étape de plus à chaque prise de poste. Les
  * espaces DJ / promoteur / affilié gardent le leur (`RequirePinSession`).
  */
-export function RequireStaffSession({ children, allowedRoles, loginPath }: RequireStaffSessionProps) {
+export function RequireStaffSession({ children, allowedRoles, loginPath, allowOrganizerDoor = false }: RequireStaffSessionProps) {
   const [state, setState] = useState<'loading' | 'ok' | 'denied'>('loading');
   const rolesKey = allowedRoles.join(',');
 
@@ -43,14 +50,23 @@ export function RequireStaffSession({ children, allowedRoles, loginPath }: Requi
         // Lecture ratée (hors ligne, réseau du club) : on laisse entrer. La
         // porte sait scanner hors ligne, et la base refuse de toute façon ce
         // que le compte n'a pas le droit de faire. Seul un refus LU ferme.
-        if (!cancelled) setState(error || !roles || roles.length > 0 ? 'ok' : 'denied');
+        if (error || !roles || roles.length > 0) { if (!cancelled) setState('ok'); return; }
+        if (allowOrganizerDoor) {
+          const { data: access, error: accessError } = await supabase.rpc('get_my_pro_access' as never);
+          const reasons = ((access as { reasons?: string[] } | null)?.reasons) ?? [];
+          if (accessError || reasons.some((r) => DOOR_ACCESS_REASONS.includes(r))) {
+            if (!cancelled) setState('ok');
+            return;
+          }
+        }
+        if (!cancelled) setState('denied');
       } catch (error) {
         console.error('Error checking staff access:', error);
         if (!cancelled) setState('ok');
       }
     })();
     return () => { cancelled = true; };
-  }, [rolesKey]);
+  }, [rolesKey, allowOrganizerDoor]);
 
   if (state === 'loading') {
     return (

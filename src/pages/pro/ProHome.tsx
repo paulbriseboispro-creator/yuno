@@ -108,7 +108,7 @@ export default function ProHome() {
   );
   useDoorManifestPreload(
     doorScope,
-    !!identity?.roles?.some((r) => r === 'bouncer' || r === 'manager'),
+    !!identity?.roles?.some((r) => r === 'bouncer' || r === 'manager') || isOrgFounder || orgTeams.length > 0,
   );
 
   // Session requise : l'app pro est réservée au staff connecté.
@@ -422,7 +422,7 @@ export default function ProHome() {
           {isOrgFounder && user && (
             <motion.button
               {...rise(0.35)}
-              onClick={() => { haptics.selection(); pickOrganization(user.id); navigate('/organizer-app/checkin'); }}
+              onClick={() => { haptics.selection(); pickOrganization(user.id); navigate('/bouncer'); }}
               className="w-full flex items-center gap-3.5 rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
               style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}
             >
@@ -430,8 +430,8 @@ export default function ProHome() {
                 <ShieldCheck className="h-5 w-5" style={{ color: RED }} />
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block truncate" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{ownOrgName || t('profile.organizerDashboard')}</span>
-                <span className="block truncate" style={{ color: T3, fontSize: 12, marginTop: 1 }}>{t('proapp.orgTeamDesc')}</span>
+                <span className="block truncate" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('proapp.role.bouncer')}</span>
+                <span className="block truncate" style={{ color: T3, fontSize: 12, marginTop: 1 }}>{ownOrgName || t('profile.organizerDashboard')} · {t('proapp.roleDesc.bouncer')}</span>
               </span>
               <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
             </motion.button>
@@ -441,7 +441,7 @@ export default function ProHome() {
             <motion.button
               key={m.organizerUserId}
               {...rise(0.36 + i * 0.05)}
-              onClick={() => { haptics.selection(); pickOrganization(m.organizerUserId); navigate('/organizer-app/checkin'); }}
+              onClick={() => { haptics.selection(); pickOrganization(m.organizerUserId); navigate('/bouncer'); }}
               className="w-full flex items-center gap-3.5 rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
               style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}
             >
