@@ -31,9 +31,10 @@ function matches(pathname: string, prefixes: string[]): boolean {
 }
 
 /**
- * L'app Yuno Pro est réservée aux comptes qui ont un rôle pro. Tout le monde a
- * le rôle `client` (c'est le rôle par défaut d'un compte Yuno) : « avoir un rôle
- * pro » veut donc dire avoir AU MOINS un rôle autre que `client`.
+ * L'app Yuno Pro est réservée aux comptes qui ont un accès pro, tel que le
+ * rend `get_my_pro_access()` : un rôle autre que `client`, OU une identité pro
+ * qui ne vit pas dans `user_roles` (organisateur, équipe, staff de porte,
+ * propriétaire de club).
  *
  * Un compte purement client qui se connecte ici est refusé ET déconnecté, avec
  * un message explicite — plutôt que de le laisser entrer sur une coquille vide
@@ -109,24 +110,23 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
           return;
         }
 
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .neq('role', 'client')
-          .limit(1);
+        // La base décide (`get_my_pro_access`) : un rôle pro, mais aussi le
+        // fondateur d'une organisation, son équipe, son staff, le staff de
+        // porte d'une soirée, le propriétaire d'un club. Ne regarder que
+        // `user_roles` refusait l'organisateur Amoris le soir de sa soirée.
+        const { data, error } = await supabase.rpc('get_my_pro_access' as never);
 
         if (!active) return;
 
         // Lecture ratée (réseau du club, RLS) : on laisse passer. Les gardes de
         // route en aval refuseront de toute façon l'accès aux dashboards — on ne
         // déconnecte personne sur un simple échec de lecture.
-        if (error) {
+        if (error || !data) {
           setStatus('ok'); // échec transitoire : on ne fige pas le verdict
           return;
         }
 
-        if (data && data.length > 0) {
+        if ((data as { pro?: boolean }).pro !== false) {
           decide('ok');
           return;
         }

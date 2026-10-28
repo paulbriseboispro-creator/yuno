@@ -37,6 +37,13 @@ const PRO_ALLOWED_PREFIXES = [
 /** Surfaces pro lourdes qui restent sur le web (desktop). */
 const PRO_WEB_ONLY_PREFIXES = ['/manager', '/owner', '/affiliate', '/organizer-app', '/agency-app', '/admin'];
 
+/**
+ * Pages d'une surface web qui se tiennent depuis le téléphone : le scan de la
+ * porte d'un organisateur (fondateur et équipe). Sans cette exception, la carte
+ * « porte » de l'accueil Yuno Pro menait au renvoi « disponible sur le web ».
+ */
+const PRO_IN_APP_EXCEPTIONS = ['/organizer-app/checkin'];
+
 function matches(pathname: string, prefixes: string[]): boolean {
   const clean = pathname.replace(/\/+$/, '') || '/';
   return prefixes.some((p) => clean === p || clean.startsWith(p + '/'));
@@ -106,7 +113,9 @@ export function ProAppGate({ children }: { children: ReactNode }) {
   // quoi personne ne pourrait se connecter ni accepter une invitation staff.
   return (
     <ProAccessGate>
-      {matches(location.pathname, PRO_WEB_ONLY_PREFIXES) ? (
+      {matches(location.pathname, PRO_IN_APP_EXCEPTIONS) ? (
+        children
+      ) : matches(location.pathname, PRO_WEB_ONLY_PREFIXES) ? (
         <WebOnlyNotice />
       ) : !matches(location.pathname, PRO_ALLOWED_PREFIXES) && !isDJAppPath(location.pathname) ? (
         <Navigate to="/pro" replace />
