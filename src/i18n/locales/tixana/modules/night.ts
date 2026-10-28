@@ -51,6 +51,7 @@ const dict: Record<string, Triple> = {
   // Objectif d'entrées
   'ya.nr.tg.title': ['Entry target', 'Objectif d’entrées', 'Objetivo de entradas'],
   'ya.nr.tg.sub': ['Expected guests to date: tickets, table guests and guest list', 'Attendus à ce jour : billets, personnes des tables et guest list', 'Esperados hasta hoy: entradas, personas de mesa y guest list'],
+  'ya.nr.tg.subLive': ['People scanned at the door since opening', 'Personnes scannées à la porte depuis l’ouverture', 'Personas escaneadas en la puerta desde la apertura'],
   'ya.nr.tg.subAfter': ['People scanned at the door', 'Personnes scannées à la porte', 'Personas escaneadas en la puerta'],
   'ya.nr.tg.none': ['No target for this night. Set one to follow the pace day after day.', 'Pas d’objectif pour cette soirée. Fixez-en un pour suivre le rythme jour après jour.', 'Sin objetivo para esta fiesta. Fije uno para seguir el ritmo día a día.'],
   'ya.nr.tg.noneAfter': ['No target was set for this night.', 'Aucun objectif n’avait été fixé pour cette soirée.', 'No se fijó ningún objetivo para esta fiesta.'],
@@ -59,6 +60,8 @@ const dict: Record<string, Triple> = {
   'ya.nr.tg.paceBehind': ['At the pace of “{ref}”: about {n} expected guests, {x} short of the target.', 'Au rythme de « {ref} » : environ {n} attendus, {x} sous l’objectif.', 'Al ritmo de «{ref}»: unos {n} esperados, {x} por debajo del objetivo.'],
   'ya.nr.tg.left': ['{n} more to reach the target.', 'Encore {n} pour atteindre l’objectif.', 'Faltan {n} para alcanzar el objetivo.'],
   'ya.nr.tg.reached': ['Target reached before the night.', 'Objectif atteint avant la soirée.', 'Objetivo alcanzado antes de la fiesta.'],
+  'ya.nr.tg.reachedLive': ['Target reached at the door.', 'Objectif atteint à la porte.', 'Objetivo alcanzado en la puerta.'],
+  'ya.nr.tg.leftLive': ['{n} more entries to reach the target · {e} expected in total.', 'Encore {n} entrées pour atteindre l’objectif · {e} attendus en tout.', 'Faltan {n} entradas para alcanzar el objetivo · {e} esperados en total.'],
   'ya.nr.tg.reachedAfter': ['Target reached at the door.', 'Objectif atteint à la porte.', 'Objetivo alcanzado en la puerta.'],
   'ya.nr.tg.missedAfter': ['{n} entries short of the target.', 'Il a manqué {n} entrées pour atteindre l’objectif.', 'Faltaron {n} entradas para alcanzar el objetivo.'],
   'ya.nr.tg.expected': ['expected', 'attendus', 'esperados'],

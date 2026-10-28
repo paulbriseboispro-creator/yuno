@@ -199,6 +199,7 @@ export function TargetCard({ report, compare, rv, go }: { report: EventReport | 
   if (!report) return <section style={{ ...card, flex: '1 1 380px' }}><Sk h={22} w="45%" /><Sk h={160} r={16} /></section>;
   const status = targetStatus(report, compare, target);
   const after = report.event.phase === 'after';
+  const live = report.event.phase === 'live';
 
   const save = async (value: number | null) => {
     setSaving(true);
@@ -259,9 +260,11 @@ export function TargetCard({ report, compare, rv, go }: { report: EventReport | 
         <Fill pct={ratio} go={go} h={12} bg={reached ? 'var(--ya-green-500)' : 'var(--ya-gradient-brand)'} />
         <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, color: 'var(--ya-sand-700)' }}>
           {reached
-            ? t(after ? 'ya.nr.tg.reachedAfter' : 'ya.nr.tg.reached')
+            ? t(after ? 'ya.nr.tg.reachedAfter' : live ? 'ya.nr.tg.reachedLive' : 'ya.nr.tg.reached')
             : after
               ? t('ya.nr.tg.missedAfter', { n: n(status.target - status.current) })
+              : live
+                ? t('ya.nr.tg.leftLive', { n: n(status.target - status.current), e: n(status.expected ?? 0) })
               : p
                 ? t(p.projected >= status.target ? 'ya.nr.tg.paceAhead' : 'ya.nr.tg.paceBehind', { n: n(p.projected), ref: p.refTitle, x: n(Math.abs(status.target - p.projected)) })
                 : t('ya.nr.tg.left', { n: n(status.target - status.current) })}
@@ -272,7 +275,7 @@ export function TargetCard({ report, compare, rv, go }: { report: EventReport | 
   }
   return (
     <section style={{ ...card, flex: '1 1 380px', ...fadeIn(rv, 60) }}>
-      <CardHead title={t('ya.nr.tg.title')} sub={t(after ? 'ya.nr.tg.subAfter' : 'ya.nr.tg.sub')} />
+      <CardHead title={t('ya.nr.tg.title')} sub={t(after ? 'ya.nr.tg.subAfter' : live && status.kind === 'progress' ? 'ya.nr.tg.subLive' : 'ya.nr.tg.sub')} />
       {body}
     </section>
   );

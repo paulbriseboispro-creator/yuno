@@ -350,9 +350,11 @@ export type TargetStatus =
   | {
       kind: 'progress';
       target: number;
-      /** Avant et pendant : les attendus ; après : les entrées scannées. */
+      /** Avant : les attendus ; pendant et après : les entrées scannées. */
       current: number;
       measure: 'expected' | 'entered';
+      /** Pendant la soirée : les attendus, pour situer les entrées. */
+      expected: number | null;
       /** Projection au rythme d'une soirée de référence (avant la soirée seulement). */
       pace: PaceProjection | null;
     };
@@ -360,12 +362,15 @@ export type TargetStatus =
 /** Où en est la soirée face à son objectif. */
 export function targetStatus(r: EventReport, compare: EventReport | null, target: number | null | undefined): TargetStatus {
   if (!target || target <= 0) return { kind: 'none' };
-  const after = r.event.phase === 'after';
+  // Dès l'ouverture des portes, c'est la porte qui compte : les attendus ne
+  // disent plus combien de personnes sont vraiment là.
+  const atDoor = r.event.phase !== 'before';
   return {
     kind: 'progress',
     target,
-    current: after ? r.totals.door?.entered ?? 0 : expectedSoFar(r),
-    measure: after ? 'entered' : 'expected',
+    current: atDoor ? r.totals.door?.entered ?? 0 : expectedSoFar(r),
+    measure: atDoor ? 'entered' : 'expected',
+    expected: r.event.phase === 'live' ? r.totals.door?.expected ?? expectedSoFar(r) : null,
     pace: paceProjection(r, compare),
   };
 }

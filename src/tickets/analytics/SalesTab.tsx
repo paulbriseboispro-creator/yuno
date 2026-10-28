@@ -332,7 +332,12 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
               marks={heroMarks}
               go={go}
               fy={fmtAxis}
-              tipTitle={(i) => bucketTitle(m, i, T, jl)}
+              // Une barre = une NUIT (de l'heure de fin de nuit à la même heure le
+              // lendemain) : la barre d'aujourd'hui ne vaut donc pas « aujourd'hui »
+              // au sens du calendrier, l'infobulle le dit.
+              tipTitle={(i) => (m.mode === 'day' || m.mode === 'event'
+                ? `${bucketTitle(m, i, T, jl)} · ${t('ya.ana.s.nightSpan', { h: hourShort(m.night_end_hour, lang) })}`
+                : bucketTitle(m, i, T, jl))}
               tipValue={fmtVal}
               tipPrev={(x) => `${ev ? t('ya.ana.prevNight') : t('ya.ana.prevPeriod')} : ${fmtVal(x)}`}
               xl={xLabels(m, T, jl)}

@@ -155,9 +155,15 @@ describe('objectif et rythme', () => {
   });
 
   it('mesure les attendus avant, les entrées après', () => {
-    expect(targetStatus(main(), ref(), 200)).toEqual({ kind: 'progress', target: 200, current: 60, measure: 'expected', pace: { projected: 150, refTitle: 'Night' } });
+    expect(targetStatus(main(), ref(), 200)).toEqual({ kind: 'progress', target: 200, current: 60, measure: 'expected', expected: null, pace: { projected: 150, refTitle: 'Night' } });
     const after = ref(); after.totals = { ...after.totals, door: { entered: 77, expected: 100 } };
-    expect(targetStatus(after, null, 90)).toMatchObject({ current: 77, measure: 'entered', pace: null });
+    expect(targetStatus(after, null, 90)).toMatchObject({ current: 77, measure: 'entered', expected: null, pace: null });
+  });
+
+  it('mesure les entrées dès que la soirée a commencé', () => {
+    const live = main(); live.event = { ...live.event, phase: 'live' };
+    live.totals = { ...live.totals, door: { entered: 41, expected: 183 } };
+    expect(targetStatus(live, null, 250)).toMatchObject({ current: 41, measure: 'entered', expected: 183, pace: null });
     expect(targetStatus(main(), null, null)).toEqual({ kind: 'none' });
   });
 });

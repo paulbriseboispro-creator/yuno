@@ -22,6 +22,7 @@ const dict: Record<string, Triple> = {
     'Entrées gratuites (billets à 0 €) et guest list (inscriptions), soirée par soirée. Le taux de venue n’apparaît que si la porte est mesurée.',
     'Entradas gratuitas (a 0 €) y guest list (inscripciones), fiesta a fiesta. La asistencia solo aparece si la puerta está medida.',
   ],
+  'ya.ana.s.nightSpan': ['{h} to {h} the next day', 'de {h} à {h} le lendemain', 'de {h} a {h} del día siguiente'],
   'ya.ana.s.foot': [
     'A night ends at {h}: a purchase made later counts for the next day. Updated on {date}.',
     'Une nuit se termine à {h} : un achat fait après compte pour le lendemain. Mis à jour le {date}.',

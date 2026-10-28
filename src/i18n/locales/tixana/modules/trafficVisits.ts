@@ -227,8 +227,8 @@ const dict: Record<string, Triple> = {
   'ya.tv.lkNone': ['No tracked link was clicked over this period.', 'Aucun lien suivi n’a été cliqué sur cette période.', 'Ningún enlace rastreado recibió clics en este periodo.'],
 
   // Le pont vers Ventes
-  'ya.tv.bridge.one': ['These {v} visits led to {o} order, i.e. {e}.', 'Ces {v} visites ont donné {o} commande, soit {e}.', 'Estas {v} visitas dieron {o} pedido, es decir {e}.'],
-  'ya.tv.bridge.other': ['These {v} visits led to {o} orders, i.e. {e}.', 'Ces {v} visites ont donné {o} commandes, soit {e}.', 'Estas {v} visitas dieron {o} pedidos, es decir {e}.'],
+  'ya.tv.bridge.one': ['These {v} visits led to {o} order. Total Yuno sales: {e}.', 'Ces {v} visites ont donné {o} commande. Ventes Yuno en tout : {e}.', 'Estas {v} visitas dieron {o} pedido. Ventas Yuno en total: {e}.'],
+  'ya.tv.bridge.other': ['These {v} visits led to {o} orders. Total Yuno sales: {e}.', 'Ces {v} visites ont donné {o} commandes. Ventes Yuno en tout : {e}.', 'Estas {v} visitas dieron {o} pedidos. Ventas Yuno en total: {e}.'],
   'ya.tv.bridgeN.one': ['These {v} visits led to {o} order.', 'Ces {v} visites ont donné {o} commande.', 'Estas {v} visitas dieron {o} pedido.'],
   'ya.tv.bridgeN.other': ['These {v} visits led to {o} orders.', 'Ces {v} visites ont donné {o} commandes.', 'Estas {v} visitas dieron {o} pedidos.'],
   'ya.tv.bridgeSub': ['Money by source, by link and by message lives in Sales. Traffic is measured in people.', 'L’argent par source, par lien et par message vit dans Ventes. Le trafic, lui, se mesure en personnes.', 'El dinero por origen, enlace y mensaje está en Ventas. El tráfico se mide en personas.'],

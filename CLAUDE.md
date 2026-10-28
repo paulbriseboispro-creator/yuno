@@ -6441,7 +6441,7 @@ Migrations `20261110100000` (lecture), `20261110110000` (MCP), `20261110120000`
 
 - **Trafic se compte en PERSONNES, Ventes en euros.** Trafic n'a qu'un pont vers
   l'argent : le passage à l'achat (un %, un nombre de commandes) dans les tableaux
-  et la phrase du bas (« Ces N visites ont donné X commandes, soit Y € »), dont les
+  et la phrase du bas (« Ces N visites ont donné X commandes. Ventes Yuno en tout : Y € »), dont les
   euros sont le CA club de la période, le chiffre du héros de Ventes. Jamais une
   colonne d'euros dans un tableau du Trafic.
 - **Lecture unique : `tix_ana_visits(venue, orga, period, event, compare)`**, qui ne
