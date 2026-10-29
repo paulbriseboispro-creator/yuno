@@ -1,15 +1,19 @@
 # Yuno CRM — écrire aux acheteurs de ses soirées (exception « clients »)
 
-Plan du 29/10/2026. Statut : **lot 1 écrit et testé** (migration `20261114100000_crm_customer_basis.sql`, banc `scripts/crm-bench/customer-basis.mjs` vert, répétition sur la prod annulée), **pas appliqué, pas commité**.
+Plan du 29/10/2026. **État des lots** :
+- **Lot 1** (base, déclaration, éligibilité, garde, contenu) : `20261114100000`, **appliqué en prod le 29/10**, commité.
+- **Entrées gratuites comptées** (décision de Paul du 29/10, l'avocat confirmera) : `20261114110000`, écrit, testé, **pas appliqué**.
+- **Lot 2** (moteur d'envoi) : `20261114120000` + `send-campaign` + pied de page des deux moteurs, banc vert (86), répétition sur les vraies données de 3 AM annulée (file en 0,6 s : 634 à l'accord + 1 439 clients, lots jamais mélangés, campagne à l'accord inchangée), **pas appliqué, pas déployé**.
+- Lots 3 à 6 : à faire. Le lot 3 n'a plus qu'à choisir la clé Resend par lot : la réclamation ne mêle déjà jamais deux bases légales.
 Origine : tous les premiers clients veulent écrire à toute leur base Shotgun,
 alors que l'accord newsletter de Shotgun ne couvre que quelques pour cent des
 acheteurs. On ouvre une deuxième base légale, l'exception « clients » de
 l'article L34-5 du CPCE (soft opt-in), choisie par le pro, encadrée par le
 code, avec un risque isolé pour Yuno.
 
-**Noms décidés par Paul le 29/10** : à l'écran, **« Vos acheteurs »**
-(audience « Tous vos acheteurs » face à « Ceux qui ont donné leur accord »,
-carte « Écrire à vos acheteurs ») ; domaine d'envoi à part **`yunonews.eu`**
+**Noms décidés par Paul le 29/10** (« Vos acheteurs » remplacé par « Vos clients » le même jour) : à l'écran, **« Vos clients »**
+(audience « Tous vos clients » face à « Ceux qui ont donné leur accord »,
+carte « Écrire à vos clients ») ; domaine d'envoi à part **`yunonews.eu`**
 (« Amoris <amoris@yunonews.eu> »), à acheter par Paul. Identifiant technique :
 `customer` (la base légale, jamais affiché). Dans ce document, « base clients »
 désigne la même chose : c'est le nom juridique de l'exception, pas celui de l'écran.
@@ -32,7 +36,7 @@ reste à l'accord seul.
 
 Décisions ouvertes, à prendre par Paul :
 
-1. ~~Nom visible~~ : « Vos acheteurs » (29/10).
+1. ~~Nom visible~~ : « Vos clients » (29/10). La page Clients compte plus de monde (co-organisé, invitations) : l'écran le dira.
 2. ~~Domaine d'envoi~~ : `yunonews.eu` (29/10). Le domaine de chaque pro reste le lot 6.
 3. Consultation d'un avocat (1 h) sur TROIS questions : (a) une case newsletter Shotgun jamais cochée empêche-t-elle l'exception clients ? (b) une entrée gratuite ou une invitation vaut-elle « vente ou prestation de services » ? (c) un co-organisateur (rôle `editor` chez Shotgun) peut-il invoquer l'exception pour les acheteurs de la soirée commune ? Les réponses (b) et (c) changent la taille de la base d'un facteur 5 à 15 (§ 1). L'interrupteur `CRM_CUSTOMER_BASIS_LIVE` passe à true pour tous après sa réponse ; avant, comptes en bêta seulement (choisis par Paul).
 4. Plafonds de départ de la montée progressive (§ 5.6), proposés ici.
@@ -52,7 +56,7 @@ newsletter du billet le plus récent :
 
 **Ce que la règle retient vraiment** (répétition du lot 1 sur la prod, annulée, 29/10) :
 
-| Compte | Personnes connues | Acheteurs PAYANTS < 3 ans (tout rôle) | dont soirées où le compte est VENDEUR | Avec accord | **En plus avec « Vos acheteurs »** | Exclus (retrait, désabonné, adresse en échec) |
+| Compte | Personnes connues | Acheteurs PAYANTS < 3 ans (tout rôle) | dont soirées où le compte est VENDEUR | Avec accord | **En plus avec « Vos clients »** | Exclus (retrait, désabonné, adresse en échec) |
 |---|---:|---:|---:|---:|---:|---:|
 | A | 18 357 | 4 057 | 801 | 301 | **784** | 9 |
 | B | 3 645 | 538 | 227 | 639 | **198** | 0 |
@@ -87,7 +91,7 @@ Traduction en règles de code :
 
 | Condition légale | Règle Yuno |
 |---|---|
-| 1. recueillie lors d'une vente | un **billet payant** (`_crm_ticket_is_paid` : vente valide à plus de 0 €) d'une soirée miroir de la portée. Une invitation, un duplicata, une entrée gratuite, un billet remboursé : **non** (question (b) à l'avocat). Un fichier importé : **non** (il reste à l'accord attesté). |
+| 1. recueillie lors d'une vente | un **billet, payant OU entrée gratuite** (`_crm_ticket_is_sale` : vente valide, hors invitation et duplicata) d'une soirée miroir de la portée — décision de Paul du 29/10, l'entrée gratuite lue comme « prestation de services », à confirmer par l'avocat (question (b)). Une invitation, un duplicata, un billet remboursé : **non**. Un fichier importé : **non** (il reste à l'accord attesté). |
 | 1 bis. par ce vendeur | soirée dont le rôle Shotgun n'est PAS co-organisé (`NOT _ticketing_role_is_cohosted(external_role)`). Un acheteur qui n'a acheté que des soirées co-organisées n'est pas un client du pro. |
 | 2. produits analogues du même vendeur | contrôle de contenu `_crm_customer_content_issues` (§ 5.4) : seuls les blocs Yuno et liens vers les soirées **propres** de la portée ; jamais une autre billetterie, un code promo d'un tiers, une soirée co-organisée. La marque et le sujet libre relèvent de la déclaration du pro. |
 | 3a. informé à la collecte | déclaration du pro (case 3 de la fenêtre) + mention fournie par Yuno à poser chez Shotgun et dans sa politique de confidentialité (§ 7.3). |
@@ -361,7 +365,7 @@ Liste des domaines de billetterie dans une fonction
 
 - Pied de page d'un destinataire `customer` : ligne en tête, avant les
   mentions légales :
-  « Vous recevez cet e-mail car vous avez acheté un billet pour {soirée} ({mois année}) auprès de {nom du compte}. Vous ne voulez plus de nouvelles ? Désinscrivez-vous en un clic. »
+  « Cet email a été envoyé à {adresse} car vous avez pris une place pour « {soirée} » ({mois année}) : nous vous annonçons nos prochaines soirées, et vous pouvez vous désinscrire en un clic. » (« pris une place » : les entrées gratuites comptent.)
   Résolue par lot à l'envoi : `get_recipient_customer_reasons(campaign, emails[])`
   (service_role), comme `get_recipient_crm_vars`. Rendu : `RenderCtx.customerReason`
   dans `render.ts` ⇄ port Deno `email-studio-html.ts`, testés ensemble.
@@ -467,7 +471,7 @@ Deux textes, avec bouton « Copier » :
 
 ### 8.1 Réglages › Envoi : la carte « base clients » (nom à valider)
 
-- Fermée : chiffres réels (`crm_customer_basis_get`) — « 302 personnes ont donné leur accord. 15 700 autres vous ont acheté un billet ces trois dernières années. » — et un bouton « Écrire aussi à mes acheteurs », qui ouvre la fenêtre (§ 8.2). Visible du titulaire ; un éditeur voit la carte et « Demandez au titulaire du compte ».
+- Fermée : chiffres réels (`crm_customer_basis_get`) — « 639 personnes ont donné leur accord. 1 441 autres ont pris une place à vos soirées ces trois dernières années. » — et un bouton « Écrire aussi à mes clients », qui ouvre la fenêtre (§ 8.2). Visible du titulaire ; un éditeur voit la carte et « Demandez au titulaire du compte ».
 - Ouverte : signataire, date, échéance (« à renouveler le … »), montée progressive (« aujourd'hui jusqu'à 3 000 personnes »), plaintes et désinscriptions 30 j, les deux mentions à copier (§ 7.3), « Signaler des oppositions » (coller une liste), « Fermer la base clients ».
 - Suspendue : la raison, en clair, et « Contacter Yuno ».
 
@@ -479,7 +483,7 @@ Titulaire seul ; refusée en accès assisté et en aperçu démo.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  Écrire aussi à vos acheteurs                         ✕    │
+│  Écrire aussi à vos clients                         ✕    │
 │                                                            │
 │  Aujourd'hui, vos e-mails partent aux 302 personnes qui    │
 │  ont coché l'accord chez Shotgun. La loi vous permet aussi │
@@ -524,7 +528,7 @@ Titulaire seul ; refusée en accès assisté et en aperçu démo.
 
 ### 8.3 Étape Audience de l'e-mail
 
-- Un choix en tête : « Qui peut recevoir cet e-mail ? » — « Ceux qui ont donné leur accord (302) » / « Tous vos acheteurs (16 006) ». Le second est grisé avec « Ouvrir la base clients » si elle est fermée.
+- Un choix en tête : « Qui peut recevoir cet e-mail ? » — « Ceux qui ont donné leur accord (302) » / « Tous vos clients (16 006) ». Le second est grisé avec « Ouvrir la base clients » si elle est fermée.
 - L'effectif recompté par `crm_customer_audience_preview` : accord / clients / écartés, et « Aujourd'hui, 1 500 partent ; les autres les jours suivants » pendant la montée progressive.
 
 ### 8.4 Vérification avant envoi
