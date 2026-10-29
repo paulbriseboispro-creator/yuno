@@ -4,7 +4,9 @@ Plan du 29/10/2026. **État des lots** :
 - **Lot 1** (base, déclaration, éligibilité, garde, contenu) : `20261114100000`, **appliqué en prod le 29/10**, commité.
 - **Entrées gratuites comptées** (décision de Paul du 29/10, l'avocat confirmera) : `20261114110000`, écrit, testé, **pas appliqué**.
 - **Lot 2** (moteur d'envoi) : `20261114120000` + `send-campaign` + pied de page des deux moteurs, banc vert (86), répétition sur les vraies données de 3 AM annulée (file en 0,6 s : 634 à l'accord + 1 439 clients, lots jamais mélangés, campagne à l'accord inchangée), **pas appliqué, pas déployé**.
-- Lots 3 à 6 : à faire. Le lot 3 n'a plus qu'à choisir la clé Resend par lot : la réclamation ne mêle déjà jamais deux bases légales.
+- **Lot 2 appliqué en prod et `send-campaign` déployé le 29/10** (prod = origin/main avant le déploiement) ; répétition sur les fonctions vivantes : campagne « Vos clients » de 3 AM et copie de la prochaine campagne Billetterie (462 personnes) mises en file comme attendu. Aucun vrai e-mail envoyé depuis (rien n'était en cours).
+- **Lot 3, code** : clé et domaine par lot, webhook à deux secrets (§ 6), commité, **pas déployé** ; le reste du lot 3 est l'achat du domaine et le compte Resend (pas à pas § 6).
+- Lots 4 à 6 : à faire.
 Origine : tous les premiers clients veulent écrire à toute leur base Shotgun,
 alors que l'accord newsletter de Shotgun ne couvre que quelques pour cent des
 acheteurs. On ouvre une deuxième base légale, l'exception « clients » de
@@ -412,6 +414,25 @@ les billets de tous les clients ne partiraient plus.
   après 30 jours propres. Adresse de retour = `reply_to` du pro.
 - `resend-webhook` accepte les deux secrets (essai de l'un puis de l'autre) et
   sait de quel compte vient l'événement (tag `yuno_basis`).
+- **Code (fait le 29/10)** : `send-campaign` envoie un lot « clients » par
+  `RESEND_API_KEY_CRM_CUSTOMER`, depuis `<adresse locale>@<CRM_CUSTOMER_EMAIL_DOMAIN>`,
+  avec le tag `yuno_basis = customer` ; sans ces deux secrets, une campagne « clients »
+  est refusée à la mise en file (`crm_customer_infra`) et mise en pause si elle draine
+  (`paused_reason = 'customer_infra'`) : jamais par le compte principal. `resend-webhook`
+  vérifie la signature avec `RESEND_WEBHOOK_SECRET`, puis `RESEND_WEBHOOK_SECRET_CRM_CUSTOMER`.
+- **Mise en service, pas à pas (Paul)** :
+  1. Acheter `yunonews.eu`.
+  2. Créer une deuxième équipe Resend (« Yuno — clients »), offre Pro ; y ajouter le
+     domaine `yunonews.eu`, poser chez le registrar les enregistrements SPF, DKIM et
+     MX de retour qu'elle affiche, puis `_dmarc.yunonews.eu` = `v=DMARC1; p=none;
+     rua=mailto:dmarc@yunoapp.eu` (passer à `quarantine` après 30 jours propres).
+  3. Dans cette équipe : une clé API « envoi » (droit Sending, domaine yunonews.eu) et
+     un webhook vers `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/resend-webhook`
+     (événements delivered, opened, clicked, bounced, complained, delivery_delayed).
+  4. Secrets Supabase : `RESEND_API_KEY_CRM_CUSTOMER`, `CRM_CUSTOMER_EMAIL_DOMAIN=yunonews.eu`,
+     `RESEND_WEBHOOK_SECRET_CRM_CUSTOMER` (le `whsec_…` du webhook).
+  5. Admin CRM : `crm_admin_customer_basis_settings_set('{"sending_ready":true}', motif)`
+     (écran au lot 4), puis la base bêta d'un compte, sa signature, un premier envoi suivi.
 - Lot 6 (plus tard) : domaine du pro lui-même (DKIM sur son domaine), qui met
   la réputation chez lui.
 - Sans clé ni domaine configurés, `crm_customer_basis_open` reste faux pour
