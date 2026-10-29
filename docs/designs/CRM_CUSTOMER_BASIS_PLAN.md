@@ -1,12 +1,14 @@
 # Yuno CRM — écrire aux acheteurs de ses soirées (exception « clients »)
 
-Plan du 29/10/2026. **État des lots** :
+Plan du 29/10/2026. **État des lots** (la campagne « Rappel J-3 House Nation #21 » citée le 29/10 est celle du compte DÉMO : elle ne part jamais) :
 - **Lot 1** (base, déclaration, éligibilité, garde, contenu) : `20261114100000`, **appliqué en prod le 29/10**, commité.
 - **Entrées gratuites comptées** (décision de Paul du 29/10, l'avocat confirmera) : `20261114110000`, écrit, testé, **pas appliqué**.
 - **Lot 2** (moteur d'envoi) : `20261114120000` + `send-campaign` + pied de page des deux moteurs, banc vert (86), répétition sur les vraies données de 3 AM annulée (file en 0,6 s : 634 à l'accord + 1 439 clients, lots jamais mélangés, campagne à l'accord inchangée), **pas appliqué, pas déployé**.
 - **Lot 2 appliqué en prod et `send-campaign` déployé le 29/10** (prod = origin/main avant le déploiement) ; répétition sur les fonctions vivantes : campagne « Vos clients » de 3 AM et copie de la prochaine campagne Billetterie (462 personnes) mises en file comme attendu. Aucun vrai e-mail envoyé depuis (rien n'était en cours).
 - **Lot 3, code** : clé et domaine par lot, webhook à deux secrets (§ 6), commité, **pas déployé** ; le reste du lot 3 est l'achat du domaine et le compte Resend (pas à pas § 6).
-- Lots 4 à 6 : à faire.
+- **Lot 4, écrans et textes (29/10)** : carte « Écrire à vos clients » de Réglages › Envoi (`CustomerBasisCard`, fenêtre à cocher `CustomerBasisModal`, mentions à copier, oppositions, fermeture), choix « Qui peut recevoir cet e-mail ? » de l'étape Audience (`CustomerBasisPicker`, compte lu sur la campagne enregistrée), vérifications `cOpen` / `cContent`, refus traduits, Admin CRM › Réglages › Vos clients et carte du tiroir d'un compte (`CustomerBasisAdmin`), article 7 bis (7a en anglais) + annexe 2 des Conditions, DPA 12.6 bis, politique de confidentialité § 14, versions `terms_crm` / `dpa` = 2026-10-29 (la Console redemande l'acceptation, l'envoi n'est pas bloqué : le serveur accepte toute version ≥ 2026-10-08), migration `20261114130000` (aperçu démo). Vu dans le navigateur sur le compte démo (carte fermée, choix d'audience) ; la fenêtre signée, l'état ouvert et l'Admin ne sont pas vus en vrai (la démo ne peut pas signer, pas de session super admin), seulement typés. Commité, **pas poussé** (pousser = mettre le front en ligne), migration `130000` **pas appliquée**.
+- Reste du lot 4 : FAQ `yc.faq.customerBasis.*` et article assistant `crm-customer-basis`.
+- Lots 5 et 6 : à faire.
 Origine : tous les premiers clients veulent écrire à toute leur base Shotgun,
 alors que l'accord newsletter de Shotgun ne couvre que quelques pour cent des
 acheteurs. On ouvre une deuxième base légale, l'exception « clients » de
