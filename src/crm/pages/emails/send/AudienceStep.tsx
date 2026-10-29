@@ -3,6 +3,7 @@
  * règle que l'envoi), les cinq cycles de vie et les segments enregistrés à
  * cocher, les raccourcis, puis « Qui ne pas déranger ? ».
  */
+import type { ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { Rich } from '@/crm/ui/Rich';
@@ -21,6 +22,7 @@ const autoKeyOf = (a: CrmAudience): Key | null => (!a.segmentId && a.def?.seg &&
 
 export function AudienceStep({
   options, audiences, onAudiences, preview, calc, previewError, onRetryPreview, eventTitle, excludeBuyers, onExcludeBuyers, recentDays, onRecentDays,
+  basisPicker, netOverride,
 }: {
   options: SendOptions | undefined;
   audiences: CrmAudience[];
@@ -36,9 +38,13 @@ export function AudienceStep({
   onExcludeBuyers: (v: boolean) => void;
   recentDays: number;
   onRecentDays: (v: number) => void;
+  /** « Qui peut recevoir cet e-mail ? » (accord seul ou « Tous vos clients »). */
+  basisPicker?: ReactNode;
+  /** « Tous vos clients » : le compte serveur de la campagne (accord + clients) remplace l'aperçu. */
+  netOverride?: number;
 }) {
   const { t, tp, n, pct } = useCrmT();
-  const net = preview?.net ?? 0;
+  const net = netOverride ?? preview?.net ?? 0;
   const reach = Math.max(1, preview?.reach ?? 0);
   const xb = excludeBuyers ? preview?.x_buyers ?? 0 : 0;
   const xr = preview?.x_recent ?? 0;
@@ -62,6 +68,7 @@ export function AudienceStep({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, animation: `yc-rise 520ms ${EASE} both` }}>
       <StepTitle kick={t('yc.em.sd.aud.kick')} a={t('yc.em.sd.aud.h.a')} b={t('yc.em.sd.aud.h.b')} c={t('yc.em.sd.aud.h.c')} sub={t('yc.em.sd.aud.sub')} />
+      {basisPicker}
 
       {previewError && !preview ? (
         <CrmLoadError error={previewError} onRetry={onRetryPreview} retrying={calc} />

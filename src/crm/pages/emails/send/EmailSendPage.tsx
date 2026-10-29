@@ -40,6 +40,8 @@ import { AudienceStep } from './AudienceStep';
 import { PlanStep, type PlanState } from './PlanStep';
 import { CheckStep } from './CheckStep';
 import { PracticalAudienceStep } from './PracticalAudienceStep';
+import { CustomerBasisPicker, type LegalBasis } from './CustomerBasisPicker';
+import { customerRefusalKey, useCustomerAudiencePreview, useCustomerBasis, useCustomerEmailCheck } from '@/crm/data/customerBasis';
 import { usePracticalCheck, usePracticalNight } from '@/crm/data/practical';
 import { hasPracticalTodo, practicalIssueKey, practicalReasonKey, practicalRefusalKey } from '@/crm/lib/practicalEmail';
 import { SendAside } from './SendAside';
@@ -56,6 +58,7 @@ interface Row {
   throttle_per_hour: number | null; throttle_window_minutes: number | null; quiet_hours: boolean | null;
   venue_id: string | null; organizer_user_id: string | null; total_recipients: number | null;
   practical: boolean | null;
+  legal_basis: string | null;
 }
 
 interface Draft {
@@ -64,6 +67,8 @@ interface Draft {
   recentDays: number; excludeBuyers: boolean; plan: PlanState;
   /** E-mail pratique aux détenteurs de `eventId` (Yuno CRM) : audience fixe. */
   practical: boolean;
+  /** « Vos clients » : l'accord seul, ou l'accord + les clients (exception clients). */
+  legalBasis: LegalBasis;
 }
 
 /** Créneau proposé par défaut : demain 10 h (ou le prochain meilleur jour). */
@@ -86,6 +91,7 @@ function rowToDraft(r: Row): Draft {
     id: r.id, name: r.name, status: r.status, subject: r.subject === '—' ? '' : r.subject ?? '', abOn: !!r.ab_enabled && !!(r.subject_b ?? '').trim(),
     abPct: r.ab_split_pct ?? 20, abHours: Math.round((r.ab_window_minutes ?? 240) / 60), preheader: r.preheader ?? '',
     blocks: normalizeV2Blocks(r.blocks_json), eventId: r.event_id, audiences: aud, practical: !!r.practical,
+    legalBasis: r.legal_basis === 'customer' ? 'customer' : 'consent',
     recentDays: typeof excl.recentDays === 'number' ? excl.recentDays : 0, excludeBuyers: !!excl.excludeEventBuyers,
     plan: {
       mode: sched ? 'later' : 'later', date: slot.date, time: slot.time,
@@ -160,10 +166,20 @@ export default function EmailSendPage() {
   const practical = !!draft?.practical;
   const pNight = usePracticalNight(draft?.eventId ?? null, practical);
   const pCheck = usePracticalCheck(draft?.id ?? null, practical);
-  const net = practical ? pNight.data?.reachable ?? 0 : preview.data?.net ?? 0;
-  // Le compte qui fait foi : les détenteurs pour un e-mail pratique, l'aperçu d'audience sinon.
-  const counted = practical ? pNight.data : preview.data;
-  const counting = practical ? pNight.isFetching : preview.isFetching;
+  // « Vos clients » : l'état de la base, ce que la campagne viserait (lu sur la
+  // campagne ENREGISTRÉE, d'où flushRef), et le contrôle « ne parle que de vos soirées ».
+  const customer = !practical && draft?.legalBasis === 'customer';
+  const basis = useCustomerBasis(!practical);
+  const flushRef = useRef<() => Promise<boolean>>(async () => true);
+  const cPreview = useCustomerAudiencePreview(draft?.id ?? null, customer, {
+    audiences: draft?.audiences ?? [], recentDays: draft?.recentDays ?? 0, excludeBuyers: !!draft?.excludeBuyers, eventId: draft?.eventId ?? null,
+  }, () => flushRef.current());
+  const cCheck = useCustomerEmailCheck(draft?.id ?? null, customer);
+  const net = practical ? pNight.data?.reachable ?? 0 : customer ? cPreview.data?.total ?? 0 : preview.data?.net ?? 0;
+  // Le compte qui fait foi : les détenteurs pour un e-mail pratique, la campagne enregistrée
+  // pour « Tous vos clients », l'aperçu d'audience sinon.
+  const counted = practical ? pNight.data : customer ? cPreview.data : preview.data;
+  const counting = practical ? pNight.isFetching : customer ? cPreview.isFetching : preview.isFetching;
   const balance = shell.data?.wallet.balance ?? 0;
   // Ce qui reste vraiment pour cet envoi : les campagnes programmées ont déjà
   // réservé leur part (celle-ci exceptée si elle l'est elle-même).
@@ -175,6 +191,7 @@ export default function EmailSendPage() {
     const w = waveThrottle(nNet, d.plan.waveMin);
     // E-mail pratique : l'audience ne se choisit pas (la base la pose).
     const audience = d.practical ? {} : {
+      legal_basis: d.legalBasis,
       audiences_json: d.audiences,
       audience_type: d.audiences.length ? 'imported_list' : null,
       exclusions_json: { recentDays: d.recentDays || null, excludeEventBuyers: d.excludeBuyers },
@@ -208,6 +225,7 @@ export default function EmailSendPage() {
     });
   };
   useEffect(() => () => { void flush(); }, [flush]);
+  flushRef.current = flush;
 
   // ── Textes de date ──────────────────────────────────────────────────────
   const whenText = useCallback((d: Date) => t('yc.em.sd.when', { day: dLong(d), time: time(d) }), [t, dLong, time]);
@@ -246,6 +264,9 @@ export default function EmailSendPage() {
     practical: practical ? {
       issues: pIssues.length, eligible: !!pCheck.data?.night?.eligible, todo: hasPracticalTodo(draft.blocks, draft.subject),
       loading: pCheck.isLoading,
+    } : undefined,
+    customer: customer ? {
+      open: !!cCheck.data?.open, issues: cCheck.data?.issues?.length ?? 0, loading: cCheck.isLoading,
     } : undefined,
   });
   // Ce qui bloque un e-mail pratique, dit en clair (codes stables du serveur).
@@ -293,6 +314,8 @@ export default function EmailSendPage() {
     if (isIdentityRefusal(txt)) return 'yc.em.sd.err.identity';
     const practicalKey = practicalRefusalKey(txt);
     if (practicalKey) return practicalKey;
+    const customerKey = customerRefusalKey(txt);
+    if (customerKey) return customerKey;
     if (txt.includes('No recipients')) return 'yc.em.sd.err.none';
     return 'yc.em.sd.err.generic';
   };
@@ -315,6 +338,8 @@ export default function EmailSendPage() {
       if (error?.message && isIdentityRefusal(error.message)) { toast(t('yc.em.sd.err.identity')); void settings.refetch(); return; }
       const practicalKey = error?.message ? practicalRefusalKey(error.message) : null;
       if (practicalKey) { toast(t(practicalKey)); void pCheck.refetch(); return; }
+      const customerKey = error?.message ? customerRefusalKey(error.message) : null;
+      if (customerKey) { toast(t(customerKey)); void cCheck.refetch(); void basis.refetch(); return; }
       if (error || !data?.length) { toast(t('yc.em.sd.err.gone')); return; }
       invalidate(); setDoneMode('later'); setPhase('done'); window.scrollTo(0, 0);
       return;
@@ -347,7 +372,17 @@ export default function EmailSendPage() {
                 audiences={draft.audiences}
                 onAudiences={(a) => update({ audiences: a })}
                 preview={preview.data}
-                calc={preview.isFetching}
+                calc={customer ? cPreview.isFetching : preview.isFetching}
+                netOverride={customer ? cPreview.data?.total : undefined}
+                basisPicker={(
+                  <CustomerBasisPicker
+                    basis={basis.data}
+                    value={draft.legalBasis}
+                    onChange={(v) => update({ legalBasis: v })}
+                    preview={cPreview.data}
+                    consentNet={preview.data?.net ?? null}
+                  />
+                )}
                 previewError={preview.isError ? preview.error : null}
                 onRetryPreview={() => { void preview.refetch(); }}
                 eventTitle={eventTitle}

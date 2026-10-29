@@ -67,7 +67,7 @@ export function bestSlots(grid: GridCell[] | undefined): { days: number[]; hours
 }
 
 export type CheckLevel = 'ok' | 'bad' | 'warn' | 'info';
-export type CheckFix = 'subject' | 'studio' | 'audience' | 'plan' | 'recharge' | 'billing' | 'identity' | null;
+export type CheckFix = 'subject' | 'studio' | 'audience' | 'plan' | 'recharge' | 'billing' | 'identity' | 'customer' | null;
 
 export interface SendCheck { id: string; level: CheckLevel; vars?: Record<string, string | number>; fix: CheckFix }
 
@@ -93,6 +93,12 @@ export interface CheckInput {
    * `undefined` = campagne marketing.
    */
   practical?: { issues: number; eligible: boolean; todo: boolean; loading: boolean };
+  /**
+   * « Vos clients » (exception clients) : base ouverte et contenu limité aux
+   * soirées du compte, verdict du serveur (crm_customer_email_check).
+   * `undefined` = campagne à l'accord seul.
+   */
+  customer?: { open: boolean; issues: number; loading: boolean };
 }
 
 const URL_RE = /^https?:\/\/\S+\.\S+/i;
@@ -120,6 +126,13 @@ export function sendChecks(x: CheckInput): SendCheck[] {
       { id: 'pContent', level: pr.loading ? 'info' : pr.issues ? 'bad' : 'ok', vars: { n: pr.issues }, fix: 'studio' },
       { id: 'pTodo', level: pr.todo ? 'bad' : 'ok', fix: 'studio' },
       { id: 'pNight', level: pr.loading ? 'info' : pr.eligible ? 'ok' : 'bad', fix: null },
+    );
+  }
+  if (x.customer) {
+    const c = x.customer;
+    list.push(
+      { id: 'cOpen', level: c.loading ? 'info' : c.open ? 'ok' : 'bad', fix: 'customer' },
+      { id: 'cContent', level: c.loading ? 'info' : c.issues ? 'bad' : 'ok', vars: { n: c.issues }, fix: 'studio' },
     );
   }
   if (deadButton) list.push({ id: 'link', level: 'bad', fix: 'studio' });

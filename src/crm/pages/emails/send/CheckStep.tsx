@@ -46,7 +46,7 @@ export function CheckStep({ checks, campaignId, dateText, identityText, texts, o
     if (c.fix === 'audience' || c.fix === 'plan') return <Hv as="button" type="button" onClick={() => onGo(c.fix === 'audience' ? 'aud' : 'plan')} style={css} hover={hover}>{label}</Hv>;
     const to = c.fix === 'recharge' ? CRM_ROUTES.yunits
       : c.fix === 'billing' ? CRM_ROUTES.accountSection('billing')
-      : c.fix === 'identity' ? CRM_ROUTES.emailSettings
+      : c.fix === 'identity' || c.fix === 'customer' ? CRM_ROUTES.emailSettings
         : c.fix === 'subject' ? `${CRM_ROUTES.emailStudio(campaignId)}?tab=subject` : CRM_ROUTES.emailStudio(campaignId);
     return <Hv as={Link} to={to} style={css} hover={hover}>{label}</Hv>;
   };
