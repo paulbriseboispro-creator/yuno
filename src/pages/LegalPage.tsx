@@ -5,6 +5,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { legalContent, type LegalSection } from '@/data/legalContent';
 import { PublicPage } from '@/components/PublicPage';
 import { useProBack } from '@/hooks/useProBack';
+import { lazy, Suspense } from 'react';
+import { onCrmHost } from '@/lib/productHost';
+
+// Habillage Yuno CRM : sur crm.yunoapp.eu, et pour les Conditions Yuno CRM où qu'on les ouvre.
+const CrmLegalPage = lazy(() => import('@/crm/pages/legal/CrmLegalPage'));
 
 export default function LegalPage() {
   const { section } = useParams<{ section: string }>();
@@ -20,6 +25,10 @@ export default function LegalPage() {
         <p className="text-muted-foreground">{t('common.pageNotFound')}</p>
       </div>
     );
+  }
+
+  if (onCrmHost() || sectionKey === 'cgv-crm') {
+    return <Suspense fallback={<div style={{ minHeight: '100vh', background: '#FCFAF9' }} />}><CrmLegalPage section={sectionKey} /></Suspense>;
   }
 
   const doc = legalContent[sectionKey][language];

@@ -35,6 +35,8 @@ const dict: CrmDict = {
   'yc.legal.doc.dpa': ['Data Processing Agreement', 'Accord de sous-traitance des données', 'Acuerdo de encargo del tratamiento'],
   'yc.legal.doc.template': ['Notice template for your customers', 'Modèle d’information pour vos clients', 'Modelo de información para sus clientes'],
   'yc.legal.doc.privacy': ['Yuno privacy policy', 'Politique de confidentialité de Yuno', 'Política de privacidad de Yuno'],
+  'yc.legal.back': ['Back', 'Retour', 'Volver'],
+  'yc.legal.docs': ['Legal documents', 'Documents légaux', 'Documentos legales'],
   'yc.legal.docs.t': ['Your documents', 'Vos documents', 'Sus documentos'],
   'yc.legal.docs.s': [
     'The texts that govern your account and your customers’ data. The notice template, at the end of the Terms, tells your customers what you do with their data.',
