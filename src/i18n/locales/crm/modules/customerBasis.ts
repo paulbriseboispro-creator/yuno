@@ -1,0 +1,206 @@
+import type { CrmDict } from './types';
+
+// « Vos clients » (exception clients, article L34-5 alinéa 2 ; nom choisi par
+// Paul le 29/10) : Réglages › Envoi, fenêtre à cocher, choix d'audience,
+// vérification avant envoi, refus — [EN, FR, ES].
+const dict: CrmDict = {
+  // ── Carte de Réglages › Envoi ──────────────────────────────────────────────
+  'yc.cb.t': ['Write to your customers', 'Écrire à vos clients', 'Escribir a sus clientes'],
+  'yc.cb.s': [
+    'By default, your emails go to the people who gave their agreement. The law also lets you write to the people who got a place at your nights, to announce your next nights, as long as they do not object.',
+    'Par défaut, vos e-mails partent aux personnes qui ont donné leur accord. La loi vous permet aussi d’écrire aux personnes qui ont pris une place à vos soirées, pour leur annoncer vos prochaines soirées, tant qu’elles ne s’y opposent pas.',
+    'Por defecto, sus e-mails van a las personas que dieron su consentimiento. La ley también le permite escribir a quienes consiguieron una entrada para sus fiestas, para anunciarles sus próximas fiestas, mientras no se opongan.',
+  ],
+  'yc.cb.n.consent': ['with their agreement', 'avec leur accord', 'con su consentimiento'],
+  'yc.cb.n.extra': ['more customers (places taken in the last {m} months)', 'clients en plus (places prises ces {m} derniers mois)', 'clientes más (entradas de los últimos {m} meses)'],
+  'yc.cb.n.never': ['never contacted', 'jamais contactés', 'nunca contactados'],
+  'yc.cb.n.neverX': ['never contacted: {x}', 'jamais contactés : {x}', 'nunca contactados: {x}'],
+  'yc.cb.x.withdrawn': ['withdrew their agreement on your ticketing platform', 'ont retiré leur accord chez votre billetterie', 'retiraron su consentimiento en su ticketera'],
+  'yc.cb.x.unsub': ['unsubscribed', 'se sont désinscrits', 'se dieron de baja'],
+  'yc.cb.x.suppressed': ['address bounces or complained', 'adresse en échec ou plainte', 'dirección que falla o queja'],
+  'yc.cb.x.reported': ['objection you reported', 'opposition que vous avez signalée', 'oposición que usted señaló'],
+  'yc.cb.open': ['Also write to my customers', 'Écrire aussi à mes clients', 'Escribir también a mis clientes'],
+  'yc.cb.ownerOnly': [
+    'Only the account holder can open “Your customers”: they sign a declaration in their own name.',
+    'Seul le titulaire du compte peut ouvrir « Vos clients » : il signe une déclaration en son nom.',
+    'Solo el titular de la cuenta puede abrir «Sus clientes»: firma una declaración en su nombre.',
+  ],
+  'yc.cb.beta': [
+    '“Your customers” is opened account by account during the beta. Ask for it: we get back to you.',
+    '« Vos clients » s’ouvre compte par compte pendant la bêta. Demandez l’ouverture : nous revenons vers vous.',
+    '«Sus clientes» se abre cuenta por cuenta durante la beta. Solicítelo: le respondemos.',
+  ],
+  'yc.cb.ask': ['Ask for it', 'Demander l’ouverture', 'Solicitarlo'],
+  'yc.cb.askSubject': ['Opening “Your customers”', 'Ouverture de « Vos clients »', 'Apertura de «Sus clientes»'],
+  'yc.cb.on.t': ['“Your customers” is open', '« Vos clients » est ouvert', '«Sus clientes» está abierto'],
+  'yc.cb.on.s': ['Signed by {name} ({role}) on {date}. To renew before {exp}.', 'Signé par {name} ({role}) le {date}. À renouveler avant le {exp}.', 'Firmado por {name} ({role}) el {date}. A renovar antes del {exp}.'],
+  'yc.cb.notReady': [
+    'Your emails to your customers will go out as soon as Yuno has connected their dedicated sending address. You can already prepare your campaigns.',
+    'Vos e-mails à vos clients partiront dès que Yuno aura branché leur adresse d’envoi dédiée. Vous pouvez déjà préparer vos campagnes.',
+    'Sus e-mails a sus clientes saldrán en cuanto Yuno conecte su dirección de envío dedicada. Ya puede preparar sus campañas.',
+  ],
+  'yc.cb.renewSoon': ['Your declaration expires on {exp}: sign it again to continue.', 'Votre déclaration arrive à échéance le {exp} : signez-la à nouveau pour continuer.', 'Su declaración vence el {exp}: fírmela de nuevo para continuar.'],
+  'yc.cb.mentions.t': ['The notice to publish on your ticketing platform', 'La mention à poser chez votre billetterie', 'La mención que debe publicar en su ticketera'],
+  'yc.cb.mentions.s': [
+    'It informs your buyers when they get their place. Paste the first text in the description of each night, the second in your privacy policy.',
+    'Elle informe vos acheteurs au moment où ils prennent leur place. Collez le premier texte dans la description de chaque soirée, le second dans votre politique de confidentialité.',
+    'Informa a sus compradores cuando consiguen su entrada. Pegue el primer texto en la descripción de cada fiesta y el segundo en su política de privacidad.',
+  ],
+  'yc.cb.mention.eventL': ['Description of each night', 'Description de chaque soirée', 'Descripción de cada fiesta'],
+  'yc.cb.mention.privacyL': ['Privacy policy', 'Politique de confidentialité', 'Política de privacidad'],
+  'yc.cb.mention.event': [
+    'When you get a place, you may receive emails announcing our next nights. You can object at any time, free of charge, from the link in every email or by writing to {contact}.',
+    'En prenant une place, vous pourrez recevoir par e-mail l’annonce de nos prochaines soirées. Vous pouvez vous y opposer à tout moment, gratuitement, depuis le lien présent dans chaque e-mail ou en écrivant à {contact}.',
+    'Al conseguir una entrada, podrá recibir por e-mail el anuncio de nuestras próximas fiestas. Puede oponerse en cualquier momento, gratuitamente, desde el enlace de cada e-mail o escribiendo a {contact}.',
+  ],
+  'yc.cb.mention.privacy': [
+    'Announcing our nights. When you get a place at one of our nights, we use your email address to announce our next nights, on the basis of article L. 34-5 of the French Postal and Electronic Communications Code. We only write to you about our own nights, a few times a month at most, and for three years after your last visit. You can object at any time, free of charge: through the unsubscribe link in every email, or by writing to {contact}. These emails are sent on our behalf by our provider Yuno.',
+    'Annonce de nos soirées. Lorsque vous prenez une place à l’une de nos soirées, nous utilisons votre adresse e-mail pour vous annoncer nos prochaines soirées, sur le fondement de l’article L. 34-5 du Code des postes et des communications électroniques. Nous ne vous écrivons qu’au sujet de nos propres soirées, quelques fois par mois au plus, et pendant trois ans après votre dernière venue. Vous pouvez vous y opposer à tout moment, sans frais : par le lien de désinscription de chaque e-mail, ou en écrivant à {contact}. Ces envois sont réalisés pour notre compte par notre prestataire Yuno.',
+    'Anuncio de nuestras fiestas. Cuando consigue una entrada para una de nuestras fiestas, usamos su dirección de e-mail para anunciarle nuestras próximas fiestas, sobre la base del artículo L. 34-5 del Código francés de Correos y Comunicaciones Electrónicas. Solo le escribimos sobre nuestras propias fiestas, unas pocas veces al mes como máximo, y durante tres años después de su última visita. Puede oponerse en cualquier momento, sin coste: mediante el enlace de baja de cada e-mail o escribiendo a {contact}. Estos envíos los realiza por nuestra cuenta nuestro proveedor Yuno.',
+  ],
+  'yc.cb.contactPh': ['[contact email]', '[e-mail de contact]', '[e-mail de contacto]'],
+  'yc.cb.copy': ['Copy', 'Copier', 'Copiar'],
+  'yc.cb.copied': ['Copied', 'Copié', 'Copiado'],
+  'yc.cb.report.t': ['Report objections', 'Signaler des oppositions', 'Señalar oposiciones'],
+  'yc.cb.report.s': [
+    'Someone asked you, by message, at the door or by email, to stop writing to them? Paste their address: they will receive nothing more through “Your customers”.',
+    'Quelqu’un vous a demandé, par message, à la porte ou par e-mail, de ne plus lui écrire ? Collez son adresse : il ne recevra plus rien par « Vos clients ».',
+    '¿Alguien le pidió, por mensaje, en la puerta o por e-mail, que no le escriba más? Pegue su dirección: no recibirá nada más por «Sus clientes».',
+  ],
+  'yc.cb.report.ph': ['one address per line', 'une adresse par ligne', 'una dirección por línea'],
+  'yc.cb.report.cta': ['Save', 'Enregistrer', 'Guardar'],
+  'yc.cb.report.done.one': ['{n} objection saved', '{n} opposition enregistrée', '{n} oposición guardada'],
+  'yc.cb.report.done.other': ['{n} objections saved', '{n} oppositions enregistrées', '{n} oposiciones guardadas'],
+  'yc.cb.report.none': ['No valid address in what you pasted.', 'Aucune adresse valide dans ce que vous avez collé.', 'Ninguna dirección válida en lo que pegó.'],
+  'yc.cb.close': ['Close “Your customers”', 'Fermer « Vos clients »', 'Cerrar «Sus clientes»'],
+  'yc.cb.close.confirm': [
+    'Close “Your customers”? Campaigns scheduled on this base go back to draft. Objections stay recorded.',
+    'Fermer « Vos clients » ? Les campagnes programmées sur cette base repassent en brouillon. Les oppositions restent enregistrées.',
+    '¿Cerrar «Sus clientes»? Las campañas programadas en esta base vuelven a borrador. Las oposiciones siguen registradas.',
+  ],
+  'yc.cb.closed': ['“Your customers” is closed', '« Vos clients » est fermé', '«Sus clientes» está cerrado'],
+  'yc.cb.err': ['That did not work. Try again.', 'Cela n’a pas fonctionné. Réessayez.', 'No ha funcionado. Inténtelo de nuevo.'],
+  'yc.cb.susp.t': ['“Your customers” is suspended', '« Vos clients » est suspendu', '«Sus clientes» está suspendido'],
+  'yc.cb.susp.complaints': [
+    'Too many complaints on your latest emails to your customers: Yuno suspended this base to protect your sends. Write to us to reopen it.',
+    'Trop de plaintes sur vos derniers e-mails à vos clients : Yuno a suspendu cette base pour protéger vos envois. Écrivez-nous pour la rouvrir.',
+    'Demasiadas quejas en sus últimos e-mails a sus clientes: Yuno suspendió esta base para proteger sus envíos. Escríbanos para reabrirla.',
+  ],
+  'yc.cb.susp.bounces': [
+    'Too many addresses bounced on your latest emails to your customers: Yuno suspended this base. Write to us to reopen it.',
+    'Trop d’adresses en échec sur vos derniers e-mails à vos clients : Yuno a suspendu cette base. Écrivez-nous pour la rouvrir.',
+    'Demasiadas direcciones fallaron en sus últimos e-mails a sus clientes: Yuno suspendió esta base. Escríbanos para reabrirla.',
+  ],
+  'yc.cb.susp.admin': ['Yuno suspended this base. Write to us to find out more.', 'Yuno a suspendu cette base. Écrivez-nous pour en savoir plus.', 'Yuno suspendió esta base. Escríbanos para saber más.'],
+  'yc.cb.susp.version': [
+    'The text of the declaration changed: sign it again to reopen “Your customers”.',
+    'Le texte de la déclaration a changé : signez-la à nouveau pour rouvrir « Vos clients ».',
+    'El texto de la declaración cambió: fírmela de nuevo para reabrir «Sus clientes».',
+  ],
+  'yc.cb.susp.expired': [
+    'Your declaration is more than a year old: sign it again to reopen “Your customers”.',
+    'Votre déclaration a plus d’un an : signez-la à nouveau pour rouvrir « Vos clients ».',
+    'Su declaración tiene más de un año: fírmela de nuevo para reabrir «Sus clientes».',
+  ],
+  'yc.cb.resign': ['Sign again', 'Signer à nouveau', 'Firmar de nuevo'],
+  'yc.cb.contact': ['Write to Yuno', 'Écrire à Yuno', 'Escribir a Yuno'],
+
+  // ── Fenêtre à cocher ───────────────────────────────────────────────────────
+  'yc.cb.m.t': ['Also write to your customers', 'Écrire aussi à vos clients', 'Escribir también a sus clientes'],
+  'yc.cb.m.s': [
+    'Today, your emails go to the {consent} people who gave their agreement. The law also lets you write to the people who got a place at your nights, to announce YOUR next nights, if they could refuse and can unsubscribe at any time.',
+    'Aujourd’hui, vos e-mails partent aux {consent} personnes qui ont donné leur accord. La loi vous permet aussi d’écrire à celles qui ont pris une place à vos soirées, pour leur annoncer VOS prochaines soirées, si elles ont pu refuser et peuvent se désinscrire à tout moment.',
+    'Hoy, sus e-mails van a las {consent} personas que dieron su consentimiento. La ley también le permite escribir a quienes consiguieron una entrada para sus fiestas, para anunciarles SUS próximas fiestas, si pudieron negarse y pueden darse de baja en cualquier momento.',
+  ],
+  'yc.cb.m.engage': ['To open it, you commit to:', 'Pour l’ouvrir, vous vous engagez à :', 'Para abrirlo, se compromete a:'],
+  'yc.cb.m.c.seller': [
+    'being the organiser who sold these places (not a partner or a co-organiser);',
+    'être l’organisateur qui a vendu ces places (pas un partenaire ni un co-organisateur) ;',
+    'ser el organizador que vendió estas entradas (no un socio ni un coorganizador);',
+  ],
+  'yc.cb.m.c.own_nights_only': [
+    'only talking about your own nights in these emails: no other brand, no partner;',
+    'ne parler, dans ces e-mails, que de vos propres soirées : pas d’autre marque, pas de partenaire ;',
+    'hablar en estos e-mails solo de sus propias fiestas: ni otra marca, ni socios;',
+  ],
+  'yc.cb.m.c.informed': [
+    'having told your customers about this use, or publishing today the notice Yuno gives you;',
+    'avoir prévenu vos clients de cet usage, ou poser dès aujourd’hui la mention que Yuno vous donne ;',
+    'haber informado a sus clientes de este uso, o publicar hoy mismo la mención que Yuno le da;',
+  ],
+  'yc.cb.m.c.forward_objections': [
+    'passing on to Yuno anyone who asks you to stop writing to them;',
+    'transmettre à Yuno toute personne qui vous demande de ne plus lui écrire ;',
+    'transmitir a Yuno cualquier persona que le pida que no le escriba más;',
+  ],
+  'yc.cb.m.c.terms_read': [
+    'having read article 7a of the Yuno CRM Terms: this choice is yours, Yuno may suspend it, and you indemnify Yuno against any claim arising from it.',
+    'avoir lu l’article 7 bis des Conditions Yuno CRM : ce choix est le vôtre, Yuno peut le suspendre, et vous le garantissez contre toute réclamation qui en découlerait.',
+    'haber leído el artículo 7 bis de las Condiciones de Yuno CRM: esta elección es suya, Yuno puede suspenderla y usted la garantiza frente a cualquier reclamación que se derive.',
+  ],
+  'yc.cb.m.terms': ['Read article 7a', 'Lire l’article 7 bis', 'Leer el artículo 7 bis'],
+  'yc.cb.m.name': ['Signed by', 'Signé par', 'Firmado por'],
+  'yc.cb.m.role': ['As', 'En qualité de', 'En calidad de'],
+  'yc.cb.m.rolePh': ['manager, chair…', 'gérant, président…', 'gerente, presidente…'],
+  'yc.cb.m.foot': [
+    'Yuno adds to every email the reason it is received and an unsubscribe link. You can close “Your customers” at any time in Settings › Sending.',
+    'Yuno ajoute à chaque e-mail la raison de sa réception et un lien de désinscription. Vous pourrez fermer « Vos clients » à tout moment dans Réglages › Envoi.',
+    'Yuno añade a cada e-mail el motivo de su recepción y un enlace de baja. Podrá cerrar «Sus clientes» en cualquier momento en Ajustes › Envío.',
+  ],
+  'yc.cb.m.later': ['Later', 'Plus tard', 'Más tarde'],
+  'yc.cb.m.cta': ['I open “Your customers”', 'J’ouvre « Vos clients »', 'Abro «Sus clientes»'],
+  'yc.cb.m.missChecks': ['Tick the five commitments.', 'Cochez les cinq engagements.', 'Marque los cinco compromisos.'],
+  'yc.cb.m.missName': ['Write your name and your role.', 'Écrivez votre nom et votre fonction.', 'Escriba su nombre y su función.'],
+  'yc.cb.m.errVersion': ['The text changed in the meantime: reload the page.', 'Le texte a changé entre-temps : rechargez la page.', 'El texto cambió entretanto: recargue la página.'],
+  'yc.cb.m.done.t': ['“Your customers” is open', '« Vos clients » est ouvert', '«Sus clientes» está abierto'],
+  'yc.cb.m.done.s': [
+    'Last step: publish the notice on your ticketing platform, so that your next buyers are informed.',
+    'Dernière étape : posez la mention chez votre billetterie, pour que vos prochains acheteurs soient informés.',
+    'Último paso: publique la mención en su ticketera, para que sus próximos compradores estén informados.',
+  ],
+  'yc.cb.m.done.cta': ['Done', 'C’est fait', 'Hecho'],
+
+  // ── Étape Audience ─────────────────────────────────────────────────────────
+  'yc.cb.a.t': ['Who can receive this email?', 'Qui peut recevoir cet e-mail ?', '¿Quién puede recibir este e-mail?'],
+  'yc.cb.a.consent': ['Those who gave their agreement', 'Ceux qui ont donné leur accord', 'Quienes dieron su consentimiento'],
+  'yc.cb.a.consentS': ['Agreement on your ticketing platform, your pages or your files. Any content.', 'Accord chez votre billetterie, sur vos pages ou dans vos fichiers. Tout contenu.', 'Consentimiento en su ticketera, sus páginas o sus archivos. Cualquier contenido.'],
+  'yc.cb.a.customer': ['All your customers', 'Tous vos clients', 'Todos sus clientes'],
+  'yc.cb.a.customerS': ['Agreement + people who got a place at your nights. Only to talk about your nights.', 'Accord + personnes qui ont pris une place à vos soirées. Seulement pour parler de vos soirées.', 'Consentimiento + personas que consiguieron una entrada para sus fiestas. Solo para hablar de sus fiestas.'],
+  'yc.cb.a.upTo': ['up to +{n}', 'jusqu’à +{n}', 'hasta +{n}'],
+  'yc.cb.a.closed': ['Not open yet', 'Pas encore ouvert', 'Aún no abierto'],
+  'yc.cb.a.openCta': ['Open “Your customers”', 'Ouvrir « Vos clients »', 'Abrir «Sus clientes»'],
+  'yc.cb.a.split': ['{consent} with their agreement + {customer} customers', '{consent} avec leur accord + {customer} clients', '{consent} con su consentimiento + {customer} clientes'],
+  'yc.cb.a.ramp': [
+    'First send: {cap} customers leave today, the others on the following days (most recent first).',
+    'Premier envoi : {cap} clients partent aujourd’hui, les suivants les jours d’après (les plus récents d’abord).',
+    'Primer envío: {cap} clientes salen hoy, los demás los días siguientes (los más recientes primero).',
+  ],
+  'yc.cb.a.notReady': [
+    'The base is signed: emails to your customers will go out as soon as their sending address is connected.',
+    'La base est signée : les e-mails à vos clients partiront dès que leur adresse d’envoi est branchée.',
+    'La base está firmada: los e-mails a sus clientes saldrán en cuanto su dirección de envío esté conectada.',
+  ],
+
+  // ── Vérification avant envoi ───────────────────────────────────────────────
+  'yc.em.sd.ck.cOpen.t': ['“Your customers” is open', '« Vos clients » est ouvert', '«Sus clientes» está abierto'],
+  'yc.em.sd.ck.cOpen.ok': ['Your declaration is up to date and sending is ready.', 'Votre déclaration est à jour et l’envoi est prêt.', 'Su declaración está al día y el envío está listo.'],
+  'yc.em.sd.ck.cOpen.ko': ['“Your customers” is not open, or not ready to send yet.', '« Vos clients » n’est pas ouvert, ou pas encore prêt à envoyer.', '«Sus clientes» no está abierto, o aún no está listo para enviar.'],
+  'yc.em.sd.ck.cContent.t': ['Only talks about your nights', 'Ne parle que de vos soirées', 'Solo habla de sus fiestas'],
+  'yc.em.sd.ck.cContent.ok': ['Links and blocks all lead to your own nights.', 'Liens et blocs mènent tous à vos propres soirées.', 'Enlaces y bloques llevan todos a sus propias fiestas.'],
+  'yc.em.sd.ck.cContent.ko': ['{n} item(s) lead somewhere other than your nights.', '{n} élément(s) mènent ailleurs que vos soirées.', '{n} elemento(s) llevan a otro sitio que sus fiestas.'],
+  'yc.em.sd.fix.customer': ['Open settings', 'Ouvrir les réglages', 'Abrir los ajustes'],
+  'yc.cb.issue.not_own_event': ['a Night block points to a night that is not yours', 'un bloc Soirée vise une soirée qui n’est pas la vôtre', 'un bloque Fiesta apunta a una fiesta que no es suya'],
+  'yc.cb.issue.link_not_own_event': ['a link leads to another night', 'un lien mène à une autre soirée', 'un enlace lleva a otra fiesta'],
+  'yc.cb.issue.link_ticketing': ['a link leads to another ticketing platform', 'un lien mène à une autre billetterie', 'un enlace lleva a otra ticketera'],
+  'yc.cb.issue.link_foreign_page': ['a link leads to a Yuno page that is not yours', 'un lien mène à une page Yuno qui n’est pas la vôtre', 'un enlace lleva a una página de Yuno que no es suya'],
+  'yc.cb.issue.other': ['an item leads elsewhere', 'un élément mène ailleurs', 'un elemento lleva a otro sitio'],
+
+  // ── Refus ──────────────────────────────────────────────────────────────────
+  'yc.cb.err.infra': ['The sending address of “Your customers” is not connected yet: nothing was sent.', 'L’adresse d’envoi de « Vos clients » n’est pas encore branchée : rien n’est parti.', 'La dirección de envío de «Sus clientes» aún no está conectada: no se envió nada.'],
+  'yc.cb.err.closed': ['“Your customers” is not open: nothing was sent.', '« Vos clients » n’est pas ouvert : rien n’est parti.', '«Sus clientes» no está abierto: no se envió nada.'],
+  'yc.cb.err.content': ['This email leads somewhere other than your nights: fix it in the Studio.', 'Cet e-mail mène ailleurs que vos soirées : corrigez-le dans le Studio.', 'Este e-mail lleva a otro sitio que sus fiestas: corríjalo en el Studio.'],
+  'yc.cb.err.feature': ['No resend or follow-up on an email to your customers.', 'Ni renvoi ni relance sur un e-mail à vos clients.', 'Ni reenvío ni recordatorio en un e-mail a sus clientes.'],
+  'yc.cb.err.scope': ['Only a marketing campaign can target your customers.', 'Seule une campagne marketing peut viser vos clients.', 'Solo una campaña de marketing puede dirigirse a sus clientes.'],
+};
+
+export default dict;

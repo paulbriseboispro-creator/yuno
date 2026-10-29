@@ -29,6 +29,7 @@ import { MARKETING_DOMAIN } from '@/crm/lib/emails';
 import { formMissing, fromLine, legalNameOk, postalAddressOk, senderNameOk, LEGAL_NAME_MAX, POSTAL_ADDRESS_MAX, SENDER_NAME_MAX, type IdentityMissing } from '@/crm/lib/emailIdentity';
 import { EmailsShell } from '../EmailsShell';
 import { Toggle48 } from '../send/sendUi';
+import { CustomerBasisCard } from './CustomerBasisCard';
 
 interface Form { sender_name: string; legal_name: string; reply_to: string; postal_address: string; quiet_hours: boolean; waves: boolean; notify_done: boolean; test_emails: string[] }
 
@@ -130,6 +131,8 @@ function SettingsForm({ settings }: { settings: EmailSettings }) {
         <Domain />
         <Footer f={f} set={set} defaults={settings.defaults} legalBad={legalBad} postalBad={postalBad} />
         <When f={f} set={set} />
+        {/* « Vos clients » (exception clients) : hors du formulaire, elle a ses propres gestes. */}
+        <CustomerBasisCard contact={(settings.reply_to || settings.defaults.reply_to || '').trim()} />
         <section style={{ ...card, gap: 16, ...rise(620) }}>
           <Head title={t('yc.em.rg.test.t')} sub={t('yc.em.rg.test.s')} />
           {f.test_emails.length ? (
